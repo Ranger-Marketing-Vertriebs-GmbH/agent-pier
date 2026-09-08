@@ -38,11 +38,19 @@ export default function useChatAttachments({
           draft.reload();
           if (draft.getSnapshot().storageError)
             throw new Error(uploadsCopy.storageFailed);
-          const epoch = draft.getSnapshot().epoch;
+          const snapshot = draft.getSnapshot();
           const current = [];
           for (const item of saved) {
-            if (item.epoch === epoch) current.push(item);
-            else await uploadStore(scope, "delete", item.key);
+            // Reload may happen after the durable draft commit but before the
+            // recovery blob was removed. Its receipt is already represented.
+            const committed =
+              item.receipt?.path &&
+              snapshot.attachments.some(
+                (attachment) => attachment.path === item.receipt.path,
+              );
+            if (item.epoch !== snapshot.epoch || committed)
+              await uploadStore(scope, "delete", item.key);
+            else current.push(item);
           }
           return current;
         });
