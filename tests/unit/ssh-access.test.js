@@ -46,7 +46,8 @@ test("generated keys persist privately and public projections never expose priva
   assert.ok(!JSON.stringify(store.get(access.id)).includes("PRIVATE KEY"));
   assert.deepEqual(new SshAccessStore({ dataDir }).get(access.id), access);
   store.remove(access.id);
-  assert.equal(fs.existsSync(keyFile), false);
+  assert.equal(fs.existsSync(keyFile), true);
+  assert.equal(store.keyStore.get(access.keyId).hosts.length, 0);
   assert.throws(() => store.get(access.id), { status: 404 });
 });
 
@@ -135,10 +136,14 @@ test("pasted OpenSSH keys tolerate missing final newline, CRLF and surrounding w
     const access = await store.create({ ...input, privateKey });
     assert.equal(access.publicKey.split(" ")[1], input.hostKey.split(" ")[1]);
     const connection = store.connection(access.id);
-    const stored = fs.readFileSync(path.join(connection.cwd, "identity"), "utf8");
+    const keyFile = path.resolve(
+      connection.cwd,
+      connection.args[connection.args.indexOf("-i") + 1],
+    );
+    const stored = fs.readFileSync(keyFile, "utf8");
     assert.equal(stored.endsWith("\n"), true);
     assert.equal(stored.includes("\r"), false);
-    assert.equal(fs.statSync(path.join(connection.cwd, "identity")).mode & 0o777, 0o600);
+    assert.equal(fs.statSync(keyFile).mode & 0o777, 0o600);
   }
 });
 
@@ -273,14 +278,14 @@ test("relative managed files avoid OpenSSH expansion in runtime paths", async (t
     });
     assert.deepEqual(
       config.split("\n").filter((line) => line.startsWith("identityfile ")),
-      ["identityfile identity"],
+      [`identityfile ../../identities/${access.keyId}/identity`],
     );
     assert.deepEqual(
       config.split("\n").filter((line) => line.startsWith("userknownhostsfile ")),
       ["userknownhostsfile known_hosts"],
     );
     assert.match(
-      fs.readFileSync(path.join(cwd, "identity"), "utf8"),
+      fs.readFileSync(path.resolve(cwd, args[args.indexOf("-i") + 1]), "utf8"),
       /BEGIN OPENSSH PRIVATE KEY/,
     );
     assert.match(

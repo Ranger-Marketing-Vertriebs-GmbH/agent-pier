@@ -2,15 +2,14 @@ import React, { useState } from "react";
 import api from "../../lib/api.js";
 import Modal from "../../components/Modal.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
-export default function SshAccessForm({ access, close, saved }) {
+export default function SshAccessForm({ access, keys, close, saved }) {
   const [draft, setDraft] = useState({
     name: access?.name || "",
+    keyId: access?.keyId || keys[0]?.id || "",
     host: access?.host || "",
     port: access?.port || 22,
     username: access?.username || "",
   });
-  const [keyMode, setKeyMode] = useState("generate"),
-    [privateKey, setPrivateKey] = useState("");
   const [hostKey, setHostKey] = useState(access?.hostKey || ""),
     [fingerprint, setFingerprint] = useState(access?.hostFingerprint || ""),
     [confirmed, setConfirmed] = useState(Boolean(access));
@@ -47,7 +46,7 @@ export default function SshAccessForm({ access, close, saved }) {
         className="ssh-form"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!hostKey || !confirmed || busy) return;
+          if (!draft.keyId || !hostKey || !confirmed || busy) return;
           run(async () => {
             const result = await api(
               access ? `/ssh-accesses/${encodeURIComponent(access.id)}` : "/ssh-accesses",
@@ -56,10 +55,8 @@ export default function SshAccessForm({ access, close, saved }) {
                 ...draft,
                 port: Number(draft.port),
                 hostKey,
-                ...(!access && keyMode === "import" ? { privateKey } : {}),
               },
             );
-            setPrivateKey("");
             saved(result);
           });
         }}
@@ -79,37 +76,23 @@ export default function SshAccessForm({ access, close, saved }) {
               />
             </label>
           ))}
-          {!access && (
-            <>
-              <label>
-                {copy.keyMode}
-                <select
-                  value={keyMode}
-                  onChange={(event) => {
-                    setKeyMode(event.target.value);
-                    setPrivateKey("");
-                  }}
-                >
-                  <option value="generate">{copy.generate}</option>
-                  <option value="import">{copy.import}</option>
-                </select>
-              </label>
-              {keyMode === "import" && (
-                <label>
-                  {copy.privateKey}
-                  <textarea
-                    autoComplete="off"
-                    spellCheck={false}
-                    required
-                    value={privateKey}
-                    onChange={(event) => setPrivateKey(event.target.value)}
-                    rows={5}
-                  />
-                </label>
-              )}
-              <p>{copy.keyHint}</p>
-            </>
-          )}
+          <label>
+            {copy.keyMode}
+            <select
+              required
+              value={draft.keyId}
+              onChange={(event) => change("keyId", event.target.value)}
+            >
+              <option value="" disabled>
+                {copy.selectKey}
+              </option>
+              {keys.map((key) => (
+                <option key={key.id} value={key.id}>
+                  {key.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             className="button"
             type="button"
@@ -152,7 +135,10 @@ export default function SshAccessForm({ access, close, saved }) {
           <button className="button" type="button" disabled={busy} onClick={close}>
             {copy.cancel}
           </button>
-          <button className="button primary" disabled={busy || !hostKey || !confirmed}>
+          <button
+            className="button primary"
+            disabled={busy || !draft.keyId || !hostKey || !confirmed}
+          >
             {copy.save}
           </button>
         </div>

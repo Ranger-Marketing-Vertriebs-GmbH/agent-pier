@@ -21,8 +21,8 @@ review and verification through reusable pipelines.
   interrupted uploads after a reload without automatically sending them again.
 - **Multiple accounts and providers:** separate credentials, host-scoped GitHub
   access, and shared CLI skills, MCP integrations and plugins.
-- **Session SSH access:** manage server keys and assign accesses to new or running
-  sessions, with pinned host keys and explicit connection commands.
+- **Session SSH access:** name and reuse SSH keys across hosts, and assign accesses
+  to new or running sessions, with pinned host keys and explicit connection commands.
 - **AgentBus:** bundled coordination between participating coding sessions in
   the same project.
 

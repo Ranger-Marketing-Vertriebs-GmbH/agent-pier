@@ -2,6 +2,7 @@ import { auditId } from "./audit-schema.js";
 const collection = new Map([
   ["accounts", "account"],
   ["ssh-accesses", "ssh"],
+  ["ssh-keys", "ssh"],
   ["provider-connections", "provider"],
   ["git-credentials", "repository"],
   ["sessions", "session"],

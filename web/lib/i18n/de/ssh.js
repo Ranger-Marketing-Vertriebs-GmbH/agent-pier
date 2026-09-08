@@ -1,4 +1,17 @@
 export const sshCopy = {
+  keys: "SSH-Schlüssel",
+  hosts: "Hosts",
+  addKey: "SSH-Schlüssel hinzufügen",
+  emptyKeys:
+    "Noch keine SSH-Schlüssel vorhanden. Füge vor dem ersten Serverzugang einen Schlüssel hinzu.",
+  selectKey: "Gespeicherten SSH-Schlüssel auswählen",
+  keyFingerprint: "Schlüssel-Fingerabdruck",
+  keyDeleteHint: "Diesen gespeicherten SSH-Schlüssel löschen?",
+  keyInUse: "Verwendet von",
+  keyUnused: "Keinem Host zugewiesen.",
+  renameKeyHint:
+    "Der Name kann geändert werden. Füge für anderes Schlüsselmaterial einen weiteren Schlüssel hinzu.",
+
   title: "Serverzugänge",
   description: "SSH-Schlüssel verwalten und Serverzugänge lokalen Sessions zuweisen.",
   scope:
@@ -11,7 +24,7 @@ export const sshCopy = {
   remove: "Löschen",
   confirmDelete: "Löschen bestätigen",
   deleteHint:
-    "Diesen Zugang und den gespeicherten Schlüssel löschen? Bestehende Verbindungen bleiben offen.",
+    "Diesen Zugang löschen? Sein SSH-Schlüssel bleibt verfügbar. Bestehende Verbindungen bleiben offen.",
   save: "Speichern",
   cancel: "Abbrechen",
   close: "Schließen",

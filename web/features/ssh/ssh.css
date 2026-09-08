@@ -18,7 +18,7 @@
   border-radius: 12px;
   background: #18191d;
 }
-.ssh-card h2 {
+.ssh-card h3 {
   font-size: 20px;
   overflow-wrap: anywhere;
 }
@@ -136,4 +136,13 @@
   .ssh-form {
     padding: 0 20px 20px;
   }
+}
+
+.ssh-page > section {
+  margin-top: 32px;
+}
+.ssh-page > section > p {
+  margin-top: 16px;
+  color: var(--muted);
+  line-height: 1.6;
 }

@@ -3,6 +3,17 @@ import { problem } from "../../lib/storage.js";
 
 export function sshRoutes({ sshAccesses, sshSessions, sessions }) {
   const router = Router();
+  router.get("/ssh-keys", (_req, res) => res.json({ keys: sshAccesses.keyStore.list() }));
+  router.post("/ssh-keys", async (req, res) =>
+    res.status(201).json(await sshAccesses.keyStore.create(req.body)),
+  );
+  router.patch("/ssh-keys/:id", (req, res) =>
+    res.json(sshAccesses.keyStore.rename(req.params.id, req.body)),
+  );
+  router.delete("/ssh-keys/:id", (req, res) => {
+    sshAccesses.keyStore.remove(req.params.id);
+    res.status(204).end();
+  });
   router.get("/ssh-accesses", (_req, res) => res.json({ accesses: sshAccesses.list() }));
   router.post("/ssh-accesses/scan", async (req, res) =>
     res.json(await sshAccesses.scan(req.body)),
@@ -18,7 +29,7 @@ export function sshRoutes({ sshAccesses, sshSessions, sessions }) {
   );
   router.delete("/ssh-accesses/:id", (req, res) => {
     sshAccesses.get(req.params.id);
-    // Revoke before removing key material, so helpers fail closed during deletion.
+    // Revoke before removing the host, so helpers fail closed during deletion.
     sshSessions.revokeAccess(req.params.id);
     sshAccesses.remove(req.params.id);
     res.status(204).end();

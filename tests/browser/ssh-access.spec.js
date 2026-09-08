@@ -1,83 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
-import { operationsFixture } from "./operations-fixture.js";
-async function fixture(page) {
-  const base = await operationsFixture(page);
-  const access = {
-    id: "ssh-one",
-    name: "Build server",
-    host: "build.example.test",
-    port: 22,
-    username: "deploy",
-    hostKey: "ssh-ed25519 fixture",
-    hostFingerprint: "SHA256:verified-host",
-    publicKey: "ssh-ed25519 public-fixture",
-    fingerprint: "SHA256:public",
-  };
-  const state = { accesses: [], assignedIds: [], calls: [], fail: false, base };
-  await page.route("**/api/**/ssh-accesses**", handle);
-  await page.route("**/api/ssh-accesses**", handle);
-  async function handle(route) {
-    const request = route.request(),
-      path = new URL(request.url()).pathname,
-      method = request.method();
-    const body = request.postData() ? request.postDataJSON() : null;
-    state.calls.push({ path, method, body });
-    if (state.fail && method !== "GET")
-      return route.fulfill({ status: 409, json: { error: "Fixture conflict" } });
-    let result;
-    if (path.endsWith("/scan"))
-      result = { hostKey: access.hostKey, hostFingerprint: access.hostFingerprint };
-    else if (path.includes("/sessions/")) {
-      if (method === "PUT") state.assignedIds = body.accessIds;
-      result = {
-        accesses: state.accesses,
-        assignedIds: state.assignedIds,
-        commands: state.assignedIds.map((id) => ({
-          id,
-          command:
-            "node '/fixture/ssh.mjs' --data-dir '/fixture/data' --session fixture-session --access ssh-one",
-        })),
-      };
-    } else if (method === "POST" && path.endsWith("/test")) result = { ok: true };
-    else if (method === "POST") {
-      const created = { ...access, ...body };
-      state.accesses.push(created);
-      result = created;
-    } else if (method === "DELETE") {
-      state.accesses = [];
-      return route.fulfill({ status: 204 });
-    } else if (method === "PATCH") {
-      state.accesses[0] = { ...state.accesses[0], ...body };
-      result = state.accesses[0];
-    } else result = { accesses: state.accesses };
-    return route.fulfill({ json: result });
-  }
-  await page.addInitScript(() =>
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: {
-        writeText: async (value) => {
-          window.copiedText = value;
-        },
-      },
-    }),
-  );
-  await page.addInitScript(() => {
-    window.sshTerminalInputs = [];
-    const send = WebSocket.prototype.send;
-    WebSocket.prototype.send = function (data) {
-      try {
-        if (JSON.parse(data).type === "input") window.sshTerminalInputs.push(data);
-      } catch {
-        /* Non-JSON transport frame. */
-      }
-      return send.call(this, data);
-    };
-  });
-  state.access = access;
-  return state;
-}
+import { fixture } from "./ssh-fixture.js";
 test("mobile SSH creation requires independently confirmed fingerprint and retains failed draft", async ({
   page,
 }) => {
@@ -108,7 +31,7 @@ test("mobile SSH creation requires independently confirmed fingerprint and retai
   state.fail = false;
   await save.click();
   await expect(
-    page.getByText("ssh-ed25519 public-fixture", { exact: true }),
+    page.locator(".ssh-hosts").getByText("ssh-ed25519 public-fixture", { exact: true }),
   ).toBeVisible();
   expect(state.calls.filter((call) => call.path.endsWith("/test"))).toHaveLength(0);
   expect(
@@ -150,7 +73,10 @@ test("endpoint edits invalidate confirmation and deletion requires confirmation"
   const state = await fixture(page);
   state.accesses = [state.access];
   await page.goto(baseURL + "/settings/ssh");
-  await page.getByRole("button", { name: "Bearbeiten", exact: true }).click();
+  await page
+    .locator(".ssh-hosts")
+    .getByRole("button", { name: "Bearbeiten", exact: true })
+    .click();
   const save = page.getByRole("button", { name: "Speichern", exact: true });
   await expect(save).toBeEnabled();
   await page.getByLabel("Host", { exact: true }).fill("new.example.test");
@@ -167,7 +93,10 @@ test("endpoint edits invalidate confirmation and deletion requires confirmation"
   );
   await page.getByRole("button", { name: "Verbindung testen", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("Verbindung erfolgreich");
-  await page.getByRole("button", { name: "Löschen", exact: true }).click();
+  await page
+    .locator(".ssh-hosts")
+    .getByRole("button", { name: "Löschen", exact: true })
+    .click();
   expect(state.calls.filter((call) => call.method === "DELETE")).toHaveLength(0);
   state.fail = true;
   await page.getByRole("button", { name: "Löschen bestätigen", exact: true }).click();
@@ -196,27 +125,24 @@ test("English management supports explicit key import and manual copying fallbac
   await expect(
     page.getByRole("heading", { name: "Server accesses", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Add server access", exact: true }).click();
-  await page.getByLabel("Name", { exact: true }).fill("Imported server");
-  await page.getByLabel("Host", { exact: true }).fill("build.example.test");
-  await page.getByLabel("Username", { exact: true }).fill("deploy");
+  await page.getByRole("button", { name: "Add SSH key", exact: true }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Imported key");
   await page
     .getByRole("combobox", { name: "SSH key", exact: true })
     .selectOption("import");
   await page
     .getByLabel("Unencrypted private SSH key", { exact: true })
     .fill("fixture-only-not-a-real-key");
-  await page.getByRole("button", { name: "Fetch host key", exact: true }).click();
-  await page
-    .getByLabel("I have independently verified the fingerprint with the server operator.")
-    .check();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   expect(
-    state.calls.find(
-      (call) => call.method === "POST" && call.path === "/api/ssh-accesses",
-    ).body.privateKey,
+    state.calls.find((call) => call.method === "POST" && call.path === "/api/ssh-keys")
+      .body.privateKey,
   ).toBe("fixture-only-not-a-real-key");
-  await page.getByRole("button", { name: "Copy public key", exact: true }).click();
+  await page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: "Imported key", exact: true }) })
+    .getByRole("button", { name: "Copy public key", exact: true })
+    .click();
   await expect(page.getByRole("status")).toContainText(
     "Select and copy the text manually",
   );
