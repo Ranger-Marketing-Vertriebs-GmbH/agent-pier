@@ -1,5 +1,5 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { repositoriesPageCopy as copy } from "../../lib/i18n/de/repositories.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { repositoriesPageCopy as copy } from "../../lib/i18n/messages/repositories.js";
 import api from "../../lib/api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";

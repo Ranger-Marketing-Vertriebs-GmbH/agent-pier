@@ -3,7 +3,7 @@ import api from "../../lib/api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
 import CreateDirectory from "../directories/CreateDirectory.jsx";
-import { filesCopy as copy } from "../../lib/i18n/de/files.js";
+import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
 import "./files.css";
 
 export default function FileExplorer({ session, route, navigate }) {

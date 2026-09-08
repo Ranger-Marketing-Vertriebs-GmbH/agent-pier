@@ -1,5 +1,5 @@
 import React from "react";
-import { backupCopy as copy } from "../../lib/i18n/de/operations.js";
+import { backupCopy as copy } from "../../lib/i18n/messages/operations.js";
 export function backupDescription(value) {
   return typeof value === "string"
     ? copy.descriptions[value] || value

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { mcpFormCopy as copy } from "../../lib/i18n/de/extensions.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { mcpFormCopy as copy } from "../../lib/i18n/messages/extensions.js";
 import { jsonField } from "./extensionInputs.js";
 import React from "react";
 export default function McpForm({ mutate, request, endpoint, alive, busy }) {

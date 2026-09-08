@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import api from "../../lib/api.js";
-import { mcpCopy as copy } from "../../lib/i18n/de/mcp.js";
+import { mcpCopy as copy } from "../../lib/i18n/messages/mcp.js";
 import { formatDate, resourceFields } from "./McpConsent.jsx";
 import useMcpResource from "./useMcpResource.js";
 function Grant({ grant, resources, reload }) {

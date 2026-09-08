@@ -1,7 +1,7 @@
-import { sharingCopy } from "../../lib/i18n/de/sharing.js";
+import { sharingCopy } from "../../lib/i18n/messages/sharing.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { profileExtensionsCopy as copy } from "../../lib/i18n/de/extensions.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { profileExtensionsCopy as copy } from "../../lib/i18n/messages/extensions.js";
 import React, { lazy, Suspense } from "react";
 import { Pagination } from "../../components/Pagination.jsx";
 import SkillInstallForm from "./SkillInstallForm.jsx";

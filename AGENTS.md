@@ -6,7 +6,7 @@ AgentPier is a local workspace for coding CLIs, built with React, Vite, Express,
 
 - `web/features/` contains feature UI; `web/components/` holds reusable components, and `web/app/` wires navigation and application state.
 - `server/features/` contains backend features; `server/application/` coordinates services, and `server/http/` defines HTTP boundaries.
-- `web/lib/i18n/de/` and `server/lib/i18n/de/` contain German interface messages.
+- `web/lib/i18n/de/` and `web/lib/i18n/en/` contain matching UI catalogs; import reactive messages from `web/lib/i18n/messages/`. `server/lib/i18n/de/` contains backend messages.
 - `tests/` separates unit, integration, blackbox, property, matrix, and browser suites. Shared fixtures live in `tests/helpers/` and `tests/fixtures/`.
 - `public/` holds static assets, `docs/` holds architecture and operating guides, and `scripts/` contains development and release tooling. `dist/` is generated.
 

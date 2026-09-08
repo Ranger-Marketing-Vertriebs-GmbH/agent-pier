@@ -4,7 +4,7 @@ import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
-import { pipelineCopy as copy } from "../../lib/i18n/de/pipelines.js";
+import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 export default function ProfileLaunch({ profile, home, close, started }) {
   const [cwd, setCwd] = useState(home || ""),
     [params, setParams] = useState({}),

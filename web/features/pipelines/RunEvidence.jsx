@@ -3,7 +3,7 @@ import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { pipelineCopy as copy } from "../../lib/i18n/de/pipelines.js";
+import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 export default function RunEvidence({ runId, node }) {
   const [pane, setPane] = useState(null),
     [artifacts, setArtifacts] = useState(null);

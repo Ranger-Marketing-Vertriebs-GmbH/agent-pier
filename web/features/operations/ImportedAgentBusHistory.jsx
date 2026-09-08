@@ -4,7 +4,7 @@ import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { Pagination } from "../../components/Pagination.jsx";
 import { formatTimestamp } from "../../lib/i18n/index.js";
-import { importedHistoryCopy as copy } from "../../lib/i18n/de/operations.js";
+import { importedHistoryCopy as copy } from "../../lib/i18n/messages/operations.js";
 export default function ImportedAgentBusHistory() {
   const projects = useResource("/operations/imported-history/agentbus"),
     [projectId, setProject] = useState(""),

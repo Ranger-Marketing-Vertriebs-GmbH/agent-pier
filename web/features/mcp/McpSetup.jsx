@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { mcpCopy as copy } from "../../lib/i18n/de/mcp.js";
+import { mcpCopy as copy } from "../../lib/i18n/messages/mcp.js";
 import { clients, mcpEndpoint, setupSteps } from "./setup.js";
 function CopyBlock({ label, value }) {
   const [status, setStatus] = useState("");

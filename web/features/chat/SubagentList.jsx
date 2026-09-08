@@ -1,11 +1,19 @@
 import React from "react";
-import { chatObservabilityCopy as copy } from "../../lib/i18n/de/chat-observability.js";
+import { chatObservabilityCopy as copy } from "../../lib/i18n/messages/chat-observability.js";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 const labels = {
-  running: copy.running,
-  completed: copy.completed,
-  failed: copy.failed,
-  unknown: copy.unknown,
+  get running() {
+    return copy.running;
+  },
+  get completed() {
+    return copy.completed;
+  },
+  get failed() {
+    return copy.failed;
+  },
+  get unknown() {
+    return copy.unknown;
+  },
 };
 export default function SubagentList({ subagents = [] }) {
   if (!subagents.length) return null;

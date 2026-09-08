@@ -1,9 +1,9 @@
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
-import { connectionCopy } from "../../lib/i18n/de/connections.js";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { accountDialogCopy as copy } from "../../lib/i18n/de/accounts.js";
+import { connectionCopy } from "../../lib/i18n/messages/connections.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { accountDialogCopy as copy } from "../../lib/i18n/messages/accounts.js";
 import React, { useState } from "react";
-import { providerCopy } from "../../lib/i18n/de/providers.js";
+import { providerCopy } from "../../lib/i18n/messages/providers.js";
 import useAccountProvider from "../providers/useAccountProvider.js";
 import ProviderFields from "../providers/ProviderFields.jsx";
 import api from "../../lib/api.js";

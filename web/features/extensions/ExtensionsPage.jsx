@@ -1,4 +1,4 @@
-import { extensionsPageCopy as copy } from "../../lib/i18n/de/extensions.js";
+import { extensionsPageCopy as copy } from "../../lib/i18n/messages/extensions.js";
 import React from "react";
 import ProfilePage from "../../components/ProfilePage.jsx";
 import ProfileExtensions from "./ProfileExtensions.jsx";

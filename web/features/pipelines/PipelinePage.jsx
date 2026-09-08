@@ -1,5 +1,5 @@
 import React from "react";
-import { pipelineCopy as copy } from "../../lib/i18n/de/pipelines.js";
+import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import ProfilesPage from "./ProfilesPage.jsx";
 import DefinitionsPage from "./DefinitionsPage.jsx";
 import RunsPage from "./RunsPage.jsx";

@@ -1,8 +1,8 @@
 import { sessionActivity } from "./sessionPresentation.js";
-import { filesCopy } from "../../lib/i18n/de/files.js";
-import { pipelineCopy } from "../../lib/i18n/de/pipelines.js";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { sessionWorkspaceCopy as copy } from "../../lib/i18n/de/sessions.js";
+import { filesCopy } from "../../lib/i18n/messages/files.js";
+import { pipelineCopy } from "../../lib/i18n/messages/pipelines.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { sessionWorkspaceCopy as copy } from "../../lib/i18n/messages/sessions.js";
 import React, { lazy, Suspense, useRef, useState } from "react";
 import api from "../../lib/api.js";
 import { names, statusLabels } from "../../lib/providers.js";

@@ -1,5 +1,5 @@
 import React, { useId } from "react";
-import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
+import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
 export function questionAnswers(questions, drafts) {
   const answers = {};
   for (const question of questions) {

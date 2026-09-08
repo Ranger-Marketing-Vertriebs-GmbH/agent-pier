@@ -1,5 +1,5 @@
 import "@xterm/xterm/css/xterm.css";
-import { commonCopy } from "../../lib/i18n/de/common.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import React from "react";

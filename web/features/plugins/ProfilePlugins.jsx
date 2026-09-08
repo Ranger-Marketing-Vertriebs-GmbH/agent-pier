@@ -1,6 +1,6 @@
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { profilePluginsCopy as copy } from "../../lib/i18n/de/plugins.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { profilePluginsCopy as copy } from "../../lib/i18n/messages/plugins.js";
 import React from "react";
 import useProfilePlugins from "./useProfilePlugins.js";
 import InstalledPlugins from "./InstalledPlugins.jsx";

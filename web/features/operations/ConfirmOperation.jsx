@@ -2,7 +2,7 @@ import React from "react";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import useAsyncAction from "../../lib/useAsyncAction.js";
-import { operationsCopy as copy } from "../../lib/i18n/de/operations.js";
+import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 export default function ConfirmOperation({ description, action, close }) {
   const mutation = useAsyncAction(),
     dismiss = () => {

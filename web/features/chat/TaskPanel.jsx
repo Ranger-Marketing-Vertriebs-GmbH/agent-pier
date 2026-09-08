@@ -1,11 +1,17 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { taskPanelCopy as copy } from "../../lib/i18n/de/chat.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { taskPanelCopy as copy } from "../../lib/i18n/messages/chat.js";
 import SubagentList from "./SubagentList.jsx";
 import React, { useEffect, useRef } from "react";
 const taskLabels = {
-  pending: commonCopy.pendingTask,
-  in_progress: commonCopy.taskInProgress,
-  completed: commonCopy.completed,
+  get pending() {
+    return commonCopy.pendingTask;
+  },
+  get in_progress() {
+    return commonCopy.taskInProgress;
+  },
+  get completed() {
+    return commonCopy.completed;
+  },
 };
 export default function Tasks({
   tasks,

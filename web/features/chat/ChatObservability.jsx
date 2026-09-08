@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { chatObservabilityCopy as copy } from "../../lib/i18n/de/chat-observability.js";
-import { locale, formatTimestamp } from "../../lib/i18n/index.js";
+import { chatObservabilityCopy as copy } from "../../lib/i18n/messages/chat-observability.js";
+import { formatNumber, formatTimestamp } from "../../lib/i18n/index.js";
 import { sessionActivity } from "../sessions/sessionPresentation.js";
 
-const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
+const formatUsage = (value) => formatNumber(value, { maximumFractionDigits: 1 });
 const tokenCount = (value) => (Number.isSafeInteger(value) && value >= 0 ? value : null);
 export default function ChatObservability({ session, observability, showSubagents }) {
   const [expanded, setExpanded] = useState(false);
@@ -57,14 +57,14 @@ export default function ChatObservability({ session, observability, showSubagent
         title={context.observedAt ? formatTimestamp(context.observedAt) : undefined}
       >
         <span>
-          {used === null ? copy.unknownUsage : `${source}: ${number.format(used)}`}
+          {used === null ? copy.unknownUsage : `${source}: ${formatUsage(used)}`}
         </span>
         {limit !== null && limit > 0 && (
           <span>
-            {limitSource}: {number.format(limit)}
+            {limitSource}: {formatUsage(limit)}
           </span>
         )}
-        {remaining !== null && <span>{copy.remaining(number.format(remaining))}</span>}
+        {remaining !== null && <span>{copy.remaining(formatUsage(remaining))}</span>}
         {observability?.stale && <span>{copy.stale}</span>}
       </div>
       {observability?.subagents?.length > 0 && (

@@ -58,11 +58,11 @@ async function notifications(page, deferInitialRead = false) {
     };
     Object.defineProperty(navigator, "serviceWorker", {
       configurable: true,
-      value: {
+      value: Object.assign(new EventTarget(), {
         ready: Promise.resolve(registration),
         getRegistration: async () => registration,
         register: async () => registration,
-      },
+      }),
     });
   }, deferInitialRead);
   await page.route("**/api/notifications**", async (route) => {

@@ -1,3 +1,4 @@
+import { getLanguage, subscribeLanguage } from "../../lib/i18n/index.js";
 export async function getWorkerRegistration({ create = false } = {}) {
   if (!globalThis.isSecureContext || !("serviceWorker" in navigator)) return null;
   const existing = await navigator.serviceWorker.getRegistration("/");
@@ -7,5 +8,18 @@ export async function getWorkerRegistration({ create = false } = {}) {
   return navigator.serviceWorker.ready;
 }
 export function registerPublicWorker() {
-  if (import.meta.env.PROD) getWorkerRegistration({ create: true }).catch(() => {});
+  if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;
+  const synchronize = () => {
+    getWorkerRegistration({ create: true })
+      .then((registration) =>
+        registration?.active?.postMessage({
+          type: "agentpier-language",
+          language: getLanguage(),
+        }),
+      )
+      .catch(() => {});
+  };
+  subscribeLanguage(synchronize);
+  navigator.serviceWorker.addEventListener("controllerchange", synchronize);
+  synchronize();
 }

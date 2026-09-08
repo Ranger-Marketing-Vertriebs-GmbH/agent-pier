@@ -1,21 +1,23 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { settingsPageCopy as copy } from "../../lib/i18n/de/settings.js";
-import React, { useEffect, useState } from "react";
+import LanguageSelect from "../../components/LanguageSelect.jsx";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { settingsPageCopy as copy } from "../../lib/i18n/messages/settings.js";
+import React, { useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
 import Icon from "../../components/Icon.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Modal from "../../components/Modal.jsx";
 import DirectoryPicker from "../directories/DirectoryPicker.jsx";
 export default function DirectorySettings({ state, refresh }) {
-  const [cwd, setCwd] = useState(state.defaultCwd || state.home || ""),
-    [dirty, setDirty] = useState(false),
+  const serverCwd = state.defaultCwd || state.home || "";
+  const editing = useRef(false);
+  const [cwd, setCwd] = useState(serverCwd),
     [browse, setBrowse] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [saved, setSaved] = useState(false);
   useEffect(() => {
-    if (!dirty) setCwd(state.defaultCwd || state.home || "");
-  }, [state.defaultCwd, state.home, dirty]);
+    setCwd((current) => (editing.current ? current : serverCwd));
+  }, [serverCwd]);
   return (
     <div className="page settings-page">
       <div className="page-topline">
@@ -27,6 +29,7 @@ export default function DirectorySettings({ state, refresh }) {
           <p>{copy.pageHeadingDescription}</p>
         </div>
       </header>
+      <LanguageSelect />
       <form
         className="settings-form"
         onSubmit={async (event) => {
@@ -41,7 +44,7 @@ export default function DirectorySettings({ state, refresh }) {
             });
             setCwd(result.defaultCwd);
             await refresh();
-            setDirty(false);
+            editing.current = false;
             setSaved(true);
           } catch (e) {
             setError(e.message);
@@ -58,9 +61,13 @@ export default function DirectorySettings({ state, refresh }) {
               value={cwd}
               required
               disabled={busy}
+              // Record edit intent without rendering between native focus and input.
+              onFocus={() => {
+                editing.current = true;
+              }}
               onChange={(event) => {
+                editing.current = true;
                 setCwd(event.target.value);
-                setDirty(true);
                 setSaved(false);
               }}
             />
@@ -94,8 +101,8 @@ export default function DirectorySettings({ state, refresh }) {
             initialPath={cwd || state.home}
             cancel={() => setBrowse(false)}
             choose={(path) => {
+              editing.current = true;
               setCwd(path);
-              setDirty(true);
               setSaved(false);
               setBrowse(false);
             }}

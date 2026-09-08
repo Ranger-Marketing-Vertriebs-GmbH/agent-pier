@@ -1,5 +1,5 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { extensionInputsCopy as copy } from "../../lib/i18n/de/extensions.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { extensionInputsCopy as copy } from "../../lib/i18n/messages/extensions.js";
 export const MAX_FILE = 10 * 1024 * 1024;
 export function jsonField(value, label, array = false) {
   let data;

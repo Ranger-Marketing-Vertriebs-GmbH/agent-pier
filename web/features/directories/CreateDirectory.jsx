@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { directoryPickerCopy as copy } from "../../lib/i18n/de/directories.js";
+import { directoryPickerCopy as copy } from "../../lib/i18n/messages/directories.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 
 export default function CreateDirectory({ create, created, disabled }) {

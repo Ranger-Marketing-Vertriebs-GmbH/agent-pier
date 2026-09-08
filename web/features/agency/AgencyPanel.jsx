@@ -3,7 +3,7 @@ import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { Pagination, usePagination } from "../../components/Pagination.jsx";
 import SearchSelect from "../../components/SearchSelect.jsx";
-import { agencyCopy as copy } from "../../lib/i18n/de/agency.js";
+import { agencyCopy as copy } from "../../lib/i18n/messages/agency.js";
 import useAgency from "./useAgency.js";
 import "./agency.css";
 

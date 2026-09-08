@@ -1,11 +1,11 @@
 import ChatDeliveryStatus from "./ChatDeliveryStatus.jsx";
 import RequestPanel from "../requests/RequestPanel.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { commonCopy } from "../../lib/i18n/de/common.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 import {
   chatViewCopy as copy,
   chatAttachmentsCopy as attachmentsCopy,
-} from "../../lib/i18n/de/chat.js";
+} from "../../lib/i18n/messages/chat.js";
 import { providerNames } from "./presentation.js";
 import React, { useState } from "react";
 import ModelControl from "../models/ModelControl.jsx";

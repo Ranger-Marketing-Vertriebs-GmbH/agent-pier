@@ -1,5 +1,5 @@
 import React from "react";
-import { providerCopy as copy } from "../../lib/i18n/de/providers.js";
+import { providerCopy as copy } from "../../lib/i18n/messages/providers.js";
 import ProviderModelDetails from "./ProviderModelDetails.jsx";
 export default function SessionProviderConfiguration({
   configuration,

@@ -1,5 +1,5 @@
 import React from "react";
-import { mcpCopy as copy } from "../../lib/i18n/de/mcp.js";
+import { mcpCopy as copy } from "../../lib/i18n/messages/mcp.js";
 import McpSetup from "./McpSetup.jsx";
 import McpConsent from "./McpConsent.jsx";
 import McpGrants from "./McpGrants.jsx";

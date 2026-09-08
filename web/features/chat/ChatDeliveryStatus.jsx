@@ -1,7 +1,7 @@
 import React from "react";
 import Message from "./ChatMessage.jsx";
 import { visibleDeliveries } from "./chat-draft.js";
-import { chatDeliveryCopy as copy } from "../../lib/i18n/de/chat.js";
+import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 
 export default function ChatDeliveryStatus({ delivery, messages, session, blocked }) {
   const items = [...delivery.recent, ...(delivery.outbox ? [delivery.outbox] : [])];

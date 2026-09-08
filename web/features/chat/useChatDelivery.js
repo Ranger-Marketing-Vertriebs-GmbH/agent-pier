@@ -8,7 +8,7 @@ import {
 } from "react";
 import { ChatDraft, deliveryScope } from "./chat-draft.js";
 import { startVisiblePolling } from "../../lib/visible-polling.js";
-import { chatDeliveryCopy as copy } from "../../lib/i18n/de/chat.js";
+import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 
 export default function useChatDelivery({ session, request, active }) {
   const scope = deliveryScope(session);

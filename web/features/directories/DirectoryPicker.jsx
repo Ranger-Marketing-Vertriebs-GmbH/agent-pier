@@ -1,6 +1,6 @@
 import CreateDirectory from "./CreateDirectory.jsx";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { directoryPickerCopy as copy } from "../../lib/i18n/de/directories.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { directoryPickerCopy as copy } from "../../lib/i18n/messages/directories.js";
 import React, { useEffect, useState } from "react";
 import api from "../../lib/api.js";
 import Icon from "../../components/Icon.jsx";

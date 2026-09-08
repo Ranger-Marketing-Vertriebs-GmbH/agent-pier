@@ -1,4 +1,4 @@
-import { chatAttachmentsCopy as copy } from "../../lib/i18n/de/chat.js";
+import { chatAttachmentsCopy as copy } from "../../lib/i18n/messages/chat.js";
 
 export function fileDataUrl(file) {
   return new Promise((resolve, reject) => {

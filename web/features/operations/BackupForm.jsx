@@ -4,7 +4,7 @@ import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { operationsCopy as copy } from "../../lib/i18n/de/operations.js";
+import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 export default function BackupForm({ close, started }) {
   const [includeHistory, setHistory] = useState(true),
     [withCredentials, setCredentials] = useState(false),

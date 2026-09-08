@@ -6,7 +6,7 @@ import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import { formatTimestamp } from "../../lib/i18n/index.js";
-import { operationsCopy as copy } from "../../lib/i18n/de/operations.js";
+import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 export default function DiagnosticsPage() {
   const resource = useResource("/operations/doctor"),
     projects = useResource("/memory/projects"),

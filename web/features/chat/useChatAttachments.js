@@ -1,5 +1,5 @@
-import { chatAttachmentsCopy as copy } from "../../lib/i18n/de/chat.js";
-import { chatUploadsCopy as uploadsCopy } from "../../lib/i18n/de/chat-uploads.js";
+import { chatAttachmentsCopy as copy } from "../../lib/i18n/messages/chat.js";
+import { chatUploadsCopy as uploadsCopy } from "../../lib/i18n/messages/chat-uploads.js";
 import { useEffect, useRef, useState } from "react";
 import { deliveryScope } from "./chat-draft.js";
 import { uploadLock, uploadStore } from "./chat-upload-store.js";

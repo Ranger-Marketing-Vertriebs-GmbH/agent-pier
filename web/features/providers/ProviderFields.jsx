@@ -1,5 +1,5 @@
 import React from "react";
-import { providerCopy as copy } from "../../lib/i18n/de/providers.js";
+import { providerCopy as copy } from "../../lib/i18n/messages/providers.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import ProviderModelPicker from "./ProviderModelPicker.jsx";

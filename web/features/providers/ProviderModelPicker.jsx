@@ -2,7 +2,7 @@ import React from "react";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import ProviderCatalogStatus from "./ProviderCatalogStatus.jsx";
 import ProviderModelDetails from "./ProviderModelDetails.jsx";
-import { providerCopy as copy } from "../../lib/i18n/de/providers.js";
+import { providerCopy as copy } from "../../lib/i18n/messages/providers.js";
 export default function ProviderModelPicker({
   catalog,
   tool,

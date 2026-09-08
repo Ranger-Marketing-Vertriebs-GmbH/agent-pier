@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import ProviderModelPicker from "../providers/ProviderModelPicker.jsx";
-import { pipelineCopy as copy } from "../../lib/i18n/de/pipelines.js";
+import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 
 export default function ProfileProviderFields({
   config,
