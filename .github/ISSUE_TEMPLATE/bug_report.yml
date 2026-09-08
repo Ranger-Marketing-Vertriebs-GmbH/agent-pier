@@ -1,0 +1,37 @@
+name: Bug report
+description: Report a reproducible problem with AgentPier
+body:
+  - type: markdown
+    attributes:
+      value: "For security vulnerabilities, use SECURITY.md. Do not include tokens, private conversations or production data."
+  - type: input
+    id: version
+    attributes:
+      label: AgentPier version
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, browser/device and relevant CLI version. Omit private paths and hostnames.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Use a disposable project and synthetic data where possible.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted logs or screenshots
+      description: Remove credentials, account details, private conversations and personal file paths.

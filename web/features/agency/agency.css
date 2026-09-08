@@ -1,0 +1,23 @@
+.agency-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  text-align: left;
+}
+.agency-browser {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.agency-browser > .button {
+  justify-self: start;
+}
+.agency-preview pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 48dvh;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}

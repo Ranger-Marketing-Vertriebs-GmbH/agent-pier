@@ -1,0 +1,16 @@
+export const modelControlCopy = {
+  modelCaption: "Zuletzt bestätigt",
+  modelTriggerAriaLabel: "Modell auswählen",
+  modelWorking: "Lädt …",
+  modelPopoverAriaLabel: "Modellauswahl",
+  modelCloseAriaLabel: "Modellauswahl schließen",
+  reasoningSelectionHint: "Wähle jetzt die Denkstufe im CLI.",
+  modelSearchAriaLabel: "Modelle suchen",
+  modelSearchPlaceholder: "Modelle suchen …",
+  modelSearchButton: "Suchen",
+  modelOptionLabelHint: "Aktuell",
+  noMatchingModels: "Keine passenden Modelle sichtbar.",
+  terminalSelectionHint: "Öffne die Modellauswahl im Terminal, um fortzufahren.",
+  cancelSelection: "Auswahl abbrechen",
+  continueInTerminal: "Im Terminal fortfahren",
+};

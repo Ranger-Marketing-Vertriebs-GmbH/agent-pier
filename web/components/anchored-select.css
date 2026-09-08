@@ -1,0 +1,64 @@
+.anchored-select {
+  position: relative;
+  min-width: 0;
+}
+.anchored-select select {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.anchored-options {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #505155;
+  border-radius: 7px;
+  background: #202125;
+  box-shadow: 0 12px 32px #0009;
+  padding: 4px;
+  scrollbar-width: thin;
+}
+.anchored-options.above {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+.anchored-options button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  width: 100%;
+  padding: 9px 10px;
+  color: #e8e9ed;
+  font-size: 12px;
+  text-align: left;
+  border-radius: 4px;
+  white-space: normal;
+}
+.anchored-options button.active {
+  background: #38302b;
+  color: #ffc99d;
+}
+.anchored-options button[aria-selected="true"] {
+  font-weight: 600;
+}
+.anchored-options button span {
+  flex: none;
+  color: #f49a58;
+}
+@media (max-width: 700px) {
+  .anchored-options button {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
+
+.settings-form {
+  display: grid;
+  gap: 18px;
+  max-width: 640px;
+}

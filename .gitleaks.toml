@@ -1,0 +1,12 @@
+title = "AgentPier secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Exact human-readable provider documentation placeholder"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)docs/research/provider-compatibility\.md$''']
+regexTarget = "line"
+regexes = ['''(?m)^ANTHROPIC_AUTH_TOKEN=<private OpenRouter key>$''']

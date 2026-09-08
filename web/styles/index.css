@@ -1,0 +1,25 @@
+/* Preserve the established cascade: feature rules precede the application shell. */
+@import "../features/repositories/repositories.css";
+@import "../features/models/model-control.css";
+@import "../features/chat/chat-images.css";
+@import "../features/chat/chat-attachments.css";
+@import "../features/chat/chat.css";
+@import "../components/pagination.css";
+@import "../features/extensions/extensions.css";
+@import "../features/plugins/plugins.css";
+@import "../features/tools/tool-installer.css";
+@import "../components/anchored-select.css";
+@import "../features/agentbus/agentbus.css";
+@import "base.css";
+@import "../app/layout.css";
+@import "../features/dashboard/dashboard.css";
+@import "../features/accounts/accounts.css";
+@import "../components/forms.css";
+@import "../features/sessions/workspace.css";
+@import "desktop.css";
+@import "mobile.css";
+@import "accessibility.css";
+@import "../features/dashboard/snapshot.css";
+@import "../features/providers/providers.css";
+@import "../features/chat/observability.css";
+@import "../features/chat/mobile-chat.css";

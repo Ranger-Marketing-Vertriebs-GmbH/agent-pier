@@ -1,0 +1,13 @@
+{
+  "name": "agentpier-agentbus",
+  "version": "1.0.0",
+  "description": "Peer-Chat zwischen Claude-Code-, Codex- und opencode-Sessions auf einer Maschine",
+  "type": "module",
+  "exports": {
+    "./server": "./agentpier/opencode.js"
+  },
+  "private": true,
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test" },
+  "license": "MIT"
+}

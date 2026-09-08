@@ -1,0 +1,35 @@
+@media (max-width: 370px) {
+  .page {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .hero h1 {
+    font-size: 44px;
+  }
+  .keyboard-toolbar {
+    gap: 3px;
+  }
+  .keyboard-toolbar button {
+    padding: 0 5px;
+    min-width: 25px;
+  }
+  .connection {
+    font-size: 6.5px;
+  }
+  .tool-card {
+    column-gap: 9px;
+    padding: 16px 12px;
+  }
+  .tool-card p {
+    font-size: 7.5px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

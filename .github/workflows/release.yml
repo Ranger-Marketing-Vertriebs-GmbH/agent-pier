@@ -1,0 +1,61 @@
+name: Versioned release packages
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            platform: darwin-arm64
+          - os: macos-15-intel
+            platform: darwin-x64
+          - os: ubuntu-24.04
+            platform: linux-x64
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.2
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node scripts/release-package.mjs agentpier-${{ matrix.platform }}.aprelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agentpier-${{ matrix.platform }}
+          path: |
+            agentpier-${{ matrix.platform }}.aprelease
+            agentpier-${{ matrix.platform }}.aprelease.json
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.2
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: agentpier-*
+          path: release-artifacts
+          merge-multiple: true
+      - run: node scripts/release-manifest.mjs release-artifacts
+      - name: Publish explicitly tagged version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node --input-type=module -e 'import fs from "node:fs"; const m=JSON.parse(fs.readFileSync("release-artifacts/latest.json")); if (`v${m.version}`!==process.env.RELEASE_TAG) throw Error("Tag and package version differ");'
+          gh release create "$RELEASE_TAG" release-artifacts/*.aprelease release-artifacts/latest.json --verify-tag --generate-notes

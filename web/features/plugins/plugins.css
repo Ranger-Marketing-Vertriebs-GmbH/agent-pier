@@ -1,0 +1,30 @@
+.plugin-topbar {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.plugin-topbar .field-description {
+  max-width: 720px;
+}
+.plugin-row-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 330px;
+}
+.plugins-page .section-heading h2,
+.plugins-page .extension-install h2 {
+  font-size: 17px;
+  font-weight: 500;
+}
+@media (max-width: 600px) {
+  .plugin-topbar {
+    flex-direction: column;
+  }
+  .plugin-row-actions {
+    justify-content: flex-start;
+    max-width: 100%;
+  }
+}

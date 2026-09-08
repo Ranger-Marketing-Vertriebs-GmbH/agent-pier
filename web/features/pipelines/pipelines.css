@@ -1,0 +1,255 @@
+.pipeline-page {
+  max-width: 1240px;
+}
+.pipeline-page h2,
+.pipeline-page p,
+.pipeline-page a,
+.pipeline-card small {
+  overflow-wrap: anywhere;
+}
+.pipeline-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+  margin: 20px 0;
+}
+.pipeline-tabs button {
+  padding: 9px 14px;
+  border-radius: 6px;
+  color: var(--muted);
+}
+.pipeline-tabs .selected {
+  background: #30241d;
+  color: var(--accent);
+}
+.pipeline-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 20px 0;
+}
+.pipeline-toolbar h2 {
+  font-size: 18px;
+  margin: 0;
+  flex: 1;
+}
+.pipeline-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.pipeline-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px;
+  background: #18191d;
+  min-width: 0;
+  margin: 12px 0;
+}
+.pipeline-card h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.pipeline-card p {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pipeline-card small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.pipeline-card .pipeline-actions {
+  margin-top: 14px;
+}
+.pipeline-form {
+  padding: 22px;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.pipeline-form label,
+.pipeline-controls label {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+  min-width: 0;
+}
+.pipeline-form input,
+.pipeline-form select,
+.pipeline-form textarea,
+.pipeline-controls input,
+.pipeline-controls select {
+  width: 100%;
+  min-width: 0;
+}
+.pipeline-form fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.pipeline-form legend {
+  margin-bottom: 12px;
+}
+.pipeline-form textarea {
+  resize: vertical;
+  max-height: 50dvh;
+}
+.pipeline-form .pipeline-check,
+.pipeline-check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.pipeline-check input {
+  width: auto;
+  accent-color: var(--accent);
+}
+.pipeline-parameter {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  border: 1px solid var(--line);
+  padding: 12px;
+  border-radius: 8px;
+}
+.pipeline-group {
+  margin-top: 22px;
+}
+.pipeline-group > h3 {
+  font-size: 13px;
+  color: var(--muted);
+}
+.pipeline-controls {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0;
+}
+.pipeline-controls > label {
+  flex: 1;
+  min-width: 160px;
+}
+.pipeline-stage {
+  display: grid;
+  gap: 14px;
+}
+.pipeline-stage header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pipeline-stage header strong {
+  flex: 1;
+}
+.pipeline-stage select {
+  max-width: 100%;
+}
+.pipeline-json {
+  width: 100%;
+  min-height: 350px;
+  font-family: monospace;
+}
+.pipeline-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.pipeline-timeline > li {
+  border-left: 2px solid var(--line);
+  padding-left: 18px;
+  margin: 16px 0;
+}
+.pipeline-gate {
+  border-color: var(--accent);
+}
+.pipeline-run-status {
+  font-size: 11px;
+  color: var(--accent);
+}
+.pipeline-evidence {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  max-height: 65dvh;
+  overflow: auto;
+  margin: 0;
+}
+.pipeline-verification-step {
+  display: grid;
+  gap: 12px;
+}
+.pipeline-actions a {
+  display: inline-block;
+  color: var(--accent);
+  padding: 7px;
+}
+.pipeline-card details {
+  margin: 12px 0;
+  font-size: 12px;
+}
+.pipeline-card summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+.pipeline-inline-error {
+  margin: 12px 0;
+}
+@media (max-width: 700px) {
+  .pipeline-tabs {
+    gap: 2px;
+  }
+  .pipeline-tabs button {
+    padding: 9px;
+    font-size: 12px;
+  }
+  .pipeline-form {
+    padding: 16px;
+  }
+  .pipeline-card {
+    padding: 14px;
+  }
+  .pipeline-parameter {
+    grid-template-columns: 1fr;
+  }
+  .pipeline-toolbar h2 {
+    flex-basis: 100%;
+  }
+  .pipeline-toolbar .button {
+    font-size: 12px;
+  }
+  .pipeline-controls > label {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+  .pipeline-actions .button {
+    font-size: 11px;
+  }
+  .pipeline-stage header {
+    flex-wrap: wrap;
+  }
+  .pipeline-json {
+    min-height: 240px;
+  }
+}
+
+.pipeline-card > label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+.pipeline-card > label textarea {
+  width: 100%;
+}

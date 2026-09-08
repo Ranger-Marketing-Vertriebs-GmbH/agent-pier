@@ -1,0 +1,110 @@
+.tool-install-content {
+  gap: 15px;
+  min-width: 0;
+}
+.tool-install-details {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 15px;
+  background: #141519;
+  border: 1px solid #343539;
+  border-radius: 9px;
+  min-width: 0;
+}
+.tool-install-details > div {
+  min-width: 0;
+}
+.tool-install-details dt {
+  font-size: 10px;
+  color: #9d9ea2;
+  margin-bottom: 6px;
+}
+.tool-install-details dd {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.tool-install-details code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: #ffc99d;
+}
+.tool-install-note,
+.tool-install-reason {
+  font-size: 12px;
+  line-height: 1.65;
+  margin: 0;
+  color: #acadb1;
+  overflow-wrap: anywhere;
+}
+.tool-install-reason {
+  color: #e7d5a8;
+}
+.tool-install-status {
+  padding: 13px 15px;
+  border: 1px solid #3c3d41;
+  border-radius: 9px;
+  background: #222327;
+  font-size: 12px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.tool-install-status strong {
+  display: block;
+  font-weight: 600;
+  color: #ffc99d;
+}
+.tool-install-status p {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  max-height: 180px;
+  overflow: auto;
+}
+.tool-install-status code {
+  display: block;
+  margin-top: 7px;
+  font-size: 11px;
+  color: #f49a58;
+}
+.tool-install-status.failed {
+  border-color: #725548;
+  background: #30231d;
+}
+.tool-install-status.failed strong {
+  color: #f0beaa;
+}
+.tool-install-status.running strong::before {
+  content: "◌";
+  display: inline-block;
+  margin-right: 7px;
+}
+.tool-installer .error {
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.tool-install-actions {
+  flex-wrap: wrap;
+}
+.tool-card.unavailable > .tool-install-button {
+  opacity: 1;
+  color: #f49a58;
+}
+@media (max-width: 600px) {
+  .tool-install-details {
+    padding: 12px;
+  }
+  .tool-install-content {
+    gap: 13px;
+  }
+  .tool-install-actions .button {
+    white-space: normal;
+    min-height: 44px;
+  }
+  .tool-install-status {
+    padding: 12px;
+  }
+}

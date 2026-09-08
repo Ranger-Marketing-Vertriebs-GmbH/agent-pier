@@ -1,0 +1,15 @@
+# Pipeline profiles with central provider connections
+
+The existing profile API keeps `config.accountId`, `config.cliTool`, `config.models`, prompts, permissions and run settings. An optional `config.providerConnectionId` selects a central provider connection. `accountId` always identifies the source account; generated internal provider accounts cannot be selected as sources. Omitting the connection retains legacy native/account-provider behavior without migration.
+
+Central profile saves validate every allowed model against the current connection's provider catalog and CLI support. They can be saved before adding a key, but launching requires the connection's current key. Connections without declared Responses API access cannot be selected for Codex when the provider requires that entitlement. The UI preserves an unavailable stored connection, explains the error and requires a valid selection before saving.
+
+A pipeline snapshot stores the source `accountSnapshot: {id, tool, kind, provider?}`. Central profiles also store `providerConnectionSnapshot: {id, providerId, responsesAccess?}`; `responsesAccess: true` is included for Codex with Z.ai. The requested model stays in the frozen `config.models.default`. Connection names, timestamps, API keys and catalog context limits are excluded from the frozen identity.
+
+Each turn checks the source configuration, connection/provider identity and entitlement against the frozen profile. Launch passes `accountId`, `providerConnectionId` and `providerModelId` through the normal application session lifecycle. The lifecycle resolves the generated native account, holds the connection mutation lease during launch, reads the current credential and applies the current model context configuration. The driver validates the resolved source, CLI, connection, provider and model before launch preparation. Editing a saved profile cannot change a frozen run.
+
+A rotated key is used by subsequent turns with the same generated account and native conversation ID. Removing a key or connection blocks subsequent launches; generated native account history is retained. Catalog context updates apply to subsequent turns without changing their requested model. Native CLI resume, headless observation, ownership checks, memory integration and session history continue through the existing launch path.
+
+MCP grants must authorize `config.accountId` and, when present, `config.providerConnectionId`. Frozen reads and launches must also reject mismatches with the corresponding snapshot IDs. A connection grant does not grant access to another source account or to provider credentials.
+
+Verification uses temporary stores and isolated application/tmux fixtures with synthetic CLIs. The definition matrix covers three providers across all three coding CLIs; the native matrix covers native legacy access plus the nine central combinations, exact native resume, key rotation, frozen profile edits, connection deletion and current context metadata. Browser coverage includes desktop/mobile selection, catalog models, persistence, reload and source-account changes. No external inference or real user credentials are used.

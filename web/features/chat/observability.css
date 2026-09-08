@@ -1,0 +1,112 @@
+.chat-observability {
+  display: flex;
+  gap: 8px 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 6px 24px;
+  border-bottom: 1px solid #26272b;
+  color: var(--muted);
+  font-size: 10px;
+  min-width: 0;
+}
+.chat-activity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.chat-activity .activity-dot {
+  width: 7px;
+  height: 7px;
+  flex-basis: 7px;
+}
+.chat-context-budget {
+  display: flex;
+  align-items: center;
+  gap: 4px 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.chat-observability > button {
+  color: var(--accent);
+  padding: 0;
+  font-size: inherit;
+}
+.chat-subagents {
+  padding-top: 18px;
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.chat-subagents h3 {
+  font-size: 12px;
+  margin: 0 0 10px;
+}
+.subagent-entry {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.subagent-entry summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  cursor: pointer;
+  padding: 10px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.subagent-status {
+  font-size: 9px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.subagent-status.running {
+  color: var(--accent);
+}
+.subagent-entry p {
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 0 10px;
+  overflow-wrap: anywhere;
+}
+.subagent-entry time {
+  display: block;
+  color: var(--muted);
+  font-size: 9px;
+  padding: 0 10px 10px;
+}
+@media (max-width: 700px) {
+  .chat-observability {
+    padding: 5px 12px;
+    gap: 4px 8px;
+    font-size: 9px;
+  }
+  .chat-context-budget {
+    gap: 3px 8px;
+  }
+}
+
+.chat-working-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  color: var(--accent);
+  animation: chat-working-spin 0.85s linear infinite;
+}
+@keyframes chat-working-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-working-spinner {
+    animation: none;
+  }
+}

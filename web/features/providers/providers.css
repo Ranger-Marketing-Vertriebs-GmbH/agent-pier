@@ -1,0 +1,124 @@
+.provider-fields {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  margin: 14px 0;
+  min-width: 0;
+}
+.provider-fields summary,
+.provider-account-summary summary,
+.session-provider-configuration summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 12px;
+}
+.provider-fields-content {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+  min-width: 0;
+}
+.provider-fields-content label {
+  margin: 0;
+  min-width: 0;
+}
+.provider-fields select {
+  width: 100%;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+.provider-catalog-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+.provider-model-details {
+  font-size: 11px;
+  min-width: 0;
+  padding-top: 8px;
+}
+.provider-model-details dl {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.provider-model-details dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.provider-model-details dt {
+  color: var(--muted);
+}
+.provider-model-details dd {
+  margin: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+.provider-model-details a {
+  color: var(--accent);
+}
+.provider-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+.provider-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+.provider-check span {
+  line-height: 1.5;
+}
+.provider-check small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.provider-account-summary p {
+  font-size: 11px;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+.provider-account-summary code {
+  font-size: 10px;
+}
+.provider-key-missing {
+  color: var(--accent);
+}
+.session-provider-configuration {
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.session-provider-configuration p {
+  margin: 3px 0;
+}
+.session-provider-configuration details[open] {
+  max-height: 180px;
+  overflow: auto;
+  padding-right: 6px;
+}
+@media (max-width: 700px) {
+  .provider-model-details dl > div {
+    gap: 8px;
+  }
+  .provider-model-details dt {
+    max-width: 58%;
+  }
+  .provider-account-summary {
+    width: 100%;
+  }
+  .session-provider-configuration {
+    font-size: 9px;
+  }
+}

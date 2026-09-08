@@ -1,0 +1,33 @@
+# Central provider connections
+
+This is an architectural extension to existing account and provider launch boundaries. The user authorized centralized credentials and independent CLI/access selection; native account ownership remains strict. Implementation preserves the current per-account provider contract.
+
+## Selection and public API
+
+`GET /api/provider-connections` returns `{connections}`. Each public connection contains `id`, `name`, immutable `providerId`, `hasSecret`, `tools`, `createdAt`, `updatedAt`, and optional `responsesAccess` for Z.ai providers. The IDs are opaque UUIDs. The supported providers are `openrouter`, `zai`, and `zai-coding-plan`. Z.ai connections expose Codex compatibility only when Responses API entitlement has explicitly been declared; this declaration does not claim an online capability check.
+
+`POST` accepts `{name,providerId,apiKey?,responsesAccess?}` and returns the created connection with status 201. `PATCH /:id` accepts partial `{name?,apiKey?,removeApiKey?,responsesAccess?}`. A blank or omitted key preserves the stored key; explicit removal clears it; simultaneous rotation and removal is invalid. Changing provider ID requires a new connection. `DELETE /:id` removes the connection and its key, returns 204, and preserves historical generated profiles. Unknown input fields are rejected. Keys never appear in public responses, errors, audit fields, or metadata.
+
+Model discovery continues through `/api/providers/:providerId/models?tool=...`. Models and context limits remain server-owned and validated through the existing provider catalog.
+
+A native session uses `{tool,accountId}`; old `{accountId}` clients retain existing behavior. If a tool is supplied, it must equal the native account's tool. Native Claude credentials cannot be selected for Codex or OpenCode. A global-provider session uses `{tool,providerConnectionId,providerModelId}`. An optional account ID supplies provenance only and must match the tool; otherwise the local account for that CLI is selected as provenance. Native credentials/configuration are never copied. Native MCP servers, plugins, skills and other source-profile settings are therefore not inherited by generated profiles; AgentPier-managed GitHub, AgentBus, Memory and request integrations are prepared for the generated profile through the shared lifecycle. Shell rejects provider selection. Login sessions reject global-provider selection. A provider model without a connection is invalid. Root exposes `nativeModelId` for an exact native per-session model override; it is mutually exclusive with global provider selection and is validated before launch. Existing managed accounts with embedded `provider` continue to work unchanged when no global connection is selected.
+
+## Storage and launch resolution
+
+`ProviderConnections({dataDir,providerCatalog})` stores public records in `provider-connections.json` and private keys under `provider-connection-secrets/<id>.json`, using private atomic storage. Its public list/get projection calculates tool support and actual secret presence. Its internal `secret(id)` returns a key only to launch resolution.
+
+`ProviderAccess({accounts,connections,providerCatalog}).resolve(body,{login})` returns `{account,selection?}`. The session lifecycle calls this before preparing GitHub, AgentBus, Memory, native bindings, requests and native command arguments. For global access it validates key availability, tool ownership, entitlement and exact catalog model, then ensures an internal managed account with a durable identity per connection, source account, CLI and provider model/entitlement selection. Selection metadata is safe: connection ID/name/provider ID/model ID and source account ID. Session metadata stores the actual generated account ID plus that selection.
+
+Generated profiles are retained while historical sessions may reference them; connection deletion does not automatically prune them. Generated account rows are marked internal, omitted from public account lists and protected from account mutation. Internal `get`, `profile` and `environment` still resolve them after web restart, so native history, helper paths, model control and request ownership point to the actual profile. Their roots are isolated below the existing managed profile directory. They hold a central connection reference, never a copied `secret.json`. Native/default account directories are unchanged. All generated launch configuration uses the existing verified provider adapters and context logic.
+
+Key rotation affects future launches; already running processes retain their original environment. Removal/deletion prevents new launches without stopping native processes or deleting profile history. Read-only history can resolve profile paths even when the connection has been removed. Switching model produces another isolated profile, avoiding concurrent native configuration rewrites across models. Concurrent sessions sharing the same connection/source/model reuse the same immutable provider selection and existing native CLI profile behavior.
+
+## Composition and portability
+
+Root constructs the connection store before AccountStore and injects it as `providerConnections`; it constructs ProviderAccess after accounts. Root wires the resolver and safe session selection metadata, exposes the router, applies ordinary mutation barriers and metadata-only audit events. External session/account routes must not allow direct selection of hidden generated accounts. The internal account ID is used exclusively after trusted resolution.
+
+Default backups include connection metadata with `hasSecret:false`; encrypted credential capsules include central secret files. Restore retains generated account identities and connection references, imports history only, and reports connections needing keys when credentials are omitted. No native capability or live delivery channel is restored.
+
+## Verification
+
+Tests first cover public secret redaction, key rotation/removal/deletion, immutable provider identity, invalid fields, and file permissions; tool/account compatibility, required model/key/Responses access, legacy defaults and login rejection; cross-CLI isolated roots, generated profile reuse/separation, no per-profile secret copy, central key rotation, and restart/history resolution after deletion. HTTP fixtures exercise CRUD and errors without real keys or model calls. Existing provider launch matrix and account/history tests remain compatibility checks. Restore tests verify metadata-only versus encrypted central credentials. No paid inference, remote deployment or real session interaction is part of this worker task.

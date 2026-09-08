@@ -1,0 +1,53 @@
+.search-select {
+  min-width: 0;
+}
+.search-select-label {
+  display: block;
+  margin-bottom: 8px;
+}
+.search-select-trigger {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #131417;
+  color: inherit;
+}
+.search-select-trigger > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-select-panel {
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.search-select-options {
+  max-height: min(240px, 32dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.search-select-options button {
+  display: block;
+  width: 100%;
+  padding: 12px 8px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+}
+.search-select-options button:hover,
+.search-select-options button.active,
+.search-select-options button[aria-selected="true"] {
+  background: #38302b;
+}

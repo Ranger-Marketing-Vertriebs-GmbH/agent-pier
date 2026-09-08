@@ -1,0 +1,125 @@
+.agentbus-page .extension-scope-note p {
+  margin-top: 8px;
+  color: #b7b8bc;
+}
+.agentbus-summary {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 24px 0 18px;
+}
+.agentbus-summary span,
+.agentbus-pending {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  font-size: 11px;
+  color: var(--accent);
+}
+.agentbus-pending {
+  white-space: nowrap;
+}
+.agentbus-page .section-heading h2 {
+  font-size: 17px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.agentbus-launch {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.agentbus-launch input {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin: 2px 0;
+  accent-color: var(--accent);
+}
+.agentbus-launch strong {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+.agentbus-launch small {
+  display: block;
+  font-size: 11px;
+  line-height: 1.65;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.agentbus-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 24px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  max-width: 300px;
+  background: #121317;
+}
+.agentbus-tabs button {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.agentbus-tabs button[aria-selected="true"] {
+  background: #29221e;
+  color: var(--accent);
+}
+.agentbus-message-list {
+  display: grid;
+  gap: 14px;
+  margin: 20px 0;
+}
+.agentbus-message {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px;
+  background: var(--panel);
+}
+.agentbus-message header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.agentbus-message header strong {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.agentbus-message-state {
+  font-size: 10px;
+  border: 1px solid #574333;
+  border-radius: 6px;
+  padding: 3px 7px;
+  color: var(--accent);
+}
+.agentbus-message-time {
+  color: var(--muted);
+  font-size: 10px;
+  margin: 8px 0 16px;
+  line-height: 1.7;
+}
+.agentbus-message-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.75;
+  max-height: 360px;
+  overflow: auto;
+}
+.agentbus-page .extension-section > .section-heading {
+  margin-top: 20px;
+}

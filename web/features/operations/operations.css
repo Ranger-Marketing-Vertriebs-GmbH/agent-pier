@@ -1,0 +1,171 @@
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 24px 56px 0;
+}
+.settings-tabs button {
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: var(--muted);
+}
+.settings-tabs .selected {
+  color: var(--accent);
+  background: #30241d;
+}
+.operations-page h1 {
+  margin-bottom: 18px;
+}
+.operations-page h2 {
+  font-size: 18px;
+}
+.operations-card {
+  background: #18191d;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px;
+  margin: 16px 0;
+  min-width: 0;
+}
+.operations-card header,
+.operations-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.operations-card header strong {
+  flex: 1;
+}
+.operations-card p,
+.operations-page p {
+  overflow-wrap: anywhere;
+}
+.operations-card pre,
+.operations-form pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 50dvh;
+  overflow: auto;
+  font-size: 12px;
+}
+.operations-card a {
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+.operations-form {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  min-width: 0;
+}
+.operations-form fieldset {
+  display: grid;
+  gap: 16px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.operations-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  margin: 20px 0;
+}
+.operations-filters label {
+  flex: 1;
+  min-width: 160px;
+}
+.operations-check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+}
+.operations-check input {
+  width: auto;
+  accent-color: var(--accent);
+}
+.operations-card details {
+  margin-top: 12px;
+}
+.operations-card summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+.operations-list {
+  display: grid;
+  gap: 8px;
+  padding-left: 18px;
+}
+.operations-form textarea {
+  min-height: 90px;
+  max-height: 40dvh;
+  resize: vertical;
+}
+.operations-error {
+  border-color: #a6574a;
+}
+.operations-warning {
+  border-color: var(--accent);
+}
+.operations-muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+.operations-metadata {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) 2fr;
+  gap: 10px;
+  font-size: 12px;
+}
+.operations-metadata dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.operations-card progress {
+  width: 100%;
+}
+@media (max-width: 700px) {
+  .settings-tabs {
+    padding: 16px 20px 0;
+    gap: 2px;
+  }
+  .settings-tabs button {
+    font-size: 12px;
+    padding: 9px;
+  }
+  .operations-filters label {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+  .operations-form {
+    padding: 16px;
+  }
+  .operations-card {
+    padding: 14px;
+  }
+  .operations-actions .button {
+    font-size: 12px;
+  }
+  .operations-metadata {
+    grid-template-columns: 1fr;
+  }
+  .operations-metadata dt {
+    color: var(--muted);
+  }
+}
+
+.operations-card header strong,
+.operations-form li {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.operations-card h2 {
+  margin-bottom: 8px;
+}
+.operations-card .operations-actions {
+  margin-top: 12px;
+}

@@ -1,0 +1,76 @@
+.workspace-snapshot {
+  position: absolute;
+  right: 0;
+  top: 110px;
+  width: 230px;
+  border: 1px solid #323337;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #1e1f23, #17181c);
+  padding: 20px;
+}
+.snapshot-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #b5b6ba;
+  margin-bottom: 23px;
+}
+.snapshot-heading > span {
+  font-size: 7px;
+  letter-spacing: 1.5px;
+}
+.workspace-snapshot > div:not(:first-child) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 0;
+  border-bottom: 1px solid #2c2d31;
+}
+.workspace-snapshot > div > span {
+  font-size: 10px;
+  color: #9e9fa3;
+}
+.workspace-snapshot strong {
+  font:
+    500 19px "Manrope",
+    sans-serif;
+  color: #ffc99d;
+}
+.workspace-snapshot strong small {
+  font:
+    400 11px "DM Sans",
+    sans-serif;
+  color: #7d7e82;
+}
+.workspace-snapshot > p {
+  font-size: 8px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #9d9ea2;
+  margin-top: 19px;
+  line-height: 1.4;
+}
+.workspace-snapshot > p .status-dot {
+  width: 4px;
+  height: 4px;
+  flex-basis: 4px;
+}
+@media (max-width: 1150px) {
+  .workspace-snapshot {
+    width: 185px;
+    padding: 16px;
+    top: 115px;
+  }
+  .workspace-snapshot > div > span {
+    font-size: 9px;
+  }
+  .workspace-snapshot > p {
+    font-size: 7px;
+  }
+}
+@media (max-width: 950px) {
+  .workspace-snapshot {
+    display: none;
+  }
+}

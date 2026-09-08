@@ -1,0 +1,22 @@
+export const requestCopy = {
+  title: "Native Rückfragen",
+  permission: "Freigabe erforderlich",
+  question: "Antwort erforderlich",
+  answer: "Antwort senden",
+  handoff: "Im Terminal beantworten",
+  terminal: "Terminal öffnen",
+  unknown: "Zustellung unklar. Im Terminal prüfen.",
+  responding: "Antwort wird zugestellt …",
+  required: "Bitte jede Frage vollständig beantworten.",
+  other: "Andere Antwort",
+  otherLabel: (prompt) => `Andere Antwort: ${prompt}`,
+  details: "Angefragte Aktion",
+  cwd: "Arbeitsverzeichnis",
+  scopes: {
+    turn: "Für diesen Turn",
+    once: "Einmal",
+    session: "Diese Sitzung",
+    persistent: "Dauerhaft",
+  },
+  loading: "Native Rückfragen werden geladen …",
+};

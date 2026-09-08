@@ -1,0 +1,84 @@
+.file-explorer {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  width: 100%;
+}
+.file-explorer-heading,
+.file-preview-heading {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.file-explorer code {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.file-explorer-columns {
+  display: grid;
+  gap: 18px;
+}
+.file-explorer-columns.with-preview {
+  grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr);
+}
+.file-explorer-list {
+  min-width: 0;
+}
+.file-explorer-list > button {
+  width: 100%;
+  display: flex;
+  text-align: left;
+  gap: 10px;
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.file-explorer-list > button > span {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.file-explorer-list > button > svg {
+  flex: none;
+}
+.file-explorer-list > button:hover,
+.file-explorer-list > button.selected {
+  background: #38302b;
+  color: #ffc99d;
+}
+.file-preview {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  align-self: start;
+}
+.file-preview-heading {
+  justify-content: space-between;
+  flex-wrap: nowrap;
+}
+.file-preview pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+.file-preview img {
+  max-width: 100%;
+  height: auto;
+}
+.create-directory {
+  margin-top: 16px;
+}
+@media (max-width: 700px) {
+  .file-explorer {
+    padding: 10px;
+  }
+  .file-explorer-columns.with-preview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .file-preview {
+    grid-row: 1;
+  }
+}

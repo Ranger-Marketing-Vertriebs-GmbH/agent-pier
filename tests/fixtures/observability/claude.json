@@ -1,0 +1,67 @@
+[
+  {
+    "type": "assistant",
+    "timestamp": "2026-09-07T10:00:00Z",
+    "message": {
+      "id": "first",
+      "model": "fixture-claude",
+      "usage": { "input_tokens": 100000, "cache_read_input_tokens": 5000 },
+      "content": []
+    }
+  },
+  {
+    "type": "assistant",
+    "timestamp": "2026-09-07T10:00:01Z",
+    "message": {
+      "id": "latest",
+      "model": "fixture-claude",
+      "usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 20,
+        "cache_read_input_tokens": 30,
+        "output_tokens": 500
+      },
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "spawn-one",
+          "name": "Agent",
+          "input": {
+            "description": "Review changes",
+            "subagent_type": "reviewer",
+            "prompt": "Inspect the diff"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "type": "progress",
+    "parentToolUseID": "spawn-one",
+    "timestamp": "2026-09-07T10:00:02Z",
+    "data": {
+      "type": "agent_progress",
+      "agentId": "native-claude-agent",
+      "message": { "message": { "usage": { "input_tokens": 900000 } } }
+    }
+  },
+  {
+    "type": "user",
+    "timestamp": "2026-09-07T10:00:03Z",
+    "message": {
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "spawn-one",
+          "content": "Private full subagent output"
+        }
+      ]
+    },
+    "toolUseResult": { "agentId": "native-claude-agent", "status": "completed" }
+  },
+  {
+    "type": "assistant",
+    "isSidechain": true,
+    "message": { "usage": { "input_tokens": 800000 }, "content": [] }
+  }
+]

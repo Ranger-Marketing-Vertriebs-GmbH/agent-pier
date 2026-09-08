@@ -1,0 +1,64 @@
+[
+  {
+    "type": "turn_context",
+    "timestamp": "2026-09-07T10:00:00Z",
+    "payload": {
+      "model": "fixture-model"
+    }
+  },
+  {
+    "type": "event_msg",
+    "timestamp": "2026-09-07T10:00:01Z",
+    "payload": {
+      "type": "token_count",
+      "info": {
+        "total_token_usage": {
+          "input_tokens": 900000
+        },
+        "last_token_usage": {
+          "input_tokens": 64000,
+          "cached_input_tokens": 60000,
+          "output_tokens": 1000,
+          "total_tokens": 70000
+        },
+        "model_context_window": 128000
+      }
+    }
+  },
+  {
+    "type": "event_msg",
+    "timestamp": "2026-09-07T10:00:02Z",
+    "payload": {
+      "type": "collab_agent_spawn_end",
+      "new_thread_id": "native-agent-one",
+      "new_agent_nickname": "Reviewer",
+      "prompt": "Review the change",
+      "status": "running",
+      "call_id": "spawn-one"
+    }
+  },
+  {
+    "type": "event_msg",
+    "timestamp": "2026-09-07T10:00:03Z",
+    "payload": {
+      "type": "collab_waiting_end",
+      "statuses": {
+        "native-agent-one": {
+          "completed": "Private final reasoning must not be exposed here"
+        }
+      }
+    }
+  },
+  {
+    "type": "event_msg",
+    "timestamp": "2026-09-07T10:00:04Z",
+    "payload": {
+      "type": "collab_agent_spawn_end",
+      "new_thread_id": "native-agent-two",
+      "new_agent_role": "worker",
+      "prompt": "Implement tests",
+      "status": "running",
+      "call_id": "spawn-two"
+    }
+  }
+]

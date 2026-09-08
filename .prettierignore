@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.data/
+vendor/
+test-results/
+playwright-report/
+.superpowers/
+package-lock.json
+docs/screenshots/
+
+.cache/
+coverage/

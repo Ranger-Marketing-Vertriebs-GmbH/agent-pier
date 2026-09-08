@@ -1,0 +1,54 @@
+{
+  "info": { "id": "native-parent" },
+  "messages": [
+    {
+      "info": {
+        "id": "first",
+        "role": "assistant",
+        "time": { "created": 1000, "completed": 1500 },
+        "tokens": { "input": 800000, "output": 3000, "cache": { "read": 0, "write": 0 } }
+      },
+      "parts": []
+    },
+    {
+      "info": {
+        "id": "last",
+        "role": "assistant",
+        "modelID": "fixture-model",
+        "providerID": "fixture-provider",
+        "time": { "created": 2000, "completed": 2500 },
+        "tokens": {
+          "input": 1000,
+          "output": 9000,
+          "cache": { "read": 2000, "write": 3000 }
+        }
+      },
+      "parts": [
+        {
+          "id": "part-one",
+          "type": "tool",
+          "tool": "task",
+          "state": {
+            "status": "completed",
+            "input": { "description": "Review modules", "subagent_type": "reviewer" },
+            "metadata": {
+              "sessionId": "native-child-one",
+              "parentSessionId": "native-parent",
+              "background": true
+            }
+          }
+        },
+        {
+          "id": "part-two",
+          "type": "tool",
+          "tool": "task",
+          "state": {
+            "status": "completed",
+            "input": { "description": "Add tests", "subagent_type": "worker" },
+            "metadata": { "sessionID": "native-child-two" }
+          }
+        }
+      ]
+    }
+  ]
+}
