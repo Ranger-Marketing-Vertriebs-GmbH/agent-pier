@@ -180,6 +180,7 @@ export default function SessionWorkspace({
         {mode === "terminal" && (
           <Suspense fallback={<p className="chat-notice">{copy.chatNotice}</p>}>
             <TerminalView
+              key={JSON.stringify([session.id, session.createdAt, session.status])}
               session={session}
               mode={mode}
               sendRef={sendRef}
