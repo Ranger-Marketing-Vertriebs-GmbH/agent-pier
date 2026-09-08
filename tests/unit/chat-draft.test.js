@@ -34,6 +34,25 @@ function storage() {
 const session = { id: "one", accountId: "account", tool: "claude", createdAt: "today" };
 const scope = deliveryScope(session);
 
+test("background reload preserves unsaved draft warning until a durable write", async () => {
+  const disk = storage();
+  const draft = new ChatDraft(disk, scope, lock);
+  const write = disk.setItem;
+  disk.setItem = () => {
+    throw Error("quota");
+  };
+  await draft.change({ text: "not durable yet" });
+  assert.ok(draft.getSnapshot().storageError);
+  draft.reload();
+  assert.equal(draft.getSnapshot().text, "not durable yet");
+  assert.ok(draft.getSnapshot().storageError);
+  assert.equal(await draft.enqueue("blocked", []), null);
+  disk.setItem = write;
+  await draft.change({ text: "saved now" });
+  assert.equal(draft.getSnapshot().storageError, "");
+  assert.equal(new ChatDraft(disk, scope, lock).getSnapshot().text, "saved now");
+});
+
 test("draft restores text and completed uploads without persisting image payloads", async () => {
   const disk = storage();
   const draft = new ChatDraft(disk, scope, lock);
