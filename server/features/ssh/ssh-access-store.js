@@ -13,10 +13,11 @@ import {
   validateFields,
   publicKeyValue,
   fingerprint,
-  prepareIdentity,
   runOpenSsh,
   processOptions,
 } from "./ssh-keys.js";
+
+import { SshKeyStore } from "./ssh-key-store.js";
 
 export class SshAccessStore {
   constructor({ dataDir, run = runOpenSsh }) {
@@ -25,8 +26,27 @@ export class SshAccessStore {
     this.file = path.join(this.root, "accesses.json");
     this.run = run;
     this.updates = new Map();
+    this.keyStore = new SshKeyStore({
+      root: this.root,
+      run,
+      accesses: () => readJSON(this.file, []),
+      migrate: () => this.migrate(),
+    });
+  }
+  migrate() {
+    const accesses = readJSON(this.file, []);
+    if (!accesses.some((access) => !access.keyId)) return;
+    try {
+      writePrivate(this.file, this.keyStore.migrateAccesses(accesses));
+    } catch {
+      throw problem(
+        "Existing SSH keys could not be migrated. Check the local SSH data files.",
+        503,
+      );
+    }
   }
   list() {
+    this.migrate();
     return readJSON(this.file, []).map((value) => this.project(value));
   }
   project({
@@ -35,20 +55,22 @@ export class SshAccessStore {
     host,
     port,
     username,
-    publicKey,
-    fingerprint,
+    keyId,
     hostKey,
     hostFingerprint,
     createdAt,
   }) {
+    const key = this.keyStore.get(keyId);
     return {
       id,
       name,
       host,
       port,
       username,
-      publicKey,
-      fingerprint,
+      keyId,
+      keyName: key.name,
+      publicKey: key.publicKey,
+      fingerprint: key.fingerprint,
       hostKey,
       hostFingerprint,
       createdAt,
@@ -71,7 +93,18 @@ export class SshAccessStore {
     fs.chmodSync(file, 0o600);
   }
   async create(input = {}) {
-    validateFields(input, ["name", "host", "port", "username", "hostKey", "privateKey"]);
+    validateFields(input, [
+      "name",
+      "host",
+      "port",
+      "username",
+      "hostKey",
+      "privateKey",
+      "keyId",
+    ]);
+    if (input.keyId !== undefined && input.privateKey !== undefined)
+      throw problem("Choose either a saved SSH key or a private key.");
+    const selected = input.keyId === undefined ? null : this.keyStore.get(input.keyId);
     const name = nameValue(input.name);
     const target = endpoint(input);
     if (!target.username) throw problem("Invalid SSH username.");
@@ -80,18 +113,24 @@ export class SshAccessStore {
     const id = randomUUID();
     const directory = privateDirectory(this.directory(id));
     try {
-      const identity = await prepareIdentity(directory, input.privateKey, this.run);
+      const key =
+        selected ||
+        (await this.keyStore.create({
+          name,
+          ...(input.privateKey === undefined ? {} : { privateKey: input.privateKey }),
+        }));
+      this.keyStore.get(key.id);
       const access = {
         id,
         name,
         ...target,
-        ...identity,
+        keyId: key.id,
         hostKey,
         hostFingerprint,
         createdAt: new Date().toISOString(),
       };
       this.knownHosts(access);
-      writePrivate(this.file, [...this.list(), access]);
+      writePrivate(this.file, [...readJSON(this.file, []), access]);
       return this.project(access);
     } catch (error) {
       fs.rmSync(directory, { recursive: true, force: true });
@@ -108,8 +147,10 @@ export class SshAccessStore {
     });
   }
   async updateAccess(id, input) {
-    validateFields(input, ["name", "host", "port", "username", "hostKey"]);
+    validateFields(input, ["name", "host", "port", "username", "hostKey", "keyId"]);
     const previous = this.get(id);
+    const keyId =
+      input.keyId === undefined ? previous.keyId : this.keyStore.get(input.keyId).id;
     const target = endpoint({ ...previous, ...input });
     if (!target.username) throw problem("Invalid SSH username.");
     if (
@@ -120,6 +161,7 @@ export class SshAccessStore {
     const hostKey = publicKeyValue(input.hostKey ?? previous.hostKey);
     const access = {
       ...previous,
+      keyId,
       ...target,
       name: input.name === undefined ? previous.name : nameValue(input.name),
       hostKey,
@@ -127,10 +169,11 @@ export class SshAccessStore {
     };
     // A concurrent deletion must not resurrect a deleted access.
     this.get(id);
+    this.keyStore.get(keyId);
     this.knownHosts(access);
     writePrivate(
       this.file,
-      this.list().map((item) => (item.id === id ? access : item)),
+      readJSON(this.file, []).map((item) => (item.id === id ? access : item)),
     );
     return this.project(access);
   }
@@ -138,9 +181,12 @@ export class SshAccessStore {
     this.get(id);
     writePrivate(
       this.file,
-      this.list().filter((item) => item.id !== id),
+      readJSON(this.file, []).filter((item) => item.id !== id),
     );
-    fs.rmSync(this.directory(id), { recursive: true, force: true });
+    const directory = this.directory(id);
+    fs.rmSync(path.join(directory, "known_hosts"), { force: true });
+    if (fs.existsSync(directory) && !fs.readdirSync(directory).length)
+      fs.rmdirSync(directory);
   }
   connection(id) {
     const access = this.get(id);
@@ -170,7 +216,7 @@ export class SshAccessStore {
           "UpdateHostKeys=no",
         ].flatMap((option) => ["-o", option]),
         "-i",
-        "identity",
+        `../../identities/${access.keyId}/identity`,
         "-p",
         String(port),
         "-l",

@@ -1,4 +1,16 @@
 export const sshCopy = {
+  keys: "SSH keys",
+  hosts: "Hosts",
+  addKey: "Add SSH key",
+  emptyKeys: "No SSH keys yet. Add a key before creating a server access.",
+  selectKey: "Select a saved SSH key",
+  keyFingerprint: "Key fingerprint",
+  keyDeleteHint: "Delete this stored SSH key?",
+  keyInUse: "Used by",
+  keyUnused: "Not assigned to any host.",
+  renameKeyHint:
+    "The name can be changed. To use different key material, add another key.",
+
   title: "Server accesses",
   description: "Manage SSH keys and assign server accesses to local sessions.",
   scope:
@@ -10,7 +22,8 @@ export const sshCopy = {
   edit: "Edit",
   remove: "Delete",
   confirmDelete: "Confirm deletion",
-  deleteHint: "Delete this access and its stored key? Existing connections remain open.",
+  deleteHint:
+    "Delete this access? Its SSH key stays available. Existing connections remain open.",
   save: "Save",
   cancel: "Cancel",
   close: "Close",

@@ -98,7 +98,10 @@ export async function prepareIdentity(directory, privateKey, run = runOpenSsh) {
         privateKey.includes("\0")
       )
         throw new Error();
-      fs.writeFileSync(file, privateKey, { mode: 0o600, flag: "wx" });
+      // Textarea/clipboard input may omit the final LF or use CRLF. OpenSSH
+      // rejects these otherwise valid keys; normalize only the text envelope.
+      const normalized = privateKey.replace(/\r\n?/g, "\n").trim() + "\n";
+      fs.writeFileSync(file, normalized, { mode: 0o600, flag: "wx" });
     } else {
       await run(
         "ssh-keygen",
