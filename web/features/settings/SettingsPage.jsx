@@ -4,7 +4,7 @@ import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import "../operations/operations.css";
 const McpSettings = lazy(() => import("../mcp/McpSettings.jsx"));
 const OperationsPage = lazy(() => import("../operations/OperationsPage.jsx"));
-export default function SettingsPage({ state, refresh, route, onNavigate }) {
+export default function SettingsPage({ state, refresh, ready, route, onNavigate }) {
   const section = route.settingsSection || "general";
   const navigate = (changes, replace = false) =>
     onNavigate({ ...route, ...changes, view: "settings" }, replace);
@@ -23,7 +23,7 @@ export default function SettingsPage({ state, refresh, route, onNavigate }) {
         ))}
       </nav>
       {section === "general" ? (
-        <DirectorySettings state={state} refresh={refresh} />
+        <DirectorySettings state={state} refresh={refresh} ready={ready} />
       ) : section === "mcp" ? (
         <Suspense fallback={<p role="status">{copy.loading}</p>}>
           <McpSettings route={route} navigate={navigate} />
