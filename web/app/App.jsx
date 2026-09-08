@@ -120,7 +120,13 @@ export default function App() {
         ) : view === "memory" ? (
           <MemoryPage route={route} onNavigate={navigate} home={state.home} />
         ) : view === "settings" ? (
-          <Settings state={state} refresh={refresh} route={route} onNavigate={navigate} />
+          <Settings
+            state={state}
+            refresh={refresh}
+            ready={ready}
+            route={route}
+            onNavigate={navigate}
+          />
         ) : view === "agentbus" ? (
           <Suspense fallback={<p className="loading">{copy.agentBusLoading}</p>}>
             <AgentBus

@@ -6,6 +6,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import OperationJob from "./OperationJob.jsx";
 import ConfirmOperation from "./ConfirmOperation.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
+import { releasePresentation } from "./release-presentation.js";
 export default function UpdatesPage({ route, navigate }) {
   const resource = useResource("/operations/releases"),
     action = useAsyncAction(),
@@ -17,6 +18,7 @@ export default function UpdatesPage({ route, navigate }) {
     (observedJob?.id !== route.operationId || observedJob.status === "running"),
   );
   const releases = resource.data;
+  const presentation = releases ? releasePresentation(releases, plan) : null;
   const start = async (path, body) => {
     const result = await api("/operations/releases/" + path, "POST", body);
     setConfirm(null);
@@ -49,34 +51,33 @@ export default function UpdatesPage({ route, navigate }) {
           >
             {copy.checkUpdates}
           </button>
-          {plan && (
+          {plan && !presentation.candidate && !presentation.staged.length && (
+            <p>{copy.upToDate}</p>
+          )}
+          {presentation.candidate && (
             <article className="operations-card">
-              <h2>{plan.version}</h2>
-              {plan.upToDate ? (
-                <p>{copy.upToDate}</p>
-              ) : (
-                <>
-                  <p>
-                    {copy.platform}: {plan.platform}
-                  </p>
-                  <p>
-                    {copy.integrity}: {plan.sha256}
-                  </p>
-                  <p className="field-description">{copy.integrityHelp}</p>
-                  <button
-                    className="button primary"
-                    disabled={jobPending || action.busy}
-                    onClick={() =>
-                      action.run(() => start("stage", { version: plan.version }))
-                    }
-                  >
-                    {copy.stageRelease}
-                  </button>
-                </>
-              )}
+              <h2>{presentation.candidate.version}</h2>
+              <p>
+                {copy.platform}: {presentation.candidate.platform}
+              </p>
+              <p>
+                {copy.integrity}: {presentation.candidate.sha256}
+              </p>
+              <p className="field-description">{copy.integrityHelp}</p>
+              <button
+                className="button primary"
+                disabled={jobPending || action.busy}
+                onClick={() =>
+                  action.run(() =>
+                    start("stage", { version: presentation.candidate.version }),
+                  )
+                }
+              >
+                {copy.stageRelease}
+              </button>
             </article>
           )}
-          {releases.staged.map((staged) => (
+          {presentation.staged.map((staged) => (
             <article className="operations-card" key={staged.id}>
               <h3>
                 {copy.staged}: {staged.version}
@@ -99,23 +100,26 @@ export default function UpdatesPage({ route, navigate }) {
               </button>
             </article>
           ))}
-          {releases.releases
-            .filter((release) => !release.current)
-            .map((release) => (
-              <article className="operations-card" key={release.version}>
-                <h3>{release.version}</h3>
-                {release.reason && <p>{release.reason}</p>}
-                <button
-                  className="button secondary"
-                  disabled={jobPending || action.busy || !release.canRollback}
-                  onClick={() =>
-                    setConfirm({ kind: "rollback", version: release.version })
-                  }
-                >
-                  {copy.rollback}
-                </button>
-              </article>
-            ))}
+          {presentation.history.length > 0 && (
+            <details>
+              <summary>{copy.releaseHistory}</summary>
+              {presentation.history.map((release) => (
+                <article className="operations-card" key={release.version}>
+                  <h3>{release.version}</h3>
+                  {release.reason && <p>{release.reason}</p>}
+                  <button
+                    className="button secondary"
+                    disabled={jobPending || action.busy || !release.canRollback}
+                    onClick={() =>
+                      setConfirm({ kind: "rollback", version: release.version })
+                    }
+                  >
+                    {copy.rollback}
+                  </button>
+                </article>
+              ))}
+            </details>
+          )}
         </>
       )}
       <OperationJob

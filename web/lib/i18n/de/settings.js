@@ -6,5 +6,6 @@ export const settingsPageCopy = {
   defaultDirectoryDescription:
     "Neue Sitzungen starten in diesem Ordner. Repositories werden standardmäßig in Unterordner dieses Ordners geklont. Ein ausdrücklich gewählter Ordner hat Vorrang.",
   settingsSaved: "Einstellungen gespeichert.",
+  loadingSettings: "Einstellungen werden geladen …",
   saveSettings: "Einstellungen speichern",
 };

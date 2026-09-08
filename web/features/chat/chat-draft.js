@@ -153,7 +153,12 @@ export class ChatDraft {
   }
   adopt(saved) {
     if (saved.outbox) this.unsaved = {};
-    this.publish({ ...saved, ...this.unsaved });
+    this.publish({
+      ...saved,
+      ...this.unsaved,
+      // Reading successfully does not make this tab's failed edits durable.
+      storageError: Object.keys(this.unsaved).length ? copy.storageFailed : "",
+    });
   }
   reload = () => {
     try {

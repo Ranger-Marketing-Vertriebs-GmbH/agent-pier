@@ -7,17 +7,9 @@ import Icon from "../../components/Icon.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Modal from "../../components/Modal.jsx";
 import DirectoryPicker from "../directories/DirectoryPicker.jsx";
-export default function DirectorySettings({ state, refresh }) {
-  const serverCwd = state.defaultCwd || state.home || "";
-  const editing = useRef(false);
-  const [cwd, setCwd] = useState(serverCwd),
-    [browse, setBrowse] = useState(false),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [saved, setSaved] = useState(false);
-  useEffect(() => {
-    setCwd((current) => (editing.current ? current : serverCwd));
-  }, [serverCwd]);
+export default function DirectorySettings({ state, refresh, ready }) {
+  // Mount the editable form with its loaded default; no hydration effect may
+  // update its value between becoming enabled and the user's first keystroke.
   return (
     <div className="page settings-page">
       <div className="page-topline">
@@ -30,11 +22,35 @@ export default function DirectorySettings({ state, refresh }) {
         </div>
       </header>
       <LanguageSelect />
+      {!ready && <p role="status">{copy.loadingSettings}</p>}
+      <DirectoryForm
+        key={ready ? "loaded" : "loading"}
+        state={state}
+        refresh={refresh}
+        ready={ready}
+      />
+    </div>
+  );
+}
+
+function DirectoryForm({ state, refresh, ready }) {
+  const serverCwd = state.defaultCwd || state.home || "";
+  const editing = useRef(false);
+  const [cwd, setCwd] = useState(serverCwd),
+    [browse, setBrowse] = useState(false),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [saved, setSaved] = useState(false);
+  useEffect(() => {
+    setCwd((current) => (editing.current ? current : serverCwd));
+  }, [serverCwd]);
+  return (
+    <>
       <form
         className="settings-form"
         onSubmit={async (event) => {
           event.preventDefault();
-          if (busy) return;
+          if (busy || !ready) return;
           setBusy(true);
           setError("");
           setSaved(false);
@@ -60,7 +76,7 @@ export default function DirectorySettings({ state, refresh }) {
               aria-label={copy.settingsFormFieldLabel}
               value={cwd}
               required
-              disabled={busy}
+              disabled={busy || !ready}
               // Record edit intent without rendering between native focus and input.
               onFocus={() => {
                 editing.current = true;
@@ -75,7 +91,7 @@ export default function DirectorySettings({ state, refresh }) {
               type="button"
               className="icon-button"
               aria-label={copy.iconButtonAriaLabel}
-              disabled={busy}
+              disabled={busy || !ready}
               onClick={() => setBrowse(true)}
             >
               <Icon name="folder" />
@@ -90,7 +106,7 @@ export default function DirectorySettings({ state, refresh }) {
           </p>
         )}
         <div>
-          <button className="button primary" disabled={busy || !cwd}>
+          <button className="button primary" disabled={busy || !ready || !cwd}>
             {busy ? commonCopy.saving : copy.saveSettings}
           </button>
         </div>
@@ -109,6 +125,6 @@ export default function DirectorySettings({ state, refresh }) {
           />
         </Modal>
       )}
-    </div>
+    </>
   );
 }

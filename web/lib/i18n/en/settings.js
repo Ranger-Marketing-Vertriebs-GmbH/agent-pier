@@ -6,5 +6,6 @@ export const settingsPageCopy = {
   defaultDirectoryDescription:
     "New sessions start in this directory. Repositories are cloned into its subdirectories by default. An explicitly selected directory takes precedence.",
   settingsSaved: "Settings saved.",
+  loadingSettings: "Loading settings…",
   saveSettings: "Save settings",
 };
