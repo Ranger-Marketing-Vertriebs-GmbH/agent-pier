@@ -88,7 +88,9 @@ Der Mac mini muss eingeschaltet und wach bleiben. Wähle dafür passende Energie
 
 ## 6. Aktualisieren
 
-Nach Aktualisieren der Repository-Dateien:
+Bei einer versionierten Installation unter **Einstellungen → Updates** nach einer neuen Version suchen, das Paket herunterladen und anschließend aktivieren. Standardmäßig kommen die Pakete aus den [offiziellen GitHub-Releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases); ein eigener Kanal kann über `AGENTPIER_RELEASE_CHANNEL` gesetzt werden. Der Download wird per SHA-256 geprüft. Schlägt der Start der neuen Version fehl, wird die vorherige Version wieder aktiviert. CLI-Sitzungen bleiben beim Neustart des Webdienstes erhalten.
+
+Bei einem Source-Checkout stattdessen nach Aktualisieren der Repository-Dateien:
 
 ```sh
 npm ci
