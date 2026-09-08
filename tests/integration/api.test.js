@@ -359,6 +359,7 @@ test("browser deep links serve the app while missing assets and APIs keep their 
     "/accounts",
     "/repositories",
     "/settings",
+    "/settings/ssh",
     "/plugins/local-codex",
     "/extensions/local-claude",
     "/sessions/example/reader",

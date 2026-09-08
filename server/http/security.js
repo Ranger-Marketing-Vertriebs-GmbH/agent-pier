@@ -1,7 +1,7 @@
 import { serverMessages } from "../lib/i18n/de.js";
 import { problem } from "../lib/storage.js";
 export const appDocumentPath =
-  /^\/(?:accounts|repositories|settings(?:\/(?:notifications|diagnostics|backups|updates|audit|mcp))?|memory(?:\/[^/]+)?|pipelines(?:\/(?:runs|definitions|profiles|verification)(?:\/[^/]+)?)?|agentbus(?:\/messages(?:\/[^/]+)?)?|(?:extensions|plugins)(?:\/[^/]+)?|sessions\/[^/]+(?:\/(?:chat|reader|terminal|files))?)?\/?$/;
+  /^\/(?:accounts|repositories|settings(?:\/(?:notifications|diagnostics|backups|updates|audit|mcp|ssh))?|memory(?:\/[^/]+)?|pipelines(?:\/(?:runs|definitions|profiles|verification)(?:\/[^/]+)?)?|agentbus(?:\/messages(?:\/[^/]+)?)?|(?:extensions|plugins)(?:\/[^/]+)?|sessions\/[^/]+(?:\/(?:chat|reader|terminal|files))?)?\/?$/;
 export function authorizeRequest(req, config, websocket = false) {
   if (req.headers.authorization)
     throw problem("Machine tokens are accepted only at the MCP endpoint.", 403);

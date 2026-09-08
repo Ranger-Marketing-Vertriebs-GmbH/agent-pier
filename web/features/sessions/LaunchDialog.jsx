@@ -1,3 +1,4 @@
+import LaunchSshChoices from "../ssh/LaunchSshChoices.jsx";
 import useLaunchAccess from "./useLaunchAccess.js";
 import LaunchAccessFields from "./LaunchAccessFields.jsx";
 import { connectionCopy } from "../../lib/i18n/messages/connections.js";
@@ -19,7 +20,8 @@ export default function LaunchDialog({ state, tool, initialCwd, close, created }
     [browse, setBrowse] = useState(false),
     [name, setName] = useState(""),
     [launchMode, setLaunchMode] = useState(() => defaultMode(access.tool)),
-    [busEnabled, setBusEnabled] = useState(true);
+    [busEnabled, setBusEnabled] = useState(true),
+    [sshAccessIds, setSshAccessIds] = useState([]);
   const selectedTool = access.tool;
   const coding = selectedTool !== "shell";
   const modeDescription =
@@ -59,6 +61,7 @@ export default function LaunchDialog({ state, tool, initialCwd, close, created }
               cwd,
               launchMode,
               agentbus: coding && busEnabled,
+              sshAccessIds,
             });
             await created(session);
           }}
@@ -138,6 +141,7 @@ export default function LaunchDialog({ state, tool, initialCwd, close, created }
               </span>
             </label>
           )}
+          <LaunchSshChoices selected={sshAccessIds} change={setSshAccessIds} />
           <label>
             {commonCopy.workingDirectory}
             <div className="input-action">

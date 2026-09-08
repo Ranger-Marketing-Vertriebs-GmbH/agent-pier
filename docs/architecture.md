@@ -66,3 +66,7 @@ Reuse shared path/configuration and shell/TOML serializers rather than adding ad
 ## Verification
 
 `npm run check` combines lint, formatting, file size, backend strategies and production build. Browser tests run against an isolated application by default. Property failures record reproducible seeds and shrink their examples. Platform and browser CI matrices are defined in `.github/workflows/verify.yml`; a configured matrix is not evidence that an unexecuted platform passed. See [testing](testing.md) for commands, fixture ownership and the limits of native compatibility checks.
+
+### Session SSH accesses
+
+Managed server accesses and identity-bound session assignments live under `server/features/ssh/`. Authenticated HTTP CRUD returns public metadata only. The `server/ssh.mjs` helper rereads assignments and persisted session identity on every invocation, then starts OpenSSH with the selected key and pinned host key. This permits assignment to an already running CLI without environment mutation or TUI input injection. The assignment is convenience scoping under one OS user, not a sandbox. See [SSH accesses](ssh-access.md) for lifecycle, key storage and backup limitations.

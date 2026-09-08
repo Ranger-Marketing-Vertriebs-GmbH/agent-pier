@@ -216,3 +216,50 @@ test("two tabs retry the same interrupted file only once", async ({ page, contex
   await expect(other.getByRole("button", { name: /Erneut hochladen:/ })).toHaveCount(0);
   expect([...first.uploads, ...second.uploads]).toEqual(["retry.txt", "retry.txt"]);
 });
+
+test("reload cleans an upload receipt already committed to the draft without duplicate chips or another upload", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  // Model a page closing after the draft commit but before IndexedDB cleanup.
+  await page.evaluate(() => {
+    const remove = IDBObjectStore.prototype.delete;
+    IDBObjectStore.prototype.delete = function (key) {
+      return this.name === "files" ? this.get(key) : remove.call(this, key);
+    };
+  });
+  await page.setInputFiles('input[type="file"]', {
+    name: "good.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("durable"),
+  });
+  await expect(page.getByRole("button", { name: "Senden", exact: true })).toBeEnabled();
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Datei hinzufügen", exact: true }),
+  ).toBeEnabled();
+  await expect(page.locator(".chat-upload-pending")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Anhang entfernen: good.txt", exact: true }),
+  ).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Senden", exact: true })).toBeEnabled();
+  expect(f.uploads).toEqual(["good.txt"]);
+  const count = await page.evaluate(
+    () =>
+      new Promise((resolve, reject) => {
+        const request = indexedDB.open("agentpier.chat.uploads.v1", 1);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction("files", "readonly");
+          const result = transaction.objectStore("files").count();
+          transaction.oncomplete = () => {
+            db.close();
+            resolve(result.result);
+          };
+          transaction.onerror = () => reject(transaction.error);
+        };
+      }),
+  );
+  expect(count).toBe(0);
+});

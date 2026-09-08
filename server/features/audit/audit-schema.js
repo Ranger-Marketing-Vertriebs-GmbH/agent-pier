@@ -1,5 +1,6 @@
 import { problem } from "../../lib/storage.js";
 const resources = new Set([
+  "ssh",
   "mcp",
   "account",
   "provider",

@@ -24,6 +24,7 @@ export function createSessionLifecycle(services) {
     requests,
     chat,
     sharedProfiles,
+    sshSessions,
   } = services;
   const activeFor = async (id) =>
     (await sessions.list()).some(
@@ -32,6 +33,9 @@ export function createSessionLifecycle(services) {
   async function launch(body, login = false, trusted = {}) {
     if (body.agentbus !== undefined && typeof body.agentbus !== "boolean")
       throw problem(serverMessages.sessions.invalidAgentBusSelection);
+    const sshIds = sshSessions?.validate(body.sshAccessIds);
+    if (login && sshIds?.length)
+      throw problem("SSH-Zugänge sind für Login-Sitzungen nicht verfügbar.");
     const resolved = providerAccess.resolve(body, { login });
     const release = resolved.selection
       ? providerConnections.acquire(resolved.selection.providerConnectionId)
@@ -135,7 +139,13 @@ export function createSessionLifecycle(services) {
         ...(trusted.pipeline ? { pipeline: trusted.pipeline } : {}),
         ...(login ? { purpose: "login" } : {}),
       });
+      if (body.sshAccessIds?.length) sshSessions.set(session, body.sshAccessIds);
     } catch (error) {
+      sshSessions?.discard(id);
+      if (session) {
+        await sessions.stop(id).catch(() => {});
+        await sessions.remove(id).catch(() => {});
+      }
       await requests.discard(id).catch(() => {});
       try {
         await memoryIntegration.discard(id);

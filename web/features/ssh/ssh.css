@@ -1,0 +1,139 @@
+.ssh-page {
+  max-width: 1050px;
+}
+.ssh-page > p,
+.ssh-card p,
+.ssh-form p,
+.ssh-dialog > p,
+.ssh-launch > p {
+  color: var(--muted);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.ssh-card {
+  min-width: 0;
+  margin: 24px 0;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #18191d;
+}
+.ssh-card h2 {
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+.ssh-copy {
+  min-width: 0;
+  margin: 20px 0;
+}
+.ssh-copy pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #121316;
+  border: 1px solid var(--line);
+  padding: 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  user-select: text;
+}
+.ssh-fingerprint {
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.ssh-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.ssh-form fieldset,
+.ssh-choices {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.ssh-form fieldset > label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+}
+.ssh-form input,
+.ssh-form select,
+.ssh-form textarea {
+  min-width: 0;
+  width: 100%;
+}
+.ssh-form .ssh-check,
+.ssh-check {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 14px 0;
+  line-height: 1.5;
+}
+.ssh-check input {
+  width: auto;
+  flex: 0 0 auto;
+  margin-top: 5px;
+}
+.ssh-check span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ssh-check small {
+  display: block;
+  color: var(--muted);
+}
+.ssh-confirm {
+  margin-top: 16px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.ssh-dialog a {
+  display: inline-block;
+  margin-top: 20px;
+  color: var(--accent);
+}
+.ssh-launch {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.ssh-choices legend {
+  font-weight: 600;
+}
+@media (max-width: 600px) {
+  .ssh-card {
+    padding: 16px;
+  }
+  .ssh-actions button {
+    flex: 1 1 auto;
+  }
+}
+.ssh-dialog,
+.ssh-form {
+  padding: 0 26px 26px;
+}
+.ssh-dialog > p,
+.ssh-page > p,
+.ssh-card > p {
+  margin-bottom: 12px;
+}
+.ssh-form .ssh-actions {
+  justify-content: flex-end;
+}
+.ssh-card .button:not(.primary),
+.ssh-dialog .button:not(.primary),
+.ssh-form .button:not(.primary),
+.ssh-launch .button {
+  border: 1px solid var(--line);
+}
+@media (max-width: 600px) {
+  .ssh-dialog,
+  .ssh-form {
+    padding: 0 20px 20px;
+  }
+}

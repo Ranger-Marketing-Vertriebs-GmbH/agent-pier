@@ -39,6 +39,7 @@ async function fixture(page) {
     const data = req.postDataJSON();
     let result = {};
     if (path === "/api/state") result = state;
+    else if (path === "/api/ssh-accesses") result = { accesses: [] };
     else if (path === "/api/directories")
       result = {
         path: url.searchParams.get("path"),

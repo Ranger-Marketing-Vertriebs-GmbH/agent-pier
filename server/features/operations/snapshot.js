@@ -8,6 +8,7 @@ import { digest, folder, readFile, readJson, members } from "./files.js";
 import { problem } from "../../lib/storage.js";
 
 export const omissions = [
+  "Managed SSH accesses, private keys and session assignments",
   "Workspace login credentials and browser sessions",
   "MCP client grants, OAuth credentials and start request capabilities",
   "External local CLI profiles and OS keychains",

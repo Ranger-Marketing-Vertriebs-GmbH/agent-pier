@@ -53,6 +53,7 @@ async function fixture(page) {
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/state") return route.fulfill({ json: state });
+    if (path === "/api/ssh-accesses") return route.fulfill({ json: { accesses: [] } });
     if (path === "/api/repositories")
       return route.fulfill({ json: { credentials: [], projects: [] } });
     if (path === "/api/tool-installations")

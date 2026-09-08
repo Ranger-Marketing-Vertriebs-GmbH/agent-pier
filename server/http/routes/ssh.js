@@ -1,0 +1,39 @@
+import { Router } from "express";
+import { problem } from "../../lib/storage.js";
+
+export function sshRoutes({ sshAccesses, sshSessions, sessions }) {
+  const router = Router();
+  router.get("/ssh-accesses", (_req, res) => res.json({ accesses: sshAccesses.list() }));
+  router.post("/ssh-accesses/scan", async (req, res) =>
+    res.json(await sshAccesses.scan(req.body)),
+  );
+  router.post("/ssh-accesses", async (req, res) =>
+    res.status(201).json(await sshAccesses.create(req.body)),
+  );
+  router.patch("/ssh-accesses/:id", async (req, res) =>
+    res.json(await sshAccesses.update(req.params.id, req.body)),
+  );
+  router.post("/ssh-accesses/:id/test", async (req, res) =>
+    res.json(await sshAccesses.test(req.params.id)),
+  );
+  router.delete("/ssh-accesses/:id", (req, res) => {
+    sshAccesses.get(req.params.id);
+    // Revoke before removing key material, so helpers fail closed during deletion.
+    sshSessions.revokeAccess(req.params.id);
+    sshAccesses.remove(req.params.id);
+    res.status(204).end();
+  });
+  router.get("/sessions/:id/ssh-accesses", async (req, res) =>
+    res.json(sshSessions.get(await sessions.get(req.params.id))),
+  );
+  router.put("/sessions/:id/ssh-accesses", async (req, res) => {
+    if (
+      !req.body ||
+      !Array.isArray(req.body.accessIds) ||
+      Object.keys(req.body).some((key) => key !== "accessIds")
+    )
+      throw problem("Ungültige SSH-Zuordnung.");
+    res.json(sshSessions.set(await sessions.get(req.params.id), req.body.accessIds));
+  });
+  return router;
+}

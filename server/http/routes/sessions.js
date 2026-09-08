@@ -18,6 +18,7 @@ export function sessionsRoutes(services) {
     requests,
     chatAttachments,
     chatDelivery,
+    sshSessions,
   } = services;
   const router = Router();
   router.post("/sessions", async (req, res) =>
@@ -38,6 +39,7 @@ export function sessionsRoutes(services) {
     // attachment directory deleted.
     const directory = (await sessions.get(req.params.id)).attachments?.directory;
     await sessions.remove(req.params.id);
+    sshSessions?.discard(req.params.id);
     await chatDelivery.discard(req.params.id);
     await chatAttachments.discard(req.params.id, directory);
     await requests.discard(req.params.id);
