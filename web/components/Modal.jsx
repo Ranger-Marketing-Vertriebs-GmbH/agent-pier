@@ -8,7 +8,7 @@ export default function Modal({
   wide = false,
   className = "",
   closeDisabled = false,
-  dismissOnBackdrop = true,
+  dismissOnBackdrop = false,
   closeIcon,
 }) {
   const ref = useRef(null);

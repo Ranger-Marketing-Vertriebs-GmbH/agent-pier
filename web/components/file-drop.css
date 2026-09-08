@@ -1,0 +1,17 @@
+[data-file-drop] {
+  position: relative;
+}
+[data-file-drop][data-dropping="true"]::after {
+  content: attr(data-drop-hint);
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  text-align: center;
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  border: 2px dashed var(--accent);
+  border-radius: 0.75rem;
+  pointer-events: none;
+}

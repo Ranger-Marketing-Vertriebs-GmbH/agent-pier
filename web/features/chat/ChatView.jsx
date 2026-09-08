@@ -1,3 +1,4 @@
+import useFileDrop from "../../components/useFileDrop.js";
 import ChatDeliveryStatus from "./ChatDeliveryStatus.jsx";
 import RequestPanel from "../requests/RequestPanel.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
@@ -64,10 +65,21 @@ export default function ChatView({
     session.tool !== "shell" &&
     !session.pipeline?.headless,
   );
-  const [dropping, setDropping] = useState(false);
   const [requestState, setRequestState] = useState(null);
   const requestPending =
     requestsAvailable && (requestState?.sessionId !== session.id || requestState.blocked);
+  const drop = useFileDrop({
+    enabled:
+      active &&
+      attachments.supported &&
+      !attachments.loading &&
+      !requestPending &&
+      !busy &&
+      !modelPending &&
+      !attachments.uploading &&
+      !delivery.locked,
+    onFiles: attachments.add,
+  });
   const guardedSubmit = (event) => {
     if (requestPending) {
       event.preventDefault();
@@ -89,42 +101,7 @@ export default function ChatView({
       <section
         className="chat-main"
         aria-label={copy.chatMainAriaLabel}
-        onDragOver={(event) => {
-          // Keep a file drop from navigating away, even while uploads are blocked.
-          if (!event.dataTransfer.types.includes("Files")) return;
-          event.preventDefault();
-          if (
-            !attachments.supported ||
-            requestPending ||
-            busy ||
-            modelPending ||
-            attachments.uploading
-          )
-            return;
-          setDropping(true);
-        }}
-        onDragLeave={(event) => {
-          // dragleave bubbles from every descendant boundary crossed while
-          // dragging across the panel; only disarm once the pointer actually
-          // leaves .chat-main, or the overlay flickers on each child edge.
-          if (event.currentTarget.contains(event.relatedTarget)) return;
-          setDropping(false);
-        }}
-        onDrop={(event) => {
-          if (!event.dataTransfer.files.length) return;
-          event.preventDefault();
-          setDropping(false);
-          if (
-            !attachments.supported ||
-            requestPending ||
-            busy ||
-            modelPending ||
-            attachments.uploading
-          )
-            return;
-          attachments.add(event.dataTransfer.files);
-        }}
-        data-dropping={dropping || undefined}
+        {...drop}
         data-drop-hint={attachmentsCopy.dropHint}
       >
         <div className="chat-context">

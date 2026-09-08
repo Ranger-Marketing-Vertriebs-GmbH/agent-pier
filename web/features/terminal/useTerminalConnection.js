@@ -148,5 +148,5 @@ export default function useTerminalConnection({
     if (mode === "terminal") terminalRef.current?.focus();
   }, [mode]);
 
-  return { error, container };
+  return { error, container, paste: (text) => terminalRef.current?.paste(text) };
 }

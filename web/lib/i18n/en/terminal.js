@@ -1,4 +1,11 @@
 export const terminalViewCopy = {
+  dropHint: "Drop files here to upload and insert their paths",
+  uploading: "Uploading file",
+  uploaded: "Uploaded",
+  insertPath: "Insert path",
+  retryUpload: "Retry upload",
+  dismissUpload: "Dismiss upload",
+
   input: "Terminal disconnected. Your input was not sent.",
   connect: "The terminal response could not be read.",
   clipboard:
