@@ -1,3 +1,4 @@
+import { sshRoutes } from "./http/routes/ssh.js";
 import { LoginStore } from "./features/login/login-store.js";
 import { loginRoutes, requireLogin } from "./http/login.js";
 import { agencyRoutes } from "./http/routes/agency.js";
@@ -113,6 +114,7 @@ export async function createApplication(config) {
   mount(filesRoutes(services));
   mount(accountsRoutes(services));
   mount(sessionsRoutes(services));
+  mount(sshRoutes(services));
   mount(repositoriesRoutes(services));
   mount(extensionsRoutes(services));
   mount(agencyRoutes(services));

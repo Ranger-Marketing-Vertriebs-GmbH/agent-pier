@@ -71,6 +71,10 @@ Lokale Profile verwenden die bestehende Standard-Anmeldung des Tools. Eigene Pro
 
 API-Keys sind optional für Codex/OpenAI und Claude/Anthropic, bei OpenCode für den OpenAI-Provider. Weitere OpenCode-Provider werden über dessen native Anmeldung verbunden. Ein leeres Key-Feld beim Bearbeiten behält den bisherigen Key. Vor dem Wechsel eines Keys oder Löschen eines Accounts dessen Sitzungen beenden. CLI-eigene macOS-Keychain-Einträge werden beim Entfernen eines Profils nicht automatisch gelöscht.
 
+## SSH-Serverzugänge
+
+Unter **Einstellungen → Serverzugänge** verwaltest du SSH-Zugänge mit eigenem Schlüssel und bestätigtem Host-Fingerabdruck. Du kannst sie beim Start oder in einer bereits laufenden Sitzung zuordnen und den Verbindungsbefehl dem Agenten geben. Die Zuordnung ist keine Sicherheitsisolation zwischen Prozessen desselben Betriebssystembenutzers. SSH-Zugänge und Schlüssel sind in dieser ersten Version nicht in AgentPier-Sicherungen enthalten. Details: [SSH-Zugänge](docs/ssh-access.md).
+
 ## GitHub und GitHub Enterprise
 
 Unter **Repositories** kannst du mehrere benannte Zugänge speichern, auch mehrere für denselben Host:

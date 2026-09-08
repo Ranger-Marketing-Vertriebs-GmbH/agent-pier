@@ -1,3 +1,4 @@
+import { sshCopy } from "../../lib/i18n/messages/ssh.js";
 import { sessionActivity } from "./sessionPresentation.js";
 import { filesCopy } from "../../lib/i18n/messages/files.js";
 import { pipelineCopy } from "../../lib/i18n/messages/pipelines.js";
@@ -10,6 +11,7 @@ import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
 import ChatView from "../chat/ChatView.jsx";
 import useChatViewport from "../chat/useChatViewport.js";
+const SessionSshDialog = lazy(() => import("../ssh/SessionSshDialog.jsx"));
 const FileExplorer = lazy(() => import("../files/FileExplorer.jsx"));
 const TerminalView = lazy(() => import("../terminal/TerminalView.jsx"));
 export default function SessionWorkspace({
@@ -22,6 +24,13 @@ export default function SessionWorkspace({
   navigate,
   openNavigation,
 }) {
+  const [sshSession, setSshSession] = useState(null);
+  const sessionIdentity = JSON.stringify([
+    session.id,
+    session.accountId,
+    session.tool,
+    session.createdAt,
+  ]);
   const [connection, setConnection] = useState("connecting");
   const coding = session.tool !== "shell";
   const mobileChat = coding && mode === "reader";
@@ -73,6 +82,18 @@ export default function SessionWorkspace({
           </div>
         </div>
         <div className="session-actions">
+          {session.status === "running" &&
+            !session.pipeline?.headless &&
+            session.purpose !== "login" && (
+              <button
+                className="icon-button"
+                aria-label={sshCopy.title}
+                title={sshCopy.title}
+                onClick={() => setSshSession(sessionIdentity)}
+              >
+                <Icon name="link" />
+              </button>
+            )}
           <button
             className="icon-button"
             aria-label={commonCopy.renameSession}
@@ -204,6 +225,17 @@ export default function SessionWorkspace({
           ))}
         </div>
       )}
+      {sshSession === sessionIdentity &&
+        session.status === "running" &&
+        !session.pipeline?.headless && (
+          <Suspense fallback={<p role="status">{sshCopy.loading}</p>}>
+            <SessionSshDialog
+              key={sessionIdentity}
+              session={session}
+              close={() => setSshSession(null)}
+            />
+          </Suspense>
+        )}
       <footer className="session-footer">
         <span title={session.cwd}>
           <Icon name="folder" size={13} />

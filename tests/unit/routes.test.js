@@ -103,7 +103,14 @@ test("pipeline deep links retain tabs identities and bounded filters", () => {
 });
 
 test("settings deep links preserve durable jobs and bounded audit filters", () => {
-  for (const section of ["notifications", "diagnostics", "backups", "updates", "audit"]) {
+  for (const section of [
+    "notifications",
+    "diagnostics",
+    "backups",
+    "updates",
+    "audit",
+    "ssh",
+  ]) {
     const route = read(`/settings/${section}`);
     assert.equal(route.view, "settings");
     assert.equal(route.settingsSection, section);
