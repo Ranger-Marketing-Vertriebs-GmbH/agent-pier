@@ -15,6 +15,8 @@ test("settings save a default folder and explicit repository launch wins", async
     const req = route.request(),
       url = new URL(req.url());
     if (url.pathname === "/api/state") return route.fulfill({ json: state });
+    if (url.pathname === "/api/ssh-accesses")
+      return route.fulfill({ json: { accesses: [] } });
     if (url.pathname === "/api/preferences") {
       if (req.method() === "PATCH") {
         writes.push(req.postDataJSON());
@@ -112,6 +114,7 @@ test("shell has a terminal-only deep link and never exposes coding model or bus 
       method: req.method(),
       body: req.method() === "POST" ? req.postDataJSON() : null,
     });
+    if (p === "/api/ssh-accesses") return route.fulfill({ json: { accesses: [] } });
     return route.fulfill(
       p === "/api/state"
         ? { json: state }

@@ -75,6 +75,7 @@ export async function fixture(page, { account, session } = {}) {
     const body = method === "GET" ? null : request.postDataJSON();
     controls.calls.push({ path, method, body, tool: url.searchParams.get("tool") });
     if (path === "/api/state") return route.fulfill({ json: state });
+    if (path === "/api/ssh-accesses") return route.fulfill({ json: { accesses: [] } });
     if (path.startsWith("/api/provider-connections")) {
       if (method === "GET")
         return route.fulfill({ json: { connections: state.providerConnections } });

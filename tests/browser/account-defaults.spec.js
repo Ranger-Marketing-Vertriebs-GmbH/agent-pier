@@ -25,6 +25,7 @@ async function fixture(page) {
     const endpoint = new URL(route.request().url()).pathname;
     let result = {};
     if (endpoint === "/api/state") result = state;
+    else if (endpoint === "/api/ssh-accesses") result = { accesses: [] };
     if (endpoint.endsWith("/auth-status"))
       result = {
         state: authStates[endpoint.split("/")[3]] || "unauthenticated",
