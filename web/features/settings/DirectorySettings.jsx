@@ -1,19 +1,23 @@
 import LanguageSelect from "../../components/LanguageSelect.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { settingsPageCopy as copy } from "../../lib/i18n/messages/settings.js";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
 import Icon from "../../components/Icon.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Modal from "../../components/Modal.jsx";
 import DirectoryPicker from "../directories/DirectoryPicker.jsx";
 export default function DirectorySettings({ state, refresh }) {
-  const [draft, setDraft] = useState(null),
+  const serverCwd = state.defaultCwd || state.home || "";
+  const editing = useRef(false);
+  const [cwd, setCwd] = useState(serverCwd),
     [browse, setBrowse] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [saved, setSaved] = useState(false);
-  const cwd = draft ?? (state.defaultCwd || state.home || "");
+  useEffect(() => {
+    setCwd((current) => (editing.current ? current : serverCwd));
+  }, [serverCwd]);
   return (
     <div className="page settings-page">
       <div className="page-topline">
@@ -38,9 +42,9 @@ export default function DirectorySettings({ state, refresh }) {
             const result = await api("/preferences", "PATCH", {
               defaultCwd: cwd,
             });
-            setDraft(result.defaultCwd);
+            setCwd(result.defaultCwd);
             await refresh();
-            setDraft(null);
+            editing.current = false;
             setSaved(true);
           } catch (e) {
             setError(e.message);
@@ -57,10 +61,13 @@ export default function DirectorySettings({ state, refresh }) {
               value={cwd}
               required
               disabled={busy}
-              // Freeze the displayed value before typing, even if initial state is pending.
-              onFocus={() => setDraft(cwd)}
+              // Record edit intent without rendering between native focus and input.
+              onFocus={() => {
+                editing.current = true;
+              }}
               onChange={(event) => {
-                setDraft(event.target.value);
+                editing.current = true;
+                setCwd(event.target.value);
                 setSaved(false);
               }}
             />
@@ -94,7 +101,8 @@ export default function DirectorySettings({ state, refresh }) {
             initialPath={cwd || state.home}
             cancel={() => setBrowse(false)}
             choose={(path) => {
-              setDraft(path);
+              editing.current = true;
+              setCwd(path);
               setSaved(false);
               setBrowse(false);
             }}

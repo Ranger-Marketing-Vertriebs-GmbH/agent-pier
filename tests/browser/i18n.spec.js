@@ -113,3 +113,41 @@ test("an initial state response and later refresh cannot replace a directory dra
   await page.getByLabel("Language", { exact: true }).selectOption("de");
   await expect(directory).toHaveValue("/fixture/my-unsaved-directory");
 });
+
+test("focusing a pending settings field cannot erase native input before its input event", async ({
+  page,
+}) => {
+  let release;
+  const pending = new Promise((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/state", async (route) => {
+    await pending;
+    await route.fulfill({
+      json: { tools: [], accounts: [], sessions: [], home: "/fixture/home" },
+    });
+  });
+  await page.goto("/settings");
+  const directory = page.locator(".settings-form input").first();
+  await expect(directory).toHaveValue("");
+  // Native editing and input delivery can straddle a React focus update in WebKit.
+  // setRangeText edits the native value without invoking React's value setter.
+  await directory.evaluate(async (input) => {
+    input.focus();
+    input.setRangeText("/fixture/native-draft", 0, input.value.length, "end");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    input.dispatchEvent(
+      new InputEvent("input", {
+        bubbles: true,
+        inputType: "insertText",
+        data: "/fixture/native-draft",
+      }),
+    );
+  });
+  await expect(directory).toHaveValue("/fixture/native-draft");
+  const loaded = page.waitForResponse("**/api/state");
+  release();
+  await loaded;
+  await page.getByLabel("Sprache", { exact: true }).selectOption("en");
+  await expect(directory).toHaveValue("/fixture/native-draft");
+});
