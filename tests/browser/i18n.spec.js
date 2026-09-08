@@ -74,3 +74,42 @@ test.describe("English browser", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
   });
 });
+
+test("an initial state response and later refresh cannot replace a directory draft", async ({
+  page,
+}) => {
+  let releaseInitial;
+  const initial = new Promise((resolve) => {
+    releaseInitial = resolve;
+  });
+  const state = {
+    tools: [],
+    accounts: [{ id: "fixture-account", tool: "codex" }],
+    sessions: [],
+    home: "/fixture/initial-home",
+  };
+  await page.route("**/api/state", async (route) => {
+    await initial;
+    await route.fulfill({ json: state });
+  });
+  await page.goto("/settings");
+  const directory = page.locator(".settings-form input").first();
+  await expect(directory).toHaveValue("");
+  await directory.focus();
+  const loaded = page.waitForResponse("**/api/state");
+  releaseInitial();
+  await loaded;
+  await expect(
+    page.getByRole("button", { name: "Konten", exact: true }).locator(".count"),
+  ).toHaveText("1");
+  await expect(directory).toHaveValue("");
+  await directory.fill("/fixture/my-unsaved-directory");
+  await page.getByLabel("Sprache", { exact: true }).selectOption("en");
+  await expect(directory).toHaveValue("/fixture/my-unsaved-directory");
+  state.home = "/fixture/refreshed-home";
+  const refreshed = page.waitForResponse("**/api/state");
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await refreshed;
+  await page.getByLabel("Language", { exact: true }).selectOption("de");
+  await expect(directory).toHaveValue("/fixture/my-unsaved-directory");
+});

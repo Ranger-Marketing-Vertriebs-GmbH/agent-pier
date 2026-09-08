@@ -256,7 +256,26 @@ test("lost tmux server marks metadata stopped without automatically relaunching"
   const { manager, dataDir, start, managers } = await fixture(t);
   const created = await start();
   await eventually(async () => (await manager.screen(created.id)).includes("READY"));
+  const { stdout } = await exec(tmuxPath, [
+    "-S",
+    manager.socketPath,
+    "display-message",
+    "-p",
+    "#{pid}",
+  ]);
+  const serverPid = Number(stdout.trim());
+  assert.ok(Number.isSafeInteger(serverPid) && serverPid > 1);
   await exec(tmuxPath, ["-S", manager.socketPath, "kill-server"]);
+  // The command client can exit while the server is still closing connections.
+  await eventually(() => {
+    try {
+      process.kill(serverPid, 0);
+      return false;
+    } catch (error) {
+      if (error.code === "ESRCH") return true;
+      throw error;
+    }
+  }, "owned tmux server shutdown");
   const next = new SessionManager({ dataDir, tmuxPath });
   managers.push(next);
   assert.equal((await next.get(created.id)).status, "stopped");

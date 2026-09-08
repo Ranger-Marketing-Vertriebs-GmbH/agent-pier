@@ -1,22 +1,19 @@
 import LanguageSelect from "../../components/LanguageSelect.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { settingsPageCopy as copy } from "../../lib/i18n/messages/settings.js";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import api from "../../lib/api.js";
 import Icon from "../../components/Icon.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Modal from "../../components/Modal.jsx";
 import DirectoryPicker from "../directories/DirectoryPicker.jsx";
 export default function DirectorySettings({ state, refresh }) {
-  const [cwd, setCwd] = useState(state.defaultCwd || state.home || ""),
-    [dirty, setDirty] = useState(false),
+  const [draft, setDraft] = useState(null),
     [browse, setBrowse] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [saved, setSaved] = useState(false);
-  useEffect(() => {
-    if (!dirty) setCwd(state.defaultCwd || state.home || "");
-  }, [state.defaultCwd, state.home, dirty]);
+  const cwd = draft ?? (state.defaultCwd || state.home || "");
   return (
     <div className="page settings-page">
       <div className="page-topline">
@@ -41,9 +38,9 @@ export default function DirectorySettings({ state, refresh }) {
             const result = await api("/preferences", "PATCH", {
               defaultCwd: cwd,
             });
-            setCwd(result.defaultCwd);
+            setDraft(result.defaultCwd);
             await refresh();
-            setDirty(false);
+            setDraft(null);
             setSaved(true);
           } catch (e) {
             setError(e.message);
@@ -60,9 +57,10 @@ export default function DirectorySettings({ state, refresh }) {
               value={cwd}
               required
               disabled={busy}
+              // Freeze the displayed value before typing, even if initial state is pending.
+              onFocus={() => setDraft(cwd)}
               onChange={(event) => {
-                setCwd(event.target.value);
-                setDirty(true);
+                setDraft(event.target.value);
                 setSaved(false);
               }}
             />
@@ -96,8 +94,7 @@ export default function DirectorySettings({ state, refresh }) {
             initialPath={cwd || state.home}
             cancel={() => setBrowse(false)}
             choose={(path) => {
-              setCwd(path);
-              setDirty(true);
+              setDraft(path);
               setSaved(false);
               setBrowse(false);
             }}
