@@ -195,3 +195,67 @@ test("source checkout exposes server capability boundaries and option changes re
     ),
   ).toHaveLength(0);
 });
+
+test("updates collapse sorted rollback history and show each newer staged version once", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await operationsFixture(page);
+  state.releases.current = "1.10.0";
+  state.releases.releases = [
+    "1.9.0",
+    "1.10.0-rc.2",
+    "1.10.0",
+    "1.11.0",
+    "1.10.0-rc.10",
+    "1.9.0",
+    "1.0.0broken",
+  ].map((version) => ({
+    version,
+    current: version === "1.10.0",
+    canRollback: version !== "1.10.0-rc.2",
+  }));
+  state.releases.staged = [
+    { id: "stale", version: "1.9.0" },
+    { id: "active", version: "1.10.0" },
+    { id: "next", version: "1.11.0" },
+    { id: "duplicate", version: "1.11.0" },
+  ];
+  await page.goto(baseURL + "/settings/updates");
+  await expect(
+    page.getByText("Installierte Version: 1.10.0", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "Vorbereitete Version aktivieren: 1.11.0",
+      exact: true,
+    }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole("button", {
+      name: "Vorbereitete Version aktivieren: 1.9.0",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  const history = page.locator("details").filter({
+    has: page.locator("summary", { hasText: "Frühere Versionen und Rollback" }),
+  });
+  await expect(history).not.toHaveAttribute("open", "");
+  await expect(
+    page.getByRole("button", { name: "Version zurücksetzen", exact: true }),
+  ).toHaveCount(0);
+  await history.locator("summary").click();
+  await expect(history.locator("h3")).toHaveText([
+    "1.10.0-rc.10",
+    "1.10.0-rc.2",
+    "1.9.0",
+    "1.0.0broken",
+  ]);
+  await expect(history.locator("article").nth(1).getByRole("button")).toBeDisabled();
+  await expect(history.locator("article").last().getByRole("button")).toBeDisabled();
+  await history.locator("article").nth(2).getByRole("button").click();
+  await expect(page.getByRole("dialog")).toContainText("1.9.0");
+  expect(
+    state.calls.filter((call) => call.path === "/operations/releases/rollback"),
+  ).toHaveLength(0);
+});

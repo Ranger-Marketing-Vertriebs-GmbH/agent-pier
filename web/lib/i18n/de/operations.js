@@ -93,6 +93,7 @@ export const operationsCopy = {
   checkUpdates: "Nach Updates suchen",
   stageRelease: "Version vorbereiten",
   activateRelease: "Vorbereitete Version aktivieren",
+  releaseHistory: "Frühere Versionen und Rollback",
   rollback: "Version zurücksetzen",
   upToDate: "Die installierte Version ist aktuell.",
   integrity: "Prüfsumme",
