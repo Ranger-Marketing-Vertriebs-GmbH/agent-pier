@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import api from "../../lib/api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { pipelineCopy as copy } from "../../lib/i18n/de/pipelines.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import useResource from "../../lib/useResource.js";
 import ProfileEditor from "./ProfileEditor.jsx";
 import ProfileLaunch from "./ProfileLaunch.jsx";

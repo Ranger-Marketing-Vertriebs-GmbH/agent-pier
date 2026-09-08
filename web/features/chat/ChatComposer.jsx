@@ -1,5 +1,5 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { chatComposerCopy as copy } from "../../lib/i18n/de/chat.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { chatComposerCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { providerNames } from "./presentation.js";
 import React, { useLayoutEffect, useRef } from "react";
 import ChatAttachments from "./ChatAttachments.jsx";

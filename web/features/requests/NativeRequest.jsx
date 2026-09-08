@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
+import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
 import QuestionFields, { questionAnswers } from "./QuestionFields.jsx";
 export default function NativeRequest({ request, updated, openTerminal }) {
   const [drafts, setDrafts] = useState({}),

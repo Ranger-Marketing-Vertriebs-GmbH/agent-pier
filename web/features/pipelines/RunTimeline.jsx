@@ -1,5 +1,5 @@
 import React from "react";
-import { pipelineCopy as copy } from "../../lib/i18n/de/pipelines.js";
+import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import RunEvidence from "./RunEvidence.jsx";
 export function Verdict({ verdict }) {

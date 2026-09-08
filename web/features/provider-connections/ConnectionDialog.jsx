@@ -5,8 +5,8 @@ import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import useResource from "../../lib/useResource.js";
 import api from "../../lib/api.js";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { connectionCopy as copy } from "../../lib/i18n/de/connections.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { connectionCopy as copy } from "../../lib/i18n/messages/connections.js";
 export default function ConnectionDialog({ connection, close, saved }) {
   const [name, setName] = useState(connection?.name || ""),
     [providerId, setProvider] = useState(connection?.providerId || "openrouter"),

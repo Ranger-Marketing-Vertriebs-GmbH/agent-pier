@@ -1,0 +1,22 @@
+export const requestCopy = {
+  title: "Native requests",
+  permission: "Approval required",
+  question: "Answer required",
+  answer: "Send answer",
+  handoff: "Answer in terminal",
+  terminal: "Open terminal",
+  unknown: "Delivery uncertain. Check the terminal.",
+  responding: "Delivering answer …",
+  required: "Please answer every question fully.",
+  other: "Other answer",
+  otherLabel: (prompt) => `Other answer: ${prompt}`,
+  details: "Requested action",
+  cwd: "Working directory",
+  scopes: {
+    turn: "For this turn",
+    once: "Once",
+    session: "This session",
+    persistent: "Permanently",
+  },
+  loading: "Loading native requests …",
+};

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { agencyCopy as copy } from "../../lib/i18n/de/agency.js";
+import { agencyCopy as copy } from "../../lib/i18n/messages/agency.js";
 export default function useAgency({ account, request, setParentBusy }) {
   const endpoint = `/accounts/${encodeURIComponent(account.id)}/agency`;
   const [query, setQuery] = useState(""),

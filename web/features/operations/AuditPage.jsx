@@ -4,7 +4,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import { Pagination } from "../../components/Pagination.jsx";
 import { formatTimestamp } from "../../lib/i18n/index.js";
-import { operationsCopy as copy } from "../../lib/i18n/de/operations.js";
+import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 export default function AuditPage({ route, navigate }) {
   const query = new URLSearchParams({ page: String(route.auditPage || 1) });
   for (const [field, name] of [

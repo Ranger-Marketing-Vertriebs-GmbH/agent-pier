@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import useResource from "../../lib/useResource.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { operationsCopy as copy } from "../../lib/i18n/de/operations.js";
+import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 export default function OperationJob({ id, onComplete, onState }) {
   const resource = useResource(id ? `/operations/jobs/${encodeURIComponent(id)}` : null, {
       poll: 1500,

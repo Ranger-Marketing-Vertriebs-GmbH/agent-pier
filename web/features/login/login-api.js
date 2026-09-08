@@ -1,4 +1,4 @@
-import { loginCopy as copy } from "../../lib/i18n/de/login.js";
+import { loginCopy as copy } from "../../lib/i18n/messages/login.js";
 export async function loginRequest(action, body) {
   const response = await fetch(`/auth/${action}`, {
     method: body === undefined ? "GET" : "POST",

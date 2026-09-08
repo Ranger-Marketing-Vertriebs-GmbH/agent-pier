@@ -1,5 +1,5 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { installedPluginsCopy as copy } from "../../lib/i18n/de/plugins.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { installedPluginsCopy as copy } from "../../lib/i18n/messages/plugins.js";
 import React from "react";
 import { Pagination } from "../../components/Pagination.jsx";
 export default function InstalledPlugins({

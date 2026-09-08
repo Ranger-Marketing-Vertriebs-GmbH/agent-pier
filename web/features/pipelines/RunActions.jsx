@@ -3,7 +3,7 @@ import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import ConfirmAction from "./ConfirmAction.jsx";
-import { pipelineCopy as copy } from "../../lib/i18n/de/pipelines.js";
+import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 export default function RunActions({ run, refresh, removed }) {
   const [feedback, setFeedback] = useState(""),
     [resumeAt, setResumeAt] = useState(""),

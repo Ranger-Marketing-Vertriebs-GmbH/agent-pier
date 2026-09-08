@@ -1,6 +1,6 @@
 import { extensionProfiles } from "../features/extensions/sharedProfiles.js";
-import { sharingCopy } from "../lib/i18n/de/sharing.js";
-import { commonCopy } from "../lib/i18n/de/common.js";
+import { sharingCopy } from "../lib/i18n/messages/sharing.js";
+import { commonCopy } from "../lib/i18n/messages/common.js";
 import React, { useState } from "react";
 export default function ProfilePage({
   accounts = [],

@@ -1,8 +1,8 @@
 import { MAX_FILE } from "./extensionInputs.js";
-import { useProfileExtensionsCopy as validationCopy } from "../../lib/i18n/de/extensions.js";
+import { useProfileExtensionsCopy as validationCopy } from "../../lib/i18n/messages/extensions.js";
 import { useState, useRef } from "react";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { skillInstallFormCopy as copy } from "../../lib/i18n/de/extensions.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { skillInstallFormCopy as copy } from "../../lib/i18n/messages/extensions.js";
 import { fileContent } from "./extensionInputs.js";
 import React from "react";
 export default function SkillInstallForm({

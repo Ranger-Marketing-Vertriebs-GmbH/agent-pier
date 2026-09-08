@@ -1,4 +1,4 @@
-import { apiCopy as copy } from "./i18n/de/components.js";
+import { apiCopy as copy } from "./i18n/messages/components.js";
 export default async function api(path, method = "GET", body, signal) {
   const response = await fetch(`/api${path}`, {
     method,

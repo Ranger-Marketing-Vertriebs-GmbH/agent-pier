@@ -1,4 +1,4 @@
-import { commonCopy } from "../lib/i18n/de/common.js";
+import { commonCopy } from "../lib/i18n/messages/common.js";
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 export default function AnchoredSelect({
   label,

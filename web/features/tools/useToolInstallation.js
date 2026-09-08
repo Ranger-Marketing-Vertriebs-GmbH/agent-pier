@@ -1,4 +1,4 @@
-import { useToolInstallationCopy as copy } from "../../lib/i18n/de/tools.js";
+import { useToolInstallationCopy as copy } from "../../lib/i18n/messages/tools.js";
 import { useEffect, useRef, useState, useCallback } from "react";
 export default function useToolInstallation({ tool, request, refresh }) {
   const [job, setJob] = useState(null),

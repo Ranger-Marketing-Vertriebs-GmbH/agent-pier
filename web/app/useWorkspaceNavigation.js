@@ -1,5 +1,5 @@
 import { extensionProfiles } from "../features/extensions/sharedProfiles.js";
-import { useWorkspaceNavigationCopy as copy } from "../lib/i18n/de/app.js";
+import { useWorkspaceNavigationCopy as copy } from "../lib/i18n/messages/app.js";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { readRoute, routePath, defaultSessionMode } from "./routes.js";
 export default function useWorkspaceNavigation({ state, ready, setMobileNav, setModal }) {

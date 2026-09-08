@@ -1,6 +1,6 @@
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { modelControlCopy as copy } from "../../lib/i18n/de/models.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { modelControlCopy as copy } from "../../lib/i18n/messages/models.js";
 import React from "react";
 import SessionProviderConfiguration from "../providers/SessionProviderConfiguration.jsx";
 import useModelControl from "./useModelControl.js";

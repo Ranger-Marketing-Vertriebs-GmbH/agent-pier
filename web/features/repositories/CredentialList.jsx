@@ -1,5 +1,5 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { credentialListCopy as copy } from "../../lib/i18n/de/repositories.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { credentialListCopy as copy } from "../../lib/i18n/messages/repositories.js";
 import React from "react";
 import { hostHasPort } from "./hosts.js";
 export default function CredentialList({ credentials, cloning, setModal }) {

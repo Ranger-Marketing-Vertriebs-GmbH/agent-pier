@@ -1,13 +1,21 @@
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { toolInstallerCopy as copy } from "../../lib/i18n/de/tools.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { toolInstallerCopy as copy } from "../../lib/i18n/messages/tools.js";
 import React from "react";
 import useToolInstallation from "./useToolInstallation.js";
 const labels = {
-  idle: commonCopy.installationReady,
-  running: commonCopy.installationRunning,
-  succeeded: commonCopy.installationSucceeded,
-  failed: commonCopy.installationFailed,
+  get idle() {
+    return commonCopy.installationReady;
+  },
+  get running() {
+    return commonCopy.installationRunning;
+  },
+  get succeeded() {
+    return commonCopy.installationSucceeded;
+  },
+  get failed() {
+    return commonCopy.installationFailed;
+  },
 };
 export default function ToolInstaller({
   tool,

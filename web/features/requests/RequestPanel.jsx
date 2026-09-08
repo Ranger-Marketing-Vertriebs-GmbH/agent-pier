@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import useResource from "../../lib/useResource.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
+import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
 import NativeRequest from "./NativeRequest.jsx";
 import "./requests.css";
 export default function RequestPanel({ session, active, openTerminal, onStateChange }) {

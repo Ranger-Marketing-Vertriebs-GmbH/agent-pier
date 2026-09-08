@@ -1,5 +1,5 @@
-import { commonCopy } from "../lib/i18n/de/common.js";
-import { appDialogsCopy as copy } from "../lib/i18n/de/app.js";
+import { commonCopy } from "../lib/i18n/messages/common.js";
+import { appDialogsCopy as copy } from "../lib/i18n/messages/app.js";
 import React from "react";
 import api from "../lib/api.js";
 import { names } from "../lib/providers.js";

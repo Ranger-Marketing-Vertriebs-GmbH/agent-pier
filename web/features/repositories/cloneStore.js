@@ -1,4 +1,4 @@
-import { cloneStoreCopy as copy } from "../../lib/i18n/de/repositories.js";
+import { cloneStoreCopy as copy } from "../../lib/i18n/messages/repositories.js";
 import api from "../../lib/api.js";
 // A clone belongs to this browser tab, not the currently mounted page.
 // Retain only its non-secret request and public project metadata.

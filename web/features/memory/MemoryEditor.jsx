@@ -3,8 +3,8 @@ import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { memoryCopy as copy } from "../../lib/i18n/de/memory.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { memoryCopy as copy } from "../../lib/i18n/messages/memory.js";
 
 export default function MemoryEditor({ projectId, entry, close, saved }) {
   const [title, setTitle] = useState(entry?.title || "");

@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from "react";
 import DirectorySettings from "./DirectorySettings.jsx";
-import { operationsCopy as copy } from "../../lib/i18n/de/operations.js";
+import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import "../operations/operations.css";
 const McpSettings = lazy(() => import("../mcp/McpSettings.jsx"));
 const OperationsPage = lazy(() => import("../operations/OperationsPage.jsx"));

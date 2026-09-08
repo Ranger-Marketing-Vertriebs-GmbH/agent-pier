@@ -1,10 +1,12 @@
+import useLanguage from "../../lib/i18n/useLanguage.js";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { LoginContext } from "./LoginContext.js";
 import { loginRequest, announceLoginChange } from "./login-api.js";
 import LoginPage from "./LoginPage.jsx";
-import { loginCopy as copy } from "../../lib/i18n/de/login.js";
+import { loginCopy as copy } from "../../lib/i18n/messages/login.js";
 import "./login.css";
 export default function LoginGate({ children }) {
+  useLanguage();
   const generation = useRef(0);
   const invalidate = useCallback(() => ++generation.current, []);
   const [status, setStatus] = useState(null);

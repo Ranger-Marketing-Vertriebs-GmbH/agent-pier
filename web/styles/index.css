@@ -23,3 +23,21 @@
 @import "../features/providers/providers.css";
 @import "../features/chat/observability.css";
 @import "../features/chat/mobile-chat.css";
+
+.language-select,
+.login-card .language-select {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.language-select select {
+  width: auto;
+  min-width: 8rem;
+}
+
+.login-card .language-select {
+  align-self: flex-end;
+  margin-bottom: 0;
+}

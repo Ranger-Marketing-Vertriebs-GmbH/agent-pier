@@ -1,8 +1,8 @@
 import useLaunchAccess from "./useLaunchAccess.js";
 import LaunchAccessFields from "./LaunchAccessFields.jsx";
-import { connectionCopy } from "../../lib/i18n/de/connections.js";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { launchDialogCopy as copy } from "../../lib/i18n/de/sessions.js";
+import { connectionCopy } from "../../lib/i18n/messages/connections.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { launchDialogCopy as copy } from "../../lib/i18n/messages/sessions.js";
 import React, { useState } from "react";
 import api from "../../lib/api.js";
 import { names } from "../../lib/providers.js";

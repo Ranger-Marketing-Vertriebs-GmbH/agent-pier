@@ -1,8 +1,8 @@
 import LogoutButton from "../features/login/LogoutButton.jsx";
-import { pipelineCopy } from "../lib/i18n/de/pipelines.js";
-import { memoryCopy } from "../lib/i18n/de/memory.js";
-import { commonCopy } from "../lib/i18n/de/common.js";
-import { sidebarCopy as copy } from "../lib/i18n/de/app.js";
+import { pipelineCopy } from "../lib/i18n/messages/pipelines.js";
+import { memoryCopy } from "../lib/i18n/messages/memory.js";
+import { commonCopy } from "../lib/i18n/messages/common.js";
+import { sidebarCopy as copy } from "../lib/i18n/messages/app.js";
 import React from "react";
 import Icon from "../components/Icon.jsx";
 import ProviderMark from "../components/ProviderMark.jsx";

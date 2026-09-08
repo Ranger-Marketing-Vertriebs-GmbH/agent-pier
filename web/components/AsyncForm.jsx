@@ -1,4 +1,4 @@
-import { commonCopy } from "../lib/i18n/de/common.js";
+import { commonCopy } from "../lib/i18n/messages/common.js";
 import useAsyncAction from "../lib/useAsyncAction.js";
 import React from "react";
 import ErrorMessage from "./ErrorMessage.jsx";

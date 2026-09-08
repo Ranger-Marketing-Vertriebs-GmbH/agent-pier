@@ -1,12 +1,11 @@
 import React from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { pipelineCopy as copy } from "../../lib/i18n/de/pipelines.js";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { locale } from "../../lib/i18n/index.js";
+import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { formatNumber } from "../../lib/i18n/index.js";
 import useResource from "../../lib/useResource.js";
 import RunTimeline from "./RunTimeline.jsx";
 import RunActions from "./RunActions.jsx";
-const format = new Intl.NumberFormat(locale);
 export default function RunDetail({ id, navigate }) {
   const resource = useResource(`/pipeline-runs/${encodeURIComponent(id)}`, {
     poll: 5000,
@@ -44,7 +43,7 @@ export default function RunDetail({ id, navigate }) {
               ].map(([key, label]) =>
                 Number.isFinite(run.usage[key]) ? (
                   <span key={key}>
-                    {label}: {format.format(run.usage[key])}{" "}
+                    {label}: {formatNumber(run.usage[key])}{" "}
                   </span>
                 ) : null,
               )}

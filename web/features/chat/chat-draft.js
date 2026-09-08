@@ -1,4 +1,4 @@
-import { chatDeliveryCopy as copy } from "../../lib/i18n/de/chat.js";
+import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 
 export const deliveryScope = (session) =>
   JSON.stringify([

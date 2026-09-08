@@ -1,5 +1,5 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { chatMessageCopy as copy } from "../../lib/i18n/de/chat.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { chatMessageCopy as copy } from "../../lib/i18n/messages/chat.js";
 import React from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";

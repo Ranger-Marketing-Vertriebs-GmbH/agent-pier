@@ -1,5 +1,5 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { repositoryPickerCopy as copy } from "../../lib/i18n/de/repositories.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { repositoryPickerCopy as copy } from "../../lib/i18n/messages/repositories.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import React from "react";
 import SearchSelect from "../../components/SearchSelect.jsx";

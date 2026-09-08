@@ -1,6 +1,6 @@
 import React from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { notificationCopy as copy } from "../../lib/i18n/de/notifications.js";
+import { notificationCopy as copy } from "../../lib/i18n/messages/notifications.js";
 import useNotifications from "./useNotifications.js";
 import InstallCard from "./InstallCard.jsx";
 export default function NotificationsPage() {

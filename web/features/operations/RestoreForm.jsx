@@ -5,7 +5,7 @@ import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import ConfirmOperation from "./ConfirmOperation.jsx";
-import { operationsCopy as copy } from "../../lib/i18n/de/operations.js";
+import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 async function uploadArchive(file) {
   const response = await fetch("/api/operations/restore/upload", {
     method: "POST",

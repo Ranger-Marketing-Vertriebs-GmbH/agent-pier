@@ -1,5 +1,6 @@
+import LanguageSelect from "../../components/LanguageSelect.jsx";
 import React, { useState } from "react";
-import { loginCopy as copy } from "../../lib/i18n/de/login.js";
+import { loginCopy as copy } from "../../lib/i18n/messages/login.js";
 import { loginRequest, announceLoginChange } from "./login-api.js";
 export default function LoginPage({ status, onLogin, refresh }) {
   const [username, setUsername] = useState("");
@@ -33,6 +34,7 @@ export default function LoginPage({ status, onLogin, refresh }) {
   return (
     <main className="login-page">
       <form className="login-card" onSubmit={submit}>
+        <LanguageSelect />
         <p className="login-brand">
           AgentPier<span>.</span>
         </p>

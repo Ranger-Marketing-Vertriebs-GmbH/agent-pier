@@ -5,7 +5,7 @@ import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import OperationJob from "./OperationJob.jsx";
 import ConfirmOperation from "./ConfirmOperation.jsx";
-import { operationsCopy as copy } from "../../lib/i18n/de/operations.js";
+import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 export default function UpdatesPage({ route, navigate }) {
   const resource = useResource("/operations/releases"),
     action = useAsyncAction(),

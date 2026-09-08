@@ -1,5 +1,5 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { dashboardPageCopy as copy } from "../../lib/i18n/de/dashboard.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { dashboardPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
 import React from "react";
 import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";

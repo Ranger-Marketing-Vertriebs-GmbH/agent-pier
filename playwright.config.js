@@ -13,6 +13,7 @@ export default defineConfig({
   timeout: 30000,
   use: {
     baseURL,
+    locale: "de-DE",
     ...(!externalUrl
       ? { storageState: `.cache/browser-auth-${new URL(baseURL).port}.json` }
       : process.env.TUIUI_TEST_STORAGE_STATE

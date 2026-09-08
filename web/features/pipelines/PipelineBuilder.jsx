@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { pipelineCopy as copy } from "../../lib/i18n/de/pipelines.js";
-import { commonCopy } from "../../lib/i18n/de/common.js";
+import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 import StageCards from "./StageCards.jsx";
 import { graphToStages, stagesToGraph, stageError } from "./graph-editor.js";
 export default function PipelineBuilder({ pipeline, profiles, saved, cancel }) {

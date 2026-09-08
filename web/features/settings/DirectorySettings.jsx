@@ -1,5 +1,6 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { settingsPageCopy as copy } from "../../lib/i18n/de/settings.js";
+import LanguageSelect from "../../components/LanguageSelect.jsx";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { settingsPageCopy as copy } from "../../lib/i18n/messages/settings.js";
 import React, { useEffect, useState } from "react";
 import api from "../../lib/api.js";
 import Icon from "../../components/Icon.jsx";
@@ -27,6 +28,7 @@ export default function DirectorySettings({ state, refresh }) {
           <p>{copy.pageHeadingDescription}</p>
         </div>
       </header>
+      <LanguageSelect />
       <form
         className="settings-form"
         onSubmit={async (event) => {
