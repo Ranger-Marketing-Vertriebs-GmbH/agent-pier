@@ -165,3 +165,22 @@ test("declared credential files are denied at every depth while ordinary reports
     "fixture content",
   );
 });
+
+test("polling queued behind a completing gate cannot reopen a terminal run", async (t) => {
+  for (const action of ["accept", "abort"]) {
+    const f = fixture(t, { gate: true });
+    const r = await f.engine.start({
+      pipelineId: "definition",
+      cwd: f.dir,
+      task: "Task",
+    });
+    await f.end();
+    const gate = f.engine.gate(r.id, { action });
+    const poll = f.engine.reconcile();
+    await gate;
+    const completed = f.engine.get(r.id);
+    assert.equal(completed.status, action === "accept" ? "completed" : "cancelled");
+    await poll;
+    assert.deepEqual(f.engine.get(r.id), completed);
+  }
+});
