@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import api from "../../lib/api.js";
 import useResource from "../../lib/useResource.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
-import { notificationCopy as copy } from "../../lib/i18n/de/notifications.js";
+import { notificationCopy as copy } from "../../lib/i18n/messages/notifications.js";
 import { getWorkerRegistration } from "./register-worker.js";
 function deviceIdentity() {
   const key = "agentpier.notification-device";

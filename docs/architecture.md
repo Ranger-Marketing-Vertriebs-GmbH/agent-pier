@@ -59,6 +59,8 @@ An owned worktree isolates each run from its source checkout. Cancellation prese
 
 The configured data directory is private to the host user. Temporary application fixtures use their own home, data directory and tmux socket. Same-origin request checks protect browser mutations; untrusted archive, path and configuration inputs pass explicit feature boundaries. Profile separation is configuration isolation, not an operating-system sandbox: native CLIs still run with the host user's file permissions.
 
+Codex is the exception: it runs inside its own sandbox and defaults to `read-only`, which silently discards additional writable roots. A session that grants the per-session chat attachment directory through `--add-dir` therefore also pins `sandbox_mode="workspace-write"`, so the grant is real rather than merely requested. The YOLO launch mode already runs without a sandbox and is left as the operator chose it.
+
 External top-level navigation is allowed only for known HTML routes with `GET`, navigation mode and document destination. WebKit's tested click navigation omitted `Sec-Fetch-User`, so that optional activation signal is not a prerequisite for opening the application. Cross-site API/subresource/frame access and mutations retain their checks. See the [Fetch Metadata specification](https://www.w3.org/TR/fetch-metadata/); the browser suite verifies the observed behavior in Chromium and WebKit.
 
 Reuse shared path/configuration and shell/TOML serializers rather than adding ad hoc quoting or prefix checks. Never put credentials into process arguments, URLs, public metadata or logs. Preserve structured native configuration when adding temporary integrations.
@@ -66,3 +68,7 @@ Reuse shared path/configuration and shell/TOML serializers rather than adding ad
 ## Verification
 
 `npm run check` combines lint, formatting, file size, backend strategies and production build. Browser tests run against an isolated application by default. Property failures record reproducible seeds and shrink their examples. Platform and browser CI matrices are defined in `.github/workflows/verify.yml`; a configured matrix is not evidence that an unexecuted platform passed. See [testing](testing.md) for commands, fixture ownership and the limits of native compatibility checks.
+
+### Session SSH accesses
+
+Managed server accesses, reusable named keys and identity-bound session assignments live under `server/features/ssh/`. Hosts reference the key catalog by ID; renaming a key preserves its assignments, and referenced keys cannot be deleted. Legacy accesses are migrated lazily, deduplicating canonical public keys while preserving host IDs and original private files. Authenticated HTTP CRUD returns public metadata only. The `server/ssh.mjs` helper rereads assignments and persisted session identity on every invocation, then starts OpenSSH with the selected key and pinned host key. This permits assignment to an already running CLI without environment mutation or TUI input injection. The assignment is convenience scoping under one OS user, not a sandbox. See [SSH accesses](ssh-access.md) for lifecycle, key storage and backup limitations.

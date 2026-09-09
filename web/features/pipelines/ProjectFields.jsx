@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import api from "../../lib/api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import useAsyncAction from "../../lib/useAsyncAction.js";
-import { pipelineCopy as copy } from "../../lib/i18n/de/pipelines.js";
+import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 export default function ProjectFields({
   resource,
   value,

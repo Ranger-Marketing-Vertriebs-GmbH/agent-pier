@@ -1,5 +1,5 @@
 import { names } from "../../lib/providers.js";
-import { memoryCopy as copy } from "../../lib/i18n/de/memory.js";
+import { memoryCopy as copy } from "../../lib/i18n/messages/memory.js";
 
 export function memoryPageCount(data) {
   return Math.max(1, Math.ceil(data.total / data.pageSize));

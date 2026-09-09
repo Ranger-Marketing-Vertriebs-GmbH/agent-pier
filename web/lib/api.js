@@ -1,4 +1,4 @@
-import { apiCopy as copy } from "./i18n/de/components.js";
+import { apiCopy as copy } from "./i18n/messages/components.js";
 export default async function api(path, method = "GET", body, signal) {
   const response = await fetch(`/api${path}`, {
     method,
@@ -13,6 +13,10 @@ export default async function api(path, method = "GET", body, signal) {
   if (response.status === 401)
     window.dispatchEvent(new Event("agentpier-login-required"));
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || copy.requestFailed(response.status));
+  if (!response.ok) {
+    const error = new Error(data.error || copy.requestFailed(response.status));
+    error.status = response.status;
+    throw error;
+  }
   return data;
 }

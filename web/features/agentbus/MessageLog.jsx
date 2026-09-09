@@ -1,7 +1,7 @@
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { formatTimestamp } from "../../lib/i18n/index.js";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { messageLogCopy as copy } from "../../lib/i18n/de/agentbus.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { messageLogCopy as copy } from "../../lib/i18n/messages/agentbus.js";
 import React from "react";
 import { Pagination } from "../../components/Pagination.jsx";
 import useAgentBusMessages from "./useAgentBusMessages.js";

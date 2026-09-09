@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   ChatDraft,
   deliveryScope,
+  deliveryNotices,
   visibleDeliveries,
 } from "../../web/features/chat/chat-draft.js";
 
@@ -33,6 +34,25 @@ function storage() {
 }
 const session = { id: "one", accountId: "account", tool: "claude", createdAt: "today" };
 const scope = deliveryScope(session);
+
+test("background reload preserves unsaved draft warning until a durable write", async () => {
+  const disk = storage();
+  const draft = new ChatDraft(disk, scope, lock);
+  const write = disk.setItem;
+  disk.setItem = () => {
+    throw Error("quota");
+  };
+  await draft.change({ text: "not durable yet" });
+  assert.ok(draft.getSnapshot().storageError);
+  draft.reload();
+  assert.equal(draft.getSnapshot().text, "not durable yet");
+  assert.ok(draft.getSnapshot().storageError);
+  assert.equal(await draft.enqueue("blocked", []), null);
+  disk.setItem = write;
+  await draft.change({ text: "saved now" });
+  assert.equal(draft.getSnapshot().storageError, "");
+  assert.equal(new ChatDraft(disk, scope, lock).getSnapshot().text, "saved now");
+});
 
 test("draft restores text and completed uploads without persisting image payloads", async () => {
   const disk = storage();
@@ -76,6 +96,7 @@ test("outbox survives reload with the exact same identity and blocks mutation", 
   assert.equal(accepted.outbox, null);
   assert.equal(accepted.text, "");
   assert.equal(accepted.recent[0].text, "send me");
+  assert.ok(Number.isFinite(Date.parse(accepted.recent[0].clientCreatedAt)));
 });
 
 test("failed persistence cannot produce a sendable outbox; corrupt records stay intact", async () => {
@@ -279,4 +300,120 @@ test("a failed text write does not claim ownership of attachments added by anoth
   );
   const outbox = await typing.enqueue("with-upload", []);
   assert.equal(outbox.text, "unsaved text\n/uploaded");
+});
+
+test("matched delivery cards stay hidden after native history eviction and reload", async () => {
+  const disk = storage();
+  const draft = new ChatDraft(disk, scope, lock);
+  await draft.change({ text: "older prompt" });
+  await draft.enqueue("older", []);
+  await draft.receipt({ deliveryId: "older", status: "handed-off" });
+  const rows = [{ id: "native-old", role: "user", text: "older prompt" }];
+  assert.deepEqual(visibleDeliveries(draft.getSnapshot().recent, rows), []);
+  await draft.observeMessages(rows);
+  const restored = new ChatDraft(disk, scope, lock);
+  assert.deepEqual(visibleDeliveries(restored.getSnapshot().recent, []), []);
+  assert.equal(restored.getSnapshot().recent[0].status, "handed-off");
+  assert.equal(restored.getSnapshot().recent[0].text, "older prompt");
+
+  await restored.change({ text: "older prompt" });
+  await restored.enqueue("newer", []);
+  await restored.receipt({ deliveryId: "newer", status: "handed-off" });
+  await restored.observeMessages(rows);
+  assert.deepEqual(
+    visibleDeliveries(restored.getSnapshot().recent, rows).map((item) => item.id),
+    ["newer"],
+  );
+  await restored.observeMessages([
+    ...rows,
+    { id: "native-new", role: "user", text: "older prompt" },
+  ]);
+  assert.deepEqual(visibleDeliveries(restored.getSnapshot().recent, []), []);
+  assert.equal(restored.getSnapshot().recent[1].matchedMessageId, "native-new");
+  await restored.change({ text: "uncertain prompt" });
+  await restored.enqueue("uncertain", []);
+  await restored.receipt({ deliveryId: "uncertain", status: "uncertain" });
+  await restored.observeMessages([
+    { id: "native-uncertain", role: "user", text: "uncertain prompt" },
+  ]);
+  assert.equal(restored.getSnapshot().outbox.status, "uncertain");
+  assert.equal(restored.getSnapshot().outbox.matchedMessageId, undefined);
+});
+
+test("saved handed-off notices are grouped separately from current delivery without inferring age or acknowledgement", () => {
+  const old = { id: "old", status: "handed-off", text: "old prompt", baselineIds: [] };
+  const ambiguous = {
+    id: "ambiguous",
+    status: "uncertain",
+    text: "review",
+    baselineIds: [],
+  };
+  const pending = {
+    id: "pending",
+    status: "uncertain",
+    text: "new prompt",
+    baselineIds: [],
+  };
+  const matched = {
+    id: "matched",
+    status: "handed-off",
+    text: "seen",
+    baselineIds: [],
+    matchedMessageId: "native",
+  };
+  const fresh = {
+    ...old,
+    id: "fresh-handoff",
+    clientCreatedAt: "2026-09-09T05:00:00.000Z",
+  };
+  const delivery = { recent: [old, ambiguous, matched, fresh], outbox: pending };
+  const messages = [{ id: "fresh", role: "assistant", text: "fresh response" }];
+  const before = JSON.stringify(delivery);
+  assert.deepEqual(deliveryNotices(delivery, messages, "earlier"), [old]);
+  assert.deepEqual(deliveryNotices(delivery, messages), [ambiguous, fresh, pending]);
+  assert.equal(JSON.stringify(delivery), before);
+});
+
+test("observing delivery history preserves unsaved typing and its warning", async () => {
+  const disk = storage();
+  const draft = new ChatDraft(disk, scope, lock);
+  await draft.change({ text: "older prompt" });
+  await draft.enqueue("older", []);
+  await draft.receipt({ deliveryId: "older", status: "handed-off" });
+  const write = disk.setItem;
+  disk.setItem = () => {
+    throw Error("quota");
+  };
+  await draft.change({ text: "unsaved draft" });
+  assert.equal(draft.getSnapshot().text, "unsaved draft");
+  assert.ok(draft.getSnapshot().storageError);
+  disk.setItem = write;
+  await draft.observeMessages([{ id: "native", role: "user", text: "older prompt" }]);
+  assert.equal(draft.getSnapshot().text, "unsaved draft");
+  assert.ok(draft.getSnapshot().storageError);
+  assert.equal(draft.getSnapshot().recent[0].matchedMessageId, "native");
+  draft.reload();
+  assert.equal(draft.getSnapshot().text, "unsaved draft");
+  assert.ok(draft.getSnapshot().storageError);
+  await draft.change({ text: "saved now" });
+  assert.equal(draft.getSnapshot().storageError, "");
+  assert.equal(new ChatDraft(disk, scope, lock).getSnapshot().text, "saved now");
+});
+
+test("dismissing a saved notice preserves unsaved typing and its warning", async () => {
+  const disk = storage();
+  const draft = new ChatDraft(disk, scope, lock);
+  await draft.change({ text: "older prompt" });
+  await draft.enqueue("older", []);
+  await draft.receipt({ deliveryId: "older", status: "handed-off" });
+  const write = disk.setItem;
+  disk.setItem = () => {
+    throw Error("quota");
+  };
+  await draft.change({ text: "unsaved draft" });
+  disk.setItem = write;
+  await draft.dismiss("older");
+  assert.equal(draft.getSnapshot().text, "unsaved draft");
+  assert.ok(draft.getSnapshot().storageError);
+  assert.deepEqual(draft.getSnapshot().recent, []);
 });

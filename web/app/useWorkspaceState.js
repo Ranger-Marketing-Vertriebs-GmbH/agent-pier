@@ -1,4 +1,4 @@
-import { useWorkspaceStateCopy as copy } from "../lib/i18n/de/app.js";
+import { useWorkspaceStateCopy as copy } from "../lib/i18n/messages/app.js";
 import { useState, useCallback, useEffect } from "react";
 import api from "../lib/api.js";
 import { startVisiblePolling } from "../lib/visible-polling.js";

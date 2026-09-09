@@ -75,7 +75,7 @@ npm run build
 node scripts/release-package.mjs /absolute/output/agentpier-darwin-arm64.aprelease
 ```
 
-For a configured channel, set `AGENTPIER_INSTALL_ROOT`, `AGENTPIER_DATA_DIR` and `AGENTPIER_RELEASE_CHANNEL` before service installation. A GitHub channel can use the repository's `/releases/latest/download/` URL. Checks and staging happen only on explicit request.
+Versioned installations use the [official GitHub releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases) by default. Set `AGENTPIER_INSTALL_ROOT` and `AGENTPIER_DATA_DIR` before service installation; `AGENTPIER_RELEASE_CHANNEL` optionally overrides the default HTTPS channel. Checks and staging happen only on explicit request. Downloads use the reviewed release's version tag and checksum. Older versions are not offered as updates; use the separate rollback action to return to a compatible installed version.
 
 ```sh
 node scripts/operations.mjs doctor --deep

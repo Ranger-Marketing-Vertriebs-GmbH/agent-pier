@@ -31,19 +31,24 @@ export async function runCodexLaunch(file, { env = process.env } = {}) {
   const backend = spawn(process.execPath, [keeper], {
     cwd: launch.cwd,
     env,
-    stdio: ["pipe", "pipe", "inherit", "ipc"],
+    stdio: ["pipe", "pipe", "pipe", "ipc"],
     detached: process.platform !== "win32",
   });
   const backendClosed = new Promise((resolve) => backend.once("close", resolve));
+  // Keeper diagnostics must not write over the independently rendered native TUI.
+  backend.stderr.resume();
   backend.stdin.on("error", () => {});
   backend.send(
     { command: launch.command, args: appServerArgs(launch.args), cwd: launch.cwd },
     () => {},
   );
   let terminal,
-    backendExited = false;
+    backendExited = false,
+    backendFailed = false,
+    ending = false;
   backend.on("message", (message) => {
     if (message.type !== "backend-exit") return;
+    if (!ending && message.code !== 0) backendFailed = true;
     backendExited = true;
     terminal?.kill("SIGTERM");
   });
@@ -76,7 +81,6 @@ export async function runCodexLaunch(file, { env = process.env } = {}) {
       stdio: "inherit",
     },
   );
-  let ending = false;
   const stop = (signal) => {
     if (ending) return;
     ending = true;
@@ -90,7 +94,10 @@ export async function runCodexLaunch(file, { env = process.env } = {}) {
   process.on("SIGTERM", stop);
   process.on("SIGHUP", stop);
   backend.on("close", () => {
-    if (!ending) terminal.kill("SIGTERM");
+    if (!ending) {
+      backendFailed = true;
+      terminal.kill("SIGTERM");
+    }
   });
   const code = await new Promise((resolve) => {
     terminal.once("error", () => resolve(127));
@@ -106,7 +113,9 @@ export async function runCodexLaunch(file, { env = process.env } = {}) {
   process.removeListener("SIGQUIT", ignore);
   process.removeListener("SIGTERM", stop);
   process.removeListener("SIGHUP", stop);
-  return code;
+  if (backendFailed)
+    process.stderr.write("The native Codex request backend stopped unexpectedly.\n");
+  return backendFailed && code === 0 ? 1 : code;
 }
 if (isMainModule(import.meta.url)) {
   try {

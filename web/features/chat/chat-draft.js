@@ -1,4 +1,4 @@
-import { chatDeliveryCopy as copy } from "../../lib/i18n/de/chat.js";
+import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 
 export const deliveryScope = (session) =>
   JSON.stringify([
@@ -22,9 +22,15 @@ const normalized = (text) => text.replaceAll("\r\n", "\n").trim();
 
 // Matching is presentation-only: native text is NOT an acknowledgement of delivery.
 // Consume rows once so two identical outgoing messages cannot both match one row.
-export function visibleDeliveries(items, messages) {
-  const used = new Set();
-  return items.filter((item) => {
+function deliveryMatches(items, messages) {
+  const matches = new Map(
+    items
+      .filter((item) => item.matchedMessageId)
+      .map((item) => [item.id, item.matchedMessageId]),
+  );
+  const used = new Set(matches.values());
+  for (const item of items) {
+    if (matches.has(item.id)) continue;
     const match = messages.find(
       (message) =>
         message.role === "user" &&
@@ -32,9 +38,30 @@ export function visibleDeliveries(items, messages) {
         !item.baselineIds.includes(message.id) &&
         normalized(message.text || "") === normalized(item.text),
     );
-    if (!match) return true;
-    used.add(match.id);
-    return false;
+    if (match) {
+      used.add(match.id);
+      matches.set(item.id, match.id);
+    }
+  }
+  return matches;
+}
+
+export function visibleDeliveries(items, messages) {
+  const matches = deliveryMatches(items, messages);
+  return items.filter((item) => !matches.has(item.id));
+}
+
+// Saved handoff notices have no trustworthy legacy timestamps. Group them by
+// their recorded status, without placing them in the native conversation timeline.
+export function deliveryNotices(delivery, messages, position = "current") {
+  const items = [...delivery.recent, ...(delivery.outbox ? [delivery.outbox] : [])];
+  const visible = new Set(visibleDeliveries(items, messages).map((item) => item.id));
+  return items.filter((item) => {
+    const current = item.id === delivery.outbox?.id;
+    if (!visible.has(item.id) && !current) return false;
+    const saved =
+      !current && item.status === "handed-off" && item.clientCreatedAt === undefined;
+    return position === "earlier" ? saved : !saved;
   });
 }
 
@@ -59,7 +86,8 @@ function validate(value, scope) {
       typeof item.text !== "string" ||
       item.text.length > 32000 ||
       item.scope !== scope ||
-      !Array.isArray(item.baselineIds)
+      !Array.isArray(item.baselineIds) ||
+      (item.matchedMessageId !== undefined && typeof item.matchedMessageId !== "string")
     )
       throw Error("Invalid outbox");
   }
@@ -153,7 +181,12 @@ export class ChatDraft {
   }
   adopt(saved) {
     if (saved.outbox) this.unsaved = {};
-    this.publish({ ...saved, ...this.unsaved });
+    this.publish({
+      ...saved,
+      ...this.unsaved,
+      // Reading successfully does not make this tab's failed edits durable.
+      storageError: Object.keys(this.unsaved).length ? copy.storageFailed : "",
+    });
   }
   reload = () => {
     try {
@@ -185,7 +218,7 @@ export class ChatDraft {
       return null;
     }
   }
-  write(next) {
+  write(next, { preserveDraft = false } = {}) {
     if (this.corrupt) return false;
     try {
       this.storage.setItem(
@@ -197,7 +230,8 @@ export class ChatDraft {
           storageError: "",
         }),
       );
-      this.publish({ ...next, storageError: "" });
+      if (preserveDraft) this.adopt(next);
+      else this.publish({ ...next, storageError: "" });
       this.pruneJournals(next);
       return true;
     } catch {
@@ -280,6 +314,7 @@ export class ChatDraft {
       if (!body.trim() || body.length > 32000) return null;
       const outbox = {
         id,
+        clientCreatedAt: new Date().toISOString(),
         text: body,
         displayText: [text, ...attachments.map((a) => `📎 ${a.name}`)]
           .filter(Boolean)
@@ -319,6 +354,26 @@ export class ChatDraft {
       }
     });
   }
+  observeMessages(messages) {
+    return this.mutate((saved) => {
+      const matches = deliveryMatches(saved.recent, messages);
+      if (!saved.recent.some((item) => !item.matchedMessageId && matches.has(item.id)))
+        return;
+      // Retain the receipt and its delivery status. This records presentation
+      // evidence only, so old cards cannot reappear when native rows are evicted.
+      this.write(
+        {
+          ...saved,
+          recent: saved.recent.map((item) =>
+            matches.has(item.id)
+              ? { ...item, matchedMessageId: matches.get(item.id) }
+              : item,
+          ),
+        },
+        { preserveDraft: true },
+      );
+    });
+  }
   restore(id) {
     return this.mutate((saved) => {
       if (
@@ -331,10 +386,10 @@ export class ChatDraft {
   }
   dismiss(id) {
     return this.mutate((saved) => {
-      this.write({
-        ...saved,
-        recent: saved.recent.filter((item) => item.id !== id),
-      });
+      this.write(
+        { ...saved, recent: saved.recent.filter((item) => item.id !== id) },
+        { preserveDraft: true },
+      );
     });
   }
 }

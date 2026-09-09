@@ -1,11 +1,12 @@
+import useFileDrop from "../../components/useFileDrop.js";
 import ChatDeliveryStatus from "./ChatDeliveryStatus.jsx";
 import RequestPanel from "../requests/RequestPanel.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { commonCopy } from "../../lib/i18n/de/common.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 import {
   chatViewCopy as copy,
   chatAttachmentsCopy as attachmentsCopy,
-} from "../../lib/i18n/de/chat.js";
+} from "../../lib/i18n/messages/chat.js";
 import { providerNames } from "./presentation.js";
 import React, { useState } from "react";
 import ModelControl from "../models/ModelControl.jsx";
@@ -21,6 +22,7 @@ export default function ChatView({
   request,
   onConnection,
   openTerminal,
+  openFile,
 }) {
   const {
     data,
@@ -64,10 +66,21 @@ export default function ChatView({
     session.tool !== "shell" &&
     !session.pipeline?.headless,
   );
-  const [dropping, setDropping] = useState(false);
   const [requestState, setRequestState] = useState(null);
   const requestPending =
     requestsAvailable && (requestState?.sessionId !== session.id || requestState.blocked);
+  const drop = useFileDrop({
+    enabled:
+      active &&
+      attachments.supported &&
+      !attachments.loading &&
+      !requestPending &&
+      !busy &&
+      !modelPending &&
+      !attachments.uploading &&
+      !delivery.locked,
+    onFiles: attachments.add,
+  });
   const guardedSubmit = (event) => {
     if (requestPending) {
       event.preventDefault();
@@ -89,42 +102,7 @@ export default function ChatView({
       <section
         className="chat-main"
         aria-label={copy.chatMainAriaLabel}
-        onDragOver={(event) => {
-          // Keep a file drop from navigating away, even while uploads are blocked.
-          if (!event.dataTransfer.types.includes("Files")) return;
-          event.preventDefault();
-          if (
-            !attachments.supported ||
-            requestPending ||
-            busy ||
-            modelPending ||
-            attachments.uploading
-          )
-            return;
-          setDropping(true);
-        }}
-        onDragLeave={(event) => {
-          // dragleave bubbles from every descendant boundary crossed while
-          // dragging across the panel; only disarm once the pointer actually
-          // leaves .chat-main, or the overlay flickers on each child edge.
-          if (event.currentTarget.contains(event.relatedTarget)) return;
-          setDropping(false);
-        }}
-        onDrop={(event) => {
-          if (!event.dataTransfer.files.length) return;
-          event.preventDefault();
-          setDropping(false);
-          if (
-            !attachments.supported ||
-            requestPending ||
-            busy ||
-            modelPending ||
-            attachments.uploading
-          )
-            return;
-          attachments.add(event.dataTransfer.files);
-        }}
-        data-dropping={dropping || undefined}
+        {...drop}
         data-drop-hint={attachmentsCopy.dropHint}
       >
         <div className="chat-context">
@@ -186,15 +164,31 @@ export default function ChatView({
             />
           )}
           {data?.notice && <p className="chat-notice">{data.notice}</p>}
+          <ChatDeliveryStatus
+            position="earlier"
+            openFile={openFile}
+            delivery={delivery}
+            messages={data?.messages || []}
+            session={session}
+            blocked={
+              requestPending ||
+              modelPending ||
+              session.status !== "running" ||
+              session.pipeline?.headless
+            }
+          />
           {data?.messages?.map((message) => (
             <Message
               key={message.id}
               message={message}
               tool={session.tool}
               sessionId={session.id}
+              cwd={session.cwd}
+              openFile={openFile}
             />
           ))}
           <ChatDeliveryStatus
+            openFile={openFile}
             delivery={delivery}
             messages={data?.messages || []}
             session={session}

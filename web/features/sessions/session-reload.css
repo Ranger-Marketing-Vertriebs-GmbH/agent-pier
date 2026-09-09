@@ -1,0 +1,31 @@
+.session-reload-dialog {
+  display: grid;
+  gap: 16px;
+  padding: 0 25px 25px;
+}
+.session-reload-dialog p {
+  margin: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.session-reload-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.session-reload-acknowledgement {
+  display: flex;
+  flex-direction: row;
+  line-height: 1.5;
+  gap: 10px;
+  align-items: flex-start;
+}
+.session-reload-acknowledgement input {
+  width: auto;
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+.session-reload-notice {
+  display: flex;
+  padding: 8px 16px;
+}

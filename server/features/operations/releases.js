@@ -11,9 +11,13 @@ import {
   smokeRelease,
   RELEASE_LIMIT,
 } from "./release-archive.js";
-import { applicationVersion } from "./version.js";
+import { applicationVersion, compareReleaseVersions } from "./version.js";
+import { releaseCopy } from "../../lib/i18n/de/releases.js";
 import { problem } from "../../lib/storage.js";
 import { requireDataCompatibility } from "./release-schema.js";
+
+const officialChannel =
+  "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/latest/download/";
 
 export async function download(url, fetchImpl, limit) {
   let response;
@@ -31,7 +35,8 @@ export async function download(url, fetchImpl, limit) {
     url = new URL(response.headers.get("location"), target).href;
     await response.body?.cancel();
   }
-  if (!response.ok) throw problem("Release download failed.", 502);
+  if (!response.ok)
+    throw problem("Release download failed.", response.status === 404 ? 404 : 502);
   if (Number(response.headers.get("content-length")) > limit)
     throw problem("Release download exceeds its limit.", 413);
   const chunks = [];
@@ -56,7 +61,7 @@ export class Releases {
   }) {
     this.dataDir = fs.realpathSync(dataDir);
     this.installRoot = installRoot ? path.resolve(installRoot) : null;
-    this.channel = channel || null;
+    this.channel = channel || officialChannel;
     this.fetchImpl = fetchImpl;
     this.smoke = smoke;
     this.port = port;
@@ -129,6 +134,7 @@ export class Releases {
         await download(new URL("latest.json", base).href, this.fetchImpl, 1024 * 1024),
       );
     } catch (error) {
+      if (error.status === 404) throw problem(releaseCopy.notPublished, 404);
       if (error.status) throw error;
       throw problem("Release channel manifest is invalid.");
     }
@@ -146,7 +152,7 @@ export class Releases {
     const plan = {
       current,
       version: manifest.version,
-      upToDate: current === manifest.version,
+      upToDate: compareReleaseVersions(current, manifest.version) >= 0,
       platform,
       sha256: artifact.sha256,
       ...(artifact.bytes ? { bytes: artifact.bytes } : {}),
@@ -173,15 +179,21 @@ export class Releases {
     else {
       const reviewed = readJson(path.join(this.directory, "candidate.json"), null);
       plan = await this.check();
+      if (plan.upToDate)
+        throw problem("The release channel does not offer a newer version.", 409);
       if (
         plan.version !== version ||
         (reviewed &&
           (reviewed.version !== plan.version || reviewed.sha256 !== plan.sha256))
       )
         throw problem("Release channel changed; review the new candidate.", 409);
+      const base = this.channel.endsWith("/") ? this.channel : `${this.channel}/`;
+      const artifactBase =
+        base === officialChannel
+          ? new URL(`../../download/v${plan.version}/`, base).href
+          : base;
       bytes = await download(
-        new URL(plan.file, this.channel.endsWith("/") ? this.channel : `${this.channel}/`)
-          .href,
+        new URL(plan.file, artifactBase).href,
         this.fetchImpl,
         RELEASE_LIMIT,
       );

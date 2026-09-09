@@ -1,5 +1,5 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { marketplacesCopy as copy } from "../../lib/i18n/de/plugins.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { marketplacesCopy as copy } from "../../lib/i18n/messages/plugins.js";
 import React from "react";
 export default function Marketplaces({
   data,

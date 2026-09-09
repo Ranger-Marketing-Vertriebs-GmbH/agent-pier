@@ -1,5 +1,5 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { sidebarGroupCopy as copy } from "../../lib/i18n/de/app.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { sidebarGroupCopy as copy } from "../../lib/i18n/messages/app.js";
 export function sessionActivity(session) {
   if (session.status !== "running")
     return {

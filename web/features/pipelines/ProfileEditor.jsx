@@ -4,8 +4,8 @@ import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { pipelineCopy as copy } from "../../lib/i18n/de/pipelines.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import ParameterFields from "./ParameterFields.jsx";
 import {
   blankProfile,
@@ -168,6 +168,7 @@ export default function ProfileEditor({ profile, accounts, close, saved, stats }
             />
             {copy.autonomous}
           </label>
+          <p className="field-description">{copy.pipelinePermissionsHint}</p>
           <label>
             {copy.models}
             <textarea

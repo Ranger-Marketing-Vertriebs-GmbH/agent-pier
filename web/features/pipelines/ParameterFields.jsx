@@ -1,5 +1,5 @@
 import React from "react";
-import { pipelineCopy as copy } from "../../lib/i18n/de/pipelines.js";
+import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 export default function ParameterFields({ params, onChange }) {
   const patch = (index, change) =>
     onChange(params.map((param, i) => (i === index ? { ...param, ...change } : param)));

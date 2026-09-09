@@ -1,9 +1,9 @@
 import useAccountAuthStatus from "./useAccountAuthStatus.js";
 import NativeAccountActions from "./NativeAccountActions.jsx";
 import ProviderConnections from "../provider-connections/ProviderConnections.jsx";
-import { connectionCopy } from "../../lib/i18n/de/connections.js";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { accountsPageCopy as copy } from "../../lib/i18n/de/accounts.js";
+import { connectionCopy } from "../../lib/i18n/messages/connections.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { accountsPageCopy as copy } from "../../lib/i18n/messages/accounts.js";
 import React from "react";
 import ProviderAccountSummary from "../providers/ProviderAccountSummary.jsx";
 import { names } from "../../lib/providers.js";

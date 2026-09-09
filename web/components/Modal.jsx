@@ -1,4 +1,4 @@
-import { commonCopy } from "../lib/i18n/de/common.js";
+import { commonCopy } from "../lib/i18n/messages/common.js";
 import React, { useEffect, useRef, useId } from "react";
 import Icon from "./Icon.jsx";
 export default function Modal({
@@ -8,7 +8,7 @@ export default function Modal({
   wide = false,
   className = "",
   closeDisabled = false,
-  dismissOnBackdrop = true,
+  dismissOnBackdrop = false,
   closeIcon,
 }) {
   const ref = useRef(null);

@@ -3,6 +3,7 @@ export function createShutdown({ services, wss, server }) {
   const { agentbus, installer, plugins, repositories, extensions, history, sessions } =
     services;
   async function close() {
+    await services.reload?.close();
     services.accountAuthStatus?.close();
     services.agency?.close();
     await services.mcpTransport?.close();

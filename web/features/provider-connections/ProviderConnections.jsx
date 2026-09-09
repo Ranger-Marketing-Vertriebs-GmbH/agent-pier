@@ -4,7 +4,7 @@ import AsyncForm from "../../components/AsyncForm.jsx";
 import Icon from "../../components/Icon.jsx";
 import api from "../../lib/api.js";
 import { names } from "../../lib/providers.js";
-import { connectionCopy as copy } from "../../lib/i18n/de/connections.js";
+import { connectionCopy as copy } from "../../lib/i18n/messages/connections.js";
 import ConnectionDialog from "./ConnectionDialog.jsx";
 import "./connections.css";
 export default function ProviderConnections({ connections = [], refresh }) {

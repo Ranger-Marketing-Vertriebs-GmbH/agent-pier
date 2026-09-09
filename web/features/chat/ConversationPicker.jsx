@@ -1,6 +1,6 @@
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { conversationPickerCopy as copy } from "../../lib/i18n/de/chat.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { conversationPickerCopy as copy } from "../../lib/i18n/messages/chat.js";
 import React, { useEffect, useRef, useState, useCallback } from "react";
 export default function ConversationPicker({
   session,

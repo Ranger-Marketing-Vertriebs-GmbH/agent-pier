@@ -2,8 +2,8 @@ import React from "react";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import useAsyncAction from "../../lib/useAsyncAction.js";
-import { pipelineCopy as copy } from "../../lib/i18n/de/pipelines.js";
-import { commonCopy } from "../../lib/i18n/de/common.js";
+import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 export default function ConfirmAction({
   description,
   action,

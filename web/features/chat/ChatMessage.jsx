@@ -1,11 +1,12 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { chatMessageCopy as copy } from "../../lib/i18n/de/chat.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { chatMessageCopy as copy } from "../../lib/i18n/messages/chat.js";
 import React from "react";
-import Markdown from "react-markdown";
+import Markdown, { defaultUrlTransform } from "react-markdown";
+import { projectLinkPath } from "./chat-file-link.js";
 import remarkGfm from "remark-gfm";
 import ChatImages from "./ChatImages.jsx";
 import { providerNames } from "./presentation.js";
-export default function Message({ message, tool, sessionId }) {
+export default function Message({ message, tool, sessionId, cwd, openFile }) {
   if (message.role === "tool")
     return (
       <details className="chat-tool">
@@ -39,10 +40,37 @@ export default function Message({ message, tool, sessionId }) {
         <Markdown
           remarkPlugins={[remarkGfm]}
           skipHtml
+          urlTransform={(url) =>
+            projectLinkPath(url, cwd) === null ? defaultUrlTransform(url) : url
+          }
           components={{
-            a: ({ node: _node, ...props }) => (
-              <a {...props} target="_blank" rel="noreferrer noopener" />
-            ),
+            a: ({ node: _node, href, ...props }) => {
+              const file = projectLinkPath(href, cwd);
+              if (file === null)
+                return (
+                  <a {...props} href={href} target="_blank" rel="noreferrer noopener" />
+                );
+              const target = `/sessions/${encodeURIComponent(sessionId)}/files?${new URLSearchParams({ file })}`;
+              return (
+                <a
+                  {...props}
+                  href={target}
+                  onClick={(event) => {
+                    if (
+                      !openFile ||
+                      event.button !== 0 ||
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey
+                    )
+                      return;
+                    event.preventDefault();
+                    openFile(file);
+                  }}
+                />
+              );
+            },
             img: ({ alt }) => (
               <span className="subtle">
                 {copy.subtle}

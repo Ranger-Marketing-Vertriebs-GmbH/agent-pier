@@ -1,0 +1,25 @@
+.terminal-uploads:empty {
+  display: none;
+}
+.terminal-uploads {
+  max-height: 35%;
+  overflow: auto;
+  flex-shrink: 0;
+}
+.terminal-upload {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.4rem;
+  font-size: 12px;
+}
+.terminal-upload > span:first-child {
+  max-width: 20rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.terminal-upload progress {
+  width: 6rem;
+}

@@ -3,8 +3,8 @@ import api from "../../lib/api.js";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { Pagination } from "../../components/Pagination.jsx";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { memoryCopy as copy } from "../../lib/i18n/de/memory.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { memoryCopy as copy } from "../../lib/i18n/messages/memory.js";
 import { memoryPaging, entryAuthor } from "./memory-presentation.js";
 
 export default function MemoryHistory({ projectId, entry, close }) {

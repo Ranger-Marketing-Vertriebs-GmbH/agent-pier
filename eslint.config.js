@@ -16,6 +16,7 @@ export default [
       "test-results/**",
       "playwright-report/**",
       ".superpowers/**",
+      ".worktrees/**",
     ],
   },
   {

@@ -4,12 +4,12 @@ import api from "../../lib/api.js";
 import useResource from "../../lib/useResource.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { Pagination, usePagination } from "../../components/Pagination.jsx";
-import { formatTimestamp } from "../../lib/i18n/index.js";
+import { formatTimestamp, formatNumber } from "../../lib/i18n/index.js";
 import OperationJob from "./OperationJob.jsx";
 import BackupForm from "./BackupForm.jsx";
 import RestoreForm from "./RestoreForm.jsx";
 import ConfirmOperation from "./ConfirmOperation.jsx";
-import { operationsCopy as copy } from "../../lib/i18n/de/operations.js";
+import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 export default function BackupsPage({ route, navigate }) {
   const resource = useResource("/operations/backups"),
     [dialog, setDialog] = useState(""),
@@ -41,7 +41,7 @@ export default function BackupsPage({ route, navigate }) {
         <article className="operations-card" key={backup.id}>
           <h3>{formatTimestamp(backup.createdAt)}</h3>
           <p>
-            {backup.bytes.toLocaleString()} B ·{" "}
+            {formatNumber(backup.bytes)} B ·{" "}
             {backup.includeHistory ? copy.includeHistory : ""} ·{" "}
             {backup.withCredentials ? copy.withCredentials : ""}
           </p>

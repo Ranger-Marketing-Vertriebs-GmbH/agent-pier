@@ -1,6 +1,6 @@
 import Icon from "../../components/Icon.jsx";
-import { chatAttachmentsCopy as copy } from "../../lib/i18n/de/chat.js";
-import { chatUploadsCopy as uploadsCopy } from "../../lib/i18n/de/chat-uploads.js";
+import { chatAttachmentsCopy as copy } from "../../lib/i18n/messages/chat.js";
+import { chatUploadsCopy as uploadsCopy } from "../../lib/i18n/messages/chat-uploads.js";
 import React, { useRef } from "react";
 
 export default function ChatAttachments({

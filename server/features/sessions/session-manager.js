@@ -7,7 +7,8 @@ import {
 } from "../pipelines/native-session.js";
 import { shellQuote as quote } from "../../lib/launch-serialization.js";
 import { validId, validName, dimensions, textInput } from "./session-validation.js";
-import { spawn } from "node:child_process";
+import { safeEnvironment, execute, privateWrite } from "./session-process-runtime.js";
+import { replaceSession, blocksTerminalInput } from "./session-replacement.js";
 import { createHash, randomUUID } from "node:crypto";
 import {
   access,
@@ -16,10 +17,8 @@ import {
   mkdir,
   readFile,
   readdir,
-  rename,
   rm,
   stat,
-  writeFile,
 } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
@@ -28,44 +27,6 @@ import * as pty from "node-pty";
 
 const launcher = fileURLToPath(new URL("../../terminal-launcher.js", import.meta.url));
 const failure = (message, status = 400) => Object.assign(new Error(message), { status });
-const safeEnvironment = () =>
-  Object.fromEntries(
-    ["PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "TMPDIR"]
-      .filter((key) => process.env[key])
-      .map((key) => [key, process.env[key]]),
-  );
-
-function execute(command, args, { input, env = safeEnvironment() } = {}) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
-      env,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    let stdout = "",
-      stderr = "";
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk;
-      if (stdout.length > 16 * 1024 * 1024) child.kill();
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk;
-    });
-    child.on("error", reject);
-    child.stdin.on("error", () => {});
-    child.on("close", (code) =>
-      code === 0
-        ? resolve(stdout)
-        : reject(new Error(stderr.trim() || `Terminal command failed (${code})`)),
-    );
-    child.stdin.end(input);
-  });
-}
-async function privateWrite(file, value) {
-  const temporary = `${file}.${randomUUID()}.tmp`;
-  await writeFile(temporary, value, { mode: 0o600, flag: "wx" });
-  await rename(temporary, file);
-}
-
 /** One private tmux server per data directory. Closing a manager only detaches its clients. */
 export class SessionManager {
   constructor({ dataDir, tmuxPath = "tmux", onStopped = () => {} }) {
@@ -82,6 +43,7 @@ export class SessionManager {
     this.clients = new Set();
     this.onStopped = onStopped;
     this.reconciledStops = new Set();
+    this.replacing = new Set();
     this.queue = Promise.resolve();
     this.ready = this.initialize();
   }
@@ -94,7 +56,8 @@ export class SessionManager {
       await chmod(directory, 0o700);
     }
     await privateWrite(
-      this.configPath,
+      this.directory,
+      "tmux.conf",
       // set-clipboard defaults to "external", which drops OSC 52 from the programs
       // inside a pane, and tmux emits the sequence only for a client it believes
       // capable: terminal-features forces that regardless of the attaching TERM.
@@ -133,14 +96,15 @@ export class SessionManager {
     }
   }
   async save(session) {
-    await privateWrite(this.file(session.id), JSON.stringify(session, null, 2));
+    const filename = `${validId(session.id)}.json`;
+    await privateWrite(this.directory, filename, JSON.stringify(session, null, 2));
   }
   async capture(id) {
     return this.tmux(["capture-pane", "-p", "-t", `${this.target(id)}:0.0`, "-S", "-"]);
   }
   async remember(id) {
     const text = await this.capture(id);
-    await privateWrite(path.join(this.directory, `${id}.screen`), text);
+    await privateWrite(this.directory, `${id}.screen`, text);
     return text;
   }
   async reconcileStopped(session) {
@@ -196,7 +160,11 @@ export class SessionManager {
       if (state !== null && status === "stopped") await this.remember(id);
       await this.save(session);
     }
-    if (status === "stopped") await this.reconcileStopped(session);
+    if (
+      status === "stopped" &&
+      !["waiting", "reloading", "failed"].includes(session.reload?.state)
+    )
+      await this.reconcileStopped(session);
     return session;
   }
   async create(options) {
@@ -276,7 +244,8 @@ export class SessionManager {
       }
       const launchFile = path.join(this.directory, `${id}.launch.json`);
       await privateWrite(
-        launchFile,
+        this.directory,
+        `${id}.launch.json`,
         JSON.stringify({
           command,
           args,
@@ -316,6 +285,12 @@ export class SessionManager {
             }
           : {}),
       };
+      if (options.nativeModelId) session.nativeModelId = options.nativeModelId;
+      if (options.sshTools)
+        session.sshTools = {
+          enabled: options.sshTools.enabled === true,
+          generation: options.sshTools.generation,
+        };
       const eligible = tool !== "shell" && options.purpose !== "login";
       if (options.access && eligible)
         session.access = Object.fromEntries(
@@ -368,6 +343,19 @@ export class SessionManager {
       return session;
     });
   }
+  updateReload(id, reload) {
+    return this.serial(async () => {
+      const session = await this.metadata(id);
+      session.reload = reload;
+      await this.save(session);
+    });
+  }
+  replace(id, prepare, beforeStop) {
+    this.replacing.add(id);
+    return this.serial(() => replaceSession(this, id, prepare, beforeStop)).finally(() =>
+      this.replacing.delete(id),
+    );
+  }
   list() {
     return this.serial(async () => {
       const names = (await readdir(this.directory)).filter((name) =>
@@ -399,6 +387,8 @@ export class SessionManager {
         if (session.status === "running") throw error;
       }
       session.status = "stopped";
+      if (session.reload)
+        session.reload = { ...session.reload, state: "idle", nativeId: null };
       await this.reconcileStopped(session);
       await this.save(session);
       return session;
@@ -441,6 +431,8 @@ export class SessionManager {
     return this.serial(async () => {
       const session = await this.current(id);
       assertInteractiveSession(session);
+      if (session.reload?.state === "reloading")
+        throw failure("Session is reloading", 409);
       if (session.tool === "shell")
         throw failure(serverMessages.sessions.shellModelPickerUnavailable, 409);
       if (session.purpose === "login")
@@ -486,10 +478,14 @@ export class SessionManager {
     });
   }
   input(id, text, submit = false, beforeInput) {
+    if (this.replacing.has(id))
+      return Promise.reject(failure("Session is reloading", 409));
     return this.serial(async () => {
       textInput(text);
       if (typeof submit !== "boolean") throw failure("Invalid submit flag");
       const session = await this.current(id);
+      if (session.reload?.state === "reloading")
+        throw failure("Session is reloading", 409);
       if (session.status !== "running") throw failure("Session is stopped", 409);
       assertInteractiveSession(session);
       if (beforeInput)
@@ -567,11 +563,17 @@ export class SessionManager {
         onExit(event);
       });
       const client = {
+        sessionId: id,
         write: (text) => {
           textInput(text);
           assertInteractiveSession(session);
-          return this.serial(() => {
-            if (!disposed) terminal.write(text);
+          if (this.replacing.has(id))
+            return Promise.reject(failure("Session is reloading", 409));
+          return this.serial(async () => {
+            if (disposed) return;
+            if (blocksTerminalInput(await this.metadata(id)))
+              throw failure("Session is reloading", 409);
+            terminal.write(text);
           });
         },
         resize: (nextCols, nextRows) => {

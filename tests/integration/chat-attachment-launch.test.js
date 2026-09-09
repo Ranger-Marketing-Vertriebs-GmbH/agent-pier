@@ -32,7 +32,22 @@ async function untilStopped(f, id, timeout = 5000) {
 
 test("a launched claude session records its attachment directory and passes --add-dir", async (t) => {
   const f = await applicationFixture(t);
-  stubClaudeExecutable(f);
+  const capture = path.join(f.root, "claude-arguments.json");
+  const executable = path.join(f.root, "capture-claude.mjs");
+  fs.writeFileSync(
+    executable,
+    'import fs from "node:fs"; fs.writeFileSync(process.env.ARGUMENT_CAPTURE, JSON.stringify(process.argv.slice(2)));',
+  );
+  const original = f.application.accounts.command.bind(f.application.accounts);
+  f.application.accounts.command = (id, _binaries, login, mode, options) => {
+    const launch = original(id, { claude: process.execPath }, login, mode, options);
+    return {
+      ...launch,
+      command: process.execPath,
+      args: [executable],
+      env: { ...launch.env, ARGUMENT_CAPTURE: capture },
+    };
+  };
   const cwd = path.join(f.root, "project");
   fs.mkdirSync(cwd);
   const session = await f.application.launch({ accountId: "local-claude", cwd });
@@ -43,14 +58,12 @@ test("a launched claude session records its attachment directory and passes --ad
   );
   assert.equal(session.attachments.directory, expected);
   assert.equal(fs.statSync(expected).isDirectory(), true);
-  const launch = JSON.parse(
-    fs.readFileSync(
-      path.join(f.application.config.dataDir, "sessions", `${session.id}.launch.json`),
-      "utf8",
-    ),
-  );
-  assert.equal(launch.args.includes("--add-dir"), true);
-  assert.equal(launch.args.includes(expected), true);
+  // Launch metadata is intentionally cleaned up when the process exits. Read
+  // the arguments observed by the executable, which remain after that cleanup.
+  await untilStopped(f, session.id);
+  const args = JSON.parse(fs.readFileSync(capture, "utf8"));
+  assert.equal(args.includes("--add-dir"), true);
+  assert.equal(args[args.indexOf("--add-dir") + 1], expected);
 });
 
 test("deleting a session removes its attachment directory", async (t) => {

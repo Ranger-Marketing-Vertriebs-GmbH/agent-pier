@@ -1,5 +1,5 @@
 import React from "react";
-import { providerCopy as copy } from "../../lib/i18n/de/providers.js";
+import { providerCopy as copy } from "../../lib/i18n/messages/providers.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 export default function ProviderCatalogStatus({ catalog }) {
   return (

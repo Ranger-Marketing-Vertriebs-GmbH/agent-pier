@@ -1,11 +1,10 @@
 import React from "react";
-import { providerCopy as copy } from "../../lib/i18n/de/providers.js";
-import { locale, formatTimestamp } from "../../lib/i18n/index.js";
+import { providerCopy as copy } from "../../lib/i18n/messages/providers.js";
+import { formatNumber, formatTimestamp } from "../../lib/i18n/index.js";
 
-const number = new Intl.NumberFormat(locale);
 function limit(value) {
   return Number.isSafeInteger(value) && value > 0
-    ? copy.tokens(number.format(value))
+    ? copy.tokens(formatNumber(value))
     : copy.unknown;
 }
 export default function ProviderModelDetails({ model, tool }) {

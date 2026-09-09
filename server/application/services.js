@@ -1,3 +1,6 @@
+import { SshIntegration } from "../features/ssh/ssh-integration.js";
+import { SshAccessStore } from "../features/ssh/ssh-access-store.js";
+import { SshSessions } from "../features/ssh/ssh-sessions.js";
 import { AgencyStore } from "../features/agency/agency-store.js";
 import { SharedCliProfiles } from "../features/cli-profiles/shared-profiles.js";
 import { ProviderConnections } from "../features/providers/provider-connections.js";
@@ -48,9 +51,14 @@ export async function createServices(config) {
   });
   const memory = new ProjectMemory(config);
   const memoryIntegration = new MemoryIntegration({ ...config, accounts, memory });
+  const sshAccesses = new SshAccessStore(config);
+  const sshSessions = new SshSessions({ dataDir: config.dataDir, store: sshAccesses });
+  const sshIntegration = new SshIntegration({ dataDir: config.dataDir, accounts });
   const sessions = new SessionManager({
     dataDir: config.dataDir,
     onStopped: async (session) => {
+      sshSessions.discard(session.id);
+      await sshIntegration.discard(session.id);
       await requests?.discard(session.id);
       if (session.memory?.enabled) await memoryIntegration.discard(session.id);
     },
@@ -112,6 +120,9 @@ export async function createServices(config) {
   });
   return {
     events,
+    sshAccesses,
+    sshSessions,
+    sshIntegration,
     operationalWarnings,
     onError,
     requests,

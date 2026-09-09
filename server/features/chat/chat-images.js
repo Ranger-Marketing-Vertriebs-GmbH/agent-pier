@@ -59,7 +59,7 @@ function reportedImages(text, cwd, home) {
   };
   // Preserve spaces in explicit Markdown destinations and quoted/code paths.
   for (const match of text.matchAll(
-    /!?\[[^\]\n]*\]\(\s*(?:<([^>\n]+)>|((?:\\.|[^\s)])+))(?:\s+["'][^\n]*?["'])?\s*\)/g,
+    /!?\[[^\]\n]*\]\(\s*(?:<([^>\n]+)>|((?:\\.|[^\\\s)])+))(?:\s+["'][^\n]*?["'])?\s*\)/g,
   )) {
     add(match[1] || match[2], match.index);
     mask(match.index, match[0].length);

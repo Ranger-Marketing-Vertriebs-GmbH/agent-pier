@@ -30,7 +30,7 @@ serviceWorkerTest(
       await fetch("/api/sessions/request-session/chat");
     });
     const keys = await page.evaluate(async () =>
-      (await (await caches.open("agentpier-public-v1")).keys())
+      (await (await caches.open("agentpier-public-v2")).keys())
         .map((request) => new URL(request.url).pathname)
         .sort(),
     );
@@ -39,6 +39,7 @@ serviceWorkerTest(
         "/apple-touch-icon.png",
         "/manifest.webmanifest",
         "/offline.html",
+        "/offline.js",
         "/pwa-icon-192.png",
         "/pwa-icon-512.png",
         "/pwa-maskable-512.png",
@@ -51,6 +52,12 @@ serviceWorkerTest(
       page.getByRole("heading", { name: "AgentPier ist offline", exact: true }),
     ).toBeVisible();
     await expect(page.locator("body")).not.toContainText("private-id");
+    await page.evaluate(() => localStorage.setItem("agentpier-language", "en"));
+    await page.reload();
+    await expect(
+      page.getByRole("heading", { name: "AgentPier is offline", exact: true }),
+    ).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
     expect(
       await page.evaluate(async () => {
         try {

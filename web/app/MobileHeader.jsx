@@ -1,5 +1,5 @@
-import { commonCopy } from "../lib/i18n/de/common.js";
-import { mobileHeaderCopy as copy } from "../lib/i18n/de/app.js";
+import { commonCopy } from "../lib/i18n/messages/common.js";
+import { mobileHeaderCopy as copy } from "../lib/i18n/messages/app.js";
 import React from "react";
 import Icon from "../components/Icon.jsx";
 export default function MobileHeader({ setMobileNav, select, launch, installed }) {

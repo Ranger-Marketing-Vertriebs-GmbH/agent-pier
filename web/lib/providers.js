@@ -1,4 +1,4 @@
-import { commonCopy } from "./i18n/de/common.js";
+import { commonCopy } from "./i18n/messages/common.js";
 export const names = {
   codex: "Codex",
   claude: "Claude Code",
@@ -7,7 +7,13 @@ export const names = {
   gh: "GitHub CLI",
 };
 export const statusLabels = {
-  running: commonCopy.active,
-  exited: commonCopy.ended,
-  stopped: commonCopy.stopped,
+  get running() {
+    return commonCopy.active;
+  },
+  get exited() {
+    return commonCopy.ended;
+  },
+  get stopped() {
+    return commonCopy.stopped;
+  },
 };

@@ -133,14 +133,15 @@ export class GithubCredentials {
     }
     writeJsonAtomic(path.join(folder, "hosts.yml"), hosts);
   }
-  async prepare({ id, account, cwd, launch, purpose } = {}) {
+  async prepare({ id, account, cwd, launch, purpose, replace = false } = {}) {
     if (purpose === "login" || !["claude", "codex", "opencode"].includes(account?.tool))
       return launch;
     const canonical = fs.realpathSync(cwd);
     const folder = this.folder(id);
     ensureDir(this.directory);
-    if (fs.existsSync(folder))
+    if (fs.existsSync(folder) && !replace)
       throw problem(serverMessages.repositories.sessionConfigAlreadyExists, 409);
+    if (replace) fs.rmSync(folder, { recursive: true, force: true });
     ensureDir(folder);
     const selections = this.selections(canonical);
     const env = { ...launch.env };

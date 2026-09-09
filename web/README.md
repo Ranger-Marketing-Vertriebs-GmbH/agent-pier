@@ -26,7 +26,9 @@
 
 ## Product copy
 
-English identifiers and comments are used throughout the implementation. Existing German product copy lives in `lib/i18n/de`, grouped by feature with shared action labels in `common.js`. `lib/i18n/index.js` defines formatting/search locale behavior. Native provider text, user content, protocol identifiers, and API response messages are not translated.
+English identifiers and comments are used throughout the implementation. German and English product copy lives in matching `lib/i18n/de` and `lib/i18n/en` modules, grouped by feature with shared action labels in `common.js`. Import the reactive catalog exports from `lib/i18n/messages`, never a language-specific module. Add every key and interpolation to both catalogs; unit tests enforce parity. Avoid caching translated strings or locale formatters at module scope.
+
+The language selector is available at login and in general settings. The initial language follows the first supported browser language (otherwise English); an explicit choice is stored per browser in `agentpier-language` and synchronized between tabs. `lib/i18n/index.js` owns selection and date/number/search formatting. App and LoginGate subscribe through `useLanguage`, so switching rerenders the UI without remounting sessions or losing drafts. The offline page follows the same browser preference. The service worker stores only the selected language code in its own preference cache to localize generic push notifications; application/API responses remain outside the public asset cache. Native provider text, user content, protocol identifiers, and API response messages are not translated.
 
 ## Verification
 

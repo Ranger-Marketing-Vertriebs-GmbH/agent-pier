@@ -2,7 +2,7 @@ import React, { useId } from "react";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import ProviderModelPicker from "../providers/ProviderModelPicker.jsx";
 import { names } from "../../lib/providers.js";
-import { connectionCopy as copy } from "../../lib/i18n/de/connections.js";
+import { connectionCopy as copy } from "../../lib/i18n/messages/connections.js";
 export default function LaunchAccessFields({ access, onToolChange, onAccessChange }) {
   const modelHelpId = useId();
   if (access.tool === "shell") return null;

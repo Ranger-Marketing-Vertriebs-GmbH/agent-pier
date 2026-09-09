@@ -1,6 +1,6 @@
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { agentBusPageCopy as copy } from "../../lib/i18n/de/agentbus.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { agentBusPageCopy as copy } from "../../lib/i18n/messages/agentbus.js";
 import React from "react";
 import MessageLog from "./MessageLog.jsx";
 import useAgentBusStatus from "./useAgentBusStatus.js";

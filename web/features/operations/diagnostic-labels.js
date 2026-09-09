@@ -1,4 +1,4 @@
-import { diagnosticCopy as copy } from "../../lib/i18n/de/operations.js";
+import { diagnosticCopy as copy } from "../../lib/i18n/messages/operations.js";
 export function checkLabel(id) {
   if (copy.checks[id]) return copy.checks[id];
   if (id.startsWith("account.")) return `${copy.account}: ${id.slice(8)}`;

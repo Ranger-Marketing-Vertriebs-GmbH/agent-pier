@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
-import { notificationCopy as copy } from "../../lib/i18n/de/notifications.js";
+import { notificationCopy as copy } from "../../lib/i18n/messages/notifications.js";
 import {
   readInstallPrompt,
   showInstallPrompt,

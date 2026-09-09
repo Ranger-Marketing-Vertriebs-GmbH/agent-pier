@@ -1,6 +1,7 @@
+import useLanguage from "../lib/i18n/useLanguage.js";
 import MemoryPage from "../features/memory/MemoryPage.jsx";
-import { commonCopy } from "../lib/i18n/de/common.js";
-import { appCopy as copy } from "../lib/i18n/de/app.js";
+import { commonCopy } from "../lib/i18n/messages/common.js";
+import { appCopy as copy } from "../lib/i18n/messages/app.js";
 import React, { lazy, Suspense, useState } from "react";
 import api from "../lib/api.js";
 import ErrorMessage from "../components/ErrorMessage.jsx";
@@ -20,6 +21,7 @@ import MobileHeader from "./MobileHeader.jsx";
 const PipelinePage = lazy(() => import("../features/pipelines/PipelinePage.jsx"));
 const AgentBus = lazy(() => import("../features/agentbus/AgentBusPage.jsx"));
 export default function App() {
+  useLanguage();
   const { state, loading, error, ready, refresh } = useWorkspaceState();
   const [modal, setModal] = useState(null),
     [mobileNav, setMobileNav] = useState(false);
@@ -118,7 +120,13 @@ export default function App() {
         ) : view === "memory" ? (
           <MemoryPage route={route} onNavigate={navigate} home={state.home} />
         ) : view === "settings" ? (
-          <Settings state={state} refresh={refresh} route={route} onNavigate={navigate} />
+          <Settings
+            state={state}
+            refresh={refresh}
+            ready={ready}
+            route={route}
+            onNavigate={navigate}
+          />
         ) : view === "agentbus" ? (
           <Suspense fallback={<p className="loading">{copy.agentBusLoading}</p>}>
             <AgentBus

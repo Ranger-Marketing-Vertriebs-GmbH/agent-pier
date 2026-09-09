@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import api from "../../lib/api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import { accountsPageCopy as copy } from "../../lib/i18n/de/accounts.js";
-import { commonCopy } from "../../lib/i18n/de/common.js";
+import { accountsPageCopy as copy } from "../../lib/i18n/messages/accounts.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 
 export default function NativeAccountActions({ account, state, act, refresh, auth }) {
   const [busy, setBusy] = useState(false);

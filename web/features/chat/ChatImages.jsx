@@ -1,5 +1,5 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { chatImagesCopy as copy } from "../../lib/i18n/de/chat.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { chatImagesCopy as copy } from "../../lib/i18n/messages/chat.js";
 import React, { useEffect, useRef, useState } from "react";
 function imageURL(sessionId, id) {
   return `/api/sessions/${encodeURIComponent(sessionId)}/chat/images/${id}`;

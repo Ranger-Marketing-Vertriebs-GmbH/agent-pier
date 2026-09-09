@@ -1,3 +1,4 @@
+import { createReloadLifecycle } from "./session-reload-lifecycle.js";
 import { nativeModelFor } from "./session-selection.js";
 import { serverMessages } from "../lib/i18n/de.js";
 import { randomUUID } from "node:crypto";
@@ -24,6 +25,7 @@ export function createSessionLifecycle(services) {
     requests,
     chat,
     sharedProfiles,
+    sshSessions,
   } = services;
   const activeFor = async (id) =>
     (await sessions.list()).some(
@@ -32,6 +34,9 @@ export function createSessionLifecycle(services) {
   async function launch(body, login = false, trusted = {}) {
     if (body.agentbus !== undefined && typeof body.agentbus !== "boolean")
       throw problem(serverMessages.sessions.invalidAgentBusSelection);
+    const sshIds = sshSessions?.validate(body.sshAccessIds);
+    if (login && sshIds?.length)
+      throw problem("SSH-Zugänge sind für Login-Sitzungen nicht verfügbar.");
     const resolved = providerAccess.resolve(body, { login });
     const release = resolved.selection
       ? providerConnections.acquire(resolved.selection.providerConnectionId)
@@ -107,11 +112,22 @@ export function createSessionLifecycle(services) {
         launch: busLaunch,
         purpose: login ? "login" : undefined,
       });
+      const sshLaunch = services.sshIntegration
+        ? await services.sshIntegration.prepare({
+            id,
+            account,
+            cwd,
+            launch: memoryLaunch,
+            purpose: login ? "login" : undefined,
+            pipeline: trusted.pipeline,
+            headless: trusted.pipeline?.headless,
+          })
+        : memoryLaunch;
       const prepared = await bindings.prepare({
         id,
         account,
         cwd,
-        launch: memoryLaunch,
+        launch: sshLaunch,
         purpose: login ? "login" : undefined,
       });
       const finalLaunch = trusted.transformLaunch
@@ -130,12 +146,20 @@ export function createSessionLifecycle(services) {
         accountId: account.id,
         cwd,
         ...finalLaunch,
+        ...(nativeModelId ? { nativeModelId } : {}),
         ...(selection ? { access: selection } : {}),
         ...(attachments ? { attachments } : {}),
         ...(trusted.pipeline ? { pipeline: trusted.pipeline } : {}),
         ...(login ? { purpose: "login" } : {}),
       });
+      if (body.sshAccessIds?.length) sshSessions.set(session, body.sshAccessIds);
     } catch (error) {
+      sshSessions?.discard(id);
+      if (session) {
+        await sessions.stop(id).catch(() => {});
+        await sessions.remove(id).catch(() => {});
+      }
+      await services.sshIntegration?.discard(id);
       await requests.discard(id).catch(() => {});
       try {
         await memoryIntegration.discard(id);
@@ -154,5 +178,5 @@ export function createSessionLifecycle(services) {
     if (!login && account.tool === "claude") chat.initialize(session, id, "automatic");
     return session;
   }
-  return { launch, activeFor };
+  return { launch, activeFor, ...createReloadLifecycle(services) };
 }

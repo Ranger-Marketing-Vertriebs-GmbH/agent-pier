@@ -4,7 +4,7 @@ import { applyChatSync } from "./chat-sync.js";
 import { withReadyUploads } from "./chat-upload-send.js";
 import { deliveryScope } from "./chat-draft.js";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { chatAttachmentCopy as attachmentCopy } from "../../lib/i18n/de/chat.js";
+import { chatAttachmentCopy as attachmentCopy } from "../../lib/i18n/messages/chat.js";
 import { startVisiblePolling } from "../../lib/visible-polling.js";
 export default function useChatController({ active, session, request, onConnection }) {
   const [data, setData] = useState(null),
@@ -18,6 +18,10 @@ export default function useChatController({ active, session, request, onConnecti
   const [modelPending, setModelPending] = useState(false);
   const delivery = useChatDelivery({ session, request, active });
   const { text, setText } = delivery;
+  useEffect(() => {
+    if (data?.messages && delivery.recent.length)
+      void delivery.draft.observeMessages(data.messages);
+  }, [data, delivery.draft, delivery.recent]);
   const busy = delivery.sending;
   const attachmentState = useChatAttachments({
     session,

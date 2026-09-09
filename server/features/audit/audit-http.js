@@ -1,6 +1,8 @@
 import { auditId } from "./audit-schema.js";
 const collection = new Map([
   ["accounts", "account"],
+  ["ssh-accesses", "ssh"],
+  ["ssh-keys", "ssh"],
   ["provider-connections", "provider"],
   ["git-credentials", "repository"],
   ["sessions", "session"],
@@ -46,9 +48,17 @@ export function requestAudit(req) {
     sessionId = resourceId;
     if (operation === "input") return null;
     if (operation === "stop") action = "stopped";
-    else if (operation === "models" || operation === "chat") action = "updated";
+    else if (
+      operation === "models" ||
+      operation === "chat" ||
+      operation === "ssh-accesses"
+    )
+      action = "updated";
     else if (operation) return null;
     else if (!id) action = "started";
+  } else if (area === "ssh-accesses") {
+    if (id === "scan") return null;
+    if (operation === "test") action = "tested";
   } else if (area === "accounts" && operation) {
     if (operation === "login") {
       resourceType = "session";

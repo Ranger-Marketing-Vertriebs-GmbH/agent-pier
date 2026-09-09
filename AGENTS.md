@@ -6,7 +6,7 @@ AgentPier is a local workspace for coding CLIs, built with React, Vite, Express,
 
 - `web/features/` contains feature UI; `web/components/` holds reusable components, and `web/app/` wires navigation and application state.
 - `server/features/` contains backend features; `server/application/` coordinates services, and `server/http/` defines HTTP boundaries.
-- `web/lib/i18n/de/` and `server/lib/i18n/de/` contain German interface messages.
+- `web/lib/i18n/de/` and `web/lib/i18n/en/` contain matching UI catalogs; import reactive messages from `web/lib/i18n/messages/`. `server/lib/i18n/de/` contains backend messages.
 - `tests/` separates unit, integration, blackbox, property, matrix, and browser suites. Shared fixtures live in `tests/helpers/` and `tests/fixtures/`.
 - `public/` holds static assets, `docs/` holds architecture and operating guides, and `scripts/` contains development and release tooling. `dist/` is generated.
 
@@ -32,6 +32,10 @@ Follow existing names: `AccountsPage.jsx`, `useAccountAuthStatus.js`, and `accou
 Use `node:test` with strict assertions, fast-check for properties, and Playwright for browser behavior. Name backend tests `*.test.js` and browser tests `*.spec.js`. Add regression coverage for changed behavior; no numeric coverage threshold is configured. Reuse isolated fixtures, and never target real user sessions or the default tmux server.
 
 ## Commit & Pull Request Guidelines
+
+`main` is protected. Make changes on a feature or fix branch and submit a pull request; never push directly to `main` or bypass branch protection. Merge only after required CI checks pass and review conversations are resolved.
+
+Place Git worktrees under the repository's ignored `.worktrees/` directory, never beside the repository. After successful completion and merge, remove clean, inactive worktrees with `git worktree remove`. Preserve worktrees with uncommitted changes, unmerged work, or active sessions.
 
 Follow the history's concise imperative prefixes: `fix:`, `feat:`, and `chore:`. Keep commits focused. Describe the problem, resulting behavior, and validation in PRs; link relevant issues and include screenshots for visible UI changes. CI checks Linux/macOS and Chromium/WebKit.
 

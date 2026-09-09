@@ -31,8 +31,12 @@ sessions, credentials or cleanup. Automated tests must use the existing isolated
 fixtures, not your real sessions or the default tmux server.
 
 For Vite development, keep the backend running and run `npm run dev` separately.
-The UI currently uses German copy; keep interface strings in the existing
-`web/lib/i18n/de/` and `server/lib/i18n/de/` modules.
+The UI supports German and English. Add matching keys and interpolation arguments
+to `web/lib/i18n/de/` and `web/lib/i18n/en/`, and import reactive exports from
+`web/lib/i18n/messages/`. Use the shared locale helpers for dates and numbers; do
+not cache translated labels or formatters at module scope. Backend messages remain
+in `server/lib/i18n/de/`. User content and native CLI output keep their original
+language. Run the i18n unit and browser tests when changing language behavior.
 
 ## Code and tests
 
@@ -57,6 +61,11 @@ for focused strategies and platform details. CI checks Linux/macOS, Node 22/24,
 Chromium and WebKit. Some platform-specific browser cases are deliberately skipped.
 
 ## Pull requests
+
+`main` is protected, including for administrators. Work on a branch and open a
+pull request. Merging requires the backend, browser and secret checks to pass on
+an up-to-date branch, with review conversations resolved. Direct pushes, force
+pushes and branch deletion are disabled.
 
 Keep changes focused. Use concise imperative commit prefixes such as `fix:`,
 `feat:` and `chore:`. Describe the problem, resulting behavior and validation.

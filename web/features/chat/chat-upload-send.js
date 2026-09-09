@@ -1,5 +1,5 @@
 import { uploadStore } from "./chat-upload-store.js";
-import { chatUploadsCopy as copy } from "../../lib/i18n/de/chat-uploads.js";
+import { chatUploadsCopy as copy } from "../../lib/i18n/messages/chat-uploads.js";
 
 /** An already-mounted second tab may not yet know about another tab's files. */
 export async function withReadyUploads(scope, send) {

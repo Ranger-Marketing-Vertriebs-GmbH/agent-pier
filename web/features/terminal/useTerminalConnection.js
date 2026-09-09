@@ -1,6 +1,6 @@
 import "@xterm/xterm/css/xterm.css";
 
-import { terminalViewCopy as copy } from "../../lib/i18n/de/terminal.js";
+import { terminalViewCopy as copy } from "../../lib/i18n/messages/terminal.js";
 
 import { useEffect, useRef, useState } from "react";
 import { Terminal as XTerminal } from "@xterm/xterm";
@@ -148,5 +148,5 @@ export default function useTerminalConnection({
     if (mode === "terminal") terminalRef.current?.focus();
   }, [mode]);
 
-  return { error, container };
+  return { error, container, paste: (text) => terminalRef.current?.paste(text) };
 }

@@ -1,5 +1,5 @@
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { credentialDialogCopy as copy } from "../../lib/i18n/de/repositories.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { credentialDialogCopy as copy } from "../../lib/i18n/messages/repositories.js";
 import Modal from "../../components/Modal.jsx";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import api from "../../lib/api.js";

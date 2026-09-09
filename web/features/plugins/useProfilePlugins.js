@@ -1,4 +1,4 @@
-import { useProfilePluginsCopy as copy } from "../../lib/i18n/de/plugins.js";
+import { useProfilePluginsCopy as copy } from "../../lib/i18n/messages/plugins.js";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { usePagination } from "../../components/Pagination.jsx";
 export default function useProfilePlugins({ account, request, setParentBusy }) {

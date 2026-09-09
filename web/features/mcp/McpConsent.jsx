@@ -1,14 +1,14 @@
+import { formatTimestamp } from "../../lib/i18n/index.js";
 import React, { useEffect, useState } from "react";
 import api from "../../lib/api.js";
-import { mcpCopy as copy } from "../../lib/i18n/de/mcp.js";
+import { mcpCopy as copy } from "../../lib/i18n/messages/mcp.js";
 import useMcpResource from "./useMcpResource.js";
 export const resourceFields = {
   projectIds: "projects",
   accountIds: "accounts",
   connectionIds: "connections",
 };
-export const formatDate = (value) =>
-  value ? new Date(value).toLocaleString("de-DE") : copy.neverUsed;
+export const formatDate = (value) => (value ? formatTimestamp(value) : copy.neverUsed);
 function ConsentForm({ authorization, config }) {
   const [selection, setSelection] = useState({
     scopes: authorization.requestedScopes.filter((scope) =>

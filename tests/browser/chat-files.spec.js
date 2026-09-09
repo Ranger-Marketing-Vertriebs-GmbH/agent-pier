@@ -75,12 +75,19 @@ test("mobile chat uploads images and files, removes a selection, and sends attac
   await expect(
     page.getByRole("button", { name: "Anhang entfernen: notes.txt" }),
   ).toBeVisible();
-  expect(uploads.map((upload) => upload.name)).toEqual(["photo.png", "notes.txt"]);
+  // Selections appear optimistically before the upload requests complete.
+  await expect
+    .poll(() => uploads.map((upload) => upload.name).sort())
+    .toEqual(["notes.txt", "photo.png"]);
   // WebKit interception exposes null for File bodies; the HTTP integration test
   // checks binary storage independently of browser interception support.
   if (browserName !== "webkit") {
-    expect(uploads[0].body).toEqual(Buffer.from([137, 80, 78, 71]));
-    expect(uploads[1].body.toString()).toBe("Read these notes");
+    expect(uploads.find((upload) => upload.name === "photo.png").body).toEqual(
+      Buffer.from([137, 80, 78, 71]),
+    );
+    expect(uploads.find((upload) => upload.name === "notes.txt").body.toString()).toBe(
+      "Read these notes",
+    );
   }
   expect(sent).toEqual([]);
   await page.getByRole("button", { name: "Anhang entfernen: notes.txt" }).click();

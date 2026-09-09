@@ -2,6 +2,7 @@ export const operationsCopy = {
   sections: {
     general: "Allgemein",
     mcp: "MCP & Zugriffe",
+    ssh: "Serverzugänge",
     notifications: "App & Benachrichtigungen",
     diagnostics: "Diagnose",
     backups: "Sicherungen",
@@ -93,6 +94,7 @@ export const operationsCopy = {
   checkUpdates: "Nach Updates suchen",
   stageRelease: "Version vorbereiten",
   activateRelease: "Vorbereitete Version aktivieren",
+  releaseHistory: "Frühere Versionen und Rollback",
   rollback: "Version zurücksetzen",
   upToDate: "Die installierte Version ist aktuell.",
   integrity: "Prüfsumme",

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readConfig, updateConfig } from "../extensions/mcp-config.js";
+import { codexSandboxArguments } from "../../lib/sandbox.js";
 import {
   accountAttachmentDirectory,
   attachmentDirectory,
@@ -70,6 +71,12 @@ export function grantAttachmentAccess({
   }
   if (!ensureAttachmentDirectory(directory)) return null;
   launch.args.push("--add-dir", directory);
+  // Codex ignores the flag we just added while its sandbox stays read-only,
+  // which is its default. The YOLO launch mode already runs without a sandbox,
+  // so pinning workspace-write there would only narrow what the operator asked
+  // for; every other mode has the sandbox raised to make the grant real.
+  if (tool === "codex" && launch.launchMode !== "yolo")
+    launch.args.push(...codexSandboxArguments());
   return { directory };
 }
 

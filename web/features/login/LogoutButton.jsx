@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { LoginContext } from "./LoginContext.js";
-import { loginCopy as copy } from "../../lib/i18n/de/login.js";
+import { loginCopy as copy } from "../../lib/i18n/messages/login.js";
 export default function LogoutButton() {
   const auth = useContext(LoginContext);
   const [error, setError] = useState("");

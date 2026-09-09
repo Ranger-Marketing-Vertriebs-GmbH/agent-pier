@@ -98,7 +98,12 @@ export function fixture(
   });
   async function end(verdict = { result: "pass", summary: "Done" }, extra = {}) {
     const l = launches.at(-1);
-    fs.writeFileSync(path.join(l.cwd, l.verdictPath), JSON.stringify(verdict));
+    const file = path.join(l.cwd, l.verdictPath);
+    fs.writeFileSync(file, JSON.stringify(verdict));
+    // Synthetic completion follows the engine clock, including fake clocks. Whole
+    // seconds avoid filesystem precision making a fresh verdict predate its turn.
+    const completedAt = Math.ceil(engine.nowMs() / 1000);
+    fs.utimesSync(file, completedAt, completedAt);
     outcomes.set(l.sessionId, { status: "completed", exitCode: 0, ...extra });
     await engine.reconcile();
   }

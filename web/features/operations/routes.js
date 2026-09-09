@@ -5,6 +5,7 @@ const sections = new Set([
   "updates",
   "audit",
   "mcp",
+  "ssh",
 ]);
 const identity = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
 export function readSettingsRoute(pathname, search) {

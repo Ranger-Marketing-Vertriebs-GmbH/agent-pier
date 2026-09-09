@@ -1,15 +1,20 @@
+import { sessionReloadCopy } from "../../lib/i18n/messages/sessions.js";
+import "./session-reload.css";
+import { sshCopy } from "../../lib/i18n/messages/ssh.js";
 import { sessionActivity } from "./sessionPresentation.js";
-import { filesCopy } from "../../lib/i18n/de/files.js";
-import { pipelineCopy } from "../../lib/i18n/de/pipelines.js";
-import { commonCopy } from "../../lib/i18n/de/common.js";
-import { sessionWorkspaceCopy as copy } from "../../lib/i18n/de/sessions.js";
-import React, { lazy, Suspense, useRef, useState } from "react";
+import { filesCopy } from "../../lib/i18n/messages/files.js";
+import { pipelineCopy } from "../../lib/i18n/messages/pipelines.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { sessionWorkspaceCopy as copy } from "../../lib/i18n/messages/sessions.js";
+import React, { lazy, Suspense, useMemo, useRef, useState } from "react";
 import api from "../../lib/api.js";
 import { names, statusLabels } from "../../lib/providers.js";
 import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
 import ChatView from "../chat/ChatView.jsx";
 import useChatViewport from "../chat/useChatViewport.js";
+const SessionReloadDialog = lazy(() => import("./SessionReloadDialog.jsx"));
+const SessionSshDialog = lazy(() => import("../ssh/SessionSshDialog.jsx"));
 const FileExplorer = lazy(() => import("../files/FileExplorer.jsx"));
 const TerminalView = lazy(() => import("../terminal/TerminalView.jsx"));
 export default function SessionWorkspace({
@@ -22,8 +27,21 @@ export default function SessionWorkspace({
   navigate,
   openNavigation,
 }) {
+  const [sshSession, setSshSession] = useState(null);
+  const [reloadSession, setReloadSession] = useState(null);
+  const sessionIdentity = JSON.stringify([
+    session.id,
+    session.accountId,
+    session.tool,
+    session.createdAt,
+  ]);
+  const pendingReload = useMemo(
+    () => ({ current: null, identity: sessionIdentity }),
+    [sessionIdentity],
+  );
   const [connection, setConnection] = useState("connecting");
   const coding = session.tool !== "shell";
+  const reloadable = coding && !session.pipeline && session.purpose !== "login";
   const mobileChat = coding && mode === "reader";
   useChatViewport(mobileChat);
   const sendRef = useRef(null);
@@ -73,6 +91,28 @@ export default function SessionWorkspace({
           </div>
         </div>
         <div className="session-actions">
+          {reloadable && (
+            <button
+              className="icon-button"
+              aria-label={sessionReloadCopy.title}
+              title={sessionReloadCopy.title}
+              onClick={() => setReloadSession(sessionIdentity)}
+            >
+              <Icon name="refresh" />
+            </button>
+          )}
+          {session.status === "running" &&
+            !session.pipeline?.headless &&
+            session.purpose !== "login" && (
+              <button
+                className="icon-button"
+                aria-label={sshCopy.title}
+                title={sshCopy.title}
+                onClick={() => setSshSession(sessionIdentity)}
+              >
+                <Icon name="link" />
+              </button>
+            )}
           <button
             className="icon-button"
             aria-label={commonCopy.renameSession}
@@ -96,6 +136,14 @@ export default function SessionWorkspace({
           </button>
         </div>
       </header>
+      {reloadable &&
+        ["waiting", "reloading", "failed"].includes(session.reload?.state) && (
+          <div className="session-reload-notice" role="status">
+            <button className="button" onClick={() => setReloadSession(sessionIdentity)}>
+              {sessionReloadCopy[session.reload.state]}
+            </button>
+          </div>
+        )}
       {session.pipeline?.headless && (
         <div className="pipeline-session-notice">
           <span>{pipelineCopy.pipelineSessionReadOnly}</span>
@@ -159,6 +207,12 @@ export default function SessionWorkspace({
         {mode === "terminal" && (
           <Suspense fallback={<p className="chat-notice">{copy.chatNotice}</p>}>
             <TerminalView
+              key={JSON.stringify([
+                session.id,
+                session.createdAt,
+                session.status,
+                session.restartGeneration,
+              ])}
               session={session}
               mode={mode}
               sendRef={sendRef}
@@ -182,6 +236,9 @@ export default function SessionWorkspace({
               request={api}
               onConnection={setConnection}
               openTerminal={showTerminal}
+              openFile={(file) =>
+                navigate({ ...route, mode: "files", file, filePath: "", filePage: 1 })
+              }
             />
           </div>
         )}
@@ -203,6 +260,39 @@ export default function SessionWorkspace({
             </button>
           ))}
         </div>
+      )}
+      {sshSession === sessionIdentity &&
+        session.status === "running" &&
+        !session.pipeline?.headless && (
+          <Suspense fallback={<p role="status">{sshCopy.loading}</p>}>
+            <SessionSshDialog
+              key={sessionIdentity}
+              session={session}
+              close={() => setSshSession(null)}
+              openReload={
+                reloadable
+                  ? () => {
+                      setSshSession(null);
+                      setReloadSession(sessionIdentity);
+                    }
+                  : undefined
+              }
+            />
+          </Suspense>
+        )}
+      {reloadSession === sessionIdentity && reloadable && (
+        <Suspense fallback={<p role="status">{sessionReloadCopy.loading}</p>}>
+          <SessionReloadDialog
+            key={sessionIdentity}
+            session={session}
+            close={() => setReloadSession(null)}
+            pending={pendingReload}
+            openTerminal={() => {
+              setReloadSession(null);
+              showTerminal();
+            }}
+          />
+        </Suspense>
       )}
       <footer className="session-footer">
         <span title={session.cwd}>

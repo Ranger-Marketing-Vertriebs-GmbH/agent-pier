@@ -1,5 +1,5 @@
-import { commonCopy } from "../lib/i18n/de/common.js";
-import { paginationCopy as copy } from "../lib/i18n/de/components.js";
+import { commonCopy } from "../lib/i18n/messages/common.js";
+import { paginationCopy as copy } from "../lib/i18n/messages/components.js";
 import React, { useEffect, useState, useRef } from "react";
 export function usePagination(items, resetKey = "") {
   const [page, setPage] = useState(0),

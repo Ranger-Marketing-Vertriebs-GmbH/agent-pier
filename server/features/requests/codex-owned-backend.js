@@ -15,8 +15,11 @@ process.once("message", ({ command, args, cwd }) => {
   const child = spawn(command, args, {
     cwd,
     env: process.env,
-    stdio: ["pipe", "pipe", "inherit"],
+    stdio: ["pipe", "pipe", "pipe"],
   });
+  // App-server tracing is not terminal UI and can contain private tool arguments.
+  // Drain it without retaining it; native operation errors still travel over RPC.
+  child.stderr.resume();
   child.stdin.on("error", () => {});
   process.stdin.pipe(child.stdin);
   child.stdout.pipe(process.stdout);
