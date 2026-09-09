@@ -132,7 +132,7 @@ test("Claude copies session subagents and rewind snapshots without other session
   await assert.rejects(fs.access(path.join(f.target, "projects/project/other.jsonl")));
 });
 
-test("Codex paginated history cannot be mistaken for a complete legacy rollout", async (t) => {
+test("Codex incomplete paginated history cannot be mistaken for a complete rollout", async (t) => {
   const f = await fixture(t, "codex");
   f.history.codex = () => ({
     request: async () => ({
@@ -141,6 +141,83 @@ test("Codex paginated history cannot be mistaken for a complete legacy rollout",
   });
   await assert.rejects(f.prepare(), /storage|format|portable/i);
   await assert.rejects(fs.access(path.join(f.target, f.relative)));
+});
+
+async function paginatedFixture(t) {
+  const f = await fixture(t, "codex");
+  f.records = [
+    {
+      ordinal: 0,
+      type: "session_meta",
+      payload: { id: f.id, cwd: f.root, history_mode: "paginated" },
+    },
+    {
+      ordinal: 1,
+      type: "response_item",
+      payload: { type: "message", role: "user", content: "Keep all context" },
+    },
+  ];
+  f.write = () => fs.writeFile(f.file, f.records.map(JSON.stringify).join("\n") + "\n");
+  await f.write();
+  f.history.codex = () => ({
+    request: async (_method, params) => {
+      if (params.includeTurns) throw Error("Use thread/turns/list for paginated history");
+      return {
+        thread: { id: f.id, cwd: f.root, path: f.file, historyMode: "paginated" },
+      };
+    },
+  });
+  return f;
+}
+
+test("Codex transfers a complete paginated rollout unchanged and snapshots the final append", async (t) => {
+  const f = await paginatedFixture(t);
+  const transfer = await f.prepare();
+  f.records.push({
+    ordinal: 2,
+    type: "response_item",
+    payload: { text: "Final output" },
+  });
+  await f.write();
+  await transfer.commit();
+  assert.equal(
+    await fs.readFile(path.join(f.target, f.relative), "utf8"),
+    await fs.readFile(f.file, "utf8"),
+  );
+  assert.equal(await fs.readFile(path.join(f.target, "auth.json"), "utf8"), f.target);
+});
+
+for (const corruption of ["missing", "gap", "duplicate", "start", "mode"]) {
+  test(`Codex rejects paginated rollout with ${corruption} ordinal or storage marker before copying`, async (t) => {
+    const f = await paginatedFixture(t);
+    if (corruption === "missing") delete f.records[1].ordinal;
+    if (corruption === "gap") f.records[1].ordinal = 2;
+    if (corruption === "duplicate") f.records[1].ordinal = 0;
+    if (corruption === "start") f.records.forEach((record) => record.ordinal++);
+    if (corruption === "mode") delete f.records[0].payload.history_mode;
+    await f.write();
+    await assert.rejects(f.prepare(), /portable|incomplete|format/i);
+    await assert.rejects(fs.access(path.join(f.target, f.relative)));
+  });
+}
+
+test("Codex rechecks paginated completeness after the source process stops", async (t) => {
+  const f = await paginatedFixture(t);
+  const transfer = await f.prepare();
+  f.records.push({ ordinal: 3, type: "response_item", payload: {} });
+  await f.write();
+  await assert.rejects(transfer.commit(), /portable|incomplete|format/i);
+  await assert.rejects(fs.access(path.join(f.target, f.relative)));
+});
+
+test("Codex rejects unknown future storage modes", async (t) => {
+  const f = await paginatedFixture(t);
+  f.history.codex = () => ({
+    request: async () => ({
+      thread: { id: f.id, cwd: f.root, path: f.file, historyMode: "future" },
+    }),
+  });
+  await assert.rejects(f.prepare(), /storage|format|portable/i);
 });
 
 test("Codex without a storage marker must support reading complete turns before transfer", async (t) => {
@@ -153,3 +230,22 @@ test("Codex without a storage marker must support reading complete turns before 
   });
   await assert.rejects(f.prepare(), /unsupported/);
 });
+
+for (const key of ["id", "cwd", "path", "historyMode"]) {
+  test(`Codex rejects a legacy ${key} change during the complete history read`, async (t) => {
+    const f = await fixture(t, "codex");
+    f.history.codex = () => ({
+      request: async (_method, params) => ({
+        thread: {
+          id: f.id,
+          cwd: f.root,
+          path: f.file,
+          historyMode: "legacy",
+          ...(params.includeTurns ? { [key]: "changed" } : {}),
+        },
+      }),
+    });
+    await assert.rejects(f.prepare(), /changed during transfer/);
+    await assert.rejects(fs.access(path.join(f.target, f.relative)));
+  });
+}
