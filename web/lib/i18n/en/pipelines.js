@@ -1,6 +1,8 @@
 export const pipelineCopy = {
   runOverview: "Run overview",
   resultSummary: "Show result summary",
+  verificationTimedOut: "Time limit exceeded",
+  verificationExitCode: (code) => `Failed (exit code ${code})`,
   verificationRunning: "Verification running",
   verificationRunningHelp:
     "Automated checks are running. The pipeline continues afterwards. Status updates automatically.",

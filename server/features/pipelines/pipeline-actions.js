@@ -125,6 +125,7 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
     attempt.quiesced = true;
     run.pendingConclusion = { nodeId: node.id, verdict: found.verdict };
     delete node.failReason;
+    delete node.failDetail;
     engine.store.save(run);
     await conclude(engine, run, node, found.verdict);
     return;

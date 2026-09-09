@@ -306,3 +306,33 @@ test("verification is visible during polling and long run text stays readable on
   await expect(verification).toHaveCount(0, { timeout: 10000 });
   await expect(page.locator(".pipeline-status-badge")).toHaveText("Abgeschlossen");
 });
+
+test("verification evidence distinguishes timeouts from unavailable results", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  const run = sampleRun(state);
+  run.nodes[0].verifyResult = {
+    status: "timed-out",
+    steps: [
+      { name: "bootstrap", exitCode: 0, blocking: true },
+      { name: "PHP tests", exitCode: null, timedOut: true, blocking: true },
+      { name: "lint", exitCode: 2, blocking: true },
+    ],
+  };
+  state.runs.push(run);
+  await openPipelines(page, "runs/run-one");
+  await expect(
+    page.getByText("PHP tests · Fehler hält den Lauf an · Zeitlimit überschritten", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("bootstrap · Fehler hält den Lauf an · Bestanden", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("lint · Fehler hält den Lauf an · Fehlgeschlagen (Exit-Code 2)", {
+      exact: true,
+    }),
+  ).toBeVisible();
+});
