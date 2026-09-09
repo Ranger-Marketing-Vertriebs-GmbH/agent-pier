@@ -24,8 +24,10 @@ export function availableActions(run) {
     if (node.failReason === "usage-limit-exceeded")
       actions.push("wait-for-reset", "resume-now");
     else actions.push("retry");
-    if (["session-error", "inactivity-timeout"].includes(node.failReason))
+    if (["session-error", "inactivity-timeout"].includes(node.failReason)) {
       actions.push("reconcile");
+      if (currentAttempt(run)) actions.push("override");
+    }
   }
   if (outgoing(run, node.id, "fail")?.maxIterations) actions.push("loop-back");
   return actions;
@@ -129,6 +131,32 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
     engine.store.save(run);
     await conclude(engine, run, node, found.verdict);
     return;
+  }
+  if (action === "override" && node.status === "failed") {
+    const attempt = currentAttempt(run);
+    const outcome = await engine.driver.inspect({
+      runId: run.id,
+      nodeId: node.id,
+      attemptId: attempt.attemptId,
+      turnId: attempt.turnId,
+      sessionId: attempt.sessionId,
+    });
+    if (
+      run.activeTurn ||
+      run.verifyJob ||
+      !["completed", "failed"].includes(outcome.status) ||
+      outcome.quiesced !== true
+    )
+      throw problem("Override requires a stopped, quiesced native turn.", 409);
+    attempt.quiesced = true;
+    const selected = node.forwardCondition
+      ? outgoing(run, node.id, node.forwardCondition)
+      : outgoing(run, node.id, "pass") || outgoing(run, node.id, "default");
+    node.forwardCondition = selected?.condition;
+    Object.assign(
+      node,
+      selected?.effects || { humanGate: false, verify: false, createPr: false },
+    );
   }
   node.gateDecision = action === "override" ? "overridden" : "accepted";
   node.gateDecidedAt = engine.now();

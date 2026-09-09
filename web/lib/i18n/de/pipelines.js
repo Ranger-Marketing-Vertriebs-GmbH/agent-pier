@@ -169,7 +169,7 @@ export const pipelineCopy = {
   resumeAt: "Fortsetzen ab (optional)",
   actions: {
     accept: "Freigeben",
-    override: "Übergehen",
+    override: "Übergehen & fortsetzen",
     feedback: "Mit Rückmeldung wiederholen",
     "loop-back": "Zur Reparatur zurückspringen",
     reconcile: "Ergebnis erneut prüfen",

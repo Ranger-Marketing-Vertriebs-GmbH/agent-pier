@@ -44,6 +44,12 @@ export function nativeCommand({
         ],
       };
   } else if (tool === "claude") {
+    // The shared lifecycle preassigns a new native session ID. Resuming must
+    // retain the original conversation instead of combining both CLI options.
+    for (let index = args.length - 1; index >= 0; index--) {
+      if (args[index] === "--session-id") args.splice(index, 2);
+      else if (args[index].startsWith("--session-id=")) args.splice(index, 1);
+    }
     args.push(
       "--permission-mode",
       headless ? "bypassPermissions" : mode === "default" ? claudeDefault : mode,
