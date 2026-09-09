@@ -87,8 +87,6 @@ export function validateProfile(body, accounts) {
     throw problem(`Invalid ${config.cliTool} permission mode`);
   if (typeof config.run?.autonomous !== "boolean")
     throw problem("Profile autonomous must be a boolean");
-  if (config.run.autonomous && config.cliTool === "opencode" && mode !== "auto")
-    throw problem("Autonomous OpenCode profiles require auto permission mode");
   const role = boundedText(config.prompts?.role ?? "", "role prompt", 16000);
   const kickoff = boundedText(config.prompts?.kickoff ?? "", "kickoff prompt", 32000, {
     empty: !config.run.autonomous,

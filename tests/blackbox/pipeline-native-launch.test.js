@@ -14,11 +14,19 @@ async function ended(driver, identity) {
   }
   assert.fail("Synthetic native CLI did not exit.");
 }
+function assertAutonomous(tool, args) {
+  if (tool === "codex") {
+    assert.ok(args.includes("--dangerously-bypass-approvals-and-sandbox"));
+    assert.ok(args.includes("--dangerously-bypass-hook-trust"));
+  } else if (tool === "claude") {
+    assert.equal(args[args.indexOf("--permission-mode") + 1], "bypassPermissions");
+  } else assert.ok(args.includes("--auto"));
+}
 for (const providerId of [null, "openrouter", "zai", "zai-coding-plan"])
   for (const [tool, mode, prefix] of [
     ["codex", "never", "exec"],
     ["claude", "acceptEdits", "--print"],
-    ["opencode", "auto", "run"],
+    ["opencode", "ask", "run"],
   ])
     test(`${providerId || "native"}/${tool} pipeline uses normal account lifecycle and exact native resume across real owned tmux turns`, async (t) => {
       const app = await applicationFixture(t),
@@ -110,6 +118,7 @@ for (const providerId of [null, "openrouter", "zai", "zai-coding-plan"])
       );
       const argv = JSON.parse(await fs.readFile(capture, "utf8"));
       assert.equal(argv.args[0], prefix);
+      assertAutonomous(tool, argv.args);
       assert.equal(argv.args.includes("--add-dir"), false);
       assert.match(argv.prompt, /Role retained/);
       const binding = JSON.parse(
@@ -184,6 +193,7 @@ for (const providerId of [null, "openrouter", "zai", "zai-coding-plan"])
       });
       assert.equal((await ended(application.pipelineDriver, next)).status, "completed");
       const resumed = JSON.parse(await fs.readFile(capture, "utf8"));
+      assertAutonomous(tool, resumed.args);
       assert.equal(resumed.args.includes(nativeId), true);
       assert.equal(resumed.args.includes("--continue"), false);
       if (connection) {

@@ -109,7 +109,7 @@ export function profileCommand({
     resumeNativeId,
     headless,
     mode,
-    ...(tool === "claude" && mode === "default"
+    ...(!headless && tool === "claude" && mode === "default"
       ? { claudeDefault: claudeDefaultMode(launch.command) }
       : {}),
   });

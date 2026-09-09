@@ -34,6 +34,8 @@ export const pipelineCopy = {
   centralModelsHelp:
     "Eine exakte Modell-ID aus dem Katalog pro Zeile. Das Standardmodell muss enthalten sein.",
   permissions: "Berechtigungsmodus",
+  pipelinePermissionsHint:
+    "Der gewählte Berechtigungsmodus gilt für separat gestartete Profilsitzungen. Pipeline-Stufen laufen immer autonom: Codex mit YOLO und Hook-Freigabe, Claude mit bypassPermissions, OpenCode mit auto. Menschliche Freigabeschritte der Pipeline bleiben bestehen.",
   autonomous: "Autonom ausführen",
   model: "Standardmodell",
   models: "Erlaubte Modelle",

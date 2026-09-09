@@ -168,6 +168,7 @@ export default function ProfileEditor({ profile, accounts, close, saved, stats }
             />
             {copy.autonomous}
           </label>
+          <p className="field-description">{copy.pipelinePermissionsHint}</p>
           <label>
             {copy.models}
             <textarea
