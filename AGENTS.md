@@ -35,6 +35,8 @@ Use `node:test` with strict assertions, fast-check for properties, and Playwrigh
 
 `main` is protected. Make changes on a feature or fix branch and submit a pull request; never push directly to `main` or bypass branch protection. Merge only after required CI checks pass and review conversations are resolved.
 
+Place Git worktrees under the repository's ignored `.worktrees/` directory, never beside the repository. After successful completion and merge, remove clean, inactive worktrees with `git worktree remove`. Preserve worktrees with uncommitted changes, unmerged work, or active sessions.
+
 Follow the history's concise imperative prefixes: `fix:`, `feat:`, and `chore:`. Keep commits focused. Describe the problem, resulting behavior, and validation in PRs; link relevant issues and include screenshots for visible UI changes. CI checks Linux/macOS and Chromium/WebKit.
 
 ## Security & Configuration

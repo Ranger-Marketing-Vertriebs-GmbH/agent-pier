@@ -10,6 +10,8 @@ If preflight validation fails, the existing CLI keeps running. If startup fails 
 
 The native CLI must still have access to its saved conversation files. AgentPier does not fall back to whichever conversation was most recent when the exact conversation cannot be resolved.
 
+If the restarted CLI asks you to allow hooks or trust the project, choose **Open terminal** in the reload dialog to confirm it yourself. This closes the dialog without cancelling the reload. Direct terminal input is available as soon as the replacement CLI is running, including while AgentPier is verifying the resumed conversation. Chat delivery and model controls remain blocked during that verification. If verification times out while you are reading a prompt, the terminal remains available to finish the approval.
+
 ## Model verification
 
 Reload preflight checks the current model before stopping the CLI. If the CLI reports only a display name that cannot be resolved reliably, AgentPier rejects the reload instead of forcing an older model from the conversation history. This currently affects some OpenCode display names and unfamiliar native model labels. Changing the model immediately before reloading can also require a new response to confirm its exact identity in the native history. The error leaves the running CLI untouched.

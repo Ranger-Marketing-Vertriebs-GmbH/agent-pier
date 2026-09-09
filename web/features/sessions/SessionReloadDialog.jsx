@@ -4,7 +4,7 @@ import { sessionReloadCopy as copy } from "../../lib/i18n/messages/sessions.js";
 import useSessionReload from "./useSessionReload.js";
 import "./session-reload.css";
 
-export default function SessionReloadDialog({ session, close, pending }) {
+export default function SessionReloadDialog({ session, close, pending, openTerminal }) {
   const reload = useSessionReload(session, pending);
   const [interrupt, setInterrupt] = useState(false);
   const { data, busy, error } = reload;
@@ -15,6 +15,10 @@ export default function SessionReloadDialog({ session, close, pending }) {
     <Modal title={copy.title} close={close}>
       <div className="session-reload-dialog">
         <p>{copy.hint}</p>
+        <p>{copy.terminalHint}</p>
+        <button className="button" onClick={openTerminal}>
+          {copy.openTerminal}
+        </button>
         {!data && !error && <p role="status">{copy.loading}</p>}
         {error && <p role="alert">{error}</p>}
         {busy && <p role="status">{copy.submitting}</p>}

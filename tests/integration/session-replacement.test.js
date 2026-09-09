@@ -35,8 +35,14 @@ test("replacement preserves identity and scoped metadata without normal stop cle
     state: "reloading",
     nativeId: "exact-native",
   });
+  const oldTerminal = await manager.attach(session.id);
+  await assert.rejects(oldTerminal.write("must-not-replay"), /reloading/);
   const result = await manager.replace(session.id, async () => ({
     ...launch,
+    args: [
+      "-c",
+      'printf "ALLOW_HOOKS?\\n"; read -r answer; printf "HOOKS_%s\\n" "$answer"; sleep 120',
+    ],
     sshTools: { enabled: true, generation: "new" },
   }));
   assert.equal(result.id, session.id);
@@ -51,8 +57,23 @@ test("replacement preserves identity and scoped metadata without normal stop cle
     manager.control(session.id, () => assert.fail("No model input")),
     /reloading/,
   );
-  const terminal = await manager.attach(session.id);
-  await assert.rejects(terminal.write("must-not-replay"), /reloading/);
+  let output = "";
+  const terminal = await manager.attach(session.id, {
+    onData: (data) => {
+      output += data;
+    },
+  });
+  const waitForOutput = async (expected) => {
+    const deadline = Date.now() + 5000;
+    while (!output.includes(expected) && Date.now() < deadline)
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    assert.ok(output.includes(expected), `Missing terminal output: ${expected}`);
+  };
+  await waitForOutput("ALLOW_HOOKS?");
+  await oldTerminal.write("must-not-reach-replacement");
+  await terminal.write("ALLOWED\r");
+  await waitForOutput("HOOKS_ALLOWED");
+  assert.equal((await manager.get(session.id)).reload.state, "reloading");
   terminal.dispose();
   await assert.rejects(
     manager.replace(session.id, async () => {

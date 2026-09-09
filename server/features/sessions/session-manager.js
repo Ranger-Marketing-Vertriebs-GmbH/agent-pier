@@ -8,7 +8,7 @@ import {
 import { shellQuote as quote } from "../../lib/launch-serialization.js";
 import { validId, validName, dimensions, textInput } from "./session-validation.js";
 import { safeEnvironment, execute, privateWrite } from "./session-process-runtime.js";
-import { replaceSession } from "./session-replacement.js";
+import { replaceSession, blocksTerminalInput } from "./session-replacement.js";
 import { createHash, randomUUID } from "node:crypto";
 import {
   access,
@@ -571,7 +571,7 @@ export class SessionManager {
             return Promise.reject(failure("Session is reloading", 409));
           return this.serial(async () => {
             if (disposed) return;
-            if ((await this.metadata(id)).reload?.state === "reloading")
+            if (blocksTerminalInput(await this.metadata(id)))
               throw failure("Session is reloading", 409);
             terminal.write(text);
           });
