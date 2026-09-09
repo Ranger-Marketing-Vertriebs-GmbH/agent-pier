@@ -29,11 +29,13 @@ function syncDirectory(directory) {
 
 /** Durable at-most-once native input for one owner of the data directory. */
 export class ChatDelivery {
-  constructor({ dataDir, sessions, requests, models }) {
+  constructor({ dataDir, sessions, requests, models, bindings, history }) {
     this.directory = path.join(dataDir, "chat-delivery");
     this.sessions = sessions;
     this.requests = requests;
     this.models = models;
+    this.bindings = bindings;
+    this.history = history;
     this.active = new Set();
   }
 
@@ -152,14 +154,26 @@ export class ChatDelivery {
     let mayHaveWritten = false;
     try {
       await requireChatInput(this.requests, id);
-      await this.sessions.input(id, text, submit, async (session, raw) => {
-        this.checkScope(session, deliveryScope);
-        requireCurrentChatInput(this.requests, id);
-        await this.models.guardInput(id, session, raw);
-        receipt.status = "uncertain";
-        this.write(file, receipt);
-        mayHaveWritten = true;
-      });
+      await this.sessions.input(
+        id,
+        text,
+        submit,
+        async (session, raw) => {
+          this.checkScope(session, deliveryScope);
+          requireCurrentChatInput(this.requests, id);
+          await this.models.guardInput(id, session, raw);
+          receipt.status = "uncertain";
+          this.write(file, receipt);
+          mayHaveWritten = true;
+        },
+        async (session) => {
+          if (session.tool !== "codex" || !this.bindings || !this.history) return false;
+          const native = await this.bindings.resolve(session).catch(() => null);
+          if (!native?.id) return false;
+          await this.history.queue(session, native.id, text);
+          return true;
+        },
+      );
       receipt.status = "handed-off";
       this.write(file, receipt);
     } catch {
