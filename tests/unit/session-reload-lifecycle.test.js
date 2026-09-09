@@ -149,3 +149,28 @@ test("Codex reload launches the displayed exact model with its explicit reasonin
   ]);
   assert.deepEqual(plan.launch.args.slice(-2), ["resume", "native-exact"]);
 });
+
+test("Codex reload preserves attachment roots with a writable sandbox except in YOLO mode", async () => {
+  for (const launchMode of ["default", "yolo"]) {
+    const f = fixture();
+    f.session.tool = "codex";
+    f.session.launchMode = launchMode;
+    f.services.accounts.get().tool = "codex";
+    f.services.models.read = async () => ({ currentModel: "gpt-6" });
+    f.services.accounts.command = (_id, _binaries, _login, mode) => ({
+      command: "/bin/sh",
+      args: mode === "yolo" ? ["--yolo"] : [],
+      env: {},
+      launchMode: mode,
+    });
+    const { launch } = await f.prepareReload(f.session, "native-exact");
+    const directoryIndex = launch.args.indexOf("--add-dir");
+    assert.equal(launch.args[directoryIndex + 1], f.session.attachments.directory);
+    assert.equal(
+      launch.args.includes('sandbox_mode="workspace-write"'),
+      launchMode === "default",
+    );
+    assert.equal(launch.args.includes("--yolo"), launchMode === "yolo");
+    assert.deepEqual(launch.args.slice(-2), ["resume", "native-exact"]);
+  }
+});

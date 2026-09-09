@@ -56,7 +56,8 @@ export class SessionManager {
       await chmod(directory, 0o700);
     }
     await privateWrite(
-      this.configPath,
+      this.directory,
+      "tmux.conf",
       // set-clipboard defaults to "external", which drops OSC 52 from the programs
       // inside a pane, and tmux emits the sequence only for a client it believes
       // capable: terminal-features forces that regardless of the attaching TERM.
@@ -95,14 +96,15 @@ export class SessionManager {
     }
   }
   async save(session) {
-    await privateWrite(this.file(session.id), JSON.stringify(session, null, 2));
+    const filename = `${validId(session.id)}.json`;
+    await privateWrite(this.directory, filename, JSON.stringify(session, null, 2));
   }
   async capture(id) {
     return this.tmux(["capture-pane", "-p", "-t", `${this.target(id)}:0.0`, "-S", "-"]);
   }
   async remember(id) {
     const text = await this.capture(id);
-    await privateWrite(path.join(this.directory, `${id}.screen`), text);
+    await privateWrite(this.directory, `${id}.screen`, text);
     return text;
   }
   async reconcileStopped(session) {
@@ -242,7 +244,8 @@ export class SessionManager {
       }
       const launchFile = path.join(this.directory, `${id}.launch.json`);
       await privateWrite(
-        launchFile,
+        this.directory,
+        `${id}.launch.json`,
         JSON.stringify({
           command,
           args,

@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { writeFile, rename } from "node:fs/promises";
+import { writeFile, rename, rm } from "node:fs/promises";
+import path from "node:path";
 export const safeEnvironment = () =>
   Object.fromEntries(
     ["PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "TMPDIR"]
@@ -33,8 +34,22 @@ export function execute(command, args, { input, env = safeEnvironment() } = {}) 
     child.stdin.end(input);
   });
 }
-export async function privateWrite(file, value) {
-  const temporary = `${file}.${randomUUID()}.tmp`;
-  await writeFile(temporary, value, { mode: 0o600, flag: "wx" });
-  await rename(temporary, file);
+export async function privateWrite(directory, filename, value) {
+  if (
+    typeof filename !== "string" ||
+    filename !== path.basename(filename) ||
+    (filename !== "tmux.conf" &&
+      !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}\.(?:json|launch\.json|screen)$/.test(filename))
+  )
+    throw new Error("Invalid private session filename");
+  if (typeof directory !== "string" || !path.isAbsolute(directory))
+    throw new Error("Invalid private session directory");
+  const file = path.join(directory, path.basename(filename));
+  const temporary = path.join(directory, `${randomUUID()}.tmp`);
+  try {
+    await writeFile(temporary, value, { mode: 0o600, flag: "wx" });
+    await rename(temporary, file);
+  } finally {
+    await rm(temporary, { force: true });
+  }
 }

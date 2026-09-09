@@ -35,7 +35,8 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
     const launch = await prepare(session);
     await validateReloadLaunch(launch, session.cwd);
     await privateWrite(
-      launchFile,
+      manager.directory,
+      `${id}.launch.json`,
       JSON.stringify({
         command: launch.command,
         args: launch.args || [],

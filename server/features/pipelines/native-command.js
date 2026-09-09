@@ -1,4 +1,5 @@
 import { problem } from "../../lib/storage.js";
+import { codexSandboxArguments, runSandbox } from "../../lib/sandbox.js";
 import { PERMISSION_MODES } from "./profile-validation.js";
 
 export function nativeCommand({
@@ -13,13 +14,14 @@ export function nativeCommand({
   if (!PERMISSION_MODES[tool]?.includes(mode))
     throw problem(`Invalid ${tool} permission mode.`);
   const args = [...launch.args];
-  const env = { ...launch.env };
+  // Every pipeline turn is autonomous: the agent has no operator to ask what it
+  // is allowed to write, so it is told the sandbox it actually runs in.
+  const env = { ...launch.env, AGENTRUNNER_SANDBOX: runSandbox(tool) };
   if (tool === "codex") {
     args.push(
       "-c",
       `approval_policy=${JSON.stringify(mode)}`,
-      "-c",
-      'sandbox_mode="workspace-write"',
+      ...codexSandboxArguments(),
     );
     if (headless)
       return {

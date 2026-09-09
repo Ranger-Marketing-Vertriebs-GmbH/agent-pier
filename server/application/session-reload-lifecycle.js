@@ -1,3 +1,4 @@
+import { codexSandboxArguments } from "../lib/sandbox.js";
 import { resolveReloadModel } from "./session-reload-model.js";
 import { resumeLaunch, validateReloadLaunch } from "./session-reload-launch.js";
 import { currentModel } from "../features/models/model-parser.js";
@@ -42,8 +43,11 @@ export function createReloadLifecycle(services) {
           409,
         );
     } else if (launch.provider) throw problem("The account access mode changed.", 409);
-    if (session.attachments?.directory && session.tool !== "opencode")
+    if (session.attachments?.directory && session.tool !== "opencode") {
       launch.args.push("--add-dir", session.attachments.directory);
+      if (session.tool === "codex" && launch.launchMode !== "yolo")
+        launch.args.push(...codexSandboxArguments());
+    }
     launch = resumeLaunch(account.tool, launch, nativeId);
     if (!session.provider && modelId) launch.nativeModelId = modelId;
     await validateReloadLaunch(launch, session.cwd);
