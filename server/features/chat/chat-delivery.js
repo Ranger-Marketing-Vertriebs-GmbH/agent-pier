@@ -155,7 +155,7 @@ export class ChatDelivery {
       await this.sessions.input(id, text, submit, async (session, raw) => {
         this.checkScope(session, deliveryScope);
         requireCurrentChatInput(this.requests, id);
-        await this.models.guardInput(id, session, raw);
+        await this.models.guardInput(id, session, raw, { requireReady: true });
         receipt.status = "uncertain";
         this.write(file, receipt);
         mayHaveWritten = true;

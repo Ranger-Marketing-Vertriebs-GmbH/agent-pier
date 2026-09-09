@@ -13,4 +13,6 @@ export const models = Object.freeze({
   invalidSearch: "Ungültige Modellsuche.",
   completeSelectionFirst:
     "Bitte die Modellauswahl zuerst abschließen oder im Terminal prüfen.",
+  chatInputNotReady:
+    "Die CLI ist noch beschäftigt oder wartet auf eine Eingabe. Die Nachricht wurde nicht übergeben; bitte nach Abschluss erneut senden.",
 });

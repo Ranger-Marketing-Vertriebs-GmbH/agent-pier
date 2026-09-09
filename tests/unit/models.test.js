@@ -223,6 +223,17 @@ test("input guard rejects native model menus even after a server restart", async
   );
 });
 
+test("chat input guard rejects a busy native prompt instead of losing pasted text", () => {
+  const model = new ModelController({ sessions: {} });
+  const busy = "• Working (12s • esc to interrupt)\n\n›\n? for shortcuts";
+  assert.throws(
+    () => model.guardInput("chat", { tool: "codex" }, busy, { requireReady: true }),
+    /Eingabe|Terminal|bereit/i,
+  );
+  // Model switching may still inspect a running Codex task; this is only strict for chat sends.
+  assert.doesNotThrow(() => model.guardInput("model", { tool: "codex" }, busy));
+});
+
 test("OpenCode search clears the whole native input even if its old text is clipped", async () => {
   const { sessions, state, calls } = fakeManager(
     "opencode",

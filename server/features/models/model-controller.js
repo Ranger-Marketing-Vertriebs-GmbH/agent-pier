@@ -197,10 +197,17 @@ export class ModelController {
       );
     });
   }
-  guardInput(id, session, raw) {
+  guardInput(id, session, raw, { requireReady = false } = {}) {
     const menu = parseModelPicker(session.tool, raw);
+    const visible = String(raw).replace(/\x1b\[[0-9;]*[A-Za-z]/g, "");
     if (menu || (this.pending.has(id) && !modelPromptReady(session.tool, raw)))
       throw problem(serverMessages.models.completeSelectionFirst, 409);
+    if (
+      requireReady &&
+      (!modelPromptReady(session.tool, raw) ||
+        /(?:working|thinking|generating|esc\s+to\s+interrupt|arbeitet)/i.test(visible))
+    )
+      throw problem(serverMessages.models.chatInputNotReady, 409);
     this.pending.delete(id);
   }
   remove(id) {
