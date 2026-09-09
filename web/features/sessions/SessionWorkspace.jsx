@@ -14,6 +14,9 @@ import ProviderMark from "../../components/ProviderMark.jsx";
 import ChatView from "../chat/ChatView.jsx";
 import useChatViewport from "../chat/useChatViewport.js";
 const SessionReloadDialog = lazy(() => import("./SessionReloadDialog.jsx"));
+const PipelineSessionRecovery = lazy(
+  () => import("../pipelines/PipelineSessionRecovery.jsx"),
+);
 const SessionSshDialog = lazy(() => import("../ssh/SessionSshDialog.jsx"));
 const FileExplorer = lazy(() => import("../files/FileExplorer.jsx"));
 const TerminalView = lazy(() => import("../terminal/TerminalView.jsx"));
@@ -174,6 +177,13 @@ export default function SessionWorkspace({
           )}
         </div>
       )}
+      {session.pipeline?.headless &&
+        session.pipeline.runId &&
+        session.status === "stopped" && (
+          <Suspense fallback={null}>
+            <PipelineSessionRecovery key={sessionIdentity} session={session} />
+          </Suspense>
+        )}
       <div className="terminal-topbar">
         <div className="segmented">
           <button

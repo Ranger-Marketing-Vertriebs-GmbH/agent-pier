@@ -24,7 +24,10 @@ export function availableActions(run) {
     if (node.failReason === "usage-limit-exceeded")
       actions.push("wait-for-reset", "resume-now");
     else actions.push("retry");
-    if (["session-error", "inactivity-timeout"].includes(node.failReason)) {
+    if (
+      ["session-error", "inactivity-timeout"].includes(node.failReason) &&
+      currentAttempt(run)?.status !== "launching"
+    ) {
       actions.push("reconcile");
       if (currentAttempt(run)) actions.push("override");
     }

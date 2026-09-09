@@ -354,3 +354,19 @@ test("failed-stage override retains selected forward PR effects", async (t) => {
   assert.equal(f.engine.get(r.id).status, "completed");
   assert.equal(published, 1);
 });
+
+test("a failed launch offers retry without unusable native outcome decisions", async (t) => {
+  const f = fixture(t);
+  f.driver.start = async () => {
+    throw Error("CLI version probe failed");
+  };
+  const r = await start(f);
+  const run = f.engine.get(r.id);
+  assert.equal(run.executionLog[0].status, "launching");
+  assert.equal(run.status, "awaiting-human");
+  assert.deepEqual(run.actions, ["abort", "retry"]);
+  f.driver.start = async (input) => ({ sessionId: input.sessionId });
+  await f.engine.retry(r.id);
+  assert.equal(f.engine.get(r.id).status, "running");
+  assert.equal(f.engine.get(r.id).executionLog.length, 2);
+});
