@@ -1,15 +1,23 @@
 import React from "react";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { formatTimestamp } from "../../lib/i18n/index.js";
+import VerificationStatus, { isVerifying } from "./VerificationStatus.jsx";
 import RunEvidence from "./RunEvidence.jsx";
 export function Verdict({ verdict }) {
   if (!verdict) return null;
   return (
-    <div>
+    <div className="pipeline-verdict">
       <strong>
         {copy.verdict}: {verdict.result === "pass" ? copy.pass : copy.fail}
       </strong>
-      <p>{verdict.summary}</p>
+      {verdict.summary?.length > 600 ? (
+        <details className="pipeline-verdict-summary">
+          <summary>{copy.resultSummary}</summary>
+          <p>{verdict.summary}</p>
+        </details>
+      ) : (
+        <p>{verdict.summary}</p>
+      )}
       {verdict.findings?.length > 0 && (
         <ul>
           {verdict.findings.map((finding, index) => (
@@ -37,11 +45,14 @@ export default function RunTimeline({ run, navigate }) {
             >
               <h3>{node.profileSnapshot?.name || node.kind || node.id}</h3>
               <p className="pipeline-run-status">
-                {copy.nodeStatuses[node.status] || node.status}
+                {isVerifying(run, node)
+                  ? copy.verificationRunning
+                  : copy.nodeStatuses[node.status] || node.status}
                 {node.loop && ` · ${node.loop.iteration} / ${node.loop.maxIterations}`}
               </p>
               {node.failReason && <p>{node.failReason}</p>}
-              {node.failDetail && <p>{node.failDetail}</p>}
+              {node.failReason && node.failDetail && <p>{node.failDetail}</p>}
+              <VerificationStatus run={run} node={node} />
               <Verdict verdict={node.verdict} />
               {node.verifyResult?.status === "not-configured" && <p>{copy.noSteps}</p>}
               {node.gateDecision && (
