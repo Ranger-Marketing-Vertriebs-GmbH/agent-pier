@@ -6,3 +6,8 @@ export const sessionWorkspaceCopy = localizedCopy(
   de.sessionWorkspaceCopy,
   en.sessionWorkspaceCopy,
 );
+
+export const sessionReloadCopy = localizedCopy(
+  de.sessionReloadCopy,
+  en.sessionReloadCopy,
+);

@@ -6,7 +6,7 @@ import SshChoices from "./SshChoices.jsx";
 import SshCopy from "./SshCopy.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 import "./ssh.css";
-export default function SessionSshDialog({ session, close }) {
+export default function SessionSshDialog({ session, close, openReload }) {
   const path = `/sessions/${encodeURIComponent(session.id)}/ssh-accesses`;
   const { data, setData, error: loadError, reload } = useSshAccesses(path);
   const [selected, setSelected] = useState([]),
@@ -23,6 +23,36 @@ export default function SessionSshDialog({ session, close }) {
   useEffect(() => {
     if (data) setSelected(data.assignedIds);
   }, [data]);
+  const dirty =
+    data &&
+    (selected.length !== data.assignedIds.length ||
+      selected.some((id) => !data.assignedIds.includes(id)));
+  const [tools, setTools] = useState(null);
+  useEffect(() => {
+    if (data) setTools(data.tools);
+  }, [data]);
+  useEffect(() => {
+    if (tools?.state !== "starting") return;
+    const controller = new AbortController();
+    let timer;
+    async function poll() {
+      try {
+        const result = await api(path, "GET", undefined, controller.signal);
+        if (!controller.signal.aborted) {
+          setTools(result.tools);
+          if (result.tools?.state === "starting") timer = setTimeout(poll, 1500);
+        }
+      } catch {
+        if (!controller.signal.aborted) timer = setTimeout(poll, 1500);
+      }
+    }
+    timer = setTimeout(poll, 1500);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [path, tools?.state]);
+
   return (
     <Modal
       title={copy.title}
@@ -46,6 +76,24 @@ export default function SessionSshDialog({ session, close }) {
         )}
         {data && (
           <>
+            <p role="status">
+              {
+                {
+                  ready: copy.toolsReady,
+                  starting: copy.toolsStarting,
+                  "reload-required": copy.toolsReload,
+                  unavailable: copy.toolsUnavailable,
+                }[tools?.state || "unavailable"]
+              }
+            </p>
+            {tools?.state === "reload-required" && openReload && (
+              <>
+                {dirty && <p role="status">{copy.unsaved}</p>}
+                <button className="button" disabled={busy || dirty} onClick={openReload}>
+                  {copy.reload}
+                </button>
+              </>
+            )}
             <SshChoices
               accesses={data.accesses}
               selected={selected}
@@ -78,18 +126,21 @@ export default function SessionSshDialog({ session, close }) {
               {copy.save}
             </button>
             {data.commands.length > 0 && (
-              <p>
-                {copy.commandHint} <code>-- uname -a</code>
-              </p>
+              <details>
+                <summary>{copy.advanced}</summary>
+                <p>
+                  {copy.commandHint} <code>-- uname -a</code>
+                </p>
+                {data.commands.map((item) => (
+                  <SshCopy
+                    key={item.id}
+                    label={`${copy.command} · ${data.accesses.find((access) => access.id === item.id)?.name || item.id}`}
+                    text={item.command}
+                    button={copy.copyCommand}
+                  />
+                ))}
+              </details>
             )}
-            {data.commands.map((item) => (
-              <SshCopy
-                key={item.id}
-                label={`${copy.command} · ${data.accesses.find((access) => access.id === item.id)?.name || item.id}`}
-                text={item.command}
-                button={copy.copyCommand}
-              />
-            ))}
           </>
         )}
         {busy && <p role="status">{copy.busy}</p>}

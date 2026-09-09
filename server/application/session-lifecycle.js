@@ -1,3 +1,4 @@
+import { createReloadLifecycle } from "./session-reload-lifecycle.js";
 import { nativeModelFor } from "./session-selection.js";
 import { serverMessages } from "../lib/i18n/de.js";
 import { randomUUID } from "node:crypto";
@@ -111,11 +112,22 @@ export function createSessionLifecycle(services) {
         launch: busLaunch,
         purpose: login ? "login" : undefined,
       });
+      const sshLaunch = services.sshIntegration
+        ? await services.sshIntegration.prepare({
+            id,
+            account,
+            cwd,
+            launch: memoryLaunch,
+            purpose: login ? "login" : undefined,
+            pipeline: trusted.pipeline,
+            headless: trusted.pipeline?.headless,
+          })
+        : memoryLaunch;
       const prepared = await bindings.prepare({
         id,
         account,
         cwd,
-        launch: memoryLaunch,
+        launch: sshLaunch,
         purpose: login ? "login" : undefined,
       });
       const finalLaunch = trusted.transformLaunch
@@ -134,6 +146,7 @@ export function createSessionLifecycle(services) {
         accountId: account.id,
         cwd,
         ...finalLaunch,
+        ...(nativeModelId ? { nativeModelId } : {}),
         ...(selection ? { access: selection } : {}),
         ...(attachments ? { attachments } : {}),
         ...(trusted.pipeline ? { pipeline: trusted.pipeline } : {}),
@@ -146,6 +159,7 @@ export function createSessionLifecycle(services) {
         await sessions.stop(id).catch(() => {});
         await sessions.remove(id).catch(() => {});
       }
+      await services.sshIntegration?.discard(id);
       await requests.discard(id).catch(() => {});
       try {
         await memoryIntegration.discard(id);
@@ -164,5 +178,5 @@ export function createSessionLifecycle(services) {
     if (!login && account.tool === "claude") chat.initialize(session, id, "automatic");
     return session;
   }
-  return { launch, activeFor };
+  return { launch, activeFor, ...createReloadLifecycle(services) };
 }

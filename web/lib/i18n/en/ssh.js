@@ -1,4 +1,12 @@
 export const sshCopy = {
+  toolsReady: "SSH tools are ready for this session.",
+  toolsStarting: "Waiting for the CLI to connect its SSH tools …",
+  toolsReload: "Reload this conversation to enable SSH tools.",
+  toolsUnavailable: "SSH tools are unavailable for this session.",
+  reload: "Reload & resume",
+  unsaved: "Save your host selection before reloading.",
+  advanced: "Advanced · manual connection commands",
+
   keys: "SSH keys",
   hosts: "Hosts",
   addKey: "Add SSH key",
@@ -58,10 +66,10 @@ export const sshCopy = {
   busy: "Please wait …",
   saved: "Saved",
   sessionHint:
-    "Select accesses and save. Share the copied command with your agent when needed. Saving or copying does not send anything to the agent or connect to the server.",
+    "Select accesses and save. Ready SSH tools let your agent use the assigned hosts. Saving does not run a remote command.",
   commandHint: "Append a remote command to the copied connection command, for example:",
   command: "Connection command",
   launchHint:
-    "Assign optional server accesses. After launch, open Server accesses to copy the connection command.",
+    "Assign optional server accesses. After launch, open Server accesses to check SSH tool readiness.",
   manage: "Manage server accesses",
 };

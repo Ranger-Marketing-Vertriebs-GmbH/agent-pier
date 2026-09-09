@@ -33,3 +33,30 @@ export const sessionWorkspaceCopy = {
   keyboardToolbarAriaLabel: "Terminal keyboard",
   sessionFooterLabel: "The session keeps running when the browser is closed.",
 };
+
+export const sessionReloadCopy = {
+  submitting: "Sending reload request …",
+  prepareFailed:
+    "The reload request could not be prepared. Try a browser with secure connection support.",
+  title: "Reload & resume",
+  hint: "Restart the CLI with this exact conversation and refreshed integrations. Your session, chat draft and assigned hosts stay in place.",
+  loading: "Checking whether this conversation can resume …",
+  now: "Reload now",
+  queue: "Wait until idle",
+  cancel: "Cancel queued reload",
+  interrupt: "I understand that reloading now interrupts the current work.",
+  uncertain:
+    "The session is busy or its activity is uncertain. Wait until confirmed idle, or acknowledge the interruption.",
+  unsupported: "This session cannot be reloaded.",
+  unverified:
+    "The native conversation has not been verified yet. The running process will stay untouched.",
+  failed: "Reload failed. You can retry with the same conversation.",
+  requestFailed:
+    "The reload request could not be confirmed. Retry the same request to safely check its result.",
+  retry: "Retry request",
+  waiting: "Reload queued · waiting until idle",
+  reloading: "Reloading the same conversation …",
+  completed: "Conversation resumed with refreshed integrations.",
+  close: "Close",
+  refresh: "Check again",
+};

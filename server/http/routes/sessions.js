@@ -24,12 +24,22 @@ export function sessionsRoutes(services) {
   router.post("/sessions", async (req, res) =>
     res.status(201).json(await launch(req.body)),
   );
+  router.get("/sessions/:id/reload", async (req, res) =>
+    res.json(await services.reload.status(req.params.id)),
+  );
+  router.post("/sessions/:id/reload", async (req, res) =>
+    res.json(await services.reload.request(req.params.id, req.body)),
+  );
+  router.delete("/sessions/:id/reload", async (req, res) =>
+    res.json(await services.reload.cancel(req.params.id)),
+  );
   router.patch("/sessions/:id", async (req, res) => {
     const name = nameValue(req.body?.name);
     await sessions.rename(req.params.id, name);
     res.json(await sessions.get(req.params.id));
   });
   router.post("/sessions/:id/stop", async (req, res) => {
+    await services.reload?.cancel(req.params.id);
     await sessions.stop(req.params.id);
     res.json(await sessions.get(req.params.id));
   });
@@ -40,6 +50,7 @@ export function sessionsRoutes(services) {
     const directory = (await sessions.get(req.params.id)).attachments?.directory;
     await sessions.remove(req.params.id);
     sshSessions?.discard(req.params.id);
+    await services.sshIntegration?.discard(req.params.id);
     await chatDelivery.discard(req.params.id);
     await chatAttachments.discard(req.params.id, directory);
     await requests.discard(req.params.id);

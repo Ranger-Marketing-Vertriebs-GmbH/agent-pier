@@ -18,6 +18,92 @@ const alive = (pid) => {
     return false;
   }
 };
+for (const backendFails of [false, true])
+  test(
+    `Codex backend diagnostics stay out of the TUI (failure: ${backendFails})`,
+    { timeout: 8000 },
+    async (t) => {
+      const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-codex-stderr-"));
+      const cli = path.join(dir, "native.cjs");
+      const launch = path.join(dir, "launch.json");
+      const ready = path.join(dir, "ready");
+      const diagnostic =
+        "2026-09-09T07:29:34.111688Z ERROR codex_core::tools::router: error=exec_command failed private-command-sentinel";
+      await fs.writeFile(
+        cli,
+        `#!${process.execPath}
+const fs = require('node:fs');
+const ready = process.env.AGENTPIER_TEST_READY;
+const backendFails = process.env.AGENTPIER_TEST_BACKEND_FAILS === 'true';
+if (process.argv.includes('app-server')) {
+  process.stderr.write(process.env.AGENTPIER_TEST_DIAGNOSTIC + '\\n', () => fs.writeFileSync(ready, 'ready'));
+  setInterval(() => { if (backendFails && fs.existsSync(ready + '.tui')) process.exit(23); }, 10);
+} else {
+  fs.writeFileSync(ready + '.pid', String(process.pid));
+  process.stderr.write('TUI stderr remains visible\\n');
+  process.on('SIGTERM', () => { process.stderr.write('TUI closed\\n'); process.exit(1); });
+  setInterval(() => {
+    if (!fs.existsSync(ready)) return;
+    fs.writeFileSync(ready + '.tui', 'ready');
+    if (!backendFails) process.exit(0);
+  }, 10);
+}
+`,
+        { mode: 0o700 },
+      );
+      await fs.writeFile(
+        launch,
+        JSON.stringify({
+          token: "fixture",
+          command: cli,
+          args: [],
+          cwd: dir,
+          socketPath: path.join(dir, "absent.sock"),
+        }),
+      );
+      const wrapper = spawn(process.execPath, [launchScript, launch], {
+        env: {
+          PATH: process.env.PATH,
+          AGENTPIER_REQUEST_FILE: launch,
+          AGENTPIER_REQUEST_TOKEN: "fixture",
+          AGENTPIER_TEST_READY: ready,
+          AGENTPIER_TEST_BACKEND_FAILS: String(backendFails),
+          AGENTPIER_TEST_DIAGNOSTIC: diagnostic,
+        },
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      t.after(async () => {
+        wrapper.kill("SIGKILL");
+        const terminalPid = Number(
+          await fs.readFile(ready + ".pid", "utf8").catch(() => ""),
+        );
+        if (terminalPid) {
+          try {
+            process.kill(terminalPid, "SIGKILL");
+          } catch {}
+        }
+        await fs.rm(dir, { recursive: true, force: true });
+      });
+      let stderr = "";
+      wrapper.stdout.resume();
+      wrapper.stderr.on("data", (chunk) => {
+        stderr += chunk;
+      });
+      const [code] = await once(wrapper, "close");
+      assert.match(stderr, /TUI stderr remains visible/);
+      assert.doesNotMatch(stderr, /codex_core|private-command-sentinel/);
+      if (backendFails) {
+        assert.notEqual(code, 0);
+        assert.match(
+          stderr,
+          /TUI closed\nThe native Codex request backend stopped unexpectedly\./,
+        );
+      } else {
+        assert.equal(code, 0);
+        assert.doesNotMatch(stderr, /stopped unexpectedly/);
+      }
+    },
+  );
 async function waitFor(check) {
   const until = Date.now() + 4000;
   while (Date.now() < until) {

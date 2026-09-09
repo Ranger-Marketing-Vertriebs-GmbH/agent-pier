@@ -103,7 +103,7 @@ export class NativeSessionBinding {
     if (!validId(id)) throw problem(serverMessages.common.invalidSessionId);
     return path.join(this.directory, `${id}.launch.json`);
   }
-  async prepare({ id, account, cwd, launch, purpose } = {}) {
+  async prepare({ id, account, cwd, launch, purpose, replace = false } = {}) {
     if (purpose === "login" || account?.tool === "shell")
       return { ...launch, nativeBinding: { enabled: false, version: 1 } };
     const selected = this.accounts.get(account?.id);
@@ -115,8 +115,12 @@ export class NativeSessionBinding {
     const file = this.file(id);
     const canonical = fs.realpathSync(cwd);
     ensureDir(this.directory);
-    if (fs.existsSync(file))
+    if (fs.existsSync(file) && !replace)
       throw problem(serverMessages.sessions.nativeBindingAlreadyExists, 409);
+    if (replace) {
+      this.processCache.clear();
+      fs.rmSync(receiptPath(file), { force: true });
+    }
     const token = randomBytes(24).toString("hex");
     const env = {
       ...launch.env,
@@ -153,7 +157,8 @@ export class NativeSessionBinding {
         } else args.push("-c", key + toml([hook]));
       }
     if (account.tool === "claude") {
-      if (!args.includes("--session-id")) args.push("--session-id", id);
+      if (!args.includes("--session-id") && !args.includes("--resume"))
+        args.push("--session-id", id);
       // Capture /clear and native resume events as well as the explicitly assigned launch ID.
       const directory = path.join(this.directory, `${id}.claude`);
       ensureDir(path.join(directory, ".claude-plugin"));

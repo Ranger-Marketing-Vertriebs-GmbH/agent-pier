@@ -1,6 +1,8 @@
 import React from "react";
 export default function Icon({ name, size = 18, ...props }) {
   const paths = {
+    refresh:
+      "M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.5-1L20 9M4 15l2.4 3a7 7 0 0 0 11.5-1",
     plus: "M12 5v14M5 12h14",
     terminal: "m5 7 5 5-5 5m8 0h6",
     grid: "M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z",

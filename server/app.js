@@ -1,3 +1,4 @@
+import { SessionReload } from "./features/sessions/session-reload.js";
 import { sshRoutes } from "./http/routes/ssh.js";
 import { LoginStore } from "./features/login/login-store.js";
 import { loginRoutes, requireLogin } from "./http/login.js";
@@ -65,6 +66,8 @@ export async function createApplication(config) {
   });
   services.directory = directoryResolver(config.home);
   Object.assign(services, createSessionLifecycle(services));
+  services.reload = new SessionReload({ services });
+  await services.reload.initialize();
   Object.assign(services, await createPipelineServices(services));
   services.operationsEvents = new OperationsEvents(services);
   services.events.current = services.operationsEvents;
