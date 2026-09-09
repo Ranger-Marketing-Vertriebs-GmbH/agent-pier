@@ -52,8 +52,14 @@ for (const width of [1440, 390]) {
     await expect(
       sidebar.getByRole("button", { name: /Interactive profile/ }),
     ).toBeVisible();
-    if (width === 390)
+    if (width === 390) {
+      await expect
+        .poll(() =>
+          sidebar.evaluate((element) => Math.round(element.getBoundingClientRect().left)),
+        )
+        .toBe(0);
       await page.screenshot({ path: "test-results/pipeline-session-list-mobile.png" });
+    }
     state.sessions.find((item) => item.id === "active").status = "stopped";
     await page.reload();
     await expect(sidebar.locator(".session-item")).toHaveCount(2);
