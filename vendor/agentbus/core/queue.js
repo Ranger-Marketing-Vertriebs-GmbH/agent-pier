@@ -17,6 +17,17 @@ function privateHome(home) {
 
 function queueFile(home) {
   const file = path.join(home, "queue.sqlite");
+  if (!fs.existsSync(file))
+    fs.closeSync(
+      fs.openSync(
+        file,
+        fs.constants.O_CREAT |
+          fs.constants.O_EXCL |
+          fs.constants.O_WRONLY |
+          fs.constants.O_NOFOLLOW,
+        0o600,
+      ),
+    );
   for (const suffix of ["", "-wal", "-shm"]) {
     try {
       const stat = fs.lstatSync(file + suffix);
