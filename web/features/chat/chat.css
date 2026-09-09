@@ -538,3 +538,15 @@
   color: var(--muted);
   font-size: 11px;
 }
+
+.chat-delivery-saved {
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  color: var(--muted);
+  font-size: 12px;
+}
+.chat-delivery-saved > summary {
+  cursor: pointer;
+}

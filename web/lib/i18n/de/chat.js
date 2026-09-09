@@ -72,6 +72,9 @@ export const chatAttachmentCopy = {
 };
 
 export const chatDeliveryCopy = {
+  savedNotices: (count) => `Gespeicherte Zustellungsanzeigen (${count})`,
+  savedNoticesHint:
+    "Diese gespeicherten Anzeigen dokumentieren die Übergabe an die Sitzung. Sie bestätigen keine Bearbeitung und stehen getrennt vom Gesprächsverlauf.",
   ariaLabel: "Nachrichtenzustellung",
   waiting: "Wartet auf Übergabe",
   absent: "Wartet auf Übergabe · noch nicht beim Server angenommen",

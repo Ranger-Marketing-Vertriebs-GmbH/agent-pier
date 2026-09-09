@@ -56,7 +56,7 @@ test("installed app deep links survive hidden installation ancestors", async (t)
   for (const route of ["/api/missing", "/assets/missing.js", "/.private", "/unknown"]) {
     const response = await fetch(base + route, { headers: { accept: "text/html" } });
     assert.equal(response.status, 404, route);
-    assert.doesNotMatch(await response.text(), /private fixture/);
+    assert.doesNotMatch(await response.text(), /private fixture|npm run build/);
   }
   const asset = await fetch(base + "/assets/app.js");
   assert.equal(asset.status, 200);

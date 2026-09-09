@@ -22,6 +22,7 @@ export default function ChatView({
   request,
   onConnection,
   openTerminal,
+  openFile,
 }) {
   const {
     data,
@@ -163,15 +164,31 @@ export default function ChatView({
             />
           )}
           {data?.notice && <p className="chat-notice">{data.notice}</p>}
+          <ChatDeliveryStatus
+            position="earlier"
+            openFile={openFile}
+            delivery={delivery}
+            messages={data?.messages || []}
+            session={session}
+            blocked={
+              requestPending ||
+              modelPending ||
+              session.status !== "running" ||
+              session.pipeline?.headless
+            }
+          />
           {data?.messages?.map((message) => (
             <Message
               key={message.id}
               message={message}
               tool={session.tool}
               sessionId={session.id}
+              cwd={session.cwd}
+              openFile={openFile}
             />
           ))}
           <ChatDeliveryStatus
+            openFile={openFile}
             delivery={delivery}
             messages={data?.messages || []}
             session={session}

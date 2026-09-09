@@ -204,6 +204,9 @@ export default function SessionWorkspace({
               request={api}
               onConnection={setConnection}
               openTerminal={showTerminal}
+              openFile={(file) =>
+                navigate({ ...route, mode: "files", file, filePath: "", filePage: 1 })
+              }
             />
           </div>
         )}

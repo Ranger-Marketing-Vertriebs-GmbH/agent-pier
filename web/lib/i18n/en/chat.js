@@ -72,6 +72,9 @@ export const chatAttachmentCopy = {
 };
 
 export const chatDeliveryCopy = {
+  savedNotices: (count) => `Saved delivery notices (${count})`,
+  savedNoticesHint:
+    "These saved notices record handoff to the session. They do not confirm processing and are separate from the conversation history.",
   ariaLabel: "Message delivery",
   waiting: "Waiting for handoff",
   absent: "Waiting for handoff · not yet accepted by server",
