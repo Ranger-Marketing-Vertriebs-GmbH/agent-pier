@@ -111,6 +111,43 @@ test("stage checkpoints commit owned code changes but exclude pipeline artifacts
     result.sha,
   );
 });
+test("checkpoints preserve tracked files in ignored directories without adding ignored siblings", async (t) => {
+  const { project, dataDir, git } = await fixture(t);
+  await fs.mkdir(path.join(project, "public/actioncam"), { recursive: true });
+  await fs.writeFile(path.join(project, "public/actioncam/tracked.txt"), "base\n");
+  await fs.writeFile(path.join(project, "public/actioncam/deleted.txt"), "base\n");
+  await git("add", ".");
+  await git("commit", "-m", "track assets");
+  await fs.writeFile(path.join(project, ".gitignore"), "/public/actioncam/\n");
+  await git("add", ".gitignore");
+  await git("commit", "-m", "ignore generated assets");
+  const manager = new PipelineWorkspace({ dataDir });
+  const workspace = await manager.prepare({ runId: "ignored-tracked", cwd: project });
+  assert.equal((await manager.checkpoint({ workspace })).sha, workspace.baseSha);
+
+  await fs.writeFile(
+    path.join(workspace.cwd, "public/actioncam/tracked.txt"),
+    "changed\n",
+  );
+  await fs.rm(path.join(workspace.cwd, "public/actioncam/deleted.txt"));
+  await fs.writeFile(
+    path.join(workspace.cwd, "public/actioncam/private.txt"),
+    "ignored\n",
+  );
+  await fs.writeFile(path.join(workspace.cwd, "new.txt"), "new\n");
+  const result = await manager.checkpoint({ workspace });
+  assert.notEqual(result.sha, workspace.baseSha);
+  assert.equal(
+    await git("show", `${result.sha}:public/actioncam/tracked.txt`),
+    "changed",
+  );
+  assert.equal(await git("show", `${result.sha}:new.txt`), "new");
+  const files = (await git("ls-tree", "-r", "--name-only", result.sha)).split("\n");
+  assert.equal(files.includes("public/actioncam/deleted.txt"), false);
+  assert.equal(files.includes("public/actioncam/private.txt"), false);
+  assert.equal((await manager.inspect(workspace)).dirty, false);
+  assert.equal((await manager.checkpoint({ workspace })).sha, result.sha);
+});
 test("a finished worktree containing only ignored private verdict files can be cleaned", async (t) => {
   const { project, dataDir } = await fixture(t);
   const manager = new PipelineWorkspace({ dataDir });
