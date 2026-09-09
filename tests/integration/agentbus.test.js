@@ -16,7 +16,7 @@ import {
 } from "../../vendor/agentbus/agentpier/runtime.js";
 import { enqueue } from "../../vendor/agentbus/core/inbox.js";
 import { createMessage } from "../../vendor/agentbus/core/message.js";
-import { pendingDir, doneDir } from "../../vendor/agentbus/core/paths.js";
+import { openQueue } from "../../vendor/agentbus/core/queue.js";
 import { writeJsonAtomic } from "../../vendor/agentbus/core/fsx.js";
 
 import { unregister } from "../../vendor/agentbus/core/peers.js";
@@ -124,7 +124,9 @@ test("pending overview is read-only; explicit inbox claims each message once and
   const reader = toolsFor(b).find((tool) => tool.name === "inbox_read");
   const read = await Promise.all([reader.run({}), reader.run({})]);
   assert.equal(read.filter((text) => text.includes("Fixture private message")).length, 1);
-  assert.equal(fs.readdirSync(doneDir(a.h, receiver.key)).length, 1);
+  const queue = openQueue(a.h);
+  assert.equal(queue.rows({ status: "acked" }).length, 1);
+  queue.close();
 });
 test("Codex wake uses the registered target binary and profile, and a failed wake keeps queued data", async (t) => {
   const ctx = setup(t);
@@ -164,7 +166,9 @@ test("Codex wake uses the registered target binary and profile, and a failed wak
     .find((tool) => tool.name === "peer_send")
     .run({ to: target.key, text: "Keep this queued" });
   assert.match(sent, /Anstoß nicht möglich/);
-  assert.equal(fs.readdirSync(pendingDir(a.h, target.key)).length, 1);
+  const queue = openQueue(a.h);
+  assert.equal(queue.summary(target.key).count, 1);
+  queue.close();
 });
 test("OpenCode resolves every concurrent tool call by exact native session without a shared active slot", async (t) => {
   const ctx = setup(t);
@@ -288,7 +292,8 @@ test("message history paginates pending and read messages without claiming, even
         Date.now() + index,
       ),
     );
-  const before = fs.readdirSync(pendingDir(a.h, recipient.key));
+  const queue = openQueue(a.h);
+  const before = queue.rows({ recipient: recipient.key, status: "pending" }).length;
   const first = await ctx.bus.messages(a.launch.projectId, { page: 1 });
   assert.equal(first.total, 25);
   assert.equal(first.items.length, 20);
@@ -296,7 +301,10 @@ test("message history paginates pending and read messages without claiming, even
   assert.equal(first.items[0].status, "pending");
   const second = await ctx.bus.messages(a.launch.projectId, { page: 2 });
   assert.equal(second.items.length, 5);
-  assert.deepEqual(fs.readdirSync(pendingDir(a.h, recipient.key)), before);
+  assert.equal(
+    queue.rows({ recipient: recipient.key, status: "pending" }).length,
+    before,
+  );
   await toolsFor(b)
     .find((tool) => tool.name === "inbox_read")
     .run({});
@@ -310,6 +318,7 @@ test("message history paginates pending and read messages without claiming, even
   const ended = await ctx.bus.messages(a.launch.projectId, {});
   assert.equal(ended.total, 25);
   assert.equal(ended.items[0].status, "read");
+  queue.close();
   await assert.rejects(ctx.bus.messages("../escape", {}));
   await assert.rejects(ctx.bus.messages(a.launch.projectId, { page: 0 }));
   await assert.rejects(ctx.bus.messages(a.launch.projectId, { page: 1.5 }));

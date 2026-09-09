@@ -59,7 +59,73 @@ function rowMessage(row) {
     text: row.text,
   };
   if (row.reply_to) message.replyTo = row.reply_to;
+  if (row.status) message.status = row.status;
   return message;
+}
+
+function importLegacy(db, home) {
+  const inbox = path.join(home, "inbox");
+  try {
+    const stat = fs.lstatSync(inbox);
+    if (!stat.isDirectory() || stat.isSymbolicLink())
+      throw new Error("agentbus: symlinked legacy inbox is not supported");
+  } catch (error) {
+    if (error.code === "ENOENT") return;
+    throw error;
+  }
+  const insert = db.prepare(
+    `INSERT OR IGNORE INTO messages
+      (id, ts, from_runtime, from_name, from_session, from_cwd, recipient, to_name, text, reply_to, status, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  for (const recipient of fs.readdirSync(inbox)) {
+    const recipientDir = path.join(inbox, recipient);
+    const recipientStat = fs.lstatSync(recipientDir);
+    if (!recipientStat.isDirectory() || recipientStat.isSymbolicLink())
+      throw new Error("agentbus: symlinked legacy inbox is not supported");
+    for (const [folder, status] of [
+      ["pending", "pending"],
+      ["done", "acked"],
+    ]) {
+      const directory = path.join(recipientDir, folder);
+      let files;
+      try {
+        const directoryStat = fs.lstatSync(directory);
+        if (!directoryStat.isDirectory() || directoryStat.isSymbolicLink())
+          throw new Error("agentbus: symlinked legacy inbox is not supported");
+        files = fs.readdirSync(directory);
+      } catch (error) {
+        if (error.code === "ENOENT") continue;
+        throw error;
+      }
+      for (const file of files) {
+        if (file.startsWith(".")) continue;
+        try {
+          const full = path.join(directory, file);
+          const stat = fs.lstatSync(full);
+          if (!stat.isFile() || stat.isSymbolicLink()) continue;
+          const message = JSON.parse(fs.readFileSync(full, "utf8"));
+          validateMessage(message);
+          insert.run(
+            message.id,
+            message.ts,
+            String(message.from.runtime || "unknown"),
+            String(message.from.name || "unknown"),
+            String(message.from.sessionId || "unknown"),
+            String(message.from.cwd || "unknown"),
+            message.to || recipient,
+            String(message.toName || "unknown"),
+            message.text,
+            message.replyTo ? String(message.replyTo) : null,
+            status,
+            message.ts,
+          );
+        } catch {
+          // Invalid legacy records remain in place for diagnostics.
+        }
+      }
+    }
+  }
 }
 
 export function openQueue(home) {
@@ -89,6 +155,7 @@ export function openQueue(home) {
     CREATE INDEX IF NOT EXISTS messages_recipient_status
       ON messages (recipient, status, ts, id);
   `);
+  importLegacy(db, home);
 
   const reclaim = (now) =>
     db.prepare(

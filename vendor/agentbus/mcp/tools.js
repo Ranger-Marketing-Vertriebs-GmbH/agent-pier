@@ -1,5 +1,5 @@
 import { listPeers } from '../core/peers.js';
-import { readInbox } from '../core/inbox.js';
+import { ackInbox, claimInbox } from '../core/inbox.js';
 import { send } from '../core/send.js';
 
 export function formatPeers(peers) {
@@ -65,7 +65,11 @@ export function makeTools(h, resolveSelf, deps = {}) {
       inputSchema: { type: 'object', properties: {} },
       async run(args = {}) {
         const self = await resolveSelf(args);
-        return formatMessages(readInbox(h, self.key));
+        const claim = claimInbox(h, self.key);
+        const result = formatMessages(claim.rows);
+        if (ackInbox(h, claim.owner, claim.claimIds) !== claim.claimIds.length)
+          throw new Error("agentbus: inbox acknowledgement failed");
+        return result;
       },
     },
   ];

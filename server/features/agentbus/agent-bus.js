@@ -14,13 +14,9 @@ import {
   trustedIdentities,
   loadLaunch,
 } from "../../../vendor/agentbus/agentpier/runtime.js";
-import {
-  ensureDir,
-  writeJsonAtomic,
-  listFiles,
-  readJson,
-} from "../../../vendor/agentbus/core/fsx.js";
-import { pendingDir, doneDir, peerKey } from "../../../vendor/agentbus/core/paths.js";
+import { ensureDir, writeJsonAtomic } from "../../../vendor/agentbus/core/fsx.js";
+import { peerKey } from "../../../vendor/agentbus/core/paths.js";
+import { openQueue } from "../../../vendor/agentbus/core/queue.js";
 
 const vendor = fileURLToPath(new URL("../../../vendor/agentbus/", import.meta.url));
 const VERSION = "agentpier-1";
@@ -33,6 +29,16 @@ export class AgentBus {
     this.accounts = accounts;
     this.sessions = sessions;
     this.root = path.join(this.dataDir, "agentbus");
+    this.queues = new Map();
+  }
+
+  queue(home) {
+    let value = this.queues.get(home);
+    if (!value) {
+      value = openQueue(home);
+      this.queues.set(home, value);
+    }
+    return value;
   }
   async prepare({
     id,
@@ -200,9 +206,7 @@ export class AgentBus {
         (peer) => peer.agentpierSessionId === session.id,
       ))
         try {
-          pending += listFiles(pendingDir(h, peer.key)).filter((name) =>
-            name.endsWith(".json"),
-          ).length;
+          pending += this.queue(h).summary(peer.key).count;
         } catch {}
       const registered = session.status === "running" && peers.some((peer) => peer.alive);
       project.sessions.push({
@@ -269,58 +273,42 @@ export class AgentBus {
     );
     const byKey = new Map(peers.map((peer) => [peer.key, peer]));
     const items = new Map();
-    let scanned = 0,
-      truncated = false;
-    scan: for (const recipient of peers)
-      for (const [status, directory] of [
-        ["pending", pendingDir(h, recipient.key)],
-        ["read", doneDir(h, recipient.key)],
-      ]) {
-        for (const filename of listFiles(directory)) {
-          if (++scanned > 5000) {
-            truncated = true;
-            break scan;
-          }
-          if (!/^\d{15}-[0-9A-HJKMNP-TV-Z]{26}\.json$/.test(filename)) continue;
-          try {
-            const file = path.join(directory, filename);
-            const stat = fs.lstatSync(file);
-            if (!stat.isFile() || stat.size > 128 * 1024) continue;
-            const message = readJson(file);
-            if (
-              !message ||
-              typeof message.text !== "string" ||
-              Buffer.byteLength(message.text) > 16 * 1024 ||
-              !Number.isFinite(message.ts) ||
-              !message.id ||
-              message.to !== recipient.key
-            )
-              continue;
-            if (filename !== `${String(message.ts).padStart(15, "0")}-${message.id}.json`)
-              continue;
-            const key = peerKey(message.from?.runtime, message.from?.sessionId);
-            const sender = byKey.get(key);
-            if (!sender) continue;
-            const createdAt = new Date(message.ts).toISOString();
-            const previous = items.get(message.id);
-            if (previous?.status === "read") continue;
-            items.set(message.id, {
-              id: message.id,
-              from: { name: sender.name, tool: sender.runtime, key },
-              to: {
-                name: recipient.name,
-                tool: recipient.runtime,
-                key: recipient.key,
-              },
-              text: message.text,
-              createdAt,
-              status,
-            });
-          } catch {
-            /* Invalid or concurrently moved records do not become public history. */
-          }
+    let scanned = 0;
+    let truncated = false;
+    scan: for (const recipient of peers) {
+      let rows;
+      try {
+        rows = this.queue(h).rows({ recipient: recipient.key, limit: 5000 });
+      } catch {
+        continue;
+      }
+      for (const message of rows) {
+        if (++scanned > 5000) {
+          truncated = true;
+          break scan;
+        }
+        try {
+          const key = peerKey(message.from?.runtime, message.from?.sessionId);
+          const sender = byKey.get(key);
+          if (!sender) continue;
+          const createdAt = new Date(message.ts).toISOString();
+          items.set(message.id, {
+            id: message.id,
+            from: { name: sender.name, tool: sender.runtime, key },
+            to: {
+              name: recipient.name,
+              tool: recipient.runtime,
+              key: recipient.key,
+            },
+            text: message.text,
+            createdAt,
+            status: message.status === "acked" ? "read" : "pending",
+          });
+        } catch {
+          /* Invalid or concurrently changed rows do not become public history. */
         }
       }
+    }
     const sorted = [...items.values()].sort(
       (a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id),
     );
@@ -338,5 +326,8 @@ export class AgentBus {
         : {}),
     };
   }
-  async close() {} // Runtime files and peers survive server restarts with their tmux sessions.
+  async close() {
+    for (const queue of this.queues.values()) queue.close();
+    this.queues.clear();
+  } // Runtime files and peers survive server restarts with their tmux sessions.
 }

@@ -75,3 +75,27 @@ test("queue rejects oversized message text", async (t) => {
     /16 KiB/,
   );
 });
+
+test("queue imports legacy pending and done messages without deleting malformed files", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "agentbus-legacy-"));
+  const pending = path.join(home, "inbox", "codex-target", "pending");
+  const done = path.join(home, "inbox", "codex-target", "done");
+  await fs.mkdir(pending, { recursive: true });
+  await fs.mkdir(done, { recursive: true });
+  const pendingMessage = message("01", 1000);
+  const doneMessage = message("02", 1001);
+  await fs.writeFile(path.join(pending, "01.json"), JSON.stringify(pendingMessage));
+  await fs.writeFile(path.join(done, "02.json"), JSON.stringify(doneMessage));
+  await fs.writeFile(path.join(pending, "broken.json"), "not-json");
+  const queue = openQueue(home);
+  t.after(() => {
+    queue.close();
+    return fs.rm(home, { recursive: true, force: true });
+  });
+  assert.equal(queue.summary("codex-target", 2000).count, 1);
+  assert.deepEqual(
+    queue.rows({ status: "acked" }).map((row) => row.id),
+    ["02"],
+  );
+  assert.equal(await fs.readFile(path.join(pending, "broken.json"), "utf8"), "not-json");
+});
