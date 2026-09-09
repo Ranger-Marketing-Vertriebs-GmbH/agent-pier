@@ -205,3 +205,40 @@ test("missing message-ID support reports an error instead of silently dropping s
   await expect(input(page)).toHaveValue("Bleibt hier");
   expect(state.inputs).toHaveLength(0);
 });
+
+test("legacy delivery cards stay expandable above current history while new sends remain visible", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  await input(page).fill("Old stored notice");
+  await send(page).click();
+  await expect(input(page)).toHaveValue("");
+  await page.evaluate(() => {
+    for (const key of Object.keys(localStorage)) {
+      if (!key.startsWith("agentpier.chat.v1:") || key.includes(":journal:")) continue;
+      const value = JSON.parse(localStorage.getItem(key));
+      for (const item of value.recent) delete item.clientCreatedAt;
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+  });
+  state.messages = [
+    { id: "current-answer", role: "assistant", text: "Latest native answer" },
+  ];
+  await page.reload();
+  const saved = page.locator(".chat-delivery-saved");
+  await expect(saved.locator("summary")).toContainText(
+    "Gespeicherte Zustellungsanzeigen (1)",
+  );
+  await expect(page.getByText("Old stored notice", { exact: true })).not.toBeVisible();
+  await expect(page.getByText("Latest native answer", { exact: true })).toBeVisible();
+  await saved.locator("summary").click();
+  await expect(saved).toContainText("Old stored notice");
+  await expect(saved).toContainText("An Sitzung übergeben");
+  await saved.locator("summary").click();
+  await input(page).fill("Fresh outgoing message");
+  await send(page).click();
+  await expect(input(page)).toHaveValue("");
+  await expect(page.getByText("Fresh outgoing message", { exact: true })).toBeVisible();
+  expect(state.inputs).toHaveLength(2);
+  await page.screenshot({ path: ".cache/chat-saved-notices.png" });
+});

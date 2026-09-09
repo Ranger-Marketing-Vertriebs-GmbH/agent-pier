@@ -34,7 +34,7 @@ export function registerResponses(app) {
   });
   app.use((_req, res) =>
     res.status(404).json({
-      error: serverMessages.http.buildRequiredForPage,
+      error: serverMessages.http.notFound,
     }),
   );
   app.use((error, _req, res, _next) => {

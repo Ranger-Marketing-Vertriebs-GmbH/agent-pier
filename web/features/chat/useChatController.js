@@ -18,6 +18,10 @@ export default function useChatController({ active, session, request, onConnecti
   const [modelPending, setModelPending] = useState(false);
   const delivery = useChatDelivery({ session, request, active });
   const { text, setText } = delivery;
+  useEffect(() => {
+    if (data?.messages && delivery.recent.length)
+      void delivery.draft.observeMessages(data.messages);
+  }, [data, delivery.draft, delivery.recent]);
   const busy = delivery.sending;
   const attachmentState = useChatAttachments({
     session,
