@@ -1,4 +1,12 @@
 export const sshCopy = {
+  toolsReady: "SSH-Werkzeuge sind für diese Sitzung bereit.",
+  toolsStarting: "Warte auf die Verbindung der CLI mit den SSH-Werkzeugen …",
+  toolsReload: "Lade diese Unterhaltung neu, um SSH-Werkzeuge zu aktivieren.",
+  toolsUnavailable: "SSH-Werkzeuge sind für diese Sitzung nicht verfügbar.",
+  reload: "Neu laden & fortsetzen",
+  unsaved: "Speichere deine Host-Auswahl vor dem Neuladen.",
+  advanced: "Erweitert · manuelle Verbindungsbefehle",
+
   keys: "SSH-Schlüssel",
   hosts: "Hosts",
   addKey: "SSH-Schlüssel hinzufügen",
@@ -59,11 +67,11 @@ export const sshCopy = {
   busy: "Bitte warten …",
   saved: "Gespeichert",
   sessionHint:
-    "Zugänge auswählen und speichern. Teile deinem Agenten bei Bedarf den kopierten Befehl mit. Speichern oder Kopieren sendet nichts an den Agenten und verbindet sich nicht mit dem Server.",
+    "Wähle Zugänge aus und speichere sie. Bereite SSH-Werkzeuge ermöglichen deinem Agenten die Nutzung zugewiesener Hosts. Speichern führt keinen Remote-Befehl aus.",
   commandHint:
     "Hänge einen Remote-Befehl an den kopierten Verbindungsbefehl an, zum Beispiel:",
   command: "Verbindungsbefehl",
   launchHint:
-    "Optional Serverzugänge zuweisen. Öffne nach dem Start Serverzugänge, um den Verbindungsbefehl zu kopieren.",
+    "Weise bei Bedarf Serverzugänge zu. Prüfe nach dem Start unter Serverzugänge, ob die SSH-Werkzeuge bereit sind.",
   manage: "Serverzugänge verwalten",
 };

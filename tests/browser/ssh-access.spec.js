@@ -48,6 +48,9 @@ test("existing session assignment exposes copy command without sending agent inp
   await page.getByRole("button", { name: "Serverzugänge", exact: true }).click();
   await page.getByRole("checkbox", { name: /Build server/ }).check();
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
+  await page
+    .getByText("Erweitert · manuelle Verbindungsbefehle", { exact: true })
+    .click();
   await page.getByRole("button", { name: "Befehl kopieren", exact: true }).click();
   expect(await page.evaluate(() => window.copiedText)).toContain("ssh.mjs");
   await expect(page.getByText("-- uname -a", { exact: true })).toBeVisible();

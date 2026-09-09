@@ -33,3 +33,31 @@ export const sessionWorkspaceCopy = {
   keyboardToolbarAriaLabel: "Terminal-Tastatur",
   sessionFooterLabel: "Die Sitzung läuft bei geschlossenem Browser weiter.",
 };
+
+export const sessionReloadCopy = {
+  submitting: "Anfrage zum Neuladen wird gesendet …",
+  prepareFailed:
+    "Die Anfrage konnte nicht vorbereitet werden. Verwende einen Browser mit Unterstützung für sichere Verbindungen.",
+  title: "Neu laden & fortsetzen",
+  hint: "Startet die CLI mit genau dieser Unterhaltung und aktualisierten Integrationen neu. Sitzung, Chatentwurf und zugewiesene Hosts bleiben erhalten.",
+  loading: "Fortsetzung dieser Unterhaltung wird geprüft …",
+  now: "Jetzt neu laden",
+  queue: "Auf Leerlauf warten",
+  cancel: "Geplantes Neuladen abbrechen",
+  interrupt: "Ich verstehe, dass sofortiges Neuladen die laufende Arbeit unterbricht.",
+  uncertain:
+    "Die Sitzung arbeitet oder ihre Aktivität ist unklar. Warte auf bestätigten Leerlauf oder bestätige die Unterbrechung.",
+  unsupported: "Diese Sitzung kann nicht neu geladen werden.",
+  unverified:
+    "Die native Unterhaltung ist noch nicht verifiziert. Der laufende Prozess bleibt unverändert.",
+  failed:
+    "Neuladen fehlgeschlagen. Du kannst es mit derselben Unterhaltung erneut versuchen.",
+  requestFailed:
+    "Die Anfrage konnte nicht bestätigt werden. Wiederhole dieselbe Anfrage, um das Ergebnis sicher zu prüfen.",
+  retry: "Anfrage wiederholen",
+  waiting: "Neuladen geplant · warte auf Leerlauf",
+  reloading: "Dieselbe Unterhaltung wird neu geladen …",
+  completed: "Unterhaltung mit aktualisierten Integrationen fortgesetzt.",
+  close: "Schließen",
+  refresh: "Erneut prüfen",
+};

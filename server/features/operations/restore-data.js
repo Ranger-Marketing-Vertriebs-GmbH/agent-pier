@@ -145,6 +145,9 @@ export function historicalOnly(directory) {
         "agentbus",
         "requests",
         "nativeRequests",
+        "reload",
+        "sshTools",
+        "restartGeneration",
       ])
         delete session[key];
       atomic(file, session);

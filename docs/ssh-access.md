@@ -18,9 +18,15 @@ For a Proxmox host, use an account with the permissions needed for the intended 
 
 ## Use an access in a session
 
-Select accesses in the new-session dialog, or open **Server accesses** in an existing running session. Save the selection, then copy the displayed connection command into your message to the coding agent. Append ` -- <remote command>` to run a command, or use the helper alone for an interactive SSH shell. The helper is a local Node/OpenSSH executable and may require the CLI's normal shell or network approval.
+Select accesses in the new-session dialog, or open **Server accesses** in an existing running session and save the selection.
 
-No message or keystroke is automatically injected into the running CLI. The helper checks the session identity and current assignment for every invocation. Removing an assignment blocks the next helper invocation; SSH connections already established continue until closed. Stop/remove reconciliation clears the session's assignments. Assignments survive an AgentPier web service restart while the native session continues.
+Codex, Claude Code and OpenCode receive the `agentpier_ssh` MCP integration independently of the AgentBus setting. It provides `ssh_list_hosts` for the currently assigned hosts and `ssh_execute` for a command on one of those hosts. Tell the agent which assigned host and task you want it to use. No private key or connection command needs to be pasted into the conversation.
+
+The dialog reports whether the tools are ready, still starting, or require **Reload & resume**. Existing CLI processes cannot acquire a newly added MCP configuration until they restart. Use [Reload & resume](session-reload.md) to load the tools while keeping the same native conversation. Once the tools are connected, later assignment changes take effect on the next tool call without another reload.
+
+The explicit connection command remains available as a manual fallback, including for shell sessions. Append ` -- <remote command>` to run a command, or invoke the helper alone for an interactive SSH shell. Native shell/network approvals may still apply.
+
+No message, keystroke or remote command is automatically injected when an access is assigned or a session is reloaded. MCP capabilities rotate for each CLI launch and each call checks the current session and assignments. Removing an assignment prevents subsequent calls; an already running SSH command may continue. Normal session stopping/removal clears assignments; reloading and restarting only the AgentPier web service preserve them.
 
 ## Existing configurations
 

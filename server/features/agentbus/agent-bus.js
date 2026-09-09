@@ -34,7 +34,15 @@ export class AgentBus {
     this.sessions = sessions;
     this.root = path.join(this.dataDir, "agentbus");
   }
-  async prepare({ id, account, cwd, launch, enabled = true, purpose } = {}) {
+  async prepare({
+    id,
+    account,
+    cwd,
+    launch,
+    enabled = true,
+    purpose,
+    replace = false,
+  } = {}) {
     if (enabled === false || purpose === "login")
       return { ...launch, agentbus: { enabled: false } };
     if (!idPattern.test(id || "")) throw problem(serverMessages.agentbus.invalidSession);
@@ -48,7 +56,7 @@ export class AgentBus {
     const home = path.join(this.root, "projects", projectId);
     ensureDir(path.join(home, "launches"));
     const existing = path.join(home, "launches", `${id}.json`);
-    if (fs.existsSync(existing))
+    if (fs.existsSync(existing) && !replace)
       throw problem(serverMessages.agentbus.sessionAlreadyExists, 409);
     const originalEnv = { ...launch.env };
     const env = {

@@ -35,7 +35,17 @@ test("HTTP assigns existing sessions, validates inputs, revokes deletion and nev
     input: () => assert.fail("must not type"),
   };
   const app = express();
-  app.use(express.json(), sshRoutes({ sshAccesses, sshSessions, sessions }));
+  let toolsState = "reload-required";
+  const sshIntegration = {
+    status: (current) => {
+      assert.equal(current, session);
+      return { state: toolsState, ready: toolsState === "ready" };
+    },
+  };
+  app.use(
+    express.json(),
+    sshRoutes({ sshAccesses, sshSessions, sessions, sshIntegration }),
+  );
   app.use((error, _req, res, _next) =>
     res.status(error.status || 500).json({ error: error.message }),
   );
@@ -52,11 +62,18 @@ test("HTTP assigns existing sessions, validates inputs, revokes deletion and nev
     (await (await request("/sessions/existing/ssh-accesses")).json()).assignedIds,
     [],
   );
+  assert.equal(
+    (await (await request("/sessions/existing/ssh-accesses")).json()).tools.state,
+    "reload-required",
+  );
+  toolsState = "ready";
   let response = await request("/sessions/existing/ssh-accesses", "PUT", {
     accessIds: ["lab"],
   });
   assert.equal(response.status, 200);
-  assert.deepEqual((await response.json()).assignedIds, ["lab"]);
+  const assigned = await response.json();
+  assert.deepEqual(assigned.assignedIds, ["lab"]);
+  assert.deepEqual(assigned.tools, { state: "ready", ready: true });
   assert.equal((await request("/sessions/existing/ssh-accesses", "PUT", {})).status, 400);
   assert.equal(
     (await request("/sessions/existing/ssh-accesses", "PUT", { accessIds: ["missing"] }))

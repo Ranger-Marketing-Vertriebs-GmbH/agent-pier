@@ -22,8 +22,10 @@ review and verification through reusable pipelines.
   interrupted uploads after a reload without automatically sending them again.
 - **Multiple accounts and providers:** separate credentials, host-scoped GitHub
   access, and shared CLI skills, MCP integrations and plugins.
+- **Reload and resume:** restart a coding CLI with refreshed integrations while
+  keeping its exact conversation, session identity and attachments.
 - **Session SSH access:** name and reuse SSH keys across hosts, and assign accesses
-  to new or running sessions, with pinned host keys and explicit connection commands.
+  to coding sessions through scoped MCP tools with pinned host keys.
 - **AgentBus:** bundled coordination between participating coding sessions in
   the same project.
 
@@ -71,6 +73,7 @@ Read the [pipeline guide](docs/pipelines.md) for lifecycle and recovery details.
 | macOS / Mac mini installation         | [Installation](docs/installation.md)                  |
 | Linux and systemd                     | [Linux](docs/linux.md)                                |
 | Private remote access                 | [Remote access](docs/remote-access.md)                |
+| Reload and resume                     | [Session reload](docs/session-reload.md)              |
 | SSH server accesses                   | [SSH access](docs/ssh-access.md)                      |
 | Login and user recovery               | [Login](docs/login.md)                                |
 | Delivery status and draft recovery    | [Mobile delivery](docs/mobile-delivery.md)            |
