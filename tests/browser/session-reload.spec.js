@@ -25,6 +25,8 @@ async function fixture(page, language = "en") {
     inputs: [],
     gets: 0,
     sockets: 0,
+    terminalInputs: [],
+    holdPost: null,
     abortPost: false,
     rejectPost: false,
     assignedIds: [],
@@ -63,6 +65,11 @@ async function fixture(page, language = "en") {
         };
         state.session.reload = { ...state.reload };
         if (body.mode === "now") state.session.restartGeneration++;
+        if (state.holdPost) {
+          state.reload.state = "reloading";
+          state.session.reload = { ...state.reload };
+          await state.holdPost;
+        }
       } else if (request.method() === "DELETE") {
         state.deletes++;
         state.reload = { ...state.reload, state: "idle" };
@@ -107,6 +114,10 @@ async function fixture(page, language = "en") {
   await page.routeWebSocket("**/terminal", (socket) => {
     state.sockets++;
     socket.send(JSON.stringify({ type: "status", status: "running" }));
+    socket.onMessage((message) => {
+      const value = JSON.parse(message);
+      if (value.type === "input") state.terminalInputs.push(value.data);
+    });
   });
   await page.goto(baseURL + "/sessions/reload/chat");
   return state;
@@ -114,6 +125,33 @@ async function fixture(page, language = "en") {
 const dialog = (page) => page.getByRole("dialog");
 const open = (page) =>
   page.getByRole("button", { name: "Reload & resume", exact: true }).click();
+
+test("pending reload lets users open the terminal and approve hooks", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  state.reload.activity = { state: "idle" };
+  let finish;
+  state.holdPost = new Promise((resolve) => {
+    finish = resolve;
+  });
+  try {
+    await open(page);
+    await dialog(page).getByRole("button", { name: "Reload now", exact: true }).click();
+    await expect(dialog(page)).toContainText("Sending reload request");
+    await dialog(page)
+      .getByRole("button", { name: "Open terminal", exact: true })
+      .click();
+    await expect(dialog(page)).not.toBeVisible();
+    await expect.poll(() => state.sockets).toBeGreaterThan(0);
+    await page.getByRole("button", { name: "Send Enter", exact: true }).click();
+    await expect.poll(() => state.terminalInputs).toContain("\r");
+    expect(state.posts).toHaveLength(1);
+    expect(state.inputs).toEqual([]);
+  } finally {
+    finish();
+  }
+});
 
 test("busy reload requires acknowledgement and preserves chat draft and history", async ({
   page,

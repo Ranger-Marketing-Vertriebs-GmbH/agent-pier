@@ -5,6 +5,7 @@ vendor/
 test-results/
 playwright-report/
 .superpowers/
+.worktrees/
 package-lock.json
 docs/screenshots/
 

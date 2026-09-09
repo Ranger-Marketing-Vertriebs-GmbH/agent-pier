@@ -35,6 +35,9 @@ export const sessionWorkspaceCopy = {
 };
 
 export const sessionReloadCopy = {
+  openTerminal: "Terminal öffnen",
+  terminalHint:
+    "Fragt die CLI nach Hooks oder Projektvertrauen, bestätige dies im Terminal. Das Neuladen läuft beim Schließen dieses Dialogs weiter.",
   submitting: "Anfrage zum Neuladen wird gesendet …",
   prepareFailed:
     "Die Anfrage konnte nicht vorbereitet werden. Verwende einen Browser mit Unterstützung für sichere Verbindungen.",

@@ -11,6 +11,7 @@ dist/
 *.aprelease
 *.aprelease.json
 .superpowers/
+.worktrees/
 test-results/
 playwright-report/
 *.log
