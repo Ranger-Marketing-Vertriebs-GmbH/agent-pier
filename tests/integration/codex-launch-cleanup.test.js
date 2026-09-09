@@ -33,17 +33,19 @@ for (const backendFails of [false, true])
         cli,
         `#!${process.execPath}
 const fs = require('node:fs');
+const ready = process.env.AGENTPIER_TEST_READY;
+const backendFails = process.env.AGENTPIER_TEST_BACKEND_FAILS === 'true';
 if (process.argv.includes('app-server')) {
-  process.stderr.write(${JSON.stringify(diagnostic + "\n")}, () => fs.writeFileSync(${JSON.stringify(ready)}, 'ready'));
-  setInterval(() => { if (${backendFails} && fs.existsSync(${JSON.stringify(ready + ".tui")})) process.exit(23); }, 10);
+  process.stderr.write(process.env.AGENTPIER_TEST_DIAGNOSTIC + '\\n', () => fs.writeFileSync(ready, 'ready'));
+  setInterval(() => { if (backendFails && fs.existsSync(ready + '.tui')) process.exit(23); }, 10);
 } else {
-  fs.writeFileSync(${JSON.stringify(ready + ".pid")}, String(process.pid));
+  fs.writeFileSync(ready + '.pid', String(process.pid));
   process.stderr.write('TUI stderr remains visible\\n');
   process.on('SIGTERM', () => { process.stderr.write('TUI closed\\n'); process.exit(1); });
   setInterval(() => {
-    if (!fs.existsSync(${JSON.stringify(ready)})) return;
-    fs.writeFileSync(${JSON.stringify(ready + ".tui")}, 'ready');
-    if (!${backendFails}) process.exit(0);
+    if (!fs.existsSync(ready)) return;
+    fs.writeFileSync(ready + '.tui', 'ready');
+    if (!backendFails) process.exit(0);
   }, 10);
 }
 `,
@@ -64,6 +66,9 @@ if (process.argv.includes('app-server')) {
           PATH: process.env.PATH,
           AGENTPIER_REQUEST_FILE: launch,
           AGENTPIER_REQUEST_TOKEN: "fixture",
+          AGENTPIER_TEST_READY: ready,
+          AGENTPIER_TEST_BACKEND_FAILS: String(backendFails),
+          AGENTPIER_TEST_DIAGNOSTIC: diagnostic,
         },
         stdio: ["ignore", "pipe", "pipe"],
       });
