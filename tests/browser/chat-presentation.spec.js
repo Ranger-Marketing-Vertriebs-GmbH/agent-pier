@@ -167,7 +167,7 @@ test("unknown usage remains unknown while a native limit may be shown independen
   await expect(context).toContainText("Kontextverbrauch nicht verfügbar");
 });
 
-test("mobile task drawer exposes native subagents, tasks and status without inventing identities", async ({
+test("mobile task drawer shows only active subagents with their task immediately visible", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -197,11 +197,16 @@ test("mobile task drawer exposes native subagents, tasks and status without inve
   await page.getByRole("button", { name: "Unteragenten anzeigen" }).click();
   const drawer = page.getByRole("dialog", { name: "Aufgabenliste" });
   await expect(drawer).toBeVisible();
-  await drawer.getByText("Worker alpha", { exact: true }).click();
-  await expect(drawer).toContainText("Inspect build configuration");
+  await expect(
+    drawer.getByText("Inspect build configuration", { exact: true }),
+  ).toBeVisible();
   await expect(drawer).toContainText("Arbeitet");
-  await expect(drawer).toContainText("Erledigt");
-  await expect(drawer.locator(".subagent-entry")).toHaveCount(2);
+  await expect(drawer).not.toContainText("Worker beta");
+  await expect(drawer.locator(".subagent-entry")).toHaveCount(1);
+  await expect(
+    drawer.getByRole("heading", { name: "Aktive Unteragenten (1)" }),
+  ).toBeVisible();
+  await page.screenshot({ path: "docs/screenshots/active-subagents.png" });
   await page.keyboard.press("Escape");
   await expect(drawer).toBeHidden();
   await expect(page.getByRole("button", { name: "Unteragenten anzeigen" })).toBeFocused();
@@ -209,6 +214,54 @@ test("mobile task drawer exposes native subagents, tasks and status without inve
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true);
 });
+
+test("subagent count and visible tasks follow live updates and disappear on completion", async ({
+  page,
+}) => {
+  const { data } = await fixture(page, {
+    observability: {
+      subagents: [
+        { id: "active", name: "Reviewer", task: "Check the API", status: "running" },
+        ...["completed", "failed", "unknown"].map((status) => ({
+          id: status,
+          name: status,
+          status,
+        })),
+      ],
+    },
+  });
+  const count = page.getByRole("button", { name: "Unteragenten anzeigen" });
+  await expect(count).toHaveText("Aktive Unteragenten (1)");
+  await count.click();
+  const panel = page.getByRole("complementary", { name: "Aufgabenliste" });
+  await expect(panel.locator(".subagent-entry")).toHaveCount(1);
+  await expect(panel.getByText("Check the API", { exact: true })).toBeVisible();
+  data.observability.subagents[0].task = "Verify the error handling";
+  await expect(
+    panel.getByText("Verify the error handling", { exact: true }),
+  ).toBeVisible();
+  data.observability.subagents[0].status = "completed";
+  await expect(count).toHaveCount(0);
+  await expect(panel.locator(".subagent-entry")).toHaveCount(0);
+});
+
+for (const mode of ["stale", "stopped"]) {
+  test(`historical running subagents are hidden when ${mode}`, async ({ page }) => {
+    const { session, data } = await fixture(page, {
+      observability: {
+        subagents: [
+          { id: "active", name: "Old worker", task: "Old task", status: "running" },
+        ],
+      },
+    });
+    const count = page.getByRole("button", { name: "Unteragenten anzeigen" });
+    await expect(count).toBeVisible();
+    if (mode === "stale") data.observability.stale = true;
+    else session.status = "stopped";
+    await expect(count).toHaveCount(0);
+    await expect(page.locator(".subagent-entry")).toHaveCount(0);
+  });
+}
 
 test("session rows show a bounded directory and remain collapsible", async ({ page }) => {
   await fixture(page);

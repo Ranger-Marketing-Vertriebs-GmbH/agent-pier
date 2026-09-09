@@ -15,7 +15,7 @@ export const chatObservabilityCopy = {
   stale: "Gespeicherter Stand",
   subagents: "Unteragenten",
   showSubagents: "Unteragenten anzeigen",
-  subagentCount: (count) => `Unteragenten (${count})`,
+  subagentCount: (count) => `Aktive Unteragenten (${count})`,
   running: "Arbeitet",
   completed: "Erledigt",
   failed: "Fehlgeschlagen",

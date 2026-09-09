@@ -5,7 +5,12 @@ import { sessionActivity } from "../sessions/sessionPresentation.js";
 
 const formatUsage = (value) => formatNumber(value, { maximumFractionDigits: 1 });
 const tokenCount = (value) => (Number.isSafeInteger(value) && value >= 0 ? value : null);
-export default function ChatObservability({ session, observability, showSubagents }) {
+export default function ChatObservability({
+  session,
+  observability,
+  showSubagents,
+  subagents = [],
+}) {
   const [expanded, setExpanded] = useState(false);
   const activity = sessionActivity(session),
     context = observability?.context || {};
@@ -67,9 +72,9 @@ export default function ChatObservability({ session, observability, showSubagent
         {remaining !== null && <span>{copy.remaining(formatUsage(remaining))}</span>}
         {observability?.stale && <span>{copy.stale}</span>}
       </div>
-      {observability?.subagents?.length > 0 && (
+      {subagents.length > 0 && (
         <button type="button" aria-label={copy.showSubagents} onClick={showSubagents}>
-          {copy.subagentCount(observability.subagents.length)}
+          {copy.subagentCount(subagents.length)}
         </button>
       )}
     </div>

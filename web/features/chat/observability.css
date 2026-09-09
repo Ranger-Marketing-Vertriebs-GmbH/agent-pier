@@ -47,12 +47,11 @@
   margin-bottom: 8px;
   overflow: hidden;
 }
-.subagent-entry summary {
+.subagent-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  cursor: pointer;
   padding: 10px;
   font-size: 11px;
   overflow-wrap: anywhere;
