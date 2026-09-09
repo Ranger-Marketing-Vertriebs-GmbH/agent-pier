@@ -88,11 +88,17 @@ export default function ChatView({
     }
     submit(event);
   };
+  const subagents =
+    session.status === "running" && !data?.observability?.stale
+      ? (data?.observability?.subagents || []).filter(
+          (agent) => agent.status === "running",
+        )
+      : [];
   return (
     <div className="chat-layout">
       <Tasks
         tasks={data?.tasks || []}
-        subagents={data?.observability?.subagents || []}
+        subagents={subagents}
         open={tasksOpen}
         close={closeTasks}
         id={taskId}
@@ -135,6 +141,7 @@ export default function ChatView({
         <ChatObservability
           session={session}
           observability={data?.observability}
+          subagents={subagents}
           showSubagents={openTasks}
         />
         <div
