@@ -55,11 +55,16 @@ export default function useSessionReload(session, pending) {
       clearTimeout(timer);
     };
   }, [path, revision, pending]);
-  async function submit(mode, interrupt = false) {
+  async function submit(mode, interrupt = false, targetAccountId) {
     if (mutating.current) return;
     let body;
     try {
-      body = pending.current || { mode, interrupt, requestId: crypto.randomUUID() };
+      body = pending.current || {
+        mode,
+        interrupt,
+        requestId: crypto.randomUUID(),
+        ...(targetAccountId ? { targetAccountId } : {}),
+      };
     } catch {
       submissionError.current = true;
       setError(copy.prepareFailed);

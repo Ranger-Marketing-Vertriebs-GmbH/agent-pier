@@ -417,3 +417,13 @@ test("dismissing a saved notice preserves unsaved typing and its warning", async
   assert.ok(draft.getSnapshot().storageError);
   assert.deepEqual(draft.getSnapshot().recent, []);
 });
+
+test("an explicit account handoff preserves the conversation delivery scope", () => {
+  const original = { id: "session", accountId: "first", tool: "codex", createdAt: "now" };
+  const switched = { ...original, accountId: "second", deliveryAccountId: "first" };
+  assert.equal(deliveryScope(switched), deliveryScope(original));
+  assert.notEqual(
+    deliveryScope({ ...original, accountId: "second" }),
+    deliveryScope(original),
+  );
+});

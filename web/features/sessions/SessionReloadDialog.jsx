@@ -4,17 +4,26 @@ import { sessionReloadCopy as copy } from "../../lib/i18n/messages/sessions.js";
 import useSessionReload from "./useSessionReload.js";
 import "./session-reload.css";
 
-export default function SessionReloadDialog({ session, close, pending, openTerminal }) {
+export default function SessionReloadDialog({
+  session,
+  close,
+  pending,
+  openTerminal,
+  switchAccount = false,
+}) {
   const reload = useSessionReload(session, pending);
   const [interrupt, setInterrupt] = useState(false);
+  const [targetAccountId, setTargetAccountId] = useState("");
   const { data, busy, error } = reload;
+  const validTarget =
+    !switchAccount || data?.accountTargets?.some((a) => a.id === targetAccountId);
   const active = ["waiting", "reloading"].includes(data?.state);
   const needsInterrupt =
     data && !["idle", "stopped"].includes(data.activity?.state ?? data.activity);
   return (
-    <Modal title={copy.title} close={close}>
+    <Modal title={switchAccount ? copy.switchTitle : copy.title} close={close}>
       <div className="session-reload-dialog">
-        <p>{copy.hint}</p>
+        <p>{switchAccount ? copy.switchHint : copy.hint}</p>
         <p>{copy.terminalHint}</p>
         <button className="button" onClick={openTerminal}>
           {copy.openTerminal}
@@ -38,6 +47,25 @@ export default function SessionReloadDialog({ session, close, pending, openTermi
             )}
             {data.eligible && !active && !reload.pending && (
               <>
+                {switchAccount && (
+                  <label>
+                    {copy.targetAccount}
+                    <select
+                      aria-label={copy.targetAccount}
+                      value={targetAccountId}
+                      onChange={(event) => setTargetAccountId(event.target.value)}
+                      disabled={busy}
+                    >
+                      <option value="">{copy.chooseAccount}</option>
+                      {(data.accountTargets || []).map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.name}
+                        </option>
+                      ))}
+                    </select>
+                    {!data.accountTargets?.length && <span>{copy.noAccounts}</span>}
+                  </label>
+                )}
                 {needsInterrupt && (
                   <>
                     <p>{copy.uncertain}</p>
@@ -52,18 +80,41 @@ export default function SessionReloadDialog({ session, close, pending, openTermi
                     </label>
                   </>
                 )}
+                {switchAccount &&
+                  data.state === "failed" &&
+                  (!data.targetAccountId || data.targetAccountId === data.accountId) && (
+                    <button
+                      className="button primary"
+                      disabled={busy || (needsInterrupt && !interrupt)}
+                      onClick={() => reload.submit("now", interrupt)}
+                    >
+                      {copy.retryCurrent}
+                    </button>
+                  )}
                 <div className="session-reload-actions">
                   <button
                     className="button primary"
-                    disabled={busy || (needsInterrupt && !interrupt)}
-                    onClick={() => reload.submit("now", interrupt)}
+                    disabled={busy || !validTarget || (needsInterrupt && !interrupt)}
+                    onClick={() =>
+                      reload.submit(
+                        "now",
+                        interrupt,
+                        switchAccount ? targetAccountId : undefined,
+                      )
+                    }
                   >
-                    {copy.now}
+                    {switchAccount ? copy.switchNow : copy.now}
                   </button>
                   <button
                     className="button"
-                    disabled={busy}
-                    onClick={() => reload.submit("when-idle")}
+                    disabled={busy || !validTarget}
+                    onClick={() =>
+                      reload.submit(
+                        "when-idle",
+                        false,
+                        switchAccount ? targetAccountId : undefined,
+                      )
+                    }
                   >
                     {copy.queue}
                   </button>

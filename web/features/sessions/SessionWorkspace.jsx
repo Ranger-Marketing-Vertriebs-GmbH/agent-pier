@@ -29,9 +29,10 @@ export default function SessionWorkspace({
 }) {
   const [sshSession, setSshSession] = useState(null);
   const [reloadSession, setReloadSession] = useState(null);
+  const [switchAccount, setSwitchAccount] = useState(false);
   const sessionIdentity = JSON.stringify([
     session.id,
-    session.accountId,
+    session.deliveryAccountId || session.accountId,
     session.tool,
     session.createdAt,
   ]);
@@ -96,11 +97,30 @@ export default function SessionWorkspace({
               className="icon-button"
               aria-label={sessionReloadCopy.title}
               title={sessionReloadCopy.title}
-              onClick={() => setReloadSession(sessionIdentity)}
+              onClick={() => {
+                setSwitchAccount(false);
+                setReloadSession(sessionIdentity);
+              }}
             >
               <Icon name="refresh" />
             </button>
           )}
+          {reloadable &&
+            ["codex", "claude"].includes(session.tool) &&
+            !session.provider &&
+            !session.access?.providerConnectionId && (
+              <button
+                className="icon-button"
+                aria-label={sessionReloadCopy.switchTitle}
+                title={sessionReloadCopy.switchTitle}
+                onClick={() => {
+                  setSwitchAccount(true);
+                  setReloadSession(sessionIdentity);
+                }}
+              >
+                <Icon name="users" />
+              </button>
+            )}
           {session.status === "running" &&
             !session.pipeline?.headless &&
             session.purpose !== "login" && (
@@ -287,6 +307,7 @@ export default function SessionWorkspace({
             session={session}
             close={() => setReloadSession(null)}
             pending={pendingReload}
+            switchAccount={switchAccount}
             openTerminal={() => {
               setReloadSession(null);
               showTerminal();

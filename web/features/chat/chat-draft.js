@@ -3,7 +3,7 @@ import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 export const deliveryScope = (session) =>
   JSON.stringify([
     session.id,
-    session.accountId,
+    session.deliveryAccountId || session.accountId,
     session.tool,
     session.createdAt || null,
   ]);
