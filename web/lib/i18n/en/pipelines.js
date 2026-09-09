@@ -34,6 +34,8 @@ export const pipelineCopy = {
   centralModelsHelp:
     "One exact model ID from the catalog per line. The default model must be included.",
   permissions: "Permission mode",
+  pipelinePermissionsHint:
+    "The selected permission mode applies to standalone profile sessions. Pipeline stages always run autonomously: Codex with YOLO and hook trust bypass, Claude with bypassPermissions, OpenCode with auto. Human approval stages in the pipeline remain in place.",
   autonomous: "Run autonomously",
   model: "Default model",
   models: "Allowed models",

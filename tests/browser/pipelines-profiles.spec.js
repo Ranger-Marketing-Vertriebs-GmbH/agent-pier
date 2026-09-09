@@ -44,6 +44,8 @@ test("mobile profile creation supports account permissions and parameters withou
     .fill("Interaktiver Helfer");
   await page.getByLabel("Konto", { exact: true }).selectOption("local-claude");
   await page.getByLabel("Berechtigungsmodus", { exact: true }).selectOption("plan");
+  await page.getByText(/Der gewählte Berechtigungsmodus gilt/).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "docs/screenshots/pipeline-permissions.png" });
   await page.getByRole("button", { name: "Parameter hinzufügen", exact: true }).click();
   await page.getByLabel("Parameterschlüssel 1", { exact: true }).fill("topic");
   await page.getByLabel("Parametername 1", { exact: true }).fill("Thema");

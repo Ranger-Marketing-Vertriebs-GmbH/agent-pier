@@ -10,9 +10,9 @@ Profiles can be enabled, disabled, duplicated and grouped by refinement, plannin
 
 Text parameters use `{{parameter_name}}` in the kickoff prompt. Standalone profile sessions validate required parameters and reject undeclared values before launch. Pipelines require enabled autonomous profiles without required parameters, because a pipeline supplies the overall task rather than an interactive parameter form. Role instructions are included in the native prompt.
 
-Permission values retain each CLI's meaning. Selecting a permissive mode is an explicit configuration choice; a provider or driver error never widens permissions as a fallback. Native account/provider capabilities and context limits still apply. See [providers](providers.md) for endpoint and model restrictions.
+The selected permission mode applies to standalone profile sessions. Pipeline stages have no terminal operator and always use autonomous permissions, including retries and resumed turns: Codex receives `--dangerously-bypass-approvals-and-sandbox` (YOLO) and `--dangerously-bypass-hook-trust`; Claude receives `--permission-mode bypassPermissions`; OpenCode receives `--auto`. OpenCode's explicit deny rules still apply. Native account/provider capabilities and context limits still apply. See [providers](providers.md) for endpoint and model restrictions.
 
-Every pipeline turn runs without an operator to ask, so it is told what it may write: the `AGENTRUNNER_SANDBOX` environment variable holds the sandbox the run is actually confined to. Codex turns are pinned to `workspace-write` and report that value; Claude and OpenCode turns run under the host user's own file permissions and report `none`. The variable describes the run, it does not configure it — changing it in a prompt or a stage command grants nothing.
+Pipeline CLIs run with the host user's file permissions, without an AgentPier-enforced OS sandbox, and report `AGENTRUNNER_SANDBOX=none`. This variable describes the run; it does not configure permissions. Only start pipelines for workspaces and hooks you intend to authorize. Explicit human approval stages and `requiresHuman` verdicts still pause the pipeline; autonomous tool permissions do not skip these decisions.
 
 ## Build and start
 
