@@ -40,6 +40,22 @@ for (const [tool, mode, prefix, resume] of [
     assert.equal(result.env.KEEP, "yes");
     assert.deepEqual(launch.args, ["--model", "pinned"]);
   });
+  test(`${tool} runs publish the sandbox they are confined to`, () => {
+    for (const headless of [true, false]) {
+      const result = native.nativeCommand({
+        tool,
+        launch,
+        mode,
+        sessionId: "first-42",
+        headless,
+      });
+      assert.equal(
+        result.env.AGENTRUNNER_SANDBOX,
+        tool === "codex" ? "workspace-write" : "none",
+      );
+      assert.equal(launch.env.AGENTRUNNER_SANDBOX, undefined);
+    }
+  });
 }
 test("native permission domains reject silent cross-CLI escalation", () => {
   assert.equal(typeof native.nativeCommand, "function");

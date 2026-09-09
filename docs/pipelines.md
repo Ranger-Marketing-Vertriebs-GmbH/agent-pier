@@ -12,6 +12,8 @@ Text parameters use `{{parameter_name}}` in the kickoff prompt. Standalone profi
 
 Permission values retain each CLI's meaning. Selecting a permissive mode is an explicit configuration choice; a provider or driver error never widens permissions as a fallback. Native account/provider capabilities and context limits still apply. See [providers](providers.md) for endpoint and model restrictions.
 
+Every pipeline turn runs without an operator to ask, so it is told what it may write: the `AGENTRUNNER_SANDBOX` environment variable holds the sandbox the run is actually confined to. Codex turns are pinned to `workspace-write` and report that value; Claude and OpenCode turns run under the host user's own file permissions and report `none`. The variable describes the run, it does not configure it — changing it in a prompt or a stage command grants nothing.
+
 ## Build and start
 
 1. Create a definition under **Pipelines → Definitions**. Add profile stages and arrange them in execution order.

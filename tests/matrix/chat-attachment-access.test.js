@@ -20,7 +20,7 @@ function fixture(t) {
 for (const tool of ["claude", "codex"])
   test(`${tool} sessions receive --add-dir for the session directory`, (t) => {
     const f = fixture(t);
-    const launch = { args: ["--existing"] };
+    const launch = { args: ["--existing"], launchMode: "default" };
     const granted = grantAttachmentAccess({
       tool,
       dataDir: f.dataDir,
@@ -31,9 +31,30 @@ for (const tool of ["claude", "codex"])
     });
     const expected = attachmentDirectory(f.dataDir, "account", "session");
     assert.equal(granted.directory, expected);
-    assert.deepEqual(launch.args, ["--existing", "--add-dir", expected]);
+    assert.deepEqual(launch.args, [
+      "--existing",
+      "--add-dir",
+      expected,
+      // Only Codex has a sandbox that would otherwise discard the added root.
+      ...(tool === "codex" ? ["-c", 'sandbox_mode="workspace-write"'] : []),
+    ]);
     assert.equal(fs.statSync(expected).isDirectory(), true);
   });
+
+test("a Codex YOLO session keeps its unsandboxed launch instead of workspace-write", (t) => {
+  const f = fixture(t);
+  const launch = { args: ["--yolo"], launchMode: "yolo" };
+  grantAttachmentAccess({
+    tool: "codex",
+    dataDir: f.dataDir,
+    accountId: "account",
+    sessionId: "session",
+    launch,
+    profile: null,
+  });
+  assert.equal(launch.args.includes('sandbox_mode="workspace-write"'), false);
+  assert.equal(launch.args.includes("--add-dir"), true);
+});
 
 test("opencode sessions receive an account-scoped references entry and no flag", (t) => {
   const f = fixture(t);

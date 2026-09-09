@@ -59,6 +59,8 @@ An owned worktree isolates each run from its source checkout. Cancellation prese
 
 The configured data directory is private to the host user. Temporary application fixtures use their own home, data directory and tmux socket. Same-origin request checks protect browser mutations; untrusted archive, path and configuration inputs pass explicit feature boundaries. Profile separation is configuration isolation, not an operating-system sandbox: native CLIs still run with the host user's file permissions.
 
+Codex is the exception: it runs inside its own sandbox and defaults to `read-only`, which silently discards additional writable roots. A session that grants the per-session chat attachment directory through `--add-dir` therefore also pins `sandbox_mode="workspace-write"`, so the grant is real rather than merely requested. The YOLO launch mode already runs without a sandbox and is left as the operator chose it.
+
 External top-level navigation is allowed only for known HTML routes with `GET`, navigation mode and document destination. WebKit's tested click navigation omitted `Sec-Fetch-User`, so that optional activation signal is not a prerequisite for opening the application. Cross-site API/subresource/frame access and mutations retain their checks. See the [Fetch Metadata specification](https://www.w3.org/TR/fetch-metadata/); the browser suite verifies the observed behavior in Chromium and WebKit.
 
 Reuse shared path/configuration and shell/TOML serializers rather than adding ad hoc quoting or prefix checks. Never put credentials into process arguments, URLs, public metadata or logs. Preserve structured native configuration when adding temporary integrations.
