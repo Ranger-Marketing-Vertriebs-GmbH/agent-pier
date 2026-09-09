@@ -1,10 +1,23 @@
 const text = (value, max = 4000) =>
   typeof value === "string" ? value.replaceAll("\0", "").slice(0, max) : "";
 
+export function pullRequestTitle(run) {
+  const headline = text(run.task, 12000)
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*#{1,6}\s+/, "").trim())
+    .find(Boolean);
+  return (headline || text(run.pipelineName) || text(run.name) || "AgentPier pipeline")
+    .replace(/[\x00-\x1f\x7f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 180);
+}
+
 /** Only public task, profile, verdict, and verification metadata belongs in a PR. */
 export function pullRequestBody(run) {
   const lines = [
     `AgentPier run ${text(run.id, 100)}`,
+    ...(run.pipelineName ? [`Pipeline: ${text(run.pipelineName, 180)}`] : []),
     "",
     "## Task",
     "",
