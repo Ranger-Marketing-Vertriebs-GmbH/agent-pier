@@ -127,7 +127,7 @@ export default function SessionWorkspace({
                 ? commonCopy.stopSession
                 : commonCopy.removeSession
             }
-            disabled={Boolean(session.pipeline?.headless)}
+            disabled={session.status === "running" && Boolean(session.pipeline?.headless)}
             onClick={() =>
               action(session.status === "running" ? "stop" : "remove", session)
             }
