@@ -20,23 +20,28 @@ export async function checkpointWorkspace(manager, { workspace, run, node, attem
   const stored = await manager.validate(workspace);
   // Even explicitly staged private runtime files cannot enter a checkpoint.
   await git(stored.cwd, ["reset", "-q", "HEAD", "--", ...privatePaths]);
-  const files = [
-    ...new Set(
-      (
-        await git(stored.cwd, [
-          "ls-files",
-          "--cached",
-          "--others",
-          "--exclude-standard",
-          "-z",
-        ])
-      )
-        .split("\0")
-        .filter((file) => file && !excluded(file)),
-    ),
-  ];
-  for (let index = 0; index < files.length; index += 200)
-    await git(stored.cwd, ["add", "-A", "--", ...files.slice(index, index + 200)]);
+  // Update tracked paths separately: add -A can reject them when a parent
+  // directory is now ignored. Never force-add ignored, untracked siblings.
+  for (const [selection, mode] of [
+    [["--cached"], "-u"],
+    [["--others", "--exclude-standard"], "-A"],
+  ]) {
+    const files = [
+      ...new Set(
+        (await git(stored.cwd, ["ls-files", ...selection, "-z"]))
+          .split("\0")
+          .filter((file) => file && !excluded(file)),
+      ),
+    ];
+    for (let index = 0; index < files.length; index += 200)
+      await git(stored.cwd, [
+        "--literal-pathspecs",
+        "add",
+        mode,
+        "--",
+        ...files.slice(index, index + 200),
+      ]);
+  }
   const staged = await git(stored.cwd, ["diff", "--cached", "--name-only"]);
   if (staged) {
     const label = String(node?.id || attempt?.nodeId || "checkpoint")
