@@ -1,5 +1,10 @@
 /** Existing German product copy, addressed through English semantic keys. */
 export const tools = Object.freeze({
+  nativeUpdateRequired:
+    "Für Updates ist eine native oder von AgentPier verwaltete npm-Installation erforderlich.",
+  installationChanged: "Die CLI-Installation wurde während des Updates geändert.",
+  cliUpdated:
+    "CLI aktualisiert und geprüft. Neue oder neu geladene Sitzungen verwenden die aktualisierte Version.",
   invalidGithubRedirect: "Ungültige GitHub-Download-Weiterleitung.",
   forbiddenGithubRedirect: "GitHub-Download-Weiterleitung zu einem nicht erlaubten Ziel.",
   publicDownloadFailed: "Der öffentliche GitHub-Download ist fehlgeschlagen.",

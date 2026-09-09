@@ -7,6 +7,16 @@ import { problem } from "../../lib/storage.js";
 import { validateReloadLaunch } from "../../application/session-reload-launch.js";
 
 const launcher = fileURLToPath(new URL("../../terminal-launcher.js", import.meta.url));
+
+export function blocksTerminalInput(session) {
+  // The replacement CLI may need hook/trust approval before native verification.
+  // The manager separately blocks writes during replacement and disposes old PTYs.
+  return (
+    session.reload?.state === "reloading" &&
+    !(session.reload.replacementStarted && session.status === "running")
+  );
+}
+
 /** Called inside the manager lock. No stop reconciliation or identity recreation. */
 export async function replaceSession(manager, id, prepare, beforeStop) {
   const session = await manager.metadata(id);

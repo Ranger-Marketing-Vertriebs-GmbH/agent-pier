@@ -17,12 +17,15 @@ async function fixture(page) {
     home: "/home/server",
     remoteUrl: null,
   };
-  const jobs = ["codex", "opencode"].map((tool) => ({
+  const jobs = ["codex", "opencode", "claude"].map((tool) => ({
     tool,
     name: tool === "codex" ? "Codex" : "OpenCode",
     packageName: tool === "codex" ? "@openai/codex" : "opencode-ai",
     status: "idle",
     available: true,
+    updateAvailable: true,
+    updateCommand: `${tool} ${tool === "opencode" ? "upgrade --method curl" : "update"}`,
+    migrate: tool === "claude",
     reason: null,
     destination: `/home/server/.local/share/agentpier/clis/${tool}`,
     version: null,
@@ -63,7 +66,7 @@ async function fixture(page) {
           busy: controls.busy || jobs.some((job) => job.status === "running"),
         },
       });
-    if (/^\/api\/tools\/[^/]+\/install$/.test(path)) {
+    if (/^\/api\/tools\/[^/]+\/(install|update)$/.test(path)) {
       const tool = path.split("/")[3];
       controls.starts.push({ tool, body: route.request().postDataJSON() });
       if (controls.holdStart)
@@ -77,6 +80,7 @@ async function fixture(page) {
         });
       const job = jobs.find((item) => item.tool === tool);
       Object.assign(job, {
+        operation: path.endsWith("/update") ? "update" : "install",
         status: "running",
         message: "Paket wird installiert …",
         startedAt: "2026-09-06T12:00:00Z",
@@ -92,6 +96,67 @@ const card = (page, name) =>
   page
     .locator(".tool-card")
     .filter({ has: page.getByRole("heading", { name, exact: true }) });
+
+test("installed CLI previews native migration and updates without launching a session", async ({
+  page,
+}) => {
+  const controls = await fixture(page);
+  await card(page, "Claude Code")
+    .getByRole("button", { name: "CLI aktualisieren", exact: true })
+    .click();
+  const modal = page.getByRole("dialog", {
+    name: "Claude Code aktualisieren",
+    exact: true,
+  });
+  await expect(modal).toContainText("claude update");
+  await expect(modal).toContainText("npm");
+  await modal.screenshot({ path: "docs/screenshots/cli-update.png" });
+  expect(controls.starts).toEqual([]);
+  await modal
+    .getByRole("button", { name: "Umstellen & aktualisieren", exact: true })
+    .click();
+  expect(controls.jobs.find((job) => job.tool === "claude").operation).toBe("update");
+  await modal.getByRole("button", { name: "Dialog schließen", exact: true }).click();
+  await card(page, "Claude Code")
+    .getByRole("button", { name: "CLI aktualisieren", exact: true })
+    .click();
+  const job = controls.jobs.find((item) => item.tool === "claude");
+  Object.assign(job, {
+    status: "succeeded",
+    version: "2.3.4",
+    finishedAt: "2026-09-09",
+    migrate: false,
+  });
+  await expect(modal).toContainText("2.3.4");
+  await expect(
+    modal.getByRole("button", { name: "Jetzt aktualisieren", exact: true }),
+  ).toBeEnabled();
+  expect(controls.state.sessions).toEqual([]);
+});
+
+test("rejected update does not reuse an earlier successful installation as update success", async ({
+  page,
+}) => {
+  const controls = await fixture(page);
+  Object.assign(
+    controls.jobs.find((job) => job.tool === "claude"),
+    { status: "succeeded", version: "1.0.0", migrate: false },
+  );
+  controls.failStart = true;
+  await card(page, "Claude Code")
+    .getByRole("button", { name: "CLI aktualisieren", exact: true })
+    .click();
+  const modal = page.getByRole("dialog", {
+    name: "Claude Code aktualisieren",
+    exact: true,
+  });
+  await modal.getByRole("button", { name: "Jetzt aktualisieren", exact: true }).click();
+  await expect(modal).toContainText("Der Paketdienst ist gerade nicht erreichbar.");
+  await expect(
+    modal.getByRole("button", { name: "Jetzt aktualisieren", exact: true }),
+  ).toBeEnabled();
+  await expect(modal.locator("strong")).not.toContainText("CLI aktualisiert");
+});
 
 test("missing CLI installation is previewed before any package installation starts", async ({
   page,

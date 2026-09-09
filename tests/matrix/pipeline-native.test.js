@@ -13,6 +13,55 @@ const launch = {
   env: { KEEP: "yes" },
 };
 
+test("pipeline turns use autonomous permissions even with interactive profile modes", () => {
+  for (const [tool, mode] of [
+    ["codex", "on-request"],
+    ["claude", "acceptEdits"],
+    ["opencode", "ask"],
+  ]) {
+    for (const resumeNativeId of [undefined, "native-42"]) {
+      const result = native.nativeCommand({
+        tool,
+        launch,
+        mode,
+        sessionId: "first-42",
+        resumeNativeId,
+        headless: true,
+      });
+      if (tool === "codex") {
+        assert.ok(result.args.includes("--dangerously-bypass-approvals-and-sandbox"));
+        assert.ok(result.args.includes("--dangerously-bypass-hook-trust"));
+        assert.equal(result.args.includes('approval_policy="on-request"'), false);
+        assert.equal(result.args.includes('sandbox_mode="workspace-write"'), false);
+      } else if (tool === "claude") {
+        assert.equal(
+          result.args[result.args.indexOf("--permission-mode") + 1],
+          "bypassPermissions",
+        );
+      } else assert.ok(result.args.includes("--auto"));
+      assert.equal(result.env.AGENTRUNNER_SANDBOX, "none");
+    }
+  }
+});
+
+test("standalone profile launches retain the selected native permission mode", () => {
+  for (const [tool, mode] of [
+    ["codex", "on-request"],
+    ["claude", "acceptEdits"],
+    ["opencode", "ask"],
+  ]) {
+    const result = native.nativeCommand({ tool, launch, mode, sessionId: "first-42" });
+    assert.equal(
+      result.args.includes("--dangerously-bypass-approvals-and-sandbox"),
+      false,
+    );
+    assert.equal(result.args.includes("--dangerously-bypass-hook-trust"), false);
+    if (tool === "codex") assert.ok(result.args.includes('approval_policy="on-request"'));
+    else if (tool === "claude") assert.ok(result.args.includes("acceptEdits"));
+    else assert.equal(result.args.includes("--auto"), false);
+  }
+});
+
 for (const [tool, mode, prefix, resume] of [
   ["codex", "never", ["exec", "--json"], ["resume", "native-42", "-"]],
   [
@@ -51,7 +100,7 @@ for (const [tool, mode, prefix, resume] of [
       });
       assert.equal(
         result.env.AGENTRUNNER_SANDBOX,
-        tool === "codex" ? "workspace-write" : "none",
+        tool === "codex" && !headless ? "workspace-write" : "none",
       );
       assert.equal(launch.env.AGENTRUNNER_SANDBOX, undefined);
     }

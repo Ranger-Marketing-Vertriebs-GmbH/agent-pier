@@ -35,6 +35,9 @@ export const sessionWorkspaceCopy = {
 };
 
 export const sessionReloadCopy = {
+  openTerminal: "Open terminal",
+  terminalHint:
+    "If the CLI asks to allow hooks or trust the project, confirm in the terminal. Reload continues when you close this dialog.",
   submitting: "Sending reload request …",
   prepareFailed:
     "The reload request could not be prepared. Try a browser with secure connection support.",

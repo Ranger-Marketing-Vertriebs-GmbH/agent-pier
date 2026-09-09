@@ -287,6 +287,10 @@ export default function SessionWorkspace({
             session={session}
             close={() => setReloadSession(null)}
             pending={pendingReload}
+            openTerminal={() => {
+              setReloadSession(null);
+              showTerminal();
+            }}
           />
         </Suspense>
       )}
