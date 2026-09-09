@@ -18,6 +18,7 @@ import {
 import { prepareGithubCli } from "./github-cli-installer.js";
 import { toolBinDirectories } from "./tool-paths.js";
 import { problem, readJSON, writePrivate } from "../../lib/storage.js";
+import { planToolUpdate, updateCommands, updateTool } from "./tool-update.js";
 const catalog = {
   codex: {
     name: "Codex",
@@ -203,8 +204,44 @@ export class ToolInstaller {
             ? nativeDestination(this.home, tool)
             : path.join(this.root, tool),
         installed: !!found.find((x) => x.id === tool)?.installed,
+        ...this.updateAvailability(
+          tool,
+          found.find((x) => x.id === tool),
+        ),
       })),
     };
+  }
+  updateAvailability(tool, detected) {
+    if (!Object.hasOwn(updateCommands, tool)) return {};
+    const updateCommand = [tool, ...updateCommands[tool]].join(" ");
+    try {
+      const plan = planToolUpdate(tool, this.home, this.root, detected);
+      return {
+        updateCommand,
+        updateAvailable: !this.platformReason,
+        migrate: plan.migrate,
+        updateReason: this.platformReason,
+      };
+    } catch {
+      return {
+        updateCommand,
+        updateAvailable: false,
+        updateReason: serverMessages.tools.nativeUpdateRequired,
+      };
+    }
+  }
+  startUpdate(tool) {
+    if (this.closed) throw problem(serverMessages.tools.serviceStopping, 503);
+    if (this.platformReason) throw problem(this.platformReason, 409);
+    if (this.active) throw problem(serverMessages.tools.installationAlreadyRunning, 409);
+    const plan = planToolUpdate(
+      tool,
+      this.home,
+      this.root,
+      this.detect().find((item) => item.id === tool),
+    );
+    safeDirectory(this.root);
+    return this.schedule(tool, "native", plan);
   }
   start(tool, method = "native") {
     if (typeof tool !== "string" || !Object.hasOwn(catalog, tool))
@@ -228,10 +265,14 @@ export class ToolInstaller {
     } catch (e) {
       if (e.code !== "ENOENT") throw e;
     }
+    return this.schedule(tool, method);
+  }
+  schedule(tool, method, updatePlan) {
     const controller = new AbortController();
     const job = {
       tool,
       method,
+      operation: updatePlan ? "update" : "install",
       status: "running",
       version: null,
       message: serverMessages.tools.installingPackage,
@@ -242,7 +283,7 @@ export class ToolInstaller {
     writePrivate(this.file, this.records);
     const active = { controller, done: null };
     this.active = active;
-    active.done = this.install(tool, job, controller.signal)
+    active.done = this.install(tool, job, controller.signal, updatePlan)
       .catch(() => {
         job.message += serverMessages.tools.statusSaveFailureSuffix;
       })
@@ -251,7 +292,7 @@ export class ToolInstaller {
       });
     return this.list().installations.find((x) => x.tool === tool);
   }
-  async install(tool, job, signal) {
+  async install(tool, job, signal, updatePlan) {
     let work,
       versionDirectory,
       published = false,
@@ -269,6 +310,23 @@ export class ToolInstaller {
         DISABLE_AUTOUPDATER: "1",
         OPENCODE_DISABLE_AUTOUPDATE: "true",
       };
+      if (updatePlan) {
+        job.version = await updateTool({
+          tool,
+          plan: updatePlan,
+          home: this.home,
+          root: this.root,
+          work,
+          env,
+          signal,
+          timeout: this.timeout,
+          fetchImpl: this.nativeFetch,
+          run,
+        });
+        finalStatus = "succeeded";
+        job.message = serverMessages.tools.cliUpdated;
+        return;
+      }
       if (job.method === "native" && nativeInstallers[tool]) {
         job.version = await installNative({
           tool,

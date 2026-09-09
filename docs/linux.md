@@ -37,6 +37,8 @@ Dann dieselbe Adresse im Browser des eigenen Rechners öffnen. Für dauerhaften 
 
 Die GitHub CLI `gh` lässt sich ebenfalls unter **Deine Tools** installieren; sie verwendet die gespeicherten [GitHub-Zugänge je Host](github-agents.md) in neuen Agent-Sitzungen.
 
+Codex, Claude Code und OpenCode können dort über **CLI aktualisieren** unabhängig von AgentPier-Releases aktualisiert werden. Details zur Umstellung älterer npm-Installationen und den manuellen Befehlen stehen unter [CLI-Updates](cli-updates.md).
+
 Eine **Shell**-Sitzung benötigt keine Coding-CLI. AgentPier verwendet eine ausführbare konfigurierte zsh, bash oder sh und fällt sonst in dieser Reihenfolge auf die vorhandenen Varianten unter `/bin` oder `/usr/bin` zurück. zsh muss deshalb nicht nachinstalliert werden. Shell-Sitzungen haben ausschließlich den Terminalmodus und verwenden weder AgentBus noch den Chat. AgentBus verbindet nur dafür aktivierte Coding-CLI-Sitzungen im selben Projekt.
 
 ## Private Daten

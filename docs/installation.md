@@ -6,6 +6,8 @@ Beim ersten Öffnen einen Benutzer erstellen; anschließend mit Benutzername und
 
 ## Versioniertes Release installieren
 
+Coding-CLIs lassen sich unabhängig von AgentPier-Releases unter **Deine Tools → CLI aktualisieren** aktualisieren. Details und manuelle Befehle stehen unter [CLI-Updates](cli-updates.md).
+
 Die folgenden Abschnitte beschreiben den Start aus einem Source-Checkout. Für eine versionierte Installation mit unveränderlichen Releases, eigenem Node-Runtime und getrenntem Datenverzeichnis nutze stattdessen den [Release-Installer mit den genauen Befehlen](research/operations-portability.md#installer-and-exact-commands). Lade dafür das zur Plattform passende `.aprelease`-Paket aus den [offiziellen GitHub-Releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases) herunter: `darwin` für macOS oder `linux`, jeweils mit `arm64` oder `x64` passend zum Rechner.
 
 `sh scripts/install.sh` benötigt aus einem sauberen Checkout kein `npm ci`. `--install-dependencies` erlaubt ausdrücklich die Installation fehlender tmux-/Git-Pakete, `--service` richtet den Benutzer-Webdienst ein und wartet auf dessen Versions-Healthcheck. Auf macOS wird vorhandenes Homebrew verwendet; die automatische Linux-Installation unterstützt apt. Ohne diese Optionen werden Voraussetzungen geprüft und nur die Release-Dateien installiert. Das Datenverzeichnis darf nicht innerhalb eines Release-Ordners liegen. Einzelheiten zu Updates, Schema-Grenzen und Rollback stehen in derselben Anleitung.

@@ -1,6 +1,7 @@
 import { useToolInstallationCopy as copy } from "../../lib/i18n/messages/tools.js";
 import { useEffect, useRef, useState, useCallback } from "react";
-export default function useToolInstallation({ tool, request, refresh }) {
+export default function useToolInstallation({ tool, request, refresh, update = false }) {
+  const [attempted, setAttempted] = useState(false);
   const [job, setJob] = useState(null),
     [loading, setLoading] = useState(true),
     [globalBusy, setGlobalBusy] = useState(false);
@@ -83,10 +84,10 @@ export default function useToolInstallation({ tool, request, refresh }) {
   async function install() {
     if (
       mutating.current ||
-      !job?.available ||
+      !(update ? job?.updateAvailable : job?.available) ||
       globalBusy ||
       job.status === "running" ||
-      job.status === "succeeded"
+      (!update && job.status === "succeeded")
     )
       return;
     mutating.current = true;
@@ -94,8 +95,13 @@ export default function useToolInstallation({ tool, request, refresh }) {
     setSubmitting(true);
     setError("");
     try {
-      const result = await requestRef.current(`/tools/${tool}/install`, "POST", {});
+      const result = await requestRef.current(
+        `/tools/${tool}/${update ? "update" : "install"}`,
+        "POST",
+        {},
+      );
       if (mounted.current) {
+        setAttempted(true);
         setJob(result);
         setGlobalBusy(result.status === "running");
       }
@@ -109,7 +115,7 @@ export default function useToolInstallation({ tool, request, refresh }) {
     }
   }
   const running = job?.status === "running";
-  const succeeded = job?.status === "succeeded";
+  const succeeded = job?.status === "succeeded" && (!update || attempted);
   const utility = tool === "gh" || job?.utility;
   return {
     loading,
