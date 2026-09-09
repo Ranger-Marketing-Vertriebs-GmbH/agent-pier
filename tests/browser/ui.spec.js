@@ -123,6 +123,48 @@ async function fixture(page) {
   return { state, input, sockets };
 }
 
+for (const status of ["stopped", "running"]) {
+  test(`pipeline session removal with a missing pipeline: ${status}`, async ({
+    page,
+  }) => {
+    const { state } = await fixture(page);
+    state.sessions.push({
+      id: "orphan-pipeline-session",
+      name: "Old pipeline turn",
+      accountId: "local-codex",
+      tool: "codex",
+      cwd: "/home/test/deleted-worktree",
+      status,
+      createdAt: "2026-09-06T10:00:00Z",
+      pipeline: {
+        headless: true,
+        runId: "deleted-run",
+        nodeId: "old-node",
+        attemptId: "old-attempt",
+        turnId: "old-turn",
+      },
+    });
+    await page.goto(base + "/sessions/orphan-pipeline-session/chat");
+    if (status === "running") {
+      await expect(page.getByRole("button", { name: "Sitzung stoppen" })).toBeDisabled();
+      expect(state.sessions).toHaveLength(1);
+      return;
+    }
+    const remove = page.getByRole("button", { name: "Sitzung entfernen" });
+    await expect(remove).toBeEnabled();
+    await remove.click();
+    await page.getByRole("button", { name: "Jetzt entfernen" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Dein Terminal. Überall." }),
+    ).toBeVisible();
+    expect(state.sessions).toHaveLength(0);
+    await page.reload();
+    await expect(
+      page.getByRole("heading", { name: "Dein Terminal. Überall." }),
+    ).toBeVisible();
+  });
+}
+
 test("account creation, directory selection, session lifecycle and reload preserve user work", async ({
   page,
 }) => {
