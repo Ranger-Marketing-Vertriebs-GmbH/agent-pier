@@ -1,3 +1,4 @@
+import { listSessions } from "./session-list.js";
 import path from "node:path";
 import { rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -29,7 +30,12 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
     throw problem("This session cannot be reloaded.", 409);
   if (session.reload?.state !== "reloading")
     throw problem("Reload intent is missing.", 409);
-  if (beforeStop) await beforeStop(session, () => manager.capture(id));
+  if (beforeStop)
+    await beforeStop(
+      session,
+      () => manager.capture(id),
+      () => listSessions(manager),
+    );
   for (const client of [...manager.clients])
     if (client.sessionId === id) client.dispose();
   if (session.status === "running") {
@@ -54,6 +60,11 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
         env: { TERM: "xterm-256color", ...launch.env },
       }),
     );
+    if (launch.accountId) {
+      session.deliveryAccountId ||= session.accountId;
+      session.accountId = launch.accountId;
+      await manager.save(session);
+    }
     // Never restore launch input, event streams or delivery payloads.
     await manager.tmux([
       "new-session",

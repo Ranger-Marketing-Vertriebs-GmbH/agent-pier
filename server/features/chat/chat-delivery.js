@@ -13,7 +13,7 @@ const statuses = new Set(["pending", "handed-off", "rejected", "uncertain"]);
 function sessionScope(session) {
   return JSON.stringify([
     session.id,
-    session.accountId,
+    session.deliveryAccountId || session.accountId,
     session.tool,
     session.createdAt || null,
   ]);

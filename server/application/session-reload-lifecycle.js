@@ -1,3 +1,7 @@
+import {
+  accountSwitchTargets,
+  prepareAccountTransfer,
+} from "./session-account-transfer.js";
 import { codexSandboxArguments } from "../lib/sandbox.js";
 import { resolveReloadModel } from "./session-reload-model.js";
 import { resumeLaunch, validateReloadLaunch } from "./session-reload-launch.js";
@@ -6,10 +10,19 @@ import { parseSessionActivity } from "../features/sessions/session-activity.js";
 import { problem } from "../lib/storage.js";
 
 export function createReloadLifecycle(services) {
-  async function prepareReload(session, nativeId) {
+  async function prepareReload(session, nativeId, targetAccountId) {
     const { accounts, history, tools, models } = services;
     const content = await history.read(session, nativeId);
-    const account = accounts.get(session.accountId);
+    const switching = targetAccountId && targetAccountId !== session.accountId;
+    if (
+      switching &&
+      !accountSwitchTargets(services, session).some((a) => a.id === targetAccountId)
+    )
+      throw problem(
+        "Choose another account for the same CLI. Provider sessions cannot switch accounts.",
+        409,
+      );
+    const account = accounts.get(switching ? targetAccountId : session.accountId);
     if (account.tool !== session.tool) throw problem("The CLI profile changed.", 409);
     const live = session.status === "running" ? await models?.read(session.id) : null;
     if (live?.pending)
@@ -51,8 +64,28 @@ export function createReloadLifecycle(services) {
     launch = resumeLaunch(account.tool, launch, nativeId);
     if (!session.provider && modelId) launch.nativeModelId = modelId;
     await validateReloadLaunch(launch, session.cwd);
+    if (switching) {
+      for (const other of await services.sessions.list()) {
+        if (
+          other.id === session.id ||
+          other.accountId !== account.id ||
+          other.status !== "running"
+        )
+          continue;
+        const bound = await services.bindings.resolve(other);
+        if (bound?.id === nativeId)
+          throw problem(
+            "This conversation is already running in the target account.",
+            409,
+          );
+      }
+    }
+    const transfer = switching
+      ? await prepareAccountTransfer(services, session, account, nativeId)
+      : null;
     return {
       account,
+      transfer,
       launch,
       nativeId,
       displayedModel,
@@ -85,6 +118,7 @@ export function createReloadLifecycle(services) {
           const account = accounts.get(plan.account.id);
           if (account.tool !== session.tool)
             throw problem("The CLI profile changed.", 409);
+          if (plan.transfer) await plan.transfer.commit();
           sharedProfiles?.prepare(account, plan.launch);
           await requests.discard(session.id);
           await memoryIntegration.discard(session.id);
@@ -105,9 +139,38 @@ export function createReloadLifecycle(services) {
           launch = await memoryIntegration.prepare(input());
           if (sshIntegration) launch = await sshIntegration.prepare(input());
           launch = await bindings.prepare(input());
-          return requests.prepare(input());
+          launch = await requests.prepare(input());
+          return { ...launch, ...(plan.transfer ? { accountId: account.id } : {}) };
         },
-        async (current, screen) => {
+        async (current, screen, listCurrent) => {
+          if (plan.transfer) {
+            if (
+              !accountSwitchTargets(services, current).some(
+                (a) => a.id === plan.account.id,
+              )
+            )
+              throw problem("The selected account is no longer available.", 409);
+            for (const other of await listCurrent()) {
+              if (
+                other.id === current.id ||
+                other.accountId !== plan.account.id ||
+                other.status !== "running"
+              )
+                continue;
+              const bound = await bindings.resolve(other);
+              if (bound?.id === plan.nativeId)
+                throw problem(
+                  "This conversation is already running in the target account.",
+                  409,
+                );
+            }
+            plan.transfer = await prepareAccountTransfer(
+              services,
+              current,
+              accounts.get(plan.account.id),
+              plan.nativeId,
+            );
+          }
           if (current.status !== "running") return;
           bindings.processCache?.clear();
           const bound = await bindings.resolve(current);

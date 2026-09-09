@@ -65,6 +65,18 @@ async function fixture(page, language = "en") {
         };
         state.session.reload = { ...state.reload };
         if (body.mode === "now") state.session.restartGeneration++;
+        if (state.failSwitch) {
+          state.session.deliveryAccountId ||= state.session.accountId;
+          state.session.accountId = body.targetAccountId || state.session.accountId;
+          state.reload = {
+            ...state.reload,
+            state: "failed",
+            accountId: state.session.accountId,
+            targetAccountId: body.targetAccountId || null,
+            accountTargets: [{ id: "local-codex", name: "Original account" }],
+          };
+          state.session.reload = { ...state.reload };
+        }
         if (state.holdPost) {
           state.reload.state = "reloading";
           state.session.reload = { ...state.reload };
@@ -322,4 +334,73 @@ test("successful reload reconnects the terminal using its public restart generat
   await expect.poll(() => state.sockets).toBe(2);
   expect(state.session.restartGeneration).toBe(1);
   expect(state.inputs).toEqual([]);
+});
+
+for (const tool of ["codex", "claude"]) {
+  test(`${tool} account switch sends selected target and retains the draft`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const state = await fixture(page);
+    state.session.tool = tool;
+    state.reload.activity = { state: "idle" };
+    state.reload.accountTargets = [{ id: "second-account", name: "Second account" }];
+    await page.reload();
+    const input = page.getByLabel("Message", { exact: true });
+    await input.fill("Keep this draft across accounts");
+    await page
+      .getByRole("button", { name: "Continue with another account", exact: true })
+      .click();
+    const now = dialog(page).getByRole("button", {
+      name: "Switch account & resume",
+      exact: true,
+    });
+    await expect(now).toBeDisabled();
+    await dialog(page)
+      .getByLabel("Target account", { exact: true })
+      .selectOption("second-account");
+    await page.screenshot({ path: `.cache/session-account-switch-${tool}.png` });
+    await now.click();
+    expect(state.posts[0]).toMatchObject({
+      mode: "now",
+      targetAccountId: "second-account",
+    });
+    state.session.deliveryAccountId = state.session.accountId;
+    state.session.accountId = "second-account";
+    await page.reload();
+    await expect(input).toHaveValue("Keep this draft across accounts");
+    expect(state.inputs).toEqual([]);
+  });
+}
+
+test("a failed account startup can retry the current target without switching again", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  state.reload.activity = { state: "idle" };
+  state.reload.accountTargets = [{ id: "second-account", name: "Second account" }];
+  state.failSwitch = true;
+  await page
+    .getByRole("button", { name: "Continue with another account", exact: true })
+    .click();
+  await dialog(page)
+    .getByLabel("Target account", { exact: true })
+    .selectOption("second-account");
+  await dialog(page)
+    .getByRole("button", { name: "Switch account & resume", exact: true })
+    .click();
+  const retry = dialog(page).getByRole("button", {
+    name: "Retry with current account",
+    exact: true,
+  });
+  await expect(retry).toBeEnabled();
+  await retry.click();
+  await expect(retry).toBeEnabled();
+  state.failSwitch = false;
+  await retry.click();
+  expect(state.posts).toHaveLength(3);
+  expect(state.posts[1].targetAccountId).toBeUndefined();
+  await expect(dialog(page)).toContainText(
+    "Conversation resumed with refreshed integrations.",
+  );
 });

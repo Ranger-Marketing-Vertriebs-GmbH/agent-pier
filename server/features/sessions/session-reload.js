@@ -1,3 +1,5 @@
+import { accountSwitchTargets } from "../../application/session-account-transfer.js";
+import { validId } from "./session-validation.js";
 import { problem } from "../../lib/storage.js";
 
 const failureMessage =
@@ -48,6 +50,9 @@ export class SessionReload {
       session,
       value: {
         eligible: supported && !!nativeId,
+        accountTargets: accountSwitchTargets(this.services, session),
+        accountId: session.accountId,
+        targetAccountId: session.reload?.targetAccountId || null,
         reason: !supported
           ? "unsupported-session"
           : !nativeId
@@ -78,6 +83,7 @@ export class SessionReload {
         (body.interrupt !== undefined && typeof body.interrupt !== "boolean")
       )
         throw problem("Invalid session reload request.");
+      if (body.targetAccountId !== undefined) validId(body.targetAccountId);
       const { session, value } = await this.inspect(id);
       if (
         session.reload?.requestId === body.requestId ||
@@ -97,7 +103,11 @@ export class SessionReload {
       )
         throw problem("Confirm interruption before reloading this session.", 409);
       // Resolve history, account, executable and model before recording any destructive intent.
-      const plan = await this.services.prepareReload(session, value.nativeId);
+      const plan = await this.services.prepareReload(
+        session,
+        value.nativeId,
+        body.targetAccountId,
+      );
       const previousRequestIds = [
         ...(session.reload?.previousRequestIds || []),
         ...(session.reload?.requestId ? [session.reload.requestId] : []),
@@ -113,6 +123,7 @@ export class SessionReload {
         requestId: body.requestId,
         previousRequestIds,
         nativeId: value.nativeId,
+        targetAccountId: body.targetAccountId || null,
         mode: body.mode,
         interrupt: body.mode === "now" && body.interrupt === true,
         error: null,
@@ -170,7 +181,11 @@ export class SessionReload {
         try {
           if (!value.eligible || value.nativeId !== session.reload.nativeId)
             throw problem("The native conversation changed while waiting.", 409);
-          const plan = await this.services.prepareReload(session, value.nativeId);
+          const plan = await this.services.prepareReload(
+            session,
+            value.nativeId,
+            session.reload.targetAccountId || undefined,
+          );
           await this.run(session, plan);
         } catch {
           this.pending.delete(id);

@@ -204,3 +204,24 @@ test("server recovery before process stop re-verifies the live conversation", as
   f.session.status = "stopped";
   assert.equal((await f.reload.status("session")).nativeId, "old-native");
 });
+
+test("queued account switch retains its target across service restart", async () => {
+  const f = fixture();
+  f.activity("busy");
+  const targets = [];
+  f.services.prepareReload = async (_session, nativeId, targetAccountId) => {
+    targets.push(targetAccountId);
+    return { nativeId };
+  };
+  await f.reload.request("session", {
+    mode: "when-idle",
+    requestId: randomUUID(),
+    targetAccountId: "second",
+  });
+  assert.equal(f.session.reload.targetAccountId, "second");
+  const recovered = new SessionReload({ services: f.services, pollMs: 0 });
+  await recovered.initialize();
+  f.activity("idle");
+  await recovered.poll();
+  assert.deepEqual(targets, ["second", "second"]);
+});

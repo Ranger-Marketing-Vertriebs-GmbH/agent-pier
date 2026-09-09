@@ -1,3 +1,4 @@
+import { listSessions } from "./session-list.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { publicProviderConfiguration } from "./provider-configuration.js";
 import {
@@ -10,16 +11,7 @@ import { validId, validName, dimensions, textInput } from "./session-validation.
 import { safeEnvironment, execute, privateWrite } from "./session-process-runtime.js";
 import { replaceSession, blocksTerminalInput } from "./session-replacement.js";
 import { createHash, randomUUID } from "node:crypto";
-import {
-  access,
-  chmod,
-  lstat,
-  mkdir,
-  readFile,
-  readdir,
-  rm,
-  stat,
-} from "node:fs/promises";
+import { access, chmod, lstat, mkdir, readFile, rm, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -357,14 +349,7 @@ export class SessionManager {
     );
   }
   list() {
-    return this.serial(async () => {
-      const names = (await readdir(this.directory)).filter((name) =>
-        /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}\.json$/.test(name),
-      );
-      const sessions = [];
-      for (const name of names) sessions.push(await this.current(name.slice(0, -5)));
-      return sessions.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    });
+    return this.serial(() => listSessions(this));
   }
   get(id) {
     return this.serial(() => this.current(id));

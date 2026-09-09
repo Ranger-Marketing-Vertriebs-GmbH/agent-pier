@@ -35,6 +35,16 @@ export const sessionWorkspaceCopy = {
 };
 
 export const sessionReloadCopy = {
+  retryCurrent: "Mit aktuellem Account erneut versuchen",
+  switchTitle: "Mit anderem Account fortsetzen",
+  switchHint:
+    "Setze dieselbe Unterhaltung mit einem anderen Account derselben CLI fort. Wähle einen bereits angemeldeten Account. Der Verlauf wird kopiert; Zugangsdaten bleiben getrennt. Bei einem Fehler bleibt der ursprüngliche Verlauf erhalten.",
+  switchNow: "Account wechseln und fortsetzen",
+  targetAccount: "Zielaccount",
+  chooseAccount: "Account auswählen …",
+  noAccounts:
+    "Lege unter Accounts einen weiteren Account für diese CLI an und melde ihn zuerst an.",
+
   openTerminal: "Terminal öffnen",
   terminalHint:
     "Fragt die CLI nach Hooks oder Projektvertrauen, bestätige dies im Terminal. Das Neuladen läuft beim Schließen dieses Dialogs weiter.",
