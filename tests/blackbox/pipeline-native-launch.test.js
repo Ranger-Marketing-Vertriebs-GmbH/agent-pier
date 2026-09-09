@@ -196,6 +196,10 @@ for (const providerId of [null, "openrouter", "zai", "zai-coding-plan"])
       assertAutonomous(tool, resumed.args);
       assert.equal(resumed.args.includes(nativeId), true);
       assert.equal(resumed.args.includes("--continue"), false);
+      if (tool === "claude") {
+        assert.equal(resumed.args.includes("--session-id"), false);
+        assert.equal(resumed.args.includes("--fork-session"), false);
+      }
       if (connection) {
         const resumedSession = await application.sessions.get(next.sessionId);
         assert.equal(

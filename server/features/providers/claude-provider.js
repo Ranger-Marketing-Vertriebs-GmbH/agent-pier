@@ -22,6 +22,11 @@ export function configureClaudeProvider(launch, metadata, cliVersion) {
       assumedContextTokens = 1000000;
     }
   } else {
+    if (!/^\d+\.\d+\.\d+/.test(cliVersion || ""))
+      throw problem(
+        "The Claude Code version could not be verified. Retry the launch; if this persists, check that the CLI responds to --version.",
+        409,
+      );
     if (!supportedVersion(cliVersion))
       throw problem(
         "Custom model context configuration requires Claude Code 2.1.193 or later. Update the CLI before launching this model.",

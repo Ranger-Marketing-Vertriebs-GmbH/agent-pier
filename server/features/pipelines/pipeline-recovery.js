@@ -1,8 +1,11 @@
-import { activeNode, currentAttempt } from "./graph-navigation.js";
+import { activeNode, currentAttempt, terminal } from "./graph-navigation.js";
 import { applyOutcome, launchStage, park, conclude, advance } from "./execution-stage.js";
 import { provisionRun } from "./execution-workspace.js";
 import { cancelRun } from "./pipeline-actions.js";
 export async function reconcileRun(engine, run) {
+  // The polling snapshot may predate a gate action holding the run lock.
+  // Recheck the freshly loaded state before interpreting absent active work.
+  if (terminal(run) || run.imported?.historyOnly) return;
   if (run.phase === "provisioning" && !run.cancelRequested) {
     await provisionRun(engine, run);
     return;

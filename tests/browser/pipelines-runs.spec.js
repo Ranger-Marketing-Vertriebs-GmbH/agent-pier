@@ -336,3 +336,29 @@ test("verification evidence distinguishes timeouts from unavailable results", as
     }),
   ).toBeVisible();
 });
+
+test("failed native stage offers an explicit override with confirmation", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  const run = sampleRun(state);
+  run.nodes[0].status = "failed";
+  run.nodes[0].failReason = "session-error";
+  run.actions = ["abort", "retry", "reconcile", "override"];
+  state.runs.push(run);
+  await openPipelines(page, "runs/run-one");
+  await page.getByRole("button", { name: "Übergehen & fortsetzen", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("trotz ihres bisherigen Ergebnisses");
+  expect(state.calls.some((call) => call.path.endsWith("/gate"))).toBe(false);
+  await page.screenshot({ path: "test-results/pipeline-failed-stage-override.png" });
+  await dialog
+    .getByRole("button", { name: "Übergehen & fortsetzen", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  expect(state.calls).toContainEqual({
+    path: "/pipeline-runs/run-one/gate",
+    method: "POST",
+    body: { action: "override" },
+  });
+});

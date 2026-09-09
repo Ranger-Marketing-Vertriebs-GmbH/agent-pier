@@ -174,3 +174,29 @@ test("Claude result errors override a zero process exit without invented usage",
   assert.equal(state.nativeId, "c-1");
   assert.equal(state.usage, undefined);
 });
+
+test("Claude pipeline owns session identity when lifecycle supplies a new session ID", () => {
+  for (const inherited of [["--session-id", "new-id"], ["--session-id=new-id"]]) {
+    for (const headless of [true, false]) {
+      for (const resumeNativeId of [undefined, "existing-id"]) {
+        const input = { ...launch, args: [...launch.args, ...inherited] };
+        const result = native.nativeCommand({
+          tool: "claude",
+          launch: input,
+          mode: "acceptEdits",
+          sessionId: "new-id",
+          resumeNativeId,
+          headless,
+        });
+        assert.deepEqual(input.args, [...launch.args, ...inherited]);
+        assert.equal(result.args.includes("--session-id=new-id"), false);
+        assert.equal(
+          result.args.filter((arg) => arg === "--session-id").length,
+          resumeNativeId ? 0 : 1,
+        );
+        assert.equal(result.args.includes("--resume"), Boolean(resumeNativeId));
+        assert.equal(result.args.at(-1), resumeNativeId || "new-id");
+      }
+    }
+  }
+});

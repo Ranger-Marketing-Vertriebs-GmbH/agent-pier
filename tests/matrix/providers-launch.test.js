@@ -173,3 +173,13 @@ test("Codex launch arguments pin routing even when the repository supplies provi
     "https://openrouter.ai/api/v1",
   );
 });
+
+test("unknown Claude versions request a retry instead of claiming the CLI is outdated", (t) => {
+  for (const cliVersion of ["", "unknown"]) {
+    assert.throws(
+      () => launch(t, "claude", "zai", { cliVersion }),
+      (error) =>
+        error.status === 409 && /could not be verified.*Retry/.test(error.message),
+    );
+  }
+});
