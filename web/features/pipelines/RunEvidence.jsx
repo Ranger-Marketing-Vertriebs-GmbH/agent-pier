@@ -78,7 +78,13 @@ export default function RunEvidence({ runId, node }) {
         <div className="pipeline-actions" key={index}>
           <small>
             {step.name} · {step.blocking ? copy.blocking : copy.verification} ·{" "}
-            {step.timedOut ? copy.unknown : (step.exitCode ?? copy.unknown)}
+            {step.timedOut
+              ? copy.verificationTimedOut
+              : step.exitCode === 0
+                ? copy.pass
+                : Number.isInteger(step.exitCode)
+                  ? copy.verificationExitCode(step.exitCode)
+                  : copy.unknown}
           </small>
           <button
             className="button secondary compact"

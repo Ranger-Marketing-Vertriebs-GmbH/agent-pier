@@ -236,3 +236,103 @@ test("artifact groups remain scoped to the stage whose files were opened", async
     "/pipeline-runs/run-one/nodes/stage-two/artifact",
   );
 });
+
+test("verification is visible during polling and long run text stays readable on desktop and mobile", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const state = await pipelinesFixture(page);
+  const run = sampleRun(state);
+  run.status = "running";
+  run.actions = ["abort"];
+  run.branch = "agentpier/verification-fixture";
+  run.task = "## Implementation\n\n" + "Follow the project conventions. ".repeat(100);
+  run.verifyJob = { id: "verification-one", startedAt: "2026-09-09T18:03:14Z" };
+  run.nodes[0].status = "running";
+  run.nodes[0].failDetail = "Old Git operation failed";
+  run.nodes[0].verifyPending = true;
+  run.nodes[0].verifyPlan = [{ name: "JavaScript tests" }, { name: "PHP tests" }];
+  run.nodes[0].verifyResult = null;
+  run.nodes[0].verdict = {
+    result: "pass",
+    summary: "Implemented the requested documentation changes. ".repeat(35),
+    findings: [
+      { severity: "low", title: "Existing database configuration needs review" },
+    ],
+  };
+  state.runs.push(run);
+  await openPipelines(page, "runs/run-one");
+  const verification = page.getByRole("region", { name: "Verifikation", exact: true });
+  await expect(verification).toBeVisible();
+  await expect(verification).toContainText("Verifikation läuft");
+  await expect(verification).toContainText("Gestartet:");
+  await expect(page.getByText("Old Git operation failed")).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Entwicklungsablauf", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".pipeline-prose")).toBeHidden();
+  const sidebar = await page.locator(".pipeline-run-sidebar").boundingBox();
+  const content = await page.locator(".pipeline-run-content").boundingBox();
+  expect(sidebar.x + sidebar.width).toBeLessThan(content.x);
+  await page.getByText("Konfigurierte Prüfschritte (2)", { exact: true }).click();
+  await expect(verification.getByText("JavaScript tests", { exact: true })).toBeVisible();
+  await page.screenshot({
+    path: "test-results/pipeline-verification-desktop.png",
+    animations: "disabled",
+    fullPage: true,
+  });
+  await page.locator(".pipeline-task > summary").click();
+  await expect(
+    page.getByRole("heading", { name: "Implementation", exact: true }),
+  ).toBeVisible();
+  await page.locator(".pipeline-task > summary").click();
+  await page.getByText("Ergebniszusammenfassung anzeigen", { exact: true }).click();
+  await expect(page.locator(".pipeline-verdict-summary > p")).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+  await page.getByText("Ergebniszusammenfassung anzeigen", { exact: true }).click();
+  await page.screenshot({
+    path: "test-results/pipeline-verification-mobile.png",
+    animations: "disabled",
+    fullPage: true,
+  });
+  run.verifyJob = null;
+  run.nodes[0].verifyPending = false;
+  run.nodes[0].status = "passed";
+  run.status = "completed";
+  run.actions = [];
+  await expect(verification).toHaveCount(0, { timeout: 10000 });
+  await expect(page.locator(".pipeline-status-badge")).toHaveText("Abgeschlossen");
+});
+
+test("verification evidence distinguishes timeouts from unavailable results", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  const run = sampleRun(state);
+  run.nodes[0].verifyResult = {
+    status: "timed-out",
+    steps: [
+      { name: "bootstrap", exitCode: 0, blocking: true },
+      { name: "PHP tests", exitCode: null, timedOut: true, blocking: true },
+      { name: "lint", exitCode: 2, blocking: true },
+    ],
+  };
+  state.runs.push(run);
+  await openPipelines(page, "runs/run-one");
+  await expect(
+    page.getByText("PHP tests · Fehler hält den Lauf an · Zeitlimit überschritten", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("bootstrap · Fehler hält den Lauf an · Bestanden", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("lint · Fehler hält den Lauf an · Fehlgeschlagen (Exit-Code 2)", {
+      exact: true,
+    }),
+  ).toBeVisible();
+});

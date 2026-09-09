@@ -71,6 +71,8 @@ async function prepareStage(
     status: "launching",
     baseSha: workspaceState?.headSha || run.workspace.baseSha,
   };
+  // Verdicts belong to the turn that produced them; history retains prior results.
+  delete node.verdict;
   node.status = "running";
   node.startedAt = now;
   delete node.finishedAt;

@@ -271,3 +271,29 @@ test("later stages refresh an existing pull request summary without duplicate na
   assert.deepEqual(summaries, [1, 2]);
   assert.equal(f.launches.length, 2);
 });
+
+test("failed verification repair does not reuse a passing verdict from the previous turn", async (t) => {
+  const verify = verifier(),
+    f = fixture(t, { verification: true, verify });
+  f.definitions.getVerification = () => ({
+    steps: [{ name: "tests", command: "false", timeoutMs: 1000, blocking: true }],
+  });
+  const r = await start(f);
+  await f.end(
+    { result: "pass", summary: "Original implementation" },
+    { nativeId: "native" },
+  );
+  verify.jobs.set(verify.plans[0].id, {
+    status: "timed-out",
+    steps: [{ name: "tests", timedOut: true, exitCode: null }],
+  });
+  await f.engine.reconcile();
+  assert.equal(f.engine.get(r.id).nodes[0].verdict, undefined);
+  f.outcomes.set(f.launches.at(-1).sessionId, { status: "failed", exitCode: 1 });
+  await f.engine.reconcile();
+  const run = f.engine.get(r.id);
+  assert.equal(run.nodes[0].failReason, "session-error");
+  assert.equal(run.nodes[0].verdict, undefined);
+  assert.equal(run.executionLog[0].verdict.summary, "Original implementation");
+  assert.equal(run.executionLog[0].verdict.result, "pass");
+});

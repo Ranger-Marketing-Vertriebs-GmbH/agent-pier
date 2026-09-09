@@ -253,3 +253,127 @@
 .pipeline-card > label textarea {
   width: 100%;
 }
+
+.pipeline-run-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0 16px;
+}
+.pipeline-run-heading h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.3;
+}
+.pipeline-status-badge {
+  color: var(--accent);
+  background: #30241d;
+  border-radius: 20px;
+  padding: 7px 12px;
+  font-size: 14px;
+}
+.pipeline-run-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.pipeline-run-sidebar,
+.pipeline-run-content {
+  min-width: 0;
+}
+.pipeline-run-detail .pipeline-card {
+  margin-top: 0;
+}
+.pipeline-run-meta p {
+  margin: 12px 0;
+}
+.pipeline-run-meta [role="group"] {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.pipeline-run-content > h2 {
+  font-size: 18px;
+  margin: 24px 0 16px;
+}
+.pipeline-run-detail .pipeline-card p,
+.pipeline-run-detail .pipeline-card li {
+  font-size: 14px;
+  line-height: 1.65;
+}
+.pipeline-run-detail .pipeline-card h3 {
+  font-size: 17px;
+}
+.pipeline-run-detail .pipeline-card small,
+.pipeline-run-detail .pipeline-card details {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.pipeline-run-detail .pipeline-run-status {
+  color: var(--accent);
+  margin: 8px 0 16px;
+}
+.pipeline-run-detail .pipeline-task > summary {
+  font-size: 15px;
+  font-weight: 600;
+}
+.pipeline-prose {
+  margin-top: 18px;
+}
+.pipeline-prose h1,
+.pipeline-prose h2,
+.pipeline-prose h3 {
+  font-size: 16px;
+  margin: 20px 0 10px;
+}
+.pipeline-prose img {
+  max-width: 100%;
+}
+.pipeline-prose pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pipeline-prose p,
+.pipeline-prose li {
+  color: inherit;
+}
+.pipeline-verdict > ul {
+  padding-left: 20px;
+  margin: 16px 0;
+}
+.pipeline-verdict > ul > li {
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.pipeline-verdict li strong {
+  font-weight: 500;
+}
+.pipeline-verification-status {
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  background: #30241d;
+  padding: 16px;
+  margin: 16px 0 20px;
+}
+.pipeline-verification-status > strong {
+  color: var(--accent);
+}
+.pipeline-verification-status p {
+  margin: 8px 0;
+}
+@media (max-width: 900px) {
+  .pipeline-run-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .pipeline-run-content {
+    order: -1;
+  }
+  .pipeline-run-heading h2 {
+    font-size: 20px;
+  }
+}
