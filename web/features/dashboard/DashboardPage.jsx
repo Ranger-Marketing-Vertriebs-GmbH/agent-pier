@@ -1,6 +1,7 @@
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { dashboardPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
 import React from "react";
+import { toolInstallerCopy } from "../../lib/i18n/messages/tools.js";
 import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
 export default function DashboardPage({
@@ -137,6 +138,11 @@ export default function DashboardPage({
                     : commonCopy.installCli}
                 <Icon name="arrow" size={16} />
               </button>
+              {t.installed && ["codex", "claude", "opencode"].includes(t.id) && (
+                <button onClick={() => setModal({ type: "update", tool: t.id })}>
+                  {toolInstallerCopy.updateCli}
+                </button>
+              )}
             </article>
           ))}
         </div>

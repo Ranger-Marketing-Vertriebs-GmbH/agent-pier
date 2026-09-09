@@ -8,6 +8,7 @@ import AsyncForm from "../components/AsyncForm.jsx";
 import LaunchDialog from "../features/sessions/LaunchDialog.jsx";
 import AccountDialog from "../features/accounts/AccountDialog.jsx";
 import ToolInstaller from "../features/tools/ToolInstaller.jsx";
+import { toolInstallerCopy } from "../lib/i18n/messages/tools.js";
 export default function AppDialogs({
   modal,
   state,
@@ -30,11 +31,19 @@ export default function AppDialogs({
           created={created}
         />
       )}
-      {modal?.type === "install" && (
-        <Modal title={commonCopy.installTitle(names[modal.tool])} close={close}>
+      {["install", "update"].includes(modal?.type) && (
+        <Modal
+          title={
+            modal.type === "update"
+              ? toolInstallerCopy.updateTitle(names[modal.tool])
+              : commonCopy.installTitle(names[modal.tool])
+          }
+          close={close}
+        >
           <ToolInstaller
             key={modal.tool}
             tool={modal.tool}
+            update={modal.type === "update"}
             request={api}
             refresh={refresh}
             close={close}

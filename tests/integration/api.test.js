@@ -243,6 +243,10 @@ test("CLI installation endpoints expose fixed catalog and reject unknown tools a
   assert.equal(res.status, 400);
   res = await fetch(url + "/api/tools/codex/install", body("https://evil.example", {}));
   assert.equal(res.status, 403);
+  res = await fetch(url + "/api/tools/arbitrary/update", body(url, {}));
+  assert.equal(res.status, 409);
+  res = await fetch(url + "/api/tools/codex/update", body("https://evil.example", {}));
+  assert.equal(res.status, 403);
 });
 
 test("GitHub utility stays outside account creation and credential changes synchronize generated agent configs", async (t) => {
