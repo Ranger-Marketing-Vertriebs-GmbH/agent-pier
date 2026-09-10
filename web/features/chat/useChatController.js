@@ -1,11 +1,9 @@
 import useChatDelivery from "./useChatDelivery.js";
 import useChatAttachments from "./useChatAttachments.js";
-import { applyChatSync } from "./chat-sync.js";
 import { withReadyUploads } from "./chat-upload-send.js";
 import { deliveryScope } from "./chat-draft.js";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { chatAttachmentCopy as attachmentCopy } from "../../lib/i18n/messages/chat.js";
-import { startVisiblePolling } from "../../lib/visible-polling.js";
 export default function useChatController({ active, session, request, onConnection }) {
   const [data, setData] = useState(null),
     [error, setError] = useState(""),
@@ -79,74 +77,44 @@ export default function useChatController({ active, session, request, onConnecti
     snapshot = useRef(null);
   useEffect(() => {
     if (!active) return;
-    return startVisiblePolling(async (signal) => {
-      const current = generation.current;
-      try {
-        const cursor = snapshot.current?.sync?.cursor;
-        const result = await request(
-          `/sessions/${session.id}/chat${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
-          "GET",
-          undefined,
-          signal,
-        );
-        if (!signal.aborted && current === generation.current) {
-          let next;
-          try {
-            next = applyChatSync(snapshot.current, result);
-          } catch {
-            snapshot.current = null;
-            next = applyChatSync(
-              null,
-              await request(`/sessions/${session.id}/chat`, "GET", undefined, signal),
-            );
-          }
-          if (signal.aborted || current !== generation.current) return;
-          snapshot.current = next;
-          setData(next);
-          setLoadError("");
-          onConnection(session.status === "running" ? "connected" : "ended");
-        }
-      } catch (err) {
-        if (!signal.aborted && current === generation.current) {
-          setLoadError(err.message);
-          onConnection("disconnected");
-        }
-      }
-    }, 1500);
-  }, [active, session.id, session.status, request, onConnection]);
-  useEffect(() => {
-    if (!active) return;
     let disposed = false;
-    const socket = new WebSocket(
-      `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/api/sessions/${encodeURIComponent(session.id)}/chat-stream`,
-    );
-    socket.onopen = () => onConnection("connected");
-    socket.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        if (message.type === "snapshot" && !disposed) {
-          snapshot.current = null;
-          setData(message.snapshot);
-          setLoadError("");
+    let timer;
+    let socket;
+    const connect = () => {
+      if (disposed) return;
+      socket = new WebSocket(
+        `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/api/sessions/${encodeURIComponent(session.id)}/chat-stream`,
+      );
+      socket.onopen = () => onConnection("connected");
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === "snapshot") {
+            snapshot.current = null;
+            setData(message.snapshot);
+            setLoadError("");
+          } else if (message.type === "event") {
+            void request(`/sessions/${session.id}/chat`, "GET").then((next) => {
+              if (!disposed) {
+                snapshot.current = next;
+                setData(next);
+              }
+            });
+          } else if (message.type === "error") setLoadError(message.message);
+        } catch {
+          setLoadError("Ungültige Chat-Ereignisnachricht.");
         }
-        if (message.type === "event" && !disposed)
-          void request(`/sessions/${session.id}/chat`, "GET").then((next) => {
-            if (!disposed) {
-              snapshot.current = next;
-              setData(next);
-            }
-          });
-        if (message.type === "error" && !disposed) setLoadError(message.message);
-      } catch {
-        if (!disposed) setLoadError("Ungültige Chat-Ereignisnachricht.");
-      }
+      };
+      socket.onerror = () => onConnection("disconnected");
+      socket.onclose = () => {
+        if (!disposed) timer = setTimeout(connect, 1500);
+      };
     };
-    socket.onerror = () => {
-      if (!disposed) onConnection("disconnected");
-    };
+    connect();
     return () => {
       disposed = true;
-      socket.close();
+      clearTimeout(timer);
+      socket?.close();
     };
   }, [active, session.id, request, onConnection]);
   useLayoutEffect(() => {

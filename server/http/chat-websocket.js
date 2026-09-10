@@ -36,6 +36,8 @@ export function attachChatWebSocket(
   wss.on("connection", (ws) => {
     let closed = false;
     let alive = true;
+    let latest;
+    let refresh;
     const send = (message) => {
       if (!closed && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
     };
@@ -49,6 +51,7 @@ export function attachChatWebSocket(
     ws.on("close", () => {
       closed = true;
       clearInterval(ping);
+      clearInterval(refresh);
       cleanupLogin();
       unsubscribe?.();
     });
@@ -61,10 +64,41 @@ export function attachChatWebSocket(
           ws.sessionId,
           await chat.read(ws.sessionId),
         );
+        latest = JSON.stringify([
+          snapshot.providerSessionId,
+          snapshot.messages?.length || 0,
+          snapshot.messages?.at(-1)?.id || null,
+          snapshot.messages?.at(-1)?.text || null,
+        ]);
         send({ type: "snapshot", sequence: events.current(ws.sessionId), snapshot });
         unsubscribe = events.subscribe(ws.sessionId, (event) =>
           send({ type: "event", event }),
         );
+        refresh = setInterval(async () => {
+          if (closed) return;
+          try {
+            const next = await chatImages.decorate(
+              ws.sessionId,
+              await chat.read(ws.sessionId),
+            );
+            const fingerprint = JSON.stringify([
+              next.providerSessionId,
+              next.messages?.length || 0,
+              next.messages?.at(-1)?.id || null,
+              next.messages?.at(-1)?.text || null,
+            ]);
+            if (fingerprint === latest) return;
+            latest = fingerprint;
+            send({
+              type: "snapshot",
+              sequence: events.current(ws.sessionId),
+              snapshot: next,
+            });
+          } catch (error) {
+            send({ type: "error", message: error.message });
+          }
+        }, 1500);
+        refresh.unref();
         if (session.status !== "running") send({ type: "ended" });
       } catch (error) {
         send({ type: "error", message: error.message });
