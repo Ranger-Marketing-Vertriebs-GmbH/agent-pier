@@ -104,7 +104,10 @@ test("run pagination and status filters survive reload and retain exact run iden
   await expect(
     page.getByRole("button", { name: "Lauf öffnen: Task 20", exact: true }),
   ).toBeVisible();
-  await page.getByLabel("Status", { exact: true }).selectOption("failed");
+  await page
+    .getByRole("group", { name: "Status", exact: true })
+    .getByRole("button", { name: "Fehlgeschlagen", exact: true })
+    .click();
   await expect(page).toHaveURL(/status=failed$/);
   await expect(page).not.toHaveURL(/page=2/);
   await page.getByRole("button", { name: "Lauf öffnen: Task 20", exact: true }).click();
@@ -362,3 +365,69 @@ test("failed native stage offers an explicit override with confirmation", async 
     body: { action: "override" },
   });
 });
+
+for (const width of [1440, 390]) {
+  test(`run overview bounds kickoff text and filters statuses at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const state = await pipelinesFixture(page);
+    const kickoff =
+      "NEONNIGHTS-358 — verwaiste CSS-Regeln entfernen. " +
+      "Ausführliche Arbeitsanweisung mit Prüfungen und Kontext. ".repeat(80);
+    for (const [id, status] of [
+      ["active", "running"],
+      ["blocked", "awaiting-human"],
+      ["done", "completed"],
+    ]) {
+      const run = sampleRun(state, id);
+      run.status = status;
+      run.nodes[0].status =
+        status === "completed"
+          ? "passed"
+          : status === "running"
+            ? "running"
+            : "awaiting-gate";
+      run.task = id === "active" ? kickoff : `NEONNIGHTS-${id}: Weitere Aufgabe`;
+      run.createdAt = "2026-09-10T05:00:00Z";
+      state.runs.push(run);
+    }
+    await openPipelines(page, "runs");
+    const cards = page.locator(".pipeline-run-card");
+    await expect(cards).toHaveCount(3);
+    expect((await cards.first().locator("h3").innerText()).length).toBeLessThanOrEqual(
+      160,
+    );
+    expect(
+      await cards.first().evaluate((element) => element.getBoundingClientRect().height),
+    ).toBeLessThan(330);
+    await expect(cards.first()).toContainText("Aktuelle Stufe: Planer");
+    await expect(cards.first()).toContainText("0 von 1 Stufen abgeschlossen");
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    ).toBe(true);
+    await page.screenshot({
+      path: `test-results/pipeline-run-overview-${width}.png`,
+      fullPage: true,
+    });
+    const filter = page.getByRole("group", { name: "Status", exact: true });
+    await filter.getByRole("button", { name: "Abgeschlossen", exact: true }).click();
+    await expect(cards).toHaveCount(1);
+    await expect(cards).toContainText("NEONNIGHTS-done");
+    await expect(page).toHaveURL(/status=completed/);
+    await page.reload();
+    await expect(
+      filter.getByRole("button", { name: "Abgeschlossen", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(cards).toHaveCount(1);
+    await filter.getByRole("button", { name: "Alle Status", exact: true }).click();
+    await expect(cards).toHaveCount(3);
+    await cards
+      .first()
+      .getByRole("button", { name: /^Lauf öffnen:/ })
+      .click();
+    await expect(page).toHaveURL(/runs\/active/);
+    await page.locator(".pipeline-task summary").click();
+    await expect(page.getByText(kickoff, { exact: true })).toBeVisible();
+  });
+}

@@ -7,6 +7,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import useResource from "../../lib/useResource.js";
 import RunDetail from "./RunDetail.jsx";
 import NewRun from "./NewRun.jsx";
+import RunListCard from "./RunListCard.jsx";
 export default function RunsPage({ route, navigate, home }) {
   const page = route.pipelinePage || 1,
     query = new URLSearchParams({
@@ -65,21 +66,20 @@ export default function RunsPage({ route, navigate, home }) {
             ]}
           />
         </label>
-        <label>
-          {copy.status}
-          <AnchoredSelect
-            label={copy.status}
-            value={route.pipelineStatus || ""}
-            onChange={(value) => navigate({ pipelineStatus: value, pipelinePage: 1 })}
-            options={[
-              { value: "", label: copy.allStatuses },
-              ...Object.entries(copy.statuses).map(([value, label]) => ({
-                value,
-                label,
-              })),
-            ]}
-          />
-        </label>
+      </div>
+      <div className="pipeline-status-filters" role="group" aria-label={copy.status}>
+        {[["", copy.allStatuses], ...Object.entries(copy.statuses)].map(
+          ([value, label]) => (
+            <button
+              key={value}
+              className="button secondary"
+              aria-pressed={(route.pipelineStatus || "") === value}
+              onClick={() => navigate({ pipelineStatus: value, pipelinePage: 1 })}
+            >
+              {label}
+            </button>
+          ),
+        )}
       </div>
       <ErrorMessage error={list.error || projects.error} />
       {list.loading && <p role="status">{copy.loading}</p>}
@@ -90,29 +90,11 @@ export default function RunsPage({ route, navigate, home }) {
           <section key={status}>
             <h3>{label}</h3>
             {runs.map((run) => (
-              <article className="pipeline-card" key={run.id}>
-                <h3>{run.task}</h3>
-                <p>
-                  {run.pipelineName} · {run.cwd}
-                </p>
-                <div className="pipeline-actions">
-                  <button
-                    className="button secondary"
-                    aria-label={`${copy.openRun}: ${run.task}`}
-                    onClick={() => navigate({ pipelineItem: run.id })}
-                  >
-                    {copy.openRun}
-                  </button>
-                  <small>
-                    {run.nodes
-                      ?.map(
-                        (node) =>
-                          `${node.profileSnapshot?.name || node.id}: ${copy.nodeStatuses[node.status] || node.status}`,
-                      )
-                      .join(" · ")}
-                  </small>
-                </div>
-              </article>
+              <RunListCard
+                key={run.id}
+                run={run}
+                open={() => navigate({ pipelineItem: run.id })}
+              />
             ))}
           </section>
         ) : null;
