@@ -1,54 +1,41 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { pendingDir, doneDir } from './paths.js';
-import { writeJsonAtomic, readJson, listFiles, ensureDir } from './fsx.js';
-import { messageFileName } from './message.js';
+import crypto from "node:crypto";
+import { openQueue } from "./queue.js";
+
+const stores = new Map();
+
+function store(home) {
+  let value = stores.get(home);
+  if (!value) {
+    value = openQueue(home);
+    stores.set(home, value);
+  }
+  return value;
+}
 
 export function enqueue(h, key, msg) {
-  const file = path.join(pendingDir(h, key), messageFileName(msg));
-  writeJsonAtomic(file, msg);
-  return file;
+  return store(h).enqueue({ ...msg, to: key });
 }
 
 // Zählt und nennt Absender. Liest nur from.name, bewegt nichts.
 export function pendingSummary(h, key) {
-  const dir = pendingDir(h, key);
-  const senders = new Set();
-  let count = 0;
-  for (const f of listFiles(dir)) {
-    count++;
-    try {
-      senders.add(readJson(path.join(dir, f)).from?.name ?? 'unbekannt');
-    } catch (e) {
-      // Halb geschrieben oder defekt: zählt trotzdem, Absender bleibt offen.
-      senders.add('unbekannt');
-      console.error(`agentbus: inbox ${key}: ${f} nicht lesbar: ${e.message}`);
-    }
-  }
-  return { count, senders: [...senders].sort() };
+  return store(h).summary(key);
 }
 
-// Reihenfolge ist Spezifikation: rename nach done/ ZUERST, dann lesen.
+export function claimInbox(h, key, now = Date.now(), leaseMs = 30000) {
+  const owner = crypto.randomUUID();
+  const claim = store(h).claim(key, owner, now, leaseMs);
+  return { ...claim, owner };
+}
+
+export function ackInbox(h, owner, claimIds) {
+  return store(h).ack(owner, claimIds);
+}
+
+/** Compatibility helper for non-MCP callers; MCP callers acknowledge after formatting. */
 export function readInbox(h, key) {
-  const pend = pendingDir(h, key), done = doneDir(h, key);
-  const out = [];
-  const files = listFiles(pend);
-  if (files.length) ensureDir(done);
-  for (const f of files) {
-    const target = path.join(done, f);
-    try {
-      fs.renameSync(path.join(pend, f), target);
-    } catch (e) {
-      if (e.code === 'ENOENT') continue; // anderer Leser war schneller
-      throw e;
-    }
-    // Defekte Datei bleibt in done/, wird aber gemeldet statt still zu verschwinden.
-    try {
-      out.push(readJson(target));
-    } catch (e) {
-      console.error(`agentbus: inbox ${key}: ${f} nicht lesbar: ${e.message}`);
-      out.push({ id: f, malformed: true });
-    }
-  }
-  return out;
+  const claim = claimInbox(h, key);
+  const count = ackInbox(h, claim.owner, claim.claimIds);
+  if (count !== claim.claimIds.length)
+    throw new Error("agentbus: inbox acknowledgement failed");
+  return claim.rows;
 }

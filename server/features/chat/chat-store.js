@@ -5,12 +5,21 @@ import path from "node:path";
 import { privateDirectory, readJSON, writePrivate, problem } from "../../lib/storage.js";
 import { providerId } from "./provider-history.js";
 
+const LIVE_HISTORY_TIMEOUT = 1500;
+
 export class ChatStore {
-  constructor({ dataDir, sessions, history, bindings }) {
+  constructor({
+    dataDir,
+    sessions,
+    history,
+    bindings,
+    liveHistoryTimeout = LIVE_HISTORY_TIMEOUT,
+  }) {
     this.directory = privateDirectory(path.join(dataDir, "chat"));
     this.sessions = sessions;
     this.history = history;
     this.bindings = bindings;
+    this.liveHistoryTimeout = liveHistoryTimeout;
     this.cache = new Map();
   }
   file(id, suffix = "binding") {
@@ -121,27 +130,34 @@ export class ChatStore {
       };
     if (binding.accountId !== session.accountId || binding.tool !== session.tool)
       throw problem(serverMessages.chat.linkedAccountMismatch);
+    const saved = readJSON(this.file(id, "snapshot"), null);
+    const hasSaved = saved?.providerSessionId === binding.providerSessionId;
+    const stale = () => ({
+      ...saved,
+      observability: finalizeObservability(saved.observability, session, {
+        stale: true,
+      }),
+      notice: serverMessages.chat.savedHistoryNotice,
+    });
     const cached = this.cache.get(id);
     if (cached && Date.now() - cached.time < 1000) return cached.promise;
+    const live = this.history
+      .read(session, binding.providerSessionId)
+      .then((content) => this.snapshot(session, binding.providerSessionId, content));
     const promise = (async () => {
       try {
-        return this.snapshot(
-          session,
-          binding.providerSessionId,
-          await this.history.read(session, binding.providerSessionId),
-        );
-      } catch (error) {
-        if (session.status !== "running") {
-          const saved = readJSON(this.file(id, "snapshot"), null);
-          if (saved?.providerSessionId === binding.providerSessionId)
-            return {
-              ...saved,
-              observability: finalizeObservability(saved.observability, session, {
-                stale: true,
-              }),
-              notice: serverMessages.chat.savedHistoryNotice,
-            };
+        if (hasSaved && session.status === "running") {
+          let timer;
+          const timeout = new Promise((resolve) => {
+            timer = setTimeout(() => resolve(null), this.liveHistoryTimeout);
+          });
+          const result = await Promise.race([live, timeout]);
+          clearTimeout(timer);
+          return result || stale();
         }
+        return await live;
+      } catch (error) {
+        if (hasSaved) return stale();
         if (error.status === 404)
           return {
             availability: "waiting",

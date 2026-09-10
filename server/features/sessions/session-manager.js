@@ -462,7 +462,7 @@ export class SessionManager {
       });
     });
   }
-  input(id, text, submit = false, beforeInput) {
+  input(id, text, submit = false, beforeInput, nativeQueue) {
     if (this.replacing.has(id))
       return Promise.reject(failure("Session is reloading", 409));
     return this.serial(async () => {
@@ -478,6 +478,7 @@ export class SessionManager {
           session,
           await this.tmux(["capture-pane", "-e", "-p", "-t", `${this.target(id)}:0.0`]),
         );
+      if (nativeQueue && (await nativeQueue(session))) return;
       if (text) {
         const buffer = `tuiui-${randomUUID()}`;
         await this.tmux(["load-buffer", "-b", buffer, "-"], { input: text });

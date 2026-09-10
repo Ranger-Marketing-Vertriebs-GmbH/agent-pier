@@ -29,8 +29,15 @@ async function setup(t) {
     },
   ) => {
     f.application.sessions.get = async () => ({ ...session });
-    f.application.sessions.input = async (_id, text, submit, beforeInput) => {
+    f.application.sessions.input = async (
+      _id,
+      text,
+      submit,
+      beforeInput,
+      nativeQueue,
+    ) => {
       await beforeInput(session, "");
+      if (nativeQueue && (await nativeQueue(session))) return;
       assert.equal(submit, true);
       return input(text);
     };
@@ -66,6 +73,34 @@ test("HTTP delivery replay and restart do not repeat terminal input", async (t) 
   assert.equal((await (await x.status()).json()).status, "handed-off");
   assert.equal((await (await x.post()).json()).status, "handed-off");
   assert.equal(x.writes(), 1);
+});
+
+test("Codex delivery uses the native queue when the running thread is bound", async (t) => {
+  const x = await setup(t);
+  const codex = { ...session, tool: "codex" };
+  x.body.deliveryScope = JSON.stringify([
+    codex.id,
+    codex.accountId,
+    codex.tool,
+    codex.createdAt,
+  ]);
+  x.f.application.sessions.get = async () => ({ ...codex });
+  x.f.application.sessions.input = async (
+    _id,
+    _text,
+    _submit,
+    beforeInput,
+    nativeQueue,
+  ) => {
+    await beforeInput(codex, "");
+    assert.equal(await nativeQueue(codex), true);
+  };
+  x.f.application.bindings.resolve = async () => ({ id: "thread-queue" });
+  const queued = [];
+  x.f.application.history.queue = async (...args) => queued.push(args);
+  assert.equal((await (await x.post()).json()).status, "handed-off");
+  assert.deepEqual(queued, [[codex, "thread-queue", x.body.text]]);
+  assert.equal(x.writes(), 0);
 });
 
 test("concurrent identical HTTP deliveries report pending without duplicate input", async (t) => {
