@@ -7,6 +7,7 @@ import React from "react";
 import useFileDrop from "../../components/useFileDrop.js";
 import useTerminalUploads from "./useTerminalUploads.js";
 import TerminalUploads from "./TerminalUploads.jsx";
+import RequestPanel from "../requests/RequestPanel.jsx";
 import { terminalViewCopy as copy } from "../../lib/i18n/messages/terminal.js";
 import useTerminalConnection from "./useTerminalConnection.js";
 export default function TerminalView({
@@ -37,6 +38,16 @@ export default function TerminalView({
       data-drop-hint={copy.dropHint}
     >
       <ErrorMessage error={error} />
+      {session.nativeRequests?.enabled &&
+        session.purpose !== "login" &&
+        session.tool !== "shell" &&
+        !session.pipeline?.headless && (
+          <RequestPanel
+            session={session}
+            active={mode === "terminal"}
+            openTerminal={() => focusRef.current?.()}
+          />
+        )}
       <TerminalUploads uploads={uploads} paste={paste} />
       <div
         className="terminal-mount"
