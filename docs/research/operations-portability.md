@@ -53,7 +53,7 @@ All old releases are retained. Running sessions can invoke absolute old-release 
 
 ## Installer and exact commands
 
-From a clean source checkout, the installer does not require `npm ci`. It can bootstrap a verified private temporary Node runtime when a suitable Node is absent. Missing `curl`, `tar` and SHA-256 tools are installed before bootstrapping Node. Host tmux/Git installation is enabled by default. On macOS this requires existing Homebrew; on Linux it supports apt, with interactive sudo authentication in a terminal (or direct apt when run as root). Noninteractive runs require sudo permission without a password. On other distributions, install the missing packages with your package manager first.
+From a clean source checkout, the installer does not require `npm ci`. It can bootstrap a verified private temporary Node runtime when a suitable Node is absent. Missing `curl`, `tar` and SHA-256 tools are installed before bootstrapping Node. Host tmux/Git installation is enabled by default. On macOS missing Homebrew is installed using its [official installation script](https://docs.brew.sh/Installation), with terminal input preserved for confirmation and sudo authentication. Without a terminal the script uses Homebrew’s `NONINTERACTIVE=1` mode. Downloads must complete successfully over HTTPS before execution, and temporary files are removed on exit. On Linux it supports apt, with interactive sudo authentication in a terminal (or direct apt when run as root). Noninteractive runs require sudo permission without a password. On other distributions, install the missing packages with your package manager first.
 
 ```sh
 sh scripts/install.sh \

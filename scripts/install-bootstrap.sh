@@ -49,7 +49,7 @@ ensure_bootstrap_tools() {
   echo "Installing Node bootstrap packages:$BOOTSTRAP_PACKAGES" >&2
   case "$PLATFORM" in
     darwin)
-      command -v brew >/dev/null 2>&1 || { echo 'Install Homebrew (https://brew.sh), then retry.' >&2; return 1; }
+      /bin/sh "$SCRIPT_DIR/install-homebrew.sh" || return 1
       # Package names above are fixed, trusted tokens, intentionally split here.
       brew install $BOOTSTRAP_PACKAGES || return 1
       ;;

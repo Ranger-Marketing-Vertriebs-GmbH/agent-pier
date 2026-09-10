@@ -81,6 +81,36 @@ test("a successful package manager exit does not hide a still-missing tmux", asy
   );
 });
 
+test("macOS bootstraps Homebrew before installing missing tmux and Git", async () => {
+  let brew = false,
+    installed = false;
+  const calls = [];
+  await ensureDependencies({
+    platform: "darwin",
+    run: async (command, args) => {
+      calls.push([command, args]);
+      if (["tmux", "git"].includes(command) && !installed) throw Error("missing");
+      if (command === "brew" && !brew) throw Error("missing");
+      if (command === "/bin/sh") {
+        assert.match(args[0], /install-homebrew\.sh$/);
+        brew = true;
+      }
+      if (command === "brew" && args[0] === "install") installed = true;
+    },
+  });
+  assert.ok(installed);
+  assert.equal(calls.filter(([command]) => command === "/bin/sh").length, 1);
+});
+
+test("check-only does not bootstrap Homebrew", async () => {
+  const ctx = fixture({ noManager: true });
+  await assert.rejects(
+    ensureDependencies({ platform: "darwin", run: ctx.run, install: false }),
+    /Missing tmux/,
+  );
+  assert.ok(ctx.calls.every((c) => ["tmux", "git"].includes(c.command)));
+});
+
 test("invalid and conflicting CLI options fail before any host changes", async () => {
   for (const args of [
     ["--unknown"],

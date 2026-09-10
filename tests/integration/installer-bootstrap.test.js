@@ -22,6 +22,10 @@ async function fixture(
   for (const name of present) await tool(name);
   await tool("id", `echo ${uid}`);
   await tool(
+    "install-homebrew.sh",
+    'command -v brew >/dev/null 2>&1 || { echo "Homebrew fixture unavailable" >&2; exit 1; }',
+  );
+  await tool(
     "sudo",
     'echo "sudo $*" >> "$FIXTURE_LOG"\n[ "$1" != -n ] || shift\nexec "$@"',
   );
@@ -47,6 +51,7 @@ fi`,
             PATH: directory,
             PLATFORM: platform,
             BOOTSTRAP_SCRIPT: bootstrap,
+            SCRIPT_DIR: directory,
             FIXTURE_LOG: path.join(directory, "calls"),
           },
         },
@@ -86,7 +91,7 @@ test("bootstrap skip option reports missing tools without installation", async (
 
 test("bootstrap fails before download when a package manager is missing or did not provide tools", async (t) => {
   const absent = await fixture(t, { manager: false });
-  await assert.rejects(absent.run("darwin"), /Install Homebrew/);
+  await assert.rejects(absent.run("darwin"), /Homebrew/);
   await assert.rejects(absent.run("linux"), /package manager/);
   const broken = await fixture(t, { broken: true });
   await assert.rejects(broken.run("linux"), /still unavailable/);

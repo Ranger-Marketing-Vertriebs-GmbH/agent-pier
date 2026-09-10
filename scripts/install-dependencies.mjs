@@ -1,5 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import { hostEnvironment } from "../server/lib/host-environment.js";
 
 const execute = promisify(execFile);
@@ -48,9 +49,21 @@ export async function ensureDependencies({
     try {
       await probe("brew", ["--version"]);
     } catch {
-      throw Error(
-        `Missing ${missing.join(", ")}. Install Homebrew (https://brew.sh), then re-run the installer; or install tmux and Git manually.`,
+      await installRun(
+        "/bin/sh",
+        [fileURLToPath(new URL("./install-homebrew.sh", import.meta.url))],
+        {
+          env: runtimeEnv,
+          timeout: 1800000,
+        },
       );
+      try {
+        await probe("brew", ["--version"]);
+      } catch {
+        throw Error(
+          "Homebrew is still unavailable after installation. Check its installer output and administrator access, then retry.",
+        );
+      }
     }
     await installRun("brew", ["install", ...missing], options);
   } else if (platform === "linux") {
