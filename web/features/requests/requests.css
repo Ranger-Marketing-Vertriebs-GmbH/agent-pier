@@ -100,3 +100,9 @@
   min-height: 0;
   overflow-y: auto;
 }
+
+.terminal-pane > .native-requests {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 50%;
+}

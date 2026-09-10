@@ -166,3 +166,44 @@ test("short mobile native request controls stay inside the workspace and remain 
     page.getByRole("textbox", { name: "Nachricht", exact: true }),
   ).toBeEnabled();
 });
+
+for (const viewport of [
+  { width: 1440, height: 1000 },
+  { width: 390, height: 500 },
+]) {
+  test(`Claude questions can be answered in Terminal at ${viewport.width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize(viewport);
+    await page.routeWebSocket("**/api/sessions/*/terminal", (socket) => {
+      socket.send(JSON.stringify({ type: "output", data: "Fixture terminal ready\r\n" }));
+    });
+    const state = await operationsFixture(page);
+    await page.goto(baseURL + "/sessions/fixture-session/terminal");
+    await expect(page.locator(".terminal-mount .xterm")).toBeVisible();
+    state.requests = [{ ...request, source: "claude" }];
+    const panel = page.locator(".terminal-pane .native-requests");
+    await expect(panel.getByText("Choose a scope", { exact: true })).toBeVisible();
+    const terminal = await page.locator(".terminal-mount").boundingBox();
+    const bounds = await panel.boundingBox();
+    expect(terminal.height).toBeGreaterThan(40);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(terminal.y);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(viewport.width);
+    await panel.getByLabel("Tests", { exact: true }).check();
+    await panel.getByLabel("Local", { exact: true }).check();
+    await panel.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await page.screenshot({ path: testInfo.outputPath("terminal-question.png") });
+    await panel.getByRole("button", { name: "Antwort senden", exact: true }).click();
+    await expect(panel).toHaveCount(0);
+    expect(state.calls.find((call) => call.path.endsWith("/answer")).body).toEqual({
+      expectedRevision: 1,
+      answers: { "question-one": ["tests"], "question-two": ["local"] },
+    });
+    await page.getByRole("button", { name: "Chat", exact: true }).click();
+    await expect(page.getByText("Choose a scope", { exact: true })).toHaveCount(0);
+  });
+}
