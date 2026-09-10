@@ -1,3 +1,5 @@
+import { ClaudeHistoryPages } from "./claude-history-pages.js";
+import { readHistoryPage } from "./history-page.js";
 import { observeClaude, observeCodex, observeOpenCode } from "./chat-observability.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs/promises";
@@ -164,6 +166,9 @@ export class ProviderHistory {
     this.codexClientFactory = codexClientFactory;
     this.codexClients = new Map();
     this.openCodeJobs = new Set();
+    this.claudePages = new ClaudeHistoryPages({
+      onIndexed: (event) => this.onIndexed?.(event),
+    });
   }
   environment(session) {
     if (this.closed) throw problem(serverMessages.chat.serviceStopping, 503);
@@ -351,6 +356,11 @@ export class ProviderHistory {
         updatedAt: new Date(s.time?.updated || Date.now()).toISOString(),
       }));
   }
+  async readPage(session, id, state = null) {
+    providerId(id);
+    this.environment(session);
+    return readHistoryPage(this, session, id, state);
+  }
   async read(session, id) {
     providerId(id);
     this.environment(session);
@@ -398,7 +408,7 @@ export class ProviderHistory {
           );
           turns.push(...(page.data || []));
           cursor = page.nextCursor;
-        } while (cursor && turns.length < 1000);
+        } while (cursor);
         full = { ...thread, turns: turns.reverse() };
       }
       const result = { ...normalizeCodex(full), observability: observeCodex(full) };
@@ -463,7 +473,10 @@ export class ProviderHistory {
     this.closing = Promise.all(
       [...this.codexClients.values()]
         .map((client) => client.close())
-        .concat(jobs.map((job) => job.done)),
+        .concat(
+          jobs.map((job) => job.done),
+          this.claudePages.close(),
+        ),
     ).then(() => this.codexClients.clear());
     return this.closing;
   }

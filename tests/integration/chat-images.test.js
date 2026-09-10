@@ -246,3 +246,21 @@ test("tool paths never become previews or displace images addressed to the user"
   f.snapshots.one.messages.shift();
   assert.equal((await fetch(f.url + image.url)).status, 404);
 });
+
+test("paged historical images remain scoped and expire on a history reset", async (t) => {
+  const f = await fixture(t);
+  fs.writeFileSync(path.join(f.cwd, "older.png"), png);
+  f.snapshots.one.history = { generation: "generation-one" };
+  f.chat.older = async () => ({
+    ...f.snapshots.one,
+    messages: [{ id: "older", role: "assistant", text: "./older.png" }],
+  });
+  const response = await fetch(`${f.url}/api/sessions/one/chat/history?cursor=opaque`);
+  assert.equal(response.status, 200);
+  const page = await response.json();
+  const image = page.messages[0].images[0];
+  assert.equal((await fetch(f.url + image.url)).status, 200);
+  assert.equal((await fetch(f.url + image.url.replace("/one/", "/two/"))).status, 404);
+  f.snapshots.one.history = { generation: "generation-two" };
+  assert.equal((await fetch(f.url + image.url)).status, 404);
+});

@@ -1,3 +1,4 @@
+import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
 const png = Buffer.from(
@@ -80,6 +81,12 @@ async function fixture(page, large = false) {
       images: [],
     },
   ];
+  await mockChatStream(page, () => ({
+    availability: "ready",
+    providerSessionId: "native",
+    messages,
+    tasks: [],
+  }));
   const imageRequests = [];
   let missingReady = false;
   await page.route("**/api/**", (route) => {

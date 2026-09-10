@@ -26,6 +26,9 @@ export default function ChatView({
 }) {
   const {
     data,
+    historyError,
+    historyLoading,
+    loadOlder,
     delivery,
     tasksOpen,
     closeTasks,
@@ -154,6 +157,7 @@ export default function ChatView({
             // turn off bottom-following as though the user scrolled backwards.
             if (event.currentTarget.clientHeight !== outputHeight.current) return;
             scroll.current = event.currentTarget.scrollTop;
+            if (scroll.current < 100 && !historyError) void loadOlder();
             stick.current =
               event.currentTarget.scrollHeight -
                 event.currentTarget.scrollTop -
@@ -161,6 +165,22 @@ export default function ChatView({
               80;
           }}
         >
+          {data?.history?.cursor && (
+            <div className="chat-history-loader">
+              <button
+                type="button"
+                disabled={historyLoading}
+                onClick={() => void loadOlder()}
+              >
+                {historyLoading
+                  ? copy.historyLoading
+                  : historyError
+                    ? copy.historyRetry
+                    : copy.historyOlder}
+              </button>
+              {historyError && <p role="alert">{copy.historyFailed}</p>}
+            </div>
+          )}
           {(data?.availability === "unbound" || picking) && (
             <ConversationPicker
               session={session}

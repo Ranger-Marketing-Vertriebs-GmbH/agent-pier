@@ -49,6 +49,9 @@ export class ChatSync {
   async read(id, cursor) {
     const session = await this.sessions.get(id);
     const snapshot = await this.chatImages.read(id);
+    return this.encode(session, snapshot, cursor);
+  }
+  encode(session, snapshot, cursor) {
     for (const [key, entry] of this.cache)
       if (entry.expires <= this.now()) this.discard(key);
     const { messages, ...metadata } = snapshot;
@@ -61,7 +64,7 @@ export class ChatSync {
     if (rows.size !== messages.length)
       return { ...snapshot, sync: { mode: "full", cursor: null } };
     const scope = JSON.stringify([
-      id,
+      session.id,
       session.accountId,
       session.tool,
       session.createdAt || null,

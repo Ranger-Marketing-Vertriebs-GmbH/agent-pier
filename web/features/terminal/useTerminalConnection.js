@@ -7,6 +7,7 @@ import { Terminal as XTerminal } from "@xterm/xterm";
 import { connectTerminal } from "./terminal-connection.js";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { terminalKey } from "./terminal-keyboard.js";
 
 export default function useTerminalConnection({
   session,
@@ -86,6 +87,12 @@ export default function useTerminalConnection({
       return false;
     };
     sendRef.current = input;
+    terminal.attachCustomKeyEventHandler((event) => {
+      const data = terminalKey(event);
+      if (!data) return true;
+      input(data);
+      return false;
+    });
     const dataListener = terminal.onData(input);
     resize();
     if (session.status === "running") {

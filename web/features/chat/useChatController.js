@@ -1,15 +1,12 @@
+import useChatStream from "./useChatStream.js";
 import useChatDelivery from "./useChatDelivery.js";
 import useChatAttachments from "./useChatAttachments.js";
-import { applyChatSync } from "./chat-sync.js";
 import { withReadyUploads } from "./chat-upload-send.js";
 import { deliveryScope } from "./chat-draft.js";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { chatAttachmentCopy as attachmentCopy } from "../../lib/i18n/messages/chat.js";
-import { startVisiblePolling } from "../../lib/visible-polling.js";
 export default function useChatController({ active, session, request, onConnection }) {
-  const [data, setData] = useState(null),
-    [error, setError] = useState(""),
-    [loadError, setLoadError] = useState(""),
+  const [error, setError] = useState(""),
     [sent, setSent] = useState(false),
     [picking, setPicking] = useState(false);
   const [touchInput, setTouchInput] = useState(
@@ -18,10 +15,6 @@ export default function useChatController({ active, session, request, onConnecti
   const [modelPending, setModelPending] = useState(false);
   const delivery = useChatDelivery({ session, request, active });
   const { text, setText } = delivery;
-  useEffect(() => {
-    if (data?.messages && delivery.recent.length)
-      void delivery.draft.observeMessages(data.messages);
-  }, [data, delivery.draft, delivery.recent]);
   const busy = delivery.sending;
   const attachmentState = useChatAttachments({
     session,
@@ -74,46 +67,13 @@ export default function useChatController({ active, session, request, onConnecti
   const output = useRef(null),
     outputHeight = useRef(0),
     stick = useRef(true),
-    scroll = useRef(0),
-    generation = useRef(0),
-    snapshot = useRef(null);
+    scroll = useRef(0);
+  const stream = useChatStream({ active, session, request, onConnection, output, stick });
+  const { data, loadError } = stream;
   useEffect(() => {
-    if (!active) return;
-    return startVisiblePolling(async (signal) => {
-      const current = generation.current;
-      try {
-        const cursor = snapshot.current?.sync?.cursor;
-        const result = await request(
-          `/sessions/${session.id}/chat${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
-          "GET",
-          undefined,
-          signal,
-        );
-        if (!signal.aborted && current === generation.current) {
-          let next;
-          try {
-            next = applyChatSync(snapshot.current, result);
-          } catch {
-            snapshot.current = null;
-            next = applyChatSync(
-              null,
-              await request(`/sessions/${session.id}/chat`, "GET", undefined, signal),
-            );
-          }
-          if (signal.aborted || current !== generation.current) return;
-          snapshot.current = next;
-          setData(next);
-          setLoadError("");
-          onConnection(session.status === "running" ? "connected" : "ended");
-        }
-      } catch (err) {
-        if (!signal.aborted && current === generation.current) {
-          setLoadError(err.message);
-          onConnection("disconnected");
-        }
-      }
-    }, 1500);
-  }, [active, session.id, session.status, request, onConnection]);
+    if (data?.messages && delivery.recent.length)
+      void delivery.draft.observeMessages(data.messages);
+  }, [data, delivery.draft, delivery.recent]);
   useLayoutEffect(() => {
     const element = output.current;
     if (!active || !element) return;
@@ -163,15 +123,14 @@ export default function useChatController({ active, session, request, onConnecti
   }
 
   const choose = (result) => {
-    generation.current++;
-    snapshot.current = null;
-    setData(result);
+    stream.choose(result);
     setPicking(false);
-    setLoadError("");
-    stick.current = true;
   };
   return {
     data,
+    historyError: stream.historyError,
+    historyLoading: stream.historyLoading,
+    loadOlder: stream.loadOlder,
     delivery,
     tasksOpen,
     closeTasks,

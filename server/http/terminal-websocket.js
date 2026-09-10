@@ -10,6 +10,8 @@ export function attachTerminalWebSocket(server, { sessions, login, effective }) 
     perMessageDeflate: false,
   });
   server.on("upgrade", (req, socket, head) => {
+    const pathname = new URL(req.url, "http://localhost").pathname;
+    if (/^\/api\/sessions\/[a-zA-Z0-9_-]+\/chat-stream$/.test(pathname)) return;
     try {
       authorizeRequest(req, effective(), true);
       const authSession = login.require(sessionToken(req));

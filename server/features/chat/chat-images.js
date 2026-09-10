@@ -127,6 +127,7 @@ export class ChatImages {
     this.chat = chat;
     this.home = home;
     this.key = randomBytes(32);
+    this.historical = new Map();
   }
   descriptors(session, snapshot) {
     let remaining = 64;
@@ -170,14 +171,44 @@ export class ChatImages {
   async read(id) {
     return this.decorate(id, await this.chat.read(id));
   }
+  async decoratePage(id, snapshot) {
+    const session = await this.sessions.get(id);
+    const scope = JSON.stringify([
+      session.id,
+      session.accountId,
+      session.tool,
+      session.cwd,
+      snapshot.providerSessionId,
+      snapshot.history?.generation,
+    ]);
+    for (const message of this.descriptors(session, snapshot))
+      for (const image of message.images) {
+        this.historical.delete(image.id);
+        this.historical.set(image.id, { image, scope, expires: Date.now() + 3600000 });
+      }
+    while (this.historical.size > 1024)
+      this.historical.delete(this.historical.keys().next().value);
+    return this.decorate(id, snapshot);
+  }
   async file(id, imageId) {
     if (typeof imageId !== "string" || !/^[a-f0-9]{64}$/.test(imageId))
       throw problem(serverMessages.chat.imageNotFound, 404);
     const session = await this.sessions.get(id);
     const snapshot = await this.chat.read(id);
-    const image = this.descriptors(session, snapshot)
+    let image = this.descriptors(session, snapshot)
       .flatMap((message) => message.images)
       .find((image) => image.id === imageId);
+    const historical = this.historical.get(imageId);
+    const scope = JSON.stringify([
+      session.id,
+      session.accountId,
+      session.tool,
+      session.cwd,
+      snapshot.providerSessionId,
+      snapshot.history?.generation,
+    ]);
+    if (!image && historical?.scope === scope && historical.expires > Date.now())
+      image = historical.image;
     if (!image) throw problem(serverMessages.chat.imageHistoryMismatch, 404);
     let handle;
     try {

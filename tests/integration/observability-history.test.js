@@ -68,7 +68,7 @@ test("Claude history and saved Chat snapshots preserve observed context with an 
   const source = first.observability.context.source;
   f.session.status = "stopped";
   chat.cache.clear();
-  f.history.read = async () => {
+  f.history.readPage = async () => {
     throw Error("Fixture history offline");
   };
   const saved = await chat.read(f.session.id);
