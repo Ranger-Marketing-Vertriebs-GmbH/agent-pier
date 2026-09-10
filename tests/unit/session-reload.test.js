@@ -225,3 +225,67 @@ test("queued account switch retains its target across service restart", async ()
   await recovered.poll();
   assert.deepEqual(targets, ["second", "second"]);
 });
+
+test("delayed hook approval stays pending and later completes without another restart", async () => {
+  const f = fixture();
+  f.reload.readinessMs = 0;
+  f.services.restartReload = async () => {
+    f.session.reload.replacementStarted = true;
+    f.native(null);
+  };
+  const result = await f.reload.request("session", {
+    mode: "now",
+    requestId: randomUUID(),
+  });
+  assert.equal(result.state, "reloading");
+  await assert.rejects(f.reload.cancel("session"), { status: 409 });
+  await f.reload.poll();
+  assert.equal(f.session.reload.state, "reloading");
+  f.native("native-exact");
+  await f.reload.poll();
+  assert.equal(f.session.reload.state, "completed");
+  assert.equal(f.session.reload.error, null);
+  assert.equal(f.stops, 0);
+});
+
+for (const tool of ["codex", "claude", "opencode"]) {
+  test(`${tool}: old failed reload is reconciled only for the running target conversation and account`, async () => {
+    const f = fixture();
+    f.session.tool = tool;
+    f.session.accountId = "original";
+    f.session.reload = {
+      state: "failed",
+      replacementStarted: true,
+      nativeId: "native-exact",
+      targetAccountId: "target",
+      error: "old failure",
+    };
+    await f.reload.initialize();
+    await f.reload.poll();
+    assert.equal(f.session.reload.state, "failed");
+    f.session.accountId = "target";
+    f.native(null);
+    await f.reload.poll();
+    assert.equal(f.session.reload.state, "failed");
+    f.native("native-exact");
+    await f.reload.poll();
+    assert.equal(f.session.reload.state, "completed");
+    assert.equal(f.stops, 0);
+  });
+}
+
+test("a delayed replacement that exits fails without replay", async () => {
+  const f = fixture();
+  f.session.reload = {
+    state: "reloading",
+    replacementStarted: true,
+    nativeId: "native-exact",
+  };
+  f.native(null);
+  await f.reload.initialize();
+  assert.equal(f.session.reload.state, "reloading");
+  f.session.status = "stopped";
+  await f.reload.poll();
+  assert.equal(f.session.reload.state, "failed");
+  assert.equal(f.stops, 0);
+});

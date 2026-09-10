@@ -158,10 +158,10 @@ console.log('Ready'); process.stdin.resume(); setInterval(()=>{},1000);
       targetAccountId: target.id,
     };
     const result = await (await f.request(endpoint, { method: "POST", body })).json();
-    assert.equal(
-      result.state,
-      "completed",
-      JSON.stringify(result) + "\n" + (await app.sessions.capture(session.id)),
+    assert.ok(["reloading", "completed"].includes(result.state), JSON.stringify(result));
+    await until(
+      async () => (await f.request(endpoint)).json(),
+      (value) => value.state === "completed",
     );
     const current = await app.sessions.get(session.id);
     assert.equal(current.accountId, target.id);
@@ -199,7 +199,11 @@ console.log('Ready'); process.stdin.resume(); setInterval(()=>{},1000);
         body: { ...body, requestId: randomUUID(), targetAccountId: source.id },
       })
     ).json();
-    assert.equal(failed.state, "failed");
+    assert.ok(["reloading", "failed"].includes(failed.state));
+    await until(
+      async () => (await f.request(endpoint)).json(),
+      (value) => value.state === "failed",
+    );
     assert.equal((await app.sessions.get(session.id)).accountId, source.id);
     await fs.rm(fail);
     const retried = await (
@@ -208,6 +212,13 @@ console.log('Ready'); process.stdin.resume(); setInterval(()=>{},1000);
         body: { mode: "now", interrupt: true, requestId: randomUUID() },
       })
     ).json();
-    assert.equal(retried.state, "completed", JSON.stringify(retried));
+    assert.ok(
+      ["reloading", "completed"].includes(retried.state),
+      JSON.stringify(retried),
+    );
+    await until(
+      async () => (await f.request(endpoint)).json(),
+      (value) => value.state === "completed",
+    );
   });
 }
