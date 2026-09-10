@@ -16,6 +16,7 @@ import {
 import { readJSON, writePrivate, problem } from "../../lib/storage.js";
 import { safePath } from "../extensions/mcp-config.js";
 import { fingerprint, synchronize } from "./synchronization.js";
+import { seedBundledSkills } from "./bundled-skills.js";
 
 export class SharedCliProfiles {
   constructor({ accounts }) {
@@ -97,8 +98,9 @@ export class SharedCliProfiles {
   prepare(account, launch) {
     if (account.tool === "shell") return launch;
     this.migrate(account.id);
-    if (account.kind !== "managed") return launch;
     const source = profileLocation(this.accounts, this.resolve(account.id));
+    seedBundledSkills(this.accounts.dataDir, source);
+    if (account.kind !== "managed") return launch;
     const target = profileLocation(this.accounts, account.id);
     // Preserve original mixed files before modifying only extension fields.
     for (const doc of documents(target)) {
