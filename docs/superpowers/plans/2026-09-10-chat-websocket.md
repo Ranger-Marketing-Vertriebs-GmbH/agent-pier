@@ -25,10 +25,11 @@ large turns can produce multiple message pages. Older pages use opaque server
 cursors bound to session, account, provider conversation and history generation.
 Cursor storage has a 64 MiB budget and a 512-entry limit. Expired or evicted cursors
 return 409; an individual continuation exceeding the budget returns 413.
-Claude and OpenCode currently parse their native transcript/export before slicing
-pages; browser transfer and rendering are bounded, but these providers still
-have full-source read costs. Legacy Codex versions also retain the full-read
-compatibility path.
+Claude and OpenCode use native source pagination; see
+[native history pagination](2026-09-10-native-history-pagination.md). Claude serves
+a bounded provisional tail while building a background offset index, then scans
+only appends. OpenCode uses read-only SQLite keysets with a legacy export fallback.
+Legacy Codex versions retain the full-read compatibility path.
 
 Scrolling upward fetches `/api/sessions/:id/chat/history?cursor=…` and preserves
 the viewport while prepending. Ordinary rolling-window updates retain messages
@@ -51,5 +52,4 @@ recovery, and Shift+Enter regression coverage in the terminal suite.
 ## Deferred scope
 
 File explorer upload/download remains a separate future feature. This change does
-not introduce a broker or require additional installed infrastructure. Incremental
-Claude/OpenCode source parsing can further reduce native history read costs.
+not introduce a broker or require additional installed infrastructure. Native Claude/OpenCode pagination is described in the follow-up above.

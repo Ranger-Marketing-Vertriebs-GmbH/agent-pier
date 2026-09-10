@@ -186,17 +186,20 @@ test("rapid typing keeps every character before reload", async ({ page }) => {
 });
 
 test("unavailable local storage retains text and never sends", async ({ page }) => {
-  await fixture(page);
+  const state = await fixture(page);
   await page.evaluate(() => {
     Storage.prototype.setItem = () => {
       throw new DOMException("Full", "QuotaExceededError");
     };
   });
   await input(page).fill("Nicht verlieren");
-  await expect(page.getByRole("alert")).toContainText("nicht gespeichert");
+  await expect(
+    page.getByRole("alert").filter({ hasText: "nicht gespeichert" }),
+  ).toBeVisible();
   await send(page).click();
   await expect(input(page)).toHaveValue("Nicht verlieren");
   await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+  expect(state.inputs).toEqual([]);
 });
 
 test("missing message-ID support reports an error instead of silently dropping send", async ({

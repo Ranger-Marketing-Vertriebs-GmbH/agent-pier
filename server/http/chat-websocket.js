@@ -73,7 +73,8 @@ export function attachChatWebSocket(server, { sessions, streams, login, effectiv
         const data = sync.encode(session, snapshot, cursor);
         cursor = data.sync.cursor;
         send({ type: "sync", sequence: ++sequence, data });
-        if (session.status !== "running") send({ type: "ended" });
+        if (session.status !== "running" && !snapshot.history?.indexing)
+          send({ type: "ended" });
       } catch {
         ws.close(1008);
       }

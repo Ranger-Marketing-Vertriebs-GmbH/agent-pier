@@ -1,3 +1,5 @@
+import { readOpenCodePage } from "./opencode-history-page.js";
+import { readClaudePage } from "./claude-history-page.js";
 import { normalizeCodex } from "./history-parsers.js";
 import { observeCodex } from "./chat-observability.js";
 import { problem } from "../../lib/storage.js";
@@ -5,6 +7,12 @@ import { serverMessages } from "../../lib/i18n/de.js";
 
 const PAGE_MESSAGES = 50;
 export async function readHistoryPage(history, session, id, state = null) {
+  if (session.tool === "claude" && !state?.legacy)
+    return readClaudePage(history, session, id, state);
+  if (session.tool === "opencode" && !state?.legacy) {
+    const page = await readOpenCodePage(history, session, id, state);
+    if (page) return page;
+  }
   if (state?.remaining?.length) return splitPage(state.remaining, state.continuation);
   if (session.tool !== "codex" || state?.legacy)
     return legacyPage(await history.read(session, id), state);
