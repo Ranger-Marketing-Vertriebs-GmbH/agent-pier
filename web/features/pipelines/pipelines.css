@@ -377,3 +377,76 @@
     font-size: 20px;
   }
 }
+.pipeline-status-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 24px;
+}
+.pipeline-status-filters [aria-pressed="true"] {
+  border-color: var(--accent);
+  background: #30241d;
+  color: var(--accent);
+}
+.pipeline-run-card-heading,
+.pipeline-run-card-footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.pipeline-run-card-heading h3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.45;
+  min-width: 0;
+}
+.pipeline-run-state {
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.pipeline-run-state.state-running,
+.pipeline-run-state.state-awaiting-human {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.pipeline-run-card .pipeline-run-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 4px 0 16px;
+}
+.pipeline-run-card-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.pipeline-run-stage-summary {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.pipeline-run-card-footer {
+  align-items: center;
+}
+.pipeline-run-card-footer .button {
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .pipeline-run-card-heading {
+    flex-direction: column-reverse;
+    gap: 10px;
+  }
+  .pipeline-run-card-footer {
+    flex-wrap: wrap;
+  }
+}

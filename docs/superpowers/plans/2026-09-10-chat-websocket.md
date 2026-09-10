@@ -32,7 +32,9 @@ compatibility path.
 
 Scrolling upward fetches `/api/sessions/:id/chat/history?cursor=…` and preserves
 the viewport while prepending. Ordinary rolling-window updates retain messages
-already displayed. A clear, native rebind or history generation change discards
+already displayed. If a burst replaces the entire live window without overlap,
+the browser resets accumulated pages to the newest cursor so subsequent scrolling
+loads contiguous history. A clear, native rebind or history generation change discards
 previous history and cancels pending requests. Slow reads can return the saved
 snapshot after 1.5 seconds, then publish completion including metadata-only
 changes. Historical image grants are bounded, session-scoped and invalidated by

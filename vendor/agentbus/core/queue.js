@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 const MAX_TEXT_BYTES = 16 * 1024;
 const idPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,239}$/;
@@ -142,6 +144,8 @@ function importLegacy(db, home) {
 export function openQueue(home) {
   privateHome(home);
   const file = queueFile(home);
+  // Loading a helper module must not initialize SQLite or emit runtime warnings.
+  const { DatabaseSync } = require("node:sqlite");
   const db = new DatabaseSync(file);
   fs.chmodSync(file, 0o600);
   db.exec("PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;");

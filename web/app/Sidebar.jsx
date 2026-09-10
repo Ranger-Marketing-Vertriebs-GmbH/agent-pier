@@ -20,6 +20,9 @@ export default function Sidebar({
   error,
   loading,
 }) {
+  const sessions = state.sessions.filter(
+    (session) => !(session.pipeline?.headless && session.status === "stopped"),
+  );
   return (
     <aside className={`sidebar ${mobileNav ? "open" : ""}`}>
       <button
@@ -126,13 +129,13 @@ export default function Sidebar({
       <SidebarGroup
         name="sessions"
         label={commonCopy.sessions}
-        count={state.sessions.length.toString().padStart(2, "0")}
+        count={sessions.length.toString().padStart(2, "0")}
         defaultOpen
         activeKey={selected}
       >
         <div className="session-list">
-          {state.sessions.length ? (
-            state.sessions.map((s) => {
+          {sessions.length ? (
+            sessions.map((s) => {
               const activity = sessionActivity(s);
               return (
                 <button
