@@ -128,7 +128,9 @@ test("browser reconnects after HTTP service restart while CLI memory remains ali
     .poll(() => application.sessions.screen("browser-restart"))
     .toContain("COUNTER:1");
   const port = application.server.address().port;
+  const closing = Date.now();
   await application.close();
+  expect(Date.now() - closing).toBeLessThan(10000);
   application = await createApplication({ dataDir: dir, home: dir, port });
   await new Promise((r) => application.server.listen(port, "127.0.0.1", r));
   await expect(page.getByText("Verbunden", { exact: true })).toBeVisible({

@@ -38,7 +38,17 @@ export function createShutdown({ services, wss, server }) {
     services.audit.close();
     for (const socketServer of [wss, services.chatWss])
       if (socketServer) await new Promise((resolve) => socketServer.close(resolve));
-    if (server.listening) await new Promise((resolve) => server.close(resolve));
+    if (server.listening)
+      await new Promise((resolve) => {
+        // Existing keep-alive clients can keep issuing requests while close()
+        // drains. Bound that final drain after the services and WebSockets stop.
+        const timeout = setTimeout(() => server.closeAllConnections(), 1000);
+        timeout.unref();
+        server.close(() => {
+          clearTimeout(timeout);
+          resolve();
+        });
+      });
   }
   return close;
 }
