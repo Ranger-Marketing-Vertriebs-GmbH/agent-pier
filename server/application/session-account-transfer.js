@@ -99,17 +99,34 @@ export async function prepareAccountTransfer(
   const target = await fs.realpath(targetPath);
   if (source === target) throw fail("The accounts share the same CLI storage.");
   let file;
+  let historyMode;
   if (session.tool === "claude") file = await history.claudeFile(session, id);
   else {
-    const { thread } = await history
-      .codex(session)
-      .request("thread/read", { threadId: id, includeTurns: true });
+    const client = history.codex(session);
+    const { thread } = await client.request("thread/read", {
+      threadId: id,
+      includeTurns: false,
+    });
     if (thread?.id !== id || thread?.cwd !== session.cwd || !thread.path)
       throw fail("Native conversation history cannot be transferred.");
-    if (thread.historyMode && thread.historyMode !== "legacy")
+    historyMode = thread.historyMode || "legacy";
+    if (!["legacy", "paginated"].includes(historyMode))
       throw fail(
         "This Codex history storage format does not expose a portable conversation. The account was not changed.",
       );
+    if (historyMode === "legacy") {
+      const full = await client.request("thread/read", {
+        threadId: id,
+        includeTurns: true,
+      });
+      if (
+        full.thread?.id !== id ||
+        full.thread?.cwd !== session.cwd ||
+        full.thread?.path !== thread.path ||
+        (full.thread?.historyMode || "legacy") !== historyMode
+      )
+        throw fail("Conversation history changed during transfer preparation.");
+    }
     file = thread.path;
   }
   const relative = relativeTo(source, file);
@@ -161,6 +178,17 @@ export async function prepareAccountTransfer(
         : records.find((record) => record.sessionId && record.cwd && !record.isSidechain);
     if ((meta?.id || meta?.sessionId) !== id || meta.cwd !== session.cwd)
       throw fail("Conversation history identity does not match this session.");
+    if (session.tool === "codex") {
+      // Paginated history is still a native rollout. Codex rebuilds its SQLite
+      // projection on resume; copying an account database would leak other threads.
+      // Its ordinal sequence must be complete, both at preflight and after stop.
+      if (
+        (meta.history_mode || "legacy") !== historyMode ||
+        (historyMode === "paginated" &&
+          records.some((record, index) => record.ordinal !== index))
+      )
+        throw fail("Conversation history format is incomplete or not portable.");
+    }
     return entries;
   }
   await snapshot();
