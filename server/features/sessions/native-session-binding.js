@@ -201,7 +201,8 @@ export class NativeSessionBinding {
       nativeBinding: { enabled: true, version: 1 },
     };
   }
-  async resolve(session) {
+  async resolve(session, { forInput = false } = {}) {
+    const receipt = this.verifiedReceipt(session);
     if (session.tool === "shell" || session.purpose === "login") return null;
     if (session.tool === "codex" && this.accounts && this.sessions && this.history) {
       const cacheKey = JSON.stringify([
@@ -211,7 +212,7 @@ export class NativeSessionBinding {
         session.status,
       ]);
       const cached = this.processCache.get(cacheKey);
-      if (cached && Date.now() - cached.time < 2000) {
+      if (!forInput && cached && Date.now() - cached.time < 2000) {
         if (cached.value) return cached.value;
       } else {
         let value = null;
@@ -221,12 +222,27 @@ export class NativeSessionBinding {
             accounts: this.accounts,
             history: this.history,
             ...this.processOptions,
+            verifyRuntime: receipt
+              ? (pid) => pid === receipt.pid && pidStart(pid) === receipt.pidStart
+              : undefined,
           });
         } catch {}
         this.processCache.set(cacheKey, { time: Date.now(), value });
         if (value) return value;
       }
     }
+    if (forInput) return null;
+    return receipt
+      ? {
+          id:
+            receipt.providerSessionId === null
+              ? null
+              : providerId(receipt.providerSessionId),
+          updatedAt: receipt.updatedAt,
+        }
+      : null;
+  }
+  verifiedReceipt(session) {
     try {
       const file = this.file(session.id);
       const launch = readJson(file);
@@ -252,15 +268,9 @@ export class NativeSessionBinding {
         throw Error("Unverified native receipt");
       if (session.status === "running" && pidStart(receipt.pid) !== receipt.pidStart)
         throw Error("Unverified native receipt");
-      return {
-        id:
-          receipt.providerSessionId === null
-            ? null
-            : providerId(receipt.providerSessionId),
-        updatedAt: receipt.updatedAt,
-      };
+      if (receipt.providerSessionId !== null) providerId(receipt.providerSessionId);
+      return receipt;
     } catch {}
-
     return null;
   }
   async discard(id) {
