@@ -26,6 +26,9 @@ export class ChatEvents {
     if (sequence < rows[0].sequence - 1) return null;
     return rows.filter((event) => event.sequence > sequence);
   }
+  current(sessionId) {
+    return this.sequence.get(sessionId) || 0;
+  }
   subscribe(sessionId, subscriber) {
     let rows = this.subscribers.get(sessionId);
     if (!rows) this.subscribers.set(sessionId, (rows = new Set()));

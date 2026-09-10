@@ -37,6 +37,7 @@ import { toolBinDirectories } from "./features/tools/tool-paths.js";
 import { authorizeRequest, securityHeaders } from "./http/security.js";
 import { registerResponses } from "./http/responses.js";
 import { attachTerminalWebSocket } from "./http/terminal-websocket.js";
+import { attachChatWebSocket } from "./http/chat-websocket.js";
 import { workspaceRoutes } from "./http/routes/workspace.js";
 import { accountsRoutes } from "./http/routes/accounts.js";
 import { sessionsRoutes } from "./http/routes/sessions.js";
@@ -149,6 +150,15 @@ export async function createApplication(config) {
     login: services.login,
     effective,
   });
+  const chatWss = attachChatWebSocket(server, {
+    sessions: services.sessions,
+    chat: services.chat,
+    chatImages: services.chatImages,
+    events: services.chatEvents,
+    login: services.login,
+    effective,
+  });
+  services.chatWss = chatWss;
   return {
     ...services,
     app,

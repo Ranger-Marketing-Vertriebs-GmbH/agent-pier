@@ -19,14 +19,17 @@ export function createShutdown({ services, wss, server }) {
     await repositories.close();
     await extensions.close();
     await history.close();
-    for (const ws of wss.clients) ws.close(1001, serverMessages.common.serverRestarting);
+    for (const socketServer of [wss, services.chatWss])
+      for (const ws of socketServer?.clients || [])
+        ws.close(1001, serverMessages.common.serverRestarting);
     await sessions.close();
     await services.memoryIntegration.close();
     services.memory.close();
     services.mcpTools?.close();
     services.mcpAccess?.close();
     services.audit.close();
-    await new Promise((resolve) => wss.close(resolve));
+    for (const socketServer of [wss, services.chatWss])
+      if (socketServer) await new Promise((resolve) => socketServer.close(resolve));
     if (server.listening) await new Promise((resolve) => server.close(resolve));
   }
   return close;

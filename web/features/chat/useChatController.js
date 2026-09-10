@@ -114,6 +114,41 @@ export default function useChatController({ active, session, request, onConnecti
       }
     }, 1500);
   }, [active, session.id, session.status, request, onConnection]);
+  useEffect(() => {
+    if (!active) return;
+    let disposed = false;
+    const socket = new WebSocket(
+      `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/api/sessions/${encodeURIComponent(session.id)}/chat-stream`,
+    );
+    socket.onopen = () => onConnection("connected");
+    socket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message.type === "snapshot" && !disposed) {
+          snapshot.current = null;
+          setData(message.snapshot);
+          setLoadError("");
+        }
+        if (message.type === "event" && !disposed)
+          void request(`/sessions/${session.id}/chat`, "GET").then((next) => {
+            if (!disposed) {
+              snapshot.current = next;
+              setData(next);
+            }
+          });
+        if (message.type === "error" && !disposed) setLoadError(message.message);
+      } catch {
+        if (!disposed) setLoadError("Ungültige Chat-Ereignisnachricht.");
+      }
+    };
+    socket.onerror = () => {
+      if (!disposed) onConnection("disconnected");
+    };
+    return () => {
+      disposed = true;
+      socket.close();
+    };
+  }, [active, session.id, request, onConnection]);
   useLayoutEffect(() => {
     const element = output.current;
     if (!active || !element) return;
