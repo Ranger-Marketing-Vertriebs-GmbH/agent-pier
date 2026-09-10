@@ -134,6 +134,43 @@ test("paginated Codex history keeps newest turns and restores chronological orde
   assert.equal(result.messages[0].text, "Turn 1");
   assert.equal(pages.length, 10);
 });
+test("Codex history clients are isolated per account and project", async (t) => {
+  const { history, cwd } = await fixture(t);
+  const otherCwd = path.join(path.dirname(cwd), "other-project");
+  await fs.mkdir(otherCwd);
+  const clients = [];
+  history.codexClientFactory = () => {
+    const client = { closed: false, close: async () => {} };
+    clients.push(client);
+    return client;
+  };
+  const accountId = "local-codex";
+  const first = history.codex({ tool: "codex", accountId, cwd });
+  const second = history.codex({ tool: "codex", accountId, cwd: otherCwd });
+  assert.notEqual(first, second);
+  assert.equal(clients.length, 2);
+});
+test("Codex history retries once after a disconnected app-server", async (t) => {
+  const { history, cwd } = await fixture(t);
+  history.executable = () => "codex";
+  let attempts = 0;
+  history.codexClientFactory = () => {
+    const first = attempts++ === 0;
+    return {
+      closed: first,
+      request: async () => {
+        if (first) throw Object.assign(Error("disconnected"), { status: 503 });
+        return { data: [] };
+      },
+      close: async () => {},
+    };
+  };
+  assert.deepEqual(
+    await history.list({ tool: "codex", accountId: "local-codex", cwd }),
+    [],
+  );
+  assert.equal(attempts, 2);
+});
 test("installed Codex app-server supports isolated read-only history and shuts down cleanly", async (t) => {
   const { detectTools } = await import("../../server/features/accounts/account-store.js");
   const command = detectTools().find((tool) => tool.id === "codex")?.path;
