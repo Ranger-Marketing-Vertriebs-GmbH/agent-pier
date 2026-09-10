@@ -136,6 +136,7 @@ test("paginated Codex history keeps newest turns and restores chronological orde
 });
 test("Codex history clients are isolated per account and project", async (t) => {
   const { history, cwd } = await fixture(t);
+  history.executable = () => "codex";
   const otherCwd = path.join(path.dirname(cwd), "other-project");
   await fs.mkdir(otherCwd);
   const clients = [];
