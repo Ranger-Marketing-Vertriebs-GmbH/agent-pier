@@ -100,13 +100,11 @@ OpenCode also completed the native OAuth flow, authenticated initialization and 
 
 ## Tools for sessions hosted by AgentPier
 
-In **New session**, enable **AgentPier tools** for a standalone Codex, Claude Code
-or OpenCode session. Choose permissions and the projects, source accounts and
-provider connections it may use. The working directory can be registered and
-authorized as the current project. Access is off by default; enabling it initially
-selects only catalog/run reads, with accounts and provider connections unselected.
-A Composer session normally also needs run-start permission and the resources
-used by its pipeline. Pipelines with a PR step require publication permission.
+In **New session**, **AgentPier tools** is checked by default for standalone
+Codex, Claude Code and OpenCode sessions. This single checkbox enables every MCP
+tool for all projects, source accounts and provider connections, including resources
+added later. There are no permission submenus. Uncheck it to launch without access.
+The working directory is registered as a project when access is enabled.
 
 AgentPier injects `agentpier_session` as a native stdio MCP into that session's
 launch configuration. No global MCP configuration, browser OAuth callback or SSH
@@ -115,7 +113,8 @@ configured. The helper relays MCP over a private Unix socket to the same tool
 service and scope/resource checks used by external OAuth clients. There is no
 second owner API or access to human approval gates through this connection.
 
-A session may inspect and cancel only runs started by its own grant. Start retries
+New full-access sessions may inspect and cancel runs across all projects. Previously
+issued restricted grants retain their permissions until replaced. Start retries
 reuse the existing durable `requestId` contract; a disconnect never justifies
 blindly starting another run. Ending or revoking the controlling session does not
 cancel its pipeline runs. Their state remains available to the owner in AgentPier.

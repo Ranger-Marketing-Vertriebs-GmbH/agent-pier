@@ -98,6 +98,12 @@ test("internal starts use the same resource/publication checks, idempotency and 
   );
   for (const name of ["run_get", "run_cancel"])
     assert.equal((await other.callTool({ name, arguments: { runId } })).isError, true);
+  const unrestricted = await issue(f, { choices: true });
+  const fullClient = await connect(t, f, unrestricted);
+  assert.equal(
+    (await fullClient.callTool({ name: "run_get", arguments: { runId } })).isError,
+    undefined,
+  );
   const record = a.pipelines.get(runId);
   assert.equal(record.status, "running");
   await a.sessionMcp.revoke(owner.session.id);
@@ -105,6 +111,10 @@ test("internal starts use the same resource/publication checks, idempotency and 
     a.pipelines.get(runId).status,
     "running",
     "revocation does not cancel independent runs",
+  );
+  assert.equal(
+    (await fullClient.callTool({ name: "run_cancel", arguments: { runId } })).isError,
+    undefined,
   );
 });
 
@@ -192,4 +202,36 @@ test("explicit revocation wins over a reload with a stale enabled selection, inc
   assert.equal(launch.agentpierTools.enabled, false);
   assert.deepEqual(launch.args, []);
   assert.throws(() => f.application.sessionMcp.check(issued.token), { status: 403 });
+});
+
+test("one-checkbox access exposes all tools and includes projects added after launch", async (t) => {
+  const f = await applicationFixture(t);
+  const a = f.application;
+  const issued = await issue(f, { choices: true });
+  const client = await connect(t, f, issued);
+  const tools = (await client.listTools()).tools.map((tool) => tool.name);
+  for (const name of [
+    "projects_list",
+    "profile_save",
+    "pipeline_save",
+    "run_start",
+    "run_cancel",
+  ])
+    assert.ok(tools.includes(name), name);
+  const directory = path.join(f.root, "later-project");
+  await fs.mkdir(directory);
+  const project = await a.memory.register(directory);
+  const projects = await client.callTool({ name: "projects_list", arguments: {} });
+  assert.ok(projects.structuredContent.items.some((item) => item.id === project.id));
+  const grant = a.sessionMcp.check(issued.token).extra.grant;
+  assert.equal(grant.ownedRunsOnly, false);
+  assert.ok(grant.scopes.includes("runs:publish"));
+  assert.deepEqual(
+    grant.accountIds,
+    a.sessionMcp.resources().accounts.map((a) => a.id),
+  );
+  assert.deepEqual(
+    grant.connectionIds,
+    a.sessionMcp.resources().connections.map((c) => c.id),
+  );
 });

@@ -276,24 +276,3 @@
     padding: 12px;
   }
 }
-
-.session-mcp-choices p {
-  font-size: 0.82rem;
-  line-height: 1.4;
-}
-.session-mcp-choices .mcp-options {
-  margin-block: 0.75rem;
-  padding: 0.75rem;
-  max-height: 16rem;
-  overflow: auto;
-}
-.session-mcp-scopes {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.25rem 0.75rem;
-}
-@media (max-width: 480px) {
-  .session-mcp-scopes {
-    grid-template-columns: 1fr;
-  }
-}

@@ -115,7 +115,7 @@ test("launch rejects invalid grants, shell/login/pipeline access and cleans up a
   for (const choices of [
     { ...selection(), scopes: ["owner:all"] },
     { ...selection(), accountIds: ["missing"] },
-    true,
+    "true",
   ])
     assert.throws(() => a.sessionMcp.validate(choices), { status: 400 });
   for (const input of [

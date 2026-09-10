@@ -47,6 +47,15 @@ export class SessionMcp {
   }
   validate(selection) {
     if (selection === undefined || selection === false) return null;
+    if (selection === true || selection?.allResources === true)
+      return {
+        allResources: true,
+        scopes: [...MCP_SCOPES],
+        currentProject: true,
+        projectIds: [],
+        accountIds: [],
+        connectionIds: [],
+      };
     if (
       !selection ||
       typeof selection !== "object" ||
@@ -130,7 +139,8 @@ export class SessionMcp {
       projectIds: [...new Set(projectIds)],
       accountIds: choices.accountIds,
       connectionIds: choices.connectionIds,
-      ownedRunsOnly: true,
+      ownedRunsOnly: !choices.allResources,
+      ...(choices.allResources ? { allResources: true } : {}),
     };
     const record = {
       generation,
@@ -172,7 +182,13 @@ export class SessionMcp {
     revokeSessionMcp(this.dataDir, id);
   }
   check(token) {
-    return checkSessionCapability(this.dataDir, token);
+    const auth = checkSessionCapability(this.dataDir, token);
+    if (auth.extra.grant.allResources) {
+      const resources = this.resources();
+      for (const [field, group] of Object.entries(fields))
+        auth.extra.grant[field] = resources[group].map((resource) => resource.id);
+    }
+    return auth;
   }
   async verify(token) {
     const auth = this.check(token);

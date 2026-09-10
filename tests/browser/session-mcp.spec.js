@@ -3,22 +3,11 @@ import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./ssh-fixture.js";
 
 for (const mobile of [false, true])
-  test(`session MCP selection and failed launch preserve explicit permissions (${mobile ? "mobile" : "desktop"})`, async ({
+  test(`session MCP defaults on with one checkbox and preserves opt-out after failed launch (${mobile ? "mobile" : "desktop"})`, async ({
     page,
   }) => {
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
     await fixture(page);
-    await page.route("**/api/session-mcp/options", (route) =>
-      route.fulfill({
-        json: {
-          resources: {
-            projects: [{ id: "project-one", name: "Testprojekt" }],
-            accounts: [{ id: "local-codex", name: "Testkonto", tool: "codex" }],
-            connections: [],
-          },
-        },
-      }),
-    );
     const launches = [];
     await page.route("**/api/sessions", (route) => {
       launches.push(route.request().postDataJSON());
@@ -29,22 +18,13 @@ for (const mobile of [false, true])
       .getByRole("button", { name: "Neue Sitzung", exact: true })
       .click();
     const enabled = page.getByRole("checkbox", { name: /AgentPier-Werkzeuge/ });
-    await expect(enabled).not.toBeChecked();
-    await enabled.check();
+    await expect(enabled).toBeChecked();
     await expect(
       page.getByRole("checkbox", { name: "Läufe starten", exact: true }),
-    ).not.toBeChecked();
+    ).toHaveCount(0);
     await expect(
       page.getByRole("checkbox", { name: "Veröffentlichen", exact: true }),
-    ).not.toBeChecked();
-    await expect(
-      page.getByRole("checkbox", {
-        name: "Arbeitsverzeichnis dieser Sitzung als Projekt freigeben",
-        exact: true,
-      }),
-    ).toBeChecked();
-    await page.getByRole("checkbox", { name: /Testkonto/ }).check();
-    await page.getByRole("checkbox", { name: "Läufe starten", exact: true }).check();
+    ).toHaveCount(0);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
     ).toBe(true);
@@ -58,14 +38,15 @@ for (const mobile of [false, true])
       .getByRole("button", { name: "Sitzung starten", exact: true })
       .click();
     await expect(page.getByRole("alert")).toContainText("Launch rejected");
-    expect(launches[0].agentpierTools).toEqual({
-      scopes: ["catalog:read", "runs:read", "runs:start"],
-      currentProject: true,
-      projectIds: [],
-      accountIds: ["local-codex"],
-      connectionIds: [],
-    });
-    await expect(enabled).toBeChecked();
+    expect(launches[0].agentpierTools).toBe(true);
+    await enabled.uncheck();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Sitzung starten", exact: true })
+      .click();
+    await expect.poll(() => launches.length).toBe(2);
+    expect(launches[1].agentpierTools).toBe(false);
+    await expect(enabled).not.toBeChecked();
   });
 
 test("session toolbar displays expiry and revokes its internal access", async ({

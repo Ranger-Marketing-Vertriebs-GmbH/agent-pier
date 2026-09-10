@@ -1,13 +1,9 @@
 export const mcpCopy = {
   sessionTools: "AgentPier-Werkzeuge",
   sessionToolsSummary:
-    "Pipelines aus dieser Sitzung steuern – ohne zusätzliche Anmeldung.",
+    "Alle Werkzeuge für alle Projekte, Konten und Provider-Verbindungen.",
   sessionToolsHint:
-    "Gilt für diese Sitzung, höchstens zwölf Stunden. Neuladen erneuert eine aktive Freigabe. Sichtbar sind nur selbst gestartete Läufe; sie laufen nach Ende der Sitzung weiter. Pipeline-Sitzungen erhalten diesen Zugang nicht.",
-  currentProject: "Arbeitsverzeichnis dieser Sitzung als Projekt freigeben",
-  sessionResourcesHint:
-    "Wähle die Accounts und gegebenenfalls Anbieter-Verbindungen der gewünschten Pipeline. Für einen PR-Schritt sind zusätzlich Veröffentlichungsrechte nötig.",
-
+    "Gilt für diese Sitzung, höchstens zwölf Stunden. Neuladen erneuert eine aktive Freigabe. Gestartete Läufe laufen nach Ende der Sitzung weiter. Pipeline-Sitzungen erhalten diesen Zugang nicht.",
   title: "MCP & Zugriffe",
   introduction:
     "Verbinde deine Coding-CLI mit AgentPier und lege fest, welche Projekte und Aktionen sie nutzen darf.",

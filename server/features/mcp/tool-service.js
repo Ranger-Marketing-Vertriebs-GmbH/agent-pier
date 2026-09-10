@@ -248,7 +248,7 @@ export class McpTools {
         return { run: this.summary(this.run(args.runId, grant)) };
       case "run_cancel": {
         this.run(args.runId, grant);
-        if (this.requests.owner(args.runId)?.grantId !== grant.id)
+        if (!grant.allResources && this.requests.owner(args.runId)?.grantId !== grant.id)
           throw problem("This grant did not start that run.", 403);
         const run = await pipelines.cancel(args.runId);
         this.audit("pipeline.cancelled", "pipeline", run.id, grant, run.projectId);

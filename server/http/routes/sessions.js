@@ -21,11 +21,6 @@ export function sessionsRoutes(services) {
     sshSessions,
   } = services;
   const router = Router();
-  router.get("/session-mcp/options", (_req, res) =>
-    res.json({
-      resources: services.sessionMcp.resources(),
-    }),
-  );
   router.delete("/sessions/:id/mcp", async (req, res) => {
     await sessions.get(req.params.id);
     res.json(await services.sessionMcp.revoke(req.params.id));

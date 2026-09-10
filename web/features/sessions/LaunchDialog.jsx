@@ -22,7 +22,7 @@ export default function LaunchDialog({ state, tool, initialCwd, close, created }
     [name, setName] = useState(""),
     [launchMode, setLaunchMode] = useState(() => defaultMode(access.tool)),
     [busEnabled, setBusEnabled] = useState(true),
-    [agentpierTools, setAgentpierTools] = useState(false),
+    [agentpierTools, setAgentpierTools] = useState(true),
     [sshAccessIds, setSshAccessIds] = useState([]);
   const selectedTool = access.tool;
   const coding = selectedTool !== "shell";
