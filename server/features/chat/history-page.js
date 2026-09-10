@@ -1,4 +1,5 @@
 import { readOpenCodePage } from "./opencode-history-page.js";
+import { reconcileCodexTail } from "./codex-live-tail.js";
 import { readClaudePage } from "./claude-history-page.js";
 import { normalizeCodex } from "./history-parsers.js";
 import { observeCodex } from "./chat-observability.js";
@@ -36,11 +37,15 @@ export async function readHistoryPage(history, session, id, state = null) {
     if (error.status !== 409 || state?.cursor) throw error;
     return legacyPage(await history.read(session, id), state);
   }
-  const full = { ...thread, turns: [...(page.data || [])].reverse() };
+  let full = { ...thread, turns: [...(page.data || [])].reverse() };
+  if (!state) full = await reconcileCodexTail(history, session, full);
   const content = normalizeCodex(full);
   return {
     ...content,
-    observability: observeCodex(full),
+    observability: {
+      ...observeCodex(full),
+      ...(full.tailUnavailable ? { stale: true } : {}),
+    },
     ...splitPage(content.messages, page.nextCursor ? { cursor: page.nextCursor } : null),
   };
 }
