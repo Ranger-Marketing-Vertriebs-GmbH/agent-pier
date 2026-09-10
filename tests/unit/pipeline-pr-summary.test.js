@@ -1,10 +1,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pullRequestBody } from "../../server/features/pipelines/workspace-pr-summary.js";
+import {
+  pullRequestBody,
+  pullRequestTitle,
+} from "../../server/features/pipelines/workspace-pr-summary.js";
+
+test("PR titles use the task headline with its ticket and purpose", () => {
+  assert.equal(
+    pullRequestTitle({
+      pipelineName: "Implement and review",
+      task: "\n## NEONNIGHTS-353 — ActionCam auf das Token-Set ziehen.\r\n\nRead AGENTS.md.",
+    }),
+    "NEONNIGHTS-353 — ActionCam auf das Token-Set ziehen.",
+  );
+  assert.equal(pullRequestTitle({ task: "Fix\tlogin\0 timeout" }), "Fix login timeout");
+  assert.equal(pullRequestTitle({ task: "x".repeat(200) }).length, 180);
+  assert.equal(
+    pullRequestTitle({ task: "\n ", pipelineName: "Legacy run" }),
+    "Legacy run",
+  );
+  assert.equal(pullRequestTitle({}), "AgentPier pipeline");
+});
 
 test("pull request summary includes public stage and verification results without raw logs or account secrets", () => {
   const body = pullRequestBody({
     id: "run-1",
+    pipelineName: "Implement and review",
     task: "Implement request",
     workspace: { baseSha: "a".repeat(40) },
     secret: "must-not-appear",
@@ -41,6 +62,7 @@ test("pull request summary includes public stage and verification results withou
   });
   for (const value of [
     "run-1",
+    "Pipeline: Implement and review",
     "Implement request",
     "Reviewer",
     "verified-model",

@@ -4,7 +4,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { privateDirectory, problem } from "../../lib/storage.js";
 import { git, gitEnvironment } from "./workspace-git.js";
-import { pullRequestBody } from "./workspace-pr-summary.js";
+import { pullRequestBody, pullRequestTitle } from "./workspace-pr-summary.js";
 const exec = promisify(execFile);
 
 export async function withGitCredentials(manager, workspace, operation) {
@@ -123,7 +123,7 @@ export async function createWorkspacePr(manager, workspace, run) {
       "--head",
       workspace.branch,
       "--title",
-      String(run.pipelineName || run.name || "AgentPier pipeline").slice(0, 180),
+      pullRequestTitle(run),
       "--body",
       body,
       ...(base ? ["--base", base] : []),
