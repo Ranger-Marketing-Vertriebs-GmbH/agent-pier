@@ -54,3 +54,20 @@ export function applyChatSync(previous, response) {
     sync: { mode: "full", cursor: sync.cursor },
   };
 }
+
+/** Keep rows pushed out of a rolling live window, while honoring actual deletions. */
+export function chatWindowPrefix(previous, next) {
+  if (!next.history?.cursor || !previous?.messages?.length || !next.messages.length)
+    return [];
+  const start = previous.messages.findIndex((row) => row.id === next.messages[0].id);
+  const oldTail = next.messages.findIndex(
+    (row) => row.id === previous.messages.at(-1).id,
+  );
+  // A shared tail followed by new rows proves that the window advanced. A
+  // deletion alone (including a removed first row) must not resurrect that row.
+  // Disjoint windows cannot distinguish a large append burst from replacement
+  // without source offsets; the hook resets pagination to the newest cursor then.
+  return start > 0 && oldTail >= 0 && oldTail < next.messages.length - 1
+    ? previous.messages.slice(0, start)
+    : [];
+}

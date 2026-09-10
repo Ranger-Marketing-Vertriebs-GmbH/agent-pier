@@ -34,6 +34,11 @@ export const chatMessageCopy = {
   subtle: "[Image",
 };
 export const chatViewCopy = {
+  historyOlder: "Load older messages",
+  historyLoading: "Loading older messages …",
+  historyRetry: "Retry older messages",
+  historyFailed: "Older messages could not be loaded.",
+
   chatMainAriaLabel: "Chat",
   hideTasks: "Hide tasks",
   showTasks: "Show tasks",

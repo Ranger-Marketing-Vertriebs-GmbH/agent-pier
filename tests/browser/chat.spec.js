@@ -1,3 +1,4 @@
+import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
 test("mobile tasks open from the left without taking message height and close with Escape", async ({
@@ -121,6 +122,7 @@ async function fixture(page) {
       { id: "three", text: "Installationsanleitung ergänzen", status: "pending" },
     ],
   };
+  const publish = await mockChatStream(page, () => data);
   const inputs = [];
   const sockets = [];
   await page.route("**/api/**", async (route) => {
@@ -160,12 +162,12 @@ async function fixture(page) {
       }),
     );
   });
-  return { data, inputs, sockets };
+  return { data, inputs, sockets, publish };
 }
 test("reader has structured Markdown and live tasks on the left; native terminal remains intact", async ({
   page,
 }) => {
-  const { data } = await fixture(page);
+  const { data, publish } = await fixture(page);
   await page.goto(base + "/#chat-demo");
   await page.getByRole("button", { name: "Chat", exact: true }).click();
   await expect(page.getByLabel("Chatverlauf")).toContainText("Chatansicht");
@@ -181,6 +183,7 @@ test("reader has structured Markdown and live tasks on the left; native terminal
   await page.locator(".chat-tool summary").click();
   await expect(page.locator(".chat-tool pre")).toContainText("return <Chat />;");
   data.tasks[1].status = "completed";
+  publish();
   await expect(page.getByLabel("Aufgabenfortschritt")).toHaveAttribute("value", "2");
   await page.screenshot({
     path: "test-results/agentpier-chat-desktop.png",

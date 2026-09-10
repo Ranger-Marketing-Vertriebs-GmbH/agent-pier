@@ -1,3 +1,4 @@
+import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
 
@@ -32,6 +33,7 @@ async function fixture(page, { granted = true } = {}) {
     messages: [],
     tasks: [],
   };
+  await mockChatStream(page, () => data);
   const uploads = [];
   const inputs = [];
   await page.route("**/api/**", async (route) => {

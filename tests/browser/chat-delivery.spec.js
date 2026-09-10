@@ -1,3 +1,4 @@
+import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 
@@ -17,6 +18,11 @@ async function fixture(page, { mode = "success" } = {}) {
     receipt: "absent",
     release: null,
   };
+  state.publish = await mockChatStream(page, () => ({
+    availability: "ready",
+    messages: state.messages,
+    tasks: [],
+  }));
   await page.route("**/api/**", async (route) => {
     const req = route.request(),
       url = new URL(req.url());
@@ -109,6 +115,7 @@ test("message is immediately visible before ACK and merges into the native histo
   );
   await expect(input(page)).toHaveValue("");
   state.messages.push({ id: "native-1", role: "user", text: "Sofort sichtbar" });
+  state.publish();
   await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
   await expect(
     page.getByRole("article", { name: "Deine Nachricht", exact: true }),

@@ -1,3 +1,4 @@
+import { readHistoryPage } from "./history-page.js";
 import { observeClaude, observeCodex, observeOpenCode } from "./chat-observability.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs/promises";
@@ -351,6 +352,11 @@ export class ProviderHistory {
         updatedAt: new Date(s.time?.updated || Date.now()).toISOString(),
       }));
   }
+  async readPage(session, id, state = null) {
+    providerId(id);
+    this.environment(session);
+    return readHistoryPage(this, session, id, state);
+  }
   async read(session, id) {
     providerId(id);
     this.environment(session);
@@ -398,7 +404,7 @@ export class ProviderHistory {
           );
           turns.push(...(page.data || []));
           cursor = page.nextCursor;
-        } while (cursor && turns.length < 1000);
+        } while (cursor);
         full = { ...thread, turns: turns.reverse() };
       }
       const result = { ...normalizeCodex(full), observability: observeCodex(full) };

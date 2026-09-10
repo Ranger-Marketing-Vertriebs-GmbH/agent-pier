@@ -20,6 +20,14 @@ export function chatRoutes(services) {
   router.get("/sessions/:id/chat", async (req, res) =>
     res.json(await sync.read(req.params.id, req.query.cursor)),
   );
+  router.get("/sessions/:id/chat/history", async (req, res) =>
+    res.json(
+      await chatImages.decoratePage(
+        req.params.id,
+        await chat.older(req.params.id, req.query.cursor),
+      ),
+    ),
+  );
   router.get("/sessions/:id/chat/images/:imageId", async (req, res) => {
     const image = await chatImages.file(req.params.id, req.params.imageId);
     res
