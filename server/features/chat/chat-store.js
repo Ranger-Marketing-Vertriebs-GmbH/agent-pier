@@ -32,6 +32,25 @@ export class ChatStore {
     this.cursorBytes = 0;
     this.maxCursorBytes = maxCursorBytes;
     this.maxCursorEntries = Math.max(1, maxCursorEntries);
+    this.history.onIndexed = (event) => this.indexed(event);
+  }
+  async indexed({ session, id: nativeId, replaced }) {
+    const current = await this.sessions.get(session.id).catch(() => null);
+    const binding = readJSON(this.file(session.id), null);
+    if (
+      !current ||
+      current.accountId !== session.accountId ||
+      current.tool !== session.tool ||
+      current.cwd !== session.cwd ||
+      binding?.providerSessionId !== nativeId ||
+      binding.accountId !== session.accountId
+    )
+      return;
+    if (replaced) this.reset(session.id);
+    else this.invalidate(session.id);
+    this.events?.publish(session.id, replaced ? "binding-changed" : "history-indexed", {
+      providerSessionId: nativeId,
+    });
   }
   file(id, suffix = "binding") {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(id))
@@ -182,6 +201,7 @@ export class ChatStore {
       messages: content.messages,
       history: {
         cursor: this.cursor(session, nativeId, content.next),
+        indexing: Boolean(content.indexing),
         generation: this.generations.get(session.id),
       },
       tasks: content.tasks,

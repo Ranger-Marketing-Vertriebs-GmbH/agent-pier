@@ -171,7 +171,7 @@ test("background completion publishes once and keeps the fresh snapshot cached",
   assert.equal((await store.read("test")).messages[0].text, "Fresh");
 });
 
-test("Claude and OpenCode pages use stable message boundaries while new messages append", async (t) => {
+test("Legacy provider pages use stable message boundaries while new messages append", async (t) => {
   const { history, session } = fixture(t);
   const messages = Array.from({ length: 123 }, (_, i) => ({
     id: `m${i}`,
@@ -181,7 +181,7 @@ test("Claude and OpenCode pages use stable message boundaries while new messages
   for (const tool of ["claude", "opencode"]) {
     session.tool = tool;
     history.environment = () => ({});
-    const first = await history.readPage(session, "native");
+    const first = await history.readPage(session, "native", { legacy: true });
     assert.equal(first.messages.length, 50);
     messages.push({ id: `m${messages.length}`, text: String(messages.length) });
     const second = await history.readPage(session, "native", first.next);
