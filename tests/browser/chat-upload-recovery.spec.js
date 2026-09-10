@@ -190,6 +190,46 @@ test("a stored upload receipt finishes locally without uploading the file twice"
   expect(f.uploads).toEqual(["retry.txt"]);
 });
 
+test("a delayed restore cannot resurrect a successfully retried upload", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await page.setInputFiles('input[type="file"]', {
+    name: "retry.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("retry"),
+  });
+  const retry = page.getByRole("button", { name: "Erneut hochladen: retry.txt" });
+  await expect(retry).toBeVisible();
+  await page.evaluate(() => {
+    const request = navigator.locks.request.bind(navigator.locks);
+    let delay = true;
+    navigator.locks.request = async (...args) => {
+      const hold = delay && args[0].startsWith("agentpier.upload:");
+      if (hold) delay = false;
+      const result = await request(...args);
+      if (hold)
+        await new Promise((resolve) => {
+          window.releaseUploadRestore = resolve;
+        });
+      return result;
+    };
+    window.dispatchEvent(new Event("focus"));
+  });
+  await expect.poll(() => page.evaluate(() => !!window.releaseUploadRestore)).toBe(true);
+  f.succeed();
+  await retry.click();
+  await expect(retry).toHaveCount(0);
+  await page.evaluate(async () => {
+    window.releaseUploadRestore();
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
+  });
+  await expect(retry).toHaveCount(0);
+  expect(f.uploads).toEqual(["retry.txt", "retry.txt"]);
+});
+
 test("two tabs retry the same interrupted file only once", async ({ page, context }) => {
   const first = await fixture(page);
   await page.setInputFiles('input[type="file"]', {

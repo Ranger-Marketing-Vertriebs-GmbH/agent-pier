@@ -168,8 +168,8 @@ test("launch rejects invalid grants, shell/login/pipeline access and cleans up a
 test("session lifecycle persists only safe grant metadata and stop revokes access", async (t) => {
   const f = await applicationFixture(t);
   f.application.accounts.command = () => ({
-    command: "/bin/sh",
-    args: ["-c", "exec sleep 120"],
+    command: process.execPath,
+    args: ["-e", "setInterval(() => {}, 1000)", "--"],
     env: {},
   });
   const response = await f.request("/api/sessions", {

@@ -10,7 +10,11 @@ export const sessionId = (id) => {
   return id;
 };
 export function capabilityDirectory(dataDir, id) {
-  return path.join(dataDir, "session-mcp", sessionId(id));
+  const root = path.resolve(dataDir, "session-mcp");
+  const directory = path.resolve(root, sessionId(id));
+  if (!directory.startsWith(root + path.sep))
+    throw problem("Invalid AgentPier session capability.", 403);
+  return directory;
 }
 export function privatePath(file, boundary) {
   safePath(file, boundary);

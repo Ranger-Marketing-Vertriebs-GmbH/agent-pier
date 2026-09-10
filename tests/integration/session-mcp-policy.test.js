@@ -6,6 +6,27 @@ import { applicationFixture } from "../helpers/application.js";
 import { issue, connect, selection } from "../helpers/session-mcp.js";
 import { historicalOnly } from "../../server/features/operations/restore-data.js";
 import { capture } from "../../server/features/operations/snapshot.js";
+import { revokeSessionMcp } from "../../server/features/mcp/session-capability.js";
+
+test("capability revocation rejects traversal and linked directories without touching other data", async (t) => {
+  const f = await applicationFixture(t);
+  const issued = await issue(f);
+  const sentinel = path.join(f.dataDir, "keep.txt");
+  await fs.writeFile(sentinel, "keep");
+  for (const id of ["..", "../sessions", "/tmp", "a/../../sessions", "a\\b", "a\n"])
+    assert.throws(() => revokeSessionMcp(f.dataDir, id), { status: 403 });
+  const directory = path.join(f.dataDir, "session-mcp", issued.session.id);
+  const original = directory + "-original";
+  await fs.rename(directory, original);
+  await fs.symlink(original, directory);
+  assert.throws(() => revokeSessionMcp(f.dataDir, issued.session.id), { status: 409 });
+  assert.ok(await fs.stat(path.join(original, "active.json")));
+  await fs.unlink(directory);
+  await fs.rename(original, directory);
+  revokeSessionMcp(f.dataDir, issued.session.id);
+  await assert.rejects(fs.stat(directory), { code: "ENOENT" });
+  assert.equal(await fs.readFile(sentinel, "utf8"), "keep");
+});
 
 async function pipeline(f, accountId = "local-codex", publish = false) {
   const a = f.application;
