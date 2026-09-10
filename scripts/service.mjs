@@ -7,6 +7,7 @@ import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { projectDir, loadConfig } from "../server/lib/config.js";
 import { privateDirectory } from "../server/lib/storage.js";
+import { hostEnvironment } from "../server/lib/host-environment.js";
 const label = "dev.agentpier.server";
 const xml = (v) =>
   String(v).replace(
@@ -176,7 +177,7 @@ export async function runService({
       projectDir: project,
       node,
       dataDir: config.dataDir,
-      envPath: env.PATH || "/usr/local/bin:/usr/bin:/bin",
+      envPath: hostEnvironment(env).PATH,
       launcher,
       installRoot,
       channel,
@@ -233,7 +234,7 @@ export async function runService({
       projectDir: project,
       node,
       dataDir: config.dataDir,
-      envPath: env.PATH || "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+      envPath: hostEnvironment(env).PATH,
       launcher,
       installRoot,
       channel,

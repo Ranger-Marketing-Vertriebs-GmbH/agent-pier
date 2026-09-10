@@ -83,6 +83,7 @@ test("Linux installation writes private unit and reloads, enables and restarts o
   assert.equal(fs.statSync(ctx.file).mode & 0o777, 0o600);
   assert.equal(fs.statSync(ctx.config.dataDir).mode & 0o777, 0o700);
   assert.match(fs.readFileSync(ctx.file, "utf8"), /KillMode=process/);
+  assert.match(fs.readFileSync(ctx.file, "utf8"), /\/usr\/local\/bin/);
   assert.ok(ctx.logs.at(-1).includes("4380"));
   ctx.calls.length = 0;
   assert.equal(await runService({ ...ctx.options, action: "install" }), 0);
@@ -175,6 +176,7 @@ test("macOS install still validates its plist and loads only the matching Launch
   );
   const file = path.join(ctx.home, "Library/LaunchAgents/dev.agentpier.server.plist");
   assert.match(fs.readFileSync(file, "utf8"), /KeepAlive/);
+  assert.match(fs.readFileSync(file, "utf8"), /\/opt\/homebrew\/bin/);
   assert.deepEqual(ctx.calls, [
     ["plutil", "-lint", file],
     ["launchctl", "bootout", "gui/501/dev.agentpier.server"],
