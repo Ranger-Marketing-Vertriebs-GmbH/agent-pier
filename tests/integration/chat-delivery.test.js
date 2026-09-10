@@ -75,33 +75,42 @@ test("HTTP delivery replay and restart do not repeat terminal input", async (t) 
   assert.equal(x.writes(), 1);
 });
 
-test("Codex delivery uses the native queue when the running thread is bound", async (t) => {
-  const x = await setup(t);
-  const codex = { ...session, tool: "codex" };
-  x.body.deliveryScope = JSON.stringify([
-    codex.id,
-    codex.accountId,
-    codex.tool,
-    codex.createdAt,
-  ]);
-  x.f.application.sessions.get = async () => ({ ...codex });
-  x.f.application.sessions.input = async (
-    _id,
-    _text,
-    _submit,
-    beforeInput,
-    nativeQueue,
-  ) => {
-    await beforeInput(codex, "");
-    assert.equal(await nativeQueue(codex), true);
-  };
-  x.f.application.bindings.resolve = async () => ({ id: "thread-queue" });
-  const queued = [];
-  x.f.application.history.queue = async (...args) => queued.push(args);
-  assert.equal((await (await x.post()).json()).status, "handed-off");
-  assert.deepEqual(queued, [[codex, "thread-queue", x.body.text]]);
-  assert.equal(x.writes(), 0);
-});
+for (const bound of [true, false])
+  test(`Codex delivery uses only a freshly verified thread, otherwise the TUI: ${bound}`, async (t) => {
+    const x = await setup(t);
+    const codex = { ...session, tool: "codex" };
+    x.body.deliveryScope = JSON.stringify([
+      codex.id,
+      codex.accountId,
+      codex.tool,
+      codex.createdAt,
+    ]);
+    x.f.application.sessions.get = async () => ({ ...codex });
+    const typed = [];
+    x.f.application.sessions.input = async (
+      _id,
+      _text,
+      _submit,
+      beforeInput,
+      nativeQueue,
+    ) => {
+      await beforeInput(codex, "");
+      const queued = await nativeQueue(codex);
+      assert.equal(queued, bound);
+      if (!queued) typed.push(_text);
+    };
+    x.f.application.bindings.resolve = async (_session, options) => {
+      assert.deepEqual(options, { forInput: true });
+      return bound ? { id: "thread-queue" } : null;
+    };
+    const queued = [];
+    x.f.application.history.queue = async (...args) => queued.push(args);
+    assert.equal((await (await x.post()).json()).status, "handed-off");
+    assert.equal((await (await x.post()).json()).status, "handed-off");
+    assert.deepEqual(queued, bound ? [[codex, "thread-queue", x.body.text]] : []);
+    assert.deepEqual(typed, bound ? [] : [x.body.text]);
+    assert.equal(x.writes(), 0);
+  });
 
 test("concurrent identical HTTP deliveries report pending without duplicate input", async (t) => {
   const x = await setup(t);

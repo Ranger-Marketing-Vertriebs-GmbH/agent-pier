@@ -146,7 +146,7 @@ async function nativeExecutable(file) {
 /** Map only an exact native child and its own held writer lock + open rollout. */
 export async function resolveCodexProcess(
   session,
-  { sessions, accounts, history, probe = processProbe(), executable } = {},
+  { sessions, accounts, history, probe = processProbe(), executable, verifyRuntime } = {},
 ) {
   if (
     session.tool !== "codex" ||
@@ -162,7 +162,7 @@ export async function resolveCodexProcess(
   const expected = await nativeExecutable(
     executable || detectTools(env).find((tool) => tool.id === "codex")?.path,
   );
-  if (!expected) return null;
+  if (!expected && !verifyRuntime) return null;
   const pane = pidValue(
     (
       await sessions.tmux([
@@ -178,7 +178,7 @@ export async function resolveCodexProcess(
   let level = [pane];
   let found = [];
   const seen = new Set();
-  for (let depth = 0; depth < 4 && level.length; depth++) {
+  for (let depth = 0; depth < 8 && level.length; depth++) {
     const next = [];
     for (const pid of level.slice(0, 30)) {
       if (seen.has(pid)) continue;
@@ -187,7 +187,7 @@ export async function resolveCodexProcess(
         .executable(pid)
         .then((file) => fs.realpath(file))
         .catch(() => null);
-      if (file === expected) found.push(pid);
+      if (verifyRuntime ? verifyRuntime(pid) : file && file === expected) found.push(pid);
       else next.push(...(await probe.children(pid)));
     }
     if (found.length) break;
@@ -196,6 +196,7 @@ export async function resolveCodexProcess(
   if (found.length !== 1) return null;
   const started = await probe.start(found[0]);
   if (!started) return null;
+  if (verifyRuntime && !verifyRuntime(found[0])) return null;
   const files = await probe.files(found[0]);
   const root = await fs
     .realpath(env.CODEX_HOME || path.join(env.HOME, ".codex"))
@@ -235,6 +236,6 @@ export async function resolveCodexProcess(
       ])
     ).trim(),
   );
-  if (stillPane !== pane) return null;
+  if (stillPane !== pane || (verifyRuntime && !verifyRuntime(found[0]))) return null;
   return { id: [...ids][0], source: "native-process" };
 }
