@@ -14,6 +14,24 @@ The server user's native profile is authoritative. Managed accounts keep their s
 
 This is configuration sharing, not an OS security boundary. Native plugins and agents still execute with the session user's permissions. Plugin-specific account preferences and state inside shared plugin directories are shared with that plugin; CLI login credentials remain separate.
 
+## Bundled skills
+
+AgentPier ships `agentpier-composer` from `server/features/cli-profiles/skills/`.
+The first work-session launch for each CLI installs it into that CLI's shared native
+`skills` directory from the table above. Managed accounts inherit it through the
+existing asset links. Login and shell sessions do not install skills; already running
+sessions are not reloaded. The same `SKILL.md` is used by Codex, Claude Code and OpenCode.
+Plane access and a suitable AgentPier pipeline are separate prerequisites for execution.
+
+Existing packages with the same name are preserved, including skills imported from
+managed accounts. Installation is recorded per native profile in
+`bundled-skills.json` in the AgentPier data directory. Later launches and releases
+neither overwrite edits nor reinstall deleted packages. To adopt a newer bundled
+version, explicitly replace the native package from the checked-in source (or upload
+its `SKILL.md` through skill management after removing the old package). Back up native
+skill directories and the installation record to preserve these choices when moving
+the installation.
+
 ## Migration and subsequent edits
 
 The first work-session launch, extension mutation or **Vorhandene Kontokonfigurationen übernehmen** imports existing managed extensions, including provider connection profiles. Merely viewing the page does not change native files. Different named entries merge; a conflicting shared entry wins as a complete definition. Existing skill packages are preserved as whole directories and are never mixed with another implementation. The UI reports conflicts without exposing configuration values. Imported files survive deletion of their former account.
