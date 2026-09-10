@@ -8,6 +8,7 @@ export function createShutdown({ services, wss, server }) {
     services.agency?.close();
     await services.mcpTransport?.close();
     await services.operationsEvents?.close();
+    services.chatEvents?.close();
     await services.operations?.close();
     await services.pipelines?.close();
     await services.requests?.close();

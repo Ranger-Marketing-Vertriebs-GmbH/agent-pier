@@ -13,12 +13,14 @@ export class ChatStore {
     sessions,
     history,
     bindings,
+    events,
     liveHistoryTimeout = LIVE_HISTORY_TIMEOUT,
   }) {
     this.directory = privateDirectory(path.join(dataDir, "chat"));
     this.sessions = sessions;
     this.history = history;
     this.bindings = bindings;
+    this.events = events;
     this.liveHistoryTimeout = liveHistoryTimeout;
     this.cache = new Map();
   }
@@ -34,6 +36,10 @@ export class ChatStore {
         accountId: session.accountId,
         tool: session.tool,
         source,
+      });
+    if (nativeId)
+      this.events?.publish(session.id, "binding-changed", {
+        providerSessionId: nativeId,
       });
   }
   async bind(id, nativeId) {

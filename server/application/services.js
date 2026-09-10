@@ -30,6 +30,7 @@ import { AgentBus } from "../features/agentbus/agent-bus.js";
 import { Preferences } from "../features/settings/preferences.js";
 import { AccountStore } from "../features/accounts/account-store.js";
 import { SessionManager } from "../features/sessions/session-manager.js";
+import { ChatEvents } from "../features/chat/chat-events.js";
 
 export async function createServices(config) {
   const mutationBarrier = new MutationBarrier();
@@ -66,6 +67,7 @@ export async function createServices(config) {
   await sessions.ready;
   const repositories = new RepositoryStore(config);
   const history = new ProviderHistory({ accounts, home: config.home });
+  const chatEvents = new ChatEvents();
   const bindings = new NativeSessionBinding({
     dataDir: config.dataDir,
     accounts,
@@ -77,6 +79,7 @@ export async function createServices(config) {
     sessions,
     history,
     bindings,
+    events: chatEvents,
   });
   const github = new GithubCredentials({
     dataDir: config.dataDir,
@@ -149,6 +152,7 @@ export async function createServices(config) {
     history,
     bindings,
     chat,
+    chatEvents,
     github,
     activity,
     models,
