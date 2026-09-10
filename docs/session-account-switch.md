@@ -10,8 +10,16 @@ If startup fails after switching, choose **Retry with current account**, or open
 
 A return to an earlier account is allowed when its stored conversation is unchanged or an older prefix of the current conversation. Divergent histories, links in history storage and a conversation already running in the target account are rejected. No histories are silently merged or overwritten with a different conversation.
 
-The feature supports standalone local and managed CLI accounts. Pipeline, login, imported history-only and provider-connection sessions are excluded. OpenCode and cross-CLI transfers are not supported. Codex requires a complete portable JSONL rollout; paginated/nonportable history is rejected before the source process is stopped. Authentication and remaining quota are enforced by the native CLI; AgentPier does not automatically rotate accounts or replay a failed prompt.
+The feature supports standalone local and managed CLI accounts. Pipeline, login, imported history-only and provider-connection sessions are excluded. OpenCode and cross-CLI transfers are not supported. Codex supports complete native JSONL rollouts in both `legacy` and `paginated` storage. Paginated rollouts retain their format and must have a matching storage marker and a complete ordinal sequence starting at zero. Codex rebuilds its SQLite history projection from the copied rollout on resume; account databases are not copied. Incomplete rollouts and unknown storage formats are rejected before the source process is stopped, and completeness is checked again after stopping. Authentication and remaining quota are enforced by the native CLI; AgentPier does not automatically rotate accounts or replay a failed prompt.
 
-Validation includes isolated account/HTTP/tmux lifecycle tests for both CLIs, failure recovery, a concurrent target-session regression, filesystem isolation tests and Chromium/WebKit browser tests. An offline smoke check with installed Codex 0.153.4 also verified reading the copied conversation under its unchanged UUID from a fresh account home. These checks do not make live model requests using real user accounts.
+Validation includes isolated account/HTTP/tmux lifecycle tests for both CLIs, failure recovery, a concurrent target-session regression, filesystem isolation tests and Chromium/WebKit browser tests. An offline integration check with installed Codex 0.153.4 also verifies native resume of a copied paginated conversation under its unchanged UUID in a fresh account home, identical restored turns and byte-for-byte transfer of the conversation including tool results. These checks do not make live model requests using real user accounts.
+
+Run the optional native regression with an installed Codex binary:
+
+```sh
+AGENTPIER_TEST_CODEX_BIN="$(command -v codex)" node --test tests/integration/codex-account-transfer-native.test.js
+```
+
+The native test creates disposable source and target profiles and uses a local dummy provider configuration without submitting a turn. It is skipped when `AGENTPIER_TEST_CODEX_BIN` is unset.
 
 ![Account selection in the session dialog](screenshots/session-account-switch.png)
