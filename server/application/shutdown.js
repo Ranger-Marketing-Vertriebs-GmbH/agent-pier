@@ -3,6 +3,14 @@ export function createShutdown({ services, wss, server }) {
   const { agentbus, installer, plugins, repositories, extensions, history, sessions } =
     services;
   async function close() {
+    services.chatStreams?.close();
+    for (const socketServer of [wss, services.chatWss])
+      for (const ws of socketServer?.clients || []) {
+        ws.close(1001, serverMessages.common.serverRestarting);
+        const timeout = setTimeout(() => ws.terminate(), 1000);
+        timeout.unref();
+        ws.once("close", () => clearTimeout(timeout));
+      }
     await services.reload?.close();
     services.accountAuthStatus?.close();
     services.agency?.close();

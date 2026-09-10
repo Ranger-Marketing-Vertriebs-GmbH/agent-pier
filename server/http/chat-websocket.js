@@ -1,110 +1,83 @@
 import { sessionToken } from "./login.js";
 import { authorizeRequest } from "./security.js";
-import { serverMessages } from "../lib/i18n/de.js";
 import { WebSocketServer, WebSocket } from "ws";
-import { problem } from "../lib/storage.js";
+import { ChatSync } from "../features/chat/chat-sync.js";
 
-export function attachChatWebSocket(
-  server,
-  { sessions, chat, chatImages, events, login, effective },
-) {
+export function attachChatWebSocket(server, { sessions, streams, login, effective }) {
   const wss = new WebSocketServer({
     noServer: true,
     maxPayload: 65536,
     perMessageDeflate: false,
   });
-  server.on("upgrade", (req, socket, head) => {
+  const sync = new ChatSync({ sessions });
+  const upgrade = (req, socket, head) => {
+    const match = new URL(req.url, "http://localhost").pathname.match(
+      /^\/api\/sessions\/([a-zA-Z0-9_-]+)\/chat-stream$/,
+    );
+    if (!match) return;
     try {
       authorizeRequest(req, effective(), true);
-      const authSession = login.require(sessionToken(req));
-      const match = new URL(req.url, "http://localhost").pathname.match(
-        /^\/api\/sessions\/([a-zA-Z0-9-]+)\/chat-stream$/,
-      );
-      if (!match) throw problem(serverMessages.http.notFound, 404);
+      const token = sessionToken(req);
+      const auth = login.require(token);
+      if (streams.closed) {
+        socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
+        return;
+      }
       wss.handleUpgrade(req, socket, head, (ws) => {
-        ws.sessionId = match[1];
-        ws.authSession = authSession;
-        ws.authToken = sessionToken(req);
-        wss.emit("connection", ws);
+        wss.emit("connection", ws, { id: match[1], token, auth });
       });
     } catch (error) {
       socket.end(
         `HTTP/1.1 ${error.status || 403} Forbidden\r\nConnection: close\r\n\r\n`,
       );
     }
-  });
-  wss.on("connection", (ws) => {
-    let closed = false;
-    let alive = true;
-    let latest;
-    let refresh;
+  };
+  server.on("upgrade", upgrade);
+  wss.once("close", () => server.off("upgrade", upgrade));
+  wss.on("connection", (ws, { id, token, auth }) => {
+    let closed = false,
+      alive = true,
+      sequence = 0,
+      cursor;
     const send = (message) => {
-      if (!closed && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
+      if (closed || ws.readyState !== WebSocket.OPEN) return;
+      if (ws.bufferedAmount > 2 * 1024 * 1024) return ws.close(1013);
+      ws.send(JSON.stringify(message));
     };
-    const cleanupLogin = login.watch(ws.authSession, () => ws.close(1008));
-    const ping = setInterval(
-      () => (alive ? ((alive = false), ws.ping()) : ws.terminate()),
-      30000,
-    );
+    const cleanupLogin = login.watch(auth, () => ws.close(1008));
+    const ping = setInterval(() => {
+      if (!alive) return ws.terminate();
+      alive = false;
+      ws.ping();
+    }, 30000);
     ping.unref();
+    let unsubscribe;
     ws.on("pong", () => (alive = true));
+    ws.on("error", () => ws.close());
+    ws.on("message", () => ws.close(1008));
     ws.on("close", () => {
       closed = true;
       clearInterval(ping);
-      clearInterval(refresh);
       cleanupLogin();
       unsubscribe?.();
     });
-    let unsubscribe;
-    (async () => {
+    unsubscribe = streams.subscribe(id, ({ session, snapshot, error }) => {
+      if (closed || ws.readyState !== WebSocket.OPEN) return;
       try {
-        const session = await sessions.get(ws.sessionId);
-        login.require(ws.authToken);
-        const snapshot = await chatImages.decorate(
-          ws.sessionId,
-          await chat.read(ws.sessionId),
-        );
-        latest = JSON.stringify([
-          snapshot.providerSessionId,
-          snapshot.messages?.length || 0,
-          snapshot.messages?.at(-1)?.id || null,
-          snapshot.messages?.at(-1)?.text || null,
-        ]);
-        send({ type: "snapshot", sequence: events.current(ws.sessionId), snapshot });
-        unsubscribe = events.subscribe(ws.sessionId, (event) =>
-          send({ type: "event", event }),
-        );
-        refresh = setInterval(async () => {
-          if (closed) return;
-          try {
-            const next = await chatImages.decorate(
-              ws.sessionId,
-              await chat.read(ws.sessionId),
-            );
-            const fingerprint = JSON.stringify([
-              next.providerSessionId,
-              next.messages?.length || 0,
-              next.messages?.at(-1)?.id || null,
-              next.messages?.at(-1)?.text || null,
-            ]);
-            if (fingerprint === latest) return;
-            latest = fingerprint;
-            send({
-              type: "snapshot",
-              sequence: events.current(ws.sessionId),
-              snapshot: next,
-            });
-          } catch (error) {
-            send({ type: "error", message: error.message });
-          }
-        }, 1500);
-        refresh.unref();
+        login.require(token);
+        if (error) {
+          send({ type: "error", message: error.message });
+          if ([403, 404].includes(error.status)) ws.close(1008);
+          return;
+        }
+        const data = sync.encode(session, snapshot, cursor);
+        cursor = data.sync.cursor;
+        send({ type: "sync", sequence: ++sequence, data });
         if (session.status !== "running") send({ type: "ended" });
-      } catch (error) {
-        send({ type: "error", message: error.message });
-        ws.close(1011);
+      } catch {
+        ws.close(1008);
       }
-    })();
+    });
   });
   return wss;
 }

@@ -1,3 +1,4 @@
+import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 
@@ -34,6 +35,7 @@ async function fixture(
     tasks: [],
     observability,
   };
+  const publish = await mockChatStream(page, () => data);
   await page.route("**/api/**", (route) => {
     const request = route.request(),
       path = new URL(request.url()).pathname;
@@ -55,7 +57,7 @@ async function fixture(
   });
   await page.goto(baseURL + "/sessions/presentation/chat");
   await expect(page.getByLabel("Chatverlauf")).toContainText("A response.");
-  return { session, data };
+  return { session, data, publish };
 }
 
 for (const width of [1440, 390])
@@ -137,7 +139,7 @@ test("snapshot context preserves last-request provenance and labels configured l
 test("unknown usage remains unknown while a native limit may be shown independently", async ({
   page,
 }) => {
-  const { data } = await fixture(page, {
+  const { data, publish } = await fixture(page, {
     observability: {
       context: {
         usedTokens: null,
@@ -163,6 +165,7 @@ test("unknown usage remains unknown while a native limit may be shown independen
     limitSource: null,
     observedAt: null,
   };
+  publish();
   await expect(context).not.toContainText("200.000");
   await expect(context).toContainText("Kontextverbrauch nicht verfügbar");
 });
@@ -218,7 +221,7 @@ test("mobile task drawer shows only active subagents with their task immediately
 test("subagent count and visible tasks follow live updates and disappear on completion", async ({
   page,
 }) => {
-  const { data } = await fixture(page, {
+  const { data, publish } = await fixture(page, {
     observability: {
       subagents: [
         { id: "active", name: "Reviewer", task: "Check the API", status: "running" },
@@ -237,17 +240,19 @@ test("subagent count and visible tasks follow live updates and disappear on comp
   await expect(panel.locator(".subagent-entry")).toHaveCount(1);
   await expect(panel.getByText("Check the API", { exact: true })).toBeVisible();
   data.observability.subagents[0].task = "Verify the error handling";
+  publish();
   await expect(
     panel.getByText("Verify the error handling", { exact: true }),
   ).toBeVisible();
   data.observability.subagents[0].status = "completed";
+  publish();
   await expect(count).toHaveCount(0);
   await expect(panel.locator(".subagent-entry")).toHaveCount(0);
 });
 
 for (const mode of ["stale", "stopped"]) {
   test(`historical running subagents are hidden when ${mode}`, async ({ page }) => {
-    const { session, data } = await fixture(page, {
+    const { session, data, publish } = await fixture(page, {
       observability: {
         subagents: [
           { id: "active", name: "Old worker", task: "Old task", status: "running" },
@@ -258,6 +263,7 @@ for (const mode of ["stale", "stopped"]) {
     await expect(count).toBeVisible();
     if (mode === "stale") data.observability.stale = true;
     else session.status = "stopped";
+    publish();
     await expect(count).toHaveCount(0);
     await expect(page.locator(".subagent-entry")).toHaveCount(0);
   });
@@ -356,9 +362,7 @@ for (const following of [true, false])
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await fixture(page);
-    // Freeze subsequent transcript reads so polling cannot accidentally repair a
-    // lost scroll position and hide the keyboard-resize regression.
-    await page.route("**/api/sessions/presentation/chat", () => {});
+    // The fixture sends no further frames while the viewport is resized.
     const messages = page.getByLabel("Chatverlauf");
     await messages.evaluate((element, bottom) => {
       element.scrollTop = bottom ? element.scrollHeight : 120;
@@ -395,33 +399,21 @@ for (const following of [true, false])
     }
   });
 
-test("returning to the app recovers a suspended chat request and preserves the draft", async ({
+test("returning to the app reconnects the suspended chat stream and preserves the draft", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const { data } = await fixture(page);
   const input = page.getByRole("textbox", { name: "Nachricht", exact: true });
   await input.fill("Mein ungesendeter Entwurf");
-  let stalled = false;
-  await page.route("**/api/sessions/presentation/chat", (route) => {
-    if (!stalled) {
-      stalled = true;
-      return;
-    }
-    return route.fulfill({
-      json: {
-        ...data,
-        messages: [
-          { id: "resumed", role: "assistant", text: "Nach Rückkehr aktualisiert" },
-        ],
-      },
-    });
-  });
-  await expect.poll(() => stalled).toBe(true);
+  data.messages = [
+    { id: "resumed", role: "assistant", text: "Nach Rückkehr aktualisiert" },
+  ];
   await page.evaluate(() => {
     Object.defineProperty(document, "hidden", { configurable: true, value: true });
     document.dispatchEvent(new Event("visibilitychange"));
     Object.defineProperty(document, "hidden", { configurable: true, value: false });
+    document.dispatchEvent(new Event("visibilitychange"));
     window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
   });
   await expect(page.getByLabel("Chatverlauf")).toContainText(

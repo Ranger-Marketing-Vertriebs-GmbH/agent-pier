@@ -131,8 +131,8 @@ test("paginated Codex history keeps newest turns and restores chronological orde
   });
   const result = await history.read(session, id);
   assert.equal(result.messages.at(-1).text, "Turn 1000");
-  assert.equal(result.messages[0].text, "Turn 1");
-  assert.equal(pages.length, 10);
+  assert.equal(result.messages[0].text, "Turn 0");
+  assert.equal(pages.length, 11);
 });
 test("Codex history clients are isolated per account and project", async (t) => {
   const { history, cwd } = await fixture(t);

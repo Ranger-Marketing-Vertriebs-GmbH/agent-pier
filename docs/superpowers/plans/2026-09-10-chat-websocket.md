@@ -1,52 +1,53 @@
-# Chat events and lazy history
+# Chat streaming and lazy history
 
-## Goal
+## Implemented architecture
 
-Replace browser polling of `/sessions/:id/chat` with a reconnectable chat event
-channel. A long native transcript must not block the first paint, and older
-messages must be fetched only when the user scrolls upward.
+The browser opens the authenticated `/api/sessions/:id/chat-stream` WebSocket.
+Each connection starts with a bounded full snapshot and sequence 1, followed by
+ordered message deltas and complete metadata. Reconnects start from a fresh full
+snapshot; sequence gaps discard that connection. Normal operation does not poll
+HTTP. Up to three HTTP recovery reads keep the chat usable during connection
+failures while the socket reconnects with exponential backoff. Hidden tabs release
+their connection; returning to the tab reconciles with the server.
 
-## Design
+`ChatStreams` shares one serialized source reader per watched session across tabs.
+Native storage filesystem events and AgentPier binding events trigger a debounced
+refresh. A 30-second server recovery timer repairs missed filesystem events and
+watchers for directories created after startup. Readers and watchers are released
+when the final subscriber disconnects. Login expiry, origin checks, heartbeat,
+backpressure, terminal socket coexistence and shutdown use isolated integration
+coverage. The stream transports observations; sending messages continues through
+the existing native delivery queue.
 
-1. Add a session-scoped `ChatEvents` service. It keeps a bounded sequence and
-   subscribers, publishes only metadata (`snapshot changed`, `native binding
-changed`, `session ended`) and never carries unbounded transcript content.
-2. Add an authenticated WebSocket endpoint at
-   `/api/sessions/:id/chat-stream`, reusing the terminal socket's origin,
-   login, heartbeat, backpressure and shutdown rules. The first server message
-   is a bounded HTTP-equivalent snapshot with a sequence number. Subsequent
-   messages are invalidation events.
-3. Keep the HTTP endpoint as the authoritative recovery path. On reconnect or
-   a sequence gap the browser requests a full snapshot and resumes the stream.
-4. Make native binding updates publish an event. Codex/Claude hooks and the
-   process resolver therefore make `/clear`, resume and account changes visible
-   without a browser poll.
-5. Add a bounded history endpoint accepting a provider-specific cursor. The
-   initial snapshot contains the newest 500 messages; scrolling near the top
-   requests an older page and prepends it while preserving the viewport.
-6. Keep a slow-history fallback: the saved snapshot is returned immediately,
-   while a live refresh can publish a later invalidation. This remains useful
-   when the provider app-server is unavailable.
+The initial native history page contains at most 50 messages. Codex uses
+`thread/read` without turns and descending `thread/turns/list` pages of ten turns;
+large turns can produce multiple message pages. Older pages use opaque server
+cursors bound to session, account, provider conversation and history generation.
+Cursor storage has a 64 MiB budget and a 512-entry limit. Expired or evicted cursors
+return 409; an individual continuation exceeding the budget returns 413.
+Claude and OpenCode currently parse their native transcript/export before slicing
+pages; browser transfer and rendering are bounded, but these providers still
+have full-source read costs. Legacy Codex versions also retain the full-read
+compatibility path.
 
-## Delivery order
-
-- Introduce the event service and lifecycle wiring with unit tests.
-- Add and test the authenticated WebSocket protocol and reconnect behavior.
-- Emit events from binding/chat snapshot changes and switch the controller to
-  WebSocket-first with HTTP fallback.
-- Add provider history cursors and viewport-triggered older-page loading.
-- Remove the normal polling loop after browser coverage proves reconnect,
-  sequence gaps, `/clear`, long transcripts and stopped sessions.
-
-## Compatibility and limits
-
-The endpoint is additive and existing HTTP clients continue to work. Events
-are hints, not durable transcript storage; a reconnect always reconciles over
-HTTP. The server must bound event queues and close slow clients. Provider
-history remains read-only and never resumes a native conversation.
+Scrolling upward fetches `/api/sessions/:id/chat/history?cursor=…` and preserves
+the viewport while prepending. Ordinary rolling-window updates retain messages
+already displayed. A clear, native rebind or history generation change discards
+previous history and cancels pending requests. Slow reads can return the saved
+snapshot after 1.5 seconds, then publish completion including metadata-only
+changes. Historical image grants are bounded, session-scoped and invalidated by
+history generation changes.
 
 ## Verification
 
-Cover event ordering and bounded queues, WebSocket authentication and close
-behavior, reconnect after a sequence gap, `/clear` binding changes, long
-history fallback, prepend-on-scroll, and the existing terminal/browser suites.
+Coverage includes real WebSockets and native-file notifications, independent chat
+and terminal upgrades, origin/authentication rejection, logout, reconnect,
+ordered deltas, shared readers, close during an outstanding read, provider paging,
+clear/rebind races, cursor budgets, historical images, browser scroll anchoring,
+recovery, and Shift+Enter regression coverage in the terminal suite.
+
+## Deferred scope
+
+File explorer upload/download remains a separate future feature. This change does
+not introduce a broker or require additional installed infrastructure. Incremental
+Claude/OpenCode source parsing can further reduce native history read costs.

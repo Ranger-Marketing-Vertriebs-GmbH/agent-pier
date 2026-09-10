@@ -1,3 +1,4 @@
+import useChatStream from "./useChatStream.js";
 import useChatDelivery from "./useChatDelivery.js";
 import useChatAttachments from "./useChatAttachments.js";
 import { withReadyUploads } from "./chat-upload-send.js";
@@ -5,9 +6,7 @@ import { deliveryScope } from "./chat-draft.js";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { chatAttachmentCopy as attachmentCopy } from "../../lib/i18n/messages/chat.js";
 export default function useChatController({ active, session, request, onConnection }) {
-  const [data, setData] = useState(null),
-    [error, setError] = useState(""),
-    [loadError, setLoadError] = useState(""),
+  const [error, setError] = useState(""),
     [sent, setSent] = useState(false),
     [picking, setPicking] = useState(false);
   const [touchInput, setTouchInput] = useState(
@@ -16,10 +15,6 @@ export default function useChatController({ active, session, request, onConnecti
   const [modelPending, setModelPending] = useState(false);
   const delivery = useChatDelivery({ session, request, active });
   const { text, setText } = delivery;
-  useEffect(() => {
-    if (data?.messages && delivery.recent.length)
-      void delivery.draft.observeMessages(data.messages);
-  }, [data, delivery.draft, delivery.recent]);
   const busy = delivery.sending;
   const attachmentState = useChatAttachments({
     session,
@@ -72,51 +67,13 @@ export default function useChatController({ active, session, request, onConnecti
   const output = useRef(null),
     outputHeight = useRef(0),
     stick = useRef(true),
-    scroll = useRef(0),
-    generation = useRef(0),
-    snapshot = useRef(null);
+    scroll = useRef(0);
+  const stream = useChatStream({ active, session, request, onConnection, output, stick });
+  const { data, loadError } = stream;
   useEffect(() => {
-    if (!active) return;
-    let disposed = false;
-    let timer;
-    let socket;
-    const connect = () => {
-      if (disposed) return;
-      socket = new WebSocket(
-        `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/api/sessions/${encodeURIComponent(session.id)}/chat-stream`,
-      );
-      socket.onopen = () => onConnection("connected");
-      socket.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          if (message.type === "snapshot") {
-            snapshot.current = null;
-            setData(message.snapshot);
-            setLoadError("");
-          } else if (message.type === "event") {
-            void request(`/sessions/${session.id}/chat`, "GET").then((next) => {
-              if (!disposed) {
-                snapshot.current = next;
-                setData(next);
-              }
-            });
-          } else if (message.type === "error") setLoadError(message.message);
-        } catch {
-          setLoadError("Ungültige Chat-Ereignisnachricht.");
-        }
-      };
-      socket.onerror = () => onConnection("disconnected");
-      socket.onclose = () => {
-        if (!disposed) timer = setTimeout(connect, 1500);
-      };
-    };
-    connect();
-    return () => {
-      disposed = true;
-      clearTimeout(timer);
-      socket?.close();
-    };
-  }, [active, session.id, request, onConnection]);
+    if (data?.messages && delivery.recent.length)
+      void delivery.draft.observeMessages(data.messages);
+  }, [data, delivery.draft, delivery.recent]);
   useLayoutEffect(() => {
     const element = output.current;
     if (!active || !element) return;
@@ -166,15 +123,14 @@ export default function useChatController({ active, session, request, onConnecti
   }
 
   const choose = (result) => {
-    generation.current++;
-    snapshot.current = null;
-    setData(result);
+    stream.choose(result);
     setPicking(false);
-    setLoadError("");
-    stick.current = true;
   };
   return {
     data,
+    historyError: stream.historyError,
+    historyLoading: stream.historyLoading,
+    loadOlder: stream.loadOlder,
     delivery,
     tasksOpen,
     closeTasks,

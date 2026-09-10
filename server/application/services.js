@@ -31,6 +31,7 @@ import { Preferences } from "../features/settings/preferences.js";
 import { AccountStore } from "../features/accounts/account-store.js";
 import { SessionManager } from "../features/sessions/session-manager.js";
 import { ChatEvents } from "../features/chat/chat-events.js";
+import { ChatStreams } from "../features/chat/chat-streams.js";
 
 export async function createServices(config) {
   const mutationBarrier = new MutationBarrier();
@@ -89,6 +90,14 @@ export async function createServices(config) {
   const activity = new SessionActivity({ sessions });
   const models = new ModelController({ sessions });
   const chatImages = new ChatImages({ sessions, chat, home: config.home });
+  const chatStreams = new ChatStreams({
+    sessions,
+    chat,
+    chatImages,
+    chatEvents,
+    accounts,
+    config,
+  });
   const chatAttachments = new ChatAttachments({ dataDir: config.dataDir, sessions });
   const sharedProfiles = new SharedCliProfiles({ accounts });
   const extensions = new ExtensionsStore({ accounts, home: config.home, sharedProfiles });
@@ -153,6 +162,7 @@ export async function createServices(config) {
     bindings,
     chat,
     chatEvents,
+    chatStreams,
     github,
     activity,
     models,

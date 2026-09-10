@@ -3,8 +3,9 @@
  * data stays in ChatStore; reconnects reconcile through the HTTP snapshot.
  */
 export class ChatEvents {
-  constructor({ maxEvents = 128 } = {}) {
+  constructor({ maxEvents = 128, maxSessions = 512 } = {}) {
     this.maxEvents = maxEvents;
+    this.maxSessions = maxSessions;
     this.sequence = new Map();
     this.history = new Map();
     this.subscribers = new Map();
@@ -12,11 +13,17 @@ export class ChatEvents {
   publish(sessionId, type = "changed", details = {}) {
     const sequence = (this.sequence.get(sessionId) || 0) + 1;
     this.sequence.set(sessionId, sequence);
-    const event = { type, sessionId, sequence, ...details };
+    const event = { ...details, type, sessionId, sequence };
     const rows = this.history.get(sessionId) || [];
     rows.push(event);
     while (rows.length > this.maxEvents) rows.shift();
     this.history.set(sessionId, rows);
+    for (const id of this.history.keys()) {
+      if (this.history.size <= this.maxSessions) break;
+      if (id === sessionId || this.subscribers.has(id)) continue;
+      this.history.delete(id);
+      this.sequence.delete(id);
+    }
     for (const subscriber of this.subscribers.get(sessionId) || []) subscriber(event);
     return event;
   }

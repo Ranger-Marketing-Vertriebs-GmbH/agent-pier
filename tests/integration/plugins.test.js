@@ -289,6 +289,8 @@ test("all managed environment roots are checked before profile initialization ca
   const account = accounts.create({ name: "Fixture", tool: "opencode" });
   const outside = path.join(root, "external");
   fs.mkdirSync(outside, { mode: 0o755 });
+  // Explicit permissions keep this regression sensitive under restrictive umasks.
+  fs.chmodSync(outside, 0o755);
   const data = path.join(accounts.profile(account.id), "data");
   fs.rmSync(data, { recursive: true });
   fs.symlinkSync(outside, data);

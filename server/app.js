@@ -152,9 +152,7 @@ export async function createApplication(config) {
   });
   const chatWss = attachChatWebSocket(server, {
     sessions: services.sessions,
-    chat: services.chat,
-    chatImages: services.chatImages,
-    events: services.chatEvents,
+    streams: services.chatStreams,
     login: services.login,
     effective,
   });

@@ -315,6 +315,8 @@ test("managed symlinked config roots are rejected before profile initialization 
   fs.rmSync(dir, { recursive: true });
   const outside = path.join(root, "outside");
   fs.mkdirSync(outside, { mode: 0o755 });
+  // Explicit permissions keep this regression sensitive under restrictive umasks.
+  fs.chmodSync(outside, 0o755);
   fs.symlinkSync(outside, dir);
   assert.throws(
     () =>
