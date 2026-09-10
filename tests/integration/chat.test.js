@@ -69,3 +69,30 @@ test("switching a binding invalidates cached messages and stopped sessions retai
   store.remove("test");
   assert.equal((await store.read("test")).availability, "unbound");
 });
+test("running chats retain their saved snapshot when live history is unavailable", async (t) => {
+  const { store, history, session } = fixture(t);
+  await store.bind("test", "native-one");
+  history.read = async () => {
+    throw Object.assign(Error("history unavailable"), { status: 503 });
+  };
+  const result = await store.read("test");
+  assert.equal(result.messages[0].text, "Hello");
+  assert.equal(result.observability.stale, true);
+  assert.equal(session.status, "running");
+});
+test("running chats show their snapshot while a long live history read continues", async (t) => {
+  const { dir, history, session } = fixture(t);
+  const store = new ChatStore({
+    dataDir: dir,
+    sessions: { get: async () => session },
+    history,
+    liveHistoryTimeout: 1,
+  });
+  await store.bind("test", "native-one");
+  history.read = () => new Promise(() => {});
+  const started = Date.now();
+  const result = await store.read("test");
+  assert.ok(Date.now() - started < 1000);
+  assert.equal(result.messages[0].text, "Hello");
+  assert.equal(result.observability.stale, true);
+});

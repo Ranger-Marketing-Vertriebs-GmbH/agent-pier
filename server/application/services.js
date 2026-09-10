@@ -111,7 +111,14 @@ export async function createServices(config) {
     onEvent: (event) => events.current?.emit(event),
   });
   await requests.ready;
-  const chatDelivery = new ChatDelivery({ ...config, sessions, requests, models });
+  const chatDelivery = new ChatDelivery({
+    ...config,
+    sessions,
+    requests,
+    models,
+    bindings,
+    history,
+  });
   const operations = new Operations({
     config,
     audit,
