@@ -8,7 +8,7 @@ import { digest } from "../../server/features/operations/files.js";
 import { ensureDependencies, installRelease } from "../../scripts/release-install.mjs";
 import { renderLaunchAgent, renderSystemdUnit } from "../../scripts/service.mjs";
 for (const platform of ["darwin", "linux"])
-  test(`installer ${platform} installs missing tools only with the explicit option`, async () => {
+  test(`installer ${platform} installs missing tools by default and supports check-only`, async () => {
     let available = false;
     const calls = [];
     const run = async (command, args) => {
@@ -17,12 +17,15 @@ for (const platform of ["darwin", "linux"])
       if (args.includes("install")) available = true;
       return { stdout: "fixture" };
     };
-    await assert.rejects(ensureDependencies({ platform, run }), /--install-dependencies/);
+    await assert.rejects(
+      ensureDependencies({ platform, run, install: false }),
+      /--install-dependencies/,
+    );
     assert.equal(
       calls.some(([cmd]) => ["brew", "sudo"].includes(cmd)),
       false,
     );
-    const result = await ensureDependencies({ platform, run, install: true });
+    const result = await ensureDependencies({ platform, run, uid: 501 });
     assert.deepEqual(result.installed, ["tmux"]);
     assert.equal(
       calls.some(

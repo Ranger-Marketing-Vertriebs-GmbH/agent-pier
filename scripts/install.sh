@@ -1,12 +1,17 @@
 #!/bin/sh
 set -eu
 # Bootstrap only a private temporary Node runtime; the release carries its own runtime.
+PATH="${PATH:+$PATH:}/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export PATH
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "$SCRIPT_DIR/install-bootstrap.sh"
+validate_installer_options "$@"
 if command -v node >/dev/null 2>&1 && node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||a===22&&b>=13?0:1)' >/dev/null 2>&1; then
   exec node "$SCRIPT_DIR/release-install.mjs" "$@"
 fi
 case $(uname -s) in Darwin) PLATFORM=darwin;; Linux) PLATFORM=linux;; *) echo 'Unsupported operating system.' >&2; exit 1;; esac
 case $(uname -m) in arm64|aarch64) ARCH=arm64;; x86_64) ARCH=x64;; *) echo 'Unsupported architecture.' >&2; exit 1;; esac
+ensure_bootstrap_tools "$@"
 TEMP_ROOT=$(mktemp -d)
 trap 'rm -rf "$TEMP_ROOT"' EXIT HUP INT TERM
 VERSION=22.22.2

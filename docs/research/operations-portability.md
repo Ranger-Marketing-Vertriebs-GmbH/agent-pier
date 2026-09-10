@@ -53,18 +53,17 @@ All old releases are retained. Running sessions can invoke absolute old-release 
 
 ## Installer and exact commands
 
-From a clean source checkout, the installer does not require `npm ci`. It can bootstrap a verified private temporary Node runtime when a suitable Node is absent. `curl`, `tar` and a SHA-256 utility are bootstrap prerequisites. On macOS automatic dependency setup uses an existing Homebrew installation; on Linux it supports apt with noninteractive sudo permission. Other package managers can install tmux/Git first, then run the installer without `--install-dependencies`.
+From a clean source checkout, the installer does not require `npm ci`. It can bootstrap a verified private temporary Node runtime when a suitable Node is absent. Missing `curl`, `tar` and SHA-256 tools are installed before bootstrapping Node. Host tmux/Git installation is enabled by default. On macOS missing Homebrew is installed using its [official installation script](https://docs.brew.sh/Installation), with terminal input preserved for confirmation and sudo authentication. Without a terminal the script uses Homebrew’s `NONINTERACTIVE=1` mode. Downloads must complete successfully over HTTPS before execution, and temporary files are removed on exit. On Linux it supports apt, with interactive sudo authentication in a terminal (or direct apt when run as root). Noninteractive runs require sudo permission without a password. On other distributions, install the missing packages with your package manager first.
 
 ```sh
 sh scripts/install.sh \
   --archive /absolute/path/agentpier-darwin-arm64.aprelease \
   --install-root "$HOME/.local/share/agentpier-app" \
   --data-dir "$HOME/Library/Application Support/AgentPier" \
-  --install-dependencies \
   --service
 ```
 
-`--install-dependencies` explicitly permits missing host tmux/Git installation; `--service` explicitly installs/restarts the user service. Omitting them checks prerequisites and installs only the owned release layout. For Linux choose the matching artifact and a stable data path such as `$HOME/.local/share/agentpier-data`. Never point the data directory inside a release directory. No private username or machine address is built into the installer.
+`--skip-dependencies` disables host package installation while still checking prerequisites. `--install-dependencies` remains accepted for compatibility. `sh scripts/install.sh --dependencies-only` repairs missing host prerequisites without requiring an archive or changing an existing release/data layout; restart the web service afterwards. It cannot be combined with release or service options. `--service` installs/restarts the user service and records the augmented host PATH. To repair an old service PATH, rerun `node scripts/service.mjs install` from an updated checkout with the original `AGENTPIER_INSTALL_ROOT` and `AGENTPIER_DATA_DIR` environment variables. For Linux choose the matching artifact and a stable data path such as `$HOME/.local/share/agentpier-data`. Never point the data directory inside a release directory. No private username or machine address is built into the installer.
 
 Manual start uses `"$HOME/.local/share/agentpier-app/bin/agentpier"`. Existing source-checkout installation remains `npm ci`, `npm run build`, `npm start`, followed by optional `npm run service:install`. A versioned install is required for activation; the Settings UI reports this accurately while source checkouts can still create backups and run diagnostics.
 
