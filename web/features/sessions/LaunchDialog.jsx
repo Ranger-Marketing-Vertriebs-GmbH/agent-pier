@@ -1,3 +1,4 @@
+import LaunchMcpChoices from "../mcp/LaunchMcpChoices.jsx";
 import LaunchSshChoices from "../ssh/LaunchSshChoices.jsx";
 import useLaunchAccess from "./useLaunchAccess.js";
 import LaunchAccessFields from "./LaunchAccessFields.jsx";
@@ -21,6 +22,7 @@ export default function LaunchDialog({ state, tool, initialCwd, close, created }
     [name, setName] = useState(""),
     [launchMode, setLaunchMode] = useState(() => defaultMode(access.tool)),
     [busEnabled, setBusEnabled] = useState(true),
+    [agentpierTools, setAgentpierTools] = useState(false),
     [sshAccessIds, setSshAccessIds] = useState([]);
   const selectedTool = access.tool;
   const coding = selectedTool !== "shell";
@@ -62,6 +64,7 @@ export default function LaunchDialog({ state, tool, initialCwd, close, created }
               launchMode,
               agentbus: coding && busEnabled,
               sshAccessIds,
+              agentpierTools: coding ? agentpierTools : false,
             });
             await created(session);
           }}
@@ -140,6 +143,9 @@ export default function LaunchDialog({ state, tool, initialCwd, close, created }
                 <small>{copy.agentbusLaunchHint}</small>
               </span>
             </label>
+          )}
+          {coding && (
+            <LaunchMcpChoices selection={agentpierTools} change={setAgentpierTools} />
           )}
           <LaunchSshChoices selected={sshAccessIds} change={setSshAccessIds} />
           <label>

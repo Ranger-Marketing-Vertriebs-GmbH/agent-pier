@@ -14,6 +14,7 @@ export function createShutdown({ services, wss, server }) {
     await services.reload?.close();
     services.accountAuthStatus?.close();
     services.agency?.close();
+    await services.sessionMcp?.close();
     await services.mcpTransport?.close();
     await services.operationsEvents?.close();
     services.chatEvents?.close();

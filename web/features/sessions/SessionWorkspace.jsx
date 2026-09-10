@@ -1,3 +1,4 @@
+import { mcpCopy } from "../../lib/i18n/messages/mcp.js";
 import { sessionReloadCopy } from "../../lib/i18n/messages/sessions.js";
 import "./session-reload.css";
 import { sshCopy } from "../../lib/i18n/messages/ssh.js";
@@ -17,6 +18,7 @@ const SessionReloadDialog = lazy(() => import("./SessionReloadDialog.jsx"));
 const PipelineSessionRecovery = lazy(
   () => import("../pipelines/PipelineSessionRecovery.jsx"),
 );
+const SessionMcpDialog = lazy(() => import("../mcp/SessionMcpDialog.jsx"));
 const SessionSshDialog = lazy(() => import("../ssh/SessionSshDialog.jsx"));
 const FileExplorer = lazy(() => import("../files/FileExplorer.jsx"));
 const TerminalView = lazy(() => import("../terminal/TerminalView.jsx"));
@@ -31,6 +33,7 @@ export default function SessionWorkspace({
   openNavigation,
 }) {
   const [sshSession, setSshSession] = useState(null);
+  const [mcpSession, setMcpSession] = useState(null);
   const [reloadSession, setReloadSession] = useState(null);
   const [switchAccount, setSwitchAccount] = useState(false);
   const sessionIdentity = JSON.stringify([
@@ -124,6 +127,16 @@ export default function SessionWorkspace({
                 <Icon name="users" />
               </button>
             )}
+          {session.agentpierTools && (
+            <button
+              className="icon-button"
+              aria-label={mcpCopy.sessionTools}
+              title={mcpCopy.sessionTools}
+              onClick={() => setMcpSession(sessionIdentity)}
+            >
+              <Icon name="shield" />
+            </button>
+          )}
           {session.status === "running" &&
             !session.pipeline?.headless &&
             session.purpose !== "login" && (
@@ -290,6 +303,11 @@ export default function SessionWorkspace({
             </button>
           ))}
         </div>
+      )}
+      {mcpSession === sessionIdentity && session.agentpierTools && (
+        <Suspense fallback={<p role="status">{mcpCopy.loading}</p>}>
+          <SessionMcpDialog session={session} close={() => setMcpSession(null)} />
+        </Suspense>
       )}
       {sshSession === sessionIdentity &&
         session.status === "running" &&

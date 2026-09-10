@@ -12,6 +12,8 @@ import { problem } from "../lib/storage.js";
 export function createReloadLifecycle(services) {
   async function prepareReload(session, nativeId, targetAccountId) {
     const { accounts, history, tools, models } = services;
+    if (session.agentpierTools?.enabled)
+      services.sessionMcp?.validate(session.agentpierTools.selection);
     const content = await history.read(session, nativeId);
     const switching = targetAccountId && targetAccountId !== session.accountId;
     if (
@@ -138,6 +140,13 @@ export function createReloadLifecycle(services) {
           });
           launch = await memoryIntegration.prepare(input());
           if (sshIntegration) launch = await sshIntegration.prepare(input());
+          if (services.sessionMcp)
+            launch = await services.sessionMcp.prepare({
+              ...input(),
+              selection: session.agentpierTools?.enabled
+                ? session.agentpierTools.selection
+                : false,
+            });
           launch = await bindings.prepare(input());
           launch = await requests.prepare(input());
           return { ...launch, ...(plan.transfer ? { accountId: account.id } : {}) };

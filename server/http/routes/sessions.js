@@ -21,6 +21,15 @@ export function sessionsRoutes(services) {
     sshSessions,
   } = services;
   const router = Router();
+  router.get("/session-mcp/options", (_req, res) =>
+    res.json({
+      resources: services.sessionMcp.resources(),
+    }),
+  );
+  router.delete("/sessions/:id/mcp", async (req, res) => {
+    await sessions.get(req.params.id);
+    res.json(await services.sessionMcp.revoke(req.params.id));
+  });
   router.post("/sessions", async (req, res) =>
     res.status(201).json(await launch(req.body)),
   );
@@ -49,6 +58,7 @@ export function sessionsRoutes(services) {
     // attachment directory deleted.
     const directory = (await sessions.get(req.params.id)).attachments?.directory;
     await sessions.remove(req.params.id);
+    services.sessionMcp?.discard(req.params.id);
     sshSessions?.discard(req.params.id);
     await services.sshIntegration?.discard(req.params.id);
     await chatDelivery.discard(req.params.id);

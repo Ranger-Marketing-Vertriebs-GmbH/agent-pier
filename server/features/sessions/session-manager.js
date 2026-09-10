@@ -278,6 +278,13 @@ export class SessionManager {
           : {}),
       };
       if (options.nativeModelId) session.nativeModelId = options.nativeModelId;
+      if (
+        options.agentpierTools &&
+        !pipeline &&
+        tool !== "shell" &&
+        options.purpose !== "login"
+      )
+        session.agentpierTools = options.agentpierTools;
       if (options.sshTools)
         session.sshTools = {
           enabled: options.sshTools.enabled === true,
