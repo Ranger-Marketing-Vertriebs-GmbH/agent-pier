@@ -37,6 +37,7 @@ export class ChatStreams {
         waiting: new Set(),
         generation: 0,
         dirty: false,
+        refreshSource: false,
         disposed: false,
       };
       this.entries.set(id, entry);
@@ -46,7 +47,7 @@ export class ChatStreams {
           entry.value = null;
           entry.digest = null;
         }
-        this.invalidate(entry);
+        this.invalidate(entry, event.type !== "snapshot-changed");
       });
       entry.recovery = setInterval(() => {
         entry.unwatch?.();
@@ -71,27 +72,31 @@ export class ChatStreams {
       if (!entry.listeners.size) this.dispose(entry);
     };
   }
-  invalidate(entry) {
+  invalidate(entry, refreshSource = true) {
     if (entry.disposed || this.closed) return;
     entry.dirty = true;
+    entry.refreshSource ||= refreshSource;
     if (entry.pending || entry.timer) return;
     entry.timer = setTimeout(() => {
       entry.timer = null;
       entry.pending = this.refresh(entry).finally(() => {
         entry.pending = null;
-        if (entry.dirty) this.invalidate(entry);
+        if (entry.dirty) this.invalidate(entry, false);
       });
     }, this.debounceMs);
     entry.timer.unref();
   }
   async refresh(entry) {
     entry.dirty = false;
+    const refreshSource = entry.refreshSource;
+    entry.refreshSource = false;
     const generation = entry.generation;
     try {
       const session = await this.sessions.get(entry.id);
       if (entry.disposed) return;
       const scope = JSON.stringify([session.accountId, session.tool, session.cwd]);
-      if (entry.scope !== scope) {
+      const scopeChanged = entry.scope !== scope;
+      if (scopeChanged) {
         entry.unwatch?.();
         entry.unwatch = null;
         entry.scope = scope;
@@ -108,8 +113,12 @@ export class ChatStreams {
       }
       // A real source event invalidates the short HTTP cache, but the store owns
       // single-flight history reads so an earlier slow request is never duplicated.
-      this.chat.invalidate(entry.id);
-      this.chat.bindings?.processCache?.clear();
+      // Completion hints announce a freshly cached background result. Re-reading
+      // its source here would discard that result and restart a slow provider read.
+      if (refreshSource || scopeChanged) {
+        this.chat.invalidate(entry.id);
+        this.chat.bindings?.processCache?.clear();
+      }
       const snapshot = await this.chatImages.read(entry.id);
       if (entry.disposed || this.closed || entry.generation !== generation) return;
       const value = { session, snapshot };

@@ -372,3 +372,70 @@ test("chat upgrades return 503 once streams have shut down", { timeout }, async 
   assert.match(client.errors[0]?.message || "", /503/);
   assert.deepEqual(client.frames, []);
 });
+
+test(
+  "completed background snapshots reuse the cache while coalesced source hints still invalidate it",
+  { timeout },
+  async (t) => {
+    const f = await fixture(t);
+    let cached;
+    let source = f.snapshot();
+    let providerReads = 0;
+    let invalidations = 0;
+    f.application.chat.invalidate = () => {
+      invalidations++;
+      cached = null;
+    };
+    f.application.chatImages.read = async () => {
+      if (!cached) {
+        providerReads++;
+        cached = structuredClone(source);
+      }
+      return cached;
+    };
+    const client = connect(t, f);
+    await client.next("sync");
+    assert.equal(providerReads, 1);
+    const offset = client.frames.length;
+    cached = { ...source, tasks: [{ id: "completed-read", status: "completed" }] };
+    f.application.chatEvents.publish(sessionId, "snapshot-changed");
+    const completed = await client.next("sync", offset);
+    assert.deepEqual(completed.data.metadata.tasks, cached.tasks);
+    assert.equal(providerReads, 1, "completion must not restart the provider read");
+    assert.equal(invalidations, 1);
+
+    const sourceOffset = client.frames.length;
+    source = { ...source, tasks: [{ id: "new-source", status: "pending" }] };
+    f.application.chatEvents.publish(sessionId, "source-changed");
+    f.application.chatEvents.publish(sessionId, "snapshot-changed");
+    const changed = await client.next("sync", sourceOffset);
+    assert.deepEqual(changed.data.metadata.tasks, source.tasks);
+    assert.equal(
+      providerReads,
+      2,
+      "completion hint cannot erase a queued source refresh",
+    );
+    assert.equal(invalidations, 2);
+
+    const started = deferred();
+    const release = deferred();
+    t.after(() => release.resolve());
+    const read = f.application.chatImages.read;
+    f.application.chatImages.read = async () => {
+      const result = await read();
+      started.resolve();
+      await release.promise;
+      return result;
+    };
+    const pendingOffset = client.frames.length;
+    f.application.chatEvents.publish(sessionId, "source-changed");
+    await started.promise;
+    cached = { ...source, tasks: [{ id: "pending-completion", status: "completed" }] };
+    f.application.chatEvents.publish(sessionId, "snapshot-changed");
+    release.resolve();
+    const pending = await client.next("sync", pendingOffset);
+    assert.deepEqual(pending.data.metadata.tasks, cached.tasks);
+    assert.equal(providerReads, 3, "completion queued during a read also reuses cache");
+    assert.equal(invalidations, 3);
+  },
+);
