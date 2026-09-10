@@ -154,9 +154,14 @@ export class CodexHistoryClient {
 }
 
 export class ProviderHistory {
-  constructor({ accounts, home }) {
+  constructor({
+    accounts,
+    home,
+    codexClientFactory = (command, env, cwd) => new CodexHistoryClient(command, env, cwd),
+  }) {
     this.accounts = accounts;
     this.home = home;
+    this.codexClientFactory = codexClientFactory;
     this.codexClients = new Map();
     this.openCodeJobs = new Set();
   }
@@ -211,12 +216,25 @@ export class ProviderHistory {
   }
   codex(session) {
     const env = this.environment(session);
-    let client = this.codexClients.get(session.accountId);
+    const key = `${session.accountId}\0${session.cwd}`;
+    let client = this.codexClients.get(key);
     if (!client || client.closed) {
-      client = new CodexHistoryClient(this.executable("codex"), env, this.home);
-      this.codexClients.set(session.accountId, client);
+      client = this.codexClientFactory(this.executable("codex"), env, this.home);
+      this.codexClients.set(key, client);
     }
     return client;
+  }
+  async codexRequest(session, operation) {
+    const client = this.codex(session);
+    try {
+      return await operation(client);
+    } catch (error) {
+      if (!client.closed || error.status !== 503) throw error;
+      const key = `${session.accountId}\0${session.cwd}`;
+      if (this.codexClients.get(key) === client) this.codexClients.delete(key);
+      if (client.close) await client.close().catch(() => {});
+      return operation(this.codex(session));
+    }
   }
   async queue(session, nativeId, text) {
     if (session.tool !== "codex") throw problem(serverMessages.chat.sessionToolMismatch);
@@ -308,12 +326,14 @@ export class ProviderHistory {
       return choices.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 100);
     }
     if (session.tool === "codex") {
-      const result = await this.codex(session).request("thread/list", {
-        cwd: session.cwd,
-        limit: 100,
-        sortKey: "updated_at",
-        sourceKinds: ["cli", "appServer"],
-      });
+      const result = await this.codexRequest(session, (client) =>
+        client.request("thread/list", {
+          cwd: session.cwd,
+          limit: 100,
+          sortKey: "updated_at",
+          sourceKinds: ["cli", "appServer"],
+        }),
+      );
       return (result.data || [])
         .filter((t) => t.cwd === session.cwd)
         .map((t) => ({
@@ -343,34 +363,39 @@ export class ProviderHistory {
       return { ...normalizeClaude(records), observability: observeClaude(records) };
     }
     if (session.tool === "codex") {
-      const client = this.codex(session);
       // Fetch metadata first: paginated stores cannot include turns in thread/read.
-      const { thread } = await client.request("thread/read", {
-        threadId: id,
-        includeTurns: false,
-      });
+      const { thread } = await this.codexRequest(session, (client) =>
+        client.request("thread/read", {
+          threadId: id,
+          includeTurns: false,
+        }),
+      );
       if (thread?.cwd !== session.cwd)
         throw problem(serverMessages.chat.historyProjectMismatch, 409);
       let full;
       try {
         full = (
-          await client.request("thread/read", {
-            threadId: id,
-            includeTurns: true,
-          })
+          await this.codexRequest(session, (client) =>
+            client.request("thread/read", {
+              threadId: id,
+              includeTurns: true,
+            }),
+          )
         ).thread;
       } catch (error) {
         if (error.status !== 409) throw error;
         const turns = [];
         let cursor;
         do {
-          const page = await client.request("thread/turns/list", {
-            threadId: id,
-            limit: 100,
-            itemsView: "full",
-            sortDirection: "desc",
-            ...(cursor ? { cursor } : {}),
-          });
+          const page = await this.codexRequest(session, (client) =>
+            client.request("thread/turns/list", {
+              threadId: id,
+              limit: 100,
+              itemsView: "full",
+              sortDirection: "desc",
+              ...(cursor ? { cursor } : {}),
+            }),
+          );
           turns.push(...(page.data || []));
           cursor = page.nextCursor;
         } while (cursor && turns.length < 1000);
