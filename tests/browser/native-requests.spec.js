@@ -184,6 +184,14 @@ for (const viewport of [
     state.requests = [{ ...request, source: "claude" }];
     const panel = page.locator(".terminal-pane .native-requests");
     await expect(panel.getByText("Choose a scope", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Chat", exact: true }).click();
+    await expect(
+      page
+        .locator(".chat-container .native-requests")
+        .getByText("Choose a scope", { exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Terminal", exact: true }).click();
+    await expect(panel.getByText("Choose a scope", { exact: true })).toBeVisible();
     const terminal = await page.locator(".terminal-mount").boundingBox();
     const bounds = await panel.boundingBox();
     expect(terminal.height).toBeGreaterThan(40);
