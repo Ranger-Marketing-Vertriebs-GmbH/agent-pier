@@ -93,37 +93,38 @@ test("concurrent sessions in the same cwd bind only their exact receipt and surv
   );
   assert.equal(await restarted.resolve({ ...first.session, cwd: ctx.root }), null);
 });
-test("new reader sessions wait for native identity then bind automatically without listing candidates", async (t) => {
-  const ctx = setup(t);
-  const { prepared, session } = await launch(ctx, "chat-native", "codex");
-  let reads = 0;
-  const history = {
-    list: async () => {
-      throw Error("must not guess");
-    },
-    read: async (_session, id) => {
-      reads++;
-      return { messages: [{ id: "one", role: "assistant", text: id }], tasks: [] };
-    },
-  };
-  const store = new ChatStore({
-    dataDir: ctx.accounts.dataDir,
-    sessions: { get: async () => session },
-    history,
-    bindings: ctx.bindings,
+for (const tool of ["codex", "claude"])
+  test(`${tool} reader follows native clear/resume identity without listing candidates`, async (t) => {
+    const ctx = setup(t);
+    const { prepared, session } = await launch(ctx, "chat-native", tool);
+    let reads = 0;
+    const history = {
+      list: async () => {
+        throw Error("must not guess");
+      },
+      read: async (_session, id) => {
+        reads++;
+        return { messages: [{ id: "one", role: "assistant", text: id }], tasks: [] };
+      },
+    };
+    const store = new ChatStore({
+      dataDir: ctx.accounts.dataDir,
+      sessions: { get: async () => session },
+      history,
+      bindings: ctx.bindings,
+    });
+    assert.equal((await store.read(session.id)).availability, "waiting");
+    recordNativeSession({ session_id: "exact-native", cwd: ctx.cwd }, prepared.env, {
+      pid: process.pid,
+    });
+    assert.equal((await store.read(session.id)).providerSessionId, "exact-native");
+    assert.equal(reads, 1);
+    recordNativeSession({ session_id: "next-native", cwd: ctx.cwd }, prepared.env, {
+      pid: process.pid,
+    });
+    assert.equal((await store.read(session.id)).providerSessionId, "next-native");
+    assert.equal(reads, 2);
   });
-  assert.equal((await store.read(session.id)).availability, "waiting");
-  recordNativeSession({ session_id: "exact-native", cwd: ctx.cwd }, prepared.env, {
-    pid: process.pid,
-  });
-  assert.equal((await store.read(session.id)).providerSessionId, "exact-native");
-  assert.equal(reads, 1);
-  recordNativeSession({ session_id: "next-native", cwd: ctx.cwd }, prepared.env, {
-    pid: process.pid,
-  });
-  assert.equal((await store.read(session.id)).providerSessionId, "next-native");
-  assert.equal(reads, 2);
-});
 test("receipt integrity rejects wrong tokens, cwd, traversal, symlinks and a competing live process", async (t) => {
   const ctx = setup(t);
   const { prepared, session } = await launch(ctx, "safe", "codex");
