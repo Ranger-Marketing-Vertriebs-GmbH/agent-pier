@@ -235,3 +235,41 @@ test("restart adopts a completed worktree from its durable preparation intent wi
     "+ agentpier/recover",
   );
 });
+
+test("new pull requests use the ticket task headline rather than the pipeline definition", async (t) => {
+  const { root, project, dataDir, git } = await fixture(t);
+  const calls = path.join(root, "gh-calls.jsonl"),
+    gh = path.join(root, "fake-gh.cjs");
+  await fs.writeFile(
+    gh,
+    `#!${process.execPath}\nconst fs=require('node:fs');const args=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(calls)},JSON.stringify(args)+'\\n');console.log(args[1]==='list'?'[]':'https://github.example/org/repo/pull/1');`,
+    { mode: 0o700 },
+  );
+  const manager = new PipelineWorkspace({
+    dataDir,
+    github: {
+      prepare: async ({ launch }) => launch,
+      discard: async () => {},
+      resolveGh: () => gh,
+    },
+  });
+  const workspace = await manager.prepare({ runId: "task-title", cwd: project });
+  const remote = path.join(root, "remote.git");
+  await exec("git", ["init", "--bare", remote]);
+  await git("remote", "add", "origin", "https://github.example/org/repo.git");
+  await git("config", "remote.origin.pushurl", remote);
+  await manager.createPr({
+    workspace,
+    run: {
+      id: "task-title",
+      pipelineName: "Implement and review",
+      task: "NEONNIGHTS-353: ActionCam auf Tokens umstellen\n\nImplementation instructions",
+    },
+  });
+  const args = (await fs.readFile(calls, "utf8")).trim().split("\n").map(JSON.parse);
+  const created = args.find((row) => row[1] === "create");
+  assert.equal(
+    created[created.indexOf("--title") + 1],
+    "NEONNIGHTS-353: ActionCam auf Tokens umstellen",
+  );
+});
