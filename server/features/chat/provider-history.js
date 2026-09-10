@@ -456,6 +456,8 @@ export class ProviderHistory {
       const meta = records.find((record) => record?.type === "session_meta")?.payload;
       if (
         !meta?.id ||
+        (typeof meta.source === "object" && meta.source?.subagent != null) ||
+        (typeof meta.agent_path === "string" && meta.agent_path !== "/root") ||
         !meta.cwd ||
         (await fs.realpath(meta.cwd)) !== (await fs.realpath(session.cwd))
       )

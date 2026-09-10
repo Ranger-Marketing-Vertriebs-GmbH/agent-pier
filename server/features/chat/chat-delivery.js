@@ -168,7 +168,9 @@ export class ChatDelivery {
         },
         async (session) => {
           if (session.tool !== "codex" || !this.bindings || !this.history) return false;
-          const native = await this.bindings.resolve(session).catch(() => null);
+          const native = await this.bindings
+            .resolve(session, { forInput: true })
+            .catch(() => null);
           if (!native?.id) return false;
           await this.history.queue(session, native.id, text);
           return true;

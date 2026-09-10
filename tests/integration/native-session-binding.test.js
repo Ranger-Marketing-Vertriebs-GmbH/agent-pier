@@ -177,7 +177,7 @@ test("runtime Codex binding uses only the exact child with its own writer lock a
   const { ProviderHistory } =
     await import("../../server/features/chat/provider-history.js");
   const ctx = setup(t);
-  const { session } = await launch(ctx, "runtime", "codex");
+  const { session, prepared } = await launch(ctx, "runtime", "codex");
   const env = ctx.accounts.environment(session.accountId);
   const root = env.CODEX_HOME;
   fs.mkdirSync(path.join(root, "thread-writer-locks"), { recursive: true });
@@ -222,6 +222,22 @@ test("runtime Codex binding uses only the exact child with its own writer lock a
     sessions: { target: (id) => "=" + id, tmux: async () => "101" },
   };
   assert.equal((await resolveCodexProcess(session, options))?.id, "native-exact");
+  const childRollout = path.join(root, "sessions/child.jsonl");
+  const childLock = path.join(root, "thread-writer-locks/child.lock");
+  fs.writeFileSync(childLock, "");
+  fs.writeFileSync(
+    childRollout,
+    JSON.stringify({
+      type: "session_meta",
+      payload: {
+        id: "child",
+        cwd: ctx.cwd,
+        source: { subagent: { thread_spawn: { parent_thread_id: "native-exact" } } },
+      },
+    }) + "\n",
+  );
+  files = [lock, rollout, childLock, childRollout];
+  assert.equal((await resolveCodexProcess(session, options))?.id, "native-exact");
   files = [rollout];
   assert.equal(await resolveCodexProcess(session, options), null);
   files = [lock, rollout];
@@ -250,6 +266,43 @@ test("runtime Codex binding uses only the exact child with its own writer lock a
   assert.equal((await chat.read(legacy.id)).providerSessionId, "native-exact");
   assert.equal(await bindings.resolve({ ...legacy, cwd: ctx.root }), null);
   assert.equal(await bindings.resolve({ ...legacy, status: "stopped" }), null);
+  recordNativeSession({ session_id: "old-receipt", cwd: ctx.cwd }, prepared.env, {
+    pid: process.pid,
+  });
+  const upgraded = path.join(ctx.root, "new-codex");
+  fs.writeFileSync(upgraded, "");
+  const afterUpgrade = new NativeSessionBinding({
+    dataDir: ctx.accounts.dataDir,
+    accounts: ctx.accounts,
+    sessions: options.sessions,
+    history,
+    processOptions: {
+      executable: upgraded,
+      probe: {
+        ...probe,
+        children: async (pid) =>
+          ({ 101: [103], 103: [104], 104: [105], 105: [process.pid] })[pid] || [],
+        executable: async (pid) => (pid === process.pid ? native : process.execPath),
+      },
+    },
+  });
+  files = [lock, rollout, childLock, childRollout];
+  assert.equal(
+    (await afterUpgrade.resolve(session, { forInput: true }))?.id,
+    "native-exact",
+  );
+  files = [];
+  // A live receipt can outlast /clear; writes must not use its old thread or a cached result.
+  assert.equal(await afterUpgrade.resolve(session, { forInput: true }), null);
+  files = [lock, rollout];
+  let verifiedChecks = 0;
+  assert.equal(
+    await resolveCodexProcess(session, {
+      ...options,
+      verifyRuntime: (pid) => pid === 102 && ++verifiedChecks === 1,
+    }),
+    null,
+  );
   probe.start = async () => {
     const before = stamp;
     stamp = "reused";
