@@ -95,7 +95,10 @@ for (const viewport of [
       await field.press("Enter");
       await expect(field).toHaveValue("account-3");
       await field.click();
-      await page.getByLabel("Name der Sitzung").click();
+      // On short viewports the menu can cover the name field. Click the dialog
+      // padding to exercise outside dismissal without targeting an obscured input.
+      const dialogBox = await page.getByRole("dialog").boundingBox();
+      await page.mouse.click(dialogBox.x + 4, dialogBox.y + dialogBox.height / 2);
       await expect(page.getByRole("listbox")).toHaveCount(0);
     } finally {
       await context.close();

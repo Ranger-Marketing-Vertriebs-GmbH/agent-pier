@@ -81,8 +81,10 @@ export async function pipelinesFixture(page) {
           { id: "local-claude", name: "Claude lokal", tool: "claude", kind: "local" },
         ],
         sessions: state.sessions,
+        providerConnections: state.connections,
         home: "/fixture",
       };
+    else if (path === "/ssh-accesses") result = { accesses: [] };
     else if (path === "/provider-connections")
       result = { connections: state.connections };
     else if (path.startsWith("/providers/") && path.endsWith("/models"))

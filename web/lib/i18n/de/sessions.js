@@ -1,4 +1,14 @@
 export const launchDialogCopy = {
+  taskProfile: "Aufgabenprofil",
+  noTaskProfile: "Ohne Aufgabenprofil",
+  profileUnavailable:
+    "Das Aufgabenprofil ist nicht verfügbar. Bitte wähle ein anderes Profil.",
+  profileSessionHint:
+    "Das Profil belegt die Startoptionen vor. Änderungen gelten nur für diese Sitzung. Ein CLI-Wechsel hebt die Profilauswahl auf.",
+  profileMode: (mode) => `Profil · ${mode}`,
+  profileModeDescription: (mode) =>
+    `Verwendet den Berechtigungsmodus ${mode} aus dem Aufgabenprofil.`,
+
   nativeModeDescription:
     "Verwendet die Berechtigungen aus deinem Tool-Profil und dessen native Voreinstellungen.",
   codexYoloDescription:

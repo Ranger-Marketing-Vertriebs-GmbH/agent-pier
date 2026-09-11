@@ -27,6 +27,7 @@ export default function AppDialogs({
           state={state}
           tool={modal.tool}
           initialCwd={modal.cwd}
+          initialProfile={modal.profile}
           close={close}
           created={created}
         />
