@@ -67,7 +67,8 @@ export const sessionReloadCopy = {
     "The reload request could not be confirmed. Retry the same request to safely check its result.",
   retry: "Retry request",
   waiting: "Reload queued · waiting until idle",
-  reloading: "Reloading the same conversation …",
+  reloading:
+    "Waiting for the resumed conversation · confirm any prompts in the terminal.",
   completed: "Conversation resumed with refreshed integrations.",
   close: "Close",
   refresh: "Check again",

@@ -27,6 +27,7 @@ test("real app reload resumes exact Claude history with fresh SSH tools and reta
   const cli = path.join(f.root, "synthetic-claude.mjs");
   const capture = path.join(f.root, "launches.jsonl");
   const failStartup = path.join(f.root, "fail-startup");
+  const approveHooks = path.join(f.root, "approve-hooks");
   const bindingModule = new URL(
     "../../server/features/sessions/native-session-binding.js",
     import.meta.url,
@@ -48,6 +49,7 @@ const folder = path.join(root, 'projects', cwd.replace(/[^a-zA-Z0-9]/g, '-'));
 fs.mkdirSync(folder, {recursive: true});
 const history = path.join(folder, nativeId + '.jsonl');
 if (!resumed) fs.writeFileSync(history, JSON.stringify({type:'user',uuid:'fixture-message',sessionId:nativeId,cwd,timestamp:new Date().toISOString(),message:{role:'user',content:'Keep this saved conversation'}})+'\\n');
+while (resumed && !fs.existsSync(${JSON.stringify(approveHooks)})) await new Promise(resolve => setTimeout(resolve, 40));
 recordNativeSession({session_id:nativeId,cwd}, process.env, {pid:process.pid});
 fs.appendFileSync(${JSON.stringify(capture)}, JSON.stringify({args,nativeId,pid:process.pid})+'\\n');
 console.log('Synthetic CLI ready');
@@ -103,6 +105,12 @@ setInterval(()=>{},1000);
   });
   assert.ok(reload.ok, await reload.clone().text());
   const result = await reload.json();
+  assert.equal(result.state, "reloading", JSON.stringify(result));
+  await fs.writeFile(approveHooks, "approved");
+  await until(
+    async () => (await f.request(endpoint)).json(),
+    (value) => value.state === "completed",
+  );
   const renewed = await until(
     () => app.sessions.get(session.id),
     (value) =>
@@ -114,7 +122,6 @@ setInterval(()=>{},1000);
     await fs.readFile(credential(renewed.agentpierTools.generation), "utf8"),
   ).token;
   assert.equal(app.sessionMcp.check(freshToken).extra.grant.id, `session-${session.id}`);
-  assert.equal(result.state, "completed", JSON.stringify(result));
   const launches = await until(
     async () => (await fs.readFile(capture, "utf8")).trim().split("\n").map(JSON.parse),
     (rows) => rows.length === 2,
@@ -149,7 +156,11 @@ setInterval(()=>{},1000);
     method: "POST",
     body: { requestId: randomUUID(), mode: "now", interrupt: true },
   });
-  assert.equal((await failed.json()).state, "failed");
+  assert.ok(["reloading", "failed"].includes((await failed.json()).state));
+  await until(
+    async () => (await f.request(endpoint)).json(),
+    (value) => value.state === "failed",
+  );
   assert.deepEqual(app.sshSessions.assigned(await app.sessions.get(session.id)), [
     access.id,
   ]);
@@ -171,6 +182,10 @@ setInterval(()=>{},1000);
     body: { requestId: randomUUID(), mode: "now" },
   });
   const retried = await retry.json();
-  assert.equal(retried.state, "completed", JSON.stringify(retried));
+  assert.ok(["reloading", "completed"].includes(retried.state), JSON.stringify(retried));
+  await until(
+    async () => (await f.request(endpoint)).json(),
+    (value) => value.state === "completed",
+  );
   assert.equal(await fs.readFile(attachment, "utf8"), "retained fixture");
 });

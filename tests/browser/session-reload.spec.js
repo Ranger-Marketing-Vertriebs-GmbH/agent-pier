@@ -60,7 +60,12 @@ async function fixture(page, language = "en") {
           });
         state.reload = {
           ...state.reload,
-          state: body.mode === "when-idle" ? "waiting" : "completed",
+          state:
+            body.mode === "when-idle"
+              ? "waiting"
+              : state.awaitingHooks
+                ? "reloading"
+                : "completed",
           requestId: body.requestId,
         };
         state.session.reload = { ...state.reload };
@@ -403,4 +408,19 @@ test("a failed account startup can retry the current target without switching ag
   await expect(dialog(page)).toContainText(
     "Conversation resumed with refreshed integrations.",
   );
+});
+
+test("a started reload opens the terminal automatically for delayed hook approval", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  state.reload.activity = { state: "idle" };
+  state.awaitingHooks = true;
+  await open(page);
+  await dialog(page).getByRole("button", { name: "Reload now", exact: true }).click();
+  await expect(dialog(page)).not.toBeVisible();
+  await expect.poll(() => state.sockets).toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Send Enter", exact: true }).click();
+  await expect.poll(() => state.terminalInputs).toContain("\r");
+  expect(state.posts).toHaveLength(1);
 });
