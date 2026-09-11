@@ -26,6 +26,15 @@ verifies the ticket through an available integration, CLI or API. It does not as
 Plane or infer the ticket system solely from the Git remote. Ticket-system access and
 a suitable AgentPier pipeline are configured separately.
 
+For an authorized implementation, the composer monitors each PR through confirmed
+merge, including after CI turns green or auto-merge is enabled. It then refreshes
+the base and starts the next authorized batch across the remaining topics without
+another prompt. Status reports and merge recommendations are intermediate updates.
+Batch progress, PR polling and merge evidence are retained for resumption even when
+no pipeline is active. Merging requires existing authorization and repository checks;
+otherwise the composer continues monitoring for an external merge. Explicitly scoped
+planning or review tasks retain their requested endpoint.
+
 Existing packages with the same name are preserved, including skills imported from
 managed accounts. Installation is recorded per native profile in
 `bundled-skills.json` in the AgentPier data directory. Later launches and releases
