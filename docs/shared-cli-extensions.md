@@ -21,7 +21,10 @@ The first work-session launch for each CLI installs it into that CLI's shared na
 `skills` directory from the table above. Managed accounts inherit it through the
 existing asset links. Login and shell sessions do not install skills; already running
 sessions are not reloaded. The same `SKILL.md` is used by Codex, Claude Code and OpenCode.
-Plane access and a suitable AgentPier pipeline are separate prerequisites for execution.
+The composer identifies each ticket's system, instance and project from the task and
+verifies the ticket through an available integration, CLI or API. It does not assume
+Plane or infer the ticket system solely from the Git remote. Ticket-system access and
+a suitable AgentPier pipeline are configured separately.
 
 Existing packages with the same name are preserved, including skills imported from
 managed accounts. Installation is recorded per native profile in
