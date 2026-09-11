@@ -1,3 +1,4 @@
+import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "@playwright/test";
 
 import { baseURL as base } from "../helpers/browser.js";
@@ -146,6 +147,12 @@ async function fixture(page) {
   await page.routeWebSocket("**/api/sessions/*/terminal", (ws) =>
     ws.send(JSON.stringify({ type: "output", data: "Native Unterhaltung\r\n" })),
   );
+  await mockChatStream(page, () => ({
+    availability: "ready",
+    providerSessionId: "native-demo",
+    messages: [{ id: "a1", role: "assistant", text: "Bestehende Unterhaltung" }],
+    tasks: [],
+  }));
   await page.goto(base + "/#model-demo");
   await page.getByRole("button", { name: "Chat", exact: true }).click();
   return controls;
@@ -197,7 +204,10 @@ test("model errors remain visible across polling and allow safe cancellation", a
   await expect(page.getByRole("alert")).toContainText(
     "Die native Auswahl hat sich geändert",
   );
-  await page.waitForTimeout(3200);
+  controls.model.currentModel = "gpt-5.6-terra";
+  await expect(
+    page.getByRole("button", { name: "Modell auswählen", exact: true }),
+  ).toContainText("gpt-5.6-terra");
   await expect(page.getByRole("alert")).toContainText(
     "Die native Auswahl hat sich geändert",
   );
@@ -356,22 +366,26 @@ for (const viewport of [
           })
           .toBe(true);
       }
-      // Viewport events update the measured popover budget on the next layout frame.
-      await expect
-        .poll(async () => {
-          const bounds = await picker.boundingBox();
-          const layout = await page.locator(".chat-layout").boundingBox();
-          return bounds.y >= Math.max(0, layout.y);
-        })
-        .toBe(true);
-      const panel = await picker.boundingBox(),
-        anchor = await trigger.boundingBox(),
-        chat = await page.locator(".chat-layout").boundingBox();
-      expect(panel.y + panel.height).toBeLessThanOrEqual(anchor.y);
-      expect(panel.y).toBeGreaterThanOrEqual(Math.max(0, chat.y));
-      expect(panel.x).toBeGreaterThanOrEqual(0);
-      expect(panel.x + panel.width).toBeLessThanOrEqual(viewport.width);
-      expect(await picker.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+      // Read every bound in one browser task; resize/scroll can otherwise advance
+      // between individual protocol calls and combine different layout frames.
+      await expect(async () => {
+        const { panel, anchor, chat, scrollable } = await picker.evaluate((element) => {
+          const rect = (node) => node.getBoundingClientRect().toJSON();
+          return {
+            panel: rect(element),
+            anchor: rect(
+              element.closest(".model-control").querySelector(".model-trigger"),
+            ),
+            chat: rect(element.closest(".chat-layout")),
+            scrollable: element.scrollHeight > element.clientHeight,
+          };
+        });
+        expect(panel.bottom).toBeLessThanOrEqual(anchor.top);
+        expect(panel.top).toBeGreaterThanOrEqual(Math.max(0, chat.top));
+        expect(panel.left).toBeGreaterThanOrEqual(0);
+        expect(panel.right).toBeLessThanOrEqual(viewport.width);
+        expect(scrollable).toBe(true);
+      }).toPass({ timeout: 5000 });
       await page
         .getByRole("button", { name: "Auswahl abbrechen", exact: true })
         .scrollIntoViewIfNeeded();

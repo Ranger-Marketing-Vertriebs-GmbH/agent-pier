@@ -68,6 +68,14 @@ jobs:
       - run: npm run test:e2e
         env:
           AGENTPIER_TEST_BROWSER: ${{ matrix.browser }}
+      - name: Repeat WebKit timing regressions
+        if: matrix.browser == 'webkit'
+        run: >-
+          npx playwright test tests/browser/model-control.spec.js tests/browser/chat-upload-recovery.spec.js
+          --grep 'two tabs retry|model field.*390x500|model errors remain'
+          --repeat-each=5
+        env:
+          AGENTPIER_TEST_BROWSER: webkit
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
         with:

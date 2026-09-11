@@ -1,32 +1,47 @@
 ---
 name: agentpier-composer
-description: Begleitet ein Thema, Epic oder mehrere Plane-Tickets von der Klärung über Arbeitsaufträge und AgentPier-Pipelines bis zu geprüften Pull Requests. Verwenden, wenn Arbeit in Plane geplant und mit AgentPier koordiniert umgesetzt werden soll; reine Codeänderungen brauchen diesen Skill nicht.
+description: Begleitet ein Thema, Epic oder mehrere Tickets von der Klärung über Arbeitsaufträge und AgentPier-Pipelines bis zu geprüften Pull Requests. Verwenden, wenn Arbeit anhand von Tickets geplant und mit AgentPier koordiniert umgesetzt werden soll; reine Codeänderungen brauchen diesen Skill nicht.
 ---
 
 # AgentPier Composer
 
-Plane hält die fachlichen Aufträge, AgentPier führt sie aus. Zerlege nur so weit,
-wie unabhängige Umsetzung und Prüfung davon profitieren. Nutze den bestehenden
+Das jeweilige Ticketsystem hält die fachlichen Aufträge, AgentPier führt sie aus.
+Zerlege nur so weit, wie unabhängige Umsetzung und Prüfung davon profitieren. Nutze den bestehenden
 Auftrag und bereits erteilte Freigaben; Planung allein startet keine Umsetzung.
 
 ## 1. Kontext und Auftrag
 
 - Lies die lokalen Repository-Regeln und prüfe Checkout, Remote und Basisbranch.
   Übernimm vorhandene Themenstände, bevor du neue Tickets oder Läufe anlegst.
-- Ermittle das Plane-Projekt aus dem Auftrag oder bestehenden Tickets. Ist es
-  nicht eindeutig, kläre es vor dem Schreiben. Löse Kennungen mit
-  `workitem retrieve_by_identifier` auf; API-Aufrufe verwenden die gelieferten
-  Projekt- und Work-Item-UUIDs.
-- Prüfe verfügbare Plane-Werkzeuge sowie den Zugriff auf die vorgesehene
-  AgentPier-Instanz. Lies bei lokalem Quellcode `docs/pipelines.md` und bei Bedarf
-  die Pipeline-Routen. Erfinde keine MCP-Werkzeuge oder Runner-Kompatibilität.
+- Ermittle **für jedes Ticket** zuerst das tatsächlich verwendete Ticketsystem
+  samt Instanz und Projekt bzw. Repository. Nutze explizite Nutzervorgaben,
+  Ticket-URLs, vorhandene Themenstände und Repository-Regeln als Ausgangspunkt.
+  GitHub Issues, GitLab Issues, Jira, Linear und Plane sind mögliche Systeme;
+  keines davon ist der Standard. Ein Git-Remote oder ein vorhandener Connector
+  allein belegt nicht, wo das Ticket geführt wird.
+- Prüfe die verfügbaren Integrationen, CLIs oder APIs und lies das referenzierte
+  Ticket im passenden System. Bestätige Kennung, Projekt, Titel und Inhalt;
+  speichere die kanonische Ticket-URL sowie die vom System gelieferten IDs.
+  Kurze Kennungen wie `#42` oder `APP-42` sind ohne ihren Projekt- und
+  Instanzkontext nicht eindeutig. Suche gezielt in den durch den Auftrag belegten
+  Systemen. Mehrere Treffer oder fehlender Zugriff erlauben keine Zuordnung auf
+  Verdacht; kläre nur den fehlenden Link oder System-/Projektkontext.
+- Bei verknüpften oder gespiegelten Tickets ermittle das für den Auftrag
+  maßgebliche Ticket. Aktualisiere nicht automatisch jede Kopie. Ein Thema kann
+  Tickets aus mehreren Systemen enthalten; halte deren Zuordnung getrennt.
+  Für neue Tickets übernimm ein belegtes Projektziel oder kläre es vor dem Anlegen.
+  Lege vorhandene Tickets nicht in einem anderen System erneut an.
+- Prüfe den Zugriff auf die vorgesehene AgentPier-Instanz. Lies bei lokalem
+  Quellcode `docs/pipelines.md` und bei Bedarf die Pipeline-Routen. Nutze nur
+  tatsächlich verfügbare Werkzeuge und deren Vertrag; erfinde weder
+  Ticketsystem-Werkzeuge noch Runner-Kompatibilität.
 - Lies bei verfügbarem AgentBus vor paralleler Arbeit und vor Abschluss
   `inbox_read`; ermittle relevante Sitzungen mit `peers_list`. Sende Aufträge
   über `peer_send` nur bei autorisierter Zusammenarbeit. AgentBus startet keine
   Sitzungen; Peers verschiedener Worktree-Verzeichnisse sind nicht automatisch
   erreichbar. Eine zugestellte Nachricht ist noch keine Auftragsannahme.
 
-## 2. Plane-Aufträge vorbereiten
+## 2. Aufträge im ermittelten Ticketsystem vorbereiten
 
 Prüfe die betroffenen Codestellen und schneide daraus umsetzbare Tickets.
 Entscheide gemeinsame Schnittstellen und Datenmodelle einmal für das Thema.
@@ -40,19 +55,30 @@ Jeder Auftrag enthält knapp:
 - bindende Entscheidungen und relevante Codepfade;
 - Abhängigkeiten und erwartete Validierung.
 
-Schreibe im autorisierten Umfang in Plane. Ohne Schreibauftrag bereite die
-konkreten Texte vor und kläre nur die noch fehlende Freigabe. Nutze vorhandene
-Tickets und ergänze sie, ohne fremde Inhalte zu überschreiben. Ein Epic ist ein
-Work Item mit dem über `workitem_type resolve` ermittelten Typ `Epic`; Kinder
-verweisen mit `parent` auf seine UUID. Lege ein Epic nur an, wenn es gebraucht wird.
-Für Abhängigkeiten erst `workitem_relation list_definitions` lesen und dann die
-passende Richtung setzen. Status-UUIDs aus den Projektzuständen auflösen.
+Schreibe im autorisierten Umfang in das bestätigte Ticketsystem und Projekt.
+Ohne Schreibauftrag bereite die konkreten Texte vor und kläre nur die noch
+fehlende Freigabe. Nutze vorhandene Tickets und ergänze sie, ohne fremde Inhalte
+zu überschreiben. Prüfe die tatsächlichen Möglichkeiten für Epics, Untertickets,
+Abhängigkeiten und Statusübergänge; übertrage keine Plane-Datenfelder auf andere
+Systeme. Lege ein Epic nur an, wenn es gebraucht wird. Fehlt eine strukturierte
+Beziehung im System, dokumentiere die Abhängigkeit mit eindeutigen Ticket-Links.
 
 Der Auftrag gehört in die Beschreibung oder einen eindeutig zugeordneten
-Kommentar. `description_stripped` nimmt Klartext, `comment_html` HTML entgegen.
-Lies Änderungen zurück und speichere die IDs. Plane-Status nie nur behaupten.
-Ist Plane nicht erreichbar, sichere Entwürfe lokal; ein bereits autorisierter,
-vollständiger Auftrag kann trotzdem ausgeführt und später nachgetragen werden.
+Kommentar, im vom System akzeptierten Textformat. Löse benötigte Typ-, Status-
+und Projekt-IDs über dessen vorhandene Werkzeuge auf. Lies Änderungen zurück
+und speichere die IDs; Ticket-Status nie nur behaupten.
+
+Nur bei **bestätigtem Plane** gelten diese Besonderheiten: Kennungen
+mit `workitem retrieve_by_identifier` auflösen und die gelieferten Projekt- und
+Work-Item-UUIDs verwenden. Den Epic-Typ über `workitem_type resolve` ermitteln,
+Kinder mit `parent` zuordnen; für Abhängigkeiten zuerst
+`workitem_relation list_definitions` lesen. `description_stripped` nimmt Klartext,
+`comment_html` HTML entgegen. Prüfe auch diese Werkzeuge vor ihrer Verwendung.
+
+Ist das ermittelte Ticketsystem nicht erreichbar, sichere Entwürfe und
+nachzutragende Änderungen lokal mit ihrer Ticket-Zuordnung. Ein bereits
+vorliegender, autorisierter und vollständiger Auftrag kann trotzdem ausgeführt
+werden; fehlender Zugriff ist kein Anlass, ein anderes System anzunehmen.
 
 ## 3. In AgentPier ausführen
 
@@ -65,9 +91,10 @@ AgentPiers HTTP-Schnittstelle bietet `GET /api/pipelines`,
 `POST /api/pipeline-runs` und `GET /api/pipeline-runs/:id`.
 Prüfe Instanzadresse, legitimen Zugriff und den installierten Vertrag vor Nutzung.
 Der Start verwendet `{ pipelineId, cwd, task, baseBranch }`: `cwd` ist der absolute
-Repository-Pfad, `task` enthält den vollständigen Auftrag samt Plane-Kennung,
-bindenden Entscheidungen und Validierung. Plane-Inhalte werden nicht automatisch
-geladen. Die lokale Implementierung begrenzt `task` auf 65.536 UTF-8-Bytes;
+Repository-Pfad, `task` enthält den vollständigen Auftrag samt Ticketsystem,
+Projekt, Ticket-Kennung und URL, bindenden Entscheidungen und Validierung.
+Ticket-Inhalte werden nicht automatisch geladen. Die lokale Implementierung
+begrenzt `task` auf 65.536 UTF-8-Bytes;
 kürze bei Bedarf sinnvoll, ohne Akzeptanzkriterien abzuschneiden.
 
 Starte unabhängige Tickets parallel innerhalb der vereinbarten Kapazität;
@@ -142,8 +169,8 @@ einen PR noch grüne CI. Änderungen können auch nach der PR-Erstellung weiterl
 bewerte den aktuellen Stand. Korrigiere Konflikte erst, wenn kein aktiver Lauf
 mehr auf den Branch schreibt, und validiere anschließend erneut.
 
-Verlinke den PR am Plane-Ticket und aktualisiere dessen Zustand gemäß dem
-Projektworkflow. Standardabschluss ist eine belegte Merge-Empfehlung. Merge nur
+Verlinke den PR am maßgeblichen Ticket in dessen bestätigtem System und
+aktualisiere dessen Zustand gemäß dem Projektworkflow. Standardabschluss ist eine belegte Merge-Empfehlung. Merge nur
 bei ausdrücklichem Auftrag, erfüllten Pflichtchecks und geklärten Reviews;
 niemals Branch-Schutz umgehen. Melde je Ticket Status, PR, Prüfergebnis und
 gegebenenfalls Blocker samt nächstem Schritt.
@@ -152,14 +179,18 @@ gegebenenfalls Blocker samt nächstem Schritt.
 
 Halte einen kleinen lokalen Themenstand im Git-Metadatenverzeichnis unter
 `agentpier-composer/<slug>.json` (`git rev-parse --git-common-dir`). Speichere
-Repo/Basisbranch, Plane-Projekt, Entscheidungen und pro Ticket IDs, Abhängigkeiten,
-Auftragssnapshot, Run-ID, PR und letzten bekannten Zustand. Keine Zugangsdaten.
+Repo/Basisbranch und Entscheidungen sowie pro Ticket das Ticketsystem, die
+Instanz, das Projekt/Repository, die kanonische URL, Kennung und internen IDs,
+Abhängigkeiten, Auftragssnapshot, Run-ID, PR und letzten bekannten Zustand.
+Keine Zugangsdaten. Übernimm bei älteren Themenständen eine vorhandene
+Plane-Zuordnung nur für die dort belegten Tickets, nicht als Vorgabe für neue.
 Halte auch Prüftermine, aufeinanderfolgende Abfragefehler und gegebenenfalls die
 Scheduler-Kennung fest. Nach Wiederaufnahme prüfe alle offenen Läufe sofort und
 setze den Polling-Loop fort; ein alter Themenstand belegt keinen aktuellen Status.
-Aktualisiere atomar nach relevanten Änderungen; Plane und AgentPier bleiben die
-maßgeblichen Quellen. Gleiche beim Fortsetzen Tickets, Läufe und PRs ab, bevor du
-etwas erneut anlegst oder startest. Halte ausstehende Plane-Änderungen fest.
+Aktualisiere atomar nach relevanten Änderungen; das jeweilige Ticketsystem und
+AgentPier bleiben die maßgeblichen Quellen. Gleiche beim Fortsetzen Tickets, Läufe und PRs ab, bevor du
+etwas erneut anlegst oder startest. Halte ausstehende Ticket-Änderungen samt
+Zielsystem fest.
 
 Bleibt nur eine menschliche Entscheidung, berichte sie und bewahre den Stand.
 Versprich kein Hintergrund-Monitoring ohne verfügbaren Scheduler. Entferne nach
