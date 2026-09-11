@@ -1,9 +1,0 @@
-# Session SSH access
-
-Approved scope: local coding sessions can use explicitly assigned SSH server accesses, including assignment after the CLI has started. This is convenience scoping under one OS user, not an isolation boundary. Existing SSH connections survive revocation; new helper invocations must reject revoked assignments.
-
-Provide Settings → Server accesses, with host, port, username, name, an imported unencrypted SSH private key or newly generated Ed25519 key. Store keys only under private runtime data directories, never in public projections, logs or prompts. Return the public key for installation on the target. Scan host keys on explicit user action, show the fingerprint and require confirmation before saving. Never disable host verification. Connection test runs only `true` on explicit user action, with bounded time/output.
-
-Session access dialog lists assignments, permits changes on running interactive sessions, and exposes a copyable command for the agent. A local Node/OpenSSH helper checks the persisted session identity and current assignment before every invocation, uses explicit identity and known-hosts files, ignores global SSH configuration and agents, and inherits terminal IO. This works for existing sessions without injecting text into their TUI or modifying process environments. New-session dialog can choose accesses before launch. No remote actions occur merely from assigning an access.
-
-Initial version supports unencrypted imported keys (clearly labeled) and generated keys protected by owner-only filesystem permissions. No passphrase persistence, agent forwarding, bastions, remote CLI hosting, automatic VM creation, or hard process isolation. SSH data is explicitly omitted from current backups until encrypted backup integration is separately designed. UI supports German/English and mobile.
