@@ -1,4 +1,5 @@
 import { isMainModule } from "../../lib/is-main-module.js";
+import { codexHookCommand } from "../../lib/codex-hook-command.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import {
   shellQuote as quote,
@@ -132,7 +133,10 @@ export class NativeSessionBinding {
       hooks: [
         {
           type: "command",
-          command: [process.execPath, modulePath, "--record"].map(quote).join(" "),
+          command:
+            account.tool === "codex"
+              ? codexHookCommand(env, "BINDING", modulePath, ["--record"])
+              : [process.execPath, modulePath, "--record"].map(quote).join(" "),
           timeout: 5,
         },
       ],
