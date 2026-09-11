@@ -8,6 +8,9 @@ import Marketplaces from "./Marketplaces.jsx";
 import PluginCatalog from "./PluginCatalog.jsx";
 export default function ProfilePlugins({ account, request, setParentBusy }) {
   const {
+    catalogAccounts,
+    catalogAccountId,
+    selectCatalogAccount,
     error,
     notice,
     loading,
@@ -46,6 +49,32 @@ export default function ProfilePlugins({ account, request, setParentBusy }) {
         <p className="extension-notice" role="status">
           {notice}
         </p>
+      )}
+      {account.tool === "codex" && catalogAccounts.length > 0 && (
+        <div className="plugin-catalog-account">
+          <label className="extension-profile">
+            {copy.catalogAccount}
+            <select
+              value={catalogAccountId}
+              aria-label={copy.catalogAccount}
+              disabled={busy || Boolean(data?.busy)}
+              onChange={(event) => selectCatalogAccount(event.target.value)}
+              aria-describedby="catalog-account-description"
+            >
+              {catalogAccounts.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="field-description" id="catalog-account-description">
+            {copy.catalogAccountDescription}
+          </p>
+          {data?.catalogReason && (
+            <p className="extension-scope-note">{data.catalogReason}</p>
+          )}
+        </div>
       )}
       {loading ? (
         <p className="loading" role="status">

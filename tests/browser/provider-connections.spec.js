@@ -85,6 +85,7 @@ test("mobile launch selects the CLI before compatible access and shares one conn
   await expect(access.locator('option[value="local-claude"]')).toHaveCount(0);
   await expect(access.locator('option[value="provider:zai"]')).toHaveCount(0);
   await access.selectOption("provider:router");
+  await page.getByLabel("Anbietermodell", { exact: true }).click();
   await page.getByLabel("Modelle suchen", { exact: true }).fill("glm");
   await page.getByLabel("Anbietermodell", { exact: true }).selectOption("z-ai/glm-5.3");
   await expect(page.getByRole("group", { name: "Modellgrenzen" })).toContainText(

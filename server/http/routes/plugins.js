@@ -4,7 +4,7 @@ export function pluginsRoutes(services) {
   const { plugins } = services;
   const router = Router();
   router.get("/accounts/:id/plugins", async (req, res) =>
-    res.json(await plugins.list(req.params.id)),
+    res.json(await plugins.list(req.params.id, req.query.catalogAccountId)),
   );
   router.post("/accounts/:id/plugins", async (req, res) =>
     res.json(await plugins.mutate(req.params.id, req.body)),

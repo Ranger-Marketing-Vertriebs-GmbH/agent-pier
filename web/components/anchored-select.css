@@ -25,6 +25,24 @@
   top: auto;
   bottom: calc(100% + 6px);
 }
+.anchored-options.searchable {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.anchored-search {
+  flex: none;
+  padding: 4px 0 8px;
+  background: #202125;
+}
+.anchored-search-results {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.anchored-search input {
+  width: 100%;
+}
 .anchored-options button {
   display: flex;
   align-items: center;
