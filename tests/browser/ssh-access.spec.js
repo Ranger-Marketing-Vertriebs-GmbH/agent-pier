@@ -166,6 +166,7 @@ test("launch selections are submitted and retained when launch fails", async ({
   });
   await page.goto(baseURL);
   await page.getByRole("button", { name: "Neue Sitzung", exact: true }).click();
+  await page.locator(".launch-extensions > summary").click();
   await page.getByRole("checkbox", { name: /Build server/ }).check();
   await page
     .getByRole("dialog")

@@ -89,6 +89,7 @@ test("profile launch validates required parameters and opens its native session"
   await dialog
     .getByRole("textbox", { name: "Arbeitsverzeichnis", exact: true })
     .fill("/fixture/project");
+  await dialog.locator(".launch-extensions > summary").click();
   await dialog.getByRole("checkbox", { name: /AgentBus/ }).uncheck();
   await dialog.getByRole("button", { name: "Sitzung starten", exact: true }).click();
   expect(state.calls.filter((c) => c.path.endsWith("/launch"))).toHaveLength(0);

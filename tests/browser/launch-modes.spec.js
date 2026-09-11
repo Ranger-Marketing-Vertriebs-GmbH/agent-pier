@@ -74,6 +74,7 @@ test("AgentBus is included by default and can be disabled for this launch withou
   page,
 }) => {
   const launches = await launchFixture(page);
+  await page.locator(".launch-extensions > summary").click();
   const toggle = page.getByRole("checkbox", { name: /AgentBus/ });
   await expect(toggle).toBeChecked();
   await page
