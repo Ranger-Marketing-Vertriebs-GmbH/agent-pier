@@ -56,10 +56,25 @@ export function readShared(location) {
     for (const key of doc.keys)
       if (config.data[key] !== undefined) {
         const name = path.basename(doc.file).startsWith("tui.") ? `tui:${key}` : key;
-        output[name] = merge(config.data[key], output[name]);
+        const value =
+          location.account.tool === "codex" && key === "plugins"
+            ? scopedCodexPlugins(config.data[key], false)
+            : config.data[key];
+        output[name] = merge(value, output[name]);
       }
   }
   return output;
+}
+// Curated remote installation state belongs to the authenticated profile, even
+// though Codex's downloaded plugin cache and local plugin settings are shared.
+function scopedCodexPlugins(value, remote) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return remote ? undefined : value;
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      ([id]) => id.endsWith("@openai-curated-remote") === remote,
+    ),
+  );
 }
 // The primary definition wins on conflicts; absent entries are retained from the fallback.
 export function merge(primary, fallback) {
@@ -138,6 +153,13 @@ export function applyShared(location, values) {
         values[path.basename(doc.file).startsWith("tui.") ? `tui:${key}` : key],
       ]),
     );
+    if (location.account.tool === "codex") {
+      const current = readConfig(doc.file, location.boundary, "codex").data.plugins;
+      const ownRemote = scopedCodexPlugins(current, true);
+      const shared = scopedCodexPlugins(additions.plugins, false);
+      additions.plugins =
+        ownRemote && Object.keys(ownRemote).length ? { ...shared, ...ownRemote } : shared;
+    }
     if (
       !fs.existsSync(doc.file) &&
       Object.values(additions).every((value) => value === undefined)

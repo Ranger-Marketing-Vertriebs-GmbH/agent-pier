@@ -1,6 +1,6 @@
 # Shared CLI extensions
 
-AgentPier accounts select credentials. Accounts for the same coding CLI share MCP definitions, plugins, marketplaces, skills and custom agents by default. Shell sessions are unaffected. The UI selects a CLI on **MCP & Skills** and **Plugins & Marketplace**; existing account-specific links normalize to the corresponding CLI.
+AgentPier accounts select credentials. Accounts for the same coding CLI share MCP definitions, local plugins, configured marketplaces, skills and custom agents by default. Codex default marketplace plugins remain account-specific. Shell sessions are unaffected. The UI selects a CLI on **MCP & Skills** and **Plugins & Marketplace**; existing account-specific links normalize to the corresponding CLI.
 
 ## Native configuration
 
@@ -13,6 +13,25 @@ AgentPier accounts select credentials. Accounts for the same coding CLI share MC
 The server user's native profile is authoritative. Managed accounts keep their separate credential, provider and history locations. At work-session launch AgentPier copies only the listed fields into each account's mixed configuration files and links the asset directories. OAuth/account metadata, main model, provider keys and permission settings are preserved. Existing project configuration continues to follow native CLI precedence. Existing shared user skills under `~/.agents/skills` remain discoverable; new Codex installations use `~/.codex/skills`.
 
 This is configuration sharing, not an OS security boundary. Native plugins and agents still execute with the session user's permissions. Plugin-specific account preferences and state inside shared plugin directories are shared with that plugin; CLI login credentials remain separate.
+
+## Codex default marketplace
+
+Codex provides `openai-curated-remote` through its authenticated native catalog;
+it may be absent from `codex plugin marketplace list`. AgentPier shows it as a
+built-in marketplace, with no source update or removal controls. Choose a logged-in
+Codex account in **Marketplace account** to browse and install its available plugins.
+An unauthenticated local profile can show an empty catalog even while another
+account has access. AgentPier does not select another account or copy credentials
+automatically.
+
+Remote installation, removal, and installed state belong to the explicitly selected
+account. Shared-profile synchronization preserves each account's remote plugin
+configuration without importing or projecting it into other profiles. Local plugin
+and marketplace operations retain their shared scope. Plugin cache directories
+remain shared; this is configuration isolation, not an OS security boundary.
+
+The change ships in ordinary release packages and needs no additional runtime
+installation. Reload or start a session to load changed native plugin configuration.
 
 ## Bundled skills
 

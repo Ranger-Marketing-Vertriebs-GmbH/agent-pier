@@ -8,6 +8,8 @@ export const installedPluginsCopy = {
   extensionEmpty: "No matching installed plugins.",
 };
 export const marketplacesCopy = {
+  defaultMarketplace: "Codex default marketplace",
+  builtinDescription: "Provided by Codex. Choose plugins from the catalog.",
   marketplacesHeading: "Marketplaces",
   sectionHeadingLabel: " sources",
   buttonOnClick: (value1) => `${value1} was updated.`,
@@ -35,6 +37,9 @@ export const pluginsPageCopy = {
   pluginsPageDescription: "Discover plugins and manage them for your CLI profile.",
 };
 export const profilePluginsCopy = {
+  catalogAccount: "Marketplace account",
+  catalogAccountDescription:
+    "Choose an account signed in to Codex. Plugins from the default marketplace are installed for this account.",
   pluginsLoading: "Loading plugins and marketplaces …",
   extensionNotice: "CLI is applying the change …",
   confirmPluginRemoval: (value1) => `Remove plugin “${value1}” from this profile?`,

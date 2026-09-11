@@ -12,23 +12,40 @@ export default function useProfilePlugins({ account, request, setParentBusy }) {
     [query, setQuery] = useState(""),
     [market, setMarket] = useState(""),
     [confirm, setConfirm] = useState(null),
-    [installedQuery, setInstalledQuery] = useState("");
+    [installedQuery, setInstalledQuery] = useState(""),
+    [catalogAccounts, setCatalogAccounts] = useState([]),
+    [catalogAccountId, setCatalogAccountId] = useState("");
   const alive = useRef(true),
     lock = useRef(false),
-    confirmRef = useRef(null);
+    confirmRef = useRef(null),
+    reads = useRef(0),
+    defaultCatalogId = useRef("");
   const endpoint = `/accounts/${encodeURIComponent(account.id)}/plugins`;
+  const readEndpoint = catalogAccountId
+    ? `${endpoint}?catalogAccountId=${encodeURIComponent(catalogAccountId)}`
+    : endpoint;
+  const receive = useCallback(
+    (next) => {
+      setData(next);
+      if (Array.isArray(next.catalogAccounts)) setCatalogAccounts(next.catalogAccounts);
+      if (!catalogAccountId && next.catalogAccountId)
+        defaultCatalogId.current = next.catalogAccountId;
+    },
+    [catalogAccountId],
+  );
   const load = useCallback(async () => {
+    const read = ++reads.current;
     setLoading(true);
     setError("");
     try {
-      const next = await request(endpoint);
-      if (alive.current) setData(next);
+      const next = await request(readEndpoint);
+      if (alive.current && reads.current === read) receive(next);
     } catch (e) {
-      if (alive.current) setError(e.message);
+      if (alive.current && reads.current === read) setError(e.message);
     } finally {
-      if (alive.current) setLoading(false);
+      if (alive.current && reads.current === read) setLoading(false);
     }
-  }, [request, endpoint]);
+  }, [request, readEndpoint, receive]);
   useEffect(() => {
     alive.current = true;
     load();
@@ -55,32 +72,48 @@ export default function useProfilePlugins({ account, request, setParentBusy }) {
       });
     }
   }, [confirm]);
+  function selectCatalogAccount(id) {
+    const next = id === defaultCatalogId.current ? "" : id;
+    if (lock.current || next === catalogAccountId) return;
+    // Invalidate before React schedules the next read, including rapid switches.
+    reads.current++;
+    setCatalogAccountId(next);
+    setData(null);
+    setLoading(true);
+    setError("");
+    setNotice("");
+    setConfirm(null);
+  }
   async function mutate(body, message, clear) {
     if (lock.current) return;
     lock.current = true;
+    const read = ++reads.current;
     setBusy(true);
     setParentBusy(true);
     setError("");
     setNotice("");
     try {
-      await request(endpoint, "POST", body);
-      if (!alive.current) return;
+      await request(endpoint, "POST", {
+        ...body,
+        ...(catalogAccountId ? { catalogAccountId } : {}),
+      });
+      if (!alive.current || reads.current !== read) return;
       setConfirm(null);
       clear?.();
-      const next = await request(endpoint);
-      if (alive.current) {
-        setData(next);
+      const next = await request(readEndpoint);
+      if (alive.current && reads.current === read) {
+        receive(next);
         setNotice(message + copy.restartNoticeSuffix);
       }
     } catch (e) {
-      if (alive.current) setError(e.message);
+      if (alive.current && reads.current === read) setError(e.message);
     } finally {
       lock.current = false;
       setParentBusy(false);
       if (alive.current) setBusy(false);
     }
   }
-  const disabled = busy || Boolean(data?.busy) || !data?.available;
+  const disabled = loading || busy || Boolean(data?.busy) || !data?.available;
   const capabilities = data?.capabilities || {};
   const catalog = (data?.catalog || []).filter(
     (p) =>
@@ -89,14 +122,24 @@ export default function useProfilePlugins({ account, request, setParentBusy }) {
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
-  const catalogPages = usePagination(catalog, query + "\0" + market);
+  const catalogPages = usePagination(
+    catalog,
+    query + "\0" + market + "\0" + catalogAccountId,
+  );
   const installed = (data?.installed || []).filter((p) =>
     `${p.name} ${p.description || ""} ${p.marketplace || ""}`
       .toLowerCase()
       .includes(installedQuery.toLowerCase()),
   );
-  const installedPages = usePagination(installed, installedQuery);
+  const installedPages = usePagination(
+    installed,
+    installedQuery + "\0" + catalogAccountId,
+  );
   return {
+    catalogAccounts,
+    catalogAccountId:
+      catalogAccountId || data?.catalogAccountId || defaultCatalogId.current,
+    selectCatalogAccount,
     error,
     notice,
     loading,

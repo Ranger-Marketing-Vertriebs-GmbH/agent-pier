@@ -1,6 +1,7 @@
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { marketplacesCopy as copy } from "../../lib/i18n/messages/plugins.js";
 import React from "react";
+import { marketplaceLabel } from "./marketplace-label.js";
 export default function Marketplaces({
   data,
   disabled,
@@ -22,44 +23,50 @@ export default function Marketplaces({
         {data.marketplaces.map((m) => (
           <article className="extension-card" key={m.name}>
             <div className="extension-details">
-              <h3>{m.name}</h3>
-              <code className="extension-path">{m.source}</code>
+              <h3>{marketplaceLabel(m)}</h3>
+              {m.builtin ? (
+                <p className="field-description">{copy.builtinDescription}</p>
+              ) : (
+                <code className="extension-path">{m.source}</code>
+              )}
             </div>
-            <div className="plugin-row-actions">
-              <button
-                className="button secondary compact"
-                disabled={disabled || m.updatable === false}
-                aria-label={commonCopy.updateMarketplaceLabel(m.name)}
-                onClick={() =>
-                  mutate(
-                    {
-                      action: "marketplace-update",
-                      marketplace: m.name,
-                    },
-                    copy.buttonOnClick(m.name),
-                  )
-                }
-              >
-                {commonCopy.refresh}
-              </button>
-              <button
-                className="button secondary compact"
-                disabled={disabled || m.removable === false}
-                aria-label={commonCopy.removeMarketplaceLabel(m.name)}
-                onClick={() =>
-                  setConfirm({
-                    action: "marketplace-remove",
-                    name: m.name,
-                    body: {
+            {!m.builtin && (
+              <div className="plugin-row-actions">
+                <button
+                  className="button secondary compact"
+                  disabled={disabled || m.updatable === false}
+                  aria-label={commonCopy.updateMarketplaceLabel(m.name)}
+                  onClick={() =>
+                    mutate(
+                      {
+                        action: "marketplace-update",
+                        marketplace: m.name,
+                      },
+                      copy.buttonOnClick(m.name),
+                    )
+                  }
+                >
+                  {commonCopy.refresh}
+                </button>
+                <button
+                  className="button secondary compact"
+                  disabled={disabled || m.removable === false}
+                  aria-label={commonCopy.removeMarketplaceLabel(m.name)}
+                  onClick={() =>
+                    setConfirm({
                       action: "marketplace-remove",
-                      marketplace: m.name,
-                    },
-                  })
-                }
-              >
-                {commonCopy.remove}
-              </button>
-            </div>
+                      name: m.name,
+                      body: {
+                        action: "marketplace-remove",
+                        marketplace: m.name,
+                      },
+                    })
+                  }
+                >
+                  {commonCopy.remove}
+                </button>
+              </div>
+            )}
           </article>
         ))}
       </div>
