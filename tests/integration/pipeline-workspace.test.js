@@ -164,7 +164,7 @@ test("a finished worktree containing only ignored private verdict files can be c
     false,
   );
 });
-test("existing pull requests receive a fresh owned checkpoint and branch push", async (t) => {
+test("existing pull requests recover publication from an origin/main base", async (t) => {
   const { root, project, dataDir, git } = await fixture(t);
   const calls = path.join(root, "gh-calls.jsonl"),
     gh = path.join(root, "fake-gh.cjs");
@@ -179,7 +179,12 @@ test("existing pull requests receive a fresh owned checkpoint and branch push", 
     resolveGh: () => gh,
   };
   const manager = new PipelineWorkspace({ dataDir, github });
-  const workspace = await manager.prepare({ runId: "publish", cwd: project });
+  await git("update-ref", "refs/remotes/origin/main", "HEAD");
+  const workspace = await manager.prepare({
+    runId: "publish",
+    cwd: project,
+    baseBranch: "origin/main",
+  });
   const remote = path.join(root, "remote.git");
   await exec("git", ["init", "--bare", remote]);
   await git("remote", "add", "origin", "https://github.example/org/repo.git");
@@ -205,6 +210,57 @@ test("existing pull requests receive a fresh owned checkpoint and branch push", 
     args.find((row) => row[1] === "edit").at(-1),
     /AgentPier run publish[\s\S]*Updated details/,
   );
+});
+test("PR creation accepts remote-tracking bases and preserves nested branch names", async (t) => {
+  for (const [requested, expected] of [
+    ["main", "main"],
+    ["origin/main", "main"],
+    ["refs/remotes/origin/main", "main"],
+    ["refs/heads/main", "main"],
+    ["origin/release/next", "release/next"],
+    ["refs/heads/origin/local", "origin/local"],
+  ]) {
+    await t.test(requested, async (t) => {
+      const { root, project, dataDir, git } = await fixture(t);
+      const gh = path.join(root, "fake-gh.cjs");
+      await fs.writeFile(
+        gh,
+        `#!${process.execPath}
+const args = process.argv.slice(2);
+if (args[1] === 'list') console.log('[]');
+else if (args[1] === 'create' && args[args.indexOf('--base') + 1] === ${JSON.stringify(expected)}) console.log('https://github.example/org/repo/pull/1');
+else process.exit(1);
+`,
+        { mode: 0o700 },
+      );
+      const remote = path.join(root, "remote.git");
+      await exec("git", ["init", "--bare", remote]);
+      await git("remote", "add", "origin", "https://github.example/org/repo.git");
+      await git("config", "remote.origin.pushurl", remote);
+      await git("update-ref", "refs/remotes/origin/main", "HEAD");
+      await git("update-ref", "refs/remotes/origin/release/next", "HEAD");
+      await git("update-ref", "refs/heads/origin/local", "HEAD");
+      const manager = new PipelineWorkspace({
+        dataDir,
+        github: {
+          prepare: async ({ launch }) => launch,
+          discard: async () => {},
+          resolveGh: () => gh,
+        },
+      });
+      const workspace = await manager.prepare({
+        runId: "base-ref",
+        cwd: project,
+        baseBranch: requested,
+      });
+      await fs.writeFile(path.join(workspace.cwd, "tracked.txt"), "changed\n");
+      const result = await manager.createPr({
+        workspace,
+        run: { id: "base-ref", task: "Publish against the requested branch" },
+      });
+      assert.equal(result.url, "https://github.example/org/repo/pull/1");
+    });
+  }
 });
 test("restart adopts a completed worktree from its durable preparation intent without creating another branch", async (t) => {
   const { project, dataDir, git } = await fixture(t),

@@ -111,9 +111,10 @@ export async function createWorkspacePr(manager, workspace, run) {
     }
     const base =
       workspace.baseBranch && workspace.baseBranch !== "HEAD"
-        ? workspace.baseBranch
-            .replace(/^refs\/remotes\/origin\//, "")
-            .replace(/^refs\/heads\//, "")
+        ? workspace.baseBranch.replace(
+            /^(?:refs\/remotes\/origin\/|refs\/heads\/|origin\/)/,
+            "",
+          )
         : null;
     const args = [
       "pr",
