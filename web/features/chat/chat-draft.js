@@ -18,6 +18,10 @@ const empty = () => ({
 });
 const manifest = (attachments) =>
   attachments.map(({ key, name, path }) => ({ key, name, path }));
+const retainRecent = (items) => {
+  const completed = items.filter((item) => item.status === "handed-off").slice(-20);
+  return items.filter((item) => item.status !== "handed-off" || completed.includes(item));
+};
 const normalized = (text) => text.replaceAll("\r\n", "\n").trim();
 
 // Matching is presentation-only: native text is NOT an acknowledgement of delivery.
@@ -58,7 +62,7 @@ export function deliveryNotices(delivery, messages, position = "current") {
   const visible = new Set(visibleDeliveries(items, messages).map((item) => item.id));
   return items.filter((item) => {
     const current = item.id === delivery.outbox?.id;
-    if (!visible.has(item.id) && !current) return false;
+    if (!visible.has(item.id) && !current && item.status === "handed-off") return false;
     const saved =
       !current && item.status === "handed-off" && item.clientCreatedAt === undefined;
     return position === "earlier" ? saved : !saved;
@@ -75,8 +79,7 @@ function validate(value, scope) {
     value.attachments.some(
       (a) => !a || [a.key, a.name, a.path].some((s) => typeof s !== "string"),
     ) ||
-    !Array.isArray(value.recent) ||
-    value.recent.length > 20
+    !Array.isArray(value.recent)
   )
     throw Error("Invalid draft");
   for (const item of [...value.recent, ...(value.outbox ? [value.outbox] : [])]) {
@@ -320,6 +323,8 @@ export class ChatDraft {
           .filter(Boolean)
           .join("\n\n"),
         scope: this.scope,
+        attachments: manifest(attachments),
+        attemptId: id,
         baselineIds: messages.filter((m) => m.role === "user").map((m) => m.id),
         status: "waiting",
       };
@@ -329,28 +334,92 @@ export class ChatDraft {
       return outbox;
     });
   }
+  beginRecovery(id, attemptId, mode) {
+    return this.mutate((saved) => {
+      const item =
+        saved.outbox?.id === id
+          ? saved.outbox
+          : saved.recent.find((entry) => entry.id === id);
+      if (!item || !["uncertain", "rejected", "handed-off"].includes(item.status))
+        return null;
+      // An unanswered request survives reload and is replayed only after a click.
+      const next = {
+        ...item,
+        recoveryAttempt: item.recoveryAttempt || {
+          attemptId,
+          expectedAttemptId: item.attemptId || item.id,
+          mode,
+        },
+      };
+      return this.write(
+        {
+          ...saved,
+          outbox: saved.outbox?.id === id ? next : saved.outbox,
+          recent: saved.recent.map((entry) => (entry.id === id ? next : entry)),
+        },
+        { preserveDraft: true },
+      )
+        ? next
+        : null;
+    });
+  }
   receipt(receipt) {
     return this.mutate((saved) => {
-      const item = saved.outbox;
-      if (!item || item.id !== receipt.deliveryId) {
+      const pending = saved.outbox?.id === receipt.deliveryId;
+      const item = pending
+        ? saved.outbox
+        : saved.recent.find((entry) => entry.id === receipt.deliveryId);
+      if (!item) {
         this.adopt(saved);
         return;
       }
-      if (receipt.status === "handed-off") {
+      // A delayed read in another tab cannot roll back any earlier attempt.
+      const currentAttemptId = item.attemptId || item.id;
+      const attemptIds = item.attemptIds || [...new Set([item.id, currentAttemptId])];
+      const incomingAttemptId = receipt.attemptId || item.id;
+      if (
+        incomingAttemptId !== currentAttemptId &&
+        attemptIds.includes(incomingAttemptId)
+      )
+        return;
+      // Terminal outcomes are final for this attempt. A retry may advance only
+      // with its own ID; same-status recovery results can still add explanations.
+      if (
+        incomingAttemptId === currentAttemptId &&
+        ["handed-off", "rejected"].includes(item.status) &&
+        receipt.status !== item.status
+      )
+        return;
+      const resolved =
+        receipt.status === "handed-off" ||
+        (receipt.recovery?.requestId === item.recoveryAttempt?.attemptId &&
+          Boolean(item.recoveryAttempt));
+      const next = {
+        ...item,
+        attemptId: incomingAttemptId,
+        attemptIds: [...new Set([...attemptIds, incomingAttemptId])],
+        status: receipt.status,
+        error: receipt.error || "",
+        recovery: receipt.recovery || item.recovery,
+        recoveryAttempt: resolved ? null : item.recoveryAttempt,
+      };
+      if (pending && receipt.status === "handed-off") {
         this.write({
           ...saved,
           text: "",
           attachments: [],
           outbox: null,
-          recent: [...saved.recent, { ...item, status: "handed-off", error: "" }].slice(
-            -20,
-          ),
+          recent: retainRecent([...saved.recent, next]),
         });
       } else {
-        this.write({
-          ...saved,
-          outbox: { ...item, status: receipt.status, error: receipt.error || "" },
-        });
+        this.write(
+          {
+            ...saved,
+            outbox: pending ? next : saved.outbox,
+            recent: saved.recent.map((entry) => (entry.id === item.id ? next : entry)),
+          },
+          { preserveDraft: !pending },
+        );
       }
     });
   }
@@ -380,7 +449,17 @@ export class ChatDraft {
         saved.outbox?.id === id &&
         ["uncertain", "rejected"].includes(saved.outbox.status)
       )
-        this.write({ ...saved, outbox: null });
+        this.write({
+          ...saved,
+          outbox: null,
+          recent: retainRecent([
+            ...saved.recent,
+            {
+              ...saved.outbox,
+              attachments: saved.outbox.attachments || manifest(saved.attachments),
+            },
+          ]),
+        });
       else this.adopt(saved);
     });
   }

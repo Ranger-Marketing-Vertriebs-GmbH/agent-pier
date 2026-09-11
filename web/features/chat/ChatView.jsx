@@ -194,6 +194,7 @@ export default function ChatView({
           <ChatDeliveryStatus
             position="earlier"
             openFile={openFile}
+            openTerminal={openTerminal}
             delivery={delivery}
             messages={data?.messages || []}
             session={session}
@@ -216,6 +217,7 @@ export default function ChatView({
           ))}
           <ChatDeliveryStatus
             openFile={openFile}
+            openTerminal={openTerminal}
             delivery={delivery}
             messages={data?.messages || []}
             session={session}

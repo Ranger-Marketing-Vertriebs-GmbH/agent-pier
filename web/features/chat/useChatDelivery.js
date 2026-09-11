@@ -34,10 +34,19 @@ export default function useChatDelivery({ session, request, active }) {
   );
   const state = useSyncExternalStore(draft.subscribe, draft.getSnapshot);
   const [sending, setSending] = useState(false);
+  const [recovering, setRecovering] = useState(null);
   const [sendError, setSendError] = useState("");
   const operation = useRef(null);
   const checkVersion = useRef(0);
-  const id = state.outbox?.id;
+  const id = [
+    state.outbox,
+    ...state.recent.filter(
+      (item) => item.recoveryAttempt || item.status !== "handed-off",
+    ),
+  ]
+    .filter(Boolean)
+    .map((item) => item.id)
+    .join(",");
   useEffect(() => {
     const changed = (event) => {
       if (event.key?.startsWith(draft.key)) draft.reload();
@@ -48,28 +57,35 @@ export default function useChatDelivery({ session, request, active }) {
   useEffect(() => () => operation.current?.abort(), [draft]);
   const check = useCallback(
     async (signal) => {
-      const pending = draft.getSnapshot().outbox;
-      if (!pending || operation.current) return;
+      if (operation.current) return;
+      const state = draft.getSnapshot();
+      const items = [
+        state.outbox,
+        ...state.recent.filter(
+          (item) => item.recoveryAttempt || item.status !== "handed-off",
+        ),
+      ].filter(Boolean);
       const version = ++checkVersion.current;
-      try {
-        const result = await request(
-          `/sessions/${session.id}/input/${pending.id}?scope=${encodeURIComponent(scope)}`,
-          "GET",
-          undefined,
-          signal,
-        );
-        if (
-          version === checkVersion.current &&
-          !signal?.aborted &&
-          draft.getSnapshot().outbox?.id === pending.id &&
-          result.deliveryId === pending.id &&
-          ["absent", "pending", "handed-off", "rejected", "uncertain"].includes(
-            result.status,
+      for (const pending of items) {
+        try {
+          const result = await request(
+            `/sessions/${session.id}/input/${pending.id}?scope=${encodeURIComponent(scope)}`,
+            "GET",
+            undefined,
+            signal,
+          );
+          if (
+            version === checkVersion.current &&
+            !signal?.aborted &&
+            result.deliveryId === pending.id &&
+            ["absent", "pending", "handed-off", "rejected", "uncertain"].includes(
+              result.status,
+            )
           )
-        )
-          await draft.receipt(result);
-      } catch {
-        // A failed status read says nothing about native delivery. Retain custody.
+            await draft.receipt(result);
+        } catch {
+          // A failed status read says nothing about native delivery. Retain custody.
+        }
       }
     },
     [draft, request, session.id, scope],
@@ -134,11 +150,54 @@ export default function useChatDelivery({ session, request, active }) {
     }
   };
 
+  const recover = async (id, mode = "retry") => {
+    if (operation.current) return;
+    const controller = new AbortController();
+    operation.current = controller;
+    checkVersion.current++;
+    setRecovering(id);
+    setSendError("");
+    let item, timeout;
+    try {
+      item = await draft.beginRecovery(id, crypto.randomUUID(), mode);
+      if (!item) return;
+      timeout = setTimeout(() => controller.abort(), 15000);
+      const result = await request(
+        `/sessions/${session.id}/input/${id}/recovery`,
+        "POST",
+        { ...item.recoveryAttempt, deliveryScope: item.scope, text: item.text },
+        controller.signal,
+      );
+      if (
+        result.deliveryId === id &&
+        result.recovery?.requestId === item.recoveryAttempt.attemptId &&
+        ["handed-off", "pending", "uncertain", "rejected"].includes(result.status)
+      )
+        await draft.receipt(result);
+      else setSendError(copy.disconnected);
+    } catch (error) {
+      setSendError(
+        item
+          ? controller.signal.aborted
+            ? copy.timeout
+            : error.message
+          : copy.prepareFailed,
+      );
+    } finally {
+      clearTimeout(timeout);
+      operation.current = null;
+      setRecovering(null);
+      await check();
+    }
+  };
+
   return {
     ...state,
     storageError: state.storageError || sendError,
     draft,
     sending,
+    recovering,
+    recover,
     send,
     check: () => check(),
     setText: (text) => draft.change({ text }),
@@ -148,6 +207,6 @@ export default function useChatDelivery({ session, request, active }) {
         attachments: typeof update === "function" ? update(previous) : update,
       });
     },
-    locked: Boolean(state.outbox),
+    locked: Boolean(state.outbox) || Boolean(recovering),
   };
 }
