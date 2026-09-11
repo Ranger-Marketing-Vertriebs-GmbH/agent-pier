@@ -1,3 +1,5 @@
+import "./launch-dialog.css";
+import useLaunchViewport from "./useLaunchViewport.js";
 import useResource from "../../lib/useResource.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import LaunchMcpChoices from "../mcp/LaunchMcpChoices.jsx";
@@ -25,6 +27,7 @@ export default function LaunchDialog({
   close,
   created,
 }) {
+  const viewport = useLaunchViewport();
   const access = useLaunchAccess(
     state,
     initialProfile?.config.cliTool || tool,
@@ -77,218 +80,276 @@ export default function LaunchDialog({
     <Modal
       title={browse ? commonCopy.workingDirectory : commonCopy.newSession}
       close={close}
+      style={viewport}
+      className={`launch-dialog${coding ? "" : " launch-dialog-shell"}`}
     >
-      {browse ? (
-        <DirectoryPicker
-          initialPath={cwd || state.home}
-          cancel={() => setBrowse(false)}
-          choose={(path) => {
-            setCwd(path);
-            setBrowse(false);
-          }}
-        />
-      ) : (
-        <AsyncForm
-          close={close}
-          button={commonCopy.startSession}
-          disabled={!access.ready || !profileReady}
-          submit={async () => {
-            if (!access.ready) throw Error(connectionCopy.chooseAccess);
-            if (!profileReady) throw Error(copy.profileUnavailable);
-            const body = {
-              name:
-                name.trim() ||
-                profile?.name ||
-                `${names[access.tool] || "Terminal"} · ${cwd.split("/").filter(Boolean).at(-1) || "Workspace"}`,
-              ...access.body,
-              cwd,
-              launchMode,
-              agentbus: coding && busEnabled,
-              sshAccessIds,
-              agentpierTools: coding ? agentpierTools : false,
-            };
-            const result = profile
-              ? await api(`/pipeline-profiles/${profile.id}/launch`, "POST", {
-                  name: body.name,
-                  cwd,
-                  params,
-                  access: {
-                    ...access.body,
-                    ...(access.connection ? { accountId: profile.config.accountId } : {}),
-                  },
-                  ...(launchMode !== "profile" ? { launchMode } : {}),
-                  agentbus: body.agentbus,
-                  agentpierTools: body.agentpierTools,
-                  sshAccessIds,
-                })
-              : await api("/sessions", "POST", body);
-            await created(result.session || result);
-          }}
-        >
-          <p className="field-description">
-            {coding ? copy.codingSessionDescription : copy.shellSessionDescription}
-          </p>
-          <label>
-            {copy.sessionNameLabel}
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={100}
-              placeholder={copy.sessionNamePlaceholder}
-            />
-          </label>
-          {coding && (
-            <>
-              <label>
-                {copy.taskProfile}
-                <AnchoredSelect
-                  label={copy.taskProfile}
-                  value={profileId}
-                  disabled={profiles.loading}
-                  onChange={chooseProfile}
-                  options={[
-                    { value: "", label: copy.noTaskProfile },
-                    ...(profiles.data?.profiles || []).map((item) => ({
-                      value: item.id,
-                      label: item.name,
-                      disabled:
-                        !item.enabled ||
-                        !access.tools.some((tool) => tool.id === item.config.cliTool),
-                    })),
-                  ]}
-                />
-              </label>
-              <ErrorMessage
-                error={
-                  profiles.error ||
-                  (!profiles.loading && !profileReady ? copy.profileUnavailable : "")
-                }
-              />
-              {profiles.error && (
-                <button type="button" onClick={profiles.refresh}>
-                  {commonCopy.retry}
-                </button>
-              )}
-              {profile && <p className="field-description">{copy.profileSessionHint}</p>}
-              {profile?.config.prompts.params.map((param) => (
-                <label key={param.key}>
-                  {param.label}
-                  <input
-                    required={param.required}
-                    value={params[param.key] || ""}
-                    onChange={(event) =>
-                      setParams({ ...params, [param.key]: event.target.value })
-                    }
-                  />
-                </label>
-              ))}
-            </>
-          )}
-          <LaunchAccessFields
-            access={access}
-            onAccessChange={(value) => {
-              access.chooseAccess(value);
-            }}
-            onToolChange={(value) => {
-              access.chooseTool(value);
-              setProfileId("");
-              setParams({});
-              setLaunchMode(defaultMode(value));
+      <div className="launch-dialog-body">
+        {browse ? (
+          <DirectoryPicker
+            initialPath={cwd || state.home}
+            cancel={() => setBrowse(false)}
+            choose={(path) => {
+              setCwd(path);
+              setBrowse(false);
             }}
           />
-          {coding && (
-            <label>
-              {commonCopy.launchMode}
-              <AnchoredSelect
-                label={commonCopy.launchMode}
-                describedBy="launch-mode-description"
-                value={launchMode}
-                disabled={!selectedTool}
-                onChange={setLaunchMode}
-                options={[
-                  ...(profile
-                    ? [
-                        {
-                          value: "profile",
-                          label: copy.profileMode(profile.config.permissions.mode),
-                        },
-                      ]
-                    : []),
-                  {
-                    value: "default",
-                    label: copy.nativeModeOption,
-                  },
-                  ...(selectedTool === "codex"
-                    ? [
-                        {
-                          value: "yolo",
-                          label: copy.codexYoloOption,
-                        },
-                      ]
-                    : selectedTool === "claude"
-                      ? [
+        ) : (
+          <AsyncForm
+            close={close}
+            button={commonCopy.startSession}
+            disabled={!access.ready || !profileReady}
+            submit={async () => {
+              if (!access.ready) throw Error(connectionCopy.chooseAccess);
+              if (!profileReady) throw Error(copy.profileUnavailable);
+              const body = {
+                name:
+                  name.trim() ||
+                  profile?.name ||
+                  `${names[access.tool] || "Terminal"} · ${cwd.split("/").filter(Boolean).at(-1) || "Workspace"}`,
+                ...access.body,
+                cwd,
+                launchMode,
+                agentbus: coding && busEnabled,
+                sshAccessIds,
+                agentpierTools: coding ? agentpierTools : false,
+              };
+              const result = profile
+                ? await api(`/pipeline-profiles/${profile.id}/launch`, "POST", {
+                    name: body.name,
+                    cwd,
+                    params,
+                    access: {
+                      ...access.body,
+                      ...(access.connection
+                        ? { accountId: profile.config.accountId }
+                        : {}),
+                    },
+                    ...(launchMode !== "profile" ? { launchMode } : {}),
+                    agentbus: body.agentbus,
+                    agentpierTools: body.agentpierTools,
+                    sshAccessIds,
+                  })
+                : await api("/sessions", "POST", body);
+              await created(result.session || result);
+            }}
+          >
+            <p className="field-description">
+              {coding ? copy.codingSessionDescription : copy.shellSessionDescription}
+            </p>
+            <div className="launch-columns">
+              <section
+                className="launch-section"
+                aria-labelledby="launch-session-heading"
+              >
+                <h3 id="launch-session-heading">{copy.sessionSection}</h3>
+                <label>
+                  {commonCopy.workingDirectory}
+                  <div className="input-action">
+                    <input
+                      aria-label={commonCopy.workingDirectory}
+                      value={cwd}
+                      required
+                      onChange={(e) => setCwd(e.target.value)}
+                      placeholder={connectionCopy.directoryPlaceholder}
+                    />
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={commonCopy.chooseDirectory}
+                      onClick={() => setBrowse(true)}
+                    >
+                      <Icon name="folder" />
+                    </button>
+                  </div>
+                </label>
+                <label>
+                  {copy.sessionNameLabel}
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    maxLength={100}
+                    placeholder={copy.sessionNamePlaceholder}
+                  />
+                </label>
+                {coding && (
+                  <>
+                    <label>
+                      {copy.taskProfile}
+                      <AnchoredSelect
+                        label={copy.taskProfile}
+                        value={profileId}
+                        disabled={profiles.loading}
+                        onChange={chooseProfile}
+                        options={[
+                          { value: "", label: copy.noTaskProfile },
+                          ...(profiles.data?.profiles || []).map((item) => ({
+                            value: item.id,
+                            label: item.name,
+                            disabled:
+                              !item.enabled ||
+                              !access.tools.some(
+                                (tool) => tool.id === item.config.cliTool,
+                              ),
+                          })),
+                        ]}
+                      />
+                    </label>
+                    <ErrorMessage
+                      error={
+                        profiles.error ||
+                        (!profiles.loading && !profileReady
+                          ? copy.profileUnavailable
+                          : "")
+                      }
+                    />
+                    {profiles.error && (
+                      <button type="button" onClick={profiles.refresh}>
+                        {commonCopy.retry}
+                      </button>
+                    )}
+                    {profile && (
+                      <p className="field-description">{copy.profileSessionHint}</p>
+                    )}
+                    {profile?.config.prompts.params.map((param) => (
+                      <label key={param.key}>
+                        {param.label}
+                        <input
+                          required={param.required}
+                          value={params[param.key] || ""}
+                          onChange={(event) =>
+                            setParams({ ...params, [param.key]: event.target.value })
+                          }
+                        />
+                      </label>
+                    ))}
+                  </>
+                )}
+              </section>
+              {coding && (
+                <section
+                  className="launch-section"
+                  aria-labelledby="launch-execution-heading"
+                >
+                  <h3 id="launch-execution-heading">{copy.executionSection}</h3>
+                  <LaunchAccessFields
+                    access={access}
+                    onAccessChange={(value) => {
+                      access.chooseAccess(value);
+                    }}
+                    onToolChange={(value) => {
+                      access.chooseTool(value);
+                      setProfileId("");
+                      setParams({});
+                      setLaunchMode(defaultMode(value));
+                    }}
+                  />
+                  {coding && (
+                    <label>
+                      {commonCopy.launchMode}
+                      <AnchoredSelect
+                        label={commonCopy.launchMode}
+                        describedBy="launch-mode-description"
+                        value={launchMode}
+                        disabled={!selectedTool}
+                        onChange={setLaunchMode}
+                        options={[
+                          ...(profile
+                            ? [
+                                {
+                                  value: "profile",
+                                  label: copy.profileMode(
+                                    profile.config.permissions.mode,
+                                  ),
+                                },
+                              ]
+                            : []),
                           {
-                            value: "auto",
-                            label: copy.claudeAutoOption,
+                            value: "default",
+                            label: copy.nativeModeOption,
                           },
-                        ]
-                      : selectedTool === "opencode"
+                          ...(selectedTool === "codex"
+                            ? [
+                                {
+                                  value: "yolo",
+                                  label: copy.codexYoloOption,
+                                },
+                              ]
+                            : selectedTool === "claude"
+                              ? [
+                                  {
+                                    value: "auto",
+                                    label: copy.claudeAutoOption,
+                                  },
+                                ]
+                              : selectedTool === "opencode"
+                                ? [
+                                    {
+                                      value: "auto",
+                                      label: copy.opencodeAutoOption,
+                                    },
+                                  ]
+                                : []),
+                        ]}
+                      />
+                    </label>
+                  )}
+                  {coding && (
+                    <div
+                      className="form-note"
+                      id="launch-mode-description"
+                      aria-live="polite"
+                    >
+                      <Icon name="shield" />
+                      {modeDescription}
+                    </div>
+                  )}
+                </section>
+              )}
+            </div>
+            <details className="launch-extensions">
+              <summary>
+                <Icon name="chevron" />
+                <span>
+                  <strong>{copy.extensions}</strong>
+                  <small>
+                    {[
+                      ...(coding
                         ? [
-                            {
-                              value: "auto",
-                              label: copy.opencodeAutoOption,
-                            },
+                            busEnabled ? copy.busEnabled : copy.busDisabled,
+                            agentpierTools ? copy.toolsEnabled : copy.toolsDisabled,
                           ]
                         : []),
-                ]}
-              />
-            </label>
-          )}
-          {coding && (
-            <label className="agentbus-launch">
-              <input
-                type="checkbox"
-                checked={busEnabled}
-                onChange={(e) => setBusEnabled(e.target.checked)}
-              />
-              <span>
-                <strong>{copy.agentbusLaunchLabel}</strong>
-                <small>{copy.agentbusLaunchHint}</small>
-              </span>
-            </label>
-          )}
-          {coding && (
-            <LaunchMcpChoices selection={agentpierTools} change={setAgentpierTools} />
-          )}
-          <LaunchSshChoices selected={sshAccessIds} change={setSshAccessIds} />
-          <label>
-            {commonCopy.workingDirectory}
-            <div className="input-action">
-              <input
-                aria-label={commonCopy.workingDirectory}
-                value={cwd}
-                required
-                onChange={(e) => setCwd(e.target.value)}
-                placeholder={connectionCopy.directoryPlaceholder}
-              />
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={commonCopy.chooseDirectory}
-                onClick={() => setBrowse(true)}
-              >
-                <Icon name="folder" />
-              </button>
-            </div>
-          </label>
-          {coding && (
-            <div className="form-note" id="launch-mode-description" aria-live="polite">
-              <Icon name="shield" />
-              {modeDescription}
-            </div>
-          )}
-        </AsyncForm>
-      )}
+                      copy.sshSummary(sshAccessIds.length),
+                    ].join(" · ")}
+                  </small>
+                </span>
+              </summary>
+              <div className="launch-extension-content">
+                {coding && (
+                  <label className="agentbus-launch">
+                    <input
+                      type="checkbox"
+                      checked={busEnabled}
+                      onChange={(e) => setBusEnabled(e.target.checked)}
+                    />
+                    <span>
+                      <strong>{copy.agentbusLaunchLabel}</strong>
+                      <small>{copy.agentbusLaunchHint}</small>
+                    </span>
+                  </label>
+                )}
+                {coding && (
+                  <LaunchMcpChoices
+                    selection={agentpierTools}
+                    change={setAgentpierTools}
+                  />
+                )}
+                <LaunchSshChoices selected={sshAccessIds} change={setSshAccessIds} />
+              </div>
+            </details>
+          </AsyncForm>
+        )}
+      </div>
     </Modal>
   );
 }

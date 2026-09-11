@@ -45,6 +45,7 @@ for (const width of [1440, 390])
     await expect(dialog.getByLabel("Startmodus", { exact: true })).toHaveValue("profile");
     await model.fill("session-model");
     await dialog.getByLabel("Startmodus", { exact: true }).selectOption("yolo");
+    await page.locator(".launch-extensions > summary").click();
     await dialog.getByRole("checkbox", { name: /Testserver/ }).check();
     await dialog.getByRole("checkbox", { name: /AgentPier-Werkzeuge/ }).uncheck();
     await profile.scrollIntoViewIfNeeded();
