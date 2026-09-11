@@ -6,6 +6,7 @@ import useProfilePlugins from "./useProfilePlugins.js";
 import InstalledPlugins from "./InstalledPlugins.jsx";
 import Marketplaces from "./Marketplaces.jsx";
 import PluginCatalog from "./PluginCatalog.jsx";
+import { catalogReason, pluginNote } from "./plugin-messages.js";
 export default function ProfilePlugins({ account, request, setParentBusy }) {
   const {
     catalogAccounts,
@@ -71,8 +72,8 @@ export default function ProfilePlugins({ account, request, setParentBusy }) {
           <p className="field-description" id="catalog-account-description">
             {copy.catalogAccountDescription}
           </p>
-          {data?.catalogReason && (
-            <p className="extension-scope-note">{data.catalogReason}</p>
+          {data && catalogReason(data) && (
+            <p className="extension-scope-note">{catalogReason(data)}</p>
           )}
         </div>
       )}
@@ -87,7 +88,7 @@ export default function ProfilePlugins({ account, request, setParentBusy }) {
       ) : (
         <>
           <div className="plugin-topbar">
-            <p className="field-description">{data.note}</p>
+            <p className="field-description">{pluginNote(data)}</p>
             <button className="button secondary compact" disabled={busy} onClick={load}>
               {commonCopy.reloadLatest}
             </button>

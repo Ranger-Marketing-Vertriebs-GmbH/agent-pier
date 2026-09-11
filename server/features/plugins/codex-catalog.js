@@ -25,6 +25,7 @@ export function catalogMetadata(store, ctx) {
       .filter((account) => account.tool === "codex")
       .map(({ id, name }) => ({ id, name })),
     catalogReason: null,
+    catalogReasonCode: null,
   };
 }
 function rows(list) {
@@ -92,6 +93,7 @@ export async function codexInventory(store, shared, selected) {
     } catch (error) {
       if (store.closed || ![409, 502, 503].includes(error.status)) throw error;
       result.catalogReason = copy.remoteCatalogUnavailable;
+      result.catalogReasonCode = "unavailable";
     }
   }
   result.installed = [
@@ -131,7 +133,9 @@ export async function codexInventory(store, shared, selected) {
   if (
     !(remote?.catalog || []).some(isRemote) &&
     !(remote?.installed || []).some(isRemote)
-  )
+  ) {
     result.catalogReason ||= copy.remoteCatalogEmpty;
+    result.catalogReasonCode ||= "empty";
+  }
   return result;
 }

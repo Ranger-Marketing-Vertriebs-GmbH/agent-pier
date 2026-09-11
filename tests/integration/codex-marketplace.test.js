@@ -71,6 +71,8 @@ test("Codex exposes implicit default marketplace and explicitly scoped native ca
   const x = await fixture(t);
   const base = await x.list();
   assert.equal(base.catalogAccountId, "local-codex");
+  assert.deepEqual(base.noteCodes, ["restartRequired", "codexActivation"]);
+  assert.equal(base.catalogReasonCode, null);
   assert.deepEqual(
     base.catalogAccounts.map(({ id }) => id),
     ["local-codex", x.a.id, x.b.id],
@@ -91,6 +93,7 @@ test("Codex exposes implicit default marketplace and explicitly scoped native ca
   );
   const selected = await x.list(x.a.id);
   assert.equal(selected.catalogAccountId, x.a.id);
+  assert.equal(selected.catalogReasonCode, null);
   assert.deepEqual(
     selected.installed.map(({ id }) => id),
     ["shared@local", "a-installed@openai-curated-remote"],
@@ -106,6 +109,21 @@ test("Codex exposes implicit default marketplace and explicitly scoped native ca
     false,
   );
   assert.ok(!JSON.stringify(other).includes("local-account-only"));
+});
+
+test("empty remote catalogs expose a stable reason without removing the legacy message", async (t) => {
+  const x = await fixture(t);
+  const original = x.plugins.runner;
+  x.plugins.runner = async (...args) => {
+    const result = JSON.parse(await original(...args));
+    for (const key of ["installed", "available"])
+      if (result[key])
+        result[key] = result[key].filter((item) => item.marketplaceName !== remote);
+    return JSON.stringify(result);
+  };
+  const empty = await x.list(x.a.id);
+  assert.equal(empty.catalogReasonCode, "empty");
+  assert.match(empty.catalogReason, /keine Standard-Plugins/);
 });
 
 test("remote installs and removals use only the explicit account; local mutations remain shared", async (t) => {
@@ -157,6 +175,7 @@ test("remote inventory failure preserves usable shared plugins with an honest ca
   assert.equal(value.available, true);
   assert.equal(value.installed[0].id, "shared@local");
   assert.ok(value.catalogReason);
+  assert.equal(value.catalogReasonCode, "unavailable");
   assert.ok(value.marketplaces.some(({ name }) => name === remote));
   assert.ok(!value.installed.some(({ marketplace }) => marketplace === remote));
 });

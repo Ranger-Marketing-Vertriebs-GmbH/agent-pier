@@ -132,6 +132,7 @@ export class PluginStore {
       available: !!ctx.command,
       reason: ctx.command ? null : serverMessages.common.cliNotInstalled,
       note: serverMessages.plugins.restartRequiredNotice,
+      noteCodes: ["restartRequired"],
       installed: [],
       marketplaces: [],
       catalog: [],
@@ -235,6 +236,7 @@ export class PluginStore {
       const help = await this.execute(ctx, ["--help"]);
       result.capabilities.install = /plugin\s+<module>/.test(help);
       result.note = serverMessages.plugins.openCodeConfigurationNotice;
+      result.noteCodes = ["openCodeConfiguration"];
       if (!result.capabilities.install)
         result.reason = serverMessages.plugins.openCodeInstallerUnavailable;
       return result;
@@ -262,6 +264,9 @@ export class PluginStore {
     if (ctx.tool === "claude")
       result.note += serverMessages.plugins.claudeMarketplaceRemovalNotice;
     else result.note += serverMessages.plugins.codexActivationNotice;
+    result.noteCodes.push(
+      ctx.tool === "claude" ? "claudeMarketplaceRemoval" : "codexActivation",
+    );
     return result;
   }
   async list(id, selectedId) {
