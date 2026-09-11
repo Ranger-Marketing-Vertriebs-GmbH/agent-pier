@@ -5,6 +5,43 @@ import { NativeRequestChannel } from "./native-channel.js";
 import { questionsView, questionAnswers } from "./native-questions.js";
 
 export function claudeRequest(data) {
+  if (
+    ["PreToolUse", "PermissionRequest"].includes(data.hook_event_name) &&
+    data.tool_name === "AskUserQuestion"
+  ) {
+    // After a PreToolUse timeout or handoff, Claude can ask again through
+    // PermissionRequest. It still needs answers, not a bare tool approval.
+    const questions = data.tool_input?.questions;
+    if (!Array.isArray(questions) || !questions.length) return null;
+    return {
+      view: { kind: "question", questions: questionsView(questions, "claude") },
+      answer: (input) => {
+        if (input.handoff) return null;
+        const updatedInput = {
+          ...data.tool_input,
+          answers: Object.fromEntries(
+            questionAnswers(questions, input.answers).map((answers, i) => [
+              questions[i].question,
+              answers.join(", "),
+            ]),
+          ),
+        };
+        return {
+          hookSpecificOutput:
+            data.hook_event_name === "PermissionRequest"
+              ? {
+                  hookEventName: "PermissionRequest",
+                  decision: { behavior: "allow", updatedInput },
+                }
+              : {
+                  hookEventName: "PreToolUse",
+                  permissionDecision: "allow",
+                  updatedInput,
+                },
+        };
+      },
+    };
+  }
   if (data.hook_event_name === "PermissionRequest")
     return {
       view: {
@@ -31,34 +68,6 @@ export function claudeRequest(data) {
               },
             },
     };
-  if (
-    data.hook_event_name === "PreToolUse" &&
-    data.tool_name === "AskUserQuestion" &&
-    Array.isArray(data.tool_input?.questions)
-  ) {
-    const questions = data.tool_input.questions;
-    return {
-      view: { kind: "question", questions: questionsView(questions, "claude") },
-      answer: (input) =>
-        input.handoff
-          ? null
-          : {
-              hookSpecificOutput: {
-                hookEventName: "PreToolUse",
-                permissionDecision: "allow",
-                updatedInput: {
-                  ...data.tool_input,
-                  answers: Object.fromEntries(
-                    questionAnswers(questions, input.answers).map((answers, i) => [
-                      questions[i].question,
-                      answers.join(", "),
-                    ]),
-                  ),
-                },
-              },
-            },
-    };
-  }
   return null;
 }
 export async function runClaudeHook({

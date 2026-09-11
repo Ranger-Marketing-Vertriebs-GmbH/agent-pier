@@ -78,34 +78,37 @@ test("Codex ordinary command decision stays within native offered decisions", ()
     result: { decision: "accept" },
   });
 });
-test("Claude question replies return original questions and multi-select labels in updatedInput", () => {
-  const questions = [
-    {
-      question: "Checks?",
-      header: "Checks",
-      multiSelect: true,
-      options: [
-        { label: "Unit", description: "Fast" },
-        { label: "Browser", description: "Complete" },
-      ],
-    },
-  ];
-  const request = claudeRequest({
-    session_id: "session",
-    tool_use_id: "native-call",
-    hook_event_name: "PreToolUse",
-    tool_name: "AskUserQuestion",
-    tool_input: { questions },
+for (const event of ["PreToolUse", "PermissionRequest"])
+  test(`Claude ${event} question replies preserve questions and multi-select answers`, () => {
+    const questions = [
+      {
+        question: "Checks?",
+        header: "Checks",
+        multiSelect: true,
+        options: [
+          { label: "Unit", description: "Fast" },
+          { label: "Browser", description: "Complete" },
+        ],
+      },
+    ];
+    const request = claudeRequest({
+      session_id: "session",
+      tool_use_id: "native-call",
+      hook_event_name: event,
+      tool_name: "AskUserQuestion",
+      tool_input: { questions },
+    });
+    assert.equal(request.view.kind, "question");
+    assert.equal(request.view.questions[0].prompt, "Checks?");
+    const updatedInput = { questions, answers: { "Checks?": "Unit, Browser" } };
+    assert.deepEqual(request.answer({ answers: { q0: ["Unit", "Browser"] } }), {
+      hookSpecificOutput:
+        event === "PreToolUse"
+          ? { hookEventName: event, permissionDecision: "allow", updatedInput }
+          : { hookEventName: event, decision: { behavior: "allow", updatedInput } },
+    });
+    assert.equal(request.answer({ handoff: true }), null);
   });
-  assert.deepEqual(request.answer({ answers: { q0: ["Unit", "Browser"] } }), {
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "allow",
-      updatedInput: { questions, answers: { "Checks?": "Unit, Browser" } },
-    },
-  });
-  assert.equal(request.answer({ handoff: true }), null);
-});
 test("Claude permission is an actual native hook response, not PTY input", () => {
   const request = claudeRequest({
     hook_event_name: "PermissionRequest",
@@ -118,6 +121,18 @@ test("Claude permission is an actual native hook response, not PTY input", () =>
       decision: { behavior: "deny" },
     },
   });
+});
+test("Claude questions without usable questions never become bare approvals", () => {
+  for (const questions of [undefined, null, [], "invalid"])
+    for (const hook_event_name of ["PreToolUse", "PermissionRequest"])
+      assert.equal(
+        claudeRequest({
+          hook_event_name,
+          tool_name: "AskUserQuestion",
+          tool_input: { questions },
+        }),
+        null,
+      );
 });
 test("OpenCode plugin uses current native pending IDs and rejects a Terminal-won race", async () => {
   let route = "session-a";
