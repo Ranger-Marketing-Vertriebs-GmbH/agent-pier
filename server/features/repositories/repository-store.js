@@ -1,3 +1,4 @@
+import { commitIdentity as identityValue } from "./commit-identity.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { shellQuote } from "../../lib/launch-serialization.js";
 import fs from "node:fs";
@@ -234,7 +235,8 @@ export class RepositoryStore {
   secretFile(id) {
     return path.join(this.secretDir, `${id}.json`);
   }
-  createCredential({ name, host, token, agentDefault } = {}) {
+  createCredential({ name, host, token, agentDefault, commitIdentity } = {}) {
+    const identity = identityValue(commitIdentity);
     name = nameValue(name);
     host = httpsOrigin(host);
     token = tokenValue(token);
@@ -248,6 +250,7 @@ export class RepositoryStore {
       host,
       hasSecret: true,
       createdAt: new Date().toISOString(),
+      ...(identity ? { commitIdentity: identity } : {}),
     };
     writePrivate(this.secretFile(item.id), { token });
     this.credentials.push(item);
@@ -255,7 +258,9 @@ export class RepositoryStore {
     this.save();
     return { ...item };
   }
-  updateCredential(id, { name, host, token, agentDefault } = {}) {
+  updateCredential(id, { name, host, token, agentDefault, commitIdentity } = {}) {
+    const identity =
+      commitIdentity === undefined ? undefined : identityValue(commitIdentity);
     const item = this.credential(id);
     if (agentDefault !== undefined && typeof agentDefault !== "boolean")
       throw problem(serverMessages.repositories.invalidDefaultAgent);
@@ -271,6 +276,8 @@ export class RepositoryStore {
         : !this.credentials.some((entry) => entry.id !== id && entry.host === host));
     if (token) writePrivate(this.secretFile(item.id), { token });
     Object.assign(item, { name, host });
+    if (identity) item.commitIdentity = identity;
+    else if (identity === null) delete item.commitIdentity;
     this.setAgentDefault(item, selected);
     this.save();
     return { ...item };
