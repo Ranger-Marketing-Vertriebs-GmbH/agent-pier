@@ -27,6 +27,16 @@ CLI-Verlauf ersetzt. Falls das CLI den Text verändert, bleibt die Übergabeanze
 unter Umständen separat sichtbar und kann geschlossen werden. Dieser Textabgleich
 ist ausschließlich eine Darstellungshilfe und entscheidet nicht über Wiederholung.
 
+## Slash-Befehle
+
+Einzeilige Slash-Befehle wie `/clear`, `/new`, `/compact` oder `/model` werden bei
+Codex, Claude und OpenCode direkt an die TUI übergeben. Ob ein Befehl verfügbar
+ist und wann er ausgeführt werden darf, entscheidet die jeweilige CLI. Dialoge
+und Rückfragen lassen sich im Terminal bedienen. Beispielsweise erlaubt Codex
+`/clear` erst, wenn die laufende Aufgabe beendet ist. Der Chat verwirft den alten
+Verlauf erst, wenn die CLI die neue Unterhaltung meldet. Auch für Slash-Befehle
+verhindert derselbe Zustellungsbeleg eine doppelte Übergabe.
+
 ## Speicherung und Grenzen
 
 Fertige Uploads werden als Dateiname und Pfad wiederhergestellt. Lokale Vorschaudaten

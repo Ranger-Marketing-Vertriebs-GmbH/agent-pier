@@ -1,4 +1,5 @@
 import { listSessions } from "./session-list.js";
+import { sendSlashCommand } from "./session-slash-command.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { publicProviderConfiguration } from "./provider-configuration.js";
 import {
@@ -489,6 +490,7 @@ export class SessionManager {
           session,
           await this.tmux(["capture-pane", "-e", "-p", "-t", `${this.target(id)}:0.0`]),
         );
+      if (await sendSlashCommand(this, session, text, submit)) return;
       if (nativeQueue && (await nativeQueue(session))) return;
       if (text) {
         const buffer = `tuiui-${randomUUID()}`;
