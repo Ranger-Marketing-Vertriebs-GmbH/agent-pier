@@ -10,7 +10,9 @@ If preflight validation fails, the existing CLI keeps running. If startup fails 
 
 The native CLI must still have access to its saved conversation files. AgentPier does not fall back to whichever conversation was most recent when the exact conversation cannot be resolved.
 
-If the restarted CLI asks you to allow hooks or trust the project, choose **Open terminal** in the reload dialog to confirm it yourself. This closes the dialog without cancelling the reload. Direct terminal input is available as soon as the replacement CLI is running, including while AgentPier is verifying the resumed conversation. Chat delivery and model controls remain blocked during that verification. If verification times out while you are reading a prompt, the terminal remains available to finish the approval.
+If the restarted CLI still needs verification, AgentPier opens the terminal automatically so you can allow hooks or trust the project. You can also choose **Open terminal** while the request is being submitted. Closing the dialog does not cancel the reload. Direct terminal input is available as soon as the replacement CLI is running. Chat delivery and model controls remain blocked until the exact resumed conversation is verified. Waiting for approval does not turn the reload into a failure after a fixed timeout. Previously failed replacements are checked again after a web-service restart and marked complete only when the running conversation and target account match.
+
+Codex stores trust for each exact hook definition; use `/hooks` to review and trust hooks in the current account profile. AgentPier supplies stable hook commands with release paths taken from its launch environment, so ordinary AgentPier updates do not change those definitions. Existing users must approve the new definitions once. Changed definitions and different account profiles can still need approval. User and project hooks retain their own trust requirements; interactive sessions do not bypass hook trust. See the [official OpenAI hook documentation](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks).
 
 ## Model verification
 

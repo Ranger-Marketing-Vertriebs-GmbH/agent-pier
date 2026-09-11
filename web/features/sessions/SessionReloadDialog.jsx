@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Modal from "../../components/Modal.jsx";
 import { sessionReloadCopy as copy } from "../../lib/i18n/messages/sessions.js";
 import useSessionReload from "./useSessionReload.js";
@@ -15,6 +15,9 @@ export default function SessionReloadDialog({
   const [interrupt, setInterrupt] = useState(false);
   const [targetAccountId, setTargetAccountId] = useState("");
   const { data, busy, error } = reload;
+  useEffect(() => {
+    if (!busy && data?.state === "reloading") openTerminal();
+  }, [busy, data?.state, openTerminal]);
   const validTarget =
     !switchAccount || data?.accountTargets?.some((a) => a.id === targetAccountId);
   const active = ["waiting", "reloading"].includes(data?.state);

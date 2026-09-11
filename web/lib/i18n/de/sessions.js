@@ -69,7 +69,8 @@ export const sessionReloadCopy = {
     "Die Anfrage konnte nicht bestätigt werden. Wiederhole dieselbe Anfrage, um das Ergebnis sicher zu prüfen.",
   retry: "Anfrage wiederholen",
   waiting: "Neuladen geplant · warte auf Leerlauf",
-  reloading: "Dieselbe Unterhaltung wird neu geladen …",
+  reloading:
+    "Warte auf die fortgesetzte Unterhaltung · mögliche Rückfragen im Terminal bestätigen.",
   completed: "Unterhaltung mit aktualisierten Integrationen fortgesetzt.",
   close: "Schließen",
   refresh: "Erneut prüfen",
