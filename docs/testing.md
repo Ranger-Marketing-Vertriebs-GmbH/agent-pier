@@ -82,6 +82,14 @@ Install Playwright browser binaries as development prerequisites. To keep them i
 
 `tests/helpers/repository-browser.js` shares the repository feature state machine across access, clone and discovery scenarios. Unknown API requests fail explicitly, so a newly introduced endpoint cannot silently succeed with an empty object. Other features keep their specific fixtures because their state transitions differ. Browser fixtures must not replace failing assertions with permissive default responses.
 
+Chat fixtures must mock both HTTP and the chat WebSocket using `mockChatStream`; an HTTP-only fixture otherwise connects its invented session ID to the real test backend and can show unrelated errors. For geometry checks, read related bounds in one browser evaluation and retry the complete invariant after viewport changes. To test concurrent operations in two tabs, queue sequential pointer clicks behind a shared lock instead of racing mouse actions across pages.
+
+CI repeats the WebKit model resize, model error polling and two-tab upload cases five times without retries. Every run must pass. Failure artifacts include Playwright traces as well as screenshots; inspect a downloaded trace with `npx playwright show-trace path/to/trace.zip` before classifying a failure as flaky. To repeat those cases locally:
+
+```sh
+AGENTPIER_TEST_BROWSER=webkit npx playwright test tests/browser/model-control.spec.js tests/browser/chat-upload-recovery.spec.js --grep 'two tabs retry|model field.*390x500|model errors remain' --repeat-each=10
+```
+
 The HTTP API, image and preference integration suites share `applicationFixture`. Tests that stub public session listings cannot affect its cleanup: it captures the original fixture-owned listing method at startup. Repository integration scenarios share a temporary store and local authenticated HTTPS Git fixture; their credential, clone and discovery assertions live in separate files. Specialized transport fixtures retain their own setup when lifecycle semantics differ.
 
 ## Automated CI matrix

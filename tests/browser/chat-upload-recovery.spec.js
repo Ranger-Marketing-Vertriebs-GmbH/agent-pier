@@ -1,3 +1,4 @@
+import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 
@@ -38,6 +39,12 @@ async function fixture(page) {
       };
     await route.fulfill({ json: result });
   });
+  await mockChatStream(page, () => ({
+    availability: "ready",
+    providerSessionId: "native",
+    messages: [],
+    tasks: [],
+  }));
   await page.goto(`${baseURL}/sessions/upload-recovery/chat`);
   return {
     uploads,
@@ -247,11 +254,50 @@ test("two tabs retry the same interrupted file only once", async ({ page, contex
   ).toBeVisible();
   first.succeed();
   second.succeed();
-  await Promise.all(
-    [page, other].map((tab) =>
-      tab.getByRole("button", { name: "Erneut hochladen: retry.txt" }).click(),
-    ),
-  );
+  // Queue both real clicks behind the same upload lock. Concurrent mouse actions
+  // across pages compete for focus and do not establish overlapping operations.
+  await other.evaluate(async () => {
+    const scope = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("agentpier.chat.uploads.v1", 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction("files", "readonly");
+        const rows = tx.objectStore("files").getAll();
+        tx.oncomplete = () => {
+          db.close();
+          if (rows.result.length !== 1) reject(Error("Expected one interrupted upload"));
+          else resolve(rows.result[0].scope);
+        };
+        tx.onabort = () => reject(tx.error);
+      };
+    });
+    const held = new Promise((resolve) => {
+      window.releaseUploadGate = resolve;
+    });
+    await new Promise((resolve) => {
+      window.uploadGate = navigator.locks.request(
+        `agentpier.upload:${scope}`,
+        async () => {
+          resolve();
+          await held;
+        },
+      );
+    });
+  });
+  try {
+    for (const tab of [page, other]) {
+      const retry = tab.getByRole("button", { name: "Erneut hochladen: retry.txt" });
+      await retry.click();
+      await expect(retry).toBeDisabled();
+    }
+    expect([...first.uploads, ...second.uploads]).toEqual(["retry.txt"]);
+  } finally {
+    await other.evaluate(async () => {
+      window.releaseUploadGate();
+      await window.uploadGate;
+    });
+  }
   await expect(page.getByRole("button", { name: /Erneut hochladen:/ })).toHaveCount(0);
   await expect(other.getByRole("button", { name: /Erneut hochladen:/ })).toHaveCount(0);
   expect([...first.uploads, ...second.uploads]).toEqual(["retry.txt", "retry.txt"]);
