@@ -49,6 +49,8 @@ Aborting stops the pipeline's owned process groups and preserves the worktree. G
 
 An optional PR action uses the existing host-scoped GitHub credentials and GitHub CLI. It publishes the run's branch and opens or refreshes its PR; later completed stages refresh the branch and summary of that existing PR. It does not merge the PR or wait for downstream CI. No push or PR is performed merely because a run finishes without a PR step.
 
+PR publication accepts `main`, `origin/main`, `refs/remotes/origin/main`, or `refs/heads/main` as the base and sends GitHub the branch name `main`. Nested branch names are preserved. On `pr-failed`, Retry repeats publication without rerunning implementation or review. It discovers an existing open PR by its head branch, including drafts, and updates that PR instead of creating another. A manually created PR does not clear the recorded pipeline error until Retry succeeds.
+
 ## Architecture and validation
 
 The reference feature inventory and deliberate corrections are recorded in [the implementation contract](refactor/pipelines-plan.md) and the linked research inventories. Definition validation, execution state, native drivers, worktree ownership, verification, evidence reads and HTTP/UI presentation have separate modules. Tests use synthetic CLI processes, temporary repositories and isolated application data; live paid inference and external PR publication are not part of the automated checks.
