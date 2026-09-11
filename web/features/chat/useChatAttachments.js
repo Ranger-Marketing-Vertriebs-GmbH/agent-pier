@@ -21,6 +21,7 @@ export default function useChatAttachments({
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const operation = useRef(null);
+  const revision = useRef(0);
   const live = useRef(false);
   const supported =
     session.status === "running" &&
@@ -30,8 +31,10 @@ export default function useChatAttachments({
 
   useEffect(() => {
     live.current = true;
+    let disposed = false;
     const restore = async () => {
       if (operation.current) return;
+      const restoredRevision = ++revision.current;
       try {
         const entries = await uploadLock(scope, async () => {
           const saved = await uploadStore(scope, "list");
@@ -54,7 +57,8 @@ export default function useChatAttachments({
           }
           return current;
         });
-        if (!live.current || operation.current) return;
+        if (disposed || operation.current || revision.current !== restoredRevision)
+          return;
         setPending(
           entries.map((item) => ({
             ...item,
@@ -63,9 +67,10 @@ export default function useChatAttachments({
           })),
         );
       } catch {
-        if (live.current) setError(uploadsCopy.storageFailed);
+        if (!disposed && revision.current === restoredRevision)
+          setError(uploadsCopy.storageFailed);
       } finally {
-        if (live.current) setLoading(false);
+        if (!disposed) setLoading(false);
       }
     };
     restore();
@@ -73,6 +78,7 @@ export default function useChatAttachments({
     window.addEventListener("pageshow", restore);
     return () => {
       live.current = false;
+      disposed = true;
       operation.current?.abort();
       window.removeEventListener("focus", restore);
       window.removeEventListener("pageshow", restore);
@@ -136,6 +142,7 @@ export default function useChatAttachments({
   };
   const run = async (action) => {
     if (operation.current || disabled || !supported) return;
+    revision.current++;
     const controller = new AbortController();
     operation.current = controller;
     setUploading(true);

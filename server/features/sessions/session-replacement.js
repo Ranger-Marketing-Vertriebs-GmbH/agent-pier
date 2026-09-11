@@ -85,6 +85,7 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
       "nativeBinding",
       "nativeRequests",
       "sshTools",
+      "agentpierTools",
       "nativeModelId",
     ])
       if (launch[key] !== undefined) session[key] = launch[key];

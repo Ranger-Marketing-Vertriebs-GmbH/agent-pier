@@ -37,6 +37,9 @@ export function createSessionLifecycle(services) {
     const sshIds = sshSessions?.validate(body.sshAccessIds);
     if (login && sshIds?.length)
       throw problem("SSH-Zugänge sind für Login-Sitzungen nicht verfügbar.");
+    if (body.agentpierTools && (login || trusted.pipeline))
+      throw problem("AgentPier tools are only available to standalone coding sessions.");
+    services.sessionMcp?.validate(body.agentpierTools);
     const resolved = providerAccess.resolve(body, { login });
     const release = resolved.selection
       ? providerConnections.acquire(resolved.selection.providerConnectionId)
@@ -123,11 +126,22 @@ export function createSessionLifecycle(services) {
             headless: trusted.pipeline?.headless,
           })
         : memoryLaunch;
+      const mcpLaunch = services.sessionMcp
+        ? await services.sessionMcp.prepare({
+            id,
+            account,
+            cwd,
+            launch: sshLaunch,
+            purpose: login ? "login" : undefined,
+            pipeline: trusted.pipeline,
+            selection: body.agentpierTools,
+          })
+        : sshLaunch;
       const prepared = await bindings.prepare({
         id,
         account,
         cwd,
-        launch: sshLaunch,
+        launch: mcpLaunch,
         purpose: login ? "login" : undefined,
       });
       const finalLaunch = trusted.transformLaunch
@@ -154,6 +168,7 @@ export function createSessionLifecycle(services) {
       });
       if (body.sshAccessIds?.length) sshSessions.set(session, body.sshAccessIds);
     } catch (error) {
+      services.sessionMcp?.discard(id);
       sshSessions?.discard(id);
       if (session) {
         await sessions.stop(id).catch(() => {});

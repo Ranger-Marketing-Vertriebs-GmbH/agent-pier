@@ -1,4 +1,14 @@
 export const launchDialogCopy = {
+  taskProfile: "Aufgabenprofil",
+  noTaskProfile: "Ohne Aufgabenprofil",
+  profileUnavailable:
+    "Das Aufgabenprofil ist nicht verfügbar. Bitte wähle ein anderes Profil.",
+  profileSessionHint:
+    "Das Profil belegt die Startoptionen vor. Änderungen gelten nur für diese Sitzung. Ein CLI-Wechsel hebt die Profilauswahl auf.",
+  profileMode: (mode) => `Profil · ${mode}`,
+  profileModeDescription: (mode) =>
+    `Verwendet den Berechtigungsmodus ${mode} aus dem Aufgabenprofil.`,
+
   nativeModeDescription:
     "Verwendet die Berechtigungen aus deinem Tool-Profil und dessen native Voreinstellungen.",
   codexYoloDescription:
@@ -69,7 +79,8 @@ export const sessionReloadCopy = {
     "Die Anfrage konnte nicht bestätigt werden. Wiederhole dieselbe Anfrage, um das Ergebnis sicher zu prüfen.",
   retry: "Anfrage wiederholen",
   waiting: "Neuladen geplant · warte auf Leerlauf",
-  reloading: "Dieselbe Unterhaltung wird neu geladen …",
+  reloading:
+    "Warte auf die fortgesetzte Unterhaltung · mögliche Rückfragen im Terminal bestätigen.",
   completed: "Unterhaltung mit aktualisierten Integrationen fortgesetzt.",
   close: "Schließen",
   refresh: "Erneut prüfen",

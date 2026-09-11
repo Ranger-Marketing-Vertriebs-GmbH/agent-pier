@@ -55,7 +55,11 @@ export class SessionManager {
       // capable: terminal-features forces that regardless of the attaching TERM.
       // Together they carry both a CLI's own copy request and a copy-mode yank
       // out to the browser, where the terminal view turns them into a clipboard write.
-      'set -g remain-on-exit on\nset -g default-shell /bin/sh\nset -g prefix None\nset -g history-limit 50000\nset -g status off\nset -g mouse on\nset -g default-terminal "tmux-256color"\nset -g set-clipboard on\nset -as terminal-features ",*:clipboard"\nset -g exit-empty off\nset -g escape-time 0\n',
+      // history-limit is charged per pane against the single tmux server that owns
+      // every session, so a generous scrollback multiplies across all of them: at
+      // 50000 the server grew past 3 GB and became the OOM killer's first pick,
+      // taking every session down at once.
+      'set -g remain-on-exit on\nset -g default-shell /bin/sh\nset -g prefix None\nset -g history-limit 10000\nset -g status off\nset -g mouse on\nset -g default-terminal "tmux-256color"\nset -g set-clipboard on\nset -as terminal-features ",*:clipboard"\nset -g exit-empty off\nset -g escape-time 0\n',
     );
   }
   serial(operation) {
@@ -278,6 +282,13 @@ export class SessionManager {
           : {}),
       };
       if (options.nativeModelId) session.nativeModelId = options.nativeModelId;
+      if (
+        options.agentpierTools &&
+        !pipeline &&
+        tool !== "shell" &&
+        options.purpose !== "login"
+      )
+        session.agentpierTools = options.agentpierTools;
       if (options.sshTools)
         session.sshTools = {
           enabled: options.sshTools.enabled === true,

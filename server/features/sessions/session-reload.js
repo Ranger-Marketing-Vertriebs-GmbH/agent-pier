@@ -9,7 +9,7 @@ const active = (state) => ["waiting", "reloading"].includes(state);
 
 /** Durable intent; interrupted reloads are never automatically replayed. */
 export class SessionReload {
-  constructor({ services, pollMs = 1000, readinessMs = 15000 }) {
+  constructor({ services, pollMs = 1000, readinessMs = 0 }) {
     this.services = services;
     this.queue = Promise.resolve();
     this.closed = false;
@@ -25,7 +25,13 @@ export class SessionReload {
   async initialize() {
     for (const session of await this.services.sessions.list()) {
       if (session.reload?.state === "waiting") this.pending.add(session.id);
-      if (session.reload?.state === "reloading")
+      if (
+        ["reloading", "failed"].includes(session.reload?.state) &&
+        session.reload.replacementStarted &&
+        session.status === "running"
+      )
+        this.pending.add(session.id);
+      else if (session.reload?.state === "reloading")
         await this.save(session, { state: "failed", error: failureMessage });
     }
     if (this.pollMs) {
@@ -138,7 +144,10 @@ export class SessionReload {
     try {
       await this.save(session, { state: "reloading", error: null });
       await this.services.restartReload(session, plan);
-      await this.verifyRestart(session.id, plan.nativeId);
+      if (!(await this.verifyRestart(session.id, plan.nativeId))) {
+        this.pending.add(session.id);
+        return;
+      }
       await this.save(session, { state: "completed", error: null });
       this.services.activity.remove(session.id);
     } catch {
@@ -151,12 +160,12 @@ export class SessionReload {
       const current = await this.services.sessions.get(id);
       if (current.status !== "running") throw problem("The resumed CLI exited.", 409);
       const bound = await this.services.bindings.resolve(current);
-      if (bound?.id === nativeId) return;
+      if (bound?.id === nativeId) return true;
       if (bound?.id && bound.id !== nativeId)
         throw problem("The resumed CLI selected a different conversation.", 409);
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      if (Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 200));
     } while (Date.now() < deadline);
-    throw problem("The resumed conversation could not be verified.", 409);
+    return false;
   }
   poll() {
     return this.serial(async () => {
@@ -171,6 +180,25 @@ export class SessionReload {
             continue;
           }
           throw error;
+        }
+        if (
+          ["reloading", "failed"].includes(session.reload?.state) &&
+          session.reload.replacementStarted
+        ) {
+          try {
+            if (
+              session.reload.targetAccountId &&
+              session.accountId !== session.reload.targetAccountId
+            )
+              continue;
+            if (!(await this.verifyRestart(id, session.reload.nativeId))) continue;
+            await this.save(session, { state: "completed", error: null });
+            this.services.activity.remove(id);
+          } catch {
+            await this.save(session, { state: "failed", error: failureMessage });
+          }
+          this.pending.delete(id);
+          continue;
         }
         if (session.reload?.state !== "waiting") {
           this.pending.delete(id);
@@ -196,11 +224,11 @@ export class SessionReload {
   }
   cancel(id) {
     return this.serial(async () => {
-      this.pending.delete(id);
       const { session } = await this.inspect(id);
-      if (session.reload?.state === "waiting")
+      if (session.reload?.state === "waiting") {
+        this.pending.delete(id);
         await this.save(session, { state: "idle", error: null });
-      else if (session.reload?.state === "reloading")
+      } else if (session.reload?.state === "reloading")
         throw problem("The session is already restarting.", 409);
       return this.status(id);
     });

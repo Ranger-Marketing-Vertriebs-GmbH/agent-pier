@@ -1,8 +1,9 @@
+import { standaloneProfile } from "./standalone-profile.js";
 import { randomUUID } from "node:crypto";
 import { problem } from "../../lib/storage.js";
 import { validId } from "../sessions/session-validation.js";
 import { pipelineIdentity } from "./native-session.js";
-import { NativeEventReader } from "./native-reader.js";
+import { NativeEventReader, NativeObservationError } from "./native-reader.js";
 import {
   profileCommand,
   validateFrozenAccount,
@@ -95,8 +96,14 @@ export class NativePipelineDriver {
     let observed;
     try {
       observed = await this.reader.read(session.id, session.tool);
-    } catch {
-      observed = { result: "failed", error: "Native output could not be validated." };
+    } catch (error) {
+      observed = {
+        result: "failed",
+        error: "Native output could not be validated.",
+        ...(error instanceof NativeObservationError
+          ? { observationError: error.message }
+          : {}),
+      };
     }
     if (observed.nativeId) this.chat?.initialize(session, observed.nativeId, "automatic");
     const common = {
@@ -124,6 +131,9 @@ export class NativePipelineDriver {
       ...(observed.error ? { error: observed.error } : {}),
       ...(observed.errorCode ? { errorCode: observed.errorCode } : {}),
       nativeResult: observed.result || null,
+      ...(observed.observationError
+        ? { observationError: observed.observationError }
+        : {}),
     };
   }
   async cancel(identity) {
@@ -136,7 +146,21 @@ export class NativePipelineDriver {
     }
     if (session.status === "running") await this.sessions.stop(session.id);
   }
-  async launchProfile(profile, { cwd, params = {}, model } = {}) {
+  async launchProfile(
+    profile,
+    {
+      cwd,
+      params = {},
+      model,
+      access,
+      name,
+      launchMode,
+      agentbus,
+      agentpierTools,
+      sshAccessIds,
+    } = {},
+  ) {
+    profile = standaloneProfile(profile, access, this.accounts);
     const prompt = renderProfilePrompt(profile, params, model);
     if (!profile.enabled) throw problem("This profile is disabled.", 409);
     const sessionId = randomUUID();
@@ -144,7 +168,14 @@ export class NativePipelineDriver {
       {
         ...profileAccess(profile, model ?? profile.config.models.default),
         cwd,
-        name: profile.name,
+        name: name || profile.name,
+        launchMode,
+        agentbus,
+        agentpierTools,
+        sshAccessIds,
+        ...(access?.nativeModelId !== undefined
+          ? { nativeModelId: access.nativeModelId }
+          : {}),
       },
       false,
       {
@@ -158,7 +189,14 @@ export class NativePipelineDriver {
             model ?? profile.config.models.default,
           ),
         transformLaunch: ({ launch, id }) =>
-          profileCommand({ profile, launch, sessionId: id, headless: false, prompt }),
+          profileCommand({
+            profile,
+            launch,
+            sessionId: id,
+            headless: false,
+            prompt,
+            useLaunchPermissions: launchMode !== undefined,
+          }),
       },
     );
   }

@@ -79,18 +79,30 @@ test("profile launch validates required parameters and opens its native session"
   await page
     .getByRole("button", { name: "Sitzung mit Profil starten", exact: true })
     .click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("dialog", { name: "Neue Sitzung", exact: true });
+  await expect(
+    dialog.getByRole("combobox", { name: "Aufgabenprofil", exact: true }),
+  ).toHaveValue("profile-one");
   await dialog
-    .getByRole("button", { name: "Sitzung mit Profil starten", exact: true })
-    .click();
+    .getByRole("textbox", { name: "Name der Sitzung", exact: true })
+    .fill("Meine Planung");
+  await dialog
+    .getByRole("textbox", { name: "Arbeitsverzeichnis", exact: true })
+    .fill("/fixture/project");
+  await dialog.getByRole("checkbox", { name: /AgentBus/ }).uncheck();
+  await dialog.getByRole("button", { name: "Sitzung starten", exact: true }).click();
   expect(state.calls.filter((c) => c.path.endsWith("/launch"))).toHaveLength(0);
   await dialog.getByRole("textbox", { name: "Thema", exact: true }).fill("Security");
-  await dialog
-    .getByRole("button", { name: "Sitzung mit Profil starten", exact: true })
-    .click();
+  await dialog.getByRole("button", { name: "Sitzung starten", exact: true }).click();
   await expect(page).toHaveURL(/sessions\/launched\/terminal$/);
-  expect(state.calls.find((c) => c.path.endsWith("/launch")).body.params).toEqual({
-    topic: "Security",
+  expect(state.calls.find((c) => c.path.endsWith("/launch")).body).toMatchObject({
+    name: "Meine Planung",
+    cwd: "/fixture/project",
+    params: { topic: "Security" },
+    access: { accountId: "local-codex", tool: "codex" },
+    agentbus: false,
+    agentpierTools: true,
+    sshAccessIds: [],
   });
 });
 

@@ -40,6 +40,7 @@ export async function fixture(page) {
     let result = {};
     if (method !== "GET") writes.push({ path, method, body });
     if (path === "/api/state") result = state;
+    else if (path === "/api/pipeline-profiles") result = { profiles: [] };
     else if (path === "/api/ssh-accesses") result = { accesses: [] };
     else if (path === "/api/accounts/local-codex/auth-status")
       result = { state: "unauthenticated", checkedAt: Date.now() };

@@ -4,6 +4,12 @@ import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import { reduceNativeEvent } from "./native-events.js";
 
+// Image tool results embed base64 data in a single JSONL event. Keep a bounded
+// allowance large enough for screenshots, independently of the total file limit.
+const MAX_EVENT_LENGTH = 16 * 1024 * 1024;
+
+export class NativeObservationError extends Error {}
+
 export class NativeEventReader {
   constructor(dataDir) {
     this.directory = path.join(dataDir, "sessions");
@@ -59,7 +65,7 @@ export class NativeEventReader {
         (process.getuid && info.uid !== process.getuid()) ||
         info.size > 64 * 1024 * 1024
       )
-        throw Error("Invalid native observation file.");
+        throw new NativeObservationError("Invalid native observation file.");
       let cache = this.cache.get(id);
       if (!cache || cache.ino !== info.ino || info.size < cache.offset)
         cache = {
@@ -85,20 +91,24 @@ export class NativeEventReader {
         while ((end = cache.pending.indexOf("\n")) !== -1) {
           const line = cache.pending.slice(0, end);
           cache.pending = cache.pending.slice(end + 1);
-          if (line.length > 1024 * 1024)
-            throw Error("Native event exceeds the observation limit.");
+          if (line.length > MAX_EVENT_LENGTH)
+            throw new NativeObservationError(
+              "Native event exceeds the 16 MiB observation limit.",
+            );
           if (line.trim()) {
             let event;
             try {
               event = JSON.parse(line);
             } catch {
-              throw Error("Native CLI emitted invalid JSONL.");
+              throw new NativeObservationError("Native CLI emitted invalid JSONL.");
             }
             cache.state = reduceNativeEvent(tool, cache.state, event);
           }
         }
-        if (cache.pending.length > 1024 * 1024)
-          throw Error("Native event exceeds the observation limit.");
+        if (cache.pending.length > MAX_EVENT_LENGTH)
+          throw new NativeObservationError(
+            "Native event exceeds the 16 MiB observation limit.",
+          );
       }
       this.cache.delete(id);
       if (cache.offset > previousOffset)

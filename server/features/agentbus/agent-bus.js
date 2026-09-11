@@ -1,4 +1,5 @@
 import { serverMessages } from "../../lib/i18n/de.js";
+import { codexHookCommand } from "../../lib/codex-hook-command.js";
 import {
   shellQuote as quote,
   tomlValue as toml,
@@ -104,7 +105,10 @@ export class AgentBus {
             hooks: [
               {
                 type: "command",
-                command: [process.execPath, hook, event].map(quote).join(" "),
+                command:
+                  selected.tool === "codex"
+                    ? codexHookCommand(env, "AGENTBUS", hook, [event])
+                    : [process.execPath, hook, event].map(quote).join(" "),
                 timeout: event === "SessionEnd" ? 3 : 10,
               },
             ],

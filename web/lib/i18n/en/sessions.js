@@ -1,4 +1,12 @@
 export const launchDialogCopy = {
+  taskProfile: "Task profile",
+  noTaskProfile: "No task profile",
+  profileUnavailable: "This task profile is unavailable. Please choose another profile.",
+  profileSessionHint:
+    "The profile presets the launch options. Changes apply only to this session. Changing the CLI clears the profile selection.",
+  profileMode: (mode) => `Profile · ${mode}`,
+  profileModeDescription: (mode) => `Uses permission mode ${mode} from the task profile.`,
+
   nativeModeDescription:
     "Uses the permissions in your tool profile and its native defaults.",
   codexYoloDescription:
@@ -67,7 +75,8 @@ export const sessionReloadCopy = {
     "The reload request could not be confirmed. Retry the same request to safely check its result.",
   retry: "Retry request",
   waiting: "Reload queued · waiting until idle",
-  reloading: "Reloading the same conversation …",
+  reloading:
+    "Waiting for the resumed conversation · confirm any prompts in the terminal.",
   completed: "Conversation resumed with refreshed integrations.",
   close: "Close",
   refresh: "Check again",
