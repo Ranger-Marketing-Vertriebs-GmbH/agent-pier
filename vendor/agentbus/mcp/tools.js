@@ -61,7 +61,7 @@ export function makeTools(h, resolveSelf, deps = {}) {
     },
     {
       name: 'inbox_read',
-      description: 'Holt alle neuen agentbus-Nachrichten an diese Session ab und markiert sie als gelesen.',
+      description: 'Holt alle neuen agentbus-Nachrichten an diese Session ab und markiert sie als gelesen. Nur nach einem Nachrichtenhinweis oder auf ausdrückliche Nutzeranfrage aufrufen, nicht periodisch. Nach leerem Ergebnis auf einen neuen Hinweis warten.',
       inputSchema: { type: 'object', properties: {} },
       async run(args = {}) {
         const self = await resolveSelf(args);

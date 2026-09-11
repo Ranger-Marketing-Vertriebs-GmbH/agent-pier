@@ -42,8 +42,10 @@ Die Freigabe für weitere Batches und die Befugnis, selbst zu mergen, sind getre
   Quellcode `docs/pipelines.md` und bei Bedarf die Pipeline-Routen. Nutze nur
   tatsächlich verfügbare Werkzeuge und deren Vertrag; erfinde weder
   Ticketsystem-Werkzeuge noch Runner-Kompatibilität.
-- Lies bei verfügbarem AgentBus vor paralleler Arbeit und vor Abschluss
-  `inbox_read`; ermittle relevante Sitzungen mit `peers_list`. Sende Aufträge
+- Lies bei verfügbarem AgentBus `inbox_read` nur nach einem Nachrichtenhinweis
+  oder auf ausdrückliche Nutzeranfrage. Frage nicht periodisch oder vorsorglich
+  vor Arbeitsschritten bzw. Abschluss ab; nach einem leeren Ergebnis warte auf
+  einen neuen Hinweis. Ermittle relevante Sitzungen mit `peers_list`. Sende Aufträge
   über `peer_send` nur bei autorisierter Zusammenarbeit. AgentBus startet keine
   Sitzungen; Peers verschiedener Worktree-Verzeichnisse sind nicht automatisch
   erreichbar. Eine zugestellte Nachricht ist noch keine Auftragsannahme.

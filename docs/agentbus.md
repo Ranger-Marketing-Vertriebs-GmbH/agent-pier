@@ -16,6 +16,15 @@ Retries with the same message ID are idempotent. The HTTP AgentBus history
 shows unacknowledged rows as `pending` and acknowledged rows as `read` without
 claiming them.
 
+Inbox reads are event-driven: launch hooks and the OpenCode system hook add a
+message hint only when the queue contains pending messages. The agent should call
+`inbox_read` after a fresh hint or an explicit user request, not periodically or
+before every work step or final answer. A delayed wake can arrive after its message
+has already been read; an empty result is harmless and should not trigger more
+reads. This guidance reduces model-initiated calls; it does not hide tool output.
+Existing conversations can retain older startup instructions until a fresh
+conversation is started.
+
 When a project is opened after an upgrade, valid records in the legacy
 `inbox/<peer>/pending` and `inbox/<peer>/done` directories are imported into
 SQLite. Invalid legacy files remain in place for diagnostics. New messages are
