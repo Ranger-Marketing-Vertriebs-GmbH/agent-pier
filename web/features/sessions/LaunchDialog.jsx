@@ -30,14 +30,14 @@ export default function LaunchDialog({
     initialProfile?.config.cliTool || tool,
     initialProfile,
   );
-  const profiles = useResource(tool === "shell" ? null : "/pipeline-profiles");
+  const profiles = useResource(access.tool === "shell" ? null : "/pipeline-profiles");
   const [profileId, setProfileId] = useState(initialProfile?.id || ""),
     [params, setParams] = useState({});
-  const profile = profiles.data?.profiles.find((item) => item.id === profileId);
+  const profile = profiles.data?.profiles?.find((item) => item.id === profileId);
   const profileReady =
     !profileId || Boolean(profile?.enabled && profile.config.cliTool === access.tool);
   function chooseProfile(id) {
-    const selected = profiles.data?.profiles.find((item) => item.id === id);
+    const selected = profiles.data?.profiles?.find((item) => item.id === id);
     setProfileId(id);
     setParams({});
     access.chooseTool(selected?.config.cliTool || access.tool);
