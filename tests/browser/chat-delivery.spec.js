@@ -169,7 +169,9 @@ test("uncertain native input never retries automatically and needs explicit draf
   await expect(
     page.getByRole("button", { name: "Übergabe erneut versuchen" }),
   ).toHaveCount(0);
-  await expect(page.getByText(/kann doppelt/)).toBeVisible();
+  await expect(
+    page.getByText(/Neu zustellen prüft zuerst die TUI-Eingabe/),
+  ).toBeVisible();
   await page.screenshot({ path: "test-results/mobile-delivery-uncertain.png" });
   await page.getByRole("button", { name: "Nach Prüfung als Entwurf übernehmen" }).click();
   await expect(input(page)).toBeEnabled();

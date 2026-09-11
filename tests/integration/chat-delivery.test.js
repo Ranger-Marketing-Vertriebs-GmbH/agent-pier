@@ -29,18 +29,26 @@ async function setup(t) {
     },
   ) => {
     f.application.sessions.get = async () => ({ ...session });
-    f.application.sessions.input = async (
-      _id,
-      text,
-      submit,
-      beforeInput,
-      nativeQueue,
-    ) => {
+    f.application.sessions.input = async (_id, text, submit, beforeInput) => {
       await beforeInput(session, "");
-      if (nativeQueue && (await nativeQueue(session))) return;
       assert.equal(submit, true);
       return input(text);
     };
+    f.application.sessions.withChatInput = async (_id, operation) =>
+      operation({
+        session: await f.application.sessions.get(_id),
+        raw: "",
+        generation: "fixture-runtime",
+        recoveryGeneration: "fixture-runtime",
+        composer: { state: "empty", text: null },
+        write: async (text, { onPhase }) => {
+          await onPhase("paste-intent");
+          await input(text);
+          await onPhase("pasted");
+          await onPhase("submit-intent");
+          await onPhase("submitted");
+        },
+      });
     f.application.requests.list = async () => ({ requests: [] });
     f.application.requests.hasPending = () => false;
     f.application.models.guardInput = async () => {};
@@ -75,45 +83,8 @@ test("HTTP delivery replay and restart do not repeat terminal input", async (t) 
   assert.equal(x.writes(), 1);
 });
 
-for (const bound of [true, false])
-  test(`Codex delivery uses only a freshly verified thread, otherwise the TUI: ${bound}`, async (t) => {
-    const x = await setup(t);
-    const codex = { ...session, tool: "codex" };
-    x.body.deliveryScope = JSON.stringify([
-      codex.id,
-      codex.accountId,
-      codex.tool,
-      codex.createdAt,
-    ]);
-    x.f.application.sessions.get = async () => ({ ...codex });
-    const typed = [];
-    x.f.application.sessions.input = async (
-      _id,
-      _text,
-      _submit,
-      beforeInput,
-      nativeQueue,
-    ) => {
-      await beforeInput(codex, "");
-      const queued = await nativeQueue(codex);
-      assert.equal(queued, bound);
-      if (!queued) typed.push(_text);
-    };
-    x.f.application.bindings.resolve = async (_session, options) => {
-      assert.deepEqual(options, { forInput: true });
-      return bound ? { id: "thread-queue" } : null;
-    };
-    const queued = [];
-    x.f.application.history.queue = async (...args) => queued.push(args);
-    assert.equal((await (await x.post()).json()).status, "handed-off");
-    assert.equal((await (await x.post()).json()).status, "handed-off");
-    assert.deepEqual(queued, bound ? [[codex, "thread-queue", x.body.text]] : []);
-    assert.deepEqual(typed, bound ? [] : [x.body.text]);
-    assert.equal(x.writes(), 0);
-  });
-
-for (const tool of ["claude", "opencode"])
-  test(`${tool} sends through the active TUI even with an outdated history binding`, async (t) => {
+for (const tool of ["codex", "claude", "opencode"])
+  test(`${tool} sends through the active TUI without a history queue lookup`, async (t) => {
     const x = await setup(t);
     const current = { ...session, tool };
     x.body.deliveryScope = JSON.stringify([
@@ -122,37 +93,14 @@ for (const tool of ["claude", "opencode"])
       tool,
       current.createdAt,
     ]);
-    x.f.application.sessions.get = async () => ({ ...current });
-    let route = "after-clear",
-      writes = [];
-    x.f.application.bindings.resolve = async () => {
-      assert.fail("A reader binding must not select the input destination");
-    };
-    x.f.application.history.queue = async () => {
-      assert.fail("Claude and OpenCode must not use the Codex thread queue");
-    };
-    x.f.application.sessions.input = async (
-      _id,
-      text,
-      submit,
-      beforeInput,
-      nativeQueue,
-    ) => {
-      await beforeInput(current, "");
-      assert.equal(await nativeQueue(current), false);
-      assert.equal(submit, true);
-      writes.push({ route, text });
-    };
+    x.f.application.sessions.get = async () => current;
+    x.f.application.bindings.resolve = async () =>
+      assert.fail("History selected input destination");
+    x.f.application.history.queue = async () =>
+      assert.fail("Chat invoked native message queue");
     assert.equal((await (await x.post()).json()).status, "handed-off");
-    route = "after-native-resume";
-    // Retrying the old receipt after switching routes must not resend it.
     assert.equal((await (await x.post()).json()).status, "handed-off");
-    const next = { ...x.body, deliveryId: randomUUID(), text: "next prompt" };
-    assert.equal((await (await x.post(next)).json()).status, "handed-off");
-    assert.deepEqual(writes, [
-      { route: "after-clear", text: x.body.text },
-      { route, text: next.text },
-    ]);
+    assert.equal(x.writes(), 1);
   });
 
 test("concurrent identical HTTP deliveries report pending without duplicate input", async (t) => {
@@ -278,8 +226,8 @@ test("request guards reject both before scheduling and inside the serialized cal
 
 test("session scope is checked again at serialized input time", async (t) => {
   const x = await setup(t);
-  x.f.application.sessions.input = async (_id, _text, _submit, beforeInput) => {
-    await beforeInput({ ...session, accountId: "switched-account" }, "");
+  x.f.application.sessions.withChatInput = async (_id, operation) => {
+    await operation({ session: { ...session, accountId: "switched-account" }, raw: "" });
     assert.fail("changed account must never reach native input");
   };
   assert.equal((await (await x.post()).json()).status, "rejected");
@@ -289,6 +237,19 @@ test("real session input keeps stopped and headless guards and persists uncertai
   const x = await setup(t);
   const manager = x.f.application.sessions;
   manager.input = SessionManager.prototype.input.bind(manager);
+  manager.withChatInput = async (_id, operation) =>
+    manager.input(_id, x.body.text, true, async (current, raw) => {
+      await operation({
+        session: current,
+        raw,
+        generation: "fixture-runtime",
+        recoveryGeneration: "fixture-runtime",
+        composer: { state: "empty", text: null },
+        write: async (_text, { onPhase }) => {
+          await onPhase("paste-intent");
+        },
+      });
+    });
   const commands = [];
   manager.tmux = async (args) => {
     commands.push(args[0]);
@@ -335,4 +296,31 @@ test("session deletion removes receipts only after successful removal", async (t
   x.f.application.sessions.remove = async () => {};
   assert.equal((await x.f.request(endpoint, { method: "DELETE" })).status, 204);
   await assert.rejects(fs.stat(folder), { code: "ENOENT" });
+});
+
+test("invalid terminal controls produce an editable rejected receipt without input", async (t) => {
+  const x = await setup(t);
+  x.body.text = "bad\x1b[201~input";
+  assert.equal((await (await x.post()).json()).status, "rejected");
+  assert.equal((await (await x.status()).json()).status, "rejected");
+  assert.equal((await (await x.post()).json()).status, "rejected");
+  assert.equal(x.writes(), 0);
+});
+
+test("new prompts normalize line endings while legacy raw-text receipts still replay", async (t) => {
+  const x = await setup(t);
+  const written = [];
+  x.install(async (text) => written.push(text));
+  x.body.text = "A\r\nB\rC";
+  assert.equal((await (await x.post()).json()).status, "handed-off");
+  assert.deepEqual(written, ["A\nB\nC"]);
+  assert.equal((await (await x.post()).json()).status, "handed-off");
+  assert.equal(written.length, 1);
+  const file = x.f.application.chatDelivery.file(session.id, x.body.deliveryId);
+  const receipt = x.f.application.chatDelivery.read(file);
+  delete receipt.journal;
+  delete receipt.attemptId;
+  x.f.application.chatDelivery.write(file, receipt);
+  assert.equal((await (await x.post()).json()).status, "handed-off");
+  assert.equal(written.length, 1);
 });

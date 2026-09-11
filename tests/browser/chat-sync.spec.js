@@ -285,3 +285,30 @@ test("a disjoint live window resets older pagination to the newest cursor", asyn
   expect(cursors).toEqual(["initial-older", "newest-older"]);
   expect(state.reads).toBe(0);
 });
+
+test("chat submits /clear and resets history only after the native conversation changes", async ({
+  page,
+}) => {
+  const state = await fixture(
+    page,
+    full("before-clear", [message("old", "Old conversation")]),
+  );
+  const submissions = [];
+  await page.route("**/api/sessions/sync/input", async (route) => {
+    const body = route.request().postDataJSON();
+    submissions.push(body);
+    await route.fulfill({ json: { deliveryId: body.deliveryId, status: "handed-off" } });
+  });
+  await page.getByLabel("Nachricht", { exact: true }).fill("/clear");
+  await page.getByRole("button", { name: "Senden", exact: true }).click();
+  await expect.poll(() => submissions.length).toBe(1);
+  expect(submissions[0]).toMatchObject({ text: "/clear", submit: true });
+  await expect(page.getByLabel("Nachricht", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("Chatverlauf")).toContainText("Old conversation");
+  state.send(full("after-clear", [], "native-two"));
+  await expect(page.getByLabel("Chatverlauf")).not.toContainText("Old conversation");
+  state.send(full("new-answer", [message("new", "Fresh conversation")], "native-two"));
+  await expect(page.getByLabel("Chatverlauf")).toContainText("Fresh conversation");
+  await expect(page.getByLabel("Chatverlauf")).not.toContainText("Old conversation");
+  expect(submissions).toHaveLength(1);
+});

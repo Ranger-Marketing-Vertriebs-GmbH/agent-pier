@@ -1,0 +1,325 @@
+# Direct Chat-to-TUI Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Chatnachrichten für Codex, Claude und OpenCode direkt und nachvollziehbar an die laufende TUI übergeben, einschließlich laufender Aufgaben.
+
+**Architecture:** Der vorhandene HTTP-Auftrag und die dauerhaften Zustellungsbelege bleiben bestehen. Ein serverseitiger TUI-Adapter ersetzt den Codex-Queue-Aufruf im Chat, unter der vorhandenen Session-Sperre. Native History-Bindings bleiben für Lesen, Resume und Identitätswechsel erhalten.
+
+**Tech Stack:** JavaScript ES Modules, React, Express, tmux, node:test, Playwright.
+
+**Spec:** [Direkte Chat-Eingabe in die TUI](../specs/2026-09-11-direct-chat-tui-design.md)
+
+## Global Constraints
+
+- Node.js 22.13+, macOS und Linux; keine neue Laufzeitabhängigkeit oder Broker.
+- HTTP-API und Status werden additiv um geprüfte Wiederherstellung erweitert;
+  bisherige Aufträge und WebSocket-Ausgabekanäle bleiben kompatibel.
+- Source-/Testdateien bleiben unter 600 Zeilen. Profile und Belege brauchen keine Migration.
+- Tests ausschließlich mit temporären Datenverzeichnissen und privatem tmux-Server.
+- Keine Testnachrichten in laufende Nutzersessions, keine Übernahme privater Credentials.
+- Jede Versuchs-ID wird höchstens einmal ausgeführt; Wiederherstellung ausschließlich
+  nach ausdrücklichem Klick und frischer Prüfung, niemals automatisch nach Timeout.
+- Neue UI-Meldungen in beiden Katalogen, importiert über reaktive Messages.
+- Umsetzung am 2026-09-11 ausdrücklich freigegeben. Ausführungsstand siehe unten;
+  die ursprünglichen Checklisten dokumentieren den Entwurf.
+
+## Execution status (2026-09-11)
+
+Tasks 1–5 are implemented. Native CLI probes cover all three providers with a local
+streaming test server: 30 HTTP deliveries each, input while a response is held,
+submit-only recovery, edited-draft rejection, and recovery replay. The previous
+Codex queue route was not benchmarked; no relative speedup is claimed. Exact draft
+recovery is limited to completely visible single-line composer text; wrapped or
+collapsed drafts remain blocked. See `docs/direct-chat-tui-validation.md` for the
+versioned evidence and platform limits. Local verification and independent review are complete; the implementation is
+being submitted as a follow-up PR. No merge or release is included in the
+implementation authorization.
+
+## Task 1: Native Übergabe nachweisen und Latenz lokalisieren
+
+**Files:**
+
+- Create: `scripts/probe-chat-tui.mjs`
+- Create: `tests/helpers/tui-input-recorder.js`
+- Create: `docs/direct-chat-tui-validation.md`
+- Read: `tests/integration/chat-slash-commands.test.js`, `tests/helpers/application.js`
+
+**Interfaces:** Der Recorder exportiert `createTuiInputRecorder(fixture)` und liefert
+`{ command, args, waitForText(text), readBytes(), receivedAt() }`. Er läuft als
+synthetisches Raw-TTY-Programm innerhalb der Fixture und aktiviert Bracketed Paste.
+`readBytes()` liefert einen Buffer; `receivedAt()` monotone Empfangszeitpunkte.
+Das Probe-Skript hat die Modi `--synthetic` und `--native --tool codex|claude|opencode`.
+Native Ausführung verwendet frische Profile, privates tmux und ein temporäres Projekt;
+fehlende Testprovider-Konfiguration beendet den Versuch als nicht ausführbar.
+
+- [ ] Recorder aus dem bestehenden Slash-tmux-Test extrahieren und dessen Test
+      unverändert damit ausführen. Bytegrenzen müssen über mehrere stdin-Chunks hinweg
+      erkannt werden; nicht voraussetzen, dass ein Schreibvorgang ein Event erzeugt.
+- [ ] Probe über vorhandene Application-Fixture aufbauen. Vergleich im selben
+      Testlauf: bestehender Chatweg, direkte Paste mit anschließendem Enter und vorhandene
+      Slash-Übergabe. Nur synthetische Marker und Laufzeiten ausgeben.
+- [ ] Für jede echte CLI Version, Plattform, Idle-/Busy-Verhalten, vorhandenen
+      Entwurf, Dialoge, native Submit-Taste und nötigen Paste-Abstand dokumentieren.
+      Der Busy-Test hält eine kontrollierte Aufgabe mindestens fünf Sekunden offen
+      und prüft die Annahme der zweiten Nachricht vor ihrem Ende.
+- [ ] Mindestens 30 Übergaben je CLI lokal messen. HTTP-Eingang bis Submit und
+      sichtbares Echo separat ausweisen; kein Schluss aus HTTP-Erfolg auf native Annahme.
+- [ ] Entscheidung festhalten: Nur bei zuverlässiger Busy-Annahme und sicher
+      erkennbaren Eingabekonflikten folgt die Umstellung dieser CLI. Bei fehlendem
+      Nachweis bleibt ihre Umstellung offen; kein heuristisches Nachsenden von Enter.
+
+```sh
+node --test tests/integration/chat-slash-commands.test.js
+node scripts/probe-chat-tui.mjs --synthetic
+node scripts/probe-chat-tui.mjs --native --tool codex
+node scripts/probe-chat-tui.mjs --native --tool claude
+node scripts/probe-chat-tui.mjs --native --tool opencode
+```
+
+Commit: `test: characterize direct TUI chat input and latency`
+
+## Task 2: Text- und Eingabeadapter mit Regressionstests
+
+**Files:**
+
+- Create: `server/features/sessions/session-chat-input.js`
+- Create: `tests/unit/session-chat-input.test.js`
+- Create: `tests/fixtures/tui-input/` (bereinigte synthetische Composer-/Dialogzustände)
+- Read: `server/features/sessions/session-slash-command.js`
+
+**Interfaces:**
+
+- `normalizeChatText(text): string` normalisiert Zeilenumbrüche, prüft 32.000 Zeichen
+  und lehnt Terminal-Steuerzeichen außer Tab/LF ab.
+- `assertChatComposerReady(tool, raw): void` akzeptiert die in Task 1 belegten
+  empfangsbereiten Idle-/Busy-Zustände; belegte oder nicht sicher erkennbare Composer
+  werden vor dem Schreiben abgelehnt. Keine pauschale Abhängigkeit vom Busy-Indikator.
+- `writeChatTuiInput(manager, session, text): Promise<void>` verwendet den bestehenden
+  Slash-Helper, sonst eindeutigen tmux-Puffer, Paste und separat den in Task 1
+  nachgewiesenen Submit. Aufrufer hält die Session-Sperre und hat den Beleg gesichert.
+
+- [ ] Zuerst fehlschlagende Validierungs- und Composer-Tests schreiben, unter anderem:
+
+```js
+assert.equal(normalizeChatText("A\r\nB\rC\tD"), "A\nB\nC\tD");
+assert.throws(() => normalizeChatText("text\x1b[201~\r"));
+assert.throws(() => normalizeChatText("text\x03"));
+assert.throws(() => normalizeChatText("text\x9b"));
+```
+
+- [ ] Für jede CLI akzeptierte leere Idle-/Busy-Composer sowie Ablehnung von
+      vorhandenen Entwürfen, Dialogen und unbekannten Screens mit Fixtures prüfen.
+      Erkennung auf den Eingabebereich begrenzen, nicht auf Wörter im Antworttext.
+- [ ] Adapter implementieren. Nachrichteninhalt ausschließlich als Pufferdaten,
+      niemals als Shellcode oder Tastennamen behandeln. Puffer nach Erfolg oder Fehler
+      aufräumen; bei partiellem Schreiben kein zweiter Versuch.
+- [ ] Tests für Unicode, Tab, Mehrzeiler, Dateipfade mit Leerzeichen, Slash-Befehle,
+      mehrzeilige Slash-Erwähnungen, Pastefehler und Enterfehler ergänzen.
+- [ ] Rot-Grün prüfen, danach committen.
+
+```sh
+node --test tests/unit/session-chat-input.test.js
+```
+
+Commit: `feat: add guarded direct TUI chat input adapters`
+
+## Task 3: Chat auf den geprüften TUI-Weg umstellen
+
+**Files:**
+
+- Modify: `server/features/chat/chat-delivery.js`
+- Modify: `server/features/sessions/session-manager.js`
+- Modify: `server/application/services.js`
+- Modify: `tests/integration/chat-delivery.test.js`
+- Modify: `tests/integration/session-input-concurrency.test.js`
+- Modify: `tests/integration/chat-slash-commands.test.js`
+- Modify: `tests/integration/sessions.test.js`
+- Modify if unused: `server/features/chat/provider-history.js`
+
+**Interfaces:** `SessionManager.inputChat(id, text, beforeInput): Promise<void>`
+ist der neue Chat-Einstieg. Er serialisiert auf `id`, prüft laufende interaktive
+Session und Reload, liest den aktuellen Screen und ruft erst nach erfolgreicher
+Composer-Prüfung `beforeInput(session, raw)` auf. Danach schreibt er mit Task 2.
+Bestehendes `input(id, text, submit, beforeInput)` bleibt für sonstige Eingaben;
+der bisherige fünfte `nativeQueue`-Callback entfällt nach Aktualisierung aller Aufrufer.
+
+- [ ] HTTP-Tests zuerst so ändern, dass normale Chatnachrichten aller drei CLIs
+      genau einen TUI-Schreibversuch auslösen. `history.queue` und Input-Thread-Auflösung
+      dürfen dabei nicht aufgerufen werden. Den bisherigen Codex-Queue-Test ersetzen.
+- [ ] Neue Methode als dünnen Einstieg implementieren; größere Logik gehört in
+      `session-chat-input.js`, da der Manager bereits nahe an 600 Zeilen liegt.
+- [ ] In `ChatDelivery.send` bestehende Belege nach den bisherigen Scope-/Hash-Regeln
+      beantworten. Den Hash weiterhin aus Originaltext und Submit bilden. Nur für
+      neue Aufträge Text vor Reservierung normalisieren und zusätzlich prüfen;
+      der normalisierte Text wird geschrieben. So bleiben Upgrade-Replays auch
+      mit CRLF oder inzwischen abgelehnten Steuerzeichen lesbar und schreiben
+      nichts erneut. Diese Fälle als Regressionstests ergänzen; keine Belegmigration.
+- [ ] Bestehenden Callback mit Scope-, Request- und Modellprüfungen sowie dauerhaftem
+      `uncertain` vor dem ersten Schreibvorgang weiterverwenden. Der Input-Adapter darf
+      bis einschließlich dieses Callbacks keine Zeichen an die TUI schreiben.
+- [ ] Abhängigkeiten `bindings/history` nur entfernen, soweit auch die geprüfte
+      Wiederherstellung in Task 5 sie nicht braucht. Native
+      History-Zuordnung, `/clear`, Resume und Accountwechsel behalten diese Services.
+      `ProviderHistory.queue` nur entfernen, wenn die Referenzsuche keine Nutzer ergibt.
+- [ ] Concurrency-Test an den tatsächlichen TUI-Submit koppeln, statt an den bisherigen
+      Queue-Callback. Replay-, Neustart-, Diskfehler-, Reload- und Dialogtests grün halten.
+
+```sh
+rg -n 'nativeQueue|history\.queue|new ChatDelivery' server tests
+node --test tests/integration/chat-delivery.test.js tests/integration/session-input-concurrency.test.js tests/integration/chat-slash-commands.test.js tests/integration/sessions.test.js
+```
+
+Commit: `fix: deliver chat messages directly to the session TUI`
+
+## Task 4: Tatsächlichen Byte-Transport und Unterbrechungen absichern
+
+**Files:**
+
+- Create: `tests/integration/chat-tui-input.test.js`
+- Reuse: `tests/helpers/tui-input-recorder.js`
+- Update: `docs/direct-chat-tui-validation.md`
+
+**Interfaces:** HTTP-Aufträge behalten `deliveryId`, `deliveryScope`, `text`,
+`submit: true`. Assertions prüfen Recorder-Inhalt und Anzahl der Submit-Sequenzen,
+nicht nur HTTP-Status. Native CLI-Abnahme bleibt ein getrennter Nachweis.
+
+- [ ] Mit Application-Fixture und Recorder echte tmux-Sessions aller drei Tools
+      starten. Nachrichten über HTTP senden, ohne einen Terminal-WebSocket zu öffnen.
+- [ ] Einzeiler, Unicode, lange Mehrzeiler und Dateipfade prüfen: genau ein Payload
+      zwischen Pastegrenzen und genau ein nachfolgender Submit; Slash-Befehle separat.
+- [ ] Dieselbe Delivery-ID gleichzeitig und nach Neustart wiederholen. Erwartung:
+      unveränderter Byte-Recorder und derselbe Beleg, kein zweites Enter.
+- [ ] Fehler nach Paste, vor Enter und nach Enter vor Abschlussbeleg injizieren.
+      HTTP-Abbruch darf laufende Übergabe nicht wiederholbar machen. Bei unklarer
+      Zustellung dürfen nach erneutem Aufruf keine zusätzlichen Bytes eintreffen.
+- [ ] Gleichzeitige andere Session, Reload und AgentPier-Terminal-Eingabe prüfen.
+      Der Chat-Payload darf nicht durch AgentPier-Schreibvorgänge unterbrochen werden.
+- [ ] Native Matrix aus Task 1 mit dem endgültigen HTTP-Weg erneut ausführen und
+      Messergebnisse sowie unterstützte CLI-Versionen im Abnahmedokument ergänzen.
+
+```sh
+node --test tests/integration/chat-tui-input.test.js tests/integration/session-input-concurrency.test.js
+```
+
+Commit: `test: verify direct chat input through owned tmux sessions`
+
+## Task 5: Fehlermarkierung und geprüfte Wiederherstellung
+
+**Files:**
+
+- Create: `server/features/chat/chat-delivery-recovery.js`
+- Modify: `server/features/chat/chat-delivery.js`
+- Modify: `server/features/sessions/session-chat-input.js`
+- Modify: `server/http/routes/sessions.js`
+- Modify: `web/features/chat/ChatDeliveryStatus.jsx`
+- Modify: `web/features/chat/useChatDelivery.js`, `web/features/chat/chat-draft.js`
+- Create: `tests/integration/chat-delivery-recovery.test.js`
+- Modify: `tests/browser/chat-delivery.spec.js`
+
+**Interfaces:** Additiver Endpunkt
+`POST /sessions/:id/input/:deliveryId/recovery` mit
+`{ attemptId, deliveryScope, text, mode: "check" | "retry" }`.
+Antwort: `{ deliveryId, attemptId, status, recovery: { action, reason } }`;
+`action` ist `none`, `submitted-existing`, `resent` oder `blocked`.
+`mode: "check"` schreibt niemals in die TUI. `mode: "retry"` prüft unmittelbar
+vor möglichem Schreiben unter der Session-Sperre. Gleiche `attemptId` mit anderem
+Inhalt/Modus liefert Konflikt; ein Replay liefert nur den gespeicherten Ausgang.
+
+Der Adapter ergänzt `inspectChatComposer(tool, raw)`, Rückgabe
+`{ state: "empty" | "text" | "blocked" | "unknown", text: string | null }`.
+`text` darf nur bei vollständig rekonstruierter Eingabe gesetzt werden.
+`assertChatComposerReady` nutzt denselben Parser. „Text steht irgendwo im Screen“
+genügt nicht. Das Schreiben erlaubt nach Prüfung entweder Paste plus Submit oder
+ausschließlich Submit; beide laufen mit dem bisherigen Guard-/Journal-Vertrag.
+
+- [ ] Zuerst Wiederherstellungstests schreiben: eindeutig unbeschriebener Versuch
+      plus leerer Composer ergibt Paste und Submit; `pasted` plus exakt eigener
+      vollständiger Text ergibt nur Submit. Bei `submit-intent` ist ohne eindeutig
+      zugeordnete native Annahme kein weiterer Schreibvorgang erlaubt.
+- [ ] Schreibjournal `reserved → paste-intent → pasted → submit-intent → submitted`
+      für neue Versuche implementieren. Intent jeweils vor der Nebenwirkung sichern.
+      Belege ohne Journal als nicht ausreichend für automatische Ableitungen behandeln.
+      Originaltext nicht im Journal speichern. Die bestehende Hash-Prüfung bleibt.
+- [ ] Versuchskette und aktuelle Entscheidung pro Auftrag gemeinsam atomar speichern;
+      nach Neustart bleiben IDs und unsichere Intent-Phasen erhalten. Zusätzlich
+      den gesamten Prüf-/Schreibabschnitt auf die Session serialisieren. Zwei Tabs
+      mit verschiedenen neuen IDs dürfen dieselbe offene Ausgangslage nicht zweimal
+      nutzen; jede Recovery-Anfrage gilt nur für den noch aktuellen Ausgangsversuch.
+      Dazu `expectedAttemptId` im Request ergänzen, initial die `deliveryId`.
+- [ ] Journalfehler vor Intent führen zu null Terminalbytes. Fehler nach Intent
+      bleiben unklar. Textvergleich allein, leeres Eingabefeld oder fehlende History
+      autorisieren niemals Wiederholung einer möglicherweise abgeschickten Nachricht.
+- [ ] Tests für identischen Text in einer früheren Nachricht, abgeschnittene lange
+      Composer, Unicode/Zeilenumbrüche, fremden Entwurf, manuelle Bearbeitung,
+      Dialogwechsel, Accountwechsel, Reload und Prozessersatz ergänzen.
+- [ ] UI kennzeichnet sicher abgelehnte Nachrichten als „Nicht zugestellt“, andere
+      problematische Versuche als „Zustellung unklar“. Beide erhalten „Neu zustellen“;
+      beim Klick „Wird geprüft …“, bei Konflikt eine konkrete Begründung und „TUI öffnen“.
+      Während aktiver Versuche ist der Button deaktiviert.
+- [ ] Fehlgeschlagene Aufträge samt Text/Anhängen im Browser behalten, auch wenn
+      danach andere Nachrichten gesendet werden. Versuchskette dem ursprünglichen
+      Auftrag zuordnen, keine zweite Blase für Submit-only. Aufträge mit unklarer
+      Übergabe nicht automatisch als neue Nachricht in die Outbox kopieren.
+- [ ] Nach erfolgreichem Schreibbeleg bei weiter fraglicher Annahme „Übergabe prüfen“
+      anbieten; dieser Klick nutzt ausschließlich `mode: "check"`. Kein Timer setzt
+      wegen ausbleibender KI-Antwort automatisch einen Fehler oder startet einen Retry.
+- [ ] Chromium und WebKit prüfen Doppelklick, zwei Tabs, Reload während Prüfung,
+      HTTP-Abbruch nach Submit und Erhalt des fehlgeschlagenen Textes. Die Teststrecke
+      zählt Paste und Submit separat; insbesondere:
+
+```js
+assert.equal(pasteCallsAfterRetry - pasteCallsBeforeRetry, 0);
+assert.equal(submitCallsAfterRetry - submitCallsBeforeRetry, 1);
+```
+
+      Die vier Zähler werden aus dem tmux-Spy unmittelbar vor und nach dem
+      Submit-only-Recovery-Aufruf gelesen. Ein Replay derselben Versuchs-ID muss
+      anschließend beide Zähler unverändert lassen.
+
+- [ ] Native Abnahme für alle drei CLIs um vollständigen stehengelassenen Prompt,
+      Teiltext, unbekannten Submit und manuell bereits abgeschickte Nachricht ergänzen.
+      Nicht sicher lesbare Eingaben müssen mit `blocked` enden.
+
+```sh
+node --test tests/integration/chat-delivery-recovery.test.js tests/integration/chat-delivery.test.js tests/integration/chat-tui-input.test.js
+```
+
+Commit: `feat: recover failed chat delivery after checking native input`
+
+## Task 6: Browser, Dokumentation und Integrationsabschluss
+
+**Files:**
+
+- Modify: `tests/browser/chat-delivery.spec.js`, `tests/browser/chat-sync.spec.js`
+- Modify: `docs/mobile-delivery.md`
+- Modify when adding conflict copy: corresponding existing message modules under
+  `web/lib/i18n/de/`, `web/lib/i18n/en/`, `server/lib/i18n/de/`
+
+**Interfaces:** Bestehende Zustellungsstatus bleiben lesbar und erhalten die
+additiven Recovery-Angaben aus Task 5; Chat-Streams bleiben unverändert.
+Bei Composer-Konflikt bleibt die Nachricht wieder bearbeitbar; keine stille
+Entwurfsvernichtung. `handed-off` wird nicht in „von der KI angenommen“ umbenannt.
+
+- [ ] Chromium/WebKit: Senden ohne offenen Terminal-Tab, mehrere Nachrichten
+      nacheinander, zwei Tabs mit derselben Delivery-ID, Verbindungsabbruch und
+      Wiederherstellung prüfen. Bei bestätigtem nativen `/clear` folgt die Chatansicht.
+- [ ] Konfliktmeldungen auf vorhandene Entwürfe/Dialogsituation beziehen und
+      deutsch/englisch ergänzen. Browser-Tests prüfen erhaltenen Text und Bearbeitbarkeit.
+- [ ] Dokumentieren: direkte Übergabe, native Busy-Semantik je CLI, Messwerte,
+      Grenzen bei externem parallelem Tippen und weiterhin unklare Teilübergaben.
+- [ ] Gesamtprüfung und Browser-Suiten ausführen; native Matrix muss je CLI einen
+      tatsächlichen Nachweis enthalten. Ein synthetischer Test ersetzt ihn nicht.
+
+```sh
+npm run check
+AGENTPIER_TEST_BROWSER=chromium npx playwright test tests/browser/chat-delivery.spec.js tests/browser/chat-sync.spec.js
+AGENTPIER_TEST_BROWSER=webkit npx playwright test tests/browser/chat-delivery.spec.js tests/browser/chat-sync.spec.js
+```
+
+- [ ] Eigenen Folge-PR erstellen, direkte Übergabe und Validierung beschreiben.
+      PR #52 vorher integrieren oder explizit als Abhängigkeit ausweisen. Keine
+      Release-Version ändern. Review-Funde beheben; Merge erst bei bestandener CI
+      und vorhandener Merge-Freigabe.
+
+Commit: `docs: describe direct TUI delivery behavior and validation`
