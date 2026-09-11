@@ -1,0 +1,73 @@
+.tool-output {
+  border-top: 1px solid #2c2d31;
+  min-width: 0;
+}
+.tool-output-block + .tool-output-block {
+  border-top: 1px solid #ffffff0a;
+}
+.tool-output-label {
+  padding: 10px 14px 0;
+  color: #b1b4c1;
+  font:
+    11px/1.5 "SFMono-Regular",
+    Consolas,
+    monospace;
+  overflow-wrap: anywhere;
+  background: #0c0d11;
+}
+.chat-tool .tool-output pre {
+  max-height: none;
+  border: 0;
+  padding: 10px 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+.tool-output-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 10px;
+  border-top: 1px solid #2c2d31;
+}
+.tool-output-actions button {
+  min-height: 44px;
+  padding: 8px 6px;
+  color: #ffcda4;
+  font-size: 12px;
+}
+.tool-output-actions button:focus-visible {
+  outline: 2px solid #ffcda4;
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+.tool-output .hljs-string,
+.tool-output .hljs-addition {
+  color: #a8d8ac;
+}
+.tool-output .hljs-number,
+.tool-output .hljs-literal {
+  color: #d8b6ef;
+}
+.tool-output .hljs-attr,
+.tool-output .hljs-variable {
+  color: #99ccee;
+}
+.tool-output .hljs-keyword,
+.tool-output .hljs-built_in {
+  color: #ffd09e;
+}
+.tool-output .hljs-comment {
+  color: #a0a4ae;
+}
+.tool-output .hljs-deletion {
+  color: #f4a49f;
+}
+.tool-output .hljs-meta,
+.tool-output .hljs-section {
+  color: #b7bdf8;
+}
+.tool-output-blocks.is-preview {
+  max-height: 178px;
+  overflow: hidden;
+}
