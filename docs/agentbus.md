@@ -5,6 +5,16 @@ AgentBus uses one embedded SQLite database for each project under
 AgentPier data directory and does not require RabbitMQ, MQTT, or another
 service.
 
+Node uses its built-in `node:sqlite` driver; the OpenCode plugin uses `bun:sqlite`
+from OpenCode's embedded Bun runtime. Both access the same database and require no
+additional package or service. Release packages include this adapter, so regular
+AgentPier updates deliver the fix to existing installations. Reload existing
+OpenCode sessions after updating to load the new plugin.
+
+CI exercises queue behavior under Bun 1.3.10 and verifies Node/Bun interoperability
+on Linux and macOS. Bun is downloaded only for these compatibility tests; users do
+not need a separate Bun installation.
+
 `peer_send` writes a message with a stable ID before it tries to wake the
 recipient. A wake is only a hint to call `inbox_read`; it is not a delivery
 acknowledgement. `inbox_read` claims all currently pending messages for its
