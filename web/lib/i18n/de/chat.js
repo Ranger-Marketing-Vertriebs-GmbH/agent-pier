@@ -29,6 +29,10 @@ export const chatImagesCopy = {
   chatImagesAriaLabel: "Bilder in der Nachricht",
 };
 export const chatMessageCopy = {
+  agentWorking: "Agent arbeitet",
+  agentActivity: "Agent-Aktivität",
+  toolCount: (count) => `${count} ${count === 1 ? "Aufruf" : "Aufrufe"}`,
+  toolFailures: (count) => `${count} fehlgeschlagen`,
   chatToolLabel: "Tool-Aktivität",
   ariaLabel: "Deine Nachricht",
   subtle: "[Bild",
