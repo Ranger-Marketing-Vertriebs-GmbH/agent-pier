@@ -35,6 +35,8 @@ export function requirePipeline(
   return graph;
 }
 export function requireRun(grant, run, request) {
+  if (grant.ownedRunsOnly && request?.grantId !== grant.id)
+    throw problem("This session did not start that run.", 403);
   requireResource(grant, "projectIds", run.projectId || request?.projectId);
   for (const node of run.nodes) requireProfile(grant, node.profileSnapshot);
 }

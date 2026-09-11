@@ -147,6 +147,7 @@ export function historicalOnly(directory) {
         "nativeRequests",
         "reload",
         "sshTools",
+        "agentpierTools",
         "restartGeneration",
       ])
         delete session[key];

@@ -1,4 +1,8 @@
 export const mcpCopy = {
+  sessionTools: "AgentPier tools",
+  sessionToolsSummary: "All tools for all projects, accounts and provider connections.",
+  sessionToolsHint:
+    "Applies to this session for up to twelve hours. Reloading renews an enabled grant. Started runs continue after the session ends. Pipeline sessions do not receive this access.",
   title: "MCP & access",
   introduction:
     "Connect your coding CLI to AgentPier and choose which projects and actions it may use.",

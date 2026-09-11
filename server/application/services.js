@@ -1,3 +1,4 @@
+import { revokeSessionMcp } from "../features/mcp/session-capability.js";
 import { SshIntegration } from "../features/ssh/ssh-integration.js";
 import { SshAccessStore } from "../features/ssh/ssh-access-store.js";
 import { SshSessions } from "../features/ssh/ssh-sessions.js";
@@ -59,6 +60,7 @@ export async function createServices(config) {
   const sessions = new SessionManager({
     dataDir: config.dataDir,
     onStopped: async (session) => {
+      revokeSessionMcp(config.dataDir, session.id);
       sshSessions.discard(session.id);
       await sshIntegration.discard(session.id);
       await requests?.discard(session.id);
