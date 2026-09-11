@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import { createApplication } from "../../server/app.js";
 let application, dir, url, token;
 test.beforeAll(async () => {
@@ -42,7 +43,7 @@ async function chatFixture(id, name, counter = false) {
   const root = path.join(dir, ".claude", "projects", dir.replace(/[^a-zA-Z0-9]/g, "-"));
   fs.mkdirSync(root, { recursive: true });
   const file = path.join(root, nativeId + ".jsonl");
-  const script = `const fs=require('node:fs'),readline=require('node:readline');let count=0;const file=process.argv[1],sessionId=process.argv[2],cwd=process.cwd();function message(type,text){fs.appendFileSync(file,JSON.stringify({type,uuid:require('node:crypto').randomUUID(),sessionId,cwd,message:{role:type,content:text}})+'\\n');}message('assistant','REAL_PTY_READY');process.stdout.write('\\x1b[32mREAL_PTY_READY\\x1b[0m\\nÄnderungen · ❯ ● ▐▛███▜▌\\nTUI_STATUS_ONLY\\n');readline.createInterface({input:process.stdin}).on('line',line=>{count++;message('user',line);const text=${counter}?'COUNTER:'+count:'RECEIVED:'+line;message('assistant',text);process.stdout.write(text+'\\n');});`;
+  const script = fileURLToPath(new URL("../helpers/live-chat-tui.js", import.meta.url));
   const session = await application.sessions.create({
     id,
     accountId: "local-claude",
@@ -50,7 +51,7 @@ async function chatFixture(id, name, counter = false) {
     name,
     cwd: dir,
     command: process.execPath,
-    args: ["-e", script, file, nativeId],
+    args: [script, file, nativeId, String(counter)],
     env: { HOME: dir, PATH: "/bin:/usr/bin" },
   });
   application.chat.initialize(session, nativeId);
@@ -122,7 +123,9 @@ test("browser reconnects after HTTP service restart while CLI memory remains ali
     page.getByRole("heading", { name: "Restart Integration", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Chat", exact: true }).click();
-  await page.getByRole("textbox", { name: "Nachricht", exact: true }).fill("first");
+  await page
+    .getByRole("textbox", { name: "Nachricht", exact: true })
+    .fill("first\nstill the same message");
   await page.getByRole("button", { name: "Senden", exact: true }).click();
   await expect
     .poll(() => application.sessions.screen("browser-restart"))
