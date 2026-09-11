@@ -1,16 +1,19 @@
 import { setTimeout as sleep } from "node:timers/promises";
 
-/** Slash commands belong to the native TUI, not the provider's message queue. */
-export async function sendSlashCommand(manager, session, text, submit) {
-  if (
-    !["codex", "claude", "opencode"].includes(session.tool) ||
-    !/^\/[a-z][a-z0-9_:-]*(?: +[^\r\n]*)?$/i.test(text) ||
-    [...text].some((character) => {
+export function isNativeSlashCommand(tool, text) {
+  return (
+    ["codex", "claude", "opencode"].includes(tool) &&
+    /^\/[a-z][a-z0-9_:-]*(?: +[^\r\n]*)?$/i.test(text) &&
+    ![...text].some((character) => {
       const code = character.codePointAt(0);
       return code < 32 || (code >= 127 && code <= 159);
     })
-  )
-    return false;
+  );
+}
+
+/** Slash commands belong to the native TUI, not the provider's message queue. */
+export async function sendSlashCommand(manager, session, text, submit) {
+  if (!isNativeSlashCommand(session.tool, text)) return false;
   const target = `${manager.target(session.id)}:0.0`;
   await manager.tmux(["send-keys", "-l", "-t", target, "--", text]);
   if (submit) {

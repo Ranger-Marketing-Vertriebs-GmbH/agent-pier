@@ -1,6 +1,7 @@
 import { drainSessionLists, getSessionList } from "./session-list.js";
 import { SessionOperations } from "./session-operations.js";
 import { sendSlashCommand } from "./session-slash-command.js";
+import { inputChat, withChatInput } from "./session-chat-input.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { publicProviderConfiguration } from "./provider-configuration.js";
 import {
@@ -52,15 +53,8 @@ export class SessionManager {
     await privateWrite(
       this.directory,
       "tmux.conf",
-      // set-clipboard defaults to "external", which drops OSC 52 from the programs
-      // inside a pane, and tmux emits the sequence only for a client it believes
-      // capable: terminal-features forces that regardless of the attaching TERM.
-      // Together they carry both a CLI's own copy request and a copy-mode yank
-      // out to the browser, where the terminal view turns them into a clipboard write.
-      // history-limit is charged per pane against the single tmux server that owns
-      // every session, so a generous scrollback multiplies across all of them: at
-      // 50000 the server grew past 3 GB and became the OOM killer's first pick,
-      // taking every session down at once.
+      // Force clipboard support for OSC 52 through browser-attached tmux clients.
+      // Keep history bounded: panes share a tmux server and 50000 lines exhausted RAM.
       'set -g remain-on-exit on\nset -g default-shell /bin/sh\nset -g prefix None\nset -g history-limit 10000\nset -g status off\nset -g mouse on\nset -g default-terminal "tmux-256color"\nset -g set-clipboard on\nset -as terminal-features ",*:clipboard"\nset -g exit-empty off\nset -g escape-time 0\n',
     );
   }
@@ -470,7 +464,13 @@ export class SessionManager {
       });
     }, id);
   }
-  input(id, text, submit = false, beforeInput, nativeQueue) {
+  withChatInput(id, operation) {
+    return withChatInput(this, id, operation);
+  }
+  inputChat(id, text, beforeInput, options) {
+    return inputChat(this, id, text, beforeInput, options);
+  }
+  input(id, text, submit = false, beforeInput) {
     if (this.replacing.has(id))
       return Promise.reject(failure("Session is reloading", 409));
     return this.serial(async () => {
@@ -487,7 +487,6 @@ export class SessionManager {
           await this.tmux(["capture-pane", "-e", "-p", "-t", `${this.target(id)}:0.0`]),
         );
       if (await sendSlashCommand(this, session, text, submit)) return;
-      if (nativeQueue && (await nativeQueue(session))) return;
       if (text) {
         const buffer = `tuiui-${randomUUID()}`;
         await this.tmux(["load-buffer", "-b", buffer, "-"], { input: text });

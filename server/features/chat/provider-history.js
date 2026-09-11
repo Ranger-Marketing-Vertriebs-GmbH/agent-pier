@@ -241,21 +241,6 @@ export class ProviderHistory {
       return operation(this.codex(session));
     }
   }
-  async queue(session, nativeId, text) {
-    if (session.tool !== "codex") throw problem(serverMessages.chat.sessionToolMismatch);
-    providerId(nativeId);
-    if (typeof text !== "string") throw new TypeError("Invalid queue message");
-    await execute(
-      this.executable("codex"),
-      ["queue", "--thread", nativeId, "--message", text],
-      {
-        cwd: session.cwd,
-        env: this.environment(session),
-        timeout: 15000,
-        maxBuffer: 64 * 1024,
-      },
-    );
-  }
   async opencode(session, args) {
     const env = this.environment(session);
     let job;

@@ -1,4 +1,6 @@
 import fs from "node:fs";
+import { normalizeChatText } from "../sessions/session-chat-input.js";
+import { recoverDelivery } from "./chat-delivery-recovery.js";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { privateDirectory, problem } from "../../lib/storage.js";
@@ -29,13 +31,11 @@ function syncDirectory(directory) {
 
 /** Durable at-most-once native input for one owner of the data directory. */
 export class ChatDelivery {
-  constructor({ dataDir, sessions, requests, models, bindings, history }) {
+  constructor({ dataDir, sessions, requests, models }) {
     this.directory = path.join(dataDir, "chat-delivery");
     this.sessions = sessions;
     this.requests = requests;
     this.models = models;
-    this.bindings = bindings;
-    this.history = history;
     this.active = new Set();
   }
 
@@ -112,6 +112,8 @@ export class ChatDelivery {
     return {
       deliveryId: receipt.deliveryId,
       status,
+      attemptId: receipt.attemptId || receipt.deliveryId,
+      ...(receipt.recovery ? { recovery: receipt.recovery } : {}),
       ...(status === "rejected" ? { error: copy.rejected } : {}),
       ...(status === "uncertain" ? { error: copy.uncertain } : {}),
     };
@@ -141,41 +143,54 @@ export class ChatDelivery {
         throw problem(copy.conflict, 409);
       return this.result(previous, file);
     }
+    let normalized;
+    try {
+      normalized = normalizeChatText(text);
+    } catch {
+      /* Persist a rejection so the draft stays editable. */
+    }
     const receipt = {
       version: 1,
       deliveryId: deliveryId.toLowerCase(),
       scope: deliveryScope,
       hash,
       status: "pending",
+      attemptId: deliveryId.toLowerCase(),
+      journal: { phase: "reserved" },
     };
     // No await between lookup, durable reservation and in-process ownership.
+    if (normalized === undefined) {
+      receipt.status = "rejected";
+      this.write(file, receipt);
+      return this.result(receipt, file);
+    }
     this.write(file, receipt);
     this.active.add(file);
     let mayHaveWritten = false;
     try {
-      await requireChatInput(this.requests, id);
-      await this.sessions.input(
-        id,
-        text,
-        submit,
-        async (session, raw) => {
-          this.checkScope(session, deliveryScope);
-          requireCurrentChatInput(this.requests, id);
-          await this.models.guardInput(id, session, raw);
-          receipt.status = "uncertain";
-          this.write(file, receipt);
-          mayHaveWritten = true;
-        },
-        async (session) => {
-          if (session.tool !== "codex" || !this.bindings || !this.history) return false;
-          const native = await this.bindings
-            .resolve(session, { forInput: true })
-            .catch(() => null);
-          if (!native?.id) return false;
-          await this.history.queue(session, native.id, text);
-          return true;
-        },
-      );
+      let blocked = false;
+      try {
+        await requireChatInput(this.requests, id);
+      } catch {
+        blocked = true;
+      }
+      await this.sessions.withChatInput(id, async (tx) => {
+        this.checkScope(tx.session, deliveryScope);
+        receipt.journal = { phase: "reserved", generation: tx.recoveryGeneration };
+        this.write(file, receipt);
+        if (blocked) throw problem(copy.rejected, 409);
+        requireCurrentChatInput(this.requests, id);
+        await this.models.guardInput(id, tx.session, tx.raw);
+        if (tx.composer.state !== "empty") throw problem(copy.recoveryComposer, 409);
+        await tx.write(normalized, {
+          onPhase: async (phase) => {
+            receipt.status = "uncertain";
+            receipt.journal = { phase, generation: tx.recoveryGeneration };
+            this.write(file, receipt);
+            mayHaveWritten = true;
+          },
+        });
+      });
       receipt.status = "handed-off";
       this.write(file, receipt);
     } catch {
@@ -185,6 +200,10 @@ export class ChatDelivery {
       this.active.delete(file);
     }
     return this.result(receipt, file);
+  }
+
+  recover(id, deliveryId, body) {
+    return recoverDelivery(this, id, deliveryId, body);
   }
 
   async discard(id) {

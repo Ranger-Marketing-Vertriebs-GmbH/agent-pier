@@ -403,18 +403,3 @@ test("composer preserves multiline bytes with bracketed paste and submits only o
   );
   assert.equal(await readFile(captured, "utf8"), expectedSubmitted);
 });
-
-test("native queue handoff bypasses tmux typing when the provider owns the queue", async (t) => {
-  const { manager, start } = await fixture(t);
-  const captured = [];
-  const session = await start({
-    command: process.execPath,
-    args: ["-e", "setTimeout(() => {}, 10000)"],
-  });
-  await manager.input(session.id, "queued message", true, undefined, async (current) => {
-    captured.push({ id: current.id, status: current.status });
-    return true;
-  });
-  assert.deepEqual(captured, [{ id: session.id, status: "running" }]);
-  assert.doesNotMatch(await manager.screen(session.id), /queued message/);
-});

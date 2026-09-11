@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import {
+  chatTuiScreen,
+  renderChatTuiScreen,
+  capturedChatTuiScreen,
+} from "../helpers/chat-tui-fixture.js";
+import { createTuiInputRecorder } from "../helpers/tui-input-recorder.js";
 import { applicationFixture } from "../helpers/application.js";
 
 for (const tool of ["codex", "claude", "opencode"]) {
@@ -9,8 +15,10 @@ for (const tool of ["codex", "claude", "opencode"]) {
     const session = { id: "slash", tool, accountId: "fixture", status: "running" };
     const manager = f.application.sessions;
     manager.get = manager.current = async () => session;
+    const screen = await chatTuiScreen(tool);
     const calls = [];
     manager.tmux = async (args) => {
+      if (args[0] === "display-message") return capturedChatTuiScreen(screen);
       calls.push(args);
       return "";
     };
@@ -33,11 +41,11 @@ for (const tool of ["codex", "claude", "opencode"]) {
       assert.equal((await (await send()).json()).status, "handed-off");
       assert.deepEqual(
         calls.map((args) => args[0]),
-        ["capture-pane", "send-keys", "send-keys"],
+        ["send-keys", "send-keys"],
       );
-      assert.deepEqual(calls[1].slice(-2), ["--", text]);
-      assert.ok(calls[1].includes("-l"));
-      assert.equal(calls[2].at(-1), "Enter");
+      assert.deepEqual(calls[0].slice(-2), ["--", text]);
+      assert.ok(calls[0].includes("-l"));
+      assert.equal(calls[1].at(-1), "Enter");
     }
   });
 }
@@ -45,20 +53,9 @@ for (const tool of ["codex", "claude", "opencode"]) {
 for (const tool of ["codex", "claude", "opencode"]) {
   test(`${tool}: slash input arrives as native keystrokes through owned tmux`, async (t) => {
     const f = await applicationFixture(t);
-    const { default: fs } = await import("node:fs/promises");
-    const { default: path } = await import("node:path");
-    const script = path.join(f.root, "native-input.mjs");
-    const capture = path.join(f.root, "keys");
-    const ready = path.join(f.root, "ready");
-    await fs.writeFile(
-      script,
-      `import fs from 'node:fs';
-process.stdin.setRawMode(true);
-process.stdin.on('data', data => fs.appendFileSync(${JSON.stringify(capture)}, data));
-process.stdout.write('\\x1b[?2004h');
-fs.writeFileSync(${JSON.stringify(ready)}, 'ready');
-`,
-    );
+    const recorder = await createTuiInputRecorder(f, {
+      screen: renderChatTuiScreen(await chatTuiScreen(tool)),
+    });
     const account = f.application.accounts.create({ name: "Input fixture", tool });
     const session = await f.application.sessions.create({
       id: "slash-native",
@@ -66,8 +63,8 @@ fs.writeFileSync(${JSON.stringify(ready)}, 'ready');
       accountId: account.id,
       tool,
       cwd: f.home,
-      command: process.execPath,
-      args: [script],
+      command: recorder.command,
+      args: recorder.args,
       env: { HOME: f.home },
     });
     f.application.requests.list = async () => ({ requests: [] });
@@ -75,14 +72,7 @@ fs.writeFileSync(${JSON.stringify(ready)}, 'ready');
     f.application.models.guardInput = async () => {};
     f.application.history.queue = async () =>
       assert.fail("Unexpected native message queue");
-    async function until(read, expected) {
-      for (let n = 0; n < 150; n++) {
-        if ((await read().catch(() => "")) === expected) return;
-        await new Promise((resolve) => setTimeout(resolve, 20));
-      }
-      assert.equal(await read(), expected);
-    }
-    await until(() => fs.readFile(ready, "utf8"), "ready");
+    await recorder.waitForText("ready");
     const body = {
       deliveryId: randomUUID(),
       deliveryScope: JSON.stringify([
@@ -97,34 +87,8 @@ fs.writeFileSync(${JSON.stringify(ready)}, 'ready');
     const send = () =>
       f.request(`/api/sessions/${session.id}/input`, { method: "POST", body });
     assert.equal((await (await send()).json()).status, "handed-off");
-    await until(() => fs.readFile(capture, "utf8"), "/clear\r");
+    await recorder.waitForText("/clear\r");
     assert.equal((await (await send()).json()).status, "handed-off");
-    assert.equal(await fs.readFile(capture, "utf8"), "/clear\r");
+    assert.equal((await recorder.readBytes()).toString(), "/clear\r");
   });
 }
-
-test("paths, quoted slash mentions and multiline prompts retain native message queue delivery", async (t) => {
-  const f = await applicationFixture(t);
-  const manager = f.application.sessions;
-  manager.current = async () => ({ id: "slash", tool: "codex", status: "running" });
-  manager.tmux = async () => assert.fail("Ordinary prompt reached terminal input");
-  for (const text of [
-    "/tmp/project/file.js",
-    "Please explain /clear",
-    "`/clear`",
-    "/clear\n",
-    "/clear\r\n",
-    "/clear\nExplain this command",
-    "/rename foo\tbar",
-    "/rename foo\u0003",
-    "/rename \u001b[A",
-    "/clear\t",
-  ]) {
-    let queued = false;
-    await manager.input("slash", text, true, undefined, async () => {
-      queued = true;
-      return true;
-    });
-    assert.equal(queued, true, JSON.stringify(text));
-  }
-});
