@@ -29,6 +29,8 @@ Use JavaScript ES modules and JSX for React. Prettier enforces two-space indenta
 
 Follow existing names: `AccountsPage.jsx`, `useAccountAuthStatus.js`, and `account-store.js`. Keep feature logic together. Source and test files checked by `check:structure` must not exceed 600 lines.
 
+Every UI text change must maintain German and English translations in the same change, with matching keys and interpolation arguments. Use reactive exports from `web/lib/i18n/messages/`; do not hardcode product copy. Run the catalog parity tests and exercise changed UI in English. Translate new browser-visible application messages through stable identifiers; native CLI output and diagnostic evidence keep their original language.
+
 ## Testing Guidelines
 
 Use `node:test` with strict assertions, fast-check for properties, and Playwright for browser behavior. Name backend tests `*.test.js` and browser tests `*.spec.js`. Add regression coverage for changed behavior; no numeric coverage threshold is configured. Reuse isolated fixtures, and never target real user sessions or the default tmux server.
