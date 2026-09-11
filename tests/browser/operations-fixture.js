@@ -87,6 +87,7 @@ export async function operationsFixture(page) {
       result = { requests: [] };
     } else if (path.endsWith("/chat"))
       result = { messages: [], tasks: [], availability: "ready" };
+    else if (path === "/pipeline-profiles") result = { profiles: [] };
     else if (path.endsWith("/models"))
       result = { currentModel: null, picker: null, pending: false };
     else throw Error(`Unexpected operations fixture request ${method} ${path}`);

@@ -23,7 +23,7 @@ function defaultAccess(state, tool) {
       : "")
   );
 }
-export default function useLaunchAccess(state, initialTool) {
+export default function useLaunchAccess(state, initialTool, initialProfile) {
   const hasCodingTool = state.tools.some((tool) => tool.installed && tool.id !== "shell");
   const tools = state.tools.filter(
     (tool) =>
@@ -34,9 +34,17 @@ export default function useLaunchAccess(state, initialTool) {
   );
   const initial = tools.find((tool) => tool.id === initialTool)?.id || tools[0]?.id || "";
   const [tool, setTool] = useState(initial),
-    [accessId, setAccess] = useState(() => defaultAccess(state, initial)),
-    [modelId, setModel] = useState(""),
-    [nativeModelId, setNativeModel] = useState(""),
+    [accessId, setAccess] = useState(() =>
+      initialProfile
+        ? initialProfile.config.providerConnectionId
+          ? `provider:${initialProfile.config.providerConnectionId}`
+          : initialProfile.config.accountId
+        : defaultAccess(state, initial),
+    ),
+    [modelId, setModel] = useState(initialProfile?.config.models.default || ""),
+    [nativeModelId, setNativeModel] = useState(
+      initialProfile?.config.models.default || "",
+    ),
     [query, setQuery] = useState("");
   const { accounts, connections } = launchAccesses(state, tool);
   const account = accounts.find((account) => account.id === accessId),

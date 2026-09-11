@@ -1,4 +1,12 @@
 export const launchDialogCopy = {
+  taskProfile: "Task profile",
+  noTaskProfile: "No task profile",
+  profileUnavailable: "This task profile is unavailable. Please choose another profile.",
+  profileSessionHint:
+    "The profile presets the launch options. Changes apply only to this session. Changing the CLI clears the profile selection.",
+  profileMode: (mode) => `Profile · ${mode}`,
+  profileModeDescription: (mode) => `Uses permission mode ${mode} from the task profile.`,
+
   nativeModeDescription:
     "Uses the permissions in your tool profile and its native defaults.",
   codexYoloDescription:

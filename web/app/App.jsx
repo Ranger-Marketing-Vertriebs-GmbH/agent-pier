@@ -114,7 +114,7 @@ export default function App() {
               onNavigate={navigate}
               accounts={state.accounts}
               home={state.home}
-              onSession={created}
+              onLaunchProfile={(profile) => setModal({ type: "launch", profile })}
             />
           </Suspense>
         ) : view === "memory" ? (

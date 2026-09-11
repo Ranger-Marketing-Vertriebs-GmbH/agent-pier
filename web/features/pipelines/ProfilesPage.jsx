@@ -5,13 +5,11 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import useResource from "../../lib/useResource.js";
 import ProfileEditor from "./ProfileEditor.jsx";
-import ProfileLaunch from "./ProfileLaunch.jsx";
 import ConfirmAction from "./ConfirmAction.jsx";
-export default function ProfilesPage({ route, navigate, accounts, home, onSession }) {
+export default function ProfilesPage({ route, navigate, accounts, onLaunchProfile }) {
   const resource = useResource("/pipeline-profiles");
   const [clone, setClone] = useState(null),
-    [removing, setRemoving] = useState(null),
-    [launching, setLaunching] = useState(null);
+    [removing, setRemoving] = useState(null);
   const profiles = resource.data?.profiles || [],
     item = route.pipelineItem,
     selected = profiles.find((p) => p.id === item);
@@ -82,7 +80,7 @@ export default function ProfilesPage({ route, navigate, accounts, home, onSessio
                   <button
                     className="button secondary compact"
                     disabled={!profile.enabled}
-                    onClick={() => setLaunching(profile)}
+                    onClick={() => onLaunchProfile(profile)}
                   >
                     {copy.startProfile}
                   </button>
@@ -125,14 +123,6 @@ export default function ProfilesPage({ route, navigate, accounts, home, onSessio
             setRemoving(null);
             resource.refresh();
           }}
-        />
-      )}
-      {launching && (
-        <ProfileLaunch
-          profile={launching}
-          home={home}
-          close={() => setLaunching(null)}
-          started={onSession}
         />
       )}
     </section>
