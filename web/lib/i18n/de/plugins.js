@@ -38,6 +38,22 @@ export const pluginsPageCopy = {
   pluginsPageDescription: "Plugins entdecken und für dein CLI-Profil verwalten.",
 };
 export const profilePluginsCopy = {
+  catalogReasons: {
+    empty:
+      "Für dieses Konto sind keine Standard-Plugins verfügbar. Ein bei Codex angemeldetes Konto auswählen und erneut laden.",
+    unavailable:
+      "Der Standardkatalog des ausgewählten Kontos konnte nicht geladen werden. Lokale Plugins bleiben verfügbar.",
+  },
+  notes: {
+    restartRequired:
+      "Änderungen gelten für neue CLI-Sitzungen. Bereits laufende Sitzungen bleiben unverändert.",
+    codexActivation:
+      "Aktivieren und Aktualisieren einzelner Codex-Plugins ist in dieser CLI-Verwaltung nicht verfügbar; /plugins bietet die native Aktivierung.",
+    claudeMarketplaceRemoval:
+      "Beim Entfernen eines Marketplaces deinstalliert Claude dessen Plugins. Gespeicherte Plugin-Daten bleiben bei einzelner Deinstallation erhalten.",
+    openCodeConfiguration:
+      "OpenCode verwendet npm-Pakete und lokale Plugins, keine verwalteten Marketplaces. Server- und TUI-Konfiguration werden berücksichtigt. Änderungen werden in neuen CLI-Sitzungen geladen.",
+  },
   catalogAccount: "Marketplace-Konto",
   catalogAccountDescription:
     "Wähle ein bei Codex angemeldetes Konto. Plugins aus dem Standard-Marketplace werden für dieses Konto installiert.",
