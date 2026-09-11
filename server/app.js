@@ -1,3 +1,4 @@
+import { SessionMcp } from "./features/mcp/session-integration.js";
 import { SessionReload } from "./features/sessions/session-reload.js";
 import { sshRoutes } from "./http/routes/ssh.js";
 import { LoginStore } from "./features/login/login-store.js";
@@ -79,6 +80,8 @@ export async function createApplication(config) {
     port: server.address()?.port || config.port,
   });
   Object.assign(services, createMcpServices(services, effective));
+  services.sessionMcp = new SessionMcp(services);
+  await services.sessionMcp.ready;
   server.once("listening", () => services.mcpAccess.initialize());
   app.disable("x-powered-by");
   app.use(securityHeaders);

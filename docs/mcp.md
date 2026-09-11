@@ -97,3 +97,46 @@ Browser regressions use synthetic API fixtures and an isolated application data 
 Installed CLI verification against an isolated HTTPS fixture confirmed Codex 0.153.4 automatic add/login OAuth and OpenCode 1.18.29 OAuth plus authenticated MCP discovery. Claude Code 2.1.263 reached registration and owner consent; its token exchange was not verified because the fixture deliberately blocked macOS keychain access. No model turn or real project was used.
 
 OpenCode also completed the native OAuth flow, authenticated initialization and tool discovery against a local application with no remote URL configured, using its actual loopback HTTP port. The installed release was checked over private HTTPS with a temporary read-only grant, an empty resource selection, authenticated tool discovery and a restricted project listing; that grant was revoked after verification.
+
+## Tools for sessions hosted by AgentPier
+
+In **New session**, **AgentPier tools** is checked by default for standalone
+Codex, Claude Code and OpenCode sessions. This single checkbox enables every MCP
+tool for all projects, source accounts and provider connections, including resources
+added later. There are no permission submenus. Uncheck it to launch without access.
+The working directory is registered as a project when access is enabled.
+
+AgentPier injects `agentpier_session` as a native stdio MCP into that session's
+launch configuration. No global MCP configuration, browser OAuth callback or SSH
+tunnel is needed. Existing external MCP registrations are independent and remain
+configured. The helper relays MCP over a private Unix socket to the same tool
+service and scope/resource checks used by external OAuth clients. There is no
+second owner API or access to human approval gates through this connection.
+
+New full-access sessions may inspect and cancel runs across all projects. Previously
+issued restricted grants retain their permissions until replaced. Start retries
+reuse the existing durable `requestId` contract; a disconnect never justifies
+blindly starting another run. Ending or revoking the controlling session does not
+cancel its pipeline runs. Their state remains available to the owner in AgentPier.
+Login, shell and pipeline-owned sessions do not receive this integration. A
+pipeline cannot obtain it by adding launch parameters, so internal start rights
+are not automatically inherited by its workers.
+
+The session toolbar's **AgentPier tools** button shows permissions and expiry and
+allows immediate revocation. Grants expire after twelve hours, or earlier when the
+session stops, is removed or its owner revokes access. Reloading a session with
+access still enabled renews the grant and rotates its credential, while retaining
+run ownership. A web-only restart preserves existing sessions and grants; the
+stdio helper reconnects on its next request. Calls made while the web service is
+unavailable fail without automatically replaying mutations.
+
+Credentials are stored only in private generation-specific files below
+`session-mcp/<session-id>/` in the data directory. Launch arguments contain file
+paths, never tokens; browser session metadata contains only the selection,
+generation and expiry. Each request validates the generation, expiry and active
+session identity, and mutations recheck authorization after asynchronous waits.
+Internal credentials are not accepted by the public HTTP MCP endpoint. Logical
+backups omit the credential directory, and restored historical sessions lose this
+integration. These grants constrain MCP access, not the host user's OS access:
+native coding processes still have the host permissions described in the pipeline
+and account documentation.

@@ -1,3 +1,5 @@
+import { selection } from "../helpers/session-mcp.js";
+import { capabilityDirectory } from "../../server/features/mcp/session-capability.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
@@ -75,10 +77,16 @@ setInterval(()=>{},1000);
       cwd: f.home,
       agentbus: false,
       sshAccessIds: [access.id],
+      agentpierTools: selection(),
     },
   });
   assert.equal(response.status, 201, await response.clone().text());
   const session = await response.json();
+  const credential = (generation) =>
+    path.join(capabilityDirectory(f.dataDir, session.id), `${generation}.json`);
+  const initialToken = JSON.parse(
+    await fs.readFile(credential(session.agentpierTools.generation), "utf8"),
+  ).token;
   const endpoint = `/api/sessions/${session.id}/reload`;
   assert.equal((await fetch(f.url + endpoint)).status, 401);
   const status = await until(
@@ -103,6 +111,17 @@ setInterval(()=>{},1000);
     async () => (await f.request(endpoint)).json(),
     (value) => value.state === "completed",
   );
+  const renewed = await until(
+    () => app.sessions.get(session.id),
+    (value) =>
+      value.status === "running" &&
+      value.agentpierTools?.generation !== session.agentpierTools.generation,
+  );
+  assert.throws(() => app.sessionMcp.check(initialToken), { status: 403 });
+  const freshToken = JSON.parse(
+    await fs.readFile(credential(renewed.agentpierTools.generation), "utf8"),
+  ).token;
+  assert.equal(app.sessionMcp.check(freshToken).extra.grant.id, `session-${session.id}`);
   const launches = await until(
     async () => (await fs.readFile(capture, "utf8")).trim().split("\n").map(JSON.parse),
     (rows) => rows.length === 2,
