@@ -180,6 +180,7 @@ test("reader has structured Markdown and live tasks on the left; native terminal
   expect(tasks.x + tasks.width).toBeLessThanOrEqual(chat.x + 1);
   await expect(page.getByLabel("Chatverlauf")).not.toContainText("TUI_STATUS_ONLY");
   await expect(page.locator(".chat-tool pre")).not.toBeVisible();
+  await page.locator(".chat-tool-group > summary").click();
   await page.locator(".chat-tool summary").click();
   await expect(page.locator(".chat-tool pre")).toContainText("return <Chat />;");
   data.tasks[1].status = "completed";
@@ -275,6 +276,7 @@ test("switching for a native approval keeps the draft, opened tool and reader sc
   await page
     .getByRole("textbox", { name: "Nachricht", exact: true })
     .fill("Diesen Entwurf behalten");
+  await page.locator(".chat-tool-group > summary").click();
   await page.locator(".chat-tool summary").click();
   await page.locator(".chat-messages").evaluate((el) => {
     el.scrollTop = 300;
