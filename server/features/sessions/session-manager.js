@@ -1,4 +1,5 @@
-import { listSessions } from "./session-list.js";
+import { drainSessionLists, getSessionList } from "./session-list.js";
+import { SessionOperations } from "./session-operations.js";
 import { sendSlashCommand } from "./session-slash-command.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { publicProviderConfiguration } from "./provider-configuration.js";
@@ -37,7 +38,7 @@ export class SessionManager {
     this.onStopped = onStopped;
     this.reconciledStops = new Set();
     this.replacing = new Set();
-    this.queue = Promise.resolve();
+    this.operations = new SessionOperations(() => this.ready);
     this.ready = this.initialize();
   }
   async initialize() {
@@ -63,13 +64,8 @@ export class SessionManager {
       'set -g remain-on-exit on\nset -g default-shell /bin/sh\nset -g prefix None\nset -g history-limit 10000\nset -g status off\nset -g mouse on\nset -g default-terminal "tmux-256color"\nset -g set-clipboard on\nset -as terminal-features ",*:clipboard"\nset -g exit-empty off\nset -g escape-time 0\n',
     );
   }
-  serial(operation) {
-    const next = this.queue.then(async () => {
-      await this.ready;
-      return operation();
-    });
-    this.queue = next.catch(() => {});
-    return next;
+  serial(operation, id) {
+    return this.operations.run(operation, id);
   }
   target(id) {
     return `=tuiui-${validId(id)}`;
@@ -352,7 +348,7 @@ export class SessionManager {
       const session = await this.metadata(id);
       session.reload = reload;
       await this.save(session);
-    });
+    }, id);
   }
   replace(id, prepare, beforeStop) {
     this.replacing.add(id);
@@ -361,10 +357,10 @@ export class SessionManager {
     );
   }
   list() {
-    return this.serial(() => listSessions(this));
+    return getSessionList(this);
   }
   get(id) {
-    return this.serial(() => this.current(id));
+    return this.serial(() => this.current(id), id);
   }
   rename(id, name) {
     return this.serial(async () => {
@@ -372,7 +368,7 @@ export class SessionManager {
       session.name = validName(name);
       await this.save(session);
       return session;
-    });
+    }, id);
   }
   stop(id) {
     return this.serial(async () => {
@@ -389,7 +385,7 @@ export class SessionManager {
       await this.reconcileStopped(session);
       await this.save(session);
       return session;
-    });
+    }, id);
   }
   remove(id) {
     return this.serial(async () => {
@@ -407,7 +403,7 @@ export class SessionManager {
         await rm(path.join(this.directory, `${id}.${extension}`), {
           force: true,
         });
-    });
+    }, id);
   }
   screen(id) {
     return this.serial(async () => {
@@ -422,7 +418,7 @@ export class SessionManager {
           throw readError;
         }
       }
-    });
+    }, id);
   }
   control(id, operation, { allowStopped = false } = {}) {
     return this.serial(async () => {
@@ -472,7 +468,7 @@ export class SessionManager {
           if (text) await this.tmux(["send-keys", "-l", "-t", target, "--", text]);
         },
       });
-    });
+    }, id);
   }
   input(id, text, submit = false, beforeInput, nativeQueue) {
     if (this.replacing.has(id))
@@ -512,7 +508,7 @@ export class SessionManager {
         }
       }
       if (submit) await this.tmux(["send-keys", "-t", `${this.target(id)}:0.0`, "Enter"]);
-    });
+    }, id);
   }
   attach(id, { cols = 120, rows = 35, onData = () => {}, onExit = () => {} } = {}) {
     return this.serial(async () => {
@@ -573,7 +569,7 @@ export class SessionManager {
             if (blocksTerminalInput(await this.metadata(id)))
               throw failure("Session is reloading", 409);
             terminal.write(text);
-          });
+          }, id);
         },
         resize: (nextCols, nextRows) => {
           dimensions(nextCols, nextRows);
@@ -590,10 +586,11 @@ export class SessionManager {
       };
       this.clients.add(client);
       return client;
-    });
+    }, id);
   }
   async close() {
-    await this.queue;
+    await drainSessionLists(this);
+    await this.operations.drain();
     for (const client of [...this.clients]) client.dispose();
   }
 }
