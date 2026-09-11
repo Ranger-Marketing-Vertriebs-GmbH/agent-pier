@@ -12,4 +12,9 @@ test("Shift+Enter is encoded as a distinct TUI newline", () => {
   );
   assert.equal(terminalKey({ type: "keydown", key: "Enter", shiftKey: false }), null);
   assert.equal(terminalKey({ type: "keyup", key: "Enter", shiftKey: true }), null);
+  for (const modifier of ["altKey", "ctrlKey", "metaKey", "isComposing"])
+    assert.equal(
+      terminalKey({ type: "keydown", key: "Enter", shiftKey: true, [modifier]: true }),
+      null,
+    );
 });

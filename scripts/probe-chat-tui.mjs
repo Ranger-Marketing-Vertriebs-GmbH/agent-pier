@@ -11,6 +11,7 @@ import { createTuiInputRecorder } from "../tests/helpers/tui-input-recorder.js";
 import { probeNativePayloads } from "./probe-chat-tui-payloads.mjs";
 import { probeNativeRecovery } from "./probe-chat-tui-recovery.mjs";
 import { createProbeProvider } from "./probe-chat-tui-provider.mjs";
+import { probeTerminalKeyboard } from "./probe-terminal-keyboard.mjs";
 
 const execute = promisify(execFile);
 const options = process.argv.slice(2);
@@ -417,6 +418,24 @@ async function probeNative(fixture) {
           }
         throw error;
       });
+    if (options.includes("--keyboard-only")) {
+      const result = await probeTerminalKeyboard({
+        manager,
+        session,
+        capture,
+        provider,
+        waitFor,
+      });
+      console.log(
+        JSON.stringify({
+          tool,
+          version,
+          platform: `${os.platform()} ${os.arch()}`,
+          result,
+        }),
+      );
+      return;
+    }
     const bindingAtFirstInput = Boolean(
       fixture.application.bindings.verifiedReceipt(session),
     );

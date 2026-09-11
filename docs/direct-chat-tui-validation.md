@@ -175,6 +175,27 @@ node scripts/probe-chat-tui.mjs --native --tool opencode --local-mock --http --b
 
 ## Composer evidence and release boundaries
 
+### Terminal Shift+Enter
+
+The attached terminal path has a separate native keyboard probe:
+
+```sh
+node scripts/probe-chat-tui.mjs --native --tool codex --local-mock --bound --keyboard-only
+node scripts/probe-chat-tui.mjs --native --tool claude --local-mock --bound --keyboard-only
+node scripts/probe-chat-tui.mjs --native --tool opencode --local-mock --bound --keyboard-only
+```
+
+On the macOS host and CLI versions above, tmux 3.7c reduced the previous CSI-u
+Shift+Enter sequence to plain Enter. The corrected mapping sends native Alt+Enter
+(`ESC CR`) through the same attached client used by the browser. Each CLI retained
+both lines without a provider request, then accepted the exact 39-byte multiline
+text after one ordinary Enter. All three yielded SHA-256
+`c4669f280f5da711262b55032517ca15fb18df60bbd1fc054d65c1e345f23ac9`.
+The probe also waits for the first typed line before inserting the newline.
+Custom CLI keybindings remain outside this characterization.
+
+### Composer parsing
+
 Sanitized `tests/fixtures/tui-input/*-native.json` files contain actual styled
 `capture-pane -e` output and tmux cursor coordinates. Plain screen text is
 insufficient to distinguish a placeholder from a user who typed exactly that
