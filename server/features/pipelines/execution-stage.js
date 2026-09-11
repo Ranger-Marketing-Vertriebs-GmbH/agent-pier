@@ -215,7 +215,8 @@ export async function applyOutcome(engine, run, outcome) {
       run,
       node,
       "session-error",
-      "The native stage turn ended unsuccessfully. Inspect its terminal output.",
+      outcome.observationError ||
+        "The native stage turn ended unsuccessfully. Inspect its terminal output.",
     );
     return;
   }
