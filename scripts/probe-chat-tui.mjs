@@ -11,6 +11,7 @@ import { createTuiInputRecorder } from "../tests/helpers/tui-input-recorder.js";
 import { probeNativePayloads } from "./probe-chat-tui-payloads.mjs";
 import { probeNativeRecovery } from "./probe-chat-tui-recovery.mjs";
 import { createProbeProvider } from "./probe-chat-tui-provider.mjs";
+import { probeTerminalKeyboard } from "./probe-terminal-keyboard.mjs";
 
 const execute = promisify(execFile);
 const options = process.argv.slice(2);
@@ -44,7 +45,7 @@ if (
   const cleanup = [];
   try {
     const fixture = await applicationFixture({ after: (fn) => cleanup.push(fn) });
-    if (native) await probeNative(fixture);
+    if (native) await probeNative(fixture, cleanup);
     else await probeSynthetic(fixture);
   } finally {
     for (const dispose of cleanup.reverse()) await dispose();
@@ -138,7 +139,7 @@ async function probeSynthetic(fixture) {
   );
 }
 
-async function probeNative(fixture) {
+async function probeNative(fixture, cleanup) {
   const provider = await createProbeProvider();
   try {
     const manager = fixture.application.sessions;
@@ -219,7 +220,7 @@ async function probeNative(fixture) {
     if (bound && tool === "codex") args.push("--dangerously-bypass-hook-trust");
     if (bound && tool === "claude")
       args.push("--debug-file", path.join(fixture.root, "claude-debug.log"));
-    const launch = bound
+    let launch = bound
       ? await fixture.application.bindings.prepare({
           id: sessionId,
           account,
@@ -227,6 +228,17 @@ async function probeNative(fixture) {
           launch: { command: binary, args, env },
         })
       : { command: binary, args, env };
+    if (options.includes("--agentbus")) {
+      launch = await fixture.application.agentbus.prepare({
+        id: sessionId,
+        account,
+        cwd: project,
+        launch,
+      });
+      const socketDirectory = launch.env.AGENTBUS_SOCKET_DIR;
+      // Remove only this fixture's bus directory after its processes have stopped.
+      cleanup.unshift(() => fs.rm(socketDirectory, { recursive: true, force: true }));
+    }
     const isolatedArgs = [
       "-i",
       ...Object.entries(launch.env).map(([key, value]) => `${key}=${value}`),
@@ -247,6 +259,7 @@ async function probeNative(fixture) {
         : isolatedArgs,
       env: {},
       nativeBinding: launch.nativeBinding,
+      agentbus: launch.agentbus,
     });
     const target = `${manager.target(session.id)}:0.0`;
     const capture = () => manager.tmux(["capture-pane", "-p", "-t", target]);
@@ -417,6 +430,24 @@ async function probeNative(fixture) {
           }
         throw error;
       });
+    if (options.includes("--keyboard-only")) {
+      const result = await probeTerminalKeyboard({
+        manager,
+        session,
+        capture,
+        provider,
+        waitFor,
+      });
+      console.log(
+        JSON.stringify({
+          tool,
+          version,
+          platform: `${os.platform()} ${os.arch()}`,
+          result,
+        }),
+      );
+      return;
+    }
     const bindingAtFirstInput = Boolean(
       fixture.application.bindings.verifiedReceipt(session),
     );

@@ -145,8 +145,12 @@ export function openQueue(home) {
   privateHome(home);
   const file = queueFile(home);
   // Loading a helper module must not initialize SQLite or emit runtime warnings.
-  const { DatabaseSync } = require("node:sqlite");
-  const db = new DatabaseSync(file);
+  // OpenCode embeds Bun. Resolve only the current runtime's built-in driver so
+  // its plugin loader does not try to bundle the unsupported Node module.
+  const moduleName = process.versions.bun ? "bun:sqlite" : "node:sqlite";
+  const sqlite = require(moduleName);
+  const Database = process.versions.bun ? sqlite.Database : sqlite.DatabaseSync;
+  const db = new Database(file);
   fs.chmodSync(file, 0o600);
   db.exec("PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;");
   db.exec(`

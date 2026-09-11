@@ -90,6 +90,7 @@ export default function useTerminalConnection({
     terminal.attachCustomKeyEventHandler((event) => {
       const data = terminalKey(event);
       if (!data) return true;
+      event.preventDefault();
       input(data);
       return false;
     });

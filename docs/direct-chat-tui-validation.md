@@ -175,6 +175,44 @@ node scripts/probe-chat-tui.mjs --native --tool opencode --local-mock --http --b
 
 ## Composer evidence and release boundaries
 
+### Terminal Shift+Enter
+
+The attached terminal path has a separate native keyboard probe:
+
+```sh
+node scripts/probe-chat-tui.mjs --native --tool codex --local-mock --bound --keyboard-only
+node scripts/probe-chat-tui.mjs --native --tool claude --local-mock --bound --keyboard-only
+node scripts/probe-chat-tui.mjs --native --tool opencode --local-mock --bound --keyboard-only
+```
+
+On the macOS host and CLI versions above, tmux 3.7c reduced the previous CSI-u
+Shift+Enter sequence to plain Enter. The corrected mapping sends native Alt+Enter
+(`ESC CR`) through the same attached client used by the browser. Each CLI retained
+both lines without a provider request, then accepted the exact 39-byte multiline
+text after one ordinary Enter. All three yielded SHA-256
+`c4669f280f5da711262b55032517ca15fb18df60bbd1fc054d65c1e345f23ac9`.
+The probe also waits for the first typed line before inserting the newline.
+Custom CLI keybindings remain outside this characterization.
+
+### OpenCode with AgentBus enabled
+
+On September 11, 2026, the native OpenCode 1.18.30 probe was repeated with
+`--native --tool opencode --local-mock --bound --keyboard-only --agentbus` on
+macOS arm64. Before the SQLite adapter fix, the real plugin failed with
+`No such built-in module: node:sqlite` and no provider request arrived. With
+the runtime-specific built-in driver, the same probe preserved Shift+Enter
+without submitting, then delivered the exact multiline payload after Enter.
+The probe uses an isolated profile and a loopback synthetic provider, without
+real credentials or model tool calls. Separate Node/Bun interoperability tests
+cover message deduplication, exclusive claims, acknowledgements, and recovery
+after a reader exits.
+
+The same AgentBus-enabled keyboard probe also passed for Codex 0.153.4 and
+Claude Code 2.1.266 on that host. All three delivered the same 39-byte UTF-8
+payload, SHA-256 `c4669f280f5da711262b55032517ca15fb18df60bbd1fc054d65c1e345f23ac9`.
+
+### Composer parsing
+
 Sanitized `tests/fixtures/tui-input/*-native.json` files contain actual styled
 `capture-pane -e` output and tmux cursor coordinates. Plain screen text is
 insufficient to distinguish a placeholder from a user who typed exactly that
