@@ -31,6 +31,10 @@ jobs:
           fi
       - run: npm ci
       - run: npm run check
+      - name: AgentBus Node and Bun compatibility
+        run: >-
+          npm exec --yes --package=bun@1.3.10 --
+          sh -c 'bun test tests/unit/agentbus-queue.test.js && node --test tests/integration/agentbus-runtimes.test.js'
       - name: Repeated native exit lifecycle
         if: matrix.os == 'ubuntu-latest' && matrix.node == 24
         shell: bash

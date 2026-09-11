@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
-async function fixture(page) {
+async function fixture(page, prefix = "") {
   const session = {
     id: "theme-fixture",
     name: "Native Farben",
@@ -43,7 +43,9 @@ async function fixture(page) {
     socket.send(
       JSON.stringify({
         type: "output",
-        data: "Native Äö · ✓\r\n\x1b[31mRED\x1b[0m\r\n\x1b[32mGREEN\x1b[0m\r\n\x1b[34mBLUE\x1b[0m\r\n\x1b[38;5;196mINDEXED\x1b[0m\r\n\x1b[38;2;18;52;86mTRUECOLOR\x1b[0m\r\n\x1b[48;2;17;34;51mBACKGROUND\x1b[0m\r\n❯ ",
+        data:
+          prefix +
+          "Native Äö · ✓\r\n\x1b[31mRED\x1b[0m\r\n\x1b[32mGREEN\x1b[0m\r\n\x1b[34mBLUE\x1b[0m\r\n\x1b[38;5;196mINDEXED\x1b[0m\r\n\x1b[38;2;18;52;86mTRUECOLOR\x1b[0m\r\n\x1b[48;2;17;34;51mBACKGROUND\x1b[0m\r\n❯ ",
       }),
     );
   });
@@ -53,6 +55,19 @@ async function fixture(page) {
   await expect(page.locator(".xterm-rows")).toContainText("Native Äö · ✓");
   return inputs;
 }
+test("Shift+Enter sends exactly one native newline shortcut and ordinary Enter still submits", async ({
+  page,
+}) => {
+  const inputs = await fixture(page, "\x1b[?2004h");
+  const keyboard = page.locator(".xterm-helper-textarea");
+  await keyboard.focus();
+  await keyboard.pressSequentially("first");
+  await keyboard.press("Shift+Enter");
+  await keyboard.pressSequentially("second");
+  await expect.poll(() => inputs.join("")).toBe("first\x1b\rsecond");
+  await keyboard.press("Enter");
+  await expect.poll(() => inputs.join("")).toBe("first\x1b\rsecond\r");
+});
 test("native terminal keeps neutral defaults and renders CLI ANSI and true colors without brand tint", async ({
   page,
 }) => {
