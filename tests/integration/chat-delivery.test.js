@@ -112,6 +112,49 @@ for (const bound of [true, false])
     assert.equal(x.writes(), 0);
   });
 
+for (const tool of ["claude", "opencode"])
+  test(`${tool} sends through the active TUI even with an outdated history binding`, async (t) => {
+    const x = await setup(t);
+    const current = { ...session, tool };
+    x.body.deliveryScope = JSON.stringify([
+      current.id,
+      current.accountId,
+      tool,
+      current.createdAt,
+    ]);
+    x.f.application.sessions.get = async () => ({ ...current });
+    let route = "after-clear",
+      writes = [];
+    x.f.application.bindings.resolve = async () => {
+      assert.fail("A reader binding must not select the input destination");
+    };
+    x.f.application.history.queue = async () => {
+      assert.fail("Claude and OpenCode must not use the Codex thread queue");
+    };
+    x.f.application.sessions.input = async (
+      _id,
+      text,
+      submit,
+      beforeInput,
+      nativeQueue,
+    ) => {
+      await beforeInput(current, "");
+      assert.equal(await nativeQueue(current), false);
+      assert.equal(submit, true);
+      writes.push({ route, text });
+    };
+    assert.equal((await (await x.post()).json()).status, "handed-off");
+    route = "after-native-resume";
+    // Retrying the old receipt after switching routes must not resend it.
+    assert.equal((await (await x.post()).json()).status, "handed-off");
+    const next = { ...x.body, deliveryId: randomUUID(), text: "next prompt" };
+    assert.equal((await (await x.post(next)).json()).status, "handed-off");
+    assert.deepEqual(writes, [
+      { route: "after-clear", text: x.body.text },
+      { route, text: next.text },
+    ]);
+  });
+
 test("concurrent identical HTTP deliveries report pending without duplicate input", async (t) => {
   const x = await setup(t);
   let release, entered;
