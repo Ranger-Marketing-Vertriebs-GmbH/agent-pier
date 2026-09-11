@@ -1,3 +1,5 @@
+import useResource from "../../lib/useResource.js";
+import ErrorMessage from "../../components/ErrorMessage.jsx";
 import LaunchMcpChoices from "../mcp/LaunchMcpChoices.jsx";
 import LaunchSshChoices from "../ssh/LaunchSshChoices.jsx";
 import useLaunchAccess from "./useLaunchAccess.js";
@@ -15,25 +17,62 @@ import DirectoryPicker from "../directories/DirectoryPicker.jsx";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 const defaultMode = (tool) =>
   ["claude", "opencode"].includes(tool) ? "auto" : "default";
-export default function LaunchDialog({ state, tool, initialCwd, close, created }) {
-  const access = useLaunchAccess(state, tool);
+export default function LaunchDialog({
+  state,
+  tool,
+  initialCwd,
+  initialProfile,
+  close,
+  created,
+}) {
+  const access = useLaunchAccess(
+    state,
+    initialProfile?.config.cliTool || tool,
+    initialProfile,
+  );
+  const profiles = useResource(tool === "shell" ? null : "/pipeline-profiles");
+  const [profileId, setProfileId] = useState(initialProfile?.id || ""),
+    [params, setParams] = useState({});
+  const profile = profiles.data?.profiles.find((item) => item.id === profileId);
+  const profileReady =
+    !profileId || Boolean(profile?.enabled && profile.config.cliTool === access.tool);
+  function chooseProfile(id) {
+    const selected = profiles.data?.profiles.find((item) => item.id === id);
+    setProfileId(id);
+    setParams({});
+    access.chooseTool(selected?.config.cliTool || access.tool);
+    if (selected) {
+      access.chooseAccess(
+        selected.config.providerConnectionId
+          ? `provider:${selected.config.providerConnectionId}`
+          : selected.config.accountId,
+      );
+      access.setModel(selected.config.models.default);
+      access.setNativeModel(selected.config.models.default);
+    }
+    setLaunchMode(selected ? "profile" : defaultMode(access.tool));
+  }
   const [cwd, setCwd] = useState(initialCwd || state.defaultCwd || state.home || ""),
     [browse, setBrowse] = useState(false),
-    [name, setName] = useState(""),
-    [launchMode, setLaunchMode] = useState(() => defaultMode(access.tool)),
+    [name, setName] = useState(initialProfile?.name || ""),
+    [launchMode, setLaunchMode] = useState(() =>
+      initialProfile ? "profile" : defaultMode(access.tool),
+    ),
     [busEnabled, setBusEnabled] = useState(true),
     [agentpierTools, setAgentpierTools] = useState(true),
     [sshAccessIds, setSshAccessIds] = useState([]);
   const selectedTool = access.tool;
   const coding = selectedTool !== "shell";
   const modeDescription =
-    launchMode === "default"
-      ? copy.nativeModeDescription
-      : selectedTool === "codex"
-        ? copy.codexYoloDescription
-        : selectedTool === "claude"
-          ? copy.claudeAutoDescription
-          : copy.opencodeAutoDescription;
+    launchMode === "profile"
+      ? copy.profileModeDescription(profile?.config.permissions.mode || "")
+      : launchMode === "default"
+        ? copy.nativeModeDescription
+        : selectedTool === "codex"
+          ? copy.codexYoloDescription
+          : selectedTool === "claude"
+            ? copy.claudeAutoDescription
+            : copy.opencodeAutoDescription;
   return (
     <Modal
       title={browse ? commonCopy.workingDirectory : commonCopy.newSession}
@@ -52,12 +91,14 @@ export default function LaunchDialog({ state, tool, initialCwd, close, created }
         <AsyncForm
           close={close}
           button={commonCopy.startSession}
-          disabled={!access.ready}
+          disabled={!access.ready || !profileReady}
           submit={async () => {
             if (!access.ready) throw Error(connectionCopy.chooseAccess);
-            const session = await api("/sessions", "POST", {
+            if (!profileReady) throw Error(copy.profileUnavailable);
+            const body = {
               name:
                 name.trim() ||
+                profile?.name ||
                 `${names[access.tool] || "Terminal"} · ${cwd.split("/").filter(Boolean).at(-1) || "Workspace"}`,
               ...access.body,
               cwd,
@@ -65,8 +106,23 @@ export default function LaunchDialog({ state, tool, initialCwd, close, created }
               agentbus: coding && busEnabled,
               sshAccessIds,
               agentpierTools: coding ? agentpierTools : false,
-            });
-            await created(session);
+            };
+            const result = profile
+              ? await api(`/pipeline-profiles/${profile.id}/launch`, "POST", {
+                  name: body.name,
+                  cwd,
+                  params,
+                  access: {
+                    ...access.body,
+                    ...(access.connection ? { accountId: profile.config.accountId } : {}),
+                  },
+                  ...(launchMode !== "profile" ? { launchMode } : {}),
+                  agentbus: body.agentbus,
+                  agentpierTools: body.agentpierTools,
+                  sshAccessIds,
+                })
+              : await api("/sessions", "POST", body);
+            await created(result.session || result);
           }}
         >
           <p className="field-description">
@@ -81,6 +137,53 @@ export default function LaunchDialog({ state, tool, initialCwd, close, created }
               placeholder={copy.sessionNamePlaceholder}
             />
           </label>
+          {coding && (
+            <>
+              <label>
+                {copy.taskProfile}
+                <AnchoredSelect
+                  label={copy.taskProfile}
+                  value={profileId}
+                  disabled={profiles.loading}
+                  onChange={chooseProfile}
+                  options={[
+                    { value: "", label: copy.noTaskProfile },
+                    ...(profiles.data?.profiles || []).map((item) => ({
+                      value: item.id,
+                      label: item.name,
+                      disabled:
+                        !item.enabled ||
+                        !access.tools.some((tool) => tool.id === item.config.cliTool),
+                    })),
+                  ]}
+                />
+              </label>
+              <ErrorMessage
+                error={
+                  profiles.error ||
+                  (!profiles.loading && !profileReady ? copy.profileUnavailable : "")
+                }
+              />
+              {profiles.error && (
+                <button type="button" onClick={profiles.refresh}>
+                  {commonCopy.retry}
+                </button>
+              )}
+              {profile && <p className="field-description">{copy.profileSessionHint}</p>}
+              {profile?.config.prompts.params.map((param) => (
+                <label key={param.key}>
+                  {param.label}
+                  <input
+                    required={param.required}
+                    value={params[param.key] || ""}
+                    onChange={(event) =>
+                      setParams({ ...params, [param.key]: event.target.value })
+                    }
+                  />
+                </label>
+              ))}
+            </>
+          )}
           <LaunchAccessFields
             access={access}
             onAccessChange={(value) => {
@@ -88,6 +191,8 @@ export default function LaunchDialog({ state, tool, initialCwd, close, created }
             }}
             onToolChange={(value) => {
               access.chooseTool(value);
+              setProfileId("");
+              setParams({});
               setLaunchMode(defaultMode(value));
             }}
           />
@@ -101,6 +206,14 @@ export default function LaunchDialog({ state, tool, initialCwd, close, created }
                 disabled={!selectedTool}
                 onChange={setLaunchMode}
                 options={[
+                  ...(profile
+                    ? [
+                        {
+                          value: "profile",
+                          label: copy.profileMode(profile.config.permissions.mode),
+                        },
+                      ]
+                    : []),
                   {
                     value: "default",
                     label: copy.nativeModeOption,

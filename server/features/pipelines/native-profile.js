@@ -99,20 +99,30 @@ export function profileCommand({
   resumeNativeId,
   headless,
   prompt,
+  useLaunchPermissions = false,
 }) {
   const tool = profile.config.cliTool,
     mode = profile.config.permissions.mode;
-  const result = nativeCommand({
-    tool,
-    launch,
-    sessionId,
-    resumeNativeId,
-    headless,
-    mode,
-    ...(!headless && tool === "claude" && mode === "default"
-      ? { claudeDefault: claudeDefaultMode(launch.command) }
-      : {}),
-  });
+  const result =
+    useLaunchPermissions && !headless
+      ? {
+          ...launch,
+          args: [
+            ...launch.args,
+            ...(tool === "claude" ? ["--session-id", sessionId] : []),
+          ],
+        }
+      : nativeCommand({
+          tool,
+          launch,
+          sessionId,
+          resumeNativeId,
+          headless,
+          mode,
+          ...(!headless && tool === "claude" && mode === "default"
+            ? { claudeDefault: claudeDefaultMode(launch.command) }
+            : {}),
+        });
   if (headless) return { ...result, initialInput: prompt, nativeObservation: true };
   if (prompt)
     result.args.push(...(tool === "opencode" ? ["--prompt", prompt] : ["--", prompt]));

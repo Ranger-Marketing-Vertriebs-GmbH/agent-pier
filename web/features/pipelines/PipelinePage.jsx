@@ -5,7 +5,13 @@ import DefinitionsPage from "./DefinitionsPage.jsx";
 import RunsPage from "./RunsPage.jsx";
 import VerificationPage from "./VerificationPage.jsx";
 import "./pipelines.css";
-export default function PipelinePage({ route, onNavigate, accounts, home, onSession }) {
+export default function PipelinePage({
+  route,
+  onNavigate,
+  accounts,
+  home,
+  onLaunchProfile,
+}) {
   const tab = route.pipelineTab || "runs";
   const navigate = (changes, replace = false) =>
     onNavigate({ ...route, view: "pipelines", ...changes }, replace);
@@ -37,7 +43,7 @@ export default function PipelinePage({ route, onNavigate, accounts, home, onSess
         ))}
       </nav>
       {tab === "profiles" ? (
-        <ProfilesPage {...{ route, navigate, accounts, home, onSession }} />
+        <ProfilesPage {...{ route, navigate, accounts, onLaunchProfile }} />
       ) : tab === "definitions" ? (
         <DefinitionsPage {...{ route, navigate }} />
       ) : tab === "verification" ? (
