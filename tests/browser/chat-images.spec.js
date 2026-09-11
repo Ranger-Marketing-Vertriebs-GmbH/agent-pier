@@ -210,6 +210,7 @@ test("tool image descriptors never load previews, even when the tool details are
 }) => {
   const { imageRequests } = await fixture(page);
   await open(page);
+  await page.locator(".chat-tool-group > summary").click();
   const tool = page.locator(".chat-tool");
   await tool.scrollIntoViewIfNeeded();
   await expect(
