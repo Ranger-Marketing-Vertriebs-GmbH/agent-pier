@@ -1,6 +1,6 @@
 ---
 name: agentpier-composer
-description: Begleitet ein Thema, Epic oder mehrere Tickets von der Klärung über Arbeitsaufträge und AgentPier-Pipelines bis zu geprüften Pull Requests. Verwenden, wenn Arbeit anhand von Tickets geplant und mit AgentPier koordiniert umgesetzt werden soll; reine Codeänderungen brauchen diesen Skill nicht.
+description: Begleitet Themen, Epics oder mehrere Tickets von der Klärung über AgentPier-Pipelines und PR-Überwachung bis zum Merge und zur Abarbeitung aller beauftragten Batches. Verwenden, wenn Arbeit anhand von Tickets geplant und mit AgentPier koordiniert umgesetzt werden soll; reine Codeänderungen brauchen diesen Skill nicht.
 ---
 
 # AgentPier Composer
@@ -8,6 +8,13 @@ description: Begleitet ein Thema, Epic oder mehrere Tickets von der Klärung üb
 Das jeweilige Ticketsystem hält die fachlichen Aufträge, AgentPier führt sie aus.
 Zerlege nur so weit, wie unabhängige Umsetzung und Prüfung davon profitieren. Nutze den bestehenden
 Auftrag und bereits erteilte Freigaben; Planung allein startet keine Umsetzung.
+
+Bei beauftragter Umsetzung umfasst der Loop alle vereinbarten Themen und Batches.
+Ein fertiger Lauf, grüner PR oder Statusbericht ist nur ein Zwischenstand: überwache
+bis zum bestätigten Merge und starte danach selbstständig den nächsten freigegebenen
+Batch. Ein ausdrücklich auf Planung oder PR-Prüfung begrenzter Auftrag bleibt begrenzt.
+Die Freigabe für weitere Batches und die Befugnis, selbst zu mergen, sind getrennt;
+übernimm bereits erteilte Freigaben, ohne sie an jeder Batch-Grenze erneut anzufordern.
 
 ## 1. Kontext und Auftrag
 
@@ -114,40 +121,47 @@ nicht ungefragt durch einen anderen Ausführungsdienst.
 
 Ein erfolgreicher Start beendet den Auftrag nicht. Prüfe jeden gestarteten oder
 wiederaufgenommenen Lauf sofort über `GET /api/pipeline-runs/:id` und anschließend
-alle **15 Minuten (900 Sekunden)**, bis sein Ergebnis geprüft ist oder ein
-konkreter Blocker menschliches Eingreifen erfordert. Überwache alle offenen
-Run-IDs; ein fertiger oder blockierter Lauf beendet nicht die Überwachung der
-anderen. Leite Zustände und angebotene Aktionen aus dem installierten API-Vertrag
+alle **15 Minuten (900 Sekunden)**. Nach Pipeline-Ende übernimmt die PR-Überwachung
+denselben Rhythmus bis zum bestätigten Merge. Überwache alle offenen Läufe und PRs,
+auch wenn kein Pipeline-Lauf mehr aktiv ist. Ein fertiger oder blockierter Lauf
+beendet nicht die Überwachung der anderen. Leite Zustände und angebotene Aktionen aus dem installierten API-Vertrag
 ab, nicht aus Terminal-Ausgaben oder vermuteten Statusnamen.
 
 Führe die Schleife in der aktiven Sitzung tatsächlich aus:
 
-1. Lies alle fälligen Laufzustände, bearbeite Ergebnisse und speichere pro Lauf
+1. Lies alle fälligen Lauf- und PR-Zustände, bearbeite Ergebnisse und speichere je Objekt
    `lastCheckedAt`, `nextCheckAt` und den letzten Zustand. Setze die nächste
    Prüfung auf 15 Minuten nach dieser Abfrage; nach dem Start weiterer Läufe
    behalte bereits bestehende Prüftermine bei.
 2. Prüfe bei einem beendeten Lauf unmittelbar PR, Akzeptanzkriterien, CI und
-   Reviews gemäß dem folgenden Abschnitt. Sind nur CI-Ergebnisse ausstehend,
-   kontrolliere diese ebenfalls alle 15 Minuten. Pipeline-Ende allein ist kein
-   Grund, die Sitzung mit einer Erfolgsmeldung zu beenden.
-3. Warte bis zum frühesten offenen Prüftermin mit einem verfügbaren Wartewerkzeug,
+   Reviews gemäß dem folgenden Abschnitt. Solange der PR offen ist, kontrolliere
+   auch bei grüner CI seinen Merge-Status, aktuellen Head, Reviews und Konflikte
+   alle 15 Minuten. Eine Merge-Empfehlung oder aktiviertes Auto-Merge beendet
+   diese Überwachung nicht; eine Merge-Queue ist noch kein bestätigter Merge.
+3. Verarbeite bestätigte Merges und prüfe danach sofort die gesamte verbleibende
+   Themen- und Batch-Liste gemäß „Nach Merge fortsetzen“. Starte ausführbare
+   Folgearbeit im selben Turn und nimm ihre Run-IDs in den Loop auf. Leere
+   Listen aktiver Läufe und PRs sind kein Abschluss, solange ein freigegebener
+   Batch gestartet werden kann.
+4. Warte bis zum frühesten offenen Prüftermin mit einem verfügbaren Wartewerkzeug,
    in unterbrechbaren Abschnitten von höchstens 60 Sekunden. Prüfe nach jeder
    Unterbrechung die aktuelle Zeit und neue Nutzervorgaben; eine frühe Rückkehr
    aus dem Wartewerkzeug ersetzt nicht den Prüftermin. Berichte während des
    Wartens knapp den bekannten Stand und den nächsten Prüftermin, ohne einen
    neuen API-Abruf zu behaupten. Fahre danach mit Schritt 1 fort.
 
-Bei vorübergehendem Lesefehler bleibt der Lauf offen; wiederhole die Statusabfrage
+Bei vorübergehendem Lesefehler bleibt der Lauf bzw. PR offen; wiederhole die Statusabfrage
 beim nächsten Prüftermin. Nach drei aufeinanderfolgenden fehlgeschlagenen Abfragen
 oder bei fehlender Zugriffsberechtigung melde den Überwachungsblocker und sichere
 den Stand. Ein Lesefehler erlaubt weder einen Neustart noch einen Erfolgsstatus.
 Bei `awaiting-human` melde die konkrete Entscheidung sofort und überwache andere
 Läufe weiter; menschliche Gates werden nicht automatisch beantwortet.
 
-Beende den Turn nicht mit „gestartet“ oder „ich prüfe später“, solange noch
-überwachbare Arbeit offen ist. Soll die Sitzung enden und die Überwachung
+Statusberichte sind Zwischenmeldungen; führe danach den nächsten Loop-Schritt aus.
+Beende den Turn nicht mit „gestartet“, „merge-bereit“ oder „ich prüfe später“, solange
+noch überwachbare oder ausführbare Arbeit offen ist. Soll die Sitzung enden und die Überwachung
 weiterlaufen, nutze nur einen tatsächlich verfügbaren Scheduler, der die
-Composer-Sitzung mit Themenstand und Run-IDs wieder aufrufen kann. Prüfe dessen
+Composer-Sitzung mit Themenstand, Batch-Liste, Run-IDs und PRs wieder aufrufen kann. Prüfe dessen
 erfolgreiche Einrichtung und speichere seine Kennung; vermeide doppelte Monitorjobs
 und beende den Job nach Abschluss. Ohne solchen Scheduler bleibt der Loop in der
 aktiven Sitzung. Fehlt auch ein nutzbares Wartewerkzeug, benenne diese technische
@@ -170,29 +184,60 @@ bewerte den aktuellen Stand. Korrigiere Konflikte erst, wenn kein aktiver Lauf
 mehr auf den Branch schreibt, und validiere anschließend erneut.
 
 Verlinke den PR am maßgeblichen Ticket in dessen bestätigtem System und
-aktualisiere dessen Zustand gemäß dem Projektworkflow. Standardabschluss ist eine belegte Merge-Empfehlung. Merge nur
-bei ausdrücklichem Auftrag, erfüllten Pflichtchecks und geklärten Reviews;
-niemals Branch-Schutz umgehen. Melde je Ticket Status, PR, Prüfergebnis und
-gegebenenfalls Blocker samt nächstem Schritt.
+aktualisiere dessen Zustand gemäß dem Projektworkflow. Bei bestehendem Merge-Auftrag
+merge selbstständig, sobald die Pflichtchecks für den aktuellen Head erfüllt,
+Reviews geklärt und keine aktiven Branch-Schreiber mehr vorhanden sind; niemals
+Branch-Schutz umgehen. Ohne Merge-Befugnis gib die belegte Empfehlung als
+Zwischenstand aus und überwache den externen Merge weiter. Fehlende eigene
+Merge-Befugnis allein beendet den Loop nicht. Ist eine konkrete menschliche
+Entscheidung nötig, melde sie einmal und arbeite an anderen freigegebenen Themen weiter.
+
+### Nach Merge fortsetzen
+
+- Bestätige den Merge über das PR-System und speichere Zielbranch und Merge-Commit.
+  Ein geschlossener, aber ungemergter PR ist kein Erfolg: kläre Ablehnung oder
+  Ersatz-PR, halte abhängige Tickets zurück und bearbeite unabhängige Arbeit weiter.
+- Gleiche den Ticket-Status ab und aktualisiere den vorgesehenen Basisstand sicher
+  vom Remote. Prüfe, dass die Voraussetzungen im Basisstand der nächsten Pipeline
+  enthalten sind, auch bei Squash-Merges. Überschreibe keine lokalen Änderungen.
+- Markiere einen Batch erst als erledigt, wenn alle zugehörigen Tickets geprüft
+  und ihre erforderlichen PRs nachweislich gemergt sind. Bei teilweise gemergten
+  Batches überwache die übrigen PRs weiter. Beachte vereinbarte Batch-Grenzen,
+  Abhängigkeiten und Kapazität; Blocker halten nur davon betroffene Folgearbeit auf.
+- Wähle danach den nächsten vollständigen, freigegebenen Batch aus allen noch
+  offenen Themen und starte ihn ohne erneute Aufforderung gemäß Abschnitt 3.
+  Gleiche unmittelbar vor dem Start vorhandene Läufe ab, damit Wiederaufnahme
+  oder ein unklarer Startausgang keine Doppelstarts erzeugen.
+
+Der Gesamtauftrag ist erst abgeschlossen, wenn alle beauftragten Themen und Batches
+abgearbeitet, erforderliche PRs gemergt und Ticket-Abgleiche erledigt sind. Berichte
+dann das belegte Gesamtergebnis. Ein ausdrücklicher Stopp oder ausschließlich
+konkrete Blocker ohne weitere ausführbare oder überwachbare Arbeit erlauben eine
+Unterbrechung mit gesichertem Reststand, aber keine Erfolgsmeldung. Reines Warten
+auf CI, Review, Merge-Queue oder externen Merge bleibt Teil des Loops.
 
 ## Wiederaufnahme
 
 Halte einen kleinen lokalen Themenstand im Git-Metadatenverzeichnis unter
 `agentpier-composer/<slug>.json` (`git rev-parse --git-common-dir`). Speichere
-Repo/Basisbranch und Entscheidungen sowie pro Ticket das Ticketsystem, die
+Repo/Basisbranch, Auftragsumfang, Ausführungs- und Merge-Freigaben sowie die geordnete
+Themen-/Batch-Liste mit Zuordnung, Abhängigkeiten und Fortschritt. Speichere pro Ticket das Ticketsystem, die
 Instanz, das Projekt/Repository, die kanonische URL, Kennung und internen IDs,
-Abhängigkeiten, Auftragssnapshot, Run-ID, PR und letzten bekannten Zustand.
+Abhängigkeiten, Auftragssnapshot, Run-ID, PR, letzten bekannten Zustand und
+bestätigten Merge samt Zielbranch und Commit.
 Keine Zugangsdaten. Übernimm bei älteren Themenständen eine vorhandene
 Plane-Zuordnung nur für die dort belegten Tickets, nicht als Vorgabe für neue.
 Halte auch Prüftermine, aufeinanderfolgende Abfragefehler und gegebenenfalls die
-Scheduler-Kennung fest. Nach Wiederaufnahme prüfe alle offenen Läufe sofort und
-setze den Polling-Loop fort; ein alter Themenstand belegt keinen aktuellen Status.
+Scheduler-Kennung fest. Nach Wiederaufnahme prüfe alle offenen Läufe und PRs sofort,
+gleiche bestätigte Merges und die verbleibende Batch-Liste ab und setze den Loop
+auch ohne aktive Run-ID fort; ein alter Themenstand belegt keinen aktuellen Status.
 Aktualisiere atomar nach relevanten Änderungen; das jeweilige Ticketsystem und
 AgentPier bleiben die maßgeblichen Quellen. Gleiche beim Fortsetzen Tickets, Läufe und PRs ab, bevor du
 etwas erneut anlegst oder startest. Halte ausstehende Ticket-Änderungen samt
 Zielsystem fest.
 
-Bleibt nur eine menschliche Entscheidung, berichte sie und bewahre den Stand.
+Bleibt ausschließlich ein konkreter menschlicher Blocker ohne sonstige ausführbare
+oder überwachbare Arbeit, berichte ihn und bewahre den Stand.
 Versprich kein Hintergrund-Monitoring ohne verfügbaren Scheduler. Entferne nach
 Abschluss und Merge nur saubere, inaktive Worktrees; Pipeline-Worktrees über
 AgentPiers Cleanup. Bewahre ungemergte Arbeit und offene Themenstände auf.
