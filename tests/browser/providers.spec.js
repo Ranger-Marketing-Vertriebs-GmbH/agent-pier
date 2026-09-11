@@ -10,6 +10,7 @@ for (const tool of ["codex", "claude", "opencode"])
     const controls = await fixture(page);
     await createForm(page, tool, controls);
     await page.getByLabel("API-Anbieter", { exact: true }).selectOption("openrouter");
+    await page.getByLabel("Anbietermodell", { exact: true }).click();
     await page.getByLabel("Modelle suchen", { exact: true }).fill("glm");
     await page.getByLabel("Anbietermodell", { exact: true }).selectOption("z-ai/glm-5.3");
     const details = page.getByRole("group", { name: "Modellgrenzen" });

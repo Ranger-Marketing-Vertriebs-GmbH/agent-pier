@@ -12,31 +12,16 @@ export default function ProviderModelPicker({
   setQuery,
 }) {
   const selected = catalog.models.find((model) => model.modelId === modelId);
-  const matches = catalog.models.filter((model) =>
-    `${model.label} ${model.modelId}`
-      .toLocaleLowerCase()
-      .includes(query.toLocaleLowerCase()),
-  );
-  const options =
-    selected && !matches.includes(selected) ? [selected, ...matches] : matches;
   return (
     <>
-      <label>
-        {copy.search}
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={copy.searchPlaceholder}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") event.preventDefault();
-          }}
-        />
-      </label>
       <label>
         {copy.model}
         <AnchoredSelect
           label={copy.model}
+          searchLabel={copy.search}
+          query={query}
+          onQuery={setQuery}
+          noMatches={copy.noModels}
           value={modelId}
           required
           disabled={catalog.loading}
@@ -46,7 +31,7 @@ export default function ProviderModelPicker({
             ...(modelId && !selected
               ? [{ value: modelId, label: modelId, disabled: true }]
               : []),
-            ...options.map((model) => ({
+            ...catalog.models.map((model) => ({
               value: model.modelId,
               label: `${model.label} · ${model.modelId}`,
             })),
@@ -56,7 +41,7 @@ export default function ProviderModelPicker({
       {!catalog.loading && modelId && !selected && (
         <p className="field-description">{copy.missingModel}</p>
       )}
-      {!catalog.loading && !options.length && (
+      {!catalog.loading && !catalog.models.length && (
         <p className="field-description">{copy.noModels}</p>
       )}
       <ProviderCatalogStatus catalog={catalog} />
