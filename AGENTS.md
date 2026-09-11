@@ -33,6 +33,8 @@ Use `node:test` with strict assertions, fast-check for properties, and Playwrigh
 
 ## Commit & Pull Request Guidelines
 
+Always write commit messages, pull request titles and descriptions, release titles and notes, and changelog entries in English. Conversation with the user may remain in German.
+
 `main` is protected. Make changes on a feature or fix branch and submit a pull request; never push directly to `main` or bypass branch protection. Merge only after required CI checks pass and review conversations are resolved.
 
 Place Git worktrees under the repository's ignored `.worktrees/` directory, never beside the repository. After successful completion and merge, remove clean, inactive worktrees with `git worktree remove`. Preserve worktrees with uncommitted changes, unmerged work, or active sessions.
