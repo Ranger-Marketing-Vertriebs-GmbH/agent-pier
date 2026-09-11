@@ -21,7 +21,20 @@
 - Jede Versuchs-ID wird höchstens einmal ausgeführt; Wiederherstellung ausschließlich
   nach ausdrücklichem Klick und frischer Prüfung, niemals automatisch nach Timeout.
 - Neue UI-Meldungen in beiden Katalogen, importiert über reaktive Messages.
-- Dieser Auftrag umfasst Planung. Die nachfolgenden Checkboxen sind nicht ausgeführt.
+- Umsetzung am 2026-09-11 ausdrücklich freigegeben. Ausführungsstand siehe unten;
+  die ursprünglichen Checklisten dokumentieren den Entwurf.
+
+## Execution status (2026-09-11)
+
+Tasks 1–5 are implemented. Native CLI probes cover all three providers with a local
+streaming test server: 30 HTTP deliveries each, input while a response is held,
+submit-only recovery, edited-draft rejection, and recovery replay. The previous
+Codex queue route was not benchmarked; no relative speedup is claimed. Exact draft
+recovery is limited to completely visible single-line composer text; wrapped or
+collapsed drafts remain blocked. See `docs/direct-chat-tui-validation.md` for the
+versioned evidence and platform limits. Local verification and independent review are complete; the implementation is
+being submitted as a follow-up PR. No merge or release is included in the
+implementation authorization.
 
 ## Task 1: Native Übergabe nachweisen und Latenz lokalisieren
 
