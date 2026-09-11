@@ -3,7 +3,7 @@ export const launchDialogCopy = {
   noTaskProfile: "No task profile",
   profileUnavailable: "This task profile is unavailable. Please choose another profile.",
   profileSessionHint:
-    "The profile presets the launch options. Changes apply only to this session. Changing the CLI clears the profile selection.",
+    "The profile presets the launch options. Changes apply only to this session. Changing the CLI preserves instructions and parameters while resetting access, model and launch mode.",
   profileMode: (mode) => `Profile · ${mode}`,
   profileModeDescription: (mode) => `Uses permission mode ${mode} from the task profile.`,
 

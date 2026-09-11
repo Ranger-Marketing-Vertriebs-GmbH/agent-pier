@@ -68,7 +68,7 @@ for (const width of [1440, 390])
     await expect(model).toHaveValue("");
     await profile.selectOption("profile-one");
     await dialog.getByLabel("CLI", { exact: true }).selectOption("claude");
-    await expect(profile).toHaveValue("");
+    await expect(profile).toHaveValue("profile-one");
     await expect(dialog.getByLabel("Startmodus", { exact: true })).toHaveValue("auto");
   });
 
@@ -120,4 +120,60 @@ test("a removed preselected profile cannot silently launch a plain session", asy
   await expect(
     dialog.getByRole("button", { name: "Sitzung starten", exact: true }),
   ).toBeEnabled();
+});
+
+test("Bug Hunter instructions and parameters survive switching from Claude to Codex", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  const profile = state.profiles[0];
+  profile.name = "Bug Hunter";
+  profile.config.cliTool = "claude";
+  profile.config.accountId = "local-claude";
+  profile.config.permissions.mode = "auto";
+  profile.config.prompts.params = [{ key: "topic", label: "Fehler", required: true }];
+  await openPipelines(page);
+  await page.getByRole("button", { name: "Neue Sitzung", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Neue Sitzung", exact: true });
+  const selection = dialog.getByRole("combobox", { name: "Aufgabenprofil", exact: true });
+  await selection.selectOption(profile.id);
+  await dialog.getByLabel("Fehler", { exact: true }).fill("Missing kickoff");
+  await dialog.getByLabel("CLI", { exact: true }).selectOption("codex");
+  await expect(selection).toHaveValue(profile.id);
+  await expect(dialog.getByLabel("Fehler", { exact: true })).toHaveValue(
+    "Missing kickoff",
+  );
+  await expect(dialog.getByLabel("Startmodus", { exact: true })).toHaveValue("default");
+  await expect(
+    dialog.getByLabel("Startmodus", { exact: true }).locator('option[value="profile"]'),
+  ).toHaveCount(0);
+  state.fail = `/pipeline-profiles/${profile.id}/launch`;
+  await dialog.getByRole("button", { name: "Sitzung starten", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Fixture conflict");
+  expect(state.calls.find((call) => call.path.endsWith("/launch")).body).toMatchObject({
+    access: { tool: "codex", accountId: "local-codex" },
+    params: { topic: "Missing kickoff" },
+    launchMode: "default",
+  });
+  expect(
+    state.calls.some((call) => call.path === "/sessions" && call.method === "POST"),
+  ).toBe(false);
+  await dialog
+    .getByLabel("Zugang", { exact: true })
+    .selectOption("provider:central-openrouter");
+  await dialog
+    .getByRole("combobox", { name: "Anbietermodell", exact: true })
+    .selectOption("fixture/model");
+  await dialog.getByRole("button", { name: "Sitzung starten", exact: true }).click();
+  await expect
+    .poll(() => state.calls.filter((call) => call.path.endsWith("/launch")).length)
+    .toBe(2);
+  expect(
+    state.calls.filter((call) => call.path.endsWith("/launch"))[1].body.access,
+  ).toEqual({
+    tool: "codex",
+    accountId: "local-codex",
+    providerConnectionId: "central-openrouter",
+    providerModelId: "fixture/model",
+  });
 });
