@@ -83,6 +83,51 @@ nicht ungefragt durch einen anderen Ausführungsdienst.
 
 ## 4. Prüfen und abschließen
 
+### Verbindlicher Polling-Loop
+
+Ein erfolgreicher Start beendet den Auftrag nicht. Prüfe jeden gestarteten oder
+wiederaufgenommenen Lauf sofort über `GET /api/pipeline-runs/:id` und anschließend
+alle **15 Minuten (900 Sekunden)**, bis sein Ergebnis geprüft ist oder ein
+konkreter Blocker menschliches Eingreifen erfordert. Überwache alle offenen
+Run-IDs; ein fertiger oder blockierter Lauf beendet nicht die Überwachung der
+anderen. Leite Zustände und angebotene Aktionen aus dem installierten API-Vertrag
+ab, nicht aus Terminal-Ausgaben oder vermuteten Statusnamen.
+
+Führe die Schleife in der aktiven Sitzung tatsächlich aus:
+
+1. Lies alle fälligen Laufzustände, bearbeite Ergebnisse und speichere pro Lauf
+   `lastCheckedAt`, `nextCheckAt` und den letzten Zustand. Setze die nächste
+   Prüfung auf 15 Minuten nach dieser Abfrage; nach dem Start weiterer Läufe
+   behalte bereits bestehende Prüftermine bei.
+2. Prüfe bei einem beendeten Lauf unmittelbar PR, Akzeptanzkriterien, CI und
+   Reviews gemäß dem folgenden Abschnitt. Sind nur CI-Ergebnisse ausstehend,
+   kontrolliere diese ebenfalls alle 15 Minuten. Pipeline-Ende allein ist kein
+   Grund, die Sitzung mit einer Erfolgsmeldung zu beenden.
+3. Warte bis zum frühesten offenen Prüftermin mit einem verfügbaren Wartewerkzeug,
+   in unterbrechbaren Abschnitten von höchstens 60 Sekunden. Prüfe nach jeder
+   Unterbrechung die aktuelle Zeit und neue Nutzervorgaben; eine frühe Rückkehr
+   aus dem Wartewerkzeug ersetzt nicht den Prüftermin. Berichte während des
+   Wartens knapp den bekannten Stand und den nächsten Prüftermin, ohne einen
+   neuen API-Abruf zu behaupten. Fahre danach mit Schritt 1 fort.
+
+Bei vorübergehendem Lesefehler bleibt der Lauf offen; wiederhole die Statusabfrage
+beim nächsten Prüftermin. Nach drei aufeinanderfolgenden fehlgeschlagenen Abfragen
+oder bei fehlender Zugriffsberechtigung melde den Überwachungsblocker und sichere
+den Stand. Ein Lesefehler erlaubt weder einen Neustart noch einen Erfolgsstatus.
+Bei `awaiting-human` melde die konkrete Entscheidung sofort und überwache andere
+Läufe weiter; menschliche Gates werden nicht automatisch beantwortet.
+
+Beende den Turn nicht mit „gestartet“ oder „ich prüfe später“, solange noch
+überwachbare Arbeit offen ist. Soll die Sitzung enden und die Überwachung
+weiterlaufen, nutze nur einen tatsächlich verfügbaren Scheduler, der die
+Composer-Sitzung mit Themenstand und Run-IDs wieder aufrufen kann. Prüfe dessen
+erfolgreiche Einrichtung und speichere seine Kennung; vermeide doppelte Monitorjobs
+und beende den Job nach Abschluss. Ohne solchen Scheduler bleibt der Loop in der
+aktiven Sitzung. Fehlt auch ein nutzbares Wartewerkzeug, benenne diese technische
+Grenze ausdrücklich, statt künftige Prüfungen zu versprechen.
+
+### Ergebnisse bearbeiten
+
 Beobachte den echten Laufstatus und berichte Änderungen oder Handlungsbedarf.
 `awaiting-human` verlangt die angezeigte Entscheidung; umgehe das Gate nicht.
 Terminal-Ruhe ist kein Abschluss. Nutze nur aktuell angebotene Feedback- und
@@ -109,6 +154,9 @@ Halte einen kleinen lokalen Themenstand im Git-Metadatenverzeichnis unter
 `agentpier-composer/<slug>.json` (`git rev-parse --git-common-dir`). Speichere
 Repo/Basisbranch, Plane-Projekt, Entscheidungen und pro Ticket IDs, Abhängigkeiten,
 Auftragssnapshot, Run-ID, PR und letzten bekannten Zustand. Keine Zugangsdaten.
+Halte auch Prüftermine, aufeinanderfolgende Abfragefehler und gegebenenfalls die
+Scheduler-Kennung fest. Nach Wiederaufnahme prüfe alle offenen Läufe sofort und
+setze den Polling-Loop fort; ein alter Themenstand belegt keinen aktuellen Status.
 Aktualisiere atomar nach relevanten Änderungen; Plane und AgentPier bleiben die
 maßgeblichen Quellen. Gleiche beim Fortsetzen Tickets, Läufe und PRs ab, bevor du
 etwas erneut anlegst oder startest. Halte ausstehende Plane-Änderungen fest.
