@@ -61,8 +61,10 @@ besitzen. Ziel bleibt die serverseitig verwaltete tmux-Pane der Session.
 
 ## Übergabevertrag
 
-1. Genau ein aktiver Schreibversuch pro Delivery-ID. Die Garantie ist weiterhin
-   höchstens einmal versuchte Übergabe, keine exakt einmal ausgeführte KI-Aufgabe.
+1. Genau ein aktiver Übergabeversuch je Nachricht. Der erste Auftrag und jeder
+   ausdrücklich angeforderte Wiederherstellungsversuch haben eine eigene stabile ID.
+   Jede Versuchs-ID wird höchstens einmal ausgeführt; HTTP-Replays starten keinen
+   neuen Versuch. Das garantiert keine exakt einmal ausgeführte KI-Aufgabe.
 2. `handed-off` bedeutet abgeschlossener Terminal-Schreibvorgang. Es behauptet
    weder sichtbare Anzeige noch Übernahme in eine Provider-Queue oder Antwortbeginn.
 3. Vor dem ersten möglichen Schreiben wird `uncertain` dauerhaft gesichert.
@@ -91,7 +93,9 @@ besitzen. Ziel bleibt die serverseitig verwaltete tmux-Pane der Session.
   Kein Warten auf Task-Ende in einer neuen AgentPier-Warteschlange.
 - Vorhandener TUI-Entwurf: niemals mit Ctrl+U löschen oder unbemerkt mit der
   Chatnachricht vermischen. Adapter muss einen belegten Composer vor der Übergabe
-  erkennen und ablehnen. Bei nicht zuverlässig erkennbarer Eingabebereitschaft
+  erkennen und ablehnen. Ausnahme ist die unten beschriebene geprüfte Wiederherstellung
+  des eigenen, vollständig eingefügten und noch nicht abgeschickten Textes.
+  Bei nicht zuverlässig erkennbarer Eingabebereitschaft
   bleibt die Freigabe für diese CLI blockiert, statt eine leere Eingabe zu behaupten.
 - Offene native Dialoge bleiben in der TUI bedienbar. Chat zeigt die bestehende
   Ablehnung mit einem konkreten Hinweis. Neue Meldungen werden deutsch/englisch ergänzt.
@@ -102,6 +106,57 @@ besitzen. Ziel bleibt die serverseitig verwaltete tmux-Pane der Session.
 - Schreibvorgänge über AgentPier werden gemeinsam serialisiert. Unabhängige
   externe tmux-/SSH-Eingaben lassen sich dadurch nicht atomar sperren; paralleles
   Tippen außerhalb AgentPiers bleibt eine ausdrücklich dokumentierte Grenze.
+
+## Fehlermarkierung und „Neu zustellen“
+
+Fehlgeschlagene Nachrichten bleiben als Chatblase mit erhaltenem Text sichtbar:
+**„Nicht zugestellt“** bei sicher abgelehnter Übergabe und **„Zustellung unklar“**
+bei möglicherweise schon erfolgtem Schreiben. Beide zeigen **„Neu zustellen“**.
+Der Klick startet zuerst die serverseitige Prüfung und zeigt **„Wird geprüft …“**;
+er bedeutet nicht automatisch erneutes Einfügen. Es gibt keine automatische
+Wiederholung nach Timeout, Reload, Wiederverbindung oder CLI-Ausgabeverzögerung.
+
+Die Prüfung läuft unter derselben Session-Sperre wie Eingaben und vergleicht den
+Originalauftrag, die aktuelle Session-/Account-/Prozessgeneration, den vollständigen
+nativen Composer und belastbare Annahmeinformationen. Ein leerer Composer, ein
+passender Text im Scrollback oder ein fehlender History-Eintrag beweisen allein
+weder Erfolg noch Fehlschlag. Lange, umgebrochene oder eingeklappte Eingaben dürfen
+nicht anhand eines sichtbaren Ausschnitts als vollständiger Treffer gelten.
+
+| Prüfergebnis                                                                                                               | Aktion nach Klick                                                         |
+| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Ursprünglicher Versuch hat nachweislich noch nichts geschrieben; Composer leer und bereit                                  | Text einmal einfügen und abschicken                                       |
+| Eigener vollständiger Text steht unverändert im Composer; zugehöriger Versuch hat nachweislich noch keinen Submit begonnen | Nur den fehlenden Submit ausführen, Text nicht erneut einfügen            |
+| Native Annahme ist eindeutig dem Versuch zugeordnet                                                                        | Status korrigieren; keine Eingabe wiederholen                             |
+| Anderer, bearbeiteter oder nur teilweise vorhandener Text                                                                  | Nichts verändern; Konflikt anzeigen und „TUI öffnen“ anbieten             |
+| Submit könnte schon erfolgt sein, CLI-Zuordnung geändert oder Zustand nicht sicher lesbar                                  | „Zustellung unklar“ beibehalten, Grund anzeigen und „TUI öffnen“ anbieten |
+
+Für diesen Nachweis erhält jeder neue Versuch ein dauerhaftes Schreibjournal:
+`reserved → paste-intent → pasted → submit-intent → submitted`.
+Die jeweilige Intent-Phase wird **vor** dem externen Schreibschritt gespeichert.
+`pasted` bestätigt nur den abgeschlossenen Paste-Aufruf; die vollständige Eingabe
+muss für einen Submit-only-Versuch zusätzlich frisch geprüft werden. Ein Crash
+nach `submit-intent` bleibt unklar, auch wenn Enter möglicherweise noch nicht
+geschrieben wurde. Alte Belege ohne Phasen liefern keinen nachträglich erfundenen
+Nachweis. Ein Slash-Versuch verwendet dieselben Phasen für das literale Einfügen.
+
+Wiederherstellung erhält eine neue `attemptId`, ist mit der ursprünglichen
+`deliveryId` verknüpft und wird dauerhaft dedupliziert. Zwei Tabs dürfen dadurch
+keinen parallelen Wiederholungsversuch starten. Vor der tatsächlichen Eingabe
+werden Zustand und Guards erneut unter der Sperre geprüft; eine vorherige
+Browser-Anzeige ist keine Freigabe. Ändert sich der Text, entsteht ein neuer
+normaler Auftrag statt einer Wiederholung mit derselben ID.
+
+Text und zugehörige Anhänge bleiben bis zur Auflösung im Browser wiederherstellbar.
+Der Server speichert weiterhin keine Nachrichtentexte im Beleg: Vergleich über
+den erneut übermittelten, gegen den ursprünglichen Hash geprüften Inhalt.
+Journal, Versuchskette und aktuelle Auftragsentscheidung werden atomar aktualisiert.
+Die UI zeigt das Ergebnis am ursprünglichen Auftrag, ohne eine zweite Chatblase
+für einen bloßen Submit-only-Versuch anzulegen. Aktive Versuche deaktivieren den
+Button; bestätigte Übergaben entfernen ihn. Bleibt nach einem Schreibbeleg die
+Annahme fraglich, kann „Übergabe prüfen“ denselben Prüfweg ohne Schreibfreigabe
+aufrufen. Sichtbare Wartezeit allein macht einen erfolgreichen Schreibbeleg nicht
+automatisch zum Fehler.
 
 ## Messung und Abnahme
 
@@ -118,15 +173,19 @@ harte CI-Zeitgrenze. Fremde blockierte Session darf die Übergabe nicht verzöge
 
 Verpflichtende Matrix für Codex, Claude und OpenCode:
 
-| Zustand                                                    | Erwartung                                                                      |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Idle, einfacher Text, Unicode, mehrzeilig, Dateipfade      | Inhalt unverändert nach definierter Zeilenumbruch-Normalisierung, ein Submit   |
-| Aufgabe läuft; mehrere aufeinanderfolgende Chatnachrichten | Native Annahme vor Aufgabenende; keine verlorenen oder vermischten Nachrichten |
-| TUI-Entwurf oder Berechtigungs-/Modell-Dialog              | Ablehnung vor dem ersten Byte, vorhandene Eingabe bleibt erhalten              |
-| Reload, Accountwechsel, Prozessende                        | Korrektes Ziel oder Ablehnung; kein Schreiben in Ersatzsession mit altem Scope |
-| Replay, zwei Tabs, HTTP-Abbruch, Neustart nach Paste       | Kein zweiter Schreibversuch; unklare Übergabe bleibt unklar                    |
-| Slash-Befehl und anschließend neue Unterhaltung            | Native Befehlsausführung; Chat folgt erst bestätigtem Identitätswechsel        |
-| Terminal-Tab geschlossen                                   | Eingabe funktioniert ohne Browser-Terminal-Verbindung                          |
+| Zustand                                                                     | Erwartung                                                                      |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Idle, einfacher Text, Unicode, mehrzeilig, Dateipfade                       | Inhalt unverändert nach definierter Zeilenumbruch-Normalisierung, ein Submit   |
+| Aufgabe läuft; mehrere aufeinanderfolgende Chatnachrichten                  | Native Annahme vor Aufgabenende; keine verlorenen oder vermischten Nachrichten |
+| TUI-Entwurf oder Berechtigungs-/Modell-Dialog                               | Ablehnung vor dem ersten Byte, vorhandene Eingabe bleibt erhalten              |
+| Reload, Accountwechsel, Prozessende                                         | Korrektes Ziel oder Ablehnung; kein Schreiben in Ersatzsession mit altem Scope |
+| Replay, zwei Tabs, HTTP-Abbruch, Neustart nach Paste                        | Kein zweiter Schreibversuch; unklare Übergabe bleibt unklar                    |
+| Slash-Befehl und anschließend neue Unterhaltung                             | Native Befehlsausführung; Chat folgt erst bestätigtem Identitätswechsel        |
+| Terminal-Tab geschlossen                                                    | Eingabe funktioniert ohne Browser-Terminal-Verbindung                          |
+| „Neu zustellen“, Text vollständig im Composer, Submit sicher nicht begonnen | Genau ein Submit, kein zweites Einfügen                                        |
+| „Neu zustellen“, ursprünglicher Versuch sicher vor Schreiben abgelehnt      | Genau eine erneute Übergabe nach erneuter Prüfung                              |
+| Retry-Doppelklick, zwei Tabs, Neustart in jeder Journalphase                | Ein aktiver Versuch; kein Wiederholen einer Versuchs-ID                        |
+| Teiltext, bearbeiteter Text, unbekannter Submit oder veraltete Session      | Keine Veränderung der TUI, konkreter Konfliktstatus                            |
 
 Automatisierte Tests nutzen ausschließlich temporäre Datenverzeichnisse und einen
 privaten tmux-Server. Echte CLI-Abnahme nutzt ebenfalls frische Profile und ein
@@ -138,7 +197,8 @@ Kopie privater Credentials und keine Testnachrichten in laufende Nutzersessions.
 ## Umfang und Auslieferung
 
 Node.js 22.13+, macOS und Linux; keine neue Laufzeitabhängigkeit oder Broker.
-HTTP-API, Zustellungsstatus und bestehende WebSocket-Ausgabekanäle bleiben kompatibel.
+HTTP-API und Zustellungsstatus werden für Prüfung und ausdrückliche Wiederherstellung
+additiv erweitert; bestehende Aufträge und WebSocket-Ausgabekanäle bleiben kompatibel.
 Source-/Testdateien bleiben unter 600 Zeilen. Profile und Belege brauchen keine Migration.
 
 Umsetzung in einem eigenen Folge-PR auf dem integrierten Stand von PR #52.

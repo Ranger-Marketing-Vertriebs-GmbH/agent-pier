@@ -13,11 +13,13 @@
 ## Global Constraints
 
 - Node.js 22.13+, macOS und Linux; keine neue Laufzeitabhängigkeit oder Broker.
-- HTTP-API, Zustellungsstatus und bestehende WebSocket-Ausgabekanäle bleiben kompatibel.
+- HTTP-API und Status werden additiv um geprüfte Wiederherstellung erweitert;
+  bisherige Aufträge und WebSocket-Ausgabekanäle bleiben kompatibel.
 - Source-/Testdateien bleiben unter 600 Zeilen. Profile und Belege brauchen keine Migration.
 - Tests ausschließlich mit temporären Datenverzeichnissen und privatem tmux-Server.
 - Keine Testnachrichten in laufende Nutzersessions, keine Übernahme privater Credentials.
-- Höchstens einmal versuchte Übergabe; nach möglichem Schreiben niemals automatisch erneut senden.
+- Jede Versuchs-ID wird höchstens einmal ausgeführt; Wiederherstellung ausschließlich
+  nach ausdrücklichem Klick und frischer Prüfung, niemals automatisch nach Timeout.
 - Neue UI-Meldungen in beiden Katalogen, importiert über reaktive Messages.
 - Dieser Auftrag umfasst Planung. Die nachfolgenden Checkboxen sind nicht ausgeführt.
 
@@ -143,7 +145,8 @@ der bisherige fünfte `nativeQueue`-Callback entfällt nach Aktualisierung aller
 - [ ] Bestehenden Callback mit Scope-, Request- und Modellprüfungen sowie dauerhaftem
       `uncertain` vor dem ersten Schreibvorgang weiterverwenden. Der Input-Adapter darf
       bis einschließlich dieses Callbacks keine Zeichen an die TUI schreiben.
-- [ ] Abhängigkeiten `bindings/history` nur aus ChatDelivery entfernen. Native
+- [ ] Abhängigkeiten `bindings/history` nur entfernen, soweit auch die geprüfte
+      Wiederherstellung in Task 5 sie nicht braucht. Native
       History-Zuordnung, `/clear`, Resume und Accountwechsel behalten diese Services.
       `ProviderHistory.queue` nur entfernen, wenn die Referenzsuche keine Nutzer ergibt.
 - [ ] Concurrency-Test an den tatsächlichen TUI-Submit koppeln, statt an den bisherigen
@@ -188,7 +191,90 @@ node --test tests/integration/chat-tui-input.test.js tests/integration/session-i
 
 Commit: `test: verify direct chat input through owned tmux sessions`
 
-## Task 5: Browser, Dokumentation und Integrationsabschluss
+## Task 5: Fehlermarkierung und geprüfte Wiederherstellung
+
+**Files:**
+
+- Create: `server/features/chat/chat-delivery-recovery.js`
+- Modify: `server/features/chat/chat-delivery.js`
+- Modify: `server/features/sessions/session-chat-input.js`
+- Modify: `server/http/routes/sessions.js`
+- Modify: `web/features/chat/ChatDeliveryStatus.jsx`
+- Modify: `web/features/chat/useChatDelivery.js`, `web/features/chat/chat-draft.js`
+- Create: `tests/integration/chat-delivery-recovery.test.js`
+- Modify: `tests/browser/chat-delivery.spec.js`
+
+**Interfaces:** Additiver Endpunkt
+`POST /sessions/:id/input/:deliveryId/recovery` mit
+`{ attemptId, deliveryScope, text, mode: "check" | "retry" }`.
+Antwort: `{ deliveryId, attemptId, status, recovery: { action, reason } }`;
+`action` ist `none`, `submitted-existing`, `resent` oder `blocked`.
+`mode: "check"` schreibt niemals in die TUI. `mode: "retry"` prüft unmittelbar
+vor möglichem Schreiben unter der Session-Sperre. Gleiche `attemptId` mit anderem
+Inhalt/Modus liefert Konflikt; ein Replay liefert nur den gespeicherten Ausgang.
+
+Der Adapter ergänzt `inspectChatComposer(tool, raw)`, Rückgabe
+`{ state: "empty" | "text" | "blocked" | "unknown", text: string | null }`.
+`text` darf nur bei vollständig rekonstruierter Eingabe gesetzt werden.
+`assertChatComposerReady` nutzt denselben Parser. „Text steht irgendwo im Screen“
+genügt nicht. Das Schreiben erlaubt nach Prüfung entweder Paste plus Submit oder
+ausschließlich Submit; beide laufen mit dem bisherigen Guard-/Journal-Vertrag.
+
+- [ ] Zuerst Wiederherstellungstests schreiben: eindeutig unbeschriebener Versuch
+      plus leerer Composer ergibt Paste und Submit; `pasted` plus exakt eigener
+      vollständiger Text ergibt nur Submit. Bei `submit-intent` ist ohne eindeutig
+      zugeordnete native Annahme kein weiterer Schreibvorgang erlaubt.
+- [ ] Schreibjournal `reserved → paste-intent → pasted → submit-intent → submitted`
+      für neue Versuche implementieren. Intent jeweils vor der Nebenwirkung sichern.
+      Belege ohne Journal als nicht ausreichend für automatische Ableitungen behandeln.
+      Originaltext nicht im Journal speichern. Die bestehende Hash-Prüfung bleibt.
+- [ ] Versuchskette und aktuelle Entscheidung pro Auftrag gemeinsam atomar speichern;
+      nach Neustart bleiben IDs und unsichere Intent-Phasen erhalten. Zusätzlich
+      den gesamten Prüf-/Schreibabschnitt auf die Session serialisieren. Zwei Tabs
+      mit verschiedenen neuen IDs dürfen dieselbe offene Ausgangslage nicht zweimal
+      nutzen; jede Recovery-Anfrage gilt nur für den noch aktuellen Ausgangsversuch.
+      Dazu `expectedAttemptId` im Request ergänzen, initial die `deliveryId`.
+- [ ] Journalfehler vor Intent führen zu null Terminalbytes. Fehler nach Intent
+      bleiben unklar. Textvergleich allein, leeres Eingabefeld oder fehlende History
+      autorisieren niemals Wiederholung einer möglicherweise abgeschickten Nachricht.
+- [ ] Tests für identischen Text in einer früheren Nachricht, abgeschnittene lange
+      Composer, Unicode/Zeilenumbrüche, fremden Entwurf, manuelle Bearbeitung,
+      Dialogwechsel, Accountwechsel, Reload und Prozessersatz ergänzen.
+- [ ] UI kennzeichnet sicher abgelehnte Nachrichten als „Nicht zugestellt“, andere
+      problematische Versuche als „Zustellung unklar“. Beide erhalten „Neu zustellen“;
+      beim Klick „Wird geprüft …“, bei Konflikt eine konkrete Begründung und „TUI öffnen“.
+      Während aktiver Versuche ist der Button deaktiviert.
+- [ ] Fehlgeschlagene Aufträge samt Text/Anhängen im Browser behalten, auch wenn
+      danach andere Nachrichten gesendet werden. Versuchskette dem ursprünglichen
+      Auftrag zuordnen, keine zweite Blase für Submit-only. Aufträge mit unklarer
+      Übergabe nicht automatisch als neue Nachricht in die Outbox kopieren.
+- [ ] Nach erfolgreichem Schreibbeleg bei weiter fraglicher Annahme „Übergabe prüfen“
+      anbieten; dieser Klick nutzt ausschließlich `mode: "check"`. Kein Timer setzt
+      wegen ausbleibender KI-Antwort automatisch einen Fehler oder startet einen Retry.
+- [ ] Chromium und WebKit prüfen Doppelklick, zwei Tabs, Reload während Prüfung,
+      HTTP-Abbruch nach Submit und Erhalt des fehlgeschlagenen Textes. Die Teststrecke
+      zählt Paste und Submit separat; insbesondere:
+
+```js
+assert.equal(pasteCallsAfterRetry - pasteCallsBeforeRetry, 0);
+assert.equal(submitCallsAfterRetry - submitCallsBeforeRetry, 1);
+```
+
+      Die vier Zähler werden aus dem tmux-Spy unmittelbar vor und nach dem
+      Submit-only-Recovery-Aufruf gelesen. Ein Replay derselben Versuchs-ID muss
+      anschließend beide Zähler unverändert lassen.
+
+- [ ] Native Abnahme für alle drei CLIs um vollständigen stehengelassenen Prompt,
+      Teiltext, unbekannten Submit und manuell bereits abgeschickte Nachricht ergänzen.
+      Nicht sicher lesbare Eingaben müssen mit `blocked` enden.
+
+```sh
+node --test tests/integration/chat-delivery-recovery.test.js tests/integration/chat-delivery.test.js tests/integration/chat-tui-input.test.js
+```
+
+Commit: `feat: recover failed chat delivery after checking native input`
+
+## Task 6: Browser, Dokumentation und Integrationsabschluss
 
 **Files:**
 
@@ -197,7 +283,8 @@ Commit: `test: verify direct chat input through owned tmux sessions`
 - Modify when adding conflict copy: corresponding existing message modules under
   `web/lib/i18n/de/`, `web/lib/i18n/en/`, `server/lib/i18n/de/`
 
-**Interfaces:** Bestehende Zustellungsstatus und Chat-Streams bleiben unverändert.
+**Interfaces:** Bestehende Zustellungsstatus bleiben lesbar und erhalten die
+additiven Recovery-Angaben aus Task 5; Chat-Streams bleiben unverändert.
 Bei Composer-Konflikt bleibt die Nachricht wieder bearbeitbar; keine stille
 Entwurfsvernichtung. `handed-off` wird nicht in „von der KI angenommen“ umbenannt.
 
