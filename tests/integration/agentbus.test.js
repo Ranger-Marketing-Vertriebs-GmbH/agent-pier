@@ -466,7 +466,10 @@ for (const tool of ["codex", "claude"]) {
         });
         child.on("error", reject);
         child.on("close", (code) => {
-          if (code || stderr) reject(new Error(`Hook failed: ${code} ${stderr}`));
+          // Node 22 reports an experimental SQLite warning even on success.
+          // The hook catches its own errors and reports them with this prefix.
+          if (code !== 0 || /^agentbus:/m.test(stderr))
+            reject(new Error(`Hook failed: ${code} ${stderr}`));
           else resolve(stdout);
         });
         child.stdin.end(JSON.stringify({ session_id: "guidance-native" }));
@@ -493,6 +496,8 @@ for (const tool of ["codex", "claude"]) {
     assert.match(reader.description, /nicht periodisch/);
     assert.match(await reader.run({}), /Synthetic pending message/);
     assert.equal(await runHook("UserPromptSubmit"), "");
+    fs.unlinkSync(path.join(busContext.h, "launches", `guidance-${tool}.json`));
+    await assert.rejects(runHook("UserPromptSubmit"), /Hook failed: 0.*agentbus:/s);
   });
 }
 test("disabled and login launches do not create bus state; canonical project directories isolate buses", async (t) => {
