@@ -289,3 +289,25 @@ test("a delayed replacement that exits fails without replay", async () => {
   assert.equal(f.session.reload.state, "failed");
   assert.equal(f.stops, 0);
 });
+
+test("stopping a replacement awaiting verification clears pending reload work", async () => {
+  const f = fixture();
+  f.services.sessions.stop = async () => {
+    f.session.status = "stopped";
+    f.session.reload = { ...f.session.reload, state: "idle", nativeId: null };
+    return f.session;
+  };
+  f.session.reload = {
+    state: "reloading",
+    replacementStarted: true,
+    nativeId: "native-exact",
+  };
+  f.reload.pending.add("session");
+  await assert.rejects(f.reload.cancel("session"), /already restarting/);
+  await f.reload.stop("session");
+  assert.equal(f.session.status, "stopped");
+  assert.equal(f.session.reload.state, "idle");
+  await f.reload.poll();
+  assert.equal(f.reload.pending.size, 0);
+  assert.equal(f.stops, 0);
+});
