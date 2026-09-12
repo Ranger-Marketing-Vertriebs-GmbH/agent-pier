@@ -104,7 +104,8 @@ export function inspectChatComposer(tool, raw, pane = {}) {
       return unknown();
     if (
       pane.cursorX === 2 &&
-      ((plain === "❯  " && /\x1b\[7m(?:\x1b\[39m)? /.test(line)) ||
+      (plain === "❯ " ||
+        (plain === "❯  " && /\x1b\[7m(?:\x1b\[39m)? /.test(line)) ||
         line.endsWith(
           "❯ \x1b[7m\x1b[39mP\x1b[0;2mress up to edit queued messages\x1b[0m",
         ))
