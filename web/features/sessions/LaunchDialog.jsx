@@ -18,7 +18,7 @@ import AsyncForm from "../../components/AsyncForm.jsx";
 import DirectoryPicker from "../directories/DirectoryPicker.jsx";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 const defaultMode = (tool) =>
-  ["claude", "opencode"].includes(tool) ? "auto" : "default";
+  ({ codex: "yolo", claude: "auto", opencode: "auto" })[tool] || "default";
 export default function LaunchDialog({
   state,
   tool,

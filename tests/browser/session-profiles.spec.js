@@ -65,7 +65,7 @@ for (const width of [1440, 390])
     await expect(profile).toHaveValue("profile-one");
     await expect(model).toHaveValue("session-model");
     await profile.selectOption("");
-    await expect(dialog.getByLabel("Startmodus", { exact: true })).toHaveValue("default");
+    await expect(dialog.getByLabel("Startmodus", { exact: true })).toHaveValue("yolo");
     await expect(model).toHaveValue("");
     await profile.selectOption("profile-one");
     await dialog.getByLabel("CLI", { exact: true }).selectOption("claude");
@@ -144,7 +144,7 @@ test("Bug Hunter instructions and parameters survive switching from Claude to Co
   await expect(dialog.getByLabel("Fehler", { exact: true })).toHaveValue(
     "Missing kickoff",
   );
-  await expect(dialog.getByLabel("Startmodus", { exact: true })).toHaveValue("default");
+  await expect(dialog.getByLabel("Startmodus", { exact: true })).toHaveValue("yolo");
   await expect(
     dialog.getByLabel("Startmodus", { exact: true }).locator('option[value="profile"]'),
   ).toHaveCount(0);
@@ -154,7 +154,7 @@ test("Bug Hunter instructions and parameters survive switching from Claude to Co
   expect(state.calls.find((call) => call.path.endsWith("/launch")).body).toMatchObject({
     access: { tool: "codex", accountId: "local-codex" },
     params: { topic: "Missing kickoff" },
-    launchMode: "default",
+    launchMode: "yolo",
   });
   expect(
     state.calls.some((call) => call.path === "/sessions" && call.method === "POST"),
