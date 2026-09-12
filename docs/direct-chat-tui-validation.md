@@ -45,6 +45,33 @@ operations. Without `--http`, measurements describe direct tmux input only.
 
 ## Native input characterization
 
+### Claude image preparation regression (2026-09-12)
+
+Claude Code 2.1.269 reproduces a separate paste/submit race with larger image
+attachments. Seven synthetic 1536 × 1024 PNGs (about 4.7 MB each) were pasted as
+newline-separated absolute paths through the bound HTTP route. The old writer
+sent one Enter immediately after paste and returned a handoff receipt, but the
+native CLI remained at the input prompt with all seven image chips and the text.
+No corresponding request reached the local mock provider within 15 seconds.
+The probe does not compensate by sending a second Enter.
+
+The writer now waits for all existing local PNG/JPEG/GIF/WebP paths in that paste
+to become image chips inside the current fenced Claude composer before sending
+its single Enter. Image labels in old conversation output do not count. The wait
+is bounded to ten seconds; failure leaves the journal at `pasted`, reports an
+uncertain delivery, and does not send Enter. Existing recovery rules still require
+an exact current draft match, so transformed image drafts may require manual TUI
+submission. Generation checks remain in place immediately before submission.
+Plain text and other CLIs retain their existing transport without an added pause.
+
+The corrected bound native probe passed all seven images to the local provider,
+observed a response and counted exactly one paste and one Enter. In the final
+recorded run, image submission took 751.79 ms. The same run passed 30 sequential
+text prompts, the held-response queue case, multiline/long payloads and guarded
+short-draft recovery. This measurement is specific to the local test files and
+machine, not a universal image-processing latency guarantee. The original
+zero-delay measurements below describe text input only.
+
 | CLI         | Installed version | Held-response observation                                                                                        | Submit                                                 |
 | ----------- | ----------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | Codex       | 0.153.4           | Second marker shown under “Messages to be submitted after next tool call” while the first response remained open | Separate Enter after bracketed paste, zero added delay |

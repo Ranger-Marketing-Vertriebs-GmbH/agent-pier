@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import { applicationFixture } from "../tests/helpers/application.js";
 import { createTuiInputRecorder } from "../tests/helpers/tui-input-recorder.js";
+import { probeNativeImages } from "./probe-chat-tui-images.mjs";
 import { probeNativePayloads } from "./probe-chat-tui-payloads.mjs";
 import { probeNativeRecovery } from "./probe-chat-tui-recovery.mjs";
 import { createProbeProvider } from "./probe-chat-tui-provider.mjs";
@@ -512,6 +513,17 @@ async function probeNative(fixture, cleanup) {
     const payloads = httpMode
       ? await probeNativePayloads({ tool, send, capture, provider, waitFor, counts })
       : undefined;
+    const images =
+      httpMode && tool === "claude"
+        ? await probeNativeImages({
+            send,
+            capture,
+            provider,
+            waitFor,
+            counts,
+            directory: session.cwd,
+          })
+        : undefined;
     const recovery = httpMode
       ? await probeNativeRecovery(fixture, session, snapshot, counts)
       : undefined;
@@ -534,6 +546,7 @@ async function probeNative(fixture, cleanup) {
       JSON.stringify(
         {
           mode: "native-local-mock",
+          images,
           recordedAt: new Date().toISOString(),
           node: process.version,
           paneSize: { width: 120, height: 35 },

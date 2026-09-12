@@ -6,6 +6,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import { isNativeSlashCommand, sendSlashCommand } from "./session-slash-command.js";
 import { problem } from "../../lib/storage.js";
+import { waitForClaudeImagePaste } from "./claude-image-paste.js";
 
 export function normalizeChatText(text) {
   if (typeof text !== "string" || !text || text.length > 32000)
@@ -49,6 +50,7 @@ export async function writeChatTuiInput(
       }
     }
     await onPhase("pasted");
+    if (!slash) await waitForClaudeImagePaste(manager, session, text);
   }
   // Preserve the native Codex literal-input paste-burst separation.
   if (slash && session.tool === "codex") await sleep(250);
