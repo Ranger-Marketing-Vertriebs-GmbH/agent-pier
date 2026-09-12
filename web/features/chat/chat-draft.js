@@ -22,6 +22,16 @@ const retainRecent = (items) => {
   const completed = items.filter((item) => item.status === "handed-off").slice(-20);
   return items.filter((item) => item.status !== "handed-off" || completed.includes(item));
 };
+const predatesDelivery = (item, message) => {
+  const startedAt = item.observation?.startedAt ?? Date.parse(item.clientCreatedAt);
+  const timestamp =
+    typeof message.timestamp === "number"
+      ? message.timestamp
+      : Date.parse(message.timestamp);
+  return (
+    Number.isFinite(startedAt) && Number.isFinite(timestamp) && timestamp < startedAt
+  );
+};
 const normalized = (text) => text.replaceAll("\r\n", "\n").trim();
 
 // Matching is presentation-only: native text is NOT an acknowledgement of delivery.
@@ -39,6 +49,7 @@ export function deliveryMatches(items, messages) {
       (message) =>
         message.role === "user" &&
         !used.has(message.id) &&
+        !predatesDelivery(item, message) &&
         !item.baselineIds.includes(message.id) &&
         (!Number.isFinite(item.observation?.startedAt) ||
           (typeof message.timestamp === "number"
