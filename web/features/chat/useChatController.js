@@ -137,7 +137,9 @@ export default function useChatController({ active, session, request, onConnecti
       nativeStates: nativeDeliveryStates(
         [...delivery.recent, ...(delivery.outbox ? [delivery.outbox] : [])],
         data?.messages || [],
-        data?.nativeInput,
+        data?.nativeInput?.providerSessionId === data?.providerSessionId
+          ? data?.nativeInput
+          : null,
         session.tool,
         session.status === "running" && !data?.observability?.stale,
       ),

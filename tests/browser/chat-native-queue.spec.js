@@ -24,13 +24,14 @@ for (const language of ["de-DE", "en-GB"]) {
         const hash = createHash("sha256")
           .update(JSON.stringify([text, true]))
           .digest("hex");
-        let startedAt;
+        let startedAt,
+          providerSessionId = "native-thread";
         let messages = [],
           queue = [],
           submits = 0;
         const snapshot = () => ({
           availability: "ready",
-          providerSessionId: "native-thread",
+          providerSessionId,
           messages,
           tasks: [],
           nativeInput: {
@@ -127,6 +128,9 @@ for (const language of ["de-DE", "en-GB"]) {
           english ? "Accepted by CLI" : "Von der CLI übernommen",
         );
         expect(submits).toBe(1);
+        providerSessionId = "other-conversation";
+        await publish();
+        await expect(badge).toHaveCount(0);
         expect(
           await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
         ).toBe(true);
