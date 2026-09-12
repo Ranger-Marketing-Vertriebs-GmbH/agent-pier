@@ -103,6 +103,14 @@ test("a proven pre-write rejection can be pasted and submitted explicitly", asyn
   assert.deepEqual(x.writes, [["paste", x.body.text], ["submit"]]);
 });
 
+test("a pre-write rejection can be retried explicitly despite an unreadable composer", async (t) => {
+  const x = await fixture(t, "reserved");
+  x.setComposer({ state: "unknown", text: null });
+  assert.equal((await x.post()).recovery.action, "resent");
+  await x.post();
+  assert.deepEqual(x.writes, [["paste", x.body.text], ["submit"]]);
+});
+
 for (const phase of ["paste-intent", "submit-intent", "submitted"]) {
   test(`recovery never guesses from matching text after ${phase}`, async (t) => {
     const x = await fixture(t, phase);

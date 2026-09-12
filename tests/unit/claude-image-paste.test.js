@@ -80,6 +80,32 @@ test("unfinished image preparation times out without injecting Enter", async (t)
   );
 });
 
+test("existing image chips cannot count as preparation of newly pasted files", async (t) => {
+  const text = await images(t);
+  const captures = [
+    screen("[Image #1] [Image #2]", 2),
+    screen("[Image #1] [Image #2] [Image #3] [Image #4]", 2),
+  ];
+  let reads = 0;
+  const manager = {
+    target: () => "=synthetic",
+    tmux: async () => {
+      reads++;
+      return captures.shift();
+    },
+  };
+  await waitForClaudeImagePaste(manager, { id: "synthetic", tool: "claude" }, text, {
+    initialImages: 2,
+  });
+  assert.equal(reads, 2);
+  await assert.rejects(
+    waitForClaudeImagePaste(manager, { id: "synthetic", tool: "claude" }, text, {
+      initialImages: null,
+    }),
+    { status: 409 },
+  );
+});
+
 test("ordinary text, nonexistent image paths and other CLIs do not poll", async (t) => {
   const manager = { tmux: () => assert.fail("Unexpected image readiness capture") };
   const text = await images(t);

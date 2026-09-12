@@ -33,7 +33,7 @@ export async function waitForClaudeImagePaste(
   manager,
   session,
   text,
-  { timeoutMs = 10000 } = {},
+  { timeoutMs = 10000, initialImages = 0 } = {},
 ) {
   if (session.tool !== "claude") return;
   const candidates = text
@@ -52,6 +52,9 @@ export async function waitForClaudeImagePaste(
       expected++;
   }
   if (!expected) return;
+  if (!Number.isInteger(initialImages) || initialImages < 0)
+    throw problem("Claude's existing image attachments cannot be inspected", 409);
+  expected += initialImages;
   const target = `${manager.target(session.id)}:0.0`;
   const deadline = performance.now() + timeoutMs;
   do {

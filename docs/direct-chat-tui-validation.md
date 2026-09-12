@@ -45,6 +45,27 @@ operations. Without `--http`, measurements describe direct tmux input only.
 
 ## Native input characterization
 
+### Explicit fresh input policy (2026-09-12)
+
+A fresh chat send behaves like typing into the current TUI composer and pressing
+Enter. An existing draft or an unrecognized screen layout does not reject that
+explicit send; native input can combine the existing draft with the pasted text.
+The same rule applies to an explicit retry whose durable journal proves that no
+paste was attempted (`reserved`). No draft-clearing keystrokes are injected.
+
+This permission does not weaken recovery of an already pasted message: submitting
+that existing draft still requires an exact text match and unchanged generation.
+Ambiguous paste/submit attempts never retry automatically. Session/account/process
+identity, reload and pipeline guards remain enforced, and pending native permission
+requests are checked immediately before both paste and Enter. An unreadable screen
+does not bypass those guards. Exact native-history matching remains presentation-only;
+combined drafts may remain unconfirmed when they differ from the original chat text.
+
+The native recovery probe also tests that a fresh message appends to an edited
+manual draft once, while retrying the earlier, now-changed draft remains blocked.
+Real tmux integration tests cover unrecognized composers and a permission request
+that arrives after paste: the latter must prevent Enter.
+
 ### Claude image preparation regression (2026-09-12)
 
 Claude Code 2.1.269 reproduces a separate paste/submit race with larger image
