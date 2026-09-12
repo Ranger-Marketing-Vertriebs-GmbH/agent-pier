@@ -90,6 +90,13 @@ for (const event of ["PreToolUse", "PermissionRequest"])
           { label: "Browser", description: "Complete" },
         ],
       },
+      {
+        question: "Target?",
+        header: "Target",
+        multiSelect: false,
+        options: [{ label: "Local", description: "This machine" }],
+      },
+      { question: "Notes?", options: [] },
     ];
     const request = claudeRequest({
       session_id: "session",
@@ -100,13 +107,29 @@ for (const event of ["PreToolUse", "PermissionRequest"])
     });
     assert.equal(request.view.kind, "question");
     assert.equal(request.view.questions[0].prompt, "Checks?");
-    const updatedInput = { questions, answers: { "Checks?": "Unit, Browser" } };
-    assert.deepEqual(request.answer({ answers: { q0: ["Unit", "Browser"] } }), {
-      hookSpecificOutput:
-        event === "PreToolUse"
-          ? { hookEventName: event, permissionDecision: "allow", updatedInput }
-          : { hookEventName: event, decision: { behavior: "allow", updatedInput } },
-    });
+    assert.deepEqual(
+      request.view.questions.map((q) => q.prompt),
+      ["Checks?", "Target?", "Notes?"],
+    );
+    const updatedInput = {
+      questions,
+      answers: {
+        "Checks?": "Unit, Browser",
+        "Target?": "Local",
+        "Notes?": "Custom notes",
+      },
+    };
+    assert.deepEqual(
+      request.answer({
+        answers: { q0: ["Unit", "Browser"], q1: ["Local"], q2: ["Custom notes"] },
+      }),
+      {
+        hookSpecificOutput:
+          event === "PreToolUse"
+            ? { hookEventName: event, permissionDecision: "allow", updatedInput }
+            : { hookEventName: event, decision: { behavior: "allow", updatedInput } },
+      },
+    );
     assert.equal(request.answer({ handoff: true }), null);
   });
 test("Claude permission is an actual native hook response, not PTY input", () => {

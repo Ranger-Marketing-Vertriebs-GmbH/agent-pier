@@ -1,12 +1,10 @@
-import React, { useState } from "react";
+import React from "react";
 import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
-import QuestionFields, { questionAnswers } from "./QuestionFields.jsx";
+import QuestionDialog from "./QuestionDialog.jsx";
 export default function NativeRequest({ request, updated, openTerminal }) {
-  const [drafts, setDrafts] = useState({}),
-    [validation, setValidation] = useState("");
   const action = useAsyncAction(),
     pending = request.status === "pending",
     hookTrust = request.presentation === "codexHookTrust",
@@ -90,35 +88,13 @@ export default function NativeRequest({ request, updated, openTerminal }) {
           ))}
         </div>
       ) : (
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            const answers = questionAnswers(request.questions || [], drafts);
-            if (!answers) {
-              setValidation(copy.required);
-              return;
-            }
-            setValidation("");
-            answer({ answers });
-          }}
-        >
-          {request.questions?.map((question) => (
-            <QuestionFields
-              key={question.id}
-              question={question}
-              value={drafts[question.id]}
-              disabled={action.busy}
-              onChange={(value) =>
-                setDrafts((current) => ({ ...current, [question.id]: value }))
-              }
-            />
-          ))}
-          <button className="button primary" disabled={action.busy}>
-            {copy.answer}
-          </button>
-        </form>
+        <QuestionDialog
+          questions={request.questions || []}
+          busy={action.busy}
+          answer={answer}
+        />
       )}
-      <ErrorMessage error={validation || action.error} />
+      <ErrorMessage error={action.error} />
       <div className="native-request-actions">
         {pending && (
           <button

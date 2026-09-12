@@ -106,3 +106,15 @@
   min-height: 0;
   max-height: 50%;
 }
+
+.native-question-progress {
+  font-weight: 600;
+}
+.native-question-navigation {
+  position: sticky;
+  bottom: 0;
+  background: #19191c;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  z-index: 1;
+}

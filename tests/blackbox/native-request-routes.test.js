@@ -93,6 +93,12 @@ for (const [event, question] of [
         ],
         multiSelect: false,
       },
+      {
+        question: "Checks?",
+        multiSelect: true,
+        options: [{ label: "Unit" }, { label: "Browser" }],
+      },
+      { question: "Notes?", options: [] },
     ];
     child.stdin.end(
       JSON.stringify({
@@ -107,7 +113,15 @@ for (const [event, question] of [
     const ask = await poll(url);
     assert.equal(ask.kind, question ? "question" : "permission");
     if (question) {
-      assert.equal(ask.questions[0].prompt, "Choose?");
+      assert.deepEqual(
+        ask.questions.map((q) => q.prompt),
+        ["Choose?", "Checks?", "Notes?"],
+      );
+      const partial = await post(`${url}/${ask.id}/answer`, {
+        expectedRevision: 1,
+        answers: { q0: ["Two"] },
+      });
+      assert.equal(partial.status, 400);
       assert.deepEqual(
         ask.questions[0].options.map((option) => option.label),
         ["One", "Two"],
@@ -122,7 +136,9 @@ for (const [event, question] of [
     assert.equal(JSON.stringify(ask).includes("native-call"), false);
     const response = await post(`${url}/${ask.id}/answer`, {
       expectedRevision: 1,
-      ...(question ? { answers: { q0: ["Two"] } } : { choice: "deny" }),
+      ...(question
+        ? { answers: { q0: ["Two"], q1: ["Unit", "Browser"], q2: ["Custom notes"] } }
+        : { choice: "deny" }),
     });
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { requests: [] });
@@ -141,7 +157,11 @@ for (const [event, question] of [
         ).updatedInput,
         {
           questions,
-          answers: { "Choose?": "Two" },
+          answers: {
+            "Choose?": "Two",
+            "Checks?": "Unit, Browser",
+            "Notes?": "Custom notes",
+          },
         },
       );
     else
