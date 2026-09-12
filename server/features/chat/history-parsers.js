@@ -1,3 +1,4 @@
+import { toolFileChanges, codexFileChanges } from "./tool-file-changes.js";
 import { claudeConversationRecord } from "./claude-conversation-record.js";
 import { createHash } from "node:crypto";
 
@@ -15,6 +16,13 @@ const parse = (value) => {
   } catch {
     return null;
   }
+};
+const failedOutput = (item) => {
+  const output = object(parse(item.output));
+  return (
+    Boolean(item.is_error) ||
+    (typeof output.metadata?.exit_code === "number" && output.metadata.exit_code !== 0)
+  );
 };
 const show = (value) =>
   typeof value === "string" ? value : value == null ? "" : JSON.stringify(value, null, 2);
@@ -158,6 +166,7 @@ export function normalizeClaude(records) {
           id,
           role: "tool",
           toolName: string(block.name) || "Tool",
+          ...toolFileChanges(block.name, block.input),
           text: join(
             show(block.input),
             output ? text(output.content) || show(output.content) : "",
@@ -237,6 +246,7 @@ export function normalizeCodex(thread) {
             .join("\n\n"),
           {
             toolName: "File change",
+            ...codexFileChanges(item.changes),
             status: toolStatus(item.status),
           },
         );
@@ -254,6 +264,7 @@ export function normalizeCodex(thread) {
           ),
           {
             toolName: string(item.tool) || "Tool",
+            ...toolFileChanges(item.tool, item.arguments),
             status,
           },
         );
@@ -297,8 +308,10 @@ export function normalizeCodexRecords(records) {
       .filter(
         (record) =>
           record?.type === "response_item" &&
-          record.payload?.type === "function_call_output" &&
-          record.payload.is_error,
+          ["function_call_output", "custom_tool_call_output"].includes(
+            record.payload?.type,
+          ) &&
+          failedOutput(record.payload),
       )
       .map((record) => identifier(record.payload.call_id || record.payload.id)),
   );
@@ -338,12 +351,13 @@ export function normalizeCodexRecords(records) {
       }
       unpaired.set(key, candidates);
     }
-    if (isResponse && item.type === "function_call") {
+    if (isResponse && ["function_call", "custom_tool_call"].includes(item.type)) {
       const id = identifier(item.call_id || item.id) || `codex-record:${index}`;
       const message = {
         id,
         role: "tool",
-        text: show(item.arguments),
+        text: show(item.arguments ?? item.input),
+        ...toolFileChanges(item.name, item.arguments ?? item.input),
         toolName: string(item.name) || "Tool",
         status: "running",
         ...stamp(record.timestamp),
@@ -354,20 +368,23 @@ export function normalizeCodexRecords(records) {
       if (item.name === "update_plan" && !failedCalls.has(id) && Array.isArray(args.plan))
         tasks = taskList(args.plan, "codex-plan");
     }
-    if (isResponse && item.type === "function_call_output") {
+    if (
+      isResponse &&
+      ["function_call_output", "custom_tool_call_output"].includes(item.type)
+    ) {
       const id = identifier(item.call_id || item.id) || `codex-record:${index}`;
       const call = calls.get(id);
       const output = text(item.output) || show(item.output);
       if (call) {
         call.text = join(call.text, output);
-        call.status = item.is_error ? "failed" : "completed";
+        call.status = failedOutput(item) ? "failed" : "completed";
       } else
         messages.push({
           id,
           role: "tool",
           toolName: "Tool",
           text: output,
-          status: item.is_error ? "failed" : "completed",
+          status: failedOutput(item) ? "failed" : "completed",
           ...stamp(record.timestamp),
         });
     }
@@ -403,6 +420,11 @@ export function normalizeOpenCode(exported) {
           id,
           role: "tool",
           toolName: string(part.tool) || "Tool",
+          ...toolFileChanges(
+            part.tool,
+            state.input,
+            status === "completed" ? state.metadata : {},
+          ),
           text: join(
             show(state.input),
             text(state.output) || show(state.output),

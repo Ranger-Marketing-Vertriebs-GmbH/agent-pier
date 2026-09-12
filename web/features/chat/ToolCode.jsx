@@ -20,7 +20,7 @@ const highlighter = createLowlight({
   xml,
   yaml,
 });
-function render(nodes) {
+export function render(nodes) {
   return nodes.map((node, index) =>
     node.type === "text" ? (
       node.value
@@ -30,6 +30,15 @@ function render(nodes) {
       </span>
     ),
   );
+}
+export function highlightNodes(text, language) {
+  if (text.length > 20000 || !highlighter.registered(language))
+    return [{ type: "text", value: text }];
+  try {
+    return highlighter.highlight(language, text).children;
+  } catch {
+    return [{ type: "text", value: text }];
+  }
 }
 export default memo(function ToolCode({ text, language }) {
   const content = useMemo(() => {

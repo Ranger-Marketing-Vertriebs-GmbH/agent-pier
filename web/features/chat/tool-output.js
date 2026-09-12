@@ -16,7 +16,7 @@ const languages = new Map(
     yml: "yaml",
   }),
 );
-const fileLanguage = (path) =>
+export const fileLanguage = (path) =>
   languages.get(typeof path === "string" ? path.split(".").at(-1).toLowerCase() : "") ||
   "plaintext";
 
