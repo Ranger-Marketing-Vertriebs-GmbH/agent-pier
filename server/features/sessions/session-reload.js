@@ -222,6 +222,14 @@ export class SessionReload {
       }
     });
   }
+  stop(id) {
+    return this.serial(async () => {
+      this.pending.delete(id);
+      const session = await this.services.sessions.stop(id);
+      this.services.activity.remove(id);
+      return session;
+    });
+  }
   cancel(id) {
     return this.serial(async () => {
       const { session } = await this.inspect(id);

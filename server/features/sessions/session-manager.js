@@ -1,3 +1,4 @@
+import { recordManualInput } from "./manual-input-guard.js";
 import { drainSessionLists, getSessionList } from "./session-list.js";
 import { SessionOperations } from "./session-operations.js";
 import { sendSlashCommand } from "./session-slash-command.js";
@@ -39,6 +40,7 @@ export class SessionManager {
     this.onStopped = onStopped;
     this.reconciledStops = new Set();
     this.replacing = new Set();
+    this.pendingTerminalInput = new Set();
     this.operations = new SessionOperations(() => this.ready);
     this.ready = this.initialize();
   }
@@ -373,6 +375,7 @@ export class SessionManager {
       } catch (error) {
         if (session.status === "running") throw error;
       }
+      this.pendingTerminalInput.delete(id);
       session.status = "stopped";
       if (session.reload)
         session.reload = { ...session.reload, state: "idle", nativeId: null };
@@ -567,6 +570,7 @@ export class SessionManager {
             if (disposed) return;
             if (blocksTerminalInput(await this.metadata(id)))
               throw failure("Session is reloading", 409);
+            await recordManualInput(this, session, text);
             terminal.write(text);
           }, id);
         },

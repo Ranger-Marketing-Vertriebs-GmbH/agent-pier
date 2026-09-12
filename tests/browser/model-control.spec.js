@@ -60,6 +60,12 @@ async function fixture(page) {
         return route.fulfill({ json: previous });
       }
       if (body) calls.push({ action: path.split("/").at(-1), body });
+      if (path.endsWith("/open") && controls.holdOpen) {
+        await new Promise((resolve) => {
+          controls.releaseOpen = resolve;
+        });
+        return route.fulfill({ json: model }).catch(() => {});
+      }
       if (path.endsWith("/open"))
         model.picker = {
           token: "model-token",
@@ -482,3 +488,38 @@ test("returning to mobile chat refreshes a stale reload error and keeps its draf
   await expect(draft).toHaveValue("Mobile draft");
   await expect(page.getByRole("button", { name: "Senden", exact: true })).toBeEnabled();
 });
+
+for (const language of ["de", "en"]) {
+  test(`model request deadline reconciles status without repeating the mutation (${language})`, async ({
+    page,
+  }) => {
+    await page.addInitScript(
+      (value) => localStorage.setItem("agentpier-language", value),
+      language,
+    );
+    const controls = await fixture(page);
+    const draft = page.locator(".chat-composer textarea");
+    await draft.fill("Keep this pending draft");
+    await page.clock.install();
+    controls.holdOpen = true;
+    await page.locator(".model-trigger").click();
+    await expect.poll(() => Boolean(controls.releaseOpen)).toBe(true);
+    await expect(
+      page.getByRole("button", {
+        name: language === "en" ? "Send" : "Senden",
+        exact: true,
+      }),
+    ).toBeDisabled();
+    await page.clock.fastForward(16000);
+    await expect(page.locator(".model-working")).toHaveCount(0);
+    await expect(
+      page.getByRole("button", {
+        name: language === "en" ? "Send" : "Senden",
+        exact: true,
+      }),
+    ).toBeEnabled();
+    await expect(draft).toHaveValue("Keep this pending draft");
+    expect(controls.calls.filter((call) => call.action === "open")).toHaveLength(1);
+    controls.releaseOpen();
+  });
+}

@@ -1,7 +1,7 @@
 import { readOpenCodePage } from "./opencode-history-page.js";
 import { reconcileCodexTail } from "./codex-live-tail.js";
 import { readClaudePage } from "./claude-history-page.js";
-import { normalizeCodex } from "./history-parsers.js";
+import { normalizeCodex, normalizeCodexRecords } from "./history-parsers.js";
 import { observeCodex } from "./chat-observability.js";
 import { problem } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
@@ -40,10 +40,20 @@ export async function readHistoryPage(history, session, id, state = null) {
   let full = { ...thread, turns: [...(page.data || [])].reverse() };
   if (!state) full = await reconcileCodexTail(history, session, full);
   const content = normalizeCodex(full);
+  let records = [];
+  if (!state && history.codexMetadata) {
+    try {
+      records = await history.codexMetadata.read(history, session, full);
+      if (records.some((record) => record.payload?.name === "update_plan"))
+        content.tasks = normalizeCodexRecords(records).tasks;
+    } catch {
+      /* API history remains available when supplemental metadata is unavailable. */
+    }
+  }
   return {
     ...content,
     observability: {
-      ...observeCodex(full),
+      ...observeCodex(full, records),
       ...(full.tailUnavailable ? { stale: true } : {}),
     },
     ...splitPage(content.messages, page.nextCursor ? { cursor: page.nextCursor } : null),

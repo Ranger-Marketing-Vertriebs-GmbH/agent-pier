@@ -1,3 +1,4 @@
+import { assertManualInputSettled } from "./manual-input-guard.js";
 import { folderTrustScreen } from "../requests/claude-folder-trust.js";
 import { requestCopy } from "../../lib/i18n/de/requests.js";
 import { hookTrustScreen } from "../requests/codex-hook-trust.js";
@@ -340,6 +341,7 @@ export function withChatInput(manager, id, operation) {
       if (!active) throw problem("Chat input transaction has ended", 409);
       const current = await currentChatSession(manager, id);
       const fresh = await chatInputSnapshot(manager, current);
+      assertManualInputSettled(manager, id, fresh);
       if (!active) throw problem("Chat input transaction has ended", 409);
       if (
         (current.tool === "codex" && hookTrustScreen(fresh.raw)) ||

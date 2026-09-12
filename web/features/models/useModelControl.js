@@ -1,3 +1,5 @@
+import { modelRequest } from "./model-request.js";
+import { modelControlCopy as copy } from "../../lib/i18n/messages/models.js";
 import { useEffect, useId, useLayoutEffect, useRef, useState, useCallback } from "react";
 const emptyState = {
   currentModel: null,
@@ -12,6 +14,9 @@ export default function useModelControl({ session, active, request, onPendingCha
     [expanded, setExpanded] = useState(false);
   const [error, setError] = useState(""),
     [query, setQuery] = useState("");
+  const [reconciling, setReconciling] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const mutationAbort = useRef(null);
   const [readError, setReadError] = useState("");
   const [availableHeight, setAvailableHeight] = useState(540);
   const generation = useRef(0),
@@ -29,7 +34,7 @@ export default function useModelControl({ session, active, request, onPendingCha
   }, []);
   const picker = state.picker;
   const pickerToken = picker?.token;
-  const blocked = busy || Boolean(picker) || Boolean(state.pending);
+  const blocked = reconciling || busy || Boolean(picker) || Boolean(state.pending);
   const visible = expanded || Boolean(picker) || Boolean(state.pending);
   useLayoutEffect(() => {
     if (!active || !visible) return;
@@ -63,13 +68,17 @@ export default function useModelControl({ session, active, request, onPendingCha
     mounted.current = true;
     return () => {
       mounted.current = false;
+      mutationAbort.current?.abort();
       invalidateRequests();
       pendingCallback.current?.(false);
     };
   }, [invalidateRequests]);
   useEffect(() => {
     generation.current++;
+    mutationAbort.current?.abort();
+    mutationAbort.current = null;
     mutating.current = false;
+    setReconciling(false);
     setState(emptyState);
     setBusy(false);
     setExpanded(false);
@@ -82,14 +91,23 @@ export default function useModelControl({ session, active, request, onPendingCha
   }, [blocked, onPendingChange]);
   useEffect(() => {
     if (!active) return;
+    const controller = new AbortController();
     let alive = true,
       timer;
     const poll = async () => {
       const version = generation.current;
       if (!mutating.current) {
         try {
-          const result = await requestRef.current(`/sessions/${session.id}/models`);
+          const result = await modelRequest(
+            requestRef.current,
+            `/sessions/${session.id}/models`,
+            "GET",
+            undefined,
+            copy.refreshTimeout,
+            controller.signal,
+          );
           if (alive && version === generation.current && !mutating.current) {
+            setReconciling(false);
             setReadError("");
             setState({
               ...emptyState,
@@ -106,9 +124,10 @@ export default function useModelControl({ session, active, request, onPendingCha
     poll();
     return () => {
       alive = false;
+      controller.abort();
       clearTimeout(timer);
     };
-  }, [active, session.id]);
+  }, [active, session.id, revision]);
   useEffect(() => {
     if (!active || !pickerToken) return;
     const selected = panel.current?.querySelector('[data-selected="true"]');
@@ -126,15 +145,20 @@ export default function useModelControl({ session, active, request, onPendingCha
     )
       return;
     const version = ++generation.current;
+    const controller = new AbortController();
+    mutationAbort.current = controller;
     mutating.current = true;
     setBusy(true);
     setError("");
     setExpanded(true);
     try {
-      const result = await requestRef.current(
+      const result = await modelRequest(
+        requestRef.current,
         `/sessions/${session.id}/models/${action}`,
         "POST",
         body,
+        copy.changeTimeout,
+        controller.signal,
       );
       if (!mounted.current || version !== generation.current) return;
       const next = {
@@ -149,9 +173,16 @@ export default function useModelControl({ session, active, request, onPendingCha
         trigger.current?.focus();
       }
     } catch (err) {
-      if (mounted.current && version === generation.current) setError(err.message);
+      if (mounted.current && version === generation.current) {
+        if (err.code === "MODEL_REQUEST_TIMEOUT") {
+          setReconciling(true);
+          setReadError(err.message);
+          setRevision((value) => value + 1);
+        } else setError(err.message);
+      }
     } finally {
       if (mounted.current && version === generation.current) {
+        mutationAbort.current = null;
         mutating.current = false;
         setBusy(false);
       }

@@ -1,3 +1,5 @@
+import { CodexRolloutMetadata } from "./codex-rollout-metadata.js";
+import { activeOpenCodeExport } from "./opencode-revert.js";
 import { ClaudeHistoryPages } from "./claude-history-pages.js";
 import { readHistoryPage } from "./history-page.js";
 import { observeClaude, observeCodex, observeOpenCode } from "./chat-observability.js";
@@ -165,6 +167,7 @@ export class ProviderHistory {
     this.home = home;
     this.codexClientFactory = codexClientFactory;
     this.codexClients = new Map();
+    this.codexMetadata = new CodexRolloutMetadata();
     this.openCodeJobs = new Set();
     this.claudePages = new ClaudeHistoryPages({
       onIndexed: (event) => this.onIndexed?.(event),
@@ -413,7 +416,7 @@ export class ProviderHistory {
       }
       return result;
     }
-    const exported = await this.opencode(session, ["export", id]);
+    const exported = activeOpenCodeExport(await this.opencode(session, ["export", id]));
     if (exported.info?.id !== id || exported.info?.directory !== session.cwd)
       throw problem(serverMessages.chat.historyProjectMismatch, 409);
     return { ...normalizeOpenCode(exported), observability: observeOpenCode(exported) };

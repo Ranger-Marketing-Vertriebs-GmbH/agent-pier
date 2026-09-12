@@ -43,8 +43,8 @@ export function sessionsRoutes(services) {
     res.json(await sessions.get(req.params.id));
   });
   router.post("/sessions/:id/stop", async (req, res) => {
-    await services.reload?.cancel(req.params.id);
-    await sessions.stop(req.params.id);
+    if (services.reload) await services.reload.stop(req.params.id);
+    else await sessions.stop(req.params.id);
     res.json(await sessions.get(req.params.id));
   });
   router.delete("/sessions/:id", async (req, res) => {
