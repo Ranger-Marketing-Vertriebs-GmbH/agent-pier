@@ -215,3 +215,65 @@ for (const viewport of [
     await expect(page.getByText("Choose a scope", { exact: true })).toHaveCount(0);
   });
 }
+
+for (const locale of ["de-DE", "en-GB"]) {
+  test.describe(`Codex startup trust ${locale}`, () => {
+    test.use({ locale });
+    test("mobile chat preserves a draft while approving startup hooks", async ({
+      page,
+    }) => {
+      const en = locale === "en-GB";
+      await page.setViewportSize({ width: 390, height: 844 });
+      const state = await operationsFixture(page);
+      await page.goto(baseURL + "/sessions/fixture-session/chat");
+      const input = page.getByRole("textbox", {
+        name: en ? "Message" : "Nachricht",
+        exact: true,
+      });
+      await expect(input).toBeEnabled();
+      await input.fill("Keep this original draft");
+      state.requests = [
+        {
+          id: "hooks",
+          sessionId: "fixture-session",
+          revision: 1,
+          status: "pending",
+          source: "codex",
+          kind: "permission",
+          presentation: "codexHookTrust",
+          hookCount: 2,
+          subject: { command: "echo fixture", cwd: "/fixture" },
+          options: [
+            { id: "trust", label: "Trust all and continue", scope: "persistent" },
+            { id: "skip", label: "Continue without trusting" },
+          ],
+        },
+      ];
+      await expect(
+        page.getByText(en ? "Review Codex hooks" : "Codex-Hooks prüfen", { exact: true }),
+      ).toBeVisible();
+      await expect(input).toBeDisabled();
+      await expect(input).toHaveValue("Keep this original draft");
+      expect(state.calls.some((c) => c.path.endsWith("/answer"))).toBe(false);
+      if (en)
+        await page
+          .locator(".chat-container .native-requests")
+          .screenshot({ path: test.info().outputPath("codex-hook-trust-mobile.png") });
+      await page
+        .getByRole("button", {
+          name: en ? "Trust hooks and continue" : "Hooks vertrauen und fortfahren",
+          exact: true,
+        })
+        .click();
+      await expect(input).toBeEnabled();
+      await expect(input).toHaveValue("Keep this original draft");
+      expect(state.calls.filter((c) => c.path.endsWith("/answer")).at(-1).body).toEqual({
+        expectedRevision: 1,
+        choice: "trust",
+      });
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      ).toBe(true);
+    });
+  });
+}

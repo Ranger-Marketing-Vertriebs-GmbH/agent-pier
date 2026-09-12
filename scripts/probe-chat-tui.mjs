@@ -1,3 +1,4 @@
+import { probeCodexHookTrust } from "./probe-codex-hook-trust.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -218,7 +219,8 @@ async function probeNative(fixture, cleanup) {
       env.PATH = `${probeBin}${path.delimiter}${env.PATH}`;
     }
     const sessionId = bound ? randomUUID() : `native-${tool}`;
-    if (bound && tool === "codex") args.push("--dangerously-bypass-hook-trust");
+    if (bound && tool === "codex" && !options.includes("--hook-trust"))
+      args.push("--dangerously-bypass-hook-trust");
     if (bound && tool === "claude")
       args.push("--debug-file", path.join(fixture.root, "claude-debug.log"));
     let launch = bound
@@ -240,6 +242,13 @@ async function probeNative(fixture, cleanup) {
       // Remove only this fixture's bus directory after its processes have stopped.
       cleanup.unshift(() => fs.rm(socketDirectory, { recursive: true, force: true }));
     }
+    if (options.includes("--hook-trust"))
+      launch = await fixture.application.requests.prepare({
+        id: sessionId,
+        account,
+        cwd: project,
+        launch,
+      });
     const isolatedArgs = [
       "-i",
       ...Object.entries(launch.env).map(([key, value]) => `${key}=${value}`),
@@ -259,6 +268,7 @@ async function probeNative(fixture, cleanup) {
         ? ["-p", sandbox, "/usr/bin/env", ...isolatedArgs]
         : isolatedArgs,
       env: {},
+      nativeRequests: launch.nativeRequests,
       nativeBinding: launch.nativeBinding,
       agentbus: launch.agentbus,
     });
@@ -330,9 +340,13 @@ async function probeNative(fixture, cleanup) {
     };
     const keys = (...names) => manager.tmux(["send-keys", "-t", target, ...names]);
     if (tool === "codex") {
-      await waitFor(capture, (screen) => screen.includes("Yes, continue"));
-      await sleep(750);
-      await keys("Enter");
+      if (options.includes("--hook-trust"))
+        await probeCodexHookTrust({ fixture, session, capture, keys });
+      else {
+        await waitFor(capture, (screen) => screen.includes("Yes, continue"));
+        await sleep(750);
+        await keys("Enter");
+      }
       await waitFor(capture, (screen) =>
         screen.includes("Ask Codex to do anything"),
       ).catch(async (error) => {

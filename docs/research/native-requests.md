@@ -54,3 +54,39 @@ The native `always` decision applies to suggested patterns for the current OpenC
 `node scripts/smoke-opencode-requests.mjs /absolute/path/to/opencode` uses the real native server, real TUI, and unmodified request plugin. A loopback HTTP/SSE proxy injects synthetic native question/permission events and captures their exact SDK replies. It checks Chat question delivery, permission denial, a real Terminal Enter answer, stale Chat rejection and exactly one reply. Model-turn endpoints are explicitly blocked and all provider credentials/configuration are isolated; no inference occurs. The first contract check caught the required default-export module shape.
 
 Focused unit/integration/blackbox/property/matrix tests cover the real Unix and WebSocket transports, actual Claude helper subprocesses, native OpenCode client calls, complete forms, free-text collisions, exactly-once delivery, native races, disconnection, web restart deduplication, owner authentication, symlinked storage, a competing broker, unknown delivery, and per-launch profile/mode isolation.
+
+## Codex startup hook trust (2026-09-12)
+
+Codex 0.153.4 performs startup hook review locally in its TUI, rather than issuing
+an app-server approval request. The owned proxy now observes the TUI's initial
+`hooks/list` exchange before thread start/resume and publishes untrusted/modified
+hook metadata to the existing request panel in both Chat and Terminal. Buttons and
+explanations are localized in German and English; native hook definitions remain
+verbatim review evidence. Nothing is trusted automatically.
+
+A Chat decision controls only the recognized native startup menu under the session
+lock. It verifies account, private launch identity, hook count and selection before
+sending one Enter. Trust succeeds only after observing the native `config/batchWrite`
+response for the exact displayed hook hashes, using Codex's own persistent trust
+storage. Terminal decisions, thread startup and channel closure retire stale requests.
+Unexpected menus, changed launches or unsupported layouts never receive blind Enter.
+The currently supported menu includes the clipped warning at 50 columns; arbitrary
+custom keymaps and future native layouts are not assumed compatible.
+
+Fresh Chat input is also refused at the native startup menu before request polling
+catches up. Rejected delivery journals remain `reserved`. An explicit retry may use
+the current session for a proven never-pasted message even before the first native
+binding receipt exists; pasted or ambiguous attempts retain strict recovery identity
+and composer checks. The original draft does not need to be dismissed or retyped.
+
+Reproduce using only disposable profiles, private tmux and the loopback mock provider:
+
+```sh
+node scripts/probe-chat-tui.mjs --native --tool codex --local-mock --bound --hook-trust --http --samples 1
+```
+
+The probe starts without hook-trust bypass, approves at 50 columns through the real
+HTTP endpoint, verifies native persistent trust, rejects input before paste and
+successfully retries the original message. It also runs the existing busy queue,
+multiline, long-payload and recovery checks. No real user credentials or sessions
+are used. This requires no new runtime dependency or installer exception.

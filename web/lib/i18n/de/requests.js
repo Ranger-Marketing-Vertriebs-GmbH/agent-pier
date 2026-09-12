@@ -1,4 +1,9 @@
 export const requestCopy = {
+  hookTrustTitle: "Codex-Hooks prüfen",
+  hookTrustDescription:
+    "Codex wartet auf die Hook-Freigabe. Vertrauenswürdige Hooks können außerhalb der Sandbox laufen. Dein Chat-Entwurf bleibt bis zu deiner Entscheidung erhalten.",
+  hookTrustAllow: "Hooks vertrauen und fortfahren",
+  hookTrustSkip: "Ohne Vertrauen fortfahren",
   title: "Native Rückfragen",
   permission: "Freigabe erforderlich",
   question: "Antwort erforderlich",

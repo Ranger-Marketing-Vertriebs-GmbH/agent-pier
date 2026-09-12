@@ -64,8 +64,9 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
     if (blocked) reason = copy.rejected;
     else if (current !== expectedAttemptId.toLowerCase()) reason = copy.recoveryChanged;
     else if (
-      !receipt.journal?.generation ||
-      receipt.journal.generation !== tx.recoveryGeneration
+      receipt.journal?.phase !== "reserved" &&
+      (!receipt.journal?.generation ||
+        receipt.journal.generation !== tx.recoveryGeneration)
     )
       reason = copy.recoveryRuntime;
     else if (!["reserved", "pasted"].includes(receipt.journal.phase))
