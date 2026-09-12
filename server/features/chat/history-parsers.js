@@ -1,3 +1,4 @@
+import { restoreClaudeImagePaths } from "./claude-image-history.js";
 import { codexInputTime } from "./native-input-time.js";
 import { markOpenCodeInput } from "./opencode-input-state.js";
 import { toolFileChanges, codexFileChanges } from "./tool-file-changes.js";
@@ -90,7 +91,7 @@ function claudeTaskCreated(input, output) {
 export function normalizeClaude(records) {
   const snapshots = new Map();
   const results = new Map();
-  list(records).forEach((source, index) => {
+  restoreClaudeImagePaths(list(records)).forEach((source, index) => {
     const record = claudeConversationRecord(source);
     if (
       !record ||

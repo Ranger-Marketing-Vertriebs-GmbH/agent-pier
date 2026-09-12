@@ -1,3 +1,4 @@
+import { claudeHistoryGroup, claudeImageSources } from "./claude-image-history.js";
 import { claudeConversationRecord } from "./claude-conversation-record.js";
 import fs from "node:fs/promises";
 import syncFs from "node:fs";
@@ -158,24 +159,25 @@ export class ClaudeHistoryIndex {
   insert(record, offset, length) {
     if (
       !["assistant", "user"].includes(record.type) ||
-      record.isMeta ||
+      (record.isMeta && !claudeImageSources(record)) ||
       record.isCompactSummary ||
       (record.message?.role && record.message.role !== record.type)
     )
       return;
-    const group = String(record.message?.id || record.uuid);
+    const group = claudeHistoryGroup(record);
     const content = record.message?.content;
     const blocks = Array.isArray(content) ? content : [];
     const resultEnvelope =
       record.type === "user" && blocks.some((block) => block?.type === "tool_result");
     const visible =
-      typeof content === "string"
+      !record.isMeta &&
+      (typeof content === "string"
         ? Boolean(content)
         : blocks.some(
             (block) =>
               (block?.type === "text" && block.text && !resultEnvelope) ||
               (block?.type === "tool_use" && record.type === "assistant"),
-          );
+          ));
     this.db.prepare("INSERT INTO records VALUES (?,?,?)").run(offset, length, group);
     this.db
       .prepare(
@@ -274,7 +276,7 @@ export class ClaudeHistoryIndex {
           record.type === "user" &&
           Array.isArray(record.message?.content) &&
           record.message.content.some((block) => block?.type === "tool_result");
-        if (!selected.has(String(record.message?.id || record.uuid)) || resultEnvelope)
+        if (!selected.has(claudeHistoryGroup(record)) || resultEnvelope)
           record.message.content = record.message.content.filter(
             (block) =>
               block?.type === "tool_result" && tools.has(String(block.tool_use_id)),

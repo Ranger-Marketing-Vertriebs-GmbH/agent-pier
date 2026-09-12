@@ -51,7 +51,12 @@ export default function QuestionDialog({ questions, busy, answer }) {
       <div
         className="native-question-body"
         key={question.id}
-        onFocusCapture={(event) => event.target.scrollIntoView({ block: "nearest" })}
+        onFocusCapture={(event) => {
+          if (
+            event.target.matches('textarea, input[type="text"], input[type="password"]')
+          )
+            event.target.scrollIntoView({ block: "nearest" });
+        }}
       >
         <QuestionFields
           key={question.id}
