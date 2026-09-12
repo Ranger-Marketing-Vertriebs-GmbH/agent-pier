@@ -1,3 +1,4 @@
+import { markOpenCodeInput } from "./opencode-input-state.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -265,7 +266,7 @@ function page(db, id, scope, before) {
   }
   const exported = { info: { id }, messages: envelope.reverse(), todos };
   return {
-    messages: messages.reverse(),
+    messages: markOpenCodeInput(messages.reverse(), envelope),
     tasks: normalizeOpenCode(exported).tasks,
     observability: observeOpenCode(exported),
     next: hasOlder ? { opencode: { scope, before: boundary } } : null,

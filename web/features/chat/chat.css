@@ -561,3 +561,23 @@
 .chat-history-loader p {
   margin: 0;
 }
+
+.chat-native-delivery {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin: -0.35rem 0 0.9rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+.chat-native-delivery small {
+  display: block;
+  max-width: 32rem;
+  margin-top: 0.15rem;
+  font-size: inherit;
+}
+.chat-native-delivery.nativeQueued {
+  color: var(--accent);
+}

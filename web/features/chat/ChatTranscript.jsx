@@ -1,3 +1,4 @@
+import NativeDeliveryBadge from "./NativeDeliveryBadge.jsx";
 import React from "react";
 import Message from "./ChatMessage.jsx";
 import { chatMessageCopy as copy } from "../../lib/i18n/messages/chat.js";
@@ -22,11 +23,20 @@ export function groupMessages(messages) {
   return groups;
 }
 
-export default function ChatTranscript({ messages, live, ...props }) {
+export default function ChatTranscript({ messages, live, nativeStates, ...props }) {
   const groups = groupMessages(messages);
   return groups.map((group, index) => {
-    if (group.message)
-      return <Message key={group.key} message={group.message} {...props} />;
+    if (group.message) {
+      const native = [...(nativeStates?.values() || [])].find(
+        (value) => value.messageId === group.message.id,
+      );
+      return (
+        <React.Fragment key={group.key}>
+          <Message message={group.message} {...props} />
+          {native && <NativeDeliveryBadge state={native.state} tool={props.tool} />}
+        </React.Fragment>
+      );
+    }
     const running =
       live &&
       index === groups.length - 1 &&

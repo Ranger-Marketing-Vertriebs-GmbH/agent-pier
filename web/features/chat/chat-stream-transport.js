@@ -60,6 +60,7 @@ export function createChatStream({
   };
   const connect = () => {
     if (disposed || ended || visibility.hidden) return;
+    onConnection("disconnected");
     cancel(timer);
     abortRead();
     const token = ++epoch;
@@ -121,6 +122,7 @@ export function createChatStream({
     }
   };
   const visible = () => {
+    if (!ended) onConnection("disconnected");
     ++epoch;
     abortRead();
     cancel(timer);

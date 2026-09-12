@@ -1,3 +1,4 @@
+import { nativeInputQueue } from "./native-input-queue.js";
 import { createHash } from "node:crypto";
 import { problem } from "../../lib/storage.js";
 import { chatDeliveryCopy as copy } from "../../lib/i18n/de/chat-delivery.js";
@@ -102,6 +103,13 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
     receipt.recoveries ||= {};
     receipt.recoveries[requestId] = { requestHash };
     receipt.attemptId = requestId;
+    receipt.observation = {
+      generation: tx.observationGeneration,
+      startedAt: Date.now(),
+      providerSessionId: tx.providerSessionId || null,
+      hash: receipt.hash,
+      baseline: nativeInputQueue(tx.session.tool, tx.raw, tx.pane),
+    };
     receipt.status = "uncertain";
     // Keep the last proven phase until the writer persists its next intent.
     delivery.write(file, receipt);

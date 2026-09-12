@@ -219,7 +219,11 @@ async function nativeGeneration(manager, session) {
     // Codex registers its native conversation on the first UserPromptSubmit.
     // The live pane and launch authorize initial input, never later recovery.
     if (error.code === "ENOENT")
-      return { identity: [launch.token, "awaiting-native-receipt"], recoverable: false };
+      return {
+        identity: [launch.token, "awaiting-native-receipt"],
+        launchToken: launch.token,
+        recoverable: false,
+      };
     throw problem("Native session receipt is invalid", 409);
   }
   if (
@@ -240,11 +244,13 @@ async function nativeGeneration(manager, session) {
     throw problem("Native session process changed", 409);
   return {
     identity: [receipt.providerSessionId, receipt.pid, receipt.pidStart, launch.token],
+    launchToken: launch.token,
+    providerSessionId: receipt.providerSessionId,
     recoverable: true,
   };
 }
 
-async function snapshot(manager, session) {
+export async function chatInputSnapshot(manager, session) {
   const captured = await manager.tmux([
     "display-message",
     "-p",
@@ -298,7 +304,23 @@ async function snapshot(manager, session) {
   return {
     raw,
     pane,
+    providerSessionId: native.providerSessionId || null,
     generation,
+    observationGeneration: createHash("sha256")
+      .update(
+        JSON.stringify([
+          session.id,
+          session.accountId,
+          session.tool,
+          session.restartGeneration || 0,
+          paneId,
+          pid,
+          started,
+          processStart,
+          native.launchToken || null,
+        ]),
+      )
+      .digest("hex"),
     recoveryGeneration: native.recoverable ? generation : null,
     composer: inspectChatComposer(session.tool, raw, pane),
   };
@@ -310,14 +332,14 @@ export function withChatInput(manager, id, operation) {
     return Promise.reject(problem("Session is reloading", 409));
   return manager.serial(async () => {
     const session = await currentChatSession(manager, id);
-    const initial = await snapshot(manager, session);
+    const initial = await chatInputSnapshot(manager, session);
     let active = true;
     let attempted = false;
     let checking = false;
     const check = async (text, submitOnly, inspect = true) => {
       if (!active) throw problem("Chat input transaction has ended", 409);
       const current = await currentChatSession(manager, id);
-      const fresh = await snapshot(manager, current);
+      const fresh = await chatInputSnapshot(manager, current);
       if (!active) throw problem("Chat input transaction has ended", 409);
       if (
         (current.tool === "codex" && hookTrustScreen(fresh.raw)) ||

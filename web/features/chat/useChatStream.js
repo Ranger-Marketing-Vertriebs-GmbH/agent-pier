@@ -99,7 +99,13 @@ export default function useChatStream({
           signal,
         ),
       onSnapshot: accept,
-      onConnection,
+      onConnection: (status) => {
+        if (status !== "connected" && state.current.live) {
+          state.current.live = { ...state.current.live, nativeInput: null };
+          publish();
+        }
+        onConnection?.(status);
+      },
       onError: setLoadError,
     });
     stop.current = dispose;
@@ -119,6 +125,7 @@ export default function useChatStream({
     request,
     onConnection,
     accept,
+    publish,
     restart,
   ]);
   const loadOlder = async () => {
