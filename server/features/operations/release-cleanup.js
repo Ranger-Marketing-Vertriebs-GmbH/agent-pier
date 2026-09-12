@@ -9,12 +9,25 @@ import { problem } from "../../lib/storage.js";
 const cleanupError = (code, message, status = 409) =>
   Object.assign(problem(message, status), { code });
 
+export function releaseProcessReferences(output) {
+  return output
+    .split("\n")
+    .map((line) => {
+      // tmux keeps the first client's launch command in its process title for its
+      // entire lifetime. Only its executable is a live dependency, not those old args.
+      const tmux = /^\s*((?:\S*\/)?tmux)\s+/.exec(line);
+      return tmux ? tmux[1] : line;
+    })
+    .join("\n");
+}
 export function releaseProcesses() {
-  return execFileSync("ps", ["-ww", "-u", String(process.getuid()), "-o", "command="], {
-    encoding: "utf8",
-    timeout: 5000,
-    maxBuffer: 8 * 1024 * 1024,
-  });
+  return releaseProcessReferences(
+    execFileSync("ps", ["-ww", "-u", String(process.getuid()), "-o", "comm=,command="], {
+      encoding: "utf8",
+      timeout: 5000,
+      maxBuffer: 8 * 1024 * 1024,
+    }),
+  );
 }
 export function cleanupState({
   installRoot,
