@@ -31,6 +31,7 @@ for (const language of ["de-DE", "en-GB"]) {
           submits = 0;
         const snapshot = () => ({
           availability: "ready",
+          observability: { stale: true }, // Older task history is incomplete; live input evidence is current.
           providerSessionId,
           messages,
           tasks: [],

@@ -141,7 +141,7 @@ export default function useChatController({ active, session, request, onConnecti
           ? data?.nativeInput
           : null,
         session.tool,
-        session.status === "running" && !data?.observability?.stale,
+        session.status === "running",
       ),
     },
     tasksOpen,
