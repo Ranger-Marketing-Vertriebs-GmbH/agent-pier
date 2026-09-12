@@ -46,6 +46,17 @@ for (const locale of ["de-DE", "en-GB"]) {
       await expect(panel).toContainText("Which checks should run?");
       await expect(panel).not.toContainText("Where should they run?");
       await expect(panel).toContainText("Verify the visible behavior");
+      // Programmatic focus scrolling between pointer-down and pointer-up can
+      // swallow a checkbox click in WebKit even after actionability checks pass.
+      await page.evaluate(() => {
+        window.questionChoiceScrolls = 0;
+        const original = Element.prototype.scrollIntoView;
+        Element.prototype.scrollIntoView = function (...args) {
+          if (this.matches('input[type="checkbox"], input[type="radio"]'))
+            window.questionChoiceScrolls++;
+          return original.apply(this, args);
+        };
+      });
       await panel.getByLabel("Unit", { exact: true }).check();
       await panel.getByLabel("Browser", { exact: true }).check();
       expect(state.calls.some((call) => call.path.endsWith("/answer"))).toBe(false);
@@ -57,6 +68,7 @@ for (const locale of ["de-DE", "en-GB"]) {
         .click();
       await expect(panel).toContainText("Where should they run?");
       await panel.getByLabel("Local", { exact: true }).check();
+      expect(await page.evaluate(() => window.questionChoiceScrolls)).toBe(0);
       await panel.evaluate((element) => {
         element.scrollTop = 0;
       });
