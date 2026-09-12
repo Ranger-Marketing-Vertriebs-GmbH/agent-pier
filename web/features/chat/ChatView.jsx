@@ -206,6 +206,7 @@ export default function ChatView({
             }
           />
           <ChatTranscript
+            nativeStates={delivery.nativeStates}
             key={`${session.id}:${data?.providerSessionId}:${data?.history?.generation}`}
             messages={data?.messages || []}
             live={session.status === "running" && !data?.observability?.stale}

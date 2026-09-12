@@ -1,3 +1,4 @@
+import NativeDeliveryBadge from "./NativeDeliveryBadge.jsx";
 import React from "react";
 import Message from "./ChatMessage.jsx";
 import { deliveryNotices, visibleDeliveries } from "./chat-draft.js";
@@ -16,6 +17,7 @@ export default function ChatDeliveryStatus({
   const visible = new Set(visibleDeliveries(items, messages).map((item) => item.id));
   const notices = deliveryNotices(delivery, messages, position);
   const content = notices.map((item) => {
+    const native = delivery.nativeStates?.get(item.id);
     const pending = item.id === delivery.outbox?.id;
     const recovering = item.id === delivery.recovering;
     const status = recovering
@@ -34,14 +36,18 @@ export default function ChatDeliveryStatus({
             openFile={openFile}
           />
         )}
-        <div className="chat-delivery-status" role="status" aria-label={copy.ariaLabel}>
-          <span>{copy[status] || copy.checking}</span>
-          {item.error && <span role="alert">{item.error}</span>}
-          {item.recovery?.action === "blocked" && (
-            <span role="alert">{item.recovery.reason}</span>
-          )}
-        </div>
-        {!delivery.sending && (
+        {native ? (
+          <NativeDeliveryBadge state={native.state} tool={session.tool} />
+        ) : (
+          <div className="chat-delivery-status" role="status" aria-label={copy.ariaLabel}>
+            <span>{copy[status] || copy.checking}</span>
+            {item.error && <span role="alert">{item.error}</span>}
+            {item.recovery?.action === "blocked" && (
+              <span role="alert">{item.recovery.reason}</span>
+            )}
+          </div>
+        )}
+        {!native && !delivery.sending && (
           <div className="chat-delivery-actions">
             {item.status === "uncertain" && <p>{copy.uncertainHint}</p>}
             {pending && item.status === "absent" && (
@@ -91,7 +97,7 @@ export default function ChatDeliveryStatus({
             )}
           </div>
         )}
-        {!pending && item.status === "handed-off" && !recovering && (
+        {!native && !pending && item.status === "handed-off" && !recovering && (
           <button
             type="button"
             className="chat-delivery-dismiss"

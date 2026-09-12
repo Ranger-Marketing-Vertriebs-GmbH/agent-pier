@@ -98,6 +98,12 @@ export const chatAttachmentCopy = {
 };
 
 export const chatDeliveryCopy = {
+  nativeQueued: "In the CLI queue",
+  nativeAccepted: "Accepted by CLI",
+  nativeCodexQueueHint:
+    "Codex shows this message for submission after the next tool call.",
+  nativeQueueHint: "The CLI shows this message as queued.",
+
   savedNotices: (count) => `Saved delivery notices (${count})`,
   savedNoticesHint:
     "These saved notices record handoff to the session. They do not confirm processing and are separate from the conversation history.",
@@ -107,7 +113,7 @@ export const chatDeliveryCopy = {
   sending: "Handing off …",
   checking: "Checking delivery …",
   pending: "Handoff in progress …",
-  "handed-off": "Handed off to session · processing not yet confirmed",
+  "handed-off": "Sent to TUI · awaiting CLI confirmation",
   uncertain: "Delivery uncertain",
   rejected: "Not delivered",
   uncertainHint:

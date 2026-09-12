@@ -111,7 +111,7 @@ test("message is immediately visible before ACK and merges into the native histo
   await expect.poll(() => Boolean(state.release)).toBe(true);
   state.release();
   await expect(page.getByRole("status", { name: "Nachrichtenzustellung" })).toContainText(
-    "An Sitzung übergeben",
+    "An TUI gesendet",
   );
   await expect(input(page)).toHaveValue("");
   state.messages.push({ id: "native-1", role: "user", text: "Sofort sichtbar" });
@@ -131,7 +131,7 @@ test("lost ACK reconciles after reload without a second POST", async ({ page }) 
   await expect(input(page)).toHaveValue("");
   await expect(page.getByLabel("Chatverlauf")).toContainText("Nur einmal");
   await expect(page.getByRole("status", { name: "Nachrichtenzustellung" })).toContainText(
-    "An Sitzung übergeben",
+    "An TUI gesendet",
   );
   expect(state.inputs).toHaveLength(1);
 });
@@ -245,7 +245,7 @@ test("legacy delivery cards stay expandable above current history while new send
   await expect(page.getByText("Latest native answer", { exact: true })).toBeVisible();
   await saved.locator("summary").click();
   await expect(saved).toContainText("Old stored notice");
-  await expect(saved).toContainText("An Sitzung übergeben");
+  await expect(saved).toContainText("An TUI gesendet");
   await saved.locator("summary").click();
   await input(page).fill("Fresh outgoing message");
   await send(page).click();

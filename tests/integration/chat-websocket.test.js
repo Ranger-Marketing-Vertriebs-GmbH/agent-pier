@@ -486,3 +486,49 @@ test(
     assert.deepEqual((await reconnected.next("sync")).data.messages, changed.messages);
   },
 );
+
+test(
+  "native queue changes stream without source writes, share a watcher and refresh early OpenCode history",
+  { timeout },
+  async (t) => {
+    const f = await fixture(t);
+    f.application.sessions.get = async () => ({
+      id: sessionId,
+      accountId: "fixture",
+      tool: "opencode",
+      cwd: f.home,
+      status: "running",
+    });
+    let changed,
+      watches = 0,
+      disposed = 0;
+    f.application.chatStreams.watchInput = (_scope, listener) => {
+      watches++;
+      changed = listener;
+      return () => disposed++;
+    };
+    f.application.chatStreams.watch = () => () => {};
+    const first = connect(t, f),
+      second = connect(t, f);
+    const a = await first.next("sync"),
+      b = await second.next("sync");
+    assert.equal(watches, 1);
+    const before = first.frames.length;
+    changed({ generation: "launch", providerSessionId: "thread", queue: ["hash"] });
+    const update = await first.next("sync", before);
+    const value = applyChatSync(a.data, update.data);
+    assert.deepEqual(value.nativeInput.queue, ["hash"]);
+    await until(
+      () => second.frames.some((frame) => frame.sequence > b.sequence),
+      "Both tabs receive input state",
+    );
+    first.ws.close();
+    second.ws.close();
+    await Promise.all([first.closed, second.closed]);
+    await until(
+      () => disposed === 1,
+      "Last disconnect disposes the shared native observer",
+    );
+    assert.equal(f.application.chatStreams.entries.size, 0);
+  },
+);

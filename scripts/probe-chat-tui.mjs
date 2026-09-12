@@ -1,3 +1,4 @@
+import { startQueueStreamProbe } from "./probe-queue-stream.mjs";
 import { prepareClaudeProbe } from "./probe-claude-startup.mjs";
 import { probeCodexHookTrust } from "./probe-codex-hook-trust.mjs";
 import assert from "node:assert/strict";
@@ -338,6 +339,7 @@ async function probeNative(fixture, cleanup) {
       assert.equal(receipt.status, "handed-off", JSON.stringify(receipt));
       assert.ok(Number.isFinite(httpEntry) && Number.isFinite(submitEnd));
       httpSubmit.push(submitEnd - httpEntry);
+      return receipt;
     };
     const keys = (...names) => manager.tmux(["send-keys", "-t", target, ...names]);
     if (tool === "codex") {
@@ -451,9 +453,16 @@ async function probeNative(fixture, cleanup) {
       );
       return;
     }
-    const bindingAtFirstInput = Boolean(
-      fixture.application.bindings.verifiedReceipt(session),
-    );
+    const bindingAtFirstInput = !!fixture.application.bindings.verifiedReceipt(session);
+    const queueProbe = options.includes("--queue-spike")
+      ? await startQueueStreamProbe({
+          fixture,
+          session,
+          env: { ...env, ...launch.env },
+          snapshot,
+        })
+      : null;
+    cleanup.push(() => queueProbe?.close());
     const idle = await capture();
     snapshots.idle = await snapshot();
     if (tool === "opencode") {
@@ -476,7 +485,7 @@ async function probeNative(fixture, cleanup) {
     await sleep(1500);
     const busy = await capture();
     snapshots.busy = await snapshot();
-    await send("AP_PROBE_SECOND");
+    const secondReceipt = await send("AP_PROBE_SECOND");
     const queued = await waitFor(
       capture,
       (screen) =>
@@ -488,6 +497,8 @@ async function probeNative(fixture, cleanup) {
             : screen.includes("QUEUED")),
     );
     snapshots.queued = await snapshot();
+    await queueProbe?.queued(secondReceipt);
+    await queueProbe?.additional(send);
     assert.equal(
       provider.events.some(
         (event) => event.kind === "complete" && event.marker === "AP_PROBE_HOLD",
@@ -496,8 +507,12 @@ async function probeNative(fixture, cleanup) {
       "Second input must be queued before held response completes",
     );
     await waitFor(capture, (screen) =>
-      screen.includes("Synthetic response complete: AP_PROBE_SECOND"),
+      screen
+        .replace(/\s+/g, " ")
+        .includes("Synthetic response complete: AP_PROBE_SECOND"),
     );
+    await queueProbe?.consumed();
+
     const submit = [],
       echo = [];
     for (let n = 0; n < samples; n++) {

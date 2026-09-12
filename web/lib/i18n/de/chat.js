@@ -98,6 +98,12 @@ export const chatAttachmentCopy = {
 };
 
 export const chatDeliveryCopy = {
+  nativeQueued: "In der CLI-Warteschlange",
+  nativeAccepted: "Von der CLI übernommen",
+  nativeCodexQueueHint:
+    "Codex zeigt diese Nachricht für die Übergabe nach dem nächsten Tool-Aufruf an.",
+  nativeQueueHint: "Die CLI zeigt diese Nachricht als wartend an.",
+
   savedNotices: (count) => `Gespeicherte Zustellungsanzeigen (${count})`,
   savedNoticesHint:
     "Diese gespeicherten Anzeigen dokumentieren die Übergabe an die Sitzung. Sie bestätigen keine Bearbeitung und stehen getrennt vom Gesprächsverlauf.",
@@ -107,7 +113,7 @@ export const chatDeliveryCopy = {
   sending: "Wird übergeben …",
   checking: "Zustellung wird geprüft …",
   pending: "Übergabe läuft …",
-  "handed-off": "An Sitzung übergeben · Bearbeitungsbeginn noch nicht bestätigt",
+  "handed-off": "An TUI gesendet · CLI-Bestätigung steht aus",
   uncertain: "Zustellung unklar",
   rejected: "Nicht zugestellt",
   uncertainHint:

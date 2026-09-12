@@ -1,3 +1,5 @@
+import { codexInputTime } from "./native-input-time.js";
+import { markOpenCodeInput } from "./opencode-input-state.js";
 import { toolFileChanges, codexFileChanges } from "./tool-file-changes.js";
 import { claudeConversationRecord } from "./claude-conversation-record.js";
 import { createHash } from "node:crypto";
@@ -227,7 +229,8 @@ export function normalizeCodex(thread) {
         if (value || role === "tool")
           messages.set(id, { id, role, text: value, ...extra, ...timestamp });
       };
-      if (item.type === "userMessage") add("user", text(item.content));
+      if (item.type === "userMessage")
+        add("user", text(item.content), stamp(item.timestamp ?? codexInputTime(item.id)));
       if (item.type === "agentMessage" || item.type === "plan")
         add("assistant", string(item.text));
       if (item.type === "commandExecution")
@@ -444,5 +447,8 @@ export function normalizeOpenCode(exported) {
     });
   });
   if (Array.isArray(exported?.todos)) tasks = taskList(exported.todos, "opencode-todo");
-  return { messages: [...messages.values()], tasks };
+  return {
+    messages: markOpenCodeInput([...messages.values()], list(exported?.messages)),
+    tasks,
+  };
 }

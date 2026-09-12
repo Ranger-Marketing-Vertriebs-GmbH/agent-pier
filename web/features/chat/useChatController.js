@@ -1,3 +1,4 @@
+import { nativeDeliveryStates } from "./native-delivery-state.js";
 import useChatStream from "./useChatStream.js";
 import useChatDelivery from "./useChatDelivery.js";
 import useChatAttachments from "./useChatAttachments.js";
@@ -131,7 +132,18 @@ export default function useChatController({ active, session, request, onConnecti
     historyError: stream.historyError,
     historyLoading: stream.historyLoading,
     loadOlder: stream.loadOlder,
-    delivery,
+    delivery: {
+      ...delivery,
+      nativeStates: nativeDeliveryStates(
+        [...delivery.recent, ...(delivery.outbox ? [delivery.outbox] : [])],
+        data?.messages || [],
+        data?.nativeInput?.providerSessionId === data?.providerSessionId
+          ? data?.nativeInput
+          : null,
+        session.tool,
+        session.status === "running",
+      ),
+    },
     tasksOpen,
     closeTasks,
     taskId,
