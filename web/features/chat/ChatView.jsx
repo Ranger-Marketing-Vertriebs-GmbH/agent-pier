@@ -1,3 +1,4 @@
+import ChatScrollToBottom from "./ChatScrollToBottom.jsx";
 import useFileDrop from "../../components/useFileDrop.js";
 import ChatDeliveryStatus from "./ChatDeliveryStatus.jsx";
 import RequestPanel from "../requests/RequestPanel.jsx";
@@ -250,6 +251,7 @@ export default function ChatView({
           className="chat-compose-area"
           data-native-request-pending={requestPending || undefined}
         >
+          <ChatScrollToBottom {...{ active, output, stick, scroll }} />
           {requestsAvailable && (
             <RequestPanel
               onStateChange={setRequestState}
