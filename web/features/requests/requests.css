@@ -110,11 +110,18 @@
 .native-question-progress {
   font-weight: 600;
 }
+.native-question-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: 30dvh;
+}
+.native-question-body {
+  overflow-y: auto;
+  min-height: 0;
+}
 .native-question-navigation {
-  position: sticky;
-  bottom: 0;
+  margin-top: 0;
   background: #19191c;
   padding: 8px 0;
   border-top: 1px solid var(--line);
-  z-index: 1;
 }

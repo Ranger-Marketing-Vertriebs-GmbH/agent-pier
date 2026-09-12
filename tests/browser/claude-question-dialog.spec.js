@@ -55,6 +55,11 @@ for (const locale of ["de-DE", "en-GB"]) {
         ).toBeVisible();
         await next.click();
         await expect(page.getByRole("alert")).toBeVisible();
+        const body = await page.locator(".native-question-body").boundingBox();
+        const navigation = await page
+          .locator(".native-question-navigation")
+          .boundingBox();
+        expect(body.y + body.height).toBeLessThanOrEqual(navigation.y + 1);
         await page.getByLabel("Tests", { exact: true }).check();
         await page.getByLabel("Docs", { exact: true }).check();
         await next.click();
