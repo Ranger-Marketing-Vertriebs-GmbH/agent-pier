@@ -18,7 +18,7 @@ import AsyncForm from "../../components/AsyncForm.jsx";
 import DirectoryPicker from "../directories/DirectoryPicker.jsx";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 const defaultMode = (tool) =>
-  ["claude", "opencode"].includes(tool) ? "auto" : "default";
+  ({ codex: "yolo", claude: "auto", opencode: "auto" })[tool] || "default";
 export default function LaunchDialog({
   state,
   tool,
@@ -37,8 +37,8 @@ export default function LaunchDialog({
   const [profileId, setProfileId] = useState(initialProfile?.id || ""),
     [params, setParams] = useState({});
   const profile = profiles.data?.profiles?.find((item) => item.id === profileId);
-  const profileReady =
-    !profileId || Boolean(profile?.enabled && profile.config.cliTool === access.tool);
+  const profileReady = !profileId || Boolean(profile?.enabled);
+  const profileCli = profile?.config.cliTool === access.tool;
   function chooseProfile(id) {
     const selected = profiles.data?.profiles?.find((item) => item.id === id);
     setProfileId(id);
@@ -121,7 +121,13 @@ export default function LaunchDialog({
                     access: {
                       ...access.body,
                       ...(access.connection
-                        ? { accountId: profile.config.accountId }
+                        ? {
+                            accountId: profileCli
+                              ? profile.config.accountId
+                              : access.accounts.find(
+                                  (item) => !item.internal && !item.provider,
+                                )?.id,
+                          }
                         : {}),
                     },
                     ...(launchMode !== "profile" ? { launchMode } : {}),
@@ -237,9 +243,8 @@ export default function LaunchDialog({
                       access.chooseAccess(value);
                     }}
                     onToolChange={(value) => {
+                      if (value === access.tool) return;
                       access.chooseTool(value);
-                      setProfileId("");
-                      setParams({});
                       setLaunchMode(defaultMode(value));
                     }}
                   />
@@ -253,7 +258,7 @@ export default function LaunchDialog({
                         disabled={!selectedTool}
                         onChange={setLaunchMode}
                         options={[
-                          ...(profile
+                          ...(profileCli
                             ? [
                                 {
                                   value: "profile",

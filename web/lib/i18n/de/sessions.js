@@ -13,7 +13,7 @@ export const launchDialogCopy = {
   profileUnavailable:
     "Das Aufgabenprofil ist nicht verfügbar. Bitte wähle ein anderes Profil.",
   profileSessionHint:
-    "Das Profil belegt die Startoptionen vor. Änderungen gelten nur für diese Sitzung. Ein CLI-Wechsel hebt die Profilauswahl auf.",
+    "Das Profil belegt die Startoptionen vor. Änderungen gelten nur für diese Sitzung. Bei einem CLI-Wechsel bleiben die Anweisungen und Parameter erhalten; Zugang, Modell und Startmodus werden zurückgesetzt.",
   profileMode: (mode) => `Profil · ${mode}`,
   profileModeDescription: (mode) =>
     `Verwendet den Berechtigungsmodus ${mode} aus dem Aufgabenprofil.`,
