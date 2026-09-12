@@ -353,3 +353,70 @@ for (const width of [390, 844])
       await context.close();
     }
   });
+
+for (const width of [390, 1440]) {
+  for (const language of ["de", "en"]) {
+    test(`jump to latest only appears away from the bottom (${width}, ${language})`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 844 });
+      await page.addInitScript(
+        (value) => localStorage.setItem("agentpier-language", value),
+        language,
+      );
+      const { data, publish } = await fixture(page);
+      data.messages = Array.from({ length: 40 }, (_, i) => ({
+        id: `long-${i}`,
+        role: "assistant",
+        text: `Message ${i}\n\nConversation content with enough space for scrolling.`,
+      }));
+      await page.goto(base + "/sessions/chat-demo/chat");
+      const messages = page.locator(".chat-messages");
+      const button = page.getByRole("button", {
+        name: language === "de" ? "Zur neuesten Nachricht" : "Jump to latest",
+        exact: true,
+      });
+      await expect(messages).toContainText("Message 39");
+      const gap = () =>
+        messages.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop);
+      await expect.poll(gap).toBeLessThan(5);
+      await expect(button).toHaveCount(0);
+      await messages.evaluate((el) => {
+        el.scrollTop -= 90;
+      });
+      await expect.poll(gap).toBeGreaterThan(80);
+      await expect(button).toHaveCount(0);
+      await messages.evaluate((el) => {
+        el.scrollTop -= 400;
+      });
+      await expect(button).toBeVisible();
+      const box = await button.boundingBox();
+      const composer = await page.locator(".chat-compose-area").boundingBox();
+      expect(box.y + box.height).toBeLessThan(composer.y);
+      if (language === "en")
+        await page.screenshot({ path: testInfo.outputPath("chat-jump-to-latest.png") });
+      const before = await messages.evaluate((el) => el.scrollTop);
+      data.messages.push({
+        id: "while-reading",
+        role: "assistant",
+        text: "New message while reading",
+      });
+      await publish();
+      await expect(messages).toContainText("New message while reading");
+      await expect.poll(() => messages.evaluate((el) => el.scrollTop)).toBe(before);
+      await expect(button).toBeVisible();
+      await button.click();
+      await expect.poll(gap).toBeLessThan(5);
+      await expect(button).toHaveCount(0);
+      data.messages.push({
+        id: "follow",
+        role: "assistant",
+        text: "Follow this new message",
+      });
+      await publish();
+      await expect(messages).toContainText("Follow this new message");
+      await expect.poll(gap).toBeLessThan(5);
+      await expect(button).toHaveCount(0);
+    });
+  }
+}

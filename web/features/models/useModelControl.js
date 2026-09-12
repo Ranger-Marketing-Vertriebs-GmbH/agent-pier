@@ -12,6 +12,7 @@ export default function useModelControl({ session, active, request, onPendingCha
     [expanded, setExpanded] = useState(false);
   const [error, setError] = useState(""),
     [query, setQuery] = useState("");
+  const [readError, setReadError] = useState("");
   const [availableHeight, setAvailableHeight] = useState(540);
   const generation = useRef(0),
     mounted = useRef(false),
@@ -73,6 +74,7 @@ export default function useModelControl({ session, active, request, onPendingCha
     setBusy(false);
     setExpanded(false);
     setError("");
+    setReadError("");
     setQuery("");
   }, [session.id]);
   useEffect(() => {
@@ -87,14 +89,16 @@ export default function useModelControl({ session, active, request, onPendingCha
       if (!mutating.current) {
         try {
           const result = await requestRef.current(`/sessions/${session.id}/models`);
-          if (alive && version === generation.current && !mutating.current)
+          if (alive && version === generation.current && !mutating.current) {
+            setReadError("");
             setState({
               ...emptyState,
               ...result,
             });
+          }
         } catch (err) {
           if (alive && version === generation.current && !mutating.current)
-            setError((current) => current || err.message);
+            setReadError(err.message);
         }
       }
       if (alive) timer = setTimeout(poll, 3000);
@@ -137,6 +141,7 @@ export default function useModelControl({ session, active, request, onPendingCha
         ...emptyState,
         ...result,
       };
+      setReadError("");
       setState(next);
       if (!next.picker && !next.pending && (action === "cancel" || action === "select")) {
         setExpanded(false);
@@ -172,7 +177,7 @@ export default function useModelControl({ session, active, request, onPendingCha
     picker,
     setExpanded,
     mutate,
-    error,
+    error: error || readError,
     panel,
     availableHeight,
     cancel,

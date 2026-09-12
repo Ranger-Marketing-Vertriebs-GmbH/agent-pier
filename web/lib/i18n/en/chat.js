@@ -55,6 +55,7 @@ export const chatMessageCopy = {
   subtle: "[Image",
 };
 export const chatViewCopy = {
+  jumpToLatest: "Jump to latest",
   historyOlder: "Load older messages",
   historyLoading: "Loading older messages …",
   historyRetry: "Retry older messages",

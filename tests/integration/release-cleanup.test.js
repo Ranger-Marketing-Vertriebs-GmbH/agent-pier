@@ -105,3 +105,32 @@ test("a real fixture process protects its release until it exits", async (t) => 
   await closed;
   await r.cleanup(["1.0.0"]);
 });
+
+test("a tmux server's historical startup arguments do not pin an unused release", async (t) => {
+  const { releaseProcessReferences } =
+    await import("../../server/features/operations/release-cleanup.js");
+  const r = await fixture(t);
+  const old = `${r.installRoot}/releases/1.0.0`;
+  r.processes = () =>
+    releaseProcessReferences(
+      `tmux tmux new-session '${old}/bin/node' '${old}/server/terminal-launcher.js'`,
+    );
+  assert.equal(
+    r.cleanupStatus().versions.find((v) => v.version === "1.0.0").canDelete,
+    true,
+  );
+  r.processes = () =>
+    releaseProcessReferences(
+      `tmux tmux new-session '${old}/bin/node'\nnode node ${old}/vendor/agentbus/mcp-server.js`,
+    );
+  assert.equal(
+    r.cleanupStatus().versions.find((v) => v.version === "1.0.0").deleteReason,
+    "inUse",
+  );
+  r.processes = () =>
+    releaseProcessReferences(`${old}/bin/tmux ${old}/bin/tmux new-session`);
+  assert.equal(
+    r.cleanupStatus().versions.find((v) => v.version === "1.0.0").deleteReason,
+    "inUse",
+  );
+});
