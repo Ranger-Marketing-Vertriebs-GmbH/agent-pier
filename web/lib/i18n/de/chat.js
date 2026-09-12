@@ -29,6 +29,10 @@ export const chatImagesCopy = {
   chatImagesAriaLabel: "Bilder in der Nachricht",
 };
 export const chatMessageCopy = {
+  expandOutput: "Weitere Zeilen anzeigen",
+  moreOutput: "Mehr anzeigen",
+  collapseOutput: "Auf acht Zeilen kürzen",
+
   agentWorking: "Agent arbeitet",
   agentActivity: "Agent-Aktivität",
   toolCount: (count) => `${count} ${count === 1 ? "Aufruf" : "Aufrufe"}`,
