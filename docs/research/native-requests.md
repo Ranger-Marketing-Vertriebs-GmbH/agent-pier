@@ -90,3 +90,26 @@ HTTP endpoint, verifies native persistent trust, rejects input before paste and
 successfully retries the original message. It also runs the existing busy queue,
 multiline, long-payload and recovery checks. No real user credentials or sessions
 are used. This requires no new runtime dependency or installer exception.
+
+### Claude workspace trust
+
+Claude Code 2.1.269 displays `Accessing workspace` before running its hooks. During
+that initial phase only, the broker checks the owned request/binding launch records
+and the complete current native trust menu, including the exact displayed workspace
+path (with native line wrapping). Once the matching SessionStart receipt exists,
+transcript text cannot create a new startup permission. Chat and Terminal show a
+localized folder approval with the full workspace path, or the option to exit.
+
+An explicit answer uses the session lock, rechecks launch identity and native
+selection, then sends one Enter. The brief native startup input-settling window is
+respected before sending keys. Success requires Claude's recorded workspace trust
+or the matching native binding receipt. No trust file is written by AgentPier.
+Ordinary Chat input is blocked at this menu even before request polling. The same
+never-pasted recovery path retains the original message.
+
+The isolated native probe covers the 50-column menu, real HTTP approval, rejection
+before paste, and the original message's successful retry:
+
+```sh
+node scripts/probe-chat-tui.mjs --native --tool claude --local-mock --bound --folder-trust --http --samples 1
+```

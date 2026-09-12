@@ -10,6 +10,7 @@ export default function NativeRequest({ request, updated, openTerminal }) {
   const action = useAsyncAction(),
     pending = request.status === "pending",
     hookTrust = request.presentation === "codexHookTrust",
+    folderTrust = request.presentation === "claudeFolderTrust",
     base = `/sessions/${encodeURIComponent(request.sessionId)}/requests/${encodeURIComponent(request.id)}`;
   const answer = (body) =>
     action.run(async () => {
@@ -23,15 +24,18 @@ export default function NativeRequest({ request, updated, openTerminal }) {
     <article className="native-request">
       <header>
         <strong>
-          {hookTrust
-            ? copy.hookTrustTitle
-            : request.kind === "permission"
-              ? copy.permission
-              : copy.question}
+          {folderTrust
+            ? copy.folderTrustTitle
+            : hookTrust
+              ? copy.hookTrustTitle
+              : request.kind === "permission"
+                ? copy.permission
+                : copy.question}
         </strong>
         <small>{request.source}</small>
       </header>
       {hookTrust && <p>{copy.hookTrustDescription}</p>}
+      {folderTrust && <p>{copy.folderTrustDescription}</p>}
       {request.subject && (
         <div>
           {request.subject.description && <p>{request.subject.description}</p>}
@@ -59,20 +63,28 @@ export default function NativeRequest({ request, updated, openTerminal }) {
               className="button secondary"
               key={option.id}
               aria-label={
-                hookTrust
+                folderTrust
                   ? option.id === "trust"
-                    ? copy.hookTrustAllow
-                    : copy.hookTrustSkip
-                  : option.label
+                    ? copy.folderTrustAllow
+                    : copy.folderTrustExit
+                  : hookTrust
+                    ? option.id === "trust"
+                      ? copy.hookTrustAllow
+                      : copy.hookTrustSkip
+                    : option.label
               }
               disabled={action.busy}
               onClick={() => answer({ choice: option.id })}
             >
-              {hookTrust
+              {folderTrust
                 ? option.id === "trust"
-                  ? copy.hookTrustAllow
-                  : copy.hookTrustSkip
-                : option.label}
+                  ? copy.folderTrustAllow
+                  : copy.folderTrustExit
+                : hookTrust
+                  ? option.id === "trust"
+                    ? copy.hookTrustAllow
+                    : copy.hookTrustSkip
+                  : option.label}
               {option.scope && <small>{copy.scopes[option.scope] || option.scope}</small>}
             </button>
           ))}

@@ -1,3 +1,4 @@
+import { refreshFolderTrust, answerFolderTrust } from "./claude-folder-trust.js";
 import { answerHookTrust, hookLaunchIdentity } from "./codex-hook-trust.js";
 import fs from "node:fs/promises";
 import { writeFileSync, renameSync } from "node:fs";
@@ -228,6 +229,7 @@ export class RequestBroker {
     const session = await this.sessions.get(sessionId);
     if (session.status !== "running")
       await this.discard(sessionId, { removeLaunch: false });
+    await refreshFolderTrust(this, session);
     return {
       requests: [...this.entries.values()]
         .filter((e) => e.sessionId === sessionId)
@@ -237,6 +239,7 @@ export class RequestBroker {
             key: _key,
             accountId: _account,
             launchIdentity: _launch,
+            local: _local,
             ...entry
           }) => entry,
         ),
@@ -251,15 +254,22 @@ export class RequestBroker {
       entry.sessionId !== sessionId ||
       entry.status !== "pending" ||
       entry.revision !== input?.expectedRevision ||
-      entry.socket.destroyed
+      (!entry.local && entry.socket.destroyed)
     )
       throw stale();
     const answer = handoff ? { handoff: true } : answerValue(entry, input);
-    if (entry.presentation === "codexHookTrust" && !handoff) {
+    if (entry.presentation === "claudeFolderTrust" && handoff)
+      return this.list(sessionId);
+    if (
+      ["codexHookTrust", "claudeFolderTrust"].includes(entry.presentation) &&
+      !handoff
+    ) {
       entry.status = "responding";
       entry.revision++;
       try {
-        await answerHookTrust(this, entry, answer.choice);
+        await (
+          entry.presentation === "claudeFolderTrust" ? answerFolderTrust : answerHookTrust
+        )(this, entry, answer.choice);
         this.entries.delete(id);
         this.emit(
           entry,

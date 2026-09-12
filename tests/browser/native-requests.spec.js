@@ -277,3 +277,64 @@ for (const locale of ["de-DE", "en-GB"]) {
     });
   });
 }
+
+for (const locale of ["de-DE", "en-GB"]) {
+  test.describe(`Claude folder trust ${locale}`, () => {
+    test.use({ locale });
+    test("mobile folder approval preserves the original draft", async ({ page }) => {
+      const en = locale === "en-GB";
+      await page.setViewportSize({ width: 390, height: 844 });
+      const state = await operationsFixture(page);
+      await page.goto(baseURL + "/sessions/fixture-session/chat");
+      const input = page.getByRole("textbox", {
+        name: en ? "Message" : "Nachricht",
+        exact: true,
+      });
+      await expect(input).toBeEnabled();
+      await input.fill("Keep my Claude message");
+      state.requests = [
+        {
+          id: "folder",
+          sessionId: "fixture-session",
+          revision: 1,
+          status: "pending",
+          source: "claude",
+          kind: "permission",
+          presentation: "claudeFolderTrust",
+          subject: { path: "/workspace/project" },
+          options: [
+            { id: "trust", label: "Yes, I trust this folder", scope: "persistent" },
+            { id: "exit", label: "No, exit" },
+          ],
+        },
+      ];
+      await expect(
+        page.getByText(en ? "Trust Claude workspace" : "Claude-Arbeitsordner vertrauen", {
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(input).toBeDisabled();
+      await expect(input).toHaveValue("Keep my Claude message");
+      await expect(page.getByText("/workspace/project", { exact: true })).toBeVisible();
+      if (en)
+        await page
+          .locator(".chat-container .native-requests")
+          .screenshot({ path: test.info().outputPath("claude-folder-trust-mobile.png") });
+      await page
+        .getByRole("button", {
+          name: en ? "Trust folder and continue" : "Ordner vertrauen und fortfahren",
+          exact: true,
+        })
+        .click();
+      await expect(input).toBeEnabled();
+      await expect(input).toHaveValue("Keep my Claude message");
+      expect(state.calls.filter((c) => c.path.endsWith("/answer")).at(-1).body).toEqual({
+        expectedRevision: 1,
+        choice: "trust",
+      });
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      ).toBe(true);
+    });
+  });
+}
