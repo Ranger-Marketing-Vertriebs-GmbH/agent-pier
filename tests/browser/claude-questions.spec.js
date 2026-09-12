@@ -44,10 +44,18 @@ for (const locale of ["de-DE", "en-GB"]) {
       await page.goto("/sessions/fixture-session/chat");
       const panel = page.locator(".chat-container .native-requests");
       await expect(panel).toContainText("Which checks should run?");
-      await expect(panel).toContainText("Where should they run?");
+      await expect(panel).not.toContainText("Where should they run?");
       await expect(panel).toContainText("Verify the visible behavior");
       await panel.getByLabel("Unit", { exact: true }).check();
       await panel.getByLabel("Browser", { exact: true }).check();
+      expect(state.calls.some((call) => call.path.endsWith("/answer"))).toBe(false);
+      await panel
+        .getByRole("button", {
+          name: locale === "de-DE" ? "Nächste Frage" : "Next question",
+          exact: true,
+        })
+        .click();
+      await expect(panel).toContainText("Where should they run?");
       await panel.getByLabel("Local", { exact: true }).check();
       await panel.evaluate((element) => {
         element.scrollTop = 0;
