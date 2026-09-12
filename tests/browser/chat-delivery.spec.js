@@ -254,3 +254,42 @@ test("legacy delivery cards stay expandable above current history while new send
   expect(state.inputs).toHaveLength(2);
   await page.screenshot({ path: ".cache/chat-saved-notices.png" });
 });
+
+test("Claude absorbed mid-turn messages remove the handoff notice without another delivery", async ({
+  page,
+}) => {
+  const { normalizeClaude } =
+    await import("../../server/features/chat/history-parsers.js");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await fixture(page);
+  const text = "Use the staging environment";
+  await input(page).fill(text);
+  await send(page).click();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(1);
+  const queue = { type: "queue-operation", operation: "enqueue", content: text };
+  state.messages = normalizeClaude([queue]).messages;
+  await state.publish();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(1);
+  state.messages = normalizeClaude([
+    queue,
+    {
+      type: "attachment",
+      uuid: "attachment",
+      timestamp: "2026-09-12T06:21:51.917Z",
+      attachment: {
+        type: "queued_command",
+        source_uuid: "human-message",
+        prompt: text,
+        commandMode: "prompt",
+        origin: { kind: "human" },
+      },
+    },
+  ]).messages;
+  await state.publish();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+  await expect(page.locator(".chat-message.user")).toHaveCount(1);
+  await expect(page.locator(".chat-message.user")).toContainText(text);
+  await page.reload();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+  expect(state.inputs).toHaveLength(1);
+});

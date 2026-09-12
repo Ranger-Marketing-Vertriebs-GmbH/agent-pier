@@ -1,3 +1,4 @@
+import { claudeConversationRecord } from "./claude-conversation-record.js";
 import { normalizeClaude } from "./history-parsers.js";
 import { observeClaude } from "./claude-observability.js";
 import { JsonlHistoryReader } from "./jsonl-history-reader.js";
@@ -33,7 +34,7 @@ export async function readClaudePage(history, session, id, state) {
     let oldestKey,
       content = { messages: [], tasks: [] };
     for await (const item of reader.backwards(end, Boolean(state))) {
-      const { record } = item;
+      const record = claudeConversationRecord(item.record);
       if (!record.uuid && !record.message?.id) record.uuid = `claude-byte:${item.start}`;
       const visible =
         ["assistant", "user"].includes(record.type) &&
