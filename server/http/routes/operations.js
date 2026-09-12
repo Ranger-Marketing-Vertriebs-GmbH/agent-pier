@@ -91,6 +91,9 @@ export function operationsRoutes({ operations }) {
     }),
   );
   router.get(`${root}/releases`, (_req, res) => res.json(operations.releases.status()));
+  router.get(`${root}/releases/notes/:version`, async (req, res) =>
+    res.json(await operations.releases.notes(req.params.version)),
+  );
   router.post(`${root}/releases/check`, async (_req, res) =>
     res.json({ plan: await operations.releases.check() }),
   );

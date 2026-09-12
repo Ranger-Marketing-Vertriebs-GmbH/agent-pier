@@ -16,8 +16,7 @@ import { releaseCopy } from "../../lib/i18n/de/releases.js";
 import { problem } from "../../lib/storage.js";
 import { requireDataCompatibility } from "./release-schema.js";
 
-const officialChannel =
-  "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/latest/download/";
+import { officialChannel, ReleaseNotes } from "./release-notes.js";
 
 export async function download(url, fetchImpl, limit) {
   let response;
@@ -63,6 +62,7 @@ export class Releases {
     this.installRoot = installRoot ? path.resolve(installRoot) : null;
     this.channel = channel || officialChannel;
     this.fetchImpl = fetchImpl;
+    this.releaseNotes = new ReleaseNotes((...args) => this.fetchImpl(...args));
     this.smoke = smoke;
     this.port = port;
     this.spawn = spawnImpl;
@@ -121,6 +121,9 @@ export class Releases {
       staged,
       channel: this.channel,
     };
+  }
+  notes(version) {
+    return this.releaseNotes.read(this.channel, version);
   }
   async check() {
     if (!this.channel)
