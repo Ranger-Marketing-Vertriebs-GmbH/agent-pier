@@ -44,6 +44,37 @@ async function fixture(t, tool, screen) {
 }
 
 for (const tool of ["codex", "claude", "opencode"]) {
+  test(`${tool}: fresh chat input reaches an unreadable composer once without clearing it`, async (t) => {
+    const x = await fixture(t, tool, {
+      raw: "Synthetic native output\nExisting native draft\nWorking",
+      pane: { cursorX: 2, cursorY: 2, width: 120, height: 35 },
+    });
+    const input = x.body("Fresh chat message");
+    assert.equal((await x.post(input)).status, "handed-off");
+    const frame = `\x1b[200~${input.text}\x1b[201~\r`;
+    await x.recorder.waitForText(frame);
+    await x.post(input);
+    assert.deepEqual(await x.recorder.readBytes(), Buffer.from(frame));
+  });
+}
+
+test("a permission request arriving after paste prevents the fresh Enter", async (t) => {
+  const x = await fixture(t, "codex");
+  const manager = x.f.application.sessions;
+  const tmux = manager.tmux.bind(manager);
+  manager.tmux = async (...args) => {
+    const result = await tmux(...args);
+    if (args[0][0] === "paste-buffer") x.f.application.requests.hasPending = () => true;
+    return result;
+  };
+  const input = x.body("Synthetic guarded message");
+  assert.equal((await x.post(input)).status, "uncertain");
+  const pasted = `\x1b[200~${input.text}\x1b[201~`;
+  await x.recorder.waitForText(pasted);
+  assert.deepEqual(await x.recorder.readBytes(), Buffer.from(pasted));
+});
+
+for (const tool of ["codex", "claude", "opencode"]) {
   test(`${tool}: HTTP chat preserves exact paste bytes and one submit through owned tmux`, async (t) => {
     const x = await fixture(t, tool);
     let expected = "";

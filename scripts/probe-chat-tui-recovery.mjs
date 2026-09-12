@@ -129,6 +129,34 @@ export async function probeNativeRecovery(fixture, session, snapshot, counts) {
     inspectChatComposer(session.tool, afterBlocked.raw, afterBlocked.pane),
     editedComposer,
   );
+  const beforeFresh = { ...counts };
+  const fresh = {
+    deliveryId: randomUUID(),
+    deliveryScope,
+    text: " AP_PROBE_APPEND",
+    submit: true,
+  };
+  const sendFresh = async () =>
+    (
+      await fixture.request(`/api/sessions/${session.id}/input`, {
+        method: "POST",
+        body: fresh,
+      })
+    ).json();
+  assert.equal((await sendFresh()).status, "handed-off");
+  assert.equal((await sendFresh()).status, "handed-off");
+  assert.equal(counts.paste - beforeFresh.paste, 1);
+  assert.equal(counts.submit - beforeFresh.submit, 1);
+  for (let n = 0; n < 250; n++) {
+    const screen = (await snapshot()).raw.replace(/\x1b\[[0-9;:]*m/g, "");
+    if (
+      screen.includes(`Synthetic response complete: AP_PROBE_APPEND`) &&
+      screen.includes(editedComposer.text + fresh.text)
+    )
+      break;
+    if (n === 249) throw new Error("Fresh chat input did not append to the native draft");
+    await sleep(20);
+  }
   return {
     submittedExisting: true,
     extraPaste: 0,
@@ -136,5 +164,6 @@ export async function probeNativeRecovery(fixture, session, snapshot, counts) {
     recoveryReplayWrites: 0,
     manuallyEditedDraft: "blocked",
     blockedWrites: 0,
+    freshInputAppended: true,
   };
 }

@@ -31,6 +31,10 @@ export async function createProbeProvider() {
       kind: "request",
       marker,
       at: performance.now(),
+      imageCount: (Array.isArray(messages) ? messages : [])
+        .filter((message) => message.role === "user")
+        .flatMap((message) => (Array.isArray(message.content) ? message.content : []))
+        .filter((part) => ["image", "input_image"].includes(part.type)).length,
       payloads: request.url.includes("count_tokens") ? [] : payloads,
     });
     if (request.url.includes("count_tokens")) {

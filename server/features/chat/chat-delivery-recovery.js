@@ -70,8 +70,6 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
       reason = copy.recoveryRuntime;
     else if (!["reserved", "pasted"].includes(receipt.journal.phase))
       reason = copy.recoveryUncertain;
-    else if (receipt.journal.phase === "reserved" && tx.composer.state !== "empty")
-      reason = copy.recoveryComposer;
     else if (
       receipt.journal.phase === "pasted" &&
       (tx.composer.state !== "text" || tx.composer.text !== text.replace(/\r\n?/g, "\n"))
@@ -110,7 +108,10 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
     try {
       await tx.write(text.replace(/\r\n?/g, "\n"), {
         submitOnly,
+        allowComposerDraft: !submitOnly,
         onPhase: async (phase) => {
+          if (["paste-intent", "submit-intent"].includes(phase))
+            requireCurrentChatInput(delivery.requests, id);
           receipt.journal = { phase, generation: tx.recoveryGeneration };
           delivery.write(file, receipt);
         },
