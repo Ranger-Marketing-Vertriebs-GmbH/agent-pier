@@ -181,9 +181,11 @@ export class ChatDelivery {
         if (blocked) throw problem(copy.rejected, 409);
         requireCurrentChatInput(this.requests, id);
         await this.models.guardInput(id, tx.session, tx.raw);
-        if (tx.composer.state !== "empty") throw problem(copy.recoveryComposer, 409);
         await tx.write(normalized, {
+          allowComposerDraft: true,
           onPhase: async (phase) => {
+            if (["paste-intent", "submit-intent"].includes(phase))
+              requireCurrentChatInput(this.requests, id);
             receipt.status = "uncertain";
             receipt.journal = { phase, generation: tx.recoveryGeneration };
             this.write(file, receipt);

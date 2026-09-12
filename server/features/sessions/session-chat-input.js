@@ -6,6 +6,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import { isNativeSlashCommand, sendSlashCommand } from "./session-slash-command.js";
 import { problem } from "../../lib/storage.js";
+import { claudeComposerImages, waitForClaudeImagePaste } from "./claude-image-paste.js";
 
 export function normalizeChatText(text) {
   if (typeof text !== "string" || !text || text.length > 32000)
@@ -21,7 +22,7 @@ export async function writeChatTuiInput(
   manager,
   session,
   value,
-  { submitOnly = false, onPhase = async () => {} } = {},
+  { submitOnly = false, initialImages = 0, onPhase = async () => {} } = {},
 ) {
   const text = normalizeChatText(value);
   const target = `${manager.target(session.id)}:0.0`;
@@ -49,6 +50,7 @@ export async function writeChatTuiInput(
       }
     }
     await onPhase("pasted");
+    if (!slash) await waitForClaudeImagePaste(manager, session, text, { initialImages });
   }
   // Preserve the native Codex literal-input paste-burst separation.
   if (slash && session.tool === "codex") await sleep(250);
@@ -323,6 +325,7 @@ export function withChatInput(manager, id, operation) {
           : fresh.composer.state !== "empty")
       )
         throw problem("The terminal composer conflicts with this chat input", 409);
+      return fresh;
     };
     try {
       return await operation({
@@ -330,24 +333,33 @@ export function withChatInput(manager, id, operation) {
         ...initial,
         write: async (value, options = {}) => {
           const text = normalizeChatText(value);
+          const inspectComposer =
+            options.submitOnly === true || options.allowComposerDraft !== true;
           if (attempted || checking)
             throw problem("Chat input was already attempted", 409);
           checking = true;
+          let initialImages = 0;
           try {
-            await check(text, options.submitOnly === true);
+            const fresh = await check(text, options.submitOnly === true, inspectComposer);
+            if (session.tool === "claude")
+              initialImages = claudeComposerImages(
+                `${fresh.pane.width}|${fresh.pane.cursorY}\n${fresh.raw}`,
+              );
             attempted = true;
           } finally {
             checking = false;
           }
           return writeChatTuiInput(manager, session, text, {
             ...options,
+            initialImages,
             onPhase: async (phase) => {
               await options.onPhase?.(phase);
               if (["paste-intent", "submit-intent"].includes(phase))
                 await check(
                   text,
                   options.submitOnly === true,
-                  phase === "paste-intent" || options.submitOnly === true,
+                  inspectComposer &&
+                    (phase === "paste-intent" || options.submitOnly === true),
                 );
             },
           });
