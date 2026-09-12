@@ -254,3 +254,34 @@ test("V2-only sessions fail explicitly instead of reporting an empty V1 transcri
   );
   await assert.rejects(readOpenCodePage(history, session, "ses_test"), { status: 409 });
 });
+
+test("OpenCode edit metadata survives SQLite pagination and completed state refresh", async (t) => {
+  const { history, session, message, db } = fixture(t);
+  const id = message(1);
+  const part = {
+    type: "tool",
+    tool: "edit",
+    state: {
+      status: "running",
+      input: { filePath: "x.ts", oldString: "const a = 1;", newString: "const a = 2;" },
+    },
+  };
+  const save = () =>
+    db.prepare("UPDATE part SET data=? WHERE message_id=?").run(JSON.stringify(part), id);
+  save();
+  for (let i = 2; i < 65; i++) message(i);
+  let page = await readOpenCodePage(history, session, "ses_test");
+  while (page.next)
+    page = await readOpenCodePage(history, session, "ses_test", page.next);
+  const pending = page.messages.find((m) => m.toolName === "edit");
+  assert.equal(pending.fileChanges[0].provenance, "excerpt");
+  part.state.status = "completed";
+  part.state.metadata = { diff: "@@ -12 +12 @@\n-const a = 1;\n+const a = 2;\n" };
+  save();
+  page = await readOpenCodePage(history, session, "ses_test");
+  while (page.next)
+    page = await readOpenCodePage(history, session, "ses_test", page.next);
+  const completed = page.messages.find((m) => m.id === pending.id);
+  assert.equal(completed.status, "completed");
+  assert.equal(completed.fileChanges[0].rows[1].oldLine, 12);
+});

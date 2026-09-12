@@ -65,3 +65,34 @@ test("explicit fresh input still refuses a replaced runtime before submitting", 
     ["load-buffer", "paste-buffer"],
   );
 });
+
+test("fresh chat input never pastes into Codex startup hook trust even before request polling", async () => {
+  const { hookScreen } = await import("../fixtures/requests/codex-hook-trust.js");
+  const manager = sessionManager();
+  manager.screen = hookScreen();
+  await chat.withChatInput(manager, "one", async (tx) => {
+    await assert.rejects(tx.write("hello", { allowComposerDraft: true }), {
+      status: 409,
+    });
+  });
+  assert.deepEqual(manager.events, []);
+});
+
+test("fresh chat input never pastes into Claude folder trust before request polling", async () => {
+  const { folderScreen } = await import("../fixtures/requests/claude-folder-trust.js");
+  const manager = sessionManager();
+  manager.current = async () => ({
+    id: "one",
+    tool: "claude",
+    cwd: "/fixture/project",
+    accountId: "fixture",
+    status: "running",
+  });
+  manager.screen = folderScreen();
+  await chat.withChatInput(manager, "one", async (tx) => {
+    await assert.rejects(tx.write("hello", { allowComposerDraft: true }), {
+      status: 409,
+    });
+  });
+  assert.deepEqual(manager.events, []);
+});

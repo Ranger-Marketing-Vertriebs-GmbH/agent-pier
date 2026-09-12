@@ -1,3 +1,6 @@
+import { folderTrustScreen } from "../requests/claude-folder-trust.js";
+import { requestCopy } from "../../lib/i18n/de/requests.js";
+import { hookTrustScreen } from "../requests/codex-hook-trust.js";
 import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { pidStart } from "../../../vendor/agentbus/core/proc.js";
@@ -316,6 +319,11 @@ export function withChatInput(manager, id, operation) {
       const current = await currentChatSession(manager, id);
       const fresh = await snapshot(manager, current);
       if (!active) throw problem("Chat input transaction has ended", 409);
+      if (
+        (current.tool === "codex" && hookTrustScreen(fresh.raw)) ||
+        (current.tool === "claude" && folderTrustScreen(fresh.raw, current.cwd))
+      )
+        throw problem(requestCopy.pendingInput, 409);
       if (fresh.generation !== initial.generation)
         throw problem("Session generation changed", 409);
       if (

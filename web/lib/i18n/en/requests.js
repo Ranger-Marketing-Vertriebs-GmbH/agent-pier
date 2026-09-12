@@ -1,4 +1,14 @@
 export const requestCopy = {
+  hookTrustTitle: "Review Codex hooks",
+  hookTrustDescription:
+    "Codex is waiting for hook approval. Trusted hooks can run outside the sandbox. Your chat draft is preserved until you decide.",
+  hookTrustAllow: "Trust hooks and continue",
+  hookTrustSkip: "Continue without trusting",
+  folderTrustTitle: "Trust Claude workspace",
+  folderTrustDescription:
+    "Claude is waiting for permission to read, edit and execute files in this workspace. Your chat draft is preserved until you decide.",
+  folderTrustAllow: "Trust folder and continue",
+  folderTrustExit: "Exit session",
   title: "Native requests",
   permission: "Approval required",
   question: "Answer required",

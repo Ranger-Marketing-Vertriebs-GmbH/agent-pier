@@ -1,3 +1,5 @@
+import { refreshFolderTrust, answerFolderTrust } from "./claude-folder-trust.js";
+import { answerHookTrust, hookLaunchIdentity } from "./codex-hook-trust.js";
 import fs from "node:fs/promises";
 import { writeFileSync, renameSync } from "node:fs";
 import path from "node:path";
@@ -165,6 +167,8 @@ export class RequestBroker {
         if (message.type === "resolved") {
           const old = this.entries.get(id);
           if (old?.socket === socket) {
+            if (old.presentation === "codexHookTrust" && message.outcome === "trusted")
+              old.nativeOutcome = "trusted";
             this.entries.delete(id);
             this.emit(old, "request.expired");
           }
@@ -184,6 +188,8 @@ export class RequestBroker {
           ...requestValue(message.request),
           id,
           sessionId: owner.id,
+          accountId: owner.accountId,
+          launchIdentity: hookLaunchIdentity(owner),
           revision: 1,
           status: "pending",
           source: owner.tool,
@@ -216,14 +222,27 @@ export class RequestBroker {
   hasPending(sessionId) {
     return [...this.entries.values()].some((entry) => entry.sessionId === sessionId);
   }
+  async launchIdentity(id) {
+    return hookLaunchIdentity(JSON.parse(await fs.readFile(this.file(id), "utf8")));
+  }
   async list(sessionId) {
     const session = await this.sessions.get(sessionId);
     if (session.status !== "running")
       await this.discard(sessionId, { removeLaunch: false });
+    await refreshFolderTrust(this, session);
     return {
       requests: [...this.entries.values()]
         .filter((e) => e.sessionId === sessionId)
-        .map(({ socket: _socket, key: _key, ...entry }) => entry),
+        .map(
+          ({
+            socket: _socket,
+            key: _key,
+            accountId: _account,
+            launchIdentity: _launch,
+            local: _local,
+            ...entry
+          }) => entry,
+        ),
     };
   }
   async answer(sessionId, id, input, handoff = false) {
@@ -235,10 +254,37 @@ export class RequestBroker {
       entry.sessionId !== sessionId ||
       entry.status !== "pending" ||
       entry.revision !== input?.expectedRevision ||
-      entry.socket.destroyed
+      (!entry.local && entry.socket.destroyed)
     )
       throw stale();
     const answer = handoff ? { handoff: true } : answerValue(entry, input);
+    if (entry.presentation === "claudeFolderTrust" && handoff)
+      return this.list(sessionId);
+    if (
+      ["codexHookTrust", "claudeFolderTrust"].includes(entry.presentation) &&
+      !handoff
+    ) {
+      entry.status = "responding";
+      entry.revision++;
+      try {
+        await (
+          entry.presentation === "claudeFolderTrust" ? answerFolderTrust : answerHookTrust
+        )(this, entry, answer.choice);
+        this.entries.delete(id);
+        this.emit(
+          entry,
+          "request.answered",
+          "user",
+          "success",
+          answer.choice === "trust" ? "allow" : "deny",
+        );
+        return this.list(sessionId);
+      } catch (error) {
+        // Keep a retryable, visible request after native config-write failures.
+        entry.status = "pending";
+        throw error;
+      }
+    }
     entry.status = "responding";
     entry.revision++;
     const status = await new Promise((resolve) => {

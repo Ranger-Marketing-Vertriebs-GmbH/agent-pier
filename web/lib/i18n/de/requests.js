@@ -1,4 +1,14 @@
 export const requestCopy = {
+  hookTrustTitle: "Codex-Hooks prüfen",
+  hookTrustDescription:
+    "Codex wartet auf die Hook-Freigabe. Vertrauenswürdige Hooks können außerhalb der Sandbox laufen. Dein Chat-Entwurf bleibt bis zu deiner Entscheidung erhalten.",
+  hookTrustAllow: "Hooks vertrauen und fortfahren",
+  hookTrustSkip: "Ohne Vertrauen fortfahren",
+  folderTrustTitle: "Claude-Arbeitsordner vertrauen",
+  folderTrustDescription:
+    "Claude wartet auf die Freigabe zum Lesen, Bearbeiten und Ausführen von Dateien in diesem Arbeitsordner. Dein Chat-Entwurf bleibt bis zu deiner Entscheidung erhalten.",
+  folderTrustAllow: "Ordner vertrauen und fortfahren",
+  folderTrustExit: "Sitzung beenden",
   title: "Native Rückfragen",
   permission: "Freigabe erforderlich",
   question: "Antwort erforderlich",

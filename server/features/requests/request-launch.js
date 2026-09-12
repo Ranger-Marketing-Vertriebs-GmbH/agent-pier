@@ -31,6 +31,9 @@ export async function prepareRequests(
       cwd,
       token,
       socketPath: broker.socketPath,
+      ...(account.tool === "claude" && path.isAbsolute(env.CLAUDE_CONFIG_DIR || "")
+        ? { claudeTrustFile: path.join(env.CLAUDE_CONFIG_DIR, ".claude.json") }
+        : {}),
       command: launch.command,
       args,
     }),

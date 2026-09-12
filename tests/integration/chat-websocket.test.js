@@ -439,3 +439,50 @@ test(
     assert.equal(invalidations, 3);
   },
 );
+
+test(
+  "structured file changes update over WebSocket even when raw text is unchanged",
+  { timeout },
+  async (t) => {
+    const f = await fixture(t);
+    const initial = f.snapshot();
+    initial.messages[0] = {
+      id: "edit",
+      role: "tool",
+      toolName: "Edit",
+      text: "unchanged raw",
+      status: "running",
+      fileChanges: [
+        {
+          path: "x.ts",
+          operation: "update",
+          provenance: "excerpt",
+          rows: [{ kind: "add", text: "const a = 1;" }],
+          added: 1,
+          removed: 0,
+        },
+      ],
+    };
+    f.update(initial);
+    const client = connect(t, f);
+    const baseline = await client.next("sync");
+    const changed = f.snapshot();
+    changed.messages[0].fileChanges[0].rows[0].text = "const a = 2;";
+    const offset = client.frames.length;
+    f.update(changed);
+    const update = await client.next("sync", offset);
+    assert.equal(update.data.sync.mode, "delta");
+    assert.deepEqual(
+      update.data.upserts.map((row) => row.id),
+      ["edit"],
+    );
+    assert.deepEqual(
+      applyChatSync(baseline.data, update.data).messages,
+      changed.messages,
+    );
+    client.ws.close();
+    await client.closed;
+    const reconnected = connect(t, f);
+    assert.deepEqual((await reconnected.next("sync")).data.messages, changed.messages);
+  },
+);

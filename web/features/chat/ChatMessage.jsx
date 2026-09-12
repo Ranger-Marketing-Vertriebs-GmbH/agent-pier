@@ -2,6 +2,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { chatMessageCopy as copy } from "../../lib/i18n/messages/chat.js";
 import React, { useState } from "react";
 import ToolOutput from "./ToolOutput.jsx";
+import ToolChanges from "./ToolChanges.jsx";
 import Markdown, { defaultUrlTransform } from "react-markdown";
 import { projectLinkPath } from "./chat-file-link.js";
 import remarkGfm from "remark-gfm";
@@ -26,7 +27,12 @@ export default function Message({ message, tool, sessionId, cwd, openFile }) {
             }[message.status] || "Details"}
           </small>
         </summary>
-        {toolOpen && <ToolOutput text={message.text} toolName={message.toolName} />}
+        {toolOpen &&
+          (message.fileChanges?.length ? (
+            <ToolChanges message={message} />
+          ) : (
+            <ToolOutput text={message.text} toolName={message.toolName} />
+          ))}
       </details>
     );
   return (

@@ -1,3 +1,5 @@
+import { prepareClaudeProbe } from "./probe-claude-startup.mjs";
+import { probeCodexHookTrust } from "./probe-codex-hook-trust.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -218,7 +220,8 @@ async function probeNative(fixture, cleanup) {
       env.PATH = `${probeBin}${path.delimiter}${env.PATH}`;
     }
     const sessionId = bound ? randomUUID() : `native-${tool}`;
-    if (bound && tool === "codex") args.push("--dangerously-bypass-hook-trust");
+    if (bound && tool === "codex" && !options.includes("--hook-trust"))
+      args.push("--dangerously-bypass-hook-trust");
     if (bound && tool === "claude")
       args.push("--debug-file", path.join(fixture.root, "claude-debug.log"));
     let launch = bound
@@ -240,6 +243,13 @@ async function probeNative(fixture, cleanup) {
       // Remove only this fixture's bus directory after its processes have stopped.
       cleanup.unshift(() => fs.rm(socketDirectory, { recursive: true, force: true }));
     }
+    if (options.includes("--hook-trust") || options.includes("--folder-trust"))
+      launch = await fixture.application.requests.prepare({
+        id: sessionId,
+        account,
+        cwd: project,
+        launch,
+      });
     const isolatedArgs = [
       "-i",
       ...Object.entries(launch.env).map(([key, value]) => `${key}=${value}`),
@@ -259,6 +269,7 @@ async function probeNative(fixture, cleanup) {
         ? ["-p", sandbox, "/usr/bin/env", ...isolatedArgs]
         : isolatedArgs,
       env: {},
+      nativeRequests: launch.nativeRequests,
       nativeBinding: launch.nativeBinding,
       agentbus: launch.agentbus,
     });
@@ -330,9 +341,13 @@ async function probeNative(fixture, cleanup) {
     };
     const keys = (...names) => manager.tmux(["send-keys", "-t", target, ...names]);
     if (tool === "codex") {
-      await waitFor(capture, (screen) => screen.includes("Yes, continue"));
-      await sleep(750);
-      await keys("Enter");
+      if (options.includes("--hook-trust"))
+        await probeCodexHookTrust({ fixture, session, capture, keys });
+      else {
+        await waitFor(capture, (screen) => screen.includes("Yes, continue"));
+        await sleep(750);
+        await keys("Enter");
+      }
       await waitFor(capture, (screen) =>
         screen.includes("Ask Codex to do anything"),
       ).catch(async (error) => {
@@ -344,20 +359,7 @@ async function probeNative(fixture, cleanup) {
         throw error;
       });
     } else if (tool === "claude") {
-      const trust = await waitFor(capture, (screen) =>
-        screen.includes("Yes, I trust this folder"),
-      );
-      await sleep(750);
-      await keys(...(/❯[^\n]*Yes, I trust/.test(trust) ? ["Enter"] : ["Down", "Enter"]));
-      const auth = await waitFor(
-        capture,
-        (screen) => screen.includes("custom API key") || screen.includes("for shortcuts"),
-      );
-      if (auth.includes("custom API key")) {
-        await sleep(750);
-        await keys("Up", "Enter");
-      }
-      await waitFor(capture, (screen) => screen.includes("for shortcuts"));
+      await prepareClaudeProbe({ fixture, session, capture, keys, options, waitFor });
     } else await waitFor(capture, (screen) => screen.includes("Ask anything"));
     if (bound && bootstrap) {
       await paste(manager, session, "AP_PROBE_BOOTSTRAP");
