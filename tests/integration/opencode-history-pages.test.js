@@ -193,6 +193,8 @@ test("native session revert and deleted boundary parts invalidate cursors", asyn
   await assert.rejects(readOpenCodePage(history, session, "ses_test", first.next), {
     status: 409,
   });
+  assert.equal((await readOpenCodePage(history, session, "ses_test")).messages.length, 0);
+  db.prepare("UPDATE session SET revert=NULL WHERE id=?").run("ses_test");
   first = await readOpenCodePage(history, session, "ses_test");
   db.prepare("DELETE FROM part WHERE id=?").run(first.next.opencode.before.part);
   await assert.rejects(readOpenCodePage(history, session, "ses_test", first.next), {
