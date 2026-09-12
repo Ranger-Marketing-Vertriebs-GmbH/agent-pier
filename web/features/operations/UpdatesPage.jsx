@@ -3,6 +3,7 @@ import api from "../../lib/api.js";
 import useResource from "../../lib/useResource.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import ReleaseNotes from "./ReleaseNotes.jsx";
 import OperationJob from "./OperationJob.jsx";
 import ConfirmOperation from "./ConfirmOperation.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
@@ -57,6 +58,7 @@ export default function UpdatesPage({ route, navigate }) {
           {presentation.candidate && (
             <article className="operations-card">
               <h2>{presentation.candidate.version}</h2>
+              <ReleaseNotes version={presentation.candidate.version} />
               <p>
                 {copy.platform}: {presentation.candidate.platform}
               </p>
@@ -82,6 +84,7 @@ export default function UpdatesPage({ route, navigate }) {
               <h3>
                 {copy.staged}: {staged.version}
               </h3>
+              <ReleaseNotes version={staged.version} />
               <button
                 className="button primary"
                 aria-label={`${copy.activateRelease}: ${staged.version}`}

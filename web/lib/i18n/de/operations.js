@@ -91,6 +91,11 @@ export const operationsCopy = {
   updates: "Updates",
   currentVersion: "Installierte Version",
   channel: "Updatekanal",
+  releaseNotes: "Neu in dieser Version",
+  releaseNotesLoading: "Versionshinweise werden geladen …",
+  releaseNotesUnavailable:
+    "Versionshinweise sind gerade nicht verfügbar. Das Update ist trotzdem möglich.",
+  releaseNotesOriginal: "Release auf GitHub ansehen",
   checkUpdates: "Nach Updates suchen",
   stageRelease: "Version vorbereiten",
   activateRelease: "Vorbereitete Version aktivieren",
