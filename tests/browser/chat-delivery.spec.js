@@ -275,7 +275,7 @@ test("Claude absorbed mid-turn messages remove the handoff notice without anothe
     {
       type: "attachment",
       uuid: "attachment",
-      timestamp: "2026-09-12T06:21:51.917Z",
+      timestamp: await page.evaluate(() => new Date().toISOString()),
       attachment: {
         type: "queued_command",
         source_uuid: "human-message",
