@@ -27,6 +27,10 @@ export function claimInbox(h, key, now = Date.now(), leaseMs = 30000) {
   return { ...claim, owner };
 }
 
+export function inboxMessageStatus(h, key, id) {
+  return store(h).messageStatus(key, id);
+}
+
 export function ackInbox(h, owner, claimIds) {
   return store(h).ack(owner, claimIds);
 }
