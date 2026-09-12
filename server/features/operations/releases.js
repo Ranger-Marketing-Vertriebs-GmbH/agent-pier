@@ -16,6 +16,7 @@ import { releaseCopy } from "../../lib/i18n/de/releases.js";
 import { problem } from "../../lib/storage.js";
 import { requireDataCompatibility } from "./release-schema.js";
 
+import { cleanupState, cleanupReleases, releaseProcesses } from "./release-cleanup.js";
 import { officialChannel, ReleaseNotes } from "./release-notes.js";
 
 export async function download(url, fetchImpl, limit) {
@@ -57,6 +58,7 @@ export class Releases {
     port = 4380,
     spawnImpl = spawn,
     environment = process.env,
+    processes = releaseProcesses,
   }) {
     this.dataDir = fs.realpathSync(dataDir);
     this.installRoot = installRoot ? path.resolve(installRoot) : null;
@@ -67,6 +69,7 @@ export class Releases {
     this.port = port;
     this.spawn = spawnImpl;
     this.environment = environment;
+    this.processes = processes;
     this.directory = folder(path.join(this.dataDir, "operations/releases"));
   }
   status() {
@@ -121,6 +124,12 @@ export class Releases {
       staged,
       channel: this.channel,
     };
+  }
+  cleanupStatus() {
+    return cleanupState(this);
+  }
+  cleanup(versions) {
+    return cleanupReleases(this, versions);
   }
   notes(version) {
     return this.releaseNotes.read(this.channel, version);

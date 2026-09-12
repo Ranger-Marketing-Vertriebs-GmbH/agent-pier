@@ -3,6 +3,7 @@ import api from "../../lib/api.js";
 import useResource from "../../lib/useResource.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import ReleaseCleanup from "./ReleaseCleanup.jsx";
 import ReleaseNotes from "./ReleaseNotes.jsx";
 import OperationJob from "./OperationJob.jsx";
 import ConfirmOperation from "./ConfirmOperation.jsx";
@@ -125,6 +126,11 @@ export default function UpdatesPage({ route, navigate }) {
           )}
         </>
       )}
+      <ReleaseCleanup
+        busy={jobPending || action.busy}
+        job={observedJob}
+        navigate={navigate}
+      />
       <OperationJob
         id={route.operationId}
         onComplete={resource.refresh}
