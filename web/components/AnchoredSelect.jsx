@@ -8,10 +8,15 @@ export default function AnchoredSelect({
   disabled = false,
   required = false,
   describedBy,
+  searchLabel,
+  query = "",
+  onQuery,
+  noMatches,
 }) {
   const root = useRef(null),
     select = useRef(null),
     list = useRef(null),
+    search = useRef(null),
     typeahead = useRef({
       text: "",
       time: 0,
@@ -27,9 +32,13 @@ export default function AnchoredSelect({
     0,
     options.findIndex((option) => option.value === value),
   );
-  const enabledIndices = options.flatMap((option, index) =>
-    option.disabled ? [] : [index],
+  const visibleIndices = options.flatMap((option, index) =>
+    !searchLabel ||
+    (option.value && option.label.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
+      ? [index]
+      : [],
   );
+  const enabledIndices = visibleIndices.filter((index) => !options[index].disabled);
   function nextActive(index, key) {
     if (key === "Home") return enabledIndices[0] ?? index;
     if (key === "End") return enabledIndices.at(-1) ?? index;
@@ -41,6 +50,7 @@ export default function AnchoredSelect({
   }
   function show() {
     if (disabled || !options.length) return;
+    if (searchLabel) onQuery("");
     setActive(options[selected]?.disabled ? (enabledIndices[0] ?? selected) : selected);
     setOpen(true);
     select.current?.focus({
@@ -59,6 +69,9 @@ export default function AnchoredSelect({
   useEffect(() => {
     if (disabled) setOpen(false);
   }, [disabled]);
+  useEffect(() => {
+    if (open && searchLabel) search.current?.focus({ preventScroll: true });
+  }, [open, searchLabel]);
   useLayoutEffect(() => {
     if (!open) return;
     const measure = () => {
@@ -109,6 +122,7 @@ export default function AnchoredSelect({
       });
   }, [open, active]);
   function keydown(event) {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     if (event.key === "Escape" && open) {
       event.preventDefault();
       event.stopPropagation();
@@ -136,6 +150,12 @@ export default function AnchoredSelect({
     }
     if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
+      if (searchLabel) {
+        if (!open) show();
+        onQuery(event.key);
+        setActive(-1);
+        return;
+      }
       const now = Date.now();
       typeahead.current = {
         text:
@@ -153,7 +173,13 @@ export default function AnchoredSelect({
     }
   }
   return (
-    <div ref={root} className="anchored-select">
+    <div
+      ref={root}
+      className="anchored-select"
+      onBlur={(event) => {
+        if (!root.current?.contains(event.relatedTarget)) setOpen(false);
+      }}
+    >
       <select
         ref={select}
         aria-label={label}
@@ -178,9 +204,6 @@ export default function AnchoredSelect({
           if (event.detail === 0) open ? setOpen(false) : show();
         }}
         onKeyDown={keydown}
-        onBlur={(event) => {
-          if (!root.current?.contains(event.relatedTarget)) setOpen(false);
-        }}
       >
         {options.map((option) => (
           <option
@@ -195,39 +218,94 @@ export default function AnchoredSelect({
       </select>
       {open && (
         <div
-          ref={list}
-          id={id}
-          role="listbox"
-          aria-label={commonCopy.selectOptionsLabel(label)}
-          className={`anchored-options ${placement.above ? "above" : ""}`}
+          ref={searchLabel ? undefined : list}
+          id={searchLabel ? undefined : id}
+          role={searchLabel ? undefined : "listbox"}
+          aria-label={searchLabel ? undefined : commonCopy.selectOptionsLabel(label)}
+          className={`anchored-options ${placement.above ? "above" : ""} ${searchLabel ? "searchable" : ""}`}
           style={{
             maxHeight: placement.height,
           }}
         >
-          {options.map((option, index) => (
-            <button
-              type="button"
-              role="option"
-              id={`${id}-${index}`}
-              data-index={index}
-              tabIndex={-1}
-              key={option.value}
-              disabled={option.disabled}
-              aria-selected={option.value === value}
-              className={active === index ? "active" : ""}
-              onPointerDown={(event) => event.preventDefault()}
-              onPointerMove={() => {
-                if (!option.disabled) setActive(index);
-              }}
-              onClick={(event) => {
-                event.preventDefault();
-                choose(index);
-              }}
-            >
-              {option.label}
-              {option.value === value && <span aria-hidden="true">✓</span>}
-            </button>
-          ))}
+          {searchLabel && (
+            <div className="anchored-search">
+              <input
+                ref={search}
+                type="search"
+                role="combobox"
+                aria-label={searchLabel}
+                aria-expanded="true"
+                aria-controls={id}
+                aria-autocomplete="list"
+                aria-activedescendant={
+                  enabledIndices.includes(active) ? `${id}-${active}` : undefined
+                }
+                value={query}
+                placeholder={searchLabel}
+                autoCapitalize="none"
+                spellCheck={false}
+                onChange={(event) => {
+                  onQuery(event.target.value);
+                  setActive(-1);
+                }}
+                onKeyDown={(event) => {
+                  if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setOpen(false);
+                    select.current?.focus({ preventScroll: true });
+                  } else if (event.key === "Enter") {
+                    event.preventDefault();
+                    if (enabledIndices.includes(active)) choose(active);
+                  } else if (["ArrowDown", "ArrowUp"].includes(event.key)) {
+                    event.preventDefault();
+                    setActive((index) => nextActive(index, event.key));
+                  }
+                }}
+              />
+            </div>
+          )}
+          <div
+            className={searchLabel ? "anchored-search-results" : undefined}
+            ref={searchLabel ? list : undefined}
+            id={searchLabel ? id : undefined}
+            role={searchLabel ? "listbox" : undefined}
+            aria-label={searchLabel ? commonCopy.selectOptionsLabel(label) : undefined}
+          >
+            {visibleIndices.map((index) => {
+              const option = options[index];
+              return (
+                <button
+                  type="button"
+                  role="option"
+                  id={`${id}-${index}`}
+                  data-index={index}
+                  tabIndex={-1}
+                  key={option.value}
+                  disabled={option.disabled}
+                  aria-selected={option.value === value}
+                  className={active === index ? "active" : ""}
+                  onPointerDown={(event) => event.preventDefault()}
+                  onPointerMove={() => {
+                    if (!option.disabled) setActive(index);
+                  }}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    choose(index);
+                  }}
+                >
+                  {option.label}
+                  {option.value === value && <span aria-hidden="true">✓</span>}
+                </button>
+              );
+            })}
+            {searchLabel && !visibleIndices.length && (
+              <p className="field-description" role="status">
+                {noMatches}
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>

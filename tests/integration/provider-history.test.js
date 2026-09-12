@@ -198,7 +198,12 @@ test("history shutdown kills and awaits OpenCode exports and prevents new histor
   const binary = path.join(dir, "opencode-fixture");
   await fs.writeFile(
     binary,
-    `#!${process.execPath}\nrequire('node:fs').writeFileSync(process.env.HOME+'/export.pid',String(process.pid));setInterval(()=>{},1000);\n`,
+    `#!${process.execPath}\nconst fs = require('node:fs');
+const file = process.env.HOME + '/export.pid';
+fs.writeFileSync(file, '');
+// Expose the file-creation/write interval deterministically.
+setTimeout(() => fs.writeFileSync(file, String(process.pid)), 50);
+setInterval(() => {}, 1000);\n`,
     { mode: 0o700 },
   );
   history.executable = () => binary;
@@ -208,12 +213,13 @@ test("history shutdown kills and awaits OpenCode exports and prevents new histor
   for (let attempt = 0; attempt < 100; attempt++) {
     try {
       pid = Number(await fs.readFile(path.join(dir, "export.pid"), "utf8"));
-      break;
-    } catch {
-      await new Promise((r) => setTimeout(r, 10));
+      if (Number.isSafeInteger(pid) && pid > 1) break;
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
     }
+    await new Promise((r) => setTimeout(r, 10));
   }
-  assert.ok(pid);
+  assert.ok(Number.isSafeInteger(pid) && pid > 1);
   t.after(() => {
     try {
       process.kill(pid, "SIGKILL");

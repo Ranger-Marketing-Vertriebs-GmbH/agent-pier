@@ -1,4 +1,13 @@
 export const launchDialogCopy = {
+  sessionSection: "Sitzung",
+  executionSection: "Ausführung",
+  extensions: "Erweiterungen",
+  busEnabled: "AgentBus aktiv",
+  busDisabled: "AgentBus aus",
+  toolsEnabled: "AgentPier-Werkzeuge aktiv",
+  toolsDisabled: "AgentPier-Werkzeuge aus",
+  sshSummary: (count) => (count ? `${count} SSH-Zugänge` : "Kein SSH"),
+
   taskProfile: "Aufgabenprofil",
   noTaskProfile: "Ohne Aufgabenprofil",
   profileUnavailable:

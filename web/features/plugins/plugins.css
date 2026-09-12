@@ -28,3 +28,9 @@
     max-width: 100%;
   }
 }
+.plugin-catalog-account {
+  margin-block: 20px;
+}
+.plugin-catalog-account .field-description {
+  max-width: 720px;
+}

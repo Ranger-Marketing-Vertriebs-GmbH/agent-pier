@@ -1,6 +1,6 @@
 # Shared CLI extensions
 
-AgentPier accounts select credentials. Accounts for the same coding CLI share MCP definitions, plugins, marketplaces, skills and custom agents by default. Shell sessions are unaffected. The UI selects a CLI on **MCP & Skills** and **Plugins & Marketplace**; existing account-specific links normalize to the corresponding CLI.
+AgentPier accounts select credentials. Accounts for the same coding CLI share MCP definitions, local plugins, configured marketplaces, skills and custom agents by default. Codex default marketplace plugins remain account-specific. Shell sessions are unaffected. The UI selects a CLI on **MCP & Skills** and **Plugins & Marketplace**; existing account-specific links normalize to the corresponding CLI.
 
 ## Native configuration
 
@@ -14,6 +14,25 @@ The server user's native profile is authoritative. Managed accounts keep their s
 
 This is configuration sharing, not an OS security boundary. Native plugins and agents still execute with the session user's permissions. Plugin-specific account preferences and state inside shared plugin directories are shared with that plugin; CLI login credentials remain separate.
 
+## Codex default marketplace
+
+Codex provides `openai-curated-remote` through its authenticated native catalog;
+it may be absent from `codex plugin marketplace list`. AgentPier shows it as a
+built-in marketplace, with no source update or removal controls. Choose a logged-in
+Codex account in **Marketplace account** to browse and install its available plugins.
+An unauthenticated local profile can show an empty catalog even while another
+account has access. AgentPier does not select another account or copy credentials
+automatically.
+
+Remote installation, removal, and installed state belong to the explicitly selected
+account. Shared-profile synchronization preserves each account's remote plugin
+configuration without importing or projecting it into other profiles. Local plugin
+and marketplace operations retain their shared scope. Plugin cache directories
+remain shared; this is configuration isolation, not an OS security boundary.
+
+The change ships in ordinary release packages and needs no additional runtime
+installation. Reload or start a session to load changed native plugin configuration.
+
 ## Bundled skills
 
 AgentPier ships `agentpier-composer` from `server/features/cli-profiles/skills/`.
@@ -25,6 +44,15 @@ The composer identifies each ticket's system, instance and project from the task
 verifies the ticket through an available integration, CLI or API. It does not assume
 Plane or infer the ticket system solely from the Git remote. Ticket-system access and
 a suitable AgentPier pipeline are configured separately.
+
+For an authorized implementation, the composer monitors each PR through confirmed
+merge, including after CI turns green or auto-merge is enabled. It then refreshes
+the base and starts the next authorized batch across the remaining topics without
+another prompt. Status reports and merge recommendations are intermediate updates.
+Batch progress, PR polling and merge evidence are retained for resumption even when
+no pipeline is active. Merging requires existing authorization and repository checks;
+otherwise the composer continues monitoring for an external merge. Explicitly scoped
+planning or review tasks retain their requested endpoint.
 
 Existing packages with the same name are preserved, including skills imported from
 managed accounts. Installation is recorded per native profile in

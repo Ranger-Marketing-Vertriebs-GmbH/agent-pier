@@ -262,7 +262,11 @@ export class ChatStore {
         binding.source === "automatic" ||
         session.nativeBinding?.enabled)
     ) {
-      if (binding?.providerSessionId !== native.id) {
+      if (
+        binding?.providerSessionId !== native.id ||
+        binding.accountId !== session.accountId ||
+        binding.tool !== session.tool
+      ) {
         this.initialize(session, native.id, "automatic");
         this.cache.delete(id);
         binding = readJSON(this.file(id), null);

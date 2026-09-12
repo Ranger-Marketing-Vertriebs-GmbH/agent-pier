@@ -1,3 +1,9 @@
+import {
+  catalogAccount,
+  catalogMetadata,
+  codexInventory,
+  remoteMarketplace,
+} from "./codex-catalog.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { executePluginCommand } from "./plugin-process.js";
 import fs from "node:fs";
@@ -45,16 +51,19 @@ export class PluginStore {
     this.mutationTimeout = mutationTimeout;
     this.locks = new Set();
     this.reads = new Map();
+    this.readScopes = new Map();
     this.cache = new Map();
     this.processes = new Set();
     this.closed = false;
   }
   isBusy(id) {
     if (this.sharedProfiles) id = this.sharedProfiles.resolve(id);
-    return this.locks.has(id) || this.reads.has(id);
+    return (
+      this.locks.has(id) || [...this.readScopes.values()].some((scope) => scope.id === id)
+    );
   }
-  context(id) {
-    if (this.sharedProfiles) id = this.sharedProfiles.resolve(id);
+  context(id, { catalog = false } = {}) {
+    if (this.sharedProfiles && !catalog) id = this.sharedProfiles.resolve(id);
     const account = this.accounts.get(id);
     const boundary =
       account.kind === "managed" ? path.resolve(this.accounts.dataDir) : this.home;
@@ -92,9 +101,20 @@ export class PluginStore {
           "plugin",
         ]
       : account.tool === "codex"
-        ? ["config.toml", "plugins"]
+        ? ["config.toml", "plugins", ...(catalog ? ["auth.json"] : [])]
         : ["settings.json", "plugins"])
-      safePath(path.join(root, file), boundary);
+      if (
+        catalog &&
+        file === "plugins" &&
+        this.sharedProfiles &&
+        account.kind === "managed" &&
+        fs.lstatSync(path.join(root, file), { throwIfNoEntry: false })?.isSymbolicLink()
+      ) {
+        const expected = path.join(this.home, ".codex", "plugins");
+        safePath(expected, this.home);
+        if (path.resolve(root, fs.readlinkSync(path.join(root, file))) !== expected)
+          throw problem(serverMessages.plugins.linkedConfigReadOnly, 409);
+      } else safePath(path.join(root, file), boundary);
     return {
       id,
       tool: account.tool,
@@ -112,6 +132,7 @@ export class PluginStore {
       available: !!ctx.command,
       reason: ctx.command ? null : serverMessages.common.cliNotInstalled,
       note: serverMessages.plugins.restartRequiredNotice,
+      noteCodes: ["restartRequired"],
       installed: [],
       marketplaces: [],
       catalog: [],
@@ -202,7 +223,12 @@ export class PluginStore {
     }
     return { files, installed: [...entries.values()] };
   }
-  async inventory(ctx) {
+  inventory(ctx, selected = ctx) {
+    return ctx.tool === "codex"
+      ? codexInventory(this, ctx, selected)
+      : this.nativeInventory(ctx);
+  }
+  async nativeInventory(ctx) {
     const result = this.empty(ctx);
     if (!ctx.command) return result;
     if (ctx.tool === "opencode") {
@@ -210,6 +236,7 @@ export class PluginStore {
       const help = await this.execute(ctx, ["--help"]);
       result.capabilities.install = /plugin\s+<module>/.test(help);
       result.note = serverMessages.plugins.openCodeConfigurationNotice;
+      result.noteCodes = ["openCodeConfiguration"];
       if (!result.capabilities.install)
         result.reason = serverMessages.plugins.openCodeInstallerUnavailable;
       return result;
@@ -237,36 +264,48 @@ export class PluginStore {
     if (ctx.tool === "claude")
       result.note += serverMessages.plugins.claudeMarketplaceRemovalNotice;
     else result.note += serverMessages.plugins.codexActivationNotice;
+    result.noteCodes.push(
+      ctx.tool === "claude" ? "claudeMarketplaceRemoval" : "codexActivation",
+    );
     return result;
   }
-  async list(id) {
+  async list(id, selectedId) {
     if (this.sharedProfiles) id = this.sharedProfiles.resolve(id);
     if (this.closed) throw problem(serverMessages.plugins.serviceStopping, 503);
     const ctx = this.context(id);
-    if (this.locks.has(id))
-      return { ...(this.cache.get(id) || this.empty(ctx)), busy: true };
-    if (this.reads.has(id)) return this.reads.get(id);
-    const reading = this.inventory(ctx)
+    const selected = catalogAccount(this, ctx, selectedId);
+    const key = selected ? JSON.stringify([id, selected.id]) : id;
+    const empty = () => ({
+      ...this.empty(ctx),
+      ...(selected ? catalogMetadata(this, selected) : {}),
+    });
+    if (this.locks.has(id)) return { ...(this.cache.get(key) || empty()), busy: true };
+    if (this.reads.has(key)) return this.reads.get(key);
+    this.readScopes.set(key, { id, catalogId: selected?.id });
+    const reading = this.inventory(ctx, selected || ctx)
       .then((result) => {
         this.accounts.get(id);
-        this.cache.set(id, result);
+        if (selected) this.accounts.get(selected.id);
+        this.cache.set(key, result);
         return { ...result, busy: this.locks.has(id) };
       })
       .catch((error) => {
-        // Unsupported native versions remain readable in the UI with truthful capabilities.
         if (error.status === 409 || error.status === 502) {
           const result = {
-            ...this.empty(ctx),
+            ...empty(),
             available: false,
             reason: redacted(error.message, ctx.env),
           };
-          this.cache.set(id, result);
+          this.cache.set(key, result);
           return result;
         }
         throw error;
       })
-      .finally(() => this.reads.delete(id));
-    this.reads.set(id, reading);
+      .finally(() => {
+        this.reads.delete(key);
+        this.readScopes.delete(key);
+      });
+    this.reads.set(key, reading);
     return reading;
   }
   validate(input, tool) {
@@ -303,17 +342,28 @@ export class PluginStore {
     if (this.closed) throw problem(serverMessages.plugins.serviceStopping, 503);
     const account = this.accounts.get(id);
     const value = this.validate(input, account.tool);
+    const selectedId = input.catalogAccountId;
+    const remote =
+      account.tool === "codex" && value.pluginId?.endsWith(`@${remoteMarketplace}`);
+    // Validate selection before acquiring ownership or changing shared configuration.
+    catalogAccount(this, this.context(id), selectedId);
     if (this.locks.has(id))
       throw problem(serverMessages.plugins.operationAlreadyRunning, 409);
     this.locks.add(id);
     this.sharedProfiles?.busy.add(id);
     try {
-      this.sharedProfiles?.migrate(id, { allowBusy: true });
-      if (this.reads.has(id)) await this.reads.get(id);
+      if (!remote) this.sharedProfiles?.migrate(id, { allowBusy: true });
+      await Promise.all(
+        [...this.readScopes]
+          .filter(([, scope]) => scope.id === id)
+          .map(([key]) => this.reads.get(key)),
+      );
       const ctx = this.context(id);
+      const selected = catalogAccount(this, ctx, selectedId);
       if (!ctx.command) throw problem(serverMessages.common.cliNotInstalled, 409);
-      const list = await this.inventory(ctx);
-      this.cache.set(id, list);
+      const list = await this.inventory(ctx, selected || ctx);
+      const execution = remote ? selected : ctx;
+      this.cache.set(selected ? JSON.stringify([id, selected.id]) : id, list);
       this.accounts.get(id);
       const { action, pluginId, source, marketplace } = value;
       if (action.startsWith("marketplace-")) {
@@ -375,10 +425,11 @@ export class PluginStore {
             "user",
             ...(action === "remove" ? ["--keep-data"] : []),
           ];
-        await this.execute(ctx, args, true);
+        await this.execute(execution, args, true);
       }
       this.accounts.get(id);
-      this.cache.delete(id);
+      if (selected) this.accounts.get(selected.id);
+      this.cache.clear();
       return {
         ok: true,
         message: serverMessages.plugins.configurationUpdated,

@@ -1,7 +1,7 @@
 export const sharingCopy = {
   cli: "CLI",
   description:
-    "MCPs, Plugins, Skills und Agenten gelten gemeinsam für alle Konten dieser CLI. Anmeldedaten bleiben getrennt. Änderungen werden beim nächsten Sitzungsstart geladen.",
+    "Lokale Erweiterungen gelten gemeinsam für alle Konten dieser CLI. Plugins aus dem Codex-Standard-Marketplace und Anmeldedaten bleiben kontobezogen. Änderungen werden beim nächsten Sitzungsstart geladen.",
   import: "Vorhandene Kontokonfigurationen übernehmen",
   imported: "Vorhandene Erweiterungen wurden zusammengeführt.",
   conflicts:

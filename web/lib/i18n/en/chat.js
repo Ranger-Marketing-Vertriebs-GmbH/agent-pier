@@ -29,6 +29,10 @@ export const chatImagesCopy = {
   chatImagesAriaLabel: "Images in this message",
 };
 export const chatMessageCopy = {
+  agentWorking: "Agent is working",
+  agentActivity: "Agent activity",
+  toolCount: (count) => `${count} ${count === 1 ? "call" : "calls"}`,
+  toolFailures: (count) => `${count} failed`,
   chatToolLabel: "Tool activity",
   ariaLabel: "Your message",
   subtle: "[Image",
@@ -88,10 +92,14 @@ export const chatDeliveryCopy = {
   pending: "Handoff in progress …",
   "handed-off": "Handed off to session · processing not yet confirmed",
   uncertain: "Delivery uncertain",
-  rejected: "Not handed off",
+  rejected: "Not delivered",
   uncertainHint:
-    "Check the conversation or terminal first. Sending again may cause a duplicate.",
+    "Redeliver first checks the terminal input. If the outcome remains unclear, nothing is written again.",
   disconnected: "No confirmation received. The message remains saved.",
+  recovering: "Checking …",
+  redeliver: "Deliver again",
+  inspect: "Inspect handoff",
+  openTerminal: "Open TUI",
   retry: "Retry handoff",
   check: "Check delivery",
   restore: "Restore as draft after checking",

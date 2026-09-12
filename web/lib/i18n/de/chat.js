@@ -29,6 +29,10 @@ export const chatImagesCopy = {
   chatImagesAriaLabel: "Bilder in der Nachricht",
 };
 export const chatMessageCopy = {
+  agentWorking: "Agent arbeitet",
+  agentActivity: "Agent-Aktivität",
+  toolCount: (count) => `${count} ${count === 1 ? "Aufruf" : "Aufrufe"}`,
+  toolFailures: (count) => `${count} fehlgeschlagen`,
   chatToolLabel: "Tool-Aktivität",
   ariaLabel: "Deine Nachricht",
   subtle: "[Bild",
@@ -88,10 +92,14 @@ export const chatDeliveryCopy = {
   pending: "Übergabe läuft …",
   "handed-off": "An Sitzung übergeben · Bearbeitungsbeginn noch nicht bestätigt",
   uncertain: "Zustellung unklar",
-  rejected: "Nicht übergeben",
+  rejected: "Nicht zugestellt",
   uncertainHint:
-    "Prüfe zuerst den Verlauf oder das Terminal. Erneutes Senden kann doppelt ankommen.",
+    "Neu zustellen prüft zuerst die TUI-Eingabe. Bei unklarem Zustand wird nichts erneut geschrieben.",
   disconnected: "Keine Bestätigung erhalten. Die Nachricht bleibt gespeichert.",
+  recovering: "Wird geprüft …",
+  redeliver: "Neu zustellen",
+  inspect: "Übergabe prüfen",
+  openTerminal: "TUI öffnen",
   retry: "Übergabe erneut versuchen",
   check: "Zustellung prüfen",
   restore: "Nach Prüfung als Entwurf übernehmen",

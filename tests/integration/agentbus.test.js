@@ -403,6 +403,11 @@ test("OpenCode hook attaches exact per-call identity and never redirects a delet
   await hooks.event({
     event: { type: "session.created", properties: { info: { id: "ses_two" } } },
   });
+  const output = { system: [] };
+  await hooks["experimental.chat.system.transform"]({ sessionID: "ses_one" }, output);
+  assert.match(output.system.join("\n"), /nur nach einem Nachrichtenhinweis/);
+  assert.match(output.system.join("\n"), /nicht periodisch/);
+  assert.doesNotMatch(output.system.join("\n"), /neue Nachricht\(en\)/);
   const one = { args: { __agentpierSession: "ses_two" } },
     two = { args: {} };
   const nativeArgs = one.args;
@@ -435,6 +440,66 @@ test("OpenCode hook attaches exact per-call identity and never redirects a delet
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(prompts, []);
 });
+
+for (const tool of ["codex", "claude"]) {
+  test(`${tool} hooks request inbox reads only for pending messages or explicit requests`, async (t) => {
+    const ctx = setup(t);
+    const launch = await prepare(ctx, `guidance-${tool}`, tool);
+    const busContext = context(launch.env);
+    const runHook = (event) =>
+      new Promise((resolve, reject) => {
+        const child = spawn(
+          process.execPath,
+          ["vendor/agentbus/agentpier/hook.js", event],
+          {
+            env: { PATH: process.env.PATH, ...launch.env },
+            stdio: ["pipe", "pipe", "pipe"],
+          },
+        );
+        let stdout = "",
+          stderr = "";
+        child.stdout.on("data", (part) => {
+          stdout += part;
+        });
+        child.stderr.on("data", (part) => {
+          stderr += part;
+        });
+        child.on("error", reject);
+        child.on("close", (code) => {
+          // Node 22 reports an experimental SQLite warning even on success.
+          // The hook catches its own errors and reports them with this prefix.
+          if (code !== 0 || /^agentbus:/m.test(stderr))
+            reject(new Error(`Hook failed: ${code} ${stderr}`));
+          else resolve(stdout);
+        });
+        child.stdin.end(JSON.stringify({ session_id: "guidance-native" }));
+      });
+    const intro = JSON.parse(await runHook("SessionStart")).hookSpecificOutput
+      .additionalContext;
+    assert.match(intro, /nur nach einem Nachrichtenhinweis/);
+    assert.match(intro, /nicht periodisch/);
+    assert.doesNotMatch(intro, /Prüfe inbox_read vor/);
+    assert.equal(await runHook("UserPromptSubmit"), "");
+    const peer = trustedPeers(busContext.h)[0];
+    enqueue(
+      busContext.h,
+      peer.key,
+      createMessage({
+        from: peer,
+        to: peer.key,
+        toName: peer.name,
+        text: "Synthetic pending message",
+      }),
+    );
+    assert.match(await runHook("UserPromptSubmit"), /1 neue Nachricht/);
+    const reader = toolsFor(busContext).find((item) => item.name === "inbox_read");
+    assert.match(reader.description, /nicht periodisch/);
+    assert.match(await reader.run({}), /Synthetic pending message/);
+    assert.equal(await runHook("UserPromptSubmit"), "");
+    fs.unlinkSync(path.join(busContext.h, "launches", `guidance-${tool}.json`));
+    await assert.rejects(runHook("UserPromptSubmit"), /Hook failed: 0.*agentbus:/s);
+  });
+}
 test("disabled and login launches do not create bus state; canonical project directories isolate buses", async (t) => {
   const ctx = setup(t);
   const disabled = await prepare(ctx, "off", "codex", { enabled: false });

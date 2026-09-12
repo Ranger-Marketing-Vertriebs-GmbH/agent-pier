@@ -12,6 +12,14 @@ Shell- und Login-Sitzungen erhalten diese Zugangsdaten nicht. Sitzungen, die ber
 
 ## Verwendung
 
+### Commit-Identität pro Token
+
+Ein Token-Profil kann optional einen **Commit-Namen** und eine **Commit-E-Mail** speichern. Beide Felder gemeinsam ausfüllen oder leeren. Das sind die Git-Angaben für Autor und Committer; der GitHub-Account und seine Rechte werden weiterhin allein vom Token bestimmt.
+
+Beim Start oder Neuladen einer Coding-Sitzung verwendet AgentPier die Identität des dem Projekt zugeordneten Zugangs. Ohne Projektzuordnung wird sie nur übernommen, wenn genau ein Host-Zugang ausgewählt ist. Bei mehreren Hosts bleibt die vorhandene Git-Identität erhalten, statt einen Zugang willkürlich auszuwählen. Leere Identitätsfelder lassen die vorhandenen Git-Einstellungen ebenfalls unverändert.
+
+Die Identität gilt für Git-Prozesse innerhalb dieser Sitzung, auch nach einem Verzeichniswechsel. Für Arbeit unter einer anderen Identität eine Sitzung im entsprechend zugeordneten Projekt starten. Globale und lokale Git-Konfigurationsdateien werden nicht verändert. Änderungen an Name oder E-Mail werden beim nächsten Sitzungsstart oder Neuladen übernommen; reine Token-Rotation erhält die gespeicherte Identität.
+
 Im Projekt kann der Agent beispielsweise Folgendes verwenden:
 
 ```sh

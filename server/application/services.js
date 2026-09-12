@@ -130,8 +130,6 @@ export async function createServices(config) {
     sessions,
     requests,
     models,
-    bindings,
-    history,
   });
   const operations = new Operations({
     config,

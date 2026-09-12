@@ -9,6 +9,7 @@ export default function ChatDeliveryStatus({
   session,
   blocked,
   openFile,
+  openTerminal,
   position = "current",
 }) {
   const items = [...delivery.recent, ...(delivery.outbox ? [delivery.outbox] : [])];
@@ -16,7 +17,12 @@ export default function ChatDeliveryStatus({
   const notices = deliveryNotices(delivery, messages, position);
   const content = notices.map((item) => {
     const pending = item.id === delivery.outbox?.id;
-    const status = pending && delivery.sending ? "sending" : item.status;
+    const recovering = item.id === delivery.recovering;
+    const status = recovering
+      ? "recovering"
+      : pending && delivery.sending
+        ? "sending"
+        : item.status;
     return (
       <div className="chat-delivery-message" key={item.id}>
         {visible.has(item.id) && (
@@ -31,11 +37,14 @@ export default function ChatDeliveryStatus({
         <div className="chat-delivery-status" role="status" aria-label={copy.ariaLabel}>
           <span>{copy[status] || copy.checking}</span>
           {item.error && <span role="alert">{item.error}</span>}
+          {item.recovery?.action === "blocked" && (
+            <span role="alert">{item.recovery.reason}</span>
+          )}
         </div>
-        {pending && !delivery.sending && (
+        {!delivery.sending && (
           <div className="chat-delivery-actions">
             {item.status === "uncertain" && <p>{copy.uncertainHint}</p>}
-            {item.status === "absent" && (
+            {pending && item.status === "absent" && (
               <button
                 type="button"
                 className="button"
@@ -45,15 +54,36 @@ export default function ChatDeliveryStatus({
                 {copy.retry}
               </button>
             )}
-            {["waiting", "checking", "pending", "uncertain"].includes(item.status) && (
+            {pending && ["waiting", "checking", "pending"].includes(item.status) && (
               <button type="button" className="button" onClick={delivery.check}>
                 {copy.check}
               </button>
             )}
-            {["uncertain", "rejected"].includes(item.status) && (
+            {["uncertain", "rejected", "handed-off"].includes(item.status) && (
               <button
                 type="button"
                 className="button"
+                disabled={blocked || Boolean(delivery.recovering)}
+                onClick={() =>
+                  delivery.recover(
+                    item.id,
+                    item.status === "handed-off" ? "check" : "retry",
+                  )
+                }
+              >
+                {item.status === "handed-off" ? copy.inspect : copy.redeliver}
+              </button>
+            )}
+            {item.recovery?.action === "blocked" && (
+              <button type="button" className="button" onClick={openTerminal}>
+                {copy.openTerminal}
+              </button>
+            )}
+            {pending && ["uncertain", "rejected"].includes(item.status) && (
+              <button
+                type="button"
+                className="button"
+                disabled={Boolean(delivery.recovering)}
                 onClick={() => delivery.draft.restore(item.id)}
               >
                 {item.status === "uncertain" ? copy.restore : copy.edit}
@@ -61,7 +91,7 @@ export default function ChatDeliveryStatus({
             )}
           </div>
         )}
-        {!pending && (
+        {!pending && item.status === "handed-off" && !recovering && (
           <button
             type="button"
             className="chat-delivery-dismiss"

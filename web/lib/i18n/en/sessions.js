@@ -1,4 +1,13 @@
 export const launchDialogCopy = {
+  sessionSection: "Session",
+  executionSection: "Execution",
+  extensions: "Extensions",
+  busEnabled: "AgentBus on",
+  busDisabled: "AgentBus off",
+  toolsEnabled: "AgentPier tools on",
+  toolsDisabled: "AgentPier tools off",
+  sshSummary: (count) => (count ? `${count} SSH connections` : "No SSH"),
+
   taskProfile: "Task profile",
   noTaskProfile: "No task profile",
   profileUnavailable: "This task profile is unavailable. Please choose another profile.",

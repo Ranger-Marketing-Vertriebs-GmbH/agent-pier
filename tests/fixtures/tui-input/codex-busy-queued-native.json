@@ -1,0 +1,9 @@
+{
+  "raw": "\u001b[2m╭─────────────────────────────────────╮\u001b[0m\n\u001b[2m│ >_ \u001b[0;1mOpenAI Codex\u001b[0;2m (v0.153.4)          │\u001b[0m\n\u001b[2m│                                     │\u001b[0m\n\u001b[2m│ model:     \u001b[0mprobe\u001b[2m   \u001b[0m\u001b[38;5;6m/model\u001b[2m\u001b[39m to change │\u001b[0m\n\u001b[2m│ directory: \u001b[0m~/project\u001b[2m                │\u001b[0m\n\u001b[2m╰─────────────────────────────────────╯\u001b[0m\n\n  \u001b[1mTip:\u001b[0m Start a fresh idea with /new; the previous session stays in history.\n\n\n\u001b[1;2m› \u001b[0mAP_PROBE_HOLD\n\n\n\u001b[38;5;3m⚠ Model metadata for `probe` not found. Defaulting to fallback metadata; this can degrade performance and cause issues.\u001b[39m\n\n\u001b[1m\u001b[38;2;128;128;128m•\u001b[0m \u001b[1m\u001b[38;2;128;128;128mWorkin\u001b[38;2;138;138;138mg\u001b[0m \u001b[2m(1s • esc to interrupt)\u001b[0m\n\n\u001b[2m• \u001b[0mMessages to be submitted after next tool call\u001b[2m (press esc to interrupt and send immediately)\u001b[0m\n\u001b[2m  ↳ AP_PROBE_SECOND\u001b[0m\n\n\u001b[1m›\u001b[0m \u001b[2mAsk Codex to do anything\u001b[0m\n\n  \u001b[38;2;246;226;183mprobe default\u001b[2m\u001b[39m · \u001b[0m\u001b[38;2;171;223;167m~/project\u001b[39m\n\n\n\n\n\n\n\n\n\n\n\n\n",
+  "pane": {
+    "cursorX": 2,
+    "cursorY": 20,
+    "width": 120,
+    "height": 35
+  }
+}

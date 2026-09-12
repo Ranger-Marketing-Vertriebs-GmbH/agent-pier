@@ -11,7 +11,7 @@ import { providerNames } from "./presentation.js";
 import React, { useState } from "react";
 import ModelControl from "../models/ModelControl.jsx";
 import Tasks from "./TaskPanel.jsx";
-import Message from "./ChatMessage.jsx";
+import ChatTranscript from "./ChatTranscript.jsx";
 import ConversationPicker from "./ConversationPicker.jsx";
 import ChatComposer from "./ChatComposer.jsx";
 import ChatObservability from "./ChatObservability.jsx";
@@ -194,6 +194,7 @@ export default function ChatView({
           <ChatDeliveryStatus
             position="earlier"
             openFile={openFile}
+            openTerminal={openTerminal}
             delivery={delivery}
             messages={data?.messages || []}
             session={session}
@@ -204,18 +205,18 @@ export default function ChatView({
               session.pipeline?.headless
             }
           />
-          {data?.messages?.map((message) => (
-            <Message
-              key={message.id}
-              message={message}
-              tool={session.tool}
-              sessionId={session.id}
-              cwd={session.cwd}
-              openFile={openFile}
-            />
-          ))}
+          <ChatTranscript
+            key={`${session.id}:${data?.providerSessionId}:${data?.history?.generation}`}
+            messages={data?.messages || []}
+            live={session.status === "running" && !data?.observability?.stale}
+            tool={session.tool}
+            sessionId={session.id}
+            cwd={session.cwd}
+            openFile={openFile}
+          />
           <ChatDeliveryStatus
             openFile={openFile}
+            openTerminal={openTerminal}
             delivery={delivery}
             messages={data?.messages || []}
             session={session}

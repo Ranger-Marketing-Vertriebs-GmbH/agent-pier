@@ -1,6 +1,7 @@
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { pluginCatalogCopy as copy } from "../../lib/i18n/messages/plugins.js";
 import React from "react";
+import { marketplaceLabel } from "./marketplace-label.js";
 import { Pagination } from "../../components/Pagination.jsx";
 export default function PluginCatalog({
   catalog,
@@ -39,7 +40,7 @@ export default function PluginCatalog({
             <option value="">{copy.extensionFieldsOption}</option>
             {data.marketplaces.map((m) => (
               <option key={m.name} value={m.name}>
-                {m.name}
+                {marketplaceLabel(m)}
               </option>
             ))}
           </select>
@@ -52,7 +53,13 @@ export default function PluginCatalog({
               <div className="extension-details">
                 <h3>{p.name}</h3>
                 <p>{p.description}</p>
-                <span className="extension-scope">{p.marketplace}</span>
+                <span className="extension-scope">
+                  {marketplaceLabel(
+                    data.marketplaces.find((item) => item.name === p.marketplace) || {
+                      name: p.marketplace,
+                    },
+                  )}
+                </span>
               </div>
               <button
                 className="button primary compact"

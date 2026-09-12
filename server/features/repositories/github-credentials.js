@@ -1,3 +1,4 @@
+import { selectedCommitIdentity } from "./commit-identity.js";
 import { isMainModule } from "../../lib/is-main-module.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { shellQuote as quote } from "../../lib/launch-serialization.js";
@@ -174,6 +175,19 @@ export class GithubCredentials {
           env[`GIT_CONFIG_VALUE_${count}`] = value;
           count++;
         }
+      const identity = selectedCommitIdentity(this.repositories, canonical, selections);
+      if (identity) {
+        for (const [key, value] of [
+          ["user.name", identity.name],
+          ["user.email", identity.email],
+        ]) {
+          env[`GIT_CONFIG_KEY_${count}`] = key;
+          env[`GIT_CONFIG_VALUE_${count}`] = value;
+          count++;
+        }
+        env.GIT_AUTHOR_NAME = env.GIT_COMMITTER_NAME = identity.name;
+        env.GIT_AUTHOR_EMAIL = env.GIT_COMMITTER_EMAIL = identity.email;
+      }
       env.GIT_CONFIG_COUNT = String(count);
     }
     return { ...launch, env };

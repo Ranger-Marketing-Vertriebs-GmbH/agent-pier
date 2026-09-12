@@ -75,6 +75,9 @@ export function sessionsRoutes(services) {
       await chatDelivery.status(req.params.id, req.params.deliveryId, req.query.scope),
     ),
   );
+  router.post("/sessions/:id/input/:deliveryId/recovery", async (req, res) => {
+    res.json(await chatDelivery.recover(req.params.id, req.params.deliveryId, req.body));
+  });
   router.post("/sessions/:id/input", async (req, res) => {
     if (
       typeof req.body?.text !== "string" ||

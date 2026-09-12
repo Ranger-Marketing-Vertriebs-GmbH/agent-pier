@@ -8,6 +8,8 @@ export const installedPluginsCopy = {
   extensionEmpty: "No matching installed plugins.",
 };
 export const marketplacesCopy = {
+  defaultMarketplace: "Codex default marketplace",
+  builtinDescription: "Provided by Codex. Choose plugins from the catalog.",
   marketplacesHeading: "Marketplaces",
   sectionHeadingLabel: " sources",
   buttonOnClick: (value1) => `${value1} was updated.`,
@@ -35,6 +37,25 @@ export const pluginsPageCopy = {
   pluginsPageDescription: "Discover plugins and manage them for your CLI profile.",
 };
 export const profilePluginsCopy = {
+  catalogReasons: {
+    empty:
+      "No default plugins are available for this account. Choose an account signed in to Codex and reload.",
+    unavailable:
+      "The default catalog for the selected account could not be loaded. Local plugins remain available.",
+  },
+  notes: {
+    restartRequired:
+      "Changes apply to new CLI sessions. Sessions already running remain unchanged.",
+    codexActivation:
+      "Enabling and updating individual Codex plugins is unavailable here; /plugins provides native activation.",
+    claudeMarketplaceRemoval:
+      "Removing a marketplace uninstalls its plugins in Claude. Removing an individual plugin preserves its saved data.",
+    openCodeConfiguration:
+      "OpenCode uses npm packages and local plugins, without managed marketplaces. Server and TUI configuration are included. Changes load in new CLI sessions.",
+  },
+  catalogAccount: "Marketplace account",
+  catalogAccountDescription:
+    "Choose an account signed in to Codex. Plugins from the default marketplace are installed for this account.",
   pluginsLoading: "Loading plugins and marketplaces …",
   extensionNotice: "CLI is applying the change …",
   confirmPluginRemoval: (value1) => `Remove plugin “${value1}” from this profile?`,

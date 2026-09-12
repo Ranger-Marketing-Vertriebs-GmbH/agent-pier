@@ -11,6 +11,12 @@ export default function CredentialList({ credentials, cloning, setModal }) {
             <div className="repository-details">
               <h3>{credential.name}</h3>
               <p>{credential.host}</p>
+              {credential.commitIdentity && (
+                <p>
+                  {credential.commitIdentity.name} &lt;{credential.commitIdentity.email}
+                  &gt;
+                </p>
+              )}
               <span className="repository-secret-state">
                 {credential.hasSecret ? copy.tokenSaved : copy.tokenMissing}
               </span>

@@ -7,6 +7,7 @@ export default function Modal({
   close,
   wide = false,
   className = "",
+  style,
   closeDisabled = false,
   dismissOnBackdrop = false,
   closeIcon,
@@ -21,6 +22,7 @@ export default function Modal({
   return (
     <dialog
       ref={ref}
+      style={style}
       className={[wide ? "wide" : "", className].filter(Boolean).join(" ")}
       onCancel={(e) => {
         e.preventDefault();

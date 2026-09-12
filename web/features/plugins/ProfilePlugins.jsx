@@ -6,8 +6,12 @@ import useProfilePlugins from "./useProfilePlugins.js";
 import InstalledPlugins from "./InstalledPlugins.jsx";
 import Marketplaces from "./Marketplaces.jsx";
 import PluginCatalog from "./PluginCatalog.jsx";
+import { catalogReason, pluginNote } from "./plugin-messages.js";
 export default function ProfilePlugins({ account, request, setParentBusy }) {
   const {
+    catalogAccounts,
+    catalogAccountId,
+    selectCatalogAccount,
     error,
     notice,
     loading,
@@ -47,6 +51,32 @@ export default function ProfilePlugins({ account, request, setParentBusy }) {
           {notice}
         </p>
       )}
+      {account.tool === "codex" && catalogAccounts.length > 0 && (
+        <div className="plugin-catalog-account">
+          <label className="extension-profile">
+            {copy.catalogAccount}
+            <select
+              value={catalogAccountId}
+              aria-label={copy.catalogAccount}
+              disabled={busy || Boolean(data?.busy)}
+              onChange={(event) => selectCatalogAccount(event.target.value)}
+              aria-describedby="catalog-account-description"
+            >
+              {catalogAccounts.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="field-description" id="catalog-account-description">
+            {copy.catalogAccountDescription}
+          </p>
+          {data && catalogReason(data) && (
+            <p className="extension-scope-note">{catalogReason(data)}</p>
+          )}
+        </div>
+      )}
       {loading ? (
         <p className="loading" role="status">
           {copy.pluginsLoading}
@@ -58,7 +88,7 @@ export default function ProfilePlugins({ account, request, setParentBusy }) {
       ) : (
         <>
           <div className="plugin-topbar">
-            <p className="field-description">{data.note}</p>
+            <p className="field-description">{pluginNote(data)}</p>
             <button className="button secondary compact" disabled={busy} onClick={load}>
               {commonCopy.reloadLatest}
             </button>
