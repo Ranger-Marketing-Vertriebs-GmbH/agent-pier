@@ -293,3 +293,40 @@ test("Claude absorbed mid-turn messages remove the handoff notice without anothe
   await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
   expect(state.inputs).toHaveLength(1);
 });
+
+test("Claude image chips reconcile the uploaded path without a duplicate pending message", async ({
+  page,
+}) => {
+  const { normalizeClaude } =
+    await import("../../server/features/chat/history-parsers.js");
+  const state = await fixture(page);
+  const path = "/fixture/uploads/screenshot.png";
+  await input(page).fill(path);
+  await send(page).click();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(1);
+  state.messages = normalizeClaude([
+    {
+      type: "user",
+      uuid: "image",
+      promptId: "prompt",
+      origin: { kind: "human" },
+      imagePasteIds: [17],
+      message: { content: [{ type: "text", text: "[Image #17]" }, { type: "image" }] },
+    },
+    {
+      type: "user",
+      uuid: "source",
+      promptId: "prompt",
+      isMeta: true,
+      turnCompanion: true,
+      message: { content: [{ type: "text", text: `[Image: source: ${path}]` }] },
+    },
+  ]).messages;
+  await state.publish();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+  await expect(page.locator(".chat-message.user")).toHaveCount(1);
+  await expect(page.locator(".chat-message.user")).toContainText(path);
+  await page.reload();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+  expect(state.inputs).toHaveLength(1);
+});

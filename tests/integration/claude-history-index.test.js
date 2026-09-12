@@ -313,3 +313,59 @@ test("absorbed human messages survive provisional and indexed pagination and inc
     "human-65",
   );
 });
+
+test("image companions stay with their prompt across indexed pages", async (t) => {
+  const prompt = {
+    type: "user",
+    uuid: "image-user",
+    promptId: "image-prompt",
+    origin: { kind: "human" },
+    imagePasteIds: [17],
+    message: { content: [{ type: "text", text: "[Image #17]" }, { type: "image" }] },
+  };
+  const companion = {
+    type: "user",
+    uuid: "source",
+    promptId: "image-prompt",
+    isMeta: true,
+    turnCompanion: true,
+    message: { content: [{ type: "text", text: "[Image: source: /uploads/image.png]" }] },
+  };
+  const f = await fixture(t, [
+    { ...prompt, cwd: "/fixture", sessionId: "native" },
+    message("between", "response"),
+    companion,
+    ...Array.from({ length: 50 }, (_, i) => message(`last-${i}`, "done")),
+  ]);
+  const { readClaudePage } =
+    await import("../../server/features/chat/claude-history-page.js");
+  let state;
+  const provisional = [];
+  do {
+    const page = await readClaudePage(
+      { claudeFile: async () => f.file },
+      { cwd: "/fixture" },
+      "native",
+      state,
+    );
+    provisional.push(...page.messages);
+    state = page.next;
+  } while (state);
+  assert.deepEqual(
+    provisional.filter((row) => row.role === "user").map((row) => row.text),
+    ["/uploads/image.png"],
+  );
+  const identity = await f.identity();
+  await f.index.refresh(identity);
+  let before;
+  const messages = [];
+  do {
+    const page = await f.index.page({ identity, before, limit: 1 });
+    messages.push(...normalizeClaude(page.records).messages);
+    before = page.nextBefore;
+  } while (before !== null);
+  assert.deepEqual(
+    messages.filter((row) => row.role === "user").map((row) => row.text),
+    ["/uploads/image.png"],
+  );
+});

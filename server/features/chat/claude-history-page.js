@@ -1,3 +1,4 @@
+import { claudeHistoryGroup, claudeImageSources } from "./claude-image-history.js";
 import { claudeConversationRecord } from "./claude-conversation-record.js";
 import { normalizeClaude } from "./history-parsers.js";
 import { observeClaude } from "./claude-observability.js";
@@ -6,7 +7,7 @@ import { problem } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 
 const LIMIT = 50;
-const key = (record) => record.message?.id || record.uuid;
+const key = claudeHistoryGroup;
 
 export async function readClaudePage(history, session, id, state) {
   let file;
@@ -28,13 +29,15 @@ export async function readClaudePage(history, session, id, state) {
       return split(state.remaining, state.end, reader.identity);
     }
     const records = [],
-      pendingResults = new Set();
+      pendingResults = new Set(),
+      pendingImages = new Set();
     let end = state?.end ?? reader.identity.size;
     let stopped = false;
     let oldestKey,
       content = { messages: [], tasks: [] };
     for await (const item of reader.backwards(end, Boolean(state))) {
       const record = claudeConversationRecord(item.record);
+      if (claudeImageSources(record)) pendingImages.add(key(record));
       if (!record.uuid && !record.message?.id) record.uuid = `claude-byte:${item.start}`;
       const visible =
         ["assistant", "user"].includes(record.type) &&
@@ -47,6 +50,7 @@ export async function readClaudePage(history, session, id, state) {
       if (
         visible &&
         content.messages.length >= LIMIT &&
+        !pendingImages.size &&
         (!pendingResults.size || content.messages.length >= LIMIT * 2) &&
         key(record) !== oldestKey
       ) {
@@ -56,6 +60,7 @@ export async function readClaudePage(history, session, id, state) {
       records.push(record);
       end = item.start;
       if (visible) {
+        pendingImages.delete(key(record));
         oldestKey = key(record);
         for (const block of Array.isArray(record.message?.content)
           ? record.message.content
