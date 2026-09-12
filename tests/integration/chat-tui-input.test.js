@@ -143,3 +143,57 @@ test("HTTP disconnect after submit never repeats terminal bytes on replay", asyn
   assert.equal((await x.post(input)).status, "handed-off");
   assert.deepEqual(await x.recorder.readBytes(), expected);
 });
+
+test("Claude plain empty prompt accepts delivery and retries a pre-paste rejection exactly once", async (t) => {
+  const screen = await chatTuiScreen("claude");
+  const rows = screen.raw.split("\n");
+  rows[screen.pane.cursorY] = "\x1b[39m❯ ";
+  screen.raw = rows.join("\n");
+  const x = await fixture(t, "claude", screen);
+  const input = x.body("Synthetic multiline message\nContinue the fixture");
+  assert.equal((await x.post(input)).status, "handed-off");
+  const frame = `\x1b[200~${input.text}\x1b[201~\r`;
+  await x.recorder.waitForText(frame);
+  await x.post(input);
+  assert.deepEqual(await x.recorder.readBytes(), Buffer.from(frame));
+
+  const rejected = x.body("Retry the synthetic message");
+  const generation = await x.f.application.sessions.withChatInput(
+    x.session.id,
+    async (tx) => tx.recoveryGeneration,
+  );
+  const delivery = x.f.application.chatDelivery;
+  delivery.write(delivery.file(x.session.id, rejected.deliveryId), {
+    version: 1,
+    deliveryId: rejected.deliveryId,
+    attemptId: rejected.deliveryId,
+    scope: x.scope,
+    hash: createHash("sha256")
+      .update(JSON.stringify([rejected.text, true]))
+      .digest("hex"),
+    status: "rejected",
+    journal: { phase: "reserved", generation },
+  });
+  const body = {
+    attemptId: randomUUID(),
+    expectedAttemptId: rejected.deliveryId,
+    deliveryScope: x.scope,
+    text: rejected.text,
+    mode: "retry",
+  };
+  const recover = async () => {
+    const response = await x.f.request(`${x.endpoint}/${rejected.deliveryId}/recovery`, {
+      method: "POST",
+      body,
+    });
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  const result = await recover();
+  assert.equal(result.status, "handed-off");
+  assert.equal(result.recovery.action, "resent");
+  const expected = frame + `\x1b[200~${rejected.text}\x1b[201~\r`;
+  await x.recorder.waitForText(expected);
+  assert.deepEqual(await recover(), result);
+  assert.deepEqual(await x.recorder.readBytes(), Buffer.from(expected));
+});
