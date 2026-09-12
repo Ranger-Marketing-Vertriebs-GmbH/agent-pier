@@ -19,6 +19,7 @@ export default function QuestionDialog({ questions, busy, answer }) {
   if (!question) return null;
   return (
     <form
+      className="native-question-dialog"
       onSubmit={(event) => {
         event.preventDefault();
         if (!questionAnswers([question], drafts)) {
@@ -47,16 +48,22 @@ export default function QuestionDialog({ questions, busy, answer }) {
       >
         {copy.progress(step + 1, questions.length)}
       </p>
-      <QuestionFields
+      <div
+        className="native-question-body"
         key={question.id}
-        question={question}
-        value={drafts[question.id]}
-        disabled={busy}
-        onChange={(value) =>
-          setDrafts((current) => ({ ...current, [question.id]: value }))
-        }
-      />
-      <ErrorMessage error={validation} />
+        onFocusCapture={(event) => event.target.scrollIntoView({ block: "nearest" })}
+      >
+        <QuestionFields
+          key={question.id}
+          question={question}
+          value={drafts[question.id]}
+          disabled={busy}
+          onChange={(value) =>
+            setDrafts((current) => ({ ...current, [question.id]: value }))
+          }
+        />
+        <ErrorMessage error={validation} />
+      </div>
       <div className="native-request-actions native-question-navigation">
         {step > 0 && (
           <button

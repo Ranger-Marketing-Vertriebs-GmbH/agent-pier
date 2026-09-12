@@ -94,6 +94,14 @@ export function operationsRoutes({ operations }) {
   router.get(`${root}/releases/notes/:version`, async (req, res) =>
     res.json(await operations.releases.notes(req.params.version)),
   );
+  router.get(`${root}/releases/cleanup`, (_req, res) =>
+    res.json(operations.releases.cleanupStatus()),
+  );
+  router.post(`${root}/releases/cleanup`, (req, res) =>
+    res
+      .status(202)
+      .json({ job: operations.cleanupReleases(fields(req.body, ["versions"])) }),
+  );
   router.post(`${root}/releases/check`, async (_req, res) =>
     res.json({ plan: await operations.releases.check() }),
   );

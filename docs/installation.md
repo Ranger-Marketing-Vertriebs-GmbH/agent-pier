@@ -134,3 +134,9 @@ tailscale serve --https=8443 off
 ```
 
 Kein `tailscale serve reset` verwenden, wenn andere Freigaben existieren. Projektordner und Profildaten nur entfernen, wenn sie nicht mehr benötigt werden. Alte Installationen unter dem früheren Namen verwenden gegebenenfalls `dev.tuiui.server.plist`; einen solchen Dienst vor dem Umstieg gezielt stoppen, damit nicht zwei Webdienste denselben Port verwenden.
+
+### Alte Versionen entfernen
+
+Unter **Einstellungen → Updates → Alte Versionen aufräumen** können ältere Versionen einzeln oder gesammelt gelöscht werden. Die Bestätigung nennt die konkrete Auswahl. Gelöschte Versionen stehen nicht mehr für einen Rollback bereit.
+
+Die aktive Version, vorbereitete neuere Versionen und Versionen mit laufenden Prozessen bleiben erhalten. Für noch verwendete Versionen müssen zunächst die betreffenden Sitzungen neu geladen oder beendet werden. Kann die bestehende Prozessprüfung über `ps` nicht zuverlässig ausgeführt werden, wird nichts gelöscht. Während einer Aktivierung oder eines Rollbacks ist das Aufräumen gesperrt. Die Funktion verändert weder Sitzungsdaten noch Profile.
