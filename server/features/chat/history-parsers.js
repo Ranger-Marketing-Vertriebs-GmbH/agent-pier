@@ -1,3 +1,4 @@
+import { claudeConversationRecord } from "./claude-conversation-record.js";
 import { createHash } from "node:crypto";
 
 const list = (value) => (Array.isArray(value) ? value : []);
@@ -79,7 +80,8 @@ function claudeTaskCreated(input, output) {
 export function normalizeClaude(records) {
   const snapshots = new Map();
   const results = new Map();
-  list(records).forEach((record, index) => {
+  list(records).forEach((source, index) => {
+    const record = claudeConversationRecord(source);
     if (
       !record ||
       !["user", "assistant"].includes(record.type) ||

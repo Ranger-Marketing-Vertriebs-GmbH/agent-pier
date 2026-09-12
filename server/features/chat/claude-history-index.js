@@ -1,3 +1,4 @@
+import { claudeConversationRecord } from "./claude-conversation-record.js";
 import fs from "node:fs/promises";
 import syncFs from "node:fs";
 import path from "node:path";
@@ -25,7 +26,7 @@ function parse(bytes, offset) {
     const record = JSON.parse(bytes.toString("utf8"));
     if (!record || typeof record !== "object" || Array.isArray(record)) return null;
     if (!record.uuid && !record.message?.id) record.uuid = `claude-byte:${offset}`;
-    return record;
+    return claudeConversationRecord(record);
   } catch {
     return null;
   }

@@ -253,3 +253,63 @@ test("same-size source rewrites rebuild and disposable storage is removed on clo
   await f.index.close();
   await assert.rejects(fs.stat(directory), { code: "ENOENT" });
 });
+
+test("absorbed human messages survive provisional and indexed pagination and incremental appends", async (t) => {
+  const { readClaudePage } =
+    await import("../../server/features/chat/claude-history-page.js");
+  const queued = (i) => ({
+    type: "attachment",
+    uuid: `attachment-${i}`,
+    sessionId: "native",
+    cwd: "/fixture",
+    attachment: {
+      type: "queued_command",
+      commandMode: "prompt",
+      origin: { kind: "human" },
+      source_uuid: `human-${i}`,
+      prompt: `Mid-turn instruction ${i}`,
+    },
+  });
+  const records = Array.from({ length: 65 }, (_, i) => [
+    {
+      type: "queue-operation",
+      operation: "enqueue",
+      content: `Mid-turn instruction ${i}`,
+    },
+    queued(i),
+    message(`reply-${i}`, `Response ${i}`),
+  ]).flat();
+  const f = await fixture(t, records);
+  const identity = await f.identity();
+  const expected = normalizeClaude(records).messages;
+  let provisional = [],
+    state;
+  do {
+    const page = await readClaudePage(
+      { claudeFile: async () => f.file },
+      { cwd: "/fixture" },
+      "native",
+      state,
+    );
+    provisional = [...page.messages, ...provisional];
+    state = page.next;
+  } while (state);
+  assert.deepEqual(provisional, expected);
+  await f.index.refresh(identity);
+  let indexed = [],
+    before;
+  do {
+    const page = await f.index.page({ identity, before, limit: 20 });
+    indexed = [...normalizeClaude(page.records).messages, ...indexed];
+    before = page.nextBefore;
+  } while (before !== null);
+  assert.deepEqual(indexed, expected);
+  await fs.appendFile(f.file, JSON.stringify(queued(65)) + "\n");
+  const updated = await f.identity();
+  await f.index.refresh(updated);
+  assert.equal(
+    normalizeClaude((await f.index.page({ identity: updated })).records).messages.at(-1)
+      .id,
+    "human-65",
+  );
+});
