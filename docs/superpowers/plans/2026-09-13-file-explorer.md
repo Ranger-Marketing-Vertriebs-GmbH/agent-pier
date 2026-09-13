@@ -54,9 +54,15 @@ installierten Produkte: Pfadauflösung, Journal und Konfliktregeln werden gemein
 genutzt. Jeder Task endet mit einem eigenständig prüfbaren Ergebnis. Zunächst den
 Vertrag unten, dann den eigenen Task und seine genannten Vorgänger lesen.
 
-Der aktuelle Worktree enthält ausschließlich Planungsdokumente. **Kein Checkbox-
-Schritt in diesem Plan ist bereits ausgeführt.** Paketversionen wurden am 2026-09-13
-in der npm-Registry gelesen; das ist kein Installations- oder Kompatibilitätstest.
+Die Umsetzung läuft im bestehenden Worktree `.worktrees/file-explorer-design` auf
+`chore/file-explorer-design` für PR #79. Tasks 1 und 2 sind implementiert und unabhängig
+geprüft; der aktuelle Stand enthält außerdem den gemergten Claude-Fix aus PR #78.
+Die lokale Prüfung der Lesegrundlage umfasst 1.409 erfolgreiche Tests unter Node 22,
+vier übersprungene Tests und einen realen Installations-/Update-Pakettest. Die
+Plattformprüfung dieses Stands erfolgt zusätzlich in der erforderlichen CI.
+Die übrigen Tasks bleiben offen. Paketversionen wurden ursprünglich am 2026-09-13
+in der npm-Registry gelesen; tatsächliche Installation und Kompatibilität werden
+jeweils bei ihrer Einführung geprüft.
 
 Vor Task 1 im gewählten Implementierungs-Worktree `npm ci` und `npm run check`
 ausführen und den Ausgangszustand festhalten. Im vorhandenen Planungs-Worktree kann
@@ -240,7 +246,7 @@ AgentPier-Verantwortung. Für Details der Architekturentscheidung gilt die Spezi
 registers cleanup of only its unique root. Project context uses a fabricated
 `{id:"fixture",cwd:project}` without starting a session.
 
-- [ ] Write the traversal regression and properties for adjacent-prefix paths, absolute project inputs, NUL, missing leaves, dangling links, link loops and an escaping parent link.
+- [x] Write the traversal regression and properties for adjacent-prefix paths, absolute project inputs, NUL, missing leaves, dangling links, link loops and an escaping parent link.
 
 ```js
 import test from "node:test";
@@ -260,8 +266,8 @@ test("global navigation follows an OS-accessible link while project scope reject
 });
 ```
 
-- [ ] Run `node --test tests/unit/file-scope.test.js tests/property/file-paths.test.js`; confirm the unimplemented resolver is the failure.
-- [ ] Implement context construction from trusted configuration/session data, normalize `~`, and separate resolving a selected link from following it. Check existing parent identity again before mutations; leaf names must be one segment, at most 255 UTF-8 bytes, with no NUL/control characters or slash. Global canonical `/` and project root are readable contexts, not deletion targets.
+- [x] Run `node --test tests/unit/file-scope.test.js tests/property/file-paths.test.js`; confirm the unimplemented resolver is the failure.
+- [x] Implement context construction from trusted configuration/session data, normalize `~`, and separate resolving a selected link from following it. Check existing parent identity again before mutations; leaf names must be one segment, at most 255 UTF-8 bytes, with no NUL/control characters or slash. Global canonical `/` and project root are readable contexts, not deletion targets.
 
 Use `stat({bigint:true})` internally for revision fields `dev`, `ino`, `mode`,
 `uid`, `gid`, `size`, `mtimeNs` and `ctimeNs`, serialized as decimal strings before
@@ -282,7 +288,7 @@ export function fileProblem(code, status, args = {}) {
 }
 ```
 
-- [ ] Add exact numerical defaults from Global Constraints to `readFileLimits`; reject unknown keys, zero, non-integers and unsafe integers. `loadConfig()` reads optional saved `files.limits`; test overrides without touching real config files. Implement fixture creation using `fs.mkdtemp`, `fs.realpath`, modes `0700` and `t.after`.
+- [x] Add exact numerical defaults from Global Constraints to `readFileLimits`; reject unknown keys, zero, non-integers and unsafe integers. `loadConfig()` reads optional saved `files.limits`; test overrides without touching real config files. Implement fixture creation using `fs.mkdtemp`, `fs.realpath`, modes `0700` and `t.after`.
 
 ```js
 export const defaultFileLimits = Object.freeze({
@@ -322,8 +328,8 @@ export async function fileFixture(t) {
 }
 ```
 
-- [ ] Re-run the two tests and `node --test tests/unit/i18n-catalogs.test.js`; inspect failures before expanding testing.
-- [ ] Commit this task's files: `git commit -m "feat: define file explorer scopes and limits"`.
+- [x] Re-run the two tests and `node --test tests/unit/i18n-catalogs.test.js`; inspect failures before expanding testing.
+- [x] Commit this task's files: `git commit -m "feat: define file explorer scopes and limits"`.
 
 ## Task 2: Begrenzte Auflistung, Eigenschaften und Vorschau
 
@@ -337,7 +343,7 @@ with `list(scope, {path,page=1,sort="name",direction="asc",hidden=false,snapshot
 Snapshots expire after 30 seconds; limit to 8 snapshots per owner, evict only unused
 entries. A stale supplied snapshot returns 409, never a misleading page.
 
-- [ ] Write real-file tests for directory-first ordering, all four sort fields, hidden `.git`, stable pages, permission-denied metadata, special files and snapshots expiring with an injected clock.
+- [x] Write real-file tests for directory-first ordering, all four sort fields, hidden `.git`, stable pages, permission-denied metadata, special files and snapshots expiring with an injected clock.
 
 ```js
 test("a growing UTF-8 preview stops at the byte limit", async (t) => {
@@ -348,8 +354,8 @@ test("a growing UTF-8 preview stops at the byte limit", async (t) => {
 });
 ```
 
-- [ ] Run `node --test tests/integration/file-listing.test.js tests/integration/file-preview.test.js` and observe red.
-- [ ] Enumerate with `fs.opendir`; stop explicitly at the snapshot cap before sorting. Return symlinks even when dangling, and represent permission hints as `null` when unknown. Never read file contents for listing. Use an opened regular-file descriptor and bounded read to detect image magic and fatal UTF-8 decoding.
+- [x] Run `node --test tests/integration/file-listing.test.js tests/integration/file-preview.test.js` and observe red.
+- [x] Enumerate with `fs.opendir`; stop explicitly at the snapshot cap before sorting. Return symlinks even when dangling, and represent permission hints as `null` when unknown. Never read file contents for listing. Use an opened regular-file descriptor and bounded read to detect image magic and fatal UTF-8 decoding.
 
 ```js
 // First inspect bounded magic bytes, then select text/image and its own byte limit.
@@ -365,9 +371,9 @@ if (used > limit) throw fileProblem("FILE_LIMIT_EXCEEDED", 413, { limit });
 const text = new TextDecoder("utf-8", { fatal: true }).decode(buffer.subarray(0, used));
 ```
 
-- [ ] Keep legacy text/image limits and response shape. New image preview accepts only PNG/JPEG/GIF/WebP up to 20 MiB; SVG/HTML remain escaped text. Close descriptors in `finally`, including invalid UTF-8 and aborted reads.
-- [ ] Run the new tests plus `node --test tests/integration/workspace-files.test.js`.
-- [ ] Commit: `git commit -m "feat: add bounded file listings and previews"`.
+- [x] Keep legacy text/image limits and response shape. New image preview accepts only PNG/JPEG/GIF/WebP up to 20 MiB; SVG/HTML remain escaped text. Close descriptors in `finally`, including invalid UTF-8 and aborted reads.
+- [x] Run the new tests plus `node --test tests/integration/workspace-files.test.js`.
+- [x] Commit: `git commit -m "feat: add bounded file listings and previews"`.
 
 ## Task 3: Besitzer-API, Fehlerübersetzung und globale Route
 
@@ -614,6 +620,12 @@ for await (const entry of directory) {
 - [ ] Run backend tests, build, then both browsers for `file-explorer-search.spec.js` and `file-explorer-navigation.spec.js`; commit: `git commit -m "feat: add bounded recursive file search"`.
 
 ## Task 7: Native Metadaten und auslieferbare Plattformanbindung
+
+Die reine Lesegrundlage (`FileNative`, Worker, Plattform-Öffnen, Koffi und echte
+Paket-/Update-Prüfung) wurde als Voraussetzung für Task 2 vorgezogen. Task 7 erweitert
+diese vorhandenen Schnittstellen für Metadaten und Umbenennen; diese Arbeit und ihre
+Abnahme bleiben vollständig offen. Die gemeldete Koffi-Installationswarnung zur
+npm-Skriptfreigabe wird dabei mit der bestehenden Paketkonfiguration abgeglichen.
 
 **Files:** Create `server/features/files/{file-native,file-native-worker,file-native-linux,file-native-darwin,file-metadata}.js`,
 `tests/integration/file-native.test.js`, `tests/integration/file-metadata.test.js`;
@@ -1673,3 +1685,11 @@ Ruling: F10 — Explorer route parsing preserves an explicit invalid-page state.
 Ruling: F11 — T23 may make minimal source fixes demonstrated by failing integration checks, with regression coverage and normal review, before removing only this feature's completed temporary plan/spec — full completion requires fixing actual integration failures — cost if wrong: modest final reviewed source diff.
 
 Integration decision: retain existing PR79 branch and integrate current main using ordinary merges. Preserve SessionViewMemory navigation, local-only remote links, Modal style support, credential commitIdentity, current dependency/version changes and installation/update guidance (D1–D5). Existing unrelated session-view preferences may remain in sessionStorage; file drafts stay in RAM.
+
+## Additional implementation rulings
+
+Ruling: T2 snapshot capacity — Unused means not held by an in-flight listing/build. Keep at most eight slots across this owner, pin active requests/builds, expire at TTL and evict the least-recently-used inactive completed snapshot when needed. Reject new creation only if all slots are actively in use; evicted IDs return the same explicit 409 as expired IDs — no browser lease/release API exists, and ordinary navigation must not be limited to eight directory clicks per 30 seconds — cost if wrong: cache eviction policy and tests need revision.
+
+Ruling: T2 read prerequisite — Bring forward the read-only native descriptor foundation and its Koffi distribution checks from Task7. Traverse validated canonical paths relative to opened directory handles with no-follow component opens, and read only the resulting owned regular descriptor; pathname-stat comparisons alone do not establish descriptor provenance. Keep Task7 metadata/rename APIs and their complete acceptance work for Task7 — review fix1 demonstrated that separate metadata and path observations remain insufficient — cost if wrong: a small native foundation may need refactoring when Task7 extends it.
+
+Ruling: Native release-test runtime — Detect a copied-runtime shared-library loader failure before native smoke, and explicitly skip that relocation-only fixture outside CI when the host Node cannot relocate. CI must fail rather than skip; actual Koffi/node-pty or release-smoke failures never qualify. Keep the successful official Node22 full-suite and real release-build evidence — a valid locally installed Homebrew Node may depend on its installation path, while production release construction uses an official portable runtime — cost if wrong: a local packaging regression could escape the narrow fixture, with mandatory official-runtime CI remaining the gate.
