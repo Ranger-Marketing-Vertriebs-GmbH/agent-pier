@@ -55,8 +55,7 @@ export class SessionManager {
     await privateWrite(
       this.directory,
       "tmux.conf",
-      // Force clipboard support for OSC 52 through browser-attached tmux clients.
-      // Keep history bounded: panes share a tmux server and 50000 lines exhausted RAM.
+      // Enable OSC 52 clipboard; cap shared history (50000 lines exhausted RAM).
       'set -g remain-on-exit on\nset -g default-shell /bin/sh\nset -g prefix None\nset -g history-limit 10000\nset -g status off\nset -g mouse on\nset -g default-terminal "tmux-256color"\nset -g set-clipboard on\nset -as terminal-features ",*:clipboard"\nset -g exit-empty off\nset -g escape-time 0\n',
     );
   }
@@ -554,6 +553,7 @@ export class SessionManager {
         },
       );
       let disposed = false;
+      const inputState = {};
       const data = terminal.onData(onData);
       const exit = terminal.onExit((event) => {
         this.clients.delete(client);
@@ -571,7 +571,7 @@ export class SessionManager {
             if (disposed) return;
             if (blocksTerminalInput(await this.metadata(id)))
               throw failure("Session is reloading", 409);
-            await recordManualInput(this, session, text);
+            await recordManualInput(this, session, text, inputState);
             terminal.write(text);
           }, id);
         },
