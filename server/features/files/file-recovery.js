@@ -1,3 +1,5 @@
+import { restoreRenameSource } from "./file-rename.js";
+import { PathLocks } from "./file-locks.js";
 import { resolveFile } from "./file-paths.js";
 import path from "node:path";
 import { FileNative } from "./file-native.js";
@@ -26,6 +28,62 @@ export async function recoverPublications({ store, native, barrier }) {
   try {
     for (const record of records) {
       const doc = record.document;
+      const retainedSource = store.getTrash(record.id);
+      if (
+        doc.renameSource &&
+        (!retainedSource || retainedSource.phase === "rename_pending")
+      ) {
+        const state = {
+          id: record.id,
+          jobId: record.jobId,
+          document: doc,
+          target: doc.target,
+          file: doc.staged,
+          name: path.basename(doc.staged),
+          directoryName: path.basename(path.dirname(doc.staged)),
+          type: doc.type,
+        };
+        await restoreRenameSource({
+          publisher: {
+            native: owner,
+            store,
+            locks: new PathLocks(),
+            barrier: barrier || { run: (action) => action() },
+          },
+          state,
+          record: async (state, phase, patch = {}) => {
+            Object.assign(state.document, patch);
+            record.phase = phase;
+            await write(() =>
+              store.putPublication({ ...record, document: state.document }),
+            );
+          },
+        });
+        if (record.phase === "resolved") {
+          if (retainedSource?.phase === "rename_pending")
+            await write(() => store.deleteTrash(record.id));
+          outcomes.push({
+            id: record.id,
+            phase: "resolved",
+            recoveryId: null,
+            issue: null,
+          });
+          continue;
+        }
+      }
+      if (
+        doc.renameSource &&
+        store.getTrash(record.id)?.reason === "interrupted_rename" &&
+        retainedSource?.phase !== "rename_pending"
+      ) {
+        outcomes.push({
+          id: record.id,
+          phase: record.phase,
+          recoveryId: record.id,
+          issue: { code: "FILE_RENAME_RECOVERY", args: {} },
+        });
+        continue;
+      }
       let targetParent,
         stageParent,
         recorded = false;
@@ -119,6 +177,11 @@ export async function recoverPublications({ store, native, barrier }) {
               phase = "interrupted";
               issue = { code: "FILE_INTERRUPTED", args: {} };
             }
+            if (
+              ["resolved", "swapped"].includes(phase) &&
+              retainedSource?.phase === "rename_pending"
+            )
+              store.deleteTrash(record.id);
             store.putPublication({ ...record, phase, document: { ...doc, issue } });
             recorded = true;
           });

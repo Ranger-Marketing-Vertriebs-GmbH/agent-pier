@@ -1,3 +1,4 @@
+import { prepareRename, restoreRenameSource } from "./file-rename.js";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { FileNative } from "./file-native.js";
@@ -68,126 +69,127 @@ export class FilePublisher {
       }),
     );
   }
-  stage(scope, target, { jobId, type = "file", followLeaf = false } = {}) {
-    return this.#track(async () => {
-      if (
-        !["file", "directory", "symlink"].includes(type) ||
-        typeof followLeaf !== "boolean"
-      )
-        throw fileProblem("FILE_INVALID_PATH", 400);
-      this.store.getJob(scope, jobId);
-      const selected = await resolveFile(scope, target, {
-        followLeaf,
-        allowMissingLeaf: true,
+  stage(scope, target, options) {
+    return this.#track(() => this.#stage(scope, target, options));
+  }
+  async #stage(scope, target, { jobId, type = "file", followLeaf = false } = {}) {
+    if (
+      !["file", "directory", "symlink"].includes(type) ||
+      typeof followLeaf !== "boolean"
+    )
+      throw fileProblem("FILE_INVALID_PATH", 400);
+    this.store.getJob(scope, jobId);
+    const selected = await resolveFile(scope, target, {
+      followLeaf,
+      allowMissingLeaf: true,
+    });
+    assertFileMutationTarget(scope, selected);
+    if (this.store.storageRoot && isWithin(selected.absolute, this.store.storageRoot))
+      throw fileProblem("FILE_PROTECTED_PATH", 403);
+    const state = {
+      id: randomUUID(),
+      jobId,
+      type,
+      followLeaf,
+      scopeId: scope.id,
+      target: selected.absolute,
+      selectedPath: selected.path,
+      targetName: path.basename(selected.absolute),
+      name: "content",
+    };
+    state.directoryName = `.agentpier-stage-${state.id}`;
+    state.file = path.join(path.dirname(state.target), state.directoryName, state.name);
+    state.document = {
+      version: 1,
+      target: state.target,
+      staged: state.file,
+      type,
+      selectedPath: state.selectedPath,
+      followLeaf,
+      scopeId: scope.id,
+      scope: { ...scope },
+      linkIdentity: selected.linkIdentity,
+    };
+    try {
+      state.targetParentHandle = await openParent(this.native, state.target);
+      // Journal intent before the first namespace mutation; missing identities
+      // after an interruption never authorize cleanup of a similarly named path.
+      await this.#record(state, "creating", {
+        targetParent: inodeIdentity(await state.targetParentHandle.stat()),
       });
-      assertFileMutationTarget(scope, selected);
-      if (this.store.storageRoot && isWithin(selected.absolute, this.store.storageRoot))
-        throw fileProblem("FILE_PROTECTED_PATH", 403);
-      const state = {
-        id: randomUUID(),
-        jobId,
-        type,
-        followLeaf,
-        scopeId: scope.id,
-        target: selected.absolute,
-        selectedPath: selected.path,
-        targetName: path.basename(selected.absolute),
-        name: "content",
-      };
-      state.directoryName = `.agentpier-stage-${state.id}`;
-      state.file = path.join(path.dirname(state.target), state.directoryName, state.name);
-      state.document = {
-        version: 1,
-        target: state.target,
-        staged: state.file,
-        type,
-        selectedPath: state.selectedPath,
-        followLeaf,
-        scopeId: scope.id,
-        scope: { ...scope },
-        linkIdentity: selected.linkIdentity,
-      };
-      try {
-        state.targetParentHandle = await openParent(this.native, state.target);
-        // Journal intent before the first namespace mutation; missing identities
-        // after an interruption never authorize cleanup of a similarly named path.
-        await this.#record(state, "creating", {
-          targetParent: inodeIdentity(await state.targetParentHandle.stat()),
-        });
-        state.parentHandle = ownedHandle(
+      state.parentHandle = ownedHandle(
+        this.native,
+        await this.native.run("createDirectory", {
+          directory: state.targetParentHandle.handle,
+          name: state.directoryName,
+        }),
+      );
+      await this.#record(state, "creating", {
+        stageParent: inodeIdentity(await state.parentHandle.stat()),
+      });
+      if (type !== "symlink")
+        state.handle = ownedHandle(
           this.native,
-          await this.native.run("createDirectory", {
-            directory: state.targetParentHandle.handle,
-            name: state.directoryName,
+          await this.native.run(type === "file" ? "createFile" : "createDirectory", {
+            directory: state.parentHandle.handle,
+            name: state.name,
           }),
         );
-        await this.#record(state, "creating", {
-          stageParent: inodeIdentity(await state.parentHandle.stat()),
-        });
-        if (type !== "symlink")
-          state.handle = ownedHandle(
-            this.native,
-            await this.native.run(type === "file" ? "createFile" : "createDirectory", {
+      else state.handle = null;
+      await this.#record(state, "staging", {
+        stagedIdentity: state.handle ? inodeIdentity(await state.handle.stat()) : null,
+      });
+      await state.parentHandle.sync();
+      await state.targetParentHandle.sync();
+      const stage = Object.freeze({
+        ...Object.fromEntries(
+          [
+            "id",
+            "file",
+            "name",
+            "type",
+            "parentHandle",
+            "targetParentHandle",
+            "targetName",
+            "target",
+            "selectedPath",
+            "followLeaf",
+            "jobId",
+          ].map((key) => [key, state[key]]),
+        ),
+        get handle() {
+          return state.handle;
+        },
+        adoptEntry: (source) => this.#adopt(state, source),
+        createLink: (text) =>
+          this.#track(async () => {
+            if (
+              type !== "symlink" ||
+              state.busy ||
+              state.finished ||
+              state.linkStarted ||
+              state.adoptionStarted
+            )
+              throw fileProblem("FILE_INVALID_OPERATION", 400);
+            state.linkStarted = true;
+            const stat = await this.native.run("createLink", {
               directory: state.parentHandle.handle,
               name: state.name,
-            }),
-          );
-        else state.handle = null;
-        await this.#record(state, "staging", {
-          stagedIdentity: state.handle ? inodeIdentity(await state.handle.stat()) : null,
-        });
-        await state.parentHandle.sync();
-        await state.targetParentHandle.sync();
-        const stage = Object.freeze({
-          ...Object.fromEntries(
-            [
-              "id",
-              "file",
-              "name",
-              "type",
-              "parentHandle",
-              "targetParentHandle",
-              "targetName",
-              "target",
-              "selectedPath",
-              "followLeaf",
-              "jobId",
-            ].map((key) => [key, state[key]]),
-          ),
-          get handle() {
-            return state.handle;
-          },
-          adoptEntry: (source) => this.#adopt(state, source),
-          createLink: (text) =>
-            this.#track(async () => {
-              if (
-                type !== "symlink" ||
-                state.busy ||
-                state.finished ||
-                state.linkStarted ||
-                state.adoptionStarted
-              )
-                throw fileProblem("FILE_INVALID_OPERATION", 400);
-              state.linkStarted = true;
-              const stat = await this.native.run("createLink", {
-                directory: state.parentHandle.handle,
-                name: state.name,
-                text,
-              });
-              await this.#record(state, "staging", {
-                stagedIdentity: inodeIdentity(stat),
-              });
-              await state.parentHandle.sync();
-            }),
-        });
-        this.#stages.set(stage, state);
-        this.#active.add(state);
-        return stage;
-      } catch (error) {
-        await closeStage(state);
-        throw fileSystemProblem(error);
-      }
-    });
+              text,
+            });
+            await this.#record(state, "staging", {
+              stagedIdentity: inodeIdentity(stat),
+            });
+            await state.parentHandle.sync();
+          }),
+      });
+      this.#stages.set(stage, state);
+      this.#active.add(state);
+      return stage;
+    } catch (error) {
+      await closeStage(state);
+      throw fileSystemProblem(error);
+    }
   }
   #adopt(state, source) {
     return this.#track(() =>
@@ -250,95 +252,109 @@ export class FilePublisher {
     if (actual !== revision) throw conflict();
     return fresh;
   }
-  publish(scope, stage, { expectedRevision, metadataSource = null } = {}) {
-    return this.#track(async () => {
-      const state = this.#stages.get(stage);
-      if (!state || state.scopeId !== scope.id || state.busy || state.finished)
-        throw fileProblem("FILE_INVALID_OPERATION", 400);
-      state.busy = true;
-      try {
-        if (metadataSource) {
-          const targetHandle =
-            state.handle ||
-            ownedHandle(
-              this.native,
-              await this.native.run("openLink", {
-                directory: state.parentHandle.handle,
-                path: state.name,
-              }),
-            );
-          try {
-            await copyMetadata(metadataSource, targetHandle, {
-              strictOwnership: true,
-              preserveTimes: true,
-            });
-          } finally {
-            if (!state.handle) await targetHandle.close();
-          }
-        }
-        if (state.handle) await state.handle.sync();
-        await state.parentHandle.sync();
-        const expected = await this.assertExpected(
-          scope,
-          state.selectedPath,
-          expectedRevision,
-          {
-            followLeaf: state.followLeaf,
-            expectedTarget: state.target,
-          },
-        );
-        if (state.followLeaf && expected.linkIdentity !== state.document.linkIdentity)
-          throw conflict();
-        const staged = await inspect(this.native, state.parentHandle.handle, state.name);
-        if (!sameInode(staged, state.document.stagedIdentity) || !staged)
-          throw conflict();
-        const stagedContentRevision =
-          state.type === "file"
-            ? (await publicationSnapshot(state.handle)).publicationContentRevision
-            : null;
-        await this.#record(state, "prepared", {
-          stagedContentRevision,
-          expectedContentRevision: expected.publicationContentRevision || null,
-          expectedIdentity: inodeIdentity(expected.stat),
-          expectedContent: expected.stat ? contentIdentity(expected.stat) : null,
-          expectedRevision,
-          linkIdentity: expected.linkIdentity,
-        });
-        await this.locks.withPaths([state.target], async () => {
-          // Expensive hashing/copying is already complete. This lease covers only
-          // fresh namespace checks, the syscall, durability and durable state.
-          const fresh = await resolveFile(scope, state.selectedPath, {
-            followLeaf: state.followLeaf,
-            allowMissingLeaf: true,
-          });
-          if (
-            fresh.absolute !== state.target ||
-            fresh.linkIdentity !== expected.linkIdentity ||
-            (fresh.stat ? entryRevision(fresh.stat) : null) !==
-              (expected.stat ? entryRevision(expected.stat) : null) ||
-            !(await parentMatches(
-              this.native,
-              state.target,
-              state.document.targetParent,
-            )) ||
-            !(await parentMatches(this.native, state.file, state.document.stageParent))
-          )
-            throw conflict();
-          const targetStat = await inspect(
+  publish(scope, stage, options) {
+    return this.#track(() => this.#publish(scope, stage, options));
+  }
+  async #publish(
+    scope,
+    stage,
+    { expectedRevision, metadataSource = null, refreshScope, beforeMutation } = {},
+  ) {
+    const state = this.#stages.get(stage);
+    if (!state || state.scopeId !== scope.id || state.busy || state.finished)
+      throw fileProblem("FILE_INVALID_OPERATION", 400);
+    state.busy = true;
+    try {
+      if (metadataSource) {
+        const targetHandle =
+          state.handle ||
+          ownedHandle(
             this.native,
-            state.targetParentHandle.handle,
-            state.targetName,
+            await this.native.run("openLink", {
+              directory: state.parentHandle.handle,
+              path: state.name,
+            }),
           );
-          if (
-            (targetStat ? entryRevision(targetStat) : null) !==
-              (expected.stat ? entryRevision(expected.stat) : null) ||
-            !sameInode(
-              await inspect(this.native, state.parentHandle.handle, state.name),
-              state.document.stagedIdentity,
+        try {
+          await copyMetadata(metadataSource, targetHandle, {
+            strictOwnership: true,
+            preserveTimes: true,
+          });
+        } finally {
+          if (!state.handle) await targetHandle.close();
+        }
+      }
+      if (state.handle) await state.handle.sync();
+      await state.parentHandle.sync();
+      const expected = await this.assertExpected(
+        scope,
+        state.selectedPath,
+        expectedRevision,
+        {
+          followLeaf: state.followLeaf,
+          expectedTarget: state.target,
+        },
+      );
+      if (state.followLeaf && expected.linkIdentity !== state.document.linkIdentity)
+        throw conflict();
+      const staged = await inspect(this.native, state.parentHandle.handle, state.name);
+      if (!sameInode(staged, state.document.stagedIdentity) || !staged) throw conflict();
+      const stagedContentRevision =
+        state.type === "file"
+          ? (await publicationSnapshot(state.handle)).publicationContentRevision
+          : null;
+      await this.#record(state, "prepared", {
+        stagedContentRevision,
+        expectedContentRevision: expected.publicationContentRevision || null,
+        expectedIdentity: inodeIdentity(expected.stat),
+        expectedContent: expected.stat ? contentIdentity(expected.stat) : null,
+        expectedRevision,
+        linkIdentity: expected.linkIdentity,
+      });
+      await refreshScope?.();
+      await this.locks.withPaths(
+        [
+          state.target,
+          ...(state.document.renameSource ? [state.document.renameSource.absolute] : []),
+        ],
+        () =>
+          this.barrier.run(async () => {
+            await beforeMutation?.();
+            // Expensive hashing/copying is already complete. This lease covers only
+            // fresh namespace checks, the syscall, durability and durable state.
+            const fresh = await resolveFile(scope, state.selectedPath, {
+              followLeaf: state.followLeaf,
+              allowMissingLeaf: true,
+            });
+            if (
+              fresh.absolute !== state.target ||
+              fresh.linkIdentity !== expected.linkIdentity ||
+              (fresh.stat ? entryRevision(fresh.stat) : null) !==
+                (expected.stat ? entryRevision(expected.stat) : null) ||
+              !(await parentMatches(
+                this.native,
+                state.target,
+                state.document.targetParent,
+              )) ||
+              !(await parentMatches(this.native, state.file, state.document.stageParent))
             )
-          )
-            throw conflict();
-          await this.barrier.run(async () => {
+              throw conflict();
+            const targetStat = await inspect(
+              this.native,
+              state.targetParentHandle.handle,
+              state.targetName,
+            );
+            if (
+              (targetStat ? entryRevision(targetStat) : null) !==
+                (expected.stat ? entryRevision(expected.stat) : null) ||
+              !sameInode(
+                await inspect(this.native, state.parentHandle.handle, state.name),
+                state.document.stagedIdentity,
+              )
+            )
+              throw conflict();
+            await refreshScope?.();
+            await beforeMutation?.();
             await this.native.run(expected.stat ? "exchange" : "renameNoReplace", {
               oldParent: state.parentHandle.handle,
               oldName: state.name,
@@ -355,99 +371,149 @@ export class FilePublisher {
             });
             await state.parentHandle.sync();
             await state.targetParentHandle.sync();
-          });
+          }),
+      );
+      const targetStat = await inspect(
+        this.native,
+        state.targetParentHandle.handle,
+        state.targetName,
+      );
+      const displaced = await inspect(this.native, state.parentHandle.handle, state.name);
+      if (
+        !sameInode(targetStat, state.document.stagedIdentity) ||
+        inodeIdentity(displaced) !== state.document.expectedIdentity ||
+        (displaced && contentIdentity(displaced) !== state.document.expectedContent)
+      )
+        throw conflict();
+      if (state.followLeaf) {
+        const fresh = await resolveFile(scope, state.selectedPath, {
+          followLeaf: true,
         });
-        const targetStat = await inspect(
-          this.native,
-          state.targetParentHandle.handle,
-          state.targetName,
-        );
-        const displaced = await inspect(
-          this.native,
-          state.parentHandle.handle,
-          state.name,
-        );
         if (
-          !sameInode(targetStat, state.document.stagedIdentity) ||
-          inodeIdentity(displaced) !== state.document.expectedIdentity ||
-          (displaced && contentIdentity(displaced) !== state.document.expectedContent)
+          fresh.absolute !== state.target ||
+          fresh.linkIdentity !== state.document.linkIdentity
         )
           throw conflict();
-        if (state.followLeaf) {
-          const fresh = await resolveFile(scope, state.selectedPath, {
-            followLeaf: true,
-          });
+      }
+      if (displaced && expectedRevision.startsWith("d1:")) {
+        const old = ownedHandle(
+          this.native,
+          await this.native.run("openFile", {
+            directory: state.parentHandle.handle,
+            path: state.name,
+          }),
+        );
+        try {
           if (
-            fresh.absolute !== state.target ||
-            fresh.linkIdentity !== state.document.linkIdentity
+            (await publicationSnapshot(old)).publicationContentRevision !==
+            state.document.expectedContentRevision
           )
             throw conflict();
+        } finally {
+          await old.close();
         }
-        if (displaced && expectedRevision.startsWith("d1:")) {
-          const old = ownedHandle(
-            this.native,
-            await this.native.run("openFile", {
-              directory: state.parentHandle.handle,
-              path: state.name,
-            }),
-          );
-          try {
+      }
+      if (
+        stagedContentRevision &&
+        (await publicationSnapshot(state.handle)).publicationContentRevision !==
+          stagedContentRevision
+      )
+        throw conflict();
+      const published = await resolveFile(scope, state.selectedPath, {
+        followLeaf: state.followLeaf,
+      });
+      if (
+        published.absolute !== state.target ||
+        (state.followLeaf && published.linkIdentity !== state.document.linkIdentity) ||
+        !sameInode(published.stat, state.document.stagedIdentity) ||
+        !(await parentMatches(this.native, state.target, state.document.targetParent)) ||
+        !(await parentMatches(this.native, state.file, state.document.stageParent))
+      )
+        throw conflict();
+      const revision =
+        state.type === "file"
+          ? await fileRevision(state.handle, published.linkIdentity)
+          : entryRevision(published.stat, published.linkIdentity);
+      await this.barrier.run(async () => {
+        if (!displaced) await removeStageDirectory(this.native, state);
+        await this.#record(state, displaced ? "swapped" : "resolved");
+      });
+      return {
+        path: state.selectedPath,
+        revision,
+        recoveryId: displaced ? state.id : null,
+      };
+    } catch (cause) {
+      const error =
+        cause.code === "FILE_NATIVE_UNSUPPORTED"
+          ? fileProblem("FILE_WRITE_UNSUPPORTED", 503)
+          : fileSystemProblem(cause);
+      await this.#record(state, "interrupted", {
+        issue: { code: error.code, args: {} },
+      });
+      throw error;
+    } finally {
+      state.finished = true;
+      this.#active.delete(state);
+      await closeStage(state);
+    }
+  }
+  rename(scope, sourcePath, targetPath, options = {}) {
+    return this.#track(async () => {
+      let prepared;
+      const record = (state, phase, patch) => this.#record(state, phase, patch);
+      try {
+        prepared = await prepareRename({
+          publisher: this,
+          scope,
+          sourcePath,
+          targetPath,
+          options,
+          stage: (...args) => this.#stage(...args),
+          stateFor: (stage) => this.#stages.get(stage),
+          record,
+        });
+        const { stage, state, expectedRevision } = prepared;
+        return await this.#publish(scope, stage, {
+          expectedRevision,
+          refreshScope: options.refreshScope,
+          beforeMutation: async () => {
+            options.signal?.throwIfAborted();
+            const source = await resolveFile(scope, sourcePath, {
+              followLeaf: false,
+              allowMissingLeaf: true,
+            });
             if (
-              (await publicationSnapshot(old)).publicationContentRevision !==
-              state.document.expectedContentRevision
+              source.absolute !== state.document.renameSource.absolute ||
+              source.stat ||
+              !(await parentMatches(
+                this.native,
+                source.absolute,
+                state.document.renameSource.parentIdentity,
+              ))
             )
               throw conflict();
-          } finally {
-            await old.close();
-          }
+          },
+        });
+      } catch (error) {
+        const stage = prepared?.stage || error.renameStage;
+        delete error.renameStage;
+        const state = stage && this.#stages.get(stage);
+        if (state) {
+          await restoreRenameSource({
+            publisher: this,
+            state,
+            record,
+            refreshScope: options.refreshScope,
+          });
+          state.finished = true;
+          this.#active.delete(state);
+          await closeStage(state);
+          error.recoveryId = state.id;
         }
-        if (
-          stagedContentRevision &&
-          (await publicationSnapshot(state.handle)).publicationContentRevision !==
-            stagedContentRevision
-        )
-          throw conflict();
-        const published = await resolveFile(scope, state.selectedPath, {
-          followLeaf: state.followLeaf,
-        });
-        if (
-          published.absolute !== state.target ||
-          (state.followLeaf && published.linkIdentity !== state.document.linkIdentity) ||
-          !sameInode(published.stat, state.document.stagedIdentity) ||
-          !(await parentMatches(
-            this.native,
-            state.target,
-            state.document.targetParent,
-          )) ||
-          !(await parentMatches(this.native, state.file, state.document.stageParent))
-        )
-          throw conflict();
-        const revision =
-          state.type === "file"
-            ? await fileRevision(state.handle, published.linkIdentity)
-            : entryRevision(published.stat, published.linkIdentity);
-        await this.barrier.run(async () => {
-          if (!displaced) await removeStageDirectory(this.native, state);
-          await this.#record(state, displaced ? "swapped" : "resolved");
-        });
-        return {
-          path: state.selectedPath,
-          revision,
-          recoveryId: displaced ? state.id : null,
-        };
-      } catch (cause) {
-        const error =
-          cause.code === "FILE_NATIVE_UNSUPPORTED"
-            ? fileProblem("FILE_WRITE_UNSUPPORTED", 503)
-            : fileSystemProblem(cause);
-        await this.#record(state, "interrupted", {
-          issue: { code: error.code, args: {} },
-        });
-        throw error;
-      } finally {
-        state.finished = true;
-        this.#active.delete(state);
-        await closeStage(state);
+        const failure = fileSystemProblem(error);
+        if (state) failure.recoveryId = state.id;
+        throw failure;
       }
     });
   }

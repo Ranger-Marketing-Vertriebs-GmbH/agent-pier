@@ -19,6 +19,9 @@ export const filesCopy = {
 
     FILE_OUTSIDE_SCOPE: "This path is outside the project directory.",
     FILE_INVALID_PATH: "This file path is invalid.",
+    FILE_RENAME_RECOVERY:
+      "The rename could not finish. Check its recovery entry in Trash. Pending entries cannot be restored until their source is verified.",
+    FILE_SAME_PATH: "Source and destination are the same entry. Choose a different name.",
     FILE_INVALID_NAME: "This name is invalid or too long.",
     FILE_NOT_FOUND: "The file or directory could not be found.",
     FILE_NOT_DIRECTORY: "This path is not a directory.",

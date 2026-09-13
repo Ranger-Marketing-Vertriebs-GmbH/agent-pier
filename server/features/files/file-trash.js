@@ -1,3 +1,4 @@
+import { retainRenameSource } from "./file-rename-recovery.js";
 import path from "node:path";
 import { completeTrashAdoption } from "./file-trash-adoption.js";
 import { recoverTrash } from "./file-trash-recovery.js";
@@ -531,6 +532,9 @@ export class FileTrash {
         throw error;
       }
     });
+  }
+  retainRenameSource(scope, recoveryId) {
+    return this.entry(recoveryId, () => retainRenameSource(this, scope, recoveryId));
   }
   recover() {
     return this.track(() => recoverTrash(this));

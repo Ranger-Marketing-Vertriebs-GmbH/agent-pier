@@ -41,6 +41,10 @@ async function remaining(trash, record, source) {
   return rows;
 }
 async function recoverEntry(trash, record) {
+  if (record.phase === "rename_pending") {
+    await trash.retainRenameSource(record.scope, record.recoveryId);
+    return;
+  }
   if (record.phase === "recoverable") {
     if (record.adoptionSource && !record.adoptionComplete)
       await completeTrashAdoption(trash, record);
@@ -360,6 +364,21 @@ async function recoverEntry(trash, record) {
 export async function recoverTrash(trash) {
   let cursor;
   const outcomes = [];
+  for (const publication of trash.store.listPublications()) {
+    if (
+      publication.phase === "resolved" ||
+      !publication.document.renameSource ||
+      trash.store.getTrash(publication.id)
+    )
+      continue;
+    try {
+      if (publication.phase === "swapped")
+        await trash.adoptDisplaced(publication.document.scope, publication.id);
+      else await trash.retainRenameSource(publication.document.scope, publication.id);
+    } catch {
+      /* Registered provenance remains available for the next startup. */
+    }
+  }
   do {
     const page = trash.store.listTrashRecords(
       { kind: "global", id: "private-recovery" },

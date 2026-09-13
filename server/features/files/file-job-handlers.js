@@ -117,9 +117,24 @@ export function safeIssue(issue) {
 export function projectConflict(info) {
   if (!info) return null;
   const result = {};
-  for (const key of ["id", "type", "path", "target", "revision", "manifestVersion"])
+  for (const key of [
+    "id",
+    "type",
+    "path",
+    "source",
+    "target",
+    "revision",
+    "manifestVersion",
+  ])
     if (typeof info[key] === "string" && info[key].length <= 4096)
       result[key] = info[key];
+  for (const key of ["sourceRevision", "targetRevision"])
+    if (
+      info[key] === null ||
+      (typeof info[key] === "string" && /^e1:[a-f0-9]{64}$/.test(info[key]))
+    )
+      result[key] = info[key];
+  if (info.source === null) result.source = null;
   if (Array.isArray(info.choices))
     result.choices = info.choices
       .filter((v) => typeof v === "string" && /^[a-z_]{1,40}$/.test(v))

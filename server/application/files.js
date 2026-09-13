@@ -1,3 +1,7 @@
+import {
+  FileMutations,
+  registerMutationHandlers,
+} from "../features/files/file-mutations.js";
 import { FileTrash } from "../features/files/file-trash.js";
 import { registerTrashHandlers } from "../features/files/file-trash-handlers.js";
 import { FilePublisher } from "../features/files/file-publish.js";
@@ -54,6 +58,8 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
   ready.catch(() => {});
   const handlers = createFileJobHandlers();
   registerTrashHandlers(handlers, trash);
+  const mutations = new FileMutations({ publisher, trash, locks, context });
+  registerMutationHandlers(handlers, mutations);
   const resultStore = {
     putEntry: (jobId, entry) => mutationBarrier.run(() => store.putEntry(jobId, entry)),
   };
@@ -94,6 +100,7 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
     store,
     locks,
     publisher,
+    mutations,
     trash,
     ready,
     handlers,

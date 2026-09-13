@@ -22,6 +22,9 @@ export const filesCopy = {
 
     FILE_OUTSIDE_SCOPE: "Dieser Pfad liegt außerhalb des Projektverzeichnisses.",
     FILE_INVALID_PATH: "Dieser Dateipfad ist ungültig.",
+    FILE_RENAME_RECOVERY:
+      "Das Umbenennen konnte nicht abgeschlossen werden. Prüfe den Wiederherstellungseintrag im Papierkorb. Ausstehende Einträge können erst nach Prüfung ihrer Quelle wiederhergestellt werden.",
+    FILE_SAME_PATH: "Quelle und Ziel sind derselbe Eintrag. Wähle einen anderen Namen.",
     FILE_INVALID_NAME: "Dieser Name ist ungültig oder zu lang.",
     FILE_NOT_FOUND: "Die Datei oder der Ordner wurde nicht gefunden.",
     FILE_NOT_DIRECTORY: "Dieser Pfad ist kein Ordner.",
