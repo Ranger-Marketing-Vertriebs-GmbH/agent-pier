@@ -3,22 +3,22 @@ const launcher = new RegExp(
   `terminal-launcher\\.js'?\\s+'?.*?sessions/(${uuid})\\.launch\\.json'?`,
   "i",
 );
-// Helpers a native CLI session spawns from its own release. They exit with the session.
-const sessionHelpers = [
-  "vendor/agentbus/",
-  "server/native-session-binding.js",
-  "server/native-session-opencode.js",
-  "server/github-credentials.js",
-  "server/git-credential.mjs",
-  "server/ssh.mjs",
-  "server/lib/",
+// Scripts that run detached from any session. Everything else a session spawns from its
+// release (server/… and vendor/… helpers, hooks, MCP servers) exits with the session.
+const detachedScripts = [
+  "server/features/pipelines/verify-supervisor.js",
+  "server/features/pipelines/verify-executor.js",
+  "server/features/operations/release-helper.js",
+  "server/index.js",
+  "server/terminal-launcher.js",
 ];
+const owned = (reference) =>
+  (reference.startsWith("server/") || reference.startsWith("vendor/")) &&
+  !detachedScripts.includes(reference);
 const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** Classify every process line that references one of the release directories. */
 export function releaseSessionReferences(output, releasePaths) {
-  const prefixes = releasePaths.map((value) => value.replace(/\/+$/, "") + "/");
-  const pattern = new RegExp(`(?:${prefixes.map(escape).join("|")})([^\\s'"\\\\]*)`, "g");
   const result = {
     sessionIds: [],
     helpers: 0,
@@ -26,6 +26,9 @@ export function releaseSessionReferences(output, releasePaths) {
     nodeOnly: 0,
     unidentified: [],
   };
+  if (!releasePaths.length) return result;
+  const prefixes = releasePaths.map((value) => value.replace(/\/+$/, "") + "/");
+  const pattern = new RegExp(`(?:${prefixes.map(escape).join("|")})([^\\s'"\\\\]*)`, "g");
   for (const line of output.split("\n")) {
     const references = [...line.matchAll(pattern)].map((match) => match[1]);
     if (!references.length) continue;
@@ -40,19 +43,18 @@ export function releaseSessionReferences(output, releasePaths) {
       result.nodeOnly += 1;
       continue;
     }
-    if (
-      rest.every((reference) =>
-        sessionHelpers.some((helper) => reference.startsWith(helper)),
-      )
-    ) {
+    const detached = rest.find((reference) => detachedScripts.includes(reference));
+    if (detached) {
+      result.unidentified.push({ reference: detached });
+      continue;
+    }
+    if (rest.every(owned)) {
       result.helpers += 1;
       result.helperReferences.push({ reference: rest[0] });
       continue;
     }
     result.unidentified.push({
-      reference: rest.find(
-        (reference) => !sessionHelpers.some((helper) => reference.startsWith(helper)),
-      ),
+      reference: rest.find((reference) => !owned(reference)),
     });
   }
   return result;

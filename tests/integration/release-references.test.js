@@ -27,7 +27,7 @@ test("session-owned helpers, node-only processes and foreign processes are class
   const output = [
     `node ${release}/bin/node ${release}/vendor/agentbus/agentpier/mcp.js`,
     `node ${release}/bin/node ${release}/server/native-session-binding.js hook`,
-    `codex codex -c hooks.SessionStart=[{command="\\"$AGENTPIER_HOOK_NODE\\" \\"${release}/server/native-session-binding.js\\""}] -c mcp_servers.agentpier.args=["${release}/vendor/agentbus/agentpier/mcp.js"]`,
+    `codex codex -c mcp_servers.agentpier_memory={command="${release}/bin/node",args=["${release}/server/features/memory/memory-mcp.js"]}`,
     `node ${release}/bin/node /Users/me/project/node_modules/.bin/vite`,
     `node ${release}/bin/node ${release}/server/features/pipelines/verify-supervisor.js /tmp/run`,
     `node ${release}/bin/node ${release}/server/terminal-launcher.js`,
@@ -39,7 +39,7 @@ test("session-owned helpers, node-only processes and foreign processes are class
     helperReferences: [
       { reference: "vendor/agentbus/agentpier/mcp.js" },
       { reference: "server/native-session-binding.js" },
-      { reference: "server/native-session-binding.js" },
+      { reference: "server/features/memory/memory-mcp.js" },
     ],
     nodeOnly: 1,
     unidentified: [
@@ -48,6 +48,32 @@ test("session-owned helpers, node-only processes and foreign processes are class
       { reference: "README.md" },
     ],
   });
+});
+
+test("every release script a session spawns is a helper unless it is a detached script", () => {
+  const output = [
+    `node ${release}/bin/node ${release}/server/features/memory/memory-mcp.js --data-dir "${data}" --session ${id}`,
+    `codex codex -c mcp_servers.agentpier_session={command="${release}/bin/node",args=["${release}/server/features/mcp/session-stdio.js","--socket","/tmp/x.sock","--capability","SECRET-TOKEN"]} -c mcp_servers.agentpier_memory={command="${release}/bin/node",args=["${release}/server/features/memory/memory-mcp.js"]}`,
+    `claude claude --plugin-dir ${data}/plugins/x --mcp-config ${release}/server/features/requests/claude-hook.js`,
+    `node ${release}/bin/node ${release}/server/features/pipelines/verify-executor.js /tmp/run`,
+    `node ${release}/bin/node ${release}/server/index.js`,
+  ].join("\n");
+  const result = releaseSessionReferences(output, [release]);
+  assert.deepEqual(result, {
+    sessionIds: [],
+    helpers: 3,
+    helperReferences: [
+      { reference: "server/features/memory/memory-mcp.js" },
+      { reference: "server/features/mcp/session-stdio.js" },
+      { reference: "server/features/requests/claude-hook.js" },
+    ],
+    nodeOnly: 0,
+    unidentified: [
+      { reference: "server/features/pipelines/verify-executor.js" },
+      { reference: "server/index.js" },
+    ],
+  });
+  assert.ok(!JSON.stringify(result).includes("SECRET-TOKEN"));
 });
 
 test("duplicate session ids across realpath and symlinked release paths collapse", () => {

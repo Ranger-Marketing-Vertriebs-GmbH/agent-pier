@@ -79,18 +79,25 @@ lines). Classes:
   file is unlinked at spawn but its path stays in the launcher's argv. Matching on the
   `sessions/<uuid>.launch.json` suffix avoids realpath-versus-resolve mismatches of the
   data directory, and the optional quotes tolerate a lingering `sh -c '…'` wrapper.
-- **helper**: the line contains one of the session-owned helper paths under the release:
-  `vendor/agentbus/`, `server/native-session-binding.js`,
-  `server/native-session-opencode.js`, `server/github-credentials.js`,
-  `server/git-credential.mjs`, `server/ssh.mjs`, `server/lib/`, or a Codex/Claude CLI
-  line whose release references are all inside hook or MCP configuration arguments
-  (`-c hooks.…`, `mcp_servers.…`). These are children of a session and vanish with it.
+- **helper**: everything a session spawns from its release — any other reference under
+  `server/` or `vendor/` — is a session-owned helper; the denylist below names the
+  detached scripts that are not. A session spawns many of them (the memory and session
+  MCP servers, the AgentBus MCP server under `vendor/`, binding, hook and credential
+  helpers), and Codex/Claude CLI lines carry those paths inside hook or MCP
+  configuration arguments (`-c hooks.…`, `mcp_servers.…={command=…,args=[…]}`), so an
+  enumerated allow-list would misclassify most real sessions. These are children of a
+  session and vanish with it.
 - **node-only**: the line's only release reference is `<release>/bin/node`. Sessions put
   that node first on their `PATH`, so user MCP servers, `npx` and dev servers started by
   the CLI show up here. They are usually session children but cannot be attributed.
-- **unidentified**: everything else, including launcher lines without a launch file,
-  `server/features/pipelines/verify-supervisor.js` and `release-helper.js`, which run
-  detached and are not owned by a session.
+- **unidentified**: any line that references one of the detached scripts on the
+  denylist — `server/features/pipelines/verify-supervisor.js`,
+  `server/features/pipelines/verify-executor.js`,
+  `server/features/operations/release-helper.js`, `server/index.js` and
+  `server/terminal-launcher.js` (a launcher line that did not match the session
+  regex) — plus every line whose references are not all under `server/` or `vendor/`
+  (reported with the first such reference). These run detached and are not owned by a
+  session.
 
 `cleanupState` gains per version: `sessionIds`, `nodeOnlyProcesses` (count), and
 `unidentifiedProcesses` as `[{ reference }]` where `reference` is the release-relative
