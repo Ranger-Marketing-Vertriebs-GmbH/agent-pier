@@ -84,6 +84,9 @@ export async function resolveFile(
   { followLeaf = true, allowMissingLeaf = false } = {},
 ) {
   try {
+    const trailingDirectory =
+      typeof input === "string" &&
+      (input === "." || input.endsWith("/") || input.endsWith("/."));
     const selectedPath = inputPath(scope, input);
     const parts = selectedPath.split("/").filter(Boolean);
     let absolute = scope.kind === "project" ? scope.root : "/";
@@ -113,7 +116,7 @@ export async function resolveFile(
       if (stat.isSymbolicLink()) {
         const target = await fs.readlink(absolute);
         links.push([absolute, entryRevision(stat), target]);
-        if (!leaf || followLeaf) {
+        if (!leaf || followLeaf || trailingDirectory) {
           absolute = await canonicalPath(absolute);
           checkScope(scope, absolute);
           stat = await fs.stat(absolute, { bigint: true });
@@ -121,6 +124,8 @@ export async function resolveFile(
         }
       }
     }
+    if (trailingDirectory && !stat?.isDirectory())
+      throw fileProblem("FILE_NOT_DIRECTORY", 400);
     const result = {
       path: selectedPath,
       absolute,

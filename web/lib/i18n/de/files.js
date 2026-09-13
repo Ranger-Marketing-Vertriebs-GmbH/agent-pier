@@ -14,6 +14,12 @@ export const filesCopy = {
     FILE_PATH_CHANGED:
       "Der Ordner wurde geändert. Aktualisiere die Auswahl und versuche es erneut.",
     FILE_INVALID_LIMITS: "Die konfigurierten Dateigrenzen sind ungültig.",
+    FILE_INVALID_PAGE: "Diese Dateilistenseite ist ungültig.",
+    FILE_INVALID_SORT: "Diese Sortierung der Dateiliste ist ungültig.",
+    FILE_SNAPSHOT_EXPIRED: "Diese Dateiliste ist abgelaufen. Aktualisiere sie erneut.",
+    FILE_LIMIT_EXCEEDED:
+      "Die Dateioperation hat ihre konfigurierte Grenze überschritten.",
+    FILE_UNSUPPORTED_TYPE: "Dieser Dateityp kann nicht als Vorschau angezeigt werden.",
   },
   tab: "Dateien",
   root: "Projektordner",

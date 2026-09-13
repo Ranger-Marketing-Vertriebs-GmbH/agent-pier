@@ -216,6 +216,11 @@ test("stable file issues retain public args and resolve reactive German and Engl
     "FILE_PROTECTED_PATH",
     "FILE_PATH_CHANGED",
     "FILE_INVALID_LIMITS",
+    "FILE_INVALID_PAGE",
+    "FILE_INVALID_SORT",
+    "FILE_SNAPSHOT_EXPIRED",
+    "FILE_LIMIT_EXCEEDED",
+    "FILE_UNSUPPORTED_TYPE",
   ];
   for (const code of codes) {
     const error = fileProblem(code, 403, { count: 2 });

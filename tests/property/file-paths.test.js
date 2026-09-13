@@ -100,6 +100,19 @@ test("global dot-dot after a directory link follows OS directory semantics", asy
   assert.equal(found.absolute, f.home);
 });
 
+test("terminal dot segments retain the operating system's directory requirement", async (t) => {
+  const f = await fileFixture(t);
+  await fs.writeFile(path.join(f.project, "regular"), "x");
+  await fs.mkdir(path.join(f.project, "directory"));
+  await assert.rejects(resolveFile(f.projectScope, "regular/."), {
+    code: "FILE_NOT_DIRECTORY",
+  });
+  assert.equal(
+    (await resolveFile(f.projectScope, "directory/.")).absolute,
+    path.join(f.project, "directory"),
+  );
+});
+
 test("containment rejects adjacent prefixes and any generated parent escape", async (t) => {
   const f = await fileFixture(t);
   const segment = fc.stringMatching(/^[a-z][a-z0-9]{0,12}$/);
