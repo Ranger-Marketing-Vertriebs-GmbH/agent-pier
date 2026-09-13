@@ -55,7 +55,7 @@ genutzt. Jeder Task endet mit einem eigenständig prüfbaren Ergebnis. Zunächst
 Vertrag unten, dann den eigenen Task und seine genannten Vorgänger lesen.
 
 Die Umsetzung läuft im bestehenden Worktree `.worktrees/file-explorer-design` auf
-`chore/file-explorer-design` für PR #79. Tasks 1 bis 4 sind implementiert und unabhängig
+`chore/file-explorer-design` für PR #79. Tasks 1 bis 5 sind implementiert und unabhängig
 geprüft; der aktuelle Stand enthält außerdem den gemergten Claude-Fix aus PR #78,
 „Alles kopieren“ aus PR #80 in der gemeinsamen Vorschau und Version 1.17.7 aus PR #81.
 Die API-Grundlage besteht die erforderliche CI unter Linux/macOS mit Node 22/24
@@ -67,7 +67,11 @@ Anfragen zu Pfad, Auswahl und Projektkontext. Die anschließende Integration der
 Chat-Link-Testfixtures besteht je 16 Browserfälle. Die Übernahme von „Alles kopieren“
 besteht zunächst je 39 Browserfälle; ihre unabhängig geprüfte Übergangskorrektur
 besteht je 29 Fälle einschließlich des Datei- und Projektwechsels bei noch ladender
-Vorschau. Jeder neue Stand durchläuft erneut die erforderliche CI. Die übrigen Tasks bleiben offen. Paketversionen wurden
+Vorschau. Jeder neue Stand durchläuft erneut die erforderliche CI. Die Auftragsgrundlage aus Task 5 ist unabhängig geprüft; ihr
+erster vollständiger Backendlauf bestand 1.455 Tests bei drei Übersprüngen. Nach
+einer gezielt geprüften Abbruchkorrektur und der Review-Korrekturrunde bestehen
+32 betroffene Tests. Die Linux-/Node-24-Prüfung dieses neuen Stands folgt in CI.
+Die übrigen Tasks bleiben offen. Paketversionen wurden
 ursprünglich am 2026-09-13 in der npm-Registry gelesen; tatsächliche Installation
 und Kompatibilität werden jeweils bei ihrer Einführung geprüft.
 
@@ -508,7 +512,7 @@ excludes overlapping parent/child paths, releases on thrown errors and supports
 cancelling queued waiters. Nested calls may reuse an already covering lease using
 AsyncLocalStorage; attempting to enlarge a held lease fails instead of deadlocking.
 
-- [ ] Write tests for durable same-key/same-body reuse, same-key/different-body rejection, restart to `interrupted`, scoped reads, cancellation, fairness and parent/child exclusion.
+- [x] Write tests for durable same-key/same-body reuse, same-key/different-body rejection, restart to `interrupted`, scoped reads, cancellation, fairness and parent/child exclusion.
 
 ```js
 test("duplicate starts run one handler and reuse the durable job", async (t) => {
@@ -546,8 +550,8 @@ test("duplicate starts run one handler and reuse the durable job", async (t) => 
 });
 ```
 
-- [ ] Run `node --test tests/unit/file-locks.test.js tests/integration/file-jobs.test.js tests/blackbox/file-jobs.test.js` and confirm red.
-- [ ] Create SQLite via `privateDatabase(<dataDir>/files,"files.sqlite")`; keep items in `job_entries`, not a growing JSON array in one job. Give requests a unique `(scope_id,request_id)` index and a canonical-body digest. Request IDs are `timestamp:uuid`: reject more than five minutes in the future or more than seven days old with 400/410, so pruned metadata cannot cause an old mutation to execute anew.
+- [x] Run `node --test tests/unit/file-locks.test.js tests/integration/file-jobs.test.js tests/blackbox/file-jobs.test.js` and confirm red.
+- [x] Create SQLite via `privateDatabase(<dataDir>/files,"files.sqlite")`; keep items in `job_entries`, not a growing JSON array in one job. Give requests a unique `(scope_id,request_id)` index and a canonical-body digest. Request IDs are `timestamp:uuid`: reject more than five minutes in the future or more than seven days old with 400/410, so pruned metadata cannot cause an old mutation to execute anew.
 
 ```sql
 CREATE TABLE requests (
@@ -561,10 +565,10 @@ CREATE TABLE publications (
 );
 ```
 
-- [ ] Implement state transitions as conditional SQL updates. Persist request and queued job in one transaction before launching a handler. Barrier leases surround short state/publication changes; do not wrap the whole handler. Validate scope again when a queued job starts. Limit active byte-transfer handlers to three, while reads and cancellation remain responsive.
-- [ ] Implement `store.prune(now)` for terminal jobs older than seven days, excluding every job referenced by an unresolved publication, unfinished child or trash record. Invoke it during startup and hourly with an unreferenced timer; shutdown clears the timer. Test an old interrupted publication surviving the sweep and an expired request returning 410 after its job metadata has gone.
-- [ ] Register only implemented handlers; currently no browser can trigger an arbitrary operation. On shutdown reject new jobs, abort active work, await owned workers/streams and then close the store. Integrate this lifecycle into the existing application-close path before dependent stores close.
-- [ ] Run the three new suites plus existing mutation-barrier tests located with `rg --files tests | rg mutation`; commit: `git commit -m "feat: add recoverable file jobs and path locks"`.
+- [x] Implement state transitions as conditional SQL updates. Persist request and queued job in one transaction before launching a handler. Barrier leases surround short state/publication changes; do not wrap the whole handler. Validate scope again when a queued job starts. Limit active byte-transfer handlers to three, while reads and cancellation remain responsive.
+- [x] Implement `store.prune(now)` for terminal jobs older than seven days, excluding every job referenced by an unresolved publication, unfinished child or trash record. Invoke it during startup and hourly with an unreferenced timer; shutdown clears the timer. Test an old interrupted publication surviving the sweep and an expired request returning 410 after its job metadata has gone.
+- [x] Register only implemented handlers; currently no browser can trigger an arbitrary operation. On shutdown reject new jobs, abort active work, await owned workers/streams and then close the store. Integrate this lifecycle into the existing application-close path before dependent stores close.
+- [x] Run the three new suites plus existing mutation-barrier tests located with `rg --files tests | rg mutation`; commit: `git commit -m "feat: add recoverable file jobs and path locks"`.
 
 ## Task 6: Rekursive Suche und angeforderte Ordnergröße
 
@@ -578,6 +582,13 @@ and `measureFiles(same arguments)` are handlers. Search options:
 `{query,recursive,caseSensitive,hidden}`. Each result uses a stable `job_entries.id`
 and `FileEntry` data. `useFileJobs(client)` exposes `{jobs,entries,start,cancel,resolve,refresh}`
 with 1.5-second polling while visible, 10 seconds while hidden and no overlap between requests.
+
+**Metadata budgets (T6 ruling):** scan progress uses `searchEntries` (100,000), search
+result rows use `searchResults` (10,000), and requested size observes stat-byte sums
+up to `Number.MAX_SAFE_INTEGER`, with explicit incomplete/overflow state. These
+are independent of transfer `jobEntries`/`jobBytes` limits. Extend both scheduler
+and store validation while preserving the 50,000-entry/50-GiB transfer protections.
+Transport complete `FileEntry` metadata with explicit nullable/boolean fields.
 
 - [ ] Add symlink-cycle, denied-subdirectory, timeout, cap and cancellation tests using a deterministic clock and low fixture limits.
 
@@ -1660,10 +1671,10 @@ ohne gewählten Ausführungsmodus zusätzliche Agenten zu starten.
 ## Übergabe
 
 Dieser Plan beschreibt die Umsetzung; er erteilt keine zusätzliche Freigabe zum
-Veröffentlichen oder Deployen. Nach Übergabe kann die Umsetzung entweder mit
-`superpowers:subagent-driven-development` und Review pro Task oder mit
-`superpowers:executing-plans` in derselben Sitzung erfolgen. Der Nutzer wählt den
-Ausführungsmodus; bis dahin bleiben die Checkboxen offen.
+Veröffentlichen oder Deployen. Die beauftragte Umsetzung läuft mit
+`superpowers:subagent-driven-development` und unabhängiger Review pro Task. Die
+Checkboxen kennzeichnen geprüfte abgeschlossene Tasks; die übrigen Tasks bleiben
+offen. Eine Freigabe zum Merge von PR #79 wurde noch nicht erteilt.
 
 ## Execution contract corrections — 2026-09-13
 
@@ -1702,3 +1713,5 @@ Ruling: T2 read prerequisite — Bring forward the read-only native descriptor f
 Ruling: Native release-test runtime — Detect a copied-runtime shared-library loader failure before native smoke, and explicitly skip that relocation-only fixture outside CI when the host Node cannot relocate. CI must fail rather than skip; actual Koffi/node-pty or release-smoke failures never qualify. Keep the successful official Node22 full-suite and real release-build evidence — a valid locally installed Homebrew Node may depend on its installation path, while production release construction uses an official portable runtime — cost if wrong: a local packaging regression could escape the narrow fixture, with mandatory official-runtime CI remaining the gate.
 
 Ruling: T4 hidden preference and URL — Persisted showHidden is a default only without an explicit URL choice. Add fileHiddenExplicit to route state and serialize an explicit false override as hidden=0, retaining compact ordinary false defaults. Preserve that marker through navigation/reload/back; do not let pending preference PATCH override the current toggle — the original codec omitted false and otherwise could not distinguish the user's visible-files choice from an absent preference — cost if wrong: route compatibility and preference precedence would need adjustment. Implementer reports three failing route RED cases before extension and will cover reload/back.
+
+Ruling: T6 metadata observation budgets — Search/size progress uses the configured searchEntries scan budget (100000 by default); stored search results use searchResults (10000 by default), separately from transfer manifests. Requested size observes stat byte totals up to Number.MAX_SAFE_INTEGER and marks overflow/incomplete traversal explicitly; it does not apply the50GiB transfer-data cap to metadata observations. Preserve the configured jobEntries/jobBytes protections for transfer operations in both scheduler and store. Keep traversal time/depth/abort bounds and never read file contents for search/size — the binding spec limits50GiB/50000entries to upload/copy/archive jobs and defines independent metadata/search budgets; applying transfer limits to folder measurement or scan progress would falsely truncate valid results — cost if wrong: kind-aware counter/entry limits and the metadata-job progress labels need revision.
