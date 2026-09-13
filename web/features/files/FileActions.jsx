@@ -18,10 +18,11 @@ export default function FileActions({
   const [name, setName] = useState("");
   const [error, setError] = useState(null);
   const [feedback, setFeedback] = useState(null);
-  const [pending, setPending] = useState(false);
+  const [pendingDialog, setPendingDialog] = useState(null);
+  const dialogOwner = useRef(null);
   const attempt = useRef(null);
   const alive = useRef(true);
-  const busy = useRef(false);
+  const busy = useRef(null);
   const selected = selection.selected;
   const signature = selected.map((item) => `${item.path}\0${item.revision}`).join("\n");
   const validDialog =
@@ -34,22 +35,33 @@ export default function FileActions({
         ),
       ));
   const currentDialog = validDialog ? dialog : null;
+  // Invalidate during render, before a pending response or cleanup effect can run.
+  if (!validDialog && dialogOwner.current === dialog) dialogOwner.current = null;
+  const pending = Boolean(currentDialog && pendingDialog === currentDialog);
+  const replaceDialog = (value) => {
+    dialogOwner.current = value;
+    attempt.current = null;
+    setPendingDialog(null);
+    setDialog(value);
+  };
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
+      dialogOwner.current = null;
     };
   }, []);
   useEffect(() => {
-    if (dialog && !validDialog) setDialog(null);
+    if (dialog && !validDialog)
+      setDialog((current) => (current === dialog ? null : current));
   }, [dialog, validDialog]);
 
   const show = (kind, items = selected, extra = {}) => {
     if (scope.readOnly && !["copy", "path"].includes(kind)) return;
     setError(null);
     setFeedback(null);
-    attempt.current = null;
     if (kind === "copy" || kind === "cut") {
+      replaceDialog(null);
       if (items.length) {
         clipboard[kind](items);
         setFeedback(kind);
@@ -57,6 +69,7 @@ export default function FileActions({
       return;
     }
     if (kind === "path") {
+      replaceDialog(null);
       const paths = items.map((item) => item.path).join("\n");
       navigator.clipboard
         .writeText(paths)
@@ -70,7 +83,7 @@ export default function FileActions({
     }
     if (kind === "paste") {
       if (!clipboard.items.length) return;
-      setDialog({
+      replaceDialog({
         kind: clipboard.action === "cut" ? "move" : "copy",
         items: references(clipboard.items),
         target: scope.path,
@@ -78,7 +91,7 @@ export default function FileActions({
       });
     } else {
       setName(kind === "rename" ? items[0]?.name || "" : "");
-      setDialog({
+      replaceDialog({
         kind,
         items: references(items),
         bindEntries: ["rename", "trash", "move"].includes(kind),
@@ -102,8 +115,14 @@ export default function FileActions({
   }, [request]);
   const submit = async (event) => {
     event.preventDefault();
-    if (busy.current || !currentDialog) return;
+    if (
+      !currentDialog ||
+      busy.current === currentDialog ||
+      dialogOwner.current !== currentDialog
+    )
+      return;
     const value = currentDialog;
+    const owns = () => alive.current && dialogOwner.current === value;
     let body = attempt.current;
     if (!body) {
       body = ["copy", "move"].includes(value.kind)
@@ -132,21 +151,21 @@ export default function FileActions({
       setError({ message: copy.errors.FILE_LIMIT_EXCEEDED });
       return;
     }
-    busy.current = true;
-    setPending(true);
+    busy.current = value;
+    setPendingDialog(value);
     setError(null);
     try {
       const job = await jobs.start(scope.scopeId, body);
       if (value.token && value.kind === "move") clipboard.track(value.token, job.id);
-      if (!alive.current) return;
-      setDialog(null);
+      if (!owns()) return;
+      replaceDialog(null);
       selection.clear();
       onChanged();
     } catch (issue) {
-      if (alive.current) setError(issue);
+      if (owns()) setError(issue);
     } finally {
-      busy.current = false;
-      if (alive.current) setPending(false);
+      if (busy.current === value) busy.current = null;
+      if (owns()) setPendingDialog(null);
     }
   };
   const titles = {
@@ -241,7 +260,7 @@ export default function FileActions({
           className="file-action-dialog"
           title={titles[currentDialog.kind]}
           close={() => {
-            if (!pending) setDialog(null);
+            if (!pending) replaceDialog(null);
           }}
           closeDisabled={pending}
         >
@@ -279,7 +298,7 @@ export default function FileActions({
                 type="button"
                 className="button secondary"
                 disabled={pending}
-                onClick={() => setDialog(null)}
+                onClick={() => replaceDialog(null)}
               >
                 {copy.actions.choices.cancel}
               </button>

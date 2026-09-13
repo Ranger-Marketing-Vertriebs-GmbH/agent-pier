@@ -230,6 +230,179 @@ test("stale selections and dialogs disappear on refresh and path navigation", as
   );
 });
 
+for (const kind of ["rename", "trash"]) {
+  for (const outcome of ["success", "error"]) {
+    test(`delayed ${kind} ${outcome} preserves a replacement dialog and selection`, async ({
+      page,
+    }) => {
+      const f = await actionsFixture(page);
+      // Keep the acknowledged job running: terminal-job refresh is a separate owner.
+      f.onStart = () => {};
+      let release;
+      const held = new Promise((resolve) => (release = resolve));
+      const bodies = [];
+      await page.route("**/api/files/operations", async (route) => {
+        bodies.push(route.request().postDataJSON());
+        await held;
+        if (outcome === "error")
+          return route.fulfill({ status: 503, json: { code: "FILE_IO_ERROR" } });
+        return route.fallback();
+      });
+      await selectEnglish(page);
+      await page.goto(baseURL + "/files");
+      await page.getByRole("checkbox", { name: "Select a.txt", exact: true }).check();
+      await page
+        .getByRole("button", {
+          name: kind === "rename" ? "Rename" : "Move to Trash",
+          exact: true,
+        })
+        .click();
+      if (kind === "rename")
+        await page.getByRole("dialog").getByRole("textbox").fill("old-name.txt");
+      await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
+      await expect.poll(() => bodies.length).toBe(1);
+      expect(bodies[0].kind).toBe(kind);
+      expect(bodies[0].sources).toEqual(["/home/test/a.txt"]);
+
+      // Same scope/path, same mounted FileActions, but a new listing owner.
+      f.files = f.files.filter((entry) => entry.name !== "a.txt");
+      await page.evaluate(() => {
+        const url = new URL(location.href);
+        url.searchParams.set("sort", "size");
+        history.pushState({}, "", url);
+        dispatchEvent(new PopStateEvent("popstate"));
+      });
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      const selected = page.getByRole("checkbox", { name: "Select b.txt", exact: true });
+      await selected.check();
+      await page.getByRole("button", { name: "New file", exact: true }).click();
+      const replacement = page.getByRole("dialog", { name: "New file", exact: true });
+      await expect(replacement).toBeVisible();
+      const response = page.waitForResponse("**/api/files/operations");
+      release();
+      await (await response).finished();
+      await page.evaluate(
+        () =>
+          new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve)),
+          ),
+      );
+      await expect(replacement.getByRole("button", { name: "Confirm" })).toBeEnabled();
+      await expect(replacement).not.toContainText("could not be completed");
+      await expect(selected).toBeChecked();
+      await replacement.getByRole("textbox").fill("replacement.txt");
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      expect(bodies).toHaveLength(1);
+      expect(f.unknown).toEqual([]);
+    });
+  }
+}
+
+test("an obsolete response cannot unlock a newer attempt or replace its immutable retry", async ({
+  page,
+}) => {
+  const f = await actionsFixture(page);
+  f.onStart = () => {};
+  const releases = [];
+  const holds = [0, 1].map(() => new Promise((resolve) => releases.push(resolve)));
+  const bodies = [];
+  await page.route("**/api/files/operations", async (route) => {
+    const index = bodies.push(route.request().postDataJSON()) - 1;
+    if (index < 2) {
+      await holds[index];
+      return route.fulfill({ status: 503, json: { code: "FILE_IO_ERROR" } });
+    }
+    return route.fallback();
+  });
+  await selectEnglish(page);
+  await page.goto(baseURL + "/files");
+  await page.getByRole("checkbox", { name: "Select a.txt", exact: true }).check();
+  await page.getByRole("button", { name: "Rename", exact: true }).click();
+  await page.getByRole("dialog").getByRole("textbox").fill("old-name.txt");
+  await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
+  await expect.poll(() => bodies.length).toBe(1);
+  f.files = f.files.filter((entry) => entry.name !== "a.txt");
+  await page.evaluate(() => {
+    const url = new URL(location.href);
+    url.searchParams.set("sort", "size");
+    history.pushState({}, "", url);
+    dispatchEvent(new PopStateEvent("popstate"));
+  });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("checkbox", { name: "Select b.txt", exact: true }).check();
+  await page.getByRole("button", { name: "Rename", exact: true }).click();
+  const replacement = page.getByRole("dialog", { name: "Rename", exact: true });
+  await replacement.getByRole("textbox").fill("new-name.txt");
+  const confirm = replacement.getByRole("button", { name: "Confirm" });
+  await confirm.click();
+  await expect(confirm).toBeDisabled();
+  releases[0]();
+  await expect.poll(() => bodies.length).toBe(2);
+  await expect(confirm).toBeDisabled();
+  await expect(replacement.getByRole("textbox")).toBeDisabled();
+  await expect(replacement).not.toContainText("could not be completed");
+  await expect(
+    page.getByRole("checkbox", { name: "Select b.txt", exact: true }),
+  ).toBeChecked();
+  releases[1]();
+  await expect(replacement).toContainText("could not be completed");
+  await confirm.click();
+  await expect(replacement).toHaveCount(0);
+  expect(bodies).toHaveLength(3);
+  expect(bodies[2]).toEqual(bodies[1]);
+  expect(bodies[1].requestId).not.toBe(bodies[0].requestId);
+  expect(bodies[1].sources).toEqual(["/home/test/b.txt"]);
+  expect(bodies[1].options.revisions).toEqual({ "/home/test/b.txt": revision });
+  expect(bodies[1].name).toBe("new-name.txt");
+  expect(f.unknown).toEqual([]);
+});
+
+test("a move acknowledged after dialog unmount still tracks its original Cut proof", async ({
+  page,
+}) => {
+  const f = await actionsFixture(page);
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  let id;
+  f.onStart = async (_body, job) => {
+    id = job.id;
+    await held;
+  };
+  await selectEnglish(page);
+  await page.goto(baseURL + "/files");
+  await page.getByRole("checkbox", { name: "Select a.txt", exact: true }).check();
+  await page.getByRole("button", { name: "Cut", exact: true }).click();
+  await page.getByRole("button", { name: "docs", exact: true }).click();
+  await page.getByRole("button", { name: "Paste", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
+  await expect.poll(() => id).toBeTruthy();
+  await page.evaluate(() => {
+    history.pushState({}, "", "/files?path=%2Fhome%2Ftest");
+    dispatchEvent(new PopStateEvent("popstate"));
+  });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const actions = page.getByRole("region", { name: "File actions" });
+  await expect(actions).toContainText("Cut: 1 references");
+  release();
+  await expect(page.getByRole("region", { name: "File jobs" })).toContainText(
+    "Move · Running",
+  );
+  f.finish(id, [
+    {
+      id: "0",
+      source: "/home/test/a.txt",
+      path: "/home/test/docs/a.txt",
+      status: "completed",
+      outputPublished: true,
+      sourceRemoved: true,
+    },
+  ]);
+  await expect(actions).not.toContainText("Cut: 1 references");
+  await expect(page.getByRole("button", { name: "Paste", exact: true })).toBeDisabled();
+  expect(f.unknown).toEqual([]);
+});
+
 test("German touch menus and English desktop actions remain visible", async ({
   page,
   browserName,
