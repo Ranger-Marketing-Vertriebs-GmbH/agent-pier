@@ -1,10 +1,17 @@
+import { probeTerminalChat } from "./probe-terminal-chat.mjs";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import { inspectChatComposer } from "../server/features/sessions/session-chat-input.js";
 
 /** Inject a proven post-paste journal failure only in this disposable application. */
-export async function probeNativeRecovery(fixture, session, snapshot, counts) {
+export async function probeNativeRecovery(
+  fixture,
+  session,
+  snapshot,
+  counts,
+  observations,
+) {
   const delivery = fixture.application.chatDelivery;
   const manager = fixture.application.sessions;
   const target = `${manager.target(session.id)}:0.0`;
@@ -157,7 +164,14 @@ export async function probeNativeRecovery(fixture, session, snapshot, counts) {
     if (n === 249) throw new Error("Fresh chat input did not append to the native draft");
     await sleep(20);
   }
+  const terminalChat = await probeTerminalChat({
+    fixture,
+    session,
+    counts,
+    ...observations,
+  });
   return {
+    terminalChat,
     submittedExisting: true,
     extraPaste: 0,
     submit: 1,

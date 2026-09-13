@@ -242,3 +242,62 @@ test("Claude plain empty prompt accepts delivery and retries a pre-paste rejecti
   assert.deepEqual(await recover(), result);
   assert.deepEqual(await x.recorder.readBytes(), Buffer.from(expected));
 });
+
+for (const tool of ["codex", "claude", "opencode"]) {
+  test(`${tool}: terminal paste and Enter allow the next HTTP chat send and rejected retry`, async (t) => {
+    const x = await fixture(t, tool, {
+      raw: "Synthetic collapsed native draft\n[Pasted content]\n",
+      pane: { cursorX: 2, cursorY: 2, width: 120, height: 35 },
+    });
+    const manager = x.f.application.sessions;
+    let attached = false;
+    const client = await manager.attach(x.session.id, {
+      onData: () => (attached = true),
+    });
+    await assertEventually(() => attached);
+    // Use the actual attached browser input path, including fragmented paste markers.
+    for (const chunk of [
+      "\x1b[20",
+      "0~",
+      "Synthetic terminal draft\r".repeat(50),
+      "\x1b[201~",
+    ])
+      await client.write(chunk);
+    const input = x.body("Chat after terminal submission");
+    assert.equal((await x.post(input)).status, "rejected");
+    await client.write("\r");
+    const recovery = {
+      attemptId: randomUUID(),
+      expectedAttemptId: input.deliveryId,
+      deliveryScope: x.scope,
+      text: input.text,
+      mode: "retry",
+    };
+    const retry = async () =>
+      (
+        await x.f.request(`${x.endpoint}/${input.deliveryId}/recovery`, {
+          method: "POST",
+          body: recovery,
+        })
+      ).json();
+    const recovered = await retry();
+    assert.equal(recovered.status, "handed-off");
+    assert.equal(recovered.recovery.action, "resent");
+    assert.deepEqual(await retry(), recovered);
+    const next = x.body("Next fresh chat");
+    assert.equal((await x.post(next)).status, "handed-off");
+    await x.recorder.waitForText(`\x1b[200~${next.text}\x1b[201~\r`);
+    const received = (await x.recorder.readBytes()).toString();
+    for (const text of [input.text, next.text])
+      assert.equal(received.split(`\x1b[200~${text}\x1b[201~\r`).length - 1, 1);
+  });
+}
+
+async function assertEventually(predicate) {
+  const { setTimeout: sleep } = await import("node:timers/promises");
+  for (let attempt = 0; attempt < 100; attempt++) {
+    if (predicate()) return;
+    await sleep(20);
+  }
+  assert.fail("The isolated terminal did not attach");
+}
