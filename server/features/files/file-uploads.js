@@ -244,7 +244,7 @@ export class FileUploads {
     )
       throw fileProblem("FILE_PATH_CHANGED", 409);
   }
-  receive(scope, id, readable, { signal, declaredBytes } = {}) {
+  receive(scope, id, readable, { signal, declaredBytes, onInputFailure } = {}) {
     return this.own(async () => {
       scope = await this.scope(scope);
       const job = this.jobs.get(scope, id),
@@ -287,7 +287,7 @@ export class FileUploads {
         }
         combined.throwIfAborted();
         const done = this.jobs.runReserved(scope, id, (context) =>
-          this.run(context, readable, combined),
+          this.run(context, readable, combined, onInputFailure),
         );
         const abort = () => {
           this.jobs.active.get(id)?.controller.abort(combined.reason);
@@ -310,7 +310,7 @@ export class FileUploads {
       }
     });
   }
-  async run(context, readable, externalSignal) {
+  async run(context, readable, externalSignal, onInputFailure) {
     const { scope, jobId, conflict } = context;
     const signal = AbortSignal.any([context.signal, externalSignal]);
     let upload = this.journal.attempt(jobId),
@@ -383,7 +383,15 @@ export class FileUploads {
       }
       signal.throwIfAborted();
       stage = await this.publisher.stage(scope, target, { jobId, upload: true });
-      await receiveUploadBytes(this, scope, jobId, readable, stage, signal);
+      await receiveUploadBytes(
+        this,
+        scope,
+        jobId,
+        readable,
+        stage,
+        signal,
+        onInputFailure,
+      );
       signal.throwIfAborted();
       const result = await this.publisher.publish(scope, stage, {
         expectedRevision,

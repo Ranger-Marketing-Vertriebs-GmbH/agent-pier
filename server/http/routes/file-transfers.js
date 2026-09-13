@@ -36,6 +36,7 @@ export function fileTransferStreams({ files }) {
           const job = await files.uploads.receive(scope, req.params.uploadId, req, {
             signal: abort.signal,
             declaredBytes: header === undefined ? undefined : Number(header),
+            onInputFailure: abort.close,
           });
           if (!res.destroyed) res.json(job);
         } finally {
