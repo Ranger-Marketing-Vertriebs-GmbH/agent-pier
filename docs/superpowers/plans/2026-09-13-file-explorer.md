@@ -71,13 +71,25 @@ Der volle Backendlauf vor den letzten gezielten Korrekturen bestand 1.510 Tests 
 vier Übersprüngen; der abschließende Metadaten-/Native-/Paket-/Kataloglauf besteht
 46 Tests bei einem Linux-spezifischen Übersprung auf macOS. Der geprüfte Stand `12c46db` besteht inzwischen alle Backend-Matrixläufe unter
 Linux/macOS mit Node 22/24 sowie die echten Pakete für Darwin/Linux auf ARM64/x64.
-Der manuelle Paketlauf übersprang die Veröffentlichung; die Browser-CI läuft noch.
+Der manuelle Paketlauf übersprang die Veröffentlichung; auch Chromium und WebKit sind grün. Alle 17 CI-Prüfungen dieses Stands sind erfolgreich.
 Die private Metadatenfähigkeit meldet unter Linux derzeit unbewiesene Vollständigkeit:
 Strikte Kopien auf einen neuen Inode brechen vor Metadatenänderungen ab, gewöhnliche
 Kopien melden eine ausdrückliche Warnung. Umbenennen/Austausch im selben Dateisystem
 und echte Same-Inode-Operationen bleiben erhaltend. Task 22 prüft diese konservative
 Verfügbarkeit mit echten Linux-Belegen; spätere strikte Verbraucher behalten bis
 dahin das Original. Die weiteren Tasks bleiben offen.
+Task 8 ist implementiert und nach einer Korrekturrunde unabhängig geprüft.
+Veröffentlichung erhält verdrängte Inhalte im Journal; Wiederherstellung schützt
+ihre kurze Bereinigung und Journalfortschreibung gemeinsam vor Sicherungen.
+Öffentliche Inhaltsrevisionen enthalten die vollständige Datei-/Linkbeobachtung;
+späte Linkänderungen erzeugen Konflikte. Publisher-Aufrufe lehnen aktive äußere
+Sperren früh ab. Generische Schreib-/Hashgrenzen folgen sicher darstellbaren
+Positionen, während die späteren Operationen ihre konfigurierten Budgets prüfen.
+Die letzte Korrektur `bddf032` besteht 99 gezielte Tests mit einem Linux-spezifischen
+Übersprung sowie Lint, Formatierung, Struktur und Build. Die Plattform-CI dieses
+neuen Stands steht noch aus. Bereinigung bleibt eine vorgeprüfte Pfadoperation mit
+der ausdrücklich dokumentierten Grenze gegenüber parallelen nativen Schreibern.
+
 Paketversionen wurden
 ursprünglich am 2026-09-13 in der npm-Registry gelesen; tatsächliche Installation
 und Kompatibilität werden jeweils bei ihrer Einführung geprüft.
@@ -742,7 +754,7 @@ Stages for files/directories own a corresponding descriptor; a link stage has
 `handle:null` and is synced through its containing directory. The publisher keeps
 all stage/parent handles open through the native call and closes them in `finally`.
 
-- [ ] Write tests for new-target collision, external edit before publish, injected failure before/after exchange, double replay, unsupported exchange and recovery with an unrelated file placed at the original path.
+- [x] Write tests for new-target collision, external edit before publish, injected failure before/after exchange, double replay, unsupported exchange and recovery with an unrelated file placed at the original path.
 
 ```js
 test("failed publication never truncates the destination", async (t) => {
@@ -774,8 +786,8 @@ test("failed publication never truncates the destination", async (t) => {
 });
 ```
 
-- [ ] Add `seedFileJob(store,scope)` to `tests/helpers/file-explorer.js`: return `store.request(scope,{requestId:Date.now()+":"+randomUUID(),kind:"copy",sources:[],target:scope.home,name:null,options:{}}).job`. Direct-service tests use its real stored ID, not a nonexistent foreign key. Run `node --test tests/integration/file-publish.test.js tests/integration/file-recovery.test.js` and confirm the regression is red.
-- [ ] Create private `0700` stage directories next to targets, create files with `wx`/`0600`, and journal stage identity before work. Existing targets require a revision; absent targets use native no-replace rename. Flush complete data and strict metadata before publishing. For replacement, record intent, atomically exchange with the existing target, then record the displaced inode before moving it elsewhere.
+- [x] Add `seedFileJob(store,scope)` to `tests/helpers/file-explorer.js`: return `store.request(scope,{requestId:Date.now()+":"+randomUUID(),kind:"copy",sources:[],target:scope.home,name:null,options:{}}).job`. Direct-service tests use its real stored ID, not a nonexistent foreign key. Run `node --test tests/integration/file-publish.test.js tests/integration/file-recovery.test.js` and confirm the regression is red.
+- [x] Create private `0700` stage directories next to targets, create files with `wx`/`0600`, and journal stage identity before work. Existing targets require a revision; absent targets use native no-replace rename. Flush complete data and strict metadata before publishing. For replacement, record intent, atomically exchange with the existing target, then record the displaced inode before moving it elsewhere.
 
 ```js
 const { jobId, target } = stage;
@@ -810,9 +822,11 @@ await locks.withPaths([target], async () => {
 });
 ```
 
-- [ ] Implement `publisher.assertExpected` with the declared revision variant and fresh resolved-target checks. Also inspect the displaced file and selected-link identity after exchange: if either differs, preserve both versions and report conflict; rollback only while the target still identifies the just-published inode. Never overwrite an unrelated post-exchange writer to restore the old state. Unsupported no-replace/exchange returns `FILE_WRITE_UNSUPPORTED` with retained source and staged data.
-- [ ] Recovery only acts on matching recorded inode/parent identities. Expose ambiguous states as `FILE_INTERRUPTED` and preserve both copies. Parent directory sync completes durability where supported; failure is recorded, not mislabeled success. Reject removing filesystem root, project root in project mode, or storage ancestors through mutation helpers.
-- [ ] Run both suites plus native tests; commit: `git commit -m "feat: journal atomic file publication and recovery"`.
+- [x] Implement `publisher.assertExpected` with the declared revision variant and fresh resolved-target checks. Also inspect the displaced file and selected-link identity after exchange: if either differs, preserve both versions and report conflict; rollback only while the target still identifies the just-published inode. Never overwrite an unrelated post-exchange writer to restore the old state. Unsupported no-replace/exchange returns `FILE_WRITE_UNSUPPORTED` with retained source and staged data.
+- [x] Recovery only acts on matching recorded inode/parent identities. Expose ambiguous states as `FILE_INTERRUPTED` and preserve both copies. Parent directory sync completes durability where supported; failure is recorded, not mislabeled success. Reject removing filesystem root, project root in project mode, or storage ancestors through mutation helpers.
+- [x] Run both suites plus native tests; commit: `git commit -m "feat: journal atomic file publication and recovery"`.
+
+- [ ] Verify the reviewed Task 8 head in the Linux/macOS Node 22/24 matrix and all four actual release-package targets before building Task 9 on its native writes.
 
 ## Task 9: Papierkorb, Wiederherstellung und endgültige Löschung
 
@@ -1742,3 +1756,7 @@ Ruling: T7 link metadata API equivalence — Permit verified descriptor-based eq
 Ruling: T7 Linux link capability — Use a verified fixed /proc/self/fd/<owned O_PATH link fd> metadata bridge where conventional fd xattr calls reject O_PATH, without appending a mutable leaf name. Keep the descriptor alive, prove link identity and no target following with real Linux tests, and report missing/inaccessible procfs through the existing strict failure or explicit copy-warning contract; unknown attributes are never an empty set. Do not impose an inferred Linux6.13 minimum, mount procfs, or relax global Linux support — kernel6.13 xattrat still uses fdget filtering O_PATH, while [libselinux uses the owned-fd bridge](https://github.com/SELinuxProject/selinux/blob/master/libselinux/src/fsetfilecon.c) for pinned metadata access — cost if wrong: link metadata could be misdirected or legitimate operations blocked, requiring the adapter/capability tests to change; unsupported hosts retain originals.
 
 Ruling: T7 hidden namespace completeness — New-inode metadata copying cannot report strict success when the host may hide source namespaces and complete observation has not been proven. Carry private completeness/capability state, fail strict copying before metadata mutation with FILE_METADATA_UNSUPPORTED, and give ordinary copying an explicit localized warning. Same-inode no-op and actual same-filesystem rename/exchange remain preserving; do not elevate privileges, infer initial-user-namespace capability from uid0/current caps, or change global Linux support. Save retains its Save As fallback; EXDEV move/trash retain the source — [Linux documents omitted inaccessible xattr names](https://man7.org/linux/man-pages/man2/listxattr.2.html), and its VFS deliberately hides trusted.* without initial-namespace CAP_SYS_ADMIN, so visible equality is not complete preservation — cost if wrong: conservative capability detection may block legitimate Linux save/EXDEV operations, requiring adapter and fallback UX rework.
+
+Ruling: T8 symlink stage content — Add internal stage.createLink(linkText) as a one-shot content operation for symlink stages, keep stage.handle null, journal identity/intent before content work, create relative to the retained private stage directory, and sync that directory. Validate link text without following it; this does not introduce a public symlink-creation action — Tasks9/11 need a concrete way to populate the selected link while the approved stage contract intentionally provides no link file handle — cost if wrong: a small stage/transfer interface and its regression tests require rework.
+
+Ruling: T8 finite cleanup guarantee — Retain registered-work cleanup using retained, identity-checked parents and immediate inode/type checks; preserve every observed mismatch and uncertain journal state. Describe the final pathname unlink as a prechecked removal, never atomic inode-conditional deletion or exclusion of same-user native writers. Do not replace all successful/discarded-stage cleanup with indefinite retention. Carry the same explicit residual native-writer boundary to later source removal, purge and abandoned-upload cleanup — specification section6 expressly accepts remaining check-to-action races, and reviewer8 withdrew the overbroad I1 blocker after reconciling that requirement; ordinary POSIX quarantine/check/unlink cannot remove the final race either — cost if wrong: a same-user external replacement after the last check may still be affected, and stronger isolation or a quarantine policy would require native/cleanup lifecycle rework.
