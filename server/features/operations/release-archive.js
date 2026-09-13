@@ -77,7 +77,39 @@ export async function smokeRelease(directory) {
       [
         "--input-type=module",
         "-e",
-        "await import('node-pty'); await import('node:sqlite'); await import('./server/app.js');",
+        `
+          await import('node-pty');
+          await import('node:sqlite');
+          await import('./server/app.js');
+          const fs = await import('node:fs');
+          const path = await import('node:path');
+          const { createRequire } = await import('node:module');
+          const root = fs.realpathSync(process.cwd());
+          const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json')));
+          if (pkg.dependencies?.koffi) {
+            const require = createRequire(path.join(root, 'package.json'));
+            const nativePackage = '@koromix/koffi-' + process.platform + '-' + process.arch;
+            const within = (file, parent) => file.startsWith(parent + path.sep);
+            for (const name of ['koffi', nativePackage]) {
+              const entry = fs.realpathSync(require.resolve(name));
+              if (!within(entry, path.join(root, 'node_modules', name)))
+                throw Error('Native package resolves outside this release.');
+              require(name);
+            }
+            const nativeRoot = path.join(root, 'node_modules', nativePackage);
+            if (!Object.keys(require.cache).some(file =>
+              file.endsWith('.node') && within(fs.realpathSync(file), nativeRoot)))
+              throw Error('Native platform binary is missing from this release.');
+            const { FileNative } = await import('./server/features/files/file-native.js');
+            const native = new FileNative();
+            try {
+              const directory = await native.run('openRoot', { path: root });
+              const file = await native.run('openFile', { directory: directory.handle, path: 'package.json' });
+              const bytes = await native.run('read', { handle: file.handle, length: 64, position: 0 });
+              if (!bytes.length) throw Error('Native descriptor read failed.');
+            } finally { await native.close(); }
+          }
+        `,
       ],
       {
         cwd: directory,

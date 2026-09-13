@@ -1,4 +1,6 @@
 import fs from "node:fs/promises";
+import path from "node:path";
+import { FileNative, nativeReadBytes } from "./file-native.js";
 import { constants } from "node:fs";
 import { defaultFileLimits, readFileLimits } from "./file-limits.js";
 import { fileProblem, fileSystemProblem } from "./file-errors.js";
@@ -98,37 +100,43 @@ async function readBounded(handle, limit) {
   return buffer.subarray(0, used);
 }
 
-async function revalidateContainedPath(root, absolute) {
-  if (!root) return;
-  try {
-    if (!isWithin(root, await fs.realpath(absolute)))
-      throw fileProblem("FILE_PATH_CHANGED", 409);
-  } catch {
-    throw fileProblem("FILE_PATH_CHANGED", 409);
-  }
-}
-
 function sameFileIdentity(expected, actual) {
   return expected?.dev === actual.dev && expected?.ino === actual.ino;
 }
 
-/** Read an already resolved regular file through a bounded, no-follow descriptor. */
+/** Read a resolved canonical target through a worker-owned directory chain.
+ * scopeRoot is the trusted canonical project root, or null for global navigation.
+ * resolved: {absolute, path, stat} with stat.dev/ino as BigInts.
+ */
 export async function previewResolvedFile(
   resolved,
   { legacy = false, limits } = {},
   scopeRoot = null,
 ) {
-  let handle;
+  let native;
   try {
-    await revalidateContainedPath(scopeRoot, resolved.absolute);
-    handle = await fs.open(
-      resolved.absolute,
-      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
-    );
-    const stat = await handle.stat({ bigint: true });
-    if (!sameFileIdentity(resolved.stat, stat))
+    const root = scopeRoot ?? "/";
+    if (!isWithin(root, resolved.absolute)) throw fileProblem("FILE_OUTSIDE_SCOPE", 403);
+    if (!resolved.stat.isFile()) throw fileProblem("FILE_UNSUPPORTED_TYPE", 415);
+    native = new FileNative();
+    const directory = await native.run("openRoot", { path: root });
+    const opened = await native.run("openFile", {
+      directory: directory.handle,
+      path: path.relative(root, resolved.absolute),
+    });
+    if (!sameFileIdentity(resolved.stat, opened))
       throw fileProblem("FILE_PATH_CHANGED", 409);
-    if (!stat.isFile()) throw fileProblem("FILE_UNSUPPORTED_TYPE", 415);
+    const handle = {
+      async read(buffer, offset, length, position) {
+        const content = await native.run("read", {
+          handle: opened.handle,
+          length: Math.min(length, nativeReadBytes),
+          position,
+        });
+        buffer.set(content, offset);
+        return { bytesRead: content.length };
+      },
+    };
     const magic = Buffer.alloc(magicBytes);
     const magicUsed = await fillBuffer(handle, magic);
     const mime = imageMime(magic.subarray(0, magicUsed));
@@ -158,7 +166,7 @@ export async function previewResolvedFile(
   } catch (error) {
     throw fileSystemProblem(error);
   } finally {
-    if (handle) await handle.close();
+    if (native) await native.close();
   }
 }
 

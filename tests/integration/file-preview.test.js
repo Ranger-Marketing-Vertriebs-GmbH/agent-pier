@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
-import { constants } from "node:fs";
 import path from "node:path";
 import net from "node:net";
 import { fileFixture } from "../helpers/file-explorer.js";
 import { fileProblem } from "../../server/features/files/file-errors.js";
+import { FileNative } from "../../server/features/files/file-native.js";
 import { preview } from "../../server/features/files/file-reading.js";
 import { previewProjectFile } from "../../server/features/files/project-files.js";
 
@@ -19,24 +19,18 @@ async function swapAncestorWhenPreviewOpens(t, f, directoryName) {
     path.join(outsideDirectory, "sample.txt"),
     "SYNTHETIC_OUTSIDE_SCOPE",
   );
-  const selectedFile = path.join(selectedDirectory, "sample.txt");
-  const originalOpen = fs.open;
+  const originalRun = FileNative.prototype.run;
   let reads = 0;
-  fs.open = async (...args) => {
-    if (args[0] === selectedFile) {
+  FileNative.prototype.run = async function (operation, args) {
+    if (operation === "openFile") {
       await fs.rename(selectedDirectory, `${selectedDirectory}-selected`);
       await fs.symlink(outsideDirectory, selectedDirectory);
     }
-    const handle = await originalOpen(...args);
-    const originalRead = handle.read;
-    handle.read = (...readArgs) => {
-      reads += 1;
-      return originalRead.apply(handle, readArgs);
-    };
-    return handle;
+    if (operation === "read") reads += 1;
+    return originalRun.call(this, operation, args);
   };
   t.after(() => {
-    fs.open = originalOpen;
+    FileNative.prototype.run = originalRun;
   });
   return () => reads;
 }
@@ -111,18 +105,21 @@ test("image magic detection tolerates short descriptor reads", async (t) => {
   const file = path.join(f.project, "short-reads.png");
   const image = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4]);
   await fs.writeFile(file, image);
-  const probe = await fs.open(file, constants.O_RDONLY);
-  const prototype = Object.getPrototypeOf(probe);
-  await probe.close();
-  const originalRead = prototype.read;
-  prototype.read = function (buffer, offset, length, position) {
-    return originalRead.call(this, buffer, offset, Math.min(length, 2), position);
+  const originalRun = FileNative.prototype.run;
+  let reads = 0;
+  FileNative.prototype.run = function (operation, args) {
+    if (operation === "read") {
+      reads += 1;
+      args = { ...args, length: Math.min(args.length, 2) };
+    }
+    return originalRun.call(this, operation, args);
   };
   t.after(() => {
-    prototype.read = originalRead;
+    FileNative.prototype.run = originalRun;
   });
 
   assert.equal((await preview(f.projectScope, "short-reads.png")).type, "image");
+  assert.ok(reads > 2);
 });
 
 test("new and legacy previews retain their distinct text and image limits", async (t) => {
@@ -154,21 +151,18 @@ test("a growing UTF-8 preview stops at the byte limit", async (t) => {
   const f = await fileFixture(t);
   const file = path.join(f.project, "growing.txt");
   await fs.writeFile(file, "abcd");
-  const probe = await fs.open(file, constants.O_RDONLY);
-  const prototype = Object.getPrototypeOf(probe);
-  await probe.close();
-  const originalRead = prototype.read;
+  const originalRun = FileNative.prototype.run;
   let grew = false;
-  prototype.read = async function (...args) {
-    const result = await originalRead.apply(this, args);
-    if (!grew) {
+  FileNative.prototype.run = async function (operation, args) {
+    const result = await originalRun.call(this, operation, args);
+    if (operation === "read" && !grew) {
       grew = true;
       await fs.appendFile(file, "e");
     }
     return result;
   };
   t.after(() => {
-    prototype.read = originalRead;
+    FileNative.prototype.run = originalRun;
   });
 
   await assert.rejects(
@@ -178,48 +172,47 @@ test("a growing UTF-8 preview stops at the byte limit", async (t) => {
   assert.equal(await fs.readFile(file, "utf8"), "abcde");
 });
 
-test("preview opens with no-follow and preserves an injected open failure", async (t) => {
+test("preview preserves an injected native open failure", async (t) => {
   const f = await fileFixture(t);
   await fs.writeFile(path.join(f.project, "short.txt"), "short");
-  const originalOpen = fs.open;
+  const originalRun = FileNative.prototype.run;
   const sentinel = fileProblem("FILE_OPEN_SENTINEL", 599);
-  let observedFlags = null;
-  fs.open = async (_path, flags) => {
-    observedFlags = flags;
-    throw sentinel;
+  let observedPath = null;
+  FileNative.prototype.run = function (operation, args) {
+    if (operation === "openFile") {
+      observedPath = args.path;
+      return Promise.reject(sentinel);
+    }
+    return originalRun.call(this, operation, args);
   };
   t.after(() => {
-    fs.open = originalOpen;
+    FileNative.prototype.run = originalRun;
   });
-
   await assert.rejects(preview(f.projectScope, "short.txt"), sentinel);
-  assert.ok(observedFlags & constants.O_NOFOLLOW);
+  assert.equal(observedPath, "short.txt");
 });
 
-test("preview closes its descriptor and preserves an injected read failure", async (t) => {
+test("preview closes its native owner and preserves an injected read failure", async (t) => {
   const f = await fileFixture(t);
-  const file = path.join(f.project, "bad.txt");
-  await fs.writeFile(file, "content");
-  const originalOpen = fs.open;
+  await fs.writeFile(path.join(f.project, "bad.txt"), "content");
+  const originalRun = FileNative.prototype.run;
   const sentinel = fileProblem("FILE_READ_SENTINEL", 598);
-  let closes = 0;
-  fs.open = async (...args) => {
-    const handle = await originalOpen(...args);
-    const originalClose = handle.close;
-    handle.read = async () => {
-      throw sentinel;
-    };
-    handle.close = async (...closeArgs) => {
-      closes += 1;
-      return originalClose.apply(handle, closeArgs);
-    };
-    return handle;
+  let owner;
+  FileNative.prototype.run = function (operation, args) {
+    if (operation === "read") {
+      owner = this;
+      return Promise.reject(sentinel);
+    }
+    return originalRun.call(this, operation, args);
   };
   t.after(() => {
-    fs.open = originalOpen;
+    FileNative.prototype.run = originalRun;
   });
   await assert.rejects(preview(f.projectScope, "bad.txt"), sentinel);
-  assert.equal(closes, 1);
+  assert.ok(owner);
+  await assert.rejects(originalRun.call(owner, "openRoot", { path: f.project }), {
+    code: "FILE_IO_ERROR",
+  });
 });
 
 test("preview rejects directories and special files", async (t) => {
@@ -237,4 +230,25 @@ test("preview rejects directories and special files", async (t) => {
       code: "FILE_UNSUPPORTED_TYPE",
       status: 415,
     });
+});
+
+test("resolved project links remain bounded while global links allow outside navigation", async (t) => {
+  const f = await fileFixture(t);
+  await fs.mkdir(path.join(f.project, "nested"));
+  await fs.writeFile(path.join(f.project, "nested/text.txt"), "inside");
+  await fs.symlink("nested", path.join(f.project, "dir-link"));
+  await fs.symlink("nested/text.txt", path.join(f.project, "file-link"));
+  for (const selected of ["dir-link/text.txt", "file-link"]) {
+    assert.equal((await preview(f.projectScope, selected)).text, "inside");
+    assert.equal((await previewProjectFile(f.project, selected)).text, "inside");
+  }
+  await fs.writeFile(path.join(f.home, "outside.txt"), "global content");
+  await fs.symlink("../outside.txt", path.join(f.project, "outside-link"));
+  await assert.rejects(preview(f.projectScope, "outside-link"), {
+    code: "FILE_OUTSIDE_SCOPE",
+  });
+  assert.equal(
+    (await preview(f.globalScope, path.join(f.project, "outside-link"))).text,
+    "global content",
+  );
 });
