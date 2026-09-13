@@ -275,11 +275,15 @@ export class ReleaseSessionMigration {
     return false;
   }
   async resumeAfterActivation() {
-    let marker;
+    let marker = null;
     try {
       marker = readJson(this.marker, null);
-    } catch {
-      marker = null;
+    } catch (error) {
+      fs.rmSync(this.marker, { force: true });
+      this.log(
+        `Post-activation marker was unreadable and has been removed: ${error.message}`,
+      );
+      return;
     }
     if (!marker) return;
     try {

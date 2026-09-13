@@ -472,3 +472,40 @@ test("a still-running activation is awaited and a rejected request never throws"
     [ids[0], ids[1]],
   );
 });
+
+test("a malformed marker is discarded without requesting any reload", async (t) => {
+  const f = await activationFixture(
+    t,
+    [{ id: ids[0], tool: "claude", status: "running", activity: "idle" }],
+    { status: "succeeded", result: { activated: true } },
+  );
+  await fs.writeFile(f.marker, "{not json");
+  await f.migration.resumeAfterActivation();
+  assert.equal(f.reload.requests.length, 0);
+  await assert.rejects(fs.stat(f.marker));
+});
+
+test("a lock present at success time delays the reload until the lock is released", async (t) => {
+  const f = await activationFixture(
+    t,
+    [{ id: ids[0], tool: "claude", status: "running", activity: "idle" }],
+    { status: "succeeded", result: { activated: true } },
+  );
+  const lock = path.join(
+    f.operations.config.dataDir,
+    "operations/release-activation.lock",
+  );
+  await fs.writeFile(lock, "{}");
+  f.migration.activationPollMs = 10;
+  f.migration.activationTimeoutMs = 2000;
+  const pending = f.migration.resumeAfterActivation();
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(f.reload.requests.length, 0);
+  await fs.rm(lock, { force: true });
+  await pending;
+  assert.deepEqual(
+    f.reload.requests.map((r) => [r.id, r.mode]),
+    [[ids[0], "when-idle"]],
+  );
+  assert.equal(readJson(f.marker, null), null);
+});
