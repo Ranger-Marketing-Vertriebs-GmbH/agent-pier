@@ -7,6 +7,39 @@ import net from "node:net";
 import { fileFixture } from "../helpers/file-explorer.js";
 import { fileProblem } from "../../server/features/files/file-errors.js";
 import { preview } from "../../server/features/files/file-reading.js";
+import { previewProjectFile } from "../../server/features/files/project-files.js";
+
+async function swapAncestorWhenPreviewOpens(t, f, directoryName) {
+  const selectedDirectory = path.join(f.project, directoryName);
+  const outsideDirectory = path.join(f.home, `${directoryName}-outside`);
+  await fs.mkdir(selectedDirectory);
+  await fs.mkdir(outsideDirectory);
+  await fs.writeFile(path.join(selectedDirectory, "sample.txt"), "inside");
+  await fs.writeFile(
+    path.join(outsideDirectory, "sample.txt"),
+    "SYNTHETIC_OUTSIDE_SCOPE",
+  );
+  const selectedFile = path.join(selectedDirectory, "sample.txt");
+  const originalOpen = fs.open;
+  let reads = 0;
+  fs.open = async (...args) => {
+    if (args[0] === selectedFile) {
+      await fs.rename(selectedDirectory, `${selectedDirectory}-selected`);
+      await fs.symlink(outsideDirectory, selectedDirectory);
+    }
+    const handle = await originalOpen(...args);
+    const originalRead = handle.read;
+    handle.read = (...readArgs) => {
+      reads += 1;
+      return originalRead.apply(handle, readArgs);
+    };
+    return handle;
+  };
+  t.after(() => {
+    fs.open = originalOpen;
+  });
+  return () => reads;
+}
 
 test("text preview decodes UTF-8 and leaves SVG and HTML inert", async (t) => {
   const f = await fileFixture(t);
@@ -22,6 +55,25 @@ test("text preview decodes UTF-8 and leaves SVG and HTML inert", async (t) => {
       text,
     });
   }
+});
+
+test("project preview rejects an ancestor replaced with an outside link before open", async (t) => {
+  const f = await fileFixture(t);
+  const readCount = await swapAncestorWhenPreviewOpens(t, f, "new-preview");
+  await assert.rejects(preview(f.projectScope, "new-preview/sample.txt"), {
+    code: "FILE_PATH_CHANGED",
+    status: 409,
+  });
+  assert.equal(readCount(), 0);
+});
+
+test("legacy project preview rejects an ancestor replaced with an outside link before open", async (t) => {
+  const f = await fileFixture(t);
+  const readCount = await swapAncestorWhenPreviewOpens(t, f, "legacy-preview");
+  await assert.rejects(previewProjectFile(f.project, "legacy-preview/sample.txt"), {
+    status: 404,
+  });
+  assert.equal(readCount(), 0);
 });
 
 test("image preview recognizes only PNG, JPEG, GIF and WebP magic", async (t) => {

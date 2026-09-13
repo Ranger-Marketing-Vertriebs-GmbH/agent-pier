@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import { constants } from "node:fs";
 import { defaultFileLimits, readFileLimits } from "./file-limits.js";
 import { fileProblem, fileSystemProblem } from "./file-errors.js";
-import { entryRevision, resolveFile } from "./file-paths.js";
+import { entryRevision, isWithin, resolveFile } from "./file-paths.js";
 
 const legacyTextBytes = 256 * 1024;
 const legacyImageBytes = 5 * 1024 * 1024;
@@ -98,15 +98,36 @@ async function readBounded(handle, limit) {
   return buffer.subarray(0, used);
 }
 
+async function revalidateContainedPath(root, absolute) {
+  if (!root) return;
+  try {
+    if (!isWithin(root, await fs.realpath(absolute)))
+      throw fileProblem("FILE_PATH_CHANGED", 409);
+  } catch {
+    throw fileProblem("FILE_PATH_CHANGED", 409);
+  }
+}
+
+function sameFileIdentity(expected, actual) {
+  return expected?.dev === actual.dev && expected?.ino === actual.ino;
+}
+
 /** Read an already resolved regular file through a bounded, no-follow descriptor. */
-export async function previewResolvedFile(resolved, { legacy = false, limits } = {}) {
+export async function previewResolvedFile(
+  resolved,
+  { legacy = false, limits } = {},
+  scopeRoot = null,
+) {
   let handle;
   try {
+    await revalidateContainedPath(scopeRoot, resolved.absolute);
     handle = await fs.open(
       resolved.absolute,
       constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
     );
     const stat = await handle.stat({ bigint: true });
+    if (!sameFileIdentity(resolved.stat, stat))
+      throw fileProblem("FILE_PATH_CHANGED", 409);
     if (!stat.isFile()) throw fileProblem("FILE_UNSUPPORTED_TYPE", 415);
     const magic = Buffer.alloc(magicBytes);
     const magicUsed = await fillBuffer(handle, magic);
@@ -144,5 +165,9 @@ export async function previewResolvedFile(resolved, { legacy = false, limits } =
 export async function preview(scope, path, options = {}) {
   const resolved = await resolveFile(scope, path);
   if (!resolved.stat.isFile()) throw fileProblem("FILE_UNSUPPORTED_TYPE", 415);
-  return previewResolvedFile(resolved, options);
+  return previewResolvedFile(
+    resolved,
+    options,
+    scope.kind === "project" ? scope.root : null,
+  );
 }

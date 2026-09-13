@@ -28,9 +28,11 @@ async function resolve(rootPath, relative = "") {
     const root = await fs.realpath(rootPath);
     const target = await fs.realpath(path.join(root, relative));
     if (!inside(root, target)) throw problem(copy.outside, 403);
+    const stat = await fs.stat(target, { bigint: true });
     return {
       root,
       target,
+      stat,
       relative: path.relative(root, target).split(path.sep).join("/"),
     };
   } catch (error) {
@@ -73,8 +75,9 @@ export async function previewProjectFile(rootPath, relative) {
   const resolved = await resolve(rootPath, relative);
   try {
     return await previewResolvedFile(
-      { absolute: resolved.target, path: resolved.relative },
+      { absolute: resolved.target, path: resolved.relative, stat: resolved.stat },
       { legacy: true },
+      resolved.root,
     );
   } catch (error) {
     if (error.code === "FILE_LIMIT_EXCEEDED") throw problem(copy.tooLarge, 413);
