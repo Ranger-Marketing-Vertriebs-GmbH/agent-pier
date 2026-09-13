@@ -2,9 +2,19 @@ import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 
 async function fixture(page, target) {
-  const files = [];
+  const explorerBase = "/api/sessions/links/files/explorer";
+  const previews = [];
+  const explorerRequests = [];
+  const unexpectedExplorerRequests = [];
   await page.route("**/api/**", (route) => {
-    const url = new URL(route.request().url());
+    const request = route.request();
+    const url = new URL(request.url());
+    if (url.pathname.startsWith(explorerBase))
+      explorerRequests.push({
+        method: request.method(),
+        path: url.pathname.slice(explorerBase.length),
+        query: Object.fromEntries(url.searchParams),
+      });
     let json = {};
     if (url.pathname === "/api/state")
       json = {
@@ -33,21 +43,70 @@ async function fixture(page, target) {
           },
         ],
       };
-    else if (url.pathname.endsWith("/files/content")) {
+    else if (url.pathname === `${explorerBase}/context`)
+      json = {
+        scopeId: "f1:links-fixture",
+        kind: "project",
+        root: "/fixture/repo",
+        home: "/fixture",
+        readOnly: false,
+        limits: { listPageSize: 200, listEntries: 100000 },
+      };
+    else if (url.pathname === `${explorerBase}/preferences`)
+      json = { favorites: [], showHidden: false };
+    else if (url.pathname === `${explorerBase}/entries`)
+      json = {
+        path: url.searchParams.get("path") || "",
+        parent: null,
+        entries: [],
+        total: 0,
+        page: 1,
+        pageSize: 200,
+        hasMore: false,
+        snapshotId: "snapshot-links",
+      };
+    else if (url.pathname === `${explorerBase}/metadata`) {
       const file = url.searchParams.get("path");
-      files.push(file);
       if (file.startsWith("/"))
         return route.fulfill({
           status: 403,
-          json: { error: "Datei liegt außerhalb des Projektordners." },
+          json: {
+            error: "Dateioperation fehlgeschlagen.",
+            code: "FILE_OUTSIDE_SCOPE",
+            args: {},
+          },
         });
-      json = { type: "text", text: "# Acceptance report\nVerified results", path: file };
-    } else if (url.pathname.endsWith("/files"))
-      json = { entries: [], total: 0, page: 1, hasMore: false };
+      json = {
+        path: file,
+        name: file.split("/").at(-1),
+        type: "file",
+        size: 36,
+        modifiedAt: "2026-09-13T10:00:00.000Z",
+        mode: 0o600,
+        readable: true,
+        writable: true,
+        linkTarget: null,
+        revision: "e1:fixture",
+      };
+    } else if (url.pathname === `${explorerBase}/preview`) {
+      const file = url.searchParams.get("path");
+      previews.push(file);
+      json = {
+        path: file,
+        type: "text",
+        text: "# Acceptance report\nVerified results",
+      };
+    } else if (url.pathname.startsWith(explorerBase)) {
+      unexpectedExplorerRequests.push({ method: request.method(), path: url.pathname });
+      return route.fulfill({
+        status: 500,
+        json: { error: "Unexpected explorer request", code: "FILE_IO_ERROR", args: {} },
+      });
+    }
     return route.fulfill({ json });
   });
   await page.goto(baseURL + "/sessions/links/chat");
-  return files;
+  return { explorerRequests, previews, unexpectedExplorerRequests };
 }
 
 for (const target of [
@@ -58,12 +117,27 @@ for (const target of [
 ]) {
   test(`local chat link opens the project preview: ${target}`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    const files = await fixture(page, target);
+    const requests = await fixture(page, target);
     await page.getByRole("link", { name: "Abnahmebericht", exact: true }).click();
     await expect(page.getByLabel("Dateivorschau")).toContainText("Verified results");
-    expect(files[0]).toBe(
-      target.includes("final") ? "docs/report final.md" : "docs/report.md",
+    const expectedPath = target.includes("final")
+      ? "docs/report final.md"
+      : "docs/report.md";
+    expect(requests.previews).toEqual([expectedPath]);
+    expect(requests.explorerRequests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ method: "GET", path: "/context" }),
+        expect.objectContaining({ method: "GET", path: "/preferences" }),
+        expect.objectContaining({
+          method: "GET",
+          path: "/entries",
+          query: expect.objectContaining({ path: "" }),
+        }),
+        { method: "GET", path: "/metadata", query: { path: expectedPath } },
+        { method: "GET", path: "/preview", query: { path: expectedPath } },
+      ]),
     );
+    expect(requests.unexpectedExplorerRequests).toEqual([]);
     expect(page.context().pages()).toHaveLength(1);
     if (target === "docs/report.md")
       await page.screenshot({ path: ".cache/chat-file-preview-mobile.png" });
@@ -80,8 +154,17 @@ for (const target of [
 test("outside-project links show the bounded file error inside the app", async ({
   page,
 }) => {
-  await fixture(page, "/outside/report.md");
+  const requests = await fixture(page, "/outside/report.md");
   await page.getByRole("link", { name: "Abnahmebericht", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("außerhalb des Projektordners");
+  await expect(page.getByRole("alert")).toContainText(
+    "außerhalb des Projektverzeichnisses",
+  );
+  expect(requests.explorerRequests).toContainEqual({
+    method: "GET",
+    path: "/metadata",
+    query: { path: "/outside/report.md" },
+  });
+  expect(requests.previews).toEqual([]);
+  expect(requests.unexpectedExplorerRequests).toEqual([]);
   await expect(page.locator("body")).not.toContainText("npm run build");
 });
