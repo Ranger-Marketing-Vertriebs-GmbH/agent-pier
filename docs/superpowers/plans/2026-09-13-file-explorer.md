@@ -55,7 +55,7 @@ genutzt. Jeder Task endet mit einem eigenständig prüfbaren Ergebnis. Zunächst
 Vertrag unten, dann den eigenen Task und seine genannten Vorgänger lesen.
 
 Die Umsetzung läuft im bestehenden Worktree `.worktrees/file-explorer-design` auf
-`chore/file-explorer-design` für PR #79. Tasks 1 bis 5 sind implementiert und unabhängig
+`chore/file-explorer-design` für PR #79. Tasks 1 bis 6 sind implementiert und unabhängig
 geprüft; der aktuelle Stand enthält außerdem den gemergten Claude-Fix aus PR #78,
 „Alles kopieren“ aus PR #80 in der gemeinsamen Vorschau und Version 1.17.7 aus PR #81.
 Die API-Grundlage besteht die erforderliche CI unter Linux/macOS mit Node 22/24
@@ -70,8 +70,17 @@ besteht je 29 Fälle einschließlich des Datei- und Projektwechsels bei noch lad
 Vorschau. Jeder neue Stand durchläuft erneut die erforderliche CI. Die Auftragsgrundlage aus Task 5 ist unabhängig geprüft; ihr
 erster vollständiger Backendlauf bestand 1.455 Tests bei drei Übersprüngen. Nach
 einer gezielt geprüften Abbruchkorrektur und der Review-Korrekturrunde bestehen
-32 betroffene Tests. Die Linux-/Node-24-Prüfung dieses neuen Stands folgt in CI.
-Die übrigen Tasks bleiben offen. Paketversionen wurden
+32 betroffene Tests. Der abschließend geprüfte Auftragsstand besteht inzwischen
+die gesamte CI unter Linux/macOS mit Node 22/24 sowie Chromium/WebKit. Task 6
+ergänzt Suche und angeforderte Ordnergröße mit unabhängigen Metadatengrenzen,
+dauerhaften Teil-Ergebnissen und einer mobilen Auftragsanzeige. Sein erster
+vollständiger Backendlauf bestand 1.475 Tests bei drei Übersprüngen; die
+anschließenden gezielten Korrekturen bestanden 43 Tests sowie alle 33 Browserfälle
+pro Engine durch die dokumentierten Haupt- und Ergänzungsläufe. Die unabhängig
+geprüfte Korrektur für wachsende Trefferseiten und native Verzeichniszugriffe
+besteht 50 gezielte Tests, einschließlich Linkwechsel und 128 Ebenen. Dieser
+neueste Stand erhält nach dem Push seine eigene CI. Die übrigen Tasks bleiben offen.
+Paketversionen wurden
 ursprünglich am 2026-09-13 in der npm-Registry gelesen; tatsächliche Installation
 und Kompatibilität werden jeweils bei ihrer Einführung geprüft.
 
@@ -583,6 +592,12 @@ and `measureFiles(same arguments)` are handlers. Search options:
 and `FileEntry` data. `useFileJobs(client)` exposes `{jobs,entries,start,cancel,resolve,refresh}`
 with 1.5-second polling while visible, 10 seconds while hidden and no overlap between requests.
 
+**Reviewed implementation:** The initial pathname-based `opendir` example below was
+replaced by descriptor-bound `fdopendir`/`readdir` through the fixed native port.
+Traversal closes each stream before visiting queued descendants, retaining the
+128-depth bound and existing 64-handle cap. Live result pagination refreshes the
+last loaded opaque page cursor so later appended results remain reachable.
+
 **Metadata budgets (T6 ruling):** scan progress uses `searchEntries` (100,000), search
 result rows use `searchResults` (10,000), and requested size observes stat-byte sums
 up to `Number.MAX_SAFE_INTEGER`, with explicit incomplete/overflow state. These
@@ -590,7 +605,7 @@ are independent of transfer `jobEntries`/`jobBytes` limits. Extend both schedule
 and store validation while preserving the 50,000-entry/50-GiB transfer protections.
 Transport complete `FileEntry` metadata with explicit nullable/boolean fields.
 
-- [ ] Add symlink-cycle, denied-subdirectory, timeout, cap and cancellation tests using a deterministic clock and low fixture limits.
+- [x] Add symlink-cycle, denied-subdirectory, timeout, cap and cancellation tests using a deterministic clock and low fixture limits.
 
 ```js
 test("search reports truncation and never walks an escaping link", async (t) => {
@@ -619,8 +634,8 @@ test("search reports truncation and never walks an escaping link", async (t) => 
 });
 ```
 
-- [ ] Add `waitForFileJob(f,id,{base="/api/files",states=["completed","partially_completed","failed","cancelled","interrupted"],timeout=5000}={})` to `tests/helpers/file-explorer.js`. Poll only this isolated test job, with a bounded timeout and assertions on response status. Run `node --test tests/integration/file-search.test.js`.
-- [ ] Traverse iteratively with `opendir`, an explicit depth stack and no link following. Stop on signal, clock, entry, result or byte limits; persist an incomplete reason. Count size only for an explicit `size` job, never in ordinary listing. Check scope on each visited directory.
+- [x] Add `waitForFileJob(f,id,{base="/api/files",states=["completed","partially_completed","failed","cancelled","interrupted"],timeout=5000}={})` to `tests/helpers/file-explorer.js`. Poll only this isolated test job, with a bounded timeout and assertions on response status. Run `node --test tests/integration/file-search.test.js`.
+- [x] Traverse iteratively with `opendir`, an explicit depth stack and no link following. Stop on signal, clock, entry, result or byte limits; persist an incomplete reason. Count size only for an explicit `size` job, never in ordinary listing. Check scope on each visited directory.
 
 ```js
 for await (const entry of directory) {
@@ -634,14 +649,16 @@ for await (const entry of directory) {
 }
 ```
 
-- [ ] Add query, recursive and case controls; display scanned count, partial results and a stop button. Result selection navigates to the containing folder and active file. Properties start a size job and display its known/unknown state without showing a false zero.
-- [ ] Run backend tests, build, then both browsers for `file-explorer-search.spec.js` and `file-explorer-navigation.spec.js`; commit: `git commit -m "feat: add bounded recursive file search"`.
+- [x] Add query, recursive and case controls; display scanned count, partial results and a stop button. Result selection navigates to the containing folder and active file. Properties start a size job and display its known/unknown state without showing a false zero.
+- [x] Run backend tests, build, then both browsers for `file-explorer-search.spec.js` and `file-explorer-navigation.spec.js`; commit: `git commit -m "feat: add bounded recursive file search"`.
 
 ## Task 7: Native Metadaten und auslieferbare Plattformanbindung
 
 Die reine Lesegrundlage (`FileNative`, Worker, Plattform-Öffnen, Koffi und echte
-Paket-/Update-Prüfung) wurde als Voraussetzung für Task 2 vorgezogen. Task 7 erweitert
-diese vorhandenen Schnittstellen für Metadaten und Umbenennen; diese Arbeit und ihre
+Paket-/Update-Prüfung) wurde als Voraussetzung für Task 2 vorgezogen. Task 6
+ergänzt geprüfte Verzeichnis-Handles und native Enumeration ohne Linkfolge, mit
+unveränderten Ressourcenlimits. Task 7 erweitert diese vorhandenen Schnittstellen
+für Metadaten und Umbenennen; diese Arbeit und ihre
 Abnahme bleiben vollständig offen. Die gemeldete Koffi-Installationswarnung zur
 npm-Skriptfreigabe wird dabei mit der bestehenden Paketkonfiguration abgeglichen.
 
