@@ -40,6 +40,7 @@ async function fixture(t) {
   for (const name of [
     "file-native.js",
     "file-native-worker.js",
+    "file-native-directory.js",
     "file-native-linux.js",
     "file-native-darwin.js",
     "file-errors.js",
