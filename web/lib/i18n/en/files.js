@@ -19,6 +19,7 @@ export const filesCopy = {
     FILE_LIMIT_EXCEEDED: "The file operation exceeded its configured limit.",
     FILE_UNSUPPORTED_TYPE: "This file type cannot be previewed.",
   },
+  requestFailed: (status) => `File request failed (${status}).`,
   tab: "Files",
   root: "Project directory",
   up: "Parent directory",
@@ -31,3 +32,6 @@ export const filesCopy = {
   error: "Files could not be loaded.",
   summary: (total, page) => `${total} entries · page ${page}`,
 };
+
+export const fileErrorMessage = (code, status) =>
+  filesCopy.errors[code] || filesCopy.requestFailed(status);

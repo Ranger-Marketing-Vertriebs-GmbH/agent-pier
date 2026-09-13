@@ -21,6 +21,7 @@ export const filesCopy = {
       "Die Dateioperation hat ihre konfigurierte Grenze überschritten.",
     FILE_UNSUPPORTED_TYPE: "Dieser Dateityp kann nicht als Vorschau angezeigt werden.",
   },
+  requestFailed: (status) => `Dateianfrage fehlgeschlagen (${status}).`,
   tab: "Dateien",
   root: "Projektordner",
   up: "Übergeordneter Ordner",
@@ -33,3 +34,6 @@ export const filesCopy = {
   error: "Dateien konnten nicht geladen werden.",
   summary: (total, page) => `${total} Einträge · Seite ${page}`,
 };
+
+export const fileErrorMessage = (code, status) =>
+  filesCopy.errors[code] || filesCopy.requestFailed(status);

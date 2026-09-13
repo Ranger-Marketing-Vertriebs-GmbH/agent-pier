@@ -146,7 +146,12 @@ test("file explorer links retain Unicode paths, preview and pagination", () => {
     mode: "files",
     filePath: "src/space folder",
     file: "src/space folder/ä.txt",
+    fileSort: "name",
+    fileDirection: "asc",
+    fileHidden: false,
+    fileFilter: "",
     filePage: 2,
+    filePageInvalid: null,
   };
   assert.deepEqual(read(routePath(route)), route);
   assert.equal(read("/sessions/demo/files?page=-1").filePage, 1);

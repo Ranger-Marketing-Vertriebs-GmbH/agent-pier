@@ -1,5 +1,6 @@
 import { readSettingsRoute, settingsRoutePath } from "../features/operations/routes.js";
 import { readPipelineRoute, pipelineRoutePath } from "../features/pipelines/routes.js";
+import { readExplorerRoute, explorerQuery } from "../features/files/routes.js";
 const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 export function readRoute(location) {
   let pathname;
@@ -38,6 +39,11 @@ export function readRoute(location) {
   if (["/accounts", "/repositories"].includes(pathname))
     return {
       view: pathname.slice(1),
+    };
+  if (pathname === "/files")
+    return {
+      view: "files",
+      ...readExplorerRoute(location.search),
     };
   const settingsRoute = readSettingsRoute(pathname, location.search);
   if (settingsRoute) return settingsRoute;
@@ -88,13 +94,14 @@ export function readRoute(location) {
       view: "workspace",
       sessionId: session[1],
       mode: session[2] === "chat" ? "reader" : session[2] || null,
-      ...(session[2] === "files" ? readFileQuery(location.search) : {}),
+      ...(session[2] === "files" ? readExplorerRoute(location.search) : {}),
     };
   return {
     view: "missing",
   };
 }
 export function routePath(route) {
+  if (route.view === "files") return `/files${explorerQuery(route)}`;
   if (route.view === "settings") return settingsRoutePath(route);
   if (route.view === "pipelines") return pipelineRoutePath(route);
   if (route.view === "memory") {
@@ -111,7 +118,7 @@ export function routePath(route) {
       : "/agentbus";
   if (route.view === "workspace")
     return route.sessionId
-      ? `/sessions/${encodeURIComponent(route.sessionId)}${route.mode ? `/${route.mode === "reader" ? "chat" : route.mode}` : ""}${route.mode === "files" ? fileQuery(route) : ""}`
+      ? `/sessions/${encodeURIComponent(route.sessionId)}${route.mode ? `/${route.mode === "reader" ? "chat" : route.mode}` : ""}${route.mode === "files" ? explorerQuery(route) : ""}`
       : "/";
   if (route.view === "extensions" || route.view === "plugins")
     return `/${route.view}${route.profileId ? `/${encodeURIComponent(route.profileId)}` : ""}`;
@@ -121,22 +128,4 @@ export function defaultSessionMode(session, mobile) {
   return session.tool !== "shell" && session.purpose !== "login" && mobile
     ? "reader"
     : "terminal";
-}
-
-function readFileQuery(search) {
-  const query = new URLSearchParams(search);
-  const page = query.get("page");
-  return {
-    filePath: (query.get("path") || "").slice(0, 4096),
-    file: (query.get("file") || "").slice(0, 4096),
-    filePage: /^[1-9]\d{0,5}$/.test(page || "") ? Number(page) : 1,
-  };
-}
-function fileQuery(route) {
-  const query = new URLSearchParams();
-  if (route.filePath) query.set("path", route.filePath);
-  if (route.file) query.set("file", route.file);
-  if (Number.isSafeInteger(route.filePage) && route.filePage > 1)
-    query.set("page", String(route.filePage));
-  return query.size ? `?${query}` : "";
 }
