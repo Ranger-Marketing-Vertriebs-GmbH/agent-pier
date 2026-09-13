@@ -48,6 +48,37 @@ function styledLines(raw) {
   }
   return lines;
 }
+function pickerFooter(lines, start = -1) {
+  const index = lines.findLastIndex(
+    (line, position) =>
+      position > start &&
+      /^\s*(?:press )?enter to (?:confirm|set as default)/i.test(line.text),
+  );
+  if (index < 0) return null;
+  const footer = lines
+    .slice(index)
+    .map((line) => line.text)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return /^(?:press )?enter to (?:confirm|set as default)(?: or | · (?:s to use this session only · )?)esc to (?:cancel|go back)$/i.test(
+    footer,
+  )
+    ? footer
+    : null;
+}
+export function unsupportedModelPicker(tool, raw) {
+  if (tool !== "claude") return false;
+  const lines = styledLines(raw);
+  const title = lines.findLastIndex((line) => line.text.trim() === "Select model");
+  const footer = pickerFooter(lines, title);
+  return (
+    title >= 0 &&
+    !!footer &&
+    /set as default/i.test(footer) &&
+    !/s to use this session only/i.test(footer)
+  );
+}
 export function parseModelPicker(tool, raw) {
   const lines = styledLines(raw);
   let start = -1,
@@ -72,6 +103,7 @@ export function parseModelPicker(tool, raw) {
   const options = [];
   let selected = null,
     current = null,
+    selectKey = "Enter",
     searchQuery = "",
     emptyResults = false;
   if (tool === "opencode") {
@@ -131,16 +163,27 @@ export function parseModelPicker(tool, raw) {
   } else {
     // The native dialog footer must be the last content on screen. A model menu
     // quoted in an assistant response still has the real composer below it.
-    const footer = lines.findLast((line) => line.text.trim())?.text || "";
-    if (
-      !/enter to (?:confirm|set as default)/i.test(footer) ||
-      !/esc to (?:cancel|go back)/i.test(footer)
-    )
+    // Claude wraps both its controls and descriptions at mobile terminal widths.
+    const footer = pickerFooter(lines, start);
+    if (!footer) return null;
+    if (tool === "claude" && /s to use this session only/i.test(footer)) selectKey = "s";
+    if (tool === "claude" && /set as default/i.test(footer) && selectKey !== "s")
       return null;
+    let descriptionColumn = Infinity;
     for (let i = start + 1; i < lines.length; i++) {
       const row = lines[i].text.match(/^\s*([❯›>]?)\s*(\d+)\.\s+(.+)$/);
-      if (!row) continue;
+      if (!row) {
+        const continuation = lines[i].text.match(/^(\s+)\S/);
+        if (tool === "claude" && continuation?.[1].length >= descriptionColumn)
+          options.at(-1).description += " " + lines[i].text.trim();
+        else descriptionColumn = Infinity;
+        continue;
+      }
       const [head, ...description] = row[3].split(/\s{2,}/);
+      const separator = /\s{2,}\S/.exec(row[3]);
+      descriptionColumn = separator
+        ? lines[i].text.length - row[3].length + separator.index + separator[0].length - 1
+        : Infinity;
       const marker = /✔|\(current\)/.test(head);
       const label = head
         .replace(/\s*[✔✓]/g, "")
@@ -150,18 +193,18 @@ export function parseModelPicker(tool, raw) {
       options.push({
         id,
         label,
-        description: description.join(" "),
+        description: description.join(" ").trim(),
         current: marker,
       });
       if (row[1]) selected = id;
-      if (marker && kind === "model")
-        current =
-          description
-            .join(" ")
-            .match(/currently (.+?)\)\s*·/)?.[1]
-            ?.replace(/\(1M context$/, "(1M context)") ||
-          label.replace(/\s*\((?:default|recommended)\)/g, "");
     }
+    const active = options.find((option) => option.current);
+    if (active && kind === "model")
+      current =
+        active.description
+          .match(/currently (.+?)\)\s*·/)?.[1]
+          ?.replace(/\(1M context$/, "(1M context)") ||
+        active.label.replace(/\s*\((?:default|recommended)\)/g, "");
   }
   if ((!emptyResults && (!options.length || selected === null)) || options.length > 100)
     return null;
@@ -173,8 +216,7 @@ export function parseModelPicker(tool, raw) {
     currentModel: current,
     searchable: tool === "opencode" && kind === "model",
     searchQuery,
-    selectKey:
-      tool === "claude" && /s to use this session only/.test(plain(raw)) ? "s" : "Enter",
+    selectKey,
     signature: digest(
       JSON.stringify({
         title,
@@ -182,6 +224,7 @@ export function parseModelPicker(tool, raw) {
         options,
         selected,
         searchQuery,
+        selectKey,
         raw: tool === "opencode" ? plain(raw).slice(0, 16000) : undefined,
       }),
     ),
@@ -223,6 +266,7 @@ export function currentModel(tool, raw) {
   return null;
 }
 export function modelPromptReady(tool, raw) {
+  if (tool === "claude" && pickerFooter(styledLines(raw))) return false;
   const text = plain(raw);
   const blocking =
     /Input disabled\.|Viewing sub-agent|waiting for approval|Do you (?:want|approve)|Enter to confirm/i;
