@@ -14,6 +14,7 @@ export default function UpdatesPage({ route, navigate }) {
     action = useAsyncAction(),
     [plan, setPlan] = useState(null),
     [confirm, setConfirm] = useState(null),
+    [reloadSessions, setReloadSessions] = useState(false),
     [observedJob, setObservedJob] = useState(null);
   const jobPending = Boolean(
     route.operationId &&
@@ -92,13 +93,14 @@ export default function UpdatesPage({ route, navigate }) {
                 disabled={
                   jobPending || action.busy || !releases.installed || !releases.supported
                 }
-                onClick={() =>
+                onClick={() => {
+                  setReloadSessions(false);
                   setConfirm({
                     kind: "activate",
                     stagedId: staged.id,
                     version: staged.version,
-                  })
-                }
+                  });
+                }}
               >
                 {copy.activateRelease}
               </button>
@@ -114,9 +116,10 @@ export default function UpdatesPage({ route, navigate }) {
                   <button
                     className="button secondary"
                     disabled={jobPending || action.busy || !release.canRollback}
-                    onClick={() =>
-                      setConfirm({ kind: "rollback", version: release.version })
-                    }
+                    onClick={() => {
+                      setReloadSessions(false);
+                      setConfirm({ kind: "rollback", version: release.version });
+                    }}
                   >
                     {copy.rollback}
                   </button>
@@ -144,11 +147,28 @@ export default function UpdatesPage({ route, navigate }) {
             start(
               confirm.kind,
               confirm.kind === "activate"
-                ? { stagedId: confirm.stagedId }
+                ? {
+                    stagedId: confirm.stagedId,
+                    ...(reloadSessions ? { reloadSessions: true } : {}),
+                  }
                 : { version: confirm.version },
             )
           }
-        />
+        >
+          {confirm.kind === "activate" && (
+            <div className="operations-form">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={reloadSessions}
+                  onChange={(event) => setReloadSessions(event.target.checked)}
+                />{" "}
+                {copy.activateReload}
+              </label>
+              <p className="field-description">{copy.activateReloadHelp}</p>
+            </div>
+          )}
+        </ConfirmOperation>
       )}
     </section>
   );
