@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
 import { readRoute, routePath } from "../../web/app/routes.js";
+import { readExplorerRoute, explorerQuery } from "../../web/features/files/routes.js";
 import { check, publicId } from "../helpers/property.js";
 
 const parse = (pathname) => readRoute(new URL(pathname, "https://agentpier.test"));
@@ -72,6 +73,42 @@ test("generated memory links retain repository scope, Unicode search, archive an
       (projectId, query, archived, memoryPage) => {
         const route = { view: "memory", projectId, query, archived, memoryPage };
         assert.deepEqual(parse(routePath(route)), route);
+      },
+    ),
+  );
+});
+
+test("generated Explorer queries retain paths, filters and listing state", () => {
+  const text = fc.string({ unit: "grapheme", maxLength: 40 });
+  check(
+    fc.property(
+      text,
+      text,
+      text,
+      fc.constantFrom("name", "type", "size", "modifiedAt"),
+      fc.constantFrom("asc", "desc"),
+      fc.boolean(),
+      fc.integer({ min: 1, max: 999999 }),
+      (filePath, file, fileFilter, fileSort, fileDirection, fileHidden, filePage) => {
+        const route = {
+          filePath: filePath.slice(0, 4096),
+          file: file.slice(0, 4096),
+          fileFilter: fileFilter.slice(0, 300),
+          fileSort,
+          fileDirection,
+          fileHidden,
+          filePage,
+          filePageInvalid: null,
+        };
+        assert.deepEqual(readExplorerRoute(explorerQuery(route)), route);
+        for (const view of [
+          { view: "files" },
+          { view: "workspace", sessionId: "project-one", mode: "files" },
+        ])
+          assert.deepEqual(parse(routePath({ ...view, ...route })), {
+            ...view,
+            ...route,
+          });
       },
     ),
   );

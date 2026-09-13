@@ -1,9 +1,9 @@
 import fs from "node:fs/promises";
-import { constants } from "node:fs";
 import path from "node:path";
 import { problem } from "../../lib/storage.js";
 import { createDirectory } from "../../lib/directories.js";
 import { filesCopy as copy } from "../../lib/i18n/de/files.js";
+import { previewResolvedFile } from "./file-reading.js";
 
 const pageSize = 100;
 const inside = (root, target) => {
@@ -28,9 +28,11 @@ async function resolve(rootPath, relative = "") {
     const root = await fs.realpath(rootPath);
     const target = await fs.realpath(path.join(root, relative));
     if (!inside(root, target)) throw problem(copy.outside, 403);
+    const stat = await fs.stat(target, { bigint: true });
     return {
       root,
       target,
+      stat,
       relative: path.relative(root, target).split(path.sep).join("/"),
     };
   } catch (error) {
@@ -69,56 +71,18 @@ export async function listProjectFiles(rootPath, relative, rawPage = "1") {
   };
 }
 
-function imageMime(buffer) {
-  if (buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])))
-    return "image/png";
-  if (buffer[0] === 255 && buffer[1] === 216 && buffer[2] === 255) return "image/jpeg";
-  if (["GIF87a", "GIF89a"].includes(buffer.subarray(0, 6).toString())) return "image/gif";
-  if (
-    buffer.subarray(0, 4).toString() === "RIFF" &&
-    buffer.subarray(8, 12).toString() === "WEBP"
-  )
-    return "image/webp";
-  return null;
-}
-
 export async function previewProjectFile(rootPath, relative) {
   const resolved = await resolve(rootPath, relative);
-  let handle;
   try {
-    handle = await fs.open(
-      resolved.target,
-      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+    return await previewResolvedFile(
+      { absolute: resolved.target, path: resolved.relative, stat: resolved.stat },
+      { legacy: true },
+      resolved.root,
     );
-  } catch {
+  } catch (error) {
+    if (error.code === "FILE_LIMIT_EXCEEDED") throw problem(copy.tooLarge, 413);
+    if (error.code === "FILE_UNSUPPORTED_TYPE") throw problem(copy.binary, 415);
     throw problem(copy.unavailable, 404);
-  }
-  try {
-    const stat = await handle.stat();
-    if (!stat.isFile()) throw problem(copy.notFile, 415);
-    if (stat.size > 5 * 1024 * 1024) throw problem(copy.tooLarge, 413);
-    // Read once into a bounded buffer; a growing file cannot exhaust server memory.
-    const buffer = Buffer.alloc(Math.min(stat.size + 1, 5 * 1024 * 1024 + 1));
-    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
-    const content = buffer.subarray(0, bytesRead);
-    const mime = imageMime(content);
-    if (mime)
-      return {
-        path: resolved.relative,
-        type: "image",
-        source: `data:${mime};base64,${content.toString("base64")}`,
-      };
-    if (bytesRead > 256 * 1024) throw problem(copy.tooLarge, 413);
-    if (content.includes(0)) throw problem(copy.binary, 415);
-    let text;
-    try {
-      text = new TextDecoder("utf-8", { fatal: true }).decode(content);
-    } catch {
-      throw problem(copy.binary, 415);
-    }
-    return { path: resolved.relative, type: "text", text };
-  } finally {
-    await handle.close();
   }
 }
 

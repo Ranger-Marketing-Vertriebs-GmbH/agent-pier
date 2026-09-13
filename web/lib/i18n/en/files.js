@@ -1,4 +1,26 @@
 export const filesCopy = {
+  errors: {
+    FILE_OUTSIDE_SCOPE: "This path is outside the project directory.",
+    FILE_INVALID_PATH: "This file path is invalid.",
+    FILE_INVALID_NAME: "This name is invalid or too long.",
+    FILE_NOT_FOUND: "The file or directory could not be found.",
+    FILE_NOT_DIRECTORY: "This path is not a directory.",
+    FILE_LINK_LOOP: "This symbolic link cannot be resolved because it forms a loop.",
+    FILE_ACCESS_DENIED: "You do not have permission to access this entry.",
+    FILE_IO_ERROR: "The file operation could not be completed.",
+    FILE_INVALID_SCOPE: "The file access context is invalid.",
+    FILE_READ_ONLY: "Files in this context can only be read.",
+    FILE_PROTECTED_PATH: "This directory is protected from file operations.",
+    FILE_PATH_CHANGED: "The directory changed. Refresh the selection and try again.",
+    FILE_INVALID_LIMITS: "The configured file limits are invalid.",
+    FILE_INVALID_PAGE: "This file-list page is invalid.",
+    FILE_INVALID_SORT: "This file-list sort is invalid.",
+    FILE_SNAPSHOT_EXPIRED: "This file list expired. Refresh it and try again.",
+    FILE_LIMIT_EXCEEDED: "The file operation exceeded its configured limit.",
+    FILE_UNSUPPORTED_TYPE: "This file type cannot be previewed.",
+    FILE_INVALID_RESPONSE: "The file service returned an invalid response.",
+  },
+  requestFailed: (status) => `File request failed (${status}).`,
   tab: "Files",
   root: "Project directory",
   up: "Parent directory",
@@ -11,3 +33,6 @@ export const filesCopy = {
   error: "Files could not be loaded.",
   summary: (total, page) => `${total} entries · page ${page}`,
 };
+
+export const fileErrorMessage = (code, status) =>
+  filesCopy.errors[code] || filesCopy.requestFailed(status);

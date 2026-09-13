@@ -5,6 +5,7 @@ import { LoginStore } from "./features/login/login-store.js";
 import { loginRoutes, requireLogin } from "./http/login.js";
 import { agencyRoutes } from "./http/routes/agency.js";
 import { filesRoutes } from "./http/routes/files.js";
+import { fileExplorerRoutes } from "./http/routes/file-explorer.js";
 import { AccountAuthStatus } from "./features/accounts/auth-status.js";
 import { createMcpServices } from "./application/mcp.js";
 import {
@@ -118,6 +119,7 @@ export async function createApplication(config) {
     app.use("/api", guardMutations(router, services.mutationBarrier));
   mount(mcpAccessRoutes(services));
   mount(workspaceRoutes(services));
+  mount(fileExplorerRoutes(services));
   mount(filesRoutes(services));
   mount(accountsRoutes(services));
   mount(sessionsRoutes(services));
