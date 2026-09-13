@@ -1,5 +1,14 @@
 export const filesCopy = {
   errors: {
+    FILE_INVALID_OPERATION: "This file operation is invalid or not yet available.",
+    FILE_INVALID_REQUEST: "This file request identifier is invalid.",
+    FILE_REQUEST_EXPIRED: "This file request expired. Start a new request.",
+    FILE_REQUEST_CONFLICT:
+      "This request identifier already belongs to a different file operation.",
+    FILE_INVALID_CURSOR: "This job page is invalid. Refresh the list.",
+    FILE_JOBS_CLOSED: "The file service is shutting down. Try again later.",
+    FILE_CONFLICT_CHANGED: "This file conflict changed. Refresh the job.",
+
     FILE_OUTSIDE_SCOPE: "This path is outside the project directory.",
     FILE_INVALID_PATH: "This file path is invalid.",
     FILE_INVALID_NAME: "This name is invalid or too long.",

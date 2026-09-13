@@ -1,5 +1,16 @@
 export const filesCopy = {
   errors: {
+    FILE_INVALID_OPERATION: "Dieser Dateiauftrag ist ungültig oder noch nicht verfügbar.",
+    FILE_INVALID_REQUEST: "Die Kennung dieses Dateiauftrags ist ungültig.",
+    FILE_REQUEST_EXPIRED:
+      "Dieser Dateiauftrag ist abgelaufen. Starte einen neuen Auftrag.",
+    FILE_REQUEST_CONFLICT:
+      "Diese Auftragskennung gehört bereits zu einem anderen Dateiauftrag.",
+    FILE_INVALID_CURSOR: "Diese Auftragsseite ist ungültig. Lade die Liste erneut.",
+    FILE_JOBS_CLOSED: "Der Dateidienst wird beendet. Versuche es später erneut.",
+    FILE_CONFLICT_CHANGED:
+      "Dieser Dateikonflikt hat sich geändert. Lade den Auftrag erneut.",
+
     FILE_OUTSIDE_SCOPE: "Dieser Pfad liegt außerhalb des Projektverzeichnisses.",
     FILE_INVALID_PATH: "Dieser Dateipfad ist ungültig.",
     FILE_INVALID_NAME: "Dieser Name ist ungültig oder zu lang.",

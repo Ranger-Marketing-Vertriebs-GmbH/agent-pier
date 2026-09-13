@@ -1,3 +1,7 @@
+import { FileStore } from "../features/files/file-store.js";
+import { FileJobs } from "../features/files/file-jobs.js";
+import { PathLocks } from "../features/files/file-locks.js";
+import { createFileJobHandlers } from "../features/files/file-job-handlers.js";
 import { makeFileScope } from "../features/files/file-scope.js";
 import { fileProblem, fileSystemProblem } from "../features/files/file-errors.js";
 import { readFileLimits } from "../features/files/file-limits.js";
@@ -26,13 +30,30 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
     }
   }
 
+  const store = new FileStore({ dataDir: config.dataDir, limits });
+  const locks = new PathLocks();
+  const handlers = createFileJobHandlers();
+  const jobs = new FileJobs({
+    store,
+    locks,
+    barrier: mutationBarrier,
+    limits,
+    handlers,
+    context,
+  });
+
   return {
+    store,
+    locks,
+    handlers,
+    jobs,
     context,
     listings,
     reading,
     preferences,
     limits,
-    close() {
+    async close() {
+      await jobs.close();
       listings.snapshots.clear();
     },
   };

@@ -55,6 +55,9 @@ export class MutationBarrier {
       release();
     }
   }
+  detached(fn) {
+    return this.context.exit(fn);
+  }
   hasLease() {
     return this.context.getStore()?.active === true;
   }
