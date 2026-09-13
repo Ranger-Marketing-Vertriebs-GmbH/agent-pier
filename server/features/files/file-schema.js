@@ -40,3 +40,11 @@ CREATE TABLE IF NOT EXISTS trash_entries (
  document TEXT NOT NULL, deleted_at INTEGER NOT NULL
 );
 `;
+
+export const trashItemSchema = `
+CREATE TABLE IF NOT EXISTS trash_items (
+  trash_id TEXT NOT NULL REFERENCES trash_entries(id) ON DELETE CASCADE,
+  path TEXT NOT NULL,
+  document TEXT NOT NULL,
+  PRIMARY KEY(trash_id,path)
+);`;

@@ -63,13 +63,19 @@ export class MutationBarrier {
   }
 }
 
+const ownLeases = new WeakSet();
+export function ownsMutationLeases(handler) {
+  ownLeases.add(handler);
+  return handler;
+}
+
 /** Hold the lease for the actual handler promise, including after client disconnect. */
 export function guardMutations(router, barrier) {
   for (const layer of router.stack) {
     if (!layer.route) continue;
     for (const handler of layer.route.stack) {
       const original = handler.handle;
-      if (original.length > 3) continue;
+      if (original.length > 3 || ownLeases.has(original)) continue;
       handler.handle = function (req, res, next) {
         if (["GET", "HEAD", "OPTIONS"].includes(req.method))
           return original(req, res, next);

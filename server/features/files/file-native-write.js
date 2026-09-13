@@ -32,6 +32,19 @@ export function writeFunctions(library, abi, { lookup, keep, openComponent }) {
   const symlinkat = library.func(
     "int symlinkat(const char *text, int fd, const char *name)",
   );
+  // freadlink is optional on macOS11/12; absence must not disable rename/write.
+  // Both supported ABIs use a signed64-bit ssize_t (Koffi's long).
+  let readlink;
+  try {
+    readlink =
+      process.platform === "darwin"
+        ? library.func("long freadlink(int fd, void *buffer, size_t size)")
+        : library.func(
+            "long readlinkat(int fd, const char *name, void *buffer, size_t size)",
+          );
+  } catch {
+    /* Only this capability is unavailable. */
+  }
   const unlinkat = library.func("int unlinkat(int fd, const char *name, int flags)");
   function checked(result) {
     if (result < 0)
@@ -59,6 +72,25 @@ export function writeFunctions(library, abi, { lookup, keep, openComponent }) {
     switch (operation) {
       case "stat":
         return nativeStat(lookup(args.handle).fd);
+      case "readLink": {
+        const link = lookup(args.handle, false);
+        if (!link.link) throw fileProblem("FILE_INVALID_PATH", 400);
+        if (!readlink) throw fileProblem("FILE_NATIVE_UNSUPPORTED", 503);
+        const bytes = Buffer.alloc(4097);
+        const size = checked(
+          process.platform === "darwin"
+            ? readlink(link.fd, bytes, bytes.length)
+            : readlink(link.fd, "", bytes, bytes.length),
+        );
+        if (size > 4096) throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
+        try {
+          return new TextDecoder("utf-8", { fatal: true }).decode(
+            bytes.subarray(0, size),
+          );
+        } catch {
+          throw fileProblem("FILE_UNSUPPORTED_TYPE", 415);
+        }
+      }
       case "inspect":
         return inspect(args.directory, args.name);
       case "createDirectory": {

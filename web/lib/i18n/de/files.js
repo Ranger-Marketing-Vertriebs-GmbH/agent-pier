@@ -1,5 +1,8 @@
 export const filesCopy = {
   errors: {
+    FILE_TRASH_CONFIRMATION:
+      "Die Papierkorbauswahl oder ihre Revision hat sich geändert. Bitte aktualisieren und erneut bestätigen.",
+    FILE_CANCELLED: "Der Dateivorgang wurde abgebrochen.",
     FILE_WRITE_UNSUPPORTED:
       "Die atomare Dateiveröffentlichung ist auf diesem Dateisystem nicht verfügbar. Beide Versionen wurden aufbewahrt.",
     FILE_INTERRUPTED:

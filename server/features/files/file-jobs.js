@@ -48,6 +48,7 @@ export class FileJobs {
     });
     this.pending = [];
     this.workers = new Set();
+    this.resolutions = new Set();
     this.active = new Map();
     this.reservations = new Map();
     this.transfers = 0;
@@ -242,7 +243,7 @@ export class FileJobs {
     );
     const conflict = projectConflict({ ...info, id: randomUUID() });
     // Install the waiter before publishing its identity, so an immediate resolve cannot be lost.
-    item.conflict = { ...decision, id: conflict.id };
+    item.conflict = { ...decision, id: conflict.id, revalidate: info.revalidate };
     const abort = () => decision.reject(item.controller.signal.reason);
     item.controller.signal.addEventListener("abort", abort, { once: true });
     try {
@@ -266,10 +267,19 @@ export class FileJobs {
       item.conflict = null;
     }
   }
-  async resolve(scope, id, decision) {
+  resolve(scope, id, decision) {
     this.ensureOpen();
+    const promise = this.resolveDecision(scope, id, decision);
+    this.resolutions.add(promise);
+    promise.then(
+      () => this.resolutions.delete(promise),
+      () => this.resolutions.delete(promise),
+    );
+    return promise;
+  }
+  async resolveDecision(scope, id, decision) {
     const item = this.active.get(id);
-    return this.barrier.run(() => {
+    const validate = () => {
       const job = this.get(scope, id);
       if (
         !decision ||
@@ -285,11 +295,25 @@ export class FileJobs {
         !job.conflict.choices?.includes(decision.decision)
       )
         throw fileProblem("FILE_CONFLICT_CHANGED", 409);
+      return job;
+    };
+    validate();
+    const waiter = item.conflict;
+    if (this.context) {
+      const fresh = await this.context(scope.sessionId);
+      if (fresh.id !== scope.id || fresh.readOnly)
+        throw fileProblem("FILE_INVALID_SCOPE", 409);
+    }
+    await waiter.revalidate?.();
+    return this.barrier.run(() => {
+      validate();
+      if (item.conflict !== waiter) throw fileProblem("FILE_CONFLICT_CHANGED", 409);
       const result = this.store.transition(id, "waiting_for_conflict", "running", {
         conflict: null,
         decision,
       });
       item.conflict.resolve({ ...decision });
+      if (decision.decision === "cancel") item.controller.abort();
       return result;
     });
   }
@@ -337,6 +361,7 @@ export class FileJobs {
       this.reservations.clear();
       for (const item of this.active.values()) item.controller.abort();
       await Promise.allSettled([...this.workers]);
+      await Promise.allSettled([...this.resolutions]);
       try {
         await this.beforeStoreClose();
       } finally {

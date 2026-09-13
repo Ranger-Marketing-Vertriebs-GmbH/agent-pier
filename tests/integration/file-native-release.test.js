@@ -181,6 +181,23 @@ test("packaged native support survives relocation, initial installation and upda
     /native dependency smoke/,
   );
   assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
+  const faultyLink = JSON.parse(gunzipSync(revisedArchive(bytes, "1.1.3")));
+  const linkModule = faultyLink.files.find(
+    (file) => file.path === "server/features/files/file-native-write.js",
+  );
+  const wrongLink = Buffer.from(linkModule.content, "base64")
+    .toString()
+    .replace('case "readLink": {', 'case "readLink": { return "wrong-link";');
+  assert.notEqual(wrongLink, Buffer.from(linkModule.content, "base64").toString());
+  linkModule.content = Buffer.from(wrongLink).toString("base64");
+  linkModule.sha256 = digest(Buffer.from(wrongLink));
+  const wrongLinkArchive = path.join(f.root, "faulty-link.aprelease");
+  await fs.writeFile(wrongLinkArchive, gzipSync(JSON.stringify(faultyLink)));
+  await assert.rejects(
+    releases.stage({ archive: wrongLinkArchive }),
+    /native dependency smoke/,
+  );
+  assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
   const broken = path.join(f.root, "broken.aprelease");
   await fs.writeFile(
     broken,

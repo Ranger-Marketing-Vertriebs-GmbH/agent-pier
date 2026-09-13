@@ -1,5 +1,8 @@
 export const filesCopy = {
   errors: {
+    FILE_TRASH_CONFIRMATION:
+      "The trash selection or its revision changed. Refresh and confirm again.",
+    FILE_CANCELLED: "The file operation was cancelled.",
     FILE_WRITE_UNSUPPORTED:
       "Atomic file publication is unavailable on this filesystem. Both versions have been retained.",
     FILE_INTERRUPTED: "This publication was interrupted. Retained files need recovery.",

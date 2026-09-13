@@ -3,6 +3,8 @@ import { fileProblem } from "./file-errors.js";
 
 const operations = {
   openRoot: ["path"],
+  openLookup: ["directory", "path"],
+  readLink: ["handle"],
   createDirectory: ["directory", "name"],
   createFile: ["directory", "name"],
   createLink: ["directory", "name", "text"],
@@ -81,7 +83,7 @@ export function validateNativeRequest(operation, args) {
         invalid();
     } else if (key === "path") {
       // Empty relative path enumerates the already-owned directory itself.
-      if (operation === "openDirectory" && value === "") continue;
+      if (["openDirectory", "openLookup"].includes(operation) && value === "") continue;
       if (
         typeof value !== "string" ||
         !value ||

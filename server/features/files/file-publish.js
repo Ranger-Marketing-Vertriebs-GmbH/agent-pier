@@ -8,6 +8,7 @@ import {
   entryRevision,
   isWithin,
 } from "./file-paths.js";
+import { adoptStageEntry } from "./file-stage-adoption.js";
 import { copyMetadata } from "./file-metadata.js";
 import {
   inodeIdentity,
@@ -144,7 +145,6 @@ export class FilePublisher {
               "file",
               "name",
               "type",
-              "handle",
               "parentHandle",
               "targetParentHandle",
               "targetName",
@@ -154,9 +154,19 @@ export class FilePublisher {
               "jobId",
             ].map((key) => [key, state[key]]),
           ),
+          get handle() {
+            return state.handle;
+          },
+          adoptEntry: (source) => this.#adopt(state, source),
           createLink: (text) =>
             this.#track(async () => {
-              if (type !== "symlink" || state.busy || state.finished || state.linkStarted)
+              if (
+                type !== "symlink" ||
+                state.busy ||
+                state.finished ||
+                state.linkStarted ||
+                state.adoptionStarted
+              )
                 throw fileProblem("FILE_INVALID_OPERATION", 400);
               state.linkStarted = true;
               const stat = await this.native.run("createLink", {
@@ -178,6 +188,17 @@ export class FilePublisher {
         throw fileSystemProblem(error);
       }
     });
+  }
+  #adopt(state, source) {
+    return this.#track(() =>
+      adoptStageEntry({
+        state,
+        source,
+        native: this.native,
+        barrier: this.barrier,
+        record: (phase, patch) => this.#record(state, phase, patch),
+      }),
+    );
   }
   async assertExpected(
     scope,
@@ -462,6 +483,16 @@ export class FilePublisher {
         this.#active.delete(state);
         await closeStage(state);
       }
+    });
+  }
+  release(stage) {
+    return this.#track(async () => {
+      const state = this.#stages.get(stage);
+      if (!state || state.busy || state.finished)
+        throw fileProblem("FILE_INVALID_OPERATION", 400);
+      state.finished = true;
+      this.#active.delete(state);
+      await closeStage(state);
     });
   }
   close() {

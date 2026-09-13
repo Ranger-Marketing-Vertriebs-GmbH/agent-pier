@@ -161,6 +161,18 @@ export async function smokeRelease(directory) {
                 const stagedLink = await native.run('createLink', { directory: stagedDirectory.handle, name: 'link', text: 'missing' });
                 if (fs.readlinkSync(path.join(temporary, 'private', 'link')) !== 'missing')
                   throw Error('Native link staging failed.');
+                const lookup = await native.run('openLookup', { directory: stagedDirectory.handle, path: '' });
+                const ownedLink = await native.run('openLink', { directory: lookup.handle, path: 'link' });
+                try {
+                  if (await native.run('readLink', { handle: ownedLink.handle }) !== 'missing')
+                    throw Error('Native owned link reading failed.');
+                } catch (error) {
+                  const oldDarwin = process.platform === 'darwin' && Number((await import('node:os')).release().split('.')[0]) < 22;
+                  if (!oldDarwin || error.code !== 'FILE_NATIVE_UNSUPPORTED') throw error;
+                } finally {
+                  await native.run('closeHandle', { handle: ownedLink.handle });
+                  await native.run('closeHandle', { handle: lookup.handle });
+                }
                 for (const [name, entry, type] of [['bytes', stagedFile, 'file'], ['link', stagedLink, 'symlink']])
                   await native.run('removeEntry', { directory: stagedDirectory.handle, name, identity: String(entry.dev) + ':' + String(entry.ino), type });
                 await native.run('closeHandle', { handle: stagedFile.handle });

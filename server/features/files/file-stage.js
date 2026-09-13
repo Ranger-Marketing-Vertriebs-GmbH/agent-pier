@@ -26,6 +26,7 @@ export async function inspect(native, directory, name) {
  * serialized, backpressured 64KiB requests and bounded by the native safe-integer position bound. */
 export function ownedHandle(native, opened) {
   let closed = false,
+    sealed = false,
     tail = Promise.resolve(),
     position = 0;
   function enqueue(action) {
@@ -49,7 +50,12 @@ export function ownedHandle(native, opened) {
         buffer.set(bytes, offset);
         return { bytesRead: bytes.length, buffer };
       }),
+    sealWrites: () => {
+      sealed = true;
+      return tail;
+    },
     writeFile: (value) => {
+      if (sealed) return Promise.reject(fileProblem("FILE_INVALID_OPERATION", 400));
       const bytes = Buffer.from(value);
       return enqueue(async () => {
         for (let offset = 0; offset < bytes.length;) {
@@ -130,7 +136,12 @@ export async function closeStage(state) {
   const handles = [state.handle, state.parentHandle, state.targetParentHandle].filter(
     Boolean,
   );
-  const outcomes = await Promise.allSettled(handles.map((handle) => handle.close()));
+  return closeHandles(...handles);
+}
+export async function closeHandles(...handles) {
+  const outcomes = await Promise.allSettled(
+    handles.filter(Boolean).map((handle) => handle.close()),
+  );
   const failed = outcomes.find((item) => item.status === "rejected");
   if (failed) throw failed.reason;
 }

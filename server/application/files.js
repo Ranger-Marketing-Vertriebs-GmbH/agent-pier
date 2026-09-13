@@ -1,3 +1,5 @@
+import { FileTrash } from "../features/files/file-trash.js";
+import { registerTrashHandlers } from "../features/files/file-trash-handlers.js";
 import { FilePublisher } from "../features/files/file-publish.js";
 import { recoverPublications } from "../features/files/file-recovery.js";
 import {
@@ -44,10 +46,14 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
   const store = new FileStore({ dataDir: config.dataDir, limits });
   const locks = new PathLocks();
   const publisher = new FilePublisher({ store, locks, barrier: mutationBarrier });
-  const ready = recoverPublications({ store, barrier: mutationBarrier });
+  const trash = new FileTrash({ store, publisher, limits });
+  const ready = recoverPublications({ store, barrier: mutationBarrier }).then(() =>
+    trash.recover(),
+  );
   // Keep startup failure observable to callers without an unhandled rejection.
   ready.catch(() => {});
   const handlers = createFileJobHandlers();
+  registerTrashHandlers(handlers, trash);
   const resultStore = {
     putEntry: (jobId, entry) => mutationBarrier.run(() => store.putEntry(jobId, entry)),
   };
@@ -75,7 +81,11 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
       try {
         await ready;
       } finally {
-        await publisher.close();
+        try {
+          await trash.close();
+        } finally {
+          await publisher.close();
+        }
       }
     },
   });
@@ -84,6 +94,7 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
     store,
     locks,
     publisher,
+    trash,
     ready,
     handlers,
     jobs,

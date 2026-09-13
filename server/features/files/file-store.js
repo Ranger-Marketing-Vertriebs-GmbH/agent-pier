@@ -1,7 +1,13 @@
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { privateDatabase } from "../../lib/private-database.js";
-import { fileSchema, jobStates, terminalStates, retentionMs } from "./file-schema.js";
+import {
+  fileSchema,
+  trashItemSchema,
+  jobStates,
+  terminalStates,
+  retentionMs,
+} from "./file-schema.js";
 import { fileProblem } from "./file-errors.js";
 import {
   validateOperation,
@@ -78,6 +84,7 @@ export class FileStore {
     this.storageRoot = path.resolve(dataDir, "files");
     this.db = privateDatabase(this.storageRoot, "files.sqlite");
     this.db.exec(fileSchema);
+    this.db.exec(trashItemSchema);
     this.db
       .prepare(
         "UPDATE jobs SET status='interrupted', updated_at=? WHERE status IN ('queued','running','waiting_for_conflict','cancelling')",
@@ -301,6 +308,50 @@ export class FileStore {
         ]),
       );
     });
+  }
+  deleteTrash(id) {
+    this.db.prepare("DELETE FROM trash_entries WHERE id=?").run(id);
+  }
+  clearTrashItems(id) {
+    this.db.prepare("DELETE FROM trash_items WHERE trash_id=?").run(id);
+  }
+  putTrashItem(id, relativePath, document) {
+    if (
+      typeof relativePath !== "string" ||
+      relativePath.length > 4096 ||
+      Buffer.byteLength(JSON.stringify(document)) > 65536
+    )
+      throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
+    const count = this.db
+      .prepare("SELECT count(*) AS n FROM trash_items WHERE trash_id=?")
+      .get(id).n;
+    if (
+      count >= this.limits.jobEntries &&
+      !this.db
+        .prepare("SELECT 1 FROM trash_items WHERE trash_id=? AND path=?")
+        .get(id, relativePath)
+    )
+      throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
+    this.db
+      .prepare(
+        "INSERT INTO trash_items VALUES(?,?,?) ON CONFLICT(trash_id,path) DO UPDATE SET document=excluded.document",
+      )
+      .run(id, relativePath, JSON.stringify(document));
+  }
+  trashItems(id) {
+    return this.db
+      .prepare("SELECT document FROM trash_items WHERE trash_id=? ORDER BY rowid")
+      .all(id)
+      .map((row) => JSON.parse(row.document));
+  }
+  listTrashRecords(scope, cursor) {
+    const after = cursorValue(cursor, scope, "trash");
+    const rows = this.db
+      .prepare(
+        `SELECT rowid AS sequence,json_remove(document,'$.sourceManifest','$.payloadManifest') AS document FROM trash_entries WHERE rowid>? AND (?='global' OR substr(json_extract(document,'$.originalAbsolute'),1,length(?)+1)=?||'/') ORDER BY rowid LIMIT 201`,
+      )
+      .all(after, scope.kind, scope.root || "/", scope.root || "/");
+    return page(rows, scope, "trash", "entries", (row) => JSON.parse(row.document));
   }
   prune(now = this.now()) {
     const terminal = terminalStates.map((s) => `'${s}'`).join(",");

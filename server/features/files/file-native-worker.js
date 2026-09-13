@@ -113,6 +113,7 @@ function run(operation, args) {
   if (
     [
       "openRoot",
+      "openLookup",
       "openFile",
       "openLink",
       "openDirectory",
@@ -130,12 +131,18 @@ function run(operation, args) {
     case "sync":
     case "stat":
     case "inspect":
+    case "readLink":
     case "removeEntry":
       return writes(operation, args);
     case "openRoot": {
       // '/' is the only absolute pathname passed to openat. All ancestor names,
       // including those above the project root, are single no-follow components.
       return walk(abi.cwd, ["/", ...args.path.split("/").filter(Boolean)], true);
+    }
+    case "openLookup": {
+      const parent = lookup(args.directory, true);
+      if (parent.stream) throw fileProblem("FILE_INVALID_PATH", 400);
+      return walk(parent.fd, args.path ? args.path.split("/") : ["."], true);
     }
     case "openFile":
       return walk(lookup(args.directory, true).fd, args.path.split("/"), false);
