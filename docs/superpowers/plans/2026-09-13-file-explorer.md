@@ -86,8 +86,9 @@ späte Linkänderungen erzeugen Konflikte. Publisher-Aufrufe lehnen aktive äuß
 Sperren früh ab. Generische Schreib-/Hashgrenzen folgen sicher darstellbaren
 Positionen, während die späteren Operationen ihre konfigurierten Budgets prüfen.
 Die letzte Korrektur `bddf032` besteht 99 gezielte Tests mit einem Linux-spezifischen
-Übersprung sowie Lint, Formatierung, Struktur und Build. Die Plattform-CI dieses
-neuen Stands steht noch aus. Bereinigung bleibt eine vorgeprüfte Pfadoperation mit
+Übersprung sowie Lint, Formatierung, Struktur und Build. Der geprüfte Stand `6bf6e2a` besteht alle Linux/macOS-Backendläufe mit Node 22/24
+sowie die vier echten Paketziele; die Veröffentlichung wurde übersprungen.
+Die Browser-CI läuft noch. Bereinigung bleibt eine vorgeprüfte Pfadoperation mit
 der ausdrücklich dokumentierten Grenze gegenüber parallelen nativen Schreibern.
 
 Paketversionen wurden
@@ -826,7 +827,7 @@ await locks.withPaths([target], async () => {
 - [x] Recovery only acts on matching recorded inode/parent identities. Expose ambiguous states as `FILE_INTERRUPTED` and preserve both copies. Parent directory sync completes durability where supported; failure is recorded, not mislabeled success. Reject removing filesystem root, project root in project mode, or storage ancestors through mutation helpers.
 - [x] Run both suites plus native tests; commit: `git commit -m "feat: journal atomic file publication and recovery"`.
 
-- [ ] Verify the reviewed Task 8 head in the Linux/macOS Node 22/24 matrix and all four actual release-package targets before building Task 9 on its native writes.
+- [x] Verify the reviewed Task 8 head in the Linux/macOS Node 22/24 matrix and all four actual release-package targets before building Task 9 on its native writes.
 
 ## Task 9: Papierkorb, Wiederherstellung und endgültige Löschung
 
