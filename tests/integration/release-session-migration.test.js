@@ -190,6 +190,8 @@ test("migrate reloads every session, waits for completion and deletes the releas
   assert.throws(() => f.migration.migrate("1.0.0"), /running/);
   await new Promise((r) => setTimeout(r, 30));
   assert.equal(f.operations.jobs.get(job.id).status, "running");
+  // A running migration is visible in the plan, so any page can offer to cancel it.
+  assert.equal((await f.migration.plan("1.0.0")).migrating, true);
   // The busy session finishes later; the engine completes its queued reload.
   const waiting = f.store.map.get(ids[1]);
   waiting.reload.state = "completed";
@@ -208,6 +210,7 @@ test("migrate reloads every session, waits for completion and deletes the releas
     ],
   );
   await assert.rejects(fs.stat(path.join(f.installRoot, "releases/1.0.0")));
+  assert.equal((await f.migration.plan("1.0.0")).migrating, false);
   assert.equal(f.operations.jobs.running("release-"), false);
   const events = f.audit.list().events;
   assert.equal(events[0].action, "release.deleted");
@@ -471,6 +474,22 @@ test("a still-running activation is awaited and a rejected request never throws"
     f.reload.requests.map((r) => r.id),
     [ids[0], ids[1]],
   );
+});
+
+test("a marker for a release that is not the active one is discarded", async (t) => {
+  const f = await activationFixture(
+    t,
+    [{ id: ids[0], tool: "claude", status: "running", activity: "idle" }],
+    { status: "succeeded", result: { activated: true } },
+  );
+  atomic(f.marker, {
+    to: "9.9.9",
+    jobId: "11111111-2222-4333-8444-555555555555",
+    requestedAt: new Date().toISOString(),
+  });
+  await f.migration.resumeAfterActivation();
+  assert.equal(f.reload.requests.length, 0);
+  assert.equal(readJson(f.marker, null), null);
 });
 
 test("a malformed marker is discarded without requesting any reload", async (t) => {

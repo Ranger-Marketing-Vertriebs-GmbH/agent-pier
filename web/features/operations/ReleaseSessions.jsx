@@ -39,6 +39,8 @@ export default function ReleaseSessions({
     { poll: 3000 },
   );
   const plan = resource.data;
+  // The server knows about a migration started elsewhere (or before a reload).
+  const running = Boolean(migrating) || plan?.migrating === true;
   const sessions = plan?.sessions || [];
   const hasBusy = sessions.some(
     (session) =>
@@ -81,7 +83,7 @@ export default function ReleaseSessions({
           <div className="operations-actions">
             <button
               className="button primary"
-              disabled={busy || !plan?.migratable || Boolean(migrating)}
+              disabled={busy || !plan?.migratable || running}
               onClick={() => setConfirm("migrate")}
             >
               {copy.migrateStart}
@@ -89,13 +91,13 @@ export default function ReleaseSessions({
             {hasBusy && (
               <button
                 className="button secondary"
-                disabled={busy || !plan?.migratable || Boolean(migrating)}
+                disabled={busy || !plan?.migratable || running}
                 onClick={() => setConfirm("interrupt")}
               >
                 {copy.migrateInterrupt}
               </button>
             )}
-            {migrating && (
+            {running && (
               <button
                 className="button secondary"
                 onClick={async () => {

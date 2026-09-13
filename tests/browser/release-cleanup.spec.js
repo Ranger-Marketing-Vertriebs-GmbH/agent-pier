@@ -91,6 +91,7 @@ for (const locale of ["de-DE", "en-GB"]) {
         version: "0.9.0",
         deleteReason: "inUse",
         migratable: true,
+        migrating: false,
         nodeOnlyProcesses: 1,
         unidentifiedProcesses: [],
         sessions: [
@@ -214,9 +215,26 @@ for (const locale of ["de-DE", "en-GB"]) {
         ),
       ).toBeVisible();
       await expect(cancel).toHaveCount(0);
+      // A migration the server reports is cancellable from a freshly loaded page,
+      // where no local migration state exists.
+      plan = { ...plan, migrating: true };
+      await page.reload();
+      await page
+        .getByText(en ? "Remove old versions" : "Alte Versionen aufräumen", {
+          exact: true,
+        })
+        .click();
+      await page
+        .getByRole("button", {
+          name: en ? "Show sessions" : "Sessions anzeigen",
+          exact: true,
+        })
+        .click();
+      await expect(cancel).toBeVisible();
       // Ineligible sessions and foreign processes disable migration with a hint.
       plan = {
         ...plan,
+        migrating: false,
         migratable: false,
         sessions: [
           { ...plan.sessions[0], eligible: false, reason: "unsupported-session" },

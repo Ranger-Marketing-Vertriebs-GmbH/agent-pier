@@ -36,10 +36,7 @@ export class ReleaseSessionMigration {
     this.activationPollMs = 2000;
     this.log = log;
     this.active = null;
-    this.marker = path.join(
-      operations.config.dataDir,
-      "operations/post-activation-reload.json",
-    );
+    this.marker = operations.postActivationMarker;
   }
   entry(version) {
     const state = this.operations.releases.cleanupStatus();
@@ -82,6 +79,7 @@ export class ReleaseSessionMigration {
       version,
       deleteReason: entry ? entry.deleteReason : "unsafe",
       migratable: false,
+      migrating: this.active?.version === version,
       nodeOnlyProcesses: 0,
       unidentifiedProcesses: [],
       sessions: [],
@@ -100,8 +98,11 @@ export class ReleaseSessionMigration {
         sessions.every((session) => session.eligible || inFlight(session.reload)),
     };
   }
-  migrate(version, { interrupt = false } = {}) {
+  migrate(version, options = {}) {
     releaseVersion(version);
+    if (options === null || typeof options !== "object" || Array.isArray(options))
+      throw problem("Invalid operation options.");
+    const { interrupt = false } = options;
     if (typeof interrupt !== "boolean") throw problem("Invalid operation options.");
     if (this.active || this.operations.jobs.running("release-"))
       throw migrateError(
@@ -153,6 +154,11 @@ export class ReleaseSessionMigration {
       this.checkpoint(control, tracked);
       if (inFlight(session.reload)) {
         tracked.set(session.id, { requestId: null, wasInFlight: true });
+        continue;
+      }
+      // A session that is no longer running holds no process; it vanishes from `ps`.
+      if (session.status !== "running") {
+        tracked.set(session.id, { requestId: null, outcome: "released" });
         continue;
       }
       const requestId = randomUUID();
@@ -233,16 +239,19 @@ export class ReleaseSessionMigration {
           "The release is no longer available for cleanup.",
         );
       if (entry.canDelete) return;
+      // Anything other than canDelete/inUse (active, newer, busy, unsafe) is a changed
+      // state, not a lingering process.
+      if (entry.deleteReason !== "inUse")
+        throw migrateError(
+          "migrateChanged",
+          "The release is no longer in a state that allows cleanup. Refresh the list.",
+        );
       const remaining = [
         ...entry.unidentifiedProcesses,
         ...entry.sessionIds.map((id) => ({ reference: `sessions/${id}` })),
         ...entry.helperProcesses,
       ];
-      if (
-        entry.deleteReason !== "inUse" ||
-        entry.unidentifiedProcesses.length ||
-        attempt >= this.settleAttempts
-      )
+      if (entry.unidentifiedProcesses.length || attempt >= this.settleAttempts)
         throw migrateError(
           "migrateBlocked",
           "Processes still use this release. The release was kept.",
@@ -287,10 +296,18 @@ export class ReleaseSessionMigration {
     }
     if (!marker) return;
     try {
-      const verified =
+      let verified =
         typeof marker.to === "string" && typeof marker.jobId === "string"
           ? await this.awaitActivation(marker)
           : false;
+      // The reload binds sessions to the release this process runs from. Only reload
+      // when the active release really is the one the marker asked for.
+      if (verified && this.operations.releases.status().current !== marker.to) {
+        verified = false;
+        this.log(
+          `Post-activation reload skipped: the active release is not ${marker.to}.`,
+        );
+      }
       fs.rmSync(this.marker, { force: true });
       if (!verified) return;
       let count = 0;

@@ -96,7 +96,13 @@ export class OperationJobs {
       .readdirSync(this.directory)
       .filter((name) => /^[a-f0-9-]+\.json$/.test(name))
       .some((name) => {
-        const job = this.get(name.slice(0, -".json".length));
+        let job;
+        try {
+          job = this.get(name.slice(0, -".json".length));
+        } catch {
+          // The job file vanished or became unreadable between listing and reading.
+          return false;
+        }
         return job.status === "running" && job.kind.startsWith(kindPrefix);
       });
   }

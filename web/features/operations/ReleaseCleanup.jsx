@@ -16,8 +16,11 @@ export default function ReleaseCleanup({ busy, job, navigate }) {
     if (jobId && jobStatus !== "running") refresh();
   }, [jobId, jobStatus, refresh]);
   useEffect(() => {
-    if (migration && jobId === migration.jobId && jobStatus && jobStatus !== "running")
-      setMigration(null);
+    if (!migration || !jobId) return;
+    // Drop the local state when our job ended or when another operation is shown; the
+    // server's plan still reports a migration that is really running.
+    if (jobId !== migration.jobId) setMigration(null);
+    else if (jobStatus && jobStatus !== "running") setMigration(null);
   }, [migration, jobId, jobStatus]);
   const versions =
     resource.data?.versions.filter((item) => item.deleteReason !== "active") || [];
