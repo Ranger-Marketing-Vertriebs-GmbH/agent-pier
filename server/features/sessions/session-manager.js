@@ -1,4 +1,5 @@
 import { recordManualInput } from "./manual-input-guard.js";
+import { prepareModelViewport } from "../models/model-viewport.js";
 import { drainSessionLists, getSessionList } from "./session-list.js";
 import { SessionOperations } from "./session-operations.js";
 import { sendSlashCommand } from "./session-slash-command.js";
@@ -20,7 +21,6 @@ import { constants } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as pty from "node-pty";
-
 const launcher = fileURLToPath(new URL("../../terminal-launcher.js", import.meta.url));
 const failure = (message, status = 400) => Object.assign(new Error(message), { status });
 /** One private tmux server per data directory. Closing a manager only detaches its clients. */
@@ -432,6 +432,7 @@ export class SessionManager {
       const target = `${this.target(id)}:0.0`;
       return operation({
         session,
+        prepareModelPicker: () => prepareModelViewport(this, target),
         screen: () =>
           this.tmux(["capture-pane", "-e", "-p", "-t", target]).catch((error) => {
             if (session.status === "stopped") return "";
