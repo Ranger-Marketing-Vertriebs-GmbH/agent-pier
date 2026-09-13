@@ -61,6 +61,8 @@ for (const mobile of [false, true])
           json: { path: `${body.path}/${body.name}` },
         });
       }
+      if (url.pathname.endsWith("/explorer/jobs"))
+        return route.fulfill({ json: { jobs: [], nextCursor: null } });
       if (url.pathname.endsWith("/explorer/context"))
         return route.fulfill({
           json: {

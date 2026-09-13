@@ -125,6 +125,8 @@ test("a scope replacement rejects stale preferences and listing snapshots", asyn
     const request = route.request();
     const url = new URL(request.url());
     const rootName = session.cwd.split("/").at(-1);
+    if (url.pathname === "/api/sessions/async-scope/files/explorer/jobs")
+      return route.fulfill({ json: { jobs: [], nextCursor: null } });
     if (url.pathname.endsWith("/context"))
       return route.fulfill({
         json: {

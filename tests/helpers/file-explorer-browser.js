@@ -65,6 +65,8 @@ export async function explorerFixture(
       query: Object.fromEntries(url.searchParams),
       scope: request.headers()["x-file-scope"],
     });
+    if (url.pathname === "/api/files/jobs")
+      return route.fulfill({ json: { jobs: [], nextCursor: null } });
     if (url.pathname.endsWith("/context"))
       return route.fulfill({ json: explorerContext });
     if (url.pathname.endsWith("/preferences")) {

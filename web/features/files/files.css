@@ -350,3 +350,75 @@ dialog .directory-tree {
     grid-row: 1;
   }
 }
+
+.explorer-search-form {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.explorer-search-form label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  min-width: 0;
+}
+.explorer-search-form label:first-child {
+  flex: 1 1 280px;
+  flex-wrap: wrap;
+}
+.explorer-search-form input[type="search"] {
+  flex: 1;
+  width: 100%;
+  min-width: 100px;
+}
+.file-jobs:has(h2) {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 14px;
+}
+.file-jobs h2,
+.file-jobs h3 {
+  font-size: 1rem;
+  margin: 0 0 8px;
+}
+.file-job-list,
+.file-search-results {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  max-height: 260px;
+  overflow: auto;
+}
+.file-job-list > li,
+.file-search-results > li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.file-job-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 0.85rem;
+}
+.file-job-heading > span:nth-child(2),
+.file-search-results span {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.file-job-issue {
+  font-size: 0.82rem;
+  margin: 7px 0 0;
+}
+.file-search-results button {
+  display: block;
+  text-align: left;
+  padding: 5px 0;
+}

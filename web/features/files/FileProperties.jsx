@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { FileJobIssue, isFileJobActive } from "./FileJobs.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
 
@@ -15,6 +16,9 @@ export default function FileProperties({
   loading,
   onClose,
   onOpenLink,
+  sizeJob,
+  sizePending,
+  onSize,
 }) {
   const ownerRef = useRef(null);
   const [copyResult, setCopyResult] = useState(null);
@@ -66,7 +70,19 @@ export default function FileProperties({
             <dt>{copy.type}</dt>
             <dd>{copy.types[entry.type]}</dd>
             <dt>{copy.size}</dt>
-            <dd>{value(entry.size)}</dd>
+            <dd>
+              {entry.type !== "directory"
+                ? value(entry.size)
+                : sizeJob?.status === "completed" &&
+                    !sizeJob.issue &&
+                    sizeJob.totalBytes !== null
+                  ? copy.measuredSize(sizeJob.totalBytes)
+                  : sizeJob && !isFileJobActive(sizeJob)
+                    ? copy.partialSize(sizeJob.completedBytes)
+                    : sizePending || isFileJobActive(sizeJob)
+                      ? copy.sizePending
+                      : copy.sizeUnknown}
+            </dd>
             <dt>{copy.modified}</dt>
             <dd>{value(entry.modifiedAt)}</dd>
             <dt>{copy.permissions}</dt>
@@ -74,6 +90,19 @@ export default function FileProperties({
             <dt>{copy.linkTarget}</dt>
             <dd>{value(entry.linkTarget)}</dd>
           </dl>
+          {entry.type === "directory" && (
+            <>
+              <button
+                type="button"
+                className="button secondary"
+                disabled={sizePending || isFileJobActive(sizeJob)}
+                onClick={onSize}
+              >
+                {copy.calculateSize}
+              </button>
+              <FileJobIssue issue={sizeJob?.issue} />
+            </>
+          )}
           {entry.type === "symlink" && (
             <button type="button" className="button secondary" onClick={onOpenLink}>
               {copy.openLink}

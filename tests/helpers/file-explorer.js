@@ -1,3 +1,5 @@
+import assert from "node:assert/strict";
+import { setTimeout as delay } from "node:timers/promises";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -22,4 +24,28 @@ export async function fileFixture(t) {
     globalScope: await makeFileScope({ home }),
     projectScope: await makeFileScope({ home, session: { id: "fixture", cwd: project } }),
   };
+}
+
+export async function waitForFileJob(
+  f,
+  id,
+  {
+    base = "/api/files",
+    states = ["completed", "partially_completed", "failed", "cancelled", "interrupted"],
+    timeout = 5000,
+  } = {},
+) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const response = await f.request(`${base}/jobs/${encodeURIComponent(id)}`, {
+      signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
+    });
+    assert.equal(response.status, 200);
+    const job = await response.json();
+    if (states.includes(job.status)) return job;
+    await delay(10);
+  }
+  assert.fail(
+    `Fixture file job ${id} did not reach ${states.join(", ")} in ${timeout}ms`,
+  );
 }

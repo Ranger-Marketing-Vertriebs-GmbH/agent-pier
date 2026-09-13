@@ -63,6 +63,8 @@ async function fixture(
         readOnly: false,
         limits: { listPageSize: 200, listEntries: 100000 },
       };
+    else if (url.pathname === `${explorerBase}/jobs`)
+      json = { jobs: [], nextCursor: null };
     else if (url.pathname === `${explorerBase}/preferences`)
       json = { favorites: [], showHidden: false };
     else if (url.pathname === `${explorerBase}/entries`)

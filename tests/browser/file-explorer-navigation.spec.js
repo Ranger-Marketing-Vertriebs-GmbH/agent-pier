@@ -212,6 +212,8 @@ test("a same-session working-directory change resets stale relative selection", 
   const entries = [];
   await page.route("**/api/sessions/cwd-session/files/explorer/**", async (route) => {
     const url = new URL(route.request().url());
+    if (url.pathname === "/api/sessions/cwd-session/files/explorer/jobs")
+      return route.fulfill({ json: { jobs: [], nextCursor: null } });
     if (url.pathname.endsWith("/context"))
       return route.fulfill({
         json: {

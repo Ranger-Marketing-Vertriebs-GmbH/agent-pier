@@ -1,0 +1,207 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { setImmediate as tick } from "node:timers/promises";
+import { FileJobClient } from "../../web/features/files/file-job-client.js";
+
+const job = (id, extra = {}) => ({
+  id,
+  scopeId: "scope",
+  kind: "search",
+  status: "running",
+  ...extra,
+});
+function fixture(client) {
+  let hidden = false,
+    visibility;
+  const timers = new Map();
+  let sequence = 0;
+  const session = new FileJobClient(client, {
+    hidden: () => hidden,
+    listen: (callback) => {
+      visibility = callback;
+      return () => {
+        visibility = null;
+      };
+    },
+    timer: (callback, delay) => {
+      const id = ++sequence;
+      timers.set(id, { callback, delay });
+      return id;
+    },
+    clear: (id) => timers.delete(id),
+  });
+  const unsubscribe = session.subscribe(() => {});
+  return {
+    session,
+    unsubscribe,
+    timers,
+    visibility: (value) => {
+      hidden = value;
+      visibility();
+    },
+  };
+}
+
+test("polling schedules by visibility and serializes delayed reads and write actions", async () => {
+  const gate = Promise.withResolvers();
+  let active = 0,
+    peak = 0,
+    starts = 0;
+  const f = fixture({
+    async get(suffix) {
+      active++;
+      peak = Math.max(peak, active);
+      if (suffix === "/jobs" && starts++ === 0) await gate.promise;
+      active--;
+      return { jobs: [], nextCursor: null };
+    },
+    async mutate(suffix, args) {
+      assert.equal(active, 0);
+      assert.equal(args.scopeId, "scope");
+      assert.equal(suffix, "/operations");
+      return job("new");
+    },
+  });
+  await tick();
+  const started = f.session.start("scope", { kind: "search" });
+  f.visibility(true);
+  assert.equal(peak, 1);
+  gate.resolve();
+  assert.equal((await started).id, "new");
+  await tick();
+  assert.equal([...f.timers.values()][0].delay, 10000);
+  f.visibility(false);
+  assert.equal([...f.timers.values()][0].delay, 1500);
+  f.unsubscribe();
+  assert.equal(f.timers.size, 0);
+});
+
+test("delayed start completion cannot publish after client replacement", async () => {
+  const delayed = Promise.withResolvers();
+  let signal;
+  const old = fixture({
+    get: async () => ({ jobs: [], nextCursor: null }),
+    mutate: async (_, args) => {
+      signal = args.signal;
+      return delayed.promise;
+    },
+  });
+  await tick();
+  const pending = old.session.start("scope", { kind: "search" });
+  const rejected = assert.rejects(pending, { name: "AbortError" });
+  await tick();
+  old.unsubscribe();
+  const current = fixture({
+    get: async () => ({ jobs: [job("current")], nextCursor: null }),
+  });
+  delayed.resolve(job("obsolete"));
+  await rejected;
+  await tick();
+  assert.equal(signal.aborted, true);
+  assert.deepEqual(
+    current.session.getSnapshot().jobs.map((value) => value.id),
+    ["current"],
+  );
+  assert.deepEqual(old.session.getSnapshot().jobs, []);
+  current.unsubscribe();
+});
+
+test("new jobs survive oldest-first history pages and result cursors stay opaque", async () => {
+  const calls = [];
+  const f = fixture({
+    async get(suffix, query) {
+      calls.push({ suffix, query });
+      if (suffix === "/jobs")
+        return {
+          jobs: Array.from({ length: 200 }, (_, id) =>
+            job(`old-${id}`, { status: "completed" }),
+          ),
+          nextCursor: "history",
+        };
+      if (suffix.endsWith("/entries"))
+        return {
+          entries: [{ id: query.cursor ? "second" : "first", path: "a" }],
+          nextCursor: query.cursor ? null : "opaque",
+        };
+      return job("new", { status: "completed" });
+    },
+    mutate: async () => job("new"),
+  });
+  await tick();
+  await f.session.start("scope", { kind: "search" });
+  await f.session.refresh();
+  assert.equal(
+    f.session.getSnapshot().jobs.find((value) => value.id === "new").status,
+    "completed",
+  );
+  assert.equal(f.session.getSnapshot().entries.new.nextCursor, "opaque");
+  await f.session.refresh({ jobId: "new", cursor: "opaque" });
+  assert.deepEqual(
+    f.session.getSnapshot().entries.new.entries.map((entry) => entry.id),
+    ["first", "second"],
+  );
+  assert.equal(calls.at(-1).query.cursor, "opaque");
+  f.unsubscribe();
+});
+
+for (const action of ["cancel", "resolve", "list", "entries"]) {
+  test(`delayed ${action} responses retain their original request owner`, async () => {
+    const entered = Promise.withResolvers(),
+      delayed = Promise.withResolvers();
+    let waiting = false,
+      observedSignal;
+    const old = fixture({
+      async get(suffix, query, signal) {
+        if (waiting && (action === "list" || action === "entries")) {
+          observedSignal = signal;
+          entered.resolve();
+          return delayed.promise;
+        }
+        return { jobs: [], nextCursor: null };
+      },
+      async mutate(suffix, args) {
+        assert.equal(args.scopeId, "scope");
+        if (action === "resolve")
+          assert.deepEqual(args.body, {
+            conflictId: "conflict",
+            decision: "skip",
+            applyToRemaining: false,
+          });
+        observedSignal = args.signal;
+        entered.resolve();
+        return delayed.promise;
+      },
+    });
+    await tick();
+    waiting = true;
+    const pending =
+      action === "list"
+        ? old.session.refresh()
+        : action === "entries"
+          ? old.session.refresh({ jobId: "old" })
+          : action === "cancel"
+            ? old.session.cancel("scope", "old")
+            : old.session.resolve("scope", "old", {
+                conflictId: "conflict",
+                decision: "skip",
+                applyToRemaining: false,
+              });
+    const rejected = assert.rejects(pending, { name: "AbortError" });
+    await entered.promise;
+    old.unsubscribe();
+    const current = fixture({ get: async () => ({ jobs: [], nextCursor: null }) });
+    delayed.resolve(
+      action === "list"
+        ? { jobs: [job("obsolete")], nextCursor: null }
+        : action === "entries"
+          ? { entries: [{ id: "obsolete" }], nextCursor: null }
+          : job("obsolete"),
+    );
+    await rejected;
+    assert.equal(observedSignal.aborted, true);
+    assert.deepEqual(old.session.getSnapshot().jobs, []);
+    assert.deepEqual(old.session.getSnapshot().entries, {});
+    assert.deepEqual(current.session.getSnapshot().jobs, []);
+    current.unsubscribe();
+  });
+}

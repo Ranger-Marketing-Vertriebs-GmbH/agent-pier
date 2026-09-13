@@ -1,7 +1,15 @@
+import {
+  searchFiles,
+  measureFiles,
+  validateMetadataOperation,
+} from "../features/files/file-search.js";
 import { FileStore } from "../features/files/file-store.js";
 import { FileJobs } from "../features/files/file-jobs.js";
 import { PathLocks } from "../features/files/file-locks.js";
-import { createFileJobHandlers } from "../features/files/file-job-handlers.js";
+import {
+  createFileJobHandlers,
+  registerFileJobHandler,
+} from "../features/files/file-job-handlers.js";
 import { makeFileScope } from "../features/files/file-scope.js";
 import { fileProblem, fileSystemProblem } from "../features/files/file-errors.js";
 import { readFileLimits } from "../features/files/file-limits.js";
@@ -33,6 +41,22 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
   const store = new FileStore({ dataDir: config.dataDir, limits });
   const locks = new PathLocks();
   const handlers = createFileJobHandlers();
+  const resultStore = {
+    putEntry: (jobId, entry) => mutationBarrier.run(() => store.putEntry(jobId, entry)),
+  };
+  for (const [kind, handler] of [
+    ["search", searchFiles],
+    ["size", measureFiles],
+  ])
+    registerFileJobHandler(
+      handlers,
+      kind,
+      (args) => handler({ ...args, store: resultStore, limits }),
+      {
+        public: true,
+        validate: validateMetadataOperation,
+      },
+    );
   const jobs = new FileJobs({
     store,
     locks,

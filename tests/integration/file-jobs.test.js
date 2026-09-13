@@ -377,7 +377,8 @@ test("progress and manifest limits fail safely without persisting content", asyn
   const f = await fixture(t, async ({ report }) =>
     report({ completedBytes: 51 * 1024 ** 3, secret: "hidden" }),
   );
-  const job = await f.jobs.start(f.globalScope, operation());
+  registerFileJobHandler(f.handlers, "copy", f.handlers.get("size"), { transfer: true });
+  const job = await f.jobs.start(f.globalScope, operation({ kind: "copy" }));
   const failed = await settled(f.jobs, f.globalScope, job.id, "failed");
   assert.equal(failed.issue.code, "FILE_LIMIT_EXCEEDED");
   assert.equal(failed.completedBytes, 0);

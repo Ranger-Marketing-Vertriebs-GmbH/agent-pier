@@ -207,7 +207,7 @@ export class FileJobs {
   }
   async report(item, patch) {
     item.controller.signal.throwIfAborted();
-    const bounded = progressPatch(patch, this.limits);
+    const bounded = progressPatch(patch, this.limits, item.operation.kind);
     await this.barrier.run(() =>
       this.store.transition(item.job.id, "running", "running", bounded),
     );

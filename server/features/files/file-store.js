@@ -177,6 +177,10 @@ export class FileStore {
     const encoded = JSON.stringify(entry);
     if (Buffer.byteLength(encoded) > 64 * 1024)
       throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
+    const kind = this.getOperation(jobId)?.kind;
+    const entryLimit = ["search", "size"].includes(kind)
+      ? this.limits.searchResults
+      : this.limits.jobEntries;
     const existing = this.db
       .prepare("SELECT 1 FROM job_entries WHERE job_id=? AND id=?")
       .get(jobId, entry.id);
@@ -184,7 +188,7 @@ export class FileStore {
       !existing &&
       this.db
         .prepare("SELECT count(*) AS total FROM job_entries WHERE job_id=?")
-        .get(jobId).total >= this.limits.jobEntries
+        .get(jobId).total >= entryLimit
     )
       throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
     this.db
@@ -219,7 +223,10 @@ export class FileStore {
       .prepare("SELECT * FROM jobs WHERE id=? AND status=?")
       .get(id, from);
     if (!row) return null;
-    const doc = { ...JSON.parse(row.document), ...progressPatch(patch, this.limits) };
+    const doc = {
+      ...JSON.parse(row.document),
+      ...progressPatch(patch, this.limits, row.kind),
+    };
     if (Object.hasOwn(patch, "conflict")) doc.conflict = projectConflict(patch.conflict);
     if (Object.hasOwn(patch, "decision")) doc.decision = patch.decision;
     const result = this.db

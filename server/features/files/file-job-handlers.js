@@ -97,7 +97,20 @@ export function safeIssue(issue) {
   return issue
     ? {
         code: /^FILE_[A-Z0-9_]+$/.test(issue.code || "") ? issue.code : "FILE_IO_ERROR",
-        args: {},
+        args:
+          ["FILE_SEARCH_INCOMPLETE", "FILE_SIZE_INCOMPLETE"].includes(issue.code) &&
+          [
+            "entries",
+            "results",
+            "time",
+            "depth",
+            "overflow",
+            "access",
+            "changed",
+            "io",
+          ].includes(issue.args?.reason)
+            ? { reason: issue.args.reason }
+            : {},
       }
     : null;
 }
@@ -113,7 +126,10 @@ export function projectConflict(info) {
       .slice(0, 20);
   return result;
 }
-export function progressPatch(patch, limits) {
+export function progressPatch(patch, limits, kind) {
+  const metadataJob = ["search", "size"].includes(kind);
+  const entryLimit = metadataJob ? limits.searchEntries : limits.jobEntries;
+  const byteLimit = metadataJob ? Number.MAX_SAFE_INTEGER : limits.jobBytes;
   const result = {};
   for (const key of [
     "completedEntries",
@@ -130,7 +146,7 @@ export function progressPatch(patch, limits) {
     if (
       !Number.isSafeInteger(value) ||
       value < 0 ||
-      value > (key.endsWith("Entries") ? limits.jobEntries : limits.jobBytes)
+      value > (key.endsWith("Entries") ? entryLimit : byteLimit)
     )
       throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
     result[key] = value;
@@ -144,6 +160,17 @@ export function projectEntry(entry) {
     if (typeof entry[key] === "string") result[key] = entry[key].slice(0, 4096);
   for (const key of ["bytes", "size", "completedBytes"])
     if (Number.isSafeInteger(entry[key]) && entry[key] >= 0) result[key] = entry[key];
+  // Typed rows expose unknown metadata explicitly, without inventing permission bits.
+  if (["file", "directory", "symlink", "special"].includes(entry.type)) {
+    result.size = Number.isSafeInteger(entry.size) && entry.size >= 0 ? entry.size : null;
+    for (const key of ["revision", "modifiedAt", "linkTarget"])
+      result[key] =
+        typeof entry[key] === "string" && entry[key].length <= 4096 ? entry[key] : null;
+    if (Number.isInteger(entry.mode) && entry.mode >= 0 && entry.mode <= 0o7777)
+      result.mode = entry.mode;
+    for (const key of ["readable", "writable"])
+      result[key] = typeof entry[key] === "boolean" ? entry[key] : null;
+  }
   if (entry.issue) result.issue = safeIssue(entry.issue);
   return result;
 }

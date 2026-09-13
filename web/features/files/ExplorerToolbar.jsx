@@ -29,8 +29,13 @@ export default function ExplorerToolbar({
   onFavorite,
   onRefresh,
   onTree,
+  onSearch,
+  searching,
 }) {
   const [value, setValue] = useState(path);
+  const [query, setQuery] = useState("");
+  const [recursive, setRecursive] = useState(true);
+  const [caseSensitive, setCaseSensitive] = useState(false);
   useEffect(() => setValue(path), [path]);
   return (
     <header className="explorer-toolbar">
@@ -134,6 +139,42 @@ export default function ExplorerToolbar({
           {favorite ? copy.removeFavorite : copy.addFavorite}
         </button>
       </div>
+      <form
+        className="explorer-search-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (query) onSearch({ query, recursive, caseSensitive, hidden });
+        }}
+      >
+        <label>
+          {copy.searchQuery}
+          <input
+            type="search"
+            maxLength={256}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={recursive}
+            onChange={(event) => setRecursive(event.target.checked)}
+          />
+          {copy.recursive}
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={caseSensitive}
+            onChange={(event) => setCaseSensitive(event.target.checked)}
+          />
+          {copy.caseSensitive}
+        </label>
+        <button className="button secondary compact" disabled={!query || searching}>
+          {copy.search}
+        </button>
+      </form>
     </header>
   );
 }

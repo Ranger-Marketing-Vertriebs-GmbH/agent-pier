@@ -10,6 +10,8 @@ import useFilePreferences from "./useFilePreferences.js";
 import ExplorerToolbar from "./ExplorerToolbar.jsx";
 import DirectoryTree from "./DirectoryTree.jsx";
 import FileList from "./FileList.jsx";
+import useFileJobs from "./useFileJobs.js";
+import FileJobs from "./FileJobs.jsx";
 import FileProperties from "./FileProperties.jsx";
 import "./files.css";
 
@@ -21,7 +23,12 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
     () => fileApi({ kind, sessionId, contextKey }),
     [contextKey, kind, sessionId],
   );
-  const [context, setContext] = useState(null);
+  const [contextResult, setContext] = useState(null);
+  const context = contextResult?.client === client ? contextResult.value : null;
+  const jobs = useFileJobs(client);
+  const [searchResult, setSearchResult] = useState(null);
+  const [sizeResult, setSizeResult] = useState(null);
+  const [searchPending, setSearchPending] = useState(null);
   const [contextError, setContextError] = useState(null);
   const [projects, setProjects] = useState([]);
   const [treeOpen, setTreeOpen] = useState(false);
@@ -66,7 +73,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
         if (controller.signal.aborted) return;
         const changed = previousScope.current && previousScope.current !== result.scopeId;
         previousScope.current = result.scopeId;
-        setContext(result);
+        setContext({ client, value: result });
         if (changed) goPath(result.kind === "global" ? result.home : "", true);
         else if (result.kind === "global" && !route.filePath)
           changeRoute(
@@ -135,7 +142,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
     // Canonicalize server-resolved inputs such as ~ without creating a history entry.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listing.listing?.path, path]);
-  const [entry, setEntry] = useState(null);
+  const [entryResult, setEntry] = useState(null);
   const [propertiesError, setPropertiesError] = useState(null);
   const [propertiesLoading, setPropertiesLoading] = useState(false);
   const [previewResult, setPreviewResult] = useState(null);
@@ -150,6 +157,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
     selectionOwner.current.file !== route.file
   )
     selectionOwner.current = { client, scopeId, file: route.file };
+  const entry = entryResult?.owner === selectionOwner.current ? entryResult.value : null;
   const preview =
     previewResult?.owner === selectionOwner.current ? previewResult.value : null;
 
@@ -179,7 +187,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
       .get("/metadata", { path: route.file }, controller.signal)
       .then(async (result) => {
         if (controller.signal.aborted) return;
-        setEntry(result);
+        setEntry({ owner, value: result });
         if (result.type === "file") {
           try {
             const value = await client.get(
@@ -202,6 +210,41 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
     return stop;
   }, [client, scopeId, route.file]);
 
+  const startSearch = async (options) => {
+    const owner = { client };
+    setSearchPending(owner);
+    try {
+      const job = await jobs.start(scopeId, {
+        kind: "search",
+        sources: [path],
+        target: null,
+        name: null,
+        options,
+      });
+      setSearchResult({ client, id: job.id });
+    } catch {
+      /* Reactive job error is shown by FileJobs. */
+    } finally {
+      setSearchPending((current) => (current === owner ? null : current));
+    }
+  };
+  const startSize = async () => {
+    const owner = selectionOwner.current;
+    setSizeResult({ owner, pending: true });
+    try {
+      const job = await jobs.start(scopeId, {
+        kind: "size",
+        sources: [entry.path],
+        target: null,
+        name: null,
+        options: {},
+      });
+      if (selectionOwner.current === owner) setSizeResult({ owner, id: job.id });
+    } catch {
+      if (selectionOwner.current === owner) setSizeResult(null);
+    }
+  };
+  const sizeSelection = sizeResult?.owner === selectionOwner.current ? sizeResult : null;
   const currentFavorite = preferences.preferences.favorites.find(
     (favorite) => favorite.path === path,
   );
@@ -308,6 +351,8 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
       {context && (
         <>
           <ExplorerToolbar
+            onSearch={startSearch}
+            searching={searchPending?.client === client}
             path={path}
             project={context.kind === "project"}
             parent={listing.listing?.parent ?? null}
@@ -335,6 +380,20 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
             onTree={() => setTreeOpen(true)}
           />
           <ErrorMessage error={preferences.error?.message} />
+          <FileJobs
+            state={jobs}
+            scopeId={scopeId}
+            searchId={searchResult?.client === client ? searchResult.id : null}
+            onResult={(result) => {
+              const parent = result.path.split("/").slice(0, -1).join("/");
+              changeRoute({
+                filePath: parent || (kind === "global" ? "/" : ""),
+                file: result.path,
+                filePage: 1,
+                filePageInvalid: null,
+              });
+            }}
+          />
           {invalidPage ? (
             <div className="explorer-page-error">
               <ErrorMessage error={copy.errors.FILE_INVALID_PAGE} />
@@ -384,6 +443,9 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
                 )}
               </div>
               <FileProperties
+                sizeJob={jobs.jobs.find((job) => job.id === sizeSelection?.id)}
+                sizePending={sizeSelection?.pending}
+                onSize={startSize}
                 entry={entry}
                 preview={preview}
                 error={propertiesError}
