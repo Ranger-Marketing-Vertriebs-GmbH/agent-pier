@@ -3,6 +3,14 @@ import { fileProblem } from "./file-errors.js";
 
 const operations = {
   openRoot: ["path"],
+  createDirectory: ["directory", "name"],
+  createFile: ["directory", "name"],
+  createLink: ["directory", "name", "text"],
+  write: ["handle", "bytes", "position"],
+  sync: ["handle"],
+  stat: ["handle"],
+  inspect: ["directory", "name"],
+  removeEntry: ["directory", "name", "identity", "type"],
   openFile: ["directory", "path"],
   openLink: ["directory", "path"],
   openDirectory: ["directory", "path"],
@@ -36,13 +44,32 @@ export function validateNativeRequest(operation, args) {
   if (Object.keys(args).length !== keys.length) invalid();
   for (const key of keys) {
     const value = args[key];
-    if (
+    if (key === "bytes") {
+      if (
+        !(value instanceof Uint8Array) ||
+        value.length < 1 ||
+        value.length > nativeReadBytes
+      )
+        invalid();
+    } else if (key === "identity") {
+      if (typeof value !== "string" || !/^\d+:\d+$/.test(value)) invalid();
+    } else if (key === "type") {
+      if (!["file", "directory", "symlink"].includes(value)) invalid();
+    } else if (key === "text") {
+      if (
+        typeof value !== "string" ||
+        !value ||
+        value.includes("\0") ||
+        Buffer.byteLength(value) > 4096
+      )
+        invalid();
+    } else if (
       ["sourceBorrowed", "targetBorrowed", "strictOwnership", "preserveTimes"].includes(
         key,
       )
     ) {
       if (typeof value !== "boolean") invalid();
-    } else if (["oldName", "newName"].includes(key)) {
+    } else if (["oldName", "newName", "name"].includes(key)) {
       if (
         typeof value !== "string" ||
         !value ||
@@ -85,6 +112,8 @@ export function validateNativeRequest(operation, args) {
     )
       invalid();
   }
+  if (operation === "write" && args.position > 10 * 1024 ** 3 - args.bytes.length)
+    invalid();
   for (const key of ["handle", "source", "target", "oldParent", "newParent"])
     if (args[key] > 0x7fffffff) invalid();
   if (

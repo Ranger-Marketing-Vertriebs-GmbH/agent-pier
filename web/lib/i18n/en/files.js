@@ -1,5 +1,8 @@
 export const filesCopy = {
   errors: {
+    FILE_WRITE_UNSUPPORTED:
+      "Atomic file publication is unavailable on this filesystem. Both versions have been retained.",
+    FILE_INTERRUPTED: "This publication was interrupted. Retained files need recovery.",
     FILE_SEARCH_INCOMPLETE: "Search results are incomplete.",
     FILE_SIZE_INCOMPLETE: "The folder size is incomplete.",
     FILE_INVALID_OPERATION: "This file operation is invalid or not yet available.",

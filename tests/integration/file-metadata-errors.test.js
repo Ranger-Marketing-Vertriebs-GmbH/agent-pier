@@ -91,7 +91,7 @@ test("an unsupported attribute warning does not hide unrelated mode corruption",
   );
 });
 
-test("native errno is captured immediately and unsupported operations have no fallback rename", () => {
+test("native errno is captured immediately and maps EACCES", () => {
   koffi.errno(13);
   assert.throws(() => engine.checkedNative(-1), { code: "EACCES" });
 });

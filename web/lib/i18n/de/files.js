@@ -1,5 +1,9 @@
 export const filesCopy = {
   errors: {
+    FILE_WRITE_UNSUPPORTED:
+      "Die atomare Dateiveröffentlichung ist auf diesem Dateisystem nicht verfügbar. Beide Versionen wurden aufbewahrt.",
+    FILE_INTERRUPTED:
+      "Diese Veröffentlichung wurde unterbrochen. Aufbewahrte Dateien müssen wiederhergestellt werden.",
     FILE_SEARCH_INCOMPLETE: "Die Suchergebnisse sind unvollständig.",
     FILE_SIZE_INCOMPLETE: "Die Ordnergröße ist unvollständig.",
     FILE_INVALID_OPERATION: "Dieser Dateiauftrag ist ungültig oder noch nicht verfügbar.",

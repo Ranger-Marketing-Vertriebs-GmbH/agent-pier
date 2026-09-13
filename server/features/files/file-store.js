@@ -75,7 +75,8 @@ export class FileStore {
   constructor({ dataDir, now = Date.now, limits = readFileLimits() }) {
     this.now = now;
     this.limits = limits;
-    this.db = privateDatabase(path.join(dataDir, "files"), "files.sqlite");
+    this.storageRoot = path.resolve(dataDir, "files");
+    this.db = privateDatabase(this.storageRoot, "files.sqlite");
     this.db.exec(fileSchema);
     this.db
       .prepare(

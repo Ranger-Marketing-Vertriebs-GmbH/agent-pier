@@ -1,3 +1,5 @@
+import { FilePublisher } from "../features/files/file-publish.js";
+import { recoverPublications } from "../features/files/file-recovery.js";
 import {
   searchFiles,
   measureFiles,
@@ -26,6 +28,7 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
 
   async function context(sessionId = null) {
     try {
+      await ready;
       if (sessionId === null) return await makeFileScope({ home: config.home });
       if (typeof sessionId !== "string" || !sessionId)
         throw fileProblem("FILE_INVALID_SCOPE", 400);
@@ -40,6 +43,10 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
 
   const store = new FileStore({ dataDir: config.dataDir, limits });
   const locks = new PathLocks();
+  const publisher = new FilePublisher({ store, locks, barrier: mutationBarrier });
+  const ready = recoverPublications({ store, barrier: mutationBarrier });
+  // Keep startup failure observable to callers without an unhandled rejection.
+  ready.catch(() => {});
   const handlers = createFileJobHandlers();
   const resultStore = {
     putEntry: (jobId, entry) => mutationBarrier.run(() => store.putEntry(jobId, entry)),
@@ -64,11 +71,20 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
     limits,
     handlers,
     context,
+    beforeStoreClose: async () => {
+      try {
+        await ready;
+      } finally {
+        await publisher.close();
+      }
+    },
   });
 
   return {
     store,
     locks,
+    publisher,
+    ready,
     handlers,
     jobs,
     context,

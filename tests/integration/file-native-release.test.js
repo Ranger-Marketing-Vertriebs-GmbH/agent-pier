@@ -40,6 +40,7 @@ async function fixture(t) {
   for (const name of [
     "file-native.js",
     "file-native-worker.js",
+    "file-native-write.js",
     "file-native-directory.js",
     "file-native-metadata.js",
     "file-native-attributes.js",
@@ -157,6 +158,26 @@ test("packaged native support survives relocation, initial installation and upda
   await fs.writeFile(faultyArchive, gzipSync(JSON.stringify(faulty)));
   await assert.rejects(
     releases.stage({ archive: faultyArchive }),
+    /native dependency smoke/,
+  );
+  assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
+  const faultyWrite = JSON.parse(gunzipSync(revisedArchive(bytes, "1.1.2")));
+  const writeModule = faultyWrite.files.find(
+    (file) => file.path === "server/features/files/file-native-write.js",
+  );
+  const noWrite = Buffer.from(writeModule.content, "base64")
+    .toString()
+    .replace(
+      "return writeSync(",
+      "return args.bytes.length; /* disabled write */ writeSync(",
+    );
+  assert.notEqual(noWrite, Buffer.from(writeModule.content, "base64").toString());
+  writeModule.content = Buffer.from(noWrite).toString("base64");
+  writeModule.sha256 = digest(Buffer.from(noWrite));
+  const noWriteArchive = path.join(f.root, "faulty-write.aprelease");
+  await fs.writeFile(noWriteArchive, gzipSync(JSON.stringify(faultyWrite)));
+  await assert.rejects(
+    releases.stage({ archive: noWriteArchive }),
     /native dependency smoke/,
   );
   assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");

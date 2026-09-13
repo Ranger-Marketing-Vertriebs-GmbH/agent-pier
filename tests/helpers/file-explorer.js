@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import fs from "node:fs/promises";
@@ -48,4 +49,15 @@ export async function waitForFileJob(
   assert.fail(
     `Fixture file job ${id} did not reach ${states.join(", ")} in ${timeout}ms`,
   );
+}
+
+export function seedFileJob(store, scope) {
+  return store.request(scope, {
+    requestId: Date.now() + ":" + randomUUID(),
+    kind: "copy",
+    sources: [],
+    target: scope.home,
+    name: null,
+    options: {},
+  }).job;
 }

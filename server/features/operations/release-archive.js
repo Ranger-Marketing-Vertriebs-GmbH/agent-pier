@@ -148,6 +148,25 @@ export async function smokeRelease(directory) {
                 await native.run('renameNoReplace', rename);
                 await native.run('exchange', { ...rename, oldName: 'moved', newName: 'target' });
                 if (fs.readFileSync(path.join(temporary, 'target'), 'utf8') !== 'source') throw Error('Native exchange failed.');
+                const stagedDirectory = await native.run('createDirectory', { directory: parent.handle, name: 'private' });
+                const stagedFile = await native.run('createFile', { directory: stagedDirectory.handle, name: 'bytes' });
+                await native.run('write', { handle: stagedFile.handle, bytes: Buffer.from('staged'), position: 0 });
+                await native.run('sync', { handle: stagedFile.handle });
+                await native.run('sync', { handle: stagedDirectory.handle });
+                const stagedPath = path.join(temporary, 'private', 'bytes');
+                if (fs.readFileSync(stagedPath, 'utf8') !== 'staged' ||
+                  (fs.statSync(stagedPath).mode & 0o777) !== 0o600 ||
+                  (fs.statSync(path.dirname(stagedPath)).mode & 0o777) !== 0o700)
+                  throw Error('Native staged bytes or private permissions failed.');
+                const stagedLink = await native.run('createLink', { directory: stagedDirectory.handle, name: 'link', text: 'missing' });
+                if (fs.readlinkSync(path.join(temporary, 'private', 'link')) !== 'missing')
+                  throw Error('Native link staging failed.');
+                for (const [name, entry, type] of [['bytes', stagedFile, 'file'], ['link', stagedLink, 'symlink']])
+                  await native.run('removeEntry', { directory: stagedDirectory.handle, name, identity: String(entry.dev) + ':' + String(entry.ino), type });
+                await native.run('closeHandle', { handle: stagedFile.handle });
+                await native.run('closeHandle', { handle: stagedDirectory.handle });
+                await native.run('removeEntry', { directory: parent.handle, name: 'private', identity: String(stagedDirectory.dev) + ':' + String(stagedDirectory.ino), type: 'directory' });
+                await native.run('sync', { handle: parent.handle });
                 await native.run('closeHandle', { handle: stream.handle });
                 await native.run('closeHandle', { handle: parent.handle });
               } finally {

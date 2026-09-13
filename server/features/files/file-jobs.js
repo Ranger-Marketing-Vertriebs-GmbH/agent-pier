@@ -26,8 +26,26 @@ function cancellationPatch(job) {
 
 /** Owns queued admission, handlers, conflict waits and the private store lifecycle. */
 export class FileJobs {
-  constructor({ store, locks, barrier, limits, handlers, now = Date.now, context }) {
-    Object.assign(this, { store, locks, barrier, limits, handlers, now, context });
+  constructor({
+    store,
+    locks,
+    barrier,
+    limits,
+    handlers,
+    now = Date.now,
+    context,
+    beforeStoreClose = async () => {},
+  }) {
+    Object.assign(this, {
+      store,
+      locks,
+      barrier,
+      limits,
+      handlers,
+      now,
+      context,
+      beforeStoreClose,
+    });
     this.pending = [];
     this.workers = new Set();
     this.active = new Map();
@@ -319,7 +337,11 @@ export class FileJobs {
       this.reservations.clear();
       for (const item of this.active.values()) item.controller.abort();
       await Promise.allSettled([...this.workers]);
-      await this.barrier.run(() => this.store.close());
+      try {
+        await this.beforeStoreClose();
+      } finally {
+        await this.barrier.run(() => this.store.close());
+      }
     })();
     return this.closing;
   }

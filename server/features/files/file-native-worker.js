@@ -2,6 +2,7 @@ import { parentPort, workerData } from "node:worker_threads";
 import { closeSync, fstatSync, readSync } from "node:fs";
 import { getSystemErrorName } from "node:util";
 import koffi from "koffi";
+import { writeFunctions } from "./file-native-write.js";
 import { linuxAbi } from "./file-native-linux.js";
 import { metadataFunctions } from "./file-native-metadata.js";
 import { directoryFunctions } from "./file-native-directory.js";
@@ -16,6 +17,7 @@ const directories = directoryFunctions(library, abi);
 const metadata = metadataFunctions(library, workerData.platform);
 const handles = new Map();
 let sequence = 0;
+const writes = writeFunctions(library, abi, { lookup, keep, openComponent });
 
 function closeOwned(opened) {
   if (opened.stream) directories.close(opened.stream);
@@ -109,11 +111,27 @@ function rename(...args) {
 function run(operation, args) {
   validateNativeRequest(operation, args);
   if (
-    ["openRoot", "openFile", "openLink", "openDirectory"].includes(operation) &&
+    [
+      "openRoot",
+      "openFile",
+      "openLink",
+      "openDirectory",
+      "createFile",
+      "createDirectory",
+    ].includes(operation) &&
     handles.size >= 64
   )
     throw fileProblem("FILE_IO_ERROR", 503);
   switch (operation) {
+    case "createFile":
+    case "createDirectory":
+    case "createLink":
+    case "write":
+    case "sync":
+    case "stat":
+    case "inspect":
+    case "removeEntry":
+      return writes(operation, args);
     case "openRoot": {
       // '/' is the only absolute pathname passed to openat. All ancestor names,
       // including those above the project root, are single no-follow components.
