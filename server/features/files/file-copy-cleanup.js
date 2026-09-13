@@ -8,6 +8,7 @@ import {
 } from "./file-stage.js";
 import { scanTree, treeParent } from "./file-tree.js";
 import { fileProblem } from "./file-errors.js";
+import { entryRevision } from "./file-paths.js";
 
 // Only the publisher's actual WeakMap-owned state enters here. Published output,
 // adopted sources and uncheckpointed creations never grant cleanup authority.
@@ -58,15 +59,16 @@ export async function discardCopyStage(publisher, state, record) {
         );
         try {
           await publisher.barrier.run(async () => {
+            const current = await inspect(
+              native,
+              owner.handle,
+              row.relativePath ? path.basename(row.relativePath) : state.name,
+            );
             if (
               !(await parentMatches(native, state.file, doc.stageParent)) ||
-              inodeIdentity(
-                await inspect(
-                  native,
-                  owner.handle,
-                  row.relativePath ? path.basename(row.relativePath) : state.name,
-                ),
-              ) !== row.identity
+              inodeIdentity(current) !== row.identity ||
+              current.type !== row.type ||
+              (row.type !== "directory" && entryRevision(current) !== row.revision)
             )
               throw fileProblem("FILE_CONFLICT_CHANGED", 409);
             await native.run("removeEntry", {

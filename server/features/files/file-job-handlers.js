@@ -196,7 +196,7 @@ export function projectEntry(entry) {
       result[key] = typeof entry[key] === "boolean" ? entry[key] : null;
   }
   if (entry.issue) result.issue = safeIssue(entry.issue);
-  for (const key of ["outputPublished", "sourceRemoved"])
+  for (const key of ["outputPublished", "sourceRemoved", "sourceRemovalPending"])
     if (typeof entry[key] === "boolean") result[key] = entry[key];
   return result;
 }

@@ -220,3 +220,50 @@ test("cleanup preserves an observed external change to a privately staged inode"
   assert.equal(await fs.readFile(changed, "utf8"), "external stage data");
   assert.equal(await fs.readFile(path.join(source, "child"), "utf8"), "source");
 });
+
+test("finished-stage cleanup retains an edit observed after its scan and before its path lock", async (t) => {
+  let collision = false,
+    edited = false,
+    retained;
+  const f = await copyFixture(t, async (op, args, run, f) => {
+    if (op === "renameNoReplace" && args.newName === "source (2)" && !collision) {
+      collision = true;
+      await fs.mkdir(path.join(f.project, "source (2)"));
+    }
+    return run(op, args);
+  });
+  const source = path.join(f.home, "source");
+  await fs.mkdir(source);
+  await fs.writeFile(path.join(source, "child"), "original");
+  await fs.mkdir(path.join(f.project, "source"));
+  const withPaths = f.locks.withPaths.bind(f.locks);
+  f.locks.withPaths = async (paths, action, signal) => {
+    if (collision && !edited && paths.includes(path.join(f.project, "source (2)"))) {
+      const record = f.store
+        .listPublications()
+        .find((record) => record.document.target === path.join(f.project, "source (2)"));
+      retained = path.join(record.document.staged, "child");
+      await fs.writeFile(retained, "external content after cleanup scan");
+      edited = true;
+    }
+    return withPaths(paths, action, signal);
+  };
+  const job = await f.start(f.operation([source], f.project));
+  await f.resolve(await f.wait(job.id, ["waiting_for_conflict"]), "keep_both");
+  assert.equal((await f.wait(job.id)).status, "completed");
+  assert.equal(collision, true);
+  assert.equal(edited, true);
+  assert.equal(
+    await fs.readFile(retained, "utf8"),
+    "external content after cleanup scan",
+  );
+  assert.equal(
+    await fs.readFile(path.join(f.project, "source (3)", "child"), "utf8"),
+    "original",
+  );
+  assert.equal(await fs.readFile(path.join(source, "child"), "utf8"), "original");
+  const record = f.store
+    .listPublications()
+    .find((record) => record.document.staged === path.dirname(retained));
+  assert.notEqual(record.phase, "resolved");
+});

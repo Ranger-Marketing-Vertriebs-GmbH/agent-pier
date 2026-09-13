@@ -1,5 +1,6 @@
 import { restoreRenameSource } from "./file-rename.js";
 import { transferRevisions } from "./file-transfer-completion.js";
+import { recoverMergedSource } from "./file-merge-removal.js";
 import { PathLocks } from "./file-locks.js";
 import { resolveFile, entryRevision } from "./file-paths.js";
 import path from "node:path";
@@ -30,6 +31,10 @@ export async function recoverPublications({ store, native, barrier }) {
   try {
     for (const record of records) {
       const doc = record.document;
+      if (doc.mergeRemoval) {
+        outcomes.push(await recoverMergedSource({ store, native: owner, record, write }));
+        continue;
+      }
       const retainedSource = store.getTrash(record.id);
       if (
         doc.renameSource &&

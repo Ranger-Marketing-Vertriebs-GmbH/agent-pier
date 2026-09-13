@@ -258,11 +258,15 @@ export class FileStore {
       published: rows.filter((row) => row.outputPublished).length,
     };
   }
-  checkpointTransferEntry(jobId, row) {
+  checkpointTransferEntry(jobId, row, publication) {
     this.db.exec("BEGIN IMMEDIATE");
     try {
       this.putEntry(jobId, row);
       this.refreshTransferProgress(jobId);
+      if (publication) {
+        if (publication.jobId !== jobId) throw fileProblem("FILE_INVALID_OPERATION", 400);
+        this.putPublication(publication);
+      }
       this.db.exec("COMMIT");
     } catch (error) {
       this.db.exec("ROLLBACK");

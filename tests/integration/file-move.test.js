@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { copyFixture } from "../helpers/file-copy.js";
+import { copyFixture, submitCopy } from "../helpers/file-copy.js";
+import { applicationFixture } from "../helpers/application.js";
+import { waitForFileJob } from "../helpers/file-explorer.js";
 import { recoverPublications } from "../../server/features/files/file-recovery.js";
 
 test("cross-folder same-filesystem moves retain inode and durably deduplicate request IDs", async (t) => {
@@ -246,5 +248,242 @@ test("failed completion transaction never persists a marker for rolled-back rows
       .entries(f.globalScope, job.id)
       .entries.filter((row) => row.status === "completed").length,
     2,
+  );
+});
+
+test("merge-root removal checkpoint failure retains truthful output and repairs once after restart", async (t) => {
+  const f = await applicationFixture(t),
+    source = path.join(f.home, "source"),
+    target = path.join(f.home, "target");
+  await fs.mkdir(source);
+  await fs.mkdir(target);
+  await fs.mkdir(path.join(target, "source"));
+  await fs.writeFile(path.join(source, "child"), "moved bytes");
+  const files = f.application.files,
+    checkpoint = files.store.checkpointTransferEntry.bind(files.store);
+  let interrupted = false,
+    heldPath = false,
+    heldBarrier = false;
+  files.store.checkpointTransferEntry = (jobId, row, ...args) => {
+    if (row.source === source && row.sourceRemoved && !interrupted) {
+      interrupted = true;
+      heldPath = files.locks.hasLease();
+      heldBarrier = files.publisher.barrier.hasLease();
+      throw Error("injected merge completion checkpoint");
+    }
+    return checkpoint(jobId, row, ...args);
+  };
+  const requestId = `${Date.now()}:${crypto.randomUUID()}`;
+  const job = await submitCopy(f, [source], target, { kind: "move", requestId });
+  const conflict = await waitForFileJob(f, job.id, { states: ["waiting_for_conflict"] });
+  await files.jobs.resolve(await files.context(), job.id, {
+    conflictId: conflict.conflict.id,
+    decision: "merge",
+    applyToRemaining: false,
+  });
+  const done = await waitForFileJob(f, job.id);
+  assert.equal(interrupted, true);
+  assert.equal(done.status, "partially_completed");
+  await assert.rejects(fs.lstat(source), { code: "ENOENT" });
+  const entries = async () =>
+    (await (await f.request(`/api/files/jobs/${job.id}/entries`)).json()).entries;
+  let root = (await entries()).find((row) => row.source === source);
+  assert.equal(root.status, "published");
+  assert.equal(root.outputPublished, true);
+  assert.equal(root.sourceRemoved, false);
+  assert.equal(root.sourceRemovalPending, true);
+  assert.equal(done.completedEntries, 1);
+  assert.equal(heldPath, true);
+  assert.equal(heldBarrier, true);
+  const unresolved = files.store
+    .listPublications()
+    .find((record) => record.jobId === job.id && record.document.mergeRemoval);
+  assert.ok(unresolved);
+  assert.notEqual(unresolved.phase, "resolved");
+  await f.restart();
+  root = (await entries()).find((row) => row.source === source);
+  assert.equal(root.status, "completed");
+  assert.equal(root.sourceRemoved, true);
+  assert.equal(root.sourceRemovalPending, false);
+  assert.equal((await waitForFileJob(f, job.id)).completedEntries, 2);
+  assert.equal((await waitForFileJob(f, job.id)).completedBytes, 11);
+  assert.equal(
+    await fs.readFile(path.join(target, "source", "child"), "utf8"),
+    "moved bytes",
+  );
+  assert.equal(
+    (await submitCopy(f, [source], target, { kind: "move", requestId })).id,
+    job.id,
+  );
+  await f.restart();
+  assert.equal((await waitForFileJob(f, job.id)).completedEntries, 2);
+  assert.equal((await entries()).length, 2);
+});
+
+test("nested merge retains a pending child's source parent for read-only reconciliation", async (t) => {
+  const f = await copyFixture(t),
+    source = path.join(f.home, "source"),
+    child = path.join(source, "sub"),
+    target = path.join(f.project, "source", "sub");
+  await fs.mkdir(child, { recursive: true });
+  await fs.mkdir(target, { recursive: true });
+  await fs.writeFile(path.join(child, "file"), "keep");
+  const originalParent = (await fs.stat(source)).ino,
+    checkpoint = f.store.checkpointTransferEntry.bind(f.store);
+  let interrupted = false;
+  f.store.checkpointTransferEntry = (jobId, row, ...args) => {
+    if (row.source === child && row.sourceRemoved && !interrupted) {
+      interrupted = true;
+      throw Error("injected nested completion");
+    }
+    return checkpoint(jobId, row, ...args);
+  };
+  const job = await f.start(f.operation([source], f.project, "move"));
+  await f.resolve(await f.wait(job.id, ["waiting_for_conflict"]), "merge", true);
+  assert.equal((await f.wait(job.id)).status, "partially_completed");
+  const rows = () => f.jobs.entries(f.globalScope, job.id).entries,
+    row = (name) => rows().find((entry) => entry.source === name);
+  assert.equal(interrupted, true);
+  await assert.rejects(fs.lstat(child), { code: "ENOENT" });
+  assert.equal((await fs.stat(source)).ino, originalParent);
+  assert.equal(row(child).sourceRemovalPending, true);
+  assert.equal(row(source).sourceRemovalPending, false);
+  assert.equal(row(source).sourceRemoved, false);
+  assert.equal(row(source).outputPublished, true);
+  assert.equal((await f.wait(job.id)).completedEntries, 1);
+  const nativeRun = f.native.run.bind(f.native);
+  f.native.run = (op, args) => {
+    assert.notEqual(op, "removeEntry", "reconciliation never retries removal");
+    return nativeRun(op, args);
+  };
+  await recoverPublications(f);
+  assert.equal(row(child).sourceRemoved, true);
+  assert.equal(row(child).sourceRemovalPending, false);
+  assert.equal((await f.wait(job.id)).completedEntries, 2);
+  assert.equal((await fs.stat(source)).ino, originalParent);
+  assert.deepEqual(await fs.readdir(source), []);
+  assert.equal(row(source).sourceRemoved, false);
+  await recoverPublications(f);
+  assert.equal((await f.wait(job.id)).completedEntries, 2);
+  assert.equal(await fs.readFile(path.join(target, "file"), "utf8"), "keep");
+});
+
+test("merge completion row, counters and journal marker roll back together", async (t) => {
+  const f = await copyFixture(t),
+    source = path.join(f.home, "source");
+  await fs.mkdir(source);
+  await fs.mkdir(path.join(f.project, "source"));
+  const put = f.store.putPublication.bind(f.store);
+  let interrupted = false;
+  f.store.putPublication = (record) => {
+    if (record.document.mergeRemoval && record.phase === "resolved" && !interrupted) {
+      interrupted = true;
+      throw Error("injected final journal write");
+    }
+    return put(record);
+  };
+  const job = await f.start(f.operation([source], f.project, "move"));
+  await f.resolve(await f.wait(job.id, ["waiting_for_conflict"]), "merge");
+  assert.equal((await f.wait(job.id)).status, "partially_completed");
+  assert.equal(interrupted, true);
+  await assert.rejects(fs.lstat(source), { code: "ENOENT" });
+  const row = () => f.jobs.entries(f.globalScope, job.id).entries[0],
+    record = () => f.store.listPublications().find((item) => item.jobId === job.id);
+  assert.equal(row().sourceRemovalPending, true);
+  assert.equal(row().sourceRemoved, false);
+  assert.equal((await f.wait(job.id)).completedEntries, 0);
+  assert.equal(record().document.mergeRemoval.disposition, "pending");
+  assert.notEqual(record().phase, "resolved");
+  await recoverPublications(f);
+  assert.equal(row().sourceRemoved, true);
+  assert.equal(row().sourceRemovalPending, false);
+  assert.equal(record().document.mergeRemoval.disposition, "removed");
+  assert.equal(record().phase, "resolved");
+  assert.equal((await f.wait(job.id)).completedEntries, 1);
+  await recoverPublications(f);
+  assert.equal((await f.wait(job.id)).completedEntries, 1);
+});
+
+for (const changed of ["source", "source parent", "destination", "destination parent"]) {
+  test(`merge removal recovery preserves pending evidence for a replaced ${changed}`, async (t) => {
+    const f = await copyFixture(t),
+      parent = path.join(f.home, "parent"),
+      source = path.join(parent, "source"),
+      target = path.join(f.project, "source");
+    await fs.mkdir(source, { recursive: true });
+    await fs.mkdir(target);
+    const checkpoint = f.store.checkpointTransferEntry.bind(f.store);
+    let interrupted = false;
+    f.store.checkpointTransferEntry = (jobId, row, ...args) => {
+      if (row.sourceRemoved && !interrupted) {
+        interrupted = true;
+        throw Error("injected merge completion");
+      }
+      return checkpoint(jobId, row, ...args);
+    };
+    const job = await f.start(f.operation([source], f.project, "move"));
+    await f.resolve(await f.wait(job.id, ["waiting_for_conflict"]), "merge");
+    await f.wait(job.id);
+    const replaced =
+      changed === "source"
+        ? source
+        : changed === "source parent"
+          ? parent
+          : changed === "destination"
+            ? target
+            : f.project;
+    if (changed !== "source") await fs.rename(replaced, `${replaced}-retained`);
+    await fs.mkdir(replaced);
+    await fs.writeFile(path.join(replaced, "external"), "must retain");
+    const nativeRun = f.native.run.bind(f.native);
+    f.native.run = (op, args) => {
+      assert.notEqual(op, "removeEntry", "uncertain recovery never deletes by name");
+      return nativeRun(op, args);
+    };
+    const outcome = await recoverPublications(f);
+    assert.equal(outcome[0].phase, "interrupted");
+    const row = () => f.jobs.entries(f.globalScope, job.id).entries[0];
+    assert.equal(row().sourceRemoved, false);
+    assert.equal(row().sourceRemovalPending, true);
+    assert.equal(row().outputPublished, true);
+    assert.equal((await f.wait(job.id)).completedEntries, 0);
+    assert.equal(
+      await fs.readFile(path.join(replaced, "external"), "utf8"),
+      "must retain",
+    );
+    await fs.rename(replaced, `${replaced}-external`);
+    if (changed !== "source") await fs.rename(`${replaced}-retained`, replaced);
+    assert.equal((await recoverPublications(f))[0].phase, "resolved");
+    assert.equal(row().sourceRemoved, true);
+    assert.equal(row().sourceRemovalPending, false);
+    assert.equal((await f.wait(job.id)).completedEntries, 1);
+  });
+}
+
+test("merge removal intent with retained source reconciles without repeating the syscall", async (t) => {
+  const f = await copyFixture(t, (op, args, run) => {
+    if (op === "removeEntry" && args.name === "source")
+      throw Error("injected pre-syscall interruption");
+    return run(op, args);
+  });
+  const source = path.join(f.home, "source");
+  await fs.mkdir(source);
+  await fs.mkdir(path.join(f.project, "source"));
+  const identity = (await fs.stat(source)).ino;
+  const job = await f.start(f.operation([source], f.project, "move"));
+  await f.resolve(await f.wait(job.id, ["waiting_for_conflict"]), "merge");
+  assert.equal((await f.wait(job.id)).status, "partially_completed");
+  const row = () => f.jobs.entries(f.globalScope, job.id).entries[0];
+  assert.equal(row().sourceRemovalPending, true);
+  await recoverPublications(f);
+  assert.equal((await fs.stat(source)).ino, identity);
+  assert.equal(row().sourceRemovalPending, false);
+  assert.equal(row().sourceRemoved, false);
+  assert.equal(row().outputPublished, true);
+  assert.equal(row().status, "published");
+  assert.equal((await f.wait(job.id)).completedEntries, 0);
+  assert.equal(
+    f.store.listPublications()[0].document.mergeRemoval.disposition,
+    "retained",
   );
 });

@@ -11,13 +11,8 @@ import {
   isWithin,
 } from "./file-paths.js";
 import { fileProblem, fileSystemProblem } from "./file-errors.js";
-import {
-  inodeIdentity,
-  contentIdentity,
-  openParent,
-  inspect,
-  parentMatches,
-} from "./file-stage.js";
+import { inodeIdentity, contentIdentity } from "./file-stage.js";
+import { removeMergedSource } from "./file-merge-removal.js";
 import {
   copyType,
   revisionOf,
@@ -412,61 +407,50 @@ export class FileCopies extends FileMutations {
         finishMerge: true,
         target: target.path,
         mergeTarget: inodeIdentity(target.stat),
+        mergeTargetAbsolute: target.absolute,
+        mergeChildren: children.map((child) => child.rows[0].id),
       },
     ];
   }
   async finishMerge(context, item) {
     const scope = await this.freshScope(context.scope);
     const source = await resolveFile(scope, item.source, { followLeaf: false });
-    if (inodeIdentity(source.stat) !== inodeIdentity(item.selected.stat))
+    if (
+      source.absolute !== item.selected.absolute ||
+      inodeIdentity(source.stat) !== inodeIdentity(item.selected.stat)
+    )
       throw fileProblem("FILE_CONFLICT_CHANGED", 409);
     const target = await resolveFile(scope, item.target, { followLeaf: false });
-    if (inodeIdentity(target.stat) !== item.mergeTarget)
+    if (
+      target.absolute !== item.mergeTargetAbsolute ||
+      inodeIdentity(target.stat) !== item.mergeTarget
+    )
       throw fileProblem("FILE_CONFLICT_CHANGED", 409);
     if (context.operation.kind === "move") {
-      const parent = await openParent(this.publisher.native, source.absolute);
-      const identity = inodeIdentity(await parent.stat());
-      try {
-        await this.publisher.locks.withPaths(
-          [source.absolute, target.absolute],
-          () =>
-            this.publisher.barrier.run(async () => {
-              await this.freshScope(scope);
-              context.signal.throwIfAborted();
-              if (
-                !(await parentMatches(
-                  this.publisher.native,
-                  source.absolute,
-                  identity,
-                )) ||
-                inodeIdentity(
-                  await inspect(
-                    this.publisher.native,
-                    parent.handle,
-                    path.basename(source.absolute),
-                  ),
-                ) !== inodeIdentity(source.stat)
-              )
-                throw fileProblem("FILE_CONFLICT_CHANGED", 409);
-              await this.publisher.native.run("removeEntry", {
-                directory: parent.handle,
-                name: path.basename(source.absolute),
-                identity: inodeIdentity(source.stat),
-                type: "directory",
-              });
-              await parent.sync();
-            }),
-          context.signal,
-        );
-      } finally {
-        await parent.close();
+      // Preserve an unresolved child's original parent so restart can prove absence.
+      if (
+        item.mergeChildren.some(
+          (id) => !this.publisher.store.getEntry(context.jobId, id)?.sourceRemoved,
+        )
+      ) {
+        await this.rows(context, item.rows, {
+          path: item.target,
+          outputPublished: true,
+          sourceRemoved: false,
+          sourceRemovalPending: false,
+          status: "published",
+          revision: revisionOf(target),
+        });
+        throw fileProblem("FILE_INTERRUPTED", 409);
       }
+      return removeMergedSource(this, context, item, source, target);
     }
     await this.rows(context, item.rows, {
       status: "completed",
       outputPublished: true,
       sourceRemoved: context.operation.kind === "move",
       path: item.target,
+      name: path.basename(item.target),
       revision: revisionOf(target),
     });
     await this.publisher.barrier.run(() =>
