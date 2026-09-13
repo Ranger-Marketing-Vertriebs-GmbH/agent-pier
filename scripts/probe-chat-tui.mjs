@@ -1,5 +1,5 @@
 import { startQueueStreamProbe } from "./probe-queue-stream.mjs";
-import { prepareClaudeProbe } from "./probe-claude-startup.mjs";
+import * as claude from "./probe-claude-startup.mjs";
 import { probeCodexHookTrust } from "./probe-codex-hook-trust.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
@@ -180,10 +180,7 @@ async function probeNative(fixture, cleanup) {
       "XDG_CACHE_HOME",
     ])
       await fs.mkdir(env[key]);
-    await fs.writeFile(
-      path.join(env.CLAUDE_CONFIG_DIR, ".claude.json"),
-      JSON.stringify({ hasCompletedOnboarding: true, theme: "dark" }),
-    );
+    await claude.seedClaudeProfile(env.CLAUDE_CONFIG_DIR, options);
     const project = path.join(fixture.home, "project");
     await fs.mkdir(project);
     const version = (
@@ -242,7 +239,7 @@ async function probeNative(fixture, cleanup) {
       // Remove only this fixture's bus directory after its processes have stopped.
       cleanup.unshift(() => fs.rm(socketDirectory, { recursive: true, force: true }));
     }
-    if (options.includes("--hook-trust") || options.includes("--folder-trust"))
+    if (claude.startupRequestsEnabled(options))
       launch = await fixture.application.requests.prepare({
         id: sessionId,
         account,
@@ -359,7 +356,7 @@ async function probeNative(fixture, cleanup) {
         throw error;
       });
     } else if (tool === "claude") {
-      await prepareClaudeProbe({ fixture, session, capture, keys, options, waitFor });
+      await claude.prepareClaude({ fixture, session, capture, keys, options, waitFor });
     } else await waitFor(capture, (screen) => screen.includes("Ask anything"));
     if (bound && bootstrap) {
       await paste(manager, session, "AP_PROBE_BOOTSTRAP");

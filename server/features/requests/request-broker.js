@@ -1,4 +1,5 @@
-import { refreshFolderTrust, answerFolderTrust } from "./claude-folder-trust.js";
+import { answerFolderTrust } from "./claude-folder-trust.js";
+import { refreshStartupPrompts, answerStartupPrompt } from "./claude-startup-prompts.js";
 import { answerHookTrust, hookLaunchIdentity } from "./codex-hook-trust.js";
 import fs from "node:fs/promises";
 import { writeFileSync, renameSync } from "node:fs";
@@ -239,7 +240,7 @@ export class RequestBroker {
     const session = await this.sessions.get(sessionId);
     if (session.status !== "running")
       await this.discard(sessionId, { removeLaunch: false });
-    await refreshFolderTrust(this, session);
+    await refreshStartupPrompts(this, session);
     return {
       ...(session.status === "running" && this.claudeReloadRequired.has(sessionId)
         ? { integration: { reloadRequired: true } }
@@ -273,25 +274,25 @@ export class RequestBroker {
     if (entry.presentation === "claudeLegacyQuestion" && !handoff)
       throw problem(copy.invalid, 400);
     const answer = handoff ? { handoff: true } : answerValue(entry, input);
-    if (entry.presentation === "claudeFolderTrust" && handoff)
+    if (entry.local && entry.presentation !== "codexHookTrust" && handoff)
       return this.list(sessionId);
-    if (
-      ["codexHookTrust", "claudeFolderTrust"].includes(entry.presentation) &&
-      !handoff
-    ) {
+    const local = {
+      codexHookTrust: answerHookTrust,
+      claudeFolderTrust: answerFolderTrust,
+      claudeStartupPrompt: answerStartupPrompt,
+    }[entry.presentation];
+    if (local && !handoff) {
       entry.status = "responding";
       entry.revision++;
       try {
-        await (
-          entry.presentation === "claudeFolderTrust" ? answerFolderTrust : answerHookTrust
-        )(this, entry, answer.choice);
+        await local(this, entry, answer.choice);
         this.entries.delete(id);
         this.emit(
           entry,
           "request.answered",
           "user",
           "success",
-          answer.choice === "trust" ? "allow" : "deny",
+          ["exit", "no", "skip"].includes(answer.choice) ? "deny" : "allow",
         );
         return this.list(sessionId);
       } catch (error) {

@@ -96,3 +96,95 @@ test("fresh chat input never pastes into Claude folder trust before request poll
   });
   assert.deepEqual(manager.events, []);
 });
+
+test("fresh chat input never pastes into Claude onboarding dialogs before request polling", async () => {
+  const fs = await import("node:fs/promises");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const {
+    themeScreen,
+    apiKeyScreen,
+    securityNotesScreen,
+    loginScreen,
+    unknownMenuScreen,
+  } = await import("../fixtures/requests/claude-startup-prompts.js");
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "claude-onboarding-guard-"));
+  await fs.mkdir(path.join(root, "project"));
+  const cwd = await fs.realpath(path.join(root, "project"));
+  await fs.mkdir(path.join(root, "native-sessions"));
+  await fs.writeFile(
+    path.join(root, "native-sessions", "one.launch.json"),
+    JSON.stringify({ id: "one", accountId: "fixture", tool: "claude", token: "t", cwd }),
+  );
+  try {
+    for (const screen of [
+      themeScreen(),
+      apiKeyScreen(),
+      securityNotesScreen(),
+      loginScreen(),
+      unknownMenuScreen(),
+    ]) {
+      const manager = sessionManager();
+      manager.directory = path.join(root, "sessions");
+      manager.current = async () => ({
+        id: "one",
+        tool: "claude",
+        cwd,
+        accountId: "fixture",
+        status: "running",
+        nativeBinding: { enabled: true },
+      });
+      manager.screen = screen;
+      await chat.withChatInput(manager, "one", async (tx) => {
+        await assert.rejects(tx.write("hello", { allowComposerDraft: true }), {
+          status: 409,
+          message: /Anfrage/,
+        });
+      });
+      assert.deepEqual(manager.events, []);
+    }
+    // After the native receipt only the specific dialogs remain recognized.
+    const { pidStart } = await import("../../vendor/agentbus/core/proc.js");
+    await fs.writeFile(
+      path.join(root, "native-sessions", "one.receipt.json"),
+      JSON.stringify({
+        id: "one",
+        accountId: "fixture",
+        tool: "claude",
+        token: "t",
+        cwd,
+        pid: process.pid,
+        pidStart: pidStart(process.pid),
+        providerSessionId: "00000000-0000-4000-8000-000000000000",
+      }),
+    );
+    for (const [screen, blocked] of [
+      [themeScreen(), true],
+      [apiKeyScreen(), true],
+      [unknownMenuScreen(), false],
+    ]) {
+      const manager = sessionManager();
+      manager.directory = path.join(root, "sessions");
+      manager.current = async () => ({
+        id: "one",
+        tool: "claude",
+        cwd,
+        accountId: "fixture",
+        status: "running",
+        nativeBinding: { enabled: true },
+      });
+      manager.screen = screen;
+      await chat.withChatInput(manager, "one", async (tx) => {
+        if (blocked)
+          await assert.rejects(tx.write("hello", { allowComposerDraft: true }), {
+            status: 409,
+            message: /Anfrage/,
+          });
+        else await tx.write("hello", { allowComposerDraft: true });
+      });
+      assert.equal(manager.events.length > 0, !blocked);
+    }
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
