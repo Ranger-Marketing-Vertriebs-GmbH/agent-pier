@@ -71,13 +71,9 @@ export class FileNative {
       workerData: { platform },
       // Native opens are owned here, not registered in Node's fd tracker.
       trackUnmanagedFds: false,
-      // CLI eval/stdin mode cannot apply to this worker's module file.
-      execArgv: process.execArgv.filter(
-        (arg, index, args) =>
-          !arg.startsWith("--input-type=") &&
-          arg !== "--input-type" &&
-          args[index - 1] !== "--input-type",
-      ),
+      // This fixed module needs no parent CLI options. Explicitly copying them
+      // rejects process/V8 flags, and inheriting eval --input-type breaks files.
+      execArgv: [],
     });
     this.#worker.on("message", ({ id, result, error }) => {
       const pending = this.#pending.get(id);

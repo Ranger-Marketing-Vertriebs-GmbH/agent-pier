@@ -229,3 +229,33 @@ test("an unexpected worker failure rejects pending work and closes native descri
   await f.native.close();
   assert.equal(descriptorsFor(stat).length, 0);
 });
+
+test("native workers read owned files when parents use process-only flags and module eval", async (t) => {
+  const f = await fileFixture(t);
+  await fs.writeFile(path.join(f.project, "sample.txt"), "worker survives parent flags");
+  const script = `
+    const { FileNative } = await import(process.argv[1]);
+    const native = new FileNative();
+    try {
+      const directory = await native.run("openRoot", { path: process.argv[2] });
+      const file = await native.run("openFile", { directory: directory.handle, path: "sample.txt" });
+      const bytes = await native.run("read", { handle: file.handle, length: 64, position: 0 });
+      process.stdout.write(Buffer.from(bytes));
+    } finally { await native.close(); }
+  `;
+  const output = execFileSync(
+    process.execPath,
+    [
+      "--stack-trace-limit=10",
+      "--v8-pool-size=2",
+      "--tls-cipher-list=DEFAULT",
+      "--input-type=module",
+      "-e",
+      script,
+      new URL("../../server/features/files/file-native.js", import.meta.url).href,
+      f.project,
+    ],
+    { encoding: "utf8", timeout: 10000 },
+  );
+  assert.equal(output, "worker survives parent flags");
+});
