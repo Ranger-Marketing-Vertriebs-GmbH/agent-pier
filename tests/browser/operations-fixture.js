@@ -1,5 +1,7 @@
 import { operationState, operationResponse } from "./operations-http-fixture.js";
+import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 export async function operationsFixture(page) {
+  const chat = { messages: [], tasks: [], availability: "ready" };
   const state = {
     ...operationState(),
     calls: [],
@@ -89,8 +91,7 @@ export async function operationsFixture(page) {
     else if (/\/requests\/[^/]+\/(answer|handoff)$/.test(path)) {
       state.requests = [];
       result = { requests: [] };
-    } else if (path.endsWith("/chat"))
-      result = { messages: [], tasks: [], availability: "ready" };
+    } else if (path.endsWith("/chat")) result = chat;
     else if (path === "/pipeline-profiles") result = { profiles: [] };
     else if (path.endsWith("/models"))
       result = { currentModel: null, picker: null, pending: false };
@@ -100,5 +101,6 @@ export async function operationsFixture(page) {
   await page.routeWebSocket("**/terminal", (socket) =>
     socket.send(JSON.stringify({ type: "status", status: "running" })),
   );
+  await mockChatStream(page, () => chat);
   return state;
 }
