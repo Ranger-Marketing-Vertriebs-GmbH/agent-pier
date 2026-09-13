@@ -37,6 +37,10 @@ export class Operations {
       },
     });
     this.reportFile = path.join(config.dataDir, "operations/doctor.json");
+    this.postActivationMarker = path.join(
+      config.dataDir,
+      "operations/post-activation-reload.json",
+    );
   }
   report() {
     return readJson(this.reportFile, null);
@@ -97,7 +101,12 @@ export class Operations {
       return result;
     });
   }
+  requireNoMigration() {
+    if (this.jobs.running("release-migrate"))
+      throw problem("A release migration is running. Wait for it to finish.", 409);
+  }
   cleanupReleases({ versions }) {
+    this.requireNoMigration();
     return this.jobs.start("release-cleanup", async (jobId) => {
       const result = await this.releases.cleanup(versions);
       for (const version of result.removedVersions)
@@ -112,10 +121,25 @@ export class Operations {
       return result;
     });
   }
-  activate(input) {
+  activate({ reloadSessions, ...input }) {
+    if (reloadSessions !== undefined && typeof reloadSessions !== "boolean")
+      throw problem("Invalid operation options.");
+    this.requireNoMigration();
+    const target =
+      reloadSessions === true && input.stagedId
+        ? this.releases.stagedVersion(input.stagedId)
+        : null;
     return this.jobs.start(
       input.stagedId ? "release-activate" : "release-rollback",
-      (jobId) => this.releases.launchActivation(input, jobId),
+      async (jobId) => {
+        await this.releases.launchActivation(input, jobId);
+        if (target)
+          atomic(this.postActivationMarker, {
+            to: target,
+            jobId,
+            requestedAt: new Date().toISOString(),
+          });
+      },
       { external: true },
     );
   }
