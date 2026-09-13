@@ -91,11 +91,16 @@ sowie die vier echten Paketziele; die Veröffentlichung wurde übersprungen.
 Auch Chromium/WebKit, Secrets und CodeQL bestehen: alle 17 CI-Prüfungen sind erfolgreich. Bereinigung bleibt eine vorgeprüfte Pfadoperation mit
 der ausdrücklich dokumentierten Grenze gegenüber parallelen nativen Schreibern.
 
-Task 9 ist in `1aecc53` implementiert und im unabhängigen Review. Der einmalige
-Backend-Gesamtlauf bestand 1.600 Tests mit vier bestehenden Übersprüngen vor den
-abschließenden Fehlerfall-Korrekturen. Danach bestanden 156 gezielte Tests und
-nach der letzten Abbruchkorrektur weitere 28 Job-/HTTP-Tests; Lint, Formatierung,
-Struktur und Build bestehen. Die neue plattformübergreifende Prüfung steht aus.
+Task 9 ist implementiert, nach zwei Korrekturrunden unabhängig geprüft und auf
+Linux/macOS mit Node 22/24 sowie allen vier echten Paketplattformen abgenommen.
+Der geprüfte Stand ist `0e3a4d7`. Der letzte lokale Abdeckungslauf besteht 109 Tests
+nach allen Änderungen; Lint, Formatierung, Struktur und Build bestehen. Die CI mit
+Node 24 besteht 1.617 Tests unter Linux und 1.620 unter macOS, jeweils mit den
+benannten Übersprüngen und ohne Fehler. Die Browser-CI läuft noch.
+Papierkorbaufnahme, Wiederherstellung und endgültiges Löschen erhalten unabhängige
+Journalinformationen über erledigte Bereinigungsschritte. Wiederholungen überschreiben
+keine registrierten Fundorte oder Abschlussmarkierungen; fehlerhafte Wiederaufnahme
+schließt alle erworbenen Dateihandles. Task 10 setzt mit Erstellen und Umbenennen fort.
 Tasks 10 bis 23 bleiben offen.
 
 Paketversionen wurden
@@ -874,7 +879,7 @@ Transfer `report({entry})` checkpoints private per-entry identities and
 Optional `mutate` wraps short source removals. Publisher `release(stage)`
 revokes/drains handles while preserving unresolved bytes and journal obligations.
 
-- [ ] Test same-filesystem rename, strict cross-filesystem copy, source revision change, permission/storage failure, restore conflict, interrupted adoption, link-only deletion and project filtering.
+- [x] Test same-filesystem rename, strict cross-filesystem copy, source revision change, permission/storage failure, restore conflict, interrupted adoption, link-only deletion and project filtering.
 
 ```js
 test("trash failure leaves the source available", async (t) => {
@@ -900,8 +905,8 @@ test("trash failure leaves the source available", async (t) => {
 });
 ```
 
-- [ ] Run `node --test tests/integration/file-trash.test.js tests/integration/file-trash-recovery.test.js tests/blackbox/file-trash.test.js`.
-- [ ] Store bytes in `<dataDir>/files/trash/<uuid>/payload`, metadata in `trash_entries`. Prefer native no-replace rename; EXDEV triggers bounded recursive copy, checksum/metadata verification and source revalidation before removal. Retain a per-entry journal for partially processed trees. Update `file-copy.js` in Task 11 to reuse this transfer primitive rather than introducing a second incompatible one.
+- [x] Run `node --test tests/integration/file-trash.test.js tests/integration/file-trash-recovery.test.js tests/blackbox/file-trash.test.js`.
+- [x] Store bytes in `<dataDir>/files/trash/<uuid>/payload`, metadata in `trash_entries`. Prefer native no-replace rename; EXDEV triggers bounded recursive copy, checksum/metadata verification and source revalidation before removal. Retain a per-entry journal for partially processed trees. Update `file-copy.js` in Task 11 to reuse this transfer primitive rather than introducing a second incompatible one.
 
 ```js
 const id = randomUUID();
@@ -917,9 +922,11 @@ store.putTrash({
 // Only the phase above permits removing the matching original source.
 ```
 
-- [ ] Add explicit confirmation bound to selected trash IDs and current revisions for purge; no automatic expiry. Adoption of displaced data must remain visible even if its move into central trash fails. Restore checks both stored provenance and current project bounds, preserving data if its parent disappeared or is now a link outside scope. Symlink payloads remain links.
-- [ ] Add explicit backup omissions for file trash, journals and transfer bytes; confirm ordinary and credential-enabled backup captures contain none of these bytes. Test recovery with unrelated files at old source/stage paths and reject any cleanup based solely on filename pattern.
-- [ ] Run new suites and backup policy tests; commit: `git commit -m "feat: add recoverable file trash and restore"`.
+- [x] Add explicit confirmation bound to selected trash IDs and current revisions for purge; no automatic expiry. Adoption of displaced data must remain visible even if its move into central trash fails. Restore checks both stored provenance and current project bounds, preserving data if its parent disappeared or is now a link outside scope. Symlink payloads remain links.
+- [x] Add explicit backup omissions for file trash, journals and transfer bytes; confirm ordinary and credential-enabled backup captures contain none of these bytes. Test recovery with unrelated files at old source/stage paths and reject any cleanup based solely on filename pattern.
+- [x] Run new suites and backup policy tests; commit: `git commit -m "feat: add recoverable file trash and restore"`.
+
+- [x] Accept reviewed source `0e3a4d7` in Linux/macOS Node 22/24 backend CI and all four actual release-package targets; publication remains skipped. Browser CI is tracked separately until it completes.
 
 ## Task 10: Erstellen und Umbenennen mit konsistenten Konflikten
 
