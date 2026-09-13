@@ -1,3 +1,4 @@
+import { stripVTControlCharacters } from "node:util";
 import { inspectChatComposer } from "./session-chat-input.js";
 import { problem } from "../../lib/storage.js";
 
@@ -30,9 +31,8 @@ export async function recordManualInput(manager, session, text) {
     )
       pending.delete(session.id);
   }
-  const printable = text
-    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
-    .replace(/[\x00-\x1f\x7f]/g, "");
+  // xterm also sends OSC color replies through onData; they are not editor input.
+  const printable = stripVTControlCharacters(text).replace(/[\x00-\x1f\x7f]/g, "");
   if (printable.length) pending.add(session.id);
 }
 export function assertManualInputSettled(manager, id, snapshot) {

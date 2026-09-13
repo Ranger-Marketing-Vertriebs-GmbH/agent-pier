@@ -175,6 +175,20 @@ test("HTTP disconnect after submit never repeats terminal bytes on replay", asyn
   assert.deepEqual(await x.recorder.readBytes(), expected);
 });
 
+test("Claude chat delivers after the attached browser terminal reports its colors", async (t) => {
+  const x = await fixture(t, "claude");
+  const client = await x.f.application.sessions.attach(x.session.id);
+  await client.write("\x1b]11;rgb:1010/1111/1515\x1b\\");
+  const input = x.body("Chat after terminal color report");
+  const result = await x.post(input);
+  assert.equal(result.status, "handed-off");
+  const frame = `\x1b[200~${input.text}\x1b[201~\r`;
+  await x.recorder.waitForText(frame);
+  assert.deepEqual(await x.post(input), result);
+  const received = (await x.recorder.readBytes()).toString();
+  assert.equal(received.split(frame).length - 1, 1);
+});
+
 test("Claude plain empty prompt accepts delivery and retries a pre-paste rejection exactly once", async (t) => {
   const screen = await chatTuiScreen("claude");
   const rows = screen.raw.split("\n");
