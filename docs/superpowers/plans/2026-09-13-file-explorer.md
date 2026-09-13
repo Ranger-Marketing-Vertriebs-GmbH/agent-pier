@@ -103,15 +103,18 @@ Journalinformationen über erledigte Bereinigungsschritte. Wiederholungen übers
 keine registrierten Fundorte oder Abschlussmarkierungen; fehlerhafte Wiederaufnahme
 schließt alle erworbenen Dateihandles.
 
-Task 10 ist in `24f3cfe` implementiert und befindet sich in der unabhängigen Review.
+Task 10 ist in `24f3cfe` implementiert und unabhängig ohne blockierende Befunde geprüft.
 Erstellen und Umbenennen verwenden die vorhandene Veröffentlichung und prüfen
 Namenskonflikte vor ihrer Auflösung erneut. Unterbrochene Umbenennungen bleiben
 mit ihrer ursprünglichen Herkunft registriert; unbewiesene Fundorte erscheinen
 als ausstehende Einträge ohne Wiederherstellungs- oder Löschfreigabe. Der einzige
 vollständige Testlauf auf unverändertem Code besteht 1.649 Tests mit vier benannten
 Übersprüngen und ohne Fehler. Alle 146 gezielten Tests sowie Lint, Formatierung,
-Struktur und Build bestehen. Neue CI-Ergebnisse stehen noch aus.
-Tasks 10 bis 23 bleiben bis zu ihren jeweiligen Reviews offen.
+Struktur und Build bestehen. Der Stand `456d85d` besteht alle 17 CI-Prüfungen,
+einschließlich Linux/macOS mit Node 22/24 und Chromium/WebKit. Die repräsentativen
+Node-24-Läufe bestehen 1.646 Tests unter Linux und 1.649 unter macOS, jeweils ohne
+Fehler und mit den benannten Übersprüngen. Task 11 setzt mit Kopieren und Verschieben
+fort; Tasks 11 bis 23 bleiben offen.
 
 Paketversionen wurden
 ursprünglich am 2026-09-13 in der npm-Registry gelesen; tatsächliche Installation
@@ -950,7 +953,7 @@ Create options are `{}`; rename uses exactly one source and `name` in the same
 parent directory. `expectedRevision` for a source is carried in
 `options.revisions` keyed by source path. Cross-folder work uses `move` in Task 11.
 
-- [ ] Test invalid names, Unicode, case-only rename, duplicate request IDs, readonly contexts and permission failures. Assert old target bytes survive every unresolved collision.
+- [x] Test invalid names, Unicode, case-only rename, duplicate request IDs, readonly contexts and permission failures. Assert old target bytes survive every unresolved collision.
 
 ```js
 test("creating an existing name becomes a conflict without modifying it", async (t) => {
@@ -977,8 +980,8 @@ test("creating an existing name becomes a conflict without modifying it", async 
 });
 ```
 
-- [ ] Run `node --test tests/integration/file-mutations.test.js tests/blackbox/file-mutations.test.js` before registering kinds.
-- [ ] Create directories exclusively with `mkdir(...,{mode:0o700})`; create empty files through stage/publication. Use native no-replace for rename, including case-only rename via a journalled intermediate name on case-insensitive filesystems. Never overwrite a directory with a file. Record a resumable conflict object containing source and target revisions.
+- [x] Run `node --test tests/integration/file-mutations.test.js tests/blackbox/file-mutations.test.js` before registering kinds.
+- [x] Create directories exclusively with `mkdir(...,{mode:0o700})`; create empty files through stage/publication. Use native no-replace for rename, including case-only rename via a journalled intermediate name on case-insensitive filesystems. Never overwrite a directory with a file. Record a resumable conflict object containing source and target revisions.
 
 ```js
 await native.renameNoReplace(sourceParent.fd, sourceName, targetParent.fd, targetName);
@@ -993,8 +996,8 @@ await conflict({
 });
 ```
 
-- [ ] Let replace use publication plus `trash.adoptDisplaced`; preserving an old target is mandatory before reporting completion. Generated alternate names retain extensions, reserve atomically and respect the byte limit. Register the three handlers and server-side readOnly rejection; retain old session create-directory compatibility.
-- [ ] Run both suites, `workspace-files.test.js` and catalog parity; commit: `git commit -m "feat: create and rename files with conflict checks"`.
+- [x] Let replace use publication plus `trash.adoptDisplaced`; preserving an old target is mandatory before reporting completion. Generated alternate names retain extensions, reserve atomically and respect the byte limit. Register the three handlers and server-side readOnly rejection; retain old session create-directory compatibility.
+- [x] Run both suites, `workspace-files.test.js` and catalog parity; commit: `git commit -m "feat: create and rename files with conflict checks"`.
 
 ## Task 11: Rekursives Kopieren, Verschieben und Konfliktfortsetzung
 
