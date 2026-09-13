@@ -52,7 +52,13 @@ export class ReleaseSessionMigration {
       if (error.status === 404) return null;
       throw error;
     }
-    const status = await this.services.reload.status(id);
+    let status;
+    try {
+      status = await this.services.reload.status(id);
+    } catch (error) {
+      if (error.status === 404) return null;
+      throw error;
+    }
     return {
       id,
       name: session.name || null,
@@ -100,14 +106,15 @@ export class ReleaseSessionMigration {
         "Another release operation is running. Wait for it to finish.",
       );
     const control = { version, cancelled: false };
-    this.active = control;
-    return this.operations.jobs.start("release-migrate", async (jobId) => {
+    const job = this.operations.jobs.start("release-migrate", async (jobId) => {
       try {
         return await this.run(version, interrupt, control, jobId);
       } finally {
         if (this.active === control) this.active = null;
       }
     });
+    this.active = control;
+    return job;
   }
   cancel(version) {
     releaseVersion(version);
@@ -140,6 +147,7 @@ export class ReleaseSessionMigration {
       );
     const tracked = new Map();
     for (const session of plan.sessions) {
+      this.checkpoint(control, tracked);
       if (inFlight(session.reload)) {
         tracked.set(session.id, { requestId: null, wasInFlight: true });
         continue;
@@ -167,6 +175,7 @@ export class ReleaseSessionMigration {
         result,
       );
     await this.awaitReferences(version, control, tracked);
+    this.checkpoint(control, tracked);
     const cleanup = await this.operations.releases.cleanup([version]);
     this.operations.audit?.append({
       action: "release.deleted",

@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { Operations } from "../../server/features/operations/operations.js";
+import { AuditStore } from "../../server/features/audit/audit-store.js";
 import { ReleaseSessionMigration } from "../../server/features/operations/release-session-migration.js";
 
 const ids = [
@@ -58,7 +59,7 @@ class FakeSessions {
   }
 }
 
-async function fixture(t, sessions) {
+async function fixture(t, sessions, { audit: withAudit = false } = {}) {
   const temp = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "ap-migrate-")));
   t.after(() => fs.rm(temp, { recursive: true, force: true }));
   const dataDir = path.join(temp, "data"),
@@ -79,8 +80,14 @@ async function fixture(t, sessions) {
         `${old}/bin/node ${old}/bin/node ${old}/server/terminal-launcher.js ${dataDir}/sessions/${session.id}.launch.json`,
       );
   const extra = [];
+  let audit;
+  if (withAudit) {
+    audit = new AuditStore({ dataDir });
+    t.after(() => audit.close());
+  }
   const operations = new Operations({
     config: { dataDir },
+    audit,
     withSnapshotBarrier: (fn) => fn(),
     releaseOptions: {
       installRoot,
@@ -106,7 +113,18 @@ async function fixture(t, sessions) {
       await new Promise((r) => setTimeout(r, 5));
     return operations.jobs.get(job.id);
   };
-  return { operations, migration, store, reload, lines, extra, installRoot, finish, old };
+  return {
+    operations,
+    migration,
+    store,
+    reload,
+    lines,
+    extra,
+    installRoot,
+    finish,
+    old,
+    audit,
+  };
 }
 
 test("plan lists sessions with eligibility, activity and process classes", async (t) => {
@@ -152,16 +170,20 @@ test("plan lists sessions with eligibility, activity and process classes", async
 });
 
 test("migrate reloads every session, waits for completion and deletes the release", async (t) => {
-  const f = await fixture(t, [
-    { id: ids[0], tool: "claude", status: "running", activity: "idle" },
-    {
-      id: ids[1],
-      tool: "codex",
-      status: "running",
-      activity: "working",
-      nextState: "waiting",
-    },
-  ]);
+  const f = await fixture(
+    t,
+    [
+      { id: ids[0], tool: "claude", status: "running", activity: "idle" },
+      {
+        id: ids[1],
+        tool: "codex",
+        status: "running",
+        activity: "working",
+        nextState: "waiting",
+      },
+    ],
+    { audit: true },
+  );
   const job = f.migration.migrate("1.0.0");
   assert.equal(job.kind, "release-migrate");
   assert.throws(() => f.migration.migrate("1.0.0"), /running/);
@@ -186,6 +208,23 @@ test("migrate reloads every session, waits for completion and deletes the releas
   );
   await assert.rejects(fs.stat(path.join(f.installRoot, "releases/1.0.0")));
   assert.equal(f.operations.jobs.running("release-"), false);
+  const events = f.audit.list().events;
+  assert.equal(events[0].action, "release.deleted");
+  assert.equal(events[0].details.version, "1.0.0");
+  assert.equal(events[0].details.count, 2);
+  assert.equal(events[0].resourceId, job.id);
+});
+
+test("cancelling right after migrate() returns is observed on the fast path", async (t) => {
+  const f = await fixture(t, [
+    { id: ids[0], tool: "claude", status: "running", activity: "idle" },
+    { id: ids[1], tool: "codex", status: "running", activity: "idle" },
+  ]);
+  const job = f.migration.migrate("1.0.0");
+  f.migration.cancel("1.0.0");
+  const finished = await f.finish(job);
+  assert.equal(finished.errorCode, "migrateCancelled");
+  assert.ok(await fs.stat(path.join(f.installRoot, "releases/1.0.0")));
 });
 
 test("interrupt mode requests immediate reloads and a rejected request fails the job without deleting", async (t) => {
