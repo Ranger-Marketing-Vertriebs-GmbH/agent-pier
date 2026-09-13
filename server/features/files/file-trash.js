@@ -1,4 +1,5 @@
 import path from "node:path";
+import { completeTrashAdoption } from "./file-trash-adoption.js";
 import { recoverTrash } from "./file-trash-recovery.js";
 import { randomUUID } from "node:crypto";
 import { fileProblem, fileSystemProblem } from "./file-errors.js";
@@ -323,7 +324,11 @@ export class FileTrash {
   }
   async finish(record) {
     await this.barrier.run(async () => {
-      for (const location of [record.location, ...(record.extraLocations || [])]) {
+      for (const location of [
+        record.location,
+        record.adoptionSource,
+        ...(record.extraLocations || []),
+      ]) {
         if (!location || location.containerRemoved) continue;
         if (!(await parentMatches(this.native, location.file, location.parentIdentity)))
           throw treeConflict();
@@ -453,7 +458,11 @@ export class FileTrash {
   adoptDisplaced(scope, recoveryId) {
     return this.entry(recoveryId, async () => {
       const prior = this.store.getTrash(recoveryId);
-      if (prior?.phase === "recoverable") return prior.id;
+      if (prior?.phase === "recoverable") {
+        if (prior.scopeId !== scope.id) throw treeConflict();
+        await completeTrashAdoption(this, prior);
+        return prior.id;
+      }
       const publication = this.store.getPublication(recoveryId);
       if (
         !publication ||
@@ -481,7 +490,7 @@ export class FileTrash {
       };
       record.adoptionSource = { ...record.location };
       await this.save(record);
-      const old = { ...record.location };
+      const old = record.adoptionSource;
       try {
         const id = await this.captureSource(
           scope,
@@ -490,24 +499,9 @@ export class FileTrash {
           ),
           record,
         );
-        await this.barrier.run(async () => {
-          const parent = await openParent(this.native, path.dirname(old.file));
-          try {
-            await this.native.run("removeEntry", {
-              directory: parent.handle,
-              name: path.basename(path.dirname(old.file)),
-              identity: old.parentIdentity,
-              type: "directory",
-            });
-            await parent.sync();
-          } finally {
-            await parent.close();
-          }
-          this.store.putPublication({ ...publication, phase: "resolved" });
-        });
+        await completeTrashAdoption(this, record);
         return id;
       } catch (error) {
-        record.adoptionSource = old;
         record.phase = "adoption_pending";
         await this.save(record);
         throw error;

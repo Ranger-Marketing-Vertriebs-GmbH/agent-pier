@@ -1,5 +1,6 @@
 import path from "node:path";
-import { inodeIdentity, inspect, openParent } from "./file-stage.js";
+import { completeTrashAdoption } from "./file-trash-adoption.js";
+import { closeHandles, inodeIdentity, inspect, openParent } from "./file-stage.js";
 import { scanTree, assertTree, removeTree, treeConflict } from "./file-tree.js";
 import { openTreeSource } from "./file-tree-transfer.js";
 import { openTrashPayload } from "./file-trash-storage.js";
@@ -41,6 +42,8 @@ async function remaining(trash, record, source) {
 }
 async function recoverEntry(trash, record) {
   if (record.phase === "recoverable") {
+    if (record.adoptionSource && !record.adoptionComplete)
+      await completeTrashAdoption(trash, record);
     if (!record.removalPending) return;
     const parent = await openParent(trash.native, record.originalAbsolute);
     try {
@@ -88,27 +91,8 @@ async function recoverEntry(trash, record) {
           limits: trash.limits,
         });
         stable(rows, record.sourceManifest);
-        const old = record.adoptionSource,
-          parent = await openParent(trash.native, path.dirname(old.file));
-        try {
-          await trash.barrier.run(async () => {
-            await source.parent.sync();
-            await trash.native.run("removeEntry", {
-              directory: parent.handle,
-              name: path.basename(path.dirname(old.file)),
-              identity: old.parentIdentity,
-              type: "directory",
-            });
-            await parent.sync();
-            record.payloadManifest = rows;
-            record.phase = "recoverable";
-            await trash.save(record);
-            const publication = trash.store.getPublication(record.recoveryId);
-            trash.store.putPublication({ ...publication, phase: "resolved" });
-          });
-        } finally {
-          await parent.close();
-        }
+        record.payloadManifest = rows;
+        await completeTrashAdoption(trash, record);
       } finally {
         await source.parent.close();
       }
@@ -228,8 +212,7 @@ async function recoverEntry(trash, record) {
           await trash.save(record);
         });
       } finally {
-        await original.parent.close();
-        await parent?.close();
+        await closeHandles(original.parent, parent);
       }
       return;
     }
@@ -261,6 +244,10 @@ async function recoverEntry(trash, record) {
     return;
   }
   if (["purging", "discarding"].includes(record.phase)) {
+    if (record.location.containerRemoved) {
+      await trash.finish(record);
+      return;
+    }
     const parent = await openParent(trash.native, record.location.file);
     try {
       if (inodeIdentity(await parent.stat()) !== record.location.parentIdentity)
@@ -305,8 +292,9 @@ async function recoverEntry(trash, record) {
       record.originalPath,
       trash.native,
     );
-    const staged = await openTrashPayload(trash.native, record);
+    let staged;
     try {
+      staged = await openTrashPayload(trash.native, record);
       await original.assertAuthority();
       if (inodeIdentity(await original.parent.stat()) !== record.sourceParentIdentity)
         throw treeConflict();
@@ -342,8 +330,7 @@ async function recoverEntry(trash, record) {
       });
       await trash.finish(record);
     } finally {
-      await original.parent.close();
-      await staged.parent.close();
+      await closeHandles(original.parent, staged?.parent);
     }
     return;
   }

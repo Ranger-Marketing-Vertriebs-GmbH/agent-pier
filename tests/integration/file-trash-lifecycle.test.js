@@ -185,3 +185,96 @@ test("repeated failed restore adoptions release native handles before the next o
   });
   assert.equal(await fs.readFile(f.target, "utf8"), "saved");
 });
+
+for (const boundary of ["missing", "renamed", "close_failure"])
+  test(`failed clone replay drains owned handles after ${boundary}`, async (t) => {
+    const live = new Set();
+    let first = true,
+      recovering = false,
+      originalHandle,
+      closeFailed = false;
+    const f = await trashFixture(t, async (op, args, run, fixture) => {
+      if (op === "renameNoReplace" && first) {
+        first = false;
+        throw Object.assign(Error(), { code: "EXDEV" });
+      }
+      if (op === "copyMetadata")
+        throw Object.assign(Error(), { code: "FILE_METADATA_UNSUPPORTED", status: 409 });
+      const result = await run(op, args);
+      if (
+        [
+          "openRoot",
+          "openLookup",
+          "openFile",
+          "openLink",
+          "openDirectory",
+          "createFile",
+          "createDirectory",
+        ].includes(op)
+      ) {
+        live.add(result.handle);
+        if (
+          recovering &&
+          !originalHandle &&
+          op === "openRoot" &&
+          args.path === path.dirname(fixture.target)
+        )
+          originalHandle = result.handle;
+      }
+      if (op === "closeHandle") {
+        live.delete(args.handle);
+        if (
+          boundary === "close_failure" &&
+          recovering &&
+          args.handle === originalHandle &&
+          !closeFailed
+        ) {
+          closeFailed = true;
+          throw Error("original close acknowledgement failed");
+        }
+      }
+      return result;
+    });
+    await fs.writeFile(f.target, "original bytes");
+    await assert.rejects(
+      f.trash.capture(f.globalScope, f.target, {
+        jobId: f.jobId,
+        reason: "deleted",
+      }),
+    );
+    const [entry] = (await f.trash.list(f.globalScope)).entries;
+    const record = f.store.getTrash(entry.id);
+    assert.equal(live.size, 0);
+    if (boundary === "missing") await fs.unlink(record.location.file);
+    if (boundary === "renamed") {
+      await fs.rename(record.location.file, record.location.file + "-retained");
+      await fs.writeFile(record.location.file, "external replacement");
+    }
+    recovering = true;
+    await f.trash.recover();
+    assert.equal(live.size, 0, "every acquired native handle must be drained");
+    assert.equal(await fs.readFile(f.target, "utf8"), "original bytes");
+    if (boundary === "close_failure") assert.equal(closeFailed, true);
+    else {
+      assert.ok(
+        f.store.getTrash(entry.id),
+        "uncertain registered payload remains pinned",
+      );
+      if (boundary === "renamed") {
+        assert.equal(
+          await fs.readFile(record.location.file, "utf8"),
+          "external replacement",
+        );
+        assert.equal(
+          await fs.readFile(record.location.file + "-retained", "utf8"),
+          "original bytes",
+        );
+      }
+      await f.trash.recover();
+      assert.equal(live.size, 0);
+    }
+    const stage = await f.stage();
+    await stage.handle.writeFile("subsequent legitimate operation");
+    await f.publisher.release(stage);
+    assert.equal(live.size, 0);
+  });
