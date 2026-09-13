@@ -385,6 +385,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
                 preview={preview}
                 error={propertiesError}
                 previewError={previewError}
+                previewOwner={selectionOwner.current}
                 loading={propertiesLoading}
                 onClose={() => changeRoute({ file: "", filePage: page })}
                 onOpenLink={openLink}

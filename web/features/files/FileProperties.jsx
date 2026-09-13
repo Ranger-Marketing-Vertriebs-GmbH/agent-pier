@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
 
@@ -11,10 +11,38 @@ export default function FileProperties({
   preview,
   error,
   previewError,
+  previewOwner,
   loading,
   onClose,
   onOpenLink,
 }) {
+  const ownerRef = useRef(null);
+  const [copyResult, setCopyResult] = useState(null);
+  if (
+    !ownerRef.current ||
+    ownerRef.current.selection !== previewOwner ||
+    ownerRef.current.preview !== preview
+  )
+    ownerRef.current = { selection: previewOwner, preview };
+  const owner = ownerRef.current;
+  const copyStatus = copyResult?.owner === owner ? copyResult.status : "";
+  const copyAll = async () => {
+    if (preview?.type !== "text") return;
+    setCopyResult({ owner, status: "copying" });
+    let status;
+    try {
+      await navigator.clipboard.writeText(preview.text);
+      status = "copied";
+    } catch {
+      status = "copyFailed";
+    }
+    setCopyResult((current) =>
+      current?.owner === owner && ownerRef.current === owner
+        ? { owner, status }
+        : current,
+    );
+  };
+
   return (
     <section className="file-properties" aria-label={copy.properties}>
       <header>
@@ -54,11 +82,29 @@ export default function FileProperties({
           <ErrorMessage error={previewError?.message} />
           {preview?.type === "text" && (
             <div className="file-preview" aria-label={copy.preview}>
+              <div className="file-preview-heading">
+                <code>{entry.path}</code>
+                <div className="file-preview-actions">
+                  <button
+                    type="button"
+                    className="button secondary compact"
+                    disabled={copyStatus === "copying"}
+                    onClick={copyAll}
+                  >
+                    {copy.copyAll}
+                  </button>
+                </div>
+              </div>
+              {copyStatus === "copied" && <p role="status">{copy.copied}</p>}
+              <ErrorMessage error={copyStatus === "copyFailed" ? copy.copyFailed : ""} />
               <pre>{preview.text}</pre>
             </div>
           )}
           {preview?.type === "image" && (
             <div className="file-preview" aria-label={copy.preview}>
+              <div className="file-preview-heading">
+                <code>{entry.path}</code>
+              </div>
               <img src={preview.source} alt={entry.path} />
             </div>
           )}

@@ -33,6 +33,10 @@ export const filesCopy = {
   next: "Weitere Dateien",
   close: "Vorschau schließen",
   preview: "Dateivorschau",
+  copyAll: "Alles kopieren",
+  copied: "In die Zwischenablage kopiert.",
+  copyFailed:
+    "Der Dateiinhalt konnte nicht kopiert werden. Bitte markiere den Text und kopiere ihn manuell.",
   error: "Dateien konnten nicht geladen werden.",
   summary: (total, page) => `${total} Einträge · Seite ${page}`,
   path: "Pfad",

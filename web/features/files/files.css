@@ -244,6 +244,25 @@
   border: 1px solid var(--line);
   border-radius: 8px;
 }
+.file-preview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.file-preview-heading > code {
+  flex: 1 1 140px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.file-preview-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+}
 .file-preview pre {
   max-height: 45vh;
   margin: 0;
