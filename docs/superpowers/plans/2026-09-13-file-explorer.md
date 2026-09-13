@@ -1126,7 +1126,7 @@ await jobs.start({
 
 ## Task 13: Streaming-Uploads und Einzeldatei-Downloads
 
-Implementation commit `46e3c12791360bc4d3b22cf94fc77178c1b96221` is complete and awaits independent review/CI. The sole full run passed1,768 tests with4 existing skips on frozen tree `702bf20`; a subsequent proven symlink/.. target-composition correction passed71/71 covering tests and final static/build checks. Main85 startup-dialog integration validation is pending after that source commit. Task14 remains gated until acceptance.
+Task 13 is accepted at `592528ddfde9bccff82d3be418a2ee2c332650e8`: both independent specification and quality reviews approve production `0433432` with all six findings resolved, and all 17 current-head CI checks pass. The sole full local run passed 1,768 tests with four existing skips before later path/main/review corrections; final corrections pass 88/88 covering tests and static/build checks. Main through #86 is integrated. An earlier Ubuntu24 copy-status failure remained unreproduced; diagnostic-only `592528d` preserves its assertions and adds public entry evidence plus the existing finite Linux repetition loop. Both new Ubuntu24 full suites pass 1,798 tests with seven skips, and all 20 additional Linux copy repetitions pass. No production cause or fix is claimed for that isolated observation. Task 14 may start from this accepted basis.
 
 **Files:** Create `server/features/files/{file-uploads,file-downloads}.js`,
 `server/http/routes/file-transfers.js`, `tests/integration/file-uploads.test.js`,
@@ -1149,7 +1149,7 @@ File receiving starts only after its parent directory is ready; child uploads mu
 match their stored entry. Group counters also count actual received bytes and
 exclude completed entries from explicit retries.
 
-- [ ] Test a raw payload larger than the global 64-KiB JSON cap, byte-limit overflow, disconnect, full disk, duplicate upload request, source/destination change and headless/project authorization. Include a group whose individual files are each permitted but whose aggregate exceeds `jobBytes`: commit must fail before creating visible files. Download checks include bytes, no-store, MIME sniffing protection and filename quoting.
+- [x] Test a raw payload larger than the global 64-KiB JSON cap, byte-limit overflow, disconnect, full disk, duplicate upload request, source/destination change and headless/project authorization. Include a group whose individual files are each permitted but whose aggregate exceeds `jobBytes`: commit must fail before creating visible files. Download checks include bytes, no-store, MIME sniffing protection and filename quoting.
 
 ```js
 test("upload bytes bypass the JSON parser and remain exact", async (t) => {
@@ -1182,8 +1182,8 @@ test("upload bytes bypass the JSON parser and remain exact", async (t) => {
 });
 ```
 
-- [ ] Run `node --test tests/integration/file-uploads.test.js tests/blackbox/file-transfers.test.js` and confirm red.
-- [ ] Register narrowly matched stream routes after authentication/audit and **before** JSON parsing. Do not wrap the full receiving handler in `guardMutations`; jobs/publication still take their own short leases. `create` uses `jobs.reserve`, and `receive` uses `jobs.runReserved` to claim the transfer slot. Feed `req` through a bounded progress Transform into the registered staging file using `pipeline`; count bytes regardless of Content-Length and charge both child and parent group budgets transactionally.
+- [x] Run `node --test tests/integration/file-uploads.test.js tests/blackbox/file-transfers.test.js` and confirm red.
+- [x] Register narrowly matched stream routes after authentication/audit and **before** JSON parsing. Do not wrap the full receiving handler in `guardMutations`; jobs/publication still take their own short leases. `create` uses `jobs.reserve`, and `receive` uses `jobs.runReserved` to claim the transfer slot. Feed `req` through a bounded progress Transform into the registered staging file using `pipeline`; count bytes regardless of Content-Length and charge both child and parent group budgets transactionally.
 
 ```js
 const counter = new Transform({
@@ -1200,9 +1200,9 @@ await pipeline(req, counter, stage.handle.createWriteStream({ autoClose: false }
 });
 ```
 
-- [ ] On complete bytes, flush, revalidate destination, publish and adopt displaced contents. On abort retain old targets and clean only registered incomplete data. Make the upload's completion idempotent after a lost response; retries of received bytes do not publish twice. Direct downloads validate a regular descriptor and stream it with attachment/no-store/nosniff headers; aborted clients close handles.
-- [ ] Implement `uploads.sweep(now)` after startup recovery and hourly: remove only incomplete registered payloads inactive for 24 hours, with no active receiver or unresolved publication and matching stored identities. Completed download artifacts follow seven-day job retention. Test fake-clock expiry, identity mismatch and an active stream spanning the sweep; stop all timers on close.
-- [ ] Test login expiry, wrong origin and bearer tokens for both normal and raw routes; commit: `git commit -m "feat: stream file uploads and downloads"`.
+- [x] On complete bytes, flush, revalidate destination, publish and adopt displaced contents. On abort retain old targets and clean only registered incomplete data. Make the upload's completion idempotent after a lost response; retries of received bytes do not publish twice. Direct downloads validate a regular descriptor and stream it with attachment/no-store/nosniff headers; aborted clients close handles.
+- [x] Implement `uploads.sweep(now)` after startup recovery and hourly: remove only incomplete registered payloads inactive for 24 hours, with no active receiver or unresolved publication and matching stored identities. Task 15 owns seven-day retention for completed private ZIP artifacts; direct downloads create no artifact. Test fake-clock expiry, identity mismatch and an active stream spanning the sweep; stop all timers on close.
+- [x] Test login expiry, wrong origin and bearer tokens for both normal and raw routes; commit: `git commit -m "feat: stream file uploads and downloads"`.
 
 ## Task 14: Upload-Auswahl, Ordner und Wiederholungen im Browser
 
