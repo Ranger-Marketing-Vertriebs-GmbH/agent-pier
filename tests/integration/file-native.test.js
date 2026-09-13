@@ -184,3 +184,47 @@ test("an unexpected worker exit also releases its owned directory stream", async
   await f.native.close();
   assert.equal(descriptorsFor(stat).length, 0);
 });
+
+test("native atomic rename never replaces an existing entry and exchanges links without following them", async (t) => {
+  const f = await fixture(t);
+  await fs.writeFile(path.join(f.project, "source"), "source");
+  await fs.writeFile(path.join(f.project, "target"), "target");
+  const args = {
+    oldParent: f.handle,
+    oldName: "source",
+    newParent: f.handle,
+    newName: "target",
+  };
+  await assert.rejects(f.native.run("renameNoReplace", args), { code: "FILE_EXISTS" });
+  assert.equal(await fs.readFile(path.join(f.project, "source"), "utf8"), "source");
+  assert.equal(await fs.readFile(path.join(f.project, "target"), "utf8"), "target");
+  await f.native.run("renameNoReplace", { ...args, newName: "moved" });
+  await fs.symlink("missing-outside", path.join(f.project, "source"));
+  await f.native.run("exchange", args);
+  assert.equal(await fs.readlink(path.join(f.project, "target")), "missing-outside");
+  assert.equal(await fs.readFile(path.join(f.project, "source"), "utf8"), "target");
+  for (const oldName of ["..", "a/b", "", "/absolute", "null\0name"])
+    await assert.rejects(f.native.run("exchange", { ...args, oldName }), {
+      code: "FILE_INVALID_PATH",
+    });
+});
+
+test("borrowed rename parents stay open while owned parents remain opaque", async (t) => {
+  const f = await fixture(t);
+  const parent = await fs.open(f.project, "r");
+  t.after(() => parent.close());
+  await fs.writeFile(path.join(f.project, "before"), "borrowed");
+  assert.equal(
+    typeof f.native.renameNoReplace,
+    "function",
+    "borrowed parent rename is implemented",
+  );
+  await f.native.renameNoReplace(parent, "before", parent, "after");
+  await fs.writeFile(path.join(f.project, "before"), "other");
+  await f.native.exchange(parent, "before", parent, "after");
+  assert.equal(await fs.readFile(path.join(f.project, "before"), "utf8"), "borrowed");
+  assert.equal((await parent.stat()).isDirectory(), true);
+  await assert.rejects(f.native.renameNoReplace(parent.fd, "before", parent.fd, "new"), {
+    code: "FILE_INVALID_PATH",
+  });
+});

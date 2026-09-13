@@ -107,6 +107,53 @@ export async function smokeRelease(directory) {
               const file = await native.run('openFile', { directory: directory.handle, path: 'package.json' });
               const bytes = await native.run('read', { handle: file.handle, length: 64, position: 0 });
               if (!bytes.length) throw Error('Native descriptor read failed.');
+              const { copyMetadata, readMetadata, assertMetadata } = await import('./server/features/files/file-metadata.js');
+              const temporary = fs.mkdtempSync(path.join(root, '.native-smoke-'));
+              let source, target;
+              try {
+                source = await fs.promises.open(path.join(temporary, 'source'), 'wx+', 0o600);
+                target = await fs.promises.open(path.join(temporary, 'target'), 'wx+', 0o600);
+                await source.writeFile('source'); await source.chmod(0o750);
+                await target.writeFile('target');
+                await source.utimes(1234567890.125, 1234567891.25);
+                const expected = await readMetadata(source);
+                const complete = expected.completeness?.complete === true;
+                if (!complete) {
+                  const before = await target.stat({ bigint: true });
+                  let rejected = false;
+                  try { await copyMetadata(source, target, { strictOwnership: true, preserveTimes: true }); }
+                  catch (error) { if (error.code !== 'FILE_METADATA_UNSUPPORTED') throw error; rejected = true; }
+                  if (!rejected || (await target.stat({ bigint: true })).ctimeNs !== before.ctimeNs)
+                    throw Error('Strict native metadata capability gate failed.');
+                }
+                const copied = await copyMetadata(source, target, { strictOwnership: complete, preserveTimes: true });
+                const actual = await readMetadata(target);
+                assertMetadata(expected, actual, { strictOwnership: complete });
+                if (complete ? copied.warnings.length !== 0 : copied.warnings.length !== 1 || copied.warnings[0].code !== 'FILE_METADATA_UNSUPPORTED')
+                  throw Error('Native metadata capability warning failed.');
+                if ( actual.mtimeNs !== expected.mtimeNs || actual.atimeNs !== expected.atimeNs ||
+                    fs.readFileSync(path.join(temporary, 'source'), 'utf8') !== 'source' ||
+                    fs.readFileSync(path.join(temporary, 'target'), 'utf8') !== 'target')
+                  throw Error('Native metadata preservation failed.');
+                const parent = await native.run('openRoot', { path: temporary });
+                const stream = await native.run('openDirectory', { directory: parent.handle, path: '' });
+                const found = [];
+                for (let count = 0; count < 3; count++) {
+                  const entry = await native.run('readDirectory', { handle: stream.handle });
+                  if (!entry) break;
+                  found.push(entry.name);
+                }
+                if (found.sort().join(',') !== 'source,target') throw Error('Native directory enumeration failed.');
+                const rename = { oldParent: parent.handle, oldName: 'source', newParent: parent.handle, newName: 'moved' };
+                await native.run('renameNoReplace', rename);
+                await native.run('exchange', { ...rename, oldName: 'moved', newName: 'target' });
+                if (fs.readFileSync(path.join(temporary, 'target'), 'utf8') !== 'source') throw Error('Native exchange failed.');
+                await native.run('closeHandle', { handle: stream.handle });
+                await native.run('closeHandle', { handle: parent.handle });
+              } finally {
+                await source?.close(); await target?.close();
+                fs.rmSync(temporary, { recursive: true, force: true });
+              }
             } finally { await native.close(); }
           }
         `,

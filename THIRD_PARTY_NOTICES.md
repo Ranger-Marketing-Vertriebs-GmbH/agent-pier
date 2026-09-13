@@ -35,7 +35,13 @@ Koffi 3.2.1 and its `@koromix/koffi-*` platform packages are licensed under MIT.
 Copyright (C) 2026 Niels Martignène. Their complete licenses and bundled component
 notices are preserved in `node_modules/koffi/` and `node_modules/@koromix/`.
 Versioned installation and update archives include the platform's optional native
-package; release smoke checks load and exercise it before activation.
+package; release smoke checks load it and exercise descriptor reads, directory
+enumeration, metadata preservation and atomic rename before activation.
+Koffi uses these shipped prebuilts; its exact-version npm install script is disabled
+in the project allowScripts policy. The reviewed node-pty 1.1.0 scripts remain
+allowed for native compilation on platforms without a shipped prebuild. Older npm
+versions may not enforce allowScripts; release validation always requires the
+platform binary inside the staged archive.
 
 ## Provider marks
 

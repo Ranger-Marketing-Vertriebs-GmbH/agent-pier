@@ -20,6 +20,15 @@ export const filesCopy = {
     FILE_NOT_DIRECTORY: "Dieser Pfad ist kein Ordner.",
     FILE_LINK_LOOP: "Diese Verknüpfung kann wegen einer Schleife nicht aufgelöst werden.",
     FILE_ACCESS_DENIED: "Du hast keine Zugriffsrechte für diesen Eintrag.",
+    FILE_EXISTS: "Ein Eintrag mit diesem Namen ist bereits vorhanden.",
+    FILE_CROSS_DEVICE:
+      "Für diesen Vorgang müssen die Einträge im selben Dateisystem liegen.",
+    FILE_NATIVE_UNSUPPORTED:
+      "Dieser native Dateivorgang ist in diesem Dateisystem nicht verfügbar.",
+    FILE_METADATA_LIMIT: "Die Dateimetadaten überschreiten die unterstützte Grenze.",
+    FILE_METADATA_UNSUPPORTED:
+      "Einige Dateimetadaten können in diesem Dateisystem nicht erhalten werden.",
+    FILE_METADATA_MISMATCH: "Die Dateimetadaten konnten nicht exakt erhalten werden.",
     FILE_IO_ERROR: "Die Dateioperation konnte nicht abgeschlossen werden.",
     FILE_INVALID_SCOPE: "Der Dateizugriffskontext ist ungültig.",
     FILE_READ_ONLY: "Dateien in diesem Kontext können nur gelesen werden.",

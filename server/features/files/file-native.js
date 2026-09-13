@@ -4,10 +4,25 @@ import { fileProblem } from "./file-errors.js";
 const operations = {
   openRoot: ["path"],
   openFile: ["directory", "path"],
+  openLink: ["directory", "path"],
   openDirectory: ["directory", "path"],
   readDirectory: ["handle"],
   read: ["handle", "length", "position"],
   closeHandle: ["handle"],
+  readMetadata: ["handle"],
+  readBorrowedMetadata: ["handle"],
+  copyMetadata: [
+    "source",
+    "target",
+    "sourceBorrowed",
+    "targetBorrowed",
+    "strictOwnership",
+    "preserveTimes",
+  ],
+  renameNoReplace: ["oldParent", "oldName", "newParent", "newName"],
+  exchange: ["oldParent", "oldName", "newParent", "newName"],
+  borrowedRenameNoReplace: ["oldParent", "oldName", "newParent", "newName"],
+  borrowedExchange: ["oldParent", "oldName", "newParent", "newName"],
 };
 export const nativeReadBytes = 64 * 1024;
 
@@ -21,7 +36,23 @@ export function validateNativeRequest(operation, args) {
   if (Object.keys(args).length !== keys.length) invalid();
   for (const key of keys) {
     const value = args[key];
-    if (key === "path") {
+    if (
+      ["sourceBorrowed", "targetBorrowed", "strictOwnership", "preserveTimes"].includes(
+        key,
+      )
+    ) {
+      if (typeof value !== "boolean") invalid();
+    } else if (["oldName", "newName"].includes(key)) {
+      if (
+        typeof value !== "string" ||
+        !value ||
+        [".", ".."].includes(value) ||
+        value.includes("/") ||
+        value.includes("\0") ||
+        Buffer.byteLength(value) > 255
+      )
+        invalid();
+    } else if (key === "path") {
       // Empty relative path enumerates the already-owned directory itself.
       if (operation === "openDirectory" && value === "") continue;
       if (
@@ -42,9 +73,20 @@ export function validateNativeRequest(operation, args) {
         )
       )
         invalid();
-    } else if (!Number.isSafeInteger(value) || value < (key === "position" ? 0 : 1))
+    } else if (
+      !Number.isSafeInteger(value) ||
+      value <
+        (key === "position" ||
+        operation.startsWith("borrowed") ||
+        operation === "readBorrowedMetadata" ||
+        (operation === "copyMetadata" && args[`${key}Borrowed`])
+          ? 0
+          : 1)
+    )
       invalid();
   }
+  for (const key of ["handle", "source", "target", "oldParent", "newParent"])
+    if (args[key] > 0x7fffffff) invalid();
   if (
     operation === "read" &&
     (args.length > nativeReadBytes ||
@@ -53,8 +95,9 @@ export function validateNativeRequest(operation, args) {
     invalid();
 }
 
-/** A read-only POSIX worker. Handles are opaque, local to this instance, and must
- * be closed via closeHandle or close(). No raw fd crosses the worker boundary.
+/** A fixed-operation POSIX worker. Handles are opaque, local to this instance, and must
+ * be closed via closeHandle or close(). Owned operations never export OS fds.
+ * Explicit borrowed operations carry caller fds and never take their ownership.
  */
 export class FileNative {
   #worker;
@@ -106,6 +149,44 @@ export class FileNative {
     validateNativeRequest(operation, args);
     if (this.#pending.size >= 64) throw fileProblem("FILE_IO_ERROR", 503);
     return this.#send(operation, args);
+  }
+
+  // These methods borrow caller FileHandles. run() rename operations instead
+  // consume this owner's opaque lookup-directory IDs. Never pass an OS fd as an ID.
+  async renameNoReplace(oldParent, oldName, newParent, newName) {
+    return this.#renameBorrowed(
+      "borrowedRenameNoReplace",
+      oldParent,
+      oldName,
+      newParent,
+      newName,
+    );
+  }
+  async exchange(oldParent, oldName, newParent, newName) {
+    return this.#renameBorrowed(
+      "borrowedExchange",
+      oldParent,
+      oldName,
+      newParent,
+      newName,
+    );
+  }
+  #renameBorrowed(operation, oldParent, oldName, newParent, newName) {
+    for (const parent of [oldParent, newParent])
+      if (
+        !parent ||
+        typeof parent.stat !== "function" ||
+        typeof parent.close !== "function" ||
+        !Number.isInteger(parent.fd) ||
+        parent.fd < 0
+      )
+        throw fileProblem("FILE_INVALID_PATH", 400);
+    return this.run(operation, {
+      oldParent: oldParent.fd,
+      oldName,
+      newParent: newParent.fd,
+      newName,
+    });
   }
 
   #send(operation, args) {

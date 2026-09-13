@@ -6,6 +6,11 @@ export function fileProblem(code, status, args = {}) {
 export function fileSystemProblem(error) {
   if (error.code?.startsWith("FILE_")) return error;
   const mapped = {
+    EEXIST: ["FILE_EXISTS", 409],
+    EXDEV: ["FILE_CROSS_DEVICE", 409],
+    ENOTSUP: ["FILE_METADATA_UNSUPPORTED", 409],
+    EOPNOTSUPP: ["FILE_METADATA_UNSUPPORTED", 409],
+    ENOSYS: ["FILE_METADATA_UNSUPPORTED", 409],
     ENOENT: ["FILE_NOT_FOUND", 404],
     ENOTDIR: ["FILE_NOT_DIRECTORY", 400],
     ELOOP: ["FILE_LINK_LOOP", 409],

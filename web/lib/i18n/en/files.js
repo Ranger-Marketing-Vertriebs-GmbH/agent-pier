@@ -18,6 +18,14 @@ export const filesCopy = {
     FILE_NOT_DIRECTORY: "This path is not a directory.",
     FILE_LINK_LOOP: "This symbolic link cannot be resolved because it forms a loop.",
     FILE_ACCESS_DENIED: "You do not have permission to access this entry.",
+    FILE_EXISTS: "An entry with this name already exists.",
+    FILE_CROSS_DEVICE: "This operation requires entries on the same filesystem.",
+    FILE_NATIVE_UNSUPPORTED:
+      "This native file operation is unavailable on this filesystem.",
+    FILE_METADATA_LIMIT: "The file metadata exceeds the supported limit.",
+    FILE_METADATA_UNSUPPORTED:
+      "Some file metadata cannot be preserved on this filesystem.",
+    FILE_METADATA_MISMATCH: "The file metadata could not be preserved exactly.",
     FILE_IO_ERROR: "The file operation could not be completed.",
     FILE_INVALID_SCOPE: "The file access context is invalid.",
     FILE_READ_ONLY: "Files in this context can only be read.",

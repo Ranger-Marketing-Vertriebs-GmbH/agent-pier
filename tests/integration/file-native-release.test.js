@@ -41,6 +41,9 @@ async function fixture(t) {
     "file-native.js",
     "file-native-worker.js",
     "file-native-directory.js",
+    "file-native-metadata.js",
+    "file-native-attributes.js",
+    "file-metadata.js",
     "file-native-linux.js",
     "file-native-darwin.js",
     "file-errors.js",
@@ -137,6 +140,26 @@ test("packaged native support survives relocation, initial installation and upda
   await fs.writeFile(update, revisedArchive(bytes, "1.1.0"));
   assert.equal((await releases.stage({ archive: update })).version, "1.1.0");
   await smokeRelease(path.join(installRoot, "releases/1.1.0"));
+  const faulty = JSON.parse(gunzipSync(revisedArchive(bytes, "1.1.1")));
+  const metadataModule = faulty.files.find(
+    (file) => file.path === "server/features/files/file-metadata.js",
+  );
+  const faultySource =
+    Buffer.from(metadataModule.content, "base64")
+      .toString()
+      .replace(
+        "export async function copyMetadata(",
+        "async function discardedCopyMetadata(",
+      ) + "\nexport async function copyMetadata() { return { warnings: [] }; }\n";
+  metadataModule.content = Buffer.from(faultySource).toString("base64");
+  metadataModule.sha256 = digest(Buffer.from(faultySource));
+  const faultyArchive = path.join(f.root, "faulty-metadata.aprelease");
+  await fs.writeFile(faultyArchive, gzipSync(JSON.stringify(faulty)));
+  await assert.rejects(
+    releases.stage({ archive: faultyArchive }),
+    /native dependency smoke/,
+  );
+  assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
   const broken = path.join(f.root, "broken.aprelease");
   await fs.writeFile(
     broken,

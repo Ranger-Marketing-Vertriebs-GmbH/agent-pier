@@ -74,5 +74,9 @@
   "homepage": "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier#readme",
   "bugs": {
     "url": "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/issues"
+  },
+  "allowScripts": {
+    "koffi@3.2.1": false,
+    "node-pty@1.1.0": true
   }
 }

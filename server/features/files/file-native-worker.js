@@ -3,6 +3,7 @@ import { closeSync, fstatSync, readSync } from "node:fs";
 import { getSystemErrorName } from "node:util";
 import koffi from "koffi";
 import { linuxAbi } from "./file-native-linux.js";
+import { metadataFunctions } from "./file-native-metadata.js";
 import { directoryFunctions } from "./file-native-directory.js";
 import { darwinAbi } from "./file-native-darwin.js";
 import { validateNativeRequest } from "./file-native.js";
@@ -12,6 +13,7 @@ const abi = workerData.platform === "darwin" ? darwinAbi : linuxAbi;
 const library = koffi.load(abi.library);
 const openat = library.func(abi.openat);
 const directories = directoryFunctions(library, abi);
+const metadata = metadataFunctions(library, workerData.platform);
 const handles = new Map();
 let sequence = 0;
 
@@ -33,10 +35,10 @@ process.on("exit", closeAll);
 process.on("uncaughtExceptionMonitor", closeAll);
 parentPort.on("close", closeAll);
 
-function openComponent(parent, component, directory, enumerate = false) {
+function openComponent(parent, component, directory, enumerate = false, link = false) {
   const flags =
     abi.read |
-    abi.nofollow |
+    (link ? abi.link : abi.nofollow) |
     abi.cloexec |
     abi.nonblock |
     (directory ? abi.directory | (enumerate ? 0 : abi.search) : 0);
@@ -48,9 +50,9 @@ function openComponent(parent, component, directory, enumerate = false) {
   }
   try {
     const stat = fstatSync(fd, { bigint: true });
-    if (directory ? !stat.isDirectory() : !stat.isFile())
+    if (link ? !stat.isSymbolicLink() : directory ? !stat.isDirectory() : !stat.isFile())
       throw fileProblem("FILE_UNSUPPORTED_TYPE", 415);
-    return { fd, directory, dev: stat.dev, ino: stat.ino };
+    return { fd, directory, link, dev: stat.dev, ino: stat.ino };
   } catch (error) {
     closeSync(fd);
     throw error;
@@ -70,7 +72,7 @@ function lookup(handle, directory) {
   return opened;
 }
 
-function walk(parent, components, leafDirectory, enumerate = false) {
+function walk(parent, components, leafDirectory, enumerate = false, link = false) {
   let owned;
   try {
     for (let index = 0; index < components.length; index++) {
@@ -79,6 +81,7 @@ function walk(parent, components, leafDirectory, enumerate = false) {
         components[index],
         index < components.length - 1 || leafDirectory,
         enumerate && index === components.length - 1,
+        link && index === components.length - 1,
       );
       const previous = owned;
       owned = opened;
@@ -93,9 +96,22 @@ function walk(parent, components, leafDirectory, enumerate = false) {
   }
 }
 
+function rename(...args) {
+  try {
+    return metadata.rename(...args);
+  } catch (error) {
+    if (["ENOTSUP", "EOPNOTSUPP", "ENOSYS", "EINVAL"].includes(error.code))
+      throw fileProblem("FILE_NATIVE_UNSUPPORTED", 409);
+    throw error;
+  }
+}
+
 function run(operation, args) {
   validateNativeRequest(operation, args);
-  if (["openRoot", "openFile", "openDirectory"].includes(operation) && handles.size >= 64)
+  if (
+    ["openRoot", "openFile", "openLink", "openDirectory"].includes(operation) &&
+    handles.size >= 64
+  )
     throw fileProblem("FILE_IO_ERROR", 503);
   switch (operation) {
     case "openRoot": {
@@ -105,6 +121,11 @@ function run(operation, args) {
     }
     case "openFile":
       return walk(lookup(args.directory, true).fd, args.path.split("/"), false);
+    case "openLink": {
+      const parent = lookup(args.directory, true);
+      if (parent.stream) throw fileProblem("FILE_INVALID_PATH", 400);
+      return walk(parent.fd, args.path.split("/"), false, false, true);
+    }
     case "openDirectory": {
       const root = lookup(args.directory, true);
       if (root.stream) throw fileProblem("FILE_INVALID_PATH", 400);
@@ -116,10 +137,53 @@ function run(operation, args) {
       return directories.read(opened.stream);
     }
     case "read": {
-      const { fd } = lookup(args.handle, false);
+      const opened = lookup(args.handle, false);
+      if (opened.link) throw fileProblem("FILE_INVALID_PATH", 400);
+      const { fd } = opened;
       const buffer = Buffer.alloc(args.length);
       const bytesRead = readSync(fd, buffer, 0, buffer.length, args.position);
       return buffer.subarray(0, bytesRead);
+    }
+    case "readMetadata":
+      return metadata.read(lookup(args.handle).fd);
+    case "readBorrowedMetadata":
+      return metadata.read(args.handle);
+    case "copyMetadata":
+      return metadata.copy(
+        args.sourceBorrowed ? args.source : lookup(args.source).fd,
+        args.targetBorrowed ? args.target : lookup(args.target).fd,
+        args,
+      );
+    case "renameNoReplace":
+    case "exchange": {
+      const oldParent = lookup(args.oldParent, true),
+        newParent = lookup(args.newParent, true);
+      if (oldParent.stream || newParent.stream)
+        throw fileProblem("FILE_INVALID_PATH", 400);
+      rename(
+        oldParent.fd,
+        args.oldName,
+        newParent.fd,
+        args.newName,
+        operation === "exchange",
+      );
+      return null;
+    }
+    case "borrowedRenameNoReplace":
+    case "borrowedExchange": {
+      if (
+        !fstatSync(args.oldParent).isDirectory() ||
+        !fstatSync(args.newParent).isDirectory()
+      )
+        throw fileProblem("FILE_INVALID_PATH", 400);
+      rename(
+        args.oldParent,
+        args.oldName,
+        args.newParent,
+        args.newName,
+        operation === "borrowedExchange",
+      );
+      return null;
     }
     case "closeHandle": {
       const opened = lookup(args.handle);
