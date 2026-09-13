@@ -5,6 +5,7 @@ import {
   openParent,
   inspect,
   inodeIdentity,
+  contentIdentity,
   parentMatches,
   closeHandles,
 } from "./file-stage.js";
@@ -114,6 +115,7 @@ export async function removeMergedSource(owner, context, item, source, target) {
           sourceLinkIdentity: source.linkIdentity,
           sourceRevision: revisionOf(source),
           targetRevision: revisionOf(target),
+          targetContent: contentIdentity(target.stat),
           disposition: "pending",
         },
       },
@@ -206,9 +208,13 @@ export async function recoverMergedSource({ store, native, record, write }) {
     targetParent = await openParent(native, doc.target);
     await write(async () => {
       const observed = await inspectRemoval(native, doc, sourceParent, targetParent);
+      // Existing targets may be renamed away and back: retain stable stat proof
+      // while excluding that rename's ctime. Missing historical proof stays pinned.
       if (
-        observed.actualSource &&
-        inodeIdentity(observed.actualSource) !== proof.identity
+        contentIdentity(observed.target.stat) !== proof.targetContent ||
+        (observed.actualSource &&
+          (inodeIdentity(observed.actualSource) !== proof.identity ||
+            revisionOf(observed.source) !== proof.sourceRevision))
       )
         throw changed();
       const removed = !observed.actualSource;

@@ -6,6 +6,8 @@ import { copyFixture, submitCopy } from "../helpers/file-copy.js";
 import { applicationFixture } from "../helpers/application.js";
 import { waitForFileJob } from "../helpers/file-explorer.js";
 import { recoverPublications } from "../../server/features/files/file-recovery.js";
+import { entryRevision, resolveFile } from "../../server/features/files/file-paths.js";
+import { inodeIdentity } from "../../server/features/files/file-stage.js";
 
 test("cross-folder same-filesystem moves retain inode and durably deduplicate request IDs", async (t) => {
   const f = await copyFixture(t);
@@ -487,3 +489,73 @@ test("merge removal intent with retained source reconciles without repeating the
     "retained",
   );
 });
+
+for (const edited of ["source", "target"]) {
+  test(`merge removal recovery rejects a retained ${edited} with the same inode and changed recorded revision`, async (t) => {
+    const f = await copyFixture(t, (op, args, run) => {
+      if (edited === "source" && op === "removeEntry" && args.name === "source")
+        throw Error("injected pre-syscall interruption");
+      return run(op, args);
+    });
+    const source = path.join(f.home, "source"),
+      target = path.join(f.project, "source");
+    await fs.mkdir(source);
+    await fs.mkdir(target);
+    if (edited === "target") {
+      const checkpoint = f.store.checkpointTransferEntry.bind(f.store);
+      let interrupted = false;
+      f.store.checkpointTransferEntry = (jobId, row, ...args) => {
+        if (row.sourceRemoved && !interrupted) {
+          interrupted = true;
+          throw Error("injected post-syscall checkpoint failure");
+        }
+        return checkpoint(jobId, row, ...args);
+      };
+    }
+    const job = await f.start(f.operation([source], f.project, "move"));
+    await f.resolve(await f.wait(job.id, ["waiting_for_conflict"]), "merge");
+    assert.equal((await f.wait(job.id)).status, "partially_completed");
+    if (edited === "target") await assert.rejects(fs.lstat(source), { code: "ENOENT" });
+    const publication = () =>
+        f.store.listPublications().find((row) => row.jobId === job.id),
+      proof = publication().document.mergeRemoval,
+      editedPath = edited === "source" ? source : target,
+      identity =
+        edited === "source" ? proof.identity : publication().document.targetIdentity,
+      revision = edited === "source" ? proof.sourceRevision : proof.targetRevision;
+    const before = await resolveFile(f.globalScope, editedPath, { followLeaf: false });
+    assert.equal(inodeIdentity(before.stat), identity);
+    assert.equal(entryRevision(before.stat, before.linkIdentity), revision);
+    await fs.writeFile(path.join(editedPath, "external"), "must retain");
+    await fs.utimes(editedPath, new Date("2030-01-01Z"), new Date("2030-01-01Z"));
+    const changed = await resolveFile(f.globalScope, editedPath, { followLeaf: false });
+    assert.equal(inodeIdentity(changed.stat), identity);
+    assert.notEqual(entryRevision(changed.stat, changed.linkIdentity), revision);
+    const nativeRun = f.native.run.bind(f.native);
+    f.native.run = (op, args) => {
+      assert.notEqual(op, "removeEntry", "recovery cannot retry source removal");
+      return nativeRun(op, args);
+    };
+    for (let attempt = 0; attempt < 2; attempt++) {
+      assert.equal((await recoverPublications(f))[0].phase, "interrupted");
+      const row = f.jobs.entries(f.globalScope, job.id).entries[0];
+      assert.equal(row.sourceRemovalPending, true);
+      assert.equal(row.sourceRemoved, false);
+      assert.equal(row.outputPublished, true);
+      assert.equal((await f.wait(job.id)).completedEntries, 0);
+      assert.equal(publication().document.mergeRemoval.disposition, "pending");
+      assert.equal(
+        publication().document.mergeRemoval.sourceRevision,
+        proof.sourceRevision,
+      );
+      assert.equal(
+        await fs.readFile(path.join(editedPath, "external"), "utf8"),
+        "must retain",
+      );
+      assert.equal(
+        inodeIdentity((await resolveFile(f.globalScope, target)).stat),
+        publication().document.targetIdentity,
+      );
+    }
+  });
+}

@@ -1,8 +1,49 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import path from "node:path";
 import { recoverPublications } from "../../server/features/files/file-recovery.js";
 import { fixture } from "../helpers/file-publisher.js";
+import { copyFixture } from "../helpers/file-copy.js";
+
+test("merge removal recovery retains an intent without historical target content proof", async (t) => {
+  const f = await copyFixture(t),
+    source = path.join(f.home, "source"),
+    target = path.join(f.project, "source");
+  await fs.mkdir(source);
+  await fs.mkdir(target);
+  const checkpoint = f.store.checkpointTransferEntry.bind(f.store);
+  let interrupted = false;
+  f.store.checkpointTransferEntry = (jobId, row, ...args) => {
+    if (row.sourceRemoved && !interrupted) {
+      interrupted = true;
+      throw Error("injected post-syscall checkpoint failure");
+    }
+    return checkpoint(jobId, row, ...args);
+  };
+  const job = await f.start(f.operation([source], f.project, "move"));
+  await f.resolve(await f.wait(job.id, ["waiting_for_conflict"]), "merge");
+  assert.equal((await f.wait(job.id)).status, "partially_completed");
+  await assert.rejects(fs.lstat(source), { code: "ENOENT" });
+  const record = f.store.listPublications().find((row) => row.jobId === job.id);
+  delete record.document.mergeRemoval.targetContent;
+  f.store.putPublication(record);
+  const targetInode = (await fs.stat(target)).ino,
+    nativeRun = f.native.run.bind(f.native);
+  f.native.run = (op, args) => {
+    assert.notEqual(op, "removeEntry", "missing proof never permits a removal retry");
+    return nativeRun(op, args);
+  };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    assert.equal((await recoverPublications(f))[0].phase, "interrupted");
+    const row = f.jobs.entries(f.globalScope, job.id).entries[0];
+    assert.equal(row.sourceRemovalPending, true);
+    assert.equal(row.sourceRemoved, false);
+    assert.equal(row.outputPublished, true);
+    assert.equal((await f.wait(job.id)).completedEntries, 0);
+    assert.equal((await fs.stat(target)).ino, targetInode);
+  }
+});
 
 for (const unrelated of [false, true])
   test(`recovery replays twice without changing bytes (unrelated ${unrelated})`, async (t) => {
