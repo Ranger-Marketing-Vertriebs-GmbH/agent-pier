@@ -110,7 +110,7 @@ export async function recoverPublications({ store, native, barrier }) {
         stageParent = await openParent(owner, doc.staged).catch((error) => {
           if (
             error.code === "FILE_NOT_FOUND" &&
-            doc.transferCompleted &&
+            (doc.transferCompleted || doc.uploadCompleted) &&
             doc.expectedIdentity === null
           )
             return null;

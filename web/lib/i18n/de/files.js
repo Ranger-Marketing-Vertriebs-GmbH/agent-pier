@@ -2,6 +2,18 @@ import { fileActionsCopy } from "./files-actions.js";
 export const filesCopy = {
   actions: fileActionsCopy,
   errors: {
+    FILE_UPLOAD_ALIAS:
+      "Die Upload-Pfade enthalten widersprüchliche Namen. Benenne die betroffenen Einträge um und wähle sie erneut aus.",
+    FILE_UPLOAD_PENDING:
+      "Dieser Upload läuft, wurde unterbrochen oder wartet auf Wiederherstellung. Aktualisiere vor einem erneuten Versuch seinen Auftrag.",
+    FILE_UPLOAD_PARENT:
+      "Der Upload-Ordner ist noch nicht bereit. Prüfe vor einem erneuten Versuch seinen Ordnerauftrag.",
+    FILE_UPLOAD_LENGTH:
+      "Die empfangene Upload-Länge stimmt nicht mit der ausgewählten Datei überein.",
+    FILE_UPLOAD_CHANGED:
+      "Der zwischengespeicherte Upload-Inhalt wurde verändert. Prüfe vor einem erneuten Versuch die erhaltenen Daten.",
+    FILE_UPLOAD_MEDIA:
+      "Upload-Inhalte müssen als unkomprimierter Binärdatenstrom übertragen werden.",
     FILE_TRASH_CONFIRMATION:
       "Die Papierkorbauswahl oder ihre Revision hat sich geändert. Bitte aktualisieren und erneut bestätigen.",
     FILE_CANCELLED: "Der Dateivorgang wurde abgebrochen.",
@@ -77,6 +89,8 @@ export const filesCopy = {
   noResults: "Keine passenden Dateinamen gefunden.",
   operation: "Dateioperation",
   jobKinds: {
+    upload: "Datei hochladen",
+    upload_group: "Auswahl hochladen",
     search: "Dateinamensuche",
     size: "Ordnergröße",
     create_file: "Datei erstellen",

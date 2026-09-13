@@ -45,7 +45,7 @@ function checkScope(scope, absolute) {
     throw fileProblem("FILE_OUTSIDE_SCOPE", 403);
 }
 
-function inputPath(scope, input) {
+export function fileInputPath(scope, input) {
   if (typeof input !== "string" || input.includes("\0"))
     throw fileProblem("FILE_INVALID_PATH", 400);
   if (scope.kind === "project") {
@@ -87,7 +87,7 @@ export async function resolveFile(
     const trailingDirectory =
       typeof input === "string" &&
       (input === "." || input.endsWith("/") || input.endsWith("/."));
-    const selectedPath = inputPath(scope, input);
+    const selectedPath = fileInputPath(scope, input);
     const parts = selectedPath.split("/").filter(Boolean);
     let absolute = scope.kind === "project" ? scope.root : "/";
     if (scope.kind === "project" && (await canonicalPath(absolute)) !== scope.root)

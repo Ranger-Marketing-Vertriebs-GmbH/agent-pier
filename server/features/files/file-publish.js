@@ -1,6 +1,12 @@
 import { prepareRename, restoreRenameSource } from "./file-rename.js";
 import { transferRevisions } from "./file-transfer-completion.js";
 import { discardCopyStage } from "./file-copy-cleanup.js";
+import {
+  checkpointUpload,
+  discardUploadPayload,
+  uploadSnapshot,
+} from "./file-upload-publication.js";
+import { assertPublicationExpected } from "./file-publish-validation.js";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { FileNative } from "./file-native.js";
@@ -60,14 +66,20 @@ export class FilePublisher {
   }
   #record(state, phase, patch = {}) {
     Object.assign(state.document, patch);
-    return this.barrier.run(() =>
-      this.store.putPublication({
-        id: state.id,
-        jobId: state.jobId,
-        phase,
-        document: state.document,
-      }),
-    );
+    return this.barrier.run(() => {
+      const write = () =>
+        this.store.putPublication({
+          id: state.id,
+          jobId: state.jobId,
+          phase,
+          document: state.document,
+        });
+      if (!state.document.upload) return write();
+      return this.store.uploads.transaction(() => {
+        this.store.uploads.publication(state.jobId, state.id);
+        return write();
+      });
+    });
   }
   stage(scope, target, options) {
     return this.#track(() => this.#stage(scope, target, options));
@@ -75,7 +87,7 @@ export class FilePublisher {
   async #stage(
     scope,
     target,
-    { jobId, type = "file", followLeaf = false, transferId } = {},
+    { jobId, type = "file", followLeaf = false, transferId, upload = false } = {},
   ) {
     if (
       !["file", "directory", "symlink"].includes(type) ||
@@ -115,6 +127,7 @@ export class FilePublisher {
       scope: { ...scope },
       linkIdentity: selected.linkIdentity,
       transferId,
+      ...(upload ? { upload: this.store.uploads.bind(scope, jobId, selected.path) } : {}),
     };
     try {
       state.targetParentHandle = await openParent(this.native, state.target);
@@ -146,6 +159,7 @@ export class FilePublisher {
       });
       await state.parentHandle.sync();
       await state.targetParentHandle.sync();
+      if (upload) await checkpointUpload(this, state);
       const stage = Object.freeze({
         ...Object.fromEntries(
           [
@@ -207,55 +221,8 @@ export class FilePublisher {
       }),
     );
   }
-  async assertExpected(
-    scope,
-    selectedPath,
-    revision,
-    { followLeaf = false, expectedTarget } = {},
-  ) {
-    if (this.barrier.hasLease() || this.locks.hasLease())
-      throw fileProblem("FILE_INVALID_OPERATION", 400);
-    const fresh = await resolveFile(scope, selectedPath, {
-      followLeaf,
-      allowMissingLeaf: true,
-    });
-    assertFileMutationTarget(scope, fresh);
-    if (expectedTarget && expectedTarget !== fresh.absolute) throw conflict();
-    if (revision === null) {
-      if (fresh.stat) throw conflict();
-      return fresh;
-    }
-    if (
-      typeof revision !== "string" ||
-      !/^(e1|d1):[a-f0-9]{64}$/.test(revision) ||
-      !fresh.stat
-    )
-      throw conflict();
-    let actual;
-    if (revision.startsWith("e1:"))
-      actual = entryRevision(fresh.stat, fresh.linkIdentity);
-    else {
-      const parent = await openParent(this.native, fresh.absolute);
-      let handle;
-      try {
-        handle = ownedHandle(
-          this.native,
-          await this.native.run("openFile", {
-            directory: parent.handle,
-            path: path.basename(fresh.absolute),
-          }),
-        );
-        if (!sameInode(await handle.stat(), inodeIdentity(fresh.stat))) throw conflict();
-        const snapshot = await publicationSnapshot(handle, fresh.linkIdentity);
-        actual = snapshot.revision;
-        fresh.publicationContentRevision = snapshot.publicationContentRevision;
-      } finally {
-        await handle?.close();
-        await parent.close();
-      }
-    }
-    if (actual !== revision) throw conflict();
-    return fresh;
+  assertExpected(scope, selectedPath, revision, options) {
+    return assertPublicationExpected(this, scope, selectedPath, revision, options);
   }
   publish(scope, stage, options) {
     return this.#track(() => this.#publish(scope, stage, options));
@@ -306,7 +273,7 @@ export class FilePublisher {
       if (!sameInode(staged, state.document.stagedIdentity) || !staged) throw conflict();
       const stagedContentRevision =
         state.type === "file"
-          ? (await publicationSnapshot(state.handle)).publicationContentRevision
+          ? (await uploadSnapshot(this, state)).publicationContentRevision
           : null;
       await this.#record(state, "prepared", {
         stagedContentRevision,
@@ -539,6 +506,16 @@ export class FilePublisher {
   discard(stage) {
     return this.#track(async () => {
       const state = this.#stages.get(stage);
+      if (state?.document.upload) {
+        if (state.busy && !state.finished) throw conflict();
+        try {
+          return await discardUploadPayload(this, this.store.getPublication(state.id));
+        } finally {
+          state.finished = true;
+          this.#active.delete(state);
+          await closeStage(state);
+        }
+      }
       if (state?.finished && state.document.transferId)
         return discardCopyStage(this, state, (...args) => this.#record(...args));
       if (!state || state.busy || state.finished)
@@ -580,6 +557,9 @@ export class FilePublisher {
       this.#active.delete(state);
       await closeStage(state);
     });
+  }
+  checkpointUpload(stage, hash) {
+    return this.#track(() => checkpointUpload(this, this.#stages.get(stage), hash));
   }
   close() {
     this.#closed = true;

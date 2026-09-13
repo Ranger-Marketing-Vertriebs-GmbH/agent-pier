@@ -107,6 +107,7 @@ export async function publicationSnapshot(handle, linkIdentity = null) {
       .update(JSON.stringify([observation, bytes]))
       .digest("hex");
   return {
+    hash: bytes,
     revision: `d1:${fingerprint(entryRevision(before, linkIdentity))}`,
     publicationContentRevision: `p1:${fingerprint(contentIdentity(before))}`,
   };

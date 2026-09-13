@@ -7,6 +7,10 @@ import { agencyRoutes } from "./http/routes/agency.js";
 import { filesRoutes } from "./http/routes/files.js";
 import { fileOperationsRoutes } from "./http/routes/file-operations.js";
 import { fileExplorerRoutes } from "./http/routes/file-explorer.js";
+import {
+  fileTransferStreams,
+  fileTransfersRoutes,
+} from "./http/routes/file-transfers.js";
 import { AccountAuthStatus } from "./features/accounts/auth-status.js";
 import { createMcpServices } from "./application/mcp.js";
 import {
@@ -107,6 +111,7 @@ export async function createApplication(config) {
   app.use("/auth", loginRoutes(services.login, effective));
   app.use("/api", requireLogin(services.login, effective));
   app.use(auditHttp(services.audit, { onError: services.onError }));
+  app.use("/api", fileTransferStreams(services));
   app.use(
     "/api/sessions/:id/chat/attachments",
     express.json({ limit: "15mb", strict: true }),
@@ -122,6 +127,7 @@ export async function createApplication(config) {
   mount(workspaceRoutes(services));
   mount(fileExplorerRoutes(services));
   mount(fileOperationsRoutes(services));
+  mount(fileTransfersRoutes(services));
   mount(filesRoutes(services));
   mount(accountsRoutes(services));
   mount(sessionsRoutes(services));

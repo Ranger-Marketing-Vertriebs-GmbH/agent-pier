@@ -14,6 +14,7 @@ import {
 } from "../features/files/file-search.js";
 import { FileStore } from "../features/files/file-store.js";
 import { FileJobs } from "../features/files/file-jobs.js";
+import { FileUploads } from "../features/files/file-uploads.js";
 import { PathLocks } from "../features/files/file-locks.js";
 import {
   createFileJobHandlers,
@@ -52,9 +53,12 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
   const locks = new PathLocks();
   const publisher = new FilePublisher({ store, locks, barrier: mutationBarrier });
   const trash = new FileTrash({ store, publisher, limits, context });
-  const ready = recoverPublications({ store, barrier: mutationBarrier }).then(() =>
-    trash.recover(),
-  );
+  let uploads;
+  const ready = recoverPublications({ store, barrier: mutationBarrier })
+    .then(() => trash.recover())
+    .then(() => uploads.recover())
+    .then(() => uploads.sweep())
+    .then(() => uploads.start());
   // Keep startup failure observable to callers without an unhandled rejection.
   ready.catch(() => {});
   const handlers = createFileJobHandlers();
@@ -91,13 +95,18 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
         await ready;
       } finally {
         try {
-          await trash.close();
+          try {
+            await uploads.close();
+          } finally {
+            await trash.close();
+          }
         } finally {
           await publisher.close();
         }
       }
     },
   });
+  uploads = new FileUploads({ jobs, store, publisher, trash, limits });
 
   return {
     store,
@@ -108,12 +117,14 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
     ready,
     handlers,
     jobs,
+    uploads,
     context,
     listings,
     reading,
     preferences,
     limits,
     async close() {
+      uploads.stop();
       await jobs.close();
       listings.snapshots.clear();
     },

@@ -37,6 +37,10 @@ async function fixture(t, exitCode = 0) {
 }
 test("release builder accepts a declared output parent alias without changing its permissions", async (t) => {
   const { root, source, parent, alias, node } = await fixture(t);
+  const unicode = "server/features/files/unicode-15.1";
+  await fs.cp(new URL(`../../${unicode}/`, import.meta.url), path.join(source, unicode), {
+    recursive: true,
+  });
   const output = path.join(alias, "custom-release.aprelease");
   const result = await buildRelease({ source, output, node, prepareDependencies: false });
   const bytes = await fs.readFile(output);
@@ -57,6 +61,11 @@ test("release builder accepts a declared output parent alias without changing it
   })) {
     assert.equal(await fs.readFile(path.join(unpacked, name), "utf8"), expected);
   }
+  for (const name of ["CaseFolding.txt", "UnicodeData.txt", "LICENSE.txt"])
+    assert.deepEqual(
+      await fs.readFile(path.join(unpacked, unicode, name)),
+      await fs.readFile(new URL(`../../${unicode}/${name}`, import.meta.url)),
+    );
 });
 test("release output links are rejected without replacing their external targets", async (t) => {
   const { source, parent, node, root } = await fixture(t);

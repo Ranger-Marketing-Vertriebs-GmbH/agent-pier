@@ -16,6 +16,7 @@ import {
   progressPatch,
 } from "./file-job-handlers.js";
 import { readFileLimits } from "./file-limits.js";
+import { FileUploadStore } from "./file-upload-store.js";
 
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
@@ -85,6 +86,7 @@ export class FileStore {
     this.db = privateDatabase(this.storageRoot, "files.sqlite");
     this.db.exec(fileSchema);
     this.db.exec(trashItemSchema);
+    this.uploads = new FileUploadStore(this);
     this.db
       .prepare(
         "UPDATE jobs SET status='interrupted', updated_at=? WHERE status IN ('queued','running','waiting_for_conflict','cancelling')",
@@ -92,7 +94,7 @@ export class FileStore {
       .run(now());
     this.prune(now());
   }
-  request(scope, operation) {
+  request(scope, operation, { admit } = {}) {
     validateOperation(operation);
     const match =
       /^(\d{1,16}):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.exec(
@@ -146,6 +148,7 @@ export class FileStore {
       this.db
         .prepare("INSERT INTO requests VALUES(?,?,?,?,?)")
         .run(scope.id, requestId, bodyHash, id, now);
+      admit?.(id, operation);
       const job = this.getJob(scope, id);
       this.db.exec("COMMIT");
       return { job, created: true };
@@ -274,6 +277,7 @@ export class FileStore {
     }
   }
   completeTransfer(record, revision, revisions = new Map()) {
+    if (record.document.upload) return this.uploads.complete(record, revision);
     const { transferId } = record.document;
     if (!transferId || record.document.transferCompleted) return;
     this.db.exec("BEGIN IMMEDIATE");

@@ -102,7 +102,7 @@ export class FileJobs {
       });
     return job;
   }
-  async reserve(scope, operation) {
+  async reserve(scope, operation, registration = {}) {
     this.ensureOpen();
     if (!["upload", "upload_group"].includes(operation?.kind))
       throw fileProblem("FILE_INVALID_OPERATION", 400);
@@ -111,7 +111,7 @@ export class FileJobs {
     operation = structuredClone(operation);
     const { job, created } = await this.barrier.run(() => {
       this.ensureOpen();
-      return this.store.request(scope, operation);
+      return this.store.request(scope, operation, registration);
     });
     if (created)
       this.reservations.set(job.id, {
@@ -125,7 +125,7 @@ export class FileJobs {
     const job = this.get(scope, id),
       reservation = this.reservations.get(id);
     if (this.active.has(id)) return this.active.get(id).done;
-    const queued = this.pending.find((item) => item.job.id === id);
+    const queued = this.pending.find((item) => item.id === id);
     if (queued) return queued.done;
     if (!reservation || job.status !== "queued" || typeof handler !== "function")
       throw fileProblem("FILE_INVALID_OPERATION", 400);
@@ -140,6 +140,7 @@ export class FileJobs {
   enqueue(item) {
     const completion = Promise.withResolvers();
     Object.assign(item, {
+      id: item.job?.id || `download:${randomUUID()}`,
       ...completion,
       done: completion.promise,
       controller: new AbortController(),
@@ -157,13 +158,15 @@ export class FileJobs {
           if (item.policy.transfer && this.transfers >= this.limits.transfers) continue;
           this.pending.splice(this.pending.indexOf(item), 1);
           if (item.policy.transfer) this.transfers++;
-          this.active.set(item.job.id, item);
+          this.active.set(item.id, item);
           const worker = this.execute(item)
             .then(item.resolve, item.reject)
             .finally(() => {
-              this.active.delete(item.job.id);
+              this.active.delete(item.id);
               this.workers.delete(worker);
               if (item.policy.transfer) this.transfers--;
+              item.dispose?.();
+              this.onSettled?.(item);
               this.dispatch();
             });
           this.workers.add(worker);
@@ -172,6 +175,13 @@ export class FileJobs {
     );
   }
   async execute(item) {
+    if (item.ephemeral) {
+      item.controller.signal.throwIfAborted();
+      const scope = this.context ? await this.context(item.scope.sessionId) : item.scope;
+      if (scope.id !== item.scope.id) throw fileProblem("FILE_INVALID_SCOPE", 409);
+      item.controller.signal.throwIfAborted();
+      return item.handler({ scope, signal: item.controller.signal });
+    }
     const { job, operation, handler, controller } = item;
     let scope = item.scope;
     try {
@@ -189,7 +199,7 @@ export class FileJobs {
       if (scope.readOnly && !item.policy.readOnly)
         throw fileProblem("FILE_READ_ONLY", 403);
       controller.signal.throwIfAborted();
-      await handler({
+      item.result = await handler({
         scope,
         operation,
         jobId: job.id,
@@ -198,6 +208,7 @@ export class FileJobs {
         conflict: (info) => this.conflict(item, info),
       });
       await this.barrier.run(() => {
+        if (item.policy.aggregate) return;
         const current = this.get(item.scope, job.id);
         if (!terminalStates.includes(current.status))
           this.store.transition(
@@ -319,6 +330,7 @@ export class FileJobs {
   }
   async cancel(scope, id) {
     this.ensureOpen();
+    if (this.get(scope, id).kind === "upload_group") return this.cancelGroup(scope, id);
     const job = await this.barrier.run(() => {
       const current = this.get(scope, id);
       if (terminalStates.includes(current.status)) return current;
@@ -330,12 +342,58 @@ export class FileJobs {
       );
     });
     this.reservations.delete(id);
-    for (const item of this.pending.filter((item) => item.job.id === id)) {
+    for (const item of this.pending.filter((item) => item.id === id)) {
       this.pending.splice(this.pending.indexOf(item), 1);
       item.resolve(job);
     }
     this.active.get(id)?.controller.abort();
+    this.onCancelled?.(scope, id);
     return job;
+  }
+  runDirectTransfer(scope, handler, { signal } = {}) {
+    this.ensureOpen();
+    signal?.throwIfAborted();
+    const item = {
+      scope,
+      handler,
+      ephemeral: true,
+      policy: { transfer: true, readOnly: true },
+    };
+    const done = this.enqueue(item);
+    const abort = () => {
+      item.controller.abort(signal.reason);
+      const index = this.pending.indexOf(item);
+      if (index !== -1) {
+        this.pending.splice(index, 1);
+        item.reject(signal.reason);
+        item.dispose?.();
+      }
+    };
+    item.dispose = () => signal?.removeEventListener("abort", abort);
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
+    return done;
+  }
+  join(scope, id) {
+    const job = this.get(scope, id);
+    return (
+      this.active.get(id)?.done ||
+      this.pending.find((item) => item.id === id)?.done ||
+      Promise.resolve(job)
+    );
+  }
+  owns(id) {
+    return this.active.has(id) || this.pending.some((item) => item.id === id);
+  }
+  async interruptReservation(scope, id) {
+    if (this.owns(id)) return false;
+    this.reservations.delete(id);
+    return this.barrier.run(() => {
+      const job = this.get(scope, id);
+      if (!terminalStates.includes(job.status))
+        this.store.transition(id, job.status, "interrupted");
+      return true;
+    });
   }
   close() {
     if (this.closing) return this.closing;
@@ -344,6 +402,7 @@ export class FileJobs {
     this.closing = (async () => {
       await this.barrier.run(() => {
         for (const item of [...this.pending, ...this.active.values()]) {
+          if (item.ephemeral) continue;
           const current = this.get(item.scope, item.job.id);
           if (!terminalStates.includes(current.status))
             this.store.transition(
@@ -356,8 +415,11 @@ export class FileJobs {
         for (const id of this.reservations.keys())
           this.store.transition(id, "queued", "interrupted", {});
       });
-      for (const item of this.pending.splice(0))
-        item.resolve(this.get(item.scope, item.job.id));
+      for (const item of this.pending.splice(0)) {
+        if (item.ephemeral) item.reject(fileProblem("FILE_JOBS_CLOSED", 503));
+        else item.resolve(this.get(item.scope, item.job.id));
+        item.dispose?.();
+      }
       this.reservations.clear();
       for (const item of this.active.values()) item.controller.abort();
       await Promise.allSettled([...this.workers]);

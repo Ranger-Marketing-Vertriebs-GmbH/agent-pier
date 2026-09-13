@@ -43,6 +43,15 @@ allowed for native compilation on platforms without a shipped prebuild. Older np
 versions may not enforce allowScripts; release validation always requires the
 platform binary inside the staged archive.
 
+## Unicode upload-name data
+
+The pinned Unicode 15.1 data under `server/features/files/unicode-15.1/` is
+distributed under the Unicode License V3. Its original attribution and complete
+license are preserved in that directory. Installation and update archives include
+the data and license with the server source. Upload name rejection uses this
+versioned data as a product policy; it does not describe every filesystem's name
+equivalence rules.
+
 ## Provider marks
 
 The OpenAI glyph in `web/components/ProviderMark.jsx` comes from Simple Icons

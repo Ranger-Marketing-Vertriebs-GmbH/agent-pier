@@ -15,6 +15,10 @@ export function fileHandler(handler) {
     try {
       await handler(req, res);
     } catch (error) {
+      if (res.headersSent || res.destroyed) {
+        if (!res.destroyed) res.destroy();
+        return;
+      }
       const stable = /^FILE_[A-Z0-9_]+$/.test(error.code || "");
       const status =
         stable &&

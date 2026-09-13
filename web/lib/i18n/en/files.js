@@ -2,6 +2,16 @@ import { fileActionsCopy } from "./files-actions.js";
 export const filesCopy = {
   actions: fileActionsCopy,
   errors: {
+    FILE_UPLOAD_ALIAS:
+      "Upload paths contain conflicting names. Rename the affected entries and select them again.",
+    FILE_UPLOAD_PENDING:
+      "This upload is active, interrupted, or awaiting recovery. Refresh its job before retrying.",
+    FILE_UPLOAD_PARENT:
+      "The upload folder is not ready. Check its directory operation before retrying.",
+    FILE_UPLOAD_LENGTH: "The received upload length does not match the selected file.",
+    FILE_UPLOAD_CHANGED:
+      "The staged upload content changed. Retained data needs inspection before retrying.",
+    FILE_UPLOAD_MEDIA: "Upload content must use an uncompressed binary stream.",
     FILE_TRASH_CONFIRMATION:
       "The trash selection or its revision changed. Refresh and confirm again.",
     FILE_CANCELLED: "The file operation was cancelled.",
@@ -71,6 +81,8 @@ export const filesCopy = {
   noResults: "No matching filenames found.",
   operation: "File operation",
   jobKinds: {
+    upload: "Upload file",
+    upload_group: "Upload selection",
     search: "Filename search",
     size: "Folder size",
     create_file: "Create file",
