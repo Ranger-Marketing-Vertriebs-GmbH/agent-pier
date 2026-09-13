@@ -1,6 +1,14 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 
+function deferred() {
+  let resolve;
+  const promise = new Promise((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 async function fixture(
   page,
   target,
@@ -326,11 +334,82 @@ test("pending copy feedback stays with its file when another preview opens", asy
   await expect(page.getByLabel("Dateivorschau").getByRole("status")).toHaveCount(0);
 });
 
+test("does not expose previous text while the next preview is pending", async ({
+  page,
+}) => {
+  await clipboardFixture(page);
+  await fixture(page, "docs/report.md");
+  const nextPreview = deferred();
+  const nextStarted = deferred();
+  await page.route("**/api/sessions/links/files/explorer/entries?**", (route) =>
+    route.fulfill({
+      json: {
+        path: "",
+        parent: null,
+        entries: [
+          {
+            name: "next.txt",
+            path: "docs/next.txt",
+            type: "file",
+            size: 18,
+            modifiedAt: "2026-09-13T10:00:00.000Z",
+            mode: 0o600,
+            readable: true,
+            writable: true,
+            linkTarget: null,
+            revision: "e1:next",
+          },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 200,
+        hasMore: false,
+        snapshotId: "snapshot-next",
+      },
+    }),
+  );
+  await page.route("**/api/sessions/links/files/explorer/preview?**", async (route) => {
+    const path = new URL(route.request().url()).searchParams.get("path");
+    if (path !== "docs/next.txt") return route.fallback();
+    nextStarted.resolve();
+    await nextPreview.promise;
+    return route.fulfill({
+      json: { path, type: "text", text: "Next preview" },
+    });
+  });
+  await page.getByRole("link", { name: "Abnahmebericht", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Alles kopieren" })).toBeVisible();
+  await page.evaluate(() => {
+    window.transitionCopySeen = false;
+    new MutationObserver(() => {
+      if (new URLSearchParams(location.search).get("file") !== "docs/next.txt") return;
+      const button = [...document.querySelectorAll("button")].find(
+        (item) => item.textContent.trim() === "Alles kopieren",
+      );
+      if (button) {
+        window.transitionCopySeen = true;
+        button.click();
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+
+  await page.getByRole("button", { name: "next.txt", exact: true }).click();
+  await nextStarted.promise;
+  expect(await page.evaluate(() => window.transitionCopySeen)).toBe(false);
+  expect(await page.evaluate(() => window.clipboardWrites)).toEqual([]);
+  await expect(page.getByRole("button", { name: "Alles kopieren" })).toHaveCount(0);
+  nextPreview.resolve();
+  await expect(page.getByLabel("Dateivorschau")).toContainText("Next preview");
+  await expect(page.getByRole("button", { name: "Alles kopieren" })).toBeVisible();
+});
+
 test("pending copy feedback cannot cross a replacement project scope", async ({
   page,
 }) => {
   await clipboardFixture(page, "pending");
   const { session } = await fixture(page, "docs/report.md");
+  const replacementPreview = deferred();
+  const replacementStarted = deferred();
   await page.getByRole("link", { name: "Abnahmebericht", exact: true }).click();
   const oldButton = page.getByRole("button", { name: "Alles kopieren" });
   await oldButton.click();
@@ -363,16 +442,40 @@ test("pending copy feedback cannot cross a replacement project scope", async ({
       },
     }),
   );
+  await page.route("**/api/sessions/links/files/explorer/preview?**", async (route) => {
+    if (session.cwd !== "/fixture/replacement") return route.fallback();
+    const path = new URL(route.request().url()).searchParams.get("path");
+    replacementStarted.resolve();
+    await replacementPreview.promise;
+    return route.fulfill({
+      json: { path, type: "text", text: "Replacement preview" },
+    });
+  });
+  await page.evaluate(() => {
+    window.scopeTransitionCopySeen = false;
+    new MutationObserver(() => {
+      if (!document.body.textContent.includes("/fixture/replacement")) return;
+      const button = [...document.querySelectorAll("button")].find(
+        (item) => item.textContent.trim() === "Alles kopieren",
+      );
+      if (button) window.scopeTransitionCopySeen = true;
+    }).observe(document.body, { childList: true, subtree: true });
+  });
   session.cwd = "/fixture/replacement";
   const replacementEntry = page.getByRole("button", {
     name: "report.md",
     exact: true,
   });
   await expect(replacementEntry).toBeVisible({ timeout: 7000 });
+  expect(await page.evaluate(() => window.scopeTransitionCopySeen)).toBe(false);
   await replacementEntry.click();
+  await replacementStarted.promise;
+  await expect(page.getByRole("button", { name: "Alles kopieren" })).toHaveCount(0);
+  replacementPreview.resolve();
 
   const replacement = page.getByLabel("Dateivorschau");
   await expect(replacement).toContainText("docs/report.md");
+  await expect(replacement).toContainText("Replacement preview");
   const replacementButton = replacement.getByRole("button", {
     name: "Alles kopieren",
   });

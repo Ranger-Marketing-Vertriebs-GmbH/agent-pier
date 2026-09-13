@@ -138,7 +138,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
   const [entry, setEntry] = useState(null);
   const [propertiesError, setPropertiesError] = useState(null);
   const [propertiesLoading, setPropertiesLoading] = useState(false);
-  const [preview, setPreview] = useState(null);
+  const [previewResult, setPreviewResult] = useState(null);
   const [previewError, setPreviewError] = useState(null);
   const scopeId = context?.scopeId;
   const selectionOwner = useRef(null);
@@ -150,8 +150,11 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
     selectionOwner.current.file !== route.file
   )
     selectionOwner.current = { client, scopeId, file: route.file };
+  const preview =
+    previewResult?.owner === selectionOwner.current ? previewResult.value : null;
 
   useEffect(() => {
+    const owner = selectionOwner.current;
     const controller = new AbortController();
     const cancelLink = () => {
       linkOperation.current.controller?.abort();
@@ -166,7 +169,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
     };
     cancelLink();
     setEntry(null);
-    setPreview(null);
+    setPreviewResult(null);
     setPropertiesError(null);
     setPreviewError(null);
     setPropertiesLoading(false);
@@ -184,7 +187,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
               { path: route.file },
               controller.signal,
             );
-            if (!controller.signal.aborted) setPreview(value);
+            if (!controller.signal.aborted) setPreviewResult({ owner, value });
           } catch (issue) {
             if (!controller.signal.aborted) setPreviewError(issue);
           }
@@ -263,7 +266,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
           { path: entry.path },
           controller.signal,
         );
-        if (owns()) setPreview(value);
+        if (owns()) setPreviewResult({ owner, value });
       } catch (previewIssue) {
         if (owns()) setPreviewError(previewIssue);
       }
