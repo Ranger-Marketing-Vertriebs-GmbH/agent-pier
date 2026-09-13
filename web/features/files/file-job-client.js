@@ -153,6 +153,8 @@ export class FileJobClient {
     });
   }
   async readEntries(id, cursor, signal, owns) {
+    const prior = this.state.entries[id];
+    cursor ??= prior?.tailCursor;
     const page = await this.client.get(
       `/jobs/${encodeURIComponent(id)}/entries`,
       { cursor },
@@ -160,7 +162,6 @@ export class FileJobClient {
     );
     if (!owns()) return;
     if (!Array.isArray(page.entries)) throw issue("FILE_INVALID_RESPONSE");
-    const prior = this.state.entries[id];
     const entries = [
       ...new Map(
         [...(prior?.entries || []), ...page.entries].map((entry) => [entry.id, entry]),
@@ -171,7 +172,8 @@ export class FileJobClient {
         ...this.state.entries,
         [id]: {
           entries,
-          nextCursor: !cursor && prior?.paged ? prior.nextCursor : page.nextCursor,
+          nextCursor: page.nextCursor,
+          tailCursor: cursor ?? null,
           paged: Boolean(cursor || prior?.paged),
         },
       },

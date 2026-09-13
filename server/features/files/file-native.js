@@ -4,6 +4,8 @@ import { fileProblem } from "./file-errors.js";
 const operations = {
   openRoot: ["path"],
   openFile: ["directory", "path"],
+  openDirectory: ["directory", "path"],
+  readDirectory: ["handle"],
   read: ["handle", "length", "position"],
   closeHandle: ["handle"],
 };
@@ -20,6 +22,8 @@ export function validateNativeRequest(operation, args) {
   for (const key of keys) {
     const value = args[key];
     if (key === "path") {
+      // Empty relative path enumerates the already-owned directory itself.
+      if (operation === "openDirectory" && value === "") continue;
       if (
         typeof value !== "string" ||
         !value ||

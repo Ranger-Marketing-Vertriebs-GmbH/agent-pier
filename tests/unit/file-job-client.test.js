@@ -205,3 +205,42 @@ for (const action of ["cancel", "resolve", "list", "entries"]) {
     current.unsubscribe();
   });
 }
+
+test("a running search can grow beyond its previously final loaded page", async () => {
+  const current = job("growing");
+  const rows = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  const f = fixture({
+    async get(suffix, query) {
+      if (suffix === "/jobs") return { jobs: [], nextCursor: null };
+      if (suffix.endsWith("/entries")) {
+        const offset =
+          query.cursor === "after-b" ? 2 : query.cursor === "after-d" ? 4 : 0;
+        return {
+          entries: rows.slice(offset, offset + 2),
+          nextCursor:
+            rows.length > offset + 2 ? (offset === 0 ? "after-b" : "after-d") : null,
+        };
+      }
+      return { ...current };
+    },
+    mutate: async () => ({ ...current }),
+  });
+  try {
+    await f.session.start("scope", { kind: "search" });
+    await f.session.refresh();
+    await f.session.refresh({ jobId: "growing", cursor: "after-b" });
+    assert.equal(f.session.getSnapshot().entries.growing.nextCursor, null);
+    rows.push({ id: "d" }, { id: "e" });
+    current.status = "completed";
+    await f.session.refresh();
+    assert.equal(f.session.getSnapshot().entries.growing.nextCursor, "after-d");
+    await f.session.refresh({ jobId: "growing", cursor: "after-d" });
+    assert.deepEqual(
+      f.session.getSnapshot().entries.growing.entries.map((entry) => entry.id),
+      ["a", "b", "c", "d", "e"],
+    );
+    assert.equal(f.session.getSnapshot().entries.growing.nextCursor, null);
+  } finally {
+    f.unsubscribe();
+  }
+});

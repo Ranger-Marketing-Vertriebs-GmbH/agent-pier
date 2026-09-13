@@ -1,4 +1,4 @@
-import fs from "node:fs/promises";
+import { FileNative } from "./file-native.js";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { resolveFile } from "./file-paths.js";
@@ -29,7 +29,7 @@ export function measureFiles(args) {
   return walk(args, true);
 }
 
-/** Metadata only. Each opened directory is owned by this bounded depth stack.
+/** Metadata only. The bounded depth stack contains paths, never retained enumerators.
  * The injected store facade awaits a short barrier lease for each durable result.
  */
 async function walk(
@@ -37,7 +37,15 @@ async function walk(
   measuring,
 ) {
   const deadline = now() + limits.searchMs;
+  // Every queued record comes from a scanned directory: at most searchEntries records.
+  // Keep only path/depth/identity, and never a retained ancestor enumerator.
   const stack = [];
+  const frameFor = (resolved, depth) => ({
+    path: resolved.path,
+    depth,
+    stat: { dev: resolved.stat.dev, ino: resolved.stat.ino },
+  });
+  let native, anchor, current;
   let visited = 0,
     results = 0,
     bytes = 0,
@@ -80,16 +88,39 @@ async function walk(
           ? "changed"
           : "io",
     );
-  const openDirectory = async (selected, depth) => {
-    // Recheck authority and link identity at every directory, including queued descendants.
-    const fresh = await resolveFile(scope, selected, { followLeaf: false });
-    if (fresh.linkIdentity || !fresh.stat.isDirectory()) {
-      omit("changed");
-      return;
+  const sameIdentity = (left, right) => left.dev === right.dev && left.ino === right.ino;
+  const openDirectory = async (frame) => {
+    const fresh = await resolveFile(scope, frame.path, { followLeaf: false });
+    if (
+      fresh.linkIdentity ||
+      !fresh.stat.isDirectory() ||
+      !sameIdentity(fresh.stat, frame.stat)
+    )
+      throw fileProblem("FILE_PATH_CHANGED", 409);
+    if (interrupted()) return null;
+    if (!native) {
+      const root = await resolveFile(scope, scope.kind === "project" ? "" : "/", {
+        followLeaf: false,
+      });
+      if (interrupted()) return null;
+      native = new FileNative();
+      anchor = {
+        ...(await native.run("openRoot", { path: root.absolute })),
+        path: root.absolute,
+      };
+      if (!sameIdentity(anchor, root.stat)) throw fileProblem("FILE_PATH_CHANGED", 409);
     }
-    if (interrupted()) return;
-    const directory = await fs.opendir(fresh.absolute);
-    stack.push({ directory, path: fresh.path, depth });
+    if (interrupted()) return null;
+    // Native openat traverses every component relative to the pinned root with NOFOLLOW.
+    const directory = await native.run("openDirectory", {
+      directory: anchor.handle,
+      path: path.relative(anchor.path, fresh.absolute),
+    });
+    if (!sameIdentity(directory, fresh.stat)) {
+      await native.run("closeHandle", { handle: directory.handle });
+      throw fileProblem("FILE_PATH_CHANGED", 409);
+    }
+    return { ...frame, handle: directory.handle };
   };
   const addSize = (stat) => {
     if (stat.size > BigInt(Number.MAX_SAFE_INTEGER - bytes)) {
@@ -110,31 +141,38 @@ async function walk(
     else if (measuring && root.stat.isFile()) {
       visited = 1;
       addSize(root.stat);
-    } else if (root.stat.isDirectory()) {
-      try {
-        await openDirectory(root.path, 0);
-      } catch (error) {
-        omittedError(error);
-      }
-    } else throw fileProblem("FILE_NOT_DIRECTORY", 400);
+    } else if (root.stat.isDirectory()) stack.push(frameFor(root, 0));
+    else throw fileProblem("FILE_NOT_DIRECTORY", 400);
     const options = operation.options;
     const query = measuring
       ? ""
       : options.caseSensitive
         ? options.query
         : options.query.toLowerCase();
-    while (stack.length && !interrupted()) {
-      const frame = stack.at(-1);
+    while ((current || stack.length) && !interrupted()) {
+      if (!current) {
+        try {
+          current = await openDirectory(stack.pop());
+        } catch (error) {
+          signal.throwIfAborted();
+          omittedError(error);
+        }
+        if (!current) continue;
+      }
+      if (interrupted()) break;
+      const frame = current;
       let entry;
       try {
-        entry = await frame.directory.read();
+        entry = await native.run("readDirectory", { handle: frame.handle });
       } catch (error) {
         omittedError(error);
-        await stack.pop().directory.close();
+        await native.run("closeHandle", { handle: frame.handle });
+        current = null;
         continue;
       }
       if (!entry) {
-        await stack.pop().directory.close();
+        await native.run("closeHandle", { handle: frame.handle });
+        current = null;
         continue;
       }
       if (visited >= limits.searchEntries) {
@@ -144,7 +182,7 @@ async function walk(
       visited++;
       if (interrupted()) break;
       if (
-        entry.isSymbolicLink() ||
+        entry.type === "symlink" ||
         (!measuring && !options.hidden && entry.name.startsWith("."))
       )
         continue;
@@ -176,7 +214,7 @@ async function walk(
         }
         if (resolved.stat.isDirectory() && (measuring || options.recursive)) {
           if (frame.depth >= limits.maxDepth) omit("depth");
-          else await openDirectory(selected, frame.depth + 1);
+          else stack.push(frameFor(resolved, frame.depth + 1));
         }
       } catch (error) {
         signal.throwIfAborted();
@@ -188,6 +226,6 @@ async function walk(
     interrupted();
     await progress(true);
   } finally {
-    await Promise.allSettled(stack.map(({ directory }) => directory.close()));
+    if (native) await native.close();
   }
 }

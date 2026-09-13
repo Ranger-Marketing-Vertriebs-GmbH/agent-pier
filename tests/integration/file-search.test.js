@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { FileNative } from "../../server/features/files/file-native.js";
 import { applicationFixture } from "../helpers/application.js";
 import { waitForFileJob } from "../helpers/file-explorer.js";
 
@@ -178,14 +179,17 @@ test("denied subdirectories preserve known results and an incomplete size", asyn
   const f = await applicationFixture(t);
   await fs.mkdir(path.join(f.home, "denied"));
   await fs.writeFile(path.join(f.home, "known.txt"), "known");
-  const opendir = fs.opendir;
+  const run = FileNative.prototype.run;
   let denied = 0;
-  t.mock.method(fs, "opendir", async (selected, ...args) => {
-    if (selected === path.join(f.home, "denied")) {
+  t.mock.method(FileNative.prototype, "run", async function (operation, args) {
+    if (
+      operation === "openDirectory" &&
+      args.path === path.join(f.home, "denied").slice(1)
+    ) {
       denied++;
-      throw Object.assign(new Error("secret diagnostic"), { code: "EACCES" });
+      throw Object.assign(new Error("secret diagnostic"), { code: "FILE_ACCESS_DENIED" });
     }
-    return opendir(selected, ...args);
+    return run.call(this, operation, args);
   });
   const search = await start(f, operation(f.home));
   assert.equal(search.issue.args.reason, "access");
@@ -256,18 +260,20 @@ test("deterministic deadline stops traversal and cancellation owns its directory
   assert.equal(timed.issue.args.reason, "time");
   const entered = Promise.withResolvers(),
     release = Promise.withResolvers();
-  const opendir = fs.opendir;
+  const run = FileNative.prototype.run,
+    close = FileNative.prototype.close;
   let closed = false;
-  t.mock.method(fs, "opendir", async (...args) => {
-    const dir = await opendir(...args);
-    const close = dir.close.bind(dir);
-    dir.close = async () => {
-      closed = true;
-      return close();
-    };
-    entered.resolve();
-    await release.promise;
-    return dir;
+  t.mock.method(FileNative.prototype, "run", async function (operation, args) {
+    const value = await run.call(this, operation, args);
+    if (operation === "openDirectory") {
+      entered.resolve();
+      await release.promise;
+    }
+    return value;
+  });
+  t.mock.method(FileNative.prototype, "close", async function () {
+    await close.call(this);
+    closed = true;
   });
   registerFileJobHandler(
     services.handlers,
@@ -282,11 +288,23 @@ test("deterministic deadline stops traversal and cancellation owns its directory
   );
   const scope = await services.context();
   const job = await services.jobs.start(scope, operation(f.home));
-  await entered.promise;
-  // This snapshot must finish while the real handler waits for its directory.
-  await f.application.mutationBarrier.snapshot(() => {});
-  await services.jobs.cancel(scope, job.id);
-  release.resolve();
+  try {
+    await Promise.race([
+      entered.promise,
+      new Promise((_, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error("Handler did not open its directory")),
+          3000,
+        );
+        entered.promise.finally(() => clearTimeout(timeout));
+      }),
+    ]);
+    // This snapshot must finish while the real handler waits for its directory.
+    await f.application.mutationBarrier.snapshot(() => {});
+    await services.jobs.cancel(scope, job.id);
+  } finally {
+    release.resolve();
+  }
   const cancelled = await waitForFileJob(f, job.id);
   assert.equal(cancelled.status, "cancelled");
   assert.equal(closed, true);
@@ -378,4 +396,47 @@ test("metadata entry transport preserves unknown fields without inventing permis
     assert.equal(row[field], null);
   assert.equal(JSON.stringify(row).includes("private"), false);
   assert.equal(JSON.stringify(row).includes("secret"), false);
+});
+
+test("metadata traversal reaches depth128 using at most two owned native handles", async (t) => {
+  const f = await applicationFixture(t);
+  let folder = f.home;
+  for (let depth = 0; depth < 128; depth++) {
+    folder = path.join(folder, "d");
+    await fs.mkdir(folder);
+  }
+  await fs.writeFile(path.join(folder, "deep.txt"), "deep");
+  const run = FileNative.prototype.run,
+    close = FileNative.prototype.close;
+  const counts = new Map();
+  let peak = 0,
+    contentReads = 0;
+  t.mock.method(FileNative.prototype, "run", async function (operation, args) {
+    if (["openFile", "read"].includes(operation)) contentReads++;
+    const result = await run.call(this, operation, args);
+    let count = counts.get(this) || 0;
+    if (["openRoot", "openDirectory"].includes(operation)) count++;
+    if (operation === "closeHandle") count--;
+    counts.set(this, count);
+    peak = Math.max(peak, count);
+    return result;
+  });
+  t.mock.method(FileNative.prototype, "close", async function () {
+    await close.call(this);
+    counts.set(this, 0);
+  });
+  const search = await start(f, operation(f.home));
+  assert.equal(search.issue, null);
+  assert.equal(search.completedEntries, 129);
+  const results = await (await f.request(`/api/files/jobs/${search.id}/entries`)).json();
+  assert.equal(results.entries[0].path, path.join(folder, "deep.txt"));
+  const size = await start(f, operation(f.home, "size"));
+  assert.equal(size.issue, null);
+  assert.equal(size.totalBytes, 4);
+  assert.equal(peak, 2);
+  assert.equal(contentReads, 0);
+  assert.equal(
+    [...counts.values()].every((count) => count === 0),
+    true,
+  );
 });

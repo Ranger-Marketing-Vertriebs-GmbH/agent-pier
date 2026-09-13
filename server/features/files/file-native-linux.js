@@ -5,6 +5,12 @@
 export const linuxAbi = Object.freeze({
   library: null, // The process's libc, including glibc and musl.
   openat: "int openat(int dirfd, const char *pathname, int flags, ...)",
+  // LP64 glibc/musl dirent: ino64, off64, reclen16, type8, name.
+  // https://github.com/bminor/glibc/blob/master/sysdeps/unix/sysv/linux/bits/dirent.h
+  fdopendir: "fdopendir",
+  readdir: "readdir",
+  direntName: 19,
+  direntType: 18,
   cwd: -100,
   read: 0,
   nonblock: 0x800,

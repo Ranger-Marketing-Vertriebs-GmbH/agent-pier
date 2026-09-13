@@ -3,6 +3,7 @@ import { closeSync, fstatSync, readSync } from "node:fs";
 import { getSystemErrorName } from "node:util";
 import koffi from "koffi";
 import { linuxAbi } from "./file-native-linux.js";
+import { directoryFunctions } from "./file-native-directory.js";
 import { darwinAbi } from "./file-native-darwin.js";
 import { validateNativeRequest } from "./file-native.js";
 import { fileProblem, fileSystemProblem } from "./file-errors.js";
@@ -10,13 +11,18 @@ import { fileProblem, fileSystemProblem } from "./file-errors.js";
 const abi = workerData.platform === "darwin" ? darwinAbi : linuxAbi;
 const library = koffi.load(abi.library);
 const openat = library.func(abi.openat);
+const directories = directoryFunctions(library, abi);
 const handles = new Map();
 let sequence = 0;
 
+function closeOwned(opened) {
+  if (opened.stream) directories.close(opened.stream);
+  else closeSync(opened.fd);
+}
 function closeAll() {
-  for (const { fd } of handles.values()) {
+  for (const opened of handles.values()) {
     try {
-      closeSync(fd);
+      closeOwned(opened);
     } catch {
       /* Never retry close: the fd may be reused. */
     }
@@ -27,13 +33,13 @@ process.on("exit", closeAll);
 process.on("uncaughtExceptionMonitor", closeAll);
 parentPort.on("close", closeAll);
 
-function openComponent(parent, component, directory) {
+function openComponent(parent, component, directory, enumerate = false) {
   const flags =
     abi.read |
     abi.nofollow |
     abi.cloexec |
     abi.nonblock |
-    (directory ? abi.directory | abi.search : 0);
+    (directory ? abi.directory | (enumerate ? 0 : abi.search) : 0);
   const fd = openat(parent, component, flags);
   if (fd < 0) {
     const code = getSystemErrorName(-koffi.errno());
@@ -64,7 +70,7 @@ function lookup(handle, directory) {
   return opened;
 }
 
-function walk(parent, components, leafDirectory) {
+function walk(parent, components, leafDirectory, enumerate = false) {
   let owned;
   try {
     for (let index = 0; index < components.length; index++) {
@@ -72,22 +78,24 @@ function walk(parent, components, leafDirectory) {
         owned?.fd ?? parent,
         components[index],
         index < components.length - 1 || leafDirectory,
+        enumerate && index === components.length - 1,
       );
       const previous = owned;
       owned = opened;
       if (previous) closeSync(previous.fd);
     }
+    if (enumerate) owned.stream = directories.open(owned.fd);
     const result = keep(owned);
     owned = null;
     return result;
   } finally {
-    if (owned) closeSync(owned.fd);
+    if (owned) closeOwned(owned);
   }
 }
 
 function run(operation, args) {
   validateNativeRequest(operation, args);
-  if (["openRoot", "openFile"].includes(operation) && handles.size >= 64)
+  if (["openRoot", "openFile", "openDirectory"].includes(operation) && handles.size >= 64)
     throw fileProblem("FILE_IO_ERROR", 503);
   switch (operation) {
     case "openRoot": {
@@ -97,6 +105,16 @@ function run(operation, args) {
     }
     case "openFile":
       return walk(lookup(args.directory, true).fd, args.path.split("/"), false);
+    case "openDirectory": {
+      const root = lookup(args.directory, true);
+      if (root.stream) throw fileProblem("FILE_INVALID_PATH", 400);
+      return walk(root.fd, args.path ? args.path.split("/") : ["."], true, true);
+    }
+    case "readDirectory": {
+      const opened = lookup(args.handle, true);
+      if (!opened.stream) throw fileProblem("FILE_INVALID_PATH", 400);
+      return directories.read(opened.stream);
+    }
     case "read": {
       const { fd } = lookup(args.handle, false);
       const buffer = Buffer.alloc(args.length);
@@ -104,9 +122,9 @@ function run(operation, args) {
       return buffer.subarray(0, bytesRead);
     }
     case "closeHandle": {
-      const { fd } = lookup(args.handle);
+      const opened = lookup(args.handle);
       handles.delete(args.handle);
-      closeSync(fd);
+      closeOwned(opened);
       return null;
     }
   }
