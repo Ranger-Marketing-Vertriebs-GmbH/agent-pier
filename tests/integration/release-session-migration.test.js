@@ -6,6 +6,7 @@ import path from "node:path";
 import { Operations } from "../../server/features/operations/operations.js";
 import { AuditStore } from "../../server/features/audit/audit-store.js";
 import { ReleaseSessionMigration } from "../../server/features/operations/release-session-migration.js";
+import { atomic, readJson } from "../../server/features/operations/files.js";
 
 const ids = [
   "6f1d2c3b-4a5e-4f60-8b7c-9d0e1f2a3b4c",
@@ -354,4 +355,120 @@ test("cancel and shutdown end a waiting migration without deleting", async (t) =
   await closing;
   assert.equal(interrupted.errorCode, "migrateInterrupted");
   assert.ok(await fs.stat(path.join(f.installRoot, "releases/1.0.0")));
+});
+
+async function activationFixture(t, sessions, job) {
+  const f = await fixture(t, sessions);
+  const dataDir = f.operations.config.dataDir;
+  f.operations.audit = new AuditStore({ dataDir });
+  t.after(() => f.operations.audit.close());
+  const jobId = "11111111-2222-4333-8444-555555555555";
+  if (job)
+    atomic(path.join(dataDir, "operations/jobs", `${jobId}.json`), {
+      id: jobId,
+      kind: "release-activate",
+      createdAt: new Date().toISOString(),
+      ...job,
+    });
+  atomic(path.join(dataDir, "operations/post-activation-reload.json"), {
+    to: "1.1.0",
+    jobId,
+    requestedAt: new Date().toISOString(),
+  });
+  f.migration.activationTimeoutMs = 200;
+  f.marker = path.join(dataDir, "operations/post-activation-reload.json");
+  return f;
+}
+
+test("after a verified activation every eligible running session is reloaded when idle", async (t) => {
+  const f = await activationFixture(
+    t,
+    [
+      { id: ids[0], tool: "claude", status: "running", activity: "idle" },
+      { id: ids[1], tool: "codex", status: "running", eligible: false },
+      { id: ids[2], tool: "claude", status: "stopped" },
+    ],
+    { status: "succeeded", result: { activated: true } },
+  );
+  await f.migration.resumeAfterActivation();
+  assert.deepEqual(
+    f.reload.requests.map((r) => [r.id, r.mode]),
+    [[ids[0], "when-idle"]],
+  );
+  assert.equal(readJson(f.marker, null), null);
+  const { events } = f.operations.audit.list();
+  assert.equal(events[0].action, "release.refreshed");
+  assert.equal(events[0].details.version, "1.1.0");
+  assert.equal(events[0].details.count, 1);
+  await f.migration.resumeAfterActivation();
+  assert.equal(f.reload.requests.length, 1);
+});
+
+test("failed, interrupted, locked or missing activations discard the marker without reloading", async (t) => {
+  for (const job of [
+    { status: "failed" },
+    { status: "succeeded", result: { activated: false, rolledBack: true } },
+    null,
+  ]) {
+    const f = await activationFixture(
+      t,
+      [{ id: ids[0], tool: "claude", status: "running", activity: "idle" }],
+      job,
+    );
+    await f.migration.resumeAfterActivation();
+    assert.equal(f.reload.requests.length, 0);
+    assert.equal(readJson(f.marker, null), null);
+  }
+  const locked = await activationFixture(
+    t,
+    [{ id: ids[0], tool: "claude", status: "running", activity: "idle" }],
+    { status: "succeeded", result: { activated: true } },
+  );
+  await fs.writeFile(
+    path.join(locked.operations.config.dataDir, "operations/release-activation.lock"),
+    "{}",
+  );
+  await locked.migration.resumeAfterActivation();
+  assert.equal(locked.reload.requests.length, 0);
+});
+
+test("a still-running activation is awaited and a rejected request never throws", async (t) => {
+  const f = await activationFixture(
+    t,
+    [
+      {
+        id: ids[0],
+        tool: "claude",
+        status: "running",
+        activity: "idle",
+        rejectRequest: "nope",
+      },
+      { id: ids[1], tool: "claude", status: "running", activity: "idle" },
+    ],
+    { status: "running", external: true, heartbeatAt: new Date().toISOString() },
+  );
+  f.migration.activationTimeoutMs = 2000;
+  f.migration.activationPollMs = 10;
+  const pending = f.migration.resumeAfterActivation();
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(f.reload.requests.length, 0);
+  atomic(
+    path.join(
+      f.operations.config.dataDir,
+      "operations/jobs",
+      `${"11111111-2222-4333-8444-555555555555"}.json`,
+    ),
+    {
+      id: "11111111-2222-4333-8444-555555555555",
+      kind: "release-activate",
+      createdAt: new Date().toISOString(),
+      status: "succeeded",
+      result: { activated: true },
+    },
+  );
+  await pending;
+  assert.deepEqual(
+    f.reload.requests.map((r) => r.id),
+    [ids[0], ids[1]],
+  );
 });

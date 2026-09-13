@@ -1,6 +1,8 @@
+import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { releaseVersion } from "./release-archive.js";
+import { readJson } from "./files.js";
 import { problem } from "../../lib/storage.js";
 
 const migrateError = (code, message, status = 409, result) =>
@@ -31,6 +33,7 @@ export class ReleaseSessionMigration {
     this.pollMs = pollMs;
     this.settleAttempts = settleAttempts;
     this.activationTimeoutMs = activationTimeoutMs;
+    this.activationPollMs = 2000;
     this.log = log;
     this.active = null;
     this.marker = path.join(
@@ -248,6 +251,72 @@ export class ReleaseSessionMigration {
         );
       this.checkpoint(control, tracked);
       await sleep(this.pollMs);
+    }
+  }
+  async awaitActivation(marker) {
+    const lock = path.join(
+      this.operations.config.dataDir,
+      "operations/release-activation.lock",
+    );
+    const deadline = Date.now() + this.activationTimeoutMs;
+    while (Date.now() < deadline) {
+      let job;
+      try {
+        job = this.operations.jobs.get(marker.jobId);
+      } catch {
+        return false;
+      }
+      if (job.status === "succeeded") {
+        if (!fs.existsSync(lock)) return job.result?.activated === true;
+      } else if (job.status !== "running") return false;
+      if (this.operations.jobs.closed) return false;
+      await sleep(this.activationPollMs);
+    }
+    return false;
+  }
+  async resumeAfterActivation() {
+    let marker;
+    try {
+      marker = readJson(this.marker, null);
+    } catch {
+      marker = null;
+    }
+    if (!marker) return;
+    try {
+      const verified =
+        typeof marker.to === "string" && typeof marker.jobId === "string"
+          ? await this.awaitActivation(marker)
+          : false;
+      fs.rmSync(this.marker, { force: true });
+      if (!verified) return;
+      let count = 0;
+      for (const session of await this.services.sessions.list()) {
+        if (session.status !== "running") continue;
+        try {
+          const status = await this.services.reload.status(session.id);
+          if (!status.eligible || inFlight(status.state)) continue;
+          await this.services.reload.request(session.id, {
+            requestId: randomUUID(),
+            mode: "when-idle",
+          });
+          count += 1;
+        } catch (error) {
+          this.log(
+            `Session ${session.id} was not reloaded after activation: ${error.message}`,
+          );
+        }
+      }
+      this.operations.audit?.append({
+        action: "release.refreshed",
+        resourceType: "release",
+        resourceId: marker.jobId,
+        outcome: "success",
+        source: "system",
+        details: { version: marker.to, count },
+      });
+    } catch (error) {
+      fs.rmSync(this.marker, { force: true });
+      this.log(`Post-activation reload skipped: ${error.message}`);
     }
   }
 }
