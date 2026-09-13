@@ -69,8 +69,9 @@ geprüfte Zuordnung zu Datei und Projekt auch während laufender Anfragen.
 Task 7 ist implementiert und unabhängig auf Spezifikation und Codequalität geprüft.
 Der volle Backendlauf vor den letzten gezielten Korrekturen bestand 1.510 Tests bei
 vier Übersprüngen; der abschließende Metadaten-/Native-/Paket-/Kataloglauf besteht
-46 Tests bei einem Linux-spezifischen Übersprung auf macOS. Die Plattformausführung
-unter Linux und auf allen vier Paketarchitekturen steht für diesen Stand noch aus.
+46 Tests bei einem Linux-spezifischen Übersprung auf macOS. Der geprüfte Stand `12c46db` besteht inzwischen alle Backend-Matrixläufe unter
+Linux/macOS mit Node 22/24 sowie die echten Pakete für Darwin/Linux auf ARM64/x64.
+Der manuelle Paketlauf übersprang die Veröffentlichung; die Browser-CI läuft noch.
 Die private Metadatenfähigkeit meldet unter Linux derzeit unbewiesene Vollständigkeit:
 Strikte Kopien auf einen neuen Inode brechen vor Metadatenänderungen ab, gewöhnliche
 Kopien melden eine ausdrückliche Warnung. Umbenennen/Austausch im selben Dateisystem
@@ -655,8 +656,8 @@ Die reine Lesegrundlage (`FileNative`, Worker, Plattform-Öffnen, Koffi und echt
 Paket-/Update-Prüfung) wurde als Voraussetzung für Task 2 vorgezogen. Task 6
 ergänzt geprüfte Verzeichnis-Handles und native Enumeration ohne Linkfolge, mit
 unveränderten Ressourcenlimits. Task 7 erweitert diese vorhandenen Schnittstellen
-für Metadaten und Umbenennen; Implementierung und unabhängiges Review sind abgeschlossen,
-die tatsächliche Linux-/Vier-Architektur-Abnahme steht noch aus. Die Laufzeit-Skriptpolitik
+für Metadaten und Umbenennen; Implementierung, unabhängiges Review und die tatsächlichen
+Backend-/Vier-Architektur-Paketläufe sind auf `12c46db` erfolgreich abgeschlossen. Die Laufzeit-Skriptpolitik
 ist versionsgebunden geprüft: Koffi 3.2.1 verwendet ausgelieferte Binärpakete ohne
 Installationsskript, node-pty 1.1.0 behält seine geprüften Build-/Installationsskripte.
 Die vier T7-Rulings am Ende präzisieren Handle-Eigentum, Link-Metadaten und die
@@ -718,7 +719,7 @@ const received = list(fd, names, names.length);
 
 - [x] Cap attribute names at 256, aggregate values at 8 MiB and retry growing metadata at most twice; otherwise fail without changing the source. Native calls run in a dedicated worker, capture `errno` in that worker and keep descriptors open until it responds. Linux copies ACL xattrs after ownership/mode adjustments; Darwin uses metadata flags and verifies the result. Use `l*` APIs for symlink metadata without following the leaf. A copy may report unsupported attributes; move, trash and save require strict preservation. Do not persist attribute values into public job results.
 - [x] Extend release smoke to import Koffi from the **unpacked release**, read a harmless native property and exercise metadata copying in its disposable data directory. Keep Koffi optional platform packages in `npm ci --omit=dev` and in archives. Test initial release and update staging; if a required binary is missing, fail staging before switching the release pointer. This distribution supplies the helper without a new machine-level runtime installer.
-- [ ] Run native suites and the affected release suites on macOS/Linux CI. Commit: `git commit -m "feat: preserve native file metadata across operations"`.
+- [x] Run native suites and the affected release suites on macOS/Linux CI. Commit: `git commit -m "feat: preserve native file metadata across operations"`.
 
 ## Task 8: Journalisierte Veröffentlichung ohne Verlust des verdrängten Inhalts
 
