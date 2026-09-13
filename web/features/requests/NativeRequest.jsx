@@ -9,6 +9,7 @@ export default function NativeRequest({ request, updated, openTerminal }) {
     pending = request.status === "pending",
     hookTrust = request.presentation === "codexHookTrust",
     folderTrust = request.presentation === "claudeFolderTrust",
+    legacyQuestion = request.presentation === "claudeLegacyQuestion",
     base = `/sessions/${encodeURIComponent(request.sessionId)}/requests/${encodeURIComponent(request.id)}`;
   const answer = (body) =>
     action.run(async () => {
@@ -26,7 +27,7 @@ export default function NativeRequest({ request, updated, openTerminal }) {
             ? copy.folderTrustTitle
             : hookTrust
               ? copy.hookTrustTitle
-              : request.kind === "permission"
+              : request.kind === "permission" && !legacyQuestion
                 ? copy.permission
                 : copy.question}
         </strong>
@@ -53,6 +54,8 @@ export default function NativeRequest({ request, updated, openTerminal }) {
         <p role="status">{copy.unknown}</p>
       ) : request.status === "responding" ? (
         <p role="status">{copy.responding}</p>
+      ) : legacyQuestion ? (
+        <p role="status">{copy.legacyQuestion}</p>
       ) : request.kind === "permission" ? (
         <div className="native-request-actions">
           {request.options?.map((option) => (
@@ -87,12 +90,15 @@ export default function NativeRequest({ request, updated, openTerminal }) {
             </button>
           ))}
         </div>
-      ) : (
-        <QuestionDialog
-          questions={request.questions || []}
-          busy={action.busy}
-          answer={answer}
-        />
+      ) : null}
+      {request.kind === "question" && (
+        <div hidden={!pending}>
+          <QuestionDialog
+            questions={request.questions || []}
+            busy={action.busy || !pending}
+            answer={answer}
+          />
+        </div>
       )}
       <ErrorMessage error={action.error} />
       <div className="native-request-actions">

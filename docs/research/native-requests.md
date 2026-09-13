@@ -4,7 +4,7 @@ Research and isolated verification: 2026-09-07. No global installs, model infere
 
 ## Architecture and compatibility
 
-Chat requests belong to live native channels, not transcript parsing or terminal text fingerprints. The existing real Terminal remains attached to its original tmux session. Only newly launched interactive work sessions receive `nativeRequests: {enabled:true,version:1}`. Existing sessions, login, shell and headless pipeline launches retain their previous behavior.
+Chat requests belong to live native channels, not transcript parsing or terminal text fingerprints. The existing real Terminal remains attached to its original tmux session. Newly launched interactive work sessions receive `nativeRequests: {enabled:true,version:1}`. Login, shell and headless pipeline launches retain their previous behavior. Existing Claude request plugins are migrated as described below; their conversations and native processes remain open.
 
 | CLI                 | Implementation                                                                                                        | Evidence                                                                                                                        |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -28,7 +28,55 @@ Source: [official app-server documentation](https://developers.openai.com/codex/
 
 ## Claude Code
 
-Permission hooks return the documented `hookSpecificOutput` decision with behavior `allow` or `deny`. Question hooks return `PreToolUse` with `permissionDecision:allow` and `updatedInput` containing the original questions and answers mapped by question text. A live hook invocation supplies the response channel; AgentPier does not invent a Claude native permission request ID. Empty output hands the operation to the native Terminal flow. Hook input timeout and unavailable/disconnected web service release that flow without synthesizing consent. Hooks run before the ordinary native prompt, so Chat includes explicit Terminal handoff rather than claiming both original dialogs are active simultaneously. [Claude hooks reference](https://code.claude.com/docs/en/hooks#permissionrequest)
+Permission hooks return the documented `hookSpecificOutput` decision with behavior `allow` or `deny`. Question hooks return the matching `PreToolUse` or `PermissionRequest` response with `updatedInput` containing the original questions and answers mapped by question text. A live hook invocation supplies the response channel; AgentPier does not invent a Claude native permission request ID. Empty output hands the operation to the native Terminal flow. Hooks run before the ordinary native prompt, so Chat includes explicit Terminal handoff rather than claiming both original dialogs are active simultaneously. [Claude hooks reference](https://code.claude.com/docs/en/hooks#permissionrequest)
+
+### Question delivery and runtime updates (2026-09-13)
+
+Claude caches plugin hook commands. Older AgentPier launches pinned both Node and
+the question adapter to the release that started the session. Updating the web
+server therefore left those sessions on outdated question handling. New launches
+call a private `requests/claude-hook.sh` dispatcher, atomically refreshed by the
+running broker. The hook command stays stable across subsequent server releases.
+
+At startup, AgentPier migrates existing owned Claude plugin files and records that
+the native process still needs to load the new command. Chat displays a one-time
+`/reload-plugins` instruction until an authenticated current hook connects. This
+native command reloads plugin hooks without restarting the conversation.
+[Claude plugin reload documentation](https://code.claude.com/docs/en/plugins#test-your-plugins-locally)
+An old adapter's bare `AskUserQuestion` approval is explicitly identified as a
+question requiring Terminal handoff; the broker rejects ineffective allow/deny
+answers. The update notice alone does not block normal chat.
+
+A published question remains owned by its live hook and reconnects after a server
+restart with the same occurrence ID. Question hooks wait up to 24 hours instead
+of silently expiring after ten minutes. Initial connection failure falls back
+after ten seconds; ordinary permission hooks retain their earlier disconnect and
+timeout fallback. Unsupported question payloads return to native handling before
+opening a channel. Answer acknowledgement follows completion of the hook output
+write, with no automatic replay after uncertain delivery.
+
+Chat keeps the question form mounted across revision and delivery-status updates,
+preserving selections and free text after a retryable failure. Long option labels
+wrap within the mobile question panel. Both German and English browser tests cover
+these behaviors, including legacy handoff and migration notices.
+
+The real Claude Code 2.1.270 TUI was verified with a disposable home, private tmux
+server, synthetic credentials and a loopback provider that only emits
+`AskUserQuestion`. The probe checks repeated questions, multiple selections,
+multiline Unicode free text, a restart while a question is pending, and the exact
+native `tool_result` in Claude's next provider request:
+
+```sh
+node scripts/probe-claude-questions.mjs --local-mock --browser
+```
+
+With `--browser`, the second answer is submitted through the actual mobile chat
+form, built application and HTTP broker, without mocked browser routes.
+An optional `--legacy-hook /absolute/path/to/older/claude-hook.js` additionally
+starts with that adapter, migrates its plugin, runs `/reload-plugins`, and verifies
+the same conversation receives subsequent answers. AgentPier 1.17.0 to 1.17.10 was
+verified with this mode. The probe does not use user credentials or send prompts
+to a remote model.
 
 ## OpenCode
 
@@ -45,7 +93,7 @@ The native `always` decision applies to suggested patterns for the current OpenC
 - The native helper also claims before awaiting I/O. Browser double-clicks, two browser clients, delayed requests, resolved native prompts and repeated identical content cannot trigger a second answer.
 - Question option values are native labels. This avoids interpreting arbitrary free text such as `o0` as an invented choice identifier. All questions, multi-select flags, descriptions and secret flags remain available to the UI.
 - Only occurrence metadata and a small decision enum enter audit/notification events. Native request IDs, launch tokens, commands, prompts and answers are excluded. A bounded private created-event ledger prevents duplicate initial events across helper reconnection and web restart.
-- `requests/` is runtime state and must be excluded from restore. Historical snapshots cannot recreate actionable requests. Active release helpers reference their original immutable release paths and must not be pruned while sessions remain live.
+- `requests/` is runtime state and must be excluded from restore. Historical snapshots cannot recreate actionable requests. Claude's stable dispatcher resolves the running server's adapter; legacy cached commands and other active release helpers may still reference older immutable releases until their native sessions reload.
 
 ## Reproducible verification
 
