@@ -16,7 +16,6 @@ import { probeNativePayloads } from "./probe-chat-tui-payloads.mjs";
 import { probeNativeRecovery } from "./probe-chat-tui-recovery.mjs";
 import { createProbeProvider } from "./probe-chat-tui-provider.mjs";
 import { probeTerminalKeyboard } from "./probe-terminal-keyboard.mjs";
-
 const execute = promisify(execFile);
 const options = process.argv.slice(2);
 const native = options.includes("--native");
@@ -55,7 +54,6 @@ if (
     for (const dispose of cleanup.reverse()) await dispose();
   }
 }
-
 async function waitFor(read, predicate, timeout = 15000) {
   const started = performance.now();
   while (performance.now() - started < timeout) {
@@ -542,7 +540,10 @@ async function probeNative(fixture, cleanup) {
           })
         : undefined;
     const recovery = httpMode
-      ? await probeNativeRecovery(fixture, session, snapshot, counts)
+      ? await probeNativeRecovery(fixture, session, snapshot, counts, {
+          capture,
+          waitFor,
+        })
       : undefined;
     if (!httpMode)
       await manager.tmux([

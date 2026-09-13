@@ -66,6 +66,46 @@ manual draft once, while retrying the earlier, now-changed draft remains blocked
 Real tmux integration tests cover unrecognized composers and a permission request
 that arrives after paste: the latter must prevent Enter.
 
+### Chat after terminal submission regression (2026-09-13)
+
+The manual-input render guard used to remain set until it saw a complete,
+short draft. Submitting a collapsed or multiline paste, or sending text and Enter
+in the same browser input frame, could therefore leave all subsequent Chat sends
+and explicit pre-paste retries rejected even after the native CLI had answered.
+
+The guard now recognizes explicit terminal Enter, Ctrl+C and Ctrl+U as ending the
+outstanding input operation. Later printable input marks it pending again. This
+tracks user input intent, not provider acceptance or proof of an empty composer;
+the explicit fresh input policy above still applies. Unsubmitted input that has
+not rendered remains protected, as does exact-match recovery of a prior paste.
+
+Each attached terminal keeps bounded protocol state across input frames. Pasted
+carriage returns and modified Enter do not count as submission. Automatic terminal
+replies, including fragmented OSC color reports, do not become phantom drafts.
+The guard retains no prompt text. No timeout, background resend or extra Enter is
+introduced, and request, session-generation and at-most-once guards remain active.
+
+Unit regressions cover all three CLIs, batched and fragmented input, paste boundaries,
+modified Enter, explicit clearing and terminal replies. Owned tmux/HTTP integration
+checks reject the unsubmitted paste, accept its explicit retry after terminal Enter,
+and deliver the next fresh message exactly once. The existing delayed-render race
+regression still passes.
+
+The bound native probes below were run with Codex 0.153.4 and Claude Code 2.1.270 on
+macOS arm64 using only the disposable local provider. Both accepted a long multiline
+paste through the browser terminal attachment, answered after one terminal Enter,
+and then accepted Chat with exactly one paste and one Enter; replay wrote no bytes.
+The same runs passed busy queueing, payload preservation and guarded draft recovery.
+Claude also passed the seven-image preparation case. OpenCode has synthetic
+transport coverage for this regression; a native run is not claimed here.
+
+```sh
+node --test tests/unit/manual-input-guard.test.js tests/unit/manual-input-submit.test.js \
+  tests/integration/terminal-chat-render-race.test.js tests/integration/chat-tui-input.test.js
+node scripts/probe-chat-tui.mjs --native --tool codex --local-mock --http --bound --samples 2
+node scripts/probe-chat-tui.mjs --native --tool claude --local-mock --http --bound --samples 2
+```
+
 ### Claude image preparation regression (2026-09-12)
 
 Claude Code 2.1.269 reproduces a separate paste/submit race with larger image
