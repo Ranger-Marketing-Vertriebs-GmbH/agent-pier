@@ -6,6 +6,9 @@ import { fileProblem } from "./file-errors.js";
 import { safeIssue } from "./file-job-handlers.js";
 import { terminalStates } from "./file-schema.js";
 
+const parentFirst = (a, b) =>
+  a.relativePath.split("/").length - b.relativePath.split("/").length;
+
 export class UploadGroups {
   constructor(owner) {
     this.owner = owner;
@@ -35,7 +38,7 @@ export class UploadGroups {
     });
   }
   async directory(context, row, target) {
-    const { store, jobs, publisher, barrier, journal } = this.owner;
+    const { store, jobs, publisher, journal } = this.owner;
     const { scope, jobId, signal } = context;
     signal.throwIfAborted();
     const selected = await resolveFile(scope, target, {
@@ -59,22 +62,30 @@ export class UploadGroups {
         identity,
       };
     }
-    const child = await jobs.start(scope, {
-      requestId: `${Date.now()}:${randomUUID()}`,
-      kind: "create_directory",
-      sources: [],
-      target: path.dirname(target),
-      name: path.basename(target),
-      options: {},
-      parentJobId: jobId,
-      entryId: row.id,
-    });
-    await barrier.run(() =>
-      store.putEntry(jobId, {
-        ...store.getEntry(jobId, row.id),
-        currentJobId: child.id,
-        status: "running",
-      }),
+    const child = await jobs.start(
+      scope,
+      {
+        requestId: `${Date.now()}:${randomUUID()}`,
+        kind: "create_directory",
+        sources: [],
+        target: path.dirname(target),
+        name: path.basename(target),
+        options: {},
+        parentJobId: jobId,
+        entryId: row.id,
+      },
+      {
+        // The existing request transaction owns the child and manifest claim
+        // together, before enqueue or an asynchronous admission handoff.
+        admit: (id) => {
+          signal.throwIfAborted();
+          if (journal.group(jobId).cancelled) throw fileProblem("FILE_CANCELLED", 409);
+          const current = store.getEntry(jobId, row.id);
+          if (current?.status !== "pending")
+            throw fileProblem("FILE_UPLOAD_PENDING", 409);
+          store.putEntry(jobId, { ...current, currentJobId: id, status: "running" });
+        },
+      },
     );
     const result = await jobs.join(scope, child.id);
     const rows = journal.rows(child.id);
@@ -98,9 +109,7 @@ export class UploadGroups {
     for (const row of journal
       .rows(jobId)
       .filter((item) => item.type === "directory")
-      .sort(
-        (a, b) => a.relativePath.split("/").length - b.relativePath.split("/").length,
-      )) {
+      .sort(parentFirst)) {
       if (row.status !== "pending") continue;
       if (journal.group(jobId).cancelled) break;
       signal.throwIfAborted();
@@ -134,7 +143,7 @@ export class UploadGroups {
       }
     }
     await barrier.run(() => {
-      const rows = journal.rows(jobId),
+      const rows = journal.rows(jobId).sort(parentFirst),
         byPath = new Map(rows.map((row) => [row.relativePath, row]));
       for (const row of rows) {
         if (
@@ -267,7 +276,7 @@ export class UploadGroups {
       const group = journal.group(id),
         job = jobs.get(scope, id);
       if (!group) throw fileProblem("FILE_NOT_FOUND", 404);
-      if (terminalStates.includes(job.status)) return [];
+      if (terminalStates.includes(job.status)) return null;
       group.cancelled = true;
       group.generation++;
       journal.save("upload_groups", id, group);
@@ -280,12 +289,47 @@ export class UploadGroups {
           store.putEntry(id, { ...row, status: "cancelled" });
       return journal
         .rows(id)
+        .filter(
+          (row) =>
+            jobs.owns(row.currentJobId) ||
+            !["completed", "skipped", "published"].includes(row.status),
+        )
         .flatMap((row) => (row.currentJobId ? [row.currentJobId] : []));
     });
+    if (children === null) return jobs.get(scope, id);
     jobs.active.get(id)?.controller.abort();
-    for (const child of children) await jobs.cancel(scope, child);
-    await Promise.all(children.map((child) => jobs.join(scope, child)));
+    const dispositions = await Promise.allSettled(
+      children.map((child) =>
+        this.childAction(scope, child, () => jobs.cancel(scope, child)),
+      ),
+    );
+    const drained = await Promise.allSettled(
+      children.map((child) =>
+        this.childAction(scope, child, () => jobs.join(scope, child)),
+      ),
+    );
+    // External cancellation also owns an outstanding directory admission handoff.
+    // The coordinator never calls this method or waits on its own cancellation.
+    await jobs.join(scope, id);
     await barrier.run(() => this.aggregate(scope, id));
+    const failure = [...dispositions, ...drained].find(
+      (result) => result.status === "rejected",
+    );
+    if (failure) throw failure.reason;
     return jobs.get(scope, id);
+  }
+  async childAction(scope, id, action) {
+    try {
+      return await action();
+    } catch (error) {
+      if (
+        error.code !== "FILE_NOT_FOUND" ||
+        this.owner.jobs.owns(id) ||
+        this.owner.store.getOperation(id)
+      )
+        throw error;
+      // Terminal child metadata may expire while its parent's stable result row
+      // remains. A pruned reference must not short-circuit other live children.
+    }
   }
 }

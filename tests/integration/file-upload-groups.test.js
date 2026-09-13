@@ -323,7 +323,12 @@ test("fresh file retry cannot bypass an unresolved directory publication", async
   };
   const id = await group(f, [file("a", "parent/a")]);
   assert.equal(f.store.getEntry(id, "a").status, "failed");
-  assert.ok(f.store.listPublications().some((record) => record.phase !== "resolved"));
+  const unresolved = f.store
+    .listPublications()
+    .find((record) => record.phase !== "resolved");
+  assert.ok(unresolved);
+  await f.barrier.run(() => f.store.prune(Date.now() + 8 * 86400000));
+  assert.equal(f.jobs.get(f.scope, unresolved.jobId).kind, "create_directory");
   await assert.rejects(child(f, id, "a"), { code: "FILE_UPLOAD_PENDING" });
   assert.equal(f.store.uploads.group(id).attemptedBytes, 0);
 });

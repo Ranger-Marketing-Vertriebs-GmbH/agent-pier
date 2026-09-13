@@ -45,12 +45,18 @@ export async function receiveUploadBytes(owner, scope, id, readable, stage, sign
     },
   });
   const abort = () => readable.destroy();
+  // Pipeline cannot finish an async iterator's pending original read until the
+  // readable is stopped. Downstream errors must do this without client input.
+  counter.on("error", abort);
+  output.on("error", abort);
   signal.addEventListener("abort", abort, { once: true });
   if (signal.aborted) abort();
   try {
     await pipeline(chunks(), counter, output, { signal });
   } finally {
     signal.removeEventListener("abort", abort);
+    counter.removeListener("error", abort);
+    output.removeListener("error", abort);
   }
   if (received !== owner.journal.attempt(id).bytes)
     throw fileProblem("FILE_UPLOAD_LENGTH", 400);

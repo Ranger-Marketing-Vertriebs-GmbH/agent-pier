@@ -245,6 +245,20 @@ export class FileUploadStore {
     }
     return result;
   }
+  assertRetryable(scope, row, owns) {
+    const id = row.currentJobId;
+    if (!id) return;
+    if (owns(id) || this.unresolved(id)) throw fileProblem("FILE_UPLOAD_PENDING", 409);
+    // Retention may remove a terminal child while its unfinished parent keeps
+    // the disposition. Absence never overrides a live owner or publication pin.
+    if (!this.store.getOperation(id)) {
+      if (!["failed", "cancelled", "interrupted"].includes(row.status))
+        throw fileProblem("FILE_UPLOAD_PENDING", 409);
+      return;
+    }
+    if (!terminalStates.includes(this.store.getJob(scope, id).status))
+      throw fileProblem("FILE_UPLOAD_PENDING", 409);
+  }
   claim(scope, id, operation, owns = () => false) {
     const { bytes } = operation.options;
     if (operation.parentJobId) {
@@ -263,15 +277,7 @@ export class FileUploadStore {
         row.path !== path.join(operation.target, operation.name)
       )
         throw fileProblem("FILE_INVALID_OPERATION", 409);
-      if (row.currentJobId) {
-        const prior = this.store.getJob(scope, row.currentJobId);
-        if (
-          owns(row.currentJobId) ||
-          !terminalStates.includes(prior.status) ||
-          this.unresolved(row.currentJobId)
-        )
-          throw fileProblem("FILE_UPLOAD_PENDING", 409);
-      }
+      this.assertRetryable(scope, row, owns);
       group.cancelled = false;
       this.save("upload_groups", groupId, group);
       this.store.putEntry(groupId, {
@@ -294,15 +300,7 @@ export class FileUploadStore {
           directory &&
           ["failed", "cancelled", "interrupted"].includes(directory.status)
         ) {
-          if (
-            directory.currentJobId &&
-            (owns(directory.currentJobId) ||
-              !terminalStates.includes(
-                this.store.getJob(scope, directory.currentJobId).status,
-              ) ||
-              this.unresolved(directory.currentJobId))
-          )
-            throw fileProblem("FILE_UPLOAD_PENDING", 409);
+          this.assertRetryable(scope, directory, owns);
           this.store.putEntry(groupId, {
             ...directory,
             status: "pending",

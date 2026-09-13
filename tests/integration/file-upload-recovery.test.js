@@ -103,6 +103,14 @@ test("restart proves publication once and repairs child/group completion without
       .uploadCompleted,
     undefined,
   );
+  await f.until(() => !f.jobs.owns(uploadId));
+  await f.barrier.run(() => f.store.prune(Date.now() + 8 * 86400000));
+  assert.equal(f.jobs.get(f.scope, uploadId).status, "failed");
+  await assert.rejects(
+    f.uploads.create(f.scope, { ...request, requestId: uploadRequest() }),
+    { code: "FILE_UPLOAD_PENDING" },
+  );
+  assert.equal(f.store.uploads.group(group.groupId).attemptedBytes, 3);
   await f.restart();
   assert.equal(f.jobs.get(f.scope, uploadId).status, "completed");
   assert.equal(f.store.getEntry(group.groupId, "file").status, "completed");

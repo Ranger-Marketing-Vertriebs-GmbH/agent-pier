@@ -74,7 +74,7 @@ export class FileJobs {
   entries(scope, id, cursor) {
     return this.store.listEntries(scope, id, cursor);
   }
-  async start(scope, operation, { publicOnly = false } = {}) {
+  async start(scope, operation, { publicOnly = false, admit } = {}) {
     this.ensureOpen();
     validateOperation(operation);
     operation = structuredClone(operation);
@@ -90,7 +90,7 @@ export class FileJobs {
     if (scope.readOnly && !policy.readOnly) throw fileProblem("FILE_READ_ONLY", 403);
     const { job, created } = await this.barrier.run(() => {
       this.ensureOpen();
-      return this.store.request(scope, operation);
+      return this.store.request(scope, operation, { admit });
     });
     if (created)
       this.enqueue({
