@@ -14,6 +14,19 @@ import { applicationFixture } from "../helpers/application.js";
 import { waitForFileJob } from "../helpers/file-explorer.js";
 import { submitCopy, copyFixture } from "../helpers/file-copy.js";
 
+async function sourceRevisions(f, sources) {
+  const revisions = {};
+  for (const source of sources) {
+    const response = await f.request(
+      `/api/files/metadata?path=${encodeURIComponent(source)}`,
+    );
+    assert.equal(response.status, 200);
+    revisions[source] = (await response.json()).revision;
+    assert.match(revisions[source], /^e1:[a-f0-9]{64}$/);
+  }
+  return revisions;
+}
+
 async function startConflictingCopy(f) {
   const source = path.join(f.home, "source"),
     target = path.join(f.home, "target");
@@ -243,3 +256,184 @@ for (const kind of ["copy", "move"])
       setLanguage("de");
     }
   });
+
+for (const kind of ["copy", "move"]) {
+  test(`HTTP ${kind} accepts exact clipboard revisions and binds them to the request ID`, async (t) => {
+    const f = await applicationFixture(t);
+    const source = path.join(f.home, "source"),
+      child = path.join(source, "child"),
+      target = path.join(f.home, "target");
+    await fs.mkdir(source);
+    await fs.mkdir(target);
+    await fs.writeFile(child, "selected bytes");
+    const sources = [source, child, source],
+      revisions = await sourceRevisions(f, sources);
+    const options = { revisions },
+      requestId = `${Date.now()}:${crypto.randomUUID()}`;
+    const job = await submitCopy(f, sources, target, { kind, options, requestId });
+    const done = await waitForFileJob(f, job.id);
+    assert.equal(done.status, "completed", JSON.stringify(done));
+    assert.equal(done.completedEntries, 2);
+    assert.equal(
+      await fs.readFile(path.join(target, "source", "child"), "utf8"),
+      "selected bytes",
+    );
+    if (kind === "move") await assert.rejects(fs.lstat(source), { code: "ENOENT" });
+    else assert.equal(await fs.readFile(child, "utf8"), "selected bytes");
+    assert.equal(
+      (await submitCopy(f, sources, target, { kind, options, requestId })).id,
+      job.id,
+    );
+    const context = await (await f.request("/api/files/context")).json();
+    const changed = await f.request("/api/files/operations", {
+      method: "POST",
+      headers: { "X-File-Scope": context.scopeId },
+      body: {
+        requestId,
+        kind,
+        sources,
+        target,
+        name: null,
+        options: { revisions: { ...revisions, [child]: `e1:${"a".repeat(64)}` } },
+      },
+    });
+    assert.equal(changed.status, 409);
+    assert.equal((await changed.json()).code, "FILE_REQUEST_CONFLICT");
+  });
+
+  test(`HTTP ${kind} rejects stale selection revisions before changing any source or destination`, async (t) => {
+    const f = await applicationFixture(t);
+    const first = path.join(f.home, "first"),
+      stale = path.join(f.home, "stale"),
+      target = path.join(f.home, "target");
+    await fs.mkdir(target);
+    await fs.writeFile(first, "first bytes");
+    await fs.writeFile(stale, "selected bytes");
+    const sources = [first, stale],
+      revisions = await sourceRevisions(f, sources);
+    await fs.writeFile(stale, "new external bytes");
+    const job = await submitCopy(f, sources, target, { kind, options: { revisions } });
+    const done = await waitForFileJob(f, job.id);
+    assert.equal(done.status, "failed");
+    assert.equal(done.issue.code, "FILE_CONFLICT_CHANGED");
+    assert.equal(done.completedEntries, 0);
+    assert.deepEqual(await fs.readdir(target), []);
+    assert.equal(await fs.readFile(first, "utf8"), "first bytes");
+    assert.equal(await fs.readFile(stale, "utf8"), "new external bytes");
+    assert.equal(
+      f.application.files.store
+        .listPublications()
+        .filter((record) => record.jobId === job.id).length,
+      0,
+    );
+  });
+
+  test(`HTTP ${kind} checks a stale selected child before parent deduplication`, async (t) => {
+    const f = await applicationFixture(t);
+    const source = path.join(f.home, "source"),
+      child = path.join(source, "child"),
+      target = path.join(f.home, "target");
+    await fs.mkdir(source);
+    await fs.mkdir(target);
+    await fs.writeFile(child, "before");
+    const sources = [source, child],
+      revisions = await sourceRevisions(f, sources);
+    await fs.writeFile(child, "after!");
+    assert.equal((await sourceRevisions(f, [source]))[source], revisions[source]);
+    const job = await submitCopy(f, sources, target, { kind, options: { revisions } });
+    const done = await waitForFileJob(f, job.id);
+    assert.equal(done.status, "failed");
+    assert.equal(done.issue.code, "FILE_CONFLICT_CHANGED");
+    assert.deepEqual(await fs.readdir(target), []);
+    assert.equal(await fs.readFile(child, "utf8"), "after!");
+  });
+
+  test(`HTTP ${kind} keeps clipboard preconditions bound through the planning scan`, async (t) => {
+    const f = await applicationFixture(t);
+    const source = path.join(f.home, "source"),
+      child = path.join(source, "child"),
+      target = path.join(f.home, "target");
+    await fs.mkdir(source);
+    await fs.mkdir(target);
+    await fs.writeFile(child, "before");
+    const sources = [source, child],
+      revisions = await sourceRevisions(f, sources);
+    const publisher = f.application.files.publisher,
+      assertExpected = publisher.assertExpected.bind(publisher);
+    let raced = false;
+    publisher.assertExpected = async (scope, selected, ...args) => {
+      const result = await assertExpected(scope, selected, ...args);
+      if (selected === child && !raced) {
+        raced = true;
+        await fs.writeFile(child, "after!");
+      }
+      return result;
+    };
+    const job = await submitCopy(f, sources, target, { kind, options: { revisions } });
+    const done = await waitForFileJob(f, job.id);
+    assert.equal(done.status, "failed", JSON.stringify(done));
+    assert.equal(done.issue.code, "FILE_CONFLICT_CHANGED");
+    assert.deepEqual(await fs.readdir(target), []);
+    assert.equal(await fs.readFile(child, "utf8"), "after!");
+  });
+}
+
+test("HTTP clipboard preconditions treat a disappeared ancestor as a changed source", async (t) => {
+  const f = await applicationFixture(t),
+    parent = path.join(f.home, "parent"),
+    source = path.join(parent, "source"),
+    target = path.join(f.home, "target");
+  await fs.mkdir(parent);
+  await fs.mkdir(target);
+  await fs.writeFile(source, "before");
+  const revisions = await sourceRevisions(f, [source]);
+  await fs.rm(parent, { recursive: true });
+  const job = await submitCopy(f, [source], target, { options: { revisions } });
+  const done = await waitForFileJob(f, job.id);
+  assert.equal(done.status, "failed");
+  assert.equal(done.issue.code, "FILE_CONFLICT_CHANGED");
+  assert.deepEqual(await fs.readdir(target), []);
+});
+
+test("HTTP clipboard revisions reject missing/extra keys, coercion, schemes and unknown options", async (t) => {
+  const f = await applicationFixture(t),
+    source = path.join(f.home, "source"),
+    target = path.join(f.home, "target");
+  await fs.writeFile(source, "keep");
+  await fs.mkdir(target);
+  const revisions = await sourceRevisions(f, [source]),
+    revision = revisions[source];
+  const context = await (await f.request("/api/files/context")).json();
+  for (const kind of ["copy", "move"])
+    for (const options of [
+      { revisions: null },
+      { revisions: [] },
+      { revisions: revision },
+      { revisions: {} },
+      { revisions: { ...revisions, extra: revision } },
+      { revisions: { [source]: [revision] } },
+      { revisions: { [source]: { toString: revision } } },
+      { revisions: { [source]: 17 } },
+      { revisions: { [source]: revision.replace("e1:", "d1:") } },
+      { revisions: { [source]: revision.replace("e1:", "p1:") } },
+      { revisions: { [source]: "e1:invalid" } },
+      { revisions, overwrite: true },
+    ]) {
+      const response = await f.request("/api/files/operations", {
+        method: "POST",
+        headers: { "X-File-Scope": context.scopeId },
+        body: {
+          requestId: `${Date.now()}:${crypto.randomUUID()}`,
+          kind,
+          sources: [source],
+          target,
+          name: null,
+          options,
+        },
+      });
+      assert.equal(response.status, 400, JSON.stringify({ kind, options }));
+      assert.equal((await response.json()).code, "FILE_INVALID_OPERATION");
+    }
+  assert.deepEqual(await fs.readdir(target), []);
+  assert.equal(await fs.readFile(source, "utf8"), "keep");
+});

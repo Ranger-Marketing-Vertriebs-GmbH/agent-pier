@@ -22,13 +22,39 @@ export const revisionOf = (selected) =>
   selected.stat ? entryRevision(selected.stat, selected.linkIdentity) : null;
 
 export function validateCopyOperation(op) {
-  return (
-    ["copy", "move"].includes(op.kind) &&
-    op.sources.length > 0 &&
-    typeof op.target === "string" &&
-    op.name === null &&
-    Object.keys(op.options).length === 0
+  if (
+    !["copy", "move"].includes(op.kind) ||
+    op.sources.length === 0 ||
+    typeof op.target !== "string" ||
+    op.name !== null ||
+    Object.keys(op.options).some((key) => key !== "revisions")
+  )
+    return false;
+  if (!Object.hasOwn(op.options, "revisions")) return true;
+  const revisions = op.options.revisions,
+    sources = new Set(op.sources);
+  return Boolean(
+    revisions &&
+    typeof revisions === "object" &&
+    !Array.isArray(revisions) &&
+    Object.keys(revisions).length === sources.size &&
+    [...sources].every(
+      (source) =>
+        Object.hasOwn(revisions, source) &&
+        typeof revisions[source] === "string" &&
+        /^e1:[a-f0-9]{64}$/.test(revisions[source]),
+    ),
   );
+}
+
+async function assertSourcePrecondition(owner, scope, source, revision) {
+  try {
+    return await owner.publisher.assertExpected(scope, source, revision);
+  } catch (error) {
+    if (["FILE_NOT_FOUND", "FILE_NOT_DIRECTORY"].includes(error.code))
+      throw fileProblem("FILE_CONFLICT_CHANGED", 409);
+    throw error;
+  }
 }
 
 export async function planCopies(owner, context) {
@@ -39,8 +65,19 @@ export async function planCopies(owner, context) {
   const sources = [];
   for (const source of [...new Set(operation.sources)]) {
     signal.throwIfAborted();
+    // Clipboard preconditions apply to every original selection before parent/child
+    // deduplication. A stale selection rejects planning before any namespace work.
+    const expected = operation.options.revisions
+      ? await assertSourcePrecondition(
+          owner,
+          scope,
+          source,
+          operation.options.revisions[source],
+        )
+      : null;
     try {
-      const selected = await resolveFile(scope, source, { followLeaf: false });
+      const selected =
+        expected || (await resolveFile(scope, source, { followLeaf: false }));
       assertFileMutationTarget(scope, selected);
       owner.trash.assertProtected(selected.absolute);
       if (selected.stat.isDirectory() && isWithin(selected.absolute, target.absolute))
@@ -127,6 +164,18 @@ export async function planCopies(owner, context) {
       });
     }
   }
+  // A scan can take time. Recheck the original clipboard references again before
+  // publishing the plan; subsequent transfer checks keep its manifests current.
+  if (operation.options.revisions)
+    for (const source of new Set(operation.sources)) {
+      signal.throwIfAborted();
+      await assertSourcePrecondition(
+        owner,
+        scope,
+        source,
+        operation.options.revisions[source],
+      );
+    }
   await owner.publisher.barrier.run(() => {
     for (const item of items)
       for (const row of item.rows) owner.publisher.store.putEntry(context.jobId, row);
