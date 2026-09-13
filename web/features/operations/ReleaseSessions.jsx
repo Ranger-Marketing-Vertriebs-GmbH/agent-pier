@@ -46,7 +46,7 @@ export default function ReleaseSessions({
   );
   const ineligible = sessions.some((s) => !s.eligible && !inFlight(s.reload));
   return (
-    <div className="operations-sessions">
+    <div>
       <button className="button secondary" onClick={() => setOpen((value) => !value)}>
         {copy.migrateSessions}
       </button>
@@ -99,6 +99,7 @@ export default function ReleaseSessions({
               <button
                 className="button secondary"
                 onClick={async () => {
+                  setCancelError("");
                   try {
                     await api(
                       `/operations/releases/cleanup/${encodeURIComponent(version)}/migrate`,
