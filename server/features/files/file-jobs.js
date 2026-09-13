@@ -157,6 +157,12 @@ export class FileJobs {
     let scope = item.scope;
     try {
       controller.signal.throwIfAborted();
+      const running = await this.barrier.run(() =>
+        this.store.transition(job.id, "queued", "running"),
+      );
+      controller.signal.throwIfAborted();
+      if (!running) return this.get(item.scope, job.id);
+      // Admission may wait behind a snapshot; refresh authority after that wait.
       if (this.context) {
         scope = await this.context(scope.sessionId);
         if (scope.id !== item.scope.id) throw fileProblem("FILE_INVALID_SCOPE", 409);
@@ -164,11 +170,6 @@ export class FileJobs {
       if (scope.readOnly && !item.policy.readOnly)
         throw fileProblem("FILE_READ_ONLY", 403);
       controller.signal.throwIfAborted();
-      const running = await this.barrier.run(() =>
-        this.store.transition(job.id, "queued", "running"),
-      );
-      controller.signal.throwIfAborted();
-      if (!running) return this.get(item.scope, job.id);
       await handler({
         scope,
         operation,
@@ -216,19 +217,32 @@ export class FileJobs {
       throw new Error("Release file leases before waiting for a conflict.");
     item.controller.signal.throwIfAborted();
     const decision = Promise.withResolvers();
+    // Own rejection immediately, even while the journal publication is queued.
+    const outcome = decision.promise.then(
+      (value) => ({ value }),
+      (error) => ({ error, failed: true }),
+    );
     const conflict = projectConflict({ ...info, id: randomUUID() });
     // Install the waiter before publishing its identity, so an immediate resolve cannot be lost.
     item.conflict = { ...decision, id: conflict.id };
     const abort = () => decision.reject(item.controller.signal.reason);
     item.controller.signal.addEventListener("abort", abort, { once: true });
     try {
-      const published = await this.barrier.run(() =>
-        this.store.transition(item.job.id, "running", "waiting_for_conflict", {
-          conflict,
-        }),
-      );
-      if (!published) throw fileProblem("FILE_CONFLICT_CHANGED", 409);
-      return await decision.promise;
+      try {
+        const published = await this.barrier.run(() =>
+          this.store.transition(item.job.id, "running", "waiting_for_conflict", {
+            conflict,
+          }),
+        );
+        item.controller.signal.throwIfAborted();
+        if (!published) throw fileProblem("FILE_CONFLICT_CHANGED", 409);
+      } catch (error) {
+        decision.reject(error);
+      }
+      const result = await outcome;
+      if (result.failed) throw result.error;
+      item.controller.signal.throwIfAborted();
+      return result.value;
     } finally {
       item.controller.signal.removeEventListener("abort", abort);
       item.conflict = null;
