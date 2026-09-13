@@ -46,7 +46,8 @@ async function json(file) {
     throw error;
   }
 }
-async function state(broker, session) {
+/** Launch/binding identity of a Claude session and whether its native receipt exists. */
+export async function startupState(broker, session) {
   const launch = await json(broker.file(session.id));
   if (
     !launch ||
@@ -78,77 +79,14 @@ async function state(broker, session) {
     identity: hookLaunchIdentity(launch),
   };
 }
-const folderId = (current) =>
+export const folderId = (current) =>
   createHash("sha256")
     .update(`claude-folder:${current.identity}:${current.binding.token}`)
     .digest("hex");
-const localEntry = (broker, id) =>
-  [...broker.entries.values()].find(
-    (e) => e.sessionId === id && e.presentation === "claudeFolderTrust",
-  );
-export async function refreshFolderTrust(broker, session) {
-  if (
-    session.tool !== "claude" ||
-    !session.nativeRequests?.enabled ||
-    !session.nativeBinding?.enabled ||
-    session.status !== "running" ||
-    !broker.sessions.control
-  )
-    return;
-  const current = await state(broker, session);
-  const previous = localEntry(broker, session.id);
-  if (current?.started || !current) {
-    if (previous) {
-      broker.entries.delete(previous.id);
-      broker.emit(previous, "request.expired");
-    }
-    return;
-  }
-  return broker.sessions.control(session.id, async (control) => {
-    const fresh = await state(broker, control.session);
-    const menu =
-      fresh &&
-      !fresh.started &&
-      folderTrustScreen(await control.screen(), control.session.cwd);
-    if (!menu) {
-      if (previous) {
-        broker.entries.delete(previous.id);
-        broker.emit(previous, "request.expired");
-      }
-      return;
-    }
-    const id = folderId(fresh);
-    if (broker.entries.has(id)) return;
-    if (previous) {
-      broker.entries.delete(previous.id);
-      broker.emit(previous, "request.expired");
-    }
-    const entry = {
-      id,
-      sessionId: session.id,
-      accountId: session.accountId,
-      launchIdentity: fresh.identity,
-      local: true,
-      presentation: "claudeFolderTrust",
-      kind: "permission",
-      revision: 1,
-      status: "pending",
-      source: "claude",
-      createdAt: new Date().toISOString(),
-      subject: { path: control.session.cwd },
-      options: [
-        { id: "trust", label: "Yes, I trust this folder", scope: "persistent" },
-        { id: "exit", label: "No, exit" },
-      ],
-    };
-    broker.entries.set(id, entry);
-    broker.emit(entry, "request.created");
-  });
-}
 export async function answerFolderTrust(broker, entry, choice) {
   if (!["trust", "exit"].includes(choice)) throw problem(copy.invalid, 400);
   return broker.sessions.control(entry.sessionId, async (control) => {
-    const current = await state(broker, control.session);
+    const current = await startupState(broker, control.session);
     if (
       !current ||
       current.started ||
@@ -171,7 +109,7 @@ export async function answerFolderTrust(broker, entry, choice) {
       if (menu.selected === choice) break;
       await delay(25);
     }
-    const verified = await state(broker, control.session);
+    const verified = await startupState(broker, control.session);
     if (
       !verified ||
       folderId(verified) !== entry.id ||
@@ -186,7 +124,7 @@ export async function answerFolderTrust(broker, entry, choice) {
       if (choice === "exit") {
         if (!folderTrustScreen(await control.screen(), control.session.cwd)) return;
       } else {
-        const next = await state(broker, control.session);
+        const next = await startupState(broker, control.session);
         if (next?.identity !== entry.launchIdentity) throw problem(copy.stale, 409);
         const config = current.launch.claudeTrustFile
           ? await json(current.launch.claudeTrustFile)
