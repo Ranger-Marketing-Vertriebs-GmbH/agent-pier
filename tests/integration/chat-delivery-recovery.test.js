@@ -103,6 +103,35 @@ test("a proven pre-write rejection can be pasted and submitted explicitly", asyn
   assert.deepEqual(x.writes, [["paste", x.body.text], ["submit"]]);
 });
 
+test("recovery rejected before paste stays rejected and can be retried after the guard clears", async (t) => {
+  const x = await fixture(t, "reserved");
+  const original = x.f.application.sessions.withChatInput;
+  x.f.application.sessions.withChatInput = (id, operation) =>
+    original(id, (tx) =>
+      operation({
+        ...tx,
+        write: async () => {
+          throw Object.assign(Error("Terminal input has not rendered"), { status: 409 });
+        },
+      }),
+    );
+  const rejected = await x.post();
+  assert.equal(rejected.status, "rejected");
+  assert.equal(rejected.recovery.action, "blocked");
+  assert.equal(rejected.recovery.reason, rejected.error);
+  assert.equal(x.delivery.read(x.file).journal.phase, "reserved");
+  assert.deepEqual(x.writes, []);
+  assert.deepEqual(await x.post(), rejected);
+  x.f.application.sessions.withChatInput = original;
+  const result = await x.post({
+    ...x.body,
+    attemptId: randomUUID(),
+    expectedAttemptId: rejected.attemptId,
+  });
+  assert.equal(result.status, "handed-off");
+  assert.deepEqual(x.writes, [["paste", x.body.text], ["submit"]]);
+});
+
 test("a pre-write rejection can be retried explicitly despite an unreadable composer", async (t) => {
   const x = await fixture(t, "reserved");
   x.setComposer({ state: "unknown", text: null });
