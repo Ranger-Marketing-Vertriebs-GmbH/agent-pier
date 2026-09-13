@@ -41,7 +41,7 @@ function themeDialog(lines, text) {
     options: rows.map((m) => ({ id: m[2], label: m[3] })),
   };
 }
-function apiKeyDialog(lines) {
+function keyConfirmationDialog(lines) {
   const heading = lines.findIndex(
     (line, index) =>
       /^─{20,}$/.test(line.trim()) &&
@@ -101,7 +101,7 @@ export function startupScreen(raw, cwd, { started = true } = {}) {
   if (!text) return null;
   return (
     themeDialog(lines, text) ||
-    apiKeyDialog(lines) ||
+    keyConfirmationDialog(lines) ||
     securityNotesDialog(lines) ||
     loginDialog(lines) ||
     (started ? null : unknownDialog(lines, text))
