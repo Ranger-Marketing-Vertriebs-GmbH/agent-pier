@@ -57,7 +57,15 @@
 }
 .file-preview-heading {
   justify-content: space-between;
-  flex-wrap: nowrap;
+}
+.file-preview-heading > code {
+  flex: 1 1 140px;
+}
+.file-preview-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
 }
 .file-preview pre {
   white-space: pre-wrap;
