@@ -3,12 +3,14 @@ import { fileProblem, fileSystemProblem } from "../features/files/file-errors.js
 import { readFileLimits } from "../features/files/file-limits.js";
 import { FileListingStore } from "../features/files/file-listing.js";
 import { metadata, preview } from "../features/files/file-reading.js";
+import { FilePreferences } from "../features/files/file-preferences.js";
 
 export function createFileServices({ config, sessions, mutationBarrier }) {
   if (!mutationBarrier) throw new TypeError("File services require a mutation barrier.");
   const limits = Object.freeze(readFileLimits(config.files?.limits));
   const listings = new FileListingStore({ limits });
   const reading = Object.freeze({ metadata, preview });
+  const preferences = new FilePreferences({ dataDir: config.dataDir, home: config.home });
 
   async function context(sessionId = null) {
     try {
@@ -28,6 +30,7 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
     context,
     listings,
     reading,
+    preferences,
     limits,
     close() {
       listings.snapshots.clear();

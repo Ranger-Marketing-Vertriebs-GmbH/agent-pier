@@ -221,6 +221,7 @@ test("stable file issues retain public args and resolve reactive German and Engl
     "FILE_SNAPSHOT_EXPIRED",
     "FILE_LIMIT_EXCEEDED",
     "FILE_UNSUPPORTED_TYPE",
+    "FILE_INVALID_PREFERENCES",
   ];
   for (const code of codes) {
     const error = fileProblem(code, 403, { count: 2 });

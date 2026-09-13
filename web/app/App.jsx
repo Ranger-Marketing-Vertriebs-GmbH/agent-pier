@@ -20,6 +20,7 @@ import useWorkspaceNavigation from "./useWorkspaceNavigation.js";
 import MobileHeader from "./MobileHeader.jsx";
 const PipelinePage = lazy(() => import("../features/pipelines/PipelinePage.jsx"));
 const AgentBus = lazy(() => import("../features/agentbus/AgentBusPage.jsx"));
+const FilesPage = lazy(() => import("../features/files/FilesPage.jsx"));
 export default function App() {
   useLanguage();
   const { state, loading, error, ready, refresh } = useWorkspaceState();
@@ -119,6 +120,16 @@ export default function App() {
           </Suspense>
         ) : view === "memory" ? (
           <MemoryPage route={route} onNavigate={navigate} home={state.home} />
+        ) : view === "files" ? (
+          <Suspense
+            fallback={
+              <p className="loading" role="status">
+                {copy.workspaceLoading}
+              </p>
+            }
+          >
+            <FilesPage route={route} navigate={navigate} />
+          </Suspense>
         ) : view === "settings" ? (
           <Settings
             state={state}

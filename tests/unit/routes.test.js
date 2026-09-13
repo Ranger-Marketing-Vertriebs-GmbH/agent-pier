@@ -149,6 +149,7 @@ test("file explorer links retain Unicode paths, preview and pagination", () => {
     fileSort: "name",
     fileDirection: "asc",
     fileHidden: false,
+    fileHiddenExplicit: false,
     fileFilter: "",
     filePage: 2,
     filePageInvalid: null,

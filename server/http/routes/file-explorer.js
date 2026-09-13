@@ -50,6 +50,10 @@ function hiddenValue(value) {
   throw fileProblem("FILE_INVALID_SORT", 400);
 }
 
+function openedScope(req, scope) {
+  if (req.get("X-File-Scope") !== scope.id) throw fileProblem("FILE_INVALID_SCOPE", 409);
+}
+
 function registerReadRoutes(router, prefix, files) {
   const scope = (req) => files.context(req.params.id || null);
 
@@ -65,6 +69,21 @@ function registerReadRoutes(router, prefix, files) {
         readOnly: current.readOnly,
         limits: files.limits,
       });
+    }),
+  );
+  router.get(
+    `${prefix}/preferences`,
+    fileHandler(async (req, res) => {
+      const current = await scope(req);
+      res.json(files.preferences.get(current));
+    }),
+  );
+  router.patch(
+    `${prefix}/preferences`,
+    fileHandler(async (req, res) => {
+      const current = await scope(req);
+      openedScope(req, current);
+      res.json(files.preferences.update(current, req.body));
     }),
   );
   router.get(

@@ -14,6 +14,7 @@ export function readExplorerRoute(search) {
     fileSort: sorts.has(sort) ? sort : "name",
     fileDirection: directions.has(direction) ? direction : "asc",
     fileHidden: query.get("hidden") === "1",
+    fileHiddenExplicit: query.has("hidden"),
     fileFilter: (query.get("filter") || "").slice(0, 300),
     filePage: validPage ? Number(rawPage) : 1,
     filePageInvalid: hasPage && !validPage ? rawPage : null,
@@ -28,6 +29,7 @@ export function explorerQuery(route) {
   if (route.fileDirection && route.fileDirection !== "asc")
     query.set("direction", route.fileDirection);
   if (route.fileHidden) query.set("hidden", "1");
+  else if (route.fileHiddenExplicit) query.set("hidden", "0");
   if (route.fileFilter) query.set("filter", route.fileFilter);
   if (route.filePageInvalid !== null && route.filePageInvalid !== undefined)
     query.set("page", String(route.filePageInvalid));

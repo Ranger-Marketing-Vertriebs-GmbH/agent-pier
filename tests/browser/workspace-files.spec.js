@@ -37,6 +37,7 @@ test("clone folder picker creates and chooses a server directory without submitt
 for (const mobile of [false, true])
   test(`project files preserve folder and text preview across reload (${mobile ? "mobile" : "desktop"})`, async ({
     page,
+    browserName,
   }) => {
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
     const { state } = await fixture(page);
@@ -50,20 +51,62 @@ for (const mobile of [false, true])
     });
     await page.route("**/api/sessions/files-session/files**", async (route) => {
       const url = new URL(route.request().url());
-      if (url.pathname.endsWith("/content"))
+      if (url.pathname.endsWith("/explorer/context"))
+        return route.fulfill({
+          json: {
+            scopeId: "f1:project-fixture",
+            kind: "project",
+            root: "/home/test/project",
+            home: "/home/test",
+            readOnly: false,
+            limits: { listPageSize: 200, listEntries: 100000 },
+          },
+        });
+      if (url.pathname.endsWith("/explorer/preferences"))
+        return route.fulfill({ json: { favorites: [], showHidden: false } });
+      if (url.pathname.endsWith("/explorer/metadata"))
+        return route.fulfill({
+          json: {
+            name: "hello.txt",
+            path: "src/hello.txt",
+            type: "file",
+            size: 28,
+            modifiedAt: "2026-09-13T10:00:00.000Z",
+            mode: 0o100600,
+            readable: true,
+            writable: true,
+            linkTarget: null,
+            revision: "e1:fixture",
+          },
+        });
+      if (url.pathname.endsWith("/explorer/preview"))
         return route.fulfill({
           json: { type: "text", text: "Hello <script>world</script>" },
         });
+      if (!url.pathname.endsWith("/explorer/entries"))
+        return route.fulfill({ status: 500, json: { error: "Unexpected file route" } });
       const folder = url.searchParams.get("path") || "";
+      const rawEntries = folder
+        ? [{ name: "hello.txt", path: "src/hello.txt", type: "file", size: 28 }]
+        : [{ name: "src", path: "src", type: "directory", size: null }];
       return route.fulfill({
         json: {
           path: folder,
+          parent: folder ? "" : null,
           page: 1,
+          pageSize: 200,
           total: 1,
           hasMore: false,
-          entries: folder
-            ? [{ name: "hello.txt", path: "src/hello.txt", type: "file" }]
-            : [{ name: "src", path: "src", type: "directory" }],
+          snapshotId: "snapshot-project",
+          entries: rawEntries.map((entry) => ({
+            ...entry,
+            modifiedAt: "2026-09-13T10:00:00.000Z",
+            mode: entry.type === "directory" ? 0o40700 : 0o100600,
+            readable: true,
+            writable: true,
+            linkTarget: null,
+            revision: "e1:fixture",
+          })),
         },
       });
     });
@@ -83,7 +126,8 @@ for (const mobile of [false, true])
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
     ).toBe(true);
     await page.screenshot({
-      path: `/tmp/agentpier-files-${mobile ? "mobile" : "desktop"}.png`,
+      path: `.superpowers/sdd/2026-09-13-file-explorer/screenshots/${browserName}-de-${mobile ? "mobile-390x844" : "desktop-1440x1000"}-project-files.png`,
+      fullPage: true,
     });
     await page.getByRole("button", { name: "Vorschau schließen" }).click();
     await page.goBack();

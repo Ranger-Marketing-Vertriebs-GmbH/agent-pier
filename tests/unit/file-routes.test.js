@@ -15,6 +15,7 @@ test("global Explorer routes preserve encoded paths and compact defaults", () =>
     fileSort: "name",
     fileDirection: "asc",
     fileHidden: false,
+    fileHiddenExplicit: false,
     fileFilter: "",
     filePage: 1,
     filePageInvalid: null,
@@ -37,6 +38,7 @@ test("Explorer routes retain sort filter hidden and explicit invalid page state"
     fileSort: "modifiedAt",
     fileDirection: "desc",
     fileHidden: true,
+    fileHiddenExplicit: true,
     fileFilter: "a b#%",
     filePage: 1,
     filePageInvalid: "07",
@@ -53,6 +55,14 @@ test("Explorer routes retain sort filter hidden and explicit invalid page state"
   }
   for (const value of ["other", "SIZE", "modified-at"])
     assert.equal(readExplorerRoute(`?sort=${value}`).fileSort, "name");
+});
+
+test("Explorer routes retain an explicit visible-files override", () => {
+  const route = readExplorerRoute("?path=src&hidden=0");
+  assert.equal(route.fileHidden, false);
+  assert.equal(route.fileHiddenExplicit, true);
+  assert.equal(explorerQuery(route), "?path=src&hidden=0");
+  assert.equal(readExplorerRoute("").fileHiddenExplicit, false);
 });
 
 test("fileApi derives only scoped API bases and encodes GET query state", async (t) => {

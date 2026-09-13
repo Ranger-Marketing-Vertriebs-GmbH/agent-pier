@@ -97,6 +97,7 @@ test("generated Explorer queries retain paths, filters and listing state", () =>
           fileSort,
           fileDirection,
           fileHidden,
+          fileHiddenExplicit: fileHidden,
           filePage,
           filePageInvalid: null,
         };
