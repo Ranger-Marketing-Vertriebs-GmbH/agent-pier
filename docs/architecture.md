@@ -31,7 +31,7 @@ The stable `server/terminal-launcher.js`, `server/git-credential.mjs`, `server/g
 
 ## Chat and native observations
 
-Native history adapters normalize stored messages, tasks and available telemetry. The chat store maintains a bounded snapshot and its explicit provenance. A missing field remains unknown; configured model metadata must not be presented as a native observation. The terminal activity reader uses the current native composer area and bounded caching. It never sends model requests to discover activity.
+Native history adapters normalize stored messages, tasks and available telemetry. Claude Code moves a session transcript into the project directory of its current working directory when it enters or leaves a worktree; the history adapter therefore resolves a transcript by session id across every project directory of the profile and readers verify the transcript's own cwd and session id before use. The chat store maintains a bounded snapshot and its explicit provenance. A missing field remains unknown; configured model metadata must not be presented as a native observation. The terminal activity reader uses the current native composer area and bounded caching. It never sends model requests to discover activity.
 
 The URL owns durable navigation state: page, session, Chat/Terminal mode, extension/plugin profile, AgentBus selection and memory filters. Local component state owns transient drafts and pending operations. Navigation cancels obsolete reads; pending mutations retain their operation identity and cannot submit twice.
 

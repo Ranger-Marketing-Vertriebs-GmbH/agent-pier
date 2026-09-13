@@ -208,7 +208,16 @@ export class ProviderHistory {
   async claudeFile(session, id) {
     providerId(id);
     const { root, directories } = await this.claudeDirectory(session);
-    for (const directory of directories) {
+    // Claude Code moves a transcript into the project directory of its new
+    // working directory when it enters or leaves a worktree. The session keeps
+    // its original cwd, so fall back to every project directory of the profile.
+    // Readers still verify the transcript's own cwd and session id afterwards.
+    const projects = path.join(root, "projects");
+    const others = (await fs.readdir(projects, { withFileTypes: true }).catch(() => []))
+      .filter((e) => e.isDirectory())
+      .map((e) => path.join(projects, e.name))
+      .filter((directory) => !directories.includes(directory));
+    for (const directory of [...directories, ...others]) {
       const file = path.join(directory, id + ".jsonl");
       try {
         return await inside(file, root);
