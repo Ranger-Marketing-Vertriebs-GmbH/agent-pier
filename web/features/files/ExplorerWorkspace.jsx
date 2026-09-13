@@ -141,14 +141,36 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
   const [preview, setPreview] = useState(null);
   const [previewError, setPreviewError] = useState(null);
   const scopeId = context?.scopeId;
+  const selectionOwner = useRef(null);
+  const linkOperation = useRef({ generation: 0, controller: null });
+  if (
+    !selectionOwner.current ||
+    selectionOwner.current.client !== client ||
+    selectionOwner.current.scopeId !== scopeId ||
+    selectionOwner.current.file !== route.file
+  )
+    selectionOwner.current = { client, scopeId, file: route.file };
 
   useEffect(() => {
     const controller = new AbortController();
+    const cancelLink = () => {
+      linkOperation.current.controller?.abort();
+      linkOperation.current = {
+        generation: linkOperation.current.generation + 1,
+        controller: null,
+      };
+    };
+    const stop = () => {
+      controller.abort();
+      cancelLink();
+    };
+    cancelLink();
     setEntry(null);
     setPreview(null);
     setPropertiesError(null);
     setPreviewError(null);
-    if (!scopeId || !route.file) return () => controller.abort();
+    setPropertiesLoading(false);
+    if (!scopeId || !route.file) return stop;
     setPropertiesLoading(true);
     client
       .get("/metadata", { path: route.file }, controller.signal)
@@ -174,28 +196,29 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
       .finally(() => {
         if (!controller.signal.aborted) setPropertiesLoading(false);
       });
-    return () => controller.abort();
+    return stop;
   }, [client, scopeId, route.file]);
 
   const currentFavorite = preferences.preferences.favorites.find(
     (favorite) => favorite.path === path,
   );
   const updateFavorite = async () => {
-    const favorites = currentFavorite
-      ? preferences.preferences.favorites.filter(
-          (favorite) => favorite.id !== currentFavorite.id,
-        )
-      : [
-          ...preferences.preferences.favorites,
-          {
-            id: crypto.randomUUID(),
-            name:
-              path.split("/").filter(Boolean).at(-1) ||
-              (context.kind === "project" ? copy.root : path),
-            path,
-          },
-        ];
-    await preferences.update({ favorites }).catch(() => {});
+    const added = currentFavorite
+      ? null
+      : {
+          id: crypto.randomUUID(),
+          name:
+            path.split("/").filter(Boolean).at(-1) ||
+            (context.kind === "project" ? copy.root : path),
+          path,
+        };
+    await preferences
+      .update((latest) => ({
+        favorites: currentFavorite
+          ? latest.favorites.filter((favorite) => favorite.id !== currentFavorite.id)
+          : [...latest.favorites, added],
+      }))
+      .catch(() => {});
   };
   const showProperties = (selected) =>
     changeRoute({ file: selected.path, filePage: page });
@@ -204,26 +227,49 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
     else showProperties(selected);
   };
   const openLink = async () => {
+    const owner = selectionOwner.current;
+    linkOperation.current.controller?.abort();
+    const controller = new AbortController();
+    const generation = linkOperation.current.generation + 1;
+    linkOperation.current = { generation, controller };
+    const owns = () =>
+      !controller.signal.aborted &&
+      selectionOwner.current === owner &&
+      linkOperation.current.generation === generation;
     setPreviewError(null);
     try {
-      await client.get("/entries", {
-        path: entry.path,
-        page: 1,
-        sort: "name",
-        direction: "asc",
-        hidden: hidden ? 1 : 0,
-      });
+      await client.get(
+        "/entries",
+        {
+          path: entry.path,
+          page: 1,
+          sort: "name",
+          direction: "asc",
+          hidden: hidden ? 1 : 0,
+        },
+        controller.signal,
+      );
+      if (!owns()) return;
       goPath(entry.path);
     } catch (issue) {
+      if (!owns()) return;
       if (issue.code !== "FILE_NOT_DIRECTORY") {
         setPreviewError(issue);
         return;
       }
       try {
-        setPreview(await client.get("/preview", { path: entry.path }));
+        const value = await client.get(
+          "/preview",
+          { path: entry.path },
+          controller.signal,
+        );
+        if (owns()) setPreview(value);
       } catch (previewIssue) {
-        setPreviewError(previewIssue);
+        if (owns()) setPreviewError(previewIssue);
       }
+    } finally {
+      if (linkOperation.current.generation === generation)
+        linkOperation.current = { generation, controller: null };
     }
   };
   const refresh = () => {
@@ -243,11 +289,9 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
       }}
       onRemoveFavorite={(id) =>
         preferences
-          .update({
-            favorites: preferences.preferences.favorites.filter(
-              (favorite) => favorite.id !== id,
-            ),
-          })
+          .update((latest) => ({
+            favorites: latest.favorites.filter((favorite) => favorite.id !== id),
+          }))
           .catch(() => {})
       }
       onClose={treeOpen ? () => setTreeOpen(false) : null}

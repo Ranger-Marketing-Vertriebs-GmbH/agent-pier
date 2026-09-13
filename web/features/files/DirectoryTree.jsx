@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
 import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
@@ -8,8 +8,21 @@ function TreeNode({ client, node, hidden, onNavigate }) {
   const [listing, setListing] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const request = useRef({ generation: 0, controller: null });
+  const cancel = () => {
+    request.current.controller?.abort();
+    request.current = {
+      generation: request.current.generation + 1,
+      controller: null,
+    };
+  };
   const load = (page = 1, snapshot = null) => {
+    cancel();
     const controller = new AbortController();
+    const generation = request.current.generation;
+    request.current = { generation, controller };
+    const owns = () =>
+      !controller.signal.aborted && request.current.generation === generation;
     setLoading(true);
     setError(null);
     client
@@ -25,7 +38,8 @@ function TreeNode({ client, node, hidden, onNavigate }) {
         },
         controller.signal,
       )
-      .then((result) =>
+      .then((result) => {
+        if (!owns()) return;
         setListing((current) => ({
           ...result,
           entries: [
@@ -34,16 +48,27 @@ function TreeNode({ client, node, hidden, onNavigate }) {
               ["directory", "symlink"].includes(entry.type),
             ),
           ],
-        })),
-      )
-      .catch(setError)
-      .finally(() => setLoading(false));
-    return () => controller.abort();
+        }));
+      })
+      .catch((issue) => {
+        if (owns()) setError(issue);
+      })
+      .finally(() => {
+        if (owns()) {
+          request.current = { generation, controller: null };
+          setLoading(false);
+        }
+      });
   };
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      cancel();
+      setLoading(false);
+      return;
+    }
     setListing(null);
-    return load();
+    load();
+    return cancel;
     // A node reloads when hidden entries change; pagination is explicit below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, hidden, node.path, open]);

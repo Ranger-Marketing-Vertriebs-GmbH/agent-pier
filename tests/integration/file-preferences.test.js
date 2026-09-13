@@ -31,6 +31,13 @@ test("file preferences persist private host and scope records", async (t) => {
   const file = path.join(f.dataDir, "files", "preferences.json");
   assert.equal((await fs.stat(path.dirname(file))).mode & 0o777, 0o700);
   assert.equal((await fs.stat(file)).mode & 0o777, 0o600);
+  const stored = JSON.parse(await fs.readFile(file, "utf8"));
+  assert.deepEqual(Object.values(stored.hosts), [
+    {
+      showHidden: true,
+      favorites: [{ id: "saved", name: "Saved", path: directory }],
+    },
+  ]);
   assert.deepEqual(
     await new FilePreferences({ dataDir: f.dataDir, home: f.home }).get(f.globalScope),
     {
@@ -50,48 +57,108 @@ test("file preferences persist private host and scope records", async (t) => {
   ]);
 });
 
-test("project favorites stay isolated and vanished records remain removable", async (t) => {
+test("project favorites project shared host records and preserve records outside scope", async (t) => {
   const f = await fileFixture(t);
   const second = path.join(f.home, "second");
+  const saved = path.join(f.project, "saved");
   const vanished = path.join(f.project, "vanished");
+  const insideTarget = path.join(f.project, "inside-target");
+  const insideLink = path.join(f.project, "inside-link");
+  const escapeLink = path.join(f.project, "escape-link");
   await fs.mkdir(second);
-  await fs.mkdir(vanished);
+  await fs.mkdir(saved);
+  await fs.mkdir(insideTarget);
+  await fs.symlink(insideTarget, insideLink);
+  await fs.symlink(second, escapeLink);
+  const sameRootScope = await makeFileScope({
+    home: f.home,
+    session: { id: "same-root", cwd: f.project, pipeline: { headless: true } },
+  });
   const secondScope = await makeFileScope({
     home: f.home,
-    session: { id: "other", cwd: second },
+    session: { id: "second", cwd: second },
   });
   const preferences = new FilePreferences({ dataDir: f.dataDir, home: f.home });
 
-  await preferences.update(f.projectScope, {
-    favorites: [{ id: "vanished", name: "Vanished", path: "vanished" }],
+  await preferences.update(f.globalScope, {
+    favorites: [
+      { id: "saved", name: "Saved", path: saved },
+      { id: "vanished", name: "Vanished", path: vanished },
+      { id: "inside-link", name: "Inside link", path: insideLink },
+      { id: "escape-link", name: "Escape link", path: escapeLink },
+      { id: "second", name: "Second", path: second },
+    ],
   });
-  await preferences.update(secondScope, {
-    favorites: [{ id: "second", name: "Second", path: "" }],
-  });
-  await fs.rm(vanished, { recursive: true });
 
-  assert.deepEqual((await preferences.get(f.projectScope)).favorites, [
+  const projected = [
+    { id: "saved", name: "Saved", path: "saved" },
     { id: "vanished", name: "Vanished", path: "vanished" },
+    { id: "inside-link", name: "Inside link", path: "inside-link" },
+  ];
+  assert.deepEqual((await preferences.get(f.projectScope)).favorites, projected);
+  assert.deepEqual((await preferences.get(sameRootScope)).favorites, projected);
+  assert.deepEqual((await preferences.get(secondScope)).favorites, [
+    { id: "second", name: "Second", path: "" },
+  ]);
+
+  assert.deepEqual(
+    await preferences.update(f.projectScope, {
+      favorites: [
+        { id: "saved", name: "Saved", path: "saved" },
+        { id: "new", name: "New", path: "new" },
+      ],
+    }),
+    {
+      favorites: [
+        { id: "saved", name: "Saved", path: "saved" },
+        { id: "new", name: "New", path: "new" },
+      ],
+      showHidden: false,
+    },
+  );
+  assert.deepEqual((await preferences.get(f.globalScope)).favorites, [
+    { id: "saved", name: "Saved", path: saved },
+    { id: "new", name: "New", path: path.join(f.project, "new") },
+    { id: "escape-link", name: "Escape link", path: escapeLink },
+    { id: "second", name: "Second", path: second },
   ]);
   assert.deepEqual((await preferences.get(secondScope)).favorites, [
     { id: "second", name: "Second", path: "" },
   ]);
+
+  await preferences.update(f.globalScope, {
+    favorites: [
+      ...(await preferences.get(f.globalScope)).favorites,
+      { id: "gone", name: "Gone", path: vanished },
+    ],
+  });
+  assert.deepEqual((await preferences.get(f.projectScope)).favorites.at(-1), {
+    id: "gone",
+    name: "Gone",
+    path: "vanished",
+  });
   assert.deepEqual(await preferences.update(f.projectScope, { favorites: [] }), {
     favorites: [],
     showHidden: false,
   });
-  assert.deepEqual((await preferences.get(secondScope)).favorites, [
-    { id: "second", name: "Second", path: "" },
+  assert.deepEqual((await preferences.get(f.globalScope)).favorites, [
+    { id: "escape-link", name: "Escape link", path: escapeLink },
+    { id: "second", name: "Second", path: second },
   ]);
 });
 
 test("file preferences reject malformed patches and cross-scope paths", async (t) => {
   const f = await fileFixture(t);
+  const outside = path.join(f.home, "outside-favorite");
+  const outsideLink = path.join(f.project, "outside-link");
+  await fs.mkdir(outside);
+  await fs.symlink(outside, outsideLink);
   const preferences = new FilePreferences({ dataDir: f.dataDir, home: f.home });
   for (const patch of [
     { unknown: true },
     { showHidden: "yes" },
     { favorites: [{ id: "escape", name: "Escape", path: "../outside" }] },
+    { favorites: [{ id: "link", name: "Link", path: "outside-link" }] },
     {
       favorites: [
         { id: "duplicate", name: "One", path: "" },

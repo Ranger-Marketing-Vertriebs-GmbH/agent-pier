@@ -121,7 +121,6 @@ export default function ExplorerToolbar({
           <input
             type="checkbox"
             checked={hidden}
-            disabled={busy}
             onChange={(event) => onHidden(event.target.checked)}
           />
           {copy.showHidden}

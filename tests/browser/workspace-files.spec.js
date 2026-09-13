@@ -49,8 +49,18 @@ for (const mobile of [false, true])
       status: "running",
       accountId: "local-shell",
     });
+    const directoryWrites = [];
     await page.route("**/api/sessions/files-session/files**", async (route) => {
+      const request = route.request();
       const url = new URL(route.request().url());
+      if (request.method() === "POST" && url.pathname.endsWith("/files")) {
+        const body = request.postDataJSON();
+        directoryWrites.push(body);
+        return route.fulfill({
+          status: 201,
+          json: { path: `${body.path}/${body.name}` },
+        });
+      }
       if (url.pathname.endsWith("/explorer/context"))
         return route.fulfill({
           json: {
@@ -132,4 +142,14 @@ for (const mobile of [false, true])
     await page.getByRole("button", { name: "Vorschau schließen" }).click();
     await page.goBack();
     await expect(page.locator(".file-preview pre")).toBeVisible();
+    if (!mobile) {
+      await page.getByRole("button", { name: "Vorschau schließen" }).click();
+      await page.getByRole("button", { name: "Ordner anlegen", exact: true }).click();
+      await page.getByLabel("Ordnername", { exact: true }).fill("new-folder");
+      await page.getByLabel("Ordnername", { exact: true }).press("Enter");
+      await expect(page.getByRole("textbox", { name: "Pfad" })).toHaveValue(
+        "src/new-folder",
+      );
+      expect(directoryWrites).toEqual([{ path: "src", name: "new-folder" }]);
+    }
   });

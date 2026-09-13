@@ -4,13 +4,13 @@ import { createHash } from "node:crypto";
 import { privateDirectory, readJSON, writePrivate } from "../../lib/storage.js";
 import { fileProblem, fileSystemProblem } from "./file-errors.js";
 
-const emptyHost = () => ({ showHidden: false, scopes: {} });
+const emptyHost = () => ({ showHidden: false, favorites: [] });
 
 function preferenceProblem() {
   return fileProblem("FILE_INVALID_PREFERENCES", 400);
 }
 
-function validPath(scope, value) {
+function validSelectedPath(scope, value) {
   if (typeof value !== "string" || value.length > 4096 || /\p{Cc}/u.test(value))
     return false;
   if (scope.kind === "global") return path.isAbsolute(value);
@@ -36,10 +36,45 @@ function favorite(scope, value) {
     !value.name.trim() ||
     value.name.length > 255 ||
     /\p{Cc}/u.test(value.name) ||
-    !validPath(scope, value.path)
+    !validSelectedPath(scope, value.path)
   )
     throw preferenceProblem();
   return { id: value.id, name: value.name.trim(), path: value.path };
+}
+
+function isWithin(root, target) {
+  const relative = path.relative(root, target);
+  return (
+    relative !== ".." &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+  );
+}
+
+function admittedProjectPath(scope, absolute) {
+  if (!isWithin(scope.root, absolute)) return false;
+  try {
+    return isWithin(scope.root, fs.realpathSync(absolute));
+  } catch (error) {
+    if (["ENOENT", "ENOTDIR", "EACCES", "EPERM", "ELOOP"].includes(error.code))
+      return true;
+    throw error;
+  }
+}
+
+function projectFavorite(scope, value) {
+  const stored = favorite({ kind: "global" }, value);
+  if (!admittedProjectPath(scope, stored.path)) return null;
+  const relative = path.relative(scope.root, stored.path).split(path.sep).join("/");
+  return { ...stored, path: relative };
+}
+
+function hostFavorite(scope, value) {
+  const visible = favorite(scope, value);
+  if (scope.kind === "global") return visible;
+  const absolute = path.join(scope.root, visible.path);
+  if (!admittedProjectPath(scope, absolute)) throw preferenceProblem();
+  return { ...visible, path: absolute };
 }
 
 function validateSaved(value) {
@@ -79,9 +114,7 @@ export class FilePreferences {
       typeof value !== "object" ||
       Array.isArray(value) ||
       typeof value.showHidden !== "boolean" ||
-      !value.scopes ||
-      typeof value.scopes !== "object" ||
-      Array.isArray(value.scopes)
+      !Array.isArray(value.favorites)
     )
       throw preferenceProblem();
     return value;
@@ -89,10 +122,11 @@ export class FilePreferences {
 
   get(scope) {
     const host = this.host();
-    const values = host.scopes[scope.id] || [];
-    if (!Array.isArray(values)) throw preferenceProblem();
     return {
-      favorites: values.map((value) => favorite(scope, value)),
+      favorites:
+        scope.kind === "global"
+          ? host.favorites.map((value) => favorite(scope, value))
+          : host.favorites.map((value) => projectFavorite(scope, value)).filter(Boolean),
       showHidden: host.showHidden,
     };
   }
@@ -114,13 +148,30 @@ export class FilePreferences {
         showHidden: Object.hasOwn(patch, "showHidden")
           ? patch.showHidden
           : current.showHidden,
-        scopes: { ...current.scopes },
+        favorites: current.favorites,
       };
       if (Object.hasOwn(patch, "favorites")) {
-        const favorites = patch.favorites.map((value) => favorite(scope, value));
-        if (new Set(favorites.map((value) => value.id)).size !== favorites.length)
+        const favorites = patch.favorites.map((value) => hostFavorite(scope, value));
+        let combined = favorites;
+        if (scope.kind === "project") {
+          const visible = current.favorites.map((value) => projectFavorite(scope, value));
+          const firstVisible = visible.findIndex(Boolean);
+          const outside = current.favorites.filter((_, index) => !visible[index]);
+          const insertion =
+            firstVisible < 0
+              ? outside.length
+              : current.favorites
+                  .slice(0, firstVisible)
+                  .filter((_, index) => !visible[index]).length;
+          combined = [
+            ...outside.slice(0, insertion),
+            ...favorites,
+            ...outside.slice(insertion),
+          ];
+        }
+        if (new Set(combined.map((value) => value.id)).size !== combined.length)
           throw preferenceProblem();
-        next.scopes[scope.id] = favorites;
+        next.favorites = combined;
       }
       const value = {
         ...this.value,
