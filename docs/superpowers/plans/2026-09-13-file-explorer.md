@@ -1645,3 +1645,31 @@ Veröffentlichen oder Deployen. Nach Übergabe kann die Umsetzung entweder mit
 `superpowers:subagent-driven-development` und Review pro Task oder mit
 `superpowers:executing-plans` in derselben Sitzung erfolgen. Der Nutzer wählt den
 Ausführungsmodus; bis dahin bleiben die Checkboxen offen.
+
+## Execution contract corrections — 2026-09-13
+
+These rulings reconcile the plan with the approved spec; all 23 tasks and approved features remain required. Preflight findings and the execution ledger retain the supporting plan/spec references.
+
+Ruling: F1 — Include necessary catalog, helper, lifecycle and projection edits in the task that introduces their behavior. Every new FILE_* error receives paired German/English reactive catalog mappings in the same commit; T5 owns shutdown integration, T6/T8/T22 own fixture helper extensions, T17 owns artifactReady projection — the spec requires working integrated behavior and same-commit translations — cost if wrong: slightly larger reviewed task diffs.
+
+Ruling: F2 — FileJobs.start and reserve return Promise<FileJob>; all callers await durable registration under a short MutationBarrier lease. Propagate async reservation through uploads and HTTP adapters; test registration while a snapshot holds its lease — the existing barrier is asynchronous — cost if wrong: signature propagation rework.
+
+Ruling: F3 — T5 implements generic durable conflict/cancel/resolve transport. Handlers must leave path-lock and global-barrier leases before waiting for a human and explicitly reacquire and revalidate before acting; T9/T10 supply type/revision validation, T11 adds multi-entry/apply-to-remaining behavior — early restore/create/rename tasks must be usable — cost if wrong: some generic conflict implementation moves between tasks.
+
+Ruling: F4 — Archive omission conflicts accept skip_links or cancel, bound to conflictId plus the reviewed bounded omission-manifest version. New or changed omissions require new consent. T11 permits typed choices; T15 owns archive validation and T17 its UI — the spec explicitly requires omission consent — cost if wrong: one resolver/UI state needs revision.
+
+Ruling: F5 — Extend PUT /text with an explicit creation mode requiring If-None-Match: * and atomic no-replace. Ordinary save still requires one quoted d1 If-Match revision and never recreates a missing original; mutually exclusive preconditions are enforced. Save As onto an existing regular editable target requires its freshly read d1 and explicit replacement consent. T18 owns this transport, T19 exposes saveAs and T20 wires readonly/conflict actions, retaining the original draft until confirmed completion — Save As is required for hardlinks, readonly files and vanished originals — cost if wrong: a small text API/editor extension needs rework.
+
+Ruling: F6 — FileDocument and save results additionally carry metadataRevision (e1), captured consistently with the opened/saved document; tabs store it separately from their d1 revision. Polling compares e1 only with e1; saving uses d1 only. Test unchanged tabs and same-size external edits — content and metadata revisions represent different observations — cost if wrong: one response/tab field needs migration.
+
+Ruling: F7 — T12 implements internal drag-and-drop move with the actual destination shown before submission, using scoped file references; T14 distinguishes external upload drops and T21 verifies keyboard/touch alternatives and focus — internal moves are explicitly approved — cost if wrong: localized UI/test rework.
+
+Ruling: F8 — Strengthen illustrative test oracles while retaining every named behavior: actual growth during reads; no-follow sentinel independently of truncation; exact injected failure and call observation; per-file retry counts; real extraction target visibility; actual editor selection; handler-entry synchronization before job close. T22 retains independent OS metadata observations — examples alone do not prove their stated guarantees — cost if wrong: test fixture complexity, not product scope.
+
+Ruling: F9 — Upload progress persistence must be awaited or bounded/coalesced, propagate failures through the stream callback, and flush final counters before completion. Test a slow and failing reporter — discarded report promises defeat backpressure and durability — cost if wrong: localized stream implementation rework.
+
+Ruling: F10 — Explorer route parsing preserves an explicit invalid-page state. Listing UI owns snapshots across pagination, displays localized expiry with an explicit refresh action, and resets page/snapshot together on refresh or a changed non-page query; no silent page substitution — the spec requires truthful pages and 30-second snapshot expiry — cost if wrong: route/hook state rework.
+
+Ruling: F11 — T23 may make minimal source fixes demonstrated by failing integration checks, with regression coverage and normal review, before removing only this feature's completed temporary plan/spec — full completion requires fixing actual integration failures — cost if wrong: modest final reviewed source diff.
+
+Integration decision: retain existing PR79 branch and integrate current main using ordinary merges. Preserve SessionViewMemory navigation, local-only remote links, Modal style support, credential commitIdentity, current dependency/version changes and installation/update guidance (D1–D5). Existing unrelated session-view preferences may remain in sessionStorage; file drafts stay in RAM.
