@@ -42,6 +42,7 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
     await manager.remember(id);
     await manager.tmux(["kill-session", "-t", manager.target(id)]);
   } else await manager.tmux(["kill-session", "-t", manager.target(id)]).catch(() => {});
+  manager.pendingTerminalInput?.delete(id);
   session.reload.replacementStarted = true;
   session.status = "stopped";
   delete session.exitCode;

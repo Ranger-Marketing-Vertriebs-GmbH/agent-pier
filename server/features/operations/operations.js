@@ -97,6 +97,18 @@ export class Operations {
       return result;
     });
   }
+  cleanupReleases({ versions }) {
+    return this.jobs.start("release-cleanup", async () => {
+      const result = await this.releases.cleanup(versions);
+      this.audit?.append({
+        action: "release.cleaned",
+        resourceType: "release",
+        outcome: "success",
+        source: "user",
+      });
+      return result;
+    });
+  }
   activate(input) {
     return this.jobs.start(
       input.stagedId ? "release-activate" : "release-rollback",

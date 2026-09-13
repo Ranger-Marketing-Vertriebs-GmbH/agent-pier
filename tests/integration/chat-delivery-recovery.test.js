@@ -103,6 +103,14 @@ test("a proven pre-write rejection can be pasted and submitted explicitly", asyn
   assert.deepEqual(x.writes, [["paste", x.body.text], ["submit"]]);
 });
 
+test("a pre-write rejection can be retried explicitly despite an unreadable composer", async (t) => {
+  const x = await fixture(t, "reserved");
+  x.setComposer({ state: "unknown", text: null });
+  assert.equal((await x.post()).recovery.action, "resent");
+  await x.post();
+  assert.deepEqual(x.writes, [["paste", x.body.text], ["submit"]]);
+});
+
 for (const phase of ["paste-intent", "submit-intent", "submitted"]) {
   test(`recovery never guesses from matching text after ${phase}`, async (t) => {
     const x = await fixture(t, phase);
@@ -232,11 +240,23 @@ test("persisted submit intent without a recovery result remains non-repeatable",
   assert.deepEqual(x.writes, []);
 });
 
-test("a fresh session without a native recovery identity cannot authorize a retry", async (t) => {
-  const x = await fixture(t, "reserved");
+test("an already-pasted message without a native recovery identity cannot authorize a retry", async (t) => {
+  const x = await fixture(t, "pasted");
   const original = x.f.application.sessions.withChatInput;
   x.f.application.sessions.withChatInput = (id, operation) =>
     original(id, (tx) => operation({ ...tx, recoveryGeneration: null }));
   assert.equal((await x.post()).recovery.action, "blocked");
   assert.deepEqual(x.writes, []);
+});
+
+test("a never-pasted startup message can be retried before native binding exists", async (t) => {
+  const x = await fixture(t, "reserved");
+  const receipt = x.delivery.read(x.file);
+  receipt.journal.generation = null;
+  x.delivery.write(x.file, receipt);
+  x.setGeneration(null);
+  const result = await x.post();
+  assert.equal(result.status, "handed-off");
+  assert.equal(result.recovery.action, "resent");
+  assert.deepEqual(x.writes, [["paste", x.body.text], ["submit"]]);
 });

@@ -67,6 +67,10 @@ export class OperationJobs {
           atomic(file, {
             ...job,
             status: "failed",
+            ...(typeof error.code === "string" &&
+            /^cleanup(?:Invalid|Busy|Changed)$/.test(error.code)
+              ? { errorCode: error.code }
+              : {}),
             error: error.status
               ? error.message
               : "The operation failed. No unverified result was accepted.",

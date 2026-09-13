@@ -91,6 +91,34 @@ export const operationsCopy = {
   updates: "Updates",
   currentVersion: "Installierte Version",
   channel: "Updatekanal",
+  releaseNotes: "Neu in dieser Version",
+  releaseNotesLoading: "Versionshinweise werden geladen …",
+  releaseNotesUnavailable:
+    "Versionshinweise sind gerade nicht verfügbar. Das Update ist trotzdem möglich.",
+  releaseNotesOriginal: "Release auf GitHub ansehen",
+  cleanupErrors: {
+    cleanupInvalid: "Wähle gültige Versionen zum Löschen aus.",
+    cleanupBusy:
+      "Ein anderer Update-Vorgang läuft. Versuche es nach dessen Abschluss erneut.",
+    cleanupChanged:
+      "Die gewählten Versionen können nicht mehr sicher entfernt werden. Lade die Liste neu.",
+  },
+  cleanupReleases: "Alte Versionen aufräumen",
+  cleanupHelp:
+    "Entferne ungenutzte ältere Versionen, um Speicherplatz freizugeben. Aktive Versionen und Versionen laufender Prozesse bleiben erhalten.",
+  cleanupAll: "Alle alten Versionen löschen",
+  cleanupOne: "Version löschen",
+  cleanupConfirm: (versions) =>
+    `Diese Versionen dauerhaft löschen: ${versions}? Sie stehen danach nicht mehr für Rollbacks bereit.`,
+  cleanupUnavailable:
+    "Sicheres Aufräumen ist gerade nicht möglich. Lade die Seite neu und versuche es erneut.",
+  cleanupReasons: {
+    active: "Aktiv",
+    newer: "Vorbereitete oder neuere Version",
+    inUse: "Von laufendem Prozess verwendet",
+    busy: "Update läuft",
+    unsafe: "Nicht unterstütztes Verzeichnis",
+  },
   checkUpdates: "Nach Updates suchen",
   stageRelease: "Version vorbereiten",
   activateRelease: "Vorbereitete Version aktivieren",

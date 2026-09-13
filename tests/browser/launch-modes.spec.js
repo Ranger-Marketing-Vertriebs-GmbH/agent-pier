@@ -31,33 +31,36 @@ async function launchFixture(page) {
   return launches;
 }
 
-test("new sessions default to Claude/OpenCode Auto while Codex retains Standard", async ({
-  page,
-}) => {
+test("new sessions default to Codex YOLO and Claude/OpenCode Auto", async ({ page }) => {
   const launches = await launchFixture(page);
   const mode = page.getByLabel("Startmodus", { exact: true });
-  await expect(mode).toHaveValue("default");
+  await expect(mode).toHaveValue("yolo");
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Sitzung starten", exact: true })
     .click();
   await expect(page.getByRole("alert")).toHaveText("Test launch captured");
-  expect(launches[0]).toMatchObject({ accountId: "local-codex", launchMode: "default" });
-  await mode.selectOption("yolo");
+  expect(launches[0]).toMatchObject({ accountId: "local-codex", launchMode: "yolo" });
+  await mode.selectOption("default");
   await page.getByLabel("CLI", { exact: true }).selectOption("claude");
   await expect(mode).toHaveValue("auto");
   await expect(mode.locator('option[value="yolo"]')).toHaveCount(0);
   await mode.selectOption("auto");
   await page.getByLabel("CLI", { exact: true }).selectOption("opencode");
   await expect(mode).toHaveValue("auto");
+  await page.getByLabel("CLI", { exact: true }).selectOption("codex");
+  await expect(mode).toHaveValue("yolo");
 });
 
 for (const { tool, mode, note } of [
   { tool: "codex", mode: "yolo", note: /ohne Sandbox/ },
+  { tool: "codex", mode: "default", note: /Voreinstellungen/ },
   { tool: "claude", mode: "auto", note: /Sicherheitsprüfung/ },
   { tool: "opencode", mode: "auto", note: /Verbote bleiben/ },
 ])
-  test(`${tool} submits its explicitly selected native launch mode`, async ({ page }) => {
+  test(`${tool} submits its explicitly selected ${mode} launch mode`, async ({
+    page,
+  }) => {
     const launches = await launchFixture(page);
     await page.getByLabel("CLI", { exact: true }).selectOption(tool);
     await page.getByLabel("Startmodus", { exact: true }).selectOption(mode);
@@ -74,6 +77,7 @@ test("AgentBus is included by default and can be disabled for this launch withou
   page,
 }) => {
   const launches = await launchFixture(page);
+  await page.locator(".launch-extensions > summary").click();
   const toggle = page.getByRole("checkbox", { name: /AgentBus/ });
   await expect(toggle).toBeChecked();
   await page

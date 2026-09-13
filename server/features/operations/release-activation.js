@@ -83,6 +83,13 @@ export async function activateRelease(
   }
   fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, from, to: version }));
   try {
+    // A cleanup may have finished between initial validation and lock acquisition.
+    if (fs.realpathSync(target) !== target)
+      throw problem("Release directory must not be a link.");
+    requireDataCompatibility(
+      releaseManifest(readJson(path.join(target, "release.json"))),
+      dataDir,
+    );
     switchRelease(root, version);
     try {
       await restart({ installRoot: root, dataDir });

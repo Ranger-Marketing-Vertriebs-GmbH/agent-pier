@@ -20,6 +20,11 @@ export default function Sidebar({
   error,
   loading,
 }) {
+  const hostname = window.location.hostname.replace(/\.$/, "");
+  const localAccess =
+    hostname === "localhost" ||
+    hostname === "[::1]" ||
+    /^127(?:\.\d{1,3}){3}$/.test(hostname);
   const sessions = state.sessions.filter(
     (session) => !(session.pipeline?.headless && session.status === "stopped"),
   );
@@ -193,7 +198,7 @@ export default function Sidebar({
           </span>
           <Icon name="shield" size={16} />
         </div>
-        {state.remoteUrl && (
+        {state.remoteUrl && localAccess && (
           <a
             className="remote-link"
             href={state.remoteUrl}

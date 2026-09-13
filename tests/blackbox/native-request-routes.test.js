@@ -65,8 +65,12 @@ const post = (url, body) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-for (const question of [false, true])
-  test(`real Claude hook subprocess resolves ${question ? "question" : "permission"} through public HTTP without PTY typing`, async (t) => {
+for (const [event, question] of [
+  ["PermissionRequest", false],
+  ["PreToolUse", true],
+  ["PermissionRequest", true],
+])
+  test(`real Claude ${event} hook resolves ${question ? "question" : "permission"} through public HTTP without PTY typing`, async (t) => {
     const { launch, url, root } = await fixture(t);
     const child = spawn(
       process.execPath,
@@ -89,23 +93,52 @@ for (const question of [false, true])
         ],
         multiSelect: false,
       },
+      {
+        question: "Checks?",
+        multiSelect: true,
+        options: [{ label: "Unit" }, { label: "Browser" }],
+      },
+      { question: "Notes?", options: [] },
     ];
     child.stdin.end(
       JSON.stringify({
         session_id: "native-session",
         cwd: root,
         tool_use_id: "native-call",
-        hook_event_name: question ? "PreToolUse" : "PermissionRequest",
+        hook_event_name: event,
         tool_name: question ? "AskUserQuestion" : "Bash",
         tool_input: question ? { questions } : { command: "printf fixture" },
       }),
     );
     const ask = await poll(url);
+    assert.equal(ask.kind, question ? "question" : "permission");
+    if (question) {
+      assert.deepEqual(
+        ask.questions.map((q) => q.prompt),
+        ["Choose?", "Checks?", "Notes?"],
+      );
+      const partial = await post(`${url}/${ask.id}/answer`, {
+        expectedRevision: 1,
+        answers: { q0: ["Two"] },
+      });
+      assert.equal(partial.status, 400);
+      assert.deepEqual(
+        ask.questions[0].options.map((option) => option.label),
+        ["One", "Two"],
+      );
+      const bareApproval = await post(`${url}/${ask.id}/answer`, {
+        expectedRevision: 1,
+        choice: "allow",
+      });
+      assert.equal(bareApproval.status, 400);
+    }
     assert.equal(JSON.stringify(ask).includes(launch.env.AGENTPIER_REQUEST_TOKEN), false);
     assert.equal(JSON.stringify(ask).includes("native-call"), false);
     const response = await post(`${url}/${ask.id}/answer`, {
       expectedRevision: 1,
-      ...(question ? { answers: { q0: ["Two"] } } : { choice: "deny" }),
+      ...(question
+        ? { answers: { q0: ["Two"], q1: ["Unit", "Browser"], q2: ["Custom notes"] } }
+        : { choice: "deny" }),
     });
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { requests: [] });
@@ -117,10 +150,20 @@ for (const question of [false, true])
     await ended;
     const output = JSON.parse(stdout);
     if (question)
-      assert.deepEqual(output.hookSpecificOutput.updatedInput, {
-        questions,
-        answers: { "Choose?": "Two" },
-      });
+      assert.deepEqual(
+        (event === "PermissionRequest"
+          ? output.hookSpecificOutput.decision
+          : output.hookSpecificOutput
+        ).updatedInput,
+        {
+          questions,
+          answers: {
+            "Choose?": "Two",
+            "Checks?": "Unit, Browser",
+            "Notes?": "Custom notes",
+          },
+        },
+      );
     else
       assert.deepEqual(output, {
         hookSpecificOutput: {

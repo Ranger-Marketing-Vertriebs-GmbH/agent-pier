@@ -17,6 +17,7 @@ for (const mobile of [false, true])
     await (mobile ? page.getByRole("main") : page)
       .getByRole("button", { name: "Neue Sitzung", exact: true })
       .click();
+    await page.locator(".launch-extensions > summary").click();
     const enabled = page.getByRole("checkbox", { name: /AgentPier-Werkzeuge/ });
     await expect(enabled).toBeChecked();
     await expect(

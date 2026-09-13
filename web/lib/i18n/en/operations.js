@@ -91,6 +91,33 @@ export const operationsCopy = {
   updates: "Updates",
   currentVersion: "Installed version",
   channel: "Update channel",
+  releaseNotes: "What’s new in this version",
+  releaseNotesLoading: "Loading release notes …",
+  releaseNotesUnavailable:
+    "Release notes are currently unavailable. You can still update.",
+  releaseNotesOriginal: "View release on GitHub",
+  cleanupErrors: {
+    cleanupInvalid: "Choose valid versions to remove.",
+    cleanupBusy: "Another update operation is running. Try again after it finishes.",
+    cleanupChanged:
+      "The selected versions can no longer be safely removed. Refresh the list.",
+  },
+  cleanupReleases: "Remove old versions",
+  cleanupHelp:
+    "Remove unused older versions to free disk space. Active versions and versions used by running processes are kept.",
+  cleanupAll: "Delete all old versions",
+  cleanupOne: "Delete version",
+  cleanupConfirm: (versions) =>
+    `Permanently delete these versions: ${versions}? They will no longer be available for rollback.`,
+  cleanupUnavailable:
+    "Safe cleanup is currently unavailable. Refresh the page and try again.",
+  cleanupReasons: {
+    active: "Active",
+    newer: "Prepared or newer version",
+    inUse: "Used by a running process",
+    busy: "Update in progress",
+    unsafe: "Unsupported directory",
+  },
   checkUpdates: "Check for updates",
   stageRelease: "Stage release",
   activateRelease: "Activate staged release",

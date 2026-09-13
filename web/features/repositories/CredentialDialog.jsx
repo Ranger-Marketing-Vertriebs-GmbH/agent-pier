@@ -14,6 +14,13 @@ export default function CredentialDialog({
   saved,
 }) {
   const { busy, error, run, lock } = useAsyncAction();
+  const [identityName, setIdentityName] = useState(
+    credential?.commitIdentity?.name || "",
+  );
+  const [identityEmail, setIdentityEmail] = useState(
+    credential?.commitIdentity?.email || "",
+  );
+  const [identityError, setIdentityError] = useState("");
   const [host, setHost] = useState(credential?.host || "https://github.com");
   const [chosenDefault, setChosenDefault] = useState(
     credential ? Boolean(credential.agentDefault) : null,
@@ -45,12 +52,29 @@ export default function CredentialDialog({
           event.preventDefault();
           if (lock.current) return;
           const form = new FormData(event.currentTarget);
+          setIdentityError("");
+          if (
+            !deleting &&
+            (identityName || identityEmail) &&
+            (!identityName.trim() ||
+              /[<>\x00-\x1f\x7f]/.test(identityName) ||
+              !/^[^\s<>@]+@[^\s<>@]+$/.test(identityEmail))
+          ) {
+            setIdentityError(copy.commitIdentityInvalid);
+            return;
+          }
           await run(async () => {
             const body = {
               name: form.get("name")?.trim(),
               host: form.get("host")?.trim(),
             };
             body.agentDefault = agentDefault;
+            if (identityName || identityEmail)
+              body.commitIdentity = {
+                name: identityName.trim(),
+                email: identityEmail.trim(),
+              };
+            else if (credential?.commitIdentity) body.commitIdentity = null;
             if (form.get("token")) body.token = form.get("token");
             const result = await api(
               credential
@@ -58,7 +82,11 @@ export default function CredentialDialog({
                 : "/git-credentials",
               deleting ? "DELETE" : credential ? "PATCH" : "POST",
               deleting ? undefined : body,
-            );
+            ).catch((failure) => {
+              if (failure.message === "INVALID_COMMIT_IDENTITY")
+                throw new Error(copy.commitIdentityInvalid);
+              throw failure;
+            });
             saved(result, deleting ? credential.id : null);
             close();
           });
@@ -98,6 +126,30 @@ export default function CredentialDialog({
                 />
               </label>
               <p className="field-description">{copy.enterpriseHostDescription}</p>
+              <label>
+                {copy.commitName}
+                <input
+                  name="commitName"
+                  maxLength={100}
+                  value={identityName}
+                  onChange={(event) => setIdentityName(event.target.value)}
+                  required={Boolean(identityEmail)}
+                  autoComplete="off"
+                />
+              </label>
+              <label>
+                {copy.commitEmail}
+                <input
+                  name="commitEmail"
+                  type="email"
+                  maxLength={254}
+                  value={identityEmail}
+                  onChange={(event) => setIdentityEmail(event.target.value)}
+                  required={Boolean(identityName)}
+                  autoComplete="off"
+                />
+              </label>
+              <p className="field-description">{copy.commitIdentityHint}</p>
               {hostHasPort(host) && (
                 <p className="field-description">{copy.githubCliPortRestriction}</p>
               )}
@@ -138,7 +190,7 @@ export default function CredentialDialog({
               </p>
             </>
           )}
-          <ErrorMessage error={error} />
+          <ErrorMessage error={identityError || error} />
         </fieldset>
         <div className="dialog-actions">
           <button

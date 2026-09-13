@@ -1,3 +1,4 @@
+import { nativeInputQueue } from "./native-input-queue.js";
 import fs from "node:fs";
 import { normalizeChatText } from "../sessions/session-chat-input.js";
 import { recoverDelivery } from "./chat-delivery-recovery.js";
@@ -113,6 +114,7 @@ export class ChatDelivery {
       deliveryId: receipt.deliveryId,
       status,
       attemptId: receipt.attemptId || receipt.deliveryId,
+      ...(receipt.observation ? { observation: receipt.observation } : {}),
       ...(receipt.recovery ? { recovery: receipt.recovery } : {}),
       ...(status === "rejected" ? { error: copy.rejected } : {}),
       ...(status === "uncertain" ? { error: copy.uncertain } : {}),
@@ -177,13 +179,22 @@ export class ChatDelivery {
       await this.sessions.withChatInput(id, async (tx) => {
         this.checkScope(tx.session, deliveryScope);
         receipt.journal = { phase: "reserved", generation: tx.recoveryGeneration };
+        receipt.observation = {
+          generation: tx.observationGeneration,
+          startedAt: Date.now(),
+          providerSessionId: tx.providerSessionId || null,
+          hash,
+          baseline: nativeInputQueue(tx.session.tool, tx.raw, tx.pane),
+        };
         this.write(file, receipt);
         if (blocked) throw problem(copy.rejected, 409);
         requireCurrentChatInput(this.requests, id);
         await this.models.guardInput(id, tx.session, tx.raw);
-        if (tx.composer.state !== "empty") throw problem(copy.recoveryComposer, 409);
         await tx.write(normalized, {
+          allowComposerDraft: true,
           onPhase: async (phase) => {
+            if (["paste-intent", "submit-intent"].includes(phase))
+              requireCurrentChatInput(this.requests, id);
             receipt.status = "uncertain";
             receipt.journal = { phase, generation: tx.recoveryGeneration };
             this.write(file, receipt);

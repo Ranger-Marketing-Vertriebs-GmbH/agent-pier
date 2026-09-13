@@ -29,11 +29,33 @@ export const chatImagesCopy = {
   chatImagesAriaLabel: "Bilder in der Nachricht",
 };
 export const chatMessageCopy = {
+  oldNoNewline: "Kein abschließender Zeilenumbruch im vorherigen Inhalt",
+  newNoNewline: "Kein abschließender Zeilenumbruch im neuen Inhalt",
+  changeCreate: "Erstellen",
+  changeUpdate: "Ändern",
+  changeDelete: "Löschen",
+  changeRename: "Umbenennen",
+  changeWrite: "Schreiben",
+  changeFull: "Dateiinhalt",
+  changePatch: "Original-Patch",
+  changeExcerpt: "Ersetzungsausschnitt",
+  changePreview: "Inhaltsvorschau · vorheriger Inhalt unbekannt",
+  changeRaw: "Rohe Argumente und Ausgabe",
+  changeCode: "Codeänderungen",
+  expandOutput: "Weitere Zeilen anzeigen",
+  moreOutput: "Mehr anzeigen",
+  collapseOutput: "Auf acht Zeilen kürzen",
+
+  agentWorking: "Agent arbeitet",
+  agentActivity: "Agent-Aktivität",
+  toolCount: (count) => `${count} ${count === 1 ? "Aufruf" : "Aufrufe"}`,
+  toolFailures: (count) => `${count} fehlgeschlagen`,
   chatToolLabel: "Tool-Aktivität",
   ariaLabel: "Deine Nachricht",
   subtle: "[Bild",
 };
 export const chatViewCopy = {
+  jumpToLatest: "Zur neuesten Nachricht",
   historyOlder: "Ältere Nachrichten laden",
   historyLoading: "Ältere Nachrichten werden geladen …",
   historyRetry: "Ältere Nachrichten erneut laden",
@@ -77,6 +99,12 @@ export const chatAttachmentCopy = {
 };
 
 export const chatDeliveryCopy = {
+  nativeQueued: "In der CLI-Warteschlange",
+  nativeAccepted: "Von der CLI übernommen",
+  nativeCodexQueueHint:
+    "Codex zeigt diese Nachricht für die Übergabe nach dem nächsten Tool-Aufruf an.",
+  nativeQueueHint: "Die CLI zeigt diese Nachricht als wartend an.",
+
   savedNotices: (count) => `Gespeicherte Zustellungsanzeigen (${count})`,
   savedNoticesHint:
     "Diese gespeicherten Anzeigen dokumentieren die Übergabe an die Sitzung. Sie bestätigen keine Bearbeitung und stehen getrennt vom Gesprächsverlauf.",
@@ -86,7 +114,7 @@ export const chatDeliveryCopy = {
   sending: "Wird übergeben …",
   checking: "Zustellung wird geprüft …",
   pending: "Übergabe läuft …",
-  "handed-off": "An Sitzung übergeben · Bearbeitungsbeginn noch nicht bestätigt",
+  "handed-off": "An TUI gesendet · CLI-Bestätigung steht aus",
   uncertain: "Zustellung unklar",
   rejected: "Nicht zugestellt",
   uncertainHint:

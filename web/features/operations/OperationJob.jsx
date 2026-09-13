@@ -31,7 +31,7 @@ export default function OperationJob({ id, onComplete, onState }) {
       {job && (
         <>
           <p role="status">{copy.jobStatuses[job.status] || copy.unknown}</p>
-          <ErrorMessage error={job.error} />
+          <ErrorMessage error={copy.cleanupErrors[job.errorCode] || job.error} />
           {job.result?.targetDataDir && (
             <>
               <h3>{copy.restored}</h3>

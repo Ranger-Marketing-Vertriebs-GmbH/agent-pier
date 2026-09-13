@@ -75,9 +75,9 @@ export class NativeRequestChannel {
     this.pending.set(key, { request, deliver, status: "pending" });
     if (this.connected) send(this.socket, { type: "publish", key, request });
   }
-  resolve(key) {
+  resolve(key, outcome) {
     this.pending.delete(key);
-    send(this.socket, { type: "resolved", key });
+    send(this.socket, { type: "resolved", key, ...(outcome ? { outcome } : {}) });
   }
   close() {
     this.closed = true;

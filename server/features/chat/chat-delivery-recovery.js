@@ -1,3 +1,4 @@
+import { nativeInputQueue } from "./native-input-queue.js";
 import { createHash } from "node:crypto";
 import { problem } from "../../lib/storage.js";
 import { chatDeliveryCopy as copy } from "../../lib/i18n/de/chat-delivery.js";
@@ -64,14 +65,13 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
     if (blocked) reason = copy.rejected;
     else if (current !== expectedAttemptId.toLowerCase()) reason = copy.recoveryChanged;
     else if (
-      !receipt.journal?.generation ||
-      receipt.journal.generation !== tx.recoveryGeneration
+      receipt.journal?.phase !== "reserved" &&
+      (!receipt.journal?.generation ||
+        receipt.journal.generation !== tx.recoveryGeneration)
     )
       reason = copy.recoveryRuntime;
     else if (!["reserved", "pasted"].includes(receipt.journal.phase))
       reason = copy.recoveryUncertain;
-    else if (receipt.journal.phase === "reserved" && tx.composer.state !== "empty")
-      reason = copy.recoveryComposer;
     else if (
       receipt.journal.phase === "pasted" &&
       (tx.composer.state !== "text" || tx.composer.text !== text.replace(/\r\n?/g, "\n"))
@@ -103,6 +103,13 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
     receipt.recoveries ||= {};
     receipt.recoveries[requestId] = { requestHash };
     receipt.attemptId = requestId;
+    receipt.observation = {
+      generation: tx.observationGeneration,
+      startedAt: Date.now(),
+      providerSessionId: tx.providerSessionId || null,
+      hash: receipt.hash,
+      baseline: nativeInputQueue(tx.session.tool, tx.raw, tx.pane),
+    };
     receipt.status = "uncertain";
     // Keep the last proven phase until the writer persists its next intent.
     delivery.write(file, receipt);
@@ -110,7 +117,10 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
     try {
       await tx.write(text.replace(/\r\n?/g, "\n"), {
         submitOnly,
+        allowComposerDraft: !submitOnly,
         onPhase: async (phase) => {
+          if (["paste-intent", "submit-intent"].includes(phase))
+            requireCurrentChatInput(delivery.requests, id);
           receipt.journal = { phase, generation: tx.recoveryGeneration };
           delivery.write(file, receipt);
         },

@@ -1,0 +1,96 @@
+.tool-changes {
+  overflow: hidden;
+}
+.tool-change + .tool-change {
+  border-top: 1px solid #34363e;
+}
+.tool-change-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 10px;
+  padding: 10px 14px;
+  background: #14161c;
+  font-size: 11px;
+  color: #b1b4c1;
+}
+.tool-change-heading strong {
+  flex-basis: 100%;
+  font:
+    12px/1.5 "SFMono-Regular",
+    Consolas,
+    monospace;
+  color: #eceef4;
+  overflow-wrap: anywhere;
+}
+.tool-change-heading small {
+  margin-left: auto;
+}
+.tool-change-count {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tool-diff-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  background: #0c0d11;
+}
+.tool-diff-scroll:focus-visible {
+  outline: 2px solid #ffcda4;
+  outline-offset: -2px;
+}
+.tool-diff-lines {
+  min-width: 100%;
+  width: max-content;
+  font:
+    12px/1.65 "SFMono-Regular",
+    Consolas,
+    monospace;
+  tab-size: 2;
+}
+.tool-diff-row {
+  display: flex;
+  min-height: 20px;
+  white-space: pre;
+  padding-right: 14px;
+}
+.tool-diff-row code {
+  font: inherit;
+}
+.tool-diff-number {
+  display: inline-block;
+  flex: 0 0 5ch;
+  text-align: right;
+  padding-right: 1ch;
+  color: #a0a4ae;
+  user-select: none;
+}
+.tool-diff-marker {
+  display: inline-block;
+  flex: 0 0 2ch;
+}
+.tool-diff-row.is-add {
+  background: #173b2866;
+}
+.tool-diff-row.is-add .tool-diff-marker {
+  color: #a8d8ac;
+}
+.tool-diff-row.is-remove {
+  background: #55252a66;
+}
+.tool-diff-row.is-remove .tool-diff-marker {
+  color: #f4a49f;
+}
+.tool-diff-row.is-meta {
+  color: #aeb7e8;
+  background: #252b4433;
+}
+.chat-tool .tool-change-raw > summary {
+  min-height: 44px;
+  padding: 10px 14px;
+  color: #b1b4c1;
+  font-size: 12px;
+}
+.tool-diff-row {
+  padding-left: 12px;
+}

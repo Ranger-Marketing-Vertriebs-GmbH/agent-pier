@@ -264,6 +264,13 @@ export function openQueue(home) {
       }
     },
 
+    messageStatus(recipient, id) {
+      if (typeof id !== "string" || !idPattern.test(id))
+        throw new Error("agentbus: invalid message reference");
+      return db.prepare("SELECT status FROM messages WHERE recipient=? AND id=?")
+        .get(recipient, id)?.status ?? null;
+    },
+
     rows({ recipient, status, limit = 5000 } = {}) {
       const params = [];
       const where = [];

@@ -110,6 +110,9 @@ export function operationResponse(state, path, method, body, query) {
   if (operation.startsWith("/jobs/"))
     return { job: { ...state.jobs[operation.split("/")[2]], status: state.jobStatus } };
   if (operation === "/releases") return state.releases;
+  if (operation.startsWith("/releases/notes/"))
+    return { version: operation.split("/").at(-1), body: null, url: null };
+  if (operation === "/releases/cleanup") return { available: false, versions: [] };
   if (operation === "/releases/check")
     return {
       plan: {

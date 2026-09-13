@@ -1,3 +1,6 @@
+import { startQueueStreamProbe } from "./probe-queue-stream.mjs";
+import { prepareClaudeProbe } from "./probe-claude-startup.mjs";
+import { probeCodexHookTrust } from "./probe-codex-hook-trust.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -8,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import { applicationFixture } from "../tests/helpers/application.js";
 import { createTuiInputRecorder } from "../tests/helpers/tui-input-recorder.js";
+import { probeNativeImages } from "./probe-chat-tui-images.mjs";
 import { probeNativePayloads } from "./probe-chat-tui-payloads.mjs";
 import { probeNativeRecovery } from "./probe-chat-tui-recovery.mjs";
 import { createProbeProvider } from "./probe-chat-tui-provider.mjs";
@@ -217,7 +221,8 @@ async function probeNative(fixture, cleanup) {
       env.PATH = `${probeBin}${path.delimiter}${env.PATH}`;
     }
     const sessionId = bound ? randomUUID() : `native-${tool}`;
-    if (bound && tool === "codex") args.push("--dangerously-bypass-hook-trust");
+    if (bound && tool === "codex" && !options.includes("--hook-trust"))
+      args.push("--dangerously-bypass-hook-trust");
     if (bound && tool === "claude")
       args.push("--debug-file", path.join(fixture.root, "claude-debug.log"));
     let launch = bound
@@ -239,6 +244,13 @@ async function probeNative(fixture, cleanup) {
       // Remove only this fixture's bus directory after its processes have stopped.
       cleanup.unshift(() => fs.rm(socketDirectory, { recursive: true, force: true }));
     }
+    if (options.includes("--hook-trust") || options.includes("--folder-trust"))
+      launch = await fixture.application.requests.prepare({
+        id: sessionId,
+        account,
+        cwd: project,
+        launch,
+      });
     const isolatedArgs = [
       "-i",
       ...Object.entries(launch.env).map(([key, value]) => `${key}=${value}`),
@@ -258,6 +270,7 @@ async function probeNative(fixture, cleanup) {
         ? ["-p", sandbox, "/usr/bin/env", ...isolatedArgs]
         : isolatedArgs,
       env: {},
+      nativeRequests: launch.nativeRequests,
       nativeBinding: launch.nativeBinding,
       agentbus: launch.agentbus,
     });
@@ -326,12 +339,17 @@ async function probeNative(fixture, cleanup) {
       assert.equal(receipt.status, "handed-off", JSON.stringify(receipt));
       assert.ok(Number.isFinite(httpEntry) && Number.isFinite(submitEnd));
       httpSubmit.push(submitEnd - httpEntry);
+      return receipt;
     };
     const keys = (...names) => manager.tmux(["send-keys", "-t", target, ...names]);
     if (tool === "codex") {
-      await waitFor(capture, (screen) => screen.includes("Yes, continue"));
-      await sleep(750);
-      await keys("Enter");
+      if (options.includes("--hook-trust"))
+        await probeCodexHookTrust({ fixture, session, capture, keys });
+      else {
+        await waitFor(capture, (screen) => screen.includes("Yes, continue"));
+        await sleep(750);
+        await keys("Enter");
+      }
       await waitFor(capture, (screen) =>
         screen.includes("Ask Codex to do anything"),
       ).catch(async (error) => {
@@ -343,20 +361,7 @@ async function probeNative(fixture, cleanup) {
         throw error;
       });
     } else if (tool === "claude") {
-      const trust = await waitFor(capture, (screen) =>
-        screen.includes("Yes, I trust this folder"),
-      );
-      await sleep(750);
-      await keys(...(/❯[^\n]*Yes, I trust/.test(trust) ? ["Enter"] : ["Down", "Enter"]));
-      const auth = await waitFor(
-        capture,
-        (screen) => screen.includes("custom API key") || screen.includes("for shortcuts"),
-      );
-      if (auth.includes("custom API key")) {
-        await sleep(750);
-        await keys("Up", "Enter");
-      }
-      await waitFor(capture, (screen) => screen.includes("for shortcuts"));
+      await prepareClaudeProbe({ fixture, session, capture, keys, options, waitFor });
     } else await waitFor(capture, (screen) => screen.includes("Ask anything"));
     if (bound && bootstrap) {
       await paste(manager, session, "AP_PROBE_BOOTSTRAP");
@@ -448,9 +453,16 @@ async function probeNative(fixture, cleanup) {
       );
       return;
     }
-    const bindingAtFirstInput = Boolean(
-      fixture.application.bindings.verifiedReceipt(session),
-    );
+    const bindingAtFirstInput = !!fixture.application.bindings.verifiedReceipt(session);
+    const queueProbe = options.includes("--queue-spike")
+      ? await startQueueStreamProbe({
+          fixture,
+          session,
+          env: { ...env, ...launch.env },
+          snapshot,
+        })
+      : null;
+    cleanup.push(() => queueProbe?.close());
     const idle = await capture();
     snapshots.idle = await snapshot();
     if (tool === "opencode") {
@@ -473,7 +485,7 @@ async function probeNative(fixture, cleanup) {
     await sleep(1500);
     const busy = await capture();
     snapshots.busy = await snapshot();
-    await send("AP_PROBE_SECOND");
+    const secondReceipt = await send("AP_PROBE_SECOND");
     const queued = await waitFor(
       capture,
       (screen) =>
@@ -485,6 +497,8 @@ async function probeNative(fixture, cleanup) {
             : screen.includes("QUEUED")),
     );
     snapshots.queued = await snapshot();
+    await queueProbe?.queued(secondReceipt);
+    await queueProbe?.additional(send);
     assert.equal(
       provider.events.some(
         (event) => event.kind === "complete" && event.marker === "AP_PROBE_HOLD",
@@ -493,8 +507,12 @@ async function probeNative(fixture, cleanup) {
       "Second input must be queued before held response completes",
     );
     await waitFor(capture, (screen) =>
-      screen.includes("Synthetic response complete: AP_PROBE_SECOND"),
+      screen
+        .replace(/\s+/g, " ")
+        .includes("Synthetic response complete: AP_PROBE_SECOND"),
     );
+    await queueProbe?.consumed();
+
     const submit = [],
       echo = [];
     for (let n = 0; n < samples; n++) {
@@ -512,6 +530,17 @@ async function probeNative(fixture, cleanup) {
     const payloads = httpMode
       ? await probeNativePayloads({ tool, send, capture, provider, waitFor, counts })
       : undefined;
+    const images =
+      httpMode && tool === "claude"
+        ? await probeNativeImages({
+            send,
+            capture,
+            provider,
+            waitFor,
+            counts,
+            directory: session.cwd,
+          })
+        : undefined;
     const recovery = httpMode
       ? await probeNativeRecovery(fixture, session, snapshot, counts)
       : undefined;
@@ -534,6 +563,7 @@ async function probeNative(fixture, cleanup) {
       JSON.stringify(
         {
           mode: "native-local-mock",
+          images,
           recordedAt: new Date().toISOString(),
           node: process.version,
           paneSize: { width: 120, height: 35 },

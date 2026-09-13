@@ -3,11 +3,13 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
 
-export function nudgeText(n, fromName, targetRuntime) {
-  const base = `agentbus: ${n} neue Nachricht(en) von ${fromName}. Ruf inbox_read auf`;
+export function nudgeText(n, fromName, targetRuntime, messageId) {
+  const call = messageId ? `inbox_read(${JSON.stringify({messageId})})` : 'inbox_read';
+  const base = `agentbus: ${n} neue Nachricht(en) von ${fromName} zum Versandzeitpunkt. Ruf ${call} auf`;
+  const timing = ' Der Hinweis kann verzögert eintreffen; bereits abgeholte Nachrichten nicht erneut bearbeiten.';
   return targetRuntime === 'claude'
-    ? `${base}; antworte mit peer_send, nicht mit SendMessage.`
-    : `${base}; antworte bei Bedarf mit peer_send.`;
+    ? `${base}; antworte mit peer_send, nicht mit SendMessage.${timing}`
+    : `${base}; antworte bei Bedarf mit peer_send.${timing}`;
 }
 
 const escapeAttr = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
