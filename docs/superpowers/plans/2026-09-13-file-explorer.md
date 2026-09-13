@@ -55,11 +55,12 @@ genutzt. Jeder Task endet mit einem eigenständig prüfbaren Ergebnis. Zunächst
 Vertrag unten, dann den eigenen Task und seine genannten Vorgänger lesen.
 
 Die Umsetzung läuft im bestehenden Worktree `.worktrees/file-explorer-design` auf
-`chore/file-explorer-design` für PR #79. Tasks 1 und 2 sind implementiert und unabhängig
+`chore/file-explorer-design` für PR #79. Tasks 1 bis 3 sind implementiert und unabhängig
 geprüft; der aktuelle Stand enthält außerdem den gemergten Claude-Fix aus PR #78.
-Die lokale Prüfung der Lesegrundlage umfasst 1.409 erfolgreiche Tests unter Node 22,
-vier übersprungene Tests und einen realen Installations-/Update-Pakettest. Die
-Plattformprüfung dieses Stands erfolgt zusätzlich in der erforderlichen CI.
+Die Lesegrundlage besteht die erforderliche CI unter Linux/macOS mit Node 22/24
+sowie Chromium und WebKit. Die API-Erweiterung umfasst lokal 1.423 erfolgreiche
+Tests unter Node 22, drei übersprungene Tests und eine separat geprüfte Korrektur
+der Antwortverarbeitung. Jeder neue Stand durchläuft erneut die erforderliche CI.
 Die übrigen Tasks bleiben offen. Paketversionen wurden ursprünglich am 2026-09-13
 in der npm-Registry gelesen; tatsächliche Installation und Kompatibilität werden
 jeweils bei ihrer Einführung geprüft.
@@ -389,7 +390,7 @@ these names. `context(sessionId=null)` re-reads sessions and returns `FileScope`
 `fileApi(scopeRef)` returns `{get, mutate, raw, base}`; `scopeRef` is `{kind,sessionId?}`,
 not a trusted root. `readExplorerRoute(search)` and `explorerQuery(route)` own URL fields.
 
-- [ ] Write HTTP and route round-trip regressions. Reuse `applicationFixture`; import every helper used in the snippets.
+- [x] Write HTTP and route round-trip regressions. Reuse `applicationFixture`; import every helper used in the snippets.
 
 ```js
 test("machine tokens cannot read the global filesystem", async (t) => {
@@ -407,8 +408,8 @@ test("authenticated owner gets a global context", async (t) => {
 });
 ```
 
-- [ ] Run `node --test tests/blackbox/file-access.test.js tests/unit/file-routes.test.js`; the positive endpoint case must be red before routing exists.
-- [ ] Mount read endpoints after login/origin guards. Derive contexts exclusively from route parameters and server state. Headless project contexts report `readOnly:true` and reject future writes on the server. Add `/files` to the known HTML-route regex; global deep links accept URL-encoded absolute paths.
+- [x] Run `node --test tests/blackbox/file-access.test.js tests/unit/file-routes.test.js`; the positive endpoint case must be red before routing exists.
+- [x] Mount read endpoints after login/origin guards. Derive contexts exclusively from route parameters and server state. Headless project contexts report `readOnly:true` and reject future writes on the server. Add `/files` to the known HTML-route regex; global deep links accept URL-encoded absolute paths.
 
 ```js
 router.get("/context", async (req, res) => {
@@ -424,9 +425,9 @@ router.get("/context", async (req, res) => {
 });
 ```
 
-- [ ] Add a route-local error serializer and translate stable codes in `fileApi`; dispatch the existing login-required event on 401. Test no-login, wrong origin, cross-site API access, global/project separation and path-looking error text remaining inert. Extend route property tests to cover spaces, Unicode, `#`, `%`, hidden/filter/sort/page state and malformed query values.
-- [ ] Run new tests plus `tests/unit/routes.test.js`, `tests/property/routes.test.js`, `tests/unit/i18n-catalogs.test.js`, `tests/integration/workspace-files.test.js` with `node --test`.
-- [ ] Commit: `git commit -m "feat: expose owner-scoped file explorer APIs"`.
+- [x] Add a route-local error serializer and translate stable codes in `fileApi`; dispatch the existing login-required event on 401. Test no-login, wrong origin, cross-site API access, global/project separation and path-looking error text remaining inert. Extend route property tests to cover spaces, Unicode, `#`, `%`, hidden/filter/sort/page state and malformed query values.
+- [x] Run new tests plus `tests/unit/routes.test.js`, `tests/property/routes.test.js`, `tests/unit/i18n-catalogs.test.js`, `tests/integration/workspace-files.test.js` with `node --test`.
+- [x] Commit: `git commit -m "feat: expose owner-scoped file explorer APIs"`.
 
 ## Task 4: Verwaltungsoberfläche, gemeinsame Sitzungsansicht und Favoriten
 
