@@ -97,7 +97,14 @@ test("job-wide byte caps include separate roots and nesting obeys maxDepth", asy
   await fs.writeFile(b, "456");
   const job = await f.start(f.operation([a, b], f.project)),
     done = await f.wait(job.id);
-  assert.equal(done.status, "partially_completed");
+  assert.equal(
+    done.status,
+    "partially_completed",
+    JSON.stringify({
+      job: done,
+      entries: f.jobs.entries(f.globalScope, job.id).entries,
+    }),
+  );
   assert.equal(done.completedBytes, 3);
   assert.equal(await fs.readFile(path.join(f.project, "a"), "utf8"), "123");
   await assert.rejects(fs.lstat(path.join(f.project, "b")), { code: "ENOENT" });
