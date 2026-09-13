@@ -56,30 +56,27 @@ Vertrag unten, dann den eigenen Task und seine genannten Vorgänger lesen.
 
 Die Umsetzung läuft im bestehenden Worktree `.worktrees/file-explorer-design` auf
 `chore/file-explorer-design` für PR #79. Tasks 1 bis 6 sind implementiert und unabhängig
-geprüft; der aktuelle Stand enthält außerdem den gemergten Claude-Fix aus PR #78,
-„Alles kopieren“ aus PR #80 in der gemeinsamen Vorschau und Version 1.17.7 aus PR #81.
-Die API-Grundlage besteht die erforderliche CI unter Linux/macOS mit Node 22/24
-sowie Chromium und WebKit. Der erste Navigationsstand bestand lokal 1.431 Tests
-unter Node 22 bei drei übersprungenen Tests. Die anschließende Review-Korrektur
-besteht 26 gezielte Backendtests und je 18 Browserfälle in Chromium und WebKit.
-Sie korrigiert gemeinsam gespeicherte Host-Favoriten sowie die Zuordnung laufender
-Anfragen zu Pfad, Auswahl und Projektkontext. Die anschließende Integration der
-Chat-Link-Testfixtures besteht je 16 Browserfälle. Die Übernahme von „Alles kopieren“
-besteht zunächst je 39 Browserfälle; ihre unabhängig geprüfte Übergangskorrektur
-besteht je 29 Fälle einschließlich des Datei- und Projektwechsels bei noch ladender
-Vorschau. Jeder neue Stand durchläuft erneut die erforderliche CI. Die Auftragsgrundlage aus Task 5 ist unabhängig geprüft; ihr
-erster vollständiger Backendlauf bestand 1.455 Tests bei drei Übersprüngen. Nach
-einer gezielt geprüften Abbruchkorrektur und der Review-Korrekturrunde bestehen
-32 betroffene Tests. Der abschließend geprüfte Auftragsstand besteht inzwischen
-die gesamte CI unter Linux/macOS mit Node 22/24 sowie Chromium/WebKit. Task 6
-ergänzt Suche und angeforderte Ordnergröße mit unabhängigen Metadatengrenzen,
-dauerhaften Teil-Ergebnissen und einer mobilen Auftragsanzeige. Sein erster
-vollständiger Backendlauf bestand 1.475 Tests bei drei Übersprüngen; die
-anschließenden gezielten Korrekturen bestanden 43 Tests sowie alle 33 Browserfälle
-pro Engine durch die dokumentierten Haupt- und Ergänzungsläufe. Die unabhängig
-geprüfte Korrektur für wachsende Trefferseiten und native Verzeichniszugriffe
-besteht 50 gezielte Tests, einschließlich Linkwechsel und 128 Ebenen. Dieser
-neueste Stand erhält nach dem Push seine eigene CI. Die übrigen Tasks bleiben offen.
+geprüft; ihr abschließender Stand `edfad00` besteht alle 17 CI-Prüfungen unter
+Linux/macOS mit Node 22/24 sowie Chromium/WebKit. Suche und Größenanzeige behalten
+unabhängige Metadatengrenzen, dauerhafte Teilergebnisse, laufende Trefferseiten und
+native Verzeichniszugriffe ohne Linkfolge; auch die echte Paket-Testfixture ist geprüft.
+
+Der Branch enthält den Claude-Modellwechsel aus PR #78, „Alles kopieren“ aus PR #80
+und die Main-Versionen aus PR #81/#82. PR #82 ergänzt den unabhängig geprüften
+Claude-Zustellungsfix und Version 1.17.8. Die gemeinsame Vorschau behält ihre
+geprüfte Zuordnung zu Datei und Projekt auch während laufender Anfragen.
+
+Task 7 ist implementiert und unabhängig auf Spezifikation und Codequalität geprüft.
+Der volle Backendlauf vor den letzten gezielten Korrekturen bestand 1.510 Tests bei
+vier Übersprüngen; der abschließende Metadaten-/Native-/Paket-/Kataloglauf besteht
+46 Tests bei einem Linux-spezifischen Übersprung auf macOS. Die Plattformausführung
+unter Linux und auf allen vier Paketarchitekturen steht für diesen Stand noch aus.
+Die private Metadatenfähigkeit meldet unter Linux derzeit unbewiesene Vollständigkeit:
+Strikte Kopien auf einen neuen Inode brechen vor Metadatenänderungen ab, gewöhnliche
+Kopien melden eine ausdrückliche Warnung. Umbenennen/Austausch im selben Dateisystem
+und echte Same-Inode-Operationen bleiben erhaltend. Task 22 prüft diese konservative
+Verfügbarkeit mit echten Linux-Belegen; spätere strikte Verbraucher behalten bis
+dahin das Original. Die weiteren Tasks bleiben offen.
 Paketversionen wurden
 ursprünglich am 2026-09-13 in der npm-Registry gelesen; tatsächliche Installation
 und Kompatibilität werden jeweils bei ihrer Einführung geprüft.
@@ -658,9 +655,13 @@ Die reine Lesegrundlage (`FileNative`, Worker, Plattform-Öffnen, Koffi und echt
 Paket-/Update-Prüfung) wurde als Voraussetzung für Task 2 vorgezogen. Task 6
 ergänzt geprüfte Verzeichnis-Handles und native Enumeration ohne Linkfolge, mit
 unveränderten Ressourcenlimits. Task 7 erweitert diese vorhandenen Schnittstellen
-für Metadaten und Umbenennen; diese Arbeit und ihre
-Abnahme bleiben vollständig offen. Die gemeldete Koffi-Installationswarnung zur
-npm-Skriptfreigabe wird dabei mit der bestehenden Paketkonfiguration abgeglichen.
+für Metadaten und Umbenennen; Implementierung und unabhängiges Review sind abgeschlossen,
+die tatsächliche Linux-/Vier-Architektur-Abnahme steht noch aus. Die Laufzeit-Skriptpolitik
+ist versionsgebunden geprüft: Koffi 3.2.1 verwendet ausgelieferte Binärpakete ohne
+Installationsskript, node-pty 1.1.0 behält seine geprüften Build-/Installationsskripte.
+Die vier T7-Rulings am Ende präzisieren Handle-Eigentum, Link-Metadaten und die
+konservative Linux-Vollständigkeitsprüfung; keine sichtbare Metadatengleichheit
+ersetzt den Nachweis strikter Erhaltung.
 
 **Files:** Create `server/features/files/{file-native,file-native-worker,file-native-linux,file-native-darwin,file-metadata}.js`,
 `tests/integration/file-native.test.js`, `tests/integration/file-metadata.test.js`;
@@ -670,13 +671,13 @@ Modify `package.json`, `package-lock.json`, `server/features/operations/release-
 
 **Interfaces:** `FileNative({platform=process.platform})` exposes
 `run(operation,args) → Promise<result>` and `close()`, with a fixed internal allowlist.
-`readMetadata(handle) → Promise<{mode,uid,gid,mtimeNs,atimeNs,acl,xattrs,fingerprint}>`,
+`readMetadata(handle) → Promise<{mode,uid,gid,mtimeNs,atimeNs,acl,xattrs,fingerprint,completeness}>`,
 `copyMetadata(sourceHandle,targetHandle,{strictOwnership,preserveTimes}) → Promise<{warnings:FileIssue[]}>`,
 `assertMetadata(expected,actual,{strictOwnership})` live in `file-metadata.js`.
 Native port also produces `renameNoReplace(oldParentFd,oldName,newParentFd,newName)`
 and `exchange(oldParentFd,oldName,newParentFd,newName)` for Task 8.
 
-- [ ] Write native tests that open real files, attach a harmless xattr and ACL, copy metadata, verify contents are untouched and compare permissions/ownership/ACL/xattrs. Add real directory and link-metadata cases, unsupported namespace, bounded metadata and simulated errno tests.
+- [x] Write native tests that open real files, attach a harmless xattr and ACL, copy metadata, verify contents are untouched and compare permissions/ownership/ACL/xattrs. Add real directory and link-metadata cases, unsupported namespace, bounded metadata and simulated errno tests.
 
 ```js
 test("metadata copying leaves bytes untouched and retains executable mode", async (t) => {
@@ -695,8 +696,8 @@ test("metadata copying leaves bytes untouched and retains executable mode", asyn
 });
 ```
 
-- [ ] Run `node --test tests/integration/file-native.test.js tests/integration/file-metadata.test.js` before installing/implementing the adapter.
-- [ ] Install `npm install --save-exact koffi@3.2.1`. Implement the native ABI only in platform files. Linux binds fd-based `flistxattr`, `fgetxattr`, `fsetxattr`, `fremovexattr` and `renameat2`; Darwin binds `fcopyfile`, fd xattr functions, ACL get/set/compare and `renameatx_np`. Use platform headers from the linked primary sources for constants; map names to fixed operations, never accept a symbol/library path from HTTP.
+- [x] Run `node --test tests/integration/file-native.test.js tests/integration/file-metadata.test.js` before installing/implementing the adapter.
+- [x] Install `npm install --save-exact koffi@3.2.1`. Implement the native ABI only in platform files. Linux binds fd-based `flistxattr`, `fgetxattr`, `fsetxattr`, `fremovexattr` and `renameat2`; Darwin binds `fcopyfile`, fd xattr functions, ACL get/set/compare and `renameatx_np`. Use platform headers from the linked primary sources for constants; map names to fixed operations, never accept a symbol/library path from HTTP.
 
 ```js
 // Linux worker declarations; file descriptor lifetimes remain owned by the caller.
@@ -715,8 +716,8 @@ const names = Buffer.alloc(required);
 const received = list(fd, names, names.length);
 ```
 
-- [ ] Cap attribute names at 256, aggregate values at 8 MiB and retry growing metadata at most twice; otherwise fail without changing the source. Native calls run in a dedicated worker, capture `errno` in that worker and keep descriptors open until it responds. Linux copies ACL xattrs after ownership/mode adjustments; Darwin uses metadata flags and verifies the result. Use `l*` APIs for symlink metadata without following the leaf. A copy may report unsupported attributes; move, trash and save require strict preservation. Do not persist attribute values into public job results.
-- [ ] Extend release smoke to import Koffi from the **unpacked release**, read a harmless native property and exercise metadata copying in its disposable data directory. Keep Koffi optional platform packages in `npm ci --omit=dev` and in archives. Test initial release and update staging; if a required binary is missing, fail staging before switching the release pointer. This distribution supplies the helper without a new machine-level runtime installer.
+- [x] Cap attribute names at 256, aggregate values at 8 MiB and retry growing metadata at most twice; otherwise fail without changing the source. Native calls run in a dedicated worker, capture `errno` in that worker and keep descriptors open until it responds. Linux copies ACL xattrs after ownership/mode adjustments; Darwin uses metadata flags and verifies the result. Use `l*` APIs for symlink metadata without following the leaf. A copy may report unsupported attributes; move, trash and save require strict preservation. Do not persist attribute values into public job results.
+- [x] Extend release smoke to import Koffi from the **unpacked release**, read a harmless native property and exercise metadata copying in its disposable data directory. Keep Koffi optional platform packages in `npm ci --omit=dev` and in archives. Test initial release and update staging; if a required binary is missing, fail staging before switching the release pointer. This distribution supplies the helper without a new machine-level runtime installer.
 - [ ] Run native suites and the affected release suites on macOS/Linux CI. Commit: `git commit -m "feat: preserve native file metadata across operations"`.
 
 ## Task 8: Journalisierte Veröffentlichung ohne Verlust des verdrängten Inhalts
@@ -1732,3 +1733,11 @@ Ruling: Native release-test runtime — Detect a copied-runtime shared-library l
 Ruling: T4 hidden preference and URL — Persisted showHidden is a default only without an explicit URL choice. Add fileHiddenExplicit to route state and serialize an explicit false override as hidden=0, retaining compact ordinary false defaults. Preserve that marker through navigation/reload/back; do not let pending preference PATCH override the current toggle — the original codec omitted false and otherwise could not distinguish the user's visible-files choice from an absent preference — cost if wrong: route compatibility and preference precedence would need adjustment. Implementer reports three failing route RED cases before extension and will cover reload/back.
 
 Ruling: T6 metadata observation budgets — Search/size progress uses the configured searchEntries scan budget (100000 by default); stored search results use searchResults (10000 by default), separately from transfer manifests. Requested size observes stat byte totals up to Number.MAX_SAFE_INTEGER and marks overflow/incomplete traversal explicitly; it does not apply the50GiB transfer-data cap to metadata observations. Preserve the configured jobEntries/jobBytes protections for transfer operations in both scheduler and store. Keep traversal time/depth/abort bounds and never read file contents for search/size — the binding spec limits50GiB/50000entries to upload/copy/archive jobs and defines independent metadata/search budgets; applying transfer limits to folder measurement or scan progress would falsely truncate valid results — cost if wrong: kind-aware counter/entry limits and the metadata-job progress labels need revision.
+
+Ruling: T7 native operand ownership — Metadata helpers accept explicitly distinguished worker-owner references {native,handle} and borrowed Node FileHandles. Fixed internal borrowed operations never register or close caller descriptors; callers keep them open until the awaited operation finishes. Rename primitives retain owned parent handles, with an explicit FileHandle bridge only where a real consumer needs it. No raw descriptor selector becomes an HTTP argument — this reconciles the existing opaque owned native port with the plan's caller-owned metadata examples — cost if wrong: lifetime mistakes could operate on reused descriptors, requiring bridge and consumer-lifecycle rework.
+
+Ruling: T7 link metadata API equivalence — Permit verified descriptor-based equivalents to the illustrative l* APIs when primary declarations and real tests establish metadata access to the link itself without following its leaf or ancestor chain. Preserve strict metadata requirements and the existing copy-warning contract; genuinely unavailable host capabilities fail closed, with no pathname fallback or blanket link exemption — the approved spec requires no-follow link semantics while platform syscall forms differ — cost if wrong: incorrectly identified semantics could fail to preserve link metadata or block legitimate operations, requiring native adapter and acceptance-test rework.
+
+Ruling: T7 Linux link capability — Use a verified fixed /proc/self/fd/<owned O_PATH link fd> metadata bridge where conventional fd xattr calls reject O_PATH, without appending a mutable leaf name. Keep the descriptor alive, prove link identity and no target following with real Linux tests, and report missing/inaccessible procfs through the existing strict failure or explicit copy-warning contract; unknown attributes are never an empty set. Do not impose an inferred Linux6.13 minimum, mount procfs, or relax global Linux support — kernel6.13 xattrat still uses fdget filtering O_PATH, while [libselinux uses the owned-fd bridge](https://github.com/SELinuxProject/selinux/blob/master/libselinux/src/fsetfilecon.c) for pinned metadata access — cost if wrong: link metadata could be misdirected or legitimate operations blocked, requiring the adapter/capability tests to change; unsupported hosts retain originals.
+
+Ruling: T7 hidden namespace completeness — New-inode metadata copying cannot report strict success when the host may hide source namespaces and complete observation has not been proven. Carry private completeness/capability state, fail strict copying before metadata mutation with FILE_METADATA_UNSUPPORTED, and give ordinary copying an explicit localized warning. Same-inode no-op and actual same-filesystem rename/exchange remain preserving; do not elevate privileges, infer initial-user-namespace capability from uid0/current caps, or change global Linux support. Save retains its Save As fallback; EXDEV move/trash retain the source — [Linux documents omitted inaccessible xattr names](https://man7.org/linux/man-pages/man2/listxattr.2.html), and its VFS deliberately hides trusted.* without initial-namespace CAP_SYS_ADMIN, so visible equality is not complete preservation — cost if wrong: conservative capability detection may block legitimate Linux save/EXDEV operations, requiring adapter and fallback UX rework.
