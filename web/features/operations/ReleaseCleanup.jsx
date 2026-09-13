@@ -2,17 +2,23 @@ import React, { useEffect, useState } from "react";
 import useResource from "../../lib/useResource.js";
 import api from "../../lib/api.js";
 import ConfirmOperation from "./ConfirmOperation.jsx";
+import ReleaseSessions from "./ReleaseSessions.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 
 export default function ReleaseCleanup({ busy, job, navigate }) {
   const resource = useResource("/operations/releases/cleanup");
   const [selection, setSelection] = useState(null);
+  const [migration, setMigration] = useState(null);
   const { refresh } = resource;
   const jobId = job?.id,
     jobStatus = job?.status;
   useEffect(() => {
     if (jobId && jobStatus !== "running") refresh();
   }, [jobId, jobStatus, refresh]);
+  useEffect(() => {
+    if (migration && jobId === migration.jobId && jobStatus && jobStatus !== "running")
+      setMigration(null);
+  }, [migration, jobId, jobStatus]);
   const versions =
     resource.data?.versions.filter((item) => item.deleteReason !== "active") || [];
   const removable = versions.filter((item) => item.canDelete).map((item) => item.version);
@@ -42,6 +48,18 @@ export default function ReleaseCleanup({ busy, job, navigate }) {
           >
             {copy.cleanupOne}
           </button>
+          {item.deleteReason === "inUse" && (
+            <ReleaseSessions
+              version={item.version}
+              busy={busy}
+              migrating={migration?.version === item.version}
+              onMigrate={(id) => {
+                setMigration({ version: item.version, jobId: id });
+                navigate({ operationId: id });
+              }}
+              onCancel={() => setMigration(null)}
+            />
+          )}
         </div>
       ))}
       {selection && (
