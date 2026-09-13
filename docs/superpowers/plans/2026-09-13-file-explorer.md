@@ -88,8 +88,15 @@ Positionen, während die späteren Operationen ihre konfigurierten Budgets prüf
 Die letzte Korrektur `bddf032` besteht 99 gezielte Tests mit einem Linux-spezifischen
 Übersprung sowie Lint, Formatierung, Struktur und Build. Der geprüfte Stand `6bf6e2a` besteht alle Linux/macOS-Backendläufe mit Node 22/24
 sowie die vier echten Paketziele; die Veröffentlichung wurde übersprungen.
-Die Browser-CI läuft noch. Bereinigung bleibt eine vorgeprüfte Pfadoperation mit
+Auch Chromium/WebKit, Secrets und CodeQL bestehen: alle 17 CI-Prüfungen sind erfolgreich. Bereinigung bleibt eine vorgeprüfte Pfadoperation mit
 der ausdrücklich dokumentierten Grenze gegenüber parallelen nativen Schreibern.
+
+Task 9 ist in `1aecc53` implementiert und im unabhängigen Review. Der einmalige
+Backend-Gesamtlauf bestand 1.600 Tests mit vier bestehenden Übersprüngen vor den
+abschließenden Fehlerfall-Korrekturen. Danach bestanden 156 gezielte Tests und
+nach der letzten Abbruchkorrektur weitere 28 Job-/HTTP-Tests; Lint, Formatierung,
+Struktur und Build bestehen. Die neue plattformübergreifende Prüfung steht aus.
+Tasks 10 bis 23 bleiben offen.
 
 Paketversionen wurden
 ursprünglich am 2026-09-13 in der npm-Registry gelesen; tatsächliche Installation
@@ -180,27 +187,27 @@ Der globale API-Präfix ist `/api/files`, der neue Projektpräfix
 Präfixen, soweit der Projektkontext die Aktion zulässt. Die drei bisherigen
 `/api/sessions/:id/files`-Endpunkte behalten Form, Pfade und Vorschaugrenzen.
 
-| Methode und Suffix                                            | Vertrag / Task                                                                                        |
-| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `GET /context`                                                | `{scopeId, kind, root, home, readOnly, limits}`; Task 3                                               |
-| `GET /entries?path=&page=&sort=&direction=&hidden=&snapshot=` | `FileListing`; Task 3                                                                                 |
-| `GET /metadata?path=` / `GET /preview?path=`                  | `FileEntry` / `{type:"text"                                                                           | "image", text?, source?}`; Task 3 |
-| `GET/PATCH /preferences`                                      | `{favorites:[{id,name,path}], showHidden}`; Projektadapter filtert ausbrechende Favoriten; Task 4     |
-| `POST /operations`                                            | `FileOperation` → HTTP 202, `FileJob`; unbekannte/noch nicht registrierte Arten ablehnen; Task 5      |
-| `GET /jobs?cursor=` / `GET /jobs/:id`                         | Begrenzte Jobliste / `FileJob`; Task 5                                                                |
-| `GET /jobs/:id/entries?cursor=`                               | `{entries, nextCursor}`; nie gesamtes Manifest in Jobprojektion; Task 5                               |
-| `POST /jobs/:id/cancel`                                       | Idempotent, aktueller `FileJob`; Task 5                                                               |
-| `POST /jobs/:id/resolve`                                      | `{conflictId, decision, applyToRemaining}`; revisiongebunden; Task 11                                 |
-| `GET /trash?cursor=`                                          | `{entries:[{id, originalPath, deletedAt, type, size, reason}], nextCursor}`; Task 9                   |
-| `POST /upload-groups`                                         | `{requestId,path}` → `{groupId,job}`; Task 13                                                         |
-| `POST /upload-groups/:id/entries`                             | `{batchId,entries:[{id,relativePath,type,bytes}]}` in Batches bis 60 KiB → bestätigte Zähler; Task 13 |
-| `POST /upload-groups/:id/commit`                              | Validiertes Manifest abschließen, Ordner anlegen → `FileJob`; Task 13                                 |
-| `POST /uploads`                                               | `{requestId, path, name, bytes, scopeId, groupId?, entryId?}` → `{job, uploadId}`; Task 13            |
-| `PUT /uploads/:id/content`                                    | `application/octet-stream`, `Content-Length` soweit bekannt; finaler `FileJob`; Task 13               |
-| `GET /download?path=`                                         | Byte-Stream als Attachment; Task 13                                                                   |
-| `GET /jobs/:id/download`                                      | Fertiges ZIP-Download-Artefakt als Stream; Task 15                                                    |
-| `GET /text?path=`                                             | `FileDocument`; Task 18                                                                               |
-| `PUT /text?path=`                                             | UTF-8-Bytes, `If-Match`, `X-File-Scope`, `X-File-Request`; `{revision,path}`; Task 18                 |
+| Methode und Suffix                                            | Vertrag / Task                                                                                              |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `GET /context`                                                | `{scopeId, kind, root, home, readOnly, limits}`; Task 3                                                     |
+| `GET /entries?path=&page=&sort=&direction=&hidden=&snapshot=` | `FileListing`; Task 3                                                                                       |
+| `GET /metadata?path=` / `GET /preview?path=`                  | `FileEntry` / `{type:"text"                                                                                 | "image", text?, source?}`; Task 3 |
+| `GET/PATCH /preferences`                                      | `{favorites:[{id,name,path}], showHidden}`; Projektadapter filtert ausbrechende Favoriten; Task 4           |
+| `POST /operations`                                            | `FileOperation` → HTTP 202, `FileJob`; unbekannte/noch nicht registrierte Arten ablehnen; Task 5            |
+| `GET /jobs?cursor=` / `GET /jobs/:id`                         | Begrenzte Jobliste / `FileJob`; Task 5                                                                      |
+| `GET /jobs/:id/entries?cursor=`                               | `{entries, nextCursor}`; nie gesamtes Manifest in Jobprojektion; Task 5                                     |
+| `POST /jobs/:id/cancel`                                       | Idempotent, aktueller `FileJob`; Task 5                                                                     |
+| `POST /jobs/:id/resolve`                                      | `{conflictId, decision, applyToRemaining}`; revisiongebunden; Task 11                                       |
+| `GET /trash?cursor=`                                          | `{entries:[{id, originalPath, deletedAt, type, size, reason, availability, revision}], nextCursor}`; Task 9 |
+| `POST /upload-groups`                                         | `{requestId,path}` → `{groupId,job}`; Task 13                                                               |
+| `POST /upload-groups/:id/entries`                             | `{batchId,entries:[{id,relativePath,type,bytes}]}` in Batches bis 60 KiB → bestätigte Zähler; Task 13       |
+| `POST /upload-groups/:id/commit`                              | Validiertes Manifest abschließen, Ordner anlegen → `FileJob`; Task 13                                       |
+| `POST /uploads`                                               | `{requestId, path, name, bytes, scopeId, groupId?, entryId?}` → `{job, uploadId}`; Task 13                  |
+| `PUT /uploads/:id/content`                                    | `application/octet-stream`, `Content-Length` soweit bekannt; finaler `FileJob`; Task 13                     |
+| `GET /download?path=`                                         | Byte-Stream als Attachment; Task 13                                                                         |
+| `GET /jobs/:id/download`                                      | Fertiges ZIP-Download-Artefakt als Stream; Task 15                                                          |
+| `GET /text?path=`                                             | `FileDocument`; Task 18                                                                                     |
+| `PUT /text?path=`                                             | UTF-8-Bytes, `If-Match`, `X-File-Scope`, `X-File-Request`; `{revision,path}`; Task 18                       |
 
 Operation-Arten: `create_file`, `create_directory`, `rename`, `copy`, `move`,
 `trash`, `restore`, `purge`, `archive`, `extract`, `search`,
@@ -853,6 +860,19 @@ For private trash storage, `FileTrash` constructs the same stage shape under its
 server-owned payload directory after verifying that directory's ownership and
 identity. The private sink is never accepted from a project request or returned as
 a user-writable scope; the selected source still passes its original scope checks.
+
+Concrete F1 contract: trash availability is `recoverable`, `pending`, `changed`,
+or `unavailable`; only recoverable entries carry an opaque `t1:SHA256` revision,
+otherwise `null`. Purge options are exactly `{confirmation:[{id,revision},...]}`,
+matching every selected source in order. Validate the whole frozen selection
+before the first removal and each entry again at removal. Keep the 64 KiB JSON
+limit; Task 12 must freeze and batch large selections without omitting pages or
+including entries added after confirmation. Global visibility spans projects;
+project visibility and restore authorization use current canonical bounds.
+Transfer `report({entry})` checkpoints private per-entry identities and
+`report({issue})` carries metadata warnings; adapt these to private storage.
+Optional `mutate` wraps short source removals. Publisher `release(stage)`
+revokes/drains handles while preserving unresolved bytes and journal obligations.
 
 - [ ] Test same-filesystem rename, strict cross-filesystem copy, source revision change, permission/storage failure, restore conflict, interrupted adoption, link-only deletion and project filtering.
 
@@ -1761,3 +1781,7 @@ Ruling: T7 hidden namespace completeness — New-inode metadata copying cannot r
 Ruling: T8 symlink stage content — Add internal stage.createLink(linkText) as a one-shot content operation for symlink stages, keep stage.handle null, journal identity/intent before content work, create relative to the retained private stage directory, and sync that directory. Validate link text without following it; this does not introduce a public symlink-creation action — Tasks9/11 need a concrete way to populate the selected link while the approved stage contract intentionally provides no link file handle — cost if wrong: a small stage/transfer interface and its regression tests require rework.
 
 Ruling: T8 finite cleanup guarantee — Retain registered-work cleanup using retained, identity-checked parents and immediate inode/type checks; preserve every observed mismatch and uncertain journal state. Describe the final pathname unlink as a prechecked removal, never atomic inode-conditional deletion or exclusion of same-user native writers. Do not replace all successful/discarded-stage cleanup with indefinite retention. Carry the same explicit residual native-writer boundary to later source removal, purge and abandoned-upload cleanup — specification section6 expressly accepts remaining check-to-action races, and reviewer8 withdrew the overbroad I1 blocker after reconciling that requirement; ordinary POSIX quarantine/check/unlink cannot remove the final race either — cost if wrong: a same-user external replacement after the last check may still be affected, and stronger isolation or a quarantine policy would require native/cleanup lifecycle rework.
+
+Ruling: T9 owned link-reading capability — Read link text only from the owned link descriptor: optional freadlink on Darwin and the verified empty-path readlinkat form on Linux. Do not raise the global macOS floor or bind the Darwin symbol so its absence disables unrelated native operations. If owned-link reading is unavailable, affected copying fails explicitly with retained source/registered work; preserve independent same-filesystem rename/removal capabilities and never fall back to a mutable application pathname. Test missing capability separately from real operation failure and require actual link reads on the supported CI/package targets — [Apple declares freadlink from macOS13](https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/bsd/sys/unistd.h), while the pinned [Node22.22.2 runtime still targets macOS11](https://raw.githubusercontent.com/nodejs/node/v22.22.2/BUILDING.md) and the repository sets no new macOS13 floor — cost if wrong: copying links on older Darwin may be unavailable, requiring a proven equivalent native adapter or an explicit future platform-policy change.
+
+Ruling: T9 same-inode stage adoption — Add an internal one-shot stage.adoptEntry({parentHandle,name,identity,type}) operation for an existing entry in a verified server-owned trash location, using the same native owner. Enter outside caller leases; require a pristine registered stage of matching type; journal source/stage identities and adoption intent before removing only the initial empty payload or moving anything; native no-replace moves the existing inode into the retained private stage, then updates the owned handle/registered identity and syncs both parents. Keep stage identity/provenance and ordinary publication preconditions intact, revoke alternate population paths, and retain both locations as unresolved obligations on uncertainty. Trash records restore_pending before adoption and remains registered/discoverable through failed publication until its disposition is durable. A frozen stage may expose its current owned handle through a getter; copied stage objects remain invalid. No HTTP-provided path, descriptor or writable private scope is introduced — same-filesystem restore must preserve the original inode/metadata, while cloning into the current pre-created stage would unnecessarily invoke strict new-inode copying and fail on the conservative Linux capability — cost if wrong: stage-handle lifetime and replay/trash projection contracts need rework, and an interrupted adoption may require retaining data until its location can be proven.
