@@ -143,6 +143,47 @@ test("fresh chat input never pastes into Claude onboarding dialogs before reques
       });
       assert.deepEqual(manager.events, []);
     }
+    // After the native receipt only the specific dialogs remain recognized.
+    const { pidStart } = await import("../../vendor/agentbus/core/proc.js");
+    await fs.writeFile(
+      path.join(root, "native-sessions", "one.receipt.json"),
+      JSON.stringify({
+        id: "one",
+        accountId: "fixture",
+        tool: "claude",
+        token: "t",
+        cwd,
+        pid: process.pid,
+        pidStart: pidStart(process.pid),
+        providerSessionId: "00000000-0000-4000-8000-000000000000",
+      }),
+    );
+    for (const [screen, blocked] of [
+      [themeScreen(), true],
+      [apiKeyScreen(), true],
+      [unknownMenuScreen(), false],
+    ]) {
+      const manager = sessionManager();
+      manager.directory = path.join(root, "sessions");
+      manager.current = async () => ({
+        id: "one",
+        tool: "claude",
+        cwd,
+        accountId: "fixture",
+        status: "running",
+        nativeBinding: { enabled: true },
+      });
+      manager.screen = screen;
+      await chat.withChatInput(manager, "one", async (tx) => {
+        if (blocked)
+          await assert.rejects(tx.write("hello", { allowComposerDraft: true }), {
+            status: 409,
+            message: /Anfrage/,
+          });
+        else await tx.write("hello", { allowComposerDraft: true });
+      });
+      assert.equal(manager.events.length > 0, !blocked);
+    }
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }

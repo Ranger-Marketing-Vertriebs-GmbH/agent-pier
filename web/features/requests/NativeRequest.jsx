@@ -74,7 +74,7 @@ export default function NativeRequest({ request, updated, openTerminal }) {
         <p role="status">{copy.responding}</p>
       ) : legacyQuestion ? (
         <p role="status">{copy.legacyQuestion}</p>
-      ) : request.kind === "permission" ? (
+      ) : request.kind === "permission" && request.options?.length ? (
         <div className="native-request-actions">
           {request.options?.map((option) => (
             <button

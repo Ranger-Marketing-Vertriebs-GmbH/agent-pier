@@ -11,18 +11,25 @@ const TRUST_OPTIONS = [
 ];
 const clean = (raw) =>
   stripVTControlCharacters(raw)
-    .replaceAll(" ", " ")
+    .replaceAll("\u00a0", " ")
     .split("\n")
     .map((line) => line.trimEnd());
 const compact = (lines) => lines.join(" ").replace(/\s+/g, " ").trim();
+const lastLine = (lines) => (lines.filter((line) => line.trim()).at(-1) || "").trim();
+const hasLine = (lines, text) => lines.some((line) => line.trim() === text);
 const marked = (lines, pattern) =>
   lines.map((line) => line.match(pattern)).filter(Boolean);
 const selection = (matches, key) => {
   const chosen = matches.filter((m) => m[1] === "❯");
   return chosen.length === 1 ? key(chosen[0]) : undefined;
 };
+// Every dialog needs whole-line structure, never just quoted phrases in a transcript.
 function themeDialog(lines, text) {
-  if (!text.includes("Choose the text style that looks best with your terminal"))
+  if (
+    !text.includes(
+      "Choose the text style that looks best with your terminal To change this later, run /theme",
+    )
+  )
     return null;
   const rows = marked(lines, /^\s*(❯| )?\s*([1-9])\. (.+?)(?: ✔)?$/);
   if (rows.length < 2) return null;
@@ -34,13 +41,14 @@ function themeDialog(lines, text) {
     options: rows.map((m) => ({ id: m[2], label: m[3] })),
   };
 }
-function apiKeyDialog(lines, text) {
-  if (
-    !text.includes("Detected a custom API key in your environment") ||
-    !text.includes("Do you want to use this API key?") ||
-    !text.includes("Enter to confirm")
-  )
-    return null;
+function apiKeyDialog(lines) {
+  const heading = lines.findIndex(
+    (line, index) =>
+      /^─{20,}$/.test(line.trim()) &&
+      lines[index + 1]?.trim() === "Detected a custom API key in your environment",
+  );
+  if (heading < 0 || lastLine(lines) !== "Enter to confirm · Esc to cancel") return null;
+  if (!hasLine(lines, "Do you want to use this API key?")) return null;
   const rows = marked(lines, /^\s*(❯| )\s*(Yes|No \(recommended\))$/);
   if (rows.length !== 2) return null;
   const selected = selection(rows, (m) => (m[2] === "Yes" ? "yes" : "no"));
@@ -54,8 +62,11 @@ function apiKeyDialog(lines, text) {
     ],
   };
 }
-function securityNotesDialog(text) {
-  if (!text.includes("Security notes:") || !text.includes("Press Enter to continue"))
+function securityNotesDialog(lines) {
+  if (
+    !hasLine(lines, "Security notes:") ||
+    !/^Press Enter to continue(…|\.{3})?$/.test(lastLine(lines))
+  )
     return null;
   return {
     dialog: "securityNotes",
@@ -63,18 +74,14 @@ function securityNotesDialog(text) {
     options: [{ id: "continue", label: "Continue" }],
   };
 }
-function loginDialog(text) {
-  if (
-    !text.includes("Select login method:") &&
-    !text.includes("Paste code here if prompted")
-  )
-    return null;
+function loginDialog(lines) {
+  const method =
+    hasLine(lines, "Select login method:") && marked(lines, /^\s*(❯) 1\. /).length === 1;
+  if (!method && lastLine(lines) !== "Paste code here if prompted >") return null;
   return { dialog: "login", selected: null, options: [] };
 }
 function unknownDialog(lines, text) {
-  const footer = /(Enter to confirm|Press Enter to continue)/.test(
-    lines.filter((line) => line.trim()).at(-1) || "",
-  );
+  const footer = /(Enter to confirm|Press Enter to continue)/.test(lastLine(lines));
   if (!footer || !text.includes("❯")) return null;
   const rows = marked(lines, /^\s*(❯| )\s*(?:\d+\. )?(\S.*)$/);
   if (rows.filter((m) => m[1] === "❯").length !== 1) return null;
@@ -94,14 +101,16 @@ export function startupScreen(raw, cwd, { started = true } = {}) {
   if (!text) return null;
   return (
     themeDialog(lines, text) ||
-    apiKeyDialog(lines, text) ||
-    securityNotesDialog(text) ||
-    loginDialog(text) ||
+    apiKeyDialog(lines) ||
+    securityNotesDialog(lines) ||
+    loginDialog(lines) ||
     (started ? null : unknownDialog(lines, text))
   );
 }
 
 const PRESENTATIONS = ["claudeFolderTrust", "claudeStartupPrompt"];
+// Unknown menus share one id per launch: their card is identical, so a second
+// unrecognized menu in the same launch keeps the existing request instead.
 const promptId = (current, dialog) =>
   dialog === "trust"
     ? folderId(current)
@@ -109,7 +118,8 @@ const promptId = (current, dialog) =>
         .update(`claude-startup:${dialog}:${current.identity}:${current.binding.token}`)
         .digest("hex");
 const expire = (broker, entry) => {
-  if (!entry) return;
+  // A poll queued behind an answer must not expire the request that answer removed.
+  if (!entry || broker.entries.get(entry.id) !== entry) return;
   broker.entries.delete(entry.id);
   broker.emit(entry, "request.expired");
 };
@@ -177,10 +187,10 @@ export async function answerStartupPrompt(broker, entry, choice) {
       )
         throw stale();
     };
+    const screen = async () =>
+      startupScreen(await control.screen(), control.session.cwd, { started: false });
     const read = async () => {
-      const menu = startupScreen(await control.screen(), control.session.cwd, {
-        started: false,
-      });
+      const menu = await screen();
       if (menu?.dialog !== dialog) throw stale();
       return menu;
     };
@@ -215,10 +225,10 @@ export async function answerStartupPrompt(broker, entry, choice) {
       const current = await startupState(broker, control.session);
       if (current?.identity !== entry.launchIdentity) throw stale();
       if (current.started) return;
-      const now = startupScreen(await control.screen(), control.session.cwd, {
-        started: false,
-      });
-      if (now?.dialog !== dialog) return;
+      if ((await screen())?.dialog === dialog) continue;
+      // A partial redraw may briefly hide the dialog; require it to stay gone.
+      await delay(50);
+      if ((await screen())?.dialog !== dialog) return;
     }
     throw problem(copy.unknown, 409);
   });

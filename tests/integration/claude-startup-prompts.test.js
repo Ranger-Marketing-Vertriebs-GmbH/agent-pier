@@ -38,32 +38,41 @@ async function fixture(t, { screens } = {}) {
     () => folderScreen(cwd, state.trust),
     () => "Normal chat composer",
   ];
+  // Control operations are serialized like the real session manager lock.
+  let lock = Promise.resolve();
+  const serial = (operation) => {
+    const run = lock.then(operation);
+    lock = run.catch(() => {});
+    return run;
+  };
   const broker = new RequestBroker({
     dataDir: root,
     sessions: {
       get: async () => session,
-      control: async (_id, operation) =>
-        operation({
-          session,
-          screen: async () => render[Math.min(state.step, render.length - 1)](),
-          keys: async (values) => {
-            keys.push(...values);
-            for (const key of values) {
-              const current = render[state.step];
-              if (current === render[0]) {
-                if (key === "Down") state.theme = Math.min(7, state.theme + 1);
-                if (key === "Up") state.theme = Math.max(1, state.theme - 1);
-              } else if (current === render[1]) {
-                if (key === "Up") state.apiKey = "yes";
-                if (key === "Down") state.apiKey = "no";
-              } else if (current === render[3]) {
-                if (key === "Down") state.trust = "trust";
-                if (key === "Up") state.trust = "exit";
+      control: (_id, operation) =>
+        serial(() =>
+          operation({
+            session,
+            screen: async () => render[Math.min(state.step, render.length - 1)](),
+            keys: async (values) => {
+              keys.push(...values);
+              for (const key of values) {
+                const current = render[state.step];
+                if (current === render[0]) {
+                  if (key === "Down") state.theme = Math.min(7, state.theme + 1);
+                  if (key === "Up") state.theme = Math.max(1, state.theme - 1);
+                } else if (current === render[1]) {
+                  if (key === "Up") state.apiKey = "yes";
+                  if (key === "Down") state.apiKey = "no";
+                } else if (current === render[3]) {
+                  if (key === "Down") state.trust = "trust";
+                  if (key === "Up") state.trust = "exit";
+                }
+                if (key === "Enter") state.step++;
               }
-              if (key === "Enter") state.step++;
-            }
-          },
-        }),
+            },
+          }),
+        ),
     },
   });
   await broker.prepare({
@@ -154,4 +163,32 @@ test("login and unknown menus are shown without chat answers until the receipt",
   );
   assert.deepEqual((await f.broker.list("onboarding")).requests, []);
   assert.deepEqual(f.keys, []);
+});
+test("an ignored Enter keeps the prompt retryable without a second Enter", async (t) => {
+  const f = await fixture(t, { screens: [() => securityNotesScreen()] });
+  const notes = (await f.broker.list("onboarding")).requests[0];
+  const events = [];
+  f.broker.onEvent = (event) => events.push(event.action);
+  await assert.rejects(answer(f, notes, "continue"), { status: 409 });
+  assert.deepEqual(f.keys, ["Enter"]);
+  const again = (await f.broker.list("onboarding")).requests[0];
+  assert.equal(again.id, notes.id);
+  assert.equal(again.status, "pending");
+  assert.equal(again.revision, 2);
+  assert.equal(events.includes("request.expired"), false);
+});
+test("a poll queued behind an answer does not expire the answered request", async (t) => {
+  const f = await fixture(t);
+  const theme = (await f.broker.list("onboarding")).requests[0];
+  const events = [];
+  f.broker.onEvent = (event) => events.push([event.action, event.resourceId]);
+  const [answered] = await Promise.all([
+    answer(f, theme, "2"),
+    f.broker.list("onboarding"),
+  ]);
+  assert.equal(answered.requests[0].subject.dialog, "apiKey");
+  assert.deepEqual(
+    events.filter(([, id]) => id === theme.id).map(([action]) => action),
+    ["request.answered"],
+  );
 });

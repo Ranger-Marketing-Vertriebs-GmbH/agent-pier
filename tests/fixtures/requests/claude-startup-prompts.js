@@ -118,3 +118,16 @@ export const permissionScreen = () => `
 
  Esc to cancel
 `;
+/** Onboarding phrases quoted inside a running transcript must not block chat. */
+export const transcriptLookalikeScreen = () => `
+⏺ Read(docs/direct-chat-tui-validation.md)
+  ⎿  Security notes: the CLI prints "Press Enter to continue" after
+     "Select login method:" and "Detected a custom API key in your environment".
+     "Do you want to use this API key?" · "Paste code here if prompted" ·
+     Choose the text style that looks best with your terminal · Enter to confirm
+
+${"─".repeat(120)}
+❯ 
+${"─".repeat(120)}
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← for agents
+`;

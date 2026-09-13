@@ -11,6 +11,7 @@ import {
   securityNotesScreen,
   themeLabels,
   themeScreen,
+  transcriptLookalikeScreen,
   unknownMenuScreen,
 } from "../fixtures/requests/claude-startup-prompts.js";
 
@@ -82,4 +83,8 @@ test("the composer and running permission prompts are not startup dialogs", () =
   assert.equal(startupScreen("", cwd, { started: false }), null);
   assert.equal(startupScreen(null, cwd, { started: false }), null);
   assert.equal(startupScreen("x".repeat(70000), cwd, { started: false }), null);
+});
+test("quoted onboarding phrases in a transcript never count as a startup dialog", () => {
+  assert.equal(startupScreen(transcriptLookalikeScreen(), cwd, { started: true }), null);
+  assert.equal(startupScreen(transcriptLookalikeScreen(), cwd, { started: false }), null);
 });
