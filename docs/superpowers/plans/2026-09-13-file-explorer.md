@@ -115,16 +115,23 @@ einschließlich Linux/macOS mit Node 22/24 und Chromium/WebKit. Die repräsentat
 Node-24-Läufe bestehen 1.646 Tests unter Linux und 1.649 unter macOS, jeweils ohne
 Fehler und mit den benannten Übersprüngen.
 
-Task 11 ist in `09633d8` und `8f8160f` implementiert und befindet sich in der
-unabhängigen Review. Kopieren und Verschieben verwenden begrenzte Quellmanifeste,
-revisiongebundene Konflikte und getrennte Ergebnisse für veröffentlichte Ziele und
-entfernte Quellen. Der vollständige Lauf besteht 1.675 Tests mit fünf benannten
-Übersprüngen; die zusätzlich übersprungene gh-Prüfung besteht separat. Nach späteren
-Ergänzungen bestehen 110 gezielte Tests für Zusammenführungshinweise und 68 Tests
-für gespeicherte Quellrevisionen, jeweils mit finalen Lint-, Format-, Struktur- und
-Build-Prüfungen. Diese Nachtests sind kein weiterer vollständiger Lauf.
-Main PR #83 (`43738f6`, Version 1.17.9) wurde konfliktfrei in `67bea87` integriert.
-Neue CI-Ergebnisse und die Task-11-Review stehen noch aus; Tasks 11 bis 23 bleiben offen.
+Task 11 ist bis `82bb9f7` implementiert und nach zwei gezielten Korrekturrunden
+unabhängig auf Spezifikation und Qualität geprüft. Kopieren und Verschieben nutzen
+begrenzte Manifeste, gespeicherte Quellrevisionen, typabhängige Konflikte und
+getrennte Nachweise für veröffentlichte Ziele und entfernte Quellen. Der Wiederanlauf
+klärt unterbrochene Ordnerentfernungen anhand gespeicherter Beobachtungen, ohne die
+Entfernung erneut auszuführen. Veränderte oder unbewiesene Zustände bleiben sichtbar.
+Der letzte lokale Lauf besteht 202 gezielte Tests ohne Übersprünge; Lint, Format,
+Strukturprüfung und Build sind grün. Der einmalige volle Lauf vor späteren Korrekturen
+bestand 1.675 Tests bei fünf benannten Übersprüngen; die damalige eingeschränkte
+PATH-Prüfung wurde separat erfolgreich ausgeführt.
+Auf `82bb9f7` bestehen alle acht Backend-CI-Läufe unter Linux/macOS mit Node 22/24.
+Linux zählt 1.711 erfolgreiche Tests bei sieben Übersprüngen, macOS 1.714 bei vier;
+beide ohne Fehler. Die Browser-CI dieses Stands wird während Task 12 weiter verfolgt.
+Main PR #83 (`43738f6`, Version 1.17.9) ist in `67bea87` integriert und wurde erneut
+als aktueller Main-Stand bestätigt. Tasks 1 bis 11 sind abgeschlossen; Tasks 12 bis 23
+bleiben offen. Die konkrete Prüfung realer zweiter Dateisysteme und der dokumentierten
+Grenzen nativer Identitätsnachweise bleibt Teil der abschließenden Plattformabnahme.
 
 Paketversionen wurden
 ursprünglich am 2026-09-13 in der npm-Registry gelesen; tatsächliche Installation
@@ -1022,7 +1029,7 @@ matching current conflict. `decision` is `replace`, `skip`, `keep_both`, `merge`
 `cancel`; allowed choices depend on both entry types. A wildcard replace decision
 never applies to a directory/file type mismatch or a newly changed revision.
 
-- [ ] Write multi-entry partial-failure, parent/child source de-duplication, own-descendant target, directory merge, link-copy, sparse-file budget and EXDEV tests. Explicitly race changes during the conflict dialog.
+- [x] Write multi-entry partial-failure, parent/child source de-duplication, own-descendant target, directory merge, link-copy, sparse-file budget and EXDEV tests. Explicitly race changes during the conflict dialog.
 
 ```js
 test("a changed destination invalidates a previous replace decision", async (t) => {
@@ -1043,8 +1050,8 @@ test("a changed destination invalidates a previous replace decision", async (t) 
 });
 ```
 
-- [ ] Define local test helper `startConflictingCopy(f)` in this suite: make `source/same.txt` and `target/same.txt`, post a `copy` operation for the source file into target and wait for `waiting_for_conflict`. Run `node --test tests/integration/file-copy.test.js tests/integration/file-move.test.js tests/integration/file-conflicts.test.js`.
-- [ ] Use `copyVerified` from Task 9 with an explicit iterative manifest; cap bytes/entries/depth while scanning **and** writing. Use opened file streams and progress counts; clone sparse extents where supported, otherwise count zero-filled streamed bytes against the cap. Copy links as links and record skipped special entries. Apply directory metadata after children are finished.
+- [x] Define local test helper `startConflictingCopy(f)` in this suite: make `source/same.txt` and `target/same.txt`, post a `copy` operation for the source file into target and wait for `waiting_for_conflict`. Run `node --test tests/integration/file-copy.test.js tests/integration/file-move.test.js tests/integration/file-conflicts.test.js`.
+- [x] Use `copyVerified` from Task 9 with an explicit iterative manifest; cap bytes/entries/depth while scanning **and** writing. Use opened file streams and progress counts; clone sparse extents where supported, otherwise count zero-filled streamed bytes against the cap. Copy links as links and record skipped special entries. Apply directory metadata after children are finished.
 
 ```js
 const transferred = await copyVerified(scope, source, stage, {
@@ -1060,9 +1067,11 @@ if (operation.kind === "move") {
 }
 ```
 
-- [ ] Implement `copyVerified`'s returned `assertSourceUnchanged()` and `removeMatchingSource()` as per-entry identity checks; source removal follows successful publication, not merely successful copying. Same-filesystem moves use native no-replace when no merge is required. Journal every completed entry so restart/retry does not repeat successful moves.
-- [ ] Persist conflict suspension without holding path locks across human waiting. Re-acquire canonical overlapping locks and recheck both revisions on resume. Cancellation retains finished outputs and all unfinished sources; return `partially_completed` when appropriate.
-- [ ] Run the three suites plus trash/recovery suites; commit: `git commit -m "feat: copy and move files with recoverable conflicts"`.
+- [x] Implement `copyVerified`'s returned `assertSourceUnchanged()` and `removeMatchingSource()` as per-entry identity checks; source removal follows successful publication, not merely successful copying. Same-filesystem moves use native no-replace when no merge is required. Journal every completed entry so restart/retry does not repeat successful moves.
+- [x] Persist conflict suspension without holding path locks across human waiting. Re-acquire canonical overlapping locks and recheck both revisions on resume. Cancellation retains finished outputs and all unfinished sources; return `partially_completed` when appropriate.
+- [x] Run the three suites plus trash/recovery suites; commit: `git commit -m "feat: copy and move files with recoverable conflicts"`.
+
+- [x] Accept reviewed source `82bb9f7` in all Linux/macOS Node 22/24 backend CI jobs. Chromium/WebKit are tracked concurrently with Task 12; final whole-branch acceptance still requires all checks.
 
 ## Task 12: Mehrfachauswahl, Dateiaktionen und Papierkorb-Oberfläche
 
