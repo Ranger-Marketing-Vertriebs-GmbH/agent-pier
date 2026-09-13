@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { FileNative } from "../../server/features/files/file-native.js";
+import { defaultFileLimits } from "../../server/features/files/file-limits.js";
 import { applicationFixture } from "../helpers/application.js";
 import { waitForFileJob } from "../helpers/file-explorer.js";
 
@@ -24,7 +25,7 @@ const operation = (source, kind = "search", options = {}) => ({
         }
       : options,
 });
-async function start(f, op, base = "/api/files") {
+async function start(f, op, base = "/api/files", timeout) {
   const context = await f.request(`${base}/context`);
   assert.equal(context.status, 200);
   const response = await f.request(`${base}/operations`, {
@@ -33,7 +34,7 @@ async function start(f, op, base = "/api/files") {
     body: op,
   });
   assert.equal(response.status, 202, await response.clone().text());
-  return waitForFileJob(f, (await response.json()).id, { base });
+  return waitForFileJob(f, (await response.json()).id, { base, timeout });
 }
 
 test("recursive filename search returns complete metadata and never follows links", async (t) => {
@@ -425,12 +426,14 @@ test("metadata traversal reaches depth128 using at most two owned native handles
     await close.call(this);
     counts.set(this, 0);
   });
-  const search = await start(f, operation(f.home));
+  // Allow the configured traversal budget plus finite fixture scheduling slack.
+  const timeout = defaultFileLimits.searchMs + 5000;
+  const search = await start(f, operation(f.home), "/api/files", timeout);
   assert.equal(search.issue, null);
   assert.equal(search.completedEntries, 129);
   const results = await (await f.request(`/api/files/jobs/${search.id}/entries`)).json();
   assert.equal(results.entries[0].path, path.join(folder, "deep.txt"));
-  const size = await start(f, operation(f.home, "size"));
+  const size = await start(f, operation(f.home, "size"), "/api/files", timeout);
   assert.equal(size.issue, null);
   assert.equal(size.totalBytes, 4);
   assert.equal(peak, 2);

@@ -94,6 +94,7 @@ async function displaced(f) {
 
 for (const boundary of [
   "normal",
+  "pending_direct",
   "replay",
   "recoverable",
   "recoverable_replay",
@@ -144,9 +145,26 @@ for (const boundary of [
     const oldDirectory = path.dirname(stage.file);
     await fs.mkdir(oldDirectory);
     await fs.writeFile(path.join(oldDirectory, "external"), "external bytes");
+    if (boundary === "pending_direct") {
+      const pending = f.store.getTrash(id);
+      await assert.rejects(f.trash.adoptDisplaced(f.globalScope, id));
+      assert.deepEqual(f.store.getTrash(id), pending);
+    }
     failPublication = false;
     failedPublication = false;
-    if (boundary === "recoverable") await f.trash.adoptDisplaced(f.globalScope, id);
+    if (boundary === "pending_direct") {
+      const pending = f.store.getTrash(id);
+      assert.equal(pending.phase, "adoption_pending");
+      assert.equal(pending.adoptionSource.containerRemoved, true);
+      const result = await f.trash.adoptDisplaced(f.globalScope, id).then(
+        (value) => value,
+        (error) => error.code,
+      );
+      assert.deepEqual(f.store.getTrash(id).location, pending.location);
+      assert.deepEqual(f.store.getTrash(id).adoptionSource, pending.adoptionSource);
+      assert.equal(result, id);
+    } else if (boundary === "recoverable")
+      await f.trash.adoptDisplaced(f.globalScope, id);
     else await f.trash.recover();
     await f.trash.recover();
     assert.equal(f.store.getTrash(id).phase, "recoverable");
@@ -206,5 +224,32 @@ test("purge keeps an unfinished adoption location pinned across a replacement", 
   await f.trash.recover();
   assert.equal(f.store.getTrash(id), null);
   assert.equal(f.store.getPublication(id).phase, "resolved");
+  assert.equal(await fs.readFile(f.target, "utf8"), "new");
+});
+
+test("direct retry preserves incomplete moved evidence for verified replay", async (t) => {
+  const f = await trashFixture(t),
+    { id } = await displaced(f);
+  const putTrash = f.store.putTrash.bind(f.store);
+  let fail = true;
+  f.store.putTrash = (record) => {
+    if (record.id === id && record.phase === "moved" && fail) {
+      fail = false;
+      throw Error("moved journal failed");
+    }
+    return putTrash(record);
+  };
+  await assert.rejects(f.trash.adoptDisplaced(f.globalScope, id));
+  const pending = f.store.getTrash(id);
+  assert.equal(pending.phase, "adoption_pending");
+  assert.equal(pending.payloadManifest, undefined);
+  await assert.rejects(f.trash.adoptDisplaced(f.globalScope, id), {
+    code: "FILE_CONFLICT_CHANGED",
+  });
+  assert.deepEqual(f.store.getTrash(id), pending);
+  await f.trash.recover();
+  assert.equal(f.store.getTrash(id).phase, "recoverable");
+  assert.equal(f.store.getPublication(id).phase, "resolved");
+  assert.equal(await fs.readFile(pending.location.file, "utf8"), "old");
   assert.equal(await fs.readFile(f.target, "utf8"), "new");
 });

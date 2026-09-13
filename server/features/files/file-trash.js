@@ -458,11 +458,27 @@ export class FileTrash {
   adoptDisplaced(scope, recoveryId) {
     return this.entry(recoveryId, async () => {
       const prior = this.store.getTrash(recoveryId);
-      if (prior?.phase === "recoverable") {
-        if (prior.scopeId !== scope.id) throw treeConflict();
+      if (prior && prior.scopeId !== scope.id) throw treeConflict();
+      if (
+        prior?.phase === "recoverable" ||
+        (prior?.phase === "adoption_pending" &&
+          prior.location?.file === prior.centralLocation?.file &&
+          prior.location?.identity)
+      ) {
+        if (
+          prior.phase === "adoption_pending" &&
+          (prior.location.identity !== prior.sourceManifest?.[0].identity ||
+            !prior.payloadManifest)
+        )
+          throw treeConflict();
         await completeTrashAdoption(this, prior);
         return prior.id;
       }
+      if (
+        prior &&
+        (prior.phase !== "adoption_pending" || prior.adoptionSource?.containerRemoved)
+      )
+        throw treeConflict();
       const publication = this.store.getPublication(recoveryId);
       if (
         !publication ||
@@ -483,14 +499,22 @@ export class FileTrash {
         phase: "adoption_pending",
         recoveryId,
       };
-      record.location = {
-        file: doc.staged,
-        parentIdentity: doc.stageParent,
-        identity: doc.displacedIdentity,
-      };
-      record.adoptionSource = { ...record.location };
-      await this.save(record);
+      if (!prior) {
+        record.location = {
+          file: doc.staged,
+          parentIdentity: doc.stageParent,
+          identity: doc.displacedIdentity,
+        };
+        record.adoptionSource = { ...record.location };
+        await this.save(record);
+      }
       const old = record.adoptionSource;
+      if (
+        old?.file !== doc.staged ||
+        old.parentIdentity !== doc.stageParent ||
+        old.identity !== doc.displacedIdentity
+      )
+        throw treeConflict();
       try {
         const id = await this.captureSource(
           scope,
