@@ -13,8 +13,24 @@ export default function FileExplorer({ session, route, navigate }) {
   const [listing, setListing] = useState(null),
     [preview, setPreview] = useState(null),
     [error, setError] = useState(""),
-    [previewError, setPreviewError] = useState("");
+    [previewError, setPreviewError] = useState(""),
+    [copyResult, setCopyResult] = useState(null);
   const base = `/sessions/${encodeURIComponent(session.id)}/files`;
+  const copyStatus = copyResult?.preview === preview ? copyResult.status : "";
+  async function copyAll() {
+    if (preview?.type !== "text") return;
+    setCopyResult({ preview, status: "copying" });
+    let status;
+    try {
+      await navigator.clipboard.writeText(preview.text);
+      status = "copied";
+    } catch {
+      status = "copyFailed";
+    }
+    setCopyResult((current) =>
+      current?.preview === preview ? { preview, status } : current,
+    );
+  }
   function go(filePath, changes = {}) {
     navigate({ ...route, mode: "files", filePath, filePage: 1, file: "", ...changes });
   }
@@ -129,15 +145,29 @@ export default function FileExplorer({ session, route, navigate }) {
           <div className="file-preview" aria-label={copy.preview}>
             <div className="file-preview-heading">
               <code>{file}</code>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={copy.close}
-                onClick={() => go(folder, { filePage: page })}
-              >
-                <Icon name="close" />
-              </button>
+              <div className="file-preview-actions">
+                {preview?.type === "text" && (
+                  <button
+                    type="button"
+                    className="button secondary compact"
+                    disabled={copyStatus === "copying"}
+                    onClick={copyAll}
+                  >
+                    {copy.copyAll}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={copy.close}
+                  onClick={() => go(folder, { filePage: page })}
+                >
+                  <Icon name="close" />
+                </button>
+              </div>
             </div>
+            {copyStatus === "copied" && <p role="status">{copy.copied}</p>}
+            <ErrorMessage error={copyStatus === "copyFailed" ? copy.copyFailed : ""} />
             <ErrorMessage error={previewError} />
             {!preview && !previewError && <p>{copy.loading}</p>}
             {preview?.type === "text" && <pre>{preview.text}</pre>}
