@@ -6,6 +6,37 @@ import {
   assertManualInputSettled,
 } from "../../server/features/sessions/manual-input-guard.js";
 
+test("automatic terminal color replies do not block chat as unrendered user input", async () => {
+  for (const reply of [
+    "\x1b]11;rgb:1010/1111/1515\x1b\\",
+    "\x1b]10;rgb:ffff/ffff/ffff\x07",
+    "\x1b]4;0;rgb:0000/0000/0000\x1b\\",
+    "\x1b[?1;2c\x1b[32;3R\x1b]12;rgb:ffff/ffff/ffff\x1b\\",
+  ]) {
+    const manager = { pendingTerminalInput: new Set() };
+    await recordManualInput(manager, { id: "isolated", tool: "claude" }, reply);
+    assert.doesNotThrow(() =>
+      assertManualInputSettled(manager, "isolated", { composer: { state: "empty" } }),
+    );
+  }
+});
+
+test("text alongside terminal replies still blocks chat until it renders", async () => {
+  for (const text of [
+    "draft",
+    "\x1b]11;rgb:1010/1111/1515\x1b\\draft",
+    "\x1b[200~draft\x1b[201~",
+  ]) {
+    const manager = { pendingTerminalInput: new Set() };
+    await recordManualInput(manager, { id: "isolated", tool: "claude" }, text);
+    assert.throws(
+      () =>
+        assertManualInputSettled(manager, "isolated", { composer: { state: "empty" } }),
+      { status: 409 },
+    );
+  }
+});
+
 test("visible manual input releases the render guard before terminal submission", async () => {
   const fixture = JSON.parse(
     await fs.readFile(

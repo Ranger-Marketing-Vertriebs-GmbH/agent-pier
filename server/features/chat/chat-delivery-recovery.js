@@ -127,7 +127,7 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
       });
       receipt.status = "handed-off";
     } catch {
-      receipt.status = "uncertain";
+      receipt.status = receipt.journal.phase === "reserved" ? "rejected" : "uncertain";
     } finally {
       delivery.active.delete(file);
     }
@@ -137,7 +137,11 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
           ? "submitted-existing"
           : "resent"
         : "blocked",
-      receipt.status === "handed-off" ? copy.recoveryHandedOff : copy.recoveryUncertain,
+      receipt.status === "handed-off"
+        ? copy.recoveryHandedOff
+        : receipt.status === "rejected"
+          ? copy.rejected
+          : copy.recoveryUncertain,
     );
   });
 }
