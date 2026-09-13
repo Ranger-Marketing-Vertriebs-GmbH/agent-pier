@@ -29,24 +29,18 @@ test("application closes outstanding stage descriptors before closing its store"
   assert.equal(await fs.readFile(stage.file, "utf8"), "retained");
 });
 
-test("staging and revision hashing run without inherited barrier or path leases", async (t) => {
+test("staging and revision hashing run outside physical barrier and path leases", async (t) => {
   const f = await fixture(t);
   const run = f.native.run.bind(f.native),
     reads = [];
   f.native.run = (op, args) => {
     if (["read", "copyMetadata", "write"].includes(op))
-      reads.push([op, f.barrier.hasLease(), f.locks.hasLease()]);
+      reads.push([op, f.barrier.active > 0, f.locks.active.size > 0]);
     return run(op, args);
   };
-  const stage = await f.barrier.run(() => f.locks.withPaths([f.home], () => f.stage()));
+  const stage = await f.stage();
   await stage.handle.writeFile("new");
-  let publication;
-  await f.barrier.run(() =>
-    f.locks.withPaths([f.home], () => {
-      publication = f.publisher.publish(f.globalScope, stage, { expectedRevision: null });
-    }),
-  );
-  await publication;
+  await f.publisher.publish(f.globalScope, stage, { expectedRevision: null });
   assert.ok(reads.some(([op]) => op === "read"));
   assert.ok(reads.every(([, barrier, lock]) => !barrier && !lock));
 });

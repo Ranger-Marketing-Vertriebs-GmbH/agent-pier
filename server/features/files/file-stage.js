@@ -23,7 +23,7 @@ export async function inspect(native, directory, name) {
 }
 
 /** Owner-local facade; no OS fd, no Node FileHandle construction. Writes are
- * serialized, backpressured 64KiB requests and bounded by the native 10GiB cap. */
+ * serialized, backpressured 64KiB requests and bounded by the native safe-integer position bound. */
 export function ownedHandle(native, opened) {
   let closed = false,
     tail = Promise.resolve(),
@@ -82,7 +82,8 @@ export async function publicationSnapshot(handle, linkIdentity = null) {
   const before = await handle.stat({ bigint: true });
   if (before.type ? before.type !== "file" : !before.isFile())
     throw fileProblem("FILE_UNSUPPORTED_TYPE", 415);
-  if (before.size > 10n * 1024n ** 3n) throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
+  if (before.size > BigInt(Number.MAX_SAFE_INTEGER))
+    throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
   const hash = createHash("sha256");
   const buffer = Buffer.alloc(nativeReadBytes);
   for (let position = 0; position < Number(before.size);) {
@@ -134,6 +135,7 @@ export async function closeStage(state) {
   if (failed) throw failed.reason;
 }
 
+// Cleanup uses a retained parent and immediate prechecks, not a filesystem CAS.
 export async function removeStageDirectory(native, state) {
   if (!(await parentMatches(native, state.target, state.document.targetParent)))
     throw fileProblem("FILE_PATH_CHANGED", 409);

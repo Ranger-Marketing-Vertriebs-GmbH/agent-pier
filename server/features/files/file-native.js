@@ -112,7 +112,10 @@ export function validateNativeRequest(operation, args) {
     )
       invalid();
   }
-  if (operation === "write" && args.position > 10 * 1024 ** 3 - args.bytes.length)
+  if (
+    operation === "write" &&
+    args.position > Number.MAX_SAFE_INTEGER - args.bytes.length
+  )
     invalid();
   for (const key of ["handle", "source", "target", "oldParent", "newParent"])
     if (args[key] > 0x7fffffff) invalid();

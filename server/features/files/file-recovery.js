@@ -26,7 +26,9 @@ export async function recoverPublications({ store, native, barrier }) {
   try {
     for (const record of records) {
       const doc = record.document;
-      let targetParent, stageParent;
+      let targetParent,
+        stageParent,
+        recorded = false;
       let phase = "interrupted",
         issue = { code: "FILE_INTERRUPTED", args: {} };
       try {
@@ -94,20 +96,32 @@ export async function recoverPublications({ store, native, barrier }) {
               await handle.close();
             }
           }
-          await stageParent.sync();
-          await targetParent.sync();
-          if (!stage) {
-            await owner.run("removeEntry", {
-              directory: targetParent.handle,
-              name: path.basename(path.dirname(doc.staged)),
-              identity: doc.stageParent,
-              type: "directory",
-            });
-            await targetParent.sync();
-          }
-          phase = stage ? "swapped" : "resolved";
-          issue = null;
-          doc.displacedIdentity = inodeIdentity(stage);
+          // Preparation and hashes precede this short physical lease. Startup
+          // can overlap unrelated application snapshots, so disposition and its
+          // durable journal update must share the same barrier even on failure.
+          await write(async () => {
+            try {
+              await stageParent.sync();
+              await targetParent.sync();
+              if (!stage) {
+                await owner.run("removeEntry", {
+                  directory: targetParent.handle,
+                  name: path.basename(path.dirname(doc.staged)),
+                  identity: doc.stageParent,
+                  type: "directory",
+                });
+                await targetParent.sync();
+              }
+              phase = stage ? "swapped" : "resolved";
+              issue = null;
+              doc.displacedIdentity = inodeIdentity(stage);
+            } catch {
+              phase = "interrupted";
+              issue = { code: "FILE_INTERRUPTED", args: {} };
+            }
+            store.putPublication({ ...record, phase, document: { ...doc, issue } });
+            recorded = true;
+          });
         }
       } catch {
         // Missing, replaced or unproven ancestors never authorize replay/delete.
@@ -115,9 +129,10 @@ export async function recoverPublications({ store, native, barrier }) {
         await stageParent?.close();
         await targetParent?.close();
       }
-      await write(() =>
-        store.putPublication({ ...record, phase, document: { ...doc, issue } }),
-      );
+      if (!recorded)
+        await write(() =>
+          store.putPublication({ ...record, phase, document: { ...doc, issue } }),
+        );
       outcomes.push({
         id: record.id,
         phase,

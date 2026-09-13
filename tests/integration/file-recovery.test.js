@@ -138,3 +138,96 @@ test("two replays of a failure before exchange retain original and staged bytes"
     assert.equal(await fs.readFile(stage.file, "utf8"), "replacement");
   }
 });
+
+test("recovery hashes outside the barrier and commits durability plus journal under one lease", async (t) => {
+  const f = await fixture(t, async (op, args, run) => {
+    const result = await run(op, args);
+    if (op === "exchange") throw Error("crash after exchange");
+    return result;
+  });
+  await fs.writeFile(f.target, "original");
+  const revision = await f.revision(),
+    stage = await f.stage();
+  await stage.handle.writeFile("replacement");
+  await assert.rejects(
+    f.publisher.publish(f.globalScope, stage, { expectedRevision: revision }),
+  );
+  const run = f.native.run.bind(f.native);
+  let enterRead,
+    releaseRead,
+    gated = false;
+  const reading = new Promise((resolve) => {
+    enterRead = resolve;
+  });
+  const released = new Promise((resolve) => {
+    releaseRead = resolve;
+  });
+  const durability = [],
+    journal = [];
+  f.native.run = async (op, args) => {
+    if (op === "read" && !gated) {
+      gated = true;
+      enterRead();
+      await released;
+    }
+    if (["sync", "removeEntry"].includes(op)) durability.push(f.barrier.hasLease());
+    return run(op, args);
+  };
+  const put = f.store.putPublication.bind(f.store);
+  f.store.putPublication = (record) => {
+    journal.push(f.barrier.hasLease());
+    return put(record);
+  };
+  const recovery = recoverPublications({
+    store: f.store,
+    native: f.native,
+    barrier: f.barrier,
+  });
+  await reading;
+  let snapshotRan = false;
+  await f.barrier.snapshot(() => {
+    snapshotRan = true;
+  });
+  releaseRead();
+  const [outcome] = await recovery;
+  assert.equal(snapshotRan, true);
+  assert.equal(outcome.phase, "swapped");
+  assert.ok(durability.length >= 2);
+  assert.ok(durability.every(Boolean));
+  assert.ok(journal.length > 0 && journal.every(Boolean));
+});
+
+test("an application snapshot cannot observe recovery cleanup before its journal transition", async (t) => {
+  const f = await fixture(t, async (op, args, run) => {
+    const result = await run(op, args);
+    if (op === "renameNoReplace") throw Error("crash after publication");
+    return result;
+  });
+  const stage = await f.stage();
+  await stage.handle.writeFile("published");
+  await assert.rejects(
+    f.publisher.publish(f.globalScope, stage, { expectedRevision: null }),
+  );
+  const run = f.native.run.bind(f.native);
+  let snapshot, observedPhase;
+  f.native.run = async (op, args) => {
+    const result = await run(op, args);
+    if (op === "removeEntry")
+      snapshot = f.barrier.detached(() =>
+        f.barrier.snapshot(() => {
+          observedPhase = f.store.getPublication(stage.id).phase;
+        }),
+      );
+    return result;
+  };
+  const [outcome] = await recoverPublications({
+    store: f.store,
+    native: f.native,
+    barrier: f.barrier,
+  });
+  await snapshot;
+  assert.equal(outcome.phase, "resolved");
+  assert.equal(observedPhase, "resolved");
+  assert.equal(await fs.readFile(f.target, "utf8"), "published");
+  assert.equal(f.barrier.active, 0);
+});

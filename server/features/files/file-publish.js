@@ -44,7 +44,11 @@ export class FilePublisher {
   }
   #track(action) {
     if (this.#closed) return Promise.reject(fileProblem("FILE_JOBS_CLOSED", 503));
-    const result = this.barrier.detached(() => this.locks.detached(action));
+    // Hiding async context would not release a physical caller-held lease.
+    // Reject before preparation so an awaited call cannot queue behind itself.
+    if (this.barrier.hasLease() || this.locks.hasLease())
+      return Promise.reject(fileProblem("FILE_INVALID_OPERATION", 400));
+    const result = action();
     this.#pending.add(result);
     result.then(
       () => this.#pending.delete(result),
@@ -181,6 +185,8 @@ export class FilePublisher {
     revision,
     { followLeaf = false, expectedTarget } = {},
   ) {
+    if (this.barrier.hasLease() || this.locks.hasLease())
+      throw fileProblem("FILE_INVALID_OPERATION", 400);
     const fresh = await resolveFile(scope, selectedPath, {
       followLeaf,
       allowMissingLeaf: true,
@@ -385,6 +391,7 @@ export class FilePublisher {
         });
         if (
           published.absolute !== state.target ||
+          (state.followLeaf && published.linkIdentity !== state.document.linkIdentity) ||
           !sameInode(published.stat, state.document.stagedIdentity) ||
           !(await parentMatches(
             this.native,

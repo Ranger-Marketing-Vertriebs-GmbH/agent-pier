@@ -123,6 +123,10 @@ export function writeFunctions(library, abi, { lookup, keep, openComponent }) {
         }
       }
       case "removeEntry": {
+        // Prechecked pathname removal, not inode-conditional unlink: an external
+        // same-user writer can still replace this name after the observation.
+        // Preserve every mismatch we actually observe; never infer ownership
+        // from a private-looking name or from directory permissions alone.
         const actual = inspect(args.directory, args.name);
         if (`${actual.dev}:${actual.ino}` !== args.identity || actual.type !== args.type)
           throw fileProblem("FILE_PATH_CHANGED", 409);
