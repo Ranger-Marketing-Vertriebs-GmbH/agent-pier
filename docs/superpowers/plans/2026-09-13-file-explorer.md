@@ -55,15 +55,17 @@ genutzt. Jeder Task endet mit einem eigenständig prüfbaren Ergebnis. Zunächst
 Vertrag unten, dann den eigenen Task und seine genannten Vorgänger lesen.
 
 Die Umsetzung läuft im bestehenden Worktree `.worktrees/file-explorer-design` auf
-`chore/file-explorer-design` für PR #79. Tasks 1 bis 3 sind implementiert und unabhängig
+`chore/file-explorer-design` für PR #79. Tasks 1 bis 4 sind implementiert und unabhängig
 geprüft; der aktuelle Stand enthält außerdem den gemergten Claude-Fix aus PR #78.
-Die Lesegrundlage besteht die erforderliche CI unter Linux/macOS mit Node 22/24
-sowie Chromium und WebKit. Die API-Erweiterung umfasst lokal 1.423 erfolgreiche
-Tests unter Node 22, drei übersprungene Tests und eine separat geprüfte Korrektur
-der Antwortverarbeitung. Jeder neue Stand durchläuft erneut die erforderliche CI.
-Die übrigen Tasks bleiben offen. Paketversionen wurden ursprünglich am 2026-09-13
-in der npm-Registry gelesen; tatsächliche Installation und Kompatibilität werden
-jeweils bei ihrer Einführung geprüft.
+Die API-Grundlage besteht die erforderliche CI unter Linux/macOS mit Node 22/24
+sowie Chromium und WebKit. Der erste Navigationsstand bestand lokal 1.431 Tests
+unter Node 22 bei drei übersprungenen Tests. Die anschließende Review-Korrektur
+besteht 26 gezielte Backendtests und je 18 Browserfälle in Chromium und WebKit.
+Sie korrigiert gemeinsam gespeicherte Host-Favoriten sowie die Zuordnung laufender
+Anfragen zu Pfad, Auswahl und Projektkontext. Jeder neue Stand durchläuft erneut
+die erforderliche CI. Die übrigen Tasks bleiben offen. Paketversionen wurden
+ursprünglich am 2026-09-13 in der npm-Registry gelesen; tatsächliche Installation
+und Kompatibilität werden jeweils bei ihrer Einführung geprüft.
 
 Vor Task 1 im gewählten Implementierungs-Worktree `npm ci` und `npm run check`
 ausführen und den Ausgangszustand festhalten. Im vorhandenen Planungs-Worktree kann
@@ -446,7 +448,7 @@ favorites within scope. Persist in `<dataDir>/files/preferences.json`, tied to a
 host identity derived from canonical home and data directory; global preferences
 are not added to `/api/state` or copied into project metadata.
 
-- [ ] Add desktop and 390-pixel browser cases with existing repository-browser fixtures and explicit `/api/files/**` routes, plus real preference persistence tests.
+- [x] Add desktop and 390-pixel browser cases with existing repository-browser fixtures and explicit `/api/files/**` routes, plus real preference persistence tests.
 
 ```js
 test("English management opens Files and keeps its path after reload", async ({
@@ -462,8 +464,8 @@ test("English management opens Files and keeps its path after reload", async ({
 });
 ```
 
-- [ ] Build then run `npx playwright test tests/browser/file-explorer-navigation.spec.js`; set English through the application's existing language control in the fixture, not by translating locators alone.
-- [ ] Lazy-load `FilesPage` in `App.jsx`; add a localized navigation item. Make toolbar, directory tree and list controlled components; use AbortController when paths change. Preserve legacy session URLs and existing create-directory behavior until the mutation UI replaces that control.
+- [x] Build then run `npx playwright test tests/browser/file-explorer-navigation.spec.js`; set English through the application's existing language control in the fixture, not by translating locators alone.
+- [x] Lazy-load `FilesPage` in `App.jsx`; add a localized navigation item. Make toolbar, directory tree and list controlled components; use AbortController when paths change. Preserve legacy session URLs and existing create-directory behavior until the mutation UI replaces that control.
 
 ```jsx
 const FilesPage = lazy(() => import("../features/files/FilesPage.jsx"));
@@ -473,9 +475,9 @@ const FilesPage = lazy(() => import("../features/files/FilesPage.jsx"));
 </Suspense>;
 ```
 
-- [ ] Implement path entry, breadcrumbs, back/forward, sort, hidden files, expandable tree, explicit property view and favorite add/remove. Load project shortcuts from the existing repositories API only in the global view. On mobile provide a single content column and a tree drawer; keep all actions reachable without hover.
-- [ ] Run `node --test tests/integration/file-preferences.test.js tests/unit/i18n-catalogs.test.js`, then build and run the new browser suite plus `workspace-files.spec.js` and `sidebar.spec.js` in both browsers using `AGENTPIER_TEST_BROWSER`.
-- [ ] Commit: `git commit -m "feat: add the shared management file explorer"`.
+- [x] Implement path entry, breadcrumbs, back/forward, sort, hidden files, expandable tree, explicit property view and favorite add/remove. Load project shortcuts from the existing repositories API only in the global view. On mobile provide a single content column and a tree drawer; keep all actions reachable without hover.
+- [x] Run `node --test tests/integration/file-preferences.test.js tests/unit/i18n-catalogs.test.js`, then build and run the new browser suite plus `workspace-files.spec.js` and `sidebar.spec.js` in both browsers using `AGENTPIER_TEST_BROWSER`.
+- [x] Commit: `git commit -m "feat: add the shared management file explorer"`.
 
 ## Task 5: Dauerhafte Jobs, Idempotenz und überlappende Pfadsperren
 
@@ -1694,3 +1696,5 @@ Ruling: T2 snapshot capacity — Unused means not held by an in-flight listing/b
 Ruling: T2 read prerequisite — Bring forward the read-only native descriptor foundation and its Koffi distribution checks from Task7. Traverse validated canonical paths relative to opened directory handles with no-follow component opens, and read only the resulting owned regular descriptor; pathname-stat comparisons alone do not establish descriptor provenance. Keep Task7 metadata/rename APIs and their complete acceptance work for Task7 — review fix1 demonstrated that separate metadata and path observations remain insufficient — cost if wrong: a small native foundation may need refactoring when Task7 extends it.
 
 Ruling: Native release-test runtime — Detect a copied-runtime shared-library loader failure before native smoke, and explicitly skip that relocation-only fixture outside CI when the host Node cannot relocate. CI must fail rather than skip; actual Koffi/node-pty or release-smoke failures never qualify. Keep the successful official Node22 full-suite and real release-build evidence — a valid locally installed Homebrew Node may depend on its installation path, while production release construction uses an official portable runtime — cost if wrong: a local packaging regression could escape the narrow fixture, with mandatory official-runtime CI remaining the gate.
+
+Ruling: T4 hidden preference and URL — Persisted showHidden is a default only without an explicit URL choice. Add fileHiddenExplicit to route state and serialize an explicit false override as hidden=0, retaining compact ordinary false defaults. Preserve that marker through navigation/reload/back; do not let pending preference PATCH override the current toggle — the original codec omitted false and otherwise could not distinguish the user's visible-files choice from an absent preference — cost if wrong: route compatibility and preference precedence would need adjustment. Implementer reports three failing route RED cases before extension and will cover reload/back.
