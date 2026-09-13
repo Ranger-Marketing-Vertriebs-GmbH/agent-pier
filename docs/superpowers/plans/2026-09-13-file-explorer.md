@@ -56,14 +56,18 @@ Vertrag unten, dann den eigenen Task und seine genannten Vorgänger lesen.
 
 Die Umsetzung läuft im bestehenden Worktree `.worktrees/file-explorer-design` auf
 `chore/file-explorer-design` für PR #79. Tasks 1 bis 4 sind implementiert und unabhängig
-geprüft; der aktuelle Stand enthält außerdem den gemergten Claude-Fix aus PR #78.
+geprüft; der aktuelle Stand enthält außerdem den gemergten Claude-Fix aus PR #78,
+„Alles kopieren“ aus PR #80 in der gemeinsamen Vorschau und Version 1.17.7 aus PR #81.
 Die API-Grundlage besteht die erforderliche CI unter Linux/macOS mit Node 22/24
 sowie Chromium und WebKit. Der erste Navigationsstand bestand lokal 1.431 Tests
 unter Node 22 bei drei übersprungenen Tests. Die anschließende Review-Korrektur
 besteht 26 gezielte Backendtests und je 18 Browserfälle in Chromium und WebKit.
 Sie korrigiert gemeinsam gespeicherte Host-Favoriten sowie die Zuordnung laufender
-Anfragen zu Pfad, Auswahl und Projektkontext. Jeder neue Stand durchläuft erneut
-die erforderliche CI. Die übrigen Tasks bleiben offen. Paketversionen wurden
+Anfragen zu Pfad, Auswahl und Projektkontext. Die anschließende Integration der
+Chat-Link-Testfixtures besteht je 16 Browserfälle. Die Übernahme von „Alles kopieren“
+besteht zunächst je 39 Browserfälle; ihre unabhängig geprüfte Übergangskorrektur
+besteht je 29 Fälle einschließlich des Datei- und Projektwechsels bei noch ladender
+Vorschau. Jeder neue Stand durchläuft erneut die erforderliche CI. Die übrigen Tasks bleiben offen. Paketversionen wurden
 ursprünglich am 2026-09-13 in der npm-Registry gelesen; tatsächliche Installation
 und Kompatibilität werden jeweils bei ihrer Einführung geprüft.
 
