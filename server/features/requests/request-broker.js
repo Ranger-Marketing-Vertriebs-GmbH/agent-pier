@@ -8,6 +8,7 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto
 import { problem } from "../../lib/storage.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { prepareRequests } from "./request-launch.js";
+import { refreshClaudeRuntime, confirmClaudeRuntime } from "./claude-runtime.js";
 import { validSession, requestValue, answerValue } from "./request-validation.js";
 import { messages, send } from "./wire.js";
 const stale = () => problem(copy.stale, 409);
@@ -26,6 +27,7 @@ export class RequestBroker {
     this.clients = new Set();
     this.deliveries = new Map();
     this.created = new Set();
+    this.claudeReloadRequired = new Set();
     const hash = createHash("sha256")
       .update(path.resolve(dataDir))
       .digest("hex")
@@ -72,6 +74,7 @@ export class RequestBroker {
       );
     });
     if (active) throw Error("Native request broker already running");
+    this.claudeReloadRequired = await refreshClaudeRuntime(this.directory);
     await fs.rm(this.socketPath, { force: true });
     this.server = net.createServer((socket) => this.connection(socket));
     await new Promise((resolve, reject) => {
@@ -141,6 +144,7 @@ export class RequestBroker {
           );
           if (!equal(message.token, launch.token)) throw Error("Invalid native channel");
           owner = { ...launch, epoch: message.epoch };
+          await confirmClaudeRuntime(this, owner, message.adapterVersion);
           if (socket.destroyed) return;
           clearTimeout(authenticationTimeout);
           socket.owner = owner;
@@ -198,6 +202,12 @@ export class RequestBroker {
           socket,
         };
         if (
+          owner.tool === "claude" &&
+          entry.kind === "permission" &&
+          entry.subject?.tool === "AskUserQuestion"
+        )
+          entry.presentation = "claudeLegacyQuestion";
+        if (
           [...this.entries.values()].filter((e) => e.sessionId === owner.id).length >= 100
         )
           throw Error("Too many native requests");
@@ -231,6 +241,9 @@ export class RequestBroker {
       await this.discard(sessionId, { removeLaunch: false });
     await refreshFolderTrust(this, session);
     return {
+      ...(session.status === "running" && this.claudeReloadRequired.has(sessionId)
+        ? { integration: { reloadRequired: true } }
+        : {}),
       requests: [...this.entries.values()]
         .filter((e) => e.sessionId === sessionId)
         .map(
@@ -257,6 +270,8 @@ export class RequestBroker {
       (!entry.local && entry.socket.destroyed)
     )
       throw stale();
+    if (entry.presentation === "claudeLegacyQuestion" && !handoff)
+      throw problem(copy.invalid, 400);
     const answer = handoff ? { handoff: true } : answerValue(entry, input);
     if (entry.presentation === "claudeFolderTrust" && handoff)
       return this.list(sessionId);
@@ -336,6 +351,7 @@ export class RequestBroker {
         this.emit(entry, "request.expired");
       }
     if (removeLaunch) {
+      this.claudeReloadRequired.delete(sessionId);
       await fs.rm(this.file(sessionId), { force: true });
       await fs.rm(path.join(this.directory, `${sessionId}.claude`), {
         force: true,

@@ -88,7 +88,7 @@ export async function applicationFixture(t, overrides = {}) {
           force: true,
         });
       }
-      await fs.rm(root, { recursive: true, force: true });
+      await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   }
 

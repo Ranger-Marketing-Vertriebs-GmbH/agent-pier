@@ -81,7 +81,11 @@ export async function operationsFixture(page) {
       };
     } else if (path.startsWith("/operations/"))
       result = operationResponse(state, path, method, body, url.searchParams);
-    else if (path.endsWith("/requests")) result = { requests: state.requests };
+    else if (path.endsWith("/requests"))
+      result = {
+        requests: state.requests,
+        ...(state.requestIntegration ? { integration: state.requestIntegration } : {}),
+      };
     else if (/\/requests\/[^/]+\/(answer|handoff)$/.test(path)) {
       state.requests = [];
       result = { requests: [] };

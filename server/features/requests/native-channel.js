@@ -5,8 +5,9 @@ import { messages, send } from "./wire.js";
 
 /** Reconnectable native-side channel. Only the native owner decides whether a request still exists. */
 export class NativeRequestChannel {
-  constructor({ env = process.env, onDisconnect = () => {} } = {}) {
+  constructor({ env = process.env, onDisconnect = () => {}, adapterVersion } = {}) {
     this.onDisconnect = onDisconnect;
+    this.adapterVersion = adapterVersion;
     this.launch = JSON.parse(fs.readFileSync(env.AGENTPIER_REQUEST_FILE, "utf8"));
     if (this.launch.token !== env.AGENTPIER_REQUEST_TOKEN)
       throw Error("Invalid native request launch");
@@ -27,6 +28,7 @@ export class NativeRequestChannel {
         sessionId: this.launch.id,
         token: this.launch.token,
         epoch: this.epoch,
+        ...(this.adapterVersion ? { adapterVersion: this.adapterVersion } : {}),
       }),
     );
     socket.on("error", () => {});
