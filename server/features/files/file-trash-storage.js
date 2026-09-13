@@ -140,7 +140,7 @@ export async function openTrashPayload(native, record) {
 }
 
 const adoptionSources = new WeakMap();
-export async function trashAdoptionSource(store, native, record) {
+export async function trashAdoptionSource(store, native, record, revalidate) {
   const saved = store.getTrash(record.id);
   if (
     !saved ||
@@ -156,6 +156,7 @@ export async function trashAdoptionSource(store, native, record) {
     type: saved.type,
   });
   adoptionSources.set(source, async () => {
+    await revalidate?.(opened);
     await opened.assertAuthority();
     const current = store.getTrash(record.id);
     if (

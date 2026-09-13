@@ -127,6 +127,8 @@ export class FileMutations {
             : ["skip", "keep_both", "cancel"];
         const decision = await conflict({
           type: "name",
+          sourceType: type,
+          targetType: typeOf(selected.stat),
           source: sourcePath,
           target,
           sourceRevision,

@@ -13,6 +13,10 @@ import FileList from "./FileList.jsx";
 import useFileJobs from "./useFileJobs.js";
 import FileJobs from "./FileJobs.jsx";
 import FileProperties from "./FileProperties.jsx";
+import FileActions from "./FileActions.jsx";
+import TrashView from "./TrashView.jsx";
+import useFileSelection from "./useFileSelection.js";
+import useFileClipboard, { useClipboardResults } from "./useFileClipboard.js";
 import "./files.css";
 
 export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
@@ -148,6 +152,31 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
   const [previewResult, setPreviewResult] = useState(null);
   const [previewError, setPreviewError] = useState(null);
   const scopeId = context?.scopeId;
+  const actionOwner = useMemo(() => ({ client, scopeId, path }), [client, scopeId, path]);
+  const fileSelection = useFileSelection(listing.listing?.entries || [], actionOwner);
+  const clipboard = useFileClipboard(context);
+  useClipboardResults(clipboard, jobs.entries);
+  const [actionRequest, setActionRequest] = useState(null);
+  const dragged = useRef(null);
+  const actionScope = context && { ...context, path };
+  const terminalJobs = jobs.jobs
+    .filter(
+      (job) =>
+        !["search", "size"].includes(job.kind) &&
+        [
+          "completed",
+          "partially_completed",
+          "failed",
+          "cancelled",
+          "interrupted",
+        ].includes(job.status),
+    )
+    .map((job) => `${job.id}:${job.status}:${job.completedEntries}`)
+    .join("|");
+  const refreshListing = listing.refresh;
+  useEffect(() => {
+    refreshListing();
+  }, [terminalJobs, refreshListing]);
   const selectionOwner = useRef(null);
   const linkOperation = useRef({ generation: 0, controller: null });
   if (
@@ -380,6 +409,22 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
             onTree={() => setTreeOpen(true)}
           />
           <ErrorMessage error={preferences.error?.message} />
+          <nav className="file-action-buttons" aria-label={copy.actions.panels}>
+            <button
+              className="button secondary compact"
+              aria-pressed={route.filePanel !== "trash"}
+              onClick={() => changeRoute({ filePanel: "files" })}
+            >
+              {copy.fileList}
+            </button>
+            <button
+              className="button secondary compact"
+              aria-pressed={route.filePanel === "trash"}
+              onClick={() => changeRoute({ filePanel: "trash", file: "" })}
+            >
+              {copy.actions.trashTitle}
+            </button>
+          </nav>
           <FileJobs
             state={jobs}
             scopeId={scopeId}
@@ -394,7 +439,25 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
               });
             }}
           />
-          {invalidPage ? (
+          {route.filePanel === "trash" ? (
+            <TrashView
+              key={`${contextKey}:${scopeId}`}
+              scope={actionScope}
+              client={client}
+              jobs={jobs}
+              onChanged={refresh}
+              onOpenOriginal={(original) =>
+                changeRoute({
+                  filePanel: "files",
+                  filePath:
+                    original.split("/").slice(0, -1).join("/") ||
+                    (kind === "global" ? "/" : ""),
+                  file: "",
+                  filePage: 1,
+                })
+              }
+            />
+          ) : invalidPage ? (
             <div className="explorer-page-error">
               <ErrorMessage error={copy.errors.FILE_INVALID_PAGE} />
               <button className="button secondary" onClick={refresh}>
@@ -405,6 +468,17 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
             <div className="file-explorer-columns">
               <aside className="explorer-tree-column">{directoryTree}</aside>
               <div className="explorer-list-column">
+                <FileActions
+                  key={`${contextKey}:${scopeId}:${path}`}
+                  scope={actionScope}
+                  selection={fileSelection}
+                  clipboard={clipboard}
+                  client={client}
+                  jobs={jobs}
+                  onChanged={refresh}
+                  request={actionRequest?.owner === actionOwner ? actionRequest : null}
+                  onRequestHandled={() => setActionRequest(null)}
+                />
                 {listing.loading && !listing.listing && (
                   <p role="status">{copy.loading}</p>
                 )}
@@ -425,6 +499,38 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
                       onOpen={openEntry}
                       onProperties={showProperties}
                       onPage={(filePage) => changeRoute({ filePage, file: "" })}
+                      selection={fileSelection}
+                      readOnly={context.readOnly}
+                      onAction={(action, items) =>
+                        setActionRequest({ owner: actionOwner, kind: action, items })
+                      }
+                      onDrag={(items, event) => {
+                        const token = crypto.randomUUID();
+                        dragged.current = { owner: actionOwner, items, token };
+                        event.dataTransfer.setData(
+                          "application/x-agentpier-files",
+                          token,
+                        );
+                        event.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDrop={(target, event) => {
+                        const value = dragged.current;
+                        if (
+                          !value ||
+                          value.owner !== actionOwner ||
+                          event.dataTransfer.getData("application/x-agentpier-files") !==
+                            value.token
+                        )
+                          return;
+                        event.preventDefault();
+                        dragged.current = null;
+                        setActionRequest({
+                          owner: actionOwner,
+                          kind: "move",
+                          items: value.items,
+                          target,
+                        });
+                      }}
                     />
                     {kind === "project" && !context.readOnly && (
                       <CreateDirectory

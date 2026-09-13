@@ -51,7 +51,7 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
   const store = new FileStore({ dataDir: config.dataDir, limits });
   const locks = new PathLocks();
   const publisher = new FilePublisher({ store, locks, barrier: mutationBarrier });
-  const trash = new FileTrash({ store, publisher, limits });
+  const trash = new FileTrash({ store, publisher, limits, context });
   const ready = recoverPublications({ store, barrier: mutationBarrier }).then(() =>
     trash.recover(),
   );

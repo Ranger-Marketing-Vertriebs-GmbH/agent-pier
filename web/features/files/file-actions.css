@@ -1,0 +1,124 @@
+.file-action-buttons {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block: 0.75rem;
+}
+.file-actions,
+.file-trash,
+.file-job-outcomes {
+  min-width: 0;
+}
+.file-actions {
+  padding-block: 0.25rem;
+}
+.file-selection-checkbox {
+  flex-shrink: 0;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.explorer-entry:has(.file-selection-checkbox),
+.file-explorer .explorer-list-header {
+  grid-template-columns: 1.3rem minmax(8rem, 1fr) 5rem 5rem 9rem 2rem 2rem;
+}
+.explorer-list-header > :first-child {
+  grid-column: 2;
+}
+.file-context-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+.file-frozen-selection,
+.file-job-outcomes ul {
+  max-height: 18rem;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding-left: 1.5rem;
+}
+.file-trash-list {
+  list-style: none;
+  padding: 0;
+}
+.file-trash-list li {
+  border-bottom: 1px solid var(--line);
+  padding: 1rem 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+.file-trash-list li > label {
+  width: 100%;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  overflow-wrap: anywhere;
+}
+.file-trash-list li > span,
+.file-trash-list li > p {
+  overflow-wrap: anywhere;
+}
+.file-trash-list input {
+  flex-shrink: 0;
+}
+.file-job-outcomes li > span {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .explorer-entry:has(.file-selection-checkbox) {
+    grid-template-columns: 1.3rem minmax(0, 1fr) 2.5rem 2.5rem;
+  }
+  .explorer-entry:has(.file-selection-checkbox) > span,
+  .explorer-entry:has(.file-selection-checkbox) > time {
+    display: none;
+  }
+  .file-action-buttons > button {
+    min-height: 2.5rem;
+  }
+  .file-context-menu > button {
+    min-height: 2.5rem;
+  }
+  .file-trash-list li {
+    display: block;
+  }
+  .file-trash-list li > span {
+    display: block;
+    margin-block: 0.4rem;
+  }
+}
+
+.file-action-dialog > p,
+.file-action-dialog > ul,
+.file-action-dialog > label,
+.file-action-dialog > .file-action-buttons {
+  margin: 0 1.25rem 1rem;
+  overflow-wrap: anywhere;
+}
+.file-action-dialog form {
+  padding: 0 1.25rem 1.25rem;
+}
+.file-action-dialog form label {
+  display: grid;
+  gap: 0.5rem;
+}
+.file-action-dialog form input {
+  width: 100%;
+  min-width: 0;
+}
+.explorer-list {
+  container-type: inline-size;
+}
+@container (max-width: 550px) {
+  .explorer-entry:has(.file-selection-checkbox) {
+    grid-template-columns: 1.3rem minmax(0, 1fr) 2.5rem 2.5rem;
+  }
+  .explorer-entry:has(.file-selection-checkbox) > span,
+  .explorer-entry:has(.file-selection-checkbox) > time,
+  .explorer-list-header {
+    display: none;
+  }
+}

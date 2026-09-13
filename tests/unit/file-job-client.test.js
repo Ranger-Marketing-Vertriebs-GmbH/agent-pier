@@ -244,3 +244,61 @@ test("a running search can grow beyond its previously final loaded page", async 
     f.unsubscribe();
   }
 });
+
+test("bounded mutation sweeps refresh earlier stable rows and finish every terminal page", async () => {
+  const current = job("move-many", { kind: "move" });
+  const rows = Array.from({ length: 11 }, (_, index) => ({
+    id: String(index),
+    source: `source-${index}`,
+    sourceRemoved: false,
+  }));
+  let reads = 0;
+  const f = fixture({
+    async get(suffix, query) {
+      if (suffix === "/jobs") return { jobs: [], nextCursor: null };
+      if (suffix.endsWith("/entries")) {
+        reads++;
+        const offset = query.cursor ? Number(query.cursor.replace("opaque-", "")) : 0;
+        return {
+          entries: rows.slice(offset, offset + 2).map((row) => ({ ...row })),
+          nextCursor: offset + 2 < rows.length ? `opaque-${offset + 2}` : null,
+        };
+      }
+      return { ...current };
+    },
+    mutate: async () => ({ ...current }),
+  });
+  try {
+    await f.session.start("scope", { kind: "move" });
+    await f.session.refresh();
+    assert.equal(reads, 4);
+    assert.equal(
+      f.session.getSnapshot().entries["move-many"].entries[0].sourceRemoved,
+      false,
+    );
+    rows[0].sourceRemoved = true;
+    current.status = "partially_completed";
+    reads = 0;
+    await f.session.refresh();
+    assert.equal(reads, 4);
+    assert.equal(
+      f.session.getSnapshot().entries["move-many"].entries[0].sourceRemoved,
+      true,
+    );
+    assert.notEqual(f.session.getSnapshot().entries["move-many"].complete, true);
+    await f.session.refresh();
+    const result = f.session.getSnapshot().entries["move-many"];
+    assert.equal(result.entries.length, 11);
+    assert.equal(result.complete, true);
+    assert.equal(result.entries.at(-1).sourceRemoved, false);
+    rows[0].sourceRemoved = false;
+    rows[0].sourceRemovalPending = true;
+    await f.session.refresh();
+    assert.equal(
+      f.session.getSnapshot().entries["move-many"].entries[0].sourceRemovalPending,
+      true,
+    );
+  } finally {
+    f.unsubscribe();
+  }
+});

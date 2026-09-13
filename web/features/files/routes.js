@@ -9,6 +9,7 @@ export function readExplorerRoute(search) {
   const sort = query.get("sort") || "name";
   const direction = query.get("direction") || "asc";
   return {
+    ...(query.get("panel") === "trash" ? { filePanel: "trash" } : {}),
     filePath: (query.get("path") || "").slice(0, 4096),
     file: (query.get("file") || "").slice(0, 4096),
     fileSort: sorts.has(sort) ? sort : "name",
@@ -23,6 +24,7 @@ export function readExplorerRoute(search) {
 
 export function explorerQuery(route) {
   const query = new URLSearchParams();
+  if (route.filePanel === "trash") query.set("panel", "trash");
   if (route.filePath) query.set("path", route.filePath);
   if (route.file) query.set("file", route.file);
   if (route.fileSort && route.fileSort !== "name") query.set("sort", route.fileSort);

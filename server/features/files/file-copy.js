@@ -191,6 +191,8 @@ export class FileCopies extends FileMutations {
         ) {
           decision = await context.conflict({
             type: "name",
+            sourceType: type,
+            targetType,
             source: item.source,
             target: targetPath,
             sourceRevision: revisionOf(item.selected),

@@ -1,6 +1,8 @@
 import React from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { filesCopy as copy, fileErrorMessage } from "../../lib/i18n/messages/files.js";
+import FileConflictDialog from "./FileConflictDialog.jsx";
+import FileJobOutcomes from "./FileJobOutcomes.jsx";
 
 export const isFileJobActive = (job) =>
   job && ["queued", "running", "waiting_for_conflict", "cancelling"].includes(job.status);
@@ -19,6 +21,9 @@ export function FileJobIssue({ issue }) {
 export default function FileJobs({ state, scopeId, searchId, onResult }) {
   const search = state.jobs.find((job) => job.id === searchId);
   const page = state.entries[searchId];
+  const waiting = state.jobs.find(
+    (job) => job.status === "waiting_for_conflict" && job.conflict,
+  );
   return (
     <section className="file-jobs" aria-label={copy.jobs}>
       <ErrorMessage error={state.error?.message} />
@@ -46,6 +51,9 @@ export default function FileJobs({ state, scopeId, searchId, onResult }) {
                   )}
                 </div>
                 <FileJobIssue issue={job.issue} />
+                {!["search", "size"].includes(job.kind) && state.entries[job.id] && (
+                  <FileJobOutcomes job={job} rows={state.entries[job.id].entries} />
+                )}
               </li>
             ))}
           </ul>
@@ -83,6 +91,14 @@ export default function FileJobs({ state, scopeId, searchId, onResult }) {
             </button>
           )}
         </section>
+      )}
+      {waiting && (
+        <FileConflictDialog
+          key={waiting.conflict.id}
+          job={waiting}
+          scopeId={scopeId}
+          jobs={state}
+        />
       )}
     </section>
   );

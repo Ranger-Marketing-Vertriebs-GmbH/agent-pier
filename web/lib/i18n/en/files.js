@@ -1,4 +1,6 @@
+import { fileActionsCopy } from "./files-actions.js";
 export const filesCopy = {
+  actions: fileActionsCopy,
   errors: {
     FILE_TRASH_CONFIRMATION:
       "The trash selection or its revision changed. Refresh and confirm again.",
@@ -68,7 +70,18 @@ export const filesCopy = {
   scanned: (count) => `${count} entries scanned`,
   noResults: "No matching filenames found.",
   operation: "File operation",
-  jobKinds: { search: "Filename search", size: "Folder size" },
+  jobKinds: {
+    search: "Filename search",
+    size: "Folder size",
+    create_file: "Create file",
+    create_directory: "Create folder",
+    rename: "Rename",
+    copy: "Copy",
+    move: "Move",
+    trash: "Move to Trash",
+    restore: "Restore",
+    purge: "Permanent deletion",
+  },
   jobStates: {
     queued: "Queued",
     running: "Running",

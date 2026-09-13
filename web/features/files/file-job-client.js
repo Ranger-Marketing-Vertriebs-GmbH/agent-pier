@@ -24,6 +24,8 @@ export class FileJobClient {
     this.state = { jobs: [], entries: {}, error: null };
     this.listeners = new Set();
     this.tracked = new Map();
+    this.sweeps = new Map();
+    this.resultTurn = 0;
     this.tail = Promise.resolve();
     this.generation = 0;
     this.controllers = new Set();
@@ -68,6 +70,41 @@ export class FileJobClient {
           if (!owns()) return;
           this.accept(job, true);
           if (job.kind === "search") await this.readEntries(id, undefined, signal, owns);
+        }
+        const mutations = [...this.tracked.values()].filter(
+          (job) => !["search", "size"].includes(job.kind),
+        );
+        // Four pages per poll, fairly shared, using the existing serial queue/timer.
+        // Every sweep starts at page one because stable transfer rows change in place.
+        for (let count = 0; count < 4 && mutations.length; count++) {
+          const job = mutations[this.resultTurn++ % mutations.length];
+          let sweep = this.sweeps.get(job.id);
+          if (!sweep || sweep.status !== job.status) {
+            sweep = { cursor: null, status: job.status };
+            this.sweeps.set(job.id, sweep);
+          }
+          const page = await this.readEntries(job.id, sweep.cursor, signal, owns, true);
+          if (!owns()) return;
+          sweep.cursor = page.nextCursor;
+          if (!page.nextCursor) {
+            mutations.splice(mutations.indexOf(job), 1);
+            const terminal = ![
+              "queued",
+              "running",
+              "waiting_for_conflict",
+              "cancelling",
+            ].includes(job.status);
+            this.update({
+              entries: {
+                ...this.state.entries,
+                [job.id]: {
+                  ...this.state.entries[job.id],
+                  complete: terminal,
+                  version: (this.state.entries[job.id].version || 0) + 1,
+                },
+              },
+            });
+          }
         }
       });
   }
@@ -152,9 +189,9 @@ export class FileJobClient {
       return job;
     });
   }
-  async readEntries(id, cursor, signal, owns) {
+  async readEntries(id, cursor, signal, owns, sweep = false) {
     const prior = this.state.entries[id];
-    cursor ??= prior?.tailCursor;
+    if (!sweep) cursor ??= prior?.tailCursor;
     const page = await this.client.get(
       `/jobs/${encodeURIComponent(id)}/entries`,
       { cursor },
@@ -171,6 +208,7 @@ export class FileJobClient {
       entries: {
         ...this.state.entries,
         [id]: {
+          ...prior,
           entries,
           nextCursor: page.nextCursor,
           tailCursor: cursor ?? null,
@@ -178,5 +216,6 @@ export class FileJobClient {
         },
       },
     });
+    return page;
   }
 }

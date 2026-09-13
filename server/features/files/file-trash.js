@@ -1,4 +1,5 @@
 import { retainRenameSource } from "./file-rename-recovery.js";
+import { assertRestoreType, restoreAuthority } from "./file-restore-conflict.js";
 import path from "node:path";
 import { completeTrashAdoption } from "./file-trash-adoption.js";
 import { recoverTrash } from "./file-trash-recovery.js";
@@ -40,6 +41,7 @@ export class FileTrash {
     limits = readFileLimits(),
     locks = publisher.locks,
     barrier = publisher.barrier,
+    context,
   }) {
     Object.assign(this, {
       store,
@@ -48,6 +50,7 @@ export class FileTrash {
       limits,
       locks,
       barrier,
+      context,
     });
     this.pending = new Set();
     this.busy = new Set();
@@ -78,6 +81,12 @@ export class FileTrash {
   }
   save(record) {
     return this.barrier.run(() => this.store.putTrash(record));
+  }
+  async freshScope(scope) {
+    const fresh = this.context ? await this.context(scope.sessionId) : scope;
+    if (fresh.id !== scope.id) throw fileProblem("FILE_INVALID_SCOPE", 409);
+    if (fresh.readOnly) throw fileProblem("FILE_READ_ONLY", 403);
+    return fresh;
   }
   authorized(scope, id) {
     const record = this.store.getTrash(id);
@@ -355,17 +364,28 @@ export class FileTrash {
       this.store.deleteTrash(record.id);
     });
   }
-  restore(scope, id, target, { jobId, expectedRevision, signal } = {}) {
+  restore(
+    scope,
+    id,
+    target,
+    { jobId, expectedRevision, expectedTrashRevision, signal } = {},
+  ) {
     return this.entry(id, async () => {
+      scope = await this.freshScope(scope);
       this.store.getJob(scope, jobId);
       const record = this.authorized(scope, id);
-      if ((await this.observe(record)).availability !== "recoverable")
+      const observed = await this.observe(record);
+      if (
+        observed.availability !== "recoverable" ||
+        (expectedTrashRevision && observed.revision !== expectedTrashRevision)
+      )
         throw treeConflict();
       const selected = await resolveFile(scope, target, {
         followLeaf: false,
         allowMissingLeaf: true,
       });
       assertFileMutationTarget(scope, selected);
+      assertRestoreType(record, selected);
       this.assertProtected(selected.absolute);
       await this.publisher.assertExpected(scope, target, expectedRevision);
       const stage = await this.publisher.stage(scope, target, {
@@ -380,9 +400,25 @@ export class FileTrash {
         failure,
         publishedStarted = false;
       try {
+        await this.freshScope(scope);
+        signal?.throwIfAborted();
+        // Stage creation must not authorize a payload that changed while preparing.
+        const current = await this.observe(this.authorized(scope, id));
+        if (
+          current.availability !== "recoverable" ||
+          current.revision !== observed.revision
+        )
+          throw treeConflict();
         await this.save(record);
-        source = await trashAdoptionSource(this.store, this.native, record);
+        source = await trashAdoptionSource(
+          this.store,
+          this.native,
+          record,
+          restoreAuthority(this, scope, record, observed.revision),
+        );
         try {
+          await this.freshScope(scope);
+          signal?.throwIfAborted();
           await stage.adoptEntry(source);
         } catch (error) {
           if (!["EXDEV", "FILE_CROSS_DEVICE"].includes(error.code)) throw error;
@@ -412,7 +448,11 @@ export class FileTrash {
         };
         await this.save(record);
         publishedStarted = true;
-        const result = await this.publisher.publish(scope, stage, { expectedRevision });
+        const result = await this.publisher.publish(scope, stage, {
+          expectedRevision,
+          refreshScope: () => this.freshScope(scope),
+          beforeMutation: () => signal?.throwIfAborted(),
+        });
         if (result.recoveryId) await this.adoptDisplaced(scope, result.recoveryId);
         record.location = originalLocation;
         const remaining = await openTrashPayload(this.native, record).catch(() => null);

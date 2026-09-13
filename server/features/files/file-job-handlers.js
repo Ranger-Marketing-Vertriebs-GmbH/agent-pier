@@ -135,6 +135,9 @@ export function projectConflict(info) {
     )
       result[key] = info[key];
   if (info.source === null) result.source = null;
+  for (const key of ["sourceType", "targetType"])
+    if (["file", "directory", "symlink", "special"].includes(info[key]))
+      result[key] = info[key];
   if (Array.isArray(info.choices))
     result.choices = info.choices
       .filter((v) => typeof v === "string" && /^[a-z_]{1,40}$/.test(v))

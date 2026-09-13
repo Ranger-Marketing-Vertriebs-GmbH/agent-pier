@@ -1,4 +1,6 @@
+import { fileActionsCopy } from "./files-actions.js";
 export const filesCopy = {
+  actions: fileActionsCopy,
   errors: {
     FILE_TRASH_CONFIRMATION:
       "Die Papierkorbauswahl oder ihre Revision hat sich geändert. Bitte aktualisieren und erneut bestätigen.",
@@ -74,7 +76,18 @@ export const filesCopy = {
   scanned: (count) => `${count} Einträge untersucht`,
   noResults: "Keine passenden Dateinamen gefunden.",
   operation: "Dateioperation",
-  jobKinds: { search: "Dateinamensuche", size: "Ordnergröße" },
+  jobKinds: {
+    search: "Dateinamensuche",
+    size: "Ordnergröße",
+    create_file: "Datei erstellen",
+    create_directory: "Ordner erstellen",
+    rename: "Umbenennen",
+    copy: "Kopieren",
+    move: "Verschieben",
+    trash: "In den Papierkorb",
+    restore: "Wiederherstellen",
+    purge: "Endgültiges Löschen",
+  },
   jobStates: {
     queued: "Wartend",
     running: "Läuft",

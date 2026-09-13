@@ -1,5 +1,6 @@
-import { registerFileJobHandler } from "./file-job-handlers.js";
-import { resolveFile, entryRevision } from "./file-paths.js";
+import { registerFileJobHandler, safeIssue } from "./file-job-handlers.js";
+import path from "node:path";
+import { restoreSelection } from "./file-restore-conflict.js";
 import { fileProblem } from "./file-errors.js";
 
 export function validateTrashOperation(op) {
@@ -46,9 +47,34 @@ export function registerTrashHandlers(handlers, trash) {
     registerFileJobHandler(
       handlers,
       kind,
-      async ({ scope, operation, jobId, signal, report, conflict }) => {
+      async (context) => {
+        const { scope, operation, jobId, signal, report } = context;
+        const rows = operation.sources.map((source, index) => {
+          const record = kind === "trash" ? null : trash.authorized(scope, source);
+          const publicPath = record
+            ? scope.kind === "project"
+              ? path.relative(scope.root, record.originalAbsolute)
+              : record.originalAbsolute
+            : source;
+          return {
+            id: String(index),
+            source,
+            path: publicPath,
+            name: path.basename(publicPath),
+            type: record?.type,
+            size: record?.size ?? null,
+            status: "pending",
+          };
+        });
+        const save = (row, patch) =>
+          trash.barrier.run(() => {
+            Object.assign(row, patch);
+            trash.store.putEntry(jobId, row);
+          });
+        for (const row of rows) await save(row, {});
+        await report({ totalEntries: rows.length });
         if (kind === "purge") {
-          // Validate the entire frozen selection before removing any member.
+          // Every submitted batch is fully preflighted before its first removal.
           for (const selected of operation.options.confirmation) {
             const record = trash.authorized(scope, selected.id),
               current = await trash.observe(record);
@@ -59,53 +85,63 @@ export function registerTrashHandlers(handlers, trash) {
               throw fileProblem("FILE_TRASH_CONFIRMATION", 409);
           }
         }
+        let completed = 0;
         for (let index = 0; index < operation.sources.length; index++) {
           signal.throwIfAborted();
-          const source = operation.sources[index];
-          if (kind === "trash")
-            await trash.capture(scope, source, { jobId, reason: "deleted", signal });
-          else if (kind === "purge")
-            await trash.purge(scope, source, {
-              jobId,
-              confirmation: operation.options.confirmation[index],
-              signal,
-            });
-          else {
-            let expectedRevision = operation.options.expectedRevision;
-            if (expectedRevision === undefined) {
-              const current = await resolveFile(scope, operation.target, {
-                followLeaf: false,
-                allowMissingLeaf: true,
+          await trash.freshScope(scope);
+          const source = operation.sources[index],
+            row = rows[index];
+          try {
+            let result;
+            if (kind === "trash") {
+              const id = await trash.capture(scope, source, {
+                jobId,
+                reason: "deleted",
+                signal,
               });
-              expectedRevision = current.stat
-                ? entryRevision(current.stat, current.linkIdentity)
-                : null;
-              if (expectedRevision) {
-                const selectedRevision = expectedRevision;
-                const decision = await conflict({
-                  type: "restore",
-                  target: operation.target,
-                  revision: expectedRevision,
-                  choices: ["replace", "skip", "cancel"],
-                  revalidate: () =>
-                    trash.publisher.assertExpected(
-                      scope,
-                      operation.target,
-                      selectedRevision,
-                    ),
-                });
-                if (decision.decision === "cancel")
-                  throw fileProblem("FILE_CANCELLED", 409);
-                if (decision.decision === "skip") continue;
+              const record = trash.authorized(scope, id);
+              await save(row, { type: record.type, size: record.size });
+            } else if (kind === "purge") {
+              await trash.purge(scope, source, {
+                jobId,
+                confirmation: operation.options.confirmation[index],
+                signal,
+              });
+            } else {
+              result = await restoreSelection(trash, context);
+              if (!result) {
+                await save(row, { status: "skipped" });
+                continue;
               }
             }
-            await trash.restore(scope, source, operation.target, {
-              jobId,
-              expectedRevision,
-              signal,
+            await save(row, {
+              status: "completed",
+              sourceRemoved: true,
+              ...(result
+                ? {
+                    path: result.path,
+                    name: path.basename(result.path),
+                    revision: result.revision,
+                    outputPublished: true,
+                  }
+                : {}),
             });
+            await report({ completedEntries: ++completed });
+          } catch (error) {
+            // Cancellation/progress failure after a durable removal cannot turn
+            // the already completed entry back into an uncertain failure.
+            if (!trash.store.getEntry(jobId, row.id)?.sourceRemoved)
+              await save(row, { status: "failed", issue: error });
+            if (completed && !signal.aborted)
+              await trash.barrier.run(() => {
+                const current = trash.store.getJob(scope, jobId);
+                trash.store.transition(jobId, current.status, "partially_completed", {
+                  issue: safeIssue(error),
+                  conflict: null,
+                });
+              });
+            throw error;
           }
-          await report({ completedEntries: index + 1 });
         }
       },
       { public: true, transfer: true, validate: validateTrashOperation },

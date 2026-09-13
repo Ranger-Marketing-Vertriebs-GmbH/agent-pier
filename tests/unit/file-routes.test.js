@@ -263,3 +263,10 @@ test("fileApi preserves failures and aborts while consuming a successful body", 
     );
   }
 });
+
+test("Trash panel survives route round trips without changing ordinary routes", () => {
+  const route = readExplorerRoute("?panel=trash&path=%2Fhome%2Ftest");
+  assert.equal(route.filePanel, "trash");
+  assert.equal(explorerQuery(route), "?panel=trash&path=%2Fhome%2Ftest");
+  assert.equal(readExplorerRoute("?panel=unknown").filePanel, undefined);
+});
