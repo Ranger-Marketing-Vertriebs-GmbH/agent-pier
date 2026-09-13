@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileProblem, fileSystemProblem } from "./file-errors.js";
+import { assertRenamedTransfer } from "./file-transfer-completion.js";
 import {
   resolveFile,
   entryRevision,
@@ -13,6 +14,7 @@ import {
   inodeIdentity,
   contentIdentity,
   ownedHandle,
+  closeHandles,
 } from "./file-stage.js";
 const changed = () => fileProblem("FILE_CONFLICT_CHANGED", 409);
 
@@ -50,7 +52,11 @@ export async function prepareRename({
   publisher.store.getJob(scope, jobId);
   const source = await publisher.assertExpected(scope, sourcePath, sourceRevision);
   const target = await publisher.assertExpected(scope, targetPath, expectedRevision);
-  if (source.parent !== target.parent || source.path === target.path)
+  if (
+    source.path === target.path ||
+    source.absolute === target.absolute ||
+    (source.stat.isDirectory() && isWithin(source.absolute, target.absolute))
+  )
     throw fileProblem("FILE_SAME_PATH", 409);
   const type = source.stat.isFile()
     ? "file"
@@ -81,6 +87,7 @@ export async function prepareRename({
     const parentIdentity = inodeIdentity(await sourceParent.stat());
     let caseOnly = false;
     if (target.stat && inodeIdentity(source.stat) === inodeIdentity(target.stat)) {
+      if (source.parent !== target.parent) throw fileProblem("FILE_SAME_PATH", 409);
       const names = await exactNames(
         native,
         sourceParent,
@@ -100,7 +107,12 @@ export async function prepareRename({
     ) {
       throw fileProblem("FILE_CONFLICT_CHANGED", 409);
     }
-    stage = await makeStage(scope, targetPath, { jobId, type, followLeaf: false });
+    stage = await makeStage(scope, targetPath, {
+      jobId,
+      type,
+      followLeaf: false,
+      transferId: options.transferId,
+    });
     state = stateFor(stage);
     await state.handle?.sealWrites();
     const provenance = {
@@ -170,12 +182,18 @@ export async function prepareRename({
             });
           await state.handle?.close();
           state.handle = null;
-          await native.run("renameNoReplace", {
-            oldParent: sourceParent.handle,
-            oldName: path.basename(source.absolute),
-            newParent: state.parentHandle.handle,
-            newName: state.name,
-          });
+          try {
+            await native.run("renameNoReplace", {
+              oldParent: sourceParent.handle,
+              oldName: path.basename(source.absolute),
+              newParent: state.parentHandle.handle,
+              newName: state.name,
+            });
+          } catch (error) {
+            if (error.code === "EXDEV" || error.code === "FILE_CROSS_DEVICE")
+              state.crossDeviceAttempt = true;
+            throw error;
+          }
           state.document.stagedIdentity = provenance.identity;
           provenance.disposition = "staged";
           await record(state, "rename_staged");
@@ -194,6 +212,7 @@ export async function prepareRename({
         });
       }),
     );
+    await assertRenamedTransfer(publisher, state);
     return { stage, state, expectedRevision: caseOnly ? null : expectedRevision };
   } catch (error) {
     if (state) error.renameStage = stage;
@@ -208,10 +227,16 @@ export async function restoreRenameSource({ publisher, state, record, refreshSco
   const provenance = state.document.renameSource;
   if (!provenance) return;
   const native = publisher.native;
-  let sourceParent, stageParent;
+  let sourceParent, stageParent, targetParent;
   try {
     await refreshScope?.();
     sourceParent = await openParent(native, provenance.absolute);
+    targetParent = await openParent(native, state.target);
+    if (
+      inodeIdentity(await targetParent.stat()) !== state.document.targetParent ||
+      !(await parentMatches(native, state.target, state.document.targetParent))
+    )
+      throw changed();
     stageParent = await openParent(native, state.file).catch(async (error) => {
       if (
         error.code !== "FILE_NOT_FOUND" ||
@@ -219,7 +244,7 @@ export async function restoreRenameSource({ publisher, state, record, refreshSco
         inodeIdentity(
           await inspect(native, sourceParent.handle, path.basename(provenance.absolute)),
         ) !== provenance.identity ||
-        (await inspect(native, sourceParent.handle, state.directoryName))
+        (await inspect(native, targetParent.handle, state.directoryName))
       )
         throw error;
       provenance.disposition = "restored";
@@ -237,7 +262,8 @@ export async function restoreRenameSource({ publisher, state, record, refreshSco
             provenance.absolute,
             provenance.parentIdentity,
           )) ||
-          !(await parentMatches(native, state.file, state.document.stageParent))
+          !(await parentMatches(native, state.file, state.document.stageParent)) ||
+          !(await parentMatches(native, state.target, state.document.targetParent))
         )
           throw changed();
         const selected = await resolveFile(state.document.scope, provenance.path, {
@@ -283,12 +309,12 @@ export async function restoreRenameSource({ publisher, state, record, refreshSco
               type: state.type,
             });
           await native.run("removeEntry", {
-            directory: sourceParent.handle,
+            directory: targetParent.handle,
             name: state.directoryName,
             identity: state.document.stageParent,
             type: "directory",
           });
-          await sourceParent.sync();
+          await targetParent.sync();
           await record(state, "resolved");
         });
       }),
@@ -298,7 +324,6 @@ export async function restoreRenameSource({ publisher, state, record, refreshSco
       issue: { code: fileSystemProblem(error).code, args: {} },
     });
   } finally {
-    await stageParent?.close();
-    await sourceParent?.close();
+    await closeHandles(stageParent, sourceParent, targetParent);
   }
 }

@@ -67,7 +67,12 @@ export async function scanTree(
   native,
   parent,
   name,
-  { limits = readFileLimits(), signal, report = async () => {} } = {},
+  {
+    limits = readFileLimits(),
+    signal,
+    report = async () => {},
+    includeSpecial = false,
+  } = {},
 ) {
   const rows = [],
     queue = [""];
@@ -85,7 +90,7 @@ export async function scanTree(
     try {
       const stat = await inspect(native, current.handle, treeName(name, relativePath));
       if (!stat) throw treeConflict();
-      if (!["file", "directory", "symlink"].includes(stat.type))
+      if (!includeSpecial && !["file", "directory", "symlink"].includes(stat.type))
         throw fileProblem("FILE_UNSUPPORTED_TYPE", 415);
       bytes += stat.type === "file" ? Number(stat.size) : 0;
       if (!Number.isSafeInteger(bytes) || bytes > limits.jobBytes)
@@ -138,6 +143,18 @@ export async function removeTree(
   await assertTree(native, parent, name, rows, options);
   for (const row of [...rows].reverse()) {
     options.signal?.throwIfAborted();
+    if (
+      options.includeSpecial &&
+      (row.type === "special" ||
+        (row.type === "directory" &&
+          rows.some(
+            (child) =>
+              child.type === "special" &&
+              (!row.relativePath ||
+                child.relativePath.startsWith(row.relativePath + "/")),
+          )))
+    )
+      continue;
     const current = await treeParent(native, parent, name, row.relativePath, rows);
     try {
       await mutate(async () => {

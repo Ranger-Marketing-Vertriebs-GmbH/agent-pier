@@ -1,6 +1,7 @@
 import { restoreRenameSource } from "./file-rename.js";
+import { transferRevisions } from "./file-transfer-completion.js";
 import { PathLocks } from "./file-locks.js";
-import { resolveFile } from "./file-paths.js";
+import { resolveFile, entryRevision } from "./file-paths.js";
 import path from "node:path";
 import { FileNative } from "./file-native.js";
 import { fileProblem } from "./file-errors.js";
@@ -12,6 +13,7 @@ import {
   contentIdentity,
   ownedHandle,
   publicationSnapshot,
+  closeHandles,
 } from "./file-stage.js";
 
 /** Startup reconciliation is deliberately non-destructive for uncertain states.
@@ -100,10 +102,18 @@ export async function recoverPublications({ store, native, barrier }) {
         )
           throw fileProblem("FILE_INTERRUPTED", 409);
         targetParent = await openParent(owner, doc.target);
-        stageParent = await openParent(owner, doc.staged);
+        stageParent = await openParent(owner, doc.staged).catch((error) => {
+          if (
+            error.code === "FILE_NOT_FOUND" &&
+            doc.transferCompleted &&
+            doc.expectedIdentity === null
+          )
+            return null;
+          throw error;
+        });
         if (
           !sameInode(await targetParent.stat(), doc.targetParent) ||
-          !sameInode(await stageParent.stat(), doc.stageParent)
+          (stageParent && !sameInode(await stageParent.stat(), doc.stageParent))
         )
           throw fileProblem("FILE_INTERRUPTED", 409);
         const target = await inspect(
@@ -111,7 +121,9 @@ export async function recoverPublications({ store, native, barrier }) {
           targetParent.handle,
           path.basename(doc.target),
         );
-        const stage = await inspect(owner, stageParent.handle, path.basename(doc.staged));
+        const stage = stageParent
+          ? await inspect(owner, stageParent.handle, path.basename(doc.staged))
+          : null;
         if (
           sameInode(target, doc.stagedIdentity) &&
           Object.hasOwn(doc, "expectedIdentity") &&
@@ -157,11 +169,17 @@ export async function recoverPublications({ store, native, barrier }) {
           // Preparation and hashes precede this short physical lease. Startup
           // can overlap unrelated application snapshots, so disposition and its
           // durable journal update must share the same barrier even on failure.
+          const revisions = await transferRevisions(store, record);
           await write(async () => {
             try {
-              await stageParent.sync();
+              store.completeTransfer(
+                record,
+                entryRevision(selected.stat, selected.linkIdentity),
+                revisions,
+              );
+              await stageParent?.sync();
               await targetParent.sync();
-              if (!stage) {
+              if (!stage && stageParent) {
                 await owner.run("removeEntry", {
                   directory: targetParent.handle,
                   name: path.basename(path.dirname(doc.staged)),
@@ -189,8 +207,7 @@ export async function recoverPublications({ store, native, barrier }) {
       } catch {
         // Missing, replaced or unproven ancestors never authorize replay/delete.
       } finally {
-        await stageParent?.close();
-        await targetParent?.close();
+        await closeHandles(stageParent, targetParent);
       }
       if (!recorded)
         await write(() =>

@@ -1,4 +1,6 @@
 import { prepareRename, restoreRenameSource } from "./file-rename.js";
+import { transferRevisions } from "./file-transfer-completion.js";
+import { discardCopyStage } from "./file-copy-cleanup.js";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { FileNative } from "./file-native.js";
@@ -27,7 +29,6 @@ import {
 
 export { fileRevision } from "./file-stage.js";
 const conflict = () => fileProblem("FILE_CONFLICT_CHANGED", 409);
-
 export class FilePublisher {
   #stages = new WeakMap();
   #active = new Set();
@@ -46,8 +47,7 @@ export class FilePublisher {
   }
   #track(action) {
     if (this.#closed) return Promise.reject(fileProblem("FILE_JOBS_CLOSED", 503));
-    // Hiding async context would not release a physical caller-held lease.
-    // Reject before preparation so an awaited call cannot queue behind itself.
+    // Reject physical caller leases before preparation to prevent self-deadlock.
     if (this.barrier.hasLease() || this.locks.hasLease())
       return Promise.reject(fileProblem("FILE_INVALID_OPERATION", 400));
     const result = action();
@@ -72,7 +72,11 @@ export class FilePublisher {
   stage(scope, target, options) {
     return this.#track(() => this.#stage(scope, target, options));
   }
-  async #stage(scope, target, { jobId, type = "file", followLeaf = false } = {}) {
+  async #stage(
+    scope,
+    target,
+    { jobId, type = "file", followLeaf = false, transferId } = {},
+  ) {
     if (
       !["file", "directory", "symlink"].includes(type) ||
       typeof followLeaf !== "boolean"
@@ -84,6 +88,7 @@ export class FilePublisher {
       allowMissingLeaf: true,
     });
     assertFileMutationTarget(scope, selected);
+    this.store.bindTransfer(scope, jobId, transferId, selected.path);
     if (this.store.storageRoot && isWithin(selected.absolute, this.store.storageRoot))
       throw fileProblem("FILE_PROTECTED_PATH", 403);
     const state = {
@@ -109,11 +114,11 @@ export class FilePublisher {
       scopeId: scope.id,
       scope: { ...scope },
       linkIdentity: selected.linkIdentity,
+      transferId,
     };
     try {
       state.targetParentHandle = await openParent(this.native, state.target);
-      // Journal intent before the first namespace mutation; missing identities
-      // after an interruption never authorize cleanup of a similarly named path.
+      // Journal intent first; missing identities never authorize guessed cleanup.
       await this.#record(state, "creating", {
         targetParent: inodeIdentity(await state.targetParentHandle.stat()),
       });
@@ -320,8 +325,7 @@ export class FilePublisher {
         () =>
           this.barrier.run(async () => {
             await beforeMutation?.();
-            // Expensive hashing/copying is already complete. This lease covers only
-            // fresh namespace checks, the syscall, durability and durable state.
+            // Hashing is complete; only namespace checks and durable mutation remain.
             const fresh = await resolveFile(scope, state.selectedPath, {
               followLeaf: state.followLeaf,
               allowMissingLeaf: true,
@@ -434,7 +438,15 @@ export class FilePublisher {
         state.type === "file"
           ? await fileRevision(state.handle, published.linkIdentity)
           : entryRevision(published.stat, published.linkIdentity);
+      const completion = {
+        id: state.id,
+        jobId: state.jobId,
+        phase: "exchanged",
+        document: state.document,
+      };
+      const revisions = await transferRevisions(this.store, completion);
       await this.barrier.run(async () => {
+        this.store.completeTransfer(completion, revision, revisions);
         if (!displaced) await removeStageDirectory(this.native, state);
         await this.#record(state, displaced ? "swapped" : "resolved");
       });
@@ -513,6 +525,13 @@ export class FilePublisher {
         }
         const failure = fileSystemProblem(error);
         if (state) failure.recoveryId = state.id;
+        if (
+          state?.crossDeviceAttempt &&
+          this.store.getPublication(state.id)?.phase === "resolved"
+        ) {
+          await this.assertExpected(scope, sourcePath, options.sourceRevision);
+          failure.crossDeviceSafe = true;
+        }
         throw failure;
       }
     });
@@ -520,12 +539,13 @@ export class FilePublisher {
   discard(stage) {
     return this.#track(async () => {
       const state = this.#stages.get(stage);
+      if (state?.finished && state.document.transferId)
+        return discardCopyStage(this, state, (...args) => this.#record(...args));
       if (!state || state.busy || state.finished)
         throw fileProblem("FILE_INVALID_OPERATION", 400);
       state.busy = true;
       try {
-        // Only a live, registered, never-published stage is eligible. Recovery
-        // never derives deletion authority from an internal-looking name.
+        // Only a live registered stage is eligible; names never grant authority.
         const record = this.store.getPublication(state.id);
         if (
           record?.phase !== "staging" ||

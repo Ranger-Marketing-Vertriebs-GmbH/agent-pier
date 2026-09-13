@@ -39,6 +39,8 @@ export const filesCopy = {
     FILE_METADATA_UNSUPPORTED:
       "Einige Dateimetadaten können in diesem Dateisystem nicht erhalten werden.",
     FILE_METADATA_MISMATCH: "Die Dateimetadaten konnten nicht exakt erhalten werden.",
+    FILE_MERGE_METADATA_RETAINED:
+      "Beim Zusammenführen behält der vorhandene Zielordner Besitzer, Berechtigungen, ACLs und erweiterte Attribute. Seine Zeitstempel können sich durch hinzugefügte oder entfernte Einträge ändern.",
     FILE_IO_ERROR: "Die Dateioperation konnte nicht abgeschlossen werden.",
     FILE_INVALID_SCOPE: "Der Dateizugriffskontext ist ungültig.",
     FILE_READ_ONLY: "Dateien in diesem Kontext können nur gelesen werden.",

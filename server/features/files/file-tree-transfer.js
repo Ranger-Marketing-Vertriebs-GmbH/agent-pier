@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { resolveFile, assertFileMutationTarget, entryRevision } from "./file-paths.js";
 import { readFileLimits } from "./file-limits.js";
 import { copyMetadata } from "./file-metadata.js";
+import { fileProblem } from "./file-errors.js";
 import {
   closeHandles,
   ownedHandle,
@@ -70,22 +71,45 @@ export async function copyVerified(
     limits = readFileLimits(),
     signal,
     report = async () => {},
+    reportBytes = async () => {},
     strictMetadata = true,
     mutate = (fn) => fn(),
+    cleanupMutate = mutate,
+    includeSpecial = false,
   } = {},
 ) {
   const native = stage.parentHandle.native;
   const selected = await openTreeSource(scope, source, native);
   const manifest = [],
     targets = [];
+  let writtenBytes = 0,
+    checkpointed = true;
   try {
     const rows = await scanTree(native, selected.parent, selected.name, {
       limits,
       signal,
+      includeSpecial,
     });
     if (rows[0].type !== stage.type) throw treeConflict();
     for (const row of rows) {
       signal?.throwIfAborted();
+      if (!["file", "directory", "symlink"].includes(row.type)) {
+        manifest.push(row);
+        await report({
+          entry: {
+            ...row,
+            status: "skipped",
+            issue: fileProblem("FILE_UNSUPPORTED_TYPE", 415),
+          },
+          issue: fileProblem("FILE_UNSUPPORTED_TYPE", 415),
+        });
+        continue;
+      }
+      if (
+        targets.length >= limits.jobEntries ||
+        row.relativePath.split("/").filter(Boolean).length > limits.maxDepth
+      )
+        throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
       const from = await treeParent(
         native,
         selected.parent,
@@ -121,6 +145,8 @@ export async function copyVerified(
         );
         if (entryRevision(await input.stat()) !== row.revision) throw treeConflict();
         const targetName = treeName(stage.name, row.relativePath);
+        await report({ entry: { ...row, phase: "creating" } });
+        checkpointed = false;
         if (row.type === "symlink") {
           const text = await native.run("readLink", { handle: input.handle });
           if (!row.relativePath) await stage.createLink(text);
@@ -148,6 +174,7 @@ export async function copyVerified(
         await report({
           entry: { ...row, targetIdentity: target.identity, phase: "copying" },
         });
+        checkpointed = true;
         if (row.type === "file") {
           const hash = createHash("sha256"),
             bytes = Buffer.alloc(65536);
@@ -160,8 +187,13 @@ export async function copyVerified(
               position,
             );
             if (!bytesRead) throw treeConflict();
+            writtenBytes += bytesRead;
+            if (!Number.isSafeInteger(writtenBytes) || writtenBytes > limits.jobBytes)
+              throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
+            await reportBytes(bytesRead);
             hash.update(bytes.subarray(0, bytesRead));
             await output.writeFile(bytes.subarray(0, bytesRead));
+            target.revision = entryRevision(await output.stat());
             position += bytesRead;
           }
           await output.sync();
@@ -181,6 +213,7 @@ export async function copyVerified(
         }
         if (entryRevision(await input.stat()) !== row.revision) throw treeConflict();
         manifest.push({ ...row, targetIdentity: target.identity });
+        target.revision = entryRevision(await output.stat());
       } finally {
         await closeHandles(input, output !== stage.handle ? output : null, from, to);
       }
@@ -188,6 +221,7 @@ export async function copyVerified(
     // Postorder metadata preserves directory times after children are populated.
     for (const row of [...rows].reverse()) {
       signal?.throwIfAborted();
+      if (!["file", "directory", "symlink"].includes(row.type)) continue;
       const from = await treeParent(
         native,
         selected.parent,
@@ -241,12 +275,15 @@ export async function copyVerified(
           preserveTimes: true,
         });
         for (const issue of result?.warnings || []) await report({ issue });
+        targets.find((target) => target.relativePath === row.relativePath).revision =
+          entryRevision(await output.stat());
         if (row.type !== "symlink") await output.sync();
         await to.sync();
         await report({
           entry: {
             ...manifest.find((item) => item.relativePath === row.relativePath),
             phase: "verified",
+            targetRevision: entryRevision(await output.stat()),
           },
         });
       } finally {
@@ -254,7 +291,66 @@ export async function copyVerified(
       }
     }
     await selected.assertAuthority();
-    await assertTree(native, selected.parent, selected.name, rows, { limits, signal });
+    await assertTree(native, selected.parent, selected.name, rows, {
+      limits,
+      signal,
+      includeSpecial,
+    });
+  } catch (error) {
+    // Only identities confirmed by an awaited creation checkpoint are removable.
+    // A syscall/checkpoint uncertainty retains the registered stage for recovery.
+    if (checkpointed) {
+      try {
+        for (const row of [...targets].reverse().filter((row) => row.relativePath)) {
+          const parent = await treeParent(
+            native,
+            stage.parentHandle,
+            stage.name,
+            row.relativePath,
+            targets,
+          );
+          try {
+            await cleanupMutate(async () => {
+              const actual = await inspect(
+                native,
+                parent.handle,
+                path.basename(row.relativePath),
+              );
+              if (
+                inodeIdentity(actual) !== row.identity ||
+                (row.type !== "directory" && entryRevision(actual) !== row.revision)
+              )
+                throw treeConflict();
+              await native.run("removeEntry", {
+                directory: parent.handle,
+                name: path.basename(row.relativePath),
+                identity: row.identity,
+                type: row.type,
+              });
+              await parent.sync();
+              await report({
+                entry: { relativePath: row.relativePath, cleanupRemoved: true },
+              });
+            });
+          } finally {
+            await parent.close();
+          }
+        }
+        const root = targets[0];
+        if (root) {
+          const actual = await inspect(native, stage.parentHandle.handle, stage.name);
+          if (
+            inodeIdentity(actual) !== root.identity ||
+            (root.type !== "directory" && entryRevision(actual) !== root.revision)
+          )
+            throw treeConflict();
+        }
+      } catch {
+        error.copyCleanupUncertain = true;
+        /* Unknown entries remain registered; never recursively guess. */
+      }
+    } else error.copyCleanupUncertain = true;
+    throw error;
   } finally {
     await selected.parent.close();
   }
@@ -267,6 +363,7 @@ export async function copyVerified(
           limits,
           signal,
           report,
+          includeSpecial,
           mutate: (fn) =>
             mutate(async () => {
               await current.assertAuthority();
@@ -277,6 +374,7 @@ export async function copyVerified(
         await assertTree(native, current.parent, current.name, manifest, {
           limits,
           signal,
+          includeSpecial,
         });
     } finally {
       await current.parent.close();

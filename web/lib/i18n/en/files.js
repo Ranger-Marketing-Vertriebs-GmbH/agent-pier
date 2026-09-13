@@ -35,6 +35,8 @@ export const filesCopy = {
     FILE_METADATA_UNSUPPORTED:
       "Some file metadata cannot be preserved on this filesystem.",
     FILE_METADATA_MISMATCH: "The file metadata could not be preserved exactly.",
+    FILE_MERGE_METADATA_RETAINED:
+      "The existing destination folder keeps its owner, permissions, ACLs and extended attributes when folders are merged. Its timestamps may change as children are added or removed.",
     FILE_IO_ERROR: "The file operation could not be completed.",
     FILE_INVALID_SCOPE: "The file access context is invalid.",
     FILE_READ_ONLY: "Files in this context can only be read.",

@@ -33,7 +33,6 @@ export async function retainRenameSource(trash, scope, recoveryId) {
     !path.isAbsolute(source.absolute || "") ||
     !path.isAbsolute(doc.staged || "") ||
     !path.isAbsolute(doc.target || "") ||
-    path.dirname(source.absolute) !== path.dirname(doc.target) ||
     !/^e1:[a-f0-9]{64}$/.test(source.revision || "") ||
     !/^\d+:\d+$/.test(source.identity) ||
     !/^\d+:\d+$/.test(source.parentIdentity || "")

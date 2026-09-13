@@ -37,7 +37,7 @@ export function validateMutationOperation(op) {
   );
 }
 
-function alternateName(name, index) {
+export function alternateName(name, index) {
   const extension = path.extname(name),
     suffix = ` (${index})`;
   const budget = 255 - Buffer.byteLength(extension + suffix);

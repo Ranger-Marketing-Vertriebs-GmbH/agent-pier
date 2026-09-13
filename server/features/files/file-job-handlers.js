@@ -171,7 +171,16 @@ export function progressPatch(patch, limits, kind) {
 }
 export function projectEntry(entry) {
   const result = {};
-  for (const key of ["id", "path", "relativePath", "name", "type", "status", "revision"])
+  for (const key of [
+    "id",
+    "path",
+    "source",
+    "relativePath",
+    "name",
+    "type",
+    "status",
+    "revision",
+  ])
     if (typeof entry[key] === "string") result[key] = entry[key].slice(0, 4096);
   for (const key of ["bytes", "size", "completedBytes"])
     if (Number.isSafeInteger(entry[key]) && entry[key] >= 0) result[key] = entry[key];
@@ -187,5 +196,7 @@ export function projectEntry(entry) {
       result[key] = typeof entry[key] === "boolean" ? entry[key] : null;
   }
   if (entry.issue) result.issue = safeIssue(entry.issue);
+  for (const key of ["outputPublished", "sourceRemoved"])
+    if (typeof entry[key] === "boolean") result[key] = entry[key];
   return result;
 }

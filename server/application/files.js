@@ -3,6 +3,7 @@ import {
   registerMutationHandlers,
 } from "../features/files/file-mutations.js";
 import { FileTrash } from "../features/files/file-trash.js";
+import { FileCopies, registerCopyHandlers } from "../features/files/file-copy.js";
 import { registerTrashHandlers } from "../features/files/file-trash-handlers.js";
 import { FilePublisher } from "../features/files/file-publish.js";
 import { recoverPublications } from "../features/files/file-recovery.js";
@@ -60,6 +61,8 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
   registerTrashHandlers(handlers, trash);
   const mutations = new FileMutations({ publisher, trash, locks, context });
   registerMutationHandlers(handlers, mutations);
+  const copies = new FileCopies({ publisher, trash, locks, context, limits });
+  registerCopyHandlers(handlers, copies);
   const resultStore = {
     putEntry: (jobId, entry) => mutationBarrier.run(() => store.putEntry(jobId, entry)),
   };
