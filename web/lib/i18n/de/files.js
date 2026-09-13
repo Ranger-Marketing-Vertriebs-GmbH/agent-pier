@@ -20,6 +20,7 @@ export const filesCopy = {
     FILE_LIMIT_EXCEEDED:
       "Die Dateioperation hat ihre konfigurierte Grenze überschritten.",
     FILE_UNSUPPORTED_TYPE: "Dieser Dateityp kann nicht als Vorschau angezeigt werden.",
+    FILE_INVALID_RESPONSE: "Der Dateidienst hat eine ungültige Antwort gesendet.",
   },
   requestFailed: (status) => `Dateianfrage fehlgeschlagen (${status}).`,
   tab: "Dateien",

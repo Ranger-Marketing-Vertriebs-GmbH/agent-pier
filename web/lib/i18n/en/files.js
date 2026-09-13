@@ -18,6 +18,7 @@ export const filesCopy = {
     FILE_SNAPSHOT_EXPIRED: "This file list expired. Refresh it and try again.",
     FILE_LIMIT_EXCEEDED: "The file operation exceeded its configured limit.",
     FILE_UNSUPPORTED_TYPE: "This file type cannot be previewed.",
+    FILE_INVALID_RESPONSE: "The file service returned an invalid response.",
   },
   requestFailed: (status) => `File request failed (${status}).`,
   tab: "Files",

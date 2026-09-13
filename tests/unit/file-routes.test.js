@@ -173,3 +173,83 @@ test("fileApi errors retain stable fields and resolve message in the current lan
   setLanguage("de", { persist: false });
   assert.notEqual(issue.message, english);
 });
+
+test("fileApi mutation responses distinguish empty bodies from valid JSON", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const responses = [
+    new Response(null, { status: 204 }),
+    new Response("", { status: 200 }),
+    new Response(JSON.stringify({ saved: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+  ];
+  globalThis.fetch = async () => responses.shift();
+  t.after(() => (globalThis.fetch = originalFetch));
+  const client = fileApi({ kind: "global" });
+  const options = { scopeId: "f1:opened", body: {} };
+  assert.deepEqual(await client.mutate("/preferences", options), {});
+  assert.deepEqual(await client.mutate("/preferences", options), {});
+  assert.deepEqual(await client.mutate("/preferences", options), { saved: true });
+});
+
+test("fileApi rejects malformed nonempty successful JSON without exposing its content", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const privateBody = '{"path":"/private/secret"';
+  globalThis.fetch = async () =>
+    new Response(privateBody, {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    setLanguage("de", { persist: false });
+  });
+  const client = fileApi({ kind: "global" });
+  let issue;
+  try {
+    await client.mutate("/preferences", {
+      scopeId: "f1:opened",
+      body: {},
+    });
+  } catch (error) {
+    issue = error;
+  }
+  assert.ok(issue instanceof Error);
+  assert.equal(issue.code, "FILE_INVALID_RESPONSE");
+  assert.equal(issue.status, 200);
+  assert.equal(issue.message.includes(privateBody), false);
+  setLanguage("en", { persist: false });
+  const english = issue.message;
+  setLanguage("de", { persist: false });
+  assert.notEqual(issue.message, english);
+});
+
+test("fileApi preserves failures and aborts while consuming a successful body", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const failures = [
+    new Error("fixture body read failed"),
+    new DOMException("fixture body read aborted", "AbortError"),
+  ];
+  globalThis.fetch = async () =>
+    new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.error(failures[0]);
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  t.after(() => (globalThis.fetch = originalFetch));
+  const client = fileApi({ kind: "global" });
+  for (const failure of [...failures]) {
+    failures[0] = failure;
+    await assert.rejects(
+      client.mutate("/preferences", {
+        scopeId: "f1:opened",
+        body: {},
+      }),
+      (error) => error === failure,
+    );
+  }
+});

@@ -53,6 +53,19 @@ function requireScopeId(scopeId) {
     throw new TypeError("A scopeId from the opened file context is required.");
 }
 
+function fileClientIssue(code, status, args = {}) {
+  const error = new Error();
+  Object.defineProperty(error, "message", {
+    configurable: true,
+    enumerable: false,
+    get: () => (code ? fileErrorMessage(code, status) : apiCopy.requestFailed(status)),
+  });
+  error.status = status;
+  error.code = code;
+  error.args = safeArgs(args);
+  return error;
+}
+
 async function checked(response) {
   if (response.status === 401)
     globalThis.window?.dispatchEvent?.(new Event("agentpier-login-required"));
@@ -62,19 +75,17 @@ async function checked(response) {
     typeof data.code === "string" && /^FILE_[A-Z0-9_]+$/.test(data.code)
       ? data.code
       : null;
-  const error = new Error();
-  Object.defineProperty(error, "message", {
-    configurable: true,
-    enumerable: false,
-    get: () =>
-      code
-        ? fileErrorMessage(code, response.status)
-        : apiCopy.requestFailed(response.status),
-  });
-  error.status = response.status;
-  error.code = code;
-  error.args = safeArgs(data.args);
-  throw error;
+  throw fileClientIssue(code, response.status, data.args);
+}
+
+async function jsonOrEmpty(response) {
+  const content = await response.text();
+  if (content === "") return {};
+  try {
+    return JSON.parse(content);
+  } catch {
+    throw fileClientIssue("FILE_INVALID_RESPONSE", response.status);
+  }
 }
 
 export function fileApi(scopeRef) {
@@ -95,7 +106,7 @@ export function fileApi(scopeRef) {
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         }),
       );
-      return response.json().catch(() => ({}));
+      return jsonOrEmpty(response);
     },
     async raw(
       path,
