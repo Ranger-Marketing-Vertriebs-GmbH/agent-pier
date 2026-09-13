@@ -4,6 +4,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { Releases } from "../../server/features/operations/releases.js";
+import { Operations } from "../../server/features/operations/operations.js";
+import { AuditStore } from "../../server/features/audit/audit-store.js";
 async function fixture(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "ap-release-cleanup-"));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
@@ -133,4 +135,60 @@ test("a tmux server's historical startup arguments do not pin an unused release"
     r.cleanupStatus().versions.find((v) => v.version === "1.0.0").deleteReason,
     "inUse",
   );
+});
+
+test("cleanup state lists the sessions and process classes holding each version", async (t) => {
+  const r = await fixture(t);
+  const id = "6f1d2c3b-4a5e-4f60-8b7c-9d0e1f2a3b4c";
+  const old = `${r.installRoot}/releases/1.1.0`;
+  r.processes = () =>
+    [
+      `${old}/bin/node ${old}/bin/node ${old}/server/terminal-launcher.js ${r.dataDir}/sessions/${id}.launch.json`,
+      `node ${old}/bin/node ${old}/vendor/agentbus/agentpier/mcp.js`,
+      `node ${old}/bin/node /Users/me/tool.js`,
+      `node ${old}/bin/node ${old}/server/features/pipelines/verify-supervisor.js`,
+    ].join("\n");
+  const state = r.cleanupStatus();
+  const held = state.versions.find((v) => v.version === "1.1.0");
+  assert.equal(held.deleteReason, "inUse");
+  assert.deepEqual(held.sessionIds, [id]);
+  assert.equal(held.nodeOnlyProcesses, 1);
+  assert.deepEqual(held.helperProcesses, [
+    { reference: "vendor/agentbus/agentpier/mcp.js" },
+  ]);
+  assert.deepEqual(held.unidentifiedProcesses, [
+    { reference: "server/features/pipelines/verify-supervisor.js" },
+  ]);
+  const free = state.versions.find((v) => v.version === "1.0.0");
+  assert.deepEqual(
+    [
+      free.sessionIds,
+      free.nodeOnlyProcesses,
+      free.helperProcesses,
+      free.unidentifiedProcesses,
+    ],
+    [[], 0, [], []],
+  );
+});
+
+test("the cleanup job succeeds and records a valid audit event", async (t) => {
+  const r = await fixture(t);
+  const audit = new AuditStore({ dataDir: r.dataDir });
+  t.after(() => audit.close());
+  const operations = new Operations({
+    config: { dataDir: r.dataDir },
+    audit,
+    withSnapshotBarrier: (fn) => fn(),
+    releaseOptions: { installRoot: r.installRoot, processes: () => "" },
+  });
+  t.after(() => operations.close());
+  const job = operations.cleanupReleases({ versions: ["1.0.0"] });
+  await operations.jobs.close();
+  const finished = operations.jobs.get(job.id);
+  assert.equal(finished.status, "succeeded", finished.error);
+  assert.deepEqual(finished.result, { removedVersions: ["1.0.0"] });
+  const { events } = audit.list();
+  assert.equal(events.length, 1);
+  assert.equal(events[0].action, "release.deleted");
+  assert.equal(events[0].details.version, "1.0.0");
 });

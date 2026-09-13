@@ -5,6 +5,7 @@ import { releaseVersion } from "./release-archive.js";
 import { compareReleaseVersions, applicationRoot } from "./version.js";
 import { readJson } from "./files.js";
 import { problem } from "../../lib/storage.js";
+import { releaseSessionReferences } from "./release-references.js";
 
 const cleanupError = (code, message, status = 409) =>
   Object.assign(problem(message, status), { code });
@@ -90,7 +91,18 @@ export function cleanupState({
                 : inUse
                   ? "inUse"
                   : null;
-      return [{ version, canDelete: !reason, deleteReason: reason }];
+      const references = releaseSessionReferences(commands, targets);
+      return [
+        {
+          version,
+          canDelete: !reason,
+          deleteReason: reason,
+          sessionIds: references.sessionIds,
+          nodeOnlyProcesses: references.nodeOnly,
+          helperProcesses: references.helperReferences,
+          unidentifiedProcesses: references.unidentified,
+        },
+      ];
     });
     return { available: true, versions };
   } catch {

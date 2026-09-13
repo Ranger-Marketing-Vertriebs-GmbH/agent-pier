@@ -98,14 +98,17 @@ export class Operations {
     });
   }
   cleanupReleases({ versions }) {
-    return this.jobs.start("release-cleanup", async () => {
+    return this.jobs.start("release-cleanup", async (jobId) => {
       const result = await this.releases.cleanup(versions);
-      this.audit?.append({
-        action: "release.cleaned",
-        resourceType: "release",
-        outcome: "success",
-        source: "user",
-      });
+      for (const version of result.removedVersions)
+        this.audit?.append({
+          action: "release.deleted",
+          resourceType: "release",
+          resourceId: jobId,
+          outcome: "success",
+          source: "user",
+          details: { version },
+        });
       return result;
     });
   }
