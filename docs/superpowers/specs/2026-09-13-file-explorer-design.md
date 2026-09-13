@@ -1,7 +1,7 @@
 # Vollständiger Datei-Explorer für AgentPier
 
 - Datum: 2026-09-13
-- Status: Fachlicher Entwurf im Gespräch bestätigt; schriftliche Spezifikation zur Prüfung.
+- Status: Schriftliche Spezifikation einschließlich Startlimits vom Nutzer bestätigt.
 - Basis: `356f1d0` (AgentPier 1.17.0).
 - Arbeitszweig: `chore/file-explorer-design`.
 
@@ -448,7 +448,6 @@ automatisches Speichern und Echtzeit-Zusammenarbeit im Editor sind separate Feat
 Sie werden nicht benötigt, um den hier bestätigten Datei-Explorer abzunehmen.
 
 Vor der Umsetzung sind keine weiteren fachlichen Grundsatzentscheidungen offen.
-Die Prüfung dieser schriftlichen Fassung soll insbesondere sicherstellen, dass die
-präzisierten Betriebsgrenzen und Wiederherstellungsabläufe dem beabsichtigten
-Verhalten entsprechen. Danach kann ein konkreter Umsetzungsplan mit Dateien,
-Schnittstellen, Testfällen und Abhängigkeiten erstellt werden.
+Die schriftliche Fassung einschließlich Betriebsgrenzen und Wiederherstellungsabläufen
+wurde bestätigt. Der [Umsetzungsplan](../plans/2026-09-13-file-explorer.md) legt
+Arbeitspakete, Schnittstellen, Testfälle und Abhängigkeiten fest.
