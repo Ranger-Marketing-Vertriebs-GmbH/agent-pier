@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { NativeRequestChannel } from "./native-channel.js";
 import { questionsView, questionAnswers } from "./native-questions.js";
+import { claudeHookVersion, claudeHookTimeoutSeconds } from "./claude-runtime.js";
+import { requestValue } from "./request-validation.js";
 
 export function claudeRequest(data) {
   if (
@@ -74,7 +76,7 @@ export async function runClaudeHook({
   input = process.stdin,
   output = process.stdout,
   env = process.env,
-  timeout = 590000,
+  timeout,
 } = {}) {
   let text = "";
   for await (const chunk of input) {
@@ -84,6 +86,10 @@ export async function runClaudeHook({
   const data = JSON.parse(text);
   const request = claudeRequest(data);
   if (!request) return;
+  // Unsupported payloads must fall back to Claude, not reconnect indefinitely
+  // after the broker rejects the same unrenderable request.
+  requestValue(request.view);
+  const question = request.view.kind === "question";
   let channel;
   // The hook invocation is the return channel; no fabricated provider request ID.
   const key = randomUUID();
@@ -95,15 +101,29 @@ export async function runClaudeHook({
       clearTimeout(connectTimer);
       resolve();
     };
-    const timer = setTimeout(finish, timeout);
-    const connectTimer = setTimeout(finish, 1500);
-    channel = new NativeRequestChannel({ env, onDisconnect: finish });
+    const timer = setTimeout(
+      finish,
+      timeout ?? (question ? claudeHookTimeoutSeconds * 1000 - 10000 : 590000),
+    );
+    const connectTimer = setTimeout(finish, question ? 10000 : 1500);
+    channel = new NativeRequestChannel({
+      env,
+      adapterVersion: claudeHookVersion,
+      // A waiting question still belongs to this live invocation during a
+      // server restart. Republish it after reconnect instead of losing it.
+      onDisconnect: question ? () => {} : finish,
+    });
     channel.ready.then(() => {
       clearTimeout(connectTimer);
       if (finished) return;
       channel.publish(key, request.view, async (answer) => {
         const result = request.answer(answer);
-        if (result) output.write(JSON.stringify(result) + "\n");
+        if (result)
+          await new Promise((resolve, reject) =>
+            output.write(JSON.stringify(result) + "\n", (error) =>
+              error ? reject(error) : resolve(),
+            ),
+          );
         // Let the transport acknowledge the consumed occurrence before exiting the hook.
         setTimeout(finish, 25);
       });

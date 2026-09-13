@@ -1,4 +1,8 @@
 export const requestCopy = {
+  reloadRequired:
+    "This Claude session needs a one-time update for chat questions. Run /reload-plugins in the terminal. Your conversation stays open.",
+  legacyQuestion:
+    "Claude asked a question, but this session did not send its choices to chat. Answer in the terminal, then run /reload-plugins.",
   hookTrustTitle: "Review Codex hooks",
   hookTrustDescription:
     "Codex is waiting for hook approval. Trusted hooks can run outside the sandbox. Your chat draft is preserved until you decide.",

@@ -71,7 +71,13 @@
 }
 .native-choice input {
   width: auto;
+  flex-shrink: 0;
   accent-color: var(--accent);
+}
+.native-choice span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 .native-choice small {
   display: block;
