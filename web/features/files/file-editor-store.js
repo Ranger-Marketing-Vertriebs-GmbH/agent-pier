@@ -1,4 +1,8 @@
-import { editorReducer, emptyEditorState } from "./file-editor-state.js";
+import {
+  editorReducer,
+  emptyEditorState,
+  requiresEditorRetention,
+} from "./file-editor-state.js";
 import { serializeDocument } from "./file-text-format.js";
 import { fileClientIssue } from "./file-api.js";
 import { requestId } from "./file-action-utils.js";
@@ -69,8 +73,14 @@ export function createFileEditorStore() {
     format: (id, value) => dispatch({ type: "format", id, patch: value }),
     close(id, { discard = false } = {}) {
       const tab = find(id);
-      if (tab?.dirty && !discard) {
-        const outcome = { status: "dirty" };
+      if (requiresEditorRetention(tab) && !discard) {
+        const outcome = {
+          status: tab.pending
+            ? "close-pending"
+            : tab.attempt
+              ? "close-unresolved"
+              : "dirty",
+        };
         patch(id, { outcome });
         return outcome;
       }

@@ -1,4 +1,5 @@
 import { useContext, useSyncExternalStore } from "react";
+import { requiresEditorRetention } from "./file-editor-state.js";
 import { FileEditorContext } from "./file-editor-context.jsx";
 
 export default function useFileEditor({ client, scopeId, limits, scope }) {
@@ -11,6 +12,7 @@ export default function useFileEditor({ client, scopeId, limits, scope }) {
   return {
     ...state,
     dirtyTabs: state.tabs.filter((tab) => tab.dirty),
+    retainedTabs: state.tabs.filter(requiresEditorRetention),
     open: (path) => store.open(client, scopeId, path, limits, scope),
     activate: store.activate,
     edit: store.edit,

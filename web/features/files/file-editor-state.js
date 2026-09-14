@@ -1,4 +1,6 @@
 export const emptyEditorState = () => ({ tabs: [], activeId: null });
+export const requiresEditorRetention = (tab) =>
+  Boolean(tab?.dirty || tab?.pending || tab?.attempt);
 export const normalizedText = (text) => text.replace(/\r\n|\r/g, "\n");
 
 export function editorReducer(state, action) {

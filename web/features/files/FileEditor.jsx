@@ -103,7 +103,6 @@ export default function FileEditor({ tab, onChange: edit, onSave: save, searchRe
 
     searchRef.current = () => {
       openSearchPanel(view);
-      view.focus();
     };
     let live = true;
     loadLanguage(tab.path)

@@ -42,6 +42,9 @@ export const fileEditorCopy = {
   replacedLine: "replaced match on line $",
   replacedMatches: "replaced $ matches",
   outcomes: {
+    "close-pending": "Document and save attempt retained while saving is in progress.",
+    "close-unresolved":
+      "Document and save attempt retained. Resolve the save outcome before closing.",
     modified: "Unsaved changes.",
     unchanged: "Matches the saved version.",
     saved: "Saved.",

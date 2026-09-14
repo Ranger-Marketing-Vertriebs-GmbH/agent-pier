@@ -45,6 +45,10 @@ export const fileEditorCopy = {
   replacedLine: "Treffer in Zeile $ ersetzt",
   replacedMatches: "$ Treffer ersetzt",
   outcomes: {
+    "close-pending":
+      "Dokument und Speicheranfrage bleiben während des Speicherns erhalten.",
+    "close-unresolved":
+      "Dokument und Speicheranfrage bleiben erhalten. Vor dem Schließen das Speicherergebnis klären.",
     modified: "Ungespeicherte Änderungen.",
     unchanged: "Entspricht der gespeicherten Version.",
     saved: "Gespeichert.",
