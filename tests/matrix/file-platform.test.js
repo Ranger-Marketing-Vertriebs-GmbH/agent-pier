@@ -19,50 +19,37 @@ async function missing(file) {
   await assert.rejects(fs.lstat(file), { code: "ENOENT" });
 }
 
+async function observeLinuxXattr(file) {
+  const name = "user.agentpier.matrix";
+  const { stdout } = await platformCommand("getfattr", [
+    "--absolute-names",
+    "--encoding=hex",
+    "-n",
+    name,
+    file,
+  ]);
+  const prefix = `${name}=0x`;
+  const encoded = stdout.split("\n").find((line) => line.startsWith(prefix));
+  assert.ok(encoded, `missing hexadecimal ${name} output`);
+  assert.match(encoded, /^user\.agentpier\.matrix=0x(?:[0-9a-fA-F]{2})*$/);
+  return encoded.slice(prefix.length).toLowerCase();
+}
+
 async function independentMetadata(file) {
-  const stat = await fs.stat(file);
   if (process.platform === "darwin") {
     await platformCommand("xattr", ["-wx", "user.agentpier.matrix", "0001ff11", file]);
     await platformCommand("chmod", ["+a", "everyone allow readattr,readextattr", file]);
-    return {
-      mode: stat.mode & 0o777,
-      uid: stat.uid,
-      gid: stat.gid,
-      xattr: (
-        await platformCommand("xattr", ["-px", "user.agentpier.matrix", file])
-      ).stdout
-        .replace(/\s/g, "")
-        .toLowerCase(),
-      acl: (await platformCommand("ls", ["-lde", file])).stdout
-        .split("\n")
-        .slice(1)
-        .filter(Boolean),
-    };
+  } else {
+    await platformCommand("setfattr", [
+      "-n",
+      "user.agentpier.matrix",
+      "-v",
+      "0x0001ff11",
+      file,
+    ]);
+    await platformCommand("setfacl", ["-m", `u:${process.getuid()}:rw`, file]);
   }
-  await platformCommand("setfattr", [
-    "-n",
-    "user.agentpier.matrix",
-    "-v",
-    "0x0001ff11",
-    file,
-  ]);
-  await platformCommand("setfacl", ["-m", `u:${process.getuid()}:rw`, file]);
-  return {
-    mode: stat.mode & 0o777,
-    uid: stat.uid,
-    gid: stat.gid,
-    xattr: (
-      await platformCommand("getfattr", [
-        "--only-values",
-        "-n",
-        "user.agentpier.matrix",
-        file,
-      ])
-    ).stdout.trim(),
-    acl: (await platformCommand("getfacl", ["-cp", file])).stdout
-      .split("\n")
-      .filter((line) => line && !line.startsWith("#")),
-  };
+  return observeMetadata(file);
 }
 
 async function observeMetadata(file) {
@@ -86,14 +73,7 @@ async function observeMetadata(file) {
     mode: stat.mode & 0o777,
     uid: stat.uid,
     gid: stat.gid,
-    xattr: (
-      await platformCommand("getfattr", [
-        "--only-values",
-        "-n",
-        "user.agentpier.matrix",
-        file,
-      ])
-    ).stdout.trim(),
+    xattr: await observeLinuxXattr(file),
     acl: (await platformCommand("getfacl", ["-cp", file])).stdout
       .split("\n")
       .filter((line) => line && !line.startsWith("#")),
@@ -137,6 +117,7 @@ test(
       assert.equal(job.status, "failed", JSON.stringify(job));
       assert.equal(job.issue.code, "FILE_METADATA_UNSUPPORTED");
       assert.deepEqual(await fs.readFile(source), Buffer.from([0, 1, 2, 255]));
+      assert.deepEqual(await observeMetadata(source), before);
       await missing(destination);
     } else {
       assert.equal(job.status, "completed", JSON.stringify(job));
@@ -226,6 +207,7 @@ test(
       assert.equal(trashed.status, "failed", JSON.stringify(trashed));
       assert.equal(trashed.issue.code, "FILE_METADATA_UNSUPPORTED");
       assert.equal(await fs.readFile(source, "utf8"), "cross-device");
+      assert.deepEqual(await observeMetadata(source), before);
       return;
     }
     assert.equal(trashed.status, "completed", JSON.stringify(trashed));

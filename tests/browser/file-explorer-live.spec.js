@@ -173,7 +173,12 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
       .check();
     await page.getByRole("button", { name: "Restore", exact: true }).click();
     await expect
-      .poll(() => fs.readFile(document, "utf8").catch(() => null))
+      .poll(() =>
+        fs.readFile(document, "utf8").catch((error) => {
+          if (error.code === "ENOENT") return null;
+          throw error;
+        }),
+      )
       .toBe(process.platform === "darwin" ? "local-edit" : "external");
 
     await page.goto(`${f.url}/settings`);
