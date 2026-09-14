@@ -7,7 +7,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 const MAX_HOSTS = 20;
 const hostPattern =
   /^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?)*$/;
-const invalid = () => problem(serverMessages.settings.invalidNetworkConfig, 400);
+const invalid = () => problem(serverMessages.settings.invalidNetworkConfig);
 
 /** Accepts the stored or submitted `network` block; missing means disabled. */
 export function normalizeNetworkConfig(raw) {

@@ -55,6 +55,20 @@ test("detected addresses exclude internal interfaces and zone ids", () => {
     hostname: "macmini",
   });
 });
+test("hostname .local suffix is stripped once and re-added as separate candidate", () => {
+  const detected = detectNetworkAddresses({
+    interfaces: () => ({}),
+    hostname: () => "MacMini.local",
+  });
+  assert.deepEqual(detected, {
+    addresses: [],
+    hostname: "macmini",
+  });
+  const network = { enabled: true, bind: "0.0.0.0", hosts: [] };
+  const hosts = [...allowedNetworkHosts(network, 4380, detected)];
+  assert.deepEqual(hosts, ["macmini:4380", "macmini.local:4380"]);
+  assert.equal(hosts.filter((h) => h.includes("macmini")).length, 2);
+});
 test("allowed hosts combine list, host name and addresses with the port", () => {
   const network = { enabled: true, bind: "0.0.0.0", hosts: ["agentpier.home.arpa"] };
   const detected = { addresses: ["192.168.1.20", "2001:db8::5"], hostname: "macmini" };
