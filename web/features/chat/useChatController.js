@@ -89,7 +89,9 @@ export default function useChatController({ active, session, request, onConnecti
     observer.observe(element);
     return () => observer.disconnect();
   }, [active]);
-  useEffect(() => {
+  useLayoutEffect(() => {
+    // Follow the committed transcript before a queued scroll event can mistake
+    // its new height for a user scrolling away from the bottom.
     if (active && stick.current && output.current)
       output.current.scrollTop = output.current.scrollHeight;
   }, [data, active, delivery.outbox, delivery.recent]);
