@@ -34,6 +34,49 @@ export function editorReducer(state, action) {
           },
           loading: false,
         };
+      if (action.type === "reloaded")
+        return {
+          ...tab,
+          document: action.document,
+          text: normalizedText(action.document.text),
+          baselineText: normalizedText(action.document.text),
+          format: { bom: action.document.bom, lineEnding: action.document.lineEnding },
+          baselineFormat: {
+            bom: action.document.bom,
+            lineEnding: action.document.lineEnding,
+          },
+          baselineGeneration: tab.baselineGeneration + 1,
+          reloadGeneration: (tab.reloadGeneration || 0) + 1,
+          dirty: false,
+          pending: false,
+          attempt: null,
+          editorState: null,
+          scrollTop: 0,
+          scrollSnapshot: null,
+          external: null,
+          conflict: null,
+          error: null,
+          outcome: { status: "reloaded" },
+        };
+      if (action.type === "resolve-conflict")
+        return {
+          ...tab,
+          document: {
+            ...tab.document,
+            revision: action.document.revision,
+            metadataRevision: action.document.metadataRevision,
+            resolvedPath: action.document.resolvedPath,
+            readOnly: action.document.readOnly,
+          },
+          baselineGeneration: tab.baselineGeneration + 1,
+          attempt: null,
+          pending: false,
+          conflict: null,
+          external: null,
+          error: null,
+          dirty: true,
+          outcome: { status: "resolving" },
+        };
       if (action.type === "patch") return { ...tab, ...action.patch };
       if (action.type === "edit" || action.type === "format") {
         const next =
@@ -84,6 +127,8 @@ export function editorReducer(state, action) {
           dirty,
           pending: false,
           attempt: null,
+          conflict: null,
+          external: null,
           error: null,
           outcome: { status: dirty ? "updated-during-save" : "saved" },
         };

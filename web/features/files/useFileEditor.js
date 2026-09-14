@@ -20,5 +20,11 @@ export default function useFileEditor({ client, scopeId, limits, scope }) {
     close: store.close,
     save: store.save,
     saveAs: store.saveAs,
+    replace: store.replace,
+    observe: store.observe,
+    reload: store.reload,
+    inspectConflict: store.inspectConflict,
+    useCurrent: store.useCurrent,
+    dismissConflict: store.dismissConflict,
   };
 }

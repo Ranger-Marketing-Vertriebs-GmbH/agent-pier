@@ -113,3 +113,18 @@
   right: 0;
   padding: 3px 5px;
 }
+.file-editor-conflict {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.file-editor-conflict-labels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.file-editor-conflict .cm-mergeView {
+  max-height: 320px;
+  overflow: auto;
+}

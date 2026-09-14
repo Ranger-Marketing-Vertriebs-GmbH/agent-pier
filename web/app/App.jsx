@@ -19,6 +19,8 @@ import DashboardPage from "../features/dashboard/DashboardPage.jsx";
 import useWorkspaceState from "./useWorkspaceState.js";
 import useWorkspaceNavigation from "./useWorkspaceNavigation.js";
 import MobileHeader from "./MobileHeader.jsx";
+import useFileNavigationGuard from "../features/files/useFileNavigationGuard.js";
+import FileNavigationGuardDialog from "../features/files/FileNavigationGuardDialog.jsx";
 const PipelinePage = lazy(() => import("../features/pipelines/PipelinePage.jsx"));
 const AgentBus = lazy(() => import("../features/agentbus/AgentBusPage.jsx"));
 const FilesPage = lazy(() => import("../features/files/FilesPage.jsx"));
@@ -34,6 +36,7 @@ function Application() {
   const { state, loading, error, ready, refresh } = useWorkspaceState();
   const [modal, setModal] = useState(null),
     [mobileNav, setMobileNav] = useState(false);
+  const fileNavigationGuard = useFileNavigationGuard();
   const { route, view, selected, navigate, select, activeSession, page, missing } =
     useWorkspaceNavigation({
       state,
@@ -265,6 +268,7 @@ function Application() {
           select,
         }}
       />
+      <FileNavigationGuardDialog guard={fileNavigationGuard} />
     </div>
   );
 }

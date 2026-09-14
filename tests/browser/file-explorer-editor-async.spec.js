@@ -162,7 +162,16 @@ test("project drafts survive session, mode and CWD transitions without rebinding
     if (url.pathname.endsWith("/preferences"))
       return route.fulfill({ json: { favorites: [], showHidden: false } });
     if (url.pathname.endsWith("/metadata"))
-      return route.fulfill({ json: explorerEntry("a.txt", "file", "folder") });
+      return route.fulfill({
+        json:
+          url.searchParams.get("view") === "document"
+            ? {
+                path,
+                resolvedPath: path,
+                metadataRevision: e1,
+              }
+            : explorerEntry("a.txt", "file", "folder"),
+      });
     if (url.pathname.endsWith("/preview"))
       return route.fulfill({ json: { type: "text", text: "first" } });
     if (url.pathname.endsWith("/text")) return route.fulfill({ json: document(path) });
@@ -176,6 +185,7 @@ test("project drafts survive session, mode and CWD transitions without rebinding
   const content = page.getByRole("textbox", { name: "Document content: folder/a.txt" });
   await content.fill("project draft");
   await spa(page, "/sessions/editor-session/terminal");
+  await page.getByRole("button", { name: "Save and continue", exact: true }).click();
   await expect(page.locator(".cm-editor")).toHaveCount(0);
   await spa(page, "/sessions/editor-session/files");
   await expect(content).toContainText("project draft");
@@ -184,17 +194,18 @@ test("project drafts survive session, mode and CWD transitions without rebinding
   await expect(content).toContainText("project draft");
   await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
   await spa(page, "/sessions/editor-session/files");
+  await content.fill("stale scope draft");
   session.cwd = "/work/two";
   await expect(
     page.getByText(
       "Draft retained from another workspace. Return to that workspace to save.",
     ),
   ).toBeVisible({ timeout: 7000 });
-  await expect(content).toContainText("project draft");
+  await expect(content).toContainText("stale scope draft");
   await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
 });
 
-test("editor runtime stays unloaded until opening, and a late language cannot replace the active plain document", async ({
+test("editor runtime stays unloaded and a late language cannot replace the active plain document", async ({
   page,
 }) => {
   await explorerFixture(page);
@@ -212,7 +223,14 @@ test("editor runtime stays unloaded until opening, and a late language cannot re
     });
   });
   const held = [];
+  let sharedEditorRuntimeLoaded = false;
   await page.route("**/assets/dist-*.js", async (route) => {
+    // The merge UI creates one shared CodeMirror runtime chunk. Let that load so
+    // the editor mounts, then hold the independently requested language chunk.
+    if (!sharedEditorRuntimeLoaded) {
+      sharedEditorRuntimeLoaded = true;
+      return route.continue();
+    }
     held.push(route);
   });
   await selectEnglish(page);

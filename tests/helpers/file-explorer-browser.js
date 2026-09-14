@@ -76,6 +76,14 @@ export async function explorerFixture(
     }
     const selectedPath = url.searchParams.get("path") || explorerContext.home;
     if (url.pathname.endsWith("/metadata")) {
+      if (url.searchParams.get("view") === "document")
+        return route.fulfill({
+          json: {
+            path: selectedPath,
+            resolvedPath: selectedPath,
+            metadataRevision: `e1:${"1".repeat(64)}`,
+          },
+        });
       const name = selectedPath.split("/").at(-1);
       return route.fulfill({
         json: explorerEntry(

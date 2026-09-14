@@ -23,6 +23,28 @@ export function createFileEditorStore() {
     patch(id, { error, outcome, pending: false });
     return outcome;
   };
+  const validDocument = (document, path) =>
+    document &&
+    document.path === path &&
+    typeof document.text === "string" &&
+    /^d1:[a-f0-9]{64}$/.test(document.revision) &&
+    /^e1:[a-f0-9]{64}$/.test(document.metadataRevision);
+  const validMetadata = (metadata, path) =>
+    metadata &&
+    metadata.path === path &&
+    typeof metadata.resolvedPath === "string" &&
+    /^e1:[a-f0-9]{64}$/.test(metadata.metadataRevision);
+  const sameVersion = (current, captured) =>
+    current &&
+    current.id === captured.id &&
+    current.client === captured.client &&
+    current.scopeId === captured.scopeId &&
+    current.path === captured.path &&
+    current.baselineGeneration === captured.baselineGeneration &&
+    current.text === captured.text &&
+    current.format?.bom === captured.format?.bom &&
+    current.format?.lineEnding === captured.format?.lineEnding &&
+    current.attempt === captured.attempt;
   const store = {
     getSnapshot: () => state,
     subscribe(listener) {
@@ -55,13 +77,7 @@ export function createFileEditorStore() {
       dispatch({ type: "open", tab });
       try {
         const document = await client.readText(path);
-        if (
-          !document ||
-          typeof document.text !== "string" ||
-          !/^d1:[a-f0-9]{64}$/.test(document.revision) ||
-          !/^e1:[a-f0-9]{64}$/.test(document.metadataRevision) ||
-          document.path !== path
-        )
+        if (!validDocument(document, path))
           throw fileClientIssue("FILE_INVALID_RESPONSE", 200);
         dispatch({ type: "loaded", id: tab.id, document });
       } catch (error) {
@@ -90,8 +106,84 @@ export function createFileEditorStore() {
     },
     save: (id) => save(id),
     saveAs: (id, path, options = {}) => save(id, { path, ...options }),
+    replace: (id, revision) => save(id, null, revision),
+    async observe(id, signal) {
+      const captured = find(id);
+      if (!captured?.document) return { status: "obsolete" };
+      try {
+        const metadata = await captured.client.documentMetadata(captured.path, signal);
+        const current = find(id);
+        if (!sameVersion(current, captured)) return { status: "obsolete" };
+        if (!validMetadata(metadata, captured.path))
+          throw fileClientIssue("FILE_INVALID_RESPONSE", 200);
+        if (metadata.metadataRevision === current.document.metadataRevision) {
+          patch(id, { external: null });
+          return { status: "unchanged" };
+        }
+        patch(id, { external: metadata });
+        return { status: "changed", metadata };
+      } catch (error) {
+        if (!sameVersion(find(id), captured) || signal?.aborted)
+          return { status: "obsolete", error };
+        patch(id, { external: { error } });
+        return { status: "failed", error };
+      }
+    },
+    async reload(id, signal) {
+      const captured = find(id);
+      if (!captured?.document || requiresEditorRetention(captured) || !captured.external)
+        return { status: "obsolete" };
+      try {
+        const document = await captured.client.readText(captured.path, signal);
+        if (!sameVersion(find(id), captured) || signal?.aborted)
+          return { status: "obsolete" };
+        if (!validDocument(document, captured.path))
+          throw fileClientIssue("FILE_INVALID_RESPONSE", 200);
+        dispatch({ type: "reloaded", id, document });
+        return { status: "reloaded" };
+      } catch (error) {
+        if (!sameVersion(find(id), captured) || signal?.aborted)
+          return { status: "obsolete", error };
+        patch(id, { external: { ...captured.external, error } });
+        return { status: "failed", error };
+      }
+    },
+    async inspectConflict(id, signal) {
+      const captured = find(id);
+      if (captured?.error?.code !== "FILE_CONFLICT_CHANGED")
+        return { status: "not-conflict" };
+      try {
+        const document = await captured.client.readText(captured.path, signal);
+        if (!sameVersion(find(id), captured) || signal?.aborted)
+          return { status: "obsolete" };
+        if (!validDocument(document, captured.path))
+          throw fileClientIssue("FILE_INVALID_RESPONSE", 200);
+        const conflict = { document, baselineGeneration: captured.baselineGeneration };
+        patch(id, { conflict });
+        return { status: "conflict", conflict };
+      } catch (error) {
+        if (!sameVersion(find(id), captured) || signal?.aborted)
+          return { status: "obsolete", error };
+        patch(id, { conflict: { error } });
+        return { status: "failed", error };
+      }
+    },
+    useCurrent(id) {
+      const tab = find(id);
+      if (!validDocument(tab?.conflict?.document, tab?.path))
+        return { status: "obsolete" };
+      dispatch({ type: "reloaded", id, document: tab.conflict.document });
+      return { status: "reloaded" };
+    },
+    dismissConflict(id) {
+      const tab = find(id);
+      if (!validDocument(tab?.conflict?.document, tab?.path))
+        return { status: "obsolete" };
+      dispatch({ type: "resolve-conflict", id, document: tab.conflict.document });
+      return { status: "resolving" };
+    },
   };
-  function save(id, as = null) {
+  function save(id, as = null, replacementRevision = null) {
     const tab = find(id);
     if (!tab?.document) return Promise.resolve({ status: "closed" });
     if (inflight.has(id)) return inflight.get(id);
@@ -115,7 +207,9 @@ export function createFileEditorStore() {
       return Promise.resolve(fail(id, error));
     }
     const path = as?.path ?? tab.path;
-    const revision = as ? (as.revision ?? null) : tab.document.revision;
+    const revision = as
+      ? (as.revision ?? null)
+      : replacementRevision || tab.document.revision;
     const previous = tab.attempt;
     const reusable =
       previous &&
@@ -138,7 +232,13 @@ export function createFileEditorStore() {
           client: tab.client,
           saveAs: Boolean(as),
         };
-    patch(id, { attempt, pending: true, error: null, outcome: null });
+    patch(id, {
+      attempt,
+      pending: true,
+      error: null,
+      outcome: null,
+      conflict: null,
+    });
     const operation = (async () => {
       try {
         const result = await attempt.client.saveText(

@@ -1,9 +1,5 @@
 import { test, expect } from "@playwright/test";
-import {
-  explorerFixture,
-  explorerContext,
-  selectEnglish,
-} from "../helpers/file-explorer-browser.js";
+import { explorerFixture, selectEnglish } from "../helpers/file-explorer-browser.js";
 import { baseURL } from "../helpers/browser.js";
 const path = "/home/test/readme.txt";
 const revision = `d1:${"1".repeat(64)}`;
@@ -46,19 +42,10 @@ async function setup(page, extra = {}) {
   return saves;
 }
 
-test("English editor keeps full history across tab and app unmount, saves CRLF/BOM, and offers mobile search", async ({
+test("English guarded navigation keeps full history, saves CRLF/BOM, and offers mobile search", async ({
   page,
 }, testInfo) => {
   const saves = await setup(page);
-  let contextReads = 0,
-    releaseContext;
-  const freshContext = new Promise((resolve) => {
-    releaseContext = resolve;
-  });
-  await page.route("**/api/files/context", async (route) => {
-    if (++contextReads === 2) await freshContext;
-    await route.fulfill({ json: explorerContext });
-  });
   await selectEnglish(page);
   await page.goto(editorURL);
   await page.getByRole("button", { name: "Open in editor", exact: true }).click();
@@ -67,17 +54,11 @@ test("English editor keeps full history across tab and app unmount, saves CRLF/B
   await expect(page.locator(".cm-editor")).toHaveCount(1);
   await content.fill("Changed\nworld\n");
   await page.getByRole("button", { name: "Close document", exact: true }).click();
-  await expect(
-    page.getByText("Unsaved draft retained. Save it before closing."),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("button", { name: "Files", exact: true }).click();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(content).toContainText("Changed");
-  await expect.poll(() => contextReads).toBe(2);
-  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
-  await content.press("ControlOrMeta+s");
-  expect(saves).toHaveLength(0);
-  releaseContext();
   await content.press("ControlOrMeta+z");
   await expect(content).toContainText("Hello");
   await content.press("ControlOrMeta+Shift+z");

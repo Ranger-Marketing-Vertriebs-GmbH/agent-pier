@@ -60,15 +60,9 @@ for (const lost of [false, true]) {
     await expect(content).toHaveText("original");
     await expect(page.getByRole("tab", { name: path, exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Close document", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(content).toHaveText("original");
-    await expect(
-      page.getByText(
-        lost
-          ? "Document and save attempt retained. Resolve the save outcome before closing."
-          : "Document and save attempt retained while saving is in progress.",
-        { exact: true },
-      ),
-    ).toBeVisible();
     expect(requests).toHaveLength(1);
     if (lost) {
       await content.press("ControlOrMeta+Shift+z");

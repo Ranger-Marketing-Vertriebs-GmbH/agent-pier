@@ -1,9 +1,11 @@
-import React, { lazy, Suspense, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { fileClientIssue } from "./file-api.js";
 import useFileEditor from "./useFileEditor.js";
 import FileEditorTabs from "./FileEditorTabs.jsx";
+import { requestFileNavigation } from "./file-navigation-guard.js";
 import { fileEditorCopy as copy } from "../../lib/i18n/messages/file-editor.js";
 const FileEditor = lazy(() => import("./FileEditor.jsx"));
+const FileEditorConflict = lazy(() => import("./FileEditorConflict.jsx"));
 
 export default function FileEditorWorkspace({ client, context, path, canOpen }) {
   const editor = useFileEditor({
@@ -12,6 +14,8 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
     limits: context?.limits,
     scope: { kind: context?.kind, root: context?.root },
   });
+  const observe = editor.observe;
+  const inspectConflict = editor.inspectConflict;
   const tab = editor.tabs.find((item) => item.id === editor.activeId);
   const searchRef = useRef(null);
   const [destination, setDestination] = useState("");
@@ -26,10 +30,50 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
     targetOwner.current?.scopeId !== context?.scopeId
   )
     targetOwner.current = { id: tab?.id, destination, client, scopeId: context?.scopeId };
-  const save = (id) =>
-    current && id === tab?.id
-      ? editor.save(id)
-      : Promise.resolve({ status: "scope-changed" });
+  const save = async (id) => {
+    if (!current || id !== tab?.id) return { status: "scope-changed" };
+    const outcome = await editor.save(id);
+    if (["saved", "updated-during-save"].includes(outcome.status)) observe(id);
+    return outcome;
+  };
+  useEffect(() => {
+    if (!current || !tab?.document) return;
+    let controller = null;
+    const poll = () => {
+      if (document.hidden) return;
+      controller?.abort();
+      controller = new AbortController();
+      observe(tab.id, controller.signal);
+    };
+    poll();
+    const timer = window.setInterval(poll, 5000);
+    const focus = () => {
+      if (!document.hidden) poll();
+    };
+    const visibility = () => {
+      if (document.hidden) controller?.abort();
+      else poll();
+    };
+    window.addEventListener("focus", focus);
+    document.addEventListener("visibilitychange", visibility);
+    return () => {
+      controller?.abort();
+      clearInterval(timer);
+      window.removeEventListener("focus", focus);
+      document.removeEventListener("visibilitychange", visibility);
+    };
+  }, [current, observe, tab?.document, tab?.id]);
+  useEffect(() => {
+    if (
+      tab?.error?.code !== "FILE_CONFLICT_CHANGED" ||
+      tab.attempt?.saveAs ||
+      tab.conflict
+    )
+      return;
+    const controller = new AbortController();
+    inspectConflict(tab.id, controller.signal);
+    return () => controller.abort();
+  }, [inspectConflict, tab?.attempt?.saveAs, tab?.conflict, tab?.error?.code, tab?.id]);
   const prepareReplacement = async () => {
     const owner = targetOwner.current;
     const request = {};
@@ -86,7 +130,17 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
                 </p>
               )}
               {!tab.document && (
-                <button onClick={() => editor.close(tab.id)}>{copy.closeTab}</button>
+                <button
+                  onClick={() =>
+                    requestFileNavigation({
+                      reason: "tab-close",
+                      tabId: tab.id,
+                      commit: () => editor.close(tab.id, { discard: true }),
+                    })
+                  }
+                >
+                  {copy.closeTab}
+                </button>
               )}
               {tab.document && (
                 <>
@@ -107,7 +161,17 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
                       {tab.pending ? copy.saving : copy.save}
                     </button>
                     <button onClick={() => searchRef.current?.()}>{copy.search}</button>
-                    <button onClick={() => editor.close(tab.id)}>{copy.closeTab}</button>
+                    <button
+                      onClick={() =>
+                        requestFileNavigation({
+                          reason: "tab-close",
+                          tabId: tab.id,
+                          commit: () => editor.close(tab.id, { discard: true }),
+                        })
+                      }
+                    >
+                      {copy.closeTab}
+                    </button>
                     <label>
                       {copy.lineEnding}
                       <select
@@ -136,12 +200,46 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
                   </div>
                   <Suspense fallback={<p role="status">{copy.loading}</p>}>
                     <FileEditor
+                      key={`${tab.id}:${tab.reloadGeneration || 0}`}
                       tab={tab}
                       onChange={editor.edit}
                       onSave={save}
                       searchRef={searchRef}
                     />
                   </Suspense>
+                  {tab.external && !tab.external.error && (
+                    <p role="status">
+                      {copy.externalChanged}{" "}
+                      {!tab.dirty && !tab.pending && !tab.attempt && (
+                        <button onClick={() => editor.reload(tab.id)}>
+                          {copy.reloadCurrent}
+                        </button>
+                      )}
+                    </p>
+                  )}
+                  {tab.external?.error && (
+                    <p role="alert">
+                      {tab.external.error.message} {tab.external.error.code}
+                    </p>
+                  )}
+                  {tab.conflict?.document && (
+                    <Suspense fallback={<p role="status">{copy.loadingConflict}</p>}>
+                      <FileEditorConflict
+                        draft={tab}
+                        current={tab.conflict.document}
+                        onUseCurrent={() => editor.useCurrent(tab.id)}
+                        onResolve={() => editor.dismissConflict(tab.id)}
+                        onReplace={() =>
+                          editor.replace(tab.id, tab.conflict.document.revision)
+                        }
+                      />
+                    </Suspense>
+                  )}
+                  {tab.conflict?.error && (
+                    <p role="alert">
+                      {tab.conflict.error.message} {tab.conflict.error.code}
+                    </p>
+                  )}
                   <form
                     className="file-editor-save-as"
                     onSubmit={(event) => {

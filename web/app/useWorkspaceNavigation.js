@@ -3,6 +3,8 @@ import { useWorkspaceNavigationCopy as copy } from "../lib/i18n/messages/app.js"
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { SessionViewMemory } from "./session-view-memory.js";
 import { readRoute, routePath } from "./routes.js";
+import { requestFileNavigation } from "../features/files/file-navigation-guard.js";
+const navigationIndex = "agentPierNavigationIndex";
 export default function useWorkspaceNavigation({ state, ready, setMobileNav, setModal }) {
   const [route, setRoute] = useState(() => readRoute(window.location));
   const view = route.view,
@@ -11,25 +13,109 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
   const [sessionViews] = useState(
     () => new SessionViewMemory(() => window.sessionStorage),
   );
-  const navigate = useCallback(
+  const index = useRef(
+    Number.isSafeInteger(window.history.state?.[navigationIndex])
+      ? window.history.state[navigationIndex]
+      : 0,
+  );
+  const committedPath = useRef(
+    window.location.pathname + window.location.search + window.location.hash,
+  );
+  const historyOperation = useRef(null);
+  useEffect(() => {
+    if (!Number.isSafeInteger(window.history.state?.[navigationIndex]))
+      window.history.replaceState(
+        { ...(window.history.state || {}), [navigationIndex]: index.current },
+        "",
+      );
+  }, []);
+  const commitWorkspaceNavigation = useCallback(
     (next, replace = false) => {
       const path = routePath(next);
       if (
         window.location.pathname + window.location.search + window.location.hash !==
         path
-      )
-        window.history[replace ? "replaceState" : "pushState"](null, "", path);
+      ) {
+        if (!replace) index.current += 1;
+        window.history[replace ? "replaceState" : "pushState"](
+          { ...(window.history.state || {}), [navigationIndex]: index.current },
+          "",
+          path,
+        );
+      }
       setRoute(next);
+      committedPath.current = path;
       setMobileNav(false);
       setModal(null);
     },
     [setMobileNav, setModal],
   );
+  const navigate = useCallback(
+    (next, replace = false) =>
+      requestFileNavigation({
+        next,
+        reason: replace ? "normalization" : "application",
+        commit: () => commitWorkspaceNavigation(next, replace),
+      }),
+    [commitWorkspaceNavigation],
+  );
   useEffect(() => {
-    const restore = () => {
-      setRoute(readRoute(window.location));
-      setMobileNav(false);
-      setModal(null);
+    const restore = (event) => {
+      const operation = historyOperation.current;
+      const targetIndex = event.state?.[navigationIndex];
+      if (operation?.phase === "restore" && targetIndex === operation.from) {
+        historyOperation.current = null;
+        requestFileNavigation({
+          next: operation.route,
+          reason: "history",
+          commit: () => {
+            historyOperation.current = { ...operation, phase: "replay" };
+            window.history.go(operation.to - operation.from);
+          },
+        });
+        return;
+      }
+      if (operation?.phase === "replay" && targetIndex === operation.to) {
+        historyOperation.current = null;
+        index.current = operation.to;
+        committedPath.current = operation.path;
+        setRoute(operation.route);
+        setMobileNav(false);
+        setModal(null);
+        return;
+      }
+      const route = readRoute(window.location);
+      const path =
+        window.location.pathname + window.location.search + window.location.hash;
+      if (Number.isSafeInteger(targetIndex) && targetIndex !== index.current) {
+        historyOperation.current = {
+          phase: "restore",
+          from: index.current,
+          to: targetIndex,
+          route,
+          path,
+        };
+        window.history.go(index.current - targetIndex);
+        return;
+      }
+      if (Number.isSafeInteger(targetIndex)) {
+        committedPath.current = path;
+        setRoute(route);
+        setMobileNav(false);
+        setModal(null);
+        return;
+      }
+      const previousPath = committedPath.current;
+      window.history.replaceState(
+        { ...(window.history.state || {}), [navigationIndex]: index.current },
+        "",
+        previousPath,
+      );
+      requestFileNavigation({
+        next: route,
+        reason: "history-unindexed",
+        commit: () => commitWorkspaceNavigation(route),
+      });
     };
     window.addEventListener("popstate", restore);
     window.addEventListener("hashchange", restore);
@@ -37,7 +123,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
       window.removeEventListener("popstate", restore);
       window.removeEventListener("hashchange", restore);
     };
-  }, [setMobileNav, setModal]);
+  }, [commitWorkspaceNavigation, setMobileNav, setModal]);
   const select = (session) => {
     navigate(
       session
