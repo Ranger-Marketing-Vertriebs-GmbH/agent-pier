@@ -162,10 +162,13 @@ export default function UpdatesPage({ route, navigate }) {
                   type="checkbox"
                   checked={reloadSessions}
                   onChange={(event) => setReloadSessions(event.target.checked)}
+                  aria-describedby="activate-reload-help"
                 />{" "}
                 {copy.activateReload}
               </label>
-              <p className="field-description">{copy.activateReloadHelp}</p>
+              <p className="field-description" id="activate-reload-help">
+                {copy.activateReloadHelp}
+              </p>
             </div>
           )}
         </ConfirmOperation>

@@ -22,6 +22,10 @@ for (const locale of ["de-DE", "en-GB"]) {
           : "Laufende Sessions danach auf die neue Version umziehen",
       });
       await expect(checkbox).not.toBeChecked();
+      await expect(checkbox).toHaveAttribute("aria-describedby", "activate-reload-help");
+      await expect(page.locator("#activate-reload-help")).toContainText(
+        en ? "health check" : "Zustandsprüfung",
+      );
       await expect(page.getByRole("dialog")).toContainText(
         en ? "health check" : "Zustandsprüfung",
       );
