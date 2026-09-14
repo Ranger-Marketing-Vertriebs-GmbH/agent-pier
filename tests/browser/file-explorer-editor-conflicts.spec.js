@@ -160,3 +160,41 @@ test("document metadata polling pauses while hidden and resumes when visible", a
   await page.waitForTimeout(5200);
   expect(metadataReads).toBe(1);
 });
+
+test("manual conflict resolution adopts disk text and format as the dirty baseline", async ({
+  page,
+}) => {
+  await explorerFixture(page);
+  let reads = 0;
+  await page.route("**/api/files/text**", async (route) => {
+    if (route.request().method() === "PUT")
+      return route.fulfill({
+        status: 409,
+        json: { code: "FILE_CONFLICT_CHANGED", args: {} },
+      });
+    reads++;
+    await route.fulfill({
+      json:
+        reads === 1
+          ? version("original", 1)
+          : { ...version("external disk", 2), lineEnding: "crlf" },
+    });
+  });
+  await selectEnglish(page);
+  await page.goto(
+    `${baseURL}/files?path=%2Fhome%2Ftest&file=${encodeURIComponent(path)}`,
+  );
+  await page.getByRole("button", { name: "Open in editor", exact: true }).click();
+  const editor = page.getByRole("textbox", { name: `Document content: ${path}` });
+  await editor.fill("draft");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Continue manual resolution", exact: true })
+    .click();
+  await expect(editor).toHaveText("draft");
+  await expect(page.getByLabel("Line ending")).toHaveValue("lf");
+  await editor.press("ControlOrMeta+z");
+  await editor.press("ArrowRight");
+  await page.getByRole("button", { name: "Close document", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+});

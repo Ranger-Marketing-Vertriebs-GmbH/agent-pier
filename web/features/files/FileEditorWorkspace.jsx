@@ -15,6 +15,7 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
     scope: { kind: context?.kind, root: context?.root },
   });
   const observe = editor.observe;
+  const invalidateObservation = editor.invalidateObservation;
   const inspectConflict = editor.inspectConflict;
   const tab = editor.tabs.find((item) => item.id === editor.activeId);
   const searchRef = useRef(null);
@@ -51,18 +52,21 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
       if (!document.hidden) poll();
     };
     const visibility = () => {
-      if (document.hidden) controller?.abort();
-      else poll();
+      if (document.hidden) {
+        controller?.abort();
+        invalidateObservation(tab.id);
+      } else poll();
     };
     window.addEventListener("focus", focus);
     document.addEventListener("visibilitychange", visibility);
     return () => {
       controller?.abort();
+      invalidateObservation(tab.id);
       clearInterval(timer);
       window.removeEventListener("focus", focus);
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [current, observe, tab?.document, tab?.id]);
+  }, [current, invalidateObservation, observe, tab?.document, tab?.id]);
   useEffect(() => {
     if (
       tab?.error?.code !== "FILE_CONFLICT_CHANGED" ||
@@ -97,7 +101,10 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
     }
   };
   const target = replacement?.owner === targetOwner.current ? replacement : null;
-  const saveAs = () => editor.saveAs(tab.id, destination);
+  const saveAs = () =>
+    current
+      ? editor.saveAs(tab.id, destination)
+      : editor.saveAsFresh(tab.id, destination);
   return (
     <>
       {canOpen && context && (
@@ -257,12 +264,12 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
                         setReplacement(null);
                       }}
                     />
-                    <button disabled={!current || !destination || tab.pending}>
+                    <button disabled={!context || !destination || tab.pending}>
                       {copy.saveAs}
                     </button>
                     <button
                       type="button"
-                      disabled={!current || !destination || tab.pending}
+                      disabled={!context || !destination || tab.pending}
                       onClick={prepareReplacement}
                     >
                       {copy.inspectTarget}
@@ -274,10 +281,14 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
                       <button
                         disabled={tab.pending}
                         onClick={() =>
-                          editor.saveAs(tab.id, destination, {
-                            revision: target.document.revision,
-                            replaceConfirmed: true,
-                          })
+                          (current ? editor.saveAs : editor.saveAsFresh)(
+                            tab.id,
+                            destination,
+                            {
+                              revision: target.document.revision,
+                              replaceConfirmed: true,
+                            },
+                          )
                         }
                       >
                         {copy.confirmReplace}

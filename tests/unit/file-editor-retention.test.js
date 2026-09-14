@@ -4,6 +4,20 @@ import { EditorState } from "@codemirror/state";
 import { history, undo, redo, undoDepth, redoDepth } from "@codemirror/commands";
 import { requiresEditorRetention } from "../../web/features/files/file-editor-state.js";
 import { createFileEditorStore } from "../../web/features/files/file-editor-store.js";
+import {
+  captureFileNavigationTab,
+  resolveFileNavigationTab,
+} from "../../web/features/files/file-navigation-decision.js";
+
+const document = (path, text = "original") => ({
+  path,
+  resolvedPath: path,
+  text,
+  revision: `d1:${"1".repeat(64)}`,
+  metadataRevision: `e1:${"1".repeat(64)}`,
+  bom: false,
+  lineEnding: "lf",
+});
 
 for (const lostReply of [false, true]) {
   test(`close retains ${lostReply ? "unresolved" : "pending"} attempt after real undo to baseline`, async () => {
@@ -122,4 +136,74 @@ test("only explicit discard bypasses unresolved close retention", async () => {
   assert.equal(store.getSnapshot().tabs[0].error.code, "FILE_METADATA_UNSUPPORTED");
   assert.equal(store.close(tab.id, { discard: true }).status, "closed");
   assert.equal(store.getSnapshot().tabs.length, 0);
+});
+
+test("fresh-authority Save As never rebinds the retained original tab", async () => {
+  const oldWrites = [];
+  const freshWrites = [];
+  const oldClient = {
+    readText: async () => ({
+      path: "old.txt",
+      resolvedPath: "old.txt",
+      text: "original",
+      revision: `d1:${"1".repeat(64)}`,
+      metadataRevision: `e1:${"1".repeat(64)}`,
+      bom: false,
+      lineEnding: "lf",
+    }),
+    saveText: async (...args) => oldWrites.push(args),
+  };
+  const freshClient = {
+    saveText: async (path, bytes, options) => {
+      freshWrites.push({ path, text: new TextDecoder().decode(bytes), options });
+      return {
+        path,
+        revision: `d1:${"2".repeat(64)}`,
+        metadataRevision: `e1:${"2".repeat(64)}`,
+      };
+    },
+  };
+  const store = createFileEditorStore();
+  const tab = await store.open(oldClient, "old-scope", "old.txt");
+  store.edit(tab.id, { text: "rescued draft" });
+  assert.equal(
+    (await store.saveAsWith(tab.id, freshClient, "fresh-scope", "copy.txt")).status,
+    "saved-as",
+  );
+  assert.deepEqual(oldWrites, []);
+  assert.equal(freshWrites[0].path, "copy.txt");
+  assert.equal(freshWrites[0].text, "rescued draft");
+  assert.equal(freshWrites[0].options.scopeId, "fresh-scope");
+  assert.equal(freshWrites[0].options.revision, null);
+  assert.equal(store.getSnapshot().tabs[0].client, oldClient);
+  assert.equal(store.getSnapshot().tabs[0].scopeId, "old-scope");
+  assert.equal(store.getSnapshot().tabs[0].path, "old.txt");
+  assert.equal(store.getSnapshot().tabs[0].dirty, true);
+});
+
+test("a stale discard decision recaptures the changed current tab", async () => {
+  const store = createFileEditorStore();
+  const tab = await store.open({ readText: async () => document("/a") }, "scope", "/a");
+  store.edit(tab.id, { text: "captured draft" });
+  const entry = captureFileNavigationTab(store.getSnapshot().tabs[0]);
+  store.edit(tab.id, { text: "newer unsaved draft" });
+  const result = resolveFileNavigationTab(store, entry, { discard: true });
+  assert.equal(result.status, "changed");
+  assert.equal(result.entry.text, "newer unsaved draft");
+  assert.equal(store.getSnapshot().tabs[0].text, "newer unsaved draft");
+});
+
+test("a stale callback cannot discard a closed and reopened path", async () => {
+  const client = { readText: async () => document("/a") };
+  const store = createFileEditorStore();
+  const original = await store.open(client, "scope", "/a");
+  store.edit(original.id, { text: "old draft" });
+  const entry = captureFileNavigationTab(store.getSnapshot().tabs[0]);
+  store.close(original.id, { discard: true });
+  const reopened = await store.open(client, "scope", "/a");
+  store.edit(reopened.id, { text: "new draft" });
+  assert.notEqual(reopened.id, original.id);
+  assert.equal(resolveFileNavigationTab(store, entry, { discard: true }).status, "gone");
+  assert.equal(store.getSnapshot().tabs[0].id, reopened.id);
+  assert.equal(store.getSnapshot().tabs[0].text, "new draft");
 });

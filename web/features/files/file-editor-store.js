@@ -12,6 +12,7 @@ export function createFileEditorStore() {
   let state = emptyEditorState();
   const listeners = new Set();
   const inflight = new Map();
+  const observations = new Map();
   const dispatch = (action) => {
     state = editorReducer(state, action);
     listeners.forEach((listener) => listener());
@@ -106,14 +107,22 @@ export function createFileEditorStore() {
     },
     save: (id) => save(id),
     saveAs: (id, path, options = {}) => save(id, { path, ...options }),
+    saveAsWith: (id, client, scopeId, path, options = {}) =>
+      save(id, { path, ...options, authority: { client, scopeId } }),
     replace: (id, revision) => save(id, null, revision),
     async observe(id, signal) {
       const captured = find(id);
       if (!captured?.document) return { status: "obsolete" };
+      const generation = (observations.get(id) || 0) + 1;
+      observations.set(id, generation);
+      const obsolete = () =>
+        signal?.aborted ||
+        observations.get(id) !== generation ||
+        !sameVersion(find(id), captured);
       try {
         const metadata = await captured.client.documentMetadata(captured.path, signal);
         const current = find(id);
-        if (!sameVersion(current, captured)) return { status: "obsolete" };
+        if (obsolete()) return { status: "obsolete" };
         if (!validMetadata(metadata, captured.path))
           throw fileClientIssue("FILE_INVALID_RESPONSE", 200);
         if (metadata.metadataRevision === current.document.metadataRevision) {
@@ -123,11 +132,13 @@ export function createFileEditorStore() {
         patch(id, { external: metadata });
         return { status: "changed", metadata };
       } catch (error) {
-        if (!sameVersion(find(id), captured) || signal?.aborted)
-          return { status: "obsolete", error };
+        if (obsolete()) return { status: "obsolete", error };
         patch(id, { external: { error } });
         return { status: "failed", error };
       }
+    },
+    invalidateObservation(id) {
+      observations.set(id, (observations.get(id) || 0) + 1);
     },
     async reload(id, signal) {
       const captured = find(id);
@@ -210,11 +221,14 @@ export function createFileEditorStore() {
     const revision = as
       ? (as.revision ?? null)
       : replacementRevision || tab.document.revision;
+    const authority = as?.authority || { client: tab.client, scopeId: tab.scopeId };
     const previous = tab.attempt;
     const reusable =
       previous &&
       previous.path === path &&
       previous.revision === revision &&
+      previous.client === authority.client &&
+      previous.scopeId === authority.scopeId &&
       previous.baselineGeneration === tab.baselineGeneration &&
       previous.bytes.length === bytes.length &&
       previous.bytes.every((byte, index) => byte === bytes[index]);
@@ -228,8 +242,8 @@ export function createFileEditorStore() {
           text: tab.text,
           format: { ...tab.format },
           baselineGeneration: tab.baselineGeneration,
-          scopeId: tab.scopeId,
-          client: tab.client,
+          scopeId: authority.scopeId,
+          client: authority.client,
           saveAs: Boolean(as),
         };
     patch(id, {

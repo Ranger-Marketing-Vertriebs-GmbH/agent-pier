@@ -136,6 +136,9 @@ test("project drafts survive session, mode and CWD transitions without rebinding
   page,
 }) => {
   const { state } = await explorerFixture(page);
+  const writes = [];
+  let contextGate = null;
+  let contextReads = 0;
   const session = {
     id: "editor-session",
     name: "Editor project",
@@ -148,7 +151,9 @@ test("project drafts survive session, mode and CWD transitions without rebinding
   await page.route("**/api/sessions/editor-session/files/explorer/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.searchParams.get("path") || "";
-    if (url.pathname.endsWith("/context"))
+    if (url.pathname.endsWith("/context")) {
+      contextReads++;
+      if (contextGate) await contextGate.promise;
       return route.fulfill({
         json: {
           ...explorerContext,
@@ -157,6 +162,7 @@ test("project drafts survive session, mode and CWD transitions without rebinding
           root: session.cwd,
         },
       });
+    }
     if (url.pathname.endsWith("/jobs"))
       return route.fulfill({ json: { jobs: [], nextCursor: null } });
     if (url.pathname.endsWith("/preferences"))
@@ -174,7 +180,26 @@ test("project drafts survive session, mode and CWD transitions without rebinding
       });
     if (url.pathname.endsWith("/preview"))
       return route.fulfill({ json: { type: "text", text: "first" } });
-    if (url.pathname.endsWith("/text")) return route.fulfill({ json: document(path) });
+    if (url.pathname.endsWith("/text")) {
+      if (route.request().method() === "PUT") {
+        writes.push({
+          path,
+          scopeId: route.request().headers()["x-file-scope"],
+          precondition:
+            route.request().headers()["if-match"] ||
+            route.request().headers()["if-none-match"],
+          bytes: route.request().postDataBuffer(),
+        });
+        return route.fulfill({
+          json: {
+            path,
+            revision: `d1:${"2".repeat(64)}`,
+            metadataRevision: `e1:${"2".repeat(64)}`,
+          },
+        });
+      }
+      return route.fulfill({ json: document(path) });
+    }
     return route.fulfill({ json: explorerListing(path) });
   });
   await selectEnglish(page);
@@ -203,6 +228,30 @@ test("project drafts survive session, mode and CWD transitions without rebinding
   ).toBeVisible({ timeout: 7000 });
   await expect(content).toContainText("stale scope draft");
   await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByLabel("Save As path").fill("rescued.txt");
+  await page.getByRole("button", { name: "Save new copy", exact: true }).click();
+  await expect(page.getByText(/Independent copy saved.*rescued\.txt/)).toBeVisible();
+  expect(writes.at(-1)).toMatchObject({
+    path: "rescued.txt",
+    scopeId: "f1:/work/two",
+    precondition: "*",
+  });
+  expect(writes.at(-1).bytes.toString()).toBe("stale scope draft");
+  expect(
+    writes.some(
+      (write) => write.path === "folder/a.txt" && write.scopeId === "f1:/work/two",
+    ),
+  ).toBe(false);
+
+  const writesBeforePendingContext = writes.length;
+  contextGate = deferred();
+  session.cwd = "/work/three";
+  await expect.poll(() => contextReads).toBeGreaterThanOrEqual(3);
+  await content.press("ControlOrMeta+s");
+  await page.waitForTimeout(200);
+  expect(writes).toHaveLength(writesBeforePendingContext);
+  contextGate.resolve();
 });
 
 test("editor runtime stays unloaded and a late language cannot replace the active plain document", async ({

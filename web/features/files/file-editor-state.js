@@ -59,24 +59,36 @@ export function editorReducer(state, action) {
           outcome: { status: "reloaded" },
         };
       if (action.type === "resolve-conflict")
-        return {
-          ...tab,
-          document: {
-            ...tab.document,
-            revision: action.document.revision,
-            metadataRevision: action.document.metadataRevision,
-            resolvedPath: action.document.resolvedPath,
-            readOnly: action.document.readOnly,
-          },
-          baselineGeneration: tab.baselineGeneration + 1,
-          attempt: null,
-          pending: false,
-          conflict: null,
-          external: null,
-          error: null,
-          dirty: true,
-          outcome: { status: "resolving" },
-        };
+        return (() => {
+          const baselineText = normalizedText(action.document.text);
+          const baselineFormat = {
+            bom: action.document.bom,
+            lineEnding: action.document.lineEnding,
+          };
+          return {
+            ...tab,
+            document: {
+              ...tab.document,
+              revision: action.document.revision,
+              metadataRevision: action.document.metadataRevision,
+              resolvedPath: action.document.resolvedPath,
+              readOnly: action.document.readOnly,
+            },
+            baselineText,
+            baselineFormat,
+            baselineGeneration: tab.baselineGeneration + 1,
+            attempt: null,
+            pending: false,
+            conflict: null,
+            external: null,
+            error: null,
+            dirty:
+              tab.text !== baselineText ||
+              tab.format.bom !== baselineFormat.bom ||
+              tab.format.lineEnding !== baselineFormat.lineEnding,
+            outcome: { status: "resolving" },
+          };
+        })();
       if (action.type === "patch") return { ...tab, ...action.patch };
       if (action.type === "edit" || action.type === "format") {
         const next =
@@ -128,7 +140,6 @@ export function editorReducer(state, action) {
           pending: false,
           attempt: null,
           conflict: null,
-          external: null,
           error: null,
           outcome: { status: dirty ? "updated-during-save" : "saved" },
         };

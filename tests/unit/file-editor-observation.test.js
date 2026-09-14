@@ -48,6 +48,35 @@ test("metadata observation uses the original selected path and ignores an obsole
   assert.equal(store.getSnapshot().tabs[0].external, undefined);
 });
 
+test("an ignored abort and an older reverse-order observation are obsolete", async () => {
+  const first = deferred();
+  const second = deferred();
+  let call = 0;
+  const client = {
+    readText: async (path) => document(path),
+    documentMetadata: async () => (++call === 1 ? first.promise : second.promise),
+  };
+  const store = createFileEditorStore();
+  const tab = await store.open(client, "scope", "/a");
+  const controller = new AbortController();
+  const older = store.observe(tab.id, controller.signal);
+  controller.abort();
+  const newer = store.observe(tab.id);
+  second.resolve({
+    path: "/a",
+    resolvedPath: "/a",
+    metadataRevision: token("e", 2),
+  });
+  assert.equal((await newer).status, "changed");
+  first.resolve({
+    path: "/a",
+    resolvedPath: "/a",
+    metadataRevision: token("e", 1),
+  });
+  assert.equal((await older).status, "obsolete");
+  assert.equal(store.getSnapshot().tabs[0].external.metadataRevision, token("e", 2));
+});
+
 test("changed metadata is recorded without replacing dirty text and clean reload is explicit", async () => {
   let value = 2;
   const client = {
@@ -135,6 +164,12 @@ test("manual conflict resolution keeps the draft but advances the save precondit
   assert.equal(resolving.document.revision, token("d", 2));
   assert.equal(resolving.attempt, null);
   assert.equal(resolving.dirty, true);
+  assert.equal(resolving.baselineText, "disk");
+  assert.deepEqual(resolving.baselineFormat, { bom: false, lineEnding: "lf" });
+  store.edit(tab.id, { text: "disk", editorState: { selection: "retained" } });
+  assert.equal(store.getSnapshot().tabs[0].dirty, false);
+  store.edit(tab.id, { text: "draft", editorState: { selection: "retained-again" } });
+  assert.equal(store.getSnapshot().tabs[0].dirty, true);
 });
 
 test("using current explicitly discards the draft and unresolved attempt", async () => {
@@ -180,4 +215,29 @@ test("a delayed current-document reply cannot replace a newer draft version", as
   const current = store.getSnapshot().tabs[0];
   assert.equal(current.text, "newer draft");
   assert.equal(current.conflict, null);
+});
+
+test("a newer e1 observation survives an older successful save completion", async () => {
+  const saved = deferred();
+  const client = {
+    readText: async (path) => document(path, "original", 1),
+    saveText: async () => saved.promise,
+    documentMetadata: async (path) => ({
+      path,
+      resolvedPath: path,
+      metadataRevision: token("e", 3),
+    }),
+  };
+  const store = createFileEditorStore();
+  const tab = await store.open(client, "scope", "/a");
+  store.edit(tab.id, { text: "draft" });
+  const saving = store.save(tab.id);
+  assert.equal((await store.observe(tab.id)).status, "changed");
+  saved.resolve({
+    path: "/a",
+    revision: token("d", 2),
+    metadataRevision: token("e", 2),
+  });
+  assert.equal((await saving).status, "saved");
+  assert.equal(store.getSnapshot().tabs[0].external.metadataRevision, token("e", 3));
 });

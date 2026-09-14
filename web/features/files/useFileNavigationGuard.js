@@ -5,6 +5,10 @@ import {
   registerFileNavigationGuard,
   requestFileNavigation,
 } from "./file-navigation-guard.js";
+import {
+  captureFileNavigationTab,
+  resolveFileNavigationTab,
+} from "./file-navigation-decision.js";
 
 export default function useFileNavigationGuard() {
   const store = useContext(FileEditorContext);
@@ -17,16 +21,23 @@ export default function useFileNavigationGuard() {
       registerFileNavigationGuard(
         (request) =>
           new Promise((resolve) => {
-            const ids = store
+            const entries = store
               .getSnapshot()
               .tabs.filter(
                 (tab) =>
                   requiresEditorRetention(tab) &&
                   (!request.tabId || request.tabId === tab.id),
               )
-              .map((tab) => tab.id);
-            if (!ids.length) return resolve(true);
-            setDecision({ request, ids, position: 0, resolve, saving: false });
+              .map(captureFileNavigationTab);
+            if (!entries.length) return resolve(true);
+            setDecision({
+              token: Symbol("file-navigation-decision"),
+              request,
+              entries,
+              position: 0,
+              resolve,
+              saving: false,
+            });
           }),
       ),
     [store],
@@ -40,29 +51,46 @@ export default function useFileNavigationGuard() {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [hasRetainedTabs]);
-  const finish = useCallback((accepted) => {
+  const finish = useCallback((token, accepted) => {
     setDecision((current) => {
+      if (!current || current.token !== token || current.saving) return current;
       current?.resolve(accepted);
       return null;
     });
   }, []);
   const advance = useCallback(
-    (discard = false) => {
+    (token, discard = false) => {
       setDecision((current) => {
-        if (!current) return null;
-        const id = current.ids[current.position];
-        if (discard) store.close(id, { discard: true });
+        if (!current || current.token !== token) return current;
+        const entry = current.entries[current.position];
+        const resolution = resolveFileNavigationTab(store, entry, { discard });
+        if (resolution.status !== "resolved") {
+          if (resolution.status === "gone") {
+            const entries = current.entries.filter((item) => item !== entry);
+            if (entries.length)
+              return {
+                ...current,
+                entries,
+                position: Math.min(current.position, entries.length - 1),
+                saving: false,
+              };
+          } else {
+            const entries = [...current.entries];
+            entries[current.position] = resolution.entry;
+            return { ...current, entries, saving: false };
+          }
+        }
         const position = current.position + 1;
-        if (position >= current.ids.length) {
-          const ids = store
+        if (position >= current.entries.length) {
+          const entries = store
             .getSnapshot()
             .tabs.filter(
               (tab) =>
                 requiresEditorRetention(tab) &&
                 (!current.request.tabId || current.request.tabId === tab.id),
             )
-            .map((tab) => tab.id);
-          if (ids.length) return { ...current, ids, position: 0, saving: false };
+            .map(captureFileNavigationTab);
+          if (entries.length) return { ...current, entries, position: 0, saving: false };
           current.resolve(true);
           return null;
         }
@@ -74,18 +102,27 @@ export default function useFileNavigationGuard() {
   const save = useCallback(async () => {
     const current = decision;
     if (!current || current.saving) return;
+    const entry = current.entries[current.position];
+    if (resolveFileNavigationTab(store, entry).status !== "resolved")
+      return advance(current.token);
     setDecision({ ...current, saving: true });
-    await store.save(current.ids[current.position]);
-    const tab = store
-      .getSnapshot()
-      .tabs.find((item) => item.id === current.ids[current.position]);
-    if (!requiresEditorRetention(tab)) advance();
-    else setDecision((latest) => (latest ? { ...latest, saving: false } : latest));
+    await store.save(entry.id);
+    const tab = store.getSnapshot().tabs.find((item) => item.id === entry.id);
+    if (!requiresEditorRetention(tab)) advance(current.token);
+    else
+      setDecision((latest) => {
+        if (!latest || latest.token !== current.token) return latest;
+        const entries = [...latest.entries];
+        entries[latest.position] = captureFileNavigationTab(tab);
+        return { ...latest, entries, saving: false };
+      });
   }, [advance, decision, store]);
   const tab = useMemo(
     () =>
       decision
-        ? snapshot.tabs.find((item) => item.id === decision.ids[decision.position])
+        ? snapshot.tabs.find(
+            (item) => item.id === decision.entries[decision.position]?.id,
+          )
         : null,
     [decision, snapshot.tabs],
   );
@@ -93,8 +130,8 @@ export default function useFileNavigationGuard() {
     decision,
     tab,
     save,
-    discard: () => advance(true),
-    cancel: () => finish(false),
+    discard: () => decision && advance(decision.token, true),
+    cancel: () => decision && finish(decision.token, false),
     requestClose: (id) =>
       requestFileNavigation({
         reason: "tab-close",
