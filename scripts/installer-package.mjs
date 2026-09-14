@@ -84,7 +84,10 @@ export function renderOnlineInstaller({ version, sha256 }) {
   );
   const result = template
     .replaceAll("@@VERSION@@", version)
-    .replaceAll("@@SHA256@@", sha256);
+    .replaceAll("@@SHA256@@", sha256)
+    .replace("@@SETUP_VALIDATION@@", () =>
+      fs.readFileSync(new URL("./install-bootstrap.sh", import.meta.url), "utf8"),
+    );
   if (Buffer.byteLength(result) > installerLimits.script)
     throw Error("Installer script size limit exceeded.");
   return result;

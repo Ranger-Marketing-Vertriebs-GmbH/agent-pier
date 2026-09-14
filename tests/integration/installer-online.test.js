@@ -77,6 +77,12 @@ test("online help and invalid arguments never download or execute setup", async 
   assert.match((await ctx.run(["--help"])).stdout, /AgentPier/);
   await assert.rejects(ctx.run(["--unknown"]), /option/i);
   await assert.rejects(ctx.run(["--data-dir", "relative"]), /absolute/i);
+  await assert.rejects(ctx.run(["--install-root", "/"]), /filesystem root/);
+  await assert.rejects(
+    ctx.run(["--install-root", "/tmp/root", "--data-dir", "/tmp/root/data"]),
+    /outside/,
+  );
+  await assert.rejects(ctx.run(["--install-root", "/tmp/root/../other"]), /normalized/);
   await assert.rejects(fs.access(ctx.env.CALLS));
 });
 
@@ -171,3 +177,24 @@ for (const kind of ["truncated gzip", "sparse extension"]) {
     await assert.rejects(fs.access(ctx.env.SETUP_LOG));
   });
 }
+
+test("online expansion stops at the installer size limit before archive inspection", async (t) => {
+  const { renderOnlineInstaller } = await import("../../scripts/installer-package.mjs");
+  const ctx = await fixture(t);
+  const bytes = gzipSync(Buffer.alloc(64 * 1024 * 1024 + 1));
+  ctx.env.BUNDLE = path.join(ctx.root, "bundle.tar.gz");
+  await fs.writeFile(ctx.env.BUNDLE, bytes);
+  const file = path.join(ctx.root, "install.sh");
+  await fs.writeFile(
+    file,
+    renderOnlineInstaller({
+      version: "1.2.3",
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+    }),
+  );
+  await assert.rejects(
+    exec("/bin/sh", [file], { env: ctx.env }),
+    /Expanded installer exceeds size limit/,
+  );
+  await assert.rejects(fs.access(ctx.env.SETUP_LOG));
+});
