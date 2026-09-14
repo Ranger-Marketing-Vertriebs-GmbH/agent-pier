@@ -1,5 +1,5 @@
 import { assertManualInputSettled } from "./manual-input-guard.js";
-import { folderTrustScreen } from "../requests/claude-folder-trust.js";
+import { startupScreen } from "../requests/claude-startup-prompts.js";
 import { requestCopy } from "../../lib/i18n/de/requests.js";
 import { hookTrustScreen } from "../requests/codex-hook-trust.js";
 import { readFile, realpath } from "node:fs/promises";
@@ -323,6 +323,8 @@ export async function chatInputSnapshot(manager, session) {
       )
       .digest("hex"),
     recoveryGeneration: native.recoverable ? generation : null,
+    // A bound Claude session without its native receipt is still starting up.
+    nativeStarted: native.recoverable,
     composer: inspectChatComposer(session.tool, raw, pane),
   };
 }
@@ -345,7 +347,8 @@ export function withChatInput(manager, id, operation) {
       if (!active) throw problem("Chat input transaction has ended", 409);
       if (
         (current.tool === "codex" && hookTrustScreen(fresh.raw)) ||
-        (current.tool === "claude" && folderTrustScreen(fresh.raw, current.cwd))
+        (current.tool === "claude" &&
+          startupScreen(fresh.raw, current.cwd, { started: fresh.nativeStarted }))
       )
         throw problem(requestCopy.pendingInput, 409);
       if (fresh.generation !== initial.generation)

@@ -106,6 +106,39 @@ node scripts/probe-chat-tui.mjs --native --tool codex --local-mock --http --boun
 node scripts/probe-chat-tui.mjs --native --tool claude --local-mock --http --bound --samples 2
 ```
 
+### Claude startup dialogs (2026-09-13)
+
+A fresh AgentPier Claude profile runs Claude Code's full first-run onboarding
+before the composer exists. With Claude Code 2.1.270 the sequence is theme
+selection, the custom API key confirmation (API-key accounts), security notes
+and the folder trust dialog; OAuth accounts show the login method and browser
+code screens instead. Only the trust dialog used to be recognized, and its
+default selection is "No, exit", so a chat send that pasted text and Enter into
+any of these screens either exited the CLI or advanced a dialog blindly.
+
+Every startup dialog is now published as a local native request while the
+session's native receipt is still missing. Theme, API key, security notes and
+trust are answerable from chat; the answer moves the native selection with
+Up/Down until the screen confirms it, presses Enter once and waits for the
+dialog to leave. Login and unrecognized startup menus appear as blocking cards
+that only open the terminal. Chat input refuses to paste while any startup
+dialog is visible, including unknown menus before the receipt; after the
+receipt, only the specific dialogs are still recognized so in-session prompts
+are not misread. No onboarding flags are seeded into the profile.
+
+```sh
+node --test tests/unit/claude-startup-prompts.test.js tests/integration/claude-startup-prompts.test.js \
+  tests/unit/session-chat-input-policy.test.js
+node scripts/probe-chat-tui.mjs --native --tool claude --local-mock --http --bound --fresh-profile --samples 1
+```
+
+The fresh-profile probe keeps the disposable profile empty, waits for each
+native dialog at 50 columns, verifies that an HTTP chat send is rejected, answers
+through the request route and finally repeats the folder trust and recovery
+checks. It passed with Claude Code 2.1.270 on macOS arm64 against the local
+provider only. Synthetic frames in `tests/fixtures/requests/claude-startup-prompts.js`
+mirror the recorded 120- and 50-column screens.
+
 ### Claude image preparation regression (2026-09-12)
 
 Claude Code 2.1.269 reproduces a separate paste/submit race with larger image

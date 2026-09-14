@@ -10,6 +10,21 @@ export default function NativeRequest({ request, updated, openTerminal }) {
     hookTrust = request.presentation === "codexHookTrust",
     folderTrust = request.presentation === "claudeFolderTrust",
     legacyQuestion = request.presentation === "claudeLegacyQuestion",
+    startup = request.presentation === "claudeStartupPrompt",
+    startupCopy = startup
+      ? copy.startup[request.subject?.dialog] || copy.startup.unknown
+      : null,
+    optionLabel = (option) =>
+      folderTrust
+        ? option.id === "trust"
+          ? copy.folderTrustAllow
+          : copy.folderTrustExit
+        : hookTrust
+          ? option.id === "trust"
+            ? copy.hookTrustAllow
+            : copy.hookTrustSkip
+          : (startup && copy.startupOptions[request.subject?.dialog]?.[option.id]) ||
+            option.label,
     base = `/sessions/${encodeURIComponent(request.sessionId)}/requests/${encodeURIComponent(request.id)}`;
   const answer = (body) =>
     action.run(async () => {
@@ -27,15 +42,18 @@ export default function NativeRequest({ request, updated, openTerminal }) {
             ? copy.folderTrustTitle
             : hookTrust
               ? copy.hookTrustTitle
-              : request.kind === "permission" && !legacyQuestion
-                ? copy.permission
-                : copy.question}
+              : startup
+                ? startupCopy.title
+                : request.kind === "permission" && !legacyQuestion
+                  ? copy.permission
+                  : copy.question}
         </strong>
         <small>{request.source}</small>
       </header>
       {hookTrust && <p>{copy.hookTrustDescription}</p>}
       {folderTrust && <p>{copy.folderTrustDescription}</p>}
-      {request.subject && (
+      {startup && <p>{startupCopy.description}</p>}
+      {request.subject && !startup && (
         <div>
           {request.subject.description && <p>{request.subject.description}</p>}
           {(request.subject.command || request.subject.path || request.subject.tool) && (
@@ -56,36 +74,18 @@ export default function NativeRequest({ request, updated, openTerminal }) {
         <p role="status">{copy.responding}</p>
       ) : legacyQuestion ? (
         <p role="status">{copy.legacyQuestion}</p>
-      ) : request.kind === "permission" ? (
+      ) : request.kind === "permission" && request.options?.length ? (
         <div className="native-request-actions">
           {request.options?.map((option) => (
             <button
               type="button"
               className="button secondary"
               key={option.id}
-              aria-label={
-                folderTrust
-                  ? option.id === "trust"
-                    ? copy.folderTrustAllow
-                    : copy.folderTrustExit
-                  : hookTrust
-                    ? option.id === "trust"
-                      ? copy.hookTrustAllow
-                      : copy.hookTrustSkip
-                    : option.label
-              }
+              aria-label={optionLabel(option)}
               disabled={action.busy}
               onClick={() => answer({ choice: option.id })}
             >
-              {folderTrust
-                ? option.id === "trust"
-                  ? copy.folderTrustAllow
-                  : copy.folderTrustExit
-                : hookTrust
-                  ? option.id === "trust"
-                    ? copy.hookTrustAllow
-                    : copy.hookTrustSkip
-                  : option.label}
+              {optionLabel(option)}
               {option.scope && <small>{copy.scopes[option.scope] || option.scope}</small>}
             </button>
           ))}
@@ -102,7 +102,7 @@ export default function NativeRequest({ request, updated, openTerminal }) {
       )}
       <ErrorMessage error={action.error} />
       <div className="native-request-actions">
-        {pending && (
+        {pending && !startup && (
           <button
             type="button"
             className="button secondary compact"
