@@ -84,24 +84,42 @@ export function ownedHandle(native, opened) {
 /** Public d1 includes the complete e1 observation and streamed content hash.
  * The separately named private token tolerates only exchange's ctime change;
  * publishers still validate parent, inode and selected-link identities separately. */
-export async function publicationSnapshot(handle, linkIdentity = null, { signal } = {}) {
+export async function publicationSnapshot(
+  handle,
+  linkIdentity = null,
+  { signal, maxBytes, onChunk } = {},
+) {
   signal?.throwIfAborted();
   const before = await handle.stat({ bigint: true });
   if (before.type ? before.type !== "file" : !before.isFile())
     throw fileProblem("FILE_UNSUPPORTED_TYPE", 415);
-  if (before.size > BigInt(Number.MAX_SAFE_INTEGER))
+  if (
+    before.size > BigInt(Number.MAX_SAFE_INTEGER) ||
+    (maxBytes !== undefined && before.size > BigInt(maxBytes))
+  )
     throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
   const hash = createHash("sha256");
   const buffer = Buffer.alloc(nativeReadBytes);
-  for (let position = 0; position < Number(before.size);) {
+  let position = 0;
+  for (; position < Number(before.size);) {
     signal?.throwIfAborted();
     const length = Math.min(buffer.length, Number(before.size) - position);
     const { bytesRead } = await handle.read(buffer, 0, length, position);
     if (!bytesRead) throw fileProblem("FILE_CONFLICT_CHANGED", 409);
     hash.update(buffer.subarray(0, bytesRead));
+    onChunk?.(buffer.subarray(0, bytesRead));
     position += bytesRead;
   }
-  if (entryRevision(before) !== entryRevision(await handle.stat({ bigint: true })))
+  const after = await handle.stat({ bigint: true });
+  if (maxBytes !== undefined) {
+    if (after.size > BigInt(maxBytes)) throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
+    if ((await handle.read(buffer, 0, 1, position)).bytesRead)
+      throw fileProblem(
+        position >= maxBytes ? "FILE_LIMIT_EXCEEDED" : "FILE_CONFLICT_CHANGED",
+        position >= maxBytes ? 413 : 409,
+      );
+  }
+  if (entryRevision(before) !== entryRevision(after))
     throw fileProblem("FILE_CONFLICT_CHANGED", 409);
   const bytes = hash.digest("hex");
   const fingerprint = (observation) =>
@@ -110,6 +128,8 @@ export async function publicationSnapshot(handle, linkIdentity = null, { signal 
       .digest("hex");
   return {
     hash: bytes,
+    bytes: position,
+    metadataRevision: entryRevision(before, linkIdentity),
     revision: `d1:${fingerprint(entryRevision(before, linkIdentity))}`,
     publicationContentRevision: `p1:${fingerprint(contentIdentity(before))}`,
   };

@@ -115,7 +115,8 @@ export async function recoverPublications({ store, native, barrier }) {
         stageParent = await openParent(owner, doc.staged).catch((error) => {
           if (
             error.code === "FILE_NOT_FOUND" &&
-            (doc.transferCompleted ||
+            (doc.textCompleted ||
+              doc.transferCompleted ||
               doc.uploadCompleted ||
               doc.archiveCompleted ||
               doc.extractCompleted) &&
@@ -156,6 +157,7 @@ export async function recoverPublications({ store, native, barrier }) {
             (stage && contentIdentity(stage) !== doc.expectedContent)
           )
             throw fileProblem("FILE_INTERRUPTED", 409);
+          let textObservation;
           for (const [parent, name, revision] of [
             [targetParent, path.basename(doc.target), doc.stagedContentRevision],
             [
@@ -170,10 +172,20 @@ export async function recoverPublications({ store, native, barrier }) {
               await owner.run("openFile", { directory: parent.handle, path: name }),
             );
             try {
-              if (
-                (await publicationSnapshot(handle)).publicationContentRevision !==
-                revision
-              )
+              const observed = await publicationSnapshot(
+                handle,
+                doc.textSave && parent === targetParent ? selected.linkIdentity : null,
+                doc.textSave
+                  ? {
+                      maxBytes:
+                        parent === targetParent
+                          ? doc.textSave.bytes
+                          : store.limits.textBytes,
+                    }
+                  : {},
+              );
+              if (doc.textSave && parent === targetParent) textObservation = observed;
+              if (observed.publicationContentRevision !== revision)
                 throw fileProblem("FILE_INTERRUPTED", 409);
             } finally {
               await handle.close();
@@ -183,12 +195,25 @@ export async function recoverPublications({ store, native, barrier }) {
           // can overlap unrelated application snapshots, so disposition and its
           // durable journal update must share the same barrier even on failure.
           const revisions = await transferRevisions(store, record, owner);
+          if (doc.textSave) {
+            const current = await resolveFile(doc.scope, doc.selectedPath, {
+              followLeaf: true,
+            });
+            if (
+              current.absolute !== doc.target ||
+              current.linkIdentity !== doc.linkIdentity ||
+              entryRevision(current.stat, current.linkIdentity) !==
+                textObservation?.metadataRevision
+            )
+              throw fileProblem("FILE_INTERRUPTED", 409);
+          }
           await write(async () => {
             try {
               store.completeTransfer(
                 record,
                 entryRevision(selected.stat, selected.linkIdentity),
                 revisions,
+                textObservation,
               );
               await stageParent?.sync();
               await targetParent.sync();

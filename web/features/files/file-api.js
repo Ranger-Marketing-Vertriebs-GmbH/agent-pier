@@ -93,6 +93,42 @@ export function fileApi(scopeRef) {
   return {
     base,
     archiveDownload: (id) => urlFor(base, `/jobs/${encodeURIComponent(id)}/download`),
+    readText: (path, signal) => fileApi(scopeRef).get("/text", { path }, signal),
+    documentMetadata: (path, signal) =>
+      fileApi(scopeRef).get("/metadata", { path, view: "document" }, signal),
+    async saveText(path, bytes, { scopeId, requestId, revision, signal } = {}) {
+      if (
+        !(bytes instanceof Uint8Array) ||
+        (revision !== null &&
+          (typeof revision !== "string" || !/^d1:[a-f0-9]{64}$/.test(revision)))
+      )
+        throw fileClientIssue("FILE_TEXT_PRECONDITION", 400);
+      const response = await fileApi(scopeRef).raw("/text", {
+        method: "PUT",
+        query: { path },
+        body: new Uint8Array(bytes),
+        scopeId,
+        signal,
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8",
+          "X-File-Request": requestId,
+          ...(revision === null
+            ? { "If-None-Match": "*" }
+            : { "If-Match": JSON.stringify(revision) }),
+        },
+      });
+      const result = await jsonOrEmpty(response);
+      if (
+        !result ||
+        typeof result.path !== "string" ||
+        typeof result.revision !== "string" ||
+        typeof result.metadataRevision !== "string" ||
+        !/^d1:[a-f0-9]{64}$/.test(result.revision) ||
+        !/^e1:[a-f0-9]{64}$/.test(result.metadataRevision)
+      )
+        throw fileClientIssue("FILE_INVALID_RESPONSE", response.status);
+      return result;
+    },
     async get(path, query = {}, signal) {
       const response = await checked(await fetch(urlFor(base, path, query), { signal }));
       return response.json();

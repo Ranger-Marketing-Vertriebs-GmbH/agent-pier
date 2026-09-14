@@ -1,3 +1,4 @@
+import { FileTextStore } from "./file-text-store.js";
 import { FileArchiveStore } from "./file-archive-store.js";
 import { publicFileJob } from "./file-job-projection.js";
 import path from "node:path";
@@ -77,6 +78,7 @@ export class FileStore {
         `CREATE INDEX IF NOT EXISTS ${key}_entries ON job_entries(job_id,json_extract(document,'$.${key}'))`,
       );
     this.db.exec(trashItemSchema);
+    this.text = new FileTextStore(this);
     this.uploads = new FileUploadStore(this);
     this.archives = new FileArchiveStore(this);
     // Durable archive/extraction cancellation survives generic startup interruption.
@@ -313,7 +315,8 @@ export class FileStore {
       throw error;
     }
   }
-  completeTransfer(record, revision, revisions = new Map()) {
+  completeTransfer(record, revision, revisions = new Map(), observation = null) {
+    if (record.document.textSave) return this.text.complete(record, observation);
     if (record.document.extract)
       return completeExtract(this, record, revision, revisions);
     if (record.document.upload) return this.uploads.complete(record, revision);
@@ -493,7 +496,8 @@ export class FileStore {
     try {
       this.db
         .prepare(
-          `DELETE FROM publications WHERE phase='resolved' AND job_id IN (SELECT id FROM jobs WHERE updated_at<? AND status IN (${terminal}))`,
+          // A published text pair still needs its durable final adoption marker.
+          `DELETE FROM publications WHERE phase='resolved' AND job_id IN (SELECT id FROM jobs WHERE updated_at<? AND status IN (${terminal})) AND (COALESCE(json_extract(document,'$.textCompleted'),0)!=1 OR EXISTS(SELECT 1 FROM jobs j WHERE j.id=publications.job_id AND json_extract(j.document,'$.textSave.complete')=1))`,
         )
         .run(now - retentionMs);
       // Iteration removes terminal children first; every remaining child conservatively pins its parent.

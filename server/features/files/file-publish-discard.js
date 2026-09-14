@@ -1,3 +1,5 @@
+import { entryRevision } from "./file-paths.js";
+import { inspect } from "./file-stage.js";
 import { fileProblem } from "./file-errors.js";
 import { discardExtractStage } from "./file-extract-stage.js";
 import { discardArchivePayload } from "./file-archive-publication.js";
@@ -46,6 +48,19 @@ export async function discardPublication(publisher, state, active, record) {
     )
       throw conflict();
     await publisher.barrier.run(async () => {
+      if (state.document.textSave) {
+        const current = await inspect(
+          publisher.native,
+          state.parentHandle.handle,
+          state.name,
+        );
+        if (
+          !current ||
+          !state.document.textPartialRevision ||
+          entryRevision(current) !== state.document.textPartialRevision
+        )
+          throw conflict();
+      }
       if (state.document.stagedIdentity)
         await publisher.native.run("removeEntry", {
           directory: state.parentHandle.handle,

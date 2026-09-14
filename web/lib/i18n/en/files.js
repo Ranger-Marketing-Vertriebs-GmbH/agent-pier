@@ -4,6 +4,10 @@ export const filesCopy = {
   actions: fileActionsCopy,
   transfers: fileTransfersCopy,
   errors: {
+    FILE_TEXT_PRECONDITION:
+      "Saving requires exactly the current text revision or an explicitly new filename.",
+    FILE_TEXT_MEDIA: "Text must be sent as uncompressed UTF-8.",
+    FILE_LINE_ENDING_REQUIRED: "Choose uniform line endings before saving.",
     FILE_RETRY_UNAVAILABLE:
       "These entries cannot be safely retried from the retained evidence. Refresh the results and review recovery or changed sources before making a new selection.",
     FILE_ARCHIVE_PATH_INVALID: "The ZIP archive contains an unsafe or conflicting path.",
@@ -95,6 +99,7 @@ export const filesCopy = {
   noResults: "No matching filenames found.",
   operation: "File operation",
   jobKinds: {
+    text_save: "Save text",
     archive: "Create ZIP",
     extract: "Extract ZIP",
     upload: "Upload file",

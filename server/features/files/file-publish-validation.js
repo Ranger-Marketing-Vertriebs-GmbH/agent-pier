@@ -16,7 +16,7 @@ export async function assertPublicationExpected(
   scope,
   selectedPath,
   revision,
-  { followLeaf = false, expectedTarget } = {},
+  { followLeaf = false, expectedTarget, maxBytes } = {},
 ) {
   if (publisher.barrier.hasLease() || publisher.locks.hasLease())
     throw fileProblem("FILE_INVALID_OPERATION", 400);
@@ -50,7 +50,9 @@ export async function assertPublicationExpected(
         }),
       );
       if (!sameInode(await handle.stat(), inodeIdentity(fresh.stat))) throw conflict();
-      const snapshot = await publicationSnapshot(handle, fresh.linkIdentity);
+      const snapshot = await publicationSnapshot(handle, fresh.linkIdentity, {
+        maxBytes,
+      });
       actual = snapshot.revision;
       fresh.publicationContentRevision = snapshot.publicationContentRevision;
     } finally {
@@ -72,6 +74,7 @@ export function recordPublication(publisher, state, phase, patch = {}) {
         phase,
         document: state.document,
       });
+    if (state.document.textSave) return publisher.store.text.register(state, write);
     if (state.document.archive)
       return publisher.store.archives.transaction(() => {
         publisher.store.archives.publication(state.jobId, state.id);

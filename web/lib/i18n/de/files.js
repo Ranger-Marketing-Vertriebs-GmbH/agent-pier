@@ -4,6 +4,10 @@ export const filesCopy = {
   actions: fileActionsCopy,
   transfers: fileTransfersCopy,
   errors: {
+    FILE_TEXT_PRECONDITION:
+      "Speichern benötigt genau die aktuelle Textrevision oder einen ausdrücklich neuen Dateinamen.",
+    FILE_TEXT_MEDIA: "Text muss als unkomprimiertes UTF-8 übertragen werden.",
+    FILE_LINE_ENDING_REQUIRED: "Wähle vor dem Speichern einheitliche Zeilenenden.",
     FILE_RETRY_UNAVAILABLE:
       "Diese Einträge können anhand der gespeicherten Nachweise nicht sicher wiederholt werden. Ergebnisse aktualisieren und Wiederherstellung oder geänderte Quellen prüfen, bevor eine neue Auswahl erstellt wird.",
     FILE_ARCHIVE_PATH_INVALID:
@@ -104,6 +108,7 @@ export const filesCopy = {
   noResults: "Keine passenden Dateinamen gefunden.",
   operation: "Dateioperation",
   jobKinds: {
+    text_save: "Text speichern",
     archive: "ZIP erstellen",
     extract: "ZIP entpacken",
     upload: "Datei hochladen",

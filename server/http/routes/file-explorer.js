@@ -70,7 +70,20 @@ function registerReadRoutes(router, prefix, files) {
   router.get(
     `${prefix}/metadata`,
     fileHandler(async (req, res) => {
-      res.json(await files.reading.metadata(await scope(req), req.query.path ?? ""));
+      const view = req.query.view;
+      if (
+        (view !== undefined && view !== "entry" && view !== "document") ||
+        Object.keys(req.query).some(
+          (key) => key.startsWith("view[") || key.startsWith("view."),
+        )
+      )
+        throw fileProblem("FILE_INVALID_OPERATION", 400);
+      const current = await scope(req);
+      res.json(
+        await (view === "document"
+          ? files.text.metadata(current, req.query.path ?? "")
+          : files.reading.metadata(current, req.query.path ?? "")),
+      );
     }),
   );
   router.get(

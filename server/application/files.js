@@ -1,3 +1,4 @@
+import { FileText } from "../features/files/file-text.js";
 import { FileArchives, registerArchiveHandlers } from "../features/files/file-zip.js";
 import { FileExtracts, registerExtractHandlers } from "../features/files/file-extract.js";
 import {
@@ -56,12 +57,13 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
   const locks = new PathLocks();
   const publisher = new FilePublisher({ store, locks, barrier: mutationBarrier });
   const trash = new FileTrash({ store, publisher, limits, context });
-  let uploads, archives;
+  let uploads, archives, text;
   const ready = recoverPublications({ store, barrier: mutationBarrier })
     .then(() => trash.recover())
     .then(() => uploads.recover())
     .then(() => archives.recover())
     .then(() => extracts.recover())
+    .then(() => text.recover())
     .then(() => archives.sweep())
     .then(() => uploads.sweep())
     .then(() => uploads.start());
@@ -104,6 +106,7 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
       } finally {
         try {
           try {
+            await text.close();
             await archives.close();
             await uploads.close();
           } finally {
@@ -119,6 +122,7 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
   archives = new FileArchives({ jobs, store, publisher, trash, limits });
   registerArchiveHandlers(handlers, archives);
   const retries = new FileJobRetries({ jobs, store, trash });
+  text = new FileText({ jobs, store, publisher, trash, limits, context, handlers });
   jobs.prepareJob = (scope, id) => retries.prepare(scope, id);
 
   return {
@@ -131,6 +135,7 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
     handlers,
     jobs,
     retries,
+    text,
     uploads,
     archives,
     extracts,

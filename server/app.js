@@ -1,3 +1,4 @@
+import { fileTextRoutes } from "./http/routes/file-text.js";
 import { SessionMcp } from "./features/mcp/session-integration.js";
 import { SessionReload } from "./features/sessions/session-reload.js";
 import { sshRoutes } from "./http/routes/ssh.js";
@@ -118,6 +119,7 @@ export async function createApplication(config) {
   app.use("/api", requireLogin(services.login, effective));
   app.use(auditHttp(services.audit, { onError: services.onError }));
   app.use("/api", fileTransferStreams(services));
+  app.use("/api", fileTextRoutes(services));
   app.use(
     "/api/sessions/:id/chat/attachments",
     express.json({ limit: "15mb", strict: true }),

@@ -1,4 +1,9 @@
 import {
+  textStageSnapshot,
+  checkpointTextCleanup,
+  publishedTextSnapshot,
+} from "./file-text-publication.js";
+import {
   checkpointArchive,
   finishArchiveArtifact,
   archiveSnapshot,
@@ -88,6 +93,7 @@ export class FilePublisher {
       archive = false,
       extract = null,
       targetGuard,
+      textSave = false,
     } = {},
   ) {
     if (
@@ -135,6 +141,9 @@ export class FilePublisher {
       scope: { ...scope },
       linkIdentity: selected.linkIdentity,
       transferId,
+      ...(textSave
+        ? { textSave: this.store.text.bind(scope, jobId, selected.path) }
+        : {}),
       ...(binding ? { archive: binding } : {}),
       ...(extract
         ? { extract: bindExtract(this.store, scope, jobId, selected.path, extract) }
@@ -262,6 +271,7 @@ export class FilePublisher {
         {
           followLeaf: state.followLeaf,
           expectedTarget: state.target,
+          maxBytes: state.document.textSave ? this.store.limits.textBytes : undefined,
         },
       );
       if (state.followLeaf && expected.linkIdentity !== state.document.linkIdentity)
@@ -271,10 +281,12 @@ export class FilePublisher {
       const stagedContentRevision =
         state.type === "file"
           ? (
-              await (state.document.archive ? archiveSnapshot : uploadSnapshot)(
-                this,
-                state,
-              )
+              await (state.document.textSave
+                ? textStageSnapshot(state)
+                : (state.document.archive ? archiveSnapshot : uploadSnapshot)(
+                    this,
+                    state,
+                  ))
             ).publicationContentRevision
           : null;
       await this.#record(state, "prepared", {
@@ -378,8 +390,13 @@ export class FilePublisher {
         );
         try {
           if (
-            (await publicationSnapshot(old)).publicationContentRevision !==
-            state.document.expectedContentRevision
+            (
+              await publicationSnapshot(old, null, {
+                maxBytes: state.document.textSave
+                  ? this.store.limits.textBytes
+                  : undefined,
+              })
+            ).publicationContentRevision !== state.document.expectedContentRevision
           )
             throw conflict();
         } finally {
@@ -388,8 +405,11 @@ export class FilePublisher {
       }
       if (
         stagedContentRevision &&
-        (await publicationSnapshot(state.handle)).publicationContentRevision !==
-          stagedContentRevision
+        (
+          await publicationSnapshot(state.handle, null, {
+            maxBytes: state.document.textSave?.bytes,
+          })
+        ).publicationContentRevision !== stagedContentRevision
       )
         throw conflict();
       const published = await resolveFile(scope, state.selectedPath, {
@@ -403,10 +423,14 @@ export class FilePublisher {
         !(await parentMatches(this.native, state.file, state.document.stageParent))
       )
         throw conflict();
+      const observation = state.document.textSave
+        ? await publishedTextSnapshot(this, scope, state, published)
+        : null;
       const revision =
-        state.type === "file"
+        observation?.revision ||
+        (state.type === "file"
           ? await fileRevision(state.handle, published.linkIdentity)
-          : entryRevision(published.stat, published.linkIdentity);
+          : entryRevision(published.stat, published.linkIdentity));
       const completion = {
         id: state.id,
         jobId: state.jobId,
@@ -415,7 +439,7 @@ export class FilePublisher {
       };
       const revisions = await transferRevisions(this.store, completion, this.native);
       await this.barrier.run(async () => {
-        this.store.completeTransfer(completion, revision, revisions);
+        this.store.completeTransfer(completion, revision, revisions, observation);
         if (!displaced) await removeStageDirectory(this.native, state);
         await this.#record(state, displaced ? "swapped" : "resolved");
       });
@@ -504,6 +528,9 @@ export class FilePublisher {
         throw failure;
       }
     });
+  }
+  checkpointTextCleanup(stage, bytes) {
+    return this.#track(() => checkpointTextCleanup(this, this.#stages.get(stage), bytes));
   }
   discard(stage) {
     return this.#track(() =>

@@ -78,13 +78,14 @@ export default function FileJobCard({ job, state, scopeId, client, onRetry }) {
             {copy.transfers.showResults}
           </button>
         )}
-        {["partially_completed", "interrupted", "cancelled", "failed"].includes(
-          job.status,
-        ) && (
-          <button className="button secondary compact" onClick={() => onRetry(job)}>
-            {copy.transfers.reviewRetry}
-          </button>
-        )}
+        {job.kind !== "text_save" &&
+          ["partially_completed", "interrupted", "cancelled", "failed"].includes(
+            job.status,
+          ) && (
+            <button className="button secondary compact" onClick={() => onRetry(job)}>
+              {copy.transfers.reviewRetry}
+            </button>
+          )}
       </div>
       {!metadata && page && (expanded || active || state.entries[job.id]?.complete) && (
         <>
