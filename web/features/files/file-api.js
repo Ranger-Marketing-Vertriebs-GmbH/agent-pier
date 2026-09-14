@@ -92,6 +92,7 @@ export function fileApi(scopeRef) {
   const base = scopedBase(scopeRef);
   return {
     base,
+    archiveDownload: (id) => urlFor(base, `/jobs/${encodeURIComponent(id)}/download`),
     async get(path, query = {}, signal) {
       const response = await checked(await fetch(urlFor(base, path, query), { signal }));
       return response.json();

@@ -220,9 +220,12 @@ export class FileJobs {
       )
         throw fileProblem("FILE_READ_ONLY", 403);
       controller.signal.throwIfAborted();
+      const prepared = await this.prepareJob?.(scope, job.id);
+      controller.signal.throwIfAborted();
       item.result = await handler({
         scope,
-        operation,
+        operation: prepared?.operation || operation,
+        retry: prepared?.retry,
         jobId: job.id,
         signal: controller.signal,
         report: (patch) => this.report(item, patch),

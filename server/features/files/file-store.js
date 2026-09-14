@@ -1,4 +1,5 @@
 import { FileArchiveStore } from "./file-archive-store.js";
+import { publicFileJob } from "./file-job-projection.js";
 import path from "node:path";
 import { completeExtract } from "./file-extract-store.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -63,22 +64,6 @@ function page(rows, scope, collection, field, project) {
       : null,
   };
 }
-function publicJob(row) {
-  const doc = JSON.parse(row.document);
-  return {
-    id: row.id,
-    kind: row.kind,
-    scopeId: row.scope_id,
-    status: row.status,
-    completedEntries: doc.completedEntries,
-    totalEntries: doc.totalEntries,
-    completedBytes: doc.completedBytes,
-    totalBytes: doc.totalBytes,
-    conflict: projectConflict(doc.conflict),
-    issue: doc.issue,
-  };
-}
-
 /** Synchronous private journal. Construction recovers before consumers can register work. */
 export class FileStore {
   constructor({ dataDir, now = Date.now, limits = readFileLimits() }) {
@@ -175,7 +160,7 @@ export class FileStore {
       .prepare("SELECT * FROM jobs WHERE scope_id=? AND id=?")
       .get(scope.id, id);
     if (!row) throw fileProblem("FILE_NOT_FOUND", 404);
-    return publicJob(row);
+    return publicFileJob(row, this);
   }
   listJobs(scope, cursor) {
     const after = cursorValue(cursor, scope, "jobs");
@@ -184,7 +169,7 @@ export class FileStore {
         "SELECT rowid AS sequence,* FROM jobs WHERE scope_id=? AND rowid>? ORDER BY rowid LIMIT 201",
       )
       .all(scope.id, after);
-    return page(rows, scope, "jobs", "jobs", publicJob);
+    return page(rows, scope, "jobs", "jobs", (row) => publicFileJob(row, this));
   }
   listUploadChildren(scope, id, cursor) {
     if (this.getJob(scope, id).kind !== "upload_group" || !this.uploads.group(id))
@@ -210,7 +195,7 @@ export class FileStore {
       .all(scope.id, id, after);
     return page(rows, scope, collection, "children", (row) => ({
       entryId: row.manifest_entry_id,
-      job: row.id ? publicJob(row) : null,
+      job: row.id ? publicFileJob(row, this) : null,
     }));
   }
   // Private recovery/transfer consumers only. Never return these records from HTTP.
@@ -221,6 +206,18 @@ export class FileStore {
   getDecision(id) {
     const row = this.db.prepare("SELECT document FROM jobs WHERE id=?").get(id);
     return row ? (JSON.parse(row.document).decision ?? null) : null;
+  }
+  jobDetails(id) {
+    const row = this.db.prepare("SELECT document FROM jobs WHERE id=?").get(id);
+    return row ? JSON.parse(row.document) : null;
+  }
+  // Private producer context in the existing job journal; never returned by HTTP.
+  setJobDetails(id, patch) {
+    const document = this.jobDetails(id);
+    if (!document) throw fileProblem("FILE_NOT_FOUND", 404);
+    this.db
+      .prepare("UPDATE jobs SET document=? WHERE id=?")
+      .run(JSON.stringify({ ...document, ...patch }), id);
   }
   putEntry(jobId, entry) {
     if (typeof entry.id !== "string" || !entry.id || entry.id.length > 256)
@@ -377,7 +374,7 @@ export class FileStore {
       .prepare("UPDATE jobs SET status=?,document=?,updated_at=? WHERE id=? AND status=?")
       .run(to, JSON.stringify(doc), this.now(), id, from);
     return result.changes
-      ? publicJob({ ...row, status: to, document: JSON.stringify(doc) })
+      ? publicFileJob({ ...row, status: to, document: JSON.stringify(doc) }, this)
       : null;
   }
   putPublication(record) {

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
+import { canExtract } from "./FileArchiveDialog.jsx";
 
 function size(value) {
   if (value === null) return "—";
@@ -149,18 +150,39 @@ export default function FileList({
           aria-label={copy.actions.menu(menuEntry.name)}
           className="file-context-menu"
         >
-          {["copy", "cut", "rename", "path", "trash"].map((kind) => (
+          {[
+            "copy",
+            "cut",
+            "rename",
+            "path",
+            "trash",
+            "archive",
+            "download_zip",
+            "extract_here",
+            "extract_to",
+          ].map((kind) => (
             <button
               key={kind}
               type="button"
               role="menuitem"
               disabled={
-                (readOnly && ["cut", "rename", "trash"].includes(kind)) ||
-                (kind === "rename" && selectedItems(menuEntry).length !== 1)
+                (readOnly &&
+                  [
+                    "cut",
+                    "rename",
+                    "trash",
+                    "archive",
+                    "extract_here",
+                    "extract_to",
+                  ].includes(kind)) ||
+                (kind === "rename" && selectedItems(menuEntry).length !== 1) ||
+                (kind.startsWith("extract_") && !canExtract(selectedItems(menuEntry)))
               }
               onClick={() => act(kind)}
             >
-              {kind === "path" ? copy.actions.copyPath : copy.actions[kind]}
+              {kind === "path"
+                ? copy.actions.copyPath
+                : copy.actions[kind] || copy.transfers.actions[kind]}
             </button>
           ))}
           <button role="menuitem" onClick={() => setMenu(null)}>

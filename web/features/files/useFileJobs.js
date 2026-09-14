@@ -10,6 +10,7 @@ export default function useFileJobs(client) {
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   return {
     ...state,
+    trackedIds: [...session.tracked.keys()],
     start: session.start,
     cancel: session.cancel,
     resolve: session.resolve,
@@ -21,5 +22,10 @@ export default function useFileJobs(client) {
     loadUploadGroup: session.uploads.load,
     uploadHistory: session.uploads.history,
     selectUploadGroup: session.uploads.select,
+    historyPage: session.uploads.history,
+    inspectResults: session.operations.inspect,
+    loadOmissions: session.operations.omissions,
+    retryPreview: session.operations.retryPreview,
+    retryJob: session.operations.retry,
   };
 }

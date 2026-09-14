@@ -165,7 +165,7 @@ export class FileTrash {
     )
       throw fileProblem("FILE_PROTECTED_PATH", 403);
   }
-  capture(scope, source, { jobId, reason = "deleted", signal } = {}) {
+  capture(scope, source, { jobId, reason = "deleted", signal, expectedSource } = {}) {
     return this.track(async () => {
       this.store.getJob(scope, jobId);
       if (!["deleted", "replaced"].includes(reason))
@@ -173,6 +173,12 @@ export class FileTrash {
       const selected = await resolveFile(scope, source, { followLeaf: false });
       assertFileMutationTarget(scope, selected);
       this.assertProtected(selected.absolute);
+      if (
+        expectedSource &&
+        (expectedSource.absolute !== selected.absolute ||
+          expectedSource.revision !== entryRevision(selected.stat, selected.linkIdentity))
+      )
+        throw fileProblem("FILE_RETRY_UNAVAILABLE", 409);
       const record = {
         id: randomUUID(),
         jobId,
@@ -184,10 +190,10 @@ export class FileTrash {
         reason,
         phase: "capturing",
       };
-      return this.captureSource(scope, source, record, signal);
+      return this.captureSource(scope, source, record, signal, expectedSource);
     });
   }
-  async captureSource(scope, source, record, signal) {
+  async captureSource(scope, source, record, signal, expectedSource) {
     const selected = await openTreeSource(scope, source, this.native);
     let stage;
     try {
@@ -195,6 +201,8 @@ export class FileTrash {
         limits: this.limits,
         signal,
       });
+      if (expectedSource && rows[0]?.revision !== expectedSource.contentRevision)
+        throw fileProblem("FILE_RETRY_UNAVAILABLE", 409);
       Object.assign(record, {
         type: rows[0].type,
         size: rows.reduce((sum, row) => sum + (row.type === "file" ? row.size : 0), 0),

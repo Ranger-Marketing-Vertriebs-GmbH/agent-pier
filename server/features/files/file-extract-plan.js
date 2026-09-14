@@ -27,22 +27,32 @@ export async function planExtraction(owner, context, source) {
     byGroup = new Map(),
     parents = new Map(),
     aliases = new Map();
-  const rows = source.rows.map((row, id) => ({
-    ...row,
-    id: String(id),
-    source: operation.sources[0],
-    status: "pending",
-    outputPublished: false,
-  }));
+  const retryTargets =
+    context.retry &&
+    new Map(context.retry.targets.map((row) => [row.relative, row.path]));
+  const rows = source.rows
+    .filter((row) => !retryTargets || retryTargets.has(row.relative))
+    .map((row, id) => ({
+      ...row,
+      id: String(id),
+      source: operation.sources[0],
+      status: "pending",
+      outputPublished: false,
+    }));
+  if (retryTargets && rows.length !== retryTargets.size)
+    throw fileProblem("FILE_RETRY_UNAVAILABLE", 409);
   rows.sort((a, b) => a.relative.split("/").length - b.relative.split("/").length);
   const wildcard = new Map();
   for (const row of rows) {
     signal.throwIfAborted();
     const parentName = path.posix.dirname(row.relative),
       parentNode = nodes.get(parentName);
-    const parent = parentNode?.selected || target;
-    row.effectiveName = path.posix.basename(row.relative);
-    row.path = appendExtractPath(parentNode?.path || target.path, row.effectiveName);
+    const retryPath = retryTargets?.get(row.relative);
+    const parent =
+      parentNode?.selected ||
+      (retryPath ? await resolveFile(scope, path.posix.dirname(retryPath)) : target);
+    row.effectiveName = path.posix.basename(retryPath || row.relative);
+    row.path = appendExtractPath(parentNode?.path || parent.path, row.effectiveName);
     if (parentNode?.status === "skipped") row.status = "skipped";
     else if (parentNode?.extractGroup) {
       row.extractGroup = parentNode.extractGroup;
@@ -141,7 +151,10 @@ export async function planExtraction(owner, context, source) {
       const { selected: _selected, ...stored } = row;
       owner.publisher.store.putEntry(context.jobId, stored);
     });
-  await context.report({ totalBytes: source.bytes, totalEntries: rows.length });
+  await context.report({
+    totalBytes: rows.reduce((sum, row) => sum + row.size, 0),
+    totalEntries: rows.length,
+  });
   return { rows, groups, parents, target };
 }
 

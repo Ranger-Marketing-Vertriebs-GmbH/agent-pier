@@ -53,6 +53,9 @@ export async function restoreSelection(trash, context) {
   const id = operation.sources[0];
   const record = trash.authorized(scope, id);
   const observed = await trash.observe(record);
+  const pin = context.retry?.pins.find((pin) => pin.trashId === id);
+  if (pin && pin.revision !== observed.revision)
+    throw fileProblem("FILE_RETRY_UNAVAILABLE", 409);
   if (observed.availability !== "recoverable")
     throw fileProblem("FILE_CONFLICT_CHANGED", 409);
   const current = await resolveFile(scope, operation.target, {

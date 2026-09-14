@@ -59,6 +59,10 @@ async function assertSourcePrecondition(owner, scope, source, revision) {
 
 export async function planCopies(owner, context) {
   const { scope, operation, signal } = context;
+  const retryPins =
+    context.retry && new Map(context.retry.pins.map((pin) => [pin.source, pin]));
+  const retryTargets =
+    context.retry && new Map(context.retry.targets.map((row) => [row.source, row.path]));
   const target = await resolveFile(scope, operation.target);
   if (!target.stat.isDirectory()) throw fileProblem("FILE_NOT_DIRECTORY", 400);
   owner.trash.assertProtected(target.absolute);
@@ -124,10 +128,17 @@ export async function planCopies(owner, context) {
       }
       entries += rows.length;
       bytes += rows.reduce((n, row) => n + (row.type === "file" ? row.size : 0), 0);
-      const destination = path.join(target.path, path.basename(item.selected.path));
+      const destination =
+        retryTargets?.get(item.source) ||
+        path.join(target.path, path.basename(item.selected.path));
       for (const row of rows) {
         row.id = randomUUID();
         row.source = path.join(item.selected.path, row.relativePath);
+        if (context.retry) {
+          const pin = retryPins.get(row.source);
+          if (!pin || pin.contentRevision !== row.revision)
+            throw fileProblem("FILE_RETRY_UNAVAILABLE", 409);
+        }
         row.path = path.join(destination, row.relativePath);
         row.status = "pending";
         row.outputPublished = false;

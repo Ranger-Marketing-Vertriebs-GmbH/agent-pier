@@ -1,7 +1,11 @@
 import { fileActionsCopy } from "./files-actions.js";
+import { fileTransfersCopy } from "./files-transfers.js";
 export const filesCopy = {
   actions: fileActionsCopy,
+  transfers: fileTransfersCopy,
   errors: {
+    FILE_RETRY_UNAVAILABLE:
+      "Diese Einträge können anhand der gespeicherten Nachweise nicht sicher wiederholt werden. Ergebnisse aktualisieren und Wiederherstellung oder geänderte Quellen prüfen, bevor eine neue Auswahl erstellt wird.",
     FILE_ARCHIVE_PATH_INVALID:
       "Das ZIP-Archiv enthält einen unsicheren oder widersprüchlichen Pfad.",
     FILE_ARCHIVE_INVALID:
@@ -100,6 +104,8 @@ export const filesCopy = {
   noResults: "Keine passenden Dateinamen gefunden.",
   operation: "Dateioperation",
   jobKinds: {
+    archive: "ZIP erstellen",
+    extract: "ZIP entpacken",
     upload: "Datei hochladen",
     upload_group: "Auswahl hochladen",
     search: "Dateinamensuche",

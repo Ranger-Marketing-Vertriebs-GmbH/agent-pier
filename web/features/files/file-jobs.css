@@ -1,0 +1,37 @@
+.file-job-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.file-job-card > p {
+  margin: 0.4rem 0;
+}
+.file-jobs > .file-job-list {
+  max-height: min(70vh, 48rem);
+}
+.file-job-card .file-action-buttons {
+  margin: 0.6rem 0;
+}
+.file-job-card .file-job-outcomes {
+  max-height: 24rem;
+  overflow: auto;
+}
+.file-action-dialog form,
+.file-action-dialog label {
+  min-width: 0;
+}
+.file-action-dialog label:not(:has(input[type="checkbox"])) {
+  display: grid;
+  gap: 0.4rem;
+}
+.file-action-dialog input:not([type="checkbox"]) {
+  width: 100%;
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  .file-job-heading {
+    align-items: flex-start;
+  }
+  .file-jobs .file-action-buttons {
+    flex-wrap: wrap;
+  }
+}

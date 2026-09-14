@@ -437,6 +437,9 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
           </nav>
           <FileUploads uploads={uploads} jobs={jobs} scope={actionScope} />
           <FileJobs
+            key={scopeId}
+            client={client}
+            scope={actionScope}
             state={jobs}
             scopeId={scopeId}
             searchId={searchResult?.client === client ? searchResult.id : null}

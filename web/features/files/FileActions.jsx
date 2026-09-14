@@ -4,6 +4,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
 import { operation, transferOperation, references, bytes } from "./file-action-utils.js";
 import "./file-actions.css";
+import FileArchiveDialog, { archiveActions, canExtract } from "./FileArchiveDialog.jsx";
 
 export default function FileActions({
   scope,
@@ -57,7 +58,12 @@ export default function FileActions({
   }, [dialog, validDialog]);
 
   const show = (kind, items = selected, extra = {}) => {
-    if (scope.readOnly && !["copy", "path"].includes(kind)) return;
+    if (
+      scope.readOnly &&
+      !["copy", "path", "download_zip", "download_folder"].includes(kind)
+    )
+      return;
+    if (kind.startsWith("extract_") && !canExtract(items)) return;
     setError(null);
     setFeedback(null);
     if (kind === "copy" || kind === "cut") {
@@ -93,8 +99,10 @@ export default function FileActions({
       setName(kind === "rename" ? items[0]?.name || "" : "");
       replaceDialog({
         kind,
-        items: references(items),
-        bindEntries: ["rename", "trash", "move"].includes(kind),
+        items: archiveActions.includes(kind)
+          ? items.map((item) => ({ ...item }))
+          : references(items),
+        bindEntries: ["rename", "trash", "move", ...archiveActions].includes(kind),
         signature: items === selected ? signature : null,
         ...extra,
       });
@@ -235,6 +243,20 @@ export default function FileActions({
         >
           {copy.actions.trash}
         </button>
+        {archiveActions.map((kind) => (
+          <button
+            key={kind}
+            className="button secondary compact"
+            disabled={
+              (scope.readOnly && !kind.startsWith("download_")) ||
+              (kind === "download_zip" && !selected.length) ||
+              (kind.startsWith("extract_") && !canExtract(selected))
+            }
+            onClick={() => show(kind, kind === "download_folder" ? [] : selected)}
+          >
+            {copy.transfers.actions[kind]}
+          </button>
+        ))}
         {selected.length > 0 && (
           <button className="button secondary compact" onClick={selection.clear}>
             {copy.actions.clearSelection}
@@ -255,7 +277,21 @@ export default function FileActions({
               : copy.actions.clipboardReady}
         </p>
       )}
-      {currentDialog && (
+      {currentDialog && archiveActions.includes(currentDialog.kind) && (
+        <FileArchiveDialog
+          key={currentDialog.kind}
+          selection={currentDialog.items}
+          folder={scope}
+          jobs={jobs}
+          kind={currentDialog.kind}
+          onClose={(started) => {
+            if (dialogOwner.current !== currentDialog) return;
+            replaceDialog(null);
+            if (started) onChanged();
+          }}
+        />
+      )}
+      {currentDialog && !archiveActions.includes(currentDialog.kind) && (
         <Modal
           className="file-action-dialog"
           title={titles[currentDialog.kind]}

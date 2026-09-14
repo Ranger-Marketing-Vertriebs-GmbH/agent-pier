@@ -184,8 +184,18 @@ export async function actionsFixture(page) {
         await state.onRead?.(job);
         return route.fulfill({ json: job });
       }
-      if (action === "entries" && method === "GET")
-        return route.fulfill({ json: { entries: state.rows.get(id), nextCursor: null } });
+      if (action === "entries" && method === "GET") {
+        const offset = Number(
+          url.searchParams.get("cursor")?.replace("entry-page-", "") || 0,
+        );
+        const rows = state.rows.get(id);
+        return route.fulfill({
+          json: {
+            entries: rows.slice(offset, offset + 200),
+            nextCursor: offset + 200 < rows.length ? `entry-page-${offset + 200}` : null,
+          },
+        });
+      }
       if (action === "cancel" && method === "POST") {
         job.status = "cancelled";
         job.conflict = null;

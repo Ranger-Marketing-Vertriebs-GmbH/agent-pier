@@ -1,5 +1,6 @@
 import { fileErrorMessage } from "../../lib/i18n/messages/files.js";
 import { UploadJobObserver } from "./file-upload-observer.js";
+import { FileJobObserver } from "./file-job-observer.js";
 
 function issue(code) {
   const error = new Error();
@@ -22,7 +23,14 @@ export class FileJobClient {
   constructor(client, timing = environment) {
     this.client = client;
     this.timing = timing;
-    this.state = { jobs: [], entries: {}, children: {}, history: null, error: null };
+    this.state = {
+      jobs: [],
+      entries: {},
+      children: {},
+      history: null,
+      uncertain: [],
+      error: null,
+    };
     this.listeners = new Set();
     this.tracked = new Map();
     this.sweeps = new Map();
@@ -31,6 +39,7 @@ export class FileJobClient {
     this.generation = 0;
     this.controllers = new Set();
     this.uploads = new UploadJobObserver(this);
+    this.operations = new FileJobObserver(this);
     this.subscribe = this.subscribe.bind(this);
     this.getSnapshot = () => this.state;
     this.start = (scopeId, operation) =>
@@ -60,7 +69,20 @@ export class FileJobClient {
         }
         const history = await this.client.get("/jobs", {}, signal);
         if (!owns()) return;
-        if (!Array.isArray(history.jobs)) throw issue("FILE_INVALID_RESPONSE");
+        if (!Array.isArray(history.jobs) || history.jobs.length > 200)
+          throw issue("FILE_INVALID_RESPONSE");
+        for (const job of history.jobs) {
+          this.invalidateManifest(job);
+          if (
+            !["upload", "upload_group", "create_directory", "search", "size"].includes(
+              job.kind,
+            ) &&
+            ["queued", "running", "waiting_for_conflict", "cancelling"].includes(
+              job.status,
+            )
+          )
+            this.tracked.set(job.id, job);
+        }
         this.update({
           ...(!this.state.history ? { history: { ...history, cursor: null } } : {}),
           jobs: [
@@ -195,6 +217,7 @@ export class FileJobClient {
     return result;
   }
   accept(job, track = false) {
+    this.invalidateManifest(job);
     if (track || this.tracked.has(job.id)) this.tracked.set(job.id, job);
     this.update({
       jobs: [
@@ -202,11 +225,54 @@ export class FileJobClient {
       ],
     });
   }
+  invalidateManifest(job) {
+    const version = job.manifestVersion || job.conflict?.manifestVersion;
+    const prior = this.state.entries[job.id]?.manifestVersion;
+    if (job.kind !== "archive" || !version || !prior || version === prior) return;
+    this.sweeps.delete(job.id);
+    this.update({
+      entries: {
+        ...this.state.entries,
+        [job.id]: {
+          entries: [],
+          manifestVersion: version,
+          nextCursor: null,
+          complete: false,
+        },
+      },
+    });
+  }
   action(suffix, scopeId, body, track = false) {
     return this.enqueue(async (signal, owns) => {
-      const job = await this.client.mutate(suffix, { scopeId, body, signal });
+      const preserve =
+        suffix === "/operations" && ["archive", "extract"].includes(body.kind);
+      const forget = () =>
+        this.update({
+          uncertain: this.state.uncertain.filter(
+            (item) => item.body.requestId !== body.requestId,
+          ),
+        });
+      let job;
+      try {
+        job = await this.client.mutate(suffix, { scopeId, body, signal });
+      } catch (error) {
+        if (owns() && preserve) {
+          if (!error.status || error.status >= 500)
+            this.update({
+              uncertain: [
+                ...this.state.uncertain.filter(
+                  (item) => item.body.requestId !== body.requestId,
+                ),
+                { scopeId, body: structuredClone(body) },
+              ],
+            });
+          else forget();
+        }
+        throw error;
+      }
       if (!owns()) return;
       if (job.scopeId !== scopeId) throw issue("FILE_INVALID_SCOPE");
+      if (preserve) forget();
       this.accept(job, track);
       return job;
     });
@@ -214,16 +280,36 @@ export class FileJobClient {
   async readEntries(id, cursor, signal, owns, sweep = false) {
     const prior = this.state.entries[id];
     if (!sweep) cursor ??= prior?.tailCursor;
-    const page = await this.client.get(
-      `/jobs/${encodeURIComponent(id)}/entries`,
-      { cursor },
-      signal,
-    );
+    const page = await this.client
+      .get(`/jobs/${encodeURIComponent(id)}/entries`, { cursor }, signal)
+      .catch((error) => {
+        if (
+          error.code === "FILE_INVALID_CURSOR" &&
+          this.state.jobs.some((job) => job.id === id && job.kind === "archive")
+        )
+          this.sweeps.delete(id);
+        throw error;
+      });
     if (!owns()) return;
-    if (!Array.isArray(page.entries)) throw issue("FILE_INVALID_RESPONSE");
+    if (!Array.isArray(page.entries) || page.entries.length > 200)
+      throw issue("FILE_INVALID_RESPONSE");
+    const manifestVersion = page.entries[0]?.manifestVersion;
+    if (page.entries.some((row) => row.manifestVersion !== manifestVersion))
+      throw issue("FILE_INVALID_RESPONSE");
+    if (
+      manifestVersion &&
+      prior?.manifestVersion &&
+      manifestVersion !== prior.manifestVersion &&
+      cursor
+    )
+      throw issue("FILE_CONFLICT_CHANGED");
+    const previousEntries =
+      manifestVersion && manifestVersion !== prior?.manifestVersion
+        ? []
+        : prior?.entries || [];
     const entries = [
       ...new Map(
-        [...(prior?.entries || []), ...page.entries].map((entry) => [entry.id, entry]),
+        [...previousEntries, ...page.entries].map((entry) => [entry.id, entry]),
       ).values(),
     ];
     this.update({
@@ -231,6 +317,7 @@ export class FileJobClient {
         ...this.state.entries,
         [id]: {
           ...prior,
+          manifestVersion,
           entries,
           nextCursor: page.nextCursor,
           tailCursor: cursor ?? null,

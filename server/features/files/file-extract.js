@@ -6,6 +6,8 @@ import { planExtraction, assertExtractParent } from "./file-extract-plan.js";
 import { proveExtractParents, revalidateExtractPolicy } from "./file-extract-probes.js";
 import { prepareExtractGroup, decodeExtractEntry } from "./file-extract-payload.js";
 import { discardExtractStage } from "./file-extract-stage.js";
+import { entryRevision } from "./file-paths.js";
+import { retryUnavailable } from "./file-retry-plan.js";
 
 export class FileExtracts extends FileMutations {
   constructor(options) {
@@ -22,6 +24,28 @@ export class FileExtracts extends FileMutations {
         context.operation.sources[0],
         context.signal,
         this.limits,
+      );
+      const sourceRevision = entryRevision(
+        source.selected.stat,
+        source.selected.linkIdentity,
+      );
+      const pin = context.retry?.pins.find(
+        (pin) => pin.source === context.operation.sources[0],
+      );
+      if (
+        pin &&
+        (pin.revision !== sourceRevision || pin.absolute !== source.selected.absolute)
+      )
+        throw retryUnavailable();
+      // Input observation is private retry authority. Public row revisions describe outputs.
+      await this.publisher.barrier.run(() =>
+        this.publisher.store.setJobDetails(context.jobId, {
+          extractSource: {
+            revision: sourceRevision,
+            absolute: source.selected.absolute,
+            linkIdentity: source.selected.linkIdentity,
+          },
+        }),
       );
       plan = await planExtraction(this, context, source);
       // Resolve every effective name/parent before proving any sibling namespace.

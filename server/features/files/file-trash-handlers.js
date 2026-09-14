@@ -98,6 +98,7 @@ export function registerTrashHandlers(handlers, trash) {
                 jobId,
                 reason: "deleted",
                 signal,
+                expectedSource: context.retry?.pins.find((pin) => pin.source === source),
               });
               const record = trash.authorized(scope, id);
               await save(row, { type: record.type, size: record.size });

@@ -33,6 +33,24 @@ function register(router, prefix, files) {
     }),
   );
   router.get(
+    `${prefix}/jobs/:jobId/retry`,
+    fileHandler(async (req, res) => {
+      res.json(
+        await files.retries.preview(await scope(req), req.params.jobId, req.query.cursor),
+      );
+    }),
+  );
+  router.post(
+    `${prefix}/jobs/:jobId/retry`,
+    fileHandler(async (req, res) => {
+      const current = await scope(req);
+      openedScope(req, current);
+      res
+        .status(202)
+        .json(await files.retries.start(current, req.params.jobId, req.body));
+    }),
+  );
+  router.get(
     `${prefix}/trash`,
     fileHandler(async (req, res) => {
       res.json(await files.trash.list(await scope(req), req.query.cursor));

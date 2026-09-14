@@ -20,11 +20,12 @@ export default function FileJobOutcomes({ job, rows }) {
               <h4>
                 {title} ({entries.length})
               </h4>
-              <ul>
+              <ul tabIndex={0} aria-label={title}>
                 {entries.slice(0, limit).map((entry) => (
                   <li key={entry.id}>
                     <span>
-                      {entry.source || entry.path} → {entry.path}
+                      {entry.source || entry.path} →{" "}
+                      {job.kind === "archive" ? entry.name || entry.path : entry.path}
                     </span>
                     {" · "}
                     <span
@@ -41,7 +42,7 @@ export default function FileJobOutcomes({ job, rows }) {
                           : job.kind === "restore" && completed(entry)
                             ? copy.actions.restored
                             : copy.actions.outcomes[entry.status] ||
-                              copy.actions.outcomes.uncertain}
+                              copy.transfers.outcomeUnknown}
                     </span>
                     {entry.issue && <p>{fileErrorMessage(entry.issue.code, 500)}</p>}
                   </li>

@@ -18,6 +18,14 @@ export async function archiveManifest(owner, context) {
         followLeaf: false,
       }),
     });
+    const pin = context.retry?.pins.find((pin) => pin.source === source);
+    const entry = selected.at(-1).entry;
+    if (
+      pin &&
+      (pin.revision !== entryRevision(entry.stat, entry.linkIdentity) ||
+        pin.absolute !== entry.absolute)
+    )
+      throw fileProblem("FILE_RETRY_UNAVAILABLE", 409);
   }
   const unique = new Map();
   for (const item of selected)

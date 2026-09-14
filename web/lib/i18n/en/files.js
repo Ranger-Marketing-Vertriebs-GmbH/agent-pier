@@ -1,7 +1,11 @@
 import { fileActionsCopy } from "./files-actions.js";
+import { fileTransfersCopy } from "./files-transfers.js";
 export const filesCopy = {
   actions: fileActionsCopy,
+  transfers: fileTransfersCopy,
   errors: {
+    FILE_RETRY_UNAVAILABLE:
+      "These entries cannot be safely retried from the retained evidence. Refresh the results and review recovery or changed sources before making a new selection.",
     FILE_ARCHIVE_PATH_INVALID: "The ZIP archive contains an unsafe or conflicting path.",
     FILE_ARCHIVE_INVALID:
       "The ZIP archive is damaged, encrypted, or contains unsupported entries.",
@@ -91,6 +95,8 @@ export const filesCopy = {
   noResults: "No matching filenames found.",
   operation: "File operation",
   jobKinds: {
+    archive: "Create ZIP",
+    extract: "Extract ZIP",
     upload: "Upload file",
     upload_group: "Upload selection",
     search: "Filename search",

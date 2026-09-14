@@ -16,6 +16,7 @@ import {
 } from "../features/files/file-search.js";
 import { FileStore } from "../features/files/file-store.js";
 import { FileJobs } from "../features/files/file-jobs.js";
+import { FileJobRetries } from "../features/files/file-job-retries.js";
 import { FileUploads } from "../features/files/file-uploads.js";
 import { PathLocks } from "../features/files/file-locks.js";
 import {
@@ -117,6 +118,8 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
   uploads = new FileUploads({ jobs, store, publisher, trash, limits });
   archives = new FileArchives({ jobs, store, publisher, trash, limits });
   registerArchiveHandlers(handlers, archives);
+  const retries = new FileJobRetries({ jobs, store, trash });
+  jobs.prepareJob = (scope, id) => retries.prepare(scope, id);
 
   return {
     store,
@@ -127,6 +130,7 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
     ready,
     handlers,
     jobs,
+    retries,
     uploads,
     archives,
     extracts,

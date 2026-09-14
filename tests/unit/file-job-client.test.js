@@ -10,6 +10,110 @@ const job = (id, extra = {}) => ({
   status: "running",
   ...extra,
 });
+
+test("a complete omission review stays on the shared queue and is fenced by its client generation", async () => {
+  const gate = Promise.withResolvers(),
+    conflict = { id: "consent", type: "archive_links", manifestVersion: "v1" };
+  let reads = 0,
+    mutations = 0;
+  const f = fixture({
+    async get(suffix, query) {
+      if (suffix === "/jobs") return { jobs: [], nextCursor: null };
+      if (!suffix.endsWith("/entries"))
+        return job("archive", {
+          kind: "archive",
+          status: "waiting_for_conflict",
+          conflict,
+        });
+      if (++reads === 1) await gate.promise;
+      return {
+        entries: [
+          {
+            id: query.cursor ? "last" : "first",
+            path: "link",
+            type: "symlink",
+            status: "skipped",
+            manifestVersion: "v1",
+          },
+        ],
+        nextCursor: query.cursor ? null : "page-two",
+      };
+    },
+    async mutate() {
+      mutations++;
+      return job("new");
+    },
+  });
+  await tick();
+  const review = f.session.operations.omissions(
+    "scope",
+    job("archive", { kind: "archive", conflict }),
+    50000,
+  );
+  const cancelled = assert.rejects(review, { name: "AbortError" });
+  await tick();
+  const action = f.session.start("scope", { kind: "search" });
+  const actionCancelled = assert.rejects(action, { name: "AbortError" });
+  await tick();
+  assert.equal(mutations, 0);
+  f.unsubscribe();
+  gate.resolve();
+  await cancelled;
+  await actionCancelled;
+  assert.equal(reads, 1);
+  assert.equal(f.session.state.jobs.length, 0);
+});
+
+test("archive manifest replacement clears old same-ID rows and rejects continuation from another generation", async () => {
+  let page = {
+    entries: [
+      { id: "0", manifestVersion: "v1", path: "old" },
+      { id: "1", manifestVersion: "v1", path: "removed" },
+    ],
+    nextCursor: "next",
+  };
+  const f = fixture({
+    get: async (suffix) => (suffix === "/jobs" ? { jobs: [], nextCursor: null } : page),
+  });
+  await tick();
+  await f.session.refresh({ jobId: "archive", first: true });
+  page = { entries: [{ id: "0", manifestVersion: "v2", path: "new" }], nextCursor: null };
+  await assert.rejects(f.session.refresh({ jobId: "archive", cursor: "next" }), {
+    code: "FILE_CONFLICT_CHANGED",
+  });
+  await f.session.refresh({ jobId: "archive", first: true });
+  assert.deepEqual(
+    f.session.state.entries.archive.entries.map((row) => row.path),
+    ["new"],
+  );
+  f.unsubscribe();
+});
+
+test("ambiguous archive requests retain their immutable identity until an explicit confirmed replay", async () => {
+  const bodies = [];
+  const f = fixture({
+    get: async () => ({ jobs: [], nextCursor: null }),
+    async mutate(_, { body }) {
+      bodies.push(structuredClone(body));
+      if (bodies.length === 1) throw new TypeError("Network lost");
+      return job("archive", { kind: "archive" });
+    },
+  });
+  await tick();
+  await assert.rejects(
+    f.session.start("scope", {
+      requestId: "original",
+      kind: "archive",
+      options: { output: "download" },
+    }),
+  );
+  const [uncertain] = f.session.state.uncertain;
+  assert.equal(uncertain.body.requestId, "original");
+  await f.session.start("scope", uncertain.body);
+  assert.deepEqual(bodies[1], bodies[0]);
+  assert.deepEqual(f.session.state.uncertain, []);
+  f.unsubscribe();
+});
 function fixture(client) {
   let hidden = false,
     visibility;
