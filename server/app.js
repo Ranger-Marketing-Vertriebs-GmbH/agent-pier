@@ -49,6 +49,11 @@ import { chatRoutes } from "./http/routes/chat.js";
 import { modelsRoutes } from "./http/routes/models.js";
 import { toolsRoutes } from "./http/routes/tools.js";
 import { agentbusRoutes } from "./http/routes/agentbus.js";
+import {
+  detectNetworkAddresses,
+  allowedNetworkHosts,
+  networkUrls,
+} from "./features/remote/network-access.js";
 
 export async function createApplication(config) {
   const app = express();
@@ -75,10 +80,26 @@ export async function createApplication(config) {
   services.events.current = services.operationsEvents;
   await services.operationsEvents.poll();
   const instanceId = randomUUID();
-  const effective = () => ({
-    ...config,
-    port: server.address()?.port || config.port,
-  });
+  const network = config.network || { enabled: false, bind: "0.0.0.0", hosts: [] };
+  const detected = detectNetworkAddresses();
+  // Computed once per process; configuration changes apply after a restart.
+  services.networkState = {
+    bind: network.enabled ? network.bind : "127.0.0.1",
+    detected,
+    hosts: new Set(),
+    urls: [],
+  };
+  const effective = () => {
+    const port = server.address()?.port || config.port;
+    if (network.enabled && !services.networkState.hosts.size && server.address()) {
+      services.networkState.hosts = allowedNetworkHosts(network, port, detected);
+      services.networkState.urls = networkUrls(network, port, detected);
+    }
+    return { ...config, port, network, networkHosts: services.networkState.hosts };
+  };
+  server.once("listening", effective);
+  services.effectiveConfig = effective;
+  services.instanceId = instanceId;
   Object.assign(services, createMcpServices(services, effective));
   services.sessionMcp = new SessionMcp(services);
   await services.sessionMcp.ready;

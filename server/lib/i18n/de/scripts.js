@@ -21,6 +21,8 @@ export const scripts = Object.freeze({
   remoteAccessConfigured: (remoteUrl) =>
     `Fernzugriff eingerichtet: ${remoteUrl}\nNur das eigene Tailscale-Konto erhält Zugriff. Dienst mit npm run service:install neu laden.`,
   serverListening: (port) => `AgentPier läuft auf http://127.0.0.1:${port}`,
+  serverListeningNetwork: (urls) =>
+    `Netzwerkzugriff aktiv ohne TLS. Erreichbar unter:\n${urls.map((url) => `  ${url}`).join("\n")}`,
   serviceFileMustBeRegular: "Die Dienstdatei darf kein Symlink oder Verzeichnis sein.",
   absoluteXdgConfigRequired: "XDG_CONFIG_HOME muss ein absoluter Pfad sein.",
   invalidServerPort: "AGENTPIER_PORT muss zwischen 1024 und 65535 liegen.",

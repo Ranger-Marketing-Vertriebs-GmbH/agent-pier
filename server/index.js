@@ -6,9 +6,14 @@ const config = loadConfig();
 if (!Number.isInteger(config.port) || config.port < 1024 || config.port > 65535)
   throw new Error(serverMessages.scripts.invalidServerPort);
 const application = await createApplication(config);
-application.server.listen(config.port, "127.0.0.1", () =>
-  console.log(serverMessages.scripts.serverListening(config.port)),
-);
+const bind = config.network.enabled ? config.network.bind : "127.0.0.1";
+application.server.listen(config.port, bind, () => {
+  console.log(serverMessages.scripts.serverListening(config.port));
+  if (config.network.enabled)
+    console.log(
+      serverMessages.scripts.serverListeningNetwork(application.networkState.urls),
+    );
+});
 let stopping = false;
 async function stop() {
   if (stopping) return;
