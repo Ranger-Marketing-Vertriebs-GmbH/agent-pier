@@ -54,8 +54,8 @@ async function fixture(t, network = { enabled: false, bind: "0.0.0.0", hosts: []
     ownerLogin: "owner@example.com",
     devOrigins: [],
     network,
-    remoteRestart: async () => restarts.push(Date.now()),
   });
+  application.restartService = async () => restarts.push(Date.now());
   await new Promise((resolve) => application.server.listen(0, "127.0.0.1", resolve));
   const port = application.server.address().port;
   const base = `http://127.0.0.1:${port}`;
@@ -111,6 +111,20 @@ test("remote settings read, validate, save and flag the restart", async (t) => {
   assert.equal(events.length, 1);
   assert.equal(events[0].resourceId, "network-access");
   assert.equal(events[0].source, "user");
+  assert.deepEqual(events[0].details, { enabled: true, bind: "0.0.0.0", count: 1 });
+});
+test("a body without a network block and unknown keys inside it are rejected", async (t) => {
+  const f = await fixture(t);
+  assert.equal((await f.request("PUT", "/api/remote", {})).status, 400);
+  assert.equal((await f.request("PUT", "/api/remote", { other: 1 })).status, 400);
+  assert.equal(
+    (
+      await f.request("PUT", "/api/remote", {
+        network: { enabled: true, bind: "0.0.0.0", hosts: [], extra: true },
+      })
+    ).status,
+    400,
+  );
 });
 test("restart responds first and then calls the service adapter", async (t) => {
   const f = await fixture(t);
@@ -118,6 +132,9 @@ test("restart responds first and then calls the service adapter", async (t) => {
   assert.equal(response.status, 202);
   assert.equal((await response.json()).restarting, true);
   assert.equal(f.restarts.length, 0);
+  const events = f.application.audit.list({ action: "setting.updated" }).events;
+  assert.equal(events.length, 1);
+  assert.equal(events[0].resourceId, "service-restart");
   await new Promise((resolve) => setTimeout(resolve, 500));
   assert.equal(f.restarts.length, 1);
 });

@@ -162,12 +162,7 @@ export async function createApplication(config) {
   mount(auditRoutes(services));
   mount(requestsRoutes(services));
   mount(notificationsRoutes(services));
-  mount(
-    remoteRoutes(
-      services,
-      typeof config.remoteRestart === "function" ? { restart: config.remoteRestart } : {},
-    ),
-  );
+  mount(remoteRoutes(services));
   app.use("/api", operationsRoutes(services));
   app.get("/api/health", (_req, res) =>
     res.json({
@@ -190,10 +185,10 @@ export async function createApplication(config) {
     effective,
   });
   services.chatWss = chatWss;
-  return {
-    ...services,
+  // Returning the services object itself keeps test seams such as restartService writable.
+  return Object.assign(services, {
     app,
     server,
     close: createShutdown({ services, wss, server }),
-  };
+  });
 }

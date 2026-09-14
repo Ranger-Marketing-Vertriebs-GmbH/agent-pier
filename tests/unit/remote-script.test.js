@@ -120,6 +120,15 @@ test("an invalid --bind value is rejected, writes nothing and records a failed a
   assert.equal(audit.list({ action: "setting.failed" }).events.length, 1);
   audit.close();
 });
+test("the audit row records the mode, the bind and the host count", async (t) => {
+  const f = fixture(t);
+  await f.run(["enable", "--bind", "::", "--host", "a.example", "--accept-plain-http"]);
+  const audit = new AuditStore({ dataDir: f.dataDir });
+  const events = audit.list({ action: "setting.updated" }).events;
+  audit.close();
+  assert.equal(events.length, 1);
+  assert.deepEqual(events[0].details, { enabled: true, bind: "::", count: 1 });
+});
 test("hosts --remove reports names that are not in the list and leaves it unchanged", async (t) => {
   const f = fixture(t);
   await f.run(["enable", "--host", "a.example", "--accept-plain-http"]);

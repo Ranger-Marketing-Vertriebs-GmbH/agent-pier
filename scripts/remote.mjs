@@ -48,7 +48,7 @@ export function parseRemoteArguments(argv) {
   }
   return result;
 }
-function recordAudit(dataDir, outcome) {
+function recordAudit(dataDir, outcome, network) {
   let audit;
   try {
     audit = new AuditStore({ dataDir });
@@ -59,6 +59,11 @@ function recordAudit(dataDir, outcome) {
       outcome,
       // The audit vocabulary allows only user, system and mcp: the headless script is "system".
       source: "system",
+      details: {
+        enabled: network.enabled,
+        bind: network.bind,
+        count: network.hosts?.length,
+      },
     });
   } catch {
     console.error(serverMessages.scripts.remoteAuditFailed);
@@ -128,10 +133,10 @@ export async function runRemote({
   try {
     writeNetworkConfig(dataDir, network);
   } catch (error) {
-    recordAudit(dataDir, "failure");
+    recordAudit(dataDir, "failure", network);
     throw error;
   }
-  recordAudit(dataDir, "success");
+  recordAudit(dataDir, "success", network);
   print(readNetworkConfig(dataDir).network);
   if (!options.restart) {
     log(serverMessages.scripts.remoteRestartSkipped);

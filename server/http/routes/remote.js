@@ -15,7 +15,7 @@ export function remoteLocked(req) {
   return req.trustBranch === "network";
 }
 
-export function remoteRoutes(services, { restart = restartService } = {}) {
+export function remoteRoutes(services) {
   const { config, audit, networkState } = services;
   const effective = services.effectiveConfig;
   const router = Router();
@@ -38,7 +38,9 @@ export function remoteRoutes(services, { restart = restartService } = {}) {
   router.get("/remote", (req, res) => res.json(view(req, effective())));
   router.put("/remote", (req, res) => {
     const current = effective();
-    const network = normalizeNetworkConfig(req.body?.network);
+    if (req.body?.network === undefined || req.body?.network === null)
+      throw problem(serverMessages.settings.invalidNetworkConfig);
+    const network = normalizeNetworkConfig(req.body.network);
     const saved = readNetworkConfig(config.dataDir).network;
     if (remoteLocked(req) && !isDeepStrictEqual(network, { ...saved, enabled: false }))
       throw problem(serverMessages.settings.networkLocked, 403);
@@ -50,23 +52,35 @@ export function remoteRoutes(services, { restart = restartService } = {}) {
       outcome: "success",
       // The audit vocabulary allows only user, system and mcp: settings changes are "user".
       source: "user",
-      details: { count: network.hosts.length },
+      details: {
+        enabled: network.enabled,
+        bind: network.bind,
+        count: network.hosts.length,
+      },
     });
     res.json(view(req, current));
   });
-  router.post("/remote/restart", (req, res) => {
+  router.post("/remote/restart", (_req, res) => {
+    audit?.append({
+      action: "setting.updated",
+      resourceType: "setting",
+      resourceId: "service-restart",
+      outcome: "success",
+      source: "user",
+    });
     res.status(202).json({ restarting: true, instanceId: services.instanceId });
     res.once("finish", () =>
       setTimeout(async () => {
         try {
-          await restart();
+          // Read at call time so a test can replace the adapter after the application exists.
+          await (services.restartService || restartService)();
         } catch (error) {
           // Warning codes are short identifiers like the existing "event-storage".
           services.operationalWarnings.add("service-restart");
           audit?.append({
             action: "setting.failed",
             resourceType: "setting",
-            resourceId: "network-access",
+            resourceId: "service-restart",
             outcome: "failure",
             source: "user",
           });
