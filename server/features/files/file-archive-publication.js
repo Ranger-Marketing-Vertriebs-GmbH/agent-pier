@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileProblem } from "./file-errors.js";
 import { entryRevision } from "./file-paths.js";
+import { archiveValidationMatches } from "./file-archive-store.js";
 import {
   openParent,
   closeHandles,
@@ -21,8 +22,8 @@ export async function checkpointArchive(
     throw fileProblem("FILE_INVALID_OPERATION", 400);
   let final;
   if (proof) {
+    if (typeof validate !== "function") throw fileProblem("FILE_INVALID_OPERATION", 400);
     state.archiveSignal = signal;
-    state.archiveValidate = validate;
     signal?.throwIfAborted();
     await state.handle.sealWrites();
     await state.handle.sync();
@@ -42,15 +43,30 @@ export async function checkpointArchive(
       });
       throw fileProblem("FILE_CONFLICT_CHANGED", 409);
     }
+    // Recovery may accept only a completed source/authority observation, never
+    // ZIP bytes alone. This traversal stays outside the physical mutation lease.
+    await validate();
+    signal?.throwIfAborted();
     final = proof;
   }
   const stat = await state.handle.stat();
   if (inodeIdentity(stat) !== state.document.stagedIdentity || stat.type !== "file")
     throw fileProblem("FILE_CONFLICT_CHANGED", 409);
   await publisher.barrier.run(() => {
+    signal?.throwIfAborted();
     Object.assign(state.document, {
       archivePartialRevision: entryRevision(stat),
-      ...(final ? { archiveProof: final } : {}),
+      ...(final
+        ? {
+            archiveProof: final,
+            archiveValidated: {
+              version: 1,
+              hash: final.hash,
+              bytes: final.bytes,
+              binding: { ...state.document.archive },
+            },
+          }
+        : {}),
     });
     publisher.store.putPublication({
       id: state.id,
@@ -63,7 +79,7 @@ export async function checkpointArchive(
 export async function openArchiveArtifact(native, record, signal) {
   const doc = record.document;
   if (
-    !doc.archive ||
+    !archiveValidationMatches(doc) ||
     doc.archive.mode !== "download" ||
     doc.archiveChanged ||
     !doc.archiveProof ||
@@ -184,7 +200,7 @@ export async function recoverArchiveArtifact({ store, native, record, write }) {
   let opened;
   try {
     const job = store.getJob(record.document.scope, record.jobId);
-    if (["cancelled", "failed"].includes(job.status)) return;
+    if (["cancelled", "cancelling", "failed"].includes(job.status)) return;
     opened = await openArchiveArtifact(native, record);
     await write(() => {
       store.archives.complete(record);
@@ -198,6 +214,8 @@ export async function recoverArchiveArtifact({ store, native, record, write }) {
   }
 }
 export async function archiveSnapshot(publisher, state) {
+  if (!archiveValidationMatches(state.document))
+    throw fileProblem("FILE_ARCHIVE_PENDING", 409);
   const snapshot = await publicationSnapshot(state.handle, null, {
     signal: state.archiveSignal,
   });
@@ -214,7 +232,6 @@ export async function archiveSnapshot(publisher, state) {
     });
     throw fileProblem("FILE_CONFLICT_CHANGED", 409);
   }
-  await state.archiveValidate?.();
   return snapshot;
 }
 export async function finishArchiveArtifact(publisher, state, { signal, validate }) {

@@ -83,11 +83,16 @@ export async function archiveManifest(owner, context) {
           owner.limits,
         );
         const omitted = !["file", "directory"].includes(row.type);
+        // The validated member components may be appended, but normalizing the
+        // selected prefix would change native global symlink/.. semantics.
+        const sourcePath = row.relativePath
+          ? `${entry.path}${entry.path && !entry.path.endsWith("/") ? "/" : ""}${row.relativePath}`
+          : entry.path;
         rows.push({
           ...row,
           id: String(rows.length),
-          source: path.join(entry.path, row.relativePath),
-          path: path.join(entry.path, row.relativePath),
+          source: sourcePath,
+          path: sourcePath,
           name: memberName,
           memberName,
           rootSource: source,

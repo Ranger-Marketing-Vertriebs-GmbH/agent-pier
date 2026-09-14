@@ -1,6 +1,18 @@
 import path from "node:path";
 import { fileProblem } from "./file-errors.js";
 
+export function archiveValidationMatches(document) {
+  const validation = document?.archiveValidated;
+  return Boolean(
+    validation?.version === 1 &&
+    document.archive &&
+    document.archiveProof &&
+    validation.hash === document.archiveProof.hash &&
+    validation.bytes === document.archiveProof.bytes &&
+    JSON.stringify(validation.binding) === JSON.stringify(document.archive),
+  );
+}
+
 export class FileArchiveStore {
   constructor(store) {
     this.store = store;
@@ -99,7 +111,6 @@ export class FileArchiveStore {
     const doc = record.document,
       binding = doc.archive,
       archive = this.get(record.jobId);
-    if (doc.archiveCompleted) return;
     if (
       !archive ||
       !binding ||
@@ -110,6 +121,7 @@ export class FileArchiveStore {
       binding.target !== archive.target ||
       binding.manifestVersion !== archive.manifestVersion ||
       binding.consent !== (archive.consent || null) ||
+      !archiveValidationMatches(doc) ||
       !doc.archiveProof ||
       doc.archiveChanged ||
       !/^[a-f0-9]{64}$/.test(doc.archiveProof.hash) ||
@@ -118,7 +130,13 @@ export class FileArchiveStore {
       doc.archiveProof.bytes > archive.outputLimit
     )
       throw fileProblem("FILE_ARCHIVE_PENDING", 409);
-    this.store.getJob(archive.scope, record.jobId);
+    const job = this.store.getJob(archive.scope, record.jobId);
+    if (
+      ["cancelled", "cancelling"].includes(job.status) ||
+      (archive.mode === "download" && job.status === "failed")
+    )
+      throw fileProblem("FILE_ARCHIVE_PENDING", 409);
+    if (doc.archiveCompleted) return;
     const document = { ...doc, archiveCompleted: true };
     this.transaction(() => {
       archive.published = true;
@@ -142,7 +160,10 @@ export class FileArchiveStore {
     const archive = this.get(id);
     if (!archive?.published) return false;
     const record = this.store.getPublication(archive.publicationId);
-    if (record?.phase !== (archive.mode === "download" ? "artifact" : "resolved"))
+    if (
+      !archiveValidationMatches(record?.document) ||
+      record?.phase !== (archive.mode === "download" ? "artifact" : "resolved")
+    )
       return false;
     const job = this.store.getJob(archive.scope, id);
     if (

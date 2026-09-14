@@ -4,7 +4,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { uploadFixture } from "../helpers/file-uploads.js";
 import { archiveOperation, artifactBytes, zipEntries } from "../helpers/file-archives.js";
-import { archiveManifest } from "../../server/features/files/file-archive-plan.js";
+import {
+  archiveManifest,
+  assertArchiveManifest,
+} from "../../server/features/files/file-archive-plan.js";
 import { writeArchive } from "../../server/features/files/file-archive-stream.js";
 
 async function staged(f) {
@@ -32,7 +35,14 @@ async function staged(f) {
     jobId: job.id,
     archive: true,
   });
-  return { source, operation, job, context, plan, stage };
+  const validation = {
+    signal: context.signal,
+    validate: async () => {
+      await assertArchiveManifest(f.archives, context, plan);
+      await f.archives.fresh(f.scope, "download");
+    },
+  };
+  return { source, operation, job, context, plan, stage, validation };
 }
 
 for (const phase of ["proof", "completion"])
@@ -40,7 +50,7 @@ for (const phase of ["proof", "completion"])
     const f = await uploadFixture(t),
       s = await staged(f);
     const proof = await writeArchive(f.archives, s.context, s.plan, s.stage);
-    await f.publisher.checkpointArchive(s.stage, proof);
+    await f.publisher.checkpointArchive(s.stage, proof, s.validation);
     const record = f.store.getPublication(f.store.archives.get(s.job.id).publicationId);
     if (phase === "completion") f.store.archives.complete(record);
     const before = await fs.stat(record.document.staged);
@@ -62,7 +72,8 @@ for (const state of ["partial", "failed", "cancelled", "tampered"])
     const f = await uploadFixture(t),
       s = await staged(f);
     const proof = await writeArchive(f.archives, s.context, s.plan, s.stage);
-    if (state !== "partial") await f.publisher.checkpointArchive(s.stage, proof);
+    if (state !== "partial")
+      await f.publisher.checkpointArchive(s.stage, proof, s.validation);
     const record = f.store.getPublication(f.store.archives.get(s.job.id).publicationId);
     await f.publisher.release(s.stage);
     if (["failed", "cancelled"].includes(state))
@@ -119,4 +130,38 @@ test("proven expired artifact is scoped not-found before the next metadata prune
   assert.equal((await f.jobs.join(f.scope, job.id)).status, "completed");
   await f.archives.sweep(Date.now() + 8 * 86400000);
   await assert.rejects(artifactBytes(f, job.id), { code: "FILE_NOT_FOUND" });
+});
+
+test("byte proof without bound source validation cannot authorize recovered completion", async (t) => {
+  const f = await uploadFixture(t),
+    s = await staged(f);
+  const proof = await writeArchive(f.archives, s.context, s.plan, s.stage);
+  await assert.rejects(f.publisher.checkpointArchive(s.stage, proof), {
+    code: "FILE_INVALID_OPERATION",
+  });
+  const record = f.store.getPublication(f.store.archives.get(s.job.id).publicationId);
+  // Persist the old byte-only checkpoint shape to guard recovery of older data.
+  f.store.putPublication({
+    ...record,
+    document: { ...record.document, archiveProof: proof },
+  });
+  await f.publisher.release(s.stage);
+  await fs.unlink(s.source);
+  await f.restart();
+  assert.equal(f.jobs.get(f.scope, s.job.id).status, "interrupted");
+  await assert.rejects(artifactBytes(f, s.job.id), { code: "FILE_ARCHIVE_PENDING" });
+});
+
+test("startup preserves archive cancellation without changing generic interruption", async (t) => {
+  const f = await uploadFixture(t);
+  const archive = f.store.request(f.scope, archiveOperation([f.project])).job;
+  const copy = f.store.request(f.scope, {
+    ...archiveOperation([f.project]),
+    kind: "copy",
+    options: {},
+  }).job;
+  for (const job of [archive, copy]) f.store.transition(job.id, "queued", "cancelling");
+  await f.restart();
+  assert.equal(f.jobs.get(f.scope, archive.id).status, "cancelled");
+  assert.equal(f.jobs.get(f.scope, copy.id).status, "interrupted");
 });

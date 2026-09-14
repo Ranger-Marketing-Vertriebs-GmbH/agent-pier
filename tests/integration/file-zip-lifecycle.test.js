@@ -303,7 +303,7 @@ test("a target directory alias changed while streaming cannot redirect publicati
       options: { output: "file" },
     }),
   );
-  assert.equal((await f.jobs.join(f.scope, job.id)).issue.code, "FILE_CONFLICT_CHANGED");
+  assert.equal((await f.jobs.join(f.scope, job.id)).issue.code, "FILE_PATH_CHANGED");
   for (const target of [a, b])
     await assert.rejects(fs.access(path.join(target, "out.zip")), { code: "ENOENT" });
 });

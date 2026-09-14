@@ -116,7 +116,13 @@ export class FileArchives {
           revision,
           choices,
           sourceType: "file",
-          targetType: selected.stat.isFile() ? "file" : "directory",
+          targetType: selected.stat.isFile()
+            ? "file"
+            : selected.stat.isDirectory()
+              ? "directory"
+              : selected.stat.isSymbolicLink()
+                ? "symlink"
+                : "special",
           revalidate: async () => {
             await validateParent();
             await this.publisher.assertExpected(scope, target, revision);
@@ -163,7 +169,11 @@ export class FileArchives {
       signal.throwIfAborted();
       await this.publisher.checkpointArchive(stage, proof, {
         signal,
-        validate: () => assertArchiveManifest(this, { ...context, scope }, plan),
+        validate: async () => {
+          await assertArchiveManifest(this, { ...context, scope }, plan);
+          await this.fresh(scope, mode);
+          await validateParent();
+        },
       });
       if (mode === "download") {
         await this.publisher.finishArchive(stage, {

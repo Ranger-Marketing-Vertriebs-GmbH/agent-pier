@@ -89,6 +89,12 @@ export class FileStore {
     this.db.exec(trashItemSchema);
     this.uploads = new FileUploadStore(this);
     this.archives = new FileArchiveStore(this);
+    // A durable archive cancellation must survive generic startup interruption.
+    this.db
+      .prepare(
+        "UPDATE jobs SET status='cancelled' WHERE kind='archive' AND status='cancelling'",
+      )
+      .run();
     this.db
       .prepare(
         "UPDATE jobs SET status='interrupted', updated_at=? WHERE status IN ('queued','running','waiting_for_conflict','cancelling')",
