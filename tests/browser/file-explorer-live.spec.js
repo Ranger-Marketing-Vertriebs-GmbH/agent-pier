@@ -163,6 +163,13 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
     }
 
     await page.getByRole("button", { name: "File list", exact: true }).click();
+    await page.getByRole("button", { name: "Refresh file list", exact: true }).click();
+    const documentRow = page.locator(".explorer-entry").filter({
+      has: page.getByRole("button", { name: "document.txt", exact: true }),
+    });
+    await expect(documentRow.locator(":scope > span").nth(1)).toHaveText(
+      process.platform === "darwin" ? "10" : "8",
+    );
     await page
       .getByRole("checkbox", { name: "Select document.txt", exact: true })
       .check();
