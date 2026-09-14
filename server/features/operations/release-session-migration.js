@@ -325,9 +325,13 @@ export class ReleaseSessionMigration {
       if (!verified) return;
       const held = this.heldSessionIds();
       let count = 0;
+      let skipped = 0;
       for (const session of await this.services.sessions.list()) {
         if (session.status !== "running") continue;
-        if (held && !held.has(session.id)) continue;
+        if (held && !held.has(session.id)) {
+          skipped += 1;
+          continue;
+        }
         try {
           const status = await this.services.reload.status(session.id);
           if (!status.eligible || inFlight(status.state)) continue;
@@ -342,6 +346,10 @@ export class ReleaseSessionMigration {
           );
         }
       }
+      if (skipped > 0)
+        this.log(
+          `Post-activation reload skipped ${skipped} session(s) not attributed to an old release.`,
+        );
       this.operations.audit?.append({
         action: "release.refreshed",
         resourceType: "release",
