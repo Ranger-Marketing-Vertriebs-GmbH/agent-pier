@@ -8,6 +8,7 @@ import {
   sameInode,
   inodeIdentity,
   publicationSnapshot,
+  closeHandles,
 } from "./file-stage.js";
 
 const conflict = () => fileProblem("FILE_CONFLICT_CHANGED", 409);
@@ -56,8 +57,7 @@ export async function assertPublicationExpected(
       actual = snapshot.revision;
       fresh.publicationContentRevision = snapshot.publicationContentRevision;
     } finally {
-      await handle?.close();
-      await parent.close();
+      await closeHandles(handle, parent);
     }
   }
   if (actual !== revision) throw conflict();

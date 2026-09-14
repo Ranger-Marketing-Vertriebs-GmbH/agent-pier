@@ -140,3 +140,86 @@ test("an existing generic request ID cannot acquire text authority and private r
   );
   assert.equal(await fs.readFile(target, "utf8"), "original");
 });
+
+test("expected-target close failure releases every other owned descriptor", async (t) => {
+  const f = await uploadFixture(t),
+    target = path.join(f.home, "expected-close");
+  await fs.writeFile(target, "original");
+  const document = await f.text.read(f.scope, target);
+  const native = f.publisher.native,
+    run = native.run.bind(native);
+  const expected = f.publisher.assertExpected.bind(f.publisher);
+  const open = new Map(),
+    closeCounts = new Map();
+  let observingExpected = false,
+    failedHandle,
+    injected = false;
+  f.publisher.assertExpected = async (...args) => {
+    observingExpected = true;
+    try {
+      return await expected(...args);
+    } finally {
+      observingExpected = false;
+    }
+  };
+  native.run = async (operation, args) => {
+    const result = await run(operation, args);
+    if (["openRoot", "openFile", "createDirectory", "createFile"].includes(operation)) {
+      open.set(result.handle, operation);
+      if (operation === "openFile" && observingExpected) failedHandle = result.handle;
+    }
+    if (operation === "closeHandle") {
+      closeCounts.set(args.handle, (closeCounts.get(args.handle) || 0) + 1);
+      open.delete(args.handle);
+      if (args.handle === failedHandle && !injected) {
+        injected = true;
+        throw Object.assign(new Error("fixture expected-target close failure"), {
+          code: "FILE_IO_ERROR",
+          status: 500,
+        });
+      }
+    }
+    return result;
+  };
+  try {
+    const saving = f.text.save(f.scope, target, Buffer.from("draft"), {
+      revision: document.revision,
+      requestId: uploadRequest(),
+    });
+    if (process.platform === "linux") {
+      // Strict replacement is intentionally refused; exercise the exact shared
+      // d1 observation helper with real owned descriptors, without faking metadata.
+      await assert.rejects(saving, { code: "FILE_METADATA_UNSUPPORTED" });
+      assert.equal(injected, false);
+      assert.equal(f.store.listPublications().length, 0);
+      await assert.rejects(
+        f.publisher.assertExpected(f.scope, target, document.revision, {
+          followLeaf: true,
+          maxBytes: f.limits.textBytes,
+        }),
+        { code: "FILE_IO_ERROR" },
+      );
+    } else {
+      await assert.rejects(saving, { code: "FILE_IO_ERROR" });
+      const publication = f.store.listPublications().find((row) => row.document.textSave);
+      assert.equal(publication.phase, "interrupted");
+      assert.equal(await fs.readFile(publication.document.staged, "utf8"), "draft");
+      assert.equal(f.store.text.get(publication.jobId).result, undefined);
+    }
+    assert.equal(injected, true, "the expected-target descriptor close was reached");
+    assert.equal(closeCounts.get(failedHandle), 1, "an uncertain close is never retried");
+    assert.equal(await fs.readFile(target, "utf8"), "original");
+    const remaining = [...open];
+    for (const [handle] of remaining) await run("stat", { handle });
+    assert.deepEqual(
+      remaining.map(([, operation]) => operation),
+      [],
+      "no live expected-target parent or other owned handle remains",
+    );
+  } finally {
+    // A failing RED must release only its known-live residual fixture handles.
+    for (const [handle] of open) await run("closeHandle", { handle });
+    native.run = run;
+    f.publisher.assertExpected = expected;
+  }
+});
