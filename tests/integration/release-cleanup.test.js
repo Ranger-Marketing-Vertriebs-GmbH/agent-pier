@@ -47,7 +47,7 @@ test("cleanup removes selected old versions and stale receipts but preserves cur
 test("bulk cleanup rechecks every version and refuses active processes, new versions and path traversal", async (t) => {
   const r = await fixture(t);
   r.processes = () =>
-    `${r.installRoot}/releases/1.1.0/bin/node ${r.installRoot}/releases/1.1.0/server/terminal-launcher.js`;
+    `  100     1 ${r.installRoot}/releases/1.1.0/bin/node ${r.installRoot}/releases/1.1.0/server/terminal-launcher.js`;
   assert.equal(
     r.cleanupStatus().versions.find((v) => v.version === "1.1.0").deleteReason,
     "inUse",
@@ -115,7 +115,7 @@ test("a tmux server's historical startup arguments do not pin an unused release"
   const old = `${r.installRoot}/releases/1.0.0`;
   r.processes = () =>
     releaseProcessReferences(
-      `tmux tmux new-session '${old}/bin/node' '${old}/server/terminal-launcher.js'`,
+      `  100     1 tmux tmux new-session '${old}/bin/node' '${old}/server/terminal-launcher.js'`,
     );
   assert.equal(
     r.cleanupStatus().versions.find((v) => v.version === "1.0.0").canDelete,
@@ -123,17 +123,23 @@ test("a tmux server's historical startup arguments do not pin an unused release"
   );
   r.processes = () =>
     releaseProcessReferences(
-      `tmux tmux new-session '${old}/bin/node'\nnode node ${old}/vendor/agentbus/mcp-server.js`,
+      `  100     1 tmux tmux new-session '${old}/bin/node'\n  200     1 node node ${old}/vendor/agentbus/mcp-server.js`,
     );
   assert.equal(
     r.cleanupStatus().versions.find((v) => v.version === "1.0.0").deleteReason,
     "inUse",
   );
   r.processes = () =>
-    releaseProcessReferences(`${old}/bin/tmux ${old}/bin/tmux new-session`);
+    releaseProcessReferences(`  100     1 ${old}/bin/tmux ${old}/bin/tmux new-session`);
   assert.equal(
     r.cleanupStatus().versions.find((v) => v.version === "1.0.0").deleteReason,
     "inUse",
+  );
+  assert.equal(
+    releaseProcessReferences(
+      "  100     1 tmux tmux new-session '/x/releases/1.0.0/bin/node'",
+    ),
+    "  100     1 tmux",
   );
 });
 
@@ -143,10 +149,11 @@ test("cleanup state lists the sessions and process classes holding each version"
   const old = `${r.installRoot}/releases/1.1.0`;
   r.processes = () =>
     [
-      `${old}/bin/node ${old}/bin/node ${old}/server/terminal-launcher.js ${r.dataDir}/sessions/${id}.launch.json`,
-      `node ${old}/bin/node ${old}/vendor/agentbus/agentpier/mcp.js`,
-      `node ${old}/bin/node /Users/me/tool.js`,
-      `node ${old}/bin/node ${old}/server/features/pipelines/verify-supervisor.js`,
+      `  100     1 ${old}/bin/node ${old}/bin/node ${old}/server/terminal-launcher.js ${r.dataDir}/sessions/${id}.launch.json`,
+      `  200   100 claude claude`,
+      `  300   200 node ${old}/bin/node ${old}/vendor/agentbus/agentpier/mcp.js`,
+      `  500     1 node ${old}/bin/node /Users/me/tool.js`,
+      `  501     1 node ${old}/bin/node ${old}/server/features/pipelines/verify-supervisor.js`,
     ].join("\n");
   const state = r.cleanupStatus();
   const held = state.versions.find((v) => v.version === "1.1.0");

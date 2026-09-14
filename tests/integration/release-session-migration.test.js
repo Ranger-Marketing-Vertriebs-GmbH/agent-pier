@@ -74,12 +74,13 @@ async function fixture(t, sessions, { audit: withAudit = false } = {}) {
   await fs.symlink("releases/1.1.0", path.join(installRoot, "current"));
   const old = `${installRoot}/releases/1.0.0`;
   const lines = new Map();
-  for (const session of sessions)
+  sessions.forEach((session, index) => {
     if (session.holdsRelease !== false)
       lines.set(
         session.id,
-        `${old}/bin/node ${old}/bin/node ${old}/server/terminal-launcher.js ${dataDir}/sessions/${session.id}.launch.json`,
+        `${100 + index}     1 ${old}/bin/node ${old}/bin/node ${old}/server/terminal-launcher.js ${dataDir}/sessions/${session.id}.launch.json`,
       );
+  });
   const extra = [];
   let audit;
   if (withAudit) {
@@ -125,6 +126,7 @@ async function fixture(t, sessions, { audit: withAudit = false } = {}) {
     finish,
     old,
     audit,
+    launcherPid: (id) => 100 + sessions.findIndex((s) => s.id === id),
   };
 }
 
@@ -141,7 +143,7 @@ test("plan lists sessions with eligibility, activity and process classes", async
     },
     { id: ids[2], status: "running", holdsRelease: false },
   ]);
-  f.extra.push(`node ${f.old}/bin/node /Users/me/tool.js`);
+  f.extra.push(` 500 1 node ${f.old}/bin/node /Users/me/tool.js`);
   const plan = await f.migration.plan("1.0.0");
   assert.equal(plan.deleteReason, "inUse");
   assert.equal(plan.migratable, false);
@@ -158,7 +160,7 @@ test("plan lists sessions with eligibility, activity and process classes", async
   f.lines.delete(ids[1]);
   assert.equal((await f.migration.plan("1.0.0")).migratable, true);
   f.extra.push(
-    `node ${f.old}/bin/node ${f.old}/server/features/pipelines/verify-supervisor.js`,
+    `  501     1 node ${f.old}/bin/node ${f.old}/server/features/pipelines/verify-supervisor.js`,
   );
   const blocked = await f.migration.plan("1.0.0");
   assert.equal(blocked.migratable, false);
@@ -317,7 +319,7 @@ test("sessions that stop or disappear count as released; lingering helpers are a
       nextState: "waiting",
     },
   ]);
-  f.extra.push(`node ${f.old}/bin/node ${f.old}/vendor/agentbus/agentpier/mcp.js`);
+  f.extra.push(` 600 1 node ${f.old}/bin/node ${f.old}/vendor/agentbus/agentpier/mcp.js`);
   const job = f.migration.migrate("1.0.0");
   await new Promise((r) => setTimeout(r, 20));
   const stopped = f.store.map.get(ids[1]);

@@ -3,21 +3,14 @@ const launcher = new RegExp(
   `terminal-launcher\\.js'?\\s+'?.*?sessions/(${uuid})\\.launch\\.json'?`,
   "i",
 );
-// Scripts that run detached from any session. Everything else a session spawns from its
-// release (server/… and vendor/… helpers, hooks, MCP servers) exits with the session.
-const detachedScripts = [
-  "server/features/pipelines/verify-supervisor.js",
-  "server/features/pipelines/verify-executor.js",
-  "server/features/operations/release-helper.js",
-  "server/index.js",
-  "server/terminal-launcher.js",
-];
-const owned = (reference) =>
-  (reference.startsWith("server/") || reference.startsWith("vendor/")) &&
-  !detachedScripts.includes(reference);
+const columns = /^\s*(\d+)\s+(\d+)\s+(.*)$/;
 const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** Classify every process line that references one of the release directories. */
+/**
+ * Classify every process that references one of the release directories.
+ * Lines are `<pid> <ppid> <comm> <command…>`; a process is session-owned when it
+ * descends from a session's terminal launcher, whatever it runs.
+ */
 export function releaseSessionReferences(output, releasePaths) {
   const result = {
     sessionIds: [],
@@ -29,33 +22,43 @@ export function releaseSessionReferences(output, releasePaths) {
   if (!releasePaths.length) return result;
   const prefixes = releasePaths.map((value) => value.replace(/\/+$/, "") + "/");
   const pattern = new RegExp(`(?:${prefixes.map(escape).join("|")})([^\\s'"\\\\]*)`, "g");
+  const parents = new Map();
+  const launchers = new Set();
+  const candidates = [];
   for (const line of output.split("\n")) {
-    const references = [...line.matchAll(pattern)].map((match) => match[1]);
+    const match = columns.exec(line);
+    const pid = match ? match[1] : null;
+    const command = match ? match[3] : line;
+    if (match) parents.set(pid, match[2]);
+    const references = [...command.matchAll(pattern)].map((item) => item[1]);
     if (!references.length) continue;
-    const session = launcher.exec(line);
+    const session = launcher.exec(command);
     if (session && references.includes("server/terminal-launcher.js")) {
       const id = session[1].toLowerCase();
       if (!result.sessionIds.includes(id)) result.sessionIds.push(id);
+      if (pid !== null) launchers.add(pid);
       continue;
     }
+    candidates.push({ pid, references });
+  }
+  const descendsFromLauncher = (pid) => {
+    const seen = new Set();
+    for (let cursor = pid; cursor !== null && !seen.has(cursor);) {
+      seen.add(cursor);
+      const parent = parents.get(cursor);
+      if (parent === undefined) return false;
+      if (launchers.has(parent)) return true;
+      cursor = parent;
+    }
+    return false;
+  };
+  for (const { pid, references } of candidates) {
     const rest = references.filter((reference) => reference !== "bin/node");
-    if (!rest.length) {
-      result.nodeOnly += 1;
-      continue;
-    }
-    const detached = rest.find((reference) => detachedScripts.includes(reference));
-    if (detached) {
-      result.unidentified.push({ reference: detached });
-      continue;
-    }
-    if (rest.every(owned)) {
+    if (pid !== null && descendsFromLauncher(pid)) {
       result.helpers += 1;
-      result.helperReferences.push({ reference: rest[0] });
-      continue;
-    }
-    result.unidentified.push({
-      reference: rest.find((reference) => !owned(reference)),
-    });
+      result.helperReferences.push({ reference: rest[0] || "bin/node" });
+    } else if (!rest.length) result.nodeOnly += 1;
+    else result.unidentified.push({ reference: rest[0] });
   }
   return result;
 }

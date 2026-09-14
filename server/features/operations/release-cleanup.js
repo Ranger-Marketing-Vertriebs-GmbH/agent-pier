@@ -16,18 +16,18 @@ export function releaseProcessReferences(output) {
     .map((line) => {
       // tmux keeps the first client's launch command in its process title for its
       // entire lifetime. Only its executable is a live dependency, not those old args.
-      const tmux = /^\s*((?:\S*\/)?tmux)\s+/.exec(line);
-      return tmux ? tmux[1] : line;
+      const tmux = /^(\s*\d+\s+\d+\s+)?((?:\S*\/)?tmux)\s+/.exec(line);
+      return tmux ? `${tmux[1] || ""}${tmux[2]}` : line;
     })
     .join("\n");
 }
 export function releaseProcesses() {
   return releaseProcessReferences(
-    execFileSync("ps", ["-ww", "-u", String(process.getuid()), "-o", "comm=,command="], {
-      encoding: "utf8",
-      timeout: 5000,
-      maxBuffer: 8 * 1024 * 1024,
-    }),
+    execFileSync(
+      "ps",
+      ["-ww", "-u", String(process.getuid()), "-o", "pid=,ppid=,comm=,command="],
+      { encoding: "utf8", timeout: 5000, maxBuffer: 8 * 1024 * 1024 },
+    ),
   );
 }
 export function cleanupState({
