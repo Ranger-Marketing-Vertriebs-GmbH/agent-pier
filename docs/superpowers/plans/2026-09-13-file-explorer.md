@@ -1219,7 +1219,7 @@ manifest batches below 60 KiB and commits it; it returns `{groupId,entries}` for
 hook to match local File references to server entry IDs. `FileUploads` renders the
 bounded queue; file bytes stay in memory only through their browser File references.
 
-- [ ] Test escaped/malformed relative paths, same-name files in different folders, empty-directory support and browser APIs that omit empty directories. Add upload progress, cancellation, login expiry and response-loss fixtures.
+- [x] Test escaped/malformed relative paths, same-name files in different folders, empty-directory support and browser APIs that omit empty directories. Add upload progress, cancellation, login expiry and response-loss fixtures.
 
 ```js
 test("retry keeps successful files and retries only the failed upload", async ({
@@ -1236,8 +1236,8 @@ test("retry keeps successful files and retries only the failed upload", async ({
 });
 ```
 
-- [ ] Run `node --test tests/unit/file-upload-selection.test.js`, then build and run `file-explorer-uploads.spec.js` red.
-- [ ] Use XHR for per-file upload progress, AbortController for cancellation and the existing login-required event. Never convert Explorer file bytes to data URLs. `submitUploadGroup` persists the manifest before starting child uploads; server-side group commit creates directories in parent-before-child order under the name-conflict contract. Send group/entry IDs when creating each upload so total bytes/entries/depth limits apply to the whole selection.
+- [x] Run `node --test tests/unit/file-upload-selection.test.js`, then build and run `file-explorer-uploads.spec.js` red.
+- [x] Use XHR for per-file upload progress, AbortController for cancellation and the existing login-required event. Never convert Explorer file bytes to data URLs. `submitUploadGroup` persists the manifest before starting child uploads; server-side group commit creates directories in parent-before-child order under the name-conflict contract. Send group/entry IDs when creating each upload so total bytes/entries/depth limits apply to the whole selection.
 
 ```js
 xhr.open("PUT", `${client.base}/uploads/${encodeURIComponent(uploadId)}/content`);
@@ -1247,8 +1247,20 @@ xhr.upload.onprogress = (event) => updateProgress(itemId, event.loaded, event.to
 xhr.send(file);
 ```
 
-- [ ] Define local `updateProgress(id,loaded,total)` in the hook; reconcile transport completion against job state before marking success. Maintain a maximum of three active transfers, preserve successful entries on retry and use a new request ID only for an explicitly new attempt. Show empty-directory omissions and require reselection after reload when File references are gone.
-- [ ] In both browsers test native input fallback, external drop, folder structure, switching folders during a transfer, abort and partial success. Verify no file contents appear in localStorage/IndexedDB. Commit: `git commit -m "feat: add folder uploads and transfer recovery controls"`.
+- [x] Define local `updateProgress(id,loaded,total)` in the hook; reconcile transport completion against job state before marking success. Maintain a maximum of three active transfers, preserve successful entries on retry and use a new request ID only for an explicitly new attempt. Show empty-directory omissions and require reselection after reload when File references are gone.
+- [x] In both browsers test native input fallback, external drop, folder structure, switching folders during a transfer, abort and partial success. Verify no file contents appear in localStorage/IndexedDB. Commit: `git commit -m "feat: add folder uploads and transfer recovery controls"`.
+
+**Accepted implementation:** `54b1560` follows `7d503da`. Independent specification
+and quality re-review closes all three Important findings and the polling Minor.
+The browser owner stays above path-keyed actions and uses the existing scoped job
+queue, timer and shared four-page budget. R42/R48 add explicit bounded recovery
+and scoped current-child discovery; helper options retain opened scope and immutable
+metadata plans. Final local validation passes 35 units/catalog tests, 16 upload
+journeys per browser, lint, formatting, structure and build. The earlier full local
+backend run passed 1,821 with four skips before the later browser corrections.
+Actual final-head CI passes all 17 checks: PR Linux24 passes 1,826 of 1,833 with
+seven documented skips, Chromium passes 472, and WebKit passes 470 with two existing
+PWA skips plus 15 timing regressions. No Explorer browser case is skipped.
 
 ## Task 15: ZIP-Erstellung und ZIP-Downloads
 
