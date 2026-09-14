@@ -75,7 +75,7 @@ test("enable, hosts and disable write the configuration, restart and print URLs"
   });
   assert.equal(f.saved().port, 4390);
   assert.equal(
-    f.lines.some((line) => line.includes("http://a.example:4390")),
+    f.lines.some((line) => line.trim() === "http://a.example:4390"),
     true,
   );
   assert.equal(
@@ -94,7 +94,7 @@ test("enable, hosts and disable write the configuration, restart and print URLs"
   assert.deepEqual(f.restarts, ["enable", "hosts"]);
   assert.equal(await f.run(["status"]), 0);
   assert.equal(
-    f.lines.slice(-4).some((line) => line.includes("http://b.example:4390")),
+    f.lines.slice(-4).some((line) => line.trim() === "http://b.example:4390"),
     true,
   );
 });
