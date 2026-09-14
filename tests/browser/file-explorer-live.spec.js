@@ -17,6 +17,15 @@ async function cleanupAll(cleanups) {
     throw new AggregateError(errors, "Task22 live fixture cleanup failed");
 }
 
+async function readTextWhenPresent(file) {
+  try {
+    return await fs.readFile(file, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
 async function createEntry(page, kind, name) {
   await page
     .getByRole("button", {
@@ -145,7 +154,7 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
       const copy = path.join(folder, "linux-save-as.txt");
       await page.getByLabel("Save As path", { exact: true }).fill(copy);
       await page.getByRole("button", { name: "Save new copy", exact: true }).click();
-      await expect.poll(() => fs.readFile(copy, "utf8")).toBe("");
+      await expect.poll(() => readTextWhenPresent(copy)).toBe("");
       await fs.writeFile(document, "external");
       await page.evaluate(() => window.dispatchEvent(new Event("focus")));
       await expect(
@@ -173,12 +182,7 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
       .check();
     await page.getByRole("button", { name: "Restore", exact: true }).click();
     await expect
-      .poll(() =>
-        fs.readFile(document, "utf8").catch((error) => {
-          if (error.code === "ENOENT") return null;
-          throw error;
-        }),
-      )
+      .poll(() => readTextWhenPresent(document))
       .toBe(process.platform === "darwin" ? "local-edit" : "external");
 
     await page.goto(`${f.url}/settings`);
