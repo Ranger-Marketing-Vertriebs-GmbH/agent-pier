@@ -10,10 +10,23 @@ import {
 } from "../server/features/operations/release-activation.js";
 import { checkHealth } from "../server/features/operations/release-service.js";
 import { runService } from "./service.mjs";
+import { resumeSetup } from "./setup-resume.mjs";
 export { ensureDependencies } from "./install-dependencies.mjs";
 import { ensureDependencies } from "./install-dependencies.mjs";
-export async function installRelease(
-  { archive, installRoot, dataDir, channel, installDependencies = true, service = false },
+export async function installRelease(options, dependencies = {}) {
+  if (options.resume) return resumeSetup(options, dependencies);
+  return installInitialRelease(options, dependencies);
+}
+async function installInitialRelease(
+  {
+    archive,
+    installRoot,
+    dataDir,
+    channel,
+    initialChannel,
+    installDependencies = true,
+    service = false,
+  },
   {
     run,
     serviceRunner = runService,
@@ -40,7 +53,12 @@ export async function installRelease(
     env,
   });
   dataDir = folder(dataDir);
-  const releases = new Releases({ dataDir, installRoot, channel, ...releaseOptions });
+  const releases = new Releases({
+    dataDir,
+    installRoot,
+    channel: initialChannel || channel,
+    ...releaseOptions,
+  });
   const staged = archive
     ? await releases.stage({ archive })
     : await releases.stage({ version: (await releases.check()).version });
@@ -81,6 +99,7 @@ export async function runInstaller(args, dependencies = {}) {
     if (
       [
         "--service",
+        "--resume",
         "--install-dependencies",
         "--skip-dependencies",
         "--dependencies-only",
@@ -88,7 +107,13 @@ export async function runInstaller(args, dependencies = {}) {
     )
       options[key] = true;
     else if (
-      ["--archive", "--install-root", "--data-dir", "--channel"].includes(key) &&
+      [
+        "--archive",
+        "--install-root",
+        "--data-dir",
+        "--channel",
+        "--initial-channel",
+      ].includes(key) &&
       args[i + 1] &&
       !args[i + 1].startsWith("--")
     )
@@ -120,6 +145,8 @@ export async function runInstaller(args, dependencies = {}) {
       installRoot: options["--install-root"],
       dataDir: options["--data-dir"],
       channel: options["--channel"],
+      initialChannel: options["--initial-channel"],
+      resume: options["--resume"] === true,
       service: options["--service"] === true,
       installDependencies: options["--skip-dependencies"] !== true,
     },
