@@ -100,6 +100,7 @@ export default function FileActions({
         items: references(clipboard.items),
         target: scope.path,
         token: clipboard.token,
+        ...extra,
       });
     } else {
       setName(kind === "rename" ? items[0]?.name || "" : "");

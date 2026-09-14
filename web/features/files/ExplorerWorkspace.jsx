@@ -160,11 +160,15 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
     limits: context?.limits,
     readOnly: context?.readOnly,
   });
-  const actionOwner = useMemo(() => ({ client, scopeId, path }), [client, scopeId, path]);
+  const actionOwner = useMemo(
+    () => ({ client, scopeId, path, panel: route.filePanel }),
+    [client, path, route.filePanel, scopeId],
+  );
   const fileSelection = useFileSelection(listing.listing?.entries || [], actionOwner);
   const clipboard = useFileClipboard(context);
   useClipboardResults(clipboard, jobs.entries);
   const [actionRequest, setActionRequest] = useState(null);
+  useEffect(() => setActionRequest(null), [actionOwner]);
   const requestListAction = useOwnedListAction(actionOwner, setActionRequest);
   const dragged = useRef(null);
   const actionScope = context && { ...context, path };
@@ -379,7 +383,11 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
   );
 
   return (
-    <section className="file-explorer" aria-label={copy.tab} onKeyDown={handleShortcuts}>
+    <section
+      className="file-explorer"
+      aria-label={copy.tab}
+      onKeyDown={route.filePanel === "trash" ? undefined : handleShortcuts}
+    >
       <h1>{copy.tab}</h1>
       <ErrorMessage error={contextError?.message} />
       {context && (

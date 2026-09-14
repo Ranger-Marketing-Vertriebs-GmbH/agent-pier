@@ -34,6 +34,14 @@ export default function TrashView({ scope, client, jobs, onChanged, onOpenOrigin
   );
   const selection = useFileSelection(items, client);
   const selected = selection.selected;
+  const handleShortcuts = (event) => {
+    if (event.defaultPrevented || !event.currentTarget.contains(document.activeElement))
+      return;
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
+      event.preventDefault();
+      selection.selectAll();
+    } else if (event.key === "Escape") selection.clear();
+  };
   const unavailable = trash.entries.filter(
     (entry) => entry.availability !== "recoverable",
   );
@@ -187,7 +195,11 @@ export default function TrashView({ scope, client, jobs, onChanged, onOpenOrigin
       .map((row) => [row.source, row]) || [],
   );
   return (
-    <section className="file-trash" aria-label={copy.actions.trashTitle}>
+    <section
+      className="file-trash"
+      aria-label={copy.actions.trashTitle}
+      onKeyDown={handleShortcuts}
+    >
       <h2>{copy.actions.trashTitle}</h2>
       <p>{copy.actions.trashPolicy}</p>
       {trash.loading ? (

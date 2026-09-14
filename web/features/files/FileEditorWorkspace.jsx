@@ -19,6 +19,7 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
   const inspectConflict = editor.inspectConflict;
   const tab = editor.tabs.find((item) => item.id === editor.activeId);
   const searchRef = useRef(null);
+  const openRef = useRef(null);
   const [destination, setDestination] = useState("");
   const [replacement, setReplacement] = useState(null);
   const [targetError, setTargetError] = useState(null);
@@ -128,15 +129,21 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
         return;
       if (!accepted && origin.isConnected) origin.focus();
       else
-        document
-          .querySelector(`.file-editor-tabs [role='tab'][aria-selected='true']`)
-          ?.focus();
+        (
+          document.querySelector(
+            `.file-editor-tabs [role='tab'][aria-selected='true']`,
+          ) || openRef.current
+        )?.focus();
     });
   };
   return (
     <>
       {canOpen && context && (
-        <button className="button secondary" onClick={() => editor.open(path)}>
+        <button
+          ref={openRef}
+          className="button secondary"
+          onClick={() => editor.open(path)}
+        >
           {copy.open}
         </button>
       )}

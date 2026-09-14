@@ -374,6 +374,23 @@ test("mobile editor keeps multiple tabs, a dirty draft, and conflict controls", 
       await expect(
         mobile.getByRole("region", { name: /Konfliktvergleich|Conflict comparison/ }),
       ).toHaveCount(0);
+      await mobile
+        .getByRole("button", {
+          name:
+            language === "en" ? `Close tab ${firstPath}` : `Tab ${firstPath} schließen`,
+          exact: true,
+        })
+        .tap();
+      await mobile
+        .getByRole("button", {
+          name: language === "en" ? "Discard and continue" : "Verwerfen und fortfahren",
+          exact: true,
+        })
+        .tap();
+      await expect(mobile.getByRole("tab")).toHaveCount(1);
+      await mobile.screenshot({
+        path: testInfo.outputPath(`editor-tab-close-${language}-390x500.png`),
+      });
     } finally {
       await context.close();
     }

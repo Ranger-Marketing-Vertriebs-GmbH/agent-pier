@@ -58,6 +58,13 @@ export default function useFileListing({ client, path, page, sort, direction, hi
   );
 
   useEffect(() => {
+    if (!listing || !afterRefresh.current) return;
+    const complete = afterRefresh.current;
+    afterRefresh.current = null;
+    complete();
+  }, [listing]);
+
+  useEffect(() => {
     const request = ++requestGeneration.current;
     if (!client || path === null) {
       snapshot.current = null;
@@ -100,11 +107,6 @@ export default function useFileListing({ client, path, page, sort, direction, hi
           generation,
           listing,
         });
-        if (afterRefresh.current) {
-          const complete = afterRefresh.current;
-          afterRefresh.current = null;
-          requestAnimationFrame(complete);
-        }
       })
       .catch((issue) => {
         if (controller.signal.aborted || request !== requestGeneration.current) return;
