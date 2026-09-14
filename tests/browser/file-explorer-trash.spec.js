@@ -92,6 +92,55 @@ test("missing original parent requires a deliberate target without creating fold
   );
 });
 
+test("restore destination keeps native selection and Trash selection ownership", async ({
+  page,
+}) => {
+  const f = await actionsFixture(page);
+  f.trash.push(trashEntry("second"));
+  f.trash[0].originalPath = "/missing/report.txt";
+  f.missingParents.add("/missing");
+  await selectEnglish(page);
+  await page.goto(baseURL + "/files?panel=trash");
+  const report = page.getByRole("checkbox", { name: "Select report.txt", exact: true });
+  const second = page.getByRole("checkbox", { name: "Select second.txt", exact: true });
+  await report.check();
+  await page.getByRole("button", { name: "Restore", exact: true }).click();
+  const target = page
+    .getByRole("dialog", { name: "Choose restore destination", exact: true })
+    .getByRole("textbox", { name: "Path", exact: true });
+  await target.fill("/home/test/new.txt");
+  await target.press("ControlOrMeta+a");
+  await target.pressSequentially("X");
+  await expect(target).toHaveValue("X");
+  await expect(report).toBeChecked();
+  await expect(second).not.toBeChecked();
+  expect(f.requests.filter((request) => request.suffix === "/operations")).toHaveLength(
+    0,
+  );
+});
+
+test("Trash select-all freezes only rendered selectable entries", async ({ page }) => {
+  const f = await actionsFixture(page);
+  f.trash = Array.from({ length: 201 }, (_, index) =>
+    trashEntry(`entry-${String(index).padStart(3, "0")}`),
+  );
+  await selectEnglish(page);
+  await page.goto(baseURL + "/files?panel=trash");
+  const first = page.getByRole("checkbox", {
+    name: "Select entry-000.txt",
+    exact: true,
+  });
+  await first.focus();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.getByRole("button", { name: "Delete permanently", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Delete permanently", exact: true });
+  await expect(dialog).toContainText("200 frozen entries");
+  await expect(dialog).not.toContainText("/home/test/entry-200.txt");
+  expect(f.requests.filter((request) => request.suffix === "/operations")).toHaveLength(
+    0,
+  );
+});
+
 test("Empty loads every page, freezes consent, bounds all bodies and stops after partial batch failure", async ({
   page,
 }) => {

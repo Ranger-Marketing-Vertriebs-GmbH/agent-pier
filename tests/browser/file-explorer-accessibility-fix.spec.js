@@ -202,15 +202,28 @@ test("compact touch controls cover multiselect tree favorite menu and confirmati
   const page = await context.newPage();
   try {
     const fixture = await actionsFixture(page);
+    const inaccessiblePath = "/missing/mobile-favorite";
+    const inaccessibleRequests = [];
     await page.route("**/api/files/preferences", async (route) => {
       if (route.request().method() === "PATCH")
         return route.fulfill({ json: { favorites: [], showHidden: false } });
       return route.fulfill({
         json: {
-          favorites: [{ id: "mobile-favorite", name: "Mobil", path: "/home/test" }],
+          favorites: [{ id: "mobile-favorite", name: "Mobil", path: inaccessiblePath }],
           showHidden: false,
         },
       });
+    });
+    await page.route("**/api/files/**", async (route) => {
+      const url = new URL(route.request().url());
+      if (
+        ["/api/files/entries", "/api/files/metadata"].includes(url.pathname) &&
+        url.searchParams.get("path") === inaccessiblePath
+      ) {
+        inaccessibleRequests.push(url.pathname);
+        return route.fulfill({ status: 404, json: { code: "FILE_NOT_FOUND" } });
+      }
+      return route.fallback();
     });
     await page.goto(baseURL + "/files");
     await page.getByRole("checkbox", { name: "a.txt auswählen" }).tap();
@@ -226,10 +239,13 @@ test("compact touch controls cover multiselect tree favorite menu and confirmati
     await expand.tap();
     await expect(page.getByRole("button", { name: "/ zuklappen" })).toBeVisible();
     await page.getByRole("button", { name: "/ zuklappen" }).tap();
+    const filesURL = page.url();
     await page.getByRole("button", { name: "Favorit Mobil entfernen" }).tap();
     await expect(
       page.getByRole("button", { name: "Favorit Mobil entfernen" }),
     ).toHaveCount(0);
+    expect(inaccessibleRequests).toEqual([]);
+    expect(page.url()).toBe(filesURL);
     await page.getByRole("button", { name: "Ordnerbaum schließen" }).tap();
     await page.getByRole("button", { name: "In den Papierkorb", exact: true }).tap();
     const dialog = page.getByRole("dialog", { name: "In den Papierkorb" });

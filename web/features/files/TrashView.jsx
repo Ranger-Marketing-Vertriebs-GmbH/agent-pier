@@ -32,10 +32,25 @@ export default function TrashView({ scope, client, jobs, onChanged, onOpenOrigin
         .map((entry) => ({ ...entry, path: entry.id })),
     [trash.entries],
   );
-  const selection = useFileSelection(items, client);
+  const renderedItems = useMemo(
+    () =>
+      trash.entries
+        .slice(0, limit)
+        .filter((entry) => entry.availability === "recoverable")
+        .map((entry) => ({ ...entry, path: entry.id })),
+    [limit, trash.entries],
+  );
+  const selection = useFileSelection(renderedItems, client);
   const selected = selection.selected;
   const handleShortcuts = (event) => {
-    if (event.defaultPrevented || !event.currentTarget.contains(document.activeElement))
+    if (
+      event.defaultPrevented ||
+      scope.readOnly ||
+      !event.currentTarget.contains(document.activeElement) ||
+      event.target.closest(
+        "dialog, input:not([type='checkbox']):not([type='radio']), textarea, select, [contenteditable='true']",
+      )
+    )
       return;
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
       event.preventDefault();
