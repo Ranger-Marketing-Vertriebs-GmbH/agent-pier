@@ -1,3 +1,4 @@
+import { watchNativeInput } from "./native-input-watch.js";
 import { createHash } from "node:crypto";
 import { watchChatSources } from "./chat-source-watch.js";
 
@@ -11,6 +12,7 @@ export class ChatStreams {
     accounts,
     config,
     watch = watchChatSources,
+    watchInput = watchNativeInput,
     debounceMs = 150,
     recoveryMs = 30000,
   }) {
@@ -22,6 +24,7 @@ export class ChatStreams {
       accounts,
       config,
       watch,
+      watchInput,
       debounceMs,
       recoveryMs,
     });
@@ -46,12 +49,16 @@ export class ChatStreams {
           entry.generation++;
           entry.value = null;
           entry.digest = null;
+          entry.input = null;
         }
         this.invalidate(entry, event.type !== "snapshot-changed");
       });
       entry.recovery = setInterval(() => {
         entry.unwatch?.();
         entry.unwatch = null;
+        entry.unwatchInput?.();
+        entry.unwatchInput = null;
+        entry.input = null;
         this.invalidate(entry);
       }, this.recoveryMs);
       entry.recovery.unref();
@@ -100,6 +107,9 @@ export class ChatStreams {
         entry.unwatch?.();
         entry.unwatch = null;
         entry.scope = scope;
+        entry.unwatchInput?.();
+        entry.unwatchInput = null;
+        entry.input = null;
       }
       if (
         !entry.unwatch &&
@@ -111,6 +121,30 @@ export class ChatStreams {
           () => this.invalidate(entry),
         );
       }
+      if (
+        !entry.unwatchInput &&
+        session.status === "running" &&
+        ["claude", "codex", "opencode"].includes(session.tool) &&
+        !session.purpose &&
+        this.sessions.tmuxPath
+      ) {
+        entry.unwatchInput = this.watchInput(
+          { sessions: this.sessions, session },
+          (input) => {
+            entry.input = input;
+            // SQLite WAL writes may not notify fs.watch on every platform. A
+            // changed native queue is also a bounded history invalidation hint.
+            this.invalidate(entry);
+            if (entry.value)
+              this.publish(entry, entry.value.session, entry.value.snapshot);
+          },
+        );
+      }
+      if (session.status !== "running") {
+        entry.unwatchInput?.();
+        entry.unwatchInput = null;
+        entry.input = null;
+      }
       // A real source event invalidates the short HTTP cache, but the store owns
       // single-flight history reads so an earlier slow request is never duplicated.
       // Completion hints announce a freshly cached background result. Re-reading
@@ -121,20 +155,25 @@ export class ChatStreams {
       }
       const snapshot = await this.chatImages.read(entry.id);
       if (entry.disposed || this.closed || entry.generation !== generation) return;
-      const value = { session, snapshot };
-      const digest = createHash("sha256")
-        .update(JSON.stringify([scope, session.status, snapshot]))
-        .digest("hex");
-      const listeners = entry.digest === digest ? entry.waiting : entry.listeners;
-      entry.digest = digest;
-      entry.value = value;
-      for (const listener of listeners) {
-        entry.waiting.delete(listener);
-        listener(value);
-      }
+      this.publish(entry, session, snapshot);
     } catch (error) {
       if (!entry.disposed && !this.closed && entry.generation === generation)
         for (const listener of entry.listeners) listener({ error });
+    }
+  }
+  publish(entry, session, snapshot) {
+    if (entry.disposed || this.closed) return;
+    snapshot = { ...snapshot, nativeInput: entry.input || null };
+    const value = { session, snapshot };
+    const digest = createHash("sha256")
+      .update(JSON.stringify([entry.scope, session.status, snapshot]))
+      .digest("hex");
+    const listeners = entry.digest === digest ? entry.waiting : entry.listeners;
+    entry.digest = digest;
+    entry.value = value;
+    for (const listener of listeners) {
+      entry.waiting.delete(listener);
+      listener(value);
     }
   }
   dispose(entry) {
@@ -143,6 +182,7 @@ export class ChatStreams {
     clearInterval(entry.recovery);
     entry.unsubscribe?.();
     entry.unwatch?.();
+    entry.unwatchInput?.();
     if (this.entries.get(entry.id) === entry) this.entries.delete(entry.id);
   }
   close() {

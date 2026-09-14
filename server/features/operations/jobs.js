@@ -8,6 +8,7 @@ export class OperationJobs {
     this.directory = folder(path.join(dataDir, "operations/jobs"));
     this.tasks = new Set();
     this.onFailure = onFailure;
+    this.closed = false;
     for (const name of fs
       .readdirSync(this.directory)
       .filter((name) => /^[a-f0-9-]+\.json$/.test(name))) {
@@ -67,6 +68,15 @@ export class OperationJobs {
           atomic(file, {
             ...job,
             status: "failed",
+            ...(typeof error.code === "string" &&
+            /^(?:cleanup|migrate)(?:Invalid|Busy|Changed|Failed|Blocked|Interrupted|Cancelled)$/.test(
+              error.code,
+            )
+              ? { errorCode: error.code }
+              : {}),
+            ...(error.result && typeof error.result === "object"
+              ? { result: error.result }
+              : {}),
             error: error.status
               ? error.message
               : "The operation failed. No unverified result was accepted.",
@@ -80,6 +90,21 @@ export class OperationJobs {
       .finally(() => this.tasks.delete(task));
     this.tasks.add(task);
     return this.get(job.id);
+  }
+  running(kindPrefix) {
+    return fs
+      .readdirSync(this.directory)
+      .filter((name) => /^[a-f0-9-]+\.json$/.test(name))
+      .some((name) => {
+        let job;
+        try {
+          job = this.get(name.slice(0, -".json".length));
+        } catch {
+          // The job file vanished or became unreadable between listing and reading.
+          return false;
+        }
+        return job.status === "running" && job.kind.startsWith(kindPrefix);
+      });
   }
   async close() {
     this.closed = true;

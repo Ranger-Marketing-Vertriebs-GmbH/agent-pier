@@ -43,7 +43,7 @@ Auf dem Server `http://127.0.0.1:4380` öffnen. Der Webdienst lauscht nur auf Lo
 ssh -L 4380:127.0.0.1:4380 dein-benutzer@dein-server
 ```
 
-Dann dieselbe Adresse im Browser des eigenen Rechners öffnen. Für dauerhaften privaten Fernzugriff kann Tailscale wie in der [Installationsanleitung](installation.md#5-optional-privater-fernzugriff-über-tailscale) eingerichtet werden; die Linux-Installation und Anmeldung von Tailscale erfolgt separat.
+Dann dieselbe Adresse im Browser des eigenen Rechners öffnen. Für dauerhaften Fernzugriff beschreibt die [Fernzugriffsanleitung](remote-access.md) Tailscale Serve und den Netzwerkmodus ohne Tailscale, der sich headless mit `npm run remote` einschalten lässt.
 
 Die GitHub CLI `gh` lässt sich ebenfalls unter **Deine Tools** installieren; sie verwendet die gespeicherten [GitHub-Zugänge je Host](github-agents.md) in neuen Agent-Sitzungen.
 

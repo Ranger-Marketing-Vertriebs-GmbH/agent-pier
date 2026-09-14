@@ -291,3 +291,37 @@ test("cursor entries are limited and oversized state fails explicitly", async (t
   );
   assert.equal(store.cursors.size, 2);
 });
+
+test("structured Codex changes survive snapshots and older page cursors", async (t) => {
+  const { store, history, dataDir } = fixture(t);
+  history.codex = () => ({
+    request: async (method, params) =>
+      method === "thread/read"
+        ? { thread: { cwd: dataDir, id: "native" } }
+        : {
+            data: [
+              {
+                id: "turn",
+                items: [
+                  {
+                    id: params.cursor ? "older" : "newest",
+                    type: "fileChange",
+                    status: "completed",
+                    changes: [
+                      { path: "x.ts", kind: { type: "add" }, diff: "const a = 1;\n" },
+                    ],
+                  },
+                ],
+              },
+            ],
+            nextCursor: params.cursor ? null : "older",
+          },
+  });
+  const first = await store.read("test");
+  assert.equal(first.messages[0].fileChanges[0].operation, "create");
+  const snapshot = JSON.parse(fs.readFileSync(store.file("test", "snapshot"), "utf8"));
+  assert.deepEqual(snapshot.messages, first.messages);
+  const older = await store.older("test", first.history.cursor);
+  assert.equal(older.messages[0].id, "older");
+  assert.deepEqual(older.messages[0].fileChanges, first.messages[0].fileChanges);
+});

@@ -116,10 +116,21 @@ export default function AnchoredSelect({
     };
   }, [open]);
   useEffect(() => {
-    if (open)
-      list.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({
-        block: "nearest",
-      });
+    if (!open) return;
+    const menu = list.current;
+    const option = menu?.querySelector(`[data-index="${active}"]`);
+    if (!option) return;
+    // Keep keyboard selection visible without scrolling the surrounding dialog.
+    const menuBox = menu.getBoundingClientRect();
+    const scale = menuBox.height / menu.offsetHeight || 1;
+    const top =
+      (option.getBoundingClientRect().top - menuBox.top) / scale +
+      menu.scrollTop -
+      menu.clientTop;
+    const bottom = top + option.offsetHeight;
+    if (top < menu.scrollTop) menu.scrollTop = top;
+    else if (bottom > menu.scrollTop + menu.clientHeight)
+      menu.scrollTop = bottom - menu.clientHeight;
   }, [open, active]);
   function keydown(event) {
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
@@ -286,7 +297,7 @@ export default function AnchoredSelect({
                   disabled={option.disabled}
                   aria-selected={option.value === value}
                   className={active === index ? "active" : ""}
-                  onPointerDown={(event) => event.preventDefault()}
+                  onMouseDown={(event) => event.preventDefault()}
                   onPointerMove={() => {
                     if (!option.disabled) setActive(index);
                   }}

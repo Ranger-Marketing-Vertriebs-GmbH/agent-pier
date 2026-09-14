@@ -23,6 +23,18 @@ export function directLocalRequest(req, config) {
     )
   );
 }
+// Secure only when the transport is TLS or the request uses the HTTPS Tailscale host.
+export function cookieOptions(req, config) {
+  const tailscaleHost =
+    config.remoteUrl?.startsWith("https://") &&
+    new URL(config.remoteUrl).host === req.headers.host;
+  return {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: Boolean(req.socket.encrypted) || Boolean(tailscaleHost),
+    path: "/",
+  };
+}
 export function loginRoutes(login, effective) {
   const router = express.Router();
   router.use(express.json({ limit: "4kb", strict: true }));
@@ -31,26 +43,18 @@ export function loginRoutes(login, effective) {
     authenticated: Boolean(login.session(sessionToken(req))),
     canSetup: !login.configured,
   });
-  const cookie = (req, res, token) => {
-    const remote = !directLocalRequest(req, effective());
-    const secure =
-      Boolean(req.socket.encrypted) ||
-      (remote && effective().remoteUrl?.startsWith("https://"));
+  const cookie = (req, res, token) =>
     res.cookie(cookieName, token, {
-      httpOnly: true,
-      sameSite: "strict",
-      secure,
-      path: "/",
+      ...cookieOptions(req, effective()),
       maxAge: token ? sessionDuration : 0,
     });
-  };
   router.get("/status", (req, res) => res.json(status(req)));
   router.post("/setup", async (req, res) => {
-    cookie(req, res, await login.setup(req.body));
+    cookie(req, res, await login.setup(req.body, req.socket.remoteAddress));
     res.status(201).json({ authenticated: true });
   });
   router.post("/login", async (req, res) => {
-    const token = await login.login(req.body);
+    const token = await login.login(req.body, req.socket.remoteAddress);
     login.revoke(sessionToken(req));
     cookie(req, res, token);
     res.json({ authenticated: true });

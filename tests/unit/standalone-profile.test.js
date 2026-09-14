@@ -22,7 +22,12 @@ function fixture(tool = "codex") {
       },
     },
   };
-  const accounts = { get: (id) => ({ id, tool: id === "wrong-cli" ? "shell" : tool }) };
+  const accounts = {
+    get: (id) => ({
+      id,
+      tool: id === "wrong-cli" ? "shell" : id.startsWith("local-") ? id.slice(6) : tool,
+    }),
+  };
   let captured;
   const driver = {
     accounts,
@@ -106,7 +111,7 @@ test("standalone choices reject mismatched access and still require profile para
   const f = fixture();
   for (const access of [
     null,
-    { tool: "claude", accountId: "local-claude" },
+    { tool: "claude", accountId: "local-codex" },
     { tool: "codex", accountId: "wrong-cli" },
     {
       tool: "codex",
@@ -124,4 +129,32 @@ test("standalone choices reject mismatched access and still require profile para
   f.profile.enabled = false;
   await assert.rejects(f.launch({ params: { topic: "code" } }), /disabled/);
   assert.equal(f.captured(), undefined);
+});
+
+for (const tool of ["codex", "claude", "opencode"])
+  test(`changing a standalone profile CLI to ${tool} retains its rendered instructions`, async () => {
+    const f = fixture(tool === "claude" ? "codex" : "claude");
+    const original = structuredClone(f.profile);
+    await f.launch({
+      access: { tool, accountId: `local-${tool}`, nativeModelId: "selected-model" },
+      params: { topic: "the reported bug" },
+      launchMode: "default",
+    });
+    const result = f.captured();
+    assert.equal(result.body.accountId, `local-${tool}`);
+    assert.equal(result.model, "selected-model");
+    assert.deepEqual(result.command.args.slice(-2), [
+      tool === "opencode" ? "--prompt" : "--",
+      "Review carefully\n\nInspect the reported bug",
+    ]);
+    assert.deepEqual(f.profile, original);
+  });
+
+test("switching from Claude to Codex without a mode override uses Codex permissions", async () => {
+  const f = fixture("claude");
+  await f.launch({
+    access: { tool: "codex", accountId: "local-codex" },
+    params: { topic: "bug" },
+  });
+  assert.ok(f.captured().command.args.includes('approval_policy="on-request"'));
 });

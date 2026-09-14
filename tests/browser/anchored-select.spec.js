@@ -27,17 +27,17 @@ for (const viewport of [
   { width: 1152, height: 640, zoom: 1.25 },
   { width: 390, height: 844 },
   { width: 390, height: 500 },
-])
-  test(`launch choices stay anchored inside scrolled dialog at ${viewport.width}x${viewport.height}`, async ({
-    browser,
-  }) => {
-    const context = await browser.newContext({
+]) {
+  test.describe(`${viewport.width}x${viewport.height}`, () => {
+    test.use({
       viewport,
       hasTouch: viewport.width === 390,
       isMobile: viewport.width === 390,
     });
-    try {
-      const page = await context.newPage();
+    test(`launch choices stay anchored inside scrolled dialog at ${viewport.width}x${viewport.height}`, async ({
+      page,
+    }) => {
+      const activate = (locator) => locator[viewport.width === 390 ? "tap" : "click"]();
       await fixture(page);
       if (viewport.zoom)
         await page.evaluate((zoom) => {
@@ -46,12 +46,14 @@ for (const viewport of [
       for (const name of ["CLI", "Zugang", "Startmodus"]) {
         const field = page.getByLabel(name, { exact: true });
         await field.scrollIntoViewIfNeeded();
-        await field[viewport.width === 390 ? "tap" : "click"]();
+        const beforeOpen = await field.boundingBox();
+        await activate(field);
         const list = page.getByRole("listbox", { name: `${name}: Optionen` });
         await expect(list).toBeVisible();
         const anchor = await field.boundingBox(),
           box = await list.boundingBox(),
           dialog = await page.getByRole("dialog").boundingBox();
+        expect(Math.abs(anchor.y - beforeOpen.y)).toBeLessThanOrEqual(1);
         expect(
           Math.min(
             Math.abs(box.y + box.height - anchor.y),
@@ -87,20 +89,42 @@ for (const viewport of [
       }
       const field = page.getByLabel("Zugang", { exact: true });
       await field.scrollIntoViewIfNeeded();
-      await field.click();
-      await page.getByRole("option", { name: "Profil 2", exact: true }).click();
+      await activate(field);
+      const accounts = page.getByRole("listbox", { name: "Zugang: Optionen" });
+      await expect(accounts).toBeVisible();
+      await activate(accounts.getByRole("option", { name: "Profil 2", exact: true }));
       await expect(field).toHaveValue("account-2");
       await field.press("ArrowDown");
       await field.press("ArrowDown");
       await field.press("Enter");
       await expect(field).toHaveValue("account-3");
-      await field.click();
+      await field.press("End");
+      await expect(field).toHaveAttribute("aria-activedescendant", /-15$/);
+      await expect
+        .poll(async () => {
+          const optionBox = await accounts
+            .getByRole("option", { name: "Profil 15", exact: true })
+            .boundingBox();
+          const menuBox = await accounts.boundingBox();
+          return (
+            optionBox.y >= menuBox.y &&
+            optionBox.y + optionBox.height <= menuBox.y + menuBox.height + 1
+          );
+        })
+        .toBe(true);
+      await field.press("Escape");
+      await expect(field).toHaveValue("account-3");
+      await activate(field);
+      await expect(accounts).toBeVisible();
       // On short viewports the menu can cover the name field. Click the dialog
       // padding to exercise outside dismissal without targeting an obscured input.
       const dialogBox = await page.getByRole("dialog").boundingBox();
-      await page.mouse.click(dialogBox.x + 4, dialogBox.y + dialogBox.height / 2);
+      const pointer = viewport.width === 390 ? page.touchscreen : page.mouse;
+      await pointer[viewport.width === 390 ? "tap" : "click"](
+        dialogBox.x + 4,
+        dialogBox.y + dialogBox.height / 2,
+      );
       await expect(page.getByRole("listbox")).toHaveCount(0);
-    } finally {
-      await context.close();
-    }
+    });
   });
+}

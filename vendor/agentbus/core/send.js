@@ -18,6 +18,6 @@ export async function send(h, { self, to, text, replyTo }, deps = {}) {
   enqueue(h, target.key, msg);
   const n = pendingSummary(h, target.key).count;
   let nudged=false;
-  try { nudged = await nudgeFn(target, nudgeText(n, self.name, target.runtime), self.name, deps); } catch { /* Enqueue succeeded; a failed wake must not invite a duplicate resend. */ }
+  try { nudged = n > 0 && await nudgeFn(target, nudgeText(n, self.name, target.runtime, msg.id), self.name, deps); } catch { /* Enqueue succeeded; a failed wake must not invite a duplicate resend. */ }
   return { id: msg.id, to: target.key, toName: target.name, nudged };
 }

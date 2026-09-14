@@ -1,0 +1,190 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import * as chat from "../../server/features/sessions/session-chat-input.js";
+import { SessionOperations } from "../../server/features/sessions/session-operations.js";
+const codexScreen = (line) =>
+  `Synthetic output\n\n${line}\n\n  probe default · ~/project\n`;
+function sessionManager() {
+  const operations = new SessionOperations(() => Promise.resolve());
+  const manager = {
+    replacing: new Set(),
+    events: [],
+    paneId: "%1",
+    cursorX: 2,
+    target: () => "=synthetic",
+    current: async () => ({
+      id: "one",
+      tool: "codex",
+      accountId: "fixture",
+      status: "running",
+    }),
+    serial: (operation, id) => operations.run(operation, id),
+    tmux: async (args, options) => {
+      if (args[0] === "display-message")
+        return `${manager.paneId}|${process.pid}|1|${manager.cursorX}|2|120|35|0\n${manager.screen}`;
+      manager.events.push({ args, input: options?.input });
+      return "";
+    },
+  };
+  return manager;
+}
+
+test("explicit fresh input permits an existing draft but cannot bypass recovery matching", async () => {
+  const manager = sessionManager();
+  manager.screen = codexScreen("\x1b[1m›\x1b[0m existing draft");
+  manager.cursorX = 16;
+  await chat.withChatInput(manager, "one", async (tx) => {
+    await assert.rejects(
+      tx.write("wrong", { allowComposerDraft: true, submitOnly: true }),
+      { status: 409 },
+    );
+    await tx.write("hello", { allowComposerDraft: true });
+  });
+  assert.deepEqual(
+    manager.events.map((event) => event.args[0]),
+    ["load-buffer", "paste-buffer", "send-keys"],
+  );
+});
+
+test("explicit fresh input still refuses a replaced runtime before submitting", async () => {
+  const manager = sessionManager();
+  manager.screen = "Unrecognizable native screen";
+  await chat.withChatInput(manager, "one", async (tx) => {
+    await assert.rejects(
+      tx.write("hello", {
+        allowComposerDraft: true,
+        onPhase: async (phase) => {
+          if (phase === "submit-intent") manager.paneId = "%2";
+        },
+      }),
+      { status: 409 },
+    );
+  });
+  assert.deepEqual(
+    manager.events.map((event) => event.args[0]),
+    ["load-buffer", "paste-buffer"],
+  );
+});
+
+test("fresh chat input never pastes into Codex startup hook trust even before request polling", async () => {
+  const { hookScreen } = await import("../fixtures/requests/codex-hook-trust.js");
+  const manager = sessionManager();
+  manager.screen = hookScreen();
+  await chat.withChatInput(manager, "one", async (tx) => {
+    await assert.rejects(tx.write("hello", { allowComposerDraft: true }), {
+      status: 409,
+    });
+  });
+  assert.deepEqual(manager.events, []);
+});
+
+test("fresh chat input never pastes into Claude folder trust before request polling", async () => {
+  const { folderScreen } = await import("../fixtures/requests/claude-folder-trust.js");
+  const manager = sessionManager();
+  manager.current = async () => ({
+    id: "one",
+    tool: "claude",
+    cwd: "/fixture/project",
+    accountId: "fixture",
+    status: "running",
+  });
+  manager.screen = folderScreen();
+  await chat.withChatInput(manager, "one", async (tx) => {
+    await assert.rejects(tx.write("hello", { allowComposerDraft: true }), {
+      status: 409,
+    });
+  });
+  assert.deepEqual(manager.events, []);
+});
+
+test("fresh chat input never pastes into Claude onboarding dialogs before request polling", async () => {
+  const fs = await import("node:fs/promises");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const {
+    themeScreen,
+    apiKeyScreen,
+    securityNotesScreen,
+    loginScreen,
+    unknownMenuScreen,
+  } = await import("../fixtures/requests/claude-startup-prompts.js");
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "claude-onboarding-guard-"));
+  await fs.mkdir(path.join(root, "project"));
+  const cwd = await fs.realpath(path.join(root, "project"));
+  await fs.mkdir(path.join(root, "native-sessions"));
+  await fs.writeFile(
+    path.join(root, "native-sessions", "one.launch.json"),
+    JSON.stringify({ id: "one", accountId: "fixture", tool: "claude", token: "t", cwd }),
+  );
+  try {
+    for (const screen of [
+      themeScreen(),
+      apiKeyScreen(),
+      securityNotesScreen(),
+      loginScreen(),
+      unknownMenuScreen(),
+    ]) {
+      const manager = sessionManager();
+      manager.directory = path.join(root, "sessions");
+      manager.current = async () => ({
+        id: "one",
+        tool: "claude",
+        cwd,
+        accountId: "fixture",
+        status: "running",
+        nativeBinding: { enabled: true },
+      });
+      manager.screen = screen;
+      await chat.withChatInput(manager, "one", async (tx) => {
+        await assert.rejects(tx.write("hello", { allowComposerDraft: true }), {
+          status: 409,
+          message: /Anfrage/,
+        });
+      });
+      assert.deepEqual(manager.events, []);
+    }
+    // After the native receipt only the specific dialogs remain recognized.
+    const { pidStart } = await import("../../vendor/agentbus/core/proc.js");
+    await fs.writeFile(
+      path.join(root, "native-sessions", "one.receipt.json"),
+      JSON.stringify({
+        id: "one",
+        accountId: "fixture",
+        tool: "claude",
+        token: "t",
+        cwd,
+        pid: process.pid,
+        pidStart: pidStart(process.pid),
+        providerSessionId: "00000000-0000-4000-8000-000000000000",
+      }),
+    );
+    for (const [screen, blocked] of [
+      [themeScreen(), true],
+      [apiKeyScreen(), true],
+      [unknownMenuScreen(), false],
+    ]) {
+      const manager = sessionManager();
+      manager.directory = path.join(root, "sessions");
+      manager.current = async () => ({
+        id: "one",
+        tool: "claude",
+        cwd,
+        accountId: "fixture",
+        status: "running",
+        nativeBinding: { enabled: true },
+      });
+      manager.screen = screen;
+      await chat.withChatInput(manager, "one", async (tx) => {
+        if (blocked)
+          await assert.rejects(tx.write("hello", { allowComposerDraft: true }), {
+            status: 409,
+            message: /Anfrage/,
+          });
+        else await tx.write("hello", { allowComposerDraft: true });
+      });
+      assert.equal(manager.events.length > 0, !blocked);
+    }
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});

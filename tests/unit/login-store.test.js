@@ -70,3 +70,24 @@ test("active consumers are disconnected at absolute session expiry", async (t) =
   assert.equal(closed, 1);
   assert.equal(f.store.session(token), null);
 });
+test("the attempt window is kept per source so a LAN flood never locks out loopback", async (t) => {
+  const f = fixture(t);
+  await f.store.setup(credentials, "127.0.0.1");
+  const guess = { ...credentials, password: "incorrect-unit-password" };
+  for (let attempt = 0; attempt < 10; attempt++)
+    await assert.rejects(f.store.login(guess, "192.168.1.55"), { status: 401 });
+  await assert.rejects(f.store.login(guess, "192.168.1.55"), { status: 429 });
+  await assert.rejects(f.store.login(guess, "127.0.0.1"), { status: 401 });
+  f.advance(60000);
+  await assert.rejects(f.store.login(guess, "192.168.1.55"), { status: 401 });
+});
+test("the source window map stays bounded and drops the oldest source", (t) => {
+  const f = fixture(t);
+  // The bound is a property of the window bookkeeping, so no password hashing is needed here.
+  f.store.throttle("10.0.0.1");
+  for (let index = 0; index < 1000; index++)
+    f.store.throttle(`10.1.${index >> 8}.${index & 255}`);
+  assert.equal(f.store.attempts.size, 1000);
+  assert.equal(f.store.attempts.has("10.0.0.1"), false);
+  assert.equal(f.store.attempts.has("10.1.3.231"), true);
+});

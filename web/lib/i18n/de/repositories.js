@@ -11,6 +11,12 @@ export const cloneFormCopy = {
   folderNamePlaceholder: "mein-projekt",
 };
 export const credentialDialogCopy = {
+  commitName: "Commit-Name (optional)",
+  commitEmail: "Commit-E-Mail (optional)",
+  commitIdentityHint:
+    "Name und E-Mail für Commits in Sitzungen mit diesem Zugang. Beide Felder leer lassen, um vorhandene Git-Einstellungen zu verwenden. Bestehende Sitzungen nach Änderungen neu laden. Bei mehreren Hosts ohne Projektzuordnung wird keine Identität automatisch gewählt.",
+  commitIdentityInvalid:
+    "Bitte einen gültigen Commit-Namen und eine E-Mail-Adresse angeben oder beide Felder leeren.",
   repositoryDialogTitle: "Token löschen?",
   deleteCredentialPrefix: "Das Token-Profil „",
   deleteCredentialSuffix: "“ wird gelöscht. Deine lokalen Projekte bleiben erhalten.",

@@ -169,3 +169,30 @@
 .operations-card .operations-actions {
   margin-top: 12px;
 }
+
+.release-notes {
+  margin: 16px 0;
+  min-width: 0;
+}
+.release-notes-content {
+  max-height: 360px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  padding-right: 8px;
+  margin-bottom: 12px;
+}
+.release-notes-content ul,
+.release-notes-content ol {
+  padding-left: 24px;
+}
+.release-notes-content h1,
+.release-notes-content h2,
+.release-notes-content h3 {
+  font-size: 15px;
+  margin: 12px 0 8px;
+}
+.release-notes-content table {
+  display: block;
+  overflow-x: auto;
+}

@@ -253,3 +253,16 @@ test("rolling windows retain only an evicted prefix and do not undo deletions", 
     [],
   );
 });
+
+test("hidden and reconnecting streams invalidate live observation evidence before a fresh snapshot", () => {
+  const f = fixture();
+  f.sockets[0].onopen();
+  assert.equal(f.connections.at(-1), "connected");
+  f.visible(true);
+  assert.equal(f.connections.at(-1), "disconnected");
+  f.visible(false);
+  assert.equal(f.connections.at(-1), "disconnected");
+  f.sockets.at(-1).onopen();
+  assert.equal(f.connections.at(-1), "connected");
+  f.dispose();
+});

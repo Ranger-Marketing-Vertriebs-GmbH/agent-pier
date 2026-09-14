@@ -1,3 +1,6 @@
+import { answerFolderTrust } from "./claude-folder-trust.js";
+import { refreshStartupPrompts, answerStartupPrompt } from "./claude-startup-prompts.js";
+import { answerHookTrust, hookLaunchIdentity } from "./codex-hook-trust.js";
 import fs from "node:fs/promises";
 import { writeFileSync, renameSync } from "node:fs";
 import path from "node:path";
@@ -6,6 +9,7 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto
 import { problem } from "../../lib/storage.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { prepareRequests } from "./request-launch.js";
+import { refreshClaudeRuntime, confirmClaudeRuntime } from "./claude-runtime.js";
 import { validSession, requestValue, answerValue } from "./request-validation.js";
 import { messages, send } from "./wire.js";
 const stale = () => problem(copy.stale, 409);
@@ -24,6 +28,7 @@ export class RequestBroker {
     this.clients = new Set();
     this.deliveries = new Map();
     this.created = new Set();
+    this.claudeReloadRequired = new Set();
     const hash = createHash("sha256")
       .update(path.resolve(dataDir))
       .digest("hex")
@@ -70,6 +75,7 @@ export class RequestBroker {
       );
     });
     if (active) throw Error("Native request broker already running");
+    this.claudeReloadRequired = await refreshClaudeRuntime(this.directory);
     await fs.rm(this.socketPath, { force: true });
     this.server = net.createServer((socket) => this.connection(socket));
     await new Promise((resolve, reject) => {
@@ -139,6 +145,7 @@ export class RequestBroker {
           );
           if (!equal(message.token, launch.token)) throw Error("Invalid native channel");
           owner = { ...launch, epoch: message.epoch };
+          await confirmClaudeRuntime(this, owner, message.adapterVersion);
           if (socket.destroyed) return;
           clearTimeout(authenticationTimeout);
           socket.owner = owner;
@@ -165,6 +172,8 @@ export class RequestBroker {
         if (message.type === "resolved") {
           const old = this.entries.get(id);
           if (old?.socket === socket) {
+            if (old.presentation === "codexHookTrust" && message.outcome === "trusted")
+              old.nativeOutcome = "trusted";
             this.entries.delete(id);
             this.emit(old, "request.expired");
           }
@@ -184,6 +193,8 @@ export class RequestBroker {
           ...requestValue(message.request),
           id,
           sessionId: owner.id,
+          accountId: owner.accountId,
+          launchIdentity: hookLaunchIdentity(owner),
           revision: 1,
           status: "pending",
           source: owner.tool,
@@ -191,6 +202,12 @@ export class RequestBroker {
           key: message.key,
           socket,
         };
+        if (
+          owner.tool === "claude" &&
+          entry.kind === "permission" &&
+          entry.subject?.tool === "AskUserQuestion"
+        )
+          entry.presentation = "claudeLegacyQuestion";
         if (
           [...this.entries.values()].filter((e) => e.sessionId === owner.id).length >= 100
         )
@@ -216,14 +233,30 @@ export class RequestBroker {
   hasPending(sessionId) {
     return [...this.entries.values()].some((entry) => entry.sessionId === sessionId);
   }
+  async launchIdentity(id) {
+    return hookLaunchIdentity(JSON.parse(await fs.readFile(this.file(id), "utf8")));
+  }
   async list(sessionId) {
     const session = await this.sessions.get(sessionId);
     if (session.status !== "running")
       await this.discard(sessionId, { removeLaunch: false });
+    await refreshStartupPrompts(this, session);
     return {
+      ...(session.status === "running" && this.claudeReloadRequired.has(sessionId)
+        ? { integration: { reloadRequired: true } }
+        : {}),
       requests: [...this.entries.values()]
         .filter((e) => e.sessionId === sessionId)
-        .map(({ socket: _socket, key: _key, ...entry }) => entry),
+        .map(
+          ({
+            socket: _socket,
+            key: _key,
+            accountId: _account,
+            launchIdentity: _launch,
+            local: _local,
+            ...entry
+          }) => entry,
+        ),
     };
   }
   async answer(sessionId, id, input, handoff = false) {
@@ -235,10 +268,39 @@ export class RequestBroker {
       entry.sessionId !== sessionId ||
       entry.status !== "pending" ||
       entry.revision !== input?.expectedRevision ||
-      entry.socket.destroyed
+      (!entry.local && entry.socket.destroyed)
     )
       throw stale();
+    if (entry.presentation === "claudeLegacyQuestion" && !handoff)
+      throw problem(copy.invalid, 400);
     const answer = handoff ? { handoff: true } : answerValue(entry, input);
+    if (entry.local && entry.presentation !== "codexHookTrust" && handoff)
+      return this.list(sessionId);
+    const local = {
+      codexHookTrust: answerHookTrust,
+      claudeFolderTrust: answerFolderTrust,
+      claudeStartupPrompt: answerStartupPrompt,
+    }[entry.presentation];
+    if (local && !handoff) {
+      entry.status = "responding";
+      entry.revision++;
+      try {
+        await local(this, entry, answer.choice);
+        this.entries.delete(id);
+        this.emit(
+          entry,
+          "request.answered",
+          "user",
+          "success",
+          ["exit", "no", "skip"].includes(answer.choice) ? "deny" : "allow",
+        );
+        return this.list(sessionId);
+      } catch (error) {
+        // Keep a retryable, visible request after native config-write failures.
+        entry.status = "pending";
+        throw error;
+      }
+    }
     entry.status = "responding";
     entry.revision++;
     const status = await new Promise((resolve) => {
@@ -290,6 +352,7 @@ export class RequestBroker {
         this.emit(entry, "request.expired");
       }
     if (removeLaunch) {
+      this.claudeReloadRequired.delete(sessionId);
       await fs.rm(this.file(sessionId), { force: true });
       await fs.rm(path.join(this.directory, `${sessionId}.claude`), {
         force: true,

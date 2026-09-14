@@ -19,14 +19,16 @@ export function isMcpMachinePath(pathname) {
   return publicPaths.has(pathname);
 }
 export function authorizeMcpTransport(req, config) {
-  if (!["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress))
-    throw problem("MCP requires the local or private Tailscale transport.", 403);
   const host = req.headers.host;
+  const loopback = ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(
+    req.socket.remoteAddress,
+  );
   const local = new Set([`127.0.0.1:${config.port}`, `localhost:${config.port}`]);
+  const headerNames = Object.keys(req.headers);
   let expected;
-  if (local.has(host)) {
+  if (loopback && local.has(host)) {
     if (
-      Object.keys(req.headers).some(
+      headerNames.some(
         (key) =>
           key.startsWith("tailscale-") ||
           key.startsWith("x-forwarded-") ||
@@ -35,8 +37,14 @@ export function authorizeMcpTransport(req, config) {
     )
       throw problem("Proxy requests require the configured remote host.", 403);
     expected = `http://${host}`;
-  } else if (config.remoteUrl && new URL(config.remoteUrl).host === host)
+  } else if (loopback && config.remoteUrl && new URL(config.remoteUrl).host === host)
     expected = new URL(config.remoteUrl).origin;
+  else if (config.network?.enabled && config.networkHosts?.has(host)) {
+    if (headerNames.some((key) => key.startsWith("tailscale-")))
+      throw problem("Proxy requests require the configured remote host.", 403);
+    expected = `http://${host}`;
+  } else if (!loopback)
+    throw problem("MCP requires the local, Tailscale or configured network host.", 403);
   else throw problem("MCP host is not allowed.", 403);
   if (req.headers.origin && req.headers.origin !== expected)
     throw problem("MCP origin is not allowed.", 403);

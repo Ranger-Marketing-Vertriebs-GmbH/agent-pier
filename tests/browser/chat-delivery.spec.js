@@ -111,7 +111,7 @@ test("message is immediately visible before ACK and merges into the native histo
   await expect.poll(() => Boolean(state.release)).toBe(true);
   state.release();
   await expect(page.getByRole("status", { name: "Nachrichtenzustellung" })).toContainText(
-    "An Sitzung übergeben",
+    "An TUI gesendet",
   );
   await expect(input(page)).toHaveValue("");
   state.messages.push({ id: "native-1", role: "user", text: "Sofort sichtbar" });
@@ -131,7 +131,7 @@ test("lost ACK reconciles after reload without a second POST", async ({ page }) 
   await expect(input(page)).toHaveValue("");
   await expect(page.getByLabel("Chatverlauf")).toContainText("Nur einmal");
   await expect(page.getByRole("status", { name: "Nachrichtenzustellung" })).toContainText(
-    "An Sitzung übergeben",
+    "An TUI gesendet",
   );
   expect(state.inputs).toHaveLength(1);
 });
@@ -245,7 +245,7 @@ test("legacy delivery cards stay expandable above current history while new send
   await expect(page.getByText("Latest native answer", { exact: true })).toBeVisible();
   await saved.locator("summary").click();
   await expect(saved).toContainText("Old stored notice");
-  await expect(saved).toContainText("An Sitzung übergeben");
+  await expect(saved).toContainText("An TUI gesendet");
   await saved.locator("summary").click();
   await input(page).fill("Fresh outgoing message");
   await send(page).click();
@@ -253,4 +253,80 @@ test("legacy delivery cards stay expandable above current history while new send
   await expect(page.getByText("Fresh outgoing message", { exact: true })).toBeVisible();
   expect(state.inputs).toHaveLength(2);
   await page.screenshot({ path: ".cache/chat-saved-notices.png" });
+});
+
+test("Claude absorbed mid-turn messages remove the handoff notice without another delivery", async ({
+  page,
+}) => {
+  const { normalizeClaude } =
+    await import("../../server/features/chat/history-parsers.js");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await fixture(page);
+  const text = "Use the staging environment";
+  await input(page).fill(text);
+  await send(page).click();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(1);
+  const queue = { type: "queue-operation", operation: "enqueue", content: text };
+  state.messages = normalizeClaude([queue]).messages;
+  await state.publish();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(1);
+  state.messages = normalizeClaude([
+    queue,
+    {
+      type: "attachment",
+      uuid: "attachment",
+      timestamp: await page.evaluate(() => new Date().toISOString()),
+      attachment: {
+        type: "queued_command",
+        source_uuid: "human-message",
+        prompt: text,
+        commandMode: "prompt",
+        origin: { kind: "human" },
+      },
+    },
+  ]).messages;
+  await state.publish();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+  await expect(page.locator(".chat-message.user")).toHaveCount(1);
+  await expect(page.locator(".chat-message.user")).toContainText(text);
+  await page.reload();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+  expect(state.inputs).toHaveLength(1);
+});
+
+test("Claude image chips reconcile the uploaded path without a duplicate pending message", async ({
+  page,
+}) => {
+  const { normalizeClaude } =
+    await import("../../server/features/chat/history-parsers.js");
+  const state = await fixture(page);
+  const path = "/fixture/uploads/screenshot.png";
+  await input(page).fill(path);
+  await send(page).click();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(1);
+  state.messages = normalizeClaude([
+    {
+      type: "user",
+      uuid: "image",
+      promptId: "prompt",
+      origin: { kind: "human" },
+      imagePasteIds: [17],
+      message: { content: [{ type: "text", text: "[Image #17]" }, { type: "image" }] },
+    },
+    {
+      type: "user",
+      uuid: "source",
+      promptId: "prompt",
+      isMeta: true,
+      turnCompanion: true,
+      message: { content: [{ type: "text", text: `[Image: source: ${path}]` }] },
+    },
+  ]).messages;
+  await state.publish();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+  await expect(page.locator(".chat-message.user")).toHaveCount(1);
+  await expect(page.locator(".chat-message.user")).toContainText(path);
+  await page.reload();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+  expect(state.inputs).toHaveLength(1);
 });

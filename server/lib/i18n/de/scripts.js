@@ -21,6 +21,10 @@ export const scripts = Object.freeze({
   remoteAccessConfigured: (remoteUrl) =>
     `Fernzugriff eingerichtet: ${remoteUrl}\nNur das eigene Tailscale-Konto erhält Zugriff. Dienst mit npm run service:install neu laden.`,
   serverListening: (port) => `AgentPier läuft auf http://127.0.0.1:${port}`,
+  serverListeningNetwork: (urls) =>
+    `Netzwerkzugriff aktiv ohne TLS. Erreichbar unter:\n${urls.map((url) => `  ${url}`).join("\n")}`,
+  serverListenFailed: (bind, port, code) =>
+    `AgentPier konnte nicht auf ${bind}:${port} lauschen (${code}). Bitte Bind-Adresse und Port prüfen.`,
   serviceFileMustBeRegular: "Die Dienstdatei darf kein Symlink oder Verzeichnis sein.",
   absoluteXdgConfigRequired: "XDG_CONFIG_HOME muss ein absoluter Pfad sein.",
   invalidServerPort: "AGENTPIER_PORT muss zwischen 1024 und 65535 liegen.",
@@ -30,4 +34,21 @@ export const scripts = Object.freeze({
   userServiceConfigured: (port) =>
     `AgentPier-Benutzerdienst eingerichtet: http://127.0.0.1:${port}`,
   serviceConfigured: (port) => `AgentPier-Dienst eingerichtet: http://127.0.0.1:${port}`,
+  remoteUsage: (commands) =>
+    `Verwendung: npm run remote -- <${commands}> [--bind 0.0.0.0|::] [--host <Name>]... [--add <Name>] [--remove <Name>] [--accept-plain-http] [--no-restart]`,
+  remoteFlagValueRequired: (flag) => `${flag} benötigt einen Wert.`,
+  remoteStatus: (enabled, bind, dataDir) =>
+    `Netzwerkzugriff: ${enabled ? `aktiv auf ${bind}` : "aus"} · Datenverzeichnis ${dataDir}\nErreichbare Adressen bei aktivem Modus:`,
+  remotePlainHttpWarning:
+    "WARNUNG: Netzwerkzugriff ohne TLS. Passwort und Inhalte gehen unverschlüsselt durchs Netz. Keine Push-Benachrichtigungen und keine PWA-Installation. Nur in vertrauenswürdigen Netzen verwenden und keine Portweiterleitung ins Internet einrichten. Auch über IPv6 oder eine öffentliche Adresse darf der Port nicht aus dem Internet erreichbar sein; im Zweifel die Firewall des Rechners prüfen.",
+  remoteAcceptRequired: "Zum Einschalten --accept-plain-http angeben.",
+  remoteRestartSkipped:
+    "Neustart übersprungen. Änderungen gelten nach dem nächsten Dienststart.",
+  remoteServiceMissing:
+    "Kein installierter Dienst gefunden. Neustart manuell mit npm run service:install oder npm start.",
+  remoteRestarted: "Dienst neu gestartet und erreichbar.",
+  remoteUnhealthy: (port) =>
+    `Dienst antwortet nach dem Neustart nicht auf http://127.0.0.1:${port}/api/health. Bitte Dienststatus prüfen.`,
+  remoteHostNotListed: (host) => `${host} steht nicht in der Hostliste.`,
+  remoteAuditFailed: "Der Audit-Eintrag konnte nicht geschrieben werden.",
 });

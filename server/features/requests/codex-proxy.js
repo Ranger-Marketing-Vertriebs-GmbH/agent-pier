@@ -1,6 +1,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import readline from "node:readline";
 import { randomBytes, randomUUID } from "node:crypto";
+import { observeHookTrust } from "./codex-hook-trust.js";
 import { codexRequest } from "./codex-protocol.js";
 
 /** One real TUI connection and one stdio app-server. Both UIs race at this sole native owner. */
@@ -17,6 +18,7 @@ export async function createCodexProxy({ input, output, channel }) {
   });
   let tui,
     closed = false;
+  const hooks = observeHookTrust(channel);
   const requests = new Map();
   const retired = new Set();
   const idKey = (id) => JSON.stringify(id);
@@ -52,12 +54,18 @@ export async function createCodexProxy({ input, output, channel }) {
           if (retired.has(identity)) return;
           if (requests.has(identity)) retire(identity);
         }
+        try {
+          hooks.outgoing(message);
+        } catch {
+          /* Future hook schemas remain native. */
+        }
         write(message);
       } catch {
         socket.close(1003);
       }
     });
     socket.on("close", () => {
+      hooks.close();
       for (const identity of requests.keys()) retire(identity);
       if (tui === socket) tui = null;
     });
@@ -66,6 +74,13 @@ export async function createCodexProxy({ input, output, channel }) {
   lines.on("line", (line) => {
     try {
       const message = JSON.parse(line);
+      if (tui?.readyState === WebSocket.OPEN) {
+        try {
+          hooks.incoming(message);
+        } catch {
+          /* Never hide the native RPC response. */
+        }
+      }
       if (message.method === "serverRequest/resolved")
         retire(idKey(message.params?.requestId));
       if (["thread/closed", "thread/deleted"].includes(message.method))
@@ -106,6 +121,7 @@ export async function createCodexProxy({ input, output, channel }) {
     async close() {
       if (closed) return;
       closed = true;
+      hooks.close();
       for (const identity of requests.keys()) retire(identity);
       lines.close();
       for (const client of server.clients) client.terminate();

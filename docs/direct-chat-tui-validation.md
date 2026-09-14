@@ -45,6 +45,127 @@ operations. Without `--http`, measurements describe direct tmux input only.
 
 ## Native input characterization
 
+### Explicit fresh input policy (2026-09-12)
+
+A fresh chat send behaves like typing into the current TUI composer and pressing
+Enter. An existing draft or an unrecognized screen layout does not reject that
+explicit send; native input can combine the existing draft with the pasted text.
+The same rule applies to an explicit retry whose durable journal proves that no
+paste was attempted (`reserved`). No draft-clearing keystrokes are injected.
+
+This permission does not weaken recovery of an already pasted message: submitting
+that existing draft still requires an exact text match and unchanged generation.
+Ambiguous paste/submit attempts never retry automatically. Session/account/process
+identity, reload and pipeline guards remain enforced, and pending native permission
+requests are checked immediately before both paste and Enter. An unreadable screen
+does not bypass those guards. Exact native-history matching remains presentation-only;
+combined drafts may remain unconfirmed when they differ from the original chat text.
+
+The native recovery probe also tests that a fresh message appends to an edited
+manual draft once, while retrying the earlier, now-changed draft remains blocked.
+Real tmux integration tests cover unrecognized composers and a permission request
+that arrives after paste: the latter must prevent Enter.
+
+### Chat after terminal submission regression (2026-09-13)
+
+The manual-input render guard used to remain set until it saw a complete,
+short draft. Submitting a collapsed or multiline paste, or sending text and Enter
+in the same browser input frame, could therefore leave all subsequent Chat sends
+and explicit pre-paste retries rejected even after the native CLI had answered.
+
+The guard now recognizes explicit terminal Enter, Ctrl+C and Ctrl+U as ending the
+outstanding input operation. Later printable input marks it pending again. This
+tracks user input intent, not provider acceptance or proof of an empty composer;
+the explicit fresh input policy above still applies. Unsubmitted input that has
+not rendered remains protected, as does exact-match recovery of a prior paste.
+
+Each attached terminal keeps bounded protocol state across input frames. Pasted
+carriage returns and modified Enter do not count as submission. Automatic terminal
+replies, including fragmented OSC color reports, do not become phantom drafts.
+The guard retains no prompt text. No timeout, background resend or extra Enter is
+introduced, and request, session-generation and at-most-once guards remain active.
+
+Unit regressions cover all three CLIs, batched and fragmented input, paste boundaries,
+modified Enter, explicit clearing and terminal replies. Owned tmux/HTTP integration
+checks reject the unsubmitted paste, accept its explicit retry after terminal Enter,
+and deliver the next fresh message exactly once. The existing delayed-render race
+regression still passes.
+
+The bound native probes below were run with Codex 0.153.4 and Claude Code 2.1.270 on
+macOS arm64 using only the disposable local provider. Both accepted a long multiline
+paste through the browser terminal attachment, answered after one terminal Enter,
+and then accepted Chat with exactly one paste and one Enter; replay wrote no bytes.
+The same runs passed busy queueing, payload preservation and guarded draft recovery.
+Claude also passed the seven-image preparation case. OpenCode has synthetic
+transport coverage for this regression; a native run is not claimed here.
+
+```sh
+node --test tests/unit/manual-input-guard.test.js tests/unit/manual-input-submit.test.js \
+  tests/integration/terminal-chat-render-race.test.js tests/integration/chat-tui-input.test.js
+node scripts/probe-chat-tui.mjs --native --tool codex --local-mock --http --bound --samples 2
+node scripts/probe-chat-tui.mjs --native --tool claude --local-mock --http --bound --samples 2
+```
+
+### Claude startup dialogs (2026-09-13)
+
+A fresh AgentPier Claude profile runs Claude Code's full first-run onboarding
+before the composer exists. With Claude Code 2.1.270 the sequence is theme
+selection, the custom API key confirmation (API-key accounts), security notes
+and the folder trust dialog; OAuth accounts show the login method and browser
+code screens instead. Only the trust dialog used to be recognized, and its
+default selection is "No, exit", so a chat send that pasted text and Enter into
+any of these screens either exited the CLI or advanced a dialog blindly.
+
+Every startup dialog is now published as a local native request while the
+session's native receipt is still missing. Theme, API key, security notes and
+trust are answerable from chat; the answer moves the native selection with
+Up/Down until the screen confirms it, presses Enter once and waits for the
+dialog to leave. Login and unrecognized startup menus appear as blocking cards
+that only open the terminal. Chat input refuses to paste while any startup
+dialog is visible, including unknown menus before the receipt; after the
+receipt, only the specific dialogs are still recognized so in-session prompts
+are not misread. No onboarding flags are seeded into the profile.
+
+```sh
+node --test tests/unit/claude-startup-prompts.test.js tests/integration/claude-startup-prompts.test.js \
+  tests/unit/session-chat-input-policy.test.js
+node scripts/probe-chat-tui.mjs --native --tool claude --local-mock --http --bound --fresh-profile --samples 1
+```
+
+The fresh-profile probe keeps the disposable profile empty, waits for each
+native dialog at 50 columns, verifies that an HTTP chat send is rejected, answers
+through the request route and finally repeats the folder trust and recovery
+checks. It passed with Claude Code 2.1.270 on macOS arm64 against the local
+provider only. Synthetic frames in `tests/fixtures/requests/claude-startup-prompts.js`
+mirror the recorded 120- and 50-column screens.
+
+### Claude image preparation regression (2026-09-12)
+
+Claude Code 2.1.269 reproduces a separate paste/submit race with larger image
+attachments. Seven synthetic 1536 × 1024 PNGs (about 4.7 MB each) were pasted as
+newline-separated absolute paths through the bound HTTP route. The old writer
+sent one Enter immediately after paste and returned a handoff receipt, but the
+native CLI remained at the input prompt with all seven image chips and the text.
+No corresponding request reached the local mock provider within 15 seconds.
+The probe does not compensate by sending a second Enter.
+
+The writer now waits for all existing local PNG/JPEG/GIF/WebP paths in that paste
+to become image chips inside the current fenced Claude composer before sending
+its single Enter. Image labels in old conversation output do not count. The wait
+is bounded to ten seconds; failure leaves the journal at `pasted`, reports an
+uncertain delivery, and does not send Enter. Existing recovery rules still require
+an exact current draft match, so transformed image drafts may require manual TUI
+submission. Generation checks remain in place immediately before submission.
+Plain text and other CLIs retain their existing transport without an added pause.
+
+The corrected bound native probe passed all seven images to the local provider,
+observed a response and counted exactly one paste and one Enter. In the final
+recorded run, image submission took 751.79 ms. The same run passed 30 sequential
+text prompts, the held-response queue case, multiline/long payloads and guarded
+short-draft recovery. This measurement is specific to the local test files and
+machine, not a universal image-processing latency guarantee. The original
+zero-delay measurements below describe text input only.
+
 | CLI         | Installed version | Held-response observation                                                                                        | Submit                                                 |
 | ----------- | ----------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | Codex       | 0.153.4           | Second marker shown under “Messages to be submitted after next tool call” while the first response remained open | Separate Enter after bracketed paste, zero added delay |
@@ -238,3 +359,30 @@ captures a draft without submitting it, then disposes its own session.
 The remaining native matrix must be recorded before claiming full release
 acceptance. Linux, custom keybindings/themes, actual tool
 execution, and simultaneous external tmux/SSH typing are not covered by this run.
+
+## Codex clear before the next prompt
+
+The `--clear-only` mode reproduces the delayed identity transition using the same
+isolated native CLI and loopback provider as the input probes:
+
+```sh
+node scripts/probe-chat-tui.mjs --native --tool codex --local-mock --http --bound --clear-only
+```
+
+On 2026-09-14, Codex CLI 0.153.4 cleared its terminal immediately after the HTTP
+submission of `/clear`, but AgentPier still read the old native identity until the
+next synthetic prompt. The probe verifies that the browser's durable draft store
+records a requested reset, preserves that state on reload, and confirms it only
+when a fresh snapshot identifies another conversation. The new conversation
+contains none of the earlier synthetic prompt.
+
+This is presentation state, not an acknowledgement of command execution. AgentPier
+collapses unchanged pre-command messages after a successful handoff; new or updated
+output stays visible, and rejected or uncertain handoffs retain the normal history.
+The marker is scoped to this browser's session/account delivery storage, with
+cross-tab ordering and restart checks. It is not shared across devices, and `/clear`
+entered directly in the terminal still relies on native identity notification.
+Browser tests cover the collapsed history, reload, uncertain/rejected delivery,
+late responses, and explicit retry after restart in Chromium and WebKit.
+
+![Pending Codex reset in the English chat](screenshots/chat-clear-requested.png)

@@ -25,6 +25,16 @@ export function requestValue(value) {
     return result;
   };
   const result = { kind: value.kind };
+  if (
+    value.presentation === "codexHookTrust" &&
+    value.kind === "permission" &&
+    Number.isInteger(value.hookCount) &&
+    value.hookCount > 0 &&
+    value.hookCount <= 100
+  ) {
+    result.presentation = value.presentation;
+    result.hookCount = value.hookCount;
+  }
   if (value.subject)
     result.subject = Object.fromEntries(
       ["tool", "command", "path", "cwd", "description"]

@@ -1,3 +1,5 @@
+import { CodexRolloutMetadata } from "./codex-rollout-metadata.js";
+import { activeOpenCodeExport } from "./opencode-revert.js";
 import { ClaudeHistoryPages } from "./claude-history-pages.js";
 import { readHistoryPage } from "./history-page.js";
 import { observeClaude, observeCodex, observeOpenCode } from "./chat-observability.js";
@@ -165,6 +167,7 @@ export class ProviderHistory {
     this.home = home;
     this.codexClientFactory = codexClientFactory;
     this.codexClients = new Map();
+    this.codexMetadata = new CodexRolloutMetadata();
     this.openCodeJobs = new Set();
     this.claudePages = new ClaudeHistoryPages({
       onIndexed: (event) => this.onIndexed?.(event),
@@ -205,7 +208,16 @@ export class ProviderHistory {
   async claudeFile(session, id) {
     providerId(id);
     const { root, directories } = await this.claudeDirectory(session);
-    for (const directory of directories) {
+    // Claude Code moves a transcript into the project directory of its new
+    // working directory when it enters or leaves a worktree. The session keeps
+    // its original cwd, so fall back to every project directory of the profile.
+    // Readers still verify the transcript's own cwd and session id afterwards.
+    const projects = path.join(root, "projects");
+    const others = (await fs.readdir(projects, { withFileTypes: true }).catch(() => []))
+      .filter((e) => e.isDirectory())
+      .map((e) => path.join(projects, e.name))
+      .filter((directory) => !directories.includes(directory));
+    for (const directory of [...directories, ...others]) {
       const file = path.join(directory, id + ".jsonl");
       try {
         return await inside(file, root);
@@ -413,7 +425,7 @@ export class ProviderHistory {
       }
       return result;
     }
-    const exported = await this.opencode(session, ["export", id]);
+    const exported = activeOpenCodeExport(await this.opencode(session, ["export", id]));
     if (exported.info?.id !== id || exported.info?.directory !== session.cwd)
       throw problem(serverMessages.chat.historyProjectMismatch, 409);
     return { ...normalizeOpenCode(exported), observability: observeOpenCode(exported) };

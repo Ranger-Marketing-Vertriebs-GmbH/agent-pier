@@ -1,12 +1,16 @@
 import { extensionProfiles } from "../features/extensions/sharedProfiles.js";
 import { useWorkspaceNavigationCopy as copy } from "../lib/i18n/messages/app.js";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { readRoute, routePath, defaultSessionMode } from "./routes.js";
+import { SessionViewMemory } from "./session-view-memory.js";
+import { readRoute, routePath } from "./routes.js";
 export default function useWorkspaceNavigation({ state, ready, setMobileNav, setModal }) {
   const [route, setRoute] = useState(() => readRoute(window.location));
   const view = route.view,
     selected = route.sessionId || "";
   const profileMemory = useRef("");
+  const [sessionViews] = useState(
+    () => new SessionViewMemory(() => window.sessionStorage),
+  );
   const navigate = useCallback(
     (next, replace = false) => {
       const path = routePath(next);
@@ -40,7 +44,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
         ? {
             view: "workspace",
             sessionId: session.id,
-            mode: defaultSessionMode(
+            mode: sessionViews.mode(
               session,
               window.matchMedia("(max-width: 700px)").matches,
             ),
@@ -84,11 +88,13 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     )
       normalized = {
         ...route,
-        mode: defaultSessionMode(
+        mode: sessionViews.mode(
           activeSession,
           window.matchMedia("(max-width: 700px)").matches,
         ),
       };
+    if (activeSession && normalized.mode)
+      sessionViews.remember(activeSession, normalized.mode);
     if (
       routePath(normalized) !== window.location.pathname + window.location.search ||
       window.location.hash
@@ -104,6 +110,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     navigate,
     state.accounts,
     state.sharedCliExtensions,
+    sessionViews,
   ]);
   const page = (view) =>
     navigate({

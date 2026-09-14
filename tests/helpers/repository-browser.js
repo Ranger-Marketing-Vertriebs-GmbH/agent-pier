@@ -61,6 +61,9 @@ export async function fixture(page) {
         host: body.host,
         hasSecret: true,
         agentDefault: body.agentDefault,
+        ...(body.commitIdentity !== undefined
+          ? { commitIdentity: body.commitIdentity }
+          : {}),
         createdAt: stamp,
       };
       repositories.credentials.push(result);
@@ -76,6 +79,9 @@ export async function fixture(page) {
           name: body.name,
           host: body.host,
           agentDefault: body.agentDefault,
+          ...(body.commitIdentity !== undefined
+            ? { commitIdentity: body.commitIdentity }
+            : {}),
         });
       result = credential || {};
     } else if (path === "/api/repositories/clone") {

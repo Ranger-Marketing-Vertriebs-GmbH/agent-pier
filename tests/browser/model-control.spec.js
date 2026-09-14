@@ -49,6 +49,8 @@ async function fixture(page) {
         tasks: [],
       };
     else if (path.includes("/models")) {
+      if (!body && controls.readError)
+        return route.fulfill({ status: 409, json: { error: controls.readError } });
       if (!body && controls.holdNextGet) {
         controls.holdNextGet = false;
         const previous = structuredClone(model);
@@ -58,6 +60,12 @@ async function fixture(page) {
         return route.fulfill({ json: previous });
       }
       if (body) calls.push({ action: path.split("/").at(-1), body });
+      if (path.endsWith("/open") && controls.holdOpen) {
+        await new Promise((resolve) => {
+          controls.releaseOpen = resolve;
+        });
+        return route.fulfill({ json: model }).catch(() => {});
+      }
       if (path.endsWith("/open"))
         model.picker = {
           token: "model-token",
@@ -437,3 +445,81 @@ test("a blocked mobile model switch shows its reason without a contradictory ter
   await page.getByRole("button", { name: "Modell auswählen", exact: true }).click();
   await expect(page.locator(".model-option").first()).toBeVisible();
 });
+
+test("a transient reload error clears after model reads recover without losing the chat draft", async ({
+  page,
+}) => {
+  const controls = await fixture(page);
+  const draft = page.getByRole("textbox", { name: "Nachricht", exact: true });
+  await draft.fill("Keep this draft after reload");
+  controls.readError = "Session is reloading";
+  await expect(page.locator(".model-error")).toHaveText("Session is reloading", {
+    timeout: 7000,
+  });
+  controls.readError = null;
+  controls.model.currentModel = "gpt-5.6-terra";
+  await expect(
+    page.getByRole("button", { name: "Modell auswählen", exact: true }),
+  ).toContainText("gpt-5.6-terra", { timeout: 7000 });
+  await expect(page.locator(".model-error")).toHaveCount(0);
+  await expect(draft).toHaveValue("Keep this draft after reload");
+  await expect(page.getByRole("button", { name: "Senden", exact: true })).toBeEnabled();
+});
+
+test("returning to mobile chat refreshes a stale reload error and keeps its draft", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const controls = await fixture(page);
+  const draft = page.getByRole("textbox", { name: "Nachricht", exact: true });
+  await draft.fill("Mobile draft");
+  controls.readError = "Session is reloading";
+  await expect(page.locator(".model-error")).toHaveText("Session is reloading", {
+    timeout: 7000,
+  });
+  await page.getByRole("button", { name: "Terminal", exact: true }).click();
+  controls.readError = null;
+  controls.model.currentModel = "gpt-5.6-terra";
+  await page.getByRole("button", { name: "Chat", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Modell auswählen", exact: true }),
+  ).toContainText("gpt-5.6-terra");
+  await expect(page.locator(".model-error")).toHaveCount(0);
+  await expect(draft).toHaveValue("Mobile draft");
+  await expect(page.getByRole("button", { name: "Senden", exact: true })).toBeEnabled();
+});
+
+for (const language of ["de", "en"]) {
+  test(`model request deadline reconciles status without repeating the mutation (${language})`, async ({
+    page,
+  }) => {
+    await page.addInitScript(
+      (value) => localStorage.setItem("agentpier-language", value),
+      language,
+    );
+    const controls = await fixture(page);
+    const draft = page.locator(".chat-composer textarea");
+    await draft.fill("Keep this pending draft");
+    await page.clock.install();
+    controls.holdOpen = true;
+    await page.locator(".model-trigger").click();
+    await expect.poll(() => Boolean(controls.releaseOpen)).toBe(true);
+    await expect(
+      page.getByRole("button", {
+        name: language === "en" ? "Send" : "Senden",
+        exact: true,
+      }),
+    ).toBeDisabled();
+    await page.clock.fastForward(16000);
+    await expect(page.locator(".model-working")).toHaveCount(0);
+    await expect(
+      page.getByRole("button", {
+        name: language === "en" ? "Send" : "Senden",
+        exact: true,
+      }),
+    ).toBeEnabled();
+    await expect(draft).toHaveValue("Keep this pending draft");
+    expect(controls.calls.filter((call) => call.action === "open")).toHaveLength(1);
+    controls.releaseOpen();
+  });
+}

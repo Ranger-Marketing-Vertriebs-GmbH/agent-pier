@@ -8,10 +8,19 @@ export async function createProbeProvider() {
   const server = http.createServer(async (request, response) => {
     let body = "";
     for await (const chunk of request) body += chunk;
-    const markers = [...new Set(body.match(/AP_PROBE_[A-Z0-9_]+/g) || [])];
-    const marker = markers.at(-1);
     const parsed = body ? JSON.parse(body) : {};
     const messages = parsed.messages || parsed.input || [];
+    const promptText = (Array.isArray(messages) ? messages : [])
+      .filter((message) => message.role === "user")
+      .flatMap((message) =>
+        typeof message.content === "string"
+          ? [message.content]
+          : (message.content || [])
+              .map((part) => part.text)
+              .filter((text) => typeof text === "string"),
+      )
+      .join("\n");
+    const marker = (promptText.match(/AP_PROBE_[A-Z0-9_]+/g) || []).at(-1);
     const payloads = (Array.isArray(messages) ? messages : [])
       .filter((message) => message.role === "user")
       .flatMap((message) =>
@@ -31,6 +40,10 @@ export async function createProbeProvider() {
       kind: "request",
       marker,
       at: performance.now(),
+      imageCount: (Array.isArray(messages) ? messages : [])
+        .filter((message) => message.role === "user")
+        .flatMap((message) => (Array.isArray(message.content) ? message.content : []))
+        .filter((part) => ["image", "input_image"].includes(part.type)).length,
       payloads: request.url.includes("count_tokens") ? [] : payloads,
     });
     if (request.url.includes("count_tokens")) {

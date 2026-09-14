@@ -93,7 +93,9 @@ export function auditEvent(input) {
     event.details.kind = details.kind;
   if (["allow", "deny", "answer", "handoff"].includes(details.decision))
     event.details.decision = details.decision;
-  for (const key of ["statusCode", "count", "revision"])
+  if (typeof details.enabled === "boolean") event.details.enabled = details.enabled;
+  if (["0.0.0.0", "::"].includes(details.bind)) event.details.bind = details.bind;
+  for (const key of ["statusCode", "count", "revision", "skipped"])
     if (Number.isSafeInteger(details[key]) && details[key] >= 0 && details[key] <= 1e9)
       event.details[key] = details[key];
   if (

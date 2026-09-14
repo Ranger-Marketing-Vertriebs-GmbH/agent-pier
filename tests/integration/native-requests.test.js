@@ -191,3 +191,46 @@ test("a helper-owned pending request survives broker restart without duplicate c
   assert.equal(events.filter((e) => e.action === "request.created").length, 1);
   await restarted.answer("fixture", current.id, { expectedRevision: 1, choice: "deny" });
 });
+
+test("Codex startup approvals use the native screen and native trust acknowledgement once", async (t) => {
+  const { hookScreen } = await import("../fixtures/requests/codex-hook-trust.js");
+  const { broker, channel, session } = await fixture(t, "codex");
+  let selected = 1;
+  const keys = [];
+  broker.sessions.control = async (_id, operation) =>
+    operation({
+      session,
+      screen: async () => hookScreen(selected),
+      keys: async (values) => {
+        keys.push(...values);
+        if (values.includes("Down")) selected = 2;
+        if (values.includes("Enter")) channel.resolve("startup", "trusted");
+      },
+    });
+  channel.publish(
+    "startup",
+    {
+      kind: "permission",
+      presentation: "codexHookTrust",
+      hookCount: 2,
+      options: [{ id: "trust", label: "Trust" }],
+    },
+    async () => {
+      throw Error("Do not manufacture a second RPC approval");
+    },
+  );
+  const ask = (await waitFor(() => broker.list(session.id))).requests[0];
+  assert.equal(ask.presentation, "codexHookTrust");
+  assert.equal(ask.launchIdentity, undefined);
+  const result = await broker.answer(session.id, ask.id, {
+    expectedRevision: 1,
+    choice: "trust",
+  });
+  assert.equal(result.requests.length, 0);
+  assert.deepEqual(keys, ["Down", "Enter"]);
+  await assert.rejects(
+    broker.answer(session.id, ask.id, { expectedRevision: 1, choice: "trust" }),
+    { status: 409 },
+  );
+  assert.deepEqual(keys, ["Down", "Enter"]);
+});

@@ -27,6 +27,32 @@ export function createSessionLifecycle(services) {
     sharedProfiles,
     sshSessions,
   } = services;
+  const reservations = new Map();
+  let reservationQueue = Promise.resolve();
+  const reserve = (account, login) => {
+    const operation = reservationQueue.then(async () => {
+      const running = (await sessions.list()).filter(
+        (session) => session.status === "running",
+      );
+      if (running.length + reservations.size >= 30)
+        throw problem(serverMessages.sessions.sessionLimitReached, 409);
+      if (
+        running.some(
+          (session) =>
+            session.accountId === account.id && (login || session.purpose === "login"),
+        ) ||
+        [...reservations.values()].some(
+          (item) => item.accountId === account.id && (login || item.login),
+        )
+      )
+        throw problem(serverMessages.sessions.stopBeforeLogin, 409);
+      const key = Symbol();
+      reservations.set(key, { accountId: account.id, login });
+      return () => reservations.delete(key);
+    });
+    reservationQueue = operation.catch(() => {});
+    return operation;
+  };
   const activeFor = async (id) =>
     (await sessions.list()).some(
       (session) => session.accountId === id && session.status === "running",
@@ -45,7 +71,12 @@ export function createSessionLifecycle(services) {
       ? providerConnections.acquire(resolved.selection.providerConnectionId)
       : () => {};
     try {
-      return await launchResolved(body, login, trusted, resolved);
+      const unreserve = await reserve(resolved.account, login);
+      try {
+        return await launchResolved(body, login, trusted, resolved);
+      } finally {
+        unreserve();
+      }
     } finally {
       release();
     }

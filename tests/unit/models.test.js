@@ -19,6 +19,28 @@ test("native Claude menu exposes available models and the actual default resolut
   assert.equal(menu.selectKey, "s");
   assert.equal(menu.options[2].label, "Sonnet");
 });
+for (const width of [50, 80]) {
+  test(`Claude model selection reads wrapped native menus at ${width} columns`, async () => {
+    const raw = await fixture(`claude-model-${width}.txt`);
+    const menu = parseModelPicker("claude", raw);
+    assert.ok(menu, "the native picker must be available in chat");
+    assert.equal(menu.options.length, 6);
+    assert.equal(menu.selected, "5");
+    assert.equal(menu.currentModel, "Sonnet 4.6");
+    assert.equal(menu.selectKey, "s", "changing the session must not change the default");
+    assert.equal(
+      menu.options[0].description,
+      "Use the default model (currently Opus 5 (1M context)) · $5/$25 per Mtok",
+    );
+    assert.equal(
+      menu.options[5].description,
+      "Newer version available · select Sonnet for Sonnet 5",
+    );
+    assert.equal(modelPromptReady("claude", raw), false);
+    for (const suffix of ["\n❯\n? for shortcuts", "\n\n❯ draft\n? for shortcuts"])
+      assert.equal(parseModelPicker("claude", raw + suffix), null);
+  });
+}
 test("Codex model and reasoning stages remain distinct; current marker differs from highlight", async () => {
   const menu = parseModelPicker("codex", await fixture("codex-model.txt"));
   assert.equal(menu.kind, "model");
@@ -132,6 +154,82 @@ function fakeManager(tool, screen) {
   };
   return { sessions, state, calls };
 }
+test("a narrow Claude picker opens, switches and cancels through chat without changing the default", async () => {
+  const menu = await fixture("claude-model-50.txt");
+  const idle = "Claude Code\nSonnet 4.6 · API Usage Billing\n❯ draft\n? for shortcuts";
+  const { sessions, state, calls } = fakeManager("claude", idle);
+  state.onKeys = (keys) => {
+    if (keys.join() === "M-p") state.screen = menu;
+    if (keys.join() === "Up")
+      state.screen = menu
+        .replace("    5. Haiku", "  ❯ 5. Haiku")
+        .replace("  ❯ 6.", "    6.");
+    if (keys.join() === "s") state.screen = idle.replace("Sonnet 4.6", "Haiku 4.5");
+    if (keys.join() === "Escape") state.screen = idle;
+  };
+  const models = new ModelController({ sessions, timeout: 300 });
+  const opened = await models.open("one");
+  assert.ok(opened.picker);
+  assert.throws(() => models.guardInput("one", { tool: "claude" }, state.screen), {
+    status: 409,
+  });
+  const selected = await models.select("one", {
+    token: opened.picker.token,
+    optionId: "4",
+  });
+  assert.equal(selected.currentModel, "Haiku 4.5");
+  assert.equal(selected.pending, false);
+  assert.equal(selected.picker, null);
+  assert.doesNotThrow(() => models.guardInput("one", { tool: "claude" }, state.screen));
+  const reopened = await models.open("one");
+  const cancelled = await models.cancel("one", { token: reopened.picker.token });
+  assert.equal(cancelled.pending, false);
+  assert.deepEqual(calls, [["M-p"], ["Up"], ["s"], ["M-p"], ["Escape"]]);
+});
+test("Claude selection refuses default-only confirmation and keeps input blocked", async () => {
+  const raw = (await fixture("claude-model-80.txt")).replace(
+    " · s to use this session only",
+    "",
+  );
+  assert.equal(parseModelPicker("claude", raw), null);
+  assert.equal(modelPromptReady("claude", raw), false);
+  const { sessions, calls } = fakeManager("claude", raw);
+  const models = new ModelController({ sessions });
+  assert.equal((await models.read("one")).pending, true);
+  assert.throws(
+    () => new ModelController({ sessions }).guardInput("one", { tool: "claude" }, raw),
+    { status: 409 },
+  );
+  await assert.rejects(models.open("one"), { status: 409 });
+  assert.deepEqual(calls, []);
+});
+test("Claude confirmation follows the current footer and rejects tokens from another action", async () => {
+  const raw = await fixture("claude-model-80.txt");
+  const legacy = raw.replace(
+    "Enter to set as default · s to use this session only",
+    "Enter to confirm",
+  );
+  const { sessions, state, calls } = fakeManager("claude", raw);
+  const models = new ModelController({ sessions, timeout: 100 });
+  const opened = await models.read("one");
+  state.screen = "An old menu said: s to use this session only\n" + legacy;
+  const current = await models.read("one");
+  assert.equal(parseModelPicker("claude", state.screen).selectKey, "Enter");
+  await assert.rejects(
+    models.select("one", { token: opened.picker.token, optionId: "5" }),
+    { status: 409 },
+  );
+  assert.deepEqual(calls, []);
+  state.onKeys = () => {
+    state.screen = "Claude Code\n❯\n? for shortcuts";
+  };
+  const selected = await models.select("one", {
+    token: current.picker.token,
+    optionId: "5",
+  });
+  assert.equal(selected.pending, false);
+  assert.deepEqual(calls, [["Enter"]]);
+});
 test("stale menu tokens cannot send keys to another native screen", async () => {
   const { sessions, state, calls } = fakeManager(
     "claude",

@@ -30,8 +30,13 @@ Inbox reads are event-driven: launch hooks and the OpenCode system hook add a
 message hint only when the queue contains pending messages. The agent should call
 `inbox_read` after a fresh hint or an explicit user request, not periodically or
 before every work step or final answer. A delayed wake can arrive after its message
-has already been read; an empty result is harmless and should not trigger more
-reads. This guidance reduces model-initiated calls; it does not hide tool output.
+has already been read. Wake hints now include a `messageId` for `inbox_read`;
+when that message was acknowledged by an earlier batched read, the tool explicitly
+reports the delayed hint instead of an unexplained empty inbox. The reference is
+scoped to the receiving peer and does not replay acknowledged content. A read still
+collects all pending messages, including newer messages that arrived in the meantime.
+Legacy calls without a reference remain supported and explain that hints may be
+late. An empty result should not trigger more reads. This guidance reduces model-initiated calls; it does not hide tool output.
 Existing conversations can retain older startup instructions until a fresh
 conversation is started.
 

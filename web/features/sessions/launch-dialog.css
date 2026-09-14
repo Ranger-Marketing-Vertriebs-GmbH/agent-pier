@@ -1,0 +1,161 @@
+dialog.launch-dialog {
+  width: min(900px, calc(100vw - 48px));
+  overflow: hidden;
+}
+dialog.launch-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.launch-dialog > .dialog-heading {
+  flex: 0 0 auto;
+}
+.launch-dialog-body,
+.launch-dialog-body > form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.launch-dialog-body > form > .form-content {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
+.launch-dialog .dialog-actions {
+  flex: 0 0 auto;
+}
+.launch-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.launch-section {
+  display: grid;
+  gap: 17px;
+  min-width: 0;
+}
+.launch-section h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e8e9ed;
+}
+.launch-section + .launch-section {
+  border-left: 1px solid #323337;
+  padding-left: 28px;
+}
+.launch-extensions {
+  border: 1px solid #38393e;
+  border-radius: 8px;
+  min-width: 0;
+}
+.launch-extensions > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+.launch-extensions > summary::-webkit-details-marker {
+  display: none;
+}
+.launch-extensions > summary > svg {
+  flex-shrink: 0;
+}
+.launch-extensions[open] > summary > svg {
+  transform: rotate(90deg);
+}
+.launch-extensions > summary:focus-visible {
+  outline: 2px solid #e6b68d;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.launch-extensions > summary span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.launch-extensions strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.launch-extensions small {
+  font-size: 11px;
+  line-height: 1.6;
+  color: #9d9ea2;
+  overflow-wrap: anywhere;
+}
+.launch-extension-content {
+  display: grid;
+  gap: 18px;
+  padding: 6px 14px 16px;
+}
+.launch-extensions:not([open]) > .launch-extension-content {
+  display: none;
+}
+.launch-dialog .directory-picker {
+  min-height: 0;
+  overflow-y: auto;
+}
+.launch-dialog .directory-picker > .dialog-actions {
+  position: sticky;
+  bottom: 0;
+}
+dialog.launch-dialog-shell {
+  width: min(540px, calc(100vw - 48px));
+}
+.launch-dialog-shell .launch-columns {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (max-width: 700px) {
+  dialog.launch-dialog {
+    position: fixed;
+    inset: var(--launch-top, 0px) 0 auto;
+    margin: 0;
+    width: 100%;
+    max-width: none;
+    height: var(--launch-height, 100dvh);
+    max-height: var(--launch-height, 100dvh);
+    border: 0;
+    border-radius: 0;
+  }
+  .launch-dialog-body,
+  .launch-dialog-body > form {
+    flex: 1;
+  }
+  .launch-dialog-body > form > .form-content {
+    flex: 1;
+    align-content: start;
+  }
+  .launch-columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .launch-section + .launch-section {
+    border-left: 0;
+    border-top: 1px solid #323337;
+    padding: 20px 0 0;
+  }
+  .launch-dialog .dialog-actions {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  .launch-dialog .dialog-actions > .button {
+    min-height: 44px;
+    height: auto;
+    font-size: 12px;
+  }
+  .launch-dialog .dialog-actions > .primary {
+    flex: 1;
+  }
+  .launch-dialog .directory-picker {
+    flex: 1;
+  }
+}
+/* Keep a failed launch visible beside the persistent actions, even on small screens. */
+.launch-dialog .form-content > .error {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+}

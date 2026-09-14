@@ -17,3 +17,7 @@ Codex stores trust for each exact hook definition; use `/hooks` to review and tr
 ## Model verification
 
 Reload preflight checks the current model before stopping the CLI. If the CLI reports only a display name that cannot be resolved reliably, AgentPier rejects the reload instead of forcing an older model from the conversation history. This currently affects some OpenCode display names and unfamiliar native model labels. Changing the model immediately before reloading can also require a new response to confirm its exact identity in the native history. The error leaves the running CLI untouched.
+
+## Release migration
+
+**Settings → Updates → Remove old versions** uses the same reload to move sessions off an old application release before deleting it. The same exclusions apply: login, shell, pipeline and imported historical sessions cannot be reloaded and must be stopped by hand. A session whose CLI activity cannot be identified keeps waiting until it is recognisably idle; a reload waiting for hook or project approval keeps the migration open until you approve it in the terminal or cancel the migration. Cancelling the migration never cancels reloads that are already running.

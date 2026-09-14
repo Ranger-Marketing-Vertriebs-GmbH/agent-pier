@@ -180,7 +180,7 @@ test("reload during recovery reads its result without resubmitting", async ({ pa
   expect(state.recoveries).toHaveLength(1);
   state.release();
   await expect(page.getByRole("status", { name: "Nachrichtenzustellung" })).toContainText(
-    "An Sitzung übergeben",
+    "An TUI gesendet",
   );
   expect(state.recoveries).toHaveLength(1);
   expect(state.inputs).toHaveLength(1);

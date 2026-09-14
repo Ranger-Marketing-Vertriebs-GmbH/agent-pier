@@ -145,24 +145,13 @@ Die Installation schreibt ausschließlich den AgentPier-LaunchAgent `~/Library/L
 
 Die Plist speichert Node-Pfad, Projekt-/Datenverzeichnis und PATH zum Installationszeitpunkt. Nach Verschieben des Projekts oder einem Node-Upgrade `npm run service:install` erneut ausführen. Eigene CLI-Sitzungen bleiben beim Neustart des Webdienstes erhalten.
 
-## 5. Optional: privater Fernzugriff über Tailscale
+## 5. Optional: privater Fernzugriff
 
-Bei laufendem und angemeldetem Tailscale auf dem Mac mini:
-
-```sh
-npm run tailscale
-npm run service:install
-```
-
-Der zweite Befehl lädt die neu gespeicherte Remote-Konfiguration. Das Skript gibt eine private HTTPS-URL aus und wählt einen freien Port aus 8443, 10000 oder 9443. Bereits vorhandene andere Serve-Freigaben bleiben erhalten. Die URL erscheint auch in AgentPier.
-
-Öffne diese URL auf deinem mit Tailscale verbundenen Handy. AgentPier akzeptiert Remote-Zugriff nur für das bei der Einrichtung ermittelte eigene Tailscale-Konto. Es richtet keinen öffentlichen Funnel ein.
-
-Der Mac mini muss eingeschaltet und wach bleiben. Wähle dafür passende Energieeinstellungen am Zielrechner; AgentPier ändert sie nicht automatisch. Nach einem macOS-Neustart sind alte CLI-Prozesse beendet und müssen bewusst neu gestartet werden.
+Für den Zugriff von einem anderen Gerät gibt es zwei gleichwertige Wege: [Tailscale Serve](remote-access.md#weg-a-tailscale-serve) mit HTTPS im eigenen Tailnet, oder der [Netzwerkmodus ohne Tailscale](remote-access.md#weg-b-netzwerkmodus-ohne-tailscale), der sich auch headless mit `npm run remote` einschalten lässt und nur durch die Anmeldung geschützt ist. Beide Wege sind in der [Fernzugriffsanleitung](remote-access.md) mit den genauen Befehlen beschrieben; die eigene Tailscale-Freigabe wird beim Entfernen des Diensts weiter unten mit `tailscale serve --https=8443 off` deaktiviert.
 
 ## 6. Aktualisieren
 
-Bei einer versionierten Installation unter **Einstellungen → Updates** nach einer neuen Version suchen, das Paket herunterladen und anschließend aktivieren. Standardmäßig kommen die Pakete aus den [offiziellen GitHub-Releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases); ein eigener Kanal kann über `AGENTPIER_RELEASE_CHANNEL` gesetzt werden. Der Download wird per SHA-256 geprüft. Schlägt der Start der neuen Version fehl, wird die vorherige Version wieder aktiviert. CLI-Sitzungen bleiben beim Neustart des Webdienstes erhalten.
+Bei einer versionierten Installation unter **Einstellungen → Updates** nach einer neuen Version suchen, das Paket herunterladen und anschließend aktivieren. Bei einem angebotenen oder bereits vorbereiteten Update zeigt die App die GitHub-Release-Notes genau dieser Version an. Sie werden separat geladen; fehlen die Hinweise oder ist GitHub nicht erreichbar, bleibt das Update möglich. Eigene Update-Kanäle zeigen keine möglicherweise unpassenden Notes des offiziellen Releases. Standardmäßig kommen die Pakete aus den [offiziellen GitHub-Releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases); ein eigener Kanal kann über `AGENTPIER_RELEASE_CHANNEL` gesetzt werden. Der Download wird per SHA-256 geprüft. Schlägt der Start der neuen Version fehl, wird die vorherige Version wieder aktiviert. CLI-Sitzungen bleiben beim Neustart des Webdienstes erhalten.
 
 Bei einem Source-Checkout stattdessen nach Aktualisieren der Repository-Dateien:
 
@@ -196,3 +185,17 @@ tailscale serve --https=8443 off
 ```
 
 Kein `tailscale serve reset` verwenden, wenn andere Freigaben existieren. Projektordner und Profildaten nur entfernen, wenn sie nicht mehr benötigt werden. Alte Installationen unter dem früheren Namen verwenden gegebenenfalls `dev.tuiui.server.plist`; einen solchen Dienst vor dem Umstieg gezielt stoppen, damit nicht zwei Webdienste denselben Port verwenden.
+
+### Alte Versionen entfernen
+
+Unter **Einstellungen → Updates → Alte Versionen aufräumen** können ältere Versionen einzeln oder gesammelt gelöscht werden. Die Bestätigung nennt die konkrete Auswahl. Gelöschte Versionen stehen nicht mehr für einen Rollback bereit.
+
+Die aktive Version, vorbereitete neuere Versionen und Versionen mit laufenden Prozessen bleiben erhalten. Kann die bestehende Prozessprüfung über `ps` nicht zuverlässig ausgeführt werden, wird nichts gelöscht. Während einer Aktivierung, eines Rollbacks oder eines Session-Umzugs ist das Aufräumen gesperrt. Die Funktion verändert weder Sitzungsdaten noch Profile.
+
+#### Sessions umziehen
+
+Eine Version mit laufenden Prozessen zeigt über **Sessions anzeigen** die AgentPier-Sessions, die sie halten, mit ihrem Zustand: bereit, beschäftigt, Zustand unbekannt, wird neu geladen oder nicht neu ladbar. **Sessions umziehen und Version löschen** lädt jede Session mit [Reload & resume](session-reload.md) auf die aktive Version neu und löscht die Version, sobald die letzte Session umgezogen ist. Beschäftigte Sessions ziehen erst nach Abschluss ihres aktuellen Schritts um; Sessions mit unbekanntem Zustand warten, bis das CLI erkennbar bereit ist. **Sofort umziehen und löschen** startet alle Sessions nach Bestätigung sofort neu und bricht laufende Arbeit ab. Ein laufender Umzug lässt sich abbrechen; bereits angestoßene Reloads laufen dann eigenständig weiter, die Version bleibt erhalten.
+
+Sessions, die nicht neu geladen werden können (Pipeline-, Login-, Shell- oder unverifizierte Sessions), müssen manuell beendet werden. Prozesse außerhalb einer Session, etwa ein laufender Pipeline-Supervisor oder der Release-Helfer, blockieren den Umzug und werden mit ihrem Pfad genannt. Node-Prozesse, die nur das Node-Binary der Version nutzen, blockieren nicht; sie werden nach dem Umzug erneut geprüft. Verwenden nach dem Umzug weiterhin Prozesse die Version, bleibt sie erhalten und der Vorgang nennt die verbleibenden Verweise.
+
+Beim Aktivieren einer vorbereiteten Version bietet die Bestätigung **Laufende Sessions danach auf die neue Version umziehen** an. Der Umzug beginnt erst, nachdem die neue Version ihre Zustandsprüfung bestanden hat, und unterbricht nichts. Schlägt die Aktivierung fehl oder wird sie zurückgerollt, findet kein Umzug statt.

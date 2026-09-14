@@ -71,7 +71,13 @@
 }
 .native-choice input {
   width: auto;
+  flex-shrink: 0;
   accent-color: var(--accent);
+}
+.native-choice span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 .native-choice small {
   display: block;
@@ -101,8 +107,21 @@
   overflow-y: auto;
 }
 
-.terminal-pane > .native-requests {
-  flex: 0 1 auto;
+.native-question-progress {
+  font-weight: 600;
+}
+.native-question-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: 30dvh;
+}
+.native-question-body {
+  overflow-y: auto;
   min-height: 0;
-  max-height: 50%;
+}
+.native-question-navigation {
+  margin-top: 0;
+  background: #19191c;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
 }

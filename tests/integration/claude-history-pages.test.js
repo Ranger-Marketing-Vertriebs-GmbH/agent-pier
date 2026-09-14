@@ -288,3 +288,56 @@ test("Claude indexed pages survive append and stream a new generation when index
   assert.equal(updated.history.generation, ready.history.generation);
   assert.equal(updated.messages.at(-1).id, "r120");
 });
+
+test("Claude edit structure survives provisional pages, indexing and result append", async (t) => {
+  const f = await fixture(t, 120);
+  const call = f.record(120, {
+    type: "assistant",
+    message: {
+      content: [
+        {
+          type: "tool_use",
+          id: "edit-diff",
+          name: "Edit",
+          input: {
+            file_path: "x.ts",
+            old_string: "const a = 1;",
+            new_string: "const a = 2;",
+          },
+        },
+      ],
+    },
+  });
+  await fs.appendFile(f.file, JSON.stringify(call) + "\n");
+  const first = await f.history.readPage(f.session, "native");
+  const expected = first.messages.find((m) => m.id === "edit-diff");
+  assert.equal(expected.fileChanges[0].added, 1);
+  assert.equal(expected.status, "running");
+  const entry = f.history.claudePages?.entries?.get(f.session.id);
+  if (entry?.index.job) await entry.index.job;
+  const indexed = await f.history.readPage(f.session, "native");
+  assert.deepEqual(
+    indexed.messages.find((m) => m.id === "edit-diff"),
+    expected,
+  );
+  await fs.appendFile(
+    f.file,
+    JSON.stringify(
+      f.record(121, {
+        type: "user",
+        message: {
+          content: [{ type: "tool_result", tool_use_id: "edit-diff", content: "Done" }],
+        },
+      }),
+    ) + "\n",
+  );
+  const updated = await f.history.readPage(f.session, "native");
+  const completed = updated.messages.find((m) => m.id === "edit-diff");
+  assert.equal(completed.status, "completed");
+  assert.deepEqual(completed.fileChanges, expected.fileChanges);
+  const reloaded = await f.history.read(f.session, "native");
+  assert.deepEqual(
+    reloaded.messages.find((m) => m.id === "edit-diff").fileChanges,
+    expected.fileChanges,
+  );
+});

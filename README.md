@@ -56,7 +56,9 @@ npm start
 Open **http://127.0.0.1:4380** and create the initial user. Subsequent visits require
 login. Setup is available through configured permitted network access as well;
 it is not restricted to the local computer. Complete initial setup before sharing
-access. See [login](docs/login.md) and [remote access](docs/remote-access.md).
+access. See [login](docs/login.md) and [remote access](docs/remote-access.md), which
+covers Tailscale Serve and the network mode without Tailscale that is protected
+only by the login.
 
 Choose a CLI, account and project folder, then start a session. The native terminal
 handles CLI login and menus; the chat view shows saved conversation history.
@@ -76,18 +78,18 @@ Read the [pipeline guide](docs/pipelines.md) for lifecycle and recovery details.
 
 ## Installation and operation
 
-| Task                                  | Guide                                                 |
-| ------------------------------------- | ----------------------------------------------------- |
-| macOS / Mac mini installation         | [Installation](docs/installation.md)                  |
-| Linux and systemd                     | [Linux](docs/linux.md)                                |
-| Private remote access                 | [Remote access](docs/remote-access.md)                |
-| Reload and resume                     | [Session reload](docs/session-reload.md)              |
-| SSH server accesses                   | [SSH access](docs/ssh-access.md)                      |
-| Login and user recovery               | [Login](docs/login.md)                                |
-| Delivery status and draft recovery    | [Mobile delivery](docs/mobile-delivery.md)            |
-| Terminal, chat and upload recovery    | [Mobile recovery](docs/mobile-recovery.md)            |
-| Backups, release packages and updates | [Operations](docs/research/operations-portability.md) |
-| All features, in German               | [German guide](README.de.md)                          |
+| Task                                              | Guide                                                 |
+| ------------------------------------------------- | ----------------------------------------------------- |
+| macOS / Mac mini installation                     | [Installation](docs/installation.md)                  |
+| Linux and systemd                                 | [Linux](docs/linux.md)                                |
+| Private remote access (Tailscale or network mode) | [Remote access](docs/remote-access.md)                |
+| Reload and resume                                 | [Session reload](docs/session-reload.md)              |
+| SSH server accesses                               | [SSH access](docs/ssh-access.md)                      |
+| Login and user recovery                           | [Login](docs/login.md)                                |
+| Delivery status and draft recovery                | [Mobile delivery](docs/mobile-delivery.md)            |
+| Terminal, chat and upload recovery                | [Mobile recovery](docs/mobile-recovery.md)            |
+| Backups, release packages and updates             | [Operations](docs/research/operations-portability.md) |
+| All features, in German                           | [German guide](README.de.md)                          |
 
 Versioned packages include their own Node runtime. Source installation remains
 available using the commands above. Follow the release and installation guides

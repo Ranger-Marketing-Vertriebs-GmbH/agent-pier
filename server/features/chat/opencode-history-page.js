@@ -1,3 +1,5 @@
+import { openCodeRevert } from "./opencode-revert.js";
+import { markOpenCodeInput } from "./opencode-input-state.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -127,7 +129,21 @@ export async function readOpenCodePage(history, session, id, state = null) {
     const cursor = state?.opencode;
     if (state && (!cursor || cursor.scope !== scope)) throw mismatch();
     if (cursor) validateBoundary(db, id, cursor.before);
-    const result = page(db, id, scope, cursor?.before);
+    const revert = openCodeRevert(info.revert);
+    let cutoff;
+    if (revert) {
+      const target = db
+        .prepare("SELECT time_created FROM message WHERE session_id=? AND id=?")
+        .get(id, revert.messageID);
+      if (!target) throw mismatch();
+      cutoff = {
+        id: revert.messageID,
+        time: target.time_created,
+        part: revert.partID || null,
+      };
+      validateBoundary(db, id, cutoff);
+    }
+    const result = page(db, id, scope, cursor?.before || cutoff);
     if (location.immutable) {
       const after = await databaseFile(history, session);
       if (
@@ -265,7 +281,7 @@ function page(db, id, scope, before) {
   }
   const exported = { info: { id }, messages: envelope.reverse(), todos };
   return {
-    messages: messages.reverse(),
+    messages: markOpenCodeInput(messages.reverse(), envelope),
     tasks: normalizeOpenCode(exported).tasks,
     observability: observeOpenCode(exported),
     next: hasOlder ? { opencode: { scope, before: boundary } } : null,

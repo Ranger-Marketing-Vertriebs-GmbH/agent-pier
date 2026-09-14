@@ -1,15 +1,21 @@
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { chatMessageCopy as copy } from "../../lib/i18n/messages/chat.js";
-import React from "react";
+import React, { useState } from "react";
+import ToolOutput from "./ToolOutput.jsx";
+import ToolChanges from "./ToolChanges.jsx";
 import Markdown, { defaultUrlTransform } from "react-markdown";
 import { projectLinkPath } from "./chat-file-link.js";
 import remarkGfm from "remark-gfm";
 import ChatImages from "./ChatImages.jsx";
 import { providerNames } from "./presentation.js";
 export default function Message({ message, tool, sessionId, cwd, openFile }) {
+  const [toolOpen, setToolOpen] = useState(false);
   if (message.role === "tool")
     return (
-      <details className="chat-tool">
+      <details
+        className="chat-tool"
+        onToggle={(event) => setToolOpen(event.currentTarget.open)}
+      >
         <summary>
           <span aria-hidden="true">⌘</span>
           <strong>{message.toolName || copy.chatToolLabel}</strong>
@@ -21,7 +27,12 @@ export default function Message({ message, tool, sessionId, cwd, openFile }) {
             }[message.status] || "Details"}
           </small>
         </summary>
-        <pre>{message.text}</pre>
+        {toolOpen &&
+          (message.fileChanges?.length ? (
+            <ToolChanges message={message} />
+          ) : (
+            <ToolOutput text={message.text} toolName={message.toolName} />
+          ))}
       </details>
     );
   return (

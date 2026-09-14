@@ -3,6 +3,8 @@ import api from "../../lib/api.js";
 import useResource from "../../lib/useResource.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import ReleaseCleanup from "./ReleaseCleanup.jsx";
+import ReleaseNotes from "./ReleaseNotes.jsx";
 import OperationJob from "./OperationJob.jsx";
 import ConfirmOperation from "./ConfirmOperation.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
@@ -12,6 +14,7 @@ export default function UpdatesPage({ route, navigate }) {
     action = useAsyncAction(),
     [plan, setPlan] = useState(null),
     [confirm, setConfirm] = useState(null),
+    [reloadSessions, setReloadSessions] = useState(false),
     [observedJob, setObservedJob] = useState(null);
   const jobPending = Boolean(
     route.operationId &&
@@ -57,6 +60,7 @@ export default function UpdatesPage({ route, navigate }) {
           {presentation.candidate && (
             <article className="operations-card">
               <h2>{presentation.candidate.version}</h2>
+              <ReleaseNotes version={presentation.candidate.version} />
               <p>
                 {copy.platform}: {presentation.candidate.platform}
               </p>
@@ -82,19 +86,21 @@ export default function UpdatesPage({ route, navigate }) {
               <h3>
                 {copy.staged}: {staged.version}
               </h3>
+              <ReleaseNotes version={staged.version} />
               <button
                 className="button primary"
                 aria-label={`${copy.activateRelease}: ${staged.version}`}
                 disabled={
                   jobPending || action.busy || !releases.installed || !releases.supported
                 }
-                onClick={() =>
+                onClick={() => {
+                  setReloadSessions(false);
                   setConfirm({
                     kind: "activate",
                     stagedId: staged.id,
                     version: staged.version,
-                  })
-                }
+                  });
+                }}
               >
                 {copy.activateRelease}
               </button>
@@ -110,9 +116,10 @@ export default function UpdatesPage({ route, navigate }) {
                   <button
                     className="button secondary"
                     disabled={jobPending || action.busy || !release.canRollback}
-                    onClick={() =>
-                      setConfirm({ kind: "rollback", version: release.version })
-                    }
+                    onClick={() => {
+                      setReloadSessions(false);
+                      setConfirm({ kind: "rollback", version: release.version });
+                    }}
                   >
                     {copy.rollback}
                   </button>
@@ -122,6 +129,11 @@ export default function UpdatesPage({ route, navigate }) {
           )}
         </>
       )}
+      <ReleaseCleanup
+        busy={jobPending || action.busy}
+        job={observedJob}
+        navigate={navigate}
+      />
       <OperationJob
         id={route.operationId}
         onComplete={resource.refresh}
@@ -135,11 +147,31 @@ export default function UpdatesPage({ route, navigate }) {
             start(
               confirm.kind,
               confirm.kind === "activate"
-                ? { stagedId: confirm.stagedId }
+                ? {
+                    stagedId: confirm.stagedId,
+                    ...(reloadSessions ? { reloadSessions: true } : {}),
+                  }
                 : { version: confirm.version },
             )
           }
-        />
+        >
+          {confirm.kind === "activate" && (
+            <div className="operations-form">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={reloadSessions}
+                  onChange={(event) => setReloadSessions(event.target.checked)}
+                  aria-describedby="activate-reload-help"
+                />{" "}
+                {copy.activateReload}
+              </label>
+              <p className="field-description" id="activate-reload-help">
+                {copy.activateReloadHelp}
+              </p>
+            </div>
+          )}
+        </ConfirmOperation>
       )}
     </section>
   );

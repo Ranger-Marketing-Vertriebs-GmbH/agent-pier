@@ -1,6 +1,11 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import { parseModelPicker, currentModel, modelPromptReady } from "./model-parser.js";
+import {
+  parseModelPicker,
+  currentModel,
+  modelPromptReady,
+  unsupportedModelPicker,
+} from "./model-parser.js";
 export { parseModelPicker, currentModel, modelPromptReady } from "./model-parser.js";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const sameOption = (a, b) =>
@@ -18,7 +23,7 @@ export class ModelController {
     const menu = parseModelPicker(tool, raw);
     const live = menu?.currentModel || (!menu ? currentModel(tool, raw) : null);
     if (live) this.known.set(id, live);
-    if (menu) this.pending.add(id);
+    if (menu || unsupportedModelPicker(tool, raw)) this.pending.add(id);
     else if (modelPromptReady(tool, raw)) this.pending.delete(id);
     return {
       currentModel: live || this.known.get(id) || null,
@@ -85,7 +90,10 @@ export class ModelController {
     return this.sessions.control(id, async (tx) => {
       this.assertModelChangeAllowed(tx.session);
       const tool = tx.session.tool;
-      const raw = await tx.screen();
+      const resized = tool === "claude" && (await tx.prepareModelPicker?.());
+      const raw = resized
+        ? await this.wait(tx, (menu, screen) => !!menu || modelPromptReady(tool, screen))
+        : await tx.screen();
       const menu = parseModelPicker(tool, raw);
       if (menu) return this.state(id, tool, raw);
       if (!modelPromptReady(tool, raw))
@@ -199,7 +207,11 @@ export class ModelController {
   }
   guardInput(id, session, raw) {
     const menu = parseModelPicker(session.tool, raw);
-    if (menu || (this.pending.has(id) && !modelPromptReady(session.tool, raw)))
+    if (
+      menu ||
+      unsupportedModelPicker(session.tool, raw) ||
+      (this.pending.has(id) && !modelPromptReady(session.tool, raw))
+    )
       throw problem(serverMessages.models.completeSelectionFirst, 409);
     this.pending.delete(id);
   }

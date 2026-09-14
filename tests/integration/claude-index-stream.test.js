@@ -162,7 +162,7 @@ test(
 );
 
 test(
-  "failed Claude indexing releases a stopped stream with a usable provisional history cursor",
+  "failed Claude indexing retains a stopped stream and a usable provisional history cursor",
   { timeout: 15000 },
   async (t) => {
     const f = await fixture(t, { failIndex: true });
@@ -178,14 +178,18 @@ test(
       );
       f.release();
       await until(
-        () => f.ws.readyState === WebSocket.CLOSED,
-        "failed indexing must not leave the stream waiting",
+        () => f.snapshots.at(-1)?.history.indexing === false,
+        "failed indexing publishes its provisional cursor",
       );
       assert.deepEqual(f.errors, []);
       const settled = f.snapshots.at(-1);
       assert.equal(settled.history.indexing, false);
       assert.equal(settled.observability.stale, true);
-      assert.equal(f.frames.at(-1).type, "ended");
+      assert.equal(
+        f.frames.some((frame) => frame.type === "ended"),
+        false,
+      );
+      assert.equal(f.ws.readyState, WebSocket.OPEN);
       assert.equal(f.scans(), 1, "unchanged failing source must not immediately reindex");
       const older = await f.request(
         `/api/sessions/${f.session.id}/chat/history?cursor=${encodeURIComponent(settled.history.cursor)}`,

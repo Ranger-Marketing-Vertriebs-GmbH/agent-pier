@@ -1,5 +1,5 @@
 import { listPeers } from '../core/peers.js';
-import { ackInbox, claimInbox } from '../core/inbox.js';
+import { ackInbox, claimInbox, inboxMessageStatus } from '../core/inbox.js';
 import { send } from '../core/send.js';
 
 export function formatPeers(peers) {
@@ -62,10 +62,19 @@ export function makeTools(h, resolveSelf, deps = {}) {
     {
       name: 'inbox_read',
       description: 'Holt alle neuen agentbus-Nachrichten an diese Session ab und markiert sie als gelesen. Nur nach einem Nachrichtenhinweis oder auf ausdrückliche Nutzeranfrage aufrufen, nicht periodisch. Nach leerem Ergebnis auf einen neuen Hinweis warten.',
-      inputSchema: { type: 'object', properties: {} },
+      inputSchema: { type: 'object', properties: { messageId: { type: 'string', description: 'Nachrichtenreferenz aus dem Hinweis, falls vorhanden. Ein Abruf holt weiterhin alle neuen Nachrichten ab.' } } },
       async run(args = {}) {
         const self = await resolveSelf(args);
+        // Validate the optional reference before claiming anything; recipient scoping
+        // prevents references to another inbox from disclosing delivery state.
+        if (args.messageId !== undefined) inboxMessageStatus(h, self.key, args.messageId);
         const claim = claimInbox(h, self.key);
+        if (!claim.rows.length) {
+          const state = args.messageId === undefined ? null : inboxMessageStatus(h, self.key, args.messageId);
+          if (state === 'acked') return 'Die im Hinweis angekündigte Nachricht wurde bereits von einem früheren inbox_read-Aufruf abgeholt. Der Hinweis ist verspätet; keine neue Nachricht und keine erneute Bearbeitung erforderlich.';
+          if (state === 'claimed') return 'Die angekündigte Nachricht wird bereits von einem anderen inbox_read-Aufruf abgeholt. Keine erneute Bearbeitung oder erneutes Senden erforderlich.';
+          return 'Keine neuen Nachrichten. Hinweise können verspätet eintreffen, nachdem ein früherer Abruf bereits alle Nachrichten abgeholt hat. Nicht erneut abrufen; auf einen neuen Hinweis warten.';
+        }
         const result = formatMessages(claim.rows);
         if (ackInbox(h, claim.owner, claim.claimIds) !== claim.claimIds.length)
           throw new Error("agentbus: inbox acknowledgement failed");

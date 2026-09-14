@@ -27,6 +27,8 @@ test("arbitrary event detail keys cannot become durable audit content", () => {
             "version",
             "kind",
             "decision",
+            "enabled",
+            "bind",
           ].includes(key),
         ),
       );

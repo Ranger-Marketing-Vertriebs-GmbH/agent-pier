@@ -49,6 +49,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: agentpier-${{ matrix.platform }}
+          retention-days: 7
           path: |
             agentpier-${{ matrix.platform }}.aprelease
             agentpier-${{ matrix.platform }}.aprelease.json

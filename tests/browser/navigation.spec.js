@@ -1,7 +1,7 @@
 import { navigateTo } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
-async function fixture(page, { delay = 0, shellFirst = false } = {}) {
+async function fixture(page, { delay = 0, shellFirst = false, extraSessions = [] } = {}) {
   const accounts = [
     { id: "local-codex", name: "Codex Lokal", tool: "codex", kind: "local" },
     { id: "work-claude", name: "Arbeit", tool: "claude", kind: "managed" },
@@ -29,7 +29,7 @@ async function fixture(page, { delay = 0, shellFirst = false } = {}) {
       first = false;
       data = {
         accounts,
-        sessions: [session],
+        sessions: [session, ...extraSessions],
         tools: [{ id: "codex", name: "Codex", installed: true }],
         home: "/tmp",
         remoteUrl: null,
@@ -289,3 +289,56 @@ test("mobile navigation waits for the authenticated workspace to mount", async (
     page.getByRole("heading", { name: "Dein Terminal. Überall." }),
   ).toBeVisible();
 });
+
+for (const locale of ["de-DE", "en-GB"]) {
+  test(`desktop session switching remembers views and respects explicit links (${locale})`, async ({
+    page,
+  }) => {
+    await page.addInitScript(
+      (language) => localStorage.setItem("agentpier-language", language.slice(0, 2)),
+      locale,
+    );
+    await fixture(page, {
+      extraSessions: [
+        {
+          id: "second",
+          name: "Second session",
+          tool: "claude",
+          accountId: "work-claude",
+          cwd: "/tmp/second",
+          status: "running",
+        },
+        {
+          id: "shell",
+          name: "Shell session",
+          tool: "shell",
+          accountId: "local-shell",
+          cwd: "/tmp",
+          status: "running",
+        },
+      ],
+    });
+    await page.goto(base + "/sessions/nav-demo/chat");
+    const select = (name) =>
+      page.locator(".sidebar").getByRole("button", { name, exact: false }).click();
+    await select("Second session");
+    await expect(page).toHaveURL(/\/sessions\/second\/chat$/);
+    await page.getByRole("button", { name: "Terminal", exact: true }).click();
+    await select("Navigation testen");
+    await expect(page).toHaveURL(/\/sessions\/nav-demo\/chat$/);
+    await select("Shell session");
+    await expect(page).toHaveURL(/\/sessions\/shell\/terminal$/);
+    await select("Navigation testen");
+    await expect(page).toHaveURL(/\/sessions\/nav-demo\/chat$/);
+    await page.reload();
+    await select("Second session");
+    await expect(page).toHaveURL(/\/sessions\/second\/terminal$/);
+    await select("Navigation testen");
+    await expect(page).toHaveURL(/\/sessions\/nav-demo\/chat$/);
+    await page.goto(base + "/sessions/nav-demo/terminal");
+    await expect(page).toHaveURL(/\/sessions\/nav-demo\/terminal$/);
+    await select("Second session");
+    await select("Navigation testen");
+    await expect(page).toHaveURL(/\/sessions\/nav-demo\/terminal$/);
+  });
+}

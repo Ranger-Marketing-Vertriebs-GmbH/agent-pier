@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { shellQuote } from "../../lib/launch-serialization.js";
+import { claudeHookVersion, writeClaudeHooks } from "./claude-runtime.js";
 const moduleFile = (name) => fileURLToPath(new URL(name, import.meta.url));
 export async function prepareRequests(
   broker,
@@ -31,6 +31,10 @@ export async function prepareRequests(
       cwd,
       token,
       socketPath: broker.socketPath,
+      ...(account.tool === "claude" ? { claudeHookVersion } : {}),
+      ...(account.tool === "claude" && path.isAbsolute(env.CLAUDE_CONFIG_DIR || "")
+        ? { claudeTrustFile: path.join(env.CLAUDE_CONFIG_DIR, ".claude.json") }
+        : {}),
       command: launch.command,
       args,
     }),
@@ -56,23 +60,7 @@ export async function prepareRequests(
       JSON.stringify({ name: "agentpier-requests", version: "1.0.0" }),
       { mode: 0o600 },
     );
-    const hook = {
-      type: "command",
-      command: [process.execPath, moduleFile("./claude-hook.js")]
-        .map(shellQuote)
-        .join(" "),
-      timeout: 600,
-    };
-    await fs.writeFile(
-      path.join(directory, "hooks/hooks.json"),
-      JSON.stringify({
-        hooks: {
-          PermissionRequest: [{ hooks: [hook] }],
-          PreToolUse: [{ matcher: "AskUserQuestion", hooks: [hook] }],
-        },
-      }),
-      { mode: 0o600 },
-    );
+    await writeClaudeHooks(broker.directory, id);
     args.push("--plugin-dir", directory);
   }
   if (account.tool === "opencode") {

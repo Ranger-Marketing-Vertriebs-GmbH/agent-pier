@@ -33,7 +33,7 @@ async function fixture(page, { granted = true } = {}) {
     messages: [],
     tasks: [],
   };
-  await mockChatStream(page, () => data);
+  const publish = await mockChatStream(page, () => data);
   const uploads = [];
   const inputs = [];
   await page.route("**/api/**", async (route) => {
@@ -57,7 +57,8 @@ async function fixture(page, { granted = true } = {}) {
     await route.fulfill({ json: result });
   });
   await page.goto(base + "/sessions/chat-demo/chat");
-  return { data, uploads, inputs };
+  await expect(page.getByLabel("Nachricht", { exact: true })).toBeVisible();
+  return { data, uploads, inputs, publish };
 }
 
 test("choosing a file uploads it and shows a removable chip", async ({ page }) => {
@@ -280,8 +281,14 @@ test("the sent image appears as a preview on the user's own message", async ({
       ],
     },
   ];
-  await page.reload();
+  await f.publish();
   const preview = page.getByAltText(/^Bildvorschau: /);
+  await expect(preview).toBeVisible();
+  await expect(preview).toHaveJSProperty("naturalWidth", 1);
+  // Reload only after the application and decoded image are ready. The native
+  // stream supplies new messages; an immediate reload is not a data update.
+  await page.reload();
+  await expect(page.getByLabel("Nachricht", { exact: true })).toBeVisible();
   await expect(preview).toBeVisible();
   await expect(preview).toHaveJSProperty("naturalWidth", 1);
 });

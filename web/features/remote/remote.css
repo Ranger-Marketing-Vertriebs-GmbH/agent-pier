@@ -1,0 +1,36 @@
+.remote-settings .settings-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1rem;
+  margin: 16px 0;
+  min-width: 0;
+}
+.remote-settings .switch-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+.remote-settings .switch-row input {
+  width: auto;
+  accent-color: var(--accent);
+}
+.remote-settings .chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.remote-settings .chip-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.remote-settings .remote-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
