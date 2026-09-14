@@ -62,3 +62,26 @@ test("tap update commits only a validated formula on a version branch and propos
     }),
   );
 });
+
+test("tap retries return the merged version PR without pushing another branch", async () => {
+  const { updateHomebrewTap } = await import("../../scripts/homebrew-tap-update.mjs");
+  const run = async (command, args) => {
+    if (command === "git" && args[0] === "status") return { stdout: "" };
+    if (command === "gh" && args[0] === "pr" && args[1] === "list")
+      return {
+        stdout: args.includes("all")
+          ? JSON.stringify([{ state: "MERGED", url: "https://example.invalid/pr/1" }])
+          : "[]",
+      };
+    throw Error("A merged version must not mutate the tap again.");
+  };
+  const result = await updateHomebrewTap({
+    tapDirectory: "/unused",
+    metadata: {
+      version: "1.2.3",
+      bundle: { file: "agentpier-installer-1.2.3.tar.gz", sha256: "a".repeat(64) },
+    },
+    run,
+  });
+  assert.deepEqual(result, { proposed: false, url: "https://example.invalid/pr/1" });
+});

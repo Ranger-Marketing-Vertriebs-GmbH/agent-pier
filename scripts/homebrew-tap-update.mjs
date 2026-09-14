@@ -28,13 +28,16 @@ export async function updateHomebrewTap({ tapDirectory, metadata, run = execute 
         "--head",
         branch,
         "--state",
-        "open",
+        "all",
         "--json",
-        "url",
+        "url,state",
       ])
     ).stdout,
   );
-  if (prs.length) return { proposed: false, url: prs[0].url };
+  const existing = prs.find((pr) => pr.state === "OPEN" || pr.state === "MERGED");
+  if (existing) return { proposed: false, url: existing.url };
+  if (prs.length)
+    throw Error("This installer update PR was closed; inspect it before retrying.");
   const remote = await git("ls-remote", "--heads", "origin", `refs/heads/${branch}`);
   if (remote) {
     await git("fetch", "origin", `refs/heads/${branch}`);

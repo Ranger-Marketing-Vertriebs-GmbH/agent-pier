@@ -4,6 +4,7 @@ import os from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createHash } from "node:crypto";
+import { compareReleaseVersions } from "../server/features/operations/version.js";
 import { validateInstallerRelease } from "./installer-release-check.mjs";
 import { isMainModule } from "../server/lib/is-main-module.js";
 const execute = promisify(execFile);
@@ -105,7 +106,28 @@ export async function publishInstallerRelease({
         repo,
       ]);
     for (const record of missing) await verify(record);
-    await run(["release", "edit", tag, "--repo", repo, "--draft=false", "--latest"]);
+    let latest = !tag.includes("-");
+    try {
+      const current = JSON.parse(
+        await run(["release", "view", "--repo", repo, "--json", "tagName"]),
+      );
+      latest =
+        latest &&
+        compareReleaseVersions(tag.slice(1), current.tagName.replace(/^v/, "")) > 0;
+    } catch (error) {
+      if (!/HTTP 404|release not found/i.test(`${error.message}\n${error.stderr || ""}`))
+        throw error;
+    }
+    await run([
+      "release",
+      "edit",
+      tag,
+      "--repo",
+      repo,
+      "--draft=false",
+      ...(tag.includes("-") ? ["--prerelease"] : []),
+      latest ? "--latest" : "--latest=false",
+    ]);
     return { published: true, tag };
   } finally {
     await fs.rm(temporary, { recursive: true, force: true });

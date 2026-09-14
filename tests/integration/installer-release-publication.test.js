@@ -48,13 +48,17 @@ test("release validation rejects missing, changed, or cross-version installer as
   await assert.rejects(validateInstallerRelease(ctx), /ENOENT|missing/i);
 });
 
-async function remoteFixture(ctx) {
+async function remoteFixture(ctx, latestTag = null) {
   let release = null;
   const remote = new Map();
   const calls = [];
   const run = async (args) => {
     calls.push(args);
     if (args[1] === "view") {
+      if (args[2] === "--repo") {
+        if (!latestTag) throw Error("release not found");
+        return JSON.stringify({ tagName: latestTag });
+      }
       if (!release) throw Error("HTTP 404: Not Found");
       return JSON.stringify({
         isDraft: release.draft,
@@ -79,6 +83,7 @@ async function remoteFixture(ctx) {
     }
     if (args[1] === "edit") {
       release.draft = false;
+      if (!args.includes("--latest=false")) latestTag = ctx.tag;
       return "";
     }
     throw Error(`Unexpected gh arguments ${args}`);
@@ -87,6 +92,9 @@ async function remoteFixture(ctx) {
     run,
     remote,
     calls,
+    get latestTag() {
+      return latestTag;
+    },
     get release() {
       return release;
     },
@@ -108,7 +116,7 @@ test("publication exposes latest only after all downloaded assets match and is r
   assert.equal(remote.calls.filter((a) => a[1] === "upload").length, uploadCount);
 });
 
-test("publication leaves a corrupt upload as a draft and never overwrites published assets", async (t) => {
+test("publication leaves a corrupt upload as a draft", async (t) => {
   const { publishInstallerRelease } =
     await import("../../scripts/installer-release-publish.mjs");
   const ctx = await fixture(t),
@@ -126,3 +134,78 @@ test("publication leaves a corrupt upload as a draft and never overwrites publis
     false,
   );
 });
+
+test("finishing an older draft preserves the newer latest channel", async (t) => {
+  const { publishInstallerRelease } =
+    await import("../../scripts/installer-release-publish.mjs");
+  const ctx = await fixture(t),
+    remote = await remoteFixture(ctx, "v2.0.0");
+  await publishInstallerRelease({ ...ctx, run: remote.run });
+  assert.equal(remote.release.draft, false);
+  assert.equal(remote.latestTag, "v2.0.0");
+});
+
+test("a partially uploaded draft resumes without replacing existing verified assets", async (t) => {
+  const { publishInstallerRelease } =
+    await import("../../scripts/installer-release-publish.mjs");
+  const ctx = await fixture(t),
+    remote = await remoteFixture(ctx);
+  const failUpload = async (args) => {
+    if (args[1] === "upload") {
+      remote.remote.set(path.basename(args[3]), await fs.readFile(args[3]));
+      throw Error("network interrupted");
+    }
+    return remote.run(args);
+  };
+  await assert.rejects(
+    publishInstallerRelease({ ...ctx, run: failUpload }),
+    /network interrupted/,
+  );
+  const first = [...remote.remote.keys()][0];
+  assert.equal(remote.release.draft, true);
+  await publishInstallerRelease({ ...ctx, run: remote.run });
+  assert.equal(remote.release.draft, false);
+  assert.equal(remote.remote.size, 9);
+  const upload = remote.calls.find((a) => a[1] === "upload");
+  assert.equal(upload.includes(path.join(ctx.directory, first)), false);
+});
+
+for (const corruption of ["missing", "changed"])
+  test(`published ${corruption} assets are never repaired in place`, async (t) => {
+    const { publishInstallerRelease } =
+      await import("../../scripts/installer-release-publish.mjs");
+    const ctx = await fixture(t),
+      remote = await remoteFixture(ctx);
+    await publishInstallerRelease({ ...ctx, run: remote.run });
+    if (corruption === "missing") remote.remote.delete("install-agentpier.sh");
+    else remote.remote.set("install-agentpier.sh", Buffer.from("changed"));
+    remote.calls.length = 0;
+    await assert.rejects(
+      publishInstallerRelease({ ...ctx, run: remote.run }),
+      /incomplete|mismatch/,
+    );
+    assert.equal(
+      remote.calls.some((a) => ["upload", "edit", "create"].includes(a[1])),
+      false,
+    );
+  });
+
+for (const file of [
+  "latest.json",
+  "installer.json",
+  "agentpier-installer.rb",
+  "agentpier-installer-1.2.3.tar.gz",
+  "agentpier-darwin-arm64.aprelease",
+  "agentpier-darwin-x64.aprelease",
+  "agentpier-linux-arm64.aprelease",
+  "agentpier-linux-x64.aprelease",
+])
+  test(`missing ${file} fails before GitHub is contacted`, async (t) => {
+    const { publishInstallerRelease } =
+      await import("../../scripts/installer-release-publish.mjs");
+    const ctx = await fixture(t),
+      remote = await remoteFixture(ctx);
+    await fs.rm(path.join(ctx.directory, file));
+    await assert.rejects(publishInstallerRelease({ ...ctx, run: remote.run }));
+    assert.equal(remote.calls.length, 0);
+  });
