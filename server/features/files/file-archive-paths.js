@@ -48,7 +48,8 @@ export function validateZipEntry(entry, { seen, limits }) {
   };
   try {
     archivePath(entry.fileName, limits);
-  } catch {
+  } catch (error) {
+    if (error.code === "FILE_LIMIT_EXCEEDED") throw error;
     invalid();
   }
   const mode = (entry.externalFileAttributes >>> 16) & 0xf000;

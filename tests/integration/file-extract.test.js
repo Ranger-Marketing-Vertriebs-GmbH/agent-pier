@@ -155,6 +155,8 @@ for (const limits of [
       ]),
     );
     const job = await f.jobs.start(f.scope, extractOperation(source, f.project));
-    assert.equal((await f.jobs.join(f.scope, job.id)).status, "failed");
+    const result = await f.jobs.join(f.scope, job.id);
+    assert.equal(result.status, "failed");
+    assert.equal(result.issue.code, "FILE_LIMIT_EXCEEDED");
     assert.deepEqual(await fs.readdir(f.project), []);
   });
