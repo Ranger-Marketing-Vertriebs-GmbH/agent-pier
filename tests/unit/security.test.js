@@ -195,3 +195,88 @@ test("document navigation without activation metadata supports WebKit but never 
   for (const url of ["/api/state", "/api/sessions/demo/input", "/assets/app.js"])
     assert.throws(() => authorizeRequest({ ...request(headers), url }, config));
 });
+const networkConfig = {
+  ...config,
+  network: { enabled: true, bind: "0.0.0.0", hosts: ["agentpier.home.arpa"] },
+  networkHosts: new Set(["agentpier.home.arpa:4380", "192.168.1.20:4380"]),
+};
+const lan = (headers = {}, method = "GET", remoteAddress = "192.168.1.55") => ({
+  headers: { host: "192.168.1.20:4380", ...headers },
+  method,
+  socket: { remoteAddress },
+});
+test("network branch accepts listed hosts from the LAN with matching origin", () => {
+  assert.equal(authorizeRequest(lan(), networkConfig), true);
+  assert.equal(
+    authorizeRequest(lan({ origin: "http://192.168.1.20:4380" }, "POST"), networkConfig),
+    true,
+  );
+  assert.equal(
+    authorizeRequest(
+      lan(
+        { host: "agentpier.home.arpa:4380", origin: "http://agentpier.home.arpa:4380" },
+        "POST",
+      ),
+      networkConfig,
+    ),
+    true,
+  );
+  assert.throws(
+    () =>
+      authorizeRequest(
+        lan({ origin: "http://agentpier.home.arpa:4380" }, "POST"),
+        networkConfig,
+      ),
+    { status: 403 },
+  );
+});
+test("network branch ignores proxy headers but rejects Tailscale markers and unknown hosts", () => {
+  assert.equal(
+    authorizeRequest(
+      lan({ "x-forwarded-for": "10.0.0.1", forwarded: "for=10.0.0.1" }),
+      networkConfig,
+    ),
+    true,
+  );
+  assert.equal(authorizeRequest(lan({}, "GET", "127.0.0.1"), networkConfig), true);
+  assert.throws(
+    () => authorizeRequest(lan({ "tailscale-user-login": "x" }), networkConfig),
+    {
+      status: 403,
+    },
+  );
+  assert.throws(
+    () => authorizeRequest(lan({ host: "evil.example:4380" }), networkConfig),
+    {
+      status: 403,
+    },
+  );
+  assert.throws(() => authorizeRequest(lan(), config), { status: 403 });
+  assert.throws(
+    () =>
+      authorizeRequest(lan(), {
+        ...networkConfig,
+        network: { ...networkConfig.network, enabled: false },
+      }),
+    { status: 403 },
+  );
+});
+test("local and Tailscale branches are unchanged by the network mode", () => {
+  assert.equal(authorizeRequest(request(), networkConfig), true);
+  assert.throws(
+    () => authorizeRequest(request({ "x-forwarded-for": "1.1.1.1" }), networkConfig),
+    {
+      status: 403,
+    },
+  );
+  assert.equal(
+    authorizeRequest(
+      request({
+        host: "host.example.ts.net:8443",
+        "tailscale-user-login": "owner@example.com",
+      }),
+      networkConfig,
+    ),
+    true,
+  );
+});

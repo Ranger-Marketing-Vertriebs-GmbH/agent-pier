@@ -6,9 +6,23 @@ const config = loadConfig();
 if (!Number.isInteger(config.port) || config.port < 1024 || config.port > 65535)
   throw new Error(serverMessages.scripts.invalidServerPort);
 const application = await createApplication(config);
-application.server.listen(config.port, "127.0.0.1", () =>
-  console.log(serverMessages.scripts.serverListening(config.port)),
-);
+application.server.on("error", (error) => {
+  console.error(
+    serverMessages.scripts.serverListenFailed(
+      application.networkState.bind,
+      config.port,
+      error.code,
+    ),
+  );
+  process.exit(1);
+});
+application.server.listen(config.port, application.networkState.bind, () => {
+  console.log(serverMessages.scripts.serverListening(config.port));
+  if (config.network.enabled)
+    console.log(
+      serverMessages.scripts.serverListeningNetwork(application.networkState.urls),
+    );
+});
 let stopping = false;
 async function stop() {
   if (stopping) return;

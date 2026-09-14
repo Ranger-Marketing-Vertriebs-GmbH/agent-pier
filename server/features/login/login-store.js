@@ -25,8 +25,8 @@ export class LoginStore {
     )
       throw new Error("Invalid private login state");
     this.watchers = new Map();
-    this.attempts = 0;
-    this.windowStart = now();
+    // One attempt window per source address: a LAN flood must not lock out the local owner.
+    this.attempts = new Map();
   }
   get configured() {
     return Boolean(this.data.user);
@@ -34,7 +34,7 @@ export class LoginStore {
   save() {
     writePrivate(this.file, this.data);
   }
-  async setup({ username, password } = {}) {
+  async setup({ username, password } = {}, source) {
     if (this.configured) throw problem(copy.exists, 409);
     if (
       typeof username !== "string" ||
@@ -45,7 +45,7 @@ export class LoginStore {
       throw problem(copy.username);
     if (typeof password !== "string" || password.length < 12 || password.length > 1024)
       throw problem(copy.password);
-    this.throttle();
+    this.throttle(source);
     const salt = randomBytes(32).toString("hex");
     const hash = (await hashPassword(password, salt)).toString("hex");
     if (this.configured) throw problem(copy.exists, 409);
@@ -53,15 +53,22 @@ export class LoginStore {
     this.save();
     return this.issue();
   }
-  throttle() {
-    if (this.now() - this.windowStart >= 60000) {
-      this.windowStart = this.now();
-      this.attempts = 0;
+  throttle(source) {
+    const key = String(source ?? "");
+    const now = this.now();
+    const window = this.attempts.get(key);
+    if (window && now - window.start < 60000) {
+      if (++window.count > 10) throw problem(copy.throttled, 429);
+      return;
     }
-    if (++this.attempts > 10) throw problem(copy.throttled, 429);
+    this.attempts.delete(key);
+    // Bounded map: a flood of changing sources drops the oldest window instead of growing.
+    while (this.attempts.size >= 1000)
+      this.attempts.delete(this.attempts.keys().next().value);
+    this.attempts.set(key, { start: now, count: 1 });
   }
-  async login({ username, password } = {}) {
-    this.throttle();
+  async login({ username, password } = {}, source) {
+    this.throttle(source);
     const user = this.data.user;
     if (
       !user ||

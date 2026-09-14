@@ -27,6 +27,7 @@ import { operationsRoutes } from "./http/routes/operations.js";
 import { ReleaseSessionMigration } from "./features/operations/release-session-migration.js";
 import { requestsRoutes } from "./http/routes/requests.js";
 import { notificationsRoutes } from "./http/routes/notifications.js";
+import { remoteRoutes } from "./http/routes/remote.js";
 import { memoryRoutes } from "./http/routes/memory.js";
 import { providerRoutes } from "./http/routes/providers.js";
 import express from "express";
@@ -57,6 +58,11 @@ import { chatRoutes } from "./http/routes/chat.js";
 import { modelsRoutes } from "./http/routes/models.js";
 import { toolsRoutes } from "./http/routes/tools.js";
 import { agentbusRoutes } from "./http/routes/agentbus.js";
+import {
+  detectNetworkAddresses,
+  allowedNetworkHosts,
+  networkUrls,
+} from "./features/remote/network-access.js";
 
 export async function createApplication(config) {
   const app = express();
@@ -83,10 +89,28 @@ export async function createApplication(config) {
   services.events.current = services.operationsEvents;
   await services.operationsEvents.poll();
   const instanceId = randomUUID();
-  const effective = () => ({
-    ...config,
-    port: server.address()?.port || config.port,
-  });
+  const network = config.network || { enabled: false, bind: "0.0.0.0", hosts: [] };
+  const detected = detectNetworkAddresses();
+  // Computed once per process; configuration changes apply after a restart.
+  services.networkState = {
+    bind: network.enabled ? network.bind : "127.0.0.1",
+    detected,
+    hosts: new Set(),
+    urls: [],
+    computed: false,
+  };
+  const effective = () => {
+    const port = server.address()?.port || config.port;
+    if (network.enabled && !services.networkState.computed && server.address()) {
+      services.networkState.hosts = allowedNetworkHosts(network, port, detected);
+      services.networkState.urls = networkUrls(network, port, detected);
+      services.networkState.computed = true;
+    }
+    return { ...config, port, network, networkHosts: services.networkState.hosts };
+  };
+  server.once("listening", effective);
+  services.effectiveConfig = effective;
+  services.instanceId = instanceId;
   Object.assign(services, createMcpServices(services, effective));
   services.sessionMcp = new SessionMcp(services);
   await services.sessionMcp.ready;
@@ -156,6 +180,7 @@ export async function createApplication(config) {
   mount(auditRoutes(services));
   mount(requestsRoutes(services));
   mount(notificationsRoutes(services));
+  mount(remoteRoutes(services));
   app.use("/api", operationsRoutes(services));
   app.get("/api/health", (_req, res) =>
     res.json({
@@ -178,10 +203,10 @@ export async function createApplication(config) {
     effective,
   });
   services.chatWss = chatWss;
-  return {
-    ...services,
+  // Returning the services object itself keeps test seams such as restartService writable.
+  return Object.assign(services, {
     app,
     server,
     close: createShutdown({ services, wss, server }),
-  };
+  });
 }

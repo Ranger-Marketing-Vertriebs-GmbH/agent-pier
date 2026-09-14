@@ -107,12 +107,6 @@
   overflow-y: auto;
 }
 
-.terminal-pane > .native-requests {
-  flex: 0 1 auto;
-  min-height: 0;
-  max-height: 50%;
-}
-
 .native-question-progress {
   font-weight: 600;
 }

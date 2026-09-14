@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readJSON } from "./storage.js";
 import { readFileLimits } from "../features/files/file-limits.js";
+import { normalizeNetworkConfig } from "./network-config.js";
 export const projectDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
@@ -14,6 +15,7 @@ export function loadConfig() {
       path.join(projectDir, ".data"),
   );
   const saved = readJSON(path.join(dataDir, "config.json"), {});
+  const network = normalizeNetworkConfig(saved.network);
   return {
     dataDir,
     home: os.homedir(),
@@ -23,6 +25,7 @@ export function loadConfig() {
     ),
     remoteUrl: saved.remoteUrl || null,
     ownerLogin: saved.ownerLogin || null,
+    network,
     devOrigins:
       (process.env.AGENTPIER_DEV || process.env.TUIUI_DEV) === "1"
         ? ["http://127.0.0.1:5173", "http://localhost:5173"]
