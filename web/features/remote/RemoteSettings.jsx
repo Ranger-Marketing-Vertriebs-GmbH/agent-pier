@@ -37,6 +37,7 @@ export default function RemoteSettings() {
   };
   const save = () =>
     action.run(async () => {
+      setRestart(null);
       const result = await api("/remote", "PUT", { network: draft });
       resource.update(result);
       setDraft(result.network.saved);
@@ -44,7 +45,10 @@ export default function RemoteSettings() {
     });
   const restartService = () =>
     action.run(async () => {
+      setRestart(null);
       const { instanceId } = await api("/remote/restart", "POST");
+      // Switching the mode off through this very connection: nothing will answer here again.
+      if (locked && !network.saved.enabled) return setRestart("disconnected");
       setRestart("running");
       const deadline = Date.now() + RESTART_TIMEOUT;
       while (Date.now() < deadline) {
@@ -182,6 +186,7 @@ export default function RemoteSettings() {
         {restart === "running" && <p role="status">{copy.restarting}</p>}
         {restart === "done" && <p role="status">{copy.restarted}</p>}
         {restart === "failed" && <p role="alert">{copy.restartFailed}</p>}
+        {restart === "disconnected" && <p role="status">{copy.disconnected}</p>}
         <small>{copy.scriptHint}</small>
       </article>
       {confirm && (

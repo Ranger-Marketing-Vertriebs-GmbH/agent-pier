@@ -40,7 +40,7 @@ export const scripts = Object.freeze({
   remoteStatus: (enabled, bind, dataDir) =>
     `Netzwerkzugriff: ${enabled ? `aktiv auf ${bind}` : "aus"} · Datenverzeichnis ${dataDir}\nErreichbare Adressen bei aktivem Modus:`,
   remotePlainHttpWarning:
-    "WARNUNG: Netzwerkzugriff ohne TLS. Passwort und Inhalte gehen unverschlüsselt durchs Netz. Keine Push-Benachrichtigungen und keine PWA-Installation. Nur in vertrauenswürdigen Netzen verwenden und keine Portweiterleitung ins Internet einrichten.",
+    "WARNUNG: Netzwerkzugriff ohne TLS. Passwort und Inhalte gehen unverschlüsselt durchs Netz. Keine Push-Benachrichtigungen und keine PWA-Installation. Nur in vertrauenswürdigen Netzen verwenden und keine Portweiterleitung ins Internet einrichten. Auch über IPv6 oder eine öffentliche Adresse darf der Port nicht aus dem Internet erreichbar sein; im Zweifel die Firewall des Rechners prüfen.",
   remoteAcceptRequired: "Zum Einschalten --accept-plain-http angeben.",
   remoteRestartSkipped:
     "Neustart übersprungen. Änderungen gelten nach dem nächsten Dienststart.",

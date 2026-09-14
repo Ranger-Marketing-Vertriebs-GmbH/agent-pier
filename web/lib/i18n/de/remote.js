@@ -13,7 +13,7 @@ export const remoteCopy = {
     "Ohne TLS unter der Adresse dieses Rechners erreichbar. Nur die Anmeldung schützt den Arbeitsbereich.",
   warningTitle: "Klartext-HTTP einschalten?",
   warning:
-    "WARNUNG: Netzwerkzugriff ohne TLS. Passwort und Inhalte gehen unverschlüsselt durchs Netz. Keine Push-Benachrichtigungen und keine PWA-Installation. Nur in vertrauenswürdigen Netzen verwenden und keine Portweiterleitung ins Internet einrichten.",
+    "WARNUNG: Netzwerkzugriff ohne TLS. Passwort und Inhalte gehen unverschlüsselt durchs Netz. Keine Push-Benachrichtigungen und keine PWA-Installation. Nur in vertrauenswürdigen Netzen verwenden und keine Portweiterleitung ins Internet einrichten. Auch über IPv6 oder eine öffentliche Adresse darf der Port nicht aus dem Internet erreichbar sein; im Zweifel die Firewall des Rechners prüfen.",
   warningConfirm: "Trotzdem einschalten",
   warningCancel: "Abbrechen",
   activeWarning: "Netzwerkzugriff ohne TLS ist aktiv. Nur für vertrauenswürdige Netze.",
@@ -37,6 +37,8 @@ export const remoteCopy = {
   restarted: "Dienst neu gestartet.",
   restartFailed:
     "Der Dienst hat sich nicht neu gemeldet. Manuell neu starten: npm run service:install oder npm start.",
+  disconnected:
+    "Diese Verbindung endet mit dem Neustart. Danach lokal oder über Tailscale weiterarbeiten.",
   scriptHint: "Headless: npm run remote -- enable --accept-plain-http",
   loading: "Fernzugriff wird geladen …",
 };

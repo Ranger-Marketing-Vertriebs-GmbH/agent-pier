@@ -13,7 +13,7 @@ export const remoteCopy = {
     "Reachable without TLS at this machine's address. Only the login protects the workspace.",
   warningTitle: "Enable plain HTTP?",
   warning:
-    "WARNING: Network access without TLS. Password and content travel unencrypted through the network. No push notifications and no PWA installation. Use only in trusted networks and never forward the port to the internet.",
+    "WARNING: Network access without TLS. Password and content travel unencrypted through the network. No push notifications and no PWA installation. Use only in trusted networks and never forward the port to the internet. The port must not be reachable from the internet over IPv6 or a public address either; check the machine's firewall when in doubt.",
   warningConfirm: "Enable anyway",
   warningCancel: "Cancel",
   activeWarning: "Network access without TLS is active. Trusted networks only.",
@@ -37,6 +37,8 @@ export const remoteCopy = {
   restarted: "Service restarted.",
   restartFailed:
     "The service did not come back. Restart manually: npm run service:install or npm start.",
+  disconnected:
+    "This connection ends with the restart. Continue locally or through Tailscale afterwards.",
   scriptHint: "Headless: npm run remote -- enable --accept-plain-http",
   loading: "Loading remote access …",
 };

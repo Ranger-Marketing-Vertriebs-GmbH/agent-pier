@@ -81,6 +81,13 @@ for (const locale of ["de-DE", "en-GB"]) {
         .filter((c) => c.method === "PUT" && c.path === "/remote")
         .at(-1);
       expect(put.body.network.enabled).toBe(false);
+      await page
+        .getByRole("button", { name: en ? "Restart service" : "Dienst neu starten" })
+        .click();
+      await expect(
+        page.getByText(en ? /This connection ends/ : /Diese Verbindung endet/),
+      ).toBeVisible();
+      expect(state.calls.some((c) => c.path === "/health")).toBe(false);
     });
   });
 }
