@@ -22,6 +22,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: agentpier-installer
+          retention-days: 7
           path: release-artifacts/*
   package:
     strategy:

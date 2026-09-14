@@ -49,7 +49,10 @@ Einrichtung wird wiederaufgenommen; eine bereits aktualisierte AgentPier-Version
 wird nicht zurückgesetzt. Bei einer fremden bestehenden Installation, abweichenden
 Datenpfaden oder belegtem Port meldet der Installer einen Konflikt, statt die andere
 Instanz zu überschreiben. Bestehende Source-Installationen werden nicht automatisch
-übernommen.
+übernommen. Wird ein Prozess genau beim Übernehmen der Installationssperre beendet,
+kann `.setup-recovery.lock` zurückbleiben. In diesem Fall stoppt der Installer mit
+einem Hinweis zur manuellen Prüfung. Die Sperre erst entfernen, nachdem sicher
+kein Setup-Prozess mehr läuft; unbekannte Dateien werden nicht automatisch gelöscht.
 
 **Anwendungsupdates bleiben unter Einstellungen → Updates.** `brew upgrade` oder
 `brew uninstall agentpier-installer` betrifft nur das Installer-Paket. Die laufende
