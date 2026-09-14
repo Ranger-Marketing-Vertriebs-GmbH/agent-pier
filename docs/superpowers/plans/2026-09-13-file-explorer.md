@@ -1613,7 +1613,7 @@ navigation decisions. `guard({next,reason})` resolves `true` only after a succes
 save or explicit discard. `FileEditorConflict({draft,current,onUseCurrent,onSaveAs,onResolve})`
 uses both explicit documents; it never overwrites draft state during loading.
 
-- [ ] Test close-tab/save/discard/cancel, leaving via sidebar, browser back/forward, failed save during navigation and rapid repeated navigation. Add a real API conflict test in the browser using route responses for first and second revisions.
+- [x] Test close-tab/save/discard/cancel, leaving via sidebar, browser back/forward, failed save during navigation and rapid repeated navigation. Add a real API conflict test in the browser using route responses for first and second revisions.
 
 ```js
 test("cancelled navigation preserves the draft and current route", async ({ page }) => {
@@ -1629,8 +1629,8 @@ test("cancelled navigation preserves the draft and current route", async ({ page
 });
 ```
 
-- [ ] Run unit test, build and both new browser suites red.
-- [ ] Route in-app transitions through the guard before updating history or disposing editor state. Maintain an AgentPier navigation index in `history.state`; on guarded popstate, restore the previous index once, ask the guard and replay the intended delta once if accepted. Suppress only that own restoration/replay event, invalidate older pending decisions and preserve unrelated history.state fields. Test navigation without a recorded index as a separate case; replace the current location with the known previous route on cancel instead of adding repeated history entries.
+- [x] Run unit test, build and both new browser suites red.
+- [x] Route in-app transitions through the guard before updating history or disposing editor state. Maintain an AgentPier navigation index in `history.state`; on guarded popstate, restore the previous index once, ask the guard and replay the intended delta once if accepted. Suppress only that own restoration/replay event, invalidate older pending decisions and preserve unrelated history.state fields. Test navigation without a recorded index as a separate case; replace the current location with the known previous route on cancel instead of adding repeated history entries.
 
 ```js
 const navigate = async (next, replace = false) =>
@@ -1641,9 +1641,11 @@ const navigate = async (next, replace = false) =>
   });
 ```
 
-- [ ] Define `commitWorkspaceNavigation` within `useWorkspaceNavigation` from the existing push/replace/setRoute logic. Register native `beforeunload` only while dirty, and remove it when clean. Browser termination cannot guarantee recovery of in-memory drafts; internal navigation and tab switching must pass the explicit preservation tests.
-- [ ] On 409 keep the draft and fetch the current file explicitly. Show CodeMirror's merge/diff view with use-current, manual resolution, save-as and explicit replace-at-current-revision. Another revision change returns to conflict. Clean tabs show a reload action after metadata revision changes; dirty tabs never auto-reload. Poll only active views, recheck on focus and cancel obsolete metadata reads.
-- [ ] Run both browser engines, the unit suite and existing `navigation.spec.js`, `app-recovery.spec.js`; commit: `git commit -m "feat: protect file drafts and resolve external edits"`.
+- [x] Define `commitWorkspaceNavigation` within `useWorkspaceNavigation` from the existing push/replace/setRoute logic. Register native `beforeunload` only while dirty, and remove it when clean. Browser termination cannot guarantee recovery of in-memory drafts; internal navigation and tab switching must pass the explicit preservation tests.
+- [x] On 409 keep the draft and fetch the current file explicitly. Show CodeMirror's merge/diff view with use-current, manual resolution, save-as and explicit replace-at-current-revision. Another revision change returns to conflict. Clean tabs show a reload action after metadata revision changes; dirty tabs never auto-reload. Poll only active views, recheck on focus and cancel obsolete metadata reads.
+- [x] Run both browser engines, the unit suite and existing `navigation.spec.js`, `app-recovery.spec.js`; commit: `git commit -m "feat: protect file drafts and resolve external edits"`.
+
+Acceptance: final correction `413ba02` passed scoped specification and quality review; all five original findings are closed. Integrated candidate `78ea95b` includes Main95 and passed all 17 CI checks on 2026-09-14. Current evidence covers Linux/macOS, Chromium 540 cases and WebKit 538 cases plus 15 timing checks. Two existing WebKit PWA skips and backend platform/opt-in skips remain disclosed; final keyboard/touch and native filesystem acceptance remain Tasks21–22.
 
 ## Task 21: Tastatur, Touch und vollständige mobile Bedienung
 
