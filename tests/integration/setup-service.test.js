@@ -11,6 +11,7 @@ for (const scenario of [
   "healthy",
   "foreign-listener",
   "foreign-data",
+  "foreign-stopped",
 ]) {
   test(`Linux service inspection ${scenario} uses proc ownership without new tools`, async (t) => {
     const f = await setupFixture(t);
@@ -45,8 +46,10 @@ for (const scenario of [
       );
     const run = async (command) => {
       assert.equal(command, "systemctl");
+      if (scenario === "missing")
+        return { stdout: "MainPID=0\nFragmentPath=\nExecStart=\nEnvironment=\n" };
       return {
-        stdout: `MainPID=${listening ? "123" : "0"}\nExecStart={ path=${launcher} ; argv[]=${launcher} ; }\nEnvironment=AGENTPIER_INSTALL_ROOT=${f.installRoot} AGENTPIER_DATA_DIR=${f.dataDir}${scenario === "foreign-data" ? "-other" : ""}\n`,
+        stdout: `MainPID=${listening ? "123" : "0"}\nExecStart={ path=${launcher} ; argv[]=${launcher} ; }\nEnvironment=AGENTPIER_INSTALL_ROOT=${f.installRoot} AGENTPIER_DATA_DIR=${f.dataDir}${["foreign-data", "foreign-stopped"].includes(scenario) ? "-other" : ""}\n`,
       };
     };
     const result = await inspectSetupService({
@@ -66,6 +69,29 @@ for (const scenario of [
           ? "conflict"
           : "matching",
     );
+    if (scenario === "foreign-stopped") {
+      await assert.rejects(
+        f.install(
+          {},
+          {
+            run: async () =>
+              assert.fail("Dependencies must not mutate after a service conflict"),
+            inspectService: (input) =>
+              inspectSetupService({
+                ...input,
+                platform: "linux",
+                home: f.temporary,
+                env: {},
+                procRoot,
+                run,
+              }),
+          },
+        ),
+        /conflict/,
+      );
+      assert.equal(f.restartCalls.length, 0);
+      await assert.rejects(fs.stat(f.installRoot), { code: "ENOENT" });
+    }
     if (scenario === "healthy") {
       assert.equal(result.listener, true);
       assert.equal(result.channel, "https://ongoing.test/releases/");

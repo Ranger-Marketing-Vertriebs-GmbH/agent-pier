@@ -21,6 +21,7 @@ import {
   acquireSetupLock,
   writeReceipt,
   verifyRelease,
+  cleanupSetupTransients,
 } from "./setup-state.mjs";
 import { inspectSetupService } from "./setup-service.mjs";
 const officialChannel =
@@ -115,12 +116,8 @@ export async function resumeSetup(
   initialChannel = inspected.receipt?.initialChannel || initialChannel;
   if (!fs.existsSync(installRoot))
     fs.mkdirSync(installRoot, { recursive: true, mode: 0o700 });
-  const unlock = acquireSetupLock(installRoot, inspected);
-  try {
-    let receipt = inspected.receipt;
-    const cachedArchive = path.join(installRoot, ".setup-target.aprelease");
-    if (!receipt) {
-      receipt = {
+  const preparedReceipt = target
+    ? {
         schema: 1,
         installRoot,
         dataDir,
@@ -129,9 +126,24 @@ export async function resumeSetup(
         channel,
         phase: "prepared",
         target: { sha256: target.sha256, ...(target.url ? { url: target.url } : {}) },
-      };
+      }
+    : null;
+  const unlock = acquireSetupLock(installRoot, inspected, preparedReceipt);
+  try {
+    // Only the state observed while owning the setup lock may drive writes.
+    // The preflight snapshot can have become stale even between synchronous calls.
+    inspected = inspectSetup({ installRoot, dataDir });
+    if (inspected.state === "conflict")
+      throw Error(`Setup conflict: ${inspected.reason}`);
+    let receipt = inspected.receipt;
+    channel = receipt.channel;
+    initialChannel = receipt.initialChannel;
+    cleanupSetupTransients(inspected);
+    const cachedArchive = path.join(installRoot, ".setup-target.aprelease");
+    if (!inspected.receiptPersisted) {
       writeReceipt(installRoot, receipt);
-      if (target.bytes) atomic(cachedArchive, target.bytes);
+      if (target?.bytes && digest(target.bytes) === receipt.target.sha256)
+        atomic(cachedArchive, target.bytes);
       await afterPhase("prepared");
     }
     const dependencies = await ensureDependencies({

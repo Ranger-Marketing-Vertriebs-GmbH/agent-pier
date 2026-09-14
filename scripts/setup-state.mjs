@@ -49,7 +49,7 @@ export function verifyRelease(installRoot, dataDir, version) {
   requireDataCompatibility(manifest, dataDir);
   return version;
 }
-export function inspectSetup({ installRoot, dataDir }) {
+export function inspectSetup({ installRoot, dataDir, allowRecoveryGuard = false }) {
   let receipt = null;
   try {
     installRoot = canonicalPath(installRoot);
@@ -73,8 +73,14 @@ export function inspectSetup({ installRoot, dataDir }) {
         throw Error("Setup directory must be owned by the current user.");
     }
     const file = path.join(installRoot, receiptName);
-    if (!info(file)) {
-      if (info(installRoot) && fs.readdirSync(installRoot).length)
+    const receiptPersisted = Boolean(info(file));
+    if (!receiptPersisted && !info(path.join(installRoot, ".setup.lock"))) {
+      const entries = info(installRoot)
+        ? fs
+            .readdirSync(installRoot)
+            .filter((name) => !(allowRecoveryGuard && name === ".setup-recovery.lock"))
+        : [];
+      if (entries.length)
         throw Error(
           "Unknown nonempty installation; legacy installations cannot be adopted.",
         );
@@ -83,16 +89,30 @@ export function inspectSetup({ installRoot, dataDir }) {
         (!info(dataDir).isDirectory() || fs.readdirSync(dataDir).length)
       )
         throw Error("Unknown nonempty data directory; existing data cannot be adopted.");
-      return { state: "fresh", receipt: null, activeVersion: null, installRoot, dataDir };
+      return {
+        state: "fresh",
+        receipt: null,
+        receiptPersisted: false,
+        activeVersion: null,
+        installRoot,
+        dataDir,
+      };
     }
-    const stat = info(file);
-    if (
-      !stat.isFile() ||
-      stat.mode & 0o077 ||
-      (process.getuid && stat.uid !== process.getuid())
-    )
-      throw Error("Receipt must be private and owned.");
-    receipt = readJson(file);
+    if (receiptPersisted) {
+      const stat = info(file);
+      if (
+        !stat.isFile() ||
+        stat.mode & 0o077 ||
+        (process.getuid && stat.uid !== process.getuid())
+      )
+        throw Error("Receipt must be private and owned.");
+      receipt = readJson(file);
+    } else {
+      // The first lock contains the complete prepared receipt, so a crash before
+      // its separate atomic publication never loses the selected target/owner.
+      receipt = readSetupLock(installRoot, dataDir).receipt;
+      if (!receipt) throw Error("Setup lock has no recorded installation ownership.");
+    }
     if (
       receipt.schema !== 1 ||
       receipt.installRoot !== installRoot ||
@@ -129,7 +149,13 @@ export function inspectSetup({ installRoot, dataDir }) {
       if (url.protocol !== "https:" || url.username || url.password)
         throw Error("Invalid receipt channel.");
     }
+    const transients = [];
     for (const entry of fs.readdirSync(installRoot)) {
+      if (isSetupTransient(entry)) {
+        validateTransient(installRoot, entry, receipt);
+        transients.push(entry);
+        continue;
+      }
       if (
         ![
           receiptName,
@@ -139,9 +165,7 @@ export function inspectSetup({ installRoot, dataDir }) {
           "bin",
           "releases",
           "current",
-        ].includes(entry) &&
-        !/^\.staging-[a-f0-9-]+$/.test(entry) &&
-        !/^\.setup-[a-f0-9-]+\.tmp$/.test(entry)
+        ].includes(entry)
       )
         throw Error("Unknown installation files.");
       if (
@@ -179,6 +203,8 @@ export function inspectSetup({ installRoot, dataDir }) {
     return {
       state: activeVersion ? "installed" : "incomplete",
       receipt,
+      receiptPersisted,
+      transients,
       activeVersion,
       installRoot,
       dataDir,
@@ -204,10 +230,35 @@ export function writeReceipt(root, receipt) {
     fs.closeSync(directory);
   }
 }
-export function acquireSetupLock(root, inspected) {
+function readSetupLock(root, dataDir) {
   const file = path.join(root, ".setup.lock");
-  // Every claimant uses the same exclusive guard, including claimants that observed
-  // no lock. A stale-lock observer can never unlink a replacement owner's lock.
+  const stat = info(file);
+  if (
+    !stat?.isFile() ||
+    stat.nlink !== 1 ||
+    stat.mode & 0o077 ||
+    (process.getuid && stat.uid !== process.getuid())
+  )
+    throw Error("Setup lock conflict.");
+  let lock;
+  try {
+    lock = readJson(file);
+  } catch {
+    throw Error("Setup lock conflict: invalid owner.");
+  }
+  if (
+    !Number.isSafeInteger(lock.pid) ||
+    lock.pid < 1 ||
+    lock.installRoot !== root ||
+    lock.dataDir !== dataDir
+  )
+    throw Error("Setup lock conflict: invalid owner.");
+  return lock;
+}
+export function acquireSetupLock(root, inspected, preparedReceipt) {
+  const file = path.join(root, ".setup.lock");
+  // Serialize every claimant, including a process that inspected a fresh root
+  // before another process completed setup. Reconcile again under this guard.
   const guard = path.join(root, ".setup-recovery.lock");
   let guardFd;
   try {
@@ -216,23 +267,14 @@ export function acquireSetupLock(root, inspected) {
     throw Error("Setup lock recovery is in progress; inspect .setup-recovery.lock.");
   }
   try {
+    const actual = inspectSetup({
+      installRoot: root,
+      dataDir: inspected.dataDir,
+      allowRecoveryGuard: true,
+    });
+    if (actual.state === "conflict") throw Error(`Setup conflict: ${actual.reason}`);
     if (info(file)) {
-      const stat = info(file);
-      if (!stat.isFile() || stat.nlink !== 1 || stat.mode & 0o077)
-        throw Error("Setup lock conflict.");
-      let lock;
-      try {
-        lock = readJson(file);
-      } catch {
-        throw Error("Setup lock conflict: invalid owner.");
-      }
-      if (
-        !Number.isSafeInteger(lock.pid) ||
-        lock.pid < 1 ||
-        lock.installRoot !== root ||
-        lock.dataDir !== inspected.dataDir
-      )
-        throw Error("Setup lock conflict: invalid owner.");
+      const lock = readSetupLock(root, inspected.dataDir);
       let live = true;
       try {
         process.kill(lock.pid, 0);
@@ -240,26 +282,62 @@ export function acquireSetupLock(root, inspected) {
         if (error.code === "ESRCH") live = false;
       }
       if (live) throw Error("Another setup is running (live setup lock).");
-      const actual = inspectSetup({ installRoot: root, dataDir: inspected.dataDir });
-      if (!inspected.receipt || actual.state === "conflict")
-        throw Error("Dead setup lock requires matching ownership.");
+      if (!actual.receipt) throw Error("Dead setup lock requires matching ownership.");
       fs.unlinkSync(file);
     }
-    let fd;
+    const receipt = actual.receipt || preparedReceipt;
+    if (!receipt) throw Error("Setup lock requires a recorded initial target.");
+    const fd = fs.openSync(file, "wx", 0o600);
     try {
-      fd = fs.openSync(file, "wx", 0o600);
-    } catch {
-      throw Error("Another setup is running (setup lock).");
+      fs.writeFileSync(
+        fd,
+        JSON.stringify({
+          pid: process.pid,
+          installRoot: root,
+          dataDir: inspected.dataDir,
+          receipt,
+        }),
+      );
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
     }
-    fs.writeFileSync(
-      fd,
-      JSON.stringify({ pid: process.pid, installRoot: root, dataDir: inspected.dataDir }),
-    );
-    fs.fsyncSync(fd);
-    fs.closeSync(fd);
   } finally {
     fs.closeSync(guardFd);
     fs.unlinkSync(guard);
   }
   return () => fs.unlinkSync(file);
+}
+const uuid = "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}";
+const transient = new RegExp(
+  `^(?:\\.staging-${uuid}|\\.current-${uuid}|\\.setup-${uuid}\\.tmp|\\.setup-target\\.aprelease\\.${uuid}\\.tmp)$`,
+);
+function isSetupTransient(name) {
+  return transient.test(name);
+}
+function validateTransient(root, name, receipt) {
+  const file = path.join(root, name),
+    stat = info(file);
+  if (process.getuid && stat.uid !== process.getuid())
+    throw Error("Unowned setup temporary file.");
+  if (name.startsWith(".current-")) {
+    if (
+      !stat.isSymbolicLink() ||
+      fs.readlinkSync(file) !== `releases/${receipt.initialVersion}`
+    )
+      throw Error("Unowned temporary release pointer.");
+  } else if (name.startsWith(".staging-")) {
+    if (!stat.isDirectory() || stat.mode & 0o077)
+      throw Error("Unowned staging directory.");
+  } else if (!stat.isFile() || stat.nlink !== 1 || stat.mode & 0o077)
+    throw Error("Unowned setup temporary file.");
+}
+export function cleanupSetupTransients(inspected) {
+  for (const name of inspected.transients || []) {
+    validateTransient(inspected.installRoot, name, inspected.receipt);
+    // Unknown files inside an interrupted staging directory are never deleted.
+    // Releases.stage creates a fresh random staging directory on each attempt.
+    if (!name.startsWith(".staging-"))
+      fs.unlinkSync(path.join(inspected.installRoot, name));
+  }
 }

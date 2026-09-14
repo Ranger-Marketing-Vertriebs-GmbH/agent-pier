@@ -105,7 +105,11 @@ export async function inspectSetupService({
         (value) => (value.startsWith('"') ? JSON.parse(value) : value),
       );
       if (
-        pid &&
+        (pid ||
+          configured ||
+          loaded.match(/^FragmentPath=.+$/m) ||
+          loaded.match(/^ExecStart=.+$/m) ||
+          environment) &&
         (!configured ||
           !loaded.includes(`path=${launcher} ;`) ||
           !variables.includes(`AGENTPIER_DATA_DIR=${dataDir}`) ||
