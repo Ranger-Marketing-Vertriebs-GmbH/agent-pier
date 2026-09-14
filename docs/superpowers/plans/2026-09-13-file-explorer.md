@@ -1411,7 +1411,7 @@ Modify `FileActions.jsx`, `FileJobs.jsx`, `useFileJobs.js`, `file-api.js`, paire
 pending conflict and finished ZIP download. Retry reconstructs only failed entries
 after revalidation and creates a new explicit request, preserving old evidence.
 
-- [ ] Add fixtures for preparing a ZIP, omitted symlinks, extraction conflict, interrupted job after reload and more than one page of results.
+- [x] Add fixtures for preparing a ZIP, omitted symlinks, extraction conflict, interrupted job after reload and more than one page of results.
 
 ```js
 test("a completed folder archive exposes its job-bound download", async ({ page }) => {
@@ -1426,8 +1426,8 @@ test("a completed folder archive exposes its job-bound download", async ({ page 
 });
 ```
 
-- [ ] Build and run both new browser suites red.
-- [ ] Add create ZIP, extract here/choose target and download selection actions. Show excluded links before starting; do not claim a ZIP contains everything after a partial operation. Use ordinary links for completed artifacts so the browser owns download progress.
+- [x] Build and run both new browser suites red.
+- [x] Add create ZIP, extract here/choose target and download selection actions. Show excluded links before starting; do not claim a ZIP contains everything after a partial operation. Use ordinary links for completed artifacts so the browser owns download progress.
 
 ```jsx
 {
@@ -1439,8 +1439,24 @@ test("a completed folder archive exposes its job-bound download", async ({ page 
 }
 ```
 
-- [ ] Define `artifactReady` from a server-projected completed-artifact boolean; add `artifactReady` to the archive job projection as an optional field. Render byte totals as unknown until known, partial results with both successes and errors, and restart states with explicit resume/retry choices. Opening a different folder must not lose running server jobs.
-- [ ] Run both browser engines for the new suites and upload/actions regressions, plus catalog parity. Commit: `git commit -m "feat: expose archive actions and file job results"`.
+- [x] Define `artifactReady` from a server-projected completed-artifact boolean; add `artifactReady` to the archive job projection as an optional field. Render byte totals as unknown until known, partial results with both successes and errors, and restart states with explicit resume/retry choices. Opening a different folder must not lose running server jobs.
+- [x] Run both browser engines for the new suites and upload/actions regressions, plus catalog parity. Commit: `git commit -m "feat: expose archive actions and file job results"`.
+
+**Accepted implementation:** `71cf728` follows `7acc93f`; `f59d299` includes
+Main through #90. Independent specification and quality reviews pass, with all
+four functional findings and the status-label finding closed. Retry target identity,
+owned upload children, later-page history, actual destinations and explicit
+cancelled/interrupted outcomes are covered. Final correction tests pass 100/100;
+affected browsers pass 68/68 in each engine, with two overlapping presentation
+assertion cases checked afterwards. Static, build and paired catalog checks pass.
+
+Accepted CI at `f59d299` has all 17 checks passing. Both Linux24 full runs pass
+1,981 of 1,990 tests with nine explicit skips; PR Chromium passes 491 and PR
+WebKit passes 489 with two existing PWA skips plus 15 timing cases. The initial
+local full run passed 1,952 of 1,958 before the review corrections; final CI covers
+the corrected commit. Actual ZIP-download and folder-upload browser journeys pass.
+Optional ext4 skips do not satisfy Task22's required filesystem/four-target gates;
+final editor/mobile acceptance and lasting documentation remain Tasks18–23.
 
 ## Task 18: Textvertrag, Revisionen und sicheres Speichern
 
