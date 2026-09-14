@@ -5,7 +5,10 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { createApplication } from "../../server/app.js";
-import { detectNetworkAddresses } from "../../server/features/remote/network-access.js";
+import {
+  detectNetworkAddresses,
+  normalizeNetworkConfig,
+} from "../../server/features/remote/network-access.js";
 
 async function start(t, network) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "network-binding-"));
@@ -51,6 +54,15 @@ test("network mode exposes the allowed hosts and answers a LAN request with the 
   assert.equal((await response.json()).configured, false);
   const denied = await fetch(`http://${lan}:${port}/api/health`);
   assert.equal(denied.status, 401);
+});
+test("the dual-stack bind still answers loopback IPv4 and only wildcards are accepted", async (t) => {
+  const { port } = await start(t, { enabled: true, bind: "::", hosts: [] });
+  const response = await fetch(`http://127.0.0.1:${port}/auth/status`);
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).configured, false);
+  assert.throws(() => normalizeNetworkConfig({ enabled: true, bind: "192.168.1.5" }), {
+    status: 400,
+  });
 });
 test("disabled network mode keeps every non-loopback host rejected", async (t) => {
   const { application, port } = await start(t, {

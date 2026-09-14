@@ -145,7 +145,7 @@ test("requests through the network branch may only switch the mode off", () => {
   assert.equal(remoteLocked(dev, devConfig), false);
 });
 test("a request through the network branch may only disable the mode, checked through the real route", async (t) => {
-  const network = { enabled: true, bind: "127.0.0.1", hosts: ["agentpier.test"] };
+  const network = { enabled: true, bind: "0.0.0.0", hosts: ["agentpier.test"] };
   const f = await fixture(t, network);
   const host = `agentpier.test:${f.port}`;
   const headers = {
@@ -161,7 +161,7 @@ test("a request through the network branch may only disable the mode, checked th
     body: {
       network: {
         enabled: true,
-        bind: "127.0.0.1",
+        bind: "0.0.0.0",
         hosts: ["agentpier.test", "other.test"],
       },
     },
@@ -171,7 +171,7 @@ test("a request through the network branch may only disable the mode, checked th
     method: "PUT",
     path: "/api/remote",
     headers,
-    body: { network: { enabled: false, bind: "127.0.0.1", hosts: ["agentpier.test"] } },
+    body: { network: { enabled: false, bind: "0.0.0.0", hosts: ["agentpier.test"] } },
   });
   assert.equal(disabling.status, 200);
   assert.equal((await disabling.json()).network.saved.enabled, false);

@@ -1,35 +1,23 @@
 import os from "node:os";
 import net from "node:net";
 import path from "node:path";
-import { problem, readJSON, writePrivate } from "../../lib/storage.js";
-import { serverMessages } from "../../lib/i18n/de.js";
+import { readJSON, writePrivate } from "../../lib/storage.js";
+import { normalizeNetworkConfig } from "../../lib/network-config.js";
 
-const MAX_HOSTS = 20;
-const hostPattern =
-  /^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?)*$/;
-const invalid = () => problem(serverMessages.settings.invalidNetworkConfig);
+export { normalizeNetworkConfig };
 
-/** Accepts the stored or submitted `network` block; missing means disabled. */
-export function normalizeNetworkConfig(raw) {
-  if (raw === undefined || raw === null)
-    return { enabled: false, bind: "0.0.0.0", hosts: [] };
-  if (typeof raw !== "object" || Array.isArray(raw)) throw invalid();
-  const enabled = raw.enabled === undefined ? false : raw.enabled;
-  if (typeof enabled !== "boolean") throw invalid();
-  const bind = raw.bind === undefined ? "0.0.0.0" : raw.bind;
-  if (typeof bind !== "string" || net.isIP(bind) === 0) throw invalid();
-  const hosts = raw.hosts === undefined ? [] : raw.hosts;
-  if (!Array.isArray(hosts) || hosts.length > MAX_HOSTS) throw invalid();
-  const normalized = hosts.map((host) => {
-    if (typeof host !== "string") throw invalid();
-    const value = host.toLowerCase();
-    if (net.isIP(value) === 0 && !hostPattern.test(value)) throw invalid();
-    return value;
-  });
-  return { enabled, bind, hosts: [...new Set(normalized)] };
-}
+// Tailscale's own ranges belong to the Tailscale path and are never auto-allowed here.
+const tailscaleRange = (address) =>
+  /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(address) ||
+  address.startsWith("fd7a:115c:a1e0:");
+// RFC1918 IPv4 and IPv6 unique local addresses; public and CGNAT addresses stay off the list.
+const privateRange = (address) =>
+  /^10\./.test(address) ||
+  /^172\.(1[6-9]|2\d|3[01])\./.test(address) ||
+  /^192\.168\./.test(address) ||
+  (net.isIPv6(address) && /^f[cd]/.test(address));
 
-/** Non-internal interface addresses and the lower-cased machine name. */
+/** Private, non-internal interface addresses and the lower-cased machine name. */
 export function detectNetworkAddresses({
   interfaces = os.networkInterfaces,
   hostname = os.hostname,
@@ -38,8 +26,8 @@ export function detectNetworkAddresses({
   for (const entries of Object.values(interfaces()))
     for (const entry of entries || []) {
       if (entry.internal) continue;
-      const address = entry.address.split("%")[0];
-      if (entry.family === "IPv6" && address.startsWith("fe80:")) continue;
+      const address = entry.address.split("%")[0].toLowerCase();
+      if (tailscaleRange(address) || !privateRange(address)) continue;
       if (!addresses.includes(address)) addresses.push(address);
     }
   return {
@@ -57,7 +45,10 @@ function candidates(network, detected) {
   const names = [
     ...network.hosts,
     detected.hostname,
-    `${detected.hostname}.local`,
+    // mDNS only ever answers for the bare machine name, never for a name that already has a domain.
+    ...(detected.hostname && !detected.hostname.includes(".")
+      ? [`${detected.hostname}.local`]
+      : []),
     ...detected.addresses,
   ];
   return [...new Set(names.filter(Boolean))];

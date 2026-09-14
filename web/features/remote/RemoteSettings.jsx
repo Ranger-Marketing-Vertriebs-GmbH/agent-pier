@@ -103,11 +103,6 @@ export default function RemoteSettings() {
               >
                 <option value="0.0.0.0">{copy.bindAll}</option>
                 <option value="::">{copy.bindAllV6}</option>
-                {network.detected.addresses.map((address) => (
-                  <option key={address} value={address}>
-                    {address}
-                  </option>
-                ))}
               </select>
             </label>
             <h4>{copy.hosts}</h4>

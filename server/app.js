@@ -89,12 +89,14 @@ export async function createApplication(config) {
     detected,
     hosts: new Set(),
     urls: [],
+    computed: false,
   };
   const effective = () => {
     const port = server.address()?.port || config.port;
-    if (network.enabled && !services.networkState.hosts.size && server.address()) {
+    if (network.enabled && !services.networkState.computed && server.address()) {
       services.networkState.hosts = allowedNetworkHosts(network, port, detected);
       services.networkState.urls = networkUrls(network, port, detected);
+      services.networkState.computed = true;
     }
     return { ...config, port, network, networkHosts: services.networkState.hosts };
   };

@@ -2,7 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readJSON } from "./storage.js";
-import { normalizeNetworkConfig } from "../features/remote/network-access.js";
+import { normalizeNetworkConfig } from "./network-config.js";
 export const projectDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",

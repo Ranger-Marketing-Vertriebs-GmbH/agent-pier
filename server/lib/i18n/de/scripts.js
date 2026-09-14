@@ -23,6 +23,8 @@ export const scripts = Object.freeze({
   serverListening: (port) => `AgentPier läuft auf http://127.0.0.1:${port}`,
   serverListeningNetwork: (urls) =>
     `Netzwerkzugriff aktiv ohne TLS. Erreichbar unter:\n${urls.map((url) => `  ${url}`).join("\n")}`,
+  serverListenFailed: (bind, port, code) =>
+    `AgentPier konnte nicht auf ${bind}:${port} lauschen (${code}). Bitte Bind-Adresse und Port prüfen.`,
   serviceFileMustBeRegular: "Die Dienstdatei darf kein Symlink oder Verzeichnis sein.",
   absoluteXdgConfigRequired: "XDG_CONFIG_HOME muss ein absoluter Pfad sein.",
   invalidServerPort: "AGENTPIER_PORT muss zwischen 1024 und 65535 liegen.",
