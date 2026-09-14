@@ -88,9 +88,9 @@ Dieser Warntext erscheint sowohl in der Bestätigung auf der Einstellungsseite a
 1. Unter **Einstellungen → Fernzugriff** öffnet sich die Übersicht mit den drei Karten **Lokal**, **Tailscale** und **Netzwerk**.
 2. In der Karte **Netzwerk** den Schalter **Netzwerkzugriff** aktivieren.
 3. Der Bestätigungsdialog **„Klartext-HTTP einschalten?“** zeigt den obigen Warntext. Erst **„Trotzdem einschalten“** aktiviert den Entwurf; **„Abbrechen“** verwirft ihn.
-4. Optional die **Bind-Adresse** wählen (alle Schnittstellen `0.0.0.0`, alle Schnittstellen inklusive IPv6 `::`, oder eine erkannte Adresse) und unter **Zusätzliche Hosts** Namen oder IPs ohne Port hinzufügen, etwa einen eigenen DNS-Namen oder den Host eines eigenen Reverse-Proxys. Erkannte Adressen sind automatisch erlaubt und müssen nicht eingetragen werden.
+4. Optional die **Bind-Adresse** wählen (alle Schnittstellen `0.0.0.0` oder alle Schnittstellen inklusive IPv6 `::`) und unter **Zusätzliche Hosts** Namen oder IPs ohne Port hinzufügen, etwa einen eigenen DNS-Namen oder den Host eines eigenen Reverse-Proxys. Erkannte Adressen sind automatisch erlaubt und müssen nicht eingetragen werden.
 5. **„Speichern“** schreibt die Konfiguration. Solange die laufende Bindung noch abweicht, erscheint der Hinweis auf einen nötigen Neustart und der Knopf **„Dienst neu starten“**.
-6. Nach dem Neustart zeigt die Karte **Erreichbare Adressen** die tatsächlichen URLs zum Öffnen oder Kopieren.
+6. Nach dem Neustart zeigt die Karte **Erreichbare Adressen** die tatsächlichen URLs zum Öffnen.
 
 Ist der Netzwerkmodus bereits aktiv, lässt er sich über diesen Zugang nur wieder ausschalten; Bind-Adresse und Hostliste bleiben dann schreibgeschützt, damit ein Tippfehler den Zugang nicht versehentlich sperrt. Bind-Adresse und Hostliste lassen sich in diesem Fall lokal oder über Tailscale ändern.
 
@@ -104,11 +104,11 @@ npm run remote -- status
 npm run remote -- disable
 ```
 
-`npm run remote -- enable` ohne `--accept-plain-http` gibt denselben Warntext aus und bricht mit Exit-Code 2 ab, statt interaktiv nachzufragen; das hält die Automatisierung nicht-interaktiv. `--bind` ist standardmäßig `0.0.0.0`; `--host` lässt sich mehrfach wiederholen. `hosts --add <name>` und `hosts --remove <name>` pflegen die Hostliste unabhängig vom Ein-/Ausschalten; ein unbekannter Name bei `--remove` erzeugt die Meldung „`<name>` steht nicht in der Hostliste“, ohne die übrigen Einträge zu verändern. `--no-restart` überspringt den Neustart und zeigt stattdessen den Hinweis, dass die Änderung erst nach dem nächsten Dienststart gilt.
+`npm run remote -- enable` ohne `--accept-plain-http` gibt denselben Warntext aus und bricht mit Exit-Code 2 ab, statt interaktiv nachzufragen; das hält die Automatisierung nicht-interaktiv. `--bind` akzeptiert nur `0.0.0.0` oder `::` und behält ohne Angabe die gespeicherte Bind-Adresse (anfangs `0.0.0.0`); `--host` lässt sich mehrfach wiederholen. `hosts --add <name>` und `hosts --remove <name>` pflegen die Hostliste unabhängig vom Ein-/Ausschalten; ein unbekannter Name bei `--remove` erzeugt die Meldung „`<name>` steht nicht in der Hostliste“, ohne die übrigen Einträge zu verändern. `--no-restart` überspringt den Neustart und zeigt stattdessen den Hinweis, dass die Änderung erst nach dem nächsten Dienststart gilt.
 
 ### Hostliste: Beispiele
 
-Die Hostliste in `network.hosts` ergänzt die automatisch erlaubten Namen: die zur Startzeit erkannten Schnittstellenadressen, der Rechnername (`os.hostname()`) und `<Rechnername>.local`, jeweils zusammen mit dem konfigurierten Port. Typische Einträge:
+Die Hostliste in `network.hosts` ergänzt die automatisch erlaubten Namen: die zur Startzeit erkannten privaten Schnittstellenadressen (RFC1918 und IPv6-ULA; öffentliche, CGNAT- und Tailscale-Adressen zählen nie dazu), der Rechnername (`os.hostname()`) und, sofern dieser keinen Punkt enthält, `<Rechnername>.local`, jeweils zusammen mit dem konfigurierten Port. Typische Einträge:
 
 - **IP-Adresse:** die im eigenen Netz zugewiesene Adresse, zum Beispiel `192.168.1.42` — wird meist bereits automatisch erkannt und muss dann nicht eingetragen werden.
 - **`.local`-Name:** `macmini.local`, sofern mDNS/Bonjour im Netz funktioniert.
@@ -119,7 +119,7 @@ Jeder Eintrag ist ein Name oder eine IP ohne Schema, Pfad oder Port; es sind hö
 
 ### Neustart und Prüfung
 
-Sowohl das Speichern in den Einstellungen als auch `npm run remote -- enable`/`disable`/`hosts` stoßen anschließend einen Neustart des installierten Diensts an (`--no-restart` überspringt das) und prüfen danach `/api/health` auf Loopback. Ist kein Dienst installiert, meldet das Skript den manuellen Neustart mit `npm start` oder `npm run service:install`.
+**„Speichern“** schreibt in den Einstellungen nur die Konfiguration; den Neustart löst der separate Knopf **„Dienst neu starten“** aus. Die Seite prüft danach `/api/health` über die gerade geöffnete Adresse, nicht über Loopback; wird der Netzwerkmodus über genau diese Verbindung ausgeschaltet, endet sie mit dem Neustart und die Seite sagt das statt weiter zu prüfen. `npm run remote -- enable`/`disable`/`hosts` startet den installierten Dienst dagegen selbst neu (`--no-restart` überspringt das) und prüft danach `/api/health` auf Loopback. Ist kein Dienst installiert, meldet das Skript den manuellen Neustart mit `npm run service:install` oder `npm start`.
 
 Ein Gerät, dessen Host-Header nicht erlaubt ist, oder ein Zugriff bei ausgeschaltetem Netzwerkmodus erhält die Fehlermeldung „Netzwerkzugriff ist aus oder dieser Host ist nicht freigegeben. Einstellungen → Fernzugriff prüfen.“ In diesem Fall die Hostliste und den Bind-Modus prüfen und, falls nötig, den Dienst nach einer Änderung neu starten.
 
@@ -135,6 +135,6 @@ Die Hostliste bleibt dabei erhalten und lässt sich beim nächsten Einschalten w
 
 ## Was die Anmeldung schützt und was nicht
 
-- **Schützt:** alle APIs, die Terminal-WebSockets und die statischen Arbeitsbereichsdaten; ein Rate-Limit von zehn Versuchen pro Minute begrenzt das Erraten des Passworts.
+- **Schützt:** alle APIs, die Terminal-WebSockets und die statischen Arbeitsbereichsdaten; ein Rate-Limit von zehn Versuchen pro Minute je Quelladresse begrenzt das Erraten des Passworts, sodass ein Gerät im Netz den lokalen Zugang nicht aussperren kann.
 - **Schützt nicht:** das Mitlesen im Netz bei Weg B — dort sind Passwort und Inhalte unverschlüsselt sichtbar für alle, die denselben Netzverkehr sehen können. Geräte im selben Netz können außerdem die Anmeldeseite selbst erreichen und darstellen, auch ohne gültige Zugangsdaten.
 - **MCP:** Bei aktivem Netzwerkmodus erreichen auch LAN-Clients den MCP-Endpunkt. Die öffentliche OAuth-Resource-URL bleibt dabei die Tailscale-Adresse oder Loopback; ein LAN-Host wird dafür nicht automatisch gewählt. Das ist eine bekannte Einschränkung.
