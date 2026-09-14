@@ -1473,7 +1473,7 @@ final editor/mobile acceptance and lasting documentation remain Tasks18–23.
 browser restores BOM and LF/CRLF policy and rejects unchosen mixed-line conversion.
 `fileRevision` is the Task-8 function, not a second metadata-only revision scheme.
 
-- [ ] Write BOM, CRLF, trailing-newline, mixed-newline choice, invalid UTF-8, binary, hardlink and size-cap tests. Add two-writer, deleted-file and symlink-retarget tests against real files.
+- [x] Write BOM, CRLF, trailing-newline, mixed-newline choice, invalid UTF-8, binary, hardlink and size-cap tests. Add two-writer, deleted-file and symlink-retarget tests against real files.
 
 ```js
 test("saving a stale document preserves an agent's newer bytes", async (t) => {
@@ -1504,8 +1504,8 @@ test("saving a stale document preserves an agent's newer bytes", async (t) => {
 });
 ```
 
-- [ ] Run `node --test tests/unit/file-text-format.test.js tests/integration/file-text.test.js tests/blackbox/file-text.test.js` and confirm red.
-- [ ] Read regular-file bytes under the text limit, decode UTF-8 fatally and return actual BOM/newline metadata. Hardlinked files and files that cannot use the required write/publish path report readOnly. Preserve distinct selected path and resolved target; the `d1:` revision includes the selected link identity when applicable. Keep the original selected path for `publisher.stage(...,{followLeaf:true})`, so final revision validation rechecks the link instead of losing its identity after canonicalization.
+- [x] Run `node --test tests/unit/file-text-format.test.js tests/integration/file-text.test.js tests/blackbox/file-text.test.js` and confirm red.
+- [x] Read regular-file bytes under the text limit, decode UTF-8 fatally and return actual BOM/newline metadata. Hardlinked files and files that cannot use the required write/publish path report readOnly. Preserve distinct selected path and resolved target; the `d1:` revision includes the selected link identity when applicable. Keep the original selected path for `publisher.stage(...,{followLeaf:true})`, so final revision validation rechecks the link instead of losing its identity after canonicalization.
 
 ```js
 export function serializeDocument(document, text, { mixedLineEnding = null } = {}) {
@@ -1520,8 +1520,10 @@ export function serializeDocument(document, text, { mixedLineEnding = null } = {
 }
 ```
 
-- [ ] Register PUT as a narrow raw/text route ahead of the global JSON parser. Require scope, one quoted revision in `If-Match` and request ID; reject wildcard/multiple If-Match values. Count body bytes rather than trusting declared length. Re-read current metadata, enforce OS write permission, stage complete replacement, copy strict metadata, publish and adopt displaced bytes. A lost response with identical request/body returns the recorded result, not another save. Stale revisions return a code only; the client explicitly fetches latest text for comparison.
-- [ ] Preserve tabs' drafts on every error. Test failed metadata preservation, missing parent write permission and a third writer during conflict resolution. Run new suites and publication/trash regression tests; commit: `git commit -m "feat: save text files with revision conflict checks"`.
+- [x] Register PUT as a narrow raw/text route ahead of the global JSON parser. Require scope, one quoted revision in `If-Match` and request ID; reject wildcard/multiple If-Match values. Count body bytes rather than trusting declared length. Re-read current metadata, enforce OS write permission, stage complete replacement, copy strict metadata, publish and adopt displaced bytes. A lost response with identical request/body returns the recorded result, not another save. Stale revisions return a code only; the client explicitly fetches latest text for comparison.
+- [x] Preserve caller-owned draft bytes and immutable save attempts on every error; actual tab ownership and navigation guards are implemented in Tasks 19–20. Test failed metadata preservation, missing parent write permission and a third writer during conflict resolution. Run new suites and publication/trash regression tests; commit: `git commit -m "feat: save text files with revision conflict checks"`.
+
+**Accepted evidence (2026-09-14):** Text implementation `80fdea2` and descriptor-cleanup correction `c76901f` passed independent specification and quality review. The close-failure finding is closed; the provisional storage-descendant finding was withdrawn because the accepted contract protects storage ancestors. The sole local full backend run passed 2,070 tests with 6 skips before three later source fixes; final affected coverage passed 246/246 after those fixes. All 17 checks passed on integrated `22d3d78` at 10:26:45 UTC: Linux Node 24 passed 2,074/2,083 with 9 documented skips, macOS Node 22 passed 2,077/2,083 with 6 documented skips, Chromium passed 497, and WebKit passed 495 with 2 existing PWA skips plus 15 timing checks. Required filesystem and four-target native evidence remains Task 22. Main PR 88 arrived afterward; its reviewed dependency conflict resolution is the next integration gate before Task 19.
 
 ## Task 19: CodeMirror-Editor, Tabs und Sprachmodule
 
