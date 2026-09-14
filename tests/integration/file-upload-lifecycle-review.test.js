@@ -42,6 +42,24 @@ async function promptly(promise) {
     timer.abort();
   }
 }
+function retentionEvidence(f, child, jobId, pruneAt) {
+  const db = f.store.db;
+  return JSON.stringify({
+    child,
+    pruneAt,
+    retained:
+      db
+        .prepare("SELECT status,updated_at AS updatedAt FROM jobs WHERE id=?")
+        .get(jobId) ?? null,
+    owned: f.jobs.owns(jobId),
+    publications: db.prepare("SELECT phase FROM publications WHERE job_id=?").all(jobId),
+    pins: db
+      .prepare(
+        "SELECT (SELECT count(*) FROM trash_entries WHERE job_id=?) AS trash, (SELECT count(*) FROM jobs WHERE parent_job_id=?) AS children",
+      )
+      .get(jobId, jobId),
+  });
+}
 
 test("blocked nested manifest settles after explicit directory IDs reorder its rows", async (t) => {
   const f = await uploadFixture(t),
@@ -300,7 +318,16 @@ for (const disposition of ["failed", "interrupted"])
     await f.uploads.commitGroup(f.scope, id);
     await f.jobs.join(f.scope, id);
     const done = await child(f, id, "done");
-    await f.uploads.receive(f.scope, done.uploadId, Readable.from([Buffer.from("a")]));
+    const completed = await f.uploads.receive(
+      f.scope,
+      done.uploadId,
+      Readable.from([Buffer.from("a")]),
+    );
+    assert.equal(
+      completed.status,
+      "completed",
+      `retention setup must complete done: ${JSON.stringify(completed.issue)}`,
+    );
     let prior = await child(f, id, "retry");
     assert.equal(
       (
@@ -326,11 +353,20 @@ for (const disposition of ["failed", "interrupted"])
       await f.until(() => f.jobs.get(f.scope, live.uploadId).completedBytes === 1);
       const charged = f.store.uploads.group(id).attemptedBytes;
       assert.equal(charged, 3);
-      await f.barrier.run(() => f.store.prune(Date.now() + 8 * 86400000));
-      for (const old of [done, prior])
-        assert.throws(() => f.jobs.get(f.scope, old.uploadId), {
-          code: "FILE_NOT_FOUND",
-        });
+      const pruneAt = await f.barrier.run(() => {
+        const at = Date.now() + 8 * 86400000;
+        f.store.prune(at);
+        return at;
+      });
+      for (const [label, old] of [
+        ["done", done],
+        ["prior", prior],
+      ])
+        assert.throws(
+          () => f.jobs.get(f.scope, old.uploadId),
+          { code: "FILE_NOT_FOUND" },
+          retentionEvidence(f, label, old.uploadId, pruneAt),
+        );
       // A retained in-memory owner must still block admission even if durable
       // metadata is absent; restore the actual dispatcher before the real retry.
       const owns = f.jobs.owns.bind(f.jobs);
