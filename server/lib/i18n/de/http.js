@@ -20,4 +20,6 @@ export const http = Object.freeze({
   localOrTailscaleRequired: "Nur lokaler Zugriff oder Tailscale Serve ist erlaubt.",
   tailscaleAccountDenied: "Dieses Tailscale-Konto hat keinen Zugriff.",
   originRequired: "Ursprung der Anfrage fehlt.",
+  networkHostNotAllowed:
+    "Netzwerkzugriff ist aus oder dieser Host ist nicht freigegeben. Einstellungen → Fernzugriff prüfen.",
 });
