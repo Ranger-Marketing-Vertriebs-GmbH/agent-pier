@@ -2,7 +2,11 @@ import { isMainModule } from "../server/lib/is-main-module.js";
 import fs from "node:fs";
 import path from "node:path";
 import { releaseManifest } from "../server/features/operations/release-archive.js";
-export function channelManifest(directory) {
+export function channelManifest(
+  directory,
+  { releasedAt = new Date().toISOString() } = {},
+) {
+  if (!Number.isFinite(Date.parse(releasedAt))) throw Error("Invalid release timestamp.");
   const records = fs
     .readdirSync(directory)
     .filter((name) => name.endsWith(".aprelease.json"))
@@ -20,12 +24,16 @@ export function channelManifest(directory) {
       bytes: record.bytes,
     };
   }
-  return { version, schemaVersion: 1, releasedAt: new Date().toISOString(), artifacts };
+  return { version, schemaVersion: 1, releasedAt, artifacts };
 }
 if (isMainModule(import.meta.url)) {
   const directory = path.resolve(process.argv[2] || ".");
   fs.writeFileSync(
     path.join(directory, "latest.json"),
-    JSON.stringify(channelManifest(directory), null, 2) + "\n",
+    JSON.stringify(
+      channelManifest(directory, { releasedAt: process.env.RELEASED_AT }),
+      null,
+      2,
+    ) + "\n",
   );
 }

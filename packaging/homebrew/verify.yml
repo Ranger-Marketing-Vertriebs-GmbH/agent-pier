@@ -1,0 +1,21 @@
+name: Verify Homebrew installer
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  formula:
+    strategy:
+      matrix:
+        os: [macos-14, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install and test formula in this checkout
+        run: |
+          brew tap ranger-marketing-vertriebs-gmbh/tap "$GITHUB_WORKSPACE"
+          brew install ranger-marketing-vertriebs-gmbh/tap/agentpier-installer
+          brew audit --strict --formula ranger-marketing-vertriebs-gmbh/tap/agentpier-installer
+          brew test ranger-marketing-vertriebs-gmbh/tap/agentpier-installer

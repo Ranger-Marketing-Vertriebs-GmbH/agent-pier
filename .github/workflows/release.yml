@@ -5,7 +5,24 @@ on:
     tags: ["v*"]
 permissions:
   contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
+  installer:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.22.2
+      - run: node scripts/installer-package.mjs release-artifacts
+      - run: node scripts/homebrew-formula.mjs release-artifacts
+      - run: node --test tests/unit/homebrew-formula.test.js tests/integration/installer-package.test.js tests/integration/installer-online.test.js tests/integration/installer-release-publication.test.js tests/integration/homebrew-tap-update.test.js
+      - uses: actions/upload-artifact@v7
+        with:
+          name: agentpier-installer
+          path: release-artifacts/*
   package:
     strategy:
       fail-fast: false
@@ -37,7 +54,7 @@ jobs:
             agentpier-${{ matrix.platform }}.aprelease.json
   publish:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: package
+    needs: [package, installer]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -51,11 +68,35 @@ jobs:
           pattern: agentpier-*
           path: release-artifacts
           merge-multiple: true
-      - run: node scripts/release-manifest.mjs release-artifacts
-      - name: Publish explicitly tagged version
+      - name: Create reproducible channel metadata
+        run: RELEASED_AT=$(git show -s --format=%cI "$GITHUB_SHA") node scripts/release-manifest.mjs release-artifacts
+      - name: Verify and publish complete tagged release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/installer-release-publish.mjs release-artifacts
+  tap:
+    if: startsWith(github.ref, 'refs/tags/v') && vars.AGENTPIER_HOMEBREW_TAP_ENABLED == 'true'
+    needs: publish
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.22.2
+      - uses: actions/download-artifact@v8
+        with:
+          name: agentpier-installer
+          path: release-artifacts
+      - uses: actions/checkout@v7
+        with:
+          repository: Ranger-Marketing-Vertriebs-GmbH/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+      - name: Propose installer formula update
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
-          node --input-type=module -e 'import fs from "node:fs"; const m=JSON.parse(fs.readFileSync("release-artifacts/latest.json")); if (`v${m.version}`!==process.env.RELEASE_TAG) throw Error("Tag and package version differ");'
-          gh release create "$RELEASE_TAG" release-artifacts/*.aprelease release-artifacts/latest.json --verify-tag --generate-notes
+          git -C homebrew-tap config user.name 'AgentPier release automation'
+          git -C homebrew-tap config user.email 'agentpier-release@users.noreply.github.com'
+          node scripts/homebrew-tap-update.mjs homebrew-tap release-artifacts/installer.json
