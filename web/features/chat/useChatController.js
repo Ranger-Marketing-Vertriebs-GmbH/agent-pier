@@ -72,6 +72,10 @@ export default function useChatController({ active, session, request, onConnecti
   const stream = useChatStream({ active, session, request, onConnection, output, stick });
   const { data, loadError } = stream;
   useEffect(() => {
+    if (delivery.reset)
+      void delivery.draft.observeReset(data, session.restartGeneration || 0);
+  }, [data, delivery.draft, delivery.reset, session.restartGeneration]);
+  useEffect(() => {
     if (data?.messages && delivery.recent.length)
       void delivery.draft.observeMessages(data.messages);
   }, [data, delivery.draft, delivery.recent]);
@@ -95,6 +99,15 @@ export default function useChatController({ active, session, request, onConnecti
     if (active && stick.current && output.current)
       output.current.scrollTop = output.current.scrollHeight;
   }, [data, active, delivery.outbox, delivery.recent]);
+  const send = (messages) =>
+    delivery.send(messages, {
+      tool: session.tool,
+      providerSessionId:
+        data?.availability === "ready" && !data.observability?.stale
+          ? data.providerSessionId
+          : null,
+      restartGeneration: session.restartGeneration || 0,
+    });
   async function submit(event) {
     event.preventDefault();
     if (
@@ -117,15 +130,14 @@ export default function useChatController({ active, session, request, onConnecti
     setSent(false);
     stick.current = true;
     try {
-      await withReadyUploads(deliveryScope(session), () =>
-        delivery.send(data?.messages || []),
-      );
+      await withReadyUploads(deliveryScope(session), () => send(data?.messages || []));
     } catch (err) {
       setError(err.message);
     }
   }
 
-  const choose = (result) => {
+  const choose = async (result) => {
+    await delivery.draft.dismissReset();
     stream.choose(result);
     setPicking(false);
   };
@@ -136,6 +148,7 @@ export default function useChatController({ active, session, request, onConnecti
     loadOlder: stream.loadOlder,
     delivery: {
       ...delivery,
+      send,
       nativeStates: nativeDeliveryStates(
         [...delivery.recent, ...(delivery.outbox ? [delivery.outbox] : [])],
         data?.messages || [],

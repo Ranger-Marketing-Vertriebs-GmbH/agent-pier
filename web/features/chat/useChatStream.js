@@ -26,6 +26,7 @@ export default function useChatStream({
     setData(
       current.live && {
         ...current.live,
+        clientObservedAt: current.observedAt,
         messages: [
           ...current.older.filter((row) => !ids.has(row.id)),
           ...current.live.messages,
@@ -64,6 +65,7 @@ export default function useChatStream({
           ...new Map([...current.older, ...prefix].map((row) => [row.id, row])).values(),
         ];
       }
+      current.observedAt = Date.now();
       current.live = next;
       if (!current.paged) current.cursor = next.history?.cursor || null;
       publish();

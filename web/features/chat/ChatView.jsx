@@ -1,4 +1,6 @@
 import ChatScrollToBottom from "./ChatScrollToBottom.jsx";
+import ChatReset from "./ChatReset.jsx";
+import { resetPresentation, resetHistory } from "./chat-reset.js";
 import useFileDrop from "../../components/useFileDrop.js";
 import ChatDeliveryStatus from "./ChatDeliveryStatus.jsx";
 import RequestPanel from "../requests/RequestPanel.jsx";
@@ -92,6 +94,24 @@ export default function ChatView({
     }
     submit(event);
   };
+  const resetStatus = resetPresentation(
+    delivery.reset,
+    data,
+    session.restartGeneration || 0,
+  );
+  const history = resetHistory(delivery.reset, data?.messages || [], resetStatus);
+  const historyLoader = data?.history?.cursor && (
+    <div className="chat-history-loader">
+      <button type="button" disabled={historyLoading} onClick={() => void loadOlder()}>
+        {historyLoading
+          ? copy.historyLoading
+          : historyError
+            ? copy.historyRetry
+            : copy.historyOlder}
+      </button>
+      {historyError && <p role="alert">{copy.historyFailed}</p>}
+    </div>
+  );
   const subagents =
     session.status === "running" && !data?.observability?.stale
       ? (data?.observability?.subagents || []).filter(
@@ -158,7 +178,8 @@ export default function ChatView({
             // turn off bottom-following as though the user scrolled backwards.
             if (event.currentTarget.clientHeight !== outputHeight.current) return;
             scroll.current = event.currentTarget.scrollTop;
-            if (scroll.current < 100 && !historyError) void loadOlder();
+            if (scroll.current < 100 && !historyError && resetStatus !== "requested")
+              void loadOlder();
             stick.current =
               event.currentTarget.scrollHeight -
                 event.currentTarget.scrollTop -
@@ -166,22 +187,6 @@ export default function ChatView({
               80;
           }}
         >
-          {data?.history?.cursor && (
-            <div className="chat-history-loader">
-              <button
-                type="button"
-                disabled={historyLoading}
-                onClick={() => void loadOlder()}
-              >
-                {historyLoading
-                  ? copy.historyLoading
-                  : historyError
-                    ? copy.historyRetry
-                    : copy.historyOlder}
-              </button>
-              {historyError && <p role="alert">{copy.historyFailed}</p>}
-            </div>
-          )}
           {(data?.availability === "unbound" || picking) && (
             <ConversationPicker
               session={session}
@@ -192,24 +197,37 @@ export default function ChatView({
             />
           )}
           {data?.notice && <p className="chat-notice">{data.notice}</p>}
-          <ChatDeliveryStatus
-            position="earlier"
-            openFile={openFile}
-            openTerminal={openTerminal}
-            delivery={delivery}
-            messages={data?.messages || []}
-            session={session}
-            blocked={
-              requestPending ||
-              modelPending ||
-              session.status !== "running" ||
-              session.pipeline?.headless
-            }
-          />
+          <ChatReset key={delivery.reset?.deliveryId || "history"} status={resetStatus}>
+            {historyLoader}
+            <ChatDeliveryStatus
+              position="earlier"
+              openFile={openFile}
+              openTerminal={openTerminal}
+              delivery={delivery}
+              messages={data?.messages || []}
+              session={session}
+              blocked={
+                requestPending ||
+                modelPending ||
+                session.status !== "running" ||
+                session.pipeline?.headless
+              }
+            />
+            <ChatTranscript
+              nativeStates={delivery.nativeStates}
+              key={`${session.id}:${data?.providerSessionId}:${data?.history?.generation}`}
+              messages={history.previous}
+              live={session.status === "running" && !data?.observability?.stale}
+              tool={session.tool}
+              sessionId={session.id}
+              cwd={session.cwd}
+              openFile={openFile}
+            />
+          </ChatReset>
           <ChatTranscript
             nativeStates={delivery.nativeStates}
             key={`${session.id}:${data?.providerSessionId}:${data?.history?.generation}`}
-            messages={data?.messages || []}
+            messages={history.current}
             live={session.status === "running" && !data?.observability?.stale}
             tool={session.tool}
             sessionId={session.id}
@@ -230,6 +248,7 @@ export default function ChatView({
             }
           />
           {data &&
+            !resetStatus &&
             !delivery.outbox &&
             !delivery.recent.length &&
             !data.messages.length &&

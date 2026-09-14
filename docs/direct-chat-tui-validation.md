@@ -359,3 +359,30 @@ captures a draft without submitting it, then disposes its own session.
 The remaining native matrix must be recorded before claiming full release
 acceptance. Linux, custom keybindings/themes, actual tool
 execution, and simultaneous external tmux/SSH typing are not covered by this run.
+
+## Codex clear before the next prompt
+
+The `--clear-only` mode reproduces the delayed identity transition using the same
+isolated native CLI and loopback provider as the input probes:
+
+```sh
+node scripts/probe-chat-tui.mjs --native --tool codex --local-mock --http --bound --clear-only
+```
+
+On 2026-09-14, Codex CLI 0.153.4 cleared its terminal immediately after the HTTP
+submission of `/clear`, but AgentPier still read the old native identity until the
+next synthetic prompt. The probe verifies that the browser's durable draft store
+records a requested reset, preserves that state on reload, and confirms it only
+when a fresh snapshot identifies another conversation. The new conversation
+contains none of the earlier synthetic prompt.
+
+This is presentation state, not an acknowledgement of command execution. AgentPier
+collapses unchanged pre-command messages after a successful handoff; new or updated
+output stays visible, and rejected or uncertain handoffs retain the normal history.
+The marker is scoped to this browser's session/account delivery storage, with
+cross-tab ordering and restart checks. It is not shared across devices, and `/clear`
+entered directly in the terminal still relies on native identity notification.
+Browser tests cover the collapsed history, reload, uncertain/rejected delivery,
+late responses, and explicit retry after restart in Chromium and WebKit.
+
+![Pending Codex reset in the English chat](screenshots/chat-clear-requested.png)

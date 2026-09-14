@@ -96,7 +96,7 @@ export default function useChatDelivery({ session, request, active }) {
     return startVisiblePolling(check, 2500);
   }, [active, id, check]);
 
-  const send = async (messages = []) => {
+  const send = async (messages = [], context = {}) => {
     if (operation.current) return;
     const old = draft.getSnapshot().outbox;
     if (old && old.status !== "absent") return;
@@ -107,7 +107,9 @@ export default function useChatDelivery({ session, request, active }) {
     setSendError("");
     let item, timeout;
     try {
-      item = old || (await draft.enqueue(browserUuid(), messages));
+      item = old
+        ? await draft.retryAbsent(messages, context)
+        : await draft.enqueue(browserUuid(), messages, context);
       if (!item || !["waiting", "absent"].includes(item.status)) return;
       timeout = setTimeout(() => controller.abort(), 15000);
       const result = await request(

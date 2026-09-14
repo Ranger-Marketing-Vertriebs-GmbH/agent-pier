@@ -56,6 +56,11 @@ export const chatMessageCopy = {
 };
 export const chatViewCopy = {
   jumpToLatest: "Jump to latest",
+  resetRequested: "New conversation requested",
+  resetConfirmed: "New conversation ready",
+  resetPrevious: "Previous conversation",
+  resetPendingHint:
+    "Waiting for Codex to confirm the new conversation. Your previous history remains available below.",
   historyOlder: "Load older messages",
   historyLoading: "Loading older messages …",
   historyRetry: "Retry older messages",

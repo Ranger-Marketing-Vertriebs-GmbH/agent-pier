@@ -1,3 +1,4 @@
+import { waitFor, summary } from "./probe-chat-tui-utils.mjs";
 import { startQueueStreamProbe } from "./probe-queue-stream.mjs";
 import * as claude from "./probe-claude-startup.mjs";
 import { probeCodexHookTrust } from "./probe-codex-hook-trust.mjs";
@@ -12,6 +13,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { applicationFixture } from "../tests/helpers/application.js";
 import { createTuiInputRecorder } from "../tests/helpers/tui-input-recorder.js";
 import { probeNativeImages } from "./probe-chat-tui-images.mjs";
+import { probeNativeClear } from "./probe-chat-tui-clear.mjs";
 import { probeNativePayloads } from "./probe-chat-tui-payloads.mjs";
 import { probeNativeRecovery } from "./probe-chat-tui-recovery.mjs";
 import { createProbeProvider } from "./probe-chat-tui-provider.mjs";
@@ -22,11 +24,17 @@ const native = options.includes("--native");
 const httpMode = options.includes("--http");
 const bound = options.includes("--bound");
 const bootstrap = options.includes("--bootstrap");
+const clearOnly = options.includes("--clear-only");
 const samples = options.includes("--samples")
   ? Number(options[options.indexOf("--samples") + 1])
   : 30;
 assert.ok(Number.isInteger(samples) && samples > 0 && samples <= 30);
 const tool = options[options.indexOf("--tool") + 1];
+if (clearOnly)
+  assert.ok(
+    native && tool === "codex" && httpMode && bound && options.includes("--local-mock"),
+    "Clear probe requires --native --tool codex --local-mock --http --bound",
+  );
 if (!options.includes("--synthetic") && !native) {
   throw new Error(
     "Use --synthetic or --native --tool codex|claude|opencode --local-mock",
@@ -54,26 +62,6 @@ if (
     for (const dispose of cleanup.reverse()) await dispose();
   }
 }
-async function waitFor(read, predicate, timeout = 15000) {
-  const started = performance.now();
-  while (performance.now() - started < timeout) {
-    const value = await read();
-    if (predicate(value)) return value;
-    await sleep(20);
-  }
-  throw new Error("Probe observation timed out; no submit is retried");
-}
-
-function summary(samples) {
-  const sorted = [...samples].sort((a, b) => a - b);
-  return {
-    n: sorted.length,
-    p50: sorted[Math.floor(sorted.length / 2)],
-    p95: sorted[Math.ceil(sorted.length * 0.95) - 1],
-    max: sorted.at(-1),
-  };
-}
-
 async function paste(manager, session, text) {
   const buffer = `probe-${randomUUID()}`;
   const target = `${manager.target(session.id)}:0.0`;
@@ -204,6 +192,8 @@ async function probeNative(fixture, cleanup) {
       name: "Disposable native probe",
       tool,
     });
+    if (clearOnly)
+      env.CODEX_HOME = fixture.application.accounts.environment(account.id).CODEX_HOME;
     if (bound && tool === "claude" && os.platform() === "darwin") {
       // The platform ps binary cannot execute under Seatbelt. A disposable,
       // unprivileged signed copy performs the same real process inspection.
@@ -313,13 +303,13 @@ async function probeNative(fixture, cleanup) {
       }
       return result;
     };
-    const send = async (text) => {
+    const send = async (text, deliveryId = randomUUID()) => {
       if (!httpMode) return paste(manager, session, text);
       httpEntry = submitEnd = undefined;
       const result = await fixture.request(`/api/sessions/${session.id}/input`, {
         method: "POST",
         body: {
-          deliveryId: randomUUID(),
+          deliveryId,
           deliveryScope: JSON.stringify([
             session.id,
             session.accountId,
@@ -467,6 +457,15 @@ async function probeNative(fixture, cleanup) {
       await keys("Tab");
       await waitFor(capture, (screen) => screen.includes("Build · "));
     }
+    if (clearOnly)
+      return await probeNativeClear({
+        fixture,
+        session,
+        send,
+        capture,
+        waitFor,
+        version,
+      });
     await send("AP_PROBE_HOLD");
     if (bound)
       await waitFor(() => fixture.application.bindings.verifiedReceipt(session), Boolean);

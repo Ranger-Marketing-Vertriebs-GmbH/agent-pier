@@ -1,0 +1,20 @@
+.chat-reset-notice {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid #51402f;
+  border-radius: 10px;
+  background: #24201c;
+  color: #e9bb91;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.chat-reset-notice p {
+  margin: 6px 0 0;
+  color: #bbb3ab;
+}
+.chat-reset-history > summary {
+  cursor: pointer;
+  color: #a4a5a9;
+  font-size: 12px;
+  padding: 8px 0 16px;
+}
