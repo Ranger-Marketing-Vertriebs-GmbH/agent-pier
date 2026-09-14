@@ -8,6 +8,7 @@ export const fileEditorCopy = {
   saving: "Saving…",
   search: "Search and replace",
   closeTab: "Close document",
+  closeNamedTab: (path) => `Close tab ${path}`,
   guardTitle: "Unsaved documents",
   guardDescription: (path) => `Choose what to do with ${path} before continuing.`,
   guardSave: "Save and continue",

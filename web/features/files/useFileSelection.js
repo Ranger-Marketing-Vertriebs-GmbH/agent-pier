@@ -48,6 +48,13 @@ export default function useFileSelection(entries, owner = entries) {
     select: (path) => change("select", path),
     range: (path) => change("range", path),
     toggle: (path) => change("toggle", path),
+    selectAll: () =>
+      set({
+        owner,
+        entries,
+        selected: [...entries],
+        anchor: entries.at(0)?.path || null,
+      }),
     clear: () => change("clear"),
   };
 }

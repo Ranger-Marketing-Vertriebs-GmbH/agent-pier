@@ -69,8 +69,12 @@
   overflow-wrap: anywhere;
 }
 @media (max-width: 700px) {
+  .file-selection-checkbox {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
   .explorer-entry:has(.file-selection-checkbox) {
-    grid-template-columns: 1.3rem minmax(0, 1fr) 2.5rem 2.5rem;
+    grid-template-columns: 2.5rem minmax(0, 1fr) 2.5rem 2.5rem;
   }
   .explorer-entry:has(.file-selection-checkbox) > span,
   .explorer-entry:has(.file-selection-checkbox) > time {
@@ -114,7 +118,7 @@
 }
 @container (max-width: 550px) {
   .explorer-entry:has(.file-selection-checkbox) {
-    grid-template-columns: 1.3rem minmax(0, 1fr) 2.5rem 2.5rem;
+    grid-template-columns: 2.5rem minmax(0, 1fr) 2.5rem 2.5rem;
   }
   .explorer-entry:has(.file-selection-checkbox) > span,
   .explorer-entry:has(.file-selection-checkbox) > time,

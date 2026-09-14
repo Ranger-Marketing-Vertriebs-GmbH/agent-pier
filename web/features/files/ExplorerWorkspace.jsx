@@ -10,7 +10,7 @@ import { fileApi } from "./file-api.js";
 import useFileListing from "./useFileListing.js";
 import useFilePreferences from "./useFilePreferences.js";
 import ExplorerToolbar from "./ExplorerToolbar.jsx";
-import DirectoryTree from "./DirectoryTree.jsx";
+import ExplorerDirectoryTree from "./ExplorerDirectoryTree.jsx";
 import FileList from "./FileList.jsx";
 import useFileJobs from "./useFileJobs.js";
 import FileJobs from "./FileJobs.jsx";
@@ -21,8 +21,8 @@ import useFileUploads from "./useFileUploads.js";
 import TrashView from "./TrashView.jsx";
 import useFileSelection from "./useFileSelection.js";
 import useFileClipboard, { useClipboardResults } from "./useFileClipboard.js";
+import { useExplorerFileShortcuts, useOwnedListAction } from "./useFileShortcuts.js";
 import "./files.css";
-
 export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
   const kind = scopeRef.kind;
   const sessionId = scopeRef.sessionId;
@@ -48,7 +48,6 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
   const hidden = Boolean(route.fileHidden);
   const invalidPage =
     route.filePageInvalid !== null && route.filePageInvalid !== undefined;
-
   const changeRoute = (changes, replace = false) =>
     navigate(
       {
@@ -70,7 +69,6 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
       },
       replace,
     );
-
   useEffect(() => {
     const controller = new AbortController();
     setContext(null);
@@ -100,7 +98,6 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
     // contextKey explicitly observes a same-session CWD change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, contextKey]);
-
   useEffect(() => {
     if (context?.kind !== "global") {
       setProjects([]);
@@ -121,7 +118,6 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
       .catch(() => setProjects([]));
     return () => controller.abort();
   }, [context?.kind]);
-
   const preferences = useFilePreferences({ client, scopeId: context?.scopeId });
   useEffect(() => {
     if (context && preferences.preferences.showHidden && !route.fileHiddenExplicit)
@@ -169,6 +165,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
   const clipboard = useFileClipboard(context);
   useClipboardResults(clipboard, jobs.entries);
   const [actionRequest, setActionRequest] = useState(null);
+  const requestListAction = useOwnedListAction(actionOwner, setActionRequest);
   const dragged = useRef(null);
   const actionScope = context && { ...context, path };
   const terminalJobs = jobs.jobs
@@ -313,6 +310,12 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
     if (selected.type === "directory") goPath(selected.path);
     else showProperties(selected);
   };
+  const handleShortcuts = useExplorerFileShortcuts(
+    fileSelection,
+    clipboard,
+    requestListAction,
+    openEntry,
+  );
   const openLink = async () => {
     const owner = selectionOwner.current;
     linkOperation.current.controller?.abort();
@@ -359,34 +362,24 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
         linkOperation.current = { generation, controller: null };
     }
   };
-  const refresh = () => {
+  const refresh = (restoreFocus) => {
     if (invalidPage) changeRoute({ filePage: 1, filePageInvalid: null, file: "" }, true);
-    listing.refresh();
+    listing.refresh(restoreFocus);
   };
   const directoryTree = context && (
-    <DirectoryTree
+    <ExplorerDirectoryTree
       client={client}
       context={context}
       hidden={hidden}
-      favorites={preferences.preferences.favorites}
+      preferences={preferences}
       projects={projects}
-      onNavigate={(nextPath) => {
-        setTreeOpen(false);
-        goPath(nextPath);
-      }}
-      onRemoveFavorite={(id) =>
-        preferences
-          .update((latest) => ({
-            favorites: latest.favorites.filter((favorite) => favorite.id !== id),
-          }))
-          .catch(() => {})
-      }
-      onClose={treeOpen ? () => setTreeOpen(false) : null}
+      open={treeOpen ? setTreeOpen : null}
+      navigate={goPath}
     />
   );
 
   return (
-    <section className="file-explorer" aria-label={copy.tab}>
+    <section className="file-explorer" aria-label={copy.tab} onKeyDown={handleShortcuts}>
       <h1>{copy.tab}</h1>
       <ErrorMessage error={contextError?.message} />
       {context && (
@@ -517,9 +510,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
                       onPage={(filePage) => changeRoute({ filePage, file: "" })}
                       selection={fileSelection}
                       readOnly={context.readOnly}
-                      onAction={(action, items) =>
-                        setActionRequest({ owner: actionOwner, kind: action, items })
-                      }
+                      onAction={requestListAction}
                       onDrag={(items, event) => {
                         const token = browserUuid();
                         dragged.current = { owner: actionOwner, items, token };

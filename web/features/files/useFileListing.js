@@ -28,16 +28,34 @@ export default function useFileListing({ client, path, page, sort, direction, hi
   const [loading, setLoading] = useState(false);
   const [generation, setGeneration] = useState(0);
   const requestGeneration = useRef(0);
+  const afterRefresh = useRef(null);
+  const focusOwner = useRef(null);
+  const nextFocusOwner = { client, path, page, sort, direction, hidden };
+  if (
+    focusOwner.current &&
+    Object.keys(nextFocusOwner).some(
+      (key) => focusOwner.current[key] !== nextFocusOwner[key],
+    )
+  )
+    afterRefresh.current = null;
+  focusOwner.current = nextFocusOwner;
   const snapshot = useRef(null);
   const owner = { client, path, page, sort, direction, hidden, generation };
   const listing = owns(result, owner) ? result.listing : null;
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback((complete) => {
+    if (typeof complete === "function") afterRefresh.current = complete;
     snapshot.current = null;
     setResult(null);
     setError(null);
     setGeneration((value) => value + 1);
   }, []);
+  useEffect(
+    () => () => {
+      afterRefresh.current = null;
+    },
+    [],
+  );
 
   useEffect(() => {
     const request = ++requestGeneration.current;
@@ -82,9 +100,15 @@ export default function useFileListing({ client, path, page, sort, direction, hi
           generation,
           listing,
         });
+        if (afterRefresh.current) {
+          const complete = afterRefresh.current;
+          afterRefresh.current = null;
+          requestAnimationFrame(complete);
+        }
       })
       .catch((issue) => {
         if (controller.signal.aborted || request !== requestGeneration.current) return;
+        afterRefresh.current = null;
         setResult(null);
         setError(issue);
       })

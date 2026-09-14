@@ -17,7 +17,12 @@ export default function FileJobCard({ job, state, scopeId, client, onRetry }) {
   };
   return (
     <li className="file-job-card" data-job-id={job.id}>
-      <div className="file-job-heading">
+      <div
+        className="file-job-heading"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
         <span>
           {copy.jobKinds[job.kind] || copy.operation} · {copy.jobStates[job.status]}
         </span>

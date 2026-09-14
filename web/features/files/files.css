@@ -155,6 +155,9 @@
   border-radius: 10px;
   overflow: hidden;
 }
+.explorer-list :focus-visible {
+  outline-offset: -2px;
+}
 .explorer-list-header,
 .explorer-entry {
   display: grid;
@@ -328,7 +331,7 @@ dialog .directory-tree {
     flex: 1;
   }
   .explorer-view-options select {
-    min-width: 0;
+    min-width: 7.5rem;
   }
   .explorer-tree-column {
     display: none;
@@ -337,7 +340,7 @@ dialog .directory-tree {
     display: none;
   }
   .explorer-entry {
-    grid-template-columns: minmax(0, 1fr) 42px;
+    grid-template-columns: 42px minmax(0, 1fr) 42px 42px;
   }
   .explorer-entry > span,
   .explorer-entry > time {
@@ -348,6 +351,19 @@ dialog .directory-tree {
   }
   .file-properties:has(dl) {
     grid-row: 1;
+  }
+  .file-selection-checkbox,
+  .explorer-entry > .icon-button,
+  .tree-node-row > .tree-expand,
+  .tree-shortcut-row > .icon-button {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+  }
+  .tree-node-row > button,
+  .tree-shortcut {
+    min-height: 40px;
   }
 }
 

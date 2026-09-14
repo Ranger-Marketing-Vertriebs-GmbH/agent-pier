@@ -40,10 +40,12 @@ export default function FileActions({
   if (!validDialog && dialogOwner.current === dialog) dialogOwner.current = null;
   const pending = Boolean(currentDialog && pendingDialog === currentDialog);
   const replaceDialog = (value) => {
+    const restore = !value && dialogOwner.current?.restoreFocus;
     dialogOwner.current = value;
     attempt.current = null;
     setPendingDialog(null);
     setDialog(value);
+    if (restore) requestAnimationFrame(() => alive.current && restore());
   };
   useEffect(() => {
     alive.current = true;
@@ -72,6 +74,7 @@ export default function FileActions({
         clipboard[kind](items);
         setFeedback(kind);
       }
+      requestAnimationFrame(() => alive.current && extra.restoreFocus?.());
       return;
     }
     if (kind === "path") {
@@ -84,7 +87,10 @@ export default function FileActions({
         })
         .catch(() => {
           if (alive.current) setFeedback("copyFailed");
-        });
+        })
+        .finally(() =>
+          requestAnimationFrame(() => alive.current && extra.restoreFocus?.()),
+        );
       return;
     }
     if (kind === "paste") {
@@ -112,11 +118,10 @@ export default function FileActions({
   useEffect(() => {
     if (!request || request === lastRequest.current) return;
     lastRequest.current = request;
-    show(
-      request.kind,
-      request.items || selected,
-      request.target ? { target: request.target } : {},
-    );
+    show(request.kind, request.items || selected, {
+      ...(request.target ? { target: request.target } : {}),
+      ...(request.restoreFocus ? { restoreFocus: request.restoreFocus } : {}),
+    });
     onRequestHandled?.();
     // Requests are explicit user gestures owned by this opened scope/path.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -168,7 +173,7 @@ export default function FileActions({
       if (!owns()) return;
       replaceDialog(null);
       selection.clear();
-      onChanged();
+      onChanged(value.restoreFocus);
     } catch (issue) {
       if (owns()) setError(issue);
     } finally {

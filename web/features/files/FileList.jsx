@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
 import { canExtract } from "./FileArchiveDialog.jsx";
@@ -21,6 +21,9 @@ export default function FileList({
   onDrop,
 }) {
   const [menu, setMenu] = useState(null);
+  const menuRef = useRef(null);
+  const menuOrigin = useRef(null);
+  const listRef = useRef(null);
   const menuEntry = listing.entries.find(
     (entry) => entry.path === menu?.path && entry.revision === menu?.revision,
   );
@@ -28,33 +31,37 @@ export default function FileList({
     selection?.selected.some((item) => item.path === entry.path)
       ? selection.selected
       : [entry];
-  const openMenu = (entry) => {
+  const closeMenu = (restore = true) => {
+    setMenu(null);
+    if (restore)
+      queueMicrotask(() => {
+        if (menuOrigin.current?.isConnected) menuOrigin.current.focus();
+        else listRef.current?.querySelector("input, button")?.focus();
+      });
+  };
+  const openMenu = (entry, origin) => {
+    menuOrigin.current = origin;
     setMenu(entry);
   };
+  useEffect(() => {
+    if (menuEntry)
+      menuRef.current?.querySelector("[role='menuitem']:not(:disabled)")?.focus();
+  }, [menuEntry]);
   const act = (kind) => {
-    onAction(kind, selectedItems(menuEntry));
-    setMenu(null);
+    const origin = menuOrigin.current;
+    onAction(kind, selectedItems(menuEntry), origin);
+    closeMenu(false);
   };
   return (
     <section
       className="explorer-list"
+      ref={listRef}
       aria-label={copy.fileList}
       onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          setMenu(null);
-          selection?.clear();
-        }
-        if (event.target.closest("input:not([type=checkbox]),textarea")) return;
-        const key = event.key.toLowerCase();
-        if ((event.metaKey || event.ctrlKey) && ["c", "x", "v"].includes(key)) {
+        if (event.key === "Escape" && menuEntry) {
           event.preventDefault();
-          onAction({ c: "copy", x: "cut", v: "paste" }[key], selection.selected);
-        } else if (event.key === "Delete" && selection.selected.length) {
-          event.preventDefault();
-          onAction("trash", selection.selected);
-        } else if (event.key === "F2" && selection.selected.length === 1) {
-          event.preventDefault();
-          onAction("rename", selection.selected);
+          event.stopPropagation();
+          closeMenu();
         }
       }}
     >
@@ -86,7 +93,7 @@ export default function FileList({
           }}
           onContextMenu={(event) => {
             event.preventDefault();
-            openMenu(entry);
+            openMenu(entry, event.currentTarget.querySelector(".explorer-entry-name"));
           }}
         >
           {selection && (
@@ -137,7 +144,7 @@ export default function FileList({
               type="button"
               className="icon-button"
               aria-label={copy.actions.menu(entry.name)}
-              onClick={() => openMenu(entry)}
+              onClick={(event) => openMenu(entry, event.currentTarget)}
             >
               <Icon name="menu" />
             </button>
@@ -147,8 +154,30 @@ export default function FileList({
       {menuEntry && (
         <div
           role="menu"
+          ref={menuRef}
           aria-label={copy.actions.menu(menuEntry.name)}
           className="file-context-menu"
+          onKeyDown={(event) => {
+            const items = [
+              ...event.currentTarget.querySelectorAll("[role='menuitem']"),
+            ].filter((item) => !item.disabled);
+            const position = items.indexOf(document.activeElement);
+            const next =
+              event.key === "Home"
+                ? 0
+                : event.key === "End"
+                  ? items.length - 1
+                  : event.key === "ArrowDown"
+                    ? (position + 1) % items.length
+                    : event.key === "ArrowUp"
+                      ? (position - 1 + items.length) % items.length
+                      : null;
+            if (next !== null) {
+              event.preventDefault();
+              event.stopPropagation();
+              items[next]?.focus();
+            }
+          }}
         >
           {[
             "copy",
@@ -185,7 +214,7 @@ export default function FileList({
                 : copy.actions[kind] || copy.transfers.actions[kind]}
             </button>
           ))}
-          <button role="menuitem" onClick={() => setMenu(null)}>
+          <button role="menuitem" onClick={() => closeMenu()}>
             {copy.actions.choices.cancel}
           </button>
         </div>

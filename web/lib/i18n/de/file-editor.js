@@ -9,6 +9,7 @@ export const fileEditorCopy = {
   saving: "Wird gespeichert…",
   search: "Suchen und ersetzen",
   closeTab: "Dokument schließen",
+  closeNamedTab: (path) => `Tab ${path} schließen`,
   guardTitle: "Ungespeicherte Dokumente",
   guardDescription: (path) =>
     `Wähle vor dem Fortfahren aus, was mit ${path} geschehen soll.`,

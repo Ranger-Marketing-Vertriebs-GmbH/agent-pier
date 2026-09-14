@@ -34,4 +34,8 @@
   .file-jobs .file-action-buttons {
     flex-wrap: wrap;
   }
+  .file-jobs button,
+  .file-action-dialog button {
+    min-height: 40px;
+  }
 }

@@ -11,12 +11,23 @@
   gap: 6px;
   margin-bottom: 10px;
 }
-.file-editor-tabs button {
+.file-editor-tab {
+  display: flex;
   flex: 0 0 auto;
   max-width: 80%;
+}
+.file-editor-tab [role="tab"] {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.file-editor-tab-close {
+  flex: none;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 6px;
 }
 .file-editor-tabs [aria-selected="true"] {
   border-color: var(--accent);

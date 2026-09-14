@@ -22,6 +22,15 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
   const [destination, setDestination] = useState("");
   const [replacement, setReplacement] = useState(null);
   const [targetError, setTargetError] = useState(null);
+  const closeIntent = useRef(0);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      closeIntent.current += 1;
+    };
+  }, []);
   const current = Boolean(tab && context && tab.scopeId === context.scopeId);
   const targetOwner = useRef(null);
   if (
@@ -105,6 +114,25 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
     current
       ? editor.saveAs(tab.id, destination)
       : editor.saveAsFresh(tab.id, destination);
+  const closeTab = async (id, origin) => {
+    const intent = ++closeIntent.current;
+    const accepted = await requestFileNavigation({
+      reason: "tab-close",
+      tabId: id,
+      commit: () => editor.close(id, { discard: true }),
+    });
+    requestAnimationFrame(() => {
+      if (!mounted.current || closeIntent.current !== intent) return;
+      const active = document.activeElement;
+      if (active !== document.body && active?.isConnected && !active.closest?.("dialog"))
+        return;
+      if (!accepted && origin.isConnected) origin.focus();
+      else
+        document
+          .querySelector(`.file-editor-tabs [role='tab'][aria-selected='true']`)
+          ?.focus();
+    });
+  };
   return (
     <>
       {canOpen && context && (
@@ -114,7 +142,7 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
       )}
       {editor.tabs.length > 0 && (
         <section className="file-editor" aria-label={copy.title}>
-          <FileEditorTabs {...editor} />
+          <FileEditorTabs {...editor} close={closeTab} />
           {tab && (
             <div
               id="file-editor-panel"
