@@ -50,3 +50,19 @@ test("failed jobs persist migrate error codes and structured results", async (t)
   assert.equal(plain.errorCode, undefined);
   assert.equal(plain.result, undefined);
 });
+
+test("running skips job files that cannot be read", async (t) => {
+  const dir = await directory(t);
+  const jobs = new OperationJobs(dir);
+  await fs.writeFile(
+    path.join(dir, "operations/jobs/0000aaaa-0000-4000-8000-000000000000.json"),
+    "{not json",
+  );
+  assert.equal(jobs.running("release-"), false);
+  let release;
+  jobs.start("release-migrate", () => new Promise((resolve) => (release = resolve)));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(jobs.running("release-"), true);
+  release({});
+  await jobs.close();
+});

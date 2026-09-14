@@ -44,6 +44,16 @@ export class ReleaseSessionMigration {
       ? state.versions.find((item) => item.version === version) || null
       : null;
   }
+  /** Ids of running sessions that still hold a non-active release, or null when unknown. */
+  heldSessionIds() {
+    const state = this.operations.releases.cleanupStatus();
+    if (!state.available) return null;
+    return new Set(
+      state.versions
+        .filter((item) => item.deleteReason !== "active")
+        .flatMap((item) => item.sessionIds),
+    );
+  }
   async describe(id) {
     let session;
     try {
@@ -246,12 +256,15 @@ export class ReleaseSessionMigration {
           "migrateChanged",
           "The release is no longer in a state that allows cleanup. Refresh the list.",
         );
+      // Orphaned helpers of a killed CLI exit within seconds, so every remaining
+      // reference (unidentified included) is awaited for the settle budget before the
+      // release is reported as blocked.
       const remaining = [
         ...entry.unidentifiedProcesses,
         ...entry.sessionIds.map((id) => ({ reference: `sessions/${id}` })),
         ...entry.helperProcesses,
       ];
-      if (entry.unidentifiedProcesses.length || attempt >= this.settleAttempts)
+      if (attempt >= this.settleAttempts)
         throw migrateError(
           "migrateBlocked",
           "Processes still use this release. The release was kept.",
@@ -310,9 +323,11 @@ export class ReleaseSessionMigration {
       }
       fs.rmSync(this.marker, { force: true });
       if (!verified) return;
+      const held = this.heldSessionIds();
       let count = 0;
       for (const session of await this.services.sessions.list()) {
         if (session.status !== "running") continue;
+        if (held && !held.has(session.id)) continue;
         try {
           const status = await this.services.reload.status(session.id);
           if (!status.eligible || inFlight(status.state)) continue;
