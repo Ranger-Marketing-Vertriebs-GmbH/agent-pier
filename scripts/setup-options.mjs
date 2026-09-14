@@ -49,6 +49,8 @@ export function resolveSetupOptions(args, { home, env, platform, arch }) {
   const dataDir = values["--data-dir"] || env.AGENTPIER_DATA_DIR || defaultDataDir;
   if (!path.isAbsolute(installRoot) || !path.isAbsolute(dataDir))
     throw Error("Setup paths must be absolute.");
+  if (installRoot === path.parse(installRoot).root)
+    throw Error("The install root cannot be the filesystem root.");
   if (path.resolve(installRoot) !== installRoot || path.resolve(dataDir) !== dataDir)
     throw Error("Setup requires normalized absolute paths without dot segments.");
   const relativeData = path.relative(path.resolve(installRoot), path.resolve(dataDir));

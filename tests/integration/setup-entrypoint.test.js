@@ -97,6 +97,15 @@ for (const args of [
     assert.equal(await ctx.readCalls(), "");
   });
 
+test("filesystem root is rejected as an install root before side effects", async (t) => {
+  const ctx = await fixture(t);
+  await assert.rejects(
+    ctx.run(["--install-root", "/", "--data-dir", "/tmp/data"]),
+    /filesystem root/,
+  );
+  assert.equal(await ctx.readCalls(), "");
+});
+
 for (const [name, overrides, message] of [
   ["old macOS", { osVersion: "13.6" }, /macOS 14/],
   ["single-digit macOS", { osVersion: "9.6" }, /macOS 14/],

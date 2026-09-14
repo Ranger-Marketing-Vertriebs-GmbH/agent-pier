@@ -108,6 +108,14 @@ test("setup rejects unsupported runtime platforms and architectures", () => {
   assert.throws(() => resolveSetupOptions([], context({ arch: "mips" })), /architecture/);
 });
 
+test("setup rejects the filesystem root as an install root", () => {
+  assert.throws(
+    () =>
+      resolveSetupOptions(["--install-root", "/", "--data-dir", "/tmp/data"], context()),
+    /filesystem root/,
+  );
+});
+
 test("installer arguments pin the first release while retaining setup defaults", () => {
   const args = installerArguments(resolveSetupOptions([], context()), "1.17.0");
   assert.deepEqual(args, [
