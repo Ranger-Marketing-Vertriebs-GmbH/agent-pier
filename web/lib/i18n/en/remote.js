@@ -13,7 +13,7 @@ export const remoteCopy = {
     "Reachable without TLS at this machine's address. Only the login protects the workspace.",
   warningTitle: "Enable plain HTTP?",
   warning:
-    "Password and content travel unencrypted through the network. No push notifications and no PWA installation. Use only in trusted networks and never forward the port to the internet.",
+    "WARNING: Network access without TLS. Password and content travel unencrypted through the network. No push notifications and no PWA installation. Use only in trusted networks and never forward the port to the internet.",
   warningConfirm: "Enable anyway",
   warningCancel: "Cancel",
   activeWarning: "Network access without TLS is active. Trusted networks only.",

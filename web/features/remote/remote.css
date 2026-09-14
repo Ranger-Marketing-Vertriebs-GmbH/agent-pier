@@ -1,0 +1,36 @@
+.settings-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1rem;
+  margin: 16px 0;
+  min-width: 0;
+}
+.switch-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+.switch-row input {
+  width: auto;
+  accent-color: var(--accent);
+}
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.chip-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.remote-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

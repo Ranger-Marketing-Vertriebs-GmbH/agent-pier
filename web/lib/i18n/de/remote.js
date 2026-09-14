@@ -13,7 +13,7 @@ export const remoteCopy = {
     "Ohne TLS unter der Adresse dieses Rechners erreichbar. Nur die Anmeldung schützt den Arbeitsbereich.",
   warningTitle: "Klartext-HTTP einschalten?",
   warning:
-    "Passwort und Inhalte gehen unverschlüsselt durchs Netz. Keine Push-Benachrichtigungen und keine PWA-Installation. Nur in vertrauenswürdigen Netzen verwenden und keine Portweiterleitung ins Internet einrichten.",
+    "WARNUNG: Netzwerkzugriff ohne TLS. Passwort und Inhalte gehen unverschlüsselt durchs Netz. Keine Push-Benachrichtigungen und keine PWA-Installation. Nur in vertrauenswürdigen Netzen verwenden und keine Portweiterleitung ins Internet einrichten.",
   warningConfirm: "Trotzdem einschalten",
   warningCancel: "Abbrechen",
   activeWarning: "Netzwerkzugriff ohne TLS ist aktiv. Nur für vertrauenswürdige Netze.",

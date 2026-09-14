@@ -5,6 +5,7 @@ import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { remoteCopy as copy } from "../../lib/i18n/messages/remote.js";
+import "./remote.css";
 
 const RESTART_TIMEOUT = 25000;
 export default function RemoteSettings() {
@@ -23,12 +24,14 @@ export default function RemoteSettings() {
   const { local, tailscale, network } = resource.data;
   const locked = network.locked;
   const toggle = () => {
+    setNotice("");
     if (!draft.enabled) setConfirm(true);
     else setDraft({ ...draft, enabled: false });
   };
   const addHost = () => {
     const host = hostInput.trim().toLowerCase();
     if (!host || draft.hosts.includes(host)) return;
+    setNotice("");
     setDraft({ ...draft, hosts: [...draft.hosts, host] });
     setHostInput("");
   };
@@ -85,7 +88,7 @@ export default function RemoteSettings() {
           />
           {copy.networkSwitch}
         </label>
-        {network.running.enabled && <p role="alert">{copy.activeWarning}</p>}
+        {network.running.enabled && <p role="status">{copy.activeWarning}</p>}
         {locked && <p role="status">{copy.locked}</p>}
         {!locked && (
           <>
@@ -93,7 +96,10 @@ export default function RemoteSettings() {
               {copy.bind}
               <select
                 value={draft.bind}
-                onChange={(event) => setDraft({ ...draft, bind: event.target.value })}
+                onChange={(event) => {
+                  setNotice("");
+                  setDraft({ ...draft, bind: event.target.value });
+                }}
               >
                 <option value="0.0.0.0">{copy.bindAll}</option>
                 <option value="::">{copy.bindAllV6}</option>
@@ -114,16 +120,20 @@ export default function RemoteSettings() {
                     type="button"
                     className="button secondary compact"
                     aria-label={copy.removeHost(host)}
-                    onClick={() =>
-                      setDraft({ ...draft, hosts: draft.hosts.filter((h) => h !== host) })
-                    }
+                    onClick={() => {
+                      setNotice("");
+                      setDraft({
+                        ...draft,
+                        hosts: draft.hosts.filter((h) => h !== host),
+                      });
+                    }}
                   >
                     ×
                   </button>
                 </li>
               ))}
             </ul>
-            <div className="operations-form-row">
+            <div className="remote-form-row">
               <input
                 type="text"
                 aria-label={copy.hostInput}
@@ -195,6 +205,7 @@ export default function RemoteSettings() {
                 type="button"
                 className="button primary"
                 onClick={() => {
+                  setNotice("");
                   setDraft({ ...draft, enabled: true });
                   setConfirm(false);
                 }}

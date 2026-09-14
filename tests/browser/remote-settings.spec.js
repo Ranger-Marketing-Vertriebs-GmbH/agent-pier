@@ -10,6 +10,7 @@ for (const locale of ["de-DE", "en-GB"]) {
     }) => {
       const en = locale === "en-GB";
       const state = await operationsFixture(page);
+      await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(baseURL + "/settings/remote");
       await expect(page.getByText(en ? "Local" : "Lokal", { exact: true })).toBeVisible();
       await expect(
@@ -61,6 +62,7 @@ for (const locale of ["de-DE", "en-GB"]) {
     test("network access itself may only switch the mode off", async ({ page }) => {
       const en = locale === "en-GB";
       const state = await operationsFixture(page);
+      await page.setViewportSize({ width: 390, height: 844 });
       state.remote.network.locked = true;
       state.remote.network.saved.enabled = true;
       state.remote.network.running.enabled = true;
