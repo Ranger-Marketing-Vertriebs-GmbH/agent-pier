@@ -81,15 +81,13 @@ test("the attempt window is kept per source so a LAN flood never locks out loopb
   f.advance(60000);
   await assert.rejects(f.store.login(guess, "192.168.1.55"), { status: 401 });
 });
-test("the source window map stays bounded and drops the oldest source", async (t) => {
+test("the source window map stays bounded and drops the oldest source", (t) => {
   const f = fixture(t);
-  await f.store.setup(credentials, "127.0.0.1");
-  const guess = { ...credentials, password: "incorrect-unit-password" };
-  await assert.rejects(f.store.login(guess, "10.0.0.1"), { status: 401 });
+  // The bound is a property of the window bookkeeping, so no password hashing is needed here.
+  f.store.throttle("10.0.0.1");
   for (let index = 0; index < 1000; index++)
-    await assert.rejects(f.store.login(guess, `10.1.${index >> 8}.${index & 255}`), {
-      status: 401,
-    });
+    f.store.throttle(`10.1.${index >> 8}.${index & 255}`);
   assert.equal(f.store.attempts.size, 1000);
   assert.equal(f.store.attempts.has("10.0.0.1"), false);
+  assert.equal(f.store.attempts.has("10.1.3.231"), true);
 });

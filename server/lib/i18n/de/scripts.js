@@ -35,7 +35,7 @@ export const scripts = Object.freeze({
     `AgentPier-Benutzerdienst eingerichtet: http://127.0.0.1:${port}`,
   serviceConfigured: (port) => `AgentPier-Dienst eingerichtet: http://127.0.0.1:${port}`,
   remoteUsage: (commands) =>
-    `Verwendung: npm run remote -- <${commands}> [--bind <IP>] [--host <Name>]... [--add <Name>] [--remove <Name>] [--accept-plain-http] [--no-restart]`,
+    `Verwendung: npm run remote -- <${commands}> [--bind 0.0.0.0|::] [--host <Name>]... [--add <Name>] [--remove <Name>] [--accept-plain-http] [--no-restart]`,
   remoteFlagValueRequired: (flag) => `${flag} benötigt einen Wert.`,
   remoteStatus: (enabled, bind, dataDir) =>
     `Netzwerkzugriff: ${enabled ? `aktiv auf ${bind}` : "aus"} · Datenverzeichnis ${dataDir}\nErreichbare Adressen bei aktivem Modus:`,
