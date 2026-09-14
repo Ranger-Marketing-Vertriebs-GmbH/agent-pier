@@ -67,6 +67,21 @@ ZIP creation uses yazl 3.3.1 (MIT), Copyright (c) 2014 Josh Wolfe.
 The locked runtime dependency and its MIT license are included in installation
 and update packages. Source: https://github.com/thejoshwolfe/yazl/tree/3.3.1
 
-### CodeMirror editor
+## yauzl and buffer-crc32
 
-The optional text editor uses CodeMirror 6 (MIT), including state, view, commands, search, language support, merge support, and the legacy Shell/TOML modes. The pinned packages retain their complete MIT LICENSE files in the installed distribution. The production browser distribution includes the complete license and copyright notices for bundled CodeMirror and Lezer dependencies in `dist/third-party-licenses.txt`; editor and language chunks load only when requested. Merge support is pinned for the subsequent conflict interface and is not loaded by the editor.
+ZIP extraction uses yauzl 3.4.0 (MIT), Copyright (c) 2014 Josh Wolfe, and the
+direct buffer-crc32 1.0.0 dependency (MIT), Copyright (c) 2013-2024 Brian J.
+Brennan. Their locked runtime packages and complete MIT license files are included
+in installation and update packages. Sources:
+https://github.com/thejoshwolfe/yauzl/tree/3.4.0 and
+https://github.com/brianloveswords/buffer-crc32/tree/1.0.0
+
+## CodeMirror editor
+
+The optional text editor uses CodeMirror 6 (MIT), including state, view, commands,
+search, language support, merge support, and the legacy Shell/TOML modes. The
+pinned packages retain their complete MIT LICENSE files in the installed
+distribution. The production browser distribution includes the complete license
+and copyright notices for bundled CodeMirror and Lezer dependencies in
+`dist/third-party-licenses.txt`; editor and language chunks load only when
+requested. Merge support loads when the editor displays a revision conflict.

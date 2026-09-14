@@ -244,14 +244,36 @@ test("project drafts survive session, mode and CWD transitions without rebinding
     ),
   ).toBe(false);
 
+  const readsBeforeReturn = contextReads;
+  session.cwd = "/work/one";
+  await expect.poll(() => contextReads).toBeGreaterThan(readsBeforeReturn);
+  await expect(
+    page.getByText(
+      "Draft retained from another workspace. Return to that workspace to save.",
+    ),
+  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
+
   const writesBeforePendingContext = writes.length;
   contextGate = deferred();
-  session.cwd = "/work/three";
-  await expect.poll(() => contextReads).toBeGreaterThanOrEqual(3);
-  await content.press("ControlOrMeta+s");
-  await page.waitForTimeout(200);
-  expect(writes).toHaveLength(writesBeforePendingContext);
-  contextGate.resolve();
+  const pendingGate = contextGate;
+  const readsBeforePendingContext = contextReads;
+  try {
+    session.cwd = "/work/three";
+    await expect.poll(() => contextReads).toBeGreaterThan(readsBeforePendingContext);
+    await expect(
+      page.getByText(
+        "Draft retained from another workspace. Return to that workspace to save.",
+      ),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+    await content.press("ControlOrMeta+s");
+    await page.waitForTimeout(200);
+    expect(writes).toHaveLength(writesBeforePendingContext);
+  } finally {
+    pendingGate.resolve();
+    contextGate = null;
+  }
 });
 
 test("editor runtime stays unloaded and a late language cannot replace the active plain document", async ({

@@ -10,6 +10,11 @@ The application mutation barrier drains application writes and pipeline transiti
 
 Included application components are accounts, repository metadata, preferences, pipeline definitions, memory revisions, pipeline execution history and audit events. Optional history includes cached Chat, saved terminal/event files and AgentBus inbox history. Existing imported AgentBus history is retained by subsequent backups.
 
+File Explorer Trash, operation journals and transfer bytes are excluded even when
+credentials are included. An application backup is not a File Explorer recovery export;
+restore needed files from Trash first and transfer project/file content separately. See
+the [File Explorer guide](../file-explorer.md#storage-and-backups).
+
 The memory snapshot is sanitized before publication: capability rows and their token hashes are removed from the temporary copy and vacuumed. The live database and live capability files remain unchanged. Runtime request channels, native binding hooks, GitHub session credentials, push subscriptions/VAPID data, sockets, process identities, platform binaries, external local CLI profiles, keychains and repository worktrees are excluded.
 
 `withCredentials:true` adds managed profile files and repository credential files inside a scrypt/AES-256-GCM capsule. The fixed parameters are N=32768, r=8, p=1, a 16-byte random salt, a 12-byte random nonce and a 16-byte authentication tag. The envelope header is authenticated; unsupported parameters are rejected before allocating a key derivation. Passphrases have 12–4096 characters and never enter argv, job records, audit or URLs. Node provides the required primitives without another native addon: [Node crypto](https://nodejs.org/docs/latest-v22.x/api/crypto.html).

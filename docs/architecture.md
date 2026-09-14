@@ -37,6 +37,30 @@ The URL owns durable navigation state: page, session, Chat/Terminal mode, extens
 
 See [native observation semantics and limitations](chat-observability.md) for the per-CLI context formula, identity correlation and source ordering.
 
+## File Explorer
+
+`server/application/files.js` composes the Explorer services in
+`server/features/files/`. The HTTP adapters expose the same service through a global
+scope and a session-project scope. A scope ID is an opaque observation of the current
+root and read-only state; every mutation must present that current ID. Session scope is
+recomputed from canonical CWD and cannot be widened by a request. Headless pipeline
+sessions are read-only. The global scope begins at the configured home but is bounded by
+the host root and the server process user's OS permissions.
+
+Listings use bounded snapshots. Jobs, publications, Trash adoption, uploads, and ZIP
+artifacts are durable in private Explorer storage, allowing recovery after web-process
+restart without guessing an unrecorded filesystem outcome. Recovery combines recorded
+checkpoints with fresh path observations; it does not make external native writers or
+final check/action races transactional. Native descriptors and platform probes preserve
+metadata and prove supported name policies before strict writes.
+
+The React Explorer owns navigation and scoped clients. `FileEditorContext` owns tabs and
+attempted bytes across route changes in one browser runtime; it never persists draft
+content. A context change clears current authority before its replacement read completes,
+so retained tabs cannot write through a stale project scope. See the
+[File Explorer guide](file-explorer.md) for user workflows, limits, platform constraints,
+and HTTP route families.
+
 ## Project memory
 
 Memory resolves Git worktrees to their common repository identity. Independent clones, submodules and unrelated directories remain separate. A private SQLite WAL database stores entries, immutable revisions and session capabilities. Updates require the expected revision, so concurrent writers receive a conflict instead of silently overwriting one another.
