@@ -153,6 +153,13 @@ script and the settings page:
   environment offers such an address; otherwise skip with a stated reason.
 - Browser: settings page in both languages, confirmation dialog, chips, URL
   list, restart hint without a service.
-- Documentation: new section in `docs/remote-access.md` with security notes and
-  script examples, references in `docs/installation.md` and `docs/linux.md`,
-  README note in both languages.
+- Documentation: `docs/remote-access.md` becomes a complete installation guide
+  for remote access with two equal paths. Path A, Tailscale Serve: prerequisites,
+  `npm run tailscale`, service reload, opening the tailnet URL, the separate
+  identity option, removal. Path B, network mode without Tailscale: the security
+  trade-offs of plain HTTP stated up front, enabling through the settings page
+  and through `npm run remote` for headless hosts, host list examples for IP,
+  `.local` name, own DNS name and an own reverse proxy, restart and health
+  verification, disabling. Both paths list what the login protects and what it
+  does not. `docs/installation.md` and `docs/linux.md` link to the guide instead
+  of repeating it; both README files mention the two paths in one sentence.
