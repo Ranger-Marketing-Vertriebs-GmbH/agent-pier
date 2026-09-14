@@ -51,6 +51,31 @@ export async function waitForFileJob(
   );
 }
 
+export async function runFileOperation(
+  f,
+  { kind, sources = [], target = null, name = null, options = {} },
+) {
+  const contextResponse = await f.request("/api/files/context");
+  assert.equal(contextResponse.status, 200, await contextResponse.clone().text());
+  const context = await contextResponse.json();
+  const response = await f.request("/api/files/operations", {
+    method: "POST",
+    headers: { "X-File-Scope": context.scopeId },
+    body: {
+      requestId: `${Date.now()}:${randomUUID()}`,
+      kind,
+      sources,
+      target,
+      name,
+      options,
+    },
+  });
+  assert.equal(response.status, 202, await response.clone().text());
+  const job = await response.json();
+  assert.equal(typeof job.id, "string");
+  return waitForFileJob(f, job.id);
+}
+
 export function seedFileJob(store, scope) {
   return store.request(scope, {
     requestId: Date.now() + ":" + randomUUID(),

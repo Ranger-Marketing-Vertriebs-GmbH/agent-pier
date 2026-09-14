@@ -145,6 +145,7 @@ export const filesCopy = {
   previous: "Previous files",
   next: "More files",
   close: "Close preview",
+  downloadFile: "Download file",
   preview: "File preview",
   copyAll: "Copy all",
   copied: "Copied to clipboard.",

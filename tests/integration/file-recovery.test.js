@@ -2,9 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { recoverPublications } from "../../server/features/files/file-recovery.js";
 import { fixture } from "../helpers/file-publisher.js";
 import { copyFixture } from "../helpers/file-copy.js";
+
+async function bounded(promise, label, timeout = 5000) {
+  return Promise.race([
+    promise,
+    delay(timeout, null, { ref: false }).then(() => {
+      throw new Error(`${label} did not settle in ${timeout}ms`);
+    }),
+  ]);
+}
 
 test("merge removal recovery retains an intent without historical target content proof", async (t) => {
   const f = await copyFixture(t),
@@ -219,18 +229,36 @@ test("recovery hashes outside the barrier and commits durability plus journal un
     journal.push(f.barrier.hasLease());
     return put(record);
   };
-  const recovery = recoverPublications({
-    store: f.store,
-    native: f.native,
-    barrier: f.barrier,
-  });
-  await reading;
+  let recovery, outcome;
   let snapshotRan = false;
-  await f.barrier.snapshot(() => {
-    snapshotRan = true;
-  });
-  releaseRead();
-  const [outcome] = await recovery;
+  try {
+    recovery = recoverPublications({
+      store: f.store,
+      native: f.native,
+      barrier: f.barrier,
+    });
+    const prematureRecovery = recovery.then(
+      () => {
+        throw new Error("recovery settled before its read gate was released");
+      },
+      (error) => {
+        throw error;
+      },
+    );
+    await bounded(Promise.race([reading, prematureRecovery]), "recovery read gate");
+    await bounded(
+      Promise.race([
+        f.barrier.snapshot(() => {
+          snapshotRan = true;
+        }),
+        prematureRecovery,
+      ]),
+      "concurrent application snapshot",
+    );
+  } finally {
+    releaseRead?.();
+    if (recovery) [outcome] = await bounded(recovery, "released recovery");
+  }
   assert.equal(snapshotRan, true);
   assert.equal(outcome.phase, "swapped");
   assert.ok(durability.length >= 2);

@@ -93,6 +93,7 @@ export function fileApi(scopeRef) {
   return {
     base,
     archiveDownload: (id) => urlFor(base, `/jobs/${encodeURIComponent(id)}/download`),
+    directDownload: (path) => urlFor(base, "/download", { path }),
     readText: (path, signal) => fileApi(scopeRef).get("/text", { path }, signal),
     documentMetadata: (path, signal) =>
       fileApi(scopeRef).get("/metadata", { path, view: "document" }, signal),

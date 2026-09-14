@@ -9,6 +9,7 @@ function value(value) {
 
 export default function FileProperties({
   entry,
+  downloadHref,
   preview,
   error,
   previewError,
@@ -90,6 +91,11 @@ export default function FileProperties({
             <dt>{copy.linkTarget}</dt>
             <dd>{value(entry.linkTarget)}</dd>
           </dl>
+          {downloadHref && (
+            <a className="button secondary compact" href={downloadHref} download>
+              {copy.downloadFile}
+            </a>
+          )}
           {entry.type === "directory" && (
             <>
               <button

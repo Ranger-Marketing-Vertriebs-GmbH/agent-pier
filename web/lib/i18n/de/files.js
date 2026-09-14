@@ -154,6 +154,7 @@ export const filesCopy = {
   previous: "Vorherige Dateien",
   next: "Weitere Dateien",
   close: "Vorschau schließen",
+  downloadFile: "Datei herunterladen",
   preview: "Dateivorschau",
   copyAll: "Alles kopieren",
   copied: "In die Zwischenablage kopiert.",

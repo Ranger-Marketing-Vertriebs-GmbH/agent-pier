@@ -15,18 +15,25 @@ const privileged = (command, args) =>
   process.getuid() === 0
     ? platformCommand(command, args)
     : platformCommand("sudo", ["-n", command, ...args]);
+export const privilegedPlatformCommand = privileged;
 
 // Opt-in integration fixtures only; setup failures in required mode are failures.
 // Every command targets this newly allocated image/mount. Never infer disk numbers.
-export async function filenameFileSystem(t, { caseSensitive = true } = {}) {
+export async function filenameFileSystem(
+  t,
+  { caseSensitive = true, sizeMiB = 256 } = {},
+) {
   assert.equal(process.env.AGENTPIER_FILE_FS_MATRIX, "1");
+  assert.ok(Number.isInteger(sizeMiB) && sizeMiB >= 32 && sizeMiB <= 1024);
   const root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-fs-")),
   );
   const directory = path.join(root, "mount"),
     image = path.join(root, "image.sparseimage");
   await fs.mkdir(directory, { mode: 0o700 });
-  let device, identity;
+  let device,
+    identity,
+    disposed = false;
   const plist = async (value) => {
     const file = path.join(root, "observed.plist");
     await fs.writeFile(file, value, { mode: 0o600 });
@@ -40,7 +47,8 @@ export async function filenameFileSystem(t, { caseSensitive = true } = {}) {
     );
     return info.images?.find((item) => item["image-path"] === image);
   };
-  t.after(async () => {
+  const dispose = async () => {
+    if (disposed) return;
     if (process.platform === "darwin") {
       const current = await attached();
       if (current) {
@@ -92,12 +100,14 @@ export async function filenameFileSystem(t, { caseSensitive = true } = {}) {
         identity,
       }),
     );
-  });
+    disposed = true;
+  };
+  t.after(dispose);
   if (process.platform === "darwin") {
     await platformCommand("hdiutil", [
       "create",
       "-size",
-      "256m",
+      `${sizeMiB}m`,
       "-type",
       "SPARSE",
       "-fs",
@@ -125,7 +135,7 @@ export async function filenameFileSystem(t, { caseSensitive = true } = {}) {
   } else {
     const file = await fs.open(image, "wx", 0o600);
     try {
-      await file.truncate(256 * 1024 * 1024);
+      await file.truncate(sizeMiB * 1024 * 1024);
     } finally {
       await file.close();
     }
@@ -153,7 +163,83 @@ export async function filenameFileSystem(t, { caseSensitive = true } = {}) {
   t.diagnostic?.(
     JSON.stringify({ fixture: "mounted", image, directory, device, identity }),
   );
-  return { directory, root, device, identity, caseSensitive };
+  return {
+    directory,
+    root,
+    get device() {
+      return device;
+    },
+    get identity() {
+      return identity;
+    },
+    caseSensitive,
+    dispose,
+    async setReadOnly(readOnly) {
+      assert.equal(String((await fs.stat(directory)).dev), identity);
+      if (process.platform === "darwin") {
+        const current = await attached();
+        const entity = current?.["system-entities"].find(
+          (item) => item["mount-point"] === directory,
+        );
+        assert.equal(entity?.["dev-entry"], device);
+        await platformCommand("hdiutil", ["detach", device]);
+        const result = await platformCommand("hdiutil", [
+          "attach",
+          image,
+          ...(readOnly ? ["-readonly"] : []),
+          "-nobrowse",
+          "-owners",
+          "on",
+          "-mountpoint",
+          directory,
+          "-plist",
+        ]);
+        const info = await plist(result.stdout);
+        device = info["system-entities"].find(
+          (item) => item["mount-point"] === directory,
+        )?.["dev-entry"];
+        assert.ok(device);
+      } else
+        await privileged("mount", ["-o", `remount,${readOnly ? "ro" : "rw"}`, directory]);
+      identity = String((await fs.stat(directory)).dev);
+      t.diagnostic?.(
+        JSON.stringify({ fixture: readOnly ? "readonly" : "writable", device, identity }),
+      );
+    },
+  };
+}
+
+export async function secondFileSystem(t) {
+  assert.equal(process.env.AGENTPIER_FILE_FS_MATRIX, "1");
+  if (process.platform === "darwin") return filenameFileSystem(t);
+  assert.equal(process.platform, "linux", "filesystem matrix supports Linux and Darwin");
+  const sharedMemory = await fs.realpath("/dev/shm");
+  assert.notEqual(
+    (await fs.stat(sharedMemory)).dev,
+    (await fs.stat(os.tmpdir())).dev,
+    "/dev/shm must be a distinct device in the required Linux matrix",
+  );
+  const directory = await fs.realpath(
+    await fs.mkdtemp(path.join(sharedMemory, "agentpier-second-fs-")),
+  );
+  const identity = String((await fs.stat(directory)).dev);
+  let disposed = false;
+  const dispose = async () => {
+    if (disposed) return;
+    assert.equal(String((await fs.stat(directory)).dev), identity);
+    await fs.rm(directory, { recursive: true });
+    disposed = true;
+    t.diagnostic?.(JSON.stringify({ fixture: "removed", directory, identity }));
+  };
+  t.after(dispose);
+  t.diagnostic?.(JSON.stringify({ fixture: "created", directory, identity }));
+  return { directory, identity, dispose };
+}
+
+export async function setFileSystemReadOnly(volume, readOnly) {
+  assert.equal(process.env.AGENTPIER_FILE_FS_MATRIX, "1");
+  await volume.setReadOnly(readOnly);
+  assert.equal(String((await fs.stat(volume.directory)).dev), volume.identity);
 }
 
 export async function filenameParent(volume, name, casefold = false) {

@@ -10,12 +10,13 @@ const source = (name) => ({
   buffer: Buffer.from(name),
 });
 
+const tabKey = (page) =>
+  page.context().browser()?.browserType().name() === "webkit" ? "Alt+Tab" : "Tab";
+
 async function tabTo(page, locator, limit = 160) {
-  const key =
-    page.context().browser()?.browserType().name() === "webkit" ? "Alt+Tab" : "Tab";
   for (let step = 0; step < limit; step++) {
     if (await locator.evaluate((element) => element === document.activeElement)) return;
-    await page.keyboard.press(key);
+    await page.keyboard.press(tabKey(page));
   }
   throw new Error(`Tab did not reach ${await locator.getAttribute("aria-label")}`);
 }
@@ -333,8 +334,13 @@ test("editor search merge and Save As controls retain native keyboard ownership"
 
   await page.getByRole("button", { name: "a.txt", exact: true }).click();
   await page.getByRole("button", { name: "Open in editor", exact: true }).click();
+  const editor = page.getByRole("textbox", { name: `Document content: ${path}` });
   const saveAs = page.getByLabel("Save As path", { exact: true });
-  await tabTo(page, saveAs);
+  await expect(editor).toBeVisible();
+  await tabTo(page, editor);
+  await page.keyboard.press("Escape");
+  await page.keyboard.press(tabKey(page));
+  await expect(saveAs).toBeFocused();
   await page.keyboard.type("/home/test/native-copy.txt");
   await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.press("ControlOrMeta+x");
@@ -349,7 +355,6 @@ test("editor search merge and Save As controls retain native keyboard ownership"
   await page.keyboard.press("ControlOrMeta+v");
   await expect(find).toHaveValue("searchable");
 
-  const editor = page.getByRole("textbox", { name: `Document content: ${path}` });
   await editor.fill("local conflict draft");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   const merge = page.locator(".cm-mergeView .cm-content").first();

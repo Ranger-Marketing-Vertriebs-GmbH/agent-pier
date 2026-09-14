@@ -31,6 +31,16 @@ jobs:
           fi
       - run: npm ci
       - run: npm run check
+      - name: Install native filesystem matrix tools
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 24
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y acl attr e2fsprogs util-linux
+      - name: Native file explorer filesystem matrix
+        if: matrix.node == 24
+        run: node --test tests/matrix/file-extract-platform.test.js tests/matrix/file-platform.test.js tests/matrix/file-recovery-boundary.test.js
+        env:
+          AGENTPIER_FILE_FS_MATRIX: "1"
       - name: AgentBus Node and Bun compatibility
         run: >-
           npm exec --yes --package=bun@1.3.10 --

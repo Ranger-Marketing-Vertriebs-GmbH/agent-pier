@@ -126,3 +126,22 @@ test("a custom runtime without its license cannot publish a release", async (t) 
   );
   await assert.rejects(fs.access(output));
 });
+
+test("every release target executes native relocation, install and update acceptance", async () => {
+  const workflow = await fs.readFile(
+    new URL("../../.github/workflows/release.yml", import.meta.url),
+    "utf8",
+  );
+  for (const [runner, target] of [
+    ["macos-14", "darwin-arm64"],
+    ["macos-15-intel", "darwin-x64"],
+    ["ubuntu-24.04", "linux-x64"],
+    ["ubuntu-24.04-arm", "linux-arm64"],
+  ]) {
+    assert.match(workflow, new RegExp(`- os: ${runner}\\n\\s+platform: ${target}`));
+  }
+  assert.match(
+    workflow,
+    /Verify native relocation, install and update[\s\S]*node --test tests\/integration\/file-native-release\.test\.js/,
+  );
+});

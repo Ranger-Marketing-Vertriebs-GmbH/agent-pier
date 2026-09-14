@@ -85,6 +85,14 @@ test("fileApi derives only scoped API bases and encodes GET query state", async 
   });
   assert.equal(global.base, "/api/files");
   assert.equal(project.base, "/api/sessions/space%20%23%20%25%20%C3%BC/files/explorer");
+  assert.equal(
+    global.directDownload("/tmp/a #%.txt"),
+    "/api/files/download?path=%2Ftmp%2Fa+%23%25.txt",
+  );
+  assert.equal(
+    project.directDownload("relative/a #%.txt"),
+    "/api/sessions/space%20%23%20%25%20%C3%BC/files/explorer/download?path=relative%2Fa+%23%25.txt",
+  );
   assert.deepEqual(await global.get("/entries", { path: "/tmp/a #%.txt" }, signal), {
     ok: true,
   });

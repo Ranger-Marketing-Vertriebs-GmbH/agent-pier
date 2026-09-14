@@ -110,6 +110,14 @@ function revisedArchive(bytes, version, omit = () => false) {
 }
 
 test("packaged native support survives relocation, initial installation and update staging", async (t) => {
+  t.diagnostic(
+    JSON.stringify({
+      acceptance: "native-release",
+      platform: process.platform,
+      arch: process.arch,
+      node: process.version,
+    }),
+  );
   const f = await fixture(t);
   if (!(await relocatableRuntime(t, f.root))) return;
   const archive = path.join(f.root, "release.aprelease");
