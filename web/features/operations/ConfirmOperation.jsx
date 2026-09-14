@@ -3,7 +3,7 @@ import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
-export default function ConfirmOperation({ description, action, close }) {
+export default function ConfirmOperation({ description, action, close, children }) {
   const mutation = useAsyncAction(),
     dismiss = () => {
       if (!mutation.lock.current) close();
@@ -12,6 +12,7 @@ export default function ConfirmOperation({ description, action, close }) {
     <Modal title={copy.confirm} close={dismiss} closeDisabled={mutation.busy}>
       <div className="operations-form">
         <p>{description}</p>
+        {children}
         <ErrorMessage error={mutation.error} />
         <div className="operations-actions">
           <button className="button secondary" disabled={mutation.busy} onClick={dismiss}>

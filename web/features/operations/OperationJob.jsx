@@ -11,8 +11,8 @@ export default function OperationJob({ id, onComplete, onState }) {
     if (job?.status === "succeeded") onComplete?.();
   }, [job?.id, job?.status, onComplete]);
   useEffect(() => {
-    if (job?.id) onState?.({ id: job.id, status: job.status });
-  }, [job?.id, job?.status, onState]);
+    if (job?.id) onState?.({ id: job.id, status: job.status, kind: job.kind });
+  }, [job?.id, job?.status, job?.kind, onState]);
   if (!id) return null;
   return (
     <section
@@ -64,6 +64,32 @@ export default function OperationJob({ id, onComplete, onState }) {
           )}
           {job.status === "succeeded" && job.result?.activated === true && (
             <p>{copy.healthConfirmed}</p>
+          )}
+          {job.kind === "release-migrate" && job.status === "succeeded" && (
+            <p>{copy.migrateSucceeded(job.result?.reloadedSessions?.length || 0)}</p>
+          )}
+          {job.result?.failedSessions?.length > 0 && (
+            <>
+              <h3>{copy.migrateFailedSessions}</h3>
+              <ul>
+                {job.result.failedSessions.map((item) => (
+                  <li key={item.id}>
+                    {item.id.slice(0, 8)}
+                    {item.error ? `: ${item.error}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {job.result?.remaining?.length > 0 && (
+            <>
+              <h3>{copy.migrateRemaining}</h3>
+              <ul>
+                {job.result.remaining.map((item, index) => (
+                  <li key={`${item.reference}-${index}`}>{item.reference}</li>
+                ))}
+              </ul>
+            </>
           )}
           {job.result?.rolledBack && <p>{copy.rolledBack}</p>}
           {job.result && (

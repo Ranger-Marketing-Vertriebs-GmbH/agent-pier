@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   parseSessionActivity,
   SessionActivity,
@@ -12,6 +13,96 @@ const codex = (status = "") =>
   `${status}\n\n› \x1b[2mAsk Codex to do anything\x1b[0m\n\n  gpt-6-astra high · ~/project`;
 const opencode = (footer = "ctrl+p commands") =>
   `Assistant text\n┃ Build · Claude Sonnet\n┃ Ask anything\n╹━━━━━━━━━━━━━━━━\n ${footer}`;
+const nativeClaude = (name) =>
+  JSON.parse(
+    readFileSync(new URL(`../fixtures/tui-input/${name}.json`, import.meta.url), "utf8"),
+  ).raw;
+
+test("Claude native busy captures remain working without elapsed time and with queued input", () => {
+  for (const name of ["claude-busy-native", "claude-busy-queued-native"])
+    assert.equal(parseSessionActivity("claude", nativeClaude(name)).state, "working");
+  assert.equal(
+    parseSessionActivity("claude", nativeClaude("claude-idle-native")).state,
+    "idle",
+  );
+});
+
+test("Claude multiline drafts quoting the interrupt hint remain idle", () => {
+  const screen = claude().replace(
+    "❯ \n",
+    "❯ Explain this shortcut:\n  esc to interrupt\n",
+  );
+  assert.equal(parseSessionActivity("claude", screen).state, "idle");
+});
+
+test("Claude remains working while only native background agents or shells run", async () => {
+  for (const name of [
+    "claude-background-agent-native",
+    "claude-background-shell-native",
+  ]) {
+    let now = 1000;
+    let screen = nativeClaude(name);
+    const activity = new SessionActivity({
+      sessions: {},
+      screen: async () => screen,
+      cacheMs: 0,
+      now: () => now,
+    });
+    const session = { id: name, tool: "claude", status: "running" };
+    assert.equal((await activity.read(session)).state, "working", name);
+    now += 30000;
+    screen = screen.replace("7s", "37s");
+    assert.equal((await activity.read(session)).state, "working", name);
+    now += 11000;
+    assert.equal(
+      (await activity.read(session)).state,
+      name.includes("agent") ? "unknown" : "working",
+      name,
+    );
+    screen = nativeClaude(name.replace("-native", "-completed-native"));
+    assert.equal((await activity.read(session)).state, "idle", name);
+  }
+});
+
+test("Claude recognizes a native agent list that extends below the usual footer area", () => {
+  const screen = nativeClaude("claude-background-agent-native");
+  const row = screen.split("\n").find((line) => line.includes("general-purpose"));
+  const agents = Array.from({ length: 8 }, (_, index) =>
+    row.replace("Hold isolated subagent", `Isolated subagent ${index + 1}`),
+  ).join("\n");
+  assert.equal(
+    parseSessionActivity("claude", screen.replace(row, agents)).state,
+    "working",
+  );
+});
+
+test("Claude native work stays fresh when only spinner colors change, then expires and returns to idle", async () => {
+  let now = 1000;
+  let screen = nativeClaude("claude-busy-native");
+  const activity = new SessionActivity({
+    sessions: {},
+    screen: async () => screen,
+    cacheMs: 0,
+    now: () => now,
+    staleMs: 10000,
+  });
+  const session = { id: "native", tool: "claude", status: "running" };
+  assert.equal((await activity.read(session)).state, "working");
+  for (let index = 0; index < 4; index++) {
+    now += 6000;
+    screen = nativeClaude("claude-busy-native").replace(
+      "235;159;127",
+      `${230 + index};159;127`,
+    );
+    assert.equal((await activity.read(session)).state, "working");
+  }
+  now += 11000;
+  assert.equal((await activity.read(session)).state, "unknown");
+  screen = nativeClaude("claude-busy-queued-native");
+  assert.equal((await activity.read(session)).state, "working");
+  screen = nativeClaude("claude-idle-native");
+  assert.equal((await activity.read(session)).state, "idle");
+});
 test("activity parses native composer/footer states and approvals without treating transcript text as activity", () => {
   assert.equal(parseSessionActivity("codex", codex()).state, "idle");
   assert.equal(

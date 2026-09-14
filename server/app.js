@@ -17,6 +17,7 @@ import { randomUUID } from "node:crypto";
 import { OperationsEvents } from "./application/operations-events.js";
 import { applicationVersion } from "./features/operations/version.js";
 import { operationsRoutes } from "./http/routes/operations.js";
+import { ReleaseSessionMigration } from "./features/operations/release-session-migration.js";
 import { requestsRoutes } from "./http/routes/requests.js";
 import { notificationsRoutes } from "./http/routes/notifications.js";
 import { memoryRoutes } from "./http/routes/memory.js";
@@ -82,6 +83,11 @@ export async function createApplication(config) {
   Object.assign(services, createMcpServices(services, effective));
   services.sessionMcp = new SessionMcp(services);
   await services.sessionMcp.ready;
+  services.releaseMigration = new ReleaseSessionMigration({
+    services,
+    operations: services.operations,
+  });
+  server.once("listening", () => services.releaseMigration.resumeAfterActivation());
   server.once("listening", () => services.mcpAccess.initialize());
   app.disable("x-powered-by");
   app.use(securityHeaders);
