@@ -2,6 +2,7 @@ import express, { Router } from "express";
 import { readFile } from "../../features/operations/files.js";
 import { ARCHIVE_LIMIT } from "../../features/operations/archive.js";
 import { problem } from "../../lib/storage.js";
+import { releaseVersion } from "../../features/operations/release-archive.js";
 function fields(body, names) {
   if (
     !body ||
@@ -12,7 +13,7 @@ function fields(body, names) {
     throw problem("Invalid operation options.");
   return body;
 }
-export function operationsRoutes({ operations }) {
+export function operationsRoutes({ operations, releaseMigration }) {
   const router = Router(),
     root = "/operations";
   router.get(`${root}/imported-history/agentbus`, (_req, res) =>
@@ -102,6 +103,21 @@ export function operationsRoutes({ operations }) {
       .status(202)
       .json({ job: operations.cleanupReleases(fields(req.body, ["versions"])) }),
   );
+  router.get(`${root}/releases/cleanup/:version/sessions`, async (req, res) =>
+    res.json(await releaseMigration.plan(releaseVersion(req.params.version))),
+  );
+  router.post(`${root}/releases/cleanup/:version/migrate`, (req, res) =>
+    res.status(202).json({
+      job: releaseMigration.migrate(
+        releaseVersion(req.params.version),
+        fields(req.body, ["interrupt"]),
+      ),
+    }),
+  );
+  router.delete(`${root}/releases/cleanup/:version/migrate`, (req, res) => {
+    releaseMigration.cancel(releaseVersion(req.params.version));
+    res.status(204).end();
+  });
   router.post(`${root}/releases/check`, async (_req, res) =>
     res.json({ plan: await operations.releases.check() }),
   );
@@ -109,7 +125,9 @@ export function operationsRoutes({ operations }) {
     res.status(202).json({ job: operations.stage(fields(req.body, ["version"])) }),
   );
   router.post(`${root}/releases/activate`, (req, res) =>
-    res.status(202).json({ job: operations.activate(fields(req.body, ["stagedId"])) }),
+    res.status(202).json({
+      job: operations.activate(fields(req.body, ["stagedId", "reloadSessions"])),
+    }),
   );
   router.post(`${root}/releases/rollback`, (req, res) =>
     res.status(202).json({ job: operations.activate(fields(req.body, ["version"])) }),
