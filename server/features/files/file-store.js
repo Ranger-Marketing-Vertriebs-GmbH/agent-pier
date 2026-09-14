@@ -1,3 +1,4 @@
+import { FileArchiveStore } from "./file-archive-store.js";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { privateDatabase } from "../../lib/private-database.js";
@@ -87,6 +88,7 @@ export class FileStore {
     this.db.exec(fileSchema);
     this.db.exec(trashItemSchema);
     this.uploads = new FileUploadStore(this);
+    this.archives = new FileArchiveStore(this);
     this.db
       .prepare(
         "UPDATE jobs SET status='interrupted', updated_at=? WHERE status IN ('queued','running','waiting_for_conflict','cancelling')",
@@ -305,6 +307,7 @@ export class FileStore {
   }
   completeTransfer(record, revision, revisions = new Map()) {
     if (record.document.upload) return this.uploads.complete(record, revision);
+    if (record.document.archive) return this.archives.complete(record, revision);
     const { transferId } = record.document;
     if (!transferId || record.document.transferCompleted) return;
     this.db.exec("BEGIN IMMEDIATE");
@@ -332,7 +335,8 @@ export class FileStore {
   }
   listEntries(scope, id, cursor) {
     this.getJob(scope, id);
-    const collection = `entries:${id}`,
+    const version = this.archives.get(id)?.manifestVersion;
+    const collection = `entries:${id}${version ? ":" + version : ""}`,
       after = cursorValue(cursor, scope, collection);
     const rows = this.db
       .prepare(

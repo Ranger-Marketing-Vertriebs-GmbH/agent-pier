@@ -54,11 +54,18 @@ export class FileJobs {
     this.transfers = 0;
     this.closed = false;
     this.pruneTimer = setInterval(() => {
-      this.barrier
-        .run(() => {
-          if (!this.closed) this.store.prune(this.now());
-        })
-        .catch(() => {});
+      if (this.pruning) return;
+      this.pruning = Promise.resolve()
+        .then(() => this.beforePrune?.())
+        .then(() =>
+          this.barrier.run(() => {
+            if (!this.closed) this.store.prune(this.now());
+          }),
+        )
+        .catch(() => {})
+        .finally(() => {
+          this.pruning = null;
+        });
     }, 3600000);
     this.pruneTimer.unref();
   }
@@ -90,7 +97,13 @@ export class FileJobs {
       throw fileProblem("FILE_INVALID_OPERATION", 400);
     if (policy.validate && policy.validate(operation) !== true)
       throw fileProblem("FILE_INVALID_OPERATION", 400);
-    if (scope.readOnly && !policy.readOnly) throw fileProblem("FILE_READ_ONLY", 403);
+    if (
+      scope.readOnly &&
+      !(typeof policy.readOnly === "function"
+        ? policy.readOnly(operation)
+        : policy.readOnly)
+    )
+      throw fileProblem("FILE_READ_ONLY", 403);
     const { job, created } = await this.barrier.run(() => {
       this.ensureOpen();
       return this.store.request(scope, operation, { admit });
@@ -199,7 +212,12 @@ export class FileJobs {
         scope = await this.context(scope.sessionId);
         if (scope.id !== item.scope.id) throw fileProblem("FILE_INVALID_SCOPE", 409);
       }
-      if (scope.readOnly && !item.policy.readOnly)
+      if (
+        scope.readOnly &&
+        !(typeof item.policy.readOnly === "function"
+          ? item.policy.readOnly(operation)
+          : item.policy.readOnly)
+      )
         throw fileProblem("FILE_READ_ONLY", 403);
       controller.signal.throwIfAborted();
       item.result = await handler({
@@ -315,7 +333,13 @@ export class FileJobs {
     const waiter = item.conflict;
     if (this.context) {
       const fresh = await this.context(scope.sessionId);
-      if (fresh.id !== scope.id || fresh.readOnly)
+      if (
+        fresh.id !== scope.id ||
+        (fresh.readOnly &&
+          !(typeof item.policy.readOnly === "function"
+            ? item.policy.readOnly(item.operation)
+            : item.policy.readOnly))
+      )
         throw fileProblem("FILE_INVALID_SCOPE", 409);
     }
     await waiter.revalidate?.();
@@ -428,6 +452,7 @@ export class FileJobs {
       await Promise.allSettled([...this.workers]);
       await Promise.allSettled([...this.resolutions]);
       try {
+        await this.pruning;
         await this.beforeStoreClose();
       } finally {
         await this.barrier.run(() => this.store.close());

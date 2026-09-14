@@ -45,6 +45,22 @@ export function fileTransferStreams({ files }) {
       }),
     );
     router.get(
+      `${prefix}/jobs/:jobId/download`,
+      fileHandler(async (req, res) => {
+        const abort = requestAbort(req, res);
+        try {
+          await files.archives.downloadJobArtifact(
+            await files.context(req.params.id || null),
+            req.params.jobId,
+            res,
+            { signal: abort.signal },
+          );
+        } finally {
+          abort.close();
+        }
+      }),
+    );
+    router.get(
       `${prefix}/download`,
       fileHandler(async (req, res) => {
         const abort = requestAbort(req, res);

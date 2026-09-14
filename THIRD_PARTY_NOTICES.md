@@ -60,3 +60,9 @@ The OpenAI glyph in `web/components/ProviderMark.jsx` comes from Simple Icons
 
 Provider names and marks identify integrations. Their trademark rights remain
 with their respective owners; AgentPier does not imply their endorsement.
+
+## yazl
+
+ZIP creation uses yazl 3.3.1 (MIT), Copyright (c) 2014 Josh Wolfe.
+The locked runtime dependency and its MIT license are included in installation
+and update packages. Source: https://github.com/thejoshwolfe/yazl/tree/3.3.1

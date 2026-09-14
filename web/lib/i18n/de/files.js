@@ -2,6 +2,9 @@ import { fileActionsCopy } from "./files-actions.js";
 export const filesCopy = {
   actions: fileActionsCopy,
   errors: {
+    FILE_ARCHIVE_PENDING: "Dieses Archiv ist noch nicht zum Herunterladen verfügbar.",
+    FILE_ARCHIVE_LINKS:
+      "Verknüpfungen werden im Archiv ausgelassen. Bestätige die angezeigten Auslassungen vor dem Fortfahren.",
     FILE_UPLOAD_ALIAS:
       "Die Upload-Pfade enthalten widersprüchliche Namen. Benenne die betroffenen Einträge um und wähle sie erneut aus.",
     FILE_UPLOAD_PENDING:

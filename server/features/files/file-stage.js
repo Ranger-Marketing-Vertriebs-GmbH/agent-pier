@@ -84,7 +84,8 @@ export function ownedHandle(native, opened) {
 /** Public d1 includes the complete e1 observation and streamed content hash.
  * The separately named private token tolerates only exchange's ctime change;
  * publishers still validate parent, inode and selected-link identities separately. */
-export async function publicationSnapshot(handle, linkIdentity = null) {
+export async function publicationSnapshot(handle, linkIdentity = null, { signal } = {}) {
+  signal?.throwIfAborted();
   const before = await handle.stat({ bigint: true });
   if (before.type ? before.type !== "file" : !before.isFile())
     throw fileProblem("FILE_UNSUPPORTED_TYPE", 415);
@@ -93,6 +94,7 @@ export async function publicationSnapshot(handle, linkIdentity = null) {
   const hash = createHash("sha256");
   const buffer = Buffer.alloc(nativeReadBytes);
   for (let position = 0; position < Number(before.size);) {
+    signal?.throwIfAborted();
     const length = Math.min(buffer.length, Number(before.size) - position);
     const { bytesRead } = await handle.read(buffer, 0, length, position);
     if (!bytesRead) throw fileProblem("FILE_CONFLICT_CHANGED", 409);

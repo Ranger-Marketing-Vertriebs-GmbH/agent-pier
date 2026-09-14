@@ -2,6 +2,9 @@ import { fileActionsCopy } from "./files-actions.js";
 export const filesCopy = {
   actions: fileActionsCopy,
   errors: {
+    FILE_ARCHIVE_PENDING: "This archive is not available for download.",
+    FILE_ARCHIVE_LINKS:
+      "Links are omitted from the archive. Confirm the listed omissions before continuing.",
     FILE_UPLOAD_ALIAS:
       "Upload paths contain conflicting names. Rename the affected entries and select them again.",
     FILE_UPLOAD_PENDING:

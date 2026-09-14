@@ -1,4 +1,5 @@
 import path from "node:path";
+import { copyMetadata } from "./file-metadata.js";
 import { fileProblem } from "./file-errors.js";
 import { resolveFile, assertFileMutationTarget, entryRevision } from "./file-paths.js";
 import {
@@ -59,4 +60,44 @@ export async function assertPublicationExpected(
   }
   if (actual !== revision) throw conflict();
   return fresh;
+}
+
+export function recordPublication(publisher, state, phase, patch = {}) {
+  Object.assign(state.document, patch);
+  return publisher.barrier.run(() => {
+    const write = () =>
+      publisher.store.putPublication({
+        id: state.id,
+        jobId: state.jobId,
+        phase,
+        document: state.document,
+      });
+    if (state.document.archive)
+      return publisher.store.archives.transaction(() => {
+        publisher.store.archives.publication(state.jobId, state.id);
+        return write();
+      });
+    if (!state.document.upload) return write();
+    return publisher.store.uploads.transaction(() => {
+      publisher.store.uploads.publication(state.jobId, state.id);
+      return write();
+    });
+  });
+}
+
+export async function preservePublicationMetadata(native, state, source) {
+  const target =
+    state.handle ||
+    ownedHandle(
+      native,
+      await native.run("openLink", {
+        directory: state.parentHandle.handle,
+        path: state.name,
+      }),
+    );
+  try {
+    await copyMetadata(source, target, { strictOwnership: true, preserveTimes: true });
+  } finally {
+    if (!state.handle) await target.close();
+  }
 }

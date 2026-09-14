@@ -41,6 +41,12 @@ test("release builder accepts a declared output parent alias without changing it
   await fs.cp(new URL(`../../${unicode}/`, import.meta.url), path.join(source, unicode), {
     recursive: true,
   });
+  for (const dependency of ["yazl", "buffer-crc32"])
+    await fs.cp(
+      new URL(`../../node_modules/${dependency}/`, import.meta.url),
+      path.join(source, "node_modules", dependency),
+      { recursive: true },
+    );
   const output = path.join(alias, "custom-release.aprelease");
   const result = await buildRelease({ source, output, node, prepareDependencies: false });
   const bytes = await fs.readFile(output);
@@ -61,6 +67,23 @@ test("release builder accepts a declared output parent alias without changing it
   })) {
     assert.equal(await fs.readFile(path.join(unpacked, name), "utf8"), expected);
   }
+  for (const dependency of ["yazl", "buffer-crc32"])
+    for (const name of [
+      "package.json",
+      "LICENSE",
+      dependency === "yazl" ? "index.js" : "dist/index.cjs",
+    ])
+      assert.deepEqual(
+        await fs.readFile(path.join(unpacked, "node_modules", dependency, name)),
+        await fs.readFile(
+          new URL(`../../node_modules/${dependency}/${name}`, import.meta.url),
+        ),
+      );
+  assert.equal(
+    JSON.parse(await fs.readFile(path.join(unpacked, "node_modules/yazl/package.json")))
+      .version,
+    "3.3.1",
+  );
   for (const name of ["CaseFolding.txt", "UnicodeData.txt", "LICENSE.txt"])
     assert.deepEqual(
       await fs.readFile(path.join(unpacked, unicode, name)),

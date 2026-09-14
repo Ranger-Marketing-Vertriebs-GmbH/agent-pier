@@ -183,6 +183,7 @@ export function projectEntry(entry) {
     "type",
     "status",
     "revision",
+    "manifestVersion",
   ])
     if (typeof entry[key] === "string") result[key] = entry[key].slice(0, 4096);
   for (const key of ["bytes", "size", "completedBytes"])

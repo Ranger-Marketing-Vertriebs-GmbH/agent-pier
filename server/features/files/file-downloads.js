@@ -31,38 +31,10 @@ export async function downloadFile(scope, selectedPath, response, { signal } = {
       throw fileProblem("FILE_PATH_CHANGED", 409);
     if (stat.size > BigInt(Number.MAX_SAFE_INTEGER))
       throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
-    const name = path.basename(selected.path).replace(/[\p{Cc}]/gu, "_");
-    const fallback = name.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
-    const encoded = encodeURIComponent(name).replace(
-      /['()*]/g,
-      (value) => `%${value.charCodeAt(0).toString(16).toUpperCase()}`,
-    );
-    response.setHeader("Content-Type", "application/octet-stream");
-    response.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`,
-    );
-    response.setHeader("Cache-Control", "no-store");
-    response.setHeader("X-Content-Type-Options", "nosniff");
-    response.setHeader("Content-Length", String(stat.size));
-    async function* bytes() {
-      const buffer = Buffer.alloc(nativeReadBytes);
-      for (let position = 0; position < Number(stat.size);) {
-        signal?.throwIfAborted();
-        const { bytesRead } = await handle.read(
-          buffer,
-          0,
-          Math.min(buffer.length, Number(stat.size) - position),
-          position,
-        );
-        if (!bytesRead) throw fileProblem("FILE_PATH_CHANGED", 409);
-        position += bytesRead;
-        yield Buffer.from(buffer.subarray(0, bytesRead));
-      }
-      if (entryRevision(await handle.stat()) !== entryRevision(stat))
-        throw fileProblem("FILE_PATH_CHANGED", 409);
-    }
-    await pipeline(Readable.from(bytes()), response, { signal });
+    attachmentHeaders(response, selected.path, stat.size);
+    await pipeline(Readable.from(ownedDownloadBytes(handle, stat, signal)), response, {
+      signal,
+    });
   } catch (error) {
     throw fileSystemProblem(error);
   } finally {
@@ -72,4 +44,38 @@ export async function downloadFile(scope, selectedPath, response, { signal } = {
       await native?.close();
     }
   }
+}
+
+export function attachmentHeaders(response, selectedName, size) {
+  const name = path.basename(selectedName).replace(/[\p{Cc}]/gu, "_");
+  const fallback = name.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
+  const encoded = encodeURIComponent(name).replace(
+    /['()*]/g,
+    (value) => `%${value.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  response.setHeader("Content-Type", "application/octet-stream");
+  response.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`,
+  );
+  response.setHeader("Cache-Control", "no-store");
+  response.setHeader("X-Content-Type-Options", "nosniff");
+  response.setHeader("Content-Length", String(size));
+}
+export async function* ownedDownloadBytes(handle, stat, signal) {
+  const buffer = Buffer.alloc(nativeReadBytes);
+  for (let position = 0; position < Number(stat.size);) {
+    signal?.throwIfAborted();
+    const { bytesRead } = await handle.read(
+      buffer,
+      0,
+      Math.min(buffer.length, Number(stat.size) - position),
+      position,
+    );
+    if (!bytesRead) throw fileProblem("FILE_PATH_CHANGED", 409);
+    position += bytesRead;
+    yield Buffer.from(buffer.subarray(0, bytesRead));
+  }
+  if (entryRevision(await handle.stat()) !== entryRevision(stat))
+    throw fileProblem("FILE_PATH_CHANGED", 409);
 }

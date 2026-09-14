@@ -1,3 +1,4 @@
+import { recoverArchiveArtifact } from "./file-archive-publication.js";
 import { restoreRenameSource } from "./file-rename.js";
 import { transferRevisions } from "./file-transfer-completion.js";
 import { recoverMergedSource } from "./file-merge-removal.js";
@@ -31,6 +32,10 @@ export async function recoverPublications({ store, native, barrier }) {
   try {
     for (const record of records) {
       const doc = record.document;
+      if (doc.archive?.mode === "download") {
+        await recoverArchiveArtifact({ store, native: owner, record, write });
+        continue;
+      }
       if (doc.mergeRemoval) {
         outcomes.push(await recoverMergedSource({ store, native: owner, record, write }));
         continue;
@@ -110,7 +115,7 @@ export async function recoverPublications({ store, native, barrier }) {
         stageParent = await openParent(owner, doc.staged).catch((error) => {
           if (
             error.code === "FILE_NOT_FOUND" &&
-            (doc.transferCompleted || doc.uploadCompleted) &&
+            (doc.transferCompleted || doc.uploadCompleted || doc.archiveCompleted) &&
             doc.expectedIdentity === null
           )
             return null;

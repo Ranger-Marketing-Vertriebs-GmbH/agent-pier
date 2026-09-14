@@ -1,3 +1,4 @@
+import { FileArchives, registerArchiveHandlers } from "../features/files/file-zip.js";
 import {
   FileMutations,
   registerMutationHandlers,
@@ -53,10 +54,12 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
   const locks = new PathLocks();
   const publisher = new FilePublisher({ store, locks, barrier: mutationBarrier });
   const trash = new FileTrash({ store, publisher, limits, context });
-  let uploads;
+  let uploads, archives;
   const ready = recoverPublications({ store, barrier: mutationBarrier })
     .then(() => trash.recover())
     .then(() => uploads.recover())
+    .then(() => archives.recover())
+    .then(() => archives.sweep())
     .then(() => uploads.sweep())
     .then(() => uploads.start());
   // Keep startup failure observable to callers without an unhandled rejection.
@@ -96,6 +99,7 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
       } finally {
         try {
           try {
+            await archives.close();
             await uploads.close();
           } finally {
             await trash.close();
@@ -107,6 +111,8 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
     },
   });
   uploads = new FileUploads({ jobs, store, publisher, trash, limits });
+  archives = new FileArchives({ jobs, store, publisher, trash, limits });
+  registerArchiveHandlers(handlers, archives);
 
   return {
     store,
@@ -118,12 +124,14 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
     handlers,
     jobs,
     uploads,
+    archives,
     context,
     listings,
     reading,
     preferences,
     limits,
     async close() {
+      archives.stop();
       uploads.stop();
       await jobs.close();
       listings.snapshots.clear();
