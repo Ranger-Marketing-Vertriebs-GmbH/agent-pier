@@ -83,20 +83,9 @@ Die Installation schreibt ausschließlich den AgentPier-LaunchAgent `~/Library/L
 
 Die Plist speichert Node-Pfad, Projekt-/Datenverzeichnis und PATH zum Installationszeitpunkt. Nach Verschieben des Projekts oder einem Node-Upgrade `npm run service:install` erneut ausführen. Eigene CLI-Sitzungen bleiben beim Neustart des Webdienstes erhalten.
 
-## 5. Optional: privater Fernzugriff über Tailscale
+## 5. Optional: privater Fernzugriff
 
-Bei laufendem und angemeldetem Tailscale auf dem Mac mini:
-
-```sh
-npm run tailscale
-npm run service:install
-```
-
-Der zweite Befehl lädt die neu gespeicherte Remote-Konfiguration. Das Skript gibt eine private HTTPS-URL aus und wählt einen freien Port aus 8443, 10000 oder 9443. Bereits vorhandene andere Serve-Freigaben bleiben erhalten. Die URL erscheint auch in AgentPier.
-
-Öffne diese URL auf deinem mit Tailscale verbundenen Handy. AgentPier akzeptiert Remote-Zugriff nur für das bei der Einrichtung ermittelte eigene Tailscale-Konto. Es richtet keinen öffentlichen Funnel ein.
-
-Der Mac mini muss eingeschaltet und wach bleiben. Wähle dafür passende Energieeinstellungen am Zielrechner; AgentPier ändert sie nicht automatisch. Nach einem macOS-Neustart sind alte CLI-Prozesse beendet und müssen bewusst neu gestartet werden.
+Für den Zugriff von einem anderen Gerät gibt es zwei gleichwertige Wege: [Tailscale Serve](remote-access.md#weg-a-tailscale-serve) mit HTTPS im eigenen Tailnet, oder der [Netzwerkmodus ohne Tailscale](remote-access.md#weg-b-netzwerkmodus-ohne-tailscale), der sich auch headless mit `npm run remote` einschalten lässt und nur durch die Anmeldung geschützt ist. Beide Wege sind in der [Fernzugriffsanleitung](remote-access.md) mit den genauen Befehlen beschrieben; die eigene Tailscale-Freigabe wird beim Entfernen des Diensts weiter unten mit `tailscale serve --https=8443 off` deaktiviert.
 
 ## 6. Aktualisieren
 

@@ -163,7 +163,7 @@ Unter **Einstellungen** findest du zusätzliche Bereiche mit eigenen URLs:
 - **Updates:** In einer versionierten Installation neue Releases prüfen, vorbereiten, aktivieren und zu kompatiblen früheren Versionen zurückkehren. Die Prüfung nach dem Neustart bestätigt die tatsächliche Version; native Sitzungen behalten ihre alten Hilfsprogramme.
 - **Aktivitätsprotokoll:** Dauerhafte Ereignisse nach Aktion, Ergebnis, Sitzung und Projekt filtern. Keine rohen Chat-Inhalte oder Schlüssel werden als Ereignisdetails gespeichert.
 
-[Backup, Restore, Installer und Release-Betrieb](docs/research/operations-portability.md) beschreiben die Formate und Befehle. [Privater Fernzugriff](docs/remote-access.md) erklärt Tailscale sowie eine separate AgentPier-Identität auf bereits verbundenen Rechnern. Push auf einem iPhone benötigt eine unterstützte installierte Home-Screen-Web-App und die Gerätefreigabe.
+[Backup, Restore, Installer und Release-Betrieb](docs/research/operations-portability.md) beschreiben die Formate und Befehle. [Fernzugriff](docs/remote-access.md) erklärt Tailscale Serve, eine separate AgentPier-Identität und den Netzwerkmodus ohne Tailscale, der nur durch die Anmeldung geschützt ist. Push auf einem iPhone benötigt eine unterstützte installierte Home-Screen-Web-App und die Gerätefreigabe.
 
 ## Daten und Dauerhaftigkeit
 
