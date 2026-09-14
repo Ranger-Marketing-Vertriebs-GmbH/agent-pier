@@ -4,6 +4,7 @@ import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import "../operations/operations.css";
 const SshSettings = lazy(() => import("../ssh/SshSettings.jsx"));
 const McpSettings = lazy(() => import("../mcp/McpSettings.jsx"));
+const RemoteSettings = lazy(() => import("../remote/RemoteSettings.jsx"));
 const OperationsPage = lazy(() => import("../operations/OperationsPage.jsx"));
 export default function SettingsPage({ state, refresh, ready, route, onNavigate }) {
   const section = route.settingsSection || "general";
@@ -28,6 +29,10 @@ export default function SettingsPage({ state, refresh, ready, route, onNavigate 
       ) : section === "ssh" ? (
         <Suspense fallback={<p role="status">{copy.loading}</p>}>
           <SshSettings />
+        </Suspense>
+      ) : section === "remote" ? (
+        <Suspense fallback={<p role="status">{copy.loading}</p>}>
+          <RemoteSettings />
         </Suspense>
       ) : section === "mcp" ? (
         <Suspense fallback={<p role="status">{copy.loading}</p>}>

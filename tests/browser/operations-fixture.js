@@ -7,6 +7,24 @@ export async function operationsFixture(page) {
     hold: "",
     release: null,
     requests: [],
+    remote: {
+      local: { url: "http://127.0.0.1:4380" },
+      tailscale: { url: "https://host.example.ts.net:8443" },
+      network: {
+        saved: { enabled: false, bind: "0.0.0.0", hosts: [] },
+        running: { enabled: false, bind: "0.0.0.0", hosts: [] },
+        detected: { addresses: ["192.168.1.20"], hostname: "macmini" },
+        urls: [],
+        restartRequired: false,
+        locked: false,
+      },
+    },
+    health: {
+      application: "agentpier",
+      version: "0.0.0-test",
+      instanceId: "one",
+      warnings: [],
+    },
     events: Array.from({ length: 26 }, (_, i) => ({
       id: String(26 - i),
       createdAt: "2026-09-07T12:00:00Z",
@@ -94,6 +112,23 @@ export async function operationsFixture(page) {
     else if (path === "/pipeline-profiles") result = { profiles: [] };
     else if (path.endsWith("/models"))
       result = { currentModel: null, picker: null, pending: false };
+    else if (path === "/remote" && method === "GET") result = state.remote;
+    else if (path === "/remote" && method === "PUT") {
+      state.remote.network.saved = body.network;
+      state.remote.network.restartRequired = true;
+      state.remote.network.urls = [
+        ...body.network.hosts.map((host) => `http://${host}:4380`),
+        "http://macmini:4380",
+        "http://macmini.local:4380",
+        "http://192.168.1.20:4380",
+      ];
+      result = state.remote;
+    } else if (path === "/remote/restart") {
+      state.health = { ...state.health, instanceId: "two" };
+      state.remote.network.running = state.remote.network.saved;
+      state.remote.network.restartRequired = false;
+      result = { restarting: true, instanceId: "one" };
+    } else if (path === "/health") result = state.health;
     else throw Error(`Unexpected operations fixture request ${method} ${path}`);
     await route.fulfill({ json: result });
   });
