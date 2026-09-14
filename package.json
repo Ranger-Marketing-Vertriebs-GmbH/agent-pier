@@ -13,6 +13,7 @@
     "service:status": "node scripts/service.mjs status",
     "service:stop": "node scripts/service.mjs stop",
     "tailscale": "node scripts/tailscale.mjs",
+    "remote": "node scripts/remote.mjs",
     "postinstall": "node scripts/postinstall.mjs",
     "test:unit": "node scripts/test.mjs unit",
     "test:integration": "node scripts/test.mjs integration",
