@@ -209,3 +209,50 @@ for (const file of [
     await assert.rejects(publishInstallerRelease({ ...ctx, run: remote.run }));
     assert.equal(remote.calls.length, 0);
   });
+
+for (const file of [
+  "agentpier-installer.rb",
+  "install-agentpier.sh",
+  "agentpier-installer-1.2.3.tar.gz",
+  "agentpier-darwin-arm64.aprelease",
+  "agentpier-darwin-x64.aprelease",
+  "agentpier-linux-arm64.aprelease",
+  "agentpier-linux-x64.aprelease",
+])
+  test(`changed ${file} fails before GitHub is contacted`, async (t) => {
+    const { publishInstallerRelease } =
+      await import("../../scripts/installer-release-publish.mjs");
+    const ctx = await fixture(t),
+      remote = await remoteFixture(ctx);
+    await fs.appendFile(path.join(ctx.directory, file), "changed");
+    await assert.rejects(
+      publishInstallerRelease({ ...ctx, run: remote.run }),
+      /match|checksum|size/,
+    );
+    assert.equal(remote.calls.length, 0);
+  });
+
+test("a divergent existing draft is preserved without uploading or publishing", async (t) => {
+  const { publishInstallerRelease } =
+    await import("../../scripts/installer-release-publish.mjs");
+  const ctx = await fixture(t),
+    remote = await remoteFixture(ctx);
+  const interrupted = async (args) => {
+    if (args[1] === "upload") {
+      remote.remote.set("install-agentpier.sh", Buffer.from("different previous build"));
+      throw Error("interrupted");
+    }
+    return remote.run(args);
+  };
+  await assert.rejects(
+    publishInstallerRelease({ ...ctx, run: interrupted }),
+    /interrupted/,
+  );
+  remote.calls.length = 0;
+  await assert.rejects(publishInstallerRelease({ ...ctx, run: remote.run }), /mismatch/);
+  assert.equal(remote.release.draft, true);
+  assert.equal(
+    remote.calls.some((a) => ["upload", "edit", "create"].includes(a[1])),
+    false,
+  );
+});
