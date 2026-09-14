@@ -17,7 +17,6 @@ export const http = Object.freeze({
   sessionStopped: "Die Session ist beendet.",
   notFound: "Nicht gefunden.",
   requestFailed: "Anfrage fehlgeschlagen.",
-  localOrTailscaleRequired: "Nur lokaler Zugriff oder Tailscale Serve ist erlaubt.",
   tailscaleAccountDenied: "Dieses Tailscale-Konto hat keinen Zugriff.",
   originRequired: "Ursprung der Anfrage fehlt.",
   networkHostNotAllowed:
