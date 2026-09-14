@@ -1,3 +1,4 @@
+import { clearContext, resetPresentation, validResetContext } from "./chat-reset.js";
 import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 
 export const deliveryScope = (session) =>
@@ -14,6 +15,8 @@ const empty = () => ({
   attachments: [],
   outbox: null,
   recent: [],
+  reset: null,
+  resetSequence: 0,
   storageError: "",
 });
 const manifest = (attachments) =>
@@ -76,6 +79,7 @@ export function deliveryNotices(delivery, messages, position = "current") {
   const items = [...delivery.recent, ...(delivery.outbox ? [delivery.outbox] : [])];
   const visible = new Set(visibleDeliveries(items, messages).map((item) => item.id));
   return items.filter((item) => {
+    if (item.resetContext && item.status === "handed-off") return false;
     const current = item.id === delivery.outbox?.id;
     if (!visible.has(item.id) && !current && item.status === "handed-off") return false;
     const saved =
@@ -94,9 +98,18 @@ function validate(value, scope) {
     value.attachments.some(
       (a) => !a || [a.key, a.name, a.path].some((s) => typeof s !== "string"),
     ) ||
+    (value.resetSequence !== undefined &&
+      (!Number.isSafeInteger(value.resetSequence) || value.resetSequence < 0)) ||
     !Array.isArray(value.recent)
   )
     throw Error("Invalid draft");
+  if (
+    value.reset != null &&
+    (!validResetContext(value.reset) ||
+      typeof value.reset.deliveryId !== "string" ||
+      !["requested", "confirmed"].includes(value.reset.status))
+  )
+    throw Error("Invalid reset request");
   for (const item of [...value.recent, ...(value.outbox ? [value.outbox] : [])]) {
     if (
       !item ||
@@ -105,6 +118,7 @@ function validate(value, scope) {
       item.text.length > 32000 ||
       item.scope !== scope ||
       !Array.isArray(item.baselineIds) ||
+      (item.resetContext != null && !validResetContext(item.resetContext)) ||
       (item.matchedMessageId !== undefined && typeof item.matchedMessageId !== "string")
     )
       throw Error("Invalid outbox");
@@ -318,7 +332,7 @@ export class ChatDraft {
       }
     }).finally(() => this.pendingEdits.delete(version));
   }
-  enqueue(id, messages) {
+  enqueue(id, messages, context = {}) {
     return this.mutate((saved) => {
       if (saved.outbox) {
         this.adopt(saved);
@@ -330,6 +344,11 @@ export class ChatDraft {
         ? [text.trimEnd(), ...attachments.map((a) => a.path)].filter(Boolean).join("\n")
         : text;
       if (!body.trim() || body.length > 32000) return null;
+      const resetContext = clearContext(body, context, messages);
+      if (resetContext) {
+        next.resetSequence++;
+        resetContext.sequence = next.resetSequence;
+      }
       const outbox = {
         id,
         clientCreatedAt: new Date().toISOString(),
@@ -342,11 +361,26 @@ export class ChatDraft {
         attemptId: id,
         baselineIds: messages.filter((m) => m.role === "user").map((m) => m.id),
         status: "waiting",
+        resetContext,
       };
       if (!this.write({ ...next, outbox, epoch: crypto.randomUUID(), revision: 0 }))
         return null;
       this.unsaved = {};
       return outbox;
+    });
+  }
+  retryAbsent(messages, context = {}) {
+    return this.mutate((saved) => {
+      if (saved.outbox?.status !== "absent") return null;
+      const resetContext = clearContext(saved.outbox.text, context, messages);
+      const resetSequence = saved.resetSequence + (resetContext ? 1 : 0);
+      if (resetContext) resetContext.sequence = resetSequence;
+      const outbox = {
+        ...saved.outbox,
+        resetContext,
+        baselineIds: messages.filter((m) => m.role === "user").map((m) => m.id),
+      };
+      return this.write({ ...saved, resetSequence, outbox }) ? outbox : null;
     });
   }
   beginRecovery(id, attemptId, mode) {
@@ -421,6 +455,21 @@ export class ChatDraft {
         recovery: receipt.recovery || item.recovery,
         recoveryAttempt: resolved ? null : item.recoveryAttempt,
       };
+      if (
+        next.resetContext &&
+        next.resetContext.sequence === saved.resetSequence &&
+        next.status === "handed-off" &&
+        item.status !== "handed-off"
+      ) {
+        saved = {
+          ...saved,
+          reset: {
+            ...next.resetContext,
+            deliveryId: item.id,
+            status: "requested",
+          },
+        };
+      }
       if (pending && receipt.status === "handed-off") {
         this.write({
           ...saved,
@@ -439,6 +488,22 @@ export class ChatDraft {
           { preserveDraft: !pending },
         );
       }
+    });
+  }
+  observeReset(data, restartGeneration = 0) {
+    return this.mutate((saved) => {
+      if (!saved.reset || restartGeneration < saved.reset.restartGeneration) return;
+      const status = resetPresentation(saved.reset, data, restartGeneration);
+      if (status === saved.reset.status) return;
+      this.write(
+        { ...saved, reset: status ? { ...saved.reset, status } : null },
+        { preserveDraft: true },
+      );
+    });
+  }
+  dismissReset() {
+    return this.mutate((saved) => {
+      if (saved.reset) this.write({ ...saved, reset: null }, { preserveDraft: true });
     });
   }
   observeMessages(messages) {

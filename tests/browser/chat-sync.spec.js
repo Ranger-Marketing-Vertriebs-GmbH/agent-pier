@@ -19,6 +19,7 @@ async function fixture(
   page,
   initial,
   history = async (route) => route.fulfill({ json: {} }),
+  tool = "claude",
 ) {
   const state = {
     current: initial,
@@ -29,8 +30,8 @@ async function fixture(
     session: {
       id: "sync",
       name: "Sync",
-      accountId: "local-claude",
-      tool: "claude",
+      accountId: `local-${tool}`,
+      tool,
       status: "running",
       cwd: "/fixture",
     },
@@ -51,7 +52,7 @@ async function fixture(
     let result = {};
     if (url.pathname === "/api/state")
       result = {
-        tools: [{ id: "claude", name: "Claude", installed: true }],
+        tools: [{ id: tool, name: tool, installed: true }],
         accounts: [],
         sessions: [state.session],
         home: "/fixture",
@@ -66,7 +67,7 @@ async function fixture(
     await route.fulfill({ json: result });
   });
   await page.goto(baseURL + "/sessions/sync/chat");
-  await expect(page.getByLabel("Chatverlauf")).toContainText(initial.messages[0].text);
+  await expect(page.locator(".chat-messages")).toContainText(initial.messages[0].text);
   return state;
 }
 
@@ -311,4 +312,190 @@ test("chat submits /clear and resets history only after the native conversation 
   await expect(page.getByLabel("Chatverlauf")).toContainText("Fresh conversation");
   await expect(page.getByLabel("Chatverlauf")).not.toContainText("Old conversation");
   expect(submissions).toHaveLength(1);
+});
+
+test.describe("Codex clear presentation", () => {
+  test.use({ locale: "en-GB" });
+
+  test("handoff collapses old history, survives reload and confirms only a new conversation", async ({
+    page,
+  }) => {
+    const state = await fixture(
+      page,
+      full("before", [message("old", "Old conversation")]),
+      undefined,
+      "codex",
+    );
+    const submissions = [];
+    await page.route("**/api/sessions/sync/input", async (route) => {
+      const body = route.request().postDataJSON();
+      submissions.push(body);
+      await route.fulfill({
+        json: { deliveryId: body.deliveryId, status: "handed-off" },
+      });
+    });
+    await page.getByLabel("Message", { exact: true }).fill("/clear");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(
+      page.getByText("New conversation requested", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Old conversation", { exact: true })).toBeHidden();
+    await page.getByText("Previous conversation", { exact: true }).click();
+    await expect(page.getByText("Old conversation", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByText("New conversation requested", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Old conversation", { exact: true })).toBeHidden();
+    await page.screenshot({ path: "/tmp/agentpier-clear-requested-en.png" });
+    expect(submissions).toHaveLength(1);
+    state.send(full("still-old", [message("old", "Old conversation")]));
+    await expect(
+      page.getByText("New conversation requested", { exact: true }),
+    ).toBeVisible();
+    state.send(full("new", [message("new", "Fresh conversation")], "native-two"));
+    await expect(page.getByText("New conversation ready", { exact: true })).toBeVisible();
+    await expect(page.getByText("Fresh conversation", { exact: true })).toBeVisible();
+    await expect(page.getByText("Old conversation", { exact: true })).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByText("New conversation ready", { exact: true })).toBeVisible();
+    await expect(page.getByText("Fresh conversation", { exact: true })).toBeVisible();
+    expect(submissions).toHaveLength(1);
+  });
+
+  for (const status of ["rejected", "uncertain"]) {
+    test(`${status} clear preserves the visible conversation`, async ({ page }) => {
+      await fixture(
+        page,
+        full("before", [message("old", "Old conversation")]),
+        undefined,
+        "codex",
+      );
+      await page.route("**/api/sessions/sync/input", async (route) => {
+        const body = route.request().postDataJSON();
+        await route.fulfill({ json: { deliveryId: body.deliveryId, status } });
+      });
+      await page.getByLabel("Message", { exact: true }).fill("/clear");
+      await page.getByRole("button", { name: "Send", exact: true }).click();
+      await expect(
+        page.getByText(status === "rejected" ? "Not delivered" : "Delivery uncertain", {
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("New conversation requested", { exact: true }),
+      ).toHaveCount(0);
+      await expect(page.getByText("Old conversation", { exact: true })).toBeVisible();
+    });
+  }
+
+  test("new output in the same conversation remains visible while reset is pending", async ({
+    page,
+  }) => {
+    const state = await fixture(
+      page,
+      full("before", [
+        message("old", "Old conversation"),
+        message("streaming", "Earlier output"),
+      ]),
+      undefined,
+      "codex",
+    );
+    await page.route("**/api/sessions/sync/input", async (route) => {
+      const body = route.request().postDataJSON();
+      await route.fulfill({
+        json: { deliveryId: body.deliveryId, status: "handed-off" },
+      });
+    });
+    await page.getByLabel("Message", { exact: true }).fill("/clear");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(
+      page.getByText("New conversation requested", { exact: true }),
+    ).toBeVisible();
+    state.send(
+      full("output", [
+        message("old", "Old conversation"),
+        message("streaming", "Updated output"),
+        message("new", "New output in old thread"),
+      ]),
+    );
+    await expect(page.getByText("Updated output", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("New output in old thread", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Old conversation", { exact: true })).toBeHidden();
+    await page.reload();
+    await expect(page.getByText("Updated output", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("New output in old thread", { exact: true }),
+    ).toBeVisible();
+  });
+
+  test("retrying an absent clear after restart uses the current conversation", async ({
+    page,
+  }) => {
+    const state = await fixture(
+      page,
+      full("before", [message("old", "Old conversation")]),
+      undefined,
+      "codex",
+    );
+    const submissions = [];
+    await page.route("**/api/sessions/sync/input/*", async (route) => {
+      const id = new URL(route.request().url()).pathname.split("/").at(-1);
+      await route.fulfill({ json: { deliveryId: id, status: "absent" } });
+    });
+    await page.route("**/api/sessions/sync/input", async (route) => {
+      const body = route.request().postDataJSON();
+      submissions.push(body);
+      if (submissions.length === 1) return route.abort();
+      await route.fulfill({
+        json: { deliveryId: body.deliveryId, status: "handed-off" },
+      });
+    });
+    await page.getByLabel("Message", { exact: true }).fill("/clear");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Retry handoff", exact: true }),
+    ).toBeVisible();
+    state.session.restartGeneration = 1;
+    state.current = full(
+      "restarted",
+      [message("restarted", "Restarted conversation")],
+      "new-launch",
+    );
+    await page.reload();
+    await expect(page.getByText("Restarted conversation", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Retry handoff", exact: true }).click();
+    await expect(
+      page.getByText("New conversation requested", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Restarted conversation", { exact: true })).toBeHidden();
+    expect(submissions).toHaveLength(2);
+    expect(submissions[1]).toEqual(submissions[0]);
+  });
+
+  test("a native reset arriving before the handoff response keeps the new conversation visible", async ({
+    page,
+  }) => {
+    const state = await fixture(
+      page,
+      full("before", [message("old", "Old conversation")]),
+      undefined,
+      "codex",
+    );
+    await page.route("**/api/sessions/sync/input", async (route) => {
+      const body = route.request().postDataJSON();
+      state.send(full("new", [message("new", "Fresh conversation")], "native-two"));
+      await expect(page.getByText("Fresh conversation", { exact: true })).toBeVisible();
+      await route.fulfill({
+        json: { deliveryId: body.deliveryId, status: "handed-off" },
+      });
+    });
+    await page.getByLabel("Message", { exact: true }).fill("/clear");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(page.getByText("New conversation ready", { exact: true })).toBeVisible();
+    await expect(page.getByText("Fresh conversation", { exact: true })).toBeVisible();
+    await expect(page.getByText("Previous conversation", { exact: true })).toHaveCount(0);
+  });
 });
