@@ -16,10 +16,12 @@ function fixture(t) {
     runRemote({
       argv,
       dataDir,
+      port: 4390,
       log: (line) => lines.push(String(line)),
       restart: async () => restarts.push(argv[0]),
       health: async () => true,
       detect: () => ({ addresses: ["192.168.1.20"], hostname: "macmini" }),
+      fetchImpl: async () => ({ json: async () => ({ instanceId: "before" }) }),
       ...options,
     });
   const saved = () =>
@@ -53,6 +55,7 @@ test("argument parsing covers every command and flag", () => {
     parseRemoteArguments(["hosts", "--add", "c.example", "--remove", "a.example"]).add,
     ["c.example"],
   );
+  assert.equal(parseRemoteArguments(["enable"]).bind, undefined);
   assert.throws(() => parseRemoteArguments(["explode"]), /status|enable|disable|hosts/);
   assert.throws(() => parseRemoteArguments(["enable", "--bind"]), /--bind/);
 });
@@ -127,4 +130,30 @@ test("hosts --remove reports names that are not in the list and leaves it unchan
     f.lines.some((line) => line.includes("missing.example steht nicht in der Hostliste")),
     true,
   );
+});
+test("enable keeps the configured bind unless --bind is given", async (t) => {
+  const f = fixture(t);
+  assert.equal(await f.run(["enable", "--bind", "::", "--accept-plain-http"]), 0);
+  assert.equal(f.saved().network.bind, "::");
+  await f.run(["disable", "--no-restart"]);
+  assert.equal(await f.run(["enable", "--accept-plain-http"]), 0);
+  assert.equal(f.saved().network.bind, "::");
+});
+test("the health check compares against the instance id read before the restart", async (t) => {
+  const f = fixture(t);
+  const checks = [];
+  const health = async (options) => {
+    checks.push(options);
+    return true;
+  };
+  assert.equal(await f.run(["disable"], { health }), 0);
+  assert.equal(checks[0].previousInstanceId, "before");
+  assert.equal(checks[0].port, 4390);
+  await f.run(["disable"], {
+    health,
+    fetchImpl: async () => {
+      throw new Error("connection refused");
+    },
+  });
+  assert.equal(checks[1].previousInstanceId, undefined);
 });

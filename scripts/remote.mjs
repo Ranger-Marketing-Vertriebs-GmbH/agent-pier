@@ -21,7 +21,8 @@ export function parseRemoteArguments(argv) {
     throw new Error(serverMessages.scripts.remoteUsage(COMMANDS.join("|")));
   const result = {
     command,
-    bind: "0.0.0.0",
+    // Left undefined so `enable` keeps whatever bind is already configured.
+    bind: undefined,
     hosts: [],
     add: [],
     remove: [],
@@ -65,17 +66,31 @@ function recordAudit(dataDir, outcome) {
     audit?.close();
   }
 }
+/** The instance id of a running service, undefined when nothing answers. */
+async function runningInstanceId(port, fetchImpl) {
+  try {
+    const response = await fetchImpl(`http://127.0.0.1:${port}/api/health`, {
+      signal: AbortSignal.timeout(1000),
+      redirect: "error",
+    });
+    const value = await response.json();
+    return typeof value.instanceId === "string" ? value.instanceId : undefined;
+  } catch {
+    return undefined;
+  }
+}
 export async function runRemote({
   argv,
   dataDir,
+  port = 4380,
   log = console.log,
   restart = restartService,
   health = checkHealth,
   detect = detectNetworkAddresses,
+  fetchImpl = fetch,
 } = {}) {
   const options = parseRemoteArguments(argv);
   const config = readNetworkConfig(dataDir);
-  const port = config.port || 4380;
   const detected = detect();
   const print = (network) => {
     log(serverMessages.scripts.remoteStatus(network.enabled, network.bind, dataDir));
@@ -96,7 +111,7 @@ export async function runRemote({
     }
     network = {
       enabled: true,
-      bind: options.bind,
+      bind: options.bind ?? network.bind,
       hosts: [...network.hosts, ...options.hosts],
     };
   } else if (options.command === "disable") network = { ...network, enabled: false };
@@ -122,13 +137,19 @@ export async function runRemote({
     log(serverMessages.scripts.remoteRestartSkipped);
     return 0;
   }
+  // Read before the restart so an unchanged instance id proves the service never came back.
+  const previousInstanceId = await runningInstanceId(port, fetchImpl);
   try {
     await restart();
   } catch {
     log(serverMessages.scripts.remoteServiceMissing);
     return 1;
   }
-  const healthy = await health({ port, version: applicationVersion() });
+  const healthy = await health({
+    port,
+    version: applicationVersion(),
+    previousInstanceId,
+  });
   log(
     healthy
       ? serverMessages.scripts.remoteRestarted
@@ -138,7 +159,7 @@ export async function runRemote({
 }
 if (isMainModule(import.meta.url)) {
   const config = loadConfig();
-  runRemote({ argv: process.argv.slice(2), dataDir: config.dataDir })
+  runRemote({ argv: process.argv.slice(2), dataDir: config.dataDir, port: config.port })
     .then((code) => process.exit(code))
     .catch((error) => {
       console.error(error.message);
