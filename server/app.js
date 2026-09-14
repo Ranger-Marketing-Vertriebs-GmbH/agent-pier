@@ -19,6 +19,7 @@ import { applicationVersion } from "./features/operations/version.js";
 import { operationsRoutes } from "./http/routes/operations.js";
 import { requestsRoutes } from "./http/routes/requests.js";
 import { notificationsRoutes } from "./http/routes/notifications.js";
+import { remoteRoutes } from "./http/routes/remote.js";
 import { memoryRoutes } from "./http/routes/memory.js";
 import { providerRoutes } from "./http/routes/providers.js";
 import express from "express";
@@ -159,6 +160,12 @@ export async function createApplication(config) {
   mount(auditRoutes(services));
   mount(requestsRoutes(services));
   mount(notificationsRoutes(services));
+  mount(
+    remoteRoutes(
+      services,
+      typeof config.remoteRestart === "function" ? { restart: config.remoteRestart } : {},
+    ),
+  );
   app.use("/api", operationsRoutes(services));
   app.get("/api/health", (_req, res) =>
     res.json({
