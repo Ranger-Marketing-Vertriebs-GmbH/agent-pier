@@ -44,6 +44,14 @@ function archiveDetails(row, doc, store) {
 
 export function publicFileJob(row, store) {
   const doc = JSON.parse(row.document);
+  const parent =
+    row.parent_job_id && ["upload", "create_directory"].includes(row.kind)
+      ? store.db
+          .prepare(
+            "SELECT id FROM jobs WHERE id=? AND scope_id=? AND kind='upload_group'",
+          )
+          .get(row.parent_job_id, row.scope_id)
+      : null;
   return {
     id: row.id,
     kind: row.kind,
@@ -55,6 +63,7 @@ export function publicFileJob(row, store) {
     totalBytes: doc.totalBytes,
     conflict: projectConflict(doc.conflict),
     issue: doc.issue,
+    ...(parent ? { uploadGroupId: parent.id } : {}),
     ...(row.kind === "extract" ? { destination: JSON.parse(row.operation).target } : {}),
     ...(row.kind === "archive" ? archiveDetails(row, doc, store) : {}),
   };

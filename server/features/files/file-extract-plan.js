@@ -4,6 +4,7 @@ import { resolveFile, entryRevision, assertFileMutationTarget } from "./file-pat
 import { inodeIdentity } from "./file-stage.js";
 import { alternateName } from "./file-mutations.js";
 import { fileProblem } from "./file-errors.js";
+import { assertRetryDestinations } from "./file-retry-targets.js";
 
 export const appendExtractPath = (parent, name) =>
   `${parent}${parent.endsWith("/") ? "" : "/"}${name}`;
@@ -19,6 +20,7 @@ const typeOf = (stat) =>
           : "special";
 export async function planExtraction(owner, context, source) {
   const { scope, operation, signal } = context;
+  await assertRetryDestinations(context);
   const target = await resolveFile(scope, operation.target);
   if (!target.stat.isDirectory()) throw fileProblem("FILE_NOT_DIRECTORY", 400);
   owner.trash.assertProtected(target.absolute);
@@ -48,9 +50,11 @@ export async function planExtraction(owner, context, source) {
     const parentName = path.posix.dirname(row.relative),
       parentNode = nodes.get(parentName);
     const retryPath = retryTargets?.get(row.relative);
-    const parent =
-      parentNode?.selected ||
-      (retryPath ? await resolveFile(scope, path.posix.dirname(retryPath)) : target);
+    const parent = parentNode
+      ? parentNode.selected || target
+      : retryPath
+        ? await resolveFile(scope, path.posix.dirname(retryPath))
+        : target;
     row.effectiveName = path.posix.basename(retryPath || row.relative);
     row.path = appendExtractPath(parentNode?.path || parent.path, row.effectiveName);
     if (parentNode?.status === "skipped") row.status = "skipped";

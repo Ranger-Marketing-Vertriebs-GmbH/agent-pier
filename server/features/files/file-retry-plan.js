@@ -2,6 +2,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { resolveFile, entryRevision } from "./file-paths.js";
 import { fileProblem } from "./file-errors.js";
+import { observeRetryDestinations } from "./file-retry-targets.js";
 
 export const retryUnavailable = () => fileProblem("FILE_RETRY_UNAVAILABLE", 409);
 const unfinished = (row) =>
@@ -32,6 +33,7 @@ export function assertRetryOwner(owner, scope, id, childId = null) {
   if (
     !["failed", "cancelled", "interrupted", "partially_completed"].includes(job.status) ||
     owner.jobs.owns(id) ||
+    job.uploadGroupId ||
     owner.store.db
       .prepare(
         "SELECT id FROM jobs WHERE parent_job_id=? AND entry_id LIKE 'retry:%' AND id!=? LIMIT 1",
@@ -155,7 +157,12 @@ export async function planRetry(owner, scope, id, childId) {
       entries.push({
         id: String(entries.length),
         source,
-        path: original.target || source,
+        path:
+          job.kind === "rename"
+            ? path.join(path.dirname(source), original.name)
+            : job.kind === "archive" && original.options.output === "file"
+              ? path.join(original.target, original.name)
+              : source,
       });
     }
     if (!original.sources.length)
@@ -185,12 +192,33 @@ export async function planRetry(owner, scope, id, childId) {
         pins.push({ trashId: row.source, revision: observed.revision });
         confirmation.push({ id: row.source, revision: observed.revision });
       }
-      entries.push({ id: row.id, source: row.source, path: row.path, type: row.type });
+      entries.push({
+        id: row.id,
+        source: job.kind === "trash" ? row.source : row.path,
+        path: job.kind === "restore" ? original.target : row.path,
+        type: row.type,
+      });
     }
     if (job.kind === "purge") operation.options = { confirmation };
+    if (job.kind === "restore") operation.options = {};
   } else throw retryUnavailable();
   if (!entries.length || entries.length > owner.store.limits.jobEntries)
     throw retryUnavailable();
+  const destinations = await observeRetryDestinations(
+    scope,
+    [
+      "copy",
+      "move",
+      "extract",
+      "restore",
+      "rename",
+      "create_file",
+      "create_directory",
+    ].includes(job.kind) ||
+      (job.kind === "archive" && original.options.output === "file")
+      ? entries.map((row) => row.path)
+      : [],
+  );
   // Bind the proposal to the complete terminal evidence, immutable original request,
   // and current source observations. Only this digest and safe entries cross HTTP.
   const hash = createHash("sha256");
@@ -203,9 +231,10 @@ export async function planRetry(owner, scope, id, childId) {
     ...rows,
     ...pins,
     ...targets,
+    ...destinations,
   ])
     hash.update(JSON.stringify(value)).update("\n");
   const reference = `r1:${hash.digest("hex")}`;
   assertRetryOwner(owner, scope, id, childId);
-  return { reference, operation, pins, targets, entries };
+  return { reference, operation, pins, targets, destinations, entries };
 }

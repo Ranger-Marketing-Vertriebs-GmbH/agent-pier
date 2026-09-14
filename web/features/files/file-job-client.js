@@ -1,6 +1,7 @@
 import { fileErrorMessage } from "../../lib/i18n/messages/files.js";
 import { UploadJobObserver } from "./file-upload-observer.js";
 import { FileJobObserver } from "./file-job-observer.js";
+import { uploadOwnedJob, activeFileJob } from "./file-job-ownership.js";
 
 function issue(code) {
   const error = new Error();
@@ -74,16 +75,14 @@ export class FileJobClient {
         for (const job of history.jobs) {
           this.invalidateManifest(job);
           if (
-            !["upload", "upload_group", "create_directory", "search", "size"].includes(
-              job.kind,
-            ) &&
-            ["queued", "running", "waiting_for_conflict", "cancelling"].includes(
-              job.status,
-            )
+            !uploadOwnedJob(job) &&
+            !["search", "size"].includes(job.kind) &&
+            activeFileJob(job)
           )
             this.tracked.set(job.id, job);
         }
         this.update({
+          history: this.overlayHistory(history.jobs),
           ...(!this.state.history ? { history: { ...history, cursor: null } } : {}),
           jobs: [
             ...new Map(
@@ -220,8 +219,31 @@ export class FileJobClient {
     this.invalidateManifest(job);
     if (track || this.tracked.has(job.id)) this.tracked.set(job.id, job);
     this.update({
+      history: this.overlayHistory([job]),
       jobs: [
         ...new Map([...this.state.jobs, job].map((value) => [value.id, value])).values(),
+      ],
+    });
+  }
+  overlayHistory(jobs) {
+    if (!this.state.history) return null;
+    const fresh = new Map(jobs.map((job) => [job.id, job]));
+    return {
+      ...this.state.history,
+      jobs: this.state.history.jobs.map((job) => fresh.get(job.id) || job),
+    };
+  }
+  observeHistory(page, cursor) {
+    for (const job of page.jobs) {
+      this.invalidateManifest(job);
+      if (!uploadOwnedJob(job) && activeFileJob(job)) this.tracked.set(job.id, job);
+    }
+    this.update({
+      history: { ...page, cursor },
+      jobs: [
+        ...new Map(
+          [...this.state.jobs, ...page.jobs].map((job) => [job.id, job]),
+        ).values(),
       ],
     });
   }

@@ -376,7 +376,7 @@ export class FileTrash {
     scope,
     id,
     target,
-    { jobId, expectedRevision, expectedTrashRevision, signal } = {},
+    { jobId, expectedRevision, expectedTrashRevision, signal, targetGuard } = {},
   ) {
     return this.entry(id, async () => {
       scope = await this.freshScope(scope);
@@ -399,6 +399,7 @@ export class FileTrash {
       const stage = await this.publisher.stage(scope, target, {
         jobId,
         type: record.type,
+        targetGuard,
       });
       const originalLocation = { ...record.location };
       record.phase = "restore_pending";

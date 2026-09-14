@@ -49,7 +49,7 @@ export class UploadJobObserver {
         const page = await session.client.get("/jobs", { cursor }, signal);
         if (!Array.isArray(page.jobs) || page.jobs.length > 200) throw invalid();
         page.jobs.forEach((job) => checkedJob(job, scopeId));
-        if (owns()) session.update({ history: { ...page, cursor } });
+        if (owns()) session.observeHistory(page, cursor);
         return page;
       });
     this.load = (scopeId, id, maxEntries) =>

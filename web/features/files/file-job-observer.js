@@ -1,5 +1,6 @@
 import { fileClientIssue } from "./file-api.js";
 import { checkedJob } from "./file-upload-observer.js";
+import { uploadOwnedJob } from "./file-job-ownership.js";
 
 const invalid = () => fileClientIssue("FILE_INVALID_RESPONSE", 502);
 const conflictChanged = () => fileClientIssue("FILE_CONFLICT_CHANGED", 409);
@@ -18,7 +19,8 @@ export class FileJobObserver {
           id,
         );
         if (!owns()) return;
-        session.accept(job, true);
+        session.accept(job, !uploadOwnedJob(job));
+        session.uploads.settled(job);
         return session.readEntries(id, null, signal, owns, true);
       });
     this.omissions = (scopeId, job, maxEntries) =>

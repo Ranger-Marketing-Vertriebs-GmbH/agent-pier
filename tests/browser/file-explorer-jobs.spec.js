@@ -4,6 +4,250 @@ import { explorerContext, selectEnglish } from "../helpers/file-explorer-browser
 import { baseURL } from "../helpers/browser.js";
 import { jobsFixture } from "../helpers/file-jobs-browser.js";
 
+test("later live history reaches fresh conflicts and terminal states without loading entry results", async ({
+  page,
+}) => {
+  const f = await jobsFixture(page);
+  const first = f.addJob({ kind: "create_directory", status: "running" });
+  for (let i = 1; i < 200; i++) f.addJob({ status: "completed" });
+  const later = f.addJob({ status: "running" });
+  const list = async (route) => {
+    const cursor = new URL(route.request().url()).searchParams.get("cursor");
+    await route.fulfill({
+      json: {
+        jobs: [...f.jobs.values()].slice(cursor ? 200 : 0, cursor ? 400 : 200),
+        nextCursor: cursor ? null : "page-200",
+      },
+    });
+  };
+  await page.route(/\/api\/files\/jobs(?:\?.*)?$/, list);
+  await selectEnglish(page);
+  await page.goto(baseURL + "/files");
+  const region = page.getByRole("region", { name: "File jobs", exact: true });
+  await region.getByRole("button", { name: "Next jobs", exact: true }).click();
+  later.status = "waiting_for_conflict";
+  later.conflict = {
+    id: "later-conflict",
+    type: "name",
+    source: "/home/test/input.zip",
+    target: "/home/test/docs/new.txt",
+    sourceType: "file",
+    targetType: "file",
+    choices: ["replace", "skip", "keep_both", "cancel"],
+  };
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("new.txt");
+  await dialog.getByRole("button", { name: "Skip", exact: true }).click();
+  later.status = "completed";
+  later.conflict = null;
+  await expect(
+    page.locator(`[data-job-id="${later.id}"] .file-job-heading`),
+  ).toContainText("Completed");
+  await region.getByRole("button", { name: "Previous jobs", exact: true }).click();
+  first.status = "completed";
+  await expect(
+    page.locator(`[data-job-id="${first.id}"] .file-job-heading`),
+  ).toContainText("Completed");
+  expect(f.requests.some((item) => item.suffix === `/jobs/${later.id}`)).toBe(true);
+});
+
+test("upload-owned directory jobs stay in upload recovery while standalone directories keep generic controls", async ({
+  page,
+}) => {
+  const f = await jobsFixture(page);
+  const owned = f.addJob({
+    kind: "create_directory",
+    status: "failed",
+    uploadGroupId: "group-owner",
+  });
+  const standalone = f.addJob({ kind: "create_directory", status: "failed" });
+  f.addJob({
+    kind: "create_directory",
+    status: "waiting_for_conflict",
+    uploadGroupId: "unselected-group",
+    conflict: {
+      id: "owned-conflict",
+      type: "name",
+      target: "/home/test/owned",
+      choices: ["skip", "cancel"],
+    },
+  });
+  await selectEnglish(page);
+  await page.goto(baseURL + "/files");
+  await expect(
+    page
+      .locator(`[data-job-id="${standalone.id}"]`)
+      .getByRole("button", { name: "Review retry" }),
+  ).toBeVisible();
+  await expect(page.locator(`[data-job-id="${owned.id}"]`)).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+for (const language of ["en", "de"])
+  test(`retry destinations and cancelled/interrupted partial outcomes remain explicit in ${language}`, async ({
+    page,
+  }, testInfo) => {
+    const f = await jobsFixture(page);
+    const job = f.addJob(
+      { status: "partially_completed", completedEntries: 1, totalEntries: 4 },
+      [
+        {
+          id: "done",
+          source: "input.zip",
+          path: "/home/test/docs/done.txt",
+          status: "completed",
+          outputPublished: true,
+        },
+        {
+          id: "cancelled",
+          source: "input.zip",
+          path: "/home/test/docs/cancelled.txt",
+          status: "cancelled",
+        },
+        {
+          id: "interrupted",
+          source: "input.zip",
+          path: "/home/test/docs/interrupted.txt",
+          status: "interrupted",
+        },
+        {
+          id: "unknown",
+          source: "input.zip",
+          path: "/home/test/docs/unknown.txt",
+          status: "unexpected",
+        },
+      ],
+    );
+    const restore = f.addJob({ kind: "restore", status: "failed" });
+    const move = f.addJob({ kind: "move", status: "partially_completed" }, [
+      {
+        id: "published",
+        source: "/home/test/a",
+        path: "/home/test/docs/a",
+        status: "interrupted",
+        outputPublished: true,
+        sourceRemoved: false,
+      },
+      {
+        id: "uncertain",
+        source: "/home/test/b",
+        path: "/home/test/docs/b",
+        status: "cancelled",
+        sourceRemovalPending: true,
+      },
+    ]);
+    await page.route(/\/api\/files\/jobs\/[^/]+\/retry(?:\?.*)?$/, (route) =>
+      route.fulfill({
+        json: {
+          reference: `r1:${"b".repeat(64)}`,
+          totalEntries: 1,
+          nextCursor: null,
+          entries: [
+            {
+              id: "0",
+              source: "/home/test/original.txt",
+              path: "/home/test/docs/chosen-restore.txt",
+              type: "file",
+            },
+          ],
+        },
+      }),
+    );
+    if (language === "en") await selectEnglish(page);
+    await page.goto(baseURL + "/files");
+    const card = page.locator(`[data-job-id="${job.id}"]`);
+    await card
+      .getByRole("button", {
+        name: language === "en" ? "Load entry results" : "Einzelergebnisse laden",
+        exact: true,
+      })
+      .click();
+    await expect(card).toContainText(language === "en" ? "Cancelled" : "Abgebrochen");
+    await expect(card).toContainText(language === "en" ? "Interrupted" : "Unterbrochen");
+    await expect(card).toContainText(
+      language === "en" ? "Completion is unproven" : "Abschluss ist nicht nachgewiesen",
+    );
+    await page.screenshot({
+      path: testInfo.outputPath(`outcomes-desktop-${language}.png`),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect
+      .poll(() =>
+        page
+          .locator(".sidebar")
+          .evaluate((element) => element.getBoundingClientRect().right),
+      )
+      .toBeLessThanOrEqual(0);
+    await expect(page.locator(".nav-backdrop")).not.toBeVisible();
+    await card.locator(".file-job-outcomes").scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath(`outcomes-mobile-${language}.png`),
+      fullPage: true,
+    });
+    const moved = page.locator(`[data-job-id="${move.id}"]`);
+    await moved
+      .getByRole("button", {
+        name: language === "en" ? "Load entry results" : "Einzelergebnisse laden",
+        exact: true,
+      })
+      .click();
+    await expect(moved).toContainText(
+      language === "en"
+        ? "Destination published; source removal not completed"
+        : "Ziel veröffentlicht; Quellentfernung nicht abgeschlossen",
+    );
+    await expect(moved).toContainText(
+      language === "en" ? "Source removal is unproven" : "Quellentfernung ist ungeprüft",
+    );
+    await expect(moved.locator(".file-job-outcomes")).not.toContainText(
+      language === "en" ? "Interrupted" : "Unterbrochen",
+    );
+    await page
+      .locator(`[data-job-id="${restore.id}"]`)
+      .getByRole("button", {
+        name: language === "en" ? "Review retry" : "Wiederholung prüfen",
+        exact: true,
+      })
+      .click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText(
+      language === "en"
+        ? "Source: /home/test/original.txt"
+        : "Quelle: /home/test/original.txt",
+    );
+    await expect(dialog).toContainText(
+      language === "en"
+        ? "Destination: /home/test/docs/chosen-restore.txt"
+        : "Ziel: /home/test/docs/chosen-restore.txt",
+    );
+    const confirm = dialog.getByRole("button", {
+      name: language === "en" ? "Confirm new retry" : "Neue Wiederholung bestätigen",
+      exact: true,
+    });
+    await expect(confirm).toBeEnabled();
+    await expect(confirm).toBeInViewport();
+    await page.screenshot({
+      path: testInfo.outputPath(`retry-mobile-${language}.png`),
+      fullPage: true,
+    });
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+      .toBe(true);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect
+      .poll(() =>
+        page
+          .locator(".sidebar")
+          .evaluate((element) => element.getBoundingClientRect().left),
+      )
+      .toBe(0);
+    await page.screenshot({
+      path: testInfo.outputPath(`retry-desktop-${language}.png`),
+      fullPage: true,
+    });
+  });
+
 test("explicit operation history reaches an interrupted job beyond the first200 after reload", async ({
   page,
 }) => {

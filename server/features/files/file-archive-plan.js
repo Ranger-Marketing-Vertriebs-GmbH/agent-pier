@@ -6,9 +6,11 @@ import { scanTree } from "./file-tree.js";
 import { alternateName } from "./file-mutations.js";
 import { archivePath, archiveOutputLimit } from "./file-archive-paths.js";
 import { fileProblem } from "./file-errors.js";
+import { assertRetryDestinations } from "./file-retry-targets.js";
 
 export async function archiveManifest(owner, context) {
   const { scope, operation, signal } = context;
+  await assertRetryDestinations(context);
   const selected = [];
   for (const source of new Set(operation.sources)) {
     signal.throwIfAborted();

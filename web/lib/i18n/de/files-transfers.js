@@ -51,4 +51,5 @@ export const fileTransfersCopy = {
   retryCount: (count) =>
     `${count} wiederholbare Einträge in dieser vollständigen Auswahl.`,
   confirmRetry: "Neue Wiederholung bestätigen",
+  retrySource: (path) => `Quelle: ${path}`,
 };

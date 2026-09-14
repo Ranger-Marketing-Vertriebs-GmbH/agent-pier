@@ -42,7 +42,9 @@ export default function FileJobOutcomes({ job, rows }) {
                           : job.kind === "restore" && completed(entry)
                             ? copy.actions.restored
                             : copy.actions.outcomes[entry.status] ||
-                              copy.transfers.outcomeUnknown}
+                              (["cancelled", "interrupted"].includes(entry.status)
+                                ? copy.jobStates[entry.status]
+                                : copy.transfers.outcomeUnknown)}
                     </span>
                     {entry.issue && <p>{fileErrorMessage(entry.issue.code, 500)}</p>}
                   </li>

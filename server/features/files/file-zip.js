@@ -19,6 +19,7 @@ import {
   openArchiveArtifact,
 } from "./file-archive-publication.js";
 import { attachmentHeaders, ownedDownloadBytes } from "./file-downloads.js";
+import { retryTargetGuard } from "./file-retry-targets.js";
 export { openCheckedArchiveStream } from "./file-archive-stream.js";
 
 export class FileArchives {
@@ -162,7 +163,11 @@ export class FileArchives {
     let stage;
     try {
       signal.throwIfAborted();
-      stage = await this.publisher.stage(scope, target, { jobId, archive: true });
+      stage = await this.publisher.stage(scope, target, {
+        jobId,
+        archive: true,
+        targetGuard: retryTargetGuard(context),
+      });
       const proof = await writeArchive(this, { ...context, scope }, plan, stage);
       await assertArchiveManifest(this, { ...context, scope }, plan);
       await this.fresh(scope, mode);

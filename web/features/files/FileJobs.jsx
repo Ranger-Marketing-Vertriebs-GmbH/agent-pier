@@ -6,6 +6,7 @@ import FileJobCard from "./FileJobCard.jsx";
 import FileArchiveOmissions from "./FileArchiveOmissions.jsx";
 import FileJobRetry from "./FileJobRetry.jsx";
 import "./file-jobs.css";
+import { uploadOwnedJob } from "./file-job-ownership.js";
 
 export const isFileJobActive = (job) =>
   job && ["queued", "running", "waiting_for_conflict", "cancelling"].includes(job.status);
@@ -31,22 +32,24 @@ export default function FileJobs({ state, scopeId, scope, client, searchId, onRe
     state.children?.[state.uploadGroupId] || {},
   ).filter(Boolean);
   const currentHistory = state.history?.jobs || state.jobs;
+  const displayed = new Set(currentHistory.map((job) => job.id));
   const listed = [
     ...new Map(
       [
         ...currentHistory,
         ...state.jobs.filter(
-          (job) => isFileJobActive(job) || state.trackedIds.includes(job.id),
+          (job) =>
+            displayed.has(job.id) ||
+            isFileJobActive(job) ||
+            state.trackedIds.includes(job.id),
         ),
       ].map((job) => [job.id, job]),
     ).values(),
   ];
-  const waiting = [...selectedChildren, ...listed].find(
-    (job) => job.status === "waiting_for_conflict" && job.conflict,
-  );
   // Upload selections have their own bounded view and recovery controls above.
-  const visibleJobs = listed.filter(
-    (job) => !["upload", "upload_group"].includes(job.kind),
+  const visibleJobs = listed.filter((job) => !uploadOwnedJob(job));
+  const waiting = [...selectedChildren, ...visibleJobs].find(
+    (job) => job.status === "waiting_for_conflict" && job.conflict,
   );
   const history = async (next) => {
     if (historyPending) return;

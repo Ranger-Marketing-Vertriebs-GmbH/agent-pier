@@ -9,6 +9,7 @@ import {
 } from "./file-paths.js";
 import { inodeIdentity, contentIdentity } from "./file-stage.js";
 import { fileProblem } from "./file-errors.js";
+import { assertRetryDestinations, retryTargetGuard } from "./file-retry-targets.js";
 
 export function validateMutationOperation(op) {
   validateFileName(op.name);
@@ -77,10 +78,13 @@ export class FileMutations {
   rename(context) {
     return this.mutate(context, null);
   }
-  async mutate({ scope, operation, jobId, signal, report, conflict }, creationType) {
+  async mutate(context, creationType) {
+    let { scope } = context;
+    const { operation, jobId, signal, report, conflict } = context;
     if (!validateMutationOperation(operation))
       throw fileProblem("FILE_INVALID_OPERATION", 400);
     scope = await this.freshScope(scope);
+    await assertRetryDestinations({ ...context, scope });
     signal.throwIfAborted();
     const sourcePath = creationType ? null : operation.sources[0];
     let sourceRevision = sourcePath ? operation.options.revisions[sourcePath] : null;
@@ -166,12 +170,14 @@ export class FileMutations {
             expectedRevision,
             signal,
             refreshScope: () => this.freshScope(scope),
+            targetGuard: retryTargetGuard(context),
           });
         } else {
           const stage = await this.publisher.stage(scope, target, {
             jobId,
             type,
             followLeaf: false,
+            targetGuard: retryTargetGuard(context),
           });
           let started = false;
           try {

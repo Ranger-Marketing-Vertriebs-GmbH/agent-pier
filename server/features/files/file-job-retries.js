@@ -81,7 +81,7 @@ export class FileJobRetries {
     if (plan.reference !== retry.reference) throw retryUnavailable();
     return {
       operation: { ...plan.operation, requestId: this.store.getOperation(id).requestId },
-      retry: { targets: plan.targets, pins: plan.pins },
+      retry: { targets: plan.targets, pins: plan.pins, destinations: plan.destinations },
     };
   }
 }

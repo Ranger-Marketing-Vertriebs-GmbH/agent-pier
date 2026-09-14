@@ -48,4 +48,5 @@ export const fileTransfersCopy = {
   loadingRetry: "Checking source references and retained results …",
   retryCount: (count) => `${count} eligible entries in this complete selection.`,
   confirmRetry: "Confirm new retry",
+  retrySource: (path) => `Source: ${path}`,
 };

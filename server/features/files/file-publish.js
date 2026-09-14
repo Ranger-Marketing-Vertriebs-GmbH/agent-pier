@@ -87,6 +87,7 @@ export class FilePublisher {
       upload = false,
       archive = false,
       extract = null,
+      targetGuard,
     } = {},
   ) {
     if (
@@ -142,6 +143,7 @@ export class FilePublisher {
     };
     try {
       state.targetParentHandle = await openParent(this.native, state.target);
+      await targetGuard?.(selected, state.targetParentHandle);
       // Journal intent first; missing identities never authorize guessed cleanup.
       await this.#record(state, "creating", {
         targetParent: inodeIdentity(await state.targetParentHandle.stat()),

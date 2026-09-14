@@ -9,6 +9,7 @@ import {
 import { openTreeSource } from "./file-tree-transfer.js";
 import { scanTree } from "./file-tree.js";
 import { fileProblem, fileSystemProblem } from "./file-errors.js";
+import { assertRetryDestinations } from "./file-retry-targets.js";
 
 export const copyType = (stat) =>
   stat?.isDirectory()
@@ -59,6 +60,7 @@ async function assertSourcePrecondition(owner, scope, source, revision) {
 
 export async function planCopies(owner, context) {
   const { scope, operation, signal } = context;
+  await assertRetryDestinations(context);
   const retryPins =
     context.retry && new Map(context.retry.pins.map((pin) => [pin.source, pin]));
   const retryTargets =

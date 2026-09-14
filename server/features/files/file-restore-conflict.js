@@ -4,6 +4,7 @@ import { resolveFile, entryRevision } from "./file-paths.js";
 import { fileProblem } from "./file-errors.js";
 import { assertTree, treeRevision } from "./file-tree.js";
 import { inspect } from "./file-stage.js";
+import { assertRetryDestinations, retryTargetGuard } from "./file-retry-targets.js";
 
 export function restoreAuthority(trash, scope, record, revision) {
   let scanned = false;
@@ -50,6 +51,7 @@ export function assertRestoreType(record, selected) {
 
 export async function restoreSelection(trash, context) {
   const { scope, operation, conflict, signal, jobId } = context;
+  await assertRetryDestinations(context);
   const id = operation.sources[0];
   const record = trash.authorized(scope, id);
   const observed = await trash.observe(record);
@@ -128,5 +130,6 @@ export async function restoreSelection(trash, context) {
     signal,
     expectedRevision,
     expectedTrashRevision: observed.revision,
+    targetGuard: retryTargetGuard(context),
   });
 }

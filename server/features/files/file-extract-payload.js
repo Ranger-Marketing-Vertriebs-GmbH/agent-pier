@@ -6,6 +6,7 @@ import { fileProblem } from "./file-errors.js";
 import { nativeReadBytes } from "./file-native.js";
 import { extractCheckpoint } from "./file-extract-store.js";
 import { treeParent } from "./file-tree.js";
+import { retryTargetGuard } from "./file-retry-targets.js";
 
 export async function decodeExtractEntry(
   owner,
@@ -80,6 +81,7 @@ export async function prepareExtractGroup(owner, context, source, group, budget)
     stage = await publisher.stage(context.scope, group.root.path, {
       jobId: context.jobId,
       type: group.root.type,
+      targetGuard: retryTargetGuard(context),
       extract: { role: "output", rootId: group.root.id, group: group.id },
     });
     group.stageId = stage.id;

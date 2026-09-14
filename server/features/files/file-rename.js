@@ -112,6 +112,7 @@ export async function prepareRename({
       type,
       followLeaf: false,
       transferId: options.transferId,
+      targetGuard: options.targetGuard,
     });
     state = stateFor(stage);
     await state.handle?.sealWrites();

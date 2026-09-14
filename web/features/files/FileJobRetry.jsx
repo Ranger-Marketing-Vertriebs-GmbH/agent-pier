@@ -5,6 +5,17 @@ import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
 import { requestId } from "./file-action-utils.js";
 
 export default function FileJobRetry({ job, jobs, scope, onClose }) {
+  const hasDestination =
+    [
+      "copy",
+      "move",
+      "extract",
+      "restore",
+      "rename",
+      "create_file",
+      "create_directory",
+    ].includes(job.kind) ||
+    (job.kind === "archive" && job.archiveOutput === "file");
   const [proposal, setProposal] = useState(null),
     [error, setError] = useState(null);
   const [pending, setPending] = useState(false),
@@ -76,11 +87,18 @@ export default function FileJobRetry({ job, jobs, scope, onClose }) {
           <ul className="file-frozen-selection">
             {proposal.entries.slice(0, limit).map((row) => (
               <li key={row.id}>
-                {row.source && row.source !== row.path ? `${row.source} → ` : ""}
-                {row.path}
+                {row.source && <p>{copy.transfers.retrySource(row.source)}</p>}
+                {hasDestination ? (
+                  <p>{copy.actions.destination(row.path)}</p>
+                ) : (
+                  !row.source && <p>{row.path}</p>
+                )}
               </li>
             ))}
           </ul>
+          {job.kind === "archive" && job.archiveOutput === "download" && (
+            <p>{copy.transfers.actions.download_zip}</p>
+          )}
           {proposal.entries.length > limit && (
             <button
               className="button secondary compact"

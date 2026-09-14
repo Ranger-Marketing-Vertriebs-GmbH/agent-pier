@@ -1,4 +1,5 @@
 import path from "node:path";
+import { retryTargetGuard } from "./file-retry-targets.js";
 import { randomUUID } from "node:crypto";
 import { FileMutations, alternateName } from "./file-mutations.js";
 import { copyVerified, openTreeSource } from "./file-tree-transfer.js";
@@ -236,6 +237,7 @@ export class FileCopies extends FileMutations {
               signal,
               refreshScope: () => this.freshScope(scope),
               transferId,
+              targetGuard: retryTargetGuard(context),
             });
           } catch (error) {
             if (
@@ -303,6 +305,7 @@ export class FileCopies extends FileMutations {
       jobId,
       type: copyType(item.selected.stat),
       transferId,
+      targetGuard: retryTargetGuard(context),
     });
     let published = false,
       uncertain = false;
