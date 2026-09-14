@@ -31,7 +31,8 @@ node scripts/homebrew-formula.mjs /absolute/output-directory
 
 Tagged CI builds all platform packages, validates the complete asset set, creates
 or resumes a draft, uploads missing assets, downloads and verifies their contents,
-and only then publishes. `workflow_dispatch` only produces workflow artifacts.
+and only then publishes. Publication workflows are serialized, and publishing an
+older draft does not replace a newer latest release. `workflow_dispatch` only produces workflow artifacts.
 Channel timestamps use the source commit date so retrying the same build does not
 change `latest.json` merely because time elapsed.
 
@@ -65,7 +66,7 @@ available.
 The normal updater edits only the formula, not tap workflows. Its credential therefore
 needs no workflow-write permission. The first workflow installation is a separate
 repository-maintainer action. The automation never pushes directly to `main` or
-merges a PR. If an open PR already exists for that version, it returns its URL;
+merges a PR. If an open or merged PR already exists for that version, it returns its URL;
 inspect the existing PR rather than silently changing its reviewed contents.
 
 If a tap job fails after the app release publishes, the standalone installer remains
@@ -90,3 +91,9 @@ The standalone URL follows GitHub's latest published release once. The downloade
 script then uses immutable version URLs and checksums. A custom installer domain,
 Linux online setup, app upgrades through Brew, and a native `.app` bundle are outside
 this delivery.
+
+A manual workflow dispatch, including one run against a tag, never publishes or
+updates the tap. For a failed publication, rerun the original tag-push workflow job
+rather than starting a manual dispatch. Completing an older draft preserves the
+newer latest channel. Already merged version PRs are treated as completed; closed,
+unmerged version PRs require inspection instead of automatic reopening.

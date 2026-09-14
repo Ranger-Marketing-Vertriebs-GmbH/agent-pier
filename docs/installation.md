@@ -4,6 +4,68 @@ Für Linux siehe [Linux-Installation](linux.md). Diese Anleitung ist für die sp
 
 Beim ersten Öffnen einen Benutzer erstellen; anschließend mit Benutzername und Passwort anmelden. Das funktioniert auch über den freigegebenen Fernzugriff. Details zu Sitzungen und Wiederherstellung stehen unter [Anmeldung](login.md).
 
+## Ein-Befehl-Installation auf macOS
+
+Die folgenden Befehle gelten ab einem Release, das `install-agentpier.sh` enthält.
+Der Homebrew-Weg benötigt zusätzlich das veröffentlichte Tap mit einer geprüften
+Formel. Solange diese Veröffentlichung fehlt, die bestehende Release-Installation
+im nächsten Abschnitt verwenden. Die lokalen Änderungen allein stellen noch keinen
+öffentlichen Installer bereit.
+
+Auf einem nativen Apple-Silicon- oder Intel-Mac mit macOS 14 oder neuer:
+
+```sh
+(agentpier_tmp=$(mktemp -d) && trap 'rm -rf "$agentpier_tmp"' EXIT && curl --fail --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/latest/download/install-agentpier.sh -o "$agentpier_tmp/install.sh" && /bin/sh "$agentpier_tmp/install.sh")
+```
+
+Das Skript lädt zunächst das versionsgebundene Installer-Paket und prüft dessen
+SHA-256. Es richtet fehlende Voraussetzungen einschließlich Homebrew bei Bedarf
+über dessen offiziellen Installer ein. Bestätigungen, Command Line Tools und ein
+Administratorpasswort können erforderlich sein. Als normaler Benutzer ausführen,
+nicht mit `sudo`; auf Apple Silicon ein natives Terminal ohne Rosetta verwenden.
+
+Wenn Homebrew bereits installiert und das Tap veröffentlicht ist:
+
+```sh
+brew install ranger-marketing-vertriebs-gmbh/tap/agentpier-installer && agentpier-install
+```
+
+Beide Wege verwenden dieselbe Einrichtung. Standardmäßig liegen die Anwendung unter
+`~/.local/share/agentpier-app` und private Daten unter
+`~/Library/Application Support/AgentPier`. Der Login-Dienst startet AgentPier auf
+`http://127.0.0.1:4380`; Erfolg wird erst nach dem Versions-Healthcheck gemeldet.
+Benutzer und Anbieter-Accounts anschließend in der Oberfläche einrichten; Coding-CLIs
+lassen sich dort installieren. Fernzugriff wird separat eingerichtet.
+
+`agentpier-install --help` zeigt die Optionen. Mit `--no-service` nur die Anwendung
+installieren; `--install-root` und `--data-dir` überschreiben die Standardpfade.
+Die entsprechenden `AGENTPIER_INSTALL_ROOT`-/`AGENTPIER_DATA_DIR`-Umgebungsvariablen
+werden ebenfalls berücksichtigt. Verwende absolute, normalisierte Pfade ohne `..`;
+das Datenverzeichnis muss außerhalb des Anwendungsverzeichnisses liegen.
+`--dependencies-only` repariert ausschließlich fehlende Voraussetzungen.
+
+Nach einem Abbruch denselben Befehl erneut aufrufen. Eine passende bestehende
+Einrichtung wird wiederaufgenommen; eine bereits aktualisierte AgentPier-Version
+wird nicht zurückgesetzt. Bei einer fremden bestehenden Installation, abweichenden
+Datenpfaden oder belegtem Port meldet der Installer einen Konflikt, statt die andere
+Instanz zu überschreiben. Bestehende Source-Installationen werden nicht automatisch
+übernommen.
+
+**Anwendungsupdates bleiben unter Einstellungen → Updates.** `brew upgrade` oder
+`brew uninstall agentpier-installer` betrifft nur das Installer-Paket. Die laufende
+Anwendung, ihr Dienst und private Daten bleiben davon getrennt. Zum Stoppen des Dienstes einer Installation mit Standardpfad:
+
+```sh
+"$HOME/.local/share/agentpier-app/current/bin/node" "$HOME/.local/share/agentpier-app/current/scripts/service.mjs" stop
+```
+
+Zum Entfernen des Autostarts anschließend die Datei
+`~/Library/LaunchAgents/dev.agentpier.server.plist` entfernen. Bei eigenen Pfaden den
+Anwendungspfad im Befehl entsprechend anpassen. Anwendungsreleases und private Daten
+bleiben bestehen; Daten nur ausdrücklich entfernen.
+Die Versionsnummer der Brew-Formel bezeichnet den Installer, nicht zwingend die
+aktuell laufende AgentPier-Version.
+
 ## Versioniertes Release installieren
 
 Coding-CLIs lassen sich unabhängig von AgentPier-Releases unter **Deine Tools → CLI aktualisieren** aktualisieren. Details und manuelle Befehle stehen unter [CLI-Updates](cli-updates.md).

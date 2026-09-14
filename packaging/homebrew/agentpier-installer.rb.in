@@ -1,5 +1,8 @@
+# frozen_string_literal: true
+
 require "shellwords"
 
+# Homebrew entrypoint for the shared AgentPier installer.
 class AgentpierInstaller < Formula
   desc "Install AgentPier and its user service"
   homepage "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier"
@@ -8,8 +11,8 @@ class AgentpierInstaller < Formula
   sha256 "@@SHA256@@"
   license "Apache-2.0"
 
-  depends_on macos: :sonoma
   depends_on "git"
+  depends_on macos: :sonoma
   depends_on "tmux"
 
   def install

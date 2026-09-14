@@ -33,6 +33,14 @@ review and verification through reusable pipelines.
 
 ## Quick start
 
+For macOS, releases that include `install-agentpier.sh` support a one-command setup
+with automatic prerequisites and a login service. The same installer is distributed
+through our Homebrew tap once its formula is published. See the
+[macOS installer commands](docs/installation.md#ein-befehl-installation-auf-macos)
+for availability, paths, and retry behavior. Application updates remain in AgentPier.
+
+The source-based start below remains available on macOS and Linux.
+
 Use macOS or Linux with **Node.js 22.13+**, **Git** and **tmux**. Install at least
 one supported coding CLI, or use AgentPier's CLI installer after starting it.
 Provider accounts and any associated usage costs remain your responsibility.

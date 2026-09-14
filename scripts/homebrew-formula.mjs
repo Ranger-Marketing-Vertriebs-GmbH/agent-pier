@@ -23,8 +23,7 @@ if (isMainModule(import.meta.url)) {
   const { version, bundle } = JSON.parse(
     fs.readFileSync(path.join(directory, "installer.json")),
   );
-  fs.writeFileSync(
-    path.join(directory, "agentpier-installer.rb"),
-    renderInstallerFormula({ version, ...bundle }),
-  );
+  const output = path.join(directory, "agentpier-installer.rb");
+  fs.writeFileSync(output, renderInstallerFormula({ version, ...bundle }));
+  fs.chmodSync(output, 0o644);
 }

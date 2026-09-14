@@ -45,6 +45,7 @@ export async function updateHomebrewTap({ tapDirectory, metadata, run = execute 
   } else await git("switch", "-c", branch);
   await fs.mkdir(path.join(tapDirectory, "Formula"), { recursive: true });
   await fs.writeFile(path.join(tapDirectory, "Formula/agentpier-installer.rb"), formula);
+  await fs.chmod(path.join(tapDirectory, "Formula/agentpier-installer.rb"), 0o644);
   await git("add", "Formula/agentpier-installer.rb");
   if (await git("diff", "--cached", "--name-only"))
     await git("commit", "-m", `chore: update AgentPier installer to ${metadata.version}`);
