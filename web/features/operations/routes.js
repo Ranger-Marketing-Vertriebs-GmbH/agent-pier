@@ -1,4 +1,4 @@
-const sections = new Set([
+export const sections = new Set([
   "notifications",
   "diagnostics",
   "backups",

@@ -2,7 +2,6 @@ import { Router } from "express";
 import { isDeepStrictEqual } from "node:util";
 import { problem } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
-import { directLocalRequest } from "../login.js";
 import {
   normalizeNetworkConfig,
   readNetworkConfig,
@@ -12,10 +11,8 @@ import {
 import { restartService } from "../../features/operations/release-service.js";
 
 /** True when the request itself arrived through the plain network branch. */
-export function remoteLocked(req, config) {
-  const tailscaleHost =
-    config.remoteUrl && new URL(config.remoteUrl).host === req.headers.host;
-  return !(directLocalRequest(req, config) || tailscaleHost);
+export function remoteLocked(req) {
+  return req.trustBranch === "network";
 }
 
 export function remoteRoutes(services, { restart = restartService } = {}) {
@@ -34,7 +31,7 @@ export function remoteRoutes(services, { restart = restartService } = {}) {
         detected: networkState.detected,
         urls: networkUrls(saved, current.port, networkState.detected),
         restartRequired: !isDeepStrictEqual(saved, running),
-        locked: remoteLocked(req, current),
+        locked: remoteLocked(req),
       },
     };
   };
@@ -43,10 +40,7 @@ export function remoteRoutes(services, { restart = restartService } = {}) {
     const current = effective();
     const network = normalizeNetworkConfig(req.body?.network);
     const saved = readNetworkConfig(config.dataDir).network;
-    if (
-      remoteLocked(req, current) &&
-      !isDeepStrictEqual(network, { ...saved, enabled: false })
-    )
+    if (remoteLocked(req) && !isDeepStrictEqual(network, { ...saved, enabled: false }))
       throw problem(serverMessages.settings.networkLocked, 403);
     writeNetworkConfig(config.dataDir, network);
     audit?.append({

@@ -1,7 +1,7 @@
 import { serverMessages } from "../lib/i18n/de.js";
 import { problem } from "../lib/storage.js";
 export const appDocumentPath =
-  /^\/(?:accounts|repositories|settings(?:\/(?:notifications|diagnostics|backups|updates|audit|mcp|ssh))?|memory(?:\/[^/]+)?|pipelines(?:\/(?:runs|definitions|profiles|verification)(?:\/[^/]+)?)?|agentbus(?:\/messages(?:\/[^/]+)?)?|(?:extensions|plugins)(?:\/[^/]+)?|sessions\/[^/]+(?:\/(?:chat|reader|terminal|files))?)?\/?$/;
+  /^\/(?:accounts|repositories|settings(?:\/(?:notifications|diagnostics|backups|updates|audit|mcp|remote|ssh))?|memory(?:\/[^/]+)?|pipelines(?:\/(?:runs|definitions|profiles|verification)(?:\/[^/]+)?)?|agentbus(?:\/messages(?:\/[^/]+)?)?|(?:extensions|plugins)(?:\/[^/]+)?|sessions\/[^/]+(?:\/(?:chat|reader|terminal|files))?)?\/?$/;
 export function authorizeRequest(req, config, websocket = false) {
   if (req.headers.authorization)
     throw problem("Machine tokens are accepted only at the MCP endpoint.", 403);
@@ -25,14 +25,17 @@ export function authorizeRequest(req, config, websocket = false) {
     // Serve routes by TLS SNI and preserves Host: proxy markers must never enter the local trust branch.
     if (proxyMarkers) throw problem(serverMessages.http.proxyHostRequired, 403);
     expected = `http://${host}`;
+    req.trustBranch = "local";
   } else if (loopback && config.remoteUrl && new URL(config.remoteUrl).host === host) {
     if (!config.ownerLogin || req.headers["tailscale-user-login"] !== config.ownerLogin)
       throw problem(serverMessages.http.tailscaleAccountDenied, 403);
     expected = new URL(config.remoteUrl).origin;
+    req.trustBranch = "tailscale";
   } else if (config.network?.enabled && config.networkHosts?.has(host)) {
     // Plain network access: the login protects the workspace; Tailscale markers never downgrade here.
     if (tailscaleMarkers) throw problem(serverMessages.http.proxyHostRequired, 403);
     expected = `http://${host}`;
+    req.trustBranch = "network";
   } else if (!loopback) throw problem(serverMessages.http.networkHostNotAllowed, 403);
   else throw problem(serverMessages.http.hostNotAllowed, 403);
   // Top-level HTML navigation is read-only; WebKit may omit activation metadata.

@@ -50,11 +50,11 @@ export function loginRoutes(login, effective) {
     });
   router.get("/status", (req, res) => res.json(status(req)));
   router.post("/setup", async (req, res) => {
-    cookie(req, res, await login.setup(req.body));
+    cookie(req, res, await login.setup(req.body, req.socket.remoteAddress));
     res.status(201).json({ authenticated: true });
   });
   router.post("/login", async (req, res) => {
-    const token = await login.login(req.body);
+    const token = await login.login(req.body, req.socket.remoteAddress);
     login.revoke(sessionToken(req));
     cookie(req, res, token);
     res.json({ authenticated: true });

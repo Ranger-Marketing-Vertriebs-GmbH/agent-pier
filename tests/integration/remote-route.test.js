@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { createApplication } from "../../server/app.js";
 import { remoteLocked } from "../../server/http/routes/remote.js";
+import { authorizeRequest } from "../../server/http/security.js";
 import { writeNetworkConfig } from "../../server/features/remote/network-access.js";
 
 /** Sends a request with a raw Host header undici's fetch() cannot override. */
@@ -120,29 +121,42 @@ test("restart responds first and then calls the service adapter", async (t) => {
   await new Promise((resolve) => setTimeout(resolve, 500));
   assert.equal(f.restarts.length, 1);
 });
-test("requests through the network branch may only switch the mode off", () => {
+test("the lock follows the trust branch authorizeRequest actually took", () => {
   const config = {
     port: 4380,
-    remoteUrl: null,
-    network: { enabled: true, bind: "0.0.0.0", hosts: [] },
-    networkHosts: new Set(["192.168.1.20:4380"]),
+    remoteUrl: "https://host.example.ts.net:8443",
+    ownerLogin: "owner@example.com",
+    network: { enabled: true, bind: "0.0.0.0", hosts: ["host.example.ts.net"] },
+    networkHosts: new Set(["192.168.1.20:4380", "host.example.ts.net:8443"]),
   };
-  const lan = {
-    headers: { host: "192.168.1.20:4380" },
-    socket: { remoteAddress: "192.168.1.55" },
+  const request = (host, remoteAddress, headers = {}) => ({
+    headers: { host, ...headers },
+    method: "GET",
+    socket: { remoteAddress },
+  });
+  const locked = (req, current = config) => {
+    authorizeRequest(req, current);
+    return remoteLocked(req);
   };
-  const local = {
-    headers: { host: "127.0.0.1:4380" },
-    socket: { remoteAddress: "127.0.0.1" },
-  };
-  assert.equal(remoteLocked(lan, config), true);
-  assert.equal(remoteLocked(local, config), false);
-  const devConfig = { ...config, devOrigins: ["http://localhost:5173"] };
-  const dev = {
-    headers: { host: "localhost:5173" },
-    socket: { remoteAddress: "127.0.0.1" },
-  };
-  assert.equal(remoteLocked(dev, devConfig), false);
+  assert.equal(locked(request("192.168.1.20:4380", "192.168.1.55")), true);
+  assert.equal(locked(request("127.0.0.1:4380", "127.0.0.1")), false);
+  assert.equal(
+    locked(
+      request("host.example.ts.net:8443", "127.0.0.1", {
+        "tailscale-user-login": "owner@example.com",
+      }),
+    ),
+    false,
+  );
+  // The same name reached over plain HTTP from the LAN is the network branch, not Tailscale.
+  assert.equal(locked(request("host.example.ts.net:8443", "192.168.1.55")), true);
+  assert.equal(
+    locked(request("localhost:5173", "127.0.0.1"), {
+      ...config,
+      devOrigins: ["http://localhost:5173"],
+    }),
+    false,
+  );
 });
 test("a request through the network branch may only disable the mode, checked through the real route", async (t) => {
   const network = { enabled: true, bind: "0.0.0.0", hosts: ["agentpier.test"] };
