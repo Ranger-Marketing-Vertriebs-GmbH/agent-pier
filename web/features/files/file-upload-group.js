@@ -1,6 +1,8 @@
 import { fileClientIssue } from "./file-api.js";
 
-export const uploadRequestId = () => `${Date.now()}:${crypto.randomUUID()}`;
+import { browserUuid } from "../../lib/browser-uuid.js";
+
+export const uploadRequestId = () => `${Date.now()}:${browserUuid()}`;
 export const metadataBytes = (body) =>
   new TextEncoder().encode(JSON.stringify(body)).length;
 export function planUploadGroup(selection, folder, limits) {
@@ -15,7 +17,7 @@ export function planUploadGroup(selection, folder, limits) {
       type: "file",
       bytes: file.size,
     })),
-  ].map((entry) => Object.freeze({ id: crypto.randomUUID(), ...entry }));
+  ].map((entry) => Object.freeze({ id: browserUuid(), ...entry }));
   if (
     entries.length > limits.jobEntries ||
     entries.some((entry) => entry.bytes > limits.uploadBytes) ||
@@ -23,12 +25,12 @@ export function planUploadGroup(selection, folder, limits) {
   )
     throw fileClientIssue("FILE_LIMIT_EXCEEDED", 413);
   const batches = [];
-  let batch = { batchId: crypto.randomUUID(), entries: [] };
+  let batch = { batchId: browserUuid(), entries: [] };
   for (const entry of entries) {
     const next = { ...batch, entries: [...batch.entries, entry] };
     if (metadataBytes(next) >= 60 * 1024) {
       if (batch.entries.length) batches.push(Object.freeze(batch));
-      batch = { batchId: crypto.randomUUID(), entries: [entry] };
+      batch = { batchId: browserUuid(), entries: [entry] };
       if (metadataBytes(batch) >= 60 * 1024)
         throw fileClientIssue("FILE_LIMIT_EXCEEDED", 413);
     } else batch = next;

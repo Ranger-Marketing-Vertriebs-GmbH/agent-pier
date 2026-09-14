@@ -1,4 +1,5 @@
 import { fileErrorMessage } from "../../lib/i18n/messages/files.js";
+import { browserUuid } from "../../lib/browser-uuid.js";
 import { UploadJobObserver } from "./file-upload-observer.js";
 import { FileJobObserver } from "./file-job-observer.js";
 import { uploadOwnedJob, activeFileJob } from "./file-job-ownership.js";
@@ -48,7 +49,7 @@ export class FileJobClient {
         "/operations",
         scopeId,
         {
-          requestId: `${Date.now()}:${crypto.randomUUID()}`,
+          requestId: `${Date.now()}:${browserUuid()}`,
           ...operation,
         },
         true,

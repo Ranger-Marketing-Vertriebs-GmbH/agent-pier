@@ -1,4 +1,5 @@
 import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
+import { browserUuid } from "../../lib/browser-uuid.js";
 
 export const deliveryScope = (session) =>
   JSON.stringify([
@@ -343,7 +344,7 @@ export class ChatDraft {
         baselineIds: messages.filter((m) => m.role === "user").map((m) => m.id),
         status: "waiting",
       };
-      if (!this.write({ ...next, outbox, epoch: crypto.randomUUID(), revision: 0 }))
+      if (!this.write({ ...next, outbox, epoch: browserUuid(), revision: 0 }))
         return null;
       this.unsaved = {};
       return outbox;

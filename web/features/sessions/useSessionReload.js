@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
 import { sessionReloadCopy as copy } from "../../lib/i18n/messages/sessions.js";
+import { browserUuid } from "../../lib/browser-uuid.js";
 
 export default function useSessionReload(session, pending) {
   const path = `/sessions/${encodeURIComponent(session.id)}/reload`;
@@ -62,7 +63,7 @@ export default function useSessionReload(session, pending) {
       body = pending.current || {
         mode,
         interrupt,
-        requestId: crypto.randomUUID(),
+        requestId: browserUuid(),
         ...(targetAccountId ? { targetAccountId } : {}),
       };
     } catch {

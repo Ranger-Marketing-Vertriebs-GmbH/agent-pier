@@ -225,6 +225,9 @@ test("queued reload remains visible after closing and can be cancelled", async (
 test("ambiguous POST retries the same request after closing the dialog", async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    crypto.randomUUID = undefined;
+  });
   const state = await fixture(page);
   state.reload.activity = { state: "idle" };
   state.abortPost = true;
@@ -238,6 +241,9 @@ test("ambiguous POST retries the same request after closing the dialog", async (
   await expect(dialog(page)).toContainText("Conversation resumed");
   expect(state.posts).toHaveLength(2);
   expect(state.posts[1]).toEqual(state.posts[0]);
+  expect(state.posts[0].requestId).toMatch(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+  );
 });
 
 test("SSH reload requires saved assignments and advanced commands stay collapsed", async ({

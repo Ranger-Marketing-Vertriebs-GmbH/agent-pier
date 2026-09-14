@@ -1,4 +1,5 @@
 import { fileClientIssue } from "./file-api.js";
+import { browserUuid } from "../../lib/browser-uuid.js";
 import { collectUploadSelection } from "./file-upload-selection.js";
 import {
   planUploadGroup,
@@ -276,7 +277,7 @@ export class FileUploadClient {
   }
   makeGroup(folder) {
     return {
-      id: crypto.randomUUID(),
+      id: browserUuid(),
       folder,
       serverId: null,
       files: new Map(),

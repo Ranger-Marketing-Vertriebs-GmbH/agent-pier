@@ -1,4 +1,6 @@
-export const requestId = () => `${Date.now()}:${crypto.randomUUID()}`;
+import { browserUuid } from "../../lib/browser-uuid.js";
+
+export const requestId = () => `${Date.now()}:${browserUuid()}`;
 export const operation = (
   kind,
   sources = [],

@@ -6,6 +6,7 @@ import {
 import { serializeDocument } from "./file-text-format.js";
 import { fileClientIssue } from "./file-api.js";
 import { requestId } from "./file-action-utils.js";
+import { browserUuid } from "../../lib/browser-uuid.js";
 
 export function createFileEditorStore() {
   let state = emptyEditorState();
@@ -38,7 +39,7 @@ export function createFileEditorStore() {
       }
       if (existing) dispatch({ type: "close", id: existing.id });
       const tab = {
-        id: crypto.randomUUID(),
+        id: browserUuid(),
         client,
         scopeId,
         path,

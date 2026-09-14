@@ -1,6 +1,7 @@
 import FileEditorWorkspace from "./FileEditorWorkspace.jsx";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../lib/api.js";
+import { browserUuid } from "../../lib/browser-uuid.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Modal from "../../components/Modal.jsx";
 import CreateDirectory from "../directories/CreateDirectory.jsx";
@@ -292,7 +293,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
     const added = currentFavorite
       ? null
       : {
-          id: crypto.randomUUID(),
+          id: browserUuid(),
           name:
             path.split("/").filter(Boolean).at(-1) ||
             (context.kind === "project" ? copy.root : path),
@@ -520,7 +521,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
                         setActionRequest({ owner: actionOwner, kind: action, items })
                       }
                       onDrag={(items, event) => {
-                        const token = crypto.randomUUID();
+                        const token = browserUuid();
                         dragged.current = { owner: actionOwner, items, token };
                         event.dataTransfer.setData(
                           "application/x-agentpier-files",

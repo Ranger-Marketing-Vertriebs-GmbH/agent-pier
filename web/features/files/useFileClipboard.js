@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { browserUuid } from "../../lib/browser-uuid.js";
 
 export function retainedClipboard(items, rows) {
   const removed = new Set(
@@ -14,7 +15,7 @@ export default function useFileClipboard(owner) {
   const capture = (action, items) => {
     const token = {
       owner,
-      generation: crypto.randomUUID(),
+      generation: browserUuid(),
       action,
       items: items.map(({ path, revision }) => ({ path, revision })),
       jobs: [],

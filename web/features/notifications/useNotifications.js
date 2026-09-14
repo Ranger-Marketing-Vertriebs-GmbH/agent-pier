@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import api from "../../lib/api.js";
+import { browserUuid } from "../../lib/browser-uuid.js";
 import useResource from "../../lib/useResource.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import { notificationCopy as copy } from "../../lib/i18n/messages/notifications.js";
@@ -9,7 +10,7 @@ function deviceIdentity() {
   try {
     let value = localStorage.getItem(key);
     if (!value || !/^[a-f0-9-]{36}$/i.test(value)) {
-      value = crypto.randomUUID();
+      value = browserUuid();
       localStorage.setItem(key, value);
     }
     return value;
