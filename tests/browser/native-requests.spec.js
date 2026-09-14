@@ -174,48 +174,78 @@ for (const viewport of [
   { width: 1440, height: 1000 },
   { width: 390, height: 500 },
 ]) {
-  test(`Claude questions can be answered in Terminal at ${viewport.width}px`, async ({
+  const language = viewport.width === 390 ? "en" : "de";
+  test(`native question forms stay in Chat at ${viewport.width}px (${language})`, async ({
     page,
   }, testInfo) => {
+    await page.addInitScript((value) => {
+      localStorage.setItem("agentpier-language", value);
+    }, language);
     await page.setViewportSize(viewport);
-    await page.routeWebSocket("**/api/sessions/*/terminal", (socket) => {
-      socket.send(JSON.stringify({ type: "output", data: "Fixture terminal ready\r\n" }));
-    });
     const state = await operationsFixture(page);
+    const inputs = [];
+    await page.routeWebSocket("**/api/sessions/*/terminal", (socket) => {
+      socket.onMessage((message) => {
+        const data = JSON.parse(message);
+        if (data.type === "input") inputs.push(data.data);
+      });
+      socket.send(
+        JSON.stringify({
+          type: "output",
+          data: "Choose a scope\r\n1. Tests\r\n2. Docs\r\nNative terminal ready\r\n",
+        }),
+      );
+    });
+    state.requests = [{ ...request, source: "claude" }];
     await page.goto(baseURL + "/sessions/fixture-session/terminal");
     await expect(page.locator(".terminal-mount .xterm")).toBeVisible();
-    state.requests = [{ ...request, source: "claude" }];
-    const panel = page.locator(".terminal-pane .native-requests");
-    await expect(panel.getByText("Choose a scope", { exact: true })).toBeVisible();
+    await expect(page.locator(".xterm-rows")).toContainText("Native terminal ready");
+    await expect(page.locator(".native-requests")).toBeHidden();
+    await expect(page.locator(".chat-container")).toBeHidden();
+    const fullTerminal = await page.locator(".terminal-mount").boundingBox();
     await page.getByRole("button", { name: "Chat", exact: true }).click();
-    await expect(
-      page
-        .locator(".chat-container .native-requests")
-        .getByText("Choose a scope", { exact: true }),
-    ).toBeVisible();
-    await page.getByRole("button", { name: "Terminal", exact: true }).click();
+    const panel = page.locator(".chat-container .native-requests");
     await expect(panel.getByText("Choose a scope", { exact: true })).toBeVisible();
+    await expect(page.locator(".terminal-mount")).toBeHidden();
+    await page.getByRole("button", { name: "Terminal", exact: true }).click();
+    await expect(page.locator(".xterm-rows")).toContainText("Choose a scope");
+    await expect(page.locator(".native-requests")).toBeHidden();
+    await expect(page.locator(".chat-container")).toBeHidden();
     const terminal = await page.locator(".terminal-mount").boundingBox();
-    const bounds = await panel.boundingBox();
-    expect(terminal.height).toBeGreaterThan(40);
-    expect(bounds.y + bounds.height).toBeLessThanOrEqual(terminal.y);
+    expect(terminal.height).toBe(fullTerminal.height);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(viewport.width);
+    await page.locator(".xterm-helper-textarea").press("1");
+    await page.locator(".xterm-helper-textarea").press("Enter");
+    await expect.poll(() => inputs.join("")).toBe("1\r");
+    expect(state.calls.some((call) => call.path.endsWith("/answer"))).toBe(false);
+    await page.screenshot({ path: testInfo.outputPath("terminal-question.png") });
+    await page.getByRole("button", { name: "Chat", exact: true }).click();
+    await expect(panel.getByText("Choose a scope", { exact: true })).toBeVisible();
     await panel.getByLabel("Tests", { exact: true }).check();
-    await panel.getByRole("button", { name: "Nächste Frage", exact: true }).click();
+    await panel
+      .getByRole("button", {
+        name: language === "en" ? "Next question" : "Nächste Frage",
+        exact: true,
+      })
+      .click();
     await panel.getByLabel("Local", { exact: true }).check();
     await panel.evaluate((element) => {
       element.scrollTop = 0;
     });
-    await page.screenshot({ path: testInfo.outputPath("terminal-question.png") });
-    await panel.getByRole("button", { name: "Antwort senden", exact: true }).click();
+    await page.screenshot({ path: testInfo.outputPath("chat-question.png") });
+    await panel
+      .getByRole("button", {
+        name: language === "en" ? "Send answer" : "Antwort senden",
+        exact: true,
+      })
+      .click();
     await expect(panel).toHaveCount(0);
     expect(state.calls.find((call) => call.path.endsWith("/answer")).body).toEqual({
       expectedRevision: 1,
       answers: { "question-one": ["tests"], "question-two": ["local"] },
     });
-    await page.getByRole("button", { name: "Chat", exact: true }).click();
     await expect(page.getByText("Choose a scope", { exact: true })).toHaveCount(0);
   });
 }
