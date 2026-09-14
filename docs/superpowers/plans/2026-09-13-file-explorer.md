@@ -1275,7 +1275,7 @@ Modify `package.json`, `package-lock.json`, `file-downloads.js`, handler registr
 artifact, never a caller-supplied scratch path. Artifact retention follows job
 retention and never deletes a published archive in the user's target directory.
 
-- [ ] Write round-trip archive tests with yauzl, duplicate root names, Unicode, empty directories, skipped links, missing/changing sources, byte overflow and cancellation. Test archive readiness before browser download.
+- [x] Write round-trip archive tests with yauzl, duplicate root names, Unicode, empty directories, skipped links, missing/changing sources, byte overflow and cancellation. Test archive readiness before browser download.
 
 ```js
 test("a ZIP download is unavailable until its artifact is complete", async (t) => {
@@ -1290,8 +1290,8 @@ test("a ZIP download is unavailable until its artifact is complete", async (t) =
 });
 ```
 
-- [ ] Define `startArchiveJob(f,{output})` locally: create fixture sources, post `archive` with a fresh scope header and request ID. Inject a handler barrier in this test so pending cannot finish before the 409 assertion. Run new suites red; install `npm install --save-exact yazl@3.3.1`.
-- [ ] Traverse a bounded manifest without following links. Present the link-omission manifest as a conflict/confirmation before creating output. Validate missing sources up front and again per opened file. Feed checked readable streams lazily to yazl and persist progress; include empty directory entries.
+- [x] Define `startArchiveJob(f,{output})` locally: create fixture sources, post `archive` with a fresh scope header and request ID. Inject a handler barrier in this test so pending cannot finish before the 409 assertion. Run new suites red; install `npm install --save-exact yazl@3.3.1`.
+- [x] Traverse a bounded manifest without following links. Present the link-omission manifest as a conflict/confirmation before creating output. Validate missing sources up front and again per opened file. Feed checked readable streams lazily to yazl and persist progress; include empty directory entries.
 
 ```js
 const zip = new yazl.ZipFile();
@@ -1309,8 +1309,27 @@ zip.end({ forceZip64Format: true });
 await pipeline(zip.outputStream, output, { signal });
 ```
 
-- [ ] Implement `openCheckedArchiveStream(scope,path,revision,signal)` in `file-zip.js`: resolve/open regular descriptor, verify identity/revision, enforce running budgets and close on error/abort. ZIP64 covers the approved multi-GiB sizes. For `file`, use publisher/trash; for `download`, create a private completed artifact and return a job-bound URL. A missing source fails archive completion; no downloadable partial artifact remains.
-- [ ] Run the two suites and normal transfer tests; commit: `git commit -m "feat: create ZIP archives and folder downloads"`.
+- [x] Implement `openCheckedArchiveStream(scope,path,revision,signal)` in `file-zip.js`: resolve/open regular descriptor, verify identity/revision, enforce running budgets and close on error/abort. ZIP64 covers the approved multi-GiB sizes. For `file`, use publisher/trash; for `download`, create a private completed artifact and return a job-bound URL. A missing source fails archive completion; no downloadable partial artifact remains.
+- [x] Run the two suites and normal transfer tests; commit: `git commit -m "feat: create ZIP archives and folder downloads"`.
+
+**Accepted implementation:** `6b9d94a` follows the initial `08dc87f` and scoped
+correction `573b883`. Independent specification and quality review closes all four
+Important findings and the target-type Minor. Durable validated archive proof is
+bound before restart recovery can expose private bytes; cancellation keeps private
+artifacts unavailable while already proven public output retains truthful accounting
+and recoverable displaced originals. Selected global symlink/.. semantics remain
+intact. Claims protect queued and active downloads from private-artifact retention.
+Final focused validation passes 242 tests without skips, including seven real
+SIGKILL/restart cases and four public cancellation/recovery cases with actual Trash
+restoration. Final lint, formatting, structure and build pass. The sole earlier
+local full backend run passed 1,878 of 1,882 with four skips before later corrections.
+Accepted CI head `5616747` adds reviewed test diagnostics (`776abd6`) and a native
+folder-selection ordering correction; it changes no product behavior. All 17 checks
+pass. Actual PR and push Linux24 each pass 1,894 of 1,901 with seven documented skips;
+PR Chromium passes 472, and PR WebKit passes 470 with two existing PWA skips plus 15
+timing regressions. The earlier isolated copy/upload-retention and native WebKit
+failure causes remain unknown; the controlled ordering probe does not establish a
+native engine cause. Required final filesystem and package evidence remains Task22.
 
 ## Task 16: Validiertes Entpacken mit begrenztem Arbeitsbereich
 
