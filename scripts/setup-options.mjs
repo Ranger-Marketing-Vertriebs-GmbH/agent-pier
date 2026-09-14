@@ -1,6 +1,7 @@
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { isMainModule } from "../server/lib/is-main-module.js";
 
 export function resolveSetupOptions(args, { home, env, platform, arch }) {
   if (platform !== "darwin")
@@ -31,16 +32,25 @@ export function resolveSetupOptions(args, { home, env, platform, arch }) {
   )
     throw Error("--dependencies-only cannot be combined with other setup options.");
 
+  const defaultInstallRoot = path.join(home, ".local/share/agentpier-app");
+  const defaultDataDir = path.join(home, "Library/Application Support/AgentPier");
+  if (present.has("--dependencies-only"))
+    return {
+      installRoot: defaultInstallRoot,
+      dataDir: defaultDataDir,
+      service: true,
+      installDependencies: true,
+      dependenciesOnly: true,
+      resume: true,
+    };
+
   const installRoot =
-    values["--install-root"] ||
-    env.AGENTPIER_INSTALL_ROOT ||
-    path.join(home, ".local/share/agentpier-app");
-  const dataDir =
-    values["--data-dir"] ||
-    env.AGENTPIER_DATA_DIR ||
-    path.join(home, "Library/Application Support/AgentPier");
+    values["--install-root"] || env.AGENTPIER_INSTALL_ROOT || defaultInstallRoot;
+  const dataDir = values["--data-dir"] || env.AGENTPIER_DATA_DIR || defaultDataDir;
   if (!path.isAbsolute(installRoot) || !path.isAbsolute(dataDir))
     throw Error("Setup paths must be absolute.");
+  if (path.resolve(installRoot) !== installRoot || path.resolve(dataDir) !== dataDir)
+    throw Error("Setup requires normalized absolute paths without dot segments.");
   const relativeData = path.relative(path.resolve(installRoot), path.resolve(dataDir));
   if (!relativeData || (!relativeData.startsWith("..") && !path.isAbsolute(relativeData)))
     throw Error("The data directory must be outside the install root.");
@@ -71,7 +81,7 @@ export function installerArguments(options, version) {
   return args;
 }
 
-if (process.env.AGENTPIER_SETUP_RUN === "1") {
+if (isMainModule(import.meta.url)) {
   try {
     const options = resolveSetupOptions(process.argv.slice(2), {
       home: process.env.HOME,

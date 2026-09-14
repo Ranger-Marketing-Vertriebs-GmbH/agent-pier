@@ -9,8 +9,6 @@ if [ "${1:-}" = --setup ]; then
   shift
   validate_setup_options "$@"
   INSTALL_TARGET="$SCRIPT_DIR/setup-options.mjs"
-  AGENTPIER_SETUP_RUN=1
-  export AGENTPIER_SETUP_RUN
 else
   validate_installer_options "$@"
   INSTALL_TARGET="$SCRIPT_DIR/release-install.mjs"
@@ -32,4 +30,6 @@ EXPECTED=$(awk -v name="$NAME.tar.gz" '$2==name { print $1 }' "$TEMP_ROOT/checks
 if command -v sha256sum >/dev/null 2>&1; then ACTUAL=$(sha256sum "$TEMP_ROOT/node.tar.gz" | awk '{print $1}'); else ACTUAL=$(shasum -a 256 "$TEMP_ROOT/node.tar.gz" | awk '{print $1}'); fi
 [ -n "$EXPECTED" ] && [ "$EXPECTED" = "$ACTUAL" ] || { echo 'Official Node checksum mismatch.' >&2; exit 1; }
 tar -xzf "$TEMP_ROOT/node.tar.gz" -C "$TEMP_ROOT" --strip-components 2 "$NAME/bin/node"
+PATH="$TEMP_ROOT:$PATH"
+export PATH
 "$TEMP_ROOT/node" "$INSTALL_TARGET" "$@"

@@ -9,7 +9,8 @@ case "${1:-}" in
   --help)
     [ "$#" -eq 1 ] || { echo 'The --help option cannot be combined.' >&2; exit 1; }
     cat <<'EOF'
-Usage: setup.sh [options]
+AgentPier setup
+Usage: agentpier-install [options]
   --no-service          Install without the login service
   --install-root PATH   Application installation directory
   --data-dir PATH       Private application data directory
@@ -41,9 +42,9 @@ esac
 
 [ "$(uname -s)" = Darwin ] || { echo 'AgentPier setup currently supports macOS only.' >&2; exit 1; }
 SETUP_MACOS_VERSION=$(sw_vers -productVersion)
-case "${SETUP_MACOS_VERSION%%.*}" in
-  ''|*[!0-9]*|0|1[0-3]) echo 'AgentPier setup requires macOS 14 or newer.' >&2; exit 1;;
-esac
+SETUP_MACOS_MAJOR=${SETUP_MACOS_VERSION%%.*}
+case "$SETUP_MACOS_MAJOR" in ''|*[!0-9]*) SETUP_MACOS_MAJOR=0;; esac
+[ "$SETUP_MACOS_MAJOR" -ge 14 ] || { echo 'AgentPier setup requires macOS 14 or newer.' >&2; exit 1; }
 [ "$(id -u)" != 0 ] || { echo 'Run AgentPier setup as a non-root user.' >&2; exit 1; }
 case $(uname -m) in
   arm64) ;;

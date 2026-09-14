@@ -123,6 +123,19 @@ test("installer arguments pin the first release while retaining setup defaults",
 });
 
 test("dependency repair omits release, path, resume, and service arguments", () => {
-  const options = resolveSetupOptions(["--dependencies-only"], context());
+  const options = resolveSetupOptions(
+    ["--dependencies-only"],
+    context({
+      env: { AGENTPIER_INSTALL_ROOT: "relative", AGENTPIER_DATA_DIR: "also-relative" },
+    }),
+  );
   assert.deepEqual(installerArguments(options, "1.17.0"), ["--dependencies-only"]);
 });
+
+for (const ambiguous of ["/tmp/app/", "/tmp/./app", "/tmp/other/../app", "/tmp//app"])
+  test(`setup rejects ambiguous path spelling ${ambiguous}`, () => {
+    assert.throws(
+      () => resolveSetupOptions(["--install-root", ambiguous], context()),
+      /normalized absolute paths/,
+    );
+  });

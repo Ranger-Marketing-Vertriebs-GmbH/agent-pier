@@ -64,6 +64,15 @@ validate_setup_options() {
   [ "$SETUP_ONLY" = 1 ] && return 0
   case "$SETUP_ROOT" in /*) ;; *) echo 'Setup paths must be absolute.' >&2; return 1;; esac
   case "$SETUP_DATA" in /*) ;; *) echo 'Setup paths must be absolute.' >&2; return 1;; esac
+  for SETUP_PATH in "$SETUP_ROOT" "$SETUP_DATA"; do
+    case "$SETUP_PATH" in
+      /|*[!/]) ;;
+      *) echo 'Setup requires normalized absolute paths without dot segments.' >&2; return 1;;
+    esac
+    case "$SETUP_PATH/" in
+      *'/./'*|*'/../'*|*'//'*) echo 'Setup requires normalized absolute paths without dot segments.' >&2; return 1;;
+    esac
+  done
   case "$SETUP_DATA/" in
     "$SETUP_ROOT/"*) echo 'The data directory must be outside the install root.' >&2; return 1;;
   esac

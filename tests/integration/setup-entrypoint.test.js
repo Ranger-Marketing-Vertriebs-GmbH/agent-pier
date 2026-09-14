@@ -15,6 +15,11 @@ async function fixture(t, overrides = {}) {
   const bin = path.join(root, "bin");
   await fs.mkdir(scripts);
   await fs.mkdir(bin);
+  await fs.mkdir(path.join(root, "server/lib"), { recursive: true });
+  await fs.copyFile(
+    path.resolve("server/lib/is-main-module.js"),
+    path.join(root, "server/lib/is-main-module.js"),
+  );
   for (const name of [
     "setup.sh",
     "setup-options.mjs",
@@ -42,7 +47,9 @@ async function fixture(t, overrides = {}) {
   await tool("sysctl", `echo ${overrides.translated || "0"}`);
   await tool(
     "node",
-    `if [ "$(basename "$1")" = setup-options.mjs ]; then exec ${JSON.stringify(process.execPath)} "$@"; fi`,
+    `if [ "$(basename "$1")" = setup-options.mjs ]; then exec ${JSON.stringify(process.execPath)} "$@"; fi
+printf 'node-argc=%s\n' "$#" >> "$FIXTURE_CALLS"
+for argument in "$@"; do printf 'node-arg=%s\n' "$argument" >> "$FIXTURE_CALLS"; done`,
   );
   for (const name of ["curl", "brew", "sudo", "launchctl"]) await tool(name, "exit 0");
   return {
@@ -62,7 +69,7 @@ async function fixture(t, overrides = {}) {
 }
 
 for (const [name, args, output] of [
-  ["help", ["--help"], /Usage:/],
+  ["help", ["--help"], /AgentPier setup/],
   ["version", ["--version"], /^1\.17\.0/m],
 ])
   test(`${name} is side-effect free without Node`, async (t) => {
@@ -77,16 +84,22 @@ for (const args of [
   ["--unknown"],
   ["--data-dir"],
   ["--install-root", "relative"],
+  ["--install-root", "/tmp/app/", "--data-dir", "/tmp/app/data"],
+  ["--install-root", "/tmp/./app", "--data-dir", "/tmp/app/data"],
   ["--dependencies-only", "--no-service"],
 ])
   test(`invalid input ${args.join(" ")} has no side effects`, async (t) => {
     const ctx = await fixture(t);
-    await assert.rejects(ctx.run(args), /option|value|absolute|combined/i);
+    await assert.rejects(
+      ctx.run(args),
+      /option|value|absolute|combined|outside|normalized/i,
+    );
     assert.equal(await ctx.readCalls(), "");
   });
 
 for (const [name, overrides, message] of [
   ["old macOS", { osVersion: "13.6" }, /macOS 14/],
+  ["single-digit macOS", { osVersion: "9.6" }, /macOS 14/],
   ["root user", { uid: "0" }, /root/],
   ["unknown architecture", { machine: "mips" }, /architecture/],
   ["Rosetta", { machine: "x86_64", translated: "1" }, /native terminal/],
@@ -108,8 +121,27 @@ test("setup forwards resolved no-service paths as separately quoted arguments", 
   ]);
   const calls = await ctx.readCalls();
   assert.match(calls, /release-install\.mjs/);
-  assert.match(calls, /--install-root \/tmp\/app root --data-dir \/tmp\/private data/);
+  assert.match(calls, /node-arg=\/tmp\/app root/);
+  assert.match(calls, /node-arg=\/tmp\/private data/);
+  assert.match(calls, /node-argc=8/);
   assert.doesNotMatch(calls, /--service/);
+});
+
+test("importing setup options with setup-like environment has no side effect", async (t) => {
+  const ctx = await fixture(t);
+  const moduleUrl = new URL(`file://${path.join(ctx.root, "scripts/setup-options.mjs")}`);
+  await execute(
+    process.execPath,
+    ["--input-type=module", "-e", `import(${JSON.stringify(moduleUrl.href)})`],
+    {
+      env: {
+        ...process.env,
+        AGENTPIER_SETUP_RUN: "1",
+        FIXTURE_CALLS: ctx.calls,
+      },
+    },
+  );
+  assert.equal(await ctx.readCalls(), "");
 });
 
 test("dependency repair forwards only dependency options", async (t) => {
@@ -133,8 +165,58 @@ test("setup preserves a nonstandard Homebrew prefix in the bootstrap PATH", asyn
   );
   await fs.chmod(path.join(ctx.root, "bin/brew"), 0o755);
   await ctx.run(["--no-service"]);
+  const releaseInvocation = (await ctx.readCalls())
+    .split("\n")
+    .find((line) => line.startsWith("node ") && line.includes("release-install.mjs"));
   assert.match(
-    await ctx.readCalls(),
+    releaseInvocation,
     new RegExp(prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
   );
+});
+
+test("setup reuses one verified temporary Node bootstrap for delegation", async (t) => {
+  const ctx = await fixture(t);
+  const bin = path.join(ctx.root, "bin");
+  await fs.writeFile(path.join(bin, "node"), "#!/bin/sh\nexit 1\n");
+  await fs.writeFile(
+    path.join(bin, "curl"),
+    `#!/bin/sh
+echo curl >> "$FIXTURE_CALLS"
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = -o ]; then output=$2; shift; fi
+  shift
+done
+case "$output" in
+  *checksums) echo 'abc node-v22.22.2-darwin-arm64.tar.gz' > "$output";;
+  *) echo archive > "$output";;
+esac
+`,
+  );
+  await fs.writeFile(path.join(bin, "sha256sum"), "#!/bin/sh\necho 'abc  fixture'\n");
+  await fs.writeFile(
+    path.join(bin, "tar"),
+    `#!/bin/sh
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = -C ]; then target=$2; shift; fi
+  shift
+done
+printf '%s\n' '#!/bin/sh' \
+  'echo "bootstrap-node $*" >> "$FIXTURE_CALLS"' \
+  'if [ "$1" = -e ]; then exit 0; fi' \
+  'if [ "$(basename "$1")" = setup-options.mjs ]; then exec ${process.execPath} "$@"; fi' \
+  'printf "node-argc=%s\\n" "$#" >> "$FIXTURE_CALLS"' \
+  'for argument in "$@"; do printf "node-arg=%s\\n" "$argument" >> "$FIXTURE_CALLS"; done' \
+  > "$target/node"
+chmod 755 "$target/node"
+`,
+  );
+  for (const name of ["node", "curl", "sha256sum", "tar"])
+    await fs.chmod(path.join(bin, name), 0o755);
+
+  await ctx.run(["--no-service"]);
+  const calls = await ctx.readCalls();
+  assert.equal(calls.split("\n").filter((line) => line === "curl").length, 2);
+  assert.match(calls, /bootstrap-node .*setup-options\.mjs/);
+  assert.match(calls, /bootstrap-node -e/);
+  assert.match(calls, /node-arg=.*release-install\.mjs/);
 });
