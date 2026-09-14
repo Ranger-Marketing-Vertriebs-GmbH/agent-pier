@@ -32,4 +32,19 @@ export const scripts = Object.freeze({
   userServiceConfigured: (port) =>
     `AgentPier-Benutzerdienst eingerichtet: http://127.0.0.1:${port}`,
   serviceConfigured: (port) => `AgentPier-Dienst eingerichtet: http://127.0.0.1:${port}`,
+  remoteUsage: (commands) =>
+    `Verwendung: npm run remote -- <${commands}> [--bind <IP>] [--host <Name>]... [--add <Name>] [--remove <Name>] [--accept-plain-http] [--no-restart]`,
+  remoteFlagValueRequired: (flag) => `${flag} benötigt einen Wert.`,
+  remoteStatus: (enabled, bind, dataDir) =>
+    `Netzwerkzugriff: ${enabled ? `aktiv auf ${bind}` : "aus"} · Datenverzeichnis ${dataDir}\nErreichbare Adressen bei aktivem Modus:`,
+  remotePlainHttpWarning:
+    "WARNUNG: Netzwerkzugriff ohne TLS. Passwort und Inhalte gehen unverschlüsselt durchs Netz. Keine Push-Benachrichtigungen und keine PWA-Installation. Nur in vertrauenswürdigen Netzen verwenden und keine Portweiterleitung ins Internet einrichten.",
+  remoteAcceptRequired: "Zum Einschalten --accept-plain-http angeben.",
+  remoteRestartSkipped:
+    "Neustart übersprungen. Änderungen gelten nach dem nächsten Dienststart.",
+  remoteServiceMissing:
+    "Kein installierter Dienst gefunden. Neustart manuell mit npm run service:install oder npm start.",
+  remoteRestarted: "Dienst neu gestartet und erreichbar.",
+  remoteUnhealthy: (port) =>
+    `Dienst antwortet nach dem Neustart nicht auf http://127.0.0.1:${port}/api/health. Bitte Dienststatus prüfen.`,
 });
