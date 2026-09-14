@@ -5,7 +5,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { createApplication } from "../../server/app.js";
-import { remoteRoutes, remoteLocked } from "../../server/http/routes/remote.js";
+import { remoteLocked } from "../../server/http/routes/remote.js";
 import { writeNetworkConfig } from "../../server/features/remote/network-access.js";
 
 /** Sends a request with a raw Host header undici's fetch() cannot override. */
