@@ -1,3 +1,4 @@
+import { FileEditorProvider } from "../features/files/file-editor-context.jsx";
 import useLanguage from "../lib/i18n/useLanguage.js";
 import MemoryPage from "../features/memory/MemoryPage.jsx";
 import { commonCopy } from "../lib/i18n/messages/common.js";
@@ -22,6 +23,13 @@ const PipelinePage = lazy(() => import("../features/pipelines/PipelinePage.jsx")
 const AgentBus = lazy(() => import("../features/agentbus/AgentBusPage.jsx"));
 const FilesPage = lazy(() => import("../features/files/FilesPage.jsx"));
 export default function App() {
+  return (
+    <FileEditorProvider>
+      <Application />
+    </FileEditorProvider>
+  );
+}
+function Application() {
   useLanguage();
   const { state, loading, error, ready, refresh } = useWorkspaceState();
   const [modal, setModal] = useState(null),

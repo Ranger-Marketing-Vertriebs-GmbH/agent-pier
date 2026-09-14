@@ -1,3 +1,4 @@
+import FileEditorWorkspace from "./FileEditorWorkspace.jsx";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../lib/api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
@@ -584,6 +585,12 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
           )}
         </>
       )}
+      <FileEditorWorkspace
+        client={client}
+        context={context}
+        path={route.file}
+        canOpen={preview?.type === "text"}
+      />
     </section>
   );
 }

@@ -1,0 +1,115 @@
+.file-editor {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+}
+.file-editor-tabs {
+  display: flex;
+  overflow-x: auto;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.file-editor-tabs button {
+  flex: 0 0 auto;
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-editor-tabs [aria-selected="true"] {
+  border-color: var(--accent);
+}
+.file-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+.file-editor-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.file-editor-view {
+  min-width: 0;
+  color: #e8e8ec;
+  background: #101114;
+}
+.file-editor-view .cm-editor {
+  height: 380px;
+  font-size: 14px;
+}
+.file-editor-view .cm-scroller {
+  overflow: auto;
+}
+.file-editor-view .cm-gutters,
+.file-editor-view .cm-panels {
+  color: #e8e8ec;
+  background: var(--panel);
+}
+.file-editor-view .cm-search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-right: 28px;
+}
+.file-editor-view .cm-search input {
+  min-width: 0;
+  max-width: 100%;
+}
+.file-editor-view .cm-content {
+  caret-color: #e8e8ec;
+}
+.file-editor-path {
+  overflow-wrap: anywhere;
+}
+.file-editor-save-as {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.file-editor-save-as input[type="text"] {
+  min-width: 0;
+  flex: 1;
+}
+@media (max-width: 700px) {
+  .file-editor {
+    padding: 8px;
+  }
+  .file-editor-toolbar button {
+    min-height: 40px;
+  }
+  .file-editor-view .cm-editor {
+    height: 320px;
+  }
+}
+
+.file-editor button {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 10px;
+  background: var(--panel);
+  color: inherit;
+  cursor: pointer;
+}
+.file-editor button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.file-editor-view .cm-search .cm-textfield,
+.file-editor-view .cm-search .cm-button {
+  color: #e8e8ec;
+  background: #18191d;
+  border: 1px solid #555760;
+  border-radius: 4px;
+}
+.file-editor-view .cm-search button[name="close"] {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 3px 5px;
+}
