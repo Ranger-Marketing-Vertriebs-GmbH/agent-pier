@@ -107,6 +107,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
           next: operation.route,
           reason: "history",
           commit: () => {
+            if (activeIntent.current !== operation) return;
             const delta = operation.to - operation.from;
             if (!delta) {
               index.current = operation.to;
@@ -158,7 +159,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
       }
       const route = readRoute(window.location);
       if (Number.isSafeInteger(targetIndex) && targetIndex !== index.current) {
-        historyOperation.current = {
+        const nextOperation = {
           phase: "restore",
           from: index.current,
           to: targetIndex,
@@ -167,6 +168,8 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
           physicalIndex: targetIndex,
           cancelled: false,
         };
+        activeIntent.current = nextOperation;
+        historyOperation.current = nextOperation;
         window.history.go(index.current - targetIndex);
         return;
       }

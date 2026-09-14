@@ -288,6 +288,54 @@ test("rapid Back Forward returns to the current indexed entry without a stale co
   );
 });
 
+test("a newer indexed traversal owns history before an older save completes", async ({
+  page,
+}) => {
+  const saveGate = deferred();
+  const editor = await setup(page, { saveGate });
+  await editor.fill("original");
+  await page.getByRole("button", { name: "Accounts", exact: true }).click();
+  const target = {
+    url: page.url(),
+    index: await page.evaluate(() => history.state.agentPierNavigationIndex),
+  };
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Files", exact: true }).click();
+  await editor.fill("overlap draft");
+  const length = await page.evaluate(() => history.length);
+  await page.goBack({ waitUntil: "commit" }).catch(() => {});
+  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await page.getByRole("button", { name: "Save and continue", exact: true }).click();
+  await page.evaluate((targetIndex) => {
+    const go = history.go.bind(history);
+    window.__newerTraversalObserved = false;
+    addEventListener("popstate", (event) => {
+      if (event.state?.agentPierNavigationIndex === targetIndex)
+        queueMicrotask(() => {
+          window.__newerTraversalObserved = true;
+        });
+    });
+    history.go = (delta) => {
+      if (delta > 0) setTimeout(() => go(delta), 250);
+      else go(delta);
+    };
+    history.go(-2);
+  }, target.index);
+  await expect
+    .poll(() => page.evaluate(() => window.__newerTraversalObserved))
+    .toBe(true);
+  await expect(page).toHaveURL(target.url);
+  saveGate.resolve();
+  await expect(
+    page.getByRole("heading", { name: "Your accounts", exact: true }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(target.url);
+  expect(await page.evaluate(() => history.state.agentPierNavigationIndex)).toBe(
+    target.index,
+  );
+  expect(await page.evaluate(() => history.length)).toBe(length);
+});
+
 test("navigation index preserves unrelated history state", async ({ page }) => {
   await setup(page);
   await page.evaluate(() => history.replaceState({ foreign: "keep" }, ""));
