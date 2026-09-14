@@ -1540,7 +1540,7 @@ path; each tab stores `{document,text,dirty,editorState,scrollTop}` in memory.
 keeps the tab's EditorState on switches. `loadLanguage(filename) → Promise<Extension>`
 returns empty extensions for unknown text languages.
 
-- [ ] Test dirty calculation against the opened/saved baseline, tab identity in different scopes, cursor/undo retention and response order when switching files quickly. Add browser save, tabs and search/replace tests.
+- [x] Test dirty calculation against the opened/saved baseline, tab identity in different scopes, cursor/undo retention and response order when switching files quickly. Add browser save, tabs and search/replace tests.
 
 ```js
 test("switching tabs preserves an unsaved draft", async ({ page }) => {
@@ -1555,13 +1555,13 @@ test("switching tabs preserves an unsaved draft", async ({ page }) => {
 });
 ```
 
-- [ ] Run reducer tests and build/browser test red. Install the pinned packages:
+- [x] Run reducer tests and build/browser test red. Install the pinned packages:
 
 ```sh
 npm install --save-exact @codemirror/state@6.7.4 @codemirror/view@6.43.11 @codemirror/commands@6.11.0 @codemirror/search@6.7.2 @codemirror/language@6.12.4 @codemirror/merge@6.12.2 @codemirror/lang-javascript@6.2.5 @codemirror/lang-json@6.0.2 @codemirror/lang-html@6.4.12 @codemirror/lang-css@6.3.1 @codemirror/lang-markdown@6.5.2 @codemirror/lang-python@6.2.1 @codemirror/lang-yaml@6.1.3 @codemirror/legacy-modes@6.5.4
 ```
 
-- [ ] Implement the reducer and a lazy-loaded editor with history, search, brackets, line numbers, syntax highlighting and save binding. Localize CodeMirror built-in phrases through `EditorState.phrases`; label the contenteditable element and disable browser spelling/capitalization for code.
+- [x] Implement the reducer and a lazy-loaded editor with history, search, brackets, line numbers, syntax highlighting and save binding. Localize CodeMirror built-in phrases through `EditorState.phrases`; label the contenteditable element and disable browser spelling/capitalization for code.
 
 ```js
 const state = EditorState.create({
@@ -1593,8 +1593,10 @@ const state = EditorState.create({
 });
 ```
 
-- [ ] Map JS/JSX/TS/TSX, JSON, HTML, CSS, Markdown, Python, YAML to language packages; Shell/TOML use `StreamLanguage` and `legacy-modes`. Import language modules lazily and discard outdated loads when the tab changes. Plain text works without a language module. Keep Ctrl/Cmd+S and visible save available, with clear saving/saved/failed state.
-- [ ] Test English built-in search text, read-only files, UTF-8/BOM/CRLF preservation and mobile viewport in both browsers; inspect Vite chunks to ensure the editor is absent from initial application code. Commit: `git commit -m "feat: add a tabbed file editor with syntax highlighting"`.
+- [x] Map JS/JSX/TS/TSX, JSON, HTML, CSS, Markdown, Python, YAML to language packages; Shell/TOML use `StreamLanguage` and `legacy-modes`. Import language modules lazily and discard outdated loads when the tab changes. Plain text works without a language module. Keep Ctrl/Cmd+S and visible save available, with clear saving/saved/failed state.
+- [x] Test English built-in search text, read-only files, UTF-8/BOM/CRLF preservation and mobile viewport in both browsers; inspect Vite chunks to ensure the editor is absent from initial application code. Commit: `git commit -m "feat: add a tabbed file editor with syntax highlighting"`.
+
+Acceptance: final editor correction `f80bba5` passed independent specification and quality review. Integrated candidate `f700aeb` includes Main92–94 and passed all 17 CI checks on 2026-09-14. Current saved CI evidence covers both browser engines and Linux/macOS; final mobile and native filesystem acceptance remain Tasks21–22.
 
 ## Task 20: Entwurfsschutz, Konfliktvergleich und externe Aktualisierung
 
