@@ -131,9 +131,11 @@ export class FileArchiveStore {
     )
       throw fileProblem("FILE_ARCHIVE_PENDING", 409);
     const job = this.store.getJob(archive.scope, record.jobId);
+    // Public callers already proved the namespace effect: record that output
+    // before cleanup/adoption even if cancelled. finish still denies success.
     if (
-      ["cancelled", "cancelling"].includes(job.status) ||
-      (archive.mode === "download" && job.status === "failed")
+      archive.mode === "download" &&
+      ["cancelled", "cancelling", "failed"].includes(job.status)
     )
       throw fileProblem("FILE_ARCHIVE_PENDING", 409);
     if (doc.archiveCompleted) return;
