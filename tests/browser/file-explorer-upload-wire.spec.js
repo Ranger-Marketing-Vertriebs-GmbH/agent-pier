@@ -94,10 +94,19 @@ test("a directory remap before child admission refuses old metadata and explicit
   page.on("request", (req) => {
     if (/\/uploads\/[^/]+\/content$/.test(new URL(req.url()).pathname)) puts.push(req);
   });
+  let selecting;
   try {
     await selectEnglish(page);
     await page.goto(`${baseURL}/files?path=${encodeURIComponent(destination)}`);
-    await page.getByLabel("Upload folder", { exact: true }).setInputFiles(selection);
+    // Native directory automation can still be pending after the app received Files.
+    // Own its result while the captured POST proves the app processed the selection.
+    selecting = page
+      .getByLabel("Upload folder", { exact: true })
+      .setInputFiles(selection)
+      .then(
+        () => null,
+        (error) => error,
+      );
     await expect.poll(() => reservations.length).toBe(1);
     const original = reservations[0],
       groupURL = `/api/files/jobs/${original.groupId}`;
@@ -136,6 +145,8 @@ test("a directory remap before child admission refuses old metadata and explicit
       })
       .toBe(true);
     held.resolve();
+    const selectionError = await selecting;
+    if (selectionError) throw selectionError;
     await expect.poll(() => responses).toEqual([409]);
     expect(await readChildren()).not.toContainEqual(
       expect.objectContaining({ entryId: original.entryId }),
@@ -166,6 +177,7 @@ test("a directory remap before child admission refuses old metadata and explicit
     expect(puts).toHaveLength(1);
   } finally {
     held.resolve();
+    await selecting;
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
