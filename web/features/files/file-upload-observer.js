@@ -20,15 +20,17 @@ export class UploadJobObserver {
   constructor(session) {
     this.session = session;
     this.watched = new Map();
-    this.transient = new Set();
+    this.known = new Map();
+    this.transient = new Map();
     this.request = (scopeId, suffix, body, envelope = null) =>
       session.enqueue(async (signal, owns) => {
         const result = await session.client.mutate(suffix, { scopeId, body, signal });
         if (!owns()) return;
         if (envelope) {
           const job = checkedJob(envelope === "bare" ? result : result.job, scopeId);
-          if (envelope === "child") this.transient.add(job.id);
+          if (envelope === "child") this.transient.set(job.id, body.groupId);
           session.accept(job, true);
+          this.reconcile();
         }
         return result;
       });
@@ -76,20 +78,46 @@ export class UploadJobObserver {
           cursor = page.nextCursor;
           cursors.add(cursor);
         } while (cursor);
-        const watch = {
-          scopeId,
-          maxEntries,
-          cursor: null,
-          seen: new Set(),
-          cursors: new Set(),
-        };
-        this.watched.set(id, watch);
+        this.known.set(id, { scopeId, maxEntries });
+        const watch = this.watch(id);
         do {
           await this.read(id, signal, owns);
-        } while (owns() && watch.cursor);
+        } while (owns() && this.watched.get(id) === watch && watch.cursor);
+        this.reconcile();
         return [...rows.values()];
       });
-    this.select = (id) => session.update({ uploadGroupId: id });
+    this.select = (id) => {
+      if (session.state.uploadGroupId !== id && this.known.has(id)) this.watch(id);
+      session.update({ uploadGroupId: id });
+      this.reconcile();
+    };
+  }
+  watch(id) {
+    const watch = {
+      ...this.known.get(id),
+      cursor: null,
+      seen: new Set(),
+      cursors: new Set(),
+    };
+    this.watched.set(id, watch);
+    return watch;
+  }
+  reconcile() {
+    const { state } = this.session;
+    const jobs = new Map(state.jobs.map((job) => [job.id, job]));
+    const local = new Set(this.transient.values());
+    for (const id of this.known.keys()) {
+      const terminal = [
+        "completed",
+        "partially_completed",
+        "failed",
+        "cancelled",
+        "interrupted",
+      ].includes(jobs.get(id)?.status);
+      if (id !== state.uploadGroupId && terminal && !local.has(id))
+        this.watched.delete(id);
+      else if (!this.watched.has(id)) this.watch(id);
+    }
   }
   async read(id, signal, owns) {
     const watch = this.watched.get(id);

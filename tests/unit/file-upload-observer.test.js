@@ -155,3 +155,73 @@ test("untrusted scope, kind, missing manifest membership and cyclic cursors fail
   });
   cyclic.unsubscribe();
 });
+
+test("unselected terminal watches retire, preserve cache and restart from page one while live local children stay observed", async () => {
+  const calls = [],
+    current = new Map(
+      ["old", "selected"].map((id) => [id, job(id, { kind: "upload_group" })]),
+    );
+  const session = new FileJobClient(
+    {
+      get: async (suffix, query) => {
+        calls.push({ suffix, cursor: query.cursor });
+        if (suffix === "/jobs") return { jobs: [], nextCursor: null };
+        if (suffix.endsWith("/entries"))
+          return { entries: [{ id: "file", type: "file" }], nextCursor: null };
+        if (suffix.endsWith("/upload-children"))
+          return {
+            children: [{ entryId: "file", job: job("cached-child") }],
+            nextCursor: null,
+          };
+        return current.get(suffix.split("/").at(-1));
+      },
+      mutate: async () => {
+        const child = job("local-child", { status: "running" });
+        current.set(child.id, child);
+        return { uploadId: child.id, job: child };
+      },
+    },
+    { hidden: () => false, listen: () => () => {}, timer: () => 1, clear() {} },
+  );
+  const stop = session.subscribe(() => {});
+  try {
+    await session.uploads.load("scope", "old", 50000);
+    await session.uploads.load("scope", "selected", 50000);
+    session.uploads.select("selected");
+    calls.length = 0;
+    await session.refresh();
+    await session.refresh();
+    assert.equal(
+      calls.filter((call) => call.suffix === "/jobs/old/upload-children").length,
+      0,
+    );
+    assert.equal(session.state.children.old.file.id, "cached-child");
+    session.uploads.select("old");
+    calls.length = 0;
+    await session.refresh();
+    assert.equal(
+      calls.find((call) => call.suffix === "/jobs/old/upload-children").cursor,
+      null,
+    );
+    session.uploads.select("selected");
+    await session.uploads.request(
+      "scope",
+      "/uploads",
+      { groupId: "old", entryId: "file" },
+      "child",
+    );
+    calls.length = 0;
+    await session.refresh();
+    assert.ok(calls.some((call) => call.suffix === "/jobs/old/upload-children"));
+    current.get("local-child").status = "completed";
+    await session.refresh();
+    calls.length = 0;
+    await session.refresh();
+    assert.equal(
+      calls.filter((call) => call.suffix === "/jobs/old/upload-children").length,
+      0,
+    );
+  } finally {
+    stop();
+  }
+});

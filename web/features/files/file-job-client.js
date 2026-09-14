@@ -80,6 +80,7 @@ export class FileJobClient {
           this.uploads.settled(job);
           if (job.kind === "search") await this.readEntries(id, undefined, signal, owns);
         }
+        this.uploads.reconcile();
         const mutations = [...this.tracked.values()].filter(
           (job) => !["search", "size"].includes(job.kind),
         );

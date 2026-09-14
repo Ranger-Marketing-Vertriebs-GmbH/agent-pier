@@ -195,12 +195,14 @@ export class FileUploadClient {
       const child = jobs.getSnapshot().children?.[group.serverId]?.[id];
       if (captured && (captured.attempt !== prior || captured.childId !== child?.id))
         return;
-      if (prior && ["reservation_unknown", "blocked"].includes(prior.phase)) {
+      if (prior?.refused) {
+        this.refreshRefused(group, id, prior);
+      } else if (prior && ["reservation_unknown", "blocked"].includes(prior.phase)) {
         prior.phase = "new";
         this.pump();
       } else if (
         prior &&
-        ["checking", "sending", "waiting", "reserving"].includes(prior.phase)
+        ["checking", "sending", "waiting", "reserving", "completed"].includes(prior.phase)
       ) {
         if (prior.uploadId) this.inspect(group, row, prior);
       } else {
@@ -212,7 +214,11 @@ export class FileUploadClient {
           !(["ready", "pending"].includes(row.status) && child === undefined)
         )
           return;
-        if (evidence && !terminal.has(evidence.status)) return;
+        if (
+          evidence &&
+          (!terminal.has(evidence.status) || evidence.status === "completed")
+        )
+          return;
         group.cancelRequested = false;
         const attempt = this.attempt();
         group.attempts.set(id, attempt);
@@ -241,6 +247,11 @@ export class FileUploadClient {
         ? attempt?.uploadId || (captured ? captured.childId : child?.id)
         : group.serverId;
       if (!target && id) {
+        if (
+          captured &&
+          (captured.attempt !== group.attempts.get(id) || captured.childId !== child?.id)
+        )
+          return;
         const row = group.rows.find((item) => item.id === id);
         if (row && group.files.has(row.relativePath) && !closed(row)) {
           const pending = attempt || this.attempt();
@@ -456,9 +467,45 @@ export class FileUploadClient {
       this.sync();
     } catch (error) {
       if (this.alive) {
-        attempt.phase =
-          error.code === "FILE_UPLOAD_PENDING" ? "blocked" : "reservation_unknown";
+        // Group claim rejects this exact response before allocating a child job.
+        attempt.refused =
+          error.code === "FILE_INVALID_OPERATION" &&
+          error.status === 409 &&
+          !attempt.uploadId;
+        attempt.phase = attempt.refused
+          ? "failed"
+          : error.code === "FILE_UPLOAD_PENDING"
+            ? "blocked"
+            : "reservation_unknown";
         attempt.error = safeError(error);
+        this.emit();
+      }
+    }
+  }
+  async refreshRefused(group, id, prior) {
+    if (prior.refreshing) return;
+    group.cancelRequested = false;
+    prior.cancelRequested = false;
+    prior.refreshing = true;
+    prior.phase = "checking";
+    const owns = () => this.alive && group.attempts.get(id) === prior;
+    try {
+      const rows = await this.jobs.loadUploadGroup(
+        this.scopeId,
+        group.serverId,
+        this.limits.jobEntries,
+      );
+      if (!owns() || group.cancelRequested || prior.cancelRequested) return;
+      group.rows = rows;
+      prior.refused = false;
+      prior.phase = "failed";
+      this.retry(group, id);
+    } catch (error) {
+      if (owns()) prior.error = safeError(error);
+    } finally {
+      if (owns()) {
+        prior.refreshing = false;
+        if (prior.refused) prior.phase = "failed";
         this.emit();
       }
     }
@@ -477,6 +524,7 @@ export class FileUploadClient {
         {
           scopeId: this.scopeId,
           signal: attempt.controller.signal,
+          owns,
           onProgress: (loaded, total) => {
             if (owns()) this.updateProgress(group, row.id, loaded, total);
           },

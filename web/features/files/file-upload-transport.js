@@ -1,9 +1,15 @@
 import { fileClientIssue } from "./file-api.js";
 
-export function uploadFile(client, uploadId, file, { scopeId, signal, onProgress }) {
+export function uploadFile(
+  client,
+  uploadId,
+  file,
+  { scopeId, signal, onProgress, owns = () => true },
+) {
   return new Promise((resolve, reject) => {
+    const current = () => !signal.aborted && owns();
     if (!scopeId || !uploadId) return reject(fileClientIssue("FILE_INVALID_SCOPE", 409));
-    if (signal.aborted) return reject(new DOMException("Aborted", "AbortError"));
+    if (!current()) return reject(new DOMException("Aborted", "AbortError"));
     const xhr = new XMLHttpRequest();
     let settled = false;
     const abort = () => xhr.abort();
@@ -19,10 +25,11 @@ export function uploadFile(client, uploadId, file, { scopeId, signal, onProgress
     xhr.setRequestHeader("Content-Type", "application/octet-stream");
     xhr.setRequestHeader("X-File-Scope", scopeId);
     xhr.upload.onprogress = (event) => {
-      if (!signal.aborted)
+      if (current())
         onProgress(event.loaded, event.lengthComputable ? event.total : file.size);
     };
     xhr.onload = () => {
+      if (!current()) return finish(reject, new DOMException("Aborted", "AbortError"));
       if (xhr.status === 401) window.dispatchEvent(new Event("agentpier-login-required"));
       let body;
       try {
