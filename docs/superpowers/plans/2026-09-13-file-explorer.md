@@ -1342,7 +1342,7 @@ Modify `file-archive-paths.js`, handler registration, paired transfer catalogs.
 uses yauzl decoded names plus external attributes and encryption flags; `seen`
 tracks normalized destinations, including file/parent conflicts.
 
-- [ ] Generate malicious ZIPs in isolated fixtures: traversal, absolute POSIX/drive paths, backslash traversal, symlink, special mode, encrypted flag, file-parent collision, duplicate names and decompression overflow. Property tests vary path segments and separators.
+- [x] Generate malicious ZIPs in isolated fixtures: traversal, absolute POSIX/drive paths, backslash traversal, symlink, special mode, encrypted flag, file-parent collision, duplicate names and decompression overflow. Property tests vary path segments and separators.
 
 ```js
 test("archive traversal is rejected before any target becomes visible", () => {
@@ -1363,8 +1363,8 @@ test("archive traversal is rejected before any target becomes visible", () => {
 });
 ```
 
-- [ ] Run `node --test tests/integration/file-extract.test.js tests/property/file-archive-paths.test.js` and confirm red.
-- [ ] Open yauzl with `lazyEntries:true`, `validateEntrySizes:true`, strict name handling and a bounded descriptor. Inspect all entry metadata before publishing any result. Reject encrypted and unsupported entry types; enforce actual uncompressed bytes during streaming, not just header values.
+- [x] Run `node --test tests/integration/file-extract.test.js tests/property/file-archive-paths.test.js` and confirm red.
+- [x] Open yauzl with `lazyEntries:true`, `validateEntrySizes:true`, strict name handling and a bounded descriptor. Inspect all entry metadata before publishing any result. Reject encrypted and unsupported entry types; enforce actual uncompressed bytes during streaming, not just header values.
 
 ```js
 yauzl.open(
@@ -1379,8 +1379,26 @@ yauzl.open(
 );
 ```
 
-- [ ] Define `queueValidatedEntry(entry)` in the handler: validate, write only under the private registered extraction stage, await bounded pipeline, then call `readEntry`. Reject symlinks and duplicate/case-folded aliases on the actual target filesystem before publishing. Apply conflicts through Task 11; keep partial publication explicit per entry. Extraction modes never introduce setuid/setgid or permissions beyond the chosen creation policy.
-- [ ] Test target-parent link replacement during extraction and cancellation before/after the first publication; clean only the owned extraction stage. Run new tests and archive/copy suites; commit: `git commit -m "feat: safely extract ZIP archives through file jobs"`.
+- [x] Define `queueValidatedEntry(entry)` in the handler: validate, write only under the private registered extraction stage, await bounded pipeline, then call `readEntry`. Reject symlinks and duplicate/case-folded aliases on the actual target filesystem before publishing. Apply conflicts through Task 11; keep partial publication explicit per entry. Extraction modes never introduce setuid/setgid or permissions beyond the chosen creation policy.
+- [x] Test target-parent link replacement during extraction and cancellation before/after the first publication; clean only the owned extraction stage. Run new tests and archive/copy suites; commit: `git commit -m "feat: safely extract ZIP archives through file jobs"`.
+
+**Accepted implementation:** `8d5be08` follows `7fb188f`. Independent full and
+scoped specification/quality reviews pass; the depth-limit error finding is closed.
+Actual ZIP metadata/content/CRC validation, original-name native parent proofs,
+ordinary merge layout, cancellation, finite cleanup and no-replay recovery are
+covered. Final correction coverage passes 110/110 without skips; final static
+checks and build pass. The sole local full run passed 1,940 of 1,946 tests with six
+explicit skips before the documented audit-persistence and depth-error corrections.
+
+Accepted CI at `8d5be08` has all 17 checks passing. Both Linux24 full runs pass
+1,938 of 1,947 tests with nine skips; all four real extraction SIGKILL cases,
+publication-journal and depth-limit regressions pass. PR Chromium passes 472;
+PR WebKit passes 470 with two existing PWA skips plus 15 timing cases.
+Actual local APFS sensitive/insensitive fixtures pass, and the reduced Darwin
+arm64 native relocation/install/update/negative-payload fixture passes. The two
+skipped ext4 matrix cases are not filesystem-support evidence: mandatory actual
+Linux mixed-policy/refusal, final four-architecture current-package and the wider
+platform acceptance remain Task22. Task17 may start from this accepted basis.
 
 ## Task 17: Archivaktionen und vollständige Vorgangsanzeige
 
