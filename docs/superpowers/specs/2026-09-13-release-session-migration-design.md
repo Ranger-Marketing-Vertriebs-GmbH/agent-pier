@@ -87,7 +87,8 @@ lines). Classes:
 - **unidentified**: every other process that references the release and does not
   descend from a session launcher: detached scripts (pipeline verify supervisor, release
   helper, the web service itself), orphaned helpers of a CLI that already exited, and
-  anything foreign. Lines without pid columns have no ancestry and fall here.
+  anything foreign. Lines without pid columns have no ancestry: they are node-only when
+  their only reference is `bin/node`, otherwise they fall here.
 
 `cleanupState` gains per version: `sessionIds`, `nodeOnlyProcesses` (count), and
 `unidentifiedProcesses` as `[{ reference }]` where `reference` is the release-relative
@@ -174,9 +175,11 @@ Job body:
 4. If any session failed: throw `migrateFailed` with
    `result: { failedSessions: [{ id, error }], reloadedSessions: [ids] }`.
 5. Wait for remaining references to disappear: re-run the mapping up to 30 times at one
-   second intervals while only helper or node-only lines remain (orphaned MCP children
-   of the killed CLI exit asynchronously). If references persist, throw
-   `migrateBlocked` with `result: { remaining: [{ reference }] }`.
+   second intervals while any reference to the release remains. Orphaned MCP children of
+   the killed CLI no longer descend from a launcher, so they show up as unidentified, and
+   they exit asynchronously within seconds. If references persist after the budget, throw
+   `migrateBlocked` with `result: { remaining: [{ reference }] }`. Unidentified processes
+   present when the job starts are refused earlier by the plan check.
 6. Call `operations.releases.cleanup([version])`. Its own re-validation still applies; a
    new session started on the version meanwhile yields the existing `cleanupChanged`.
 7. Success result `{ reloadedSessions: [ids], removedVersions: [version] }`. Audit
@@ -197,6 +200,9 @@ activation job `jobId` (via `operations.jobs.get`) leaves `running`:
   for every running session whose reload status is eligible and not in flight, request a
   `when-idle` reload without interrupt. Per-session errors are logged, never thrown.
   Audit `release.refreshed` with `resourceId: jobId`, `details: { version: to, count }`.
+  Sessions whose release directory was removed out-of-band are not attributed to any
+  version and are therefore skipped; the skipped count is logged and recorded in the
+  audit event.
 - any other outcome, or timeout: do nothing.
 
 The marker is deleted before any reload is requested so a crash cannot replay it.

@@ -52,6 +52,8 @@ test("after activation only sessions still holding an old release are reloaded",
     [ids[0]],
   );
   assert.ok(logs.some((line) => line.includes("skipped 1 session")));
+  const { events } = f.operations.audit.list();
+  assert.equal(events[0].details.skipped, 1);
 });
 
 test("after activation every running session is reloaded when process inspection is unavailable", async (t) => {

@@ -348,7 +348,7 @@ export class ReleaseSessionMigration {
       }
       if (skipped > 0)
         this.log(
-          `Post-activation reload skipped ${skipped} session(s) not attributed to an old release.`,
+          `Post-activation reload skipped ${skipped} session(s) already on the active release or not attributable to an old release.`,
         );
       this.operations.audit?.append({
         action: "release.refreshed",
@@ -356,7 +356,7 @@ export class ReleaseSessionMigration {
         resourceId: marker.jobId,
         outcome: "success",
         source: "system",
-        details: { version: marker.to, count },
+        details: { version: marker.to, count, skipped },
       });
     } catch (error) {
       fs.rmSync(this.marker, { force: true });
