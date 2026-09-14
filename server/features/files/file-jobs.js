@@ -74,6 +74,9 @@ export class FileJobs {
   entries(scope, id, cursor) {
     return this.store.listEntries(scope, id, cursor);
   }
+  uploadChildren(scope, id, cursor) {
+    return this.store.listUploadChildren(scope, id, cursor);
+  }
   async start(scope, operation, { publicOnly = false, admit } = {}) {
     this.ensureOpen();
     validateOperation(operation);

@@ -173,6 +173,33 @@ export class FileStore {
       .all(scope.id, after);
     return page(rows, scope, "jobs", "jobs", publicJob);
   }
+  listUploadChildren(scope, id, cursor) {
+    if (this.getJob(scope, id).kind !== "upload_group" || !this.uploads.group(id))
+      throw fileProblem("FILE_INVALID_OPERATION", 409);
+    const collection = `upload-children:${id}`;
+    const after = cursorValue(cursor, scope, collection);
+    const rows = this.db
+      .prepare(
+        `
+      SELECT e.sequence, e.id AS manifest_entry_id,
+        c.id, c.scope_id, c.kind, c.status, c.document
+      FROM job_entries e LEFT JOIN jobs c
+        ON c.id=json_extract(e.document,'$.currentJobId')
+        AND c.scope_id=? AND c.parent_job_id=e.job_id AND c.entry_id=e.id
+        AND ((json_extract(e.document,'$.type')='file' AND c.kind='upload')
+          OR (json_extract(e.document,'$.type')='directory' AND c.kind='create_directory'))
+      WHERE e.job_id=? AND e.sequence>?
+        AND json_type(e.document,'$.currentJobId')='text'
+        AND json_extract(e.document,'$.currentJobId')!=''
+      ORDER BY e.sequence LIMIT 201
+    `,
+      )
+      .all(scope.id, id, after);
+    return page(rows, scope, collection, "children", (row) => ({
+      entryId: row.manifest_entry_id,
+      job: row.id ? publicJob(row) : null,
+    }));
+  }
   // Private recovery/transfer consumers only. Never return these records from HTTP.
   getOperation(id) {
     const row = this.db.prepare("SELECT operation FROM jobs WHERE id=?").get(id);

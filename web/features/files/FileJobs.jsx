@@ -21,17 +21,24 @@ export function FileJobIssue({ issue }) {
 export default function FileJobs({ state, scopeId, searchId, onResult }) {
   const search = state.jobs.find((job) => job.id === searchId);
   const page = state.entries[searchId];
-  const waiting = state.jobs.find(
+  const selectedChildren = Object.values(
+    state.children?.[state.uploadGroupId] || {},
+  ).filter(Boolean);
+  const waiting = [...selectedChildren, ...state.jobs].find(
     (job) => job.status === "waiting_for_conflict" && job.conflict,
+  );
+  // Upload selections have their own bounded view and recovery controls above.
+  const visibleJobs = state.jobs.filter(
+    (job) => !["upload", "upload_group"].includes(job.kind),
   );
   return (
     <section className="file-jobs" aria-label={copy.jobs}>
       <ErrorMessage error={state.error?.message} />
-      {state.jobs.length > 0 && (
+      {visibleJobs.length > 0 && (
         <>
           <h2>{copy.jobs}</h2>
           <ul className="file-job-list">
-            {[...state.jobs].reverse().map((job) => (
+            {[...visibleJobs].reverse().map((job) => (
               <li key={job.id}>
                 <div className="file-job-heading">
                   <span>

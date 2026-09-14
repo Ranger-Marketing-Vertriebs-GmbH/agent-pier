@@ -14,5 +14,12 @@ export default function useFileJobs(client) {
     cancel: session.cancel,
     resolve: session.resolve,
     refresh: session.refresh,
+    subscribe: session.subscribe,
+    getSnapshot: session.getSnapshot,
+    uploadRequest: session.uploads.request,
+    inspect: session.uploads.inspect,
+    loadUploadGroup: session.uploads.load,
+    uploadHistory: session.uploads.history,
+    selectUploadGroup: session.uploads.select,
   };
 }

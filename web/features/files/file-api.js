@@ -53,7 +53,7 @@ function requireScopeId(scopeId) {
     throw new TypeError("A scopeId from the opened file context is required.");
 }
 
-function fileClientIssue(code, status, args = {}) {
+export function fileClientIssue(code, status, args = {}) {
   const error = new Error();
   Object.defineProperty(error, "message", {
     configurable: true,

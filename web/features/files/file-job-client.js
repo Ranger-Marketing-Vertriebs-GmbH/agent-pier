@@ -1,4 +1,5 @@
 import { fileErrorMessage } from "../../lib/i18n/messages/files.js";
+import { UploadJobObserver } from "./file-upload-observer.js";
 
 function issue(code) {
   const error = new Error();
@@ -21,7 +22,7 @@ export class FileJobClient {
   constructor(client, timing = environment) {
     this.client = client;
     this.timing = timing;
-    this.state = { jobs: [], entries: {}, error: null };
+    this.state = { jobs: [], entries: {}, children: {}, history: null, error: null };
     this.listeners = new Set();
     this.tracked = new Map();
     this.sweeps = new Map();
@@ -29,6 +30,7 @@ export class FileJobClient {
     this.tail = Promise.resolve();
     this.generation = 0;
     this.controllers = new Set();
+    this.uploads = new UploadJobObserver(this);
     this.subscribe = this.subscribe.bind(this);
     this.getSnapshot = () => this.state;
     this.start = (scopeId, operation) =>
@@ -48,13 +50,19 @@ export class FileJobClient {
     this.refresh = (options = {}) =>
       this.enqueue(async (signal, owns) => {
         if (options.jobId) {
-          await this.readEntries(options.jobId, options.cursor, signal, owns);
-          return;
+          return this.readEntries(
+            options.jobId,
+            options.cursor,
+            signal,
+            owns,
+            options.first === true,
+          );
         }
         const history = await this.client.get("/jobs", {}, signal);
         if (!owns()) return;
         if (!Array.isArray(history.jobs)) throw issue("FILE_INVALID_RESPONSE");
         this.update({
+          ...(!this.state.history ? { history: { ...history, cursor: null } } : {}),
           jobs: [
             ...new Map(
               [...history.jobs, ...this.tracked.values()].map((job) => [job.id, job]),
@@ -69,15 +77,28 @@ export class FileJobClient {
           );
           if (!owns()) return;
           this.accept(job, true);
+          this.uploads.settled(job);
           if (job.kind === "search") await this.readEntries(id, undefined, signal, owns);
         }
         const mutations = [...this.tracked.values()].filter(
           (job) => !["search", "size"].includes(job.kind),
         );
+        const tasks = [
+          ...mutations.map((job) => ({ job })),
+          ...Array.from(this.uploads.watched.keys(), (id) => ({ childId: id })),
+        ];
         // Four pages per poll, fairly shared, using the existing serial queue/timer.
         // Every sweep starts at page one because stable transfer rows change in place.
-        for (let count = 0; count < 4 && mutations.length; count++) {
-          const job = mutations[this.resultTurn++ % mutations.length];
+        for (let count = 0; count < 4 && tasks.length; count++) {
+          const task = tasks[this.resultTurn++ % tasks.length];
+          if (task.childId) {
+            await this.uploads.read(task.childId, signal, owns);
+            if (!owns()) return;
+            if (!this.uploads.watched.get(task.childId)?.cursor)
+              tasks.splice(tasks.indexOf(task), 1);
+            continue;
+          }
+          const { job } = task;
           let sweep = this.sweeps.get(job.id);
           if (!sweep || sweep.status !== job.status) {
             sweep = { cursor: null, status: job.status };
@@ -87,7 +108,7 @@ export class FileJobClient {
           if (!owns()) return;
           sweep.cursor = page.nextCursor;
           if (!page.nextCursor) {
-            mutations.splice(mutations.indexOf(job), 1);
+            tasks.splice(tasks.indexOf(task), 1);
             const terminal = ![
               "queued",
               "running",

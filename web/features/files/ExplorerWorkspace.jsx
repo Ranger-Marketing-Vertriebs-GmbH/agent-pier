@@ -14,6 +14,8 @@ import useFileJobs from "./useFileJobs.js";
 import FileJobs from "./FileJobs.jsx";
 import FileProperties from "./FileProperties.jsx";
 import FileActions from "./FileActions.jsx";
+import FileUploads from "./FileUploads.jsx";
+import useFileUploads from "./useFileUploads.js";
 import TrashView from "./TrashView.jsx";
 import useFileSelection from "./useFileSelection.js";
 import useFileClipboard, { useClipboardResults } from "./useFileClipboard.js";
@@ -152,6 +154,14 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
   const [previewResult, setPreviewResult] = useState(null);
   const [previewError, setPreviewError] = useState(null);
   const scopeId = context?.scopeId;
+  const uploads = useFileUploads({
+    client,
+    folder: path,
+    scopeId,
+    jobs,
+    limits: context?.limits,
+    readOnly: context?.readOnly,
+  });
   const actionOwner = useMemo(() => ({ client, scopeId, path }), [client, scopeId, path]);
   const fileSelection = useFileSelection(listing.listing?.entries || [], actionOwner);
   const clipboard = useFileClipboard(context);
@@ -425,6 +435,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
               {copy.actions.trashTitle}
             </button>
           </nav>
+          <FileUploads uploads={uploads} jobs={jobs} scope={actionScope} />
           <FileJobs
             state={jobs}
             scopeId={scopeId}

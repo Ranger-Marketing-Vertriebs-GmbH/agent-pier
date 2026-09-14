@@ -38,6 +38,14 @@ function register(router, prefix, files) {
       res.json(await files.trash.list(await scope(req), req.query.cursor));
     }),
   );
+  router.get(
+    `${prefix}/jobs/:jobId/upload-children`,
+    fileHandler(async (req, res) => {
+      res.json(
+        files.jobs.uploadChildren(await scope(req), req.params.jobId, req.query.cursor),
+      );
+    }),
+  );
   for (const action of ["cancel", "resolve"])
     router.post(
       `${prefix}/jobs/:jobId/${action}`,
