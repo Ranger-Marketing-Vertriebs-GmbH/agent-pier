@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { runRemote, parseRemoteArguments } from "../../scripts/remote.mjs";
+import { AuditStore } from "../../server/features/audit/audit-store.js";
 
 function fixture(t) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "remote-script-"));
@@ -89,7 +90,10 @@ test("enable, hosts and disable write the configuration, restart and print URLs"
   });
   assert.deepEqual(f.restarts, ["enable", "hosts"]);
   assert.equal(await f.run(["status"]), 0);
-  assert.equal(f.lines.at(-1).includes("b.example"), true);
+  assert.equal(
+    f.lines.slice(-4).some((line) => line.includes("http://b.example:4390")),
+    true,
+  );
 });
 test("a missing service prints the manual restart hint and a failed health check fails", async (t) => {
   const f = fixture(t);
@@ -102,4 +106,25 @@ test("a missing service prints the manual restart hint and a failed health check
   assert.equal(f.lines.join("\n").includes("service:install"), true);
   const failed = await f.run(["disable"], { health: async () => false });
   assert.equal(failed, 1);
+});
+test("an invalid --bind value is rejected, writes nothing and records a failed audit row", async (t) => {
+  const f = fixture(t);
+  await assert.rejects(f.run(["enable", "--bind", "not-an-ip", "--accept-plain-http"]), {
+    status: 400,
+  });
+  assert.equal(f.saved().network, undefined);
+  const audit = new AuditStore({ dataDir: f.dataDir });
+  assert.equal(audit.list({ action: "setting.failed" }).events.length, 1);
+  audit.close();
+});
+test("hosts --remove reports names that are not in the list and leaves it unchanged", async (t) => {
+  const f = fixture(t);
+  await f.run(["enable", "--host", "a.example", "--accept-plain-http"]);
+  const code = await f.run(["hosts", "--remove", "missing.example"]);
+  assert.equal(code, 0);
+  assert.deepEqual(f.saved().network.hosts, ["a.example"]);
+  assert.equal(
+    f.lines.some((line) => line.includes("missing.example steht nicht in der Hostliste")),
+    true,
+  );
 });

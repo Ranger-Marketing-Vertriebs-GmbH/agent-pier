@@ -47,4 +47,6 @@ export const scripts = Object.freeze({
   remoteRestarted: "Dienst neu gestartet und erreichbar.",
   remoteUnhealthy: (port) =>
     `Dienst antwortet nach dem Neustart nicht auf http://127.0.0.1:${port}/api/health. Bitte Dienststatus prüfen.`,
+  remoteHostNotListed: (host) => `${host} steht nicht in der Hostliste.`,
+  remoteAuditFailed: "Der Audit-Eintrag konnte nicht geschrieben werden.",
 });

@@ -1,4 +1,3 @@
-import net from "node:net";
 import { isMainModule } from "../server/lib/is-main-module.js";
 import { serverMessages } from "../server/lib/i18n/de.js";
 import { loadConfig } from "../server/lib/config.js";
@@ -61,6 +60,7 @@ function recordAudit(dataDir, outcome) {
       source: "system",
     });
   } catch {
+    console.error(serverMessages.scripts.remoteAuditFailed);
   } finally {
     audit?.close();
   }
@@ -77,13 +77,9 @@ export async function runRemote({
   const config = readNetworkConfig(dataDir);
   const port = config.port || 4380;
   const detected = detect();
-  const hostUrl = (host) => `http://${net.isIPv6(host) ? `[${host}]` : host}:${port}`;
   const print = (network) => {
     log(serverMessages.scripts.remoteStatus(network.enabled, network.bind, dataDir));
-    // Configured hosts are listed last so the most relevant address stands out.
-    const configured = network.hosts.map(hostUrl);
-    const all = networkUrls({ ...network, enabled: true }, port, detected);
-    for (const url of [...all.filter((url) => !configured.includes(url)), ...configured])
+    for (const url of networkUrls({ ...network, enabled: true }, port, detected))
       log(`  ${url}`);
     if (network.enabled) log(serverMessages.scripts.remotePlainHttpWarning);
   };
@@ -106,6 +102,9 @@ export async function runRemote({
   } else if (options.command === "disable") network = { ...network, enabled: false };
   else {
     const remove = options.remove.map((host) => host.toLowerCase());
+    for (const host of remove)
+      if (!network.hosts.includes(host))
+        log(serverMessages.scripts.remoteHostNotListed(host));
     network = {
       ...network,
       hosts: [...network.hosts.filter((host) => !remove.includes(host)), ...options.add],
