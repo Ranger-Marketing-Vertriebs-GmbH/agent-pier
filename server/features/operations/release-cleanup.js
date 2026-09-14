@@ -5,6 +5,7 @@ import { releaseVersion } from "./release-archive.js";
 import { compareReleaseVersions, applicationRoot } from "./version.js";
 import { readJson } from "./files.js";
 import { problem } from "../../lib/storage.js";
+import { releaseSessionReferences } from "./release-references.js";
 
 const cleanupError = (code, message, status = 409) =>
   Object.assign(problem(message, status), { code });
@@ -15,18 +16,18 @@ export function releaseProcessReferences(output) {
     .map((line) => {
       // tmux keeps the first client's launch command in its process title for its
       // entire lifetime. Only its executable is a live dependency, not those old args.
-      const tmux = /^\s*((?:\S*\/)?tmux)\s+/.exec(line);
-      return tmux ? tmux[1] : line;
+      const tmux = /^(\s*\d+\s+\d+\s+)?((?:\S*\/)?tmux)\s+/.exec(line);
+      return tmux ? `${tmux[1] || ""}${tmux[2]}` : line;
     })
     .join("\n");
 }
 export function releaseProcesses() {
   return releaseProcessReferences(
-    execFileSync("ps", ["-ww", "-u", String(process.getuid()), "-o", "comm=,command="], {
-      encoding: "utf8",
-      timeout: 5000,
-      maxBuffer: 8 * 1024 * 1024,
-    }),
+    execFileSync(
+      "ps",
+      ["-ww", "-u", String(process.getuid()), "-o", "pid=,ppid=,comm=,command="],
+      { encoding: "utf8", timeout: 5000, maxBuffer: 8 * 1024 * 1024 },
+    ),
   );
 }
 export function cleanupState({
@@ -90,7 +91,18 @@ export function cleanupState({
                 : inUse
                   ? "inUse"
                   : null;
-      return [{ version, canDelete: !reason, deleteReason: reason }];
+      const references = releaseSessionReferences(commands, targets);
+      return [
+        {
+          version,
+          canDelete: !reason,
+          deleteReason: reason,
+          sessionIds: references.sessionIds,
+          nodeOnlyProcesses: references.nodeOnly,
+          helperProcesses: references.helperReferences,
+          unidentifiedProcesses: references.unidentified,
+        },
+      ];
     });
     return { available: true, versions };
   } catch {

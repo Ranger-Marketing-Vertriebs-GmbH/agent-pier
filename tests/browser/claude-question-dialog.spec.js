@@ -3,6 +3,18 @@ import { baseURL } from "../helpers/browser.js";
 import { operationsFixture } from "./operations-fixture.js";
 import { claudeRequest } from "../../server/features/requests/claude-hook.js";
 
+test("fixture chat loads without relying on HTTP recovery for a missing live session", async ({
+  page,
+}) => {
+  const state = await operationsFixture(page);
+  state.fail = "/sessions/fixture-session/chat";
+  await page.goto(baseURL + "/sessions/fixture-session/chat");
+  await expect(
+    page.getByRole("heading", { name: "Raum für deine nächste Idee.", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
 for (const locale of ["de-DE", "en-GB"]) {
   test.describe(`Claude multi-question dialog ${locale}`, () => {
     test.use({ locale });
@@ -54,7 +66,11 @@ for (const locale of ["de-DE", "en-GB"]) {
           page.getByText(en ? "Question 1 of 3" : "Frage 1 von 3", { exact: true }),
         ).toBeVisible();
         await next.click();
-        await expect(page.getByRole("alert")).toBeVisible();
+        await expect(page.locator(".native-requests").getByRole("alert")).toHaveText(
+          en
+            ? "Please answer every question fully."
+            : "Bitte jede Frage vollständig beantworten.",
+        );
         const body = await page.locator(".native-question-body").boundingBox();
         const navigation = await page
           .locator(".native-question-navigation")

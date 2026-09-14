@@ -131,6 +131,14 @@ export class Releases {
   cleanup(versions) {
     return cleanupReleases(this, versions);
   }
+  stagedVersion(stagedId) {
+    const receipt = readJson(
+      path.join(this.directory, `${identifier(stagedId)}.json`),
+      null,
+    );
+    if (!receipt) throw problem("Staged release not found.", 404);
+    return releaseVersion(receipt.version);
+  }
   notes(version) {
     return this.releaseNotes.read(this.channel, version);
   }

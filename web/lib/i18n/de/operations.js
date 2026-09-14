@@ -103,6 +103,17 @@ export const operationsCopy = {
       "Ein anderer Update-Vorgang läuft. Versuche es nach dessen Abschluss erneut.",
     cleanupChanged:
       "Die gewählten Versionen können nicht mehr sicher entfernt werden. Lade die Liste neu.",
+    migrateBusy:
+      "Ein anderer Release-Vorgang läuft. Versuche es nach dessen Abschluss erneut.",
+    migrateChanged:
+      "Die Sessions dieser Version haben sich geändert. Lade die Liste neu.",
+    migrateFailed:
+      "Einige Sessions konnten nicht neu geladen werden. Die Version bleibt erhalten.",
+    migrateBlocked:
+      "Prozesse verwenden diese Version weiterhin. Die Version bleibt erhalten.",
+    migrateInterrupted:
+      "Der Webdienst wurde beendet, bevor der Umzug abgeschlossen war. Die Version bleibt erhalten.",
+    migrateCancelled: "Der Umzug wurde abgebrochen. Die Version bleibt erhalten.",
   },
   cleanupReleases: "Alte Versionen aufräumen",
   cleanupHelp:
@@ -120,6 +131,40 @@ export const operationsCopy = {
     busy: "Update läuft",
     unsafe: "Nicht unterstütztes Verzeichnis",
   },
+  migrateSessions: "Sessions anzeigen",
+  migrateLoading: "Sessions werden geladen …",
+  migrateEmpty: "Keine AgentPier-Session hält diese Version.",
+  migrateStart: "Sessions umziehen und Version löschen",
+  migrateInterrupt: "Sofort umziehen und löschen",
+  migrateCancel: "Umzug abbrechen",
+  migrateConfirm: (version, count) =>
+    `${count} Session(s) auf die aktive Version umziehen und Version ${version} danach löschen? Beschäftigte Sessions ziehen erst nach Abschluss ihres aktuellen Schritts um; Sessions mit unbekanntem Zustand warten, bis das CLI erkennbar bereit ist.`,
+  migrateInterruptConfirm: (version, count) =>
+    `${count} Session(s) sofort neu starten und Version ${version} danach löschen? Laufende Arbeit wird abgebrochen. Gespeicherte Unterhaltungen bleiben erhalten.`,
+  migrateIneligibleHint:
+    "Einige Sessions können nicht neu geladen werden. Beende sie manuell, um die Version freizugeben.",
+  migrateUnidentifiedHint: (references) =>
+    `Prozesse außerhalb einer Session verwenden diese Version: ${references}. Beende sie, um die Version freizugeben.`,
+  migrateNodeOnly: (count) =>
+    `${count} Node-Prozess(e) aus dieser Version werden nach dem Umzug erneut geprüft.`,
+  migrateStates: {
+    ready: "Bereit",
+    busy: "Beschäftigt",
+    unknown: "Zustand unbekannt",
+    queued: "Wartet auf Bereitschaft",
+    reloading: "Wird neu geladen",
+    approval: "Wartet auf Freigabe im Terminal",
+    failed: "Fehlgeschlagen",
+    ineligible: "Nicht neu ladbar",
+    "unsupported-session": "Pipeline-, Login- oder Shell-Session",
+    "native-session-unverified": "Keine verifizierte Unterhaltung",
+  },
+  migrateSucceeded: (count) => `Version gelöscht, ${count} Session(s) neu geladen.`,
+  migrateFailedSessions: "Nicht neu geladen",
+  migrateRemaining: "Weiterhin verwendet von",
+  activateReload: "Laufende Sessions danach auf die neue Version umziehen",
+  activateReloadHelp:
+    "Der Umzug beginnt, nachdem die neue Version ihre Zustandsprüfung bestanden hat. Beschäftigte Sessions ziehen nach Abschluss ihres aktuellen Schritts um; nichts wird unterbrochen. Sessions, die nicht neu geladen werden können, laufen auf der bisherigen Version weiter.",
   checkUpdates: "Nach Updates suchen",
   stageRelease: "Version vorbereiten",
   activateRelease: "Vorbereitete Version aktivieren",

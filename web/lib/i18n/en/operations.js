@@ -102,6 +102,13 @@ export const operationsCopy = {
     cleanupBusy: "Another update operation is running. Try again after it finishes.",
     cleanupChanged:
       "The selected versions can no longer be safely removed. Refresh the list.",
+    migrateBusy: "Another release operation is running. Try again after it finishes.",
+    migrateChanged: "The sessions of this version changed. Refresh the list.",
+    migrateFailed: "Some sessions could not be reloaded. The version was kept.",
+    migrateBlocked: "Processes still use this version. The version was kept.",
+    migrateInterrupted:
+      "The web service stopped before the migration finished. The version was kept.",
+    migrateCancelled: "The migration was cancelled. The version was kept.",
   },
   cleanupReleases: "Remove old versions",
   cleanupHelp:
@@ -119,6 +126,40 @@ export const operationsCopy = {
     busy: "Update in progress",
     unsafe: "Unsupported directory",
   },
+  migrateSessions: "Show sessions",
+  migrateLoading: "Loading sessions …",
+  migrateEmpty: "No AgentPier session holds this version.",
+  migrateStart: "Migrate sessions and delete version",
+  migrateInterrupt: "Migrate now and delete",
+  migrateCancel: "Cancel migration",
+  migrateConfirm: (version, count) =>
+    `Move ${count} session(s) to the active version and delete version ${version} afterwards? Busy sessions move after finishing their current step; sessions with unknown state wait until the CLI is recognisably idle.`,
+  migrateInterruptConfirm: (version, count) =>
+    `Restart ${count} session(s) immediately and delete version ${version} afterwards? Running work is interrupted. Saved conversations are preserved.`,
+  migrateIneligibleHint:
+    "Some sessions cannot be reloaded. Stop them manually to release the version.",
+  migrateUnidentifiedHint: (references) =>
+    `Processes outside a session use this version: ${references}. Stop them to release the version.`,
+  migrateNodeOnly: (count) =>
+    `${count} Node process(es) from this version are re-checked after the migration.`,
+  migrateStates: {
+    ready: "Ready",
+    busy: "Busy",
+    unknown: "State unknown",
+    queued: "Waiting to become idle",
+    reloading: "Reloading",
+    approval: "Waiting for approval in the terminal",
+    failed: "Failed",
+    ineligible: "Cannot reload",
+    "unsupported-session": "Pipeline, login or shell session",
+    "native-session-unverified": "No verified conversation",
+  },
+  migrateSucceeded: (count) => `Version deleted, ${count} session(s) reloaded.`,
+  migrateFailedSessions: "Not reloaded",
+  migrateRemaining: "Still used by",
+  activateReload: "Move running sessions to the new version afterwards",
+  activateReloadHelp:
+    "The migration starts after the new version passes its health check. Busy sessions move after finishing their current step; nothing is interrupted. Sessions that cannot be reloaded keep running on the previous version.",
   checkUpdates: "Check for updates",
   stageRelease: "Stage release",
   activateRelease: "Activate staged release",
