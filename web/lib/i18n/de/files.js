@@ -2,6 +2,14 @@ import { fileActionsCopy } from "./files-actions.js";
 export const filesCopy = {
   actions: fileActionsCopy,
   errors: {
+    FILE_ARCHIVE_PATH_INVALID:
+      "Das ZIP-Archiv enthält einen unsicheren oder widersprüchlichen Pfad.",
+    FILE_ARCHIVE_INVALID:
+      "Das ZIP-Archiv ist beschädigt, verschlüsselt oder enthält nicht unterstützte Einträge.",
+    FILE_ARCHIVE_ALIAS:
+      "Archivnamen verweisen auf dasselbe Ziel. Benenne die widersprüchlichen Einträge vor dem Entpacken um.",
+    FILE_EXTRACT_UNSUPPORTED:
+      "Sicheres Entpacken ist in diesem Ordner nicht verfügbar, weil seine Dateinamensregeln nicht geprüft werden konnten. Wähle einen unterstützten lokalen APFS- oder unverschlüsselten ext4-Ordner.",
     FILE_ARCHIVE_PENDING: "Dieses Archiv ist noch nicht zum Herunterladen verfügbar.",
     FILE_ARCHIVE_LINKS:
       "Verknüpfungen werden im Archiv ausgelassen. Bestätige die angezeigten Auslassungen vor dem Fortfahren.",

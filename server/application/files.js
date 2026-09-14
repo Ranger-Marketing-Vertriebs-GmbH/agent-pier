@@ -1,4 +1,5 @@
 import { FileArchives, registerArchiveHandlers } from "../features/files/file-zip.js";
+import { FileExtracts, registerExtractHandlers } from "../features/files/file-extract.js";
 import {
   FileMutations,
   registerMutationHandlers,
@@ -59,6 +60,7 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
     .then(() => trash.recover())
     .then(() => uploads.recover())
     .then(() => archives.recover())
+    .then(() => extracts.recover())
     .then(() => archives.sweep())
     .then(() => uploads.sweep())
     .then(() => uploads.start());
@@ -70,6 +72,8 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
   registerMutationHandlers(handlers, mutations);
   const copies = new FileCopies({ publisher, trash, locks, context, limits });
   registerCopyHandlers(handlers, copies);
+  const extracts = new FileExtracts({ publisher, trash, locks, context, limits });
+  registerExtractHandlers(handlers, extracts);
   const resultStore = {
     putEntry: (jobId, entry) => mutationBarrier.run(() => store.putEntry(jobId, entry)),
   };
@@ -125,6 +129,7 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
     jobs,
     uploads,
     archives,
+    extracts,
     context,
     listings,
     reading,

@@ -6,6 +6,7 @@ import { writeFunctions } from "./file-native-write.js";
 import { linuxAbi } from "./file-native-linux.js";
 import { metadataFunctions } from "./file-native-metadata.js";
 import { directoryFunctions } from "./file-native-directory.js";
+import { namePolicyFunctions } from "./file-native-names.js";
 import { darwinAbi } from "./file-native-darwin.js";
 import { validateNativeRequest } from "./file-native.js";
 import { fileProblem, fileSystemProblem } from "./file-errors.js";
@@ -18,6 +19,7 @@ const metadata = metadataFunctions(library, workerData.platform);
 const handles = new Map();
 let sequence = 0;
 const writes = writeFunctions(library, abi, { lookup, keep, openComponent });
+const namePolicy = namePolicyFunctions(library, abi, lookup);
 
 function closeOwned(opened) {
   if (opened.stream) directories.close(opened.stream);
@@ -124,6 +126,8 @@ function run(operation, args) {
   )
     throw fileProblem("FILE_IO_ERROR", 503);
   switch (operation) {
+    case "namePolicy":
+      return namePolicy(args.handle);
     case "createFile":
     case "createDirectory":
     case "createLink":

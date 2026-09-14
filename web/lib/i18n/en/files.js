@@ -2,6 +2,13 @@ import { fileActionsCopy } from "./files-actions.js";
 export const filesCopy = {
   actions: fileActionsCopy,
   errors: {
+    FILE_ARCHIVE_PATH_INVALID: "The ZIP archive contains an unsafe or conflicting path.",
+    FILE_ARCHIVE_INVALID:
+      "The ZIP archive is damaged, encrypted, or contains unsupported entries.",
+    FILE_ARCHIVE_ALIAS:
+      "Archive names refer to the same destination. Rename the conflicting entries before extracting.",
+    FILE_EXTRACT_UNSUPPORTED:
+      "Safe extraction is unavailable in this folder because its filename rules could not be verified. Choose a supported local APFS or unencrypted ext4 folder.",
     FILE_ARCHIVE_PENDING: "This archive is not available for download.",
     FILE_ARCHIVE_LINKS:
       "Links are omitted from the archive. Confirm the listed omissions before continuing.",

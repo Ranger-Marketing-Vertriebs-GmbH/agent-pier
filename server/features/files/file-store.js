@@ -1,5 +1,6 @@
 import { FileArchiveStore } from "./file-archive-store.js";
 import path from "node:path";
+import { completeExtract } from "./file-extract-store.js";
 import { createHash, randomUUID } from "node:crypto";
 import { privateDatabase } from "../../lib/private-database.js";
 import {
@@ -86,13 +87,17 @@ export class FileStore {
     this.storageRoot = path.resolve(dataDir, "files");
     this.db = privateDatabase(this.storageRoot, "files.sqlite");
     this.db.exec(fileSchema);
+    for (const key of ["extractGroup", "extractProbe"])
+      this.db.exec(
+        `CREATE INDEX IF NOT EXISTS ${key}_entries ON job_entries(job_id,json_extract(document,'$.${key}'))`,
+      );
     this.db.exec(trashItemSchema);
     this.uploads = new FileUploadStore(this);
     this.archives = new FileArchiveStore(this);
-    // A durable archive cancellation must survive generic startup interruption.
+    // Durable archive/extraction cancellation survives generic startup interruption.
     this.db
       .prepare(
-        "UPDATE jobs SET status='cancelled' WHERE kind='archive' AND status='cancelling'",
+        "UPDATE jobs SET status='cancelled' WHERE kind IN ('archive','extract') AND status='cancelling'",
       )
       .run();
     this.db
@@ -312,6 +317,8 @@ export class FileStore {
     }
   }
   completeTransfer(record, revision, revisions = new Map()) {
+    if (record.document.extract)
+      return completeExtract(this, record, revision, revisions);
     if (record.document.upload) return this.uploads.complete(record, revision);
     if (record.document.archive) return this.archives.complete(record, revision);
     const { transferId } = record.document;

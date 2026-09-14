@@ -2,6 +2,7 @@ import { resolveFile, entryRevision } from "./file-paths.js";
 import { inodeIdentity, contentIdentity } from "./file-stage.js";
 import { fileProblem } from "./file-errors.js";
 import { scanTree } from "./file-tree.js";
+import { extractRevisions } from "./file-extract-stage.js";
 
 export async function assertRenamedTransfer(publisher, state) {
   if (!state.document.transferId) return;
@@ -24,8 +25,9 @@ export async function assertRenamedTransfer(publisher, state) {
 }
 
 // Filesystem observations remain outside the short database/namespace barrier.
-export async function transferRevisions(store, record) {
+export async function transferRevisions(store, record, native) {
   const doc = record.document;
+  if (doc.extract) return extractRevisions(store, record, native);
   if (!doc.transferId || doc.transferCompleted) return new Map();
   const revisions = new Map();
   for (const row of store.transferRows(record.jobId, doc.transferId)) {

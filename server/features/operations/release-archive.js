@@ -136,6 +136,23 @@ export async function smokeRelease(directory) {
                     fs.readFileSync(path.join(temporary, 'target'), 'utf8') !== 'target')
                   throw Error('Native metadata preservation failed.');
                 const parent = await native.run('openRoot', { path: temporary });
+                try {
+                  const a = await native.run('namePolicy', { handle: directory.handle });
+                  const b = await native.run('namePolicy', { handle: parent.handle });
+                  for (const [value, folder] of [[a, root], [b, temporary]]) {
+                    const stat = fs.statSync(folder, { bigint: true });
+                    if (!value || !['apfs', 'ext4'].includes(value.filesystem) ||
+                        value.identity !== String(stat.dev) + ':' + String(stat.ino) ||
+                        value.device !== String(stat.dev) || !/^[a-f0-9]{16}$/.test(value.volume) ||
+                        !(value.filesystem === 'apfs' ? [0x200, 0x300] : [0, 0x40000000]).includes(value.caseFlags) ||
+                        (value.filesystem === 'ext4' && !/^[0-9]+$/.test(value.mount)))
+                      throw Error('Native filename capability evidence is invalid.');
+                  }
+                  if (['device', 'filesystem', 'volume', 'mount', 'caseFlags'].some(key => a[key] !== b[key]))
+                    throw Error('Native filename inheritance smoke failed.');
+                } catch (error) {
+                  if (error.code !== 'FILE_EXTRACT_UNSUPPORTED') throw error;
+                }
                 const stream = await native.run('openDirectory', { directory: parent.handle, path: '' });
                 const found = [];
                 for (let count = 0; count < 3; count++) {

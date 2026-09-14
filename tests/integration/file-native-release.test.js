@@ -42,6 +42,7 @@ async function fixture(t) {
     "file-native-worker.js",
     "file-native-write.js",
     "file-native-directory.js",
+    "file-native-names.js",
     "file-native-metadata.js",
     "file-native-attributes.js",
     "file-metadata.js",
@@ -141,6 +142,33 @@ test("packaged native support survives relocation, initial installation and upda
   await fs.writeFile(update, revisedArchive(bytes, "1.1.0"));
   assert.equal((await releases.stage({ archive: update })).version, "1.1.0");
   await smokeRelease(path.join(installRoot, "releases/1.1.0"));
+  const badNames = path.join(f.root, "missing-name-policy.aprelease");
+  await fs.writeFile(
+    badNames,
+    revisedArchive(
+      bytes,
+      "1.1.2",
+      (name) => name === "server/features/files/file-native-names.js",
+    ),
+  );
+  await assert.rejects(releases.stage({ archive: badNames }), /smoke check failed/);
+  const missingInstallRoot = path.join(f.root, "missing-name-policy-install");
+  await assert.rejects(
+    installRelease(
+      {
+        archive: badNames,
+        installRoot: missingInstallRoot,
+        dataDir: path.join(f.root, "missing-name-policy-data"),
+        installDependencies: false,
+      },
+      { run: async () => ({ stdout: "fixture tool available" }) },
+    ),
+    /smoke check failed/,
+  );
+  await assert.rejects(fs.access(path.join(missingInstallRoot, "current")), {
+    code: "ENOENT",
+  });
+  assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
   const faulty = JSON.parse(gunzipSync(revisedArchive(bytes, "1.1.1")));
   const metadataModule = faulty.files.find(
     (file) => file.path === "server/features/files/file-metadata.js",

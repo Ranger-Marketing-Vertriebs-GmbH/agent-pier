@@ -42,7 +42,10 @@ export async function treeParent(native, rootParent, rootName, relativePath, row
         native,
         await native.run("openLookup", { directory: parent.handle, path: pieces[index] }),
       );
-      const expected = rows.find((row) => row.relativePath === relative);
+      const expected =
+        rows instanceof Map
+          ? rows.get(relative)
+          : rows.find((row) => row.relativePath === relative);
       try {
         if (!expected || inodeIdentity(await next.stat()) !== expected.identity)
           throw treeConflict();
@@ -76,6 +79,7 @@ export async function scanTree(
 ) {
   const rows = [],
     queue = [""];
+  const indexed = new Map();
   let bytes = 0;
   for (let index = 0; index < queue.length; index++) {
     signal?.throwIfAborted();
@@ -85,7 +89,7 @@ export async function scanTree(
       relativePath.split("/").filter(Boolean).length > limits.maxDepth
     )
       throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
-    const current = await treeParent(native, parent, name, relativePath, rows);
+    const current = await treeParent(native, parent, name, relativePath, indexed);
     let stream;
     try {
       const stat = await inspect(native, current.handle, treeName(name, relativePath));
@@ -97,6 +101,7 @@ export async function scanTree(
         throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
       const row = treeRow(relativePath, stat);
       rows.push(row);
+      indexed.set(relativePath, row);
       await report({ entry: row });
       if (stat.type === "directory") {
         stream = ownedHandle(

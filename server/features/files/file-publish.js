@@ -1,17 +1,14 @@
 import {
   checkpointArchive,
   finishArchiveArtifact,
-  discardArchivePayload,
   archiveSnapshot,
 } from "./file-archive-publication.js";
 import { prepareRename, restoreRenameSource } from "./file-rename.js";
 import { transferRevisions } from "./file-transfer-completion.js";
-import { discardCopyStage } from "./file-copy-cleanup.js";
-import {
-  checkpointUpload,
-  discardUploadPayload,
-  uploadSnapshot,
-} from "./file-upload-publication.js";
+import { discardPublication } from "./file-publish-discard.js";
+import { bindExtract } from "./file-extract-store.js";
+import { reopenExtractStage } from "./file-extract-stage.js";
+import { checkpointUpload, uploadSnapshot } from "./file-upload-publication.js";
 import {
   assertPublicationExpected,
   recordPublication,
@@ -89,6 +86,7 @@ export class FilePublisher {
       transferId,
       upload = false,
       archive = false,
+      extract = null,
     } = {},
   ) {
     if (
@@ -137,6 +135,9 @@ export class FilePublisher {
       linkIdentity: selected.linkIdentity,
       transferId,
       ...(binding ? { archive: binding } : {}),
+      ...(extract
+        ? { extract: bindExtract(this.store, scope, jobId, selected.path, extract) }
+        : {}),
       ...(upload ? { upload: this.store.uploads.bind(scope, jobId, selected.path) } : {}),
     };
     try {
@@ -410,7 +411,7 @@ export class FilePublisher {
         phase: "exchanged",
         document: state.document,
       };
-      const revisions = await transferRevisions(this.store, completion);
+      const revisions = await transferRevisions(this.store, completion, this.native);
       await this.barrier.run(async () => {
         this.store.completeTransfer(completion, revision, revisions);
         if (!displaced) await removeStageDirectory(this.native, state);
@@ -503,51 +504,11 @@ export class FilePublisher {
     });
   }
   discard(stage) {
-    return this.#track(async () => {
-      const state = this.#stages.get(stage);
-      if (state?.document.upload || state?.document.archive) {
-        if (state.busy && !state.finished) throw conflict();
-        try {
-          return await (
-            state.document.archive ? discardArchivePayload : discardUploadPayload
-          )(this, this.store.getPublication(state.id));
-        } finally {
-          state.finished = true;
-          this.#active.delete(state);
-          await closeStage(state);
-        }
-      }
-      if (state?.finished && state.document.transferId)
-        return discardCopyStage(this, state, (...args) => this.#record(...args));
-      if (!state || state.busy || state.finished)
-        throw fileProblem("FILE_INVALID_OPERATION", 400);
-      state.busy = true;
-      try {
-        // Only a live registered stage is eligible; names never grant authority.
-        const record = this.store.getPublication(state.id);
-        if (
-          record?.phase !== "staging" ||
-          !(await parentMatches(this.native, state.file, state.document.stageParent))
-        )
-          throw conflict();
-        await this.barrier.run(async () => {
-          if (state.document.stagedIdentity)
-            await this.native.run("removeEntry", {
-              directory: state.parentHandle.handle,
-              name: state.name,
-              identity: state.document.stagedIdentity,
-              type: state.type,
-            });
-          await state.parentHandle.sync();
-          await removeStageDirectory(this.native, state);
-          await this.#record(state, "resolved");
-        });
-      } finally {
-        state.finished = true;
-        this.#active.delete(state);
-        await closeStage(state);
-      }
-    });
+    return this.#track(() =>
+      discardPublication(this, this.#stages.get(stage), this.#active, (...args) =>
+        this.#record(...args),
+      ),
+    );
   }
   release(stage) {
     return this.#track(async () => {
@@ -563,6 +524,15 @@ export class FilePublisher {
     return this.#track(() =>
       checkpointArchive(this, this.#stages.get(stage), proof, options),
     );
+  }
+  resumeExtract(scope, id) {
+    return this.#track(async () => {
+      const state = await reopenExtractStage(this, scope, id);
+      const stage = Object.freeze({ id: state.id, handle: state.handle });
+      this.#stages.set(stage, state);
+      this.#active.add(state);
+      return stage;
+    });
   }
   finishArchive(stage, options) {
     return this.#track(() =>

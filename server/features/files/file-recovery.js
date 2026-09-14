@@ -115,7 +115,10 @@ export async function recoverPublications({ store, native, barrier }) {
         stageParent = await openParent(owner, doc.staged).catch((error) => {
           if (
             error.code === "FILE_NOT_FOUND" &&
-            (doc.transferCompleted || doc.uploadCompleted || doc.archiveCompleted) &&
+            (doc.transferCompleted ||
+              doc.uploadCompleted ||
+              doc.archiveCompleted ||
+              doc.extractCompleted) &&
             doc.expectedIdentity === null
           )
             return null;
@@ -179,7 +182,7 @@ export async function recoverPublications({ store, native, barrier }) {
           // Preparation and hashes precede this short physical lease. Startup
           // can overlap unrelated application snapshots, so disposition and its
           // durable journal update must share the same barrier even on failure.
-          const revisions = await transferRevisions(store, record);
+          const revisions = await transferRevisions(store, record, owner);
           await write(async () => {
             try {
               store.completeTransfer(

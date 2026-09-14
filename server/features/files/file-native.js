@@ -2,6 +2,7 @@ import { Worker } from "node:worker_threads";
 import { fileProblem } from "./file-errors.js";
 
 const operations = {
+  namePolicy: ["handle"],
   openRoot: ["path"],
   openLookup: ["directory", "path"],
   readLink: ["handle"],
