@@ -107,7 +107,7 @@ for (const mobile of [false, true])
     await expect(row("Projekt 1")).toContainText("Arbeitet");
     await expect(row("Projekt 1").locator(".activity-dot")).toHaveClass(/working/);
     await expect(row("Projekt 2")).toContainText("Bereit");
-    await expect(row("Projekt 3")).toContainText("Wartet auf Freigabe");
+    await expect(row("Projekt 3")).toContainText("Wartet · Codex");
     await expect(row("Projekt 4")).toContainText("Aktivität unbekannt");
     await expect(row("Projekt 5")).toContainText("Beendet");
     await expect(row("Lokale Shell")).toContainText("Terminal aktiv");
@@ -119,7 +119,7 @@ for (const mobile of [false, true])
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
     ).toBe(true);
     sessions[0].activity = { state: "waiting", label: "Wartet auf Freigabe" };
-    await expect(row("Projekt 1")).toContainText("Wartet auf Freigabe");
+    await expect(row("Projekt 1")).toContainText("Wartet · Codex");
     await row("Projekt 1").click();
     await expect(page.getByRole("button", { name: "Chat", exact: true })).toBeVisible();
     await expect(
