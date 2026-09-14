@@ -23,6 +23,6 @@ export function sessionActivity(session) {
     : "unknown";
   return {
     state,
-    label: session.activity?.label || labels[state],
+    label: labels[state],
   };
 }

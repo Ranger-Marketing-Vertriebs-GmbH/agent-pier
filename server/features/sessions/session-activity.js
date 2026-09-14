@@ -57,7 +57,8 @@ export function parseSessionActivity(tool, raw) {
   }
   if (!["claude", "codex"].includes(tool)) return result("unknown");
   const prompt = lines.findLastIndex((line) => /^\s*[❯›](?:\s|$)/.test(line));
-  if (prompt < 0 || prompt < lines.length - 10) return result("unknown");
+  if (prompt < 0 || (tool === "codex" && prompt < lines.length - 10))
+    return result("unknown");
   const footer = lines.slice(prompt + 1).join("\n");
   if (
     !/(?:for shortcuts|context left|context window|gpt-|codex-|auto mode|manual mode|shift\+tab|bypass permissions|Opus|Sonnet|Haiku)/i.test(
@@ -82,13 +83,41 @@ export function parseSessionActivity(tool, raw) {
     if (/esc to interrupt/.test(status)) return result("unknown");
     return result("idle");
   }
-  // Claude's current spinner omits the interrupt hint in some modes. Its native
-  // animated row sits directly above the ruled composer and includes elapsed time.
-  if (
-    !border(lines[prompt - 1] || "") ||
-    !lines.slice(prompt + 1, prompt + 8).some(border)
-  )
-    return result("unknown");
+  // Claude keeps the composer between rules, with live task controls below it.
+  const lowerBorder = lines.findIndex(
+    (line, index) => index > prompt && index < prompt + 8 && border(line),
+  );
+  if (!border(lines[prompt - 1] || "") || lowerBorder < 0) return result("unknown");
+  const nativeFooter = lines.slice(lowerBorder + 1).join("\n");
+  if (/↓ to manage/.test(nativeFooter)) {
+    // The shell counter lasts for the task's lifetime and does not animate.
+    if (/(?:^|·\s+)[1-9]\d*\s+shells?(?:\s+·|$)/m.test(nativeFooter))
+      return result("working");
+    const agents = original.filter(
+      (line, index) =>
+        index > lowerBorder &&
+        /^\s*◯\s+\S[^\n]*\s{2,}\d+[hms](?:\s+\d+[ms]){0,2}\s*$/.test(lines[index]) &&
+        /\x1b\[(?:\d+;)*38;/.test(line),
+    );
+    if (agents.length) return result("working", { evidence: agents.join("\n") });
+  }
+  if (prompt < lines.length - 10) return result("unknown");
+  // Newer Claude versions expose interruption in the footer and may omit the
+  // spinner timer or place effort/queued-input rows between it and the composer.
+  if (/\besc to interrupt\b/i.test(nativeFooter)) {
+    const status = lines.findLastIndex(
+      (line, index) =>
+        index < prompt - 1 &&
+        index >= prompt - 12 &&
+        /^[✻✽✶✳✢·*]\s+[^\n]{1,120}…/.test(line.trim()) &&
+        /\x1b\[(?:\d+;)*38;/.test(original[index] || ""),
+    );
+    // Preserve color animation too: tool waits can leave the visible text fixed.
+    return result("working", {
+      evidence: status >= 0 ? original[status] : nativeFooter,
+    });
+  }
+  // Older modes expose a timed animated row directly above the composer.
   let index = prompt - 2;
   while (index >= 0 && !lines[index].trim()) index--;
   const status = lines[index]?.trim() || "";
