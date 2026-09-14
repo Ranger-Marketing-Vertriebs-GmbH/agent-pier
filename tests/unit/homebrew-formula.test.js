@@ -12,7 +12,7 @@ test("generated Homebrew formula installs a working wrapper without running setu
   await fs.mkdir(path.join(root, "scripts"));
   await fs.writeFile(
     path.join(root, "scripts/setup.sh"),
-    'case "$1" in --version) echo 1.2.3;; --help) echo "AgentPier installer";; *) echo "setup executed"; exit 9;; esac\n',
+    'case "$1" in --version) command -v brew > "$FORMULA_BREW_LOG"; echo 1.2.3;; --help) echo "AgentPier installer";; *) echo "setup executed"; exit 9;; esac\n',
   );
   const file = path.join(root, "formula.rb");
   await fs.writeFile(
@@ -23,9 +23,24 @@ test("generated Homebrew formula installs a working wrapper without running setu
       sha256: "a".repeat(64),
     }),
   );
+  const prefix = path.join(root, "brew prefix with spaces");
+  await fs.mkdir(path.join(prefix, "bin"), { recursive: true });
+  await fs.writeFile(path.join(prefix, "bin/brew"), "#!/bin/sh\necho fixture\n", {
+    mode: 0o755,
+  });
+  const brewLog = path.join(root, "brew-log");
   const harness = path.resolve("tests/fixtures/homebrew-formula-harness.rb");
   const output = JSON.parse(
-    execFileSync("ruby", [harness, file], { cwd: root, encoding: "utf8" }),
+    execFileSync("ruby", [harness, file], {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: "/usr/bin:/bin",
+        FORMULA_PREFIX: prefix,
+        FORMULA_BREW_LOG: brewLog,
+      },
+    }),
   );
   assert.equal(output.version, "1.2.3");
   assert.equal(output.sha256, "a".repeat(64));
@@ -36,6 +51,10 @@ test("generated Homebrew formula installs a working wrapper without running setu
   assert.ok(output.dependencies.includes("git"));
   assert.ok(output.dependencies.includes("tmux"));
   assert.equal(output.installedVersion.trim(), "1.2.3");
+  assert.equal(
+    (await fs.readFile(brewLog, "utf8")).trim(),
+    path.join(prefix, "bin/brew"),
+  );
 });
 
 test("formula generation rejects values that could escape Ruby or change release identity", async () => {

@@ -123,3 +123,51 @@ for (const kind of ["traversal", "symlink"]) {
     await assert.rejects(fs.access(path.join(ctx.root, "outside")));
   });
 }
+
+for (const kind of ["truncated gzip", "sparse extension"]) {
+  test(`online installer rejects checksum-valid ${kind} before setup`, async (t) => {
+    const { createInstallerTar, renderOnlineInstaller } =
+      await import("../../scripts/installer-package.mjs");
+    const ctx = await fixture(t);
+    let bytes;
+    if (kind === "truncated gzip")
+      bytes = gzipSync(createInstallerTar([setup])).subarray(0, -8);
+    else {
+      const record = (text) => {
+        let size = text.length + 3;
+        while (`${size} ${text}\n`.length !== size) size = `${size} ${text}\n`.length;
+        return `${size} ${text}\n`;
+      };
+      const tar = createInstallerTar([
+        {
+          name: "a-pax",
+          content: Buffer.from(
+            record("GNU.sparse.map=0,1") + record("GNU.sparse.size=67108865"),
+          ),
+        },
+        { name: "b-sparse", content: Buffer.from("x") },
+        setup,
+      ]);
+      tar.write("x", 156);
+      tar.fill(32, 148, 156);
+      const sum = tar.subarray(0, 512).reduce((total, byte) => total + byte, 0);
+      tar.write(sum.toString(8).padStart(6, "0") + "\0 ", 148, 8);
+      bytes = gzipSync(tar);
+    }
+    ctx.env.BUNDLE = path.join(ctx.root, "bundle.tar.gz");
+    await fs.writeFile(ctx.env.BUNDLE, bytes);
+    const file = path.join(ctx.root, "install.sh");
+    await fs.writeFile(
+      file,
+      renderOnlineInstaller({
+        version: "1.2.3",
+        sha256: createHash("sha256").update(bytes).digest("hex"),
+      }),
+    );
+    await assert.rejects(
+      exec("/bin/sh", [file], { env: ctx.env }),
+      kind === "sparse extension" ? /[Uu]nsafe|[Uu]nsupported/ : /gzip|compressed/,
+    );
+    await assert.rejects(fs.access(ctx.env.SETUP_LOG));
+  });
+}

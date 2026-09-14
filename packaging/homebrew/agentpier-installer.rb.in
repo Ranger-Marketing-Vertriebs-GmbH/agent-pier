@@ -16,6 +16,7 @@ class AgentpierInstaller < Formula
     libexec.install Dir["*"]
     (bin/"agentpier-install").write <<~SH
       #!/bin/sh
+      export PATH=#{Shellwords.escape((HOMEBREW_PREFIX/"bin").to_s)}:#{Shellwords.escape((HOMEBREW_PREFIX/"sbin").to_s)}:"$PATH"
       exec /bin/sh #{Shellwords.escape((libexec/"scripts/setup.sh").to_s)} "$@"
     SH
     (bin/"agentpier-install").chmod 0755

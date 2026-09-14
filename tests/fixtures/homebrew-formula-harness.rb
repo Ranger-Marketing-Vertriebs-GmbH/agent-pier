@@ -9,6 +9,7 @@ class Pathname
     files.each { |file| FileUtils.cp_r(file, to_s) }
   end
 end
+HOMEBREW_PREFIX = Pathname.new(ENV.fetch("FORMULA_PREFIX"))
 class Formula
   class << self
     attr_accessor :metadata, :test_body
