@@ -1,16 +1,49 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { createApplication } from "../../server/app.js";
 import { remoteRoutes, remoteLocked } from "../../server/http/routes/remote.js";
+import { writeNetworkConfig } from "../../server/features/remote/network-access.js";
 
-async function fixture(t) {
+/** Sends a request with a raw Host header undici's fetch() cannot override. */
+function rawRequest(port, { method, path: target, headers, body }) {
+  return new Promise((resolve, reject) => {
+    const data = body ? JSON.stringify(body) : undefined;
+    const req = http.request(
+      {
+        host: "127.0.0.1",
+        port,
+        method,
+        path: target,
+        headers: {
+          ...headers,
+          ...(data ? { "content-length": Buffer.byteLength(data) } : {}),
+        },
+      },
+      (res) => {
+        let raw = "";
+        res.on("data", (chunk) => (raw += chunk));
+        res.on("end", () =>
+          resolve({ status: res.statusCode, json: () => JSON.parse(raw) }),
+        );
+      },
+    );
+    req.on("error", reject);
+    if (data) req.write(data);
+    req.end();
+  });
+}
+
+async function fixture(t, network = { enabled: false, bind: "0.0.0.0", hosts: [] }) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "remote-route-"));
   const home = path.join(root, "home");
   await fs.mkdir(home, { mode: 0o700 });
   const dataDir = path.join(root, "data");
+  // Mirrors what a prior, unlocked save would have persisted before a restart applied it.
+  writeNetworkConfig(dataDir, network);
   const restarts = [];
   const application = await createApplication({
     dataDir,
@@ -19,7 +52,7 @@ async function fixture(t) {
     remoteUrl: "https://host.example.ts.net:8443",
     ownerLogin: "owner@example.com",
     devOrigins: [],
-    network: { enabled: false, bind: "0.0.0.0", hosts: [] },
+    network,
     remoteRestart: async () => restarts.push(Date.now()),
   });
   await new Promise((resolve) => application.server.listen(0, "127.0.0.1", resolve));
@@ -41,7 +74,7 @@ async function fixture(t) {
     await application.close();
     await fs.rm(root, { recursive: true, force: true });
   });
-  return { application, dataDir, request, restarts, port };
+  return { application, dataDir, request, restarts, port, cookie };
 }
 test("remote settings read, validate, save and flag the restart", async (t) => {
   const f = await fixture(t);
@@ -104,4 +137,48 @@ test("requests through the network branch may only switch the mode off", () => {
   };
   assert.equal(remoteLocked(lan, config), true);
   assert.equal(remoteLocked(local, config), false);
+  const devConfig = { ...config, devOrigins: ["http://localhost:5173"] };
+  const dev = {
+    headers: { host: "localhost:5173" },
+    socket: { remoteAddress: "127.0.0.1" },
+  };
+  assert.equal(remoteLocked(dev, devConfig), false);
+});
+test("a request through the network branch may only disable the mode, checked through the real route", async (t) => {
+  const network = { enabled: true, bind: "127.0.0.1", hosts: ["agentpier.test"] };
+  const f = await fixture(t, network);
+  const host = `agentpier.test:${f.port}`;
+  const headers = {
+    host,
+    origin: `http://${host}`,
+    cookie: f.cookie,
+    "content-type": "application/json",
+  };
+  const locked = await rawRequest(f.port, {
+    method: "PUT",
+    path: "/api/remote",
+    headers,
+    body: {
+      network: {
+        enabled: true,
+        bind: "127.0.0.1",
+        hosts: ["agentpier.test", "other.test"],
+      },
+    },
+  });
+  assert.equal(locked.status, 403);
+  const disabling = await rawRequest(f.port, {
+    method: "PUT",
+    path: "/api/remote",
+    headers,
+    body: { network: { enabled: false, bind: "127.0.0.1", hosts: ["agentpier.test"] } },
+  });
+  assert.equal(disabling.status, 200);
+  assert.equal((await disabling.json()).network.saved.enabled, false);
+  const view = await rawRequest(f.port, {
+    method: "GET",
+    path: "/api/remote",
+    headers,
+  });
+  assert.equal((await view.json()).network.locked, true);
 });

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { isDeepStrictEqual } from "node:util";
 import { problem } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
+import { directLocalRequest } from "../login.js";
 import {
   normalizeNetworkConfig,
   readNetworkConfig,
@@ -12,21 +13,16 @@ import { restartService } from "../../features/operations/release-service.js";
 
 /** True when the request itself arrived through the plain network branch. */
 export function remoteLocked(req, config) {
-  const loopback = ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(
-    req.socket.remoteAddress,
-  );
-  const local = new Set([`127.0.0.1:${config.port}`, `localhost:${config.port}`]);
-  const tailscale =
+  const tailscaleHost =
     config.remoteUrl && new URL(config.remoteUrl).host === req.headers.host;
-  return !(loopback && (local.has(req.headers.host) || tailscale));
+  return !(directLocalRequest(req, config) || tailscaleHost);
 }
 
 export function remoteRoutes(services, { restart = restartService } = {}) {
   const { config, audit, networkState } = services;
   const effective = services.effectiveConfig;
   const router = Router();
-  const view = (req) => {
-    const current = effective();
+  const view = (req, current) => {
     const saved = readNetworkConfig(config.dataDir).network;
     const running = current.network;
     return {
@@ -42,13 +38,14 @@ export function remoteRoutes(services, { restart = restartService } = {}) {
       },
     };
   };
-  router.get("/remote", (req, res) => res.json(view(req)));
+  router.get("/remote", (req, res) => res.json(view(req, effective())));
   router.put("/remote", (req, res) => {
+    const current = effective();
     const network = normalizeNetworkConfig(req.body?.network);
-    const current = readNetworkConfig(config.dataDir).network;
+    const saved = readNetworkConfig(config.dataDir).network;
     if (
-      remoteLocked(req, effective()) &&
-      !isDeepStrictEqual(network, { ...current, enabled: false })
+      remoteLocked(req, current) &&
+      !isDeepStrictEqual(network, { ...saved, enabled: false })
     )
       throw problem(serverMessages.settings.networkLocked, 403);
     writeNetworkConfig(config.dataDir, network);
@@ -61,7 +58,7 @@ export function remoteRoutes(services, { restart = restartService } = {}) {
       source: "user",
       details: { count: network.hosts.length },
     });
-    res.json(view(req));
+    res.json(view(req, current));
   });
   router.post("/remote/restart", (req, res) => {
     res.status(202).json({ restarting: true, instanceId: services.instanceId });
@@ -79,7 +76,7 @@ export function remoteRoutes(services, { restart = restartService } = {}) {
             outcome: "failure",
             source: "user",
           });
-          services.onError?.(error);
+          console.error(serverMessages.settings.restartFailed, error.message);
         }
       }, 300),
     );
