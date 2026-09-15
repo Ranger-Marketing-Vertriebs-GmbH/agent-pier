@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import net from "node:net";
+import { createHash } from "node:crypto";
+import { once } from "node:events";
 import { AccountStore } from "../../server/features/accounts/account-store.js";
 import { AgentBus } from "../../server/features/agentbus/agent-bus.js";
 import {
@@ -21,7 +23,7 @@ import { writeJsonAtomic } from "../../vendor/agentbus/core/fsx.js";
 
 import { unregister } from "../../vendor/agentbus/core/peers.js";
 import OpenCodePlugin from "../../vendor/agentbus/agentpier/opencode.js";
-function setup(t) {
+async function setup(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-bus-"));
   const home = path.join(root, "home");
   const cwd = path.join(root, "project");
@@ -30,10 +32,34 @@ function setup(t) {
   const dataDir = path.join(root, "data");
   const accounts = new AccountStore({ dataDir, home });
   const rows = [];
-  const sessions = { list: async () => rows };
+  const sessions = {
+    list: async () => rows,
+    get: async (id) => rows.find((row) => row.id === id),
+    target: (id) => `fixture-${id}`,
+    tmux: async () => String(process.pid),
+  };
   const bus = new AgentBus({ dataDir, home, accounts, sessions });
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  await bus.ready;
+  t.after(async () => {
+    await bus.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  });
   return { root, home, cwd, dataDir, accounts, rows, bus };
+}
+// Legacy runtime helpers remain covered without exposing their shared state to launch env.
+function legacyContext(ctx, launch) {
+  const capability = JSON.parse(
+    fs.readFileSync(launch.env.AGENTPIER_AGENTBUS_CAPABILITY_FILE, "utf8"),
+  );
+  const home = fs.realpathSync(
+    path.join(ctx.dataDir, "agentbus", "projects", launch.agentbus.projectId),
+  );
+  return context({
+    ...launch.env,
+    AGENTBUS_HOME: home,
+    AGENTPIER_AGENTBUS_SESSION: capability.sessionId,
+    AGENTBUS_SOCKET_DIR: `/tmp/ap-bus-${process.getuid?.() || 0}-${createHash("sha256").update(home).digest("hex").slice(0, 12)}`,
+  });
 }
 async function prepare(ctx, id, tool, extra = {}) {
   const account = ctx.accounts.create({ name: id, tool, apiKey: "private-api-key" });
@@ -55,21 +81,44 @@ async function prepare(ctx, id, tool, extra = {}) {
   return result;
 }
 test("session-only launch adapters preserve options, profile files and project scope across accounts", async (t) => {
-  const ctx = setup(t);
+  const ctx = await setup(t);
   const codex = await prepare(ctx, "one", "codex");
   const claude = await prepare(ctx, "two", "claude");
   const opencode = await prepare(ctx, "three", "opencode");
-  assert.equal(codex.env.AGENTBUS_HOME, claude.env.AGENTBUS_HOME);
-  assert.equal(claude.env.AGENTBUS_HOME, opencode.env.AGENTBUS_HOME);
+  assert.equal(codex.env.AGENTPIER_AGENTBUS_SOCKET, claude.env.AGENTPIER_AGENTBUS_SOCKET);
+  assert.equal(
+    claude.env.AGENTPIER_AGENTBUS_SOCKET,
+    opencode.env.AGENTPIER_AGENTBUS_SOCKET,
+  );
+  for (const launch of [codex, claude, opencode]) {
+    assert.equal(launch.env.AGENTBUS_HOME, undefined);
+    assert.equal(launch.env.AGENTPIER_AGENTBUS_SESSION, undefined);
+    assert.equal(launch.env.AGENTBUS_SOCKET_DIR, undefined);
+    assert.equal(
+      fs.statSync(launch.env.AGENTPIER_AGENTBUS_CAPABILITY_FILE).mode & 0o777,
+      0o600,
+    );
+  }
   assert.notEqual(
-    codex.env.AGENTPIER_AGENTBUS_SESSION,
-    claude.env.AGENTPIER_AGENTBUS_SESSION,
+    codex.env.AGENTPIER_AGENTBUS_CAPABILITY_FILE,
+    claude.env.AGENTPIER_AGENTBUS_CAPABILITY_FILE,
   );
   assert.ok(codex.args.includes("--existing"));
   assert.ok(codex.args.some((arg) => arg.startsWith("mcp_servers.agentpier_agentbus=")));
   assert.ok(codex.args.some((arg) => arg.startsWith("hooks.SessionStart=")));
+  assert.ok(codex.args.some((arg) => arg.includes("agentbus-mcp.js")));
+  assert.match(codex.env.AGENTPIER_AGENTBUS_HOOK, /agentbus-hook\.js$/);
   assert.ok(!codex.args.some((arg) => arg.includes("bypass-hook-trust")));
   assert.ok(claude.args.includes("--plugin-dir"));
+  const plugin = claude.args[claude.args.indexOf("--plugin-dir") + 1];
+  assert.match(
+    fs.readFileSync(path.join(plugin, ".mcp.json"), "utf8"),
+    /agentbus-mcp\.js/,
+  );
+  assert.match(
+    fs.readFileSync(path.join(plugin, "hooks/hooks.json"), "utf8"),
+    /agentbus-hook\.js/,
+  );
   assert.equal(opencode.args[0], "--existing");
   assert.match(JSON.parse(opencode.env.OPENCODE_CONFIG_CONTENT).plugin[0], /^file:/);
   assert.equal(
@@ -86,10 +135,10 @@ test("session-only launch adapters preserve options, profile files and project s
   assert.equal(JSON.stringify(catalog).includes("private-api-key"), false);
 });
 
-test("pending overview is read-only; explicit inbox claims each message once and excludes foreign peers", async (t) => {
-  const ctx = setup(t);
-  const a = context((await prepare(ctx, "sender", "claude")).env);
-  const b = context((await prepare(ctx, "receiver", "codex")).env);
+test("legacy helper coverage: pending overview is read-only; explicit inbox claims each message once and excludes foreign peers", async (t) => {
+  const ctx = await setup(t);
+  const a = legacyContext(ctx, await prepare(ctx, "sender", "claude"));
+  const b = legacyContext(ctx, await prepare(ctx, "receiver", "codex"));
   const sender = registerPeer(a, "claude-native", { pid: process.pid });
   const receiver = registerPeer(b, "codex-native", { pid: process.pid });
   writeJsonAtomic(path.join(a.h, "peers", "foreign.json"), {
@@ -128,10 +177,10 @@ test("pending overview is read-only; explicit inbox claims each message once and
   assert.equal(queue.rows({ status: "acked" }).length, 1);
   queue.close();
 });
-test("Codex wake uses the registered target binary and profile, and a failed wake keeps queued data", async (t) => {
-  const ctx = setup(t);
-  const a = context((await prepare(ctx, "sender", "claude")).env);
-  const b = context((await prepare(ctx, "target", "codex")).env);
+test("legacy helper coverage: Codex wake uses the registered target binary and profile, and a failed wake keeps queued data", async (t) => {
+  const ctx = await setup(t);
+  const a = legacyContext(ctx, await prepare(ctx, "sender", "claude"));
+  const b = legacyContext(ctx, await prepare(ctx, "target", "codex"));
   registerPeer(a, "sender-native", { pid: process.pid });
   const target = registerPeer(b, "target-native", { pid: process.pid });
   let call;
@@ -170,9 +219,9 @@ test("Codex wake uses the registered target binary and profile, and a failed wak
   assert.equal(queue.summary(target.key).count, 1);
   queue.close();
 });
-test("OpenCode resolves every concurrent tool call by exact native session without a shared active slot", async (t) => {
-  const ctx = setup(t);
-  const c = context((await prepare(ctx, "oc", "opencode")).env);
+test("legacy helper coverage: OpenCode resolves every concurrent tool call by exact native session without a shared active slot", async (t) => {
+  const ctx = await setup(t);
+  const c = legacyContext(ctx, await prepare(ctx, "oc", "opencode"));
   const first = registerPeer(c, "ses_first", { pid: process.pid });
   const tools = toolsFor(c);
   const inbox = tools.find((tool) => tool.name === "inbox_read");
@@ -210,13 +259,18 @@ test("OpenCode resolves every concurrent tool call by exact native session witho
   await assert.rejects(inbox.run({ __agentpierSession: "../escape" }), /not registered/);
 });
 test("MCP stdin transport exposes tools and uses registered launch identity without model calls", async (t) => {
-  const ctx = setup(t);
+  const ctx = await setup(t);
   const launch = await prepare(ctx, "stdio", "claude");
-  const c = context(launch.env);
-  registerPeer(c, "native-stdio", { pid: process.pid });
+  const hook = spawn(
+    process.execPath,
+    ["server/features/agentbus/agentbus-hook.js", "SessionStart"],
+    { env: launch.env, stdio: ["pipe", "pipe", "pipe"] },
+  );
+  hook.stdin.end(JSON.stringify({ session_id: "native-stdio" }));
+  assert.equal((await once(hook, "close"))[0], 0);
   const child = spawn(
     process.execPath,
-    [path.resolve("vendor/agentbus/agentpier/mcp.js")],
+    [path.resolve("server/features/agentbus/agentbus-mcp.js")],
     { env: launch.env, stdio: ["pipe", "pipe", "pipe"] },
   );
   t.after(() => child.kill());
@@ -248,9 +302,9 @@ test("MCP stdin transport exposes tools and uses registered launch identity with
   assert.equal(replies.find((row) => row.id === 2).result.tools.length, 3);
   assert.match(replies.find((row) => row.id === 3).result.content[0].text, /Keine neuen/);
 });
-test("launch registry and bus storage refuse traversal and symlinks; stale PIDs do not register as live", async (t) => {
-  const ctx = setup(t);
-  const c = context((await prepare(ctx, "safe", "codex")).env);
+test("legacy helper coverage: launch registry and bus storage refuse traversal and symlinks; stale PIDs do not register as live", async (t) => {
+  const ctx = await setup(t);
+  const c = legacyContext(ctx, await prepare(ctx, "safe", "codex"));
   const peer = registerPeer(c, "native", { pid: process.pid });
   writeJsonAtomic(path.join(c.h, "peers", `${peer.key}.json`), {
     ...peer,
@@ -272,10 +326,10 @@ test("launch registry and bus storage refuse traversal and symlinks; stale PIDs 
   );
   assert.deepEqual(fs.readdirSync(outside), []);
 });
-test("message history paginates pending and read messages without claiming, even after a peer stops", async (t) => {
-  const ctx = setup(t);
-  const a = context((await prepare(ctx, "history-a", "claude")).env);
-  const b = context((await prepare(ctx, "history-b", "codex")).env);
+test("legacy helper coverage: message history paginates pending and read messages without claiming, even after a peer stops", async (t) => {
+  const ctx = await setup(t);
+  const a = legacyContext(ctx, await prepare(ctx, "history-a", "claude"));
+  const b = legacyContext(ctx, await prepare(ctx, "history-b", "codex"));
   const sender = registerPeer(a, "native-a", { pid: process.pid });
   const recipient = registerPeer(b, "native-b", { pid: process.pid });
   for (let index = 0; index < 25; index++)
@@ -323,9 +377,9 @@ test("message history paginates pending and read messages without claiming, even
   await assert.rejects(ctx.bus.messages(a.launch.projectId, { page: 0 }));
   await assert.rejects(ctx.bus.messages(a.launch.projectId, { page: 1.5 }));
 });
-test("Claude wake uses the target profile registry socket and keeps its authentication token private", async (t) => {
-  const ctx = setup(t);
-  const c = context((await prepare(ctx, "claude-wake", "claude")).env);
+test("legacy helper coverage: Claude wake uses the target profile registry socket and keeps its authentication token private", async (t) => {
+  const ctx = await setup(t);
+  const c = legacyContext(ctx, await prepare(ctx, "claude-wake", "claude"));
   const peer = registerPeer(c, "native-claude", { pid: process.pid });
   const socketDir = fs.mkdtempSync("/tmp/agentpier-bus-wake-");
   const socketPath = path.join(socketDir, "wake.sock");
@@ -361,10 +415,10 @@ test("Claude wake uses the target profile registry socket and keeps its authenti
     false,
   );
 });
-test("OpenCode hook attaches exact per-call identity and never redirects a deleted socket target", async (t) => {
-  const ctx = setup(t);
+test("legacy helper coverage: OpenCode hook attaches exact per-call identity and never redirects a deleted socket target", async (t) => {
+  const ctx = await setup(t);
   const launch = await prepare(ctx, "plugin", "opencode");
-  context(launch.env);
+  const legacy = legacyContext(ctx, launch);
   const old = {};
   for (const key of [
     "AGENTBUS_HOME",
@@ -372,7 +426,7 @@ test("OpenCode hook attaches exact per-call identity and never redirects a delet
     "AGENTBUS_SOCKET_DIR",
   ]) {
     old[key] = process.env[key];
-    process.env[key] = launch.env[key];
+    process.env[key] = legacy.env[key];
   }
   const prompts = [];
   let hooks;
@@ -395,7 +449,7 @@ test("OpenCode hook attaches exact per-call identity and never redirects a delet
   }
   t.after(async () => {
     await hooks.dispose();
-    fs.rmSync(launch.env.AGENTBUS_SOCKET_DIR, { recursive: true, force: true });
+    fs.rmSync(legacy.env.AGENTBUS_SOCKET_DIR, { recursive: true, force: true });
   });
   await hooks.event({
     event: { type: "session.created", properties: { info: { id: "ses_one" } } },
@@ -428,7 +482,7 @@ test("OpenCode hook attaches exact per-call identity and never redirects a delet
     event: { type: "session.deleted", properties: { sessionID: "ses_one" } },
   });
   const sock = net.createConnection(
-    path.join(launch.env.AGENTBUS_SOCKET_DIR, `${process.pid}.sock`),
+    path.join(legacy.env.AGENTBUS_SOCKET_DIR, `${process.pid}.sock`),
   );
   await new Promise((resolve, reject) => {
     sock.on("error", reject);
@@ -443,14 +497,14 @@ test("OpenCode hook attaches exact per-call identity and never redirects a delet
 
 for (const tool of ["codex", "claude"]) {
   test(`${tool} hooks request inbox reads only for pending messages or explicit requests`, async (t) => {
-    const ctx = setup(t);
+    const ctx = await setup(t);
     const launch = await prepare(ctx, `guidance-${tool}`, tool);
-    const busContext = context(launch.env);
+    const busContext = legacyContext(ctx, launch);
     const runHook = (event) =>
       new Promise((resolve, reject) => {
         const child = spawn(
           process.execPath,
-          ["vendor/agentbus/agentpier/hook.js", event],
+          ["server/features/agentbus/agentbus-hook.js", event],
           {
             env: { PATH: process.env.PATH, ...launch.env },
             stdio: ["pipe", "pipe", "pipe"],
@@ -466,9 +520,7 @@ for (const tool of ["codex", "claude"]) {
         });
         child.on("error", reject);
         child.on("close", (code) => {
-          // Node 22 reports an experimental SQLite warning even on success.
-          // The hook catches its own errors and reports them with this prefix.
-          if (code !== 0 || /^agentbus:/m.test(stderr))
+          if (code !== 0 || /^AgentBus hook unavailable/m.test(stderr))
             reject(new Error(`Hook failed: ${code} ${stderr}`));
           else resolve(stdout);
         });
@@ -491,23 +543,26 @@ for (const tool of ["codex", "claude"]) {
         text: "Synthetic pending message",
       }),
     );
-    assert.match(await runHook("UserPromptSubmit"), /1 neue Nachricht/);
+    assert.match(await runHook("UserPromptSubmit"), /1 ungelesene Nachricht/);
     const reader = toolsFor(busContext).find((item) => item.name === "inbox_read");
     assert.match(reader.description, /nicht periodisch/);
     assert.match(await reader.run({}), /Synthetic pending message/);
     assert.equal(await runHook("UserPromptSubmit"), "");
     fs.unlinkSync(path.join(busContext.h, "launches", `guidance-${tool}.json`));
-    await assert.rejects(runHook("UserPromptSubmit"), /Hook failed: 0.*agentbus:/s);
+    await assert.rejects(
+      runHook("UserPromptSubmit"),
+      /Hook failed: 0.*AgentBus hook unavailable/s,
+    );
   });
 }
 test("disabled and login launches do not create bus state; canonical project directories isolate buses", async (t) => {
-  const ctx = setup(t);
+  const ctx = await setup(t);
   const disabled = await prepare(ctx, "off", "codex", { enabled: false });
   assert.equal(disabled.agentbus.enabled, false);
-  assert.equal(disabled.env.AGENTBUS_HOME, undefined);
-  assert.equal(fs.existsSync(path.join(ctx.dataDir, "agentbus")), false);
+  assert.equal(disabled.env.AGENTPIER_AGENTBUS_CAPABILITY_FILE, undefined);
+  assert.equal(fs.existsSync(path.join(ctx.dataDir, "agentbus", "projects")), false);
   const login = await prepare(ctx, "login", "claude", { purpose: "login" });
-  assert.equal(login.env.AGENTBUS_HOME, undefined);
+  assert.equal(login.env.AGENTPIER_AGENTBUS_CAPABILITY_FILE, undefined);
   const one = await prepare(ctx, "first", "codex");
   const alias = path.join(ctx.root, "alias");
   fs.symlinkSync(ctx.cwd, alias);

@@ -219,18 +219,19 @@ export function openQueue(home) {
       };
     },
 
-    claim(recipient, owner, now = Date.now(), leaseMs = 30000) {
+    claim(recipient, owner, now = Date.now(), leaseMs = 30000, limit = -1) {
       if (typeof owner !== "string" || !owner) throw new Error("agentbus: invalid claim owner");
       if (!Number.isSafeInteger(now) || !Number.isSafeInteger(leaseMs) || leaseMs < 1)
         throw new Error("agentbus: invalid claim lease");
+      if (!Number.isSafeInteger(limit) || (limit !== -1 && (limit < 1 || limit > 1000))) throw new Error("agentbus: invalid claim limit");
       db.exec("BEGIN IMMEDIATE");
       try {
         reclaim(now);
         const rows = db
           .prepare(
-            "SELECT * FROM messages WHERE recipient=? AND status='pending' ORDER BY ts, id",
+            "SELECT * FROM messages WHERE recipient=? AND status='pending' ORDER BY ts, id LIMIT ?",
           )
-          .all(recipient);
+          .all(recipient, limit);
         const update = db.prepare(
           "UPDATE messages SET status='claimed', claim_owner=?, lease_until=?, attempts=attempts+1, updated_at=? WHERE id=? AND status='pending'",
         );

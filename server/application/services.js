@@ -39,7 +39,7 @@ export async function createServices(config) {
   const mutationBarrier = new MutationBarrier();
   const audit = new AuditStore(config);
   const notifications = new NotificationService(config);
-  let requests;
+  let requests, agentbus;
   const providerCatalog = new ProviderCatalog({ dataDir: config.dataDir });
   const providerConnections = new ProviderConnections({
     dataDir: config.dataDir,
@@ -69,6 +69,7 @@ export async function createServices(config) {
     dataDir: config.dataDir,
     onStopped: async (session) => {
       revokeSessionMcp(config.dataDir, session.id);
+      await agentbus?.revoke(session.id);
       sshSessions.discard(session.id);
       await sshIntegration.discard(session.id);
       await requests?.discard(session.id);
@@ -115,12 +116,14 @@ export async function createServices(config) {
   const agency = new AgencyStore({ accounts, sharedProfiles });
   const installer = new ToolInstaller(config);
   const plugins = new PluginStore({ accounts, home: config.home, sharedProfiles });
-  const agentbus = new AgentBus({
+  agentbus = new AgentBus({
+    bindings,
     accounts,
     sessions,
     dataDir: config.dataDir,
     home: config.home,
   });
+  await agentbus.ready;
   const events = { current: null };
   const operationalWarnings = new Set();
   const onError = () => {
