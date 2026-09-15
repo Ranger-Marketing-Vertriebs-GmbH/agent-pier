@@ -217,19 +217,26 @@ export function writeReceipt(root, receipt) {
   const file = path.join(root, `.setup-${randomUUID()}.tmp`);
   const fd = fs.openSync(file, "wx", 0o600);
   try {
-    fs.writeFileSync(fd, `${JSON.stringify(receipt)}\n`);
-    fs.fsyncSync(fd);
+    try {
+      fs.writeFileSync(fd, `${JSON.stringify(receipt)}\n`);
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+    fs.renameSync(file, path.join(root, receiptName));
+    const directory = fs.openSync(root, "r");
+    try {
+      fs.fsyncSync(directory);
+    } finally {
+      fs.closeSync(directory);
+    }
   } finally {
-    fs.closeSync(fd);
-  }
-  fs.renameSync(file, path.join(root, receiptName));
-  const directory = fs.openSync(root, "r");
-  try {
-    fs.fsyncSync(directory);
-  } finally {
-    fs.closeSync(directory);
+    // A handled first-write failure must leave a fresh root when setup releases
+    // its lock. Process termination still retains the lock's prepared receipt.
+    fs.rmSync(file, { force: true });
   }
 }
+
 function readSetupLock(root, dataDir) {
   const file = path.join(root, ".setup.lock");
   const stat = info(file);

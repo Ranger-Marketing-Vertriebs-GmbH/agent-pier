@@ -5,6 +5,8 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { renderInstallerFormula } from "./homebrew-formula.mjs";
 import { isMainModule } from "../server/lib/is-main-module.js";
+import { compareReleaseVersions } from "../server/features/operations/version.js";
+import { installerVersion } from "./installer-package.mjs";
 const execute = promisify(execFile);
 const repository = "Ranger-Marketing-Vertriebs-GmbH/homebrew-tap";
 
@@ -13,6 +15,7 @@ export async function updateHomebrewTap({ tapDirectory, metadata, run = execute 
     version: metadata.version,
     ...metadata.bundle,
   });
+  if (metadata.version.includes("-")) return { proposed: false, reason: "prerelease" };
   const branch = `chore/agentpier-installer-${metadata.version}`;
   const git = async (...args) =>
     (await run("git", args, { cwd: tapDirectory })).stdout.trim();
@@ -38,6 +41,16 @@ export async function updateHomebrewTap({ tapDirectory, metadata, run = execute 
   if (existing) return { proposed: false, url: existing.url };
   if (prs.length)
     throw Error("This installer update PR was closed; inspect it before retrying.");
+  const formulaPath = path.join(tapDirectory, "Formula/agentpier-installer.rb");
+  let current;
+  try {
+    const source = await fs.readFile(formulaPath, "utf8");
+    current = installerVersion(source.match(/^\s*version "([^"]+)"\s*$/m)?.[1]);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  if (current && compareReleaseVersions(metadata.version, current) <= 0)
+    return { proposed: false, reason: "not-newer" };
   const remote = await git("ls-remote", "--heads", "origin", `refs/heads/${branch}`);
   if (remote) {
     await git("fetch", "origin", `refs/heads/${branch}`);

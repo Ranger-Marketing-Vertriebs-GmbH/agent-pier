@@ -27,12 +27,14 @@ Verified during implementation on native Apple Silicon macOS:
   version. Its stable launcher started the real bundled server on an unused local
   port; `/api/health` confirmed AgentPier 1.17.12. The child was then terminated and
   its data removed. No login service was registered.
+- Handled first-receipt write, sync, and rename failures leave setup retryable.
+  Stable tap tests reject prereleases and equal/older candidates.
 - Process-interleaving regressions cover a competing completed installation and
   terminated initial lock, receipt, archive-cache, and current-pointer writes.
   A process killed while holding the recovery guard deliberately requires manual
   inspection; setup does not remove a guard whose ownership it cannot establish.
 - Homebrew `brew style` inspected the generated formula with no offenses.
-- `npm run check` passed: lint, formatting, structure, build, and 1,619 backend tests
+- `npm run check` passed: lint, formatting, structure, build, and 1,625 backend tests
   passed, with two existing skips.
 - `npm run build` completed. The real macOS arm64 `.aprelease` builder completed its
   relocated smoke test, importing native terminal support, SQLite, and the server

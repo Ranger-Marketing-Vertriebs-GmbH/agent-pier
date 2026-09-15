@@ -85,3 +85,46 @@ test("tap retries return the merged version PR without pushing another branch", 
   });
   assert.deepEqual(result, { proposed: false, url: "https://example.invalid/pr/1" });
 });
+
+for (const version of ["1.0.0", "2.0.0", "3.0.0-beta.1"]) {
+  test(`stable tap retains version 2.0.0 for candidate ${version}`, async (t) => {
+    const { updateHomebrewTap } = await import("../../scripts/homebrew-tap-update.mjs");
+    const { renderInstallerFormula } = await import("../../scripts/homebrew-formula.mjs");
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-tap-order-"));
+    t.after(() => fs.rm(root, { recursive: true, force: true }));
+    const git = (args) => execFileSync("git", args, { cwd: root, encoding: "utf8" });
+    git(["init", "-q", "-b", "main"]);
+    git(["config", "user.email", "fixture@example.invalid"]);
+    git(["config", "user.name", "Fixture"]);
+    await fs.mkdir(path.join(root, "Formula"));
+    const file = path.join(root, "Formula/agentpier-installer.rb");
+    const formula = renderInstallerFormula({
+      version: "2.0.0",
+      file: "agentpier-installer-2.0.0.tar.gz",
+      sha256: "a".repeat(64),
+    });
+    await fs.writeFile(file, formula);
+    git(["add", "."]);
+    git(["commit", "-qm", "fixture"]);
+    const head = git(["rev-parse", "HEAD"]);
+    const writes = [];
+    const result = await updateHomebrewTap({
+      tapDirectory: root,
+      metadata: {
+        version,
+        bundle: { file: `agentpier-installer-${version}.tar.gz`, sha256: "b".repeat(64) },
+      },
+      run: async (command, args) => {
+        if (command === "git" && args[0] === "ls-remote") return { stdout: "" };
+        if (command === "git" && args[0] !== "push") return { stdout: git(args) };
+        if (command === "gh" && args[1] === "list") return { stdout: "[]" };
+        writes.push([command, args]);
+        return { stdout: "" };
+      },
+    });
+    assert.equal(result.proposed, false);
+    assert.equal(await fs.readFile(file, "utf8"), formula);
+    assert.equal(git(["rev-parse", "HEAD"]), head);
+    assert.deepEqual(writes, []);
+  });
+}

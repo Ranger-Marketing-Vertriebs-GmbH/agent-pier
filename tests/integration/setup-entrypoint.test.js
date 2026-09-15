@@ -29,6 +29,11 @@ async function fixture(t, overrides = {}) {
     await fs.copyFile(path.resolve("scripts", name), path.join(scripts, name));
   await fs.writeFile(path.join(root, "package.json"), '{"type":"module"}');
   await fs.writeFile(path.join(root, "installer-version"), "1.17.0\n");
+  const platformFixture = path.join(root, "platform.cjs");
+  await fs.writeFile(
+    platformFixture,
+    'Object.defineProperty(process, "platform", { value: "darwin" });\nObject.defineProperty(process, "arch", { value: "arm64" });\n',
+  );
   const calls = path.join(root, "calls");
   const tool = async (name, body) => {
     const file = path.join(bin, name);
@@ -47,7 +52,7 @@ async function fixture(t, overrides = {}) {
   await tool("sysctl", `echo ${overrides.translated || "0"}`);
   await tool(
     "node",
-    `if [ "$(basename "$1")" = setup-options.mjs ]; then exec ${JSON.stringify(process.execPath)} "$@"; fi
+    `if [ "$(basename "$1")" = setup-options.mjs ]; then exec ${JSON.stringify(process.execPath)} --require "$FIXTURE_PLATFORM" "$@"; fi
 printf 'node-argc=%s\n' "$#" >> "$FIXTURE_CALLS"
 for argument in "$@"; do printf 'node-arg=%s\n' "$argument" >> "$FIXTURE_CALLS"; done`,
   );
@@ -61,6 +66,7 @@ for argument in "$@"; do printf 'node-arg=%s\n' "$argument" >> "$FIXTURE_CALLS";
           HOME: path.join(root, "home"),
           PATH: `${bin}:/usr/bin:/bin`,
           FIXTURE_CALLS: calls,
+          FIXTURE_PLATFORM: platformFixture,
           ...env,
         },
       }),
@@ -212,7 +218,7 @@ done
 printf '%s\n' '#!/bin/sh' \
   'echo "bootstrap-node $*" >> "$FIXTURE_CALLS"' \
   'if [ "$1" = -e ]; then exit 0; fi' \
-  'if [ "$(basename "$1")" = setup-options.mjs ]; then exec ${process.execPath} "$@"; fi' \
+  'if [ "$(basename "$1")" = setup-options.mjs ]; then exec ${process.execPath} --require "$FIXTURE_PLATFORM" "$@"; fi' \
   'printf "node-argc=%s\\n" "$#" >> "$FIXTURE_CALLS"' \
   'for argument in "$@"; do printf "node-arg=%s\\n" "$argument" >> "$FIXTURE_CALLS"; done' \
   > "$target/node"

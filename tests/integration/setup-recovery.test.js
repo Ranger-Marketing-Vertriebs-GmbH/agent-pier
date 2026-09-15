@@ -121,3 +121,34 @@ for (const kind of ["archive-link", "foreign-pointer", "unknown-file"]) {
     assert.ok(await fs.lstat(file));
   });
 }
+
+for (const operation of ["writeFileSync", "fsyncSync", "renameSync"]) {
+  test(`retry succeeds after initial receipt ${operation} fails`, async (t) => {
+    const sync = await import("node:fs").then((module) => module.default);
+    const f = await setupFixture(t);
+    const open = sync.openSync,
+      original = sync[operation];
+    let receiptFd;
+    sync.openSync = function (file, ...args) {
+      const fd = open.call(this, file, ...args);
+      if (/\/.setup-[a-f0-9-]+\.tmp$/.test(String(file))) receiptFd = fd;
+      return fd;
+    };
+    sync[operation] = function (file, ...args) {
+      if (
+        operation === "renameSync"
+          ? /\/.setup-[a-f0-9-]+\.tmp$/.test(String(file))
+          : file === receiptFd
+      )
+        throw Object.assign(Error("simulated disk full"), { code: "ENOSPC" });
+      return original.call(this, file, ...args);
+    };
+    try {
+      await assert.rejects(f.install({ service: false }), { code: "ENOSPC" });
+    } finally {
+      sync.openSync = open;
+      sync[operation] = original;
+    }
+    assert.equal((await f.install({ service: false })).version, "1.0.0");
+  });
+}

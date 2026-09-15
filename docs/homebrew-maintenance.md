@@ -63,7 +63,8 @@ available.
    PR and merge only after formula installation, audit, and tests pass on Intel and
    Apple Silicon.
 
-The normal updater edits only the formula, not tap workflows. Its credential therefore
+The normal updater skips prereleases and versions that are not newer than the
+current stable formula. It edits only the formula, not tap workflows. Its credential therefore
 needs no workflow-write permission. The first workflow installation is a separate
 repository-maintainer action. The automation never pushes directly to `main` or
 merges a PR. If an open or merged PR already exists for that version, it returns its URL;
