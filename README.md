@@ -20,6 +20,8 @@ review and verification through reusable pipelines.
 - **Files and images:** drag files into desktop chat or terminal, upload, preview
   and retry individual files; recover
   interrupted uploads after a reload without automatically sending them again.
+- **File explorer:** browse host or project files, edit text, transfer folders and
+  recover interrupted copy, move, upload and Trash operations.
 - **Multiple accounts and providers:** separate credentials, host-scoped GitHub
   access, and shared CLI skills, MCP integrations and plugins.
 - **Reload and resume:** restart a coding CLI with refreshed integrations while
@@ -54,7 +56,7 @@ only by the login.
 
 Choose a CLI, account and project folder, then start a session. The native terminal
 handles CLI login and menus; the chat view shows saved conversation history.
-The interface currently uses German labels.
+Choose German or English under **Settings → Language**.
 
 Stopping the web server leaves native CLI sessions running. Stop a session in the
 interface when you want to terminate that CLI process.
@@ -80,6 +82,7 @@ Read the [pipeline guide](docs/pipelines.md) for lifecycle and recovery details.
 | Login and user recovery                           | [Login](docs/login.md)                                |
 | Delivery status and draft recovery                | [Mobile delivery](docs/mobile-delivery.md)            |
 | Terminal, chat and upload recovery                | [Mobile recovery](docs/mobile-recovery.md)            |
+| File browsing, editing and operation recovery     | [File Explorer](docs/file-explorer.md)                |
 | Backups, release packages and updates             | [Operations](docs/research/operations-portability.md) |
 | All features, in German                           | [German guide](README.de.md)                          |
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { browserUuid } from "../../lib/browser-uuid.js";
 import { uploadFile } from "../chat/chat-upload-transport.js";
 import { chatAttachmentsCopy as copy } from "../../lib/i18n/messages/chat.js";
 
@@ -68,7 +69,7 @@ export default function useTerminalUploads({ session, paste }) {
         setError(copy.fileTooLarge);
         continue;
       }
-      batch.push({ key: crypto.randomUUID(), name: file.name, file, status: "waiting" });
+      batch.push({ key: browserUuid(), name: file.name, file, status: "waiting" });
     }
     setItems((current) => [...current, ...batch]);
     if (batch.length) run(batch);

@@ -239,6 +239,8 @@ export const backupCopy = {
       "Installierte plattformspezifische Werkzeuge und Caches",
     "Live native processes, delivery channels, capabilities and subscriptions":
       "Laufende native Prozesse, Zustellkanäle, Berechtigungen und Benachrichtigungsanmeldungen",
+    "File trash, file journals and transfer bytes":
+      "Dateipapierkorb, Dateijournale und Übertragungsdaten",
     "Global atomicity across independent native writers":
       "Ein gemeinsamer Aufnahmezeitpunkt für alle unabhängig schreibenden nativen Prozesse",
     "Managed native configuration and credentials":

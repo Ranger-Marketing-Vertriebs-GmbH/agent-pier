@@ -9,6 +9,7 @@ import {
 import { ChatDraft, deliveryScope } from "./chat-draft.js";
 import { startVisiblePolling } from "../../lib/visible-polling.js";
 import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
+import { browserUuid } from "../../lib/browser-uuid.js";
 
 export default function useChatDelivery({ session, request, active }) {
   const scope = deliveryScope(session);
@@ -108,7 +109,7 @@ export default function useChatDelivery({ session, request, active }) {
     try {
       item = old
         ? await draft.retryAbsent(messages, context)
-        : await draft.enqueue(crypto.randomUUID(), messages, context);
+        : await draft.enqueue(browserUuid(), messages, context);
       if (!item || !["waiting", "absent"].includes(item.status)) return;
       timeout = setTimeout(() => controller.abort(), 15000);
       const result = await request(
@@ -161,7 +162,7 @@ export default function useChatDelivery({ session, request, active }) {
     setSendError("");
     let item, timeout;
     try {
-      item = await draft.beginRecovery(id, crypto.randomUUID(), mode);
+      item = await draft.beginRecovery(id, browserUuid(), mode);
       if (!item) return;
       timeout = setTimeout(() => controller.abort(), 15000);
       const result = await request(

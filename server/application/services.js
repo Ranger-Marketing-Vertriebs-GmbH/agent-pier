@@ -33,6 +33,7 @@ import { AccountStore } from "../features/accounts/account-store.js";
 import { SessionManager } from "../features/sessions/session-manager.js";
 import { ChatEvents } from "../features/chat/chat-events.js";
 import { ChatStreams } from "../features/chat/chat-streams.js";
+import { createFileServices } from "./files.js";
 
 export async function createServices(config) {
   const mutationBarrier = new MutationBarrier();
@@ -68,6 +69,7 @@ export async function createServices(config) {
     },
   });
   await sessions.ready;
+  const files = createFileServices({ config, sessions, mutationBarrier });
   const repositories = new RepositoryStore(config);
   const history = new ProviderHistory({ accounts, home: config.home });
   const chatEvents = new ChatEvents();
@@ -157,6 +159,7 @@ export async function createServices(config) {
     providerAccess,
     accounts,
     sessions,
+    files,
     repositories,
     history,
     bindings,

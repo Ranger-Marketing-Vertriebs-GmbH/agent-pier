@@ -234,6 +234,8 @@ export const backupCopy = {
       "Platform-specific installed tool binaries and caches",
     "Live native processes, delivery channels, capabilities and subscriptions":
       "Live native processes, delivery channels, capabilities and subscriptions",
+    "File trash, file journals and transfer bytes":
+      "File trash, file journals and transfer bytes",
     "Global atomicity across independent native writers":
       "Global atomicity across independent native writers",
     "Managed native configuration and credentials":

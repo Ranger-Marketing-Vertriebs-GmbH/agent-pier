@@ -11,6 +11,8 @@ export default function Icon({ name, size = 18, ...props }) {
     folder:
       "M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z",
     arrow: "M5 12h14m-6-6 6 6-6 6",
+    back: "M19 12H5m6-6-6 6 6 6",
+    up: "m6 15 6-6 6 6",
     close: "m6 6 12 12M6 18 18 6",
     menu: "M4 6h16M4 12h16M4 18h16",
     edit: "m16 3 5 5-12 12-6 1 1-6Z",
@@ -21,6 +23,8 @@ export default function Icon({ name, size = 18, ...props }) {
     book: "M12 5v16M12 5C8 2 4 3 2 4v16c4-2 7-1 10 1 3-2 6-3 10-1V4c-2-1-6-2-10 1",
     shield: "m12 3 9 4v6c0 5-9 9-9 9s-9-4-9-9V7Zm-4 9 3 3 5-6",
     check: "m5 12 4 4L19 6",
+    info: "M12 17v-5m0-4h.01M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0",
+    star: "m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z",
   };
   return (
     <svg

@@ -1,5 +1,6 @@
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import React from "react";
+import { browserUuid } from "../../lib/browser-uuid.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 export default function StageCards({ stages, setStages, profiles, disabled = false }) {
   const patch = (index, change) =>
@@ -131,7 +132,7 @@ export default function StageCards({ stages, setStages, profiles, disabled = fal
           setStages([
             ...stages,
             {
-              key: `stage-${crypto.randomUUID()}`,
+              key: `stage-${browserUuid()}`,
               profileId: "",
               gate: false,
               verify: false,

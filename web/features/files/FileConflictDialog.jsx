@@ -1,0 +1,91 @@
+import React, { useEffect, useRef, useState } from "react";
+import Modal from "../../components/Modal.jsx";
+import ErrorMessage from "../../components/ErrorMessage.jsx";
+import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
+
+export default function FileConflictDialog({ job, scopeId, jobs }) {
+  const [apply, setApply] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState(null);
+  const alive = useRef(true),
+    busy = useRef(false);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  const conflict = job.conflict;
+  const merge =
+    ["copy", "move", "extract"].includes(job.kind) &&
+    conflict.sourceType === "directory" &&
+    conflict.targetType === "directory";
+  const choices = conflict.choices.filter(
+    (choice) =>
+      ["replace", "skip", "keep_both", "cancel"].includes(choice) ||
+      (choice === "merge" && merge),
+  );
+  const applyRemaining = ["copy", "move", "extract"].includes(job.kind);
+  const decide = async (decision) => {
+    if (busy.current || !alive.current) return;
+    busy.current = true;
+    setPending(true);
+    try {
+      if (decision === "cancel") await jobs.cancel(scopeId, job.id);
+      else
+        await jobs.resolve(scopeId, job.id, {
+          conflictId: conflict.id,
+          decision,
+          applyToRemaining: applyRemaining && apply,
+        });
+    } catch (issue) {
+      if (alive.current) setError(issue);
+    } finally {
+      busy.current = false;
+      if (alive.current) setPending(false);
+    }
+  };
+  return (
+    <Modal
+      className="file-action-dialog"
+      title={copy.actions.conflict}
+      close={() => decide("cancel")}
+      closeDisabled={pending}
+    >
+      <p>{conflict.source}</p>
+      <p>{conflict.target}</p>
+      {conflict.sourceType && (
+        <p>
+          {copy.types[conflict.sourceType]} → {copy.types[conflict.targetType]}
+        </p>
+      )}
+      {choices.includes("merge") && <p>{copy.errors.FILE_MERGE_METADATA_RETAINED}</p>}
+      {job.kind === "restore" && conflict.sourceType === "directory" && (
+        <p>{copy.actions.restoreDirectory}</p>
+      )}
+      {applyRemaining && (
+        <label>
+          <input
+            type="checkbox"
+            checked={apply}
+            onChange={(event) => setApply(event.target.checked)}
+          />
+          {copy.actions.applyRemaining}
+        </label>
+      )}
+      <ErrorMessage error={error?.message} />
+      <div className="file-action-buttons">
+        {choices.map((choice) => (
+          <button
+            className="button secondary"
+            key={choice}
+            disabled={pending}
+            onClick={() => decide(choice)}
+          >
+            {copy.actions.choices[choice]}
+          </button>
+        ))}
+      </div>
+    </Modal>
+  );
+}

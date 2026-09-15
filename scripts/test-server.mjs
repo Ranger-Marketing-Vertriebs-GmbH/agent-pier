@@ -4,7 +4,9 @@ import path from "node:path";
 import { createApplication } from "../server/app.js";
 
 // Browser tests get a disposable app; they never share the user's workspace data.
-const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-browser-server-"));
+const directory = await fs.realpath(
+  await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-browser-server-")),
+);
 const home = path.join(directory, "home");
 await fs.mkdir(home, { mode: 0o700 });
 const port = Number(process.env.AGENTPIER_TEST_PORT || 4389);

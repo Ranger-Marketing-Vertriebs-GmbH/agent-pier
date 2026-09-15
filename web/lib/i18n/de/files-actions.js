@@ -1,0 +1,88 @@
+export const fileActionsCopy = {
+  completedResults: "Abgeschlossene Einträge",
+  unfinishedResults: "Unfertige Einträge",
+  moreResults: "Weitere Einzelergebnisse anzeigen",
+  restored: "Wiederhergestellt",
+
+  label: "Dateiaktionen",
+  panels: "Explorer-Ansichten",
+  select: (name) => `${name} auswählen`,
+  menu: (name) => `Aktionen für ${name}`,
+  newFile: "Neue Datei",
+  newFolder: "Neuer Ordner",
+  rename: "Umbenennen",
+  copy: "Kopieren",
+  cut: "Ausschneiden",
+  paste: "Einfügen",
+  move: "Verschieben",
+  copyPath: "Pfad kopieren",
+  trash: "In den Papierkorb",
+  trashTitle: "Papierkorb",
+  clearSelection: "Auswahl aufheben",
+  selection: (count) => `${count} ausgewählt.`,
+  clipboard: (count, action) =>
+    `${action}: ${count} Verweise in der Explorer-Zwischenablage.`,
+  clipboardReady: "Auswahl in der Explorer-Zwischenablage gespeichert.",
+  confirm: "Bestätigen",
+  destination: (path) => `Ziel: ${path}`,
+  trashConfirm:
+    "Diese Einträge in den AgentPier-Papierkorb verschieben? Sie bleiben dort, bis du sie ausdrücklich wiederherstellst oder endgültig löschst.",
+  conflict: "Dateikonflikt",
+  applyRemaining: "Auf weitere Konflikte desselben Typs anwenden",
+  choices: {
+    replace: "Ersetzen",
+    skip: "Überspringen",
+    keep_both: "Beide behalten",
+    cancel: "Abbrechen",
+    merge: "Ordner zusammenführen",
+  },
+  restoreDirectory:
+    "Stelle diesen Ordner mit „Beide behalten“ separat wieder her. Danach kannst du ihn beim Kopieren oder Verschieben ausdrücklich zusammenführen.",
+  restore: "Wiederherstellen",
+  permanentDelete: "Endgültig löschen",
+  emptyTrash: "Papierkorb leeren",
+  refreshTrash: "Papierkorb aktualisieren",
+  trashEmpty: "Der Papierkorb ist leer.",
+  trashPolicy:
+    "Der Papierkorb hat keine automatische Ablaufzeit. Ersetzte Einträge und unterbrochene Wiederherstellungen bleiben hier sichtbar.",
+  loadingTrash: "Alle Papierkorbseiten werden geladen …",
+  usage: (bytes, unknown) =>
+    `${bytes} bekannte Bytes auf allen geladenen Papierkorbseiten; bei ${unknown} Einträgen ist der Speicherbedarf unbekannt oder ungeprüft.`,
+  unknownSize: "Größe unbekannt oder ungeprüft",
+  reasons: {
+    deleted: "Gelöscht",
+    replaced: "Ersetzt",
+    interrupted_rename: "Umbenennen unterbrochen",
+  },
+  availability: {
+    recoverable: "Wiederherstellbar",
+    pending: "Wiederherstellung ausstehend",
+    changed: "Wiederherstellungsdaten geändert",
+    unavailable: "Wiederherstellungsdaten nicht verfügbar",
+  },
+  recoveryInfo:
+    "Der Originalort bleibt als Herkunftsangabe erhalten. Die Wiederherstellbarkeit ist ungeprüft; dies belegt weder ein vorhandenes Original noch eine nutzbare Sicherung. Aktualisiere nach der Wiederherstellungsprüfung.",
+  checkRecovery: "Wiederherstellungsstatus prüfen",
+  originalLocation: "Originalort anzeigen",
+  moreTrash: "Weitere Papierkorbeinträge anzeigen",
+  purgeConfirm: (count, excluded) =>
+    `Diese ${count} festgehaltenen Einträge endgültig entfernen? ${excluded} nicht wiederherstellbare Einträge sind ausgeschlossen. Reguläres Löschen ist hier nicht rückgängig zu machen und garantiert kein sicheres physisches Überschreiben.`,
+  batchPolicy:
+    "Die bestätigte Auswahl wird in begrenzten Batches verarbeitet. Jeder Batch wird vor dem Entfernen geprüft; frühere Batches können abgeschlossen sein, wenn ein späterer fehlschlägt. Neue Einträge sind ausgeschlossen.",
+  purgeResults: "Ergebnisse des endgültigen Löschens",
+  restoreDestination: "Wiederherstellungsziel wählen",
+  parentMissing:
+    "Der ursprüngliche Elternordner konnte nicht geöffnet werden. Wähle einen vorhandenen Zielordner und den vollständigen wiederhergestellten Pfad. Elternordner werden nie automatisch erstellt.",
+  results: "Einzelergebnisse",
+  outcomes: {
+    completed: "Abgeschlossen",
+    failed: "Fehlgeschlagen; erhaltenen Zustand prüfen",
+    skipped: "Übersprungen",
+    pending: "Nicht abgeschlossen",
+    published: "Ziel veröffentlicht; Quellentfernung nicht abgeschlossen",
+    unproven: "Quellentfernung ist ungeprüft",
+    uncertain: "Beauftragt; Entfernung noch nicht belegt",
+    unsubmitted: "Nicht beauftragt",
+    removed: "Endgültig entfernt",
+  },
+};

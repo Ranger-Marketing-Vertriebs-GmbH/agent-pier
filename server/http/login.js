@@ -25,13 +25,12 @@ export function directLocalRequest(req, config) {
 }
 // Secure only when the transport is TLS or the request uses the HTTPS Tailscale host.
 export function cookieOptions(req, config) {
-  const tailscaleHost =
-    config.remoteUrl?.startsWith("https://") &&
-    new URL(config.remoteUrl).host === req.headers.host;
+  const tailscaleHttps =
+    req.trustBranch === "tailscale" && config.remoteUrl?.startsWith("https://");
   return {
     httpOnly: true,
     sameSite: "strict",
-    secure: Boolean(req.socket.encrypted) || Boolean(tailscaleHost),
+    secure: Boolean(req.socket.encrypted) || Boolean(tailscaleHttps),
     path: "/",
   };
 }
