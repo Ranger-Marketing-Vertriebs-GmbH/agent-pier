@@ -1,0 +1,42 @@
+# frozen_string_literal: true
+
+require "shellwords"
+
+# Homebrew entrypoint for the shared AgentPier installer.
+class AgentpierInstaller < Formula
+  desc "Install AgentPier and its user service"
+  homepage "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier"
+  url "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/download/v@@VERSION@@/@@FILE@@"
+  version "@@VERSION@@"
+  sha256 "@@SHA256@@"
+  license "Apache-2.0"
+
+  depends_on "git"
+  depends_on macos: :sonoma
+  depends_on "tmux"
+
+  def install
+    libexec.install Dir["*"]
+    (bin/"agentpier-install").write <<~SH
+      #!/bin/sh
+      export PATH=#{Shellwords.escape((HOMEBREW_PREFIX/"bin").to_s)}:#{Shellwords.escape((HOMEBREW_PREFIX/"sbin").to_s)}:"$PATH"
+      exec /bin/sh #{Shellwords.escape((libexec/"scripts/setup.sh").to_s)} "$@"
+    SH
+    (bin/"agentpier-install").chmod 0755
+  end
+
+  def caveats
+    <<~EOS
+      Run agentpier-install to install AgentPier and start its login service.
+      Application updates and rollback remain in AgentPier Settings.
+      This formula's version is the installer version, not the running app version.
+      Removing this formula leaves the application, service, and private data intact.
+      Service removal: https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/blob/main/docs/installation.md
+    EOS
+  end
+
+  test do
+    assert_match version.to_s, shell_output("#{bin}/agentpier-install --version")
+    assert_match "AgentPier", shell_output("#{bin}/agentpier-install --help")
+  end
+end

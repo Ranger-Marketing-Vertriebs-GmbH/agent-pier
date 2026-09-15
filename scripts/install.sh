@@ -5,9 +5,16 @@ PATH="${PATH:+$PATH:}/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/s
 export PATH
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "$SCRIPT_DIR/install-bootstrap.sh"
-validate_installer_options "$@"
+if [ "${1:-}" = --setup ]; then
+  shift
+  validate_setup_options "$@"
+  INSTALL_TARGET="$SCRIPT_DIR/setup-options.mjs"
+else
+  validate_installer_options "$@"
+  INSTALL_TARGET="$SCRIPT_DIR/release-install.mjs"
+fi
 if command -v node >/dev/null 2>&1 && node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||a===22&&b>=13?0:1)' >/dev/null 2>&1; then
-  exec node "$SCRIPT_DIR/release-install.mjs" "$@"
+  exec node "$INSTALL_TARGET" "$@"
 fi
 case $(uname -s) in Darwin) PLATFORM=darwin;; Linux) PLATFORM=linux;; *) echo 'Unsupported operating system.' >&2; exit 1;; esac
 case $(uname -m) in arm64|aarch64) ARCH=arm64;; x86_64) ARCH=x64;; *) echo 'Unsupported architecture.' >&2; exit 1;; esac
@@ -23,4 +30,6 @@ EXPECTED=$(awk -v name="$NAME.tar.gz" '$2==name { print $1 }' "$TEMP_ROOT/checks
 if command -v sha256sum >/dev/null 2>&1; then ACTUAL=$(sha256sum "$TEMP_ROOT/node.tar.gz" | awk '{print $1}'); else ACTUAL=$(shasum -a 256 "$TEMP_ROOT/node.tar.gz" | awk '{print $1}'); fi
 [ -n "$EXPECTED" ] && [ "$EXPECTED" = "$ACTUAL" ] || { echo 'Official Node checksum mismatch.' >&2; exit 1; }
 tar -xzf "$TEMP_ROOT/node.tar.gz" -C "$TEMP_ROOT" --strip-components 2 "$NAME/bin/node"
-"$TEMP_ROOT/node" "$SCRIPT_DIR/release-install.mjs" "$@"
+PATH="$TEMP_ROOT:$PATH"
+export PATH
+"$TEMP_ROOT/node" "$INSTALL_TARGET" "$@"
