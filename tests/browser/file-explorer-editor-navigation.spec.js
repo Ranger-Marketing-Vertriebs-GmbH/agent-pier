@@ -210,14 +210,33 @@ test("application navigation during history replay reconciles before push", asyn
   const committedURL = page.url();
   await page.goBack({ waitUntil: "commit" }).catch(() => {});
   await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
-  await page.evaluate(() => {
+  const replay = await page.evaluate(async () => {
     const buttons = [...document.querySelectorAll("button")];
-    buttons.find((button) => button.textContent === "Discard and continue")?.click();
-    setTimeout(
-      () => buttons.find((button) => button.textContent.includes("Accounts"))?.click(),
-      0,
+    const discard = buttons.find(
+      (button) => button.textContent === "Discard and continue",
     );
+    const accounts = buttons.find((button) => button.textContent.includes("Accounts"));
+    if (!discard || !accounts) throw new Error("Expected navigation controls");
+    const go = history.go;
+    let calls = 0;
+    try {
+      return await new Promise((resolve) => {
+        history.go = (delta) => {
+          history.go = go;
+          calls++;
+          const index = history.state.agentPierNavigationIndex;
+          go.call(history, delta);
+          // Inject before the real traversal's popstate can finish replay.
+          accounts.click();
+          resolve({ delta, index, calls });
+        };
+        discard.click();
+      });
+    } finally {
+      history.go = go;
+    }
   });
+  expect(replay).toEqual({ delta: -1, index: 2, calls: 1 });
   await expect(page).toHaveURL(`${baseURL}/accounts`);
   await page.goBack({ waitUntil: "commit" });
   await expect(page).toHaveURL(committedURL);
