@@ -17,6 +17,8 @@ export function memoryResponse(memory, credential, request) {
       error: { code: -32600, message: "Invalid JSON request." },
     };
   const id = request.id;
+  // JSON-RPC notifications never receive replies and cannot mutate memory.
+  if (id === undefined) return null;
   const reply = (result) => ({ jsonrpc: "2.0", id, result });
   try {
     if (request.method === "tools/call" && id !== undefined) {
@@ -44,7 +46,6 @@ export function memoryResponse(memory, credential, request) {
       }
     }
     authorizeCapability(memory, credential);
-    if (id === undefined) return null;
     if (request.method === "initialize") {
       const requested = request.params?.protocolVersion;
       const supported = ["2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"];

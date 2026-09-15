@@ -45,7 +45,11 @@ export async function updateHomebrewTap({ tapDirectory, metadata, run = execute 
   let current;
   try {
     const source = await fs.readFile(formulaPath, "utf8");
-    current = installerVersion(source.match(/^\s*version "([^"]+)"\s*$/m)?.[1]);
+    const explicitVersion = source.match(/^\s*version "([^"]+)"\s*$/m)?.[1];
+    const releaseUrl = source.match(/^\s*url "([^"]+)"\s*$/m)?.[1];
+    current = installerVersion(
+      explicitVersion ?? releaseUrl?.match(/\/releases\/download\/v([^/]+)\//)?.[1],
+    );
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
   }

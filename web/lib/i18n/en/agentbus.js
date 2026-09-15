@@ -16,6 +16,9 @@ export const agentBusPageCopy = {
   versionPrefix: "Version ",
   sectionHeadingLabel: " Sessions",
   extensionScope: "Waiting for CLI sign-in",
+  reloadRequired: "Reload required",
+  reloadRequiredDescription:
+    "Reload this session to use the current AgentBus integration.",
   agentbusPending: " in the inbox",
   projectMessagesPrefix: "View messages in ",
   projectMessagesSuffix: " ",

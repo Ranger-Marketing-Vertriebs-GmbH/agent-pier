@@ -23,11 +23,15 @@ async function fixture(t, overrides = {}) {
   for (const name of [
     "setup.sh",
     "setup-options.mjs",
+    "installer-package.mjs",
     "install.sh",
     "install-bootstrap.sh",
   ])
     await fs.copyFile(path.resolve("scripts", name), path.join(scripts, name));
-  await fs.writeFile(path.join(root, "package.json"), '{"type":"module"}');
+  await fs.writeFile(
+    path.join(root, "package.json"),
+    '{"type":"module","version":"1.17.0"}',
+  );
   await fs.writeFile(path.join(root, "installer-version"), "1.17.0\n");
   const platformFixture = path.join(root, "platform.cjs");
   await fs.writeFile(
@@ -60,8 +64,8 @@ for argument in "$@"; do printf 'node-arg=%s\n' "$argument" >> "$FIXTURE_CALLS";
   return {
     root,
     calls,
-    run: (args = [], env = {}) =>
-      execute("/bin/sh", [path.join(scripts, "setup.sh"), ...args], {
+    run: (args = [], env = {}, entrypoint = "setup.sh") =>
+      execute("/bin/sh", [path.join(scripts, entrypoint), ...args], {
         env: {
           HOME: path.join(root, "home"),
           PATH: `${bin}:/usr/bin:/bin`,
@@ -234,4 +238,46 @@ chmod 755 "$target/node"
   assert.match(calls, /bootstrap-node .*setup-options\.mjs/);
   assert.match(calls, /bootstrap-node -e/);
   assert.match(calls, /node-arg=.*release-install\.mjs/);
+});
+
+test("direct install --setup pins the bundled package version without setup environment", async (t) => {
+  const ctx = await fixture(t);
+  await ctx.run(["--setup", "--no-service"], {}, "install.sh");
+  assert.match(
+    await ctx.readCalls(),
+    /node-arg=https:\/\/github\.com\/Ranger-Marketing-Vertriebs-GmbH\/agent-pier\/releases\/download\/v1\.17\.0\//,
+  );
+});
+test("direct setup validates an explicit environment version before release installation", async (t) => {
+  const ctx = await fixture(t);
+  await assert.rejects(
+    ctx.run(["--setup"], { AGENTPIER_SETUP_VERSION: "undefined" }, "install.sh"),
+    /Invalid installer version/,
+  );
+  assert.doesNotMatch(await ctx.readCalls(), /release-install\.mjs/);
+});
+
+test("direct setup preserves a valid explicit release pin", async (t) => {
+  const ctx = await fixture(t);
+  await ctx.run(
+    ["--setup", "--no-service"],
+    { AGENTPIER_SETUP_VERSION: "1.18.0-beta.1" },
+    "install.sh",
+  );
+  assert.match(
+    await ctx.readCalls(),
+    /node-arg=https:\/\/github\.com\/Ranger-Marketing-Vertriebs-GmbH\/agent-pier\/releases\/download\/v1\.18\.0-beta\.1\//,
+  );
+});
+test("direct setup rejects invalid package metadata before release installation", async (t) => {
+  const ctx = await fixture(t);
+  await fs.writeFile(
+    path.join(ctx.root, "package.json"),
+    '{"type":"module","version":"invalid"}',
+  );
+  await assert.rejects(
+    ctx.run(["--setup"], {}, "install.sh"),
+    /Invalid installer version/,
+  );
+  assert.doesNotMatch(await ctx.readCalls(), /release-install\.mjs/);
 });

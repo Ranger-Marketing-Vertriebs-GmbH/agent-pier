@@ -138,7 +138,7 @@ test("OpenCode routes notices only to active root sessions and disposes polling"
       waiting = res;
       return undefined;
     }
-    if (message.method === "agentbus/hook") return { context: "pending hint" };
+    if (message.method === "agentbus/summary") return { context: "pending hint" };
     return {};
   });
   const { default: plugin } = await import(new URL("agentbus-opencode.js", feature));
@@ -154,7 +154,7 @@ test("OpenCode routes notices only to active root sessions and disposes polling"
         },
       },
     },
-    f.env,
+    { ...f.env, AGENTPIER_AGENTBUS_NODE: process.execPath },
   );
   t.after(() => hooks.dispose());
   const config = {};
@@ -286,4 +286,156 @@ test("client rejects a missing launch identity before contacting the broker", as
   const { agentbusClient } = await import(new URL("agentbus-client.js", feature));
   assert.throws(() => agentbusClient(f.env));
   assert.equal(f.calls.length, 0);
+});
+
+test("OpenCode MCP uses the supplied host Node even inside another runtime", async (t) => {
+  const f = await fixture(t);
+  const { default: plugin } = await import(new URL("agentbus-opencode.js", feature));
+  const hostNode = process.execPath;
+  const hooks = await plugin({}, { ...f.env, AGENTPIER_AGENTBUS_NODE: hostNode });
+  t.after(() => hooks.dispose());
+  const original = Object.getOwnPropertyDescriptor(process, "execPath");
+  Object.defineProperty(process, "execPath", { ...original, value: "/fake/opencode" });
+  try {
+    const config = {};
+    await hooks.config(config);
+    assert.equal(config.mcp.agentpier_agentbus.command[0], hostNode);
+  } finally {
+    Object.defineProperty(process, "execPath", original);
+  }
+});
+
+test("OpenCode refuses absent, relative, missing and nonexecutable host runtimes", async (t) => {
+  const f = await fixture(t);
+  const { default: plugin } = await import(new URL("agentbus-opencode.js", feature));
+  for (const runtime of [
+    undefined,
+    "node",
+    "/missing/agentbus-node",
+    f.credential,
+    path.dirname(f.credential),
+  ]) {
+    const hooks = await plugin({}, { ...f.env, AGENTPIER_AGENTBUS_NODE: runtime });
+    t.after(() => hooks.dispose());
+    await assert.rejects(hooks.config({}), /runtime/i);
+  }
+});
+
+test("OpenCode reads summaries without registering again on each model request", async (t) => {
+  const f = await fixture(t, (message) => {
+    if (message.method === "agentbus/wait") return undefined;
+    return { context: "pending summary" };
+  });
+  const { default: plugin } = await import(new URL("agentbus-opencode.js", feature));
+  const hooks = await plugin(
+    { client: { session: { get: async () => ({ data: { id: "root" } }) } } },
+    f.env,
+  );
+  t.after(() => hooks.dispose());
+  for (let i = 0; i < 3; i++) {
+    const output = { system: [] };
+    await hooks["experimental.chat.system.transform"]({ sessionID: "root" }, output);
+    assert.ok(output.system.includes("pending summary"));
+  }
+  assert.equal(f.calls.filter((m) => m.method === "agentbus/register").length, 1);
+  assert.equal(f.calls.filter((m) => m.method === "agentbus/summary").length, 3);
+  assert.equal(f.calls.filter((m) => m.method === "agentbus/hook").length, 0);
+  assert.equal(
+    f.calls.find((m) => m.method === "agentbus/register").params.pid,
+    process.pid,
+  );
+});
+
+test("OpenCode registers again only when summary reports a missing native peer", async (t) => {
+  let summaries = 0;
+  const f = await fixture(t, (message, res) => {
+    if (message.method === "agentbus/wait") return undefined;
+    if (message.method === "agentbus/summary" && ++summaries === 1) {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: message.id,
+          error: { code: -32004, message: "Session not registered" },
+        }),
+      );
+      return undefined;
+    }
+    return { context: "restored summary" };
+  });
+  const { default: plugin } = await import(new URL("agentbus-opencode.js", feature));
+  const hooks = await plugin(
+    { client: { session: { get: async () => ({ data: { id: "root" } }) } } },
+    f.env,
+  );
+  t.after(() => hooks.dispose());
+  const output = { system: [] };
+  await hooks["experimental.chat.system.transform"]({ sessionID: "root" }, output);
+  assert.ok(output.system.includes("restored summary"));
+  assert.equal(f.calls.filter((m) => m.method === "agentbus/register").length, 2);
+  assert.equal(summaries, 2);
+});
+
+test("OpenCode cancels the pending wait when its last session is deleted", async (t) => {
+  let waiting;
+  let closed = false;
+  const f = await fixture(t, (message, res) => {
+    if (message.method !== "agentbus/wait") return {};
+    waiting = res;
+    res.on("close", () => {
+      closed = true;
+    });
+    return undefined;
+  });
+  const { default: plugin } = await import(new URL("agentbus-opencode.js", feature));
+  const hooks = await plugin({}, f.env);
+  t.after(() => hooks.dispose());
+  await hooks.event({
+    event: { type: "session.created", properties: { info: { id: "root" } } },
+  });
+  await until(() => waiting);
+  await hooks.event({
+    event: { type: "session.deleted", properties: { sessionID: "root" } },
+  });
+  await until(() => closed);
+  assert.equal(f.calls.filter((m) => m.method === "agentbus/wait").length, 1);
+});
+
+test("OpenCode shares one registration recovery across concurrent transforms", async (t) => {
+  let summaries = 0;
+  const responses = [];
+  const f = await fixture(t, (message, res) => {
+    if (message.method === "agentbus/wait") return undefined;
+    if (message.method === "agentbus/summary" && ++summaries <= 2) {
+      responses.push([message.id, res]);
+      if (responses.length === 2) {
+        for (const [id, response] of responses) {
+          response.writeHead(200, { "content-type": "application/json" });
+          response.end(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id,
+              error: { code: -32004, message: "Session not registered" },
+            }),
+          );
+        }
+      }
+      return undefined;
+    }
+    return { context: "restored summary" };
+  });
+  const { default: plugin } = await import(new URL("agentbus-opencode.js", feature));
+  const hooks = await plugin(
+    { client: { session: { get: async () => ({ data: { id: "root" } }) } } },
+    f.env,
+  );
+  t.after(() => hooks.dispose());
+  const outputs = [{ system: [] }, { system: [] }];
+  await Promise.all(
+    outputs.map((output) =>
+      hooks["experimental.chat.system.transform"]({ sessionID: "root" }, output),
+    ),
+  );
+  assert.ok(outputs.every((output) => output.system.includes("restored summary")));
+  assert.equal(f.calls.filter((m) => m.method === "agentbus/register").length, 2);
 });

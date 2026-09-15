@@ -84,15 +84,17 @@ export async function resumeSetup(
     );
   const { installRoot, dataDir } = inspected;
   const serviceInput = { installRoot, dataDir, platform, home, env };
-  const before = await inspectService(serviceInput);
-  if (
-    before.state === "conflict" ||
-    (before.listener && before.state !== "matching") ||
-    (inspected.state === "fresh" && before.state !== "missing")
-  )
-    throw Error(
-      "Setup conflict: inspect the configured service paths and listener on port 4380.",
-    );
+  if (options.service) {
+    const before = await inspectService(serviceInput);
+    if (
+      before.state === "conflict" ||
+      (before.listener && before.state !== "matching") ||
+      (inspected.state === "fresh" && before.state !== "missing")
+    )
+      throw Error(
+        "Setup conflict: inspect the configured service paths and listener on port 4380.",
+      );
+  }
   // Recheck after asynchronous inspection, before claiming the installation.
   inspected = inspectSetup({ installRoot, dataDir });
   if (inspected.state === "conflict") throw Error(`Setup conflict: ${inspected.reason}`);

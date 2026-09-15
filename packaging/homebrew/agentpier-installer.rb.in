@@ -7,7 +7,6 @@ class AgentpierInstaller < Formula
   desc "Install AgentPier and its user service"
   homepage "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier"
   url "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/download/v@@VERSION@@/@@FILE@@"
-  version "@@VERSION@@"
   sha256 "@@SHA256@@"
   license "Apache-2.0"
 

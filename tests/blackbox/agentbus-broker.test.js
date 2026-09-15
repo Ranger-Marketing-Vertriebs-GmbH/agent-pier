@@ -242,7 +242,8 @@ test("cancelled reads and concurrent unregister do not acknowledge unread messag
     __agentpierSession: "native-race-b",
   });
   await ready;
-  const { unregister } = await import("../../vendor/agentbus/core/peers.js");
+  const { unregister } =
+    await import("../../server/features/agentbus/agentbus-runtime.js");
   unregister(f.bus.broker.access.record(b.id).h, key);
   unblock();
   await assert.rejects(stale, /not registered/);
@@ -257,4 +258,28 @@ test("cancelled reads and concurrent unregister do not acknowledge unread messag
     undefined,
   );
   assert.match(text(await call(b, "inbox_read")), /Still unread/);
+});
+
+test("AgentBus ignores notifications with expired access and performs no operation", async (t) => {
+  const f = await busFixture(t),
+    a = await registered(f, "notification");
+  const credential = JSON.parse(
+    fs.readFileSync(a.launch.env.AGENTPIER_AGENTBUS_CAPABILITY_FILE),
+  );
+  f.bus.revoke(a.id);
+  assert.equal(
+    await f.bus.broker.respond(credential, {
+      jsonrpc: "2.0",
+      method: "notifications/initialized",
+    }),
+    null,
+  );
+  assert.equal(
+    await f.bus.broker.respond(credential, {
+      jsonrpc: "2.0",
+      method: "tools/call",
+      params: { name: "peer_send", arguments: { to: "nobody", text: "Never" } },
+    }),
+    null,
+  );
 });

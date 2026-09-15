@@ -20,7 +20,6 @@ import { enqueue } from "../../vendor/agentbus/core/inbox.js";
 import { createMessage } from "../../vendor/agentbus/core/message.js";
 import { openQueue } from "../../vendor/agentbus/core/queue.js";
 import { writeJsonAtomic } from "../../vendor/agentbus/core/fsx.js";
-
 import { unregister } from "../../vendor/agentbus/core/peers.js";
 import OpenCodePlugin from "../../vendor/agentbus/agentpier/opencode.js";
 async function setup(t) {
@@ -134,7 +133,6 @@ test("session-only launch adapters preserve options, profile files and project s
   assert.equal(catalog.projects[0].sessions.length, 3);
   assert.equal(JSON.stringify(catalog).includes("private-api-key"), false);
 });
-
 test("legacy helper coverage: pending overview is read-only; explicit inbox claims each message once and excludes foreign peers", async (t) => {
   const ctx = await setup(t);
   const a = legacyContext(ctx, await prepare(ctx, "sender", "claude"));
@@ -532,7 +530,9 @@ for (const tool of ["codex", "claude"]) {
     assert.match(intro, /nicht periodisch/);
     assert.doesNotMatch(intro, /Prüfe inbox_read vor/);
     assert.equal(await runHook("UserPromptSubmit"), "");
-    const peer = trustedPeers(busContext.h)[0];
+    const { trustedPeers: brokerPeers } =
+      await import("../../server/features/agentbus/agentbus-runtime.js");
+    const peer = brokerPeers(busContext.h)[0];
     enqueue(
       busContext.h,
       peer.key,
@@ -544,9 +544,12 @@ for (const tool of ["codex", "claude"]) {
       }),
     );
     assert.match(await runHook("UserPromptSubmit"), /1 ungelesene Nachricht/);
-    const reader = toolsFor(busContext).find((item) => item.name === "inbox_read");
-    assert.match(reader.description, /nicht periodisch/);
-    assert.match(await reader.run({}), /Synthetic pending message/);
+    const { requestBus } = await import("../helpers/agentbus-broker.js");
+    const read = await requestBus(launch.env, "tools/call", {
+      name: "inbox_read",
+      arguments: {},
+    });
+    assert.match(read.result.content[0].text, /Synthetic pending message/);
     assert.equal(await runHook("UserPromptSubmit"), "");
     fs.unlinkSync(path.join(busContext.h, "launches", `guidance-${tool}.json`));
     await assert.rejects(

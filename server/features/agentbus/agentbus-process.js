@@ -4,6 +4,8 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { pidStart } from "../../../vendor/agentbus/core/proc.js";
 
+import { interpreterExecutable, processArgv } from "./agentbus-process-argv.js";
+
 const exec = promisify(execFile);
 const validPid = (value) => Number.isSafeInteger(value) && value > 1;
 
@@ -48,7 +50,7 @@ function chainToPane(table, claimedPid, panePid) {
   reject();
 }
 
-function runtimePid(chain, launch, claimedPid) {
+async function runtimePid(chain, launch, claimedPid) {
   const names = new Set([launch.tool, path.basename(launch.command)]);
   try {
     names.add(path.basename(realpathSync(launch.command)));
@@ -59,18 +61,41 @@ function runtimePid(chain, launch, claimedPid) {
   // OpenCode executes the plugin in the native runtime itself.
   // Linux comm is a mutable thread title (Node may report MainThread). Verify
   // the executable link instead; re-check it with the second ancestry snapshot.
-  const candidates = chain.filter(
-    (entry) =>
-      (launch.tool === "opencode" || entry.pid !== claimedPid) &&
-      names.has(
-        path.basename(
-          process.platform === "linux"
-            ? readlinkSync(`/proc/${entry.pid}/exe`)
-            : entry.command,
-        ),
-      ),
-  );
+  const candidates = [];
+  for (const entry of chain) {
+    if (
+      !launch.runtimeInterpreter &&
+      launch.tool !== "opencode" &&
+      entry.pid === claimedPid
+    )
+      continue;
+    const executable =
+      process.platform === "linux"
+        ? readlinkSync(`/proc/${entry.pid}/exe`)
+        : entry.command;
+    if (launch.runtimeInterpreter) {
+      // The interpreter comes from the host's launch environment, not the claim.
+      const interpreter =
+        process.platform === "darwin"
+          ? await interpreterExecutable(entry.pid)
+          : executable;
+      if (
+        !interpreter ||
+        realpathSync(interpreter) !== realpathSync(launch.runtimeInterpreter)
+      )
+        continue;
+      const argv = await processArgv(entry.pid);
+      if (!argv[1] || !path.isAbsolute(argv[1])) continue;
+      try {
+        if (realpathSync(argv[1]) === realpathSync(launch.command))
+          candidates.push(entry);
+      } catch {
+        // An unrelated Node script or an option is not the authorized entrypoint.
+      }
+    } else if (names.has(path.basename(executable))) candidates.push(entry);
+  }
   if (candidates.length !== 1) reject();
+  if (launch.tool !== "opencode" && candidates[0].pid === claimedPid) reject();
   if (launch.tool === "opencode" && candidates[0].pid !== claimedPid) reject();
   return candidates[0].pid;
 }
@@ -103,14 +128,14 @@ export async function resolveAgentBusProcess({ session, launch, claimedPid, sess
     };
     const panePid = await pane();
     const chain = chainToPane(await processTable(), claimedPid, panePid);
-    const pid = runtimePid(chain, launch, claimedPid);
+    const pid = await runtimePid(chain, launch, claimedPid);
     const start = pidStart(pid);
     if (!start || (await pane()) !== panePid || session.status !== "running") reject();
     const checked = chainToPane(await processTable(), claimedPid, panePid);
     if (
       JSON.stringify(checked.map(({ pid, parent }) => [pid, parent])) !==
         JSON.stringify(chain.map(({ pid, parent }) => [pid, parent])) ||
-      runtimePid(checked, launch, claimedPid) !== pid ||
+      (await runtimePid(checked, launch, claimedPid)) !== pid ||
       pidStart(pid) !== start
     )
       reject();

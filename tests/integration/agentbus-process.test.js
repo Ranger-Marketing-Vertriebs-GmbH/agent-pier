@@ -1,8 +1,18 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { readFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
+import { resolveAgentBusInterpreter } from "../../server/features/agentbus/agentbus-launch-identity.js";
 import { resolveAgentBusProcess } from "../../server/features/agentbus/agentbus-process.js";
 
 const script = `
@@ -192,3 +202,114 @@ test(
     );
   },
 );
+
+async function scriptFixture(
+  t,
+  { nested = false, unrelated = false, suffix = false } = {},
+) {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "agentbus npm claude "));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, "installed cli.cjs");
+  const command = path.join(dir, "claude");
+  const hook = "process.send([process.pid]); setInterval(() => {}, 1000)";
+  writeFileSync(
+    file,
+    `#!/usr/bin/env node
+const {spawn} = require('node:child_process');
+const args = ${nested} && process.argv[2] !== 'nested'
+  ? [__filename, 'nested'] : ['-e', ${JSON.stringify(hook)}];
+const child = spawn(process.execPath, args, {stdio:['ignore','ignore','ignore','ipc']});
+child.on('message', ids => process.send([process.pid,...ids]));
+setInterval(() => {}, 1000);
+`,
+  );
+  chmodSync(file, 0o700);
+  symlinkSync(file, command);
+  const impostor = `${command} extra`;
+  if (suffix) {
+    writeFileSync(impostor, readFileSync(file));
+    chmodSync(impostor, 0o700);
+  }
+  const source = `const {spawn}=require('node:child_process');
+const child=spawn(${JSON.stringify(unrelated ? process.execPath : suffix ? impostor : command)}, ${unrelated ? `['-e', ${JSON.stringify(hook)}]` : "[]"}, {stdio:['ignore','ignore','ignore','ipc']});
+child.on('message', ids=>process.send([process.pid,...ids])); setInterval(()=>{},1000);`;
+  const child = spawn(process.execPath, ["-e", source], {
+    env: {
+      ...process.env,
+      PATH: `${path.dirname(process.execPath)}:${process.env.PATH}`,
+    },
+    stdio: ["ignore", "ignore", "ignore", "ipc"],
+  });
+  const [ids] = await once(child, "message");
+  t.after(async () => {
+    const exited = once(child, "exit");
+    for (const pid of ids.toReversed()) {
+      try {
+        process.kill(pid, "SIGKILL");
+      } catch {}
+    }
+    await exited;
+  });
+  return {
+    session: { id: "npm-session", status: "running", tool: "claude" },
+    launch: {
+      id: "npm-session",
+      tool: "claude",
+      command,
+      runtimeInterpreter: resolveAgentBusInterpreter(command, {
+        PATH: path.dirname(process.execPath),
+      }),
+    },
+    sessions: { target: () => "isolated", tmux: async () => String(ids[0]) },
+    claimedPid: ids.at(-1),
+    ids,
+  };
+}
+
+test("npm Claude symlink and space paths resolve its script interpreter, excluding wrapper and hook", async (t) => {
+  const f = await scriptFixture(t);
+  assert.equal((await resolveAgentBusProcess(f)).pid, f.ids[1]);
+  await assert.rejects(resolveAgentBusProcess({ ...f, claimedPid: f.ids[1] }));
+});
+
+test("an unrelated Node process does not match the authorized Claude script", async (t) => {
+  const f = await scriptFixture(t, { unrelated: true });
+  await assert.rejects(resolveAgentBusProcess(f));
+});
+
+test("a nested Claude script cannot replace the launched runtime", async (t) => {
+  const f = await scriptFixture(t, { nested: true });
+  await assert.rejects(resolveAgentBusProcess(f));
+});
+
+test("a script path extending the authorized path cannot impersonate Claude", async (t) => {
+  const f = await scriptFixture(t, { suffix: true });
+  await assert.rejects(resolveAgentBusProcess(f));
+});
+
+test("the authorized script requires the captured interpreter executable", async (t) => {
+  const f = await scriptFixture(t);
+  await assert.rejects(
+    resolveAgentBusProcess({
+      ...f,
+      launch: { ...f.launch, runtimeInterpreter: "/bin/sh" },
+    }),
+  );
+});
+
+test("script launch identity resolves only executable Node shebangs from trusted PATH", (t) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "agentbus-shebang-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const command = path.join(dir, "claude");
+  writeFileSync(command, "#!/usr/bin/env node\n");
+  assert.equal(resolveAgentBusInterpreter(command, { PATH: dir }), null);
+  assert.equal(resolveAgentBusInterpreter(command, { PATH: "." }), null);
+  symlinkSync(process.execPath, path.join(dir, "node"));
+  assert.ok(resolveAgentBusInterpreter(command, { PATH: dir }));
+  writeFileSync(command, "#!/bin/sh\n");
+  assert.equal(resolveAgentBusInterpreter(command, { PATH: dir }), null);
+  writeFileSync(command, `#!${process.execPath}\n`);
+  assert.ok(resolveAgentBusInterpreter(command));
+  writeFileSync(command, "#!/usr/bin/env node --eval\n");
+  assert.equal(resolveAgentBusInterpreter(command, { PATH: dir }), null);
+});

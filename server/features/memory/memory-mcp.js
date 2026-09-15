@@ -47,7 +47,9 @@ async function handle(line) {
         error: {
           code: -32000,
           message:
-            "Memory unavailable. Check AgentPier and session access, then retry. Writes are not automatically retried; reuse requestId for an identical write retry.",
+            request?.method === "tools/call" && request.params?.name === "memory_write"
+              ? "Memory write outcome is unknown: it may have committed. Do not start a new write. Retry only with the same requestId and identical arguments to recover the original result. No automatic retry was performed."
+              : "Memory unavailable. Check AgentPier and session access. A mutation may have committed; read current state before retrying. No automatic retry was performed.",
         },
       });
   }
