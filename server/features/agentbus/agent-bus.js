@@ -12,7 +12,6 @@ import { createHash } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { problem } from "../../lib/storage.js";
 import {
-  trustedPeers,
   trustedIdentities,
   loadLaunch,
 } from "../../../vendor/agentbus/agentpier/runtime.js";
@@ -20,8 +19,11 @@ import { ensureDir, writeJsonAtomic } from "../../../vendor/agentbus/core/fsx.js
 import { peerKey } from "../../../vendor/agentbus/core/paths.js";
 import { openQueue } from "../../../vendor/agentbus/core/queue.js";
 
+import { AGENTBUS_VERSION as VERSION, trustedPeers } from "./agentbus-runtime.js";
+import { resolveAgentBusInterpreter } from "./agentbus-launch-identity.js";
+
 const adapters = fileURLToPath(new URL("./", import.meta.url));
-const VERSION = "agentpier-2";
+
 const idPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
 
 export class AgentBus {
@@ -81,6 +83,10 @@ export class AgentBus {
       accountId: selected.id,
       tool: selected.tool,
       command: launch.command,
+      runtimeInterpreter:
+        selected.tool === "claude"
+          ? resolveAgentBusInterpreter(launch.command, originalEnv)
+          : null,
       node: process.execPath,
       codexHome:
         originalEnv.CODEX_HOME || path.join(originalEnv.HOME || this.home, ".codex"),
@@ -95,6 +101,7 @@ export class AgentBus {
     const mcp = path.join(adapters, "agentbus-mcp.js");
     const hook = path.join(adapters, "agentbus-hook.js");
     const bridgeEnv = {
+      AGENTPIER_AGENTBUS_NODE: process.execPath,
       AGENTPIER_AGENTBUS_SOCKET: this.broker.transport.socketPath,
       AGENTPIER_AGENTBUS_CAPABILITY_FILE: path.join(
         this.root,
@@ -173,8 +180,16 @@ export class AgentBus {
     } else throw problem(serverMessages.common.unknownCliTool);
     this.accounts.get(selected.id);
     if (replace) this.broker.revoke(id);
-    writeJsonAtomic(existing, record);
-    this.broker.access.issue(record);
+    try {
+      this.broker.access.issue(record);
+      writeJsonAtomic(existing, record);
+    } catch (error) {
+      this.broker.revoke(id);
+      try {
+        fs.rmSync(path.join(home, "adapters", id), { recursive: true, force: true });
+      } catch {}
+      throw error;
+    }
     return {
       ...launch,
       args,
@@ -221,7 +236,16 @@ export class AgentBus {
         try {
           pending += this.queue(h).summary(peer.key).count;
         } catch {}
-      const registered = session.status === "running" && peers.some((peer) => peer.alive);
+      const reloadRequired = session.agentbus.version !== VERSION;
+      let generation;
+      try {
+        generation = this.broker.access.record(session.id).record.generation;
+      } catch {}
+      const registered =
+        !reloadRequired &&
+        session.status === "running" &&
+        Boolean(generation) &&
+        peers.some((peer) => peer.alive && peer.brokerGeneration === generation);
       project.sessions.push({
         id: session.id,
         name: session.name,
@@ -229,7 +253,8 @@ export class AgentBus {
         status: session.status,
         pending,
         registered,
-        ...(session.status === "running" && !registered
+        ...(reloadRequired ? { reasonCode: "AGENTBUS_RELOAD_REQUIRED" } : {}),
+        ...(session.status === "running" && !registered && !reloadRequired
           ? {
               reason:
                 session.tool === "codex"

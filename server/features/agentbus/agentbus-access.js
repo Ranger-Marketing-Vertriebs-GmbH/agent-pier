@@ -8,6 +8,8 @@ import {
 } from "../memory/memory-validation.js";
 import { loadLaunch } from "../../../vendor/agentbus/agentpier/runtime.js";
 
+import { AGENTBUS_VERSION } from "./agentbus-runtime.js";
+
 export const busId = (id) => {
   if (typeof id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id))
     throw Error("AgentBus access unavailable.");
@@ -17,6 +19,7 @@ const hash = (token) => createHash("sha256").update(token).digest("hex");
 export class AgentBusAccess {
   constructor(bus) {
     this.bus = bus;
+    this.revoked = new Set();
   }
   folder(id, create = false) {
     const root = path.join(this.bus.root, "sessions"),
@@ -56,9 +59,11 @@ export class AgentBusAccess {
       sessionId: launch.id,
       token,
     });
+    this.revoked.delete(launch.id);
     return folder;
   }
   record(id) {
+    if (this.revoked.has(id)) throw Error("AgentBus access unavailable.");
     const folder = this.folder(id);
     const record = JSON.parse(privateFile(path.join(folder, "active.json")));
     if (
@@ -94,6 +99,7 @@ export class AgentBusAccess {
       session.tool === ctx.launch.tool &&
       session.accountId === ctx.launch.accountId &&
       session.agentbus?.enabled === true &&
+      session.agentbus.version === AGENTBUS_VERSION &&
       session.agentbus.projectId === ctx.launch.projectId &&
       !session.imported &&
       session.purpose !== "login" &&
@@ -108,7 +114,26 @@ export class AgentBusAccess {
     return { ...ctx, session };
   }
   revoke(id) {
-    const folder = this.folder(id);
-    fs.rmSync(folder, { recursive: true, force: true });
+    try {
+      busId(id);
+      this.revoked.add(id);
+      const root = path.join(this.bus.root, "sessions");
+      const folder = path.join(root, id);
+      // Cleanup may repair permission drift, but must never follow foreign paths.
+      for (const part of [this.bus.root, root, folder]) {
+        const info = fs.lstatSync(part);
+        if (
+          !info.isDirectory() ||
+          info.isSymbolicLink() ||
+          (process.getuid && info.uid !== process.getuid())
+        )
+          return false;
+      }
+      fs.rmSync(folder, { recursive: true, force: true });
+      return true;
+    } catch {
+      // Session shutdown must continue even when disk cleanup is unavailable.
+      return false;
+    }
   }
 }

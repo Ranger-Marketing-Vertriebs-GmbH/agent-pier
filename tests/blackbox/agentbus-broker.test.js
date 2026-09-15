@@ -242,7 +242,8 @@ test("cancelled reads and concurrent unregister do not acknowledge unread messag
     __agentpierSession: "native-race-b",
   });
   await ready;
-  const { unregister } = await import("../../vendor/agentbus/core/peers.js");
+  const { unregister } =
+    await import("../../server/features/agentbus/agentbus-runtime.js");
   unregister(f.bus.broker.access.record(b.id).h, key);
   unblock();
   await assert.rejects(stale, /not registered/);
