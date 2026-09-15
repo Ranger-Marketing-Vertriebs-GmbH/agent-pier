@@ -52,8 +52,8 @@ export const memoryTools = [
     annotations: { readOnlyHint: false, destructiveHint: false },
   },
 ];
-export function callMemoryTool(memory, sessionId, name, input = {}) {
-  const { projectId, provenance } = authorizeCapability(memory, sessionId);
+export function callMemoryTool(memory, credential, name, input = {}) {
+  const { projectId, provenance } = authorizeCapability(memory, credential);
   const tool = memoryTools.find((tool) => tool.name === name);
   if (!tool) throw failure("Unknown memory tool.");
   record(input);

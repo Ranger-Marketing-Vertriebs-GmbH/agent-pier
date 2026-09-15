@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { applicationFixture } from "../helpers/application.js";
 import { callMemoryTool } from "../../server/features/memory/memory-tools.js";
@@ -77,7 +78,17 @@ async function exitDiagnostics(app, session) {
 }
 
 function searchMemory(app, session) {
-  return callMemoryTool(app.application.memory, session.id, "memory_search", {});
+  let credential;
+  try {
+    credential = JSON.parse(
+      readFileSync(
+        path.join(app.application.memory.root, "sessions", session.id, "capability.json"),
+      ),
+    );
+  } catch {
+    credential = {};
+  }
+  return callMemoryTool(app.application.memory, credential, "memory_search", {});
 }
 
 async function project(app, name) {
@@ -241,3 +252,30 @@ for (const reader of ["get", "list"]) {
     assert.throws(() => searchMemory(app, session), { status: 403 });
   });
 }
+
+test("invalid Memory discovery config returns a stable browser error and revokes the failed launch", async (t) => {
+  const app = await applicationFixture(t);
+  app.application.accounts.command = () => ({
+    command: "/bin/false",
+    args: ["-c", "hooks.SessionStart=false"],
+    env: {},
+    launchMode: "default",
+  });
+  const response = await app.request("/api/sessions", {
+    method: "POST",
+    body: {
+      accountId: "local-codex",
+      name: "Invalid hooks",
+      cwd: app.home,
+      agentbus: false,
+    },
+  });
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).code, "MEMORY_DISCOVERY_CONFIG");
+  assert.equal(
+    app.application.memory.db
+      .prepare("SELECT COUNT(*) AS count FROM capabilities WHERE active=1")
+      .get().count,
+    0,
+  );
+});

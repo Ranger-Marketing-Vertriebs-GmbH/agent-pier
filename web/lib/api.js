@@ -1,4 +1,5 @@
 import { apiCopy as copy } from "./i18n/messages/components.js";
+import { memoryCopy } from "./i18n/messages/memory.js";
 export default async function api(path, method = "GET", body, signal) {
   const response = await fetch(`/api${path}`, {
     method,
@@ -14,7 +15,11 @@ export default async function api(path, method = "GET", body, signal) {
     window.dispatchEvent(new Event("agentpier-login-required"));
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(data.error || copy.requestFailed(response.status));
+    const error = new Error(
+      data.code === "MEMORY_DISCOVERY_CONFIG"
+        ? memoryCopy.discoveryError
+        : data.error || copy.requestFailed(response.status),
+    );
     error.status = response.status;
     throw error;
   }

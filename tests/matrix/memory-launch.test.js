@@ -17,8 +17,8 @@ for (const tool of ["codex", "claude", "opencode"])
         const dataDir = path.join(root, "data");
         const accounts = new AccountStore({ dataDir, home });
         const integration = new MemoryIntegration({ dataDir, accounts });
-        t.after(() => {
-          integration.close();
+        t.after(async () => {
+          await integration.close();
           fs.rmSync(root, { recursive: true, force: true });
         });
         const account =

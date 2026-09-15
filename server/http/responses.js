@@ -41,6 +41,7 @@ export function registerResponses(app) {
     let status = error.status || error.statusCode || 400;
     if (!Number.isInteger(status) || status < 400 || status > 599) status = 500;
     res.status(status).json({
+      ...(error.code === "MEMORY_DISCOVERY_CONFIG" ? { code: error.code } : {}),
       error:
         status === 500
           ? serverMessages.http.internalError
