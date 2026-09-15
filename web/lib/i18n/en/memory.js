@@ -1,4 +1,6 @@
 export const memoryCopy = {
+  discoveryError:
+    "Memory discovery hooks could not be configured. Check the session hook configuration and try again.",
   title: "Project knowledge",
   description:
     "Shared knowledge for Codex, Claude Code and OpenCode in the same repository.",

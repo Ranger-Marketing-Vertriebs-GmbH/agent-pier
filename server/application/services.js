@@ -55,6 +55,13 @@ export async function createServices(config) {
   });
   const memory = new ProjectMemory(config);
   const memoryIntegration = new MemoryIntegration({ ...config, accounts, memory });
+  try {
+    await memoryIntegration.ready;
+  } catch (error) {
+    await memoryIntegration.close();
+    memory.close();
+    throw error;
+  }
   const sshAccesses = new SshAccessStore(config);
   const sshSessions = new SshSessions({ dataDir: config.dataDir, store: sshAccesses });
   const sshIntegration = new SshIntegration({ dataDir: config.dataDir, accounts });

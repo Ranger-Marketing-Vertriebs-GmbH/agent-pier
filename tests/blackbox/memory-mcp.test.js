@@ -1,124 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
-import { parse as parseToml } from "smol-toml";
-import { ProjectMemory } from "../../server/features/memory/project-memory.js";
 import { MemoryIntegration } from "../../server/features/memory/memory-integration.js";
-
-function fixture(t) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-memory-mcp-")),
-  );
-  const dataDir = path.join(root, "data"),
-    cwd = path.join(root, "project");
-  fs.mkdirSync(cwd);
-  const memory = new ProjectMemory({ dataDir });
-  const integration = new MemoryIntegration({ dataDir, memory });
-  t.after(() => {
-    integration.close();
-    memory.close();
-    fs.rmSync(root, { recursive: true, force: true });
-  });
-  return { root, dataDir, cwd, memory, integration };
-}
-async function launch(f, id, tool, extra = {}) {
-  return f.integration.prepare({
-    id,
-    account: { id: `profile-${tool}`, tool },
-    cwd: f.cwd,
-    launch: {
-      command: "inert-native-command",
-      args: ["--existing"],
-      env: {
-        HOME: f.root,
-        OPENCODE_CONFIG_CONTENT: JSON.stringify({
-          plugin: ["file:///existing-plugin"],
-          mcp: { existing: { type: "local", command: ["/bin/false"] } },
-          model: "native/model",
-        }),
-      },
-    },
-    ...extra,
-  });
-}
-function descriptor(tool, launch) {
-  if (tool === "codex")
-    return parseToml(
-      launch.args.find((a) => a.startsWith("mcp_servers.agentpier_memory=")),
-    ).mcp_servers.agentpier_memory;
-  if (tool === "claude") {
-    const plugin = launch.args[launch.args.lastIndexOf("--plugin-dir") + 1];
-    return JSON.parse(fs.readFileSync(path.join(plugin, ".mcp.json"), "utf8")).mcpServers
-      .agentpier_memory;
-  }
-  const config = JSON.parse(launch.env.OPENCODE_CONFIG_CONTENT).mcp.agentpier_memory;
-  return { command: config.command[0], args: config.command.slice(1) };
-}
-function client(t, config) {
-  const child = spawn(config.command, config.args, {
-    stdio: ["pipe", "pipe", "pipe"],
-    env: { PATH: process.env.PATH, HOME: os.tmpdir() },
-  });
-  let buffer = "",
-    next = 0;
-  const waiting = new Map();
-  const exited = new Promise((resolve) => child.once("exit", resolve));
-  child.stdout.setEncoding("utf8");
-  child.stdout.on("data", (chunk) => {
-    buffer += chunk;
-    while (buffer.includes("\n")) {
-      const end = buffer.indexOf("\n");
-      const message = JSON.parse(buffer.slice(0, end));
-      buffer = buffer.slice(end + 1);
-      const pending = waiting.get(message.id);
-      if (pending) {
-        waiting.delete(message.id);
-        clearTimeout(pending.timer);
-        pending.resolve(message);
-      }
-    }
-  });
-  child.stderr.resume();
-  t.after(async () => {
-    child.stdin.end();
-    child.kill();
-    await exited;
-  });
-  function request(method, params = {}) {
-    const id = ++next;
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(
-        () => reject(Error("MCP fixture response timed out")),
-        10000,
-      );
-      waiting.set(id, { resolve, timer });
-      child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
-    });
-  }
-  return {
-    child,
-    request,
-    async initialize() {
-      const result = await request("initialize", {
-        protocolVersion: "2025-11-25",
-        capabilities: {},
-        clientInfo: { name: "fixture", version: "1" },
-      });
-      assert.equal(result.result.serverInfo.name, "agentpier-memory");
-    },
-    async call(name, args) {
-      return request("tools/call", { name, arguments: args });
-    },
-  };
-}
-function value(response) {
-  assert.equal(response.error, undefined);
-  assert.notEqual(response.result.isError, true, JSON.stringify(response));
-  return JSON.parse(response.result.content[0].text);
-}
+import { ProjectMemory } from "../../server/features/memory/project-memory.js";
+import { fixture, launch, descriptor, client, value } from "../helpers/memory.js";
 
 test("all three native MCP adapters share scope, preserve configuration and survive web store restart", async (t) => {
   const f = fixture(t),
@@ -131,7 +17,8 @@ test("all three native MCP adapters share scope, preserve configuration and surv
     assert.equal(prepared.memory.projectId, projectId);
     if (tool === "opencode") {
       const config = JSON.parse(prepared.env.OPENCODE_CONFIG_CONTENT);
-      assert.deepEqual(config.plugin, ["file:///existing-plugin"]);
+      assert.equal(config.plugin[0], "file:///existing-plugin");
+      assert.equal(config.plugin.length, 2);
       assert.equal(config.model, "native/model");
       assert.ok(config.mcp.existing);
     }
@@ -160,14 +47,23 @@ test("all three native MCP adapters share scope, preserve configuration and surv
     }),
   );
   assert.equal(updated.revision, 2);
+  await f.integration.close();
   f.memory.close();
+  const unavailable = await clients[0].call("memory_write", {
+    title: "Never queued",
+    content: "Offline write must not be replayed",
+    requestId: "offline-request",
+  });
+  assert.ok(unavailable.error);
+  f.memory = new ProjectMemory({ dataDir: f.dataDir });
+  f.integration = new MemoryIntegration({ dataDir: f.dataDir, memory: f.memory });
+  await f.integration.ready;
+  assert.equal(f.memory.list(projectId).total, 1);
   assert.equal(
     value(await clients[1].call("memory_read", { id: saved.id })).content,
     "A newer contract",
   );
-  const reopened = new ProjectMemory({ dataDir: f.dataDir });
-  t.after(() => reopened.close());
-  assert.equal(reopened.read(projectId, saved.id).revision, 2);
+  assert.equal(f.memory.read(projectId, saved.id).revision, 2);
 });
 test("concurrent MCP writers reject a stale revision and callers cannot choose scope or provenance", async (t) => {
   const f = fixture(t);

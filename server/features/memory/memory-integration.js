@@ -1,4 +1,6 @@
 import path from "node:path";
+import { prepareMemoryDiscovery } from "./memory-discovery.js";
+import { MemoryBroker } from "./memory-broker.js";
 import { fileURLToPath } from "node:url";
 import { ProjectMemory } from "./project-memory.js";
 import { issueCapability, revokeCapability } from "./memory-capability.js";
@@ -16,7 +18,11 @@ export class MemoryIntegration {
     this.memory = memory || new ProjectMemory({ dataDir });
     this.owned = !memory;
     this.accounts = accounts;
-    this.dataDir = path.dirname(this.memory.root);
+    this.broker = new MemoryBroker(this.memory);
+    this.ready = this.broker.ready.catch((error) => {
+      if (this.owned) this.memory.close();
+      throw error;
+    });
   }
   async prepare({ id, account, cwd, launch, purpose } = {}) {
     if (account?.tool === "shell" || purpose === "login") return launch;
@@ -30,10 +36,7 @@ export class MemoryIntegration {
       throw failure("Unsupported memory account.");
     const args = [...(launch.args || [])],
       env = { ...launch.env };
-    const command = {
-      command: process.execPath,
-      args: [main, "--data-dir", this.dataDir, "--session", id],
-    };
+    await this.ready;
     let config;
     if (selected.tool === "opencode") {
       try {
@@ -58,6 +61,16 @@ export class MemoryIntegration {
       account: selected,
       projectId: project.id,
     });
+    const command = {
+      command: process.execPath,
+      args: [
+        main,
+        "--socket",
+        this.broker.socketPath,
+        "--capability",
+        path.join(folder, "capability.json"),
+      ],
+    };
     try {
       if (selected.tool === "codex")
         args.push("-c", `mcp_servers.agentpier_memory=${tomlValue(command)}`);
@@ -84,6 +97,12 @@ export class MemoryIntegration {
         };
         env.OPENCODE_CONFIG_CONTENT = JSON.stringify(config);
       }
+      prepareMemoryDiscovery({
+        tool: selected.tool,
+        folder: selected.tool === "claude" ? path.join(folder, "plugin") : folder,
+        args,
+        env,
+      });
       this.accounts?.get(selected.id);
       return { ...launch, args, env, memory: { enabled: true, projectId: project.id } };
     } catch (error) {
@@ -94,7 +113,12 @@ export class MemoryIntegration {
   discard(id) {
     revokeCapability(this.memory, id);
   }
-  close() {
-    if (this.owned) this.memory.close();
+  async close() {
+    try {
+      await this.ready.catch(() => {});
+      await this.broker.close();
+    } finally {
+      if (this.owned) this.memory.close();
+    }
   }
 }

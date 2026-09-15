@@ -5,7 +5,6 @@ import {
   failure,
   identifier,
   privateFolder,
-  privateFile,
   writePrivateJson,
 } from "./memory-validation.js";
 const digest = (token) => createHash("sha256").update(token).digest("hex");
@@ -46,22 +45,15 @@ export function issueCapability(memory, { id, account, projectId }) {
     .run(id, projectId, identifier(account.id), account.tool, digest(token));
   return folder;
 }
-export function authorizeCapability(memory, id) {
+export function authorizeCapability(memory, { sessionId: id, token } = {}) {
   try {
-    const file = path.join(capabilityFolder(memory, id), "capability.json");
-    const capability = JSON.parse(privateFile(file));
-    if (
-      capability.version !== 1 ||
-      capability.sessionId !== id ||
-      typeof capability.token !== "string" ||
-      !/^[a-f0-9]{64}$/.test(capability.token)
-    )
-      throw Error();
+    identifier(id);
+    if (typeof token !== "string" || !/^[a-f0-9]{64}$/.test(token)) throw Error();
     const row = memory.db
       .prepare(
         "SELECT * FROM capabilities WHERE session_id=? AND token_hash=? AND active=1",
       )
-      .get(id, digest(capability.token));
+      .get(id, digest(token));
     if (!row) throw Error();
     return {
       projectId: row.project_id,
