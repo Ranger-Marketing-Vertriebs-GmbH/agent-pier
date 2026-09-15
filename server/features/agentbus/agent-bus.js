@@ -1,3 +1,4 @@
+import { AgentBusBroker } from "./agentbus-broker.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { codexHookCommand } from "../../lib/codex-hook-command.js";
 import {
@@ -19,18 +20,21 @@ import { ensureDir, writeJsonAtomic } from "../../../vendor/agentbus/core/fsx.js
 import { peerKey } from "../../../vendor/agentbus/core/paths.js";
 import { openQueue } from "../../../vendor/agentbus/core/queue.js";
 
-const vendor = fileURLToPath(new URL("../../../vendor/agentbus/", import.meta.url));
-const VERSION = "agentpier-1";
+const adapters = fileURLToPath(new URL("./", import.meta.url));
+const VERSION = "agentpier-2";
 const idPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
 
 export class AgentBus {
-  constructor({ dataDir, home = os.homedir(), accounts, sessions }) {
+  constructor({ dataDir, home = os.homedir(), accounts, sessions, bindings }) {
     this.dataDir = fs.realpathSync(dataDir);
     this.home = home;
     this.accounts = accounts;
     this.sessions = sessions;
+    this.bindings = bindings;
     this.root = path.join(this.dataDir, "agentbus");
     this.queues = new Map();
+    this.broker = new AgentBusBroker(this);
+    this.ready = this.broker.ready;
   }
 
   queue(home) {
@@ -66,12 +70,10 @@ export class AgentBus {
     if (fs.existsSync(existing) && !replace)
       throw problem(serverMessages.agentbus.sessionAlreadyExists, 409);
     const originalEnv = { ...launch.env };
-    const env = {
-      ...originalEnv,
-      AGENTBUS_HOME: home,
-      AGENTPIER_AGENTBUS_SESSION: id,
-      AGENTBUS_SOCKET_DIR: `/tmp/ap-bus-${process.getuid?.() || 0}-${createHash("sha256").update(home).digest("hex").slice(0, 12)}`,
-    };
+    const env = { ...originalEnv };
+    delete env.AGENTBUS_HOME;
+    delete env.AGENTPIER_AGENTBUS_SESSION;
+    delete env.AGENTBUS_SOCKET_DIR;
     const record = {
       id,
       projectId,
@@ -90,13 +92,18 @@ export class AgentBus {
       createdAt: new Date().toISOString(),
     };
     const args = [...(launch.args || [])];
-    const mcp = path.join(vendor, "agentpier/mcp.js");
-    const hook = path.join(vendor, "agentpier/hook.js");
+    const mcp = path.join(adapters, "agentbus-mcp.js");
+    const hook = path.join(adapters, "agentbus-hook.js");
     const bridgeEnv = {
-      AGENTBUS_HOME: home,
-      AGENTPIER_AGENTBUS_SESSION: id,
-      AGENTBUS_SOCKET_DIR: env.AGENTBUS_SOCKET_DIR,
+      AGENTPIER_AGENTBUS_SOCKET: this.broker.transport.socketPath,
+      AGENTPIER_AGENTBUS_CAPABILITY_FILE: path.join(
+        this.root,
+        "sessions",
+        id,
+        "capability.json",
+      ),
     };
+    Object.assign(env, bridgeEnv);
     const hooks = Object.fromEntries(
       ["SessionStart", "UserPromptSubmit", "SessionEnd"].map((event) => [
         event,
@@ -160,12 +167,14 @@ export class AgentBus {
         (config.plugin !== undefined && !Array.isArray(config.plugin))
       )
         throw problem(serverMessages.common.invalidTemporaryOpenCodeConfig, 409);
-      const plugin = pathToFileURL(path.join(vendor, "agentpier/opencode.js")).href;
+      const plugin = pathToFileURL(path.join(adapters, "agentbus-opencode.js")).href;
       config.plugin = [...(config.plugin || []), plugin];
       env.OPENCODE_CONFIG_CONTENT = JSON.stringify(config);
     } else throw problem(serverMessages.common.unknownCliTool);
     this.accounts.get(selected.id);
+    if (replace) this.broker.revoke(id);
     writeJsonAtomic(existing, record);
+    this.broker.access.issue(record);
     return {
       ...launch,
       args,
@@ -244,6 +253,7 @@ export class AgentBus {
     loadLaunch(home, id);
     if (trustedPeers(home).some((peer) => peer.agentpierSessionId === id && peer.alive))
       return;
+    this.broker.revoke(id);
     fs.rmSync(path.join(home, "launches", `${id}.json`), { force: true });
     fs.rmSync(path.join(home, "adapters", id), {
       recursive: true,
@@ -330,7 +340,11 @@ export class AgentBus {
         : {}),
     };
   }
+  revoke(id) {
+    this.broker.revoke(id);
+  }
   async close() {
+    await this.broker.close();
     for (const queue of this.queues.values()) queue.close();
     this.queues.clear();
   } // Runtime files and peers survive server restarts with their tmux sessions.

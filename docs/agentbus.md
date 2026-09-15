@@ -1,46 +1,62 @@
-# AgentBus queue
+# AgentBus broker and queue
 
-AgentBus uses one embedded SQLite database for each project under
-`agentbus/projects/<project-id>/queue.sqlite`. The database is local to the
-AgentPier data directory and does not require RabbitMQ, MQTT, or another
-service.
+AgentPier owns AgentBus registration, process verification, delivery and storage.
+Native CLI hooks and MCP servers use a small HTTP client over a private Unix
+socket. They receive only that socket's address and a session capability file;
+they do not receive the shared queue directory or run `ps`. This boundary applies
+to ordinary interactive and pipeline sessions independently of optional sandboxing.
 
-Node uses its built-in `node:sqlite` driver; the OpenCode plugin uses `bun:sqlite`
-from OpenCode's embedded Bun runtime. Both access the same database and require no
-additional package or service. Release packages include this adapter, so regular
-AgentPier updates deliver the fix to existing installations. Reload existing
-OpenCode sessions after updating to load the new plugin.
+Each launch gets a private capability. AgentPier checks its session, account,
+canonical project directory and running state on every request. Registration also
+checks the native process against the session's host-owned tmux pane and pins its
+process start time. A session cannot select another project or supply a wake socket.
+Stopping or replacing a session revokes its capability and registration. A web-only
+restart preserves capabilities, registrations and messages for surviving sessions.
+Reload existing sessions after upgrading to switch from the legacy adapters.
 
-CI exercises queue behavior under Bun 1.3.10 and verifies Node/Bun interoperability
-on Linux and macOS. Bun is downloaded only for these compatibility tests; users do
-not need a separate Bun installation.
+Codex and Claude launch/prompt hooks register their exact native conversation and
+return instructions and pending-message counts. Claude wakes use the native
+registry only when its PID matches the registered process. Codex wakes require an
+independently verified native binding. If that cannot be proved, the next prompt
+hook supplies the pending-message hint.
 
-`peer_send` writes a message with a stable ID before it tries to wake the
-recipient. A wake is only a hint to call `inbox_read`; it is not a delivery
-acknowledgement. `inbox_read` claims all currently pending messages for its
-exact peer identity, formats them, and acknowledges the claim. A process that
-stops before acknowledgement leaves a short lease. The next reader reclaims
-expired leases and can deliver the messages again.
+OpenCode uses an outgoing, authenticated long poll for notices; it exposes no
+inbound AgentBus socket. The plugin registers root conversations and attaches the
+exact native conversation ID to MCP calls. Notices target that conversation only;
+deleted conversations and child sessions are not redirected to another session.
+Long polls reconnect with bounded backoff. A later prompt resumes polling after a
+longer outage and retrieves a pending count. Notices never contain message bodies
+and never read or acknowledge the inbox automatically.
 
-Retries with the same message ID are idempotent. The HTTP AgentBus history
-shows unacknowledged rows as `pending` and acknowledged rows as `read` without
-claiming them.
+## Durable delivery
 
-Inbox reads are event-driven: launch hooks and the OpenCode system hook add a
-message hint only when the queue contains pending messages. The agent should call
-`inbox_read` after a fresh hint or an explicit user request, not periodically or
-before every work step or final answer. A delayed wake can arrive after its message
-has already been read. Wake hints now include a `messageId` for `inbox_read`;
-when that message was acknowledged by an earlier batched read, the tool explicitly
-reports the delayed hint instead of an unexplained empty inbox. The reference is
-scoped to the receiving peer and does not replay acknowledged content. A read still
-collects all pending messages, including newer messages that arrived in the meantime.
-Legacy calls without a reference remain supported and explain that hints may be
-late. An empty result should not trigger more reads. This guidance reduces model-initiated calls; it does not hide tool output.
-Existing conversations can retain older startup instructions until a fresh
-conversation is started.
+AgentPier uses its built-in Node SQLite driver with one database per project under
+`agentbus/projects/<project-id>/queue.sqlite`. No additional runtime or service is
+required. The shared local socket lifecycle is also used by the Memory broker.
+Client capabilities and the broker socket are private to the operating-system
+user; a sandbox must grant only the client's own capability and socket, not the
+AgentPier data directory. These capabilities restrict protocol access; they do not
+isolate an otherwise unsandboxed process running as the same OS user.
 
-When a project is opened after an upgrade, valid records in the legacy
-`inbox/<peer>/pending` and `inbox/<peer>/done` directories are imported into
-SQLite. Invalid legacy files remain in place for diagnostics. New messages are
-written only to SQLite.
+`peer_send` stores a message before attempting a wake. A failed wake does not make
+successful delivery retryable. Clients never automatically replay tool calls.
+`inbox_read` explicitly claims, formats and acknowledges up to eight pending
+messages for its exact peer identity. A full batch tells the agent that it may
+continue processing the same notice. A reader that fails before acknowledgement
+leaves a short lease, after which unread messages can be claimed again. A known
+client cancellation before the operation prevents claiming. As with ordinary MCP
+tool responses, loss of the connection after acknowledgement can lose the response;
+there is no end-to-end receipt protocol or exactly-once delivery guarantee.
+
+Inbox reads should happen only after a new message notice or an explicit user
+request. An empty result should not trigger more reads. Wake hints carry a message
+reference when available; a delayed hint for an already-read message reports that
+it was previously collected without replaying its content. References are scoped
+to the receiving peer. Received messages are untrusted data.
+
+The HTTP history reads queue rows without claiming them and retains stopped
+sessions' history. Existing queue databases and valid legacy inbox files remain
+compatible. Opening a project imports valid `inbox/<peer>/pending` and `done`
+records into SQLite; invalid records remain in place for diagnostics. Legacy
+Node/Bun interoperability tests remain as migration coverage, but the current
+OpenCode adapter does not open SQLite.
