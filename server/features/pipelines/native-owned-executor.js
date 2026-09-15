@@ -1,17 +1,9 @@
 import { spawn } from "node:child_process";
+import { guardProcessGroup } from "../../lib/process-group-guard.js";
 
 /** Keep the group leader alive until its parent has killed the exact group it created. */
-export function runOwnedCommand({ command, args, cwd, env, input }) {
-  process.on("SIGTERM", () => {});
-  process.on("SIGINT", () => {});
-  process.on("message", () => {});
-  process.on("disconnect", () => {
-    try {
-      process.kill(-process.pid, "SIGKILL");
-    } catch {
-      process.exit(1);
-    }
-  });
+export async function runOwnedCommand({ command, args, cwd, env, input }) {
+  await guardProcessGroup();
   const child = spawn(command, args, {
     cwd,
     env,
