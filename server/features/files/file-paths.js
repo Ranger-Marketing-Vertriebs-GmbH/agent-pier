@@ -13,8 +13,9 @@ const revisionFields = ["dev", "ino", "mode", "uid", "gid", "size", "mtimeNs", "
 // Append validated names/tree-relative paths without normalizing selected symlink/..
 // spelling. Resolution and mutation authority still belong to resolveFile.
 export function appendFilePath(parent, relative) {
+  // dirname of a project-root child is "."; its selected parent identity is empty.
+  if (!parent || parent === ".") return relative;
   if (!relative) return parent;
-  if (!parent) return relative;
   return `${parent}${parent.endsWith("/") ? "" : "/"}${relative}`;
 }
 
