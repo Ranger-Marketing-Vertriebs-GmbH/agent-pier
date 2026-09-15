@@ -4,6 +4,26 @@
 
 Dein lokaler Workspace für **Codex, Claude Code und OpenCode**: native Terminals, eine mobile Chatansicht, Aufgabenlisten, mehrere Accounts mit gemeinsamen CLI-Erweiterungen und GitHub-Repositories.
 
+## Installation auf macOS
+
+Ab macOS 14 (Apple Silicon oder Intel). Verfügbar, sobald das Installer-Release
+und der Homebrew-Tap veröffentlicht sind.
+
+**Installationsskript** — richtet Voraussetzungen und Autostart ein:
+
+```sh
+(agentpier_tmp=$(mktemp -d) && trap 'rm -rf "$agentpier_tmp"' EXIT && curl --fail --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/latest/download/install-agentpier.sh -o "$agentpier_tmp/install.sh" && /bin/sh "$agentpier_tmp/install.sh")
+```
+
+**Homebrew** — wenn Homebrew bereits installiert ist:
+
+```sh
+brew install ranger-marketing-vertriebs-gmbh/tap/agentpier-installer && agentpier-install
+```
+
+Danach **http://127.0.0.1:4380** öffnen. Anwendungsupdates bleiben in AgentPier.
+[Optionen und Details](docs/installation.md#ein-befehl-installation-auf-macos).
+
 ## Lokal ausprobieren
 
 Voraussetzungen: macOS oder Linux, Node.js **22.13+**, tmux und Git. Vorhandene CLIs werden erkannt. Fehlende Codex-, Claude-Code- und OpenCode-CLIs lassen sich unter **Deine Tools → CLI installieren** einrichten; dafür benötigt der Server auch npm.

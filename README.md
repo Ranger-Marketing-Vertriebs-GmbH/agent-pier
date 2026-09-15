@@ -33,13 +33,27 @@ review and verification through reusable pipelines.
 
 ## Quick start
 
-For macOS, releases that include `install-agentpier.sh` support a one-command setup
-with automatic prerequisites and a login service. The same installer is distributed
-through our Homebrew tap once its formula is published. See the
-[macOS installer commands](docs/installation.md#ein-befehl-installation-auf-macos)
-for availability, paths, and retry behavior. Application updates remain in AgentPier.
+### Install on macOS
 
-The source-based start below remains available on macOS and Linux.
+Requires macOS 14+ (Apple Silicon or Intel). Available after the installer release
+and Homebrew tap are published.
+
+**Install script** — installs prerequisites and the login service:
+
+```sh
+(agentpier_tmp=$(mktemp -d) && trap 'rm -rf "$agentpier_tmp"' EXIT && curl --fail --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/latest/download/install-agentpier.sh -o "$agentpier_tmp/install.sh" && /bin/sh "$agentpier_tmp/install.sh")
+```
+
+**Homebrew** — if Homebrew is already installed:
+
+```sh
+brew install ranger-marketing-vertriebs-gmbh/tap/agentpier-installer && agentpier-install
+```
+
+Then open **http://127.0.0.1:4380**. Application updates stay in AgentPier.
+[Options and details](docs/installation.md#ein-befehl-installation-auf-macos).
+
+### Run from source (macOS / Linux)
 
 Use macOS or Linux with **Node.js 22.13+**, **Git** and **tmux**. Install at least
 one supported coding CLI, or use AgentPier's CLI installer after starting it.
