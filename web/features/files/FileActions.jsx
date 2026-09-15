@@ -9,6 +9,7 @@ import FileArchiveDialog, { archiveActions, canExtract } from "./FileArchiveDial
 export default function FileActions({
   scope,
   selection,
+  refreshing = false,
   clipboard,
   jobs,
   onChanged,
@@ -26,15 +27,19 @@ export default function FileActions({
   const busy = useRef(null);
   const selected = selection.selected;
   const signature = selected.map((item) => `${item.path}\0${item.revision}`).join("\n");
+  // A same-query refresh has no authoritative entries yet. Keep ordinary frozen
+  // confirmations visible but pause submission until their revisions are checked.
+  const paused = refreshing && dialog && !archiveActions.includes(dialog.kind);
   const validDialog =
     dialog &&
-    (!dialog.signature || dialog.signature === signature) &&
-    (!dialog.bindEntries ||
-      dialog.items.every((item) =>
-        selection.entries.some(
-          (entry) => entry.path === item.path && entry.revision === item.revision,
-        ),
-      ));
+    (paused ||
+      ((!dialog.signature || dialog.signature === signature) &&
+        (!dialog.bindEntries ||
+          dialog.items.every((item) =>
+            selection.entries.some(
+              (entry) => entry.path === item.path && entry.revision === item.revision,
+            ),
+          ))));
   const currentDialog = validDialog ? dialog : null;
   // Invalidate during render, before a pending response or cleanup effect can run.
   if (!validDialog && dialogOwner.current === dialog) dialogOwner.current = null;
@@ -131,6 +136,7 @@ export default function FileActions({
     event.preventDefault();
     if (
       !currentDialog ||
+      paused ||
       busy.current === currentDialog ||
       dialogOwner.current !== currentDialog
     )
@@ -333,7 +339,7 @@ export default function FileActions({
             </ul>
             <ErrorMessage error={error?.message} />
             <div className="file-action-buttons">
-              <button className="button" disabled={pending || scope.readOnly}>
+              <button className="button" disabled={pending || paused || scope.readOnly}>
                 {copy.actions.confirm}
               </button>
               <button

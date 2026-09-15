@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-function owns(result, owner) {
+function owns(result, owner, checkGeneration = true) {
   return (
     result?.client === owner.client &&
     result.path === owner.path &&
@@ -8,7 +8,7 @@ function owns(result, owner) {
     result.sort === owner.sort &&
     result.direction === owner.direction &&
     result.hidden === owner.hidden &&
-    result.generation === owner.generation
+    (!checkGeneration || result.generation === owner.generation)
   );
 }
 
@@ -42,11 +42,11 @@ export default function useFileListing({ client, path, page, sort, direction, hi
   const snapshot = useRef(null);
   const owner = { client, path, page, sort, direction, hidden, generation };
   const listing = owns(result, owner) ? result.listing : null;
+  const refreshing = Boolean(!listing && owns(result, owner, false));
 
   const refresh = useCallback((complete) => {
     if (typeof complete === "function") afterRefresh.current = complete;
     snapshot.current = null;
-    setResult(null);
     setError(null);
     setGeneration((value) => value + 1);
   }, []);
@@ -121,5 +121,5 @@ export default function useFileListing({ client, path, page, sort, direction, hi
     return () => controller.abort();
   }, [client, direction, generation, hidden, page, path, sort]);
 
-  return { listing, error, loading, refresh };
+  return { listing, error, loading, refreshing, refresh };
 }

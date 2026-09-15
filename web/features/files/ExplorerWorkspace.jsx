@@ -489,6 +489,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
                   key={`${contextKey}:${scopeId}:${path}`}
                   scope={actionScope}
                   selection={fileSelection}
+                  refreshing={listing.refreshing}
                   clipboard={clipboard}
                   client={client}
                   jobs={jobs}
