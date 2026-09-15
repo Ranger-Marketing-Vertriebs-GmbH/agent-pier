@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { fileProblem, fileSystemProblem } from "./file-errors.js";
-import { resolveFile } from "./file-paths.js";
+import { appendFilePath, resolveFile } from "./file-paths.js";
 import { projectFileEntry } from "./file-reading.js";
 
 const snapshotTtlMs = 30_000;
@@ -52,7 +52,7 @@ function parentPath(scope, selectedPath) {
 
 function childPath(scope, parent, name) {
   if (scope.kind === "project") return parent ? `${parent}/${name}` : name;
-  return path.join(parent, name);
+  return appendFilePath(parent, name);
 }
 
 export class FileListingStore {

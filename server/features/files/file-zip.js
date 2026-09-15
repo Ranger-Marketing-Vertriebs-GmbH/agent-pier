@@ -1,8 +1,7 @@
-import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileProblem } from "./file-errors.js";
-import { resolveFile, entryRevision } from "./file-paths.js";
+import { appendFilePath, resolveFile, entryRevision } from "./file-paths.js";
 import { closeHandles, inodeIdentity } from "./file-stage.js";
 import { registerFileJobHandler } from "./file-job-handlers.js";
 import { alternateName } from "./file-mutations.js";
@@ -100,7 +99,7 @@ export class FileArchives {
       let name = operation.name,
         suffix = 1;
       for (;;) {
-        target = path.join(parent.path, name);
+        target = appendFilePath(parent.path, name);
         const selected = await resolveFile(scope, target, {
           followLeaf: false,
           allowMissingLeaf: true,

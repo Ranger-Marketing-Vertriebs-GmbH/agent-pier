@@ -160,22 +160,22 @@ authoritative.
 
 Defaults are read at server startup:
 
-| `files.limits` key  |        Default | Purpose                           |
-| ------------------- | -------------: | --------------------------------- |
-| `listPageSize`      |            200 | entries per listing page          |
-| `listEntries`       |        100,000 | entries in one directory snapshot |
-| `searchEntries`     |        100,000 | entries inspected by search       |
-| `searchResults`     |         10,000 | search results                    |
-| `searchMs`          |         30,000 | search duration in milliseconds   |
-| `textBytes`         |      2,097,152 | editor/read bytes                 |
-| `imageBytes`        |     20,971,520 | image preview bytes               |
-| `uploadBytes`       | 10,737,418,240 | one upload file                   |
-| `jobBytes`          | 53,687,091,200 | operation payload bytes           |
-| `jobEntries`        |         50,000 | operation entries                 |
-| `maxDepth`          |            128 | traversal/archive depth           |
-| `transfers`         |              3 | concurrent transfers per owner    |
-| `jobsRetentionMs`   |    604,800,000 | terminal-job retention window     |
-| `uploadRetentionMs` |     86,400,000 | inactive upload window            |
+| `files.limits` key  |        Default | Purpose                               |
+| ------------------- | -------------: | ------------------------------------- |
+| `listPageSize`      |            200 | entries per listing page              |
+| `listEntries`       |        100,000 | entries in one directory snapshot     |
+| `searchEntries`     |        100,000 | entries inspected by search           |
+| `searchResults`     |         10,000 | search results                        |
+| `searchMs`          |         30,000 | search duration in milliseconds       |
+| `textBytes`         |      2,097,152 | editor/read bytes                     |
+| `imageBytes`        |     20,971,520 | image preview bytes                   |
+| `uploadBytes`       | 10,737,418,240 | one upload file                       |
+| `jobBytes`          | 53,687,091,200 | operation payload bytes               |
+| `jobEntries`        |         50,000 | operation entries                     |
+| `maxDepth`          |            128 | traversal/archive depth               |
+| `transfers`         |              3 | concurrent transfers per owner        |
+| `jobsRetentionMs`   |    604,800,000 | unclaimed ZIP-artifact cleanup window |
+| `uploadRetentionMs` |     86,400,000 | inactive upload window                |
 
 To override a value, stop AgentPier, edit `$AGENTPIER_DATA_DIR/config.json`, and restart it:
 
@@ -196,10 +196,14 @@ for individual file limits. Job, Trash, and operation-result pages use a separat
 page size of 200. Metadata size observations and ZIP output also have separate internal
 bounds; `jobBytes` does not configure them.
 
-Terminal jobs become eligible for cleanup seven days after completion only when no
-unresolved publication, child job, or Trash record pins them. Completed unclaimed ZIP
-artifacts have the same seven-day window. Inactive incomplete uploads are considered after
-24 hours only without an active owner; ambiguous content remains retained.
+Ordinary terminal jobs and resolved publication journals use a fixed seven-day cleanup
+horizon, preserving the seven-day request replay window. Jobs remain pinned by unresolved
+publications, child jobs, or Trash records. `jobsRetentionMs` controls cleanup eligibility
+for completed, unclaimed ZIP download artifacts (seven days by default); it does not
+shorten ordinary job or request replay retention. Active artifact consumers and uncertain
+artifacts remain protected, and published user ZIP files are never retention-deletion
+targets. Inactive incomplete uploads are considered after 24 hours only without an active
+owner; ambiguous content remains retained.
 
 Native metadata capture accepts at most 256 xattrs, 64 KiB of xattr names, 8 MiB of xattr
 values, and a 64 KiB Darwin ACL. Exceeding a bound refuses the operation rather than
@@ -209,8 +213,12 @@ silently dropping metadata.
 
 Private Explorer state lives under `$AGENTPIER_DATA_DIR/files`, including SQLite state,
 Trash payloads, recovery journals, and staging/transfer artifacts. Do not edit it manually
-or build integrations against its private path layout. These internal paths remain
-protected from Explorer operations even when global **Files** otherwise has OS permission.
+or build integrations against its private path layout. Protection is operation-specific:
+publication and text-write guards protect filesystem/project roots and ancestors of the
+Explorer storage root; Trash and transfer guards additionally reject protected storage
+and active staging descendants. These guards are not a universal ban on reading or
+accessing every private descendant through global **Files**, which uses the host OS
+user's permissions.
 
 AgentPier application backups exclude file Trash, file-operation journals, and transfer
 bytes, even with **Include credentials**. They are not Explorer recovery exports. Move

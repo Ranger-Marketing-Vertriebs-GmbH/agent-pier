@@ -19,6 +19,7 @@ export class FileJobObserver {
           id,
         );
         if (!owns()) return;
+        if (!uploadOwnedJob(job)) session.inspectedId = id;
         session.accept(job, !uploadOwnedJob(job));
         session.uploads.settled(job);
         return session.readEntries(id, null, signal, owns, true);

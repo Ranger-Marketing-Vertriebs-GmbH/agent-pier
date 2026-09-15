@@ -10,6 +10,14 @@ const canonicalPath = promisify(realpath.native);
 const parentSnapshots = new WeakMap();
 const revisionFields = ["dev", "ino", "mode", "uid", "gid", "size", "mtimeNs", "ctimeNs"];
 
+// Append validated names/tree-relative paths without normalizing selected symlink/..
+// spelling. Resolution and mutation authority still belong to resolveFile.
+export function appendFilePath(parent, relative) {
+  if (!relative) return parent;
+  if (!parent) return relative;
+  return `${parent}${parent.endsWith("/") ? "" : "/"}${relative}`;
+}
+
 export function isWithin(root, target) {
   const relative = path.relative(root, target);
   return (

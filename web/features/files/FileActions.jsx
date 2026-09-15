@@ -80,8 +80,8 @@ export default function FileActions({
     if (kind === "path") {
       replaceDialog(null);
       const paths = items.map((item) => item.path).join("\n");
-      navigator.clipboard
-        .writeText(paths)
+      Promise.resolve()
+        .then(() => navigator.clipboard.writeText(paths))
         .then(() => {
           if (alive.current) setFeedback("path");
         })

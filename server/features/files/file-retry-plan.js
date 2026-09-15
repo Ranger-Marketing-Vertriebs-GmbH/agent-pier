@@ -1,6 +1,6 @@
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { resolveFile, entryRevision } from "./file-paths.js";
+import { appendFilePath, resolveFile, entryRevision } from "./file-paths.js";
 import { fileProblem } from "./file-errors.js";
 import { observeRetryDestinations } from "./file-retry-targets.js";
 
@@ -159,14 +159,14 @@ export async function planRetry(owner, scope, id, childId) {
         source,
         path:
           job.kind === "rename"
-            ? path.join(path.dirname(source), original.name)
+            ? appendFilePath(path.dirname(source), original.name)
             : job.kind === "archive" && original.options.output === "file"
-              ? path.join(original.target, original.name)
+              ? appendFilePath(original.target, original.name)
               : source,
       });
     }
     if (!original.sources.length)
-      entries.push({ id: "0", path: path.join(original.target, original.name) });
+      entries.push({ id: "0", path: appendFilePath(original.target, original.name) });
   } else if (["trash", "restore", "purge"].includes(job.kind)) {
     if (!rows.length) throw retryUnavailable();
     const remaining = rows.filter(unfinished);

@@ -7,6 +7,7 @@ import { assertTree } from "./file-tree.js";
 import { registerFileJobHandler } from "./file-job-handlers.js";
 import {
   resolveFile,
+  appendFilePath,
   entryRevision,
   assertFileMutationTarget,
   isWithin,
@@ -170,7 +171,7 @@ export class FileCopies extends FileMutations {
       const expectedRevision = revisionOf(target),
         targetType = copyType(target.stat);
       if (expectedRevision && keepBoth) {
-        targetPath = path.join(
+        targetPath = appendFilePath(
           path.dirname(item.target),
           alternateName(path.basename(item.target), ++alternate),
         );
@@ -211,7 +212,7 @@ export class FileCopies extends FileMutations {
         }
         if (decision.decision === "keep_both") {
           keepBoth = true;
-          targetPath = path.join(
+          targetPath = appendFilePath(
             path.dirname(item.target),
             alternateName(path.basename(item.target), ++alternate),
           );
@@ -221,7 +222,8 @@ export class FileCopies extends FileMutations {
       }
       await this.validatePair(context, item, target, expectedRevision);
       const transferId = randomUUID();
-      for (const row of item.rows) row.path = path.join(targetPath, row.relativePath);
+      for (const row of item.rows)
+        row.path = appendFilePath(targetPath, row.relativePath);
       await this.rows(context, item.rows, { transferId });
       let result;
       try {
@@ -393,14 +395,14 @@ export class FileCopies extends FileMutations {
           ...child,
           relativePath: path.relative(row.relativePath, child.relativePath),
         }));
-      const source = path.join(item.source, row.relativePath);
+      const source = appendFilePath(item.source, row.relativePath);
       const selected = await resolveFile(context.scope, source, { followLeaf: false });
       if (entryRevision(selected.stat) !== row.revision)
         throw fileProblem("FILE_CONFLICT_CHANGED", 409);
       children.push({
         source,
         selected,
-        target: path.join(target.path, row.relativePath),
+        target: appendFilePath(target.path, row.relativePath),
         rows,
       });
     }

@@ -2,6 +2,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import {
   resolveFile,
+  appendFilePath,
   entryRevision,
   isWithin,
   assertFileMutationTarget,
@@ -132,16 +133,16 @@ export async function planCopies(owner, context) {
       bytes += rows.reduce((n, row) => n + (row.type === "file" ? row.size : 0), 0);
       const destination =
         retryTargets?.get(item.source) ||
-        path.join(target.path, path.basename(item.selected.path));
+        appendFilePath(target.path, path.basename(item.selected.path));
       for (const row of rows) {
         row.id = randomUUID();
-        row.source = path.join(item.selected.path, row.relativePath);
+        row.source = appendFilePath(item.selected.path, row.relativePath);
         if (context.retry) {
           const pin = retryPins.get(row.source);
           if (!pin || pin.contentRevision !== row.revision)
             throw fileProblem("FILE_RETRY_UNAVAILABLE", 409);
         }
-        row.path = path.join(destination, row.relativePath);
+        row.path = appendFilePath(destination, row.relativePath);
         row.status = "pending";
         row.outputPublished = false;
         row.sourceRemoved = false;

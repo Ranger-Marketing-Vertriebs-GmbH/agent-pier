@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { registerFileJobHandler } from "./file-job-handlers.js";
 import {
   resolveFile,
+  appendFilePath,
   entryRevision,
   validateFileName,
   assertFileMutationTarget,
@@ -95,7 +96,7 @@ export class FileMutations {
     if (type === "special") throw fileProblem("FILE_UNSUPPORTED_TYPE", 415);
     if (source) this.trash.assertProtected(source.absolute);
     const parent = creationType ? operation.target : path.dirname(source.path);
-    let target = path.join(parent, operation.name),
+    let target = appendFilePath(parent, operation.name),
       index = 1,
       keepBoth = false;
     if (source && target === source.path) throw fileProblem("FILE_SAME_PATH", 409);
@@ -121,7 +122,7 @@ export class FileMutations {
         ? entryRevision(selected.stat, selected.linkIdentity)
         : null;
       if (expectedRevision && keepBoth) {
-        target = path.join(parent, alternateName(operation.name, ++index));
+        target = appendFilePath(parent, alternateName(operation.name, ++index));
         continue;
       }
       if (expectedRevision && !sameEntry) {
@@ -153,7 +154,7 @@ export class FileMutations {
         if (decision.decision === "skip") return;
         if (decision.decision === "keep_both") {
           keepBoth = true;
-          target = path.join(parent, alternateName(operation.name, ++index));
+          target = appendFilePath(parent, alternateName(operation.name, ++index));
           continue;
         }
         if (decision.decision !== "replace" || !choices.includes("replace"))

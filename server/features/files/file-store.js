@@ -2,6 +2,7 @@ import { FileTextStore } from "./file-text-store.js";
 import { FileArchiveStore } from "./file-archive-store.js";
 import { publicFileJob } from "./file-job-projection.js";
 import path from "node:path";
+import { appendFilePath } from "./file-paths.js";
 import { completeExtract } from "./file-extract-store.js";
 import { createHash, randomUUID } from "node:crypto";
 import { privateDatabase } from "../../lib/private-database.js";
@@ -274,7 +275,7 @@ export class FileStore {
       rows.some(
         (row) =>
           !/^\d+:\d+$/.test(row.identity) ||
-          row.path !== path.join(target, row.relativePath),
+          row.path !== appendFilePath(target, row.relativePath),
       )
     )
       throw fileProblem("FILE_INVALID_OPERATION", 400);

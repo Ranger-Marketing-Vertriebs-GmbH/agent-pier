@@ -84,19 +84,25 @@ export class FileJobClient {
         }
         this.update({
           history: this.overlayHistory(history.jobs),
-          ...(!this.state.history ? { history: { ...history, cursor: null } } : {}),
-          jobs: [
-            ...new Map(
-              [...history.jobs, ...this.tracked.values()].map((job) => [job.id, job]),
-            ).values(),
-          ],
+          ...(!this.state.history?.cursor
+            ? { history: { ...history, cursor: null } }
+            : {}),
+          jobs: this.boundedJobs([
+            ...this.state.jobs,
+            ...history.jobs,
+            ...this.tracked.values(),
+          ]),
         });
         for (const id of this.tracked.keys()) {
-          const job = await this.client.get(
-            `/jobs/${encodeURIComponent(id)}`,
-            {},
-            signal,
-          );
+          let job;
+          try {
+            job = await this.client.get(`/jobs/${encodeURIComponent(id)}`, {}, signal);
+          } catch (error) {
+            if (!owns()) return;
+            if (error.code !== "FILE_NOT_FOUND") throw error;
+            this.expired(id);
+            continue;
+          }
           if (!owns()) return;
           this.accept(job, true);
           this.uploads.settled(job);
@@ -127,7 +133,16 @@ export class FileJobClient {
             sweep = { cursor: null, status: job.status };
             this.sweeps.set(job.id, sweep);
           }
-          const page = await this.readEntries(job.id, sweep.cursor, signal, owns, true);
+          let page;
+          try {
+            page = await this.readEntries(job.id, sweep.cursor, signal, owns, true);
+          } catch (error) {
+            if (!owns()) return;
+            if (error.code !== "FILE_NOT_FOUND") throw error;
+            this.expired(job.id);
+            tasks.splice(tasks.indexOf(task), 1);
+            continue;
+          }
           if (!owns()) return;
           sweep.cursor = page.nextCursor;
           if (!page.nextCursor) {
@@ -138,7 +153,30 @@ export class FileJobClient {
               "waiting_for_conflict",
               "cancelling",
             ].includes(job.status);
+            const rows = this.state.entries[job.id].entries;
+            // A terminal envelope alone cannot settle publication/removal uncertainty.
+            const retire =
+              terminal &&
+              !uploadOwnedJob(job) &&
+              job.id !== this.inspectedId &&
+              !job.conflict &&
+              job.status !== "interrupted" &&
+              ![
+                "FILE_INTERRUPTED",
+                "FILE_RENAME_RECOVERY",
+                "FILE_ARCHIVE_PENDING",
+              ].includes(job.issue?.code) &&
+              rows.every(
+                (row) =>
+                  ["completed", "failed", "skipped", "cancelled"].includes(row.status) &&
+                  row.sourceRemovalPending !== true,
+              );
+            if (retire) {
+              this.tracked.delete(job.id);
+              this.sweeps.delete(job.id);
+            }
             this.update({
+              jobs: this.boundedJobs(this.state.jobs, retire ? job.id : null),
               entries: {
                 ...this.state.entries,
                 [job.id]: {
@@ -151,6 +189,39 @@ export class FileJobClient {
           }
         }
       });
+  }
+  // Retained result pages serve Cut/purge and inspection independently of polling.
+  // Keep bounded recent metadata plus active/unresolved/explicitly selected watches.
+  boundedJobs(values, completedId) {
+    const ordered = completedId
+      ? [
+          ...values.filter((job) => job.id !== completedId),
+          ...values.filter((job) => job.id === completedId),
+        ]
+      : values;
+    const jobs = [...new Map(ordered.map((job) => [job.id, job])).values()];
+    const observed = (job) =>
+      job.id === completedId || this.state.entries[job.id]?.complete;
+    const inactive = jobs.filter((job) => !this.tracked.has(job.id));
+    // A newly visited history page must not evict the metadata paired with a
+    // captured final outcome before Cut/purge consumers can use that evidence.
+    const recent = new Set(
+      [...inactive.filter((job) => !observed(job)), ...inactive.filter(observed)]
+        .slice(-200)
+        .map((job) => job.id),
+    );
+    return jobs.filter((job) => this.tracked.has(job.id) || recent.has(job.id));
+  }
+  expired(id) {
+    this.tracked.delete(id);
+    this.sweeps.delete(id);
+    this.update({
+      jobs: this.state.jobs.filter((job) => job.id !== id),
+      history: this.state.history && {
+        ...this.state.history,
+        jobs: this.state.history.jobs.filter((job) => job.id !== id),
+      },
+    });
   }
   update(patch) {
     this.state = { ...this.state, ...patch };
@@ -221,9 +292,7 @@ export class FileJobClient {
     if (track || this.tracked.has(job.id)) this.tracked.set(job.id, job);
     this.update({
       history: this.overlayHistory([job]),
-      jobs: [
-        ...new Map([...this.state.jobs, job].map((value) => [value.id, value])).values(),
-      ],
+      jobs: this.boundedJobs([...this.state.jobs, job]),
     });
   }
   overlayHistory(jobs) {
@@ -241,11 +310,7 @@ export class FileJobClient {
     }
     this.update({
       history: { ...page, cursor },
-      jobs: [
-        ...new Map(
-          [...this.state.jobs, ...page.jobs].map((job) => [job.id, job]),
-        ).values(),
-      ],
+      jobs: this.boundedJobs([...this.state.jobs, ...page.jobs]),
     });
   }
   invalidateManifest(job) {
