@@ -1,4 +1,5 @@
 export const filesCopy = {
+  explorerFailed: "Dateioperation fehlgeschlagen.",
   invalidName: "Bitte einen einzelnen Ordnernamen ohne Pfad eingeben.",
   exists: "Dieser Name existiert bereits.",
   createFailed: "Der Ordner konnte nicht angelegt werden.",

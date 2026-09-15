@@ -56,7 +56,10 @@ test("run detail offers engine-authorized decisions and reads exact evidence wit
   await expect(page.getByRole("dialog")).toContainText("+new line");
   await expect(page.getByRole("dialog")).toContainText("Ausgabe gekürzt.");
   await page.getByRole("button", { name: "Dialog schließen" }).click();
-  await page.getByRole("button", { name: "Dateien", exact: true }).click();
+  const stage = page.locator(".pipeline-timeline article").filter({
+    hasText: "Missing validation",
+  });
+  await stage.getByRole("button", { name: "Dateien", exact: true }).click();
   await page.getByRole("button", { name: "Prüfbericht", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("Fixture report evidence");
   await page.getByRole("button", { name: "Dialog schließen" }).click();

@@ -204,7 +204,7 @@ test("unavailable local storage retains text and never sends", async ({ page }) 
   expect(state.inputs).toEqual([]);
 });
 
-test("missing message-ID support reports an error instead of silently dropping send", async ({
+test("strong fallback message IDs send when randomUUID is unavailable", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -213,9 +213,11 @@ test("missing message-ID support reports an error instead of silently dropping s
   const state = await fixture(page);
   await input(page).fill("Bleibt hier");
   await send(page).click();
-  await expect(page.getByRole("alert")).toContainText("nicht vorbereitet");
-  await expect(input(page)).toHaveValue("Bleibt hier");
-  expect(state.inputs).toHaveLength(0);
+  await expect(input(page)).toHaveValue("");
+  expect(state.inputs).toHaveLength(1);
+  expect(state.inputs[0].deliveryId).toMatch(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+  );
 });
 
 test("legacy delivery cards stay expandable above current history while new sends remain visible", async ({

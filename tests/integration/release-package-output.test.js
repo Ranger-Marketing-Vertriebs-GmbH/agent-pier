@@ -37,6 +37,16 @@ async function fixture(t, exitCode = 0) {
 }
 test("release builder accepts a declared output parent alias without changing its permissions", async (t) => {
   const { root, source, parent, alias, node } = await fixture(t);
+  const unicode = "server/features/files/unicode-15.1";
+  await fs.cp(new URL(`../../${unicode}/`, import.meta.url), path.join(source, unicode), {
+    recursive: true,
+  });
+  for (const dependency of ["yazl", "buffer-crc32"])
+    await fs.cp(
+      new URL(`../../node_modules/${dependency}/`, import.meta.url),
+      path.join(source, "node_modules", dependency),
+      { recursive: true },
+    );
   const output = path.join(alias, "custom-release.aprelease");
   const result = await buildRelease({ source, output, node, prepareDependencies: false });
   const bytes = await fs.readFile(output);
@@ -57,6 +67,28 @@ test("release builder accepts a declared output parent alias without changing it
   })) {
     assert.equal(await fs.readFile(path.join(unpacked, name), "utf8"), expected);
   }
+  for (const dependency of ["yazl", "buffer-crc32"])
+    for (const name of [
+      "package.json",
+      "LICENSE",
+      dependency === "yazl" ? "index.js" : "dist/index.cjs",
+    ])
+      assert.deepEqual(
+        await fs.readFile(path.join(unpacked, "node_modules", dependency, name)),
+        await fs.readFile(
+          new URL(`../../node_modules/${dependency}/${name}`, import.meta.url),
+        ),
+      );
+  assert.equal(
+    JSON.parse(await fs.readFile(path.join(unpacked, "node_modules/yazl/package.json")))
+      .version,
+    "3.3.1",
+  );
+  for (const name of ["CaseFolding.txt", "UnicodeData.txt", "LICENSE.txt"])
+    assert.deepEqual(
+      await fs.readFile(path.join(unpacked, unicode, name)),
+      await fs.readFile(new URL(`../../${unicode}/${name}`, import.meta.url)),
+    );
 });
 test("release output links are rejected without replacing their external targets", async (t) => {
   const { source, parent, node, root } = await fixture(t);
@@ -93,4 +125,23 @@ test("a custom runtime without its license cannot publish a release", async (t) 
     buildRelease({ source, output, node, prepareDependencies: false }),
   );
   await assert.rejects(fs.access(output));
+});
+
+test("every release target executes native relocation, install and update acceptance", async () => {
+  const workflow = await fs.readFile(
+    new URL("../../.github/workflows/release.yml", import.meta.url),
+    "utf8",
+  );
+  for (const [runner, target] of [
+    ["macos-14", "darwin-arm64"],
+    ["macos-15-intel", "darwin-x64"],
+    ["ubuntu-24.04", "linux-x64"],
+    ["ubuntu-24.04-arm", "linux-arm64"],
+  ]) {
+    assert.match(workflow, new RegExp(`- os: ${runner}\\n\\s+platform: ${target}`));
+  }
+  assert.match(
+    workflow,
+    /Verify native relocation, install and update[\s\S]*node --test tests\/integration\/file-native-release\.test\.js/,
+  );
 });

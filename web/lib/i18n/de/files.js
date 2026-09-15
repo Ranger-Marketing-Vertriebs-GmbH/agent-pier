@@ -1,4 +1,151 @@
+import { fileActionsCopy } from "./files-actions.js";
+import { fileTransfersCopy } from "./files-transfers.js";
 export const filesCopy = {
+  actions: fileActionsCopy,
+  transfers: fileTransfersCopy,
+  errors: {
+    FILE_TEXT_PRECONDITION:
+      "Speichern benötigt genau die aktuelle Textrevision oder einen ausdrücklich neuen Dateinamen.",
+    FILE_TEXT_MEDIA: "Text muss als unkomprimiertes UTF-8 übertragen werden.",
+    FILE_LINE_ENDING_REQUIRED: "Wähle vor dem Speichern einheitliche Zeilenenden.",
+    FILE_RETRY_UNAVAILABLE:
+      "Diese Einträge können anhand der gespeicherten Nachweise nicht sicher wiederholt werden. Ergebnisse aktualisieren und Wiederherstellung oder geänderte Quellen prüfen, bevor eine neue Auswahl erstellt wird.",
+    FILE_ARCHIVE_PATH_INVALID:
+      "Das ZIP-Archiv enthält einen unsicheren oder widersprüchlichen Pfad.",
+    FILE_ARCHIVE_INVALID:
+      "Das ZIP-Archiv ist beschädigt, verschlüsselt oder enthält nicht unterstützte Einträge.",
+    FILE_ARCHIVE_ALIAS:
+      "Archivnamen verweisen auf dasselbe Ziel. Benenne die widersprüchlichen Einträge vor dem Entpacken um.",
+    FILE_EXTRACT_UNSUPPORTED:
+      "Sicheres Entpacken ist in diesem Ordner nicht verfügbar, weil seine Dateinamensregeln nicht geprüft werden konnten. Wähle einen unterstützten lokalen APFS- oder unverschlüsselten ext4-Ordner.",
+    FILE_ARCHIVE_PENDING: "Dieses Archiv ist noch nicht zum Herunterladen verfügbar.",
+    FILE_ARCHIVE_LINKS:
+      "Verknüpfungen werden im Archiv ausgelassen. Bestätige die angezeigten Auslassungen vor dem Fortfahren.",
+    FILE_UPLOAD_ALIAS:
+      "Die Upload-Pfade enthalten widersprüchliche Namen. Benenne die betroffenen Einträge um und wähle sie erneut aus.",
+    FILE_UPLOAD_PENDING:
+      "Dieser Upload läuft, wurde unterbrochen oder wartet auf Wiederherstellung. Aktualisiere vor einem erneuten Versuch seinen Auftrag.",
+    FILE_UPLOAD_PARENT:
+      "Der Upload-Ordner ist noch nicht bereit. Prüfe vor einem erneuten Versuch seinen Ordnerauftrag.",
+    FILE_UPLOAD_LENGTH:
+      "Die empfangene Upload-Länge stimmt nicht mit der ausgewählten Datei überein.",
+    FILE_UPLOAD_CHANGED:
+      "Der zwischengespeicherte Upload-Inhalt wurde verändert. Prüfe vor einem erneuten Versuch die erhaltenen Daten.",
+    FILE_UPLOAD_MEDIA:
+      "Upload-Inhalte müssen als unkomprimierter Binärdatenstrom übertragen werden.",
+    FILE_TRASH_CONFIRMATION:
+      "Die Papierkorbauswahl oder ihre Revision hat sich geändert. Bitte aktualisieren und erneut bestätigen.",
+    FILE_CANCELLED: "Der Dateivorgang wurde abgebrochen.",
+    FILE_WRITE_UNSUPPORTED:
+      "Die atomare Dateiveröffentlichung ist auf diesem Dateisystem nicht verfügbar. Beide Versionen wurden aufbewahrt.",
+    FILE_INTERRUPTED:
+      "Diese Veröffentlichung wurde unterbrochen. Aufbewahrte Dateien müssen wiederhergestellt werden.",
+    FILE_SEARCH_INCOMPLETE: "Die Suchergebnisse sind unvollständig.",
+    FILE_SIZE_INCOMPLETE: "Die Ordnergröße ist unvollständig.",
+    FILE_INVALID_OPERATION: "Dieser Dateiauftrag ist ungültig oder noch nicht verfügbar.",
+    FILE_INVALID_REQUEST: "Die Kennung dieses Dateiauftrags ist ungültig.",
+    FILE_REQUEST_EXPIRED:
+      "Dieser Dateiauftrag ist abgelaufen. Starte einen neuen Auftrag.",
+    FILE_REQUEST_CONFLICT:
+      "Diese Auftragskennung gehört bereits zu einem anderen Dateiauftrag.",
+    FILE_INVALID_CURSOR: "Diese Auftragsseite ist ungültig. Lade die Liste erneut.",
+    FILE_JOBS_CLOSED: "Der Dateidienst wird beendet. Versuche es später erneut.",
+    FILE_CONFLICT_CHANGED:
+      "Dieser Dateikonflikt hat sich geändert. Lade den Auftrag erneut.",
+
+    FILE_OUTSIDE_SCOPE: "Dieser Pfad liegt außerhalb des Projektverzeichnisses.",
+    FILE_INVALID_PATH: "Dieser Dateipfad ist ungültig.",
+    FILE_RENAME_RECOVERY:
+      "Das Umbenennen konnte nicht abgeschlossen werden. Prüfe den Wiederherstellungseintrag im Papierkorb. Ausstehende Einträge können erst nach Prüfung ihrer Quelle wiederhergestellt werden.",
+    FILE_SAME_PATH: "Quelle und Ziel sind derselbe Eintrag. Wähle einen anderen Namen.",
+    FILE_INVALID_NAME: "Dieser Name ist ungültig oder zu lang.",
+    FILE_NOT_FOUND: "Die Datei oder der Ordner wurde nicht gefunden.",
+    FILE_NOT_DIRECTORY: "Dieser Pfad ist kein Ordner.",
+    FILE_LINK_LOOP: "Diese Verknüpfung kann wegen einer Schleife nicht aufgelöst werden.",
+    FILE_ACCESS_DENIED: "Du hast keine Zugriffsrechte für diesen Eintrag.",
+    FILE_EXISTS: "Ein Eintrag mit diesem Namen ist bereits vorhanden.",
+    FILE_CROSS_DEVICE:
+      "Für diesen Vorgang müssen die Einträge im selben Dateisystem liegen.",
+    FILE_NATIVE_UNSUPPORTED:
+      "Dieser native Dateivorgang ist in diesem Dateisystem nicht verfügbar.",
+    FILE_METADATA_LIMIT: "Die Dateimetadaten überschreiten die unterstützte Grenze.",
+    FILE_METADATA_UNSUPPORTED:
+      "Einige Dateimetadaten können in diesem Dateisystem nicht erhalten werden.",
+    FILE_METADATA_MISMATCH: "Die Dateimetadaten konnten nicht exakt erhalten werden.",
+    FILE_MERGE_METADATA_RETAINED:
+      "Beim Zusammenführen behält der vorhandene Zielordner Besitzer, Berechtigungen, ACLs und erweiterte Attribute. Seine Zeitstempel können sich durch hinzugefügte oder entfernte Einträge ändern.",
+    FILE_IO_ERROR: "Die Dateioperation konnte nicht abgeschlossen werden.",
+    FILE_INVALID_SCOPE: "Der Dateizugriffskontext ist ungültig.",
+    FILE_READ_ONLY: "Dateien in diesem Kontext können nur gelesen werden.",
+    FILE_PROTECTED_PATH: "Dieser Ordner ist vor Dateioperationen geschützt.",
+    FILE_PATH_CHANGED:
+      "Der Ordner wurde geändert. Aktualisiere die Auswahl und versuche es erneut.",
+    FILE_INVALID_LIMITS: "Die konfigurierten Dateigrenzen sind ungültig.",
+    FILE_INVALID_PAGE: "Diese Dateilistenseite ist ungültig.",
+    FILE_INVALID_SORT: "Diese Sortierung der Dateiliste ist ungültig.",
+    FILE_SNAPSHOT_EXPIRED: "Diese Dateiliste ist abgelaufen. Aktualisiere sie erneut.",
+    FILE_LIMIT_EXCEEDED:
+      "Die Dateioperation hat ihre konfigurierte Grenze überschritten.",
+    FILE_UNSUPPORTED_TYPE: "Dieser Dateityp kann nicht als Vorschau angezeigt werden.",
+    FILE_INVALID_RESPONSE: "Der Dateidienst hat eine ungültige Antwort gesendet.",
+    FILE_INVALID_PREFERENCES: "Die Datei-Explorer-Einstellungen sind ungültig.",
+  },
+
+  searchQuery: "Dateinamensuche",
+  search: "Suchen",
+  recursive: "Unterordner einbeziehen",
+  caseSensitive: "Groß-/Kleinschreibung beachten",
+  jobs: "Dateiaufträge",
+  searchResults: "Suchergebnisse",
+  moreResults: "Weitere Suchergebnisse",
+  stop: "Stoppen",
+  calculateSize: "Ordnergröße berechnen",
+  sizeUnknown: "Nicht berechnet",
+  sizePending: "Wird berechnet …",
+  measuredSize: (bytes) => `${bytes} Bytes`,
+  partialSize: (bytes) => `Mindestens ${bytes} Bytes · unvollständig`,
+  scanned: (count) => `${count} Einträge untersucht`,
+  noResults: "Keine passenden Dateinamen gefunden.",
+  operation: "Dateioperation",
+  jobKinds: {
+    text_save: "Text speichern",
+    archive: "ZIP erstellen",
+    extract: "ZIP entpacken",
+    upload: "Datei hochladen",
+    upload_group: "Auswahl hochladen",
+    search: "Dateinamensuche",
+    size: "Ordnergröße",
+    create_file: "Datei erstellen",
+    create_directory: "Ordner erstellen",
+    rename: "Umbenennen",
+    copy: "Kopieren",
+    move: "Verschieben",
+    trash: "In den Papierkorb",
+    restore: "Wiederherstellen",
+    purge: "Endgültiges Löschen",
+  },
+  jobStates: {
+    queued: "Wartend",
+    running: "Läuft",
+    waiting_for_conflict: "Wartet auf eine Entscheidung",
+    cancelling: "Wird gestoppt",
+    completed: "Abgeschlossen",
+    partially_completed: "Teilweise abgeschlossen",
+    failed: "Fehlgeschlagen",
+    cancelled: "Abgebrochen",
+    interrupted: "Unterbrochen",
+  },
+  incompleteReasons: {
+    entries: "Eintragsgrenze erreicht",
+    results: "Treffergrenze erreicht",
+    time: "Zeitgrenze erreicht",
+    depth: "Maximale Ordnertiefe erreicht",
+    overflow: "Größe überschreitet den unterstützten Zählerbereich",
+    access: "Auf einige Einträge konnte nicht zugegriffen werden",
+    changed: "Einige Einträge wurden während der Suche geändert",
+    io: "Einige Einträge konnten nicht gelesen werden",
+  },
+  requestFailed: (status) => `Dateianfrage fehlgeschlagen (${status}).`,
   tab: "Dateien",
   root: "Projektordner",
   up: "Übergeordneter Ordner",
@@ -7,6 +154,7 @@ export const filesCopy = {
   previous: "Vorherige Dateien",
   next: "Weitere Dateien",
   close: "Vorschau schließen",
+  downloadFile: "Datei herunterladen",
   preview: "Dateivorschau",
   copyAll: "Alles kopieren",
   copied: "In die Zwischenablage kopiert.",
@@ -14,4 +162,53 @@ export const filesCopy = {
     "Der Dateiinhalt konnte nicht kopiert werden. Bitte markiere den Text und kopiere ihn manuell.",
   error: "Dateien konnten nicht geladen werden.",
   summary: (total, page) => `${total} Einträge · Seite ${page}`,
+  path: "Pfad",
+  go: "Öffnen",
+  back: "Zurück",
+  forward: "Vorwärts",
+  refresh: "Dateiliste aktualisieren",
+  breadcrumbs: "Pfadsegmente",
+  sortBy: "Sortieren nach",
+  sorts: {
+    name: "Name",
+    type: "Typ",
+    size: "Größe",
+    modifiedAt: "Geändert",
+  },
+  ascending: "Aufsteigend",
+  descending: "Absteigend",
+  showHidden: "Versteckte Dateien anzeigen",
+  addFavorite: "Aktuellen Ordner zu Favoriten hinzufügen",
+  removeFavorite: "Aktuellen Ordner aus Favoriten entfernen",
+  removeSavedFavorite: (name) => `Favorit ${name} entfernen`,
+  openTree: "Ordnerbaum öffnen",
+  closeTree: "Ordnerbaum schließen",
+  directoryTree: "Ordnerbaum",
+  quickAccess: "Schnellzugriffe",
+  noShortcuts: "Keine Schnellzugriffe gespeichert.",
+  expand: (name) => `${name} aufklappen`,
+  collapse: (name) => `${name} zuklappen`,
+  moreFolders: "Weitere Ordner laden",
+  fileList: "Dateiliste",
+  name: "Name",
+  type: "Typ",
+  size: "Größe",
+  modified: "Geändert",
+  permissions: "Dateirechte",
+  linkTarget: "Verknüpfungsziel",
+  types: {
+    file: "Datei",
+    directory: "Ordner",
+    symlink: "Verknüpfung",
+    special: "Spezialdatei",
+  },
+  showProperties: (name) => `Eigenschaften von ${name} anzeigen`,
+  page: (page) => `Seite ${page}`,
+  properties: "Dateieigenschaften",
+  selectForProperties: "Wähle einen Eintrag aus, um seine Eigenschaften anzuzeigen.",
+  loadingProperties: "Dateieigenschaften werden geladen …",
+  openLink: "Verknüpfungsziel öffnen",
 };
+
+export const fileErrorMessage = (code, status) =>
+  filesCopy.errors[code] || filesCopy.requestFailed(status);

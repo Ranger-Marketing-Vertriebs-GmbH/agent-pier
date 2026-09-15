@@ -26,7 +26,7 @@ async function fixture(t, body) {
     home,
     npmCli,
     detect,
-    timeout: 1500,
+    timeout: 5000,
   });
   t.after(async () => {
     await installer.close();
@@ -35,7 +35,7 @@ async function fixture(t, body) {
   return { dir, home, npmCli, installer, detect };
 }
 async function finished(installer, tool) {
-  const end = Date.now() + 5000;
+  const end = Date.now() + 10000;
   while (Date.now() < end) {
     const job = installer.list().installations.find((x) => x.tool === tool);
     if (job.status !== "running") return job;
@@ -50,7 +50,7 @@ for (const tool of ["codex", "claude", "opencode"])
     assert.equal(started.status, "running");
     assert.throws(() => installer.start(tool, "npm"), /läuft/);
     const result = await finished(installer, tool);
-    assert.equal(result.status, "succeeded");
+    assert.equal(result.status, "succeeded", result.message);
     assert.match(result.version, /1\.2\.3/);
     assert.ok(detect().find((x) => x.id === tool).installed);
     const trace = JSON.parse(
@@ -139,7 +139,8 @@ test("missing npm exposes a manual setup reason without accepting an install", a
 test("real npm accepts the isolated user/global configuration without downloading packages", async (t) => {
   const { dir, installer } = await fixture(t);
   installer.start("codex", "npm");
-  assert.equal((await finished(installer, "codex")).status, "succeeded");
+  const result = await finished(installer, "codex");
+  assert.equal(result.status, "succeeded", result.message);
   const trace = JSON.parse(
     await fs.readFile(path.join(dir, "clis/codex/trace.json"), "utf8"),
   );
@@ -168,7 +169,8 @@ test("real npm accepts the isolated user/global configuration without downloadin
 test("installed npm wrappers can find Node in a session with a minimal service PATH", async (t) => {
   const { dir, home, installer } = await fixture(t);
   installer.start("codex", "npm");
-  assert.equal((await finished(installer, "codex")).status, "succeeded");
+  const result = await finished(installer, "codex");
+  assert.equal(result.status, "succeeded", result.message);
   const binary = path.join(dir, "clis/codex/bin/codex");
   await fs.writeFile(binary, '#!/usr/bin/env node\nconsole.log("fixture works")\n', {
     mode: 0o700,

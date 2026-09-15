@@ -75,6 +75,12 @@ Coding-CLIs lassen sich unabhängig von AgentPier-Releases unter **Deine Tools �
 
 Die folgenden Abschnitte beschreiben den Start aus einem Source-Checkout. Für eine versionierte Installation mit unveränderlichen Releases, eigenem Node-Runtime und getrenntem Datenverzeichnis nutze stattdessen den [Release-Installer mit den genauen Befehlen](research/operations-portability.md#installer-and-exact-commands). Lade dafür das zur Plattform passende `.aprelease`-Paket aus den [offiziellen GitHub-Releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases) herunter: `darwin` für macOS oder `linux`, jeweils mit `arm64` oder `x64` passend zum Rechner.
 
+Der [Datei-Explorer](file-explorer.md) verwendet die Dateirechte des Benutzers, unter
+dem der Webdienst läuft. Versionierte Pakete enthalten Koffi und das passende native
+Modul; Installation und Updates prüfen diese Laufzeitbestandteile. Dafür ist keine
+manuelle Systemerweiterung nötig. Strikte neue-Inode-Operationen und ZIP-Extraktion
+werden auf macOS nur ausgeführt, wenn die native Prüfung das konkrete APFS-Ziel bestätigt.
+
 `sh scripts/install.sh` benötigt aus einem sauberen Checkout kein `npm ci`. Fehlende tmux-/Git-Pakete werden standardmäßig installiert; Node wird bei Bedarf vorübergehend geladen und ist im Release enthalten. Fehlende Download-Werkzeuge (`curl`, `tar`, SHA-256-Prüfung) werden ebenfalls bei Bedarf installiert. Auf macOS wird Homebrew verwendet und bei Bedarf über den [offiziellen Installer](https://brew.sh) eingerichtet; unter Linux wird apt verwendet. Bestätigungen und Admin-Passwort können im Terminal eingegeben werden. Ohne Terminal läuft der Homebrew-Installer nichtinteraktiv und benötigt passende Administratorrechte. Auf anderen Linux-Distributionen die fehlenden Pakete mit dem dortigen Paketmanager installieren.
 
 `--skip-dependencies` prüft Voraussetzungen, ohne Host-Pakete zu installieren. `--install-dependencies` bleibt als kompatible Option erhalten. `--service` richtet den Benutzer-Webdienst ein und wartet auf dessen Versions-Healthcheck; dabei werden auch die üblichen Homebrew- und Systempfade gespeichert. Das Datenverzeichnis darf nicht innerhalb eines Release-Ordners liegen.
@@ -134,6 +140,13 @@ export AGENTPIER_DATA_DIR="$HOME/Library/Application Support/AgentPier"
 ```
 
 Verwende denselben Wert für Start, Dienstinstallation und Tailscale-Einrichtung. Bestehende Daten nicht zwischen mehreren laufenden Instanzen teilen. Ein anderes Datenverzeichnis startet einen getrennten Workspace.
+
+Optionale Explorer-Grenzen stehen in `config.json` unter `files.limits`. AgentPier liest
+und prüft sie beim Start; unbekannte Schlüssel sowie nichtpositive oder nicht sichere
+Ganzzahlen verhindern den Start. Den Webdienst vor einer Änderung stoppen und danach neu
+starten. Es gibt dafür keine einzelnen Umgebungsvariablen oder Einstellungsfelder. Werte,
+Standardgrenzen und Aufbewahrungsfristen sind in der
+[Datei-Explorer-Anleitung](file-explorer.md#limits-and-retention) aufgeführt.
 
 ## 4. Optional: dauerhafter macOS-Dienst
 

@@ -1,4 +1,5 @@
 import { chatAttachmentsCopy as copy } from "../../lib/i18n/messages/chat.js";
+import { browserUuid } from "../../lib/browser-uuid.js";
 import { chatUploadsCopy as uploadsCopy } from "../../lib/i18n/messages/chat-uploads.js";
 import { useEffect, useRef, useState } from "react";
 import { deliveryScope } from "./chat-draft.js";
@@ -191,7 +192,7 @@ export default function useChatAttachments({
           continue;
         }
         const entry = {
-          key: crypto.randomUUID(),
+          key: browserUuid(),
           name: file.name,
           file,
           epoch: draft.getSnapshot().epoch,

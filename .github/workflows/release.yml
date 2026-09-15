@@ -46,6 +46,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Verify native relocation, install and update
+        run: node --test tests/integration/file-native-release.test.js
       - run: node scripts/release-package.mjs agentpier-${{ matrix.platform }}.aprelease
       - uses: actions/upload-artifact@v7
         with:

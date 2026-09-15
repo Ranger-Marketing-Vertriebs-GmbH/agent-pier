@@ -2,6 +2,7 @@ import LogoutButton from "../features/login/LogoutButton.jsx";
 import { pipelineCopy } from "../lib/i18n/messages/pipelines.js";
 import { memoryCopy } from "../lib/i18n/messages/memory.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
+import { filesCopy } from "../lib/i18n/messages/files.js";
 import { sidebarCopy as copy } from "../lib/i18n/messages/app.js";
 import React from "react";
 import Icon from "../components/Icon.jsx";
@@ -86,6 +87,13 @@ export default function Sidebar({
           >
             <Icon name="folder" />
             {copy.repositoriesNavigation}
+          </button>
+          <button
+            className={view === "files" ? "nav-item selected" : "nav-item"}
+            onClick={() => page("files")}
+          >
+            <Icon name="folder" />
+            {filesCopy.tab}
           </button>
           <button
             className={view === "extensions" ? "nav-item selected" : "nav-item"}

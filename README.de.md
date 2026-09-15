@@ -45,7 +45,9 @@ Fernzugriff. Schließe sie ab, bevor du den Zugang teilst. Details: [Login](docs
 Mobile Entwürfe und Zustellstatus bleiben erhalten. Das Terminal verbindet sich
 bei der Rückkehr neu, und der Chat lädt Änderungen gezielt nach. Unterbrochene
 Datei-Uploads lassen sich nach einem Reload einzeln wiederholen; erfolgreiche
-Anhänge bleiben erhalten. [Wiederherstellung](docs/mobile-recovery.md).
+Anhänge bleiben erhalten. [Wiederherstellung](docs/mobile-recovery.md). Der
+[Datei-Explorer](docs/file-explorer.md) verwaltet Host- und Projektdateien,
+Textbearbeitung, Übertragungen, Papierkorb und unterbrochene Dateioperationen.
 
 Die Anleitungen für den dauerhaften Betrieb stehen unter [Mac mini](docs/installation.md) und [Linux](docs/linux.md). Der [versionierte Installer](docs/research/operations-portability.md#installer-and-exact-commands) installiert ein passendes Release mit separatem Datenverzeichnis; Abhängigkeiten und Autostart benötigen die expliziten Optionen `--install-dependencies` und `--service`. Er bestätigt bei Dienstinstallation die gestartete Version per Healthcheck. Ein gebautes Release-Artefakt wird vorausgesetzt; eine bereits veröffentlichte Version ist damit nicht zugesichert.
 
@@ -247,4 +249,7 @@ The codebase uses feature boundaries with a 600-line source/test limit. See [arc
 
 Auf der Kontenseite kann je CLI ein **Standardkonto** festgelegt werden. Neue native Sitzungen wählen es vor; eine ausdrücklich andere Auswahl gilt nur für diese Sitzung. Claude-Zugänge bleiben auf Claude beschränkt, Codex-Zugänge auf Codex. **Anmelden** öffnet bei Claude die normale TUI im gewählten Kontoprofil; ein bestätigter nativer Anmeldestatus wird als **Angemeldet** angezeigt.
 
-Der Sitzungstab **Dateien** zeigt Projektordner, bis zu 100 Einträge pro Seite und Vorschauen für UTF-8-Text (256 KB) sowie PNG/JPEG/GIF/WebP (5 MB). Neue Ordner können angelegt werden. Pfad, Seite und ausgewählte Datei bleiben beim Reload erhalten. Der Explorer ist auf den Projektordner begrenzt; Verknüpfungen werden nicht aufgelistet, `.git` wird ausgeblendet. Dateiinhalte werden nicht verändert.
+Der Sitzungstab **Dateien** bleibt auf den kanonischen Projektordner begrenzt; die
+globale Seite **Dateien** verwendet die Dateirechte des AgentPier-Benutzers. Die
+vollständigen Grenzen für Navigation, Links, Editor, Übertragungen, Papierkorb und
+Wiederherstellung stehen in der [Datei-Explorer-Anleitung](docs/file-explorer.md).

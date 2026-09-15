@@ -1,0 +1,88 @@
+export const fileActionsCopy = {
+  completedResults: "Completed entries",
+  unfinishedResults: "Unfinished entries",
+  moreResults: "Show more entry results",
+  restored: "Restored",
+
+  label: "File actions",
+  panels: "Explorer views",
+  select: (name) => `Select ${name}`,
+  menu: (name) => `Actions for ${name}`,
+  newFile: "New file",
+  newFolder: "New folder",
+  rename: "Rename",
+  copy: "Copy",
+  cut: "Cut",
+  paste: "Paste",
+  move: "Move",
+  copyPath: "Copy path",
+  trash: "Move to Trash",
+  trashTitle: "Trash",
+  clearSelection: "Clear selection",
+  selection: (count) => `${count} selected.`,
+  clipboard: (count, action) =>
+    `${action}: ${count} references in the explorer clipboard.`,
+  clipboardReady: "Selection saved in the explorer clipboard.",
+  confirm: "Confirm",
+  destination: (path) => `Destination: ${path}`,
+  trashConfirm:
+    "Move these entries to AgentPier Trash? They remain there until you explicitly restore or permanently delete them.",
+  conflict: "File conflict",
+  applyRemaining: "Apply to remaining conflicts of the same type",
+  choices: {
+    replace: "Replace",
+    skip: "Skip",
+    keep_both: "Keep both",
+    cancel: "Cancel",
+    merge: "Merge folders",
+  },
+  restoreDirectory:
+    "Restore this folder separately with Keep both. You can then explicitly merge it using Copy or Move.",
+  restore: "Restore",
+  permanentDelete: "Delete permanently",
+  emptyTrash: "Empty Trash",
+  refreshTrash: "Refresh Trash",
+  trashEmpty: "Trash is empty.",
+  trashPolicy:
+    "Trash has no automatic expiry. Replaced entries and interrupted recovery records remain visible here.",
+  loadingTrash: "Loading every Trash page …",
+  usage: (bytes, unknown) =>
+    `${bytes} known bytes across all loaded Trash pages; ${unknown} entries have unknown or unverified storage.`,
+  unknownSize: "Size unknown or unverified",
+  reasons: {
+    deleted: "Deleted",
+    replaced: "Replaced",
+    interrupted_rename: "Interrupted rename",
+  },
+  availability: {
+    recoverable: "Recoverable",
+    pending: "Recovery pending",
+    changed: "Recovery data changed",
+    unavailable: "Recovery data unavailable",
+  },
+  recoveryInfo:
+    "The original location is retained as provenance. Recovery availability is unverified; this does not prove that the original or a usable backup exists. Refresh after recovery verification.",
+  checkRecovery: "Check recovery status",
+  originalLocation: "Show original location",
+  moreTrash: "Show more Trash entries",
+  purgeConfirm: (count, excluded) =>
+    `Permanently remove these ${count} frozen entries? ${excluded} nonrecoverable entries are excluded. Regular deletion cannot be undone here and does not guarantee secure physical overwriting.`,
+  batchPolicy:
+    "The confirmed selection is processed in bounded batches. Each batch is checked before removal; earlier batches may finish before a later batch fails. New arrivals are excluded.",
+  purgeResults: "Permanent deletion results",
+  restoreDestination: "Choose restore destination",
+  parentMissing:
+    "The original parent could not be opened. Choose an existing destination folder and the full restored pathname. Parent folders are never created automatically.",
+  results: "Entry results",
+  outcomes: {
+    completed: "Completed",
+    failed: "Failed; inspect the retained state",
+    skipped: "Skipped",
+    pending: "Not completed",
+    published: "Destination published; source removal not completed",
+    unproven: "Source removal is unproven",
+    uncertain: "Submitted; removal not yet proven",
+    unsubmitted: "Not submitted",
+    removed: "Permanently removed",
+  },
+};

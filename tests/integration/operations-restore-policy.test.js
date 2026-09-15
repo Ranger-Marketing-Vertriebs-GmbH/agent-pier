@@ -175,3 +175,59 @@ test("linked credential components cannot escape the backup boundary", async (t)
   );
   assert.equal(await fs.readFile(path.join(root, "outside"), "utf8"), "not a credential");
 });
+
+test("ordinary and credential backups explicitly omit file trash, journals and transfer bytes", async (t) => {
+  const { fileFixture } = await import("../helpers/file-explorer.js");
+  const { capture, omissions } =
+    await import("../../server/features/operations/snapshot.js");
+  const f = await fileFixture(t);
+  const sentinels = [
+    "files/trash/id/payload",
+    "files/files.sqlite",
+    "files/journals/journal",
+    "files/transfers/upload",
+  ];
+  for (const name of sentinels) {
+    await fs.mkdir(path.dirname(path.join(f.dataDir, name)), { recursive: true });
+    await fs.writeFile(path.join(f.dataDir, name), `private-sentinel-${name}`);
+  }
+  await fs.writeFile(path.join(f.dataDir, "preferences.json"), '{"keep":true}');
+  await fs.mkdir(path.join(f.dataDir, "profiles/account"), { recursive: true });
+  await fs.writeFile(
+    path.join(f.dataDir, "profiles/account/token"),
+    "included-credential",
+  );
+  for (const withCredentials of [false, true]) {
+    const archive = capture({
+      dataDir: f.dataDir,
+      home: f.home,
+      includeHistory: true,
+      withCredentials,
+    });
+    assert.equal(
+      [...archive.files, ...archive.credentials].some((file) =>
+        file.path.startsWith("files/"),
+      ),
+      false,
+    );
+    assert.equal(
+      [...archive.files, ...archive.credentials].some((file) =>
+        Buffer.from(file.content, "base64").includes(Buffer.from("private-sentinel")),
+      ),
+      false,
+    );
+    assert.ok(archive.files.some((file) => file.path === "preferences.json"));
+    assert.equal(
+      archive.credentials.some((file) => file.path === "profiles/account/token"),
+      withCredentials,
+    );
+  }
+  assert.ok(
+    omissions.some(
+      (value) =>
+        value.includes("File trash") &&
+        value.includes("journals") &&
+        value.includes("transfer bytes"),
+    ),
+  );
+});

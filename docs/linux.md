@@ -4,6 +4,10 @@ AgentPier läuft als normaler Benutzer mit Node.js, tmux und Git. Für den Webdi
 
 Beim ersten Öffnen einen Benutzer erstellen; anschließend mit Benutzername und Passwort anmelden. Das funktioniert auch über den freigegebenen Fernzugriff. Details zu Sitzungen und Wiederherstellung stehen unter [Anmeldung](login.md).
 
+Der [Datei-Explorer](file-explorer.md) verwendet die Rechte dieses normalen Benutzers
+auch auf eingebundenen Datenträgern. Er benötigt keinen privilegierten Webdienst. Mount-
+Optionen, ACLs und ein schreibgeschütztes Dateisystem bleiben wirksam.
+
 ## Versioniertes Release installieren
 
 Die folgenden Abschnitte beschreiben den Start aus einem Source-Checkout. Für eine versionierte Installation mit unveränderlichen Releases, eigenem Node-Runtime und getrenntem Datenverzeichnis nutze stattdessen den [Release-Installer mit den genauen Befehlen](research/operations-portability.md#installer-and-exact-commands). Dafür wird ein zur Plattform passendes `.aprelease`-Artefakt benötigt; diese Anleitung behauptet keine bereits veröffentlichte oder auf dem Zielrechner geprüfte Version.
@@ -119,6 +123,18 @@ systemctl --user daemon-reload
 Die Daten und laufenden tmux-Sitzungen werden dadurch nicht gelöscht. Falls Lingering eigens für diesen Dienst aktiviert wurde, vor dem Abschalten prüfen, ob andere Benutzerdienste davon abhängen.
 
 ## Prüfung und Grenzen
+
+Linux kann Attribute in privilegierten Namespaces vor einem normalen Benutzer verbergen.
+Der aktuelle Linux-Adapter kann deshalb die vollständige Metadatenübernahme auf einen
+neuen Inode nicht bestätigen. Vorhandene Dateien sind im Editor für Änderungen am selben
+Pfad schreibgeschützt; strikte Überschreib- und geräteübergreifende Aktionen werden vor
+der Änderung abgelehnt. **Speichern unter** kann eine unabhängige neue Datei anlegen oder
+einen bereits vorhandenen Entwurf retten, macht die Linux-Quelldatei aber nicht
+bearbeitbar. Umbenennen und Austauschen auf demselben Inode bleiben möglich.
+ZIP-Extraktion wird nur für ein live geprüftes, unverschlüsseltes ext4-Ziel mit eindeutig
+bestimmbarer Namensrichtlinie freigegeben; unbekannte Dateisysteme, fehlende Rechte und
+verschlüsseltes ext4 werden vor der ersten Ausgabe abgelehnt. Einzelheiten und Grenzwerte
+stehen in der [Datei-Explorer-Anleitung](file-explorer.md).
 
 Die Service-Tests prüfen die Linux-Unit, Pfade mit Leerzeichen, Anführungszeichen, Backslashes, Dollar- und Prozentzeichen, private Dateirechte, Konfliktvermeidung sowie Installieren, Status und Stoppen mit einem simulierten Befehlsausführer. Der macOS-LaunchAgent wird weiter geprüft. Diese Änderung wurde auf macOS getestet; ein echter Linux-/systemd-Dienst wurde dabei nicht installiert oder gestartet.
 
