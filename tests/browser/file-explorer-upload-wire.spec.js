@@ -28,14 +28,24 @@ test("actual receiver publishes native folder bytes after an authoritative direc
     if (req.method() === "POST" && url.pathname.startsWith("/api/files/"))
       mutations.push({ path: url.pathname, body: req.postDataJSON() });
   });
+  let selecting;
   try {
     await selectEnglish(page);
     await page.goto(`${baseURL}/files?path=${encodeURIComponent(destination)}`);
-    await page.getByLabel("Upload folder", { exact: true }).setInputFiles(selection);
+    // The conflict proves the app received Files while native selection may be pending.
+    selecting = page
+      .getByLabel("Upload folder", { exact: true })
+      .setInputFiles(selection)
+      .then(
+        () => null,
+        (error) => error,
+      );
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText(path.join(destination, "root"));
     expect(puts).toHaveLength(0);
     await dialog.getByRole("button", { name: "Keep both", exact: true }).click();
+    const selectionError = await selecting;
+    if (selectionError) throw selectionError;
     await expect(
       page.getByRole("region", { name: "Uploads", exact: true }),
     ).toContainText("Upload completed", { timeout: 20000 });
@@ -62,6 +72,7 @@ test("actual receiver publishes native folder bytes after an authoritative direc
       page.getByRole("region", { name: "Uploads", exact: true }),
     ).toContainText(row.path);
   } finally {
+    await selecting;
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
