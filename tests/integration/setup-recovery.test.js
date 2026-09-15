@@ -68,7 +68,9 @@ for (const kind of ["archive-temp", "current-temp"]) {
       await fs.writeFile(temporary, "incomplete", { mode: 0o600 });
     else await fs.symlink("releases/1.0.0", temporary);
     assert.equal((await f.install()).version, "1.0.0");
-    await assert.rejects(fs.lstat(temporary), { code: "ENOENT" });
+    if (kind === "archive-temp")
+      await assert.rejects(fs.lstat(temporary), { code: "ENOENT" });
+    else assert.equal(await fs.readlink(temporary), "releases/1.0.0");
   });
 }
 

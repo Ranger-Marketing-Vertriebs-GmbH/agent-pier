@@ -258,3 +258,27 @@ test("cancelled reads and concurrent unregister do not acknowledge unread messag
   );
   assert.match(text(await call(b, "inbox_read")), /Still unread/);
 });
+
+test("AgentBus ignores notifications with expired access and performs no operation", async (t) => {
+  const f = await busFixture(t),
+    a = await registered(f, "notification");
+  const credential = JSON.parse(
+    fs.readFileSync(a.launch.env.AGENTPIER_AGENTBUS_CAPABILITY_FILE),
+  );
+  f.bus.revoke(a.id);
+  assert.equal(
+    await f.bus.broker.respond(credential, {
+      jsonrpc: "2.0",
+      method: "notifications/initialized",
+    }),
+    null,
+  );
+  assert.equal(
+    await f.bus.broker.respond(credential, {
+      jsonrpc: "2.0",
+      method: "tools/call",
+      params: { name: "peer_send", arguments: { to: "nobody", text: "Never" } },
+    }),
+    null,
+  );
+});

@@ -14,8 +14,12 @@ class Formula
   class << self
     attr_accessor :metadata, :test_body
     def inherited(child); child.metadata = { dependencies: [] }; end
-    [:desc, :homepage, :url, :sha256, :license, :version].each do |name|
+    [:desc, :homepage, :sha256, :license, :version].each do |name|
       define_method(name) { |value| metadata[name] = value }
+    end
+    def url(value)
+      metadata[:url] = value
+      metadata[:version] = value.match(%r{/releases/download/v([^/]+)/})[1]
     end
     def depends_on(value); metadata[:dependencies] << value; end
     def test(&block); self.test_body = block; end

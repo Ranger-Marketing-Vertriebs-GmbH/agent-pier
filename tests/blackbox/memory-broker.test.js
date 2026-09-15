@@ -35,6 +35,7 @@ for (const tool of ["codex", "claude", "opencode"])
     await c.initialize();
     const saved = value(
       await c.call("memory_write", {
+        requestId: "fixture-write-1",
         title: "Broker owns storage",
         content: "Only this project's authorized tools are exposed",
       }),
@@ -58,7 +59,11 @@ test("broker requires the presented secret and rejects stale clients after renew
   const c = client(t, config);
   await c.initialize();
   const saved = value(
-    await c.call("memory_write", { title: "Scoped", content: "Private fact" }),
+    await c.call("memory_write", {
+      requestId: "fixture-write-2",
+      title: "Scoped",
+      content: "Private fact",
+    }),
   );
   await f.integration.discard("renewed");
   const next = descriptor("codex", await launch(f, "renewed", "codex"));

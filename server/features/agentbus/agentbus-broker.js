@@ -230,10 +230,11 @@ export class AgentBusBroker {
         id: null,
         error: { code: -32600, message: "Invalid JSON request." },
       };
+    // Notifications have no response, including when their grant was revoked.
+    if (request.id === undefined) return null;
     const reply = (result) => ({ jsonrpc: "2.0", id: request.id, result });
     try {
       const ctx = await this.authorize(credential);
-      if (request.id === undefined) return null;
       const params = request.params || {};
       switch (request.method) {
         case "initialize":

@@ -30,6 +30,9 @@ export function memoryClient(socketPath, capabilityFile) {
           timeout: 5000,
           headers: {
             authorization,
+            // Avoid early server close while Node flushes a large Unix-socket write.
+            // agent:false still prevents reuse after the response.
+            connection: "keep-alive",
             "content-type": "application/json",
             "content-length": Buffer.byteLength(body),
           },

@@ -28,6 +28,7 @@ test("all three native MCP adapters share scope, preserve configuration and surv
   }
   const saved = value(
     await clients[0].call("memory_write", {
+      requestId: "fixture-write-1",
       title: "Shared contract",
       content: "Untrusted fixture knowledge",
     }),
@@ -40,6 +41,7 @@ test("all three native MCP adapters share scope, preserve configuration and surv
   );
   const updated = value(
     await clients[2].call("memory_write", {
+      requestId: "fixture-write-2",
       id: saved.id,
       title: "Shared contract",
       content: "A newer contract",
@@ -50,9 +52,9 @@ test("all three native MCP adapters share scope, preserve configuration and surv
   await f.integration.close();
   f.memory.close();
   const unavailable = await clients[0].call("memory_write", {
+    requestId: "fixture-write-3",
     title: "Never queued",
     content: "Offline write must not be replayed",
-    requestId: "offline-request",
   });
   assert.ok(unavailable.error);
   f.memory = new ProjectMemory({ dataDir: f.dataDir });
@@ -71,16 +73,22 @@ test("concurrent MCP writers reject a stale revision and callers cannot choose s
     b = client(t, descriptor("claude", await launch(f, "two", "claude")));
   await Promise.all([a.initialize(), b.initialize()]);
   const saved = value(
-    await a.call("memory_write", { title: "Original", content: "Original" }),
+    await a.call("memory_write", {
+      requestId: "fixture-write-4",
+      title: "Original",
+      content: "Original",
+    }),
   );
   const results = await Promise.all([
     a.call("memory_write", {
+      requestId: "fixture-write-5",
       id: saved.id,
       title: "A",
       content: "A",
       expectedRevision: 1,
     }),
     b.call("memory_write", {
+      requestId: "fixture-write-6",
       id: saved.id,
       title: "B",
       content: "B",
@@ -93,7 +101,11 @@ test("concurrent MCP writers reject a stale revision and callers cannot choose s
     { title: "Spoof", content: "Spoof", projectId: "foreign" },
     { title: "Spoof", content: "Spoof", provenance: { kind: "user" } },
   ])
-    assert.equal((await a.call("memory_write", args)).result.isError, true);
+    assert.equal(
+      (await a.call("memory_write", { requestId: "invalid-scope", ...args })).result
+        .isError,
+      true,
+    );
   const other = path.join(f.root, "other");
   fs.mkdirSync(other);
   const foreign = client(
@@ -112,7 +124,11 @@ test("revoked or replaced capability files fail closed without deleting durable 
   const c = client(t, descriptor("codex", prepared));
   await c.initialize();
   const saved = value(
-    await c.call("memory_write", { title: "Retained", content: "Retained" }),
+    await c.call("memory_write", {
+      requestId: "fixture-write-7",
+      title: "Retained",
+      content: "Retained",
+    }),
   );
   await f.integration.discard("revoked");
   assert.equal((await c.call("memory_read", { id: saved.id })).result.isError, true);

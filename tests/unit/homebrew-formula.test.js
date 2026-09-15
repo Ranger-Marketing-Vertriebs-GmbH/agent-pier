@@ -70,3 +70,13 @@ test("formula generation rejects values that could escape Ruby or change release
   ])
     assert.throws(() => renderInstallerFormula(input));
 });
+
+test("formula lets Homebrew infer the release version without a redundant declaration", async () => {
+  const { renderInstallerFormula } = await import("../../scripts/homebrew-formula.mjs");
+  const formula = renderInstallerFormula({
+    version: "1.2.3",
+    file: "agentpier-installer-1.2.3.tar.gz",
+    sha256: "a".repeat(64),
+  });
+  assert.doesNotMatch(formula, /^\s*version\s+"/m);
+});
