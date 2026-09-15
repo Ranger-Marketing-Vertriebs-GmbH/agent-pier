@@ -1,17 +1,11 @@
 import { spawn } from "node:child_process";
+import { guardProcessGroup } from "../../lib/process-group-guard.js";
 
 // Keep the detached group leader alive until its owner finishes group cleanup.
 // An IPC disconnect also closes the group if the launch wrapper is killed abruptly.
-process.on("SIGTERM", () => {});
-process.on("SIGINT", () => {});
-process.on("disconnect", () => {
-  try {
-    process.kill(-process.pid, "SIGKILL");
-  } catch {
-    process.exit(1);
-  }
-});
-process.once("message", ({ command, args, cwd }) => {
+const ready = guardProcessGroup();
+process.once("message", async ({ command, args, cwd }) => {
+  await ready;
   const child = spawn(command, args, {
     cwd,
     env: process.env,

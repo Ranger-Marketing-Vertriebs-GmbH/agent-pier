@@ -112,7 +112,7 @@ async function waitFor(check) {
   }
   assert.fail("Owned fixture did not reach the expected process state");
 }
-for (const trigger of ["terminal-exit", "wrapper-term", "wrapper-kill"])
+for (const trigger of ["terminal-exit", "wrapper-term", "wrapper-kill", "keeper-kill"])
   test(
     `Codex backend descendants are quiescent after ${trigger}`,
     { timeout: 8000 },
@@ -148,7 +148,7 @@ for (const trigger of ["terminal-exit", "wrapper-term", "wrapper-kill"])
       const stubborn = `process.on('SIGTERM',()=>{});require('node:fs').writeFileSync(${JSON.stringify(marker)},String(process.pid));setInterval(()=>{},1000);`;
       await fs.writeFile(
         cli,
-        `#!${process.execPath}\nconst fs=require('node:fs');const{spawn}=require('node:child_process');if(process.argv.includes('app-server')){fs.writeFileSync(${JSON.stringify(path.join(dir, "backend.pid"))},String(process.pid));spawn(process.execPath,['-e',${JSON.stringify(stubborn)}],{stdio:'ignore'});setInterval(()=>{},1000);}else{fs.writeFileSync(${JSON.stringify(path.join(dir, "terminal.pid"))},String(process.pid));setInterval(()=>{if(fs.existsSync(${JSON.stringify(marker)})&&${JSON.stringify(trigger)}==='terminal-exit')process.exit(0)},10);}`,
+        `#!${process.execPath}\nconst fs=require('node:fs');const{spawn}=require('node:child_process');if(process.argv.includes('app-server')){fs.writeFileSync(${JSON.stringify(path.join(dir, "keeper.pid"))},String(process.ppid));fs.writeFileSync(${JSON.stringify(path.join(dir, "backend.pid"))},String(process.pid));spawn(process.execPath,['-e',${JSON.stringify(stubborn)}],{stdio:'ignore'});setInterval(()=>{},1000);}else{fs.writeFileSync(${JSON.stringify(path.join(dir, "terminal.pid"))},String(process.pid));setInterval(()=>{if(fs.existsSync(${JSON.stringify(marker)})&&${JSON.stringify(trigger)}==='terminal-exit')process.exit(0)},10);}`,
         { mode: 0o700 },
       );
       await fs.writeFile(
@@ -175,7 +175,10 @@ for (const trigger of ["terminal-exit", "wrapper-term", "wrapper-kill"])
         descendant = Number(await fs.readFile(marker, "utf8").catch(() => ""));
         return descendant > 0;
       });
-      if (trigger !== "terminal-exit")
+      if (trigger === "keeper-kill") {
+        const keeperPid = Number(await fs.readFile(path.join(dir, "keeper.pid"), "utf8"));
+        process.kill(keeperPid, "SIGKILL");
+      } else if (trigger !== "terminal-exit")
         wrapper.kill(trigger === "wrapper-term" ? "SIGTERM" : "SIGKILL");
       await exited;
       await new Promise((resolve) => setTimeout(resolve, 1200));

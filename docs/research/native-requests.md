@@ -18,7 +18,7 @@ OpenCode was initially absent. After explicit authorization for isolated CLI ins
 
 The installed CLI accepts `--remote ws://host:port` and `--remote-auth-token-env NAME`. It rejects WebSocket URLs containing a path. AgentPier therefore uses an ephemeral loopback port and a random bearer token in the TUI child's environment. Tokens do not appear in argv or public session metadata. Only one authenticated TUI connects to the proxy.
 
-The app-server runs inside an IPC-linked detached process group with a live keeper. Normal TUI exit, termination and abrupt wrapper death clean up the exact owned backend group, including TERM-ignoring descendants; unrelated processes remain untouched.
+The app-server runs inside an IPC-linked detached process group with a live keeper and a second watchdog in the same group. Native work starts after the watchdog is ready; losing either process terminates the group without signaling a stale group ID. Normal TUI exit, termination, abrupt wrapper death and keeper SIGKILL clean up the exact owned backend group, including TERM-ignoring descendants; unrelated processes remain untouched.
 
 The proxy preserves unrecognized native traffic. It mirrors recognized pending requests to the local broker while forwarding the original request to the real TUI. Either a native TUI answer or Chat answer synchronously claims the native request before a single upstream write. Native `serverRequest/resolved` notifications expire the corresponding Chat occurrence. Request IDs retain their original JSON string/number type.
 
