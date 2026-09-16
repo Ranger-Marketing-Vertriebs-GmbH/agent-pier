@@ -1,5 +1,7 @@
 import express from "express";
 import { sessionDuration } from "../features/login/login-store.js";
+import { loginErrors } from "../features/login/login-errors.js";
+import { loginMessages as copy } from "../lib/i18n/de/login.js";
 const cookieName = "agentpier_session";
 export function sessionToken(req) {
   const cookies = (req.headers.cookie || "").split(";").map((part) => part.trim());
@@ -63,9 +65,27 @@ export function loginRoutes(login, effective) {
     cookie(req, res, "");
     res.sendStatus(204);
   });
-  router.use((error, _req, res, next) => {
-    if (error.status === 429) res.setHeader("Retry-After", "60");
-    next(error);
+  router.use((error, _req, res, _next) => {
+    const expected = Object.hasOwn(loginErrors, error.code) && loginErrors[error.code];
+    if (expected) {
+      if (expected.status === 429) res.setHeader("Retry-After", "60");
+      return res
+        .status(expected.status)
+        .json({ code: error.code, error: expected.message });
+    }
+    // Parser failures retain their client status; unexpected failures never expose diagnostics.
+    const parserStatuses = {
+      "entity.too.large": 413,
+      "entity.parse.failed": 400,
+      "charset.unsupported": 415,
+      "encoding.unsupported": 415,
+      "request.aborted": 400,
+      "request.size.invalid": 400,
+    };
+    const status = Object.hasOwn(parserStatuses, error.type)
+      ? parserStatuses[error.type]
+      : 500;
+    res.status(status).json({ code: "LOGIN_FAILED", error: copy.failed });
   });
   return router;
 }

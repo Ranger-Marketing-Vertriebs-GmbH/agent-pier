@@ -420,3 +420,28 @@ for (const width of [390, 1440]) {
     });
   }
 }
+
+test("native chat hides manual conversation picker while legacy chat retains it in English", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  const { data, publish } = await fixture(page);
+  data.manualBindingSupported = false;
+  await page.goto(base + "/sessions/chat-demo/chat");
+  await expect(page.locator(".chat-messages")).toContainText("Chatansicht");
+  const picker = page.getByRole("button", { name: "Switch conversation", exact: true });
+  await expect(picker).toHaveCount(0);
+  await page.screenshot({ path: ".cache/feature-review-fixes/chat-native-en.png" });
+  data.manualBindingSupported = true;
+  await publish();
+  await expect(picker).toBeVisible();
+  await picker.click();
+  await expect(
+    page.getByRole("combobox", { name: "Conversation", exact: true }),
+  ).toBeVisible();
+  data.manualBindingSupported = false;
+  await publish();
+  await expect(
+    page.getByRole("combobox", { name: "Conversation", exact: true }),
+  ).toHaveCount(0);
+});

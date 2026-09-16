@@ -14,7 +14,8 @@ export default function useToolInstallation({ tool, request, refresh, update = f
   const mounted = useRef(false),
     mutating = useRef(false),
     generation = useRef(0),
-    synchronizing = useRef(false);
+    synchronizing = useRef(false),
+    observedRunning = useRef(false);
   const requestRef = useRef(request),
     refreshRef = useRef(refresh);
   requestRef.current = request;
@@ -33,6 +34,7 @@ export default function useToolInstallation({ tool, request, refresh, update = f
           const result = await requestRef.current("/tool-installations");
           if (alive && version === generation.current && !mutating.current) {
             const found = result.installations?.find((item) => item.tool === tool);
+            if (found?.status === "running") observedRunning.current = true;
             setJob(found || null);
             setGlobalBusy(Boolean(result.busy));
             setLoading(false);
@@ -77,17 +79,23 @@ export default function useToolInstallation({ tool, request, refresh, update = f
       }
     }
   }, [tool]);
+  const reinstall =
+    !update &&
+    job?.status === "succeeded" &&
+    job.installed === false &&
+    !attempted &&
+    !observedRunning.current;
   useEffect(() => {
-    if (job?.status === "succeeded") synchronize();
+    if (job?.status === "succeeded" && !reinstall) synchronize();
     else setReady(false);
-  }, [job?.status, job?.finishedAt, job?.version, synchronize]);
+  }, [job?.status, job?.finishedAt, job?.version, reinstall, synchronize]);
   async function install() {
     if (
       mutating.current ||
       !(update ? job?.updateAvailable : job?.available) ||
       globalBusy ||
       job.status === "running" ||
-      (!update && job.status === "succeeded")
+      (!update && job.status === "succeeded" && !reinstall)
     )
       return;
     mutating.current = true;
@@ -115,7 +123,7 @@ export default function useToolInstallation({ tool, request, refresh, update = f
     }
   }
   const running = job?.status === "running";
-  const succeeded = job?.status === "succeeded" && (!update || attempted);
+  const succeeded = job?.status === "succeeded" && !reinstall && (!update || attempted);
   const utility = tool === "gh" || job?.utility;
   return {
     loading,
@@ -124,6 +132,7 @@ export default function useToolInstallation({ tool, request, refresh, update = f
     submitting,
     globalBusy,
     succeeded,
+    reinstall,
     loadError,
     error,
     syncError,

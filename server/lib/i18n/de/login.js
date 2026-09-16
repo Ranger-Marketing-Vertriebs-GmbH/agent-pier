@@ -1,4 +1,5 @@
 export const loginMessages = Object.freeze({
+  failed: "Anmeldung konnte nicht geprüft werden.",
   required: "Bitte melde dich an.",
   exists: "Der Benutzer wurde bereits eingerichtet. Bitte melde dich an.",
   invalid: "Benutzername oder Passwort ist falsch.",

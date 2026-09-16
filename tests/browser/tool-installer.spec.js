@@ -352,3 +352,68 @@ test("mobile unavailable install explains the reason and keeps its destination r
     await context.close();
   }
 });
+
+test("historical successful installation of a missing CLI offers reinstall in English", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  const controls = await fixture(page);
+  Object.assign(controls.jobs[0], {
+    status: "succeeded",
+    installed: false,
+    finishedAt: "2026-01-01T12:00:00Z",
+  });
+  controls.busy = true;
+  await card(page, "Codex")
+    .getByRole("button", { name: "Install CLI", exact: true })
+    .click();
+  const modal = page.getByRole("dialog");
+  const reinstall = modal.getByRole("button", { name: "Install again", exact: true });
+  await expect(reinstall).toBeDisabled();
+  controls.busy = false;
+  await expect(reinstall).toBeEnabled();
+  await expect(
+    modal.getByRole("button", { name: "Start session", exact: true }),
+  ).toHaveCount(0);
+  await modal.screenshot({ path: ".cache/feature-review-fixes/tool-reinstall-en.png" });
+  await reinstall.click();
+  await expect.poll(() => controls.starts).toEqual([{ tool: "codex", body: {} }]);
+  Object.assign(controls.jobs[0], {
+    status: "succeeded",
+    installed: false,
+    finishedAt: "2026-09-16T12:00:00Z",
+  });
+  const launch = modal.getByRole("button", { name: "Start session", exact: true });
+  await expect(launch).toBeDisabled();
+  await expect(reinstall).toHaveCount(0);
+  controls.state.tools[0].installed = true;
+  await modal.getByRole("button", { name: "Refresh status", exact: true }).click();
+  await expect(launch).toBeEnabled();
+  expect(controls.starts).toHaveLength(1);
+});
+
+test("reopened running installation waits for detection after completion in English", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  const controls = await fixture(page);
+  Object.assign(controls.jobs[0], { status: "running", installed: false });
+  await card(page, "Codex")
+    .getByRole("button", { name: "Install CLI", exact: true })
+    .click();
+  const modal = page.getByRole("dialog");
+  await expect(
+    modal.getByRole("button", { name: "Installing …", exact: true }),
+  ).toBeDisabled();
+  Object.assign(controls.jobs[0], {
+    status: "succeeded",
+    finishedAt: "2026-09-16T12:00:00Z",
+  });
+  await expect(
+    modal.getByRole("button", { name: "Start session", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    modal.getByRole("button", { name: "Install again", exact: true }),
+  ).toHaveCount(0);
+  expect(controls.starts).toEqual([]);
+});

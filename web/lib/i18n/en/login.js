@@ -14,5 +14,13 @@ export const loginCopy = Object.freeze({
   pending: "Please wait …",
   retry: "Try again",
   failed: "Could not check sign-in.",
+  errors: {
+    LOGIN_ALREADY_CONFIGURED: "A user has already been created. Please sign in.",
+    LOGIN_USERNAME_INVALID: "Enter a username with 1 to 100 characters.",
+    LOGIN_PASSWORD_INVALID: "The password must be 12 to 1024 characters long.",
+    LOGIN_CREDENTIALS_INVALID: "Username or password is incorrect.",
+    LOGIN_THROTTLED: "Too many sign-in attempts. Please wait a minute.",
+    LOGIN_REQUIRED: "Please sign in.",
+  },
   logout: "Sign out",
 });

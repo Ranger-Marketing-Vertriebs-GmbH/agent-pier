@@ -33,6 +33,7 @@ export default function ToolInstaller({
     submitting,
     globalBusy,
     succeeded,
+    reinstall,
     loadError,
     error,
     syncError,
@@ -122,9 +123,11 @@ export default function ToolInstaller({
                     : succeeded
                       ? copy.updated
                       : copy.updateReady
-                  : labels[job.status] || job.status}
+                  : reinstall
+                    ? copy.reinstallationReady
+                    : labels[job.status] || job.status}
               </strong>
-              {job.message && <p>{job.message}</p>}
+              {job.message && !reinstall && <p>{job.message}</p>}
               {job.version && <code>{job.version}</code>}
             </div>
             {(running || submitting) && (
@@ -197,7 +200,7 @@ export default function ToolInstaller({
                 ? copy.startingInstallation
                 : running
                   ? commonCopy.installing
-                  : job?.status === "failed"
+                  : job?.status === "failed" || reinstall
                     ? copy.retryInstallation
                     : commonCopy.installNow}
           </button>
