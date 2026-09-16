@@ -258,6 +258,7 @@ export default function SessionWorkspace({
               ])}
               session={session}
               mode={mode}
+              connected={connection === "connected"}
               sendRef={sendRef}
               focusRef={focusRef}
               onConnection={setConnection}
