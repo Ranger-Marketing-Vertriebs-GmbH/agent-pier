@@ -202,16 +202,22 @@ export class AgencyStore {
     if (path.dirname(record.path) !== path.join(location.root, "agents"))
       throw problem("The agent file is outside this CLI's agent directory.", 409);
     safePath(record.path, location.boundary);
-    const stat = fs.lstatSync(record.path);
+    let stat;
+    try {
+      stat = fs.lstatSync(record.path);
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
     if (
-      !stat.isFile() ||
-      stat.nlink !== 1 ||
-      stat.dev !== record.dev ||
-      stat.ino !== record.ino ||
-      digest(fs.readFileSync(record.path)) !== record.hash
+      stat &&
+      (!stat.isFile() ||
+        stat.nlink !== 1 ||
+        stat.dev !== record.dev ||
+        stat.ino !== record.ino ||
+        digest(fs.readFileSync(record.path)) !== record.hash)
     )
       throw problem("The agent file changed outside AgentPier; it was retained.", 409);
-    fs.unlinkSync(record.path);
+    if (stat) fs.unlinkSync(record.path);
     writePrivate(
       this.file,
       records.filter((item) => item !== record),

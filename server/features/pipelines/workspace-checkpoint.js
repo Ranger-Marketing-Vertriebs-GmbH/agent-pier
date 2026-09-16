@@ -1,25 +1,24 @@
 import { git, exactCommit } from "./workspace-git.js";
 
-const privatePaths = [
-  ".pipeline",
-  ".agentpier-worktrees",
-  ".env",
-  ".env.*",
-  "*.pem",
-  "*.key",
-  ".codex/auth.json",
-  ".claude/.credentials.json",
-  ".opencode/auth.json",
-];
-const excluded = (file) =>
-  file.startsWith(".pipeline/") ||
-  file.startsWith(".agentpier-worktrees/") ||
-  /(^|\/)\.env(?:\.[^/]*)?$|\.(?:pem|key)$/.test(file) ||
-  [".codex/auth.json", ".claude/.credentials.json", ".opencode/auth.json"].includes(file);
+import { privatePipelinePath } from "./private-paths.js";
+
 export async function checkpointWorkspace(manager, { workspace, run, node, attempt }) {
   const stored = await manager.validate(workspace);
   // Even explicitly staged private runtime files cannot enter a checkpoint.
-  await git(stored.cwd, ["reset", "-q", "HEAD", "--", ...privatePaths]);
+  const privateFiles = (
+    await git(stored.cwd, ["diff", "--cached", "--name-only", "--no-renames", "-z"])
+  )
+    .split("\0")
+    .filter((file) => file && privatePipelinePath(file));
+  for (let index = 0; index < privateFiles.length; index += 200)
+    await git(stored.cwd, [
+      "--literal-pathspecs",
+      "reset",
+      "-q",
+      "HEAD",
+      "--",
+      ...privateFiles.slice(index, index + 200),
+    ]);
   // Update tracked paths separately: add -A can reject them when a parent
   // directory is now ignored. Never force-add ignored, untracked siblings.
   for (const [selection, mode] of [
@@ -30,7 +29,7 @@ export async function checkpointWorkspace(manager, { workspace, run, node, attem
       ...new Set(
         (await git(stored.cwd, ["ls-files", ...selection, "-z"]))
           .split("\0")
-          .filter((file) => file && !excluded(file)),
+          .filter((file) => file && !privatePipelinePath(file)),
       ),
     ];
     for (let index = 0; index < files.length; index += 200)

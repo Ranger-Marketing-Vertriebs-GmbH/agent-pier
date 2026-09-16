@@ -42,8 +42,10 @@ let prompt='';process.stdin.on('data',chunk=>prompt+=chunk);process.stdin.on('en
  const match=prompt.match(/\\.pipeline\\/turns\\/[A-Za-z0-9-]+\\/verdict\\.json/);
  if(!match){process.stderr.write('Missing scoped verdict path');process.exit(2);}
  fs.writeFileSync('tracked.txt','after\\n');fs.writeFileSync('report.md','Evidence from the fixture.\\n');
+ const privateFiles=['.env','.env.production','fixture.pem','fixture.key','nested/.env','nested/fixture.pem'];
+ for(const file of privateFiles){fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,'FAKE_PRIVATE_MARKER');}
  fs.mkdirSync(path.dirname(match[0]),{recursive:true});
- fs.writeFileSync(match[0],JSON.stringify({result:'pass',summary:'Fixture completed',artifacts:[{path:'report.md',label:'Report'}]}));
+ fs.writeFileSync(match[0],JSON.stringify({result:'pass',summary:'Fixture completed',artifacts:[{path:'report.md',label:'Report'},...privateFiles.map(path=>({path}))]}));
  console.log(JSON.stringify({type:'thread.started',thread_id:'fixture-native-thread'}));
  console.log(JSON.stringify({type:'turn.completed',usage:{input_tokens:17,output_tokens:4}}));
 });`,
@@ -141,6 +143,20 @@ let prompt='';process.stdin.on('data',chunk=>prompt+=chunk);process.stdin.on('en
     await app.request(`/api/pipeline-runs/${id}/nodes/work/artifact?path=report.md`)
   ).json();
   assert.match(artifact.content, /Evidence from the fixture/);
+  for (const file of [
+    ".env",
+    ".env.production",
+    "fixture.pem",
+    "fixture.key",
+    "nested/.env",
+    "nested/fixture.pem",
+  ]) {
+    const denied = await app.request(
+      `/api/pipeline-runs/${id}/nodes/work/artifact?path=${encodeURIComponent(file)}`,
+    );
+    assert.equal(denied.status, 403);
+    assert.equal((await denied.text()).includes("FAKE_PRIVATE_MARKER"), false);
+  }
   assert.equal(
     (await app.request(`/api/pipelines/${pipeline.id}`, { method: "DELETE" })).status,
     409,
