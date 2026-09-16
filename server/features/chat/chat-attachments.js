@@ -1,10 +1,12 @@
 import { chatAttachmentCopy as copy } from "../../lib/i18n/de/chat.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs/promises";
+import { realpathSync } from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { privateDirectory, problem } from "../../lib/storage.js";
 import { rasterType } from "./chat-images.js";
+import { removeAttachmentTree } from "./chat-attachment-cleanup.js";
 
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 // Per-session storage guard, not the per-message cap: the composer enforces 8 per message.
@@ -30,6 +32,7 @@ export class ChatAttachments {
     this.directory = dataDir
       ? privateDirectory(path.join(dataDir, "chat-attachments"))
       : null;
+    this.cleanupRoot = this.directory ? realpathSync(this.directory) : null;
     this.pending = new Map();
     this.sessions = sessions;
   }
@@ -145,11 +148,31 @@ export class ChatAttachments {
   // before deletion is authorized, not after).
   discard(id, directory) {
     return this.serial(id, async () => {
-      await this.discardDirectory(directory);
-      if (this.directory) await this.discardDirectory(this.folder(id));
+      await this.discardDirectory(id, directory);
+      if (this.directory) await this.discardDirectory(id, this.folder(id));
     });
   }
-  async discardDirectory(directory) {
-    if (directory) await fs.rm(directory, { recursive: true, force: true });
+  async discardDirectory(id, directory) {
+    if (!this.directory || typeof directory !== "string") return;
+    // Only this session's legacy folder or account-scoped folder is owned here.
+    const relative = path.relative(this.directory, directory);
+    const parts = relative.split(path.sep);
+    if (
+      ![1, 2].includes(parts.length) ||
+      parts.at(-1) !== id ||
+      parts.some((part) => !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(part))
+    )
+      return;
+    const root = await fs.realpath(this.directory);
+    let actual;
+    try {
+      actual = await fs.realpath(directory);
+    } catch (error) {
+      if (error.code === "ENOENT") return;
+      throw error;
+    }
+    // A linked account or session must never turn cleanup into an external delete.
+    if (actual !== path.join(root, relative)) return;
+    await removeAttachmentTree(this.cleanupRoot, parts);
   }
 }

@@ -53,3 +53,45 @@ test("session cleanup waits for an upload already in progress", async (t) => {
   assert.equal(startedBeforeUploadFinished, false);
   await assert.rejects(fs.stat(file.path), { code: "ENOENT" });
 });
+
+for (const kind of [
+  "outside",
+  "root",
+  "account",
+  "other-session",
+  "linked-account",
+  "linked-session",
+]) {
+  test(`cleanup ignores ${kind} grants while removing current session uploads`, async (t) => {
+    const root = await fs.realpath(
+      await fs.mkdtemp(path.join(os.tmpdir(), "attachment-boundary-")),
+    );
+    t.after(() => fs.rm(root, { recursive: true, force: true }));
+    const dataDir = path.join(root, "data");
+    const uploads = new ChatAttachments({ dataDir });
+    const own = path.join(dataDir, "chat-attachments/one");
+    await fs.mkdir(own);
+    await fs.writeFile(path.join(own, "upload"), "own");
+    let directory;
+    if (kind === "outside") directory = path.join(root, "outside/one");
+    if (kind === "root") directory = uploads.directory;
+    if (kind === "account") directory = path.join(uploads.directory, "account");
+    if (kind === "other-session") directory = path.join(uploads.directory, "account/two");
+    if (kind.startsWith("linked")) directory = path.join(root, "outside/one");
+    await fs.mkdir(directory, { recursive: true });
+    const sentinel = path.join(directory, "preserve");
+    await fs.writeFile(sentinel, "keep");
+    if (kind === "linked-account") {
+      await fs.symlink(path.dirname(directory), path.join(uploads.directory, "account"));
+      directory = path.join(uploads.directory, "account/one");
+    }
+    if (kind === "linked-session") {
+      await fs.mkdir(path.join(uploads.directory, "account"));
+      await fs.symlink(directory, path.join(uploads.directory, "account/one"));
+      directory = path.join(uploads.directory, "account/one");
+    }
+    await uploads.discard("one", directory);
+    assert.equal(await fs.readFile(sentinel, "utf8"), "keep");
+    await assert.rejects(fs.stat(own), { code: "ENOENT" });
+  });
+}
