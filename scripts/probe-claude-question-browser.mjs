@@ -1,7 +1,7 @@
 import { chromium, expect } from "@playwright/test";
 
 /** The actual built UI and HTTP broker, without API fixture routes. */
-export async function answerQuestionInBrowser(fixture, session) {
+export async function answerQuestionInBrowser(fixture, session, { terminalCheck } = {}) {
   const browser = await chromium.launch({
     headless: true,
     ...(process.platform === "darwin" ? { channel: "chrome" } : {}),
@@ -19,7 +19,13 @@ export async function answerQuestionInBrowser(fixture, session) {
       },
     ]);
     const page = await context.newPage();
-    await page.goto(`${fixture.url}/sessions/${session.id}/chat`);
+    await page.goto(
+      `${fixture.url}/sessions/${session.id}/${terminalCheck ? "terminal" : "chat"}`,
+    );
+    if (terminalCheck) {
+      await terminalCheck(page);
+      return;
+    }
     await page.getByRole("checkbox", { name: "API", exact: true }).check();
     await page.getByRole("checkbox", { name: "Web", exact: true }).check();
     await page.getByRole("button", { name: "Next question", exact: true }).click();

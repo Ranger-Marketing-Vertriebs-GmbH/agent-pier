@@ -1,6 +1,6 @@
 import { operationState, operationResponse } from "./operations-http-fixture.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
-export async function operationsFixture(page) {
+export async function operationsFixture(page, { tool = "codex" } = {}) {
   const chat = { messages: [], tasks: [], availability: "ready" };
   const state = {
     ...operationState(),
@@ -56,15 +56,13 @@ export async function operationsFixture(page) {
     let result;
     if (path === "/state")
       result = {
-        tools: [{ id: "codex", name: "Codex", installed: true }],
-        accounts: [
-          { id: "local-codex", tool: "codex", kind: "local", name: "Codex lokal" },
-        ],
+        tools: [{ id: tool, name: tool, installed: true }],
+        accounts: [{ id: "local-codex", tool, kind: "local", name: "Codex lokal" }],
         sessions: [
           {
             id: "fixture-session",
             name: "Fixture session",
-            tool: "codex",
+            tool,
             accountId: "local-codex",
             status: "running",
             cwd: "/fixture",

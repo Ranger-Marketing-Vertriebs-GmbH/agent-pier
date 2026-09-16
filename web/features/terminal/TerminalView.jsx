@@ -9,9 +9,11 @@ import useTerminalUploads from "./useTerminalUploads.js";
 import TerminalUploads from "./TerminalUploads.jsx";
 import { terminalViewCopy as copy } from "../../lib/i18n/messages/terminal.js";
 import useTerminalConnection from "./useTerminalConnection.js";
+import useClaudeTerminalQuestions from "./useClaudeTerminalQuestions.js";
 export default function TerminalView({
   session,
   mode,
+  connected,
   sendRef,
   focusRef,
   onConnection,
@@ -26,6 +28,11 @@ export default function TerminalView({
     request,
   });
   const uploads = useTerminalUploads({ session, paste });
+  const questionError = useClaudeTerminalQuestions({
+    session,
+    active: mode === "terminal" && connected,
+    request,
+  });
   const drop = useFileDrop({
     enabled: mode === "terminal" && uploads.supported && !uploads.busy,
     onFiles: uploads.add,
@@ -37,6 +44,7 @@ export default function TerminalView({
       data-drop-hint={copy.dropHint}
     >
       <ErrorMessage error={error} />
+      <ErrorMessage error={questionError} />
       <TerminalUploads uploads={uploads} paste={paste} />
       <div
         className="terminal-mount"
