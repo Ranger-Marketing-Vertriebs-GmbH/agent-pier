@@ -44,7 +44,9 @@ async function handle(line) {
         error: {
           code: -32000,
           message:
-            "AgentBus unavailable. Check AgentPier and session access, then retry. Calls are not automatically retried.",
+            request?.method === "tools/call" && request.params?.name === "peer_send"
+              ? "AgentBus response unavailable. The message may have been sent. Do not resend automatically; verify delivery with the recipient before an explicit retry."
+              : "AgentBus unavailable. Check AgentPier and session access, then retry. Calls are not automatically retried.",
         },
       });
   }

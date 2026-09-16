@@ -39,50 +39,52 @@ function defaultExec(cmd, args, options = {}) {
     execFile(cmd, args, { timeout: 15000, ...options }, (err, stdout) => (err ? reject(err) : resolve(stdout))));
 }
 
-function nudgeClaude({ socketPath, keyPath }, text, fromName, readKey, timeoutMs = 5000) {
-  let token;
-  try { token = readKey(keyPath); } catch { return Promise.resolve(false); }
-  const payload = claudeWireLines(token, fromName, text).join('\n') + '\n';
+function sendSocket(socketPath, payload, timeoutMs, signal) {
+  if (signal?.aborted) return Promise.resolve(false);
   return new Promise((resolve) => {
     let settled = false;
-    let timedOut = false;
-    const settle = (value) => { if (!settled) { settled = true; resolve(value); } };
+    let connected = false;
     const sock = net.createConnection(socketPath);
-    sock.once('error', () => settle(false));
-    sock.once('connect', () => {
-      sock.removeAllListeners('error');
-      const timeoutId = setTimeout(() => { timedOut = true; sock.destroy(); }, timeoutMs);
-      sock.write(payload);
-      sock.end();
-      sock.once('close', () => { clearTimeout(timeoutId); settle(!timedOut); });
-      sock.once('error', () => { clearTimeout(timeoutId); settle(false); });
-    });
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
+      sock.removeListener('connect', connect);
+      sock.removeListener('close', close);
+      // Keep the error handler while destroy drains any pending connection error.
+      sock.destroy();
+      resolve(value);
+    };
+    const abort = () => finish(false);
+    const close = () => finish(connected);
+    const connect = () => {
+      if (settled || signal?.aborted) { finish(false); return; }
+      connected = true;
+      try { sock.write(payload); sock.end(); } catch { finish(false); }
+    };
+    // The deadline covers connecting as well as writing/closing the socket.
+    const timer = setTimeout(abort, timeoutMs);
+    sock.once('error', abort);
+    sock.once('connect', connect);
+    sock.once('close', close);
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) abort();
   });
 }
 
-// Kein Token: der Socket liegt 0600 in einem Verzeichnis mit 0700, erreichbar
-// also nur für denselben Benutzer — und der darf laut Spec 10 ohnehin alles.
-function nudgeOpencode({ socketPath, sessionId }, text, timeoutMs = 5000) {
-  // Ein opencode-Prozess bedient mehrere Sessions über EINEN Socket, also muss der Anstoß
-  // sagen, welche gemeint ist. Fehlt sessionId (Peer noch von einem älteren Commit
-  // registriert), lässt JSON.stringify das Feld weg und der Empfänger fällt auf seine
-  // jüngste Session zurück — siehe targetSession() in plugins/opencode/plugin.js.
+function nudgeClaude({ socketPath, keyPath }, text, fromName, readKey, timeoutMs, signal) {
+  let token;
+  try { token = readKey(keyPath); } catch { return Promise.resolve(false); }
+  const payload = claudeWireLines(token, fromName, text).join('\n') + '\n';
+  return sendSocket(socketPath, payload, timeoutMs, signal);
+}
+
+// The socket lives in the same user's private directory. Target the exact native
+// OpenCode session; never fall back to another session in the same process.
+function nudgeOpencode({ socketPath, sessionId }, text, timeoutMs, signal) {
   const payload = JSON.stringify({ v: 1, text, session: sessionId }) + '\n';
-  return new Promise((resolve) => {
-    let settled = false;
-    let timedOut = false;
-    const settle = (value) => { if (!settled) { settled = true; resolve(value); } };
-    const sock = net.createConnection(socketPath);
-    sock.once('error', () => settle(false));
-    sock.once('connect', () => {
-      sock.removeAllListeners('error');
-      const timeoutId = setTimeout(() => { timedOut = true; sock.destroy(); }, timeoutMs);
-      sock.write(payload);
-      sock.end();
-      sock.once('close', () => { clearTimeout(timeoutId); settle(!timedOut); });
-      sock.once('error', () => { clearTimeout(timeoutId); settle(false); });
-    });
-  });
+  return sendSocket(socketPath, payload, timeoutMs, signal);
 }
 
 async function nudgeCodex({ threadId, command, codexHome }, text, exec) {
@@ -93,10 +95,11 @@ async function nudgeCodex({ threadId, command, codexHome }, text, exec) {
 }
 
 // Erfolg heißt nur: Anstoß abgesetzt. Kein Kanal bestätigt Zustellung.
-export async function nudge(peer, text, fromName, { readKey = defaultReadKey, exec = defaultExec, timeoutMs = 5000 } = {}) {
+export async function nudge(peer, text, fromName, { readKey = defaultReadKey, exec = defaultExec, timeoutMs = 5000, signal } = {}) {
+  if (signal?.aborted) return false;
   const n = peer?.nudge ?? {};
-  if (n.kind === 'cc-socks') return nudgeClaude(n, text, fromName, readKey, timeoutMs);
+  if (n.kind === 'cc-socks') return nudgeClaude(n, text, fromName, readKey, timeoutMs, signal);
   if (n.kind === 'codex-queue') return nudgeCodex(n, text, exec);
-  if (n.kind === 'oc-sock') return nudgeOpencode(n, text, timeoutMs);
+  if (n.kind === 'oc-sock') return nudgeOpencode(n, text, timeoutMs, signal);
   return false;
 }

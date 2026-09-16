@@ -12,7 +12,12 @@ checks the native process against the session's host-owned tmux pane and pins it
 process start time. A session cannot select another project or supply a wake socket.
 Stopping or replacing a session revokes its capability and registration. A web-only
 restart preserves capabilities, registrations and messages for surviving sessions.
-Reload existing sessions after upgrading to switch from the legacy adapters.
+Older integration versions appear as **Reload required**, never as connected.
+Reload those sessions to obtain current capabilities and adapters. Current live
+peers use a separate `broker/peers` registry, so legacy tools cannot discover or
+address them through the old registry. Launch identity and queue storage remain
+shared to preserve history and unread messages. This protocol separation does not
+revoke filesystem access from an already running, unsandboxed same-user process.
 
 Codex and Claude launch/prompt hooks register their exact native conversation and
 return instructions and pending-message counts. Claude wakes use the native
@@ -24,8 +29,10 @@ OpenCode uses an outgoing, authenticated long poll for notices; it exposes no
 inbound AgentBus socket. The plugin registers root conversations and attaches the
 exact native conversation ID to MCP calls. Notices target that conversation only;
 deleted conversations and child sessions are not redirected to another session.
-Long polls reconnect with bounded backoff. A later prompt resumes polling after a
-longer outage and retrieves a pending count. Notices never contain message bodies
+Long polls keep reconnecting with bounded backoff until the conversation is deleted
+or the plugin is disposed. Prompt context uses an authenticated, read-only summary;
+only missing registration triggers process verification again. The host supplies
+its Node executable for MCP launches, independently of OpenCode's compiled runtime. Notices never contain message bodies
 and never read or acknowledge the inbox automatically.
 
 ## Durable delivery
@@ -38,8 +45,12 @@ user; a sandbox must grant only the client's own capability and socket, not the
 AgentPier data directory. These capabilities restrict protocol access; they do not
 isolate an otherwise unsandboxed process running as the same OS user.
 
-`peer_send` stores a message before attempting a wake. A failed wake does not make
-successful delivery retryable. Clients never automatically replay tool calls.
+`peer_send` confirms durable storage before starting an advisory wake. Wake tasks
+are bounded, timed out and cancelled during shutdown; a failed or skipped wake does
+not make successful delivery retryable. Transport failures can leave the delivery
+outcome unknown, so clients warn against automatic resend and never replay tool
+calls. Correctable tool errors return scoped error codes and messages; internal
+failures remain generic.
 `inbox_read` explicitly claims, formats and acknowledges up to eight pending
 messages for its exact peer identity. A full batch tells the agent that it may
 continue processing the same notice. A reader that fails before acknowledgement

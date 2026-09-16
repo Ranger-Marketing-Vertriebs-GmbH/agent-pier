@@ -47,12 +47,17 @@ das Datenverzeichnis muss außerhalb des Anwendungsverzeichnisses liegen.
 Nach einem Abbruch denselben Befehl erneut aufrufen. Eine passende bestehende
 Einrichtung wird wiederaufgenommen; eine bereits aktualisierte AgentPier-Version
 wird nicht zurückgesetzt. Bei einer fremden bestehenden Installation, abweichenden
-Datenpfaden oder belegtem Port meldet der Installer einen Konflikt, statt die andere
-Instanz zu überschreiben. Bestehende Source-Installationen werden nicht automatisch
+Datenpfaden oder einem belegten Port bei angeforderter Dienstinstallation meldet
+der Installer einen Konflikt. `--no-service` lässt vorhandene Dienste und Listener
+unberührt. Bestehende Source-Installationen werden nicht automatisch
 übernommen. Wird ein Prozess genau beim Übernehmen der Installationssperre beendet,
 kann `.setup-recovery.lock` zurückbleiben. In diesem Fall stoppt der Installer mit
 einem Hinweis zur manuellen Prüfung. Die Sperre erst entfernen, nachdem sicher
 kein Setup-Prozess mehr läuft; unbekannte Dateien werden nicht automatisch gelöscht.
+Temporäre `.current-<UUID>`-Zeiger und Staging-Verzeichnisse bleiben bei der Reparatur
+erhalten, weil ein paralleles Anwendungsupdate sie noch verwenden kann. Auch
+Überbleibsel eines abgebrochenen Updates auf eine spätere Version verhindern die
+Reparatur nicht, sofern ihre Struktur und Eigentümerschaft passen.
 
 **Anwendungsupdates bleiben unter Einstellungen → Updates.** `brew upgrade` oder
 `brew uninstall agentpier-installer` betrifft nur das Installer-Paket. Die laufende

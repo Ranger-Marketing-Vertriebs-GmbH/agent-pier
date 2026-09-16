@@ -45,13 +45,24 @@ export class LocalRpcBroker {
       fs.unlinkSync(this.socketPath);
     }
     this.server = http.createServer((req, res) => this.handle(req, res));
+    // Keep a listener for the server's whole lifetime. A once-only startup
+    // rejection handler otherwise leaves a second later error unhandled.
+    this.server.on("error", () => {
+      if (this.listening && !this.listenerErrorReported) {
+        this.listenerErrorReported = true;
+        console.error("Local RPC broker listener error.");
+      }
+    });
     this.server.maxConnections = 64;
     this.server.requestTimeout = this.timeout;
     this.server.headersTimeout = this.timeout;
     this.server.setTimeout(this.timeout, (socket) => socket.destroy());
     await new Promise((resolve, reject) => {
       this.server.once("error", reject);
-      this.server.listen(this.socketPath, resolve);
+      this.server.listen(this.socketPath, () => {
+        this.server.removeListener("error", reject);
+        resolve();
+      });
     });
     this.listening = true;
     try {

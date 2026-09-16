@@ -1,5 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { setTimeout as delay } from "node:timers/promises";
+import timers from "node:timers/promises";
 import { agentbusClient } from "./agentbus-client.js";
 
 const intro =
@@ -12,22 +14,29 @@ export default async function AgentPierAgentBus(input, env = process.env) {
   const controller = new AbortController();
   let disposed = false;
   let polling;
+  let pollController;
   let sequence = 0;
   async function call(method, params = {}, signal = controller.signal) {
     const response = await relay(
       { jsonrpc: "2.0", id: ++sequence, method, params },
       { signal },
     );
-    if (response?.error || !response?.result) throw Error("AgentBus unavailable.");
+    if (response?.error || !response?.result) {
+      const error = Error("AgentBus unavailable.");
+      error.code = response?.error?.code;
+      throw error;
+    }
     return response.result;
   }
   function startPolling() {
     if (polling || disposed || !native.size) return;
+    const activeController = new AbortController();
+    pollController = activeController;
     polling = (async () => {
       let failures = 0;
-      while (!disposed && native.size) {
+      while (!disposed && native.size && !activeController.signal.aborted) {
         try {
-          const result = await call("agentbus/wait");
+          const result = await call("agentbus/wait", {}, activeController.signal);
           failures = 0;
           for (const notice of result.notifications || []) {
             if (
@@ -44,14 +53,19 @@ export default async function AgentPierAgentBus(input, env = process.env) {
               .catch(() => {});
           }
         } catch {
-          if (disposed || !native.size || ++failures >= 5) break;
-          await delay(Math.min(250 * 2 ** (failures - 1), 5000), undefined, {
-            signal: controller.signal,
-          }).catch(() => {});
+          if (disposed || !native.size || activeController.signal.aborted) break;
+          failures = Math.min(failures + 1, 6);
+          await timers
+            .setTimeout(Math.min(250 * 2 ** (failures - 1), 5000), undefined, {
+              signal: activeController.signal,
+            })
+            .catch(() => {});
         }
       }
     })().finally(() => {
       polling = null;
+      pollController = null;
+      startPolling();
     });
   }
   async function start(id) {
@@ -80,6 +94,7 @@ export default async function AgentPierAgentBus(input, env = process.env) {
     deleted.add(id);
     const registration = native.get(id);
     native.delete(id);
+    if (!native.size) pollController?.abort();
     if (registration) {
       await registration.catch(() => {});
       await call("agentbus/unregister", { nativeSessionId: id }).catch(() => {});
@@ -87,12 +102,20 @@ export default async function AgentPierAgentBus(input, env = process.env) {
   }
   return {
     config: async (config) => {
+      const runtime = env.AGENTPIER_AGENTBUS_NODE;
+      try {
+        if (typeof runtime !== "string" || !path.isAbsolute(runtime)) throw Error();
+        if (!fs.statSync(runtime).isFile()) throw Error();
+        fs.accessSync(runtime, fs.constants.X_OK);
+      } catch {
+        throw Error("AgentBus host Node runtime unavailable.");
+      }
       config.mcp = {
         ...(config.mcp || {}),
         agentpier_agentbus: {
           type: "local",
           command: [
-            process.execPath,
+            runtime,
             fileURLToPath(new URL("./agentbus-mcp.js", import.meta.url)),
           ],
           environment: {
@@ -138,11 +161,17 @@ export default async function AgentPierAgentBus(input, env = process.env) {
           const info = result?.data || result;
           if (info?.id !== id || info.parentID || !(await start(id))) return;
         }
-        const result = await call("agentbus/hook", {
-          event: "UserPromptSubmit",
-          nativeSessionId: id,
-          pid: process.pid,
-        });
+        const registration = native.get(id);
+        await registration;
+        let result;
+        try {
+          result = await call("agentbus/summary", { nativeSessionId: id });
+        } catch (error) {
+          if (error.code !== -32004 || disposed || deleted.has(id)) throw error;
+          if (native.get(id) === registration) native.delete(id);
+          if (!(await start(id))) return;
+          result = await call("agentbus/summary", { nativeSessionId: id });
+        }
         if (disposed || !native.has(id)) return;
         output.system.push(intro);
         if (typeof result.context === "string" && result.context)
@@ -156,6 +185,7 @@ export default async function AgentPierAgentBus(input, env = process.env) {
       if (disposed) return;
       disposed = true;
       controller.abort();
+      pollController?.abort();
       const ids = [...native.keys()];
       native.clear();
       await polling;

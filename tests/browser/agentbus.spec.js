@@ -63,3 +63,66 @@ test("bundled AgentBus status groups project sessions without consuming inboxes"
   ).toBeTruthy();
   expect(calls.every((c) => c.method === "GET")).toBeTruthy();
 });
+
+test.describe("English AgentBus status", () => {
+  test.use({ locale: "en-GB" });
+
+  test("legacy sessions show a localized reload requirement", async ({
+    page,
+    browserName,
+  }) => {
+    await page.route("**/api/**", async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname === "/api/state")
+        return route.fulfill({
+          json: { accounts: [], tools: [], sessions: [], home: "/fixture" },
+        });
+      if (url.pathname === "/api/agentbus")
+        return route.fulfill({
+          json: {
+            bundled: true,
+            version: "0.1.0",
+            projects: [
+              {
+                id: "demo",
+                name: "Website",
+                cwd: "/fixture/Website",
+                sessions: [
+                  {
+                    id: "legacy",
+                    name: "Legacy Codex",
+                    tool: "codex",
+                    status: "running",
+                    registered: false,
+                    pending: 0,
+                    reasonCode: "AGENTBUS_RELOAD_REQUIRED",
+                    reason: "Diese Sitzung muss neu geladen werden.",
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      return route.fulfill({ json: {} });
+    });
+    await page.goto(`${base}/agentbus`);
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    const session = page
+      .getByRole("article")
+      .filter({ has: page.getByRole("heading", { name: "Legacy Codex" }) });
+    await expect(
+      session.getByText("codex · Reload required", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      session.getByText("Reload this session to use the current AgentBus integration.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(session).not.toContainText("Waiting for CLI sign-in");
+    await expect(session).not.toContainText("Diese Sitzung");
+    await page.screenshot({
+      path: `.cache/review-fixes/agentbus-reload-required-${browserName}.png`,
+      fullPage: true,
+    });
+  });
+});

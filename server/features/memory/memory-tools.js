@@ -29,7 +29,7 @@ export const memoryTools = [
   },
   {
     name: "memory_write",
-    description: `Create a concise reusable project fact or update it using the last observed expectedRevision. On conflict, read again and resolve explicitly. requestId makes an identical retry idempotent. ${notice}`,
+    description: `Create a concise reusable project fact or update it using the last observed expectedRevision. On conflict, read again and resolve explicitly. A unique requestId is required for each logical write; reuse it and identical arguments after any uncertain response. ${notice}`,
     inputSchema: schema(
       {
         id: string,
@@ -38,7 +38,7 @@ export const memoryTools = [
         expectedRevision: integer,
         requestId: string,
       },
-      ["title", "content"],
+      ["title", "content", "requestId"],
     ),
     annotations: { readOnlyHint: false, destructiveHint: false },
   },

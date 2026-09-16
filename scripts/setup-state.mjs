@@ -72,6 +72,8 @@ export function inspectSetup({ installRoot, dataDir, allowRecoveryGuard = false 
       )
         throw Error("Setup directory must be owned by the current user.");
     }
+    if (!allowRecoveryGuard && info(path.join(installRoot, ".setup-recovery.lock")))
+      throw Error("Setup lock recovery is in progress; inspect .setup-recovery.lock.");
     const file = path.join(installRoot, receiptName);
     const receiptPersisted = Boolean(info(file));
     if (!receiptPersisted && !info(path.join(installRoot, ".setup.lock"))) {
@@ -152,7 +154,7 @@ export function inspectSetup({ installRoot, dataDir, allowRecoveryGuard = false 
     const transients = [];
     for (const entry of fs.readdirSync(installRoot)) {
       if (isSetupTransient(entry)) {
-        validateTransient(installRoot, entry, receipt);
+        validateTransient(installRoot, entry);
         transients.push(entry);
         continue;
       }
@@ -322,17 +324,17 @@ const transient = new RegExp(
 function isSetupTransient(name) {
   return transient.test(name);
 }
-function validateTransient(root, name, receipt) {
+function validateTransient(root, name) {
   const file = path.join(root, name),
     stat = info(file);
   if (process.getuid && stat.uid !== process.getuid())
     throw Error("Unowned setup temporary file.");
   if (name.startsWith(".current-")) {
-    if (
-      !stat.isSymbolicLink() ||
-      fs.readlinkSync(file) !== `releases/${receipt.initialVersion}`
-    )
+    if (!stat.isSymbolicLink()) throw Error("Unowned temporary release pointer.");
+    const target = fs.readlinkSync(file);
+    if (!/^releases\/[^/]+$/.test(target))
       throw Error("Unowned temporary release pointer.");
+    releaseVersion(target.slice("releases/".length));
   } else if (name.startsWith(".staging-")) {
     if (!stat.isDirectory() || stat.mode & 0o077)
       throw Error("Unowned staging directory.");
@@ -341,10 +343,11 @@ function validateTransient(root, name, receipt) {
 }
 export function cleanupSetupTransients(inspected) {
   for (const name of inspected.transients || []) {
-    validateTransient(inspected.installRoot, name, inspected.receipt);
-    // Unknown files inside an interrupted staging directory are never deleted.
-    // Releases.stage creates a fresh random staging directory on each attempt.
-    if (!name.startsWith(".staging-"))
-      fs.unlinkSync(path.join(inspected.installRoot, name));
+    // App release switching and staging do not share the setup lock. Preserve
+    // their transients: they can still be in use by another process. An inactive
+    // pointer may also outlive its release; only the actual current is verified.
+    if (name.startsWith(".staging-") || name.startsWith(".current-")) continue;
+    validateTransient(inspected.installRoot, name);
+    fs.unlinkSync(path.join(inspected.installRoot, name));
   }
 }

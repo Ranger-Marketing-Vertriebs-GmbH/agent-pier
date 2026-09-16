@@ -147,3 +147,41 @@ for (const ambiguous of ["/tmp/app/", "/tmp/./app", "/tmp/other/../app", "/tmp//
       /normalized absolute paths/,
     );
   });
+
+for (const name of ["..data", "...", "..data/nested"]) {
+  test(`setup rejects a child data directory named ${name}`, () => {
+    assert.throws(
+      () =>
+        resolveSetupOptions(
+          ["--install-root", "/place/app", "--data-dir", `/place/app/${name}`],
+          context(),
+        ),
+      /outside the install root/,
+    );
+  });
+}
+for (const dataDir of ["/place", "/place/..data", "/place/app-other"]) {
+  test(`setup accepts the external data directory ${dataDir}`, () => {
+    assert.equal(
+      resolveSetupOptions(
+        ["--install-root", "/place/app", "--data-dir", dataDir],
+        context(),
+      ).dataDir,
+      dataDir,
+    );
+  });
+}
+for (const version of [
+  "",
+  "undefined",
+  "v1.17.0",
+  "1.17.0/other",
+  "1.17.0?download=bad",
+]) {
+  test(`installer arguments reject invalid version ${JSON.stringify(version)}`, () => {
+    assert.throws(
+      () => installerArguments(resolveSetupOptions([], context()), version),
+      /Invalid installer version/,
+    );
+  });
+}

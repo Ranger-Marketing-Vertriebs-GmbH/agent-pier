@@ -1,7 +1,9 @@
 import path from "node:path";
+import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { isMainModule } from "../server/lib/is-main-module.js";
+import { installerVersion } from "./installer-package.mjs";
 
 export function resolveSetupOptions(args, { home, env, platform, arch }) {
   if (platform !== "darwin")
@@ -54,7 +56,12 @@ export function resolveSetupOptions(args, { home, env, platform, arch }) {
   if (path.resolve(installRoot) !== installRoot || path.resolve(dataDir) !== dataDir)
     throw Error("Setup requires normalized absolute paths without dot segments.");
   const relativeData = path.relative(path.resolve(installRoot), path.resolve(dataDir));
-  if (!relativeData || (!relativeData.startsWith("..") && !path.isAbsolute(relativeData)))
+  if (
+    !relativeData ||
+    (relativeData !== ".." &&
+      !relativeData.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relativeData))
+  )
     throw Error("The data directory must be outside the install root.");
 
   return {
@@ -69,6 +76,12 @@ export function resolveSetupOptions(args, { home, env, platform, arch }) {
 
 export function installerArguments(options, version) {
   if (options.dependenciesOnly) return ["--dependencies-only"];
+  const releaseVersion = installerVersion(
+    version === undefined
+      ? JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"))
+          .version
+      : version,
+  );
   const args = [
     "--install-root",
     options.installRoot,
@@ -76,7 +89,7 @@ export function installerArguments(options, version) {
     options.dataDir,
     "--resume",
     "--initial-channel",
-    `https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/download/v${version}/`,
+    `https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/download/v${releaseVersion}/`,
   ];
   if (options.service) args.push("--service");
   if (!options.installDependencies) args.push("--skip-dependencies");

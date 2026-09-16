@@ -110,13 +110,19 @@ export default function AgentBus({
                               <h3>{session.name}</h3>
                               <span className="extension-scope">
                                 {session.tool} ·{" "}
-                                {session.registered
-                                  ? commonCopy.connected
-                                  : session.status === "running"
-                                    ? copy.extensionScope
-                                    : commonCopy.ended}
+                                {session.reasonCode === "AGENTBUS_RELOAD_REQUIRED"
+                                  ? copy.reloadRequired
+                                  : session.registered
+                                    ? commonCopy.connected
+                                    : session.status === "running"
+                                      ? copy.extensionScope
+                                      : commonCopy.ended}
                               </span>
-                              {session.reason && <p>{session.reason}</p>}
+                              {session.reasonCode === "AGENTBUS_RELOAD_REQUIRED" ? (
+                                <p>{copy.reloadRequiredDescription}</p>
+                              ) : (
+                                session.reason && <p>{session.reason}</p>
+                              )}
                             </div>
                             <span className="agentbus-pending">
                               {session.pending || 0}
