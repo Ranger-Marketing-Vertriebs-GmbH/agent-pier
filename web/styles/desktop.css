@@ -23,15 +23,12 @@
   }
 }
 @media (max-width: 1150px) {
+  .app {
+    --sidebar-width: 220px;
+  }
   .sidebar {
-    width: 220px;
-    flex-basis: 220px;
     padding-left: 14px;
     padding-right: 14px;
-  }
-  main {
-    margin-left: 220px;
-    width: calc(100% - 220px);
   }
   .page {
     padding: 30px 32px 24px;
