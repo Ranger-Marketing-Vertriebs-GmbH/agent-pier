@@ -77,6 +77,13 @@ export async function operationsFixture(page) {
     else if (path === "/notifications")
       result = { enabled: true, publicKey: "AQIDBA", subscriptions: [] };
     else if (path === "/preferences") result = body;
+    else if (path === "/repositories")
+      result = {
+        credentials: [],
+        projects: [
+          { id: "fixture-repository", name: "Fixture project", path: "/fixture/project" },
+        ],
+      };
     else if (path === "/memory/projects")
       result = {
         projects: [

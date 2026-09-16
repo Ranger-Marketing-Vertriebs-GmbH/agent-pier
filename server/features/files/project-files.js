@@ -1,7 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { problem } from "../../lib/storage.js";
-import { createDirectory } from "../../lib/directories.js";
+import { randomUUID } from "node:crypto";
+import { resolveFile, validateFileName, appendFilePath } from "./file-paths.js";
+import { fileProblem } from "./file-errors.js";
 import { filesCopy as copy } from "../../lib/i18n/de/files.js";
 import { previewResolvedFile } from "./file-reading.js";
 
@@ -86,8 +88,42 @@ export async function previewProjectFile(rootPath, relative) {
   }
 }
 
-export async function createProjectDirectory(rootPath, relative, name) {
-  const resolved = await resolve(rootPath, relative);
-  const result = await createDirectory(resolved.target, name);
-  return { path: path.relative(resolved.root, result.path).split(path.sep).join("/") };
+export async function createProjectDirectory(files, sessionId, relative = "", name) {
+  const scope = await files.context(sessionId);
+  if (scope.readOnly) throw fileProblem("FILE_READ_ONLY", 403);
+  validateFileName(name);
+  if (!name.trim() || name !== name.trim() || name.includes("\\"))
+    throw fileProblem("FILE_INVALID_NAME", 400);
+  const parent = await resolveFile(scope, relative);
+  if (!parent.stat.isDirectory()) throw fileProblem("FILE_NOT_DIRECTORY", 400);
+  const job = await files.jobs.start(
+    scope,
+    {
+      requestId: `${Date.now()}:${randomUUID()}`,
+      kind: "create_directory",
+      sources: [],
+      target: relative,
+      name,
+      options: {},
+    },
+    { rejectConflicts: true },
+  );
+  const done = await files.jobs.join(scope, job.id);
+  if (done.status !== "completed") {
+    const code = done.issue?.code || "FILE_CANCELLED";
+    const status =
+      {
+        FILE_READ_ONLY: 403,
+        FILE_OUTSIDE_SCOPE: 403,
+        FILE_ACCESS_DENIED: 403,
+        FILE_NOT_FOUND: 404,
+        FILE_INVALID_NAME: 400,
+        FILE_INVALID_PATH: 400,
+        FILE_NOT_DIRECTORY: 400,
+        FILE_IO_ERROR: 500,
+        FILE_JOBS_CLOSED: 503,
+      }[code] || 409;
+    throw fileProblem(code, status, done.issue?.args);
+  }
+  return { path: appendFilePath(relative, name) };
 }

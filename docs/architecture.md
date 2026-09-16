@@ -23,7 +23,7 @@ First-party identifiers and comments are English. German product text lives in e
 
 ## Session launch and lifetime
 
-The launch orchestrator validates the account, directory and launch mode, then composes host-bound GitHub credentials, AgentBus, repository memory and native history binding. Each adapter returns additions to a launch description. Failed launches unwind generated resources. Account/provider changes are rejected while affected sessions run.
+The launch orchestrator validates the account, directory and launch mode, then composes host-bound GitHub credentials, AgentBus, repository memory and native history binding. Each adapter returns additions to a launch description. Failed launches unwind generated resources. Account/provider changes are rejected while affected sessions run. Account usage is also reserved during launch preparation and reloads, including both accounts during an account switch; failed or deferred attempts release their reservations.
 
 `SessionManager` serializes session operations, owns the private tmux socket and persists public session metadata. A web-process restart reconnects to existing terminals; it does not terminate them. Stopping a session and deleting its metadata are separate operations. Session-bound memory capabilities are revoked on stop or when native state inspection discovers an exit. Repository knowledge remains available after its writer exits.
 
@@ -31,7 +31,7 @@ The stable `server/terminal-launcher.js`, `server/git-credential.mjs`, `server/g
 
 ## Chat and native observations
 
-Native history adapters normalize stored messages, tasks and available telemetry. Claude Code moves a session transcript into the project directory of its current working directory when it enters or leaves a worktree; the history adapter therefore resolves a transcript by session id across every project directory of the profile and readers verify the transcript's own cwd and session id before use. The chat store maintains a bounded snapshot and its explicit provenance. A missing field remains unknown; configured model metadata must not be presented as a native observation. The terminal activity reader uses the current native composer area and bounded caching. It never sends model requests to discover activity.
+Native history adapters normalize stored messages, tasks and available telemetry. Claude Code moves a session transcript into the project directory of its current working directory when it enters or leaves a worktree; the history adapter therefore resolves a transcript by session id across every project directory of the profile and readers verify the transcript's own cwd and session id before use. The chat store maintains a bounded snapshot and its explicit provenance. Native-bound sessions expose their authoritative conversation without a manual conversation picker; the backend rejects manual rebinding. Legacy sessions without native binding retain manual selection. A missing field remains unknown; configured model metadata must not be presented as a native observation. The terminal activity reader uses the current native composer area and bounded caching. It never sends model requests to discover activity.
 
 The URL owns durable navigation state: page, session, Chat/Terminal mode, extension/plugin profile, AgentBus selection and memory filters. Local component state owns transient drafts and pending operations. Navigation cancels obsolete reads; pending mutations retain their operation identity and cannot submit twice.
 

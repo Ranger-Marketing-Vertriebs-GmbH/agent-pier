@@ -172,17 +172,24 @@ export class ChatStore {
         providerSessionId: nativeId,
       });
   }
+  async assertManualBinding(session) {
+    const native = await this.bindings?.resolve(session);
+    if (session.nativeBinding?.enabled || native?.source === "native-process")
+      throw problem(serverMessages.chat.linkUnavailable, 409);
+  }
   async bind(id, nativeId) {
     const session = { ...(await this.sessions.get(id)) };
     const initialGeneration = this.generations.get(id);
     providerId(nativeId);
     if (session.tool === "shell" || session.purpose === "login")
       throw problem(serverMessages.chat.linkUnavailable, 409);
+    await this.assertManualBinding(session);
     const choices = await this.history.list(session);
     if (!choices.some((choice) => choice.id === nativeId))
       throw problem(serverMessages.chat.historySelectionRequired);
     const generation = initialGeneration;
     const content = await this.page(session, nativeId);
+    await this.assertManualBinding(await this.sessions.get(id));
     const latest = await this.sessions.get(id);
     if (
       this.generations.get(id) !== generation ||
@@ -194,9 +201,10 @@ export class ChatStore {
     this.cache.delete(id);
     return this.snapshot(session, nativeId, content);
   }
-  snapshot(session, nativeId, content) {
+  snapshot(session, nativeId, content, manualBindingSupported = true) {
     const result = {
       availability: "ready",
+      manualBindingSupported,
       providerSessionId: nativeId,
       messages: content.messages,
       history: {
@@ -226,6 +234,7 @@ export class ChatStore {
     if (session.purpose === "login")
       return {
         availability: "unsupported",
+        manualBindingSupported: false,
         messages: [],
         tasks: [],
         notice: serverMessages.chat.loginInTerminal,
@@ -233,12 +242,15 @@ export class ChatStore {
     if (session.tool === "shell")
       return {
         availability: "unsupported",
+        manualBindingSupported: false,
         messages: [],
         tasks: [],
         notice: serverMessages.chat.shellInTerminal,
       };
     let binding = readJSON(this.file(id), null);
     const native = await this.bindings?.resolve(session);
+    const manualBindingSupported =
+      !session.nativeBinding?.enabled && native?.source !== "native-process";
     const latest = await this.sessions.get(id);
     if (
       this.generations.get(id) !== initialGeneration ||
@@ -249,6 +261,7 @@ export class ChatStore {
     if (native && native.id === null && session.nativeBinding?.enabled)
       return {
         availability: "waiting",
+        manualBindingSupported,
         observability: finalizeObservability(null, session),
         providerSessionId: null,
         messages: [],
@@ -275,6 +288,7 @@ export class ChatStore {
     if (!binding && session.nativeBinding?.enabled)
       return {
         availability: "waiting",
+        manualBindingSupported,
         observability: finalizeObservability(null, session),
         providerSessionId: null,
         messages: [],
@@ -287,6 +301,7 @@ export class ChatStore {
     if (!binding)
       return {
         availability: "unbound",
+        manualBindingSupported,
         providerSessionId: null,
         messages: [],
         tasks: [],
@@ -300,6 +315,7 @@ export class ChatStore {
       (!scope || (scope.accountId === session.accountId && scope.tool === session.tool));
     const stale = () => ({
       ...saved,
+      manualBindingSupported,
       messages: (saved.messages || []).slice(-50),
       history: {
         cursor:
@@ -315,7 +331,8 @@ export class ChatStore {
       notice: serverMessages.chat.savedHistoryNotice,
     });
     const cached = this.cache.get(id);
-    if (cached && Date.now() - cached.time < 1000) return cached.promise;
+    if (cached && Date.now() - cached.time < 1000)
+      return { ...(await cached.promise), manualBindingSupported };
     const generation = this.generations.get(id);
     const key = JSON.stringify([
       id,
@@ -331,7 +348,12 @@ export class ChatStore {
         .then(() => this.page(session, binding.providerSessionId))
         .then(async (content) => {
           await this.current(session, binding.providerSessionId, generation);
-          const result = this.snapshot(session, binding.providerSessionId, content);
+          const result = this.snapshot(
+            session,
+            binding.providerSessionId,
+            content,
+            manualBindingSupported,
+          );
           this.cache.set(id, { time: Date.now(), promise: Promise.resolve(result) });
           if (timedOut)
             this.events?.publish(id, "snapshot-changed", {
@@ -369,6 +391,7 @@ export class ChatStore {
         if (error.status === 404)
           return {
             availability: "waiting",
+            manualBindingSupported,
             observability: finalizeObservability(null, session),
             providerSessionId: binding.providerSessionId,
             messages: [],
@@ -380,7 +403,7 @@ export class ChatStore {
     })();
     this.cache.set(id, { time: Date.now(), promise });
     try {
-      return await promise;
+      return { ...(await promise), manualBindingSupported };
     } catch (error) {
       this.cache.delete(id);
       throw error;

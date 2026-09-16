@@ -108,3 +108,38 @@ test("Agency rejects obsolete catalog revisions and preserves user-modified agen
   );
   assert.ok(path.isAbsolute(installed.path));
 });
+
+test("Agency removal clears a missing native file record and permits reinstall", async (t) => {
+  const f = await fixture(t),
+    endpoint = "/api/accounts/local-claude/agency";
+  const catalog = await (await f.request(endpoint)).json();
+  const id = catalog.items[0].id;
+  const installed = await (
+    await f.request(endpoint, { method: "POST", body: { id, revision } })
+  ).json();
+  await fs.unlink(installed.path);
+  assert.equal((await f.request(endpoint + "/" + id, { method: "DELETE" })).status, 204);
+  const updated = await (await f.request(endpoint)).json();
+  assert.equal(updated.installed.length, 0);
+  assert.equal(updated.items[0].installed, false);
+  assert.equal(
+    (await f.request(endpoint, { method: "POST", body: { id, revision } })).status,
+    201,
+  );
+});
+
+test("Agency removal retains a replacement file even with original contents", async (t) => {
+  const f = await fixture(t),
+    endpoint = "/api/accounts/local-claude/agency";
+  const catalog = await (await f.request(endpoint)).json();
+  const id = catalog.items[0].id;
+  const installed = await (
+    await f.request(endpoint, { method: "POST", body: { id, revision } })
+  ).json();
+  const content = await fs.readFile(installed.path, "utf8");
+  await fs.rename(installed.path, installed.path + ".original");
+  await fs.writeFile(installed.path, content);
+  assert.equal((await f.request(endpoint + "/" + id, { method: "DELETE" })).status, 409);
+  assert.equal(await fs.readFile(installed.path, "utf8"), content);
+  assert.equal((await (await f.request(endpoint)).json()).installed.length, 1);
+});

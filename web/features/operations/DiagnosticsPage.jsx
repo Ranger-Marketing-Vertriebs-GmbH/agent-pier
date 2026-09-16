@@ -9,7 +9,7 @@ import { formatTimestamp } from "../../lib/i18n/index.js";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 export default function DiagnosticsPage() {
   const resource = useResource("/operations/doctor"),
-    projects = useResource("/memory/projects"),
+    projects = useResource("/repositories"),
     action = useAsyncAction();
   const [scope, setScope] = useState("host"),
     [projectId, setProjectId] = useState(""),

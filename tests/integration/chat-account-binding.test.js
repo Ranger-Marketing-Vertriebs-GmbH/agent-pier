@@ -109,3 +109,60 @@ test("a late old-account history read cannot overwrite the newly attached accoun
     "replacement",
   );
 });
+
+for (const authority of ["enabled", "native-process"]) {
+  test(`manual binding cannot replace ${authority} native conversation`, async (t) => {
+    const { store, session, history, bindings } = fixture(t, "codex");
+    session.nativeBinding.enabled = authority === "enabled";
+    bindings.resolve = async () => ({ id: "same-conversation", source: authority });
+    history.list = async () => [{ id: "same-conversation" }, { id: "other" }];
+    const before = await store.read(session.id);
+    await assert.rejects(store.bind(session.id, "other"), { status: 409 });
+    const after = await store.read(session.id);
+    assert.equal(after.providerSessionId, "same-conversation");
+    assert.equal(after.history.generation, before.history.generation);
+    assert.equal(after.manualBindingSupported, false);
+  });
+}
+
+test("legacy sessions retain manual binding and advertise the picker", async (t) => {
+  const { store, session, history, bindings } = fixture(t, "claude");
+  session.nativeBinding.enabled = false;
+  bindings.resolve = async () => null;
+  history.list = async () => [{ id: "other" }];
+  assert.equal((await store.read(session.id)).manualBindingSupported, true);
+  const bound = await store.bind(session.id, "other");
+  assert.equal(bound.manualBindingSupported, true);
+  assert.equal((await store.read(session.id)).providerSessionId, "other");
+});
+
+test("native authority arriving during manual history load prevents the pending bind", async (t) => {
+  const { store, session, history, bindings } = fixture(t, "claude");
+  session.nativeBinding.enabled = false;
+  bindings.resolve = async () => null;
+  history.list = async () => [{ id: "other" }];
+  history.readPage = async () => {
+    session.nativeBinding.enabled = true;
+    bindings.resolve = async () => ({ id: "same-conversation" });
+    return { messages: [], tasks: [] };
+  };
+  await assert.rejects(store.bind(session.id, "other"), { status: 409 });
+  assert.equal(fs.existsSync(store.file(session.id)), false);
+});
+
+test("native waiting and saved history never advertise manual binding", async (t) => {
+  const { store, session, history, bindings } = fixture(t, "codex");
+  bindings.resolve = async () => ({ id: null });
+  const waiting = await store.read(session.id);
+  assert.equal(waiting.availability, "waiting");
+  assert.equal(waiting.manualBindingSupported, false);
+  bindings.resolve = async () => ({ id: "same-conversation" });
+  await store.read(session.id);
+  store.invalidate(session.id);
+  history.readPage = async () => {
+    throw Error("temporarily unavailable");
+  };
+  const saved = await store.read(session.id);
+  assert.equal(saved.manualBindingSupported, false);
+  assert.equal(saved.providerSessionId, "same-conversation");
+});

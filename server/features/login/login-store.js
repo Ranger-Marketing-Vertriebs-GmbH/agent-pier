@@ -1,8 +1,8 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import path from "node:path";
-import { readJSON, writePrivate, problem } from "../../lib/storage.js";
-import { loginMessages as copy } from "../../lib/i18n/de/login.js";
+import { readJSON, writePrivate } from "../../lib/storage.js";
+import { loginProblem } from "./login-errors.js";
 const derive = promisify(scrypt);
 const digest = (token) => createHash("sha256").update(token).digest("hex");
 export const sessionDuration = 7 * 24 * 60 * 60 * 1000;
@@ -35,20 +35,20 @@ export class LoginStore {
     writePrivate(this.file, this.data);
   }
   async setup({ username, password } = {}, source) {
-    if (this.configured) throw problem(copy.exists, 409);
+    if (this.configured) throw loginProblem("LOGIN_ALREADY_CONFIGURED");
     if (
       typeof username !== "string" ||
       !username.trim() ||
       username.trim().length > 100 ||
       /[\x00-\x1f\x7f]/.test(username)
     )
-      throw problem(copy.username);
+      throw loginProblem("LOGIN_USERNAME_INVALID");
     if (typeof password !== "string" || password.length < 12 || password.length > 1024)
-      throw problem(copy.password);
+      throw loginProblem("LOGIN_PASSWORD_INVALID");
     this.throttle(source);
     const salt = randomBytes(32).toString("hex");
     const hash = (await hashPassword(password, salt)).toString("hex");
-    if (this.configured) throw problem(copy.exists, 409);
+    if (this.configured) throw loginProblem("LOGIN_ALREADY_CONFIGURED");
     this.data.user = { username: username.trim(), salt, hash };
     this.save();
     return this.issue();
@@ -58,7 +58,7 @@ export class LoginStore {
     const now = this.now();
     const window = this.attempts.get(key);
     if (window && now - window.start < 60000) {
-      if (++window.count > 10) throw problem(copy.throttled, 429);
+      if (++window.count > 10) throw loginProblem("LOGIN_THROTTLED");
       return;
     }
     this.attempts.delete(key);
@@ -76,13 +76,13 @@ export class LoginStore {
       typeof password !== "string" ||
       password.length > 1024
     )
-      throw problem(copy.invalid, 401);
+      throw loginProblem("LOGIN_CREDENTIALS_INVALID");
     const hash = await hashPassword(password, user.salt);
     if (
       !timingSafeEqual(hash, Buffer.from(user.hash, "hex")) ||
       username.trim() !== user.username
     )
-      throw problem(copy.invalid, 401);
+      throw loginProblem("LOGIN_CREDENTIALS_INVALID");
     return this.issue();
   }
   issue() {
@@ -109,7 +109,7 @@ export class LoginStore {
   }
   require(token) {
     const session = this.session(token);
-    if (!session) throw problem(copy.required, 401);
+    if (!session) throw loginProblem("LOGIN_REQUIRED");
     return session;
   }
   revoke(token) {

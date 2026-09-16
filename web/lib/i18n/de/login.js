@@ -14,5 +14,14 @@ export const loginCopy = Object.freeze({
   pending: "Bitte warten …",
   retry: "Erneut versuchen",
   failed: "Anmeldung konnte nicht geprüft werden.",
+  errors: {
+    LOGIN_ALREADY_CONFIGURED:
+      "Der Benutzer wurde bereits eingerichtet. Bitte melde dich an.",
+    LOGIN_USERNAME_INVALID: "Gib einen Benutzernamen mit 1 bis 100 Zeichen ein.",
+    LOGIN_PASSWORD_INVALID: "Das Passwort muss 12 bis 1024 Zeichen lang sein.",
+    LOGIN_CREDENTIALS_INVALID: "Benutzername oder Passwort ist falsch.",
+    LOGIN_THROTTLED: "Zu viele Anmeldeversuche. Bitte warte eine Minute.",
+    LOGIN_REQUIRED: "Bitte melde dich an.",
+  },
   logout: "Abmelden",
 });

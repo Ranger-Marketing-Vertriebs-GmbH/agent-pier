@@ -106,3 +106,54 @@ test("first user setup, reload, logout and login protect the complete workspace"
     await fs.rm(root, { recursive: true, force: true });
   }
 });
+
+test.describe("English login failures", () => {
+  test.use({ locale: "en-GB" });
+  test("real backend errors are translated for wrong credentials and throttling", async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-login-errors-"));
+    const application = await createApplication({ dataDir: root, home: root, port: 0 });
+    await application.login.setup({ username: "owner", password: "disposable-password" });
+    await new Promise((resolve) => application.server.listen(0, "127.0.0.1", resolve));
+    const url = `http://127.0.0.1:${application.server.address().port}`;
+    try {
+      await context.clearCookies();
+      await page.goto(url);
+      await expect(
+        page.getByRole("heading", { name: "Sign in", exact: true }),
+      ).toBeVisible();
+      await page.getByLabel("Username", { exact: true }).fill("owner");
+      await page.getByLabel("Password", { exact: true }).fill("incorrect-password");
+      const invalid = page.waitForResponse("**/auth/login");
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      expect((await (await invalid).json()).code).toBe("LOGIN_CREDENTIALS_INVALID");
+      await expect(page.getByRole("alert")).toHaveText(
+        "Username or password is incorrect.",
+      );
+      await page.screenshot({
+        path: `.cache/feature-review-fixes/login-english-${browserName}.png`,
+        fullPage: true,
+      });
+      for (let attempt = 0; attempt < 9; attempt++) {
+        await page.request.post(url + "/auth/login", {
+          headers: { origin: url },
+          data: { username: "owner", password: "incorrect-password" },
+        });
+      }
+      const throttled = page.waitForResponse("**/auth/login");
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      const response = await throttled;
+      expect(response.status()).toBe(429);
+      expect(response.headers()["retry-after"]).toBe("60");
+      await expect(page.getByRole("alert")).toHaveText(
+        "Too many sign-in attempts. Please wait a minute.",
+      );
+    } finally {
+      await application.close();
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+});

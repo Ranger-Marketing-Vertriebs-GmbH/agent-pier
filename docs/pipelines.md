@@ -39,7 +39,7 @@ Verification settings belong to a registered project under **Pipelines → Verif
 
 The exact plan is frozen for each gate attempt when used; edits can affect a later attempt but never rewrite an in-flight execution. Every step runs, even if an earlier one fails, and each has an individual timeout and a bounded tail of 8,192 log characters with an explicit truncation indicator. Blocking failures, missing execution and timeouts cannot become a successful verification result. Run details retain the plan, outcome and logs alongside stage diffs and declared artifacts.
 
-Artifact reads are bounded and confined to the run's worktree and declared evidence. Credential directories, traversal and symlink escapes are rejected. Every accepted or overridden completed stage records a Git checkpoint. A diff identifies that recorded boundary; later repair attempts do not erase previous attempt records.
+Artifact reads are bounded and confined to the run's worktree and declared evidence. Credential directories, dotenv files (`.env` and `.env.*` at any depth), PEM/key files, traversal and symlink escapes are rejected. Private filename checks ignore case. Checkpoints also exclude these private files when they were already staged; removing them from the index preserves their working-tree contents. Every accepted or overridden completed stage records a Git checkpoint. A diff identifies that recorded boundary; later repair attempts do not erase previous attempt records.
 
 ## Restart, cancellation and cleanup
 

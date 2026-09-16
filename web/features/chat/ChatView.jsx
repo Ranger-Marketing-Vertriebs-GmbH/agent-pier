@@ -152,7 +152,7 @@ export default function ChatView({
             </span>
           </button>
           <div>
-            {data?.providerSessionId && (
+            {data?.providerSessionId && data.manualBindingSupported !== false && (
               <button onClick={() => setPicking((value) => !value)}>
                 {copy.changeConversation}
               </button>
@@ -187,15 +187,16 @@ export default function ChatView({
               80;
           }}
         >
-          {(data?.availability === "unbound" || picking) && (
-            <ConversationPicker
-              session={session}
-              request={request}
-              selected={data?.providerSessionId}
-              choose={choose}
-              cancel={picking ? () => setPicking(false) : undefined}
-            />
-          )}
+          {data?.manualBindingSupported !== false &&
+            (data?.availability === "unbound" || picking) && (
+              <ConversationPicker
+                session={session}
+                request={request}
+                selected={data?.providerSessionId}
+                choose={choose}
+                cancel={picking ? () => setPicking(false) : undefined}
+              />
+            )}
           {data?.notice && <p className="chat-notice">{data.notice}</p>}
           <ChatReset key={delivery.reset?.deliveryId || "history"} status={resetStatus}>
             {historyLoader}

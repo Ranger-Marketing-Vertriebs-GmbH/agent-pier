@@ -152,6 +152,8 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
     )
       throw problem("Override requires a stopped, quiesced native turn.", 409);
     attempt.quiesced = true;
+  }
+  if (action === "override") {
     const selected = node.forwardCondition
       ? outgoing(run, node.id, node.forwardCondition)
       : outgoing(run, node.id, "pass") || outgoing(run, node.id, "default");

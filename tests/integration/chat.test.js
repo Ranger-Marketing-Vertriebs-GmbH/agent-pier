@@ -36,6 +36,7 @@ test("chat never guesses the newest conversation or falls back to terminal chrom
   const { store } = fixture(t);
   assert.deepEqual(await store.read("test"), {
     availability: "unbound",
+    manualBindingSupported: true,
     providerSessionId: null,
     messages: [],
     tasks: [],

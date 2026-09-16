@@ -8,7 +8,10 @@ export async function loginRequest(action, body) {
     signal: AbortSignal.timeout(15000),
   });
   const data = response.status === 204 ? {} : await response.json();
-  if (!response.ok) throw new Error(data.error || copy.failed);
+  if (!response.ok)
+    throw new Error(
+      Object.hasOwn(copy.errors, data.code) ? copy.errors[data.code] : copy.failed,
+    );
   return data;
 }
 export function announceLoginChange() {

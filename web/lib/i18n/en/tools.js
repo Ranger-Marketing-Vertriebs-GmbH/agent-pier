@@ -28,6 +28,7 @@ export const toolInstallerCopy = {
   refreshingInstallationStatus: "Refreshing status …",
   githubCredentials: "GitHub connections",
   startingInstallation: "Starting installation …",
+  reinstallationReady: "CLI missing — ready to reinstall",
   retryInstallation: "Install again",
 };
 export const useToolInstallationCopy = {

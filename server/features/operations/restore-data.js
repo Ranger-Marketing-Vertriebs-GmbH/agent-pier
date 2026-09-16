@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { Preferences } from "../settings/preferences.js";
 import { projectScope } from "../memory/project-scope.js";
 import { atomic, readJson } from "./files.js";
 import { problem } from "../../lib/storage.js";
@@ -107,7 +108,13 @@ export async function mapProjects(directory, projectMap = {}) {
     preferences = readJson(preferencesFile, null);
   if (preferences) {
     const mapped = mappings.find((m) => m.oldCwd === preferences.defaultCwd);
-    atomic(preferencesFile, mapped ? { defaultCwd: mapped.cwd } : {});
+    const restored = mapped ? { defaultCwd: mapped.cwd } : {};
+    if (Object.hasOwn(preferences, "defaultAccountIds"))
+      restored.defaultAccountIds = new Preferences({
+        dataDir: directory,
+        accounts: { list: () => readJson(path.join(directory, "accounts.json"), []) },
+      }).get().defaultAccountIds;
+    atomic(preferencesFile, restored);
   }
   const repositoriesFile = path.join(directory, "repositories.json"),
     repositories = readJson(repositoriesFile, null);
@@ -141,6 +148,7 @@ export function historicalOnly(directory) {
         "panePid",
         "exitCode",
         "nativeBinding",
+        "attachments",
         "memory",
         "agentbus",
         "requests",

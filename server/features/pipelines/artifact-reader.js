@@ -1,5 +1,6 @@
 import { problem } from "../../lib/storage.js";
 import { containedFile } from "./stage-verdict.js";
+import { privatePipelinePath } from "./private-paths.js";
 const deny = new Set([
   ".git",
   ".git-credentials",
@@ -33,7 +34,10 @@ export function artifactText(run, nodeId, file) {
     .filter((a) => a.nodeId === nodeId && a.finishedAt)
     .some((a) => a.verdict?.artifacts?.some((f) => f.path === file));
   if (!declared) throw problem("Artifact was not declared by this stage.", 404);
-  if (file.split("/").some((part) => deny.has(part.toLowerCase())))
+  if (
+    privatePipelinePath(file) ||
+    file.split("/").some((part) => deny.has(part.toLowerCase()))
+  )
     throw problem("Artifact path is private.", 403);
   try {
     const { text, truncated } = containedFile(run.workingDir, file, 2 * 1024 * 1024);
