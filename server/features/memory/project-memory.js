@@ -51,6 +51,33 @@ export class ProjectMemory {
         scope.identity,
         new Date().toISOString(),
       );
+    const existing = this.project(scope.id);
+    if (existing.cwd !== scope.cwd) {
+      let current;
+      try {
+        current = await projectScope(existing.cwd);
+      } catch (error) {
+        if (error.status !== 404) throw error;
+      }
+      if (current?.id !== scope.id) {
+        const verified = await projectScope(scope.cwd);
+        if (verified.id !== scope.id)
+          throw failure("Memory project changed during registration.", 409);
+        // Preserve identity/history, and do not overwrite another completed repair.
+        this.db
+          .prepare(
+            "UPDATE projects SET name=?,cwd=?,kind=?,identity=? WHERE id=? AND cwd=?",
+          )
+          .run(
+            verified.name,
+            verified.cwd,
+            verified.kind,
+            verified.identity,
+            scope.id,
+            existing.cwd,
+          );
+      }
+    }
     return this.project(scope.id);
   }
   project(id) {

@@ -317,7 +317,7 @@ export class AgentBus {
     scan: for (const recipient of peers) {
       let rows;
       try {
-        rows = this.queue(h).rows({ recipient: recipient.key, limit: 5000 });
+        rows = this.queue(h).rows({ recipient: recipient.key, limit: 5001 - scanned });
       } catch {
         continue;
       }

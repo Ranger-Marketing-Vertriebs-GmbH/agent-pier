@@ -157,7 +157,36 @@ console.log('Ready'); process.stdin.resume(); setInterval(()=>{},1000);
       requestId: randomUUID(),
       targetAccountId: target.id,
     };
-    const result = await (await f.request(endpoint, { method: "POST", body })).json();
+    // Hold the real preflight after it captures the target launch credentials.
+    const prepare = app.prepareReload;
+    let entered, release;
+    const prepared = new Promise((resolve) => {
+      entered = resolve;
+    });
+    const held = new Promise((resolve) => {
+      release = resolve;
+    });
+    app.prepareReload = async (...args) => {
+      const plan = await prepare(...args);
+      entered();
+      await held;
+      return plan;
+    };
+    const switching = f.request(endpoint, { method: "POST", body });
+    await prepared;
+    try {
+      const mutation = await f.request(
+        `/api/accounts/${target.id}`,
+        tool === "claude"
+          ? { method: "DELETE" }
+          : { method: "PATCH", body: { name: target.name, apiKey: "fixture-new-key" } },
+      );
+      assert.equal(mutation.status, 409, "reload must reserve its target account");
+    } finally {
+      release();
+      app.prepareReload = prepare;
+    }
+    const result = await (await switching).json();
     assert.ok(["reloading", "completed"].includes(result.state), JSON.stringify(result));
     await until(
       async () => (await f.request(endpoint)).json(),

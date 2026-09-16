@@ -80,6 +80,14 @@ export class SessionReload {
     session.reload = { ...current.reload, ...patch, updatedAt: new Date().toISOString() };
     await this.services.sessions.updateReload(session.id, session.reload);
   }
+  withAccounts(session, targetAccountId, operation) {
+    const reserve = this.services.withAccountUsage || ((_id, run) => run());
+    return reserve(session.accountId, () =>
+      targetAccountId && targetAccountId !== session.accountId
+        ? reserve(targetAccountId, operation)
+        : operation(),
+    );
+  }
   request(id, body = {}) {
     return this.serial(async () => {
       if (this.closed) throw problem("Session reload is shutting down.", 503);
@@ -108,35 +116,37 @@ export class SessionReload {
         body.interrupt !== true
       )
         throw problem("Confirm interruption before reloading this session.", 409);
-      // Resolve history, account, executable and model before recording any destructive intent.
-      const plan = await this.services.prepareReload(
-        session,
-        value.nativeId,
-        body.targetAccountId,
-      );
-      const previousRequestIds = [
-        ...(session.reload?.previousRequestIds || []),
-        ...(session.reload?.requestId ? [session.reload.requestId] : []),
-      ];
-      await this.save(session, {
-        state:
-          body.mode === "when-idle" &&
-          session.status === "running" &&
-          value.activity.state !== "idle"
-            ? "waiting"
-            : "reloading",
-        replacementStarted: plan.recovery === true,
-        requestId: body.requestId,
-        previousRequestIds,
-        nativeId: value.nativeId,
-        targetAccountId: body.targetAccountId || null,
-        mode: body.mode,
-        interrupt: body.mode === "now" && body.interrupt === true,
-        error: null,
+      return this.withAccounts(session, body.targetAccountId, async () => {
+        // Resolve history, account, executable and model before recording any destructive intent.
+        const plan = await this.services.prepareReload(
+          session,
+          value.nativeId,
+          body.targetAccountId,
+        );
+        const previousRequestIds = [
+          ...(session.reload?.previousRequestIds || []),
+          ...(session.reload?.requestId ? [session.reload.requestId] : []),
+        ];
+        await this.save(session, {
+          state:
+            body.mode === "when-idle" &&
+            session.status === "running" &&
+            value.activity.state !== "idle"
+              ? "waiting"
+              : "reloading",
+          replacementStarted: plan.recovery === true,
+          requestId: body.requestId,
+          previousRequestIds,
+          nativeId: value.nativeId,
+          targetAccountId: body.targetAccountId || null,
+          mode: body.mode,
+          interrupt: body.mode === "now" && body.interrupt === true,
+          error: null,
+        });
+        if (session.reload.state === "waiting") this.pending.add(id);
+        else await this.run(session, plan);
+        return this.status(id);
       });
-      if (session.reload.state === "waiting") this.pending.add(id);
-      else await this.run(session, plan);
-      return this.status(id);
     });
   }
   async run(session, plan) {
@@ -209,12 +219,14 @@ export class SessionReload {
         try {
           if (!value.eligible || value.nativeId !== session.reload.nativeId)
             throw problem("The native conversation changed while waiting.", 409);
-          const plan = await this.services.prepareReload(
-            session,
-            value.nativeId,
-            session.reload.targetAccountId || undefined,
-          );
-          await this.run(session, plan);
+          await this.withAccounts(session, session.reload.targetAccountId, async () => {
+            const plan = await this.services.prepareReload(
+              session,
+              value.nativeId,
+              session.reload.targetAccountId || undefined,
+            );
+            await this.run(session, plan);
+          });
         } catch {
           this.pending.delete(id);
           await this.save(session, { state: "failed", error: failureMessage });

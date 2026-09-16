@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { createSessionLifecycle } from "../../server/application/session-lifecycle.js";
 import { SessionReload } from "../../server/features/sessions/session-reload.js";
 import { resumeLaunch } from "../../server/application/session-reload-launch.js";
 
@@ -311,3 +312,58 @@ test("stopping a replacement awaiting verification clears pending reload work", 
   assert.equal(f.reload.pending.size, 0);
   assert.equal(f.stops, 0);
 });
+
+for (const phase of ["now", "when-idle", "prepare-error", "restart-error"]) {
+  test(`reload reserves both accounts during ${phase} and releases usage afterwards`, async () => {
+    const f = fixture();
+    f.session.accountId = "source";
+    // Stopped sessions isolate reservation checks from the running-session guard.
+    f.session.status = "stopped";
+    const lifecycle = createSessionLifecycle(f.services);
+    Object.assign(f.services, { withAccountUsage: lifecycle.withAccountUsage });
+    const protectedPreparation = async (_session, nativeId) => {
+      assert.equal(await lifecycle.activeFor("source"), true);
+      assert.equal(await lifecycle.activeFor("target"), true);
+      if (phase === "prepare-error") throw Error("Preparation failed");
+      return { nativeId };
+    };
+    f.services.prepareReload = protectedPreparation;
+    const restartUsage = [];
+    f.services.restartReload = async () => {
+      restartUsage.push([
+        await lifecycle.activeFor("source"),
+        await lifecycle.activeFor("target"),
+      ]);
+      if (phase === "restart-error") throw Error("Restart failed");
+      f.session.status = "running";
+    };
+    const body = {
+      mode: phase === "when-idle" ? "when-idle" : "now",
+      targetAccountId: "target",
+      requestId: randomUUID(),
+    };
+    if (phase === "when-idle") {
+      f.session.status = "running";
+      f.activity("busy");
+    }
+    if (phase === "prepare-error")
+      await assert.rejects(f.reload.request("session", body), /Preparation failed/);
+    else await f.reload.request("session", body);
+    if (phase === "now") assert.equal(f.session.reload.state, "completed");
+    if (phase === "restart-error") assert.equal(f.session.reload.state, "failed");
+    if (["now", "restart-error"].includes(phase))
+      assert.deepEqual(restartUsage, [[true, true]]);
+    f.session.status = "stopped";
+    assert.equal(await lifecycle.activeFor("source"), false);
+    assert.equal(await lifecycle.activeFor("target"), false);
+    if (phase === "when-idle") {
+      f.activity("idle");
+      await f.reload.poll();
+      assert.equal(f.session.reload.state, "completed");
+      assert.deepEqual(restartUsage, [[true, true]]);
+      f.session.status = "stopped";
+      assert.equal(await lifecycle.activeFor("source"), false);
+      assert.equal(await lifecycle.activeFor("target"), false);
+    }
+  });
+}

@@ -2,7 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
 export function accountsRoutes(services) {
-  const { accounts, plugins, activeFor, launch } = services;
+  const { accounts, plugins, activeFor, launch, mutateAccount } = services;
   const router = Router();
   router.get("/accounts/:id/auth-status", async (req, res) =>
     res.json(await services.accountAuthStatus.get(req.params.id)),
@@ -21,16 +21,21 @@ export function accountsRoutes(services) {
       !!req.body?.apiKey ||
       req.body?.removeApiKey === true ||
       Object.hasOwn(req.body || {}, "provider");
-    await assertMutable(
-      req.params.id,
-      changesCredentials,
-      serverMessages.accounts.stopBeforeKeyChange,
-    );
-    res.json(accounts.update(req.params.id, req.body));
+    const account = await mutateAccount(req.params.id, async () => {
+      await assertMutable(
+        req.params.id,
+        changesCredentials,
+        serverMessages.accounts.stopBeforeKeyChange,
+      );
+      return accounts.update(req.params.id, req.body);
+    });
+    res.json(account);
   });
   router.delete("/accounts/:id", async (req, res) => {
-    await assertMutable(req.params.id, true, serverMessages.accounts.stopBeforeDelete);
-    accounts.remove(req.params.id);
+    await mutateAccount(req.params.id, async () => {
+      await assertMutable(req.params.id, true, serverMessages.accounts.stopBeforeDelete);
+      accounts.remove(req.params.id);
+    });
     res.status(204).end();
   });
   router.post("/accounts/:id/login", async (req, res) =>

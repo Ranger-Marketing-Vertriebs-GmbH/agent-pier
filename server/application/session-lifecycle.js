@@ -28,6 +28,33 @@ export function createSessionLifecycle(services) {
     sshSessions,
   } = services;
   const reservations = new Map();
+  const accountLaunches = new Map();
+  const accountMutations = new Set();
+  function acquireAccount(id) {
+    if (accountMutations.has(id))
+      throw problem(serverMessages.common.profileChanged, 409);
+    const key = Symbol();
+    accountLaunches.set(key, id);
+    return () => accountLaunches.delete(key);
+  }
+  async function withAccountUsage(id, operation) {
+    const release = acquireAccount(id);
+    try {
+      return await operation();
+    } finally {
+      release();
+    }
+  }
+  async function mutateAccount(id, operation) {
+    if (accountMutations.has(id))
+      throw problem(serverMessages.common.profileChanged, 409);
+    accountMutations.add(id);
+    try {
+      return await operation();
+    } finally {
+      accountMutations.delete(id);
+    }
+  }
   let reservationQueue = Promise.resolve();
   const reserve = (account, login) => {
     const operation = reservationQueue.then(async () => {
@@ -53,10 +80,15 @@ export function createSessionLifecycle(services) {
     reservationQueue = operation.catch(() => {});
     return operation;
   };
-  const activeFor = async (id) =>
+  const runningFor = async (id) =>
     (await sessions.list()).some(
       (session) => session.accountId === id && session.status === "running",
     );
+  const activeFor = async (id) => {
+    if ([...accountLaunches.values()].includes(id)) return true;
+    const running = await runningFor(id);
+    return running || [...accountLaunches.values()].includes(id);
+  };
   async function launch(body, login = false, trusted = {}) {
     if (body.agentbus !== undefined && typeof body.agentbus !== "boolean")
       throw problem(serverMessages.sessions.invalidAgentBusSelection);
@@ -67,10 +99,12 @@ export function createSessionLifecycle(services) {
       throw problem("AgentPier tools are only available to standalone coding sessions.");
     services.sessionMcp?.validate(body.agentpierTools);
     const resolved = providerAccess.resolve(body, { login });
-    const release = resolved.selection
-      ? providerConnections.acquire(resolved.selection.providerConnectionId)
-      : () => {};
+    // Claim usage synchronously before the first asynchronous launch preparation.
+    const releaseAccount = acquireAccount(resolved.account.id);
+    let release = () => {};
     try {
+      if (resolved.selection)
+        release = providerConnections.acquire(resolved.selection.providerConnectionId);
       const unreserve = await reserve(resolved.account, login);
       try {
         return await launchResolved(body, login, trusted, resolved);
@@ -79,6 +113,7 @@ export function createSessionLifecycle(services) {
       }
     } finally {
       release();
+      releaseAccount();
     }
   }
   async function launchResolved(body, login, trusted, { account, selection }) {
@@ -101,7 +136,7 @@ export function createSessionLifecycle(services) {
     });
     if ((await sessions.list()).filter((s) => s.status === "running").length >= 30)
       throw problem(serverMessages.sessions.sessionLimitReached, 409);
-    if (login && (await activeFor(account.id)))
+    if (login && (await runningFor(account.id)))
       throw problem(serverMessages.sessions.stopBeforeLogin, 409);
     if (!login) sharedProfiles?.prepare(account, launch);
     const id = trusted.id || randomUUID();
@@ -224,5 +259,11 @@ export function createSessionLifecycle(services) {
     if (!login && account.tool === "claude") chat.initialize(session, id, "automatic");
     return session;
   }
-  return { launch, activeFor, ...createReloadLifecycle(services) };
+  return {
+    launch,
+    activeFor,
+    mutateAccount,
+    withAccountUsage,
+    ...createReloadLifecycle(services),
+  };
 }

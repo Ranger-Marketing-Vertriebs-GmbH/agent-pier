@@ -10,7 +10,7 @@ For Git projects, the scope hashes the canonical Git common-directory path toget
 
 For a non-Git project, the selected canonical working directory is its root. No parent-directory inference is performed for non-Git projects. Launch from the same root to share memory. Git discovery is read-only, bounded to three seconds, and does not change native configuration or bypass Git ownership checks.
 
-The project registry persists independently of sessions. Stopping or removing the last session does not delete its project or knowledge.
+The project registry persists independently of sessions. Stopping or removing the last session does not delete its project or knowledge. If its registered checkout has been removed or now belongs to another project, registering a valid checkout of the same repository repairs the stored path while preserving entries and revisions. A still-valid registered checkout is retained.
 
 ## Entries and revisions
 
