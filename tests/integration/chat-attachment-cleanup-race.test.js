@@ -6,7 +6,7 @@ import path from "node:path";
 import { ChatAttachments } from "../../server/features/chat/chat-attachments.js";
 import { FileNative } from "../../server/features/files/file-native.js";
 
-for (const boundary of ["checked path", "opened account"]) {
+for (const boundary of ["opened root", "opened account"]) {
   test(`attachment cleanup preserves outside bytes when parent changes after ${boundary}`, async (t) => {
     const root = await fs.realpath(
       await fs.mkdtemp(path.join(os.tmpdir(), "attachment-race-")),
@@ -28,21 +28,18 @@ for (const boundary of ["checked path", "opened account"]) {
       await fs.rename(account, account + "-old");
       await fs.symlink(outside, account);
     }
-    const realpath = fs.realpath;
     const run = FileNative.prototype.run;
-    if (boundary === "checked path") {
-      t.mock.method(fs, "realpath", async (...args) => {
-        const result = await realpath(...args);
-        if (args[0] === selected) await swap();
-        return result;
-      });
-    } else {
-      t.mock.method(FileNative.prototype, "run", async function (operation, args) {
-        const result = await run.call(this, operation, args);
-        if (operation === "openLookup" && args.path === "account") await swap();
-        return result;
-      });
-    }
+    t.mock.method(FileNative.prototype, "run", async function (operation, args) {
+      const result = await run.call(this, operation, args);
+      if (
+        (boundary === "opened root" && operation === "openRoot") ||
+        (boundary === "opened account" &&
+          operation === "openLookup" &&
+          args.path === "account")
+      )
+        await swap();
+      return result;
+    });
     await store.discard("session", selected);
     assert.equal(swapped, true);
     assert.equal(await fs.readFile(marker, "utf8"), "outside upload");
@@ -92,4 +89,18 @@ test("attachment cleanup never adopts a replaced attachment root", async (t) => 
   await fs.symlink(outside, store.directory);
   await store.discard("session", selected);
   assert.equal(await fs.readFile(marker, "utf8"), "outside upload");
+});
+
+test("attachment cleanup uses only native handles after validating the grant", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "attachment-native-only-"));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const store = new ChatAttachments({ dataDir: root });
+  const selected = path.join(store.directory, "account/session");
+  await fs.mkdir(selected, { recursive: true });
+  await fs.writeFile(path.join(selected, "upload"), "owned upload");
+  t.mock.method(fs, "realpath", async () => {
+    throw new Error("Unexpected path-based lookup");
+  });
+  await store.discard("session", selected);
+  await assert.rejects(fs.stat(selected), { code: "ENOENT" });
 });

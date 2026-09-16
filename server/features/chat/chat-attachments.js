@@ -164,16 +164,6 @@ export class ChatAttachments {
       return;
     const parts = relative.split(path.sep);
     if (parts.at(-1) !== id) return;
-    const root = await fs.realpath(this.directory);
-    let actual;
-    try {
-      actual = await fs.realpath(path.join(this.directory, relative));
-    } catch (error) {
-      if (error.code === "ENOENT") return;
-      throw error;
-    }
-    // A linked account or session must never turn cleanup into an external delete.
-    if (actual !== path.join(root, relative)) return;
     await removeAttachmentTree(this.cleanupRoot, parts);
   }
 }
