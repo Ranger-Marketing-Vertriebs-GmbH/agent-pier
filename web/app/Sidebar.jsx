@@ -9,7 +9,7 @@ import React from "react";
 import Icon from "../components/Icon.jsx";
 import ProviderMark from "../components/ProviderMark.jsx";
 import { names } from "../lib/providers.js";
-import SidebarGroup, { sessionActivity } from "./SidebarGroup.jsx";
+import SidebarGroup, { sessionActivity, sandboxBadge } from "./SidebarGroup.jsx";
 export default function Sidebar({
   mobileNav,
   collapse,
@@ -198,6 +198,7 @@ export default function Sidebar({
                         {activity.label}
                       </span>
                       {s.tool !== "shell" && ` · ${names[s.tool]}`}
+                      {s.sandbox && ` · ${sandboxBadge(s)}`}
                     </small>
                   </span>
                 </button>

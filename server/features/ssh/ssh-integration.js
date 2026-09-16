@@ -7,6 +7,7 @@ import { tomlValue } from "../../lib/launch-serialization.js";
 import { capabilityFile, authorizeSsh, revokeSsh } from "./ssh-capability.js";
 import { createSshProjectBinding } from "./ssh-project-scope.js";
 import { prepareSshDiscovery } from "./ssh-discovery.js";
+import { addGrant } from "../nono/sandbox-grants.js";
 const main = fileURLToPath(new URL("./ssh-mcp.js", import.meta.url));
 const supported = (session) =>
   ["codex", "claude", "opencode"].includes(session?.tool) &&
@@ -109,7 +110,28 @@ export class SshIntegration {
         args,
         env,
       });
-      return {
+      // The CLI spawns the SSH MCP server itself and it reads its generation
+      // credential out of the capability folder.
+      return [
+        { access: "allow", path: folder },
+        // The MCP server builds SshAccessStore and SshSessions at startup, and
+        // both create and chmod their own directory under `<dataDir>/ssh`
+        // before any tool call happens; `ssh` itself then reads the identity
+        // files stored below that root. The whole store is granted because the
+        // MCP server is a child of the sandboxed CLI and cannot hold a
+        // capability the CLI does not also have, so no narrower enumeration
+        // keeps the keys out of the sandbox. Brokering the store outside the
+        // sandbox is the only way to change that; `docs/sandbox.md` records it
+        // as deferred.
+        { access: "allow", path: path.join(this.dataDir, "ssh") },
+        // authorizeSsh re-reads the session record on every call, so a grant
+        // that only covers the file present at launch is not enough: a session
+        // record is written to a temporary file and renamed into place on every
+        // status update, which replaces what a single-file grant named.
+        { access: "read", path: path.join(this.dataDir, "sessions") },
+        { access: "read", path: process.execPath },
+        { access: "read", path: main },
+      ].reduce((granted, grant) => addGrant(granted, grant), {
         ...launch,
         args,
         env,
@@ -119,7 +141,7 @@ export class SshIntegration {
           project,
           home: env.HOME || process.env.HOME,
         },
-      };
+      });
     } catch (error) {
       this.discard(id);
       throw error;

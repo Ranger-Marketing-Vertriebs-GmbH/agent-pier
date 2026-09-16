@@ -38,6 +38,16 @@ export const launchDialogCopy = {
   agentbusLaunchLabel: "AgentBus · connect sessions in the same project",
   agentbusLaunchHint:
     "CLIs can send messages to each other. This may trigger additional model work.",
+
+  sandboxSection: "Sandbox",
+  sandboxProfile: "Sandbox profile",
+  noSandboxProfile: "No sandbox",
+  sandboxUnavailable: "nono is not installed on this machine.",
+  sandboxUnavailableForTaskProfile:
+    "The sandbox profile is unavailable for task-profile launches.",
+  sandboxHint:
+    "The session's coding CLI runs inside nono with this sandbox profile. AgentPier adds the access its own integrations need.",
+  sandboxBadge: (sandboxProfile) => `Sandbox · ${sandboxProfile}`,
 };
 export const sessionWorkspaceCopy = {
   openNavigation: "Open navigation",

@@ -18,7 +18,9 @@ export function nativeCommand({
   // is allowed to write, so it is told the sandbox it actually runs in.
   const env = {
     ...launch.env,
-    AGENTRUNNER_SANDBOX: headless ? "none" : runSandbox(tool),
+    // AgentPier pipeline profiles have no sandbox profile concept yet, so this
+    // always reports the tool's own answer without a nono sandbox.
+    AGENTRUNNER_SANDBOX: headless ? "none" : runSandbox(tool, null),
   };
   if (tool === "codex") {
     if (headless)

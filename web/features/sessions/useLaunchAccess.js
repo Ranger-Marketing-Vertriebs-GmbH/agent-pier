@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useProviderCatalog from "../providers/useProviderCatalog.js";
+import api from "../../lib/api.js";
 export function launchAccesses(state, tool) {
   return {
     accounts: state.accounts.filter((account) => account.tool === tool),
@@ -45,7 +46,20 @@ export default function useLaunchAccess(state, initialTool, initialProfile) {
     [nativeModelId, setNativeModel] = useState(
       initialProfile?.config.models.default || "",
     ),
-    [query, setQuery] = useState("");
+    [query, setQuery] = useState(""),
+    [sandboxProfiles, setSandboxProfiles] = useState([]),
+    [sandboxAvailable, setSandboxAvailable] = useState(false),
+    [nonoProfile, setNonoProfile] = useState(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    api("/sandbox-profiles", "GET", undefined, controller.signal)
+      .then((result) => {
+        setSandboxAvailable(Boolean(result.available));
+        setSandboxProfiles(result.profiles || []);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
   const { accounts, connections } = launchAccesses(state, tool);
   const account = accounts.find((account) => account.id === accessId),
     connection = connections.find(
@@ -90,6 +104,10 @@ export default function useLaunchAccess(state, initialTool, initialProfile) {
     catalog,
     selectedModel,
     ready,
+    sandboxProfiles,
+    sandboxAvailable,
+    nonoProfile,
+    setNonoProfile,
     body: connection
       ? { tool, providerConnectionId: connection.id, providerModelId: modelId }
       : {

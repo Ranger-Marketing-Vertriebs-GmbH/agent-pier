@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { writePrivate, privateDirectory, problem } from "../../lib/storage.js";
 import { tomlValue } from "../../lib/launch-serialization.js";
+import { addGrant } from "../nono/sandbox-grants.js";
 const main = fileURLToPath(new URL("./session-stdio.js", import.meta.url));
 
 export function sessionMcpLaunch(launch, tool, folder, capability, socketPath) {
@@ -57,5 +58,6 @@ export function sessionMcpLaunch(launch, tool, folder, capability, socketPath) {
     };
     env.OPENCODE_CONFIG_CONTENT = JSON.stringify(config);
   }
-  return { ...launch, args, env };
+  // The CLI spawns this stdio bridge itself; only here is its script path in hand.
+  return addGrant({ ...launch, args, env }, { access: "read", path: main });
 }

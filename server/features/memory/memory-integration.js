@@ -12,6 +12,7 @@ import {
   writePrivateJson,
 } from "./memory-validation.js";
 import { tomlValue } from "../../lib/launch-serialization.js";
+import { addGrant } from "../nono/sandbox-grants.js";
 const main = fileURLToPath(new URL("./memory-mcp.js", import.meta.url));
 export class MemoryIntegration {
   constructor({ dataDir, accounts, memory }) {
@@ -104,7 +105,25 @@ export class MemoryIntegration {
         env,
       });
       this.accounts?.get(selected.id);
-      return { ...launch, args, env, memory: { enabled: true, projectId: project.id } };
+      const prepared = {
+        ...launch,
+        args,
+        env,
+        memory: { enabled: true, projectId: project.id },
+      };
+      // The CLI spawns the memory MCP server itself, so a sandboxed session needs
+      // the node binary and that server script on top of the memory store it reads
+      // and writes. The store is this.memory.root: this.dataDir is its parent, the
+      // whole AgentPier data directory, which holds every other feature's secrets.
+      // The server reaches the store over the broker socket, which file access to
+      // that path does not confer.
+      return [
+        { access: "allow", path: this.memory.root },
+        { access: "allow", path: folder },
+        { access: "read", path: process.execPath },
+        { access: "read", path: main },
+        { access: "socket", path: this.broker.socketPath },
+      ].reduce((granted, grant) => addGrant(granted, grant), prepared);
     } catch (error) {
       revokeCapability(this.memory, id);
       throw error;
