@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import { randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import { applicationFixture } from "../tests/helpers/application.js";
-import { prepareClaudeProbe } from "./probe-claude-startup.mjs";
+import { prepareClaude } from "./probe-claude-startup.mjs";
 import { createQuestionProvider } from "./probe-claude-questions-provider.mjs";
 import { shellQuote } from "../server/lib/launch-serialization.js";
 
@@ -152,7 +152,7 @@ try {
   const capture = () => manager.tmux(["capture-pane", "-p", "-t", target]);
   const keys = (...names) => manager.tmux(["send-keys", "-t", target, ...names]);
   try {
-    await prepareClaudeProbe({ fixture, session, capture, keys, options: [], waitFor });
+    await prepareClaude({ fixture, session, capture, keys, options: [], waitFor });
     await waitFor(() => fixture.application.bindings.verifiedReceipt(session), Boolean);
     for (let i = 0; i < 2; i++) {
       if (i === 1 && legacyHook) {
@@ -186,6 +186,37 @@ try {
       );
       const request = pending.find((request) => request.kind === "question");
       assert.equal(request.questions.length, 2);
+      if (options.includes("--terminal")) {
+        const { answerQuestionInBrowser } =
+          await import("./probe-claude-question-browser.mjs");
+        await answerQuestionInBrowser(fixture, session, {
+          terminalCheck: async (page) => {
+            const screen = await waitFor(capture, (text) =>
+              text.replace(/\s+/g, " ").includes("Which components should be included?"),
+            );
+            assert.match(screen, /API/);
+            assert.match(screen, /Web/);
+            assert.deepEqual((await fixture.application.requests.list(id)).requests, []);
+            assert.equal(provider.results.length, 0, "Handoff must not select an answer");
+            await fs.mkdir(".cache", { recursive: true });
+            await page.screenshot({ path: ".cache/claude-native-terminal-question.png" });
+          },
+        });
+        console.log(
+          JSON.stringify(
+            {
+              mode: "native-terminal-local-mock",
+              version,
+              nativeQuestionVisible: true,
+              automaticAnswer: false,
+              screenshot: ".cache/claude-native-terminal-question.png",
+            },
+            null,
+            2,
+          ),
+        );
+        break;
+      }
       if (i === 1) {
         await fixture.restart();
         const recovered = await waitFor(
@@ -224,24 +255,25 @@ try {
       await waitFor(capture, (screen) => screen.includes("Question probe complete."));
       await sleep(300);
     }
-    console.log(
-      JSON.stringify(
-        {
-          mode: "native-local-mock",
-          version,
-          platform: `${os.platform()} ${os.arch()}`,
-          repeatedQuestions: 2,
-          multiple: true,
-          multilineOther: true,
-          nativeToolResults: provider.results.length,
-          pendingQuestionSurvivedRestart: true,
-          legacyPluginMigrated: !!legacyHook,
-          realBrowserAnswer: options.includes("--browser"),
-        },
-        null,
-        2,
-      ),
-    );
+    if (!options.includes("--terminal"))
+      console.log(
+        JSON.stringify(
+          {
+            mode: "native-local-mock",
+            version,
+            platform: `${os.platform()} ${os.arch()}`,
+            repeatedQuestions: 2,
+            multiple: true,
+            multilineOther: true,
+            nativeToolResults: provider.results.length,
+            pendingQuestionSurvivedRestart: true,
+            legacyPluginMigrated: !!legacyHook,
+            realBrowserAnswer: options.includes("--browser"),
+          },
+          null,
+          2,
+        ),
+      );
   } catch (error) {
     console.error((await capture()).replaceAll(fixture.root, "<fixture>"));
     const debug = await fs

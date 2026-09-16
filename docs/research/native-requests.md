@@ -32,6 +32,24 @@ Permission hooks return the documented `hookSpecificOutput` decision with behavi
 
 ### Question delivery and runtime updates (2026-09-13)
 
+A connected, visible Claude Terminal view automatically hands pending question
+hooks back to Claude, including a subsequent `PermissionRequest` question hook.
+Claude renders its own terminal dialog; AgentPier does not choose an answer or
+place an HTML question form over the terminal. Opening Terminal from a pending
+Chat question also performs this handoff. Chat continues to render questions held
+by a live hook as HTML. A question already released to Claude must be completed
+in Terminal; changing back to Chat cannot reclaim that native dialog. Subsequent
+questions in Chat use the HTML form again. Hidden or disconnected terminal views
+do not take questions away from another client. Ordinary tool approvals are not
+automatically approved, and uncertain deliveries are not retried.
+
+`node scripts/probe-claude-questions.mjs --local-mock --terminal` verifies this
+handoff through the built browser UI, real HTTP broker, and an isolated Claude TUI.
+The local provider emits only synthetic questions. The probe checks that the native
+question is visible and no answer was selected; it uses no real credentials or
+remote model calls. Verified with Claude Code 2.1.273 on macOS arm64.
+See the [mobile Terminal screenshot](../screenshots/claude-native-terminal-question-english.png).
+
 Claude caches plugin hook commands. Older AgentPier launches pinned both Node and
 the question adapter to the release that started the session. Updating the web
 server therefore left those sessions on outdated question handling. New launches

@@ -156,6 +156,18 @@ test("cached Claude hook commands use the refreshed server runtime after an upda
   assert.equal((await fs.stat(dispatcher)).mode & 0o777, 0o700);
 });
 
+test("terminal handoff releases both Claude question hooks without selecting an answer", async (t) => {
+  const f = await fixture(t);
+  for (const hook_event_name of ["PreToolUse", "PermissionRequest"]) {
+    const { ended } = f.hook({ ...question, hook_event_name });
+    const request = (await waitFor(() => f.broker.list("session"))).requests[0];
+    await f.broker.handoff("session", request.id, { expectedRevision: request.revision });
+    assert.equal(await ended, "");
+    assert.deepEqual((await f.broker.list("session")).requests, []);
+  }
+  assert.equal(f.events.filter((event) => event.action === "request.answered").length, 0);
+});
+
 test("legacy plugins migrate once and stay visibly outdated until a current hook connects", async (t) => {
   const f = await fixture(t);
   const file = f.launch.env.AGENTPIER_REQUEST_FILE;
