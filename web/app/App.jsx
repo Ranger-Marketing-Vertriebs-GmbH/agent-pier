@@ -2,10 +2,11 @@ import { FileEditorProvider } from "../features/files/file-editor-context.jsx";
 import useLanguage from "../lib/i18n/useLanguage.js";
 import MemoryPage from "../features/memory/MemoryPage.jsx";
 import { commonCopy } from "../lib/i18n/messages/common.js";
-import { appCopy as copy } from "../lib/i18n/messages/app.js";
-import React, { lazy, Suspense, useState } from "react";
+import { appCopy as copy, sidebarCopy } from "../lib/i18n/messages/app.js";
+import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import api from "../lib/api.js";
 import ErrorMessage from "../components/ErrorMessage.jsx";
+import Icon from "../components/Icon.jsx";
 import Sidebar from "./Sidebar.jsx";
 import AppDialogs from "./AppDialogs.jsx";
 import { defaultSessionMode } from "./routes.js";
@@ -35,7 +36,21 @@ function Application() {
   useLanguage();
   const { state, loading, error, ready, refresh } = useWorkspaceState();
   const [modal, setModal] = useState(null),
-    [mobileNav, setMobileNav] = useState(false);
+    [mobileNav, setMobileNav] = useState(false),
+    [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const expandButton = useRef(null),
+    collapseButton = useRef(null),
+    restoreFocus = useRef(false);
+  // The activated toggle is unmounted by the transition, so its replacement takes the focus.
+  useEffect(() => {
+    if (!restoreFocus.current) return;
+    restoreFocus.current = false;
+    (sidebarCollapsed ? expandButton : collapseButton).current?.focus();
+  }, [sidebarCollapsed]);
+  const toggleSidebar = (collapsed) => {
+    restoreFocus.current = true;
+    setSidebarCollapsed(collapsed);
+  };
   const fileNavigationGuard = useFileNavigationGuard();
   const { route, view, selected, navigate, select, activeSession, page, missing } =
     useWorkspaceNavigation({
@@ -64,13 +79,37 @@ function Application() {
       item,
     });
   return (
-    <div className="app">
+    <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <button
         className={`nav-backdrop ${mobileNav ? "visible" : ""}`}
         aria-label={copy.appAriaLabel}
         onClick={() => setMobileNav(false)}
       />
+      {sidebarCollapsed && (
+        <div className="sidebar-float">
+          <button
+            ref={expandButton}
+            className="icon-button"
+            aria-label={sidebarCopy.expandSidebar}
+            title={sidebarCopy.expandSidebar}
+            onClick={() => toggleSidebar(false)}
+          >
+            <Icon name="arrow" />
+          </button>
+          <button
+            className="icon-button"
+            aria-label={commonCopy.newSession}
+            title={commonCopy.newSession}
+            onClick={() => launch()}
+            disabled={!installed}
+          >
+            <Icon name="plus" />
+          </button>
+        </div>
+      )}
       <Sidebar
+        collapse={() => toggleSidebar(true)}
+        collapseRef={collapseButton}
         {...{
           mobileNav,
           select,

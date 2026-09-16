@@ -11,6 +11,8 @@ import { names } from "../lib/providers.js";
 import SidebarGroup, { sessionActivity } from "./SidebarGroup.jsx";
 export default function Sidebar({
   mobileNav,
+  collapse,
+  collapseRef,
   select,
   launch,
   installed,
@@ -31,6 +33,17 @@ export default function Sidebar({
   );
   return (
     <aside className={`sidebar ${mobileNav ? "open" : ""}`}>
+      <div className="sidebar-top">
+        <button
+          ref={collapseRef}
+          className="icon-button sidebar-collapse"
+          aria-label={copy.collapseSidebar}
+          title={copy.collapseSidebar}
+          onClick={collapse}
+        >
+          <Icon name="back" />
+        </button>
+      </div>
       <button
         className="brand"
         onClick={() => select(null)}

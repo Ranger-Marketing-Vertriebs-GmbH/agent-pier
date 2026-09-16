@@ -30,6 +30,8 @@ export const sidebarCopy = {
   brandLabel: "AgentPier",
   localBadge: "LOCAL",
   ariaLabel: "Main navigation",
+  collapseSidebar: "Collapse navigation",
+  expandSidebar: "Expand navigation",
   repositoriesNavigation: "Repositories",
   extensionsNavigation: "MCP & Skills",
   pluginsNavigation: "Plugins & Marketplace",

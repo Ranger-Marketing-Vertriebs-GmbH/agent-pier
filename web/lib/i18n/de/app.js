@@ -31,6 +31,8 @@ export const sidebarCopy = {
   brandLabel: "AgentPier",
   localBadge: "LOCAL",
   ariaLabel: "Hauptnavigation",
+  collapseSidebar: "Navigation einklappen",
+  expandSidebar: "Navigation ausklappen",
   repositoriesNavigation: "Repositories",
   extensionsNavigation: "MCP & Skills",
   pluginsNavigation: "Plugins & Marketplace",

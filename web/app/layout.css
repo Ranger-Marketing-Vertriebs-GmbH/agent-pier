@@ -1,18 +1,24 @@
 .app {
+  --sidebar-width: 252px;
   display: flex;
   min-height: 100dvh;
 }
 .sidebar {
-  width: 252px;
-  flex: 0 0 252px;
+  width: var(--sidebar-width);
+  flex: 0 0 var(--sidebar-width);
   position: fixed;
   inset: 0 auto 0 0;
   background: #15161a;
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  padding: 30px 19px 18px;
+  padding: 12px 19px 18px;
   z-index: 20;
+}
+/* The collapse control keeps the screen position its floating counterpart uses. */
+.sidebar-top {
+  display: flex;
+  margin-bottom: 4px;
 }
 .brand {
   display: flex;
@@ -403,8 +409,8 @@
 }
 main {
   min-width: 0;
-  margin-left: 252px;
-  width: calc(100% - 252px);
+  margin-left: var(--sidebar-width);
+  width: calc(100% - var(--sidebar-width));
   position: relative;
 }
 .app-recovery {
@@ -418,4 +424,42 @@ main {
   gap: 20px;
   padding: 24px;
   text-align: center;
+}
+/* Collapsing is a desktop affordance; below 701px the mobile drawer owns the sidebar. */
+@media (min-width: 701px) {
+  .app.sidebar-collapsed {
+    --sidebar-width: 0px;
+  }
+  /* Hiding outright keeps the collapsed navigation out of the tab order. */
+  .app.sidebar-collapsed .sidebar {
+    display: none;
+  }
+  /* Keep page content clear of the floating controls. */
+  .app.sidebar-collapsed main {
+    padding-top: 52px;
+  }
+  /* The session workspace is sized to the viewport, so it shifts sideways instead. */
+  .app.sidebar-collapsed main:has(.session-workspace) {
+    padding-top: 0;
+  }
+  /* Lift the heading so the session title row shares the toggle's centre line. */
+  .app.sidebar-collapsed .session-workspace {
+    padding-top: 8px;
+  }
+  .app.sidebar-collapsed .session-heading {
+    padding-left: 82px;
+  }
+}
+.sidebar-float {
+  position: fixed;
+  top: 7px;
+  left: 14px;
+  align-items: center;
+  z-index: 21;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: #15161a;
+  border: 1px solid var(--line);
+  border-radius: 8px;
 }
