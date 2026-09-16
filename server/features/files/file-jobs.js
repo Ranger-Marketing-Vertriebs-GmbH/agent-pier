@@ -84,7 +84,11 @@ export class FileJobs {
   uploadChildren(scope, id, cursor) {
     return this.store.listUploadChildren(scope, id, cursor);
   }
-  async start(scope, operation, { publicOnly = false, admit } = {}) {
+  async start(
+    scope,
+    operation,
+    { publicOnly = false, admit, rejectConflicts = false } = {},
+  ) {
     this.ensureOpen();
     validateOperation(operation);
     operation = structuredClone(operation);
@@ -115,6 +119,7 @@ export class FileJobs {
         operation: this.store.getOperation(job.id),
         handler,
         policy,
+        rejectConflicts,
       });
     return job;
   }
@@ -229,7 +234,10 @@ export class FileJobs {
         jobId: job.id,
         signal: controller.signal,
         report: (patch) => this.report(item, patch),
-        conflict: (info) => this.conflict(item, info),
+        conflict: (info) => {
+          if (item.rejectConflicts) throw fileProblem("FILE_EXISTS", 409);
+          return this.conflict(item, info);
+        },
       });
       await this.barrier.run(() => {
         if (item.policy.aggregate) return;

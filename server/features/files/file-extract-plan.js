@@ -1,13 +1,17 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { resolveFile, entryRevision, assertFileMutationTarget } from "./file-paths.js";
+import {
+  resolveFile,
+  entryRevision,
+  assertFileMutationTarget,
+  appendFilePath,
+} from "./file-paths.js";
 import { inodeIdentity } from "./file-stage.js";
 import { alternateName } from "./file-mutations.js";
 import { fileProblem } from "./file-errors.js";
 import { assertRetryDestinations } from "./file-retry-targets.js";
 
-export const appendExtractPath = (parent, name) =>
-  `${parent}${parent.endsWith("/") ? "" : "/"}${name}`;
+export const appendExtractPath = appendFilePath;
 const typeOf = (stat) =>
   !stat
     ? null
