@@ -52,4 +52,7 @@ export default function SidebarGroup({
     </section>
   );
 }
-export { sessionActivity } from "../features/sessions/sessionPresentation.js";
+export {
+  sessionActivity,
+  sandboxBadge,
+} from "../features/sessions/sessionPresentation.js";

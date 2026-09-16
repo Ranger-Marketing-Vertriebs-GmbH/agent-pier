@@ -31,7 +31,9 @@ import { GithubCredentials } from "../features/repositories/github-credentials.j
 import { SessionActivity } from "../features/sessions/session-activity.js";
 import { AgentBus } from "../features/agentbus/agent-bus.js";
 import { Preferences } from "../features/settings/preferences.js";
-import { AccountStore } from "../features/accounts/account-store.js";
+import { AccountStore, detectUtilities } from "../features/accounts/account-store.js";
+import { toolBinDirectories } from "../features/tools/tool-paths.js";
+import { NonoSandbox } from "../features/nono/nono-launch.js";
 import { SessionManager } from "../features/sessions/session-manager.js";
 import { ChatEvents } from "../features/chat/chat-events.js";
 import { ChatStreams } from "../features/chat/chat-streams.js";
@@ -146,6 +148,16 @@ export async function createServices(config) {
     home: config.home,
   });
   await agentbus.ready;
+  // Detected per launch, the same way the workspace state and the installer see
+  // it, so installing nono while AgentPier runs needs no restart.
+  const nonoSandbox = new NonoSandbox({
+    detect: () =>
+      detectUtilities(
+        { ...process.env, HOME: config.home },
+        true,
+        toolBinDirectories(config.dataDir),
+      ),
+  });
   const events = { current: null };
   const operationalWarnings = new Set();
   const onError = () => {
@@ -221,5 +233,6 @@ export async function createServices(config) {
     plugins,
     agentbus,
     preferences,
+    nonoSandbox,
   };
 }

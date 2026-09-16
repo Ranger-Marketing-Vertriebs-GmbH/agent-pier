@@ -101,6 +101,7 @@ Read the [pipeline guide](docs/pipelines.md) for lifecycle and recovery details.
 | Private remote access (Tailscale or network mode) | [Remote access](docs/remote-access.md)                |
 | Reload and resume                                 | [Session reload](docs/session-reload.md)              |
 | SSH server accesses                               | [SSH access](docs/ssh-access.md)                      |
+| Optional per-session nono sandbox                 | [Sandboxing](docs/sandbox.md)                         |
 | Login and user recovery                           | [Login](docs/login.md)                                |
 | Delivery status and draft recovery                | [Mobile delivery](docs/mobile-delivery.md)            |
 | Terminal, chat and upload recovery                | [Mobile recovery](docs/mobile-recovery.md)            |
@@ -123,6 +124,14 @@ The login protects the web workspace. Native CLIs still run as the server's OS
 user, and their own permissions determine what they may access. Treat AgentPier
 as a trusted personal workspace, not as an isolation boundary for mutually
 untrusted users. Provider requests still go to the services configured in the CLI.
+
+A session may opt in to running its coding CLI inside an operating-system
+sandbox provided by [nono](https://nono.sh). That confines the CLI against
+accidental access outside what it needs, but the sandboxed session still grants
+read-write access to the specific parts of the AgentPier data directory its active
+integrations need (a managed account's own credentials, project memory, AgentBus),
+plus read access to AgentPier's own code, so it is not a boundary against a hostile
+CLI. See [the sandboxing guide](docs/sandbox.md).
 
 The chat reader reflects saved native history rather than character-by-character
 terminal output. Supported model menus, tasks and approval prompts depend on the

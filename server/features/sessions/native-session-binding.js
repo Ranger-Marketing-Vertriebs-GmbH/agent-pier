@@ -20,6 +20,7 @@ import {
 import { pidStart } from "../../../vendor/agentbus/core/proc.js";
 import { findRuntimePid } from "../../../vendor/agentbus/hooks/register.js";
 import { resolveCodexProcess } from "./native-session-process.js";
+import { addGrant } from "../nono/sandbox-grants.js";
 
 const modulePath = fileURLToPath(import.meta.url);
 const validId = (id) =>
@@ -198,12 +199,18 @@ export class NativeSessionBinding {
       token,
       createdAt: new Date().toISOString(),
     });
-    return {
+    // The CLI runs this module as a hook subprocess and the hook writes its receipt
+    // back into the binding directory next to the plugin and TUI files.
+    return [
+      { access: "allow", path: this.directory },
+      { access: "read", path: process.execPath },
+      { access: "read", path: modulePath },
+    ].reduce((granted, grant) => addGrant(granted, grant), {
       ...launch,
       args,
       env,
       nativeBinding: { enabled: true, version: 1 },
-    };
+    });
   }
   async resolve(session, { forInput = false } = {}) {
     const receipt = this.verifiedReceipt(session);

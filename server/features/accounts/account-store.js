@@ -2,13 +2,14 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { toolBinDirectories } from "../tools/tool-paths.js";
+import { managedCliInstallation, toolBinDirectories } from "../tools/tool-paths.js";
 import { randomUUID } from "node:crypto";
 import { connectionProfile } from "../providers/connection-profile.js";
 import { ProviderCatalog } from "../providers/provider-catalog.js";
 import { validateProviderSelection } from "../providers/provider-definitions.js";
 import { providerEnvironment } from "../providers/provider-environment.js";
 import { prepareProviderLaunch } from "../providers/provider-launch.js";
+import { addGrant } from "../nono/sandbox-grants.js";
 import {
   privateDirectory,
   writePrivate,
@@ -116,7 +117,10 @@ export function detectUtilities(
   additionalDirectories = [],
 ) {
   return detectExecutables(
-    [{ id: "gh", name: "GitHub CLI", utility: true }],
+    [
+      { id: "gh", name: "GitHub CLI", utility: true },
+      { id: "nono", name: "nono", utility: true },
+    ],
     env,
     common,
     additionalDirectories,
@@ -355,7 +359,7 @@ export class AccountStore {
           opencode: ["auth", "login"],
         }[account.tool]
       : [...LAUNCH_ARGS[account.tool][launchMode]];
-    const launch = {
+    let launch = {
       command,
       args,
       env: {
@@ -364,6 +368,18 @@ export class AccountStore {
       },
       launchMode,
     };
+    // A CLI AgentPier installed itself is a script inside its own package
+    // directory, so granting the executable alone leaves its imports denied.
+    // This is the only place that holds the resolved executable and the data
+    // directory together, so the installation directory is declared here.
+    const installation = managedCliInstallation(this.dataDir, account.tool, command);
+    if (installation) launch = addGrant(launch, { access: "read", path: installation });
+    // The managed CLIs read and write credentials, auth state, history and
+    // cache under their own profile directory (see environment() above). No
+    // launch adapter else has this path in hand, so it is declared here. A
+    // local account has no such directory.
+    if (account.kind === "managed")
+      launch = addGrant(launch, { access: "allow", path: this.profile(id) });
     if (!account.provider) {
       if (modelId) launch.args.push("--model", modelId);
       return launch;

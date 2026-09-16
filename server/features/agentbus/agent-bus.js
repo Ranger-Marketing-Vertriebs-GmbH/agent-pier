@@ -18,6 +18,7 @@ import {
 import { ensureDir, writeJsonAtomic } from "../../../vendor/agentbus/core/fsx.js";
 import { peerKey } from "../../../vendor/agentbus/core/paths.js";
 import { openQueue } from "../../../vendor/agentbus/core/queue.js";
+import { addGrant } from "../nono/sandbox-grants.js";
 
 import { AGENTBUS_VERSION as VERSION, trustedPeers } from "./agentbus-runtime.js";
 import { resolveAgentBusInterpreter } from "./agentbus-launch-identity.js";
@@ -190,12 +191,21 @@ export class AgentBus {
       } catch {}
       throw error;
     }
-    return {
+    const prepared = {
       ...launch,
       args,
       env,
       agentbus: { enabled: true, projectId, version: VERSION },
     };
+    // The CLI spawns the vendored AgentBus MCP server and hooks with node, and they
+    // read their capability file and then reach AgentPier over the broker socket,
+    // which file access to that path does not confer.
+    return [
+      { access: "allow", path: home },
+      { access: "read", path: process.execPath },
+      { access: "read", path: bridgeEnv.AGENTPIER_AGENTBUS_CAPABILITY_FILE },
+      { access: "socket", path: this.broker.transport.socketPath },
+    ].reduce((granted, grant) => addGrant(granted, grant), prepared);
   }
   async list() {
     const projects = new Map();
