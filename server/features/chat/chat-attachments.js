@@ -156,17 +156,18 @@ export class ChatAttachments {
     if (!this.directory || typeof directory !== "string") return;
     // Only this session's legacy folder or account-scoped folder is owned here.
     const relative = path.relative(this.directory, directory);
-    const parts = relative.split(path.sep);
     if (
-      ![1, 2].includes(parts.length) ||
-      parts.at(-1) !== id ||
-      parts.some((part) => !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(part))
+      !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}(?:\/[a-zA-Z0-9][a-zA-Z0-9_-]{0,79})?$/.test(
+        relative,
+      )
     )
       return;
+    const parts = relative.split(path.sep);
+    if (parts.at(-1) !== id) return;
     const root = await fs.realpath(this.directory);
     let actual;
     try {
-      actual = await fs.realpath(directory);
+      actual = await fs.realpath(path.join(this.directory, relative));
     } catch (error) {
       if (error.code === "ENOENT") return;
       throw error;
