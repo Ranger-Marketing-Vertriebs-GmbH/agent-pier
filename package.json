@@ -1,6 +1,6 @@
 {
   "name": "agentpier",
-  "version": "1.17.13",
+  "version": "1.17.14",
   "private": true,
   "type": "module",
   "scripts": {
