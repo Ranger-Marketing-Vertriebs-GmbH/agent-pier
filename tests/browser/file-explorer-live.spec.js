@@ -50,6 +50,8 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
   try {
     const f = await applicationFixture(fixtureOwner);
     const context = await browser.newContext({ acceptDownloads: true, locale: "de-DE" });
+    // Surface the failed action before the overall timeout starts fixture teardown.
+    context.setDefaultTimeout(10000);
     cleanups.push(() => context.close());
     await context.addCookies([
       {
@@ -155,6 +157,12 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
       await page.getByLabel("Save As path", { exact: true }).fill(copy);
       await page.getByRole("button", { name: "Save new copy", exact: true }).click();
       await expect.poll(() => readTextWhenPresent(copy)).toBe("");
+      await test.step("observe the completed Save As job before changing the source", async () => {
+        // Disk publication precedes the jobs poll and its listing refresh.
+        await expect(
+          page.getByRole("region", { name: "File jobs", exact: true }),
+        ).toContainText("Save text · Completed");
+      });
       await fs.writeFile(document, "external");
       await page.evaluate(() => window.dispatchEvent(new Event("focus")));
       await expect(
@@ -170,17 +178,30 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
     await expect(documentRow.locator(":scope > span").nth(1)).toHaveText(
       process.platform === "darwin" ? "10" : "8",
     );
-    await page
-      .getByRole("checkbox", { name: "Select document.txt", exact: true })
-      .check();
-    await page.getByRole("button", { name: "Move to Trash", exact: true }).click();
-    await page
-      .getByRole("dialog", { name: "Move to Trash" })
-      .getByRole("button", { name: "Confirm", exact: true })
-      .click();
-    await expect(
-      page.getByRole("button", { name: "document.txt", exact: true }),
-    ).toHaveCount(0);
+    await test.step("confirm moving the refreshed document to Trash", async () => {
+      await page
+        .getByRole("checkbox", { name: "Select document.txt", exact: true })
+        .check();
+      await page.getByRole("button", { name: "Move to Trash", exact: true }).click();
+      const dialog = page.getByRole("dialog", { name: "Move to Trash" });
+      await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+      // An empty list during refresh is not evidence that the action was accepted.
+      await expect(dialog).toHaveCount(0);
+      await expect
+        .poll(() =>
+          fs.stat(document).then(
+            () => true,
+            (error) => {
+              if (error.code === "ENOENT") return false;
+              throw error;
+            },
+          ),
+        )
+        .toBe(false);
+      await expect(
+        page.getByRole("button", { name: "document.txt", exact: true }),
+      ).toHaveCount(0);
+    });
     await page.getByRole("button", { name: "Trash", exact: true }).click();
     await page
       .locator(".file-trash-list li")
