@@ -1,3 +1,4 @@
+import { openExplorerPanel } from "../helpers/file-explorer-layout.js";
 import { test, expect } from "@playwright/test";
 import { jobsFixture } from "../helpers/file-jobs-browser.js";
 import { selectEnglish } from "../helpers/file-explorer-browser.js";
@@ -30,6 +31,7 @@ test("expired history work does not block current outcomes and later pages remai
   });
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "activity");
   await expect.poll(() => oldReads).toBeGreaterThan(0);
   expired = true;
   f.finish(current.id, [

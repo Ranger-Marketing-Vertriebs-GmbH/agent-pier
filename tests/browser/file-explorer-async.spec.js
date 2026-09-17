@@ -1,3 +1,7 @@
+import {
+  openExplorerDisclosure,
+  openFileDetails,
+} from "../helpers/file-explorer-layout.js";
 import { test, expect } from "@playwright/test";
 import { fixture } from "../helpers/repository-browser.js";
 import { baseURL } from "../helpers/browser.js";
@@ -29,6 +33,7 @@ test("a settled listing cannot restore the previous path", async ({ page }) => {
 
   await page.goto(baseURL + "/files?path=%2Fa");
   await expect(page.getByText("Dieser Ordner ist leer.")).toBeVisible();
+  await openExplorerDisclosure(page, ".explorer-path-options");
   await page.getByRole("textbox", { name: "Pfad" }).fill("/b");
   await page.getByRole("button", { name: "Öffnen", exact: true }).click();
   await expect.poll(() => requested).toContain("/b");
@@ -92,6 +97,7 @@ test("hidden changes remain immediate while preference writes serialize", async 
   });
 
   await page.goto(baseURL + "/files?path=%2Fhome%2Ftest");
+  await openExplorerDisclosure(page, ".explorer-view-disclosure");
   const hidden = page.getByLabel("Versteckte Dateien anzeigen");
   await hidden.check();
   await expect(page).toHaveURL(/hidden=1/);
@@ -165,10 +171,12 @@ test("a scope replacement rejects stale preferences and listing snapshots", asyn
   });
 
   await page.goto(baseURL + "/sessions/async-scope/files");
+  await openExplorerDisclosure(page, ".explorer-view-disclosure");
   await page
     .getByRole("button", { name: "Aktuellen Ordner aus Favoriten entfernen" })
     .click();
   await patchStarted.promise;
+  await page.getByRole("button", { name: "Ordnerbaum öffnen", exact: true }).click();
   session.cwd = "/project/b";
   await expect(page.getByRole("button", { name: "B", exact: true })).toBeVisible({
     timeout: 7000,
@@ -220,6 +228,7 @@ test("an obsolete link open cannot replace the current selection", async ({ page
 
   await page.goto(baseURL + "/files?path=%2Fhome%2Ftest");
   await page.getByRole("button", { name: "linked-docs", exact: true }).click();
+  await openFileDetails(page);
   await page.getByRole("button", { name: "Verknüpfungsziel öffnen" }).click();
   await directoryStarted.promise;
   await page.getByRole("button", { name: "readme.txt", exact: true }).click();
@@ -229,6 +238,7 @@ test("an obsolete link open cannot replace the current selection", async ({ page
 
   probeMode = "preview";
   await page.getByRole("button", { name: "linked-docs", exact: true }).click();
+  await openFileDetails(page);
   await page.getByRole("button", { name: "Verknüpfungsziel öffnen" }).click();
   await fallbackStarted.promise;
   await page.getByRole("button", { name: "readme.txt", exact: true }).click();
@@ -256,9 +266,7 @@ test("clearing a pending selection clears property loading", async ({ page }) =>
     .getByRole("button", { name: "/", exact: true })
     .click();
 
-  await expect(
-    page.getByText("Wähle einen Eintrag aus, um seine Eigenschaften anzuzeigen."),
-  ).toBeVisible();
+  await expect(page.locator(".file-properties")).toHaveCount(0);
   await expect(page.getByText("Dateieigenschaften werden geladen …")).toHaveCount(0);
   metadata.resolve();
 });
@@ -298,6 +306,7 @@ test("tree paging discards a completion from an obsolete hidden view", async ({
   await page.getByRole("button", { name: "/ aufklappen" }).click();
   await page.getByRole("button", { name: "Weitere Ordner laden" }).click();
   await expect.poll(() => queries.some((query) => query.page === "2")).toBe(true);
+  await openExplorerDisclosure(page, ".explorer-view-disclosure");
   await page.getByLabel("Versteckte Dateien anzeigen").check();
   await expect(
     page.getByRole("button", { name: "fresh-hidden", exact: true }),

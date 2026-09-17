@@ -1,3 +1,4 @@
+import { openExplorerPanel } from "../helpers/file-explorer-layout.js";
 import { test, expect } from "@playwright/test";
 import { actionsFixture } from "../helpers/file-actions-browser.js";
 import { explorerContext, selectEnglish } from "../helpers/file-explorer-browser.js";
@@ -23,6 +24,7 @@ test("later live history reaches fresh conflicts and terminal states without loa
   await page.route(/\/api\/files\/jobs(?:\?.*)?$/, list);
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "activity");
   const region = page.getByRole("region", { name: "File jobs", exact: true });
   await region.getByRole("button", { name: "Next jobs", exact: true }).click();
   later.status = "waiting_for_conflict";
@@ -74,6 +76,7 @@ test("upload-owned directory jobs stay in upload recovery while standalone direc
   });
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "activity");
   await expect(
     page
       .locator(`[data-job-id="${standalone.id}"]`)
@@ -155,6 +158,7 @@ for (const language of ["en", "de"])
     );
     if (language === "en") await selectEnglish(page);
     await page.goto(baseURL + "/files");
+    await openExplorerPanel(page, "activity");
     const card = page.locator(`[data-job-id="${job.id}"]`);
     await card
       .getByRole("button", {
@@ -282,6 +286,7 @@ test("explicit operation history reaches an interrupted job beyond the first200 
   );
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "activity");
   const region = page.getByRole("region", { name: "File jobs", exact: true });
   await region.getByRole("button", { name: "Next jobs", exact: true }).click();
   await expect(region).toContainText("Interrupted");
@@ -314,6 +319,7 @@ test("history loads all mutable result pages and preserves completed and failed 
   );
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "activity");
   const card = page.locator(`[data-job-id="${job.id}"]`);
   await card.getByRole("button", { name: "Load entry results" }).click();
   await card.getByRole("button", { name: "Load next entry page" }).click();
@@ -364,6 +370,7 @@ test("explicit retry reviews every server page and preserves its request after r
   });
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "activity");
   const card = page.locator(`[data-job-id="${job.id}"]`);
   await card.getByRole("button", { name: "Review retry" }).click();
   let dialog = page.getByRole("dialog", { name: "Retry unfinished entries" });
@@ -401,7 +408,12 @@ test("archive request uncertainty survives closing its dialog and same-scope fol
   });
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
-  await page.getByRole("button", { name: "Create ZIP", exact: true }).click();
+  await openExplorerPanel(page, "activity");
+  await page
+    .locator(".file-primary-actions")
+    .getByRole("button", { name: "More actions", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Create ZIP", exact: true }).click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Confirm", exact: true })
@@ -447,8 +459,13 @@ test("German extraction errors and unknown totals remain explicit on desktop and
     });
   };
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "activity");
   await page.getByRole("checkbox", { name: "input.zip auswählen", exact: true }).check();
-  await page.getByRole("button", { name: "Hier entpacken", exact: true }).click();
+  await page
+    .locator(".file-selection-actions")
+    .getByRole("button", { name: "Weitere Aktionen", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Hier entpacken", exact: true }).click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Bestätigen", exact: true })

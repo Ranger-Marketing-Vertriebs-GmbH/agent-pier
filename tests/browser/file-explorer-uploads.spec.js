@@ -1,3 +1,4 @@
+import { openExplorerPanel } from "../helpers/file-explorer-layout.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { explorerFixture, selectEnglish } from "../helpers/file-explorer-browser.js";
@@ -15,6 +16,7 @@ test("uploads provide native file and folder inputs and an explicit drop destina
   await explorerFixture(page);
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "uploads");
   await expect(page.getByLabel("Upload files", { exact: true })).toBeAttached();
   await expect(page.getByLabel("Upload folder", { exact: true })).toBeAttached();
   await expect(page.getByRole("region", { name: "Uploads", exact: true })).toContainText(
@@ -29,6 +31,7 @@ test("failed-only retry preserves completed bytes and creates one new explicit a
   f.failures.add("second.txt");
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "uploads");
   const bytes = Buffer.alloc(131072, 173);
   await page
     .getByLabel("Upload files", { exact: true })
@@ -53,6 +56,7 @@ test("three XHRs bound multiple selections across folder navigation", async ({
   try {
     await selectEnglish(page);
     await page.goto(baseURL + "/files");
+    await openExplorerPanel(page, "uploads");
     await page
       .getByLabel("Upload files", { exact: true })
       .setInputFiles([1, 2, 3, 4].map((n) => source(`${n}.txt`)));
@@ -90,6 +94,7 @@ test("server reset reconciles the retained job without sending another body", as
   f.reset.add("reset.txt");
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "uploads");
   await page
     .getByLabel("Upload files", { exact: true })
     .setInputFiles(source("reset.txt"));
@@ -116,6 +121,7 @@ test("lost metadata and child replies preserve immutable request identities", as
   for (const key of ["create", "append", "commit", "child"]) f.lose.add(key);
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "uploads");
   await page
     .getByLabel("Upload files", { exact: true })
     .setInputFiles(source("lost.txt"));
@@ -143,6 +149,7 @@ test("external directory drop preserves an empty folder and ignores internal ges
   const { state: f } = await uploadsFixture(page);
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "uploads");
   const transfer = await page.evaluateHandle(() => {
     const data = new DataTransfer(),
       file = new File(["nested"], "same.txt");
@@ -233,6 +240,8 @@ test("selected history discovers directory conflicts beyond 200 and cancels actu
   const child = f.child(group, "file", { status: "running" });
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "uploads");
+  await openExplorerPanel(page, "uploads");
   await page.getByText("Recover an upload", { exact: true }).click();
   await page.getByRole("button", { name: "Next job page", exact: true }).click();
   await page.getByRole("button", { name: new RegExp(`Upload ${group.job.id}`) }).click();

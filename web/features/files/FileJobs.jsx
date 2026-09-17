@@ -22,7 +22,15 @@ export function FileJobIssue({ issue }) {
   );
 }
 
-export default function FileJobs({ state, scopeId, scope, client, searchId, onResult }) {
+export default function FileJobs({
+  state,
+  scopeId,
+  scope,
+  client,
+  searchId,
+  onResult,
+  collapsed = false,
+}) {
   const [retry, setRetry] = useState(null),
     [historyPending, setHistoryPending] = useState(false);
   const [previous, setPrevious] = useState([]);
@@ -69,90 +77,100 @@ export default function FileJobs({ state, scopeId, scope, client, searchId, onRe
     }
   };
   return (
-    <section className="file-jobs" aria-label={copy.jobs}>
-      <ErrorMessage error={state.error?.message} />
-      {state.uncertain
-        .filter((item) => item.scopeId === scopeId)
-        .map((item) => (
-          <div key={item.body.requestId} className="file-job-card">
-            <p>
-              {copy.jobKinds[item.body.kind]} · {copy.transfers.unknownRequest}
-            </p>
-            <p>{copy.transfers.sameAttempt}</p>
-            <button
-              className="button secondary compact"
-              onClick={() => state.start(scopeId, item.body).catch(() => {})}
+    <section
+      className="file-jobs"
+      aria-label={copy.jobs}
+      data-collapsed={collapsed || undefined}
+    >
+      <div hidden={collapsed}>
+        <ErrorMessage error={state.error?.message} />
+        {state.uncertain
+          .filter((item) => item.scopeId === scopeId)
+          .map((item) => (
+            <div key={item.body.requestId} className="file-job-card">
+              <p>
+                {copy.jobKinds[item.body.kind]} · {copy.transfers.unknownRequest}
+              </p>
+              <p>{copy.transfers.sameAttempt}</p>
+              <button
+                className="button secondary compact"
+                onClick={() => state.start(scopeId, item.body).catch(() => {})}
+              >
+                {copy.transfers.checkRequest}
+              </button>
+            </div>
+          ))}
+        <div className="file-action-buttons" aria-label={copy.transfers.history}>
+          <button
+            className="button secondary compact"
+            disabled={historyPending || !state.history?.cursor}
+            onClick={() => history(false)}
+          >
+            {copy.transfers.previousJobs}
+          </button>
+          <button
+            className="button secondary compact"
+            disabled={historyPending || !state.history?.nextCursor}
+            onClick={() => history(true)}
+          >
+            {copy.transfers.nextJobs}
+          </button>
+        </div>
+        {visibleJobs.length > 0 && (
+          <>
+            <h2>{copy.jobs}</h2>
+            <ul
+              className="file-job-list"
+              tabIndex={0}
+              aria-label={copy.transfers.history}
             >
-              {copy.transfers.checkRequest}
-            </button>
-          </div>
-        ))}
-      <div className="file-action-buttons" aria-label={copy.transfers.history}>
-        <button
-          className="button secondary compact"
-          disabled={historyPending || !state.history?.cursor}
-          onClick={() => history(false)}
-        >
-          {copy.transfers.previousJobs}
-        </button>
-        <button
-          className="button secondary compact"
-          disabled={historyPending || !state.history?.nextCursor}
-          onClick={() => history(true)}
-        >
-          {copy.transfers.nextJobs}
-        </button>
+              {[...visibleJobs].reverse().map((job) => (
+                <FileJobCard
+                  key={job.id}
+                  job={job}
+                  state={state}
+                  scopeId={scopeId}
+                  client={client}
+                  onRetry={setRetry}
+                />
+              ))}
+            </ul>
+          </>
+        )}
+        {search && (
+          <section aria-label={copy.searchResults}>
+            <h3>{copy.searchResults}</h3>
+            {page &&
+              page.entries.length === 0 &&
+              !isFileJobActive(search) &&
+              !search.issue &&
+              search.status === "completed" && <p>{copy.noResults}</p>}
+            <ul className="file-search-results">
+              {(page?.entries || []).map((entry) => (
+                <li key={entry.id}>
+                  <button type="button" onClick={() => onResult(entry)}>
+                    {entry.name}
+                  </button>
+                  <span>{entry.path}</span>
+                </li>
+              ))}
+            </ul>
+            {page?.nextCursor && (
+              <button
+                type="button"
+                className="button secondary compact"
+                onClick={() =>
+                  state
+                    .refresh({ jobId: searchId, cursor: page.nextCursor })
+                    .catch(() => {})
+                }
+              >
+                {copy.moreResults}
+              </button>
+            )}
+          </section>
+        )}
       </div>
-      {visibleJobs.length > 0 && (
-        <>
-          <h2>{copy.jobs}</h2>
-          <ul className="file-job-list" tabIndex={0} aria-label={copy.transfers.history}>
-            {[...visibleJobs].reverse().map((job) => (
-              <FileJobCard
-                key={job.id}
-                job={job}
-                state={state}
-                scopeId={scopeId}
-                client={client}
-                onRetry={setRetry}
-              />
-            ))}
-          </ul>
-        </>
-      )}
-      {search && (
-        <section aria-label={copy.searchResults}>
-          <h3>{copy.searchResults}</h3>
-          {page &&
-            page.entries.length === 0 &&
-            !isFileJobActive(search) &&
-            !search.issue &&
-            search.status === "completed" && <p>{copy.noResults}</p>}
-          <ul className="file-search-results">
-            {(page?.entries || []).map((entry) => (
-              <li key={entry.id}>
-                <button type="button" onClick={() => onResult(entry)}>
-                  {entry.name}
-                </button>
-                <span>{entry.path}</span>
-              </li>
-            ))}
-          </ul>
-          {page?.nextCursor && (
-            <button
-              type="button"
-              className="button secondary compact"
-              onClick={() =>
-                state
-                  .refresh({ jobId: searchId, cursor: page.nextCursor })
-                  .catch(() => {})
-              }
-            >
-              {copy.moreResults}
-            </button>
-          )}
-        </section>
-      )}
       {waiting?.kind === "archive" && waiting.conflict.type === "archive_links" ? (
         <FileArchiveOmissions
           key={`${waiting.id}:${waiting.conflict.id}:${waiting.conflict.manifestVersion}`}
