@@ -10,6 +10,51 @@ import {
 import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 
+async function chooseSelectedArchiveAction(page, name) {
+  const actions = page.getByRole("group", {
+    name: "Selected file actions",
+    exact: true,
+  });
+  await actions.getByRole("button", { name: "More actions", exact: true }).click();
+  await page
+    .getByRole("menu", { name: "More actions", exact: true })
+    .getByRole("menuitem", { name, exact: true })
+    .click();
+}
+
+async function chooseFolderArchiveAction(page, name) {
+  await page.getByRole("button", { name: "More actions", exact: true }).click();
+  await page
+    .getByRole("menu", { name: "More actions", exact: true })
+    .getByRole("menuitem", { name, exact: true })
+    .click();
+}
+
+test("current folder ZIP stays available from the primary advanced menu", async ({
+  page,
+}) => {
+  const f = await actionsFixture(page);
+  await selectEnglish(page);
+  await page.goto(baseURL + "/files");
+  await chooseFolderArchiveAction(page, "Create ZIP");
+
+  const dialog = page.getByRole("dialog", { name: "Create ZIP", exact: true });
+  await expect(dialog).toContainText("/home/test");
+  await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("current.zip");
+  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect
+    .poll(() => f.requests.some((request) => request.body?.kind === "archive"))
+    .toBe(true);
+  expect(
+    f.requests.find((request) => request.body?.kind === "archive").body,
+  ).toMatchObject({
+    sources: ["/home/test"],
+    target: "/home/test",
+    name: "current.zip",
+    options: { output: "file" },
+  });
+});
+
 test("folder ZIP preparation uses an immutable download operation and proven artifact link", async ({
   page,
 }) => {
@@ -24,7 +69,7 @@ test("folder ZIP preparation uses an immutable download operation and proven art
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
   await page.getByRole("checkbox", { name: "Select docs", exact: true }).check();
-  await page.getByRole("button", { name: "Download as ZIP", exact: true }).click();
+  await chooseSelectedArchiveAction(page, "Download as ZIP");
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Confirm", exact: true })
@@ -67,9 +112,7 @@ test("complete versioned omission review loads every page before explicit link c
   };
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
-  await page
-    .getByRole("button", { name: "Download this folder as ZIP", exact: true })
-    .click();
+  await chooseFolderArchiveAction(page, "Download this folder as ZIP");
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Confirm", exact: true })
@@ -160,7 +203,7 @@ test("extract requests keep their empty options and support typed merge without 
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
   await page.getByRole("checkbox", { name: "Select input.zip", exact: true }).check();
-  await page.getByRole("button", { name: "Extract to folder …", exact: true }).click();
+  await chooseSelectedArchiveAction(page, "Extract to folder …");
   await page.getByLabel("Destination folder", { exact: true }).fill("/home/test/docs");
   await page
     .getByRole("dialog")
@@ -189,9 +232,17 @@ test("read-only scope permits selection ZIP download and disables archive writes
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
   await page.getByRole("checkbox", { name: "Select input.zip", exact: true }).check();
+  const selectedActions = page.getByRole("group", {
+    name: "Selected file actions",
+    exact: true,
+  });
+  await selectedActions
+    .getByRole("button", { name: "More actions", exact: true })
+    .click();
+  const menu = page.getByRole("menu", { name: "More actions", exact: true });
   for (const name of ["Create ZIP", "Extract here", "Extract to folder …"])
-    await expect(page.getByRole("button", { name, exact: true })).toBeDisabled();
-  await page.getByRole("button", { name: "Download as ZIP", exact: true }).click();
+    await expect(menu.getByRole("menuitem", { name, exact: true })).toHaveCount(0);
+  await menu.getByRole("menuitem", { name: "Download as ZIP", exact: true }).click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Confirm", exact: true })
@@ -234,7 +285,7 @@ test("real app creates and downloads a job-bound ZIP with desktop and mobile evi
   await selectEnglish(page);
   await page.goto(`${baseURL}/files?path=${encodeURIComponent(folder)}`);
   await page.getByRole("checkbox", { name: "Select proof.txt", exact: true }).check();
-  await page.getByRole("button", { name: "Download as ZIP", exact: true }).click();
+  await chooseSelectedArchiveAction(page, "Download as ZIP");
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Confirm", exact: true })

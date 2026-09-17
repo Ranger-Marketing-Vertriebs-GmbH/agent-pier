@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
+import { actionLayoutCopy as layoutCopy } from "../../lib/i18n/messages/action-layout.js";
 import { operation, transferOperation, references, bytes } from "./file-action-utils.js";
 import "./file-actions.css";
 import FileArchiveDialog, { archiveActions, canExtract } from "./FileArchiveDialog.jsx";
+import FileActionMenu from "./FileActionMenu.jsx";
 
 export default function FileActions({
   scope,
@@ -15,6 +18,7 @@ export default function FileActions({
   onChanged,
   request,
   onRequestHandled,
+  toolbarTarget,
 }) {
   const [dialog, setDialog] = useState(null);
   const [name, setName] = useState("");
@@ -196,90 +200,111 @@ export default function FileActions({
     copy: copy.actions.copy,
     move: copy.actions.move,
   };
-  return (
-    <section className="file-actions" aria-label={copy.actions.label}>
-      <div className="file-action-buttons">
+  const newActions = [
+    {
+      kind: "create_file",
+      label: copy.actions.newFile,
+      onClick: (extra) => show("create_file", selected, extra),
+    },
+    {
+      kind: "create_directory",
+      label: copy.actions.newFolder,
+      onClick: (extra) => show("create_directory", selected, extra),
+    },
+  ];
+  const advancedActions = archiveActions
+    .filter((kind) => kind !== "download_folder")
+    .map((kind) => ({
+      kind,
+      label: copy.transfers.actions[kind],
+      hidden:
+        (scope.readOnly && !kind.startsWith("download_")) ||
+        (kind === "download_zip" && !selected.length) ||
+        (kind.startsWith("extract_") && !canExtract(selected)),
+      onClick: (extra) => show(kind, selected, extra),
+    }));
+  const primaryActions = (
+    <div className="file-primary-actions">
+      {!scope.readOnly && (
+        <FileActionMenu label={layoutCopy.new} icon="plus" items={newActions} />
+      )}
+      {clipboard.items.length > 0 && (
         <button
+          type="button"
           className="button secondary compact"
           disabled={scope.readOnly}
-          onClick={() => show("create_file")}
-        >
-          {copy.actions.newFile}
-        </button>
-        <button
-          className="button secondary compact"
-          disabled={scope.readOnly}
-          onClick={() => show("create_directory")}
-        >
-          {copy.actions.newFolder}
-        </button>
-        <button
-          className="button secondary compact"
-          disabled={!selected.length}
-          onClick={() => show("copy")}
-        >
-          {copy.actions.copy}
-        </button>
-        <button
-          className="button secondary compact"
-          disabled={scope.readOnly || !selected.length}
-          onClick={() => show("cut")}
-        >
-          {copy.actions.cut}
-        </button>
-        <button
-          className="button secondary compact"
-          disabled={scope.readOnly || !clipboard.items.length}
           onClick={() => show("paste")}
         >
           {copy.actions.paste}
         </button>
-        <button
-          className="button secondary compact"
-          disabled={scope.readOnly || selected.length !== 1}
-          onClick={() => show("rename")}
+      )}
+      <FileActionMenu
+        label={layoutCopy.more}
+        compact
+        items={[
+          {
+            kind: "archive",
+            label: copy.transfers.actions.archive,
+            hidden: scope.readOnly,
+            onClick: (extra) => show("archive", [], extra),
+          },
+          {
+            kind: "download_folder",
+            label: copy.transfers.actions.download_folder,
+            onClick: (extra) => show("download_folder", [], extra),
+          },
+        ]}
+      />
+    </div>
+  );
+  return (
+    <section className="file-actions" aria-label={copy.actions.label}>
+      {toolbarTarget ? createPortal(primaryActions, toolbarTarget) : primaryActions}
+      {selected.length > 0 && (
+        <div
+          className="file-selection-actions"
+          role="group"
+          aria-label={layoutCopy.selected}
         >
-          {copy.actions.rename}
-        </button>
-        <button
-          className="button secondary compact"
-          disabled={!selected.length}
-          onClick={() => show("path")}
-        >
-          {copy.actions.copyPath}
-        </button>
-        <button
-          className="button secondary compact"
-          disabled={scope.readOnly || !selected.length}
-          onClick={() => show("trash")}
-        >
-          {copy.actions.trash}
-        </button>
-        {archiveActions.map((kind) => (
-          <button
-            key={kind}
-            className="button secondary compact"
-            disabled={
-              (scope.readOnly && !kind.startsWith("download_")) ||
-              (kind === "download_zip" && !selected.length) ||
-              (kind.startsWith("extract_") && !canExtract(selected))
-            }
-            onClick={() => show(kind, kind === "download_folder" ? [] : selected)}
-          >
-            {copy.transfers.actions[kind]}
+          <button className="button secondary compact" onClick={() => show("copy")}>
+            {copy.actions.copy}
           </button>
-        ))}
-        {selected.length > 0 && (
+          {!scope.readOnly && (
+            <button className="button secondary compact" onClick={() => show("cut")}>
+              {copy.actions.cut}
+            </button>
+          )}
+          {!scope.readOnly && selected.length === 1 && (
+            <button className="button secondary compact" onClick={() => show("rename")}>
+              {copy.actions.rename}
+            </button>
+          )}
+          <button className="button secondary compact" onClick={() => show("path")}>
+            {copy.actions.copyPath}
+          </button>
+          {!scope.readOnly && (
+            <button className="button secondary compact" onClick={() => show("trash")}>
+              {copy.actions.trash}
+            </button>
+          )}
+          {advancedActions.some((item) => !item.hidden) && (
+            <FileActionMenu label={layoutCopy.more} items={advancedActions} />
+          )}
           <button className="button secondary compact" onClick={selection.clear}>
             {copy.actions.clearSelection}
           </button>
-        )}
-      </div>
-      <p className="field-description">
-        {copy.actions.selection(selected.length)}{" "}
-        {clipboard.items.length > 0 &&
-          copy.actions.clipboard(clipboard.items.length, copy.actions[clipboard.action])}
-      </p>
+        </div>
+      )}
+      {(selected.length > 0 || clipboard.items.length > 0) && (
+        <p className="field-description file-action-status">
+          {selected.length > 0 && copy.actions.selection(selected.length)}{" "}
+          {clipboard.items.length > 0 &&
+            copy.actions.clipboard(
+              clipboard.items.length,
+              copy.actions[clipboard.action],
+            )}
+        </p>
+      )}
       {feedback && (
         <p role="status">
           {feedback === "copyFailed"

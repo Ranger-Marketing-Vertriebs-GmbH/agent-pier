@@ -2,6 +2,10 @@ import { test, expect } from "@playwright/test";
 import { actionsFixture } from "../helpers/file-actions-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { explorerFixture, selectEnglish } from "../helpers/file-explorer-browser.js";
+import {
+  openExplorerDisclosure,
+  openExplorerPanel,
+} from "../helpers/file-explorer-layout.js";
 import { uploadsFixture } from "../helpers/file-uploads-browser.js";
 
 test("file shortcuts select the visible page and use the existing destructive dialog", async ({
@@ -33,6 +37,7 @@ test("file shortcuts preserve native path and search editing", async ({ page }) 
   await page.goto(baseURL + "/files");
   const first = page.getByRole("checkbox", { name: "Select a.txt", exact: true });
   await first.check();
+  await openExplorerDisclosure(page, ".explorer-path-options");
   const path = page.getByLabel("Path", { exact: true });
   await path.fill("native text");
   await path.press("ControlOrMeta+a");
@@ -77,6 +82,7 @@ test("menu action cancellation restores the row action trigger", async ({ page }
   await page.getByRole("menuitem", { name: "Move to Trash", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
   await expect(trigger).toBeFocused();
+  await openExplorerDisclosure(page, ".explorer-path-options");
   await trigger.click();
   await page.getByRole("menuitem", { name: "Move to Trash", exact: true }).click();
   const laterCancel = page.getByRole("dialog").getByRole("button", {
@@ -163,6 +169,7 @@ test("touch selection and the tree drawer remain usable in reduced mobile viewpo
       },
     ]);
     await touchPage.goto(baseURL + "/files");
+    await openExplorerPanel(touchPage, "activity");
     await touchPage.locator('[data-job-id="mobile-completed"] button').first().click();
     await expect(touchPage.getByText(/ein-sehr-langes-transferergebnis/)).toBeVisible();
     await touchPage.setViewportSize({ width: 1440, height: 1000 });
@@ -192,6 +199,7 @@ test("touch selection and the tree drawer remain usable in reduced mobile viewpo
     }
     await selectEnglish(touchPage);
     await touchPage.goto(baseURL + "/files");
+    await openExplorerPanel(touchPage, "activity");
     await touchPage.locator('[data-job-id="mobile-completed"] button').first().click();
     for (const height of [844, 500]) {
       await touchPage.setViewportSize({ width: 390, height });
@@ -234,6 +242,7 @@ test("a tab close uses the retained-draft guard and restores focus after cancell
     `${baseURL}/files?path=%2Fhome%2Ftest&file=${encodeURIComponent(path)}`,
   );
   await page.getByRole("button", { name: "Open in editor", exact: true }).click();
+  await openExplorerDisclosure(page, ".explorer-path-options");
   await page.getByRole("textbox", { name: `Document content: ${path}` }).fill("draft");
   const close = page.getByRole("button", { name: `Close tab ${path}`, exact: true });
   await close.click();
@@ -308,6 +317,12 @@ test("mobile editor keeps multiple tabs, a dirty draft, and conflict controls", 
       await mobile
         .getByRole("button", {
           name: language === "en" ? "Open in editor" : "Im Editor öffnen",
+          exact: true,
+        })
+        .tap();
+      await mobile
+        .getByRole("button", {
+          name: language === "en" ? "Back to file list" : "Zurück zur Dateiliste",
           exact: true,
         })
         .tap();
@@ -424,6 +439,7 @@ test("active upload controls remain reachable in compact touch viewports", async
       await mobile.goto(baseURL + "/settings");
       await mobile.getByLabel(/Sprache|Language/).selectOption(language);
       await mobile.goto(baseURL + "/files");
+      await openExplorerPanel(mobile, "uploads");
       await mobile.locator(".file-upload-history summary").click();
       await mobile.locator(".file-upload-history li button").first().click();
       await expect(

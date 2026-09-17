@@ -7,6 +7,14 @@ import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { explorerFixture, selectEnglish } from "../helpers/file-explorer-browser.js";
 
+async function chooseNew(page, name) {
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page
+    .getByRole("menu", { name: "New", exact: true })
+    .getByRole("menuitem", { name, exact: true })
+    .click();
+}
+
 test("file actions expose selection and dismissible create controls", async ({
   page,
 }) => {
@@ -15,7 +23,7 @@ test("file actions expose selection and dismissible create controls", async ({
   await page.goto(baseURL + "/files");
   await page.getByRole("checkbox", { name: "Select readme.txt", exact: true }).check();
   await expect(page.getByRole("button", { name: "Cut", exact: true })).toBeEnabled();
-  await page.getByRole("button", { name: "New file", exact: true }).click();
+  await chooseNew(page, "New file");
   await expect(page.getByRole("dialog", { name: "New file", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -69,7 +77,7 @@ test("Shift selection, keyboard copy, rename and create submit frozen scoped ref
   await expect(
     page.getByRole("button", { name: "renamed.txt", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "New folder", exact: true }).click();
+  await chooseNew(page, "New folder");
   await page.getByRole("dialog").getByRole("textbox").fill("created");
   await page
     .getByRole("dialog")
@@ -224,7 +232,7 @@ test("stale selections and dialogs disappear on refresh and path navigation", as
   await expect(
     page.getByRole("checkbox", { name: "Select a.txt", exact: true }),
   ).not.toBeChecked();
-  await expect(page.getByRole("button", { name: "Rename", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Rename", exact: true })).toHaveCount(0);
   expect(f.requests.filter((request) => request.suffix === "/operations")).toHaveLength(
     0,
   );
@@ -275,7 +283,7 @@ for (const kind of ["rename", "trash"]) {
       await expect(page.getByRole("dialog")).toHaveCount(0);
       const selected = page.getByRole("checkbox", { name: "Select b.txt", exact: true });
       await selected.check();
-      await page.getByRole("button", { name: "New file", exact: true }).click();
+      await chooseNew(page, "New file");
       const replacement = page.getByRole("dialog", { name: "New file", exact: true });
       await expect(replacement).toBeVisible();
       const response = page.waitForResponse("**/api/files/operations");
@@ -399,7 +407,7 @@ test("a move acknowledged after dialog unmount still tracks its original Cut pro
     },
   ]);
   await expect(actions).not.toContainText("Cut: 1 references");
-  await expect(page.getByRole("button", { name: "Paste", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Paste", exact: true })).toHaveCount(0);
   expect(f.unknown).toEqual([]);
 });
 
@@ -524,7 +532,7 @@ test("path-copy writes exact selected paths and a failed create retries its immu
   await page.getByRole("checkbox", { name: "Select a.txt", exact: true }).check();
   await page.getByRole("button", { name: "Copy path", exact: true }).click();
   expect(await page.evaluate(() => window.copiedPaths)).toBe("/home/test/a.txt");
-  await page.getByRole("button", { name: "New file", exact: true }).click();
+  await chooseNew(page, "New file");
   const dialog = page.getByRole("dialog", { name: "New file", exact: true });
   await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("new.txt");
   await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
