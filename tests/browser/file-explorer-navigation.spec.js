@@ -8,6 +8,50 @@ import {
   selectEnglish,
 } from "../helpers/file-explorer-browser.js";
 
+async function openDisclosure(page, selector) {
+  const disclosure = page.locator(selector);
+  if ((await disclosure.getAttribute("open")) === null)
+    await disclosure.locator("> summary").click();
+}
+
+test("compact navigation keeps direct controls behind disclosures and exposes mobile places", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await explorerFixture(page);
+  await selectEnglish(page);
+  await page.goto(baseURL + "/files?path=%2Fhome%2Ftest");
+
+  await expect(page.getByRole("navigation", { name: "Path segments" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Path", exact: true })).toBeHidden();
+  await expect(page.getByLabel("Sort by", { exact: true })).toBeHidden();
+  await expect(page.getByLabel("Include subfolders", { exact: true })).toBeHidden();
+
+  await page.locator(".explorer-path-options > summary").click();
+  await page.getByRole("textbox", { name: "Path", exact: true }).fill("/home/test/docs");
+  await page.getByRole("button", { name: "Open", exact: true }).click();
+  await expect(
+    page
+      .getByRole("navigation", { name: "Path segments" })
+      .getByRole("button", { name: /docs$/ }),
+  ).toBeVisible();
+
+  await page.locator(".explorer-view-disclosure > summary").click();
+  await page.getByLabel("Sort by", { exact: true }).selectOption("size");
+  await expect(page).toHaveURL(/sort=size/);
+
+  await page.locator(".explorer-search-options > summary").click();
+  await page.getByLabel("Match case", { exact: true }).check();
+  await expect(page.getByLabel("Match case", { exact: true })).toBeChecked();
+
+  const places = page.getByRole("button", { name: "Open directory tree" });
+  await expect(places).toContainText("Places");
+  await places.click();
+  const dialog = page.getByRole("dialog", { name: "Directory tree" });
+  await dialog.getByRole("button", { name: "Home", exact: true }).click();
+  await expect(page).toHaveURL(/path=%2Fhome%2Ftest/);
+});
+
 test("English management opens Files and keeps its path after reload", async ({
   page,
   browserName,
@@ -15,11 +59,14 @@ test("English management opens Files and keeps its path after reload", async ({
   const { requests, getPreferences } = await explorerFixture(page);
   await selectEnglish(page);
   await page.getByRole("button", { name: "Files", exact: true }).click();
+  await openDisclosure(page, ".explorer-path-options");
   await expect(page.getByRole("textbox", { name: "Path" })).toHaveValue("/home/test");
   await page.goto(baseURL + "/files?path=%2Fhome%2Ftest&hidden=1");
   await expect(page.getByRole("region", { name: "Files" })).toBeVisible();
+  await openDisclosure(page, ".explorer-path-options");
   await expect(page.getByRole("textbox", { name: "Path" })).toHaveValue("/home/test");
   await page.reload();
+  await openDisclosure(page, ".explorer-path-options");
   await expect(page.getByRole("textbox", { name: "Path" })).toHaveValue("/home/test");
   await page.getByRole("textbox", { name: "Path" }).fill("/home/test/docs");
   await page.getByRole("button", { name: "Open", exact: true }).click();
@@ -38,8 +85,12 @@ test("English management opens Files and keeps its path after reload", async ({
     "/home/test/readme.txt",
   );
   await expect(page.locator(".file-preview pre")).toHaveText("Hello explorer");
+  await openDisclosure(page, ".explorer-view-disclosure");
   await page.getByRole("button", { name: "Add current folder to favorites" }).click();
-  await expect(page.getByRole("button", { name: "test", exact: true })).toBeVisible();
+  const directoryTree = page.getByRole("navigation", { name: "Directory tree" });
+  await expect(
+    directoryTree.getByRole("button", { name: "test", exact: true }),
+  ).toBeVisible();
   expect(getPreferences().favorites).toHaveLength(1);
   const patch = requests.find((item) => item.method === "PATCH");
   expect(patch.scope).toBe(context.scopeId);
@@ -48,10 +99,13 @@ test("English management opens Files and keeps its path after reload", async ({
   await expect(page).toHaveURL(/sort=modifiedAt/);
   await expect(page).toHaveURL(/hidden=0/);
   await page.reload();
+  await openDisclosure(page, ".explorer-view-disclosure");
   await expect(page.getByLabel("Show hidden files")).not.toBeChecked();
   await page.goBack();
+  await openDisclosure(page, ".explorer-view-disclosure");
   await expect(page.getByLabel("Show hidden files")).toBeChecked();
   await page.goForward();
+  await openDisclosure(page, ".explorer-view-disclosure");
   await expect(page.getByLabel("Show hidden files")).not.toBeChecked();
   expect(
     requests.some(
@@ -71,7 +125,9 @@ test("English management opens Files and keeps its path after reload", async ({
   await page
     .getByRole("button", { name: "Remove current folder from favorites" })
     .click();
-  await expect(page.getByRole("button", { name: "test", exact: true })).toHaveCount(0);
+  await expect(
+    directoryTree.getByRole("button", { name: "test", exact: true }),
+  ).toHaveCount(0);
   expect(getPreferences().favorites).toHaveLength(0);
 });
 
@@ -101,7 +157,9 @@ test("mobile explorer exposes the directory tree and symlink navigation", async 
   await expect(page.getByRole("region", { name: "Dateieigenschaften" })).toContainText(
     "docs",
   );
+  await openDisclosure(page, ".file-details");
   await page.getByRole("button", { name: "Verknüpfungsziel öffnen" }).click();
+  await openDisclosure(page, ".explorer-path-options");
   await expect(page.getByRole("textbox", { name: "Pfad" })).toHaveValue(
     "/home/test/linked-docs",
   );
@@ -119,6 +177,8 @@ test("invalid and expired listing pages require an explicit refresh", async ({
 }) => {
   await explorerFixture(page, { favorites: [], showHidden: true });
   await page.goto(baseURL + "/files?page=wrong");
+  await openDisclosure(page, ".explorer-path-options");
+  await openDisclosure(page, ".explorer-view-disclosure");
   await expect(page.getByRole("textbox", { name: "Pfad" })).toHaveValue("/home/test");
   await expect(page.getByLabel("Versteckte Dateien anzeigen")).toBeChecked();
   await expect(page.getByText("Diese Dateilistenseite ist ungültig.")).toBeVisible();
@@ -188,6 +248,7 @@ test("pagination retains its snapshot and sorting starts a fresh listing", async
     page.getByRole("button", { name: "second.txt", exact: true }),
   ).toBeVisible();
   expect(queries.at(-1)).toMatchObject({ page: "2", snapshot: "stable-snapshot" });
+  await openDisclosure(page, ".explorer-view-disclosure");
   await page.getByLabel("Sortieren nach").selectOption("size");
   await expect(
     page.getByRole("button", { name: "first.txt", exact: true }),
@@ -247,11 +308,11 @@ test("a same-session working-directory change resets stale relative selection", 
   await page.goto(
     baseURL + "/sessions/cwd-session/files?path=stale&file=stale%2Fold.txt",
   );
+  await openDisclosure(page, ".explorer-path-options");
   await expect(page.getByRole("textbox", { name: "Pfad" })).toHaveValue("stale");
   session.cwd = "/home/test/two";
-  await expect(page.getByRole("textbox", { name: "Pfad" })).toHaveValue("", {
-    timeout: 7000,
-  });
-  await expect(page).toHaveURL(/\/sessions\/cwd-session\/files$/);
+  await expect(page).toHaveURL(/\/sessions\/cwd-session\/files$/, { timeout: 7000 });
+  await openDisclosure(page, ".explorer-path-options");
+  await expect(page.getByRole("textbox", { name: "Pfad" })).toHaveValue("");
   expect(entries.at(-1)).toEqual({ root: "/home/test/two", path: "" });
 });

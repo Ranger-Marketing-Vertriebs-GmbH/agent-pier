@@ -1,0 +1,206 @@
+.explorer-toolbar {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.explorer-toolbar-primary,
+.explorer-history,
+.explorer-toolbar-actions,
+.explorer-breadcrumbs,
+.explorer-search-form,
+.explorer-toolbar-disclosures,
+.explorer-path-form,
+.explorer-path-form label,
+.explorer-view-options,
+.explorer-view-options label,
+.explorer-search-options > div,
+.explorer-search-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.explorer-toolbar-primary {
+  width: 100%;
+}
+
+.explorer-history,
+.explorer-toolbar-actions {
+  flex: none;
+}
+
+.explorer-breadcrumbs {
+  flex: 1;
+  overflow-x: auto;
+}
+
+.explorer-breadcrumbs button {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.explorer-breadcrumbs button[aria-current="location"] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.explorer-breadcrumbs > span {
+  color: var(--line);
+}
+
+.explorer-toolbar-actions {
+  margin-left: auto;
+}
+
+.explorer-toolbar-actions:empty {
+  display: none;
+}
+
+.tree-toggle {
+  display: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.tree-toggle.project-scope {
+  display: inline-flex;
+}
+
+.explorer-search-form {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.explorer-search-field {
+  display: flex;
+  flex: 1 1 280px;
+  align-items: center;
+  min-width: 0;
+}
+
+.explorer-search-field > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.explorer-search-field input {
+  width: 100%;
+  min-width: 100px;
+}
+
+.explorer-toolbar details > summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+  user-select: none;
+}
+
+.explorer-toolbar details[open] > summary {
+  color: var(--text);
+}
+
+.explorer-search-options {
+  flex: none;
+}
+
+.explorer-search-options > div {
+  flex-wrap: wrap;
+  padding-top: 8px;
+}
+
+.explorer-search-options label,
+.explorer-view-options label {
+  font-size: 0.82rem;
+}
+
+.explorer-toolbar-disclosures {
+  flex-wrap: wrap;
+}
+
+.explorer-toolbar-disclosures > details[open] {
+  flex: 1 1 100%;
+}
+
+.explorer-path-form,
+.explorer-view-options {
+  flex-wrap: wrap;
+  padding-top: 8px;
+}
+
+.explorer-path-form label {
+  flex: 1 1 280px;
+}
+
+.explorer-path-form label > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.explorer-path-form input {
+  width: 100%;
+  min-width: 0;
+}
+
+.explorer-hidden-toggle {
+  padding: 7px 0;
+}
+
+@media (max-width: 700px) {
+  .explorer-toolbar-primary {
+    flex-wrap: wrap;
+  }
+
+  .explorer-history {
+    order: 1;
+  }
+
+  .explorer-breadcrumbs {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .explorer-toolbar-actions {
+    order: 2;
+  }
+
+  .tree-toggle {
+    display: inline-flex;
+  }
+
+  .explorer-search-form {
+    flex-wrap: wrap;
+  }
+
+  .explorer-search-field {
+    flex: 1 1 180px;
+  }
+
+  .explorer-search-options {
+    flex-basis: 100%;
+  }
+
+  .explorer-path-form label > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .explorer-view-options > label:first-child {
+    flex: 1;
+  }
+
+  .explorer-view-options select {
+    min-width: 7.5rem;
+  }
+}
