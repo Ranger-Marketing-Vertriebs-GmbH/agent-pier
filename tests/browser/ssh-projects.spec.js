@@ -7,6 +7,51 @@ const card = (page, name) =>
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name, exact: true }) });
 
+test("same-name projects expose their directories when choosing SSH ownership", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  state.projects = [
+    { id: "project-app", name: "app", cwd: "/first/app", kind: "git" },
+    { id: "project-docs", name: "app", cwd: "/second/app", kind: "git" },
+  ];
+  state.keys[0].projectId = "project-app";
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  await page.goto(baseURL + "/settings/ssh");
+  const labels = ["app · /first/app", "app · /second/app"];
+  await expect(
+    page.getByRole("combobox", { name: "Project filter" }).locator("option"),
+  ).toHaveText(["All owners", "Global", ...labels]);
+  await expect(card(page, "Deployment key")).toContainText(labels[0]);
+  await page.getByRole("button", { name: "Add SSH key", exact: true }).click();
+  await page.getByRole("combobox", { name: "Owner" }).selectOption({ label: labels[1] });
+  await page.getByLabel("Name", { exact: true }).fill("Second clone key");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  expect(state.keys.find((key) => key.name === "Second clone key").projectId).toBe(
+    "project-docs",
+  );
+  await page.getByRole("button", { name: "Add server access", exact: true }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Owner" }).locator("option"),
+  ).toHaveText(["Global", ...labels]);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("button", { name: "Reassign project resources" }).click();
+  await expect(
+    page.getByRole("combobox", { name: "From project" }).locator("option"),
+  ).toHaveText(labels);
+  await expect(
+    page.getByRole("combobox", { name: "To project" }).locator("option"),
+  ).toHaveText(labels);
+  await page.screenshot({ path: ".cache/ssh-project-selection-en.png" });
+  state.projects[0].cwd = "/workspace/" + "nested-project-directory/".repeat(8) + "app";
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await expect(card(page, "Deployment key")).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+});
+
 test("project filter scopes creation and host keys to the selected owner", async ({
   page,
 }) => {

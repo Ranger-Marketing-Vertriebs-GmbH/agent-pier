@@ -70,11 +70,12 @@ export class SshSessions {
       .map((item) => item.id);
   }
   async effective(session) {
-    return [...new Set([...this.assigned(session), ...(await this.inherited(session))])];
+    const inherited = await this.inherited(session);
+    return [...new Set([...this.assigned(session), ...inherited])];
   }
   async get(session) {
-    const assignedIds = this.assigned(session);
     const inheritedIds = isEligible(session) ? await this.inherited(session) : [];
+    const assignedIds = this.assigned(session);
     return {
       accesses: this.store.list(),
       assignedIds,

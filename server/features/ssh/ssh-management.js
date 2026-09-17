@@ -122,6 +122,14 @@ export class SshManagement {
     };
     const projects = this.catalog.read().projects;
     const previous = projects.find((row) => row.id === record.id);
+    record.directories = [
+      ...new Set([
+        record.cwd,
+        ...(project.directories || []),
+        ...(previous?.directories || []),
+        ...(previous?.cwd ? [previous.cwd] : []),
+      ]),
+    ];
     if (JSON.stringify(previous) !== JSON.stringify(record))
       this.catalog.replacePart("projects", [
         ...projects.filter((row) => row.id !== record.id),
@@ -368,19 +376,42 @@ export class SshManagement {
     const project = (await this.projects()).projects.find((row) => row.id === id);
     if (!project)
       throw sshProblem("SSH_PROJECT_UNAVAILABLE", "SSH project is unavailable.", 404);
-    let current;
-    try {
-      current = await projectScope(project.cwd);
-    } catch {
-      throw sshProblem(
-        "SSH_PROJECT_UNAVAILABLE",
-        "SSH project directory is unavailable.",
-        409,
-      );
+    const saved = this.catalog.read().projects.find((row) => row.id === id);
+    const registered = this.projectRegistry
+      ?.projects()
+      .projects.find((row) => row.id === id);
+    const directories = [
+      ...new Set([
+        project.cwd,
+        ...(saved?.directories || []),
+        ...(registered?.cwd ? [registered.cwd] : []),
+      ]),
+    ];
+    let changed = false;
+    for (const cwd of directories) {
+      let current;
+      try {
+        current = await projectScope(cwd);
+      } catch {
+        continue;
+      }
+      if (current.id === id)
+        return {
+          id,
+          name: current.name,
+          cwd: current.cwd,
+          kind: current.kind,
+          directories,
+        };
+      changed = true;
     }
-    if (current.id !== id)
+    if (changed)
       throw sshProblem("SSH_PROJECT_CHANGED", "SSH project identity changed.", 409);
-    return project;
+    throw sshProblem(
+      "SSH_PROJECT_UNAVAILABLE",
+      "SSH project directory is unavailable.",
+      409,
+    );
   }
   ui(action, input = {}) {
     return this.track(() => this.performUi(action, input));

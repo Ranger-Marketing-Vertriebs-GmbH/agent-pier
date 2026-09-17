@@ -153,3 +153,23 @@ test("inspection remains available for stopped or excluded sessions without inhe
   save();
   await assert.rejects(grants.resolve(session.id, "project-host"), /laufenden/);
 });
+
+test("effective grants and inspection observe revocation during project validation", async (t) => {
+  const { grants, session } = fixture(t);
+  const inherited = grants.inherited.bind(grants);
+  for (const operation of ["effective", "get"]) {
+    await grants.set(session, ["server-one"]);
+    grants.inherited = async (...args) => {
+      const ids = await inherited(...args);
+      grants.discard(session.id);
+      return ids;
+    };
+    const result = await grants[operation](session);
+    grants.inherited = inherited;
+    if (operation === "effective") assert.deepEqual(result, []);
+    else {
+      assert.deepEqual(result.assignedIds, []);
+      assert.deepEqual(result.commands, []);
+    }
+  }
+});

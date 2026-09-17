@@ -1,4 +1,5 @@
 export const sshProjectCopy = {
+  projectLocation: (name, directory) => `${name} · ${directory}`,
   filter: "Projektfilter",
   all: "Alle Besitzer",
   global: "Global",

@@ -58,13 +58,17 @@ export class SshTools {
       return this.manage(name, input);
     if (name === "ssh_list_hosts") {
       if (Object.keys(input).length) throw problem("Invalid SSH arguments.");
-      const assigned = new Set(await this.grants.effective(session));
       const inherited = new Set(await this.grants.inherited(session));
-      const explicit = new Set(this.grants.assigned(session));
-      authorizeSsh(this.dataDir, this.capability);
+      const current = authorizeSsh(this.dataDir, this.capability);
+      const explicit = new Set(this.grants.assigned(current));
+      const hosts = this.store.list();
+      // Discovery yields to Git; ownership and explicit grants can change meanwhile.
+      for (const host of hosts)
+        if (host.projectId !== current.sshTools?.project?.projectId)
+          inherited.delete(host.id);
+      const assigned = new Set([...explicit, ...inherited]);
       return {
-        hosts: this.store
-          .list()
+        hosts: hosts
           .filter((host) => assigned.has(host.id))
           .map(({ id, name, host, port, username, hostFingerprint }) => ({
             accessId: id,

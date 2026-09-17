@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { sshManagementFixture } from "../helpers/ssh-management.js";
+import { SshManagement } from "../../server/features/ssh/ssh-management.js";
 
 test("project keys are replayable and private material never enters MCP results", async (t) => {
   const f = await sshManagementFixture(t),
@@ -95,4 +96,57 @@ test("a fresh main checkout binding replaces a removed linked worktree in projec
   });
   assert.equal(key.projectId, project.id);
   await assert.rejects(old.call("ssh_list_keys"), { code: "SSH_PROJECT_UNAVAILABLE" });
+});
+
+test("UI project management survives removal of the last registered worktree", async (t) => {
+  const f = await sshManagementFixture(t);
+  const main = path.join(f.root, "main"),
+    worktree = path.join(f.root, "worktree");
+  fs.mkdirSync(main);
+  const git = (...args) => execFileSync("git", ["-C", main, ...args], { stdio: "pipe" });
+  git("init");
+  git(
+    "-c",
+    "user.name=Fixture",
+    "-c",
+    "user.email=fixture@example.invalid",
+    "commit",
+    "--allow-empty",
+    "-m",
+    "fixture",
+  );
+  git("worktree", "add", "-b", "linked", worktree);
+  const primary = await f.session("primary", main);
+  const linked = await f.session("linked", worktree);
+  await f.management.registerProject(primary.project);
+  await f.management.registerProject(linked.project);
+  git("worktree", "remove", worktree);
+  await assert.rejects(linked.call("ssh_list_keys"), { code: "SSH_PROJECT_UNAVAILABLE" });
+  assert.equal(
+    (await f.management.project(primary.project.projectId)).cwd,
+    fs.realpathSync(main),
+  );
+  await f.management.close();
+  const restarted = new SshManagement({ dataDir: f.dataDir, home: f.home });
+  try {
+    await restarted.ready;
+    const key = await restarted.ui("createKey", {
+      name: "Still available",
+      projectId: primary.project.projectId,
+    });
+    assert.equal(key.projectId, primary.project.projectId);
+    assert.equal((await restarted.project(key.projectId)).cwd, fs.realpathSync(main));
+    // An unrelated replacement at an old path must never acquire this project's keys.
+    fs.mkdirSync(worktree);
+    fs.rmSync(path.join(main, ".git"), { recursive: true });
+    await assert.rejects(
+      restarted.ui("createKey", {
+        name: "Wrong replacement",
+        projectId: key.projectId,
+      }),
+      { code: "SSH_PROJECT_CHANGED" },
+    );
+  } finally {
+    await restarted.close();
+  }
 });

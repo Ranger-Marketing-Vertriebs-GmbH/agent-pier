@@ -107,7 +107,15 @@ export default function SshSettings() {
   const [reassigning, setReassigning] = useState(false);
   const ready = Boolean(data && catalog.data && projectCatalog.data);
   const keys = catalog.data?.keys || [];
-  const projects = projectCatalog.data?.projects || [];
+  const knownProjects = projectCatalog.data?.projects || [];
+  const projects = knownProjects.map((project) => ({
+    ...project,
+    name: knownProjects.some(
+      (other) => other.id !== project.id && other.name === project.name,
+    )
+      ? projectCopy.projectLocation(project.name, project.cwd || project.id)
+      : project.name,
+  }));
   const resourceProjectIds = [...keys, ...(data?.accesses || [])]
     .map((item) => item.projectId)
     .filter((id, index, ids) => id && ids.indexOf(id) === index);

@@ -118,3 +118,29 @@ test("UTF-8 truncation also respects the byte budget", async (t) => {
   });
   assert.ok(Buffer.byteLength(result.stdout) + Buffer.byteLength(result.stderr) <= 65536);
 });
+
+test("host discovery excludes explicit grants revoked during project validation", async (t) => {
+  const { tools, grants, session } = await fixture(t);
+  const inherited = grants.inherited.bind(grants);
+  grants.inherited = async (...args) => {
+    const ids = await inherited(...args);
+    grants.discard(session.id);
+    return ids;
+  };
+  assert.deepEqual((await tools.call("ssh_list_hosts", {})).hosts, []);
+});
+
+test("host discovery excludes project hosts reassigned during validation", async (t) => {
+  const { tools, grants, session } = await fixture(t);
+  grants.discard(session.id);
+  const hosts = tools.store.list();
+  hosts[0].projectId = session.sshTools.project.projectId;
+  tools.store.list = () => hosts;
+  const inherited = grants.inherited.bind(grants);
+  grants.inherited = async (...args) => {
+    const ids = await inherited(...args);
+    hosts[0].projectId = "other-project";
+    return ids;
+  };
+  assert.deepEqual((await tools.call("ssh_list_hosts", {})).hosts, []);
+});
