@@ -1,3 +1,4 @@
+import { openExplorerPanel } from "../helpers/file-explorer-layout.js";
 import { test, expect } from "@playwright/test";
 import { jobsFixture } from "../helpers/file-jobs-browser.js";
 import { selectEnglish } from "../helpers/file-explorer-browser.js";
@@ -21,6 +22,7 @@ test("English text-save history exposes its outcome without a generic retry capa
   const ordinary = f.addJob({ kind: "copy", status: "failed" });
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "activity");
   const failedCard = page.locator(`[data-job-id="${failed.id}"]`);
   await expect(failedCard).toContainText("Save text");
   await expect(failedCard).toContainText("Failed");

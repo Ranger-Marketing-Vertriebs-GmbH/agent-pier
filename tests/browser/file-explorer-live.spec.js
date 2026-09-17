@@ -3,6 +3,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { applicationFixture } from "../helpers/application.js";
+import {
+  openExplorerDisclosure,
+  openExplorerPanel,
+} from "../helpers/file-explorer-layout.js";
 
 async function cleanupAll(cleanups) {
   const errors = [];
@@ -27,8 +31,10 @@ async function readTextWhenPresent(file) {
 }
 
 async function createEntry(page, kind, name) {
+  await page.getByRole("button", { name: "New", exact: true }).click();
   await page
-    .getByRole("button", {
+    .getByRole("menu", { name: "New", exact: true })
+    .getByRole("menuitem", {
       name: kind === "file" ? "New file" : "New folder",
       exact: true,
     })
@@ -78,12 +84,14 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
     await createEntry(page, "folder", folderName);
     await page.getByRole("button", { name: folderName, exact: true }).click();
     const folder = path.join(f.home, folderName);
+    await openExplorerDisclosure(page, ".explorer-path-options");
     await expect(page.getByLabel("Path", { exact: true })).toHaveValue(folder);
 
     await createEntry(page, "file", "document.txt");
     const document = path.join(folder, "document.txt");
     const binaryName = "unsupported-ä.bin";
     const binary = Buffer.from([0, 1, 2, 3, 255, 128, 65, 66]);
+    await openExplorerPanel(page, "uploads");
     await page.getByLabel("Upload files", { exact: true }).setInputFiles({
       name: binaryName,
       mimeType: "application/octet-stream",

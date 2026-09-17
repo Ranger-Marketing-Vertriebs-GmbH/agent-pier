@@ -1,92 +1,125 @@
+/* Shared layout for the machine browser and session files. */
 .file-explorer {
   flex: 1;
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  padding: 20px;
+  padding: 24px 28px;
   width: 100%;
 }
-.file-explorer > h1 {
-  margin: 0 0 14px;
-}
-.explorer-toolbar {
-  display: grid;
-  grid-template-columns: auto minmax(280px, 1fr);
-  gap: 10px 16px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
-}
-.explorer-history,
-.explorer-view-options,
-.explorer-path-form,
-.explorer-path-form label,
-.explorer-breadcrumbs {
+.explorer-page-heading {
   display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.explorer-page-heading h1 {
+  font-size: 26px;
+  letter-spacing: -0.5px;
+}
+.explorer-page-heading > span {
+  color: var(--muted);
+  border: 1px solid var(--line);
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+.explorer-primary-actions {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  min-width: 0;
 }
-.explorer-path-form label {
-  flex: 1;
+.explorer-action-slot {
+  display: contents;
 }
-.explorer-path-form label > span {
-  font-size: 0.78rem;
-  color: var(--muted);
+.explorer-primary-actions:empty {
+  display: none;
 }
-.explorer-path-form input {
-  width: 100%;
-  min-width: 0;
-}
-.explorer-breadcrumbs {
-  grid-column: 1 / -1;
-  overflow-x: auto;
-}
-.explorer-breadcrumbs button {
-  flex: none;
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-.explorer-breadcrumbs button + button::before {
-  content: "/";
-  margin-right: 8px;
-  color: var(--line);
-}
-.explorer-view-options {
-  grid-column: 1 / -1;
-  flex-wrap: wrap;
-}
-.explorer-view-options label {
-  display: flex;
-  align-items: center;
+.explorer-activity-toggle {
   gap: 6px;
 }
-.explorer-hidden-toggle {
-  padding: 7px 0;
+.explorer-activity-toggle > span {
+  font-size: 10px;
 }
-.tree-toggle {
-  display: none;
+.explorer-attention {
+  color: #ffc99d;
+}
+.explorer-panels {
+  display: flex;
+  gap: 16px;
+  margin: 12px 0;
+}
+.explorer-panels button {
+  padding: 7px 2px;
+  color: var(--muted);
+  font-size: 12px;
+  border-bottom: 2px solid transparent;
+}
+.explorer-panels button[aria-pressed="true"] {
+  color: #ffc99d;
+  border-color: var(--accent);
 }
 .file-explorer-columns {
   display: grid;
-  grid-template-columns:
-    minmax(190px, 0.55fr) minmax(360px, 1.35fr)
-    minmax(230px, 0.8fr);
-  gap: 14px;
-  margin-top: 14px;
+  grid-template-columns: 185px minmax(0, 1fr);
+  border: 1px solid var(--line);
+  border-radius: 9px;
   align-items: start;
+}
+.has-preview .file-explorer-columns {
+  grid-template-columns: 170px minmax(240px, 1fr) minmax(280px, 0.8fr);
+}
+.explorer-tree-column {
+  align-self: stretch;
+  padding: 20px 12px;
+  border-right: 1px solid var(--line);
+  background: #16171b;
 }
 .explorer-tree-column,
 .explorer-list-column,
 .file-properties {
   min-width: 0;
 }
-.directory-tree,
-.file-properties {
-  padding: 12px;
+.explorer-list-column {
+  padding: 18px 20px;
+}
+.explorer-folder-heading {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 18px;
+}
+.explorer-folder-heading h2 {
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.explorer-folder-heading span,
+.explorer-list-summary {
+  font-size: 11px;
+  color: var(--muted);
+}
+.explorer-list-summary {
+  padding: 14px 0 0;
+}
+.project-explorer .file-explorer-columns {
+  grid-template-columns: minmax(0, 1fr);
+  border: 0;
+}
+.project-explorer.has-preview .file-explorer-columns {
+  grid-template-columns: minmax(240px, 1fr) minmax(280px, 0.65fr);
+  gap: 18px;
+}
+.project-explorer .explorer-tree-column {
+  display: none;
+}
+.project-explorer .explorer-list-column {
+  padding: 8px 0;
+}
+.project-explorer .file-properties {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
 }
 .directory-tree section + section {
   margin-top: 18px;
@@ -150,87 +183,58 @@
   padding: 6px;
   color: var(--muted);
 }
+
+.directory-tree {
+  font-size: 12px;
+}
+.directory-tree h3 {
+  font-size: 10px;
+}
+.tree-shortcut {
+  border-radius: 6px;
+}
+.tree-shortcut:hover {
+  background: #2a2826;
+  color: #ffc99d;
+}
 .explorer-list {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  overflow: hidden;
+  min-width: 0;
 }
 .explorer-list :focus-visible {
   outline-offset: -2px;
-}
-.explorer-list-header,
-.explorer-entry {
-  display: grid;
-  grid-template-columns: minmax(150px, 1fr) 90px 70px 150px 38px;
-  align-items: center;
-  min-width: 0;
-}
-.explorer-list-header {
-  padding: 9px 10px;
-  color: var(--muted);
-  font-size: 0.76rem;
-  border-bottom: 1px solid var(--line);
-}
-.explorer-entry {
-  border-bottom: 1px solid var(--line);
-}
-.explorer-entry:last-of-type {
-  border-bottom: 0;
-}
-.explorer-entry:hover,
-.explorer-entry.selected {
-  background: #38302b;
-  color: #ffc99d;
-}
-.explorer-entry > span,
-.explorer-entry > time {
-  padding: 10px 6px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.8rem;
-}
-.explorer-entry-name {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 11px 10px;
-  text-align: left;
-}
-.explorer-entry-name span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.explorer-entry-name svg {
-  flex: none;
 }
 .explorer-pagination {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 10px;
+  padding: 12px;
 }
 .file-properties {
+  padding: 18px;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
   overflow-wrap: anywhere;
 }
 .file-properties header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
+  margin-bottom: 16px;
 }
 .file-properties h2 {
-  margin: 0;
-  font-size: 1rem;
+  font-size: 14px;
+  flex: 1;
+}
+.file-preview-back {
+  display: none;
 }
 .file-properties dl {
   display: grid;
-  grid-template-columns: minmax(70px, auto) minmax(0, 1fr);
-  gap: 7px 10px;
-  font-size: 0.82rem;
+  grid-template-columns: minmax(60px, auto) minmax(0, 1fr);
+  gap: 9px 12px;
+  font-size: 12px;
+  margin: 14px 0;
 }
 .file-properties dt {
   color: var(--muted);
@@ -242,10 +246,10 @@
 }
 .file-preview {
   min-width: 0;
-  margin-top: 12px;
-  padding: 10px;
+  padding: 13px;
   border: 1px solid var(--line);
   border-radius: 8px;
+  background: #101114;
 }
 .file-preview-heading {
   display: flex;
@@ -253,36 +257,56 @@
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 .file-preview-heading > code {
-  flex: 1 1 140px;
+  flex: 1 1 120px;
   min-width: 0;
   overflow-wrap: anywhere;
+  font-size: 11px;
+  color: var(--muted);
 }
 .file-preview-actions {
   display: flex;
-  flex: none;
   align-items: center;
   gap: 10px;
 }
 .file-preview pre {
-  max-height: 45vh;
+  max-height: 55vh;
   margin: 0;
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   tab-size: 2;
+  font-size: 12px;
+  line-height: 1.7;
 }
 .file-preview img {
   display: block;
   max-width: 100%;
   height: auto;
 }
-.explorer-page-error {
+.file-preview-primary-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 16px;
 }
-.create-directory {
+.file-preview-primary-actions button {
+  background: var(--accent);
+  color: #242529;
+}
+.file-details {
+  margin-top: 20px;
+}
+.file-details > summary {
+  cursor: pointer;
+  padding: 8px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.explorer-page-error {
   margin-top: 16px;
 }
 dialog .directory-tree {
@@ -290,107 +314,105 @@ dialog .directory-tree {
   padding: 0;
   min-width: min(78vw, 340px);
 }
-@media (max-width: 1100px) {
-  .file-explorer-columns {
-    grid-template-columns: minmax(180px, 0.55fr) minmax(330px, 1.2fr);
+.file-explorer .file-jobs[data-collapsed] {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.file-explorer [hidden] {
+  display: none !important;
+}
+@media (min-width: 701px) and (max-width: 1150px) {
+  .has-preview .file-explorer-columns {
+    grid-template-columns: minmax(210px, 1fr) minmax(260px, 0.85fr);
   }
-  .file-properties {
-    grid-column: 1 / -1;
+  .has-preview .explorer-tree-column {
+    display: none;
+  }
+  .has-preview .tree-toggle {
+    display: inline-flex;
   }
 }
 @media (max-width: 700px) {
   .file-explorer {
-    padding: 10px;
+    padding: 16px 12px;
   }
-  .file-explorer > h1 {
-    font-size: 1.25rem;
+  .explorer-page-heading {
+    gap: 10px;
+    margin-bottom: 18px;
   }
-  .explorer-toolbar,
-  .file-explorer-columns {
-    grid-template-columns: minmax(0, 1fr);
+  .explorer-page-heading h1 {
+    font-size: 21px;
   }
-  .explorer-history,
-  .explorer-path-form,
-  .explorer-view-options {
-    grid-column: 1;
+  .explorer-page-heading > span {
+    margin-left: auto;
+    font-size: 10px;
   }
-  .explorer-history {
-    flex-wrap: wrap;
+  .explorer-primary-actions {
+    gap: 6px;
   }
-  .tree-toggle {
-    display: inline-flex;
+  .explorer-primary-actions .button {
+    min-height: 40px;
+    font-size: 11px;
+    padding-inline: 10px;
   }
-  .explorer-path-form label > span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+  .explorer-activity-toggle {
+    font-size: 10px !important;
   }
-  .explorer-view-options > label:first-child {
-    flex: 1;
-  }
-  .explorer-view-options select {
-    min-width: 7.5rem;
+  .file-explorer-columns,
+  .has-preview .file-explorer-columns,
+  .project-explorer.has-preview .file-explorer-columns {
+    display: block;
+    border: 0;
   }
   .explorer-tree-column {
     display: none;
   }
-  .explorer-list-header {
+  .explorer-list-column,
+  .project-explorer .explorer-list-column {
+    padding: 8px 0;
+  }
+  .explorer-folder-heading {
+    margin-bottom: 12px;
+  }
+  .file-properties,
+  .project-explorer .file-properties {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    background: transparent;
+  }
+  .file-preview-back {
+    display: inline-flex;
+  }
+  .file-preview-close {
     display: none;
   }
-  .explorer-entry {
-    grid-template-columns: 42px minmax(0, 1fr) 42px 42px;
-  }
-  .explorer-entry > span,
-  .explorer-entry > time {
-    display: none;
-  }
-  .file-properties {
-    grid-column: auto;
-  }
-  .file-properties:has(dl) {
-    grid-row: 1;
-  }
-  .file-selection-checkbox,
-  .explorer-entry > .icon-button,
-  .tree-node-row > .tree-expand,
-  .tree-shortcut-row > .icon-button {
+  .file-properties header .icon-button {
     width: 40px;
-    min-width: 40px;
     height: 40px;
-    min-height: 40px;
+    flex-shrink: 0;
+  }
+  .has-preview .explorer-list-column,
+  .has-preview .explorer-toolbar,
+  .has-preview .explorer-panels {
+    display: none;
+  }
+  .has-preview .explorer-page-heading {
+    display: none;
+  }
+  .file-preview pre {
+    max-height: none;
   }
   .tree-node-row > button,
   .tree-shortcut {
     min-height: 40px;
   }
-}
-
-.explorer-search-form {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  border-top: 1px solid var(--line);
-  padding-top: 10px;
-}
-.explorer-search-form label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.82rem;
-  min-width: 0;
-}
-.explorer-search-form label:first-child {
-  flex: 1 1 280px;
-  flex-wrap: wrap;
-}
-.explorer-search-form input[type="search"] {
-  flex: 1;
-  width: 100%;
-  min-width: 100px;
+  .tree-node-row > .tree-expand,
+  .tree-shortcut-row > .icon-button {
+    min-width: 40px;
+    min-height: 40px;
+  }
 }
 .file-jobs:has(h2) {
   border: 1px solid var(--line);
@@ -437,4 +459,35 @@ dialog .directory-tree {
   display: block;
   text-align: left;
   padding: 5px 0;
+}
+
+@media (max-width: 700px) {
+  .has-preview .explorer-upload-panel,
+  .has-preview .explorer-activity .file-jobs > div {
+    display: none;
+  }
+  .has-preview .explorer-activity .file-jobs {
+    border: 0;
+    padding: 0;
+    margin: 0;
+  }
+}
+
+.explorer-preview-attention {
+  display: none;
+}
+@media (max-width: 700px) {
+  .explorer-toolbar-actions {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+  .explorer-primary-actions {
+    flex: 1;
+    min-width: 0;
+  }
+  .has-preview .explorer-preview-attention {
+    display: block;
+    margin-bottom: 12px;
+  }
 }

@@ -1,27 +1,27 @@
 import FileEditorWorkspace from "./FileEditorWorkspace.jsx";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import api from "../../lib/api.js";
 import { browserUuid } from "../../lib/browser-uuid.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Modal from "../../components/Modal.jsx";
-import CreateDirectory from "../directories/CreateDirectory.jsx";
 import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
 import { fileApi } from "./file-api.js";
 import useFileListing from "./useFileListing.js";
 import useFilePreferences from "./useFilePreferences.js";
 import ExplorerToolbar from "./ExplorerToolbar.jsx";
 import ExplorerDirectoryTree from "./ExplorerDirectoryTree.jsx";
-import FileList from "./FileList.jsx";
+import ExplorerListing from "./ExplorerListing.jsx";
 import useFileJobs from "./useFileJobs.js";
-import FileJobs from "./FileJobs.jsx";
 import FileProperties from "./FileProperties.jsx";
-import FileActions from "./FileActions.jsx";
-import FileUploads from "./FileUploads.jsx";
+import ExplorerTransfers from "./ExplorerTransfers.jsx";
 import useFileUploads from "./useFileUploads.js";
 import TrashView from "./TrashView.jsx";
 import useFileSelection from "./useFileSelection.js";
 import useFileClipboard, { useClipboardResults } from "./useFileClipboard.js";
 import { useExplorerFileShortcuts, useOwnedListAction } from "./useFileShortcuts.js";
+import { explorerLayoutCopy as layout } from "../../lib/i18n/messages/explorer-layout.js";
+import useExplorerDrag from "./useExplorerDrag.js";
+import useExplorerPreviewReturn from "./useExplorerPreviewReturn.js";
 import "./files.css";
 export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
   const kind = scopeRef.kind;
@@ -33,13 +33,32 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
   );
   const [contextResult, setContext] = useState(null);
   const context = contextResult?.client === client ? contextResult.value : null;
-  const jobs = useFileJobs(client);
+  const queue = useFileJobs(client);
+  const startJob = queue.start;
+  const [activityRequest, setActivityRequest] = useState(null);
+  const isExternalDrop = (event) =>
+    !context?.readOnly &&
+    event.dataTransfer.types.includes("Files") &&
+    !event.dataTransfer.types.includes("application/x-agentpier-files");
+  const startOperation = useCallback(
+    (scopeId, body) => {
+      setActivityRequest({ scopeId });
+      return startJob(scopeId, body);
+    },
+    [startJob],
+  );
+  const jobs = { ...queue, start: startOperation };
   const [searchResult, setSearchResult] = useState(null);
   const [sizeResult, setSizeResult] = useState(null);
   const [searchPending, setSearchPending] = useState(null);
   const [contextError, setContextError] = useState(null);
   const [projects, setProjects] = useState([]);
   const [treeOpen, setTreeOpen] = useState(false);
+  const [toolbarTarget, setToolbarTarget] = useState(null);
+  const [transferToolbarTarget, setTransferToolbarTarget] = useState(null);
+  const [previewTarget, setPreviewTarget] = useState(null);
+  const [uploadRequest, setUploadRequest] = useState(0);
+  const { explorerRef, previewOrigin } = useExplorerPreviewReturn(route.file);
   const previousScope = useRef(null);
   const path = route.filePath || "";
   const page = route.filePage || 1;
@@ -170,7 +189,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
   const [actionRequest, setActionRequest] = useState(null);
   useEffect(() => setActionRequest(null), [actionOwner]);
   const requestListAction = useOwnedListAction(actionOwner, setActionRequest);
-  const dragged = useRef(null);
+  const dragEvents = useExplorerDrag(actionOwner, setActionRequest);
   const actionScope = context && { ...context, path };
   const terminalJobs = jobs.jobs
     .filter(
@@ -308,11 +327,16 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
       }))
       .catch(() => {});
   };
-  const showProperties = (selected) =>
+  const showProperties = (selected, origin = document.activeElement) => {
+    previewOrigin.current = {
+      element: origin,
+      scrollTop: explorerRef.current?.scrollTop || 0,
+    };
     changeRoute({ file: selected.path, filePage: page });
-  const openEntry = (selected) => {
+  };
+  const openEntry = (selected, origin) => {
     if (selected.type === "directory") goPath(selected.path);
-    else showProperties(selected);
+    else showProperties(selected, origin);
   };
   const handleShortcuts = useExplorerFileShortcuts(
     fileSelection,
@@ -384,15 +408,32 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
 
   return (
     <section
-      className="file-explorer"
+      ref={explorerRef}
+      className={`file-explorer ${kind === "project" ? "project-explorer" : "global-explorer"} ${route.file ? "has-preview" : ""}`}
+      onDragOver={(event) => {
+        if (isExternalDrop(event)) event.preventDefault();
+      }}
+      onDrop={(event) => {
+        if (isExternalDrop(event)) {
+          event.preventDefault();
+          uploads.add(event.dataTransfer);
+          setUploadRequest((value) => value + 1);
+        }
+      }}
       aria-label={copy.tab}
       onKeyDown={route.filePanel === "trash" ? undefined : handleShortcuts}
     >
-      <h1>{copy.tab}</h1>
+      {kind === "global" && (
+        <div className="explorer-page-heading">
+          <h1>{copy.tab}</h1>
+          <span>{layout.host}</span>
+        </div>
+      )}
       <ErrorMessage error={contextError?.message} />
       {context && (
         <>
           <ExplorerToolbar
+            rootLabel={context.root.split("/").filter(Boolean).at(-1) || copy.root}
             onSearch={startSearch}
             searching={searchPending?.client === client}
             path={path}
@@ -420,31 +461,25 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
             onFavorite={updateFavorite}
             onRefresh={refresh}
             onTree={() => setTreeOpen(true)}
-          />
+          >
+            <div className="explorer-primary-actions">
+              <span className="explorer-action-slot" ref={setToolbarTarget} />
+              <span className="explorer-action-slot" ref={setTransferToolbarTarget} />
+            </div>
+          </ExplorerToolbar>
           <ErrorMessage error={preferences.error?.message} />
-          <nav className="file-action-buttons" aria-label={copy.actions.panels}>
-            <button
-              className="button secondary compact"
-              aria-pressed={route.filePanel !== "trash"}
-              onClick={() => changeRoute({ filePanel: "files" })}
-            >
-              {copy.fileList}
-            </button>
-            <button
-              className="button secondary compact"
-              aria-pressed={route.filePanel === "trash"}
-              onClick={() => changeRoute({ filePanel: "trash", file: "" })}
-            >
-              {copy.actions.trashTitle}
-            </button>
-          </nav>
-          <FileUploads uploads={uploads} jobs={jobs} scope={actionScope} />
-          <FileJobs
+          <ExplorerTransfers
             key={scopeId}
-            client={client}
+            toolbarTarget={transferToolbarTarget}
+            onLeavePreview={() => changeRoute({ file: "" })}
+            uploads={uploads}
+            jobs={jobs}
             scope={actionScope}
-            state={jobs}
-            scopeId={scopeId}
+            client={client}
+            uploadRequest={uploadRequest}
+            activityRequest={
+              activityRequest?.scopeId === scopeId ? activityRequest : null
+            }
             searchId={searchResult?.client === client ? searchResult.id : null}
             onResult={(result) => {
               const parent = result.path.split("/").slice(0, -1).join("/");
@@ -456,6 +491,20 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
               });
             }}
           />
+          <nav className="explorer-panels" aria-label={copy.actions.panels}>
+            <button
+              aria-pressed={route.filePanel !== "trash"}
+              onClick={() => changeRoute({ filePanel: "files" })}
+            >
+              {copy.fileList}
+            </button>
+            <button
+              aria-pressed={route.filePanel === "trash"}
+              onClick={() => changeRoute({ filePanel: "trash", file: "" })}
+            >
+              {copy.actions.trashTitle}
+            </button>
+          </nav>
           {route.filePanel === "trash" ? (
             <TrashView
               key={`${contextKey}:${scopeId}`}
@@ -484,102 +533,50 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
           ) : (
             <div className="file-explorer-columns">
               <aside className="explorer-tree-column">{directoryTree}</aside>
-              <div className="explorer-list-column">
-                <FileActions
-                  key={`${contextKey}:${scopeId}:${path}`}
-                  scope={actionScope}
-                  selection={fileSelection}
-                  refreshing={listing.refreshing}
-                  clipboard={clipboard}
-                  client={client}
-                  jobs={jobs}
-                  onChanged={refresh}
-                  request={actionRequest?.owner === actionOwner ? actionRequest : null}
-                  onRequestHandled={() => setActionRequest(null)}
-                />
-                {listing.loading && !listing.listing && (
-                  <p role="status">{copy.loading}</p>
-                )}
-                <ErrorMessage error={listing.error?.message} />
-                {listing.error?.code === "FILE_SNAPSHOT_EXPIRED" && (
-                  <button className="button secondary" onClick={refresh}>
-                    {copy.refresh}
-                  </button>
-                )}
-                {listing.listing && (
-                  <>
-                    <p className="field-description">
-                      {copy.summary(listing.listing.total, listing.listing.page)}
-                    </p>
-                    <FileList
-                      listing={listing.listing}
-                      selected={route.file}
-                      onOpen={openEntry}
-                      onProperties={showProperties}
-                      onPage={(filePage) => changeRoute({ filePage, file: "" })}
-                      selection={fileSelection}
-                      readOnly={context.readOnly}
-                      onAction={requestListAction}
-                      onDrag={(items, event) => {
-                        const token = browserUuid();
-                        dragged.current = { owner: actionOwner, items, token };
-                        event.dataTransfer.setData(
-                          "application/x-agentpier-files",
-                          token,
-                        );
-                        event.dataTransfer.effectAllowed = "move";
-                      }}
-                      onDrop={(target, event) => {
-                        const value = dragged.current;
-                        if (
-                          !value ||
-                          value.owner !== actionOwner ||
-                          event.dataTransfer.getData("application/x-agentpier-files") !==
-                            value.token
-                        )
-                          return;
-                        event.preventDefault();
-                        dragged.current = null;
-                        setActionRequest({
-                          owner: actionOwner,
-                          kind: "move",
-                          items: value.items,
-                          target,
-                        });
-                      }}
-                    />
-                    {kind === "project" && !context.readOnly && (
-                      <CreateDirectory
-                        key={path}
-                        create={(name) =>
-                          api(
-                            `/sessions/${encodeURIComponent(sessionId)}/files`,
-                            "POST",
-                            { path, name },
-                          )
-                        }
-                        created={goPath}
-                      />
-                    )}
-                  </>
-                )}
-              </div>
-              <FileProperties
-                sizeJob={jobs.jobs.find((job) => job.id === sizeSelection?.id)}
-                sizePending={sizeSelection?.pending}
-                onSize={startSize}
-                entry={entry}
-                downloadHref={
-                  entry?.type === "file" ? client.directDownload(entry.path) : null
+              <ExplorerListing
+                key={`${contextKey}:${scopeId}:${path}`}
+                listing={listing}
+                toolbarTarget={toolbarTarget}
+                scope={actionScope}
+                title={
+                  path === context.home && kind === "global"
+                    ? layout.home
+                    : path.split("/").filter(Boolean).at(-1) ||
+                      (kind === "global" ? "/" : layout.projectFiles)
                 }
-                preview={preview}
-                error={propertiesError}
-                previewError={previewError}
-                previewOwner={selectionOwner.current}
-                loading={propertiesLoading}
-                onClose={() => changeRoute({ file: "", filePage: page })}
-                onOpenLink={openLink}
+                selection={fileSelection}
+                clipboard={clipboard}
+                jobs={jobs}
+                request={actionRequest?.owner === actionOwner ? actionRequest : null}
+                onRequestHandled={() => setActionRequest(null)}
+                onRefresh={refresh}
+                route={route}
+                onOpen={openEntry}
+                onProperties={showProperties}
+                onPage={(filePage) => changeRoute({ filePage, file: "" })}
+                onAction={requestListAction}
+                {...dragEvents}
               />
+              {route.file && (
+                <FileProperties
+                  actionTarget={setPreviewTarget}
+                  selectedPath={route.file}
+                  sizeJob={jobs.jobs.find((job) => job.id === sizeSelection?.id)}
+                  sizePending={sizeSelection?.pending}
+                  onSize={startSize}
+                  entry={entry}
+                  downloadHref={
+                    entry?.type === "file" ? client.directDownload(entry.path) : null
+                  }
+                  preview={preview}
+                  error={propertiesError}
+                  previewError={previewError}
+                  previewOwner={selectionOwner.current}
+                  loading={propertiesLoading}
+                  onClose={() => changeRoute({ file: "", filePage: page })}
+                  onOpenLink={openLink}
+                />
+              )}
             </div>
           )}
           {treeOpen && (
@@ -594,6 +591,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
         context={context}
         path={route.file}
         canOpen={preview?.type === "text"}
+        openTarget={previewTarget}
       />
     </section>
   );

@@ -1,3 +1,4 @@
+import { openExplorerPanel } from "../helpers/file-explorer-layout.js";
 import { test, expect } from "@playwright/test";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -32,6 +33,7 @@ test("actual receiver publishes native folder bytes after an authoritative direc
   try {
     await selectEnglish(page);
     await page.goto(`${baseURL}/files?path=${encodeURIComponent(destination)}`);
+    await openExplorerPanel(page, "uploads");
     // The conflict proves the app received Files while native selection may be pending.
     selecting = page
       .getByLabel("Upload folder", { exact: true })
@@ -109,6 +111,7 @@ test("a directory remap before child admission refuses old metadata and explicit
   try {
     await selectEnglish(page);
     await page.goto(`${baseURL}/files?path=${encodeURIComponent(destination)}`);
+    await openExplorerPanel(page, "uploads");
     // Native directory automation can still be pending after the app received Files.
     // Own its result while the captured POST proves the app processed the selection.
     selecting = page

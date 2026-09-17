@@ -5,7 +5,7 @@
 .file-job-card > p {
   margin: 0.4rem 0;
 }
-.file-jobs > .file-job-list {
+.file-jobs .file-job-list {
   max-height: min(70vh, 48rem);
 }
 .file-job-card .file-action-buttons {

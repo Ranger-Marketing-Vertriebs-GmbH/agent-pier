@@ -1,13 +1,18 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FileJobIssue, isFileJobActive } from "./FileJobs.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
+
+import Icon from "../../components/Icon.jsx";
+import { explorerLayoutCopy as layout } from "../../lib/i18n/messages/explorer-layout.js";
 
 function value(value) {
   return value === null || value === undefined || value === "" ? "—" : value;
 }
 
 export default function FileProperties({
+  actionTarget,
+  selectedPath,
   entry,
   downloadHref,
   preview,
@@ -21,6 +26,13 @@ export default function FileProperties({
   sizePending,
   onSize,
 }) {
+  const closeRef = useRef(null);
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 700px)").matches) {
+      closeRef.current?.focus({ preventScroll: true });
+      closeRef.current?.closest(".file-explorer")?.scrollTo({ top: 0 });
+    }
+  }, [selectedPath]);
   const ownerRef = useRef(null);
   const [copyResult, setCopyResult] = useState(null);
   if (
@@ -51,69 +63,30 @@ export default function FileProperties({
   return (
     <section className="file-properties" aria-label={copy.properties}>
       <header>
-        <h2>{copy.properties}</h2>
-        {entry && (
-          <button type="button" className="button secondary compact" onClick={onClose}>
-            {copy.close}
-          </button>
-        )}
+        <button
+          ref={closeRef}
+          type="button"
+          className="icon-button file-preview-back"
+          aria-label={layout.backToList}
+          onClick={onClose}
+        >
+          <Icon name="back" />
+        </button>
+        <h2>{entry?.name || selectedPath?.split("/").at(-1) || copy.properties}</h2>
+        <button
+          type="button"
+          className="icon-button file-preview-close"
+          aria-label={copy.close}
+          onClick={onClose}
+        >
+          <Icon name="close" />
+        </button>
       </header>
       {!entry && !loading && <p>{copy.selectForProperties}</p>}
       {loading && <p role="status">{copy.loadingProperties}</p>}
       <ErrorMessage error={error?.message} />
       {entry && (
         <>
-          <dl>
-            <dt>{copy.name}</dt>
-            <dd>{entry.name}</dd>
-            <dt>{copy.path}</dt>
-            <dd>{entry.path}</dd>
-            <dt>{copy.type}</dt>
-            <dd>{copy.types[entry.type]}</dd>
-            <dt>{copy.size}</dt>
-            <dd>
-              {entry.type !== "directory"
-                ? value(entry.size)
-                : sizeJob?.status === "completed" &&
-                    !sizeJob.issue &&
-                    sizeJob.totalBytes !== null
-                  ? copy.measuredSize(sizeJob.totalBytes)
-                  : sizeJob && !isFileJobActive(sizeJob)
-                    ? copy.partialSize(sizeJob.completedBytes)
-                    : sizePending || isFileJobActive(sizeJob)
-                      ? copy.sizePending
-                      : copy.sizeUnknown}
-            </dd>
-            <dt>{copy.modified}</dt>
-            <dd>{value(entry.modifiedAt)}</dd>
-            <dt>{copy.permissions}</dt>
-            <dd>{entry.mode.toString(8).slice(-4)}</dd>
-            <dt>{copy.linkTarget}</dt>
-            <dd>{value(entry.linkTarget)}</dd>
-          </dl>
-          {downloadHref && (
-            <a className="button secondary compact" href={downloadHref} download>
-              {copy.downloadFile}
-            </a>
-          )}
-          {entry.type === "directory" && (
-            <>
-              <button
-                type="button"
-                className="button secondary"
-                disabled={sizePending || isFileJobActive(sizeJob)}
-                onClick={onSize}
-              >
-                {copy.calculateSize}
-              </button>
-              <FileJobIssue issue={sizeJob?.issue} />
-            </>
-          )}
-          {entry.type === "symlink" && (
-            <button type="button" className="button secondary" onClick={onOpenLink}>
-              {copy.openLink}
-            </button>
-          )}
           <ErrorMessage error={previewError?.message} />
           {preview?.type === "text" && (
             <div className="file-preview" aria-label={copy.preview}>
@@ -143,6 +116,63 @@ export default function FileProperties({
               <img src={preview.source} alt={entry.path} />
             </div>
           )}
+          <div className="file-preview-primary-actions">
+            <div ref={actionTarget} />
+            {downloadHref && (
+              <a className="button secondary compact" href={downloadHref} download>
+                {copy.downloadFile}
+              </a>
+            )}
+          </div>
+          <details className="file-details" key={selectedPath}>
+            <summary>{layout.details}</summary>
+            <dl>
+              <dt>{copy.name}</dt>
+              <dd>{entry.name}</dd>
+              <dt>{copy.path}</dt>
+              <dd>{entry.path}</dd>
+              <dt>{copy.type}</dt>
+              <dd>{copy.types[entry.type]}</dd>
+              <dt>{copy.size}</dt>
+              <dd>
+                {entry.type !== "directory"
+                  ? value(entry.size)
+                  : sizeJob?.status === "completed" &&
+                      !sizeJob.issue &&
+                      sizeJob.totalBytes !== null
+                    ? copy.measuredSize(sizeJob.totalBytes)
+                    : sizeJob && !isFileJobActive(sizeJob)
+                      ? copy.partialSize(sizeJob.completedBytes)
+                      : sizePending || isFileJobActive(sizeJob)
+                        ? copy.sizePending
+                        : copy.sizeUnknown}
+              </dd>
+              <dt>{copy.modified}</dt>
+              <dd>{value(entry.modifiedAt)}</dd>
+              <dt>{copy.permissions}</dt>
+              <dd>{entry.mode.toString(8).slice(-4)}</dd>
+              <dt>{copy.linkTarget}</dt>
+              <dd>{value(entry.linkTarget)}</dd>
+            </dl>
+            {entry.type === "directory" && (
+              <>
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={sizePending || isFileJobActive(sizeJob)}
+                  onClick={onSize}
+                >
+                  {copy.calculateSize}
+                </button>
+                <FileJobIssue issue={sizeJob?.issue} />
+              </>
+            )}
+            {entry.type === "symlink" && (
+              <button type="button" className="button secondary" onClick={onOpenLink}>
+                {copy.openLink}
+              </button>
+            )}
+          </details>
         </>
       )}
     </section>
