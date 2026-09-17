@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { fileClientIssue } from "./file-api.js";
 import useFileEditor from "./useFileEditor.js";
@@ -7,7 +8,13 @@ import { fileEditorCopy as copy } from "../../lib/i18n/messages/file-editor.js";
 const FileEditor = lazy(() => import("./FileEditor.jsx"));
 const FileEditorConflict = lazy(() => import("./FileEditorConflict.jsx"));
 
-export default function FileEditorWorkspace({ client, context, path, canOpen }) {
+export default function FileEditorWorkspace({
+  client,
+  context,
+  path,
+  canOpen,
+  openTarget,
+}) {
   const editor = useFileEditor({
     client,
     scopeId: context?.scopeId,
@@ -136,17 +143,23 @@ export default function FileEditorWorkspace({ client, context, path, canOpen }) 
         )?.focus();
     });
   };
+  const openButton = canOpen && context && (
+    <button
+      ref={openRef}
+      className="button secondary"
+      onClick={async () => {
+        await editor.open(path);
+        requestAnimationFrame(() =>
+          document.querySelector(".file-editor")?.scrollIntoView({ block: "nearest" }),
+        );
+      }}
+    >
+      {copy.open}
+    </button>
+  );
   return (
     <>
-      {canOpen && context && (
-        <button
-          ref={openRef}
-          className="button secondary"
-          onClick={() => editor.open(path)}
-        >
-          {copy.open}
-        </button>
-      )}
+      {openTarget ? createPortal(openButton, openTarget) : openButton}
       {editor.tabs.length > 0 && (
         <section className="file-editor" aria-label={copy.title}>
           <FileEditorTabs {...editor} close={closeTab} />

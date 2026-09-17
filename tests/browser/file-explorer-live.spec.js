@@ -3,6 +3,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { applicationFixture } from "../helpers/application.js";
+import {
+  openExplorerDisclosure,
+  openExplorerPanel,
+} from "../helpers/file-explorer-layout.js";
 
 async function cleanupAll(cleanups) {
   const errors = [];
@@ -27,8 +31,10 @@ async function readTextWhenPresent(file) {
 }
 
 async function createEntry(page, kind, name) {
+  await page.getByRole("button", { name: "New", exact: true }).click();
   await page
-    .getByRole("button", {
+    .getByRole("menu", { name: "New", exact: true })
+    .getByRole("menuitem", {
       name: kind === "file" ? "New file" : "New folder",
       exact: true,
     })
@@ -80,12 +86,14 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
     await createEntry(page, "folder", folderName);
     await page.getByRole("button", { name: folderName, exact: true }).click();
     const folder = path.join(f.home, folderName);
+    await openExplorerDisclosure(page, ".explorer-path-options");
     await expect(page.getByLabel("Path", { exact: true })).toHaveValue(folder);
 
     await createEntry(page, "file", "document.txt");
     const document = path.join(folder, "document.txt");
     const binaryName = "unsupported-ä.bin";
     const binary = Buffer.from([0, 1, 2, 3, 255, 128, 65, 66]);
+    await openExplorerPanel(page, "uploads");
     await page.getByLabel("Upload files", { exact: true }).setInputFiles({
       name: binaryName,
       mimeType: "application/octet-stream",
@@ -149,6 +157,7 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
         .getByRole("button", { name: "Replace at current revision", exact: true })
         .click();
       await expect.poll(() => fs.readFile(document, "utf8")).toBe("local-edit");
+      await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
     } else {
       await expect(
         page.getByRole("button", { name: "Save", exact: true }),
@@ -158,6 +167,7 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
       await page.getByRole("button", { name: "Save new copy", exact: true }).click();
       await expect.poll(() => readTextWhenPresent(copy)).toBe("");
       await test.step("observe the completed Save As job before changing the source", async () => {
+        await openExplorerPanel(page, "activity");
         // Disk publication precedes the jobs poll and its listing refresh.
         await expect(
           page.getByRole("region", { name: "File jobs", exact: true }),

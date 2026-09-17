@@ -1,3 +1,4 @@
+import { openExplorerPanel } from "../helpers/file-explorer-layout.js";
 import { test, expect } from "@playwright/test";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -48,6 +49,7 @@ test("native folder fallback retains relative paths, discloses empty omissions a
   try {
     await selectEnglish(page);
     await page.goto(baseURL + "/files");
+    await openExplorerPanel(page, "uploads");
     const databases = await page.evaluate(async () =>
       (await indexedDB.databases()).map(({ name }) => name),
     );
@@ -82,6 +84,7 @@ test("100 percent transport progress waits for durable completion and true cance
   try {
     await selectEnglish(page);
     await page.goto(baseURL + "/files");
+    await openExplorerPanel(page, "uploads");
     await page
       .getByLabel("Upload files", { exact: true })
       .setInputFiles(source("cancel.txt"));
@@ -120,6 +123,7 @@ test("reload requires explicit source reselection and only unfinished files rece
   f.failures.add("failed.txt");
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "uploads");
   const files = [source("done.txt"), source("failed.txt")];
   await page.getByLabel("Upload files", { exact: true }).setInputFiles(files);
   await expect(
@@ -127,6 +131,8 @@ test("reload requires explicit source reselection and only unfinished files rece
   ).toBeEnabled();
   const group = [...f.groups.values()][0];
   await page.reload();
+  await openExplorerPanel(page, "uploads");
+  await openExplorerPanel(page, "uploads");
   await page.getByText("Recover an upload", { exact: true }).click();
   await page.getByRole("button", { name: new RegExp(`Upload ${group.job.id}`) }).click();
   const uploads = page.getByRole("region", { name: "Uploads", exact: true });
@@ -147,6 +153,7 @@ test("login expiry dispatches the existing event and does not duplicate uncertai
   f.lose.add("auth");
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "uploads");
   await page
     .getByLabel("Upload files", { exact: true })
     .setInputFiles(source("auth.txt"));
@@ -176,6 +183,8 @@ test("pruned failed rows accept explicit reselection while null pending and publ
   for (const row of group.entries.values()) group.children.set(row.id, null);
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "uploads");
+  await openExplorerPanel(page, "uploads");
   await page.getByText("Recover an upload", { exact: true }).click();
   await page.getByRole("button", { name: new RegExp(`Upload ${group.job.id}`) }).click();
   const uploads = page.getByRole("region", { name: "Uploads", exact: true });
@@ -209,6 +218,7 @@ test("leaving the upload scope aborts the old XHR and returning does not restore
   try {
     await selectEnglish(page);
     await page.goto(baseURL + "/files");
+    await openExplorerPanel(page, "uploads");
     await page
       .getByLabel("Upload files", { exact: true })
       .setInputFiles(source("scope.txt"));
@@ -220,6 +230,7 @@ test("leaving the upload scope aborts the old XHR and returning does not restore
     f.failures.add("scope.txt");
     f.release();
     await page.getByRole("button", { name: "Files", exact: true }).click();
+    await openExplorerPanel(page, "uploads");
     await page.getByText("Recover an upload", { exact: true }).click();
     const group = [...f.groups.values()][0];
     await page
@@ -240,6 +251,7 @@ test("upload recovery renders inspected English desktop and German 390px evidenc
   f.failures.add("retry-me.txt");
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "uploads");
   await page
     .getByLabel("Upload files", { exact: true })
     .setInputFiles([source("completed.txt"), source("retry-me.txt")]);
@@ -260,6 +272,7 @@ test("upload recovery renders inspected English desktop and German 390px evidenc
   await page.getByLabel("Language", { exact: true }).selectOption("de");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "uploads");
   await page.getByText("Upload wiederherstellen", { exact: true }).click();
   await page
     .getByRole("button", {

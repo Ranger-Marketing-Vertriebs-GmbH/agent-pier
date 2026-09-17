@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
-import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
+import { explorerNavigationCopy as copy } from "../../lib/i18n/messages/explorer-navigation.js";
 
 function TreeNode({ client, node, hidden, onNavigate }) {
   const [open, setOpen] = useState(false);
@@ -137,6 +137,7 @@ export default function DirectoryTree({
     name: context.kind === "project" ? copy.root : context.root,
     type: "directory",
   };
+  const home = context.kind === "global" ? context.home : null;
   return (
     <nav className="directory-tree" aria-label={copy.directoryTree}>
       {onClose && (
@@ -146,7 +147,17 @@ export default function DirectoryTree({
       )}
       <section>
         <h3>{copy.quickAccess}</h3>
-        {!favorites.length && !projects.length && <p>{copy.noShortcuts}</p>}
+        {home && (
+          <button
+            type="button"
+            className="tree-shortcut"
+            onClick={() => onNavigate(home)}
+          >
+            <Icon name="folder" />
+            <span>{copy.home}</span>
+          </button>
+        )}
+        {!home && !favorites.length && !projects.length && <p>{copy.noShortcuts}</p>}
         {favorites.map((item) => (
           <div className="tree-shortcut-row" key={`favorite:${item.id}`}>
             <button

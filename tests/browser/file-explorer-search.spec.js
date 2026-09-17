@@ -7,6 +7,12 @@ import {
   selectEnglish,
 } from "../helpers/file-explorer-browser.js";
 
+async function openDisclosure(page, selector) {
+  const disclosure = page.locator(selector);
+  if ((await disclosure.getAttribute("open")) === null)
+    await disclosure.locator("> summary").click();
+}
+
 async function jobsFixture(page) {
   await explorerFixture(page);
   const jobs = new Map(),
@@ -78,6 +84,7 @@ test("English recursive search shows partial results and opens their containing 
   await selectEnglish(page);
   await page.goto(baseURL + "/files?path=%2Fhome%2Ftest&sort=modifiedAt&hidden=0");
   await page.getByLabel("Filename search", { exact: true }).fill("guide");
+  await openDisclosure(page, ".explorer-search-options");
   await page.getByLabel("Match case", { exact: true }).check();
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect.poll(() => f.operations.length).toBe(1);
@@ -105,6 +112,7 @@ test("English recursive search shows partial results and opens their containing 
   await expect(page).toHaveURL(/path=%2Fhome%2Ftest%2Fdocs/);
   await expect(page).toHaveURL(/file=%2Fhome%2Ftest%2Fdocs%2Fguide.txt/);
   await expect(page).toHaveURL(/sort=modifiedAt/);
+  await openDisclosure(page, ".explorer-view-disclosure");
   await expect(page.getByLabel("Show hidden files")).not.toBeChecked();
   await expect(page.locator(".file-preview pre")).toHaveText("Hello explorer");
   expect(f.unknown).toEqual([]);
@@ -119,6 +127,7 @@ test("mobile requested size keeps unknown and partial values truthful and search
   await selectEnglish(page);
   await page.goto(baseURL + "/files?path=%2Fhome%2Ftest&file=%2Fhome%2Ftest%2Fdocs");
   const properties = page.getByRole("region", { name: "File properties" });
+  await openDisclosure(page, ".file-details");
   await expect(properties).toContainText("Not calculated");
   await properties.getByRole("button", { name: "Calculate folder size" }).click();
   await expect.poll(() => f.jobs.size).toBe(1);
@@ -133,6 +142,7 @@ test("mobile requested size keeps unknown and partial values truthful and search
   job.issue = { code: "FILE_SIZE_INCOMPLETE", args: { reason: "access" } };
   await expect(properties).toContainText("At least 27 bytes · incomplete");
   await expect(properties).toContainText("Some entries could not be accessed");
+  await page.getByRole("button", { name: "Back to file list" }).click();
   await page.getByLabel("Filename search", { exact: true }).fill("txt");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   const panel = page.getByRole("region", { name: "File jobs" });
@@ -155,6 +165,7 @@ test("complete empty size is zero and failed size remains incomplete", async ({
   await selectEnglish(page);
   await page.goto(baseURL + "/files?path=%2Fhome%2Ftest&file=%2Fhome%2Ftest%2Fdocs");
   const properties = page.getByRole("region", { name: "File properties" });
+  await openDisclosure(page, ".file-details");
   await properties.getByRole("button", { name: "Calculate folder size" }).click();
   await expect.poll(() => f.jobs.size).toBe(1);
   Object.assign(f.jobs.get("job-1"), {
@@ -266,6 +277,7 @@ test("project-root search selection preserves an empty parent and scope replacem
   await page.getByLabel("Filename search", { exact: true }).fill("found");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await page.getByRole("button", { name: "found.txt", exact: true }).click();
+  await openDisclosure(page, ".explorer-path-options");
   await expect(page.getByRole("textbox", { name: "Path", exact: true })).toHaveValue("");
   await expect(page).toHaveURL(/\/files\?file=found.txt$/);
   await expect(page.locator(".file-preview pre")).toHaveText("project root file");

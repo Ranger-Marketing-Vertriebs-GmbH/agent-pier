@@ -1,6 +1,8 @@
 import React from "react";
 export default function Icon({ name, size = 18, ...props }) {
   const paths = {
+    upload: "M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6",
+    history: "M12 8v5l4 2M3 12a9 9 0 1 0 3-6M3 3v6h6",
     refresh:
       "M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.5-1L20 9M4 15l2.4 3a7 7 0 0 0 11.5-1",
     plus: "M12 5v14M5 12h14",

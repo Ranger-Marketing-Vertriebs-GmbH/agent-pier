@@ -50,17 +50,25 @@ for (const mobile of [false, true])
       accountId: "local-shell",
     });
     const directoryWrites = [];
+    const mkdirJob = {
+      id: "mkdir-job",
+      scopeId: "f1:project-fixture",
+      kind: "create_directory",
+      status: "completed",
+      completedEntries: 1,
+      totalEntries: 1,
+      issue: null,
+    };
     await page.route("**/api/sessions/files-session/files**", async (route) => {
       const request = route.request();
       const url = new URL(route.request().url());
-      if (request.method() === "POST" && url.pathname.endsWith("/files")) {
+      if (request.method() === "POST" && url.pathname.endsWith("/explorer/operations")) {
         const body = request.postDataJSON();
-        directoryWrites.push(body);
-        return route.fulfill({
-          status: 201,
-          json: { path: `${body.path}/${body.name}` },
-        });
+        directoryWrites.push({ path: body.target, name: body.name });
+        return route.fulfill({ status: 202, json: mkdirJob });
       }
+      if (url.pathname.endsWith("/jobs/mkdir-job"))
+        return route.fulfill({ json: mkdirJob });
       if (url.pathname.endsWith("/explorer/jobs"))
         return route.fulfill({ json: { jobs: [], nextCursor: null } });
       if (url.pathname.endsWith("/explorer/context"))
@@ -101,6 +109,14 @@ for (const mobile of [false, true])
       const rawEntries = folder
         ? [{ name: "hello.txt", path: "src/hello.txt", type: "file", size: 28 }]
         : [{ name: "src", path: "src", type: "directory", size: null }];
+      for (const created of directoryWrites)
+        if (created.path === folder)
+          rawEntries.push({
+            name: created.name,
+            path: `${folder}/${created.name}`,
+            type: "directory",
+            size: null,
+          });
       return route.fulfill({
         json: {
           path: folder,
@@ -141,17 +157,34 @@ for (const mobile of [false, true])
       path: `.superpowers/sdd/2026-09-13-file-explorer/screenshots/${browserName}-de-${mobile ? "mobile-390x844" : "desktop-1440x1000"}-project-files.png`,
       fullPage: true,
     });
-    await page.getByRole("button", { name: "Vorschau schließen" }).click();
+    await page
+      .getByRole("button", {
+        name: mobile ? "Zurück zur Dateiliste" : "Vorschau schließen",
+        exact: true,
+      })
+      .click();
     await page.goBack();
     await expect(page.locator(".file-preview pre")).toBeVisible();
     if (!mobile) {
-      await page.getByRole("button", { name: "Vorschau schließen" }).click();
-      await page.getByRole("button", { name: "Ordner anlegen", exact: true }).click();
-      await page.getByLabel("Ordnername", { exact: true }).fill("new-folder");
-      await page.getByLabel("Ordnername", { exact: true }).press("Enter");
-      await expect(page.getByRole("textbox", { name: "Pfad" })).toHaveValue(
-        "src/new-folder",
-      );
+      await page
+        .getByRole("button", {
+          name: mobile ? "Zurück zur Dateiliste" : "Vorschau schließen",
+          exact: true,
+        })
+        .click();
+      await page.getByRole("button", { name: "Neu", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Neuer Ordner", exact: true }).click();
+      await page
+        .getByRole("dialog")
+        .getByLabel("Name", { exact: true })
+        .fill("new-folder");
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Bestätigen", exact: true })
+        .click();
+      await expect(
+        page.getByRole("button", { name: "new-folder", exact: true }),
+      ).toBeVisible();
       expect(directoryWrites).toEqual([{ path: "src", name: "new-folder" }]);
     }
   });

@@ -1,11 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
+import { actionLayoutCopy as layoutCopy } from "../../lib/i18n/messages/action-layout.js";
 import { canExtract } from "./FileArchiveDialog.jsx";
 
 function size(value) {
   if (value === null) return "—";
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value);
+}
+
+function modified(value) {
+  return value ? new Date(value).toLocaleString() : "—";
 }
 
 export default function FileList({
@@ -41,13 +46,33 @@ export default function FileList({
   };
   const openMenu = (entry, origin) => {
     menuOrigin.current = origin;
-    setMenu(entry);
+    const bounds = origin.getBoundingClientRect();
+    const top = Math.max(8, Math.min(bounds.bottom + 4, window.innerHeight - 430));
+    setMenu({
+      ...entry,
+      top,
+      left: Math.max(8, Math.min(bounds.right - 224, window.innerWidth - 232)),
+      maxHeight: Math.max(0, window.innerHeight - top - 8),
+    });
   };
   useEffect(() => {
     if (menuEntry)
       menuRef.current?.querySelector("[role='menuitem']:not(:disabled)")?.focus();
   }, [menuEntry]);
+  useEffect(() => {
+    if (!menuEntry) return undefined;
+    const outside = (event) => {
+      if (!menuRef.current?.contains(event.target)) closeMenu(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [menuEntry]);
   const act = (kind) => {
+    if (kind === "properties") {
+      onProperties(menuEntry, menuOrigin.current);
+      closeMenu(false);
+      return;
+    }
     const origin = menuOrigin.current;
     onAction(kind, selectedItems(menuEntry), origin);
     closeMenu(false);
@@ -66,11 +91,9 @@ export default function FileList({
       }}
     >
       <div className="explorer-list-header" aria-hidden="true">
-        <span>{copy.name}</span>
-        <span>{copy.type}</span>
-        <span>{copy.size}</span>
-        <span>{copy.modified}</span>
-        <span />
+        <span className="explorer-header-name">{copy.name}</span>
+        <span className="explorer-header-modified">{copy.modified}</span>
+        <span className="explorer-header-size">{copy.size}</span>
       </div>
       {!listing.entries.length && <p>{copy.empty}</p>}
       {listing.entries.map((entry) => (
@@ -93,7 +116,15 @@ export default function FileList({
           }}
           onContextMenu={(event) => {
             event.preventDefault();
-            openMenu(entry, event.currentTarget.querySelector(".explorer-entry-name"));
+            const origin = event.currentTarget.querySelector(".explorer-entry-name");
+            const top = Math.max(8, Math.min(event.clientY, window.innerHeight - 430));
+            menuOrigin.current = origin;
+            setMenu({
+              ...entry,
+              top,
+              left: Math.max(8, Math.min(event.clientX, window.innerWidth - 232)),
+              maxHeight: Math.max(0, window.innerHeight - top - 8),
+            });
           }}
         >
           {selection && (
@@ -113,7 +144,7 @@ export default function FileList({
           <button
             type="button"
             className="explorer-entry-name"
-            onClick={() => onOpen(entry)}
+            onClick={(event) => onOpen(entry, event.currentTarget)}
           >
             <Icon
               name={
@@ -126,16 +157,25 @@ export default function FileList({
             />
             <span>{entry.name}</span>
           </button>
-          <span>{copy.types[entry.type]}</span>
-          <span>{size(entry.size)}</span>
-          <time dateTime={entry.modifiedAt || undefined}>
-            {entry.modifiedAt ? new Date(entry.modifiedAt).toLocaleString() : "—"}
+          <span className="explorer-entry-mobile-meta">
+            {layoutCopy.metadata(
+              copy.types[entry.type],
+              size(entry.size),
+              modified(entry.modifiedAt),
+            )}
+          </span>
+          <time
+            className="explorer-entry-modified"
+            dateTime={entry.modifiedAt || undefined}
+          >
+            {modified(entry.modifiedAt)}
           </time>
+          <span className="explorer-entry-size">{size(entry.size)}</span>
           <button
             type="button"
-            className="icon-button"
+            className="icon-button explorer-entry-properties"
             aria-label={copy.showProperties(entry.name)}
-            onClick={() => onProperties(entry)}
+            onClick={(event) => onProperties(entry, event.currentTarget)}
           >
             <Icon name="info" />
           </button>
@@ -157,6 +197,7 @@ export default function FileList({
           ref={menuRef}
           aria-label={copy.actions.menu(menuEntry.name)}
           className="file-context-menu"
+          style={{ top: menu.top, left: menu.left, maxHeight: menu.maxHeight }}
           onKeyDown={(event) => {
             const items = [
               ...event.currentTarget.querySelectorAll("[role='menuitem']"),
@@ -181,39 +222,26 @@ export default function FileList({
         >
           {[
             "copy",
-            "cut",
-            "rename",
+            !readOnly && "cut",
+            !readOnly && selectedItems(menuEntry).length === 1 && "rename",
             "path",
-            "trash",
-            "archive",
+            "properties",
+            !readOnly && "trash",
+            !readOnly && "archive",
             "download_zip",
-            "extract_here",
-            "extract_to",
-          ].map((kind) => (
-            <button
-              key={kind}
-              type="button"
-              role="menuitem"
-              disabled={
-                (readOnly &&
-                  [
-                    "cut",
-                    "rename",
-                    "trash",
-                    "archive",
-                    "extract_here",
-                    "extract_to",
-                  ].includes(kind)) ||
-                (kind === "rename" && selectedItems(menuEntry).length !== 1) ||
-                (kind.startsWith("extract_") && !canExtract(selectedItems(menuEntry)))
-              }
-              onClick={() => act(kind)}
-            >
-              {kind === "path"
-                ? copy.actions.copyPath
-                : copy.actions[kind] || copy.transfers.actions[kind]}
-            </button>
-          ))}
+            !readOnly && canExtract(selectedItems(menuEntry)) && "extract_here",
+            !readOnly && canExtract(selectedItems(menuEntry)) && "extract_to",
+          ]
+            .filter(Boolean)
+            .map((kind) => (
+              <button key={kind} type="button" role="menuitem" onClick={() => act(kind)}>
+                {kind === "path"
+                  ? copy.actions.copyPath
+                  : kind === "properties"
+                    ? layoutCopy.properties
+                    : copy.actions[kind] || copy.transfers.actions[kind]}
+              </button>
+            ))}
           <button role="menuitem" onClick={() => closeMenu()}>
             {copy.actions.choices.cancel}
           </button>

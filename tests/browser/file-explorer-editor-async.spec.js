@@ -1,3 +1,4 @@
+import { openExplorerDisclosure } from "../helpers/file-explorer-layout.js";
 import { test, expect } from "@playwright/test";
 import {
   explorerFixture,
@@ -307,6 +308,7 @@ test("editor runtime stays unloaded and a late language cannot replace the activ
   await selectEnglish(page);
   expect(assets.some((url) => /FileEditor-/.test(url))).toBe(false);
   await page.getByRole("button", { name: "Files", exact: true }).click();
+  await openExplorerDisclosure(page, ".explorer-path-options");
   await expect(page.getByRole("textbox", { name: "Path", exact: true })).toBeVisible();
   expect(assets.some((url) => /FileEditor-/.test(url))).toBe(false);
   await open(page, "/home/test/code.js");

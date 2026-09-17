@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { actionsFixture, actionEntry } from "../helpers/file-actions-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { selectEnglish } from "../helpers/file-explorer-browser.js";
+import { openExplorerPanel } from "../helpers/file-explorer-layout.js";
 
 for (const [kind, label] of [
   ["create_file", "New file"],
@@ -21,7 +22,11 @@ for (const [kind, label] of [
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "a.txt", exact: true })).toBeVisible();
     await page.getByRole("checkbox", { name: "Select a.txt", exact: true }).check();
-    await page.getByRole("button", { name: label, exact: true }).click();
+    await page.getByRole("button", { name: "New", exact: true }).click();
+    await page
+      .getByRole("menu", { name: "New", exact: true })
+      .getByRole("menuitem", { name: label, exact: true })
+      .click();
     const dialog = page.getByRole("dialog", { name: label, exact: true });
     await dialog.getByRole("textbox").fill("created");
 
@@ -108,17 +113,25 @@ test("retiring completed job results does not refresh unchanged terminal jobs", 
   const releases = [];
   const holds = [0, 1].map(() => new Promise((resolve) => releases.push(resolve)));
   const seen = new Set();
+  const initialReads = new Set();
   await page.route("**/api/files/jobs/*/entries**", async (route) => {
     const id = new URL(route.request().url()).pathname.split("/").at(-2);
     if (terminal) {
       seen.add(id);
       await holds[id === "job-1" ? 0 : 1];
-    }
+    } else initialReads.add(id);
     await route.fallback();
   });
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
   await expect(page.getByRole("button", { name: "a.txt", exact: true })).toBeVisible();
+  await openExplorerPanel(page, "activity");
+  await expect(
+    page
+      .getByRole("region", { name: "File jobs", exact: true })
+      .getByText("Rename · Running", { exact: true }),
+  ).toHaveCount(2);
+  await expect.poll(() => initialReads.size).toBe(2);
   terminal = true;
   f.finish("job-1", []);
   f.finish("job-2", []);
