@@ -204,8 +204,11 @@ personal workspace, not an isolation boundary for mutually untrusted users.
    update. A session with the SSH tools enabled can therefore read the private keys and
    every session record — as an unsandboxed session already can, so this is not a
    regression, but the sandbox buys nothing on that surface. Keeping the keys out needs
-   the store brokered outside the sandbox, which is deferred. A session with no SSH tools
-   assigned carries neither grant.
+   the store brokered outside the sandbox, which is deferred. Because the price is that
+   high, a sandboxed session is given the SSH tools only when it actually has hosts
+   assigned at launch: with none assigned it carries neither the MCP server nor these
+   grants, and assigning a host to it later needs a reload. An unsandboxed session is
+   unaffected and keeps taking assignments while it runs.
 
 See the [architecture guide](architecture.md#persistence-and-safety-boundaries) for
 where this fits alongside AgentPier's other persistence and safety boundaries.

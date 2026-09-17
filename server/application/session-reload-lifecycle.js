@@ -150,7 +150,15 @@ export function createReloadLifecycle(services) {
             enabled: session.agentbus?.enabled !== false,
           });
           launch = await memoryIntegration.prepare(input());
-          if (sshIntegration) launch = await sshIntegration.prepare(input());
+          if (sshIntegration)
+            launch = await sshIntegration.prepare({
+              ...input(),
+              sandboxProfile: session.sandbox?.profile || null,
+              // The assignment outlives the process, so a reloaded sandboxed
+              // session keeps its SSH tools exactly when hosts are still
+              // assigned to it.
+              sshAccessIds: services.sshSessions?.assigned(session) || [],
+            });
           if (services.sessionMcp)
             launch = await services.sessionMcp.prepare({
               ...input(),

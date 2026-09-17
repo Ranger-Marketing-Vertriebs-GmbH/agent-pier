@@ -19,7 +19,16 @@ export class SshIntegration {
     this.accounts = accounts;
     this.onProject = onProject;
   }
-  async prepare({ id, account, cwd, launch, purpose, pipeline } = {}) {
+  async prepare({
+    id,
+    account,
+    cwd,
+    launch,
+    purpose,
+    pipeline,
+    sandboxProfile,
+    sshAccessIds,
+  } = {}) {
     if (purpose === "login" || pipeline?.headless) return launch;
     if (account?.tool === "shell") {
       const project = await createSshProjectBinding(cwd);
@@ -29,6 +38,12 @@ export class SshIntegration {
         sshTools: { enabled: false, project },
       };
     }
+    // The SSH tools cost a sandboxed session the whole SSH store (see the grants
+    // below), so they are wired in only when the session actually has hosts
+    // assigned. An unsandboxed session keeps the server unconditionally and can
+    // still take an assignment while it runs; a sandboxed one needs a reload,
+    // which status() already reports as `reload-required`.
+    if (sandboxProfile && !sshAccessIds?.length) return launch;
     const selected = this.accounts ? this.accounts.get(account.id) : account;
     if (!supported(selected) || selected.tool !== account.tool)
       throw problem("Unsupported SSH tool account.");

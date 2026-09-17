@@ -129,3 +129,57 @@ for (const tool of ["shell", "codex", "claude", "opencode"]) {
     assert.deepEqual(input.launch, { args: [], env: {} });
   });
 }
+test("a sandboxed session with no assigned hosts gets neither the SSH tools nor their grants", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ssh-integration-sandbox-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const integration = new SshIntegration({ dataDir });
+  const launch = { command: "codex", args: [], env: {} };
+  const prepared = await integration.prepare({
+    id: "sandboxed-none",
+    account: { id: "account", tool: "codex" },
+    cwd: dataDir,
+    launch,
+    sandboxProfile: "codex-default",
+    sshAccessIds: [],
+  });
+  // Nothing was wired in at all: no MCP server argument, no capability, and
+  // above all neither of the two grants that reach beyond this session.
+  assert.deepEqual(prepared, launch);
+  assert.equal(prepared.sshTools, undefined);
+  assert.equal(prepared.sandboxGrants, undefined);
+  assert.equal(fs.existsSync(path.join(dataDir, "ssh", "capabilities")), false);
+});
+
+test("a sandboxed session with an assigned host grants the SSH store and the session records", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ssh-integration-sandbox-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const integration = new SshIntegration({ dataDir });
+  const prepared = await integration.prepare({
+    id: "sandboxed-assigned",
+    account: { id: "account", tool: "codex" },
+    cwd: dataDir,
+    launch: { command: "codex", args: [], env: {} },
+    sandboxProfile: "codex-default",
+    sshAccessIds: ["access-one"],
+  });
+  assert.equal(prepared.sshTools.enabled, true);
+  const granted = prepared.sandboxGrants.map((grant) => grant.path);
+  assert.ok(granted.includes(path.join(dataDir, "ssh")));
+  assert.ok(granted.includes(path.join(dataDir, "sessions")));
+});
+
+test("an unsandboxed session keeps the SSH tools without an assignment", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ssh-integration-open-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const integration = new SshIntegration({ dataDir });
+  const prepared = await integration.prepare({
+    id: "unsandboxed-none",
+    account: { id: "account", tool: "codex" },
+    cwd: dataDir,
+    launch: { command: "codex", args: [], env: {} },
+    sshAccessIds: [],
+  });
+  // Assigning a host to a running unsandboxed session still works, so its MCP
+  // server is registered up front as before.
+  assert.equal(prepared.sshTools.enabled, true);
+});
