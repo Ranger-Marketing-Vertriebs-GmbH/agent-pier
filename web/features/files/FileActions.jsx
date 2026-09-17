@@ -27,9 +27,12 @@ export default function FileActions({
   const busy = useRef(null);
   const selected = selection.selected;
   const signature = selected.map((item) => `${item.path}\0${item.revision}`).join("\n");
-  // A same-query refresh has no authoritative entries yet. Keep ordinary frozen
-  // confirmations visible but pause submission until their revisions are checked.
-  const paused = refreshing && dialog && !archiveActions.includes(dialog.kind);
+  // Source-bound confirmations wait for authoritative revisions during refresh.
+  // Creating an entry only needs the opened scope/path, not listing revisions.
+  const paused =
+    refreshing &&
+    dialog &&
+    !["create_file", "create_directory", ...archiveActions].includes(dialog.kind);
   const validDialog =
     dialog &&
     (paused ||
@@ -202,14 +205,14 @@ export default function FileActions({
         <button
           className="button secondary compact"
           disabled={scope.readOnly}
-          onClick={() => show("create_file")}
+          onClick={() => show("create_file", [])}
         >
           {copy.actions.newFile}
         </button>
         <button
           className="button secondary compact"
           disabled={scope.readOnly}
-          onClick={() => show("create_directory")}
+          onClick={() => show("create_directory", [])}
         >
           {copy.actions.newFolder}
         </button>

@@ -21,50 +21,62 @@ function send(session, to, text = "Durable message", extra = {}) {
   });
 }
 
-test("durable sends return before blocked advisory wakes, cap work and drain on close", async (t) => {
-  const f = await busFixture(t);
-  const sender = await f.prepare("durable-sender");
-  const target = await f.prepare("durable-target");
-  hostRegister(f, sender, "sender-native");
-  const peer = hostRegister(f, target, "target-native");
-  let release;
-  const gate = new Promise((resolve) => {
-    release = resolve;
-  });
-  let calls = 0;
-  t.mock.method(f.bus.broker, "wake", async () => {
-    calls++;
-    await gate;
-  });
-  let timer;
-  try {
-    const response = await Promise.race([
-      send(sender, peer.key),
-      new Promise((resolve) => {
-        timer = setTimeout(() => resolve(null), 1000);
-      }),
-    ]);
-    assert.ok(response, "Sending must not await the advisory wake");
-    assert.notEqual(response.result.isError, true);
-    assert.match(response.result.content[0].text, /id /);
-    for (let i = 0; i < 35; i++)
-      assert.notEqual((await send(sender, peer.key)).result.isError, true);
-    assert.ok(calls <= 32, "Advisory wake concurrency must be bounded");
+test(
+  "durable sends return before blocked advisory wakes, cap work and drain on close",
+  { timeout: 30000 },
+  async (t) => {
+    const f = await busFixture(t);
+    const sender = await f.prepare("durable-sender");
+    const target = await f.prepare("durable-target");
+    hostRegister(f, sender, "sender-native");
+    const peer = hostRegister(f, target, "target-native");
     const ctx = f.bus.broker.access.record(target.id);
-    assert.equal(f.bus.queue(ctx.h).summary(peer.key).count, 36);
-    let closed = false;
-    const closing = f.bus.broker.close().then(() => {
-      closed = true;
+    const queue = f.bus.queue(ctx.h);
+    let release, enter;
+    const gate = new Promise((resolve) => {
+      release = resolve;
     });
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(closed, false, "Close drains tracked advisory work");
-    release();
-    await closing;
-  } finally {
-    clearTimeout(timer);
-    release();
-  }
-});
+    const entered = new Promise((resolve) => {
+      enter = resolve;
+    });
+    let calls = 0;
+    let completed = 0;
+    t.mock.method(f.bus.broker, "wake", async () => {
+      calls++;
+      enter(queue.summary(peer.key).count);
+      await gate;
+      completed++;
+    });
+    // The watchdog bounds a broken implementation and releases fixture cleanup.
+    // Success depends on ordering against this gate, not HTTP response latency.
+    t.signal.addEventListener("abort", release, { once: true });
+    try {
+      const pending = send(sender, peer.key);
+      const [response, queuedAtWake] = await Promise.all([pending, entered]);
+      assert.equal(queuedAtWake, 1, "Delivery must be durable before advisory wake");
+      assert.equal(completed, 0, "Sending must not await the advisory wake");
+      assert.notEqual(response.result.isError, true);
+      assert.match(response.result.content[0].text, /id /);
+      for (let i = 0; i < 35; i++)
+        assert.notEqual((await send(sender, peer.key)).result.isError, true);
+      assert.equal(calls, 32, "Advisory wake concurrency must be bounded");
+      assert.equal(completed, 0, "Advisory wakes remain blocked until released");
+      assert.equal(queue.summary(peer.key).count, 36);
+      let closed = false;
+      const closing = f.bus.broker.close().then(() => {
+        closed = true;
+      });
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(closed, false, "Close drains tracked advisory work");
+      release();
+      await closing;
+      assert.equal(completed, calls, "Close waits for every tracked advisory wake");
+    } finally {
+      t.signal.removeEventListener("abort", release);
+      release();
+    }
+  },
+);
 
 test("tool validation returns distinct safe errors and bounded scoped peer hints", async (t) => {
   const f = await busFixture(t);

@@ -131,7 +131,6 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
     // Apply the saved default only when preferences finish loading for this scope.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [context?.scopeId, preferences.loading]);
-
   const listing = useFileListing({
     client,
     path: invalidPage || !context ? null : path,
@@ -185,6 +184,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
         ].includes(job.status),
     )
     .map((job) => `${job.id}:${job.status}:${job.completedEntries}`)
+    .sort()
     .join("|");
   const refreshListing = listing.refresh;
   useEffect(() => {
