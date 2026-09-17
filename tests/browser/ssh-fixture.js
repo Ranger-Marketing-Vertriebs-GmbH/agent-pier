@@ -20,15 +20,48 @@ export async function fixture(page) {
     publicKey: access.publicKey,
     fingerprint: access.fingerprint,
     hosts: [],
+    projectId: null,
   };
   const state = {
     keys: [key],
     accesses: [],
     assignedIds: [],
+    inheritedIds: [],
+    projects: [
+      { id: "project-app", name: "Agent app", cwd: "/work/app", kind: "git" },
+      { id: "project-docs", name: "Docs", cwd: "/work/docs", kind: "directory" },
+    ],
     calls: [],
     fail: false,
     base,
   };
+  await page.route("**/api/ssh-projects**", async (route) => {
+    const request = route.request(),
+      method = request.method(),
+      path = new URL(request.url()).pathname;
+    const body = request.postData() ? request.postDataJSON() : null;
+    state.calls.push({ path, method, body });
+    if (state.fail && method !== "GET")
+      return route.fulfill({
+        status: 409,
+        json: { code: "SSH_PROJECT_COLLISION", error: "Fixture collision" },
+      });
+    if (method === "GET") return route.fulfill({ json: { projects: state.projects } });
+    if (method === "POST" && path.endsWith("/reassign")) {
+      state.keys = state.keys.map((item) =>
+        item.projectId === body.fromProjectId
+          ? { ...item, projectId: body.toProjectId }
+          : item,
+      );
+      state.accesses = state.accesses.map((item) =>
+        item.projectId === body.fromProjectId
+          ? { ...item, projectId: body.toProjectId }
+          : item,
+      );
+      return route.fulfill({ json: { ok: true } });
+    }
+    return route.abort("failed");
+  });
   await page.route("**/api/ssh-keys**", async (route) => {
     const request = route.request(),
       method = request.method(),
@@ -38,6 +71,15 @@ export async function fixture(page) {
     if (state.fail && method !== "GET")
       return route.fulfill({ status: 409, json: { error: "Fixture conflict" } });
     const id = path.split("/").at(-1);
+    if (method === "POST" && path.endsWith("/download"))
+      return route.fulfill({
+        status: 200,
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Content-Disposition": `attachment; filename="agentpier-${path.split("/").at(-2)}.key"`,
+        },
+        body: "fixture-private-key",
+      });
     if (method === "GET")
       return route.fulfill({
         json: {
@@ -56,7 +98,12 @@ export async function fixture(page) {
     const result =
       method === "PATCH"
         ? { ...state.keys.find((key) => key.id === id), name: body.name }
-        : { ...key, id: `key-${state.keys.length + 1}`, name: body.name };
+        : {
+            ...key,
+            id: `key-${state.keys.length + 1}`,
+            name: body.name,
+            projectId: body.projectId,
+          };
     state.keys = [...state.keys.filter((key) => key.id !== result.id), result];
     state.accesses = state.accesses.map((a) =>
       a.keyId === result.id ? { ...a, keyName: result.name } : a,
@@ -81,6 +128,7 @@ export async function fixture(page) {
       result = {
         accesses: state.accesses,
         assignedIds: state.assignedIds,
+        inheritedIds: state.inheritedIds,
         commands: state.assignedIds.map((id) => ({
           id,
           command:

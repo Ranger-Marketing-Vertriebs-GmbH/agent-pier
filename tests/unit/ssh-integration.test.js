@@ -24,6 +24,7 @@ for (const tool of ["codex", "claude", "opencode"]) {
     };
     const launch = await integration.prepare(input);
     assert.equal(launch.sshTools.enabled, true);
+    assert.equal(launch.sshTools.project.cwd, fs.realpathSync(dataDir));
     const session = {
       id: input.id,
       accountId: "account",
@@ -68,15 +69,63 @@ for (const tool of ["codex", "claude", "opencode"]) {
     assert.equal(integration.status(session).state, "reload-required");
   });
 }
-test("SSH skips login, shell and headless sessions", async (t) => {
+test("SSH skips login and headless sessions", async (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ssh-integration-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   const integration = new SshIntegration({ dataDir });
   const launch = { args: [] };
-  for (const extra of [
-    { account: { tool: "shell" } },
-    { purpose: "login" },
-    { pipeline: { headless: true } },
-  ])
+  for (const extra of [{ purpose: "login" }, { pipeline: { headless: true } }])
     assert.equal(await integration.prepare({ launch, ...extra }), launch);
 });
+
+test("shell binds project independently without model tools or hints", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ssh-shell-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const launch = { args: [], env: {} };
+  const result = await new SshIntegration({ dataDir }).prepare({
+    account: { tool: "shell" },
+    cwd: dataDir,
+    launch,
+  });
+  assert.equal(result.sshTools.enabled, false);
+  assert.equal(result.sshTools.project.cwd, fs.realpathSync(dataDir));
+  assert.deepEqual(result.args, []);
+  assert.deepEqual(result.env, {});
+});
+
+for (const tool of ["shell", "codex", "claude", "opencode"]) {
+  test(`${tool} registers project before issuing credentials and propagates registration failures`, async (t) => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ssh-registration-"));
+    t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+    const input = {
+      id: "registered",
+      account: { id: "account", tool },
+      cwd: dataDir,
+      launch: { args: [], env: {} },
+    };
+    const file = capabilityFile(dataDir, input.id);
+    let seen;
+    const integration = new SshIntegration({
+      dataDir,
+      onProject: async (binding) => {
+        assert.equal(fs.existsSync(file), false);
+        await Promise.resolve();
+        seen = binding;
+      },
+    });
+    const result = await integration.prepare(input);
+    assert.deepEqual(seen, result.sshTools.project);
+    assert.ok(seen?.projectId);
+    integration.discard(input.id);
+    const failure = new Error("registration unavailable");
+    const failing = new SshIntegration({
+      dataDir,
+      onProject: async () => {
+        throw failure;
+      },
+    });
+    await assert.rejects(failing.prepare(input), (error) => error === failure);
+    assert.equal(fs.existsSync(file), false);
+    assert.deepEqual(input.launch, { args: [], env: {} });
+  });
+}

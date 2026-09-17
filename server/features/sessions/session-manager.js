@@ -283,8 +283,8 @@ export class SessionManager {
         session.agentpierTools = options.agentpierTools;
       if (options.sshTools)
         session.sshTools = {
+          ...options.sshTools,
           enabled: options.sshTools.enabled === true,
-          generation: options.sshTools.generation,
         };
       const eligible = tool !== "shell" && options.purpose !== "login";
       if (options.access && eligible)

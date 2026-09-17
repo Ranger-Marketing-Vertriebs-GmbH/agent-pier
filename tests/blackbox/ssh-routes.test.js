@@ -80,9 +80,9 @@ test("HTTP assigns existing sessions, validates inputs, revokes deletion and nev
       .status,
     404,
   );
-  assert.deepEqual(sshSessions.get(session).assignedIds, ["lab"]);
+  assert.deepEqual((await sshSessions.get(session)).assignedIds, ["lab"]);
   assert.equal((await request("/ssh-accesses/lab", "DELETE")).status, 204);
-  assert.deepEqual(sshSessions.get(session).assignedIds, []);
+  assert.deepEqual((await sshSessions.get(session)).assignedIds, []);
   session.status = "stopped";
   assert.equal(
     (await request("/sessions/existing/ssh-accesses", "PUT", { accessIds: [] })).status,

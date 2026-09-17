@@ -23,18 +23,28 @@ try {
   const dataDir = args[1];
   const store = new SshAccessStore({ dataDir });
   const grants = new SshSessions({ dataDir, store });
-  const invocation = grants.resolve(args[3], args[5]);
-  const child = spawn(invocation.command, [...invocation.args, ...args.slice(7)], {
-    stdio: "inherit",
-    cwd: invocation.cwd,
-  });
-  child.once("error", () => {
-    process.stderr.write("SSH konnte nicht gestartet werden.\n");
-    process.exitCode = 1;
-  });
-  child.once("exit", (code) => {
-    process.exitCode = code ?? 1;
-  });
+  const invocation = await grants.resolve(args[3], args[5]);
+  try {
+    if (store.revision(args[5]) !== invocation.revision)
+      throw problem("SSH-Zugang wurde geändert. Bitte erneut versuchen.", 409);
+    await new Promise((resolve) => {
+      const child = spawn(invocation.command, [...invocation.args, ...args.slice(7)], {
+        stdio: "inherit",
+        cwd: invocation.cwd,
+      });
+      child.once("error", () => {
+        process.stderr.write("SSH konnte nicht gestartet werden.\n");
+        process.exitCode = 1;
+        resolve();
+      });
+      child.once("exit", (code) => {
+        process.exitCode = code ?? 1;
+        resolve();
+      });
+    });
+  } finally {
+    invocation.cleanup?.();
+  }
 } catch (error) {
   // Only validated store errors may cross this boundary; filesystem diagnostics
   // are intentionally not printed (they may include local private paths).

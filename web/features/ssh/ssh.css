@@ -47,6 +47,25 @@
   gap: 10px;
   margin-top: 16px;
 }
+.ssh-project-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin-top: 24px;
+}
+.ssh-project-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ssh-owner-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+}
 .ssh-form fieldset,
 .ssh-choices {
   border: 0;

@@ -270,7 +270,7 @@ test("relative managed files avoid OpenSSH expansion in runtime paths", async (t
     const store = new SshAccessStore({ dataDir: path.join(dataDir, name) });
     const access = await store.create(input);
     const { command, args, cwd } = store.connection(access.id);
-    assert.equal(cwd, path.join(dataDir, name, "ssh", "keys", access.id));
+    assert.equal(path.dirname(cwd), path.join(dataDir, name, "ssh", "connections"));
     const config = execFileSync(command, ["-G", "-T", ...args], {
       cwd,
       encoding: "utf8",

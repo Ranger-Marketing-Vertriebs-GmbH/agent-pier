@@ -59,6 +59,7 @@ export function auditId(value) {
   return value;
 }
 export function auditAction(value) {
+  if (value === "ssh.key.exported") return value;
   if (typeof value !== "string") throw problem("Invalid audit action.");
   const [resource, verb, ...rest] = value.split(".");
   if (!resources.has(resource) || !verbs.has(verb) || rest.length)

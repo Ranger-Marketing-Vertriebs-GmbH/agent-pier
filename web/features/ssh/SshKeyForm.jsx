@@ -2,10 +2,12 @@ import React, { useState } from "react";
 import api from "../../lib/api.js";
 import Modal from "../../components/Modal.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
-export default function SshKeyForm({ sshKey, close, saved }) {
+import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
+export default function SshKeyForm({ sshKey, projects, projectId, close, saved }) {
   const [name, setName] = useState(sshKey?.name || "");
   const [mode, setMode] = useState("generate");
   const [privateKey, setPrivateKey] = useState("");
+  const [owner, setOwner] = useState(projectId || "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return (
@@ -27,7 +29,11 @@ export default function SshKeyForm({ sshKey, close, saved }) {
             const result = await api(
               sshKey ? `/ssh-keys/${encodeURIComponent(sshKey.id)}` : "/ssh-keys",
               sshKey ? "PATCH" : "POST",
-              { name, ...(!sshKey && mode === "import" ? { privateKey } : {}) },
+              {
+                name,
+                ...(!sshKey ? { projectId: owner || null } : {}),
+                ...(!sshKey && mode === "import" ? { privateKey } : {}),
+              },
             );
             setPrivateKey("");
             saved(result);
@@ -52,6 +58,17 @@ export default function SshKeyForm({ sshKey, close, saved }) {
             <p>{copy.renameKeyHint}</p>
           ) : (
             <>
+              <label>
+                {projectCopy.owner}
+                <select value={owner} onChange={(event) => setOwner(event.target.value)}>
+                  <option value="">{projectCopy.global}</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label>
                 {copy.keyMode}
                 <select

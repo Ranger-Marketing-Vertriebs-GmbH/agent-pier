@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import {
   privateDirectory,
   writePrivate,
@@ -19,21 +19,45 @@ import {
 
 import { SshKeyStore } from "./ssh-key-store.js";
 
+function connectionRevision({ host, port, username, keyId, hostKey }) {
+  return createHash("sha256")
+    .update(JSON.stringify([host, port, username, keyId, hostKey]))
+    .digest("hex");
+}
+
 export class SshAccessStore {
-  constructor({ dataDir, run = runOpenSsh }) {
-    this.root = privateDirectory(path.join(path.resolve(dataDir), "ssh"));
-    this.keys = privateDirectory(path.join(this.root, "keys"));
+  constructor({ dataDir, catalog, run = runOpenSsh }) {
+    this.catalog = catalog;
+    this.root = path.join(path.resolve(dataDir), "ssh");
+    this.keys = path.join(this.root, "keys");
+    if (catalog || !fs.existsSync(path.join(this.root, "catalog.json"))) {
+      privateDirectory(this.root);
+      privateDirectory(this.keys);
+    }
     this.file = path.join(this.root, "accesses.json");
     this.run = run;
     this.updates = new Map();
     this.keyStore = new SshKeyStore({
       root: this.root,
+      catalog,
       run,
-      accesses: () => readJSON(this.file, []),
+      accesses: () => this.raw(),
       migrate: () => this.migrate(),
     });
   }
+  raw() {
+    return this.catalog
+      ? this.catalog.read().hosts
+      : readJSON(path.join(this.root, "catalog.json"), null)?.hosts ||
+          readJSON(this.file, []);
+  }
+  save(rows) {
+    this.keyStore.assertWriter();
+    if (this.catalog) this.catalog.replacePart("hosts", rows);
+    else writePrivate(this.file, rows);
+  }
   migrate() {
+    if (this.catalog || fs.existsSync(path.join(this.root, "catalog.json"))) return;
     const accesses = readJSON(this.file, []);
     if (!accesses.some((access) => !access.keyId)) return;
     try {
@@ -47,7 +71,7 @@ export class SshAccessStore {
   }
   list() {
     this.migrate();
-    return readJSON(this.file, []).map((value) => this.project(value));
+    return this.raw().map((value) => this.project(value));
   }
   project({
     id,
@@ -59,6 +83,8 @@ export class SshAccessStore {
     hostKey,
     hostFingerprint,
     createdAt,
+    projectId = null,
+    trustSource,
   }) {
     const key = this.keyStore.get(keyId);
     return {
@@ -74,6 +100,8 @@ export class SshAccessStore {
       hostKey,
       hostFingerprint,
       createdAt,
+      projectId,
+      ...(["existing", "provider", "user"].includes(trustSource) ? { trustSource } : {}),
     };
   }
   get(id) {
@@ -93,6 +121,11 @@ export class SshAccessStore {
     fs.chmodSync(file, 0o600);
   }
   async create(input = {}) {
+    this.keyStore.assertWriter();
+    if (this.catalog) return this.catalog.run(() => this.createAccess(input));
+    return this.createAccess(input);
+  }
+  async createAccess(input) {
     validateFields(input, [
       "name",
       "host",
@@ -101,10 +134,13 @@ export class SshAccessStore {
       "hostKey",
       "privateKey",
       "keyId",
+      "projectId",
     ]);
     if (input.keyId !== undefined && input.privateKey !== undefined)
       throw problem("Choose either a saved SSH key or a private key.");
     const selected = input.keyId === undefined ? null : this.keyStore.get(input.keyId);
+    if (selected && selected.projectId !== (input.projectId ?? null))
+      throw problem("SSH key belongs to another project.", 409);
     const name = nameValue(input.name);
     const target = endpoint(input);
     if (!target.username) throw problem("Invalid SSH username.");
@@ -117,6 +153,7 @@ export class SshAccessStore {
         selected ||
         (await this.keyStore.create({
           name,
+          projectId: input.projectId ?? null,
           ...(input.privateKey === undefined ? {} : { privateKey: input.privateKey }),
         }));
       this.keyStore.get(key.id);
@@ -128,9 +165,14 @@ export class SshAccessStore {
         hostKey,
         hostFingerprint,
         createdAt: new Date().toISOString(),
+        projectId: input.projectId ?? null,
       };
-      this.knownHosts(access);
-      writePrivate(this.file, [...readJSON(this.file, []), access]);
+      if (!this.catalog) this.knownHosts(access);
+      else
+        this.catalog.afterRollback(() =>
+          fs.rmSync(directory, { recursive: true, force: true }),
+        );
+      this.save([...this.raw(), access]);
       return this.project(access);
     } catch (error) {
       fs.rmSync(directory, { recursive: true, force: true });
@@ -139,6 +181,8 @@ export class SshAccessStore {
     }
   }
   update(id, input = {}) {
+    this.keyStore.assertWriter();
+    if (this.catalog) return this.catalog.run(() => this.updateAccess(id, input));
     const previous = this.updates.get(id) || Promise.resolve();
     const operation = previous.catch(() => {}).then(() => this.updateAccess(id, input));
     this.updates.set(id, operation);
@@ -151,6 +195,8 @@ export class SshAccessStore {
     const previous = this.get(id);
     const keyId =
       input.keyId === undefined ? previous.keyId : this.keyStore.get(input.keyId).id;
+    if (this.keyStore.get(keyId).projectId !== previous.projectId)
+      throw problem("SSH key belongs to another project.", 409);
     const target = endpoint({ ...previous, ...input });
     if (!target.username) throw problem("Invalid SSH username.");
     if (
@@ -170,19 +216,24 @@ export class SshAccessStore {
     // A concurrent deletion must not resurrect a deleted access.
     this.get(id);
     this.keyStore.get(keyId);
-    this.knownHosts(access);
-    writePrivate(
-      this.file,
-      readJSON(this.file, []).map((item) => (item.id === id ? access : item)),
-    );
+    if (!this.catalog) this.knownHosts(access);
+    this.save(this.raw().map((item) => (item.id === id ? access : item)));
     return this.project(access);
   }
   remove(id) {
+    this.keyStore.assertWriter();
+    if (this.catalog) return this.catalog.run(() => this.removeAccess(id));
+    return this.removeAccess(id);
+  }
+  removeAccess(id) {
     this.get(id);
-    writePrivate(
-      this.file,
-      readJSON(this.file, []).filter((item) => item.id !== id),
-    );
+    this.save(this.raw().filter((item) => item.id !== id));
+    if (this.catalog) {
+      this.catalog.tombstone(id);
+      this.catalog.afterCommit(() => this.cleanupAccess(id));
+    } else this.cleanupAccess(id);
+  }
+  cleanupAccess(id) {
     const directory = this.directory(id);
     fs.rmSync(path.join(directory, "known_hosts"), { force: true });
     if (fs.existsSync(directory) && !fs.readdirSync(directory).length)
@@ -191,8 +242,17 @@ export class SshAccessStore {
   connection(id) {
     const access = this.get(id);
     const { host, port, username } = endpoint(access);
-    const directory = this.directory(id);
+    const snapshots = privateDirectory(path.join(this.root, "connections"));
+    const directory = fs.mkdtempSync(path.join(snapshots, "invocation-"));
+    const pinnedHost = port === 22 ? host : `[${host}]:${port}`;
+    fs.writeFileSync(
+      path.join(directory, "known_hosts"),
+      `${pinnedHost} ${access.hostKey}\n`,
+      { mode: 0o600 },
+    );
     return {
+      revision: connectionRevision(access),
+      cleanup: () => fs.rmSync(directory, { recursive: true, force: true }),
       command: "ssh",
       cwd: directory,
       args: [
@@ -225,6 +285,9 @@ export class SshAccessStore {
         host,
       ],
     };
+  }
+  revision(id) {
+    return connectionRevision(this.get(id));
   }
   async scan(input = {}) {
     validateFields(input, ["host", "port"]);
@@ -262,7 +325,7 @@ export class SshAccessStore {
     }
   }
   async test(id) {
-    const { command, args, cwd } = this.connection(id);
+    const { command, args, cwd, cleanup } = this.connection(id);
     try {
       await this.run(command, [...args, "true"], { ...processOptions, cwd });
       return { ok: true };
@@ -271,6 +334,8 @@ export class SshAccessStore {
         "SSH connection failed. Check the endpoint, installed public key and confirmed host key.",
         502,
       );
+    } finally {
+      cleanup();
     }
   }
 }

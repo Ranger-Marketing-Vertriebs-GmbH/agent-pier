@@ -14,6 +14,7 @@ test("MCP readiness follows initialized transport, exposes tools and rejects rot
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   const integration = new SshIntegration({ dataDir });
   const input = {
+    cwd: dataDir,
     id: "session",
     account: { id: "account", tool: "opencode" },
     launch: {},
@@ -48,7 +49,21 @@ test("MCP readiness follows initialized transport, exposes tools and rejects rot
   child.stdin.write(
     JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n",
   );
-  assert.equal((await request(2, "tools/list")).result.tools.length, 2);
+  const names = (await request(2, "tools/list")).result.tools.map((tool) => tool.name);
+  assert.deepEqual(
+    names.sort(),
+    [
+      "ssh_execute",
+      "ssh_generate_key",
+      "ssh_get_public_key",
+      "ssh_import_key",
+      "ssh_list_hosts",
+      "ssh_list_keys",
+      "ssh_register_host",
+      "ssh_scan_host",
+      "ssh_test_host",
+    ].sort(),
+  );
   assert.equal(integration.status(session).ready, true);
   assert.match(
     (await request(3, "tools/call", { name: "ssh_list_hosts", arguments: {} })).result

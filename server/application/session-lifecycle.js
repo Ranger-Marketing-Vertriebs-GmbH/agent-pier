@@ -232,7 +232,7 @@ export function createSessionLifecycle(services) {
         ...(trusted.pipeline ? { pipeline: trusted.pipeline } : {}),
         ...(login ? { purpose: "login" } : {}),
       });
-      if (body.sshAccessIds?.length) sshSessions.set(session, body.sshAccessIds);
+      if (body.sshAccessIds?.length) await sshSessions.set(session, body.sshAccessIds);
     } catch (error) {
       services.sessionMcp?.discard(id);
       sshSessions?.discard(id);

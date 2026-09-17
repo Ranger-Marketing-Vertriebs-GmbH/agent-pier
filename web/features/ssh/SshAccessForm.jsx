@@ -2,10 +2,20 @@ import React, { useState } from "react";
 import api from "../../lib/api.js";
 import Modal from "../../components/Modal.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
-export default function SshAccessForm({ access, keys, close, saved }) {
+import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
+export default function SshAccessForm({
+  access,
+  keys,
+  projects,
+  projectId,
+  close,
+  saved,
+}) {
+  const [owner, setOwner] = useState(access?.projectId || projectId || "");
+  const ownedKeys = keys.filter((key) => (key.projectId || "") === owner);
   const [draft, setDraft] = useState({
     name: access?.name || "",
-    keyId: access?.keyId || keys[0]?.id || "",
+    keyId: access?.keyId || ownedKeys[0]?.id || "",
     host: access?.host || "",
     port: access?.port || 22,
     username: access?.username || "",
@@ -55,6 +65,7 @@ export default function SshAccessForm({ access, keys, close, saved }) {
                 ...draft,
                 port: Number(draft.port),
                 hostKey,
+                ...(!access ? { projectId: owner || null } : {}),
               },
             );
             saved(result);
@@ -62,6 +73,29 @@ export default function SshAccessForm({ access, keys, close, saved }) {
         }}
       >
         <fieldset disabled={busy}>
+          {!access && (
+            <label>
+              {projectCopy.owner}
+              <select
+                value={owner}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setOwner(value);
+                  setDraft((current) => ({
+                    ...current,
+                    keyId: keys.find((key) => (key.projectId || "") === value)?.id || "",
+                  }));
+                }}
+              >
+                <option value="">{projectCopy.global}</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {["name", "host", "port", "username"].map((field) => (
             <label key={field}>
               {copy[field]}
@@ -86,7 +120,7 @@ export default function SshAccessForm({ access, keys, close, saved }) {
               <option value="" disabled>
                 {copy.selectKey}
               </option>
-              {keys.map((key) => (
+              {ownedKeys.map((key) => (
                 <option key={key.id} value={key.id}>
                   {key.name}
                 </option>

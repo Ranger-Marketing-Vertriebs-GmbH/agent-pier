@@ -5,6 +5,7 @@ import useSshAccesses from "./useSshAccesses.js";
 import SshChoices from "./SshChoices.jsx";
 import SshCopy from "./SshCopy.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
+import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
 import "./ssh.css";
 export default function SessionSshDialog({ session, close, openReload }) {
   const path = `/sessions/${encodeURIComponent(session.id)}/ssh-accesses`;
@@ -97,6 +98,7 @@ export default function SessionSshDialog({ session, close, openReload }) {
             <SshChoices
               accesses={data.accesses}
               selected={selected}
+              inherited={data.inheritedIds || []}
               disabled={busy}
               change={(ids) => {
                 setSelected(ids);
@@ -146,7 +148,9 @@ export default function SessionSshDialog({ session, close, openReload }) {
         {busy && <p role="status">{copy.busy}</p>}
         {saved && <p role="status">{copy.saved}</p>}
         {error && <p role="alert">{error}</p>}
-        <a href="/settings/ssh">{copy.manage}</a>
+        <a href="/settings/ssh">
+          {data?.inheritedIds?.length ? projectCopy.manageProject : copy.manage}
+        </a>
       </div>
     </Modal>
   );
