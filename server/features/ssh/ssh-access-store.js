@@ -84,6 +84,7 @@ export class SshAccessStore {
     hostFingerprint,
     createdAt,
     projectId = null,
+    trustSource,
   }) {
     const key = this.keyStore.get(keyId);
     return {
@@ -100,6 +101,7 @@ export class SshAccessStore {
       hostFingerprint,
       createdAt,
       projectId,
+      ...(["existing", "provider", "user"].includes(trustSource) ? { trustSource } : {}),
     };
   }
   get(id) {

@@ -9,6 +9,8 @@ export const sshProjectCopy = {
   download: "Download private key",
   downloadHint: "The download contains the unencrypted private key. Store it securely.",
   projectManaged: "Project managed",
+  explicitAssignment: "Explicit session assignment",
+  removeExplicit: "Remove explicit assignment",
   manageProject: "Manage project accesses",
   reassignOpen: "Reassign project resources",
   reassignTitle: "Reassign project resources",

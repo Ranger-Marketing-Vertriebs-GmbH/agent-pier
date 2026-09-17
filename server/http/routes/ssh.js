@@ -24,7 +24,21 @@ export function sshRoutes({
       throw Object.assign(problem("Invalid SSH project reassignment."), {
         code: "SSH_INVALID_ARGUMENT",
       });
-    res.json(await sshManagement.ui("reassign", req.body));
+    try {
+      res.json(await sshManagement.ui("reassign", req.body));
+    } catch (error) {
+      if (error.code !== "SSH_PROJECT_COLLISION") throw error;
+      const resourceIds = Array.isArray(error.details?.resourceIds)
+        ? error.details.resourceIds
+            .filter((id) => typeof id === "string" && /^[0-9a-f-]{36}$/.test(id))
+            .slice(0, 100)
+        : [];
+      res.status(409).json({
+        code: "SSH_PROJECT_COLLISION",
+        error: "The target project already contains a matching key or host.",
+        details: { resourceIds, truncated: error.details?.truncated === true },
+      });
+    }
   });
   router.post("/ssh-keys/:id/download", (req, res) => {
     const file = sshAccesses.keyStore.openPrivate(req.params.id);

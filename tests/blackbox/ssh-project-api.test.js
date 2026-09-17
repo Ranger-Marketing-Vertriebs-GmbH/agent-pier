@@ -92,3 +92,52 @@ test("real session persistence inherits project hosts without explicit grants", 
   ).json();
   assert.deepEqual(restarted.inheritedIds, [host.id]);
 });
+
+test("project collision HTTP responses contain only bounded public conflicting IDs", async (t) => {
+  const f = await applicationFixture(t);
+  const projects = [];
+  for (const cwd of [f.home, f.dataDir]) {
+    const response = await f.request("/api/memory/projects", {
+      method: "POST",
+      body: { cwd },
+    });
+    assert.equal(response.status, 201);
+    projects.push(await response.json());
+  }
+  const hosts = [];
+  for (const project of projects) {
+    const key = await (
+      await f.request("/api/ssh-keys", {
+        method: "POST",
+        body: { name: "Key", projectId: project.id },
+      })
+    ).json();
+    const response = await f.request("/api/ssh-accesses", {
+      method: "POST",
+      body: {
+        name: "Host",
+        projectId: project.id,
+        keyId: key.id,
+        hostKey: key.publicKey,
+        host: "fixture.invalid",
+        username: "deploy",
+      },
+    });
+    assert.equal(response.status, 201);
+    hosts.push(await response.json());
+  }
+  const response = await f.request("/api/ssh-projects/reassign", {
+    method: "POST",
+    body: {
+      fromProjectId: projects[0].id,
+      toProjectId: projects[1].id,
+    },
+  });
+  assert.equal(response.status, 409);
+  const result = await response.json();
+  assert.deepEqual(result, {
+    code: "SSH_PROJECT_COLLISION",
+    error: "The target project already contains a matching key or host.",
+    details: { resourceIds: hosts.map((host) => host.id), truncated: false },
+  });
+});

@@ -33,6 +33,7 @@ test("project hosts appear in concurrent sessions while bootstrap grants convey 
   const key = await generate(owner),
     otherKey = await generate(foreign);
   const bootstrap = await foreign.call("ssh_register_host", hostInput(otherKey));
+  assert.equal(bootstrap.trustSource, "user");
   await f.management.grants.set(owner.record, [bootstrap.id]);
   assert.deepEqual(await f.management.grants.effective(peer.record), []);
   await assert.rejects(
@@ -56,6 +57,23 @@ test("project hosts appear in concurrent sessions while bootstrap grants convey 
       trustSource: { kind: "existing", accessId: bootstrap.id },
     }),
   );
+  assert.equal(host.trustSource, "existing");
+  assert.equal(f.management.store.get(host.id).trustSource, "existing");
+  const providerHost = await owner.call(
+    "ssh_register_host",
+    hostInput(key, {
+      host: "provider.invalid",
+      requestId: "provider-host",
+      trustSource: { kind: "provider" },
+    }),
+  );
+  assert.equal(providerHost.trustSource, "provider");
+  assert.equal(
+    f.management.catalog.read().hosts.find((row) => row.id === providerHost.id)
+      .trustSource,
+    "provider",
+  );
+  await f.management.ui("removeHost", { id: providerHost.id });
   assert.deepEqual(await f.management.grants.effective(owner.record), [
     bootstrap.id,
     host.id,
@@ -125,7 +143,10 @@ test("reassignment into matching key or endpoint leaves both catalogs and grants
       toProjectId: target.project.projectId,
     });
   const before = structuredClone(f.management.catalog.read());
-  await assert.rejects(move(), { code: "SSH_PROJECT_COLLISION" });
+  await assert.rejects(move(), {
+    code: "SSH_PROJECT_COLLISION",
+    details: { resourceIds: [oneHost.id, twoHost.id], truncated: false },
+  });
   assert.deepEqual(f.management.catalog.read(), before);
   assert.deepEqual(await f.management.grants.effective(origin.record), [oneHost.id]);
   assert.deepEqual(await f.management.grants.effective(target.record), [twoHost.id]);

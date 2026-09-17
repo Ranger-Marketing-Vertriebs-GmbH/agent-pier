@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { sshManagementFixture } from "../helpers/ssh-management.js";
 
 test("project keys are replayable and private material never enters MCP results", async (t) => {
@@ -60,4 +61,38 @@ test("parallel project mutations keep both records and revoked calls cannot writ
     one.call("ssh_generate_key", { name: "Denied", requestId: "denied" }),
   );
   assert.equal(f.management.store.keyStore.list().length, 2);
+});
+
+test("a fresh main checkout binding replaces a removed linked worktree in project metadata", async (t) => {
+  const f = await sshManagementFixture(t);
+  const main = path.join(f.root, "main"),
+    worktree = path.join(f.root, "worktree");
+  fs.mkdirSync(main);
+  const git = (...args) => execFileSync("git", ["-C", main, ...args], { stdio: "pipe" });
+  git("init");
+  git(
+    "-c",
+    "user.name=Fixture",
+    "-c",
+    "user.email=fixture@example.invalid",
+    "commit",
+    "--allow-empty",
+    "-m",
+    "fixture",
+  );
+  git("worktree", "add", "-b", "linked", worktree);
+  const old = await f.session("old", worktree);
+  await f.management.registerProject(old.project);
+  git("worktree", "remove", worktree);
+  const fresh = await f.session("fresh", main);
+  assert.equal(fresh.project.projectId, old.project.projectId);
+  await f.management.registerProject(fresh.project);
+  const project = await f.management.project(fresh.project.projectId);
+  assert.equal(project.cwd, fs.realpathSync(main));
+  const key = await f.management.ui("createKey", {
+    name: "UI key",
+    projectId: project.id,
+  });
+  assert.equal(key.projectId, project.id);
+  await assert.rejects(old.call("ssh_list_keys"), { code: "SSH_PROJECT_UNAVAILABLE" });
 });

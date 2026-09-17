@@ -103,16 +103,33 @@ export function moveProject(catalog, fromProjectId, target) {
     );
   const targetKeys = current.keys.filter((row) => row.projectId === target.id);
   const targetHosts = current.hosts.filter((row) => row.projectId === target.id);
-  if (
-    keys.some((key) => targetKeys.some((other) => other.publicKey === key.publicKey)) ||
-    hosts.some((host) =>
-      targetHosts.some((other) => hostTuple(other) === hostTuple(host)),
-    )
-  )
-    throw sshProblem(
-      "SSH_PROJECT_COLLISION",
-      "The target project already contains a matching key or host.",
-      409,
+  const collisions = new Set();
+  for (const [sources, targets, identity] of [
+    [keys, targetKeys, (row) => row.publicKey],
+    [hosts, targetHosts, hostTuple],
+  ]) {
+    for (const source of sources) {
+      for (const targetRow of targets) {
+        if (identity(source) === identity(targetRow)) {
+          collisions.add(source.id);
+          collisions.add(targetRow.id);
+        }
+      }
+    }
+  }
+  if (collisions.size)
+    throw Object.assign(
+      sshProblem(
+        "SSH_PROJECT_COLLISION",
+        "The target project already contains a matching key or host.",
+        409,
+      ),
+      {
+        details: {
+          resourceIds: [...collisions].slice(0, 100),
+          truncated: collisions.size > 100,
+        },
+      },
     );
   const ids = new Set([...keys, ...hosts].map((row) => row.id));
   catalog.replacePart(

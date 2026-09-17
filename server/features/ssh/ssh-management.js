@@ -115,13 +115,18 @@ export class SshManagement {
   }
   rememberProject(project) {
     const record = {
-      id: project.projectId,
+      id: project.projectId ?? project.id,
       name: project.name,
       cwd: project.cwd,
       kind: project.kind,
     };
-    if (!this.catalog.read().projects.some((row) => row.id === record.id))
-      this.catalog.replacePart("projects", [...this.catalog.read().projects, record]);
+    const projects = this.catalog.read().projects;
+    const previous = projects.find((row) => row.id === record.id);
+    if (JSON.stringify(previous) !== JSON.stringify(record))
+      this.catalog.replacePart("projects", [
+        ...projects.filter((row) => row.id !== record.id),
+        record,
+      ]);
   }
   registerProject(binding) {
     return this.track(async () => {
@@ -316,7 +321,18 @@ export class SshManagement {
           409,
         );
       const { requestId: _request, trustSource: _trust, ...fields } = input;
-      const host = existing || (await this.store.create({ ...fields, projectId }));
+      let host = existing || (await this.store.create({ ...fields, projectId }));
+      if (!existing) {
+        this.catalog.replacePart(
+          "hosts",
+          this.catalog
+            .read()
+            .hosts.map((row) =>
+              row.id === host.id ? { ...row, trustSource: input.trustSource.kind } : row,
+            ),
+        );
+        host = this.store.get(host.id);
+      }
       await this.context(capability, signal);
       // A bootstrap grant may have been revoked during key fingerprint validation.
       await trustedHost(this.store, this.grants, context.session, input);
@@ -380,16 +396,9 @@ export class SshManagement {
       });
       try {
         return await this.mutation(async () => {
-          await this.project(input.projectId);
+          const current = await this.project(input.projectId);
           const key = await this.store.keyStore.publish(prepared);
-          if (
-            project &&
-            !this.catalog.read().projects.some((row) => row.id === project.id)
-          )
-            this.catalog.replacePart("projects", [
-              ...this.catalog.read().projects,
-              project,
-            ]);
+          if (current) this.rememberProject(current);
           return key;
         });
       } finally {
@@ -403,7 +412,8 @@ export class SshManagement {
         case "removeKey":
           return this.store.keyStore.remove(input.id);
         case "createHost": {
-          await this.project(input.projectId);
+          const project = await this.project(input.projectId);
+          if (project) this.rememberProject(project);
           return this.store.create(input);
         }
         case "updateHost":

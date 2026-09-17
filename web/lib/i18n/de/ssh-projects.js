@@ -10,6 +10,8 @@ export const sshProjectCopy = {
   downloadHint:
     "Der Download enthält den unverschlüsselten privaten Schlüssel. Bewahre ihn sicher auf.",
   projectManaged: "Vom Projekt verwaltet",
+  explicitAssignment: "Explizite Sitzungszuordnung",
+  removeExplicit: "Explizite Zuordnung entfernen",
   manageProject: "Projektzugänge verwalten",
   reassignOpen: "Projektressourcen neu zuweisen",
   reassignTitle: "Projektressourcen neu zuweisen",

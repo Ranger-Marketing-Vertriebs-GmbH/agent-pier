@@ -83,7 +83,7 @@ test("private key download stays out of rendered content and project reassignmen
   await expect(page.getByText("fixture-private-key", { exact: true })).toHaveCount(0);
   await expect(card(page, "Deployment key")).toContainText("Agent app");
   await expect(card(page, "Deployment key")).toContainText(
-    "Only unencrypted private keys",
+    "The download contains the unencrypted private key.",
   );
 
   await page.getByRole("button", { name: "Reassign project resources" }).click();
@@ -179,4 +179,32 @@ test("missing project metadata never presents owned resources as global and rema
   await expect(page.getByRole("combobox", { name: "To project" })).toHaveValue(
     "project-docs",
   );
+});
+
+test("an explicit grant can be removed while inherited access stays active", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  state.accesses = [{ ...state.access, projectId: "project-app" }];
+  state.inheritedIds = [state.access.id];
+  state.assignedIds = [state.access.id];
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  await page.goto(baseURL + "/sessions/fixture-session");
+  await page.getByRole("button", { name: "Server accesses", exact: true }).click();
+  await expect(
+    page.getByText("Explicit session assignment", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Project managed", { exact: true })).toBeVisible();
+  await page.screenshot({ path: ".cache/ssh-dual-assignment-mobile-en.png" });
+  await page.getByRole("button", { name: "Remove explicit assignment" }).click();
+  const inherited = page.getByRole("checkbox", { name: /Build server/ });
+  await expect(inherited).toBeChecked();
+  await expect(inherited).toBeDisabled();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  expect(state.assignedIds).toEqual([]);
+  state.inheritedIds = [];
+  await page.reload();
+  await page.getByRole("button", { name: "Server accesses", exact: true }).click();
+  await expect(page.getByRole("checkbox", { name: /Build server/ })).not.toBeChecked();
 });
