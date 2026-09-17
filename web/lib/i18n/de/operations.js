@@ -3,7 +3,7 @@ export const operationsCopy = {
     general: "Allgemein",
     mcp: "MCP & Zugriffe",
     remote: "Fernzugriff",
-    ssh: "Serverzugänge",
+    ssh: "SSH-Zugänge",
     notifications: "App & Benachrichtigungen",
     diagnostics: "Diagnose",
     backups: "Sicherungen",

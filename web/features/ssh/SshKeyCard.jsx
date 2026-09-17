@@ -14,10 +14,10 @@ export default function SshKeyCard({ sshKey, project, edited, removed }) {
       <p className="ssh-owner-badge">
         {projectCopy.owner}: {project?.name || projectCopy.global}
       </p>
-      <p>
-        {copy.keyFingerprint}:{" "}
+      <details className="ssh-detail-section">
+        <summary>{copy.keyFingerprint}</summary>
         <code className="ssh-fingerprint">{sshKey.fingerprint}</code>
-      </p>
+      </details>
       <SshCopy label={copy.publicKey} text={sshKey.publicKey} button={copy.copyKey} />
       <p>{copy.publicKeyHint}</p>
       <p>{projectCopy.downloadHint}</p>

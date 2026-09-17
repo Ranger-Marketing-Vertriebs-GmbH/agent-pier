@@ -250,7 +250,7 @@ test("SSH reload requires saved assignments and advanced commands stay collapsed
   page,
 }) => {
   const state = await fixture(page);
-  await page.getByRole("button", { name: "Server accesses", exact: true }).click();
+  await page.getByRole("button", { name: "SSH accesses", exact: true }).click();
   await dialog(page)
     .getByRole("checkbox", { name: /Build server/ })
     .check();
@@ -276,7 +276,7 @@ test("SSH readiness updates without losing unsaved choices", async ({ page }) =>
   const state = await fixture(page, "de");
   await page.setViewportSize({ width: 390, height: 844 });
   state.tools.state = "starting";
-  await page.getByRole("button", { name: "Serverzugänge", exact: true }).click();
+  await page.getByRole("button", { name: "SSH-Zugänge", exact: true }).click();
   await expect(dialog(page)).toContainText("Warte auf die Verbindung der CLI");
   await dialog(page)
     .getByRole("checkbox", { name: /Build server/ })

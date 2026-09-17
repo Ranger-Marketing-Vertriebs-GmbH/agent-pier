@@ -2,10 +2,13 @@ import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./ssh-fixture.js";
 
-const card = (page, name) =>
-  page
-    .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name, exact: true }) });
+import {
+  detail as card,
+  openAccess,
+  openKey,
+  showAccesses,
+  showKeys,
+} from "./ssh-settings-helpers.js";
 
 test("same-name projects expose their directories when choosing SSH ownership", async ({
   page,
@@ -22,6 +25,7 @@ test("same-name projects expose their directories when choosing SSH ownership", 
   await expect(
     page.getByRole("combobox", { name: "Project filter" }).locator("option"),
   ).toHaveText(["All owners", "Global", ...labels]);
+  await openKey(page, "Deployment key");
   await expect(card(page, "Deployment key")).toContainText(labels[0]);
   await page.getByRole("button", { name: "Add SSH key", exact: true }).click();
   await page.getByRole("combobox", { name: "Owner" }).selectOption({ label: labels[1] });
@@ -30,7 +34,8 @@ test("same-name projects expose their directories when choosing SSH ownership", 
   expect(state.keys.find((key) => key.name === "Second clone key").projectId).toBe(
     "project-docs",
   );
-  await page.getByRole("button", { name: "Add server access", exact: true }).click();
+  await showAccesses(page);
+  await page.getByRole("button", { name: "Add access", exact: true }).click();
   await expect(
     page.getByRole("combobox", { name: "Owner" }).locator("option"),
   ).toHaveText(["Global", ...labels]);
@@ -46,6 +51,7 @@ test("same-name projects expose their directories when choosing SSH ownership", 
   state.projects[0].cwd = "/workspace/" + "nested-project-directory/".repeat(8) + "app";
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
+  await openKey(page, "Deployment key");
   await expect(card(page, "Deployment key")).toBeVisible();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
@@ -84,11 +90,18 @@ test("project filter scopes creation and host keys to the selected owner", async
   await page
     .getByRole("combobox", { name: "Project filter" })
     .selectOption("project-app");
-  await expect(card(page, "App key")).toBeVisible();
-  await expect(card(page, "Global key")).toHaveCount(0);
-  await expect(card(page, "Docs key")).toHaveCount(0);
-  await expect(card(page, "App host")).toBeVisible();
-  await expect(card(page, "Docs host")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "App host", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Docs host", exact: true })).toHaveCount(
+    0,
+  );
+  await showKeys(page);
+  await expect(page.getByRole("button", { name: "App key", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Global key", exact: true })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("button", { name: "Docs key", exact: true })).toHaveCount(
+    0,
+  );
 
   await page.getByRole("button", { name: "Add SSH key", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Owner" })).toHaveValue("project-app");
@@ -102,7 +115,8 @@ test("project filter scopes creation and host keys to the selected owner", async
     projectId: "project-app",
   });
 
-  await page.getByRole("button", { name: "Add server access", exact: true }).click();
+  await showAccesses(page);
+  await page.getByRole("button", { name: "Add access", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Owner" })).toHaveValue("project-app");
   await expect(
     page.getByRole("combobox", { name: "SSH key" }).locator("option"),
@@ -120,6 +134,7 @@ test("private key download stays out of rendered content and project reassignmen
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.goto(baseURL + "/settings/ssh");
 
+  await openKey(page, "Deployment key");
   const download = page.waitForEvent("download");
   await card(page, "Deployment key")
     .getByRole("button", { name: "Download private key" })
@@ -149,7 +164,7 @@ test("inherited project accesses are visibly managed by the project and cannot b
   state.inheritedIds = [state.access.id];
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.goto(baseURL + "/sessions/fixture-session");
-  await page.getByRole("button", { name: "Server accesses", exact: true }).click();
+  await page.getByRole("button", { name: "SSH accesses", exact: true }).click();
   const inherited = page.getByRole("checkbox", { name: /Build server/ });
   await expect(inherited).toBeChecked();
   await expect(inherited).toBeDisabled();
@@ -173,6 +188,7 @@ test("failed project metadata can be retried without leaving creation disabled",
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.goto(baseURL + "/settings/ssh");
   await expect(page.getByRole("alert")).toContainText("Project catalog offline");
+  await showKeys(page);
   await expect(page.getByRole("button", { name: "Add SSH key" })).toBeDisabled();
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(page.getByRole("button", { name: "Add SSH key" })).toBeEnabled();
@@ -202,9 +218,21 @@ test("missing project metadata never presents owned resources as global and rema
   ];
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.goto(baseURL + "/settings/ssh");
+  await page
+    .getByRole("combobox", { name: "Project filter" })
+    .selectOption("missing-app");
+  await expect(
+    page.getByRole("button", { name: "Add access", exact: true }),
+  ).toBeDisabled();
+  await showKeys(page);
+  await expect(
+    page.getByRole("button", { name: "Add SSH key", exact: true }),
+  ).toBeDisabled();
+  await openKey(page, "Deployment key");
   await expect(card(page, "Deployment key")).toContainText(
     "Unavailable project · missing-app",
   );
+  await openAccess(page, "Build server");
   await expect(card(page, "Build server")).toContainText(
     "Unavailable project · missing-app",
   );
@@ -236,7 +264,7 @@ test("an explicit grant can be removed while inherited access stays active", asy
   state.assignedIds = [state.access.id];
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.goto(baseURL + "/sessions/fixture-session");
-  await page.getByRole("button", { name: "Server accesses", exact: true }).click();
+  await page.getByRole("button", { name: "SSH accesses", exact: true }).click();
   await expect(
     page.getByText("Explicit session assignment", { exact: true }),
   ).toBeVisible();
@@ -250,6 +278,6 @@ test("an explicit grant can be removed while inherited access stays active", asy
   expect(state.assignedIds).toEqual([]);
   state.inheritedIds = [];
   await page.reload();
-  await page.getByRole("button", { name: "Server accesses", exact: true }).click();
+  await page.getByRole("button", { name: "SSH accesses", exact: true }).click();
   await expect(page.getByRole("checkbox", { name: /Build server/ })).not.toBeChecked();
 });

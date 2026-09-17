@@ -1,4 +1,19 @@
 export const sshCopy = {
+  accessesTab: "Zugänge",
+  keysTab: "Schlüssel",
+  search: "SSH-Einträge durchsuchen",
+  searchAccesses: "Name, Host oder Benutzer suchen …",
+  searchKeys: "Schlüssel oder Projekt suchen …",
+  nameConnection: "Name / Verbindung",
+  connection: "Verbindung",
+  viewKey: "Schlüssel ansehen",
+  closeDetails: "Details schließen",
+  noMatches: "Keine passenden Einträge.",
+  resetFilters: "Filter zurücksetzen",
+  securityNotes: "Hinweise zu Sicherheit und Backups",
+  usageUnavailable: "Nutzung noch nicht geladen",
+  accessCount: (count) => (count === 1 ? "1 Zugang" : `${count} Zugänge`),
+
   toolsReady: "SSH-Werkzeuge sind für diese Sitzung bereit.",
   toolsStarting: "Warte auf die Verbindung der CLI mit den SSH-Werkzeugen …",
   toolsReload: "Lade diese Unterhaltung neu, um SSH-Werkzeuge zu aktivieren.",
@@ -11,7 +26,7 @@ export const sshCopy = {
   hosts: "Hosts",
   addKey: "SSH-Schlüssel hinzufügen",
   emptyKeys:
-    "Noch keine SSH-Schlüssel vorhanden. Füge vor dem ersten Serverzugang einen Schlüssel hinzu.",
+    "Noch keine SSH-Schlüssel vorhanden. Füge vor dem ersten SSH-Zugang einen Schlüssel hinzu.",
   selectKey: "Gespeicherten SSH-Schlüssel auswählen",
   keyFingerprint: "Schlüssel-Fingerabdruck",
   keyDeleteHint: "Diesen gespeicherten SSH-Schlüssel löschen?",
@@ -20,14 +35,14 @@ export const sshCopy = {
   renameKeyHint:
     "Der Name kann geändert werden. Füge für anderes Schlüsselmaterial einen weiteren Schlüssel hinzu.",
 
-  title: "Serverzugänge",
-  description: "SSH-Schlüssel verwalten und Serverzugänge lokalen Sessions zuweisen.",
+  title: "SSH-Zugänge",
+  description: "Verbindungen und Schlüssel für deine Projekte.",
   scope:
     "Zuweisungen helfen beim gezielten Zugriff unter einem Betriebssystembenutzer. Sie isolieren keine Prozesse und schützen Schlüssel nicht vor anderen Prozessen dieses Benutzers.",
   revokeHint:
     "Das Entfernen einer Zuweisung blockiert neue Verbindungen über den Hilfsbefehl. Bestehende SSH-Verbindungen bleiben offen.",
   backupHint: "SSH-Zugänge und Schlüssel sind nicht in Backups enthalten.",
-  add: "Serverzugang hinzufügen",
+  add: "Zugang hinzufügen",
   edit: "Bearbeiten",
   remove: "Löschen",
   confirmDelete: "Löschen bestätigen",
@@ -36,9 +51,9 @@ export const sshCopy = {
   save: "Speichern",
   cancel: "Abbrechen",
   close: "Schließen",
-  loading: "Serverzugänge werden geladen …",
+  loading: "SSH-Zugänge werden geladen …",
   retry: "Erneut versuchen",
-  empty: "Noch keine Serverzugänge vorhanden.",
+  empty: "Noch keine SSH-Zugänge vorhanden.",
   name: "Name",
   host: "Host",
   port: "Port",
@@ -72,6 +87,6 @@ export const sshCopy = {
     "Hänge einen Remote-Befehl an den kopierten Verbindungsbefehl an, zum Beispiel:",
   command: "Verbindungsbefehl",
   launchHint:
-    "Weise bei Bedarf Serverzugänge zu. Prüfe nach dem Start unter Serverzugänge, ob die SSH-Werkzeuge bereit sind.",
-  manage: "Serverzugänge verwalten",
+    "Weise bei Bedarf SSH-Zugänge zu. Prüfe nach dem Start unter SSH-Zugänge, ob die SSH-Werkzeuge bereit sind.",
+  manage: "SSH-Zugänge verwalten",
 };
