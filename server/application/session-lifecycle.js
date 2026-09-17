@@ -202,6 +202,8 @@ export function createSessionLifecycle(services) {
             purpose: login ? "login" : undefined,
             pipeline: trusted.pipeline,
             headless: trusted.pipeline?.headless,
+            sandboxProfile: body.nonoProfile || null,
+            sshAccessIds: sshIds,
           })
         : memoryLaunch;
       const mcpLaunch = services.sessionMcp
