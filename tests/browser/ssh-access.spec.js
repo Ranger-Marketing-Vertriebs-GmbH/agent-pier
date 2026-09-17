@@ -1,15 +1,14 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./ssh-fixture.js";
+import { openAccess, showKeys } from "./ssh-settings-helpers.js";
 test("mobile SSH creation requires independently confirmed fingerprint and retains failed draft", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const state = await fixture(page);
   await page.goto(baseURL + "/settings/ssh");
-  await page
-    .getByRole("button", { name: "Serverzugang hinzufügen", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Zugang hinzufügen", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("Build server");
   await page.getByLabel("Host", { exact: true }).fill("build.example.test");
   await page.getByLabel("Benutzername", { exact: true }).fill("deploy");
@@ -30,9 +29,10 @@ test("mobile SSH creation requires independently confirmed fingerprint and retai
   );
   state.fail = false;
   await save.click();
-  await expect(
-    page.locator(".ssh-hosts").getByText("ssh-ed25519 public-fixture", { exact: true }),
-  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Öffentlichen Schlüssel kopieren", exact: true })
+    .click();
+  expect(await page.evaluate(() => window.copiedText)).toBe("ssh-ed25519 public-fixture");
   expect(state.calls.filter((call) => call.path.endsWith("/test"))).toHaveLength(0);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
@@ -45,7 +45,7 @@ test("existing session assignment exposes copy command without sending agent inp
   const state = await fixture(page);
   state.accesses = [state.access];
   await page.goto(baseURL + "/sessions/fixture-session");
-  await page.getByRole("button", { name: "Serverzugänge", exact: true }).click();
+  await page.getByRole("button", { name: "SSH-Zugänge", exact: true }).click();
   await page.getByRole("checkbox", { name: /Build server/ }).check();
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
   await page
@@ -76,15 +76,15 @@ test("endpoint edits invalidate confirmation and deletion requires confirmation"
   const state = await fixture(page);
   state.accesses = [state.access];
   await page.goto(baseURL + "/settings/ssh");
-  await page
-    .locator(".ssh-hosts")
-    .getByRole("button", { name: "Bearbeiten", exact: true })
-    .click();
+  await openAccess(page, "Build server");
+  await page.getByRole("button", { name: "Bearbeiten", exact: true }).click();
   const save = page.getByRole("button", { name: "Speichern", exact: true });
   await expect(save).toBeEnabled();
   await page.getByLabel("Host", { exact: true }).fill("new.example.test");
   await expect(save).toBeDisabled();
-  await expect(page.getByText("SHA256:verified-host", { exact: true })).toHaveCount(1);
+  await expect(
+    page.getByRole("dialog").getByText("SHA256:verified-host", { exact: true }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Hostschlüssel abrufen", exact: true }).click();
   await expect(save).toBeDisabled();
   await page
@@ -96,17 +96,14 @@ test("endpoint edits invalidate confirmation and deletion requires confirmation"
   );
   await page.getByRole("button", { name: "Verbindung testen", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("Verbindung erfolgreich");
-  await page
-    .locator(".ssh-hosts")
-    .getByRole("button", { name: "Löschen", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Löschen", exact: true }).click();
   expect(state.calls.filter((call) => call.method === "DELETE")).toHaveLength(0);
   state.fail = true;
   await page.getByRole("button", { name: "Löschen bestätigen", exact: true }).click();
   await expect(page.getByRole("alert")).toBeVisible();
   state.fail = false;
   await page.getByRole("button", { name: "Löschen bestätigen", exact: true }).click();
-  await expect(page.getByText("Noch keine Serverzugänge vorhanden.")).toBeVisible();
+  await expect(page.getByText("Noch keine SSH-Zugänge vorhanden.")).toBeVisible();
 });
 
 test("English management supports explicit key import and manual copying fallback", async ({
@@ -126,8 +123,9 @@ test("English management supports explicit key import and manual copying fallbac
   });
   await page.goto(baseURL + "/settings/ssh");
   await expect(
-    page.getByRole("heading", { name: "Server accesses", exact: true }),
+    page.getByRole("heading", { name: "SSH accesses", exact: true }),
   ).toBeVisible();
+  await showKeys(page);
   await page.getByRole("button", { name: "Add SSH key", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("Imported key");
   await page
@@ -191,7 +189,7 @@ test("creation waits for the initial list so a delayed response cannot erase the
     return route.fulfill({ json: { accesses: [] } });
   });
   await page.goto(baseURL + "/settings/ssh");
-  const add = page.getByRole("button", { name: "Serverzugang hinzufügen", exact: true });
+  const add = page.getByRole("button", { name: "Zugang hinzufügen", exact: true });
   try {
     await expect(add).toBeDisabled();
     expect(state.calls.filter((call) => call.method === "POST")).toHaveLength(0);

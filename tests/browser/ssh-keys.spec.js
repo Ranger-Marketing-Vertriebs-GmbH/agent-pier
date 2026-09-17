@@ -1,10 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./ssh-fixture.js";
-const card = (page, name) =>
-  page
-    .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name, exact: true }) });
+import {
+  detail as card,
+  openAccess,
+  openKey,
+  showAccesses,
+  showKeys,
+} from "./ssh-settings-helpers.js";
 test("named keys are created independently, renamed and reused by two hosts", async ({
   page,
 }) => {
@@ -14,8 +17,9 @@ test("named keys are created independently, renamed and reused by two hosts", as
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(baseURL + "/settings/ssh");
   await expect(
-    page.getByRole("button", { name: "Add server access", exact: true }),
+    page.getByRole("button", { name: "Add access", exact: true }),
   ).toBeDisabled();
+  await showKeys(page);
   await page.getByRole("button", { name: "Add SSH key", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("Shared deployment");
   state.fail = true;
@@ -34,7 +38,8 @@ test("named keys are created independently, renamed and reused by two hosts", as
   await page.getByLabel("Name", { exact: true }).fill("Deployment");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   for (const name of ["Build host", "Production host"]) {
-    await page.getByRole("button", { name: "Add server access", exact: true }).click();
+    await showAccesses(page);
+    await page.getByRole("button", { name: "Add access", exact: true }).click();
     await page.getByLabel("Name", { exact: true }).fill(name);
     await page.getByLabel("Host", { exact: true }).fill("build.example.test");
     await page.getByLabel("Username", { exact: true }).fill("deploy");
@@ -51,6 +56,7 @@ test("named keys are created independently, renamed and reused by two hosts", as
     state.keys[0].id,
     state.keys[0].id,
   ]);
+  await openKey(page, "Deployment");
   await expect(card(page, "Deployment")).toContainText("Build host");
   await expect(card(page, "Deployment")).toContainText("Production host");
   await expect(
@@ -68,15 +74,22 @@ test("named keys are created independently, renamed and reused by two hosts", as
   );
   state.fail = false;
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(card(page, "Build host")).toContainText("Renamed shared key");
-  await expect(card(page, "Production host")).toContainText("Renamed shared key");
+  await showAccesses(page);
+  await expect(
+    page.locator(".ssh-resource-row").filter({ hasText: "Build host" }),
+  ).toContainText("Renamed shared key");
+  await expect(
+    page.locator(".ssh-resource-row").filter({ hasText: "Production host" }),
+  ).toContainText("Renamed shared key");
   for (const name of ["Build host", "Production host"]) {
+    await openAccess(page, name);
     await card(page, name).getByRole("button", { name: "Delete", exact: true }).click();
     await card(page, name)
       .getByRole("button", { name: "Confirm deletion", exact: true })
       .click();
     await expect(card(page, name)).toHaveCount(0);
   }
+  await openKey(page, "Renamed shared key");
   await expect(
     card(page, "Renamed shared key").getByRole("button", { name: "Delete", exact: true }),
   ).toBeEnabled();
@@ -97,6 +110,7 @@ test("existing host key selection preserves confirmation and failed key deletion
   state.accesses = [state.access];
   state.keys.push({ ...state.keys[0], id: "key-two", name: "Replacement" });
   await page.goto(baseURL + "/settings/ssh");
+  await openAccess(page, "Build server");
   await card(page, "Build server")
     .getByRole("button", { name: "Bearbeiten", exact: true })
     .click();
@@ -110,6 +124,7 @@ test("existing host key selection preserves confirmation and failed key deletion
     page.getByRole("button", { name: "Speichern", exact: true }),
   ).toBeEnabled();
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
+  await openKey(page, "Deployment key");
   await card(page, "Deployment key")
     .getByRole("button", { name: "Löschen", exact: true })
     .click();
@@ -138,15 +153,18 @@ test("key catalog loading gates key and host creation", async ({ page }) => {
   });
   await page.goto(baseURL + "/settings/ssh");
   try {
+    await showKeys(page);
     await expect(
       page.getByRole("button", { name: "SSH-Schlüssel hinzufügen", exact: true }),
     ).toBeDisabled();
+    await showAccesses(page);
     await expect(
-      page.getByRole("button", { name: "Serverzugang hinzufügen", exact: true }),
+      page.getByRole("button", { name: "Zugang hinzufügen", exact: true }),
     ).toBeDisabled();
   } finally {
     release();
   }
+  await showKeys(page);
   await expect(
     page.getByRole("button", { name: "SSH-Schlüssel hinzufügen", exact: true }),
   ).toBeEnabled();

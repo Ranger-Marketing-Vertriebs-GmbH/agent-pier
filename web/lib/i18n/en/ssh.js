@@ -1,4 +1,19 @@
 export const sshCopy = {
+  accessesTab: "Accesses",
+  keysTab: "Keys",
+  search: "Search SSH entries",
+  searchAccesses: "Search name, host or username …",
+  searchKeys: "Search keys or projects …",
+  nameConnection: "Name / Connection",
+  connection: "Connection",
+  viewKey: "View key",
+  closeDetails: "Close details",
+  noMatches: "No matching entries.",
+  resetFilters: "Reset filters",
+  securityNotes: "Security and backup notes",
+  usageUnavailable: "Usage not loaded yet",
+  accessCount: (count) => (count === 1 ? "1 access" : `${count} accesses`),
+
   toolsReady: "SSH tools are ready for this session.",
   toolsStarting: "Waiting for the CLI to connect its SSH tools …",
   toolsReload: "Reload this conversation to enable SSH tools.",
@@ -10,7 +25,7 @@ export const sshCopy = {
   keys: "SSH keys",
   hosts: "Hosts",
   addKey: "Add SSH key",
-  emptyKeys: "No SSH keys yet. Add a key before creating a server access.",
+  emptyKeys: "No SSH keys yet. Add a key before creating an SSH access.",
   selectKey: "Select a saved SSH key",
   keyFingerprint: "Key fingerprint",
   keyDeleteHint: "Delete this stored SSH key?",
@@ -19,14 +34,14 @@ export const sshCopy = {
   renameKeyHint:
     "The name can be changed. To use different key material, add another key.",
 
-  title: "Server accesses",
-  description: "Manage SSH keys and assign server accesses to local sessions.",
+  title: "SSH accesses",
+  description: "Connections and keys for your projects.",
   scope:
     "Assignments help target access within one OS user. They do not isolate processes or protect keys from other processes of that user.",
   revokeHint:
     "Removing an assignment blocks new helper connections. Existing SSH connections remain open.",
   backupHint: "SSH accesses and keys are excluded from backups.",
-  add: "Add server access",
+  add: "Add access",
   edit: "Edit",
   remove: "Delete",
   confirmDelete: "Confirm deletion",
@@ -35,9 +50,9 @@ export const sshCopy = {
   save: "Save",
   cancel: "Cancel",
   close: "Close",
-  loading: "Loading server accesses …",
+  loading: "Loading SSH accesses …",
   retry: "Try again",
-  empty: "No server accesses yet.",
+  empty: "No SSH accesses yet.",
   name: "Name",
   host: "Host",
   port: "Port",
@@ -70,6 +85,6 @@ export const sshCopy = {
   commandHint: "Append a remote command to the copied connection command, for example:",
   command: "Connection command",
   launchHint:
-    "Assign optional server accesses. After launch, open Server accesses to check SSH tool readiness.",
-  manage: "Manage server accesses",
+    "Assign optional SSH accesses. After launch, open SSH accesses to check SSH tool readiness.",
+  manage: "Manage SSH accesses",
 };
