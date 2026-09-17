@@ -1,7 +1,6 @@
 import { revokeSessionMcp } from "../features/mcp/session-capability.js";
 import { SshIntegration } from "../features/ssh/ssh-integration.js";
-import { SshAccessStore } from "../features/ssh/ssh-access-store.js";
-import { SshSessions } from "../features/ssh/ssh-sessions.js";
+import { SshManagement } from "../features/ssh/ssh-management.js";
 import { AgencyStore } from "../features/agency/agency-store.js";
 import { SharedCliProfiles } from "../features/cli-profiles/shared-profiles.js";
 import { ProviderConnections } from "../features/providers/provider-connections.js";
@@ -62,9 +61,27 @@ export async function createServices(config) {
     memory.close();
     throw error;
   }
-  const sshAccesses = new SshAccessStore(config);
-  const sshSessions = new SshSessions({ dataDir: config.dataDir, store: sshAccesses });
-  const sshIntegration = new SshIntegration({ dataDir: config.dataDir, accounts });
+  const sshManagement = new SshManagement({
+    ...config,
+    barrier: mutationBarrier,
+    audit,
+    projectRegistry: memory,
+  });
+  try {
+    await sshManagement.ready;
+  } catch (error) {
+    await sshManagement.close();
+    await memoryIntegration.close();
+    memory.close();
+    throw error;
+  }
+  const sshAccesses = sshManagement.store;
+  const sshSessions = sshManagement.grants;
+  const sshIntegration = new SshIntegration({
+    dataDir: config.dataDir,
+    accounts,
+    onProject: (binding) => sshManagement.registerProject(binding),
+  });
   const sessions = new SessionManager({
     dataDir: config.dataDir,
     onStopped: async (session) => {
@@ -154,6 +171,7 @@ export async function createServices(config) {
     sshAccesses,
     sshSessions,
     sshIntegration,
+    sshManagement,
     operationalWarnings,
     onError,
     requests,

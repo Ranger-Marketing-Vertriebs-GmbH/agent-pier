@@ -44,6 +44,7 @@ for (const signal of ["SIGTERM", "SIGKILL"]) {
       privateDirectory(path.join(dataDir, "ssh", "keys", hostId));
       const integration = new SshIntegration({ dataDir });
       const launch = await integration.prepare({
+        cwd: dataDir,
         id: "session",
         account: { id: "account", tool: "opencode" },
         launch: {},

@@ -8,6 +8,7 @@ import { authorizeSsh, capabilityFile } from "./ssh-capability.js";
 import { SshAccessStore } from "./ssh-access-store.js";
 import { SshSessions } from "./ssh-sessions.js";
 import { SshTools, sshTools } from "./ssh-tools.js";
+import { publicSshError } from "./ssh-errors.js";
 const args = process.argv.slice(2);
 if (
   args.length !== 4 ||
@@ -172,10 +173,7 @@ async function handle(line) {
           content: [
             {
               type: "text",
-              text: JSON.stringify({
-                error: error.status ? error.message : "SSH operation failed.",
-                status: error.status || 500,
-              }),
+              text: JSON.stringify(publicSshError(error)),
             },
           ],
         };

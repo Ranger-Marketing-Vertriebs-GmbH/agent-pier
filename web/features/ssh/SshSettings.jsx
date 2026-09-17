@@ -5,9 +5,11 @@ import SshAccessForm from "./SshAccessForm.jsx";
 import SshCopy from "./SshCopy.jsx";
 import SshKeyCard from "./SshKeyCard.jsx";
 import SshKeyForm from "./SshKeyForm.jsx";
+import SshProjectReassign from "./SshProjectReassign.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
+import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
 import "./ssh.css";
-function AccessCard({ access, edited, removed, loading }) {
+function AccessCard({ access, project, edited, removed, loading }) {
   const [confirm, setConfirm] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -27,6 +29,9 @@ function AccessCard({ access, edited, removed, loading }) {
   return (
     <article className="ssh-card">
       <h3>{access.name}</h3>
+      <p className="ssh-owner-badge">
+        {projectCopy.owner}: {project?.name || projectCopy.global}
+      </p>
       <p>
         {copy.keyMode}: {access.keyName}
       </p>
@@ -95,10 +100,34 @@ function AccessCard({ access, edited, removed, loading }) {
 export default function SshSettings() {
   const { data, setData, error, reload } = useSshAccesses();
   const catalog = useSshAccesses("/ssh-keys");
+  const projectCatalog = useSshAccesses("/ssh-projects");
   const [editing, setEditing] = useState(null);
   const [editingKey, setEditingKey] = useState(null);
-  const ready = Boolean(data && catalog.data);
+  const [filter, setFilter] = useState("all");
+  const [reassigning, setReassigning] = useState(false);
+  const ready = Boolean(data && catalog.data && projectCatalog.data);
   const keys = catalog.data?.keys || [];
+  const projects = projectCatalog.data?.projects || [];
+  const resourceProjectIds = [...keys, ...(data?.accesses || [])]
+    .map((item) => item.projectId)
+    .filter((id, index, ids) => id && ids.indexOf(id) === index);
+  const missingProjectIds = resourceProjectIds.filter(
+    (id) => !projects.some((project) => project.id === id),
+  );
+  const ownerProjects = [
+    ...projects,
+    ...missingProjectIds.map((id) => ({
+      id,
+      name: `${projectCopy.unavailable} · ${id}`,
+      unavailable: true,
+    })),
+  ];
+  const sourceProjects = resourceProjectIds.map((id) =>
+    ownerProjects.find((project) => project.id === id),
+  );
+  const visible = (item) => filter === "all" || (item.projectId || "") === filter;
+  const visibleKeys = keys.filter(visible);
+  const visibleAccesses = (data?.accesses || []).filter(visible);
 
   return (
     <div className="page ssh-page">
@@ -106,6 +135,43 @@ export default function SshSettings() {
       <p>{copy.description}</p>
       <p>{copy.scope}</p>
       <p>{copy.backupHint}</p>
+      <div className="ssh-project-controls">
+        <label>
+          {projectCopy.filter}
+          <select value={filter} onChange={(event) => setFilter(event.target.value)}>
+            <option value="all">{projectCopy.all}</option>
+            <option value="">{projectCopy.global}</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className="button"
+          disabled={
+            !sourceProjects.length ||
+            !sourceProjects.some((source) =>
+              projects.some((target) => target.id !== source.id),
+            )
+          }
+          onClick={() => setReassigning(true)}
+        >
+          {projectCopy.reassignOpen}
+        </button>
+      </div>
+      {projectCatalog.error && (
+        <div>
+          <p role="alert">{projectCatalog.error}</p>
+          <button className="button" onClick={projectCatalog.reload}>
+            {copy.retry}
+          </button>
+        </div>
+      )}
+      {!projectCatalog.data && !projectCatalog.error && (
+        <p role="status">{copy.loading}</p>
+      )}
       <section className="ssh-keys" aria-labelledby="ssh-keys-heading">
         <h2 id="ssh-keys-heading">{copy.keys}</h2>
         <button
@@ -117,7 +183,7 @@ export default function SshSettings() {
         </button>
         {ready && !keys.length && <p>{copy.emptyKeys}</p>}
         {ready &&
-          keys.map((key) => (
+          visibleKeys.map((key) => (
             <SshKeyCard
               key={key.id}
               sshKey={{
@@ -126,6 +192,7 @@ export default function SshSettings() {
                   .filter((access) => access.keyId === key.id)
                   .map((access) => ({ id: access.id, name: access.name })),
               }}
+              project={ownerProjects.find((project) => project.id === key.projectId)}
               edited={setEditingKey}
               removed={(id) =>
                 catalog.setData((current) => ({
@@ -148,7 +215,7 @@ export default function SshSettings() {
         <h2 id="ssh-hosts-heading">{copy.hosts}</h2>
         <button
           className="button primary"
-          disabled={!ready || !keys.length}
+          disabled={!ready || (filter === "all" ? !keys.length : !visibleKeys.length)}
           onClick={() => setEditing({})}
         >
           {copy.add}
@@ -163,7 +230,7 @@ export default function SshSettings() {
         )}
         {!data && !error && <p role="status">{copy.loading}</p>}
         {data && !data.accesses.length && <p>{copy.empty}</p>}
-        {data?.accesses.map((access) => (
+        {visibleAccesses.map((access) => (
           <AccessCard
             key={JSON.stringify(access)}
             access={{
@@ -173,6 +240,7 @@ export default function SshSettings() {
             }}
             edited={setEditing}
             loading={!ready}
+            project={ownerProjects.find((project) => project.id === access.projectId)}
             removed={(id) =>
               setData((current) => ({
                 accesses: current.accesses.filter((item) => item.id !== id),
@@ -184,6 +252,8 @@ export default function SshSettings() {
       {editingKey && (
         <SshKeyForm
           sshKey={editingKey.id ? editingKey : null}
+          projects={projects}
+          projectId={filter === "all" ? null : filter || null}
           close={() => setEditingKey(null)}
           saved={(result) => {
             catalog.setData((current) => ({
@@ -197,6 +267,8 @@ export default function SshSettings() {
         <SshAccessForm
           access={editing.id ? editing : null}
           keys={keys}
+          projects={projects}
+          projectId={filter === "all" ? null : filter || null}
           close={() => setEditing(null)}
           saved={(result) => {
             setData((current) => ({
@@ -206,6 +278,18 @@ export default function SshSettings() {
               ],
             }));
             setEditing(null);
+          }}
+        />
+      )}
+      {reassigning && (
+        <SshProjectReassign
+          sourceProjects={sourceProjects}
+          targetProjects={projects}
+          close={() => setReassigning(false)}
+          reassigned={() => {
+            setReassigning(false);
+            catalog.reload();
+            reload();
           }}
         />
       )}

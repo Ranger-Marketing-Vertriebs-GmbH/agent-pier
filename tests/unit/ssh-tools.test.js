@@ -13,6 +13,7 @@ async function fixture(t) {
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   const integration = new SshIntegration({ dataDir });
   const launch = await integration.prepare({
+    cwd: dataDir,
     id: "one",
     account: { id: "account", tool: "codex" },
     launch: {},
@@ -37,7 +38,7 @@ async function fixture(t) {
     connection: () => ({ command: process.execPath, args: ["-e"], cwd: dataDir }),
   };
   const grants = new SshSessions({ dataDir, store });
-  grants.set(session, ["host"]);
+  await grants.set(session, ["host"]);
   return {
     tools: new SshTools({ dataDir, capability, grants, store }),
     grants,
@@ -62,7 +63,7 @@ test("SSH tools only list assigned host metadata and reauthorize every command",
   await assert.rejects(
     tools.call("ssh_execute", { accessId: "other", command: "process.exit(0)" }),
   );
-  grants.set(session, []);
+  await grants.set(session, []);
   await assert.rejects(
     tools.call("ssh_execute", { accessId: "host", command: "process.exit(0)" }),
   );
@@ -94,13 +95,18 @@ test("execution bounds command, output, timeout and concurrency", async (t) => {
 });
 
 test("revoking an assignment interrupts an active command", async (t) => {
-  const { tools, grants, session } = await fixture(t);
+  const { tools, grants, session, dataDir } = await fixture(t);
+  const started = path.join(dataDir, "command-started");
   const running = tools.call("ssh_execute", {
     accessId: "host",
-    command: "setInterval(()=>{},100)",
+    command: `require('node:fs').writeFileSync(${JSON.stringify(started)}, 'ready');setInterval(()=>{},100)`,
     timeoutSeconds: 5,
   });
-  grants.set(session, []);
+  const deadline = performance.now() + 3000;
+  while (!fs.existsSync(started) && performance.now() < deadline)
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.ok(fs.existsSync(started), "the owned command must start before revocation");
+  await grants.set(session, []);
   await assert.rejects(running, /revoked/);
 });
 

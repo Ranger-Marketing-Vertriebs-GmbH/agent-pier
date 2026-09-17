@@ -5,19 +5,29 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { privateDirectory, writePrivate, readJSON, problem } from "../../lib/storage.js";
 import { tomlValue } from "../../lib/launch-serialization.js";
 import { capabilityFile, authorizeSsh, revokeSsh } from "./ssh-capability.js";
+import { createSshProjectBinding } from "./ssh-project-scope.js";
+import { prepareSshDiscovery } from "./ssh-discovery.js";
 const main = fileURLToPath(new URL("./ssh-mcp.js", import.meta.url));
 const supported = (session) =>
   ["codex", "claude", "opencode"].includes(session?.tool) &&
   session.purpose !== "login" &&
   !session.pipeline?.headless;
 export class SshIntegration {
-  constructor({ dataDir, accounts }) {
+  constructor({ dataDir, accounts, onProject }) {
     this.dataDir = path.resolve(dataDir);
     this.accounts = accounts;
+    this.onProject = onProject;
   }
-  async prepare({ id, account, launch, purpose, pipeline } = {}) {
-    if (purpose === "login" || pipeline?.headless || account?.tool === "shell")
-      return launch;
+  async prepare({ id, account, cwd, launch, purpose, pipeline } = {}) {
+    if (purpose === "login" || pipeline?.headless) return launch;
+    if (account?.tool === "shell") {
+      const project = await createSshProjectBinding(cwd);
+      await this.onProject?.(project);
+      return {
+        ...launch,
+        sshTools: { enabled: false, project },
+      };
+    }
     const selected = this.accounts ? this.accounts.get(account.id) : account;
     if (!supported(selected) || selected.tool !== account.tool)
       throw problem("Unsupported SSH tool account.");
@@ -47,6 +57,8 @@ export class SshIntegration {
       )
     )
       throw problem("Reserved SSH MCP name already configured.", 409);
+    const project = await createSshProjectBinding(cwd);
+    await this.onProject?.(project);
     const file = capabilityFile(this.dataDir, id);
     const generation = randomUUID();
     // Each process receives an immutable generation-specific credential file.
@@ -91,7 +103,23 @@ export class SshIntegration {
         };
         env.OPENCODE_CONFIG_CONTENT = JSON.stringify(config);
       }
-      return { ...launch, args, env, sshTools: { enabled: true, generation } };
+      prepareSshDiscovery({
+        tool: selected.tool,
+        folder: selected.tool === "claude" ? path.join(folder, "plugin") : folder,
+        args,
+        env,
+      });
+      return {
+        ...launch,
+        args,
+        env,
+        sshTools: {
+          enabled: true,
+          generation,
+          project,
+          home: env.HOME || process.env.HOME,
+        },
+      };
     } catch (error) {
       this.discard(id);
       throw error;

@@ -1,0 +1,41 @@
+export const sshProjectCopy = {
+  filter: "Projektfilter",
+  all: "Alle Besitzer",
+  global: "Global",
+  unavailable: "Nicht verfügbares Projekt",
+  owner: "Besitzer",
+  project: "Projekt",
+  directory: "Verzeichnis",
+  download: "Privaten Schlüssel herunterladen",
+  downloadHint:
+    "Der Download enthält den unverschlüsselten privaten Schlüssel. Bewahre ihn sicher auf.",
+  projectManaged: "Vom Projekt verwaltet",
+  manageProject: "Projektzugänge verwalten",
+  reassignOpen: "Projektressourcen neu zuweisen",
+  reassignTitle: "Projektressourcen neu zuweisen",
+  reassignHint:
+    "Sessions des Quellprojekts verlieren den geerbten Zugriff; Sessions des Zielprojekts erhalten ihn. Explizite Session-Zuweisungen bleiben unverändert.",
+  from: "Quellprojekt",
+  to: "Zielprojekt",
+  reassign: "Neu zuweisen",
+  reassignDone: "Projektressourcen neu zugewiesen",
+  errors: {
+    SSH_PROJECT_CHANGED: "Die Projektidentität hat sich geändert. Lade die Sitzung neu.",
+    SSH_PROJECT_UNAVAILABLE: "Das Projektverzeichnis ist nicht verfügbar.",
+    SSH_IMPORT_SOURCE:
+      "Die Quelle des privaten Schlüssels konnte nicht sicher gelesen werden.",
+    SSH_KEY_UNSUPPORTED:
+      "Nur gültige, unverschlüsselte private SSH-Schlüssel werden unterstützt.",
+    SSH_WRONG_PROJECT: "Diese SSH-Ressource gehört zu einem anderen Projekt.",
+    SSH_INVALID_ARGUMENT: "Die SSH-Anfrage enthält einen ungültigen Wert.",
+    SSH_REQUEST_CONFLICT: "Diese Anfrage-ID wurde bereits für andere Eingaben verwendet.",
+    SSH_REQUEST_RESOURCE_GONE: "Die Ressource dieser Anfrage existiert nicht mehr.",
+    SSH_HOST_CONFLICT: "Dieses Projekt hat bereits einen widersprüchlichen Host.",
+    SSH_BUSY: "Die SSH-Verwaltung ist ausgelastet. Versuche es erneut.",
+    SSH_UNAVAILABLE: "Die SSH-Verwaltung ist vorübergehend nicht verfügbar.",
+    SSH_STORAGE_LIMIT: "Der SSH-Speicher hat sein Limit erreicht.",
+    SSH_PROJECT_COLLISION: "Das Zielprojekt enthält bereits passende SSH-Ressourcen.",
+    SSH_DOWNLOAD_FAILED: "Der private Schlüssel konnte nicht heruntergeladen werden.",
+    SSH_OPERATION_FAILED: "Der SSH-Vorgang ist fehlgeschlagen.",
+  },
+};

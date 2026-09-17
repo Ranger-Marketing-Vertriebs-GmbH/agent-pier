@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import api from "../../lib/api.js";
+import api, { apiError } from "../../lib/api.js";
 import SshCopy from "./SshCopy.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
-export default function SshKeyCard({ sshKey, edited, removed }) {
+import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
+export default function SshKeyCard({ sshKey, project, edited, removed }) {
   const [confirm, setConfirm] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -10,12 +11,16 @@ export default function SshKeyCard({ sshKey, edited, removed }) {
   return (
     <article className="ssh-card">
       <h3>{sshKey.name}</h3>
+      <p className="ssh-owner-badge">
+        {projectCopy.owner}: {project?.name || projectCopy.global}
+      </p>
       <p>
         {copy.keyFingerprint}:{" "}
         <code className="ssh-fingerprint">{sshKey.fingerprint}</code>
       </p>
       <SshCopy label={copy.publicKey} text={sshKey.publicKey} button={copy.copyKey} />
       <p>{copy.publicKeyHint}</p>
+      <p>{projectCopy.downloadHint}</p>
       <p>
         {inUse
           ? `${copy.keyInUse}: ${sshKey.hosts.map((host) => host.name).join(", ")}`
@@ -24,6 +29,35 @@ export default function SshKeyCard({ sshKey, edited, removed }) {
       <div className="ssh-actions">
         <button className="button" disabled={busy} onClick={() => edited(sshKey)}>
           {copy.edit}
+        </button>
+        <button
+          className="button"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setError("");
+            try {
+              const response = await fetch(
+                `/api/ssh-keys/${encodeURIComponent(sshKey.id)}/download`,
+                { method: "POST" },
+              );
+              if (!response.ok) throw await apiError(response);
+              const blobUrl = URL.createObjectURL(await response.blob());
+              const link = document.createElement("a");
+              link.href = blobUrl;
+              link.download = `agentpier-${sshKey.id}.key`;
+              document.body.append(link);
+              link.click();
+              link.remove();
+              setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
+            } catch (err) {
+              setError(err.message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {projectCopy.download}
         </button>
         <button
           className="button"

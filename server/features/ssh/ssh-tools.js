@@ -3,6 +3,8 @@ import { spawn } from "node:child_process";
 import { authorizeSsh, capabilityFile } from "./ssh-capability.js";
 import { acquireExecutionLock } from "./ssh-execution-lock.js";
 import { problem } from "../../lib/storage.js";
+import { sshManagementTools } from "./ssh-management-tools.js";
+import { sshManagementClient } from "./ssh-management-client.js";
 function decodeOutput(buffer, budget) {
   let text = "",
     bytes = 0;
@@ -15,6 +17,7 @@ function decodeOutput(buffer, budget) {
   return text;
 }
 export const sshTools = [
+  ...sshManagementTools,
   {
     name: "ssh_list_hosts",
     description: "List SSH hosts currently assigned to this session.",
@@ -39,6 +42,7 @@ export const sshTools = [
 export class SshTools {
   constructor({ dataDir, capability, grants, store }) {
     Object.assign(this, { dataDir, capability, grants, store });
+    this.manage = sshManagementClient(dataDir, capability);
   }
   async close() {
     this.closing = true;
@@ -50,9 +54,14 @@ export class SshTools {
     const session = authorizeSsh(this.dataDir, this.capability);
     if (!input || typeof input !== "object" || Array.isArray(input))
       throw problem("Invalid SSH arguments.");
+    if (sshManagementTools.some((tool) => tool.name === name))
+      return this.manage(name, input);
     if (name === "ssh_list_hosts") {
       if (Object.keys(input).length) throw problem("Invalid SSH arguments.");
-      const assigned = new Set(this.grants.assigned(session));
+      const assigned = new Set(await this.grants.effective(session));
+      const inherited = new Set(await this.grants.inherited(session));
+      const explicit = new Set(this.grants.assigned(session));
+      authorizeSsh(this.dataDir, this.capability);
       return {
         hosts: this.store
           .list()
@@ -64,6 +73,7 @@ export class SshTools {
             port,
             username,
             hostFingerprint,
+            assignment: { project: inherited.has(id), explicit: explicit.has(id) },
           })),
       };
     }
@@ -82,18 +92,25 @@ export class SshTools {
       timeoutSeconds > 120
     )
       throw problem("Invalid SSH command or timeout.");
-    const invocation = this.grants.resolve(session.id, accessId);
     const lock = path.join(
       path.dirname(capabilityFile(this.dataDir, session.id)),
       `${this.capability.generation}.lock.sqlite`,
     );
     const lease = await acquireExecutionLock(lock);
+    let invocation;
     let finished;
     this.finished = new Promise((resolve) => {
       finished = resolve;
     });
     try {
       if (this.closing) throw problem("SSH transport is closing.", 409);
+      invocation = await this.grants.resolve(session.id, accessId);
+      authorizeSsh(this.dataDir, this.capability);
+      if (
+        this.closing ||
+        (this.store.revision && invocation.revision !== this.store.revision(accessId))
+      )
+        throw problem("SSH assignment or capability revoked.", 403);
       return await new Promise((resolve, reject) => {
         const child = spawn(invocation.command, [...invocation.args, command], {
           cwd: invocation.cwd,
@@ -123,16 +140,31 @@ export class SshTools {
           timedOut = true;
           child.kill("SIGKILL");
         }, timeoutSeconds * 1000);
-        const authorization = setInterval(() => {
+        let checking = false,
+          ended = false;
+        const authorization = setInterval(async () => {
+          if (checking || ended) return;
+          checking = true;
           try {
+            const current = authorizeSsh(this.dataDir, this.capability);
+            if (
+              !(await this.grants.effective(current)).includes(accessId) ||
+              (this.store.revision &&
+                invocation.revision !== this.store.revision(accessId))
+            )
+              throw Error();
             authorizeSsh(this.dataDir, this.capability);
-            this.grants.resolve(session.id, accessId);
           } catch {
-            revoked = true;
-            child.kill("SIGKILL");
+            if (!ended) {
+              revoked = true;
+              child.kill("SIGKILL");
+            }
+          } finally {
+            checking = false;
           }
         }, 250);
         const clean = () => {
+          ended = true;
           this.child = null;
           clearTimeout(timeout);
           clearInterval(authorization);
@@ -158,7 +190,11 @@ export class SshTools {
       });
     } finally {
       try {
-        lease.release();
+        try {
+          invocation?.cleanup?.();
+        } finally {
+          lease.release();
+        }
       } finally {
         finished();
       }

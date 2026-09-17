@@ -13,6 +13,7 @@ export function createShutdown({ services, wss, server }) {
       }
     await services.files?.close();
     await services.reload?.close();
+    await services.sshManagement?.close();
     services.accountAuthStatus?.close();
     services.agency?.close();
     await services.sessionMcp?.close();
