@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
 import { problem } from "../../lib/storage.js";
 
 export function sshRoutes({
@@ -40,7 +41,21 @@ export function sshRoutes({
       });
     }
   });
-  router.post("/ssh-keys/:id/download", (req, res) => {
+  // This router is behind owner authentication. One shared owner budget also
+  // covers multiple logins and proxy addresses without trusting forwarded IPs.
+  const downloadLimit = rateLimit({
+    windowMs: 60_000,
+    limit: 20,
+    keyGenerator: () => "owner",
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    handler: (_req, res) =>
+      res.status(429).set("Cache-Control", "no-store").json({
+        code: "SSH_DOWNLOAD_RATE_LIMITED",
+        error: "Too many private key downloads. Try again in a minute.",
+      }),
+  });
+  router.post("/ssh-keys/:id/download", downloadLimit, (req, res) => {
     const file = sshAccesses.keyStore.openPrivate(req.params.id);
     try {
       const bytes = Buffer.alloc(file.size);

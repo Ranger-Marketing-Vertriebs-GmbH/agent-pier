@@ -34,6 +34,7 @@ export const sshProjectCopy = {
     SSH_UNAVAILABLE: "SSH management is temporarily unavailable.",
     SSH_STORAGE_LIMIT: "SSH storage has reached its limit.",
     SSH_PROJECT_COLLISION: "The target project already has matching SSH resources.",
+    SSH_DOWNLOAD_RATE_LIMITED: "Too many private key downloads. Try again in a minute.",
     SSH_DOWNLOAD_FAILED: "The private key could not be downloaded.",
     SSH_OPERATION_FAILED: "The SSH operation failed.",
   },

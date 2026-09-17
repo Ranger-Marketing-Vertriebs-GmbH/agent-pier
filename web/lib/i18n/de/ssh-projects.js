@@ -37,6 +37,8 @@ export const sshProjectCopy = {
     SSH_UNAVAILABLE: "Die SSH-Verwaltung ist vorübergehend nicht verfügbar.",
     SSH_STORAGE_LIMIT: "Der SSH-Speicher hat sein Limit erreicht.",
     SSH_PROJECT_COLLISION: "Das Zielprojekt enthält bereits passende SSH-Ressourcen.",
+    SSH_DOWNLOAD_RATE_LIMITED:
+      "Zu viele Downloads privater Schlüssel. Versuche es in einer Minute erneut.",
     SSH_DOWNLOAD_FAILED: "Der private Schlüssel konnte nicht heruntergeladen werden.",
     SSH_OPERATION_FAILED: "Der SSH-Vorgang ist fehlgeschlagen.",
   },

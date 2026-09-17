@@ -141,3 +141,43 @@ test("project collision HTTP responses contain only bounded public conflicting I
     details: { resourceIds: hosts.map((host) => host.id), truncated: false },
   });
 });
+
+test("private downloads share an owner limit and reject excess requests before opening a key", async (t) => {
+  const f = await applicationFixture(t);
+  const key = await (
+    await f.request("/api/ssh-keys", {
+      method: "POST",
+      body: { name: "Limited download" },
+    })
+  ).json();
+  const endpoint = `/api/ssh-keys/${key.id}/download`;
+  const store = f.application.sshAccesses.keyStore;
+  const open = t.mock.method(store, "openPrivate");
+  for (let index = 0; index < 21; index++) {
+    const denied = await fetch(f.url + endpoint, {
+      method: "POST",
+      headers: { origin: f.url },
+    });
+    assert.equal(denied.status, 401);
+    await denied.arrayBuffer();
+  }
+  for (let index = 0; index < 20; index++) {
+    const response = await f.request(endpoint, { method: "POST" });
+    assert.equal(response.status, 200);
+    await response.arrayBuffer();
+  }
+  assert.equal(open.mock.callCount(), 20);
+  for (const target of [endpoint, "/api/ssh-keys/missing/download"]) {
+    const response = await f.request(target, { method: "POST" });
+    assert.equal(response.status, 429);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    const retryAfter = Number(response.headers.get("retry-after"));
+    assert.ok(retryAfter > 0 && retryAfter <= 60);
+    assert.deepEqual(await response.json(), {
+      code: "SSH_DOWNLOAD_RATE_LIMITED",
+      error: "Too many private key downloads. Try again in a minute.",
+    });
+  }
+  assert.equal(open.mock.callCount(), 20);
+  assert.equal((await f.request("/api/ssh-keys")).status, 200);
+});
