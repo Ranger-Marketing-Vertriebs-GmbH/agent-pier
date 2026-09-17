@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { setImmediate as tick } from "node:timers/promises";
+import { setImmediate as tick, setTimeout as delay } from "node:timers/promises";
 import { FileStore } from "../../server/features/files/file-store.js";
 import { FileJobs } from "../../server/features/files/file-jobs.js";
 import { PathLocks } from "../../server/features/files/file-locks.js";
@@ -39,12 +39,16 @@ async function fixture(t, handler = async () => {}, extra = {}) {
   return { ...f, store, jobs, barrier, locks, handlers };
 }
 async function settled(jobs, scope, id, status = "completed") {
-  for (let i = 0; i < 200; i++) {
+  // Filesystem-backed admission can outlast any fixed number of event-loop turns.
+  const deadline = performance.now() + 5000;
+  while (performance.now() < deadline) {
     const job = jobs.get(scope, id);
     if (job.status === status) return job;
-    await tick();
+    await delay(10);
   }
-  assert.equal(jobs.get(scope, id).status, status);
+  const job = jobs.get(scope, id);
+  assert.equal(job.status, status, `Job ${id} did not reach ${status} within 5000ms`);
+  return job;
 }
 
 test("durable idempotency reuses one handler and rejects changed canonical bodies", async (t) => {
