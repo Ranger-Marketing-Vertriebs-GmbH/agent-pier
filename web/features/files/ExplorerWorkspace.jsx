@@ -204,6 +204,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
         ].includes(job.status),
     )
     .map((job) => `${job.id}:${job.status}:${job.completedEntries}`)
+    .sort()
     .join("|");
   const refreshListing = listing.refresh;
   useEffect(() => {

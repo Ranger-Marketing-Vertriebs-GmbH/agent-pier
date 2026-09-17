@@ -5,6 +5,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 
 export const platformCommand = (command, args) =>
   promisify(execFile)(command, args, {
@@ -16,6 +17,59 @@ const privileged = (command, args) =>
     ? platformCommand(command, args)
     : platformCommand("sudo", ["-n", command, ...args]);
 export const privilegedPlatformCommand = privileged;
+
+// hdiutil may temporarily retain an APFS image after unmounting its volume.
+// Re-observe only this fixture's image on every attempt; never force an eject.
+export async function detachOwnedDiskImage({
+  image,
+  directory,
+  identity,
+  attached,
+  command = platformCommand,
+  stat = fs.stat,
+  wait = delay,
+  diagnostic,
+}) {
+  const delays = [250, 500, 1000, 2000];
+  for (let attempt = 0; ; attempt++) {
+    const current = await attached();
+    if (!current) return;
+    assert.equal(current["image-path"], image);
+    const entities = current["system-entities"] || [];
+    const mounted = entities.filter((item) => item["mount-point"]);
+    assert.ok(mounted.every((item) => item["mount-point"] === directory));
+    if (identity && mounted.length)
+      assert.equal(String((await stat(directory)).dev), identity);
+    const disks = entities.filter(
+      (item) => item["content-hint"] === "GUID_partition_scheme",
+    );
+    assert.equal(disks.length, 1, "retain fixture without a proved whole image disk");
+    const device = disks[0]["dev-entry"];
+    assert.match(device, /^\/dev\/disk[0-9]+$/);
+    try {
+      await command("hdiutil", ["detach", device]);
+      assert.equal(await attached(), undefined, "retain fixture still attached");
+      return;
+    } catch (error) {
+      diagnostic?.(
+        JSON.stringify({
+          fixture: "detach-failed",
+          image,
+          directory,
+          device,
+          identity,
+          attempt: attempt + 1,
+          code: error.code,
+          stderr: error.stderr,
+          entities,
+        }),
+      );
+      // EBUSY is numeric and stable even when hdiutil localizes its stderr.
+      if (error.code !== 16 || attempt === delays.length) throw error;
+      await wait(delays[attempt]);
+    }
+  }
+}
 
 // Opt-in integration fixtures only; setup failures in required mode are failures.
 // Every command targets this newly allocated image/mount. Never infer disk numbers.
@@ -50,20 +104,13 @@ export async function filenameFileSystem(
   const dispose = async () => {
     if (disposed) return;
     if (process.platform === "darwin") {
-      const current = await attached();
-      if (current) {
-        const entity =
-          current["system-entities"].find((item) => item["mount-point"] === directory) ||
-          current["system-entities"].find((item) => item["dev-entry"]);
-        assert.ok(
-          entity?.["dev-entry"],
-          "retain fixture when the attached device cannot be proved",
-        );
-        if (identity && entity["mount-point"])
-          assert.equal(String((await fs.stat(directory)).dev), identity);
-        await platformCommand("hdiutil", ["detach", entity["dev-entry"]]);
-      }
-      assert.equal(await attached(), undefined);
+      await detachOwnedDiskImage({
+        image,
+        directory,
+        identity,
+        attached,
+        diagnostic: (value) => t.diagnostic?.(value),
+      });
     } else {
       const mounted = await platformCommand("findmnt", [
         "--json",
@@ -182,7 +229,13 @@ export async function filenameFileSystem(
           (item) => item["mount-point"] === directory,
         );
         assert.equal(entity?.["dev-entry"], device);
-        await platformCommand("hdiutil", ["detach", device]);
+        await detachOwnedDiskImage({
+          image,
+          directory,
+          identity,
+          attached,
+          diagnostic: (value) => t.diagnostic?.(value),
+        });
         const result = await platformCommand("hdiutil", [
           "attach",
           image,

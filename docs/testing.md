@@ -94,6 +94,12 @@ The HTTP API, image and preference integration suites share `applicationFixture`
 
 ## Automated CI matrix
 
+The Verify workflow runs once per pull-request revision and on pushes to `main`.
+Feature-branch pushes and release tags do not start a duplicate test matrix;
+release tags retain their dedicated packaging and installation checks. A new
+pull-request revision cancels the obsolete Verify run for that same PR. Main
+verification is not interrupted. The Secrets workflow still scans branch pushes.
+
 | Job                       | Workers                                                 | Required checks                                               | Evidence and artifacts                                                                                 |
 | ------------------------- | ------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | Static checks             | Linux, minimum supported Node                           | Formatting, ESLint, module-size/import checks, frontend build | Fail on warnings or formatting drift; retain build output on failure.                                  |
