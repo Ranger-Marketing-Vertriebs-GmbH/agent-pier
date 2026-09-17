@@ -1,11 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./ssh-fixture.js";
+import { showKeys } from "./ssh-settings-helpers.js";
 
 async function openDraft(page) {
   await fixture(page);
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.goto(baseURL + "/settings/ssh");
+  await showKeys(page);
   await page.getByRole("button", { name: "Add SSH key", exact: true }).click();
   const dialog = page.getByRole("dialog");
   const name = dialog.getByLabel("Name", { exact: true });
