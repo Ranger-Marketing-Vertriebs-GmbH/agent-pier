@@ -1,3 +1,4 @@
+import { restoreArtifacts } from "./artifact-backup.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -8,7 +9,7 @@ import { problem } from "../../lib/storage.js";
 import { AuditStore } from "../audit/audit-store.js";
 
 const publicPath =
-  /^(accounts\.json|provider-connections\.json|repositories\.json|preferences\.json|config\.json|pipelines\/definitions\.json|memory\/memory\.sqlite|pipeline-runs\/runs\.sqlite|audit\/events\.json|sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
+  /^(artifacts\/(?:index\.json|generations\/[a-f0-9-]{36}\/\d{1,3})|accounts\.json|provider-connections\.json|repositories\.json|preferences\.json|config\.json|pipelines\/definitions\.json|memory\/memory\.sqlite|pipeline-runs\/runs\.sqlite|audit\/events\.json|sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
 function extract(files, target, credentials = false) {
   for (const member of files) {
     if (
@@ -54,6 +55,7 @@ export class Restore {
     const scratch = folder(path.join(this.directory, `.inspect-${randomUUID()}`));
     try {
       extract(value.files, scratch);
+      restoreArtifacts(scratch);
       for (const file of ["memory/memory.sqlite", "pipeline-runs/runs.sqlite"])
         if (fs.existsSync(path.join(scratch, file)))
           database(

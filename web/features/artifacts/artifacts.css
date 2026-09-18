@@ -17,3 +17,64 @@
   background: white;
   border-radius: 8px;
 }
+.artifacts-page {
+  max-width: 1100px;
+}
+.artifact-list {
+  min-width: 0;
+}
+.artifact-list-toolbar,
+.artifact-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.artifact-list-toolbar {
+  justify-content: space-between;
+}
+.artifact-list-toolbar p,
+.artifact-storage {
+  color: var(--muted);
+  font-size: 13px;
+}
+.artifact-rows {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.artifact-rows li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.artifact-description {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.artifact-description span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.artifact-description .artifact-badge {
+  color: var(--accent);
+}
+.session-artifacts {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  max-height: 40dvh;
+  overflow: auto;
+}
+.session-artifacts summary {
+  cursor: pointer;
+  font-size: 13px;
+}

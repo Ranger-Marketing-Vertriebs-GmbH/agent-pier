@@ -11,6 +11,7 @@ export function createShutdown({ services, wss, server }) {
         timeout.unref();
         ws.once("close", () => clearTimeout(timeout));
       }
+    await services.artifacts?.close();
     await services.files?.close();
     await services.reload?.close();
     await services.sshManagement?.close();

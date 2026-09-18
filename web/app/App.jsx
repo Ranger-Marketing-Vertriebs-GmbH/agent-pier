@@ -24,6 +24,7 @@ import useFileNavigationGuard from "../features/files/useFileNavigationGuard.js"
 import FileNavigationGuardDialog from "../features/files/FileNavigationGuardDialog.jsx";
 const PipelinePage = lazy(() => import("../features/pipelines/PipelinePage.jsx"));
 const AgentBus = lazy(() => import("../features/agentbus/AgentBusPage.jsx"));
+const ArtifactsPage = lazy(() => import("../features/artifacts/ArtifactsPage.jsx"));
 const FilesPage = lazy(() => import("../features/files/FilesPage.jsx"));
 export default function App() {
   return (
@@ -167,6 +168,10 @@ function Application() {
               home={state.home}
               onLaunchProfile={(profile) => setModal({ type: "launch", profile })}
             />
+          </Suspense>
+        ) : view === "artifacts" ? (
+          <Suspense>
+            <ArtifactsPage route={route} onNavigate={navigate} />
           </Suspense>
         ) : view === "memory" ? (
           <MemoryPage route={route} onNavigate={navigate} home={state.home} />

@@ -12,7 +12,16 @@ export function dataUrl(mediaType, text) {
     binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
   return `data:${mediaType};base64,${btoa(binary)}`;
 }
-export function artifactBundle(snapshot) {
+export function artifactBundle(snapshot, { maxDocumentBytes = 96 * 1024 * 1024 } = {}) {
+  let remaining = maxDocumentBytes;
+  const charge = (length) => {
+    remaining -= length;
+    if (remaining < 0) throw unsupported();
+  };
+  const encoded = (type, text) => {
+    charge(text.length * 4);
+    return dataUrl(type, text);
+  };
   if (!Array.isArray(snapshot.files) || snapshot.files.length > 500) throw unsupported();
   const files = new Map();
   let bytes = 0;
@@ -65,15 +74,20 @@ export function artifactBundle(snapshot) {
   };
   const styles = new Map();
   function css(text, from, ancestors = new Set(), context = "stylesheet") {
+    charge(text.length);
     const tree = parse(text, { context });
     walk(tree, (node) => {
       if (node.type === "Url") {
         if (!node.value.startsWith("data:") && !node.value.startsWith("#"))
           node.value = asset(node.value, from, ancestors);
+        charge(node.value.length * 2);
       }
       if (node.type === "Atrule" && node.name.toLowerCase() === "import") {
         const first = node.prelude?.children.first;
-        if (first?.type === "String") first.value = asset(first.value, from, ancestors);
+        if (first?.type === "String") {
+          first.value = asset(first.value, from, ancestors);
+          charge(first.value.length * 2);
+        }
       }
     });
     return generate(tree);
@@ -87,7 +101,7 @@ export function artifactBundle(snapshot) {
     if (!styles.has(name))
       styles.set(
         name,
-        dataUrl(
+        encoded(
           "text/css",
           css(files.get(name).text, name, new Set([...ancestors, name])),
         ),
@@ -121,8 +135,18 @@ export function artifactBundle(snapshot) {
       throw unsupported();
     const id = `artifact-module-${modules.size}`;
     modules.set(name, id);
-    imports[id] = dataUrl("text/javascript", await moduleSource(file.text, name));
+    imports[id] = encoded("text/javascript", await moduleSource(file.text, name));
     return id;
   }
-  return { files, resolve, asset, css, moduleFile, moduleSource, imports };
+  return {
+    files,
+    resolve,
+    asset,
+    css,
+    moduleFile,
+    moduleSource,
+    imports,
+    charge,
+    encoded,
+  };
 }

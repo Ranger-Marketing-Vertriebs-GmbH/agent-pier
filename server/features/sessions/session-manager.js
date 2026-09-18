@@ -1,3 +1,4 @@
+import { removeSession } from "./session-removal.js";
 import { recordManualInput } from "./manual-input-guard.js";
 import { prepareModelViewport } from "../models/model-viewport.js";
 import { drainSessionLists, getSessionList } from "./session-list.js";
@@ -25,7 +26,12 @@ const launcher = fileURLToPath(new URL("../../terminal-launcher.js", import.meta
 const failure = (message, status = 400) => Object.assign(new Error(message), { status });
 /** One private tmux server per data directory. Closing a manager only detaches its clients. */
 export class SessionManager {
-  constructor({ dataDir, tmuxPath = "tmux", onStopped = () => {} }) {
+  constructor({
+    dataDir,
+    tmuxPath = "tmux",
+    onStopped = () => {},
+    onRemoving = () => {},
+  }) {
     if (typeof dataDir !== "string" || !path.isAbsolute(dataDir))
       throw failure("Invalid data directory");
     this.directory = path.join(path.resolve(dataDir), "sessions");
@@ -38,6 +44,7 @@ export class SessionManager {
     this.configPath = path.join(this.directory, "tmux.conf");
     this.clients = new Set();
     this.onStopped = onStopped;
+    this.onRemoving = onRemoving;
     this.reconciledStops = new Set();
     this.replacing = new Set();
     this.pendingTerminalInput = new Set();
@@ -384,22 +391,7 @@ export class SessionManager {
     }, id);
   }
   remove(id) {
-    return this.serial(async () => {
-      const session = await this.current(id);
-      if (session.status === "running")
-        throw failure("Stop the running session before deleting it", 409);
-      await this.tmux(["kill-session", "-t", this.target(id)]).catch(() => {});
-      for (const extension of [
-        "json",
-        "screen",
-        "launch.json",
-        "events.jsonl",
-        "outcome.json",
-      ])
-        await rm(path.join(this.directory, `${id}.${extension}`), {
-          force: true,
-        });
-    }, id);
+    return removeSession(this, id);
   }
   screen(id) {
     return this.serial(async () => {

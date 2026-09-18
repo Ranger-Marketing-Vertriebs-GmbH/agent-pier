@@ -56,3 +56,22 @@ test("artifact modules rewrite static and literal dynamic imports with one impor
   assert.match(result.html, /type="importmap"/);
   assert.match(result.html, /artifact-module-0/);
 });
+test("repeated CSS dependency imports have a bounded expanded representation", async () => {
+  const files = [];
+  for (let i = 0; i < 12; i++)
+    files.push(
+      file(
+        `s${i}.css`,
+        "text/css",
+        i === 11
+          ? "body{color:red}"
+          : `@import "s${i + 1}.css"; @import "s${i + 1}.css";`,
+      ),
+    );
+  await assert.rejects(
+    prepareArtifactDocument(snapshot('<link rel="stylesheet" href="s0.css">', files), {
+      maxDocumentBytes: 65536,
+    }),
+    { code: "ARTIFACT_RESOURCE_UNSUPPORTED" },
+  );
+});

@@ -42,7 +42,7 @@ export function registerResponses(app) {
     if (!Number.isInteger(status) || status < 400 || status > 599) status = 500;
     res.status(status).json({
       ...(error.code === "MEMORY_DISCOVERY_CONFIG" ||
-      /^SSH_[A-Z_]+$/.test(error.code || "")
+      /^(?:SSH|ARTIFACT)_[A-Z_]+$/.test(error.code || "")
         ? { code: error.code }
         : {}),
       error:

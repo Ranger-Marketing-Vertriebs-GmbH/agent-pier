@@ -1,9 +1,9 @@
 import { parse, parseFragment, serialize } from "parse5";
-import { artifactBundle, dataUrl, unsupported } from "./artifact-bundle.js";
+import { artifactBundle, unsupported } from "./artifact-bundle.js";
 const policy =
   "default-src 'none'; script-src data: 'unsafe-inline'; style-src data: 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'";
-export async function prepareArtifactDocument(snapshot) {
-  const bundle = artifactBundle(snapshot);
+export async function prepareArtifactDocument(snapshot, options) {
+  const bundle = artifactBundle(snapshot, options);
   const entry = bundle.files.get(snapshot.entrypoint);
   if (!entry) throw unsupported();
   const document = parse(
@@ -46,7 +46,10 @@ export async function prepareArtifactDocument(snapshot) {
         node.attrs = attrs.filter(
           (a) => !["src", "integrity", "crossorigin"].includes(a.name),
         );
-        node.attrs.push({ name: "src", value: dataUrl("text/javascript", source) });
+        node.attrs.push({
+          name: "src",
+          value: bundle.encoded("text/javascript", source),
+        });
         node.childNodes = [];
       } else {
         for (const item of attrs) {
@@ -88,10 +91,23 @@ export async function prepareArtifactDocument(snapshot) {
       value: bundle.asset(snapshot.entrypoint, "index.html"),
     });
   }
+  const importMap = JSON.stringify({ imports: bundle.imports }).replaceAll(
+    "<",
+    "\\u003c",
+  );
+  bundle.charge(importMap.length);
   const prefix = parseFragment(
-    `<meta http-equiv="Content-Security-Policy" content="${policy}"><meta charset="utf-8"><script type="importmap">${JSON.stringify({ imports: bundle.imports }).replaceAll("<", "\\u003c")}</script>`,
+    `<meta http-equiv="Content-Security-Policy" content="${policy}"><meta charset="utf-8"><script type="importmap">${importMap}</script>`,
   );
   for (const child of prefix.childNodes) child.parentNode = head;
   head.childNodes.unshift(...prefix.childNodes);
+  function measure(node) {
+    bundle.charge(64 + (node.value?.length || 0) * 6);
+    for (const attr of node.attrs || [])
+      bundle.charge((attr.name.length + attr.value.length) * 6 + 4);
+    for (const child of node.childNodes || []) measure(child);
+    if (node.content) measure(node.content);
+  }
+  measure(document);
   return { html: serialize(document), dispose() {} };
 }

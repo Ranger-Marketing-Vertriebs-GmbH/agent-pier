@@ -1,3 +1,4 @@
+import { artifactsRoutes } from "./http/routes/artifacts.js";
 import { fileTextRoutes } from "./http/routes/file-text.js";
 import { SessionMcp } from "./features/mcp/session-integration.js";
 import { SessionReload } from "./features/sessions/session-reload.js";
@@ -155,6 +156,7 @@ export async function createApplication(config) {
   app.use(express.json({ limit: "64kb", strict: true }));
   const mount = (router) =>
     app.use("/api", guardMutations(router, services.mutationBarrier));
+  mount(artifactsRoutes(services));
   mount(mcpAccessRoutes(services));
   mount(workspaceRoutes(services));
   mount(fileExplorerRoutes(services));

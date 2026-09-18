@@ -140,3 +140,13 @@ backups omit the credential directory, and restored historical sessions lose thi
 integration. These grants constrain MCP access, not the host user's OS access:
 native coding processes still have the host permissions described in the pipeline
 and account documentation.
+
+### Publishing private artifacts
+
+Hosted sessions with AgentPier tools enabled also receive `artifact_publish` and
+`artifacts_list`. Publish HTML, images or static bundles from the session working
+directory and return the private viewer URL to the owner. Updates use the existing
+artifact ID with a new request ID. Artifact ownership uses the authenticated
+session; external OAuth grants do not expose these tools. See
+[Private artifacts](artifacts.md) for examples, supported resources, retention and
+backup limits.

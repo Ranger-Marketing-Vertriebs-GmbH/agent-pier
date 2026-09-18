@@ -1,3 +1,4 @@
+import { artifactCopy } from "../lib/i18n/messages/artifacts.js";
 import LogoutButton from "../features/login/LogoutButton.jsx";
 import { pipelineCopy } from "../lib/i18n/messages/pipelines.js";
 import { memoryCopy } from "../lib/i18n/messages/memory.js";
@@ -75,6 +76,13 @@ export default function Sidebar({
         >
           <Icon name="grid" />
           {commonCopy.overview}
+        </button>
+        <button
+          className={view === "artifacts" ? "nav-item selected" : "nav-item"}
+          onClick={() => page("artifacts")}
+        >
+          <Icon name="grid" />
+          {artifactCopy.title}
         </button>
         <SidebarGroup
           name="management"

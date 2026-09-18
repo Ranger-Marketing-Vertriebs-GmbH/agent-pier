@@ -1,3 +1,8 @@
+import {
+  artifactTools,
+  artifactToolEntries,
+  callArtifactTool,
+} from "../artifacts/artifact-mcp.js";
 import { problem } from "../../lib/storage.js";
 import { projectScope } from "../memory/project-scope.js";
 import { toolSchemas } from "./tool-schemas.js";
@@ -18,12 +23,28 @@ export class McpTools {
     this.services = services;
     this.requests = new StartRequests(services.config.dataDir);
   }
-  list(grant) {
-    return Object.entries(toolSchemas).filter(([, tool]) =>
-      grant.scopes.includes(tool.scope),
-    );
+  list(grant, context) {
+    return [
+      ...Object.entries(toolSchemas).filter(([, tool]) =>
+        grant.scopes.includes(tool.scope),
+      ),
+      ...artifactToolEntries(grant, context),
+    ];
   }
-  async call(name, input, grant, resolveGrant) {
+  async call(name, input, grant, resolveGrant, context) {
+    if (Object.hasOwn(artifactTools, name)) {
+      const execute = () =>
+        callArtifactTool(
+          this.services,
+          name,
+          input,
+          resolveGrant ? resolveGrant() : grant,
+          context,
+        );
+      return artifactTools[name].readOnly
+        ? execute()
+        : this.services.mutationBarrier.run(execute);
+    }
     const descriptor = toolSchemas[name];
     if (!descriptor || !Object.hasOwn(toolSchemas, name))
       throw problem("Unknown MCP tool.", 404);
