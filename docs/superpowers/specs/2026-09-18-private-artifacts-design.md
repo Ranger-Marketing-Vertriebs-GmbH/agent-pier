@@ -1,6 +1,6 @@
 # Private session artifacts
 
-Status: agreed product design, written specification ready for review.
+Status: approved by the user on 2026-09-18; implementation is not started.
 
 ## Purpose and scope
 
@@ -168,5 +168,5 @@ existing-installation update scripts must provision it.
 The user approved the product behavior and requested a repository specification.
 The proposed tool arguments, limits and rendering restrictions above make that
 behavior concrete for review. No application implementation or deployment is
-included in this planning change. A detailed implementation plan follows review
-of this written specification.
+included in this planning change. The implementation plan is recorded in
+`docs/superpowers/plans/2026-09-18-private-artifacts.md`.
