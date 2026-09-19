@@ -88,3 +88,64 @@ test("artifact cannot access parent, cookies, storage, APIs or open another cont
   expect(apiRequests).toEqual([]);
   await expect(page).toHaveURL(`${base}/artifacts/view/example`);
 });
+
+test("inline classic scripts preserve parser order despite async and defer attributes", async ({
+  page,
+}) => {
+  const frame = await fixture(
+    page,
+    bundle(`<body>
+    <script defer>window.first = "first";</script>
+    <script async>window.second = window.first + " second";</script>
+    <script>document.body.dataset.order = window.second;</script>
+  </body>`),
+  );
+  await expect(frame.locator("body")).toHaveAttribute("data-order", "first second");
+});
+
+test("inline SVG images load bundled href and xlink resources", async ({ page }) => {
+  const frame = await fixture(
+    page,
+    bundle(
+      `<svg xmlns:xlink="http://www.w3.org/1999/xlink">
+    <image href="shape.svg" width="20" height="20" onload="this.setAttribute('data-loaded', 'yes')"/>
+    <image xlink:href="shape.svg" x="20" width="20" height="20" onload="this.setAttribute('data-loaded', 'yes')"/>
+  </svg>`,
+      [
+        file(
+          "shape.svg",
+          "image/svg+xml",
+          '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="red"/></svg>',
+        ),
+      ],
+    ),
+  );
+  await expect(frame.locator("image").nth(0)).toHaveAttribute("data-loaded", "yes");
+  await expect(frame.locator("image").nth(1)).toHaveAttribute("data-loaded", "yes");
+});
+
+test("bundled SVG view fragments select the intended image region", async ({ page }) => {
+  const frame = await fixture(
+    page,
+    bundle('<img alt="view" src="picture.svg#red">', [
+      file(
+        "picture.svg",
+        "image/svg+xml",
+        `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+      <view id="red" viewBox="0 0 10 20" preserveAspectRatio="none"/>
+      <rect width="10" height="20" fill="red"/><rect x="10" width="10" height="20" fill="blue"/>
+    </svg>`,
+      ),
+    ]),
+  );
+  const img = frame.getByRole("img", { name: "view" });
+  await expect(img).toHaveJSProperty("naturalWidth", 20);
+  const pixel = await img.evaluate((image) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 20;
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0, 20, 20);
+    return [...context.getImageData(15, 10, 1, 1).data];
+  });
+  expect(pixel).toEqual([255, 0, 0, 255]);
+});

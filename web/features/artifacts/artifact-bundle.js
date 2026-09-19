@@ -96,7 +96,10 @@ export function artifactBundle(snapshot, { maxDocumentBytes = 96 * 1024 * 1024 }
     if (/^data:(?:image|font)\//i.test(reference) || reference.startsWith("#"))
       return reference;
     const name = resolve(reference, from);
-    if (files.get(name).mediaType !== "text/css") return rawUrl(name);
+    const fragment = reference.includes("#")
+      ? reference.slice(reference.indexOf("#"))
+      : "";
+    if (files.get(name).mediaType !== "text/css") return rawUrl(name) + fragment;
     if (ancestors.has(name)) throw unsupported();
     if (!styles.has(name))
       styles.set(
@@ -106,7 +109,7 @@ export function artifactBundle(snapshot, { maxDocumentBytes = 96 * 1024 * 1024 }
           css(files.get(name).text, name, new Set([...ancestors, name])),
         ),
       );
-    return styles.get(name);
+    return styles.get(name) + fragment;
   }
   const modules = new Map(),
     imports = {};

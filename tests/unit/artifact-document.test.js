@@ -75,3 +75,25 @@ test("repeated CSS dependency imports have a bounded expanded representation", a
     { code: "ARTIFACT_RESOURCE_UNSUPPORTED" },
   );
 });
+
+test("bundled SVG references preserve view and filter fragments", async () => {
+  const result = await prepareArtifactDocument(
+    snapshot(
+      '<img src="picture.svg?version=1#view"><style>p{filter:url(picture.svg#blur)}</style>',
+      [file("picture.svg", "image/svg+xml", '<svg xmlns="http://www.w3.org/2000/svg"/>')],
+    ),
+  );
+  assert.match(result.html, /data:image\/svg\+xml;base64,[A-Za-z0-9+/=]+#view/);
+  assert.match(result.html, /data:image\/svg\+xml;base64,[A-Za-z0-9+/=]+#blur/);
+});
+
+test("inline SVG image references resolve bundled files for href and xlink:href", async () => {
+  const result = await prepareArtifactDocument(
+    snapshot(
+      '<svg xmlns:xlink="http://www.w3.org/1999/xlink"><image href="picture.svg"/><image xlink:href="picture.svg"/></svg>',
+      [file("picture.svg", "image/svg+xml", '<svg xmlns="http://www.w3.org/2000/svg"/>')],
+    ),
+  );
+  assert.match(result.html, /<image href="data:image\/svg\+xml;base64,/);
+  assert.match(result.html, /<image xlink:href="data:image\/svg\+xml;base64,/);
+});

@@ -43,8 +43,11 @@ export async function prepareArtifactDocument(snapshot, options) {
           source = attr("src")
             ? `import ${JSON.stringify(await bundle.moduleFile(from))};`
             : await bundle.moduleSource(source, from);
+        const inlineClassic = !attr("src") && type !== "module";
         node.attrs = attrs.filter(
-          (a) => !["src", "integrity", "crossorigin"].includes(a.name),
+          (a) =>
+            !["src", "integrity", "crossorigin"].includes(a.name) &&
+            !(inlineClassic && ["async", "defer"].includes(a.name)),
         );
         node.attrs.push({
           name: "src",
@@ -55,7 +58,12 @@ export async function prepareArtifactDocument(snapshot, options) {
         for (const item of attrs) {
           if (["src", "poster", "background"].includes(item.name))
             item.value = bundle.asset(item.value, snapshot.entrypoint);
-          if (item.name === "href" && node.tagName === "link")
+          if (
+            item.name === "href" &&
+            (node.tagName === "link" ||
+              (node.namespaceURI === "http://www.w3.org/2000/svg" &&
+                ["image", "feImage"].includes(node.tagName)))
+          )
             item.value = bundle.asset(item.value, snapshot.entrypoint);
           if (item.name === "style")
             item.value = bundle.css(
