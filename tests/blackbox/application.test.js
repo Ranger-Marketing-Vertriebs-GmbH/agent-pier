@@ -205,6 +205,31 @@ test("a fixture-owned Shell session survives web-server restart and is removed t
   );
 });
 
+test("an ordinary unsandboxed launch reaches the SSH launch adapter with its validated assignment", async (t) => {
+  const fixture = await applicationFixture(t);
+  // Regression: the validated SSH selection is built in the outer launch step
+  // and consumed in the inner one, so a selection that never reaches the
+  // preparation path fails every launch, sandbox or not, with HTTP 400.
+  for (const sshAccessIds of [undefined, []]) {
+    const session = await json(
+      await fixture.request("/api/sessions", {
+        method: "POST",
+        body: {
+          accountId: "local-shell",
+          name: `Ordinary ${sshAccessIds ? "empty" : "absent"} assignment`,
+          cwd: fixture.home,
+          ...(sshAccessIds ? { sshAccessIds } : {}),
+        },
+      }),
+      201,
+    );
+    assert.equal(session.status, "running");
+    assert.equal("sandbox" in session, false);
+    await fixture.request(`/api/sessions/${session.id}/stop`, { method: "POST" });
+    await fixture.request(`/api/sessions/${session.id}`, { method: "DELETE" });
+  }
+});
+
 test("a session naming a sandbox profile is rejected when nono is not detected", async (t) => {
   const fixture = await applicationFixture(t);
   // The lifecycle closed over this object when the fixture started, so the

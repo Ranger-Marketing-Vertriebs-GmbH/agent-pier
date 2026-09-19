@@ -11,7 +11,17 @@ session keeps today's unconfined behaviour.
 ## Enabling a sandboxed session
 
 nono must be installed on the AgentPier host, and at least one sandbox profile must
-exist under nono's own configuration (`nono profile list` reports it). The launch
+exist under nono's own configuration (`nono profile list` reports it). AgentPier
+installs and updates it like the other optional tools: the tool settings offer it
+beside the GitHub CLI, and both operations run nono's own official installer
+(`https://nono.sh/install.sh`), which resolves the latest release for the platform and
+verifies its SHA-256 against the release's own checksum file. The binary is pinned to
+the server home (`~/.local/bin`), never `/usr/local/bin`, so no step of an unattended
+install can reach `sudo`. nono supports macOS and Linux only; on any other platform the
+tool settings report the install as unavailable rather than offering it. nono has no
+self-update subcommand, so an update re-runs that same installer. Installing it by hand
+— Homebrew, a distribution package, Nix — works just as well; AgentPier detects
+whichever copy is on the path. The launch
 dialog shows a sandbox-profile picker backed by `GET /api/sandbox-profiles`, which
 returns `{ available: false }` when nono is not installed and otherwise the list of
 sandbox profile names nono itself reports. Choosing one sends `nonoProfile` on session
@@ -109,8 +119,8 @@ nono wrap -p claude-default --allow-cwd \
   --read-file /opt/homebrew/Cellar/node/26.8.2/bin/node \
   --read-file /opt/homebrew/bin/claude \
   --allow     <dataDir>/agentbus/projects/<project hash> \
-  --allow     <dataDir>/memory \
   --allow     <dataDir>/memory/sessions/<session id> \
+  --allow-unix-socket /tmp/agentpier-memory-<uid>-<memory root hash>/mcp.sock \
   --allow-unix-socket-dir-bind /tmp/ap-bus-<uid>-<project home hash> \
   -- /opt/homebrew/bin/claude \
      --plugin-dir <dataDir>/agentbus/projects/<project hash>/adapters/<session id> \
@@ -139,9 +149,9 @@ fails at launch. Run AgentPier unsandboxed if you want to use this feature.
 Full integration parity — keeping project memory, AgentBus, the SSH tools, the GitHub
 credential helper and a managed account's own credentials working — means granting the
 CLI read-write access to each of those integrations' own subtrees of the AgentPier data
-directory (project memory's store, an AgentBus project's home and socket directory, the
-SSH tools' and GitHub helper's own directories, and, for a managed account, that
-account's own profile directory), plus read access to `server/`, `vendor/`,
+directory (project memory's own capability folder, an AgentBus project's home and
+socket directory, the SSH tools' and GitHub helper's own directories, and, for a managed
+account, that account's own profile directory), plus read access to `server/`, `vendor/`,
 `node_modules/` and the Node binary, because those integrations run as subprocesses
 that the CLI itself spawns, and the scripts they run import across those subtrees. A
 CLI that can read and write its own credentials and invoke Node with an arbitrary
@@ -182,9 +192,10 @@ personal workspace, not an isolation boundary for mutually untrusted users.
    each session to its own subdirectory there. A sandboxed CLI can therefore read other
    concurrent sessions' native-binding files and native-question tokens from inside
    those two directories. It cannot reach the rest of the data directory this way: each
-   adapter grants only its own subtree (project memory's store, an AgentBus project's
-   home and socket directory, a managed account's own profile directory, and these two
-   shared directories), never the data directory as a whole, and the installation grant
+   adapter grants only its own subtree (project memory's own capability folder, an
+   AgentBus project's home and socket directory, a managed account's own profile
+   directory, and these two shared directories), never the data directory as a whole,
+   and the installation grant
    above does not cover it either. The data directory is reachable beyond those subtrees
    only if the operator's own sandbox profile grants it, or if it happens to sit inside
    `server/`, `vendor/` or `node_modules/`. Per-session containment of the two shared
@@ -197,18 +208,26 @@ personal workspace, not an isolation boundary for mutually untrusted users.
    restore the missing sandbox profile and reload again.
 7. **A session with the SSH tools grants the whole SSH store.** The SSH MCP server is a
    subprocess of the sandboxed CLI, so it can hold no capability the CLI does not also
-   hold. It creates its own directories under `<dataDir>/ssh` at startup and runs `ssh`
-   against the identity files below that root, so `<dataDir>/ssh` is granted read-write
-   in full. `<dataDir>/sessions` is granted read access because every tool call
-   re-authorizes against the session record, which is replaced by rename on each status
-   update. A session with the SSH tools enabled can therefore read the private keys and
-   every session record — as an unsandboxed session already can, so this is not a
+   hold. Key generation, key import, host scanning and host registration are forwarded
+   over the management broker socket, which is granted as its own capability, but the
+   store itself cannot be withheld: `SshAccessStore` and `SshSessions` create and chmod
+   their own directories under `<dataDir>/ssh` when the server's module loads, before
+   any tool call and before the broker is reachable, so without that grant the server
+   exits on startup with `EPERM: operation not permitted, chmod '<dataDir>/ssh'`. `ssh`
+   then reads the identity files below the same root. `<dataDir>/ssh` is therefore
+   granted read-write in full, and a sandboxed session with the SSH tools can read every
+   project's private keys — as an unsandboxed session already can, so this is not a
    regression, but the sandbox buys nothing on that surface. Keeping the keys out needs
    the store brokered outside the sandbox, which is deferred. Because the price is that
-   high, a sandboxed session is given the SSH tools only when it actually has hosts
-   assigned at launch: with none assigned it carries neither the MCP server nor these
-   grants, and assigning a host to it later needs a reload. An unsandboxed session is
-   unaffected and keeps taking assignments while it runs.
+   high, a sandboxed session is given the SSH tools only when it can actually reach a
+   host at launch, counting both the hosts assigned to it and the hosts its project
+   owns. Reaching none means neither the MCP server nor these grants, so setting up a
+   first host from inside a sandboxed session is not supported: register it from the
+   AgentPier UI, or from an unsandboxed session, and reload — which `status()` already
+   reports as `reload-required`. `<dataDir>/sessions` is granted read access alongside
+   the store, because every tool call re-authorizes against the session record, which is
+   replaced by rename on each status update. An unsandboxed session is unaffected and
+   keeps taking assignments while it runs.
 
 See the [architecture guide](architecture.md#persistence-and-safety-boundaries) for
 where this fits alongside AgentPier's other persistence and safety boundaries.

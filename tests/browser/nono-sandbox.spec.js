@@ -1,12 +1,20 @@
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
 
-// The disposable browser fixture used by e2e runs has no nono binary, so the real
-// GET /api/sandbox-profiles response is always { available: false, profiles: [] }.
-// These tests assert the resulting "unavailable" presentation, not a successful
-// sandboxed launch.
+// These tests assert the presentation of a sandbox profile picker, not a
+// successful sandboxed launch. GET /api/sandbox-profiles is mocked in every one
+// of them: the disposable server answers it from whatever nono the host happens
+// to have, so an unmocked test asserts one thing on a developer machine with
+// nono installed and another on a machine without it.
+
+async function unavailableSandbox(page) {
+  await page.route("**/api/sandbox-profiles", (route) =>
+    route.fulfill({ json: { available: false, profiles: [] } }),
+  );
+}
 
 async function launchFixture(page) {
+  await unavailableSandbox(page);
   await page.route("**/api/state", (route) =>
     route.fulfill({
       json: {
@@ -27,7 +35,9 @@ test("the launch dialog shows a disabled sandbox-profile selector defaulting to 
 }) => {
   await launchFixture(page);
   const dialog = page.getByRole("dialog");
-  await expect(dialog.locator("fieldset legend")).toHaveText("Sandbox");
+  // The dialog holds more than one fieldset (the SSH access catalog has its
+  // own), so the sandbox group is addressed by its accessible name.
+  await expect(dialog.getByRole("group", { name: "Sandbox" })).toBeVisible();
   const select = dialog.getByLabel("Sandbox-Profil", { exact: true });
   await expect(select).toBeVisible();
   await expect(select).toBeDisabled();
@@ -41,6 +51,7 @@ test("the launch dialog shows a disabled sandbox-profile selector defaulting to 
 });
 
 test("the sandbox-profile selector is absent for a login launch", async ({ page }) => {
+  await unavailableSandbox(page);
   await page.route("**/api/state", (route) =>
     route.fulfill({
       json: {
@@ -68,10 +79,11 @@ test("the sandbox-profile selector is absent for a login launch", async ({ page 
   const dialog = page.getByRole("dialog", { name: "Codex anmelden" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Sandbox-Profil")).toHaveCount(0);
-  await expect(dialog.locator("fieldset")).toHaveCount(0);
+  await expect(dialog.getByRole("group", { name: "Sandbox" })).toHaveCount(0);
 });
 
 test("the sandbox-profile selector is reachable for a shell launch", async ({ page }) => {
+  await unavailableSandbox(page);
   await page.route("**/api/state", (route) =>
     route.fulfill({
       json: {
