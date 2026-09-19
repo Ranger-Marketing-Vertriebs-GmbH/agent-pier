@@ -21,6 +21,20 @@ export const nativeInstallers = {
     args: ["--no-modify-path"],
     directory: ".opencode/bin",
   },
+  // The official script resolves the latest GitHub release for the platform,
+  // verifies its SHA-256 against the release's own SHA256SUMS.txt, and installs
+  // the single `nono` binary. Left to itself it prefers `/usr/local/bin` and
+  // falls back to `sudo`, which an unattended install must never reach, so the
+  // destination is pinned to the same server home every other native install
+  // uses. `NONO_VERSION` is deliberately unset: the supported version is
+  // whatever the official installer calls latest.
+  nono: {
+    url: "https://nono.sh/install.sh",
+    shell: "/bin/sh",
+    args: [],
+    directory: ".local/bin",
+    env: (home) => ({ NONO_INSTALL_DIR: path.join(home, ".local", "bin") }),
+  },
 };
 export function nativeDestination(home, tool) {
   return path.join(home, nativeInstallers[tool].directory);
@@ -85,6 +99,7 @@ export async function installNative({
     ...env,
     HOME: home,
     PATH: `${destination}${path.delimiter}${env.PATH}`,
+    ...(spec.env?.(home) || {}),
   };
   // Native updaters must see the same host HOME as later managed account launches.
   delete nativeEnv.DISABLE_AUTOUPDATER;

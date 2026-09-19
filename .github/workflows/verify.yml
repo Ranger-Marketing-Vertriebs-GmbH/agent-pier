@@ -45,6 +45,16 @@ jobs:
         run: node --test tests/matrix/file-extract-platform.test.js tests/matrix/file-platform.test.js tests/matrix/file-recovery-boundary.test.js
         env:
           AGENTPIER_FILE_FS_MATRIX: "1"
+      - name: Install the nono sandbox
+        if: matrix.node == 24
+        shell: bash
+        run: |
+          NONO_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://nono.sh/install.sh)"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/nono" --version
+      - name: Real nono confinement matrix
+        if: matrix.node == 24
+        run: node --test tests/matrix/nono-confinement.test.js
       - name: AgentBus Node and Bun compatibility
         run: >-
           npm exec --yes --package=bun@1.3.10 --

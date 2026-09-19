@@ -3,9 +3,18 @@ import { listDirectories, createDirectory } from "../../lib/directories.js";
 import { detectUtilities } from "../../features/accounts/account-store.js";
 import { toolBinDirectories } from "../../features/tools/tool-paths.js";
 import { SessionProjects } from "../../features/sessions/session-projects.js";
+import { readSandboxProfiles } from "../../features/nono/nono-profiles.js";
 export function workspaceRoutes(services) {
-  const { config, tools, accounts, sessions, activity, preferences, directory } =
-    services;
+  const {
+    config,
+    tools,
+    accounts,
+    sessions,
+    activity,
+    preferences,
+    directory,
+    nonoSandbox,
+  } = services;
   const router = Router();
   const projects = new SessionProjects();
   router.get("/state", async (_req, res) =>
@@ -25,6 +34,11 @@ export function workspaceRoutes(services) {
       remoteUrl: config.remoteUrl || null,
     }),
   );
+  router.get("/sandbox-profiles", async (_req, res) => {
+    const executable = nonoSandbox.executable();
+    if (!executable) return res.json({ available: false, profiles: [] });
+    res.json({ available: true, profiles: await readSandboxProfiles({ executable }) });
+  });
   router.get("/preferences", (_req, res) => res.json(preferences.get()));
   router.patch("/preferences", async (req, res) =>
     res.json(await preferences.update(req.body)),

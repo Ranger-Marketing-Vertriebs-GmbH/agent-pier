@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as toolDetection from "../accounts/account-store.js";
+import { addGrant } from "../nono/sandbox-grants.js";
 import { problem } from "../../lib/storage.js";
 import {
   ensureDir,
@@ -190,7 +191,13 @@ export class GithubCredentials {
       }
       env.GIT_CONFIG_COUNT = String(count);
     }
-    return { ...launch, env };
+    // git runs the credential helper as a node subprocess, and native gh reads the
+    // session folder holding config.yml, selection.json and hosts.yml.
+    return [
+      { access: "allow", path: folder },
+      { access: "read", path: process.execPath },
+      { access: "read", path: modulePath },
+    ].reduce((granted, grant) => addGrant(granted, grant), { ...launch, env });
   }
   disable(folder) {
     // Metadata is no longer trustworthy. First make native gh reject this config,

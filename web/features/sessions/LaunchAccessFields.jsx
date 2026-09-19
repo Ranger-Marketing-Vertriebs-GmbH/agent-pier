@@ -3,9 +3,45 @@ import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import ProviderModelPicker from "../providers/ProviderModelPicker.jsx";
 import { names } from "../../lib/providers.js";
 import { connectionCopy as copy } from "../../lib/i18n/messages/connections.js";
-export default function LaunchAccessFields({ access, onToolChange, onAccessChange }) {
+import { launchDialogCopy as sandboxCopy } from "../../lib/i18n/messages/sessions.js";
+export default function LaunchAccessFields({
+  access,
+  onToolChange,
+  onAccessChange,
+  taskProfileSelected = false,
+}) {
   const modelHelpId = useId();
-  if (access.tool === "shell") return null;
+  const sandboxDisabled = !access.sandboxAvailable || taskProfileSelected;
+  const sandboxFields = (
+    <fieldset>
+      <legend>{sandboxCopy.sandboxSection}</legend>
+      <label>
+        {sandboxCopy.sandboxProfile}
+        <AnchoredSelect
+          label={sandboxCopy.sandboxProfile}
+          value={access.nonoProfile || ""}
+          disabled={sandboxDisabled}
+          onChange={(value) => access.setNonoProfile(value || null)}
+          options={[
+            { value: "", label: sandboxCopy.noSandboxProfile },
+            ...access.sandboxProfiles.map((name) => ({ value: name, label: name })),
+          ]}
+        />
+      </label>
+      {!access.sandboxAvailable ? (
+        <p className="field-description">{sandboxCopy.sandboxUnavailable}</p>
+      ) : taskProfileSelected ? (
+        <p className="field-description">
+          {sandboxCopy.sandboxUnavailableForTaskProfile}
+        </p>
+      ) : (
+        access.nonoProfile && (
+          <p className="field-description">{sandboxCopy.sandboxHint}</p>
+        )
+      )}
+    </fieldset>
+  );
+  if (access.tool === "shell") return sandboxFields;
   return (
     <>
       <label>
@@ -74,6 +110,7 @@ export default function LaunchAccessFields({ access, onToolChange, onAccessChang
           </small>
         </label>
       )}
+      {sandboxFields}
     </>
   );
 }

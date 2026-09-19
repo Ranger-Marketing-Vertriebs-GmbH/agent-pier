@@ -109,6 +109,11 @@ dialog.launch-dialog-shell {
 .launch-dialog-shell .launch-columns {
   grid-template-columns: minmax(0, 1fr);
 }
+.launch-dialog-shell .launch-section + .launch-section {
+  border-left: 0;
+  border-top: 1px solid #323337;
+  padding: 20px 0 0;
+}
 @media (max-width: 700px) {
   dialog.launch-dialog {
     position: fixed;

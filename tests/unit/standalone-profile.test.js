@@ -131,6 +131,16 @@ test("standalone choices reject mismatched access and still require profile para
   assert.equal(f.captured(), undefined);
 });
 
+test("a task-profile launch rejects a supplied sandbox profile instead of silently dropping it", async () => {
+  const f = fixture();
+  await assert.rejects(
+    f.launch({ params: { topic: "code" }, nonoProfile: "codex-default" }),
+    (error) => error.status === 409,
+  );
+  // Rejected before any account validation or lifecycle launch ran.
+  assert.equal(f.captured(), undefined);
+});
+
 for (const tool of ["codex", "claude", "opencode"])
   test(`changing a standalone profile CLI to ${tool} retains its rendered instructions`, async () => {
     const f = fixture(tool === "claude" ? "codex" : "claude");

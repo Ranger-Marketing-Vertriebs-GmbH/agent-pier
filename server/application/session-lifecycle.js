@@ -8,6 +8,7 @@ import {
   discardAttachmentAccess,
 } from "../features/sessions/attachment-access.js";
 import { profileLocation } from "../features/cli-profiles/configuration.js";
+import { addGrant } from "../features/nono/sandbox-grants.js";
 export function createSessionLifecycle(services) {
   const {
     config,
@@ -26,6 +27,7 @@ export function createSessionLifecycle(services) {
     chat,
     sharedProfiles,
     sshSessions,
+    nonoSandbox,
   } = services;
   const reservations = new Map();
   const accountLaunches = new Map();
@@ -95,6 +97,12 @@ export function createSessionLifecycle(services) {
     const sshIds = sshSessions?.validate(body.sshAccessIds);
     if (login && sshIds?.length)
       throw problem("SSH-Zugänge sind für Login-Sitzungen nicht verfügbar.");
+    if (body.nonoProfile !== undefined && typeof body.nonoProfile !== "string")
+      throw problem(serverMessages.sessions.invalidSandboxProfile);
+    if (body.nonoProfile && login)
+      throw problem(serverMessages.sessions.sandboxNotForLogin);
+    if (body.nonoProfile && trusted.pipeline)
+      throw problem(serverMessages.sessions.sandboxNotForPipeline);
     if (body.agentpierTools && (login || trusted.pipeline))
       throw problem("AgentPier tools are only available to standalone coding sessions.");
     services.sessionMcp?.validate(body.agentpierTools);
@@ -107,7 +115,7 @@ export function createSessionLifecycle(services) {
         release = providerConnections.acquire(resolved.selection.providerConnectionId);
       const unreserve = await reserve(resolved.account, login);
       try {
-        return await launchResolved(body, login, trusted, resolved);
+        return await launchResolved(body, login, trusted, resolved, sshIds);
       } finally {
         unreserve();
       }
@@ -116,7 +124,7 @@ export function createSessionLifecycle(services) {
       releaseAccount();
     }
   }
-  async function launchResolved(body, login, trusted, { account, selection }) {
+  async function launchResolved(body, login, trusted, { account, selection }, sshIds) {
     const nativeModelId = nativeModelFor(body, account, { login });
     trusted.validateAccount?.(account);
     const cwd = await directory(
@@ -131,7 +139,7 @@ export function createSessionLifecycle(services) {
         .filter((t) => t.installed)
         .map((t) => [t.id, t.path]),
     );
-    const launch = accounts.command(account.id, binaries, login, body.launchMode, {
+    let launch = accounts.command(account.id, binaries, login, body.launchMode, {
       modelId: trusted.modelId ?? nativeModelId,
     });
     if ((await sessions.list()).filter((s) => s.status === "running").length >= 30)
@@ -154,6 +162,10 @@ export function createSessionLifecycle(services) {
             profile:
               account.tool === "opencode" ? profileLocation(accounts, account.id) : null,
           });
+    // grantAttachmentAccess returns the attachment record, not a launch, and is the
+    // last step that edits launch.args in place, so the grant is declared here.
+    if (attachments)
+      launch = addGrant(launch, { access: "allow", path: attachments.directory });
     let busLaunch, session;
     try {
       const gitLaunch = await github.prepare({
@@ -190,6 +202,8 @@ export function createSessionLifecycle(services) {
             purpose: login ? "login" : undefined,
             pipeline: trusted.pipeline,
             headless: trusted.pipeline?.headless,
+            sandboxProfile: body.nonoProfile || null,
+            sshAccessIds: sshIds,
           })
         : memoryLaunch;
       const mcpLaunch = services.sessionMcp
@@ -210,7 +224,7 @@ export function createSessionLifecycle(services) {
         launch: mcpLaunch,
         purpose: login ? "login" : undefined,
       });
-      const finalLaunch = trusted.transformLaunch
+      const composed = trusted.transformLaunch
         ? await trusted.transformLaunch({ id, account, cwd, launch: prepared })
         : await requests.prepare({
             id,
@@ -219,6 +233,13 @@ export function createSessionLifecycle(services) {
             launch: prepared,
             purpose: login ? "login" : undefined,
           });
+      // Last in the chain: every grant has been declared by now, and the launch
+      // the session manager stores must not carry them. A rejection here still
+      // unwinds through the adapter cleanup below.
+      const finalLaunch = await nonoSandbox.prepare({
+        launch: composed,
+        profile: body.nonoProfile || null,
+      });
       session = await sessions.create({
         id,
         name,
@@ -226,6 +247,7 @@ export function createSessionLifecycle(services) {
         accountId: account.id,
         cwd,
         ...finalLaunch,
+        sandbox: { profile: body.nonoProfile || null },
         ...(nativeModelId ? { nativeModelId } : {}),
         ...(selection ? { access: selection } : {}),
         ...(attachments ? { attachments } : {}),

@@ -4,7 +4,10 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { ToolInstaller } from "../../server/features/tools/tool-installer.js";
-import { detectTools } from "../../server/features/accounts/account-store.js";
+import {
+  detectTools,
+  detectUtilities,
+} from "../../server/features/accounts/account-store.js";
 
 async function fixture(t, tool, { legacy = false, fail = false } = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "ap-tool-update-"));
@@ -56,6 +59,46 @@ async function fixture(t, tool, { legacy = false, fail = false } = {}) {
     downloads: () => downloads,
   };
 }
+
+test("nono updates by re-running its official installer, not a CLI subcommand", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "ap-tool-update-nono-"));
+  const home = path.join(root, "home");
+  const native = path.join(home, ".local/bin", "nono");
+  await fs.mkdir(path.dirname(native), { recursive: true });
+  const binary = (version) =>
+    `#!/bin/sh\nif [ "$1" = "--version" ]; then echo ${version}; exit 0; fi\nprintf '%s\\n' "$@" > '${root}/args'\nexit 0\n`;
+  await fs.writeFile(native, binary("0.64.0"), { mode: 0o700 });
+  let downloads = 0;
+  const installer = new ToolInstaller({
+    dataDir: root,
+    home,
+    npmCli: null,
+    detect: () => detectUtilities({ HOME: home, PATH: path.dirname(native) }, false),
+    nativeFetch: async () => {
+      downloads++;
+      return new Response(
+        `#!/bin/sh\ncat > "$NONO_INSTALL_DIR/nono" <<'BIN'\n${binary("0.64.1")}BIN\nchmod 700 "$NONO_INSTALL_DIR/nono"\n`,
+      );
+    },
+  });
+  t.after(async () => {
+    await installer.close();
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  const before = installer.list().installations.find((item) => item.tool === "nono");
+  assert.equal(before.updateAvailable, true);
+  // nono has no self-update subcommand, so the offered update path is the
+  // installer URL rather than a command the CLI would not understand.
+  assert.equal(before.updateCommand, "https://nono.sh/install.sh");
+  assert.equal(installer.startUpdate("nono").status, "running");
+  await installer.active.done;
+  const job = installer.list().installations.find((item) => item.tool === "nono");
+  assert.equal(job.status, "succeeded", job.message);
+  assert.equal(job.version, "0.64.1");
+  assert.equal(downloads, 1);
+  // Nothing was invoked on the old binary itself.
+  assert.equal(await fs.stat(path.join(root, "args")).catch(() => null), null);
+});
 
 for (const tool of ["codex", "claude", "opencode"]) {
   test(`${tool} update invokes its native updater and verifies the installed version`, async (t) => {

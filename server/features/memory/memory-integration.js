@@ -12,6 +12,7 @@ import {
   writePrivateJson,
 } from "./memory-validation.js";
 import { tomlValue } from "../../lib/launch-serialization.js";
+import { addGrant } from "../nono/sandbox-grants.js";
 const main = fileURLToPath(new URL("./memory-mcp.js", import.meta.url));
 export class MemoryIntegration {
   constructor({ dataDir, accounts, memory }) {
@@ -104,7 +105,24 @@ export class MemoryIntegration {
         env,
       });
       this.accounts?.get(selected.id);
-      return { ...launch, args, env, memory: { enabled: true, projectId: project.id } };
+      const prepared = {
+        ...launch,
+        args,
+        env,
+        memory: { enabled: true, projectId: project.id },
+      };
+      // The CLI spawns the memory MCP server itself, so a sandboxed session needs
+      // the node binary and that server script. Everything else the server does
+      // goes over the broker socket, so it never reads the store directly: the
+      // grants stop at its own capability folder, and `<dataDir>/memory` — which
+      // holds every project's database and every other session's capability —
+      // stays outside the sandbox.
+      return [
+        { access: "allow", path: folder },
+        { access: "read", path: process.execPath },
+        { access: "read", path: main },
+        { access: "socket", path: this.broker.socketPath },
+      ].reduce((granted, grant) => addGrant(granted, grant), prepared);
     } catch (error) {
       revokeCapability(this.memory, id);
       throw error;

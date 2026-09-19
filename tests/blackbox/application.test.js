@@ -4,6 +4,46 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { applicationFixture, fixtureFetch as fetch } from "../helpers/application.js";
 
+/**
+ * A stand-in for the real nono binary: `profile list --silent` reports one
+ * sandbox profile in the exact column layout `parseSandboxProfiles` expects,
+ * and `wrap … -- <command> <args>` execs straight into the wrapped CLI. Only
+ * the fixture's `nonoSandbox.detect` is stubbed below, so this script is a
+ * real, executable file: the session manager's own executable checks pass and
+ * the session actually runs.
+ */
+async function fakeNonoExecutable(root) {
+  const executable = path.join(root, "fake-bin", "nono");
+  await fs.mkdir(path.dirname(executable), { recursive: true });
+  await fs.writeFile(
+    executable,
+    `#!/bin/sh
+cmd="$1"
+shift
+if [ "$cmd" = "profile" ] && [ "$1" = "list" ]; then
+  cat <<'PROFILES'
+nono profile: 1 profiles
+User (fixture):
+    shell-default  fixture profile
+PROFILES
+  exit 0
+fi
+if [ "$cmd" = "wrap" ]; then
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = "--" ]; then
+      shift
+      exec "$@"
+    fi
+    shift
+  done
+fi
+exit 1
+`,
+  );
+  await fs.chmod(executable, 0o755);
+  return executable;
+}
+
 async function json(response, expected) {
   assert.equal(response.status, expected);
   return response.json();
@@ -163,4 +203,96 @@ test("a fixture-owned Shell session survives web-server restart and is removed t
     ).sessions.some((item) => item.id === session.id),
     false,
   );
+});
+
+test("an ordinary unsandboxed launch reaches the SSH launch adapter with its validated assignment", async (t) => {
+  const fixture = await applicationFixture(t);
+  // Regression: the validated SSH selection is built in the outer launch step
+  // and consumed in the inner one, so a selection that never reaches the
+  // preparation path fails every launch, sandbox or not, with HTTP 400.
+  for (const sshAccessIds of [undefined, []]) {
+    const session = await json(
+      await fixture.request("/api/sessions", {
+        method: "POST",
+        body: {
+          accountId: "local-shell",
+          name: `Ordinary ${sshAccessIds ? "empty" : "absent"} assignment`,
+          cwd: fixture.home,
+          ...(sshAccessIds ? { sshAccessIds } : {}),
+        },
+      }),
+      201,
+    );
+    assert.equal(session.status, "running");
+    assert.equal("sandbox" in session, false);
+    await fixture.request(`/api/sessions/${session.id}/stop`, { method: "POST" });
+    await fixture.request(`/api/sessions/${session.id}`, { method: "DELETE" });
+  }
+});
+
+test("a session naming a sandbox profile is rejected when nono is not detected", async (t) => {
+  const fixture = await applicationFixture(t);
+  // The lifecycle closed over this object when the fixture started, so the
+  // detection it consults must be mutated in place rather than replaced.
+  fixture.application.nonoSandbox.detect = () => [];
+  const response = await fixture.request("/api/sessions", {
+    method: "POST",
+    body: {
+      accountId: "local-shell",
+      name: "Unavailable sandbox",
+      cwd: fixture.home,
+      nonoProfile: "shell-default",
+    },
+  });
+  assert.equal(response.status, 400);
+  const state = await json(await fixture.request("/api/state"), 200);
+  assert.equal(state.sessions.length, 0);
+});
+
+test("a sandboxed session's public record carries its sandbox profile and survives a restart, while an unsandboxed session carries no sandbox key", async (t) => {
+  const fixture = await applicationFixture(t);
+  const executable = await fakeNonoExecutable(fixture.root);
+  // Mutated in place for the same reason as above: the lifecycle already
+  // holds a reference to this object.
+  fixture.application.nonoSandbox.detect = () => [
+    { id: "nono", name: "nono", utility: true, installed: true, path: executable },
+  ];
+  const sandboxed = await json(
+    await fixture.request("/api/sessions", {
+      method: "POST",
+      body: {
+        accountId: "local-shell",
+        name: "Sandboxed shell",
+        cwd: fixture.home,
+        nonoProfile: "shell-default",
+      },
+    }),
+    201,
+  );
+  assert.deepEqual(sandboxed.sandbox, { profile: "shell-default" });
+  // A broken exec through the wrap would still persist a sandbox record, so the
+  // record alone does not prove the CLI actually started; the fake nono's exec
+  // into the CLI must have succeeded too.
+  assert.equal(sandboxed.status, "running");
+  const unsandboxed = await json(
+    await fixture.request("/api/sessions", {
+      method: "POST",
+      body: { accountId: "local-shell", name: "Unsandboxed shell", cwd: fixture.home },
+    }),
+    201,
+  );
+  assert.equal("sandbox" in unsandboxed, false);
+  await fixture.restart();
+  const state = await json(await fixture.request("/api/state"), 200);
+  const sandboxedAfterRestart = state.sessions.find((item) => item.id === sandboxed.id);
+  assert.deepEqual(sandboxedAfterRestart.sandbox, { profile: "shell-default" });
+  assert.equal(sandboxedAfterRestart.status, "running");
+  assert.equal(
+    "sandbox" in state.sessions.find((item) => item.id === unsandboxed.id),
+    false,
+  );
+  for (const session of [sandboxed, unsandboxed]) {
+    await fixture.request(`/api/sessions/${session.id}/stop`, { method: "POST" });
+    await fixture.request(`/api/sessions/${session.id}`, { method: "DELETE" });
+  }
 });

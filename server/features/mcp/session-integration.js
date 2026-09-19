@@ -14,6 +14,7 @@ import {
   revokeSessionMcp,
   checkSessionCapability,
 } from "./session-capability.js";
+import { addGrant } from "../nono/sandbox-grants.js";
 
 const fields = {
   projectIds: "projects",
@@ -169,10 +170,18 @@ export class SessionMcp {
         outcome: "success",
         details: { count: grant.projectIds.length },
       });
-      return {
+      const tooled = {
         ...prepared,
         agentpierTools: { enabled: true, generation, expiresAt, selection: choices },
       };
+      // The capability folder carries the credential the spawned bridge reads, and
+      // for claude the plugin directory written below it. The bridge then connects
+      // back to this socket, which is the path it was handed as --socket above.
+      return [
+        { access: "allow", path: folder },
+        { access: "read", path: process.execPath },
+        { access: "socket", path: this.socketPath },
+      ].reduce((granted, grant) => addGrant(granted, grant), tooled);
     } catch (error) {
       this.discard(id);
       throw error;

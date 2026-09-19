@@ -116,6 +116,7 @@ export async function operationsFixture(page, { tool = "codex" } = {}) {
       result = { requests: [] };
     } else if (path.endsWith("/chat")) result = chat;
     else if (path === "/pipeline-profiles") result = { profiles: [] };
+    else if (path === "/sandbox-profiles") result = { available: false, profiles: [] };
     else if (path.endsWith("/models"))
       result = { currentModel: null, picker: null, pending: false };
     else if (path === "/remote" && method === "GET") result = state.remote;

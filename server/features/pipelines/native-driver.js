@@ -1,6 +1,7 @@
 import { standaloneProfile } from "./standalone-profile.js";
 import { randomUUID } from "node:crypto";
 import { problem } from "../../lib/storage.js";
+import { serverMessages } from "../../lib/i18n/de.js";
 import { validId } from "../sessions/session-validation.js";
 import { pipelineIdentity } from "./native-session.js";
 import { NativeEventReader, NativeObservationError } from "./native-reader.js";
@@ -158,8 +159,10 @@ export class NativePipelineDriver {
       agentbus,
       agentpierTools,
       sshAccessIds,
+      nonoProfile,
     } = {},
   ) {
+    if (nonoProfile) throw problem(serverMessages.sessions.sandboxNotForTaskProfile, 409);
     profile = standaloneProfile(profile, access, this.accounts);
     const prompt = renderProfilePrompt(profile, params, model);
     if (!profile.enabled) throw problem("This profile is disabled.", 409);
