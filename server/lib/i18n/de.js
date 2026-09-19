@@ -1,3 +1,4 @@
+import { artifacts } from "./de/artifacts.js";
 import { scripts } from "./de/scripts.js";
 import { sessions } from "./de/sessions.js";
 import { common } from "./de/common.js";
@@ -14,6 +15,7 @@ import { settings } from "./de/settings.js";
 
 /** German product locale shared by backend routes and operational scripts. */
 export const serverMessages = Object.freeze({
+  artifacts,
   scripts,
   sessions,
   common,

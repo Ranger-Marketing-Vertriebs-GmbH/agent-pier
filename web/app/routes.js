@@ -49,6 +49,9 @@ export function readRoute(location) {
   if (settingsRoute) return settingsRoute;
   const pipelineRoute = readPipelineRoute(pathname, location.search);
   if (pipelineRoute) return pipelineRoute;
+  const artifacts = /^\/artifacts(?:\/([^/]+))?$/.exec(pathname);
+  if (artifacts && (!artifacts[1] || idPattern.test(artifacts[1])))
+    return { view: "artifacts", projectId: artifacts[1] || "" };
   const memory = /^\/memory(?:\/([^/]+))?$/.exec(pathname);
   if (memory && (!memory[1] || idPattern.test(memory[1]))) {
     const query = new URLSearchParams(location.search);
@@ -101,6 +104,8 @@ export function readRoute(location) {
   };
 }
 export function routePath(route) {
+  if (route.view === "artifacts")
+    return `/artifacts${route.projectId ? `/${encodeURIComponent(route.projectId)}` : ""}`;
   if (route.view === "files") return `/files${explorerQuery(route)}`;
   if (route.view === "settings") return settingsRoutePath(route);
   if (route.view === "pipelines") return pipelineRoutePath(route);

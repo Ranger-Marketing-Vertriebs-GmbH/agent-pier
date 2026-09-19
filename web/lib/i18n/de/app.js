@@ -16,7 +16,7 @@ export const appDialogsCopy = {
   confirmCopyStop: (value1) =>
     `„${value1}“ und der darin laufende Prozess werden beendet. Das bisherige Terminal bleibt lesbar.`,
   confirmCopyRemove: (value1) =>
-    `„${value1}“ und die gespeicherte Terminalausgabe werden endgültig entfernt.`,
+    `„${value1}“ und die gespeicherte Terminalausgabe sowie nicht angepinnte Artifacts werden endgültig entfernt. Angepinnte Artifacts bleiben erhalten.`,
   confirmCopyDeleteAccount: (value1, value2) =>
     `Das Profil „${value1}“ und seine lokalen Dateien werden gelöscht.${value2}`,
   confirmCopyLogin: (value1) =>

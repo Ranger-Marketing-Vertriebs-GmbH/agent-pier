@@ -1,6 +1,8 @@
+import { artifactCopy } from "../../lib/i18n/messages/artifacts.js";
 import { mcpCopy } from "../../lib/i18n/messages/mcp.js";
 import { sessionReloadCopy } from "../../lib/i18n/messages/sessions.js";
 import "./session-reload.css";
+import "../artifacts/artifacts.css";
 import { sshCopy } from "../../lib/i18n/messages/ssh.js";
 import { sessionActivity } from "./sessionPresentation.js";
 import { filesCopy } from "../../lib/i18n/messages/files.js";
@@ -20,6 +22,7 @@ const PipelineSessionRecovery = lazy(
 );
 const SessionMcpDialog = lazy(() => import("../mcp/SessionMcpDialog.jsx"));
 const SessionSshDialog = lazy(() => import("../ssh/SessionSshDialog.jsx"));
+const ArtifactList = lazy(() => import("../artifacts/ArtifactList.jsx"));
 const FileExplorer = lazy(() => import("../files/FileExplorer.jsx"));
 const TerminalView = lazy(() => import("../terminal/TerminalView.jsx"));
 export default function SessionWorkspace({
@@ -32,6 +35,7 @@ export default function SessionWorkspace({
   navigate,
   openNavigation,
 }) {
+  const [artifactsOpen, setArtifactsOpen] = useState(false);
   const [sshSession, setSshSession] = useState(null);
   const [mcpSession, setMcpSession] = useState(null);
   const [reloadSession, setReloadSession] = useState(null);
@@ -110,6 +114,19 @@ export default function SessionWorkspace({
             >
               <Icon name="refresh" />
             </button>
+          )}
+          {coding && (
+            <details
+              className="session-artifacts"
+              onToggle={(event) => setArtifactsOpen(event.currentTarget.open)}
+            >
+              <summary>{artifactCopy.title}</summary>
+              {artifactsOpen && (
+                <Suspense>
+                  <ArtifactList key={session.id} sessionId={session.id} />
+                </Suspense>
+              )}
+            </details>
           )}
           {reloadable &&
             ["codex", "claude"].includes(session.tool) &&

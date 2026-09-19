@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+import { ArtifactService } from "../features/artifacts/artifact-service.js";
 import { revokeSessionMcp } from "../features/mcp/session-capability.js";
 import { SshIntegration } from "../features/ssh/ssh-integration.js";
 import { SshManagement } from "../features/ssh/ssh-management.js";
@@ -82,7 +85,9 @@ export async function createServices(config) {
     accounts,
     onProject: (binding) => sshManagement.registerProject(binding),
   });
+  let artifacts;
   const sessions = new SessionManager({
+    onRemoving: (session) => artifacts?.retireSession(session.id),
     dataDir: config.dataDir,
     onStopped: async (session) => {
       revokeSessionMcp(config.dataDir, session.id);
@@ -160,6 +165,14 @@ export async function createServices(config) {
     requests,
     models,
   });
+  artifacts = new ArtifactService({
+    dataDir: config.dataDir,
+    sessionExists: (id) =>
+      fs.existsSync(path.join(config.dataDir, "sessions", `${id}.json`)),
+    onError,
+    barrier: mutationBarrier,
+  });
+  await artifacts.ready;
   const operations = new Operations({
     config,
     audit,
@@ -167,6 +180,7 @@ export async function createServices(config) {
     doctorOptions: { serving: true },
   });
   return {
+    artifacts,
     events,
     sshAccesses,
     sshSessions,

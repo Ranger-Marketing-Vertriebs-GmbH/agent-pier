@@ -1,3 +1,4 @@
+import { restoreArtifacts } from "./artifact-backup.js";
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -125,6 +126,7 @@ export async function mapProjects(directory, projectMap = {}) {
     }));
     atomic(repositoriesFile, repositories);
   }
+  restoreArtifacts(directory, mappings);
   return mappings.map(({ scope: _scope, ...mapping }) => mapping);
 }
 export function historicalOnly(directory) {

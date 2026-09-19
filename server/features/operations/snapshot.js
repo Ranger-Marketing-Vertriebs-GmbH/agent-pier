@@ -1,3 +1,4 @@
+import { artifactMembers } from "./artifact-backup.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -80,6 +81,7 @@ export function capture({
     if (value !== undefined) files.push(fileMember(name, transform(value)));
   };
   try {
+    files.push(...artifactMembers(dataDir, includeHistory));
     addJson("accounts.json", (rows) =>
       rows.map((row) => ({
         ...row,
