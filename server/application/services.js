@@ -85,6 +85,7 @@ export async function createServices(config) {
   const sshIntegration = new SshIntegration({
     dataDir: config.dataDir,
     accounts,
+    accesses: sshAccesses,
     onProject: (binding) => sshManagement.registerProject(binding),
   });
   let artifacts;

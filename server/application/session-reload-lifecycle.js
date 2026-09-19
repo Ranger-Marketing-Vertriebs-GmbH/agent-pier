@@ -154,9 +154,10 @@ export function createReloadLifecycle(services) {
             launch = await sshIntegration.prepare({
               ...input(),
               sandboxProfile: session.sandbox?.profile || null,
-              // The assignment outlives the process, so a reloaded sandboxed
-              // session keeps its SSH tools exactly when hosts are still
-              // assigned to it.
+              // The assignment outlives the process, so a reloaded session is
+              // re-prepared with the hosts still assigned to it. Hosts the
+              // project owns are resolved during preparation, from the project
+              // binding it creates there.
               sshAccessIds: services.sshSessions?.assigned(session) || [],
             });
           if (services.sessionMcp)

@@ -115,7 +115,7 @@ export function createSessionLifecycle(services) {
         release = providerConnections.acquire(resolved.selection.providerConnectionId);
       const unreserve = await reserve(resolved.account, login);
       try {
-        return await launchResolved(body, login, trusted, resolved);
+        return await launchResolved(body, login, trusted, resolved, sshIds);
       } finally {
         unreserve();
       }
@@ -124,7 +124,7 @@ export function createSessionLifecycle(services) {
       releaseAccount();
     }
   }
-  async function launchResolved(body, login, trusted, { account, selection }) {
+  async function launchResolved(body, login, trusted, { account, selection }, sshIds) {
     const nativeModelId = nativeModelFor(body, account, { login });
     trusted.validateAccount?.(account);
     const cwd = await directory(

@@ -4,7 +4,10 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { ToolInstaller } from "../../server/features/tools/tool-installer.js";
-import { detectTools } from "../../server/features/accounts/account-store.js";
+import {
+  detectTools,
+  detectUtilities,
+} from "../../server/features/accounts/account-store.js";
 
 for (const tool of ["codex", "claude", "opencode"])
   test(`${tool} prefers the official native installer in the server home without npm`, async (t) => {
@@ -51,6 +54,54 @@ for (const tool of ["codex", "claude", "opencode"])
       }[tool],
     );
   });
+
+test("nono installs through its official script, pinned to the server home", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-native-nono-"));
+  const home = path.join(root, "home");
+  await fs.mkdir(home);
+  const target = path.join(home, ".local/bin", "nono");
+  const urls = [];
+  // The real script installs into NONO_INSTALL_DIR when it is set, and falls
+  // back to /usr/local/bin — and to sudo — when it is not. This stand-in fails
+  // unless the variable arrived, which is what keeps an unattended install off
+  // the sudo path.
+  const script = [
+    "#!/bin/sh",
+    "set -eu",
+    'test -n "${NONO_INSTALL_DIR:-}" || { echo "NONO_INSTALL_DIR unset" >&2; exit 1; }',
+    'mkdir -p "$NONO_INSTALL_DIR"',
+    `printf '#!/bin/sh\\nprintf "nono 0.64.1\\\\n"\\n' > "$NONO_INSTALL_DIR/nono"`,
+    'chmod 700 "$NONO_INSTALL_DIR/nono"',
+    "",
+  ].join("\n");
+  const installer = new ToolInstaller({
+    dataDir: root,
+    home,
+    npmCli: null,
+    detect: () => detectUtilities({ HOME: home, PATH: "" }, false),
+    nativeFetch: async (url) => {
+      urls.push(String(url));
+      return new Response(script);
+    },
+  });
+  t.after(async () => {
+    await installer.close();
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  const offered = installer.list().installations.find((x) => x.tool === "nono");
+  assert.equal(offered.installer, "native-script");
+  assert.equal(offered.utility, true);
+  assert.equal(offered.destination, path.dirname(target));
+  // npm never publishes nono, so only the native method is accepted.
+  assert.throws(() => installer.start("nono", "npm"));
+  assert.equal(installer.start("nono").status, "running");
+  await installer.active.done;
+  const result = installer.list().installations.find((x) => x.tool === "nono");
+  assert.equal(result.status, "succeeded", result.message);
+  assert.match(result.version, /0\.64\.1/);
+  assert.equal(urls[0], "https://nono.sh/install.sh");
+  assert.equal((await fs.stat(target)).isFile(), true);
+});
 
 test("native script download follows only the documented vendor bootstrap redirect", async () => {
   const { downloadNativeScript } =

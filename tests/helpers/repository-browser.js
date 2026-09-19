@@ -42,6 +42,8 @@ export async function fixture(page) {
     if (path === "/api/state") result = state;
     else if (path === "/api/pipeline-profiles") result = { profiles: [] };
     else if (path === "/api/ssh-accesses") result = { accesses: [] };
+    else if (path === "/api/sandbox-profiles")
+      result = { available: false, profiles: [] };
     else if (path === "/api/accounts/local-codex/auth-status")
       result = { state: "unauthenticated", checkedAt: Date.now() };
     else if (path === "/api/repositories") result = repositories;

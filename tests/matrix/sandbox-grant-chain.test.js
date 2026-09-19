@@ -93,10 +93,26 @@ test("an upstream grant survives every adapter hop", async (t) => {
   assert.deepEqual(granted.sandboxGrants[0], upstream);
   // Each adapter still declared its own grants on top of the inherited one.
   assert.ok(granted.sandboxGrants.length > 1);
+  const root = context.memory.memory.root;
   assert.equal(
-    granted.sandboxGrants.some((item) => item.path === context.memory.memory.root),
+    granted.sandboxGrants.some(
+      (item) => item.path === path.join(root, "sessions", SESSION),
+    ),
     true,
   );
+  // The memory MCP server reaches the store over the broker socket, so nothing
+  // above its own capability folder is granted: neither the shared database nor
+  // another session's capability is reachable from inside the sandbox.
+  for (const denied of [
+    root,
+    path.join(root, "memory.sqlite"),
+    path.join(root, "sessions", "other-session"),
+  ])
+    assert.equal(
+      covers(granted.sandboxGrants, denied),
+      false,
+      `expected no grant covering ${denied}`,
+    );
   // No individual adapter declares the whole AgentPier data directory. This is
   // true but not sufficient on its own: see the composed-launch test below for
   // the check that catches a grant becoming that broad transitively, through

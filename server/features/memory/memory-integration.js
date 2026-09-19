@@ -112,13 +112,12 @@ export class MemoryIntegration {
         memory: { enabled: true, projectId: project.id },
       };
       // The CLI spawns the memory MCP server itself, so a sandboxed session needs
-      // the node binary and that server script on top of the memory store it reads
-      // and writes. The store is this.memory.root: this.dataDir is its parent, the
-      // whole AgentPier data directory, which holds every other feature's secrets.
-      // The server reaches the store over the broker socket, which file access to
-      // that path does not confer.
+      // the node binary and that server script. Everything else the server does
+      // goes over the broker socket, so it never reads the store directly: the
+      // grants stop at its own capability folder, and `<dataDir>/memory` — which
+      // holds every project's database and every other session's capability —
+      // stays outside the sandbox.
       return [
-        { access: "allow", path: this.memory.root },
         { access: "allow", path: folder },
         { access: "read", path: process.execPath },
         { access: "read", path: main },
