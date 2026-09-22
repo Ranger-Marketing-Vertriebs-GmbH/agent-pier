@@ -75,6 +75,19 @@ export class ClaudeHistoryPages {
       if (state?.indexed) throw mismatch();
       return null;
     }
+    if (!state) {
+      // A transcript rewritten in place (same inode, smaller) no longer matches
+      // the index. The provisional page serves it while the index is rebuilt.
+      try {
+        return await this.page(entry, reader, null);
+      } catch (error) {
+        if (error.status === 409) return null;
+        throw error;
+      }
+    }
+    return this.page(entry, reader, state);
+  }
+  async page(entry, reader, state) {
     if (state?.remaining?.length) {
       await reader.validate();
       return this.split(entry, reader.identity, state.remaining, state.indexed.before);
