@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
+import { recentlyUsedElsewhere } from "../requests/request-interaction.js";
 
 // Claude's hook owns the question until it receives a handoff. Opening xterm
 // alone does not release it; leave the answer to Claude's native dialog.
+// Only a focused tab showing the terminal releases questions, so an open
+// terminal on another device cannot take a question away from chat.
 export default function useClaudeTerminalQuestions({ session, active, request }) {
   const [error, setError] = useState("");
   const enabled = Boolean(
@@ -19,7 +22,9 @@ export default function useClaudeTerminalQuestions({ session, active, request })
     const base = `/sessions/${encodeURIComponent(session.id)}/requests`;
     let timer,
       reading = false;
-    const visible = () => document.visibilityState !== "hidden";
+    // Release each uncertain entry once; a repeated failure must not loop.
+    const released = new Set();
+    const visible = () => document.visibilityState !== "hidden" && document.hasFocus();
     const read = async () => {
       if (reading || !visible() || controller.signal.aborted) return;
       reading = true;
@@ -34,7 +39,15 @@ export default function useClaudeTerminalQuestions({ session, active, request })
           )
             continue;
           if (entry.status === "unknown") unknown = true;
-          if (entry.status !== "pending") continue;
+          // An uncertain delivery is released too: the native side answers
+          // stale if it already consumed the answer, otherwise Claude asks again.
+          if (
+            !["pending", "unknown"].includes(entry.status) ||
+            (entry.status === "unknown" && released.has(entry.id)) ||
+            recentlyUsedElsewhere(entry)
+          )
+            continue;
+          if (entry.status === "unknown") released.add(entry.id);
           await request(
             `${base}/${encodeURIComponent(entry.id)}/handoff`,
             "POST",
@@ -55,11 +68,13 @@ export default function useClaudeTerminalQuestions({ session, active, request })
       void read();
     };
     document.addEventListener("visibilitychange", wake);
+    window.addEventListener("focus", wake);
     void read();
     return () => {
       controller.abort();
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("focus", wake);
     };
   }, [enabled, session.id, request]);
   return enabled ? error : "";

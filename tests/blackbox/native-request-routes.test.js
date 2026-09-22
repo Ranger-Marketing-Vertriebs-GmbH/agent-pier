@@ -250,3 +250,29 @@ test("web service disconnect releases a waiting Claude hook back to its native T
   assert.equal((await ended)[0], 0, "native hook handoff is a successful empty decision");
   assert.equal(stdout, "");
 });
+
+test("dialog interactions are recorded through HTTP without consuming the request", async (t) => {
+  const { launch, url } = await fixture(t);
+  const channel = new NativeRequestChannel({ env: launch.env });
+  t.after(() => channel.close());
+  await channel.ready;
+  channel.publish(
+    "native",
+    {
+      kind: "question",
+      questions: [
+        { id: "q0", prompt: "Which?", options: [], multiple: false, allowOther: true },
+      ],
+    },
+    async () => {},
+  );
+  const ask = await poll(url);
+  const touched = await post(`${url}/${ask.id}/touch`, { client: "desktop-tab" });
+  assert.equal(touched.status, 200);
+  assert.deepEqual(await touched.json(), {});
+  const current = await poll(url);
+  assert.equal(current.revision, 1);
+  assert.equal(current.status, "pending");
+  assert.equal(current.interaction.client, "desktop-tab");
+  assert.equal((await post(`${url}/${ask.id}/touch`, { client: "a b" })).status, 400);
+});

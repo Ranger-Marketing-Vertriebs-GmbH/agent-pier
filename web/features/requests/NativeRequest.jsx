@@ -4,9 +4,13 @@ import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
 import QuestionDialog from "./QuestionDialog.jsx";
+import { touchRequest } from "./request-interaction.js";
 export default function NativeRequest({ request, updated, openTerminal }) {
   const action = useAsyncAction(),
     pending = request.status === "pending",
+    // After an uncertain delivery the answer may not have arrived; the
+    // terminal is the only safe way on, so keep the handoff reachable.
+    releasable = pending || (request.status === "unknown" && request.source === "claude"),
     hookTrust = request.presentation === "codexHookTrust",
     folderTrust = request.presentation === "claudeFolderTrust",
     legacyQuestion = request.presentation === "claudeLegacyQuestion",
@@ -97,12 +101,13 @@ export default function NativeRequest({ request, updated, openTerminal }) {
             questions={request.questions || []}
             busy={action.busy || !pending}
             answer={answer}
+            onInteract={() => pending && touchRequest(request)}
           />
         </div>
       )}
       <ErrorMessage error={action.error} />
       <div className="native-request-actions">
-        {pending && !startup && (
+        {releasable && !startup && (
           <button
             type="button"
             className="button secondary compact"

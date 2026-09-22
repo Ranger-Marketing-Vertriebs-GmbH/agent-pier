@@ -3,7 +3,12 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
 import QuestionFields, { questionAnswers } from "./QuestionFields.jsx";
 
-export default function QuestionDialog({ questions, busy, answer }) {
+export default function QuestionDialog({
+  questions,
+  busy,
+  answer,
+  onInteract = () => {},
+}) {
   const [drafts, setDrafts] = useState({});
   const [step, setStep] = useState(0);
   const [validation, setValidation] = useState("");
@@ -39,6 +44,9 @@ export default function QuestionDialog({ questions, busy, answer }) {
         setValidation("");
         answer({ answers });
       }}
+      onPointerDown={onInteract}
+      onKeyDown={onInteract}
+      onFocus={onInteract}
     >
       <p
         ref={heading}

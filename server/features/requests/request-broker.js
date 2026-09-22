@@ -241,6 +241,7 @@ export class RequestBroker {
     if (session.status !== "running")
       await this.discard(sessionId, { removeLaunch: false });
     await refreshStartupPrompts(this, session);
+    const now = Date.now();
     return {
       ...(session.status === "running" && this.claudeReloadRequired.has(sessionId)
         ? { integration: { reloadRequired: true } }
@@ -254,8 +255,15 @@ export class RequestBroker {
             accountId: _account,
             launchIdentity: _launch,
             local: _local,
+            interaction,
             ...entry
-          }) => entry,
+          }) => ({
+            ...entry,
+            // Relative age avoids depending on browser clocks.
+            ...(interaction
+              ? { interaction: { client: interaction.client, age: now - interaction.at } }
+              : {}),
+          }),
         ),
     };
   }
@@ -266,7 +274,12 @@ export class RequestBroker {
       session.status !== "running" ||
       !entry ||
       entry.sessionId !== sessionId ||
-      entry.status !== "pending" ||
+      // An uncertain delivery can still be released to the terminal; the
+      // native side reports stale if it already consumed the answer.
+      !(
+        entry.status === "pending" ||
+        (handoff && entry.status === "unknown" && entry.source === "claude")
+      ) ||
       entry.revision !== input?.expectedRevision ||
       (!entry.local && entry.socket.destroyed)
     )
@@ -339,6 +352,17 @@ export class RequestBroker {
       throw problem(copy.unknown, 409);
     }
     return this.list(sessionId);
+  }
+  /** Records that a dialog is in use so other devices do not take it over. */
+  async touch(sessionId, id, input) {
+    const session = await this.sessions.get(sessionId);
+    const entry = this.entries.get(id);
+    if (session.status !== "running" || !entry || entry.sessionId !== sessionId)
+      throw stale();
+    if (typeof input?.client !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(input.client))
+      throw problem(copy.invalid, 400);
+    entry.interaction = { client: input.client, at: Date.now() };
+    return {};
   }
   handoff(sessionId, id, input) {
     return this.answer(sessionId, id, input, true);
