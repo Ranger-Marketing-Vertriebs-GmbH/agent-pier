@@ -6,8 +6,28 @@ const plain = (line) => (line || "").replace(/\x1b\[[0-9;:]*m/g, "");
 // Footers of Claude's native modal UI: permission prompts, rewind, pickers.
 const dialogFooter =
   /\b(?:Esc to (?:cancel|go back|close|exit)|Enter to (?:confirm|continue|select|submit|set)|Tab to amend)\b|Do you want to (?:proceed|make this edit|create)/i;
-// A dim placeholder behind the reverse-video cursor, e.g. "Press up to edit queued messages".
-const placeholder = /❯[ \u00a0]\x1b\[7m(?:\x1b\[39m)?[^\x1b]\x1b\[0;2m[^\x1b]*\x1b\[0m$/;
+// A placeholder behind the reverse-video cursor cell. tmux may wrap the reset
+// code into the next row or truncate the text with "…" in narrow panes, and
+// NO_COLOR/FORCE_COLOR=0 drops the dim attribute.
+const placeholderRow =
+  /^(?:\x1b\[[0-9;]*m)*❯[ \u00a0]\x1b\[7m(?:\x1b\[39m)?([^\x1b])(\x1b\[0;2m|\x1b\[0m)([^\x1b]*)(?:\x1b\[0m)?$/;
+const queuedPlaceholder = "Press up to edit queued messages";
+
+/** Claude's empty prompt showing a placeholder, at the cursor's start cell. */
+export function claudePlaceholder(line, pane) {
+  const match = placeholderRow.exec(line || "");
+  if (!match || pane?.cursorX !== 2) return false;
+  const text = (match[1] + match[3]).trimEnd();
+  // Typed text is never dim; without color only the known placeholder is safe,
+  // because a draft with its cursor on the first character looks the same.
+  if (match[2] === "\x1b[0;2m") return text.length > 0;
+  return (
+    text === queuedPlaceholder ||
+    (text.endsWith("…") &&
+      text.length > 2 &&
+      queuedPlaceholder.startsWith(text.slice(0, -1)))
+  );
+}
 
 export function composerProblem(code) {
   return Object.assign(problem(copy.reasons[code], 409), { code });
@@ -33,7 +53,13 @@ export function claudeComposerBox(raw, pane = {}) {
     rows.slice(1).some((value) => !value.startsWith("  "))
   )
     return null;
-  return { top, bottom, rows, first: lines[top + 1] };
+  return {
+    top,
+    bottom,
+    rows,
+    first: lines[top + 1],
+    raw: lines.slice(top + 1, bottom),
+  };
 }
 
 /**
@@ -48,7 +74,7 @@ export function claudeComposerState(raw, pane, composer) {
       box.rows.length === 1 &&
       pane.cursorX === 2 &&
       pane.cursorY === box.top + 1 &&
-      placeholder.test(box.first)
+      claudePlaceholder(box.first, pane)
     )
       return { state: "empty", text: "" };
     return { state: "draft", text: null };
@@ -70,8 +96,13 @@ export function assertClaudeComposer(state, allowed) {
   );
 }
 
+// Progress means the prompt box or cursor changed, never a spinner or timer.
 const view = (fresh) =>
-  JSON.stringify([fresh.raw, fresh.pane.cursorX, fresh.pane.cursorY]);
+  JSON.stringify([
+    claudeComposerBox(fresh.raw, fresh.pane)?.raw ?? fresh.raw,
+    fresh.pane.cursorX,
+    fresh.pane.cursorY,
+  ]);
 
 async function changed(snapshot, before, timeoutMs) {
   const deadline = performance.now() + timeoutMs;
@@ -100,9 +131,12 @@ export async function clearClaudeComposer(
   session,
   initial,
   snapshot,
-  { rounds = 120, settleMs = 750 } = {},
+  { rounds = 60, settleMs = 750, timeoutMs = 5000, maxKeys = 150 } = {},
 ) {
   const target = `${manager.target(session.id)}:0.0`;
+  // The session lock is held meanwhile: bound the time and keystrokes spent.
+  const deadline = performance.now() + timeoutMs;
+  let keyCount = 0;
   let fresh = initial;
   const state = () => claudeComposerState(fresh.raw, fresh.pane, fresh.composer);
   for (let round = 0; round < rounds; round++) {
@@ -110,6 +144,9 @@ export async function clearClaudeComposer(
     assertClaudeComposer(state(), ["text", "draft"]);
     let progressed = false;
     for (const keys of [["C-e", "C-u"], ["BSpace"], ["DC"]]) {
+      if (performance.now() >= deadline || keyCount + keys.length > maxKeys)
+        throw composerProblem("CHAT_COMPOSER_NOT_CLEARED");
+      keyCount += keys.length;
       const before = fresh;
       await manager.tmux(["send-keys", "-t", target, ...keys]);
       fresh = await changed(snapshot, before, settleMs);
