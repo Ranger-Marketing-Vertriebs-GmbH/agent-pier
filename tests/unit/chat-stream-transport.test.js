@@ -291,3 +291,22 @@ test("a slow fallback read survives reconnect attempts and still lands", async (
   assert.deepEqual(f.snapshots.at(-1).messages, [{ id: "slow" }]);
   f.dispose();
 });
+
+test("a never-settling fallback read times out and allows a later recovery read", async () => {
+  const signals = [];
+  const f = fixture((signal) => {
+    signals.push(signal);
+    return new Promise(() => {});
+  });
+  f.sockets[0].onerror();
+  assert.equal(f.reads, 1);
+  const limit = [...f.timers].find(([, timer]) => timer.delay === 30000);
+  assert.ok(limit, "fallback read has a deadline");
+  f.timers.delete(limit[0]);
+  limit[1].fn();
+  assert.equal(signals[0].aborted, true);
+  f.tick();
+  f.sockets.at(-1).onerror();
+  assert.equal(f.reads, 2);
+  f.dispose();
+});
