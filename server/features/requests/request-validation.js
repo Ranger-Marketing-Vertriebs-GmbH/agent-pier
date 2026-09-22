@@ -103,22 +103,24 @@ export function answerValue(request, input) {
   if (Object.keys(input.answers).length !== request.questions.length) throw invalid();
   const answers = Object.create(null);
   for (const question of request.questions) {
-    const values = input.answers[question.id];
+    const raw = input.answers[question.id];
     if (
-      !Array.isArray(values) ||
-      !values.length ||
-      values.length > 100 ||
-      (!question.multiple && values.length !== 1) ||
-      values.some((v) => !string(v) || !v.trim()) ||
-      new Set(values).size !== values.length
+      !Array.isArray(raw) ||
+      raw.length > 100 ||
+      raw.some((v) => !string(v) || !v.trim())
     )
       throw invalid();
+    // A free-text answer that repeats a selected label adds nothing; drop it.
+    const values = raw.filter(
+      (v, i) => raw.findIndex((other) => other.trim() === v.trim()) === i,
+    );
+    if (!values.length || (!question.multiple && values.length !== 1)) throw invalid();
     if (
       !question.allowOther &&
       values.some((v) => !question.options.some((o) => o.id === v))
     )
       throw invalid();
-    answers[question.id] = [...values];
+    answers[question.id] = values;
   }
   return { answers, ...(notes ? { notes } : {}) };
 }

@@ -182,3 +182,20 @@ test("OpenCode questions keep their native shape without chat-only fields", () =
     allowOther: true,
   });
 });
+
+test("free text repeating a selected label is merged instead of failing the answer", () => {
+  const view = parsed(claude());
+  assert.deepEqual(
+    answerValue(view, { answers: { q0: ["Grid"], q1: ["API", "Web", " API "] } }).answers
+      .q1,
+    ["API", "Web"],
+  );
+  assert.deepEqual(
+    answerValue(view, { answers: { q0: ["Grid"], q1: ["API", "Custom"] } }).answers.q1,
+    ["API", "Custom"],
+  );
+  assert.throws(
+    () => answerValue(view, { answers: { q0: ["Grid", "List"], q1: ["API"] } }),
+    { status: 400 },
+  );
+});
