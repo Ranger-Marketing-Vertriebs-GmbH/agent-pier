@@ -1,12 +1,13 @@
 import React, { useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
-import QuestionFields, { questionAnswers } from "./QuestionFields.jsx";
+import QuestionFields, { questionAnswers, questionNotes } from "./QuestionFields.jsx";
 
 export default function QuestionDialog({
   questions,
   busy,
   answer,
+  declinable = false,
   onInteract = () => {},
 }) {
   const [drafts, setDrafts] = useState({});
@@ -42,7 +43,8 @@ export default function QuestionDialog({
           return;
         }
         setValidation("");
-        answer({ answers });
+        const notes = questionNotes(questions, drafts);
+        answer({ answers, ...(notes ? { notes } : {}) });
       }}
       onPointerDown={onInteract}
       onKeyDown={onInteract}
@@ -91,6 +93,20 @@ export default function QuestionDialog({
         <button className="button primary" disabled={busy}>
           {last ? copy.answer : copy.next}
         </button>
+        {declinable && (
+          <button
+            type="button"
+            className="button secondary native-question-decline"
+            disabled={busy}
+            onClick={() => {
+              setValidation("");
+              const notes = questionNotes(questions, drafts);
+              answer({ decline: true, ...(notes ? { notes } : {}) });
+            }}
+          >
+            {copy.decline}
+          </button>
+        )}
       </div>
     </form>
   );

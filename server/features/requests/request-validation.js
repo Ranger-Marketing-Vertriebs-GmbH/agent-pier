@@ -1,5 +1,6 @@
 import { problem } from "../../lib/storage.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
+import { previewLimit, notesLimit } from "./native-questions.js";
 const invalid = () => problem(copy.invalid, 400);
 export const validSession = (id) =>
   typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id);
@@ -16,6 +17,9 @@ export function requestValue(value) {
         id: option.id,
         label: option.label,
         ...(string(option.description, 8000) ? { description: option.description } : {}),
+        ...(string(option.preview, previewLimit) && option.preview.trim()
+          ? { preview: option.preview }
+          : {}),
         ...(["once", "turn", "session", "persistent"].includes(option.scope)
           ? { scope: option.scope }
           : {}),
@@ -67,9 +71,11 @@ export function requestValue(value) {
         multiple: q.multiple,
         allowOther: q.allowOther,
         ...(string(q.header, 1000) ? { header: q.header } : {}),
+        ...(q.notes === true ? { notes: true } : {}),
         ...(q.secret === true ? { secret: true } : {}),
       };
     });
+    if (value.declinable === true) result.declinable = true;
     if (new Set(result.questions.map((q) => q.id)).size !== result.questions.length)
       throw invalid();
   }
@@ -85,12 +91,14 @@ export function answerValue(request, input) {
       throw invalid();
     return { choice: input.choice };
   }
-  if (
-    input.choice !== undefined ||
-    !input.answers ||
-    typeof input.answers !== "object" ||
-    Array.isArray(input.answers)
-  )
+  if (input.choice !== undefined) throw invalid();
+  const notes = notesValue(request, input.notes);
+  if (input.decline !== undefined) {
+    if (input.decline !== true || !request.declinable || input.answers !== undefined)
+      throw invalid();
+    return { decline: true, ...(notes ? { notes } : {}) };
+  }
+  if (!input.answers || typeof input.answers !== "object" || Array.isArray(input.answers))
     throw invalid();
   if (Object.keys(input.answers).length !== request.questions.length) throw invalid();
   const answers = Object.create(null);
@@ -112,5 +120,17 @@ export function answerValue(request, input) {
       throw invalid();
     answers[question.id] = [...values];
   }
-  return { answers };
+  return { answers, ...(notes ? { notes } : {}) };
+}
+function notesValue(request, input) {
+  if (input === undefined) return null;
+  if (!input || typeof input !== "object" || Array.isArray(input)) throw invalid();
+  // Keys are checked against question IDs, so a plain object is safe here.
+  const notes = {};
+  for (const [id, value] of Object.entries(input)) {
+    const question = request.questions.find((q) => q.id === id);
+    if (!question?.notes || !string(value, notesLimit)) throw invalid();
+    if (value.trim()) notes[id] = value.trim();
+  }
+  return Object.keys(notes).length ? notes : null;
 }

@@ -338,7 +338,9 @@ export class RequestBroker {
         handoff
           ? "handoff"
           : entry.kind === "question"
-            ? "answer"
+            ? answer.decline
+              ? "deny"
+              : "answer"
             : ["deny", "decline", "reject", "cancel"].includes(input.choice)
               ? "deny"
               : "allow",
