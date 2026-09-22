@@ -135,7 +135,6 @@ export default function useChatController({ active, session, request, onConnecti
     stick.current = true;
     try {
       await withReadyUploads(deliveryScope(session), () => send(data?.messages || []));
-      setError("");
     } catch (err) {
       setError(err.message);
     } finally {
