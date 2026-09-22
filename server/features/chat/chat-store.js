@@ -214,7 +214,13 @@ export class ChatStore {
     this.cache.delete(id);
     return this.snapshot(session, nativeId, content);
   }
-  snapshot(session, nativeId, content, manualBindingSupported = true) {
+  snapshot(
+    session,
+    nativeId,
+    content,
+    manualBindingSupported = true,
+    { persist = true } = {},
+  ) {
     const result = {
       availability: "ready",
       manualBindingSupported,
@@ -228,10 +234,11 @@ export class ChatStore {
       tasks: content.tasks,
       observability: finalizeObservability(content.observability, session),
     };
-    writePrivate(this.file(session.id, "snapshot"), {
-      ...result,
-      scope: { accountId: session.accountId, tool: session.tool },
-    });
+    if (persist)
+      writePrivate(this.file(session.id, "snapshot"), {
+        ...result,
+        scope: { accountId: session.accountId, tool: session.tool },
+      });
     return result;
   }
   async choices(id) {
@@ -348,59 +355,41 @@ export class ChatStore {
     if (cached && Date.now() - cached.time < 1000)
       return { ...(await cached.promise), manualBindingSupported };
     const generation = this.generations.get(id);
-    const key = JSON.stringify([
+    const job = this.liveRead({
       id,
-      session.accountId,
-      session.tool,
-      binding.providerSessionId,
-      generation,
       epoch,
-    ]);
-    let timedOut = false;
-    let live = this.inflight.get(key);
-    if (!live) {
-      live = Promise.resolve()
-        .then(() => this.page(session, binding.providerSessionId))
-        .then(async (content) => {
-          await this.current(session, binding.providerSessionId, generation);
-          const result = this.snapshot(
-            session,
-            binding.providerSessionId,
-            content,
-            manualBindingSupported,
-          );
-          if (this.epoch(id) !== epoch) return result;
-          this.cache.set(id, { time: Date.now(), promise: Promise.resolve(result) });
-          if (timedOut)
-            this.events?.publish(id, "snapshot-changed", {
-              providerSessionId: binding.providerSessionId,
-            });
-          return result;
-        })
-        .finally(() => {
-          if (this.inflight.get(key) === live) this.inflight.delete(key);
-        });
-      this.inflight.set(key, live);
-    }
+      session,
+      nativeId: binding.providerSessionId,
+      generation,
+      manualBindingSupported,
+    });
+    const live = job.promise;
+    // An indexing placeholder (no page yet) must not hide a saved transcript.
+    const indexingStale = () => {
+      const saved = stale();
+      return { ...saved, history: { ...saved.history, indexing: true } };
+    };
+    const settle = (result) =>
+      result && job.placeholder && hasSaved ? indexingStale() : result;
     const promise = (async () => {
       try {
         if (hasSaved && session.status === "running") {
           let timer;
           const timeout = new Promise((resolve) => {
             timer = setTimeout(() => {
-              timedOut = true;
+              job.timedOut = true;
               resolve(null);
             }, this.liveHistoryTimeout);
           });
           try {
-            const result = await Promise.race([live, timeout]);
+            const result = settle(await Promise.race([live, timeout]));
             await this.current(session, binding.providerSessionId, generation);
             return result || stale();
           } finally {
             clearTimeout(timer);
           }
         }
-        return await live;
+        return settle(await live);
       } catch (error) {
         await this.current(session, binding.providerSessionId, generation);
         if (hasSaved) return stale();
@@ -425,8 +414,56 @@ export class ChatStore {
       throw error;
     }
   }
+  /**
+   * Single flight per session: at most one provider read runs and one follow-up
+   * waits. A source change while a read runs queues the follow-up instead of a
+   * parallel read; the follow-up samples the source epoch when it starts.
+   */
+  liveRead({ id, epoch, session, nativeId, generation, manualBindingSupported }) {
+    const key = JSON.stringify([
+      id,
+      session.accountId,
+      session.tool,
+      nativeId,
+      generation,
+    ]);
+    let slot = this.inflight.get(key);
+    if (!slot) this.inflight.set(key, (slot = { running: null, queued: null }));
+    if (slot.running && slot.running.epoch >= epoch) return slot.running;
+    if (slot.queued) return slot.queued;
+    const job = { timedOut: false, placeholder: false };
+    const start = async () => {
+      slot.queued = slot.queued === job ? null : slot.queued;
+      slot.running = job;
+      job.epoch = this.epoch(id);
+      const content = await this.page(session, nativeId);
+      await this.current(session, nativeId, generation);
+      job.placeholder = Boolean(content.indexing && !content.messages?.length);
+      // Only the newest source state may replace the saved snapshot and cache.
+      const fresh = this.epoch(id) === job.epoch;
+      const result = this.snapshot(session, nativeId, content, manualBindingSupported, {
+        persist: fresh && !job.placeholder,
+      });
+      if (!fresh || job.placeholder) return result;
+      this.cache.set(id, { time: Date.now(), promise: Promise.resolve(result) });
+      if (job.timedOut)
+        this.events?.publish(id, "snapshot-changed", { providerSessionId: nativeId });
+      return result;
+    };
+    const previous = slot.running?.promise;
+    job.promise = (previous ? previous.catch(() => {}).then(start) : start()).finally(
+      () => {
+        if (slot.running === job) slot.running = null;
+        if (!slot.running && !slot.queued && this.inflight.get(key) === slot)
+          this.inflight.delete(key);
+      },
+    );
+    if (previous) slot.queued = job;
+    return job;
+  }
   remove(id) {
     this.reset(id);
+    this.epochs.delete(id);
     for (const suffix of ["binding", "snapshot"])
       fs.rmSync(this.file(id, suffix), { force: true });
     this.cache.delete(id);

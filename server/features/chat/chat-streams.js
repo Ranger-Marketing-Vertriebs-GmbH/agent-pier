@@ -158,8 +158,9 @@ export class ChatStreams {
         entry.unwatchInput = null;
         entry.input = null;
       }
-      // A real source event invalidates the short HTTP cache, but the store owns
-      // single-flight history reads so an earlier slow request is never duplicated.
+      // A real source event invalidates the short HTTP cache. The store keeps one
+      // provider read per session and queues at most one follow-up, so a read that
+      // opened before the change is never reused and reads never pile up.
       // Completion hints announce a freshly cached background result. Re-reading
       // its source here would discard that result and restart a slow provider read.
       if (refreshSource || scopeChanged) {
