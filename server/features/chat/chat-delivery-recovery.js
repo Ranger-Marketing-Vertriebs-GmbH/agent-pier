@@ -137,6 +137,13 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
           receipt.journal = { phase, generation: tx.recoveryGeneration };
           delivery.write(file, receipt);
         },
+        onRefused: async (phase) => {
+          receipt.journal = {
+            phase: phase === "paste-intent" ? "reserved" : "pasted",
+            generation: tx.recoveryGeneration,
+          };
+          delivery.write(file, receipt);
+        },
       });
       receipt.status = "handed-off";
     } catch (error) {

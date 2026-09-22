@@ -203,6 +203,14 @@ export class ChatDelivery {
             this.write(file, receipt);
             mayHaveWritten = true;
           },
+          onRefused: async (phase) => {
+            receipt.journal = {
+              phase: phase === "paste-intent" ? "reserved" : "pasted",
+              generation: tx.recoveryGeneration,
+            };
+            this.write(file, receipt);
+            if (phase === "paste-intent") mayHaveWritten = false;
+          },
         });
       });
       receipt.status = "handed-off";

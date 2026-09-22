@@ -152,3 +152,25 @@ test("an Enter that Claude does not take is reported, never assumed", async () =
   });
   assert.deepEqual(model.lines, ["kept in prompt"]);
 });
+
+test("a refused intent guard lets the caller restore its last proven phase", async () => {
+  const model = claudePromptModel();
+  const manager = claudeModelManager(model);
+  const calls = [];
+  await chat.withChatInput(manager, "one", async (tx) => {
+    await assert.rejects(
+      tx.write("hello", {
+        allowComposerDraft: true,
+        onPhase: async (phase) => {
+          calls.push(phase);
+          // A native dialog opens while the intent is being persisted.
+          if (phase === "paste-intent") model.dialog = screens.permission;
+        },
+        onRefused: async (phase) => calls.push(`refused:${phase}`),
+      }),
+      { code: "CHAT_COMPOSER_DIALOG" },
+    );
+  });
+  assert.deepEqual(calls, ["paste-intent", "refused:paste-intent"]);
+  assert.deepEqual(manager.events, []);
+});
