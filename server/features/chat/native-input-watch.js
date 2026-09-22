@@ -3,7 +3,7 @@ import { chatInputSnapshot } from "../sessions/session-chat-input.js";
 import { nativeInputQueue } from "./native-input-queue.js";
 
 /** Output-only, size-neutral tmux control client. No keys, resize or terminal replay. */
-export function watchNativeInput({ sessions, session }, changed) {
+export function watchNativeInput({ sessions, session, onExit }, changed) {
   let closed = false,
     timer,
     reading = false,
@@ -77,12 +77,16 @@ export function watchNativeInput({ sessions, session }, changed) {
   child.stdin.on("error", () => {});
   // Data are only invalidation hints; no terminal output is stored or exposed.
   child.stdout.on("data", invalidate);
-  child.on("error", () => publish(null));
-  child.on("exit", () => {
+  const exited = () => {
+    if (closed) return;
     publish(null);
     closed = true;
     clearTimeout(timer);
-  });
+    // The owner must not keep a closed observer as if it were still attached.
+    onExit?.();
+  };
+  child.on("error", exited);
+  child.on("exit", exited);
   invalidate();
   return () => {
     closed = true;

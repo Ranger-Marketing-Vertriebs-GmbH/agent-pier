@@ -27,6 +27,7 @@ export class ChatStore {
     this.liveHistoryTimeout = liveHistoryTimeout;
     this.cache = new Map();
     this.inflight = new Map();
+    this.epochs = new Map();
     this.generations = new Map();
     this.cursors = new Map();
     this.cursorBytes = 0;
@@ -59,6 +60,11 @@ export class ChatStore {
   }
   invalidate(id) {
     this.cache.delete(id);
+    // Reads opened before a source change only see bytes up to their open size.
+    this.epochs.set(id, (this.epochs.get(id) || 0) + 1);
+  }
+  epoch(id) {
+    return this.epochs.get(id) || 0;
   }
   reset(id) {
     this.invalidate(id);
@@ -228,6 +234,7 @@ export class ChatStore {
     return this.history.list(session);
   }
   async read(id) {
+    const epoch = this.epoch(id);
     const session = { ...(await this.sessions.get(id)) };
     if (!this.generations.has(id)) this.generations.set(id, randomUUID());
     const initialGeneration = this.generations.get(id);
@@ -340,6 +347,7 @@ export class ChatStore {
       session.tool,
       binding.providerSessionId,
       generation,
+      epoch,
     ]);
     let timedOut = false;
     let live = this.inflight.get(key);
@@ -354,6 +362,7 @@ export class ChatStore {
             content,
             manualBindingSupported,
           );
+          if (this.epoch(id) !== epoch) return result;
           this.cache.set(id, { time: Date.now(), promise: Promise.resolve(result) });
           if (timedOut)
             this.events?.publish(id, "snapshot-changed", {
@@ -401,11 +410,11 @@ export class ChatStore {
         throw error;
       }
     })();
-    this.cache.set(id, { time: Date.now(), promise });
+    if (this.epoch(id) === epoch) this.cache.set(id, { time: Date.now(), promise });
     try {
       return { ...(await promise), manualBindingSupported };
     } catch (error) {
-      this.cache.delete(id);
+      if (this.cache.get(id)?.promise === promise) this.cache.delete(id);
       throw error;
     }
   }
