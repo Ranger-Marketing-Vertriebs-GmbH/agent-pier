@@ -98,3 +98,37 @@ for (const locale of ["de-DE", "en-GB"]) {
     });
   });
 }
+
+test.describe("en-GB", () => {
+  test.use({ locale: "en-GB" });
+  test("a leading tool group keeps its disclosure when older history arrives", async ({
+    page,
+  }) => {
+    await operationsFixture(page);
+    const data = {
+      availability: "ready",
+      providerSessionId: "native",
+      history: { generation: "one" },
+      tasks: [],
+      messages: [
+        command("leading"),
+        { ...command("unknown"), status: undefined },
+        { id: "a", role: "assistant", text: "Continuing." },
+      ],
+    };
+    const publish = await mockChatStream(page, () => data);
+    await page.goto("/sessions/fixture-session/chat");
+    const groups = page.locator(".chat-tool-group");
+    await expect(groups).toHaveCount(1);
+    await groups.first().locator(":scope > summary").click();
+    await expect(groups.first()).toHaveAttribute("open", "");
+    await expect(groups.first().locator(".chat-tool summary").nth(1)).toContainText(
+      "Details",
+    );
+    data.messages.unshift({ id: "older", role: "user", text: "Older prompt" });
+    await publish();
+    await expect(page.locator(".chat-messages")).toContainText("Older prompt");
+    await expect(groups).toHaveCount(1);
+    await expect(groups.first()).toHaveAttribute("open", "");
+  });
+});

@@ -24,7 +24,7 @@ export default function Message({ message, tool, sessionId, cwd, openFile }) {
               running: commonCopy.running,
               completed: commonCopy.completed,
               failed: commonCopy.failed,
-            }[message.status] || "Details"}
+            }[message.status] || copy.toolDetails}
           </small>
         </summary>
         {toolOpen &&

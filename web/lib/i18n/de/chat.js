@@ -51,6 +51,7 @@ export const chatMessageCopy = {
   toolCount: (count) => `${count} ${count === 1 ? "Aufruf" : "Aufrufe"}`,
   toolFailures: (count) => `${count} fehlgeschlagen`,
   chatToolLabel: "Tool-Aktivität",
+  toolDetails: "Details",
   ariaLabel: "Deine Nachricht",
   subtle: "[Bild",
 };
