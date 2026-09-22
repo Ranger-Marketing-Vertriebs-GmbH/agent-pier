@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
 import QuestionFields, { questionAnswers, questionNotes } from "./QuestionFields.jsx";
@@ -13,10 +13,18 @@ export default function QuestionDialog({
   const [drafts, setDrafts] = useState({});
   const [step, setStep] = useState(0);
   const [validation, setValidation] = useState("");
+  // Declining cannot be undone, so it takes a second, deliberate click.
+  const [confirmDecline, setConfirmDecline] = useState(false);
   const heading = useRef(null);
+  useEffect(() => {
+    if (!confirmDecline) return;
+    const timer = setTimeout(() => setConfirmDecline(false), 5000);
+    return () => clearTimeout(timer);
+  }, [confirmDecline]);
   const question = questions[step];
   const last = step === questions.length - 1;
   const navigate = (index) => {
+    setConfirmDecline(false);
     setStep(index);
     setValidation("");
     heading.current?.focus();
@@ -73,9 +81,10 @@ export default function QuestionDialog({
           question={question}
           value={drafts[question.id]}
           disabled={busy}
-          onChange={(value) =>
-            setDrafts((current) => ({ ...current, [question.id]: value }))
-          }
+          onChange={(value) => {
+            setConfirmDecline(false);
+            setDrafts((current) => ({ ...current, [question.id]: value }));
+          }}
         />
         <ErrorMessage error={validation} />
       </div>
@@ -96,15 +105,20 @@ export default function QuestionDialog({
         {declinable && (
           <button
             type="button"
-            className="button secondary native-question-decline"
+            className={`button ${confirmDecline ? "danger" : "secondary"} native-question-decline`}
             disabled={busy}
             onClick={() => {
               setValidation("");
+              if (!confirmDecline) {
+                setConfirmDecline(true);
+                return;
+              }
+              setConfirmDecline(false);
               const notes = questionNotes(questions, drafts);
               answer({ decline: true, ...(notes ? { notes } : {}) });
             }}
           >
-            {copy.decline}
+            {confirmDecline ? copy.declineConfirm : copy.decline}
           </button>
         )}
       </div>
