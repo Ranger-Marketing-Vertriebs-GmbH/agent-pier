@@ -115,10 +115,17 @@ export default function NativeRequest({ request, updated, openTerminal }) {
             disabled={action.busy}
             onClick={() =>
               action.run(async () => {
-                const result = await api(base + "/handoff", "POST", {
-                  expectedRevision: request.revision,
-                });
-                updated(result);
+                try {
+                  updated(
+                    await api(base + "/handoff", "POST", {
+                      expectedRevision: request.revision,
+                    }),
+                  );
+                } catch (error) {
+                  // An uncertain delivery is usually already settled natively
+                  // (stale); either way the terminal is where it continues.
+                  if (request.status !== "unknown") throw error;
+                }
                 openTerminal();
               })
             }
