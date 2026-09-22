@@ -7,6 +7,12 @@ import {
   requireCurrentChatInput,
 } from "../../application/request-input-guard.js";
 
+/** Stable, translatable identifier of a refused or unconfirmed terminal handoff. */
+export const deliveryReason = (error) =>
+  typeof error?.code === "string" && Object.hasOwn(copy.reasons, error.code)
+    ? error.code
+    : undefined;
+
 export async function recoverDelivery(delivery, id, deliveryId, body) {
   const { attemptId, expectedAttemptId, deliveryScope, text, mode } = body;
   const file = delivery.file(id, deliveryId);
@@ -77,8 +83,13 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
       (tx.composer.state !== "text" || tx.composer.text !== text.replace(/\r\n?/g, "\n"))
     )
       reason = copy.recoveryComposer;
-    const finish = (action, explanation) => {
-      receipt.recovery = { action, reason: explanation, requestId };
+    const finish = (action, explanation, code) => {
+      receipt.recovery = {
+        action,
+        reason: code ? copy.reasons[code] : explanation,
+        requestId,
+        ...(code ? { code } : {}),
+      };
       const result = { ...delivery.result(receipt, file), recovery: receipt.recovery };
       receipt.recoveries ||= {};
       receipt.recoveries[requestId] = { requestHash, result };
@@ -111,9 +122,11 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
       baseline: nativeInputQueue(tx.session.tool, tx.raw, tx.pane),
     };
     receipt.status = "uncertain";
+    delete receipt.reason;
     // Keep the last proven phase until the writer persists its next intent.
     delivery.write(file, receipt);
     delivery.active.add(file);
+    let code;
     try {
       await tx.write(text.replace(/\r\n?/g, "\n"), {
         submitOnly,
@@ -126,8 +139,10 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
         },
       });
       receipt.status = "handed-off";
-    } catch {
+    } catch (error) {
       receipt.status = receipt.journal.phase === "reserved" ? "rejected" : "uncertain";
+      code = deliveryReason(error);
+      if (code) receipt.reason = code;
     } finally {
       delivery.active.delete(file);
     }
@@ -142,6 +157,7 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
         : receipt.status === "rejected"
           ? copy.rejected
           : copy.recoveryUncertain,
+      code,
     );
   });
 }

@@ -143,7 +143,8 @@ test("fresh chat input never pastes into Claude onboarding dialogs before reques
       });
       assert.deepEqual(manager.events, []);
     }
-    // After the native receipt only the specific dialogs remain recognized.
+    // After the native receipt only the specific dialogs remain startup requests;
+    // any other native menu is refused by the Claude prompt-box guard instead.
     const { pidStart } = await import("../../vendor/agentbus/core/proc.js");
     await fs.writeFile(
       path.join(root, "native-sessions", "one.receipt.json"),
@@ -175,14 +176,14 @@ test("fresh chat input never pastes into Claude onboarding dialogs before reques
       });
       manager.screen = screen;
       await chat.withChatInput(manager, "one", async (tx) => {
-        if (blocked)
-          await assert.rejects(tx.write("hello", { allowComposerDraft: true }), {
-            status: 409,
-            message: /Anfrage/,
-          });
-        else await tx.write("hello", { allowComposerDraft: true });
+        await assert.rejects(
+          tx.write("hello", { allowComposerDraft: true }),
+          blocked
+            ? { status: 409, message: /Anfrage/ }
+            : { status: 409, code: "CHAT_COMPOSER_DIALOG" },
+        );
       });
-      assert.equal(manager.events.length > 0, !blocked);
+      assert.deepEqual(manager.events, []);
     }
   } finally {
     await fs.rm(root, { recursive: true, force: true });

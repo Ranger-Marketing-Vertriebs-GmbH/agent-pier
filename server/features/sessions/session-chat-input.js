@@ -11,6 +11,13 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { isNativeSlashCommand, sendSlashCommand } from "./session-slash-command.js";
 import { problem } from "../../lib/storage.js";
 import { claudeComposerImages, waitForClaudeImagePaste } from "./claude-image-paste.js";
+import {
+  assertClaudeComposer,
+  claudeComposerState,
+  clearClaudeComposer,
+  confirmClaudeSubmit,
+  composerProblem,
+} from "./claude-composer.js";
 
 export function normalizeChatText(text) {
   if (typeof text !== "string" || !text || text.length > 32000)
@@ -26,7 +33,12 @@ export async function writeChatTuiInput(
   manager,
   session,
   value,
-  { submitOnly = false, initialImages = 0, onPhase = async () => {} } = {},
+  {
+    submitOnly = false,
+    initialImages = 0,
+    onPhase = async () => {},
+    confirmSubmit = async () => {},
+  } = {},
 ) {
   const text = normalizeChatText(value);
   const target = `${manager.target(session.id)}:0.0`;
@@ -61,6 +73,7 @@ export async function writeChatTuiInput(
   await onPhase("submit-intent");
   await manager.tmux(["send-keys", "-t", target, "Enter"]);
   await onPhase("submitted");
+  await confirmSubmit({ slash });
 }
 
 // Native release validation is separate from transport and screen characterization.
@@ -329,6 +342,18 @@ export async function chatInputSnapshot(manager, session) {
   };
 }
 
+/** Enter must only follow a paste Claude actually shows in its prompt box. */
+async function awaitClaudePaste(snapshot, state, timeoutMs = 2000) {
+  const deadline = performance.now() + timeoutMs;
+  for (;;) {
+    const current = state(await snapshot());
+    if (["text", "draft"].includes(current.state)) return;
+    if (current.state !== "empty") assertClaudeComposer(current, ["text", "draft"]);
+    if (performance.now() >= deadline) throw composerProblem("CHAT_SUBMIT_UNCONFIRMED");
+    await sleep(25);
+  }
+}
+
 /** Inspection and optional writing share the exact lock used by terminal input. */
 export function withChatInput(manager, id, operation) {
   if (manager.replacing.has(id))
@@ -368,19 +393,29 @@ export function withChatInput(manager, id, operation) {
         ...initial,
         write: async (value, options = {}) => {
           const text = normalizeChatText(value);
-          const inspectComposer =
-            options.submitOnly === true || options.allowComposerDraft !== true;
+          const submitOnly = options.submitOnly === true;
+          const inspectComposer = submitOnly || options.allowComposerDraft !== true;
+          // Claude dialogs swallow a paste and take Enter as their confirmation.
+          // Fresh Claude input therefore requires its prompt box and replaces a draft.
+          const claude = session.tool === "claude";
+          const replace = claude && !submitOnly;
+          const claudeState = (fresh) =>
+            claudeComposerState(fresh.raw, fresh.pane, fresh.composer);
+          const snapshot = () => check(text, false, false);
           if (attempted || checking)
             throw problem("Chat input was already attempted", 409);
           checking = true;
           let initialImages = 0;
           try {
-            const fresh = await check(text, options.submitOnly === true, inspectComposer);
-            if (session.tool === "claude")
+            let fresh = await check(text, submitOnly, inspectComposer && !replace);
+            // Replacing a draft already writes keys; never repeat it in this transaction.
+            attempted = true;
+            if (replace)
+              fresh = await clearClaudeComposer(manager, session, fresh, snapshot);
+            if (claude)
               initialImages = claudeComposerImages(
                 `${fresh.pane.width}|${fresh.pane.cursorY}\n${fresh.raw}`,
               );
-            attempted = true;
           } finally {
             checking = false;
           }
@@ -389,14 +424,17 @@ export function withChatInput(manager, id, operation) {
             initialImages,
             onPhase: async (phase) => {
               await options.onPhase?.(phase);
-              if (["paste-intent", "submit-intent"].includes(phase))
-                await check(
-                  text,
-                  options.submitOnly === true,
-                  inspectComposer &&
-                    (phase === "paste-intent" || options.submitOnly === true),
-                );
+              if (phase === "paste-intent") {
+                const fresh = await check(text, submitOnly, inspectComposer && !replace);
+                if (replace) assertClaudeComposer(claudeState(fresh), ["empty"]);
+              } else if (phase === "submit-intent") {
+                await check(text, submitOnly, inspectComposer && submitOnly);
+                if (replace) await awaitClaudePaste(snapshot, claudeState);
+              }
             },
+            confirmSubmit: claude
+              ? ({ slash }) => confirmClaudeSubmit(snapshot, { slash })
+              : undefined,
           });
         },
       });

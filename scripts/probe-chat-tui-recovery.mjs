@@ -154,14 +154,21 @@ export async function probeNativeRecovery(
   assert.equal((await sendFresh()).status, "handed-off");
   assert.equal(counts.paste - beforeFresh.paste, 1);
   assert.equal(counts.submit - beforeFresh.submit, 1);
+  // Claude replaces a leftover draft; Codex and OpenCode append to it.
+  const replaces = session.tool === "claude";
   for (let n = 0; n < 250; n++) {
     const screen = (await snapshot()).raw.replace(/\x1b\[[0-9;:]*m/g, "");
     if (
       screen.includes(`Synthetic response complete: AP_PROBE_APPEND`) &&
-      screen.includes(editedComposer.text + fresh.text)
+      screen.includes(editedComposer.text + fresh.text) !== replaces
     )
       break;
-    if (n === 249) throw new Error("Fresh chat input did not append to the native draft");
+    if (n === 249)
+      throw new Error(
+        replaces
+          ? "Fresh chat input did not replace the native draft"
+          : "Fresh chat input did not append to the native draft",
+      );
     await sleep(20);
   }
   const terminalChat = await probeTerminalChat({
@@ -178,6 +185,7 @@ export async function probeNativeRecovery(
     recoveryReplayWrites: 0,
     manuallyEditedDraft: "blocked",
     blockedWrites: 0,
-    freshInputAppended: true,
+    freshInputAppended: !replaces,
+    freshInputReplacedDraft: replaces,
   };
 }

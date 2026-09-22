@@ -145,4 +145,14 @@ export const chatDeliveryCopy = {
     "The saved draft cannot be read. It has not been overwritten; sending remains disabled.",
   timeout:
     "No confirmation received in time. Delivery will be checked when reconnecting.",
+  reasons: {
+    CHAT_COMPOSER_DIALOG:
+      "Claude is showing a dialog or picker. The message was not sent; answer or close the dialog in the TUI.",
+    CHAT_COMPOSER_UNAVAILABLE:
+      "Claude's input field cannot be identified safely. The message was not sent; please check the TUI.",
+    CHAT_COMPOSER_NOT_CLEARED:
+      "The existing draft in Claude's input field could not be replaced safely. The message was not sent; please check the TUI.",
+    CHAT_SUBMIT_UNCONFIRMED:
+      "Claude did not confirm that it accepted the message. Check the TUI before sending again.",
+  },
 };
