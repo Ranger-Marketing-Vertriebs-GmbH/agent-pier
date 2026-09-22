@@ -117,15 +117,20 @@ export async function runClaudeHook({
       clearTimeout(connectTimer);
       if (finished) return;
       channel.publish(key, request.view, async (answer) => {
-        const result = request.answer(answer);
-        if (result)
-          await new Promise((resolve, reject) =>
-            output.write(JSON.stringify(result) + "\n", (error) =>
-              error ? reject(error) : resolve(),
-            ),
-          );
-        // Let the transport acknowledge the consumed occurrence before exiting the hook.
-        setTimeout(finish, 25);
+        try {
+          const result = request.answer(answer);
+          if (result)
+            await new Promise((resolve, reject) =>
+              output.write(JSON.stringify(result) + "\n", (error) =>
+                error ? reject(error) : resolve(),
+              ),
+            );
+        } finally {
+          // Let the transport acknowledge the consumed occurrence before exiting
+          // the hook. A failed delivery also exits, so Claude falls back to its
+          // own dialog instead of waiting for the hook timeout.
+          setTimeout(finish, 25);
+        }
       });
     });
   });

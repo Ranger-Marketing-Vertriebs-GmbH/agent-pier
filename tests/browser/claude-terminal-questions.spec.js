@@ -86,23 +86,59 @@ for (const locale of ["de-DE", "en-GB"]) {
       await expect(page.locator(".terminal-pane").getByRole("alert")).toHaveCount(0);
     });
 
-    test("uncertain questions and ordinary permissions are never automatically answered or retried", async ({
+    test("uncertain questions are released once and ordinary permissions never", async ({
       page,
     }) => {
       const state = await operationsFixture(page, { tool: "claude" });
       state.requests = [
-        { ...question, status: "unknown" },
+        { ...question, status: "unknown", revision: 2 },
         { ...question, id: "permission", kind: "permission", subject: { tool: "Bash" } },
       ];
+      state.fail = "/sessions/fixture-session/requests/terminal-question/handoff";
       await page.goto("/sessions/fixture-session/terminal");
-      await expect(page.locator(".terminal-pane").getByRole("alert")).toContainText(
-        locale === "de-DE" ? "Zustellung unklar" : "Delivery uncertain",
-      );
+      await expect.poll(() => handoffs(state).length).toBe(1);
+      expect(handoffs(state)[0]).toMatchObject({
+        path: "/sessions/fixture-session/requests/terminal-question/handoff",
+        body: { expectedRevision: 2 },
+      });
       await expect
         .poll(() => state.calls.filter((call) => call.path.endsWith("/requests")).length)
-        .toBeGreaterThan(1);
-      expect(handoffs(state)).toHaveLength(0);
+        .toBeGreaterThan(3);
+      // A failed release of an uncertain delivery is not retried in a loop.
+      expect(handoffs(state)).toHaveLength(1);
       expect(state.calls.filter((call) => call.path.endsWith("/answer"))).toHaveLength(0);
+    });
+
+    test("an unfocused terminal tab leaves questions to the focused device", async ({
+      page,
+    }) => {
+      await page.addInitScript(() => {
+        window.terminalFocused = false;
+        document.hasFocus = () => window.terminalFocused;
+      });
+      const state = await operationsFixture(page, { tool: "claude" });
+      state.requests = [question];
+      await page.goto("/sessions/fixture-session/terminal");
+      await expect(page.locator(".terminal-mount .xterm")).toBeVisible();
+      await page.waitForTimeout(2000);
+      expect(handoffs(state)).toHaveLength(0);
+      await page.evaluate(() => {
+        window.terminalFocused = true;
+        window.dispatchEvent(new Event("focus"));
+      });
+      await expect.poll(() => handoffs(state).length).toBe(1);
+    });
+
+    test("a question in use on another device is not taken over", async ({ page }) => {
+      const state = await operationsFixture(page, { tool: "claude" });
+      state.requests = [{ ...question, interaction: { client: "phone", age: 500 } }];
+      await page.goto("/sessions/fixture-session/terminal");
+      await expect
+        .poll(() => state.calls.filter((call) => call.path.endsWith("/requests")).length)
+        .toBeGreaterThan(2);
+      expect(handoffs(state)).toHaveLength(0);
+      state.requests = [{ ...question, interaction: { client: "phone", age: 45000 } }];
+      await expect.poll(() => handoffs(state).length).toBe(1);
     });
 
     test("a hidden terminal does not take questions away from chat on another device", async ({
