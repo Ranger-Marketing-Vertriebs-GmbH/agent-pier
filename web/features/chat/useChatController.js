@@ -65,6 +65,8 @@ export default function useChatController({ active, session, request, onConnecti
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
+  // Synchronous guard: a double Enter must not start a second send before state updates.
+  const submitting = useRef(false);
   const output = useRef(null),
     outputHeight = useRef(0),
     stick = useRef(true),
@@ -111,6 +113,7 @@ export default function useChatController({ active, session, request, onConnecti
   async function submit(event) {
     event.preventDefault();
     if (
+      submitting.current ||
       session.pipeline?.headless ||
       (!text.trim() && !attachments.length) ||
       busy ||
@@ -126,13 +129,17 @@ export default function useChatController({ active, session, request, onConnecti
       setError(attachmentCopy.tooLong);
       return;
     }
+    submitting.current = true;
     setError("");
     setSent(false);
     stick.current = true;
     try {
       await withReadyUploads(deliveryScope(session), () => send(data?.messages || []));
+      setError("");
     } catch (err) {
       setError(err.message);
+    } finally {
+      submitting.current = false;
     }
   }
 
