@@ -145,6 +145,8 @@ export const chatDeliveryCopy = {
     "The saved draft cannot be read. It has not been overwritten; sending remains disabled.",
   timeout:
     "No confirmation received in time. Delivery will be checked when reconnecting.",
+  absentHint:
+    "The server did not accept this message. You can edit it or retry the handoff.",
   reasons: {
     CHAT_COMPOSER_DIALOG:
       "Claude is showing a dialog or picker. The message was not sent; answer or close the dialog in the TUI.",

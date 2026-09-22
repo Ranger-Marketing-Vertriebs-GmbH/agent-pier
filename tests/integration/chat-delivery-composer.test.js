@@ -139,3 +139,24 @@ test("an unconfirmed Claude submit is uncertain with a stable reason", async (t)
   assert.equal(hidden.reason, undefined);
   assert.ok(!JSON.stringify(hidden).includes("secret-token"));
 });
+
+test("maximum-length multi-byte chat input fits the input and recovery routes", async (t) => {
+  const x = await setup(t, async (text, { onPhase }, state) => {
+    await onPhase("paste-intent");
+    state.writes.push(text.length);
+    await onPhase("pasted");
+    await onPhase("submit-intent");
+    await onPhase("submitted");
+  });
+  // 32000 characters of three UTF-8 bytes each exceed the global 64 kB JSON limit.
+  const input = x.body("東".repeat(31999) + "\n");
+  assert.ok(Buffer.byteLength(JSON.stringify(input)) > 64 * 1024);
+  assert.equal((await x.post(input)).status, "handed-off");
+  assert.deepEqual(x.state.writes, [32000]);
+  assert.equal((await x.recover(input)).status, "handed-off");
+  const tooLarge = await x.f.request(inputPath, {
+    method: "POST",
+    body: { ...x.body(), text: "x".repeat(300 * 1024) },
+  });
+  assert.equal(tooLarge.status, 413);
+});

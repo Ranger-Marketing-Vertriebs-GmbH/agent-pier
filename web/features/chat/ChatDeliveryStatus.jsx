@@ -53,6 +53,7 @@ export default function ChatDeliveryStatus({
         {!native && !delivery.sending && (
           <div className="chat-delivery-actions">
             {item.status === "uncertain" && <p>{copy.uncertainHint}</p>}
+            {pending && item.status === "absent" && <p>{copy.absentHint}</p>}
             {pending && item.status === "absent" && (
               <button
                 type="button"
@@ -88,7 +89,7 @@ export default function ChatDeliveryStatus({
                 {copy.openTerminal}
               </button>
             )}
-            {pending && ["uncertain", "rejected"].includes(item.status) && (
+            {pending && ["uncertain", "rejected", "absent"].includes(item.status) && (
               <button
                 type="button"
                 className="button"
@@ -100,15 +101,18 @@ export default function ChatDeliveryStatus({
             )}
           </div>
         )}
-        {!native && !pending && item.status === "handed-off" && !recovering && (
-          <button
-            type="button"
-            className="chat-delivery-dismiss"
-            onClick={() => delivery.draft.dismiss(item.id)}
-          >
-            {copy.dismiss}
-          </button>
-        )}
+        {!native &&
+          !pending &&
+          ["handed-off", "absent", "rejected"].includes(item.status) &&
+          !recovering && (
+            <button
+              type="button"
+              className="chat-delivery-dismiss"
+              onClick={() => delivery.draft.dismiss(item.id)}
+            >
+              {copy.dismiss}
+            </button>
+          )}
       </div>
     );
   });
