@@ -41,8 +41,15 @@ export function nativeInputQueue(tool, raw, pane) {
   } else if (tool === "claude") {
     if (!lines[row]?.includes("Press up to edit queued messages")) return [];
     let index = row - 2;
-    // Optional native effort indicator directly above the ruled composer.
-    if (/^\s*● \w+ · \/effort\s*$/.test(lines[index] || "")) index--;
+    // Optional right-aligned native hint (effort, Ctrl+Y, …) above the ruled composer.
+    if (
+      /^\s*● \w+ · \/effort\s*$/.test(lines[index] || "") ||
+      /^ {20,}\S[^\n]*$/.test(lines[index] || "")
+    )
+      index--;
+    // Claude Code 2.1.2xx+: unindented rows, blank separators, send-now hint.
+    if (/^\s*ctrl\+x ctrl\+s to send now\s*$/.test(lines[index] || ""))
+      return hashes(claudeQueue(styled, lines, index - 1), pane);
     for (; index >= 0; index--) {
       const match = styled[index].match(
         /^  \x1b\[38;2;80;80;80m\x1b\[48;2;55;55;55m❯ \x1b\[38;2;255;255;255m([^\x1b]+)\x1b\[39m *\x1b\[49m$/,
@@ -64,7 +71,39 @@ export function nativeInputQueue(tool, raw, pane) {
         values.push(match[1]);
     }
   }
-  // Never turn an ellipsis/paste summary or a clipped terminal row into a receipt.
+  return hashes(values, pane);
+}
+
+const gray = "\x1b\\[38;2;153;153;153m";
+const claudeHead = new RegExp(
+  `^(?:\x1b\\[[0-9;]*m)*❯[ \u00a0]${gray}([^\x1b]+)\x1b\\[39m[ ]*(?:\x1b\\[49m)?$`,
+);
+const claudeContinuation = new RegExp(`^(?:\x1b\\[[0-9;]*m)*  ${gray}[^\x1b]*\x1b\\[39m`);
+
+/** Queue rows above the send-now hint, bottom-up; multi-row entries stay unknown. */
+function claudeQueue(styled, lines, start) {
+  const values = [];
+  let continued = false;
+  for (let index = start; index >= 0; index--) {
+    if (!lines[index].trim()) {
+      if (continued) return values;
+      continue;
+    }
+    if (claudeContinuation.test(styled[index])) {
+      continued = true;
+      continue;
+    }
+    const head = claudeHead.exec(styled[index]);
+    if (!head) break;
+    // A wrapped row and an embedded newline look alike: never confirm either.
+    if (!continued) values.unshift(head[1]);
+    continued = false;
+  }
+  return values;
+}
+
+// Never turn an ellipsis/paste summary or a clipped terminal row into a receipt.
+function hashes(values, pane) {
   return values
     .filter(
       (text) =>

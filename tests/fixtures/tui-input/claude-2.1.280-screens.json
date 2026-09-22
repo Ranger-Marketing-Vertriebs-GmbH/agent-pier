@@ -1,0 +1,93 @@
+{
+  "version": "Claude Code 2.1.280, tmux 3.7c, 120x35, synthetic loopback provider",
+  "idle": {
+    "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▟███▟█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                                                                      \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ \u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on · ? for shortcuts · ← for agents\u001b[39m\n",
+    "pane": {
+      "cursorX": 2,
+      "cursorY": 32,
+      "width": 120,
+      "height": 35
+    }
+  },
+  "permission": {
+    "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;255;255;255mAP_PROBE_WARM hi\u001b[39m\n\n\u001b[38;2;255;255;255m\u001b[49m⏺\u001b[39m Synthetic reply.\n\n\u001b[38;2;153;153;153m✻\u001b[39m \u001b[38;2;153;153;153mBaked for 0s · done 11:09 PM\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;255;255;255mAP_PROBE_TOOL please run it\u001b[39m\n\n\u001b[38;2;153;153;153m\u001b[49m⏺\u001b[39m Creating marker\n\u001b[38;2;153;153;153m  ⎿  $ touch APPROVED_MARKER\u001b[39m\n\n\u001b[38;2;177;185;249m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[39m \u001b[1m\u001b[38;2;177;185;249mBash command\u001b[0m\n \u001b[1mTip: auto mode handles these prompts for you — choose \"switch to auto mode\" below\u001b[0m\n\n   touch APPROVED_MARKER\n   \u001b[38;2;153;153;153mCreate marker\u001b[39m\n\n Do you want to proceed?\n \u001b[38;2;177;185;249m❯\u001b[39m \u001b[38;2;153;153;153m1. \u001b[38;2;177;185;249mYes\u001b[39m\n   \u001b[38;2;153;153;153m2. \u001b[39mYes, and always allow access to \u001b[1m/fixture/project\u001b[0m from this project\n\n   \u001b[38;2;153;153;153m3. \u001b[39mYes, and switch to auto mode\u001b[38;2;153;153;153m · auto mode handles these prompts for you\u001b[39m\n   \u001b[38;2;153;153;153m4. \u001b[39mNo\n\n \u001b[38;2;153;153;153mEsc to cancel · Tab to amend\u001b[39m\n\n\n\n",
+    "pane": {
+      "cursorX": 1,
+      "cursorY": 25,
+      "width": 120,
+      "height": 35
+    }
+  },
+  "rewind": {
+    "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;255;255;255mAP_PROBE_WARM hi\u001b[39m\n\n\u001b[38;2;255;255;255m\u001b[49m⏺\u001b[39m Synthetic reply.\n\n\u001b[38;2;153;153;153m✻\u001b[39m \u001b[38;2;153;153;153mBaked for 0s · done 11:09 PM\n\n\n\n\n\n\n\n\n\n\n\n\u001b[38;2;177;185;249m▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\u001b[39m \u001b[38;2;153;153;153m● high · /effort\u001b[38;2;177;185;249m ▔\n\u001b[39m   \u001b[1m\u001b[38;2;177;185;249mRewind\u001b[0m\n\n   Restore the code and/or conversation to the point before…\n\n     AP_PROBE_WARM hi\n     \u001b[38;2;153;153;153mNo code changes\u001b[39m\n\n   \u001b[1m\u001b[38;2;177;185;249m❯ \u001b[0;3m\u001b[38;2;177;185;249m(current)\u001b[0m\n\n\n\n   \u001b[3m\u001b[38;2;153;153;153mEnter to continue · Esc to cancel\u001b[0m\n",
+    "pane": {
+      "cursorX": 0,
+      "cursorY": 34,
+      "width": 120,
+      "height": 35
+    }
+  },
+  "modelPicker": {
+    "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;255;255;255mAP_PROBE_WARM hi\u001b[39m\n\n\u001b[38;2;255;255;255m\u001b[49m⏺\u001b[39m Synthetic reply.\n\n\u001b[38;2;153;153;153m✻\u001b[39m \u001b[38;2;153;153;153mBaked for 0s · done 11:09 PM\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;255;255;255mAP_PROBE_TOOL please run it\u001b[39m\n\n\u001b[38;2;153;153;153m\u001b[49m⏺\u001b[39m Running \u001b[1m1\u001b[0m shell command…\n\u001b[38;2;153;153;153m  ⎿  Interrupted · What should Claude do instead?\u001b[39m\n\u001b[38;2;153;153;153m  ⎿  $ touch APPROVED_MARKER\u001b[39m\n\n\u001b[38;2;153;153;153m✻\u001b[39m \u001b[38;2;153;153;153mCogitated for 0s · done 11:09 PM\u001b[39m\n\u001b[38;2;177;185;249m▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\u001b[39m \u001b[38;2;153;153;153m● high · /effort\u001b[38;2;177;185;249m ▔\n\u001b[39m   \u001b[1m\u001b[38;2;177;185;249mSelect model\u001b[0m\n   \u001b[38;2;153;153;153mSwitch between Claude models. Your pick becomes the default for new sessions. For other/previous model names, \u001b[39m\n   \u001b[38;2;153;153;153mspecify with --model.\u001b[39m\n\n     \u001b[38;2;153;153;153m1. \u001b[39mDefault (recommended)  \u001b[38;2;153;153;153mUse the default model (currently \u001b[38;2;215;119;87mOpus 5.5\u001b[38;2;153;153;153m (1M context)) · $4/$20 per Mtok\u001b[39m\n     \u001b[38;2;153;153;153m2. \u001b[39mOpus (1M context)      \u001b[38;2;215;119;87mOpus 5.5\u001b[38;2;153;153;153m with 1M context · Best for everyday, complex tasks · $4/$20 per Mtok\u001b[39m\n     \u001b[38;2;153;153;153m3. \u001b[39mFable                  \u001b[38;2;153;153;153mFable 5.1 · Most capable for your hardest and longest-running tasks · $10/$50 per Mtok\u001b[39m\n     \u001b[38;2;153;153;153m4. \u001b[39mSonnet                 \u001b[38;2;153;153;153mSonnet 5 · Efficient for routine tasks · $2/$10 per Mtok\u001b[39m\n     \u001b[38;2;153;153;153m5. \u001b[39mSonnet 5 (1M context)  \u001b[38;2;153;153;153mSonnet 5 for long sessions · $2/$10 per Mtok\u001b[39m\n     \u001b[38;2;153;153;153m6. \u001b[39mHaiku                  \u001b[38;2;153;153;153mHaiku 4.5 · Fastest for quick answers · $1/$5 per Mtok\u001b[39m\n   \u001b[38;2;177;185;249m❯\u001b[39m \u001b[38;2;153;153;153m7. \u001b[38;2;78;186;101mSonnet 4.6\u001b[39m \u001b[38;2;78;186;101m✔\u001b[39m           \u001b[38;2;153;153;153mNewer version available · select Sonnet for Sonnet 5\u001b[39m\n\n   \u001b[38;2;215;119;87m●\u001b[38;2;153;153;153m High effort (default)\u001b[38;2;80;80;80m ←/→ to adjust\u001b[39m\n\n   \u001b[38;2;153;153;153mEnter to set as default · s to use this session only · Esc to cancel\u001b[39m\n",
+    "pane": {
+      "cursorX": 3,
+      "cursorY": 30,
+      "width": 120,
+      "height": 35
+    }
+  },
+  "multilineDraft": {
+    "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                                                                 \u001b[38;2;153;153;153mctrl+g to edit in Vim\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ old one\n  old two\n  old three\u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+    "pane": {
+      "cursorX": 11,
+      "cursorY": 32,
+      "width": 120,
+      "height": 35
+    }
+  },
+  "imageDraft": {
+    "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                                                                 \u001b[38;2;153;153;153mctrl+g to edit in Vim\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ [Image #1]look at\n  second line\u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+    "pane": {
+      "cursorX": 13,
+      "cursorY": 32,
+      "width": 120,
+      "height": 35
+    }
+  },
+  "pastedDraft": {
+    "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                                                          \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ [Pasted text #2 +29 lines]\u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153mpaste again to expand\u001b[39m\n",
+    "pane": {
+      "cursorX": 28,
+      "cursorY": 32,
+      "width": 120,
+      "height": 35
+    }
+  },
+  "queueOne": {
+    "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mAP_PROBE_SLOW hold\u001b[39m\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[38;2;215;119;87m\u001b[49m·\u001b[39m \u001b[38;2;215;119;87mCrystallizing… \u001b[39m\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mAP_PROBE_ONE queued\u001b[39m\n\u001b[49m  \u001b[38;2;153;153;153mctrl+x ctrl+s to send now\u001b[39m\n                                                                                          \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[38;2;153;153;153m❯ \u001b[7m\u001b[39mP\u001b[0;2mress up to edit queued messages\u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153mpaste again to expand\u001b[39m\n",
+    "pane": {
+      "cursorX": 2,
+      "cursorY": 32,
+      "width": 120,
+      "height": 35
+    }
+  },
+  "queueTwo": {
+    "raw": "\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;255;255;255mAP_PROBE_WARM hi\u001b[39m\n\n\u001b[38;2;255;255;255m\u001b[49m⏺\u001b[39m Synthetic reply.\n\n\u001b[38;2;153;153;153m✻\u001b[39m \u001b[38;2;153;153;153mBaked for 0s · done 11:09 PM\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;255;255;255mAP_PROBE_TOOL please run it\u001b[39m\n\n\u001b[49m  \u001b[38;2;153;153;153mRan \u001b[1m1\u001b[0m\u001b[38;2;153;153;153m shell command \u001b[39m\n\u001b[38;2;153;153;153m  ⎿  Interrupted · What should Claude do instead?\u001b[39m\n\n\u001b[38;2;153;153;153m✻\u001b[39m \u001b[38;2;153;153;153mCogitated for 0s · done 11:09 PM\u001b[39m\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯\u001b[39m \u001b[38;2;255;255;255m/model\u001b[39m \u001b[49m\n\u001b[38;2;153;153;153m  ⎿  \u001b[39mKept model as \u001b[38;2;177;185;249mSonnet 4.6\u001b[39m\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mAP_PROBE_SLOW hold\u001b[39m\n\n\u001b[38;2;215;119;87m\u001b[49m✻\u001b[39m \u001b[38;2;215;119;87mSchlepping… \u001b[39m\n\u001b[38;2;153;153;153m  ⎿  Tip: Use /memory to view and manage Claude memory\u001b[39m\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mfirst queued\u001b[39m\n\u001b[49m\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153msecond queued\u001b[39m\n\u001b[49m  \u001b[38;2;153;153;153mctrl+x ctrl+s to send now\u001b[39m\n                                                                                                      \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[38;2;153;153;153m❯ \u001b[7m\u001b[39mP\u001b[0;2mress up to edit queued messages\u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on · esc to interrupt · ← for agents\u001b[39m\n",
+    "pane": {
+      "cursorX": 2,
+      "cursorY": 32,
+      "width": 120,
+      "height": 35
+    }
+  },
+  "queueMixed": {
+    "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mAP_PROBE_SLOW hold\u001b[39m\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[38;2;215;119;87m\u001b[49m✻\u001b[39m \u001b[38;2;215;119;87mCrystallizing… \u001b[39m\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mAP_PROBE_ONE queued\u001b[39m\n\n\u001b[38;2;80;80;80m❯ \u001b[38;2;153;153;153mmulti queued\u001b[39m\n  \u001b[38;2;153;153;153msecond row\u001b[39m\n\n\u001b[38;2;80;80;80m❯ \u001b[38;2;153;153;153mAP_PROBE_THREE queued\u001b[39m\n\u001b[49m  \u001b[38;2;153;153;153mctrl+x ctrl+s to send now\u001b[39m\n                                                                                                      \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[38;2;153;153;153m❯ \u001b[7m\u001b[39mP\u001b[0;2mress up to edit queued messages\u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153mpaste again to expand\u001b[39m\n",
+    "pane": {
+      "cursorX": 2,
+      "cursorY": 32,
+      "width": 120,
+      "height": 35
+    }
+  }
+}
