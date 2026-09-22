@@ -58,6 +58,10 @@ export const requestCopy = {
   required: "Please answer every question fully.",
   other: "Other answer",
   otherLabel: (prompt) => `Other answer: ${prompt}`,
+  decline: "Decline",
+  note: "Note for Claude (optional)",
+  noteLabel: (prompt) => `Note for Claude: ${prompt}`,
+  preview: (label) => `Preview: ${label}`,
   details: "Requested action",
   cwd: "Working directory",
   scopes: {

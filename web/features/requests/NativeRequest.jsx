@@ -101,6 +101,7 @@ export default function NativeRequest({ request, updated, openTerminal }) {
             questions={request.questions || []}
             busy={action.busy || !pending}
             answer={answer}
+            declinable={request.declinable === true}
             onInteract={() => pending && touchRequest(request)}
           />
         </div>

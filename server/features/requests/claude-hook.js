@@ -2,10 +2,20 @@ import { isMainModule } from "../../lib/is-main-module.js";
 import { randomUUID } from "node:crypto";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { NativeRequestChannel } from "./native-channel.js";
-import { questionsView, questionAnswers } from "./native-questions.js";
+import { questionsView, questionAnswers, claudeAnnotations } from "./native-questions.js";
 import { claudeHookVersion, claudeHookTimeoutSeconds } from "./claude-runtime.js";
 import { requestValue } from "./request-validation.js";
 
+// Model-facing text stays English like Claude's own tool results.
+function declineReason(questions, notes = {}) {
+  const details = questions
+    .map((question, i) => notes[`q${i}`] && `"${question.question}": ${notes[`q${i}`]}`)
+    .filter(Boolean);
+  return [
+    "The user declined to answer these questions in AgentPier chat. Do not assume any answer.",
+    ...(details.length ? [`User notes: ${details.join("; ")}`] : []),
+  ].join("\n");
+}
 export function claudeRequest(data) {
   if (
     ["PreToolUse", "PermissionRequest"].includes(data.hook_event_name) &&
@@ -15,10 +25,31 @@ export function claudeRequest(data) {
     // PermissionRequest. It still needs answers, not a bare tool approval.
     const questions = data.tool_input?.questions;
     if (!Array.isArray(questions) || !questions.length) return null;
+    const permission = data.hook_event_name === "PermissionRequest";
     return {
-      view: { kind: "question", questions: questionsView(questions, "claude") },
+      view: {
+        kind: "question",
+        questions: questionsView(questions, "claude"),
+        declinable: true,
+      },
       answer: (input) => {
         if (input.handoff) return null;
+        if (input.decline) {
+          const reason = declineReason(questions, input.notes);
+          return {
+            hookSpecificOutput: permission
+              ? {
+                  hookEventName: "PermissionRequest",
+                  decision: { behavior: "deny", message: reason },
+                }
+              : {
+                  hookEventName: "PreToolUse",
+                  permissionDecision: "deny",
+                  permissionDecisionReason: reason,
+                },
+          };
+        }
+        const annotations = claudeAnnotations(questions, input);
         const updatedInput = {
           ...data.tool_input,
           answers: Object.fromEntries(
@@ -27,19 +58,19 @@ export function claudeRequest(data) {
               answers.join(", "),
             ]),
           ),
+          ...(annotations ? { annotations } : {}),
         };
         return {
-          hookSpecificOutput:
-            data.hook_event_name === "PermissionRequest"
-              ? {
-                  hookEventName: "PermissionRequest",
-                  decision: { behavior: "allow", updatedInput },
-                }
-              : {
-                  hookEventName: "PreToolUse",
-                  permissionDecision: "allow",
-                  updatedInput,
-                },
+          hookSpecificOutput: permission
+            ? {
+                hookEventName: "PermissionRequest",
+                decision: { behavior: "allow", updatedInput },
+              }
+            : {
+                hookEventName: "PreToolUse",
+                permissionDecision: "allow",
+                updatedInput,
+              },
         };
       },
     };

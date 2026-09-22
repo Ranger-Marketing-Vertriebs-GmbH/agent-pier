@@ -131,6 +131,30 @@ test("an uncertain Claude question can still be handed off to the terminal", asy
   assert.equal(f.events.at(-1).action, "request.handed-off");
 });
 
+for (const event of ["PreToolUse", "PermissionRequest"])
+  test(`declining a ${event} question denies AskUserQuestion with a reason`, async (t) => {
+    const f = await fixture(t);
+    const run = hook(f, { event });
+    const ask = await pending(f);
+    assert.equal(ask.declinable, true);
+    await f.broker.answer("session", ask.id, {
+      expectedRevision: 1,
+      decline: true,
+      notes: { q0: "Not now" },
+    });
+    await run.done;
+    const output = JSON.parse(run.output()).hookSpecificOutput;
+    const reason =
+      event === "PreToolUse"
+        ? (assert.equal(output.permissionDecision, "deny"),
+          output.permissionDecisionReason)
+        : (assert.equal(output.decision.behavior, "deny"), output.decision.message);
+    assert.match(reason, /declined/);
+    assert.match(reason, /Not now/);
+    const answered = f.events.find((e) => e.action === "request.answered");
+    assert.equal(answered.details.decision, "deny");
+  });
+
 test("touching a dialog is visible to other clients without changing its revision", async (t) => {
   const f = await fixture(t);
   const run = hook(f);
@@ -148,6 +172,14 @@ test("touching a dialog is visible to other clients without changing its revisio
   await assert.rejects(f.broker.touch("session", "missing", { client: "a" }), {
     status: 409,
   });
-  await f.broker.handoff("session", ask.id, { expectedRevision: 1 });
+  await f.broker.answer("session", ask.id, {
+    expectedRevision: 1,
+    answers: { q0: ["Grid"] },
+    notes: { q0: "compact" },
+  });
   await run.done;
+  const input = JSON.parse(run.output()).hookSpecificOutput.updatedInput;
+  assert.deepEqual(input.annotations, {
+    "Which layout?": { preview: questions[0].options[0].preview, notes: "compact" },
+  });
 });

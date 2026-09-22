@@ -60,6 +60,58 @@
   line-height: 1.6;
   margin-bottom: 10px;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.native-question-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  align-items: flex-start;
+}
+.native-question-choices {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.native-question-preview {
+  flex: 2 1 260px;
+  min-width: 0;
+  max-width: 100%;
+  margin: 8px 0;
+}
+.native-question-preview figcaption {
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+.native-request .native-question-preview pre {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #111113;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  /* Mockups keep their columns; wide ones scroll inside the box, not the page. */
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow: auto;
+  max-height: 220px;
+}
+.native-question-note {
+  margin-top: 8px;
+}
+.native-question-note summary {
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.native-question-note textarea {
+  margin-top: 6px;
+}
+.native-question-decline {
+  margin-inline-start: auto;
 }
 .native-choice {
   display: flex;
@@ -98,6 +150,9 @@
   }
   .native-choice {
     min-height: 36px;
+  }
+  .native-request .native-question-preview pre {
+    max-height: 160px;
   }
 }
 
