@@ -422,14 +422,27 @@ export function withChatInput(manager, id, operation) {
           return writeChatTuiInput(manager, session, text, {
             ...options,
             initialImages,
+            // The intent is durable before its guard, so a change during the write
+            // is still caught. A refused guard proves no bytes were written: the
+            // caller restores its last proven phase instead of staying uncertain.
             onPhase: async (phase) => {
               await options.onPhase?.(phase);
-              if (phase === "paste-intent") {
-                const fresh = await check(text, submitOnly, inspectComposer && !replace);
-                if (replace) assertClaudeComposer(claudeState(fresh), ["empty"]);
-              } else if (phase === "submit-intent") {
-                await check(text, submitOnly, inspectComposer && submitOnly);
-                if (replace) await awaitClaudePaste(snapshot, claudeState);
+              if (!["paste-intent", "submit-intent"].includes(phase)) return;
+              try {
+                if (phase === "paste-intent") {
+                  const fresh = await check(
+                    text,
+                    submitOnly,
+                    inspectComposer && !replace,
+                  );
+                  if (replace) assertClaudeComposer(claudeState(fresh), ["empty"]);
+                } else {
+                  await check(text, submitOnly, inspectComposer && submitOnly);
+                  if (replace) await awaitClaudePaste(snapshot, claudeState);
+                }
+              } catch (error) {
+                await options.onRefused?.(phase);
+                throw error;
               }
             },
             confirmSubmit: claude

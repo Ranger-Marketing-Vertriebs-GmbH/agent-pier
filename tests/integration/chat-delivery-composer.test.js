@@ -71,6 +71,56 @@ async function setup(t, write) {
   return { f, state, body, post, recover, journal };
 }
 
+test("a dialog refused after the durable paste intent stays rejected and recoverable", async (t) => {
+  const x = await setup(t, async (text, { onPhase, onRefused }) => {
+    await onPhase("paste-intent");
+    await onRefused("paste-intent");
+    throw composerProblem("CHAT_COMPOSER_DIALOG");
+  });
+  const input = x.body();
+  const result = await x.post(input);
+  assert.equal(result.status, "rejected");
+  assert.equal(result.reason, "CHAT_COMPOSER_DIALOG");
+  assert.match(result.error, /Dialog/);
+  assert.equal(x.journal(input), "reserved");
+  const replay = await (
+    await x.f.request(
+      `${inputPath}/${input.deliveryId}?scope=${encodeURIComponent(scope)}`,
+    )
+  ).json();
+  assert.equal(replay.reason, "CHAT_COMPOSER_DIALOG");
+  // Recovery is not blocked by a phantom paste intent.
+  const check = await x.recover(input);
+  assert.equal(check.recovery.action, "none");
+});
+
+test("a refused submit intent keeps the proven pasted phase for submit-only recovery", async (t) => {
+  const x = await setup(t, async (text, { submitOnly, onPhase, onRefused }, state) => {
+    if (submitOnly) {
+      await onPhase("submit-intent");
+      state.writes.push("enter");
+      await onPhase("submitted");
+      state.composer = { state: "empty", text: null };
+      return;
+    }
+    await onPhase("paste-intent");
+    state.writes.push("paste");
+    state.composer = { state: "text", text };
+    await onPhase("pasted");
+    await onPhase("submit-intent");
+    await onRefused("submit-intent");
+    throw composerProblem("CHAT_COMPOSER_DIALOG");
+  });
+  const input = x.body();
+  const result = await x.post(input);
+  assert.equal(result.status, "uncertain");
+  assert.equal(x.journal(input), "pasted");
+  const retry = await x.recover(input, "retry");
+  assert.equal(retry.status, "handed-off");
+  assert.equal(retry.recovery.action, "submitted-existing");
+  assert.deepEqual(x.state.writes, ["paste", "enter"]);
+});
+
 test("an unconfirmed Claude submit is uncertain with a stable reason", async (t) => {
   const x = await setup(t, async (text, { onPhase }) => {
     for (const phase of ["paste-intent", "pasted", "submit-intent", "submitted"])
