@@ -125,10 +125,19 @@ test.describe("en-GB", () => {
     await expect(groups.first().locator(".chat-tool summary").nth(1)).toContainText(
       "Details",
     );
-    data.messages.unshift({ id: "older", role: "user", text: "Older prompt" });
+    // An older page ending with tool rows merges into the leading group.
+    data.messages.unshift(
+      { id: "older", role: "user", text: "Older prompt" },
+      command("older-tool"),
+    );
     await publish();
     await expect(page.locator(".chat-messages")).toContainText("Older prompt");
     await expect(groups).toHaveCount(1);
+    await expect(groups.first().locator(":scope > summary")).toContainText("3 calls");
+    await expect(groups.first()).toHaveAttribute("open", "");
+    data.messages.push(command("appended", "running"));
+    await publish();
+    await expect(groups).toHaveCount(2);
     await expect(groups.first()).toHaveAttribute("open", "");
   });
 });
