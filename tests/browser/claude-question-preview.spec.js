@@ -94,7 +94,8 @@ for (const locale of ["de-DE", "en-GB"]) {
           exact: true,
         });
         await expect(other).toHaveAttribute("dir", "auto");
-        await other.fill("Custom");
+        // Repeating a selected label must not fail the whole answer.
+        await other.fill("API");
         await expect.poll(() => calls(state, "/touch").length).toBeGreaterThan(0);
         expect(calls(state, "/touch")[0].body.client).toMatch(/^[A-Za-z0-9_-]+$/);
         if (width === 390 && en)
@@ -104,7 +105,7 @@ for (const locale of ["de-DE", "en-GB"]) {
         const body = calls(state, "/answer")[0].body;
         expect(body).toEqual({
           expectedRevision: 1,
-          answers: { q0: ["Grid"], q1: ["API", "Custom"] },
+          answers: { q0: ["Grid"], q1: ["API"] },
           notes: { q0: "Keep it compact" },
         });
         const input = adapter.answer(body).hookSpecificOutput.updatedInput;

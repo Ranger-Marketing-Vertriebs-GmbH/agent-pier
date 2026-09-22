@@ -7,7 +7,9 @@ export function questionAnswers(questions, drafts) {
       values = [...(draft.selected || [])];
     if (draft.other || !question.options.length) {
       if (!draft.text?.trim()) return null;
-      values.push(draft.text);
+      // Repeating a selected label as free text adds nothing; send it once.
+      if (!values.some((value) => value.trim() === draft.text.trim()))
+        values.push(draft.text);
     }
     if (!values.length) return null;
     answers[question.id] = values;
