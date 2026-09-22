@@ -453,6 +453,7 @@ export class ChatDraft {
           receipt.observation ||
           (incomingAttemptId === currentAttemptId ? item.observation : undefined),
         error: receipt.error || "",
+        reason: receipt.reason || "",
         recovery: receipt.recovery || item.recovery,
         recoveryAttempt: resolved ? null : item.recoveryAttempt,
       };

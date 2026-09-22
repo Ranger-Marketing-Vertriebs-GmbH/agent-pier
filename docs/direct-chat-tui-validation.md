@@ -47,9 +47,10 @@ operations. Without `--http`, measurements describe direct tmux input only.
 
 ### Explicit fresh input policy (2026-09-12)
 
-A fresh chat send behaves like typing into the current TUI composer and pressing
-Enter. An existing draft or an unrecognized screen layout does not reject that
-explicit send; native input can combine the existing draft with the pasted text.
+For Codex and OpenCode, a fresh chat send behaves like typing into the current TUI
+composer and pressing Enter. An existing draft or an unrecognized screen layout does
+not reject that explicit send; native input can combine the existing draft with the
+pasted text. Claude follows the stricter prompt-box policy described below.
 The same rule applies to an explicit retry whose durable journal proves that no
 paste was attempted (`reserved`). No draft-clearing keystrokes are injected.
 
@@ -65,6 +66,37 @@ The native recovery probe also tests that a fresh message appends to an edited
 manual draft once, while retrying the earlier, now-changed draft remains blocked.
 Real tmux integration tests cover unrecognized composers and a permission request
 that arrives after paste: the latter must prevent Enter.
+
+### Claude prompt-box guard and draft replacement (2026-09-22)
+
+Claude Code shows permission prompts, the rewind selector (Esc Esc) and pickers in
+place of its ruled prompt box. A bracketed paste into such a dialog is discarded and
+the following Enter confirms the dialog; the probe reproduced an approved Bash
+command. Fresh Claude input therefore requires the prompt box around the cursor. A
+dialog footer (`Esc to cancel`, `Enter to continue`, `Tab to amend`, …) or any other
+screen rejects the send with the stable reason `CHAT_COMPOSER_DIALOG` or
+`CHAT_COMPOSER_UNAVAILABLE` before a byte is written; the browser translates the
+reason and keeps the message editable.
+
+An existing Claude draft (for example a prompt restored after Esc) is replaced, not
+extended. The server sends `C-e C-u`, then `BSpace`, and `DC` only when Backspace
+changed nothing, re-reading the prompt after each step until it is empty. Escape
+and Ctrl-C are never used: Ctrl-C interrupts a running turn and Esc Esc opens the
+rewind selector. Unverifiable clearing rejects with `CHAT_COMPOSER_NOT_CLEARED`.
+Before Enter the pasted text must be visible in the prompt box; after Enter the
+prompt must be empty or show Claude's queued-message placeholder within five
+seconds. Otherwise the receipt is `uncertain` with `CHAT_SUBMIT_UNCONFIRMED`,
+which offers the existing inspection and TUI path instead of waiting indefinitely.
+
+Validated against Claude Code 2.1.280 with a private tmux socket, a disposable HOME
+and the loopback provider: single-line, wrapped (300 characters), multi-line,
+collapsed pasted text, image-chip, cursor-on-first-line, cursor-mid-line and
+bash-mode drafts were all cleared; the following message reached the provider
+without the old draft and without an image. Clearing a draft during a running turn
+did not interrupt it. Permission, rewind and `/model` screens rejected the send and
+remained open; no permission was granted. The HTTP probe
+(`--native --tool claude --local-mock --http --bound`) passed with the new policy.
+Captured frames are in `tests/fixtures/tui-input/claude-2.1.280-screens.json`.
 
 ### Chat after terminal submission regression (2026-09-13)
 

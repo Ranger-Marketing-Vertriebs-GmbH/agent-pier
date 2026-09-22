@@ -21,3 +21,11 @@ export function renderChatTuiScreen({ raw, pane }) {
 export function capturedChatTuiScreen({ raw, pane }) {
   return `%1|${process.pid}|1|${pane.cursorX}|${pane.cursorY}|${pane.width}|${pane.height}|0\n${raw}`;
 }
+
+/** The captured Claude idle frame with a single-line draft in its prompt box. */
+export function claudeDraftScreen({ raw, pane }, text) {
+  if (!text) return { raw, pane };
+  const rows = raw.split("\n");
+  rows[pane.cursorY] = `\x1b[39m❯\u00a0${text}\x1b[7m \x1b[0m`;
+  return { raw: rows.join("\n"), pane: { ...pane, cursorX: 2 + text.length } };
+}

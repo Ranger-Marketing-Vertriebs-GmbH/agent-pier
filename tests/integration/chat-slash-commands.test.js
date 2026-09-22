@@ -5,6 +5,7 @@ import {
   chatTuiScreen,
   renderChatTuiScreen,
   capturedChatTuiScreen,
+  claudeDraftScreen,
 } from "../helpers/chat-tui-fixture.js";
 import { createTuiInputRecorder } from "../helpers/tui-input-recorder.js";
 import { applicationFixture } from "../helpers/application.js";
@@ -17,9 +18,15 @@ for (const tool of ["codex", "claude", "opencode"]) {
     manager.get = manager.current = async () => session;
     const screen = await chatTuiScreen(tool);
     const calls = [];
+    // Claude's prompt box shows the typed command until Enter submits it.
+    let typed = "";
     manager.tmux = async (args) => {
-      if (args[0] === "display-message") return capturedChatTuiScreen(screen);
+      if (args[0] === "display-message")
+        return capturedChatTuiScreen(
+          tool === "claude" ? claudeDraftScreen(screen, typed) : screen,
+        );
       calls.push(args);
+      if (args[0] === "send-keys") typed = args.includes("-l") ? args.at(-1) : "";
       return "";
     };
     f.application.requests.list = async () => ({ requests: [] });
@@ -53,9 +60,12 @@ for (const tool of ["codex", "claude", "opencode"]) {
 for (const tool of ["codex", "claude", "opencode"]) {
   test(`${tool}: slash input arrives as native keystrokes through owned tmux`, async (t) => {
     const f = await applicationFixture(t);
-    const recorder = await createTuiInputRecorder(f, {
-      screen: renderChatTuiScreen(await chatTuiScreen(tool)),
-    });
+    const recorder = await createTuiInputRecorder(
+      f,
+      tool === "claude"
+        ? { claude: {} }
+        : { screen: renderChatTuiScreen(await chatTuiScreen(tool)) },
+    );
     const account = f.application.accounts.create({ name: "Input fixture", tool });
     const session = await f.application.sessions.create({
       id: "slash-native",

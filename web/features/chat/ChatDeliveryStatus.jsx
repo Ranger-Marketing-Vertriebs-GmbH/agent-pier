@@ -20,6 +20,9 @@ export default function ChatDeliveryStatus({
     const native = delivery.nativeStates?.get(item.id);
     const pending = item.id === delivery.outbox?.id;
     const recovering = item.id === delivery.recovering;
+    // Stable server reason codes are translated here; free text is a fallback.
+    const detail = copy.reasons[item.reason] || item.error;
+    const recoveryDetail = copy.reasons[item.recovery?.code] || item.recovery?.reason;
     const status = recovering
       ? "recovering"
       : pending && delivery.sending
@@ -41,9 +44,9 @@ export default function ChatDeliveryStatus({
         ) : (
           <div className="chat-delivery-status" role="status" aria-label={copy.ariaLabel}>
             <span>{copy[status] || copy.checking}</span>
-            {item.error && <span role="alert">{item.error}</span>}
+            {detail && <span role="alert">{detail}</span>}
             {item.recovery?.action === "blocked" && (
-              <span role="alert">{item.recovery.reason}</span>
+              <span role="alert">{recoveryDetail}</span>
             )}
           </div>
         )}

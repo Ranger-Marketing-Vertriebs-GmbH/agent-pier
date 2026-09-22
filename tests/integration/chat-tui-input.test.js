@@ -6,10 +6,13 @@ import { applicationFixture } from "../helpers/application.js";
 import { createTuiInputRecorder } from "../helpers/tui-input-recorder.js";
 import { chatTuiScreen, renderChatTuiScreen } from "../helpers/chat-tui-fixture.js";
 
-async function fixture(t, tool, screen) {
+// Claude uses a responsive prompt box: fresh input must observe its paste and
+// the emptied prompt after Enter. Static screens stay available for refusals.
+async function fixture(t, tool, screen, claude = tool === "claude" && !screen && {}) {
   const f = await applicationFixture(t);
   const recorder = await createTuiInputRecorder(f, {
-    screen: renderChatTuiScreen(screen || (await chatTuiScreen(tool))),
+    screen: claude ? "" : renderChatTuiScreen(screen || (await chatTuiScreen(tool))),
+    claude: claude || undefined,
   });
   const account = f.application.accounts.create({ name: "HTTP transport fixture", tool });
   const session = await f.application.sessions.create({
@@ -44,12 +47,21 @@ async function fixture(t, tool, screen) {
 }
 
 for (const tool of ["codex", "claude", "opencode"]) {
-  test(`${tool}: fresh chat input reaches an unreadable composer once without clearing it`, async (t) => {
+  test(`${tool}: fresh chat input handles an unreadable composer without clearing it`, async (t) => {
     const x = await fixture(t, tool, {
       raw: "Synthetic native output\nExisting native draft\nWorking",
       pane: { cursorX: 2, cursorY: 2, width: 120, height: 35 },
     });
     const input = x.body("Fresh chat message");
+    if (tool === "claude") {
+      // Without Claude's prompt box, Enter could confirm an unseen native dialog.
+      const result = await x.post(input);
+      assert.equal(result.status, "rejected");
+      assert.equal(result.reason, "CHAT_COMPOSER_UNAVAILABLE");
+      await x.post(input);
+      assert.deepEqual(await x.recorder.readBytes(), Buffer.alloc(0));
+      return;
+    }
     assert.equal((await x.post(input)).status, "handed-off");
     const frame = `\x1b[200~${input.text}\x1b[201~\r`;
     await x.recorder.waitForText(frame);
@@ -98,14 +110,14 @@ for (const tool of ["codex", "claude", "opencode"]) {
   });
 
   test(`${tool}: recovery submits an existing complete native draft without another paste`, async (t) => {
+    const text = "SYNTHETIC draft ünicode";
     const screen = JSON.parse(
       await fs.readFile(
         new URL(`../fixtures/tui-input/${tool}-draft-native.json`, import.meta.url),
         "utf8",
       ),
     );
-    const x = await fixture(t, tool, screen);
-    const text = "SYNTHETIC draft ünicode";
+    const x = await fixture(t, tool, screen, tool === "claude" && { draft: text });
     const input = x.body(text);
     // Seed the durable boundary of a prior completed paste, using the actual
     // owned pane's generation and composer. The parser and writer remain real.
@@ -190,11 +202,7 @@ test("Claude chat delivers after the attached browser terminal reports its color
 });
 
 test("Claude plain empty prompt accepts delivery and retries a pre-paste rejection exactly once", async (t) => {
-  const screen = await chatTuiScreen("claude");
-  const rows = screen.raw.split("\n");
-  rows[screen.pane.cursorY] = "\x1b[39m❯ ";
-  screen.raw = rows.join("\n");
-  const x = await fixture(t, "claude", screen);
+  const x = await fixture(t, "claude", null, { emptyStyle: "plain" });
   const input = x.body("Synthetic multiline message\nContinue the fixture");
   assert.equal((await x.post(input)).status, "handed-off");
   const frame = `\x1b[200~${input.text}\x1b[201~\r`;
@@ -245,10 +253,14 @@ test("Claude plain empty prompt accepts delivery and retries a pre-paste rejecti
 
 for (const tool of ["codex", "claude", "opencode"]) {
   test(`${tool}: terminal paste and Enter allow the next HTTP chat send and rejected retry`, async (t) => {
-    const x = await fixture(t, tool, {
-      raw: "Synthetic collapsed native draft\n[Pasted content]\n",
-      pane: { cursorX: 2, cursorY: 2, width: 120, height: 35 },
-    });
+    const x = await fixture(
+      t,
+      tool,
+      tool !== "claude" && {
+        raw: "Synthetic collapsed native draft\n[Pasted content]\n",
+        pane: { cursorX: 2, cursorY: 2, width: 120, height: 35 },
+      },
+    );
     const manager = x.f.application.sessions;
     let attached = false;
     const client = await manager.attach(x.session.id, {

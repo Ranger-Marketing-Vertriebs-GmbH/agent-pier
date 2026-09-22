@@ -1,7 +1,7 @@
 import { nativeInputQueue } from "./native-input-queue.js";
 import fs from "node:fs";
 import { normalizeChatText } from "../sessions/session-chat-input.js";
-import { recoverDelivery } from "./chat-delivery-recovery.js";
+import { deliveryReason, recoverDelivery } from "./chat-delivery-recovery.js";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { privateDirectory, problem } from "../../lib/storage.js";
@@ -118,6 +118,9 @@ export class ChatDelivery {
       ...(receipt.recovery ? { recovery: receipt.recovery } : {}),
       ...(status === "rejected" ? { error: copy.rejected } : {}),
       ...(status === "uncertain" ? { error: copy.uncertain } : {}),
+      ...(["rejected", "uncertain"].includes(status) && receipt.reason
+        ? { reason: receipt.reason, error: copy.reasons[receipt.reason] }
+        : {}),
     };
   }
 
@@ -204,8 +207,10 @@ export class ChatDelivery {
       });
       receipt.status = "handed-off";
       this.write(file, receipt);
-    } catch {
+    } catch (error) {
       receipt.status = mayHaveWritten ? "uncertain" : "rejected";
+      const reason = deliveryReason(error);
+      if (reason) receipt.reason = reason;
       this.write(file, receipt);
     } finally {
       this.active.delete(file);

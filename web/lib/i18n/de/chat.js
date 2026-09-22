@@ -145,4 +145,14 @@ export const chatDeliveryCopy = {
     "Gespeicherter Entwurf ist nicht lesbar. Er wurde nicht überschrieben; Senden bleibt gesperrt.",
   timeout:
     "Keine rechtzeitige Bestätigung. Die Zustellung wird beim Wiederverbinden geprüft.",
+  reasons: {
+    CHAT_COMPOSER_DIALOG:
+      "Claude zeigt gerade einen Dialog oder eine Auswahl. Die Nachricht wurde nicht gesendet; bitte beantworte oder schließe den Dialog in der TUI.",
+    CHAT_COMPOSER_UNAVAILABLE:
+      "Das Claude-Eingabefeld ist nicht sicher erkennbar. Die Nachricht wurde nicht gesendet; bitte prüfe die TUI.",
+    CHAT_COMPOSER_NOT_CLEARED:
+      "Der vorhandene Entwurf im Claude-Eingabefeld konnte nicht sicher ersetzt werden. Die Nachricht wurde nicht gesendet; bitte prüfe die TUI.",
+    CHAT_SUBMIT_UNCONFIRMED:
+      "Claude hat die Übernahme der Nachricht nicht bestätigt. Bitte prüfe die TUI, bevor du erneut sendest.",
+  },
 };
