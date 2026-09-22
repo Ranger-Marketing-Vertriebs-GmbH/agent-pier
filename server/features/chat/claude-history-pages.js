@@ -46,7 +46,10 @@ export class ClaudeHistoryPages {
         },
         onReady: ({ identity, generation }) => {
           if (this.entries.get(session.id) !== entry || this.closed) return;
-          const replaced = entry.published !== generation;
+          // Provisional cursors stay valid when an index first becomes ready. Only a
+          // rebuilt index (rewritten or replaced source) invalidates indexed cursors.
+          const replaced =
+            entry.published !== undefined && entry.published !== generation;
           entry.published = generation;
           entry.identity = identity;
           void Promise.resolve(

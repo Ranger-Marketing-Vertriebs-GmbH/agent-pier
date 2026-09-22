@@ -258,7 +258,7 @@ test("Claude orphan tool results cannot make the provisional tail scan the entir
   assert.ok(bytes < (await fs.stat(f.file)).size / 4);
 });
 
-test("Claude indexed pages survive append and stream a new generation when indexing completes", async (t) => {
+test("Claude first index keeps provisional cursors valid", async (t) => {
   const { ChatStore } = await import("../../server/features/chat/chat-store.js");
   const f = await fixture(t, 120);
   f.session.status = "running";
@@ -270,14 +270,18 @@ test("Claude indexed pages survive append and stream a new generation when index
     events: { publish: (...args) => events.push(args) },
   });
   store.initialize(f.session, "native");
+  events.length = 0;
   const initial = await store.read(f.session.id);
   await indexed(f);
+  await new Promise((resolve) => setImmediate(resolve));
   const ready = await store.read(f.session.id);
-  assert.notEqual(ready.history.generation, initial.history.generation);
-  assert.ok(events.some((event) => event[1] === "binding-changed"));
-  await assert.rejects(store.older(f.session.id, initial.history.cursor), {
-    status: 409,
-  });
+  assert.equal(ready.history.generation, initial.history.generation);
+  assert.deepEqual(
+    events.map((event) => event[1]),
+    ["history-indexed"],
+  );
+  const provisional = await store.older(f.session.id, initial.history.cursor);
+  assert.equal(provisional.messages.at(-1).id, "r69");
   await fs.appendFile(f.file, JSON.stringify(f.record(120)) + "\n");
   const older = await store.older(f.session.id, ready.history.cursor);
   assert.equal(older.messages.at(-1).id, "r69");
@@ -287,6 +291,7 @@ test("Claude indexed pages survive append and stream a new generation when index
   const updated = await store.read(f.session.id);
   assert.equal(updated.history.generation, ready.history.generation);
   assert.equal(updated.messages.at(-1).id, "r120");
+  assert.ok(!events.some((event) => event[1] === "binding-changed"));
 });
 
 test("Claude edit structure survives provisional pages, indexing and result append", async (t) => {
