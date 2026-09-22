@@ -135,7 +135,8 @@ test(
       assert.deepEqual(f.errors, []);
       const ready = f.snapshots.at(-1);
       assert.equal(ready.history.indexing, false);
-      assert.notEqual(ready.history.generation, provisional.history.generation);
+      // The first ready index keeps provisional cursors valid.
+      assert.equal(ready.history.generation, provisional.history.generation);
       assert.deepEqual(
         ready.tasks.map((task) => task.text),
         ["Earlier task"],
@@ -150,6 +151,11 @@ test(
       const page = await older.json();
       assert.equal(page.messages.at(-1).id, "row-69");
       assert.equal(page.history.generation, ready.history.generation);
+      const earlier = await f.request(
+        `/api/sessions/${f.session.id}/chat/history?cursor=${encodeURIComponent(provisional.history.cursor)}`,
+      );
+      assert.equal(earlier.status, 200);
+      assert.equal((await earlier.json()).messages.at(-1).id, "row-69");
       await until(
         () => !f.application.chatStreams.entries.has(f.session.id),
         "ended client releases its stream",
