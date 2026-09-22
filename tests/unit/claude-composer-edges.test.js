@@ -9,7 +9,7 @@ import {
 import { claudeModelManager, claudePromptModel } from "../helpers/claude-prompt-model.js";
 
 // Real Claude Code 2.1.280 frames: narrow and NO_COLOR panes while Claude is
-// busy with a queued message.
+// busy with a queued message, and short panes whose draft hides the bottom border.
 const screens = JSON.parse(
   fs.readFileSync(
     new URL("../fixtures/tui-input/claude-2.1.280-screens.json", import.meta.url),
@@ -38,6 +38,34 @@ test("the queued-message placeholder is empty in narrow and colorless panes", ()
   );
   assert.notEqual(typed, raw);
   assert.equal(state({ raw: typed, pane }), "draft");
+});
+
+test("a draft clipped by a short pane is still Claude's prompt box", () => {
+  assert.equal(state(screens.draftShort60x8), "draft");
+  assert.equal(state(screens.draftShort40x10), "draft");
+});
+
+test("a pasted draft in a short pane is submitted, then confirmed by the queue placeholder", async () => {
+  const model = claudePromptModel();
+  const manager = claudeModelManager(model);
+  let pasted = false;
+  let submitted = false;
+  model.screen = () =>
+    submitted
+      ? screens.queueNarrow30
+      : pasted
+        ? screens.draftShort60x8
+        : screens.idleNarrow30;
+  const tmux = manager.tmux;
+  manager.tmux = async (args, options) => {
+    if (args[0] === "paste-buffer") pasted = true;
+    if (args[0] === "send-keys" && args.at(-1) === "Enter") submitted = true;
+    return tmux(args, options);
+  };
+  await chat.withChatInput(manager, "one", (tx) =>
+    tx.write("AP_PROBE_D lorem ipsum", { allowComposerDraft: true }),
+  );
+  assert.equal(submitted, true);
 });
 
 test("draft clearing ignores spinner output and is bounded in time and keystrokes", async () => {

@@ -134,5 +134,23 @@
       "width": 80,
       "height": 24
     }
+  },
+  "draftShort60x8": {
+    "raw": "\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────\n\u001b[39m❯ AP_PROBE_D lorem ipsum dolor sit amet lorem ipsum dolor\n  sit amet lorem ipsum dolor sit amet lorem ipsum dolor s\u001b[7m \u001b[0m\n",
+    "pane": {
+      "cursorX": 57,
+      "cursorY": 7,
+      "width": 60,
+      "height": 8
+    }
+  },
+  "draftShort40x10": {
+    "raw": "           \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[38;2;153;153;153mSonnet 4.6\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mAPI Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n                      \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────\n\u001b[39m❯ dolor sit amet lorem ipsum dolor sit\n  amet lorem ipsum dolor sit amet\n  lorem ipsum\u001b[7m \u001b[0m\n",
+    "pane": {
+      "cursorX": 13,
+      "cursorY": 9,
+      "width": 40,
+      "height": 10
+    }
   }
 }

@@ -33,19 +33,24 @@ export function composerProblem(code) {
   return Object.assign(problem(copy.reasons[code], 409), { code });
 }
 
-/** The ruled Claude prompt box around the cursor, or null for any other screen. */
+/**
+ * The ruled Claude prompt box around the cursor, or null for any other screen.
+ * In a short pane a multi-row draft pushes the bottom border and footer below
+ * the last visible row; such a box is open (`clipped`) but still the prompt.
+ */
 export function claudeComposerBox(raw, pane = {}) {
   if (typeof raw !== "string" || !Number.isInteger(pane.cursorY) || !pane.width)
     return null;
-  const lines = raw.split("\n");
+  const all = raw.split("\n");
+  const lines = Number.isInteger(pane.height) ? all.slice(0, pane.height) : all;
   const border = "─".repeat(pane.width);
   const row = pane.cursorY;
-  if (row < 1 || row >= lines.length - 1 || plain(lines[row]) === border) return null;
+  if (row < 1 || row >= lines.length || plain(lines[row]) === border) return null;
   let top = row - 1;
   while (top >= 0 && plain(lines[top]) !== border) top--;
   let bottom = row + 1;
   while (bottom < lines.length && plain(lines[bottom]) !== border) bottom++;
-  if (top < 0 || bottom >= lines.length) return null;
+  if (top < 0) return null;
   const rows = lines.slice(top + 1, bottom).map(plain);
   // Normal prompt or bash mode; every further row is an indented continuation.
   if (
@@ -59,6 +64,7 @@ export function claudeComposerBox(raw, pane = {}) {
     rows,
     first: lines[top + 1],
     raw: lines.slice(top + 1, bottom),
+    clipped: bottom >= lines.length,
   };
 }
 
@@ -74,6 +80,7 @@ export function claudeComposerState(raw, pane, composer) {
       box.rows.length === 1 &&
       pane.cursorX === 2 &&
       pane.cursorY === box.top + 1 &&
+      !box.clipped &&
       claudePlaceholder(box.first, pane)
     )
       return { state: "empty", text: "" };
