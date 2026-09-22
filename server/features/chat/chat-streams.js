@@ -56,23 +56,27 @@ export class ChatStreams {
       entry.recovery = setInterval(() => {
         entry.unwatch?.();
         entry.unwatch = null;
+        // Keep the last native queue until the rebuilt observer reports again.
         entry.unwatchInput?.();
         entry.unwatchInput = null;
-        entry.input = null;
         this.invalidate(entry);
       }, this.recoveryMs);
       entry.recovery.unref();
     }
     entry.listeners.add(listener);
     entry.waiting.add(listener);
-    if (entry.value && !entry.dirty && !entry.pending)
+    // Another tab may keep this entry alive: show its settled value at once, but
+    // a new subscriber (a reload) must still observe the current source afterwards.
+    // An already invalidated value is never used as a baseline.
+    const cached = !entry.dirty && !entry.pending ? entry.value : null;
+    if (cached)
       queueMicrotask(() => {
-        if (entry.listeners.has(listener) && !entry.dirty && !entry.pending) {
+        if (entry.waiting.has(listener) && entry.value === cached) {
           entry.waiting.delete(listener);
-          listener(entry.value);
+          listener(cached);
         }
       });
-    else if (!entry.pending && !entry.timer) this.invalidate(entry);
+    this.invalidate(entry);
     return () => {
       entry.listeners.delete(listener);
       entry.waiting.delete(listener);
@@ -123,14 +127,22 @@ export class ChatStreams {
       }
       if (
         !entry.unwatchInput &&
+        Date.now() >= (entry.inputRetryAt || 0) &&
         session.status === "running" &&
         ["claude", "codex", "opencode"].includes(session.tool) &&
         !session.purpose &&
         this.sessions.tmuxPath
       ) {
-        entry.unwatchInput = this.watchInput(
-          { sessions: this.sessions, session },
+        let exited = false,
+          unwatch;
+        const onExit = () => {
+          exited = true;
+          this.inputExited(entry, unwatch);
+        };
+        unwatch = this.watchInput(
+          { sessions: this.sessions, session, onExit },
           (input) => {
+            if (input) entry.inputExits = 0;
             entry.input = input;
             // SQLite WAL writes may not notify fs.watch on every platform. A
             // changed native queue is also a bounded history invalidation hint.
@@ -139,6 +151,7 @@ export class ChatStreams {
               this.publish(entry, entry.value.session, entry.value.snapshot);
           },
         );
+        if (!exited) entry.unwatchInput = unwatch;
       }
       if (session.status !== "running") {
         entry.unwatchInput?.();
@@ -161,6 +174,18 @@ export class ChatStreams {
         for (const listener of entry.listeners) listener({ error });
     }
   }
+  /** A lost tmux control client is reattached by a later refresh, with backoff. */
+  inputExited(entry, unwatch) {
+    if (entry.disposed || this.closed || (unwatch && entry.unwatchInput !== unwatch))
+      return;
+    entry.unwatchInput = null;
+    const delay = Math.min(this.recoveryMs, 1000 * 2 ** (entry.inputExits || 0));
+    entry.inputExits = (entry.inputExits || 0) + 1;
+    entry.inputRetryAt = Date.now() + delay;
+    clearTimeout(entry.inputRetry);
+    entry.inputRetry = setTimeout(() => this.invalidate(entry, false), delay);
+    entry.inputRetry.unref();
+  }
   publish(entry, session, snapshot) {
     if (entry.disposed || this.closed) return;
     snapshot = { ...snapshot, nativeInput: entry.input || null };
@@ -179,6 +204,7 @@ export class ChatStreams {
   dispose(entry) {
     entry.disposed = true;
     clearTimeout(entry.timer);
+    clearTimeout(entry.inputRetry);
     clearInterval(entry.recovery);
     entry.unsubscribe?.();
     entry.unwatch?.();
