@@ -147,6 +147,15 @@ export const chatDeliveryCopy = {
     "No confirmation received in time. Delivery will be checked when reconnecting.",
   absentHint:
     "The server did not accept this message. You can edit it or retry the handoff.",
+  // The same reasons after the text was pasted but before Enter (uncertain).
+  pastedReasons: {
+    CHAT_COMPOSER_DIALOG:
+      "The message was pasted into Claude but not submitted: Claude is showing a dialog. Check the TUI before sending again.",
+    CHAT_COMPOSER_UNAVAILABLE:
+      "The message was pasted into Claude but not submitted: its input field cannot be identified safely. Please check the TUI.",
+    CHAT_COMPOSER_NOT_CLEARED:
+      "The message was pasted into Claude but not submitted. Check the TUI before sending again.",
+  },
   reasons: {
     CHAT_COMPOSER_DIALOG:
       "Claude is showing a dialog or picker. The message was not sent; answer or close the dialog in the TUI.",

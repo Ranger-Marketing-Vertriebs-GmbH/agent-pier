@@ -21,8 +21,11 @@ export default function ChatDeliveryStatus({
     const pending = item.id === delivery.outbox?.id;
     const recovering = item.id === delivery.recovering;
     // Stable server reason codes are translated here; free text is a fallback.
-    const detail = copy.reasons[item.reason] || item.error;
-    const recoveryDetail = copy.reasons[item.recovery?.code] || item.recovery?.reason;
+    // An uncertain outcome before Enter means the text sits in Claude's prompt.
+    const reasonText = (code) =>
+      (item.status === "uncertain" && copy.pastedReasons[code]) || copy.reasons[code];
+    const detail = reasonText(item.reason) || item.error;
+    const recoveryDetail = reasonText(item.recovery?.code) || item.recovery?.reason;
     const status = recovering
       ? "recovering"
       : pending && delivery.sending

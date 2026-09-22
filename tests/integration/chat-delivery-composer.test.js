@@ -114,6 +114,9 @@ test("a refused submit intent keeps the proven pasted phase for submit-only reco
   const input = x.body();
   const result = await x.post(input);
   assert.equal(result.status, "uncertain");
+  assert.equal(result.reason, "CHAT_COMPOSER_DIALOG");
+  // The text sits in Claude's prompt: never claim it was not sent.
+  assert.match(result.error, /eingefügt, aber nicht abgeschickt/);
   assert.equal(x.journal(input), "pasted");
   const retry = await x.recover(input, "retry");
   assert.equal(retry.status, "handed-off");
