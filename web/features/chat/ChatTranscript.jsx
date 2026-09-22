@@ -4,17 +4,17 @@ import Message from "./ChatMessage.jsx";
 import { chatMessageCopy as copy } from "../../lib/i18n/messages/chat.js";
 import "./tool-groups.css";
 
+// Tool groups are keyed by their first tool, not by a preceding message: that
+// anchor changes for the leading group when older history pages load.
 export function groupMessages(messages) {
   const groups = [];
-  let anchor = "start";
   for (const message of messages) {
     if (message.role !== "tool") {
       groups.push({ key: `message:${message.id}`, message });
-      anchor = message.id;
     } else {
       let group = groups.at(-1);
       if (!group?.tools) {
-        group = { key: `tools:${anchor}`, tools: [] };
+        group = { key: `tools:${message.id}`, tools: [] };
         groups.push(group);
       }
       group.tools.push(message);
