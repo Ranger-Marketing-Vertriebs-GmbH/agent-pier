@@ -38,38 +38,56 @@ export async function readClaudePage(history, session, id, state) {
     let stopped = false;
     let oldestKey,
       content = { messages: [], tasks: [] };
-    for await (const item of reader.backwards(end, Boolean(state))) {
-      const record = claudeConversationRecord(item.record);
-      if (claudeImageSources(record)) pendingImages.add(key(record));
-      if (!record.uuid && !record.message?.id) record.uuid = `claude-byte:${item.start}`;
-      const visible = claudeVisibleRecord(record);
-      if (visible && key(record) !== oldestKey)
-        content = normalizeClaude(records.toReversed());
-      // Do not cut through streamed fragments of one assistant message or leave
-      // a tool result detached from its call in the preceding source range.
-      if (
-        visible &&
-        content.messages.length >= LIMIT &&
-        !pendingImages.size &&
-        (!pendingResults.size || content.messages.length >= LIMIT * 2) &&
-        key(record) !== oldestKey
-      ) {
-        stopped = true;
-        break;
-      }
-      records.push(record);
-      end = item.start;
-      if (visible) {
-        pendingImages.delete(key(record));
-        oldestKey = key(record);
-        for (const block of Array.isArray(record.message?.content)
-          ? record.message.content
-          : []) {
-          if (block?.type === "tool_result" && block.tool_use_id)
-            pendingResults.add(block.tool_use_id);
-          if (block?.type === "tool_use" && block.id) pendingResults.delete(block.id);
+    try {
+      for await (const item of reader.backwards(end, Boolean(state))) {
+        const record = claudeConversationRecord(item.record);
+        if (claudeImageSources(record)) pendingImages.add(key(record));
+        if (!record.uuid && !record.message?.id)
+          record.uuid = `claude-byte:${item.start}`;
+        const visible = claudeVisibleRecord(record);
+        if (visible && key(record) !== oldestKey)
+          content = normalizeClaude(records.toReversed());
+        // Do not cut through streamed fragments of one assistant message or leave
+        // a tool result detached from its call in the preceding source range.
+        // Pending results and image sources are bounded: an orphan must not make
+        // the provisional tail scan the whole transcript.
+        if (
+          visible &&
+          content.messages.length >= LIMIT &&
+          ((!pendingResults.size && !pendingImages.size) ||
+            content.messages.length >= LIMIT * 2) &&
+          key(record) !== oldestKey
+        ) {
+          stopped = true;
+          break;
+        }
+        records.push(record);
+        end = item.start;
+        if (visible) {
+          pendingImages.delete(key(record));
+          oldestKey = key(record);
+          for (const block of Array.isArray(record.message?.content)
+            ? record.message.content
+            : []) {
+            if (block?.type === "tool_result" && block.tool_use_id)
+              pendingResults.add(block.tool_use_id);
+            if (block?.type === "tool_use" && block.id) pendingResults.delete(block.id);
+          }
         }
       }
+    } catch (error) {
+      // Huge records can exceed the provisional read budget. The index scans in
+      // bounded blocks, so it still has to start; clients see an indexing state.
+      if (state || error.status !== 413) throw error;
+      history.claudePages?.warm(session, id, reader.identity);
+      if (!history.claudePages?.warming(session, id, reader.identity)) throw error;
+      return {
+        messages: [],
+        tasks: [],
+        indexing: true,
+        observability: { ...observeClaude([]), stale: true },
+        next: null,
+      };
     }
     if (!stopped) end = 0;
     const ordered = records.toReversed();
