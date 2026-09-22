@@ -93,6 +93,7 @@ function claudeTaskCreated(input, output) {
 /** Normalize parsed Claude JSONL records, without interpreting terminal-like prose. */
 export function normalizeClaude(records) {
   const snapshots = new Map();
+  const fragments = new Map();
   const results = new Map();
   restoreClaudeImagePaths(list(records)).forEach((source, index) => {
     const record = claudeConversationRecord(source);
@@ -100,22 +101,30 @@ export function normalizeClaude(records) {
     const message = object(record.message);
     const id = identifier(message.id || record.uuid) || `claude:${index}`;
     const previous = snapshots.get(id);
+    // Claude streams one content block per fragment record of a message.id, each
+    // at index 0. Blocks without an id are therefore keyed per record, so later
+    // fragments append instead of replacing an earlier text or thinking block.
+    const origin = identifier(record.uuid) || `record:${index}`;
+    const blockKey = (block, position) =>
+      identifier(block?.id) || `${origin}:${position}`;
     if (record.type === "assistant" && previous && Array.isArray(message.content)) {
-      const blocks = new Map(
-        list(previous.message.content).map((block, index) => [
-          identifier(block?.id) || `${block?.type}:${index}`,
-          block,
-        ]),
+      const blocks = fragments.get(id) || new Map();
+      message.content.forEach((block, position) =>
+        blocks.set(blockKey(block, position), block),
       );
-      message.content.forEach((block, index) =>
-        blocks.set(identifier(block?.id) || `${block?.type}:${index}`, block),
-      );
+      fragments.set(id, blocks);
       snapshots.set(id, {
         ...record,
         message: { ...message, content: [...blocks.values()] },
         normalizedId: id,
       });
-    } else snapshots.set(id, { ...record, message, normalizedId: id });
+    } else {
+      fragments.set(
+        id,
+        new Map(list(message.content).map((block, i) => [blockKey(block, i), block])),
+      );
+      snapshots.set(id, { ...record, message, normalizedId: id });
+    }
     for (const block of list(message.content)) {
       if (block?.type === "tool_result" && identifier(block.tool_use_id))
         results.set(String(block.tool_use_id), block);

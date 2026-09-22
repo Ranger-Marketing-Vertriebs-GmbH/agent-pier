@@ -11,6 +11,10 @@ import { serverMessages } from "../../lib/i18n/de.js";
 
 const LIMIT = 50;
 const key = claudeHistoryGroup;
+const resultEnvelope = (record) =>
+  record.type === "user" &&
+  Array.isArray(record.message?.content) &&
+  record.message.content.some((block) => block?.type === "tool_result");
 
 export async function readClaudePage(history, session, id, state) {
   let file;
@@ -33,11 +37,12 @@ export async function readClaudePage(history, session, id, state) {
     }
     const records = [],
       pendingResults = new Set(),
-      pendingImages = new Set();
+      pendingImages = new Set(),
+      collected = new Set();
     let end = state?.end ?? reader.identity.size;
     let stopped = false;
-    let oldestKey,
-      content = { messages: [], tasks: [] };
+    let content = { messages: [], tasks: [] },
+      candidate = null;
     try {
       for await (const item of reader.backwards(end, Boolean(state))) {
         const record = claudeConversationRecord(item.record);
@@ -45,19 +50,25 @@ export async function readClaudePage(history, session, id, state) {
         if (!record.uuid && !record.message?.id)
           record.uuid = `claude-byte:${item.start}`;
         const visible = claudeVisibleRecord(record);
-        if (visible && key(record) !== oldestKey)
-          content = normalizeClaude(records.toReversed());
-        // Do not cut through streamed fragments of one assistant message or leave
-        // a tool result detached from its call in the preceding source range.
+        const fresh = visible && !collected.has(key(record));
+        if (fresh) content = normalizeClaude(records.toReversed());
         // Pending results and image sources are bounded: an orphan must not make
         // the provisional tail scan the whole transcript.
-        if (
-          visible &&
+        const full =
           content.messages.length >= LIMIT &&
           ((!pendingResults.size && !pendingImages.size) ||
-            content.messages.length >= LIMIT * 2) &&
-          key(record) !== oldestKey
-        ) {
+            content.messages.length >= LIMIT * 2);
+        // Never cut through fragments of one message.id. A tool-result envelope
+        // may sit between two fragments, so a cut before it is only a candidate
+        // until the next message shows whether it continues a collected one.
+        if (visible && !fresh && !resultEnvelope(record)) candidate = null;
+        if (fresh && resultEnvelope(record)) {
+          if (full && !candidate) candidate = { length: records.length, end };
+        } else if (fresh && (candidate || full)) {
+          if (candidate) {
+            records.length = candidate.length;
+            end = candidate.end;
+          }
           stopped = true;
           break;
         }
@@ -65,7 +76,7 @@ export async function readClaudePage(history, session, id, state) {
         end = item.start;
         if (visible) {
           pendingImages.delete(key(record));
-          oldestKey = key(record);
+          collected.add(key(record));
           for (const block of Array.isArray(record.message?.content)
             ? record.message.content
             : []) {
