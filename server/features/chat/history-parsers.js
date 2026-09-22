@@ -2,7 +2,10 @@ import { restoreClaudeImagePaths } from "./claude-image-history.js";
 import { codexInputTime } from "./native-input-time.js";
 import { markOpenCodeInput } from "./opencode-input-state.js";
 import { toolFileChanges, codexFileChanges } from "./tool-file-changes.js";
-import { claudeConversationRecord } from "./claude-conversation-record.js";
+import {
+  claudeConversationRecord,
+  claudeVisibleRecord,
+} from "./claude-conversation-record.js";
 import { createHash } from "node:crypto";
 
 const list = (value) => (Array.isArray(value) ? value : []);
@@ -93,15 +96,8 @@ export function normalizeClaude(records) {
   const results = new Map();
   restoreClaudeImagePaths(list(records)).forEach((source, index) => {
     const record = claudeConversationRecord(source);
-    if (
-      !record ||
-      !["user", "assistant"].includes(record.type) ||
-      record.isMeta ||
-      record.isCompactSummary
-    )
-      return;
+    if (!claudeVisibleRecord(record)) return;
     const message = object(record.message);
-    if (message.role && message.role !== record.type) return;
     const id = identifier(message.id || record.uuid) || `claude:${index}`;
     const previous = snapshots.get(id);
     if (record.type === "assistant" && previous && Array.isArray(message.content)) {
