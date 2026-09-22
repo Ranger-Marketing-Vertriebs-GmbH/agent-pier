@@ -180,3 +180,14 @@
   padding: 8px 0;
   border-top: 1px solid var(--line);
 }
+@media (max-width: 700px) {
+  /* A phone has little else to show while an answer is required: give the
+     dialog most of the height so options, preview and every action stay
+     reachable instead of hiding behind two small nested scroll areas. */
+  .native-requests {
+    max-height: 62dvh;
+  }
+  .native-question-dialog {
+    max-height: 46dvh;
+  }
+}
