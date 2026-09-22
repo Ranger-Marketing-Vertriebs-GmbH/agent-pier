@@ -1,7 +1,7 @@
 import { nativeInputQueue } from "./native-input-queue.js";
 import fs from "node:fs";
 import { normalizeChatText } from "../sessions/session-chat-input.js";
-import { deliveryReason, recoverDelivery } from "./chat-delivery-recovery.js";
+import { deliveryReason, reasonText, recoverDelivery } from "./chat-delivery-recovery.js";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { privateDirectory, problem } from "../../lib/storage.js";
@@ -119,7 +119,7 @@ export class ChatDelivery {
       ...(status === "rejected" ? { error: copy.rejected } : {}),
       ...(status === "uncertain" ? { error: copy.uncertain } : {}),
       ...(["rejected", "uncertain"].includes(status) && receipt.reason
-        ? { reason: receipt.reason, error: copy.reasons[receipt.reason] }
+        ? { reason: receipt.reason, error: reasonText(receipt.reason, status) }
         : {}),
     };
   }

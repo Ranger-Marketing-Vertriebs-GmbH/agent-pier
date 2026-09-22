@@ -13,6 +13,10 @@ export const deliveryReason = (error) =>
     ? error.code
     : undefined;
 
+/** Pasted-but-not-submitted wording for uncertain outcomes, else the plain reason. */
+export const reasonText = (code, status) =>
+  (status === "uncertain" && copy.pastedReasons[code]) || copy.reasons[code];
+
 export async function recoverDelivery(delivery, id, deliveryId, body) {
   const { attemptId, expectedAttemptId, deliveryScope, text, mode } = body;
   const file = delivery.file(id, deliveryId);
@@ -86,7 +90,7 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
     const finish = (action, explanation, code) => {
       receipt.recovery = {
         action,
-        reason: code ? copy.reasons[code] : explanation,
+        reason: code ? reasonText(code, receipt.status) : explanation,
         requestId,
         ...(code ? { code } : {}),
       };

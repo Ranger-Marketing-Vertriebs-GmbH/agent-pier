@@ -147,6 +147,15 @@ export const chatDeliveryCopy = {
     "Keine rechtzeitige Bestätigung. Die Zustellung wird beim Wiederverbinden geprüft.",
   absentHint:
     "Der Server hat diese Nachricht nicht angenommen. Du kannst sie bearbeiten oder erneut übergeben.",
+  // The same reasons after the text was pasted but before Enter (uncertain).
+  pastedReasons: {
+    CHAT_COMPOSER_DIALOG:
+      "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt: Claude zeigt einen Dialog. Bitte prüfe die TUI, bevor du erneut sendest.",
+    CHAT_COMPOSER_UNAVAILABLE:
+      "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt: Das Eingabefeld ist nicht sicher erkennbar. Bitte prüfe die TUI.",
+    CHAT_COMPOSER_NOT_CLEARED:
+      "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt. Bitte prüfe die TUI, bevor du erneut sendest.",
+  },
   reasons: {
     CHAT_COMPOSER_DIALOG:
       "Claude zeigt gerade einen Dialog oder eine Auswahl. Die Nachricht wurde nicht gesendet; bitte beantworte oder schließe den Dialog in der TUI.",
