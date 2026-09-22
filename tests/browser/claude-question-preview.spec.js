@@ -48,6 +48,7 @@ const copy = (en) => ({
   preview: en ? "Preview: " : "Vorschau: ",
   other: en ? "Other answer" : "Andere Antwort",
   handoff: en ? "Answer in terminal" : "Im Terminal beantworten",
+  terminal: en ? "Open terminal" : "Terminal öffnen",
 });
 
 for (const locale of ["de-DE", "en-GB"]) {
@@ -131,6 +132,23 @@ for (const locale of ["de-DE", "en-GB"]) {
         decline: true,
         notes: { q0: "Not today" },
       });
+    });
+
+    test("every action stays reachable on a 390x844 phone", async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      const state = await operationsFixture(page, { tool: "claude" });
+      state.requests = [pending];
+      await page.goto(baseURL + "/sessions/fixture-session/chat");
+      await expect(page.getByLabel(text.preview + "Grid", { exact: true })).toBeVisible();
+      const panel = await page.locator(".native-requests").boundingBox();
+      // No action hides below the panel edge or behind a nested scroll area.
+      for (const name of [text.next, text.decline, text.handoff, text.terminal]) {
+        const box = await page.getByRole("button", { name, exact: true }).boundingBox();
+        expect(box.y).toBeGreaterThanOrEqual(panel.y);
+        expect(box.y + box.height).toBeLessThanOrEqual(panel.y + panel.height);
+      }
+      for (const label of ["Grid", "Markup"])
+        await expect(page.getByLabel(label, { exact: true })).toBeInViewport();
     });
 
     test("Codex questions offer neither decline nor notes", async ({ page }) => {
