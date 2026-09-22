@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { chatWindowPrefix } from "./chat-sync.js";
+import { chatWindowPrefix, prependHistoryRows, readOlderPage } from "./chat-sync.js";
 import { createChatStream } from "./chat-stream-transport.js";
 
 export default function useChatStream({
@@ -141,23 +141,32 @@ export default function useChatStream({
     const cursor = current.cursor;
     const controller = new AbortController();
     historyRequest.current = controller;
+    const shown = () =>
+      new Set([
+        ...current.older.map((row) => row.id),
+        ...(current.live?.messages || []).map((row) => row.id),
+      ]);
     try {
-      const page = await request(
-        `/sessions/${encodeURIComponent(session.id)}/chat/history?cursor=${encodeURIComponent(cursor)}`,
-        "GET",
-        undefined,
-        controller.signal,
-      );
+      const page = await readOlderPage({
+        cursor,
+        liveCursor: current.live.history?.cursor || null,
+        known: shown(),
+        read: (value) =>
+          request(
+            `/sessions/${encodeURIComponent(session.id)}/chat/history?cursor=${encodeURIComponent(value)}`,
+            "GET",
+            undefined,
+            controller.signal,
+          ),
+      });
       if (state.current !== current || epoch !== current.epoch) return;
       if (page.providerSessionId !== provider || !Array.isArray(page.messages))
         throw new Error("Invalid history page");
       const element = output.current;
       if (element)
         anchor.current = { height: element.scrollHeight, top: element.scrollTop };
-      const rows = new Map(
-        [...page.messages, ...current.older].map((row) => [row.id, row]),
-      );
-      current.older = [...rows.values()];
+      // Rows that rolled out of the live window are already older than the page.
+      current.older = prependHistoryRows(current.older, page.messages, shown());
       current.cursor = page.history?.cursor || null;
       current.paged = true;
       stick.current = false;

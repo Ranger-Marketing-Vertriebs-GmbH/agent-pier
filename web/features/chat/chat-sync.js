@@ -71,3 +71,42 @@ export function chatWindowPrefix(previous, next) {
     ? previous.messages.slice(0, start)
     : [];
 }
+
+/** Prepend an older history page without moving rows the client already holds. */
+export function prependHistoryRows(older, page, known = new Set()) {
+  const ids = new Set(known);
+  for (const row of older) ids.add(row.id);
+  return [...page.filter((row) => !ids.has(row.id)), ...older];
+}
+
+/**
+ * Read the next older page. An expired cursor (409) restarts paging from the
+ * live cursor once and skips pages whose rows are all already shown.
+ */
+export async function readOlderPage({ cursor, liveCursor, read, known }) {
+  let next = cursor;
+  let restarted = false;
+  for (;;) {
+    let page;
+    try {
+      page = await read(next);
+    } catch (error) {
+      if (error?.status !== 409 || restarted || !liveCursor || next === liveCursor)
+        throw error;
+      restarted = true;
+      next = liveCursor;
+      continue;
+    }
+    const following = page?.history?.cursor || null;
+    if (
+      restarted &&
+      following &&
+      Array.isArray(page?.messages) &&
+      page.messages.every((row) => known.has(row.id))
+    ) {
+      next = following;
+      continue;
+    }
+    return page;
+  }
+}

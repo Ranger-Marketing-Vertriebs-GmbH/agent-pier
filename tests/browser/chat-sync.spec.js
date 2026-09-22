@@ -169,6 +169,55 @@ test("older pages prepend once, preserve viewport, and clear removes all history
   expect(state.reads).toBe(0);
 });
 
+test("an expired older-page cursor restarts from the live cursor without duplicates", async ({
+  page,
+}) => {
+  const pages = {
+    live: { cursor: "second", rows: ["old-3", "old-4"] },
+    second: { cursor: null, rows: ["old-1", "old-2"] },
+  };
+  let expired = true;
+  const reads = [];
+  const state = await fixture(
+    page,
+    full("first", [message("new", "Aktuelle Antwort")], "native-one", "live"),
+    async (route, url) => {
+      const cursor = url.searchParams.get("cursor");
+      reads.push(cursor);
+      if (cursor === "second" && expired) {
+        expired = false;
+        return route.fulfill({ status: 409, json: { error: "expired" } });
+      }
+      await route.fulfill({
+        json: {
+          providerSessionId: "native-one",
+          messages: pages[cursor].rows.map((id) => message(id, `Verlauf ${id}`)),
+          history: { cursor: pages[cursor].cursor },
+        },
+      });
+    },
+  );
+  const load = page.getByRole("button", {
+    name: "Ältere Nachrichten laden",
+    exact: true,
+  });
+  await load.click();
+  const chat = page.getByLabel("Chatverlauf");
+  await expect(chat).toContainText("Verlauf old-3");
+  await load.click();
+  await expect(chat).toContainText("Verlauf old-1");
+  expect(reads).toEqual(["live", "second", "live", "second"]);
+  expect(state.historyReads).toBe(4);
+  await expect(chat.locator(".chat-message")).toHaveCount(5);
+  expect(await chat.locator(".chat-message .message-content").allInnerTexts()).toEqual([
+    "Verlauf old-1",
+    "Verlauf old-2",
+    "Verlauf old-3",
+    "Verlauf old-4",
+    "Aktuelle Antwort",
+  ]);
+});
+
 test("history loading can retry and a delayed old page cannot resurrect cleared messages", async ({
   page,
 }) => {
