@@ -211,5 +211,18 @@ for (const locale of ["de-DE", "en-GB"]) {
       expect(calls(state, "/handoff")[0].body).toEqual({ expectedRevision: 2 });
       expect(calls(state, "/answer")).toHaveLength(0);
     });
+
+    test("releasing an uncertain delivery opens the terminal even when it is stale", async ({
+      page,
+    }) => {
+      const state = await operationsFixture(page, { tool: "claude" });
+      state.requests = [{ ...pending, status: "unknown", revision: 2 }];
+      // The native side already settled it; the terminal shows how.
+      state.fail = "/sessions/fixture-session/requests/claude-preview/handoff";
+      await page.goto(baseURL + "/sessions/fixture-session/chat");
+      await page.getByRole("button", { name: text.handoff, exact: true }).click();
+      await expect(page).toHaveURL(/\/sessions\/fixture-session\/terminal$/);
+      expect(calls(state, "/handoff")).toHaveLength(1);
+    });
   });
 }
