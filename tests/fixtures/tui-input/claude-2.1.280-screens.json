@@ -89,5 +89,50 @@
       "width": 120,
       "height": 35
     }
+  },
+  "idleNarrow30": {
+    "raw": "\n           \u001b[1mClaude Code\u001b[0m\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153mAPI Usage Billing\u001b[39m\n           \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\n\n\n\n\n\n\n\n\u001b[38;2;136;136;136m──────────────────────────────\n\u001b[39m❯ \u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m──────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on · ? for …\u001b[39m\n",
+    "pane": {
+      "cursorX": 2,
+      "cursorY": 17,
+      "width": 30,
+      "height": 20
+    }
+  },
+  "queueNarrow30": {
+    "raw": "\n           \u001b[1mClaude Code\u001b[0m\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153mAPI Usage Billing\u001b[39m\n           \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mAP_PROBE_SLOW20000 x\u001b[39m\n\n\n\u001b[38;2;215;119;87m\u001b[49m✻\u001b[39m \u001b[38;2;215;119;87mSimmering… \u001b[39m\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mAP_PROBE_Q queued msg\u001b[39m\n\u001b[49m  \u001b[38;2;153;153;153mctrl+x ctrl+s to send now\u001b[39m\n\n\u001b[38;2;136;136;136m──────────────────────────────\n\u001b[38;2;153;153;153m❯ \u001b[7m\u001b[39mP\u001b[0;2mress up to edit queued mes…\n\u001b[0m\u001b[38;2;136;136;136m──────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on · esc to…\u001b[39m\n",
+    "pane": {
+      "cursorX": 2,
+      "cursorY": 17,
+      "width": 30,
+      "height": 20
+    }
+  },
+  "queueNarrow34": {
+    "raw": "\n           \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[38;2;153;153;153mSonnet 4.6\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mAPI Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mAP_PROBE_SLOW20000 x\u001b[39m\n\n\n\n\u001b[38;2;215;119;87m\u001b[49m✶\u001b[39m \u001b[38;2;215;119;87mLeavening… \u001b[39m\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mAP_PROBE_Q queued msg\u001b[39m\n\u001b[49m  \u001b[38;2;153;153;153mctrl+x ctrl+s to send now\u001b[39m\n\n\u001b[38;2;136;136;136m──────────────────────────────────\n\u001b[38;2;153;153;153m❯ \u001b[7m\u001b[39mP\u001b[0;2mress up to edit queued messages\n\u001b[0m\u001b[38;2;136;136;136m──────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on · esc to int…\u001b[39m\n",
+    "pane": {
+      "cursorX": 2,
+      "cursorY": 17,
+      "width": 34,
+      "height": 20
+    }
+  },
+  "idleNoColor": {
+    "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on · ? for shortcuts · ← for agents\n",
+    "pane": {
+      "cursorX": 2,
+      "cursorY": 21,
+      "width": 80,
+      "height": 24
+    }
+  },
+  "queueNoColor": {
+    "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW20000 x\n\n\n\n\n\n\n\n\n✻ Beboppin'…\n\n❯ AP_PROBE_Q queued msg\n  ctrl+x ctrl+s to send now\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7mP\u001b[0mress up to edit queued messages\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on · esc to interrupt · ← for agents\n",
+    "pane": {
+      "cursorX": 2,
+      "cursorY": 21,
+      "width": 80,
+      "height": 24
+    }
   }
 }
