@@ -145,6 +145,8 @@ export const chatDeliveryCopy = {
     "Gespeicherter Entwurf ist nicht lesbar. Er wurde nicht überschrieben; Senden bleibt gesperrt.",
   timeout:
     "Keine rechtzeitige Bestätigung. Die Zustellung wird beim Wiederverbinden geprüft.",
+  absentHint:
+    "Der Server hat diese Nachricht nicht angenommen. Du kannst sie bearbeiten oder erneut übergeben.",
   reasons: {
     CHAT_COMPOSER_DIALOG:
       "Claude zeigt gerade einen Dialog oder eine Auswahl. Die Nachricht wurde nicht gesendet; bitte beantworte oder schließe den Dialog in der TUI.",
