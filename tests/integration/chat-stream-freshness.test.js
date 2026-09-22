@@ -185,3 +185,16 @@ test("the native observer reports a lost tmux control client", async () => {
   assert.equal(exited, 1);
   assert.deepEqual(values, [null]);
 });
+
+test("history cursors are evicted least recently used", async (t) => {
+  const f = fixture(t);
+  f.chat.maxCursorEntries = 2;
+  const first = f.chat.cursor(f.session, NATIVE, { page: 1 });
+  const second = f.chat.cursor(f.session, NATIVE, { page: 2 });
+  assert.equal(f.chat.cursor(f.session, NATIVE, { page: 1 }), first);
+  f.chat.cursor(f.session, NATIVE, { page: 3 });
+  assert.ok(f.chat.cursors.has(first), "recently used cursor survives");
+  assert.ok(!f.chat.cursors.has(second));
+  f.chat.cursor(f.session, NATIVE, { page: 4 });
+  assert.ok(!f.chat.cursors.has(first));
+});

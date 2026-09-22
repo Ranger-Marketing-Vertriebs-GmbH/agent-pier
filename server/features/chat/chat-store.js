@@ -83,6 +83,12 @@ export class ChatStore {
     this.cursorBytes -= entry.bytes;
     this.cursors.delete(cursor);
   }
+  /** Cursors are evicted least recently used, so an active paging chain survives. */
+  touchCursor(cursor, entry) {
+    this.cursors.delete(cursor);
+    this.cursors.set(cursor, entry);
+    return cursor;
+  }
   cursor(session, nativeId, state) {
     if (!state) return null;
     const generation = this.generations.get(session.id);
@@ -96,7 +102,7 @@ export class ChatStore {
     ]);
     const signature = createHash("sha256").update(serialized).digest("hex");
     for (const [cursor, entry] of this.cursors)
-      if (entry.signature === signature) return cursor;
+      if (entry.signature === signature) return this.touchCursor(cursor, entry);
     const bytes = Buffer.byteLength(serialized) + 256;
     if (bytes > this.maxCursorBytes)
       throw problem(serverMessages.chat.historyTooLarge, 413);
@@ -149,6 +155,7 @@ export class ChatStore {
     const entry = typeof cursor === "string" ? this.cursors.get(cursor) : null;
     if (!entry || entry.id !== id)
       throw problem(serverMessages.chat.sessionHistoryMismatch, 409);
+    this.touchCursor(cursor, entry);
     const session = { ...(await this.sessions.get(id)) };
     if (session.accountId !== entry.accountId || session.tool !== entry.tool)
       throw problem(serverMessages.chat.sessionHistoryMismatch, 409);

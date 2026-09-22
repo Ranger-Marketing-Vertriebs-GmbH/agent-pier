@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ChatSync } from "../../server/features/chat/chat-sync.js";
-import { applyChatSync } from "../../web/features/chat/chat-sync.js";
+import {
+  applyChatSync,
+  chatWindowPrefix,
+  prependHistoryRows,
+  readOlderPage,
+} from "../../web/features/chat/chat-sync.js";
 
 const row = (id, text = id) => ({ id, role: "assistant", text, images: [] });
 function fixture(options = {}) {
@@ -126,4 +131,73 @@ test("invalid baselines and malformed deltas cannot partly overwrite a browser s
   const duplicate = await f.sync.read("one", first.sync.cursor);
   assert.equal(duplicate.sync.mode, "full");
   assert.equal(duplicate.sync.cursor, null);
+});
+
+test("older pages keep order when rows already rolled out of the live window", () => {
+  const all = Array.from({ length: 300 }, (_, i) => ({ id: `m${i}` }));
+  const window = (n) => ({
+    messages: all.slice(Math.max(0, n - 50), n),
+    history: { cursor: `c${n}` },
+  });
+  let live = null;
+  let older = [];
+  for (let n = 100; n <= 180; n++) {
+    const next = window(n);
+    const prefix = chatWindowPrefix(live, next);
+    if (prefix.length) older = [...older, ...prefix];
+    live = next;
+  }
+  const known = new Set(live.messages.map((row) => row.id));
+  older = prependHistoryRows(older, all.slice(80, 130), known);
+  older = prependHistoryRows(older, all.slice(30, 80), known);
+  const shown = [...older.filter((row) => !known.has(row.id)), ...live.messages];
+  assert.deepEqual(
+    shown.map((row) => row.id),
+    all.slice(30, 180).map((row) => row.id),
+  );
+});
+
+test("an expired history cursor restarts from the live cursor without duplicates", async () => {
+  const pages = {
+    live: { messages: [{ id: "m3" }, { id: "m4" }], history: { cursor: "p2" } },
+    p2: { messages: [{ id: "m1" }, { id: "m2" }], history: { cursor: "p1" } },
+    p1: { messages: [{ id: "m0" }], history: { cursor: null } },
+  };
+  const reads = [];
+  const read = async (cursor) => {
+    reads.push(cursor);
+    if (!pages[cursor]) throw Object.assign(new Error("expired"), { status: 409 });
+    return pages[cursor];
+  };
+  const known = new Set(["m1", "m2", "m3", "m4", "m5"]);
+  const page = await readOlderPage({
+    cursor: "evicted",
+    liveCursor: "live",
+    read,
+    known,
+  });
+  assert.deepEqual(reads, ["evicted", "live", "p2", "p1"]);
+  assert.deepEqual(page, pages.p1);
+  await assert.rejects(
+    readOlderPage({
+      cursor: "live",
+      liveCursor: "live",
+      read: async () => {
+        throw Object.assign(new Error("gone"), { status: 409 });
+      },
+      known,
+    }),
+    { status: 409 },
+  );
+  await assert.rejects(
+    readOlderPage({
+      cursor: "x",
+      liveCursor: "live",
+      read: async () => {
+        throw Object.assign(new Error("server"), { status: 500 });
+      },
+      known,
+    }),
+    { status: 500 },
+  );
 });
