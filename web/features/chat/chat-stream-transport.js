@@ -1,5 +1,9 @@
 import { applyChatSync } from "./chat-sync.js";
 
+const CONNECT_TIMEOUT = 8000;
+// An open socket may wait for a slow first server read; it is not a dead socket.
+const FIRST_SNAPSHOT_TIMEOUT = 30000;
+
 /** One live subscription. HTTP is a bounded recovery path, never a polling loop. */
 export function createChatStream({
   url,
@@ -35,34 +39,31 @@ export function createChatStream({
       socket = null;
     }
   };
-  const fallback = async (token) => {
-    if (fallbacks >= 3) return;
+  // A running fallback survives reconnect attempts: a slow first snapshot must
+  // land unless a socket snapshot, hiding, ending or disposal superseded it.
+  const fallback = async () => {
+    if (fallbacks >= 3 || fallbackController) return;
     fallbacks++;
     const version = revision;
-    abortRead();
     const controller = new AbortController();
     fallbackController = controller;
+    const current = () => !disposed && !controller.signal.aborted && version === revision;
     try {
       const next = await read(controller.signal);
-      if (disposed || token !== epoch || version !== revision) return;
+      if (!current()) return;
       snapshot = next;
       onSnapshot(next);
       onError("");
     } catch (error) {
-      if (
-        !disposed &&
-        !controller.signal.aborted &&
-        token === epoch &&
-        version === revision
-      )
-        onError(error.message);
+      if (current()) onError(error.message);
+    } finally {
+      if (fallbackController === controller) fallbackController = null;
     }
   };
   const connect = () => {
     if (disposed || ended || visibility.hidden) return;
     onConnection("disconnected");
     cancel(timer);
-    abortRead();
     const token = ++epoch;
     let sequence = -1;
     const fail = (message = "") => {
@@ -71,14 +72,16 @@ export function createChatStream({
       stopSocket();
       onConnection("disconnected");
       if (message) onError(message);
-      void fallback(token);
+      void fallback();
       timer = schedule(connect, Math.min(1000 * 2 ** attempt++, 15000));
     };
     try {
       socket = createSocket(url);
-      deadline = schedule(() => fail(), 8000);
+      deadline = schedule(() => fail(), CONNECT_TIMEOUT);
       socket.onopen = () => {
         if (disposed || token !== epoch) return;
+        cancel(deadline);
+        deadline = schedule(() => fail(), FIRST_SNAPSHOT_TIMEOUT);
         onConnection("connected");
       };
       socket.onmessage = (event) => {

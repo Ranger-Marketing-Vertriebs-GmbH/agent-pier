@@ -198,6 +198,11 @@ test("an invalid delta recovers through HTTP without publishing a partial update
 test("a socket that never supplies a snapshot times out and ended streams stop retrying", async () => {
   const f = fixture();
   f.sockets[0].onopen();
+  assert.deepEqual(
+    [...f.timers.values()].map((timer) => timer.delay),
+    [30000],
+    "an open socket waits longer for a slow first snapshot",
+  );
   f.tick();
   await settle();
   assert.equal(f.reads, 1);
@@ -264,5 +269,25 @@ test("hidden and reconnecting streams invalidate live observation evidence befor
   assert.equal(f.connections.at(-1), "disconnected");
   f.sockets.at(-1).onopen();
   assert.equal(f.connections.at(-1), "connected");
+  f.dispose();
+});
+
+test("a slow fallback read survives reconnect attempts and still lands", async () => {
+  let release;
+  const signals = [];
+  const f = fixture((signal) => {
+    signals.push(signal);
+    return new Promise((resolve) => {
+      release = resolve;
+    });
+  });
+  f.sockets[0].onerror();
+  f.tick();
+  assert.equal(signals[0].aborted, false, "reconnect keeps the running read");
+  f.sockets.at(-1).onclose();
+  assert.equal(f.reads, 1, "no competing read while one is running");
+  release({ messages: [{ id: "slow" }], providerSessionId: "one" });
+  await settle();
+  assert.deepEqual(f.snapshots.at(-1).messages, [{ id: "slow" }]);
   f.dispose();
 });
