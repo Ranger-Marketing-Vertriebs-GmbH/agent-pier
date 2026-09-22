@@ -3,6 +3,8 @@ import { applyChatSync } from "./chat-sync.js";
 const CONNECT_TIMEOUT = 8000;
 // An open socket may wait for a slow first server read; it is not a dead socket.
 const FIRST_SNAPSHOT_TIMEOUT = 30000;
+// A never-settling HTTP read must not block later recovery reads.
+const FALLBACK_TIMEOUT = 30000;
 
 /** One live subscription. HTTP is a bounded recovery path, never a polling loop. */
 export function createChatStream({
@@ -48,6 +50,9 @@ export function createChatStream({
     const controller = new AbortController();
     fallbackController = controller;
     const current = () => !disposed && !controller.signal.aborted && version === revision;
+    const limit = schedule(() => {
+      if (fallbackController === controller) abortRead();
+    }, FALLBACK_TIMEOUT);
     try {
       const next = await read(controller.signal);
       if (!current()) return;
@@ -57,6 +62,7 @@ export function createChatStream({
     } catch (error) {
       if (current()) onError(error.message);
     } finally {
+      cancel(limit);
       if (fallbackController === controller) fallbackController = null;
     }
   };
