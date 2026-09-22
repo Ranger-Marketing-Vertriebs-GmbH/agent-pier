@@ -1,5 +1,8 @@
 import { claudeHistoryGroup, claudeImageSources } from "./claude-image-history.js";
-import { claudeConversationRecord } from "./claude-conversation-record.js";
+import {
+  claudeConversationRecord,
+  claudeVisibleRecord,
+} from "./claude-conversation-record.js";
 import fs from "node:fs/promises";
 import syncFs from "node:fs";
 import path from "node:path";
@@ -157,20 +160,15 @@ export class ClaudeHistoryIndex {
     }
   }
   insert(record, offset, length) {
-    if (
-      !["assistant", "user"].includes(record.type) ||
-      (record.isMeta && !claudeImageSources(record)) ||
-      record.isCompactSummary ||
-      (record.message?.role && record.message.role !== record.type)
-    )
-      return;
+    const shown = claudeVisibleRecord(record);
+    if (!shown && !claudeImageSources(record)) return;
     const group = claudeHistoryGroup(record);
     const content = record.message?.content;
     const blocks = Array.isArray(content) ? content : [];
     const resultEnvelope =
       record.type === "user" && blocks.some((block) => block?.type === "tool_result");
     const visible =
-      !record.isMeta &&
+      shown &&
       (typeof content === "string"
         ? Boolean(content)
         : blocks.some(

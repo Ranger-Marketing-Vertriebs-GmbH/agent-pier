@@ -1,5 +1,8 @@
 import { claudeHistoryGroup, claudeImageSources } from "./claude-image-history.js";
-import { claudeConversationRecord } from "./claude-conversation-record.js";
+import {
+  claudeConversationRecord,
+  claudeVisibleRecord,
+} from "./claude-conversation-record.js";
 import { normalizeClaude } from "./history-parsers.js";
 import { observeClaude } from "./claude-observability.js";
 import { JsonlHistoryReader } from "./jsonl-history-reader.js";
@@ -39,10 +42,7 @@ export async function readClaudePage(history, session, id, state) {
       const record = claudeConversationRecord(item.record);
       if (claudeImageSources(record)) pendingImages.add(key(record));
       if (!record.uuid && !record.message?.id) record.uuid = `claude-byte:${item.start}`;
-      const visible =
-        ["assistant", "user"].includes(record.type) &&
-        !record.isMeta &&
-        !record.isCompactSummary;
+      const visible = claudeVisibleRecord(record);
       if (visible && key(record) !== oldestKey)
         content = normalizeClaude(records.toReversed());
       // Do not cut through streamed fragments of one assistant message or leave
