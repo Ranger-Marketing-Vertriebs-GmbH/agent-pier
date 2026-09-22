@@ -44,6 +44,7 @@ const copy = (en) => ({
   next: en ? "Next question" : "Nächste Frage",
   send: en ? "Send answer" : "Antwort senden",
   decline: en ? "Decline" : "Ablehnen",
+  confirmDecline: en ? "Confirm decline" : "Ablehnen bestätigen",
   note: en ? "Note for Claude (optional)" : "Notiz für Claude (optional)",
   preview: en ? "Preview: " : "Vorschau: ",
   other: en ? "Other answer" : "Andere Antwort",
@@ -126,6 +127,20 @@ for (const locale of ["de-DE", "en-GB"]) {
       await page.getByText(text.note, { exact: true }).click();
       await page.getByRole("textbox", { name: /Which layout/ }).fill("Not today");
       await page.getByRole("button", { name: text.decline, exact: true }).click();
+      // Declining cannot be undone; the first click only arms it.
+      const confirm = page.getByRole("button", {
+        name: text.confirmDecline,
+        exact: true,
+      });
+      await expect(confirm).toBeVisible();
+      await page.waitForTimeout(200);
+      expect(calls(state, "/answer")).toHaveLength(0);
+      // Editing the answer disarms it again.
+      await page.getByRole("textbox", { name: /Which layout/ }).fill("Not today!");
+      await expect(confirm).toHaveCount(0);
+      await page.getByRole("textbox", { name: /Which layout/ }).fill("Not today");
+      await page.getByRole("button", { name: text.decline, exact: true }).click();
+      await confirm.click();
       await expect.poll(() => calls(state, "/answer").length).toBe(1);
       expect(calls(state, "/answer")[0].body).toEqual({
         expectedRevision: 1,

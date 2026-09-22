@@ -59,6 +59,7 @@ export const requestCopy = {
   other: "Andere Antwort",
   otherLabel: (prompt) => `Andere Antwort: ${prompt}`,
   decline: "Ablehnen",
+  declineConfirm: "Ablehnen bestätigen",
   note: "Notiz für Claude (optional)",
   noteLabel: (prompt) => `Notiz für Claude: ${prompt}`,
   preview: (label) => `Vorschau: ${label}`,
