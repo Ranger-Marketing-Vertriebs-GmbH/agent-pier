@@ -419,6 +419,7 @@ export function withChatInput(manager, id, operation) {
               notice,
               escape: options.closeMenus !== false,
               onProof: (proof) => options.onProof?.(proof),
+              text,
               timing: manager.chatInputTiming,
             });
           if (attempted || checking)

@@ -218,10 +218,24 @@ export async function awaitClaudePaste(
  * paste before Enter and confirm the submit. `notice` records informational
  * codes; `timing` (tests only) shortens the native waits.
  */
-/** The prompt box contents that a held Enter must still find unchanged. */
-export function claudePromptProof(fresh) {
+/**
+ * The prompt box contents that a held Enter must still find unchanged. With
+ * `text`, only a box that visibly ends with the pasted message counts, so a
+ * frame drawn before the paste arrived (or a collapsed paste) proves nothing.
+ */
+export function claudePromptProof(fresh, text) {
   const box = claudeComposerBox(fresh.raw, fresh.pane);
   if (!box || box.clipped) return null;
+  if (text !== undefined) {
+    const squash = (value) => value.replace(/\s+/g, "");
+    const shown = squash(box.rows.map((row) => row.slice(2)).join(""));
+    // Pasted image paths turn into chips; the last text line must show.
+    const image = (line) => /^\/.*\.(?:png|jpe?g|gif|webp)$/i.test(line.trim());
+    const last = squash(
+      text.split("\n").findLast((line) => line.trim() && !image(line)) || "",
+    );
+    if (last && !shown.endsWith(last)) return null;
+  }
   return JSON.stringify(box.rows.map((row) => row.trimEnd()));
 }
 
@@ -232,6 +246,7 @@ export function claudeFreshInput({
   notice,
   escape = true,
   onProof = () => {},
+  text,
   timing = {},
 }) {
   // Escape only closes menus without a question; still tell the user.
@@ -251,8 +266,9 @@ export function claudeFreshInput({
   const dismiss = (current) =>
     dismissClaudeDialog(manager, session, current, snapshot, dialog);
   const prove = (fresh) => {
-    const proof = claudePromptProof(fresh);
+    const proof = claudePromptProof(fresh, text);
     if (proof) onProof(proof);
+    return Boolean(proof);
   };
   return {
     async prepare(current) {
@@ -271,8 +287,14 @@ export function claudeFreshInput({
     },
     /** Right after the paste: remember the prompt holding our text. */
     async afterPaste() {
-      const fresh = await snapshot();
-      if (["text", "draft"].includes(stateOf(fresh))) prove(fresh);
+      // Wait for Claude to draw the paste before remembering the prompt.
+      const deadline = performance.now() + 500;
+      for (;;) {
+        const fresh = await snapshot();
+        if (["text", "draft"].includes(stateOf(fresh)) && prove(fresh)) return;
+        if (performance.now() >= deadline) return;
+        await sleep(25);
+      }
     },
     async beforeSubmit() {
       const result = await awaitClaudePaste(snapshot, dismiss, timing.paste);
