@@ -2,6 +2,8 @@
 // sending their German text; browsers resolve the key in the active language.
 const keyPattern = /^[A-Za-z][\w-]*(?:\.[A-Za-z][\w-]*)+$/;
 const argLimit = 8;
+// Catalog messages are short; longer text (CLI output, logs) skips pattern matching.
+const patternTextLimit = 2000;
 const sentinel = (index) => `\u0000${index}\u0000`;
 
 function escapeRegExp(value) {
@@ -69,6 +71,7 @@ export function createMessageIndex(tree) {
     if (typeof text !== "string" || !text) return null;
     const key = exact.get(text);
     if (key) return { key };
+    if (text.length > patternTextLimit) return null;
     for (const entry of templates) {
       const match = entry.pattern.exec(text);
       if (!match) continue;
