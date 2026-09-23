@@ -143,18 +143,32 @@ test("an unconfirmed Claude submit is uncertain with a stable reason", async (t)
   assert.ok(!JSON.stringify(hidden).includes("secret-token"));
 });
 
-test("unconfirmed image chips leave a pasted, unsubmitted delivery with a stable reason", async (t) => {
+test("unconfirmed image chips leave the images pasted, the text unwritten and a stable reason", async (t) => {
   const x = await setup(t, async (text, { onPhase }) => {
     await onPhase("paste-intent");
-    await onPhase("pasted");
+    await onPhase("images-pasted");
     throw composerProblem("CHAT_IMAGES_UNCONFIRMED");
   });
   const input = x.body();
   const result = await x.post(input);
   assert.equal(result.status, "uncertain");
   assert.equal(result.reason, "CHAT_IMAGES_UNCONFIRMED");
-  assert.match(result.error, /eingefügt, aber nicht abgeschickt/);
-  assert.equal(x.journal(input), "pasted");
+  assert.match(result.error, /nicht abgeschickt/);
+  assert.equal(x.journal(input), "images-pasted");
+});
+
+test("a refused text intent keeps the proven images-pasted phase", async (t) => {
+  const x = await setup(t, async (text, { onPhase, onRefused }) => {
+    await onPhase("paste-intent");
+    await onPhase("images-pasted");
+    await onPhase("text-intent");
+    await onRefused("text-intent");
+    throw composerProblem("CHAT_COMPOSER_DIALOG");
+  });
+  const input = x.body();
+  const result = await x.post(input);
+  assert.equal(result.status, "uncertain");
+  assert.equal(x.journal(input), "images-pasted");
 });
 
 test("maximum-length multi-byte chat input fits the input and recovery routes", async (t) => {

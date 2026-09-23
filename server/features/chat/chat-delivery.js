@@ -1,7 +1,13 @@
 import { nativeInputQueue } from "./native-input-queue.js";
 import fs from "node:fs";
 import { normalizeChatText } from "../sessions/session-chat-input.js";
-import { deliveryReason, reasonText, recoverDelivery } from "./chat-delivery-recovery.js";
+import {
+  deliveryReason,
+  intents,
+  provenPhase,
+  reasonText,
+  recoverDelivery,
+} from "./chat-delivery-recovery.js";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { privateDirectory, problem } from "../../lib/storage.js";
@@ -196,8 +202,7 @@ export class ChatDelivery {
         await tx.write(normalized, {
           allowComposerDraft: true,
           onPhase: async (phase) => {
-            if (["paste-intent", "submit-intent"].includes(phase))
-              requireCurrentChatInput(this.requests, id);
+            if (intents.has(phase)) requireCurrentChatInput(this.requests, id);
             receipt.status = "uncertain";
             receipt.journal = { phase, generation: tx.recoveryGeneration };
             this.write(file, receipt);
@@ -205,7 +210,7 @@ export class ChatDelivery {
           },
           onRefused: async (phase) => {
             receipt.journal = {
-              phase: phase === "paste-intent" ? "reserved" : "pasted",
+              phase: provenPhase[phase],
               generation: tx.recoveryGeneration,
             };
             this.write(file, receipt);

@@ -9,10 +9,29 @@ const border = `\x1b[38;2;136;136;136m${"─".repeat(width)}`;
  * behavior validated against the real CLI: Ctrl-E, Ctrl-U, Backspace, Delete,
  * bracketed paste and Enter. A fixed `dialog` frame replaces the prompt box.
  */
-export function claudePromptModel({ draft = "", cursor, dialog, ignoreEnter } = {}) {
+export function claudePromptModel({
+  draft = "",
+  cursor,
+  dialog,
+  ignoreEnter,
+  images = false,
+} = {}) {
   const lines = draft.split("\n");
   const model = {
     lines,
+    images: images ? 0 : null,
+    paste(text) {
+      if (model.images === null) return model.insert(text);
+      // Claude 2.1.280 turns lines holding absolute image paths into chips and
+      // places them before the remaining pasted lines.
+      const paths = text.split("\n").filter((line) => /^\/.*\.png$/.test(line.trim()));
+      const rest = text
+        .split("\n")
+        .filter((line) => !paths.includes(line))
+        .join("\n");
+      const chips = paths.map(() => `[Image #${++model.images}]`).join(" ");
+      model.insert(chips + (paths.length && !rest.trim() ? "" : rest));
+    },
     line: cursor?.line ?? lines.length - 1,
     col: cursor?.col ?? lines.at(-1).length,
     dialog,
@@ -113,12 +132,23 @@ export function claudeModelManager(model, session = {}) {
     tmux: async (args, options) => {
       if (args[0] === "display-message") {
         const { raw, pane } = model.screen();
-        return `%1|${process.pid}|1|${pane.cursorX}|${pane.cursorY}|${pane.width}|${pane.height}|0\n${raw}`;
+        const fields = {
+          pane_id: "%1",
+          pane_pid: process.pid,
+          session_created: 1,
+          cursor_x: pane.cursorX,
+          cursor_y: pane.cursorY,
+          pane_width: pane.width,
+          pane_height: pane.height,
+          pane_dead: 0,
+        };
+        const format = args[args.indexOf("-p") + 3];
+        return `${format.replace(/#\{(\w+)\}/g, (_, key) => fields[key])}\n${raw}`;
       }
       manager.events.push({ args, input: options?.input });
       if (args[0] === "load-buffer") buffers.set(args[2], options.input);
       if (args[0] === "paste-buffer")
-        model.insert(buffers.get(args[args.indexOf("-b") + 1]));
+        model.paste(buffers.get(args[args.indexOf("-b") + 1]));
       if (args[0] === "send-keys") {
         const keys = args.slice(args.indexOf("-t") + 2);
         if (args.includes("-l")) model.insert(keys.at(-1));

@@ -156,7 +156,7 @@ export const chatDeliveryCopy = {
     CHAT_COMPOSER_NOT_CLEARED:
       "The message was pasted into Claude but not submitted. Check the TUI before sending again.",
     CHAT_IMAGES_UNCONFIRMED:
-      "The message was pasted into Claude but not submitted: Claude's input field does not show all attached images. Enlarge the terminal or check the TUI before sending again.",
+      "The message was not submitted: Claude's input field does not show all attached images. Check the TUI before sending again.",
   },
   reasons: {
     CHAT_COMPOSER_DIALOG:

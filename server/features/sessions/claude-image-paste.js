@@ -6,6 +6,7 @@ import { problem } from "../../lib/storage.js";
 import { claudeComposerBox, composerProblem } from "./claude-composer.js";
 
 const chip = /\[Image\s+#\s*\d+\]/g;
+const imageFile = /\.(?:png|jpe?g|gif|webp)$/i;
 
 /**
  * Image chips in Claude's current prompt box, never image labels in conversation
@@ -19,36 +20,58 @@ export function claudeComposerImages(raw, pane) {
   return [...box.rows.join("\n").matchAll(chip)].length;
 }
 
-/** Claude asynchronously turns pasted local image paths into image chips. */
-export async function waitForClaudeImagePaste(
-  manager,
-  session,
-  text,
-  { timeoutMs = 10000, initialImages = 0 } = {},
-) {
-  if (session.tool !== "claude") return;
-  const candidates = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => path.isAbsolute(line) && /\.(?:png|jpe?g|gif|webp)$/i.test(line));
-  if (!candidates.length) return;
-  let expected = 0;
-  for (const file of candidates) {
+/**
+ * Splits a chat message into the local image paths Claude turns into chips and
+ * the remaining text, or null when it attaches no image. Claude Code 2.1.280
+ * removes every line holding an existing absolute image path from a paste and
+ * places its chips before the remaining lines, so pasting the paths first and the
+ * text afterwards yields the same prompt. Only absolute paths become chips:
+ * ~/ and relative image paths, and missing files, stay text.
+ */
+export async function claudeImageMessage(text) {
+  const images = [];
+  const rest = [];
+  for (const line of text.split("\n")) {
+    const file = line.trim();
     if (
-      await stat(file).then(
+      path.isAbsolute(file) &&
+      imageFile.test(file) &&
+      (await stat(file).then(
         (info) => info.isFile(),
         () => false,
-      )
+      ))
     )
-      expected++;
+      images.push(file);
+    else rest.push(line);
   }
-  if (!expected) return;
-  if (!Number.isInteger(initialImages) || initialImages < 0)
+  if (!images.length) return null;
+  const remaining = rest.join("\n");
+  return { images, text: remaining.trim() ? remaining : "" };
+}
+
+// Claude numbers chips per session, so only their position and count are stable.
+const chipless = (value) => value.replace(chip, "[Image #]");
+
+/**
+ * Whether a single-row readable Claude draft is exactly the message's chips
+ * followed by `text` (chips only by default). Wrapped, collapsed or scrolled
+ * drafts are never matched, like plain text drafts.
+ */
+export function claudeImageDraft(composer, message, { text = "" } = {}) {
+  if (composer?.state !== "text" || !message?.images.length) return false;
+  const expected = message.images.map(() => "[Image #1]").join(" ") + text;
+  return chipless(composer.text) === chipless(expected);
+}
+
+/** Claude asynchronously turns pasted local image paths into image chips. */
+export async function waitForClaudeImages(
+  manager,
+  session,
+  expected,
+  { timeoutMs = 10000 } = {},
+) {
+  if (!Number.isInteger(expected) || expected < 0)
     throw problem(serverMessages.sessionInput.imagesUninspectable, 409);
-  // Chip-like text the user typed stays literal in the prompt and matches too.
-  // Only absolute paths become chips: Claude 2.1.280 leaves ~/ and relative
-  // image paths as text.
-  expected += initialImages + [...text.matchAll(chip)].length;
   const target = `${manager.target(session.id)}:0.0`;
   const deadline = performance.now() + timeoutMs;
   do {
@@ -78,7 +101,7 @@ export async function waitForClaudeImagePaste(
       return;
     await sleep(50);
   } while (performance.now() < deadline);
-  // Pasted but not submitted: the images may still be loading or scrolled out of
-  // a pane too short to show them. Never submit a message without proven images.
+  // Pasted but not submitted: the images may still be loading. Never add the
+  // text or submit a message without proven images.
   throw composerProblem("CHAT_IMAGES_UNCONFIRMED");
 }

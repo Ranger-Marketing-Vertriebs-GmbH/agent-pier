@@ -12,6 +12,8 @@ export const chatDeliveryCopy = {
     "Die TUI-Eingabe enthält anderen Text oder ist nicht vollständig lesbar. Sie wurde nicht verändert.",
   recoveryReadySubmit:
     "Der vollständige Text steht noch in der TUI. Mit Neu zustellen wird nur das Abschicken nachgeholt.",
+  recoveryReadyText:
+    "Die Bilder stehen noch in der TUI. Mit Neu zustellen werden nur der Text ergänzt und die Nachricht abgeschickt.",
   recoveryReadyResend:
     "Die Nachricht wurde noch nicht geschrieben und kann neu zugestellt werden.",
   recoveryHandedOff: "Die Nachricht wurde an die TUI übergeben.",
@@ -32,7 +34,7 @@ export const chatDeliveryCopy = {
     CHAT_COMPOSER_NOT_CLEARED:
       "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_IMAGES_UNCONFIRMED:
-      "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt: Claude zeigt nicht alle angehängten Bilder im Eingabefeld an. Vergrößere das Terminal oder prüfe die TUI, bevor du erneut sendest.",
+      "Die Nachricht wurde nicht abgeschickt: Claude zeigt nicht alle angehängten Bilder im Eingabefeld an. Bitte prüfe die TUI, bevor du erneut sendest.",
   },
   // Stable reason identifiers; the browser translates them by code.
   reasons: {

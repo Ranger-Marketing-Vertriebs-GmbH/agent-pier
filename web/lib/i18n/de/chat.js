@@ -156,7 +156,7 @@ export const chatDeliveryCopy = {
     CHAT_COMPOSER_NOT_CLEARED:
       "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_IMAGES_UNCONFIRMED:
-      "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt: Claude zeigt nicht alle angehängten Bilder im Eingabefeld an. Vergrößere das Terminal oder prüfe die TUI, bevor du erneut sendest.",
+      "Die Nachricht wurde nicht abgeschickt: Claude zeigt nicht alle angehängten Bilder im Eingabefeld an. Bitte prüfe die TUI, bevor du erneut sendest.",
   },
   reasons: {
     CHAT_COMPOSER_DIALOG:

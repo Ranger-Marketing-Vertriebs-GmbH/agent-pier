@@ -11,6 +11,8 @@ export const chatDeliveryCopy = {
     "The TUI input contains different text or cannot be read completely. It was not changed.",
   recoveryReadySubmit:
     'The full text is still in the TUI. "Deliver again" only completes the submission.',
+  recoveryReadyText:
+    'The images are still in the TUI. "Deliver again" only adds the text and submits the message.',
   recoveryReadyResend: "The message has not been written yet and can be delivered again.",
   recoveryHandedOff: "The message was handed off to the TUI.",
   invalid: "Invalid delivery request.",
@@ -29,7 +31,7 @@ export const chatDeliveryCopy = {
     CHAT_COMPOSER_NOT_CLEARED:
       "The message was pasted into Claude but not submitted. Check the TUI before sending again.",
     CHAT_IMAGES_UNCONFIRMED:
-      "The message was pasted into Claude but not submitted: Claude's input field does not show all attached images. Enlarge the terminal or check the TUI before sending again.",
+      "The message was not submitted: Claude's input field does not show all attached images. Check the TUI before sending again.",
   },
   reasons: {
     CHAT_COMPOSER_DIALOG:
