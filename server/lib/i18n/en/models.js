@@ -12,4 +12,6 @@ export const models = Object.freeze({
   invalidSearch: "Invalid model search.",
   completeSelectionFirst:
     "Please complete the model selection first or check the terminal.",
+  providerContextAtStartup:
+    "This provider configures context at startup. Select the model in the account settings and start a new session.",
 });

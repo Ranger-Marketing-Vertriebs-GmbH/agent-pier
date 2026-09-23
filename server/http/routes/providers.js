@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
 
@@ -12,7 +13,7 @@ export function providerRoutes({ providerCatalog }) {
   router.get("/providers/:id/models", (request, response) => {
     const tool = request.query.tool;
     if (tool !== undefined && !["codex", "claude", "opencode"].includes(tool))
-      throw problem("Unknown coding CLI.");
+      throw problem(serverMessages.common.unknownCliTool);
     const models = providerCatalog.list({ providerId: request.params.id, tool });
     response.json({ models, status: providerCatalog.status()[request.params.id] });
   });

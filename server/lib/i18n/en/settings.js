@@ -8,4 +8,7 @@ export const settings = Object.freeze({
     "Over network access, network mode can only be turned off. Change the bind address and host list locally or via Tailscale.",
   restartFailed:
     "The service could not be restarted. Please restart it manually: npm run service:install or npm start.",
+  invalidDefaultAccounts: "Invalid default account selection.",
+  defaultAccountRequiresCodingCli: "Default accounts require a coding CLI.",
+  nativeDefaultAccountRequired: "Choose an existing native account for the selected CLI.",
 });

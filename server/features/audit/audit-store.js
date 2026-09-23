@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { privateDatabase } from "../../lib/private-database.js";
@@ -45,7 +46,7 @@ export class AuditStore {
     }
     if (outcome) {
       if (!["success", "failure"].includes(outcome))
-        throw problem("Invalid audit outcome.");
+        throw problem(serverMessages.audit.invalidOutcome);
       clauses.push("outcome=?");
       values.push(outcome);
     }
@@ -76,28 +77,28 @@ export class AuditStore {
       .map((row) => ({ ...JSON.parse(row.document), id: String(row.id) }));
   }
   importEvents(events) {
-    if (!Array.isArray(events)) throw problem("Invalid audit archive.");
+    if (!Array.isArray(events)) throw problem(serverMessages.audit.invalidArchive);
     let previous = 0;
     const records = events.map((input) => {
       const id = auditInteger(input?.id, "identifier", { min: 1 });
       if (id <= previous || String(id) !== input.id)
-        throw problem("Audit archive identifiers must be ordered and unique.");
+        throw problem(serverMessages.audit.archiveIdsUnordered);
       previous = id;
       if (
         typeof input.createdAt !== "string" ||
         !Number.isFinite(Date.parse(input.createdAt)) ||
         new Date(input.createdAt).toISOString() !== input.createdAt
       )
-        throw problem("Invalid audit archive timestamp.");
+        throw problem(serverMessages.audit.invalidArchiveTimestamp);
       const event = { ...auditEvent(input), createdAt: input.createdAt };
       if (!isDeepStrictEqual({ ...event, id: input.id }, input))
-        throw problem("Invalid audit archive metadata.");
+        throw problem(serverMessages.audit.invalidArchiveMetadata);
       return { id, event };
     });
     this.db.exec("BEGIN IMMEDIATE");
     try {
       if (this.db.prepare("SELECT COUNT(*) AS count FROM events").get().count)
-        throw problem("Audit restore requires an empty target.", 409);
+        throw problem(serverMessages.audit.restoreRequiresEmptyTarget, 409);
       const insert = this.db.prepare(
         "INSERT INTO events (id,created_at,action,outcome,session_id,project_id,document) VALUES(?,?,?,?,?,?,?)",
       );

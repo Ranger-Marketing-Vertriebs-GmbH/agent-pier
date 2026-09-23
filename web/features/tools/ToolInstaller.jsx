@@ -1,4 +1,5 @@
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import { serverText } from "../../lib/server-messages.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { toolInstallerCopy as copy } from "../../lib/i18n/messages/tools.js";
 import React from "react";
@@ -128,7 +129,7 @@ export default function ToolInstaller({
                     ? copy.reinstallationReady
                     : labels[job.status] || job.status}
               </strong>
-              {job.message && !reinstall && <p>{job.message}</p>}
+              {job.message && !reinstall && <p>{serverText(job.message)}</p>}
               {job.version && <code>{job.version}</code>}
             </div>
             {(running || submitting) && (

@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -10,10 +11,7 @@ export function writeTomlConfig(file, additions) {
     current = parse(fs.readFileSync(file, "utf8"));
   } catch (error) {
     if (error.code !== "ENOENT")
-      throw problem(
-        "The managed provider config is invalid. Repair it before launching.",
-        409,
-      );
+      throw problem(serverMessages.providers.managedConfigInvalid, 409);
   }
   privateDirectory(path.dirname(file));
   const temporary = `${file}.${randomUUID()}.tmp`;

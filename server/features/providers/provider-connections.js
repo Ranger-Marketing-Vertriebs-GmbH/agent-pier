@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -32,20 +33,20 @@ function inputValue(input, creation) {
     Array.isArray(input) ||
     Object.keys(input).some((key) => !allowed.includes(key))
   )
-    throw problem("Invalid provider connection fields.");
+    throw problem(serverMessages.providers.invalidConnectionFields);
   if (
     input.apiKey !== undefined &&
     (typeof input.apiKey !== "string" ||
       input.apiKey.length > 16384 ||
       /[\x00-\x1f]/.test(input.apiKey))
   )
-    throw problem("Invalid provider API key.");
+    throw problem(serverMessages.providers.invalidApiKey);
   if (input.removeApiKey !== undefined && typeof input.removeApiKey !== "boolean")
-    throw problem("Invalid key removal selection.");
+    throw problem(serverMessages.providers.invalidKeyRemoval);
   if (input.responsesAccess !== undefined && typeof input.responsesAccess !== "boolean")
-    throw problem("Responses API access must be an explicit boolean.");
+    throw problem(serverMessages.providers.responsesAccessBoolean);
   if (input.removeApiKey && input.apiKey?.trim())
-    throw problem("Choose either key rotation or key removal.");
+    throw problem(serverMessages.accounts.keyRotationOrRemoval);
   return input.apiKey?.trim();
 }
 export class ProviderConnections {
@@ -69,7 +70,7 @@ export class ProviderConnections {
   }
   record(id) {
     const record = validId(id) && this.records.find((value) => value.id === id);
-    if (!record) throw problem("Provider connection not found.", 404);
+    if (!record) throw problem(serverMessages.providers.connectionNotFound, 404);
     return record;
   }
   secret(id) {
@@ -119,17 +120,14 @@ export class ProviderConnections {
   }
   requireMutable(id) {
     if (this.launches.has(id))
-      throw problem(
-        "A session is being prepared with this connection. Retry after the session starts.",
-        409,
-      );
+      throw problem(serverMessages.providers.connectionPreparingSession, 409);
   }
   create(input) {
     const key = inputValue(input, true),
       name = nameValue(input.name);
     providerDefinition(input.providerId);
     if (input.providerId === "openrouter" && input.responsesAccess !== undefined)
-      throw problem("Responses entitlement applies only to Z.ai connections.");
+      throw problem(serverMessages.providers.responsesEntitlementZaiOnly);
     const now = new Date().toISOString();
     const record = {
       id: randomUUID(),
@@ -152,7 +150,7 @@ export class ProviderConnections {
     const key = inputValue(input, false),
       current = this.record(id);
     if (current.providerId === "openrouter" && input.responsesAccess !== undefined)
-      throw problem("Responses entitlement applies only to Z.ai connections.");
+      throw problem(serverMessages.providers.responsesEntitlementZaiOnly);
     const record = {
       ...current,
       ...(input.name !== undefined ? { name: nameValue(input.name) } : {}),
