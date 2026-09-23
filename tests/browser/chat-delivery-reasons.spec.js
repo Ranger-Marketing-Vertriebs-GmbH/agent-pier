@@ -1,6 +1,7 @@
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { chatDeliveryCopy } from "../../server/lib/i18n/de/chat-delivery.js";
 
 test.use({ locale: "en-GB", viewport: { width: 390, height: 844 } });
 
@@ -86,4 +87,16 @@ test("a message the server never accepted can be edited and dismissed", async ({
     .click();
   await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
   expect(state.inputs).toHaveLength(1);
+});
+
+test("a stored German receipt error without a reason code is shown in English", async ({
+  page,
+}) => {
+  await fixture(page, { status: "rejected", error: chatDeliveryCopy.rejected });
+  await input(page).fill("Check the receipt language");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(
+    page.getByText(/The input was rejected before the terminal handoff/),
+  ).toBeVisible();
+  await expect(page.getByText(/Die Eingabe wurde/)).toHaveCount(0);
 });
