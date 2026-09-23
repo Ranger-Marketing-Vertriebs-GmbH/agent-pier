@@ -1,0 +1,18 @@
+export const requestCopy = {
+  pendingInput: "Please answer the pending request first or continue in the terminal.",
+  invalid: "Invalid native request or response.",
+  session: "Invalid session.",
+  stale: "This request is no longer current. Please check the terminal.",
+  unknown: "Transmission uncertain. Please check the request in the terminal.",
+  allow: "Allow",
+  deny: "Deny",
+  once: "Allow once",
+  turnAllow: "Allow for this turn",
+  sessionAllow: "Allow for this session",
+  always: "Always allow",
+  sessionRules: "When allowed for the session, these patterns apply:",
+  cancel: "Cancel",
+  unsupported: "Native requests require a supported CLI version.",
+  approval: "Permission requested",
+  grant: "Additional permissions",
+};
