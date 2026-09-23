@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ChatDraft, deliveryScope } from "../../web/features/chat/chat-draft.js";
+import { reusedDraft } from "../../web/features/chat/chat-draft-reuse.js";
 import { chatDeliveryCopy } from "../../web/lib/i18n/messages/chat.js";
 import { setLanguage } from "../../web/lib/i18n/index.js";
 
@@ -78,4 +79,51 @@ test("handoff notices are kept and translated as non-blocking information", asyn
     setLanguage("de");
   }
   assert.match(chatDeliveryCopy.notices.CHAT_APPENDED_TO_DRAFT, /Terminal-Eingabefeld/);
+});
+
+test("only a message that left the composer can be edited again, with its files", async () => {
+  const draft = new ChatDraft(storage(), scope, lock);
+  await draft.change({ text: "held message" });
+  await draft.enqueue("held", []);
+  await draft.receipt({ deliveryId: "held", status: "pending", waiting: "request" });
+  assert.equal(draft.getSnapshot().text, "");
+  await draft.receipt({
+    deliveryId: "held",
+    status: "rejected",
+    reason: "CHAT_CANCELLED",
+  });
+  await draft.change({ text: "new draft" });
+  await draft.reuse("held");
+  assert.equal(draft.getSnapshot().text, "new draft\nheld message");
+  // A rejection that returned its text to the composer is not offered again.
+  await draft.enqueue("kept", []);
+  await draft.receipt({ deliveryId: "kept", status: "rejected" });
+  const kept = draft.getSnapshot();
+  assert.equal(kept.text, "new draft\nheld message");
+  await draft.reuse("kept");
+  assert.equal(draft.getSnapshot().text, "new draft\nheld message");
+  assert.equal(kept.recent.find((item) => item.id === "kept").released, undefined);
+});
+
+test("reusing a released message merges its attachments", () => {
+  const saved = {
+    text: "",
+    attachments: [{ key: "a", name: "a.png", path: "/files/a.png" }],
+    outbox: null,
+    recent: [
+      {
+        id: "held",
+        released: true,
+        text: "look\n/files/b.png",
+        attachments: [{ key: "b", name: "b.png", path: "/files/b.png" }],
+      },
+    ],
+  };
+  const next = reusedDraft(saved, "held");
+  assert.equal(next.text, "look");
+  assert.deepEqual(
+    next.attachments.map((file) => file.path),
+    ["/files/a.png", "/files/b.png"],
+  );
+  assert.deepEqual(next.recent, []);
 });

@@ -1,6 +1,7 @@
 import { clearContext, resetPresentation, validResetContext } from "./chat-reset.js";
 import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { browserUuid } from "../../lib/browser-uuid.js";
+import { reusedDraft } from "./chat-draft-reuse.js";
 
 export const deliveryScope = (session) =>
   JSON.stringify([
@@ -498,7 +499,8 @@ export class ChatDraft {
           text: "",
           attachments: [],
           outbox: null,
-          recent: retainRecent([...saved.recent, next]),
+          // Its text left the composer; "Edit message" may bring it back.
+          recent: retainRecent([...saved.recent, { ...next, released: true }]),
         });
       } else {
         this.write(
@@ -569,21 +571,12 @@ export class ChatDraft {
       else this.adopt(saved);
     });
   }
-  /** Put a message that never reached the terminal back into the composer. */
+  /** Put a message that left the composer and never reached the TUI back. */
   reuse(id) {
     return this.mutate((saved) => {
-      const item = saved.outbox ? null : saved.recent.find((entry) => entry.id === id);
-      if (!item) return this.adopt(saved);
-      const files = item.attachments || [];
-      const lines = item.text.split("\n");
-      while (files.some((file) => file.path === lines.at(-1))) lines.pop();
-      const text = lines.join("\n");
-      this.write({
-        ...saved,
-        text: saved.text.trim() ? `${saved.text}\n${text}` : text,
-        attachments: saved.attachments.length ? saved.attachments : files,
-        recent: saved.recent.filter((entry) => entry.id !== id),
-      });
+      const next = reusedDraft(saved, id);
+      if (next) this.write(next);
+      else this.adopt(saved);
     });
   }
   dismiss(id) {
