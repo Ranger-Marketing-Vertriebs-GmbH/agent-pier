@@ -1,7 +1,14 @@
 import { nativeInputQueue } from "./native-input-queue.js";
 import fs from "node:fs";
 import { normalizeChatText } from "../sessions/session-chat-input.js";
-import { deliveryReason, reasonText, recoverDelivery } from "./chat-delivery-recovery.js";
+import {
+  deliveryReason,
+  noticeRecorder,
+  reasonText,
+  recoverDelivery,
+  waitingFor,
+} from "./chat-delivery-recovery.js";
+import { setTimeout as sleep } from "node:timers/promises";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { privateDirectory, problem } from "../../lib/storage.js";
@@ -32,12 +39,15 @@ function syncDirectory(directory) {
 
 /** Durable at-most-once native input for one owner of the data directory. */
 export class ChatDelivery {
-  constructor({ dataDir, sessions, requests, models }) {
+  constructor({ dataDir, sessions, requests, models, retryMs = 1000, waitLimitMs }) {
     this.directory = path.join(dataDir, "chat-delivery");
     this.sessions = sessions;
     this.requests = requests;
     this.models = models;
     this.active = new Set();
+    // An open question may take a while to answer; keep waiting for 12 hours.
+    this.retryMs = retryMs;
+    this.waitLimitMs = waitLimitMs ?? 12 * 60 * 60 * 1000;
   }
 
   folder(id) {
@@ -116,10 +126,24 @@ export class ChatDelivery {
       attemptId: receipt.attemptId || receipt.deliveryId,
       ...(receipt.observation ? { observation: receipt.observation } : {}),
       ...(receipt.recovery ? { recovery: receipt.recovery } : {}),
+      ...(receipt.notices?.length ? { notices: receipt.notices } : {}),
+      ...(status === "pending" && receipt.waiting ? { waiting: receipt.waiting } : {}),
       ...(status === "rejected" ? { error: copy.rejected } : {}),
       ...(status === "uncertain" ? { error: copy.uncertain } : {}),
+      // Whether the text may sit in the TUI prompt selects the reason wording.
+      ...(status === "uncertain"
+        ? { pasted: receipt.journal?.phase !== "reserved" }
+        : {}),
       ...(["rejected", "uncertain"].includes(status) && receipt.reason
-        ? { reason: receipt.reason, error: reasonText(receipt.reason, status) }
+        ? {
+            reason: receipt.reason,
+            error: reasonText(
+              receipt.reason,
+              status === "uncertain" && receipt.journal?.phase === "reserved"
+                ? "rejected"
+                : status,
+            ),
+          }
         : {}),
     };
   }
@@ -171,30 +195,52 @@ export class ChatDelivery {
     }
     this.write(file, receipt);
     this.active.add(file);
-    let mayHaveWritten = false;
+    const job = { id, file, receipt, text: normalized, hash, scope: deliveryScope };
+    let deferred = false;
     try {
-      let blocked = false;
-      try {
-        await requireChatInput(this.requests, id);
-      } catch {
-        blocked = true;
-      }
+      deferred = (await this.attempt(job)) === "deferred";
+    } finally {
+      if (!deferred) this.active.delete(file);
+    }
+    // The response reports "pending"; the message follows once the TUI is free.
+    if (deferred) this.waitAndRetry(job);
+    return this.result(receipt, file);
+  }
+
+  /**
+   * One terminal handoff under the session lock. Returns "deferred" when an open
+   * question, native request or menu keeps the message pending; the receipt then
+   * records what it waits for and the phase its text reached.
+   */
+  async attempt(job) {
+    const { id, file, receipt, text, hash, scope } = job;
+    const submitOnly = job.mode === "submit";
+    let mayHaveWritten = submitOnly;
+    try {
+      if (!submitOnly) await requireChatInput(this.requests, id);
       await this.sessions.withChatInput(id, async (tx) => {
-        this.checkScope(tx.session, deliveryScope);
-        receipt.journal = { phase: "reserved", generation: tx.recoveryGeneration };
-        receipt.observation = {
-          generation: tx.observationGeneration,
-          startedAt: Date.now(),
-          providerSessionId: tx.providerSessionId || null,
-          hash,
-          baseline: nativeInputQueue(tx.session.tool, tx.raw, tx.pane),
-        };
-        this.write(file, receipt);
-        if (blocked) throw problem(copy.rejected, 409);
+        this.checkScope(tx.session, scope);
+        if (!submitOnly) {
+          receipt.journal = { phase: "reserved", generation: tx.recoveryGeneration };
+          receipt.observation = {
+            generation: tx.observationGeneration,
+            startedAt: Date.now(),
+            providerSessionId: tx.providerSessionId || null,
+            hash,
+            baseline: nativeInputQueue(tx.session.tool, tx.raw, tx.pane),
+          };
+          this.write(file, receipt);
+        }
         requireCurrentChatInput(this.requests, id);
-        await this.models.guardInput(id, tx.session, tx.raw);
-        await tx.write(normalized, {
-          allowComposerDraft: true,
+        // Claude's own /model picker is a menu closed before the paste.
+        await this.models.guardInput(id, tx.session, tx.raw, {
+          nativeMenus: tx.session.tool === "claude",
+        });
+        await tx.write(text, {
+          allowComposerDraft: !submitOnly,
+          submitOnly,
+          // Escape a menu once per message, never again while waiting.
+          closeMenus: !receipt.notices?.includes("CHAT_DIALOG_CLOSED"),
           onPhase: async (phase) => {
             if (["paste-intent", "submit-intent"].includes(phase))
               requireCurrentChatInput(this.requests, id);
@@ -211,19 +257,59 @@ export class ChatDelivery {
             this.write(file, receipt);
             if (phase === "paste-intent") mayHaveWritten = false;
           },
+          onNotice: noticeRecorder(receipt),
         });
       });
       receipt.status = "handed-off";
-      this.write(file, receipt);
+      delete receipt.waiting;
+      delete receipt.reason;
     } catch (error) {
-      receipt.status = mayHaveWritten ? "uncertain" : "rejected";
       const reason = deliveryReason(error);
+      const waiting = waitingFor(reason);
+      const phase = mayHaveWritten ? receipt.journal?.phase : "reserved";
+      if (waiting && ["reserved", "pasted"].includes(phase)) {
+        // Only the pasted text awaits Enter; nothing else is ever repeated.
+        job.mode = phase === "pasted" ? "submit" : "send";
+        receipt.waiting = waiting;
+        receipt.reason = reason;
+        if (this.exists(file)) this.write(file, receipt);
+        return "deferred";
+      }
+      receipt.status = mayHaveWritten ? "uncertain" : "rejected";
+      delete receipt.waiting;
       if (reason) receipt.reason = reason;
-      this.write(file, receipt);
+    }
+    if (this.exists(file)) this.write(file, receipt);
+    return receipt.status;
+  }
+
+  exists(file) {
+    return fs.existsSync(file);
+  }
+
+  /** Retry a deferred message until its question, request or menu is gone. */
+  async waitAndRetry(job) {
+    const { id, file, receipt } = job;
+    const deadline = Date.now() + this.waitLimitMs;
+    try {
+      for (;;) {
+        await sleep(this.retryMs);
+        if (!this.exists(file)) return;
+        if (Date.now() > deadline) {
+          // Truthful end: nothing typed is rejected, pasted text stays uncertain.
+          receipt.status = job.mode === "submit" ? "uncertain" : "rejected";
+          delete receipt.waiting;
+          this.write(file, receipt);
+          return;
+        }
+        if (receipt.waiting === "request" && this.requests.hasPending(id)) continue;
+        if ((await this.attempt(job)) !== "deferred") return;
+      }
+    } catch {
+      /* A failed receipt write leaves the durable pending/uncertain state. */
     } finally {
       this.active.delete(file);
     }
-    return this.result(receipt, file);
   }
 
   recover(id, deliveryId, body) {

@@ -50,7 +50,7 @@ operations. Without `--http`, measurements describe direct tmux input only.
 For Codex and OpenCode, a fresh chat send behaves like typing into the current TUI
 composer and pressing Enter. An existing draft or an unrecognized screen layout does
 not reject that explicit send; native input can combine the existing draft with the
-pasted text. Claude follows the stricter prompt-box policy described below.
+pasted text. Claude follows the prompt-box policy described below.
 The same rule applies to an explicit retry whose durable journal proves that no
 paste was attempted (`reserved`). No draft-clearing keystrokes are injected.
 
@@ -72,31 +72,77 @@ that arrives after paste: the latter must prevent Enter.
 Claude Code shows permission prompts, the rewind selector (Esc Esc) and pickers in
 place of its ruled prompt box. A bracketed paste into such a dialog is discarded and
 the following Enter confirms the dialog; the probe reproduced an approved Bash
-command. Fresh Claude input therefore requires the prompt box around the cursor. A
-dialog footer (`Esc to cancel`, `Enter to continue`, `Tab to amend`, …) or any other
-screen rejects the send with the stable reason `CHAT_COMPOSER_DIALOG` or
-`CHAT_COMPOSER_UNAVAILABLE` before a byte is written; the browser translates the
-reason and keeps the message editable.
+command. Fresh Claude input therefore never sends Enter while a dialog is visible.
 
 An existing Claude draft (for example a prompt restored after Esc) is replaced, not
 extended. The server sends `C-e C-u`, then `BSpace`, and `DC` only when Backspace
 changed nothing, re-reading the prompt after each step until it is empty. Escape
-and Ctrl-C are never used: Ctrl-C interrupts a running turn and Esc Esc opens the
-rewind selector. Unverifiable clearing rejects with `CHAT_COMPOSER_NOT_CLEARED`.
-Before Enter the pasted text must be visible in the prompt box; after Enter the
-prompt must be empty or show Claude's queued-message placeholder within five
-seconds. Otherwise the receipt is `uncertain` with `CHAT_SUBMIT_UNCONFIRMED`,
-which offers the existing inspection and TUI path instead of waiting indefinitely.
+and Ctrl-C are never used for clearing: Ctrl-C interrupts a running turn and Esc Esc
+opens the rewind selector. Before Enter the pasted text must be visible in the
+prompt box; after Enter the prompt must be empty or show Claude's queued-message
+placeholder within five seconds. Otherwise the receipt is `uncertain` with
+`CHAT_SUBMIT_UNCONFIRMED`, which offers the existing inspection and TUI path
+instead of waiting indefinitely.
 
 Validated against Claude Code 2.1.280 with a private tmux socket, a disposable HOME
 and the loopback provider: single-line, wrapped (300 characters), multi-line,
 collapsed pasted text, image-chip, cursor-on-first-line, cursor-mid-line and
 bash-mode drafts were all cleared; the following message reached the provider
 without the old draft and without an image. Clearing a draft during a running turn
-did not interrupt it. Permission, rewind and `/model` screens rejected the send and
-remained open; no permission was granted. The HTTP probe
-(`--native --tool claude --local-mock --http --bound`) passed with the new policy.
-Captured frames are in `tests/fixtures/tui-input/claude-2.1.280-screens.json`.
+did not interrupt it. Captured frames are in
+`tests/fixtures/tui-input/claude-2.1.280-screens.json`.
+
+### Chat never blocks on terminal state (2026-09-23)
+
+AgentPier 1.20.0 refused chat messages with `CHAT_COMPOSER_NOT_CLEARED` when a
+draft typed in the terminal could not be proven cleared (reproduced in a 50×34 pane
+during a long turn). The policy is now that a chat send always reaches the CLI; the
+terminal state only changes how:
+
+- **Draft in the prompt:** replaced as above. When clearing cannot be proven (no
+  progress, key or time budget, unexpected state), the chat text is pasted after
+  whatever the prompt still holds and submitted. The receipt carries the
+  informational notice `CHAT_APPENDED_TO_DRAFT` ("Sent together with text that
+  was already in the terminal prompt").
+- **Unreadable prompt** (no ruled prompt box around the cursor, no dialog): paste
+  and Enter as before 1.20.0, notice `CHAT_PROMPT_UNREADABLE`. The emptied prompt
+  cannot be observed there, so an unreadable screen after Enter still counts as
+  handed off; a prompt that visibly keeps the text stays `CHAT_SUBMIT_UNCONFIRMED`.
+- **Questions** (permission prompts, plan approval, AskUserQuestion; any dialog
+  with a question-shaped row) are never closed by AgentPier: Escape would deny or
+  cancel them. The message stays `pending` with `waiting: "dialog"`; the chat shows
+  that it waits for the dialog in the TUI, with an "Open TUI" action, and delivers
+  it automatically once the prompt box is back.
+- **Requests mirrored in the chat** (questions and permissions brokered by the
+  AgentPier hooks, startup dialogs) likewise hold the message with
+  `waiting: "request"`. The composer stays usable while such a request is open;
+  the queued message follows the answer without retyping.
+- **Menus without a question** (rewind selector, `/model` picker, other
+  `Esc to cancel` menus whose footer is the last visible row) are closed with
+  single Escape presses, at most three and at least 1.2 s apart so they never form
+  Esc Esc or reach a busy prompt. Notice: `CHAT_DIALOG_CLOSED`. A menu that stays
+  open holds the message like a question; Escape is not sent again while it waits.
+- **Images:** when Claude does not show every pasted image chip within ten
+  seconds, the message is still submitted with the notice
+  `CHAT_IMAGES_MAYBE_MISSING`; the file paths remain in the text.
+
+Waiting happens outside the session lock, so the user can answer in the terminal
+meanwhile. Only the phase the journal proves is continued: a message held before
+its paste is pasted once later; one held between paste and Enter only receives
+Enter, and only while the exact text is provably still in the prompt. A waiter
+lost to a server restart leaves an `uncertain` receipt whose reason says the text
+was not typed yet ("Deliver again" resends it); after twelve hours of waiting the
+receipt ends as `rejected` (nothing typed) or `uncertain` (pasted). A rejected
+message releases the chat composer with its text instead of locking it.
+
+Codex and OpenCode keep appending to an existing draft (notice
+`CHAT_APPENDED_TO_DRAFT` when the draft was readable) and share the request wait;
+the dialog and menu rules apply to Claude only.
+
+Synthetic coverage: `tests/unit/claude-chat-fallback.test.js`,
+`tests/unit/claude-composer.test.js`, `tests/integration/chat-never-blocks.test.js`
+(owned tmux, 50×34 stuck draft, menu, question) and
+`tests/integration/chat-delivery-composer.test.js` (deferral, receipts, restart).
 
 ### Chat after terminal submission regression (2026-09-13)
 

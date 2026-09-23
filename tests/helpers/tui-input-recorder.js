@@ -6,19 +6,41 @@ import { setTimeout as sleep } from "node:timers/promises";
 // A minimal Claude prompt box in the captured tmux style of Claude Code 2.1.x.
 // It echoes bracketed pastes and literal keys, applies Ctrl-U/Backspace and
 // submits on Enter, so post-paste and post-submit checks observe real changes.
+// \`dialog\` ("menu" or "question") shows a rewind-style menu or a permission
+// prompt; a lone Escape closes either and Enter answers the question;
+// \`ignoreEditing\` ignores Ctrl-U/Backspace like a prompt that cannot be cleared.
 const claudeComposer = (options) => `
-const state = { draft: ${JSON.stringify(options.draft || "")}, pasting: false, escape: "" };
+const state = {
+  draft: ${JSON.stringify(options.draft || "")},
+  dialog: ${JSON.stringify(options.dialog || false)},
+  pasting: false,
+  escape: "",
+};
 const style = ${JSON.stringify(options.emptyStyle || "cursor")};
 const ignoreEnter = ${JSON.stringify(Boolean(options.ignoreEnter))};
-const width = process.stdout.columns || 120;
-const height = process.stdout.rows || 35;
-const border = "\\x1b[38;2;136;136;136m" + "─".repeat(width);
+const ignoreEditing = ${JSON.stringify(Boolean(options.ignoreEditing))};
 function render() {
+  const width = process.stdout.columns || 120;
+  const height = process.stdout.rows || 35;
+  const border = "\\x1b[38;2;136;136;136m" + "─".repeat(width);
+  if (state.dialog) {
+    const rows = state.dialog === "menu"
+      ? ["   Rewind", "", "   Restore the code and/or conversation to the point before…", "",
+        "   ❯ (current)", "", "   Enter to continue · Esc to cancel"]
+      : [" Bash command", "   touch MARKER", "", " Do you want to proceed?",
+        " ❯ 1. Yes", "   2. No", "", " Esc to cancel · Tab to amend"];
+    let out = "\x1b[2J\x1b[1;1HSynthetic Claude transcript";
+    rows.forEach((row, index) => {
+      out += "\x1b[" + (height - rows.length + index) + ";1H" + row;
+    });
+    process.stdout.write(out + "\x1b[" + (height - 3) + ";2H");
+    return;
+  }
   // Wrap like Claude: continuation rows are indented inside the same box.
   const lines = state.draft
     .replaceAll("\\t", " ")
     .split("\\n")
-    .flatMap((line) => line.match(/.{1,110}/gsu) || [""])
+    .flatMap((line) => line.match(new RegExp(".{1," + (width - 10) + "}", "gsu")) || [""])
     .slice(-(height - 5));
   const top = height - lines.length - 3;
   let out = "\\x1b[2J\\x1b[1;1HSynthetic Claude transcript";
@@ -50,15 +72,26 @@ function key(input) {
       continue;
     }
     if (ch === "\\x1b") state.escape = ch;
+    else if (state.dialog) {
+      if (ch === "\\r") state.dialog = false;
+      continue;
+    }
     else if (state.pasting) state.draft += ch === "\\r" ? "\\n" : ch;
     else if (ch === "\\r") {
       if (!ignoreEnter) state.draft = "";
-    } else if (ch === "\\x15") state.draft = state.draft.replace(/[^\\n]*$/, "");
+    } else if (ignoreEditing && ["\\x15", "\\x7f", "\\x05"].includes(ch)) continue;
+    else if (ch === "\\x15") state.draft = state.draft.replace(/[^\\n]*$/, "");
     else if (ch === "\\x7f") state.draft = state.draft.slice(0, -1);
     else if (ch >= " ") state.draft += ch;
   }
+  // tmux writes a lone Escape key on its own; it closes the modal.
+  if (state.escape === "\\x1b") {
+    state.escape = "";
+    state.dialog = false;
+  }
 }
 render();
+process.stdout.on("resize", render);
 process.stdin.on("data", (data) => {
   key(data.toString());
   render();

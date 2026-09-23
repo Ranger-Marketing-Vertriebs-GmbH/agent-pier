@@ -172,10 +172,13 @@ test("a rejected receipt still accepts a new explicit retry and its final outcom
     attemptId: "delivery",
     status: "rejected",
   });
+  // Nothing reached the terminal: the composer gets its text back at once.
+  assert.equal(reload().getSnapshot().outbox, null);
+  assert.equal(reload().getSnapshot().text, "try again");
   const item = await draft.beginRecovery("delivery", "retry", "retry");
   assert.equal(item.recoveryAttempt.expectedAttemptId, "delivery");
   await draft.receipt({ deliveryId: "delivery", attemptId: "retry", status: "pending" });
-  assert.equal(reload().getSnapshot().outbox.status, "pending");
+  assert.equal(reload().getSnapshot().recent[0].status, "pending");
   await draft.receipt({
     deliveryId: "delivery",
     attemptId: "retry",
@@ -204,7 +207,7 @@ test("same-attempt blocked recovery still updates the reason on a rejected recei
     status: "rejected",
     recovery: { requestId: "retry", action: "blocked", reason: "Composer occupied" },
   });
-  const item = reload().getSnapshot().outbox;
+  const item = reload().getSnapshot().recent[0];
   assert.equal(item.status, "rejected");
   assert.equal(item.recoveryAttempt, null);
   assert.equal(item.recovery.reason, "Composer occupied");

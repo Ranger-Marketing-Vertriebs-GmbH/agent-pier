@@ -106,18 +106,97 @@ test("Claude submit confirmation requires the emptied prompt", async () => {
   });
 });
 
-test("fresh Claude chat input refuses open dialogs before any terminal byte", async () => {
-  for (const name of ["permission", "rewind", "modelPicker"]) {
+// Quick native waits for the synthetic prompt model.
+const quick = { dialog: { settleMs: 40, waitMs: 120 }, clear: { settleMs: 30 } };
+
+test("fresh Claude chat input closes an open menu with one Escape, then sends", async () => {
+  for (const name of ["rewind", "modelPicker"]) {
     const model = claudePromptModel({ dialog: screens[name] });
     const manager = claudeModelManager(model);
-    await chat.withChatInput(manager, "one", async (tx) => {
-      await assert.rejects(tx.write("hello", { allowComposerDraft: true }), {
-        status: 409,
-        code: "CHAT_COMPOSER_DIALOG",
-      });
-    });
-    assert.deepEqual(manager.events, [], name);
+    manager.chatInputTiming = quick;
+    const notices = [];
+    const result = await chat.withChatInput(manager, "one", (tx) =>
+      tx.write("hello", {
+        allowComposerDraft: true,
+        onNotice: async (code) => notices.push(code),
+      }),
+    );
+    assert.deepEqual(model.submitted, ["hello"], name);
+    // Nothing ever reached the menu but a single Escape.
+    assert.deepEqual(model.keys, ["Escape", "Enter"], name);
+    assert.deepEqual(model.dialogInput, [], name);
+    assert.deepEqual(notices, ["CHAT_DIALOG_CLOSED"], name);
+    assert.deepEqual(result.notices, ["CHAT_DIALOG_CLOSED"], name);
   }
+});
+
+test("a native question is never closed or typed into; the message waits", async () => {
+  const model = claudePromptModel({ dialog: screens.permission });
+  const manager = claudeModelManager(model);
+  manager.chatInputTiming = quick;
+  await chat.withChatInput(manager, "one", async (tx) => {
+    await assert.rejects(tx.write("hello", { allowComposerDraft: true }), {
+      status: 409,
+      code: "CHAT_QUESTION_OPEN",
+    });
+  });
+  // Escape would deny the permission; nothing is sent at all.
+  assert.deepEqual(model.keys, []);
+  assert.deepEqual(manager.events, []);
+});
+
+test("a menu that Escape does not close is refused without a byte after bounded presses", async () => {
+  const model = claudePromptModel({ dialog: screens.rewind, escapeCloses: false });
+  const manager = claudeModelManager(model);
+  manager.chatInputTiming = quick;
+  await chat.withChatInput(manager, "one", async (tx) => {
+    await assert.rejects(tx.write("hello", { allowComposerDraft: true }), {
+      status: 409,
+      code: "CHAT_DIALOG_NOT_CLOSED",
+    });
+  });
+  assert.deepEqual(model.keys, ["Escape", "Escape", "Escape"]);
+  assert.deepEqual(model.dialogInput, []);
+  assert.ok(!manager.events.some((event) => event.args[0] === "paste-buffer"));
+  // While the message waits, later attempts never press Escape again.
+  model.keys.length = 0;
+  await chat.withChatInput(manager, "one", async (tx) => {
+    await assert.rejects(
+      tx.write("hello", { allowComposerDraft: true, closeMenus: false }),
+      { code: "CHAT_DIALOG_NOT_CLOSED" },
+    );
+  });
+  assert.deepEqual(model.keys, []);
+});
+
+test("a menu closed in the TUI during the short wait still gets the message", async () => {
+  const model = claudePromptModel({ dialog: screens.rewind, escapeCloses: false });
+  const manager = claudeModelManager(model);
+  manager.chatInputTiming = { ...quick, dialog: { settleMs: 40, waitMs: 3000 } };
+  setTimeout(() => (model.dialog = null), 400);
+  await chat.withChatInput(manager, "one", (tx) =>
+    tx.write("hello", { allowComposerDraft: true }),
+  );
+  assert.deepEqual(model.submitted, ["hello"]);
+  assert.deepEqual(model.dialogInput, []);
+});
+
+test("a menu without an Escape footer receives no key at all", async () => {
+  const raw = screens.rewind.raw.replace(
+    "Enter to continue · Esc to cancel",
+    "Enter to continue",
+  );
+  assert.notEqual(raw, screens.rewind.raw);
+  const model = claudePromptModel({ dialog: { ...screens.rewind, raw } });
+  const manager = claudeModelManager(model);
+  manager.chatInputTiming = quick;
+  await chat.withChatInput(manager, "one", async (tx) => {
+    await assert.rejects(tx.write("hello", { allowComposerDraft: true }), {
+      code: "CHAT_DIALOG_NOT_CLOSED",
+    });
+  });
+  assert.deepEqual(model.keys, []);
+  assert.deepEqual(manager.events, []);
 });
 
 test("fresh Claude chat input replaces a restored draft and confirms the submit", async () => {
@@ -153,9 +232,30 @@ test("an Enter that Claude does not take is reported, never assumed", async () =
   assert.deepEqual(model.lines, ["kept in prompt"]);
 });
 
+test("a menu opening at the paste intent is closed before the paste", async () => {
+  const model = claudePromptModel();
+  const manager = claudeModelManager(model);
+  manager.chatInputTiming = quick;
+  const calls = [];
+  await chat.withChatInput(manager, "one", (tx) =>
+    tx.write("hello", {
+      allowComposerDraft: true,
+      onPhase: async (phase) => {
+        calls.push(phase);
+        if (phase === "paste-intent") model.dialog = screens.rewind;
+      },
+      onRefused: async (phase) => calls.push(`refused:${phase}`),
+    }),
+  );
+  assert.deepEqual(calls, ["paste-intent", "pasted", "submit-intent", "submitted"]);
+  assert.deepEqual(model.submitted, ["hello"]);
+  assert.deepEqual(model.dialogInput, []);
+});
+
 test("a refused intent guard lets the caller restore its last proven phase", async () => {
   const model = claudePromptModel();
   const manager = claudeModelManager(model);
+  manager.chatInputTiming = quick;
   const calls = [];
   await chat.withChatInput(manager, "one", async (tx) => {
     await assert.rejects(
@@ -163,14 +263,15 @@ test("a refused intent guard lets the caller restore its last proven phase", asy
         allowComposerDraft: true,
         onPhase: async (phase) => {
           calls.push(phase);
-          // A native dialog opens while the intent is being persisted.
+          // A permission prompt opens while the intent is being persisted.
           if (phase === "paste-intent") model.dialog = screens.permission;
         },
         onRefused: async (phase) => calls.push(`refused:${phase}`),
       }),
-      { code: "CHAT_COMPOSER_DIALOG" },
+      { code: "CHAT_QUESTION_OPEN" },
     );
   });
   assert.deepEqual(calls, ["paste-intent", "refused:paste-intent"]);
   assert.deepEqual(manager.events, []);
+  assert.deepEqual(model.keys, []);
 });

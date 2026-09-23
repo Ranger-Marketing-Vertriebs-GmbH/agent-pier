@@ -1,7 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { assertManualInputSettled } from "./manual-input-guard.js";
 import { startupScreen } from "../requests/claude-startup-prompts.js";
-import { requestCopy } from "../../lib/i18n/de/requests.js";
+import { requestPendingProblem } from "../../application/request-input-guard.js";
 import { hookTrustScreen } from "../requests/codex-hook-trust.js";
 import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
@@ -12,14 +12,8 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { isNativeSlashCommand, sendSlashCommand } from "./session-slash-command.js";
 import { problem } from "../../lib/storage.js";
 import { claudeComposerImages, waitForClaudeImagePaste } from "./claude-image-paste.js";
-import {
-  assertClaudeComposer,
-  claudeComposerState,
-  clearClaudeComposer,
-  confirmClaudeSubmit,
-  composerProblem,
-  claudePlaceholder,
-} from "./claude-composer.js";
+import { confirmClaudeSubmit, claudePlaceholder } from "./claude-composer.js";
+import { claudeFreshInput } from "./claude-prompt.js";
 
 export function normalizeChatText(text) {
   if (typeof text !== "string" || !text || text.length > 32000)
@@ -39,7 +33,9 @@ export async function writeChatTuiInput(
     submitOnly = false,
     initialImages = 0,
     onPhase = async () => {},
+    onNotice = async () => {},
     confirmSubmit = async () => {},
+    imageTimeoutMs,
   } = {},
 ) {
   const text = normalizeChatText(value);
@@ -68,7 +64,14 @@ export async function writeChatTuiInput(
       }
     }
     await onPhase("pasted");
-    if (!slash) await waitForClaudeImagePaste(manager, session, text, { initialImages });
+    if (
+      !slash &&
+      !(await waitForClaudeImagePaste(manager, session, text, {
+        initialImages,
+        timeoutMs: imageTimeoutMs,
+      }))
+    )
+      await onNotice("CHAT_IMAGES_MAYBE_MISSING");
   }
   // Preserve the native Codex literal-input paste-burst separation.
   if (slash && session.tool === "codex") await sleep(250);
@@ -346,18 +349,6 @@ export async function chatInputSnapshot(manager, session) {
   };
 }
 
-/** Enter must only follow a paste Claude actually shows in its prompt box. */
-async function awaitClaudePaste(snapshot, state, timeoutMs = 2000) {
-  const deadline = performance.now() + timeoutMs;
-  for (;;) {
-    const current = state(await snapshot());
-    if (["text", "draft"].includes(current.state)) return;
-    if (current.state !== "empty") assertClaudeComposer(current, ["text", "draft"]);
-    if (performance.now() >= deadline) throw composerProblem("CHAT_SUBMIT_UNCONFIRMED");
-    await sleep(25);
-  }
-}
-
 /** Inspection and optional writing share the exact lock used by terminal input. */
 export function withChatInput(manager, id, operation) {
   if (manager.replacing.has(id))
@@ -379,7 +370,7 @@ export function withChatInput(manager, id, operation) {
         (current.tool === "claude" &&
           startupScreen(fresh.raw, current.cwd, { started: fresh.nativeStarted }))
       )
-        throw problem(requestCopy.pendingInput, 409);
+        throw requestPendingProblem();
       if (fresh.generation !== initial.generation)
         throw problem(serverMessages.sessionInput.generationChanged, 409);
       if (
@@ -398,31 +389,56 @@ export function withChatInput(manager, id, operation) {
         write: async (value, options = {}) => {
           const text = normalizeChatText(value);
           const submitOnly = options.submitOnly === true;
-          const inspectComposer = submitOnly || options.allowComposerDraft !== true;
+          const freshInput = !submitOnly && options.allowComposerDraft === true;
+          const inspectComposer = submitOnly || !freshInput;
           // Claude dialogs swallow a paste and take Enter as their confirmation.
-          // Fresh Claude input therefore requires its prompt box and replaces a draft.
+          // Fresh Claude input closes them, replaces a draft or appends to it.
           const claude = session.tool === "claude";
           const replace = claude && !submitOnly;
-          const claudeState = (fresh) =>
-            claudeComposerState(fresh.raw, fresh.pane, fresh.composer);
           const snapshot = () => check(text, false, false);
+          const notices = new Set();
+          const notice = async (code) => {
+            if (notices.has(code)) return;
+            notices.add(code);
+            await options.onNotice?.(code);
+          };
+          const claudeInput =
+            replace &&
+            claudeFreshInput({
+              manager,
+              session,
+              snapshot,
+              notice,
+              escape: options.closeMenus !== false,
+              timing: manager.chatInputTiming,
+            });
           if (attempted || checking)
             throw problem(serverMessages.sessionInput.alreadyAttempted, 409);
           checking = true;
           let initialImages = 0;
           try {
-            let fresh = await check(text, submitOnly, inspectComposer && !replace);
+            // Keystrokes typed in the terminal may not have rendered yet. Fresh
+            // chat input takes over that draft instead of refusing the message.
+            const typed = freshInput && manager.pendingTerminalInput?.has(id);
+            if (typed) {
+              await sleep(150);
+              manager.pendingTerminalInput.delete(id);
+            }
+            let current = await check(text, submitOnly, inspectComposer && !replace);
             // Replacing a draft already writes keys; never repeat it in this transaction.
             attempted = true;
-            if (replace)
-              fresh = await clearClaudeComposer(manager, session, fresh, snapshot);
-            if (claude) initialImages = claudeComposerImages(fresh.raw, fresh.pane);
+            if (replace) current = await claudeInput.prepare(current);
+            else if (freshInput && (typed || current.composer.state === "text"))
+              await notice("CHAT_APPENDED_TO_DRAFT");
+            if (claude) initialImages = claudeComposerImages(current.raw, current.pane);
           } finally {
             checking = false;
           }
-          return writeChatTuiInput(manager, session, text, {
+          await writeChatTuiInput(manager, session, text, {
             ...options,
             initialImages,
+            imageTimeoutMs: manager.chatInputTiming?.imagesMs,
+            onNotice: notice,
             // The intent is durable before its guard, so a change during the write
             // is still caught. A refused guard proves no bytes were written: the
             // caller restores its last proven phase instead of staying uncertain.
@@ -431,15 +447,15 @@ export function withChatInput(manager, id, operation) {
               if (!["paste-intent", "submit-intent"].includes(phase)) return;
               try {
                 if (phase === "paste-intent") {
-                  const fresh = await check(
+                  const current = await check(
                     text,
                     submitOnly,
                     inspectComposer && !replace,
                   );
-                  if (replace) assertClaudeComposer(claudeState(fresh), ["empty"]);
+                  if (replace) await claudeInput.beforePaste(current);
                 } else {
                   await check(text, submitOnly, inspectComposer && submitOnly);
-                  if (replace) await awaitClaudePaste(snapshot, claudeState);
+                  if (replace) await claudeInput.beforeSubmit();
                 }
               } catch (error) {
                 await options.onRefused?.(phase);
@@ -447,9 +463,12 @@ export function withChatInput(manager, id, operation) {
               }
             },
             confirmSubmit: claude
-              ? ({ slash }) => confirmClaudeSubmit(snapshot, { slash })
+              ? replace
+                ? claudeInput.confirm
+                : ({ slash }) => confirmClaudeSubmit(snapshot, { slash })
               : undefined,
           });
+          return { notices: [...notices] };
         },
       });
     } finally {
