@@ -7,6 +7,7 @@ import {
   composerProblem,
   confirmClaudeSubmit,
 } from "./claude-composer.js";
+import { claudeComposerImages } from "./claude-image-paste.js";
 
 const plain = (line) => (line || "").replace(/\x1b\[[0-9;:]*m/g, "");
 // Escape needs positive evidence of a menu without a question: the rewind
@@ -326,14 +327,30 @@ export function claudeFreshInput({
       chips = claudePromptProof(fresh);
       onProof(chips);
     },
+    /** A dialog hid the prompt during the chip wait: close a menu or hold. */
+    async dismissOpen() {
+      const fresh = await snapshot();
+      if (stateOf(fresh) === "dialog") await dismiss(fresh);
+    },
+    /**
+     * Before Enter on an image-only message: at least one of its chips must be
+     * visible beyond the `before` chips already there. Unreadable prompts pass.
+     */
+    async assertImages(before) {
+      const fresh = await snapshot();
+      const count = claudeComposerImages(fresh.raw, fresh.pane);
+      if (count !== null && count <= before)
+        throw composerProblem("CHAT_SUBMIT_UNCONFIRMED");
+    },
     /** Text for chips pasted before a hold: only into that unchanged prompt. */
-    async beforeResume(proof, matches) {
+    async beforeResume(proof, matches, { text = true } = {}) {
       let fresh = await snapshot();
       if (stateOf(fresh) === "dialog") fresh = await dismiss(fresh);
       const unchanged =
         typeof proof === "string" ? claudePromptProof(fresh) === proof : matches(fresh);
       if (!unchanged) throw composerProblem("CHAT_PROMPT_CHANGED");
-      chips = claudePromptProof(fresh);
+      // Only a text paste must change the chips-only prompt before Enter.
+      if (text) chips = claudePromptProof(fresh);
     },
     async beforeSubmit() {
       const result = await awaitClaudePaste(snapshot, dismiss, {

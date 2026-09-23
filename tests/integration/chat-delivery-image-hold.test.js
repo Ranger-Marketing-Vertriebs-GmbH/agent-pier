@@ -8,6 +8,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import * as chat from "../../server/features/sessions/session-chat-input.js";
 import { ChatDelivery } from "../../server/features/chat/chat-delivery.js";
 import { claudeModelManager, claudePromptModel } from "../helpers/claude-prompt-model.js";
+import { chatDeliveryCopy as copy } from "../../server/lib/i18n/de/chat-delivery.js";
 
 // The real delivery, queue and Claude input stack against the prompt model.
 const screens = JSON.parse(
@@ -95,8 +96,12 @@ test("a question after the image chips holds the text, then pastes only the text
   assert.deepEqual(model.keys, []);
   assert.deepEqual(model.dialogInput, []);
   assert.deepEqual(pastes(x.manager), [files.join("\n")]);
-  // Images are in the prompt: cancelling is refused.
-  await assert.rejects(x.delivery.cancel("one", held.deliveryId, scope), { status: 409 });
+  assert.equal(held.pasted, "images");
+  // Images are in the prompt: cancelling is refused, naming only the images.
+  await assert.rejects(x.delivery.cancel("one", held.deliveryId, scope), {
+    status: 409,
+    message: copy.cancelImagesPasted,
+  });
   model.dialog = null;
   assert.equal((await x.settled(held.deliveryId)).status, "handed-off");
   assert.deepEqual(pastes(x.manager), [files.join("\n"), "Describe these"]);
@@ -130,18 +135,23 @@ test("chips changed while the text waited are never completed blindly", async (t
   const done = await x.settled(held.deliveryId);
   assert.equal(done.status, "uncertain");
   assert.equal(done.reason, "CHAT_PROMPT_CHANGED");
+  // Only the image chips were pasted: the wording must not claim the text was.
+  assert.equal(done.pasted, "images");
+  assert.equal(done.error, copy.imagesPastedReasons.CHAT_PROMPT_CHANGED);
   assert.deepEqual(pastes(x.manager), [files.join("\n")]);
   assert.deepEqual(model.submitted, []);
 });
 
-test("an image-only message is held and submitted without a text step", async (t) => {
+test("an image-only message held during the chip wait is submitted without a text step", async (t) => {
   const model = claudePromptModel({ images: true });
   const files = [];
   const x = setup(t, model, files);
   questionAfter(model, x.manager, 1);
   const held = await x.send(files.join("\n"));
   assert.equal(held.status, "pending");
-  assert.equal(phase(x, held.deliveryId), "pasted");
+  // The question showed during the chip wait: the chips wait for Enter only.
+  assert.equal(phase(x, held.deliveryId), "images-pasted");
+  assert.deepEqual(model.keys, []);
   model.dialog = null;
   assert.equal((await x.settled(held.deliveryId)).status, "handed-off");
   assert.deepEqual(pastes(x.manager), [files.join("\n")]);
