@@ -14,6 +14,7 @@ import {
 } from "../../server/features/operations/release-archive.js";
 import { Releases } from "../../server/features/operations/releases.js";
 import { digest } from "../../server/features/operations/files.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 const repository = path.resolve(import.meta.dirname, "../..");
 const platformPackage = `@koromix/koffi-${process.platform}-${process.arch}`;
@@ -159,7 +160,9 @@ test("packaged native support survives relocation, initial installation and upda
       (name) => name === "server/features/files/file-native-names.js",
     ),
   );
-  await assert.rejects(releases.stage({ archive: badNames }), /smoke check failed/);
+  await assert.rejects(releases.stage({ archive: badNames }), {
+    message: serverMessages.releases.smokeFailed,
+  });
   const missingInstallRoot = path.join(f.root, "missing-name-policy-install");
   await assert.rejects(
     installRelease(
@@ -171,7 +174,7 @@ test("packaged native support survives relocation, initial installation and upda
       },
       { run: async () => ({ stdout: "fixture tool available" }) },
     ),
-    /smoke check failed/,
+    { message: serverMessages.releases.smokeFailed },
   );
   await assert.rejects(fs.access(path.join(missingInstallRoot, "current")), {
     code: "ENOENT",
@@ -192,10 +195,9 @@ test("packaged native support survives relocation, initial installation and upda
   metadataModule.sha256 = digest(Buffer.from(faultySource));
   const faultyArchive = path.join(f.root, "faulty-metadata.aprelease");
   await fs.writeFile(faultyArchive, gzipSync(JSON.stringify(faulty)));
-  await assert.rejects(
-    releases.stage({ archive: faultyArchive }),
-    /native dependency smoke/,
-  );
+  await assert.rejects(releases.stage({ archive: faultyArchive }), {
+    message: serverMessages.releases.smokeFailed,
+  });
   assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
   const faultyWrite = JSON.parse(gunzipSync(revisedArchive(bytes, "1.1.2")));
   const writeModule = faultyWrite.files.find(
@@ -212,10 +214,9 @@ test("packaged native support survives relocation, initial installation and upda
   writeModule.sha256 = digest(Buffer.from(noWrite));
   const noWriteArchive = path.join(f.root, "faulty-write.aprelease");
   await fs.writeFile(noWriteArchive, gzipSync(JSON.stringify(faultyWrite)));
-  await assert.rejects(
-    releases.stage({ archive: noWriteArchive }),
-    /native dependency smoke/,
-  );
+  await assert.rejects(releases.stage({ archive: noWriteArchive }), {
+    message: serverMessages.releases.smokeFailed,
+  });
   assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
   const faultyLink = JSON.parse(gunzipSync(revisedArchive(bytes, "1.1.3")));
   const linkModule = faultyLink.files.find(
@@ -229,10 +230,9 @@ test("packaged native support survives relocation, initial installation and upda
   linkModule.sha256 = digest(Buffer.from(wrongLink));
   const wrongLinkArchive = path.join(f.root, "faulty-link.aprelease");
   await fs.writeFile(wrongLinkArchive, gzipSync(JSON.stringify(faultyLink)));
-  await assert.rejects(
-    releases.stage({ archive: wrongLinkArchive }),
-    /native dependency smoke/,
-  );
+  await assert.rejects(releases.stage({ archive: wrongLinkArchive }), {
+    message: serverMessages.releases.smokeFailed,
+  });
   assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
   const broken = path.join(f.root, "broken.aprelease");
   await fs.writeFile(
@@ -241,7 +241,9 @@ test("packaged native support survives relocation, initial installation and upda
       name.startsWith(`node_modules/${platformPackage}/`),
     ),
   );
-  await assert.rejects(releases.stage({ archive: broken }), /native dependency smoke/);
+  await assert.rejects(releases.stage({ archive: broken }), {
+    message: serverMessages.releases.smokeFailed,
+  });
   await assert.rejects(fs.access(path.join(installRoot, "releases/1.2.0")), {
     code: "ENOENT",
   });
@@ -257,12 +259,16 @@ test("packaged native support survives relocation, initial installation and upda
     path.join(unpacked, "node_modules", platformPackage),
     path.join(f.root, "node_modules", platformPackage),
   );
-  await assert.rejects(smokeRelease(unpacked), /native dependency smoke/);
+  await assert.rejects(smokeRelease(unpacked), {
+    message: serverMessages.releases.smokeFailed,
+  });
   await fs.rename(
     path.join(unpacked, "node_modules/koffi"),
     path.join(f.root, "node_modules/koffi"),
   );
-  await assert.rejects(smokeRelease(unpacked), /native dependency smoke/);
+  await assert.rejects(smokeRelease(unpacked), {
+    message: serverMessages.releases.smokeFailed,
+  });
   // Historical releases do not declare or ship the native explorer foundation.
   await fs.writeFile(
     path.join(unpacked, "package.json"),

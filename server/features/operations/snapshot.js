@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { artifactMembers } from "./artifact-backup.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -201,10 +202,10 @@ export function backupOptions(input = {}) {
       (key) => !["includeHistory", "withCredentials", "passphrase"].includes(key),
     )
   )
-    throw problem("Invalid backup options.");
+    throw problem(serverMessages.backups.invalidOptions);
   for (const key of ["includeHistory", "withCredentials"])
     if (input[key] !== undefined && typeof input[key] !== "boolean")
-      throw problem("Invalid backup option.");
+      throw problem(serverMessages.backups.invalidOption);
   return {
     includeHistory: input.includeHistory !== false,
     withCredentials: input.withCredentials === true,

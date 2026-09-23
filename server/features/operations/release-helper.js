@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { isMainModule } from "../../lib/is-main-module.js";
 import path from "node:path";
 import fs from "node:fs";
@@ -59,9 +60,7 @@ export async function runReleaseHelper(requestFile) {
     atomic(jobFile, {
       ...job,
       status: "failed",
-      error: error.status
-        ? error.message
-        : "Release activation failed before a verified outcome.",
+      error: error.status ? error.message : serverMessages.releases.activationFailed,
       ...(error.result ? { result: error.result } : {}),
       finishedAt: new Date().toISOString(),
     });

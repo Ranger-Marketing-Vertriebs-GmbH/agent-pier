@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -111,14 +112,12 @@ export class ReleaseSessionMigration {
   migrate(version, options = {}) {
     releaseVersion(version);
     if (options === null || typeof options !== "object" || Array.isArray(options))
-      throw problem("Invalid operation options.");
+      throw problem(serverMessages.operations.invalidOptions);
     const { interrupt = false } = options;
-    if (typeof interrupt !== "boolean") throw problem("Invalid operation options.");
+    if (typeof interrupt !== "boolean")
+      throw problem(serverMessages.operations.invalidOptions);
     if (this.active || this.operations.jobs.running("release-"))
-      throw migrateError(
-        "migrateBusy",
-        "Another release operation is running. Wait for it to finish.",
-      );
+      throw migrateError("migrateBusy", serverMessages.releases.migrateBusy);
     const control = { version, cancelled: false };
     const job = this.operations.jobs.start("release-migrate", async (jobId) => {
       try {
@@ -133,21 +132,21 @@ export class ReleaseSessionMigration {
   cancel(version) {
     releaseVersion(version);
     if (!this.active || this.active.version !== version)
-      throw problem("No migration is running for this release.", 404);
+      throw problem(serverMessages.releases.noMigration, 404);
     this.active.cancelled = true;
   }
   checkpoint(control, tracked) {
     if (control.cancelled)
       throw migrateError(
         "migrateCancelled",
-        "The migration was cancelled. The release was kept.",
+        serverMessages.releases.migrateCancelled,
         409,
         partial(tracked),
       );
     if (this.operations.jobs.closed)
       throw migrateError(
         "migrateInterrupted",
-        "The web service is shutting down. The release was kept.",
+        serverMessages.releases.migrateInterrupted,
         503,
         partial(tracked),
       );
@@ -155,10 +154,7 @@ export class ReleaseSessionMigration {
   async run(version, interrupt, control, jobId) {
     const plan = await this.plan(version);
     if (!plan.migratable)
-      throw migrateError(
-        "migrateChanged",
-        "The sessions of this release changed. Refresh the list.",
-      );
+      throw migrateError("migrateChanged", serverMessages.releases.migrateChanged);
     const tracked = new Map();
     for (const session of plan.sessions) {
       this.checkpoint(control, tracked);
@@ -189,7 +185,7 @@ export class ReleaseSessionMigration {
     if (result.failedSessions.length)
       throw migrateError(
         "migrateFailed",
-        "Some sessions could not be reloaded. The release was kept.",
+        serverMessages.releases.migrateFailed,
         409,
         result,
       );
@@ -232,7 +228,7 @@ export class ReleaseSessionMigration {
         } else if (session.status !== "running") item.outcome = "released";
         else {
           item.outcome = "failed";
-          item.error = "The reload was cancelled before it completed.";
+          item.error = serverMessages.releases.reloadCancelled;
         }
       }
       if (!pending) return;
@@ -244,18 +240,12 @@ export class ReleaseSessionMigration {
     for (let attempt = 0; ; attempt++) {
       const entry = this.entry(version);
       if (!entry)
-        throw migrateError(
-          "migrateChanged",
-          "The release is no longer available for cleanup.",
-        );
+        throw migrateError("migrateChanged", serverMessages.releases.cleanupUnavailable);
       if (entry.canDelete) return;
       // Anything other than canDelete/inUse (active, newer, busy, unsafe) is a changed
       // state, not a lingering process.
       if (entry.deleteReason !== "inUse")
-        throw migrateError(
-          "migrateChanged",
-          "The release is no longer in a state that allows cleanup. Refresh the list.",
-        );
+        throw migrateError("migrateChanged", serverMessages.releases.cleanupStateChanged);
       // Orphaned helpers of a killed CLI exit within seconds, so every remaining
       // reference (unidentified included) is awaited for the settle budget before the
       // release is reported as blocked.
@@ -267,7 +257,7 @@ export class ReleaseSessionMigration {
       if (attempt >= this.settleAttempts)
         throw migrateError(
           "migrateBlocked",
-          "Processes still use this release. The release was kept.",
+          serverMessages.releases.migrateBlocked,
           409,
           { remaining },
         );

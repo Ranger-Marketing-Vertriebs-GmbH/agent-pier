@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -73,7 +74,10 @@ for (const [current, candidate, upToDate] of [
   test(`release check compares ${current} with ${candidate} semantically`, async (t) => {
     const releases = await fixture(t, current, candidate, { channel: official });
     assert.equal((await releases.check()).upToDate, upToDate);
-    if (upToDate) await assert.rejects(releases.stage({ version: candidate }), /newer/i);
+    if (upToDate)
+      await assert.rejects(releases.stage({ version: candidate }), {
+        message: serverMessages.releases.noNewerVersion,
+      });
   });
 }
 
@@ -88,7 +92,9 @@ test("official staging downloads the reviewed version from its immutable GitHub 
       : new Response("tampered archive");
   };
   await releases.check();
-  await assert.rejects(releases.stage({ version: "1.6.0" }), /checksum/);
+  await assert.rejects(releases.stage({ version: "1.6.0" }), {
+    message: serverMessages.releases.checksumMismatch,
+  });
   assert.equal(
     requested.at(-1),
     "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/download/v1.6.0/release.aprelease",

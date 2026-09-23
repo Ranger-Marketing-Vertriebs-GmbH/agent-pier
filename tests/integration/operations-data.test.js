@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -48,7 +49,7 @@ test("backup snapshots memory and encrypted credentials into a fresh remapped re
       targetDataDir: target,
       passphrase: "wrong passphrase",
     }),
-    /passphrase|authentication/i,
+    { message: serverMessages.backups.authenticationFailed },
   );
   await assert.rejects(fs.stat(target), { code: "ENOENT" });
   const result = await restore.apply({
@@ -76,6 +77,6 @@ test("backup snapshots memory and encrypted credentials into a fresh remapped re
       targetDataDir: target,
       passphrase: "fixture passphrase sufficiently long",
     }),
-    /fresh|exists/,
+    { message: serverMessages.backups.restoreTargetLive },
   );
 });

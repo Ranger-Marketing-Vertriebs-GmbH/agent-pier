@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { readFile } from "./files.js";
@@ -23,9 +24,9 @@ export class ImportedHistory {
   }
   messages(id, { page = 1 } = {}) {
     if (!this.projects().some((project) => project.id === id))
-      throw problem("Imported AgentBus project not found.", 404);
+      throw problem(serverMessages.backups.importedProjectNotFound, 404);
     if (!Number.isSafeInteger(page) || page < 1 || page > 10000)
-      throw problem("Invalid imported history page.");
+      throw problem(serverMessages.backups.invalidHistoryPage);
     const inbox = path.join(this.root, id, "inbox"),
       items = new Map();
     let scanned = 0;

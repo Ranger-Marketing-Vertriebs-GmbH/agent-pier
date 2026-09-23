@@ -1,3 +1,4 @@
+import { serverMessages } from "./i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -12,7 +13,7 @@ export function privateDatabase(directory, name) {
     root.isSymbolicLink() ||
     (process.getuid && root.uid !== process.getuid())
   )
-    throw problem("Unsafe database storage directory.", 409);
+    throw problem(serverMessages.operations.unsafeDatabaseDirectory, 409);
   fs.chmodSync(directory, 0o700);
   const file = path.join(directory, name);
   for (const suffix of ["", "-wal", "-shm", "-journal"]) {
@@ -24,7 +25,7 @@ export function privateDatabase(directory, name) {
         info.nlink !== 1 ||
         (process.getuid && info.uid !== process.getuid())
       )
-        throw problem("Unsafe database storage file.", 409);
+        throw problem(serverMessages.operations.unsafeDatabaseFile, 409);
       fs.chmodSync(file + suffix, 0o600);
     } catch (error) {
       if (error.code !== "ENOENT") throw error;

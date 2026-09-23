@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -56,7 +57,7 @@ export class Backup {
       options.withCredentials &&
       (typeof options.passphrase !== "string" || options.passphrase.length < 12)
     )
-      throw problem("Encrypted backups require a passphrase of at least 12 characters.");
+      throw problem(serverMessages.backups.passphraseTooShort);
     const take = () =>
       capture({ dataDir: this.dataDir, home: this.home, audit: this.audit, ...options });
     const snapshot = this.withSnapshotBarrier
@@ -120,7 +121,7 @@ export class Backup {
   }
   remove(id) {
     const file = this.file(id);
-    if (!fs.existsSync(file)) throw problem("Backup not found.", 404);
+    if (!fs.existsSync(file)) throw problem(serverMessages.backups.notFound, 404);
     fs.unlinkSync(file);
     fs.rmSync(path.join(this.directory, `${id}.json`), { force: true });
   }

@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { restoreArtifacts } from "./artifact-backup.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -19,7 +20,7 @@ function extract(files, target, credentials = false) {
           )
         : publicPath.test(member.path))
     )
-      throw problem("Unexpected backup component.");
+      throw problem(serverMessages.backups.unexpectedComponent);
     const file = path.join(target, member.path);
     folder(path.dirname(file));
     fs.writeFileSync(file, Buffer.from(member.content, "base64"), {
@@ -46,12 +47,12 @@ export class Restore {
       manifest.omissions.some((item) => typeof item !== "string" || item.length > 4096) ||
       !Array.isArray(manifest.captures)
     )
-      throw problem("Invalid backup manifest.");
+      throw problem(serverMessages.backups.invalidManifest);
     if (
       typeof value.manifest.withCredentials !== "boolean" ||
       Boolean(value.credentials) !== value.manifest.withCredentials
     )
-      throw problem("Credential manifest does not match archive.");
+      throw problem(serverMessages.backups.credentialManifestMismatch);
     const scratch = folder(path.join(this.directory, `.inspect-${randomUUID()}`));
     try {
       extract(value.files, scratch);
@@ -84,7 +85,7 @@ export class Restore {
       !path.isAbsolute(targetDataDir) ||
       /[\x00-\x1f]/.test(targetDataDir)
     )
-      throw problem("Restore target must be an absolute fresh directory.");
+      throw problem(serverMessages.backups.restoreTargetInvalid);
     const target = path.join(
       fs.realpathSync(path.dirname(targetDataDir)),
       path.basename(targetDataDir),
@@ -94,10 +95,7 @@ export class Restore {
       target.startsWith(`${this.dataDir}${path.sep}`) ||
       fs.existsSync(target)
     )
-      throw problem(
-        "Restore requires a fresh target outside the live data directory.",
-        409,
-      );
+      throw problem(serverMessages.backups.restoreTargetLive, 409);
     await this.inspect({ archive, projectMap, passphrase });
     const value = decodeArchive(archive);
     const secrets = value.credentials
@@ -109,7 +107,7 @@ export class Restore {
       parentStat.isSymbolicLink() ||
       (process.getuid && parentStat.uid !== process.getuid())
     )
-      throw problem("Restore parent must be a directory owned by the current user.", 409);
+      throw problem(serverMessages.backups.restoreParentInvalid, 409);
     const stage = folder(
       path.join(path.dirname(target), `.agentpier-restore-${randomUUID()}`),
     );
@@ -170,7 +168,8 @@ export class Restore {
         JSON.stringify(importRecord),
         { mode: 0o600, flag: "wx" },
       );
-      if (fs.existsSync(target)) throw problem("Restore target now exists.", 409);
+      if (fs.existsSync(target))
+        throw problem(serverMessages.backups.restoreTargetExists, 409);
       fs.renameSync(stage, target);
       this.audit?.append({
         action: "restore.completed",

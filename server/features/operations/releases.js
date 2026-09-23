@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -24,26 +25,29 @@ export async function download(url, fetchImpl, limit) {
   for (let redirect = 0; redirect <= 5; redirect++) {
     const target = new URL(url);
     if (target.protocol !== "https:" || target.username || target.password)
-      throw problem("Release downloads require HTTPS without embedded credentials.");
+      throw problem(serverMessages.releases.httpsDownloadRequired);
     response = await fetchImpl(target.href, {
       signal: AbortSignal.timeout(120000),
       redirect: "manual",
     });
     if (![301, 302, 303, 307, 308].includes(response.status)) break;
     if (redirect === 5 || !response.headers.get("location"))
-      throw problem("Release redirect limit exceeded.");
+      throw problem(serverMessages.releases.redirectLimit);
     url = new URL(response.headers.get("location"), target).href;
     await response.body?.cancel();
   }
   if (!response.ok)
-    throw problem("Release download failed.", response.status === 404 ? 404 : 502);
+    throw problem(
+      serverMessages.releases.downloadFailed,
+      response.status === 404 ? 404 : 502,
+    );
   if (Number(response.headers.get("content-length")) > limit)
-    throw problem("Release download exceeds its limit.", 413);
+    throw problem(serverMessages.releases.downloadLimit, 413);
   const chunks = [];
   let length = 0;
   for await (const chunk of response.body) {
     length += chunk.length;
-    if (length > limit) throw problem("Release download exceeds its limit.", 413);
+    if (length > limit) throw problem(serverMessages.releases.downloadLimit, 413);
     chunks.push(Buffer.from(chunk));
   }
   return Buffer.concat(chunks);
@@ -95,7 +99,7 @@ export class Releases {
                 requireDataCompatibility(manifest, this.dataDir);
               } catch {
                 canRollback = false;
-                reason = "Release platform or schema is incompatible.";
+                reason = serverMessages.releases.incompatibleRollback;
               }
               return {
                 version,
@@ -116,8 +120,7 @@ export class Releases {
       supported: ["darwin", "linux"].includes(process.platform) && Boolean(root),
       ...(!installed
         ? {
-            reason:
-              "Create a versioned installation with the release CLI before activating updates.",
+            reason: serverMessages.releases.versionedInstallMissing,
           }
         : {}),
       releases,
@@ -136,18 +139,17 @@ export class Releases {
       path.join(this.directory, `${identifier(stagedId)}.json`),
       null,
     );
-    if (!receipt) throw problem("Staged release not found.", 404);
+    if (!receipt) throw problem(serverMessages.releases.stagedNotFound, 404);
     return releaseVersion(receipt.version);
   }
   notes(version) {
     return this.releaseNotes.read(this.channel, version);
   }
   async check() {
-    if (!this.channel)
-      throw problem("Configure an HTTPS release channel on the server first.", 409);
+    if (!this.channel) throw problem(serverMessages.releases.channelRequired, 409);
     const base = new URL(this.channel.endsWith("/") ? this.channel : `${this.channel}/`);
     if (base.protocol !== "https:" || base.username || base.password)
-      throw problem("Release channel must use HTTPS without embedded credentials.");
+      throw problem(serverMessages.releases.channelHttpsRequired);
     let manifest;
     try {
       manifest = JSON.parse(
@@ -156,7 +158,7 @@ export class Releases {
     } catch (error) {
       if (error.status === 404) throw problem(releaseCopy.notPublished, 404);
       if (error.status) throw error;
-      throw problem("Release channel manifest is invalid.");
+      throw problem(serverMessages.releases.channelManifestInvalid);
     }
     releaseVersion(manifest.version);
     const platform = `${process.platform}-${process.arch}`,
@@ -167,7 +169,7 @@ export class Releases {
       !/^[a-f0-9]{64}$/.test(artifact.sha256) ||
       manifest.schemaVersion !== 1
     )
-      throw problem("Release artifact is missing or incompatible.", 409);
+      throw problem(serverMessages.releases.artifactIncompatible, 409);
     const current = this.status().current;
     const plan = {
       current,
@@ -184,29 +186,25 @@ export class Releases {
   }
   async stage({ version, archive } = {}) {
     if (!this.installRoot)
-      throw problem("Configure an install root before staging a release.", 409);
+      throw problem(serverMessages.releases.installRootRequired, 409);
     if (
       this.dataDir === this.installRoot ||
       this.dataDir.startsWith(`${this.installRoot}/releases/`) ||
       this.dataDir.startsWith(`${this.installRoot}/current/`)
     )
-      throw problem(
-        "The data directory must be outside versioned release directories.",
-        409,
-      );
+      throw problem(serverMessages.releases.dataInsideReleases, 409);
     let bytes, plan;
     if (archive) bytes = readFile(archive, RELEASE_LIMIT);
     else {
       const reviewed = readJson(path.join(this.directory, "candidate.json"), null);
       plan = await this.check();
-      if (plan.upToDate)
-        throw problem("The release channel does not offer a newer version.", 409);
+      if (plan.upToDate) throw problem(serverMessages.releases.noNewerVersion, 409);
       if (
         plan.version !== version ||
         (reviewed &&
           (reviewed.version !== plan.version || reviewed.sha256 !== plan.sha256))
       )
-        throw problem("Release channel changed; review the new candidate.", 409);
+        throw problem(serverMessages.releases.channelChanged, 409);
       const base = this.channel.endsWith("/") ? this.channel : `${this.channel}/`;
       const artifactBase =
         base === officialChannel
@@ -217,7 +215,8 @@ export class Releases {
         this.fetchImpl,
         RELEASE_LIMIT,
       );
-      if (digest(bytes) !== plan.sha256) throw problem("Release checksum mismatch.");
+      if (digest(bytes) !== plan.sha256)
+        throw problem(serverMessages.releases.checksumMismatch);
     }
     const root = folder(this.installRoot),
       stage = folder(path.join(root, `.staging-${randomUUID()}`));
@@ -225,14 +224,14 @@ export class Releases {
       const manifest = unpackRelease(bytes, stage);
       requireDataCompatibility(manifest, this.dataDir);
       if (version && manifest.version !== version)
-        throw problem("Release archive version does not match selection.");
+        throw problem(serverMessages.releases.versionMismatch);
       await this.smoke(stage);
       const destination = path.join(
         folder(path.join(root, "releases")),
         manifest.version,
       );
       if (fs.existsSync(destination))
-        throw problem("That immutable release already exists.", 409);
+        throw problem(serverMessages.releases.alreadyExists, 409);
       fs.renameSync(stage, destination);
       const id = randomUUID();
       atomic(path.join(this.directory, `${id}.json`), {
@@ -247,7 +246,8 @@ export class Releases {
     }
   }
   launchActivation(input, jobId) {
-    if (!this.installRoot) throw problem("A versioned installation is required.", 409);
+    if (!this.installRoot)
+      throw problem(serverMessages.releases.versionedInstallRequired, 409);
     if (input.stagedId) identifier(input.stagedId);
     else releaseVersion(input.version);
     const request = path.join(this.directory, `activation-${identifier(jobId)}.json`);

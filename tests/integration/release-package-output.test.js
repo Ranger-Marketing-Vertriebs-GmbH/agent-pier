@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -110,7 +111,7 @@ test("failed relocated smoke does not publish over an existing output artifact",
   await fs.writeFile(`${output}.json`, "previous metadata");
   await assert.rejects(
     buildRelease({ source, output, node, prepareDependencies: false }),
-    /smoke/,
+    { message: serverMessages.releases.smokeFailed },
   );
   assert.equal(await fs.readFile(output, "utf8"), "previous archive");
   assert.equal(await fs.readFile(`${output}.json`, "utf8"), "previous metadata");

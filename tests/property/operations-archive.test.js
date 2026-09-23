@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import fc from "fast-check";
 import { gzipSync } from "node:zlib";
 import {
@@ -15,10 +16,9 @@ const params = {
   numRuns: Number(process.env.FC_RUNS || 100),
 };
 test("compressed expansion cannot exceed the configured archive budget", () => {
-  assert.throws(
-    () => decodeArchive(gzipSync(Buffer.alloc(4096)), { limit: 1024 }),
-    /oversized/,
-  );
+  assert.throws(() => decodeArchive(gzipSync(Buffer.alloc(4096)), { limit: 1024 }), {
+    message: serverMessages.backups.invalidArchive,
+  });
 });
 test("logical archive preserves arbitrary Unicode content and rejects corrupt members", () => {
   fc.assert(
@@ -37,7 +37,9 @@ test("logical archive preserves arbitrary Unicode content and rejects corrupt me
         content,
       );
       archive.files[0].sha256 = "0".repeat(64);
-      assert.throws(() => decodeArchive(encodeArchive(archive)), /checksum/);
+      assert.throws(() => decodeArchive(encodeArchive(archive)), {
+        message: serverMessages.backups.checksumMismatch,
+      });
     }),
     params,
   );
@@ -63,9 +65,13 @@ test("archive path validation rejects traversal, linked entries and duplicate de
           manifest: { schemaVersion: 1 },
           files: [item, item],
         };
-        assert.throws(() => decodeArchive(encodeArchive(archive)), /Duplicate/);
+        assert.throws(() => decodeArchive(encodeArchive(archive)), {
+          message: serverMessages.backups.invalidMember,
+        });
         archive.files = [{ ...item, type: "symlink", link: "/outside" }];
-        assert.throws(() => decodeArchive(encodeArchive(archive)), /linked/);
+        assert.throws(() => decodeArchive(encodeArchive(archive)), {
+          message: serverMessages.backups.invalidMember,
+        });
       },
     ),
     params,
@@ -86,13 +92,13 @@ test("credential authentication rejects ciphertext and bounded KDF tampering", a
       { ...capsule, data: Buffer.from("broken").toString("base64") },
       "a sufficiently long fixture passphrase",
     ),
-    /authentication/,
+    { message: serverMessages.backups.authenticationFailed },
   );
   await assert.rejects(
     decryptCredentials(
       { ...capsule, header: { ...capsule.header, N: 2 ** 30 } },
       "a sufficiently long fixture passphrase",
     ),
-    /parameters/,
+    { message: serverMessages.backups.unsupportedEncryption },
   );
 });

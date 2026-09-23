@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { Doctor } from "./doctor.js";
@@ -79,7 +80,7 @@ export class Operations {
     const backup = this.backup.file(archiveId);
     if (fs.existsSync(upload)) return upload;
     if (fs.existsSync(backup)) return backup;
-    throw problem("Uploaded archive not found.", 404);
+    throw problem(serverMessages.operations.uploadNotFound, 404);
   }
   inspect({ archiveId, ...input }) {
     return this.restore.inspect({ ...input, archive: this.archive(archiveId) });
@@ -103,7 +104,7 @@ export class Operations {
   }
   requireNoMigration() {
     if (this.jobs.running("release-migrate"))
-      throw problem("A release migration is running. Wait for it to finish.", 409);
+      throw problem(serverMessages.operations.migrationRunning, 409);
   }
   cleanupReleases({ versions }) {
     this.requireNoMigration();
@@ -123,7 +124,7 @@ export class Operations {
   }
   activate({ reloadSessions, ...input }) {
     if (reloadSessions !== undefined && typeof reloadSessions !== "boolean")
-      throw problem("Invalid operation options.");
+      throw problem(serverMessages.operations.invalidOptions);
     this.requireNoMigration();
     const target =
       reloadSessions === true && input.stagedId

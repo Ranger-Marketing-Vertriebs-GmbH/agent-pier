@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import { releaseManifest } from "../../server/features/operations/release-archive.js";
 import { download } from "../../server/features/operations/releases.js";
 for (const platform of ["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64"])
@@ -20,15 +21,16 @@ for (const platform of ["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64"
       "win32-x64",
     ])
       if (other !== platform)
-        assert.throws(() => releaseManifest(manifest, other), /platform/);
+        assert.throws(() => releaseManifest(manifest, other), {
+          message: serverMessages.releases.incompatible,
+        });
     assert.throws(
       () => releaseManifest({ ...manifest, version: "../../outside" }, platform),
-      /version/,
+      { message: serverMessages.releases.invalidVersion },
     );
-    assert.throws(
-      () => releaseManifest({ ...manifest, schemaMax: 0 }, platform),
-      /schema/,
-    );
+    assert.throws(() => releaseManifest({ ...manifest, schemaMax: 0 }, platform), {
+      message: serverMessages.releases.incompatible,
+    });
   });
 test("release downloads permit bounded HTTPS asset redirects and reject downgrade or oversized output", async () => {
   const calls = [];
@@ -59,7 +61,7 @@ test("release downloads permit bounded HTTPS asset redirects and reject downgrad
       },
       32,
     ),
-    /HTTPS/,
+    { message: serverMessages.releases.httpsDownloadRequired },
   );
   assert.equal(downgrades, 1);
   await assert.rejects(
@@ -68,6 +70,6 @@ test("release downloads permit bounded HTTPS asset redirects and reject downgrad
       async () => new Response("too large"),
       2,
     ),
-    /limit/,
+    { message: serverMessages.releases.downloadLimit },
   );
 });

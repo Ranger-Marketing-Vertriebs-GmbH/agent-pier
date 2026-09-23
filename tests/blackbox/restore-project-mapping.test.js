@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { applicationFixture } from "../helpers/application.js";
@@ -43,7 +44,7 @@ test("restore rejects colliding mappings and opens Unicode project memory with u
   ]) {
     await assert.rejects(
       restore.apply({ archive: backup.file, targetDataDir, projectMap }),
-      /collide/,
+      { message: serverMessages.backups.projectMappingsCollide },
     );
     await assert.rejects(fs.stat(targetDataDir), { code: "ENOENT" });
   }
