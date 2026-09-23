@@ -162,3 +162,61 @@ test("a model picker without a visible footer is closed before the message", asy
   assert.deepEqual(model.submitted, ["hello"]);
   assert.deepEqual(result.notices, ["CHAT_DIALOG_CLOSED"]);
 });
+
+// A permission prompt resized into a short pane: the question scrolls away and
+// only options and the footer stay. Escape there would deny the tool call.
+const short = JSON.parse(
+  fs.readFileSync(
+    new URL("../fixtures/tui-input/claude-2.1.280-dialogs-short.json", import.meta.url),
+  ),
+);
+
+test("short-pane permission prompts stay questions; only titled menus are closable", async () => {
+  const { claudeQuestion, closableClaudeDialog } =
+    await import("../../server/features/sessions/claude-prompt.js");
+  for (const [name, question] of [
+    ["permission40x12", true],
+    ["permission36x12", true],
+    ["permission30x10", true],
+    ["rewind40x12", false],
+    ["rewind30x10", false],
+    ["modelPicker40x12", false],
+    ["modelPicker30x10", false],
+  ]) {
+    const frame = { ...short[name], composer: inspect(short[name]) };
+    assert.equal(state(short[name]), "dialog", name);
+    assert.equal(claudeQuestion(frame), question, name);
+    assert.equal(closableClaudeDialog(frame), !question, name);
+  }
+  for (const name of ["permission40x12", "permission36x12", "permission30x10"]) {
+    const model = claudePromptModel({ dialog: short[name] });
+    const manager = claudeModelManager(model);
+    manager.chatInputTiming = { dialog: { settleMs: 20, waitMs: 20 } };
+    await chat.withChatInput(manager, "one", async (tx) => {
+      await assert.rejects(tx.write("hello", { allowComposerDraft: true }), {
+        code: "CHAT_QUESTION_OPEN",
+      });
+    });
+    assert.deepEqual(model.keys, [], name);
+  }
+});
+
+test("a menu footer alone or a stray title row never invites Escape", async () => {
+  const { closableClaudeDialog } =
+    await import("../../server/features/sessions/claude-prompt.js");
+  const pane = { cursorX: 0, cursorY: 4, width: 40, height: 6 };
+  const frame = (raw) => ({ raw, pane, composer: inspect({ raw, pane }) });
+  // An unknown menu with only an Escape footer waits instead.
+  const unknown = frame("Pick a theme\n\n  ❯ Dark\n    Light\n\n Esc to cancel");
+  assert.equal(state(unknown), "dialog");
+  assert.equal(closableClaudeDialog(unknown), false);
+  // Assistant text "Rewind" above a footer is not the rewind panel.
+  const stray = frame("Rewind\n\n  ❯ Dark\n    Light\n\n Esc to cancel");
+  assert.equal(closableClaudeDialog(stray), false);
+});
+
+test("the transcript echo of a message starting with 1. is not a dialog", () => {
+  const raw = "❯ 1. first point of my message\n\nSynthetic reply\nWorking…";
+  const pane = { cursorX: 0, cursorY: 3, width: 40, height: 4 };
+  assert.equal(state({ raw, pane }), "unknown");
+});
