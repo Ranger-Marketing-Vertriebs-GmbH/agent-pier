@@ -160,6 +160,10 @@ async function probeNative(fixture, cleanup) {
         },
       }),
     };
+    // Colorless screens; Claude without its own cursor cell (native cursor).
+    if (options.includes("--no-color")) env.NO_COLOR = "1";
+    if (options.includes("--force-color-0")) env.FORCE_COLOR = "0";
+    if (options.includes("--native-cursor")) env.CLAUDE_CODE_NATIVE_CURSOR = "1";
     for (const key of [
       "CODEX_HOME",
       "CLAUDE_CONFIG_DIR",

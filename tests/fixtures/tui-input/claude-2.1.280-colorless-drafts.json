@@ -1,0 +1,1241 @@
+{
+  "version": "Claude Code 2.1.280, tmux 3.7c, synthetic loopback provider. Drafts left by paste and cursor keys: color80 (default colors), noColor80 (NO_COLOR=1) and forceColor0x80 (FORCE_COLOR=0) at 80x24. Busy turns with and without a queued message: busyColor80, busyNoColor80, busyNoColorAcceptEdits80 (permissions.defaultMode acceptEdits), busyNoColor34 and busyNoColor40 (34x20, 40x20), busyForceColor0x24 (24x20). *Start frames move the cursor to the first character with ctrl+a. native*: the same with CLAUDE_CODE_NATIVE_CURSOR=1 (no cursor cell): nativeColor80, nativeNoColor80, nativeForceColor0x80, busyNativeNoColor80, busyNativeForceColor0x40 (40x20), busyNativeForceColor0x24 (24x20). suggestion*: prompt suggestion \"run the tests\" (CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=1) with NO_COLOR, cursor cell and native cursor, 80x24.",
+  "color80": {
+    "idle": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m                                                              \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ \u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on · ? for shortcuts · ← for agents\u001b[39m\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "single": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m                                                              \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ hello draft\u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 13,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "midline": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ hello dr\u001b[7ma\u001b[0mft\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 10,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "start": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ \u001b[7mh\u001b[0mello draft\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "placeholderText": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ \u001b[7mP\u001b[0mress up to edit queued messages\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "placeholderTextEnd": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ Press up to edit queued messages\u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 34,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "multiline": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m                                                         \u001b[38;2;153;153;153mctrl+g to edit in Vim\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ line one\n  line two\n  line three\u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 12,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "wrapped": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m\n                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ wrapped abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij\n  abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij \u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 57,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "fit": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m\n\n                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 78,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "bash": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m\n\n                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;253;93;177m────────────────────────────────────────────────────────────────────────────────\n! \u001b[39mls -la\u001b[7m \u001b[0m\n\u001b[38;2;253;93;177m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;253;93;177m! for shell mode\u001b[39m\n",
+      "pane": {
+        "cursorX": 8,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "bashEmpty": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m\n\n                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;253;93;177m────────────────────────────────────────────────────────────────────────────────\n! \u001b[7m\u001b[39m \u001b[0m\n\u001b[38;2;253;93;177m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;253;93;177m! for shell mode\u001b[39m\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "pasted": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m\n\n                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ [Pasted text #1 +29 lines]\u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153mpaste again to expand\u001b[39m\n",
+      "pane": {
+        "cursorX": 28,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "spaces": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m\n\n                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ two  spaces \u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153mpaste again to expand\u001b[39m\n",
+      "pane": {
+        "cursorX": 14,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    }
+  },
+  "noColor80": {
+    "idle": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on · ? for shortcuts · ← for agents\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "single": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ hello draft\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 13,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "midline": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ hello dr\u001b[7ma\u001b[0mft\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 10,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "start": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7mh\u001b[0mello draft\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "placeholderText": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7mP\u001b[0mress up to edit queued messages\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "placeholderTextEnd": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ Press up to edit queued messages\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 34,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "multiline": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                         ctrl+g to edit in Vim\n────────────────────────────────────────────────────────────────────────────────\n❯ line one\n  line two\n  line three\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 12,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "wrapped": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ wrapped abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij\n  abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij \u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 57,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "fit": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 78,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "bash": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n! ls -la\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ! for shell mode\n",
+      "pane": {
+        "cursorX": 8,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "bashEmpty": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n! \u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ! for shell mode\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "pasted": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ [Pasted text #1 +29 lines]\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  paste again to expand\n",
+      "pane": {
+        "cursorX": 28,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "spaces": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ two  spaces \u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  paste again to expand\n",
+      "pane": {
+        "cursorX": 14,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    }
+  },
+  "forceColor0x80": {
+    "idle": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on · ? for shortcuts · ← for agents\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "single": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ hello draft\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 13,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "midline": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ hello dr\u001b[7ma\u001b[0mft\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 10,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "start": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7mh\u001b[0mello draft\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "placeholderText": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7mP\u001b[0mress up to edit queued messages\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "placeholderTextEnd": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ Press up to edit queued messages\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 34,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "multiline": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                         ctrl+g to edit in Vim\n────────────────────────────────────────────────────────────────────────────────\n❯ line one\n  line two\n  line three\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 12,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "wrapped": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ wrapped abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij\n  abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij \u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 57,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "fit": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 78,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "bash": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n! ls -la\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ! for shell mode\n",
+      "pane": {
+        "cursorX": 8,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "bashEmpty": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n! \u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ! for shell mode\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "pasted": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ [Pasted text #1 +29 lines]\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  paste again to expand\n",
+      "pane": {
+        "cursorX": 28,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "spaces": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ two  spaces \u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  paste again to expand\n",
+      "pane": {
+        "cursorX": 14,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    }
+  },
+  "busyColor80": {
+    "busy": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mAP_PROBE_SLOW30000 busy\u001b[39m\n\n\n\n\n\n\n\n\n\n\n\n\u001b[38;2;215;119;87m\u001b[49m✻\u001b[39m \u001b[38;2;215;119;87mShimmying… \u001b[39m\n                                                              \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[38;2;153;153;153m❯ \u001b[7m\u001b[39m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on · esc to interrupt · ← for agents\u001b[39m\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "busyDraft": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mAP_PROBE_SLOW30000 busy\u001b[39m\n\n\n\n\n\n\n\n\n\n\n\n\u001b[38;2;215;119;87m\u001b[49m✽\u001b[39m \u001b[38;2;215;119;87mShimmying… \u001b[39m\n                                                              \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[38;2;153;153;153m❯ \u001b[39mbusy draft\u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 12,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "busyDraftStart": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mAP_PROBE_SLOW30000 busy\u001b[39m\n\n\n\n\n\n\n\n\n\n\n\n\u001b[38;2;215;119;87m\u001b[49m✳\u001b[39m \u001b[38;2;215;119;87mShimmying… \u001b[39m\n                                                              \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[38;2;153;153;153m❯ \u001b[7m\u001b[39mb\u001b[0musy draft\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "queue": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mAP_PROBE_SLOW30000 busy\u001b[39m\n\n\n\n\n\n\n\n\n\u001b[38;2;215;119;87m\u001b[49m✳\u001b[39m \u001b[38;2;215;119;87mShimmying… \u001b[39m\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mq one\u001b[39m\n\u001b[49m  \u001b[38;2;153;153;153mctrl+x ctrl+s to send now\u001b[39m\n                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[38;2;153;153;153m❯ \u001b[7m\u001b[39mP\u001b[0;2mress up to edit queued messages\u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on · esc to interrupt · ← for agents\u001b[39m\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "queueTyped": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mAP_PROBE_SLOW30000 busy\u001b[39m\n\n\n\n\n\n\n\n\n\u001b[38;2;215;119;87m\u001b[49m·\u001b[39m \u001b[38;2;215;119;87mShimmying\u001b[38;2;235;159;127m…\u001b[38;2;215;119;87m \u001b[39m\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mq one\u001b[39m\n\u001b[49m  \u001b[38;2;153;153;153mctrl+x ctrl+s to send now\u001b[39m\n                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[38;2;153;153;153m❯ \u001b[39mPress up to edit queued messages\u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 34,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "queueTypedStart": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mAP_PROBE_SLOW30000 busy\u001b[39m\n\n\n\n\n\n\n\n\n\u001b[38;2;215;119;87m\u001b[49m✶\u001b[39m \u001b[38;2;215;119;87mShimmyi\u001b[38;2;235;159;127mng…\u001b[38;2;215;119;87m \u001b[39m\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;153;153;153mq one\u001b[39m\n\u001b[49m  \u001b[38;2;153;153;153mctrl+x ctrl+s to send now\u001b[39m\n                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[38;2;153;153;153m❯ \u001b[7m\u001b[39mP\u001b[0mress up to edit queued messages\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    }
+  },
+  "busyNoColor80": {
+    "busy": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n\n\n\n✻ Ideating…\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on · esc to interrupt · ← for agents\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "busyDraft": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n\n\n\n✽ Ideating…\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ busy draft\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 12,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "busyDraftStart": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n\n\n\n✳ Ideating…\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7mb\u001b[0musy draft\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "queue": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n✳ Ideating…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7mP\u001b[0mress up to edit queued messages\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on · esc to interrupt · ← for agents\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "queueTyped": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n· Ideating…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ Press up to edit queued messages\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 34,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "queueTypedStart": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n✶ Ideating…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7mP\u001b[0mress up to edit queued messages\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    }
+  },
+  "busyNoColorAcceptEdits80": {
+    "busy": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n\n\n\n✻ Considering…\n\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏵⏵ accept edits on (shift+tab to cycle) · esc to interrupt · ← for agents\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "busyDraft": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n\n\n\n✽ Considering…\n\n────────────────────────────────────────────────────────────────────────────────\n❯ busy draft\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏵⏵ accept edits on (shift+tab to cycle)\n",
+      "pane": {
+        "cursorX": 12,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "busyDraftStart": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n\n\n\n✢ Considering…\n\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7mb\u001b[0musy draft\n────────────────────────────────────────────────────────────────────────────────\n  ⏵⏵ accept edits on (shift+tab to cycle)\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "queue": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n✢ Considering…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7mP\u001b[0mress up to edit queued messages\n────────────────────────────────────────────────────────────────────────────────\n  ⏵⏵ accept edits on (shift+tab to cycle) · esc to interrupt · ← for agents\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "queueTyped": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n✢ Considering…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ Press up to edit queued messages\u001b[7m \u001b[0m\n────────────────────────────────────────────────────────────────────────────────\n  ⏵⏵ accept edits on (shift+tab to cycle)\n",
+      "pane": {
+        "cursorX": 34,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "queueTypedStart": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n✶ Considering…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7mP\u001b[0mress up to edit queued messages\n────────────────────────────────────────────────────────────────────────────────\n  ⏵⏵ accept edits on (shift+tab to cycle)\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    }
+  },
+  "busyNoColor34": {
+    "busy": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n✻ Manifesting…\n\n──────────────────────────────────\n❯ \u001b[7m \u001b[0m\n──────────────────────────────────\n  ⏸ manual mode on · esc to int…\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 34,
+        "height": 20
+      }
+    },
+    "busyDraft": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n✽ Manifesting…\n\n──────────────────────────────────\n❯ busy draft\u001b[7m \u001b[0m\n──────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 12,
+        "cursorY": 17,
+        "width": 34,
+        "height": 20
+      }
+    },
+    "busyDraftStart": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n✢ Manifesting…\n\n──────────────────────────────────\n❯ \u001b[7mb\u001b[0musy draft\n──────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 34,
+        "height": 20
+      }
+    },
+    "queue": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n✢ Manifesting…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n    Ctrl+Y to paste deleted text\n──────────────────────────────────\n❯ \u001b[7mP\u001b[0mress up to edit queued messages\n──────────────────────────────────\n  ⏸ manual mode on · esc to int…\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 34,
+        "height": 20
+      }
+    },
+    "queueTyped": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n· Manifesting…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n    Ctrl+Y to paste deleted text\n──────────────────────────────────\n❯ Press up to edit queued\n  messages\u001b[7m \u001b[0m\n──────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 10,
+        "cursorY": 17,
+        "width": 34,
+        "height": 20
+      }
+    },
+    "queueTypedStart": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n✶ Manifesting…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n    Ctrl+Y to paste deleted text\n──────────────────────────────────\n❯ \u001b[7mP\u001b[0mress up to edit queued\n  messages\n──────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 16,
+        "width": 34,
+        "height": 20
+      }
+    }
+  },
+  "busyNoColor40": {
+    "busy": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n✻ Bunning…\n                      ● high · /effort\n────────────────────────────────────────\n❯ \u001b[7m \u001b[0m\n────────────────────────────────────────\n  ⏸ manual mode on · esc to interrupt…\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 40,
+        "height": 20
+      }
+    },
+    "busyDraft": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n✻ Bunning…\n                      ● high · /effort\n────────────────────────────────────────\n❯ busy draft\u001b[7m \u001b[0m\n────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 12,
+        "cursorY": 17,
+        "width": 40,
+        "height": 20
+      }
+    },
+    "busyDraftStart": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n✳ Bunning…\n                      ● high · /effort\n────────────────────────────────────────\n❯ \u001b[7mb\u001b[0musy draft\n────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 40,
+        "height": 20
+      }
+    },
+    "queue": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n✢ Bunning…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n          Ctrl+Y to paste deleted text\n────────────────────────────────────────\n❯ \u001b[7mP\u001b[0mress up to edit queued messages\n────────────────────────────────────────\n  ⏸ manual mode on · esc to interrupt…\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 40,
+        "height": 20
+      }
+    },
+    "queueTyped": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n· Bunning…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n          Ctrl+Y to paste deleted text\n────────────────────────────────────────\n❯ Press up to edit queued messages\u001b[7m \u001b[0m\n────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 34,
+        "cursorY": 17,
+        "width": 40,
+        "height": 20
+      }
+    },
+    "queueTypedStart": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n✶ Bunning…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n          Ctrl+Y to paste deleted text\n────────────────────────────────────────\n❯ \u001b[7mP\u001b[0mress up to edit queued messages\n────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 40,
+        "height": 20
+      }
+    }
+  },
+  "busyForceColor0x24": {
+    "busy": {
+      "raw": "\n           Claude Code\n           v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage\n  ▝▝ ▝▝    Billing\n           ~/project\n\n\n❯ AP_PROBE_SLOW30000\n  busy\n\n\n\n✻ Coalescing…\n\n────────────────────────\n❯ \u001b[7m \u001b[0m\n────────────────────────\n  ⏸ manual mode on · …\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 24,
+        "height": 20
+      }
+    },
+    "busyDraft": {
+      "raw": "\n           Claude Code\n           v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage\n  ▝▝ ▝▝    Billing\n           ~/project\n\n\n❯ AP_PROBE_SLOW30000\n  busy\n\n\n\n✽ Coalescing…\n\n────────────────────────\n❯ busy draft\u001b[7m \u001b[0m\n────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 12,
+        "cursorY": 17,
+        "width": 24,
+        "height": 20
+      }
+    },
+    "busyDraftStart": {
+      "raw": "\n           Claude Code\n           v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage\n  ▝▝ ▝▝    Billing\n           ~/project\n\n\n❯ AP_PROBE_SLOW30000\n  busy\n\n\n\n✢ Coalescing…\n\n────────────────────────\n❯ \u001b[7mb\u001b[0musy draft\n────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 24,
+        "height": 20
+      }
+    },
+    "queue": {
+      "raw": "           v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage\n  ▝▝ ▝▝    Billing\n           ~/project\n\n\n❯ AP_PROBE_SLOW30000\n  busy\n\n✢ Coalescing…\n\n❯ q one\n  ctrl+x ctrl+s to send\n  now\n  Ctrl+Y to paste del…\n────────────────────────\n❯ \u001b[7mP\u001b[0mress up to edit queu…\n────────────────────────\n  ⏸ manual mode on · …\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 24,
+        "height": 20
+      }
+    },
+    "queueTyped": {
+      "raw": " ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage\n  ▝▝ ▝▝    Billing\n           ~/project\n\n\n❯ AP_PROBE_SLOW30000\n  busy\n\n✢ Coalescing…\n\n❯ q one\n  ctrl+x ctrl+s to send\n  now\n  Ctrl+Y to paste del…\n────────────────────────\n❯ Press up to edit\n  queued messages\u001b[7m \u001b[0m\n────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 17,
+        "cursorY": 17,
+        "width": 24,
+        "height": 20
+      }
+    },
+    "queueTypedStart": {
+      "raw": " ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage\n  ▝▝ ▝▝    Billing\n           ~/project\n\n\n❯ AP_PROBE_SLOW30000\n  busy\n\n✻ Coalescing…\n\n❯ q one\n  ctrl+x ctrl+s to send\n  now\n  Ctrl+Y to paste del…\n────────────────────────\n❯ \u001b[7mP\u001b[0mress up to edit\n  queued messages\n────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 16,
+        "width": 24,
+        "height": 20
+      }
+    }
+  },
+  "nativeColor80": {
+    "idle": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m                                                              \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ \n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on · ? for shortcuts · ← for agents\u001b[39m\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "single": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m                                                              \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ hello draft\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 13,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "midline": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ hello draft\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 10,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "start": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ hello draft\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "placeholderText": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ Press up to edit queued messages\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "placeholderTextEnd": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ Press up to edit queued messages\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 34,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "multiline": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m                                                         \u001b[38;2;153;153;153mctrl+g to edit in Vim\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ line one\n  line two\n  line three\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 12,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "wrapped": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m\n                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ wrapped abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij\n  abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 57,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "fit": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m\n\n                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+      "pane": {
+        "cursorX": 78,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "bash": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m\n\n                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;253;93;177m────────────────────────────────────────────────────────────────────────────────\n! \u001b[39mls -la\n\u001b[38;2;253;93;177m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;253;93;177m! for shell mode\u001b[39m\n",
+      "pane": {
+        "cursorX": 8,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "bashEmpty": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m\n\n                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;253;93;177m────────────────────────────────────────────────────────────────────────────────\n! \u001b[39m\n\u001b[38;2;253;93;177m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;253;93;177m! for shell mode\u001b[39m\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "pasted": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m\n\n                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ [Pasted text #1 +29 lines]\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153mpaste again to expand\u001b[39m\n",
+      "pane": {
+        "cursorX": 28,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "spaces": {
+      "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\u001b[39m\n\n                                                  \u001b[38;2;153;153;153mCtrl+Y to paste deleted text\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ two  spaces\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153mpaste again to expand\u001b[39m\n",
+      "pane": {
+        "cursorX": 14,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    }
+  },
+  "nativeNoColor80": {
+    "idle": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ \n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on · ? for shortcuts · ← for agents\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "single": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ hello draft\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 13,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "midline": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ hello draft\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 10,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "start": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ hello draft\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "placeholderText": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ Press up to edit queued messages\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "placeholderTextEnd": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ Press up to edit queued messages\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 34,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "multiline": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                         ctrl+g to edit in Vim\n────────────────────────────────────────────────────────────────────────────────\n❯ line one\n  line two\n  line three\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 12,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "wrapped": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ wrapped abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij\n  abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 57,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "fit": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 78,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "bash": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n! ls -la\n────────────────────────────────────────────────────────────────────────────────\n  ! for shell mode\n",
+      "pane": {
+        "cursorX": 8,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "bashEmpty": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n! \n────────────────────────────────────────────────────────────────────────────────\n  ! for shell mode\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "pasted": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ [Pasted text #1 +29 lines]\n────────────────────────────────────────────────────────────────────────────────\n  paste again to expand\n",
+      "pane": {
+        "cursorX": 28,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "spaces": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ two  spaces\n────────────────────────────────────────────────────────────────────────────────\n  paste again to expand\n",
+      "pane": {
+        "cursorX": 14,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    }
+  },
+  "nativeForceColor0x80": {
+    "idle": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ \n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on · ? for shortcuts · ← for agents\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "single": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ hello draft\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 13,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "midline": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ hello draft\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 10,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "start": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ hello draft\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "placeholderText": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ Press up to edit queued messages\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "placeholderTextEnd": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ Press up to edit queued messages\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 34,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "multiline": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                         ctrl+g to edit in Vim\n────────────────────────────────────────────────────────────────────────────────\n❯ line one\n  line two\n  line three\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 12,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "wrapped": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ wrapped abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij\n  abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 57,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "fit": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 78,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "bash": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n! ls -la\n────────────────────────────────────────────────────────────────────────────────\n  ! for shell mode\n",
+      "pane": {
+        "cursorX": 8,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "bashEmpty": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n! \n────────────────────────────────────────────────────────────────────────────────\n  ! for shell mode\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "pasted": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ [Pasted text #1 +29 lines]\n────────────────────────────────────────────────────────────────────────────────\n  paste again to expand\n",
+      "pane": {
+        "cursorX": 28,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "spaces": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ two  spaces\n────────────────────────────────────────────────────────────────────────────────\n  paste again to expand\n",
+      "pane": {
+        "cursorX": 14,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    }
+  },
+  "busyNativeNoColor80": {
+    "busy": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n\n\n\n✻ Creating…\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ \n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on · esc to interrupt · ← for agents\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "busyDraft": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n\n\n\n✽ Creating…\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ busy draft\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 12,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "busyDraftStart": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n\n\n\n✳ Creating…\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ busy draft\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "queue": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n✳ Creating…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ Press up to edit queued messages\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on · esc to interrupt · ← for agents\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "queueTyped": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n· Creating…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ Press up to edit queued messages\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 34,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "queueTypedStart": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n\n\n✶ Creating…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n                                                  Ctrl+Y to paste deleted text\n────────────────────────────────────────────────────────────────────────────────\n❯ Press up to edit queued messages\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    }
+  },
+  "busyNativeForceColor0x40": {
+    "busy": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n✻ Lollygagging…\n                      ● high · /effort\n────────────────────────────────────────\n❯ \n────────────────────────────────────────\n  ⏸ manual mode on · esc to interrupt…\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 40,
+        "height": 20
+      }
+    },
+    "busyDraft": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n✻ Lollygagging…\n                      ● high · /effort\n────────────────────────────────────────\n❯ busy draft\n────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 12,
+        "cursorY": 17,
+        "width": 40,
+        "height": 20
+      }
+    },
+    "busyDraftStart": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n\n\n\n✳ Lollygagging…\n                      ● high · /effort\n────────────────────────────────────────\n❯ busy draft\n────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 40,
+        "height": 20
+      }
+    },
+    "queue": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n✳ Lollygagging…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n          Ctrl+Y to paste deleted text\n────────────────────────────────────────\n❯ Press up to edit queued messages\n────────────────────────────────────────\n  ⏸ manual mode on · esc to interrupt…\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 40,
+        "height": 20
+      }
+    },
+    "queueTyped": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n· Lollygagging…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n          Ctrl+Y to paste deleted text\n────────────────────────────────────────\n❯ Press up to edit queued messages\n────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 34,
+        "cursorY": 17,
+        "width": 40,
+        "height": 20
+      }
+    },
+    "queueTypedStart": {
+      "raw": "\n           Claude Code v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_PROBE_SLOW30000 busy\n\n\n\n✶ Lollygagging…\n\n❯ q one\n  ctrl+x ctrl+s to send now\n          Ctrl+Y to paste deleted text\n────────────────────────────────────────\n❯ Press up to edit queued messages\n────────────────────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 40,
+        "height": 20
+      }
+    }
+  },
+  "busyNativeForceColor0x24": {
+    "busy": {
+      "raw": "\n           Claude Code\n           v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage\n  ▝▝ ▝▝    Billing\n           ~/project\n\n\n❯ AP_PROBE_SLOW30000\n  busy\n\n\n\n✻ Meandering…\n\n────────────────────────\n❯ \n────────────────────────\n  ⏸ manual mode on · …\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 24,
+        "height": 20
+      }
+    },
+    "busyDraft": {
+      "raw": "\n           Claude Code\n           v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage\n  ▝▝ ▝▝    Billing\n           ~/project\n\n\n❯ AP_PROBE_SLOW30000\n  busy\n\n\n\n✽ Meandering…\n\n────────────────────────\n❯ busy draft\n────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 12,
+        "cursorY": 17,
+        "width": 24,
+        "height": 20
+      }
+    },
+    "busyDraftStart": {
+      "raw": "\n           Claude Code\n           v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage\n  ▝▝ ▝▝    Billing\n           ~/project\n\n\n❯ AP_PROBE_SLOW30000\n  busy\n\n\n\n✢ Meandering…\n\n────────────────────────\n❯ busy draft\n────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 24,
+        "height": 20
+      }
+    },
+    "queue": {
+      "raw": "           v2.1.280\n ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage\n  ▝▝ ▝▝    Billing\n           ~/project\n\n\n❯ AP_PROBE_SLOW30000\n  busy\n\n✢ Meandering…\n\n❯ q one\n  ctrl+x ctrl+s to send\n  now\n  Ctrl+Y to paste del…\n────────────────────────\n❯ Press up to edit queu…\n────────────────────────\n  ⏸ manual mode on · …\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 17,
+        "width": 24,
+        "height": 20
+      }
+    },
+    "queueTyped": {
+      "raw": " ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage\n  ▝▝ ▝▝    Billing\n           ~/project\n\n\n❯ AP_PROBE_SLOW30000\n  busy\n\n✢ Meandering…\n\n❯ q one\n  ctrl+x ctrl+s to send\n  now\n  Ctrl+Y to paste del…\n────────────────────────\n❯ Press up to edit\n  queued messages\n────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 17,
+        "cursorY": 17,
+        "width": 24,
+        "height": 20
+      }
+    },
+    "queueTypedStart": {
+      "raw": " ▐▛███▛█   Sonnet 4.6\n▝▜██████▀  API Usage\n  ▝▝ ▝▝    Billing\n           ~/project\n\n\n❯ AP_PROBE_SLOW30000\n  busy\n\n✻ Meandering…\n\n❯ q one\n  ctrl+x ctrl+s to send\n  now\n  Ctrl+Y to paste del…\n────────────────────────\n❯ Press up to edit\n  queued messages\n────────────────────────\n  ⏸ manual mode on\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 16,
+        "width": 24,
+        "height": 20
+      }
+    }
+  },
+  "suggestionNoColor80": {
+    "cursorCell": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_ONE first\n\n⏺ Done.\n\n✻ Cooked for 0s · done 9:05 PM\n\n❯ AP_ZERO again\n\n⏺ Done.\n\n✻ Cooked for 0s · done 9:05 PM\n\n\n\n────────────────────────────────────────────────────────────────────────────────\n❯ \u001b[7mr\u001b[0mun the tests\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on · ? for shortcuts · ← for agents\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    },
+    "native": {
+      "raw": "\n ▐▛███▛█   Claude Code v2.1.280\n▝▜██████▀  Sonnet 4.6 · API Usage Billing\n  ▝▝ ▝▝    ~/project\n\n\n❯ AP_ONE first\n\n⏺ Done.\n\n✻ Baked for 0s · done 9:05 PM\n\n❯ AP_ZERO again\n\n⏺ Done.\n\n✻ Crunched for 0s · done 9:05 PM\n\n\n                                                              ● high · /effort\n────────────────────────────────────────────────────────────────────────────────\n❯ run the tests\n────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on · ? for shortcuts · ← for agents\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 21,
+        "width": 80,
+        "height": 24
+      }
+    }
+  }
+}
