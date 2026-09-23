@@ -45,9 +45,10 @@ export const ssh = Object.freeze({
   projectDirectoryUnavailable: "Das SSH-Projektverzeichnis ist nicht verfügbar.",
   targetProjectRequired: "Ein Zielprojekt ist erforderlich.",
   sourceProjectUnavailable: "Das SSH-Quellprojekt ist nicht verfügbar.",
-  unsupportedAccount: "Dieses Konto unterstützt keine SSH-Werkzeuge.",
+  unsupportedAccount: "Nicht unterstützter Account für SSH-Werkzeuge.",
   reservedMcpName: "Der reservierte SSH-MCP-Name ist bereits konfiguriert.",
   discoveryFailed: "Die SSH-Erkennungs-Hooks konnten nicht eingerichtet werden.",
   interactiveSessionsOnly:
     "SSH-Zugänge können nur laufenden interaktiven Sitzungen zugeordnet werden.",
+  unknownManagementAction: "Unbekannte SSH-Verwaltungsaktion.",
 });
