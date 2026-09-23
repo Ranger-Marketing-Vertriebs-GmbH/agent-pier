@@ -1,11 +1,65 @@
 import { nativeInputQueue } from "./native-input-queue.js";
 import { createHash } from "node:crypto";
+import {
+  claudeChipsOnly,
+  claudeImageDraft,
+  claudeImageMessage,
+  missingClaudeImages,
+} from "../sessions/claude-image-paste.js";
 import { problem } from "../../lib/storage.js";
 import { chatDeliveryCopy as copy } from "../../lib/i18n/de/chat-delivery.js";
 import {
   requireChatInput,
   requireCurrentChatInput,
 } from "../../application/request-input-guard.js";
+
+/** Journal intents written before bytes that their guard may still refuse. */
+export const intents = new Set(["paste-intent", "text-intent", "submit-intent"]);
+/** The last proven phase when an intent's guard refused before writing. */
+export const provenPhase = {
+  "paste-intent": "reserved",
+  "text-intent": "images-pasted",
+  "submit-intent": "pasted",
+};
+/**
+ * What a held message still needs by its proven phase: all of it, only the text
+ * after its image chips, or only Enter.
+ */
+export const heldMode = { reserved: "send", "images-pasted": "text", pasted: "submit" };
+
+/**
+ * How a retry may continue from the journal, proven by the current composer:
+ * resend a message never written, add the text after its own image chips, or
+ * only submit the complete draft. Claude image paths appear as chips, so image
+ * drafts match with chips in their place. Journals of earlier versions carry
+ * only reserved/paste-intent/pasted/submit-intent/submitted; their single-paste
+ * Claude drafts have the same chips-first form. Returns a plan or a reason.
+ */
+async function recoveryPlan(tool, phase, { composer, raw, pane }, text) {
+  if (phase === "reserved") return { plan: "resend" };
+  if (!["pasted", "images-pasted", "text-intent"].includes(phase))
+    return { reason: copy.recoveryUncertain };
+  const message = tool === "claude" ? await claudeImageMessage(text) : null;
+  const full = message
+    ? claudeImageDraft(composer, message, { text: message.text })
+    : composer.state === "text" && composer.text === text;
+  let result;
+  if (phase === "pasted")
+    result = full ? { plan: "submit" } : { reason: copy.recoveryComposer };
+  // The text paste may or may not have happened: only its visible result counts.
+  else if (phase === "text-intent")
+    result = full ? { plan: "submit" } : { reason: copy.recoveryUncertain };
+  else
+    result =
+      claudeImageDraft(composer, message) ||
+      (message && claudeChipsOnly(raw, pane, message.images.length))
+        ? { plan: "text" }
+        : { reason: copy.recoveryComposer };
+  // A deleted attachment can no longer be compared with its chip.
+  if (result.reason && tool === "claude" && (await missingClaudeImages(text)))
+    return { reason: copy.recoveryAttachmentMissing };
+  return result;
+}
 
 /** Stable, translatable identifier of a refused or unconfirmed terminal handoff. */
 export const deliveryReason = (error) =>
@@ -97,13 +151,19 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
         receipt.journal.generation !== tx.recoveryGeneration)
     )
       reason = copy.recoveryRuntime;
-    else if (!["reserved", "pasted"].includes(receipt.journal.phase))
-      reason = copy.recoveryUncertain;
-    else if (
-      receipt.journal.phase === "pasted" &&
-      (tx.composer.state !== "text" || tx.composer.text !== text.replace(/\r\n?/g, "\n"))
-    )
-      reason = copy.recoveryComposer;
+    const normalized = text.replace(/\r\n?/g, "\n");
+    let plan;
+    if (!reason) {
+      const result = await recoveryPlan(
+        tx.session.tool,
+        receipt.journal?.phase,
+        tx,
+        normalized,
+      );
+      plan = result.plan;
+      reason = result.reason;
+    }
+    const modeOf = { resend: "send", text: "text", submit: "submit" };
     const finish = (action, explanation, code) => {
       receipt.recovery = {
         action,
@@ -127,10 +187,10 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
         id,
         file,
         receipt,
-        text: text.replace(/\r\n?/g, "\n"),
+        text: normalized,
         hash: receipt.hash,
         scope: deliveryScope,
-        mode: receipt.journal.phase === "pasted" ? "submit" : "send",
+        mode: heldMode[receipt.journal.phase] ?? modeOf[plan],
         proof,
       });
       return finish("held", copy.recoveryHeld);
@@ -146,9 +206,11 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
     if (mode === "check")
       return finish(
         "none",
-        receipt.journal.phase === "pasted"
-          ? copy.recoveryReadySubmit
-          : copy.recoveryReadyResend,
+        {
+          resend: copy.recoveryReadyResend,
+          text: copy.recoveryReadyText,
+          submit: copy.recoveryReadySubmit,
+        }[plan],
       );
     try {
       requireCurrentChatInput(delivery.requests, id);
@@ -160,7 +222,7 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
         return hold("request", "CHAT_REQUEST_PENDING");
       return finish("blocked", copy.rejected);
     }
-    const submitOnly = receipt.journal.phase === "pasted";
+    const submitOnly = plan === "submit";
     receipt.recoveries ||= {};
     receipt.recoveries[requestId] = { requestHash };
     receipt.attemptId = requestId;
@@ -180,19 +242,19 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
     let code;
     let proof;
     try {
-      await tx.write(text.replace(/\r\n?/g, "\n"), {
+      await tx.write(normalized, {
         onProof: (value) => (proof = value),
         submitOnly,
-        allowComposerDraft: !submitOnly,
+        ...(plan === "text" ? { resume: "text" } : {}),
+        allowComposerDraft: plan === "resend",
         onPhase: async (phase) => {
-          if (["paste-intent", "submit-intent"].includes(phase))
-            requireCurrentChatInput(delivery.requests, id);
+          if (intents.has(phase)) requireCurrentChatInput(delivery.requests, id);
           receipt.journal = { phase, generation: tx.recoveryGeneration };
           delivery.write(file, receipt);
         },
         onRefused: async (phase) => {
           receipt.journal = {
-            phase: phase === "paste-intent" ? "reserved" : "pasted",
+            phase: provenPhase[phase],
             generation: tx.recoveryGeneration,
           };
           delivery.write(file, receipt);
@@ -210,16 +272,16 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
     if (
       receipt.status !== "handed-off" &&
       waitingFor(code) &&
-      ["reserved", "pasted"].includes(receipt.journal.phase)
+      heldMode[receipt.journal.phase]
     ) {
       if (receipt.journal.phase === "reserved") receipt.status = "pending";
       return hold(waitingFor(code), code, proof);
     }
     return finish(
       receipt.status === "handed-off"
-        ? submitOnly
-          ? "submitted-existing"
-          : "resent"
+        ? { resend: "resent", text: "completed-existing", submit: "submitted-existing" }[
+            plan
+          ]
         : "blocked",
       receipt.status === "handed-off"
         ? copy.recoveryHandedOff

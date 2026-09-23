@@ -192,7 +192,7 @@ export async function prepareClaudePrompt(manager, session, initial, snapshot, o
 export async function awaitClaudePaste(
   snapshot,
   dismiss,
-  { timeoutMs = 2000, unknownMs = 300, dismissals = 2 } = {},
+  { timeoutMs = 2000, unknownMs = 300, dismissals = 2, changedFrom = null } = {},
 ) {
   const started = performance.now();
   for (;;) {
@@ -200,8 +200,13 @@ export async function awaitClaudePaste(
     const composer = claudeComposerState(fresh.raw, fresh.pane, fresh.composer);
     const { state } = composer;
     // A placeholder-shaped colorless row never holds the paste, which ends at
-    // the cursor: keep waiting as for an empty prompt.
-    if (["text", "draft"].includes(state) && !composer.placeholder)
+    // the cursor: keep waiting as for an empty prompt. Text pasted after image
+    // chips shows once the chips-only box changed.
+    if (
+      ["text", "draft"].includes(state) &&
+      !composer.placeholder &&
+      (changedFrom === null || claudePromptProof(fresh) !== changedFrom)
+    )
       return { unreadable: false, fresh };
     if (state === "dialog") {
       if (dismissals-- <= 0)
@@ -262,6 +267,8 @@ export function claudeFreshInput({
   };
   let appended = false;
   let inert = null;
+  // The chips-only prompt box before the text paste of an image message.
+  let chips = null;
   const append = async (kind) => {
     if (!kind || appended) return;
     appended = kind;
@@ -297,6 +304,8 @@ export function claudeFreshInput({
     },
     /** Right after the paste: remember the prompt holding our text. */
     async afterPaste() {
+      // A proof of the prompt before this paste (image chips) no longer holds.
+      onProof(null);
       // Wait for Claude to draw the paste before remembering the prompt.
       const deadline = performance.now() + 500;
       for (;;) {
@@ -306,8 +315,31 @@ export function claudeFreshInput({
         await sleep(25);
       }
     },
+    /**
+     * Between the image paste and the text paste: a menu that opened is closed,
+     * a question holds the message (`CHAT_QUESTION_OPEN`) with its chips in
+     * place. Remembers the chips-only prompt for a held text and for Enter.
+     */
+    async beforeText() {
+      let fresh = await snapshot();
+      if (stateOf(fresh) === "dialog") fresh = await dismiss(fresh);
+      chips = claudePromptProof(fresh);
+      onProof(chips);
+    },
+    /** Text for chips pasted before a hold: only into that unchanged prompt. */
+    async beforeResume(proof, matches) {
+      let fresh = await snapshot();
+      if (stateOf(fresh) === "dialog") fresh = await dismiss(fresh);
+      const unchanged =
+        typeof proof === "string" ? claudePromptProof(fresh) === proof : matches(fresh);
+      if (!unchanged) throw composerProblem("CHAT_PROMPT_CHANGED");
+      chips = claudePromptProof(fresh);
+    },
     async beforeSubmit() {
-      const result = await awaitClaudePaste(snapshot, dismiss, timing.paste);
+      const result = await awaitClaudePaste(snapshot, dismiss, {
+        ...timing.paste,
+        changedFrom: chips,
+      });
       if (result.unreadable) await append("unreadable");
       else prove(result.fresh);
     },
@@ -316,13 +348,13 @@ export function claudeFreshInput({
      * message keeps waiting), and only while the prompt box is exactly the one
      * seen after the paste. Anything else stays unconfirmed for the user.
      */
-    async beforeResubmit(proof, text) {
+    async beforeResubmit(proof, matches) {
       let fresh = await snapshot();
       if (stateOf(fresh) === "dialog") fresh = await dismiss(fresh);
       const unchanged =
         typeof proof === "string"
           ? claudePromptProof(fresh) === proof
-          : fresh.composer?.state === "text" && fresh.composer.text === text;
+          : matches(fresh.composer ?? {});
       if (!unchanged) throw composerProblem("CHAT_PROMPT_CHANGED");
     },
     /** A message appended to a visible draft starts on its own line. */

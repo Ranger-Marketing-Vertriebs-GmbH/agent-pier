@@ -10,6 +10,10 @@ export const chatDeliveryCopy = {
     "Die ursprüngliche CLI-Sitzung ist nicht mehr eindeutig zugeordnet. Bitte prüfe die TUI.",
   recoveryComposer:
     "Die TUI-Eingabe enthält anderen Text oder ist nicht vollständig lesbar. Sie wurde nicht verändert.",
+  recoveryAttachmentMissing:
+    "Ein angehängtes Bild ist nicht mehr verfügbar, daher lässt sich die TUI-Eingabe nicht prüfen. Sie wurde nicht verändert; bitte prüfe die TUI.",
+  recoveryReadyText:
+    "Die Bilder stehen noch in der TUI. Mit Neu zustellen werden nur der Text ergänzt und die Nachricht abgeschickt.",
   recoveryReadySubmit:
     "Der vollständige Text steht noch in der TUI. Mit Neu zustellen wird nur das Abschicken nachgeholt.",
   recoveryReadyResend:
