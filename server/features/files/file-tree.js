@@ -113,13 +113,19 @@ export async function scanTree(
         );
         if (inodeIdentity(await stream.stat()) !== row.identity) throw treeConflict();
         let child;
+        const names = [];
         while ((child = await native.run("readDirectory", { handle: stream.handle }))) {
           signal?.throwIfAborted();
-          if (queue.length >= limits.jobEntries)
+          if (queue.length + names.length >= limits.jobEntries)
             throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
-          queue.push(relativePath ? `${relativePath}/${child.name}` : child.name);
+          names.push(child.name);
         }
         if (entryRevision(await stream.stat()) !== row.revision) throw treeConflict();
+        // readdir order is filesystem-specific (hashed and per-volume seeded on
+        // ext4), so process siblings in a stable order on every platform.
+        names.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+        for (const childName of names)
+          queue.push(relativePath ? `${relativePath}/${childName}` : childName);
       }
     } finally {
       await stream?.close();
