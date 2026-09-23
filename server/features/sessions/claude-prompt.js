@@ -260,6 +260,8 @@ export function claudeFreshInput({
       );
       if (result.unreadable) await append("unreadable");
     },
+    /** A message appended to a visible draft starts on its own line. */
+    pastePrefix: () => (appended === "draft" ? "\n" : ""),
     confirm: ({ slash }) =>
       confirmClaudeSubmit(snapshot, {
         slash,
