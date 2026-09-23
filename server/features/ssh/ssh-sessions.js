@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,7 +10,7 @@ import { validateSshProjectBinding } from "./ssh-project-scope.js";
 const client = fileURLToPath(new URL("../../ssh.mjs", import.meta.url));
 function identifier(value) {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(value))
-    throw problem("Ungültige SSH-Zuordnung.");
+    throw problem(serverMessages.ssh.invalidBinding);
   return value;
 }
 function identity(session) {
@@ -44,7 +45,7 @@ export class SshSessions {
   }
   validate(ids = []) {
     if (!Array.isArray(ids) || ids.length > 30 || new Set(ids).size !== ids.length)
-      throw problem("Ungültige SSH-Zuordnung.");
+      throw problem(serverMessages.ssh.invalidBinding);
     for (const id of ids) this.store.get(identifier(id));
     return [...ids];
   }
@@ -57,7 +58,7 @@ export class SshSessions {
   }
   validateShape(ids) {
     if (!Array.isArray(ids) || ids.length > 30)
-      throw problem("Ungültige gespeicherte SSH-Zuordnung.");
+      throw problem(serverMessages.ssh.invalidStoredBinding);
     return ids.map(identifier);
   }
   async inherited(session) {
@@ -134,7 +135,7 @@ export class SshSessions {
     );
     eligible(session);
     if (session.id !== sessionId || !(await this.effective(session)).includes(accessId))
-      throw problem("Dieser SSH-Zugang ist der Sitzung nicht zugeordnet.", 403);
+      throw problem(serverMessages.ssh.accessNotBound, 403);
     // Discovery may run Git asynchronously. Recheck live identity and grants before
     // materializing a connection so a stop/reload/revocation during it wins.
     const current = readJSON(
@@ -148,7 +149,7 @@ export class SshSessions {
     const projectId = session.sshTools?.project?.projectId;
     const inherited = projectId && this.store.get(accessId).projectId === projectId;
     if (!sameSession || (!inherited && !this.assigned(current).includes(accessId)))
-      throw problem("Dieser SSH-Zugang ist der Sitzung nicht zugeordnet.", 403);
+      throw problem(serverMessages.ssh.accessNotBound, 403);
     return this.store.connection(accessId);
   }
 }

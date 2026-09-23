@@ -6,6 +6,7 @@ export const http = Object.freeze({
   unknownTerminalMessage: "Unbekannte Terminal-Nachricht.",
   invalidMessagePage: "Ungültige Nachrichtenseite.",
   invalidTerminalInput: "Ungültige Terminal-Eingabe.",
+  terminalInputTooLong: "Eingabe zu lang.",
   buildRequiredForPage:
     "Seite nicht gefunden. Die Oberfläche zuerst mit npm run build erstellen.",
   internalError: "Interner Fehler. Bitte erneut versuchen.",

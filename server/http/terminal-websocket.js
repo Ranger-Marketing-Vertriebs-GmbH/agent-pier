@@ -107,7 +107,7 @@ export function attachTerminalWebSocket(server, { sessions, login, effective }) 
           }
           if (msg.type === "input") {
             if (typeof msg.data !== "string" || msg.data.length > 32000)
-              throw problem("Eingabe zu lang.");
+              throw problem(serverMessages.http.terminalInputTooLong);
             if (!attachment) throw problem(serverMessages.http.sessionStopped);
             await attachment.write(msg.data);
           } else if (msg.type === "resize") {
