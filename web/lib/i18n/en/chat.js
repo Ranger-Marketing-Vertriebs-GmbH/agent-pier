@@ -155,6 +155,19 @@ export const chatDeliveryCopy = {
   absentHint:
     "The server did not accept this message. You can edit it or retry the handoff.",
   // The same reasons after the text was pasted but before Enter (uncertain).
+  imagesPasted:
+    "The attached images are in the TUI prompt, but the message was not completed and not submitted. Check the TUI before sending again.",
+  // The same reasons with only the image chips in the prompt (images-pasted).
+  imagesPastedReasons: {
+    CHAT_PROMPT_CHANGED:
+      "The attached images were pasted into Claude, but the prompt changed while the message waited, so it was not completed and not submitted. Please check the TUI.",
+    CHAT_DIALOG_NOT_CLOSED:
+      "The attached images are in the TUI prompt, but the message was not completed and not submitted: a Claude menu could not be closed. Check the TUI before sending again.",
+    CHAT_QUESTION_OPEN:
+      "The attached images are in the TUI prompt, but the message was not completed and not submitted: Claude is waiting for an answer to a question. Check the TUI before sending again.",
+    CHAT_REQUEST_PENDING:
+      "The attached images are in the TUI prompt, but the message was not completed and not submitted: a request is waiting for an answer. Check the TUI before sending again.",
+  },
   pastedReasons: {
     CHAT_PROMPT_CHANGED:
       "The message was pasted into Claude, but the prompt changed while it waited, so it was not submitted. Please check the TUI.",

@@ -458,7 +458,7 @@ export class ChatDraft {
         recovery: receipt.recovery || item.recovery,
         notices: Array.isArray(receipt.notices) ? receipt.notices : [],
         waiting: receipt.status === "pending" ? receipt.waiting || "" : "",
-        pasted: receipt.pasted !== false,
+        pasted: receipt.pasted === "images" ? "images" : receipt.pasted !== false,
         recoveryAttempt: resolved ? null : item.recoveryAttempt,
       };
       if (

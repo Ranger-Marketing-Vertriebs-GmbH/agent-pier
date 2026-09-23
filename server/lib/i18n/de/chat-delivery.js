@@ -26,11 +26,26 @@ export const chatDeliveryCopy = {
   storage: "Der Zustellbeleg kann nicht sicher gespeichert oder gelesen werden.",
   cancelPasted:
     "Die Nachricht steht bereits im Eingabefeld der TUI. Entferne oder sende sie dort.",
+  cancelImagesPasted:
+    "Die angehängten Bilder stehen bereits im Eingabefeld der TUI. Entferne sie dort oder sende die Nachricht dort.",
   recoveryHeld: "Die Nachricht wartet und wird zugestellt, sobald die TUI frei ist.",
   rejected:
     "Die Eingabe wurde vor der Terminal-Übergabe abgelehnt. Bitte prüfe die Sitzung und offene Freigaben.",
   uncertain:
     "Die Terminal-Übergabe ist unklar. Erneutes Senden kann die Eingabe duplizieren.",
+  imagesPasted:
+    "Die angehängten Bilder stehen im Eingabefeld der TUI, die Nachricht wurde aber nicht vervollständigt und nicht abgeschickt. Bitte prüfe die TUI, bevor du erneut sendest.",
+  // The same reasons with only the image chips in the prompt (images-pasted).
+  imagesPastedReasons: {
+    CHAT_PROMPT_CHANGED:
+      "Die angehängten Bilder wurden in Claude eingefügt, aber das Eingabefeld hat sich während des Wartens verändert. Die Nachricht wurde deshalb nicht vervollständigt und nicht abgeschickt; bitte prüfe die TUI.",
+    CHAT_DIALOG_NOT_CLOSED:
+      "Die angehängten Bilder stehen im Eingabefeld der TUI, die Nachricht wurde aber nicht vervollständigt und nicht abgeschickt: Ein Claude-Menü ließ sich nicht schließen. Bitte prüfe die TUI, bevor du erneut sendest.",
+    CHAT_QUESTION_OPEN:
+      "Die angehängten Bilder stehen im Eingabefeld der TUI, die Nachricht wurde aber nicht vervollständigt und nicht abgeschickt: Claude wartet auf die Antwort zu einer Frage. Bitte prüfe die TUI, bevor du erneut sendest.",
+    CHAT_REQUEST_PENDING:
+      "Die angehängten Bilder stehen im Eingabefeld der TUI, die Nachricht wurde aber nicht vervollständigt und nicht abgeschickt: Eine Anfrage wartet auf Antwort. Bitte prüfe die TUI, bevor du erneut sendest.",
+  },
   // The same reasons after the text was pasted but before Enter (uncertain).
   pastedReasons: {
     CHAT_PROMPT_CHANGED:

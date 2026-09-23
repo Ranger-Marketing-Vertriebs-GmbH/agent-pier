@@ -26,7 +26,12 @@ export default function ChatDeliveryStatus({
     const held = item.status === "pending" && Boolean(item.waiting);
     // Stable server reason codes are translated here; free text is a fallback.
     // An uncertain outcome before Enter means the text sits in Claude's prompt.
+    // With only the image chips in the prompt ("images"), the wording says so.
     const reasonText = (code) =>
+      (item.status === "uncertain" &&
+        item.pasted === "images" &&
+        copy.pastedReasons[code] &&
+        (copy.imagesPastedReasons[code] || copy.imagesPasted)) ||
       (item.status === "uncertain" &&
         item.pasted !== false &&
         copy.pastedReasons[code]) ||

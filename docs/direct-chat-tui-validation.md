@@ -328,7 +328,17 @@ message), so drafts are compared with chip numbers normalized.
 AgentPier therefore pastes a Claude image message in two steps: all image paths
 (unquoted) in one paste, then, once the still short prompt shows that many chips,
 the remaining text, then one Enter once the prompt changed from the chips-only
-frame. The chip wait ends early when a dialog hides the prompt. The journal
+frame. The chip wait ends early when a dialog hides the prompt; a menu is then
+closed and the chips counted again, and the text-intent guard runs right before
+the text paste, so a question that opens at any point holds the message and
+never receives text, Enter or Escape. An image-only message gets Enter only when
+at least one of its chips is visible in a readable prompt. A message appended to
+a draft that could not be cleared carries its line break on the text paste,
+because Claude drops a newline before image paths: live at 80×20 the provider
+received `draft foo[Image #1] [Image #2]` / `hello text`; an image-only message
+stays `draft foo[Image #1] [Image #2]`. While only the chips are in the prompt,
+receipts report `pasted: "images"` and the reason and cancel wording name the
+images instead of the message. The journal
 records `paste-intent`, `images-pasted`, `text-intent`, `pasted`,
 `submit-intent` and `submitted`; a guard refusing `text-intent` restores
 `images-pasted`. A question between the two pastes holds the message with its

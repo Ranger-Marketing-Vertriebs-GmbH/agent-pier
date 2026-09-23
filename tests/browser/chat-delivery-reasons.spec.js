@@ -182,3 +182,25 @@ test("unconfirmed Claude image chips are explained in English as pasted but unse
   ).toBeVisible();
   await expect(page.getByText(/eingefügt/)).toHaveCount(0);
 });
+
+test("a message with only its image chips in the prompt says so in English", async ({
+  page,
+}) => {
+  await fixture(page, {
+    status: "uncertain",
+    pasted: "images",
+    reason: "CHAT_QUESTION_OPEN",
+    error: chatDeliveryCopy.imagesPastedReasons.CHAT_QUESTION_OPEN,
+  });
+  await input(page).fill("Describe the attached screenshot");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(
+    page.getByText(
+      /attached images are in the TUI prompt, but the message was not completed and not submitted: Claude is waiting/,
+    ),
+  ).toBeVisible();
+  await expect(page.getByText(/The message is in the TUI prompt/)).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Cancel sending", exact: true }),
+  ).toHaveCount(0);
+});

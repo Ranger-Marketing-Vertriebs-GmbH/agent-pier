@@ -5,6 +5,11 @@ import { chatDeliveryCopy as copy } from "../../lib/i18n/de/chat-delivery.js";
 
 // A held job whose text or image chips already reached the terminal.
 const written = (job) => ["submit", "text"].includes(job.mode);
+// Why a cancel is refused: the message, or only its image chips, is in the prompt.
+const pastedCopy = (job) =>
+  job.mode === "text" || job.receipt.journal?.phase === "images-pasted"
+    ? copy.cancelImagesPasted
+    : copy.cancelPasted;
 
 /**
  * Held chat messages per session, delivered strictly in order. A message waits
@@ -175,14 +180,14 @@ export class DeliveryQueue {
     const job = this.find(id, file);
     if (!job) return false;
     if (written(job) || job.receipt.journal?.phase !== "reserved")
-      throw problem(copy.cancelPasted, 409);
+      throw problem(pastedCopy(job), 409);
     job.cancelled = true;
     if (job.running) await job.running.catch(() => {});
     const { receipt } = job;
     if (receipt.status === "handed-off") return false;
     if (receipt.journal?.phase !== "reserved") {
       job.cancelled = false;
-      throw problem(copy.cancelPasted, 409);
+      throw problem(pastedCopy(job), 409);
     }
     try {
       receipt.status = "rejected";

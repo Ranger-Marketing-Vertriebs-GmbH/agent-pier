@@ -23,10 +23,25 @@ export const chatDeliveryCopy = {
   conflict: "This delivery ID was already used for a different request.",
   storage: "The delivery receipt cannot be saved or read safely.",
   cancelPasted: "The message is already in the TUI prompt. Remove or send it there.",
+  cancelImagesPasted:
+    "The attached images are already in the TUI prompt. Remove them or send the message there.",
   recoveryHeld: "The message is waiting and will be delivered once the TUI is free.",
   rejected:
     "The input was rejected before the terminal handoff. Please check the session and pending approvals.",
   uncertain: "The terminal handoff is uncertain. Sending again may duplicate the input.",
+  imagesPasted:
+    "The attached images are in the TUI prompt, but the message was not completed and not submitted. Check the TUI before sending again.",
+  // The same reasons with only the image chips in the prompt (images-pasted).
+  imagesPastedReasons: {
+    CHAT_PROMPT_CHANGED:
+      "The attached images were pasted into Claude, but the prompt changed while the message waited, so it was not completed and not submitted. Please check the TUI.",
+    CHAT_DIALOG_NOT_CLOSED:
+      "The attached images are in the TUI prompt, but the message was not completed and not submitted: a Claude menu could not be closed. Check the TUI before sending again.",
+    CHAT_QUESTION_OPEN:
+      "The attached images are in the TUI prompt, but the message was not completed and not submitted: Claude is waiting for an answer to a question. Check the TUI before sending again.",
+    CHAT_REQUEST_PENDING:
+      "The attached images are in the TUI prompt, but the message was not completed and not submitted: a request is waiting for an answer. Check the TUI before sending again.",
+  },
   // The same reasons after the text was pasted but before Enter (uncertain).
   pastedReasons: {
     CHAT_PROMPT_CHANGED:
