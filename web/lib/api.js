@@ -1,3 +1,4 @@
+import { serverProblemText } from "./server-messages.js";
 import { artifactCopy } from "./i18n/messages/artifacts.js";
 import { apiCopy as copy } from "./i18n/messages/components.js";
 import { memoryCopy } from "./i18n/messages/memory.js";
@@ -12,8 +13,7 @@ export async function apiError(response) {
       : sshProjectCopy.errors[data.code]
         ? sshProjectCopy.errors[data.code]
         : artifactCopy.errors[data.code] ||
-          data.error ||
-          copy.requestFailed(response.status),
+          serverProblemText(data, copy.requestFailed(response.status)),
   );
   error.status = response.status;
   error.code = data.code;

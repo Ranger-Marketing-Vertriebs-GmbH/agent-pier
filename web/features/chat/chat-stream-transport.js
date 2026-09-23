@@ -1,3 +1,4 @@
+import { serverProblemText } from "../../lib/server-messages.js";
 import { applyChatSync } from "./chat-sync.js";
 
 const CONNECT_TIMEOUT = 8000;
@@ -102,7 +103,7 @@ export function createChatStream({
             onConnection("ended");
             return;
           }
-          if (message.type === "error") return fail(message.message);
+          if (message.type === "error") return fail(serverProblemText(message, ""));
           if (message.type !== "snapshot" && message.type !== "sync") return;
           if (!Number.isInteger(message.sequence) || message.sequence <= sequence) return;
           if (sequence >= 0 && message.sequence !== sequence + 1) return fail();

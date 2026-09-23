@@ -1,3 +1,4 @@
+import { serverProblemText } from "../../lib/server-messages.js";
 import "@xterm/xterm/css/xterm.css";
 
 import { terminalViewCopy as copy } from "../../lib/i18n/messages/terminal.js";
@@ -112,7 +113,7 @@ export default function useTerminalConnection({
           try {
             const message = JSON.parse(event.data);
             if (message.type === "output") terminal.write(message.data);
-            if (message.type === "error") setError(message.message);
+            if (message.type === "error") setError(serverProblemText(message, ""));
             if (message.type === "status" && message.status !== "running")
               onConnection("ended");
           } catch {
