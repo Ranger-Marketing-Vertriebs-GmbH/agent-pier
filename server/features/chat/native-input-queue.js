@@ -41,7 +41,8 @@ export function nativeInputQueue(tool, raw, pane) {
     }
   } else if (tool === "claude") {
     // Narrow panes truncate the placeholder ("Press up to edit queu…").
-    if (!claudePlaceholder(styled[row], pane, { queued: true })) return [];
+    if (!claudePlaceholder(styled[row], pane, { queued: true, footer: styled[row + 2] }))
+      return [];
     let index = row - 2;
     // Optional right-aligned native hint (effort, Ctrl+Y, …) or a blank row
     // above the ruled composer.

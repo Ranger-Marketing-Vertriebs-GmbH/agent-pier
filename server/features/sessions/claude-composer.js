@@ -12,27 +12,58 @@ const dialogFooter =
 const placeholderRow =
   /^(?:\x1b\[[0-9;]*m)*❯[ \u00a0]\x1b\[7m(?:\x1b\[39m)?([^\x1b])(\x1b\[0;2m|\x1b\[0m)([^\x1b]*)(?:\x1b\[0m)?$/;
 const queuedPlaceholder = "Press up to edit queued messages";
+// Footer hints Claude Code 2.1.280 renders only while its prompt is empty; a
+// draft reduces the footer to the permission mode.
+const emptyPromptHints = ["esc to interrupt", "? for shortcuts"];
+
+/**
+ * NO_COLOR/FORCE_COLOR=0: Claude still draws its cursor cell in reverse video,
+ * but emits no other styling. Colored panes always style their borders.
+ */
+export function colorlessScreen(text) {
+  return !/\x1b\[(?!0?m|7m)[0-9;:]*m/.test(text || "");
+}
+
+/** The footer below the prompt box shows a hint that only an empty prompt has. */
+function emptyPromptFooter(footer) {
+  return plain(footer)
+    .trim()
+    .split(" · ")
+    .some(
+      (hint) =>
+        emptyPromptHints.includes(hint) ||
+        // A truncated hint must still name itself ("esc to…" does not).
+        (hint.endsWith("…") &&
+          hint.length > 8 &&
+          emptyPromptHints.some((full) => full.startsWith(hint.slice(0, -1)))),
+    );
+}
 
 /**
  * Claude's empty prompt showing a placeholder, at the cursor's start cell.
  * `queued` accepts only the (possibly truncated) queued-messages placeholder.
+ *
+ * A colored Claude always dims its placeholder, so undimmed text is typed.
+ * Without color a draft whose cursor sits on its first character looks exactly
+ * like a placeholder. Only the queued-messages placeholder is then accepted,
+ * and only when `footer` (the row below the prompt box) shows a hint Claude
+ * renders for an empty prompt alone. Everything else fails closed as a draft:
+ * a typed "Press up to edit queued messages" is never taken for an empty
+ * prompt, at the cost of refusing the placeholder in panes too narrow for the
+ * hint (below about 34 columns).
  */
-export function claudePlaceholder(line, pane, { queued = false } = {}) {
+export function claudePlaceholder(line, pane, { queued = false, footer = "" } = {}) {
   const match = placeholderRow.exec(line || "");
   if (!match || pane?.cursorX !== 2) return false;
   const text = (match[1] + match[3]).trimEnd();
-  // Typed text is never dim; without color only the known placeholder is safe,
-  // because a draft with its cursor on the first character looks the same.
-  const dim = match[2] === "\x1b[0;2m";
-  if (dim && !queued) return text.length > 0;
-  // A colored Claude always dims its placeholder; only NO_COLOR drops it.
-  if (queued && !dim && /\x1b\[(?:[34]8;|39m)/.test(line)) return false;
-  return (
+  const known =
     text === queuedPlaceholder ||
     (text.endsWith("…") &&
       text.length > 2 &&
-      queuedPlaceholder.startsWith(text.slice(0, -1)))
-  );
+      queuedPlaceholder.startsWith(text.slice(0, -1)));
+  if (!colorlessScreen(line))
+    return match[2] === "\x1b[0;2m" && (queued ? known : text.length > 0);
+  return known && emptyPromptFooter(footer);
 }
 
 export function composerProblem(code) {
@@ -70,6 +101,8 @@ export function claudeComposerBox(raw, pane = {}) {
     rows,
     first: lines[top + 1],
     raw: lines.slice(top + 1, bottom),
+    // The row below the bottom border: Claude's footer hints.
+    footer: lines[bottom + 1],
     clipped: bottom >= lines.length,
   };
 }
@@ -87,7 +120,7 @@ export function claudeComposerState(raw, pane, composer) {
       pane.cursorX === 2 &&
       pane.cursorY === box.top + 1 &&
       !box.clipped &&
-      claudePlaceholder(box.first, pane)
+      claudePlaceholder(box.first, pane, { footer: box.footer })
     )
       return { state: "empty", text: "" };
     return { state: "draft", text: null };

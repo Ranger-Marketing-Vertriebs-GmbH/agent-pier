@@ -127,7 +127,7 @@ export function inspectChatComposer(tool, raw, pane = {}) {
       pane.cursorX === 2 &&
       (plain === "❯ " ||
         (plain === "❯  " && /\x1b\[7m(?:\x1b\[39m)? /.test(line)) ||
-        claudePlaceholder(line, pane))
+        claudePlaceholder(line, pane, { footer: lines[row + 2] }))
     )
       return { state: "empty", text: "" };
     const draft = /^\x1b\[39m❯ ([^\x1b]+)\x1b\[7m \x1b\[0m$/.exec(line)?.[1];
