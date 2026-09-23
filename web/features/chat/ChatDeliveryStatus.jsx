@@ -3,6 +3,7 @@ import React from "react";
 import Message from "./ChatMessage.jsx";
 import { deliveryNotices, visibleDeliveries } from "./chat-draft.js";
 import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
+import { serverText } from "../../lib/server-messages.js";
 
 export default function ChatDeliveryStatus({
   delivery,
@@ -24,8 +25,9 @@ export default function ChatDeliveryStatus({
     // An uncertain outcome before Enter means the text sits in Claude's prompt.
     const reasonText = (code) =>
       (item.status === "uncertain" && copy.pastedReasons[code]) || copy.reasons[code];
-    const detail = reasonText(item.reason) || item.error;
-    const recoveryDetail = reasonText(item.recovery?.code) || item.recovery?.reason;
+    const detail = reasonText(item.reason) || serverText(item.error);
+    const recoveryDetail =
+      reasonText(item.recovery?.code) || serverText(item.recovery?.reason);
     const status = recovering
       ? "recovering"
       : pending && delivery.sending
