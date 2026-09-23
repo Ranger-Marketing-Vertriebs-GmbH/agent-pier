@@ -25,7 +25,7 @@ function render() {
   const border = "\\x1b[38;2;136;136;136m" + "─".repeat(width);
   if (state.dialog) {
     const rows = state.dialog === "menu"
-      ? ["   Rewind", "", "   Restore the code and/or conversation to the point before…", "",
+      ? ["▔".repeat(Math.min(width, 40)), "   Rewind", "", "   Restore the code and/or conversation to the point before…", "",
         "   ❯ (current)", "", "   Enter to continue · Esc to cancel"]
       : [" Bash command", "   touch MARKER", "", " Do you want to proceed?",
         " ❯ 1. Yes", "   2. No", "", " Esc to cancel · Tab to amend"];

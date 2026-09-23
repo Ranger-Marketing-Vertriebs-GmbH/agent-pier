@@ -394,7 +394,11 @@ export function withChatInput(manager, id, operation) {
           const text = normalizeChatText(value);
           const submitOnly = options.submitOnly === true;
           const freshInput = !submitOnly && options.allowComposerDraft === true;
-          const inspectComposer = submitOnly || !freshInput;
+          // Enter for Claude text pasted before a hold is checked against the
+          // prompt box seen after that paste instead of an exact one-line match.
+          // A dialog keeps it waiting; without a proof the exact text must show.
+          const proven = submitOnly && session.tool === "claude";
+          const inspectComposer = submitOnly ? !proven : !freshInput;
           // Claude dialogs swallow a paste and take Enter as their confirmation.
           // Fresh Claude input closes them, replaces a draft or appends to it.
           const claude = session.tool === "claude";
@@ -407,13 +411,14 @@ export function withChatInput(manager, id, operation) {
             await options.onNotice?.(code);
           };
           const claudeInput =
-            replace &&
+            (replace || proven) &&
             claudeFreshInput({
               manager,
               session,
               snapshot,
               notice,
               escape: options.closeMenus !== false,
+              onProof: (proof) => options.onProof?.(proof),
               timing: manager.chatInputTiming,
             });
           if (attempted || checking)
@@ -423,7 +428,7 @@ export function withChatInput(manager, id, operation) {
           try {
             // Keystrokes typed in the terminal may not have rendered yet. Fresh
             // chat input takes over that draft instead of refusing the message.
-            const typed = freshInput && manager.pendingTerminalInput?.has(id);
+            const typed = (freshInput || proven) && manager.pendingTerminalInput?.has(id);
             if (typed) {
               await sleep(150);
               manager.pendingTerminalInput.delete(id);
@@ -449,6 +454,9 @@ export function withChatInput(manager, id, operation) {
             // caller restores its last proven phase instead of staying uncertain.
             onPhase: async (phase) => {
               await options.onPhase?.(phase);
+              // Best effort: without a proof a held Enter falls back to uncertain.
+              if (phase === "pasted" && replace)
+                await claudeInput.afterPaste().catch(() => {});
               if (!["paste-intent", "submit-intent"].includes(phase)) return;
               try {
                 if (phase === "paste-intent") {
@@ -461,6 +469,8 @@ export function withChatInput(manager, id, operation) {
                 } else {
                   await check(text, submitOnly, inspectComposer && submitOnly);
                   if (replace) await claudeInput.beforeSubmit();
+                  else if (proven)
+                    await claudeInput.beforeResubmit(options.promptProof, text);
                 }
               } catch (error) {
                 await options.onRefused?.(phase);
@@ -468,7 +478,7 @@ export function withChatInput(manager, id, operation) {
               }
             },
             confirmSubmit: claude
-              ? replace
+              ? replace || proven
                 ? claudeInput.confirm
                 : ({ slash }) => confirmClaudeSubmit(snapshot, { slash })
               : undefined,

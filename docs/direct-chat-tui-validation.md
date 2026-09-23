@@ -132,9 +132,16 @@ terminal state only changes how:
   `CHAT_IMAGES_MAYBE_MISSING`; the file paths remain in the text.
 
 Waiting happens outside the session lock, so the user can answer in the terminal
-meanwhile. Only the phase the journal proves is continued: a message held before
-its paste is pasted once later; one held between paste and Enter only receives
-Enter, and only while the exact text is provably still in the prompt. A waiter
+meanwhile; while a dialog holds a message, the screen is re-read without the lock
+and the next attempt only starts once it changed. Only the phase the journal
+proves is continued: a message held before its paste is pasted once later; one
+held between paste and Enter keeps waiting while any dialog is open and then only
+receives Enter while the prompt box is exactly the one seen right after the paste
+(this covers appended, multi-line and image messages); without that record the
+exact one-line text must still show. A changed prompt ends as `uncertain` with
+`CHAT_PROMPT_CHANGED`, never with a blind Enter. Messages queue per session in
+order behind a held one, and a held message can be cancelled until its text is
+typed. A waiter
 lost to a server restart leaves an `uncertain` receipt whose reason says the text
 was not typed yet ("Deliver again" resends it); after twelve hours of waiting the
 receipt ends as `rejected` (nothing typed) or `uncertain` (pasted). A rejected

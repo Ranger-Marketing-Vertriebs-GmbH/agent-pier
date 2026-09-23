@@ -8,7 +8,7 @@ import {
   recoverDelivery,
   waitingFor,
 } from "./chat-delivery-recovery.js";
-import { setTimeout as sleep } from "node:timers/promises";
+import { DeliveryQueue } from "./chat-delivery-queue.js";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { privateDirectory, problem } from "../../lib/storage.js";
@@ -48,6 +48,7 @@ export class ChatDelivery {
     // An open question may take a while to answer; keep waiting for 12 hours.
     this.retryMs = retryMs;
     this.waitLimitMs = waitLimitMs ?? 12 * 60 * 60 * 1000;
+    this.held = new DeliveryQueue(this);
   }
 
   folder(id) {
@@ -131,8 +132,8 @@ export class ChatDelivery {
       ...(status === "rejected" ? { error: copy.rejected } : {}),
       ...(status === "uncertain" ? { error: copy.uncertain } : {}),
       // Whether the text may sit in the TUI prompt selects the reason wording.
-      ...(status === "uncertain"
-        ? { pasted: receipt.journal?.phase !== "reserved" }
+      ...(["uncertain", "pending"].includes(status)
+        ? { pasted: !["reserved", undefined].includes(receipt.journal?.phase) }
         : {}),
       ...(["rejected", "uncertain"].includes(status) && receipt.reason
         ? {
@@ -195,16 +196,27 @@ export class ChatDelivery {
     }
     this.write(file, receipt);
     this.active.add(file);
-    const job = { id, file, receipt, text: normalized, hash, scope: deliveryScope };
-    let deferred = false;
-    try {
-      deferred = (await this.attempt(job)) === "deferred";
-    } finally {
-      if (!deferred) this.active.delete(file);
-    }
-    // The response reports "pending"; the message follows once the TUI is free.
-    if (deferred) this.waitAndRetry(job);
+    // Messages reach the TUI in order; a held one keeps later ones behind it.
+    // The response reports "pending" while the message waits.
+    await this.held.submit({
+      id,
+      file,
+      receipt,
+      text: normalized,
+      hash,
+      scope: deliveryScope,
+    });
     return this.result(receipt, file);
+  }
+
+  /** Cancel a held message before its text reached the terminal. */
+  async cancel(id, deliveryId, scope) {
+    const file = this.file(id, deliveryId);
+    this.checkScope(await this.sessions.get(id), scope);
+    const receipt = this.read(file);
+    if (!receipt || receipt.scope !== scope) throw problem(copy.scope, 409);
+    await this.held.cancel(id, file);
+    return this.result(this.read(file), file);
   }
 
   /**
@@ -239,6 +251,10 @@ export class ChatDelivery {
         await tx.write(text, {
           allowComposerDraft: !submitOnly,
           submitOnly,
+          // The prompt box as seen right after the paste: Enter follows a hold
+          // only while it is unchanged, also for appended or multi-line text.
+          promptProof: job.proof,
+          onProof: (proof) => (job.proof = proof),
           // Escape a menu once per message, never again while waiting.
           closeMenus: !receipt.notices?.includes("CHAT_DIALOG_CLOSED"),
           onPhase: async (phase) => {
@@ -277,7 +293,9 @@ export class ChatDelivery {
       }
       receipt.status = mayHaveWritten ? "uncertain" : "rejected";
       delete receipt.waiting;
+      // Never keep the reason of an earlier hold for a different outcome.
       if (reason) receipt.reason = reason;
+      else delete receipt.reason;
     }
     if (this.exists(file)) this.write(file, receipt);
     return receipt.status;
@@ -285,31 +303,6 @@ export class ChatDelivery {
 
   exists(file) {
     return fs.existsSync(file);
-  }
-
-  /** Retry a deferred message until its question, request or menu is gone. */
-  async waitAndRetry(job) {
-    const { id, file, receipt } = job;
-    const deadline = Date.now() + this.waitLimitMs;
-    try {
-      for (;;) {
-        await sleep(this.retryMs);
-        if (!this.exists(file)) return;
-        if (Date.now() > deadline) {
-          // Truthful end: nothing typed is rejected, pasted text stays uncertain.
-          receipt.status = job.mode === "submit" ? "uncertain" : "rejected";
-          delete receipt.waiting;
-          this.write(file, receipt);
-          return;
-        }
-        if (receipt.waiting === "request" && this.requests.hasPending(id)) continue;
-        if ((await this.attempt(job)) !== "deferred") return;
-      }
-    } catch {
-      /* A failed receipt write leaves the durable pending/uncertain state. */
-    } finally {
-      this.active.delete(file);
-    }
   }
 
   recover(id, deliveryId, body) {

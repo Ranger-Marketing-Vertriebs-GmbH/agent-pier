@@ -90,8 +90,7 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
       };
     const current = receipt.attemptId || receipt.deliveryId;
     let reason;
-    if (blocked) reason = copy.rejected;
-    else if (current !== expectedAttemptId.toLowerCase()) reason = copy.recoveryChanged;
+    if (current !== expectedAttemptId.toLowerCase()) reason = copy.recoveryChanged;
     else if (
       receipt.journal?.phase !== "reserved" &&
       (!receipt.journal?.generation ||
@@ -118,7 +117,29 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
       delivery.write(file, receipt);
       return result;
     };
+    // An open request, question or menu holds the redelivery like a fresh send.
+    const hold = (waiting, code, proof) => {
+      receipt.attemptId = requestId;
+      receipt.waiting = waiting;
+      receipt.reason = code;
+      delivery.active.add(file);
+      delivery.held.hold({
+        id,
+        file,
+        receipt,
+        text: text.replace(/\r\n?/g, "\n"),
+        hash: receipt.hash,
+        scope: deliveryScope,
+        mode: receipt.journal.phase === "pasted" ? "submit" : "send",
+        proof,
+      });
+      return finish("held", copy.recoveryHeld);
+    };
     if (reason) return finish("blocked", reason);
+    if (blocked)
+      return mode === "check"
+        ? finish("blocked", copy.rejected)
+        : hold("request", "CHAT_REQUEST_PENDING");
     if (mode === "check")
       return finish(
         "none",
@@ -128,8 +149,12 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
       );
     try {
       requireCurrentChatInput(delivery.requests, id);
-      await delivery.models.guardInput(id, tx.session, tx.raw);
-    } catch {
+      await delivery.models.guardInput(id, tx.session, tx.raw, {
+        nativeMenus: tx.session.tool === "claude",
+      });
+    } catch (error) {
+      if (error.code === "CHAT_REQUEST_PENDING")
+        return hold("request", "CHAT_REQUEST_PENDING");
       return finish("blocked", copy.rejected);
     }
     const submitOnly = receipt.journal.phase === "pasted";
@@ -150,8 +175,10 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
     delivery.write(file, receipt);
     delivery.active.add(file);
     let code;
+    let proof;
     try {
       await tx.write(text.replace(/\r\n?/g, "\n"), {
+        onProof: (value) => (proof = value),
         submitOnly,
         allowComposerDraft: !submitOnly,
         onPhase: async (phase) => {
@@ -176,6 +203,14 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
       if (code) receipt.reason = code;
     } finally {
       delivery.active.delete(file);
+    }
+    if (
+      receipt.status !== "handed-off" &&
+      waitingFor(code) &&
+      ["reserved", "pasted"].includes(receipt.journal.phase)
+    ) {
+      if (receipt.journal.phase === "reserved") receipt.status = "pending";
+      return hold(waitingFor(code), code, proof);
     }
     return finish(
       receipt.status === "handed-off"

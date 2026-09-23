@@ -221,6 +221,22 @@ test("request guards hold the message both before scheduling and inside the seri
   assert.equal(before.status, "pending");
   assert.equal(before.waiting, "request");
   assert.equal(x.writes(), 0);
+  // A later message queues behind the held one, in order.
+  const first = x.body.deliveryId;
+  x.body.deliveryId = randomUUID();
+  const queued = await (await x.post()).json();
+  assert.equal(queued.status, "pending");
+  assert.equal(queued.waiting, "queue");
+  // Cancelling both frees the queue for a guard inside the serialized callback.
+  for (const deliveryId of [first, x.body.deliveryId]) {
+    const response = await x.f.request(
+      `/api/sessions/${session.id}/input/${deliveryId}/cancel`,
+      { method: "POST", body: { deliveryScope: scope } },
+    );
+    const cancelled = await response.json();
+    assert.equal(cancelled.status, "rejected");
+    assert.equal(cancelled.reason, "CHAT_CANCELLED");
+  }
   x.body.deliveryId = randomUUID();
   x.install();
   x.f.application.requests.hasPending = () => true;

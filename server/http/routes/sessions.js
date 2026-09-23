@@ -75,6 +75,15 @@ export function sessionsRoutes(services) {
       await chatDelivery.status(req.params.id, req.params.deliveryId, req.query.scope),
     ),
   );
+  router.post("/sessions/:id/input/:deliveryId/cancel", async (req, res) => {
+    res.json(
+      await chatDelivery.cancel(
+        req.params.id,
+        req.params.deliveryId,
+        req.body?.deliveryScope,
+      ),
+    );
+  });
   router.post("/sessions/:id/input/:deliveryId/recovery", async (req, res) => {
     res.json(await chatDelivery.recover(req.params.id, req.params.deliveryId, req.body));
   });
