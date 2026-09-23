@@ -155,6 +155,8 @@ export const chatDeliveryCopy = {
       "The message was pasted into Claude but not submitted: its input field cannot be identified safely. Please check the TUI.",
     CHAT_COMPOSER_NOT_CLEARED:
       "The message was pasted into Claude but not submitted. Check the TUI before sending again.",
+    CHAT_IMAGES_UNCONFIRMED:
+      "The message was pasted into Claude but not submitted: Claude's input field does not show all attached images. Enlarge the terminal or check the TUI before sending again.",
   },
   reasons: {
     CHAT_COMPOSER_DIALOG:
@@ -165,5 +167,7 @@ export const chatDeliveryCopy = {
       "The existing draft in Claude's input field could not be replaced safely. The message was not sent; please check the TUI.",
     CHAT_SUBMIT_UNCONFIRMED:
       "Claude did not confirm that it accepted the message. Check the TUI before sending again.",
+    CHAT_IMAGES_UNCONFIRMED:
+      "Claude did not confirm that all attached images were accepted. Check the TUI before sending again.",
   },
 };

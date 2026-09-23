@@ -2,30 +2,18 @@ import { stat } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { problem } from "../../lib/storage.js";
+import { claudeComposerBox, composerProblem } from "./claude-composer.js";
 
-/** Count only the current fenced composer, never image labels in conversation output. */
-export function claudeComposerImages(captured) {
-  const newline = captured.indexOf("\n");
-  const [width, cursor] = captured.slice(0, newline).split("|").map(Number);
-  if (newline < 0 || !Number.isInteger(width) || width < 1 || !Number.isInteger(cursor))
-    return null;
-  const rows = captured
-    .slice(newline + 1)
-    .replace(/\x1b\[[0-9;:]*m/g, "")
-    .split("\n");
-  if (cursor < 0 || cursor >= rows.length) return null;
-  const border = "─".repeat(width);
-  let top = cursor - 1,
-    bottom = cursor + 1;
-  while (top >= 0 && rows[top] !== border) top--;
-  while (bottom < rows.length && rows[bottom] !== border) bottom++;
-  if (top < 0 || bottom === rows.length || !rows[top + 1]?.startsWith("❯ ")) return null;
-  return [
-    ...rows
-      .slice(top + 1, bottom)
-      .join("\n")
-      .matchAll(/\[Image\s+#\s*\d+\]/g),
-  ].length;
+/**
+ * Image chips in Claude's current prompt box, never image labels in conversation
+ * output. Shares the prompt box detection, so a box whose bottom border a short
+ * pane clips is still counted. Only visible rows count: a chip scrolled out of
+ * view is missing, so the count never exceeds what the screen proves.
+ */
+export function claudeComposerImages(raw, pane) {
+  const box = claudeComposerBox(raw, pane);
+  if (!box || !box.rows[0].startsWith("❯")) return null;
+  return [...box.rows.join("\n").matchAll(/\[Image\s+#\s*\d+\]/g)].length;
 }
 
 /** Claude asynchronously turns pasted local image paths into image chips. */
@@ -63,7 +51,7 @@ export async function waitForClaudeImagePaste(
       "-p",
       "-t",
       target,
-      "#{pane_width}|#{cursor_y}",
+      "#{cursor_x}|#{cursor_y}|#{pane_width}|#{pane_height}",
       ";",
       "capture-pane",
       "-e",
@@ -71,8 +59,20 @@ export async function waitForClaudeImagePaste(
       "-t",
       target,
     ]);
-    if (claudeComposerImages(captured) === expected) return;
+    const newline = captured.indexOf("\n");
+    const [cursorX, cursorY, width, height] = captured
+      .slice(0, Math.max(newline, 0))
+      .split("|")
+      .map(Number);
+    const pane = { cursorX, cursorY, width, height };
+    if (
+      newline >= 0 &&
+      claudeComposerImages(captured.slice(newline + 1), pane) === expected
+    )
+      return;
     await sleep(50);
   } while (performance.now() < deadline);
-  throw problem("Claude has not finished preparing the pasted images", 409);
+  // Pasted but not submitted: the images may still be loading or scrolled out of
+  // a pane too short to show them. Never submit a message without proven images.
+  throw composerProblem("CHAT_IMAGES_UNCONFIRMED");
 }
