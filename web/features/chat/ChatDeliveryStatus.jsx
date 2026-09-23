@@ -121,7 +121,7 @@ export default function ChatDeliveryStatus({
                 {copy.cancel}
               </button>
             )}
-            {!pending && item.status === "rejected" && (
+            {!pending && item.status === "rejected" && item.released && (
               <button
                 type="button"
                 className="button"
