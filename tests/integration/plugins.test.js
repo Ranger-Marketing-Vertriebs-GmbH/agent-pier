@@ -319,6 +319,43 @@ test("native subprocess errors redact profile secrets and URL credentials", asyn
   assert.match(result.reason, /verborgen/);
 });
 
+test("native catalogs larger than 2 MiB preserve installed and available plugins", async (t) => {
+  const { root, store } = setup(t, {
+    run: undefined,
+    resolveTool: () => path.join(root, "fake-cli"),
+  });
+  const plugin = {
+    pluginId: "installed@openai-curated-remote",
+    marketplaceName: "openai-curated-remote",
+  };
+  const available = Array.from({ length: 5000 }, (_, index) => ({
+    pluginId: `plugin-${index}@openai-curated-remote`,
+    marketplaceName: "openai-curated-remote",
+    description: "Catalog description ".repeat(30),
+  }));
+  const catalog = JSON.stringify({ installed: [plugin], available });
+  assert.ok(Buffer.byteLength(catalog) > 2 * 1024 * 1024);
+  fs.writeFileSync(path.join(root, "catalog.json"), catalog);
+  fs.writeFileSync(
+    path.join(root, "fake-cli"),
+    `#!${process.execPath}\nconst fs = require('node:fs');
+process.stdout.write(process.argv.includes('marketplace')
+  ? '{"marketplaces":[]}'
+  : fs.readFileSync(${JSON.stringify(path.join(root, "catalog.json"))}));`,
+    { mode: 0o700 },
+  );
+  const result = await store.list("local-codex");
+  assert.equal(result.available, true);
+  assert.equal(result.catalogReasonCode, null);
+  assert.deepEqual(
+    result.installed.map(({ id }) => id),
+    [plugin.pluginId],
+  );
+  assert.equal(result.catalog.length, 5000);
+  assert.equal(result.catalog.at(-1).id, "plugin-4999@openai-curated-remote");
+  assert.equal(store.isBusy("local-codex"), false);
+});
+
 test("native subprocess output limits and timeouts release the profile lock", async (t) => {
   const { root, store } = setup(t, {
     run: undefined,
@@ -328,7 +365,7 @@ test("native subprocess output limits and timeouts release the profile lock", as
   const file = path.join(root, "fake-cli");
   fs.writeFileSync(
     file,
-    `#!${process.execPath}\nprocess.stdout.write('x'.repeat(3*1024*1024));setInterval(()=>{},1000);`,
+    `#!${process.execPath}\nprocess.stdout.write('x'.repeat(33*1024*1024));setInterval(()=>{},1000);`,
     { mode: 0o700 },
   );
   await assert.rejects(store.list("local-codex"), /zu viele Daten/);

@@ -1,7 +1,10 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { spawn } from "node:child_process";
 import { problem } from "../../lib/storage.js";
-import { LIMIT, redacted } from "./plugin-schema.js";
+import { redacted } from "./plugin-schema.js";
+// Marketplace inventories grow independently of local configuration files.
+const OUTPUT_LIMIT = 32 * 1024 * 1024;
+
 export async function executePluginCommand(
   ctx,
   args,
@@ -67,7 +70,7 @@ export async function executePluginCommand(
     timer.unref();
     const collect = (chunk, stderr) => {
       size += chunk.length;
-      if (size > LIMIT) {
+      if (size > OUTPUT_LIMIT) {
         cancel(serverMessages.plugins.commandOutputLimit);
         return;
       }
