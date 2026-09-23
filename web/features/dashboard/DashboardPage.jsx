@@ -4,6 +4,7 @@ import React from "react";
 import { toolInstallerCopy } from "../../lib/i18n/messages/tools.js";
 import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
+import { utilityPages } from "../../lib/providers.js";
 export default function DashboardPage({
   state,
   installedToolCount,
@@ -112,33 +113,38 @@ export default function DashboardPage({
                     opencode: copy.toolGridOpencode,
                     shell: copy.toolGridShell,
                     gh: copy.toolGridGh,
+                    nono: copy.toolGridNono,
                   }[t.id]
                 }
               </p>
-              <button
-                disabled={t.id === "shell" && !t.installed}
-                className={!t.installed ? "tool-install-button" : undefined}
-                onClick={() =>
-                  t.installed
+              {/* A utility with nothing to configure in AgentPier keeps its install
+                  button, but offers no follow-up action once it is installed. */}
+              {(!t.installed || !t.utility || utilityPages[t.id]) && (
+                <button
+                  disabled={t.id === "shell" && !t.installed}
+                  className={!t.installed ? "tool-install-button" : undefined}
+                  onClick={() =>
+                    t.installed
+                      ? t.utility
+                        ? page(utilityPages[t.id])
+                        : launch(t.id)
+                      : setModal({
+                          type: "install",
+                          tool: t.id,
+                        })
+                  }
+                >
+                  {t.installed
                     ? t.utility
-                      ? page("repositories")
-                      : launch(t.id)
-                    : setModal({
-                        type: "install",
-                        tool: t.id,
-                      })
-                }
-              >
-                {t.installed
-                  ? t.utility
-                    ? copy.githubCredentials
-                    : commonCopy.startSession
-                  : t.id === "shell"
-                    ? copy.shellUnavailable
-                    : commonCopy.installCli}
-                <Icon name="arrow" size={16} />
-              </button>
-              {t.installed && ["codex", "claude", "opencode"].includes(t.id) && (
+                      ? copy.githubCredentials
+                      : commonCopy.startSession
+                    : t.id === "shell"
+                      ? copy.shellUnavailable
+                      : commonCopy.installCli}
+                  <Icon name="arrow" size={16} />
+                </button>
+              )}
+              {t.installed && ["codex", "claude", "opencode", "nono"].includes(t.id) && (
                 <button onClick={() => setModal({ type: "update", tool: t.id })}>
                   {toolInstallerCopy.updateCli}
                 </button>

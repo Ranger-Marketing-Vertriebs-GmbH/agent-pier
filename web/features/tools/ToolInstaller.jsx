@@ -51,6 +51,7 @@ export default function ToolInstaller({
     configure,
     update,
   });
+  const successAction = update ? close : utility ? configure : launch;
   return (
     <div className="tool-installer">
       <div className="form-content tool-install-content">
@@ -163,20 +164,24 @@ export default function ToolInstaller({
           {commonCopy.close}
         </button>
         {succeeded ? (
-          <button
-            type="button"
-            className="button primary"
-            disabled={!ready || syncing}
-            onClick={update ? close : utility ? configure || close : launch}
-          >
-            {syncing
-              ? copy.refreshingInstallationStatus
-              : update
-                ? commonCopy.close
-                : utility
-                  ? copy.githubCredentials
-                  : commonCopy.startSession}
-          </button>
+          // A utility with nothing to configure has no follow-up action, and the
+          // secondary button already closes the dialog.
+          successAction && (
+            <button
+              type="button"
+              className="button primary"
+              disabled={!ready || syncing}
+              onClick={successAction}
+            >
+              {syncing
+                ? copy.refreshingInstallationStatus
+                : update
+                  ? commonCopy.close
+                  : utility
+                    ? copy.githubCredentials
+                    : commonCopy.startSession}
+            </button>
+          )
         ) : (
           <button
             type="button"

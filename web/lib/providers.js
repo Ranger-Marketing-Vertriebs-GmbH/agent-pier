@@ -5,6 +5,12 @@ export const names = {
   opencode: "OpenCode",
   shell: "Shell",
   gh: "GitHub CLI",
+  nono: "nono",
+};
+// The page a utility sends the user to once it is installed. A utility without an
+// entry has nothing to configure in AgentPier, so it gets no follow-up action.
+export const utilityPages = {
+  gh: "repositories",
 };
 export const statusLabels = {
   get running() {
