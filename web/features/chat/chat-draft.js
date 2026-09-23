@@ -486,7 +486,13 @@ export class ChatDraft {
             { ...next, attachments: next.attachments || manifest(saved.attachments) },
           ]),
         });
-      } else if (pending && receipt.status === "handed-off") {
+      } else if (
+        pending &&
+        (receipt.status === "handed-off" ||
+          (receipt.status === "pending" && receipt.waiting))
+      ) {
+        // Handed off, or held by the server behind a question or an earlier
+        // message: either way the composer is free for the next message.
         this.write({
           ...saved,
           text: "",
@@ -561,6 +567,23 @@ export class ChatDraft {
           ]),
         });
       else this.adopt(saved);
+    });
+  }
+  /** Put a message that never reached the terminal back into the composer. */
+  reuse(id) {
+    return this.mutate((saved) => {
+      const item = saved.outbox ? null : saved.recent.find((entry) => entry.id === id);
+      if (!item) return this.adopt(saved);
+      const files = item.attachments || [];
+      const lines = item.text.split("\n");
+      while (files.some((file) => file.path === lines.at(-1))) lines.pop();
+      const text = lines.join("\n");
+      this.write({
+        ...saved,
+        text: saved.text.trim() ? `${saved.text}\n${text}` : text,
+        attachments: saved.attachments.length ? saved.attachments : files,
+        recent: saved.recent.filter((entry) => entry.id !== id),
+      });
     });
   }
   dismiss(id) {

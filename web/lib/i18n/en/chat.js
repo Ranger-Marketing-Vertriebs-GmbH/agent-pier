@@ -127,6 +127,8 @@ export const chatDeliveryCopy = {
     "Waiting for the open request to be answered · sent automatically afterwards",
   waitingDialog:
     "Waiting for a dialog in the TUI · sent automatically once it is answered or closed",
+  waitingQueue: "Waiting behind an earlier message · sent automatically afterwards",
+  cancel: "Cancel sending",
   rejected: "Not delivered",
   uncertainHint:
     "Redeliver first checks the terminal input. If the outcome remains unclear, nothing is written again.",
@@ -154,6 +156,8 @@ export const chatDeliveryCopy = {
     "The server did not accept this message. You can edit it or retry the handoff.",
   // The same reasons after the text was pasted but before Enter (uncertain).
   pastedReasons: {
+    CHAT_PROMPT_CHANGED:
+      "The message was pasted into Claude, but the prompt changed while it waited, so it was not submitted. Please check the TUI.",
     CHAT_DIALOG_NOT_CLOSED:
       "The message is in the TUI prompt but was not submitted: a Claude menu could not be closed. Check the TUI before sending again.",
     CHAT_QUESTION_OPEN:
@@ -181,6 +185,11 @@ export const chatDeliveryCopy = {
       "Claude did not show all attached images before sending; some images may be missing.",
   },
   reasons: {
+    CHAT_PROMPT_CHANGED:
+      "The message was pasted into Claude, but the prompt changed while it waited, so it was not submitted. Please check the TUI.",
+    CHAT_QUEUED:
+      "The message was waiting behind an earlier message and has not been typed yet. Send it again.",
+    CHAT_CANCELLED: "Cancelled before the message was typed into the TUI.",
     CHAT_DIALOG_NOT_CLOSED:
       "The message was waiting for a Claude menu to close and has not been typed yet. Close the menu in the terminal, then send it again.",
     CHAT_QUESTION_OPEN:

@@ -194,8 +194,26 @@ export default function useChatDelivery({ session, request, active }) {
     }
   };
 
+  // A held message can be withdrawn while its text has not reached the TUI.
+  const cancel = async (id) => {
+    const item = draft.getSnapshot().recent.find((entry) => entry.id === id);
+    if (!item) return;
+    setSendError("");
+    try {
+      const result = await request(`/sessions/${session.id}/input/${id}/cancel`, "POST", {
+        deliveryScope: item.scope,
+      });
+      if (result?.deliveryId === id) await draft.receipt(result);
+    } catch (error) {
+      setSendError(error.message);
+    } finally {
+      await check();
+    }
+  };
+
   return {
     ...state,
+    cancel,
     storageError: state.storageError || sendError,
     draft,
     sending,

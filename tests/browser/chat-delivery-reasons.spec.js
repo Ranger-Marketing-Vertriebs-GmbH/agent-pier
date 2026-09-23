@@ -38,11 +38,17 @@ async function fixture(page, receipt) {
       if (!receipt) return route.fulfill({ status: 413, json: { error: "Too large" } });
       return route.fulfill({ json: { deliveryId: body.deliveryId, ...receipt } });
     }
+    if (url.pathname.endsWith("/cancel")) {
+      state.cancelled = { status: "rejected", reason: "CHAT_CANCELLED" };
+      return route.fulfill({
+        json: { deliveryId: url.pathname.split("/").at(-2), ...state.cancelled },
+      });
+    }
     if (url.pathname.includes("/input/"))
       return route.fulfill({
         json: {
           deliveryId: url.pathname.split("/").at(-1),
-          ...(receipt || { status: "absent" }),
+          ...(state.cancelled || receipt || { status: "absent" }),
         },
       });
     return route.fulfill({ json: {} });
@@ -93,14 +99,40 @@ test("handoff notices are shown in English without blocking the next message", a
     .screenshot({ path: test.info().outputPath("chat-delivery-notice-mobile.png") });
 });
 
-test("a message held for a dialog in the TUI says so and offers the terminal", async ({
+test("a held message frees the composer, can be cancelled and edited again", async ({
   page,
 }) => {
-  await fixture(page, { status: "pending", waiting: "dialog" });
+  await fixture(page, { status: "pending", waiting: "dialog", pasted: false });
   await input(page).fill("After the question");
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(page.getByText(/Waiting for a dialog in the TUI/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Open TUI", exact: true })).toBeVisible();
+  // The chat keeps working while the message waits.
+  await expect(input(page)).toBeEnabled();
+  await expect(input(page)).toHaveValue("");
+  await page
+    .locator(".chat-delivery-message")
+    .screenshot({ path: test.info().outputPath("chat-delivery-held-mobile.png") });
+  await page.getByRole("button", { name: "Cancel sending", exact: true }).click();
+  await expect(
+    page.getByText("Cancelled before the message was typed into the TUI."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Edit message", exact: true }).click();
+  await expect(input(page)).toHaveValue("After the question");
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+});
+
+test("pasted text held for a dialog offers only the terminal, not cancel", async ({
+  page,
+}) => {
+  await fixture(page, { status: "pending", waiting: "request", pasted: true });
+  await input(page).fill("Already in the prompt");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.getByText(/Waiting for the open request/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open TUI", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Cancel sending", exact: true }),
+  ).toHaveCount(0);
 });
 
 test("a message the server never accepted can be edited and dismissed", async ({

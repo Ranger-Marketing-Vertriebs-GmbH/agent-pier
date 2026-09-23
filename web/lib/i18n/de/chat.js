@@ -127,6 +127,9 @@ export const chatDeliveryCopy = {
     "Wartet auf die Antwort zur offenen Anfrage · wird danach automatisch gesendet",
   waitingDialog:
     "Wartet auf einen Dialog in der TUI · wird automatisch gesendet, sobald er beantwortet oder geschlossen ist",
+  waitingQueue:
+    "Wartet hinter einer früheren Nachricht · wird danach automatisch gesendet",
+  cancel: "Senden abbrechen",
   rejected: "Nicht zugestellt",
   uncertainHint:
     "Neu zustellen prüft zuerst die TUI-Eingabe. Bei unklarem Zustand wird nichts erneut geschrieben.",
@@ -154,6 +157,8 @@ export const chatDeliveryCopy = {
     "Der Server hat diese Nachricht nicht angenommen. Du kannst sie bearbeiten oder erneut übergeben.",
   // The same reasons after the text was pasted but before Enter (uncertain).
   pastedReasons: {
+    CHAT_PROMPT_CHANGED:
+      "Die Nachricht wurde in Claude eingefügt, aber das Eingabefeld hat sich während des Wartens verändert. Sie wurde deshalb nicht abgeschickt; bitte prüfe die TUI.",
     CHAT_DIALOG_NOT_CLOSED:
       "Die Nachricht steht im Eingabefeld der TUI, wurde aber nicht abgeschickt: Ein Claude-Menü ließ sich nicht schließen. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_QUESTION_OPEN:
@@ -181,6 +186,11 @@ export const chatDeliveryCopy = {
       "Claude hat vor dem Senden nicht alle angehängten Bilder angezeigt; einzelne Bilder fehlen möglicherweise.",
   },
   reasons: {
+    CHAT_PROMPT_CHANGED:
+      "Die Nachricht wurde in Claude eingefügt, aber das Eingabefeld hat sich während des Wartens verändert. Sie wurde deshalb nicht abgeschickt; bitte prüfe die TUI.",
+    CHAT_QUEUED:
+      "Die Nachricht wartete hinter einer früheren Nachricht und wurde noch nicht eingegeben. Sende sie erneut.",
+    CHAT_CANCELLED: "Abgebrochen, bevor die Nachricht in die TUI eingegeben wurde.",
     CHAT_DIALOG_NOT_CLOSED:
       "Die Nachricht wartete darauf, dass sich ein Claude-Menü schließt, und wurde noch nicht eingegeben. Schließe das Menü im Terminal und sende sie dann erneut.",
     CHAT_QUESTION_OPEN:
