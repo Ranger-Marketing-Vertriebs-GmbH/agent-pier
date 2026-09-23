@@ -134,7 +134,7 @@ export function inspectChatComposer(tool, raw, pane = {}) {
       pane.cursorX === 2 &&
       (plain === "❯ " ||
         (plain === "❯  " && /\x1b\[7m(?:\x1b\[39m)? /.test(line)) ||
-        claudePlaceholder(line, pane))
+        claudePlaceholder(line, pane, { footer: lines[row + 2], screen: raw }))
     )
       return { state: "empty", text: "" };
     // Claude's own cursor cell, or the native terminal cursor after plain text.

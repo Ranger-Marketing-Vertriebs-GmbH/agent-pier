@@ -16,7 +16,7 @@ const narrow = read("claude-2.1.280-queue-narrow.json");
 const screens = read("claude-2.1.280-screens.json");
 const queue = ({ raw, pane }) => nativeInputQueue("claude", raw, pane);
 const hashes = (...texts) => texts.map(inputHash);
-const panes = ["w24", "w30", "w34", "w40", "noColor80", "forceColor0x24"];
+const panes = ["w24", "w30", "w34", "w40", "noColor80"];
 
 test("claude queue is read at 24–40 columns and without color", () => {
   for (const name of panes) {
@@ -30,6 +30,10 @@ test("claude queue is read at 24–40 columns and without color", () => {
   }
   for (const name of ["queueNarrow30", "queueNarrow34", "queueNoColor"])
     assert.deepEqual(queue(screens[name]), hashes("AP_PROBE_Q queued msg"), name);
+  // Without color only the footer hint tells the placeholder from typed text;
+  // 24 columns cut it to "…", so the queue stays unconfirmed there.
+  for (const [name, frame] of Object.entries(narrow.forceColor0x24))
+    assert.deepEqual(queue(frame), [], name);
 });
 
 test("claude wraps long tokens, CJK and emoji rows instead of clipping them", () => {
@@ -111,12 +115,21 @@ test("only the queued placeholder satisfies the queued placeholder check", () =>
   // A colored Claude always dims its placeholder: undimmed text there is typed.
   const typed = dim("Press up to edit queued messages").replace("\x1b[0;2m", "\x1b[0m");
   assert.equal(claudePlaceholder(typed, pane, { queued: true }), false);
-  assert.equal(
-    claudePlaceholder("❯ \x1b[7mP\x1b[0mress up to edit queued messages", pane, {
-      queued: true,
-    }),
-    true,
-  );
+  // A typed row with its cursor on the first character is never a placeholder.
+  assert.equal(claudePlaceholder(typed, pane), false);
+  // Without color the queued placeholder needs the empty-prompt footer hint.
+  const colorless = "❯ \x1b[7mP\x1b[0mress up to edit queued messages";
+  for (const [footer, empty] of [
+    ["  ⏸ manual mode on · esc to interrupt · ← for agents", true],
+    ["  ⏸ manual mode on · esc to int…", true],
+    ["  ⏸ manual mode on · ? for shortcuts · ← for agents", true],
+    ["  ⏸ manual mode on · esc to…", false],
+    ["  ⏸ manual mode on · …", false],
+    ["  ⏸ manual mode on", false],
+    [undefined, false],
+  ])
+    for (const queued of [true, false])
+      assert.equal(claudePlaceholder(colorless, pane, { queued, footer }), empty, footer);
 });
 
 test("other queue layouts keep their clipped-row limit of width - 10", () => {

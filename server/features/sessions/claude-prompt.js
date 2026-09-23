@@ -196,8 +196,12 @@ export async function awaitClaudePaste(
   const started = performance.now();
   for (;;) {
     const fresh = await snapshot();
-    const state = stateOf(fresh);
-    if (["text", "draft"].includes(state)) return { unreadable: false, fresh };
+    const composer = claudeComposerState(fresh.raw, fresh.pane, fresh.composer);
+    const { state } = composer;
+    // A placeholder-shaped colorless row never holds the paste, which ends at
+    // the cursor: keep waiting as for an empty prompt.
+    if (["text", "draft"].includes(state) && !composer.placeholder)
+      return { unreadable: false, fresh };
     if (state === "dialog") {
       if (dismissals-- <= 0)
         throw composerProblem(
