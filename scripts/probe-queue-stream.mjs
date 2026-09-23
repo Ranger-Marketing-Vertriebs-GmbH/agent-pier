@@ -5,18 +5,24 @@ import { setTimeout as delay } from "node:timers/promises";
 import { applyChatSync } from "../web/features/chat/chat-sync.js";
 import { inputHash } from "../server/features/chat/native-input-queue.js";
 
+// --narrow-queue resizes to 50 columns; --narrow-queue=24 selects the width.
+const narrowOption = process.argv.find((value) =>
+  /^--narrow-queue(?:=\d+)?$/.test(value),
+);
+const narrowWidth = narrowOption ? Number(narrowOption.split("=")[1] || 50) : null;
+
 export async function startQueueStreamProbe({ fixture, session, env, snapshot }) {
   const accounts = fixture.application.accounts;
   const original = accounts.environment.bind(accounts);
   accounts.environment = (id) => (id === session.accountId ? env : original(id));
   const manager = fixture.application.sessions;
-  if (process.argv.includes("--narrow-queue"))
+  if (narrowWidth)
     await manager.tmux([
       "resize-window",
       "-t",
       manager.target(session.id),
       "-x",
-      "50",
+      String(narrowWidth),
       "-y",
       "35",
     ]);
@@ -49,16 +55,38 @@ export async function startQueueStreamProbe({ fixture, session, env, snapshot })
       await delay(25);
     }
   };
+  // The production presentation state for the original AP_PROBE_SECOND delivery.
+  const presented = () =>
+    nativeDeliveryStates(
+      [
+        {
+          id: originalReceipt.deliveryId,
+          text: "AP_PROBE_SECOND",
+          status: "handed-off",
+          baselineIds: [],
+          observation: originalReceipt.observation,
+        },
+      ],
+      current.messages,
+      current.nativeInput,
+      session.tool,
+    ).get(originalReceipt.deliveryId)?.state;
   return {
     close: () => ws.terminate(),
     async queued(receipt) {
       originalReceipt = receipt;
-      if (process.argv.includes("--narrow-queue"))
+      if (narrowWidth)
         console.log("QUEUE_NARROW_FRAME", JSON.stringify(await snapshot()));
       await until((data) =>
         data?.nativeInput?.queue.includes(inputHash("AP_PROBE_SECOND")),
       );
       assert.equal(current.nativeInput.generation, receipt.observation.generation);
+      if (!process.argv.includes("--multi-queue"))
+        assert.equal(
+          presented(),
+          "nativeQueued",
+          "Production presentation shows the pending native queue entry",
+        );
       assert.equal((await snapshot()).pane.width, initial.pane.width);
       assert.equal((await snapshot()).pane.height, initial.pane.height);
       if (session.tool === "opencode") {
@@ -103,22 +131,8 @@ export async function startQueueStreamProbe({ fixture, session, env, snapshot })
         ),
       );
       if (!process.argv.includes("--multi-queue")) {
-        const states = nativeDeliveryStates(
-          [
-            {
-              id: originalReceipt.deliveryId,
-              text: "AP_PROBE_SECOND",
-              status: "handed-off",
-              baselineIds: [],
-              observation: originalReceipt.observation,
-            },
-          ],
-          current.messages,
-          current.nativeInput,
-          session.tool,
-        );
         assert.equal(
-          states.get(originalReceipt.deliveryId)?.state,
+          presented(),
           "nativeAccepted",
           "Production presentation confirms only fresh native consumption",
         );

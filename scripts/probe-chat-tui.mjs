@@ -487,7 +487,7 @@ async function probeNative(fixture, cleanup) {
         (tool === "codex"
           ? screen.includes("Messages to be submitted")
           : tool === "claude"
-            ? screen.includes("queued messages")
+            ? /Press up to edit queu|ctrl\+x ctrl\+s to send/.test(screen)
             : screen.includes("QUEUED")),
     );
     snapshots.queued = await snapshot();
