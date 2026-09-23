@@ -91,9 +91,33 @@ test("the general launch dialog can switch between Codex and Shell and launch th
   page,
 }) => {
   const calls = await fixture(page);
+  await page.route("**/api/pipeline-profiles", (route) =>
+    route.fulfill({
+      json: {
+        profiles: [
+          {
+            id: "task-one",
+            name: "Task",
+            enabled: true,
+            config: {
+              cliTool: "codex",
+              accountId: "local-codex",
+              models: { default: "" },
+              run: { autonomous: false },
+              prompts: { params: [] },
+              permissions: { mode: "never" },
+            },
+          },
+        ],
+      },
+    }),
+  );
   await page.locator(".hero-cta").click();
   const modal = page.getByRole("dialog", { name: "New session", exact: true });
   const cli = modal.getByRole("combobox", { name: "CLI", exact: true });
+  await modal
+    .getByRole("combobox", { name: "Task profile", exact: true })
+    .selectOption("task-one");
   await cli.selectOption("shell");
   await expect(modal.getByLabel("Launch mode", { exact: true })).toHaveCount(0);
   await expect(modal.getByRole("checkbox", { name: /AgentBus/ })).toHaveCount(0);
