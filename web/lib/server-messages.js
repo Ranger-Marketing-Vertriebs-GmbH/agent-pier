@@ -8,6 +8,18 @@ import { getLanguage, subscribeLanguage } from "./i18n/index.js";
 // as is; English catalogs load on demand so they stay out of the initial bundle.
 let english;
 let loading;
+// Views render stored server text through serverText(); a loaded catalog bumps this
+// version so they render again in English instead of keeping the German fallback.
+let version = 0;
+const listeners = new Set();
+
+export function subscribeServerMessages(listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+export function serverMessagesVersion() {
+  return version;
+}
 
 /** Loads the English server catalog; resolves at once for German users. */
 export function serverMessagesReady() {
@@ -21,6 +33,8 @@ export function serverMessagesReady() {
         catalog: en.englishServerMessages,
         identify: createMessageIndex(de.germanServerMessages),
       };
+      version += 1;
+      for (const listener of listeners) listener();
     },
     () => {
       // A failed chunk load keeps German server text; a later switch retries.
