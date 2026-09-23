@@ -25,7 +25,8 @@ export async function probeNativeImages({
   const start = performance.now();
   await send([marker, ...files].join("\n"));
   const submitMs = performance.now() - start;
-  assert.equal(counts.paste - before.paste, 1);
+  // Claude receives the image paths first and the text once all chips are shown.
+  assert.equal(counts.paste - before.paste, 2);
   assert.equal(counts.submit - before.submit, 1);
   try {
     await waitFor(
@@ -54,7 +55,7 @@ export async function probeNativeImages({
   return {
     files: files.length,
     bytesPerFile: png.length,
-    paste: 1,
+    paste: 2,
     submit: 1,
     submitMs,
     accepted: true,

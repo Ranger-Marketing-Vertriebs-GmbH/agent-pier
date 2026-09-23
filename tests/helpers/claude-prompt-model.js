@@ -16,10 +16,24 @@ export function claudePromptModel({
   width = 120,
   height = 35,
   status = "",
+  images = false,
 } = {}) {
   const lines = draft.split("\n");
   const model = {
     lines,
+    images: images ? 0 : null,
+    paste(text) {
+      if (model.images === null) return model.insert(text);
+      // Claude 2.1.280 turns lines holding absolute image paths into chips and
+      // places them before the remaining pasted lines.
+      const paths = text.split("\n").filter((line) => /^\/.*\.png$/.test(line.trim()));
+      const rest = text
+        .split("\n")
+        .filter((line) => !paths.includes(line))
+        .join("\n");
+      const chips = paths.map(() => `[Image #${++model.images}]`).join(" ");
+      model.insert(chips + (paths.length && !rest.trim() ? "" : rest));
+    },
     line: cursor?.line ?? lines.length - 1,
     col: cursor?.col ?? lines.at(-1).length,
     dialog,
@@ -130,7 +144,18 @@ export function claudeModelManager(model, session = {}) {
     tmux: async (args, options) => {
       if (args[0] === "display-message") {
         const { raw, pane } = model.screen();
-        return `%1|${process.pid}|1|${pane.cursorX}|${pane.cursorY}|${pane.width}|${pane.height}|0\n${raw}`;
+        const fields = {
+          pane_id: "%1",
+          pane_pid: process.pid,
+          session_created: 1,
+          cursor_x: pane.cursorX,
+          cursor_y: pane.cursorY,
+          pane_width: pane.width,
+          pane_height: pane.height,
+          pane_dead: 0,
+        };
+        const format = args[args.indexOf("-p") + 3];
+        return `${format.replace(/#\{(\w+)\}/g, (_, key) => fields[key])}\n${raw}`;
       }
       manager.events.push({ args, input: options?.input });
       if (args[0] === "load-buffer") buffers.set(args[2], options.input);
@@ -138,7 +163,7 @@ export function claudeModelManager(model, session = {}) {
         const pasted = buffers.get(args[args.indexOf("-b") + 1]);
         // A native dialog discards a bracketed paste.
         if (model.dialog) model.dialogInput.push(pasted);
-        else model.insert(pasted);
+        else model.paste(pasted);
       }
       if (args[0] === "send-keys") {
         const keys = args.slice(args.indexOf("-t") + 2);

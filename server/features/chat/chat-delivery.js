@@ -3,7 +3,10 @@ import fs from "node:fs";
 import { normalizeChatText } from "../sessions/session-chat-input.js";
 import {
   deliveryReason,
+  heldMode,
+  intents,
   noticeRecorder,
+  provenPhase,
   reasonText,
   recoverDelivery,
   waitingFor,
@@ -230,9 +233,11 @@ export class ChatDelivery {
   async attempt(job) {
     const { id, file, receipt, text, hash, scope } = job;
     const submitOnly = job.mode === "submit";
-    let mayHaveWritten = submitOnly;
+    // Image chips were pasted before a hold: only their text is still due.
+    const resume = job.mode === "text";
+    let mayHaveWritten = submitOnly || resume;
     try {
-      if (!submitOnly) await requireChatInput(this.requests, id);
+      if (!mayHaveWritten) await requireChatInput(this.requests, id);
       const refuseCancelled = () => {
         if (job.cancelled) throw composerProblem("CHAT_CANCELLED");
       };
@@ -240,7 +245,7 @@ export class ChatDelivery {
         this.checkScope(tx.session, scope);
         // A cancel is checked under the session lock, before any key or paste.
         refuseCancelled();
-        if (!submitOnly) {
+        if (!mayHaveWritten) {
           receipt.journal = { phase: "reserved", generation: tx.recoveryGeneration };
           receipt.observation = {
             generation: tx.observationGeneration,
@@ -257,8 +262,9 @@ export class ChatDelivery {
           nativeMenus: tx.session.tool === "claude",
         });
         await tx.write(text, {
-          allowComposerDraft: !submitOnly,
+          allowComposerDraft: !submitOnly && !resume,
           submitOnly,
+          ...(resume ? { resume: "text" } : {}),
           // The prompt box as seen right after the paste: Enter follows a hold
           // only while it is unchanged, also for appended or multi-line text.
           promptProof: job.proof,
@@ -267,8 +273,7 @@ export class ChatDelivery {
           closeMenus: !receipt.notices?.includes("CHAT_DIALOG_CLOSED"),
           onPhase: async (phase) => {
             if (phase === "paste-intent") refuseCancelled();
-            if (["paste-intent", "submit-intent"].includes(phase))
-              requireCurrentChatInput(this.requests, id);
+            if (intents.has(phase)) requireCurrentChatInput(this.requests, id);
             receipt.status = "uncertain";
             receipt.journal = { phase, generation: tx.recoveryGeneration };
             this.write(file, receipt);
@@ -276,7 +281,7 @@ export class ChatDelivery {
           },
           onRefused: async (phase) => {
             receipt.journal = {
-              phase: phase === "paste-intent" ? "reserved" : "pasted",
+              phase: provenPhase[phase],
               generation: tx.recoveryGeneration,
             };
             this.write(file, receipt);
@@ -292,9 +297,9 @@ export class ChatDelivery {
       const reason = deliveryReason(error);
       const waiting = waitingFor(reason);
       const phase = mayHaveWritten ? receipt.journal?.phase : "reserved";
-      if (waiting && ["reserved", "pasted"].includes(phase)) {
-        // Only the pasted text awaits Enter; nothing else is ever repeated.
-        job.mode = phase === "pasted" ? "submit" : "send";
+      if (waiting && heldMode[phase]) {
+        // Only what the journal proves missing follows: never a second paste.
+        job.mode = heldMode[phase];
         receipt.waiting = waiting;
         receipt.reason = reason;
         if (this.exists(file)) this.write(file, receipt);

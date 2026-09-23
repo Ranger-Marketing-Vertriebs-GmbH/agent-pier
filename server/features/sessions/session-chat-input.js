@@ -11,7 +11,13 @@ import { createHash, randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import { isNativeSlashCommand, sendSlashCommand } from "./session-slash-command.js";
 import { problem } from "../../lib/storage.js";
-import { claudeComposerImages, waitForClaudeImagePaste } from "./claude-image-paste.js";
+import {
+  claudeChipsOnly,
+  claudeComposerImages,
+  claudeImageDraft,
+  claudeImageMessage,
+  waitForClaudeImages,
+} from "./claude-image-paste.js";
 import {
   confirmClaudeSubmit,
   claudePlaceholder,
@@ -28,14 +34,36 @@ export function normalizeChatText(text) {
   return normalized;
 }
 
-/** Caller holds the session lock and has verified the composer and generation. */
+async function pasteText(manager, target, text) {
+  const buffer = `tuiui-${randomUUID()}`;
+  try {
+    await manager.tmux(["load-buffer", "-b", buffer, "-"], { input: text });
+    await manager.tmux(["paste-buffer", "-d", "-p", "-r", "-b", buffer, "-t", target]);
+  } catch (error) {
+    await manager.tmux(["delete-buffer", "-b", buffer]).catch(() => {});
+    throw error;
+  }
+}
+
+/**
+ * Caller holds the session lock and has verified the composer and generation.
+ *
+ * Claude image messages are pasted in two steps: the image paths first, then,
+ * once every chip shows in the still short prompt, the text. Claude places
+ * chips before the text either way, but a long text can no longer scroll
+ * unconfirmed chips out of a short pane. Journal phases: paste-intent,
+ * images-pasted, text-intent, pasted. `resume: "text"` continues after
+ * images-pasted with the chips already in the prompt.
+ */
 export async function writeChatTuiInput(
   manager,
   session,
   value,
   {
     submitOnly = false,
+    resume = null,
     initialImages = 0,
+    message,
     onPhase = async () => {},
     onNotice = async () => {},
     confirmSubmit = async () => {},
@@ -47,39 +75,46 @@ export async function writeChatTuiInput(
   const text = normalizeChatText(value);
   const target = `${manager.target(session.id)}:0.0`;
   const slash = isNativeSlashCommand(session.tool, text);
-  if (!submitOnly) {
+  const images =
+    message === undefined
+      ? session.tool === "claude" && !slash && !submitOnly
+        ? await claudeImageMessage(text)
+        : null
+      : message;
+  if (resume === "text" && !images)
+    throw problem(serverMessages.sessionInput.invalid, 400);
+  if (!submitOnly && images) {
+    const wait = () => {
+      // Without a readable baseline only a lower bound can be awaited.
+      const exact = Number.isInteger(initialImages) && initialImages >= 0;
+      return waitForClaudeImages(
+        manager,
+        session,
+        (exact ? initialImages : 0) + images.images.length,
+        { timeoutMs: imageTimeoutMs, exact },
+      );
+    };
+    let ready = true;
+    if (resume !== "text") {
+      await onPhase("paste-intent");
+      await pasteText(manager, target, pastePrefix() + images.images.join("\n"));
+      await onPhase("images-pasted");
+      ready = await wait();
+    }
+    if (images.text) {
+      // A dialog that opened meanwhile is closed or holds the text.
+      await onPhase("text-intent");
+      if (ready === "dialog") ready = await wait();
+    }
+    // Chat must not stay unsent: the text follows and the receipt is flagged.
+    if (ready === false) await onNotice("CHAT_IMAGES_MAYBE_MISSING");
+    if (images.text) await pasteText(manager, target, images.text);
+    await onPhase("pasted");
+  } else if (!submitOnly) {
     await onPhase("paste-intent");
     if (slash) await sendSlashCommand(manager, session, text, false);
-    else {
-      const buffer = `tuiui-${randomUUID()}`;
-      try {
-        await manager.tmux(["load-buffer", "-b", buffer, "-"], {
-          input: pastePrefix() + text,
-        });
-        await manager.tmux([
-          "paste-buffer",
-          "-d",
-          "-p",
-          "-r",
-          "-b",
-          buffer,
-          "-t",
-          target,
-        ]);
-      } catch (error) {
-        await manager.tmux(["delete-buffer", "-b", buffer]).catch(() => {});
-        throw error;
-      }
-    }
+    else await pasteText(manager, target, pastePrefix() + text);
     await onPhase("pasted");
-    if (
-      !slash &&
-      !(await waitForClaudeImagePaste(manager, session, text, {
-        initialImages,
-        timeoutMs: imageTimeoutMs,
-      }))
-    )
-      await onNotice("CHAT_IMAGES_MAYBE_MISSING");
   }
   // Preserve the native Codex literal-input paste-burst separation.
   if (slash && session.tool === "codex") await sleep(250);
@@ -371,7 +406,7 @@ export function withChatInput(manager, id, operation) {
     let active = true;
     let attempted = false;
     let checking = false;
-    const check = async (text, submitOnly, inspect = true) => {
+    const check = async (matches, inspect = true) => {
       if (!active) throw problem(serverMessages.sessionInput.transactionEnded, 409);
       const current = await currentChatSession(manager, id);
       const fresh = await chatInputSnapshot(manager, current);
@@ -385,12 +420,7 @@ export function withChatInput(manager, id, operation) {
         throw requestPendingProblem();
       if (fresh.generation !== initial.generation)
         throw problem(serverMessages.sessionInput.generationChanged, 409);
-      if (
-        inspect &&
-        (submitOnly
-          ? fresh.composer.state !== "text" || fresh.composer.text !== text
-          : fresh.composer.state !== "empty")
-      )
+      if (inspect && !matches(fresh.composer))
         throw problem(serverMessages.sessionInput.composerConflict, 409);
       return fresh;
     };
@@ -401,40 +431,66 @@ export function withChatInput(manager, id, operation) {
         write: async (value, options = {}) => {
           const text = normalizeChatText(value);
           const submitOnly = options.submitOnly === true;
-          const freshInput = !submitOnly && options.allowComposerDraft === true;
+          const resume = !submitOnly && options.resume === "text" ? "text" : null;
+          const freshInput =
+            !submitOnly && !resume && options.allowComposerDraft === true;
           // Enter for Claude text pasted before a hold is checked against the
           // prompt box seen after that paste instead of an exact one-line match.
           // A dialog keeps it waiting; without a proof the exact text must show.
-          const proven = submitOnly && session.tool === "claude";
-          const inspectComposer = submitOnly ? !proven : !freshInput;
+          // Text after held image chips is checked the same way.
+          const proven = (submitOnly || resume) && session.tool === "claude";
+          const inspectComposer = submitOnly || resume ? !proven : !freshInput;
           // Claude dialogs swallow a paste and take Enter as their confirmation.
           // Fresh Claude input closes them, replaces a draft or appends to it.
           const claude = session.tool === "claude";
-          const replace = claude && !submitOnly;
-          const snapshot = () => check(text, false, false);
+          const replace = claude && !submitOnly && !resume;
+          const snapshot = () => check(null, false);
           const notices = new Set();
           const notice = async (code) => {
             if (notices.has(code)) return;
             notices.add(code);
             await options.onNotice?.(code);
           };
-          const claudeInput =
-            (replace || proven) &&
-            claudeFreshInput({
-              manager,
-              session,
-              snapshot,
-              notice,
-              escape: options.closeMenus !== false,
-              onProof: (proof) => options.onProof?.(proof),
-              text,
-              timing: manager.chatInputTiming,
-            });
           if (attempted || checking)
             throw problem(serverMessages.sessionInput.alreadyAttempted, 409);
           checking = true;
           let initialImages = 0;
+          let message = null;
+          let matches;
+          let chipsOnly;
+          let claudeInput;
           try {
+            if (claude && !isNativeSlashCommand(session.tool, text))
+              message = await claudeImageMessage(text);
+            if (resume && !message)
+              throw problem(serverMessages.sessionInput.invalid, 400);
+            // Claude shows image paths as chips, so an image draft matches with
+            // its chips in place of the paths.
+            matches = submitOnly
+              ? (composer) =>
+                  message
+                    ? claudeImageDraft(composer, message, { text: message.text })
+                    : composer.state === "text" && composer.text === text
+              : resume
+                ? (composer) => claudeImageDraft(composer, message)
+                : (composer) => composer.state === "empty";
+            // Chips of a held message, also wrapped over several rows.
+            chipsOnly = (fresh) =>
+              claudeImageDraft(fresh.composer, message) ||
+              claudeChipsOnly(fresh.raw, fresh.pane, message.images.length);
+            claudeInput =
+              (replace || proven) &&
+              claudeFreshInput({
+                manager,
+                session,
+                snapshot,
+                notice,
+                escape: options.closeMenus !== false,
+                onProof: (proof) => options.onProof?.(proof),
+                // The text paste follows the chips: its last line must show.
+                text: message ? message.text : text,
+                timing: manager.chatInputTiming,
+              });
             // Keystrokes typed in the terminal may not have rendered yet. Fresh
             // chat input takes over that draft instead of refusing the message.
             const typed = (freshInput || proven) && manager.pendingTerminalInput?.has(id);
@@ -442,18 +498,20 @@ export function withChatInput(manager, id, operation) {
               await sleep(150);
               manager.pendingTerminalInput.delete(id);
             }
-            let current = await check(text, submitOnly, inspectComposer && !replace);
+            let current = await check(matches, inspectComposer && !replace);
             // Replacing a draft already writes keys; never repeat it in this transaction.
             attempted = true;
             if (replace) current = await claudeInput.prepare(current);
             else if (freshInput && (typed || current.composer.state === "text"))
               await notice("CHAT_APPENDED_TO_DRAFT");
-            if (claude) initialImages = claudeComposerImages(current.raw, current.pane);
+            if (replace) initialImages = claudeComposerImages(current.raw, current.pane);
           } finally {
             checking = false;
           }
           await writeChatTuiInput(manager, session, text, {
             ...options,
+            resume,
+            message,
             initialImages,
             imageTimeoutMs: manager.chatInputTiming?.imagesMs,
             pastePrefix: () => (replace ? claudeInput.pastePrefix() : ""),
@@ -464,22 +522,25 @@ export function withChatInput(manager, id, operation) {
             onPhase: async (phase) => {
               await options.onPhase?.(phase);
               // Best effort: without a proof a held Enter falls back to uncertain.
-              if (phase === "pasted" && replace)
+              if (phase === "pasted" && (replace || resume))
                 await claudeInput.afterPaste().catch(() => {});
-              if (!["paste-intent", "submit-intent"].includes(phase)) return;
+              if (!["paste-intent", "text-intent", "submit-intent"].includes(phase))
+                return;
               try {
                 if (phase === "paste-intent") {
-                  const current = await check(
-                    text,
-                    submitOnly,
-                    inspectComposer && !replace,
-                  );
+                  const current = await check(matches, inspectComposer && !replace);
                   if (replace) await claudeInput.beforePaste(current);
+                } else if (phase === "text-intent") {
+                  await check(matches, false);
+                  // A question that opened after the chips holds the text.
+                  if (resume)
+                    await claudeInput.beforeResume(options.promptProof, chipsOnly);
+                  else if (claude) await claudeInput.beforeText();
                 } else {
-                  await check(text, submitOnly, inspectComposer && submitOnly);
-                  if (replace) await claudeInput.beforeSubmit();
+                  await check(matches, inspectComposer && submitOnly);
+                  if (replace || resume) await claudeInput.beforeSubmit();
                   else if (proven)
-                    await claudeInput.beforeResubmit(options.promptProof, text);
+                    await claudeInput.beforeResubmit(options.promptProof, matches);
                 }
               } catch (error) {
                 await options.onRefused?.(phase);

@@ -3,6 +3,9 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { problem } from "../../lib/storage.js";
 import { chatDeliveryCopy as copy } from "../../lib/i18n/de/chat-delivery.js";
 
+// A held job whose text or image chips already reached the terminal.
+const written = (job) => ["submit", "text"].includes(job.mode);
+
 /**
  * Held chat messages per session, delivered strictly in order. A message waits
  * behind an open question, request or menu, and every later message waits
@@ -119,7 +122,7 @@ export class DeliveryQueue {
         }
         if (Date.now() > job.deadline) {
           // Truthful end: nothing typed is rejected, pasted text stays uncertain.
-          job.receipt.status = job.mode === "submit" ? "uncertain" : "rejected";
+          job.receipt.status = written(job) ? "uncertain" : "rejected";
           delete job.receipt.waiting;
           delivery.write(job.file, job.receipt);
           this.finish(job);
@@ -171,7 +174,7 @@ export class DeliveryQueue {
   async cancel(id, file) {
     const job = this.find(id, file);
     if (!job) return false;
-    if (job.mode === "submit" || job.receipt.journal?.phase !== "reserved")
+    if (written(job) || job.receipt.journal?.phase !== "reserved")
       throw problem(copy.cancelPasted, 409);
     job.cancelled = true;
     if (job.running) await job.running.catch(() => {});
