@@ -9,10 +9,11 @@ export const safeEnvironment = () =>
       .map((key) => [key, process.env[key]]),
   );
 
-export function execute(command, args, { input, env = safeEnvironment() } = {}) {
+export function execute(command, args, { input, env = safeEnvironment(), cwd } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       env,
+      cwd,
       stdio: ["pipe", "pipe", "pipe"],
     });
     let stdout = "",

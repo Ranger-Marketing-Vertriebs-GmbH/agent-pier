@@ -1,3 +1,4 @@
+import { remoteLaunchArgs } from "./codex-launch-args.js";
 import { isMainModule } from "../../lib/is-main-module.js";
 import fs from "node:fs";
 import { spawn } from "node:child_process";
@@ -26,6 +27,7 @@ export async function runCodexLaunch(file, { env = process.env } = {}) {
     !Array.isArray(launch.args)
   )
     throw Error("Invalid Codex request launch");
+  const args = remoteLaunchArgs(launch.args, { env, cwd: launch.cwd });
   const channel = new NativeRequestChannel({ env });
   const keeper = fileURLToPath(new URL("./codex-owned-backend.js", import.meta.url));
   const backend = spawn(process.execPath, [keeper], {
@@ -39,7 +41,11 @@ export async function runCodexLaunch(file, { env = process.env } = {}) {
   backend.stderr.resume();
   backend.stdin.on("error", () => {});
   backend.send(
-    { command: launch.command, args: appServerArgs(launch.args), cwd: launch.cwd },
+    {
+      command: launch.command,
+      args: appServerArgs([...args.terminal, ...args.overrides]),
+      cwd: launch.cwd,
+    },
     () => {},
   );
   let terminal,
@@ -69,7 +75,7 @@ export async function runCodexLaunch(file, { env = process.env } = {}) {
   terminal = spawn(
     launch.command,
     [
-      ...launch.args,
+      ...args.terminal,
       "--remote",
       proxy.url,
       "--remote-auth-token-env",
