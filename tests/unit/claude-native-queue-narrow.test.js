@@ -32,12 +32,43 @@ test("claude queue is read at 24–40 columns and without color", () => {
     assert.deepEqual(queue(screens[name]), hashes("AP_PROBE_Q queued msg"), name);
 });
 
-test("a single queued row may fill a narrow pane", () => {
-  const { raw, pane } = narrow.w24.queueOne;
-  const full = "AP_PROBE_SECOND abc de"; // 22 cells: "❯ " + text fills 24 columns
-  assert.deepEqual(queue({ raw: raw.replace("q one", full), pane }), hashes(full));
-  const clipped = "AP_PROBE_SECOND abc d…";
-  assert.deepEqual(queue({ raw: raw.replace("q one", clipped), pane }), []);
+test("claude wraps long tokens, CJK and emoji rows instead of clipping them", () => {
+  const wrap = narrow.w24Wrap;
+  // The URL, the 24-cell CJK row and the twelve-rocket row wrap and stay unknown.
+  assert.deepEqual(queue(wrap.queueUrl), []);
+  assert.deepEqual(queue(wrap.queueCjkShort), hashes("日本語キュー"));
+  assert.deepEqual(queue(wrap.queueCjkWide), hashes("日本語キュー"));
+  assert.deepEqual(queue(wrap.queueEmoji), hashes("日本語キュー", "🚀 ship it 🎉"));
+  assert.deepEqual(queue(wrap.queueEmojiWide), hashes("日本語キュー", "🚀 ship it 🎉"));
+  // Rows hold width - 3 cells: 21 characters fit in 24 columns, 22 wrap.
+  const fit = narrow.w24Fit;
+  assert.deepEqual(queue(fit.queueFit), hashes("AP_PROBE_SECOND_abcde"));
+  assert.deepEqual(queue(fit.queueOver), hashes("AP_PROBE_SECOND_abcde"));
+  const { raw, pane } = fit.queueFit;
+  const clipped = raw.replace("AP_PROBE_SECOND_abcde", "AP_PROBE_SECOND_abcd…");
+  assert.deepEqual(queue({ raw: clipped, pane }), []);
+});
+
+test("earlier transcript prompts never join the queue without the spinner row", () => {
+  for (const name of ["noColor80", "w30"]) {
+    const { raw, pane } = narrow[name].queueTwo;
+    const lines = raw.split("\n");
+    const spinner = lines.findIndex((line) => line.includes("…") && !line.includes("❯"));
+    assert.ok(
+      spinner > 0 && lines.slice(0, spinner).some((l) => l.includes("AP_PROBE_SLOW")),
+    );
+    for (const replacement of [[], [""]]) {
+      const edited = [...lines];
+      edited.splice(spinner, 1, ...replacement);
+      // Queue rows shift down with the removed row; keep the cursor geometry.
+      const padded = replacement.length ? edited : ["", ...edited];
+      assert.deepEqual(
+        queue({ raw: padded.join("\n"), pane }),
+        hashes("q one", "q two"),
+        name,
+      );
+    }
+  }
 });
 
 test("narrow queue chrome must be complete and belong to the queued placeholder", () => {
@@ -77,4 +108,14 @@ test("only the queued placeholder satisfies the queued placeholder check", () =>
   );
   for (const text of ["Press up to edit queued messages", "Press up to edit queu…"])
     assert.equal(claudePlaceholder(dim(text), pane, { queued: true }), true, text);
+});
+
+test("other queue layouts keep their clipped-row limit of width - 10", () => {
+  const { codex } = read("../native-input-queue.json");
+  const { raw, pane } = codex.snapshots.queued;
+  const text = (length) => "x".repeat(length);
+  const at = (length) =>
+    nativeInputQueue("codex", raw.replace("AP_PROBE_SECOND", text(length)), pane);
+  assert.deepEqual(at(pane.width - 11), hashes(text(pane.width - 11)));
+  assert.deepEqual(at(pane.width - 10), []);
 });

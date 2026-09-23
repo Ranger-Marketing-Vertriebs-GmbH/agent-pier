@@ -109,7 +109,10 @@ function claudeQueue(styled, lines, start) {
   let continued = false;
   for (let index = start; index >= 0; index--) {
     if (!lines[index].trim()) {
-      if (continued) return values;
+      // Entries are separated by exactly one blank row; a wider gap (or a
+      // blank below a headless continuation) ends the queue region, so older
+      // transcript prompts above a missing spinner row are never read.
+      if (continued || !lines[index - 1]?.trim()) return values;
       continue;
     }
     if (continuation.test(styled[index])) {
@@ -126,12 +129,12 @@ function claudeQueue(styled, lines, start) {
 }
 
 // Never turn an ellipsis/paste summary or a clipped terminal row into a receipt.
-// Claude 2.1.x wraps queued rows instead of clipping them, so a single row may
-// use the full width after its "❯ " prefix.
+// Claude 2.1.x wraps queued rows (also long tokens, CJK and emoji) instead of
+// clipping them after width - 3 cells, so a single row may use that width.
 function hashes(values, pane, limit = pane.width - 10) {
   return values
     .filter(
-      (text) => text && text.length <= limit && !/[\n\r…]|\[Pasted|\.\.\.$/.test(text),
+      (text) => text && text.length < limit && !/[\n\r…]|\[Pasted|\.\.\.$/.test(text),
     )
     .slice(0, 20)
     .map(inputHash);
