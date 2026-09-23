@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { chatWindowPrefix } from "../../web/features/chat/chat-sync.js";
 import { createChatStream } from "../../web/features/chat/chat-stream-transport.js";
+import { setLanguage } from "../../web/lib/i18n/index.js";
 
 function fixture(read = async () => ({ messages: [], providerSessionId: "one" })) {
   const timers = new Map();
@@ -308,5 +309,19 @@ test("a never-settling fallback read times out and allows a later recovery read"
   f.tick();
   f.sockets.at(-1).onerror();
   assert.equal(f.reads, 2);
+  f.dispose();
+});
+
+test("socket errors show server messages in the active UI language", async (t) => {
+  t.after(() => setLanguage("de", { persist: false }));
+  setLanguage("en", { persist: false });
+  const f = fixture();
+  f.send({
+    type: "error",
+    message: "Für diese Sitzung ist kein Chatverlauf verfügbar.",
+    messageKey: "chat.historyUnavailable",
+  });
+  assert.equal(f.errors.at(-1), "No chat history is available for this session.");
+  await settle();
   f.dispose();
 });
