@@ -5,6 +5,9 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { serverMessages } from "../../server/lib/i18n/de.js";
+
+const copy = serverMessages.pipelineWorkspaces;
 const exec = promisify(execFile);
 const { PipelineWorkspace } =
   await import("../../server/features/pipelines/workspace-manager.js").catch(() => ({}));
@@ -47,11 +50,12 @@ test("pipeline worktree branches from requested base without changing user check
   assert.equal(await fs.readFile(path.join(project, "personal.txt"), "utf8"), "keep");
   await fs.writeFile(path.join(workspace.cwd, "tracked.txt"), "changed\n");
   assert.match((await manager.diff({ workspace, from: base })).diff, /changed/);
-  await assert.rejects(manager.remove({ workspace }), /uncommitted/i);
-  await assert.rejects(
-    manager.remove({ workspace: { ...workspace, cwd: project } }),
-    /ownership/i,
-  );
+  await assert.rejects(manager.remove({ workspace }), {
+    message: copy.uncommittedChanges,
+  });
+  await assert.rejects(manager.remove({ workspace: { ...workspace, cwd: project } }), {
+    message: copy.ownershipMismatch,
+  });
   await exec("git", ["checkout", "--", "tracked.txt"], { cwd: workspace.cwd });
   await manager.remove({ workspace });
   assert.equal(
@@ -79,7 +83,9 @@ test("unknown base and preexisting or symlink worktree roots never mutate unrela
     force: true,
   });
   await fs.symlink(outside, path.join(project, ".agentpier-worktrees"));
-  await assert.rejects(manager.prepare({ runId: "unsafe", cwd: project }), /worktree/i);
+  await assert.rejects(manager.prepare({ runId: "unsafe", cwd: project }), {
+    message: copy.worktreeDirectoryUnsafe,
+  });
   assert.equal(await fs.readFile(path.join(outside, "canary"), "utf8"), "safe");
 });
 test("stage checkpoints commit owned code changes but exclude pipeline artifacts and credential files", async (t) => {

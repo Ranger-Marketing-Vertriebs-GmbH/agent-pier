@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 export function compileSnapshot({ pipeline, profiles }) {
   const graph = structuredClone(pipeline.graph);
@@ -19,7 +20,8 @@ export function compileSnapshot({ pipeline, profiles }) {
       const seen = new Set();
       const effects = { humanGate: false, verify: false, createPr: false };
       while (byId.get(to)?.kind !== "profile") {
-        if (seen.has(to)) throw problem("Invalid side-effect cycle.");
+        if (seen.has(to))
+          throw problem(serverMessages.pipelineGraph.invalidSideEffectCycle);
         seen.add(to);
         effects[
           { gate: "humanGate", verify: "verify", createPr: "createPr" }[byId.get(to).kind]
@@ -31,7 +33,7 @@ export function compileSnapshot({ pipeline, profiles }) {
       return [{ ...e, to, effects }];
     });
   if (nodes.some((n) => !n.profileSnapshot))
-    throw problem("Pipeline profile snapshot is missing.", 409);
+    throw problem(serverMessages.pipelineGraph.profileSnapshotMissing, 409);
   return { entry: graph.entry, nodes, edges };
 }
 export const outgoing = (run, id, condition) =>

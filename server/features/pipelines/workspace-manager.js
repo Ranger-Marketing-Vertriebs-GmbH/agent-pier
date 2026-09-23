@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -33,7 +34,7 @@ export class PipelineWorkspace {
       existing = readJSON(file, null);
     if (existing) {
       if (existing.projectRoot !== projectRoot)
-        throw problem("Workspace ownership does not match.", 409);
+        throw problem(serverMessages.pipelineWorkspaces.ownershipMismatch, 409);
       if (existing.preparing) return this.adopt(existing);
       await this.inspect(existing);
       return existing;
@@ -47,14 +48,14 @@ export class PipelineWorkspace {
       fence.isSymbolicLink() ||
       (await fs.realpath(root)) !== root
     )
-      throw problem("The owned worktree directory is unsafe.", 409);
+      throw problem(serverMessages.pipelineWorkspaces.worktreeDirectoryUnsafe, 409);
     if (
       await fs.lstat(workingDir).then(
         () => true,
         () => false,
       )
     )
-      throw problem("The run worktree already exists.", 409);
+      throw problem(serverMessages.pipelineWorkspaces.worktreeExists, 409);
     let fetchWarning;
     const origin = await git(projectRoot, ["remote", "get-url", "origin"]).catch(
       () => null,
@@ -112,13 +113,10 @@ export class PipelineWorkspace {
       (await fs.realpath(path.dirname(expected))) !== path.dirname(expected) ||
       (await fs.realpath(expected)) !== expected
     )
-      throw problem(
-        "The interrupted worktree preparation cannot be safely recovered.",
-        409,
-      );
+      throw problem(serverMessages.pipelineWorkspaces.preparationUnrecoverable, 409);
     const source = await fs.stat(workspace.projectRoot);
     if (source.dev !== workspace.projectDevice || source.ino !== workspace.projectInode)
-      throw problem("The source repository identity changed during preparation.", 409);
+      throw problem(serverMessages.pipelineWorkspaces.sourceIdentityChanged, 409);
     const [branch, head, common, sourceCommon, registered] = await Promise.all([
       git(expected, ["branch", "--show-current"]),
       exactCommit(expected, "HEAD"),
@@ -139,10 +137,7 @@ export class PipelineWorkspace {
       (await fs.realpath(common)) !== (await fs.realpath(sourceCommon)) ||
       !record?.split("\n").includes(`branch refs/heads/${workspace.branch}`)
     )
-      throw problem(
-        "The interrupted worktree no longer matches its preparation intent.",
-        409,
-      );
+      throw problem(serverMessages.pipelineWorkspaces.preparationIntentMismatch, 409);
     return this.finalize(workspace);
   }
   async finalize(workspace) {
@@ -166,7 +161,7 @@ export class PipelineWorkspace {
       excludeInfo &&
       (!excludeInfo.isFile() || excludeInfo.isSymbolicLink() || excludeInfo.nlink !== 1)
     )
-      throw problem("The Git exclusion file is unsafe.", 409);
+      throw problem(serverMessages.pipelineWorkspaces.gitExcludeUnsafe, 409);
     const previous = await fs.readFile(exclude, "utf8").catch((error) => {
       if (error.code === "ENOENT") return "";
       throw error;
@@ -190,14 +185,14 @@ export class PipelineWorkspace {
         (key) => stored[key] !== workspace[key],
       )
     )
-      throw problem("Workspace ownership does not match.", 409);
+      throw problem(serverMessages.pipelineWorkspaces.ownershipMismatch, 409);
     const root = path.join(stored.projectRoot, fenceName);
     if (
       stored.cwd !== path.join(root, stored.runId) ||
       (await fs.realpath(root)) !== root ||
       (await fs.realpath(stored.cwd)) !== stored.cwd
     )
-      throw problem("Workspace ownership path changed.", 409);
+      throw problem(serverMessages.pipelineWorkspaces.ownershipPathChanged, 409);
     const [project, worktree] = await Promise.all([
       fs.stat(stored.projectRoot),
       fs.lstat(stored.cwd),
@@ -209,17 +204,17 @@ export class PipelineWorkspace {
       worktree.dev !== stored.device ||
       worktree.ino !== stored.inode
     )
-      throw problem("Workspace ownership identity changed.", 409);
+      throw problem(serverMessages.pipelineWorkspaces.ownershipIdentityChanged, 409);
     const common = await fs.realpath(
       (
         await git(stored.cwd, ["rev-parse", "--path-format=absolute", "--git-common-dir"])
       ).trim(),
     );
     if (common !== stored.commonDir)
-      throw problem("Workspace Git ownership changed.", 409);
+      throw problem(serverMessages.pipelineWorkspaces.gitOwnershipChanged, 409);
     const branch = await git(stored.cwd, ["branch", "--show-current"]);
     if (branch !== stored.branch)
-      throw problem("The run worktree switched to another branch.", 409);
+      throw problem(serverMessages.pipelineWorkspaces.branchSwitched, 409);
     return stored;
   }
   async inspect(value) {
@@ -293,17 +288,11 @@ export class PipelineWorkspace {
             session.status === "running" ||
             !(await reader.receipt(session.id).catch(() => null))?.groupStopped
           )
-            throw problem(
-              "Wait for the owned native pipeline processes to finish before cleanup.",
-              409,
-            );
+            throw problem(serverMessages.pipelineWorkspaces.processesStillRunning, 409);
         }
     }
     if (state.dirty)
-      throw problem(
-        "The worktree has uncommitted changes; preserve or commit them before cleanup.",
-        409,
-      );
+      throw problem(serverMessages.pipelineWorkspaces.uncommittedChanges, 409);
     if (state.commits.length) {
       const unpublished = await git(stored.cwd, [
         "rev-list",
@@ -313,10 +302,7 @@ export class PipelineWorkspace {
         "--remotes=origin",
       ]);
       if (unpublished !== "0")
-        throw problem(
-          "The worktree has unpublished commits; push them before cleanup.",
-          409,
-        );
+        throw problem(serverMessages.pipelineWorkspaces.unpublishedCommits, 409);
     }
     await git(stored.projectRoot, ["worktree", "remove", stored.cwd], { timeout: 60000 });
     writePrivate(this.file(stored.runId), { ...stored, removed: true });

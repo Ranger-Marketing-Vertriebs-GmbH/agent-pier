@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
@@ -9,7 +10,7 @@ const exec = promisify(execFile);
 
 export async function withGitCredentials(manager, workspace, operation) {
   if (!manager.github)
-    throw problem("GitHub credentials are unavailable for this operation.", 409);
+    throw problem(serverMessages.pipelineWorkspaces.githubCredentialsUnavailable, 409);
   const id = randomUUID(),
     env = gitEnvironment(
       privateDirectory(path.join(manager.dataDir, "pipeline-git-home")),
@@ -34,7 +35,7 @@ function repository(remote) {
   try {
     url = new URL(remote);
   } catch {
-    throw problem("Pull requests require a GitHub repository remote.", 409);
+    throw problem(serverMessages.pipelineWorkspaces.githubRemoteRequired, 409);
   }
   if (
     url.protocol !== "https:" ||
@@ -45,7 +46,7 @@ function repository(remote) {
     url.hash ||
     !/^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(url.pathname)
   )
-    throw problem("Pull requests require a canonical GitHub repository remote.", 409);
+    throw problem(serverMessages.pipelineWorkspaces.canonicalGithubRemoteRequired, 409);
   return `${url.hostname}${url.pathname.replace(/\.git$/, "")}`;
 }
 export async function pushWorkspace(manager, workspace) {
@@ -64,7 +65,7 @@ export async function createWorkspacePr(manager, workspace, run) {
   const repo = repository(await git(workspace.cwd, ["remote", "get-url", "origin"]));
   return withGitCredentials(manager, workspace, async (env) => {
     const gh = manager.github.resolveGh(env);
-    if (!gh) throw problem("Install the GitHub CLI before creating a pull request.", 409);
+    if (!gh) throw problem(serverMessages.pipelineWorkspaces.githubCliRequired, 409);
     const call = async (args) => {
       try {
         return (
@@ -76,7 +77,7 @@ export async function createWorkspacePr(manager, workspace, run) {
           })
         ).stdout.trim();
       } catch {
-        throw problem("GitHub could not complete the pull-request operation.", 409);
+        throw problem(serverMessages.pipelineWorkspaces.pullRequestOperationFailed, 409);
       }
     };
     const existing = await call([
@@ -97,7 +98,7 @@ export async function createWorkspacePr(manager, workspace, run) {
     try {
       parsed = JSON.parse(existing);
     } catch {
-      throw problem("GitHub returned an invalid pull-request response.", 409);
+      throw problem(serverMessages.pipelineWorkspaces.invalidPullRequestResponse, 409);
     }
     await git(workspace.cwd, ["push", "origin", `HEAD:refs/heads/${workspace.branch}`], {
       env,
@@ -143,5 +144,5 @@ function checkedUrl(value) {
     )
       return url.href;
   } catch {}
-  throw problem("GitHub returned an invalid pull-request URL.", 409);
+  throw problem(serverMessages.pipelineWorkspaces.invalidPullRequestUrl, 409);
 }

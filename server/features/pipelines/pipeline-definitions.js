@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { readJSON, writePrivate, problem, nameValue } from "../../lib/storage.js";
@@ -12,7 +13,7 @@ import { seedProfiles, seedPipeline } from "./profile-seeds.js";
 
 function identity(id) {
   if (typeof id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id))
-    throw problem("Invalid definition ID");
+    throw problem(serverMessages.pipelineGraph.invalidDefinitionId);
   return id;
 }
 function copy(value) {
@@ -62,13 +63,13 @@ export class PipelineDefinitions {
   get(kind, id) {
     identity(id);
     const row = this.state[kind].find((item) => item.id === id);
-    if (!row) throw problem("Pipeline definition not found", 404);
+    if (!row) throw problem(serverMessages.pipelineGraph.definitionNotFound, 404);
     return copy(row);
   }
   save(kind, body, value, id) {
     const current = id ? this.get(kind, id) : null;
     if (current && body.expectedRevision !== current.revision)
-      throw problem("This definition changed. Reload before saving.", 409);
+      throw problem(serverMessages.pipelineGraph.definitionChanged, 409);
     const now = new Date().toISOString();
     const row = {
       ...value,
@@ -94,12 +95,12 @@ export class PipelineDefinitions {
       const profile = this.getProfile(node.profileId);
       if (!profile.enabled || !profile.config.run.autonomous)
         throw problem(
-          `Pipeline profile must be enabled and autonomous: ${profile.name}`,
+          serverMessages.pipelineProfiles.mustBeEnabledAndAutonomous(profile.name),
           status,
         );
       if (profile.config.prompts.params.some((param) => param.required))
         throw problem(
-          `Pipeline profiles cannot have required parameters: ${profile.name}`,
+          serverMessages.pipelineProfiles.noRequiredParameters(profile.name),
           status,
         );
     }
@@ -112,7 +113,11 @@ export class PipelineDefinitions {
       body,
       {
         name: nameValue(body.name),
-        description: boundedText(body.description ?? "", "pipeline description", 2000),
+        description: boundedText(
+          body.description ?? "",
+          serverMessages.pipelineProfiles.invalidPipelineDescription,
+          2000,
+        ),
         graph,
       },
       id,
@@ -130,7 +135,7 @@ export class PipelineDefinitions {
         pipeline.graph.nodes.some((node) => node.profileId === id),
       )
     )
-      throw problem("A pipeline still references this profile", 409);
+      throw problem(serverMessages.pipelineProfiles.stillReferenced, 409);
     this.remove("profiles", id);
   }
   removePipeline(id) {
@@ -164,7 +169,7 @@ export class PipelineDefinitions {
       const profile = this.getProfile(node.profileId);
       const account = this.accounts.get(profile.config.accountId);
       if (account.tool !== profile.config.cliTool)
-        throw problem("The profile account CLI changed", 409);
+        throw problem(serverMessages.pipelineProfiles.accountCliChanged, 409);
       const connection = profileConnection(profile.config, this.accounts);
       profiles[profile.id] = {
         ...profile,

@@ -4,6 +4,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { NativeEventReader } from "../../server/features/pipelines/native-reader.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
+
+const copy = serverMessages.pipelines;
+const profiles = serverMessages.pipelineProfiles;
 const { NativePipelineDriver } =
   await import("../../server/features/pipelines/native-driver.js").catch(() => ({}));
 const identity = {
@@ -48,7 +52,9 @@ test("native driver waits for process exit despite terminal events and reconstru
   assert.equal(outcome.nativeId, "native-thread");
   assert.deepEqual(outcome.usage, { inputTokens: 12, outputTokens: 3 });
   assert.equal(bindings.includes("native-thread"), true);
-  await assert.rejects(driver.inspect({ ...identity, runId: "another" }), /ownership/i);
+  await assert.rejects(driver.inspect({ ...identity, runId: "another" }), {
+    message: copy.sessionOwnershipMismatch,
+  });
 });
 test("frozen account drift blocks launch before any process while key rotation is permitted", async () => {
   assert.equal(typeof NativePipelineDriver, "function");
@@ -111,7 +117,7 @@ test("frozen account drift blocks launch before any process while key rotation i
       cwd: "/unused",
       prompt: "task",
     }),
-    /changed/i,
+    { message: profiles.accountConfigurationChanged },
   );
   assert.equal(starts, 2);
 });
@@ -146,7 +152,7 @@ test("malformed appended native events remain errors on repeated reads until rep
   assert.equal((await reader.read("s", "codex")).result, "completed");
   await fs.appendFile(file, '{broken}\n{"type":"turn.completed"}\n');
   for (let poll = 0; poll < 3; poll++)
-    await assert.rejects(reader.read("s", "codex"), /invalid JSONL/);
+    await assert.rejects(reader.read("s", "codex"), { message: copy.invalidNativeJsonl });
   await fs.writeFile(
     `${file}.replacement`,
     '{"type":"thread.started","thread_id":"new-thread"}\n',
@@ -231,14 +237,20 @@ test("central frozen provider, connection and source drift cannot create a nativ
   assert.equal(starts, 1);
   const changedProvider = structuredClone(frozen);
   changedProvider.providerConnectionSnapshot.providerId = "zai";
-  await assert.rejects(launch(changedProvider), /provider configuration changed/i);
+  await assert.rejects(launch(changedProvider), {
+    message: profiles.providerConfigurationChanged,
+  });
   const changedConnection = structuredClone(frozen);
   changedConnection.providerConnectionSnapshot.id = "different";
-  await assert.rejects(launch(changedConnection), /provider configuration changed/i);
+  await assert.rejects(launch(changedConnection), {
+    message: profiles.providerConfigurationChanged,
+  });
   const missing = structuredClone(frozen);
   delete missing.providerConnectionSnapshot;
-  await assert.rejects(launch(missing), /frozen provider/i);
+  await assert.rejects(launch(missing), { message: copy.frozenConnectionRequired });
   accounts.update(source.id, { name: "Source", provider: { id: "openrouter", modelId } });
-  await assert.rejects(launch(frozen), /account configuration changed/i);
+  await assert.rejects(launch(frozen), {
+    message: profiles.accountConfigurationChanged,
+  });
   assert.equal(starts, 1);
 });

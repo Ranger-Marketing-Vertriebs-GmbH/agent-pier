@@ -1,2 +1,50 @@
 /** English counterpart of de/pipeline-profiles.js with identical keys. */
-export const pipelineProfiles = Object.freeze({});
+export const pipelineProfiles = Object.freeze({
+  invalidProfileDescription: "Invalid profile description",
+  invalidModel: "Invalid model",
+  invalidRolePrompt: "Invalid role prompt",
+  invalidKickoffPrompt: "Invalid kickoff prompt",
+  invalidParameterLabel: "Invalid parameter label",
+  invalidParameterValue: "Invalid parameter value",
+  invalidRenderedPrompt: "Invalid rendered profile prompt",
+  invalidVerificationStepName: "Invalid verification step name",
+  invalidVerificationCommand: "Invalid verification command",
+  invalidPipelineDescription: "Invalid pipeline description",
+  connectionsUnavailable: "Provider connections are unavailable.",
+  connectionUnsupported:
+    "This connection does not support the profile CLI or requires Responses API access.",
+  enabledBoolean: "Profile enabled must be a boolean",
+  invalidCli: "Invalid profile CLI",
+  accountCliMismatch: "Profile account and CLI must match",
+  modelCount: "A profile requires 1–100 available models",
+  defaultModelUnavailable: "The default model must be available in the profile",
+  invalidPermissionMode: (tool) => `Invalid ${tool} permission mode`,
+  autonomousBoolean: "Profile autonomous must be a boolean",
+  parameterLimit: "A profile may have at most 30 parameters",
+  invalidParameter: "Invalid or duplicate profile parameter",
+  parameterRequiredBoolean: "Parameter required must be a boolean",
+  invalidParameters: "Invalid profile parameters",
+  unknownParameter: (key) => `Unknown profile parameter: ${key}`,
+  parameterRequired: (label) => `Profile parameter is required: ${label}`,
+  modelUnavailable: "The model is not available in this profile",
+  verificationStepLimit: "Verification requires at most 20 steps",
+  verificationTimeoutRange: "Verification timeout must be 1000–7200000 milliseconds",
+  verificationBlockingBoolean: "Verification blocking must be a boolean",
+  verificationTotalTimeout: "Total verification timeout cannot exceed two hours",
+  invalidNativePermissionMode: (tool) => `Invalid ${tool} permission mode.`,
+  accountConfigurationChanged:
+    "The profile account configuration changed. Start a new run with the updated profile.",
+  providerConfigurationChanged:
+    "The profile provider configuration changed. Start a new run with the updated profile.",
+  claudePermissionModeUnverified: "Unable to verify the native Claude permission mode.",
+  claudePermissionModeUnsupported:
+    "This Claude version does not advertise the profile permission mode.",
+  disabled: "This profile is disabled.",
+  invalidSessionCli: "Invalid session CLI.",
+  mustBeEnabledAndAutonomous: (name) =>
+    `Pipeline profile must be enabled and autonomous: ${name}`,
+  noRequiredParameters: (name) =>
+    `Pipeline profiles cannot have required parameters: ${name}`,
+  stillReferenced: "A pipeline still references this profile",
+  accountCliChanged: "The profile account CLI changed",
+});

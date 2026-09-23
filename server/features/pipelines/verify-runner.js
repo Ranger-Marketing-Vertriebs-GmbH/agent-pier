@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -15,7 +16,7 @@ function json(file) {
     // Atomic replacement can unlink the already opened regular inode. Its descriptor
     // remains a valid snapshot; only additional hard links introduce an alias.
     if (!stat.isFile() || stat.nlink > 1 || stat.size > 512 * 1024)
-      throw problem("Invalid verification receipt.", 409);
+      throw problem(serverMessages.pipelines.invalidVerificationReceipt, 409);
     return JSON.parse(fs.readFileSync(fd, "utf8"));
   } finally {
     fs.closeSync(fd);
@@ -34,7 +35,7 @@ export class VerificationRunner {
         info.isSymbolicLink() ||
         (process.getuid && info.uid !== process.getuid())
       )
-        throw problem("Unsafe verification job directory.", 409);
+        throw problem(serverMessages.pipelines.unsafeVerificationDirectory, 409);
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
     }
@@ -55,10 +56,11 @@ export class VerificationRunner {
       ) ||
       steps.reduce((n, s) => n + s.timeoutMs, 0) > 7200000
     )
-      throw problem("Invalid verification plan.");
+      throw problem(serverMessages.pipelines.invalidVerificationPlan);
     const job = { id, startedAt: new Date().toISOString() };
     const folder = this.folder(job);
-    if (fs.existsSync(folder)) throw problem("Verification job already exists.", 409);
+    if (fs.existsSync(folder))
+      throw problem(serverMessages.pipelines.verificationJobExists, 409);
     privateRunDirectory(folder);
     fs.writeFileSync(
       path.join(folder, "request.json"),
@@ -118,7 +120,7 @@ export class VerificationRunner {
       if (r.status !== "running") return;
       await new Promise((r) => setTimeout(r, 25));
     }
-    throw problem("Verification cancellation is still pending.", 409);
+    throw problem(serverMessages.pipelines.verificationCancellationPending, 409);
   }
   async close() {}
 }
@@ -133,7 +135,7 @@ export async function beginVerification(engine, run, node) {
       run,
       node,
       "verify-failed",
-      "Verification configuration could not be loaded.",
+      serverMessages.pipelines.verificationConfigUnavailable,
     );
     return;
   }
@@ -161,7 +163,13 @@ export async function beginVerification(engine, run, node) {
     run.verifyJob = null;
     node.verifyPending = false;
     node.verifyResult = { status: "unavailable", steps: [], quiesced: false };
-    park(engine, run, node, "verify-failed", "Verification could not be started.");
+    park(
+      engine,
+      run,
+      node,
+      "verify-failed",
+      serverMessages.pipelines.verificationNotStarted,
+    );
   }
 }
 export async function settleVerification(engine, run) {
@@ -172,7 +180,7 @@ export async function settleVerification(engine, run) {
       !result ||
       !["running", "pass", "fail", "timed-out", "unavailable"].includes(result.status)
     )
-      throw problem("Invalid verification result.", 409);
+      throw problem(serverMessages.pipelines.invalidVerificationResult, 409);
   } catch (error) {
     engine.recordError(error);
     result = { status: "unavailable", steps: [], quiesced: false };
@@ -196,7 +204,7 @@ export async function settleVerification(engine, run) {
       run,
       node,
       "verify-failed",
-      "Verification did not produce trustworthy completed results.",
+      serverMessages.pipelines.verificationUntrustworthy,
     );
     return;
   }
@@ -221,6 +229,6 @@ export async function settleVerification(engine, run) {
     run,
     node,
     "verify-failed",
-    "Verification still failed after three attempts.",
+    serverMessages.pipelines.verificationFailedThreeTimes,
   );
 }

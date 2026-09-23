@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
 
@@ -9,30 +10,32 @@ function pageValue(value) {
     !Number.isSafeInteger(Number(value)) ||
     Number(value) > 100000
   )
-    throw problem("Invalid pipeline page");
+    throw problem(serverMessages.pipelines.invalidPageFilter);
   return Number(value);
 }
-function filter(value, label) {
+function filter(value, message) {
   if (value === undefined || value === "") return undefined;
-  if (typeof value !== "string" || value.length > 100)
-    throw problem(`Invalid ${label} filter`);
+  if (typeof value !== "string" || value.length > 100) throw problem(message);
   return value;
 }
 
 export function pipelineRunRoutes({ pipelines }) {
   const router = Router();
   router.get("/pipeline-runs", (req, res) => {
-    const status = filter(req.query.status, "status");
+    const status = filter(req.query.status, serverMessages.pipelines.invalidStatusFilter);
     if (
       status &&
       !["running", "awaiting-human", "completed", "failed", "cancelled"].includes(status)
     )
-      throw problem("Invalid pipeline status");
+      throw problem(serverMessages.pipelines.invalidStatusValue);
     res.json(
       pipelines.list({
         page: pageValue(req.query.page),
         status,
-        projectId: filter(req.query.projectId, "project"),
+        projectId: filter(
+          req.query.projectId,
+          serverMessages.pipelines.invalidProjectFilter,
+        ),
       }),
     );
   });
@@ -65,7 +68,8 @@ export function pipelineRunRoutes({ pipelines }) {
     res.json(pipelines.artifacts(req.params.id, req.params.nodeId)),
   );
   router.get(`${node}/artifact`, (req, res) => {
-    if (typeof req.query.path !== "string") throw problem("An artifact path is required");
+    if (typeof req.query.path !== "string")
+      throw problem(serverMessages.pipelines.artifactPathRequired);
     const result = pipelines.artifact(req.params.id, req.params.nodeId, req.query.path);
     res.json({ content: result.text, truncated: result.truncated });
   });
@@ -77,7 +81,7 @@ export function pipelineRunRoutes({ pipelines }) {
       !/^\d+$/.test(req.params.stepIdx) ||
       !Number.isSafeInteger(Number(req.params.stepIdx))
     )
-      throw problem("Invalid verification step");
+      throw problem(serverMessages.pipelines.invalidVerificationStepFilter);
     res.json(
       pipelines.verifyLogs(req.params.id, req.params.nodeId, Number(req.params.stepIdx)),
     );

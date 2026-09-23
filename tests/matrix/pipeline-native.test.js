@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 const native = await import("../../server/features/pipelines/native-command.js").catch(
   () => ({}),
@@ -115,7 +116,7 @@ test("native permission domains reject silent cross-CLI escalation", () => {
   ])
     assert.throws(
       () => native.nativeCommand({ tool, mode, launch, sessionId: "s", headless: true }),
-      /permission/i,
+      { message: serverMessages.pipelineProfiles.invalidNativePermissionMode(tool) },
     );
 });
 test("Codex usage and native identity come from structured events", () => {

@@ -1,2 +1,22 @@
 /** English counterpart of de/pipeline-graph.js with identical keys. */
-export const pipelineGraph = Object.freeze({});
+export const pipelineGraph = Object.freeze({
+  nodeCount: "A pipeline requires between 1 and 100 nodes",
+  edgeLimit: "A pipeline may contain at most 300 edges",
+  invalidNodeId: "Invalid or duplicate node ID",
+  unsupportedNodeKind: (kind) => `Unsupported pipeline node kind: ${kind}`,
+  invalidProfileReference: (node) => `Invalid profile reference on node ${node}`,
+  singlePullRequest: "A pipeline may create only one pull request",
+  entryMustBeProfile: "The entry must reference a profile node",
+  invalidEdge: "Invalid pipeline edge",
+  oneEdgePerCondition: "A node may have only one edge per condition",
+  loopBudgetRange: "Fail loop budgets must be between 1 and 5",
+  invalidSideEffectRouting: (node) => `Invalid side-effect routing on node ${node}`,
+  cycleNeedsFailEdge: "Every cycle requires a bounded fail edge",
+  failEdgeMustCloseCycle: "A budgeted fail edge must close a cycle",
+  unreachableNode: "Every node must be reachable from the entry",
+  invalidSideEffectCycle: "Invalid side-effect cycle.",
+  profileSnapshotMissing: "Pipeline profile snapshot is missing.",
+  invalidDefinitionId: "Invalid definition ID",
+  definitionNotFound: "Pipeline definition not found",
+  definitionChanged: "This definition changed. Reload before saving.",
+});

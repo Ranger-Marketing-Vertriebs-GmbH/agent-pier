@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { validId, textInput } from "../sessions/session-validation.js";
 import { problem } from "../../lib/storage.js";
 
@@ -6,17 +7,17 @@ export function pipelineIdentity(value) {
   const result = {};
   for (const key of ["runId", "nodeId", "attemptId", "turnId"])
     result[key] = validId(value[key]);
-  if (value.headless !== true) throw problem("Invalid pipeline session mode.");
+  if (value.headless !== true) throw problem(serverMessages.pipelines.invalidSessionMode);
   return { ...result, headless: true };
 }
 export function nativeInput(options) {
   if (options.initialInput === undefined && !options.nativeObservation) return {};
   textInput(options.initialInput);
   if (options.nativeObservation && !options.pipeline?.headless)
-    throw problem("Native observation requires an owned pipeline turn.");
+    throw problem(serverMessages.pipelines.observationRequiresTurn);
   return { initialInput: options.initialInput };
 }
 export function assertInteractiveSession(session) {
   if (session.pipeline?.headless)
-    throw problem("Use pipeline feedback controls for this headless turn.", 409);
+    throw problem(serverMessages.pipelines.useFeedbackControls, 409);
 }
