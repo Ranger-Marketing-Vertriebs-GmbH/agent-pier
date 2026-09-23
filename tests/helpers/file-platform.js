@@ -18,8 +18,10 @@ const privileged = (command, args) =>
     : platformCommand("sudo", ["-n", command, ...args]);
 export const privilegedPlatformCommand = privileged;
 
-// hdiutil may temporarily retain an APFS image after unmounting its volume.
-// Re-observe only this fixture's image on every attempt; never force an eject.
+// hdiutil may temporarily retain an APFS image after unmounting its volume; on
+// macOS runners the whole disk has stayed busy for more than four seconds after a
+// clean unmount. Re-observe only this fixture's image on every attempt; never
+// force an eject.
 export async function detachOwnedDiskImage({
   image,
   directory,
@@ -30,7 +32,7 @@ export async function detachOwnedDiskImage({
   wait = delay,
   diagnostic,
 }) {
-  const delays = [250, 500, 1000, 2000];
+  const delays = [250, 500, 1000, 2000, 4000, 8000];
   for (let attempt = 0; ; attempt++) {
     const current = await attached();
     if (!current) return;
