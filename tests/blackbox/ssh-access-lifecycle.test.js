@@ -6,6 +6,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { applicationFixture } from "../helpers/application.js";
+import { englishServerMessages } from "../../server/lib/i18n/catalog-en.js";
 
 const execute = promisify(execFile);
 const helper = fileURLToPath(new URL("../../server/ssh.mjs", import.meta.url));
@@ -69,7 +70,10 @@ test("real app manages private keys and assigns new/existing sessions across res
     (await f.request(endpoint, { method: "PUT", body: { accessIds: [] } })).status,
     200,
   );
-  await assert.rejects(run(), /nicht zugeordnet/);
+  // The helper's stderr is read by coding agents, so catalog text arrives in English.
+  await assert.rejects(run(), (error) =>
+    error.stderr.includes(englishServerMessages.ssh.accessNotBound),
+  );
   assert.equal(
     (await f.request(endpoint, { method: "PUT", body: { accessIds: [access.id] } }))
       .status,
@@ -86,4 +90,13 @@ test("real app manages private keys and assigns new/existing sessions across res
   );
   await assert.rejects(run());
   assert.deepEqual((await (await f.request(endpoint)).json()).assignedIds, []);
+});
+
+test("the SSH helper answers invalid arguments in English", async () => {
+  await assert.rejects(
+    execute(process.execPath, [helper, "--data-dir", "relative"]),
+    (error) =>
+      error.stderr.trim() ===
+      "Usage: ssh.mjs --data-dir DIR --session ID --access ID [-- remote command]",
+  );
 });
