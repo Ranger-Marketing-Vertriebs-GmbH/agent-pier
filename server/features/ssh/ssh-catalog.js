@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -43,7 +44,7 @@ export class SshCatalog {
       snapshot.version !== 1 ||
       parts.some((p) => !Array.isArray(snapshot[p]))
     )
-      throw problem("SSH catalog is unavailable.", 503);
+      throw problem(serverMessages.ssh.catalogUnavailable, 503);
     return snapshot;
   }
   migrate() {
@@ -134,7 +135,7 @@ export class SshCatalog {
               size(transaction.draft) > size(before) &&
               !deletionOnly(before, transaction.draft)
             )
-              throw Object.assign(problem("SSH catalog capacity reached.", 409), {
+              throw Object.assign(problem(serverMessages.ssh.catalogCapacity, 409), {
                 code: "SSH_STORAGE_LIMIT",
               });
             // Guards are synchronous: no revocation can interleave before publication.

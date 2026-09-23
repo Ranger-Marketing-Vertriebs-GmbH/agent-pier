@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomBytes } from "node:crypto";
@@ -15,14 +16,14 @@ export function capabilityFolder(memory, id, { create = false } = {}) {
   else {
     const stat = fs.lstatSync(sessions);
     if (!stat.isDirectory() || stat.isSymbolicLink())
-      throw failure("Memory access is unavailable.", 403);
+      throw failure(serverMessages.memory.accessUnavailable, 403);
   }
   const folder = path.join(sessions, id);
   if (create) privateFolder(folder);
   else {
     const stat = fs.lstatSync(folder);
     if (!stat.isDirectory() || stat.isSymbolicLink())
-      throw failure("Memory access is unavailable.", 403);
+      throw failure(serverMessages.memory.accessUnavailable, 403);
   }
   return folder;
 }
@@ -32,7 +33,7 @@ export function issueCapability(memory, { id, account, projectId }) {
       .prepare("SELECT 1 FROM capabilities WHERE session_id=? AND active=1")
       .get(id)
   )
-    throw failure("Memory session access already exists.", 409);
+    throw failure(serverMessages.memory.sessionAccessExists, 409);
   const folder = capabilityFolder(memory, id, { create: true });
   const token = randomBytes(32).toString("hex");
   writePrivateJson(path.join(folder, "capability.json"), {

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { applicationFixture, fixtureFetch } from "../helpers/application.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 test("private SSH downloads require owner login and origin and never enter key metadata", async (t) => {
   const f = await applicationFixture(t);
@@ -137,7 +138,8 @@ test("project collision HTTP responses contain only bounded public conflicting I
   const result = await response.json();
   assert.deepEqual(result, {
     code: "SSH_PROJECT_COLLISION",
-    error: "The target project already contains a matching key or host.",
+    error: serverMessages.ssh.projectCollision,
+    messageKey: "ssh.projectCollision",
     details: { resourceIds: hosts.map((host) => host.id), truncated: false },
   });
 });
@@ -175,7 +177,8 @@ test("private downloads share an owner limit and reject excess requests before o
     assert.ok(retryAfter > 0 && retryAfter <= 60);
     assert.deepEqual(await response.json(), {
       code: "SSH_DOWNLOAD_RATE_LIMITED",
-      error: "Too many private key downloads. Try again in a minute.",
+      error: serverMessages.ssh.downloadRateLimited,
+      messageKey: "ssh.downloadRateLimited",
     });
   }
   assert.equal(open.mock.callCount(), 20);

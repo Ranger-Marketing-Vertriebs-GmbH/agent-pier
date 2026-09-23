@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { createHash, randomUUID } from "node:crypto";
 import { openDatabase, transaction } from "./memory-database.js";
 import {
@@ -32,7 +33,7 @@ function source(value) {
       accountId: identifier(value.accountId),
       tool: value.tool,
     };
-  throw failure("Invalid memory provenance.");
+  throw failure(serverMessages.memory.invalidProvenance);
 }
 export class ProjectMemory {
   constructor({ dataDir }) {
@@ -62,7 +63,7 @@ export class ProjectMemory {
       if (current?.id !== scope.id) {
         const verified = await projectScope(scope.cwd);
         if (verified.id !== scope.id)
-          throw failure("Memory project changed during registration.", 409);
+          throw failure(serverMessages.memory.projectChanged, 409);
         // Preserve identity/history, and do not overwrite another completed repair.
         this.db
           .prepare(
@@ -85,7 +86,7 @@ export class ProjectMemory {
     const row = this.db
       .prepare("SELECT id,name,cwd,kind,created_at AS createdAt FROM projects WHERE id=?")
       .get(id);
-    if (!row) throw failure("Memory project not found.", 404);
+    if (!row) throw failure(serverMessages.memory.projectNotFound, 404);
     return { ...row };
   }
   projects() {
@@ -101,8 +102,9 @@ export class ProjectMemory {
   list(projectId, { query = "", page = 1, archived = false } = {}) {
     this.project(projectId);
     pageValue(page);
-    textValue(query, "query", 300, { empty: true });
-    if (typeof archived !== "boolean") throw failure("Invalid memory archive filter.");
+    textValue(query, serverMessages.memory.invalidQuery, 300, { empty: true });
+    if (typeof archived !== "boolean")
+      throw failure(serverMessages.memory.invalidArchiveFilter);
     const pattern = query
       .replaceAll("\\", "\\\\")
       .replaceAll("%", "\\%")
@@ -126,13 +128,13 @@ export class ProjectMemory {
     this.project(projectId);
     identifier(id);
     if (revision !== undefined && (!Number.isSafeInteger(revision) || revision < 1))
-      throw failure("Invalid memory revision.");
+      throw failure(serverMessages.memory.invalidRevision);
     const row = this.db
       .prepare(
         `${selection} WHERE e.project_id=? AND e.id=? AND r.revision=${revision === undefined ? "e.revision" : "?"}`,
       )
       .get(projectId, id, ...(revision === undefined ? [] : [revision]));
-    if (!row) throw failure("Memory entry not found.", 404);
+    if (!row) throw failure(serverMessages.memory.entryNotFound, 404);
     return entry(row);
   }
   revisions(projectId, id, { page = 1 } = {}) {
@@ -157,15 +159,15 @@ export class ProjectMemory {
   write(projectId, input, provenance = { kind: "user" }) {
     record(input);
     this.project(projectId);
-    const title = textValue(input.title, "title", 200).trim(),
-      content = textValue(input.content, "content", 32768),
+    const title = textValue(input.title, serverMessages.memory.invalidTitle, 200).trim(),
+      content = textValue(input.content, serverMessages.memory.invalidContent, 32768),
       author = source(provenance);
     const id = input.id === undefined ? null : identifier(input.id);
     const expected = input.expectedRevision;
     if (id && (!Number.isSafeInteger(expected) || expected < 1))
-      throw failure("An expected revision is required.");
+      throw failure(serverMessages.memory.expectedRevisionRequired);
     if (!id && expected !== undefined)
-      throw failure("New memory entries cannot have an expected revision.");
+      throw failure(serverMessages.memory.newEntryRevision);
     const requestId = input.requestId === undefined ? null : identifier(input.requestId);
     const hash = createHash("sha256")
       .update(JSON.stringify({ id, title, content, expected }))
@@ -180,13 +182,13 @@ export class ProjectMemory {
           .get(projectId, actor, requestId);
         if (prior) {
           if (prior.hash !== hash)
-            throw failure("Memory request identifier was already used.", 409);
+            throw failure(serverMessages.memory.requestIdUsed, 409);
           return this.read(projectId, prior.entry_id, { revision: prior.revision });
         }
       }
       const current = id ? this.read(projectId, id) : null;
       if (current && (current.revision !== expected || current.archived))
-        throw failure("Memory changed. Reload before saving.", 409);
+        throw failure(serverMessages.memory.changed, 409);
       const entryId = id || randomUUID(),
         revision = (current?.revision || 0) + 1;
       if (!id)
@@ -223,12 +225,12 @@ export class ProjectMemory {
       expectedRevision < 1 ||
       typeof archived !== "boolean"
     )
-      throw failure("An expected revision and valid archive state are required.");
+      throw failure(serverMessages.memory.archiveStateRequired);
     const author = source(provenance);
     return transaction(this.db, () => {
       const current = this.read(projectId, id);
       if (current.revision !== expectedRevision)
-        throw failure("Memory changed. Reload before saving.", 409);
+        throw failure(serverMessages.memory.changed, 409);
       const revision = current.revision + 1;
       this.db
         .prepare("INSERT INTO revisions VALUES (?,?,?,?,?,?,?)")

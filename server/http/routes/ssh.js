@@ -1,3 +1,4 @@
+import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import { Router } from "express";
@@ -23,7 +24,7 @@ export function sshRoutes({
       !req.body ||
       Object.keys(req.body).some((key) => !["fromProjectId", "toProjectId"].includes(key))
     )
-      throw Object.assign(problem("Invalid SSH project reassignment."), {
+      throw Object.assign(problem(serverMessages.ssh.invalidProjectReassignment), {
         code: "SSH_INVALID_ARGUMENT",
       });
     try {
@@ -37,7 +38,8 @@ export function sshRoutes({
         : [];
       res.status(409).json({
         code: "SSH_PROJECT_COLLISION",
-        error: "The target project already contains a matching key or host.",
+        error: serverMessages.ssh.projectCollision,
+        ...messageIdentity(serverMessages.ssh.projectCollision),
         details: { resourceIds, truncated: error.details?.truncated === true },
       });
     }
@@ -51,10 +53,14 @@ export function sshRoutes({
     standardHeaders: "draft-8",
     legacyHeaders: false,
     handler: (_req, res) =>
-      res.status(429).set("Cache-Control", "no-store").json({
-        code: "SSH_DOWNLOAD_RATE_LIMITED",
-        error: "Too many private key downloads. Try again in a minute.",
-      }),
+      res
+        .status(429)
+        .set("Cache-Control", "no-store")
+        .json({
+          code: "SSH_DOWNLOAD_RATE_LIMITED",
+          error: serverMessages.ssh.downloadRateLimited,
+          ...messageIdentity(serverMessages.ssh.downloadRateLimited),
+        }),
   });
   router.post("/ssh-keys/:id/download", downloadLimit, (req, res) => {
     const file = sshAccesses.keyStore.openPrivate(req.params.id);
@@ -64,7 +70,7 @@ export function sshRoutes({
       while (offset < bytes.length) {
         const count = fs.readSync(file.fd, bytes, offset, bytes.length - offset, offset);
         if (!count)
-          throw Object.assign(problem("SSH key download failed.", 409), {
+          throw Object.assign(problem(serverMessages.ssh.downloadFailed, 409), {
             code: "SSH_DOWNLOAD_FAILED",
           });
         offset += count;

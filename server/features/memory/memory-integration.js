@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { prepareMemoryDiscovery } from "./memory-discovery.js";
 import { MemoryBroker } from "./memory-broker.js";
@@ -34,7 +35,7 @@ export class MemoryIntegration {
       !["codex", "claude", "opencode"].includes(selected.tool) ||
       selected.tool !== account.tool
     )
-      throw failure("Unsupported memory account.");
+      throw failure(serverMessages.memory.unsupportedAccount);
     const args = [...(launch.args || [])],
       env = { ...launch.env };
     await this.ready;
@@ -44,10 +45,10 @@ export class MemoryIntegration {
         config = record(JSON.parse(env.OPENCODE_CONFIG_CONTENT || "{}"));
         if (config.mcp !== undefined) record(config.mcp);
       } catch {
-        throw failure("Invalid temporary OpenCode configuration.", 409);
+        throw failure(serverMessages.common.invalidTemporaryOpenCodeConfig, 409);
       }
       if (Object.hasOwn(config.mcp || {}, "agentpier_memory"))
-        throw failure("Reserved memory MCP name is already configured.", 409);
+        throw failure(serverMessages.memory.reservedMcpName, 409);
     }
     if (
       args.some(
@@ -55,7 +56,7 @@ export class MemoryIntegration {
           typeof arg === "string" && arg.startsWith("mcp_servers.agentpier_memory="),
       )
     )
-      throw failure("Reserved memory MCP name is already configured.", 409);
+      throw failure(serverMessages.memory.reservedMcpName, 409);
     const project = await this.memory.register(cwd);
     const folder = issueCapability(this.memory, {
       id,
