@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -15,7 +16,7 @@ export function openDatabase(dataDir) {
         stat.isSymbolicLink() ||
         (process.getuid && stat.uid !== process.getuid())
       )
-        throw failure("Unsafe memory storage.", 409);
+        throw failure(serverMessages.memory.unsafeStorage, 409);
       fs.chmodSync(target, 0o600);
     } catch (error) {
       if (error.code !== "ENOENT") throw error;

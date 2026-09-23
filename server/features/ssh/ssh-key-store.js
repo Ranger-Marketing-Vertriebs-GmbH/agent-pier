@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
@@ -45,7 +46,7 @@ export class SshKeyStore {
   }
   assertWriter() {
     if (!this.catalog && fs.existsSync(path.join(this.root, "catalog.json")))
-      throw problem("SSH catalog requires its management service.", 503);
+      throw problem(serverMessages.ssh.managementRequired, 503);
   }
   save(rows) {
     this.assertWriter();
@@ -54,7 +55,7 @@ export class SshKeyStore {
   }
   identityDirectory(id) {
     if (typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id))
-      throw problem("SSH key not found.", 404);
+      throw problem(serverMessages.ssh.keyNotFound, 404);
     return path.join(this.directory, id);
   }
   project({ id, name, publicKey, fingerprint, createdAt, projectId = null }) {
@@ -77,7 +78,7 @@ export class SshKeyStore {
   get(id) {
     this.identityDirectory(id);
     const key = this.list().find((key) => key.id === id);
-    if (!key) throw problem("SSH key not found.", 404);
+    if (!key) throw problem(serverMessages.ssh.keyNotFound, 404);
     return key;
   }
   async create(input = {}) {
@@ -118,7 +119,7 @@ export class SshKeyStore {
     } catch (error) {
       fs.rmSync(directory, { recursive: true, force: true });
       if (error.status) throw error;
-      throw problem("SSH key could not be saved.");
+      throw problem(serverMessages.ssh.keySaveFailed);
     }
   }
   publish(prepared) {
@@ -129,7 +130,7 @@ export class SshKeyStore {
   publishKey(prepared) {
     const state = preparations.get(prepared);
     if (!state || state.owner !== this || state.published)
-      throw problem("Invalid SSH key preparation.", 409);
+      throw problem(serverMessages.ssh.invalidKeyPreparation, 409);
     const { key, directory } = state;
     const finalDirectory = this.identityDirectory(key.id);
     fs.renameSync(directory, finalDirectory);
@@ -165,7 +166,7 @@ export class SshKeyStore {
   }
   removeKey(id) {
     const key = this.get(id);
-    if (key.hosts.length) throw problem("SSH key is still used by a host.", 409);
+    if (key.hosts.length) throw problem(serverMessages.ssh.keyInUse, 409);
     const stored = this.raw().find((key) => key.id === id);
     this.save(this.raw().filter((key) => key.id !== id));
     if (this.catalog) {
@@ -189,7 +190,7 @@ export class SshKeyStore {
       fs.realpathSync(directory) !==
       path.join(fs.realpathSync(this.root), "identities", id)
     )
-      throw problem("Invalid SSH identity.", 409);
+      throw problem(serverMessages.ssh.invalidIdentity, 409);
     const fd = fs.openSync(
       file,
       fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK,
@@ -204,7 +205,7 @@ export class SshKeyStore {
         stat.ino !== current.ino ||
         stat.dev !== current.dev
       )
-        throw problem("Invalid SSH identity.", 409);
+        throw problem(serverMessages.ssh.invalidIdentity, 409);
       return { fd, size: stat.size, filename: `ssh-key-${id}.key` };
     } catch (error) {
       fs.closeSync(fd);

@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,7 +17,7 @@ const script = fileURLToPath(new URL("./ssh-hook.js", import.meta.url));
 // Called with the launch's private args/env copies and the existing Claude plugin folder.
 export function prepareSshDiscovery({ tool, folder, args, env }) {
   const invalid = () =>
-    Object.assign(failure("SSH discovery hooks could not be configured.", 409), {
+    Object.assign(failure(serverMessages.ssh.discoveryFailed, 409), {
       code: "SSH_DISCOVERY_CONFIG",
     });
   if (tool === "opencode") {

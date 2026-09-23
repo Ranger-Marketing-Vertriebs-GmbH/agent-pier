@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { execFile } from "node:child_process";
@@ -21,12 +22,12 @@ export function validateFields(input, allowed) {
     Array.isArray(input) ||
     Object.keys(input).some((key) => !allowed.includes(key))
   )
-    throw problem("Invalid SSH access fields.");
+    throw problem(serverMessages.ssh.invalidAccessFields);
 }
 
 export function endpoint(input) {
   if (!input || typeof input !== "object" || Array.isArray(input))
-    throw problem("Invalid SSH host or port.");
+    throw problem(serverMessages.ssh.invalidEndpoint);
   const { host, username } = input;
   const port = input.port === undefined ? 22 : Number(input.port);
   if (
@@ -47,24 +48,24 @@ export function endpoint(input) {
     port < 1 ||
     port > 65535
   )
-    throw problem("Invalid SSH host or port.");
+    throw problem(serverMessages.ssh.invalidEndpoint);
   if (
     username !== undefined &&
     (typeof username !== "string" || !/^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,63}$/.test(username))
   )
-    throw problem("Invalid SSH username.");
+    throw problem(serverMessages.ssh.invalidUsername);
   return { host, port, ...(username === undefined ? {} : { username }) };
 }
 
 export function publicKeyValue(value) {
   if (typeof value !== "string" || value.length > 16384 || /[\x00-\x1f\x7f]/.test(value))
-    throw problem("Invalid SSH public key.");
+    throw problem(serverMessages.ssh.invalidPublicKey);
   const parts = value.trim().split(/ +/);
   if (
     !/^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(?:256|384|521))$/.test(parts[0]) ||
     !/^[a-zA-Z0-9+/]+={0,2}$/.test(parts[1] || "")
   )
-    throw problem("Invalid SSH public key.");
+    throw problem(serverMessages.ssh.invalidPublicKey);
   return `${parts[0]} ${parts[1]}`;
 }
 
@@ -81,7 +82,7 @@ export async function fingerprint(publicKey, directory, run = runOpenSsh) {
     if (!result) throw new Error();
     return result;
   } catch {
-    throw problem("Invalid SSH public key.");
+    throw problem(serverMessages.ssh.invalidPublicKey);
   } finally {
     fs.rmSync(file, { force: true });
   }
@@ -120,8 +121,6 @@ export async function prepareIdentity(directory, privateKey, run = runOpenSsh) {
     fs.chmodSync(`${file}.pub`, 0o600);
     return { publicKey, fingerprint: await fingerprint(publicKey, directory, run) };
   } catch {
-    throw problem(
-      "SSH key could not be prepared. Import an unencrypted private key or generate a new key.",
-    );
+    throw problem(serverMessages.ssh.keyPreparationFailed);
   }
 }

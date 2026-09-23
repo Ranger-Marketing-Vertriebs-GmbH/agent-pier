@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { createAccessStore } from "./access-store.js";
@@ -70,9 +71,9 @@ export function createMcpAccess({
   const pending = (id) => {
     const record =
       typeof id === "string" && id.length === 43 ? store.get("pending", id) : null;
-    if (!record) throw problem("Authorization request not found.", 404);
+    if (!record) throw problem(serverMessages.mcp.authorizationNotFound, 404);
     if (!origin || record.resource !== resource || record.expiresAt <= now())
-      throw problem("Authorization request expired.", 410);
+      throw problem(serverMessages.mcp.authorizationExpired, 410);
     return record;
   };
   const callback = (record, values) => {
@@ -125,7 +126,7 @@ export function createMcpAccess({
         scopes.length > MCP_SCOPES.length ||
         scopes.some((scope) => !record.scopes.includes(scope))
       )
-        throw problem("Select only requested scopes.", 400);
+        throw problem(serverMessages.mcp.onlyRequestedScopes, 400);
       const allowlists = {};
       for (const [key, kind] of [
         ["projectIds", "projects"],
@@ -143,7 +144,7 @@ export function createMcpAccess({
               !choices[kind].some((item) => item.id === id),
           )
         )
-          throw problem("Select only available resources.", 400);
+          throw problem(serverMessages.mcp.onlyAvailableResources, 400);
         allowlists[key] = [...new Set(values)];
       }
       const grantId = randomUUID();
@@ -183,7 +184,7 @@ export function createMcpAccess({
       return callback(record, { error: "access_denied" });
     },
     revoke(id) {
-      if (!store.get("grant", id)) throw problem("Grant not found.", 404);
+      if (!store.get("grant", id)) throw problem(serverMessages.mcp.grantNotFound, 404);
       provider.revoke(id, "owner");
       return { revoked: true };
     },

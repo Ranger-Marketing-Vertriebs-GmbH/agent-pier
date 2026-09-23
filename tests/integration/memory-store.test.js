@@ -5,6 +5,7 @@ import path from "node:path";
 import os from "node:os";
 import { execFileSync } from "node:child_process";
 import { ProjectMemory } from "../../server/features/memory/project-memory.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 function fixture(t) {
   const root = fs.realpathSync(
@@ -159,7 +160,7 @@ test("memory rejects symlink storage before reading or changing unrelated files"
   f.store.close();
   fs.renameSync(path.join(f.dataDir, "memory"), path.join(f.root, "outside"));
   fs.symlinkSync(path.join(f.root, "outside"), path.join(f.dataDir, "memory"));
-  assert.throws(() => f.open(), /storage/i);
+  assert.throws(() => f.open(), { message: serverMessages.memory.unsafeStorage });
   assert.equal(
     fs.statSync(path.join(f.root, "outside", "memory.sqlite")).mode & 0o777,
     0o600,
@@ -182,6 +183,6 @@ test("hard-linked database files are refused before permissions or contents are 
   const outside = path.join(f.root, "linked.sqlite");
   fs.linkSync(file, outside);
   fs.chmodSync(outside, 0o640);
-  assert.throws(() => f.open(), /storage/i);
+  assert.throws(() => f.open(), { message: serverMessages.memory.unsafeStorage });
   assert.equal(fs.statSync(outside).mode & 0o777, 0o640);
 });

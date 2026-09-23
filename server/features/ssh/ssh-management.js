@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import os from "node:os";
 import { LocalRpcBroker } from "../../lib/local-rpc-broker.js";
@@ -39,8 +40,7 @@ const allowed = {
   ],
   ssh_test_host: ["accessId"],
 };
-const busy = () =>
-  sshProblem("SSH_BUSY", "SSH management is busy; retry with the same request ID.", 429);
+const busy = () => sshProblem("SSH_BUSY", serverMessages.ssh.managementBusy, 429);
 
 export class SshManagement {
   constructor({ dataDir, home = os.homedir(), barrier, audit, projectRegistry } = {}) {
@@ -105,12 +105,12 @@ export class SshManagement {
   }
   async context(capability, signal) {
     if (signal?.aborted || this.closing)
-      throw sshProblem("SSH_UNAVAILABLE", "SSH request was interrupted.", 503);
+      throw sshProblem("SSH_UNAVAILABLE", serverMessages.ssh.requestInterrupted, 503);
     const session = authorizeSsh(this.dataDir, capability);
     const project = await validateSshProjectBinding(session.sshTools?.project);
     authorizeSsh(this.dataDir, capability);
     if (signal?.aborted || this.closing)
-      throw sshProblem("SSH_UNAVAILABLE", "SSH request was interrupted.", 503);
+      throw sshProblem("SSH_UNAVAILABLE", serverMessages.ssh.requestInterrupted, 503);
     return { session, project };
   }
   rememberProject(project) {
@@ -146,7 +146,7 @@ export class SshManagement {
   }
   assertOpen() {
     if (this.closing)
-      throw sshProblem("SSH_UNAVAILABLE", "SSH request was interrupted.", 503);
+      throw sshProblem("SSH_UNAVAILABLE", serverMessages.ssh.requestInterrupted, 503);
   }
   mutation(callback) {
     const run = () =>
@@ -348,7 +348,7 @@ export class SshManagement {
       this.catalog.beforeCommit(() => {
         const session = authorizeSsh(this.dataDir, capability);
         if (signal?.aborted)
-          throw sshProblem("SSH_UNAVAILABLE", "SSH request was interrupted.", 503);
+          throw sshProblem("SSH_UNAVAILABLE", serverMessages.ssh.requestInterrupted, 503);
         trustedHostNow(this.store, this.grants, session, input, projectId);
       });
       this.rememberProject(context.project);
@@ -375,7 +375,11 @@ export class SshManagement {
     if (id === undefined || id === null) return null;
     const project = (await this.projects()).projects.find((row) => row.id === id);
     if (!project)
-      throw sshProblem("SSH_PROJECT_UNAVAILABLE", "SSH project is unavailable.", 404);
+      throw sshProblem(
+        "SSH_PROJECT_UNAVAILABLE",
+        serverMessages.ssh.projectUnavailable,
+        404,
+      );
     const saved = this.catalog.read().projects.find((row) => row.id === id);
     const registered = this.projectRegistry
       ?.projects()
@@ -406,10 +410,10 @@ export class SshManagement {
       changed = true;
     }
     if (changed)
-      throw sshProblem("SSH_PROJECT_CHANGED", "SSH project identity changed.", 409);
+      throw sshProblem("SSH_PROJECT_CHANGED", serverMessages.ssh.projectChanged, 409);
     throw sshProblem(
       "SSH_PROJECT_UNAVAILABLE",
-      "SSH project directory is unavailable.",
+      serverMessages.ssh.projectDirectoryUnavailable,
       409,
     );
   }
@@ -455,7 +459,10 @@ export class SshManagement {
         case "reassign": {
           const target = await this.project(input.toProjectId);
           if (!target)
-            throw sshProblem("SSH_INVALID_ARGUMENT", "A target project is required.");
+            throw sshProblem(
+              "SSH_INVALID_ARGUMENT",
+              serverMessages.ssh.targetProjectRequired,
+            );
           return moveProject(this.catalog, input.fromProjectId, target);
         }
         default:

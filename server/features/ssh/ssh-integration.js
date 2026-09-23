@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { pidStart } from "../../../vendor/agentbus/core/proc.js";
 import { fileURLToPath } from "node:url";
@@ -42,7 +43,7 @@ export class SshIntegration {
     }
     const selected = this.accounts ? this.accounts.get(account.id) : account;
     if (!supported(selected) || selected.tool !== account.tool)
-      throw problem("Unsupported SSH tool account.");
+      throw problem(serverMessages.ssh.unsupportedAccount);
     const args = [...(launch.args || [])],
       env = { ...launch.env };
     let config;
@@ -58,17 +59,17 @@ export class SshIntegration {
         )
           throw Error();
       } catch {
-        throw problem("Invalid temporary OpenCode configuration.", 409);
+        throw problem(serverMessages.common.invalidTemporaryOpenCodeConfig, 409);
       }
       if (Object.hasOwn(config.mcp || {}, "agentpier_ssh"))
-        throw problem("Reserved SSH MCP name already configured.", 409);
+        throw problem(serverMessages.ssh.reservedMcpName, 409);
     }
     if (
       args.some(
         (arg) => typeof arg === "string" && arg.startsWith("mcp_servers.agentpier_ssh="),
       )
     )
-      throw problem("Reserved SSH MCP name already configured.", 409);
+      throw problem(serverMessages.ssh.reservedMcpName, 409);
     const project = await createSshProjectBinding(cwd);
     await this.onProject?.(project);
     // Every host this session may reach: the ids assigned to it explicitly, plus
