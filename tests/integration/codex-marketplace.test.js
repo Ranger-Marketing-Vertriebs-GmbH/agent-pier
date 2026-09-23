@@ -82,7 +82,7 @@ test("Codex exposes implicit default marketplace and explicitly scoped native ca
     {
       name: remote,
       builtin: true,
-      source: "Nativer Codex-Standardkatalog des ausgewählten Kontos",
+      source: "Nativer Codex-Standardkatalog des ausgewählten Accounts",
       removable: false,
       updatable: false,
     },

@@ -40,9 +40,9 @@ export const pluginsPageCopy = {
 export const profilePluginsCopy = {
   catalogReasons: {
     empty:
-      "Für dieses Konto sind keine Standard-Plugins verfügbar. Ein bei Codex angemeldetes Konto auswählen und erneut laden.",
+      "Für diesen Account sind keine Standard-Plugins verfügbar. Einen bei Codex angemeldeten Account auswählen und erneut laden.",
     unavailable:
-      "Der Standardkatalog des ausgewählten Kontos konnte nicht geladen werden. Lokale Plugins bleiben verfügbar.",
+      "Der Standardkatalog des ausgewählten Accounts konnte nicht geladen werden. Lokale Plugins bleiben verfügbar.",
   },
   notes: {
     restartRequired:
@@ -54,9 +54,9 @@ export const profilePluginsCopy = {
     openCodeConfiguration:
       "OpenCode verwendet npm-Pakete und lokale Plugins, keine verwalteten Marketplaces. Server- und TUI-Konfiguration werden berücksichtigt. Änderungen werden in neuen CLI-Sitzungen geladen.",
   },
-  catalogAccount: "Marketplace-Konto",
+  catalogAccount: "Marketplace-Account",
   catalogAccountDescription:
-    "Wähle ein bei Codex angemeldetes Konto. Plugins aus dem Standard-Marketplace werden für dieses Konto installiert.",
+    "Wähle einen bei Codex angemeldeten Account. Plugins aus dem Standard-Marketplace werden für diesen Account installiert.",
   pluginsLoading: "Plugins und Marketplaces werden geladen …",
   extensionNotice: "CLI führt die Änderung aus …",
   confirmPluginRemoval: (value1) => `Plugin „${value1}“ aus diesem Profil entfernen?`,

@@ -88,7 +88,7 @@ for (const mobile of [false, true])
     const cli = page.getByRole("combobox", { name: "CLI", exact: true });
     await expect(cli.locator("option")).toHaveCount(2);
     await page
-      .getByRole("button", { name: "Vorhandene Kontokonfigurationen übernehmen" })
+      .getByRole("button", { name: "Vorhandene Account-Konfigurationen übernehmen" })
       .click();
     await expect(
       page.getByText("Vorhandene Erweiterungen wurden zusammengeführt."),
