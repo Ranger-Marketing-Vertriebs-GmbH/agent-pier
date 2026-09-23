@@ -127,6 +127,24 @@ test("the colorless queued placeholder needs Claude's empty-prompt footer", () =
     claude: "draft",
   });
   const { raw, pane } = frames.busyNoColor80.queue;
+  const withFooter = (footer) => {
+    const rows = raw.split("\n");
+    rows[pane.cursorY + 2] = footer;
+    return read({ raw: rows.join("\n"), pane }).claude;
+  };
+  // A right-aligned notice after the hint in the same row keeps it readable.
+  for (const footer of [
+    "  ⏸ manual mode on · esc to interrupt            ◯ IDE connected",
+    "  ⏸ manual mode on · ? for shortcuts   ◯ IDE connected",
+  ])
+    assert.equal(withFooter(footer), "empty", footer);
+  // A longer segment that merely contains a hint does not count.
+  for (const footer of [
+    "  ⏸ manual mode on · press ? for shortcuts later",
+    "  ⏸ manual mode on · not esc to interrupt",
+    "  ⏸ manual mode on            ◯ esc to interrupting",
+  ])
+    assert.notEqual(withFooter(footer), "empty", footer);
   for (const footer of ["  ⏸ manual mode on", "  ⏸ manual mode on · esc to…", ""]) {
     const rows = raw.split("\n");
     rows[pane.cursorY + 2] = footer;

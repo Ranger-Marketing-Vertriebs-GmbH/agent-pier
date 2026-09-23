@@ -24,11 +24,14 @@ export function colorlessScreen(text) {
   return !/\x1b\[(?!0?m|7m)[0-9;:]*m/.test(text || "");
 }
 
-/** The footer below the prompt box shows a hint that only an empty prompt has. */
+/**
+ * The footer below the prompt box shows a hint that only an empty prompt has.
+ * Hints are joined by " · "; a right-aligned notice may follow after a gap.
+ */
 function emptyPromptFooter(footer) {
   return plain(footer)
-    .trim()
-    .split(" · ")
+    .split(/\s·\s|\s{2,}/)
+    .map((hint) => hint.trim())
     .some(
       (hint) =>
         emptyPromptHints.includes(hint) ||
