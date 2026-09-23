@@ -466,7 +466,10 @@ export class SshManagement {
           return moveProject(this.catalog, input.fromProjectId, target);
         }
         default:
-          throw sshProblem("SSH_INVALID_ARGUMENT", "Unknown SSH management action.");
+          throw sshProblem(
+            "SSH_INVALID_ARGUMENT",
+            serverMessages.ssh.unknownManagementAction,
+          );
       }
     });
   }

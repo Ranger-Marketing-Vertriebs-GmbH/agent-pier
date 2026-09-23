@@ -62,6 +62,46 @@ const untranslated = new Map(
       "SSH assignment or capability revoked.",
       "SSH command could not start.",
     ],
+    // SSH management tools: only the session's ssh helper calls perform() and respond().
+    "server/features/ssh/ssh-management.js": [
+      "Invalid SSH request.",
+      "Unknown SSH management tool.",
+      "Invalid SSH tool arguments.",
+      "Invalid SSH key page.",
+      "SSH host is not assigned.",
+      "SSH connection test failed.",
+      "SSH key is invalid or encrypted.",
+      "The saved endpoint uses a different key or host pin. Change it in the UI.",
+    ],
+    "server/features/ssh/ssh-management-client.js": [
+      "SSH management unavailable. Retry with the same request ID after reconnecting.",
+      "SSH request is too large.",
+    ],
+    "server/features/ssh/ssh-management-records.js": [
+      "SSH key is not owned by this project.",
+      "An independently verified host identity is required.",
+      "Bootstrap access is not assigned to this session.",
+      "The host key does not match the assigned pinned endpoint.",
+    ],
+    "server/features/ssh/ssh-receipts.js": [
+      "A bounded request ID is required.",
+      "Request ID was already used with different arguments.",
+      "The original request resource was deleted or moved.",
+      "The original connection was changed in the UI.",
+    ],
+    "server/features/ssh/ssh-import.js": [
+      "SSH import source is unavailable or unsupported.",
+    ],
+    // Memory MCP tools and their capability check answer the coding agent only.
+    "server/features/memory/memory-tools.js": [
+      "Unknown memory tool.",
+      "Invalid memory tool arguments.",
+    ],
+    "server/features/memory/memory-capability.js": [
+      "Memory access was revoked or is unavailable.",
+    ],
+    // Constructor invariant for the configured data directory.
+    "server/features/sessions/session-manager.js": ["Invalid data directory"],
     // Internal invariant, never raised by a request.
     "server/features/ssh/ssh-catalog.js": [
       "SSH catalog mutation requires a transaction.",
@@ -81,18 +121,6 @@ const untranslated = new Map(
       "Official Node runtime license is missing.",
       "Invalid extracted Node runtime.",
     ],
-    // Storage integrity checks while services start.
-    "server/features/pipelines/run-store.js": [
-      "Unsafe pipeline storage.",
-      "Unsafe pipeline database.",
-    ],
-    "server/features/providers/provider-connections.js": [
-      "Unsafe provider connection storage.",
-      "Unsafe provider connection directory.",
-      "Invalid provider connection storage.",
-    ],
-    // Machine token; the browser maps it to its own copy.
-    "server/features/repositories/commit-identity.js": ["INVALID_COMMIT_IDENTITY"],
     // Only MCP machine tokens receive this answer.
     "server/http/security.js": ["Machine tokens are accepted only at the MCP endpoint."],
     // Stdio helper for coding agents; its usage and German hints go to the terminal.
@@ -103,7 +131,38 @@ const untranslated = new Map(
   }),
 );
 
-const literal = /\bproblem\(\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/g;
+// Helpers that turn a message into a status-bearing problem. Every string literal in
+// their arguments counts, including ternary branches; bare codes like SSH_BUSY do not.
+const helper = /\b(?:problem|failure|fail|bad|migrateError|cleanupError|\w+Problem)\(/g;
+const literal = /(["'`])((?:\\.|(?!\1)[^\\])*)\1/g;
+
+function argumentsOf(text, start) {
+  let depth = 1;
+  let quote = null;
+  let index = start;
+  for (; index < text.length && depth; index++) {
+    const char = text[index];
+    if (quote) {
+      if (char === "\\") index++;
+      else if (char === quote) quote = null;
+    } else if (char === '"' || char === "'" || char === "`") quote = char;
+    else if (char === "(") depth++;
+    else if (char === ")") depth--;
+  }
+  return text.slice(start, index - 1);
+}
+
+function messages(text) {
+  const found = [];
+  for (const call of text.matchAll(helper))
+    for (const match of argumentsOf(text, call.index + call[0].length).matchAll(
+      literal,
+    )) {
+      const message = match[2].replace(/\s+/g, " ");
+      if (/[a-z]/.test(message) && /\s|\.$/.test(message)) found.push(message);
+    }
+  return found;
+}
 
 async function sources(dir) {
   const files = [];
@@ -118,24 +177,20 @@ async function sources(dir) {
 
 test("browser-visible server problems use catalog messages instead of literals", async () => {
   const found = new Map();
+  const unexpected = [];
   for (const file of await sources(server)) {
-    const text = await readFile(file, "utf8");
     const relative = path.relative(root, file).split(path.sep).join("/");
-    for (const match of text.matchAll(literal)) {
-      const message = match[2].replace(/\s+/g, " ");
-      const allowed = untranslated.get(relative) ?? [];
-      assert.ok(
-        allowed.includes(message),
-        `${relative}: move "${message}" into server/lib/i18n or allowlist it`,
-      );
+    const allowed = untranslated.get(relative) ?? [];
+    for (const message of messages(await readFile(file, "utf8"))) {
+      if (!allowed.includes(message)) unexpected.push(`${relative}: ${message}`);
       found.set(relative, new Set([...(found.get(relative) ?? []), message]));
     }
   }
+  // Move these into server/lib/i18n, or allowlist text that never reaches a browser.
+  assert.deepEqual(unexpected, []);
   // Stale entries would hide a later regression at the same text.
-  for (const [file, messages] of untranslated)
-    for (const message of messages)
-      assert.ok(
-        found.get(file)?.has(message),
-        `stale allowlist entry ${file}: ${message}`,
-      );
+  const stale = [...untranslated].flatMap(([file, texts]) =>
+    texts.filter((text) => !found.get(file)?.has(text)).map((text) => `${file}: ${text}`),
+  );
+  assert.deepEqual(stale, []);
 });

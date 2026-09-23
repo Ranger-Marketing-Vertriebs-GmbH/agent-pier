@@ -45,4 +45,5 @@ export const ssh = Object.freeze({
   discoveryFailed: "SSH discovery hooks could not be configured.",
   interactiveSessionsOnly:
     "SSH access can only be assigned to running interactive sessions.",
+  unknownManagementAction: "Unknown SSH management action.",
 });
