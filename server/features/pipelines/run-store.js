@@ -17,7 +17,7 @@ export function privateRunDirectory(dir) {
     st.isSymbolicLink() ||
     (process.getuid && st.uid !== process.getuid())
   )
-    throw problem("Unsafe pipeline storage.", 409);
+    throw problem(serverMessages.pipelines.unsafeStorage, 409);
   fs.chmodSync(dir, 0o700);
   return dir;
 }
@@ -36,7 +36,7 @@ export class RunStore {
           st.nlink !== 1 ||
           (process.getuid && st.uid !== process.getuid())
         )
-          throw problem("Unsafe pipeline database.", 409);
+          throw problem(serverMessages.pipelines.unsafeDatabase, 409);
       } catch (e) {
         if (e.code !== "ENOENT") throw e;
       }

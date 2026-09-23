@@ -102,4 +102,6 @@ export const pipelines = Object.freeze({
     "Der genaue native Turn konnte nicht wiederhergestellt werden. Sein Arbeitsbereich bleibt erhalten.",
   checkpointFailed:
     "Die Änderungen der Stufe konnten nicht gesichert werden. Der Arbeitsbereich bleibt erhalten.",
+  unsafeStorage: "Unsicherer Pipeline-Speicher.",
+  unsafeDatabase: "Unsichere Pipeline-Datenbank.",
 });

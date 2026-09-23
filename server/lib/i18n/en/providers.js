@@ -38,4 +38,7 @@ export const providers = Object.freeze({
     "The managed provider config is invalid. Repair it before launching.",
   managedOpenCodeConfigInvalid:
     "The managed OpenCode config is invalid. Repair it before launching.",
+  unsafeConnectionStorage: "Unsafe provider connection storage.",
+  unsafeConnectionDirectory: "Unsafe provider connection directory.",
+  invalidConnectionStorage: "Invalid provider connection storage.",
 });
