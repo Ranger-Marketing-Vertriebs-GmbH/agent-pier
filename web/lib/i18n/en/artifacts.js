@@ -32,7 +32,7 @@ export const artifactCopy = {
     ARTIFACT_INVALID_SOURCE:
       "Choose an HTML file, image or output folder inside the session workspace. Links and special files cannot be published.",
     ARTIFACT_LIMIT_EXCEEDED:
-      "Artifact storage or publication limits have been reached. Delete unused artifacts or reduce the bundle.",
+      "Artifact storage or publication limits have been reached. Delete unused artifacts or make the files smaller.",
     ARTIFACT_STORAGE_FULL: "Not enough storage for this artifact.",
     ARTIFACT_SOURCE_CHANGED:
       "Source files changed during publication. Publish again with a new request ID.",
