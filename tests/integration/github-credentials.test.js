@@ -386,8 +386,7 @@ test("corrupt or missing selection metadata disables existing session copies ins
   await credentials.sync();
   for (const prepared of [first, second, third]) {
     assert.equal(
-      JSON.parse(fs.readFileSync(path.join(prepared.env.GH_CONFIG_DIR, "config.yml")))
-        .version,
+      JSON.parse(fs.readFileSync(path.join(prepared.env.GH_CONFIG_DIR, "config.yml"))),
       "agentpier-disabled",
     );
     const text = fs.readFileSync(
@@ -401,6 +400,12 @@ test("corrupt or missing selection metadata disables existing session copies ins
     );
     assert.equal(gitCredential("protocol=https\nhost=github.com\n\n", prepared.env), "");
   }
+  // The disabled config must make native gh refuse on its own, even if a revoked
+  // token were still cached because removing it failed after the config was written.
+  fs.writeFileSync(
+    path.join(first.env.GH_CONFIG_DIR, "hosts.yml"),
+    JSON.stringify({ "github.com": { oauth_token: "to-revoke" } }),
+  );
   const gh = spawnSync("gh", ["auth", "token", "--hostname", "github.com"], {
     env: {
       ...first.env,
@@ -413,8 +418,9 @@ test("corrupt or missing selection metadata disables existing session copies ins
     timeout: 3000,
   });
   if (!gh.error) {
-    assert.notEqual(gh.status, 0);
+    assert.equal(gh.stdout.includes("to-revoke"), false);
+    assert.notEqual(gh.status, 0, gh.stderr);
     assert.equal(gh.stdout, "");
-    assert.match(gh.stderr, /migrat|version/i);
+    assert.match(gh.stderr, /invalid config file/i);
   }
 });
