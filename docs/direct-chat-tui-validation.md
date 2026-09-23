@@ -498,11 +498,14 @@ placeholder or prompt suggestion. Such a row counts as empty only while the
 footer below the prompt shows `esc to interrupt` or `? for shortcuts`, which
 Claude 2.1.280 renders for an empty prompt alone (a right-aligned notice may
 follow after a gap). Otherwise, for example in panes narrower than about 34
-columns that cut the hint to `…`, the row is a placeholder-shaped draft: chat
+columns that cut the hint to `…` or in vim INSERT mode, whose footer lacks
+`? for shortcuts` as well, the row is a placeholder-shaped draft: chat
 input sends the usual clearing keys, and a row that does not react to them (a
 draft's cursor moves on ctrl+e) is treated as an empty prompt, so the message is
-neither refused nor appended. Such a row never proves a paste, but after Enter
-it confirms the submit. A typed `Press up to edit queued messages` is therefore
+neither refused nor appended. The inert result is remembered, so the check right
+before the paste does not repeat the clearing round while the prompt stays
+unchanged. Such a row never proves a paste, but after Enter it confirms the
+submit. A typed `Press up to edit queued messages` is therefore
 never taken for an empty prompt and is replaced like any draft. Live validation
 on 2026-09-23 covered `NO_COLOR` and `FORCE_COLOR=0` with both cursor modes at
 80×24 and 24×20, a queued placeholder, a typed placeholder text and a prompt
