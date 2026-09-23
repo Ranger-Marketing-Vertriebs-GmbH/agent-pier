@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { publicProviderConfiguration } from "../../server/features/sessions/provider-configuration.js";
 import { ModelController } from "../../server/features/models/model-controller.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 test("session provider metadata excludes credentials and arbitrary catalog fields", () => {
   assert.deepEqual(
@@ -41,7 +42,9 @@ for (const operation of ["open", "select", "search"])
     const controller = new ModelController({ sessions });
     await assert.rejects(
       controller[operation]("test", {}),
-      (error) => error.status === 409 && /new session/.test(error.message),
+      (error) =>
+        error.status === 409 &&
+        error.message === serverMessages.models.providerContextAtStartup,
     );
     assert.deepEqual(commands, []);
   });

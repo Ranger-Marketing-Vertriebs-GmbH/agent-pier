@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 const resources = new Set([
   "artifact",
@@ -56,26 +57,27 @@ const verbs = new Set([
 ]);
 export function auditId(value) {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(value))
-    throw problem("Invalid audit identifier.");
+    throw problem(serverMessages.audit.invalidIdentifier);
   return value;
 }
 export function auditAction(value) {
   if (value === "ssh.key.exported") return value;
-  if (typeof value !== "string") throw problem("Invalid audit action.");
+  if (typeof value !== "string") throw problem(serverMessages.audit.invalidAction);
   const [resource, verb, ...rest] = value.split(".");
   if (!resources.has(resource) || !verbs.has(verb) || rest.length)
-    throw problem("Invalid audit action.");
+    throw problem(serverMessages.audit.invalidAction);
   return value;
 }
 export function auditEvent(input) {
-  if (!input || typeof input !== "object") throw problem("Invalid audit event.");
+  if (!input || typeof input !== "object")
+    throw problem(serverMessages.audit.invalidEvent);
   const action = auditAction(input.action);
   if (
     !resources.has(input.resourceType) ||
     !["user", "system", "mcp"].includes(input.source) ||
     !["success", "failure"].includes(input.outcome)
   )
-    throw problem("Invalid audit event metadata.");
+    throw problem(serverMessages.audit.invalidEventMetadata);
   const event = {
     action,
     resourceType: input.resourceType,
@@ -107,6 +109,11 @@ export function auditEvent(input) {
     event.details.version = details.version;
   return event;
 }
+const invalidInteger = {
+  identifier: serverMessages.audit.invalidIdentifier,
+  page: serverMessages.audit.invalidPage,
+  boundary: serverMessages.audit.invalidBoundary,
+};
 export function auditInteger(
   value,
   name,
@@ -116,9 +123,9 @@ export function auditInteger(
     !["string", "number"].includes(typeof value) ||
     (typeof value === "string" && !/^\d+$/.test(value))
   )
-    throw problem(`Invalid audit ${name}.`);
+    throw problem(invalidInteger[name]);
   const number = Number(value);
   if (!Number.isSafeInteger(number) || number < min || number > max)
-    throw problem(`Invalid audit ${name}.`);
+    throw problem(invalidInteger[name]);
   return number;
 }

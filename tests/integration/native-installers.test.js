@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { ToolInstaller } from "../../server/features/tools/tool-installer.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import {
   detectTools,
   detectUtilities,
@@ -134,7 +135,7 @@ test("native script download follows only the documented vendor bootstrap redire
         }),
       new AbortController().signal,
     ),
-    /redirect/,
+    { message: serverMessages.tools.nativeRedirectNotOfficial },
   );
 });
 

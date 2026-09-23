@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import api from "../../lib/api.js";
+import { serverMessagesReady, serverText } from "../../lib/server-messages.js";
 import { browserUuid } from "../../lib/browser-uuid.js";
 import useResource from "../../lib/useResource.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
@@ -117,7 +118,10 @@ export default function useNotifications() {
     action.run(async () => {
       setMessage("");
       const result = await api("/notifications/test", "POST", { subscriptionId: own.id });
-      if (!result.sent) throw new Error(result.error || copy.testFailed);
+      if (!result.sent) {
+        await serverMessagesReady();
+        throw new Error(serverText(result.error) || copy.testFailed);
+      }
       setMessage(copy.sent);
     });
   return {

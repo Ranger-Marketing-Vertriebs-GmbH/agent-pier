@@ -13,4 +13,6 @@ export const models = Object.freeze({
   invalidSearch: "Ungültige Modellsuche.",
   completeSelectionFirst:
     "Bitte die Modellauswahl zuerst abschließen oder im Terminal prüfen.",
+  providerContextAtStartup:
+    "Dieser Provider legt den Kontext beim Start fest. Bitte das Modell in den Account-Einstellungen wählen und eine neue Sitzung starten.",
 });

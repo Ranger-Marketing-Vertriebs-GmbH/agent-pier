@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { problem, readJSON, writePrivate } from "../../lib/storage.js";
@@ -26,7 +27,7 @@ export function prepareProviderLaunch(
   if (!account.provider || account.kind !== "managed") return launch;
   const selection = validateProviderSelection(account.provider, account.tool, catalog);
   if (typeof secret?.apiKey !== "string" || !secret.apiKey.trim())
-    throw problem("Add a provider API key before starting this account.", 409);
+    throw problem(serverMessages.providers.apiKeyRequiredForAccount, 409);
   const model = catalog.get(selection.id, selection.modelId, { tool: account.tool });
   const env = providerEnvironment(account, secret, launch.env, root);
   const metadata = {
@@ -133,10 +134,7 @@ export function prepareProviderLaunch(
     try {
       current = readJSON(file, {});
     } catch {
-      throw problem(
-        "The managed OpenCode config is invalid. Repair it before launching.",
-        409,
-      );
+      throw problem(serverMessages.providers.managedOpenCodeConfigInvalid, 409);
     }
     writePrivate(file, {
       ...current,

@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 
 function supportedVersion(version) {
@@ -23,20 +24,10 @@ export function configureClaudeProvider(launch, metadata, cliVersion) {
     }
   } else {
     if (!/^\d+\.\d+\.\d+/.test(cliVersion || ""))
-      throw problem(
-        "The Claude Code version could not be verified. Retry the launch; if this persists, check that the CLI responds to --version.",
-        409,
-      );
+      throw problem(serverMessages.providers.claudeVersionUnverified, 409);
     if (!supportedVersion(cliVersion))
-      throw problem(
-        "Custom model context configuration requires Claude Code 2.1.193 or later. Update the CLI before launching this model.",
-        409,
-      );
-    if (!window)
-      throw problem(
-        "This model has no verified context limit. Refresh the catalog before launching it in Claude Code.",
-        409,
-      );
+      throw problem(serverMessages.providers.claudeVersionTooOld, 409);
+    if (!window) throw problem(serverMessages.providers.contextLimitUnverified, 409);
     env.CLAUDE_CODE_MAX_CONTEXT_TOKENS = String(window);
     assumedContextTokens = window;
   }

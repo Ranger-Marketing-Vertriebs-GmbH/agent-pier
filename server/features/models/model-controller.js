@@ -47,10 +47,7 @@ export class ModelController {
   }
   assertModelChangeAllowed(session) {
     if (session.provider?.modelChangeRequiresRestart) {
-      throw problem(
-        "This provider configures context at startup. Select the model in the account settings and start a new session.",
-        409,
-      );
+      throw problem(serverMessages.models.providerContextAtStartup, 409);
     }
   }
   read(id) {

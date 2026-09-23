@@ -39,18 +39,18 @@ export class Preferences {
   }
   accountDefaults(changes) {
     if (!changes || typeof changes !== "object" || Array.isArray(changes))
-      throw problem("Invalid default account selection.");
+      throw problem(serverMessages.settings.invalidDefaultAccounts);
     const next = { ...this.get().defaultAccountIds };
     for (const [tool, id] of Object.entries(changes)) {
       if (!["codex", "claude", "opencode"].includes(tool))
-        throw problem("Default accounts require a coding CLI.");
+        throw problem(serverMessages.settings.defaultAccountRequiresCodingCli);
       if (id === null) {
         delete next[tool];
         continue;
       }
       const account = this.accounts?.list().find((account) => account.id === id);
       if (!account || !this.eligible(account, tool))
-        throw problem("Choose an existing native account for the selected CLI.");
+        throw problem(serverMessages.settings.nativeDefaultAccountRequired);
       next[tool] = id;
     }
     return next;

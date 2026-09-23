@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { problem } from "../../lib/storage.js";
@@ -54,11 +55,11 @@ export async function downloadNativeScript(tool, fetchImpl, signal) {
     const next = new URL(response.headers.get("location"), url).href;
     await response.body?.cancel();
     if (!allowed.has(next))
-      throw problem("Native installer redirect is not an official bootstrap URL.", 409);
+      throw problem(serverMessages.tools.nativeRedirectNotOfficial, 409);
     url = next;
   }
   if (!response.ok)
-    throw problem(`Native installer download failed (HTTP ${response.status}).`, 409);
+    throw problem(serverMessages.tools.nativeDownloadFailed(response.status), 409);
   const reader = response.body.getReader();
   const chunks = [];
   let bytes = 0;
@@ -68,7 +69,7 @@ export async function downloadNativeScript(tool, fetchImpl, signal) {
       if (done) break;
       bytes += value.byteLength;
       if (bytes > 2 * 1024 * 1024)
-        throw problem("Native installer exceeds its download limit.", 409);
+        throw problem(serverMessages.tools.nativeDownloadTooLarge, 409);
       chunks.push(value);
     }
   } finally {
@@ -76,7 +77,7 @@ export async function downloadNativeScript(tool, fetchImpl, signal) {
   }
   const script = Buffer.concat(chunks);
   if (!script.length || !script.subarray(0, 100).toString().startsWith("#!"))
-    throw problem("The official native installer response is not a shell script.", 409);
+    throw problem(serverMessages.tools.nativeScriptInvalid, 409);
   return script;
 }
 export async function installNative({
@@ -109,12 +110,9 @@ export async function installNative({
   const real = await fs.realpath(binary);
   const root = await fs.realpath(home);
   if (!real.startsWith(root + path.sep))
-    throw problem(
-      "The native installer did not create a binary inside the server home.",
-      409,
-    );
+    throw problem(serverMessages.tools.nativeBinaryOutsideHome, 409);
   const output = await run(binary, ["--version"], env, work, signal, 15000);
   if (!/\b\d+\.\d+(?:\.\d+)?\b/.test(output) || output.length > 512)
-    throw problem("The native CLI version check failed.", 409);
+    throw problem(serverMessages.tools.nativeVersionCheckFailed, 409);
   return output.trim().split("\n")[0];
 }

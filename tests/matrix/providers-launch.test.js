@@ -7,6 +7,7 @@ import { parse as parseToml } from "smol-toml";
 import { ProviderCatalog } from "../../server/features/providers/provider-catalog.js";
 import { prepareProviderLaunch } from "../../server/features/providers/provider-launch.js";
 import { validateProviderSelection } from "../../server/features/providers/provider-definitions.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 const catalog = new ProviderCatalog();
 function launch(t, tool, id, options = {}) {
@@ -106,7 +107,7 @@ test("Codex refuses Z.ai profiles without explicit Responses entitlement", () =>
   for (const id of ["zai", "zai-coding-plan"]) {
     assert.throws(
       () => validateProviderSelection({ id, modelId: "glm-5.3" }, "codex", catalog),
-      /Responses/,
+      { message: serverMessages.providers.zaiCodexRequiresResponses },
     );
     assert.throws(
       () =>
@@ -115,7 +116,7 @@ test("Codex refuses Z.ai profiles without explicit Responses entitlement", () =>
           "codex",
           catalog,
         ),
-      /catalog/,
+      { message: serverMessages.providers.modelNotInCatalog },
     );
   }
 });
@@ -179,7 +180,8 @@ test("unknown Claude versions request a retry instead of claiming the CLI is out
     assert.throws(
       () => launch(t, "claude", "zai", { cliVersion }),
       (error) =>
-        error.status === 409 && /could not be verified.*Retry/.test(error.message),
+        error.status === 409 &&
+        error.message === serverMessages.providers.claudeVersionUnverified,
     );
   }
 });

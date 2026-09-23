@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import webpush from "web-push";
@@ -43,17 +44,16 @@ export class NotificationService {
     };
   }
   async subscribe(input) {
-    if (this.closed) throw problem("Notifications are unavailable.", 503);
+    if (this.closed) throw problem(serverMessages.notifications.unavailable, 503);
     const deviceId = pushId(input?.deviceId),
       label = nameValue(input.label),
       subscription = pushSubscription(input.subscription);
-    if (label.length > 80)
-      throw problem("Notification device labels are limited to 80 characters.");
+    if (label.length > 80) throw problem(serverMessages.notifications.deviceLabelTooLong);
     const existing = this.db
       .prepare("SELECT id,public FROM subscriptions WHERE device_id=?")
       .get(deviceId);
     if (!existing && this.status().subscriptions.length >= 50)
-      throw problem("Remove an old notification device first.", 409);
+      throw problem(serverMessages.notifications.deviceLimit, 409);
     const summary = {
       id: existing?.id || randomUUID(),
       deviceId,
@@ -89,7 +89,7 @@ export class NotificationService {
       .prepare("SELECT public,secret FROM subscriptions WHERE id=?")
       .get(id);
     if (!row)
-      return { sent: false, error: "Notification device is no longer registered." };
+      return { sent: false, error: serverMessages.notifications.deviceNotRegistered };
     try {
       await this.send(JSON.parse(row.secret), payload, this.vapid);
       const current = this.db
@@ -116,7 +116,7 @@ export class NotificationService {
         if (current) {
           const summary = {
             ...JSON.parse(current.public),
-            lastFailure: "Delivery failed. Try a test notification.",
+            lastFailure: serverMessages.notifications.deliveryFailed,
           };
           this.db
             .prepare("UPDATE subscriptions SET public=? WHERE id=?")
@@ -125,8 +125,7 @@ export class NotificationService {
       }
       return {
         sent: false,
-        error:
-          "Notification could not be delivered. Check this device's permission and subscription.",
+        error: serverMessages.notifications.notDelivered,
       };
     }
   }
@@ -136,7 +135,7 @@ export class NotificationService {
     return promise;
   }
   async test(id) {
-    if (this.closed) throw problem("Notifications are unavailable.", 503);
+    if (this.closed) throw problem(serverMessages.notifications.unavailable, 503);
     return this.track(this.deliver(pushId(id), { kind: "test", eventId: randomUUID() }));
   }
   async notify(input) {

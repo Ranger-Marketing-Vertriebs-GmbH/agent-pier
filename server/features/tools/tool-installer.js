@@ -263,7 +263,7 @@ export class ToolInstaller {
       !["native", "npm"].includes(method) ||
       (["gh", "nono"].includes(tool) && method !== "native")
     )
-      throw problem("Invalid installer method.");
+      throw problem(serverMessages.tools.invalidInstallerMethod);
     const reason = method === "npm" ? this.reason : this.platformReason;
     if (reason) throw problem(reason, 409);
     if (this.active) throw problem(serverMessages.tools.installationAlreadyRunning, 409);
