@@ -130,7 +130,10 @@ export function inspectChatComposer(tool, raw, pane = {}) {
         claudePlaceholder(line, pane))
     )
       return { state: "empty", text: "" };
-    const draft = /^\x1b\[39m❯ ([^\x1b]+)\x1b\[7m \x1b\[0m$/.exec(line)?.[1];
+    // Claude's own cursor cell, or the native terminal cursor after plain text.
+    const draft =
+      /^\x1b\[39m❯ ([^\x1b]+)\x1b\[7m \x1b\[0m$/.exec(line)?.[1] ??
+      /^\x1b\[39m❯[ \u00a0]([^\x1b]+)$/.exec(line)?.[1];
     if (
       draft &&
       !/\[Pasted|[\x00-\x1f\x7f-\x9f]/.test(draft) &&
