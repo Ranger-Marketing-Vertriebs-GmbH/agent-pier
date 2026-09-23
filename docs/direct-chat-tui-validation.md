@@ -117,11 +117,16 @@ terminal state only changes how:
   AgentPier hooks, startup dialogs) likewise hold the message with
   `waiting: "request"`. The composer stays usable while such a request is open;
   the queued message follows the answer without retyping.
-- **Menus without a question** (rewind selector, `/model` picker, other
-  `Esc to cancel` menus whose footer is the last visible row) are closed with
+- **Menus without a question:** only the rewind selector and the `/model` picker,
+  recognized by their title directly below the `▔` panel border, are closed with
   single Escape presses, at most three and at least 1.2 s apart so they never form
-  Esc Esc or reach a busy prompt. Notice: `CHAT_DIALOG_CLOSED`. A menu that stays
-  open holds the message like a question; Escape is not sent again while it waits.
+  Esc Esc or reach a busy prompt. Notice: `CHAT_DIALOG_CLOSED`. A footer such as
+  `Esc to cancel` is never enough: in a short pane (40×12, 36×12, 30×10) a
+  permission prompt scrolls its question away and shows only its options and
+  `Esc to cancel · Tab to amend`, and Escape would deny the tool call. Numbered
+  Yes/No options, `Tab to amend`, `ctrl+e to explain` and `↓ N.` scroll markers
+  therefore mark a question. Any other menu holds the message like a question; a
+  menu that stays open is not sent Escape again while the message waits.
 - **Images:** when Claude does not show every pasted image chip within ten
   seconds, the message is still submitted with the notice
   `CHAT_IMAGES_MAYBE_MISSING`; the file paths remain in the text.
@@ -139,11 +144,13 @@ Codex and OpenCode keep appending to an existing draft (notice
 `CHAT_APPENDED_TO_DRAFT` when the draft was readable) and share the request wait;
 the dialog and menu rules apply to Claude only.
 
-A selected numbered option (`❯ 1.`) or a `▔` panel border also marks a dialog,
+A `▔` panel border, or a selected numbered option (`❯ 1.`) at the cursor or
+followed by further options, also marks a dialog,
 because a short pane can scroll the footer away: at 50×34 the `/model` picker
 shows neither footer nor selected row; during validation, treating it as an
 unreadable prompt let Enter select the highlighted model and lost the message. The rewind selector and model picker are recognized by
-their titles and closed with Escape even without a visible footer. An appended
+their titles and closed with Escape even without a visible footer. Short-pane
+frames are in `tests/fixtures/tui-input/claude-2.1.280-dialogs-short.json`. An appended
 message starts on its own line after the remaining draft.
 
 Live validation on 2026-09-23 with Claude Code 2.1.280 through the real

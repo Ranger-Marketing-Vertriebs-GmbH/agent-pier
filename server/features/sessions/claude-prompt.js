@@ -7,15 +7,16 @@ import {
 } from "./claude-composer.js";
 
 const plain = (line) => (line || "").replace(/\x1b\[[0-9;:]*m/g, "");
-// Only a menu's own footer on the last visible row, or a known menu title,
-// invites Escape. In Claude's prompt, Escape interrupts a running turn and Esc Esc
-// opens the rewind selector, so transcript text never counts.
-const escapeFooter = /\bEsc to (?:cancel|go back|close|exit)\b/i;
-// Menus without a question: the rewind selector and the model picker.
-const overlayTitle = /^ *(?:Rewind|Select model) *$/;
-// Permission prompts, plan approval and AskUserQuestion ask the user something.
+// Escape needs positive evidence of a menu without a question: the rewind
+// selector or model picker title right below its ▔ panel border. A footer alone
+// never counts: a short pane scrolls a permission prompt's question away and
+// leaves only its options and "Esc to cancel". In Claude's prompt, Escape would
+// interrupt a running turn and Esc Esc opens the rewind selector.
+const menuTitle = /^ *(?:Rewind|Select model) *$/;
+// Permission prompts, plan approval and AskUserQuestion ask the user something;
+// their options and footer identify them even when the question scrolled away.
 const questionMarker =
-  /Do you want to [^\n]*\?|Would you like to [^\n]*\?|Enter to select · [^\n]*to navigate|^ *\d+\. (?:Type something|Chat about this)\.?/m;
+  /Do you want to [^\n]*\?|Would you like to [^\n]*\?|Enter to select · [^\n]*to navigate|Tab to amend|ctrl\+e to explain|^ *\d+\. (?:Type something|Chat about this)\.?|^\s*[❯↓↑]?\s*\d+\.\s+(?:Yes|No)\b|^\s*[↓↑] \d+\. /im;
 
 const stateOf = (fresh) =>
   claudeComposerState(fresh.raw, fresh.pane, fresh.composer).state;
@@ -26,6 +27,12 @@ const visibleRows = (fresh) => {
     Number.isInteger(fresh.pane?.height) ? rows.slice(0, fresh.pane.height) : rows
   ).map(plain);
 };
+const menuPanel = (rows) =>
+  rows.some(
+    (row, index) =>
+      /^▔{8}/.test(row) &&
+      rows.slice(index + 1, index + 3).some((next) => menuTitle.test(next)),
+  );
 
 /**
  * A native dialog that asks the user something (permission prompt, plan
@@ -35,9 +42,7 @@ const visibleRows = (fresh) => {
  */
 export function claudeQuestion(fresh) {
   if (stateOf(fresh) !== "dialog") return false;
-  const rows = visibleRows(fresh);
-  if (rows.some((row) => overlayTitle.test(row))) return false;
-  const bottom = rows.slice(-24);
+  const bottom = visibleRows(fresh).slice(-24);
   return (
     questionMarker.test(bottom.join("\n")) ||
     bottom.some((row) => /^ +[^❯⏺⎿ ][^\n]*\?\s*$/.test(row))
@@ -45,15 +50,12 @@ export function claudeQuestion(fresh) {
 }
 
 /**
- * A Claude menu without a question that Escape closes: its footer is the last
- * visible row, or it is the rewind selector or model picker whose footer a
- * short pane scrolled away.
+ * A Claude menu without a question that Escape closes: only the rewind selector
+ * or model picker, recognized by the title inside its panel. Unknown menus wait.
  */
 export function closableClaudeDialog(fresh) {
   if (stateOf(fresh) !== "dialog" || claudeQuestion(fresh)) return false;
-  const rows = visibleRows(fresh);
-  const last = rows.findLast((row) => row.trim());
-  return escapeFooter.test(last || "") || rows.some((row) => overlayTitle.test(row));
+  return menuPanel(visibleRows(fresh));
 }
 
 async function waitUntil(snapshot, fresh, done, timeoutMs, stepMs = 50) {

@@ -6,8 +6,21 @@ const plain = (line) => (line || "").replace(/\x1b\[[0-9;:]*m/g, "");
 // Footers of Claude's native modal UI: permission prompts, rewind, pickers.
 const dialogFooter =
   /\b(?:Esc to (?:cancel|go back|close|exit)|Enter to (?:confirm|continue|select|submit|set)|Tab to amend)\b|Do you want to (?:proceed|make this edit|create)/i;
-// Menu panels keep their ▔ top border and selected numbered option visible.
-const dialogBody = /^▔{8}|^ *❯ \d+\. /;
+// Menu panels keep their ▔ top border visible; a selected numbered option counts
+// only where the cursor sits or with a further option below it, never as the
+// transcript echo of a message that starts with "1.".
+const menuBorder = /^▔{8}/;
+const selectedOption = /^ *❯ \d+\. /;
+const otherOption = /^ *(?:[↓↑] )?\d+\. /;
+function dialogBody(rows, pane) {
+  return rows.some(
+    (row, index) =>
+      menuBorder.test(row) ||
+      (selectedOption.test(row) &&
+        (index === pane?.cursorY ||
+          rows.slice(index + 1, index + 5).some((next) => otherOption.test(next)))),
+  );
+}
 // A placeholder behind the reverse-video cursor cell. tmux may wrap the reset
 // code into the next row or truncate the text with "…" in narrow panes, and
 // NO_COLOR/FORCE_COLOR=0 drops the dim attribute.
@@ -111,7 +124,7 @@ export function claudeComposerState(raw, pane, composer) {
   // selected numbered option still identify it. Enter must never reach it.
   if (
     visible.slice(-20).some((line) => dialogFooter.test(line)) ||
-    visible.some((line) => dialogBody.test(line))
+    dialogBody(visible, pane)
   )
     return { state: "dialog", text: null };
   return { state: "unknown", text: null };
