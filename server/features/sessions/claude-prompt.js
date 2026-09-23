@@ -7,9 +7,9 @@ import {
 } from "./claude-composer.js";
 
 const plain = (line) => (line || "").replace(/\x1b\[[0-9;:]*m/g, "");
-// Only a native modal's own footer on the last visible row invites Escape. In
-// Claude's prompt, Escape interrupts a running turn and Esc Esc opens the rewind
-// selector, so transcript text never counts.
+// Only a menu's own footer on the last visible row, or a known menu title,
+// invites Escape. In Claude's prompt, Escape interrupts a running turn and Esc Esc
+// opens the rewind selector, so transcript text never counts.
 const escapeFooter = /\bEsc to (?:cancel|go back|close|exit)\b/i;
 // Menus without a question: the rewind selector and the model picker.
 const overlayTitle = /^ *(?:Rewind|Select model) *$/;
@@ -22,9 +22,9 @@ const stateOf = (fresh) =>
 const kind = (fresh) => (stateOf(fresh) === "unknown" ? "unreadable" : "draft");
 const visibleRows = (fresh) => {
   const rows = fresh.raw.split("\n");
-  return (Number.isInteger(fresh.pane?.height) ? rows.slice(0, fresh.pane.height) : rows)
-    .map(plain)
-    .slice(-24);
+  return (
+    Number.isInteger(fresh.pane?.height) ? rows.slice(0, fresh.pane.height) : rows
+  ).map(plain);
 };
 
 /**
@@ -37,17 +37,23 @@ export function claudeQuestion(fresh) {
   if (stateOf(fresh) !== "dialog") return false;
   const rows = visibleRows(fresh);
   if (rows.some((row) => overlayTitle.test(row))) return false;
+  const bottom = rows.slice(-24);
   return (
-    questionMarker.test(rows.join("\n")) ||
-    rows.some((row) => /^ +[^❯⏺⎿ ][^\n]*\?\s*$/.test(row))
+    questionMarker.test(bottom.join("\n")) ||
+    bottom.some((row) => /^ +[^❯⏺⎿ ][^\n]*\?\s*$/.test(row))
   );
 }
 
-/** A Claude menu without a question that Escape closes (rewind, model picker). */
+/**
+ * A Claude menu without a question that Escape closes: its footer is the last
+ * visible row, or it is the rewind selector or model picker whose footer a
+ * short pane scrolled away.
+ */
 export function closableClaudeDialog(fresh) {
   if (stateOf(fresh) !== "dialog" || claudeQuestion(fresh)) return false;
-  const last = visibleRows(fresh).findLast((row) => row.trim());
-  return escapeFooter.test(last || "");
+  const rows = visibleRows(fresh);
+  const last = rows.findLast((row) => row.trim());
+  return escapeFooter.test(last || "") || rows.some((row) => overlayTitle.test(row));
 }
 
 async function waitUntil(snapshot, fresh, done, timeoutMs, stepMs = 50) {

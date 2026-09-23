@@ -124,3 +124,41 @@ test("draft clearing ignores spinner output and is bounded in time and keystroke
   );
   assert.ok(performance.now() - started < 3000);
 });
+
+// Real Claude Code 2.1.280 dialogs in narrow panes (50x34, 50x12). The model
+// picker's footer scrolls away there: Enter must still never reach it.
+const narrow = JSON.parse(
+  fs.readFileSync(
+    new URL("../fixtures/tui-input/claude-2.1.280-dialogs-narrow.json", import.meta.url),
+  ),
+);
+
+test("narrow dialogs are recognized and split into questions and menus", async () => {
+  const { claudeQuestion, closableClaudeDialog } =
+    await import("../../server/features/sessions/claude-prompt.js");
+  for (const [name, question] of [
+    ["modelPicker50x34", false],
+    ["rewind50x34", false],
+    ["permission50x34", true],
+    ["question50x34", true],
+    ["question50x12", true],
+  ]) {
+    const frame = { ...narrow[name], composer: inspect(narrow[name]) };
+    assert.equal(state(narrow[name]), "dialog", name);
+    assert.equal(claudeQuestion(frame), question, name);
+    assert.equal(closableClaudeDialog(frame), !question, name);
+  }
+});
+
+test("a model picker without a visible footer is closed before the message", async () => {
+  const model = claudePromptModel({ dialog: narrow.modelPicker50x34 });
+  const manager = claudeModelManager(model);
+  manager.chatInputTiming = { dialog: { settleMs: 40 } };
+  const result = await chat.withChatInput(manager, "one", (tx) =>
+    tx.write("hello", { allowComposerDraft: true }),
+  );
+  assert.deepEqual(model.keys, ["Escape", "Enter"]);
+  assert.deepEqual(model.dialogInput, []);
+  assert.deepEqual(model.submitted, ["hello"]);
+  assert.deepEqual(result.notices, ["CHAT_DIALOG_CLOSED"]);
+});
