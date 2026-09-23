@@ -7,7 +7,7 @@ AgentPier distinguishes a durable terminal handoff from an observed native queue
 - **Sent to TUI · awaiting CLI confirmation:** bracketed paste and Enter completed, but native acceptance has not been established.
 - **In the CLI queue:** the current native queue region contains one complete matching message in the same launch. Codex's own next-tool-call hint is shown only for Codex.
 - **Accepted by CLI:** a fresh, matching native user record exists. For OpenCode, an assistant record must additionally name that native user message as its parent. This does not mean the agent finished the requested work.
-- **Waiting for the open request / a dialog in the TUI:** the message is held (`pending` with `waiting`) until an AgentPier request is answered or a native Claude question or menu is gone, then delivered automatically. It is never refused for terminal state; see `docs/direct-chat-tui-validation.md` ("Chat never blocks on terminal state").
+- **Waiting for the open request / a dialog in the TUI / an earlier message:** the message is held (`pending` with `waiting`) until an AgentPier request is answered or a native Claude question or menu is gone, then delivered automatically. It is never refused for terminal state; see `docs/direct-chat-tui-validation.md` ("Chat never blocks on terminal state"). A held message does not lock the composer: later messages queue behind it on the server (per session, first in, first out, across tabs and devices). While its text has not reached the terminal it offers **Cancel sending**, which returns it for editing; pasted text can only be removed in the TUI ("Open TUI").
 - Informational notices on a handoff (sent together with an existing terminal draft, unreadable prompt, a Claude menu closed with Esc, images possibly missing) are shown beneath the status and never block the composer.
 - Existing uncertain/rejected states retain their explicit inspection and guarded recovery actions. A rejected message (nothing reached the terminal) returns its text to the composer. Confirmed queue rows do not invite redelivery.
 
@@ -46,3 +46,10 @@ Replace `codex` with `claude` or `opencode`. `--narrow-queue` uses 50 columns; `
 Use `--multi-queue` instead of `--narrow-queue` for multiple distinct and duplicate pending messages. All three CLIs expose the duplicate queue entries; the application intentionally does not assign one indistinguishable queue entry to an individual delivery. The mock provider chooses the last user marker without deduplicating repeated markers.
 
 Regression fixtures contain only synthetic native frames. Unit/integration coverage includes ambiguous text, old history, scope changes, early OpenCode history, shared WebSocket delivery, normal input with the observer attached, unchanged dimensions and disposal. Mobile browser tests exercise both locales, reload without resending, native-row placement and the queue-to-consumed transition in Chromium and WebKit.
+
+## Known limitations of held messages
+
+- Holds live in the server process. A restart ends them; the receipt then reads uncertain with the reason it waited for, states whether the text was typed, and "Deliver again" holds again if the TUI is still busy.
+- A menu the user opens in the TUI while a message waits is closed with Escape when it is the rewind selector or model picker (once per message); other menus keep the message waiting.
+- Session-level refusals (stopped, reloading, replaced runtime, account switch) still end a message instead of holding it.
+- A question that opens in the instant between a paste and a fresh check of the prompt is handled by the held Enter below; a paste that races a dialog drawn before the check can still land in the dialog, as on main.

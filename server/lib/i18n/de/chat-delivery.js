@@ -19,12 +19,17 @@ export const chatDeliveryCopy = {
   scope: "Der Zustellauftrag gehört nicht zur aktuellen Sitzung.",
   conflict: "Diese Zustell-ID wurde bereits für einen anderen Auftrag verwendet.",
   storage: "Der Zustellbeleg kann nicht sicher gespeichert oder gelesen werden.",
+  cancelPasted:
+    "Die Nachricht steht bereits im Eingabefeld der TUI. Entferne oder sende sie dort.",
+  recoveryHeld: "Die Nachricht wartet und wird zugestellt, sobald die TUI frei ist.",
   rejected:
     "Die Eingabe wurde vor der Terminal-Übergabe abgelehnt. Bitte prüfe die Sitzung und offene Freigaben.",
   uncertain:
     "Die Terminal-Übergabe ist unklar. Erneutes Senden kann die Eingabe duplizieren.",
   // The same reasons after the text was pasted but before Enter (uncertain).
   pastedReasons: {
+    CHAT_PROMPT_CHANGED:
+      "Die Nachricht wurde in Claude eingefügt, aber das Eingabefeld hat sich während des Wartens verändert. Sie wurde deshalb nicht abgeschickt; bitte prüfe die TUI.",
     CHAT_DIALOG_NOT_CLOSED:
       "Die Nachricht steht im Eingabefeld der TUI, wurde aber nicht abgeschickt: Ein Claude-Menü ließ sich nicht schließen. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_QUESTION_OPEN:
@@ -53,6 +58,11 @@ export const chatDeliveryCopy = {
       "Claude hat vor dem Senden nicht alle angehängten Bilder angezeigt; einzelne Bilder fehlen möglicherweise.",
   },
   reasons: {
+    CHAT_PROMPT_CHANGED:
+      "Die Nachricht wurde in Claude eingefügt, aber das Eingabefeld hat sich während des Wartens verändert. Sie wurde deshalb nicht abgeschickt; bitte prüfe die TUI.",
+    CHAT_QUEUED:
+      "Die Nachricht wartete hinter einer früheren Nachricht und wurde noch nicht eingegeben. Sende sie erneut.",
+    CHAT_CANCELLED: "Abgebrochen, bevor die Nachricht in die TUI eingegeben wurde.",
     CHAT_DIALOG_NOT_CLOSED:
       "Die Nachricht wartete darauf, dass sich ein Claude-Menü schließt, und wurde noch nicht eingegeben. Schließe das Menü im Terminal und sende sie dann erneut.",
     CHAT_QUESTION_OPEN:

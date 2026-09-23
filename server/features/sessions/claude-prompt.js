@@ -1,5 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import {
+  claudeComposerBox,
   claudeComposerState,
   clearClaudeComposer,
   composerProblem,
@@ -196,7 +197,7 @@ export async function awaitClaudePaste(
   for (;;) {
     const fresh = await snapshot();
     const state = stateOf(fresh);
-    if (["text", "draft"].includes(state)) return { unreadable: false };
+    if (["text", "draft"].includes(state)) return { unreadable: false, fresh };
     if (state === "dialog") {
       if (dismissals-- <= 0)
         throw composerProblem(
@@ -217,12 +218,20 @@ export async function awaitClaudePaste(
  * paste before Enter and confirm the submit. `notice` records informational
  * codes; `timing` (tests only) shortens the native waits.
  */
+/** The prompt box contents that a held Enter must still find unchanged. */
+export function claudePromptProof(fresh) {
+  const box = claudeComposerBox(fresh.raw, fresh.pane);
+  if (!box || box.clipped) return null;
+  return JSON.stringify(box.rows.map((row) => row.trimEnd()));
+}
+
 export function claudeFreshInput({
   manager,
   session,
   snapshot,
   notice,
   escape = true,
+  onProof = () => {},
   timing = {},
 }) {
   // Escape only closes menus without a question; still tell the user.
@@ -239,6 +248,12 @@ export function claudeFreshInput({
       kind === "unreadable" ? "CHAT_PROMPT_UNREADABLE" : "CHAT_APPENDED_TO_DRAFT",
     );
   };
+  const dismiss = (current) =>
+    dismissClaudeDialog(manager, session, current, snapshot, dialog);
+  const prove = (fresh) => {
+    const proof = claudePromptProof(fresh);
+    if (proof) onProof(proof);
+  };
   return {
     async prepare(current) {
       const result = await prepareClaudePrompt(manager, session, current, snapshot, {
@@ -254,13 +269,29 @@ export function claudeFreshInput({
       if (state === "dialog" || (!appended && state !== "empty"))
         await this.prepare(current);
     },
+    /** Right after the paste: remember the prompt holding our text. */
+    async afterPaste() {
+      const fresh = await snapshot();
+      if (["text", "draft"].includes(stateOf(fresh))) prove(fresh);
+    },
     async beforeSubmit() {
-      const result = await awaitClaudePaste(
-        snapshot,
-        (current) => dismissClaudeDialog(manager, session, current, snapshot, dialog),
-        timing.paste,
-      );
+      const result = await awaitClaudePaste(snapshot, dismiss, timing.paste);
       if (result.unreadable) await append("unreadable");
+      else prove(result.fresh);
+    },
+    /**
+     * Enter for text pasted before a hold: never while a dialog is open (the
+     * message keeps waiting), and only while the prompt box is exactly the one
+     * seen after the paste. Anything else stays unconfirmed for the user.
+     */
+    async beforeResubmit(proof, text) {
+      let fresh = await snapshot();
+      if (stateOf(fresh) === "dialog") fresh = await dismiss(fresh);
+      const unchanged =
+        typeof proof === "string"
+          ? claudePromptProof(fresh) === proof
+          : fresh.composer?.state === "text" && fresh.composer.text === text;
+      if (!unchanged) throw composerProblem("CHAT_PROMPT_CHANGED");
     },
     /** A message appended to a visible draft starts on its own line. */
     pastePrefix: () => (appended === "draft" ? "\n" : ""),

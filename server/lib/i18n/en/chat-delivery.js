@@ -17,11 +17,15 @@ export const chatDeliveryCopy = {
   scope: "The delivery request does not belong to the current session.",
   conflict: "This delivery ID was already used for a different request.",
   storage: "The delivery receipt cannot be saved or read safely.",
+  cancelPasted: "The message is already in the TUI prompt. Remove or send it there.",
+  recoveryHeld: "The message is waiting and will be delivered once the TUI is free.",
   rejected:
     "The input was rejected before the terminal handoff. Please check the session and pending approvals.",
   uncertain: "The terminal handoff is uncertain. Sending again may duplicate the input.",
   // The same reasons after the text was pasted but before Enter (uncertain).
   pastedReasons: {
+    CHAT_PROMPT_CHANGED:
+      "The message was pasted into Claude, but the prompt changed while it waited, so it was not submitted. Please check the TUI.",
     CHAT_DIALOG_NOT_CLOSED:
       "The message is in the TUI prompt but was not submitted: a Claude menu could not be closed. Check the TUI before sending again.",
     CHAT_QUESTION_OPEN:
@@ -49,6 +53,11 @@ export const chatDeliveryCopy = {
       "Claude did not show all attached images before sending; some images may be missing.",
   },
   reasons: {
+    CHAT_PROMPT_CHANGED:
+      "The message was pasted into Claude, but the prompt changed while it waited, so it was not submitted. Please check the TUI.",
+    CHAT_QUEUED:
+      "The message was waiting behind an earlier message and has not been typed yet. Send it again.",
+    CHAT_CANCELLED: "Cancelled before the message was typed into the TUI.",
     CHAT_DIALOG_NOT_CLOSED:
       "The message was waiting for a Claude menu to close and has not been typed yet. Close the menu in the terminal, then send it again.",
     CHAT_QUESTION_OPEN:
