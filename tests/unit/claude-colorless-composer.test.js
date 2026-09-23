@@ -9,6 +9,7 @@ import {
 } from "../../server/features/sessions/claude-composer.js";
 import {
   awaitClaudePaste,
+  claudeFreshInput,
   prepareClaudePrompt,
 } from "../../server/features/sessions/claude-prompt.js";
 import { nativeInputQueue } from "../../server/features/chat/native-input-queue.js";
@@ -240,4 +241,33 @@ test("a colorless prompt suggestion is empty only with the empty-prompt footer",
       unreadable("draft?"),
     );
   }
+});
+
+test("an inert colorless placeholder is probed once per message", async () => {
+  const { snapshot, manager, keys } = pane([frames.busyForceColor0x24.queue], 0);
+  const notices = [];
+  const input = claudeFreshInput({
+    manager,
+    session: { id: "one" },
+    snapshot,
+    notice: async (code) => notices.push(code),
+    text: "AP_ONCE",
+    timing,
+  });
+  const prepared = await input.prepare(await snapshot());
+  assert.equal(prepared.inert, true);
+  // Right before the paste the unchanged placeholder needs no second round.
+  const started = performance.now();
+  await input.beforePaste(await snapshot());
+  assert.ok(performance.now() - started < 30);
+  assert.deepEqual(keys, ["C-e C-u", "BSpace", "DC"]);
+  assert.deepEqual(notices, []);
+  assert.equal(input.pastePrefix(), "");
+  // A prompt that changed meanwhile is prepared again.
+  const typed = frames.busyForceColor0x24.busyDraftStart;
+  await input.beforePaste({
+    ...typed,
+    composer: inspectChatComposer("claude", typed.raw, typed.pane),
+  });
+  assert.ok(keys.length > 3);
 });

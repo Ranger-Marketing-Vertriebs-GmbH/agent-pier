@@ -2,6 +2,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import {
   claudeComposerBox,
   claudeComposerState,
+  claudePromptView,
   clearClaudeComposer,
   composerProblem,
   confirmClaudeSubmit,
@@ -260,6 +261,7 @@ export function claudeFreshInput({
     onEscape: () => notice("CHAT_DIALOG_CLOSED"),
   };
   let appended = false;
+  let inert = null;
   const append = async (kind) => {
     if (!kind || appended) return;
     appended = kind;
@@ -281,12 +283,16 @@ export function claudeFreshInput({
         clear: timing.clear,
       });
       await append(result.appended);
+      // A placeholder-shaped colorless prompt that ignored the clearing keys.
+      inert = result.fresh.inert ? claudePromptView(result.fresh) : null;
       return result.fresh;
     },
     /** Right before the paste: a dialog or draft may have appeared meanwhile. */
     async beforePaste(current) {
-      const { state } = claudeComposerState(current.raw, current.pane, current.composer);
-      if (state === "dialog" || (!appended && state !== "empty"))
+      const composer = claudeComposerState(current.raw, current.pane, current.composer);
+      // The same inert placeholder was proven empty moments ago: no second round.
+      if (composer.placeholder && inert === claudePromptView(current)) return;
+      if (composer.state === "dialog" || (!appended && composer.state !== "empty"))
         await this.prepare(current);
     },
     /** Right after the paste: remember the prompt holding our text. */
