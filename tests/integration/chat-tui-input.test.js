@@ -53,16 +53,14 @@ for (const tool of ["codex", "claude", "opencode"]) {
       pane: { cursorX: 2, cursorY: 2, width: 120, height: 35 },
     });
     const input = x.body("Fresh chat message");
-    if (tool === "claude") {
-      // Without Claude's prompt box, Enter could confirm an unseen native dialog.
-      const result = await x.post(input);
-      assert.equal(result.status, "rejected");
-      assert.equal(result.reason, "CHAT_COMPOSER_UNAVAILABLE");
-      await x.post(input);
-      assert.deepEqual(await x.recorder.readBytes(), Buffer.alloc(0));
-      return;
-    }
-    assert.equal((await x.post(input)).status, "handed-off");
+    // Chat never refuses an unreadable prompt: paste and Enter, as typed input
+    // would. Claude only proceeds without a visible dialog and says so.
+    const result = await x.post(input);
+    assert.equal(result.status, "handed-off");
+    assert.deepEqual(
+      result.notices,
+      tool === "claude" ? ["CHAT_PROMPT_UNREADABLE"] : undefined,
+    );
     const frame = `\x1b[200~${input.text}\x1b[201~\r`;
     await x.recorder.waitForText(frame);
     await x.post(input);
@@ -79,10 +77,28 @@ test("a permission request arriving after paste prevents the fresh Enter", async
     if (args[0][0] === "paste-buffer") x.f.application.requests.hasPending = () => true;
     return result;
   };
+  x.f.application.chatDelivery.retryMs = 20;
   const input = x.body("Synthetic guarded message");
-  assert.equal((await x.post(input)).status, "uncertain");
+  // Held, not refused: Enter waits for the request to be answered.
+  const held = await x.post(input);
+  assert.equal(held.status, "pending");
+  assert.equal(held.waiting, "request");
   const pasted = `\x1b[200~${input.text}\x1b[201~`;
   await x.recorder.waitForText(pasted);
+  assert.deepEqual(await x.recorder.readBytes(), Buffer.from(pasted));
+  // Answered: Enter follows only if the exact text is still provably in the
+  // composer. This static screen cannot show it, so nothing is submitted blindly.
+  x.f.application.requests.hasPending = () => false;
+  let status;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const response = await x.f.request(
+      `${x.endpoint}/${input.deliveryId}?scope=${encodeURIComponent(x.scope)}`,
+    );
+    status = (await response.json()).status;
+    if (status !== "pending") break;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.equal(status, "uncertain");
   assert.deepEqual(await x.recorder.readBytes(), Buffer.from(pasted));
 });
 
@@ -252,7 +268,7 @@ test("Claude plain empty prompt accepts delivery and retries a pre-paste rejecti
 });
 
 for (const tool of ["codex", "claude", "opencode"]) {
-  test(`${tool}: terminal paste and Enter allow the next HTTP chat send and rejected retry`, async (t) => {
+  test(`${tool}: an unsubmitted terminal paste does not block the next HTTP chat send`, async (t) => {
     const x = await fixture(
       t,
       tool,
@@ -275,27 +291,11 @@ for (const tool of ["codex", "claude", "opencode"]) {
       "\x1b[201~",
     ])
       await client.write(chunk);
+    // An unsubmitted terminal draft never blocks chat: Claude replaces it, the
+    // other CLIs combine it with the chat text, as typing would.
     const input = x.body("Chat after terminal submission");
-    assert.equal((await x.post(input)).status, "rejected");
+    assert.equal((await x.post(input)).status, "handed-off");
     await client.write("\r");
-    const recovery = {
-      attemptId: randomUUID(),
-      expectedAttemptId: input.deliveryId,
-      deliveryScope: x.scope,
-      text: input.text,
-      mode: "retry",
-    };
-    const retry = async () =>
-      (
-        await x.f.request(`${x.endpoint}/${input.deliveryId}/recovery`, {
-          method: "POST",
-          body: recovery,
-        })
-      ).json();
-    const recovered = await retry();
-    assert.equal(recovered.status, "handed-off");
-    assert.equal(recovered.recovery.action, "resent");
-    assert.deepEqual(await retry(), recovered);
     const next = x.body("Next fresh chat");
     assert.equal((await x.post(next)).status, "handed-off");
     await x.recorder.waitForText(`\x1b[200~${next.text}\x1b[201~\r`);

@@ -1,9 +1,7 @@
-import { serverMessages } from "../../lib/i18n/de.js";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { problem } from "../../lib/storage.js";
-import { claudeComposerBox, composerProblem } from "./claude-composer.js";
+import { claudeComposerBox } from "./claude-composer.js";
 
 const chip = /\[Image\s+#\s*\d+\]/g;
 
@@ -19,19 +17,23 @@ export function claudeComposerImages(raw, pane) {
   return [...box.rows.join("\n").matchAll(chip)].length;
 }
 
-/** Claude asynchronously turns pasted local image paths into image chips. */
+/**
+ * Claude asynchronously turns pasted local image paths into image chips. Returns
+ * false when the chips cannot be confirmed in time: chat still submits (the path
+ * text remains in the message) and reports that images may be missing.
+ */
 export async function waitForClaudeImagePaste(
   manager,
   session,
   text,
   { timeoutMs = 10000, initialImages = 0 } = {},
 ) {
-  if (session.tool !== "claude") return;
+  if (session.tool !== "claude") return true;
   const candidates = text
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => path.isAbsolute(line) && /\.(?:png|jpe?g|gif|webp)$/i.test(line));
-  if (!candidates.length) return;
+  if (!candidates.length) return true;
   let expected = 0;
   for (const file of candidates) {
     if (
@@ -42,13 +44,13 @@ export async function waitForClaudeImagePaste(
     )
       expected++;
   }
-  if (!expected) return;
-  if (!Number.isInteger(initialImages) || initialImages < 0)
-    throw problem(serverMessages.sessionInput.imagesUninspectable, 409);
+  if (!expected) return true;
+  // Without a readable baseline only a lower bound can be awaited.
+  const baseline = Number.isInteger(initialImages) && initialImages >= 0;
   // Chip-like text the user typed stays literal in the prompt and matches too.
   // Only absolute paths become chips: Claude 2.1.280 leaves ~/ and relative
   // image paths as text.
-  expected += initialImages + [...text.matchAll(chip)].length;
+  expected += (baseline ? initialImages : 0) + [...text.matchAll(chip)].length;
   const target = `${manager.target(session.id)}:0.0`;
   const deadline = performance.now() + timeoutMs;
   do {
@@ -71,14 +73,13 @@ export async function waitForClaudeImagePaste(
       .split("|")
       .map(Number);
     const pane = { cursorX, cursorY, width, height };
-    if (
-      newline >= 0 &&
-      claudeComposerImages(captured.slice(newline + 1), pane) === expected
-    )
-      return;
+    const count =
+      newline >= 0 ? claudeComposerImages(captured.slice(newline + 1), pane) : null;
+    if (count !== null && (baseline ? count === expected : count >= expected))
+      return true;
     await sleep(50);
   } while (performance.now() < deadline);
-  // Pasted but not submitted: the images may still be loading or scrolled out of
-  // a pane too short to show them. Never submit a message without proven images.
-  throw composerProblem("CHAT_IMAGES_UNCONFIRMED");
+  // The images may still be loading or scrolled out of a pane too short to show
+  // them. Chat must not stay unsent: the caller submits and flags the receipt.
+  return false;
 }

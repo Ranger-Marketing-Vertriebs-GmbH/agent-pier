@@ -13,6 +13,24 @@ export const deliveryReason = (error) =>
     ? error.code
     : undefined;
 
+/**
+ * What a message keeps waiting for instead of being refused: an AgentPier
+ * request (question, permission, startup dialog) or a native Claude question or
+ * menu in the terminal. Its journal still proves whether the text was pasted.
+ */
+export const waitingFor = (code) =>
+  code === "CHAT_REQUEST_PENDING"
+    ? "request"
+    : ["CHAT_QUESTION_OPEN", "CHAT_DIALOG_NOT_CLOSED"].includes(code)
+      ? "dialog"
+      : null;
+
+/** Informational, non-blocking notes on how a message reached the TUI. */
+export const noticeRecorder = (receipt) => async (code) => {
+  if (!Object.hasOwn(copy.notices, code)) return;
+  receipt.notices = [...new Set([...(receipt.notices || []), code])];
+};
+
 /** Pasted-but-not-submitted wording for uncertain outcomes, else the plain reason. */
 export const reasonText = (code, status) =>
   (status === "uncertain" && copy.pastedReasons[code]) || copy.reasons[code];
@@ -127,6 +145,7 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
     };
     receipt.status = "uncertain";
     delete receipt.reason;
+    delete receipt.notices;
     // Keep the last proven phase until the writer persists its next intent.
     delivery.write(file, receipt);
     delivery.active.add(file);
@@ -148,11 +167,12 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
           };
           delivery.write(file, receipt);
         },
+        onNotice: noticeRecorder(receipt),
       });
       receipt.status = "handed-off";
     } catch (error) {
-      receipt.status = receipt.journal.phase === "reserved" ? "rejected" : "uncertain";
       code = deliveryReason(error);
+      receipt.status = receipt.journal.phase === "reserved" ? "rejected" : "uncertain";
       if (code) receipt.reason = code;
     } finally {
       delivery.active.delete(file);

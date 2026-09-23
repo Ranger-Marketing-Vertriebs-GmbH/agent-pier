@@ -202,13 +202,15 @@ export class ModelController {
       );
     });
   }
-  guardInput(id, session, raw) {
-    const menu = parseModelPicker(session.tool, raw);
-    if (
-      menu ||
-      unsupportedModelPicker(session.tool, raw) ||
-      (this.pending.has(id) && !modelPromptReady(session.tool, raw))
-    )
+  /**
+   * `nativeMenus`: the caller closes a picker the user opened in the terminal
+   * itself; only a selection AgentPier started still has to finish first.
+   */
+  guardInput(id, session, raw, { nativeMenus = false } = {}) {
+    const menu =
+      !nativeMenus &&
+      (parseModelPicker(session.tool, raw) || unsupportedModelPicker(session.tool, raw));
+    if (menu || (this.pending.has(id) && !modelPromptReady(session.tool, raw)))
       throw problem(serverMessages.models.completeSelectionFirst, 409);
     this.pending.delete(id);
   }

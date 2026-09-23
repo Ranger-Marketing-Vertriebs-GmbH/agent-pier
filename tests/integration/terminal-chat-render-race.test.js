@@ -122,15 +122,19 @@ fs.writeFileSync(${JSON.stringify(ready)},'ready');
   };
 }
 
-test("delayed terminal rendering cannot merge an unsent draft with chat", async (t) => {
+test("an unrendered terminal draft is sent together with chat instead of blocking it", async (t) => {
   const f = await delayedRenderSession(t);
   await f.client.write("UNSENT TERMINAL DRAFT");
-  // The draft is consumed but not rendered, so chat must not type over it.
-  assert.equal((await f.send("CHAT PROMPT")).status, "rejected");
-  const visible = await f.releaseDraft(/UNSENT TERMINAL DRAFT/);
-  assert.doesNotMatch(visible, /CHAT PROMPT/);
-  assert.equal(await exists(f.output), false);
-  await f.client.write("\r");
+  // The draft is consumed but not rendered yet. Chat never waits on terminal
+  // state: it is appended like typed input and says so.
+  const result = await f.send("CHAT PROMPT");
+  assert.equal(result.status, "handed-off");
+  assert.deepEqual(result.notices, ["CHAT_APPENDED_TO_DRAFT"]);
+  for (let n = 0; n < 250 && !(await exists(f.output)); n++) await sleep(20);
+  assert.equal(
+    JSON.parse(await fs.readFile(f.output, "utf8")),
+    "UNSENT TERMINAL DRAFTCHAT PROMPT",
+  );
   assert.equal(f.manager.pendingTerminalInput.has(f.session.id), false);
 });
 

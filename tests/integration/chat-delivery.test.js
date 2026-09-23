@@ -212,15 +212,21 @@ test("unavailable receipt storage prevents terminal input", async (t) => {
   assert.equal(x.writes(), 0);
 });
 
-test("request guards reject both before scheduling and inside the serialized callback", async (t) => {
+test("request guards hold the message both before scheduling and inside the serialized callback", async (t) => {
   const x = await setup(t);
+  // Long retry interval: the waiter must not write anything during the test.
+  x.f.application.chatDelivery.retryMs = 60000;
   x.f.application.requests.list = async () => ({ requests: [{ id: "approval" }] });
-  assert.equal((await (await x.post()).json()).status, "rejected");
+  const before = await (await x.post()).json();
+  assert.equal(before.status, "pending");
+  assert.equal(before.waiting, "request");
   assert.equal(x.writes(), 0);
   x.body.deliveryId = randomUUID();
   x.install();
   x.f.application.requests.hasPending = () => true;
-  assert.equal((await (await x.post()).json()).status, "rejected");
+  const inside = await (await x.post()).json();
+  assert.equal(inside.status, "pending");
+  assert.equal(inside.waiting, "request");
   assert.equal(x.writes(), 0);
 });
 

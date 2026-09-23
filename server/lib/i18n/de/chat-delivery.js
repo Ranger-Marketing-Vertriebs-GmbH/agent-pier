@@ -25,6 +25,12 @@ export const chatDeliveryCopy = {
     "Die Terminal-Übergabe ist unklar. Erneutes Senden kann die Eingabe duplizieren.",
   // The same reasons after the text was pasted but before Enter (uncertain).
   pastedReasons: {
+    CHAT_DIALOG_NOT_CLOSED:
+      "Die Nachricht steht im Eingabefeld der TUI, wurde aber nicht abgeschickt: Ein Claude-Menü ließ sich nicht schließen. Bitte prüfe die TUI, bevor du erneut sendest.",
+    CHAT_QUESTION_OPEN:
+      "Die Nachricht steht im Eingabefeld der TUI, wurde aber nicht abgeschickt: Claude wartet auf die Antwort zu einer Frage. Bitte prüfe die TUI, bevor du erneut sendest.",
+    CHAT_REQUEST_PENDING:
+      "Die Nachricht steht im Eingabefeld der TUI, wurde aber nicht abgeschickt: Eine Anfrage wartet auf Antwort. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_COMPOSER_DIALOG:
       "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt: Claude zeigt einen Dialog. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_COMPOSER_UNAVAILABLE:
@@ -35,7 +41,24 @@ export const chatDeliveryCopy = {
       "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt: Claude zeigt nicht alle angehängten Bilder im Eingabefeld an. Vergrößere das Terminal oder prüfe die TUI, bevor du erneut sendest.",
   },
   // Stable reason identifiers; the browser translates them by code.
+  // Informational, non-blocking notes on a completed handoff.
+  notices: {
+    CHAT_APPENDED_TO_DRAFT:
+      "Zusammen mit Text gesendet, der bereits im Terminal-Eingabefeld stand.",
+    CHAT_PROMPT_UNREADABLE:
+      "Das Terminal-Eingabefeld war nicht lesbar; die Nachricht wurde zusammen mit einem eventuell vorhandenen Inhalt gesendet.",
+    CHAT_DIALOG_CLOSED:
+      "Ein offenes Claude-Menü (z. B. Zurückspulen oder Modellauswahl) wurde vor dem Senden mit Esc geschlossen.",
+    CHAT_IMAGES_MAYBE_MISSING:
+      "Claude hat vor dem Senden nicht alle angehängten Bilder angezeigt; einzelne Bilder fehlen möglicherweise.",
+  },
   reasons: {
+    CHAT_DIALOG_NOT_CLOSED:
+      "Die Nachricht wartete darauf, dass sich ein Claude-Menü schließt, und wurde noch nicht eingegeben. Schließe das Menü im Terminal und sende sie dann erneut.",
+    CHAT_QUESTION_OPEN:
+      "Die Nachricht wartete auf die Antwort zu einer Frage in der TUI und wurde noch nicht eingegeben. Beantworte die Frage im Terminal und sende sie dann erneut.",
+    CHAT_REQUEST_PENDING:
+      "Die Nachricht wartete auf die Antwort zu einer offenen Anfrage und wurde noch nicht eingegeben. Sende sie erneut, sobald die Anfrage beantwortet ist.",
     CHAT_COMPOSER_DIALOG:
       "Claude zeigt gerade einen Dialog oder eine Auswahl. Die Nachricht wurde nicht gesendet; bitte beantworte oder schließe den Dialog in der TUI.",
     CHAT_COMPOSER_UNAVAILABLE:

@@ -190,14 +190,20 @@ export async function clearClaudeComposer(
 /** After Enter, Claude empties its prompt (or shows the queued-message placeholder). */
 export async function confirmClaudeSubmit(
   snapshot,
-  { slash = false, timeoutMs = 5000 } = {},
+  { slash = false, unreadable = false, timeoutMs = 5000 } = {},
 ) {
   const deadline = performance.now() + timeoutMs;
   do {
     const fresh = await snapshot();
     const { state } = claudeComposerState(fresh.raw, fresh.pane, fresh.composer);
-    // A native slash command may replace the prompt with its own picker.
-    if (state === "empty" || (slash && ["dialog", "unknown"].includes(state))) return;
+    // A native slash command may replace the prompt with its own picker; an
+    // unreadable prompt cannot show that it emptied.
+    if (
+      state === "empty" ||
+      (slash && ["dialog", "unknown"].includes(state)) ||
+      (unreadable && state === "unknown")
+    )
+      return;
     await sleep(50);
   } while (performance.now() < deadline);
   throw composerProblem("CHAT_SUBMIT_UNCONFIRMED");

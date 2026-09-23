@@ -177,3 +177,135 @@ test("maximum-length multi-byte chat input fits the input and recovery routes", 
   });
   assert.equal(tooLarge.status, 413);
 });
+
+test("handoff notices are durable, replayed and never block the delivery", async (t) => {
+  const x = await setup(t, async (text, { onPhase, onNotice }) => {
+    await onNotice("CHAT_DIALOG_CLOSED");
+    await onNotice("CHAT_APPENDED_TO_DRAFT");
+    // Unknown codes are never persisted or leaked.
+    await onNotice("SECRET_INTERNAL");
+    for (const phase of ["paste-intent", "pasted", "submit-intent", "submitted"])
+      await onPhase(phase);
+  });
+  const input = x.body();
+  const result = await x.post(input);
+  assert.equal(result.status, "handed-off");
+  assert.deepEqual(result.notices, ["CHAT_DIALOG_CLOSED", "CHAT_APPENDED_TO_DRAFT"]);
+  const replay = await (
+    await x.f.request(
+      `${inputPath}/${input.deliveryId}?scope=${encodeURIComponent(scope)}`,
+    )
+  ).json();
+  assert.deepEqual(replay.notices, result.notices);
+});
+
+async function settled(x, input) {
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const result = await (
+      await x.f.request(
+        `${inputPath}/${input.deliveryId}?scope=${encodeURIComponent(scope)}`,
+      )
+    ).json();
+    if (result.status !== "pending") return result;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.fail("The delivery stayed pending");
+}
+
+test("a native question or menu keeps the message pending, then delivers it once", async (t) => {
+  let attempts = 0;
+  const x = await setup(t, async (text, { onPhase }, state) => {
+    attempts++;
+    if (attempts === 1) throw composerProblem("CHAT_QUESTION_OPEN");
+    if (attempts === 2) throw composerProblem("CHAT_DIALOG_NOT_CLOSED");
+    for (const phase of ["paste-intent", "pasted", "submit-intent", "submitted"])
+      await onPhase(phase);
+    state.writes.push(text);
+  });
+  x.f.application.chatDelivery.retryMs = 10;
+  const input = x.body();
+  const result = await x.post(input);
+  // Not rejected: the chat shows it waiting for the dialog in the terminal.
+  assert.equal(result.status, "pending");
+  assert.equal(result.waiting, "dialog");
+  assert.equal(x.journal(input), "reserved");
+  const done = await settled(x, input);
+  assert.equal(done.status, "handed-off");
+  assert.equal(done.waiting, undefined);
+  assert.equal(done.reason, undefined);
+  assert.deepEqual(x.state.writes, [input.text]);
+});
+
+test("a pending AgentPier question holds the message and delivers it after the answer", async (t) => {
+  const x = await setup(t, async (text, { onPhase }, state) => {
+    for (const phase of ["paste-intent", "pasted", "submit-intent", "submitted"])
+      await onPhase(phase);
+    state.writes.push(text);
+  });
+  let pending = true;
+  x.f.application.requests.list = async () => ({
+    requests: pending ? [{ id: "question", kind: "question" }] : [],
+  });
+  x.f.application.requests.hasPending = () => pending;
+  x.f.application.chatDelivery.retryMs = 10;
+  const input = x.body();
+  const result = await x.post(input);
+  assert.equal(result.status, "pending");
+  assert.equal(result.waiting, "request");
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.deepEqual(x.state.writes, []);
+  // The question is answered in the chat.
+  pending = false;
+  const done = await settled(x, input);
+  assert.equal(done.status, "handed-off");
+  assert.deepEqual(x.state.writes, [input.text]);
+});
+
+test("a question that opens after the paste holds only the Enter", async (t) => {
+  let pending = false;
+  const x = await setup(t, async (text, { submitOnly, onPhase }, state) => {
+    if (submitOnly) {
+      await onPhase("submit-intent");
+      state.writes.push("enter");
+      await onPhase("submitted");
+      return;
+    }
+    await onPhase("paste-intent");
+    state.writes.push("paste");
+    await onPhase("pasted");
+    pending = true;
+    await onPhase("submit-intent");
+  });
+  x.f.application.requests.list = async () => ({ requests: [] });
+  x.f.application.requests.hasPending = () => pending;
+  x.f.application.chatDelivery.retryMs = 10;
+  const input = x.body();
+  const result = await x.post(input);
+  assert.equal(result.status, "pending");
+  assert.equal(x.journal(input), "pasted");
+  pending = false;
+  const done = await settled(x, input);
+  assert.equal(done.status, "handed-off");
+  // Never pasted twice.
+  assert.deepEqual(x.state.writes, ["paste", "enter"]);
+});
+
+test("a message still waiting when the server stops is uncertain and resendable", async (t) => {
+  const x = await setup(t, async () => {
+    throw composerProblem("CHAT_QUESTION_OPEN");
+  });
+  x.f.application.chatDelivery.retryMs = 60000;
+  const input = x.body();
+  assert.equal((await x.post(input)).status, "pending");
+  // Simulate a restart: the in-memory waiter is gone.
+  x.f.application.chatDelivery.active.clear();
+  const replay = await (
+    await x.f.request(
+      `${inputPath}/${input.deliveryId}?scope=${encodeURIComponent(scope)}`,
+    )
+  ).json();
+  assert.equal(replay.status, "uncertain");
+  assert.equal(replay.reason, "CHAT_QUESTION_OPEN");
+  assert.match(replay.error, /noch nicht eingegeben/);
+  assert.equal((await x.recover(input)).recovery.action, "none");
+});

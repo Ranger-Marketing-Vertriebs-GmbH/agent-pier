@@ -109,21 +109,32 @@ test("Claude submits once after all pasted image paths have become native chips"
   ]);
 });
 
-test("unfinished image preparation times out without injecting Enter", async (t) => {
+test("unfinished image preparation still submits and reports missing images", async (t) => {
   const text = await images(t);
+  const calls = [];
   const manager = {
     target: () => "=synthetic",
     tmux: async (args) => {
-      assert.equal(args[0], "display-message");
-      return capture(screen("[Image #1]"), args);
+      calls.push(args.at(-1));
+      if (args[0] === "display-message") return capture(screen("[Image #1]"), args);
     },
   };
-  await assert.rejects(
-    waitForClaudeImagePaste(manager, { id: "synthetic", tool: "claude" }, text, {
+  assert.equal(
+    await waitForClaudeImagePaste(manager, { id: "synthetic", tool: "claude" }, text, {
       timeoutMs: 0,
     }),
-    { status: 409, code: "CHAT_IMAGES_UNCONFIRMED" },
+    false,
   );
+  // Chat never stays unsent: Enter follows, with an informational notice.
+  const notices = [];
+  calls.length = 0;
+  await writeChatTuiInput(manager, { id: "synthetic", tool: "claude" }, text, {
+    imageTimeoutMs: 0,
+    onNotice: async (code) => notices.push(code),
+  });
+  assert.deepEqual(notices, ["CHAT_IMAGES_MAYBE_MISSING"]);
+  assert.equal(calls.at(-1), "Enter");
+  assert.equal(calls.filter((call) => call === "Enter").length, 1);
 });
 
 test("existing image chips cannot count as preparation of newly pasted files", async (t) => {
@@ -144,11 +155,14 @@ test("existing image chips cannot count as preparation of newly pasted files", a
     initialImages: 2,
   });
   assert.equal(reads, 2);
-  await assert.rejects(
-    waitForClaudeImagePaste(manager, { id: "synthetic", tool: "claude" }, text, {
+  // Without a readable baseline only a lower bound counts, never fewer chips.
+  captures.push(screen("[Image #1]"));
+  assert.equal(
+    await waitForClaudeImagePaste(manager, { id: "synthetic", tool: "claude" }, text, {
       initialImages: null,
+      timeoutMs: 0,
     }),
-    { status: 409 },
+    false,
   );
 });
 
@@ -203,7 +217,7 @@ test("a short pane with a clipped prompt box submits once all chips are visible"
   }
 });
 
-test("chips scrolled out of view keep waiting, then fail clearly", async (t) => {
+test("chips scrolled out of view keep waiting, then report missing images", async (t) => {
   let reads = 0;
   const manager = {
     target: () => "=synthetic",
@@ -213,14 +227,14 @@ test("chips scrolled out of view keep waiting, then fail clearly", async (t) => 
       return capture(screens.images3Scrolled60x11, args);
     },
   };
-  await assert.rejects(
-    waitForClaudeImagePaste(
+  assert.equal(
+    await waitForClaudeImagePaste(
       manager,
       { id: "synthetic", tool: "claude" },
       `Describe\n${await realImages(t, 3)}`,
       { timeoutMs: 150 },
     ),
-    { status: 409, code: "CHAT_IMAGES_UNCONFIRMED" },
+    false,
   );
   assert.ok(reads > 1);
 });
