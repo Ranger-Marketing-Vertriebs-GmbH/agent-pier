@@ -66,8 +66,8 @@ test("persistent busy is bounded and leaves the image attached", async () => {
   const f = harness();
   f.failures = Infinity;
   await assert.rejects(fixtures.detachOwnedDiskImage(f.options), (e) => e === f.busy);
-  assert.equal(f.commands.length, 5);
-  assert.deepEqual(f.waits, [250, 500, 1000, 2000]);
+  assert.equal(f.commands.length, 7);
+  assert.deepEqual(f.waits, [250, 500, 1000, 2000, 4000, 8000]);
   assert.ok(await f.options.attached());
 });
 
@@ -146,4 +146,20 @@ test("a successful command is insufficient while image remains attached", async 
   });
   assert.ok(await f.options.attached());
   assert.deepEqual(f.waits, []);
+});
+
+test("a whole disk still busy seconds after its volume unmounted can finish detaching", async () => {
+  // Observed on macOS runners: after the first busy attempt the APFS volume is gone,
+  // but the image disk stays busy for more than four seconds before it detaches.
+  const f = harness();
+  f.failures = 5;
+  f.options.wait = async (delay) => {
+    f.waits.push(delay);
+    const current = await f.options.attached();
+    delete current["system-entities"][2]["mount-point"];
+  };
+  await fixtures.detachOwnedDiskImage(f.options);
+  assert.equal(f.commands.length, 6);
+  assert.deepEqual(f.waits, [250, 500, 1000, 2000, 4000]);
+  assert.equal(await f.options.attached(), undefined);
 });
