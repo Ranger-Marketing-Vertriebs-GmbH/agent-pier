@@ -1,5 +1,14 @@
 /** English product copy, addressed through the same semantic keys as the German catalog. */
 export const sessions = Object.freeze({
+  invalidSandboxProfile: "Invalid sandbox profile.",
+  sandboxUnavailable:
+    "nono is not installed on this machine. The session was not started.",
+  sandboxProfileUnknown:
+    "This sandbox profile is unavailable. Please select another one.",
+  sandboxNotForLogin: "Sign-in sessions cannot run in the sandbox.",
+  sandboxNotForPipeline: "Pipeline steps cannot run in the sandbox in this version.",
+  sandboxNotForTaskProfile:
+    "Sandbox profiles are unavailable when launching with a task profile.",
   invalidAgentBusSelection: "Invalid AgentBus selection.",
   loginNameSuffix: " · Sign-in",
   sessionLimitReached: "At most 30 sessions at a time. Please stop a session first.",
