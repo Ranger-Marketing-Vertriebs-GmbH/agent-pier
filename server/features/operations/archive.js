@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { gzipSync, gunzipSync } from "node:zlib";
 import { promisify } from "node:util";
 import { scrypt, randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
@@ -9,17 +10,17 @@ const kdf = { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 export function encodeArchive(value) {
   const bytes = Buffer.from(JSON.stringify(value));
   if (bytes.length > ARCHIVE_LIMIT)
-    throw problem("Archive expansion limit exceeded.", 413);
+    throw problem(serverMessages.backups.archiveExpansionLimit, 413);
   return gzipSync(bytes);
 }
 export function decodeArchive(fileOrBytes, { limit = ARCHIVE_LIMIT } = {}) {
   const bytes = Buffer.isBuffer(fileOrBytes) ? fileOrBytes : readFile(fileOrBytes, limit);
-  if (bytes.length > limit) throw problem("Archive size limit exceeded.", 413);
+  if (bytes.length > limit) throw problem(serverMessages.backups.archiveSizeLimit, 413);
   let value;
   try {
     value = JSON.parse(gunzipSync(bytes, { maxOutputLength: limit }));
   } catch {
-    throw problem("Invalid or oversized AgentPier archive.");
+    throw problem(serverMessages.backups.invalidArchive);
   }
   if (
     !value ||
@@ -28,7 +29,7 @@ export function decodeArchive(fileOrBytes, { limit = ARCHIVE_LIMIT } = {}) {
     !value.manifest ||
     value.manifest.schemaVersion !== 1
   )
-    throw problem("Unsupported backup format or schema.");
+    throw problem(serverMessages.backups.unsupportedFormat);
   validateMembers(value.files);
   return value;
 }
@@ -37,7 +38,7 @@ export function validateMembers(
   { executable = false, limit = ARCHIVE_LIMIT } = {},
 ) {
   if (!Array.isArray(files) || files.length > 20000)
-    throw problem("Invalid archive members.");
+    throw problem(serverMessages.backups.invalidMembers);
   const names = new Set();
   let size = 0;
   for (const member of files) {
@@ -48,21 +49,23 @@ export function validateMembers(
       member.link ||
       (member.mode !== 0o600 && !(executable && member.mode === 0o755))
     )
-      throw problem("Duplicate, linked, or invalid archive member.");
+      throw problem(serverMessages.backups.invalidMember);
     names.add(name);
-    if (typeof member.content !== "string") throw problem("Invalid archive encoding.");
+    if (typeof member.content !== "string")
+      throw problem(serverMessages.backups.invalidEncoding);
     const content = Buffer.from(member.content, "base64");
     if (content.toString("base64") !== member.content)
-      throw problem("Invalid archive encoding.");
+      throw problem(serverMessages.backups.invalidEncoding);
     size += content.length;
-    if (size > limit) throw problem("Archive expansion limit exceeded.", 413);
-    if (digest(content) !== member.sha256) throw problem("Archive checksum mismatch.");
+    if (size > limit) throw problem(serverMessages.backups.archiveExpansionLimit, 413);
+    if (digest(content) !== member.sha256)
+      throw problem(serverMessages.backups.checksumMismatch);
   }
   for (const name of names) {
     const parts = name.split("/");
     while (parts.pop() && parts.length)
       if (names.has(parts.join("/")))
-        throw problem("Archive file conflicts with a directory.");
+        throw problem(serverMessages.backups.fileDirectoryConflict);
   }
   return files;
 }
@@ -72,7 +75,7 @@ export async function encryptCredentials(files, passphrase) {
     passphrase.length < 12 ||
     passphrase.length > 4096
   )
-    throw problem("Encrypted backups require a passphrase of 12 to 4096 characters.");
+    throw problem(serverMessages.backups.passphraseLength);
   const salt = randomBytes(16),
     iv = randomBytes(12);
   const header = {
@@ -108,14 +111,14 @@ export async function decryptCredentials(capsule, passphrase) {
     h.p !== kdf.p ||
     Object.keys(h).length !== 8
   )
-    throw problem("Unsupported credential encryption parameters.");
+    throw problem(serverMessages.backups.unsupportedEncryption);
   if (typeof passphrase !== "string" || passphrase.length > 4096)
-    throw problem("A backup passphrase is required.");
+    throw problem(serverMessages.backups.passphraseRequired);
   const salt = Buffer.from(h.salt || "", "base64"),
     iv = Buffer.from(h.iv || "", "base64"),
     tag = Buffer.from(capsule.tag || "", "base64");
   if (salt.length !== 16 || iv.length !== 12 || tag.length !== 16)
-    throw problem("Invalid credential encryption envelope.");
+    throw problem(serverMessages.backups.invalidEnvelope);
   const key = await derive(passphrase, salt, 32, kdf);
   try {
     const decipher = createDecipheriv("aes-256-gcm", key, iv);
@@ -127,7 +130,7 @@ export async function decryptCredentials(capsule, passphrase) {
     ]);
     return validateMembers(JSON.parse(content));
   } catch {
-    throw problem("Backup passphrase or credential authentication failed.");
+    throw problem(serverMessages.backups.authenticationFailed);
   } finally {
     key.fill(0);
   }

@@ -134,12 +134,12 @@ test("profile deep links and navigation survive reload and history", async ({ pa
   await expect(page.getByRole("combobox", { name: "CLI-Profil" })).toHaveValue(
     "work-claude",
   );
-  await navigateTo(page, "Konten");
+  await navigateTo(page, "Accounts");
   await expect(page).toHaveURL(/\/accounts$/);
   await navigateTo(page, "Repositories");
   await expect(page).toHaveURL(/\/repositories$/);
   await page.goBack();
-  await expect(page.getByRole("heading", { name: "Deine Konten" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Deine Accounts" })).toBeVisible();
 });
 for (const [path, message] of [
   ["/sessions/missing/chat", "Sitzung nicht gefunden"],
@@ -165,7 +165,7 @@ test("legacy mobile session links normalize once and use the reader", async ({
   await expect(page.getByLabel("Chatverlauf")).toBeVisible();
 });
 for (const [path, heading] of [
-  ["/accounts", "Deine Konten"],
+  ["/accounts", "Deine Accounts"],
   ["/repositories", "Deine Repositories"],
   ["/agentbus", "AgentBus"],
 ])

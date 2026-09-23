@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { isIP } from "node:net";
 import { endpoint, publicKeyValue } from "./ssh-keys.js";
 import { sshProblem } from "./ssh-errors.js";
@@ -98,7 +99,7 @@ export function moveProject(catalog, fromProjectId, target) {
   )
     throw sshProblem(
       "SSH_PROJECT_UNAVAILABLE",
-      "The source SSH project is unavailable.",
+      serverMessages.ssh.sourceProjectUnavailable,
       404,
     );
   const targetKeys = current.keys.filter((row) => row.projectId === target.id);
@@ -119,11 +120,7 @@ export function moveProject(catalog, fromProjectId, target) {
   }
   if (collisions.size)
     throw Object.assign(
-      sshProblem(
-        "SSH_PROJECT_COLLISION",
-        "The target project already contains a matching key or host.",
-        409,
-      ),
+      sshProblem("SSH_PROJECT_COLLISION", serverMessages.ssh.projectCollision, 409),
       {
         details: {
           resourceIds: [...collisions].slice(0, 100),

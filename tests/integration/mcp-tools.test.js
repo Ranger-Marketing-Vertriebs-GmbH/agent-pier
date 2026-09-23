@@ -8,6 +8,7 @@ const execute = promisify(execFile);
 import { applicationFixture } from "../helpers/application.js";
 import { PipelineEngine } from "../../server/features/pipelines/pipeline-engine.js";
 import { McpTools } from "../../server/features/mcp/tool-service.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 async function setup(t) {
   const app = await applicationFixture(t);
@@ -338,7 +339,7 @@ test("MCP persists the expected project and refuses a mismatched prepared worksp
   const stored = c.services.pipelines.store.get(result.run.id);
   assert.equal(stored.expectedProjectId, c.project.id);
   assert.equal(stored.workspace, null);
-  assert.match(stored.failDetail, /project/i);
+  assert.equal(stored.failDetail, serverMessages.pipelineWorkspaces.projectMismatch);
 });
 
 test("Recovered provisioning retains its project constraint before a native launch", async (t) => {

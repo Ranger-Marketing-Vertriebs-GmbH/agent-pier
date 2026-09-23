@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { assertManualInputSettled } from "./manual-input-guard.js";
 import { startupScreen } from "../requests/claude-startup-prompts.js";
 import { requestCopy } from "../../lib/i18n/de/requests.js";
@@ -22,10 +23,10 @@ import {
 
 export function normalizeChatText(text) {
   if (typeof text !== "string" || !text || text.length > 32000)
-    throw problem("Invalid chat input", 400);
+    throw problem(serverMessages.sessionInput.invalid, 400);
   const normalized = text.replace(/\r\n?/g, "\n");
   if (/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/.test(normalized))
-    throw problem("Chat input contains terminal control characters", 400);
+    throw problem(serverMessages.sessionInput.controlCharacters, 400);
   return normalized;
 }
 
@@ -184,20 +185,21 @@ export function assertChatComposerReady(tool, raw, pane) {
   if (composer.state !== "empty")
     throw problem(
       composer.state === "text"
-        ? "The terminal composer already contains a draft"
-        : "The terminal composer cannot be safely inspected",
+        ? serverMessages.sessionInput.composerDraft
+        : serverMessages.sessionInput.composerUninspectable,
       409,
     );
 }
 
 async function currentChatSession(manager, id) {
-  if (manager.replacing.has(id)) throw problem("Session is reloading", 409);
+  if (manager.replacing.has(id)) throw problem(serverMessages.sessions.reloading, 409);
   const session = await manager.current(id);
-  if (session.reload?.state === "reloading") throw problem("Session is reloading", 409);
-  if (session.status !== "running") throw problem("Session is stopped", 409);
+  if (session.reload?.state === "reloading")
+    throw problem(serverMessages.sessions.reloading, 409);
+  if (session.status !== "running") throw problem(serverMessages.sessions.stopped, 409);
   assertInteractiveSession(session);
   if (session.purpose || !["codex", "claude", "opencode"].includes(session.tool))
-    throw problem("This session does not support chat input", 409);
+    throw problem(serverMessages.sessionInput.unsupported, 409);
   return session;
 }
 
@@ -210,7 +212,7 @@ async function nativeGeneration(manager, session) {
       await readFile(path.join(directory, `${session.id}.launch.json`), "utf8"),
     );
   } catch {
-    throw problem("Native session launch identity is missing or invalid", 409);
+    throw problem(serverMessages.sessionInput.launchIdentityInvalid, 409);
   }
   if (
     !launch ||
@@ -222,7 +224,7 @@ async function nativeGeneration(manager, session) {
     launch.cwd !==
       (typeof session.cwd === "string" ? await realpath(session.cwd) : session.cwd)
   )
-    throw problem("Native session launch identity changed", 409);
+    throw problem(serverMessages.sessionInput.launchIdentityChanged, 409);
   let receipt;
   try {
     receipt = JSON.parse(
@@ -237,7 +239,7 @@ async function nativeGeneration(manager, session) {
         launchToken: launch.token,
         recoverable: false,
       };
-    throw problem("Native session receipt is invalid", 409);
+    throw problem(serverMessages.sessionInput.receiptInvalid, 409);
   }
   if (
     !receipt ||
@@ -247,14 +249,14 @@ async function nativeGeneration(manager, session) {
     receipt.tool !== session.tool ||
     receipt.cwd !== launch.cwd
   )
-    throw problem("Native session identity changed", 409);
+    throw problem(serverMessages.sessionInput.identityChanged, 409);
   if (
     !Number.isInteger(receipt.pid) ||
     receipt.pid <= 0 ||
     !receipt.pidStart ||
     pidStart(receipt.pid) !== receipt.pidStart
   )
-    throw problem("Native session process changed", 409);
+    throw problem(serverMessages.sessionInput.processChanged, 409);
   return {
     identity: [receipt.providerSessionId, receipt.pid, receipt.pidStart, launch.token],
     launchToken: launch.token,
@@ -288,9 +290,9 @@ export async function chatInputSnapshot(manager, session) {
     dead !== "0" ||
     ![x, y, width, height].every((value) => /^\d+$/.test(value || ""))
   )
-    throw problem("The terminal identity cannot be safely inspected", 409);
+    throw problem(serverMessages.sessionInput.terminalIdentityUninspectable, 409);
   const processStart = pidStart(Number(pid));
-  if (!processStart) throw problem("Session is stopped", 409);
+  if (!processStart) throw problem(serverMessages.sessions.stopped, 409);
   const native = await nativeGeneration(manager, session);
   const generation = createHash("sha256")
     .update(
@@ -356,7 +358,7 @@ async function awaitClaudePaste(snapshot, state, timeoutMs = 2000) {
 /** Inspection and optional writing share the exact lock used by terminal input. */
 export function withChatInput(manager, id, operation) {
   if (manager.replacing.has(id))
-    return Promise.reject(problem("Session is reloading", 409));
+    return Promise.reject(problem(serverMessages.sessions.reloading, 409));
   return manager.serial(async () => {
     const session = await currentChatSession(manager, id);
     const initial = await chatInputSnapshot(manager, session);
@@ -364,11 +366,11 @@ export function withChatInput(manager, id, operation) {
     let attempted = false;
     let checking = false;
     const check = async (text, submitOnly, inspect = true) => {
-      if (!active) throw problem("Chat input transaction has ended", 409);
+      if (!active) throw problem(serverMessages.sessionInput.transactionEnded, 409);
       const current = await currentChatSession(manager, id);
       const fresh = await chatInputSnapshot(manager, current);
       assertManualInputSettled(manager, id, fresh);
-      if (!active) throw problem("Chat input transaction has ended", 409);
+      if (!active) throw problem(serverMessages.sessionInput.transactionEnded, 409);
       if (
         (current.tool === "codex" && hookTrustScreen(fresh.raw)) ||
         (current.tool === "claude" &&
@@ -376,14 +378,14 @@ export function withChatInput(manager, id, operation) {
       )
         throw problem(requestCopy.pendingInput, 409);
       if (fresh.generation !== initial.generation)
-        throw problem("Session generation changed", 409);
+        throw problem(serverMessages.sessionInput.generationChanged, 409);
       if (
         inspect &&
         (submitOnly
           ? fresh.composer.state !== "text" || fresh.composer.text !== text
           : fresh.composer.state !== "empty")
       )
-        throw problem("The terminal composer conflicts with this chat input", 409);
+        throw problem(serverMessages.sessionInput.composerConflict, 409);
       return fresh;
     };
     try {
@@ -402,7 +404,7 @@ export function withChatInput(manager, id, operation) {
             claudeComposerState(fresh.raw, fresh.pane, fresh.composer);
           const snapshot = () => check(text, false, false);
           if (attempted || checking)
-            throw problem("Chat input was already attempted", 409);
+            throw problem(serverMessages.sessionInput.alreadyAttempted, 409);
           checking = true;
           let initialImages = 0;
           try {
@@ -411,10 +413,7 @@ export function withChatInput(manager, id, operation) {
             attempted = true;
             if (replace)
               fresh = await clearClaudeComposer(manager, session, fresh, snapshot);
-            if (claude)
-              initialImages = claudeComposerImages(
-                `${fresh.pane.width}|${fresh.pane.cursorY}\n${fresh.raw}`,
-              );
+            if (claude) initialImages = claudeComposerImages(fresh.raw, fresh.pane);
           } finally {
             checking = false;
           }

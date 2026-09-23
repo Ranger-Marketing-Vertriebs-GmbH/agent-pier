@@ -1,3 +1,4 @@
+import { agentText } from "../../lib/i18n/agent-text.js";
 import { authorizeCapability } from "./memory-capability.js";
 import { memoryTools, callMemoryTool } from "./memory-tools.js";
 
@@ -37,7 +38,9 @@ export function memoryResponse(memory, credential, request) {
             {
               type: "text",
               text: JSON.stringify({
-                error: error.status ? error.message : "Memory operation failed.",
+                error: error.status
+                  ? agentText(error.message)
+                  : "Memory operation failed.",
                 status: error.status || 500,
               }),
             },
@@ -70,7 +73,9 @@ export function memoryResponse(memory, credential, request) {
       id: id ?? null,
       error: {
         code: -32000,
-        message: error.status ? error.message : "Memory transport is unavailable.",
+        message: error.status
+          ? agentText(error.message)
+          : "Memory transport is unavailable.",
       },
     };
   }

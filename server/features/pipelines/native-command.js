@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { codexSandboxArguments, runSandbox } from "../../lib/sandbox.js";
 import { PERMISSION_MODES } from "./profile-validation.js";
@@ -12,7 +13,7 @@ export function nativeCommand({
   claudeDefault = "default",
 }) {
   if (!PERMISSION_MODES[tool]?.includes(mode))
-    throw problem(`Invalid ${tool} permission mode.`);
+    throw problem(serverMessages.pipelineProfiles.invalidNativePermissionMode(tool));
   const args = [...launch.args];
   // Every pipeline turn is autonomous: the agent has no operator to ask what it
   // is allowed to write, so it is told the sandbox it actually runs in.

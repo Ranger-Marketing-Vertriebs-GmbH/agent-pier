@@ -23,20 +23,17 @@ export class NativePipelineDriver {
     const sessionId = validId(input.sessionId),
       pipeline = pipelineIdentity({ ...input, headless: true });
     if (!profile?.accountSnapshot)
-      throw problem("A frozen account configuration is required.");
+      throw problem(serverMessages.pipelines.frozenAccountRequired);
     if (
       profile.config.providerConnectionId !== undefined &&
       !profile.providerConnectionSnapshot
     )
-      throw problem("A frozen provider connection configuration is required.");
+      throw problem(serverMessages.pipelines.frozenConnectionRequired);
     if (input.kind && input.kind !== "kickoff" && !resumeNativeId)
-      throw problem(
-        "The previous turn has no verified native conversation to resume.",
-        409,
-      );
+      throw problem(serverMessages.pipelines.noNativeConversationToResume, 409);
     validateFrozenAccount(profile, this.accounts.get(profile.config.accountId));
     if (resumeNativeId && !/^[A-Za-z0-9][A-Za-z0-9_-]{0,199}$/.test(resumeNativeId))
-      throw problem("Invalid native conversation identity.");
+      throw problem(serverMessages.pipelines.invalidNativeConversation);
     const text = [
       profile.config.prompts.role
         ? `Role instructions:\n${profile.config.prompts.role}`
@@ -83,7 +80,7 @@ export class NativePipelineDriver {
     if (
       Object.entries(expected).some(([key, value]) => session.pipeline?.[key] !== value)
     )
-      throw problem("Pipeline session ownership does not match.", 409);
+      throw problem(serverMessages.pipelines.sessionOwnershipMismatch, 409);
     return session;
   }
   async inspect(identity) {
@@ -165,7 +162,7 @@ export class NativePipelineDriver {
     if (nonoProfile) throw problem(serverMessages.sessions.sandboxNotForTaskProfile, 409);
     profile = standaloneProfile(profile, access, this.accounts);
     const prompt = renderProfilePrompt(profile, params, model);
-    if (!profile.enabled) throw problem("This profile is disabled.", 409);
+    if (!profile.enabled) throw problem(serverMessages.pipelineProfiles.disabled, 409);
     const sessionId = randomUUID();
     return this.lifecycle.launch(
       {

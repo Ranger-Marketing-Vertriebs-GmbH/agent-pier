@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -10,7 +11,7 @@ function read(file, fallback) {
     descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
     const info = fs.fstatSync(descriptor);
     if (!info.isFile() || info.nlink !== 1 || info.size > 1024 * 1024)
-      throw problem("Unsafe provider connection storage.");
+      throw problem(serverMessages.providers.unsafeConnectionStorage);
     return JSON.parse(fs.readFileSync(descriptor, "utf8"));
   } catch (error) {
     if (error.code === "ENOENT") return fallback;
@@ -32,20 +33,20 @@ function inputValue(input, creation) {
     Array.isArray(input) ||
     Object.keys(input).some((key) => !allowed.includes(key))
   )
-    throw problem("Invalid provider connection fields.");
+    throw problem(serverMessages.providers.invalidConnectionFields);
   if (
     input.apiKey !== undefined &&
     (typeof input.apiKey !== "string" ||
       input.apiKey.length > 16384 ||
       /[\x00-\x1f]/.test(input.apiKey))
   )
-    throw problem("Invalid provider API key.");
+    throw problem(serverMessages.providers.invalidApiKey);
   if (input.removeApiKey !== undefined && typeof input.removeApiKey !== "boolean")
-    throw problem("Invalid key removal selection.");
+    throw problem(serverMessages.providers.invalidKeyRemoval);
   if (input.responsesAccess !== undefined && typeof input.responsesAccess !== "boolean")
-    throw problem("Responses API access must be an explicit boolean.");
+    throw problem(serverMessages.providers.responsesAccessBoolean);
   if (input.removeApiKey && input.apiKey?.trim())
-    throw problem("Choose either key rotation or key removal.");
+    throw problem(serverMessages.accounts.keyRotationOrRemoval);
   return input.apiKey?.trim();
 }
 export class ProviderConnections {
@@ -58,18 +59,18 @@ export class ProviderConnections {
     fs.mkdirSync(this.directory, { recursive: true, mode: 0o700 });
     const info = fs.lstatSync(this.directory);
     if (!info.isDirectory() || (process.getuid && info.uid !== process.getuid()))
-      throw problem("Unsafe provider connection directory.");
+      throw problem(serverMessages.providers.unsafeConnectionDirectory);
     fs.chmodSync(this.directory, 0o700);
     this.records = read(this.file, []);
     if (
       !Array.isArray(this.records) ||
       this.records.some((record) => !validId(record.id))
     )
-      throw problem("Invalid provider connection storage.");
+      throw problem(serverMessages.providers.invalidConnectionStorage);
   }
   record(id) {
     const record = validId(id) && this.records.find((value) => value.id === id);
-    if (!record) throw problem("Provider connection not found.", 404);
+    if (!record) throw problem(serverMessages.providers.connectionNotFound, 404);
     return record;
   }
   secret(id) {
@@ -119,17 +120,14 @@ export class ProviderConnections {
   }
   requireMutable(id) {
     if (this.launches.has(id))
-      throw problem(
-        "A session is being prepared with this connection. Retry after the session starts.",
-        409,
-      );
+      throw problem(serverMessages.providers.connectionPreparingSession, 409);
   }
   create(input) {
     const key = inputValue(input, true),
       name = nameValue(input.name);
     providerDefinition(input.providerId);
     if (input.providerId === "openrouter" && input.responsesAccess !== undefined)
-      throw problem("Responses entitlement applies only to Z.ai connections.");
+      throw problem(serverMessages.providers.responsesEntitlementZaiOnly);
     const now = new Date().toISOString();
     const record = {
       id: randomUUID(),
@@ -152,7 +150,7 @@ export class ProviderConnections {
     const key = inputValue(input, false),
       current = this.record(id);
     if (current.providerId === "openrouter" && input.responsesAccess !== undefined)
-      throw problem("Responses entitlement applies only to Z.ai connections.");
+      throw problem(serverMessages.providers.responsesEntitlementZaiOnly);
     const record = {
       ...current,
       ...(input.name !== undefined ? { name: nameValue(input.name) } : {}),

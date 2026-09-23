@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
 
@@ -8,7 +9,7 @@ function pageValue(raw) {
     !/^[1-9]\d*$/.test(raw) ||
     !Number.isSafeInteger(Number(raw))
   )
-    throw problem("Invalid memory page.");
+    throw problem(serverMessages.memory.invalidPage);
   return Number(raw);
 }
 function content(body) {
@@ -32,7 +33,7 @@ export function memoryRoutes({ memory, directory }) {
   router.get(base, (request, response) => {
     const { page, q, archived } = request.query;
     if (archived !== undefined && archived !== "true" && archived !== "false")
-      throw problem("Invalid memory archive filter.");
+      throw problem(serverMessages.memory.invalidArchiveFilter);
     response.json(
       memory.list(request.params.projectId, {
         query: q ?? "",

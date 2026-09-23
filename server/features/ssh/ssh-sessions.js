@@ -27,10 +27,7 @@ function isEligible(session) {
 }
 function eligible(session) {
   if (!isEligible(session))
-    throw problem(
-      "SSH-Zugänge können nur laufenden interaktiven Sitzungen zugeordnet werden.",
-      409,
-    );
+    throw problem(serverMessages.ssh.interactiveSessionsOnly, 409);
 }
 
 /** Convenience scoping under one OS user, not a sandbox boundary. */

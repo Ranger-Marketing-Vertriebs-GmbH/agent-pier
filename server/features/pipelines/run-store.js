@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -5,7 +6,7 @@ import { problem } from "../../lib/storage.js";
 
 export function runId(value) {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/.test(value))
-    throw problem("Invalid pipeline identifier.");
+    throw problem(serverMessages.pipelines.invalidIdentifier);
   return value;
 }
 export function privateRunDirectory(dir) {
@@ -16,7 +17,7 @@ export function privateRunDirectory(dir) {
     st.isSymbolicLink() ||
     (process.getuid && st.uid !== process.getuid())
   )
-    throw problem("Unsafe pipeline storage.", 409);
+    throw problem(serverMessages.pipelines.unsafeStorage, 409);
   fs.chmodSync(dir, 0o700);
   return dir;
 }
@@ -35,7 +36,7 @@ export class RunStore {
           st.nlink !== 1 ||
           (process.getuid && st.uid !== process.getuid())
         )
-          throw problem("Unsafe pipeline database.", 409);
+          throw problem(serverMessages.pipelines.unsafeDatabase, 409);
       } catch (e) {
         if (e.code !== "ENOENT") throw e;
       }
@@ -48,7 +49,7 @@ export class RunStore {
   }
   get(id) {
     const row = this.db.prepare("SELECT doc FROM runs WHERE id=?").get(runId(id));
-    if (!row) throw problem("Pipeline run not found.", 404);
+    if (!row) throw problem(serverMessages.pipelines.runNotFound, 404);
     return JSON.parse(row.doc);
   }
   all() {
@@ -71,8 +72,7 @@ export class RunStore {
     const result = this.db
       .prepare("UPDATE runs SET revision=?,doc=? WHERE id=? AND revision=?")
       .run(next.revision, JSON.stringify(next), run.id, old);
-    if (result.changes !== 1)
-      throw problem("Pipeline run changed. Reload and retry.", 409);
+    if (result.changes !== 1) throw problem(serverMessages.pipelines.runChanged, 409);
     run.revision = next.revision;
     this.onChange(structuredClone(run));
     return run;

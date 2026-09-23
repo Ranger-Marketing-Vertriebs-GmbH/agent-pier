@@ -65,7 +65,7 @@ the installation.
 
 ## Migration and subsequent edits
 
-The first work-session launch, extension mutation or **Vorhandene Kontokonfigurationen übernehmen** imports existing managed extensions, including provider connection profiles. Merely viewing the page does not change native files. Different named entries merge; a conflicting shared entry wins as a complete definition. Existing skill packages are preserved as whole directories and are never mixed with another implementation. The UI reports conflicts without exposing configuration values. Imported files survive deletion of their former account.
+The first work-session launch, extension mutation or **Vorhandene Account-Konfigurationen übernehmen** imports existing managed extensions, including provider connection profiles. Merely viewing the page does not change native files. Different named entries merge; a conflicting shared entry wins as a complete definition. Existing skill packages are preserved as whole directories and are never mixed with another implementation. The UI reports conflicts without exposing configuration values. Imported files survive deletion of their former account.
 
 Before the managed configuration is projected, original mixed files receive private `.before-sharing` copies. Existing asset directories are renamed to `.before-sharing-<uuid>` before linking. Import limits are 30,000 entries and 512 MiB; configuration files are bounded separately. Linked native destinations are treated as read-only and rejected for mutation. Resolve such a conflict in the native profile before retrying.
 

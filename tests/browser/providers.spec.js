@@ -88,7 +88,7 @@ test("catalog refresh failures preserve selection and unknown limits remain unkn
   await expect(page.getByLabel("Anbietermodell", { exact: true })).toHaveValue(
     "example/unknown",
   );
-  await expect(page.getByLabel("Kontoname")).toHaveValue("Gateway account");
+  await expect(page.getByLabel("Account-Name")).toHaveValue("Gateway account");
   controls.failRefresh = false;
   await page.getByRole("button", { name: "Modellkatalog aktualisieren" }).click();
   await expect(page.getByText("Aktueller Katalog", { exact: true })).toBeVisible();
@@ -327,7 +327,7 @@ test("renaming a running provider account does not submit a provider change", as
   });
   await page.goto(baseURL + "/accounts");
   await page.getByRole("button", { name: "Gateway bearbeiten" }).click();
-  await page.getByLabel("Kontoname").fill("Renamed gateway");
+  await page.getByLabel("Account-Name").fill("Renamed gateway");
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(

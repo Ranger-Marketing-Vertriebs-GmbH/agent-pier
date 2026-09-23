@@ -13,12 +13,12 @@ export const accountDialogCopy = {
 };
 export const accountsPageCopy = {
   signedIn: "Angemeldet",
-  defaultAccount: "Standardkonto",
+  defaultAccount: "Standard-Account",
   setDefaultAccount: "Als Standard verwenden",
   useDefaultAccount: (name) => `${name} als Standard verwenden`,
-  pageToplineLabel: "WORKSPACE / KONTEN",
+  pageToplineLabel: "WORKSPACE / ACCOUNTS",
   subtle: " Lokal gespeichert",
-  pageHeadingTitle: "Deine Konten",
+  pageHeadingTitle: "Deine Accounts",
   pageHeadingDescription: "Ein Workspace. Für alle deine Identitäten.",
   localProfileDescription: "Vorhandenes CLI-Profil auf dem AgentPier-Server",
   managedProfileWithKey: "Eigenes Profil · API-Key gespeichert",
@@ -26,5 +26,5 @@ export const accountsPageCopy = {
   iconButtonAriaLabel: (value1) => `${value1} löschen`,
   accountInfoHeading: "Alles bleibt auf deinem Rechner.",
   accountInfoDescription:
-    "Eigene Profile haben getrennte Anmeldungen und Konfigurationen. Lokale Profile verwenden die vorhandene CLI-Anmeldung auf dem AgentPier-Server. Wähle ein eigenes Profil als Standardkonto, wenn dort noch keine Anmeldung besteht.",
+    "Eigene Profile haben getrennte Anmeldungen und Konfigurationen. Lokale Profile verwenden die vorhandene CLI-Anmeldung auf dem AgentPier-Server. Wähle ein eigenes Profil als Standard-Account, wenn dort noch keine Anmeldung besteht.",
 };

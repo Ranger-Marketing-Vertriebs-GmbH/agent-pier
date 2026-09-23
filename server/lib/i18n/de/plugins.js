@@ -1,13 +1,13 @@
 /** Existing German product copy, addressed through English semantic keys. */
 export const plugins = Object.freeze({
   invalidCatalogAccount:
-    "Bitte ein gültiges Codex-Konto für den Standardkatalog auswählen.",
-  defaultCatalogSource: "Nativer Codex-Standardkatalog des ausgewählten Kontos",
+    "Bitte einen gültigen Codex-Account für den Standardkatalog auswählen.",
+  defaultCatalogSource: "Nativer Codex-Standardkatalog des ausgewählten Accounts",
   nativeMarketplaceSource: "Vom nativen Codex-Katalog bereitgestellt",
   remoteCatalogEmpty:
-    "Für dieses Konto sind keine Standard-Plugins verfügbar. Ein bei Codex angemeldetes Konto auswählen und erneut laden.",
+    "Für diesen Account sind keine Standard-Plugins verfügbar. Einen bei Codex angemeldeten Account auswählen und erneut laden.",
   remoteCatalogUnavailable:
-    "Der Standardkatalog des ausgewählten Kontos konnte nicht geladen werden. Lokale Plugins bleiben verfügbar.",
+    "Der Standardkatalog des ausgewählten Accounts konnte nicht geladen werden. Lokale Plugins bleiben verfügbar.",
   serviceStopping: "Die Plugin-Verwaltung wird beendet.",
   commandTimeout: "Der native Plugin-Befehl hat das Zeitlimit überschritten.",
   catalogSelectionRequired: "Bitte ein Plugin aus dem Marketplace-Katalog auswählen.",

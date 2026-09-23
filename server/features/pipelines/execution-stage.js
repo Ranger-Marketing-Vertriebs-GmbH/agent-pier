@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { checkpointStage } from "./stage-checkpoint.js";
 import { randomUUID } from "node:crypto";
 import { clearVerdict, readVerdict } from "./stage-verdict.js";
@@ -22,7 +23,7 @@ export async function launchStage(engine, run, node, options = {}) {
       "session-error",
       [400, 409].includes(error.status)
         ? error.message
-        : "The stage workspace could not be prepared safely.",
+        : serverMessages.pipelines.stageWorkspaceUnsafe,
     );
   }
 }
@@ -118,7 +119,7 @@ async function prepareStage(
       "session-error",
       [400, 409].includes(error.status)
         ? error.message
-        : "The stage could not be launched. Check its account and native session.",
+        : serverMessages.pipelines.stageLaunchFailed,
     );
     engine.recordError(error);
   }
@@ -206,7 +207,7 @@ export async function applyOutcome(engine, run, outcome) {
         run,
         node,
         "usage-limit-exceeded",
-        "Native provider usage limit reached.",
+        serverMessages.pipelines.usageLimitReached,
       );
       return;
     }
@@ -215,8 +216,7 @@ export async function applyOutcome(engine, run, outcome) {
       run,
       node,
       "session-error",
-      outcome.observationError ||
-        "The native stage turn ended unsuccessfully. Inspect its terminal output.",
+      outcome.observationError || serverMessages.pipelines.nativeTurnFailed,
     );
     return;
   }
@@ -238,7 +238,7 @@ export async function applyOutcome(engine, run, outcome) {
       run,
       node,
       found.invalid ? "verdict-invalid" : "verdict-missing",
-      found.reason || "The stage did not provide a fresh verdict.",
+      found.reason || serverMessages.pipelines.verdictMissing,
     );
     return;
   }
@@ -322,7 +322,7 @@ export async function advance(engine, run, node) {
         run,
         node,
         "pr-failed",
-        "The run branch or pull request could not be published. Retry the PR action.",
+        serverMessages.pipelines.pullRequestPublishFailed,
       );
       return;
     }
@@ -338,7 +338,7 @@ export async function advance(engine, run, node) {
         run,
         node,
         "pr-failed",
-        "The existing pull request branch could not be updated. The workspace is preserved.",
+        serverMessages.pipelines.pullRequestUpdateFailed,
       );
       return;
     }

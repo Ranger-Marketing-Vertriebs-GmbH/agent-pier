@@ -84,11 +84,11 @@ test("Codex native marketplace uses an explicit catalog account and has no sourc
   page,
 }, testInfo) => {
   const { writes, reads } = await setup(page);
-  const selector = page.getByLabel("Marketplace-Konto", { exact: true });
+  const selector = page.getByLabel("Marketplace-Account", { exact: true });
   await expect(selector).toHaveValue("local-codex");
   await expect(
     page.getByText(
-      "Wähle ein bei Codex angemeldetes Konto. Plugins aus dem Standard-Marketplace werden für dieses Konto installiert.",
+      "Wähle einen bei Codex angemeldeten Account. Plugins aus dem Standard-Marketplace werden für diesen Account installiert.",
     ),
   ).toBeVisible();
   await expect(
@@ -152,7 +152,7 @@ for (const failure of [false, true]) {
     page,
   }) => {
     await setup(page);
-    const selector = page.getByLabel("Marketplace-Konto", { exact: true });
+    const selector = page.getByLabel("Marketplace-Account", { exact: true });
     await expect(selector).toHaveValue("local-codex");
     let release, started;
     const held = new Promise((resolve) => {

@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { PERMISSION_MODES, validateProfile } from "./profile-validation.js";
 
@@ -5,13 +6,13 @@ import { PERMISSION_MODES, validateProfile } from "./profile-validation.js";
 export function standaloneProfile(profile, access, accounts) {
   if (access === undefined) return profile;
   if (!access || typeof access !== "object" || Array.isArray(access))
-    throw problem("Invalid session access selection.");
+    throw problem(serverMessages.providers.invalidAccessSelection);
   if (!Object.hasOwn(PERMISSION_MODES, access.tool))
-    throw problem("Invalid session CLI.");
+    throw problem(serverMessages.pipelineProfiles.invalidSessionCli);
   if (access.providerConnectionId !== undefined && access.nativeModelId !== undefined)
-    throw problem("Choose either a native model or a provider model.");
+    throw problem(serverMessages.providers.nativeOrProviderModel);
   if (access.providerConnectionId === undefined && access.providerModelId !== undefined)
-    throw problem("Select a provider connection for the provider model.");
+    throw problem(serverMessages.providers.connectionRequiredForModel);
   const config = { ...profile.config, cliTool: access.tool };
   if (access.tool !== profile.config.cliTool)
     config.permissions = {

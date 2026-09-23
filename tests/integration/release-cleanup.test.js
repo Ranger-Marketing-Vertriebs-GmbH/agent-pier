@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -71,7 +72,9 @@ test("activation locks and symlinked releases prevent cleanup without touching e
   const r = await fixture(t);
   const lock = path.join(r.dataDir, "operations/release-activation.lock");
   await fs.writeFile(lock, "fixture lock");
-  await assert.rejects(r.cleanup(["1.0.0"]), /pending/);
+  await assert.rejects(r.cleanup(["1.0.0"]), {
+    message: serverMessages.releases.cleanupBusy,
+  });
   assert.equal(await fs.readFile(lock, "utf8"), "fixture lock");
   await fs.unlink(lock);
   await fs.rm(path.join(r.installRoot, "releases/1.0.0"), { recursive: true });

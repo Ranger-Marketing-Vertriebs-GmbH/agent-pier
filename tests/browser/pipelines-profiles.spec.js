@@ -42,7 +42,7 @@ test("mobile profile creation supports account permissions and parameters withou
   await page
     .getByRole("textbox", { name: "Profilname", exact: true })
     .fill("Interaktiver Helfer");
-  await page.getByLabel("Konto", { exact: true }).selectOption("local-claude");
+  await page.getByLabel("Account", { exact: true }).selectOption("local-claude");
   await page.getByLabel("Berechtigungsmodus", { exact: true }).selectOption("plan");
   await page.getByText(/Der gewählte Berechtigungsmodus gilt/).scrollIntoViewIfNeeded();
   await page.screenshot({ path: "docs/screenshots/pipeline-permissions.png" });
@@ -140,9 +140,9 @@ test("mobile profile selectors stay anchored inside the dialog and preserve keyb
   await page.setViewportSize({ width: 390, height: 844 });
   await pipelinesFixture(page);
   await openPipelines(page, "profiles/new");
-  const field = page.getByRole("combobox", { name: "Konto", exact: true });
+  const field = page.getByRole("combobox", { name: "Account", exact: true });
   await field.click();
-  const list = page.getByRole("listbox", { name: "Konto: Optionen", exact: true });
+  const list = page.getByRole("listbox", { name: "Account: Optionen", exact: true });
   await expect(list).toBeVisible();
   const anchor = await field.boundingBox(),
     popup = await list.boundingBox(),
@@ -215,7 +215,7 @@ for (const width of [1440, 390])
     await page.reload();
     await expect(access).toHaveValue("central-openrouter");
     await page
-      .getByRole("combobox", { name: "Konto", exact: true })
+      .getByRole("combobox", { name: "Account", exact: true })
       .selectOption("local-claude");
     await expect(access).toHaveValue("");
     expect(

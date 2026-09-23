@@ -143,6 +143,20 @@ test("an unconfirmed Claude submit is uncertain with a stable reason", async (t)
   assert.ok(!JSON.stringify(hidden).includes("secret-token"));
 });
 
+test("unconfirmed image chips leave a pasted, unsubmitted delivery with a stable reason", async (t) => {
+  const x = await setup(t, async (text, { onPhase }) => {
+    await onPhase("paste-intent");
+    await onPhase("pasted");
+    throw composerProblem("CHAT_IMAGES_UNCONFIRMED");
+  });
+  const input = x.body();
+  const result = await x.post(input);
+  assert.equal(result.status, "uncertain");
+  assert.equal(result.reason, "CHAT_IMAGES_UNCONFIRMED");
+  assert.match(result.error, /eingefügt, aber nicht abgeschickt/);
+  assert.equal(x.journal(input), "pasted");
+});
+
 test("maximum-length multi-byte chat input fits the input and recovery routes", async (t) => {
   const x = await setup(t, async (text, { onPhase }, state) => {
     await onPhase("paste-intent");

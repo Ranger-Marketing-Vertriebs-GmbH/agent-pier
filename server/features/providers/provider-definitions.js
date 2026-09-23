@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 
 export const PROVIDERS = Object.freeze({
@@ -23,7 +24,7 @@ export const PROVIDERS = Object.freeze({
 
 export function providerDefinition(id) {
   if (typeof id !== "string" || !Object.hasOwn(PROVIDERS, id))
-    throw problem("Unknown provider.");
+    throw problem(serverMessages.providers.unknownProvider);
   return PROVIDERS[id];
 }
 
@@ -45,18 +46,16 @@ export function validateProviderSelection(value, tool, catalog) {
     Array.isArray(value) ||
     Object.keys(value).some((key) => !["id", "modelId", "responsesAccess"].includes(key))
   )
-    throw problem("Invalid provider selection. Model limits are resolved by the server.");
+    throw problem(serverMessages.providers.invalidProviderSelection);
   const definition = providerDefinition(value.id);
   if (!definition.tools.includes(tool))
-    throw problem("This provider does not support the selected CLI.");
+    throw problem(serverMessages.providers.providerToolUnsupported);
   catalog.get(value.id, value.modelId, { tool });
   const requiresResponses = tool === "codex" && value.id !== "openrouter";
   if (requiresResponses && value.responsesAccess !== true)
-    throw problem(
-      "Z.ai with Codex requires an account with Responses API access. Chat-only accounts are not supported.",
-    );
+    throw problem(serverMessages.providers.zaiCodexRequiresResponses);
   if (!requiresResponses && value.responsesAccess !== undefined)
-    throw problem("Responses access applies only to Z.ai with Codex.");
+    throw problem(serverMessages.providers.responsesAccessZaiCodexOnly);
   return {
     id: value.id,
     modelId: value.modelId,

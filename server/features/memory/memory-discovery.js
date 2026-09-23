@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,7 +12,7 @@ const script = fileURLToPath(new URL("./memory-hook.js", import.meta.url));
 // Called with the launch's private args/env copies and the existing Claude plugin folder.
 export function prepareMemoryDiscovery({ tool, folder, args, env }) {
   const invalid = () =>
-    Object.assign(failure("Memory discovery hooks could not be configured.", 409), {
+    Object.assign(failure(serverMessages.memory.discoveryFailed, 409), {
       code: "MEMORY_DISCOVERY_CONFIG",
     });
   if (tool === "opencode") {

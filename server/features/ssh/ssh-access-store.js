@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
@@ -63,10 +64,7 @@ export class SshAccessStore {
     try {
       writePrivate(this.file, this.keyStore.migrateAccesses(accesses));
     } catch {
-      throw problem(
-        "Existing SSH keys could not be migrated. Check the local SSH data files.",
-        503,
-      );
+      throw problem(serverMessages.ssh.migrationFailed, 503);
     }
   }
   list() {
@@ -106,12 +104,12 @@ export class SshAccessStore {
   }
   get(id) {
     const access = this.list().find((item) => item.id === id);
-    if (!access) throw problem("SSH access not found.", 404);
+    if (!access) throw problem(serverMessages.ssh.accessNotFound, 404);
     return access;
   }
   directory(id) {
     if (typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id))
-      throw problem("SSH access not found.", 404);
+      throw problem(serverMessages.ssh.accessNotFound, 404);
     return path.join(this.keys, id);
   }
   knownHosts(access) {
@@ -137,13 +135,13 @@ export class SshAccessStore {
       "projectId",
     ]);
     if (input.keyId !== undefined && input.privateKey !== undefined)
-      throw problem("Choose either a saved SSH key or a private key.");
+      throw problem(serverMessages.ssh.chooseOneKey);
     const selected = input.keyId === undefined ? null : this.keyStore.get(input.keyId);
     if (selected && selected.projectId !== (input.projectId ?? null))
-      throw problem("SSH key belongs to another project.", 409);
+      throw problem(serverMessages.ssh.keyInOtherProject, 409);
     const name = nameValue(input.name);
     const target = endpoint(input);
-    if (!target.username) throw problem("Invalid SSH username.");
+    if (!target.username) throw problem(serverMessages.ssh.invalidUsername);
     const hostKey = publicKeyValue(input.hostKey);
     const hostFingerprint = await fingerprint(hostKey, this.root, this.run);
     const id = randomUUID();
@@ -177,7 +175,7 @@ export class SshAccessStore {
     } catch (error) {
       fs.rmSync(directory, { recursive: true, force: true });
       if (error.status) throw error;
-      throw problem("SSH access could not be saved.");
+      throw problem(serverMessages.ssh.accessSaveFailed);
     }
   }
   update(id, input = {}) {
@@ -196,14 +194,14 @@ export class SshAccessStore {
     const keyId =
       input.keyId === undefined ? previous.keyId : this.keyStore.get(input.keyId).id;
     if (this.keyStore.get(keyId).projectId !== previous.projectId)
-      throw problem("SSH key belongs to another project.", 409);
+      throw problem(serverMessages.ssh.keyInOtherProject, 409);
     const target = endpoint({ ...previous, ...input });
-    if (!target.username) throw problem("Invalid SSH username.");
+    if (!target.username) throw problem(serverMessages.ssh.invalidUsername);
     if (
       (target.host !== previous.host || target.port !== previous.port) &&
       input.hostKey === undefined
     )
-      throw problem("Confirm the SSH host key for the changed endpoint.");
+      throw problem(serverMessages.ssh.confirmChangedHostKey);
     const hostKey = publicKeyValue(input.hostKey ?? previous.hostKey);
     const access = {
       ...previous,
@@ -321,7 +319,7 @@ export class SshAccessStore {
       }
       throw new Error();
     } catch {
-      throw problem("SSH host key scan failed.", 502);
+      throw problem(serverMessages.ssh.hostKeyScanFailed, 502);
     }
   }
   async test(id) {
@@ -330,10 +328,7 @@ export class SshAccessStore {
       await this.run(command, [...args, "true"], { ...processOptions, cwd });
       return { ok: true };
     } catch {
-      throw problem(
-        "SSH connection failed. Check the endpoint, installed public key and confirmed host key.",
-        502,
-      );
+      throw problem(serverMessages.ssh.connectionFailed, 502);
     } finally {
       cleanup();
     }

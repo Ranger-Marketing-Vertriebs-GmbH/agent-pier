@@ -1,3 +1,4 @@
+import { agentText } from "../../lib/i18n/agent-text.js";
 import fs from "node:fs";
 import { pidStart } from "../../../vendor/agentbus/core/proc.js";
 import path from "node:path";
@@ -9,6 +10,11 @@ import { SshAccessStore } from "./ssh-access-store.js";
 import { SshSessions } from "./ssh-sessions.js";
 import { SshTools, sshTools } from "./ssh-tools.js";
 import { publicSshError } from "./ssh-errors.js";
+
+function agentSshError(error) {
+  const failure = publicSshError(error);
+  return { ...failure, error: agentText(failure.error) };
+}
 const args = process.argv.slice(2);
 if (
   args.length !== 4 ||
@@ -173,7 +179,7 @@ async function handle(line) {
           content: [
             {
               type: "text",
-              text: JSON.stringify(publicSshError(error)),
+              text: JSON.stringify(agentSshError(error)),
             },
           ],
         };
@@ -188,7 +194,7 @@ async function handle(line) {
         error: {
           code: -32000,
           message: error.status
-            ? error.message
+            ? agentText(error.message)
             : "SSH transport unavailable or method unsupported.",
         },
       });

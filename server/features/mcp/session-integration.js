@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
@@ -68,7 +69,7 @@ export class SessionMcp {
       (selection.currentProject !== undefined &&
         typeof selection.currentProject !== "boolean")
     )
-      throw problem("Choose valid AgentPier permissions.");
+      throw problem(serverMessages.mcp.invalidPermissions);
     const result = {
       scopes: [...new Set(selection.scopes)],
       currentProject: selection.currentProject === true,
@@ -85,11 +86,11 @@ export class SessionMcp {
             !available[group].some((resource) => resource.id === id),
         )
       )
-        throw problem("Choose available AgentPier resources.");
+        throw problem(serverMessages.mcp.unavailableResources);
       result[field] = [...new Set(ids)];
     }
     if (!result.currentProject && !result.projectIds.length)
-      throw problem("Choose at least one AgentPier project.");
+      throw problem(serverMessages.mcp.projectRequired);
     return result;
   }
   async prepare({
@@ -107,7 +108,7 @@ export class SessionMcp {
       selection &&
       fs.existsSync(path.join(capabilityDirectory(this.dataDir, id), "revoked.json"));
     if (revoked) {
-      if (!replace) throw problem("AgentPier session access was revoked.", 403);
+      if (!replace) throw problem(serverMessages.mcp.sessionAccessRevoked, 403);
       return {
         ...launch,
         agentpierTools: { enabled: false, selection, expiresAt: Date.now() },
@@ -120,7 +121,7 @@ export class SessionMcp {
       pipeline ||
       !["codex", "claude", "opencode"].includes(account.tool)
     )
-      throw problem("AgentPier tools are only available to standalone coding sessions.");
+      throw problem(serverMessages.sessions.toolsStandaloneOnly);
     await this.ready;
     const projectIds = [...choices.projectIds];
     if (choices.currentProject)

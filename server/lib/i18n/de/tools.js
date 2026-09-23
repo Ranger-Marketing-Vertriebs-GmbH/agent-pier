@@ -86,4 +86,15 @@ export const tools = Object.freeze({
   githubRedirectLimit: "Zu viele GitHub-Download-Weiterleitungen.",
   duplicatePaxData: "Doppelte PAX-Archivdaten.",
   alreadyInstalled: "Dieses CLI ist bereits installiert.",
+  invalidInstallerMethod: "Ungültige Installationsmethode.",
+  nativeRedirectNotOfficial:
+    "Die Weiterleitung des nativen Installers führt nicht zu einer offiziellen Bootstrap-URL.",
+  nativeDownloadFailed: (status) =>
+    `Download des nativen Installers fehlgeschlagen (HTTP ${status}).`,
+  nativeDownloadTooLarge: "Der native Installer überschreitet sein Download-Limit.",
+  nativeScriptInvalid:
+    "Die Antwort des offiziellen nativen Installers ist kein Shell-Skript.",
+  nativeBinaryOutsideHome:
+    "Der native Installer hat keine ausführbare Datei im Server-Home angelegt.",
+  nativeVersionCheckFailed: "Die Versionsprüfung des nativen CLI ist fehlgeschlagen.",
 });

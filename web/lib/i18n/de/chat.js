@@ -155,6 +155,8 @@ export const chatDeliveryCopy = {
       "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt: Das Eingabefeld ist nicht sicher erkennbar. Bitte prüfe die TUI.",
     CHAT_COMPOSER_NOT_CLEARED:
       "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt. Bitte prüfe die TUI, bevor du erneut sendest.",
+    CHAT_IMAGES_UNCONFIRMED:
+      "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt: Claude zeigt nicht alle angehängten Bilder im Eingabefeld an. Vergrößere das Terminal oder prüfe die TUI, bevor du erneut sendest.",
   },
   reasons: {
     CHAT_COMPOSER_DIALOG:
@@ -165,5 +167,7 @@ export const chatDeliveryCopy = {
       "Der vorhandene Entwurf im Claude-Eingabefeld konnte nicht sicher ersetzt werden. Die Nachricht wurde nicht gesendet; bitte prüfe die TUI.",
     CHAT_SUBMIT_UNCONFIRMED:
       "Claude hat die Übernahme der Nachricht nicht bestätigt. Bitte prüfe die TUI, bevor du erneut sendest.",
+    CHAT_IMAGES_UNCONFIRMED:
+      "Claude hat nicht bestätigt, dass alle angehängten Bilder übernommen wurden. Bitte prüfe die TUI, bevor du erneut sendest.",
   },
 };

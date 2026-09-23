@@ -41,7 +41,7 @@ Die tatsächlich möglichen Aktionen hängen von den Berechtigungen des gespeich
 
 Die generierten Dateien liegen unter `github-sessions/<AgentPier-Sitzungs-ID>/` im Datenverzeichnis:
 
-- `config.yml`: natives Schema mit `version: 1`, damit `gh` keinen alten Konfigurationsstand migriert und dafür zusätzliche Benutzerabfragen benötigt.
+- `config.yml`: natives Schema mit `version: 1`, damit `gh` keinen alten Konfigurationsstand migriert und dafür zusätzliche Benutzerabfragen benötigt. Sind die Auswahl-Metadaten beschädigt oder fehlen, ersetzt AgentPier die Datei durch einen Wert ohne Objektwurzel, den jede `gh`-Version als ungültige Konfiguration ablehnt, und entfernt danach alle Tokens aus `hosts.yml`.
 - `hosts.yml`: Host-Zuordnung und Token; JSON-kompatibles YAML, Modus 0600.
 - `selection.json`: ausgewählte Profil-IDs und Hosts, ohne Tokens.
 

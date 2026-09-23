@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { activeNode } from "./graph-navigation.js";
 import { launchStage } from "./execution-stage.js";
@@ -10,10 +11,7 @@ export async function provisionRun(engine, run) {
       baseBranch: run.baseBranch,
     });
     if (run.expectedProjectId && workspace.projectId !== run.expectedProjectId)
-      throw problem(
-        "The prepared workspace does not match the authorized project. No native stage was launched.",
-        409,
-      );
+      throw problem(serverMessages.pipelineWorkspaces.projectMismatch, 409);
     run.workspace = workspace;
     run.workingDir = workspace.cwd;
     run.projectId = workspace.projectId || workspace.projectRoot;
@@ -27,7 +25,7 @@ export async function provisionRun(engine, run) {
     run.finishedAt = engine.now();
     run.failDetail = [400, 409].includes(error.status)
       ? error.message.slice(0, 500)
-      : "Pipeline workspace could not be prepared safely. Existing files are preserved.";
+      : serverMessages.pipelineWorkspaces.preparationFailed;
     engine.store.save(run);
   }
 }

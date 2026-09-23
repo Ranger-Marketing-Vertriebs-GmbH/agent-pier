@@ -4,6 +4,12 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { prepareAccountTransfer } from "../../server/application/session-account-transfer.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
+
+const transferError =
+  (...keys) =>
+  (error) =>
+    keys.some((key) => error.message === serverMessages.sessionTransfer[key]);
 
 async function fixture(t, tool) {
   const root = await fs.realpath(
@@ -92,10 +98,13 @@ for (const tool of ["codex", "claude"]) {
     const dest = path.join(f.target, f.relative);
     await fs.mkdir(path.dirname(dest), { recursive: true });
     await fs.writeFile(dest, "other conversation\n");
-    await assert.rejects(f.prepare(), /different|diverg|conflict/i);
+    await assert.rejects(f.prepare(), transferError("targetDiffers"));
     await fs.rm(dest);
     await fs.symlink(f.file, dest);
-    await assert.rejects(f.prepare(), /symbolic|symlink|unsafe/i);
+    await assert.rejects(
+      f.prepare(),
+      transferError("unsafeLink", "unsafePath", "unsafeDirectory", "unsafeFile"),
+    );
     assert.equal(await fs.readFile(f.file, "utf8"), f.text);
   });
   test(`${tool}: reject wrong conversation and paths outside session storage`, async (t) => {
@@ -104,7 +113,7 @@ for (const tool of ["codex", "claude"]) {
       f.file,
       JSON.stringify({ type: "user", sessionId: "wrong", cwd: f.root }) + "\n",
     );
-    await assert.rejects(f.prepare(), /identity|conversation|history/i);
+    await assert.rejects(f.prepare(), transferError("identityMismatch", "unsafePath"));
   });
 }
 test("Claude copies session subagents and rewind snapshots without other sessions", async (t) => {
@@ -139,7 +148,7 @@ test("Codex incomplete paginated history cannot be mistaken for a complete rollo
       thread: { id: f.id, cwd: f.root, path: f.file, historyMode: "paginated" },
     }),
   });
-  await assert.rejects(f.prepare(), /storage|format|portable/i);
+  await assert.rejects(f.prepare(), transferError("sharedStorage", "notPortable"));
   await assert.rejects(fs.access(path.join(f.target, f.relative)));
 });
 
@@ -196,7 +205,7 @@ for (const corruption of ["missing", "gap", "duplicate", "start", "mode"]) {
     if (corruption === "start") f.records.forEach((record) => record.ordinal++);
     if (corruption === "mode") delete f.records[0].payload.history_mode;
     await f.write();
-    await assert.rejects(f.prepare(), /portable|incomplete|format/i);
+    await assert.rejects(f.prepare(), transferError("notPortable", "incomplete"));
     await assert.rejects(fs.access(path.join(f.target, f.relative)));
   });
 }
@@ -206,7 +215,7 @@ test("Codex rechecks paginated completeness after the source process stops", asy
   const transfer = await f.prepare();
   f.records.push({ ordinal: 3, type: "response_item", payload: {} });
   await f.write();
-  await assert.rejects(transfer.commit(), /portable|incomplete|format/i);
+  await assert.rejects(transfer.commit(), transferError("notPortable", "incomplete"));
   await assert.rejects(fs.access(path.join(f.target, f.relative)));
 });
 
@@ -217,7 +226,7 @@ test("Codex rejects unknown future storage modes", async (t) => {
       thread: { id: f.id, cwd: f.root, path: f.file, historyMode: "future" },
     }),
   });
-  await assert.rejects(f.prepare(), /storage|format|portable/i);
+  await assert.rejects(f.prepare(), transferError("codexStorageUnsupported"));
 });
 
 test("Codex without a storage marker must support reading complete turns before transfer", async (t) => {
@@ -245,7 +254,10 @@ for (const key of ["id", "cwd", "path", "historyMode"]) {
         },
       }),
     });
-    await assert.rejects(f.prepare(), /changed during transfer/);
+    await assert.rejects(
+      f.prepare(),
+      transferError("changedDuringPreparation", "targetChanged"),
+    );
     await assert.rejects(fs.access(path.join(f.target, f.relative)));
   });
 }

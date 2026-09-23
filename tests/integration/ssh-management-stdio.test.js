@@ -12,6 +12,7 @@ import { sshManagementFixture } from "../helpers/ssh-management.js";
 import { SshManagement } from "../../server/features/ssh/ssh-management.js";
 import { capabilityFile } from "../../server/features/ssh/ssh-capability.js";
 import { writePrivate } from "../../server/lib/storage.js";
+import { englishServerMessages } from "../../server/lib/i18n/catalog-en.js";
 
 const script = fileURLToPath(
   new URL("../../server/features/ssh/ssh-mcp.js", import.meta.url),
@@ -113,6 +114,16 @@ test(
       assert.equal(
         names.some((name) => /download|export/.test(name)),
         false,
+      );
+      // Coding agents read English even when the shared service raises German text.
+      const unnamed = await mcp.call("ssh_generate_key", {
+        name: " ",
+        requestId: "stdio-unnamed",
+      });
+      assert.equal(unnamed.result.isError, true);
+      assert.equal(
+        JSON.parse(unnamed.result.content[0].text).error,
+        englishServerMessages.common.invalidName,
       );
       const input = { name: "MCP deployment", requestId: "stdio-generate" };
       const key = value(await mcp.call("ssh_generate_key", input));

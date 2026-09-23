@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -27,7 +28,7 @@ export class SharedCliProfiles {
   resolve(id) {
     const account = this.accounts.get(id);
     if (!["codex", "claude", "opencode"].includes(account.tool))
-      throw problem("Shell has no shared CLI extensions.", 409);
+      throw problem(serverMessages.cliProfiles.shellNoExtensions, 409);
     return `local-${account.tool}`;
   }
   summary(id) {
@@ -50,7 +51,7 @@ export class SharedCliProfiles {
   }
   migrate(id, { allowBusy = false } = {}) {
     if (!allowBusy && this.busy.has(this.resolve(id)))
-      throw problem("Wait for the shared plugin operation to finish.", 409);
+      throw problem(serverMessages.accounts.waitForPluginOperation, 409);
     const canonicalId = this.resolve(id),
       target = profileLocation(this.accounts, canonicalId);
     const state = readJSON(this.file, {});

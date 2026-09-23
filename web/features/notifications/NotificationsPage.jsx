@@ -1,5 +1,6 @@
 import React from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import { serverText } from "../../lib/server-messages.js";
 import { notificationCopy as copy } from "../../lib/i18n/messages/notifications.js";
 import useNotifications from "./useNotifications.js";
 import InstallCard from "./InstallCard.jsx";
@@ -87,7 +88,7 @@ export default function NotificationsPage() {
             <p>{entry.createdAt}</p>
             {entry.lastFailure && (
               <p>
-                {copy.lastFailure}: {entry.lastFailure}
+                {copy.lastFailure}: {serverText(entry.lastFailure)}
               </p>
             )}
             {entry.deviceId !== state.deviceId && (

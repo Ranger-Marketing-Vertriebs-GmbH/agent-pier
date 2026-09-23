@@ -1,13 +1,14 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import { projectScope } from "../memory/project-scope.js";
 import { problem } from "../../lib/storage.js";
 function unavailable() {
-  return Object.assign(problem("SSH project directory is unavailable.", 409), {
+  return Object.assign(problem(serverMessages.ssh.projectDirectoryUnavailable, 409), {
     code: "SSH_PROJECT_UNAVAILABLE",
   });
 }
 function changed() {
-  return Object.assign(problem("SSH project changed; reload the session.", 409), {
+  return Object.assign(problem(serverMessages.ssh.projectChangedReload, 409), {
     code: "SSH_PROJECT_CHANGED",
   });
 }

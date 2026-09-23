@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { writePrivate, privateDirectory, problem } from "../../lib/storage.js";
@@ -18,7 +19,7 @@ export function sessionMcpLaunch(launch, tool, folder, capability, socketPath) {
         typeof arg === "string" && arg.startsWith("mcp_servers.agentpier_session="),
     )
   )
-    throw problem("Reserved AgentPier session MCP name already configured.", 409);
+    throw problem(serverMessages.mcp.reservedSessionMcpName, 409);
   if (tool === "codex")
     args.push("-c", `mcp_servers.agentpier_session=${tomlValue(command)}`);
   else if (tool === "claude") {
@@ -46,7 +47,7 @@ export function sessionMcpLaunch(launch, tool, folder, capability, socketPath) {
       )
         throw Error();
     } catch {
-      throw problem("Invalid or conflicting temporary OpenCode MCP configuration.", 409);
+      throw problem(serverMessages.mcp.invalidOpenCodeMcpConfig, 409);
     }
     config.mcp = {
       ...config.mcp,

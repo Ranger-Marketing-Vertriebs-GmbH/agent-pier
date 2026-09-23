@@ -227,7 +227,7 @@ export class AccountStore {
   }
   update(id, { name, apiKey, provider, removeApiKey = false } = {}) {
     if (this.get(id).internal)
-      throw problem("Generated provider profiles cannot be edited.", 409);
+      throw problem(serverMessages.accounts.generatedProfileReadOnly, 409);
     const root = this.profile(id);
     name = nameValue(name);
     if (
@@ -238,16 +238,13 @@ export class AccountStore {
     const a = this.accounts.find((a) => a.id === id);
     const key = apiKey?.trim();
     if (typeof removeApiKey !== "boolean" || (removeApiKey && key))
-      throw problem("Choose either key rotation or key removal.");
+      throw problem(serverMessages.accounts.keyRotationOrRemoval);
     const selection =
       provider === undefined
         ? a.provider
         : validateProviderSelection(provider, a.tool, this.providerCatalog);
     if (selection?.id !== a.provider?.id && a.hasSecret && !key && !removeApiKey)
-      throw problem(
-        "Supply a new API key or remove the saved key when switching providers.",
-        409,
-      );
+      throw problem(serverMessages.accounts.providerSwitchKeyRequired, 409);
     if (selection) a.provider = selection;
     else delete a.provider;
     if (removeApiKey) {
@@ -269,10 +266,7 @@ export class AccountStore {
   }
   remove(id) {
     if (this.get(id).internal)
-      throw problem(
-        "Generated provider profiles retain session history and cannot be removed as accounts.",
-        409,
-      );
+      throw problem(serverMessages.accounts.generatedProfileNotRemovable, 409);
     const dir = this.profile(id);
     fs.rmSync(dir, { recursive: true, force: true });
     this.accounts = this.accounts.filter((a) => a.id !== id);
@@ -320,7 +314,7 @@ export class AccountStore {
         modelId.length > 300 ||
         /[\x00-\x1f]/.test(modelId)
       )
-        throw problem("Invalid profile model.");
+        throw problem(serverMessages.accounts.invalidProfileModel);
       if (account.provider)
         account = {
           ...account,
@@ -332,10 +326,7 @@ export class AccountStore {
         };
     }
     if (login && account.provider)
-      throw problem(
-        "Provider profiles use API keys and cannot start an OAuth login.",
-        409,
-      );
+      throw problem(serverMessages.accounts.providerProfileNoOAuth, 409);
     if (
       typeof launchMode !== "string" ||
       !Object.hasOwn(LAUNCH_ARGS[account.tool], launchMode)

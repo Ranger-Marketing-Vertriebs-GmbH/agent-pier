@@ -9,6 +9,7 @@ import OperationJob from "./OperationJob.jsx";
 import ConfirmOperation from "./ConfirmOperation.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { releasePresentation } from "./release-presentation.js";
+import { serverText } from "../../lib/server-messages.js";
 export default function UpdatesPage({ route, navigate }) {
   const resource = useResource("/operations/releases"),
     action = useAsyncAction(),
@@ -41,7 +42,7 @@ export default function UpdatesPage({ route, navigate }) {
             {copy.channel}: {releases.channel || copy.unknown}
           </p>
           {(!releases.supported || !releases.installed) && (
-            <p>{releases.reason || copy.setupRequired}</p>
+            <p>{serverText(releases.reason) || copy.setupRequired}</p>
           )}
           <button
             className="button secondary"
@@ -112,7 +113,7 @@ export default function UpdatesPage({ route, navigate }) {
               {presentation.history.map((release) => (
                 <article className="operations-card" key={release.version}>
                   <h3>{release.version}</h3>
-                  {release.reason && <p>{release.reason}</p>}
+                  {release.reason && <p>{serverText(release.reason)}</p>}
                   <button
                     className="button secondary"
                     disabled={jobPending || action.busy || !release.canRollback}

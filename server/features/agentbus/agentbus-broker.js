@@ -1,3 +1,4 @@
+import { agentText } from "../../lib/i18n/agent-text.js";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { LocalRpcBroker } from "../../lib/local-rpc-broker.js";
@@ -420,7 +421,7 @@ export class AgentBusBroker {
                   type: "text",
                   text: JSON.stringify(
                     error instanceof PublicError
-                      ? error.public
+                      ? { ...error.public, message: agentText(error.public.message) }
                       : {
                           code: "OPERATION_FAILED",
                           message:
@@ -507,7 +508,7 @@ export class AgentBusBroker {
               : -32000,
           message:
             error instanceof PublicError
-              ? error.public.message
+              ? agentText(error.public.message)
               : "AgentBus access or registration unavailable. Reload the session if necessary.",
         },
       };

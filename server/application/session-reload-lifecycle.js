@@ -1,3 +1,4 @@
+import { serverMessages } from "../lib/i18n/de.js";
 import {
   accountSwitchTargets,
   prepareAccountTransfer,
@@ -21,15 +22,13 @@ export function createReloadLifecycle(services) {
       switching &&
       !accountSwitchTargets(services, session).some((a) => a.id === targetAccountId)
     )
-      throw problem(
-        "Choose another account for the same CLI. Provider sessions cannot switch accounts.",
-        409,
-      );
+      throw problem(serverMessages.sessionReload.providerAccountLocked, 409);
     const account = accounts.get(switching ? targetAccountId : session.accountId);
-    if (account.tool !== session.tool) throw problem("The CLI profile changed.", 409);
+    if (account.tool !== session.tool)
+      throw problem(serverMessages.common.profileChanged, 409);
     const live = session.status === "running" ? await models?.read(session.id) : null;
     if (live?.pending)
-      throw problem("Finish the current model selection before reloading.", 409);
+      throw problem(serverMessages.sessionReload.modelSelectionPending, 409);
     const displayedModel = live?.currentModel;
     const { modelId, reasoningEffort } = resolveReloadModel({
       tool: session.tool,
@@ -54,11 +53,9 @@ export function createReloadLifecycle(services) {
       const previous = session.provider.providerId || session.provider.id;
       const next = launch.provider?.providerId || launch.provider?.id;
       if (previous !== next)
-        throw problem(
-          "The provider changed. Restore the original provider before reloading.",
-          409,
-        );
-    } else if (launch.provider) throw problem("The account access mode changed.", 409);
+        throw problem(serverMessages.sessionReload.providerChanged, 409);
+    } else if (launch.provider)
+      throw problem(serverMessages.sessionReload.accessModeChanged, 409);
     if (session.attachments?.directory && session.tool !== "opencode") {
       launch.args.push("--add-dir", session.attachments.directory);
       if (session.tool === "codex" && launch.launchMode !== "yolo")
@@ -86,10 +83,7 @@ export function createReloadLifecycle(services) {
           continue;
         const bound = await services.bindings.resolve(other);
         if (bound?.id === nativeId)
-          throw problem(
-            "This conversation is already running in the target account.",
-            409,
-          );
+          throw problem(serverMessages.sessionReload.conversationAlreadyRunning, 409);
       }
     }
     const transfer = switching
@@ -130,7 +124,7 @@ export function createReloadLifecycle(services) {
         async () => {
           const account = accounts.get(plan.account.id);
           if (account.tool !== session.tool)
-            throw problem("The CLI profile changed.", 409);
+            throw problem(serverMessages.common.profileChanged, 409);
           if (plan.transfer) await plan.transfer.commit();
           sharedProfiles?.prepare(account, plan.launch);
           await requests.discard(session.id);
@@ -185,7 +179,7 @@ export function createReloadLifecycle(services) {
                 (a) => a.id === plan.account.id,
               )
             )
-              throw problem("The selected account is no longer available.", 409);
+              throw problem(serverMessages.sessionReload.accountUnavailable, 409);
             for (const other of await listCurrent()) {
               if (
                 other.id === current.id ||
@@ -196,7 +190,7 @@ export function createReloadLifecycle(services) {
               const bound = await bindings.resolve(other);
               if (bound?.id === plan.nativeId)
                 throw problem(
-                  "This conversation is already running in the target account.",
+                  serverMessages.sessionReload.conversationAlreadyRunning,
                   409,
                 );
             }
@@ -212,23 +206,20 @@ export function createReloadLifecycle(services) {
           const bound = await bindings.resolve(current);
           if (!plan.recovery && bound?.id !== plan.nativeId)
             throw problem(
-              "The native conversation changed before reload. No process was stopped.",
+              serverMessages.sessionReload.conversationChangedBeforeReload,
               409,
             );
           const raw = await screen();
           const latestModel = currentModel(session.tool, raw);
           if (plan.displayedModel && latestModel && plan.displayedModel !== latestModel)
-            throw problem(
-              "The model changed before reload. No process was stopped.",
-              409,
-            );
+            throw problem(serverMessages.sessionReload.modelChangedBeforeReload, 409);
           // Recheck under the manager lock, after earlier queued input/model operations.
           if (
             session.reload?.interrupt !== true &&
             (requests.hasPending?.(session.id) ||
               parseSessionActivity(session.tool, raw).state !== "idle")
           )
-            throw problem("The session is no longer idle. Reload was not started.", 409);
+            throw problem(serverMessages.sessionReload.notIdle, 409);
         },
       );
     } finally {

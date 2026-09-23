@@ -10,7 +10,7 @@ export const connectionCopy = {
   provider: "API-Anbieter",
   loading: "Anbieter werden geladen …",
   empty: "Noch keine zentralen Provider-Zugänge.",
-  native: "Native CLI-Konten",
+  native: "Native CLI-Accounts",
   legacy: "Bestehende Anbieterbindung · nur für diese CLI",
   legacyHelp:
     "Diese ältere Anbieterbindung bleibt bearbeitbar. Neue gemeinsame API-Zugänge verwaltest du unter „Zentrale Provider-Zugänge“.",
@@ -46,7 +46,7 @@ export const connectionCopy = {
   nativeDefault: "CLI-Voreinstellung",
   noAccess: "Kein kompatibler Zugang",
   isolated:
-    "Dieser Provider-Zugang verwendet ein eigenes CLI-Profil. Anmeldungen, MCP-Konfiguration und Plugins nativer Konten werden nicht übernommen.",
+    "Dieser Provider-Zugang verwendet ein eigenes CLI-Profil. Anmeldungen, MCP-Konfiguration und Plugins nativer Accounts werden nicht übernommen.",
   legacyLaunch:
     "Diese bestehende Anbieterbindung verwendet ihr gespeichertes Modell. Für eine unabhängige Modellwahl einen zentralen Provider-Zugang verwenden.",
   chooseAccess: "Bitte einen kompatiblen Zugang und ein verfügbares Modell wählen.",

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 const module = await import("../../server/features/audit/audit-store.js").catch(
   () => ({}),
@@ -66,10 +67,9 @@ test("audit stores typed metadata without raw input, paths, credentials or nativ
   const row = store.list().events[0];
   assert.deepEqual(row.details, { tool: "codex", statusCode: 201 });
   assert.equal(JSON.stringify(row).includes("fixture-secret"), false);
-  assert.throws(
-    () => store.append({ ...event(1), action: "native.secret-content" }),
-    /action/i,
-  );
+  assert.throws(() => store.append({ ...event(1), action: "native.secret-content" }), {
+    message: serverMessages.audit.invalidAction,
+  });
   for (const filters of [
     { page: 0 },
     { page: 1.2 },
@@ -88,7 +88,9 @@ test("audit refuses linked database files without modifying their target", async
   const file = path.join(f.dataDir, "audit", "audit.sqlite");
   await fs.rm(file);
   await fs.symlink(target, file);
-  assert.throws(() => new module.AuditStore({ dataDir: f.dataDir }), /storage/i);
+  assert.throws(() => new module.AuditStore({ dataDir: f.dataDir }), {
+    message: serverMessages.operations.unsafeDatabaseFile,
+  });
   assert.equal(await fs.readFile(target, "utf8"), "untouched");
 });
 test("audit restore preserves identities and timestamps atomically into an empty target only", async (t) => {
@@ -102,6 +104,8 @@ test("audit restore preserves identities and timestamps atomically into an empty
   assert.equal(target.store.list().total, 0);
   target.store.importEvents(records);
   assert.deepEqual(target.store.export(), records);
-  assert.throws(() => target.store.importEvents(records), /empty/i);
+  assert.throws(() => target.store.importEvents(records), {
+    message: serverMessages.audit.restoreRequiresEmptyTarget,
+  });
   assert.equal(Number(target.store.append(event(3)).id), 3);
 });

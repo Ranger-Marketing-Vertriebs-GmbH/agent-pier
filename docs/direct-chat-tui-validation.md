@@ -198,6 +198,18 @@ short-draft recovery. This measurement is specific to the local test files and
 machine, not a universal image-processing latency guarantee. The original
 zero-delay measurements below describe text input only.
 
+Short panes (2026-09-23): chip counting uses the same prompt-box detection as the
+draft guard, so a box whose bottom border is clipped (rows reach the last screen
+row, cursor inside) is counted. Only visible rows count. When Claude scrolls a
+tall draft inside its box, chips at its start leave the screen; the count then
+stays short, no Enter is sent, and after ten seconds the delivery is `uncertain`
+at `pasted` with `CHAT_IMAGES_UNCONFIRMED`. Validated with Claude Code 2.1.280 and
+the loopback provider at 60×8, 60×9, 60×11, 40×10 and 120×35 with one and three
+images: short and wrapped drafts whose chips stay visible now reach the provider
+with every image (previously uncertain at 60×8–11 and 40×10). A three-image draft
+scrolled past its first row fails with the new reason. Frames are in
+`tests/fixtures/tui-input/claude-2.1.280-image-screens.json`.
+
 | CLI         | Installed version | Held-response observation                                                                                        | Submit                                                 |
 | ----------- | ----------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | Codex       | 0.153.4           | Second marker shown under “Messages to be submitted after next tool call” while the first response remained open | Separate Enter after bracketed paste, zero added delay |

@@ -6,6 +6,7 @@ import path from "node:path";
 import { AccountStore } from "../../server/features/accounts/account-store.js";
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { PipelineDefinitions } from "../../server/features/pipelines/pipeline-definitions.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 for (const providerId of ["openrouter", "zai", "zai-coding-plan"])
   for (const tool of ["codex", "claude", "opencode"])
@@ -77,7 +78,7 @@ for (const providerId of ["openrouter", "zai", "zai-coding-plan"])
             ...input,
             config: { ...config, cliTool: tool === "codex" ? "claude" : "codex" },
           }),
-        /match/i,
+        { message: serverMessages.pipelineProfiles.accountCliMismatch },
       );
       assert.throws(
         () =>
@@ -85,7 +86,7 @@ for (const providerId of ["openrouter", "zai", "zai-coding-plan"])
             ...input,
             config: { ...config, providerConnectionId: "missing" },
           }),
-        /connection/i,
+        { message: serverMessages.providers.connectionNotFound },
       );
       assert.throws(
         () =>
@@ -138,5 +139,7 @@ for (const providerId of ["openrouter", "zai", "zai-coding-plan"])
         assert.throws(() => definitions.snapshot(pipeline.id), /support|Responses/i);
       }
       connections.remove(replacement.id);
-      assert.throws(() => definitions.snapshot(pipeline.id), /connection/i);
+      assert.throws(() => definitions.snapshot(pipeline.id), {
+        message: serverMessages.providers.connectionNotFound,
+      });
     });

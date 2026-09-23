@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -76,7 +77,7 @@ test("activate rejects non-boolean flags, failed helper spawns leave no marker, 
   const { operations, dataDir } = await fixture(t, { spawnFails: true });
   assert.throws(
     () => operations.activate({ stagedId: "staged-one", reloadSessions: "yes" }),
-    /Invalid/,
+    { message: serverMessages.operations.invalidOptions },
   );
   const job = operations.activate({ stagedId: "staged-one", reloadSessions: true });
   await operations.jobs.close();
@@ -94,14 +95,12 @@ test("a running migration blocks activation and cleanup", async (t) => {
     "release-migrate",
     () => new Promise((resolve) => (release = resolve)),
   );
-  assert.throws(
-    () => operations.activate({ stagedId: "staged-one" }),
-    /migration is running/,
-  );
-  assert.throws(
-    () => operations.cleanupReleases({ versions: ["1.0.0"] }),
-    /migration is running/,
-  );
+  assert.throws(() => operations.activate({ stagedId: "staged-one" }), {
+    message: serverMessages.operations.migrationRunning,
+  });
+  assert.throws(() => operations.cleanupReleases({ versions: ["1.0.0"] }), {
+    message: serverMessages.operations.migrationRunning,
+  });
   await Promise.resolve();
   release({});
   await operations.jobs.close();

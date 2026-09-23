@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { activeNode, currentAttempt, terminal } from "./graph-navigation.js";
 import { applyOutcome, launchStage, park, conclude, advance } from "./execution-stage.js";
 import { provisionRun } from "./execution-workspace.js";
@@ -53,7 +54,7 @@ export async function reconcileRun(engine, run) {
       run,
       node,
       "session-error",
-      "The prior operation was interrupted. Inspect the preserved workspace before retrying.",
+      serverMessages.pipelines.operationInterrupted,
     );
     return;
   }
@@ -70,20 +71,14 @@ export async function reconcileRun(engine, run) {
         run,
         node,
         "inactivity-timeout",
-        "The native stage exceeded its two-hour inactivity budget.",
+        serverMessages.pipelines.inactivityTimeout,
       );
     }
     return;
   }
   if (["missing", "unknown"].includes(outcome.status)) {
     if (engine.nowMs() - Date.parse(identity.startedAt) < 5000) return;
-    park(
-      engine,
-      run,
-      node,
-      "session-error",
-      "The exact native turn could not be recovered. Its workspace is preserved.",
-    );
+    park(engine, run, node, "session-error", serverMessages.pipelines.turnNotRecovered);
     return;
   }
   if (!["completed", "failed"].includes(outcome.status)) return;

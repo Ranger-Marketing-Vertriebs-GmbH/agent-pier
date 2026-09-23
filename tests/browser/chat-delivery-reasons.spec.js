@@ -100,3 +100,21 @@ test("a stored German receipt error without a reason code is shown in English", 
   ).toBeVisible();
   await expect(page.getByText(/Die Eingabe wurde/)).toHaveCount(0);
 });
+
+test("unconfirmed Claude image chips are explained in English as pasted but unsent", async ({
+  page,
+}) => {
+  await fixture(page, {
+    status: "uncertain",
+    reason: "CHAT_IMAGES_UNCONFIRMED",
+    error: "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt.",
+  });
+  await input(page).fill("Describe the attached screenshot");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(
+    page.getByText(
+      /pasted into Claude but not submitted: Claude's input field does not show all attached images/,
+    ),
+  ).toBeVisible();
+  await expect(page.getByText(/eingefügt/)).toHaveCount(0);
+});

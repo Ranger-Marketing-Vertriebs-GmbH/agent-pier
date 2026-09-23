@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -37,10 +38,7 @@ export function importAssets(source, target, conflicts) {
     safePath(from, source.boundary);
     safePath(to, target.boundary);
     if (++count > 30000 || (bytes += info.isFile() ? info.size : 0) > 512 * 1024 * 1024)
-      throw problem(
-        "Extension import exceeds its file limit; existing files were retained.",
-        409,
-      );
+      throw problem(serverMessages.cliProfiles.importFileLimit, 409);
     if (info.isDirectory()) {
       if (fs.existsSync(to) && !fs.statSync(to).isDirectory()) return;
       for (const name of fs.readdirSync(from))
@@ -142,7 +140,7 @@ export function linkAssets(source, target) {
     }
     if (info?.isSymbolicLink()) {
       if (fs.realpathSync(to) === fs.realpathSync(from)) continue;
-      throw problem("An extension directory points to an unexpected location.", 409);
+      throw problem(serverMessages.cliProfiles.unexpectedDirectory, 409);
     }
     if (info) fs.renameSync(to, `${to}.before-sharing-${randomUUID()}`);
     fs.symlinkSync(from, to, "dir");

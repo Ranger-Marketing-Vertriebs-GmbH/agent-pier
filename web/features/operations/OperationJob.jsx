@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import useResource from "../../lib/useResource.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
+import { serverText } from "../../lib/server-messages.js";
 export default function OperationJob({ id, onComplete, onState }) {
   const resource = useResource(id ? `/operations/jobs/${encodeURIComponent(id)}` : null, {
       poll: 1500,
@@ -31,7 +32,9 @@ export default function OperationJob({ id, onComplete, onState }) {
       {job && (
         <>
           <p role="status">{copy.jobStatuses[job.status] || copy.unknown}</p>
-          <ErrorMessage error={copy.cleanupErrors[job.errorCode] || job.error} />
+          <ErrorMessage
+            error={copy.cleanupErrors[job.errorCode] || serverText(job.error)}
+          />
           {job.result?.targetDataDir && (
             <>
               <h3>{copy.restored}</h3>
@@ -75,7 +78,7 @@ export default function OperationJob({ id, onComplete, onState }) {
                 {job.result.failedSessions.map((item) => (
                   <li key={item.id}>
                     {item.id.slice(0, 8)}
-                    {item.error ? `: ${item.error}` : ""}
+                    {item.error ? `: ${serverText(item.error)}` : ""}
                   </li>
                 ))}
               </ul>

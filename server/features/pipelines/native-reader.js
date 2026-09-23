@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
@@ -65,7 +66,7 @@ export class NativeEventReader {
         (process.getuid && info.uid !== process.getuid()) ||
         info.size > 64 * 1024 * 1024
       )
-        throw new NativeObservationError("Invalid native observation file.");
+        throw new NativeObservationError(serverMessages.pipelines.invalidObservationFile);
       let cache = this.cache.get(id);
       if (!cache || cache.ino !== info.ino || info.size < cache.offset)
         cache = {
@@ -93,21 +94,23 @@ export class NativeEventReader {
           cache.pending = cache.pending.slice(end + 1);
           if (line.length > MAX_EVENT_LENGTH)
             throw new NativeObservationError(
-              "Native event exceeds the 16 MiB observation limit.",
+              serverMessages.pipelines.observationEventTooLarge,
             );
           if (line.trim()) {
             let event;
             try {
               event = JSON.parse(line);
             } catch {
-              throw new NativeObservationError("Native CLI emitted invalid JSONL.");
+              throw new NativeObservationError(
+                serverMessages.pipelines.invalidNativeJsonl,
+              );
             }
             cache.state = reduceNativeEvent(tool, cache.state, event);
           }
         }
         if (cache.pending.length > MAX_EVENT_LENGTH)
           throw new NativeObservationError(
-            "Native event exceeds the 16 MiB observation limit.",
+            serverMessages.pipelines.observationEventTooLarge,
           );
       }
       this.cache.delete(id);

@@ -80,7 +80,7 @@ export class SessionManager {
     try {
       return JSON.parse(await readFile(this.file(id), "utf8"));
     } catch (error) {
-      if (error.code === "ENOENT") throw failure("Session not found", 404);
+      if (error.code === "ENOENT") throw failure(serverMessages.sessions.notFound, 404);
       throw error;
     }
   }
@@ -254,7 +254,7 @@ export class SessionManager {
       const session = await this.current(id);
       assertInteractiveSession(session);
       if (session.reload?.state === "reloading")
-        throw failure("Session is reloading", 409);
+        throw failure(serverMessages.sessions.reloading, 409);
       if (session.tool === "shell")
         throw failure(serverMessages.sessions.shellModelPickerUnavailable, 409);
       if (session.purpose === "login")
@@ -290,7 +290,7 @@ export class SessionManager {
                 ].includes(key),
             )
           )
-            throw failure("Invalid control keys");
+            throw failure(serverMessages.sessions.invalidControlKeys);
           if (keys.length) await this.tmux(["send-keys", "-t", target, ...keys]);
         },
         type: async (text) => {
@@ -308,14 +308,16 @@ export class SessionManager {
   }
   input(id, text, submit = false, beforeInput) {
     if (this.replacing.has(id))
-      return Promise.reject(failure("Session is reloading", 409));
+      return Promise.reject(failure(serverMessages.sessions.reloading, 409));
     return this.serial(async () => {
       textInput(text);
-      if (typeof submit !== "boolean") throw failure("Invalid submit flag");
+      if (typeof submit !== "boolean")
+        throw failure(serverMessages.sessions.invalidSubmitFlag);
       const session = await this.current(id);
       if (session.reload?.state === "reloading")
-        throw failure("Session is reloading", 409);
-      if (session.status !== "running") throw failure("Session is stopped", 409);
+        throw failure(serverMessages.sessions.reloading, 409);
+      if (session.status !== "running")
+        throw failure(serverMessages.sessions.stopped, 409);
       assertInteractiveSession(session);
       if (beforeInput)
         await beforeInput(
@@ -399,11 +401,11 @@ export class SessionManager {
           textInput(text);
           assertInteractiveSession(session);
           if (this.replacing.has(id))
-            return Promise.reject(failure("Session is reloading", 409));
+            return Promise.reject(failure(serverMessages.sessions.reloading, 409));
           return this.serial(async () => {
             if (disposed) return;
             if (blocksTerminalInput(await this.metadata(id)))
-              throw failure("Session is reloading", 409);
+              throw failure(serverMessages.sessions.reloading, 409);
             await recordManualInput(this, session, text, inputState);
             terminal.write(text);
           }, id);

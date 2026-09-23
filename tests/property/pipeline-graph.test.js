@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import fc from "fast-check";
 import { check } from "../helpers/property.js";
 import { validateGraph } from "../../server/features/pipelines/graph-validation.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
+
+const copy = serverMessages.pipelineGraph;
 
 function chain(count) {
   return {
@@ -36,7 +39,7 @@ test("generated pipeline cycles require finite fail budgets and strip unknown fi
         graph.nodes[0].secret = "discard";
         assert.equal(validateGraph(graph).nodes[0].secret, undefined);
         delete loop.maxIterations;
-        assert.throws(() => validateGraph(graph), /bounded fail/);
+        assert.throws(() => validateGraph(graph), { message: copy.cycleNeedsFailEdge });
       },
     ),
   );
@@ -44,7 +47,7 @@ test("generated pipeline cycles require finite fail budgets and strip unknown fi
 test("failure cannot use a default edge or ambiguous condition and side effects cannot be loop targets", () => {
   const graph = chain(2);
   graph.edges.push({ ...graph.edges[0] });
-  assert.throws(() => validateGraph(graph), /one edge/);
+  assert.throws(() => validateGraph(graph), { message: copy.oneEdgePerCondition });
   const side = {
     entry: "n0",
     nodes: [
@@ -53,9 +56,11 @@ test("failure cannot use a default edge or ambiguous condition and side effects 
     ],
     edges: [{ from: "n0", to: "gate", condition: "fail" }],
   };
-  assert.throws(() => validateGraph(side), /side-effect/);
+  assert.throws(() => validateGraph(side), {
+    message: copy.invalidSideEffectRouting("gate"),
+  });
   assert.throws(
     () => validateGraph({ ...chain(1), nodes: [{ id: "n0", kind: "updateTicket" }] }),
-    /Unsupported/,
+    { message: copy.unsupportedNodeKind("updateTicket") },
   );
 });

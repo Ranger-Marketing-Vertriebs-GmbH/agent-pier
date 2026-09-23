@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { fixture } from "../helpers/pipeline-engine.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 test("restored pipeline history cannot execute or read original workspace evidence", async (t) => {
   const f = fixture(t);
   const started = await f.engine.start({
@@ -21,7 +22,8 @@ test("restored pipeline history cannot execute or read original workspace eviden
   f.engine.store.save(run);
   assert.deepEqual(f.engine.get(run.id).actions, ["delete"]);
   const conflict = (error) =>
-    error.status === 409 && /imported.*history/i.test(error.message);
+    error.status === 409 &&
+    error.message === serverMessages.pipelines.importedHistoryReadOnly;
   for (const method of ["cancel", "retry", "createPr"])
     await assert.rejects(f.engine[method](run.id), conflict);
   await assert.rejects(f.engine.gate(run.id, { action: "accept" }), conflict);

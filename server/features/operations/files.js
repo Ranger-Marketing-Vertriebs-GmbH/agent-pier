@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
@@ -6,7 +7,7 @@ import { problem } from "../../lib/storage.js";
 export const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 export function identifier(value) {
   if (typeof value !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$/.test(value))
-    throw problem("Invalid operation identifier.");
+    throw problem(serverMessages.operations.invalidIdentifier);
   return value;
 }
 export function relativeName(value) {
@@ -18,7 +19,7 @@ export function relativeName(value) {
     path.isAbsolute(value) ||
     value.split("/").some((part) => !part || part === "." || part === "..")
   )
-    throw problem("Invalid archive member path.");
+    throw problem(serverMessages.backups.invalidMemberPath);
   return value;
 }
 export function folder(dir) {
@@ -29,7 +30,7 @@ export function folder(dir) {
     try {
       const stat = fs.lstatSync(cursor);
       if (!stat.isDirectory() || stat.isSymbolicLink())
-        throw problem("Operation directory contains a link or non-directory.", 409);
+        throw problem(serverMessages.operations.directoryLinked, 409);
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
       fs.mkdirSync(cursor, { mode: 0o700 });
@@ -37,7 +38,7 @@ export function folder(dir) {
   }
   const stat = fs.statSync(absolute);
   if (process.getuid && stat.uid !== process.getuid())
-    throw problem("Operation directory is owned by another user.", 409);
+    throw problem(serverMessages.operations.directoryForeignOwner, 409);
   fs.chmodSync(absolute, 0o700);
   return absolute;
 }
@@ -46,7 +47,7 @@ export function readFile(file, limit = 256 * 1024 * 1024) {
   try {
     const stat = fs.fstatSync(fd);
     if (!stat.isFile() || stat.nlink !== 1 || stat.size > limit)
-      throw problem("Invalid operation file or size limit exceeded.", 413);
+      throw problem(serverMessages.operations.invalidFile, 413);
     return fs.readFileSync(fd);
   } finally {
     fs.closeSync(fd);
@@ -84,15 +85,14 @@ export function members(
     const file = path.join(root, relative),
       stat = fs.lstatSync(file);
     if (exclude(relative)) return;
-    if (stat.isSymbolicLink())
-      throw problem("Backup component contains a symbolic link.", 409);
+    if (stat.isSymbolicLink()) throw problem(serverMessages.backups.componentLinked, 409);
     if (stat.isDirectory()) {
       for (const name of fs.readdirSync(file).sort()) visit(path.join(relative, name));
     } else {
       const content = readFile(file, limit);
       bytes += content.length;
       if (bytes > limit || result.length >= 20000)
-        throw problem("Backup component exceeds its limit.", 413);
+        throw problem(serverMessages.backups.componentLimit, 413);
       result.push({
         path: relativeName([prefix, relative].filter(Boolean).join("/")),
         content: content.toString("base64"),

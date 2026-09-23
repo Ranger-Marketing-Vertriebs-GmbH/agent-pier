@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { applicationFixture } from "../helpers/application.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 async function ended(driver, identity) {
   const until = Date.now() + 5000;
@@ -232,7 +233,7 @@ for (const providerId of [null, "openrouter", "zai", "zai-coding-plan"])
             prompt: "Deleted connection",
             resumeNativeId: nativeId,
           }),
-          /connection/i,
+          { message: serverMessages.providers.connectionNotFound },
         );
         assert.equal(
           application.accounts.get(session.accountId).id,

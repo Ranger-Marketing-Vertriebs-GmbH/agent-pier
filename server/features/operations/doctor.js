@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -40,7 +41,7 @@ export class Doctor {
       typeof deep !== "boolean" ||
       (scope === "project" && typeof projectId !== "string")
     )
-      throw problem("Invalid diagnostic scope.");
+      throw problem(serverMessages.operations.invalidDiagnosticScope);
     const checks = [],
       add = (id, status, summary, remedy, details) =>
         checks.push({
@@ -195,7 +196,7 @@ export class Doctor {
       readJson(path.join(this.dataDir, "repositories.json"), { projects: [] }).projects ||
       [];
     if (scope === "project" && !projects.some((p) => p.id === projectId))
-      throw problem("Diagnostic project not found.", 404);
+      throw problem(serverMessages.operations.diagnosticProjectNotFound, 404);
     for (const project of projects.filter((p) => scope === "host" || p.id === projectId))
       add(
         `project.${project.id}`,

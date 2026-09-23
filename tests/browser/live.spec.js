@@ -71,10 +71,10 @@ test("live backend account save and real terminal compose, resize and reconnect"
     fullPage: true,
     animations: "disabled",
   });
-  await navigateTo(page, "Konten");
-  await page.getByRole("button", { name: "Konto hinzufügen" }).click();
-  await page.getByLabel("Kontoname").fill("Browser Test");
-  await page.getByRole("button", { name: "Konto erstellen", exact: true }).click();
+  await navigateTo(page, "Accounts");
+  await page.getByRole("button", { name: "Account hinzufügen" }).click();
+  await page.getByLabel("Account-Name").fill("Browser Test");
+  await page.getByRole("button", { name: "Account erstellen", exact: true }).click();
   await expect(page.getByText("Browser Test", { exact: true })).toBeVisible();
   expect(application.accounts.list().some((a) => a.name === "Browser Test")).toBe(true);
   await chatFixture("browser-terminal", "Terminal Integration");

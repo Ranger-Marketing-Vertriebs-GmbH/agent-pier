@@ -8,4 +8,8 @@ export const settings = Object.freeze({
     "Über den Netzwerkzugriff kann der Netzwerkmodus nur ausgeschaltet werden. Bind-Adresse und Hostliste lokal oder über Tailscale ändern.",
   restartFailed:
     "Der Dienst konnte nicht neu gestartet werden. Bitte manuell neu starten: npm run service:install oder npm start.",
+  invalidDefaultAccounts: "Ungültige Auswahl der Standard-Accounts.",
+  defaultAccountRequiresCodingCli: "Standard-Accounts erfordern ein Coding-CLI.",
+  nativeDefaultAccountRequired:
+    "Bitte einen vorhandenen nativen Account für das gewählte CLI wählen.",
 });

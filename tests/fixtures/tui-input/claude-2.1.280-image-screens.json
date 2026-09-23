@@ -1,0 +1,75 @@
+{
+  "version": "Claude Code 2.1.280, tmux 3.7c, synthetic loopback provider; prompts pasted as text plus newline-separated local PNG paths",
+  "images3Short60x8": {
+    "raw": "\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────\n\u001b[39m❯ [Image #1] [Image #2] [Image #3]Look\u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────\n",
+    "pane": {
+      "cursorX": 38,
+      "cursorY": 6,
+      "width": 60,
+      "height": 8
+    }
+  },
+  "images3Clipped60x8": {
+    "raw": "\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────\n\u001b[39m❯ [Image #1] [Image #2] [Image #3]Please describe these\n  three pictures in detail and compare their colors.\u001b[7m \u001b[0m\n",
+    "pane": {
+      "cursorX": 52,
+      "cursorY": 7,
+      "width": 60,
+      "height": 8
+    }
+  },
+  "image1Clipped60x9": {
+    "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────\n\u001b[39m❯ [Image #1]Please describe these pictures in detail and\n  compare their colors carefully, one by one.\u001b[7m \u001b[0m\n",
+    "pane": {
+      "cursorX": 45,
+      "cursorY": 8,
+      "width": 60,
+      "height": 9
+    }
+  },
+  "image1Wrapped60x11": {
+    "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n                                          \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────\n\u001b[39m❯ [Image #1]Please describe these pictures in detail and\n  compare their colors carefully, one by one.\u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────\n",
+    "pane": {
+      "cursorX": 45,
+      "cursorY": 9,
+      "width": 60,
+      "height": 11
+    }
+  },
+  "images3SplitClipped40x10": {
+    "raw": "           \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[38;2;153;153;153mSonnet 4.6\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mAPI Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n                      \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────\n\u001b[39m❯ [Image #1] [Image #2] [Image\n  #3]Describe these three pictures\n  please, compare the colors.\u001b[7m \u001b[0m\n",
+    "pane": {
+      "cursorX": 29,
+      "cursorY": 9,
+      "width": 40,
+      "height": 10
+    }
+  },
+  "images3Scrolled60x11": {
+    "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n                                          \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────\n\u001b[39m❯ #3]AP_IMG_new60x11n3wrap_88280 Please describe these\n  pictures in detail and compare their colors carefully,\n  one by one.\u001b[7m \u001b[0m\n",
+    "pane": {
+      "cursorX": 13,
+      "cursorY": 10,
+      "width": 60,
+      "height": 11
+    }
+  },
+  "images3Normal120x35": {
+    "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153m~/project\u001b[39m\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                                                                      \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[39m❯ [Image #1] [Image #2] [Image #3]Please describe these pictures in detail and compare their colors carefully, one by\n  one.\u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on\u001b[39m\n",
+    "pane": {
+      "cursorX": 6,
+      "cursorY": 32,
+      "width": 120,
+      "height": 35
+    }
+  },
+  "afterImageSend60x11": {
+    "raw": "\n\u001b[38;2;153;153;153m  ⎿  \u001b[39m[Image #2]\n\n\u001b[38;2;255;255;255m⏺\u001b[39m Synthetic reply.\n\n\u001b[38;2;153;153;153m✻\u001b[39m \u001b[38;2;153;153;153mSautéed for 0s · done 11:23 AM\u001b[39m\n                                          \u001b[38;2;153;153;153m● high · /effort\u001b[39m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────\n\u001b[39m❯ \u001b[7m \u001b[0m\n\u001b[38;2;136;136;136m────────────────────────────────────────────────────────────\n\u001b[39m  \u001b[38;2;153;153;153m⏸ manual mode on · ? for shortcuts · ← for agents\u001b[39m\n",
+    "pane": {
+      "cursorX": 2,
+      "cursorY": 8,
+      "width": 60,
+      "height": 11
+    }
+  }
+}

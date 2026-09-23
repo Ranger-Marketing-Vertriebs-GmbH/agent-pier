@@ -5,6 +5,9 @@ import os from "node:os";
 import path from "node:path";
 import { PipelineDefinitions } from "../../server/features/pipelines/pipeline-definitions.js";
 import { renderProfilePrompt } from "../../server/features/pipelines/profile-validation.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
+
+const copy = serverMessages.pipelineProfiles;
 
 async function fixture(t) {
   const dataDir = await mkdtemp(path.join(os.tmpdir(), "agentpier-definitions-"));
@@ -94,13 +97,14 @@ test("profile parameters and native permissions validate before persistence", as
           edges: [],
         },
       }),
-    /required parameters/,
+    { message: copy.noRequiredParameters(saved.name) },
   );
-  assert.throws(() => renderProfilePrompt(saved, {}), /required/);
-  assert.throws(
-    () => renderProfilePrompt(saved, { target: "x", unknown: "x" }),
-    /Unknown/,
-  );
+  assert.throws(() => renderProfilePrompt(saved, {}), {
+    message: copy.parameterRequired("Target"),
+  });
+  assert.throws(() => renderProfilePrompt(saved, { target: "x", unknown: "x" }), {
+    message: copy.unknownParameter("unknown"),
+  });
   assert.match(
     renderProfilePrompt(saved, { target: "{{target}}" }),
     /Implement \{\{target\}\}/,
@@ -108,7 +112,9 @@ test("profile parameters and native permissions validate before persistence", as
   for (const tool of ["codex", "claude", "opencode"]) {
     const row = profile(tool);
     row.config.permissions.mode = "unknown";
-    assert.throws(() => store.saveProfile(row), /permission/);
+    assert.throws(() => store.saveProfile(row), {
+      message: copy.invalidPermissionMode(tool),
+    });
   }
   assert.throws(
     () =>
@@ -116,7 +122,7 @@ test("profile parameters and native permissions validate before persistence", as
         ...profile(),
         config: { ...profile().config, accountId: "local-claude" },
       }),
-    /account/,
+    { message: copy.accountCliMismatch },
   );
 });
 test("verification plans are bounded, secret-free profile seeds are editable and seed deletion persists", async (t) => {
@@ -140,13 +146,13 @@ test("verification plans are bounded, secret-free profile seeds are editable and
       store.saveVerification("project-fixture", {
         steps: [{ name: "Bad", command: "x", timeoutMs: 7200001, blocking: true }],
       }),
-    /timeout/i,
+    { message: copy.verificationTimeoutRange },
   );
   assert.throws(
     () =>
       store.saveVerification("project-fixture", {
         steps: [{ name: "Bad", command: "x", timeoutMs: 1000, blocking: "false" }],
       }),
-    /blocking/,
+    { message: copy.verificationBlockingBoolean },
   );
 });

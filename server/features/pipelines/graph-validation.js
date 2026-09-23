@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 
 const nodeId = /^[A-Za-z0-9_-]{1,64}$/;
@@ -36,23 +37,23 @@ function cyclic(ids, edges) {
 /** Validate before copying: unknown graph shapes must never silently become a chain. */
 export function validateGraph(graph) {
   if (!Array.isArray(graph?.nodes) || !graph.nodes.length || graph.nodes.length > 100)
-    throw problem("A pipeline requires between 1 and 100 nodes");
+    throw problem(serverMessages.pipelineGraph.nodeCount);
   if (!Array.isArray(graph.edges) || graph.edges.length > 300)
-    throw problem("A pipeline may contain at most 300 edges");
+    throw problem(serverMessages.pipelineGraph.edgeLimit);
   const ids = new Set();
   const nodes = graph.nodes.map((node) => {
     if (typeof node?.id !== "string" || !nodeId.test(node.id) || ids.has(node.id))
-      throw problem("Invalid or duplicate node ID");
+      throw problem(serverMessages.pipelineGraph.invalidNodeId);
     ids.add(node.id);
     const kind = node.kind ?? "profile";
     if (!["profile", "gate", "verify", "createPr"].includes(kind))
-      throw problem(`Unsupported pipeline node kind: ${kind}`);
+      throw problem(serverMessages.pipelineGraph.unsupportedNodeKind(kind));
     if (
       kind === "profile"
         ? typeof node.profileId !== "string"
         : node.profileId !== undefined
     )
-      throw problem(`Invalid profile reference on node ${node.id}`);
+      throw problem(serverMessages.pipelineGraph.invalidProfileReference(node.id));
     return {
       id: node.id,
       kind,
@@ -60,12 +61,12 @@ export function validateGraph(graph) {
     };
   });
   if (nodes.filter((node) => node.kind === "createPr").length > 1)
-    throw problem("A pipeline may create only one pull request");
+    throw problem(serverMessages.pipelineGraph.singlePullRequest);
   if (
     !ids.has(graph.entry) ||
     nodes.find((node) => node.id === graph.entry)?.kind !== "profile"
   )
-    throw problem("The entry must reference a profile node");
+    throw problem(serverMessages.pipelineGraph.entryMustBeProfile);
   const conditions = new Set();
   const edges = graph.edges.map((edge) => {
     if (
@@ -73,9 +74,10 @@ export function validateGraph(graph) {
       !ids.has(edge?.to) ||
       !["default", "pass", "fail"].includes(edge.condition)
     )
-      throw problem("Invalid pipeline edge");
+      throw problem(serverMessages.pipelineGraph.invalidEdge);
     const key = `${edge.from}:${edge.condition}`;
-    if (conditions.has(key)) throw problem("A node may have only one edge per condition");
+    if (conditions.has(key))
+      throw problem(serverMessages.pipelineGraph.oneEdgePerCondition);
     conditions.add(key);
     if (
       edge.maxIterations !== undefined &&
@@ -84,7 +86,7 @@ export function validateGraph(graph) {
         edge.maxIterations < 1 ||
         edge.maxIterations > 5)
     )
-      throw problem("Fail loop budgets must be between 1 and 5");
+      throw problem(serverMessages.pipelineGraph.loopBudgetRange);
     return {
       from: edge.from,
       to: edge.to,
@@ -102,7 +104,7 @@ export function validateGraph(graph) {
       outgoing.length > 1 ||
       outgoing.some((edge) => edge.condition !== "default")
     )
-      throw problem(`Invalid side-effect routing on node ${node.id}`);
+      throw problem(serverMessages.pipelineGraph.invalidSideEffectRouting(node.id));
   }
   if (
     cyclic(
@@ -110,11 +112,11 @@ export function validateGraph(graph) {
       edges.filter((edge) => !isLoopEdge(edge)),
     )
   )
-    throw problem("Every cycle requires a bounded fail edge");
+    throw problem(serverMessages.pipelineGraph.cycleNeedsFailEdge);
   for (const edge of edges)
     if (isLoopEdge(edge) && !reachable(edges, edge.to).has(edge.from))
-      throw problem("A budgeted fail edge must close a cycle");
+      throw problem(serverMessages.pipelineGraph.failEdgeMustCloseCycle);
   if (reachable(edges, graph.entry).size !== ids.size)
-    throw problem("Every node must be reachable from the entry");
+    throw problem(serverMessages.pipelineGraph.unreachableNode);
   return { entry: graph.entry, nodes, edges };
 }

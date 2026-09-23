@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -70,7 +71,8 @@ export class PipelineEngine {
   async lock(id, fn) {
     if (this.mutationBarrier && !this.mutationBarrier.hasLease())
       return this.mutationBarrier.run(() => this.lock(id, fn));
-    if (this.closed || this.closing) throw problem("Pipeline engine is closed.", 503);
+    if (this.closed || this.closing)
+      throw problem(serverMessages.pipelines.engineClosed, 503);
     const prior = this.locks.get(id) || Promise.resolve();
     const next = prior.catch(() => {}).then(fn);
     this.locks.set(id, next);
@@ -87,12 +89,12 @@ export class PipelineEngine {
   }
   list({ page = 1, status, projectId } = {}) {
     if (!Number.isSafeInteger(page) || page < 1 || page > 100000)
-      throw problem("Invalid pipeline page.");
+      throw problem(serverMessages.pipelines.invalidPage);
     if (
       status !== undefined &&
       !["running", "awaiting-human", "completed", "failed", "cancelled"].includes(status)
     )
-      throw problem("Invalid pipeline status.");
+      throw problem(serverMessages.pipelines.invalidStatus);
     const all = this.store
       .all()
       .filter(
@@ -138,7 +140,8 @@ export class PipelineEngine {
           { id: reservedId, expectedProjectId },
         ),
       );
-    if (this.closed || this.closing) throw problem("Pipeline engine is closed.", 503);
+    if (this.closed || this.closing)
+      throw problem(serverMessages.pipelines.engineClosed, 503);
     if (
       typeof cwd !== "string" ||
       !path.isAbsolute(cwd) ||
@@ -146,7 +149,7 @@ export class PipelineEngine {
       !task.trim() ||
       Buffer.byteLength(task) > 65536
     )
-      throw problem("A working directory and task are required.");
+      throw problem(serverMessages.pipelines.workingDirectoryAndTaskRequired);
     const snapshot = this.definitions.snapshot(pipelineId),
       compiled = compileSnapshot(snapshot),
       id = reservedId === undefined ? randomUUID() : runId(reservedId);
@@ -197,7 +200,7 @@ export class PipelineEngine {
       const run = this.store.get(id);
       requireLiveRun(run);
       if (!availableActions(run).includes("retry"))
-        throw problem("This stage cannot be retried.", 409);
+        throw problem(serverMessages.pipelines.stageCannotBeRetried, 409);
       if (activeNode(run)?.failReason === "pr-failed")
         await advance(this, run, activeNode(run));
       else await gateAction(this, run, { action: "retry" });
@@ -209,7 +212,7 @@ export class PipelineEngine {
       const run = this.store.get(id);
       requireLiveRun(run);
       if (!terminal(run))
-        throw problem("Finish or cancel the run before publishing its branch.", 409);
+        throw problem(serverMessages.pipelines.finishBeforePublishing, 409);
       if (run.pullRequestUrl) return;
       const pr = await this.workspace.createPr({ workspace: run.workspace, run });
       run.pullRequestUrl = pr.url;
@@ -220,7 +223,8 @@ export class PipelineEngine {
   async delete(id) {
     await this.lock(id, async () => {
       const run = this.store.get(id);
-      if (!terminal(run)) throw problem("Cancel the run before deleting it.", 409);
+      if (!terminal(run))
+        throw problem(serverMessages.pipelines.cancelBeforeDeleting, 409);
       if (run.workspace) await this.workspace.remove({ workspace: run.workspace });
       this.store.remove(id);
     });

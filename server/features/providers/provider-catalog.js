@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { problem, readJSON, writePrivate } from "../../lib/storage.js";
 import { PROVIDERS, providerDefinition, validModelId } from "./provider-definitions.js";
@@ -85,14 +86,11 @@ export class ProviderCatalog {
   }
   get(providerId, modelId, { tool } = {}) {
     providerDefinition(providerId);
-    if (!validModelId(modelId)) throw problem("Invalid model ID.");
+    if (!validModelId(modelId)) throw problem(serverMessages.providers.invalidModelId);
     const model = this.models[providerId].find(
       (item) => item.modelId === modelId && (!tool || item.tools.includes(tool)),
     );
-    if (!model)
-      throw problem(
-        "Model is not in the supported provider catalog. Refresh the catalog or select another model.",
-      );
+    if (!model) throw problem(serverMessages.providers.modelNotInCatalog);
     return structuredClone(model);
   }
   normalize(id, payload, fetchedAt) {
@@ -131,7 +129,7 @@ export class ProviderCatalog {
       this.states[id] = {
         ...this.states[id],
         stale: true,
-        error: "Catalog refresh failed; the previous catalog remains available.",
+        error: serverMessages.providers.catalogRefreshFailed,
       };
       throw problem(this.states[id].error, 502);
     }

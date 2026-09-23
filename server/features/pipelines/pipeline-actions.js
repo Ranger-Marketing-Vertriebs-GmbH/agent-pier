@@ -1,13 +1,11 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { activeNode, currentAttempt, outgoing, terminal } from "./graph-navigation.js";
 import { advance, conclude, launchStage, loopBack } from "./execution-stage.js";
 import { readVerdict } from "./stage-verdict.js";
 export function requireLiveRun(run) {
   if (run.imported?.historyOnly)
-    throw problem(
-      "Imported pipeline history is read-only. Start a new run to continue working.",
-      409,
-    );
+    throw problem(serverMessages.pipelines.importedHistoryReadOnly, 409);
 }
 export function availableActions(run) {
   if (run.imported?.historyOnly) return ["delete"];
@@ -38,7 +36,7 @@ export function availableActions(run) {
 export async function gateAction(engine, run, { action, feedback, resumeAt } = {}) {
   requireLiveRun(run);
   if (!availableActions(run).includes(action) || ["delete", "create-pr"].includes(action))
-    throw problem("This action is not available for the current pipeline state.", 409);
+    throw problem(serverMessages.pipelines.actionUnavailable, 409);
   const node = activeNode(run);
   if (action === "abort") return cancelRun(engine, run);
   if (action === "retry" || action === "resume-now") {
@@ -53,7 +51,7 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
   if (action === "wait-for-reset") {
     const parsed = resumeAt ? Date.parse(resumeAt) : null;
     if (resumeAt && (!Number.isFinite(parsed) || parsed <= engine.nowMs()))
-      throw problem("Invalid usage reset time.");
+      throw problem(serverMessages.pipelines.invalidUsageResetTime);
     run.usageResumeAt = new Date(
       parsed ||
         (node.usageLimit?.resetAt
@@ -69,7 +67,7 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
       !feedback.trim() ||
       Buffer.byteLength(feedback) > 32768
     )
-      throw problem("Feedback must contain between 1 and 32768 bytes.");
+      throw problem(serverMessages.pipelines.feedbackSize);
     node.gateDecision = "feedback";
     node.gateDecidedAt = engine.now();
     node.verified = false;
@@ -87,7 +85,7 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
       feedback !== undefined &&
       (typeof feedback !== "string" || Buffer.byteLength(feedback) > 32768)
     )
-      throw problem("Invalid loop feedback.");
+      throw problem(serverMessages.pipelines.invalidLoopFeedback);
     node.gateDecision = "looped-back";
     node.gateDecidedAt = engine.now();
     await loopBack(
@@ -96,7 +94,7 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
       node,
       node.verdict || {
         result: "fail",
-        summary: "Operator requested another repair round.",
+        summary: serverMessages.pipelines.operatorRepairRound,
       },
       feedback,
     );
@@ -117,10 +115,9 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
       outcome.isError ||
       outcome.quiesced !== true
     )
-      throw problem("Reconciliation requires a successful, quiesced native turn.", 409);
+      throw problem(serverMessages.pipelines.reconcileRequiresQuiescedTurn, 409);
     const found = readVerdict(run, attempt);
-    if (!found.present)
-      throw problem("No fresh valid verdict is available to reconcile.", 409);
+    if (!found.present) throw problem(serverMessages.pipelines.noFreshVerdict, 409);
     node.verified = false;
     node.verifyAttempts = 0;
     run.status = "running";
@@ -150,7 +147,7 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
       !["completed", "failed"].includes(outcome.status) ||
       outcome.quiesced !== true
     )
-      throw problem("Override requires a stopped, quiesced native turn.", 409);
+      throw problem(serverMessages.pipelines.overrideRequiresStoppedTurn, 409);
     attempt.quiesced = true;
   }
   if (action === "override") {
@@ -170,7 +167,7 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
 }
 export async function cancelRun(engine, run) {
   requireLiveRun(run);
-  if (terminal(run)) throw problem("Pipeline run already finished.", 409);
+  if (terminal(run)) throw problem(serverMessages.pipelines.runAlreadyFinished, 409);
   run.cancelRequested = true;
   engine.store.save(run);
   if (run.activeTurn) await engine.driver.cancel(run.activeTurn);

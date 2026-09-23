@@ -173,11 +173,11 @@ test("account creation, directory selection, session lifecycle and reload preser
   await expect(
     page.getByRole("heading", { name: "Dein Terminal. Überall." }),
   ).toBeVisible();
-  await navigateTo(page, "Konten");
-  await page.getByRole("button", { name: "Konto hinzufügen" }).click();
-  await page.getByLabel("Kontoname").fill("Arbeit");
+  await navigateTo(page, "Accounts");
+  await page.getByRole("button", { name: "Account hinzufügen" }).click();
+  await page.getByLabel("Account-Name").fill("Arbeit");
   await page.getByLabel("API-Key (optional)").fill("never-return-me");
-  await page.getByRole("button", { name: "Konto erstellen" }).click();
+  await page.getByRole("button", { name: "Account erstellen" }).click();
   await expect(page.getByText("Arbeit", { exact: true })).toBeVisible();
   await expect(page.getByText("never-return-me")).toHaveCount(0);
   await page.getByRole("button", { name: "Neue Sitzung", exact: true }).first().click();
@@ -254,9 +254,9 @@ test("failed account submission preserves input, then account editing and deleti
 }) => {
   await fixture(page);
   await page.goto(base);
-  await navigateTo(page, "Konten");
-  await page.getByRole("button", { name: "Konto hinzufügen" }).click();
-  await page.getByLabel("Kontoname").fill("Team");
+  await navigateTo(page, "Accounts");
+  await page.getByRole("button", { name: "Account hinzufügen" }).click();
+  await page.getByLabel("Account-Name").fill("Team");
   await page.route(
     "**/api/accounts",
     (route) =>
@@ -266,20 +266,20 @@ test("failed account submission preserves input, then account editing and deleti
       }),
     { times: 1 },
   );
-  await page.getByRole("button", { name: "Konto erstellen" }).click();
+  await page.getByRole("button", { name: "Account erstellen" }).click();
   await expect(page.getByRole("alert")).toContainText(
     "Profil konnte nicht erstellt werden",
   );
-  await expect(page.getByLabel("Kontoname")).toHaveValue("Team");
-  await page.getByRole("button", { name: "Konto erstellen" }).click();
+  await expect(page.getByLabel("Account-Name")).toHaveValue("Team");
+  await page.getByRole("button", { name: "Account erstellen" }).click();
   await page.getByRole("button", { name: "Team bearbeiten" }).click();
-  await page.getByLabel("Kontoname").fill("Team privat");
+  await page.getByLabel("Account-Name").fill("Team privat");
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Team privat", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Team privat löschen" }).click();
-  await page.getByRole("button", { name: "Konto löschen", exact: true }).click();
+  await page.getByRole("button", { name: "Account löschen", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Team privat", exact: true }),
   ).toHaveCount(0);
@@ -301,7 +301,7 @@ test("native login opens a visible terminal and a closed socket reconnects", asy
     createdAt: "2026-09-06T10:00:00Z",
   });
   await page.goto(base);
-  await navigateTo(page, "Konten");
+  await navigateTo(page, "Accounts");
   await page.getByRole("button", { name: "Anmelden", exact: true }).click();
   await page.getByRole("button", { name: "Anmeldeterminal öffnen", exact: true }).click();
   await expect(
