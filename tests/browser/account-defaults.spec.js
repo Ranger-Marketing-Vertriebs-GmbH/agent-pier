@@ -71,7 +71,7 @@ test("signed-in Claude account replaces login action and becomes the persistent 
     .click();
   await expect.poll(() => f.state.defaultAccountIds.claude).toBe("managed-claude");
   await page.reload();
-  await expect(card.getByText("Standardkonto", { exact: true })).toBeVisible();
+  await expect(card.getByText("Standard-Account", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Neue Sitzung", exact: true }).first().click();
   await expect(page.getByRole("combobox", { name: "Zugang", exact: true })).toHaveValue(
     "managed-claude",

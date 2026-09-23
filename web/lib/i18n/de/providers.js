@@ -26,7 +26,7 @@ export const providerCopy = {
   unknown: "Nicht angegeben",
   tokens: (value) => `${value} Token`,
   contextNotice:
-    "Die Angaben stammen aus dem Katalog. Routing, Kontozugang und die CLI können das nutzbare Fenster weiter begrenzen.",
+    "Die Angaben stammen aus dem Katalog. Routing, Account-Zugang und die CLI können das nutzbare Fenster weiter begrenzen.",
   responses: "Responses-API-Zugang bestätigt",
   responsesNote:
     "Mein Z.ai-Konto erlaubt die Responses API für Codex. Ein reiner Chat-Completions-Zugang reicht nicht aus.",

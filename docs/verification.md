@@ -51,16 +51,16 @@ Der aktuelle Stand läuft **nur als lokaler Test-Webdienst** auf `http://127.0.0
 - Desktop-/Mobil-Browsertests prüfen Marketplace-Suche, Installation, Deaktivierung, sichtbare Entfernen-Bestätigung, Zurücksetzen gelöschter Filter, fehlgeschlagene Anfragen, doppelte Klicks sowie Wiederöffnen eines laufenden CLI-Installers.
 
 - Native Terminalfarben sind mit ANSI-/True-Color-Fixtures geprüft. Die AgentPier-Oberfläche verwendet Anthrazit/Orange; SVG-Favicon und ICO-Fallback werden ausgeliefert.
-- Mobile Composer-/Modellmenü-Geometrie ist bei 390×844 und 390×500 geprüft. Konto- und Startmoduslisten bleiben beim Scrollen und bei skalierter Darstellung am Feld verankert.
+- Mobile Composer-/Modellmenü-Geometrie ist bei 390×844 und 390×500 geprüft. Account- und Startmoduslisten bleiben beim Scrollen und bei skalierter Darstellung am Feld verankert.
 - Deep Links erhalten Sitzungsansicht, Erweiterungsprofil, AgentBus-Projekt und Nachrichtenseite über Reload und Browserhistorie. Ungültige und Shell-Profil-Links zeigen einen eindeutigen Zustand.
-- Der Standardarbeitsordner wird über echte temporäre API-Instanzen gespeichert; explizite Projektwahl und Login-Verzeichnisse bleiben korrekt. Reine Shell-Sitzungen verwenden keine Kontoverwaltung, Modellsteuerung oder AgentBus. Echte temporäre zsh- und POSIX-sh-PTYs prüfen Unicode, Eingabe, Replay und Neustart.
+- Der Standardarbeitsordner wird über echte temporäre API-Instanzen gespeichert; explizite Projektwahl und Login-Verzeichnisse bleiben korrekt. Reine Shell-Sitzungen verwenden keine Account-Verwaltung, Modellsteuerung oder AgentBus. Echte temporäre zsh- und POSIX-sh-PTYs prüfen Unicode, Eingabe, Replay und Neustart.
 - Lokale Chatbilder sind mit Signaturen, Größenlimits, Symlinks, manipulierten Pfaden und fremden Sitzungs-IDs geprüft; Browser-Tests prüfen Vergrößerung, fehlende Dateien und mobile Breite.
 - AgentBus-Fixtures prüfen Projekt-/Profilzuordnung, native Adapter, Socket-Wecksignale, dauerhafte Nachrichten und Identitätsarchive nach Unregister. Die Nachrichtenansicht bleibt rein lesend. Sender-Zugangsdaten werden nicht an Codex-Empfänger vererbt.
 
 - Die automatische Verlaufszuordnung ist mit parallelen Sitzungen im selben Projekt, Profilgrenzen, Prozessneustart, PID-Wiederverwendung, npm-Launchern und nativen Sitzungswechseln geprüft. Die bestehende Codex-Sitzung wurde zusätzlich über ihre offenen nativen Verlaufsdateien exakt zugeordnet; GET Chat liefert den zugehörigen Verlauf ohne Terminaleingabe.
 - Linux-systemd-Rendering und Installations-/Status-/Stop-Abläufe sind mit simulierten Befehlen geprüft, einschließlich Sonderzeichen in Pfaden und Schutz bestehender Units. Der macOS-LaunchAgent-Pfad bleibt abgedeckt.
 
-- Die GitHub CLI wird als Hilfswerkzeug ohne eigenes Konto/Sitzungsangebot erkannt. Installer-Tests prüfen offizielle macOS-/Linux-Release-Namen, SHA-256, Download-/Archivgrenzen, Links/Traversal, Version, Abbruch und parallele Zielordner. Es wurden nur Testarchive entpackt.
+- Die GitHub CLI wird als Hilfswerkzeug ohne eigenen Account und ohne Sitzungsangebot erkannt. Installer-Tests prüfen offizielle macOS-/Linux-Release-Namen, SHA-256, Download-/Archivgrenzen, Links/Traversal, Version, Abbruch und parallele Zielordner. Es wurden nur Testarchive entpackt.
 - Hostbezogene Agent-Zugänge sind mit mehreren Tokens je Host, Projektvorrang, verschachtelten Verzeichnissen, Token-Wechsel und Deaktivierung geprüft. Echtes `gh` und Git lesen ausschließlich Testtokens bei blockiertem Netzwerk; globale Konfigurationsdateien bleiben unverändert. Deaktivierte Hosts fallen nicht auf eine andere Schlüsselbund-Anmeldung zurück. Beschädigte Zuordnungsmetadaten deaktivieren die erzeugte Anmeldung und geben keine gespeicherten Tokens mehr aus.
 
 - Die Navigation ist mit gespeicherten auf-/zugeklappten Gruppen, direkten Verwaltungslinks und einer dynamisch wechselnden Sitzungsaktivität geprüft. Beendete Prozesse und reine Shells behalten eigene Anzeigen.
@@ -82,7 +82,7 @@ Die Arbeitsanzeige hängt von erkennbaren nativen CLI-Statuszeilen ab; unbekannt
 - [Modell-Dropdown](screenshots/agentpier-model-dropdown.png)
 - [Plugins und Marketplace](screenshots/agentpier-plugins.png)
 - [Mobile Plugin-Verwaltung](screenshots/agentpier-plugins-mobile.png)
-- [Verankerte Kontoauswahl auf Mobilgeräten](screenshots/agentpier-launch-mobile.png)
+- [Verankerte Account-Auswahl auf Mobilgeräten](screenshots/agentpier-launch-mobile.png)
 
 - [GitHub-CLI-Installer](screenshots/agentpier-gh-installer.png)
 

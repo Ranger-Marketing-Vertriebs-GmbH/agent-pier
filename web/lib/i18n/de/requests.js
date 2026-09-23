@@ -22,7 +22,7 @@ export const requestCopy = {
     apiKey: {
       title: "API-Key für Claude bestätigen",
       description:
-        "Claude hat den API-Key dieses Kontos in der Umgebung erkannt und fragt, ob er verwendet werden soll.",
+        "Claude hat den API-Key dieses Accounts in der Umgebung erkannt und fragt, ob er verwendet werden soll.",
     },
     securityNotes: {
       title: "Sicherheitshinweise von Claude",
@@ -32,7 +32,7 @@ export const requestCopy = {
     login: {
       title: "Claude-Anmeldung erforderlich",
       description:
-        "Dieses Konto ist noch nicht angemeldet. Die Anmeldung braucht einen Browser-Code und wird im Terminal abgeschlossen.",
+        "Dieser Account ist noch nicht angemeldet. Die Anmeldung braucht einen Browser-Code und wird im Terminal abgeschlossen.",
     },
     unknown: {
       title: "Claude wartet auf eine Eingabe",

@@ -19,7 +19,7 @@ test("English Marketplace localizes empty and unavailable catalog guidance and n
       {
         name: "openai-curated-remote",
         builtin: true,
-        source: "Nativer Codex-Standardkatalog des ausgewählten Kontos",
+        source: "Nativer Codex-Standardkatalog des ausgewählten Accounts",
         removable: false,
         updatable: false,
       },
@@ -28,7 +28,7 @@ test("English Marketplace localizes empty and unavailable catalog guidance and n
     catalogAccounts: accounts,
     catalogAccountId: "local-codex",
     catalogReasonCode: "empty",
-    catalogReason: "Für dieses Konto sind keine Standard-Plugins verfügbar.",
+    catalogReason: "Für diesen Account sind keine Standard-Plugins verfügbar.",
     noteCodes: ["restartRequired", "codexActivation"],
     note: "Änderungen gelten für neue CLI-Sitzungen. Aktivierung über /plugins.",
   };
@@ -81,7 +81,7 @@ test("English Marketplace localizes empty and unavailable catalog guidance and n
   await expect(page.getByText(inventory.note, { exact: true })).toHaveCount(0);
   inventory.catalogReasonCode = "unavailable";
   inventory.catalogReason =
-    "Der Standardkatalog des ausgewählten Kontos konnte nicht geladen werden.";
+    "Der Standardkatalog des ausgewählten Accounts konnte nicht geladen werden.";
   await page.getByLabel("Marketplace account", { exact: true }).selectOption("work");
   await expect(
     page.getByText(

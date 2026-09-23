@@ -109,7 +109,7 @@ test("directory editing waits for initial settings and later refresh preserves d
   releaseInitial();
   await loaded;
   await expect(
-    page.getByRole("button", { name: "Konten", exact: true }).locator(".count"),
+    page.getByRole("button", { name: "Accounts", exact: true }).locator(".count"),
   ).toHaveText("1");
   await expect(directory).toBeEnabled();
   await expect(directory).toHaveValue("/fixture/initial-home");

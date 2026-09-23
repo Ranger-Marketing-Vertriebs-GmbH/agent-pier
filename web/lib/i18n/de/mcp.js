@@ -1,7 +1,7 @@
 export const mcpCopy = {
   sessionTools: "AgentPier-Werkzeuge",
   sessionToolsSummary:
-    "Alle Werkzeuge für alle Projekte, Konten und Provider-Verbindungen.",
+    "Alle Werkzeuge für alle Projekte, Accounts und Provider-Verbindungen.",
   sessionToolsHint:
     "Gilt für diese Sitzung, höchstens zwölf Stunden. Neuladen erneuert eine aktive Freigabe. Gestartete Läufe laufen nach Ende der Sitzung weiter. Pipeline-Sitzungen erhalten diesen Zugang nicht.",
   title: "MCP & Zugriffe",
@@ -59,9 +59,9 @@ export const mcpCopy = {
   scopes: "Berechtigungen",
   resources: "Erlaubte Ressourcen",
   resourceHelp:
-    "Wähle die einzelnen Ressourcen aus. Ohne Auswahl bleibt die jeweilige Ressourcengruppe gesperrt. Für Läufe mit einem zentralen Anbieter werden sowohl das Quellkonto als auch die Anbieterverbindung benötigt.",
+    "Wähle die einzelnen Ressourcen aus. Ohne Auswahl bleibt die jeweilige Ressourcengruppe gesperrt. Für Läufe mit einem zentralen Anbieter werden sowohl der Quell-Account als auch die Anbieterverbindung benötigt.",
   projects: "Projekte",
-  accounts: "Quellkonten",
+  accounts: "Quell-Accounts",
   connections: "Anbieterverbindungen",
   none: "Keine",
   consent: "Zugriff freigeben",

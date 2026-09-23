@@ -264,7 +264,7 @@ for (const outcome of ["success", "failure"]) {
     await page.getByLabel("Neuer Ordnername").fill("pending-project");
     await page.getByRole("button", { name: "Repository klonen", exact: true }).click();
     await expect.poll(() => requests).toBe(1);
-    await navigateTo(page, "Konten");
+    await navigateTo(page, "Accounts");
     await navigateTo(page, "Repositories");
     try {
       await expect(page.getByRole("button", { name: "Wird geklont …" })).toBeDisabled();

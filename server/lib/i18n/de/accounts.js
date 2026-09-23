@@ -13,7 +13,7 @@ export const accounts = Object.freeze({
     "Startmodi gelten nur für neue Arbeitssitzungen, nicht für die Anmeldung.",
   managedLoginRequired: "Bitte einen separaten Account für die Anmeldung anlegen.",
   apiKeyLoginConflict:
-    "Dieses Profil verwendet einen API-Key. Für die Browser-Anmeldung bitte ein Konto ohne API-Key anlegen.",
+    "Dieses Profil verwendet einen API-Key. Für die Browser-Anmeldung bitte einen Account ohne API-Key anlegen.",
   cliNotInstalled: (toolName) => `${toolName} ist nicht installiert.`,
   supportedShellUnavailable: "Keine unterstützte lokale Shell verfügbar.",
   generatedProfileReadOnly: "Generierte Provider-Profile können nicht bearbeitet werden.",

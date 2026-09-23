@@ -65,12 +65,12 @@ test("sidebar groups shorten the menu and remember explicit toggles across reloa
   const management = page.getByRole("button", { name: "Verwaltung", exact: true }),
     sessions = page.getByRole("button", { name: "Sitzungen", exact: true });
   await expect(management).toHaveAttribute("aria-expanded", "false");
-  await expect(page.getByRole("button", { name: "Konten", exact: true })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Accounts", exact: true })).toBeHidden();
   await expect(sessions).toHaveAttribute("aria-expanded", "true");
   await sessions.click();
   await expect(page.locator(".session-list")).toBeHidden();
   await management.click();
-  await expect(page.getByRole("button", { name: "Konten", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Accounts", exact: true })).toBeVisible();
   await page.reload();
   await expect(management).toHaveAttribute("aria-expanded", "true");
   await expect(sessions).toHaveAttribute("aria-expanded", "false");
@@ -79,7 +79,7 @@ test("sidebar groups shorten the menu and remember explicit toggles across reloa
   await expect(management).toHaveAttribute("aria-expanded", "false");
   await page.goto(base + "/accounts");
   await expect(management).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("button", { name: "Konten", exact: true })).toHaveClass(
+  await expect(page.getByRole("button", { name: "Accounts", exact: true })).toHaveClass(
     /selected/,
   );
   await page.goto(base + "/sessions/status-working/terminal");

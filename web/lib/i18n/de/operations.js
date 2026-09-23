@@ -197,7 +197,7 @@ export const operationsCopy = {
   observe: "Vorgang anzeigen",
 };
 export const diagnosticCopy = {
-  account: "Kontoprofil",
+  account: "Account-Profil",
   project: "Projektverzeichnis",
   checks: {
     platform: "Betriebssystem",
@@ -219,7 +219,7 @@ export const diagnosticCopy = {
 };
 export const backupCopy = {
   descriptions: {
-    accounts: "Kontoprofile",
+    accounts: "Account-Profile",
     repositories: "Registrierte Repositorys",
     preferences: "Einstellungen",
     "pipeline-definitions": "Pipeline- und Profildefinitionen",

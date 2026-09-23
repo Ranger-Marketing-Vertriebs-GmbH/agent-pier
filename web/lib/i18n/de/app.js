@@ -10,7 +10,7 @@ export const appDialogsCopy = {
     " Vom CLI verwaltete Schlüsselbund-Einträge können erhalten bleiben.",
   titleStop: "Sitzung stoppen?",
   titleRemove: "Sitzung entfernen?",
-  titleDeleteAccount: "Konto löschen?",
+  titleDeleteAccount: "Account löschen?",
   buttonLogin: "Anmeldeterminal öffnen",
   renamedSessionLabel: "Neuer Name",
   confirmCopyStop: (value1) =>

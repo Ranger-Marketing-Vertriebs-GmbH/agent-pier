@@ -54,7 +54,7 @@ Die Anleitungen für den dauerhaften Betrieb stehen unter [Mac mini](docs/instal
 ## Sitzungen und Chat
 
 - **Neue Sitzung:** CLI, passenden nativen Zugang oder zentrale Provider-Verbindung, Modell, Namen, vorhandenen Projektordner und optional einen Startmodus wählen. Claude und OpenCode starten vorausgewählt mit Auto; Codex startet mit Standard. Standard übernimmt die nativen Einstellungen. Codex **YOLO** setzt `--yolo` (ohne Sandbox und Freigaben), Claude **Auto** setzt `--permission-mode auto`, OpenCode **Auto** setzt `--auto`. Claude entscheidet weiterhin mit seinem Auto-Classifier; OpenCode behält explizite Verbote bei. Version, Modell und Organisationsrichtlinien können die Verfügbarkeit einschränken.
-- **Shell:** Eine lokale Shell direkt unter **Deine Tools** starten, ohne Konto, API-Key oder Anmeldung. Die konfigurierte zsh/bash/sh wird verwendet, ansonsten zsh → bash → sh. Shell-Sitzungen haben ausschließlich eine Terminalansicht.
+- **Shell:** Eine lokale Shell direkt unter **Deine Tools** starten, ohne Account, API-Key oder Anmeldung. Die konfigurierte zsh/bash/sh wird verwendet, ansonsten zsh → bash → sh. Shell-Sitzungen haben ausschließlich eine Terminalansicht.
 - **Arbeitsverzeichnis:** Unter **Einstellungen** einen vorhandenen Standardordner speichern. Neue Sitzungen übernehmen ihn; ein ausdrücklich ausgewähltes Projekt hat Vorrang.
 - **Terminal:** Die echte native TUI mit Farben, Cursor, Tastatur, Maus und Größenanpassung. Login und native Auswahlmenüs bleiben hier erreichbar; unterstützte Freigaben und Rückfragen lassen sich zusätzlich im Chat beantworten.
 - **Chat:** Nachrichten mit Markdown und Codeblöcken, aufklappbare Tool-Aktivitäten und eine Aufgabenliste links. Auf dem Handy öffnet sich diese Ansicht standardmäßig. Die Aufgaben lassen sich links als eigene Seitenleiste einblenden, ohne die Nachrichtenhöhe zu verkleinern. Auf breiten Ansichten stehen sie direkt links neben dem Chat. Keine TUI-Statusleisten, Eingabe-Prompts oder ANSI-Reste im Chat.
@@ -82,15 +82,15 @@ Seiten, Sitzungen, Terminal/Chat, Verwaltungsprofile sowie AgentBus-Projekt und 
 
 Unter **Projektwissen** verwaltest du gemeinsame Repository-Notizen: suchen, bearbeiten, Versionen ansehen und archivieren. Neue Coding-Sitzungen bekommen automatisch die projektgebundenen Memory-Werkzeuge. Git-Worktrees teilen das Wissen; unabhängige Klone und andere Projekte bleiben getrennt. Gleichzeitige Änderungen werden über Versionsprüfungen aufgelöst. Details: [Memory](docs/memory.md).
 
-**OpenRouter**, **Z.ai API** und **Z.ai Coding Plan** werden als zentrale Provider-Verbindungen einmal eingerichtet und beim Sitzungsstart für eine unterstützte CLI gewählt. Native Konten bleiben an ihre jeweilige CLI gebunden. Bestehende kontogebundene Provider-Konfigurationen bleiben nutzbar. CLI-spezifische Modelle, Katalogaktualisierung und ausgewiesene Kontextgrenzen gehören zur Auswahl. Für Codex mit Z.ai muss Responses-Zugriff ausdrücklich bestätigt werden. Konfiguriertes Modell und tatsächlich gemeldetes Modell bleiben unterscheidbar; erforderliche Modellwechsel erfolgen über eine neue Sitzung. Details und Einschränkungen: [Provider](docs/providers.md).
+**OpenRouter**, **Z.ai API** und **Z.ai Coding Plan** werden als zentrale Provider-Verbindungen einmal eingerichtet und beim Sitzungsstart für eine unterstützte CLI gewählt. Native Accounts bleiben an ihre jeweilige CLI gebunden. Bestehende an Accounts gebundene Provider-Konfigurationen bleiben nutzbar. CLI-spezifische Modelle, Katalogaktualisierung und ausgewiesene Kontextgrenzen gehören zur Auswahl. Für Codex mit Z.ai muss Responses-Zugriff ausdrücklich bestätigt werden. Konfiguriertes Modell und tatsächlich gemeldetes Modell bleiben unterscheidbar; erforderliche Modellwechsel erfolgen über eine neue Sitzung. Details und Einschränkungen: [Provider](docs/providers.md).
 
 Der Chat zeigt verfügbare native Kontextwerte und Subagenten-Aktivitäten. Fehlende Werte werden als unbekannt behandelt; [Messgrundlagen und Grenzen](docs/chat-observability.md) sind dokumentiert. Eigene Nachrichten stehen rechts als kompakte Sprechblasen, und die Sitzungsnavigation zeigt den Projektordner.
 
 ## Accounts
 
-Unter **Konten** zusätzliche native Coding-CLI-Profile anlegen. Ein Claude-Konto gilt nur für Claude, ein Codex-Konto nur für Codex und ein OpenCode-Konto nur für OpenCode. Die lokale Shell benötigt kein Konto und erscheint hier nicht. Ohne API-Key über **Anmelden** den nativen Login öffnen. Codex verwendet Geräte-Anmeldung; Claude und OpenCode ihre eigenen Verfahren. Bei API-Key-Profilen wird dieser Schritt nicht angeboten.
+Unter **Accounts** zusätzliche native Coding-CLI-Profile anlegen. Ein Claude-Account gilt nur für Claude, ein Codex-Account nur für Codex und ein OpenCode-Account nur für OpenCode. Die lokale Shell benötigt keinen Account und erscheint hier nicht. Ohne API-Key über **Anmelden** den nativen Login öffnen. Codex verwendet Geräte-Anmeldung; Claude und OpenCode ihre eigenen Verfahren. Bei API-Key-Profilen wird dieser Schritt nicht angeboten.
 
-Lokale Profile verwenden die bestehende Standard-Anmeldung des Tools. Eigene Profile erhalten getrennte Anmelde- und Verlaufsordner; MCPs, Plugins, Marketplaces, Skills und eigene Agenten teilen sie standardmäßig mit allen Konten derselben CLI. Claude setzt sowohl `CLAUDE_CONFIG_DIR` als auch `CLAUDE_SECURESTORAGE_CONFIG_DIR`; Codex nutzt `CODEX_HOME`, OpenCode getrennte XDG-Verzeichnisse. Profile teilen weiterhin die normalen Projektdateien und Benutzerrechte des Rechners.
+Lokale Profile verwenden die bestehende Standard-Anmeldung des Tools. Eigene Profile erhalten getrennte Anmelde- und Verlaufsordner; MCPs, Plugins, Marketplaces, Skills und eigene Agenten teilen sie standardmäßig mit allen Accounts derselben CLI. Claude setzt sowohl `CLAUDE_CONFIG_DIR` als auch `CLAUDE_SECURESTORAGE_CONFIG_DIR`; Codex nutzt `CODEX_HOME`, OpenCode getrennte XDG-Verzeichnisse. Profile teilen weiterhin die normalen Projektdateien und Benutzerrechte des Rechners.
 
 API-Keys sind optional für Codex/OpenAI und Claude/Anthropic, bei OpenCode für den OpenAI-Provider. Weitere OpenCode-Provider werden über dessen native Anmeldung verbunden. Ein leeres Key-Feld beim Bearbeiten behält den bisherigen Key. Vor dem Wechsel eines Keys oder Löschen eines Accounts dessen Sitzungen beenden. CLI-eigene macOS-Keychain-Einträge werden beim Entfernen eines Profils nicht automatisch gelöscht.
 
@@ -119,11 +119,11 @@ Die Oberfläche verwendet Anthrazit mit orangefarbenen Akzenten. Das native Term
 
 Unter **Deine Tools** öffnet **CLI installieren** eine Vorschau mit offiziellem Installer und Zielpfad. Erst **Jetzt installieren** startet den Download auf dem AgentPier-Server. Status und Fehler bleiben beim Schließen des Dialogs erhalten; fehlgeschlagene Versuche lassen sich wiederholen. Nach erfolgreicher Versionsprüfung kann direkt eine Sitzung gestartet werden.
 
-AgentPier verwendet standardmäßig die offiziellen Shell-Installer von [Codex](https://chatgpt.com/codex/install.sh), [Claude Code](https://claude.ai/install.sh) und [OpenCode](https://opencode.ai/install). Codex und Claude liegen unter `~/.local/bin`, OpenCode unter `~/.opencode/bin` des **Serverbenutzers**. Damit bleiben die nativen Update-Verfahren erhalten; Claude und OpenCode können selbst aktualisieren. Bestehende Installationen werden nicht ersetzt. Die isolierten Konten behalten ihre eigenen Anmeldedaten. Jeweils eine Installation läuft gleichzeitig, mit maximal 15 Minuten Laufzeit. Unterstützt: macOS/Linux auf ARM64 und x64. Installation und Anmeldung sind getrennte Schritte. Details und npm-Fallback: [Native Installer](docs/refactor/native-installers.md).
+AgentPier verwendet standardmäßig die offiziellen Shell-Installer von [Codex](https://chatgpt.com/codex/install.sh), [Claude Code](https://claude.ai/install.sh) und [OpenCode](https://opencode.ai/install). Codex und Claude liegen unter `~/.local/bin`, OpenCode unter `~/.opencode/bin` des **Serverbenutzers**. Damit bleiben die nativen Update-Verfahren erhalten; Claude und OpenCode können selbst aktualisieren. Bestehende Installationen werden nicht ersetzt. Die isolierten Accounts behalten ihre eigenen Anmeldedaten. Jeweils eine Installation läuft gleichzeitig, mit maximal 15 Minuten Laufzeit. Unterstützt: macOS/Linux auf ARM64 und x64. Installation und Anmeldung sind getrennte Schritte. Details und npm-Fallback: [Native Installer](docs/refactor/native-installers.md).
 
 ## GitHub CLI für Agenten
 
-Unter **Deine Tools → GitHub CLI** lässt sich `gh` auf dem AgentPier-Rechner installieren. Es ist ein Hilfswerkzeug für Agenten und erhält kein eigenes Konto oder Chat-Terminal. Vorhandene Installationen werden erkannt. Für neue Installationen verwendet AgentPier die offiziellen Binärpakete von `cli/cli` für macOS/Linux und prüft deren SHA-256-Prüfsumme sowie `gh --version`. Die Dateien liegen im privaten AgentPier-Datenverzeichnis.
+Unter **Deine Tools → GitHub CLI** lässt sich `gh` auf dem AgentPier-Rechner installieren. Es ist ein Hilfswerkzeug für Agenten und erhält keinen eigenen Account und kein Chat-Terminal. Vorhandene Installationen werden erkannt. Für neue Installationen verwendet AgentPier die offiziellen Binärpakete von `cli/cli` für macOS/Linux und prüft deren SHA-256-Prüfsumme sowie `gh --version`. Die Dateien liegen im privaten AgentPier-Datenverzeichnis.
 
 Jeder GitHub-Token ist einem HTTPS-Host zugeordnet. Ohne Host-Port funktioniert dies auch für GitHub Enterprise. GitHub-Zugänge mit einem eigenen Port bleiben für den Repository-Clone verwendbar, werden aber nicht an `gh` übertragen. In neuen Coding-CLI-Sitzungen können Agenten beispielsweise `gh pr list` im Projekt oder `gh api --hostname firma.ghe.com user` verwenden. Die Anmeldung wird anhand des Repository-Hosts beziehungsweise des ausdrücklich gewählten Hosts bestimmt.
 
@@ -131,9 +131,9 @@ AgentPier setzt weder einen hostübergreifenden `GH_TOKEN` noch eine globale Git
 
 ## AgentPier aus Coding-CLIs steuern
 
-Unter **Einstellungen → MCP & Zugriffe** stehen die passende MCP-Adresse und kopierbare Anleitungen für Codex, Claude Code und OpenCode. Lokal funktioniert die Verbindung über Loopback-HTTP, vom anderen Rechner über das konfigurierte Tailscale-HTTPS. Die Browserfreigabe bestimmt Projekte, Konten, Provider und erlaubte Aktionen; sie lässt sich dort jederzeit widerrufen.
+Unter **Einstellungen → MCP & Zugriffe** stehen die passende MCP-Adresse und kopierbare Anleitungen für Codex, Claude Code und OpenCode. Lokal funktioniert die Verbindung über Loopback-HTTP, vom anderen Rechner über das konfigurierte Tailscale-HTTPS. Die Browserfreigabe bestimmt Projekte, Accounts, Provider und erlaubte Aktionen; sie lässt sich dort jederzeit widerrufen.
 
-Agenten können damit Pipeline-Profile und Abläufe verwalten, Läufe starten und deren Fortschritt, Artefakte und Ergebnisse lesen. Pro Profil lassen sich CLI, Quellkonto, zentraler Provider und Modell wählen. Menschliche Freigaben bleiben in AgentPier. Details und Einrichtung stehen in [MCP-Zugriff](docs/mcp.md).
+Agenten können damit Pipeline-Profile und Abläufe verwalten, Läufe starten und deren Fortschritt, Artefakte und Ergebnisse lesen. Pro Profil lassen sich CLI, Quell-Account, zentraler Provider und Modell wählen. Menschliche Freigaben bleiben in AgentPier. Details und Einrichtung stehen in [MCP-Zugriff](docs/mcp.md).
 
 ## MCP und Skills verwalten
 
@@ -143,7 +143,7 @@ Unter **MCP & Skills** zunächst die CLI wählen. Die Ansicht zeigt deren gemein
 - **Skills:** Eine `SKILL.md` oder eine ZIP mit `SKILL.md` und Begleitdateien hochladen oder in das Dateifeld ziehen. Alternativ einen öffentlichen GitHub-Repository-, Unterordner- oder Archiv-Link eingeben. Pro Paket wird ein Skill installiert; bei Skill-Sammlungen den konkreten Unterordner wählen. Ein gültiger Name und eine Beschreibung im YAML-Frontmatter sind erforderlich.
 - **Umfang:** Maximal 10 MiB ZIP, 20 MiB entpackt und 1.000 Archiveinträge. Bestehende Zielordner werden nicht überschrieben. Archivpfade und Symlinks werden geprüft; Installationsskripte werden nicht ausgeführt. Ausführbare Begleitdateien behalten das Ausführungsrecht für den Benutzer. Nur von AgentPier installierte und unverändert zugeordnete Skill-Ordner lassen sich hier entfernen.
 
-Neue Skills liegen pro CLI im gemeinsamen nativen Ordner: `~/.codex/skills`, `~/.claude/skills` oder `~/.config/opencode/skills`. Bereits vorhandene Codex-Skills unter `~/.agents/skills` bleiben sichtbar. Zugangsdaten, Provider, Hauptmodell und Verlauf werden nicht zwischen Konten kopiert. Bestehende Erweiterungen werden beim nächsten Start oder über **Vorhandene Kontokonfigurationen übernehmen** zusammengeführt. Details zu Konflikten und Sicherungen: [Gemeinsame Erweiterungen](docs/shared-cli-extensions.md). Die Bestandsanzeige umfasst bekannte Quellen, begrenzt auf 1.000 Skill-Funde und vier Unterordner-Ebenen. Skills lassen sich nach Name, Beschreibung und Geltungsbereich durchsuchen und werden mit 20 Einträgen pro Seite angezeigt. Vorhandene Skills mit abweichenden Metadaten bleiben sichtbar und erhalten einen Hinweis.
+Neue Skills liegen pro CLI im gemeinsamen nativen Ordner: `~/.codex/skills`, `~/.claude/skills` oder `~/.config/opencode/skills`. Bereits vorhandene Codex-Skills unter `~/.agents/skills` bleiben sichtbar. Zugangsdaten, Provider, Hauptmodell und Verlauf werden nicht zwischen Accounts kopiert. Bestehende Erweiterungen werden beim nächsten Start oder über **Vorhandene Account-Konfigurationen übernehmen** zusammengeführt. Details zu Konflikten und Sicherungen: [Gemeinsame Erweiterungen](docs/shared-cli-extensions.md). Die Bestandsanzeige umfasst bekannte Quellen, begrenzt auf 1.000 Skill-Funde und vier Unterordner-Ebenen. Skills lassen sich nach Name, Beschreibung und Geltungsbereich durchsuchen und werden mit 20 Einträgen pro Seite angezeigt. Vorhandene Skills mit abweichenden Metadaten bleiben sichtbar und erhalten einen Hinweis.
 
 ## Plugins und Marketplaces verwalten
 
@@ -159,7 +159,7 @@ Projektbezogene, automatisch erkannte und lokale Datei-Plugins sind gegebenenfal
 
 ## Agency Agents
 
-Unter **MCP & Skills → Agency Agents** lässt sich der öffentliche Katalog von [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) durchsuchen, nach Kategorie filtern und seitenweise ansehen. Die Vorschau zeigt die Anweisungen und den festgelegten Git-Stand. Einzelne ausgewählte Agenten werden im nativen Format für Claude, Codex oder OpenCode installiert und gelten für alle Konten dieser CLI. Sie übernehmen das Sitzungsmodell und die vorhandenen Berechtigungen. AgentPier führt keine Installationsskripte aus diesem Repository aus. Extern bearbeitete Agentendateien werden beim Entfernen erhalten. [Details](docs/shared-cli-extensions.md#agency-agents).
+Unter **MCP & Skills → Agency Agents** lässt sich der öffentliche Katalog von [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) durchsuchen, nach Kategorie filtern und seitenweise ansehen. Die Vorschau zeigt die Anweisungen und den festgelegten Git-Stand. Einzelne ausgewählte Agenten werden im nativen Format für Claude, Codex oder OpenCode installiert und gelten für alle Accounts dieser CLI. Sie übernehmen das Sitzungsmodell und die vorhandenen Berechtigungen. AgentPier führt keine Installationsskripte aus diesem Repository aus. Extern bearbeitete Agentendateien werden beim Entfernen erhalten. [Details](docs/shared-cli-extensions.md#agency-agents).
 
 ## AgentBus
 
@@ -171,7 +171,7 @@ Die Integration verwendet temporäre Konfiguration pro Sitzung und verändert ke
 
 ## Pipelines und Aufgabenprofile
 
-Unter **Pipelines** lassen sich Aufgaben durch wiederverwendbare CLI-Profile ausführen: Implementierung, Review, automatische Prüfungen und menschliche Freigaben. Profile verwenden vorhandene Konten und deren Provider; jeder Lauf bekommt einen eigenen Git-Worktree. Begrenzte Review-Schleifen, Rückmeldungen, Wiederholungen, Artefakte, Diffs und eine optionale PR-Erstellung gehören dazu. Die Stufen verlinken ihre normalen Chat- und Terminalansichten. Abbrechen erhält das Arbeitsverzeichnis; Aufräumen ist eine eigene Aktion. Details: [Pipelines](docs/pipelines.md).
+Unter **Pipelines** lassen sich Aufgaben durch wiederverwendbare CLI-Profile ausführen: Implementierung, Review, automatische Prüfungen und menschliche Freigaben. Profile verwenden vorhandene Accounts und deren Provider; jeder Lauf bekommt einen eigenen Git-Worktree. Begrenzte Review-Schleifen, Rückmeldungen, Wiederholungen, Artefakte, Diffs und eine optionale PR-Erstellung gehören dazu. Die Stufen verlinken ihre normalen Chat- und Terminalansichten. Abbrechen erhält das Arbeitsverzeichnis; Aufräumen ist eine eigene Aktion. Details: [Pipelines](docs/pipelines.md).
 
 ## Rückfragen, Benachrichtigungen und Betrieb
 
@@ -249,9 +249,9 @@ Die Browser-Tests erwarten einen laufenden Webdienst mit aktuellem Build. Sie ve
 
 The codebase uses feature boundaries with a 600-line source/test limit. See [architecture](docs/architecture.md), [test strategies and reproducible commands](docs/testing.md), and the [full refactor contract](docs/refactor/design.md). Run `npm run check` and `npm run test:e2e` before submitting changes.
 
-## Konten und Projektdateien
+## Accounts und Projektdateien
 
-Auf der Kontenseite kann je CLI ein **Standardkonto** festgelegt werden. Neue native Sitzungen wählen es vor; eine ausdrücklich andere Auswahl gilt nur für diese Sitzung. Claude-Zugänge bleiben auf Claude beschränkt, Codex-Zugänge auf Codex. **Anmelden** öffnet bei Claude die normale TUI im gewählten Kontoprofil; ein bestätigter nativer Anmeldestatus wird als **Angemeldet** angezeigt.
+Auf der Account-Seite kann je CLI ein **Standard-Account** festgelegt werden. Neue native Sitzungen wählen es vor; eine ausdrücklich andere Auswahl gilt nur für diese Sitzung. Claude-Zugänge bleiben auf Claude beschränkt, Codex-Zugänge auf Codex. **Anmelden** öffnet bei Claude die normale TUI im gewählten Account-Profil; ein bestätigter nativer Anmeldestatus wird als **Angemeldet** angezeigt.
 
 Der Sitzungstab **Dateien** bleibt auf den kanonischen Projektordner begrenzt; die
 globale Seite **Dateien** verwendet die Dateirechte des AgentPier-Benutzers. Die
