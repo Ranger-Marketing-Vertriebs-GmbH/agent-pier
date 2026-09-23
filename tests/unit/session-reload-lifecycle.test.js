@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createReloadLifecycle } from "../../server/application/session-reload-lifecycle.js";
 import { NonoSandbox } from "../../server/features/nono/nono-launch.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
+
+const reload = serverMessages.sessionReload;
 
 function fixture() {
   const calls = [];
@@ -105,7 +108,9 @@ test("changing the native conversation after preflight leaves the old process un
     assert.fail("Must not reach process stop");
   };
   const plan = await f.prepareReload(f.session, "native-exact");
-  await assert.rejects(f.restartReload(f.session, plan), /conversation changed/);
+  await assert.rejects(f.restartReload(f.session, plan), {
+    message: reload.conversationChangedBeforeReload,
+  });
   assert.equal(
     f.calls.some(([key]) => key.endsWith("discard")),
     false,
@@ -117,10 +122,9 @@ test("a live model display name cannot silently fall back to the old history mod
   f.services.history.read = async () => ({
     observability: { context: { modelId: "claude-sonnet-4-6" } },
   });
-  await assert.rejects(
-    f.prepareReload(f.session, "native-exact"),
-    /model.*preserv|preserv.*model/i,
-  );
+  await assert.rejects(f.prepareReload(f.session, "native-exact"), {
+    message: reload.modelNotPreservable,
+  });
   assert.equal(
     f.calls.some(([key]) => key === "stop"),
     false,
@@ -135,7 +139,9 @@ test("a model change after preflight leaves the running process untouched", asyn
     assert.fail("Must not reach process stop");
   };
   const plan = await f.prepareReload(f.session, "native-exact");
-  await assert.rejects(f.restartReload(f.session, plan), /model changed/);
+  await assert.rejects(f.restartReload(f.session, plan), {
+    message: reload.modelChangedBeforeReload,
+  });
   assert.equal(
     f.calls.some(([key]) => key.endsWith("discard")),
     false,

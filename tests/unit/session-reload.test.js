@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { createSessionLifecycle } from "../../server/application/session-lifecycle.js";
 import { SessionReload } from "../../server/features/sessions/session-reload.js";
 import { resumeLaunch } from "../../server/application/session-reload-launch.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 function fixture() {
   let session = { id: "session", tool: "codex", status: "running" };
@@ -304,7 +305,9 @@ test("stopping a replacement awaiting verification clears pending reload work", 
     nativeId: "native-exact",
   };
   f.reload.pending.add("session");
-  await assert.rejects(f.reload.cancel("session"), /already restarting/);
+  await assert.rejects(f.reload.cancel("session"), {
+    message: serverMessages.sessionReload.alreadyRestarting,
+  });
   await f.reload.stop("session");
   assert.equal(f.session.status, "stopped");
   assert.equal(f.session.reload.state, "idle");

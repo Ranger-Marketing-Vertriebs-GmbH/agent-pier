@@ -1,14 +1,11 @@
+import { serverMessages } from "../lib/i18n/de.js";
 import { problem } from "../lib/storage.js";
 
 const identifier = (value) =>
   typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9._/:\[\]-]{0,299}$/.test(value)
     ? value
     : undefined;
-const unavailable = () =>
-  problem(
-    "The current model cannot be preserved reliably. Confirm an exact native model before reloading.",
-    409,
-  );
+const unavailable = () => problem(serverMessages.sessionReload.modelNotPreservable, 409);
 
 /** Translate only known native chrome; observed IDs independently confirm Claude labels. */
 export function resolveReloadModel({

@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { accountSwitchTargets } from "../../application/session-account-transfer.js";
 import { validId } from "./session-validation.js";
 import { problem } from "../../lib/storage.js";
@@ -90,13 +91,13 @@ export class SessionReload {
   }
   request(id, body = {}) {
     return this.serial(async () => {
-      if (this.closed) throw problem("Session reload is shutting down.", 503);
+      if (this.closed) throw problem(serverMessages.sessionReload.shuttingDown, 503);
       if (
         !uuid.test(body.requestId || "") ||
         !["now", "when-idle"].includes(body.mode) ||
         (body.interrupt !== undefined && typeof body.interrupt !== "boolean")
       )
-        throw problem("Invalid session reload request.");
+        throw problem(serverMessages.sessionReload.invalidRequest);
       if (body.targetAccountId !== undefined) validId(body.targetAccountId);
       const { session, value } = await this.inspect(id);
       if (
@@ -105,17 +106,17 @@ export class SessionReload {
       )
         return value;
       if ((session.reload?.previousRequestIds?.length || 0) >= 1000)
-        throw problem("The reload request limit for this session has been reached.", 409);
-      if (active(value.state)) throw problem("A session reload is already pending.", 409);
+        throw problem(serverMessages.sessionReload.requestLimit, 409);
+      if (active(value.state)) throw problem(serverMessages.sessionReload.pending, 409);
       if (!value.eligible)
-        throw problem("No verified native conversation is available for reload.", 409);
+        throw problem(serverMessages.sessionReload.noVerifiedConversation, 409);
       if (
         body.mode === "now" &&
         session.status === "running" &&
         value.activity.state !== "idle" &&
         body.interrupt !== true
       )
-        throw problem("Confirm interruption before reloading this session.", 409);
+        throw problem(serverMessages.sessionReload.confirmInterruption, 409);
       return this.withAccounts(session, body.targetAccountId, async () => {
         // Resolve history, account, executable and model before recording any destructive intent.
         const plan = await this.services.prepareReload(
@@ -168,11 +169,12 @@ export class SessionReload {
     const deadline = Date.now() + this.readinessMs;
     do {
       const current = await this.services.sessions.get(id);
-      if (current.status !== "running") throw problem("The resumed CLI exited.", 409);
+      if (current.status !== "running")
+        throw problem(serverMessages.sessionReload.resumedCliExited, 409);
       const bound = await this.services.bindings.resolve(current);
       if (bound?.id === nativeId) return true;
       if (bound?.id && bound.id !== nativeId)
-        throw problem("The resumed CLI selected a different conversation.", 409);
+        throw problem(serverMessages.sessionReload.resumedCliDifferentConversation, 409);
       if (Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 200));
     } while (Date.now() < deadline);
     return false;
@@ -218,7 +220,10 @@ export class SessionReload {
         if (session.status === "running" && value.activity.state !== "idle") continue;
         try {
           if (!value.eligible || value.nativeId !== session.reload.nativeId)
-            throw problem("The native conversation changed while waiting.", 409);
+            throw problem(
+              serverMessages.sessionReload.conversationChangedWhileWaiting,
+              409,
+            );
           await this.withAccounts(session, session.reload.targetAccountId, async () => {
             const plan = await this.services.prepareReload(
               session,
@@ -249,7 +254,7 @@ export class SessionReload {
         this.pending.delete(id);
         await this.save(session, { state: "idle", error: null });
       } else if (session.reload?.state === "reloading")
-        throw problem("The session is already restarting.", 409);
+        throw problem(serverMessages.sessionReload.alreadyRestarting, 409);
       return this.status(id);
     });
   }

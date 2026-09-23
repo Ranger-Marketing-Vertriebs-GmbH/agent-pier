@@ -16,7 +16,8 @@ import path from "node:path";
  * control that follows a successful write; that stays with `SessionManager.create`.
  */
 export async function buildSessionLaunch(manager, options) {
-  if (!options || typeof options !== "object") throw failure("Invalid session options");
+  if (!options || typeof options !== "object")
+    throw failure(serverMessages.sessions.invalidOptions);
   const {
     id = randomUUID(),
     tool,
@@ -32,7 +33,7 @@ export async function buildSessionLaunch(manager, options) {
   const input = nativeInput(options);
   const name = validName(options.name);
   if (!["codex", "claude", "opencode", "shell"].includes(tool))
-    throw failure("Invalid session tool");
+    throw failure(serverMessages.sessions.invalidTool);
   if (
     tool === "shell" &&
     (accountId !== "local-shell" ||
@@ -50,7 +51,7 @@ export async function buildSessionLaunch(manager, options) {
       () => false,
     ))
   )
-    throw failure("Invalid working directory");
+    throw failure(serverMessages.sessions.invalidWorkingDirectory);
   if (
     typeof command !== "string" ||
     !path.isAbsolute(command) ||
@@ -60,16 +61,16 @@ export async function buildSessionLaunch(manager, options) {
       () => false,
     ))
   )
-    throw failure("Invalid executable");
+    throw failure(serverMessages.sessions.invalidExecutable);
   await access(command, constants.X_OK).catch(() => {
-    throw failure("Invalid executable");
+    throw failure(serverMessages.sessions.invalidExecutable);
   });
   if (
     !Array.isArray(args) ||
     args.some((arg) => typeof arg !== "string" || arg.includes("\0")) ||
     args.join("").length > 1024 * 1024
   )
-    throw failure("Invalid command arguments");
+    throw failure(serverMessages.sessions.invalidArguments);
   if (
     !env ||
     typeof env !== "object" ||
@@ -81,10 +82,10 @@ export async function buildSessionLaunch(manager, options) {
         value.includes("\0"),
     )
   )
-    throw failure("Invalid environment");
+    throw failure(serverMessages.sessions.invalidEnvironment);
   try {
     await access(manager.file(id));
-    throw failure("Session already exists", 409);
+    throw failure(serverMessages.sessions.alreadyExists, 409);
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
   }

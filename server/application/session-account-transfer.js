@@ -1,3 +1,4 @@
+import { serverMessages } from "../lib/i18n/de.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -10,7 +11,7 @@ const missing = (error) => error.code === "ENOENT";
 function relativeTo(root, file) {
   const relative = path.relative(root, file);
   if (!relative || relative.startsWith("..") || path.isAbsolute(relative))
-    throw fail("Unsafe conversation history path.");
+    throw fail(serverMessages.sessionTransfer.unsafePath);
   return relative;
 }
 
@@ -31,9 +32,9 @@ async function checked(root, relative, create = false) {
       } else continue;
     }
     if (stat.isSymbolicLink() || (stat.isFile() && stat.nlink !== 1))
-      throw fail("Unsafe symbolic or hard link in conversation history.");
+      throw fail(serverMessages.sessionTransfer.unsafeLink);
     if (index < parts.length - 1 && !stat.isDirectory())
-      throw fail("Unsafe conversation history directory.");
+      throw fail(serverMessages.sessionTransfer.unsafeDirectory);
   }
   return current;
 }
@@ -52,9 +53,9 @@ async function collect(root, relative, files, optional = false) {
       await collect(root, path.join(relative, name), files);
   } else if (stat.isFile()) {
     if (files.length >= 5000 || stat.size > 256 * 1024 * 1024)
-      throw fail("Conversation history is too large to transfer.");
+      throw fail(serverMessages.sessionTransfer.tooLarge);
     files.push(relative);
-  } else throw fail("Unsafe conversation history file.");
+  } else throw fail(serverMessages.sessionTransfer.unsafeFile);
 }
 
 export function canSwitchAccount(session) {
@@ -97,7 +98,7 @@ export async function prepareAccountTransfer(
   // AccountStore creates managed roots; a local CLI may not have run yet.
   await fs.mkdir(targetPath, { recursive: true, mode: 0o700 });
   const target = await fs.realpath(targetPath);
-  if (source === target) throw fail("The accounts share the same CLI storage.");
+  if (source === target) throw fail(serverMessages.sessionTransfer.sharedStorage);
   let file;
   let historyMode;
   if (session.tool === "claude") file = await history.claudeFile(session, id);
@@ -108,12 +109,10 @@ export async function prepareAccountTransfer(
       includeTurns: false,
     });
     if (thread?.id !== id || thread?.cwd !== session.cwd || !thread.path)
-      throw fail("Native conversation history cannot be transferred.");
+      throw fail(serverMessages.sessionTransfer.notTransferable);
     historyMode = thread.historyMode || "legacy";
     if (!["legacy", "paginated"].includes(historyMode))
-      throw fail(
-        "This Codex history storage format does not expose a portable conversation. The account was not changed.",
-      );
+      throw fail(serverMessages.sessionTransfer.codexStorageUnsupported);
     if (historyMode === "legacy") {
       const full = await client.request("thread/read", {
         threadId: id,
@@ -125,7 +124,7 @@ export async function prepareAccountTransfer(
         full.thread?.path !== thread.path ||
         (full.thread?.historyMode || "legacy") !== historyMode
       )
-        throw fail("Conversation history changed during transfer preparation.");
+        throw fail(serverMessages.sessionTransfer.changedDuringPreparation);
     }
     file = thread.path;
   }
@@ -137,7 +136,7 @@ export async function prepareAccountTransfer(
       : !relative.startsWith(`projects${path.sep}`) ||
         path.basename(file) !== `${id}.jsonl`
   )
-    throw fail("Unsafe conversation history path.");
+    throw fail(serverMessages.sessionTransfer.unsafePath);
   const destination = (entry) =>
     session.tool === "codex" ? entry.replace(/^archived_sessions\//, "sessions/") : entry;
   async function snapshot() {
@@ -152,8 +151,7 @@ export async function prepareAccountTransfer(
     for (const entry of files) {
       const data = await fs.readFile(await checked(source, entry));
       bytes += data.length;
-      if (bytes > 256 * 1024 * 1024)
-        throw fail("Conversation history is too large to transfer.");
+      if (bytes > 256 * 1024 * 1024) throw fail(serverMessages.sessionTransfer.tooLarge);
       const output = await checked(target, destination(entry));
       let previous;
       try {
@@ -162,7 +160,7 @@ export async function prepareAccountTransfer(
         if (!missing(error)) throw error;
       }
       if (previous && !data.subarray(0, previous.length).equals(previous))
-        throw fail("The target account contains different conversation history.");
+        throw fail(serverMessages.sessionTransfer.targetDiffers);
       entries.push({ entry: destination(entry), data, previous });
     }
     const lines = entries[0].data.toString("utf8").trim().split("\n");
@@ -170,14 +168,14 @@ export async function prepareAccountTransfer(
     try {
       records = lines.map((line) => JSON.parse(line));
     } catch {
-      throw fail("Conversation history is incomplete. Try again when the CLI is idle.");
+      throw fail(serverMessages.sessionTransfer.incomplete);
     }
     const meta =
       session.tool === "codex"
         ? records.find((record) => record.type === "session_meta")?.payload
         : records.find((record) => record.sessionId && record.cwd && !record.isSidechain);
     if ((meta?.id || meta?.sessionId) !== id || meta.cwd !== session.cwd)
-      throw fail("Conversation history identity does not match this session.");
+      throw fail(serverMessages.sessionTransfer.identityMismatch);
     if (session.tool === "codex") {
       // Paginated history is still a native rollout. Codex rebuilds its SQLite
       // projection on resume; copying an account database would leak other threads.
@@ -187,7 +185,7 @@ export async function prepareAccountTransfer(
         (historyMode === "paginated" &&
           records.some((record, index) => record.ordinal !== index))
       )
-        throw fail("Conversation history format is incomplete or not portable.");
+        throw fail(serverMessages.sessionTransfer.notPortable);
     }
     return entries;
   }
@@ -209,7 +207,7 @@ export async function prepareAccountTransfer(
             if (!missing(error)) throw error;
           }
           if (previous ? !current?.equals(previous) : current !== undefined)
-            throw fail("The target conversation changed during transfer.");
+            throw fail(serverMessages.sessionTransfer.targetChanged);
           await fs.rename(temp, output);
         } finally {
           await fs.rm(temp, { force: true });

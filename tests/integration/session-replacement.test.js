@@ -4,6 +4,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { SessionManager } from "../../server/features/sessions/session-manager.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
+
+const reloading = { message: serverMessages.sessions.reloading };
 
 test("replacement preserves identity and scoped metadata without normal stop cleanup", async (t) => {
   const dataDir = await mkdtemp(path.join(tmpdir(), "ap-replacement-"));
@@ -36,7 +39,7 @@ test("replacement preserves identity and scoped metadata without normal stop cle
     nativeId: "exact-native",
   });
   const oldTerminal = await manager.attach(session.id);
-  await assert.rejects(oldTerminal.write("must-not-replay"), /reloading/);
+  await assert.rejects(oldTerminal.write("must-not-replay"), reloading);
   const result = await manager.replace(session.id, async () => ({
     ...launch,
     args: [
@@ -52,10 +55,10 @@ test("replacement preserves identity and scoped metadata without normal stop cle
   assert.equal(result.restartGeneration, 1);
   assert.equal(result.sshTools.generation, "new");
   assert.equal(stopped, 0);
-  await assert.rejects(manager.input(session.id, "must-not-replay", true), /reloading/);
+  await assert.rejects(manager.input(session.id, "must-not-replay", true), reloading);
   await assert.rejects(
     manager.control(session.id, () => assert.fail("No model input")),
-    /reloading/,
+    reloading,
   );
   let output = "";
   const terminal = await manager.attach(session.id, {

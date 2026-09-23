@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { inspectChatComposer } from "./session-chat-input.js";
 import { problem } from "../../lib/storage.js";
 
@@ -99,5 +100,5 @@ export function assertManualInputSettled(manager, id, snapshot) {
     manager.pendingTerminalInput.delete(id);
     return;
   }
-  throw problem("The terminal composer cannot be safely inspected", 409);
+  throw problem(serverMessages.sessionInput.composerUninspectable, 409);
 }

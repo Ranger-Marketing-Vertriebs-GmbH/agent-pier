@@ -15,4 +15,13 @@ export const accounts = Object.freeze({
     "This profile uses an API key. For browser sign-in, please create an account without an API key.",
   cliNotInstalled: (toolName) => `${toolName} is not installed.`,
   supportedShellUnavailable: "No supported local shell is available.",
+  generatedProfileReadOnly: "Generated provider profiles cannot be edited.",
+  keyRotationOrRemoval: "Choose either key rotation or key removal.",
+  providerSwitchKeyRequired:
+    "Supply a new API key or remove the saved key when switching providers.",
+  generatedProfileNotRemovable:
+    "Generated provider profiles retain session history and cannot be removed as accounts.",
+  invalidProfileModel: "Invalid profile model.",
+  providerProfileNoOAuth:
+    "Provider profiles use API keys and cannot start an OAuth login.",
 });
