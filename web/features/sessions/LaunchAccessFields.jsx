@@ -1,12 +1,10 @@
 import React, { useId } from "react";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import ProviderModelPicker from "../providers/ProviderModelPicker.jsx";
-import { names } from "../../lib/providers.js";
 import { connectionCopy as copy } from "../../lib/i18n/messages/connections.js";
 import { launchDialogCopy as sandboxCopy } from "../../lib/i18n/messages/sessions.js";
 export default function LaunchAccessFields({
   access,
-  onToolChange,
   onAccessChange,
   taskProfileSelected = false,
 }) {
@@ -44,19 +42,6 @@ export default function LaunchAccessFields({
   if (access.tool === "shell") return sandboxFields;
   return (
     <>
-      <label>
-        {copy.cli}
-        <AnchoredSelect
-          label={copy.cli}
-          value={access.tool}
-          required
-          onChange={onToolChange}
-          options={access.tools.map((tool) => ({
-            value: tool.id,
-            label: names[tool.id] || tool.name,
-          }))}
-        />
-      </label>
       <label>
         {copy.access}
         <AnchoredSelect

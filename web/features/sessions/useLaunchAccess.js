@@ -25,14 +25,7 @@ function defaultAccess(state, tool) {
   );
 }
 export default function useLaunchAccess(state, initialTool, initialProfile) {
-  const hasCodingTool = state.tools.some((tool) => tool.installed && tool.id !== "shell");
-  const tools = state.tools.filter(
-    (tool) =>
-      tool.installed &&
-      (initialTool === "shell" || !hasCodingTool
-        ? tool.id === "shell"
-        : tool.id !== "shell"),
-  );
+  const tools = state.tools.filter((tool) => tool.installed);
   const initial = tools.find((tool) => tool.id === initialTool)?.id || tools[0]?.id || "";
   const [tool, setTool] = useState(initial),
     [accessId, setAccess] = useState(() =>

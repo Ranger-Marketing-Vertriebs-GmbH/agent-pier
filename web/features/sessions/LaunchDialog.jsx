@@ -154,6 +154,27 @@ export default function LaunchDialog({
               >
                 <h3 id="launch-session-heading">{copy.sessionSection}</h3>
                 <label>
+                  {connectionCopy.cli}
+                  <AnchoredSelect
+                    label={connectionCopy.cli}
+                    value={access.tool}
+                    required
+                    options={access.tools.map((item) => ({
+                      value: item.id,
+                      label: names[item.id] || item.name,
+                    }))}
+                    onChange={(value) => {
+                      if (value === access.tool) return;
+                      access.chooseTool(value);
+                      setLaunchMode(defaultMode(value));
+                      if (value === "shell") {
+                        setProfileId("");
+                        setParams({});
+                      }
+                    }}
+                  />
+                </label>
+                <label>
                   {commonCopy.workingDirectory}
                   <div className="input-action">
                     <input
@@ -246,11 +267,6 @@ export default function LaunchDialog({
                   taskProfileSelected={Boolean(profileId)}
                   onAccessChange={(value) => {
                     access.chooseAccess(value);
-                  }}
-                  onToolChange={(value) => {
-                    if (value === access.tool) return;
-                    access.chooseTool(value);
-                    setLaunchMode(defaultMode(value));
                   }}
                 />
                 {coding && (

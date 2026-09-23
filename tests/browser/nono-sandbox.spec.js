@@ -98,8 +98,8 @@ test("the sandbox-profile selector is reachable for a shell launch", async ({ pa
   await page.goto(base);
   await page.getByRole("button", { name: "Neue Sitzung", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  // A shell launch needs none of the other access fields.
-  await expect(dialog.getByLabel("CLI", { exact: true })).toHaveCount(0);
+  // Keep the tool selector available while hiding coding-only access fields.
+  await expect(dialog.getByLabel("CLI", { exact: true })).toHaveValue("shell");
   await expect(dialog.getByLabel("Zugang", { exact: true })).toHaveCount(0);
   await expect(dialog.getByLabel("Sandbox-Profil", { exact: true })).toBeVisible();
 });
