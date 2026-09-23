@@ -36,9 +36,11 @@ const fs = require('node:fs');
 const ready = process.env.AGENTPIER_TEST_READY;
 const backendFails = process.env.AGENTPIER_TEST_BACKEND_FAILS === 'true';
 if (process.argv.includes('app-server')) {
+  if (!process.argv.some(arg => arg.startsWith('sandbox_workspace_write.writable_roots=') && arg.includes('attachments'))) process.exit(24);
   process.stderr.write(process.env.AGENTPIER_TEST_DIAGNOSTIC + '\\n', () => fs.writeFileSync(ready, 'ready'));
   setInterval(() => { if (backendFails && fs.existsSync(ready + '.tui')) process.exit(23); }, 10);
 } else {
+  if (process.argv.includes('--remote') && process.argv.includes('--add-dir')) process.exit(25);
   fs.writeFileSync(ready + '.pid', String(process.pid));
   process.stderr.write('TUI stderr remains visible\\n');
   process.on('SIGTERM', () => { process.stderr.write('TUI closed\\n'); process.exit(1); });
@@ -56,7 +58,7 @@ if (process.argv.includes('app-server')) {
         JSON.stringify({
           token: "fixture",
           command: cli,
-          args: [],
+          args: ["--add-dir", path.join(dir, "attachments")],
           cwd: dir,
           socketPath: path.join(dir, "absent.sock"),
         }),
@@ -64,6 +66,7 @@ if (process.argv.includes('app-server')) {
       const wrapper = spawn(process.execPath, [launchScript, launch], {
         env: {
           PATH: process.env.PATH,
+          CODEX_HOME: dir,
           AGENTPIER_REQUEST_FILE: launch,
           AGENTPIER_REQUEST_TOKEN: "fixture",
           AGENTPIER_TEST_READY: ready,

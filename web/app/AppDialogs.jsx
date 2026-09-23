@@ -2,7 +2,7 @@ import { commonCopy } from "../lib/i18n/messages/common.js";
 import { appDialogsCopy as copy } from "../lib/i18n/messages/app.js";
 import React from "react";
 import api from "../lib/api.js";
-import { names } from "../lib/providers.js";
+import { names, utilityPages } from "../lib/providers.js";
 import Modal from "../components/Modal.jsx";
 import AsyncForm from "../components/AsyncForm.jsx";
 import LaunchDialog from "../features/sessions/LaunchDialog.jsx";
@@ -49,7 +49,9 @@ export default function AppDialogs({
             refresh={refresh}
             close={close}
             launch={() => launch(modal.tool)}
-            configure={() => page("repositories")}
+            configure={
+              utilityPages[modal.tool] ? () => page(utilityPages[modal.tool]) : undefined
+            }
           />
         </Modal>
       )}

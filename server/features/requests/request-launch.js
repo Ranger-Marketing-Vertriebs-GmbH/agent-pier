@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { claudeHookVersion, writeClaudeHooks } from "./claude-runtime.js";
+import { addGrant } from "../nono/sandbox-grants.js";
 const moduleFile = (name) => fileURLToPath(new URL(name, import.meta.url));
 export async function prepareRequests(
   broker,
@@ -40,14 +41,37 @@ export async function prepareRequests(
     }),
     { mode: 0o600, flag: "wx" },
   );
-  if (account.tool === "codex")
-    return {
-      ...launch,
-      command: process.execPath,
-      args: [moduleFile("./codex-launch.js"), file],
-      env,
-      nativeRequests: { enabled: true, version: 1 },
-    };
+  // Every tool reaches the broker over its socket and reads the launch file and
+  // hook payloads the broker directory holds.
+  const baseGrants = [
+    { access: "allow", path: broker.directory },
+    { access: "socket", path: broker.socketPath },
+  ];
+  const grant = (prepared, grants) =>
+    grants.reduce((granted, item) => addGrant(granted, item), prepared);
+  if (account.tool === "codex") {
+    const wrapper = moduleFile("./codex-launch.js");
+    return grant(
+      {
+        ...launch,
+        command: process.execPath,
+        args: [wrapper, file],
+        env,
+        nativeRequests: { enabled: true, version: 1 },
+      },
+      // This wrapper replaces the launch command outright, so it must be runnable.
+      // The nono adapter grants whatever `launch.command` names by then, which is
+      // the wrapper's interpreter rather than Codex, so the original executable
+      // is declared here: codex-launch.js starts it again from the request file
+      // for both the backend and the TUI.
+      [
+        ...baseGrants,
+        { access: "read", path: launch.command },
+        { access: "read", path: process.execPath },
+        { access: "read", path: wrapper },
+      ],
+    );
+  }
   if (account.tool === "claude") {
     const directory = path.join(broker.directory, `${id}.claude`);
     await fs.mkdir(path.join(directory, ".claude-plugin"), {
@@ -82,5 +106,8 @@ export async function prepareRequests(
     await fs.writeFile(configFile, JSON.stringify(config), { mode: 0o600 });
     env.OPENCODE_TUI_CONFIG = configFile;
   }
-  return { ...launch, args, env, nativeRequests: { enabled: true, version: 1 } };
+  return grant(
+    { ...launch, args, env, nativeRequests: { enabled: true, version: 1 } },
+    baseGrants,
+  );
 }

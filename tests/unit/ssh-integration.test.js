@@ -9,6 +9,7 @@ import {
   authorizeSsh,
   capabilityFile,
 } from "../../server/features/ssh/ssh-capability.js";
+import { sshManagementSocket } from "../../server/features/ssh/ssh-management-client.js";
 import { writePrivate } from "../../server/lib/storage.js";
 
 for (const tool of ["codex", "claude", "opencode"]) {
@@ -129,3 +130,84 @@ for (const tool of ["shell", "codex", "claude", "opencode"]) {
     assert.deepEqual(input.launch, { args: [], env: {} });
   });
 }
+test("a sandboxed session that can reach no host gets neither the SSH tools nor their grants", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ssh-integration-sandbox-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const integration = new SshIntegration({ dataDir, accesses: { list: () => [] } });
+  const launch = { command: "codex", args: [], env: {} };
+  const prepared = await integration.prepare({
+    id: "sandboxed-none",
+    account: { id: "account", tool: "codex" },
+    cwd: dataDir,
+    launch,
+    sandboxProfile: "codex-default",
+    sshAccessIds: [],
+  });
+  // The store grant cannot be narrowed while the MCP server still starts, so a
+  // session that can reach no host is not given the tools at all.
+  assert.deepEqual(prepared, launch);
+  assert.equal(prepared.sshTools, undefined);
+  assert.equal(prepared.sandboxGrants, undefined);
+  assert.equal(fs.existsSync(path.join(dataDir, "ssh", "capabilities")), false);
+});
+
+test("a sandboxed session with an assigned host grants the SSH store and the session records", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ssh-integration-sandbox-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const integration = new SshIntegration({ dataDir, accesses: { list: () => [] } });
+  const prepared = await integration.prepare({
+    id: "sandboxed-assigned",
+    account: { id: "account", tool: "codex" },
+    cwd: dataDir,
+    launch: { command: "codex", args: [], env: {} },
+    sandboxProfile: "codex-default",
+    sshAccessIds: ["access-one"],
+  });
+  assert.equal(prepared.sshTools.enabled, true);
+  const granted = prepared.sandboxGrants.map((grant) => grant.path);
+  assert.ok(granted.includes(path.join(dataDir, "ssh")));
+  assert.ok(granted.includes(path.join(dataDir, "sessions")));
+  // Every management tool the session can call travels over this socket.
+  assert.ok(granted.includes(sshManagementSocket(dataDir)));
+});
+
+test("a sandboxed session inheriting a project host grants the SSH store", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ssh-integration-inherited-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  let projectId;
+  const integration = new SshIntegration({
+    dataDir,
+    accesses: { list: () => [{ id: "access-two", projectId }] },
+    onProject: (binding) => {
+      projectId = binding.projectId;
+    },
+  });
+  // Nothing is assigned to the session: the host belongs to the project the
+  // working directory resolves to, which is what `SshSessions.inherited` reads.
+  const prepared = await integration.prepare({
+    id: "sandboxed-inherited",
+    account: { id: "account", tool: "codex" },
+    cwd: dataDir,
+    launch: { command: "codex", args: [], env: {} },
+    sandboxProfile: "codex-default",
+    sshAccessIds: [],
+  });
+  const granted = prepared.sandboxGrants.map((grant) => grant.path);
+  assert.ok(granted.includes(path.join(dataDir, "ssh")));
+});
+
+test("an unsandboxed session keeps the SSH tools without an assignment", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ssh-integration-open-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const integration = new SshIntegration({ dataDir });
+  const prepared = await integration.prepare({
+    id: "unsandboxed-none",
+    account: { id: "account", tool: "codex" },
+    cwd: dataDir,
+    launch: { command: "codex", args: [], env: {} },
+    sshAccessIds: [],
+  });
+  // Assigning a host to a running unsandboxed session still works, so its MCP
+  // server is registered up front as before.
+  assert.equal(prepared.sshTools.enabled, true);
+});

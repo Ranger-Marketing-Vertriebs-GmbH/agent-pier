@@ -6,19 +6,13 @@ import { SessionOperations } from "./session-operations.js";
 import { sendSlashCommand } from "./session-slash-command.js";
 import { inputChat, withChatInput } from "./session-chat-input.js";
 import { serverMessages } from "../../lib/i18n/de.js";
-import { publicProviderConfiguration } from "./provider-configuration.js";
-import {
-  pipelineIdentity,
-  nativeInput,
-  assertInteractiveSession,
-} from "../pipelines/native-session.js";
-import { shellQuote as quote } from "../../lib/launch-serialization.js";
+import { buildSessionLaunch } from "./session-creation.js";
+import { assertInteractiveSession } from "../pipelines/native-session.js";
 import { validId, validName, dimensions, textInput } from "./session-validation.js";
 import { safeEnvironment, execute, privateWrite } from "./session-process-runtime.js";
 import { replaceSession, blocksTerminalInput } from "./session-replacement.js";
 import { createHash, randomUUID } from "node:crypto";
-import { access, chmod, lstat, mkdir, readFile, rm, stat } from "node:fs/promises";
-import { constants } from "node:fs";
+import { chmod, lstat, mkdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as pty from "node-pty";
@@ -79,7 +73,7 @@ export class SessionManager {
     return execute(
       this.tmuxPath,
       ["-S", this.socketPath, "-f", this.configPath, ...args],
-      options,
+      { cwd: this.directory, ...options },
     );
   }
   async metadata(id) {
@@ -164,178 +158,25 @@ export class SessionManager {
   }
   async create(options) {
     return this.serial(async () => {
-      if (!options || typeof options !== "object")
-        throw failure("Invalid session options");
-      const {
-        id = randomUUID(),
-        tool,
-        accountId,
-        cwd,
-        command,
-        args = [],
-        env = {},
-      } = options;
-      validId(id);
-      validId(accountId);
-      const pipeline = pipelineIdentity(options.pipeline);
-      const input = nativeInput(options);
-      const name = validName(options.name);
-      if (!["codex", "claude", "opencode", "shell"].includes(tool))
-        throw failure("Invalid session tool");
-      if (
-        tool === "shell" &&
-        (accountId !== "local-shell" ||
-          options.purpose === "login" ||
-          options.agentbus?.enabled ||
-          (options.launchMode && options.launchMode !== "default"))
-      )
-        throw failure(serverMessages.sessions.shellConfigurationRestricted);
-      if (
-        typeof cwd !== "string" ||
-        !path.isAbsolute(cwd) ||
-        cwd.includes("\0") ||
-        !(await stat(cwd).then(
-          (info) => info.isDirectory(),
-          () => false,
-        ))
-      )
-        throw failure("Invalid working directory");
-      if (
-        typeof command !== "string" ||
-        !path.isAbsolute(command) ||
-        command.includes("\0") ||
-        !(await stat(command).then(
-          (info) => info.isFile(),
-          () => false,
-        ))
-      )
-        throw failure("Invalid executable");
-      await access(command, constants.X_OK).catch(() => {
-        throw failure("Invalid executable");
-      });
-      if (
-        !Array.isArray(args) ||
-        args.some((arg) => typeof arg !== "string" || arg.includes("\0")) ||
-        args.join("").length > 1024 * 1024
-      )
-        throw failure("Invalid command arguments");
-      if (
-        !env ||
-        typeof env !== "object" ||
-        Array.isArray(env) ||
-        Object.entries(env).some(
-          ([key, value]) =>
-            !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) ||
-            typeof value !== "string" ||
-            value.includes("\0"),
-        )
-      )
-        throw failure("Invalid environment");
+      const { id, launchFile, session } = await buildSessionLaunch(this, options);
       try {
-        await access(this.file(id));
-        throw failure("Session already exists", 409);
-      } catch (error) {
-        if (error.code !== "ENOENT") throw error;
-      }
-      const launchFile = path.join(this.directory, `${id}.launch.json`);
-      await privateWrite(
-        this.directory,
-        `${id}.launch.json`,
-        JSON.stringify({
-          command,
-          args,
-          cwd,
-          env: { TERM: "xterm-256color", ...env },
-          ...input,
-          ...(options.nativeObservation
-            ? {
-                observationPath: path.join(this.directory, `${id}.events.jsonl`),
-                outcomePath: path.join(this.directory, `${id}.outcome.json`),
-              }
-            : {}),
-        }),
-      );
-      const session = {
-        id,
-        name,
-        tool,
-        accountId,
-        cwd,
-        status: "running",
-        createdAt: new Date().toISOString(),
-        ...(pipeline ? { pipeline } : {}),
-        ...(options.launchMode ? { launchMode: options.launchMode } : {}),
-        ...(options.purpose === "login" ? { purpose: "login" } : {}),
-        ...(options.agentbus
-          ? {
-              agentbus: {
-                enabled: options.agentbus.enabled === true,
-                ...(options.agentbus.enabled
-                  ? {
-                      projectId: options.agentbus.projectId,
-                      version: options.agentbus.version,
-                    }
-                  : {}),
-              },
-            }
-          : {}),
-      };
-      if (options.nativeModelId) session.nativeModelId = options.nativeModelId;
-      if (
-        options.agentpierTools &&
-        !pipeline &&
-        tool !== "shell" &&
-        options.purpose !== "login"
-      )
-        session.agentpierTools = options.agentpierTools;
-      if (options.sshTools)
-        session.sshTools = {
-          ...options.sshTools,
-          enabled: options.sshTools.enabled === true,
-        };
-      const eligible = tool !== "shell" && options.purpose !== "login";
-      if (options.access && eligible)
-        session.access = Object.fromEntries(
-          [
-            "providerConnectionId",
-            "providerConnectionName",
-            "providerId",
-            "providerModelId",
-            "sourceAccountId",
-          ]
-            .filter((key) => typeof options.access[key] === "string")
-            .map((key) => [key, options.access[key]]),
-        );
-      if (options.memory?.enabled && eligible)
-        session.memory = { enabled: true, projectId: options.memory.projectId };
-      if (options.provider && eligible)
-        session.provider = publicProviderConfiguration(options.provider);
-      if (options.nativeBinding && eligible)
-        session.nativeBinding = {
-          enabled: options.nativeBinding.enabled === true,
-          version: 1,
-        };
-      if (options.nativeRequests?.enabled && eligible && !pipeline?.headless)
-        session.nativeRequests = { enabled: true, version: 1 };
-      const dir =
-        eligible && !pipeline?.headless ? options.attachments?.directory : undefined;
-      if (typeof dir === "string" && path.isAbsolute(dir) && !dir.includes("\0"))
-        session.attachments = { directory: dir };
-      await this.save(session);
-      try {
-        // The shell sees only executable/file paths. Arguments and credentials stay in a private, one-use payload.
+        // Execute the launcher directly: an old tmux daemon may retain a deleted
+        // release cwd, which makes an intermediate shell emit getcwd errors.
+        // Arguments and credentials stay in the private, one-use payload.
         await this.tmux([
           "new-session",
           "-d",
           "-s",
           `tuiui-${id}`,
           "-c",
-          cwd,
+          session.cwd,
           "-x",
           "120",
           "-y",
           "35",
-          [process.execPath, launcher, launchFile].map(quote).join(" "),
+          process.execPath,
+          launcher,
+          launchFile,
         ]);
       } catch (error) {
         await rm(launchFile, { force: true });

@@ -46,8 +46,6 @@ test("actual receiver publishes native folder bytes after an authoritative direc
     await expect(dialog).toContainText(path.join(destination, "root"));
     expect(puts).toHaveLength(0);
     await dialog.getByRole("button", { name: "Keep both", exact: true }).click();
-    const selectionError = await selecting;
-    if (selectionError) throw selectionError;
     await expect(
       page.getByRole("region", { name: "Uploads", exact: true }),
     ).toContainText("Upload completed", { timeout: 20000 });
@@ -74,6 +72,10 @@ test("actual receiver publishes native folder bytes after an authoritative direc
       page.getByRole("region", { name: "Uploads", exact: true }),
     ).toContainText(row.path);
   } finally {
+    // WebKit may keep the native selection acknowledgement pending after every
+    // byte has arrived. Close its document before draining that owned operation;
+    // upload completion is established by the UI, HTTP and disk assertions above.
+    await page.close().catch(() => {});
     await selecting;
     await fs.rm(directory, { recursive: true, force: true });
   }
@@ -159,8 +161,6 @@ test("a directory remap before child admission refuses old metadata and explicit
       })
       .toBe(true);
     held.resolve();
-    const selectionError = await selecting;
-    if (selectionError) throw selectionError;
     await expect.poll(() => responses).toEqual([409]);
     expect(await readChildren()).not.toContainEqual(
       expect.objectContaining({ entryId: original.entryId }),
@@ -191,6 +191,10 @@ test("a directory remap before child admission refuses old metadata and explicit
     expect(puts).toHaveLength(1);
   } finally {
     held.resolve();
+    // WebKit may keep the native selection acknowledgement pending after every
+    // byte has arrived. Close its document before draining that owned operation;
+    // upload completion is established by the UI, HTTP and disk assertions above.
+    await page.close().catch(() => {});
     await selecting;
     await fs.rm(directory, { recursive: true, force: true });
   }

@@ -8,6 +8,7 @@ import { resumeLaunch, validateReloadLaunch } from "./session-reload-launch.js";
 import { currentModel } from "../features/models/model-parser.js";
 import { parseSessionActivity } from "../features/sessions/session-activity.js";
 import { problem } from "../lib/storage.js";
+import { addGrant } from "../features/nono/sandbox-grants.js";
 
 export function createReloadLifecycle(services) {
   async function prepareReload(session, nativeId, targetAccountId) {
@@ -63,6 +64,15 @@ export function createReloadLifecycle(services) {
       if (session.tool === "codex" && launch.launchMode !== "yolo")
         launch.args.push(...codexSandboxArguments());
     }
+    // Same declaration as the first launch: a reloaded session re-runs the adapter
+    // chain, so it would otherwise keep every adapter grant but lose its
+    // attachments. opencode reaches them through its own config reference rather
+    // than --add-dir, so it needs the grant just as much.
+    if (session.attachments?.directory)
+      launch = addGrant(launch, {
+        access: "allow",
+        path: session.attachments.directory,
+      });
     launch = resumeLaunch(account.tool, launch, nativeId);
     if (!session.provider && modelId) launch.nativeModelId = modelId;
     await validateReloadLaunch(launch, session.cwd);
@@ -109,6 +119,7 @@ export function createReloadLifecycle(services) {
       sshIntegration,
       sharedProfiles,
       providerConnections,
+      nonoSandbox,
     } = services;
     const release = session.access?.providerConnectionId
       ? providerConnections.acquire(session.access.providerConnectionId)
@@ -139,7 +150,16 @@ export function createReloadLifecycle(services) {
             enabled: session.agentbus?.enabled !== false,
           });
           launch = await memoryIntegration.prepare(input());
-          if (sshIntegration) launch = await sshIntegration.prepare(input());
+          if (sshIntegration)
+            launch = await sshIntegration.prepare({
+              ...input(),
+              sandboxProfile: session.sandbox?.profile || null,
+              // The assignment outlives the process, so a reloaded session is
+              // re-prepared with the hosts still assigned to it. Hosts the
+              // project owns are resolved during preparation, from the project
+              // binding it creates there.
+              sshAccessIds: services.sshSessions?.assigned(session) || [],
+            });
           if (services.sessionMcp)
             launch = await services.sessionMcp.prepare({
               ...input(),
@@ -149,6 +169,13 @@ export function createReloadLifecycle(services) {
             });
           launch = await bindings.prepare(input());
           launch = await requests.prepare(input());
+          // Last in the chain, same as the first launch: every grant has been
+          // declared by now, and a reloaded confined session must come back
+          // confined rather than silently running unsandboxed.
+          launch = await nonoSandbox.prepare({
+            launch,
+            profile: session.sandbox?.profile || null,
+          });
           return { ...launch, ...(plan.transfer ? { accountId: account.id } : {}) };
         },
         async (current, screen, listCurrent) => {

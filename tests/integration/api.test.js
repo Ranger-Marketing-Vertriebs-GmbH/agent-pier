@@ -237,7 +237,7 @@ test("CLI installation endpoints expose fixed catalog and reject unknown tools a
   const data = await res.json();
   assert.deepEqual(
     data.installations.map((x) => x.tool),
-    ["codex", "claude", "opencode", "gh"],
+    ["codex", "claude", "opencode", "gh", "nono"],
   );
   res = await fetch(url + "/api/tools/arbitrary/install", body(url, {}));
   assert.equal(res.status, 400);

@@ -1,5 +1,6 @@
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { sidebarGroupCopy as copy } from "../../lib/i18n/messages/app.js";
+import { launchDialogCopy as sessionCopy } from "../../lib/i18n/messages/sessions.js";
 export function sessionActivity(session) {
   if (session.status !== "running")
     return {
@@ -25,4 +26,8 @@ export function sessionActivity(session) {
     state,
     label: labels[state],
   };
+}
+export function sandboxBadge(session) {
+  const sandboxProfile = session.sandbox?.profile;
+  return sandboxProfile ? sessionCopy.sandboxBadge(sandboxProfile) : "";
 }

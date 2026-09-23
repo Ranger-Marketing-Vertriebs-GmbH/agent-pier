@@ -30,7 +30,14 @@ function fixture(count = 0) {
         }),
     },
   };
-  for (const key of ["github", "agentbus", "memoryIntegration", "bindings", "requests"])
+  for (const key of [
+    "github",
+    "agentbus",
+    "memoryIntegration",
+    "bindings",
+    "requests",
+    "nonoSandbox",
+  ])
     services[key] = {
       prepare: async ({ launch }) => launch,
       discard: async () => {},
@@ -63,4 +70,21 @@ test("failed preparations release their reservation", async () => {
   f.services.github.prepare = async ({ launch }) => launch;
   await f.launch({}, true);
   assert.equal(f.sessions.length, 30);
+});
+test("a non-string nono profile is rejected before a session is created", async () => {
+  const f = fixture();
+  await assert.rejects(f.launch({ nonoProfile: 123 }));
+  assert.equal(f.sessions.length, 0);
+});
+test("a login session cannot request a nono profile", async () => {
+  const f = fixture();
+  await assert.rejects(f.launch({ nonoProfile: "claude-default" }, true));
+  assert.equal(f.sessions.length, 0);
+});
+test("a pipeline session cannot request a nono profile", async () => {
+  const f = fixture();
+  await assert.rejects(
+    f.launch({ nonoProfile: "claude-default" }, false, { pipeline: { id: "p" } }),
+  );
+  assert.equal(f.sessions.length, 0);
 });

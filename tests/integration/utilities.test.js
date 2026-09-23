@@ -19,6 +19,7 @@ test("GitHub CLI is detected as a utility, never a coding account or session too
   const env = { PATH: root, HOME: root };
   assert.deepEqual(detectUtilities(env, false), [
     { id: "gh", name: "GitHub CLI", utility: true, installed: true, path: binary },
+    { id: "nono", name: "nono", utility: true, installed: false, path: null },
   ]);
   assert.equal(
     detectTools(env, false).some((tool) => tool.id === "gh"),

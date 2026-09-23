@@ -191,6 +191,10 @@ Unter **Einstellungen** findest du zusätzliche Bereiche mit eigenen URLs:
 
 Standardmäßig liegen alle AgentPier-Daten in `.data/`, außerhalb von Git. Ordner haben Modus 0700, private Dateien 0600. Keys und Tokens liegen in privaten lokalen Dateien, nicht verschlüsselt in einer externen Cloud.
 
+Die Anmeldung schützt den Web-Workspace. Native CLIs laufen weiterhin als Betriebssystembenutzer des Servers, und deren eigene Rechte bestimmen den Zugriff. AgentPier bleibt ein vertrauenswürdiger persönlicher Workspace und keine Isolationsgrenze zwischen nicht vertrauenden Nutzern. Provider-Anfragen gehen weiterhin an die im jeweiligen CLI konfigurierten Dienste.
+
+Eine Sitzung kann ihr Coding-CLI optional in [nono](https://nono.sh) laufen lassen, einer Sandbox auf Betriebssystemebene. Das schränkt das CLI gegen versehentliche Zugriffe außerhalb des Nötigen ein; auch in der Sandbox behält das CLI aber Lese-/Schreibzugriff auf die konkreten Teile des AgentPier-Datenverzeichnisses, die seine aktiven Integrationen brauchen (bei einem verwalteten Account dessen eigene Zugangsdaten, Projektgedächtnis, AgentBus), sowie Lesezugriff auf den eigenen Code von AgentPier, und ist damit keine Grenze gegen ein böswilliges CLI. Details: [Sandboxing](docs/sandbox.md).
+
 - `accounts.json`, `profiles/`: native CLI-Profile und getrennte Provider-Sitzungsprofile
 - `provider-connections.json`, `provider-connection-secrets/`: zentrale Provider-Verbindungen und einmal gespeicherte API-Keys
 - `repositories.json`, `repository-secrets/`: Git-Zugänge, lokale Projekte und Tokens

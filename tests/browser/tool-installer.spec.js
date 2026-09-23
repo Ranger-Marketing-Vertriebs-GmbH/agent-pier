@@ -33,7 +33,10 @@ async function fixture(page) {
     startedAt: null,
     finishedAt: null,
   }));
-  state.utilities = [{ id: "gh", name: "GitHub CLI", installed: false, utility: true }];
+  state.utilities = [
+    { id: "gh", name: "GitHub CLI", installed: false, utility: true },
+    { id: "nono", name: "nono", installed: false, utility: true },
+  ];
   jobs.push({
     tool: "gh",
     name: "GitHub CLI",
@@ -43,6 +46,18 @@ async function fixture(page) {
     status: "idle",
     available: true,
     destination: "/home/server/.local/share/agentpier/clis/gh",
+  });
+  jobs.push({
+    tool: "nono",
+    name: "nono",
+    installer: "native-script",
+    installerUrl: "https://nono.sh/install.sh",
+    utility: true,
+    status: "idle",
+    available: true,
+    updateAvailable: true,
+    updateCommand: "https://nono.sh/install.sh",
+    destination: "/home/server/.local/bin",
   });
   const controls = {
     state,
@@ -231,6 +246,50 @@ test("GitHub CLI installs as a utility and opens GitHub credentials without a se
   expect(controls.starts).toEqual([{ tool: "gh", body: {} }]);
 });
 
+test("nono installs under its own name and offers an update instead of GitHub actions in English", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  const controls = await fixture(page);
+  await expect(card(page, "nono")).toContainText("sandbox");
+  await expect(card(page, "nono")).not.toContainText("GitHub");
+  await card(page, "nono")
+    .getByRole("button", { name: "Install CLI", exact: true })
+    .click();
+  const modal = page.getByRole("dialog", { name: "Install nono", exact: true });
+  await expect(modal).toContainText("https://nono.sh/install.sh");
+  await modal.getByRole("button", { name: "Install now", exact: true }).click();
+  Object.assign(
+    controls.jobs.find((job) => job.tool === "nono"),
+    { status: "succeeded", version: "nono 0.9.0", finishedAt: "2026-09-19T12:00:00Z" },
+  );
+  controls.state.utilities[1].installed = true;
+  await expect(modal).toContainText("nono 0.9.0");
+  await expect(
+    modal.getByRole("button", { name: "GitHub connections", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    modal.getByRole("button", { name: "Start session", exact: true }),
+  ).toHaveCount(0);
+  // Nothing to configure, so the closing secondary is the only remaining action.
+  await expect(modal.locator(".tool-install-actions button")).toHaveCount(1);
+  await modal.getByRole("button", { name: "Close dialog", exact: true }).click();
+  // An installed nono has nothing to configure, so its card offers the update only.
+  await expect(
+    card(page, "nono").getByRole("button", { name: "GitHub connections", exact: true }),
+  ).toHaveCount(0);
+  await expect(page).not.toHaveURL(/\/repositories$/);
+  await card(page, "nono")
+    .getByRole("button", { name: "Update CLI", exact: true })
+    .click();
+  const updateModal = page.getByRole("dialog", { name: "Update nono", exact: true });
+  await expect(updateModal).toContainText("https://nono.sh/install.sh");
+  await expect(
+    updateModal.getByRole("button", { name: "Update now", exact: true }),
+  ).toBeEnabled();
+  expect(controls.state.sessions).toEqual([]);
+});
+
 test("an installed utility does not enable session creation when no session tool is available", async ({
   page,
 }) => {
@@ -246,7 +305,7 @@ test("an installed utility does not enable session creation when no session tool
   ).toBeDisabled();
   await expect(
     page.getByText("Tools verfügbar", { exact: true }).locator(".."),
-  ).toContainText(/1\s*\/\s*4/);
+  ).toContainText(/1\s*\/\s*5/);
 });
 
 test("installation failures can retry and pending requests cannot start duplicates", async ({

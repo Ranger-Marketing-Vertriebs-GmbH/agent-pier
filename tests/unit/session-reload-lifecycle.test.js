@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createReloadLifecycle } from "../../server/application/session-reload-lifecycle.js";
+import { NonoSandbox } from "../../server/features/nono/nono-launch.js";
 
 function fixture() {
   const calls = [];
@@ -56,6 +57,12 @@ function fixture() {
         calls.push([key + " discard"]);
       },
     };
+  services.nonoSandbox = {
+    prepare: async ({ launch }) => {
+      calls.push(["nonoSandbox"]);
+      return launch;
+    },
+  };
   return { ...createReloadLifecycle(services), services, calls, session };
 }
 test("reload preflight verifies exact native history and keeps current model; restart rotates all integrations after stop", async () => {
@@ -173,4 +180,59 @@ test("Codex reload preserves attachment roots with a writable sandbox except in 
     assert.equal(launch.args.includes("--yolo"), launchMode === "yolo");
     assert.deepEqual(launch.args.slice(-2), ["resume", "native-exact"]);
   }
+});
+
+test("a reloaded sandboxed session comes back wrapped in nono, with resume flags still reaching the CLI", async () => {
+  const f = fixture();
+  f.session.sandbox = { profile: "claude-default" };
+  const nono = "/opt/homebrew/bin/nono";
+  f.services.nonoSandbox = new NonoSandbox({
+    detect: () => [{ id: "nono", installed: true, path: nono }],
+    readProfiles: async () => ["claude-default"],
+  });
+  const plan = await f.prepareReload(f.session, "native-exact");
+  const launch = await f.restartReload(f.session, plan);
+  assert.equal(launch.command, nono);
+  const separator = launch.args.indexOf("--");
+  assert.ok(separator > 0, "the separator must be present");
+  // Nothing before the separator is a CLI flag the resume guard would look for.
+  assert.deepEqual(
+    launch.args
+      .slice(0, separator)
+      .filter((value) =>
+        [
+          "--session-id",
+          "--resume",
+          "resume",
+          "--session",
+          "--continue",
+          "--last",
+        ].includes(value),
+      ),
+    [],
+  );
+  // Everything the CLI needs, including the appended resume flags, survives
+  // after the separator, in order, so nono cannot consume it.
+  assert.deepEqual(launch.args.slice(separator + 1), [
+    "/bin/sh",
+    "--model",
+    "claude-opus-4-6",
+    "--add-dir",
+    "/tmp/attachments",
+    "--resume",
+    "native-exact",
+  ]);
+});
+
+test("a reloaded session without a sandbox profile is not wrapped in nono", async () => {
+  const f = fixture();
+  f.services.nonoSandbox = new NonoSandbox({
+    detect: () => {
+      throw new Error("nono must not be detected for an unsandboxed reload");
+    },
+  });
+  const plan = await f.prepareReload(f.session, "native-exact");
+  const launch = await f.restartReload(f.session, plan);
+  assert.equal(launch.command, "/bin/sh");
+  assert.deepEqual(launch.args.slice(-2), ["--resume", "native-exact"]);
 });

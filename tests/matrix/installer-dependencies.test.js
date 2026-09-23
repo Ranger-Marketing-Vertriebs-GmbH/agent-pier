@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ensureDependencies, runInstaller } from "../../scripts/release-install.mjs";
+import { detectUtilities } from "../../server/features/accounts/account-store.js";
 
 function fixture({ unavailable = ["tmux"], noManager = false, broken = false } = {}) {
   const missing = new Set(unavailable),
@@ -109,6 +110,19 @@ test("check-only does not bootstrap Homebrew", async () => {
     /Missing tmux/,
   );
   assert.ok(ctx.calls.every((c) => ["tmux", "git"].includes(c.command)));
+});
+
+test("utility detection reports nono alongside gh", () => {
+  const utilities = detectUtilities({ PATH: "" }, false, []);
+  assert.deepEqual(
+    utilities.map((entry) => entry.id),
+    ["gh", "nono"],
+  );
+  for (const entry of utilities) {
+    assert.equal(entry.utility, true);
+    assert.equal(entry.installed, false);
+    assert.equal(entry.path, null);
+  }
 });
 
 test("invalid and conflicting CLI options fail before any host changes", async () => {

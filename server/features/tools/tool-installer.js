@@ -42,6 +42,11 @@ const catalog = {
     utility: true,
     documentation: "https://cli.github.com/manual/",
   },
+  nono: {
+    name: "nono",
+    utility: true,
+    documentation: "https://nono.sh/docs/cli/getting_started/installation",
+  },
 };
 function npmPath() {
   for (const dir of [
@@ -218,7 +223,9 @@ export class ToolInstaller {
   }
   updateAvailability(tool, detected) {
     if (!Object.hasOwn(updateCommands, tool)) return {};
-    const updateCommand = [tool, ...updateCommands[tool]].join(" ");
+    const updateCommand = updateCommands[tool]
+      ? [tool, ...updateCommands[tool]].join(" ")
+      : nativeInstallers[tool].url;
     try {
       const plan = planToolUpdate(tool, this.home, this.root, detected);
       return {
@@ -252,7 +259,10 @@ export class ToolInstaller {
     if (typeof tool !== "string" || !Object.hasOwn(catalog, tool))
       throw problem(serverMessages.common.unknownCliTool);
     if (this.closed) throw problem(serverMessages.tools.serviceStopping, 503);
-    if (!["native", "npm"].includes(method) || (tool === "gh" && method !== "native"))
+    if (
+      !["native", "npm"].includes(method) ||
+      (["gh", "nono"].includes(tool) && method !== "native")
+    )
       throw problem("Invalid installer method.");
     const reason = method === "npm" ? this.reason : this.platformReason;
     if (reason) throw problem(reason, 409);

@@ -43,6 +43,10 @@ export default function LaunchDialog({
     const selected = profiles.data?.profiles?.find((item) => item.id === id);
     setProfileId(id);
     setParams({});
+    // A task-profile launch cannot be sandboxed (LaunchAccessFields disables the
+    // picker for it), so a sandbox profile chosen before this must not survive
+    // into a request that will not carry it.
+    access.setNonoProfile(null);
     access.chooseTool(selected?.config.cliTool || access.tool);
     if (selected) {
       access.chooseAccess(
@@ -112,6 +116,7 @@ export default function LaunchDialog({
                 agentbus: coding && busEnabled,
                 sshAccessIds,
                 agentpierTools: coding ? agentpierTools : false,
+                ...(access.nonoProfile ? { nonoProfile: access.nonoProfile } : {}),
               };
               const result = profile
                 ? await api(`/pipeline-profiles/${profile.id}/launch`, "POST", {
@@ -148,6 +153,27 @@ export default function LaunchDialog({
                 aria-labelledby="launch-session-heading"
               >
                 <h3 id="launch-session-heading">{copy.sessionSection}</h3>
+                <label>
+                  {connectionCopy.cli}
+                  <AnchoredSelect
+                    label={connectionCopy.cli}
+                    value={access.tool}
+                    required
+                    options={access.tools.map((item) => ({
+                      value: item.id,
+                      label: names[item.id] || item.name,
+                    }))}
+                    onChange={(value) => {
+                      if (value === access.tool) return;
+                      access.chooseTool(value);
+                      setLaunchMode(defaultMode(value));
+                      if (value === "shell") {
+                        setProfileId("");
+                        setParams({});
+                      }
+                    }}
+                  />
+                </label>
                 <label>
                   {commonCopy.workingDirectory}
                   <div className="input-action">
@@ -231,85 +257,77 @@ export default function LaunchDialog({
                   </>
                 )}
               </section>
-              {coding && (
-                <section
-                  className="launch-section"
-                  aria-labelledby="launch-execution-heading"
-                >
-                  <h3 id="launch-execution-heading">{copy.executionSection}</h3>
-                  <LaunchAccessFields
-                    access={access}
-                    onAccessChange={(value) => {
-                      access.chooseAccess(value);
-                    }}
-                    onToolChange={(value) => {
-                      if (value === access.tool) return;
-                      access.chooseTool(value);
-                      setLaunchMode(defaultMode(value));
-                    }}
-                  />
-                  {coding && (
-                    <label>
-                      {commonCopy.launchMode}
-                      <AnchoredSelect
-                        label={commonCopy.launchMode}
-                        describedBy="launch-mode-description"
-                        value={launchMode}
-                        disabled={!selectedTool}
-                        onChange={setLaunchMode}
-                        options={[
-                          ...(profileCli
+              <section
+                className="launch-section"
+                aria-labelledby="launch-execution-heading"
+              >
+                <h3 id="launch-execution-heading">{copy.executionSection}</h3>
+                <LaunchAccessFields
+                  access={access}
+                  taskProfileSelected={Boolean(profileId)}
+                  onAccessChange={(value) => {
+                    access.chooseAccess(value);
+                  }}
+                />
+                {coding && (
+                  <label>
+                    {commonCopy.launchMode}
+                    <AnchoredSelect
+                      label={commonCopy.launchMode}
+                      describedBy="launch-mode-description"
+                      value={launchMode}
+                      disabled={!selectedTool}
+                      onChange={setLaunchMode}
+                      options={[
+                        ...(profileCli
+                          ? [
+                              {
+                                value: "profile",
+                                label: copy.profileMode(profile.config.permissions.mode),
+                              },
+                            ]
+                          : []),
+                        {
+                          value: "default",
+                          label: copy.nativeModeOption,
+                        },
+                        ...(selectedTool === "codex"
+                          ? [
+                              {
+                                value: "yolo",
+                                label: copy.codexYoloOption,
+                              },
+                            ]
+                          : selectedTool === "claude"
                             ? [
                                 {
-                                  value: "profile",
-                                  label: copy.profileMode(
-                                    profile.config.permissions.mode,
-                                  ),
+                                  value: "auto",
+                                  label: copy.claudeAutoOption,
                                 },
                               ]
-                            : []),
-                          {
-                            value: "default",
-                            label: copy.nativeModeOption,
-                          },
-                          ...(selectedTool === "codex"
-                            ? [
-                                {
-                                  value: "yolo",
-                                  label: copy.codexYoloOption,
-                                },
-                              ]
-                            : selectedTool === "claude"
+                            : selectedTool === "opencode"
                               ? [
                                   {
                                     value: "auto",
-                                    label: copy.claudeAutoOption,
+                                    label: copy.opencodeAutoOption,
                                   },
                                 ]
-                              : selectedTool === "opencode"
-                                ? [
-                                    {
-                                      value: "auto",
-                                      label: copy.opencodeAutoOption,
-                                    },
-                                  ]
-                                : []),
-                        ]}
-                      />
-                    </label>
-                  )}
-                  {coding && (
-                    <div
-                      className="form-note"
-                      id="launch-mode-description"
-                      aria-live="polite"
-                    >
-                      <Icon name="shield" />
-                      {modeDescription}
-                    </div>
-                  )}
-                </section>
-              )}
+                              : []),
+                      ]}
+                    />
+                  </label>
+                )}
+                {coding && (
+                  <div
+                    className="form-note"
+                    id="launch-mode-description"
+                    aria-live="polite"
+                  >
+                    <Icon name="shield" />
+                    {modeDescription}
+                  </div>
+                )}
+              </section>
             </div>
             <details className="launch-extensions">
               <summary>

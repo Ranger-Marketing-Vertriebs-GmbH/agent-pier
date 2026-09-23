@@ -5,20 +5,32 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { privateDirectory, writePrivate, readJSON, problem } from "../../lib/storage.js";
 import { tomlValue } from "../../lib/launch-serialization.js";
 import { capabilityFile, authorizeSsh, revokeSsh } from "./ssh-capability.js";
+import { sshManagementSocket } from "./ssh-management-client.js";
 import { createSshProjectBinding } from "./ssh-project-scope.js";
 import { prepareSshDiscovery } from "./ssh-discovery.js";
+import { addGrant } from "../nono/sandbox-grants.js";
 const main = fileURLToPath(new URL("./ssh-mcp.js", import.meta.url));
 const supported = (session) =>
   ["codex", "claude", "opencode"].includes(session?.tool) &&
   session.purpose !== "login" &&
   !session.pipeline?.headless;
 export class SshIntegration {
-  constructor({ dataDir, accounts, onProject }) {
+  constructor({ dataDir, accounts, onProject, accesses }) {
     this.dataDir = path.resolve(dataDir);
     this.accounts = accounts;
     this.onProject = onProject;
+    this.accesses = accesses;
   }
-  async prepare({ id, account, cwd, launch, purpose, pipeline } = {}) {
+  async prepare({
+    id,
+    account,
+    cwd,
+    launch,
+    purpose,
+    pipeline,
+    sandboxProfile,
+    sshAccessIds,
+  } = {}) {
     if (purpose === "login" || pipeline?.headless) return launch;
     if (account?.tool === "shell") {
       const project = await createSshProjectBinding(cwd);
@@ -59,6 +71,17 @@ export class SshIntegration {
       throw problem("Reserved SSH MCP name already configured.", 409);
     const project = await createSshProjectBinding(cwd);
     await this.onProject?.(project);
+    // Every host this session may reach: the ids assigned to it explicitly, plus
+    // the ones it inherits from its project. A sandboxed session that can reach
+    // none is not given the SSH tools at all, because the grants below cannot be
+    // narrowed to match — see the comment on the store grant.
+    const reachable = new Set([
+      ...(sshAccessIds || []),
+      ...(this.accesses?.list() || [])
+        .filter((access) => access.projectId === project.projectId)
+        .map((access) => access.id),
+    ]);
+    if (sandboxProfile && !reachable.size) return launch;
     const file = capabilityFile(this.dataDir, id);
     const generation = randomUUID();
     // Each process receives an immutable generation-specific credential file.
@@ -109,7 +132,34 @@ export class SshIntegration {
         args,
         env,
       });
-      return {
+      // The CLI spawns the SSH MCP server itself and it reads its generation
+      // credential out of the capability folder.
+      return [
+        { access: "allow", path: folder },
+        // authorizeSsh re-reads the session record on every call, so a grant
+        // that only covers the file present at launch is not enough: a session
+        // record is written to a temporary file and renamed into place on every
+        // status update, which replaces what a single-file grant named.
+        { access: "read", path: path.join(this.dataDir, "sessions") },
+        { access: "read", path: process.execPath },
+        { access: "read", path: main },
+        // Key generation, key import, host scanning and host registration are
+        // management tools, and the MCP server forwards those over this socket
+        // instead of touching the store. File access to the socket path confers
+        // nothing, so it is declared as its own capability.
+        { access: "socket", path: sshManagementSocket(this.dataDir) },
+        // The whole store, because it cannot be narrowed while the server still
+        // starts: SshAccessStore and SshSessions create and chmod their own
+        // directories under `<dataDir>/ssh` at module load, before any tool call
+        // and before the broker is reachable, and `ssh` then reads the identity
+        // files below that root. The MCP server is a child of the sandboxed CLI
+        // and can hold no capability the CLI does not also hold, so this grant
+        // is what a sandboxed session with the SSH tools costs. Brokering the
+        // rest of the store is the only way to narrow it; `docs/sandbox.md`
+        // records that as deferred, and the gate above is why a session that can
+        // reach no host never pays the price.
+        { access: "allow", path: path.join(this.dataDir, "ssh") },
+      ].reduce((granted, grant) => addGrant(granted, grant), {
         ...launch,
         args,
         env,
@@ -119,7 +169,7 @@ export class SshIntegration {
           project,
           home: env.HOME || process.env.HOME,
         },
-      };
+      });
     } catch (error) {
       this.discard(id);
       throw error;

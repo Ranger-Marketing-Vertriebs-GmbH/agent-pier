@@ -16,6 +16,7 @@ export const dashboardPageCopy = {
   toolGridOpencode: "Open to your own workflow.",
   toolGridShell: "Your terminal for commands and local tools.",
   toolGridGh: "GitHub access for your agents and projects.",
+  toolGridNono: "A sandbox for sessions that may only reach what they need.",
   githubCredentials: "GitHub connections",
   shellUnavailable: "Shell unavailable",
   workspaceLoading: "Loading your workspace …",

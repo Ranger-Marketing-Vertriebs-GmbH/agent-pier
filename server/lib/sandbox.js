@@ -18,10 +18,13 @@ export function codexSandboxArguments() {
 
 /**
  * The sandbox a native run is confined to, published to the agent as
- * AGENTRUNNER_SANDBOX. Claude and OpenCode run under the host user's own file
- * permissions, so "none" is the honest value for them rather than a mode
- * borrowed from Codex's vocabulary.
+ * AGENTRUNNER_SANDBOX. nono is the outer boundary when a session names a
+ * sandbox profile, so it wins over Codex's own sandbox mode. Without one,
+ * Claude and OpenCode run under the host user's own file permissions, so
+ * "none" is the honest value for them rather than a mode borrowed from
+ * Codex's vocabulary.
  */
-export function runSandbox(tool) {
+export function runSandbox(tool, nonoProfile = null) {
+  if (nonoProfile) return "nono";
   return tool === "codex" ? CODEX_SANDBOX_MODE : "none";
 }

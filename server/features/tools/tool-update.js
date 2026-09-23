@@ -10,10 +10,16 @@ import {
   installNative,
 } from "./native-installer.js";
 
+/**
+ * The arguments that make a CLI update itself in place. `null` means the CLI has
+ * no such subcommand and its official installer is the update path too: the
+ * update re-runs that installer, which resolves the latest release again.
+ */
 export const updateCommands = {
   codex: ["update"],
   claude: ["update"],
   opencode: ["upgrade", "--method", "curl"],
+  nono: null,
 };
 const unmanaged = () => problem(serverMessages.tools.nativeUpdateRequired, 409);
 
@@ -27,7 +33,8 @@ export function planToolUpdate(tool, home, root, detected) {
   } catch {}
   if (nativeReal && !nativeReal.startsWith(fs.realpathSync(home) + path.sep))
     throw unmanaged();
-  if (nativeReal === real) return { binary, migrate: false };
+  if (nativeReal === real)
+    return { binary, migrate: false, install: !updateCommands[tool] };
   const activation = path.join(root, tool);
   if (path.resolve(detected.path) !== path.join(activation, "bin", tool))
     throw unmanaged();
