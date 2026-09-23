@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
@@ -143,7 +144,7 @@ export function sshRoutes({
       !Array.isArray(req.body.accessIds) ||
       Object.keys(req.body).some((key) => key !== "accessIds")
     )
-      throw problem("Ungültige SSH-Zuordnung.");
+      throw problem(serverMessages.ssh.invalidBinding);
     const session = await sessions.get(req.params.id);
     res.json(
       await sessionAccesses(session, sshSessions.set(session, req.body.accessIds)),

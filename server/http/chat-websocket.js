@@ -1,3 +1,4 @@
+import { messageIdentity } from "../lib/i18n/message-identity.js";
 import { sessionToken } from "./login.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
@@ -66,7 +67,11 @@ export function attachChatWebSocket(server, { sessions, streams, login, effectiv
       try {
         login.require(token);
         if (error) {
-          send({ type: "error", message: error.message });
+          send({
+            type: "error",
+            message: error.message,
+            ...messageIdentity(error.message),
+          });
           if ([403, 404].includes(error.status)) ws.close(1008);
           return;
         }

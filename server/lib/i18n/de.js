@@ -12,6 +12,7 @@ import { plugins } from "./de/plugins.js";
 import { chat } from "./de/chat.js";
 import { tools } from "./de/tools.js";
 import { settings } from "./de/settings.js";
+import { ssh } from "./de/ssh.js";
 
 /** German product locale shared by backend routes and operational scripts. */
 export const serverMessages = Object.freeze({
@@ -29,4 +30,5 @@ export const serverMessages = Object.freeze({
   chat,
   tools,
   settings,
+  ssh,
 });

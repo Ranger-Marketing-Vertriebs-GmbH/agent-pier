@@ -96,7 +96,7 @@ export function createSessionLifecycle(services) {
       throw problem(serverMessages.sessions.invalidAgentBusSelection);
     const sshIds = sshSessions?.validate(body.sshAccessIds);
     if (login && sshIds?.length)
-      throw problem("SSH-Zugänge sind für Login-Sitzungen nicht verfügbar.");
+      throw problem(serverMessages.ssh.loginSessionsUnsupported);
     if (body.nonoProfile !== undefined && typeof body.nonoProfile !== "string")
       throw problem(serverMessages.sessions.invalidSandboxProfile);
     if (body.nonoProfile && login)

@@ -1,6 +1,6 @@
 import BackupContents from "./BackupContents.jsx";
 import React, { useState } from "react";
-import api from "../../lib/api.js";
+import api, { apiError } from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
@@ -12,8 +12,8 @@ async function uploadArchive(file) {
     headers: { "Content-Type": "application/octet-stream" },
     body: file,
   });
+  if (!response.ok) throw await apiError(response);
   const result = await response.json();
-  if (!response.ok) throw Error(result.error);
   return result.archiveId;
 }
 export default function RestoreForm({ close, started }) {

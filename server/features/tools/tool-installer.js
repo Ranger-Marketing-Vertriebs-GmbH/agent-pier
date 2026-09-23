@@ -117,7 +117,12 @@ function run(command, args, env, cwd, signal, timeout) {
           /\b(EACCES|ENOSPC|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|CERT_HAS_EXPIRED|UNABLE_TO_VERIFY_LEAF_SIGNATURE|EBADENGINE)\b/,
         )?.[1];
         return reject(
-          problem(serverMessages.tools.installationExitFailure(code, hint), 409),
+          problem(
+            hint
+              ? serverMessages.tools.installationExitFailureWithHint(code, hint)
+              : serverMessages.tools.installationExitFailure(code),
+            409,
+          ),
         );
       }
       resolve(output);

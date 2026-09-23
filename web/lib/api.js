@@ -1,3 +1,4 @@
+import { serverMessagesReady, serverProblemText } from "./server-messages.js";
 import { artifactCopy } from "./i18n/messages/artifacts.js";
 import { apiCopy as copy } from "./i18n/messages/components.js";
 import { memoryCopy } from "./i18n/messages/memory.js";
@@ -6,14 +7,14 @@ export async function apiError(response) {
   if (response.status === 401)
     window.dispatchEvent(new Event("agentpier-login-required"));
   const data = await response.json().catch(() => ({}));
+  if (data.messageKey) await serverMessagesReady();
   const error = new Error(
     data.code === "MEMORY_DISCOVERY_CONFIG"
       ? memoryCopy.discoveryError
       : sshProjectCopy.errors[data.code]
         ? sshProjectCopy.errors[data.code]
         : artifactCopy.errors[data.code] ||
-          data.error ||
-          copy.requestFailed(response.status),
+          serverProblemText(data, copy.requestFailed(response.status)),
   );
   error.status = response.status;
   error.code = data.code;

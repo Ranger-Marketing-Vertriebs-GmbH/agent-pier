@@ -1,3 +1,4 @@
+import { messageIdentity } from "./lib/i18n/message-identity.js";
 import { artifactsRoutes } from "./http/routes/artifacts.js";
 import { fileTextRoutes } from "./http/routes/file-text.js";
 import { SessionMcp } from "./features/mcp/session-integration.js";
@@ -128,7 +129,9 @@ export async function createApplication(config) {
     try {
       authorizeMcpTransport(req, effective());
     } catch (error) {
-      return res.status(error.status || 403).json({ error: error.message });
+      return res
+        .status(error.status || 403)
+        .json({ error: error.message, ...messageIdentity(error.message) });
     }
     return services.mcpTransport.router(req, res, next);
   });
@@ -137,7 +140,9 @@ export async function createApplication(config) {
       authorizeRequest(req, effective());
       next();
     } catch (error) {
-      res.status(error.status || 403).json({ error: error.message });
+      res
+        .status(error.status || 403)
+        .json({ error: error.message, ...messageIdentity(error.message) });
     }
   });
   app.use("/auth", loginRoutes(services.login, effective));

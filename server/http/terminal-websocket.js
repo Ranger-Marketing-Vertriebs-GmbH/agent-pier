@@ -1,3 +1,4 @@
+import { messageIdentity } from "../lib/i18n/message-identity.js";
 import { sessionToken } from "./login.js";
 import { serverMessages } from "../lib/i18n/de.js";
 import { WebSocketServer, WebSocket } from "ws";
@@ -89,7 +90,7 @@ export function attachTerminalWebSocket(server, { sessions, login, effective }) 
         });
         if (closed) attachment.dispose();
       } catch (e) {
-        send({ type: "error", message: e.message });
+        send({ type: "error", message: e.message, ...messageIdentity(e.message) });
         ws.close(1008);
       }
     })();
@@ -107,7 +108,7 @@ export function attachTerminalWebSocket(server, { sessions, login, effective }) 
           }
           if (msg.type === "input") {
             if (typeof msg.data !== "string" || msg.data.length > 32000)
-              throw problem("Eingabe zu lang.");
+              throw problem(serverMessages.http.terminalInputTooLong);
             if (!attachment) throw problem(serverMessages.http.sessionStopped);
             await attachment.write(msg.data);
           } else if (msg.type === "resize") {
@@ -123,7 +124,9 @@ export function attachTerminalWebSocket(server, { sessions, login, effective }) 
             attachment?.resize(msg.cols, msg.rows);
           } else throw problem(serverMessages.http.unknownTerminalMessage);
         })
-        .catch((e) => send({ type: "error", message: e.message }));
+        .catch((e) =>
+          send({ type: "error", message: e.message, ...messageIdentity(e.message) }),
+        );
     });
   });
   return wss;

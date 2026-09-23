@@ -1,3 +1,4 @@
+import { serverProblemText } from "../../lib/server-messages.js";
 import { chatAttachmentsCopy as copy } from "../../lib/i18n/messages/chat.js";
 
 export function fileDataUrl(file) {
@@ -48,7 +49,7 @@ export async function uploadFile(session, file, signal, progress) {
         typeof result.name === "string"
       )
         finish(resolve, result);
-      else finish(reject, new Error(result.error || copy.uploadFailed));
+      else finish(reject, new Error(serverProblemText(result, copy.uploadFailed)));
     };
     xhr.onerror =
       xhr.ontimeout =
