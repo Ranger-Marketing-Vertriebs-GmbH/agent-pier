@@ -1,3 +1,4 @@
+import { agentText } from "../../lib/i18n/agent-text.js";
 import express from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -134,7 +135,9 @@ export function mcpHttpRouter({ mcpAccess, mcpTools }) {
                 {
                   type: "text",
                   text: JSON.stringify({
-                    error: error.status ? error.message : "MCP operation failed.",
+                    error: error.status
+                      ? agentText(error.message)
+                      : "MCP operation failed.",
                     status: error.status || 500,
                   }),
                 },

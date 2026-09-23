@@ -1,3 +1,4 @@
+import { agentText } from "./lib/i18n/agent-text.js";
 import { messageIdentity } from "./lib/i18n/message-identity.js";
 import { artifactsRoutes } from "./http/routes/artifacts.js";
 import { fileTextRoutes } from "./http/routes/file-text.js";
@@ -131,7 +132,7 @@ export async function createApplication(config) {
     } catch (error) {
       return res
         .status(error.status || 403)
-        .json({ error: error.message, ...messageIdentity(error.message) });
+        .json({ error: agentText(error.message), ...messageIdentity(error.message) });
     }
     return services.mcpTransport.router(req, res, next);
   });
