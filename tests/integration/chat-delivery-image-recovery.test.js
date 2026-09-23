@@ -104,6 +104,18 @@ test("after the images, a different or incomplete prompt blocks recovery unchang
   assert.deepEqual(x.model.submitted, []);
 });
 
+test("a deleted attachment blocks recovery with its own reason", async (t) => {
+  for (const crash of ["images-pasted", "pasted"]) {
+    const x = await setup(t, { crash });
+    await x.send();
+    fs.rmSync(x.files[1]);
+    const blocked = await x.recover("retry");
+    assert.equal(blocked.recovery.action, "blocked", crash);
+    assert.equal(blocked.recovery.reason, copy.recoveryAttachmentMissing, crash);
+    assert.deepEqual(x.model.submitted, [], crash);
+  }
+});
+
 test("an interrupted text step is recovered only when the prompt proves the whole message", async (t) => {
   const x = await setup(t, { crash: "text-intent" });
   await x.send();

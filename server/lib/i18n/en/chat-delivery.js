@@ -9,6 +9,8 @@ export const chatDeliveryCopy = {
     "The original CLI session can no longer be identified unambiguously. Please check the TUI.",
   recoveryComposer:
     "The TUI input contains different text or cannot be read completely. It was not changed.",
+  recoveryAttachmentMissing:
+    "An attached image is no longer available, so the TUI input cannot be checked. It was not changed; please check the TUI.",
   recoveryReadySubmit:
     'The full text is still in the TUI. "Deliver again" only completes the submission.',
   recoveryReadyText:

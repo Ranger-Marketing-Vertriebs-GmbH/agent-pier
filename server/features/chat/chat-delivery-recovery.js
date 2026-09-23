@@ -1,6 +1,10 @@
 import { nativeInputQueue } from "./native-input-queue.js";
 import { createHash } from "node:crypto";
-import { claudeImageDraft, claudeImageMessage } from "../sessions/claude-image-paste.js";
+import {
+  claudeImageDraft,
+  claudeImageMessage,
+  missingClaudeImages,
+} from "../sessions/claude-image-paste.js";
 import { problem } from "../../lib/storage.js";
 import { chatDeliveryCopy as copy } from "../../lib/i18n/de/chat-delivery.js";
 import {
@@ -33,14 +37,20 @@ async function recoveryPlan(tool, phase, composer, text) {
   const full = message
     ? claudeImageDraft(composer, message, { text: message.text })
     : composer.state === "text" && composer.text === text;
+  let result;
   if (phase === "pasted")
-    return full ? { plan: "submit" } : { reason: copy.recoveryComposer };
+    result = full ? { plan: "submit" } : { reason: copy.recoveryComposer };
   // The text paste may or may not have happened: only its visible result counts.
-  if (phase === "text-intent")
-    return full ? { plan: "submit" } : { reason: copy.recoveryUncertain };
-  return claudeImageDraft(composer, message)
-    ? { plan: "text" }
-    : { reason: copy.recoveryComposer };
+  else if (phase === "text-intent")
+    result = full ? { plan: "submit" } : { reason: copy.recoveryUncertain };
+  else
+    result = claudeImageDraft(composer, message)
+      ? { plan: "text" }
+      : { reason: copy.recoveryComposer };
+  // A deleted attachment can no longer be compared with its chip.
+  if (result.reason && tool === "claude" && (await missingClaudeImages(text)))
+    return { reason: copy.recoveryAttachmentMissing };
+  return result;
 }
 
 /** Stable, translatable identifier of a refused or unconfirmed terminal handoff. */
