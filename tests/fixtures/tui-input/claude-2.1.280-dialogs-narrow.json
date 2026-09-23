@@ -1,0 +1,48 @@
+{
+  "version": "Claude Code 2.1.280, private tmux 50x34/50x12, loopback provider",
+  "modelPicker50x34": {
+    "raw": "\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153mxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b[39m\n\n\u001b[38;2;177;185;249m▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\u001b[39m \u001b[38;2;153;153;153m● high · /effort\u001b[38;2;177;185;249m ▔\n\u001b[39m   \u001b[1m\u001b[38;2;177;185;249mSelect model\u001b[0m\n   \u001b[38;2;153;153;153mSwitch between Claude models. Your pick \u001b[39m\n   \u001b[38;2;153;153;153mbecomes the default for new sessions. For \u001b[39m\n   \u001b[38;2;153;153;153mother/previous model names, specify with \u001b[39m\n   \u001b[38;2;153;153;153m--model.\u001b[39m\n\n     \u001b[38;2;153;153;153m1. \u001b[39mDefault (recommended)  \u001b[38;2;153;153;153mUse the default \u001b[39m\n                               \u001b[38;2;153;153;153mmodel (currently\u001b[39m\n                               \u001b[38;2;215;119;87mOpus 5.5\u001b[38;2;153;153;153m (1M \u001b[39m\n                               \u001b[38;2;153;153;153mcontext)) · \u001b[39m\n                               \u001b[38;2;153;153;153m$4/$20 per Mtok\u001b[39m\n     \u001b[38;2;153;153;153m2. \u001b[39mOpus (1M context)      \u001b[38;2;215;119;87mOpus 5.5\u001b[38;2;153;153;153m with 1M\u001b[39m\n                               \u001b[38;2;153;153;153mcontext · Best \u001b[39m\n                               \u001b[38;2;153;153;153mfor everyday, \u001b[39m\n                               \u001b[38;2;153;153;153mcomplex tasks · \u001b[39m\n                               \u001b[38;2;153;153;153m$4/$20 per Mtok\u001b[39m\n     \u001b[38;2;153;153;153m3. \u001b[39mFable                  \u001b[38;2;153;153;153mFable 5.1 · Most\u001b[39m\n                               \u001b[38;2;153;153;153mcapable for \u001b[39m\n                               \u001b[38;2;153;153;153myour hardest and\u001b[39m\n                               \u001b[38;2;153;153;153mlongest-running\u001b[39m\n                               \u001b[38;2;153;153;153mtasks · $10/$50\u001b[39m\n                               \u001b[38;2;153;153;153mper Mtok\u001b[39m\n     \u001b[38;2;153;153;153m4. \u001b[39mSonnet                 \u001b[38;2;153;153;153mSonnet 5 · \u001b[39m\n                               \u001b[38;2;153;153;153mEfficient for \u001b[39m\n                               \u001b[38;2;153;153;153mroutine tasks · \u001b[39m\n                               \u001b[38;2;153;153;153m$2/$10 per Mtok\u001b[39m\n     \u001b[38;2;153;153;153m5. \u001b[39mSonnet 5 (1M context)  \u001b[38;2;153;153;153mSonnet 5 for \u001b[39m\n                               \u001b[38;2;153;153;153mlong sessions · \u001b[39m\n                               \u001b[38;2;153;153;153m$2/$10 per Mtok\u001b[39m\n     \u001b[38;2;153;153;153m6. \u001b[39mHaiku                  \u001b[38;2;153;153;153mHaiku 4.5 · \u001b[39m\n                               \u001b[38;2;153;153;153mFastest for \u001b[39m     \u001b[38;2;153;153;153m↓\u001b[39m\n",
+    "pane": {
+      "cursorX": 3,
+      "cursorY": 33,
+      "width": 50,
+      "height": 34
+    }
+  },
+  "permission50x34": {
+    "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153mxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b[39m\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯\u001b[39m \u001b[38;2;255;255;255m/model\u001b[39m \u001b[49m\n\u001b[38;2;153;153;153m  ⎿  \u001b[39mKept model as \u001b[38;2;177;185;249mSonnet 4.6\u001b[39m\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;255;255;255mAP_TOOL go\u001b[39m\n\u001b[49m\n\u001b[38;2;153;153;153m \u001b[39m Creating marker\n\u001b[38;2;153;153;153m  ⎿  $ touch APPROVED_MARKER\u001b[39m\n\n\u001b[38;2;177;185;249m──────────────────────────────────────────────────\n\u001b[39m \u001b[1m\u001b[38;2;177;185;249mBash command\u001b[0m\n \u001b[1mTip: auto mode handles these prompts for you — \u001b[0m\n \u001b[1mchoose \"switch to auto mode\" below\u001b[0m\n\n   touch APPROVED_MARKER\n   \u001b[38;2;153;153;153mCreate marker\u001b[39m\n\n Do you want to proceed?\n \u001b[38;2;177;185;249m❯\u001b[39m \u001b[38;2;153;153;153m1. \u001b[38;2;177;185;249mYes\u001b[39m\n   \u001b[38;2;153;153;153m2. \u001b[39mYes, and always allow access to \u001b[1mxxxxxxxxxxxx\n\u001b[0m      \u001b[1mxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\u001b[0m      \u001b[1mxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\u001b[0m      \u001b[1mxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b[0m from this\n      project\n   \u001b[38;2;153;153;153m3. \u001b[39mYes, and switch to auto mode\u001b[38;2;153;153;153m · auto mode \u001b[39m\n      \u001b[38;2;153;153;153mhandles these prompts for you\u001b[39m\n   \u001b[38;2;153;153;153m4. \u001b[39mNo\n\n \u001b[38;2;153;153;153mEsc to cancel · Tab to amend\u001b[39m\n",
+    "pane": {
+      "cursorX": 1,
+      "cursorY": 23,
+      "width": 50,
+      "height": 34
+    }
+  },
+  "rewind50x34": {
+    "raw": "\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153mxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b[39m\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯\u001b[39m \u001b[38;2;255;255;255m/model\u001b[39m \u001b[49m\n\u001b[38;2;153;153;153m  ⎿  \u001b[39mKept model as \u001b[38;2;177;185;249mSonnet 4.6\u001b[39m\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;255;255;255mAP_TOOL go\u001b[39m\n\n\u001b[49m  \u001b[38;2;153;153;153mRan \u001b[1m1\u001b[0m\u001b[38;2;153;153;153m shell command \u001b[39m\n\u001b[38;2;153;153;153m  ⎿  Interrupted · What should Claude do instead?\u001b[39m\n\n\u001b[38;2;153;153;153m✻\u001b[39m \u001b[38;2;153;153;153mBaked for 0s · done 6:58 PM\u001b[39m\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;255;255;255mAP_ASK please\u001b[39m\n\n\u001b[38;2;255;255;255m\u001b[49m⏺\u001b[39m Synthetic reply.\n\n\u001b[38;2;153;153;153m✻\u001b[39m \u001b[38;2;153;153;153mBaked for 0s · done 6:58 PM\u001b[39m\n\u001b[38;2;177;185;249m▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n\u001b[39m   \u001b[1m\u001b[38;2;177;185;249mRewind\u001b[0m\n\n   Restore the code and/or conversation to the\n   point before…\n\n    \u001b[38;2;153;153;153m↑ 1 more above\u001b[39m\n\n     AP_ASK please\n     \u001b[38;2;153;153;153mNo code changes\u001b[39m\n\n   \u001b[1m\u001b[38;2;177;185;249m❯ \u001b[0;3m\u001b[38;2;177;185;249m(current)\u001b[0m\n\n\n\n   \u001b[3m\u001b[38;2;153;153;153mEnter to continue · Esc to cancel\u001b[0m\n",
+    "pane": {
+      "cursorX": 0,
+      "cursorY": 33,
+      "width": 50,
+      "height": 34
+    }
+  },
+  "question50x34": {
+    "raw": "\n\u001b[38;2;215;119;87m ▐\u001b[48;2;0;0;0m▛███▛█\u001b[39m\u001b[49m   \u001b[1mClaude Code\u001b[0m \u001b[38;2;153;153;153mv2.1.280\u001b[39m\n\u001b[38;2;215;119;87m▝▜\u001b[48;2;0;0;0m█████\u001b[49m█▀\u001b[39m  \u001b[38;2;153;153;153mSonnet 4.6 · API Usage Billing\u001b[39m\n\u001b[38;2;215;119;87m  ▝▝ ▝▝  \u001b[39m  \u001b[38;2;153;153;153mxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b[39m\n\n\n\u001b[38;2;80;80;80m\u001b[48;2;55;55;55m❯ \u001b[38;2;255;255;255mAP_ASK please\u001b[39m\n\u001b[38;2;153;153;153m\u001b[49m──────────────────────────────────────────────────\n\u001b[38;2;0;0;0m\u001b[48;2;177;185;249m ☐ Color \u001b[39m\u001b[49m\n\n\u001b[1m\u001b[38;2;255;255;255mWhich color do you prefer?\u001b[0m\n\n\u001b[38;2;177;185;249m❯\u001b[39m \u001b[38;2;153;153;153m1.\u001b[39m \u001b[38;2;177;185;249mRed\u001b[39m\n     \u001b[38;2;153;153;153mWarm\u001b[39m\n  \u001b[38;2;153;153;153m2.\u001b[39m Blue\n     \u001b[38;2;153;153;153mCool\u001b[39m\n  \u001b[38;2;153;153;153m3. Type something.\u001b[39m\n\u001b[38;2;153;153;153m──────────────────────────────────────────────────\n\u001b[39m  4. Chat about this\n\n\u001b[38;2;153;153;153mEnter to select · ↑/↓ to navigate · Esc to cancel\u001b[39m\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+    "pane": {
+      "cursorX": 0,
+      "cursorY": 12,
+      "width": 50,
+      "height": 34
+    }
+  },
+  "question50x12": {
+    "raw": "\u001b[38;2;0;0;0m\u001b[48;2;177;185;249m ☐ Color \u001b[39m\u001b[49m\n\n\u001b[1m\u001b[38;2;255;255;255mWhich color do you prefer?\u001b[0m\n\n\u001b[38;2;177;185;249m❯\u001b[39m \u001b[38;2;153;153;153m1.\u001b[39m \u001b[38;2;177;185;249mRed\u001b[39m\n     \u001b[38;2;153;153;153mWarm\u001b[39m\n\u001b[38;2;153;153;153m↓\u001b[39m \u001b[38;2;153;153;153m2.\u001b[39m Blue\n     \u001b[38;2;153;153;153mCool\u001b[39m\n\u001b[38;2;153;153;153m──────────────────────────────────────────────────\n\u001b[39m  4. Chat about this\n\n\u001b[38;2;153;153;153mEnter to select · ↑/↓ to navigate · Esc to cancel\u001b[39m\n",
+    "pane": {
+      "cursorX": 0,
+      "cursorY": 4,
+      "width": 50,
+      "height": 12
+    }
+  }
+}

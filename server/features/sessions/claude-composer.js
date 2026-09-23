@@ -6,6 +6,8 @@ const plain = (line) => (line || "").replace(/\x1b\[[0-9;:]*m/g, "");
 // Footers of Claude's native modal UI: permission prompts, rewind, pickers.
 const dialogFooter =
   /\b(?:Esc to (?:cancel|go back|close|exit)|Enter to (?:confirm|continue|select|submit|set)|Tab to amend)\b|Do you want to (?:proceed|make this edit|create)/i;
+// Menu panels keep their ▔ top border and selected numbered option visible.
+const dialogBody = /^▔{8}|^ *❯ \d+\. /;
 // A placeholder behind the reverse-video cursor cell. tmux may wrap the reset
 // code into the next row or truncate the text with "…" in narrow panes, and
 // NO_COLOR/FORCE_COLOR=0 drops the dim attribute.
@@ -103,8 +105,14 @@ export function claudeComposerState(raw, pane, composer) {
       return { state: "empty", text: "" };
     return { state: "draft", text: null };
   }
-  const visible = typeof raw === "string" ? raw.split("\n").slice(-20).map(plain) : [];
-  if (visible.some((line) => dialogFooter.test(line)))
+  const screen = typeof raw === "string" ? raw.split("\n").map(plain) : [];
+  const visible = screen.slice(0, pane?.height || screen.length);
+  // A short pane can scroll a menu's footer away: its ▔ panel border or a
+  // selected numbered option still identify it. Enter must never reach it.
+  if (
+    visible.slice(-20).some((line) => dialogFooter.test(line)) ||
+    visible.some((line) => dialogBody.test(line))
+  )
     return { state: "dialog", text: null };
   return { state: "unknown", text: null };
 }

@@ -181,11 +181,10 @@ test("a menu closed in the TUI during the short wait still gets the message", as
   assert.deepEqual(model.dialogInput, []);
 });
 
-test("a menu without an Escape footer receives no key at all", async () => {
-  const raw = screens.rewind.raw.replace(
-    "Enter to continue · Esc to cancel",
-    "Enter to continue",
-  );
+test("an unknown menu without an Escape footer receives no key at all", async () => {
+  const raw = screens.rewind.raw
+    .replace("Enter to continue · Esc to cancel", "Enter to continue")
+    .replace("Rewind", "Choose");
   assert.notEqual(raw, screens.rewind.raw);
   const model = claudePromptModel({ dialog: { ...screens.rewind, raw } });
   const manager = claudeModelManager(model);
