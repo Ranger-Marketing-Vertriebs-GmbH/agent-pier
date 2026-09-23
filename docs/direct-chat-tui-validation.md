@@ -181,14 +181,13 @@ native CLI remained at the input prompt with all seven image chips and the text.
 No corresponding request reached the local mock provider within 15 seconds.
 The probe does not compensate by sending a second Enter.
 
-The writer now waits for all existing local PNG/JPEG/GIF/WebP paths in that paste
-to become image chips inside the current fenced Claude composer before sending
-its single Enter. Image labels in old conversation output do not count. The wait
-is bounded to ten seconds; failure leaves the journal at `pasted`, reports an
-uncertain delivery, and does not send Enter. Existing recovery rules still require
-an exact current draft match, so transformed image drafts may require manual TUI
-submission. Generation checks remain in place immediately before submission.
-Plain text and other CLIs retain their existing transport without an added pause.
+The writer now waits for all existing local PNG/JPEG/GIF/WebP paths to become
+image chips inside the current fenced Claude composer before sending its single
+Enter. Image labels in old conversation output do not count. The wait is bounded
+to ten seconds; failure reports an uncertain delivery and does not send Enter.
+Generation checks remain in place immediately before submission. Plain text and
+other CLIs retain their existing transport without an added pause. Since
+2026-09-23 the image paths are pasted before the text (see below).
 
 The corrected bound native probe passed all seven images to the local provider,
 observed a response and counted exactly one paste and one Enter. In the final
@@ -200,15 +199,60 @@ zero-delay measurements below describe text input only.
 
 Short panes (2026-09-23): chip counting uses the same prompt-box detection as the
 draft guard, so a box whose bottom border is clipped (rows reach the last screen
-row, cursor inside) is counted. Only visible rows count. When Claude scrolls a
-tall draft inside its box, chips at its start leave the screen; the count then
-stays short, no Enter is sent, and after ten seconds the delivery is `uncertain`
-at `pasted` with `CHAT_IMAGES_UNCONFIRMED`. Validated with Claude Code 2.1.280 and
-the loopback provider at 60×8, 60×9, 60×11, 40×10 and 120×35 with one and three
-images: short and wrapped drafts whose chips stay visible now reach the provider
-with every image (previously uncertain at 60×8–11 and 40×10). A three-image draft
-scrolled past its first row fails with the new reason. Frames are in
-`tests/fixtures/tui-input/claude-2.1.280-image-screens.json`.
+row, cursor inside) is counted. Only visible rows count. With text and paths in
+one paste, Claude scrolled a tall draft inside its box so that the chips at its
+start left the screen; the count stayed short and the delivery ended uncertain
+with `CHAT_IMAGES_UNCONFIRMED` although nothing was wrong.
+
+### Claude images pasted before the text (2026-09-23)
+
+Claude Code 2.1.280 removes every line holding an existing absolute image path
+from a paste and places its chips before the remaining lines, separated by single
+spaces and with no space before the text: `a\n<png>\nb\n<png>` becomes
+`[Image #1] [Image #2]a` / `b`. Text pasted after existing chips is appended the
+same way, so pasting the paths first and the text afterwards produces the same
+prompt and the same provider request: one text block starting with the chip
+labels, followed by the image blocks. `~/`, relative and missing image paths stay
+text. Chip numbers continue per Claude session (`[Image #3]` in the second
+message), so drafts are compared with chip numbers normalized.
+
+AgentPier therefore pastes a Claude image message in two steps: all image paths
+in one paste, then, once the prompt shows exactly that many chips (a chips-only
+prompt stays one or two rows even at 30 columns), the remaining text in a second
+paste. Before the text, the chips are counted again under the transaction guard;
+before Enter, the prompt must differ from the chips-only frame. The journal
+records `paste-intent`, `images-pasted`, `text-intent`, `pasted`,
+`submit-intent` and `submitted`; a guard refusing `text-intent` restores
+`images-pasted`. Recovery (see `server/features/chat/chat-delivery-recovery.js`):
+
+| Journal phase                                        | Composer proves                  | Recovery                        |
+| ---------------------------------------------------- | -------------------------------- | ------------------------------- |
+| `reserved`                                           | nothing written                  | resend                          |
+| `images-pasted`                                      | exactly the chips, single row    | paste only the text, then Enter |
+| `text-intent`                                        | exactly chips + text, single row | Enter only                      |
+| `pasted`                                             | exactly chips + text, single row | Enter only                      |
+| `paste-intent`, `submit-intent`, `submitted`, others | —                                | blocked                         |
+
+Anything else, including wrapped or scrolled drafts, blocks without writing.
+Images are never pasted twice. Receipts from earlier versions (single paste,
+phases `paste-intent`/`pasted`) remain readable; their chips-first drafts match the
+same comparison, so submit-only recovery now also works for them.
+
+Validated with Claude Code 2.1.280, tmux 3.7c, a disposable HOME, a private tmux
+socket and the loopback provider. Fresh sends with one and three images and a
+short text or a 400-character text were handed off with every image at 120×35,
+60×11, 60×8 and 40×10 (16/16; with the single paste, a 90-character text failed
+with three images at 60×8, 60×9 and 60×11 and with one or three at 40×10). Paths containing spaces, literal `[Image #1]` text and
+a send queued behind a running turn also passed. For recovery, the send was
+stopped after each durable phase at all four sizes with one and three images and
+both texts (96 runs): `paste-intent`, `text-intent` without visible text and
+`submit-intent` blocked; `images-pasted` completed with only the text in every
+case, including 40×10 with three chips; `pasted` and `text-intent` with the text
+visible submitted only when the draft fit one row (short text), and blocked
+otherwise. Each recovered message reached the provider once with all images. The
+bound HTTP probe (`--native --tool claude --local-mock --http --bound`) passed
+seven 1536 × 1024 PNGs with two pastes and one Enter in 723 ms. Frames are in
+`tests/fixtures/tui-input/claude-2.1.280-image-first-screens.json`.
 
 | CLI         | Installed version | Held-response observation                                                                                        | Submit                                                 |
 | ----------- | ----------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
