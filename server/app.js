@@ -153,6 +153,8 @@ export async function createApplication(config) {
     "/api/accounts/:id/extensions/skills",
     express.json({ limit: "15mb", strict: true }),
   );
+  // Chat input allows 32000 characters; multi-byte text exceeds the global limit.
+  app.use("/api/sessions/:id/input", express.json({ limit: "256kb", strict: true }));
   app.use(express.json({ limit: "64kb", strict: true }));
   const mount = (router) =>
     app.use("/api", guardMutations(router, services.mutationBarrier));

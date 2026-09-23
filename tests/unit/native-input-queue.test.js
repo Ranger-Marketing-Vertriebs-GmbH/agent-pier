@@ -136,3 +136,30 @@ test("Codex input timestamps come from native UUIDv7 IDs, never a history read c
   ])
     assert.equal(codexInputTime(id), undefined);
 });
+
+test("claude 2.1.x queue: unindented rows, blank separators and the send-now hint", () => {
+  const screens = JSON.parse(
+    fs.readFileSync(
+      new URL("../fixtures/tui-input/claude-2.1.280-screens.json", import.meta.url),
+    ),
+  );
+  const queue = ({ raw, pane }) => nativeInputQueue("claude", raw, pane);
+  assert.deepEqual(queue(screens.queueOne), [inputHash("AP_PROBE_ONE queued")]);
+  assert.deepEqual(queue(screens.queueTwo), [
+    inputHash("first queued"),
+    inputHash("second queued"),
+  ]);
+  // A multi-row entry cannot tell wrapping from newlines and is never confirmed;
+  // the in-flight prompt above the spinner is not part of the queue.
+  assert.deepEqual(queue(screens.queueMixed), [
+    inputHash("AP_PROBE_ONE queued"),
+    inputHash("AP_PROBE_THREE queued"),
+  ]);
+  for (const name of ["idle", "multilineDraft", "permission"])
+    assert.deepEqual(queue(screens[name]), [], name);
+  const { raw, pane } = screens.queueTwo;
+  assert.deepEqual(
+    queue({ raw: raw.replace("ctrl+x ctrl+s to send now", "unrelated hint"), pane }),
+    [],
+  );
+});

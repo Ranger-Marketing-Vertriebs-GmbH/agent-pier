@@ -23,4 +23,24 @@ export const chatDeliveryCopy = {
     "Die Eingabe wurde vor der Terminal-Übergabe abgelehnt. Bitte prüfe die Sitzung und offene Freigaben.",
   uncertain:
     "Die Terminal-Übergabe ist unklar. Erneutes Senden kann die Eingabe duplizieren.",
+  // The same reasons after the text was pasted but before Enter (uncertain).
+  pastedReasons: {
+    CHAT_COMPOSER_DIALOG:
+      "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt: Claude zeigt einen Dialog. Bitte prüfe die TUI, bevor du erneut sendest.",
+    CHAT_COMPOSER_UNAVAILABLE:
+      "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt: Das Eingabefeld ist nicht sicher erkennbar. Bitte prüfe die TUI.",
+    CHAT_COMPOSER_NOT_CLEARED:
+      "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt. Bitte prüfe die TUI, bevor du erneut sendest.",
+  },
+  // Stable reason identifiers; the browser translates them by code.
+  reasons: {
+    CHAT_COMPOSER_DIALOG:
+      "Claude zeigt gerade einen Dialog oder eine Auswahl. Die Nachricht wurde nicht gesendet; bitte beantworte oder schließe den Dialog in der TUI.",
+    CHAT_COMPOSER_UNAVAILABLE:
+      "Das Claude-Eingabefeld ist nicht sicher erkennbar. Die Nachricht wurde nicht gesendet; bitte prüfe die TUI.",
+    CHAT_COMPOSER_NOT_CLEARED:
+      "Der vorhandene Entwurf im Claude-Eingabefeld konnte nicht sicher ersetzt werden. Die Nachricht wurde nicht gesendet; bitte prüfe die TUI.",
+    CHAT_SUBMIT_UNCONFIRMED:
+      "Claude hat die Übernahme der Nachricht nicht bestätigt. Bitte prüfe die TUI, bevor du erneut sendest.",
+  },
 };

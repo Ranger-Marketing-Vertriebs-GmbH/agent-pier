@@ -20,6 +20,12 @@ export default function ChatDeliveryStatus({
     const native = delivery.nativeStates?.get(item.id);
     const pending = item.id === delivery.outbox?.id;
     const recovering = item.id === delivery.recovering;
+    // Stable server reason codes are translated here; free text is a fallback.
+    // An uncertain outcome before Enter means the text sits in Claude's prompt.
+    const reasonText = (code) =>
+      (item.status === "uncertain" && copy.pastedReasons[code]) || copy.reasons[code];
+    const detail = reasonText(item.reason) || item.error;
+    const recoveryDetail = reasonText(item.recovery?.code) || item.recovery?.reason;
     const status = recovering
       ? "recovering"
       : pending && delivery.sending
@@ -41,15 +47,16 @@ export default function ChatDeliveryStatus({
         ) : (
           <div className="chat-delivery-status" role="status" aria-label={copy.ariaLabel}>
             <span>{copy[status] || copy.checking}</span>
-            {item.error && <span role="alert">{item.error}</span>}
+            {detail && <span role="alert">{detail}</span>}
             {item.recovery?.action === "blocked" && (
-              <span role="alert">{item.recovery.reason}</span>
+              <span role="alert">{recoveryDetail}</span>
             )}
           </div>
         )}
         {!native && !delivery.sending && (
           <div className="chat-delivery-actions">
             {item.status === "uncertain" && <p>{copy.uncertainHint}</p>}
+            {pending && item.status === "absent" && <p>{copy.absentHint}</p>}
             {pending && item.status === "absent" && (
               <button
                 type="button"
@@ -85,7 +92,7 @@ export default function ChatDeliveryStatus({
                 {copy.openTerminal}
               </button>
             )}
-            {pending && ["uncertain", "rejected"].includes(item.status) && (
+            {pending && ["uncertain", "rejected", "absent"].includes(item.status) && (
               <button
                 type="button"
                 className="button"
@@ -97,15 +104,18 @@ export default function ChatDeliveryStatus({
             )}
           </div>
         )}
-        {!native && !pending && item.status === "handed-off" && !recovering && (
-          <button
-            type="button"
-            className="chat-delivery-dismiss"
-            onClick={() => delivery.draft.dismiss(item.id)}
-          >
-            {copy.dismiss}
-          </button>
-        )}
+        {!native &&
+          !pending &&
+          ["handed-off", "absent", "rejected"].includes(item.status) &&
+          !recovering && (
+            <button
+              type="button"
+              className="chat-delivery-dismiss"
+              onClick={() => delivery.draft.dismiss(item.id)}
+            >
+              {copy.dismiss}
+            </button>
+          )}
       </div>
     );
   });

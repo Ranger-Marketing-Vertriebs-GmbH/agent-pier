@@ -453,6 +453,7 @@ export class ChatDraft {
           receipt.observation ||
           (incomingAttemptId === currentAttemptId ? item.observation : undefined),
         error: receipt.error || "",
+        reason: receipt.reason || "",
         recovery: receipt.recovery || item.recovery,
         recoveryAttempt: resolved ? null : item.recoveryAttempt,
       };
@@ -531,7 +532,8 @@ export class ChatDraft {
     return this.mutate((saved) => {
       if (
         saved.outbox?.id === id &&
-        ["uncertain", "rejected"].includes(saved.outbox.status)
+        // An absent item never reached the server; its draft must stay editable.
+        ["uncertain", "rejected", "absent"].includes(saved.outbox.status)
       )
         this.write({
           ...saved,
