@@ -23,7 +23,10 @@ export function claudePlaceholder(line, pane, { queued = false } = {}) {
   const text = (match[1] + match[3]).trimEnd();
   // Typed text is never dim; without color only the known placeholder is safe,
   // because a draft with its cursor on the first character looks the same.
-  if (match[2] === "\x1b[0;2m" && !queued) return text.length > 0;
+  const dim = match[2] === "\x1b[0;2m";
+  if (dim && !queued) return text.length > 0;
+  // A colored Claude always dims its placeholder; only NO_COLOR drops it.
+  if (queued && !dim && /\x1b\[(?:[34]8;|39m)/.test(line)) return false;
   return (
     text === queuedPlaceholder ||
     (text.endsWith("…") &&
