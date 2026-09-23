@@ -66,6 +66,7 @@ export async function writeChatTuiInput(
     message,
     onPhase = async () => {},
     onNotice = async () => {},
+    onDialog = async () => {},
     confirmSubmit = async () => {},
     imageTimeoutMs,
     // Separates the message from a draft it is appended to.
@@ -97,18 +98,25 @@ export async function writeChatTuiInput(
     let ready = true;
     if (resume !== "text") {
       await onPhase("paste-intent");
-      await pasteText(manager, target, pastePrefix() + images.images.join("\n"));
+      await pasteText(manager, target, images.images.join("\n"));
       await onPhase("images-pasted");
       ready = await wait();
-    }
-    if (images.text) {
-      // A dialog that opened meanwhile is closed or holds the text.
-      await onPhase("text-intent");
-      if (ready === "dialog") ready = await wait();
+      // A dialog hid the prompt: close a menu (a question holds the message
+      // with its chips in place), then count the chips again.
+      if (ready === "dialog") {
+        await onDialog();
+        ready = await wait();
+      }
     }
     // Chat must not stay unsent: the text follows and the receipt is flagged.
-    if (ready === false) await onNotice("CHAT_IMAGES_MAYBE_MISSING");
-    if (images.text) await pasteText(manager, target, images.text);
+    if (ready !== true) await onNotice("CHAT_IMAGES_MAYBE_MISSING");
+    if (images.text) {
+      // Right before the text: a dialog that opened meanwhile is closed or holds
+      // the text; nothing is ever pasted into a dialog. A message appended to a
+      // draft keeps its text on its own line (Claude drops a newline before paths).
+      await onPhase("text-intent");
+      await pasteText(manager, target, pastePrefix() + images.text);
+    }
     await onPhase("pasted");
   } else if (!submitOnly) {
     await onPhase("paste-intent");
@@ -516,6 +524,7 @@ export function withChatInput(manager, id, operation) {
             imageTimeoutMs: manager.chatInputTiming?.imagesMs,
             pastePrefix: () => (replace ? claudeInput.pastePrefix() : ""),
             onNotice: notice,
+            onDialog: () => claudeInput.dismissOpen(),
             // The intent is durable before its guard, so a change during the write
             // is still caught. A refused guard proves no bytes were written: the
             // caller restores its last proven phase instead of staying uncertain.
@@ -538,9 +547,19 @@ export function withChatInput(manager, id, operation) {
                   else if (claude) await claudeInput.beforeText();
                 } else {
                   await check(matches, inspectComposer && submitOnly);
+                  // Held image-only chips have no text step to prove them.
+                  if (resume && !message.text)
+                    await claudeInput.beforeResume(options.promptProof, chipsOnly, {
+                      text: false,
+                    });
                   if (replace || resume) await claudeInput.beforeSubmit();
                   else if (proven)
                     await claudeInput.beforeResubmit(options.promptProof, matches);
+                  // Enter must not submit a draft whose image paths went astray.
+                  if (replace && message && !message.text)
+                    await claudeInput.assertImages(
+                      Number.isInteger(initialImages) ? initialImages : 0,
+                    );
                 }
               } catch (error) {
                 await options.onRefused?.(phase);

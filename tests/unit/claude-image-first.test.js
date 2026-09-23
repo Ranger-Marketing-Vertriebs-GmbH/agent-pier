@@ -7,7 +7,7 @@ import * as chat from "../../server/features/sessions/session-chat-input.js";
 import { claudeModelManager, claudePromptModel } from "../helpers/claude-prompt-model.js";
 
 // A real Claude Code 2.1.280 permission prompt.
-const { permission } = JSON.parse(
+const { permission, rewind } = JSON.parse(
   await fs.readFile(
     new URL("../fixtures/tui-input/claude-2.1.280-screens.json", import.meta.url),
   ),
@@ -236,4 +236,94 @@ test("Codex and OpenCode keep one paste even with image paths", async (t) => {
     [`Look\n${files[0]}`, `Look\n${files[0]}`],
   );
   assert.ok(!tmux.some(([, command]) => command === "display-message"));
+});
+
+test("regression: a question after a closed menu never receives the text", async (t) => {
+  // Rewind opens right after the image paste; Escape closes it, then a
+  // permission question appears at different moments of the following steps.
+  for (const reads of [1, 2, 3, 4, 6]) {
+    const files = await images(t, 2);
+    const model = claudePromptModel({ images: true });
+    const manager = claudeModelManager(model);
+    manager.chatInputTiming = { imagesMs: 300, dialog: { settleMs: 100, waitMs: 100 } };
+    const paste = model.paste;
+    let first = true;
+    model.paste = (text) => {
+      paste(text);
+      if (first) ((first = false), (model.dialog = rewind));
+    };
+    const key = model.key;
+    let armed = -1;
+    model.key = (name) => {
+      key(name);
+      if (name === "Escape") armed = 0;
+    };
+    const tmux = manager.tmux;
+    manager.tmux = async (args, options) => {
+      if (args[0] === "display-message" && armed >= 0 && ++armed === reads + 1)
+        model.dialog = permission;
+      return tmux(args, options);
+    };
+    const result = await send(manager, ["Look", ...files].join("\n"));
+    assert.equal(result.error?.code, "CHAT_QUESTION_OPEN", `after ${reads} reads`);
+    // Neither the text nor Enter reached the question.
+    assert.deepEqual(model.dialogInput, [], `after ${reads} reads`);
+    assert.deepEqual(model.submitted, [], `after ${reads} reads`);
+    assert.equal(model.keys.filter((name) => name === "Escape").length, 1);
+  }
+});
+
+test("an image-only message closes a menu seen during the chip wait, or holds", async (t) => {
+  const files = await images(t, 1);
+  for (const [dialog, outcome] of [
+    [rewind, "submitted"],
+    [permission, "CHAT_QUESTION_OPEN"],
+  ]) {
+    const model = claudePromptModel({ images: true });
+    const manager = claudeModelManager(model);
+    manager.chatInputTiming = { dialog: { settleMs: 30, waitMs: 30 } };
+    const paste = model.paste;
+    model.paste = (text) => {
+      paste(text);
+      model.dialog = dialog;
+    };
+    const started = performance.now();
+    const result = await send(manager, files[0]);
+    // The wait ends as soon as the dialog shows, not after ten seconds.
+    assert.ok(performance.now() - started < 3000);
+    if (outcome === "submitted") {
+      assert.equal(result.error, undefined);
+      assert.deepEqual(model.submitted, ["[Image #1]"]);
+      assert.deepEqual(result.notices, ["CHAT_DIALOG_CLOSED"]);
+    } else {
+      assert.equal(result.error.code, outcome);
+      assert.deepEqual(result.phases, ["paste-intent", "images-pasted"]);
+      assert.deepEqual(model.dialogInput, []);
+      assert.deepEqual(model.keys, []);
+    }
+  }
+});
+
+test("an appended draft keeps its own line and never loses swallowed images", async (t) => {
+  const files = await images(t, 1);
+  // Clearing the draft fails, so the message is appended to it.
+  const stuck = () => {
+    const model = claudePromptModel({ images: true, draft: "draft foo" });
+    const manager = claudeModelManager(model);
+    manager.chatInputTiming = { clear: { maxKeys: 0 }, imagesMs: 100 };
+    return { model, manager };
+  };
+  const text = stuck();
+  const appended = await send(text.manager, ["Describe", ...files].join("\n"));
+  assert.equal(appended.error, undefined);
+  // Claude drops a newline before image paths; the text carries it instead.
+  assert.deepEqual(pastes(text.manager), [files[0], "\nDescribe"]);
+  assert.deepEqual(text.model.submitted, ["draft foo[Image #1]\nDescribe"]);
+  // The image paths never reached the prompt: Enter would send only the draft.
+  const lost = stuck();
+  lost.model.paste = () => {};
+  const refused = await send(lost.manager, files[0]);
+  assert.equal(refused.error.code, "CHAT_SUBMIT_UNCONFIRMED");
+  assert.deepEqual(keys(lost.manager), []);
+  assert.deepEqual(lost.model.submitted, []);
 });
