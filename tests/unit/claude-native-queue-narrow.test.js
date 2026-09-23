@@ -108,6 +108,15 @@ test("only the queued placeholder satisfies the queued placeholder check", () =>
   );
   for (const text of ["Press up to edit queued messages", "Press up to edit queu…"])
     assert.equal(claudePlaceholder(dim(text), pane, { queued: true }), true, text);
+  // A colored Claude always dims its placeholder: undimmed text there is typed.
+  const typed = dim("Press up to edit queued messages").replace("\x1b[0;2m", "\x1b[0m");
+  assert.equal(claudePlaceholder(typed, pane, { queued: true }), false);
+  assert.equal(
+    claudePlaceholder("❯ \x1b[7mP\x1b[0mress up to edit queued messages", pane, {
+      queued: true,
+    }),
+    true,
+  );
 });
 
 test("other queue layouts keep their clipped-row limit of width - 10", () => {
