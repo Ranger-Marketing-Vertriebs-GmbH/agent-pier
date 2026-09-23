@@ -15,6 +15,7 @@ import {
 } from "../../../vendor/agentbus/core/fsx.js";
 const modulePath = fileURLToPath(import.meta.url);
 const disabledToken = "agentpier-disabled-no-token";
+const disabledConfig = "agentpier-disabled";
 const validId = (id) =>
   typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id);
 
@@ -202,10 +203,10 @@ export class GithubCredentials {
   disable(folder) {
     // Metadata is no longer trustworthy. First make native gh reject this config,
     // then remove every cached credential; retain only inert host placeholders.
+    // A non-mapping root is rejected by every gh release as an invalid config file;
+    // an unknown schema version stopped working once gh 2.101 retired migrations.
     ensureDir(folder);
-    writeJsonAtomic(path.join(folder, "config.yml"), {
-      version: "agentpier-disabled",
-    });
+    writeJsonAtomic(path.join(folder, "config.yml"), disabledConfig);
     let previous = {};
     try {
       previous = readJson(path.join(folder, "hosts.yml"));
