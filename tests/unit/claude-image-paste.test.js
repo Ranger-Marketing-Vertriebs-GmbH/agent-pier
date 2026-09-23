@@ -224,3 +224,28 @@ test("chips scrolled out of view keep waiting, then fail clearly", async (t) => 
   );
   assert.ok(reads > 1);
 });
+
+test("chip-like text typed in the message cannot stand in for an attached image", async (t) => {
+  const text = `compare with [Image #1]\n${await realImages(t, 1)}`;
+  // Claude 2.1.280 keeps the typed label literal and prepends the real chip.
+  const captures = [
+    screen("compare with [Image #1]"),
+    screen("[Image #1]compare with [Image #1]"),
+  ];
+  const calls = [];
+  const manager = {
+    target: () => "=synthetic",
+    tmux: async (args) => {
+      calls.push(args[0]);
+      if (args[0] === "display-message") return capture(captures.shift(), args);
+    },
+  };
+  await writeChatTuiInput(manager, { id: "synthetic", tool: "claude" }, text);
+  assert.deepEqual(calls, [
+    "load-buffer",
+    "paste-buffer",
+    "display-message",
+    "display-message",
+    "send-keys",
+  ]);
+});
