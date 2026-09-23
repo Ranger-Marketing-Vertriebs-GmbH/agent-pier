@@ -26,22 +26,37 @@ function message(type, content) {
   );
 }
 
+// Like Claude Code, echo the typed or pasted draft inside the ruled prompt box
+// (continuation rows are indented) so the composer guard can see the paste.
 function render() {
   const width = process.stdout.columns || screen.pane.width;
   const height = process.stdout.rows || screen.pane.height;
+  const draft = text ? text.split("\n") : [];
   const cursorY = height - 3;
+  const top = cursorY - Math.max(draft.length, 1);
   const rows = Array.from({ length: height }, () => "");
   rows[0] = "\x1b[32mREAL_PTY_READY\x1b[0m";
   rows[1] = "Änderungen · ❯ ● ▐▛███▜▌";
   rows[2] = "TUI_STATUS_ONLY";
-  output.slice(-(cursorY - 4)).forEach((line, index) => (rows[index + 3] = line));
-  rows[cursorY - 1] = rows[cursorY + 1] = "─".repeat(width);
-  rows[cursorY] = composer;
+  output.slice(-(top - 3)).forEach((line, index) => (rows[index + 3] = line));
+  rows[top] = rows[cursorY + 1] = "─".repeat(width);
+  if (draft.length)
+    draft.forEach((line, index) => {
+      const last = index === draft.length - 1;
+      rows[top + 1 + index] =
+        (index ? "  " : "\x1b[39m❯\u00a0") + line + (last ? "\x1b[7m \x1b[0m" : "");
+    });
+  else rows[cursorY] = composer;
   rows[cursorY + 2] = footer;
   process.stdout.write(
     renderChatTuiScreen({
       raw: rows.join("\n"),
-      pane: { width, height, cursorX: 2, cursorY },
+      pane: {
+        width,
+        height,
+        cursorX: 2 + (draft.at(-1)?.length ?? 0),
+        cursorY,
+      },
     }),
   );
 }
@@ -51,6 +66,7 @@ const endPaste = "\x1b[201~";
 process.stdin.setRawMode(true);
 process.stdin.setEncoding("utf8");
 process.stdin.on("data", (data) => {
+  const before = text;
   pending += data;
   while (pending) {
     if (pending.startsWith(beginPaste) || pending.startsWith(endPaste)) {
@@ -67,9 +83,10 @@ process.stdin.on("data", (data) => {
         output.push(...reply.split("\n"));
         text = "";
         render();
-      } else text += character;
+      } else text += character === "\r" ? "\n" : character;
     }
   }
+  if (text !== before) render();
 });
 process.stdout.on("resize", render);
 message("assistant", "REAL_PTY_READY");
