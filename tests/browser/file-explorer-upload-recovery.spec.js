@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { baseURL } from "../helpers/browser.js";
 import { selectEnglish } from "../helpers/file-explorer-browser.js";
-import { uploadsFixture } from "../helpers/file-uploads-browser.js";
+import { selectNativeFolder, uploadsFixture } from "../helpers/file-uploads-browser.js";
 
 const source = (name, text = name) => ({
   name,
@@ -46,6 +46,7 @@ test("native folder fallback retains relative paths, discloses empty omissions a
   const marker = "private-upload-content-do-not-persist-938413";
   await fs.writeFile(path.join(root, "nested", "same.txt"), marker);
   const { state: f } = await uploadsFixture(page);
+  let folder, selectionError;
   try {
     await selectEnglish(page);
     await page.goto(baseURL + "/files");
@@ -53,7 +54,7 @@ test("native folder fallback retains relative paths, discloses empty omissions a
     const databases = await page.evaluate(async () =>
       (await indexedDB.databases()).map(({ name }) => name),
     );
-    await page.getByLabel("Upload folder", { exact: true }).setInputFiles(root);
+    folder = selectNativeFolder(page, "Upload folder", root);
     const uploads = page.getByRole("region", { name: "Uploads", exact: true });
     await expect(uploads).toContainText("Upload completed");
     await expect(uploads).toContainText(
@@ -71,8 +72,10 @@ test("native folder fallback retains relative paths, discloses empty omissions a
     expect(storage.text).not.toContain(Buffer.from(marker).toString("base64"));
     expect(storage.databases).toEqual(databases);
   } finally {
+    selectionError = await folder?.drain();
     await fs.rm(directory, { recursive: true, force: true });
   }
+  if (selectionError) throw selectionError;
 });
 
 test("100 percent transport progress waits for durable completion and true cancellation aborts its XHR", async ({

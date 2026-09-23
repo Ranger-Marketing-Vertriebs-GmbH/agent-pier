@@ -305,3 +305,24 @@ export async function uploadsFixture(page) {
   });
   return { ...base, state };
 }
+
+// Playwright resolves a native folder selection only after an `input` listener that it
+// installs through a separate evaluation. WebKit can dispatch `input` before that
+// listener exists, leaving the call pending until the page closes even though the app
+// already received every file. Callers own the pending selection, establish the upload
+// outcome through UI, HTTP and disk assertions, and only then close the page to drain it.
+export function selectNativeFolder(page, label, directory) {
+  const selecting = page
+    .getByLabel(label, { exact: true })
+    .setInputFiles(directory)
+    .then(
+      () => null,
+      (error) => error,
+    );
+  return {
+    async drain() {
+      await page.close().catch(() => {});
+      return selecting;
+    },
+  };
+}
