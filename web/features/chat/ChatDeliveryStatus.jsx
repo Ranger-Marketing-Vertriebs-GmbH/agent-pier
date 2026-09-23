@@ -22,6 +22,8 @@ export default function ChatDeliveryStatus({
     const native = delivery.nativeStates?.get(item.id);
     const pending = item.id === delivery.outbox?.id;
     const recovering = item.id === delivery.recovering;
+    // Held by the server behind a question, request, menu or earlier message.
+    const held = item.status === "pending" && Boolean(item.waiting);
     // Stable server reason codes are translated here; free text is a fallback.
     // An uncertain outcome before Enter means the text sits in Claude's prompt.
     const reasonText = (code) =>
@@ -57,7 +59,9 @@ export default function ChatDeliveryStatus({
                 ? copy.waitingRequest
                 : status === "pending" && item.waiting === "dialog"
                   ? copy.waitingDialog
-                  : copy[status] || copy.checking}
+                  : status === "pending" && item.waiting === "queue"
+                    ? copy.waitingQueue
+                    : copy[status] || copy.checking}
             </span>
             {detail && <span role="alert">{detail}</span>}
             {item.recovery?.action === "blocked" && (
@@ -108,8 +112,26 @@ export default function ChatDeliveryStatus({
                 {item.status === "handed-off" ? copy.inspect : copy.redeliver}
               </button>
             )}
+            {held && !item.pasted && (
+              <button
+                type="button"
+                className="button"
+                onClick={() => delivery.cancel(item.id)}
+              >
+                {copy.cancel}
+              </button>
+            )}
+            {!pending && item.status === "rejected" && (
+              <button
+                type="button"
+                className="button"
+                onClick={() => delivery.draft.reuse(item.id)}
+              >
+                {copy.edit}
+              </button>
+            )}
             {(item.recovery?.action === "blocked" ||
-              (item.status === "pending" && item.waiting === "dialog")) && (
+              (held && (item.waiting === "dialog" || item.pasted))) && (
               <button type="button" className="button" onClick={openTerminal}>
                 {copy.openTerminal}
               </button>
