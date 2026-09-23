@@ -411,10 +411,7 @@ export function withChatInput(manager, id, operation) {
             attempted = true;
             if (replace)
               fresh = await clearClaudeComposer(manager, session, fresh, snapshot);
-            if (claude)
-              initialImages = claudeComposerImages(
-                `${fresh.pane.width}|${fresh.pane.cursorY}\n${fresh.raw}`,
-              );
+            if (claude) initialImages = claudeComposerImages(fresh.raw, fresh.pane);
           } finally {
             checking = false;
           }
