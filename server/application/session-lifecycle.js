@@ -94,7 +94,7 @@ export function createSessionLifecycle(services) {
       throw problem(serverMessages.sessions.invalidAgentBusSelection);
     const sshIds = sshSessions?.validate(body.sshAccessIds);
     if (login && sshIds?.length)
-      throw problem("SSH-Zugänge sind für Login-Sitzungen nicht verfügbar.");
+      throw problem(serverMessages.ssh.loginSessionsUnsupported);
     if (body.agentpierTools && (login || trusted.pipeline))
       throw problem("AgentPier tools are only available to standalone coding sessions.");
     services.sessionMcp?.validate(body.agentpierTools);
