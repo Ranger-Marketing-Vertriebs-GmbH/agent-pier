@@ -37,28 +37,83 @@ const queuedText = (text) =>
   (text.endsWith("…") &&
     text.length > 2 &&
     queuedPlaceholder.startsWith(text.slice(0, -1)));
+// Footer hints Claude Code 2.1.280 renders only while its prompt is empty; a
+// draft reduces the footer to the permission mode.
+const emptyPromptHints = ["esc to interrupt", "? for shortcuts"];
+
+/**
+ * NO_COLOR/FORCE_COLOR=0: Claude emits no styling besides its reverse-video
+ * cursor cell (none at all with the native cursor). Colored panes always style
+ * their borders.
+ */
+export function colorlessScreen(text) {
+  return !/\x1b\[(?!0?m|7m)[0-9;:]*m/.test(text || "");
+}
+
+/**
+ * The footer below the prompt box shows a hint that only an empty prompt has.
+ * Hints are joined by " · "; a right-aligned notice may follow after a gap.
+ */
+function emptyPromptFooter(footer) {
+  return plain(footer)
+    .split(/\s·\s|\s{2,}/)
+    .map((hint) => hint.trim())
+    .some(
+      (hint) =>
+        emptyPromptHints.includes(hint) ||
+        // A truncated hint must still name itself ("esc to…" does not).
+        (hint.endsWith("…") &&
+          hint.length > 8 &&
+          emptyPromptHints.some((full) => full.startsWith(hint.slice(0, -1)))),
+    );
+}
+
+/** Text of a one-row prompt shaped like a placeholder at the cursor's start cell. */
+function placeholderShape(line, pane, colorless) {
+  if (pane?.cursorX !== 2) return null;
+  const native = nativePlaceholderRow.exec(line || "");
+  if (native) return { text: native[1].trimEnd(), dim: true };
+  const match = placeholderRow.exec(line || "");
+  if (match)
+    return { text: (match[1] + match[3]).trimEnd(), dim: match[2] === "\x1b[0;2m" };
+  // Native cursor without color: a bare row.
+  const bare = colorless && /^❯[  ]([^\x1b]+)$/.exec(line || "");
+  return bare ? { text: bare[1].trimEnd(), dim: false } : null;
+}
 
 /**
  * Claude's empty prompt showing a placeholder, at the cursor's start cell.
- * `queued` accepts only the (possibly truncated) queued-messages placeholder.
+ * `queued` accepts only the (possibly truncated) queued-messages placeholder;
+ * `screen` (the whole capture) decides whether the pane is colorless.
+ *
+ * A colored Claude always dims its placeholder, so undimmed text is typed.
+ * Without color a draft whose cursor sits on its first character looks exactly
+ * like a placeholder or prompt suggestion. It then counts only while `footer`
+ * (the row below the prompt box) shows a hint Claude renders for an empty
+ * prompt alone, so a typed "Press up to edit queued messages" is never taken
+ * for an empty prompt. Without that hint (narrow panes cut it to "…") the row
+ * is a `claudeAmbiguousPlaceholder`.
  */
-export function claudePlaceholder(line, pane, { queued = false } = {}) {
-  if (pane?.cursorX !== 2) return false;
-  const native = nativePlaceholderRow.exec(line || "");
-  if (native) {
-    const text = native[1].trimEnd();
-    return queued ? queuedText(text) : text.length > 0;
-  }
-  const match = placeholderRow.exec(line || "");
-  if (!match) return false;
-  const text = (match[1] + match[3]).trimEnd();
-  // Typed text is never dim; without color only the known placeholder is safe,
-  // because a draft with its cursor on the first character looks the same.
-  const dim = match[2] === "\x1b[0;2m";
-  if (dim && !queued) return text.length > 0;
-  // A colored Claude always dims its placeholder; only NO_COLOR drops it.
-  if (queued && !dim && /\x1b\[(?:[34]8;|39m)/.test(line)) return false;
-  return queuedText(text);
+export function claudePlaceholder(
+  line,
+  pane,
+  { queued = false, footer = "", screen = line } = {},
+) {
+  const colorless = colorlessScreen(screen);
+  const shape = placeholderShape(line, pane, colorless);
+  if (!shape) return false;
+  if (!colorless) return shape.dim && (queued ? queuedText(shape.text) : !!shape.text);
+  return (queued ? queuedText(shape.text) : !!shape.text) && emptyPromptFooter(footer);
+}
+
+/**
+ * A colorless row that is either a placeholder or a draft whose cursor sits on
+ * its first character. Only the prompt's reaction to editing keys tells them
+ * apart: a draft moves its cursor on ctrl+e, a placeholder stays inert.
+ */
+export function claudeAmbiguousPlaceholder(line, pane, screen = line) {
+  const colorless = colorlessScreen(screen);
+  return colorless && Boolean(placeholderShape(line, pane, colorless)?.text);
 }
 
 export function composerProblem(code) {
@@ -96,6 +151,8 @@ export function claudeComposerBox(raw, pane = {}) {
     rows,
     first: lines[top + 1],
     raw: lines.slice(top + 1, bottom),
+    // The row below the bottom border: Claude's footer hints.
+    footer: lines[bottom + 1],
     clipped: bottom >= lines.length,
   };
 }
@@ -108,14 +165,16 @@ export function claudeComposerState(raw, pane, composer) {
   if (composer?.state === "empty" || composer?.state === "text") return composer;
   const box = claudeComposerBox(raw, pane);
   if (box) {
-    if (
+    const single =
       box.rows.length === 1 &&
       pane.cursorX === 2 &&
       pane.cursorY === box.top + 1 &&
-      !box.clipped &&
-      claudePlaceholder(box.first, pane)
-    )
+      !box.clipped;
+    if (single && claudePlaceholder(box.first, pane, { footer: box.footer, screen: raw }))
       return { state: "empty", text: "" };
+    // Without color: a placeholder or a draft with its cursor at the start.
+    if (single && claudeAmbiguousPlaceholder(box.first, pane, raw))
+      return { state: "draft", text: null, placeholder: true };
     return { state: "draft", text: null };
   }
   const screen = typeof raw === "string" ? raw.split("\n").map(plain) : [];
@@ -203,7 +262,11 @@ export async function clearClaudeComposer(
       // when the cursor sits on the first line.
       if (moved && keys[0] === "BSpace") break;
     }
-    if (!progressed) break;
+    // Editing keys move a draft's cursor; a colorless placeholder stays inert.
+    if (!progressed) {
+      if (state().placeholder) return fresh;
+      break;
+    }
   }
   throw composerProblem("CHAT_COMPOSER_NOT_CLEARED");
 }
@@ -216,11 +279,18 @@ export async function confirmClaudeSubmit(
   const deadline = performance.now() + timeoutMs;
   do {
     const fresh = await snapshot();
-    const { state } = claudeComposerState(fresh.raw, fresh.pane, fresh.composer);
+    const { state, placeholder } = claudeComposerState(
+      fresh.raw,
+      fresh.pane,
+      fresh.composer,
+    );
     // A native slash command may replace the prompt with its own picker; an
-    // unreadable prompt cannot show that it emptied.
+    // unreadable prompt cannot show that it emptied. A placeholder-shaped
+    // colorless row after Enter is no longer the submitted text, which would
+    // end at the cursor.
     if (
       state === "empty" ||
+      placeholder ||
       (slash && ["dialog", "unknown"].includes(state)) ||
       (unreadable && state === "unknown")
     )

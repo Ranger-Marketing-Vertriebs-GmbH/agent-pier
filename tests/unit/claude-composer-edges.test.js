@@ -30,12 +30,17 @@ test("the queued-message placeholder is empty in narrow and colorless panes", ()
     assert.equal(state(screens[name]), "empty", name);
   }
   // Without color, a typed draft with its cursor on the first character looks
-  // like a placeholder; only Claude's own placeholder text counts as empty.
+  // like a placeholder; Claude then drops the empty-prompt footer hints.
   const { raw, pane } = screens.queueNoColor;
-  const typed = raw.replace(
-    /(❯.\x1b\[7mP\x1b\[0m)ress up to edit queued messages/,
-    "$1lease run the tests",
-  );
+  const typed = raw
+    .replace(
+      /(❯.\x1b\[7mP\x1b\[0m)ress up to edit queued messages/,
+      "$1lease run the tests",
+    )
+    .replace(
+      "  ⏸ manual mode on · esc to interrupt · ← for agents",
+      "  ⏸ manual mode on",
+    );
   assert.notEqual(typed, raw);
   assert.equal(state({ raw: typed, pane }), "draft");
 });
