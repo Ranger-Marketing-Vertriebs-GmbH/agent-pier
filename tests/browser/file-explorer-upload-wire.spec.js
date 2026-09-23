@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { baseURL } from "../helpers/browser.js";
 import { selectEnglish } from "../helpers/file-explorer-browser.js";
+import { selectNativeFolder } from "../helpers/file-uploads-browser.js";
 
 test("actual receiver publishes native folder bytes after an authoritative directory conflict remap", async ({
   page,
@@ -29,19 +30,13 @@ test("actual receiver publishes native folder bytes after an authoritative direc
     if (req.method() === "POST" && url.pathname.startsWith("/api/files/"))
       mutations.push({ path: url.pathname, body: req.postDataJSON() });
   });
-  let selecting;
+  let folder, selectionError;
   try {
     await selectEnglish(page);
     await page.goto(`${baseURL}/files?path=${encodeURIComponent(destination)}`);
     await openExplorerPanel(page, "uploads");
     // The conflict proves the app received Files while native selection may be pending.
-    selecting = page
-      .getByLabel("Upload folder", { exact: true })
-      .setInputFiles(selection)
-      .then(
-        () => null,
-        (error) => error,
-      );
+    folder = selectNativeFolder(page, "Upload folder", selection);
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText(path.join(destination, "root"));
     expect(puts).toHaveLength(0);
@@ -72,13 +67,10 @@ test("actual receiver publishes native folder bytes after an authoritative direc
       page.getByRole("region", { name: "Uploads", exact: true }),
     ).toContainText(row.path);
   } finally {
-    // WebKit may keep the native selection acknowledgement pending after every
-    // byte has arrived. Close its document before draining that owned operation;
-    // upload completion is established by the UI, HTTP and disk assertions above.
-    await page.close().catch(() => {});
-    await selecting;
+    selectionError = await folder?.drain();
     await fs.rm(directory, { recursive: true, force: true });
   }
+  if (selectionError) throw selectionError;
 });
 
 test("a directory remap before child admission refuses old metadata and explicit retry claims the refreshed path once", async ({
@@ -109,20 +101,14 @@ test("a directory remap before child admission refuses old metadata and explicit
   page.on("request", (req) => {
     if (/\/uploads\/[^/]+\/content$/.test(new URL(req.url()).pathname)) puts.push(req);
   });
-  let selecting;
+  let folder, selectionError;
   try {
     await selectEnglish(page);
     await page.goto(`${baseURL}/files?path=${encodeURIComponent(destination)}`);
     await openExplorerPanel(page, "uploads");
     // Native directory automation can still be pending after the app received Files.
     // Own its result while the captured POST proves the app processed the selection.
-    selecting = page
-      .getByLabel("Upload folder", { exact: true })
-      .setInputFiles(selection)
-      .then(
-        () => null,
-        (error) => error,
-      );
+    folder = selectNativeFolder(page, "Upload folder", selection);
     await expect.poll(() => reservations.length).toBe(1);
     const original = reservations[0],
       groupURL = `/api/files/jobs/${original.groupId}`;
@@ -191,11 +177,8 @@ test("a directory remap before child admission refuses old metadata and explicit
     expect(puts).toHaveLength(1);
   } finally {
     held.resolve();
-    // WebKit may keep the native selection acknowledgement pending after every
-    // byte has arrived. Close its document before draining that owned operation;
-    // upload completion is established by the UI, HTTP and disk assertions above.
-    await page.close().catch(() => {});
-    await selecting;
+    selectionError = await folder?.drain();
     await fs.rm(directory, { recursive: true, force: true });
   }
+  if (selectionError) throw selectionError;
 });
