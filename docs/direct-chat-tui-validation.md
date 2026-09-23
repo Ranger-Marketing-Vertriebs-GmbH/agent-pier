@@ -210,10 +210,13 @@ Claude Code 2.1.280 removes every line holding an existing absolute image path
 from a paste and places its chips before the remaining lines, separated by single
 spaces and with no space before the text: `a\n<png>\nb\n<png>` becomes
 `[Image #1] [Image #2]a` / `b`. Text pasted after existing chips is appended the
-same way, so pasting the paths first and the text afterwards produces the same
-prompt and the same provider request: one text block starting with the chip
-labels, followed by the image blocks. `~/`, relative and missing image paths stay
-text. Chip numbers continue per Claude session (`[Image #3]` in the second
+same way, so pasting the paths first and the text afterwards keeps the order in
+the prompt and in the provider request: one text block starting with the chip
+labels, followed by the image blocks. Paths in single or double quotes, also
+with surrounding spaces, become chips as well. A single paste also silently drops
+blank lines and missing, `~/` and relative image paths (`a\n\n/missing.png\n~/x.png\nrel/y.png\n<png>\nb`
+becomes `[Image #1]a` / `b`); the separate text paste keeps those lines as
+written, which is intended. Chip numbers continue per Claude session (`[Image #3]` in the second
 message), so drafts are compared with chip numbers normalized.
 
 AgentPier therefore pastes a Claude image message in two steps: all image paths
@@ -233,7 +236,7 @@ records `paste-intent`, `images-pasted`, `text-intent`, `pasted`,
 | `pasted`                                             | exactly chips + text, single row | Enter only                      |
 | `paste-intent`, `submit-intent`, `submitted`, others | —                                | blocked                         |
 
-Anything else, including wrapped or scrolled drafts, blocks without writing.
+Anything else, including wrapped or scrolled drafts, blocks without writing. When an attached image file no longer exists, the block names that reason instead of a composer mismatch.
 Images are never pasted twice. Receipts from earlier versions (single paste,
 phases `paste-intent`/`pasted`) remain readable; their chips-first drafts match the
 same comparison, so submit-only recovery now also works for them.
