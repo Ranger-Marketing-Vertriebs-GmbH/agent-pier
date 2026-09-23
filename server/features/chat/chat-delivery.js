@@ -137,7 +137,13 @@ export class ChatDelivery {
       ...(status === "uncertain" ? { error: copy.uncertain } : {}),
       // Whether the text may sit in the TUI prompt selects the reason wording.
       ...(["uncertain", "pending"].includes(status)
-        ? { pasted: !["reserved", undefined].includes(receipt.journal?.phase) }
+        ? {
+            // "images": only the image chips of the message are in the prompt.
+            pasted:
+              receipt.journal?.phase === "images-pasted"
+                ? "images"
+                : !["reserved", undefined].includes(receipt.journal?.phase),
+          }
         : {}),
       ...(["rejected", "uncertain"].includes(status) && receipt.reason
         ? {
@@ -147,6 +153,7 @@ export class ChatDelivery {
               status === "uncertain" && receipt.journal?.phase === "reserved"
                 ? "rejected"
                 : status,
+              receipt.journal?.phase,
             ),
           }
         : {}),

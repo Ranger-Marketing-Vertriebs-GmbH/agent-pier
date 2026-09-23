@@ -85,9 +85,17 @@ export const noticeRecorder = (receipt) => async (code) => {
   receipt.notices = [...new Set([...(receipt.notices || []), code])];
 };
 
-/** Pasted-but-not-submitted wording for uncertain outcomes, else the plain reason. */
-export const reasonText = (code, status) =>
-  (status === "uncertain" && copy.pastedReasons[code]) || copy.reasons[code];
+/**
+ * Pasted-but-not-submitted wording for uncertain outcomes, else the plain reason.
+ * With only image chips in the prompt (`images-pasted`), the wording says so.
+ */
+export const reasonText = (code, status, phase) =>
+  (status === "uncertain" &&
+    phase === "images-pasted" &&
+    copy.pastedReasons[code] &&
+    (copy.imagesPastedReasons[code] || copy.imagesPasted)) ||
+  (status === "uncertain" && copy.pastedReasons[code]) ||
+  copy.reasons[code];
 
 export async function recoverDelivery(delivery, id, deliveryId, body) {
   const { attemptId, expectedAttemptId, deliveryScope, text, mode } = body;
@@ -167,7 +175,9 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
     const finish = (action, explanation, code) => {
       receipt.recovery = {
         action,
-        reason: code ? reasonText(code, receipt.status) : explanation,
+        reason: code
+          ? reasonText(code, receipt.status, receipt.journal?.phase)
+          : explanation,
         requestId,
         ...(code ? { code } : {}),
       };

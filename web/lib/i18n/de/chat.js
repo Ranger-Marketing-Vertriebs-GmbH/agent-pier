@@ -156,6 +156,19 @@ export const chatDeliveryCopy = {
   absentHint:
     "Der Server hat diese Nachricht nicht angenommen. Du kannst sie bearbeiten oder erneut übergeben.",
   // The same reasons after the text was pasted but before Enter (uncertain).
+  imagesPasted:
+    "Die angehängten Bilder stehen im Eingabefeld der TUI, die Nachricht wurde aber nicht vervollständigt und nicht abgeschickt. Bitte prüfe die TUI, bevor du erneut sendest.",
+  // The same reasons with only the image chips in the prompt (images-pasted).
+  imagesPastedReasons: {
+    CHAT_PROMPT_CHANGED:
+      "Die angehängten Bilder wurden in Claude eingefügt, aber das Eingabefeld hat sich während des Wartens verändert. Die Nachricht wurde deshalb nicht vervollständigt und nicht abgeschickt; bitte prüfe die TUI.",
+    CHAT_DIALOG_NOT_CLOSED:
+      "Die angehängten Bilder stehen im Eingabefeld der TUI, die Nachricht wurde aber nicht vervollständigt und nicht abgeschickt: Ein Claude-Menü ließ sich nicht schließen. Bitte prüfe die TUI, bevor du erneut sendest.",
+    CHAT_QUESTION_OPEN:
+      "Die angehängten Bilder stehen im Eingabefeld der TUI, die Nachricht wurde aber nicht vervollständigt und nicht abgeschickt: Claude wartet auf die Antwort zu einer Frage. Bitte prüfe die TUI, bevor du erneut sendest.",
+    CHAT_REQUEST_PENDING:
+      "Die angehängten Bilder stehen im Eingabefeld der TUI, die Nachricht wurde aber nicht vervollständigt und nicht abgeschickt: Eine Anfrage wartet auf Antwort. Bitte prüfe die TUI, bevor du erneut sendest.",
+  },
   pastedReasons: {
     CHAT_PROMPT_CHANGED:
       "Die Nachricht wurde in Claude eingefügt, aber das Eingabefeld hat sich während des Wartens verändert. Sie wurde deshalb nicht abgeschickt; bitte prüfe die TUI.",
