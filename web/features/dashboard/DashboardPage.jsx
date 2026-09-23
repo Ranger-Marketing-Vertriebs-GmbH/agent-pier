@@ -145,8 +145,12 @@ export default function DashboardPage({
                 </button>
               )}
               {t.installed && ["codex", "claude", "opencode", "nono"].includes(t.id) && (
-                <button onClick={() => setModal({ type: "update", tool: t.id })}>
+                <button
+                  className="tool-update-button"
+                  onClick={() => setModal({ type: "update", tool: t.id })}
+                >
                   {toolInstallerCopy.updateCli}
+                  <Icon name="refresh" size={16} />
                 </button>
               )}
             </article>
