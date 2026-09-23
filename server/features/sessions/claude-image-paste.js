@@ -4,6 +4,8 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { problem } from "../../lib/storage.js";
 import { claudeComposerBox, composerProblem } from "./claude-composer.js";
 
+const chip = /\[Image\s+#\s*\d+\]/g;
+
 /**
  * Image chips in Claude's current prompt box, never image labels in conversation
  * output. Shares the prompt box detection, so a box whose bottom border a short
@@ -13,7 +15,7 @@ import { claudeComposerBox, composerProblem } from "./claude-composer.js";
 export function claudeComposerImages(raw, pane) {
   const box = claudeComposerBox(raw, pane);
   if (!box || !box.rows[0].startsWith("❯")) return null;
-  return [...box.rows.join("\n").matchAll(/\[Image\s+#\s*\d+\]/g)].length;
+  return [...box.rows.join("\n").matchAll(chip)].length;
 }
 
 /** Claude asynchronously turns pasted local image paths into image chips. */
@@ -42,7 +44,10 @@ export async function waitForClaudeImagePaste(
   if (!expected) return;
   if (!Number.isInteger(initialImages) || initialImages < 0)
     throw problem("Claude's existing image attachments cannot be inspected", 409);
-  expected += initialImages;
+  // Chip-like text the user typed stays literal in the prompt and matches too.
+  // Only absolute paths become chips: Claude 2.1.280 leaves ~/ and relative
+  // image paths as text.
+  expected += initialImages + [...text.matchAll(chip)].length;
   const target = `${manager.target(session.id)}:0.0`;
   const deadline = performance.now() + timeoutMs;
   do {
