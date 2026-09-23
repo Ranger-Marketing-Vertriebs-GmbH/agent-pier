@@ -11,15 +11,31 @@ const dialogFooter =
 // NO_COLOR/FORCE_COLOR=0 drops the dim attribute.
 const placeholderRow =
   /^(?:\x1b\[[0-9;]*m)*❯[ \u00a0]\x1b\[7m(?:\x1b\[39m)?([^\x1b])(\x1b\[0;2m|\x1b\[0m)([^\x1b]*)(?:\x1b\[0m)?$/;
+// With Claude's native terminal cursor (tengu_native_cursor rollout or
+// CLAUDE_CODE_NATIVE_CURSOR) no cursor cell is drawn: the placeholder is only dim.
+// Typed text is never dim, so a dim row at the start cell is always a placeholder.
+const nativePlaceholderRow =
+  /^(?:\x1b\[[0-9;]*m)*❯[ \u00a0]\x1b\[2m(?:\x1b\[39m)?([^\x1b]+)(?:\x1b\[0m)?$/;
 const queuedPlaceholder = "Press up to edit queued messages";
+const queuedText = (text) =>
+  text === queuedPlaceholder ||
+  (text.endsWith("…") &&
+    text.length > 2 &&
+    queuedPlaceholder.startsWith(text.slice(0, -1)));
 
 /**
  * Claude's empty prompt showing a placeholder, at the cursor's start cell.
  * `queued` accepts only the (possibly truncated) queued-messages placeholder.
  */
 export function claudePlaceholder(line, pane, { queued = false } = {}) {
+  if (pane?.cursorX !== 2) return false;
+  const native = nativePlaceholderRow.exec(line || "");
+  if (native) {
+    const text = native[1].trimEnd();
+    return queued ? queuedText(text) : text.length > 0;
+  }
   const match = placeholderRow.exec(line || "");
-  if (!match || pane?.cursorX !== 2) return false;
+  if (!match) return false;
   const text = (match[1] + match[3]).trimEnd();
   // Typed text is never dim; without color only the known placeholder is safe,
   // because a draft with its cursor on the first character looks the same.
@@ -27,12 +43,7 @@ export function claudePlaceholder(line, pane, { queued = false } = {}) {
   if (dim && !queued) return text.length > 0;
   // A colored Claude always dims its placeholder; only NO_COLOR drops it.
   if (queued && !dim && /\x1b\[(?:[34]8;|39m)/.test(line)) return false;
-  return (
-    text === queuedPlaceholder ||
-    (text.endsWith("…") &&
-      text.length > 2 &&
-      queuedPlaceholder.startsWith(text.slice(0, -1)))
-  );
+  return queuedText(text);
 }
 
 export function composerProblem(code) {
