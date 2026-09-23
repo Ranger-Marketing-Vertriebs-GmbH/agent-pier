@@ -1,4 +1,4 @@
-import { serverCatalogs } from "./catalogs.js";
+import { germanServerMessages } from "./catalog-de.js";
 import { createMessageIndex } from "./message-keys.js";
 
 let identify;
@@ -8,7 +8,7 @@ let identify;
  * payload for logs and older clients; browsers translate by `messageKey`.
  */
 export function messageIdentity(text) {
-  identify ??= createMessageIndex(serverCatalogs.de);
+  identify ??= createMessageIndex(germanServerMessages);
   const found = identify(text);
   if (!found) return {};
   return found.args

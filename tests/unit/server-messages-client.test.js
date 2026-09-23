@@ -2,11 +2,29 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { apiError } from "../../web/lib/api.js";
 import { setLanguage } from "../../web/lib/i18n/index.js";
-import { serverProblemText, serverText } from "../../web/lib/server-messages.js";
+import {
+  serverMessagesReady,
+  serverProblemText,
+  serverText,
+} from "../../web/lib/server-messages.js";
 
 const invalid = "Ungültige native Anfrage oder Antwort.";
 
-test("server messages follow the active UI language by stable key", (t) => {
+test("German keeps server text and English waits for its lazily loaded catalog", async (t) => {
+  t.after(() => setLanguage("de", { persist: false }));
+  setLanguage("de", { persist: false });
+  assert.equal(serverText(invalid, "requests.invalid"), invalid);
+  setLanguage("en", { persist: false });
+  // The catalog is not loaded yet, so the server text is the fallback.
+  assert.equal(serverText(invalid, "requests.invalid"), invalid);
+  await serverMessagesReady();
+  assert.equal(
+    serverText(invalid, "requests.invalid"),
+    "Invalid native request or response.",
+  );
+});
+
+test("server messages follow the active UI language by stable key", async (t) => {
   t.after(() => setLanguage("de", { persist: false }));
   setLanguage("en", { persist: false });
   assert.equal(
@@ -33,6 +51,8 @@ test("server messages follow the active UI language by stable key", (t) => {
     "x",
   );
   assert.equal(serverText("fatal: not a git repository"), "fatal: not a git repository");
+  const long = `${"x".repeat(2100)} ist nicht installiert.`;
+  assert.equal(serverText(long), long);
   assert.equal(
     serverProblemText(
       { type: "error", message: invalid, messageKey: "requests.invalid" },
