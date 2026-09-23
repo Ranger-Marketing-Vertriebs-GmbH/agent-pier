@@ -36,9 +36,10 @@ test("native questions require all answers and retain drafts on conflict without
   state.requests = [request];
   await page.goto(baseURL + "/sessions/fixture-session/chat");
   await expect(page.getByText("Choose a scope", { exact: true })).toBeVisible();
+  // The composer stays usable: a message sent now waits for the answer.
   await expect(
     page.getByRole("textbox", { name: "Nachricht", exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await expect(
     page.getByRole("button", { name: "Modell auswählen", exact: true }),
   ).toBeDisabled();
@@ -286,7 +287,7 @@ for (const locale of ["de-DE", "en-GB"]) {
       await expect(
         page.getByText(en ? "Review Codex hooks" : "Codex-Hooks prüfen", { exact: true }),
       ).toBeVisible();
-      await expect(input).toBeDisabled();
+      await expect(input).toBeEnabled();
       await expect(input).toHaveValue("Keep this original draft");
       expect(state.calls.some((c) => c.path.endsWith("/answer"))).toBe(false);
       if (en)
@@ -347,7 +348,7 @@ for (const locale of ["de-DE", "en-GB"]) {
           exact: true,
         }),
       ).toBeVisible();
-      await expect(input).toBeDisabled();
+      await expect(input).toBeEnabled();
       await expect(input).toHaveValue("Keep my Claude message");
       await expect(page.getByText("/workspace/project", { exact: true })).toBeVisible();
       if (en)

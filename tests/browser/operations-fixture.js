@@ -115,6 +115,14 @@ export async function operationsFixture(page, { tool = "codex" } = {}) {
     else if (/\/requests\/[^/]+\/(answer|handoff)$/.test(path)) {
       state.requests = [];
       result = { requests: [] };
+    } else if (/\/input(?:\/[^/]+)?$/.test(path)) {
+      // Chat delivery: a message sent while a request is open is held until it
+      // is answered, then handed off.
+      const deliveryId = body?.deliveryId || path.split("/").at(-1);
+      if (body) state.inputs = [...(state.inputs || []), body];
+      result = state.requests.length
+        ? { deliveryId, status: "pending", waiting: "request" }
+        : { deliveryId, status: "handed-off" };
     } else if (path.endsWith("/chat")) result = chat;
     else if (path === "/pipeline-profiles") result = { profiles: [] };
     else if (path === "/sandbox-profiles") result = { available: false, profiles: [] };

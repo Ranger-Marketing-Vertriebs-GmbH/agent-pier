@@ -1,5 +1,6 @@
 export const chatComposerCopy = {
-  requestPending: "Anfragen prüfen oder im Terminal fortsetzen.",
+  requestPending:
+    "Beantworte die offene Anfrage oben oder im Terminal. Jetzt gesendete Nachrichten werden danach zugestellt.",
   messageSent: "An die laufende Sitzung gesendet",
   touchSendHint: "Enter: neue Zeile · Senden über den Button",
 };
@@ -122,6 +123,10 @@ export const chatDeliveryCopy = {
   pending: "Übergabe läuft …",
   "handed-off": "An TUI gesendet · CLI-Bestätigung steht aus",
   uncertain: "Zustellung unklar",
+  waitingRequest:
+    "Wartet auf die Antwort zur offenen Anfrage · wird danach automatisch gesendet",
+  waitingDialog:
+    "Wartet auf einen Dialog in der TUI · wird automatisch gesendet, sobald er beantwortet oder geschlossen ist",
   rejected: "Nicht zugestellt",
   uncertainHint:
     "Neu zustellen prüft zuerst die TUI-Eingabe. Bei unklarem Zustand wird nichts erneut geschrieben.",
@@ -149,6 +154,12 @@ export const chatDeliveryCopy = {
     "Der Server hat diese Nachricht nicht angenommen. Du kannst sie bearbeiten oder erneut übergeben.",
   // The same reasons after the text was pasted but before Enter (uncertain).
   pastedReasons: {
+    CHAT_DIALOG_NOT_CLOSED:
+      "Die Nachricht steht im Eingabefeld der TUI, wurde aber nicht abgeschickt: Ein Claude-Menü ließ sich nicht schließen. Bitte prüfe die TUI, bevor du erneut sendest.",
+    CHAT_QUESTION_OPEN:
+      "Die Nachricht steht im Eingabefeld der TUI, wurde aber nicht abgeschickt: Claude wartet auf die Antwort zu einer Frage. Bitte prüfe die TUI, bevor du erneut sendest.",
+    CHAT_REQUEST_PENDING:
+      "Die Nachricht steht im Eingabefeld der TUI, wurde aber nicht abgeschickt: Eine Anfrage wartet auf Antwort. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_COMPOSER_DIALOG:
       "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt: Claude zeigt einen Dialog. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_COMPOSER_UNAVAILABLE:
@@ -158,7 +169,24 @@ export const chatDeliveryCopy = {
     CHAT_IMAGES_UNCONFIRMED:
       "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt: Claude zeigt nicht alle angehängten Bilder im Eingabefeld an. Vergrößere das Terminal oder prüfe die TUI, bevor du erneut sendest.",
   },
+  // Informational, non-blocking notes on a completed handoff.
+  notices: {
+    CHAT_APPENDED_TO_DRAFT:
+      "Zusammen mit Text gesendet, der bereits im Terminal-Eingabefeld stand.",
+    CHAT_PROMPT_UNREADABLE:
+      "Das Terminal-Eingabefeld war nicht lesbar; die Nachricht wurde zusammen mit einem eventuell vorhandenen Inhalt gesendet.",
+    CHAT_DIALOG_CLOSED:
+      "Ein offenes Claude-Menü (z. B. Zurückspulen oder Modellauswahl) wurde vor dem Senden mit Esc geschlossen.",
+    CHAT_IMAGES_MAYBE_MISSING:
+      "Claude hat vor dem Senden nicht alle angehängten Bilder angezeigt; einzelne Bilder fehlen möglicherweise.",
+  },
   reasons: {
+    CHAT_DIALOG_NOT_CLOSED:
+      "Die Nachricht wartete darauf, dass sich ein Claude-Menü schließt, und wurde noch nicht eingegeben. Schließe das Menü im Terminal und sende sie dann erneut.",
+    CHAT_QUESTION_OPEN:
+      "Die Nachricht wartete auf die Antwort zu einer Frage in der TUI und wurde noch nicht eingegeben. Beantworte die Frage im Terminal und sende sie dann erneut.",
+    CHAT_REQUEST_PENDING:
+      "Die Nachricht wartete auf die Antwort zu einer offenen Anfrage und wurde noch nicht eingegeben. Sende sie erneut, sobald die Anfrage beantwortet ist.",
     CHAT_COMPOSER_DIALOG:
       "Claude zeigt gerade einen Dialog oder eine Auswahl. Die Nachricht wurde nicht gesendet; bitte beantworte oder schließe den Dialog in der TUI.",
     CHAT_COMPOSER_UNAVAILABLE:

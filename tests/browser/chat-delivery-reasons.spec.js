@@ -53,7 +53,7 @@ async function fixture(page, receipt) {
 }
 const input = (page) => page.getByLabel("Message", { exact: true });
 
-test("a Claude dialog rejection is explained in English and keeps the draft", async ({
+test("a rejection is explained in English and never locks the composer", async ({
   page,
 }) => {
   const state = await fixture(page, {
@@ -65,10 +65,42 @@ test("a Claude dialog rejection is explained in English and keeps the draft", as
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(page.getByText(/Claude is showing a dialog or picker/)).toBeVisible();
   await expect(page.getByText(/Claude zeigt gerade/)).toHaveCount(0);
-  await page.getByRole("button", { name: "Edit message", exact: true }).click();
+  // Nothing reached the terminal: the text is back in the usable composer.
   await expect(input(page)).toBeEnabled();
   await expect(input(page)).toHaveValue("Do not approve anything");
   expect(state.inputs).toHaveLength(1);
+});
+
+test("handoff notices are shown in English without blocking the next message", async ({
+  page,
+}) => {
+  await fixture(page, {
+    status: "handed-off",
+    notices: ["CHAT_APPENDED_TO_DRAFT", "CHAT_DIALOG_CLOSED"],
+  });
+  await input(page).fill("Continue with the tests");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(
+    page.getByText("Sent together with text that was already in the terminal prompt.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.getByText(/closed with Esc before sending/)).toBeVisible();
+  await expect(input(page)).toBeEnabled();
+  await expect(input(page)).toHaveValue("");
+  await page
+    .locator(".chat-delivery-message")
+    .screenshot({ path: test.info().outputPath("chat-delivery-notice-mobile.png") });
+});
+
+test("a message held for a dialog in the TUI says so and offers the terminal", async ({
+  page,
+}) => {
+  await fixture(page, { status: "pending", waiting: "dialog" });
+  await input(page).fill("After the question");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.getByText(/Waiting for a dialog in the TUI/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open TUI", exact: true })).toBeVisible();
 });
 
 test("a message the server never accepted can be edited and dismissed", async ({

@@ -1,3 +1,4 @@
+import "./chat-delivery.css";
 import NativeDeliveryBadge from "./NativeDeliveryBadge.jsx";
 import React from "react";
 import Message from "./ChatMessage.jsx";
@@ -24,7 +25,10 @@ export default function ChatDeliveryStatus({
     // Stable server reason codes are translated here; free text is a fallback.
     // An uncertain outcome before Enter means the text sits in Claude's prompt.
     const reasonText = (code) =>
-      (item.status === "uncertain" && copy.pastedReasons[code]) || copy.reasons[code];
+      (item.status === "uncertain" &&
+        item.pasted !== false &&
+        copy.pastedReasons[code]) ||
+      copy.reasons[code];
     const detail = reasonText(item.reason) || serverText(item.error);
     const recoveryDetail =
       reasonText(item.recovery?.code) || serverText(item.recovery?.reason);
@@ -48,13 +52,27 @@ export default function ChatDeliveryStatus({
           <NativeDeliveryBadge state={native.state} tool={session.tool} />
         ) : (
           <div className="chat-delivery-status" role="status" aria-label={copy.ariaLabel}>
-            <span>{copy[status] || copy.checking}</span>
+            <span>
+              {status === "pending" && item.waiting === "request"
+                ? copy.waitingRequest
+                : status === "pending" && item.waiting === "dialog"
+                  ? copy.waitingDialog
+                  : copy[status] || copy.checking}
+            </span>
             {detail && <span role="alert">{detail}</span>}
             {item.recovery?.action === "blocked" && (
               <span role="alert">{recoveryDetail}</span>
             )}
           </div>
         )}
+        {(item.notices || [])
+          .filter((code) => copy.notices[code])
+          .map((code) => (
+            // Informational only: the message was handed off regardless.
+            <p className="chat-delivery-note" key={code}>
+              {copy.notices[code]}
+            </p>
+          ))}
         {!native && !delivery.sending && (
           <div className="chat-delivery-actions">
             {item.status === "uncertain" && <p>{copy.uncertainHint}</p>}
@@ -74,7 +92,8 @@ export default function ChatDeliveryStatus({
                 {copy.check}
               </button>
             )}
-            {["uncertain", "rejected", "handed-off"].includes(item.status) && (
+            {/* A rejected message is back in the composer: send it from there. */}
+            {["uncertain", "handed-off"].includes(item.status) && (
               <button
                 type="button"
                 className="button"
@@ -89,7 +108,8 @@ export default function ChatDeliveryStatus({
                 {item.status === "handed-off" ? copy.inspect : copy.redeliver}
               </button>
             )}
-            {item.recovery?.action === "blocked" && (
+            {(item.recovery?.action === "blocked" ||
+              (item.status === "pending" && item.waiting === "dialog")) && (
               <button type="button" className="button" onClick={openTerminal}>
                 {copy.openTerminal}
               </button>

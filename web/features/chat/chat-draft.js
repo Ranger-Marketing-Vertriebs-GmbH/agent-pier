@@ -455,6 +455,9 @@ export class ChatDraft {
         error: receipt.error || "",
         reason: receipt.reason || "",
         recovery: receipt.recovery || item.recovery,
+        notices: Array.isArray(receipt.notices) ? receipt.notices : [],
+        waiting: receipt.status === "pending" ? receipt.waiting || "" : "",
+        pasted: receipt.pasted !== false,
         recoveryAttempt: resolved ? null : item.recoveryAttempt,
       };
       if (
@@ -472,7 +475,18 @@ export class ChatDraft {
           },
         };
       }
-      if (pending && receipt.status === "handed-off") {
+      if (pending && receipt.status === "rejected") {
+        // Nothing reached the terminal: release the composer with the message
+        // text instead of locking it behind the notice.
+        this.write({
+          ...saved,
+          outbox: null,
+          recent: retainRecent([
+            ...saved.recent,
+            { ...next, attachments: next.attachments || manifest(saved.attachments) },
+          ]),
+        });
+      } else if (pending && receipt.status === "handed-off") {
         this.write({
           ...saved,
           text: "",

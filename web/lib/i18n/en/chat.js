@@ -1,5 +1,6 @@
 export const chatComposerCopy = {
-  requestPending: "Review requests or continue in the terminal.",
+  requestPending:
+    "Answer the open request above or in the terminal. Messages you send now are delivered afterwards.",
   messageSent: "Sent to the running session",
   touchSendHint: "Enter: new line · Use the button to send",
 };
@@ -122,6 +123,10 @@ export const chatDeliveryCopy = {
   pending: "Handoff in progress …",
   "handed-off": "Sent to TUI · awaiting CLI confirmation",
   uncertain: "Delivery uncertain",
+  waitingRequest:
+    "Waiting for the open request to be answered · sent automatically afterwards",
+  waitingDialog:
+    "Waiting for a dialog in the TUI · sent automatically once it is answered or closed",
   rejected: "Not delivered",
   uncertainHint:
     "Redeliver first checks the terminal input. If the outcome remains unclear, nothing is written again.",
@@ -149,6 +154,12 @@ export const chatDeliveryCopy = {
     "The server did not accept this message. You can edit it or retry the handoff.",
   // The same reasons after the text was pasted but before Enter (uncertain).
   pastedReasons: {
+    CHAT_DIALOG_NOT_CLOSED:
+      "The message is in the TUI prompt but was not submitted: a Claude menu could not be closed. Check the TUI before sending again.",
+    CHAT_QUESTION_OPEN:
+      "The message is in the TUI prompt but was not submitted: Claude is waiting for an answer to a question. Check the TUI before sending again.",
+    CHAT_REQUEST_PENDING:
+      "The message is in the TUI prompt but was not submitted: a request is waiting for an answer. Check the TUI before sending again.",
     CHAT_COMPOSER_DIALOG:
       "The message was pasted into Claude but not submitted: Claude is showing a dialog. Check the TUI before sending again.",
     CHAT_COMPOSER_UNAVAILABLE:
@@ -158,7 +169,24 @@ export const chatDeliveryCopy = {
     CHAT_IMAGES_UNCONFIRMED:
       "The message was pasted into Claude but not submitted: Claude's input field does not show all attached images. Enlarge the terminal or check the TUI before sending again.",
   },
+  // Informational, non-blocking notes on a completed handoff.
+  notices: {
+    CHAT_APPENDED_TO_DRAFT:
+      "Sent together with text that was already in the terminal prompt.",
+    CHAT_PROMPT_UNREADABLE:
+      "The terminal prompt could not be read; the message was sent together with anything it already contained.",
+    CHAT_DIALOG_CLOSED:
+      "An open Claude menu (such as rewind or the model picker) was closed with Esc before sending.",
+    CHAT_IMAGES_MAYBE_MISSING:
+      "Claude did not show all attached images before sending; some images may be missing.",
+  },
   reasons: {
+    CHAT_DIALOG_NOT_CLOSED:
+      "The message was waiting for a Claude menu to close and has not been typed yet. Close the menu in the terminal, then send it again.",
+    CHAT_QUESTION_OPEN:
+      "The message was waiting for a question in the TUI to be answered and has not been typed yet. Answer it in the terminal, then send it again.",
+    CHAT_REQUEST_PENDING:
+      "The message was waiting for an open request to be answered and has not been typed yet. Send it again once the request is answered.",
     CHAT_COMPOSER_DIALOG:
       "Claude is showing a dialog or picker. The message was not sent; answer or close the dialog in the TUI.",
     CHAT_COMPOSER_UNAVAILABLE:

@@ -27,7 +27,7 @@ const loginRequest = {
 for (const locale of ["de-DE", "en-GB"]) {
   test.describe(`Claude startup prompts ${locale}`, () => {
     test.use({ locale });
-    test("onboarding dialogs block chat and answer with one native choice", async ({
+    test("onboarding dialogs hold chat messages and answer with one native choice", async ({
       page,
     }) => {
       const en = locale === "en-GB";
@@ -46,7 +46,8 @@ for (const locale of ["de-DE", "en-GB"]) {
           exact: true,
         }),
       ).toBeVisible();
-      await expect(input).toBeDisabled();
+      // A message sent now would wait for the answer; the draft stays editable.
+      await expect(input).toBeEnabled();
       if (en)
         await page
           .locator(".chat-container .native-requests")
@@ -64,7 +65,7 @@ for (const locale of ["de-DE", "en-GB"]) {
           exact: true,
         }),
       ).toBeVisible();
-      await expect(input).toBeDisabled();
+      await expect(input).toBeEnabled();
       await expect(
         page.getByRole("button", { name: en ? "Open terminal" : "Terminal öffnen" }),
       ).toBeVisible();

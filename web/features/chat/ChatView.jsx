@@ -80,20 +80,12 @@ export default function ChatView({
       active &&
       attachments.supported &&
       !attachments.loading &&
-      !requestPending &&
       !busy &&
       !modelPending &&
       !attachments.uploading &&
       !delivery.locked,
     onFiles: attachments.add,
   });
-  const guardedSubmit = (event) => {
-    if (requestPending) {
-      event.preventDefault();
-      return;
-    }
-    submit(event);
-  };
   const resetStatus = resetPresentation(
     delivery.reset,
     data,
@@ -291,7 +283,9 @@ export default function ChatView({
             />
             <ChatComposer
               {...{
-                submit: guardedSubmit,
+                // A message sent while a request is open waits on the server
+                // and follows the answer; the request stays in the panel above.
+                submit,
                 requestPending,
                 deliveryLocked: delivery.locked,
                 session,
