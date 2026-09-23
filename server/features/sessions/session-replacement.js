@@ -3,7 +3,6 @@ import path from "node:path";
 import { rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { privateWrite } from "./session-process-runtime.js";
-import { shellQuote } from "../../lib/launch-serialization.js";
 import { problem } from "../../lib/storage.js";
 import { validateReloadLaunch } from "../../application/session-reload-launch.js";
 
@@ -78,7 +77,9 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
       "120",
       "-y",
       "35",
-      [process.execPath, launcher, launchFile].map(shellQuote).join(" "),
+      process.execPath,
+      launcher,
+      launchFile,
     ]);
     for (const key of [
       "agentbus",

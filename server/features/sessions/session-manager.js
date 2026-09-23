@@ -8,7 +8,6 @@ import { inputChat, withChatInput } from "./session-chat-input.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { buildSessionLaunch } from "./session-creation.js";
 import { assertInteractiveSession } from "../pipelines/native-session.js";
-import { shellQuote as quote } from "../../lib/launch-serialization.js";
 import { validId, validName, dimensions, textInput } from "./session-validation.js";
 import { safeEnvironment, execute, privateWrite } from "./session-process-runtime.js";
 import { replaceSession, blocksTerminalInput } from "./session-replacement.js";
@@ -74,7 +73,7 @@ export class SessionManager {
     return execute(
       this.tmuxPath,
       ["-S", this.socketPath, "-f", this.configPath, ...args],
-      options,
+      { cwd: this.directory, ...options },
     );
   }
   async metadata(id) {
@@ -161,7 +160,9 @@ export class SessionManager {
     return this.serial(async () => {
       const { id, launchFile, session } = await buildSessionLaunch(this, options);
       try {
-        // The shell sees only executable/file paths. Arguments and credentials stay in a private, one-use payload.
+        // Execute the launcher directly: an old tmux daemon may retain a deleted
+        // release cwd, which makes an intermediate shell emit getcwd errors.
+        // Arguments and credentials stay in the private, one-use payload.
         await this.tmux([
           "new-session",
           "-d",
@@ -173,7 +174,9 @@ export class SessionManager {
           "120",
           "-y",
           "35",
-          [process.execPath, launcher, launchFile].map(quote).join(" "),
+          process.execPath,
+          launcher,
+          launchFile,
         ]);
       } catch (error) {
         await rm(launchFile, { force: true });
