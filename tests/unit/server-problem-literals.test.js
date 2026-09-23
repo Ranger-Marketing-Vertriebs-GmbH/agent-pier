@@ -123,10 +123,10 @@ const untranslated = new Map(
     ],
     // Only MCP machine tokens receive this answer.
     "server/http/security.js": ["Machine tokens are accepted only at the MCP endpoint."],
-    // Stdio helper for coding agents; its usage and German hints go to the terminal.
+    // SSH command helper for coding agents; agents always read English.
     "server/ssh.mjs": [
       "Usage: ssh.mjs --data-dir DIR --session ID --access ID [-- remote command]",
-      "SSH-Zugang wurde geändert. Bitte erneut versuchen.",
+      "SSH access changed. Please try again.",
     ],
   }),
 );
