@@ -38,7 +38,6 @@ export default function ChatComposer({
         {...attachments}
         disabled={
           deliveryLocked ||
-          requestPending ||
           session.pipeline?.headless ||
           session.status !== "running" ||
           session.purpose === "login" ||
@@ -58,7 +57,6 @@ export default function ChatComposer({
         disabled={
           busy ||
           deliveryLocked ||
-          requestPending ||
           session.pipeline?.headless ||
           session.status !== "running"
         }
@@ -68,8 +66,7 @@ export default function ChatComposer({
         onPaste={(event) => {
           if (!event.clipboardData.files.length) return;
           event.preventDefault();
-          if (!requestPending && !busy && !modelPending)
-            attachments.add(event.clipboardData.files);
+          if (!busy && !modelPending) attachments.add(event.clipboardData.files);
         }}
         onKeyDown={(event) => {
           if (
@@ -102,7 +99,6 @@ export default function ChatComposer({
           aria-label={busy ? commonCopy.sending : commonCopy.send}
           disabled={
             deliveryLocked ||
-            requestPending ||
             session.pipeline?.headless ||
             busy ||
             modelPending ||
