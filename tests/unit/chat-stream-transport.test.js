@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { chatWindowPrefix } from "../../web/features/chat/chat-sync.js";
 import { createChatStream } from "../../web/features/chat/chat-stream-transport.js";
 import { setLanguage } from "../../web/lib/i18n/index.js";
+import { serverMessagesReady } from "../../web/lib/server-messages.js";
 
 function fixture(read = async () => ({ messages: [], providerSessionId: "one" })) {
   const timers = new Map();
@@ -315,6 +316,7 @@ test("a never-settling fallback read times out and allows a later recovery read"
 test("socket errors show server messages in the active UI language", async (t) => {
   t.after(() => setLanguage("de", { persist: false }));
   setLanguage("en", { persist: false });
+  await serverMessagesReady();
   const f = fixture();
   f.send({
     type: "error",
