@@ -139,8 +139,40 @@ Codex and OpenCode keep appending to an existing draft (notice
 `CHAT_APPENDED_TO_DRAFT` when the draft was readable) and share the request wait;
 the dialog and menu rules apply to Claude only.
 
+A selected numbered option (`❯ 1.`) or a `▔` panel border also marks a dialog,
+because a short pane can scroll the footer away: at 50×34 the `/model` picker
+shows neither footer nor selected row; during validation, treating it as an
+unreadable prompt let Enter select the highlighted model and lost the message. The rewind selector and model picker are recognized by
+their titles and closed with Escape even without a visible footer. An appended
+message starts on its own line after the remaining draft.
+
+Live validation on 2026-09-23 with Claude Code 2.1.280 through the real
+`SessionManager` and `ChatDelivery` (private tmux socket, disposable HOME,
+loopback provider), in 50×34 and 120×35, with Claude's own cursor cell and with
+`CLAUDE_CODE_NATIVE_CURSOR=1` plus `CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=1`:
+
+- Busy 25 s turn in auto mode with one background shell and a draft typed through
+  the attached terminal: handed off in about 0.4 s, draft replaced, the turn was
+  not interrupted. With clearing forced to fail, the provider received
+  `<draft>\n<chat text>` with `CHAT_APPENDED_TO_DRAFT`.
+- Permission prompt: the message stayed pending, AgentPier sent no key; a single
+  Escape typed by the user denied the tool call ("The user doesn't want to proceed
+  with this tool use", no marker file) and the message followed automatically.
+- AskUserQuestion: held until the user answered in the terminal; the answer and
+  then the message reached the provider.
+- Rewind selector and `/model` picker (also footer-less at 50×34): closed with one
+  Escape, conversation and model unchanged, message delivered.
+- Simulated mirrored request: held with `waiting: "request"`, delivered after it
+  cleared.
+
+Without the native-cursor prompt fix, the native cursor still delivered the
+message but left the receipt `CHAT_SUBMIT_UNCONFIRMED`, because the emptied
+prompt with a dim suggestion was not recognized as empty.
+
 Synthetic coverage: `tests/unit/claude-chat-fallback.test.js`,
-`tests/unit/claude-composer.test.js`, `tests/integration/chat-never-blocks.test.js`
+`tests/unit/claude-composer.test.js`, `tests/unit/claude-composer-edges.test.js`
+(narrow frames in `tests/fixtures/tui-input/claude-2.1.280-dialogs-narrow.json`),
+`tests/integration/chat-never-blocks.test.js`
 (owned tmux, 50×34 stuck draft, menu, question) and
 `tests/integration/chat-delivery-composer.test.js` (deferral, receipts, restart).
 

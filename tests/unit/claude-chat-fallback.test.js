@@ -45,7 +45,8 @@ test("a replaceable draft is replaced without a notice", async () => {
 test("a draft that cannot be cleared is sent together with the chat text", async () => {
   const model = stuckModel({ draft: "typed in the terminal" });
   const { notices, phases, result, manager } = await send(model);
-  assert.deepEqual(model.submitted, ["typed in the terminalchat message"]);
+  // The chat text starts on its own line after the remaining draft.
+  assert.deepEqual(model.submitted, ["typed in the terminal\nchat message"]);
   assert.deepEqual(notices, ["CHAT_APPENDED_TO_DRAFT"]);
   assert.deepEqual(result.notices, ["CHAT_APPENDED_TO_DRAFT"]);
   assert.deepEqual(phases, ["paste-intent", "pasted", "submit-intent", "submitted"]);
@@ -64,7 +65,7 @@ test("regression: busy Claude at 50x34 with a typed draft that will not clear", 
   });
   const { notices } = await send(model, "please also check the tests");
   assert.deepEqual(model.submitted, [
-    "half-typed idea\nsecond lineplease also check the tests",
+    "half-typed idea\nsecond line\nplease also check the tests",
   ]);
   assert.deepEqual(notices, ["CHAT_APPENDED_TO_DRAFT"]);
 });

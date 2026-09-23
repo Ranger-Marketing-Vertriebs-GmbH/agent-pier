@@ -36,6 +36,8 @@ export async function writeChatTuiInput(
     onNotice = async () => {},
     confirmSubmit = async () => {},
     imageTimeoutMs,
+    // Separates the message from a draft it is appended to.
+    pastePrefix = () => "",
   } = {},
 ) {
   const text = normalizeChatText(value);
@@ -47,7 +49,9 @@ export async function writeChatTuiInput(
     else {
       const buffer = `tuiui-${randomUUID()}`;
       try {
-        await manager.tmux(["load-buffer", "-b", buffer, "-"], { input: text });
+        await manager.tmux(["load-buffer", "-b", buffer, "-"], {
+          input: pastePrefix() + text,
+        });
         await manager.tmux([
           "paste-buffer",
           "-d",
@@ -438,6 +442,7 @@ export function withChatInput(manager, id, operation) {
             ...options,
             initialImages,
             imageTimeoutMs: manager.chatInputTiming?.imagesMs,
+            pastePrefix: () => (replace ? claudeInput.pastePrefix() : ""),
             onNotice: notice,
             // The intent is durable before its guard, so a change during the write
             // is still caught. A refused guard proves no bytes were written: the

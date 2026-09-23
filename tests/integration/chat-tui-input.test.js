@@ -291,8 +291,9 @@ for (const tool of ["codex", "claude", "opencode"]) {
       "\x1b[201~",
     ])
       await client.write(chunk);
-    // An unsubmitted terminal draft never blocks chat: Claude replaces it, the
-    // other CLIs combine it with the chat text, as typing would.
+    // An unsubmitted terminal draft never blocks chat: Claude replaces it (or,
+    // when this 50-row draft outlasts the clearing budget, appends on a new line),
+    // the other CLIs combine it with the chat text, as typing would.
     const input = x.body("Chat after terminal submission");
     assert.equal((await x.post(input)).status, "handed-off");
     await client.write("\r");
@@ -301,7 +302,7 @@ for (const tool of ["codex", "claude", "opencode"]) {
     await x.recorder.waitForText(`\x1b[200~${next.text}\x1b[201~\r`);
     const received = (await x.recorder.readBytes()).toString();
     for (const text of [input.text, next.text])
-      assert.equal(received.split(`\x1b[200~${text}\x1b[201~\r`).length - 1, 1);
+      assert.equal(received.split(`${text}\x1b[201~\r`).length - 1, 1);
   });
 }
 

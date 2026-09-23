@@ -68,7 +68,7 @@ test("regression: a typed draft that cannot be cleared at 50x34 is sent along", 
   const result = await x.post("please also check the tests");
   assert.equal(result.status, "handed-off");
   assert.deepEqual(result.notices, ["CHAT_APPENDED_TO_DRAFT"]);
-  const paste = "\x1b[200~please also check the tests\x1b[201~\r";
+  const paste = "\x1b[200~\nplease also check the tests\x1b[201~\r";
   await x.recorder.waitForText(paste);
   const bytes = (await x.recorder.readBytes()).toString();
   assert.equal(bytes.split(paste).length - 1, 1);
