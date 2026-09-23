@@ -201,7 +201,7 @@ export function assertClaudeComposer(state, allowed) {
 }
 
 // Progress means the prompt box or cursor changed, never a spinner or timer.
-const view = (fresh) =>
+export const claudePromptView = (fresh) =>
   JSON.stringify([
     claudeComposerBox(fresh.raw, fresh.pane)?.raw ?? fresh.raw,
     fresh.pane.cursorX,
@@ -214,7 +214,7 @@ async function changed(snapshot, before, timeoutMs) {
   do {
     await sleep(25);
     fresh = await snapshot();
-    if (view(fresh) !== view(before)) {
+    if (claudePromptView(fresh) !== claudePromptView(before)) {
       // Let Ink finish the frame before judging it.
       await sleep(25);
       return snapshot();
@@ -254,7 +254,7 @@ export async function clearClaudeComposer(
       const before = fresh;
       await manager.tmux(["send-keys", "-t", target, ...keys]);
       fresh = await changed(snapshot, before, settleMs);
-      const moved = view(fresh) !== view(before);
+      const moved = claudePromptView(fresh) !== claudePromptView(before);
       progressed ||= moved;
       if (state().state === "empty") return fresh;
       assertClaudeComposer(state(), ["text", "draft"]);
@@ -263,8 +263,9 @@ export async function clearClaudeComposer(
       if (moved && keys[0] === "BSpace") break;
     }
     // Editing keys move a draft's cursor; a colorless placeholder stays inert.
+    // The result is marked `inert` so the caller need not probe it again.
     if (!progressed) {
-      if (state().placeholder) return fresh;
+      if (state().placeholder) return { ...fresh, inert: true };
       break;
     }
   }
