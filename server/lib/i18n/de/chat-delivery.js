@@ -15,6 +15,7 @@ export const chatDeliveryCopy = {
   recoveryReadyResend:
     "Die Nachricht wurde noch nicht geschrieben und kann neu zugestellt werden.",
   recoveryHandedOff: "Die Nachricht wurde an die TUI übergeben.",
+  unknownDelivery: "Diese Zustellung ist nicht bekannt.",
   invalid: "Ungültiger Zustellauftrag.",
   scope: "Der Zustellauftrag gehört nicht zur aktuellen Sitzung.",
   conflict: "Diese Zustell-ID wurde bereits für einen anderen Auftrag verwendet.",

@@ -9,6 +9,7 @@ import {
   waitingFor,
 } from "./chat-delivery-recovery.js";
 import { DeliveryQueue } from "./chat-delivery-queue.js";
+import { composerProblem } from "../sessions/claude-composer.js";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { privateDirectory, problem } from "../../lib/storage.js";
@@ -214,7 +215,9 @@ export class ChatDelivery {
     const file = this.file(id, deliveryId);
     this.checkScope(await this.sessions.get(id), scope);
     const receipt = this.read(file);
-    if (!receipt || receipt.scope !== scope) throw problem(copy.scope, 409);
+    if (!receipt) throw problem(copy.unknownDelivery, 404);
+    if (receipt.scope !== scope) throw problem(copy.scope, 409);
+    // A message that was delivered or finished meanwhile reports that outcome.
     await this.held.cancel(id, file);
     return this.result(this.read(file), file);
   }
@@ -230,8 +233,13 @@ export class ChatDelivery {
     let mayHaveWritten = submitOnly;
     try {
       if (!submitOnly) await requireChatInput(this.requests, id);
+      const refuseCancelled = () => {
+        if (job.cancelled) throw composerProblem("CHAT_CANCELLED");
+      };
       await this.sessions.withChatInput(id, async (tx) => {
         this.checkScope(tx.session, scope);
+        // A cancel is checked under the session lock, before any key or paste.
+        refuseCancelled();
         if (!submitOnly) {
           receipt.journal = { phase: "reserved", generation: tx.recoveryGeneration };
           receipt.observation = {
@@ -258,6 +266,7 @@ export class ChatDelivery {
           // Escape a menu once per message, never again while waiting.
           closeMenus: !receipt.notices?.includes("CHAT_DIALOG_CLOSED"),
           onPhase: async (phase) => {
+            if (phase === "paste-intent") refuseCancelled();
             if (["paste-intent", "submit-intent"].includes(phase))
               requireCurrentChatInput(this.requests, id);
             receipt.status = "uncertain";

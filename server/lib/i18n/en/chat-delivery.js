@@ -13,6 +13,7 @@ export const chatDeliveryCopy = {
     'The full text is still in the TUI. "Deliver again" only completes the submission.',
   recoveryReadyResend: "The message has not been written yet and can be delivered again.",
   recoveryHandedOff: "The message was handed off to the TUI.",
+  unknownDelivery: "This delivery is unknown.",
   invalid: "Invalid delivery request.",
   scope: "The delivery request does not belong to the current session.",
   conflict: "This delivery ID was already used for a different request.",

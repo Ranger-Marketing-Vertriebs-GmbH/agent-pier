@@ -190,3 +190,67 @@ test("redelivery after a restart also holds for an open request instead of refus
   assert.equal((await x.settled(held.deliveryId)).status, "handed-off");
   assert.deepEqual(model.submitted, ["after restart"]);
 });
+
+test("regression: a message sent right after cancelling a held one is submitted once", async (t) => {
+  const model = claudePromptModel();
+  const x = setup(t, model);
+  x.delivery.retryMs = 200;
+  x.requests.pending = true;
+  const held = await x.send("first");
+  assert.equal(held.waiting, "request");
+  const cancelled = await x.delivery.cancel("one", held.deliveryId, scope);
+  assert.equal(cancelled.reason, "CHAT_CANCELLED");
+  x.requests.pending = false;
+  // The worker of the cancelled message may still be sleeping.
+  const second = await x.send("second");
+  assert.equal(second.status, "handed-off");
+  await sleep(600);
+  assert.deepEqual(model.submitted, ["second"]);
+  assert.equal(
+    (await x.delivery.status("one", second.deliveryId, scope)).status,
+    "handed-off",
+  );
+});
+
+test("cancel reports unknown and already delivered messages truthfully", async (t) => {
+  const model = claudePromptModel();
+  const x = setup(t, model);
+  await assert.rejects(x.delivery.cancel("one", randomUUID(), scope), { status: 404 });
+  const sent = await x.send("done");
+  const result = await x.delivery.cancel("one", sent.deliveryId, scope);
+  assert.equal(result.status, "handed-off");
+});
+
+test("redelivery waits behind a held message instead of overtaking it", async (t) => {
+  const model = claudePromptModel();
+  const x = setup(t, model);
+  x.requests.pending = true;
+  const old = await x.send("older");
+  x.delivery.held.queues.clear();
+  x.delivery.active.clear();
+  const held = await x.send("held");
+  assert.equal(held.waiting, "request");
+  const recovery = await x.delivery.recover("one", old.deliveryId, {
+    attemptId: randomUUID(),
+    expectedAttemptId: old.deliveryId,
+    deliveryScope: scope,
+    text: "older",
+    mode: "retry",
+  });
+  assert.equal(recovery.recovery.action, "held");
+  assert.equal(recovery.status, "pending");
+  x.requests.pending = false;
+  assert.equal((await x.settled(old.deliveryId)).status, "handed-off");
+  assert.deepEqual(model.submitted, ["held", "older"]);
+});
+
+test("a prompt frame without the pasted text proves nothing", async () => {
+  const { claudePromptProof } =
+    await import("../../server/features/sessions/claude-prompt.js");
+  const model = claudePromptModel({ draft: "older draft" });
+  const frame = model.screen();
+  assert.equal(claudePromptProof(frame, "new message"), null);
+  model.insert("\nnew message");
+  assert.ok(claudePromptProof(model.screen(), "new message"));
+  assert.ok(claudePromptProof(model.screen(), "new message\n/tmp/shot.png"));
+});

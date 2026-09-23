@@ -136,6 +136,9 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
       return finish("held", copy.recoveryHeld);
     };
     if (reason) return finish("blocked", reason);
+    // Never overtake held messages: their pasted text could be cleared or
+    // submitted out of order. Redelivery waits in the same queue.
+    if (mode === "retry" && delivery.held.busy(id)) return hold("queue", "CHAT_QUEUED");
     if (blocked)
       return mode === "check"
         ? finish("blocked", copy.rejected)
