@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { restoreArtifacts } from "./artifact-backup.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -14,10 +15,10 @@ export function database(file, fn, expectedVersion) {
       expectedVersion !== undefined &&
       db.prepare("PRAGMA user_version").get().user_version !== expectedVersion
     )
-      throw problem("Unsupported embedded SQLite schema version.", 409);
+      throw problem(serverMessages.backups.unsupportedSqliteSchema, 409);
     const checks = db.prepare("PRAGMA integrity_check").all();
     if (checks.length !== 1 || Object.values(checks[0])[0] !== "ok")
-      throw problem("Backup database integrity check failed.");
+      throw problem(serverMessages.backups.databaseIntegrity);
     return fn(db);
   } finally {
     db.close();
@@ -38,13 +39,13 @@ export async function mapProjects(directory, projectMap = {}) {
     Array.isArray(projectMap) ||
     Object.keys(projectMap).length > 1000
   )
-    throw problem("Invalid project mapping.");
+    throw problem(serverMessages.backups.invalidProjectMapping);
   const projects = backupProjects(directory),
     mappings = [],
     targets = new Set();
   for (const [oldId, cwd] of Object.entries(projectMap)) {
     const old = projects.find((project) => project.id === oldId);
-    if (!old) throw problem("Project mapping references an unknown project.");
+    if (!old) throw problem(serverMessages.backups.unknownMappedProject);
     const scope = await projectScope(cwd);
     if (
       targets.has(scope.id) ||
@@ -52,7 +53,7 @@ export async function mapProjects(directory, projectMap = {}) {
         (p) => p.id === scope.id && p.id !== oldId && !Object.hasOwn(projectMap, p.id),
       )
     )
-      throw problem("Project mappings collide.", 409);
+      throw problem(serverMessages.backups.projectMappingsCollide, 409);
     targets.add(scope.id);
     mappings.push({ from: oldId, to: scope.id, oldCwd: old.cwd, cwd: scope.cwd, scope });
   }
@@ -89,7 +90,7 @@ export async function mapProjects(directory, projectMap = {}) {
           );
         }
         if (db.prepare("PRAGMA foreign_key_check").all().length)
-          throw problem("Restored memory references are invalid.");
+          throw problem(serverMessages.backups.invalidMemoryReferences);
         db.exec("COMMIT");
       } catch (error) {
         db.exec("ROLLBACK");

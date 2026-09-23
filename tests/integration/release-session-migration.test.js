@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { ids, fixture } from "../helpers/release-migration-fixture.js";
@@ -63,7 +64,9 @@ test("migrate reloads every session, waits for completion and deletes the releas
   );
   const job = f.migration.migrate("1.0.0");
   assert.equal(job.kind, "release-migrate");
-  assert.throws(() => f.migration.migrate("1.0.0"), /running/);
+  assert.throws(() => f.migration.migrate("1.0.0"), {
+    message: serverMessages.releases.migrateBusy,
+  });
   await new Promise((r) => setTimeout(r, 30));
   assert.equal(f.operations.jobs.get(job.id).status, "running");
   // A running migration is visible in the plan, so any page can offer to cancel it.
@@ -220,7 +223,9 @@ test("cancel and shutdown end a waiting migration without deleting", async (t) =
       nextState: "waiting",
     },
   ]);
-  assert.throws(() => f.migration.cancel("1.0.0"), /No migration/);
+  assert.throws(() => f.migration.cancel("1.0.0"), {
+    message: serverMessages.releases.noMigration,
+  });
   const job = f.migration.migrate("1.0.0");
   await new Promise((r) => setTimeout(r, 20));
   f.migration.cancel("1.0.0");
@@ -279,6 +284,8 @@ test("a release that leaves the inUse state while reloads run ends the job with 
 test("migrate rejects invalid options before touching any job", async (t) => {
   const f = await fixture(t, [{ id: ids[0], tool: "claude", status: "running" }]);
   for (const options of [null, "now", [], { interrupt: "yes" }])
-    assert.throws(() => f.migration.migrate("1.0.0", options), /Invalid/);
+    assert.throws(() => f.migration.migrate("1.0.0", options), {
+      message: serverMessages.operations.invalidOptions,
+    });
   assert.equal(f.operations.jobs.running("release-"), false);
 });

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -147,11 +148,12 @@ test("restore rejects a future embedded memory schema before creating its target
   memory.close();
   const restore = new Restore({ dataDir }),
     target = path.join(root, "target");
-  await assert.rejects(restore.inspect({ archive: backup.file }), /schema/);
-  await assert.rejects(
-    restore.apply({ archive: backup.file, targetDataDir: target }),
-    /schema/,
-  );
+  await assert.rejects(restore.inspect({ archive: backup.file }), {
+    message: serverMessages.backups.unsupportedSqliteSchema,
+  });
+  await assert.rejects(restore.apply({ archive: backup.file, targetDataDir: target }), {
+    message: serverMessages.backups.unsupportedSqliteSchema,
+  });
   await assert.rejects(fs.stat(target), { code: "ENOENT" });
 });
 test("linked credential components cannot escape the backup boundary", async (t) => {
@@ -171,7 +173,7 @@ test("linked credential components cannot escape the backup boundary", async (t)
       withCredentials: true,
       passphrase: "long fixture passphrase",
     }),
-    /symbolic link/,
+    { message: serverMessages.backups.componentLinked },
   );
   assert.equal(await fs.readFile(path.join(root, "outside"), "utf8"), "not a credential");
 });

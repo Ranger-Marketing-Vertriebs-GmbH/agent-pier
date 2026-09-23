@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
@@ -10,7 +11,7 @@ export async function restartService({
 } = {}) {
   const command =
     platform === "darwin" ? "launchctl" : platform === "linux" ? "systemctl" : null;
-  if (!command) throw problem("This platform has no supported service adapter.");
+  if (!command) throw problem(serverMessages.releases.serviceUnsupported);
   const args =
     platform === "darwin"
       ? ["kickstart", "-k", `gui/${uid}/dev.agentpier.server`]
@@ -18,7 +19,7 @@ export async function restartService({
   try {
     await run(command, args, { timeout: 15000, maxBuffer: 32768 });
   } catch {
-    throw problem("The AgentPier user service could not be restarted.", 503);
+    throw problem(serverMessages.releases.serviceRestartFailed, 503);
   }
 }
 export async function checkHealth({

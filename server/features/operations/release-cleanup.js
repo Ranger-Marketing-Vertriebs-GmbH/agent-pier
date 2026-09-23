@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -117,7 +118,7 @@ export async function cleanupReleases(options, versions) {
     versions.length > 1000 ||
     new Set(versions).size !== versions.length
   )
-    throw cleanupError("cleanupInvalid", "Invalid release cleanup selection.", 400);
+    throw cleanupError("cleanupInvalid", serverMessages.releases.cleanupInvalid, 400);
   versions.forEach(releaseVersion);
   // Share the activation lock so cleanup cannot remove a rollback target mid-switch.
   const lock = path.join(options.dataDir, "operations/release-activation.lock");
@@ -125,7 +126,7 @@ export async function cleanupReleases(options, versions) {
   try {
     fd = fs.openSync(lock, "wx", 0o600);
   } catch {
-    throw cleanupError("cleanupBusy", "Another release operation is pending.");
+    throw cleanupError("cleanupBusy", serverMessages.releases.cleanupBusy);
   }
   try {
     // Inspect while holding our lock; only this known lock is ignored.
@@ -137,11 +138,7 @@ export async function cleanupReleases(options, versions) {
           !state.versions.some((item) => item.version === version && item.canDelete),
       )
     )
-      throw cleanupError(
-        "cleanupChanged",
-        "The selected releases are no longer safe to remove. Refresh the list.",
-        409,
-      );
+      throw cleanupError("cleanupChanged", serverMessages.releases.cleanupChanged, 409);
     const root = fs.realpathSync(options.installRoot);
     for (const version of versions) {
       await fs.promises.rm(path.join(root, "releases", version), { recursive: true });

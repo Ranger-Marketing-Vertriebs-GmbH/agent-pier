@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -19,30 +20,28 @@ export class OperationJobs {
           ...job,
           status: "interrupted",
           finishedAt: new Date().toISOString(),
-          error:
-            "The web process restarted before this operation completed. Review its artifacts before retrying.",
+          error: serverMessages.operations.webProcessRestarted,
         });
     }
   }
   get(id) {
     const file = path.join(this.directory, `${identifier(id)}.json`);
     const value = readJson(file, null);
-    if (!value) throw problem("Operation not found.", 404);
+    if (!value) throw problem(serverMessages.operations.jobNotFound, 404);
     if (
       value.status === "running" &&
       value.external &&
       Date.now() - Date.parse(value.heartbeatAt || value.createdAt) > 30000
     ) {
       value.status = "interrupted";
-      value.error =
-        "The release helper stopped reporting. Inspect service health and the release pointer before retrying.";
+      value.error = serverMessages.operations.releaseHelperSilent;
       atomic(file, value);
     }
     const { external: _external, heartbeatAt: _heartbeatAt, ...job } = value;
     return job;
   }
   start(kind, action, { external = false } = {}) {
-    if (this.closed) throw problem("Operations are shutting down.", 503);
+    if (this.closed) throw problem(serverMessages.operations.shuttingDown, 503);
     const job = {
       id: randomUUID(),
       kind,
@@ -79,7 +78,7 @@ export class OperationJobs {
               : {}),
             error: error.status
               ? error.message
-              : "The operation failed. No unverified result was accepted.",
+              : serverMessages.operations.failedUnverified,
             finishedAt: new Date().toISOString(),
           });
           try {

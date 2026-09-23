@@ -7,6 +7,7 @@ import express from "express";
 import { createHash } from "node:crypto";
 import { createAccessStore } from "../../server/features/mcp/access-store.js";
 import { createMcpAccess } from "../../server/features/mcp/access-service.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 function fixture(t) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-storage-"));
@@ -80,7 +81,9 @@ test("OAuth consent detects removed resource IDs and emits only bounded lifecycl
     connectionIds: [],
   };
   choices = [];
-  assert.throws(() => access.approve(id, selection), /available resources/);
+  assert.throws(() => access.approve(id, selection), {
+    message: serverMessages.mcp.onlyAvailableResources,
+  });
   choices = [{ id: "p1", name: "Private project" }];
   access.approve(id, selection);
   const grantId = access.listGrants().grants[0].id;
@@ -96,7 +99,9 @@ test("OAuth refuses symlinked storage files", (t) => {
   const target = path.join(directory, "other.sqlite");
   fs.writeFileSync(target, "private");
   fs.symlinkSync(target, path.join(directory, "access.sqlite"));
-  assert.throws(() => createAccessStore(directory, Date.now), /Unsafe database/);
+  assert.throws(() => createAccessStore(directory, Date.now), {
+    message: serverMessages.operations.unsafeDatabaseFile,
+  });
   assert.equal(fs.readFileSync(target, "utf8"), "private");
 });
 

@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import express, { Router } from "express";
 import { readFile } from "../../features/operations/files.js";
 import { ARCHIVE_LIMIT } from "../../features/operations/archive.js";
@@ -10,7 +11,7 @@ function fields(body, names) {
     Array.isArray(body) ||
     Object.keys(body).some((name) => !names.includes(name))
   )
-    throw problem("Invalid operation options.");
+    throw problem(serverMessages.operations.invalidOptions);
   return body;
 }
 export function operationsRoutes({ operations, releaseMigration }) {
@@ -24,7 +25,7 @@ export function operationsRoutes({ operations, releaseMigration }) {
       req.query.page !== undefined &&
       (typeof req.query.page !== "string" || !/^[1-9]\d*$/.test(req.query.page))
     )
-      throw problem("Invalid imported history page.");
+      throw problem(serverMessages.backups.invalidHistoryPage);
     res.json(
       operations.importedHistory.messages(req.params.id, {
         page: req.query.page === undefined ? 1 : Number(req.query.page),
@@ -72,8 +73,7 @@ export function operationsRoutes({ operations, releaseMigration }) {
     `${root}/restore/upload`,
     express.raw({ type: "application/octet-stream", limit: ARCHIVE_LIMIT }),
     (req, res) => {
-      if (!Buffer.isBuffer(req.body))
-        throw problem("Upload an application/octet-stream backup archive.");
+      if (!Buffer.isBuffer(req.body)) throw problem(serverMessages.backups.uploadType);
       res.status(201).json(operations.restore.upload(req.body));
     },
   );

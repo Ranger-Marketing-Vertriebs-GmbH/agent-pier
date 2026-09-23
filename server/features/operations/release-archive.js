@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { gzipSync, gunzipSync } from "node:zlib";
@@ -14,7 +15,7 @@ export function releaseVersion(value) {
     !/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(value) ||
     value.length > 80
   )
-    throw problem("Invalid release version.");
+    throw problem(serverMessages.releases.invalidVersion);
   return value;
 }
 export function releaseManifest(value, platform = `${process.platform}-${process.arch}`) {
@@ -28,20 +29,20 @@ export function releaseManifest(value, platform = `${process.platform}-${process
     value.schemaMin > 1 ||
     value.schemaMax < 1
   )
-    throw problem("Release platform or data schema is incompatible.", 409);
+    throw problem(serverMessages.releases.incompatible, 409);
   return value;
 }
 export function unpackRelease(bytes, target, platform) {
   if (bytes.length > RELEASE_LIMIT)
-    throw problem("Release download exceeds its limit.", 413);
+    throw problem(serverMessages.releases.downloadLimit, 413);
   let value;
   try {
     value = JSON.parse(gunzipSync(bytes, { maxOutputLength: RELEASE_LIMIT }));
   } catch {
-    throw problem("Invalid release archive.");
+    throw problem(serverMessages.releases.invalidArchive);
   }
   if (value?.format !== "agentpier-release" || value.version !== 1)
-    throw problem("Unsupported release archive.");
+    throw problem(serverMessages.releases.unsupportedArchive);
   const manifest = releaseManifest(value.manifest, platform);
   validateMembers(value.files, { executable: true, limit: RELEASE_LIMIT });
   for (const required of [
@@ -53,13 +54,13 @@ export function unpackRelease(bytes, target, platform) {
     "node_modules/node-pty/package.json",
   ])
     if (!value.files.some((member) => member.path === required))
-      throw problem(`Release layout is missing ${required}.`);
+      throw problem(serverMessages.releases.layoutMissing(required));
   const embedded = value.files.find((member) => member.path === "release.json");
   if (
     JSON.stringify(JSON.parse(Buffer.from(embedded.content, "base64"))) !==
     JSON.stringify(manifest)
   )
-    throw problem("Release manifests disagree.");
+    throw problem(serverMessages.releases.manifestsDisagree);
   for (const member of value.files) {
     const file = path.join(target, member.path);
     folder(path.dirname(file));
@@ -217,10 +218,7 @@ export async function smokeRelease(directory) {
       },
     );
   } catch (cause) {
-    throw Object.assign(
-      problem("Release runtime or native dependency smoke check failed."),
-      { cause },
-    );
+    throw Object.assign(problem(serverMessages.releases.smokeFailed), { cause });
   }
 }
 export function packageRelease({

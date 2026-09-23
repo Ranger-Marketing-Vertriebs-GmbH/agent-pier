@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -84,7 +85,7 @@ test("release staging validates content and failed health restores the previous 
         health: async ({ version }) => version === "1.0.0",
       },
     ),
-    /health/i,
+    { message: serverMessages.releases.healthFailedRestored },
   );
   assert.equal(restarts, 2);
   assert.equal(await fs.readlink(path.join(root, "current")), "releases/1.0.0");
