@@ -12,7 +12,11 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { isNativeSlashCommand, sendSlashCommand } from "./session-slash-command.js";
 import { problem } from "../../lib/storage.js";
 import { claudeComposerImages, waitForClaudeImagePaste } from "./claude-image-paste.js";
-import { confirmClaudeSubmit, claudePlaceholder } from "./claude-composer.js";
+import {
+  confirmClaudeSubmit,
+  claudePlaceholder,
+  colorlessScreen,
+} from "./claude-composer.js";
 import { claudeFreshInput } from "./claude-prompt.js";
 
 export function normalizeChatText(text) {
@@ -138,9 +142,13 @@ export function inspectChatComposer(tool, raw, pane = {}) {
     )
       return { state: "empty", text: "" };
     // Claude's own cursor cell, or the native terminal cursor after plain text.
-    const draft =
-      /^\x1b\[39m❯ ([^\x1b]+)\x1b\[7m \x1b\[0m$/.exec(line)?.[1] ??
-      /^\x1b\[39m❯[ \u00a0]([^\x1b]+)$/.exec(line)?.[1];
+    // Colored Claude resets the prompt character's color first; NO_COLOR and
+    // FORCE_COLOR=0 emit no styling besides the cursor cell.
+    const reset = colorlessScreen(raw) ? "" : "\x1b[39m";
+    const draft = line.startsWith(`${reset}❯`)
+      ? (/^❯ ([^\x1b]+)\x1b\[7m \x1b\[0m$/.exec(line.slice(reset.length))?.[1] ??
+        /^❯[ \u00a0]([^\x1b]+)$/.exec(line.slice(reset.length))?.[1])
+      : undefined;
     if (
       draft &&
       !/\[Pasted|[\x00-\x1f\x7f-\x9f]/.test(draft) &&

@@ -485,6 +485,30 @@ model footer, and bottom border. These are observations of these installed
 versions with their default styles and keybindings, not a promise that future
 versions or customized themes preserve them.
 
+With `NO_COLOR=1` or `FORCE_COLOR=0`, Claude Code 2.1.280 keeps its layout and
+the inverse-video cursor cell but emits no other styling; with
+`CLAUDE_CODE_NATIVE_CURSOR=1` it emits no styling at all
+(`tests/fixtures/tui-input/claude-2.1.280-colorless-drafts.json`). A single-line
+draft ending at the cursor is then read from the cursor cell or the tmux cursor
+position; cursor mid-line, wrapped and multi-line drafts, bash mode and
+`[Pasted text]` summaries remain unreadable prompt boxes, as with color. A
+colored placeholder is always dim, so undimmed text is typed. Without color, a
+draft whose cursor sits on its first character is byte-identical to a
+placeholder or prompt suggestion. Such a row counts as empty only while the
+footer below the prompt shows `esc to interrupt` or `? for shortcuts`, which
+Claude 2.1.280 renders for an empty prompt alone (a right-aligned notice may
+follow after a gap). Otherwise, for example in panes narrower than about 34
+columns that cut the hint to `…`, the row is a placeholder-shaped draft: chat
+input sends the usual clearing keys, and a row that does not react to them (a
+draft's cursor moves on ctrl+e) is treated as an empty prompt, so the message is
+neither refused nor appended. Such a row never proves a paste, but after Enter
+it confirms the submit. A typed `Press up to edit queued messages` is therefore
+never taken for an empty prompt and is replaced like any draft. Live validation
+on 2026-09-23 covered `NO_COLOR` and `FORCE_COLOR=0` with both cursor modes at
+80×24 and 24×20, a queued placeholder, a typed placeholder text and a prompt
+suggestion. Add `--no-color`, `--force-color-0` and `--native-cursor` to the
+native probe to run it against these screens.
+
 The broader native recovery matrix remains open: multiline or collapsed drafts,
 partially pasted prompts, approval/model dialogs, process replacement, and ambiguous
 submit history need separate acceptance. Short complete drafts, explicitly edited
