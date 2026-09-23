@@ -13,14 +13,17 @@ const placeholderRow =
   /^(?:\x1b\[[0-9;]*m)*❯[ \u00a0]\x1b\[7m(?:\x1b\[39m)?([^\x1b])(\x1b\[0;2m|\x1b\[0m)([^\x1b]*)(?:\x1b\[0m)?$/;
 const queuedPlaceholder = "Press up to edit queued messages";
 
-/** Claude's empty prompt showing a placeholder, at the cursor's start cell. */
-export function claudePlaceholder(line, pane) {
+/**
+ * Claude's empty prompt showing a placeholder, at the cursor's start cell.
+ * `queued` accepts only the (possibly truncated) queued-messages placeholder.
+ */
+export function claudePlaceholder(line, pane, { queued = false } = {}) {
   const match = placeholderRow.exec(line || "");
   if (!match || pane?.cursorX !== 2) return false;
   const text = (match[1] + match[3]).trimEnd();
   // Typed text is never dim; without color only the known placeholder is safe,
   // because a draft with its cursor on the first character looks the same.
-  if (match[2] === "\x1b[0;2m") return text.length > 0;
+  if (match[2] === "\x1b[0;2m" && !queued) return text.length > 0;
   return (
     text === queuedPlaceholder ||
     (text.endsWith("…") &&
