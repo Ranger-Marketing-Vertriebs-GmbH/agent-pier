@@ -43,8 +43,10 @@ export const tools = Object.freeze({
   installationTimeout: "Installation timed out. Please check the network and try again.",
   installerUnavailable:
     "The installer could not be started. Please check Node.js and npm.",
-  installationExitFailure: (code, hint) =>
-    `Installation failed (exit ${code}${hint ? `, ${hint}` : ""}). Please check the network, free disk space and write permissions.`,
+  installationExitFailure: (code) =>
+    `Installation failed (exit ${code}). Please check the network, free disk space and write permissions.`,
+  installationExitFailureWithHint: (code, hint) =>
+    `Installation failed (exit ${code}, ${hint}). Please check the network, free disk space and write permissions.`,
   installationDirectoryInvalid: "The installation folder is not a regular directory.",
   directInstallPlatformNotice:
     "Direct installation is supported on macOS and Linux with ARM64 or x64.",

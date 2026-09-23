@@ -45,8 +45,10 @@ export const tools = Object.freeze({
     "Zeitlimit der Installation erreicht. Bitte Netzwerk prüfen und erneut versuchen.",
   installerUnavailable:
     "Der Installer konnte nicht gestartet werden. Bitte Node.js und npm prüfen.",
-  installationExitFailure: (code, hint) =>
-    `Installation fehlgeschlagen (Exit ${code}${hint ? `, ${hint}` : ""}). Bitte Netzwerk, freien Speicher und Schreibrechte prüfen.`,
+  installationExitFailure: (code) =>
+    `Installation fehlgeschlagen (Exit ${code}). Bitte Netzwerk, freien Speicher und Schreibrechte prüfen.`,
+  installationExitFailureWithHint: (code, hint) =>
+    `Installation fehlgeschlagen (Exit ${code}, ${hint}). Bitte Netzwerk, freien Speicher und Schreibrechte prüfen.`,
   installationDirectoryInvalid: "Der Installationsordner ist kein reguläres Verzeichnis.",
   directInstallPlatformNotice:
     "Direkte Installation wird auf macOS und Linux mit ARM64 oder x64 unterstützt.",

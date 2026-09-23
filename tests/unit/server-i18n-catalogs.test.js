@@ -61,18 +61,43 @@ test("identical German messages keep identical English translations", () => {
   }
 });
 
+// Every truthy and falsy argument variant must trace back, so a template with a
+// conditional branch fails here instead of silently losing its message key.
+function argumentVariants(length) {
+  const filled = Array.from({ length }, (_, i) => `Arg${i}`);
+  if (!length) return [filled];
+  return [
+    filled,
+    filled.map(() => ""),
+    ...filled.map((_, index) => filled.map((arg, i) => (i === index ? "" : arg))),
+  ];
+}
+
 test("every German server message traces back to a key that resolves in English", () => {
   const identify = createMessageIndex(serverCatalogs.de);
   for (const [key, message] of messageEntries(serverCatalogs.de)) {
-    const args = Array.from({ length: message.length }, (_, i) => `Arg${i}`);
-    const text = typeof message === "function" ? message(...args) : message;
-    if (!text.trim()) continue;
-    const found = identify(text);
-    assert.ok(found, key);
-    assert.equal(
-      resolveMessage(serverCatalogs.en, found.key, found.args),
-      resolveMessage(serverCatalogs.en, key, args),
-      key,
-    );
+    for (const args of typeof message === "function"
+      ? argumentVariants(message.length)
+      : [[]]) {
+      const text = typeof message === "function" ? message(...args) : message;
+      if (!text.trim()) continue;
+      const found = identify(text);
+      assert.ok(found, `${key}(${JSON.stringify(args)})`);
+      assert.equal(
+        resolveMessage(serverCatalogs.en, found.key, found.args),
+        resolveMessage(serverCatalogs.en, key, args),
+        `${key}(${JSON.stringify(args)})`,
+      );
+    }
   }
+});
+
+test("long text skips template matching", () => {
+  const identify = createMessageIndex(serverCatalogs.de);
+  const toolName = "x".repeat(2100);
+  assert.equal(identify(serverCatalogs.de.accounts.cliNotInstalled(toolName)), null);
+  assert.deepEqual(identify(serverCatalogs.de.accounts.cliNotInstalled("Codex")), {
+    key: "accounts.cliNotInstalled",
+    args: ["Codex"],
+  });
 });
