@@ -393,6 +393,23 @@ model footer, and bottom border. These are observations of these installed
 versions with their default styles and keybindings, not a promise that future
 versions or customized themes preserve them.
 
+With `NO_COLOR=1` or `FORCE_COLOR=0`, Claude Code 2.1.280 keeps its layout and
+the inverse-video cursor cell but emits no other styling
+(`tests/fixtures/tui-input/claude-2.1.280-colorless-drafts.json`). A single-line
+draft ending at the cursor is then read from the cursor cell alone; cursor
+mid-line or on the first character, wrapped and multi-line drafts, bash mode and
+`[Pasted text]` summaries remain unreadable prompt boxes, as with color. Without
+the dim attribute, a draft whose cursor sits on its first character is
+byte-identical to the placeholder, so Claude fails closed: only the
+queued-messages placeholder counts as empty, and only while the footer below the
+prompt shows `esc to interrupt` or `? for shortcuts`, which Claude 2.1.280
+renders for an empty prompt alone. A typed `Press up to edit queued messages` is
+therefore never taken for an empty prompt, colored or not. In colorless panes
+narrower than about 34 columns the footer hint is cut to `…`; the queued
+placeholder there stays an unreadable draft, and submissions during a turn remain
+unconfirmed. Add `--no-color` or `--force-color-0` to the native probe to run it
+against colorless screens.
+
 The broader native recovery matrix remains open: multiline or collapsed drafts,
 partially pasted prompts, approval/model dialogs, process replacement, and ambiguous
 submit history need separate acceptance. Short complete drafts, explicitly edited

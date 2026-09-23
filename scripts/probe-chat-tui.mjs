@@ -160,6 +160,9 @@ async function probeNative(fixture, cleanup) {
         },
       }),
     };
+    // Colorless native screens: NO_COLOR=1 or FORCE_COLOR=0 for the CLI.
+    if (options.includes("--no-color")) env.NO_COLOR = "1";
+    if (options.includes("--force-color-0")) env.FORCE_COLOR = "0";
     for (const key of [
       "CODEX_HOME",
       "CLAUDE_CONFIG_DIR",

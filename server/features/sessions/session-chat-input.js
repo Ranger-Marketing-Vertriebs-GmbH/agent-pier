@@ -19,6 +19,7 @@ import {
   confirmClaudeSubmit,
   composerProblem,
   claudePlaceholder,
+  colorlessScreen,
 } from "./claude-composer.js";
 
 export function normalizeChatText(text) {
@@ -130,7 +131,14 @@ export function inspectChatComposer(tool, raw, pane = {}) {
         claudePlaceholder(line, pane, { footer: lines[row + 2] }))
     )
       return { state: "empty", text: "" };
-    const draft = /^\x1b\[39m❯ ([^\x1b]+)\x1b\[7m \x1b\[0m$/.exec(line)?.[1];
+    // A typed row ends in the reverse-video cursor cell. Colored Claude resets
+    // the prompt character's color first; NO_COLOR/FORCE_COLOR=0 emits no
+    // styling besides the cursor cell.
+    const draft = (
+      colorlessScreen(raw)
+        ? /^❯ ([^\x1b]+)\x1b\[7m \x1b\[0m$/
+        : /^\x1b\[39m❯ ([^\x1b]+)\x1b\[7m \x1b\[0m$/
+    ).exec(line)?.[1];
     if (
       draft &&
       !/\[Pasted|[\x00-\x1f\x7f-\x9f]/.test(draft) &&
