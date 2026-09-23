@@ -34,7 +34,7 @@ export const providers = Object.freeze({
     "Ungültige Provider-Auswahl. Modellgrenzen ermittelt der Server.",
   providerToolUnsupported: "Dieser Provider unterstützt das gewählte CLI nicht.",
   zaiCodexRequiresResponses:
-    "Z.ai mit Codex erfordert ein Konto mit Zugriff auf die Responses API. Reine Chat-Konten werden nicht unterstützt.",
+    "Z.ai mit Codex erfordert einen Account mit Zugriff auf die Responses API. Reine Chat-Accounts werden nicht unterstützt.",
   responsesAccessZaiCodexOnly: "Der Responses-Zugriff gilt nur für Z.ai mit Codex.",
   claudeVersionUnverified:
     "Die Version von Claude Code konnte nicht geprüft werden. Bitte den Start wiederholen; falls das Problem bleibt, prüfen, ob das CLI auf --version antwortet.",
@@ -46,4 +46,7 @@ export const providers = Object.freeze({
     "Die verwaltete Provider-Konfiguration ist ungültig. Bitte vor dem Start reparieren.",
   managedOpenCodeConfigInvalid:
     "Die verwaltete OpenCode-Konfiguration ist ungültig. Bitte vor dem Start reparieren.",
+  unsafeConnectionStorage: "Unsicherer Speicher für Provider-Verbindungen.",
+  unsafeConnectionDirectory: "Unsicheres Verzeichnis für Provider-Verbindungen.",
+  invalidConnectionStorage: "Ungültiger Speicher für Provider-Verbindungen.",
 });

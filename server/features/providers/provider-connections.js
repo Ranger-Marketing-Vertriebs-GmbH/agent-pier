@@ -11,7 +11,7 @@ function read(file, fallback) {
     descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
     const info = fs.fstatSync(descriptor);
     if (!info.isFile() || info.nlink !== 1 || info.size > 1024 * 1024)
-      throw problem("Unsafe provider connection storage.");
+      throw problem(serverMessages.providers.unsafeConnectionStorage);
     return JSON.parse(fs.readFileSync(descriptor, "utf8"));
   } catch (error) {
     if (error.code === "ENOENT") return fallback;
@@ -59,14 +59,14 @@ export class ProviderConnections {
     fs.mkdirSync(this.directory, { recursive: true, mode: 0o700 });
     const info = fs.lstatSync(this.directory);
     if (!info.isDirectory() || (process.getuid && info.uid !== process.getuid()))
-      throw problem("Unsafe provider connection directory.");
+      throw problem(serverMessages.providers.unsafeConnectionDirectory);
     fs.chmodSync(this.directory, 0o700);
     this.records = read(this.file, []);
     if (
       !Array.isArray(this.records) ||
       this.records.some((record) => !validId(record.id))
     )
-      throw problem("Invalid provider connection storage.");
+      throw problem(serverMessages.providers.invalidConnectionStorage);
   }
   record(id) {
     const record = validId(id) && this.records.find((value) => value.id === id);

@@ -91,4 +91,6 @@ export const pipelines = Object.freeze({
     "The exact native turn could not be recovered. Its workspace is preserved.",
   checkpointFailed:
     "The stage changes could not be checkpointed. The workspace is preserved.",
+  unsafeStorage: "Unsafe pipeline storage.",
+  unsafeDatabase: "Unsafe pipeline database.",
 });
