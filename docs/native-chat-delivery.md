@@ -31,6 +31,10 @@ Output hints are coalesced for 200 ms. A bounded current-pane capture derives qu
 
 The last subscriber disconnect disposes the control client. Session/account changes, stopped sessions and failed captures clear current observations. Stream disconnects clear the browser's live evidence; reload/reconnect reconstruct it from the current stream without resending. The existing shared recovery timer re-establishes watchers; no new browser polling loop is added.
 
+## Claude image messages
+
+Claude image messages are pasted in two steps: first all attached image paths, then, after the prompt shows that many image chips, the remaining text, then one Enter. Claude places chips before the text either way, so chips and text keep their order, and a long text can no longer scroll chips out of a short pane before they are counted. Unlike a single paste, which silently dropped blank lines and path-like lines that were not chips, the text keeps those lines. Quoted absolute image paths count as images, as Claude turns them into chips too. The receipt journal records the extra steps (`images-pasted`, `text-intent`); a question between the two pastes holds the text, and recovery continues with only the text when exactly the chips are visible and submits only when exactly chips plus text are visible, comparing chips independent of their session numbering. If an attached image file was deleted in the meantime, recovery is blocked with its own reason. Details and the validation matrix are in `docs/direct-chat-tui-validation.md`.
+
 ## Native spike, 2026-09-12
 
 Disposable profiles, a private tmux socket and a loopback mock provider were used; no real sessions, accounts or provider credentials were used. Tested CLIs: Codex 0.153.4, Claude Code 2.1.269 and OpenCode 1.18.30, with tmux 3.7c on macOS ARM64.
