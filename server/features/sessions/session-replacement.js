@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { listSessions } from "./session-list.js";
 import path from "node:path";
 import { rm } from "node:fs/promises";
@@ -26,9 +27,9 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
     session.pipeline ||
     session.imported?.historyOnly
   )
-    throw problem("This session cannot be reloaded.", 409);
+    throw problem(serverMessages.sessionReload.notReloadable, 409);
   if (session.reload?.state !== "reloading")
-    throw problem("Reload intent is missing.", 409);
+    throw problem(serverMessages.sessionReload.intentMissing, 409);
   if (beforeStop)
     await beforeStop(
       session,

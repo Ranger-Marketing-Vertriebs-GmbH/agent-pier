@@ -1,19 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resolveReloadModel } from "../../server/application/session-reload-model.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
+
+const notPreserved = { message: serverMessages.sessionReload.modelNotPreservable };
 
 const resolve = (tool, displayedModel, observedModel) =>
   resolveReloadModel({ tool, displayedModel, observedModel });
 
 test("Claude labels require the exact version or a dated release of that exact version", () => {
-  assert.throws(() => resolve("claude", "Opus 4", "claude-opus-4-6"), /preserved/);
+  assert.throws(() => resolve("claude", "Opus 4", "claude-opus-4-6"), notPreserved);
   assert.equal(
     resolve("claude", "Opus 4", "claude-opus-4-20250514").modelId,
     "claude-opus-4-20250514",
   );
   assert.throws(
     () => resolve("claude", "Opus 4", "claude-opus-4-20250514-extra"),
-    /preserved/,
+    notPreserved,
   );
   assert.equal(
     resolve("claude", "Opus 4.6", "claude-opus-4-6").modelId,
@@ -29,7 +32,7 @@ test("Codex effort display uses exact model and known effort values only", () =>
         reasoningEffort: effort,
       });
   for (const suffix of ["maximum", "high unknown", "high effort extra", "high; secret"])
-    assert.throws(() => resolve("codex", `gpt-6 ${suffix}`, "gpt-old"), /preserved/);
+    assert.throws(() => resolve("codex", `gpt-6 ${suffix}`, "gpt-old"), notPreserved);
 });
 
 test("Claude known display decorators retain independently observed extended context", () => {
@@ -43,10 +46,10 @@ test("Claude known display decorators retain independently observed extended con
   );
   assert.throws(
     () => resolve("claude", "Opus 4.6 (1M context)", "claude-opus-4-6"),
-    /preserved/,
+    notPreserved,
   );
   assert.throws(
     () => resolve("claude", "Opus 4.6 (unknown)", "claude-opus-4-6"),
-    /preserved/,
+    notPreserved,
   );
 });

@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -43,7 +44,7 @@ export async function waitForClaudeImagePaste(
   }
   if (!expected) return;
   if (!Number.isInteger(initialImages) || initialImages < 0)
-    throw problem("Claude's existing image attachments cannot be inspected", 409);
+    throw problem(serverMessages.sessionInput.imagesUninspectable, 409);
   // Chip-like text the user typed stays literal in the prompt and matches too.
   // Only absolute paths become chips: Claude 2.1.280 leaves ~/ and relative
   // image paths as text.

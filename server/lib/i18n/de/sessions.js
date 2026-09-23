@@ -39,4 +39,23 @@ export const sessions = Object.freeze({
   nativeProcessStopped: "Der native Sitzungsprozess wurde beendet.",
   nativeSessionIdMissing: "Die native Sitzungs-ID fehlt.",
   nativeBindingAlreadyExists: "Diese native Sitzungszuordnung existiert bereits.",
+  invalidName: "Ungültiger Sitzungsname.",
+  notFound: "Sitzung nicht gefunden.",
+  invalidOptions: "Ungültige Sitzungsoptionen.",
+  invalidTool: "Ungültiges Tool für die Sitzung.",
+  invalidWorkingDirectory: "Ungültiges Arbeitsverzeichnis.",
+  invalidExecutable: "Ungültige ausführbare Datei.",
+  invalidArguments: "Ungültige Befehlsargumente.",
+  invalidEnvironment: "Ungültige Umgebungsvariablen.",
+  alreadyExists: "Die Sitzung existiert bereits.",
+  invalidControlKeys: "Ungültige Steuertasten.",
+  invalidSubmitFlag: "Ungültige Angabe zum Absenden.",
+  reloading: "Die Sitzung wird neu geladen.",
+  stopBeforeDelete: "Bitte die laufende Sitzung vor dem Löschen beenden.",
+  toolsStandaloneOnly:
+    "AgentPier-Tools sind nur in eigenständigen Coding-Sitzungen verfügbar.",
+  nativeModelNativeOnly:
+    "Ein natives Modell kann nur für eine native Coding-Sitzung gewählt werden.",
+  invalidNativeModel:
+    "Das native Modell muss eine exakte Modellkennung mit höchstens 200 Zeichen sein.",
 });

@@ -104,7 +104,7 @@ export function createSessionLifecycle(services) {
     if (body.nonoProfile && trusted.pipeline)
       throw problem(serverMessages.sessions.sandboxNotForPipeline);
     if (body.agentpierTools && (login || trusted.pipeline))
-      throw problem("AgentPier tools are only available to standalone coding sessions.");
+      throw problem(serverMessages.sessions.toolsStandaloneOnly);
     services.sessionMcp?.validate(body.agentpierTools);
     const resolved = providerAccess.resolve(body, { login });
     // Claim usage synchronously before the first asynchronous launch preparation.

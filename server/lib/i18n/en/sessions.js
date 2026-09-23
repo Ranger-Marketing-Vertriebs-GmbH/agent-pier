@@ -34,4 +34,23 @@ export const sessions = Object.freeze({
   nativeProcessStopped: "The native session process has stopped.",
   nativeSessionIdMissing: "The native session ID is missing.",
   nativeBindingAlreadyExists: "This native session binding already exists.",
+  invalidName: "Invalid session name",
+  notFound: "Session not found",
+  invalidOptions: "Invalid session options",
+  invalidTool: "Invalid session tool",
+  invalidWorkingDirectory: "Invalid working directory",
+  invalidExecutable: "Invalid executable",
+  invalidArguments: "Invalid command arguments",
+  invalidEnvironment: "Invalid environment",
+  alreadyExists: "Session already exists",
+  invalidControlKeys: "Invalid control keys",
+  invalidSubmitFlag: "Invalid submit flag",
+  reloading: "Session is reloading",
+  stopBeforeDelete: "Stop the running session before deleting it",
+  toolsStandaloneOnly:
+    "AgentPier tools are only available to standalone coding sessions.",
+  nativeModelNativeOnly:
+    "A native model can only be selected for a native coding session.",
+  invalidNativeModel:
+    "The native model must be an exact model identifier of up to 200 characters.",
 });

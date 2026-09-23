@@ -6,6 +6,7 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { SessionManager } from "../../server/features/sessions/session-manager.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 const exec = promisify(execFile);
 const tmuxPath = process.env.TMUX_PATH || "tmux";
@@ -186,7 +187,9 @@ test("exited sessions retain output and exit code; stopped sessions alone can be
   const { manager, start } = await fixture(t);
   const first = await start();
   const other = await start({ id: "test-session-extra" });
-  await assert.rejects(manager.remove(first.id), /stop|running/i);
+  await assert.rejects(manager.remove(first.id), {
+    message: serverMessages.sessions.stopBeforeDelete,
+  });
   await manager.input(first.id, "quit", true);
   await eventually(
     async () => (await manager.get(first.id)).status === "stopped",
@@ -208,7 +211,9 @@ test("exited sessions retain output and exit code; stopped sessions alone can be
   assert.match(await manager.screen(first.id), /GOODBYE/);
   assert.equal((await manager.get(other.id)).status, "running");
   await manager.remove(first.id);
-  await assert.rejects(manager.get(first.id), /not found/i);
+  await assert.rejects(manager.get(first.id), {
+    message: serverMessages.sessions.notFound,
+  });
   await manager.stop(other.id);
   assert.equal((await manager.get(other.id)).status, "stopped");
   await manager.remove(other.id);
@@ -217,10 +222,11 @@ test("exited sessions retain output and exit code; stopped sessions alone can be
 
 test("invalid IDs and launch inputs fail without creating sessions", async (t) => {
   const { manager, start } = await fixture(t);
+  const invalidId = { message: serverMessages.common.invalidSessionId };
   for (const id of ["../victim", "-a", "x:y", "*", "", "x".repeat(100)]) {
-    await assert.rejects(start({ id }), /invalid/i);
+    await assert.rejects(start({ id }), invalidId);
     for (const operation of ["get", "stop", "remove", "screen"])
-      await assert.rejects(manager[operation](id), /invalid/i);
+      await assert.rejects(manager[operation](id), invalidId);
   }
   for (const input of [
     { cwd: "/definitely/missing" },
@@ -235,10 +241,16 @@ test("invalid IDs and launch inputs fail without creating sessions", async (t) =
   }
   assert.deepEqual(await manager.list(), []);
   const live = await start();
-  await assert.rejects(manager.input(live.id, {}, true), /invalid/i);
-  await assert.rejects(manager.attach(live.id, { cols: 0, rows: 24 }), /invalid/i);
-  await assert.rejects(manager.rename(live.id, " \n "), /invalid/i);
-  await assert.rejects(start(), /exists/i);
+  await assert.rejects(manager.input(live.id, {}, true), {
+    message: serverMessages.http.invalidTerminalInput,
+  });
+  await assert.rejects(manager.attach(live.id, { cols: 0, rows: 24 }), {
+    message: serverMessages.http.invalidTerminalSize,
+  });
+  await assert.rejects(manager.rename(live.id, " \n "), {
+    message: serverMessages.sessions.invalidName,
+  });
+  await assert.rejects(start(), { message: serverMessages.sessions.alreadyExists });
 });
 
 test("a login session never persists an attachments field", async (t) => {
