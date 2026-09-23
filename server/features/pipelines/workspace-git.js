@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { problem } from "../../lib/storage.js";
@@ -22,10 +23,7 @@ export async function git(
       await execute("git", args, { cwd, env, timeout, maxBuffer })
     ).stdout.trimEnd();
   } catch (error) {
-    const failure = problem(
-      "The Git operation failed. Check the selected repository, branch, and credentials.",
-      409,
-    );
+    const failure = problem(serverMessages.pipelineWorkspaces.gitOperationFailed, 409);
     failure.code = error.code;
     throw failure;
   }
@@ -42,14 +40,14 @@ export function gitRef(value) {
     value.endsWith(".") ||
     value.endsWith("/")
   )
-    throw problem("Invalid Git reference.");
+    throw problem(serverMessages.pipelineWorkspaces.invalidGitReference);
   return value;
 }
 export async function exactCommit(cwd, ref) {
   gitRef(ref);
   const sha = (await git(cwd, ["rev-parse", "--verify", `${ref}^{commit}`])).trim();
   if (!/^[a-f0-9]{40,64}$/.test(sha))
-    throw problem("The Git reference is not a commit.", 409);
+    throw problem(serverMessages.pipelineWorkspaces.gitReferenceNotCommit, 409);
   return sha;
 }
 export async function resolveBase(cwd, requested) {

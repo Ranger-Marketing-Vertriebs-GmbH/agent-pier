@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -23,7 +24,7 @@ export class AgencyStore {
     this.closed = false;
   }
   async fetchText(url, limit) {
-    if (this.closed) throw problem("AgentPier is stopping.", 503);
+    if (this.closed) throw problem(serverMessages.agency.stopping, 503);
     const controller = new AbortController();
     this.controllers.add(controller);
     try {
@@ -50,7 +51,7 @@ export class AgencyStore {
         );
         const revision = ref.object?.sha;
         if (!/^[a-f0-9]{40}$/.test(revision || ""))
-          throw problem("Agency Agents returned an invalid revision.", 502);
+          throw problem(serverMessages.agency.invalidRevision, 502);
         const tree = JSON.parse(
           await this.fetchText(
             `https://api.github.com/repos/${repository}/git/trees/${revision}?recursive=1`,
@@ -61,17 +62,14 @@ export class AgencyStore {
           32768,
         );
         if (!license.includes("MIT License"))
-          throw problem(
-            "The Agency Agents license changed; review the source before importing.",
-            409,
-          );
+          throw problem(serverMessages.agency.licenseChanged, 409);
         const result = {
           revision,
           checkedAt: Date.now(),
           license,
           items: catalogEntries(tree),
         };
-        if (this.closed) throw problem("AgentPier is stopping.", 503);
+        if (this.closed) throw problem(serverMessages.agency.stopping, 503);
         writePrivate(this.cacheFile, result);
         return result;
       } catch (error) {
@@ -129,12 +127,9 @@ export class AgencyStore {
     this.location(id);
     const catalog = await this.catalog();
     if (input?.revision !== catalog.revision)
-      throw problem(
-        "The Agency catalog changed. Refresh the preview before installing.",
-        409,
-      );
+      throw problem(serverMessages.agency.catalogChanged, 409);
     const item = catalog.items.find((item) => item.id === input.id);
-    if (!item) throw problem("Agency agent not found.", 404);
+    if (!item) throw problem(serverMessages.agency.agentNotFound, 404);
     const source = `https://github.com/${repository}/blob/${catalog.revision}/${item.path}`;
     const text = await this.fetchText(
       `https://raw.githubusercontent.com/${repository}/${catalog.revision}/${item.path}`,
@@ -154,7 +149,7 @@ export class AgencyStore {
     const agent = await this.preview(id, input),
       location = this.location(id),
       tool = location.account.tool;
-    if (this.closed) throw problem("AgentPier is stopping.", 503);
+    if (this.closed) throw problem(serverMessages.agency.stopping, 503);
     const directory = path.join(location.root, "agents");
     const filename = `agency-${agent.id.replaceAll("__", "-").slice(0, 160)}-${digest(agent.id).slice(0, 8)}.${tool === "codex" ? "toml" : "md"}`;
     const file = path.join(directory, filename);
@@ -164,7 +159,7 @@ export class AgencyStore {
       records.some((record) => record.tool === tool && record.id === agent.id) ||
       fs.existsSync(file)
     )
-      throw problem("This Agency agent is already installed.", 409);
+      throw problem(serverMessages.agency.alreadyInstalled, 409);
     const content = nativeAgent(tool, agent, agent.source);
     fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
     const licenseFile = path.join(directory, "AGENCY-LICENSE.txt");
@@ -198,9 +193,9 @@ export class AgencyStore {
     const record = records.find(
       (item) => item.tool === location.account.tool && item.id === agentId,
     );
-    if (!record) throw problem("Agency agent is not installed for this CLI.", 404);
+    if (!record) throw problem(serverMessages.agency.notInstalledForCli, 404);
     if (path.dirname(record.path) !== path.join(location.root, "agents"))
-      throw problem("The agent file is outside this CLI's agent directory.", 409);
+      throw problem(serverMessages.agency.outsideAgentDirectory, 409);
     safePath(record.path, location.boundary);
     let stat;
     try {
@@ -216,7 +211,7 @@ export class AgencyStore {
         stat.ino !== record.ino ||
         digest(fs.readFileSync(record.path)) !== record.hash)
     )
-      throw problem("The agent file changed outside AgentPier; it was retained.", 409);
+      throw problem(serverMessages.agency.changedOutside, 409);
     if (stat) fs.unlinkSync(record.path);
     writePrivate(
       this.file,

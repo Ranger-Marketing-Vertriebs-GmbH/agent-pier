@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
 
@@ -10,7 +11,7 @@ export function pipelineDefinitionRoutes({
   const router = Router();
   router.get("/pipeline-profiles", (req, res) => {
     if (req.query.enabled !== undefined && !["true", "false"].includes(req.query.enabled))
-      throw problem("Invalid enabled filter");
+      throw problem(serverMessages.pipelines.invalidEnabledFilter);
     res.json({
       profiles: definitions.listProfiles({ enabledOnly: req.query.enabled === "true" }),
     });
@@ -34,7 +35,8 @@ export function pipelineDefinitionRoutes({
   });
   router.post("/pipeline-profiles/:id/launch", async (req, res) => {
     const profile = definitions.getProfile(req.params.id);
-    if (!profile.enabled) throw problem("This profile is disabled", 409);
+    if (!profile.enabled)
+      throw problem(serverMessages.pipelines.profileDisabledFilter, 409);
     res
       .status(201)
       .json({ session: await pipelineDriver.launchProfile(profile, req.body) });
@@ -53,7 +55,7 @@ export function pipelineDefinitionRoutes({
   );
   router.delete("/pipelines/:id", (req, res) => {
     if (pipelines.hasActiveRuns(req.params.id))
-      throw problem("A pipeline with active runs cannot be deleted", 409);
+      throw problem(serverMessages.pipelines.activeRunsBlockDelete, 409);
     definitions.removePipeline(req.params.id);
     res.sendStatus(204);
   });

@@ -1,6 +1,7 @@
 import React from "react";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { formatTimestamp } from "../../lib/i18n/index.js";
+import { serverText } from "../../lib/server-messages.js";
 import VerificationStatus, { isVerifying } from "./VerificationStatus.jsx";
 import RunEvidence from "./RunEvidence.jsx";
 export function Verdict({ verdict }) {
@@ -13,10 +14,10 @@ export function Verdict({ verdict }) {
       {verdict.summary?.length > 600 ? (
         <details className="pipeline-verdict-summary">
           <summary>{copy.resultSummary}</summary>
-          <p>{verdict.summary}</p>
+          <p>{serverText(verdict.summary)}</p>
         </details>
       ) : (
-        <p>{verdict.summary}</p>
+        <p>{serverText(verdict.summary)}</p>
       )}
       {verdict.findings?.length > 0 && (
         <ul>
@@ -51,7 +52,7 @@ export default function RunTimeline({ run, navigate }) {
                 {node.loop && ` · ${node.loop.iteration} / ${node.loop.maxIterations}`}
               </p>
               {node.failReason && <p>{node.failReason}</p>}
-              {node.failReason && node.failDetail && <p>{node.failDetail}</p>}
+              {node.failReason && node.failDetail && <p>{serverText(node.failDetail)}</p>}
               <VerificationStatus run={run} node={node} />
               <Verdict verdict={node.verdict} />
               {node.verifyResult?.status === "not-configured" && <p>{copy.noSteps}</p>}

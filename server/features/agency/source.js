@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { parseDocument, stringify as yaml } from "yaml";
 import { stringify as toml } from "smol-toml";
 import { problem } from "../../lib/storage.js";
@@ -11,9 +12,9 @@ export async function download(url, fetchImpl, signal, limit = 2 * 1024 * 1024) 
     headers: { accept: "application/vnd.github+json", "user-agent": "AgentPier" },
   });
   if (!response.ok)
-    throw problem(`Agency Agents download failed (HTTP ${response.status}).`, 502);
+    throw problem(serverMessages.agency.downloadFailed(response.status), 502);
   const reader = response.body?.getReader();
-  if (!reader) throw problem("Agency Agents returned an empty response.", 502);
+  if (!reader) throw problem(serverMessages.agency.emptyResponse, 502);
   let length = 0;
   const chunks = [];
   try {
@@ -21,8 +22,7 @@ export async function download(url, fetchImpl, signal, limit = 2 * 1024 * 1024) 
       const { value, done } = await reader.read();
       if (done) break;
       length += value.length;
-      if (length > limit)
-        throw problem("Agency Agents response exceeds the download limit.", 413);
+      if (length > limit) throw problem(serverMessages.agency.downloadLimit, 413);
       chunks.push(value);
     }
   } finally {
@@ -32,7 +32,7 @@ export async function download(url, fetchImpl, signal, limit = 2 * 1024 * 1024) 
 }
 export function catalogEntries(tree) {
   if (!Array.isArray(tree.tree) || tree.truncated || tree.tree.length > 10000)
-    throw problem("Agency Agents returned an incomplete catalog.", 502);
+    throw problem(serverMessages.agency.incompleteCatalog, 502);
   return tree.tree
     .filter(
       (item) =>
@@ -53,14 +53,14 @@ export function catalogEntries(tree) {
 }
 export function parseAgent(text) {
   const front = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)([\s\S]*)$/.exec(text);
-  if (!front) throw problem("Agency agent is missing YAML metadata.", 422);
+  if (!front) throw problem(serverMessages.agency.yamlMissing, 422);
   const document = parseDocument(front[1], { uniqueKeys: true });
-  if (document.errors.length) throw problem("Agency agent metadata is invalid.", 422);
+  if (document.errors.length) throw problem(serverMessages.agency.invalidMetadata, 422);
   let data;
   try {
     data = document.toJS({ maxAliasCount: 0 });
   } catch {
-    throw problem("Agency agent metadata aliases are unsupported.", 422);
+    throw problem(serverMessages.agency.aliasesUnsupported, 422);
   }
   if (
     typeof data?.name !== "string" ||
@@ -71,7 +71,7 @@ export function parseAgent(text) {
     data.description.length > 2048 ||
     !front[2].trim()
   )
-    throw problem("Agency agent identity or description is invalid.", 422);
+    throw problem(serverMessages.agency.invalidIdentity, 422);
   return {
     name: data.name.trim(),
     description: data.description.trim(),

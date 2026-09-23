@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { NativeEventReader } from "../../server/features/pipelines/native-reader.js";
 import { NativePipelineDriver } from "../../server/features/pipelines/native-driver.js";
 import { applyOutcome } from "../../server/features/pipelines/execution-stage.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 async function fixture(t) {
   const root = await fs.mkdtemp(path.join(tmpdir(), "agentpier-native-images-"));
@@ -93,7 +94,7 @@ test("oversized image events remain bounded and expose a safe diagnostic to the 
   assert.equal(outcome.status, "failed");
   assert.equal(
     outcome.observationError,
-    "Native event exceeds the 16 MiB observation limit.",
+    serverMessages.pipelines.observationEventTooLarge,
   );
   const node = { id: "review" };
   const attempt = { id: "turn" };
@@ -117,7 +118,7 @@ test("malformed events following a large image still fail validation", async (t)
   );
   const outcome = await driver.inspect(identity);
   assert.equal(outcome.status, "failed");
-  assert.equal(outcome.observationError, "Native CLI emitted invalid JSONL.");
+  assert.equal(outcome.observationError, serverMessages.pipelines.invalidNativeJsonl);
 });
 
 test("unexpected filesystem errors do not expose paths or sensitive messages", async (t) => {

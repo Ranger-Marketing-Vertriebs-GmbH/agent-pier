@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NativePipelineDriver } from "../../server/features/pipelines/native-driver.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
+
+const copy = serverMessages.pipelineProfiles;
 
 function fixture(tool = "codex") {
   const profile = {
@@ -121,13 +124,16 @@ test("standalone choices reject mismatched access and still require profile para
     },
   ])
     await assert.rejects(f.launch({ access, params: { topic: "code" } }));
-  await assert.rejects(f.launch({ params: {} }), /required/);
-  await assert.rejects(
-    f.launch({ params: { topic: "code" }, model: "not-allowed" }),
-    /not available/,
-  );
+  await assert.rejects(f.launch({ params: {} }), {
+    message: copy.parameterRequired("Topic"),
+  });
+  await assert.rejects(f.launch({ params: { topic: "code" }, model: "not-allowed" }), {
+    message: copy.modelUnavailable,
+  });
   f.profile.enabled = false;
-  await assert.rejects(f.launch({ params: { topic: "code" } }), /disabled/);
+  await assert.rejects(f.launch({ params: { topic: "code" } }), {
+    message: copy.disabled,
+  });
   assert.equal(f.captured(), undefined);
 });
 

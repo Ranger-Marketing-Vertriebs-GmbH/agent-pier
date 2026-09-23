@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { spawnSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
 import { problem } from "../../lib/storage.js";
@@ -19,10 +20,7 @@ export function validateFrozenAccount(profile, account) {
     (profile.accountSnapshot &&
       !isDeepStrictEqual(accountConfiguration(account), profile.accountSnapshot))
   )
-    throw problem(
-      "The profile account configuration changed. Start a new run with the updated profile.",
-      409,
-    );
+    throw problem(serverMessages.pipelineProfiles.accountConfigurationChanged, 409);
 }
 export function profileAccess(profile, modelId = profile.config.models.default) {
   return {
@@ -58,10 +56,7 @@ export function validateProfileLaunch(
     account.provider?.id !== connection.providerId ||
     account.provider?.modelId !== modelId
   )
-    throw problem(
-      "The profile provider configuration changed. Start a new run with the updated profile.",
-      409,
-    );
+    throw problem(serverMessages.pipelineProfiles.providerConfigurationChanged, 409);
 }
 const helpCache = new Map();
 function claudeDefaultMode(command) {
@@ -73,7 +68,7 @@ function claudeDefaultMode(command) {
       env: { PATH: process.env.PATH || "/usr/bin:/bin" },
     });
     if (help.status !== 0)
-      throw problem("Unable to verify the native Claude permission mode.", 409);
+      throw problem(serverMessages.pipelineProfiles.claudePermissionModeUnverified, 409);
     const permission = help.stdout.slice(
       help.stdout.indexOf("--permission-mode"),
       help.stdout.indexOf("--permission-mode") + 700,
@@ -84,10 +79,7 @@ function claudeDefaultMode(command) {
         ? "default"
         : null;
     if (!mode)
-      throw problem(
-        "This Claude version does not advertise the profile permission mode.",
-        409,
-      );
+      throw problem(serverMessages.pipelineProfiles.claudePermissionModeUnsupported, 409);
     helpCache.set(command, mode);
   }
   return helpCache.get(command);

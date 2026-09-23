@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import { serverText } from "../../lib/server-messages.js";
 import ConfirmAction from "./ConfirmAction.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 export default function RunActions({ run, refresh, removed }) {
@@ -19,7 +20,7 @@ export default function RunActions({ run, refresh, removed }) {
     }
     if (action === "reconcile") {
       const status = await api(base + "/verdict-status");
-      if (!status.present) throw Error(status.reason || copy.verdictMissing);
+      if (!status.present) throw Error(serverText(status.reason) || copy.verdictMissing);
     }
     const suffix =
       action === "retry"

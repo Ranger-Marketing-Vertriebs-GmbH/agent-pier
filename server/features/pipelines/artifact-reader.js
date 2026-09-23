@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { containedFile } from "./stage-verdict.js";
 import { privatePipelinePath } from "./private-paths.js";
@@ -17,7 +18,7 @@ const deny = new Set([
 ]);
 function nodeOf(run, id) {
   const node = run.nodes.find((n) => n.id === id);
-  if (!node) throw problem("Pipeline node not found.", 404);
+  if (!node) throw problem(serverMessages.pipelines.nodeNotFound, 404);
   return node;
 }
 export function artifactsForNode(run, nodeId) {
@@ -33,17 +34,18 @@ export function artifactText(run, nodeId, file) {
   const declared = run.executionLog
     .filter((a) => a.nodeId === nodeId && a.finishedAt)
     .some((a) => a.verdict?.artifacts?.some((f) => f.path === file));
-  if (!declared) throw problem("Artifact was not declared by this stage.", 404);
+  if (!declared) throw problem(serverMessages.pipelines.artifactNotDeclared, 404);
   if (
     privatePipelinePath(file) ||
     file.split("/").some((part) => deny.has(part.toLowerCase()))
   )
-    throw problem("Artifact path is private.", 403);
+    throw problem(serverMessages.pipelines.artifactPathPrivate, 403);
   try {
     const { text, truncated } = containedFile(run.workingDir, file, 2 * 1024 * 1024);
     return { text, truncated };
   } catch (e) {
-    if (e.code === "ENOENT") throw problem("Artifact not found.", 404);
+    if (e.code === "ENOENT")
+      throw problem(serverMessages.pipelines.artifactNotFound, 404);
     throw e;
   }
 }
@@ -60,8 +62,8 @@ export async function stageDiff(engine, run, nodeId) {
 export function verificationLog(engine, run, nodeId, index) {
   const node = nodeOf(run, nodeId);
   if (!Number.isSafeInteger(index) || index < 0)
-    throw problem("Invalid verification step.");
+    throw problem(serverMessages.pipelines.invalidVerificationStep);
   const step = node.verifyResult?.steps?.[index];
-  if (!step) throw problem("Verification log not found.", 404);
+  if (!step) throw problem(serverMessages.pipelines.verificationLogNotFound, 404);
   return { log: step.logTail || "", truncated: step.logTruncated === true };
 }

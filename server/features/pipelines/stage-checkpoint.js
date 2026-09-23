@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { currentAttempt } from "./graph-navigation.js";
 import { park } from "./execution-stage.js";
 export async function checkpointStage(engine, run, node) {
@@ -21,7 +22,7 @@ export async function checkpointStage(engine, run, node) {
         "session-error",
         [400, 409].includes(error.status)
           ? error.message
-          : "The stage changes could not be checkpointed. The workspace is preserved.",
+          : serverMessages.pipelines.checkpointFailed,
       );
       return false;
     }
