@@ -20,33 +20,49 @@ export function claudeComposerImages(raw, pane) {
   return [...box.rows.join("\n").matchAll(chip)].length;
 }
 
+// A path Claude 2.1.280 turns into a chip: absolute, an image extension, and
+// optionally wrapped in one pair of single or double quotes.
+function imagePath(line) {
+  const trimmed = line.trim();
+  const file = /^(['"])(.*)\1$/.exec(trimmed)?.[2] ?? trimmed;
+  return path.isAbsolute(file) && imageFile.test(file) ? file : null;
+}
+
+const isFile = (file) =>
+  stat(file).then(
+    (info) => info.isFile(),
+    () => false,
+  );
+
 /**
  * Splits a chat message into the local image paths Claude turns into chips and
  * the remaining text, or null when it attaches no image. Claude Code 2.1.280
- * removes every line holding an existing absolute image path from a paste and
- * places its chips before the remaining lines, so pasting the paths first and the
- * text afterwards yields the same prompt. Only absolute paths become chips:
- * ~/ and relative image paths, and missing files, stay text.
+ * places the chips of a paste before its remaining lines, so pasting the paths
+ * first and the text afterwards keeps chips and text in the same order. Unlike a
+ * single paste, which also silently drops blank lines and path-like lines that
+ * are not chips (missing absolute paths, ~/ and relative image paths), the text
+ * paste keeps those lines as the user wrote them.
  */
 export async function claudeImageMessage(text) {
   const images = [];
   const rest = [];
   for (const line of text.split("\n")) {
-    const file = line.trim();
-    if (
-      path.isAbsolute(file) &&
-      imageFile.test(file) &&
-      (await stat(file).then(
-        (info) => info.isFile(),
-        () => false,
-      ))
-    )
-      images.push(file);
+    const file = imagePath(line);
+    if (file && (await isFile(file))) images.push(file);
     else rest.push(line);
   }
   if (!images.length) return null;
   const remaining = rest.join("\n");
   return { images, text: remaining.trim() ? remaining : "" };
+}
+
+/** Whether the message names an absolute image file that no longer exists. */
+export async function missingClaudeImages(text) {
+  for (const line of text.split("\n")) {
+    const file = imagePath(line);
+    if (file && !(await isFile(file))) return true;
+  }
+  return false;
 }
 
 // Claude numbers chips per session, so only their position and count are stable.

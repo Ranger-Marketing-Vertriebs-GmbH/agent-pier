@@ -75,6 +75,16 @@ test("image lines anywhere in the message are chips; the remaining lines keep th
   ]);
 });
 
+test("quoted image paths are pasted unquoted and waited for as chips", async (t) => {
+  const [one, two] = await images(t, 2);
+  const model = claudePromptModel({ images: true });
+  const manager = claudeModelManager(model);
+  const result = await send(manager, `Look\n'${one}'\n"${two}"`);
+  assert.equal(result.error, undefined);
+  assert.deepEqual(pastes(manager), [`${one}\n${two}`, "Look"]);
+  assert.deepEqual(model.submitted, ["[Image #1] [Image #2]Look"]);
+});
+
 test("an image-only message is one paste without a text step", async (t) => {
   const files = await images(t, 2);
   const model = claudePromptModel({ images: true });

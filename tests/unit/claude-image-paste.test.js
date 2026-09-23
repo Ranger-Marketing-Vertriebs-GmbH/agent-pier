@@ -7,6 +7,7 @@ import {
   claudeComposerImages,
   claudeImageDraft,
   claudeImageMessage,
+  missingClaudeImages,
   waitForClaudeImages,
 } from "../../server/features/sessions/claude-image-paste.js";
 import {
@@ -182,6 +183,38 @@ test("a message is split into existing absolute image lines and its remaining te
     "/etc/hosts",
   ])
     assert.equal(await claudeImageMessage(text), null, text);
+});
+
+test("the text keeps blank and non-chip path lines that a single paste dropped", async (t) => {
+  const [one] = await realImages(t, 1);
+  const missing = `${path.dirname(one)}/missing.png`;
+  // Claude 2.1.280 turned this single paste into "[Image #1]a\nb": it dropped the
+  // blank line and the missing, ~/ and relative image paths. The text paste
+  // after the chips keeps them as the user wrote them.
+  const text = `a\n\n${missing}\n~/x.png\nrel/y.png\n${one}\nb`;
+  assert.deepEqual(await claudeImageMessage(text), {
+    images: [one],
+    text: `a\n\n${missing}\n~/x.png\nrel/y.png\nb`,
+  });
+});
+
+test("quoted absolute image paths are chips like unquoted ones", async (t) => {
+  const [one, two] = await realImages(t, 2);
+  // Claude 2.1.280 shows "'<png>'\n  \"<png>\"  " as "[Image #1] [Image #2]".
+  assert.deepEqual(await claudeImageMessage(`'${one}'\n  "${two}"  \nLook`), {
+    images: [one, two],
+    text: "Look",
+  });
+  for (const text of [`'${one}"`, `"${one}`, `'~/x.png'`, `'${one}.missing.png'`])
+    assert.equal(await claudeImageMessage(text), null, text);
+});
+
+test("deleted attachments are detected, quoted or not", async (t) => {
+  const [one] = await realImages(t, 1);
+  assert.equal(await missingClaudeImages(`Look\n${one}`), false);
+  assert.equal(await missingClaudeImages(`Look\n${one}.gone.png`), true);
+  assert.equal(await missingClaudeImages(`Look\n"${one}.gone.png"`), true);
+  assert.equal(await missingClaudeImages("~/gone.png\nrel/gone.png"), false);
 });
 
 test("image drafts match with chips in place of paths and any chip numbers", async (t) => {
