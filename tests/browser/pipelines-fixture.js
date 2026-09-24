@@ -230,3 +230,41 @@ export async function openPipelines(page, path = "profiles") {
     page.getByRole("heading", { name: "Pipelines", exact: true }),
   ).toBeVisible();
 }
+
+// A run waiting for a decision on its single stage; tests adjust it per case.
+export function sampleRun(state, id = "run-one") {
+  return {
+    id,
+    pipelineId: "pipeline-one",
+    pipelineName: "Entwicklungsablauf",
+    projectId: "project-one",
+    cwd: "/fixture/project",
+    task: "Review the application",
+    status: "awaiting-human",
+    currentNodeId: "stage-one",
+    usage: { inputTokens: 1200, outputTokens: 300, totalTokens: 1500 },
+    nodes: [
+      {
+        id: "stage-one",
+        profileSnapshot: state.profiles[0],
+        status: "awaiting-gate",
+        sessionId: "stage-session",
+        startedAt: "2026-09-07T12:00:00Z",
+        verdict: {
+          result: "fail",
+          summary: "Review requires changes",
+          findings: [
+            {
+              severity: "high",
+              title: "Missing validation",
+              detail: "Validate the input",
+            },
+          ],
+        },
+        verifyResult: { steps: [{ name: "Check", exitCode: 1, blocking: true }] },
+      },
+    ],
+    actions: ["accept", "feedback", "loop-back", "override", "abort", "reconcile"],
+    executionLog: [],
+  };
+}
