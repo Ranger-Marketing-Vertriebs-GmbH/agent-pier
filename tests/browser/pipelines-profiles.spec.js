@@ -23,6 +23,7 @@ test("profile editing preserves drafts on conflict and clones without reusing id
   await page
     .getByRole("button", { name: "Duplizieren: Neuer Planer", exact: true })
     .click();
+  await expect(page).toHaveURL(/\/pipelines\/profiles\/new$/);
   await expect(
     page.getByRole("textbox", { name: "Profilname", exact: true }),
   ).toHaveValue("Neuer Planer (Kopie)");
@@ -51,6 +52,11 @@ test("mobile profile creation supports account permissions and parameters withou
   await page.getByLabel("Parametername 1", { exact: true }).fill("Thema");
   await page.getByLabel("Parameter erforderlich 1", { exact: true }).check();
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
+  await expect(page).toHaveURL(/\/pipelines\/profiles\/profile-new$/);
+  await expect(
+    page.getByRole("heading", { name: "Interaktiver Helfer", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Alle Profile", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Bearbeiten: Interaktiver Helfer", exact: true }),
   ).toBeVisible();
@@ -134,7 +140,7 @@ test("disabled profiles cannot launch and rejected deletion preserves the profil
   ).toBeVisible();
 });
 
-test("mobile profile selectors stay anchored inside the dialog and preserve keyboard selection", async ({
+test("mobile profile selectors stay anchored inside the editor and preserve keyboard selection", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -145,8 +151,8 @@ test("mobile profile selectors stay anchored inside the dialog and preserve keyb
   const list = page.getByRole("listbox", { name: "Account: Optionen", exact: true });
   await expect(list).toBeVisible();
   const anchor = await field.boundingBox(),
-    popup = await list.boundingBox(),
-    dialog = await page.getByRole("dialog").boundingBox();
+    popup = await list.boundingBox();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(Math.abs(popup.x - anchor.x)).toBeLessThan(2);
   expect(
     Math.min(
@@ -154,8 +160,8 @@ test("mobile profile selectors stay anchored inside the dialog and preserve keyb
       Math.abs(anchor.y - popup.y - popup.height),
     ),
   ).toBeLessThan(9);
-  expect(popup.y).toBeGreaterThanOrEqual(dialog.y);
-  expect(popup.y + popup.height).toBeLessThanOrEqual(dialog.y + dialog.height);
+  expect(popup.y).toBeGreaterThanOrEqual(0);
+  expect(popup.y + popup.height).toBeLessThanOrEqual(844);
   expect(popup.x + popup.width).toBeLessThanOrEqual(390);
   await list.getByRole("option", { name: "Claude lokal", exact: true }).click();
   await expect(field).toHaveValue("local-claude");
@@ -173,7 +179,7 @@ test("mobile profile selectors stay anchored inside the dialog and preserve keyb
   await permissions.press("ArrowDown");
   await permissions.press("Escape");
   await expect(page.getByRole("listbox")).toHaveCount(0);
-  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("form", { name: "Neues Profil" })).toBeVisible();
   await expect(permissions).toBeFocused();
 });
 
@@ -197,8 +203,9 @@ for (const width of [1440, 390])
       .getByRole("combobox", { name: "Anbietermodell", exact: true })
       .selectOption("fixture/model");
     await page.getByRole("button", { name: "Speichern", exact: true }).click();
+    await expect(page).toHaveURL(/\/pipelines\/profiles\/profile-new$/);
     await expect(
-      page.getByRole("button", { name: "Bearbeiten: Zentrales Profil", exact: true }),
+      page.getByRole("heading", { name: "Zentrales Profil", exact: true }),
     ).toBeVisible();
     const creation = state.calls.find(
       (c) => c.path === "/pipeline-profiles" && c.method === "POST",
@@ -209,9 +216,6 @@ for (const width of [1440, 390])
       available: ["fixture/model"],
       default: "fixture/model",
     });
-    await page
-      .getByRole("button", { name: "Bearbeiten: Zentrales Profil", exact: true })
-      .click();
     await page.reload();
     await expect(access).toHaveValue("central-openrouter");
     await page
@@ -222,3 +226,178 @@ for (const width of [1440, 390])
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
     ).toBe(true);
   });
+
+// Profiles in phase order, spread over three phases with both run modes.
+function addProfiles(state) {
+  const base = state.profiles[0];
+  state.profiles.push(
+    {
+      ...structuredClone(base),
+      id: "profile-review",
+      name: "Prüfer",
+      phaseKey: "review",
+      enabled: false,
+      config: {
+        ...structuredClone(base.config),
+        accountId: "local-claude",
+        cliTool: "claude",
+        models: { available: ["opus"], default: "opus" },
+        permissions: { mode: "plan" },
+        run: { autonomous: false },
+      },
+    },
+    { ...structuredClone(base), id: "profile-own", name: "Eigenes", phaseKey: null },
+    {
+      ...structuredClone(base),
+      id: "profile-refine",
+      name: "Klärer",
+      phaseKey: "refinement",
+    },
+  );
+}
+
+test("desktop profiles select the first profile, group by phase and edit inline", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  addProfiles(state);
+  await openPipelines(page);
+  const list = page.getByRole("navigation", { name: "Aufgabenprofile", exact: true });
+  await expect(list.locator(".profile-group-caps")).toHaveText([
+    "Klärung",
+    "Planung",
+    "Prüfung",
+    "Eigene Profile",
+  ]);
+  // The first profile in phase order opens without a dialog.
+  await expect(page).toHaveURL(/\/pipelines\/profiles\/profile-refine$/);
+  const first = list.getByRole("button", { name: "Bearbeiten: Klärer", exact: true });
+  await expect(first).toHaveAttribute("aria-current", "true");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Klärer", exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Klärung · 3 Stufenläufe in den letzten 7 Tagen"),
+  ).toBeVisible();
+  const reviewer = list.getByRole("button", { name: "Bearbeiten: Prüfer", exact: true });
+  await expect(reviewer).toContainText("Claude Code · opus");
+  await expect(reviewer).toContainText("Interaktiv · Deaktiviert");
+  await expect(first).toContainText("Codex · Account-Standard");
+  await expect(first).toContainText("Autonom");
+  for (const section of ["Grundlagen", "Ausführung", "Anweisungen", "Parameter"])
+    await expect(page.getByRole("group", { name: section, exact: true })).toBeVisible();
+  await reviewer.click();
+  await expect(page).toHaveURL(/\/profiles\/profile-review$/);
+  await expect(
+    page.getByRole("button", { name: "Sitzung mit Profil starten", exact: true }),
+  ).toBeDisabled();
+  const hint = page.getByText(
+    "Pipeline-Stufen benötigen ein autonomes Profil ohne erforderliche Parameter.",
+    { exact: true },
+  );
+  await expect(hint).toHaveCSS("color", "rgb(255, 201, 157)");
+  await expect(
+    page.getByRole("button", { name: "Duplizieren: Prüfer", exact: true }),
+  ).toHaveText("Duplizieren");
+  await expect(
+    page.getByRole("button", { name: "Löschen: Prüfer", exact: true }),
+  ).toHaveText("Löschen");
+});
+
+test("unsaved profile drafts ask before another profile, a new one or a copy opens", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  addProfiles(state);
+  await openPipelines(page, "profiles/profile-one");
+  const name = page.getByRole("textbox", { name: "Profilname", exact: true });
+  await name.fill("Geänderter Planer");
+  const confirm = page.getByRole("dialog", { name: "Aktion bestätigen" });
+  await page.getByRole("button", { name: "Bearbeiten: Prüfer", exact: true }).click();
+  await confirm.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await expect(page).toHaveURL(/\/profiles\/profile-one$/);
+  await expect(name).toHaveValue("Geänderter Planer");
+  await page.getByRole("button", { name: "Neues Profil", exact: true }).click();
+  await confirm.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await page.getByRole("button", { name: "Duplizieren: Planer", exact: true }).click();
+  await confirm.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await expect(page).toHaveURL(/\/profiles\/profile-one$/);
+  await page.getByRole("button", { name: "Bearbeiten: Prüfer", exact: true }).click();
+  await confirm.getByRole("button", { name: "Verwerfen", exact: true }).click();
+  await expect(page).toHaveURL(/\/profiles\/profile-review$/);
+  await expect(name).toHaveValue("Prüfer");
+  // An unchanged editor switches without asking.
+  await page.getByRole("button", { name: "Neues Profil", exact: true }).click();
+  await expect(page).toHaveURL(/\/profiles\/new$/);
+  await expect(name).toHaveValue("");
+  expect(state.calls.some((c) => c.method === "PATCH")).toBe(false);
+});
+
+test("unknown profiles report unavailability", async ({ page }) => {
+  await pipelinesFixture(page);
+  await openPipelines(page, "profiles/missing-profile");
+  await expect(
+    page.getByText("Dieses Profil ist nicht verfügbar.", { exact: true }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/profiles\/missing-profile$/);
+});
+
+test("mobile profiles show the list first and the editor without overflow", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await pipelinesFixture(page);
+  addProfiles(state);
+  await openPipelines(page);
+  const item = page.getByRole("button", { name: "Bearbeiten: Prüfer", exact: true });
+  await expect(item).toBeVisible();
+  await expect(page).toHaveURL(/\/pipelines\/profiles$/);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+  await item.click();
+  await expect(page).toHaveURL(/\/profiles\/profile-review$/);
+  await expect(item).toBeHidden();
+  await expect(
+    page.getByRole("textbox", { name: "Profilname", exact: true }),
+  ).toHaveValue("Prüfer");
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+  await page.getByRole("textbox", { name: "Profilname", exact: true }).fill("Neu");
+  await page.getByRole("button", { name: "Alle Profile", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Aktion bestätigen" })
+    .getByRole("button", { name: "Verwerfen", exact: true })
+    .click();
+  await expect(item).toBeVisible();
+});
+
+test.describe("English task profiles", () => {
+  test.use({ locale: "en-GB" });
+  test("list and editor use English copy", async ({ page }) => {
+    const state = await pipelinesFixture(page);
+    addProfiles(state);
+    await openPipelines(page, "profiles/profile-review");
+    const list = page.getByRole("navigation", { name: "Task profiles", exact: true });
+    await expect(list.locator(".profile-group-caps")).toHaveText([
+      "Refinement",
+      "Planning",
+      "Review",
+      "Custom profiles",
+    ]);
+    await expect(
+      list.getByRole("button", { name: "Edit: Prüfer", exact: true }),
+    ).toContainText("Interactive · Disabled");
+    await expect(
+      list.getByRole("button", { name: "Edit: Planer", exact: true }),
+    ).toContainText("Autonomous");
+    for (const section of ["Basics", "Execution", "Instructions", "Parameters"])
+      await expect(page.getByRole("group", { name: section, exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Duplicate: Prüfer" })).toHaveText(
+      "Duplicate",
+    );
+    await expect(
+      page.getByText("Review · 3 stage runs in the last 7 days"),
+    ).toBeVisible();
+  });
+});

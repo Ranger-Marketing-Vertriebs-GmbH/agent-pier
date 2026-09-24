@@ -1,0 +1,177 @@
+/* Project list */
+.verification-register {
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+.verification-register > summary {
+  cursor: pointer;
+  color: #9d9ea2;
+}
+.verification-register > summary:hover {
+  color: #ffc99d;
+}
+.verification-register .pipeline-controls {
+  margin: 12px 0 0;
+}
+.verification-list {
+  gap: 3px;
+}
+.list-detail-items .verification-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 11px 12px;
+  border-radius: 6px;
+  color: #cfd0d4;
+  text-align: left;
+}
+.list-detail-items .verification-item:hover {
+  background: #222327;
+}
+.list-detail-items .verification-item.selected {
+  background: #26272b;
+}
+.verification-item strong {
+  font-size: 12px;
+  font-weight: 500;
+  color: #e8e8ec;
+  overflow-wrap: anywhere;
+}
+.verification-item.selected strong {
+  color: #ffc99d;
+}
+.verification-item small {
+  font-size: 10px;
+  color: #8a8b8f;
+  overflow-wrap: anywhere;
+}
+
+/* Step editor card */
+.pipeline-form.verification-card {
+  background: #18191d;
+  border: 1px solid #303137;
+  border-radius: 9px;
+  padding: 22px;
+  gap: 18px;
+}
+.verification-card > fieldset {
+  gap: 18px;
+}
+.verification-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.verification-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+.verification-head h2 {
+  margin: 0;
+  font:
+    600 17px "Manrope",
+    sans-serif;
+  letter-spacing: -0.3px;
+  overflow-wrap: anywhere;
+}
+.pipeline-page .verification-head p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #8b8c90;
+}
+.verification-head .button {
+  height: 34px;
+  gap: 7px;
+  padding: 0 12px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.pipeline-page .verification-empty {
+  margin: 0;
+  font-size: 12px;
+  color: #8b8c90;
+}
+.verification-columns,
+.verification-step {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1.6fr) 96px 184px 150px;
+  align-items: center;
+  gap: 10px;
+}
+.verification-columns {
+  font-size: 11px;
+  color: #92949d;
+}
+.verification-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.verification-step {
+  padding-bottom: 12px;
+  border-bottom: 1px solid #303137;
+}
+.verification-step:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.verification-step-number {
+  font-size: 11px;
+  color: #8b8c90;
+  text-align: center;
+}
+.verification-card input.verification-step-command {
+  color: #ffc99d;
+  font-family: ui-monospace, Menlo, monospace;
+}
+.verification-card .verification-step-blocking {
+  white-space: nowrap;
+}
+.verification-step-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.verification-step-actions .button {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 10px;
+}
+
+@media (max-width: 1200px) {
+  .verification-columns {
+    display: none;
+  }
+  .verification-step {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+  .verification-step > :not(.verification-step-number) {
+    grid-column: 2;
+  }
+  .verification-step-number {
+    grid-row: 1;
+  }
+  .verification-step-timeout {
+    max-width: 120px;
+  }
+  .verification-step-actions {
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 700px) {
+  .pipeline-form.verification-card {
+    padding: 16px;
+  }
+  .verification-card .verification-step-blocking {
+    white-space: normal;
+  }
+}
