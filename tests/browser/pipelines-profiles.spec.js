@@ -422,3 +422,27 @@ test("refreshing the profile list asks before discarding an unsaved draft", asyn
   await confirm.getByRole("button", { name: "Verwerfen", exact: true }).click();
   await expect(name).toHaveValue("Server-Planer");
 });
+
+test("starting a session from an unsaved draft asks before discarding it", async ({
+  page,
+}) => {
+  await pipelinesFixture(page);
+  await openPipelines(page, "profiles/profile-one");
+  const name = page.getByRole("textbox", { name: "Profilname", exact: true });
+  await name.fill("Entwurf");
+  const start = page.getByRole("button", {
+    name: "Sitzung mit Profil starten",
+    exact: true,
+  });
+  const confirm = page.getByRole("dialog", { name: "Aktion bestätigen" });
+  const launch = page.getByRole("dialog", { name: "Neue Sitzung", exact: true });
+  await start.click();
+  await expect(confirm).toBeVisible();
+  await expect(launch).toHaveCount(0);
+  await confirm.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await expect(name).toHaveValue("Entwurf");
+  await start.click();
+  await confirm.getByRole("button", { name: "Verwerfen", exact: true }).click();
+  await expect(launch).toBeVisible();
+  await expect(name).toHaveValue("Planer");
+});
