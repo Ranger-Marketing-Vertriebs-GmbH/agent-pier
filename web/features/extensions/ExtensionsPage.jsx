@@ -38,13 +38,16 @@ export default function ExtensionsPage({
   const locked = Object.values(busy).some(Boolean);
   const account =
     profiles.find((item) => item.id === profileId) || (!profileId ? profiles[0] : null);
-  const go = (next) =>
-    onNavigate({
-      view: "extensions",
-      profileId: account?.id,
-      extensionTab,
-      ...next,
-    });
+  const go = (next, replace = false) =>
+    onNavigate(
+      {
+        view: "extensions",
+        profileId: account?.id,
+        extensionTab,
+        ...next,
+      },
+      replace,
+    );
   return (
     <div className="page extensions-page extensions-hub">
       <div className="page-topline">
@@ -80,7 +83,7 @@ export default function ExtensionsPage({
               account={account}
               request={request}
               tab={extensionTab}
-              onTab={(extensionTab) => go({ extensionTab })}
+              onTab={(extensionTab, replace) => go({ extensionTab }, replace)}
               busySetters={busySetters}
               locked={locked}
             />

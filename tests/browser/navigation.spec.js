@@ -118,6 +118,18 @@ test("Shell profile deep links are rejected and never become the profile navigat
     calls.filter((call) => call.path.startsWith("/api/accounts/local-shell/")),
   ).toEqual([]);
 });
+test("unsupported extension tabs normalise the URL without flashing the tab", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.goto(`${base}/extensions/local-codex?tab=agents`);
+  await expect(page).toHaveURL(/\/extensions\/local-codex$/);
+  await expect(page.getByRole("tab", { name: /^Agenten/ })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: /^MCP-Server/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+});
 test("profile deep links and navigation survive reload and history", async ({ page }) => {
   await fixture(page);
   await page.goto(base + "/extensions/work-claude");
