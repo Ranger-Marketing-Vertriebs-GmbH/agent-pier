@@ -205,7 +205,6 @@ test("AgentBus history restores project and page through reload and Back/Forward
 }) => {
   const calls = await fixture(page),
     reads = [];
-  page.on("console", (m) => m.text().startsWith("DBG") && console.log(m.text()));
   await page.route("**/api/agentbus**", async (route) => {
     const req = route.request(),
       url = new URL(req.url());

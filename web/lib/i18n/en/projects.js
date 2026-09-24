@@ -7,6 +7,8 @@ export const projectsHubCopy = {
   addFolder: "Add folder",
   listLabel: "Projects",
   loading: "Loading projects …",
+  partialError:
+    "Not every project source could be loaded. The other projects stay available.",
   localOnly: "Local only",
   decisions: (count) =>
     count === 1 ? "1 decision required" : `${count} decisions required`,

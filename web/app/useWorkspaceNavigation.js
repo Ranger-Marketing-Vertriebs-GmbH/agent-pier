@@ -7,7 +7,14 @@ import { projectsRoute } from "../features/projects/routes.js";
 import { requestFileNavigation } from "../features/files/file-navigation-guard.js";
 const navigationIndex = "agentPierNavigationIndex";
 export default function useWorkspaceNavigation({ state, ready, setMobileNav, setModal }) {
-  const [route, setRoute] = useState(() => readRoute(window.location));
+  const [route, setRouteState] = useState(() => readRoute(window.location));
+  // The route most recently applied. Navigations commit asynchronously, so an effect
+  // can still hold an older route; normalising from it would undo the newer one.
+  const latestRoute = useRef(route);
+  const setRoute = useCallback((next) => {
+    latestRoute.current = next;
+    setRouteState(next);
+  }, []);
   const view = route.view,
     selected = route.sessionId || "";
   const profileMemory = useRef("");
@@ -51,7 +58,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
       setMobileNav(false);
       setModal(null);
     },
-    [setMobileNav, setModal],
+    [setMobileNav, setModal, setRoute],
   );
   const runNavigation = useCallback(
     (next, replace = false) =>
@@ -199,7 +206,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
       window.removeEventListener("popstate", restore);
       window.removeEventListener("hashchange", restore);
     };
-  }, [commitWorkspaceNavigation, runNavigation, setMobileNav, setModal]);
+  }, [commitWorkspaceNavigation, runNavigation, setMobileNav, setModal, setRoute]);
   const select = (session) => {
     navigate(
       session
@@ -224,7 +231,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
   );
   const activeProfile = profileAccounts.find((account) => account.id === route.profileId);
   useEffect(() => {
-    if (!ready || view === "missing") return;
+    if (!ready || view === "missing" || latestRoute.current !== route) return;
     let normalized = route;
     if (view === "extensions") {
       const legacy =

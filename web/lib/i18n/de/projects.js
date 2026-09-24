@@ -7,6 +7,8 @@ export const projectsHubCopy = {
   addFolder: "Ordner hinzufügen",
   listLabel: "Projekte",
   loading: "Projekte werden geladen …",
+  partialError:
+    "Nicht alle Projektquellen konnten geladen werden. Die übrigen Projekte bleiben verfügbar.",
   localOnly: "Nur lokal",
   decisions: (count) =>
     count === 1 ? "1 Entscheidung erforderlich" : `${count} Entscheidungen erforderlich`,
