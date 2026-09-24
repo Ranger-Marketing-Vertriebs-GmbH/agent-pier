@@ -8,6 +8,10 @@ const statusFilter = (page) => page.getByRole("group", { name: "Status", exact: 
 const statusPill = (page, label) =>
   statusFilter(page).getByRole("button", { name: new RegExp(`^${label}`) });
 const startDialog = (page) => page.getByRole("dialog", { name: "Lauf starten" });
+const clickCentre = async (page, locator) => {
+  const box = await locator.boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+};
 const noOverflow = (page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 function sampleRun(state, id = "run-one") {
@@ -576,4 +580,18 @@ test("many pipelines fall back to the select with the same accessible name", asy
   expect(
     state.calls.find((c) => c.path === "/pipeline-runs" && c.method === "POST").body,
   ).toEqual({ pipelineId: "pipeline-6", cwd: "/fixture", task: "Use the last pipeline" });
+});
+
+test("clicks on the project text and the progress cell open the run", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  state.runs.push(sampleRun(state));
+  await openPipelines(page, "runs");
+  const row = runRows(page).first();
+  await clickCentre(page, row.getByTitle("/fixture/project"));
+  await expect(page).toHaveURL(/runs\/run-one$/);
+  await page.goBack();
+  await clickCentre(page, runRows(page).first().locator(".run-table-progress"));
+  await expect(page).toHaveURL(/runs\/run-one$/);
 });

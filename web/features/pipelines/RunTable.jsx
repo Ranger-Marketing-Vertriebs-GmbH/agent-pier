@@ -24,7 +24,18 @@ function RunRow({ run, onOpen, showProject }) {
     progress.total ? copy.runStageProgress(progress.done, progress.total) : "",
   ].filter(Boolean);
   return (
-    <div role="row" className={`run-table-row run-table-status-${run.status}`}>
+    // Cells with tooltips sit above the row-wide button overlay; their clicks are
+    // forwarded here so the whole row still opens the run. The row adds no tab stop:
+    // the title button stays the single keyboard control.
+    <div
+      role="row"
+      className={`run-table-row run-table-status-${run.status}`}
+      onClick={(event) => {
+        if (event.target.closest(".run-table-open")) return;
+        if (window.getSelection()?.toString()) return;
+        onOpen(run);
+      }}
+    >
       <div role="cell" className="run-table-task">
         <button
           type="button"
