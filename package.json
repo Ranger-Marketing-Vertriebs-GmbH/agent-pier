@@ -30,7 +30,7 @@
     "node": ">=22.13.0"
   },
   "dependencies": {
-    "@codemirror/commands": "6.11.0",
+    "@codemirror/commands": "6.11.1",
     "@codemirror/lang-css": "6.3.1",
     "@codemirror/lang-html": "6.4.12",
     "@codemirror/lang-javascript": "6.2.5",
@@ -42,8 +42,8 @@
     "@codemirror/legacy-modes": "6.5.4",
     "@codemirror/merge": "6.12.2",
     "@codemirror/search": "6.7.2",
-    "@codemirror/state": "6.7.4",
-    "@codemirror/view": "6.43.11",
+    "@codemirror/state": "6.7.5",
+    "@codemirror/view": "6.43.12",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
@@ -55,7 +55,7 @@
     "express-rate-limit": "8.7.0",
     "highlight.js": "^11.12.0",
     "jsonc-parser": "^3.3.1",
-    "koffi": "3.2.1",
+    "koffi": "3.3.1",
     "lowlight": "^3.3.0",
     "node-pty": "^1.1.0",
     "parse5": "8.0.1",
@@ -67,10 +67,10 @@
     "toml-eslint-parser": "^1.0.3",
     "web-push": "^3.6.7",
     "ws": "^8.21.3",
-    "yaml": "^2.9.0",
+    "yaml": "^2.9.1",
     "yauzl": "3.4.0",
     "yazl": "3.3.1",
-    "zod": "^4.6.2"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
