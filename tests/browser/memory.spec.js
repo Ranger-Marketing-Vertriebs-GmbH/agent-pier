@@ -110,10 +110,12 @@ test("project memory deep links support conflict recovery, revisions, archive an
 }) => {
   const state = await fixture(page);
   await page.goto(baseURL + "/memory/project-one?q=Build");
+  await expect(page).toHaveURL(`${baseURL}/projects/project-one?tab=knowledge&q=Build`);
+  await expect(page.getByRole("heading", { name: "AgentPier", level: 2 })).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Projektwissen", exact: true }),
+    page.getByRole("tab", { name: /^Projektwissen/, selected: true }),
   ).toBeVisible();
-  await expect(page.getByText("/workspace/agentpier", { exact: true })).toBeVisible();
+  await page.getByText("Build command").click();
   await page.getByRole("button", { name: "Bearbeiten: Build command" }).click();
   const content = page.getByRole("textbox", { name: "Inhalt", exact: true });
   await content.fill("My unsaved draft");
@@ -131,14 +133,165 @@ test("project memory deep links support conflict recovery, revisions, archive an
   await page.getByRole("button", { name: "Dialog schließen" }).click();
   await page.getByRole("button", { name: "Archivieren: Build command" }).click();
   await expect(page.getByText("Noch keine Einträge.")).toBeVisible();
-  await page.getByRole("button", { name: "Archiv", exact: true }).click();
+  await page.getByRole("button", { name: /^Archiv ·/ }).click();
   await expect(page).toHaveURL(/archived=1/);
   await page.reload();
+  await page.getByText("Build command").click();
   await page.getByRole("button", { name: "Wiederherstellen: Build command" }).click();
-  await page.getByRole("button", { name: "Aktiv", exact: true }).click();
+  await page.getByRole("button", { name: /^Aktiv ·/ }).click();
+  // The row stayed expanded across the archive/restore/segment switch above.
   await expect(
     page.getByRole("button", { name: "Bearbeiten: Build command" }),
   ).toBeVisible();
+});
+
+test("clicking a knowledge entry expands it and reveals its actions", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.goto(baseURL + "/projects/project-one?tab=knowledge");
+  const toggle = page.getByRole("button", { name: /^Build command/ });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(
+    page.getByRole("button", { name: "Bearbeiten: Build command" }),
+  ).toHaveCount(0);
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(
+    page.getByRole("button", { name: "Bearbeiten: Build command" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Versionen: Build command" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Archivieren: Build command" }),
+  ).toBeVisible();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(
+    page.getByRole("button", { name: "Bearbeiten: Build command" }),
+  ).toHaveCount(0);
+});
+
+async function newEntryFixture(page) {
+  const project = { id: "project-one", name: "AgentPier", cwd: "/workspace/agentpier" };
+  const entries = [];
+  await page.route("**/api/**", async (route) => {
+    const request = route.request(),
+      url = new URL(request.url()),
+      method = request.method();
+    let data;
+    if (url.pathname === "/api/state")
+      data = { tools: [], accounts: [], sessions: [], home: "/workspace" };
+    else if (url.pathname === "/api/memory/projects" && method === "GET")
+      data = {
+        projects: [
+          { ...project, entryCount: entries.filter((item) => !item.archived).length },
+        ],
+      };
+    else if (url.pathname.endsWith("/entries") && method === "POST") {
+      const body = request.postDataJSON();
+      const created = {
+        id: `e${entries.length + 1}`,
+        title: body.title,
+        content: body.content,
+        revision: 1,
+        archived: false,
+        provenance: { kind: "user" },
+      };
+      entries.push(created);
+      data = created;
+    } else if (url.pathname.endsWith("/entries")) {
+      const wantArchived = url.searchParams.get("archived") === "true";
+      const items = entries.filter((item) => item.archived === wantArchived);
+      data = { projectId: project.id, items, page: 1, pageSize: 20, total: items.length };
+    } else if (hubRequest(url.pathname)) data = hubRequest(url.pathname);
+    else throw new Error(`Unexpected request: ${method} ${url.pathname}`);
+    await route.fulfill({ status: method === "POST" ? 201 : 200, json: data });
+  });
+}
+
+test("creating a knowledge entry updates the hub's tab counter", async ({ page }) => {
+  await newEntryFixture(page);
+  await page.goto(baseURL + "/projects/project-one?tab=knowledge");
+  await expect(page.getByRole("tab", { name: /^Projektwissen/ })).toContainText("0");
+  await page.getByRole("button", { name: "Neuer Eintrag" }).click();
+  await page.getByLabel("Titel", { exact: true }).fill("Second note");
+  await page.getByRole("textbox", { name: "Inhalt", exact: true }).fill("More context.");
+  await page.getByRole("button", { name: "Speichern", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: /^Projektwissen/ })).toContainText("1");
+});
+
+async function unregisteredFixture(page) {
+  const repository = {
+    id: "r1",
+    name: "Unlinked",
+    url: "",
+    path: "/work/unlinked",
+    credentialId: "",
+  };
+  let registered = null;
+  await page.route("**/api/**", async (route) => {
+    const request = route.request(),
+      url = new URL(request.url()),
+      method = request.method();
+    let data;
+    if (url.pathname === "/api/state")
+      data = { tools: [], accounts: [], sessions: [], home: "/work" };
+    else if (url.pathname === "/api/repositories")
+      data = { credentials: [], projects: [repository] };
+    else if (url.pathname === "/api/agentbus") data = { version: "test", projects: [] };
+    else if (url.pathname === "/api/pipeline-runs")
+      data = { runs: [], total: 0, page: 1, pageSize: 20 };
+    else if (url.pathname === "/api/memory/projects" && method === "POST") {
+      registered = {
+        id: "m1",
+        name: "Unlinked",
+        cwd: request.postDataJSON().cwd,
+        kind: "directory",
+        entryCount: 0,
+      };
+      data = registered;
+    } else if (url.pathname === "/api/memory/projects")
+      data = { projects: registered ? [registered] : [] };
+    else if (url.pathname.endsWith("/entries"))
+      data = {
+        projectId: registered?.id || "",
+        items: [],
+        page: 1,
+        pageSize: 20,
+        total: 0,
+      };
+    else throw new Error(`Unexpected request: ${method} ${url.pathname}`);
+    await route.fulfill({ status: method === "POST" ? 201 : 200, json: data });
+  });
+}
+
+test("a project without stored knowledge can be registered from the tab", async ({
+  page,
+}) => {
+  await unregisteredFixture(page);
+  await page.goto(baseURL + "/projects/r1?tab=knowledge");
+  await expect(page.getByRole("button", { name: "Projekt hinzufügen" })).toBeVisible();
+  await page.getByRole("button", { name: "Projekt hinzufügen" }).click();
+  await expect(page).toHaveURL(/\/projects\/m1\?tab=knowledge$/);
+  await expect(page.getByRole("button", { name: "Neuer Eintrag" })).toBeVisible();
+});
+
+test.describe("English knowledge tab", () => {
+  test.use({ locale: "en-GB" });
+  test("labels are translated", async ({ page }) => {
+    await fixture(page);
+    await page.goto(baseURL + "/projects/project-one?tab=knowledge");
+    await expect(page.getByRole("textbox", { name: "Search knowledge" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Active ·/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Archive ·/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "New entry" })).toBeVisible();
+    await expect(
+      page.getByText(/Git worktrees share repository knowledge/),
+    ).toBeVisible();
+  });
 });
 
 test("mobile project memory creates notes without horizontal overflow or implicit writes", async ({
@@ -155,6 +308,7 @@ test("mobile project memory creates notes without horizontal overflow or implici
     .getByRole("textbox", { name: "Inhalt", exact: true })
     .fill("A shared finding.");
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
+  await page.getByText("Mobile note").click();
   await expect(
     page.getByRole("button", { name: "Bearbeiten: Mobile note" }),
   ).toBeVisible();
@@ -238,21 +392,19 @@ test("archiving the last entry on a page reloads the preceding page and replaces
   page,
 }) => {
   await pagedFixture(page);
-  await page.goto(baseURL + "/memory");
-  await page.getByRole("combobox", { name: "Projekt", exact: true }).click();
-  await expect(
-    page.getByRole("option", { name: "Paged project", exact: true }),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
+  await page.goto(baseURL + "/projects");
+  const list = page.getByRole("navigation", { name: "Projekte" });
+  await list.getByRole("button", { name: /^Paged project/ }).click();
+  await page.getByRole("tab", { name: /^Projektwissen/ }).click();
+  await expect(page).toHaveURL(/\/projects\/paged-project\?tab=knowledge$/);
   await page.evaluate(() => {
-    history.pushState(null, "", "/memory/paged-project?page=2");
+    history.pushState(null, "", "/projects/paged-project?tab=knowledge&page=2");
     dispatchEvent(new PopStateEvent("popstate"));
   });
+  await page.getByText("Last note").click();
   await page.getByRole("button", { name: "Archivieren: Last note" }).click();
   await expect(page).toHaveURL(/\/projects\/paged-project\?tab=knowledge$/);
-  await expect(
-    page.getByRole("heading", { name: "Last note", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Last note")).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/\/projects\/paged-project\?tab=knowledge$/);
 });
@@ -268,9 +420,7 @@ test("an excessive memory page normalizes only after its matching result arrives
   controls.holdEntries = false;
   controls.releaseEntries();
   await expect(page).toHaveURL(/page=2$/);
-  await expect(
-    page.getByRole("heading", { name: "Last note", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Last note")).toBeVisible();
 });
 
 test("an obsolete memory page result cannot replace a newer search route", async ({
@@ -283,9 +433,7 @@ test("an obsolete memory page result cannot replace a newer search route", async
   await page.getByRole("textbox", { name: "Wissen suchen" }).fill("new filter");
   await page.getByRole("button", { name: "Wissen suchen", exact: true }).click();
   await expect(page).toHaveURL(/q=new\+filter$/);
-  await expect(
-    page.getByRole("heading", { name: "Last note", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Last note")).toBeVisible();
   controls.releaseEntries();
   await expect(page).toHaveURL(/q=new\+filter$/);
 });
@@ -295,6 +443,7 @@ test("history hides earlier pages while loading and retries the requested page a
 }) => {
   const controls = await pagedFixture(page);
   await page.goto(baseURL + "/memory/paged-project");
+  await page.getByText("Last note").click();
   await page.getByRole("button", { name: "Versionen: Last note" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("First history page");

@@ -5,6 +5,7 @@ import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { memoryCopy as copy } from "../../lib/i18n/messages/memory.js";
+import "./memory.css";
 
 export default function MemoryEditor({ projectId, entry, close, saved }) {
   const [title, setTitle] = useState(entry?.title || "");

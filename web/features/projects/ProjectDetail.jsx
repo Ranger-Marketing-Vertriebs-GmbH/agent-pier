@@ -9,7 +9,7 @@ import {
   projectsHubCopy as copy,
 } from "../../lib/i18n/messages/projects.js";
 import { repositoriesPageCopy } from "../../lib/i18n/messages/repositories.js";
-import MemoryPage from "../memory/MemoryPage.jsx";
+import ProjectKnowledge from "./ProjectKnowledge.jsx";
 import ProjectOverview from "./ProjectOverview.jsx";
 import { projectSessions, remoteDisplay, remoteShort } from "./project-presentation.js";
 import { resolveProjectId } from "./useProjectHub.js";
@@ -46,8 +46,8 @@ export default function ProjectDetail({
   sessions: allSessions,
   select,
   onLaunch,
-  home,
   mobile,
+  reloadHub,
 }) {
   const runTotal = useRunTotal(project.memoryId);
   const sessions = projectSessions(allSessions, project);
@@ -122,24 +122,12 @@ export default function ProjectDetail({
           <ProjectOverview facts={facts} sessions={sessions} select={select} />
         )}
         {tab === "knowledge" && (
-          // Interim: the pre-redesign knowledge page, scoped to this project.
-          <div className="project-legacy">
-            <MemoryPage
-              route={{ ...route, projectId: project.memoryId }}
-              home={project.memoryId ? home : project.path}
-              onNavigate={(next, replace) =>
-                onNavigate(
-                  {
-                    ...next,
-                    view: "projects",
-                    projectTab: "knowledge",
-                    projectId: canonical(next.projectId),
-                  },
-                  replace,
-                )
-              }
-            />
-          </div>
+          <ProjectKnowledge
+            project={project}
+            route={route}
+            onNavigate={onNavigate}
+            reloadHub={reloadHub}
+          />
         )}
         {tab === "agentbus" && (
           // Interim: the pre-redesign AgentBus page, scoped to this project's bus.

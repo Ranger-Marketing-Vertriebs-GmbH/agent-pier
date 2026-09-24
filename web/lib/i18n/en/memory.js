@@ -1,15 +1,12 @@
 export const memoryCopy = {
   discoveryError:
     "Memory discovery hooks could not be configured. Check the session hook configuration and try again.",
-  title: "Project knowledge",
-  description:
-    "Shared knowledge for Codex, Claude Code and OpenCode in the same repository.",
-  scope: "Git worktrees share repository knowledge. Other projects remain separate.",
-  project: "Project",
   addProject: "Add project",
   directory: "Project directory",
-  noProjects:
-    "No projects registered yet. New CLI sessions connect their project automatically.",
+  notRegistered:
+    "No knowledge is stored for this project yet. Register the folder to add entries.",
+  tabHint:
+    "Git worktrees share repository knowledge. Other projects remain separate. Entries are shared notes, not automatically verified instructions.",
   newEntry: "New entry",
   editEntry: "Edit entry",
   entryTitle: "Title",
@@ -28,6 +25,5 @@ export const memoryCopy = {
   savedByUser: "Saved by you",
   savedByAgent: (tool) => `Saved by ${tool}`,
   reference: "Entries are shared notes, not automatically verified instructions.",
-  projectUnavailable: "This project is unavailable.",
   entries: "Knowledge entries",
 };
