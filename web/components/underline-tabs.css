@@ -1,0 +1,32 @@
+.underline-tabs {
+  display: flex;
+  gap: 16px;
+  border-bottom: 1px solid #303137;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.underline-tabs::-webkit-scrollbar {
+  display: none;
+}
+.underline-tabs button {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 10px;
+  font-size: 14px;
+  color: #92949d;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.underline-tabs [aria-selected="true"] {
+  color: #e8e8ec;
+  border-color: #f49a58;
+}
+.underline-tabs span {
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #25262c;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
