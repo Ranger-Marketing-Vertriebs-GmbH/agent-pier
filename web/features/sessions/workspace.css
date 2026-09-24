@@ -187,41 +187,6 @@
 .session-footer > span:last-child {
   flex-shrink: 0;
 }
-.reader {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  min-height: 0;
-  padding: 20px 24px;
-}
-.reader-note {
-  display: flex;
-  gap: 9px;
-  color: #9fa0a4;
-  font-size: 10px;
-  line-height: 1.8;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #2d2e32;
-}
-.reader-note svg {
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-.reader-output {
-  font:
-    12px/1.8 "SFMono-Regular",
-    Consolas,
-    monospace;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  overflow: auto;
-  color: #ffc99d;
-  flex: 1;
-  min-height: 0;
-  margin: 0;
-  padding: 20px 0;
-  scrollbar-width: thin;
-}
 .composer {
   border: 1px solid #414246;
   border-radius: 9px;

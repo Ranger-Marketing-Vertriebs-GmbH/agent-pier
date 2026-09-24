@@ -15,7 +15,6 @@ export const projectsHubCopy = {
   failedRuns: (count) => (count === 1 ? "1 run failed" : `${count} runs failed`),
   tokenMeta: (name) => `Token ${name}`,
   back: "All projects",
-  openProject: (name) => `Open project ${name}`,
   tabsLabel: "Project sections",
   tabOverview: "Overview",
   tabKnowledge: "Project knowledge",

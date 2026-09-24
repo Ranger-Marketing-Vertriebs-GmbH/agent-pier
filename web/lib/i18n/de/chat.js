@@ -15,7 +15,6 @@ export const chatAttachmentsCopy = {
   uploading: "Datei wird hochgeladen …",
   unsupportedSession: "Anhänge sind in dieser Sitzung nicht verfügbar.",
   tooManyFiles: "Es sind höchstens 8 Anhänge pro Nachricht möglich.",
-  notAnImage: "Nur Bilddateien können angehängt werden.",
   fileTooLarge: "Dateien dürfen höchstens 10 MiB groß sein.",
 };
 export const chatImagesCopy = {
@@ -98,8 +97,6 @@ export const chatAttachmentCopy = {
   add: "Datei hinzufügen",
   uploading: "Datei wird hochgeladen …",
   remove: (name) => `Anhang entfernen: ${name}`,
-  tooLarge: "Eine Datei darf höchstens 10 MB groß sein.",
-  tooMany: "Pro Nachricht sind höchstens 10 Anhänge möglich.",
   failed: "Die Datei konnte nicht hochgeladen werden.",
   tooLong: "Die Nachricht mit Anhängen ist zu lang. Bitte kürze den Text.",
   prompt: "Bitte berücksichtige diese angehängten Dateien:",

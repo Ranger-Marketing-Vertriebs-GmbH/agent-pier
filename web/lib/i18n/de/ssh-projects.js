@@ -21,7 +21,6 @@ export const sshProjectCopy = {
   from: "Quellprojekt",
   to: "Zielprojekt",
   reassign: "Neu zuweisen",
-  reassignDone: "Projektressourcen neu zugewiesen",
   errors: {
     SSH_PROJECT_CHANGED: "Die Projektidentität hat sich geändert. Lade die Sitzung neu.",
     SSH_PROJECT_UNAVAILABLE: "Das Projektverzeichnis ist nicht verfügbar.",

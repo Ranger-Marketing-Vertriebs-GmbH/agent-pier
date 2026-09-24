@@ -9,5 +9,4 @@ export const explorerLayoutCopy = {
   projectFiles: "Project files",
   home: "Home folder",
   entries: (count) => `${count} entries`,
-  uploadTarget: (path) => `Upload to ${path}`,
 };

@@ -29,8 +29,6 @@ export const launchDialogCopy = {
     "A local shell for commands and tools in your working directory.",
   sessionNameLabel: "Session name",
   sessionNamePlaceholder: "e.g. Redesign website",
-  accountLabel: "Account",
-  noAvailableAccounts: "No available account",
   nativeModeOption: "Standard · tool defaults",
   codexYoloOption: "YOLO · no approval prompts or sandbox",
   claudeAutoOption: "Auto · with safety checks",

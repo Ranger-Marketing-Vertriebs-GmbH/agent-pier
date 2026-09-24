@@ -15,7 +15,6 @@ export const chatAttachmentsCopy = {
   uploading: "Uploading file …",
   unsupportedSession: "Attachments are unavailable in this session.",
   tooManyFiles: "A message can have up to 8 attachments.",
-  notAnImage: "Only image files can be attached.",
   fileTooLarge: "Files must not exceed 10 MiB.",
 };
 export const chatImagesCopy = {
@@ -98,8 +97,6 @@ export const chatAttachmentCopy = {
   add: "Add file",
   uploading: "Uploading file …",
   remove: (name) => `Remove attachment: ${name}`,
-  tooLarge: "A file must not exceed 10 MB.",
-  tooMany: "A message can have up to 10 attachments.",
   failed: "The file could not be uploaded.",
   tooLong: "The message with attachments is too long. Please shorten the text.",
   prompt: "Please consider these attached files:",

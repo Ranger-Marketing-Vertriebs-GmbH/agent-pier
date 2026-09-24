@@ -96,10 +96,6 @@
 .operations-warning {
   border-color: var(--accent);
 }
-.operations-muted {
-  color: var(--muted);
-  font-size: 12px;
-}
 .operations-metadata {
   display: grid;
   grid-template-columns: minmax(100px, 1fr) 2fr;

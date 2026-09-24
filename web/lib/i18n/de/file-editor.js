@@ -37,7 +37,6 @@ export const fileEditorCopy = {
     "Entwurf aus einem anderen Arbeitsbereich bleibt erhalten. Zum Speichern dorthin zurückkehren.",
   readOnly:
     "Schreibgeschütztes Dokument. Eine unabhängige neue Kopie kann gespeichert werden.",
-  targetReadOnly: "Dieses Ziel ist schreibgeschützt. Einen neuen Pfad wählen.",
   scopeLabel: (kind, root = "") =>
     `${kind === "project" ? "Projekt" : "Host-Dateisystem"}: ${root}`,
   resolved: (path) => `Aufgelöstes Ziel: ${path}`,
