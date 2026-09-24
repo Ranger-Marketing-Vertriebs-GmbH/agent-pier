@@ -410,3 +410,29 @@ test.describe("English projects hub", () => {
     ]);
   });
 });
+
+test("the hub pauses its AgentBus poll while the page is hidden", async ({ page }) => {
+  test.setTimeout(45000);
+  const calls = await hubFixture(page);
+  await page.goto(base + "/projects");
+  await expect(page).toHaveURL(/\/projects\/m1$/);
+  const busReads = () => calls.filter((call) => call.path === "/api/agentbus").length;
+  await expect.poll(busReads, { timeout: 10000 }).toBeGreaterThanOrEqual(2);
+  const setHidden = (hidden) =>
+    page.evaluate((value) => {
+      for (const [key, state] of [
+        ["hidden", value],
+        ["visibilityState", value ? "hidden" : "visible"],
+      ])
+        Object.defineProperty(document, key, { configurable: true, value: state });
+      document.dispatchEvent(new Event("visibilitychange"));
+    }, hidden);
+  await setHidden(true);
+  await page.waitForTimeout(500);
+  const hiddenReads = busReads();
+  await page.waitForTimeout(9000);
+  expect(busReads()).toBe(hiddenReads);
+  await setHidden(false);
+  // Returning to the page reads at once instead of waiting for the next interval.
+  await expect.poll(busReads, { timeout: 1500 }).toBeGreaterThan(hiddenReads);
+});
