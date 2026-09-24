@@ -181,6 +181,7 @@ export default function ProjectsPage({
                 busVersion={hub.busVersion}
                 busNote={hub.busNote}
                 busError={hub.errors.agentbus}
+                home={home}
               />
             ) : missing ? (
               <section className="project-card project-missing">

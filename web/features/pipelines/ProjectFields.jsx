@@ -1,9 +1,12 @@
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
+import Segment from "../../components/Segment.jsx";
 import React, { useState } from "react";
 import api from "../../lib/api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
+// Up to this many options fit a segment; longer lists keep the searchable select.
+export const segmentLimit = 6;
 export default function ProjectFields({
   resource,
   value,
@@ -11,27 +14,49 @@ export default function ProjectFields({
   home,
   allowAll = false,
   disabled = false,
+  segment = false,
 }) {
   const [cwd, setCwd] = useState(home || "");
   const action = useAsyncAction();
+  const projects = resource.data?.projects || [];
   return (
     <div>
-      <label>
-        {copy.project}
-        <AnchoredSelect
-          label={copy.project}
-          value={value}
-          disabled={disabled || action.busy}
-          onChange={onChange}
-          options={[
-            { value: "", label: allowAll ? copy.allProjects : copy.project },
-            ...(resource.data?.projects || []).map((project) => ({
-              value: project.id,
-              label: `${project.name} · ${project.cwd}`,
-            })),
-          ]}
-        />
-      </label>
+      {segment && projects.length <= segmentLimit ? (
+        projects.length > 0 && (
+          <div className="run-dialog-field">
+            <span>{copy.project}</span>
+            <Segment
+              label={copy.project}
+              className="run-dialog-segment"
+              value={value}
+              disabled={disabled || action.busy}
+              onChange={(id) => onChange(id)}
+              options={projects.map((project) => ({
+                value: project.id,
+                label: project.name,
+                title: project.cwd,
+              }))}
+            />
+          </div>
+        )
+      ) : (
+        <label>
+          {copy.project}
+          <AnchoredSelect
+            label={copy.project}
+            value={value}
+            disabled={disabled || action.busy}
+            onChange={onChange}
+            options={[
+              { value: "", label: allowAll ? copy.allProjects : copy.project },
+              ...projects.map((project) => ({
+                value: project.id,
+                label: `${project.name} · ${project.cwd}`,
+              })),
+            ]}
+          />
+        </label>
+      )}
       <details>
         <summary>{copy.registerProject}</summary>
         <div className="pipeline-controls">

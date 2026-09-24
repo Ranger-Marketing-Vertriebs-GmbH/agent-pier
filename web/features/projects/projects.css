@@ -265,19 +265,16 @@
     sans-serif;
 }
 .project-missing p,
-.project-runs p {
-  font-size: 12px;
-  line-height: 1.8;
-  color: #9d9ea2;
-}
 .project-runs {
   display: grid;
   justify-items: start;
   gap: 14px;
 }
-.project-runs .button {
-  gap: 8px;
-  text-decoration: none;
+.project-runs .project-empty {
+  justify-self: stretch;
+}
+.project-runs-table .run-toolbar {
+  margin-top: 16px;
 }
 .project-knowledge {
   display: flex;

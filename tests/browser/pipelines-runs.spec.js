@@ -1,5 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { pipelinesFixture, openPipelines } from "./pipelines-fixture.js";
+const runRows = (page) =>
+  page
+    .getByRole("row")
+    .filter({ has: page.getByRole("button", { name: /^Lauf öffnen:/ }) });
+const statusFilter = (page) => page.getByRole("group", { name: "Status", exact: true });
+const statusPill = (page, label) =>
+  statusFilter(page).getByRole("button", { name: new RegExp(`^${label}`) });
+const startDialog = (page) => page.getByRole("dialog", { name: "Lauf starten" });
+const noOverflow = (page) =>
+  page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 function sampleRun(state, id = "run-one") {
   return {
     id,
@@ -98,6 +108,11 @@ test("run pagination and status filters survive reload and retain exact run iden
     actions: ["delete"],
   }));
   await openPipelines(page, "runs");
+  await expect(statusFilter(page).getByRole("button")).toHaveText([
+    /^Alle Status\s*21$/,
+    /^Fehlgeschlagen\s*1$/,
+    /^Abgeschlossen\s*20$/,
+  ]);
   await page.getByRole("button", { name: "Läufe: Nächste Seite", exact: true }).click();
   await expect(page).toHaveURL(/page=2/);
   await expect(
@@ -107,10 +122,7 @@ test("run pagination and status filters survive reload and retain exact run iden
   await expect(
     page.getByRole("button", { name: "Lauf öffnen: Task 20", exact: true }),
   ).toBeVisible();
-  await page
-    .getByRole("group", { name: "Status", exact: true })
-    .getByRole("button", { name: "Fehlgeschlagen", exact: true })
-    .click();
+  await statusPill(page, "Fehlgeschlagen").click();
   await expect(page).toHaveURL(/status=failed$/);
   await expect(page).not.toHaveURL(/page=2/);
   await page.getByRole("button", { name: "Lauf öffnen: Task 20", exact: true }).click();
@@ -124,6 +136,15 @@ test("run pagination and status filters survive reload and retain exact run iden
   await expect(
     page.getByText("Noch keine passenden Läufe.", { exact: true }),
   ).toBeVisible();
+  await expect(statusPill(page, "Fehlgeschlagen")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(statusFilter(page).getByRole("button")).toHaveText([
+    /^Alle Status\s*20$/,
+    /^Fehlgeschlagen\s*0$/,
+    /^Abgeschlossen\s*20$/,
+  ]);
 });
 test("mobile run creation suppresses duplicate submissions and opens the persisted run", async ({
   page,
@@ -131,15 +152,22 @@ test("mobile run creation suppresses duplicate submissions and opens the persist
   await page.setViewportSize({ width: 390, height: 844 });
   const state = await pipelinesFixture(page);
   await openPipelines(page, "runs/new");
-  await page.getByLabel("Pipelinename", { exact: true }).selectOption("pipeline-one");
-  await page.getByLabel("Arbeitsverzeichnis", { exact: true }).fill("/fixture/project");
-  await page
+  const dialog = startDialog(page);
+  await dialog
+    .getByRole("radiogroup", { name: "Pipelinename", exact: true })
+    .getByRole("radio", { name: "Entwicklungsablauf", exact: true })
+    .check();
+  await dialog.getByLabel("Arbeitsverzeichnis", { exact: true }).fill("/fixture/project");
+  await dialog
     .getByLabel("Aufgabe", { exact: true })
     .fill("A long task " + "details ".repeat(60) + "identifier".repeat(40));
+  await page.screenshot({ path: "test-results/pipeline-start-run-sheet.png" });
+  const sheet = await dialog.boundingBox();
+  expect(Math.round(sheet.width)).toBe(390);
   state.hold = "/pipeline-runs";
-  await page.getByRole("button", { name: "Lauf starten", exact: true }).click();
+  await dialog.getByRole("button", { name: "Lauf starten", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Lauf starten", exact: true }),
+    dialog.getByRole("button", { name: "Lauf starten", exact: true }),
   ).toBeDisabled();
   expect(
     state.calls.filter((c) => c.path === "/pipeline-runs" && c.method === "POST"),
@@ -182,17 +210,23 @@ test("manual loops accept optional feedback and display the actual iteration and
 test("newly registered project supplies the run working directory", async ({ page }) => {
   const state = await pipelinesFixture(page);
   await openPipelines(page, "runs/new");
-  await page.getByLabel("Pipelinename", { exact: true }).selectOption("pipeline-one");
-  await page.getByText("Projekt hinzufügen", { exact: true }).first().click();
-  await page
+  const dialog = startDialog(page);
+  await dialog.getByRole("radio", { name: "Entwicklungsablauf", exact: true }).check();
+  await dialog.getByText("Projekt hinzufügen", { exact: true }).first().click();
+  await dialog
     .getByLabel("Projektordner registrieren", { exact: true })
     .fill("/fixture/registered");
-  await page.getByRole("button", { name: "Projekt hinzufügen", exact: true }).click();
-  await expect(page.getByLabel("Arbeitsverzeichnis", { exact: true })).toHaveValue(
+  await dialog.getByRole("button", { name: "Projekt hinzufügen", exact: true }).click();
+  await expect(dialog.getByLabel("Arbeitsverzeichnis", { exact: true })).toHaveValue(
     "/fixture/registered",
   );
-  await page.getByLabel("Aufgabe", { exact: true }).fill("Build registered project");
-  await page.getByRole("button", { name: "Lauf starten", exact: true }).click();
+  await expect(
+    dialog
+      .getByRole("radiogroup", { name: "Projekt", exact: true })
+      .getByRole("radio", { name: "Registered", exact: true }),
+  ).toBeChecked();
+  await dialog.getByLabel("Aufgabe", { exact: true }).fill("Build registered project");
+  await dialog.getByRole("button", { name: "Lauf starten", exact: true }).click();
   await expect(page).toHaveURL(/runs\/new-run$/);
   expect(
     state.calls.find((c) => c.path === "/pipeline-runs" && c.method === "POST").body.cwd,
@@ -370,7 +404,7 @@ test("failed native stage offers an explicit override with confirmation", async 
 });
 
 for (const width of [1440, 390]) {
-  test(`run overview bounds kickoff text and filters statuses at ${width}px`, async ({
+  test(`run table bounds kickoff text and filters statuses at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 1000 });
@@ -393,39 +427,73 @@ for (const width of [1440, 390]) {
             : "awaiting-gate";
       run.task = id === "active" ? kickoff : `NEONNIGHTS-${id}: Weitere Aufgabe`;
       run.createdAt = "2026-09-10T05:00:00Z";
+      if (id === "active") run.verifyJob = { id: "verify", startedAt: run.createdAt };
       state.runs.push(run);
     }
     await openPipelines(page, "runs");
-    const cards = page.locator(".pipeline-run-card");
-    await expect(cards).toHaveCount(3);
-    expect((await cards.first().locator("h3").innerText()).length).toBeLessThanOrEqual(
-      160,
-    );
+    await expect(
+      page.getByRole("tablist", { name: "Pipelines", exact: true }).getByRole("tab"),
+    ).toHaveText([
+      /^Läufe\s*3$/,
+      /^Definitionen\s*1$/,
+      /^Aufgabenprofile\s*1$/,
+      "Verifikation",
+    ]);
+    const rows = runRows(page);
+    await expect(rows).toHaveCount(3);
+    await expect(statusFilter(page).getByRole("button")).toHaveText([
+      /^Alle Status\s*3$/,
+      /^Entscheidung erforderlich\s*1$/,
+      /^Läuft\s*1$/,
+      /^Abgeschlossen\s*1$/,
+    ]);
+    const pill = await statusPill(page, "Alle Status").boundingBox();
+    expect(Math.round(pill.height)).toBe(32);
     expect(
-      await cards.first().evaluate((element) => element.getBoundingClientRect().height),
-    ).toBeLessThan(330);
-    await expect(cards.first()).toContainText("Aktuelle Stufe: Planer");
-    await expect(cards.first()).toContainText("0 von 1 Stufen abgeschlossen");
+      (await rows.first().locator(".run-table-title").innerText()).length,
+    ).toBeLessThanOrEqual(160);
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-    ).toBe(true);
+      await rows.first().evaluate((element) => element.getBoundingClientRect().height),
+    ).toBeLessThan(width > 700 ? 110 : 260);
+    await expect(rows.first()).toContainText("Verifikation läuft");
+    await expect(rows.first()).toContainText("Aktuelle Stufe: Planer");
+    await expect(rows.first()).toContainText("0 von 1 Stufen abgeschlossen");
+    await expect(rows.first().getByTitle("/fixture/project")).toHaveText("project");
+    await expect(rows.first().locator("time")).toHaveAttribute("title", /^Gestartet: /);
+    await expect(rows.nth(1)).toHaveCSS("background-color", "rgb(29, 25, 21)");
+    await expect(rows.nth(0)).not.toHaveCSS("background-color", "rgb(29, 25, 21)");
+    const headers = page.getByRole("columnheader");
+    if (width > 700) {
+      await expect(headers).toHaveText([
+        "Aufgabe",
+        "Projekt",
+        "Fortschritt",
+        "Status",
+        "Aktualisiert",
+      ]);
+      const task = await rows.first().getByRole("cell").nth(0).boundingBox();
+      const updated = await rows.first().getByRole("cell").nth(4).boundingBox();
+      expect(Math.abs(task.y - updated.y)).toBeLessThan(20);
+      expect(Math.round(updated.width)).toBe(96);
+    } else await expect(headers.first()).toBeHidden();
+    expect(await noOverflow(page)).toBe(true);
     await page.screenshot({
       path: `test-results/pipeline-run-overview-${width}.png`,
       fullPage: true,
     });
-    const filter = page.getByRole("group", { name: "Status", exact: true });
-    await filter.getByRole("button", { name: "Abgeschlossen", exact: true }).click();
-    await expect(cards).toHaveCount(1);
-    await expect(cards).toContainText("NEONNIGHTS-done");
+    await statusPill(page, "Abgeschlossen").click();
+    await expect(rows).toHaveCount(1);
+    await expect(rows).toContainText("NEONNIGHTS-done");
     await expect(page).toHaveURL(/status=completed/);
     await page.reload();
-    await expect(
-      filter.getByRole("button", { name: "Abgeschlossen", exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
-    await expect(cards).toHaveCount(1);
-    await filter.getByRole("button", { name: "Alle Status", exact: true }).click();
-    await expect(cards).toHaveCount(3);
-    await cards
+    await expect(statusPill(page, "Abgeschlossen")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(rows).toHaveCount(1);
+    await statusPill(page, "Alle Status").click();
+    await expect(rows).toHaveCount(3);
+    await rows
       .first()
       .getByRole("button", { name: /^Lauf öffnen:/ })
       .click();
@@ -434,3 +502,60 @@ for (const width of [1440, 390]) {
     await expect(page.getByText(kickoff, { exact: true })).toBeVisible();
   });
 }
+
+test("the start-run dialog opens over the list, preselects a definition and closes back", async ({
+  page,
+}) => {
+  await pipelinesFixture(page);
+  await openPipelines(page, "runs");
+  await page.getByRole("button", { name: "Lauf starten", exact: true }).click();
+  await expect(page).toHaveURL(/\/pipelines\/runs\/new$/);
+  const dialog = startDialog(page);
+  await expect(
+    dialog
+      .getByRole("radiogroup", { name: "Projekt", exact: true })
+      .getByRole("radio", { name: "Projekt", exact: true }),
+  ).not.toBeChecked();
+  await expect(
+    dialog.getByLabel("Ausgangsbranch (optional)", { exact: true }),
+  ).toBeVisible();
+  await dialog.getByRole("radio", { name: "Projekt", exact: true }).check();
+  await page.screenshot({ path: "test-results/pipeline-start-run-dialog.png" });
+  await expect(dialog.getByLabel("Arbeitsverzeichnis", { exact: true })).toHaveValue(
+    "/fixture/project",
+  );
+  await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/\/pipelines$/);
+  await page.getByRole("tab", { name: /^Definitionen/ }).click();
+  await page.getByRole("button", { name: "Lauf starten", exact: true }).click();
+  await expect(page).toHaveURL(/\/pipelines\/runs\/new$/);
+  await expect(
+    dialog.getByRole("radio", { name: "Entwicklungsablauf", exact: true }),
+  ).toBeChecked();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/\/pipelines$/);
+});
+
+test("many pipelines fall back to the select with the same accessible name", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  state.pipelines = Array.from({ length: 7 }, (_, index) => ({
+    ...state.pipelines[0],
+    id: `pipeline-${index}`,
+    name: `Pipeline ${index}`,
+  }));
+  await openPipelines(page, "runs/new");
+  const dialog = startDialog(page);
+  await expect(dialog.getByLabel("Aufgabe", { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("radiogroup", { name: "Pipelinename" })).toHaveCount(0);
+  await dialog.getByLabel("Pipelinename", { exact: true }).selectOption("pipeline-6");
+  await dialog.getByLabel("Aufgabe", { exact: true }).fill("Use the last pipeline");
+  await dialog.getByRole("button", { name: "Lauf starten", exact: true }).click();
+  await expect(page).toHaveURL(/runs\/new-run$/);
+  expect(
+    state.calls.find((c) => c.path === "/pipeline-runs" && c.method === "POST").body,
+  ).toEqual({ pipelineId: "pipeline-6", cwd: "/fixture", task: "Use the last pipeline" });
+});

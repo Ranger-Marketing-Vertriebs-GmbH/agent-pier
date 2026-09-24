@@ -6,7 +6,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import useResource from "../../lib/useResource.js";
 import PipelineBuilder from "./PipelineBuilder.jsx";
 import ConfirmAction from "./ConfirmAction.jsx";
-export default function DefinitionsPage({ route, navigate }) {
+export default function DefinitionsPage({ route, navigate, refreshCounts }) {
   const definitions = useResource("/pipelines"),
     profiles = useResource("/pipeline-profiles");
   const [removing, setRemoving] = useState(null);
@@ -88,6 +88,7 @@ export default function DefinitionsPage({ route, navigate }) {
             await api(`/pipelines/${removing.id}`, "DELETE");
             setRemoving(null);
             definitions.refresh();
+            refreshCounts?.();
           }}
         />
       )}

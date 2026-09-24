@@ -11,6 +11,7 @@ import { repositoriesPageCopy } from "../../lib/i18n/messages/repositories.js";
 import ProjectAgentBus from "./ProjectAgentBus.jsx";
 import ProjectKnowledge from "./ProjectKnowledge.jsx";
 import ProjectOverview from "./ProjectOverview.jsx";
+import ProjectRuns from "./ProjectRuns.jsx";
 import { projectSessions, remoteDisplay, remoteShort } from "./project-presentation.js";
 import { projectsRoute } from "./routes.js";
 
@@ -49,6 +50,7 @@ export default function ProjectDetail({
   busVersion,
   busNote,
   busError,
+  home,
 }) {
   const runTotal = useRunTotal(project.memoryId);
   const sessions = projectSessions(allSessions, project);
@@ -76,14 +78,6 @@ export default function ProjectDetail({
     { id: "agentbus", label: copy.tabAgentBus, count: project.sessionCount },
     { id: "runs", label: copy.tabRuns, count: runTotal },
   ];
-  const pipelinesRoute = {
-    view: "pipelines",
-    pipelineTab: "runs",
-    pipelineItem: "",
-    pipelinePage: 1,
-    pipelineStatus: "",
-    projectId: project.memoryId,
-  };
   return (
     <section className="project-card" aria-labelledby="project-card-title">
       <header className="project-card-header">
@@ -148,26 +142,13 @@ export default function ProjectDetail({
           />
         )}
         {tab === "runs" && (
-          <div className="project-runs">
-            {project.memoryId ? (
-              <>
-                <p>{copy.runsDescription}</p>
-                <a
-                  className="button secondary"
-                  href={`/pipelines?project=${encodeURIComponent(project.memoryId)}`}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    onNavigate(pipelinesRoute);
-                  }}
-                >
-                  {copy.runsLink}
-                  <Icon name="arrow" size={16} />
-                </a>
-              </>
-            ) : (
-              <p className="project-empty">{copy.runsUnavailable}</p>
-            )}
-          </div>
+          <ProjectRuns
+            project={project}
+            route={route}
+            onNavigate={onNavigate}
+            home={home}
+            reloadHub={reloadHub}
+          />
         )}
       </div>
     </section>

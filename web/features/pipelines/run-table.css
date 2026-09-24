@@ -1,0 +1,245 @@
+.run-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0 16px;
+}
+.run-toolbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.run-toolbar-actions .anchored-select {
+  min-width: 180px;
+}
+.run-status-filters {
+  display: flex;
+  gap: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.run-status-filters button {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 6px;
+  border: 1px solid #303137;
+  background: transparent;
+  color: #bfc0c4;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.run-status-filters button:hover {
+  background: #202125;
+}
+.run-status-filters button[aria-pressed="true"] {
+  background: #30241d;
+  border-color: #6b4a33;
+  color: #ffc99d;
+}
+.run-status-count {
+  font-size: 11px;
+  color: #8b8c90;
+}
+.run-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--run-status-colour, #737478);
+}
+.run-status-running,
+.run-table-status-running {
+  --run-status-colour: #f49a58;
+}
+.run-status-awaiting-human,
+.run-table-status-awaiting-human {
+  --run-status-colour: #ffc99d;
+}
+.run-status-completed,
+.run-table-status-completed {
+  --run-status-colour: #86b88e;
+}
+.run-status-failed,
+.run-table-status-failed {
+  --run-status-colour: #e5796b;
+}
+.run-status-cancelled,
+.run-table-status-cancelled {
+  --run-status-colour: #737478;
+}
+.run-table {
+  --run-table-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1.4fr)
+    96px;
+  display: grid;
+  min-width: 0;
+  margin-bottom: 16px;
+}
+.run-table.run-table-no-project {
+  --run-table-columns: minmax(0, 2.2fr) minmax(0, 1.5fr) minmax(0, 1.4fr) 96px;
+}
+.run-table-head,
+.run-table-row {
+  display: grid;
+  grid-template-columns: var(--run-table-columns);
+  align-items: center;
+  gap: 16px;
+  padding: 11px 14px;
+  border-bottom: 1px solid #303137;
+}
+.run-table-head {
+  border-top: 1px solid #303137;
+  font-size: 12px;
+  color: #92949d;
+}
+.run-table-row {
+  position: relative;
+  min-height: 64px;
+  padding: 12px 14px;
+  color: #e8e8ec;
+}
+.run-table-row:hover {
+  background: #202125;
+}
+.run-table-row.run-table-status-awaiting-human {
+  background: #1d1915;
+}
+.run-table-row > [role="cell"] {
+  min-width: 0;
+}
+.run-table-task {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.run-table-open {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.run-table-open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.run-table-open:focus-visible {
+  outline: none;
+}
+.run-table-row:has(.run-table-open:focus-visible) {
+  outline: 1px solid #f49a58;
+  outline-offset: -1px;
+}
+.run-table-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+.run-table-pipeline {
+  font-size: 11px;
+  color: #8b8c90;
+}
+.run-table-project span,
+.run-table-progress > span:first-child {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #bfc0c4;
+}
+.run-table-project {
+  font-size: 12px;
+}
+.run-table-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 11px;
+}
+.run-table-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: #2c2d31;
+  overflow: hidden;
+}
+.run-table-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--run-status-colour, #737478);
+}
+.run-table-status {
+  justify-self: start;
+}
+.run-table-updated {
+  font-size: 11px;
+  color: #8b8c90;
+}
+.run-table-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .run-toolbar-actions {
+    width: 100%;
+  }
+  .run-toolbar-actions .anchored-select {
+    flex: 1 1 100%;
+  }
+  .run-table {
+    gap: 10px;
+  }
+  .run-table-head {
+    display: none;
+  }
+  .run-table-row,
+  .run-table.run-table-no-project .run-table-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 9px 12px;
+    padding: 15px;
+    border: 1px solid #303137;
+    border-radius: 9px;
+    background: #18191d;
+  }
+  .run-table .run-table-row.run-table-status-awaiting-human {
+    background: #1d1915;
+  }
+  .run-table-task,
+  .run-table-progress {
+    grid-column: 1 / -1;
+  }
+  .run-table-title {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .run-table-updated {
+    justify-self: end;
+  }
+}
+.run-table-empty {
+  margin: 0 0 16px;
+  padding: 18px 20px;
+  border: 1px dashed #303137;
+  border-radius: 9px;
+  font-size: 12px;
+  color: #97989c;
+}
