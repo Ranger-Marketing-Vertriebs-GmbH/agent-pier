@@ -326,6 +326,13 @@ test("the runs tab lists the project's runs with filters bound to the projects U
   await page.getByRole("button", { name: "Lauf öffnen: Task r2" }).click();
   await expect(page).toHaveURL(/\/pipelines\/runs\/r2$/);
   await page.goBack();
+  const progress = await rows.first().locator(".run-table-progress").boundingBox();
+  await page.mouse.click(
+    progress.x + progress.width / 2,
+    progress.y + progress.height / 2,
+  );
+  await expect(page).toHaveURL(/\/pipelines\/runs\/r2$/);
+  await page.goBack();
   await expect(page).toHaveURL(/\/projects\/m1\?tab=runs&status=running$/);
 
   await page.getByRole("button", { name: "Lauf starten", exact: true }).click();

@@ -164,11 +164,13 @@
 .run-table-project {
   font-size: 12px;
 }
-/* Cells with tooltips sit above the row-wide open overlay so hovering them works. */
+/* Cells with tooltips sit above the row-wide open overlay so hovering them works;
+   the row forwards their clicks to the open action. */
 .run-table-project span,
 .run-table-progress {
   position: relative;
   z-index: 1;
+  cursor: pointer;
 }
 .run-table-progress {
   display: flex;
