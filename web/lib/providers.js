@@ -10,7 +10,7 @@ export const names = {
 // The page a utility sends the user to once it is installed. A utility without an
 // entry has nothing to configure in AgentPier, so it gets no follow-up action.
 export const utilityPages = {
-  gh: "repositories",
+  gh: "settings/github",
 };
 export const statusLabels = {
   get running() {

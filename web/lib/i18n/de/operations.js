@@ -1,16 +1,27 @@
+const title = "Einstellungen";
+const groups = {
+  workspace: "Arbeitsbereich",
+  access: "Zugriff",
+  operations: "Betrieb",
+};
+const sections = {
+  general: "Allgemein",
+  mcp: "MCP & Zugriffe",
+  remote: "Fernzugriff",
+  ssh: "SSH-Zugänge",
+  github: "GitHub-Zugänge",
+  notifications: "App & Benachrichtigungen",
+  diagnostics: "Diagnose",
+  backups: "Sicherungen",
+  updates: "Updates",
+  audit: "Aktivitätsprotokoll",
+};
 export const operationsCopy = {
-  sections: {
-    general: "Allgemein",
-    mcp: "MCP & Zugriffe",
-    remote: "Fernzugriff",
-    ssh: "SSH-Zugänge",
-    notifications: "App & Benachrichtigungen",
-    diagnostics: "Diagnose",
-    backups: "Sicherungen",
-    updates: "Updates",
-    audit: "Aktivitätsprotokoll",
-  },
-  title: "Einstellungen",
+  sections,
+  groups,
+  title,
+  topline: (group, section) =>
+    `${title.toUpperCase()} / ${group.toUpperCase()} / ${section.toUpperCase()}`,
   description: "Arbeitsbereich, App und Betrieb verwalten.",
   loading: "Daten werden geladen …",
   refresh: "Aktualisieren",

@@ -44,6 +44,12 @@ export const credentialListCopy = {
   buttonAriaLabel: (value1) => `${value1} löschen`,
   repositoryEmpty:
     "Öffentliche GitHub-Repositories kannst du ohne Token klonen. Für private Repositories und die Suche füge ein Token hinzu.",
+  columnAccess: "Zugang",
+  columnToken: "Token",
+  columnCommitIdentity: "Commit-Identität",
+};
+export const githubAccessPageCopy = {
+  pageHeadingTitle: "GitHub-Zugänge",
 };
 export const repositoriesPageCopy = {
   pageToplineLabel: "WORKSPACE / REPOSITORIES",
@@ -51,8 +57,6 @@ export const repositoriesPageCopy = {
   pageHeadingTitle: "Deine Repositories",
   pageHeadingDescription: "Vom Repository zur nächsten Sitzung.",
   repositoriesLoading: "Repositories werden geladen …",
-  repositoryCredentialsTitle: "GitHub-Profile",
-  savedCredentialsSuffix: " gespeichert",
   agentCredentialDescription:
     "Neue Agent-Sitzungen erhalten je Host den Standardzugang. Geklonte Projekte verwenden ihren gewählten Zugang.",
   repositoryProjectsTitle: "Lokale Projekte",

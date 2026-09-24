@@ -197,3 +197,91 @@
     padding: 14px;
   }
 }
+.github-access-page {
+  padding-bottom: 48px;
+}
+.github-access-footnote {
+  margin-top: 20px;
+}
+.github-access-table {
+  display: grid;
+  gap: 12px;
+}
+.github-access-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1.5fr 180px;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+.github-access-table > .github-access-row:not(.github-access-head) {
+  padding: 20px;
+  border: 1px solid #2e2f33;
+  border-radius: 9px;
+  background: #191a1e;
+}
+.github-access-head {
+  padding: 0 20px;
+  color: #7d7e82;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+.github-access-name h3 {
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.github-access-name code {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #cacbcf;
+  overflow-wrap: anywhere;
+}
+.github-access-name .field-description {
+  margin-top: 6px;
+}
+.github-access-token {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #97989c;
+  min-width: 0;
+}
+.github-access-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: #737478;
+}
+.github-access-dot.saved {
+  background: #86b88e;
+}
+.github-access-identity {
+  font-size: 12px;
+  color: #97989c;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .github-access-head {
+    display: none;
+  }
+  .github-access-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .github-access-table > .github-access-row:not(.github-access-head) {
+    padding: 18px;
+  }
+  .github-access-row .repository-actions {
+    width: 100%;
+  }
+  .github-access-row .repository-actions .button {
+    flex: 1;
+    height: 40px;
+  }
+}

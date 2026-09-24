@@ -226,15 +226,15 @@ test("GitHub CLI installs as a utility and opens GitHub credentials without a se
     modal.getByRole("button", { name: "Sitzung starten", exact: true }),
   ).toHaveCount(0);
   await modal.getByRole("button", { name: "GitHub-Zugänge", exact: true }).click();
-  await expect(page).toHaveURL(/\/projects$/);
-  await expect(page.getByRole("heading", { name: "Deine Repositories" })).toBeVisible();
+  await expect(page).toHaveURL(/\/settings\/github$/);
+  await expect(page.getByRole("heading", { name: "GitHub-Zugänge" })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(controls.state.sessions).toEqual([]);
   await page.getByRole("button", { name: "Übersicht", exact: true }).click();
   await card(page, "GitHub CLI")
     .getByRole("button", { name: "GitHub-Zugänge", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/settings\/github$/);
   await navigateTo(page, "Accounts");
   await page.getByRole("button", { name: "Account hinzufügen", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Tool", exact: true })).toBeVisible();

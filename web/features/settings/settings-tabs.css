@@ -1,0 +1,65 @@
+.settings-tabs {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  gap: 18px;
+  padding: 22px 40px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.settings-tabs::-webkit-scrollbar {
+  display: none;
+}
+.settings-tab-group {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: none;
+}
+.settings-tab-divider {
+  width: 1px;
+  height: 26px;
+  background: #303137;
+  flex: none;
+}
+.settings-tab-group [role="group"] {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.settings-tab-group [role="group"] > span {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: #7d7e82;
+}
+.settings-tab-group [role="group"] > div {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+.settings-tabs button {
+  padding: 9px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #92949d;
+  white-space: nowrap;
+}
+.settings-tabs .selected {
+  color: #f49a58;
+  background: #30241d;
+}
+@media (max-width: 700px) {
+  .settings-tabs {
+    padding: 16px 20px 0;
+    gap: 14px;
+  }
+  .settings-tab-group {
+    gap: 14px;
+  }
+  .settings-tabs button {
+    font-size: 12px;
+    padding: 9px;
+  }
+}

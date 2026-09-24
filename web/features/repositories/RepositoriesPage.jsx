@@ -4,9 +4,7 @@ import api from "../../lib/api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { getCloneOperation, subscribeToClone } from "./cloneStore.js";
-import CredentialDialog from "./CredentialDialog.jsx";
 import CloneForm from "./CloneForm.jsx";
-import CredentialList from "./CredentialList.jsx";
 export default function Repositories({ home, defaultCwd, onLaunch }) {
   const defaultDirectory = defaultCwd || home || "";
   const operation = useSyncExternalStore(subscribeToClone, getCloneOperation);
@@ -23,7 +21,6 @@ export default function Repositories({ home, defaultCwd, onLaunch }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [reload, setReload] = useState(0);
-  const [modal, setModal] = useState(null);
   const [credentialId, setCredentialId] = useState(previousRequest?.credentialId || "");
   const [url, setUrl] = useState(previousRequest?.url || "");
   const [parentDirectory, setParentDirectory] = useState(
@@ -70,13 +67,6 @@ export default function Repositories({ home, defaultCwd, onLaunch }) {
           <h1>{copy.pageHeadingTitle}</h1>
           <p>{copy.pageHeadingDescription}</p>
         </div>
-        <button
-          className="button primary"
-          disabled={loading || Boolean(loadError) || cloning}
-          onClick={() => setModal({})}
-        >
-          {commonCopy.addToken}
-        </button>
       </header>
       {loading && (
         <p role="status" className="loading">
@@ -96,28 +86,6 @@ export default function Repositories({ home, defaultCwd, onLaunch }) {
       )}
       {!loading && !loadError && (
         <>
-          <section
-            aria-labelledby="repository-credentials-title"
-            className="repository-section"
-          >
-            <div className="section-heading">
-              <h2 id="repository-credentials-title">{copy.repositoryCredentialsTitle}</h2>
-              <span>
-                {credentials.length}
-                {copy.savedCredentialsSuffix}
-              </span>
-            </div>
-            <p className="field-description repository-agent-note">
-              {copy.agentCredentialDescription}
-            </p>
-            <CredentialList
-              {...{
-                credentials,
-                cloning,
-                setModal,
-              }}
-            />
-          </section>
           <CloneForm
             {...{
               credentialId,
@@ -172,22 +140,6 @@ export default function Repositories({ home, defaultCwd, onLaunch }) {
             </div>
           </section>
         </>
-      )}
-      {modal && (
-        <CredentialDialog
-          credential={modal.credential}
-          credentials={credentials}
-          deleting={modal.deleting}
-          close={() => setModal(null)}
-          saved={(credential, deletedId) => {
-            setCredentials((items) =>
-              deletedId
-                ? items.filter((item) => item.id !== deletedId)
-                : [...items.filter((item) => item.id !== credential.id), credential],
-            );
-            setReload((value) => value + 1);
-          }}
-        />
       )}
     </div>
   );
