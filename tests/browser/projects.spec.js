@@ -297,3 +297,38 @@ test("the hub pauses its AgentBus poll while the page is hidden", async ({ page 
   // Returning to the page reads at once instead of waiting for the next interval.
   await expect.poll(busReads, { timeout: 1500 }).toBeGreaterThan(hiddenReads);
 });
+
+test("the hub pauses its run hint sweep while the page is hidden", async ({ page }) => {
+  test.setTimeout(45000);
+  await page.clock.install();
+  const calls = await hubFixture(page);
+  const sweeps = () =>
+    calls.filter(
+      (call) => call.path === "/api/pipeline-runs" && call.search.includes("status="),
+    ).length;
+  const setHidden = (hidden) =>
+    page.evaluate((value) => {
+      for (const [key, state] of [
+        ["hidden", value],
+        ["visibilityState", value ? "hidden" : "visible"],
+      ])
+        Object.defineProperty(document, key, { configurable: true, value: state });
+      document.dispatchEvent(new Event("visibilitychange"));
+    }, hidden);
+  await page.goto(base + "/projects");
+  await expect.poll(sweeps).toBe(2);
+  await setHidden(true);
+  // Past the 60 s refresh interval: a hidden page runs no status scans.
+  await page.clock.fastForward(61000);
+  await page.waitForTimeout(500);
+  expect(sweeps()).toBe(2);
+  // Returning after the interval sweeps once at once; a quick hide and show does not.
+  await setHidden(false);
+  await expect.poll(sweeps, { timeout: 2000 }).toBe(4);
+  await setHidden(true);
+  await setHidden(false);
+  await page.waitForTimeout(500);
+  expect(sweeps()).toBe(4);
+  await page.clock.fastForward(61000);
+  await expect.poll(sweeps, { timeout: 2000 }).toBe(6);
+});

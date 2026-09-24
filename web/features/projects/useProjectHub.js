@@ -148,15 +148,20 @@ function useAttention(sweep) {
   useEffect(() => {
     let active = true,
       reading = false,
-      timer = null;
-    // A hidden page stops the slow refresh; showing it again only re-arms the timer.
-    const schedule = () => {
-      if (active && !reading && timer === null && !document.hidden)
-        timer = setTimeout(read, attentionPoll);
+      timer = null,
+      last = 0;
+    // Like the AgentBus poll: a hidden page clears the pending sweep and runs none.
+    // Showing it again sweeps at once when the interval has passed, else re-arms the
+    // timer for the rest of it.
+    const arm = (delay) => {
+      clearTimeout(timer);
+      timer = active && !document.hidden ? setTimeout(read, delay) : null;
     };
     const read = async () => {
       timer = null;
+      if (!active || reading || document.hidden) return;
       reading = true;
+      last = Date.now();
       try {
         const [decisions, failed] = await Promise.all([
           runsWithStatus("awaiting-human"),
@@ -172,15 +177,23 @@ function useAttention(sweep) {
         // The hints are optional; the project list reports its own failures.
       } finally {
         reading = false;
-        schedule();
+        arm(attentionPoll);
       }
     };
-    document.addEventListener("visibilitychange", schedule);
+    const visibility = () => {
+      if (reading) return;
+      const remaining = attentionPoll - (Date.now() - last);
+      if (!document.hidden && remaining <= 0) {
+        clearTimeout(timer);
+        read();
+      } else arm(remaining);
+    };
+    document.addEventListener("visibilitychange", visibility);
     read();
     return () => {
       active = false;
       clearTimeout(timer);
-      document.removeEventListener("visibilitychange", schedule);
+      document.removeEventListener("visibilitychange", visibility);
     };
   }, [sweep]);
   return attention;
