@@ -1,4 +1,4 @@
-import React, { useId } from "react";
+import React, { useId, useState } from "react";
 import Segment from "../../components/Segment.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { stageProfileName } from "./StageFlow.jsx";
@@ -8,7 +8,10 @@ const minRounds = 1,
 
 function RoundsStepper({ value, onChange, disabled }) {
   const id = useId();
-  const current = Number.isFinite(value) ? value : minRounds;
+  const clamp = (number) => Math.min(maxRounds, Math.max(minRounds, number));
+  const current = Number.isFinite(value) ? clamp(value) : minRounds;
+  // An emptied field stays empty while typing and returns to the last value on blur.
+  const [typing, setTyping] = useState(null);
   return (
     <div className="stage-field">
       <label htmlFor={id}>{copy.loopBudget}</label>
@@ -17,7 +20,7 @@ function RoundsStepper({ value, onChange, disabled }) {
           type="button"
           aria-label={copy.decreaseRounds}
           disabled={disabled || current <= minRounds}
-          onClick={() => onChange(Math.max(minRounds, current - 1))}
+          onClick={() => onChange(clamp(current - 1))}
         >
           −
         </button>
@@ -26,14 +29,21 @@ function RoundsStepper({ value, onChange, disabled }) {
           type="number"
           min={minRounds}
           max={maxRounds}
-          value={Number.isFinite(value) ? value : ""}
-          onChange={(event) => onChange(Number(event.target.value))}
+          value={typing ?? (Number.isFinite(value) ? value : minRounds)}
+          onChange={(event) => {
+            const text = event.target.value;
+            const number = Number(text);
+            if (text === "" || !Number.isFinite(number)) return setTyping(text);
+            setTyping(null);
+            onChange(clamp(Math.round(number)));
+          }}
+          onBlur={() => setTyping(null)}
         />
         <button
           type="button"
           aria-label={copy.increaseRounds}
           disabled={disabled || current >= maxRounds}
-          onClick={() => onChange(Math.min(maxRounds, current + 1))}
+          onClick={() => onChange(clamp(current + 1))}
         >
           +
         </button>

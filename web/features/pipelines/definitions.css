@@ -377,6 +377,16 @@
   margin: 0;
 }
 
+.stage-notice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #54402f;
+  border-radius: 6px;
+  background: #1d1915;
+  color: #ffc99d;
+  font-size: 11px;
+}
+
 /* Footer */
 .definition-footer {
   display: flex;
