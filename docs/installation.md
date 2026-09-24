@@ -132,7 +132,7 @@ npm run build
 npm start
 ```
 
-Am Mac mini `http://127.0.0.1:4380` öffnen. Fehlende CLIs einschließlich der GitHub CLI `gh` bei Bedarf über **CLI installieren** einrichten. Die Installation erfolgt auf diesem Server im AgentPier-Datenverzeichnis und wird mit `--version` geprüft. Anschließend CLI-Accounts einrichten und eine Sitzung in einem Testprojekt öffnen. Für jeden zusätzlichen Account ein eigenes Profil anlegen. GitHub-/Enterprise-Tokens separat unter **Repositories** eintragen.
+Am Mac mini `http://127.0.0.1:4380` öffnen. Fehlende CLIs einschließlich der GitHub CLI `gh` bei Bedarf über **CLI installieren** einrichten. Die Installation erfolgt auf diesem Server im AgentPier-Datenverzeichnis und wird mit `--version` geprüft. Anschließend CLI-Accounts einrichten und eine Sitzung in einem Testprojekt öffnen. Für jeden zusätzlichen Account ein eigenes Profil anlegen. GitHub-/Enterprise-Tokens separat unter **Einstellungen → Zugriff → GitHub-Zugänge** eintragen.
 
 Mit `Ctrl+C` den Test-Webdienst beenden, bevor der dauerhafte Dienst eingerichtet wird. Laufende Terminal-Sitzungen bleiben in tmux erhalten.
 
