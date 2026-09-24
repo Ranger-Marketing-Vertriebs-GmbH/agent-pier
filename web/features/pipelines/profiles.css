@@ -18,6 +18,7 @@
   gap: 3px;
 }
 .profile-group-caps {
+  margin: 0;
   padding: 0 12px 6px;
   font-size: 9px;
   font-weight: 600;

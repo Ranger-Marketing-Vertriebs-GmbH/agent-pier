@@ -102,7 +102,11 @@ export default function ProfilesPage({
       <div className="definitions-toolbar">
         <span>{ready ? copy.profileCount(profiles.length) : ""}</span>
         <div className="pipeline-actions">
-          <button type="button" className="button secondary" onClick={resource.refresh}>
+          <button
+            type="button"
+            className="button secondary" // A reload remounts the editor, so an unsaved draft is confirmed first.
+            onClick={() => draft.guarded(resource.refresh)}
+          >
             {commonCopy.refresh}
           </button>
           <button
