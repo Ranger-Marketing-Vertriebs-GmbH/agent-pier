@@ -124,6 +124,8 @@ export const pipelineCopy = {
   allPipelines: "All pipelines",
   discardDraft: "Unsaved changes to this pipeline will be lost. Continue anyway?",
   discard: "Discard",
+  loopDropped: (stage) =>
+    `The loop back from stage ${stage} was removed because after the move it pointed to a later stage.`,
   addStage: "Add stage",
   profile: "Task profile",
   chooseProfile: "Choose profile",

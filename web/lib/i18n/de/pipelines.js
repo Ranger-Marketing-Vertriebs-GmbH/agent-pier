@@ -125,6 +125,8 @@ export const pipelineCopy = {
   discardDraft:
     "Die ungespeicherten Änderungen an dieser Pipeline gehen verloren. Trotzdem fortfahren?",
   discard: "Verwerfen",
+  loopDropped: (stage) =>
+    `Der Rücksprung von Stufe ${stage} wurde entfernt, weil er nach dem Verschieben auf eine spätere Stufe zeigte.`,
   addStage: "Stufe hinzufügen",
   profile: "Aufgabenprofil",
   chooseProfile: "Profil wählen",

@@ -263,6 +263,34 @@ test("desktop definitions select the first pipeline and highlight the chosen sta
   ).toHaveValue("Wartung");
 });
 
+test("moving a stage past its loop target drops the loop with a notice and typed rounds stay in range", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  state.pipelines[0].graph = twoStageGraph;
+  await openPipelines(page, "definitions/pipeline-one");
+  await stageTile(page, 2).click();
+  const rounds = page.getByRole("spinbutton", {
+    name: "Maximale Schleifenrunden",
+    exact: true,
+  });
+  await rounds.fill("9");
+  await expect(rounds).toHaveValue("5");
+  await rounds.fill("");
+  await rounds.blur();
+  await expect(rounds).toHaveValue("5");
+  await stageTile(page, 1).click();
+  await page.getByRole("button", { name: "Nach hinten 1", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Rücksprung" })).toHaveText(
+    "Der Rücksprung von Stufe 1 wurde entfernt, weil er nach dem Verschieben auf eine spätere Stufe zeigte.",
+  );
+  await expect(page.getByText(/springt bei Fehler/)).toHaveCount(0);
+  await expect(stageTile(page, 1)).not.toContainText("↺");
+  await expect(stageTile(page, 2)).not.toContainText("↺");
+  await page.getByLabel("Menschliche Freigabe", { exact: true }).check();
+  await expect(page.getByText(/wurde entfernt, weil/)).toHaveCount(0);
+});
+
 test("unknown definitions report unavailability and new pipelines start empty", async ({
   page,
 }) => {

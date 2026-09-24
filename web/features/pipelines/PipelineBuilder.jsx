@@ -26,14 +26,22 @@ const draftSnapshot = (name, description, advanced, json, stages) =>
   ]);
 
 function useStageDraft(initial) {
-  const [stages, setStages] = useState(initial || []),
-    [selectedKey, setSelectedKey] = useState(initial?.[0]?.key || "");
+  const [stages, updateStages] = useState(initial || []),
+    [selectedKey, setSelectedKey] = useState(initial?.[0]?.key || ""),
+    [notice, setNotice] = useState("");
   const found = stages.findIndex((s) => s.key === selectedKey);
   const selected = found >= 0 ? found : 0;
+  // Every edit replaces a notice left by the previous one.
+  const setStages = (next) => {
+    setNotice("");
+    updateStages(next);
+  };
   return {
     stages,
     setStages,
     selected,
+    notice,
+    clearNotice: () => setNotice(""),
     select: (index) => setSelectedKey(stages[index]?.key || ""),
     add: () => {
       const key = `stage-${browserUuid()}`;
@@ -54,14 +62,17 @@ function useStageDraft(initial) {
     move: (index, delta) => {
       const next = [...stages];
       [next[index], next[index + delta]] = [next[index + delta], next[index]];
-      // A loop may only return to an earlier stage; one that no longer does is dropped.
-      setStages(
-        next.map((stage, i) =>
-          stage.loopBackTo && !next.slice(0, i).some((s) => s.key === stage.loopBackTo)
-            ? { ...stage, loopBackTo: "" }
-            : stage,
-        ),
-      );
+      // A loop may only return to an earlier stage; one that no longer does is
+      // dropped, and the notice says so.
+      const dropped = [];
+      const valid = next.map((stage, i) => {
+        if (!stage.loopBackTo || next.slice(0, i).some((s) => s.key === stage.loopBackTo))
+          return stage;
+        dropped.push(i + 1);
+        return { ...stage, loopBackTo: "" };
+      });
+      setStages(valid);
+      if (dropped.length) setNotice(copy.loopDropped(dropped[0]));
     },
     remove: (index) => {
       const removed = stages[index].key;
@@ -157,7 +168,10 @@ export default function PipelineBuilder({
               required
               maxLength={200}
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => {
+                draft.clearNotice();
+                setName(event.target.value);
+              }}
             />
           </label>
           <label>
@@ -165,7 +179,10 @@ export default function PipelineBuilder({
             <textarea
               rows={1}
               value={description}
-              onChange={(event) => setDescription(event.target.value)}
+              onChange={(event) => {
+                draft.clearNotice();
+                setDescription(event.target.value);
+              }}
             />
           </label>
         </div>
@@ -202,6 +219,11 @@ export default function PipelineBuilder({
                 onRemove={draft.remove}
                 disabled={action.busy}
               />
+            )}
+            {draft.notice && (
+              <p className="stage-notice" role="status">
+                {draft.notice}
+              </p>
             )}
           </>
         )}
