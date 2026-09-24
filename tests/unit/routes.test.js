@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readRoute, routePath, defaultSessionMode } from "../../web/app/routes.js";
+import { projectsRoute } from "../../web/features/projects/routes.js";
 const read = (path) => readRoute(new URL(path, "http://localhost"));
+const path = (route) => routePath(route);
 test("route parsing rejects malformed identifiers and action-looking paths", () => {
   for (const path of [
     "/sessions/a/stop",
@@ -34,48 +36,82 @@ test("bare and legacy session links keep their identity until state chooses a mo
   assert.equal(read("/settings").settingsSection, "general");
   assert.equal(routePath(read("/settings")), "/settings");
 });
-test("AgentBus status and message routes preserve exact project selection", () => {
-  for (const [path, busTab, projectId] of [
+test("projects routes carry tab state and old links map onto them", () => {
+  assert.deepEqual(read("/projects"), {
+    view: "projects",
+    projectId: "",
+    projectTab: "overview",
+    query: "",
+    archived: false,
+    memoryPage: 1,
+    busTab: "status",
+    messagePage: 1,
+    pipelineStatus: "",
+    pipelinePage: 1,
+  });
+  assert.equal(
+    read("/projects/p1?tab=knowledge&q=Build&archived=1&page=2").memoryPage,
+    2,
+  );
+  assert.equal(
+    path(read("/memory/p1?q=Build&archived=1&page=2")),
+    "/projects/p1?tab=knowledge&q=Build&archived=1&page=2",
+  );
+  assert.equal(path(read("/memory")), "/projects?tab=knowledge");
+  assert.equal(path(read("/agentbus")), "/projects?tab=agentbus");
+  assert.equal(
+    path(read("/agentbus/messages/b1?page=3")),
+    "/projects/b1?tab=agentbus&bus=messages&page=3",
+  );
+  assert.equal(path(read("/repositories")), "/projects");
+  assert.equal(path(read("/plugins/local-codex")), "/extensions/local-codex?tab=plugins");
+  assert.equal(
+    path(read("/extensions/local-codex?tab=agents")),
+    "/extensions/local-codex?tab=agents",
+  );
+  assert.equal(path(read("/extensions/local-codex")), "/extensions/local-codex");
+  assert.equal(read("/projects/a%2Fb").view, "missing");
+  assert.equal(read("/projects/p1?tab=nope").projectTab, "overview");
+  assert.equal(
+    path(read("/projects/p1?tab=runs&status=failed&page=2")),
+    "/projects/p1?tab=runs&status=failed&page=2",
+  );
+});
+test("projects AgentBus tab routes preserve exact project selection", () => {
+  for (const [urlPath, busTab, projectId] of [
     ["/agentbus", "status", ""],
     ["/agentbus/messages", "messages", ""],
     ["/agentbus/messages/project-123", "messages", "project-123"],
-  ]) {
-    const route = { view: "agentbus", busTab, projectId, messagePage: 1 };
-    assert.deepEqual(read(path), route);
-    assert.equal(routePath(route), path);
-  }
-  for (const path of [
+  ])
+    assert.deepEqual(
+      read(urlPath),
+      projectsRoute({ projectId, projectTab: "agentbus", busTab }),
+    );
+  for (const p of [
     "/agentbus/messages/a%2Fb",
     "/agentbus/messages/%00",
     "/agentbus/messages/p/delete",
     "/agentbus/unknown",
   ])
-    assert.equal(read(path).view, "missing");
+    assert.equal(read(p).view, "missing");
 });
-test("AgentBus message pagination survives links and invalid pages normalize safely", () => {
+test("projects AgentBus message pagination survives links and invalid pages normalize safely", () => {
   const paged = read("/agentbus/messages/project-123?page=3");
   assert.equal(paged.messagePage, 3);
-  assert.equal(routePath(paged), "/agentbus/messages/project-123?page=3");
+  assert.equal(path(paged), "/projects/project-123?tab=agentbus&bus=messages&page=3");
   for (const page of ["0", "-1", "1.5", "nope", "Infinity", "9007199254740992"])
     assert.equal(read("/agentbus/messages/project-123?page=" + page).messagePage, 1);
   assert.equal(
-    routePath(read("/agentbus/messages/project-123?page=1")),
-    "/agentbus/messages/project-123",
+    path(read("/agentbus/messages/project-123?page=1")),
+    "/projects/project-123?tab=agentbus&bus=messages",
   );
 });
-
-test("memory deep links reject malformed scopes and normalize invalid pagination", () => {
+test("projects knowledge tab deep links reject malformed scopes and normalize invalid pagination", () => {
   for (const value of ["0", "-1", "1.5", "100001", "9007199254740992", "Infinity"])
     assert.equal(read(`/memory/project?page=${value}`).memoryPage, 1);
   for (const value of ["/memory/a%2Fb", "/memory/%00", "/memory/a/delete"])
     assert.equal(read(value).view, "missing");
-  assert.deepEqual(read("/memory"), {
-    view: "memory",
-    projectId: "",
-    query: "",
-    archived: false,
-    memoryPage: 1,
-  });
+  assert.deepEqual(read("/memory"), projectsRoute({ projectTab: "knowledge" }));
 });
 
 test("pipeline deep links retain tabs identities and bounded filters", () => {

@@ -3,6 +3,7 @@ import { useWorkspaceNavigationCopy as copy } from "../lib/i18n/messages/app.js"
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { SessionViewMemory } from "./session-view-memory.js";
 import { readRoute, routePath } from "./routes.js";
+import { projectsRoute } from "../features/projects/routes.js";
 import { requestFileNavigation } from "../features/files/file-navigation-guard.js";
 const navigationIndex = "agentPierNavigationIndex";
 export default function useWorkspaceNavigation({ state, ready, setMobileNav, setModal }) {
@@ -225,7 +226,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
   useEffect(() => {
     if (!ready || view === "missing") return;
     let normalized = route;
-    if (["extensions", "plugins"].includes(view)) {
+    if (view === "extensions") {
       const legacy =
         state.sharedCliExtensions &&
         state.accounts.find(
@@ -273,28 +274,36 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     state.sharedCliExtensions,
     sessionViews,
   ]);
-  const page = (view) =>
-    navigate({
+  const resolveProfileId = () =>
+    activeProfile?.id ||
+    profileAccounts.find((a) => a.id === profileMemory.current)?.id ||
+    profileAccounts[0]?.id ||
+    "";
+  // Legacy sidebar view names redirect onto the new projects/extensions route shapes
+  // until Task 2 regroups the sidebar itself.
+  const page = (view) => {
+    if (view === "repositories") return navigate(projectsRoute());
+    if (view === "memory") return navigate(projectsRoute({ projectTab: "knowledge" }));
+    if (view === "agentbus") return navigate(projectsRoute({ projectTab: "agentbus" }));
+    if (view === "plugins")
+      return navigate({
+        view: "extensions",
+        extensionTab: "plugins",
+        profileId: resolveProfileId(),
+      });
+    return navigate({
       view,
-      ...(["extensions", "plugins"].includes(view)
-        ? {
-            profileId:
-              activeProfile?.id ||
-              profileAccounts.find((a) => a.id === profileMemory.current)?.id ||
-              profileAccounts[0]?.id ||
-              "",
-          }
+      ...(view === "extensions"
+        ? { extensionTab: "mcp", profileId: resolveProfileId() }
         : {}),
     });
+  };
   const missing =
     view === "missing"
       ? copy.pageNotFound
       : ready && selected && !activeSession
         ? copy.sessionNotFound
-        : ready &&
-            ["extensions", "plugins"].includes(view) &&
-            route.profileId &&
-            !activeProfile
+        : ready && view === "extensions" && route.profileId && !activeProfile
           ? copy.profileNotFound
           : null;
   return {

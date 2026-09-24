@@ -226,7 +226,7 @@ test("GitHub CLI installs as a utility and opens GitHub credentials without a se
     modal.getByRole("button", { name: "Sitzung starten", exact: true }),
   ).toHaveCount(0);
   await modal.getByRole("button", { name: "GitHub-Zugänge", exact: true }).click();
-  await expect(page).toHaveURL(/\/repositories$/);
+  await expect(page).toHaveURL(/\/projects$/);
   await expect(page.getByRole("heading", { name: "Deine Repositories" })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(controls.state.sessions).toEqual([]);
@@ -234,7 +234,7 @@ test("GitHub CLI installs as a utility and opens GitHub credentials without a se
   await card(page, "GitHub CLI")
     .getByRole("button", { name: "GitHub-Zugänge", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/repositories$/);
+  await expect(page).toHaveURL(/\/projects$/);
   await navigateTo(page, "Accounts");
   await page.getByRole("button", { name: "Account hinzufügen", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Tool", exact: true })).toBeVisible();
@@ -278,7 +278,7 @@ test("nono installs under its own name and offers an update instead of GitHub ac
   await expect(
     card(page, "nono").getByRole("button", { name: "GitHub connections", exact: true }),
   ).toHaveCount(0);
-  await expect(page).not.toHaveURL(/\/repositories$/);
+  await expect(page).not.toHaveURL(/\/projects$/);
   await card(page, "nono")
     .getByRole("button", { name: "Update CLI", exact: true })
     .click();

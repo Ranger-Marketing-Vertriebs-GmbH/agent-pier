@@ -117,6 +117,7 @@ function Application() {
           launch,
           installed,
           view,
+          route,
           page,
           state,
           selected,
@@ -147,7 +148,7 @@ function Application() {
               {copy.returnToOverview}
             </button>
           </div>
-        ) : !ready && (selected || ["extensions", "plugins"].includes(view)) ? (
+        ) : !ready && (selected || view === "extensions") ? (
           <div className="page">
             <p className="loading" role="status">
               {copy.workspaceLoading}
@@ -173,8 +174,16 @@ function Application() {
           <Suspense>
             <ArtifactsPage route={route} onNavigate={navigate} />
           </Suspense>
-        ) : view === "memory" ? (
-          <MemoryPage route={route} onNavigate={navigate} home={state.home} />
+        ) : view === "projects" && route.projectTab === "knowledge" ? (
+          // Stop-gap: renders the pre-redesign Memory page by tab. Task 6 replaces this
+          // with the Projects hub; the wrapper below keeps the projects route shape.
+          <MemoryPage
+            route={route}
+            onNavigate={(next, replace) =>
+              navigate({ ...next, view: "projects", projectTab: "knowledge" }, replace)
+            }
+            home={state.home}
+          />
         ) : view === "files" ? (
           <Suspense
             fallback={
@@ -193,7 +202,8 @@ function Application() {
             route={route}
             onNavigate={navigate}
           />
-        ) : view === "agentbus" ? (
+        ) : view === "projects" && route.projectTab === "agentbus" ? (
+          // Stop-gap: renders the pre-redesign AgentBus page by tab. Task 6 replaces this.
           <Suspense fallback={<p className="loading">{copy.agentBusLoading}</p>}>
             <AgentBus
               request={api}
@@ -203,7 +213,8 @@ function Application() {
               onNavigate={(tab, projectId = "", replace = false, page = 1) =>
                 navigate(
                   {
-                    view: "agentbus",
+                    ...route,
+                    projectTab: "agentbus",
                     busTab: tab,
                     projectId,
                     messagePage: page,
@@ -213,7 +224,8 @@ function Application() {
               }
             />
           </Suspense>
-        ) : view === "plugins" ? (
+        ) : view === "extensions" &&
+          ["plugins", "marketplaces"].includes(route.extensionTab) ? (
           <Plugins
             shared={state.sharedCliExtensions}
             accounts={state.accounts}
@@ -223,6 +235,7 @@ function Application() {
               navigate({
                 view,
                 profileId,
+                extensionTab: route.extensionTab,
               })
             }
           />
@@ -236,10 +249,12 @@ function Application() {
               navigate({
                 view,
                 profileId,
+                extensionTab: route.extensionTab,
               })
             }
           />
-        ) : view === "repositories" ? (
+        ) : view === "projects" ? (
+          // Stop-gap: renders the pre-redesign Repositories page for overview/runs tabs.
           <Repositories
             home={state.home}
             defaultCwd={state.defaultCwd}

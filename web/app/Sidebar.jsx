@@ -18,6 +18,7 @@ export default function Sidebar({
   launch,
   installed,
   view,
+  route,
   page,
   state,
   selected,
@@ -103,7 +104,11 @@ export default function Sidebar({
             </span>
           </button>
           <button
-            className={view === "repositories" ? "nav-item selected" : "nav-item"}
+            className={
+              view === "projects" && !["knowledge", "agentbus"].includes(route.projectTab)
+                ? "nav-item selected"
+                : "nav-item"
+            }
             onClick={() => page("repositories")}
           >
             <Icon name="folder" />
@@ -117,21 +122,35 @@ export default function Sidebar({
             {filesCopy.tab}
           </button>
           <button
-            className={view === "extensions" ? "nav-item selected" : "nav-item"}
+            className={
+              view === "extensions" &&
+              !["plugins", "marketplaces"].includes(route.extensionTab)
+                ? "nav-item selected"
+                : "nav-item"
+            }
             onClick={() => page("extensions")}
           >
             <Icon name="grid" />
             {copy.extensionsNavigation}
           </button>
           <button
-            className={view === "plugins" ? "nav-item selected" : "nav-item"}
+            className={
+              view === "extensions" &&
+              ["plugins", "marketplaces"].includes(route.extensionTab)
+                ? "nav-item selected"
+                : "nav-item"
+            }
             onClick={() => page("plugins")}
           >
             <Icon name="grid" />
             {copy.pluginsNavigation}
           </button>
           <button
-            className={view === "agentbus" ? "nav-item selected" : "nav-item"}
+            className={
+              view === "projects" && route.projectTab === "agentbus"
+                ? "nav-item selected"
+                : "nav-item"
+            }
             onClick={() => page("agentbus")}
           >
             <Icon name="link" />
@@ -145,7 +164,11 @@ export default function Sidebar({
             {pipelineCopy.title}
           </button>
           <button
-            className={view === "memory" ? "nav-item selected" : "nav-item"}
+            className={
+              view === "projects" && route.projectTab === "knowledge"
+                ? "nav-item selected"
+                : "nav-item"
+            }
             onClick={() => page("memory")}
           >
             <Icon name="grid" />

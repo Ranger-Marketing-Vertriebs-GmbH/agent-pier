@@ -88,12 +88,15 @@ test("Shell profile deep links are rejected and never become the profile navigat
   page,
 }) => {
   const calls = await fixture(page, { shellFirst: true });
-  for (const section of ["extensions", "plugins"]) {
-    await page.goto(`${base}/${section}/local-shell`);
+  for (const [path, expected] of [
+    ["extensions/local-shell", "extensions/local-shell"],
+    ["plugins/local-shell", "extensions/local-shell?tab=plugins"],
+  ]) {
+    await page.goto(`${base}/${path}`);
     await expect(
       page.getByRole("heading", { name: "Profil nicht gefunden" }),
     ).toBeVisible();
-    await expect(page).toHaveURL(`${base}/${section}/local-shell`);
+    await expect(page).toHaveURL(`${base}/${expected}`);
   }
   await navigateTo(page, "MCP & Skills");
   await expect(page).toHaveURL(/\/extensions\/local-codex$/);
@@ -106,7 +109,7 @@ test("Shell profile deep links are rejected and never become the profile navigat
       .locator('option[value="local-shell"]'),
   ).toHaveCount(0);
   await navigateTo(page, "Plugins & Marketplace");
-  await expect(page).toHaveURL(/\/plugins\/local-codex$/);
+  await expect(page).toHaveURL(/\/extensions\/local-codex\?tab=plugins$/);
   await expect(
     page
       .getByRole("combobox", { name: "CLI-Profil" })
@@ -129,7 +132,7 @@ test("profile deep links and navigation survive reload and history", async ({ pa
     "work-claude",
   );
   await navigateTo(page, "Plugins & Marketplace");
-  await expect(page).toHaveURL(/\/plugins\/work-claude$/);
+  await expect(page).toHaveURL(/\/extensions\/work-claude\?tab=plugins$/);
   await page.reload();
   await expect(page.getByRole("combobox", { name: "CLI-Profil" })).toHaveValue(
     "work-claude",
@@ -137,7 +140,7 @@ test("profile deep links and navigation survive reload and history", async ({ pa
   await navigateTo(page, "Accounts");
   await expect(page).toHaveURL(/\/accounts$/);
   await navigateTo(page, "Repositories");
-  await expect(page).toHaveURL(/\/repositories$/);
+  await expect(page).toHaveURL(/\/projects$/);
   await page.goBack();
   await expect(page.getByRole("heading", { name: "Deine Accounts" })).toBeVisible();
 });
@@ -233,7 +236,9 @@ test("AgentBus history restores project and page through reload and Back/Forward
     page.getByText("Verlauf project-two Seite 2", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "AgentBus-Nachrichten: Nächste Seite" }).click();
-  await expect(page).toHaveURL(/\/agentbus\/messages\/project-two\?page=3$/);
+  await expect(page).toHaveURL(
+    /\/projects\/project-two\?tab=agentbus&bus=messages&page=3$/,
+  );
   await page.goBack();
   await expect(
     page.getByText("Verlauf project-two Seite 2", { exact: true }),
@@ -245,15 +250,17 @@ test("AgentBus history restores project and page through reload and Back/Forward
   await page
     .getByRole("combobox", { name: "AgentBus-Projekt" })
     .selectOption("project-one");
-  await expect(page).toHaveURL(/\/agentbus\/messages\/project-one$/);
+  await expect(page).toHaveURL(/\/projects\/project-one\?tab=agentbus&bus=messages$/);
   await page.getByRole("tab", { name: "Status", exact: true }).click();
-  await expect(page).toHaveURL(/\/agentbus$/);
+  await expect(page).toHaveURL(/\/projects\?tab=agentbus$/);
   await page.goBack();
   await expect(
     page.getByText("Verlauf project-one Seite 1", { exact: true }),
   ).toBeVisible();
   await page.goto(base + "/agentbus/messages?page=2");
-  await expect(page).toHaveURL(/\/agentbus\/messages\/project-one\?page=2$/);
+  await expect(page).toHaveURL(
+    /\/projects\/project-one\?tab=agentbus&bus=messages&page=2$/,
+  );
   await expect(
     page.getByText("Verlauf project-one Seite 2", { exact: true }),
   ).toBeVisible();
