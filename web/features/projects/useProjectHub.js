@@ -172,10 +172,19 @@ export default function useProjectHub() {
       alive = false;
     };
   }, [version, sourceError]);
+  // AgentBus refreshes every 4 s while the page is visible; a hidden page pauses the
+  // poll and reads at once when it becomes visible again.
   useEffect(() => {
     let active = true,
+      reading = false,
       timer;
+    const schedule = () => {
+      clearTimeout(timer);
+      if (active && !document.hidden) timer = setTimeout(read, 4000);
+    };
     async function read() {
+      if (!active || reading || document.hidden) return;
+      reading = true;
       try {
         const data = await api("/agentbus");
         if (active) {
@@ -189,13 +198,20 @@ export default function useProjectHub() {
       } catch (failure) {
         if (active) sourceError("agentbus", failure.message);
       } finally {
-        if (active) timer = setTimeout(read, 4000);
+        reading = false;
+        schedule();
       }
     }
-    timer = setTimeout(read, 4000);
+    const visibility = () => {
+      clearTimeout(timer);
+      read();
+    };
+    document.addEventListener("visibilitychange", visibility);
+    schedule();
     return () => {
       active = false;
       clearTimeout(timer);
+      document.removeEventListener("visibilitychange", visibility);
     };
   }, [version, sourceError]);
   const repositories = useMemo(
