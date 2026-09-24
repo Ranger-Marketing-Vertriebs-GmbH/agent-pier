@@ -8,15 +8,19 @@ import {
 import api from "../../lib/api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
 import CredentialDialog from "../repositories/CredentialDialog.jsx";
 import CredentialList from "../repositories/CredentialList.jsx";
+import { getCloneOperation, subscribeToClone } from "../repositories/cloneStore.js";
 export default function GithubAccessPage() {
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [reload, setReload] = useState(0);
   const [modal, setModal] = useState(null);
+  // A clone keeps running after its dialog closes and uses a token, so token changes
+  // wait until it has finished.
+  const { cloning } = useSyncExternalStore(subscribeToClone, getCloneOperation);
   useEffect(() => {
     let alive = true;
     setLoading(true);
@@ -53,7 +57,7 @@ export default function GithubAccessPage() {
         </div>
         <button
           className="button primary"
-          disabled={loading || Boolean(loadError)}
+          disabled={loading || Boolean(loadError) || cloning}
           onClick={() => setModal({})}
         >
           <Icon name="plus" />
@@ -78,7 +82,11 @@ export default function GithubAccessPage() {
       )}
       {!loading && !loadError && (
         <>
-          <CredentialList credentials={credentials} setModal={setModal} />
+          <CredentialList
+            credentials={credentials}
+            cloning={cloning}
+            setModal={setModal}
+          />
           <p className="field-description github-access-footnote">
             {credentialDialogCopy.multipleProfilesDescription}
           </p>
