@@ -286,20 +286,12 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     profileAccounts.find((a) => a.id === profileMemory.current)?.id ||
     profileAccounts[0]?.id ||
     "";
-  // "repositories", "memory", "agentbus" and "plugins" are legacy page names (used by
-  // utilityPages and older callers); they open the matching hub tab.
+  // Sidebar, dashboard and utility follow-ups open pages by name; "settings/github" is
+  // a settings section and "projects" opens the hub at its canonical route.
   const page = (view) => {
     if (view === "settings/github")
       return navigate({ view: "settings", settingsSection: "github" });
-    if (view === "repositories" || view === "projects") return navigate(projectsRoute());
-    if (view === "memory") return navigate(projectsRoute({ projectTab: "knowledge" }));
-    if (view === "agentbus") return navigate(projectsRoute({ projectTab: "agentbus" }));
-    if (view === "plugins")
-      return navigate({
-        view: "extensions",
-        extensionTab: "plugins",
-        profileId: resolveProfileId(),
-      });
+    if (view === "projects") return navigate(projectsRoute());
     return navigate({
       view,
       ...(view === "extensions"
