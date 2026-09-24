@@ -197,6 +197,11 @@ test("mobile image previews and full view fit without horizontal overflow", asyn
   const box = await dialog.boundingBox();
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(391);
+  // The image viewer keeps its own centred layout instead of the generic bottom sheet.
+  expect(Math.round(box.x)).toBe(10);
+  expect(Math.round(box.width)).toBe(370);
+  expect(Math.abs(box.y - (844 - box.y - box.height))).toBeLessThanOrEqual(1);
+  expect(await dialog.evaluate((element) => getComputedStyle(element).top)).toBe("0px");
   await page.screenshot({
     path: testInfo.outputPath("local-image-mobile.png"),
     animations: "disabled",

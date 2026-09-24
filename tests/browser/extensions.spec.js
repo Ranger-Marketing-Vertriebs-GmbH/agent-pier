@@ -176,6 +176,9 @@ test("skill file upload and GitHub download show native shared scope and protect
   const sheet = await panel.boundingBox();
   expect(sheet.x).toBeGreaterThanOrEqual(0);
   expect(sheet.x + sheet.width).toBeLessThanOrEqual(390);
+  // The side panel keeps its fixed 82dvh sheet, unlike content-sized dialogs.
+  expect(Math.abs(sheet.height - 844 * 0.82)).toBeLessThanOrEqual(1);
+  expect(Math.round(sheet.y + sheet.height)).toBe(844);
   await expectNoHorizontalOverflow(page);
   await panel.getByLabel("Skill-Datei").setInputFiles({
     name: "SKILL.md",

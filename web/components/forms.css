@@ -14,15 +14,17 @@ dialog::backdrop {
   backdrop-filter: blur(5px);
 }
 @media (max-width: 700px) {
-  /* A generic dialog becomes a bottom sheet on small screens; a dialog with its
-     own more specific mobile layout (e.g. `.launch-dialog`) overrides this. */
-  dialog {
+  /* A generic dialog becomes a content-sized bottom sheet on small screens. `:where`
+     keeps the selector as weak as `dialog`, so a dialog with its own mobile layout
+     (e.g. `.launch-dialog`, the full-height `.side-panel`) overrides it; the chat image
+     viewer and task drawer keep their own geometry. */
+  dialog:where(:not(.chat-image-dialog, .task-drawer)) {
     position: fixed;
     inset: auto 0 0 0;
     margin: 0;
     width: 100%;
     max-width: 100%;
-    height: 82dvh;
+    height: auto;
     max-height: 82dvh;
     border-radius: 14px 14px 0 0;
   }
