@@ -6,51 +6,42 @@ import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import {
   confirmDescription,
   confirmedActions,
+  gateActions,
   requestRunAction,
 } from "./run-action-request.js";
 
-// Renders the engine-authorized run actions in server order; `exclude` hides actions
-// another control (the gate decision block) already offers.
-export default function RunActions({ run, refresh, removed, exclude = [] }) {
+export const availableGateActions = (run) =>
+  (run.actions || []).filter((action) => gateActions.includes(action));
+
+// The decision the current gate stage waits for: approve, retry with feedback, return
+// for repair or override. A failed request keeps the feedback so it can be resent.
+export default function GateDecision({ run, node, refresh }) {
   const [feedback, setFeedback] = useState(""),
-    [resumeAt, setResumeAt] = useState(""),
     [confirm, setConfirm] = useState(null);
   const mutation = useAsyncAction();
-  const actions = (run.actions || []).filter(
-    (action) => copy.actions[action] && !exclude.includes(action),
-  );
+  const actions = availableGateActions(run);
   const execute = async (action) => {
-    if (await requestRunAction(run, action, { feedback, resumeAt })) {
-      removed();
-      return;
-    }
+    await requestRunAction(run, action, { feedback });
     setConfirm(null);
     setFeedback("");
     refresh();
   };
   if (!actions.length) return null;
   return (
-    <section className="pipeline-card pipeline-gate">
+    <section
+      className="run-gate-decision"
+      aria-labelledby={`run-gate-decision-${node.id}`}
+    >
+      <strong id={`run-gate-decision-${node.id}`}>
+        {copy.statuses["awaiting-human"]}
+      </strong>
       {actions.some((action) => ["feedback", "loop-back"].includes(action)) && (
-        <label>
-          {copy.feedback}
-          <textarea
-            aria-label={copy.feedback}
-            rows={3}
-            value={feedback}
-            onChange={(event) => setFeedback(event.target.value)}
-          />
-        </label>
-      )}
-      {actions.includes("wait-for-reset") && (
-        <label>
-          {copy.resumeAt}
-          <input
-            type="datetime-local"
-            value={resumeAt}
-            onChange={(event) => setResumeAt(event.target.value)}
-          />
-        </label>
+        <textarea
+          aria-label={copy.feedback}
+          rows={2}
+          value={feedback}
+          onChange={(event) => setFeedback(event.target.value)}
+        />
       )}
       <div className="pipeline-actions">
         {actions.map((action) => (
