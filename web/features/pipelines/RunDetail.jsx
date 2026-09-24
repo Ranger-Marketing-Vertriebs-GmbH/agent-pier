@@ -9,6 +9,7 @@ import ExecutionHistory from "./ExecutionHistory.jsx";
 import { availableGateActions } from "./GateDecision.jsx";
 import { gateActions } from "./run-action-request.js";
 import { defaultStageId } from "./run-stages.js";
+import useAsyncAction from "../../lib/useAsyncAction.js";
 import "./run-detail.css";
 import "./run-stage-blocks.css";
 
@@ -19,6 +20,10 @@ export default function RunDetail({ id, navigate }) {
     poll: 5000,
   });
   const [chosen, setChosen] = useState("");
+  // Owned here so feedback survives browsing other stages; one runner keeps the header
+  // actions and the decision from running concurrently.
+  const feedback = useState("");
+  const shared = useAsyncAction();
   const run = resource.data?.run;
   const nodes = run?.nodes || [];
   const selectedId = nodes.some((node) => node.id === chosen)
@@ -27,9 +32,9 @@ export default function RunDetail({ id, navigate }) {
   const index = nodes.findIndex((node) => node.id === selectedId);
   // Gate decisions belong to the current stage's decision block; only when that stage is
   // missing from the rail do they stay in the header.
-  const gateInRail =
-    nodes.some((node) => node.id === run.currentNodeId) &&
-    availableGateActions(run).length > 0;
+  const currentIndex = nodes.findIndex((node) => node.id === run.currentNodeId);
+  const gateInRail = currentIndex >= 0 && availableGateActions(run).length > 0;
+  const gateSelected = gateInRail && selectedId === run.currentNodeId;
   const back = () => navigate({ pipelineItem: "" });
   return (
     <section className="pipeline-run-detail">
@@ -42,6 +47,15 @@ export default function RunDetail({ id, navigate }) {
             back={back}
             refresh={resource.refresh}
             exclude={gateInRail ? gateActions : []}
+            shared={shared}
+            decisionCue={
+              gateInRail && !gateSelected
+                ? {
+                    stage: currentIndex + 1,
+                    select: () => setChosen(run.currentNodeId),
+                  }
+                : null
+            }
           />
           {nodes.length > 0 && (
             <div className="run-detail-layout">
@@ -56,7 +70,7 @@ export default function RunDetail({ id, navigate }) {
                 index={index}
                 navigate={navigate}
                 refresh={resource.refresh}
-                showGate={gateInRail && selectedId === run.currentNodeId}
+                gate={gateSelected ? { feedback, shared } : null}
               />
             </div>
           )}

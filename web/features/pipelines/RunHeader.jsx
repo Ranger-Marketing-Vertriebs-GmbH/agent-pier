@@ -11,8 +11,9 @@ import { runTitle } from "./run-title.js";
 import { runProject, runStatusTone } from "./run-presentation.js";
 
 // Back link, task title, status, meta line and the run-wide actions; the task text
-// stays collapsible below.
-export default function RunHeader({ run, back, refresh, exclude }) {
+// stays collapsible below. `decisionCue` leads to the waiting gate stage while another
+// stage is shown.
+export default function RunHeader({ run, back, refresh, exclude, shared, decisionCue }) {
   const node = run.nodes?.find((item) => item.id === run.currentNodeId);
   const verifying = isVerifying(run, node);
   const project = runProject(run);
@@ -59,10 +60,24 @@ export default function RunHeader({ run, back, refresh, exclude }) {
           )}
         </div>
         <div className="run-header-actions">
+          {decisionCue && (
+            <button
+              className="button primary run-decision-cue"
+              onClick={decisionCue.select}
+            >
+              {copy.decisionCue(decisionCue.stage)}
+            </button>
+          )}
           <button className="button secondary" onClick={refresh}>
             {commonCopy.refresh}
           </button>
-          <RunActions run={run} refresh={refresh} removed={back} exclude={exclude} />
+          <RunActions
+            run={run}
+            refresh={refresh}
+            removed={back}
+            exclude={exclude}
+            shared={shared}
+          />
         </div>
       </header>
       <details className="pipeline-card pipeline-task">

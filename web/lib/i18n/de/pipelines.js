@@ -15,6 +15,7 @@ export const pipelineCopy = {
     pr: "Pull Request",
   },
   loopTo: (stage) => `↺ zu Stufe ${stage}`,
+  decisionCue: (stage) => `Entscheidung erforderlich · Stufe ${stage}`,
   attemptNumber: (number) => `Versuch ${number}`,
   severities: { low: "Niedrig", medium: "Mittel", high: "Hoch" },
   stepLog: (name) => `Verifikationsprotokoll: ${name}`,

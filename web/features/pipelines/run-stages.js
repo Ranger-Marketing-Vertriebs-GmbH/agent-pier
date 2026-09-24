@@ -30,9 +30,20 @@ export function stageStatus(run, node) {
     : status;
 }
 
-// Desktop opens the first stage that has not passed; a finished run shows its last.
+// A live run opens on its current stage. A finished run opens on the stage that ran
+// last, so branches that were never taken (and stay pending) are skipped. Without either,
+// the first stage that has not passed is shown, else the last.
 export function defaultStageId(run) {
   const nodes = run.nodes || [];
+  const known = (id) => nodes.some((node) => node.id === id);
+  const terminal = ["completed", "failed", "cancelled"].includes(run.status);
+  if (!terminal && known(run.currentNodeId)) return run.currentNodeId;
+  if (terminal) {
+    const executed = (run.executionLog || []).findLast((entry) => known(entry.nodeId));
+    if (executed) return executed.nodeId;
+    const passed = nodes.findLast((node) => node.status === "passed");
+    if (passed) return passed.id;
+  }
   return (nodes.find((node) => node.status !== "passed") || nodes.at(-1))?.id || "";
 }
 

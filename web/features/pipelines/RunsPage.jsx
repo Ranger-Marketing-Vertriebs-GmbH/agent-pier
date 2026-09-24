@@ -38,7 +38,10 @@ export default function RunsPage({ route, navigate, home }) {
     if (list.data && page > paging.pageCount)
       navigate({ pipelinePage: paging.pageCount }, true);
   }, [list.data, page, paging.pageCount, navigate]);
-  if (detail) return <RunDetail id={route.pipelineItem} navigate={navigate} />;
+  if (detail)
+    return (
+      <RunDetail key={route.pipelineItem} id={route.pipelineItem} navigate={navigate} />
+    );
   return (
     <section>
       <div className="run-toolbar">
