@@ -1,0 +1,39 @@
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: #e8e8ec;
+}
+.status-chip-mark {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-chip-ok .status-chip-mark {
+  background: #86b88e;
+}
+.status-chip-error .status-chip-mark {
+  background: #e5796b;
+}
+.status-chip-neutral .status-chip-mark {
+  background: #737478;
+}
+.status-chip-pending .status-chip-mark {
+  background: #55565a;
+}
+.status-chip-running .status-chip-mark {
+  background: #f49a58;
+}
+.status-chip-waiting .status-chip-mark {
+  background: #ffc99d;
+}
+.status-chip-decision {
+  padding: 4px 9px;
+  border-radius: 5px;
+  background: #30241d;
+  border: 1px solid #54402f;
+  color: #ffc99d;
+  font-weight: 600;
+}

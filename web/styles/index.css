@@ -9,6 +9,10 @@
 @import "../features/plugins/plugins.css";
 @import "../features/tools/tool-installer.css";
 @import "../components/anchored-select.css";
+@import "../components/side-panel.css";
+@import "../components/underline-tabs.css";
+@import "../components/list-detail.css";
+@import "../components/status-chip.css";
 @import "../features/agentbus/agentbus.css";
 @import "base.css";
 @import "../app/layout.css";
