@@ -181,6 +181,7 @@ export const pipelineCopy = {
   openTerminal: "Open terminal",
   unknown: "Unavailable",
   usage: "Reported usage",
+  usageWholeRun: "Reported usage · whole run",
   input: "Input",
   output: "Output",
   total: "Total",

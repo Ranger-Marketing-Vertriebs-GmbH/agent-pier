@@ -52,6 +52,23 @@
   color: #8b8c90;
   overflow-wrap: anywhere;
 }
+.run-header-cwd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #8b8c90;
+  min-width: 0;
+}
+.run-header-cwd code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #c9cace;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
 .run-header-main > a {
   font-size: 12px;
   color: #ffc99d;

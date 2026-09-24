@@ -53,6 +53,12 @@ export default function RunHeader({ run, back, refresh, exclude, shared, decisio
               </React.Fragment>
             ))}
           </p>
+          {run.cwd && (
+            <p className="run-header-cwd">
+              <span>{copy.directory}</span>
+              <code>{run.cwd}</code>
+            </p>
+          )}
           {run.pullRequestUrl && (
             <a href={run.pullRequestUrl} target="_blank" rel="noreferrer">
               {run.pullRequestUrl}
