@@ -122,7 +122,6 @@ function Application() {
           launch,
           installed,
           view,
-          route,
           page,
           state,
           selected,
