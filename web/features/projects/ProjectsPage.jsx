@@ -13,19 +13,8 @@ import { remoteShort } from "./project-presentation.js";
 import { projectsRoute, projectsRoutePath } from "./routes.js";
 import useProjectHub, { resolveProjectId } from "./useProjectHub.js";
 import useSettledReplace from "./useSettledReplace.js";
+import useMobileLayout from "../../lib/useMobileLayout.js";
 import "./projects.css";
-
-const mobileQuery = "(max-width: 700px)";
-function useMobile() {
-  const [mobile, setMobile] = useState(() => window.matchMedia(mobileQuery).matches);
-  useEffect(() => {
-    const media = window.matchMedia(mobileQuery);
-    const change = () => setMobile(media.matches);
-    media.addEventListener("change", change);
-    return () => media.removeEventListener("change", change);
-  }, []);
-  return mobile;
-}
 
 export default function ProjectsPage({
   route,
@@ -46,7 +35,7 @@ export default function ProjectsPage({
     loading: hub.loading,
   });
   const [dialog, setDialog] = useState(null);
-  const mobile = useMobile();
+  const mobile = useMobileLayout();
   const ready = !hub.loading;
   const canonical = resolveProjectId(projects, route.projectId);
   const project = projects.find((item) => item.id === canonical);
