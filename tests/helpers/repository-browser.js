@@ -1,3 +1,4 @@
+import { expect } from "@playwright/test";
 import { navigateTo } from "./navigation.js";
 import { baseURL as base } from "./browser.js";
 export const stamp = "2026-09-06T10:00:00Z";
@@ -47,6 +48,11 @@ export async function fixture(page) {
     else if (path === "/api/accounts/local-codex/auth-status")
       result = { state: "unauthenticated", checkedAt: Date.now() };
     else if (path === "/api/repositories") result = repositories;
+    else if (path === "/api/memory/projects" && method === "GET")
+      result = { projects: [] };
+    else if (path === "/api/agentbus") result = { version: "test", projects: [] };
+    else if (path === "/api/pipeline-runs")
+      result = { runs: [], total: 0, page: 1, pageSize: 20 };
     else if (path === "/api/repositories/discover")
       result = {
         organizations: [],
@@ -140,4 +146,12 @@ export async function openRepositories(page) {
   if (await page.getByRole("button", { name: "Navigation öffnen" }).isVisible())
     await page.getByRole("button", { name: "Navigation öffnen" }).click();
   await navigateTo(page, "Projekte");
+}
+
+// The clone form lives in the Projects hub's "Repository klonen" dialog.
+export async function openCloneDialog(page) {
+  await page.getByRole("button", { name: "Repository klonen", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Repository klonen" });
+  await expect(dialog).toBeVisible();
+  return dialog;
 }

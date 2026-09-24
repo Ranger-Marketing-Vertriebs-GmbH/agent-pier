@@ -1,6 +1,5 @@
 import { FileEditorProvider } from "../features/files/file-editor-context.jsx";
 import useLanguage from "../lib/i18n/useLanguage.js";
-import MemoryPage from "../features/memory/MemoryPage.jsx";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import { appCopy as copy, sidebarCopy } from "../lib/i18n/messages/app.js";
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
@@ -10,7 +9,7 @@ import Icon from "../components/Icon.jsx";
 import Sidebar from "./Sidebar.jsx";
 import AppDialogs from "./AppDialogs.jsx";
 import { defaultSessionMode } from "./routes.js";
-import Repositories from "../features/repositories/RepositoriesPage.jsx";
+import ProjectsPage from "../features/projects/ProjectsPage.jsx";
 import Extensions from "../features/extensions/ExtensionsPage.jsx";
 import Settings from "../features/settings/SettingsPage.jsx";
 import SessionWorkspace from "../features/sessions/SessionWorkspace.jsx";
@@ -22,7 +21,6 @@ import MobileHeader from "./MobileHeader.jsx";
 import useFileNavigationGuard from "../features/files/useFileNavigationGuard.js";
 import FileNavigationGuardDialog from "../features/files/FileNavigationGuardDialog.jsx";
 const PipelinePage = lazy(() => import("../features/pipelines/PipelinePage.jsx"));
-const AgentBus = lazy(() => import("../features/agentbus/AgentBusPage.jsx"));
 const ArtifactsPage = lazy(() => import("../features/artifacts/ArtifactsPage.jsx"));
 const FilesPage = lazy(() => import("../features/files/FilesPage.jsx"));
 export default function App() {
@@ -182,16 +180,6 @@ function Application() {
           <Suspense>
             <ArtifactsPage route={route} onNavigate={navigate} />
           </Suspense>
-        ) : view === "projects" && route.projectTab === "knowledge" ? (
-          // Stop-gap: renders the pre-redesign Memory page by tab. Task 6 replaces this
-          // with the Projects hub; the wrapper below keeps the projects route shape.
-          <MemoryPage
-            route={route}
-            onNavigate={(next, replace) =>
-              navigate({ ...next, view: "projects", projectTab: "knowledge" }, replace)
-            }
-            home={state.home}
-          />
         ) : view === "files" ? (
           <Suspense
             fallback={
@@ -210,28 +198,6 @@ function Application() {
             route={route}
             onNavigate={navigate}
           />
-        ) : view === "projects" && route.projectTab === "agentbus" ? (
-          // Stop-gap: renders the pre-redesign AgentBus page by tab. Task 6 replaces this.
-          <Suspense fallback={<p className="loading">{copy.agentBusLoading}</p>}>
-            <AgentBus
-              request={api}
-              tab={route.busTab || "status"}
-              projectId={route.projectId || ""}
-              page={route.messagePage || 1}
-              onNavigate={(tab, projectId = "", replace = false, page = 1) =>
-                navigate(
-                  {
-                    ...route,
-                    projectTab: "agentbus",
-                    busTab: tab,
-                    projectId,
-                    messagePage: page,
-                  },
-                  replace,
-                )
-              }
-            />
-          </Suspense>
         ) : view === "extensions" ? (
           <Extensions
             shared={state.sharedCliExtensions}
@@ -242,10 +208,13 @@ function Application() {
             onNavigate={navigate}
           />
         ) : view === "projects" ? (
-          // Stop-gap: renders the pre-redesign Repositories page for overview/runs tabs.
-          <Repositories
+          <ProjectsPage
+            route={route}
+            onNavigate={navigate}
             home={state.home}
             defaultCwd={state.defaultCwd}
+            state={state}
+            select={select}
             onLaunch={(cwd) =>
               setModal({
                 type: "launch",

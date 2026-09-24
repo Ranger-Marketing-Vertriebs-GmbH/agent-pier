@@ -1,6 +1,14 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 
+// The Projects hub hosting the knowledge tab also reads repositories, AgentBus and runs.
+function hubRequest(path) {
+  if (path === "/api/repositories") return { credentials: [], projects: [] };
+  if (path === "/api/agentbus") return { version: "test", projects: [] };
+  if (path === "/api/pipeline-runs") return { runs: [], total: 0, page: 1, pageSize: 20 };
+  return null;
+}
+
 async function fixture(page) {
   const project = {
     id: "project-one",
@@ -82,7 +90,8 @@ async function fixture(page) {
           total: visible ? 1 : 0,
         };
       }
-    } else throw new Error(`Unexpected request: ${method} ${url.pathname}`);
+    } else if (hubRequest(url.pathname)) data = hubRequest(url.pathname);
+    else throw new Error(`Unexpected request: ${method} ${url.pathname}`);
     await route.fulfill({
       status: method === "POST" && !url.pathname.endsWith("/archive") ? 201 : 200,
       json: data,
@@ -218,7 +227,8 @@ async function pagedFixture(page) {
         pageSize: 20,
         total,
       };
-    } else throw new Error(`Unexpected paged memory request: ${url.pathname}`);
+    } else if (hubRequest(url.pathname)) data = hubRequest(url.pathname);
+    else throw new Error(`Unexpected paged memory request: ${url.pathname}`);
     await route.fulfill({ json: data });
   });
   return controls;
@@ -244,7 +254,7 @@ test("archiving the last entry on a page reloads the preceding page and replaces
     page.getByRole("heading", { name: "Last note", exact: true }),
   ).toBeVisible();
   await page.goBack();
-  await expect(page).toHaveURL(/\/projects\?tab=knowledge$/);
+  await expect(page).toHaveURL(/\/projects\/paged-project\?tab=knowledge$/);
 });
 
 test("an excessive memory page normalizes only after its matching result arrives", async ({

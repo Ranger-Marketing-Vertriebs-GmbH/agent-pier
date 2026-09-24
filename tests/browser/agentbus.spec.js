@@ -52,7 +52,9 @@ test("bundled AgentBus status groups project sessions without consuming inboxes"
   await expect(
     page.getByRole("heading", { name: "AgentBus", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Website", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("tabpanel").getByRole("heading", { name: "Website", exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("2 in der Inbox", { exact: true })).toBeVisible();
   await expect(page.getByText("Wartet auf nativen Hook.", { exact: true })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });

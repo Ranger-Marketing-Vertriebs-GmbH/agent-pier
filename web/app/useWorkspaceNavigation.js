@@ -279,9 +279,8 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     profileAccounts.find((a) => a.id === profileMemory.current)?.id ||
     profileAccounts[0]?.id ||
     "";
-  // "repositories" is a legacy alias for the Projekte sidebar item (used by utilityPages);
-  // memory/agentbus/plugins stay reachable by tab until the Projects hub replaces this
-  // stop-gap in a later task.
+  // "repositories", "memory", "agentbus" and "plugins" are legacy page names (used by
+  // utilityPages and older callers); they open the matching hub tab.
   const page = (view) => {
     if (view === "settings/github")
       return navigate({ view: "settings", settingsSection: "github" });

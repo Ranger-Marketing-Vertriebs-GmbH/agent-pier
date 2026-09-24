@@ -12,3 +12,6 @@ export function hostHasPort(value) {
     return false;
   }
 }
+export function hostLabel(value) {
+  return String(value || "").replace(/^https?:\/\//, "");
+}

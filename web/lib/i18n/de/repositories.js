@@ -1,9 +1,7 @@
 export const cloneFormCopy = {
-  repositoryCloneTitle: "Repository klonen",
   cloneDescription:
     "Öffentliche GitHub-Repositories benötigen kein Token. Mit einem Profil kannst du zugängliche Repositories durchsuchen. Das Repository erhält einen neuen Unterordner.",
   credentialLabel: "Token-Profil",
-  repositoryFieldsOption: "Öffentlich auf github.com · ohne Token",
   repositoryUrlLabel: "Repository-URL oder owner/repo",
   repositoryUrlPlaceholder: "organisation/projekt",
   parentDirectoryLabel: "Übergeordneter Ordner",
@@ -53,17 +51,9 @@ export const githubAccessPageCopy = {
   loading: "GitHub-Zugänge werden geladen …",
 };
 export const repositoriesPageCopy = {
-  pageToplineLabel: "WORKSPACE / REPOSITORIES",
-  subtle: "Lokal gespeichert",
-  pageHeadingTitle: "Deine Repositories",
-  pageHeadingDescription: "Vom Repository zur nächsten Sitzung.",
-  repositoriesLoading: "Repositories werden geladen …",
   agentCredentialDescription:
     "Neue Agent-Sitzungen erhalten je Host den Standardzugang. Geklonte Projekte verwenden ihren gewählten Zugang.",
-  repositoryProjectsTitle: "Lokale Projekte",
-  projectCountSuffix: " Projekte",
   buttonAriaLabel: (value1) => `Sitzung in ${value1} starten`,
-  launchProjectSession: "Sitzung starten ",
   repositoryEmpty:
     "Deine geklonten Repositories erscheinen hier. Starte anschließend eine CLI-Sitzung direkt im Projekt.",
 };

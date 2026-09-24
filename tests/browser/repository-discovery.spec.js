@@ -1,6 +1,11 @@
 import { test, expect } from "@playwright/test";
 
-import { fixture, openRepositories, stamp } from "../helpers/repository-browser.js";
+import {
+  fixture,
+  openCloneDialog,
+  openRepositories,
+  stamp,
+} from "../helpers/repository-browser.js";
 test("profile discovery filters organizations and repositories and fills the clone form", async ({
   page,
 }) => {
@@ -44,7 +49,8 @@ test("profile discovery filters organizations and repositories and fills the clo
     });
   });
   await openRepositories(page);
-  await page.getByLabel("Token-Profil").selectOption("personal");
+  const dialog = await openCloneDialog(page);
+  await dialog.getByRole("radio", { name: /Persönlich/ }).check();
   await page.getByRole("button", { name: "Organisation", exact: true }).click();
   await page.getByRole("option", { name: "Acme", exact: true }).click();
   await page
@@ -53,11 +59,11 @@ test("profile discovery filters organizations and repositories and fills the clo
   await page.getByRole("combobox", { name: "Repository suchen" }).fill("project");
   await expect(page.getByRole("listbox").getByRole("option")).toHaveCount(1);
   await page.getByRole("option", { name: "Acme/project · Privat", exact: true }).click();
-  await expect(page.getByLabel("Repository-URL oder owner/repo")).toHaveValue(
+  await expect(dialog.getByLabel("Repository-URL oder owner/repo")).toHaveValue(
     "https://github.com/Acme/project.git",
   );
-  await expect(page.getByLabel("Neuer Ordnername")).toHaveValue("project");
-  await page.getByRole("button", { name: "Repository klonen", exact: true }).click();
+  await expect(dialog.getByLabel("Neuer Ordnername")).toHaveValue("project");
+  await dialog.getByRole("button", { name: "Repository klonen", exact: true }).click();
   await expect(page.getByRole("heading", { name: "project", exact: true })).toBeVisible();
   expect(writes.find((write) => write.path.endsWith("/clone")).body.credentialId).toBe(
     "personal",
@@ -80,16 +86,17 @@ test("discovery errors leave manual clone available and switching to public clea
     route.fulfill({ status: 403, json: { error: "Token-Berechtigungen prüfen" } }),
   );
   await openRepositories(page);
-  await page.getByLabel("Token-Profil").selectOption("personal");
-  await expect(page.getByRole("alert")).toContainText("Token-Berechtigungen prüfen");
-  await page.getByLabel("Repository-URL oder owner/repo").fill("acme/manual");
-  await page.getByLabel("Neuer Ordnername").fill("manual");
+  const dialog = await openCloneDialog(page);
+  await dialog.getByRole("radio", { name: /Persönlich/ }).check();
+  await expect(dialog.getByRole("alert")).toContainText("Token-Berechtigungen prüfen");
+  await dialog.getByLabel("Repository-URL oder owner/repo").fill("acme/manual");
+  await dialog.getByLabel("Neuer Ordnername").fill("manual");
   await expect(
-    page.getByRole("button", { name: "Repository klonen", exact: true }),
+    dialog.getByRole("button", { name: "Repository klonen", exact: true }),
   ).toBeEnabled();
-  await page.getByLabel("Token-Profil").selectOption("");
-  await expect(page.getByLabel("Verfügbare Repositories")).toHaveCount(0);
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  await dialog.getByRole("radio", { name: "Ohne Token" }).check();
+  await expect(dialog.getByLabel("Verfügbare Repositories")).toHaveCount(0);
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
 });
 
 test("changing discovery profiles ignores an older response and fits mobile", async ({
@@ -139,9 +146,10 @@ test("changing discovery profiles ignores an older response and fits mobile", as
       .catch(() => {});
   });
   await openRepositories(page);
-  await page.getByLabel("Token-Profil").selectOption("personal");
+  const dialog = await openCloneDialog(page);
+  await dialog.getByRole("radio", { name: /Persönlich/ }).check();
   await expect.poll(() => oldStarted).toBeTruthy();
-  await page.getByLabel("Token-Profil").selectOption("enterprise");
+  await dialog.getByRole("radio", { name: /Enterprise/ }).check();
   await page
     .getByRole("button", { name: "Verfügbare Repositories", exact: true })
     .click();
@@ -150,7 +158,7 @@ test("changing discovery profiles ignores an older response and fits mobile", as
   ).toHaveCount(1);
   release();
   await page.getByRole("option", { name: "Enterprise/project · Privat" }).click();
-  await expect(page.getByLabel("Repository-URL oder owner/repo")).toHaveValue(
+  await expect(dialog.getByLabel("Repository-URL oder owner/repo")).toHaveValue(
     "https://git.example.org/Enterprise/project.git",
   );
   expect(
@@ -164,9 +172,10 @@ test("Enter in repository search does not submit a filled clone form", async ({
 }) => {
   const { writes } = await fixture(page);
   await openRepositories(page);
-  await page.getByLabel("Token-Profil").selectOption("personal");
-  await page.getByLabel("Repository-URL oder owner/repo").fill("acme/project");
-  await page.getByLabel("Neuer Ordnername").fill("project");
+  const dialog = await openCloneDialog(page);
+  await dialog.getByRole("radio", { name: /Persönlich/ }).check();
+  await dialog.getByLabel("Repository-URL oder owner/repo").fill("acme/project");
+  await dialog.getByLabel("Neuer Ordnername").fill("project");
   await page
     .getByRole("button", { name: "Verfügbare Repositories", exact: true })
     .click();
