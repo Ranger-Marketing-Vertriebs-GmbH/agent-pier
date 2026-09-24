@@ -3,7 +3,7 @@ import { baseURL as base } from "../helpers/browser.js";
 
 const repositoryPath = "/work/agent-pier";
 
-async function hubFixture(page) {
+async function hubFixture(page, controls = {}) {
   const calls = [];
   const memoryProjects = [
     {
@@ -21,6 +21,8 @@ async function hubFixture(page) {
       method = request.method();
     calls.push({ method, path: url.pathname, search: url.search });
     let json = {};
+    if (controls.failMemory && url.pathname === "/api/memory/projects")
+      return route.fulfill({ status: 503, json: { error: "Wissen nicht erreichbar" } });
     if (url.pathname === "/api/state")
       json = {
         tools: [{ id: "codex", name: "Codex", installed: true }],
@@ -177,6 +179,26 @@ test("the hub joins projects, selects the first one and resolves every id space"
   await page.getByRole("button", { name: "Sitzung Hub fixture session öffnen" }).click();
   await expect(page).toHaveURL(/\/sessions\/s1\//);
   expect(calls.filter((call) => call.method !== "GET")).toEqual([]);
+});
+
+test("a failing source keeps the other projects listed and retry recovers", async ({
+  page,
+}) => {
+  const controls = { failMemory: true };
+  await hubFixture(page, controls);
+  await page.goto(base + "/projects");
+  const list = projectList(page);
+  await expect(list.getByRole("button", { name: /^agent-pier/ })).toBeVisible();
+  await expect(page).toHaveURL(/\/projects\/r1$/);
+  await expect(page.getByRole("alert")).toContainText("Wissen nicht erreichbar");
+  await expect(
+    page.getByText("Nicht alle Projektquellen konnten geladen werden.", { exact: false }),
+  ).toBeVisible();
+  controls.failMemory = false;
+  await page.getByRole("button", { name: "Erneut versuchen" }).click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(list.getByRole("button")).toHaveCount(2);
+  await expect(page).toHaveURL(/\/projects\/m1$/);
 });
 
 test("a folder is added through its dialog and opens as project", async ({ page }) => {

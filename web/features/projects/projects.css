@@ -437,3 +437,11 @@ dialog.project-dialog[open] {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.project-load-error {
+  margin: 0 0 18px;
+}
+.project-load-error > p {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #9d9ea2;
+}

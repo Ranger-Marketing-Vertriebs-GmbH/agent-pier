@@ -117,34 +117,47 @@ export default function useProjectHub() {
   const [busProjects, setBusProjects] = useState([]);
   const [attention, setAttention] = useState({ decisions: {}, failed: {} });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({ repositories: "", memory: "", agentbus: "" });
   const [version, setVersion] = useState(0);
   const reload = useCallback(() => setVersion((value) => value + 1), []);
+  const sourceError = useCallback(
+    (source, message) =>
+      setErrors((current) =>
+        current[source] === message ? current : { ...current, [source]: message },
+      ),
+    [],
+  );
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    setError("");
-    // The first AgentBus read belongs to the load, so AgentBus ids resolve at once.
-    Promise.all([
+    // Each source loads on its own: a failing one keeps the others listed. The first
+    // AgentBus read belongs to the load, so AgentBus ids resolve at once.
+    Promise.allSettled([
       api("/repositories"),
       api("/memory/projects"),
-      api("/agentbus").catch(() => null),
-    ])
-      .then(([repositories, memory, bus]) => {
-        if (!alive) return;
-        setSources({
-          repositories: repositories.projects || [],
-          credentials: repositories.credentials || [],
-          memoryProjects: memory.projects || [],
-        });
-        if (bus) setBusProjects(bus.projects || []);
-      })
-      .catch((failure) => {
-        if (alive) setError(failure.message);
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
+      api("/agentbus"),
+    ]).then(([repositories, memory, bus]) => {
+      if (!alive) return;
+      if (repositories.status === "fulfilled")
+        setSources((current) => ({
+          ...current,
+          repositories: repositories.value.projects || [],
+          credentials: repositories.value.credentials || [],
+        }));
+      if (memory.status === "fulfilled")
+        setSources((current) => ({
+          ...current,
+          memoryProjects: memory.value.projects || [],
+        }));
+      if (bus.status === "fulfilled") setBusProjects(bus.value.projects || []);
+      sourceError(
+        "repositories",
+        repositories.status === "rejected" ? repositories.reason.message : "",
+      );
+      sourceError("memory", memory.status === "rejected" ? memory.reason.message : "");
+      sourceError("agentbus", bus.status === "rejected" ? bus.reason.message : "");
+      setLoading(false);
+    });
     Promise.all([runsWithStatus("awaiting-human"), runsWithStatus("failed")])
       .then(([decisions, failed]) => {
         if (alive) setAttention({ decisions, failed });
@@ -153,16 +166,19 @@ export default function useProjectHub() {
     return () => {
       alive = false;
     };
-  }, [version]);
+  }, [version, sourceError]);
   useEffect(() => {
     let active = true,
       timer;
     async function read() {
       try {
         const data = await api("/agentbus");
-        if (active) setBusProjects(data.projects || []);
-      } catch {
-        // AgentBus only adds session counts; the project list works without it.
+        if (active) {
+          setBusProjects(data.projects || []);
+          sourceError("agentbus", "");
+        }
+      } catch (failure) {
+        if (active) sourceError("agentbus", failure.message);
       } finally {
         if (active) timer = setTimeout(read, 4000);
       }
@@ -172,7 +188,7 @@ export default function useProjectHub() {
       active = false;
       clearTimeout(timer);
     };
-  }, [version]);
+  }, [version, sourceError]);
   const repositories = useMemo(
     () => [
       ...clone.projects,
@@ -194,7 +210,9 @@ export default function useProjectHub() {
   return {
     projects,
     loading,
-    error,
+    // The first failing source; the projects from the other sources stay listed.
+    error: errors.repositories || errors.memory || errors.agentbus,
+    errors,
     reload,
     credentials: sources.credentials,
     attention,

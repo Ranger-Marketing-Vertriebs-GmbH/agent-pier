@@ -12,6 +12,7 @@ import ProjectDetail from "./ProjectDetail.jsx";
 import { remoteShort } from "./project-presentation.js";
 import { projectsRoute, projectsRoutePath } from "./routes.js";
 import useProjectHub, { resolveProjectId } from "./useProjectHub.js";
+import useSettledReplace from "./useSettledReplace.js";
 import "./projects.css";
 
 const mobileQuery = "(max-width: 700px)";
@@ -46,48 +47,40 @@ export default function ProjectsPage({
   });
   const [dialog, setDialog] = useState(null);
   const mobile = useMobile();
-  const ready = !hub.loading && !hub.error;
+  const ready = !hub.loading;
   const canonical = resolveProjectId(projects, route.projectId);
   const project = projects.find((item) => item.id === canonical);
   const [retried, setRetried] = useState("");
-  const [attempt, setAttempt] = useState(0);
   // Old links and other pages use repository, knowledge or AgentBus ids; the URL
   // settles on the joined project's id. Desktop opens the first project.
+  const target = !ready
+    ? null
+    : route.projectId
+      ? canonical && canonical !== route.projectId
+        ? { ...route, projectId: canonical }
+        : null
+      : !mobile && projects.length
+        ? { ...route, projectId: projects[0].id }
+        : null;
+  useSettledReplace({
+    target,
+    targetPath: target ? projectsRoutePath(target) : "",
+    currentPath: projectsRoutePath(route),
+    navigate: onNavigate,
+  });
   useEffect(() => {
-    if (!ready) return;
-    let next = null;
-    if (route.projectId) {
-      if (canonical && canonical !== route.projectId)
-        next = { ...route, projectId: canonical };
-      else if (!canonical && retried !== route.projectId) {
-        // A project added elsewhere (a new folder, a new session) is read once more.
-        setRetried(route.projectId);
-        reload();
-      }
-    } else if (!mobile && projects.length) next = { ...route, projectId: projects[0].id };
-    if (!next) return;
-    let active = true,
-      timer;
-    const later = () => {
-      if (active) timer = setTimeout(() => setAttempt((value) => value + 1), 50);
-    };
-    // The app first settles a legacy or unnormalised URL on the current route. A
-    // replace issued in the same pass would race that normalisation, so it waits
-    // (for about two seconds at most).
     if (
-      attempt < 40 &&
-      window.location.pathname + window.location.search !== projectsRoutePath(route)
+      !ready ||
+      hub.error ||
+      !route.projectId ||
+      canonical ||
+      retried === route.projectId
     )
-      later();
-    else
-      Promise.resolve(onNavigate(next, true)).then((accepted) => {
-        if (accepted === false) later();
-      });
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [ready, route, canonical, retried, mobile, projects, onNavigate, reload, attempt]);
+      return;
+    // A project added elsewhere (a new folder, a new session) is read once more.
+    setRetried(route.projectId);
+    reload();
+  }, [ready, hub.error, route.projectId, canonical, retried, reload]);
   const clonedProjects = useRef(operation.projects);
   useEffect(() => {
     if (operation.projects === clonedProjects.current) return;
@@ -101,7 +94,8 @@ export default function ProjectsPage({
   }, [operation.projects, dialog, draft, onNavigate]);
   const choose = (projectId) =>
     onNavigate(projectsRoute({ projectId, projectTab: route.projectTab }));
-  const missing = ready && route.projectId && !project && retried === route.projectId;
+  const missing =
+    ready && route.projectId && !project && (retried === route.projectId || hub.error);
   return (
     <div className="page projects-hub">
       <div className="page-topline">
@@ -137,19 +131,23 @@ export default function ProjectsPage({
         </p>
       )}
       {!dialog && <ErrorMessage error={operation.error} />}
-      {hub.loading && !projects.length ? (
-        <p role="status" className="loading">
-          {copy.loading}
-        </p>
-      ) : hub.error ? (
-        <div className="repository-load-error">
+      {hub.error && (
+        <div className="repository-load-error project-load-error">
+          <p>{copy.partialError}</p>
           <ErrorMessage error={hub.error} />
           <button className="button secondary" onClick={reload}>
             {commonCopy.retry}
           </button>
         </div>
+      )}
+      {hub.loading && !projects.length ? (
+        <p role="status" className="loading">
+          {copy.loading}
+        </p>
       ) : !projects.length && !route.projectId ? (
-        <p className="project-empty">{repositoriesPageCopy.repositoryEmpty}</p>
+        !hub.error && (
+          <p className="project-empty">{repositoriesPageCopy.repositoryEmpty}</p>
+        )
       ) : (
         <ListDetail
           className="project-list"
