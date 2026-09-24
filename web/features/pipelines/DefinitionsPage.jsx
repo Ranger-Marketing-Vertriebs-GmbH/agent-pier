@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import api from "../../lib/api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
@@ -10,6 +10,7 @@ import useSettledReplace from "../projects/useSettledReplace.js";
 import PipelineBuilder from "./PipelineBuilder.jsx";
 import ConfirmAction from "./ConfirmAction.jsx";
 import DefinitionList from "./DefinitionList.jsx";
+import useDraftGuard from "./useDraftGuard.jsx";
 import { pipelineRoutePath } from "./routes.js";
 import "./definitions.css";
 
@@ -17,9 +18,9 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
   const definitions = useResource("/pipelines"),
     profiles = useResource("/pipeline-profiles");
   const [removing, setRemoving] = useState(null),
-    [leaving, setLeaving] = useState(null),
-    [resets, setResets] = useState(0),
-    [dirty, setDirty] = useState(false);
+    [resets, setResets] = useState(0);
+  // Leaving an edited draft through this page asks first instead of discarding it.
+  const { guarded, setDirty, confirm } = useDraftGuard(copy.discardDraft);
   const mobile = useMobileLayout();
   const items = definitions.data?.pipelines || [],
     item = route.pipelineItem,
@@ -36,10 +37,6 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
     currentPath: pipelineRoutePath(route),
     navigate: (next, replace) => navigate({ pipelineItem: next.pipelineItem }, replace),
   });
-  // Leaving an edited draft through this page asks first instead of discarding it.
-  const dirtyRef = useRef(false);
-  dirtyRef.current = dirty;
-  const guarded = (go) => (dirtyRef.current ? setLeaving(() => go) : go());
   const open = (id) => id !== item && guarded(() => navigate({ pipelineItem: id }));
   const replaceItems = (pipelines) =>
     definitions.update({ ...definitions.data, pipelines });
@@ -138,19 +135,7 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
           }}
         />
       )}
-      {leaving && (
-        <ConfirmAction
-          description={copy.discardDraft}
-          label={copy.discard}
-          close={() => setLeaving(null)}
-          action={() => {
-            setLeaving(null);
-            setDirty(false);
-            dirtyRef.current = false;
-            leaving();
-          }}
-        />
-      )}
+      {confirm}
     </section>
   );
 }

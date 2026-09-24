@@ -21,7 +21,7 @@ export default function ProfileList({ groups, selectedId, onSelect }) {
     <div className="list-detail-items profile-list">
       {groups.map((group) => (
         <div className="profile-group" key={group.phase}>
-          <span className="profile-group-caps">{group.label}</span>
+          <h3 className="profile-group-caps">{group.label}</h3>
           {group.items.map((profile) => {
             const selected = profile.id === selectedId,
               config = profile.config;

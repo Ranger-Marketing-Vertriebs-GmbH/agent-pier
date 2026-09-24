@@ -401,3 +401,24 @@ test.describe("English task profiles", () => {
     ).toBeVisible();
   });
 });
+
+test("refreshing the profile list asks before discarding an unsaved draft", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  await openPipelines(page, "profiles/profile-one");
+  const name = page.getByRole("textbox", { name: "Profilname", exact: true });
+  await name.fill("Entwurf");
+  state.fail = "/pipeline-profiles/profile-one";
+  await page.getByRole("button", { name: "Speichern", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Fixture conflict");
+  state.fail = "";
+  state.profiles[0] = { ...state.profiles[0], name: "Server-Planer", revision: 5 };
+  const confirm = page.getByRole("dialog", { name: "Aktion bestätigen" });
+  await page.getByRole("button", { name: "Aktualisieren", exact: true }).click();
+  await confirm.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await expect(name).toHaveValue("Entwurf");
+  await page.getByRole("button", { name: "Aktualisieren", exact: true }).click();
+  await confirm.getByRole("button", { name: "Verwerfen", exact: true }).click();
+  await expect(name).toHaveValue("Server-Planer");
+});
