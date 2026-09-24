@@ -1,7 +1,13 @@
 import { test, expect } from "@playwright/test";
 
 import { baseURL as base } from "../helpers/browser.js";
-import { fixture, stamp } from "../helpers/repository-browser.js";
+import { navigateTo } from "../helpers/navigation.js";
+import {
+  fixture,
+  openCloneDialog,
+  openRepositories,
+  stamp,
+} from "../helpers/repository-browser.js";
 
 test("GitHub access tokens support multiple profiles, private blank-preserving edits and deletion", async ({
   page,
@@ -143,4 +149,40 @@ test("mobile GitHub access and Enterprise profile errors preserve input without 
   await expect(
     page.getByRole("heading", { name: "Enterprise", exact: true }),
   ).toBeVisible();
+});
+
+test("token changes wait while a clone started elsewhere is running", async ({
+  page,
+}) => {
+  await fixture(page);
+  await openRepositories(page);
+  let release;
+  const pending = new Promise((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/repositories/clone", async (route) => {
+    await pending;
+    await route.fulfill({ status: 409, json: { error: "Klonen abgebrochen" } });
+  });
+  const dialog = await openCloneDialog(page);
+  await dialog.getByLabel("Repository-URL oder owner/repo").fill("acme/project");
+  await dialog.getByLabel("Neuer Ordnername").fill("pending-project");
+  await dialog.getByRole("button", { name: "Repository klonen", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Wird geklont …" })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await navigateTo(page, "Einstellungen");
+  await page.getByRole("button", { name: "GitHub-Zugänge", exact: true }).click();
+  const edit = page.getByRole("button", { name: "Persönlich bearbeiten" });
+  const remove = page.getByRole("button", { name: "Persönlich löschen" });
+  const add = page.getByRole("button", { name: "Zugang hinzufügen" });
+  try {
+    await expect(edit).toBeDisabled();
+    await expect(remove).toBeDisabled();
+    await expect(add).toBeDisabled();
+  } finally {
+    release();
+  }
+  await expect(edit).toBeEnabled();
+  await expect(remove).toBeEnabled();
+  await expect(add).toBeEnabled();
 });
