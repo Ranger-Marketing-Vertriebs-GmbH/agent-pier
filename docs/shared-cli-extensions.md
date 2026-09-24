@@ -1,6 +1,6 @@
 # Shared CLI extensions
 
-AgentPier accounts select credentials. Accounts for the same coding CLI share MCP definitions, local plugins, configured marketplaces, skills and custom agents by default. Codex default marketplace plugins remain account-specific. Shell sessions are unaffected. The UI selects a CLI on **MCP & Skills** and **Plugins & Marketplace**; existing account-specific links normalize to the corresponding CLI.
+AgentPier accounts select credentials. Accounts for the same coding CLI share MCP definitions, local plugins, configured marketplaces, skills and custom agents by default. Codex default marketplace plugins remain account-specific. Shell sessions are unaffected. The UI selects a CLI profile on **Extensions**, whose tabs cover MCP servers, skills, plugins, marketplaces and agents; existing account-specific links and the former plugin page links normalize to the corresponding CLI and tab.
 
 ## Native configuration
 

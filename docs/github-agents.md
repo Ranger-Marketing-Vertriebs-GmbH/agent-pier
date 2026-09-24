@@ -1,6 +1,6 @@
 # GitHub-Zugänge für Agenten
 
-Unter **Repositories → GitHub-Profile** wird jeder Token mit seinem HTTPS-Host gespeichert. Beispiele sind `github.com`, `firma.ghe.com` und ein eigener GitHub-Enterprise-Host. Mehrere Profile dürfen denselben Host verwenden. Pro Host ist genau ein Profil als **Standard für Agenten** markiert; das erste Profil übernimmt diese Rolle automatisch.
+Unter **Einstellungen → Zugriff → GitHub-Zugänge** wird jeder Token mit seinem HTTPS-Host gespeichert. Beispiele sind `github.com`, `firma.ghe.com` und ein eigener GitHub-Enterprise-Host. Mehrere Profile dürfen denselben Host verwenden. Pro Host ist genau ein Profil als **Standard für Agenten** markiert; das erste Profil übernimmt diese Rolle automatisch.
 
 ## Auswahl beim Sitzungsstart
 

@@ -72,15 +72,15 @@ Die Chatansicht liest die vom CLI gespeicherten Nachrichten und aktualisiert sic
 
 Das Modellfeld ist direkt am Nachrichtenfeld verankert; die Auswahl öffnet sich nach oben und passt sich auch an verkleinerte mobile Ansichten an. Die Modellauswahl bildet erkannte native Menüs ab, keine fest hinterlegte Modellliste. Sie prüft vor jeder Auswahl den aktuellen Menüzustand. Eigene Tastaturbelegungen, schmale native Terminals oder neue CLI-Menüs können **Im Terminal fortfahren** erfordern. Codex benötigt für `/model` ein leeres natives Eingabefeld; Claude und OpenCode verwenden ihre Tastenkürzel und erhalten native Entwürfe. Zusätzliche Provider-Anmeldungen und Bestätigungen bleiben im Terminal. Ein Abbruch einer nachfolgenden Denkstufenauswahl macht einen bereits vollzogenen nativen Modellwechsel nicht automatisch rückgängig.
 
-Die Navigation bündelt Verwaltungsseiten unter **Verwaltung**. Verwaltung und Sitzungen lassen sich unabhängig aufklappen; die Auswahl bleibt beim Neuladen erhalten. Direkte Seitenlinks öffnen die passende Gruppe. Sitzungen zeigen **Arbeitet**, **Bereit**, **Wartet auf Eingabe** oder **Aktivität unbekannt** anhand der erkannten nativen CLI-Anzeige. Eine laufende Shell wird als **Terminal aktiv** angezeigt.
+Die Navigation bündelt **Projekte** (Projekte, Dateien, Pipelines) und **Konfiguration** (Accounts, Erweiterungen, Einstellungen) in eigenen Gruppen. Die Gruppen und Sitzungen lassen sich unabhängig aufklappen; die Auswahl bleibt beim Neuladen erhalten. Direkte Seitenlinks öffnen die passende Gruppe. Sitzungen zeigen **Arbeitet**, **Bereit**, **Wartet auf Eingabe** oder **Aktivität unbekannt** anhand der erkannten nativen CLI-Anzeige. Eine laufende Shell wird als **Terminal aktiv** angezeigt.
 
 Die Aktivitätsanzeige liest nur den sichtbaren nativen Terminalbereich, ohne Eingaben oder Modellaufträge. Sie aktualisiert sich etwa alle drei Sekunden. Unbekannte CLI-Darstellungen und veraltete Spinner bleiben als unbekannt markiert; „Arbeitet“ ist keine Aussage über den Abschluss einzelner Aufgaben.
 
-Seiten, Sitzungen, Terminal/Chat, Verwaltungsprofile sowie AgentBus-Projekt und Nachrichtenseite haben eigene URLs. Die Chatansicht verwendet `/sessions/<id>/chat`; bestehende `/reader`-Links bleiben gültig und werden auf `/chat` umgestellt. Neuladen sowie Zurück/Vorwärts erhalten die gewählte Ansicht. Auf Mobilgeräten lässt die kompakte Kopfzeile mehr Platz für Nachrichten.
+Seiten, Sitzungen, Terminal/Chat, Erweiterungsprofile und -tabs sowie Projekt, Projekt-Tab und AgentBus-Nachrichtenseite haben eigene URLs. Alte Links auf Repositories, Projektwissen, AgentBus und Plugins führen zur passenden neuen Seite. Die Chatansicht verwendet `/sessions/<id>/chat`; bestehende `/reader`-Links bleiben gültig und werden auf `/chat` umgestellt. Neuladen sowie Zurück/Vorwärts erhalten die gewählte Ansicht. Auf Mobilgeräten lässt die kompakte Kopfzeile mehr Platz für Nachrichten.
 
 ## Projektwissen und externe Modellanbieter
 
-Unter **Projektwissen** verwaltest du gemeinsame Repository-Notizen: suchen, bearbeiten, Versionen ansehen und archivieren. Neue Coding-Sitzungen bekommen automatisch die projektgebundenen Memory-Werkzeuge. Git-Worktrees teilen das Wissen; unabhängige Klone und andere Projekte bleiben getrennt. Gleichzeitige Änderungen werden über Versionsprüfungen aufgelöst. Details: [Memory](docs/memory.md).
+Unter **Projekte** im Tab **Projektwissen** eines Projekts verwaltest du gemeinsame Repository-Notizen: suchen, bearbeiten, Versionen ansehen und archivieren. Neue Coding-Sitzungen bekommen automatisch die projektgebundenen Memory-Werkzeuge. Git-Worktrees teilen das Wissen; unabhängige Klone und andere Projekte bleiben getrennt. Gleichzeitige Änderungen werden über Versionsprüfungen aufgelöst. Details: [Memory](docs/memory.md).
 
 **OpenRouter**, **Z.ai API** und **Z.ai Coding Plan** werden als zentrale Provider-Verbindungen einmal eingerichtet und beim Sitzungsstart für eine unterstützte CLI gewählt. Native Accounts bleiben an ihre jeweilige CLI gebunden. Bestehende an Accounts gebundene Provider-Konfigurationen bleiben nutzbar. CLI-spezifische Modelle, Katalogaktualisierung und ausgewiesene Kontextgrenzen gehören zur Auswahl. Für Codex mit Z.ai muss Responses-Zugriff ausdrücklich bestätigt werden. Konfiguriertes Modell und tatsächlich gemeldetes Modell bleiben unterscheidbar; erforderliche Modellwechsel erfolgen über eine neue Sitzung. Details und Einschränkungen: [Provider](docs/providers.md).
 
@@ -96,18 +96,18 @@ API-Keys sind optional für Codex/OpenAI und Claude/Anthropic, bei OpenCode für
 
 ## SSH-Serverzugänge
 
-Unter **Einstellungen → Serverzugänge** verwaltest du benannte, umbenennbare SSH-Schlüssel und wählst sie für einen oder mehrere Hosts mit bestätigtem Fingerabdruck aus. Vorhandene AgentPier-Zugänge werden automatisch übernommen. Du kannst sie beim Start oder in einer bereits laufenden Sitzung zuordnen und den Verbindungsbefehl dem Agenten geben. Die Zuordnung ist keine Sicherheitsisolation zwischen Prozessen desselben Betriebssystembenutzers. SSH-Zugänge und Schlüssel sind in dieser ersten Version nicht in AgentPier-Sicherungen enthalten. Details: [SSH-Zugänge](docs/ssh-access.md).
+Unter **Einstellungen → Zugriff → SSH-Zugänge** verwaltest du benannte, umbenennbare SSH-Schlüssel und wählst sie für einen oder mehrere Hosts mit bestätigtem Fingerabdruck aus. Vorhandene AgentPier-Zugänge werden automatisch übernommen. Du kannst sie beim Start oder in einer bereits laufenden Sitzung zuordnen und den Verbindungsbefehl dem Agenten geben. Die Zuordnung ist keine Sicherheitsisolation zwischen Prozessen desselben Betriebssystembenutzers. SSH-Zugänge und Schlüssel sind in dieser ersten Version nicht in AgentPier-Sicherungen enthalten. Details: [SSH-Zugänge](docs/ssh-access.md).
 
 ## GitHub und GitHub Enterprise
 
-Unter **Repositories** kannst du mehrere benannte Zugänge speichern, auch mehrere für denselben Host:
+Unter **Einstellungen → Zugriff → GitHub-Zugänge** kannst du mehrere benannte Zugänge speichern, auch mehrere für denselben Host:
 
 | Name   | Host                  |
 | ------ | --------------------- |
 | Privat | `https://github.com`  |
 | Arbeit | `https://xxx.ghe.com` |
 
-Zum Klonen Zugang, Repository (`owner/repo` oder vollständige HTTPS-URL), bestehenden übergeordneten Ordner und neuen Ordnernamen auswählen. **Öffentlich · github.com** benötigt keinen Token. Mit einem Zugang stehen durchsuchbare Dropdowns für Organisationen und Repositories zur Verfügung. Der Zielordner lässt sich per Ordnerauswahl wählen und dort neu anlegen. Die Suche lädt bis zu 1.000 zugängliche Repositories und weist auf ein erreichtes Limit hin; vollständige URLs können immer manuell eingegeben werden. Nach erfolgreichem Klonen startet **Sitzung starten** einen CLI-Dialog mit diesem Projektverzeichnis.
+Zum Klonen unter **Projekte → Repository klonen** Zugang, Repository (`owner/repo` oder vollständige HTTPS-URL), bestehenden übergeordneten Ordner und neuen Ordnernamen auswählen. **Öffentlich · github.com** benötigt keinen Token. Mit einem Zugang stehen durchsuchbare Dropdowns für Organisationen und Repositories zur Verfügung. Der Zielordner lässt sich per Ordnerauswahl wählen und dort neu anlegen. Die Suche lädt bis zu 1.000 zugängliche Repositories und weist auf ein erreichtes Limit hin; vollständige URLs können immer manuell eingegeben werden. Nach erfolgreichem Klonen startet **Sitzung starten** einen CLI-Dialog mit diesem Projektverzeichnis.
 
 Tokens werden nur für den ausgewählten HTTPS-Host verwendet. Sie landen weder in der Repository-URL noch in `.git/config`, Browserantworten oder Fehlermeldungen. Bestehende Zielordner werden nicht überschrieben; fehlgeschlagene/abgebrochene Klone räumen nur ihre eigenen neuen Ordner auf. Weiterleitungen und rekursive Submodule sind beim Klonen deaktiviert. Verwende die endgültige HTTPS-URL des Repositories. Für Enterprise-Zertifikate werden `GIT_SSL_CAINFO`/`GIT_SSL_CAPATH` und die Proxy-Umgebung berücksichtigt; TLS-Prüfung bleibt aktiv.
 
@@ -131,13 +131,13 @@ AgentPier setzt weder einen hostübergreifenden `GH_TOKEN` noch eine globale Git
 
 ## AgentPier aus Coding-CLIs steuern
 
-Unter **Einstellungen → MCP & Zugriffe** stehen die passende MCP-Adresse und kopierbare Anleitungen für Codex, Claude Code und OpenCode. Lokal funktioniert die Verbindung über Loopback-HTTP, vom anderen Rechner über das konfigurierte Tailscale-HTTPS. Die Browserfreigabe bestimmt Projekte, Accounts, Provider und erlaubte Aktionen; sie lässt sich dort jederzeit widerrufen.
+Unter **Einstellungen → Zugriff → MCP & Zugriffe** stehen die passende MCP-Adresse und kopierbare Anleitungen für Codex, Claude Code und OpenCode. Lokal funktioniert die Verbindung über Loopback-HTTP, vom anderen Rechner über das konfigurierte Tailscale-HTTPS. Die Browserfreigabe bestimmt Projekte, Accounts, Provider und erlaubte Aktionen; sie lässt sich dort jederzeit widerrufen.
 
 Agenten können damit Pipeline-Profile und Abläufe verwalten, Läufe starten und deren Fortschritt, Artefakte und Ergebnisse lesen. Pro Profil lassen sich CLI, Quell-Account, zentraler Provider und Modell wählen. Menschliche Freigaben bleiben in AgentPier. Details und Einrichtung stehen in [MCP-Zugriff](docs/mcp.md).
 
 ## MCP und Skills verwalten
 
-Unter **MCP & Skills** zunächst die CLI wählen. Die Ansicht zeigt deren gemeinsame MCP-Konfiguration und bekannte Skill-Ordner einschließlich Pfad und Geltungsbereich. Projekt- und Plugin-Erweiterungen können zusätzlich vorhanden sein.
+Unter **Erweiterungen** zunächst das CLI-Profil wählen. Die Tabs **MCP-Server** und **Skills** zeigen deren gemeinsame MCP-Konfiguration und bekannte Skill-Ordner einschließlich Pfad und Geltungsbereich. Projekt- und Plugin-Erweiterungen können zusätzlich vorhanden sein.
 
 - **MCP:** Lokale Server mit Befehl, Argumenten und Umgebungsvariablen oder HTTP-Server mit URL und Headern hinzufügen. Vorhandene Konfiguration bleibt erhalten; geheime Werte werden in der Übersicht ausgeblendet. Änderungen gelten beim nächsten CLI-Start. OAuth-Anmeldungen erfolgen weiterhin im nativen CLI. Doppelte OpenCode-Definitionen in mehreren Konfigurationsdateien müssen dort aufgelöst werden, bevor sie hier entfernt werden können.
 - **Skills:** Eine `SKILL.md` oder eine ZIP mit `SKILL.md` und Begleitdateien hochladen oder in das Dateifeld ziehen. Alternativ einen öffentlichen GitHub-Repository-, Unterordner- oder Archiv-Link eingeben. Pro Paket wird ein Skill installiert; bei Skill-Sammlungen den konkreten Unterordner wählen. Ein gültiger Name und eine Beschreibung im YAML-Frontmatter sind erforderlich.
@@ -147,7 +147,7 @@ Neue Skills liegen pro CLI im gemeinsamen nativen Ordner: `~/.codex/skills`, `~/
 
 ## Plugins und Marketplaces verwalten
 
-Unter **Plugins & Marketplace** die CLI wählen. Die Übersicht liest die nativen Plugin-Listen und Konfigurationen. Installierte Plugins und der Marketplace-Katalog zeigen jeweils 20 Einträge pro Seite; die Suche berücksichtigt alle Einträge. Marketplace-Quellen lassen sich als `owner/repo` oder HTTPS-URL hinzufügen; der Katalog bietet Namenssuche, Quellenfilter und Installation. Die Aktionen laufen auf dem AgentPier-Server im gemeinsamen nativen Benutzerprofil der CLI. Neue Sitzungen übernehmen Änderungen.
+Unter **Erweiterungen** das CLI-Profil wählen. Die Tabs **Plugins** und **Marketplaces** lesen die nativen Plugin-Listen und Konfigurationen. Installierte Plugins und der Marketplace-Katalog zeigen jeweils 20 Einträge pro Seite; die Suche berücksichtigt alle Einträge. Marketplace-Quellen lassen sich als `owner/repo` oder HTTPS-URL hinzufügen; der Katalog bietet Namenssuche, Quellenfilter und Installation. Die Aktionen laufen auf dem AgentPier-Server im gemeinsamen nativen Benutzerprofil der CLI. Neue Sitzungen übernehmen Änderungen.
 
 | CLI         | Verwaltung                                                                                                                                                                                                                          |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -159,13 +159,13 @@ Projektbezogene, automatisch erkannte und lokale Datei-Plugins sind gegebenenfal
 
 ## Agency Agents
 
-Unter **MCP & Skills → Agency Agents** lässt sich der öffentliche Katalog von [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) durchsuchen, nach Kategorie filtern und seitenweise ansehen. Die Vorschau zeigt die Anweisungen und den festgelegten Git-Stand. Einzelne ausgewählte Agenten werden im nativen Format für Claude, Codex oder OpenCode installiert und gelten für alle Accounts dieser CLI. Sie übernehmen das Sitzungsmodell und die vorhandenen Berechtigungen. AgentPier führt keine Installationsskripte aus diesem Repository aus. Extern bearbeitete Agentendateien werden beim Entfernen erhalten. [Details](docs/shared-cli-extensions.md#agency-agents).
+Unter **Erweiterungen → Agenten** lässt sich der öffentliche Katalog von [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) durchsuchen, nach Kategorie filtern und seitenweise ansehen. Die Vorschau zeigt die Anweisungen und den festgelegten Git-Stand. Einzelne ausgewählte Agenten werden im nativen Format für Claude, Codex oder OpenCode installiert und gelten für alle Accounts dieser CLI. Sie übernehmen das Sitzungsmodell und die vorhandenen Berechtigungen. AgentPier führt keine Installationsskripte aus diesem Repository aus. Extern bearbeitete Agentendateien werden beim Entfernen erhalten. [Details](docs/shared-cli-extensions.md#agency-agents).
 
 ## AgentBus
 
 AgentBus ist nativ enthalten und bei neuen Coding-CLI-Sitzungen standardmäßig aktiviert. Sitzungen im selben realen Projektordner können einander entdecken, Nachrichten senden und ihre Inbox lesen. Beim Start lässt sich AgentBus abwählen. Shell- und Login-Sitzungen verwenden es nicht. Bestehende Sitzungen werden nicht nachträglich verändert.
 
-Unter **AgentBus → Status** siehst du verbundene Sitzungen und wartende Nachrichten. **Nachrichten** zeigt Absender, Empfänger, Zeitpunkt, Text und Inbox-Status mit 20 Einträgen pro Seite. Diese Ansicht konsumiert keine Nachrichten und löst keine Modellarbeit aus. Die CLIs selbst können beim Nachrichtenaustausch weitere Modellarbeit auslösen. Codex kann eine native Prüfung neuer Hooks verlangen; die Statusansicht weist darauf hin.
+Unter **Projekte** im Tab **AgentBus** eines Projekts siehst du unter **Sitzungen** verbundene Sitzungen und wartende Nachrichten. **Nachrichten** zeigt Absender, Empfänger, Zeitpunkt, Text und Inbox-Status mit 20 Einträgen pro Seite. Diese Ansicht konsumiert keine Nachrichten und löst keine Modellarbeit aus. Die CLIs selbst können beim Nachrichtenaustausch weitere Modellarbeit auslösen. Codex kann eine native Prüfung neuer Hooks verlangen; die Statusansicht weist darauf hin.
 
 Die Integration verwendet temporäre Konfiguration pro Sitzung und verändert keine globalen CLI-Konfigurationsdateien. Details zum enthaltenen Quellcode, den behobenen Fehlern und den Grenzen stehen in [AgentBus-Integration](docs/agentbus-integration.md).
 
