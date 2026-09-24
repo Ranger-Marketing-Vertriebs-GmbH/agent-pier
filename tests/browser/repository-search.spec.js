@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { fixture, openRepositories } from "../helpers/repository-browser.js";
+import {
+  fixture,
+  openCloneDialog,
+  openRepositories,
+} from "../helpers/repository-browser.js";
 
 for (const mobile of [false, true]) {
   test(`searchable clone organization and repository dropdowns (${mobile ? "mobile" : "desktop"})`, async ({
@@ -32,7 +36,8 @@ for (const mobile of [false, true]) {
       });
     });
     await openRepositories(page);
-    await page.getByLabel("Token-Profil").selectOption("personal");
+    const dialog = await openCloneDialog(page);
+    await dialog.getByRole("radio", { name: /Persönlich/ }).check();
     await page.getByRole("button", { name: "Organisation", exact: true }).click();
     await page.getByRole("combobox", { name: "Organisation suchen" }).fill("team-179");
     await expect(page.getByRole("option", { name: "team-178", exact: true })).toHaveCount(

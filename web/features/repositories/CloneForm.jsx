@@ -1,12 +1,15 @@
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { cloneFormCopy as copy } from "../../lib/i18n/messages/repositories.js";
+import { projectDialogsCopy } from "../../lib/i18n/messages/projects.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import React, { useState } from "react";
 import Modal from "../../components/Modal.jsx";
 import Icon from "../../components/Icon.jsx";
+import Segment from "../../components/Segment.jsx";
 import DirectoryPicker from "../directories/DirectoryPicker.jsx";
 import { cloneRepository } from "./cloneStore.js";
 import RepositoryPicker from "./RepositoryPicker.jsx";
+import { hostLabel } from "./hosts.js";
 export default function CloneForm({
   credentialId,
   url,
@@ -21,17 +24,13 @@ export default function CloneForm({
   parentEdited,
   setParentDirectory,
   cloneError,
-  notice,
+  cancel,
 }) {
   const [browse, setBrowse] = useState(false);
   return (
-    <section
-      className="repository-section repository-clone"
-      aria-labelledby="repository-clone-title"
-    >
-      <h2 id="repository-clone-title">{copy.repositoryCloneTitle}</h2>
-      <p className="field-description">{copy.cloneDescription}</p>
+    <>
       <form
+        className="repository-clone-form"
         onSubmit={async (event) => {
           event.preventDefault();
           const project = await cloneRepository({
@@ -46,90 +45,103 @@ export default function CloneForm({
           }
         }}
       >
-        <fieldset
-          className="repository-fields repository-clone-fields"
-          disabled={cloning}
-        >
-          <label>
-            {copy.credentialLabel}
-            <select
-              value={credentialId}
-              onChange={(event) => setCredentialId(event.target.value)}
-            >
-              <option value="">{copy.repositoryFieldsOption}</option>
-              {credentials.map((credential) => (
-                <option key={credential.id} value={credential.id}>
-                  {credential.name} · {credential.host}
-                </option>
-              ))}
-            </select>
-          </label>
-          {credentialId && (
-            <RepositoryPicker
-              key={`${credentialId}:${reload}`}
-              credentialId={credentialId}
-              url={url}
-              onSelect={(repository) => {
-                setUrl(repository.url);
-                setFolderName(repository.name);
-              }}
-            />
-          )}
-          <label>
-            {copy.repositoryUrlLabel}
-            <input
-              value={url}
-              required
-              onChange={(event) => setUrl(event.target.value)}
-              placeholder={copy.repositoryUrlPlaceholder}
-              spellCheck={false}
-              autoCapitalize="none"
-            />
-          </label>
-          <label>
-            {copy.parentDirectoryLabel}
-            <div className="input-action">
-              <input
-                aria-label={copy.parentDirectoryLabel}
-                value={parentDirectory}
-                required
-                onChange={(event) => {
-                  parentEdited.current = true;
-                  setParentDirectory(event.target.value);
+        <div className="form-content">
+          <p className="field-description">{copy.cloneDescription}</p>
+          <fieldset
+            className="repository-fields repository-clone-fields"
+            disabled={cloning}
+          >
+            <div className="repository-token-field">
+              <span className="repository-field-label" aria-hidden="true">
+                {copy.credentialLabel}
+              </span>
+              <Segment
+                label={copy.credentialLabel}
+                className="repository-token-segment"
+                value={credentialId}
+                onChange={setCredentialId}
+                options={[
+                  { value: "", label: projectDialogsCopy.noToken },
+                  ...credentials.map((credential) => ({
+                    value: credential.id,
+                    label: (
+                      <>
+                        {credential.name}
+                        <small>{hostLabel(credential.host)}</small>
+                      </>
+                    ),
+                  })),
+                ]}
+              />
+            </div>
+            {credentialId && (
+              <RepositoryPicker
+                key={`${credentialId}:${reload}`}
+                credentialId={credentialId}
+                url={url}
+                onSelect={(repository) => {
+                  setUrl(repository.url);
+                  setFolderName(repository.name);
                 }}
-                placeholder="/Pfad/zu/Projekten"
+              />
+            )}
+            <label className="repository-url-field">
+              {copy.repositoryUrlLabel}
+              <input
+                value={url}
+                required
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder={copy.repositoryUrlPlaceholder}
                 spellCheck={false}
                 autoCapitalize="none"
               />
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={commonCopy.chooseDirectory}
-                onClick={() => setBrowse(true)}
-              >
-                <Icon name="folder" />
-              </button>
-            </div>
-          </label>
-          <label>
-            {copy.folderNameLabel}
-            <input
-              value={folderName}
-              required
-              onChange={(event) => setFolderName(event.target.value)}
-              placeholder={copy.folderNamePlaceholder}
-              spellCheck={false}
-              autoCapitalize="none"
-            />
-          </label>
-        </fieldset>
-        <ErrorMessage error={cloneError} />
-        {notice && (
-          <p className="repository-notice" role="status">
-            {notice}
-          </p>
-        )}
-        <div className="repository-clone-actions">
+            </label>
+            <label>
+              {copy.parentDirectoryLabel}
+              <div className="input-action">
+                <input
+                  aria-label={copy.parentDirectoryLabel}
+                  value={parentDirectory}
+                  required
+                  onChange={(event) => {
+                    parentEdited.current = true;
+                    setParentDirectory(event.target.value);
+                  }}
+                  placeholder="/Pfad/zu/Projekten"
+                  spellCheck={false}
+                  autoCapitalize="none"
+                />
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={commonCopy.chooseDirectory}
+                  onClick={() => setBrowse(true)}
+                >
+                  <Icon name="folder" />
+                </button>
+              </div>
+            </label>
+            <label>
+              {copy.folderNameLabel}
+              <input
+                value={folderName}
+                required
+                onChange={(event) => setFolderName(event.target.value)}
+                placeholder={copy.folderNamePlaceholder}
+                spellCheck={false}
+                autoCapitalize="none"
+              />
+            </label>
+          </fieldset>
+          <ErrorMessage error={cloneError} />
+          {cloning && (
+            <p className="field-description">{projectDialogsCopy.cloneContinues}</p>
+          )}
+        </div>
+        <div className="dialog-actions">
+          <button type="button" className="button secondary" onClick={cancel}>
+            {commonCopy.cancel}
+          </button>
           <button className="button primary" disabled={cloning}>
             {cloning ? commonCopy.cloning : commonCopy.cloneRepository}
           </button>
@@ -148,6 +160,6 @@ export default function CloneForm({
           />
         </Modal>
       )}
-    </section>
+    </>
   );
 }

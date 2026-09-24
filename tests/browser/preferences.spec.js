@@ -77,9 +77,12 @@ test("settings save a default folder and explicit repository launch wins", async
   );
   await page.getByRole("button", { name: "Dialog schließen" }).click();
   await navigateTo(page, "Projekte");
-  await expect(page.getByLabel("Übergeordneter Ordner", { exact: true })).toHaveValue(
+  await page.getByRole("button", { name: "Repository klonen", exact: true }).click();
+  const clone = page.getByRole("dialog", { name: "Repository klonen" });
+  await expect(clone.getByLabel("Übergeordneter Ordner", { exact: true })).toHaveValue(
     "/work",
   );
+  await clone.getByRole("button", { name: "Abbrechen", exact: true }).click();
   await page.getByRole("button", { name: "Sitzung in Projekt starten" }).click();
   await expect(page.getByLabel("Arbeitsverzeichnis", { exact: true })).toHaveValue(
     "/repo/project",

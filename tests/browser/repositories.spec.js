@@ -1,14 +1,20 @@
 import { navigateTo } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 
-import { fixture, openRepositories, stamp } from "../helpers/repository-browser.js";
+import {
+  fixture,
+  openCloneDialog,
+  openRepositories,
+  stamp,
+} from "../helpers/repository-browser.js";
 test("clone failures keep fields, pending requests cannot duplicate, and projects launch with their path", async ({
   page,
 }) => {
   const { writes, state } = await fixture(page);
   await openRepositories(page);
-  await page.getByLabel("Repository-URL oder owner/repo").fill("acme/project");
-  await page.getByLabel("Neuer Ordnername").fill("project");
+  const dialog = await openCloneDialog(page);
+  await dialog.getByLabel("Repository-URL oder owner/repo").fill("acme/project");
+  await dialog.getByLabel("Neuer Ordnername").fill("project");
   let release;
   const pending = new Promise((resolve) => {
     release = resolve;
@@ -24,16 +30,20 @@ test("clone failures keep fields, pending requests cannot duplicate, and project
     },
     { times: 1 },
   );
-  await page.getByRole("button", { name: "Repository klonen", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Wird geklont …" })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Repository klonen", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Wird geklont …" })).toBeDisabled();
   release();
-  await expect(page.getByRole("alert")).toContainText("Zielordner existiert bereits");
-  await expect(page.getByLabel("Repository-URL oder owner/repo")).toHaveValue(
+  await expect(dialog.getByRole("alert")).toContainText("Zielordner existiert bereits");
+  await expect(dialog.getByLabel("Repository-URL oder owner/repo")).toHaveValue(
     "acme/project",
   );
-  await expect(page.getByLabel("Übergeordneter Ordner")).toHaveValue("/home/test");
-  await page.getByLabel("Neuer Ordnername").fill("project-new");
-  await page.getByRole("button", { name: "Repository klonen", exact: true }).click();
+  await expect(dialog.getByLabel("Übergeordneter Ordner")).toHaveValue("/home/test");
+  await dialog.getByLabel("Neuer Ordnername").fill("project-new");
+  await dialog.getByRole("button", { name: "Repository klonen", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByText("„project-new“ wurde geklont.", { exact: false }),
+  ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "project-new", exact: true }),
   ).toBeVisible();
@@ -65,6 +75,10 @@ test("mobile repositories with long enterprise project names avoid horizontal ov
     createdAt: stamp,
   });
   await openRepositories(page);
+  await page
+    .getByRole("navigation", { name: "Projekte" })
+    .getByRole("button", { name: /a-long-enterprise-project-name/ })
+    .click();
   await expect(
     page.getByRole("heading", { name: "a-long-enterprise-project-name" }),
   ).toBeVisible();
@@ -77,12 +91,13 @@ test("public GitHub clone works without any token profile", async ({ page }) => 
   const { repositories, writes } = await fixture(page);
   repositories.credentials = [];
   await openRepositories(page);
-  await expect(page.getByLabel("Token-Profil")).toHaveValue("");
-  await page
+  const dialog = await openCloneDialog(page);
+  await expect(dialog.getByRole("radio", { name: "Ohne Token" })).toBeChecked();
+  await dialog
     .getByLabel("Repository-URL oder owner/repo")
     .fill("https://github.com/octocat/Hello-World.git");
-  await page.getByLabel("Neuer Ordnername").fill("public-project");
-  await page.getByRole("button", { name: "Repository klonen", exact: true }).click();
+  await dialog.getByLabel("Neuer Ordnername").fill("public-project");
+  await dialog.getByRole("button", { name: "Repository klonen", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "public-project", exact: true }),
   ).toBeVisible();
@@ -123,14 +138,18 @@ for (const outcome of ["success", "failure"]) {
             },
       );
     });
-    await page.getByLabel("Repository-URL oder owner/repo").fill("acme/project");
-    await page.getByLabel("Neuer Ordnername").fill("pending-project");
-    await page.getByRole("button", { name: "Repository klonen", exact: true }).click();
+    const dialog = await openCloneDialog(page);
+    await dialog.getByLabel("Repository-URL oder owner/repo").fill("acme/project");
+    await dialog.getByLabel("Neuer Ordnername").fill("pending-project");
+    await dialog.getByRole("button", { name: "Repository klonen", exact: true }).click();
     await expect.poll(() => requests).toBe(1);
+    await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
     await navigateTo(page, "Accounts");
     await navigateTo(page, "Projekte");
     try {
-      await expect(page.getByRole("button", { name: "Wird geklont …" })).toBeDisabled();
+      await openCloneDialog(page);
+      await expect(dialog.getByRole("button", { name: "Wird geklont …" })).toBeDisabled();
     } finally {
       release();
     }
@@ -145,15 +164,15 @@ for (const outcome of ["success", "failure"]) {
         "/home/test/pending-project",
       );
     } else {
-      await expect(page.getByRole("alert")).toContainText(
+      await expect(dialog.getByRole("alert")).toContainText(
         "Klonen nach Ansichtswechsel fehlgeschlagen",
       );
-      await expect(page.getByLabel("Repository-URL oder owner/repo")).toHaveValue(
+      await expect(dialog.getByLabel("Repository-URL oder owner/repo")).toHaveValue(
         "acme/project",
       );
-      await expect(page.getByLabel("Neuer Ordnername")).toHaveValue("pending-project");
+      await expect(dialog.getByLabel("Neuer Ordnername")).toHaveValue("pending-project");
       await expect(
-        page.getByRole("button", { name: "Repository klonen", exact: true }),
+        dialog.getByRole("button", { name: "Repository klonen", exact: true }),
       ).toBeEnabled();
     }
     expect(requests).toBe(1);
@@ -167,16 +186,17 @@ for (const customDirectory of [null, "/custom/projects"])
     const { state, writes } = await fixture(page);
     state.defaultCwd = "/work";
     await openRepositories(page);
-    await expect(page.getByLabel("Übergeordneter Ordner", { exact: true })).toHaveValue(
+    const dialog = await openCloneDialog(page);
+    await expect(dialog.getByLabel("Übergeordneter Ordner", { exact: true })).toHaveValue(
       "/work",
     );
     if (customDirectory)
-      await page
+      await dialog
         .getByLabel("Übergeordneter Ordner", { exact: true })
         .fill(customDirectory);
-    await page.getByLabel("Repository-URL oder owner/repo").fill("acme/project");
-    await page.getByLabel("Neuer Ordnername").fill("project");
-    await page.getByRole("button", { name: "Repository klonen", exact: true }).click();
+    await dialog.getByLabel("Repository-URL oder owner/repo").fill("acme/project");
+    await dialog.getByLabel("Neuer Ordnername").fill("project");
+    await dialog.getByRole("button", { name: "Repository klonen", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "project", exact: true }),
     ).toBeVisible();

@@ -1,9 +1,7 @@
 export const cloneFormCopy = {
-  repositoryCloneTitle: "Clone repository",
   cloneDescription:
     "Public GitHub repositories do not require a token. A profile lets you search accessible repositories. The repository gets a new subdirectory.",
   credentialLabel: "Token profile",
-  repositoryFieldsOption: "Public on github.com · no token",
   repositoryUrlLabel: "Repository URL or owner/repo",
   repositoryUrlPlaceholder: "organization/project",
   parentDirectoryLabel: "Parent directory",
@@ -52,17 +50,9 @@ export const githubAccessPageCopy = {
   loading: "Loading GitHub connections …",
 };
 export const repositoriesPageCopy = {
-  pageToplineLabel: "WORKSPACE / REPOSITORIES",
-  subtle: "Stored locally",
-  pageHeadingTitle: "Your repositories",
-  pageHeadingDescription: "From repository to next session.",
-  repositoriesLoading: "Loading repositories …",
   agentCredentialDescription:
     "New agent sessions receive the default connection for each host. Cloned projects use their selected connection.",
-  repositoryProjectsTitle: "Local projects",
-  projectCountSuffix: " projects",
   buttonAriaLabel: (value1) => `Start session in ${value1}`,
-  launchProjectSession: "Start session ",
   repositoryEmpty:
     "Your cloned repositories will appear here. Then start a CLI session directly in the project.",
 };

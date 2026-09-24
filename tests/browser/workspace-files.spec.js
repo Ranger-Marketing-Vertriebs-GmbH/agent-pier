@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { fixture, openRepositories } from "../helpers/repository-browser.js";
+import {
+  fixture,
+  openCloneDialog,
+  openRepositories,
+} from "../helpers/repository-browser.js";
 import { baseURL } from "../helpers/browser.js";
 
 test("clone folder picker creates and chooses a server directory without submitting the clone", async ({
@@ -17,17 +21,20 @@ test("clone folder picker creates and chooses a server directory without submitt
     return route.fulfill({ json: { path, parent: "/home", entries: [] } });
   });
   await openRepositories(page);
-  await page.getByLabel("Repository-URL oder owner/repo").fill("acme/project");
-  await page.getByLabel("Neuer Ordnername").fill("project");
-  await page.getByRole("button", { name: "Ordner auswählen", exact: true }).click();
+  const clone = await openCloneDialog(page);
+  await clone.getByLabel("Repository-URL oder owner/repo").fill("acme/project");
+  await clone.getByLabel("Neuer Ordnername").fill("project");
+  await clone.getByRole("button", { name: "Ordner auswählen", exact: true }).click();
   await page.getByRole("button", { name: "Ordner anlegen", exact: true }).click();
   await page.getByLabel("Ordnername", { exact: true }).fill("Projects");
   await page.getByLabel("Ordnername", { exact: true }).press("Enter");
-  await expect(page.getByRole("dialog").locator(".directory-path")).toContainText(
-    "/home/test/Projects",
-  );
+  await expect(
+    page
+      .getByRole("dialog", { name: "Übergeordneter Ordner" })
+      .locator(".directory-path"),
+  ).toContainText("/home/test/Projects");
   await page.getByRole("button", { name: "Diesen Ordner verwenden" }).click();
-  await expect(page.getByLabel("Übergeordneter Ordner", { exact: true })).toHaveValue(
+  await expect(clone.getByLabel("Übergeordneter Ordner", { exact: true })).toHaveValue(
     "/home/test/Projects",
   );
   expect(created).toEqual([{ path: "/home/test", name: "Projects" }]);
