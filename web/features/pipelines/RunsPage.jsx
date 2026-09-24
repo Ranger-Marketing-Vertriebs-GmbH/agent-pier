@@ -13,7 +13,7 @@ import RunTable from "./RunTable.jsx";
 import useRunStatusCounts from "./useRunStatusCounts.js";
 import { runsPaging } from "./runs-paging.js";
 
-export default function RunsPage({ route, navigate, home }) {
+export default function RunsPage({ route, navigate, home, onTotal }) {
   const detail = route.pipelineItem && route.pipelineItem !== "new";
   const page = route.pipelinePage || 1,
     query = new URLSearchParams({
@@ -28,7 +28,19 @@ export default function RunsPage({ route, navigate, home }) {
     projectId: route.projectId || "",
     enabled: !detail,
     version,
+    listKey: JSON.stringify([route.projectId || "", route.pipelineStatus || ""]),
+    listTotal: list.data?.total,
   });
+  // The tab counts all runs: the unfiltered list's total, else the sum of the pills
+  // when no project narrows them.
+  const allRuns = route.projectId
+    ? undefined
+    : route.pipelineStatus
+      ? counts && Object.values(counts).reduce((sum, value) => sum + value, 0)
+      : list.data?.total;
+  useEffect(() => {
+    if (Number.isFinite(allRuns)) onTotal?.(allRuns);
+  }, [allRuns, onTotal]);
   const paging = runsPaging({
     data: list.data,
     page,

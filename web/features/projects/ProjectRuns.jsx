@@ -65,6 +65,8 @@ export default function ProjectRuns({ project, route, onNavigate, home, reloadHu
     projectId: memoryId || "",
     enabled: Boolean(memoryId),
     version,
+    listKey: status,
+    listTotal: list.data?.total,
   });
   const navigate = (changes) =>
     onNavigate({ ...route, projectId: project.id, projectTab: "runs", ...changes });

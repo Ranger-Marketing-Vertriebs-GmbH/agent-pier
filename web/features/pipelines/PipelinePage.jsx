@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import UnderlineTabs from "../../components/UnderlineTabs.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import useResource from "../../lib/useResource.js";
@@ -8,11 +8,10 @@ import RunsPage from "./RunsPage.jsx";
 import VerificationPage from "./VerificationPage.jsx";
 import "./pipelines.css";
 
-// Tab counters: the run total follows the list's poll while the run list is shown;
-// definitions and profiles reload whenever the tab or item changes, or after edits.
+// Tab counters reload whenever the tab or item changes, or after edits. The run list
+// reports the run total it already polls, so the counter needs no poll of its own.
 function useTabCounts(tab, item) {
-  const runList = tab === "runs" && (!item || item === "new");
-  const runs = useResource("/pipeline-runs", { poll: runList ? 5000 : 0 }),
+  const runs = useResource("/pipeline-runs"),
     definitions = useResource("/pipelines"),
     profiles = useResource("/pipeline-profiles");
   const refreshAll = () => {
@@ -26,8 +25,11 @@ function useTabCounts(tab, item) {
     mounted.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, item]);
+  const { update: updateRuns } = runs;
+  const setRunTotal = useCallback((total) => updateRuns({ total }), [updateRuns]);
   return {
     runs: runs.data?.total,
+    setRunTotal,
     definitions: definitions.data?.pipelines?.length,
     profiles: profiles.data?.profiles?.length,
     refresh: refreshAll,
@@ -90,7 +92,7 @@ export default function PipelinePage({
         ) : tab === "verification" ? (
           <VerificationPage {...{ route, navigate, home }} />
         ) : (
-          <RunsPage {...{ route, navigate, home }} />
+          <RunsPage {...{ route, navigate, home }} onTotal={counts.setRunTotal} />
         )}
       </div>
     </div>

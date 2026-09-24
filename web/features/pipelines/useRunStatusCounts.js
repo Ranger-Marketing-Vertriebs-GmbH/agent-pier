@@ -1,16 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
 import { runStatuses } from "./run-presentation.js";
 
+// Every listing is a full scan on the server, so the pills poll slowly.
+const pillPoll = 30000;
+
 // The run list carries only its own total, so each status pill costs one listing
-// request. The counts poll no faster than the list and only while they are shown.
+// request. The pills load while they are shown, refresh slowly, after `version` changes
+// and whenever the polled list's total changes under the same filter (`listKey`).
 export default function useRunStatusCounts({
   projectId = "",
   enabled = true,
   version = 0,
+  listKey = "",
+  listTotal,
 }) {
   const [state, setState] = useState({ key: "", projectId: null, counts: null });
-  const key = JSON.stringify([projectId, version]);
+  const [changes, setChanges] = useState(0);
+  const seen = useRef({ listKey: null, total: undefined });
+  useEffect(() => {
+    if (!Number.isFinite(listTotal)) return;
+    const last = seen.current;
+    seen.current = { listKey, total: listTotal };
+    if (
+      last.listKey === listKey &&
+      Number.isFinite(last.total) &&
+      last.total !== listTotal
+    )
+      setChanges((value) => value + 1);
+  }, [listKey, listTotal]);
+  const key = JSON.stringify([projectId, version, changes]);
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController();
@@ -35,7 +54,7 @@ export default function useRunStatusCounts({
       } catch {
         // The run list reports request failures; the pills keep their last counts.
       } finally {
-        if (!controller.signal.aborted) timer = setTimeout(read, 5000);
+        if (!controller.signal.aborted) timer = setTimeout(read, pillPoll);
       }
     };
     read();
