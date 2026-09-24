@@ -31,8 +31,6 @@ export const launchDialogCopy = {
     "Eine lokale Shell für Befehle und Werkzeuge in deinem Arbeitsverzeichnis.",
   sessionNameLabel: "Name der Sitzung",
   sessionNamePlaceholder: "z. B. Website überarbeiten",
-  accountLabel: "Account",
-  noAvailableAccounts: "Kein verfügbarer Account",
   nativeModeOption: "Standard · Tool-Voreinstellungen",
   codexYoloOption: "YOLO · ohne Rückfragen und Sandbox",
   claudeAutoOption: "Auto · mit Sicherheitsprüfung",

@@ -33,7 +33,6 @@ export const fileEditorCopy = {
   openSaved: "Open saved copy",
   otherScope: "Draft retained from another workspace. Return to that workspace to save.",
   readOnly: "Read-only document. You can save an independent new copy.",
-  targetReadOnly: "This target is read-only. Choose a new path.",
   scopeLabel: (kind, root = "") =>
     `${kind === "project" ? "Project" : "Host filesystem"}: ${root}`,
   resolved: (path) => `Resolved target: ${path}`,

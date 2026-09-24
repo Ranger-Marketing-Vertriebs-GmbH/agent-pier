@@ -16,7 +16,6 @@ export const projectsHubCopy = {
     count === 1 ? "1 Lauf fehlgeschlagen" : `${count} Läufe fehlgeschlagen`,
   tokenMeta: (name) => `Token ${name}`,
   back: "Alle Projekte",
-  openProject: (name) => `Projekt ${name} öffnen`,
   tabsLabel: "Projektbereiche",
   tabOverview: "Übersicht",
   tabKnowledge: "Projektwissen",

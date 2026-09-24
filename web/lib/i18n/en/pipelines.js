@@ -83,7 +83,6 @@ export const pipelineCopy = {
   copyName: (n) => `${n} (copy)`,
   startProfile: "Start session with profile",
   directory: "Working directory",
-  paramsRequired: "Please fill in all required parameters.",
   profileEligibility:
     "Pipeline stages require an autonomous profile without required parameters.",
   noProfiles: "No task profiles yet.",
@@ -154,7 +153,6 @@ export const pipelineCopy = {
   project: "Project",
   allProjects: "All projects",
   registerProject: "Add project",
-  noProjects: "Please add a project first.",
   verifyHelp:
     "Commands run in the run’s dedicated working directory. Configuration is saved for each attempt.",
   noSteps: "No verification configured.",

@@ -181,7 +181,6 @@ export const operationsCopy = {
   integrityHelp:
     "The checksum verifies download integrity. It does not by itself prove the publisher’s identity.",
   platform: "Platform",
-  releaseVersion: "Version",
   staged: "Staged",
   activateConfirmation:
     "Activate this staged release? The web service will restart; native sessions will be preserved.",

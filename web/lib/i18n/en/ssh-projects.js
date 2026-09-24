@@ -20,7 +20,6 @@ export const sshProjectCopy = {
   from: "From project",
   to: "To project",
   reassign: "Reassign",
-  reassignDone: "Project resources reassigned",
   errors: {
     SSH_PROJECT_CHANGED: "The project identity changed. Reload the session.",
     SSH_PROJECT_UNAVAILABLE: "The project directory is unavailable.",

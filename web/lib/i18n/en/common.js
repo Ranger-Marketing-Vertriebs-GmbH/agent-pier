@@ -96,7 +96,6 @@ export const commonCopy = {
   retrieved: "Retrieved",
   desktopSendHint: "Enter: send · Shift + Enter: new line",
   failed: "Failed",
-  you: "You",
   taskInProgress: "In progress",
   installCli: "Install CLI",
   saveMcp: "Save MCP",

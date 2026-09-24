@@ -7,18 +7,6 @@
 .pipeline-card small {
   overflow-wrap: anywhere;
 }
-.pipeline-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-  margin: 20px 0;
-}
-.pipeline-toolbar h2 {
-  font-size: 18px;
-  margin: 0;
-  flex: 1;
-}
 .pipeline-actions {
   display: flex;
   gap: 8px;
@@ -147,9 +135,6 @@
   cursor: pointer;
   color: var(--accent);
 }
-.pipeline-inline-error {
-  margin: 12px 0;
-}
 @media (max-width: 700px) {
   .pipeline-form {
     padding: 16px;
@@ -159,12 +144,6 @@
   }
   .pipeline-parameter {
     grid-template-columns: 1fr;
-  }
-  .pipeline-toolbar h2 {
-    flex-basis: 100%;
-  }
-  .pipeline-toolbar .button {
-    font-size: 12px;
   }
   .pipeline-controls > label {
     min-width: 0;

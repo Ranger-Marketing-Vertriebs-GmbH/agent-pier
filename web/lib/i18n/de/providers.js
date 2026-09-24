@@ -3,7 +3,6 @@ export const providerCopy = {
   provider: "API-Anbieter",
   native: "Native Tool-Voreinstellungen",
   search: "Modelle suchen",
-  searchPlaceholder: "Modellname oder exakte Modell-ID",
   model: "Anbietermodell",
   chooseModel: "Modell auswählen",
   missingModel: "Gespeichertes Modell ist im aktuellen Katalog nicht verfügbar.",
@@ -39,8 +38,6 @@ export const providerCopy = {
     "Der API-Key gilt für den ausgewählten Anbieter. Ein leeres Feld behält den gespeicherten Key; Änderungen gelten für neue Sitzungen.",
   switchKey:
     "Beim Anbieterwechsel einen neuen API-Key eingeben oder den gespeicherten Key entfernen.",
-  selectionRequired: "Bitte ein verfügbares Anbietermodell auswählen.",
-  responsesRequired: "Bitte den Responses-API-Zugang für Codex bestätigen.",
   configuredModel: (id) => `Konfiguriertes Anbietermodell: ${id}`,
   modelDetails: "Kontext & Anbieter",
   restart: "Modellwechsel benötigt eine neue Sitzung.",

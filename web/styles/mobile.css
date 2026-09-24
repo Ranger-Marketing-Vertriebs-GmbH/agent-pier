@@ -306,19 +306,6 @@
     padding: 4px;
     padding-bottom: max(4px, env(safe-area-inset-bottom));
   }
-  .reader {
-    padding: 13px;
-  }
-  .reader-note {
-    font-size: 9px;
-    padding-bottom: 11px;
-    gap: 7px;
-  }
-  .reader-output {
-    font-size: 11px;
-    line-height: 1.8;
-    padding: 15px 0;
-  }
   .composer {
     padding: 3px 6px 4px;
   }

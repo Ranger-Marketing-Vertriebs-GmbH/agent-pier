@@ -251,16 +251,6 @@
   padding: 2px 6px;
   color: #a2a3a7;
 }
-.sidebar-section-title {
-  display: flex;
-  justify-content: space-between;
-  padding: 0 12px;
-  margin: 36px 0 14px;
-  font-size: 9px;
-  letter-spacing: 1.4px;
-  font-weight: 600;
-  color: #7d7e82;
-}
 .session-list {
   min-height: 0;
   overflow-y: auto;

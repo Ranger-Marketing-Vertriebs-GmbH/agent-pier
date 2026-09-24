@@ -3,7 +3,6 @@ export const providerCopy = {
   provider: "API provider",
   native: "Native tool defaults",
   search: "Search models",
-  searchPlaceholder: "Model name or exact model ID",
   model: "Provider model",
   chooseModel: "Choose model",
   missingModel: "The saved model is unavailable in the current catalog.",
@@ -38,8 +37,6 @@ export const providerCopy = {
   keyHelp:
     "The API key is used for the selected provider. An empty field keeps the saved key; changes apply to new sessions.",
   switchKey: "When switching providers, enter a new API key or remove the saved key.",
-  selectionRequired: "Please choose an available provider model.",
-  responsesRequired: "Please confirm Responses API access for Codex.",
   configuredModel: (id) => `Configured provider model: ${id}`,
   modelDetails: "Context & provider",
   restart: "Switching models requires a new session.",

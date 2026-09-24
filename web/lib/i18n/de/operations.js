@@ -186,7 +186,6 @@ export const operationsCopy = {
   integrityHelp:
     "Die Prüfsumme bestätigt die Integrität des Downloads. Sie ist allein kein Nachweis der Herausgeberidentität.",
   platform: "Plattform",
-  releaseVersion: "Version",
   staged: "Vorbereitet",
   activateConfirmation:
     "Diese vorbereitete Version aktivieren? Der Webdienst wird neu gestartet; native Sitzungen bleiben erhalten.",
