@@ -49,6 +49,7 @@ export const credentialListCopy = {
 };
 export const githubAccessPageCopy = {
   pageHeadingTitle: "GitHub connections",
+  loading: "Loading GitHub connections …",
 };
 export const repositoriesPageCopy = {
   pageToplineLabel: "WORKSPACE / REPOSITORIES",

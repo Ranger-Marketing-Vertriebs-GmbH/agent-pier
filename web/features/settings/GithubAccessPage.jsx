@@ -7,6 +7,7 @@ import {
 } from "../../lib/i18n/messages/repositories.js";
 import api from "../../lib/api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import Icon from "../../components/Icon.jsx";
 import React, { useEffect, useState } from "react";
 import CredentialDialog from "../repositories/CredentialDialog.jsx";
 import CredentialList from "../repositories/CredentialList.jsx";
@@ -55,12 +56,13 @@ export default function GithubAccessPage() {
           disabled={loading || Boolean(loadError)}
           onClick={() => setModal({})}
         >
+          <Icon name="plus" />
           {commonCopy.addToken}
         </button>
       </header>
       {loading && (
         <p role="status" className="loading">
-          {repositoriesPageCopy.repositoriesLoading}
+          {copy.loading}
         </p>
       )}
       {loadError && (

@@ -50,6 +50,7 @@ export const credentialListCopy = {
 };
 export const githubAccessPageCopy = {
   pageHeadingTitle: "GitHub-Zugänge",
+  loading: "GitHub-Zugänge werden geladen …",
 };
 export const repositoriesPageCopy = {
   pageToplineLabel: "WORKSPACE / REPOSITORIES",
