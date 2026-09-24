@@ -14,19 +14,20 @@ import {
   memoryPageCount,
   entryAuthor,
 } from "../memory/memory-presentation.js";
+import CountUnavailable from "./CountUnavailable.jsx";
 import { relativeTime } from "./ProjectOverview.jsx";
 import { projectsRoute, projectsRoutePath } from "./routes.js";
 import useSettledReplace from "../../lib/useSettledReplace.js";
 
+const unknownCounts = { memoryId: "", active: null, archived: null, failed: false };
+
 // Both totals ignore the current search text, matching the project's own
-// unfiltered entry counter shown on the hub tab.
+// unfiltered entry counter shown on the hub tab. A count is null until it is known;
+// a refresh keeps the last counts of the same project until the new ones arrive.
 function useEntryCounts(memoryId, version) {
-  const [counts, setCounts] = useState({ active: 0, archived: 0 });
+  const [counts, setCounts] = useState(unknownCounts);
   useEffect(() => {
-    if (!memoryId) {
-      setCounts({ active: 0, archived: 0 });
-      return;
-    }
+    if (!memoryId) return;
     let alive = true;
     const base = `/memory/projects/${encodeURIComponent(memoryId)}/entries`;
     Promise.all([
@@ -35,15 +36,24 @@ function useEntryCounts(memoryId, version) {
     ])
       .then(([active, archived]) => {
         if (alive)
-          setCounts({ active: active.total || 0, archived: archived.total || 0 });
+          setCounts({
+            memoryId,
+            active: active.total || 0,
+            archived: archived.total || 0,
+            failed: false,
+          });
       })
-      .catch(() => {});
+      .catch(() => {
+        if (alive) setCounts({ ...unknownCounts, memoryId, failed: true });
+      });
     return () => {
       alive = false;
     };
   }, [memoryId, version]);
-  return counts;
+  return counts.memoryId === memoryId ? counts : unknownCounts;
 }
+
+const withCount = (label, count) => (count === null ? label : `${label} · ${count}`);
 
 export default function ProjectKnowledge({ project, route, onNavigate, reloadHub }) {
   const query = route.query || "",
@@ -138,7 +148,7 @@ export default function ProjectKnowledge({ project, route, onNavigate, reloadHub
             aria-pressed={!archived}
             onClick={() => navigate({ archived: false, memoryPage: 1 })}
           >
-            {copy.active} · {counts.active}
+            {withCount(copy.active, counts.active)}
           </button>
           <button
             type="button"
@@ -146,7 +156,7 @@ export default function ProjectKnowledge({ project, route, onNavigate, reloadHub
             aria-pressed={archived}
             onClick={() => navigate({ archived: true, memoryPage: 1 })}
           >
-            {copy.archived} · {counts.archived}
+            {withCount(copy.archived, counts.archived)}
           </button>
         </div>
         <button
@@ -167,6 +177,12 @@ export default function ProjectKnowledge({ project, route, onNavigate, reloadHub
         </button>
       </div>
       <p className="project-knowledge-hint">{copy.tabHint}</p>
+      {counts.failed && (
+        <CountUnavailable
+          message={copy.countsUnavailable}
+          onRetry={() => setCountVersion((value) => value + 1)}
+        />
+      )}
       <ErrorMessage error={state.error || action.error} />
       {state.loading && (
         <p role="status" className="loading">

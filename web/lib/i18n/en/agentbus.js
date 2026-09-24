@@ -1,6 +1,8 @@
 export const projectAgentBusCopy = {
   tabsLabel: "AgentBus view",
   messagesSegment: (count) => `Messages · ${count}`,
+  messagesLabel: "Messages",
+  messageCountUnavailable: "The message count could not be loaded.",
   connectedCount: (count) => `${count} connected`,
   pendingCount: (count) => `${count} messages waiting`,
   versionLabel: (version) => `Version ${version}`,
