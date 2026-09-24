@@ -5,16 +5,6 @@
   max-width: 520px;
   margin-bottom: 24px;
 }
-.extension-scope-note {
-  padding: 14px 18px;
-  border: 1px solid #545559;
-  border-radius: 8px;
-  color: var(--accent);
-  background: #25262a;
-  font-size: 12px;
-  line-height: 1.7;
-  margin-bottom: 24px;
-}
 .extension-section {
   margin: 28px 0 40px;
 }
@@ -25,44 +15,6 @@
   line-height: 1.7;
   margin: 8px 0;
   overflow-wrap: anywhere;
-}
-.extension-list {
-  display: grid;
-  gap: 12px;
-  margin: 20px 0;
-}
-.extension-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
-  padding: 20px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--panel);
-  min-width: 0;
-}
-.extension-details {
-  flex: 1;
-  min-width: 0;
-}
-.extension-details h3 {
-  font-size: 14px;
-  font-weight: 500;
-  overflow-wrap: anywhere;
-}
-.extension-details p {
-  color: #a7a8ac;
-  font-size: 12px;
-  line-height: 1.7;
-  margin-top: 8px;
-  overflow-wrap: anywhere;
-}
-.extension-scope {
-  display: block;
-  color: var(--accent);
-  font-size: 10px;
-  line-height: 1.6;
-  margin-top: 10px;
 }
 .extension-empty {
   color: #97989c;
@@ -159,10 +111,6 @@
 @media (max-width: 600px) {
   .extension-fields {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .extension-card {
-    flex-direction: column;
-    gap: 12px;
   }
   .extension-actions {
     flex-wrap: wrap;

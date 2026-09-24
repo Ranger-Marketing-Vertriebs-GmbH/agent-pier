@@ -242,11 +242,9 @@ test("AgentBus history restores project and page through reload and Back/Forward
     });
   });
   await page.goto(base + "/agentbus/messages/project-two?page=2");
-  await expect(
-    page.getByRole("tab", { name: "Nachrichten", exact: true }),
-  ).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("combobox", { name: "AgentBus-Projekt" })).toHaveValue(
-    "project-two",
+  await expect(page.getByRole("tab", { name: /^Nachrichten/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
   );
   await expect(
     page.getByText("Verlauf project-two Seite 2", { exact: true }),
@@ -267,13 +265,22 @@ test("AgentBus history restores project and page through reload and Back/Forward
   await expect(
     page.getByText("Verlauf project-two Seite 3", { exact: true }),
   ).toBeVisible();
+  // Switching the project now happens in the hub's own project list, which resets the
+  // AgentBus sub-tab back to its default (status).
   await page
-    .getByRole("combobox", { name: "AgentBus-Projekt" })
-    .selectOption("project-one");
+    .getByRole("navigation", { name: "Projekte", exact: true })
+    .getByRole("button", { name: /^Eins/ })
+    .click();
+  await expect(page).toHaveURL(/\/projects\/project-one\?tab=agentbus$/);
+  await page.getByRole("tab", { name: /^Nachrichten/ }).click();
   await expect(page).toHaveURL(/\/projects\/project-one\?tab=agentbus&bus=messages$/);
-  await page.getByRole("tab", { name: "Status", exact: true }).click();
+  await expect(
+    page.getByText("Verlauf project-one Seite 1", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: /^Sitzungen/ }).click();
   await expect(page).toHaveURL(/\/projects\/project-one\?tab=agentbus$/);
   await page.goBack();
+  await expect(page).toHaveURL(/\/projects\/project-one\?tab=agentbus&bus=messages$/);
   await expect(
     page.getByText("Verlauf project-one Seite 1", { exact: true }),
   ).toBeVisible();

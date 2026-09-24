@@ -3,7 +3,6 @@ export const appCopy = {
   pageDescription: "This link is unavailable.",
   returnToOverview: "Back to overview",
   workspaceLoading: "Loading workspace …",
-  agentBusLoading: "Loading AgentBus …",
 };
 export const appDialogsCopy = {
   keychainRetention: " CLI-managed keychain entries may be retained.",

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
-test("bundled AgentBus status groups project sessions without consuming inboxes", async ({
+test("bundled AgentBus status groups this project's sessions without consuming inboxes", async ({
   page,
 }) => {
   const calls = [];
@@ -49,19 +49,95 @@ test("bundled AgentBus status groups project sessions without consuming inboxes"
     return route.fulfill({ json: {} });
   });
   await page.goto(base + "/projects?tab=agentbus");
+  await expect(page).toHaveURL(/\/projects\/demo\?tab=agentbus$/);
+  await expect(page.getByRole("heading", { name: "Website", exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /^Sitzungen/ })).toContainText("2");
+  await expect(page.getByRole("tab", { name: /^Nachrichten/ })).toContainText("2");
   await expect(
-    page.getByRole("heading", { name: "AgentBus", exact: true }),
+    page.getByText("1 verbunden · 2 Nachrichten warten · Version 0.1.0"),
+  ).toBeVisible();
+  await expect(page.getByText("Inbox-Inhalte werden hier nicht gelesen.")).toBeVisible();
+  const claudeSession = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: "Claude Arbeit" }) });
+  await expect(claudeSession.getByText("Verbunden", { exact: true })).toBeVisible();
+  await expect(claudeSession.getByText("2 in der Inbox", { exact: true })).toBeVisible();
+  const codexSession = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: "Codex Review" }) });
+  await expect(
+    codexSession.getByText("Wartet auf CLI-Anmeldung", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("tabpanel").getByRole("heading", { name: "Website", exact: true }),
+    codexSession.getByText("Wartet auf nativen Hook.", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("2 in der Inbox", { exact: true })).toBeVisible();
-  await expect(page.getByText("Wartet auf nativen Hook.", { exact: true })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBeTruthy();
   expect(calls.every((c) => c.method === "GET")).toBeTruthy();
+});
+
+test("the status poll is not duplicated while the AgentBus tab is open", async ({
+  page,
+}) => {
+  let agentbusCalls = 0;
+  await page.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/api/state")
+      return route.fulfill({
+        json: { accounts: [], tools: [], sessions: [], home: "/fixture" },
+      });
+    if (url.pathname === "/api/agentbus") {
+      agentbusCalls += 1;
+      return route.fulfill({
+        json: {
+          version: "0.1.0",
+          note: "",
+          projects: [
+            { id: "demo", name: "Website", cwd: "/fixture/Website", sessions: [] },
+          ],
+        },
+      });
+    }
+    return route.fulfill({ json: {} });
+  });
+  await page.goto(base + "/projects?tab=agentbus");
+  await expect(page).toHaveURL(/\/projects\/demo\?tab=agentbus$/);
+  await page.waitForTimeout(9000);
+  // One initial load plus at most two 4 s polling ticks; a duplicate poller would double this.
+  expect(agentbusCalls).toBeLessThanOrEqual(4);
+});
+
+test("a hub project without an AgentBus id shows the existing empty texts", async ({
+  page,
+}) => {
+  await page.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/api/state")
+      return route.fulfill({
+        json: { accounts: [], tools: [], sessions: [], home: "/fixture" },
+      });
+    if (url.pathname === "/api/agentbus")
+      return route.fulfill({ json: { version: "0.1.0", note: "", projects: [] } });
+    if (url.pathname === "/api/memory/projects")
+      return route.fulfill({
+        json: {
+          projects: [{ id: "m1", name: "notes", cwd: "/fixture/notes", entryCount: 0 }],
+        },
+      });
+    return route.fulfill({ json: {} });
+  });
+  await page.goto(base + "/projects?tab=agentbus");
+  await expect(
+    page.getByText(
+      "Noch keine Sitzungen mit AgentBus. Starte eine neue Coding-CLI-Sitzung.",
+    ),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: /^Nachrichten/ }).click();
+  await expect(
+    page.getByText("Dieses AgentBus-Projekt wurde nicht gefunden."),
+  ).toBeVisible();
 });
 
 test.describe("English AgentBus status", () => {
@@ -110,9 +186,8 @@ test.describe("English AgentBus status", () => {
     const session = page
       .getByRole("article")
       .filter({ has: page.getByRole("heading", { name: "Legacy Codex" }) });
-    await expect(
-      session.getByText("codex · Reload required", { exact: true }),
-    ).toBeVisible();
+    await expect(session.getByText("Codex", { exact: true })).toBeVisible();
+    await expect(session.getByText("Reload required", { exact: true })).toBeVisible();
     await expect(
       session.getByText("Reload this session to use the current AgentBus integration.", {
         exact: true,

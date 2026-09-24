@@ -421,19 +421,6 @@
   padding: 0 10px;
   font-size: 10px;
 }
-/* Interim host for the pre-redesign AgentBus page. */
-.project-legacy > .page {
-  max-width: none;
-  margin: 0;
-  padding: 0;
-}
-.project-legacy .page-heading {
-  margin: 0 0 20px;
-}
-.project-legacy .page-heading h1 {
-  font-size: 20px;
-  letter-spacing: -0.5px;
-}
 dialog.project-dialog[open] {
   display: flex;
   flex-direction: column;

@@ -1,33 +1,16 @@
-export const agentBusPageCopy = {
-  pageToplineLabel: "WORKSPACE / AGENTBUS",
-  subtle: "Included in AgentPier",
-  pageHeadingTitle: "AgentBus",
-  pageHeadingDescription:
-    "Claude, Codex and OpenCode can communicate within the same project.",
-  agentbusTabsAriaLabel: "AgentBus view",
-  statusTab: "Status",
-  messagesTab: "Messages",
-  statusLoading: "Loading AgentBus …",
-  extensionScopeNoteLabel: "Built in",
-  extensionScopeNoteDescription:
-    "AgentBus is enabled by default for new coding CLI sessions. Connected CLIs can discover other sessions, send messages and read their inbox. Communication stays on this computer and within the project.",
-  connectedSessionsSuffix: " connected",
-  pendingMessagesSuffix: "messages waiting",
-  versionPrefix: "Version ",
-  sectionHeadingLabel: " Sessions",
-  extensionScope: "Waiting for CLI sign-in",
+export const projectAgentBusCopy = {
+  tabsLabel: "AgentBus view",
+  messagesSegment: (count) => `Messages · ${count}`,
+  connectedCount: (count) => `${count} connected`,
+  pendingCount: (count) => `${count} messages waiting`,
+  versionLabel: (version) => `Version ${version}`,
+  waitingForSignIn: "Waiting for CLI sign-in",
   reloadRequired: "Reload required",
   reloadRequiredDescription:
     "Reload this session to use the current AgentBus integration.",
   agentbusPending: " in the inbox",
-  projectMessagesPrefix: "View messages in ",
-  projectMessagesSuffix: " ",
   noProjectMessages: "No sessions with AgentBus yet. Start a new coding CLI session.",
-  extensionProfile: "AgentBus project",
-  chooseProject: "No projects yet",
-  projectNotFound: "Project not found",
   missingProjectDescription: "This AgentBus project was not found.",
-  noProjects: "No projects with AgentBus yet.",
 };
 export const messageLogCopy = {
   extensionSectionAriaLabel: "AgentBus messages",
