@@ -14,7 +14,7 @@ import RunTable from "../pipelines/RunTable.jsx";
 import { runsPaging } from "../pipelines/runs-paging.js";
 import useRunStatusCounts from "../pipelines/useRunStatusCounts.js";
 import { projectsRoute, projectsRoutePath } from "./routes.js";
-import useSettledReplace from "./useSettledReplace.js";
+import useSettledReplace from "../../lib/useSettledReplace.js";
 
 const runRoute = (pipelineItem) => ({
   view: "pipelines",

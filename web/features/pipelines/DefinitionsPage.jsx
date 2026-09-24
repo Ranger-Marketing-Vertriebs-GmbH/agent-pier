@@ -6,7 +6,7 @@ import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import useResource from "../../lib/useResource.js";
 import useMobileLayout from "../../lib/useMobileLayout.js";
-import useSettledReplace from "../projects/useSettledReplace.js";
+import useSettledReplace from "../../lib/useSettledReplace.js";
 import PipelineBuilder from "./PipelineBuilder.jsx";
 import ConfirmAction from "./ConfirmAction.jsx";
 import DefinitionList from "./DefinitionList.jsx";

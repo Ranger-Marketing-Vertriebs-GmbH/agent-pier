@@ -3,7 +3,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
 import useResource from "../../lib/useResource.js";
 import useMobileLayout from "../../lib/useMobileLayout.js";
-import useSettledReplace from "../projects/useSettledReplace.js";
+import useSettledReplace from "../../lib/useSettledReplace.js";
 import ProjectRegistration from "./ProjectRegistration.jsx";
 import VerificationEditor from "./VerificationEditor.jsx";
 import VerificationList from "./VerificationList.jsx";

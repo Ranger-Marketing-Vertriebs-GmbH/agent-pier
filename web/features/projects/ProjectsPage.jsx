@@ -12,7 +12,7 @@ import ProjectDetail from "./ProjectDetail.jsx";
 import { remoteShort } from "./project-presentation.js";
 import { projectsRoute, projectsRoutePath } from "./routes.js";
 import useProjectHub, { resolveProjectId } from "./useProjectHub.js";
-import useSettledReplace from "./useSettledReplace.js";
+import useSettledReplace from "../../lib/useSettledReplace.js";
 import useMobileLayout from "../../lib/useMobileLayout.js";
 import "./projects.css";
 
