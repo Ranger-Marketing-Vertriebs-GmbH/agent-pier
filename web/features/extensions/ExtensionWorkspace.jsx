@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import UnderlineTabs from "../../components/UnderlineTabs.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
@@ -48,17 +48,18 @@ export default function ExtensionWorkspace({
   const [agentMode, setAgentMode] = useState("installed");
   const [agentCount, setAgentCount] = useState(undefined);
   const [agentsSeen, setAgentsSeen] = useState(false);
-  // Keep the last known catalog support while a catalog account reloads.
-  const [catalogSupported, setCatalogSupported] = useState(false);
-  const supported = plugins.data
-    ? Boolean(plugins.capabilities.marketplaces)
-    : catalogSupported;
-  if (supported !== catalogSupported) setCatalogSupported(supported);
+  // null until the first plugin inventory arrives; afterwards the last known
+  // value is kept while a catalog account reloads.
+  const [catalogKnown, setCatalogKnown] = useState(null);
+  const known = plugins.data ? Boolean(plugins.capabilities.marketplaces) : catalogKnown;
+  if (known !== catalogKnown) setCatalogKnown(known);
+  const supported = known === true;
+  const [submitted, setSubmitted] = useState(false);
   const tabs = [
     { id: "mcp", label: hub.tabMcp, count: ext.data?.mcp.servers.length },
     { id: "skills", label: hub.tabSkills, count: ext.data?.skills.items.length },
     { id: "plugins", label: hub.tabPlugins, count: plugins.data?.installed.length },
-    ...(supported || (requestedTab === "marketplaces" && !plugins.data)
+    ...(supported
       ? [
           {
             id: "marketplaces",
@@ -71,10 +72,18 @@ export default function ExtensionWorkspace({
       ? [{ id: "agents", label: hub.tabAgents, count: agentCount }]
       : []),
   ];
-  const tab = tabs.some((item) => item.id === requestedTab) ? requestedTab : "mcp";
+  // A marketplaces deep link waits for the CLI's capabilities instead of
+  // flashing a tab the CLI may not support.
+  const pending = requestedTab === "marketplaces" && known === null;
+  const tab =
+    pending || tabs.some((item) => item.id === requestedTab) ? requestedTab : "mcp";
+  useEffect(() => {
+    if (tab !== requestedTab) onTab(tab, true);
+  }, [tab, requestedTab, onTab]);
   if (tab === "agents" && !agentsSeen) setAgentsSeen(true);
   const openPanel = (kind) => {
     if (kind === "mcp" || kind === "skill") ext.setError("");
+    setSubmitted(false);
     setPanel(kind);
   };
   const closePanel = useCallback(() => setPanel(null), []);
@@ -110,7 +119,9 @@ export default function ExtensionWorkspace({
     agents: { label: hub.browseCatalog, run: () => setAgentMode("catalog") },
   }[tab];
   const extPanel = panel === "mcp" || panel === "skill";
-  const pluginPanel = panel === "market" || panel === "npm";
+  // A plugin panel shows only errors of its own submission, never an older one.
+  const pluginPanel = (panel === "market" || panel === "npm") && submitted;
+  const panelError = pluginPanel ? plugins.error : "";
   const extProps = { ext, account, request, hideError: extPanel };
   return (
     <section className="extension-hub-card" aria-labelledby="extension-hub-profile">
@@ -166,7 +177,11 @@ export default function ExtensionWorkspace({
             />
           )}
           {tab === "marketplaces" && (
-            <MarketplacesTab plugins={plugins} hideError={pluginPanel} />
+            <MarketplacesTab
+              plugins={plugins}
+              account={account}
+              hideError={pluginPanel}
+            />
           )}
         </section>
       )}
@@ -211,9 +226,10 @@ export default function ExtensionWorkspace({
           setValue={plugins.setSource}
           disabled={plugins.disabled}
           busy={plugins.busy}
-          error={plugins.error}
+          error={panelError}
           close={closePanel}
-          submit={() =>
+          submit={() => {
+            setSubmitted(true);
             plugins.mutate(
               { action: "marketplace-add", source: plugins.source.trim() },
               marketplacesCopy.extensionInstallOnSubmit,
@@ -221,8 +237,8 @@ export default function ExtensionWorkspace({
                 plugins.setSource("");
                 closePanel();
               },
-            )
-          }
+            );
+          }}
         />
       )}
       {panel === "npm" && (
@@ -237,9 +253,10 @@ export default function ExtensionWorkspace({
           setValue={plugins.setPkg}
           disabled={plugins.disabled || !plugins.capabilities.install}
           busy={plugins.busy}
-          error={plugins.error}
+          error={panelError}
           close={closePanel}
-          submit={() =>
+          submit={() => {
+            setSubmitted(true);
             plugins.mutate(
               { action: "install", source: plugins.pkg.trim() },
               profilePluginsCopy.extensionInstallOnSubmit,
@@ -247,8 +264,8 @@ export default function ExtensionWorkspace({
                 plugins.setPkg("");
                 closePanel();
               },
-            )
-          }
+            );
+          }}
         />
       )}
     </section>

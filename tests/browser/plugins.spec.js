@@ -296,3 +296,66 @@ test("installed plugin pagination searches every page and clamps after a smaller
     page.getByRole("heading", { name: "Installed 0", exact: true }),
   ).toBeVisible();
 });
+
+test("an earlier plugin error never appears in a newly opened add panel", async ({
+  page,
+}) => {
+  const { data } = await setup(page);
+  data.marketplaces = [{ name: "A", source: "example/a" }];
+  let calls = 0;
+  await page.route("**/accounts/fixture-claude/plugins", async (route) => {
+    if (route.request().method() === "GET") return route.fallback();
+    calls++;
+    const { action } = route.request().postDataJSON();
+    return route.fulfill({
+      status: 409,
+      json: {
+        error:
+          action === "marketplace-update"
+            ? "Aktualisierung fehlgeschlagen"
+            : "Marketplace nicht erreichbar",
+      },
+    });
+  });
+  await page.getByRole("button", { name: "Neu laden", exact: true }).click();
+  await openTab(page, "Marketplaces");
+  await page.getByRole("button", { name: "Marketplace A aktualisieren" }).click();
+  await expect(page.getByRole("alert")).toContainText("Aktualisierung fehlgeschlagen");
+  await page.getByRole("button", { name: "Marketplace hinzufügen", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Marketplace hinzufügen" });
+  await expect(panel.getByLabel("Marketplace-Quelle")).toBeVisible();
+  await expect(panel.getByRole("alert")).toHaveCount(0);
+  await expect(panel).not.toContainText("Aktualisierung fehlgeschlagen");
+  await panel.getByLabel("Marketplace-Quelle").fill("example/plugins");
+  await panel
+    .getByRole("button", { name: "Marketplace hinzufügen", exact: true })
+    .click();
+  await expect(panel.getByRole("alert")).toContainText("Marketplace nicht erreichbar");
+  await expect(panel.getByLabel("Marketplace-Quelle")).toHaveValue("example/plugins");
+  expect(calls).toBe(2);
+});
+
+test("a marketplaces link for OpenCode normalises to MCP without showing the tab", async ({
+  page,
+}) => {
+  await setup(page, "opencode");
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  await page.route("**/accounts/fixture-opencode/plugins", async (route) => {
+    await held;
+    return route.fallback();
+  });
+  await page.goto(`${base}/extensions/fixture-opencode?tab=marketplaces`);
+  await expect(page.getByRole("tab", { name: /^MCP-Server/ })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /^Marketplaces/ })).toHaveCount(0);
+  await expect(page).toHaveURL(/\?tab=marketplaces$/);
+  release();
+  await expect(page).toHaveURL(/\/extensions\/fixture-opencode$/);
+  await expect(page.getByRole("tab", { name: /^Marketplaces/ })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: /^MCP-Server/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await page.goBack();
+  await expect(page).not.toHaveURL(/tab=marketplaces/);
+});

@@ -160,17 +160,28 @@ test("Codex native marketplace uses an explicit catalog account and has no sourc
   await expect(
     page.getByRole("button", { name: "Plugin Remote Demo installieren" }),
   ).toBeEnabled();
+  const remove = page.getByRole("button", { name: "Plugin Remote Demo entfernen" });
   await page.getByRole("radio", { name: /^Installiert/ }).check();
+  // The whole inventory belongs to the selected catalog account, so the
+  // selector stays available in the installed view and on the Marketplaces tab.
+  await expect(selector).toBeVisible();
+  await expect(selector).toHaveValue("personal-codex");
   await expect(page.getByText("Noch keine Plugins installiert.")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Plugin Remote Demo entfernen" }),
-  ).toHaveCount(0);
-  await page.getByRole("radio", { name: /^Entdecken/ }).check();
+  await expect(remove).toHaveCount(0);
   await selector.selectOption("work-codex");
-  await page.getByRole("radio", { name: /^Installiert/ }).check();
+  await expect(remove).toBeVisible();
+  await expect(page.getByRole("radio", { name: /^Installiert/ })).toBeChecked();
+  await openTab(page, "Marketplaces");
+  await expect(selector).toBeVisible();
+  await expect(selector).toHaveValue("work-codex");
+  await selector.selectOption("personal-codex");
   await expect(
-    page.getByRole("button", { name: "Plugin Remote Demo entfernen" }),
+    page.getByRole("heading", { name: "Codex-Standard-Marketplace", exact: true }),
   ).toBeVisible();
+  await openTab(page, "Plugins");
+  await page.getByRole("radio", { name: /^Installiert/ }).check();
+  await expect(selector).toHaveValue("personal-codex");
+  await expect(remove).toHaveCount(0);
 });
 
 for (const failure of [false, true]) {
