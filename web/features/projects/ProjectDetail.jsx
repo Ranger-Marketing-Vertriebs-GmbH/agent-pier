@@ -1,20 +1,18 @@
-import React, { lazy, Suspense, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import UnderlineTabs from "../../components/UnderlineTabs.jsx";
 import api from "../../lib/api.js";
-import { appCopy } from "../../lib/i18n/messages/app.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import {
   projectOverviewCopy as overviewCopy,
   projectsHubCopy as copy,
 } from "../../lib/i18n/messages/projects.js";
 import { repositoriesPageCopy } from "../../lib/i18n/messages/repositories.js";
+import ProjectAgentBus from "./ProjectAgentBus.jsx";
 import ProjectKnowledge from "./ProjectKnowledge.jsx";
 import ProjectOverview from "./ProjectOverview.jsx";
 import { projectSessions, remoteDisplay, remoteShort } from "./project-presentation.js";
-import { resolveProjectId } from "./useProjectHub.js";
 import { projectsRoute } from "./routes.js";
-const AgentBus = lazy(() => import("../agentbus/AgentBusPage.jsx"));
 
 function useRunTotal(memoryId) {
   const [total, setTotal] = useState(undefined);
@@ -39,7 +37,6 @@ function useRunTotal(memoryId) {
 
 export default function ProjectDetail({
   project,
-  projects,
   credentials,
   route,
   onNavigate,
@@ -48,6 +45,10 @@ export default function ProjectDetail({
   onLaunch,
   mobile,
   reloadHub,
+  busProjects,
+  busVersion,
+  busNote,
+  busError,
 }) {
   const runTotal = useRunTotal(project.memoryId);
   const sessions = projectSessions(allSessions, project);
@@ -55,7 +56,6 @@ export default function ProjectDetail({
   const branch = sessions.find((session) => session.branch)?.branch || "";
   const tab = route.projectTab || "overview";
   const Heading = mobile ? "h1" : "h2";
-  const canonical = (id) => (id ? resolveProjectId(projects, id) || id : "");
   const meta = [
     project.remote ? remoteShort(project.remote) : copy.localOnly,
     branch,
@@ -130,29 +130,22 @@ export default function ProjectDetail({
           />
         )}
         {tab === "agentbus" && (
-          // Interim: the pre-redesign AgentBus page, scoped to this project's bus.
-          <div className="project-legacy">
-            <Suspense fallback={<p className="loading">{appCopy.agentBusLoading}</p>}>
-              <AgentBus
-                request={api}
-                tab={route.busTab || "status"}
-                projectId={project.busId || project.id}
-                page={route.messagePage || 1}
-                onNavigate={(busTab, busId = "", replace = false, messagePage = 1) =>
-                  onNavigate(
-                    {
-                      ...route,
-                      projectTab: "agentbus",
-                      busTab,
-                      projectId: canonical(busId) || project.id,
-                      messagePage,
-                    },
-                    replace,
-                  )
-                }
-              />
-            </Suspense>
-          </div>
+          <ProjectAgentBus
+            request={api}
+            project={project}
+            busProjects={busProjects}
+            busVersion={busVersion}
+            busNote={busNote}
+            busError={busError}
+            reloadBus={reloadHub}
+            route={route}
+            onNavigate={(busTab, messagePage = 1, replace = false) =>
+              onNavigate(
+                { ...route, projectTab: "agentbus", busTab, messagePage },
+                replace,
+              )
+            }
+          />
         )}
         {tab === "runs" && (
           <div className="project-runs">

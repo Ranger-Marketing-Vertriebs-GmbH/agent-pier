@@ -169,7 +169,6 @@ export default function ProjectsPage({
               <ProjectDetail
                 key={project.id}
                 project={project}
-                projects={projects}
                 credentials={hub.credentials}
                 route={route}
                 onNavigate={onNavigate}
@@ -178,6 +177,10 @@ export default function ProjectsPage({
                 onLaunch={onLaunch}
                 mobile={mobile}
                 reloadHub={reload}
+                busProjects={hub.busProjects}
+                busVersion={hub.busVersion}
+                busNote={hub.busNote}
+                busError={hub.errors.agentbus}
               />
             ) : missing ? (
               <section className="project-card project-missing">

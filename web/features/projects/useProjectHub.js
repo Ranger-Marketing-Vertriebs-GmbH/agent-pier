@@ -114,7 +114,7 @@ export default function useProjectHub() {
     credentials: [],
     memoryProjects: [],
   });
-  const [busProjects, setBusProjects] = useState([]);
+  const [busData, setBusData] = useState({ version: "", note: "", projects: [] });
   const [attention, setAttention] = useState({ decisions: {}, failed: {} });
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({ repositories: "", memory: "", agentbus: "" });
@@ -149,7 +149,12 @@ export default function useProjectHub() {
           ...current,
           memoryProjects: memory.value.projects || [],
         }));
-      if (bus.status === "fulfilled") setBusProjects(bus.value.projects || []);
+      if (bus.status === "fulfilled")
+        setBusData({
+          version: bus.value.version || "",
+          note: bus.value.note || "",
+          projects: bus.value.projects || [],
+        });
       sourceError(
         "repositories",
         repositories.status === "rejected" ? repositories.reason.message : "",
@@ -174,7 +179,11 @@ export default function useProjectHub() {
       try {
         const data = await api("/agentbus");
         if (active) {
-          setBusProjects(data.projects || []);
+          setBusData({
+            version: data.version || "",
+            note: data.note || "",
+            projects: data.projects || [],
+          });
           sourceError("agentbus", "");
         }
       } catch (failure) {
@@ -203,9 +212,9 @@ export default function useProjectHub() {
       mergeProjects({
         repositories,
         memoryProjects: sources.memoryProjects,
-        busProjects,
+        busProjects: busData.projects,
       }),
-    [repositories, sources.memoryProjects, busProjects],
+    [repositories, sources.memoryProjects, busData.projects],
   );
   return {
     projects,
@@ -216,6 +225,8 @@ export default function useProjectHub() {
     reload,
     credentials: sources.credentials,
     attention,
-    busProjects,
+    busProjects: busData.projects,
+    busVersion: busData.version,
+    busNote: busData.note,
   };
 }
