@@ -15,6 +15,7 @@ export const memoryCopy = {
   empty: "No entries yet.",
   active: "Active",
   archived: "Archive",
+  countsUnavailable: "The entry counts could not be loaded.",
   archive: (title) => `Archive: ${title}`,
   restore: (title) => `Restore: ${title}`,
   edit: (title) => `Edit: ${title}`,

@@ -50,6 +50,76 @@ test("a slow source does not bring back an AgentBus error a newer poll cleared",
   expect(reads(calls, "/api/agentbus")).toBeGreaterThanOrEqual(2);
 });
 
+function countControls() {
+  const controls = { fail: true };
+  controls.intercept = async (route, url) => {
+    const entries = url.pathname.endsWith("/entries") && !url.searchParams.has("q");
+    const messages = url.pathname.endsWith("/messages");
+    if (!entries && !messages) return false;
+    if (controls.fail)
+      await route.fulfill({ status: 503, json: { error: "Zähler nicht erreichbar" } });
+    else if (entries)
+      await route.fulfill({
+        json: {
+          items: [],
+          page: 1,
+          pageSize: 20,
+          total: url.searchParams.get("archived") === "true" ? 1 : 4,
+        },
+      });
+    else await route.fulfill({ json: { messages: [], page: 1, pageSize: 20, total: 2 } });
+    return true;
+  };
+  return controls;
+}
+
+test("failed entry counts show no fake zero and retry recovers", async ({ page }) => {
+  const controls = countControls();
+  await hubFixture(page, controls);
+  await page.goto(base + "/projects/m1?tab=knowledge");
+  const segment = page.getByRole("group", { name: "Wissenseinträge" });
+  const hint = page.getByText("Die Anzahl der Einträge konnte nicht geladen werden.");
+  await expect(hint).toBeVisible();
+  await expect(segment.getByRole("button")).toHaveText(["Aktiv", "Archiv"]);
+  controls.fail = false;
+  await page.getByRole("button", { name: "Erneut versuchen" }).click();
+  await expect(segment.getByRole("button")).toHaveText(["Aktiv · 4", "Archiv · 1"]);
+  await expect(hint).toHaveCount(0);
+});
+
+test("a failed message count shows no fake zero and retry recovers", async ({ page }) => {
+  const controls = countControls();
+  await hubFixture(page, controls);
+  await page.goto(base + "/projects/m1?tab=agentbus");
+  const segment = page.getByRole("tablist", { name: "AgentBus-Ansicht" });
+  const hint = page.getByText("Die Anzahl der Nachrichten konnte nicht geladen werden.");
+  await expect(hint).toBeVisible();
+  await expect(segment.getByRole("tab")).toHaveText(["Sitzungen · 1", "Nachrichten"]);
+  controls.fail = false;
+  await page.getByRole("button", { name: "Erneut versuchen" }).click();
+  await expect(segment.getByRole("tab")).toHaveText(["Sitzungen · 1", "Nachrichten · 2"]);
+  await expect(hint).toHaveCount(0);
+});
+
+test.describe("English count hints", () => {
+  test.use({ locale: "en-GB" });
+
+  test("failed counts are explained in English", async ({ page }) => {
+    await hubFixture(page, countControls());
+    await page.goto(base + "/projects/m1?tab=knowledge");
+    await expect(page.getByText("The entry counts could not be loaded.")).toBeVisible();
+    await expect(
+      page.getByRole("group", { name: "Knowledge entries" }).getByRole("button"),
+    ).toHaveText(["Active", "Archive"]);
+    await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+    await page.getByRole("tab", { name: /^AgentBus/ }).click();
+    await expect(page.getByText("The message count could not be loaded.")).toBeVisible();
+    await expect(
+      page.getByRole("tablist", { name: "AgentBus view" }).getByRole("tab"),
+    ).toHaveText(["Sessions · 1", "Messages"]);
+  });
+});
+
 test("saving a knowledge entry does not sweep the run hints again", async ({ page }) => {
   const calls = await hubFixture(page);
   await page.goto(base + "/projects/m1?tab=knowledge");

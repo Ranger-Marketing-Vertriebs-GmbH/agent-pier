@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import StatusChip from "../../components/StatusChip.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
@@ -6,6 +6,7 @@ import { projectAgentBusCopy as copy } from "../../lib/i18n/messages/agentbus.js
 import { projectOverviewCopy } from "../../lib/i18n/messages/projects.js";
 import { names } from "../../lib/providers.js";
 import MessageLog from "../agentbus/MessageLog.jsx";
+import CountUnavailable from "./CountUnavailable.jsx";
 
 // The AgentBus tab is scoped to this hub project's own AgentBus id. Status data comes
 // from the hub's own /agentbus poll (passed in as props); only the messages segment
@@ -32,19 +33,35 @@ export default function ProjectAgentBus({
   // status poll's pending-inbox count. While the messages segment is shown, MessageLog
   // reports its own (already polling) total; otherwise a single one-shot read on mount
   // or project change keeps the count current without a second poll.
-  const [messagesTotal, setMessagesTotal] = useState(0);
+  // The count is null until it is known and never shown as a fake 0 after a failure.
+  const [messages, setMessages] = useState({ busProjectId: "", total: null });
+  const [countFailed, setCountFailed] = useState(false);
+  const [countRead, setCountRead] = useState(0);
+  const messagesTotal = messages.busProjectId === busProjectId ? messages.total : null;
+  const reportTotal = useCallback(
+    (total) => {
+      setMessages({ busProjectId, total: total ?? null });
+      setCountFailed(false);
+    },
+    [busProjectId],
+  );
   useEffect(() => {
+    setCountFailed(false);
     if (!busProjectId || busTab === "messages") return;
     let active = true;
     request(`/agentbus/projects/${encodeURIComponent(busProjectId)}/messages?page=1`)
       .then((result) => {
-        if (active) setMessagesTotal(result.total || 0);
+        if (active) reportTotal(result.total || 0);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!active) return;
+        setMessages({ busProjectId, total: null });
+        setCountFailed(true);
+      });
     return () => {
       active = false;
     };
-  }, [request, busProjectId, busTab]);
+  }, [request, busProjectId, busTab, countRead, reportTotal]);
   return (
     <div className="project-agentbus">
       <div className="project-agentbus-toolbar">
@@ -65,7 +82,9 @@ export default function ProjectAgentBus({
             className={busTab === "messages" ? "selected" : ""}
             onClick={() => changeTab("messages")}
           >
-            {copy.messagesSegment(messagesTotal)}
+            {messagesTotal === null
+              ? copy.messagesLabel
+              : copy.messagesSegment(messagesTotal)}
           </button>
         </div>
         {busProject && (
@@ -75,6 +94,12 @@ export default function ProjectAgentBus({
           </p>
         )}
       </div>
+      {countFailed && busTab === "status" && (
+        <CountUnavailable
+          message={copy.messageCountUnavailable}
+          onRetry={() => setCountRead((value) => value + 1)}
+        />
+      )}
       {busError && (
         <div className="extension-load-error">
           <ErrorMessage error={busError} as="p" />
@@ -134,7 +159,7 @@ export default function ProjectAgentBus({
           request={request}
           project={busProject}
           page={route.messagePage || 1}
-          onTotal={setMessagesTotal}
+          onTotal={reportTotal}
           onPage={(next, replace = false) => onNavigate("messages", next, replace)}
         />
       ) : (
