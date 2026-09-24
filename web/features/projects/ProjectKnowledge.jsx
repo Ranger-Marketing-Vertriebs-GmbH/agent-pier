@@ -131,7 +131,7 @@ export default function ProjectKnowledge({ project, route, onNavigate, reloadHub
           />
           <button className="button secondary compact">{copy.search}</button>
         </form>
-        <div className="project-knowledge-segment" role="group" aria-label={copy.entries}>
+        <div className="segment" role="group" aria-label={copy.entries}>
           <button
             type="button"
             className={archived ? "" : "selected"}

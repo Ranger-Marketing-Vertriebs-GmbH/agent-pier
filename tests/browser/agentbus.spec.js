@@ -46,13 +46,29 @@ test("bundled AgentBus status groups this project's sessions without consuming i
           ],
         },
       });
+    if (url.pathname === "/api/agentbus/projects/demo/messages")
+      return route.fulfill({
+        json: {
+          projectId: "demo",
+          page: Number(url.searchParams.get("page") || 1),
+          pageSize: 20,
+          // Deliberately different from the status poll's pending-inbox total (2), to
+          // prove the segment count comes from the message log, not the status data.
+          total: 3,
+          items: [],
+        },
+      });
     return route.fulfill({ json: {} });
   });
   await page.goto(base + "/projects?tab=agentbus");
   await expect(page).toHaveURL(/\/projects\/demo\?tab=agentbus$/);
   await expect(page.getByRole("heading", { name: "Website", exact: true })).toBeVisible();
-  await expect(page.getByRole("tab", { name: /^Sitzungen/ })).toContainText("2");
-  await expect(page.getByRole("tab", { name: /^Nachrichten/ })).toContainText("2");
+  await expect(
+    page.getByRole("tab", { name: "Sitzungen · 2", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("tab", { name: "Nachrichten · 3", exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByText("1 verbunden · 2 Nachrichten warten · Version 0.1.0"),
   ).toBeVisible();
@@ -78,10 +94,11 @@ test("bundled AgentBus status groups this project's sessions without consuming i
   expect(calls.every((c) => c.method === "GET")).toBeTruthy();
 });
 
-test("the status poll is not duplicated while the AgentBus tab is open", async ({
+test("the status poll is not duplicated, and the message count is read once, while the AgentBus tab is open", async ({
   page,
 }) => {
-  let agentbusCalls = 0;
+  let agentbusCalls = 0,
+    messagesCalls = 0;
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === "/api/state")
@@ -100,6 +117,12 @@ test("the status poll is not duplicated while the AgentBus tab is open", async (
         },
       });
     }
+    if (url.pathname === "/api/agentbus/projects/demo/messages") {
+      messagesCalls += 1;
+      return route.fulfill({
+        json: { projectId: "demo", page: 1, pageSize: 20, total: 0, items: [] },
+      });
+    }
     return route.fulfill({ json: {} });
   });
   await page.goto(base + "/projects?tab=agentbus");
@@ -107,6 +130,8 @@ test("the status poll is not duplicated while the AgentBus tab is open", async (
   await page.waitForTimeout(9000);
   // One initial load plus at most two 4 s polling ticks; a duplicate poller would double this.
   expect(agentbusCalls).toBeLessThanOrEqual(4);
+  // The message count is read once on mount, not polled, while the status segment stays open.
+  expect(messagesCalls).toBe(1);
 });
 
 test("a hub project without an AgentBus id shows the existing empty texts", async ({
