@@ -342,18 +342,11 @@
   flex-direction: column;
 }
 .project-knowledge-entry {
-  border-bottom: 1px solid #303137;
-}
-.project-knowledge-entry-toggle {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  width: 100%;
   padding: 16px 0;
-  border: 0;
-  background: none;
-  text-align: left;
-  color: inherit;
+  border-bottom: 1px solid #303137;
   cursor: pointer;
 }
 .project-knowledge-entry-head {
@@ -362,21 +355,42 @@
   justify-content: space-between;
   gap: 12px;
 }
-.project-knowledge-entry-title {
+.project-knowledge-entry-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #e8e8ec;
   font-size: 14px;
   font-weight: 600;
-  color: #e8e8ec;
+  text-align: left;
+  cursor: pointer;
   overflow-wrap: anywhere;
 }
-.project-knowledge-entry-toggle[aria-expanded="true"] .project-knowledge-entry-title {
+.project-knowledge-entry-toggle[aria-expanded="true"] {
   color: #ffc99d;
+}
+.project-knowledge-entry-chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+.project-knowledge-entry-toggle[aria-expanded="true"] .project-knowledge-entry-chevron {
+  transform: rotate(90deg);
 }
 .project-knowledge-entry-time {
   flex-shrink: 0;
   font-size: 10px;
   color: #8b8c90;
 }
-.project-knowledge-entry-toggle p {
+.project-knowledge-entry-body {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.project-knowledge-entry-body p {
   margin: 0;
   font-size: 12px;
   line-height: 1.7;
@@ -388,7 +402,7 @@
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
-.project-knowledge-entry-toggle p.expanded {
+.project-knowledge-entry-body p.expanded {
   -webkit-line-clamp: unset;
   overflow: visible;
 }
@@ -401,7 +415,6 @@
   justify-content: flex-end;
   gap: 6px;
   flex-wrap: wrap;
-  padding-bottom: 16px;
 }
 .project-knowledge-entry-actions .button {
   height: 28px;
@@ -568,7 +581,7 @@ dialog.project-dialog[open] {
   .project-knowledge-toolbar form {
     flex-basis: 100%;
   }
-  .project-knowledge-entry-toggle {
+  .project-knowledge-entry {
     padding: 12px 0;
   }
 }

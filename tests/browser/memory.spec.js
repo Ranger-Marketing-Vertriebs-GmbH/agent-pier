@@ -150,12 +150,16 @@ test("clicking a knowledge entry expands it and reveals its actions", async ({
 }) => {
   await fixture(page);
   await page.goto(baseURL + "/projects/project-one?tab=knowledge");
-  const toggle = page.getByRole("button", { name: /^Build command/ });
+  // The toggle's accessible name is the title alone (never the up-to-32KB content),
+  // even while collapsed.
+  const toggle = page.getByRole("button", { name: "Build command", exact: true });
+  await expect(toggle).toHaveAccessibleName("Build command");
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(
     page.getByRole("button", { name: "Bearbeiten: Build command" }),
   ).toHaveCount(0);
   await toggle.click();
+  await expect(toggle).toHaveAccessibleName("Build command");
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await expect(
     page.getByRole("button", { name: "Bearbeiten: Build command" }),
