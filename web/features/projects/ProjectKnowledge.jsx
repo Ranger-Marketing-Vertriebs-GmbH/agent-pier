@@ -66,11 +66,6 @@ export default function ProjectKnowledge({ project, route, onNavigate, reloadHub
   useEffect(() => {
     setSearch(query);
   }, [query]);
-  useEffect(() => {
-    setEditor(null);
-    setHistory(null);
-    setExpanded("");
-  }, [project.id]);
   const navigate = (changes) =>
     onNavigate({ ...route, projectId: project.id, projectTab: "knowledge", ...changes });
   const bump = () => {
@@ -184,25 +179,39 @@ export default function ProjectKnowledge({ project, route, onNavigate, reloadHub
         )}
         {state.data?.items.map((entry) => {
           const open = expanded === entry.id;
+          const bodyId = `project-knowledge-body-${entry.id}`;
+          const toggle = () => setExpanded(open ? "" : entry.id);
+          const stopAnd = (run) => (event) => {
+            event.stopPropagation();
+            run();
+          };
           return (
-            <article className="project-knowledge-entry" key={entry.id}>
-              <button
-                type="button"
-                className="project-knowledge-entry-toggle"
-                aria-expanded={open}
-                onClick={() => setExpanded(open ? "" : entry.id)}
-              >
-                <span className="project-knowledge-entry-head">
-                  <span className="project-knowledge-entry-title">{entry.title}</span>
-                  <span className="project-knowledge-entry-time">
-                    {relativeTime(entry.updatedAt)}
-                  </span>
+            <article className="project-knowledge-entry" key={entry.id} onClick={toggle}>
+              <div className="project-knowledge-entry-head">
+                <button
+                  type="button"
+                  className="project-knowledge-entry-toggle"
+                  aria-expanded={open}
+                  aria-controls={bodyId}
+                  onClick={stopAnd(toggle)}
+                >
+                  <Icon
+                    name="chevron"
+                    size={14}
+                    className="project-knowledge-entry-chevron"
+                  />
+                  {entry.title}
+                </button>
+                <span className="project-knowledge-entry-time">
+                  {relativeTime(entry.updatedAt)}
                 </span>
+              </div>
+              <div id={bodyId} className="project-knowledge-entry-body">
                 <p className={open ? "expanded" : ""}>{entry.content}</p>
                 <span className="project-knowledge-entry-meta">
                   {entryAuthor(entry)} · {copy.version(entry.revision)}
                 </span>
-              </button>
+              </div>
               {open && (
                 <div className="project-knowledge-entry-actions">
                   {!entry.archived && (
@@ -210,7 +219,7 @@ export default function ProjectKnowledge({ project, route, onNavigate, reloadHub
                       type="button"
                       className="button secondary compact"
                       aria-label={copy.edit(entry.title)}
-                      onClick={() => setEditor({ entry })}
+                      onClick={stopAnd(() => setEditor({ entry }))}
                     >
                       {copy.editEntry}
                     </button>
@@ -219,7 +228,7 @@ export default function ProjectKnowledge({ project, route, onNavigate, reloadHub
                     type="button"
                     className="button secondary compact"
                     aria-label={copy.history(entry.title)}
-                    onClick={() => setHistory(entry)}
+                    onClick={stopAnd(() => setHistory(entry))}
                   >
                     {copy.historyTitle}
                   </button>
@@ -232,7 +241,7 @@ export default function ProjectKnowledge({ project, route, onNavigate, reloadHub
                         : copy.archive(entry.title)
                     }
                     disabled={action.busy}
-                    onClick={() => changeArchive(entry)}
+                    onClick={stopAnd(() => changeArchive(entry))}
                   >
                     {entry.archived ? copy.active : copy.archived}
                   </button>
