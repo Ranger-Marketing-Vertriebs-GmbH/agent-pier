@@ -34,7 +34,17 @@ function RunRow({ run, onOpen, showProject }) {
         >
           <strong className="run-table-title">{title}</strong>
         </button>
-        <span className="run-table-pipeline">{run.pipelineName}</span>
+        <span className="run-table-pipeline">
+          {run.pipelineName}
+          {run.createdAt && (
+            <>
+              {" · "}
+              <time dateTime={run.createdAt}>
+                {copy.runStarted(formatTimestamp(run.createdAt))}
+              </time>
+            </>
+          )}
+        </span>
       </div>
       {showProject && (
         <div role="cell" className="run-table-project">
@@ -62,18 +72,7 @@ function RunRow({ run, onOpen, showProject }) {
         </StatusChip>
       </div>
       <div role="cell" className="run-table-updated">
-        {updated && (
-          <time
-            dateTime={updated}
-            title={
-              run.createdAt
-                ? copy.verificationStarted(formatTimestamp(run.createdAt))
-                : undefined
-            }
-          >
-            {formatTimestamp(updated)}
-          </time>
-        )}
+        {updated && <time dateTime={updated}>{formatTimestamp(updated)}</time>}
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ export const pipelineCopy = {
   runStageProgress: (done, total) => `${done} von ${total} Stufen abgeschlossen`,
   runProgressShort: (done, total, stage) =>
     stage ? `${done}/${total} · ${stage}` : `${done}/${total}`,
+  runStarted: (time) => `Gestartet: ${time}`,
   progress: "Fortschritt",
   updated: "Aktualisiert",
   runOverview: "Laufübersicht",

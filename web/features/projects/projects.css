@@ -264,7 +264,11 @@
     600 17px "Manrope",
     sans-serif;
 }
-.project-missing p,
+.project-missing p {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #9d9ea2;
+}
 .project-runs {
   display: grid;
   justify-items: start;

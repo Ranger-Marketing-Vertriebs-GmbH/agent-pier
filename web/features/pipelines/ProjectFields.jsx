@@ -33,7 +33,13 @@ export default function ProjectFields({
               onChange={(id) => onChange(id)}
               options={projects.map((project) => ({
                 value: project.id,
-                label: project.name,
+                // Worktrees share a name, so the folder is part of the name.
+                label: (
+                  <>
+                    <span className="run-dialog-option-name">{project.name}</span>{" "}
+                    <span className="run-dialog-option-path">{project.cwd}</span>
+                  </>
+                ),
                 title: project.cwd,
               }))}
             />

@@ -223,7 +223,7 @@ test("newly registered project supplies the run working directory", async ({ pag
   await expect(
     dialog
       .getByRole("radiogroup", { name: "Projekt", exact: true })
-      .getByRole("radio", { name: "Registered", exact: true }),
+      .getByRole("radio", { name: "Registered /fixture/registered", exact: true }),
   ).toBeChecked();
   await dialog.getByLabel("Aufgabe", { exact: true }).fill("Build registered project");
   await dialog.getByRole("button", { name: "Lauf starten", exact: true }).click();
@@ -459,7 +459,14 @@ for (const width of [1440, 390]) {
     await expect(rows.first()).toContainText("Aktuelle Stufe: Planer");
     await expect(rows.first()).toContainText("0 von 1 Stufen abgeschlossen");
     await expect(rows.first().getByTitle("/fixture/project")).toHaveText("project");
-    await expect(rows.first().locator("time")).toHaveAttribute("title", /^Gestartet: /);
+    await expect(rows.first().getByText(/^Gestartet: /)).toBeVisible();
+    const projectCell = await rows.first().getByTitle("/fixture/project").boundingBox();
+    expect(
+      await page.evaluate(
+        ([x, y]) => document.elementFromPoint(x, y)?.closest("[title]")?.title,
+        [projectCell.x + projectCell.width / 2, projectCell.y + projectCell.height / 2],
+      ),
+    ).toBe("/fixture/project");
     await expect(rows.nth(1)).toHaveCSS("background-color", "rgb(29, 25, 21)");
     await expect(rows.nth(0)).not.toHaveCSS("background-color", "rgb(29, 25, 21)");
     const headers = page.getByRole("columnheader");
@@ -506,20 +513,31 @@ for (const width of [1440, 390]) {
 test("the start-run dialog opens over the list, preselects a definition and closes back", async ({
   page,
 }) => {
-  await pipelinesFixture(page);
+  const state = await pipelinesFixture(page);
+  state.projects.push({ id: "project-two", name: "Projekt", cwd: "/fixture/worktree" });
   await openPipelines(page, "runs");
   await page.getByRole("button", { name: "Lauf starten", exact: true }).click();
   await expect(page).toHaveURL(/\/pipelines\/runs\/new$/);
   const dialog = startDialog(page);
+  const projectRadios = dialog
+    .getByRole("radiogroup", { name: "Projekt", exact: true })
+    .getByRole("radio");
+  await expect(projectRadios).toHaveCount(2);
   await expect(
-    dialog
-      .getByRole("radiogroup", { name: "Projekt", exact: true })
-      .getByRole("radio", { name: "Projekt", exact: true }),
+    dialog.getByRole("radio", { name: "Projekt /fixture/project", exact: true }),
   ).not.toBeChecked();
   await expect(
     dialog.getByLabel("Ausgangsbranch (optional)", { exact: true }),
   ).toBeVisible();
-  await dialog.getByRole("radio", { name: "Projekt", exact: true }).check();
+  await dialog
+    .getByRole("radio", { name: "Projekt /fixture/worktree", exact: true })
+    .check();
+  await expect(dialog.getByLabel("Arbeitsverzeichnis", { exact: true })).toHaveValue(
+    "/fixture/worktree",
+  );
+  await dialog
+    .getByRole("radio", { name: "Projekt /fixture/project", exact: true })
+    .check();
   await page.screenshot({ path: "test-results/pipeline-start-run-dialog.png" });
   await expect(dialog.getByLabel("Arbeitsverzeichnis", { exact: true })).toHaveValue(
     "/fixture/project",

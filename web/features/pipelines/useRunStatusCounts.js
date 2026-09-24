@@ -9,7 +9,7 @@ export default function useRunStatusCounts({
   enabled = true,
   version = 0,
 }) {
-  const [state, setState] = useState({ key: "", counts: null });
+  const [state, setState] = useState({ key: "", projectId: null, counts: null });
   const key = JSON.stringify([projectId, version]);
   useEffect(() => {
     if (!enabled) return;
@@ -31,7 +31,7 @@ export default function useRunStatusCounts({
           ),
         );
         if (!controller.signal.aborted)
-          setState({ key, counts: Object.fromEntries(totals) });
+          setState({ key, projectId, counts: Object.fromEntries(totals) });
       } catch {
         // The run list reports request failures; the pills keep their last counts.
       } finally {
@@ -44,5 +44,6 @@ export default function useRunStatusCounts({
       clearTimeout(timer);
     };
   }, [key, enabled, projectId]);
-  return state.key === key ? state.counts : null;
+  // A refresh keeps the last counts of the same project until the new ones arrive.
+  return state.projectId === projectId ? state.counts : null;
 }

@@ -193,6 +193,10 @@ test("the hub joins projects, selects the first one and resolves every id space"
   await expect(
     page.getByRole("heading", { name: "Projekt nicht gefunden" }),
   ).toBeVisible();
+  const missingText = page.locator(".project-missing p");
+  await expect(missingText).toHaveCSS("font-size", "12px");
+  await expect(missingText).toHaveCSS("color", "rgb(157, 158, 162)");
+  await expect(missingText).not.toHaveCSS("display", "grid");
   await page.getByRole("button", { name: "Alle Projekte" }).last().click();
   await expect(page).toHaveURL(/\/projects\/m1$/);
 
