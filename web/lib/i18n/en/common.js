@@ -101,7 +101,6 @@ export const commonCopy = {
   installCli: "Install CLI",
   saveMcp: "Save MCP",
   disabled: "Disabled",
-  installedHereSuffix: " · Installed here",
   jsonArray: "A JSON array",
   jsonObject: "A JSON object",
   model: "Model",

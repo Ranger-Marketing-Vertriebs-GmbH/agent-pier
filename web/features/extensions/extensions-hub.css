@@ -1,0 +1,444 @@
+.extensions-hub .page-heading {
+  margin: 40px 0 28px;
+}
+.extension-profiles .list-detail-caps {
+  padding: 0 12px;
+}
+.extension-profiles .list-detail-items {
+  gap: 4px;
+}
+.extension-profiles .list-detail-items > button {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  color: #cfd0d4;
+}
+.extension-profiles .list-detail-items > button:hover:not(:disabled) {
+  background: #222327;
+}
+.extension-profiles .list-detail-items > button.selected {
+  background: #26272b;
+}
+.extension-profile-name {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.extension-profile-name strong {
+  font-size: 12px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.extension-profiles .selected .extension-profile-name strong {
+  color: #ffc99d;
+}
+.extension-profile-name small {
+  font-size: 10px;
+  color: #8a8b8f;
+}
+.extension-hub-card {
+  min-width: 0;
+  background: #18191d;
+  border: 1px solid #303137;
+  border-radius: 9px;
+}
+.extension-hub-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 22px 0;
+}
+.extension-hub-header > div:first-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.extension-hub-header h2 {
+  font:
+    600 17px "Manrope",
+    sans-serif;
+  letter-spacing: -0.3px;
+  overflow-wrap: anywhere;
+}
+.extension-hub-header span {
+  font-size: 11px;
+  color: #8b8c90;
+  overflow-wrap: anywhere;
+}
+.extension-hub-header code {
+  color: #a3a4a8;
+}
+.extension-hub-primary .button {
+  height: 38px;
+  padding: 0 15px;
+  font-size: 11px;
+}
+.extension-hub-card .underline-tabs {
+  margin: 14px 22px 0;
+}
+.extension-tabpanel {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-width: 0;
+  padding: 14px 22px 22px;
+}
+.extension-tabpanel[hidden] {
+  display: none;
+}
+.extension-tabpanel .extension-confirm,
+.extension-tabpanel .extension-notice,
+.extension-tabpanel .extension-feedback,
+.extension-tabpanel .plugin-catalog-account {
+  margin: 0;
+}
+.extension-tabpanel .extension-profile {
+  margin-bottom: 9px;
+}
+.extension-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.extension-toolbar:empty {
+  display: none;
+}
+.extension-toolbar input {
+  flex: 1;
+  min-width: 0;
+}
+.extension-toolbar select {
+  flex: 0 1 220px;
+  min-width: 0;
+}
+.extension-toolbar .segment {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+.extension-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #9d9ea2;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.extension-hint > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #8b8c90;
+}
+.extension-hint > div {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.extension-hint details summary {
+  cursor: pointer;
+  color: #cdced2;
+}
+.extension-hint ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+.extension-table {
+  margin: 0 -22px;
+  min-width: 0;
+}
+.extension-table-head,
+.extension-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 0.9fr) 190px;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 22px;
+}
+.extension-table-head {
+  border-top: 1px solid #303137;
+  border-bottom: 1px solid #303137;
+  font-size: 12px;
+  color: #92949d;
+}
+.extension-row {
+  min-height: 68px;
+  border-bottom: 1px solid #303137;
+}
+.extension-row:hover {
+  background: #202125;
+}
+.extension-row-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.extension-row-main h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e8e8ec;
+  overflow-wrap: anywhere;
+}
+.extension-row-main p {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #a7a8ac;
+  overflow-wrap: anywhere;
+}
+.extension-row-main a {
+  color: #f49a58;
+}
+.extension-row-main .extension-path {
+  margin: 0;
+}
+.extension-row-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.extension-row-tag,
+.extension-row-status {
+  min-width: 0;
+}
+.extension-tag {
+  display: inline-block;
+  max-width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #3d3e42;
+  border-radius: 5px;
+  font-size: 10px;
+  color: #a5a6aa;
+  overflow-wrap: anywhere;
+}
+.extension-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #bfc0c4;
+  overflow-wrap: anywhere;
+}
+.extension-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #737478;
+  flex-shrink: 0;
+}
+.extension-status.on i {
+  background: #f49a58;
+}
+.extension-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.extension-row-toggle {
+  display: none;
+}
+.extension-table .extension-empty {
+  margin: 20px 22px;
+}
+.extension-panel-form .extension-fields {
+  padding: 0;
+  gap: 19px 18px;
+}
+.extension-field {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: #cdced2;
+}
+.extension-field .extension-path {
+  margin: 0;
+  font-weight: 400;
+}
+.agency-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+@media (max-width: 700px) {
+  .extensions-hub {
+    padding-bottom: 100px;
+  }
+  .extensions-hub .page-heading {
+    margin: 28px 0 20px;
+  }
+  .extension-profiles.list-detail {
+    gap: 18px;
+  }
+  .extension-profiles.list-detail.has-detail .list-detail-list,
+  .extension-profiles.list-detail .list-detail-detail {
+    display: block;
+  }
+  .extension-profiles .list-detail-caps {
+    display: none;
+  }
+  /* Chips show the profile name only; the CLI name stays in the accessible name. */
+  .extension-profile-name small {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .extension-profiles .list-detail-items {
+    flex-direction: row;
+    gap: 8px;
+    margin: 0 -23px;
+    padding: 0 23px 2px;
+    overflow-x: auto;
+  }
+  .extension-profiles .list-detail-items > button {
+    position: relative;
+    flex-shrink: 0;
+    gap: 9px;
+    padding: 6px 12px 6px 6px;
+    border: 1px solid #303137;
+    border-radius: 8px;
+  }
+  .extension-profiles .list-detail-items > button.selected {
+    border-color: #6b4a33;
+  }
+  .extension-profiles .provider-mark.small {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    font-size: 22px;
+  }
+  .extension-hub-card {
+    background: none;
+    border: 0;
+    border-radius: 0;
+  }
+  .extension-hub-header {
+    padding: 0;
+  }
+  .extension-hub-header h2 {
+    font-size: 15px;
+  }
+  .extension-hub-primary {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    padding: 14px 23px 22px;
+    background: #101114;
+    border-top: 1px solid #28292d;
+  }
+  .extension-hub-primary .button {
+    width: 100%;
+    height: 43px;
+    font-size: 12px;
+  }
+  .extension-hub-card .underline-tabs {
+    gap: 6px;
+    margin: 18px -23px 0;
+    padding: 0 23px;
+  }
+  .extension-hub-card .underline-tabs button {
+    padding: 11px 8px;
+    font-size: 13px;
+  }
+  .extension-hub-card .underline-tabs span {
+    padding: 1px 5px;
+    font-size: 11px;
+  }
+  .extension-tabpanel {
+    padding: 14px 0 0;
+  }
+  .extension-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .extension-toolbar select {
+    flex: none;
+  }
+  .extension-toolbar .segment {
+    margin-left: 0;
+  }
+  .extension-hint {
+    font-size: 11px;
+    line-height: 1.7;
+  }
+  .extension-table {
+    margin: 0;
+  }
+  .extension-table-head {
+    display: none;
+  }
+  .extension-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "main main toggle"
+      "status tag toggle"
+      "actions actions actions";
+    gap: 6px 10px;
+    min-height: 0;
+    padding: 15px 0;
+  }
+  .extension-row:hover {
+    background: none;
+  }
+  .extension-row-main {
+    grid-area: main;
+  }
+  .extension-row-main h3 {
+    font-size: 13px;
+  }
+  .extension-row-main p {
+    font-size: 11px;
+  }
+  .extension-row-status {
+    grid-area: status;
+  }
+  .extension-row-tag {
+    grid-area: tag;
+  }
+  .extension-status {
+    gap: 7px;
+    font-size: 10px;
+    color: #97989c;
+  }
+  .extension-status i {
+    width: 5px;
+    height: 5px;
+  }
+  .extension-row-actions {
+    grid-area: actions;
+    display: none;
+    justify-content: flex-start;
+    padding-top: 6px;
+  }
+  .extension-row.open .extension-row-actions {
+    display: flex;
+  }
+  .extension-row-toggle {
+    display: inline-flex;
+    grid-area: toggle;
+    align-self: center;
+    color: #6e6f73;
+  }
+  .extension-row.open .extension-row-toggle svg {
+    transform: rotate(90deg);
+  }
+  .extension-table .extension-empty {
+    margin: 16px 0;
+    padding: 16px;
+  }
+  .extension-panel-form .extension-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

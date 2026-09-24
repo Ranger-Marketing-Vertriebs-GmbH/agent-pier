@@ -1,6 +1,11 @@
 import { test, expect } from "@playwright/test";
 import { navigateTo } from "../helpers/navigation.js";
 import { baseURL } from "../helpers/browser.js";
+import {
+  emptyExtensions,
+  expectProfilesDisabled,
+  openTab,
+} from "../helpers/extensions.js";
 
 const builtin = {
   name: "openai-curated-remote",
@@ -73,13 +78,20 @@ async function setup(page) {
       reads.push(id);
       return route.fulfill({ json: inventory(id, installed.has(id)) });
     }
+    if (url.pathname.endsWith("/extensions"))
+      return route.fulfill({ json: emptyExtensions() });
     return route.fulfill({ json: {} });
   });
   await page.goto(baseURL);
   await navigateTo(page, "Erweiterungen");
+  // The extensions page reads plugins for its tab counts; count only the reads
+  // of the plugins deep link below.
+  await expect(page.getByRole("tab", { name: "Plugins 0", exact: true })).toBeVisible();
+  reads.length = 0;
   const extensionsUrl = new URL(page.url());
   extensionsUrl.searchParams.set("tab", "plugins");
   await page.goto(extensionsUrl.toString());
+  await page.getByRole("button", { name: "Plugins entdecken", exact: true }).click();
   return { writes, reads };
 }
 
@@ -98,11 +110,14 @@ test("Codex native marketplace uses an explicit catalog account and has no sourc
     page.getByText("Der Standard-Marketplace benötigt ein angemeldetes Codex-Konto."),
   ).toBeVisible();
   expect(reads).toEqual(["local-codex"]);
+  await openTab(page, "Marketplaces");
   const market = page.getByRole("article").filter({
     has: page.getByRole("heading", { name: "Codex-Standard-Marketplace", exact: true }),
   });
   await expect(market).toBeVisible();
   await expect(market.getByRole("button")).toHaveCount(0);
+  await openTab(page, "Plugins");
+  await expect(page.getByRole("radio", { name: /^Entdecken/ })).toBeChecked();
   await page.getByLabel("Marketplace filtern").selectOption("openai-curated-remote");
   await expect(
     page
@@ -127,7 +142,7 @@ test("Codex native marketplace uses an explicit catalog account and has no sourc
   });
   await page.getByRole("button", { name: "Plugin Remote Demo installieren" }).click();
   await expect(selector).toBeDisabled();
-  await expect(page.getByLabel("CLI", { exact: true })).toBeDisabled();
+  await expectProfilesDisabled(page);
   release();
   await expect(selector).toBeEnabled();
   await expect(
@@ -145,9 +160,17 @@ test("Codex native marketplace uses an explicit catalog account and has no sourc
   await expect(
     page.getByRole("button", { name: "Plugin Remote Demo installieren" }),
   ).toBeEnabled();
+  await page.getByRole("radio", { name: /^Installiert/ }).check();
+  await expect(page.getByText("Noch keine Plugins installiert.")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Plugin Remote Demo entfernen" }),
   ).toHaveCount(0);
+  await page.getByRole("radio", { name: /^Entdecken/ }).check();
+  await selector.selectOption("work-codex");
+  await page.getByRole("radio", { name: /^Installiert/ }).check();
+  await expect(
+    page.getByRole("button", { name: "Plugin Remote Demo entfernen" }),
+  ).toBeVisible();
 });
 
 for (const failure of [false, true]) {

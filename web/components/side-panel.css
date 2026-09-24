@@ -80,4 +80,8 @@
     border-top: 1px solid #505155;
     border-radius: 14px 14px 0 0;
   }
+  .side-panel-footer .button {
+    height: 43px;
+    font-size: 12px;
+  }
 }

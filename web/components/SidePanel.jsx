@@ -8,6 +8,7 @@ export default function SidePanel({
   closeDisabled = false,
   footer,
   children,
+  cancelLabel = commonCopy.cancel,
 }) {
   const ref = useRef(null);
   const titleId = useId();
@@ -61,7 +62,7 @@ export default function SidePanel({
           disabled={closeDisabled}
           onClick={close}
         >
-          {commonCopy.cancel}
+          {cancelLabel}
         </button>
         {footer}
       </div>

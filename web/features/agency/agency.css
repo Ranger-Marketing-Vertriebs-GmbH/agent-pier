@@ -1,16 +1,25 @@
-.agency-toggle {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  text-align: left;
-}
 .agency-browser {
   display: grid;
-  gap: 16px;
+  gap: 14px;
   min-width: 0;
 }
-.agency-browser > .button {
-  justify-self: start;
+.agency-preview {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+  min-width: 0;
+}
+.agency-preview > p:first-child {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #cdced2;
+}
+.agency-preview a {
+  font-size: 12px;
+  color: #f49a58;
+}
+.agency-preview pre {
+  justify-self: stretch;
 }
 .agency-preview pre {
   white-space: pre-wrap;

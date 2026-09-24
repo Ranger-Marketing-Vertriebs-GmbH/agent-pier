@@ -10,7 +10,6 @@ export const pluginCatalogCopy = localizedCopy(
   de.pluginCatalogCopy,
   en.pluginCatalogCopy,
 );
-export const pluginsPageCopy = localizedCopy(de.pluginsPageCopy, en.pluginsPageCopy);
 export const profilePluginsCopy = localizedCopy(
   de.profilePluginsCopy,
   en.profilePluginsCopy,

@@ -1,5 +1,4 @@
 export const agencyCopy = {
-  title: "Agency Agents",
   description:
     "Spezialisierte Agenten aus msitarzewski/agency-agents. Wähle einzelne Agenten für alle Accounts dieser CLI aus.",
   search: "Agency-Agenten suchen",
@@ -11,6 +10,10 @@ export const agencyCopy = {
   remove: "Agent entfernen",
   installed: "Installiert",
   installedTitle: "Installierte Agency-Agenten",
+  noInstalled: "Noch keine Agency-Agenten installiert.",
+  scope: "Installierte Agenten gelten für alle Accounts dieser CLI.",
+  appliesTo: (tool) => `Gilt für alle ${tool}-Accounts`,
+  catalogView: (count) => `Katalog · ${count}`,
   empty: "Keine passenden Agenten gefunden.",
   loading: "Agency-Katalog wird geladen …",
   stale:

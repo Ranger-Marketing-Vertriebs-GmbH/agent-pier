@@ -1,6 +1,7 @@
 import { navigateTo } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
+import { profileList } from "../helpers/extensions.js";
 async function fixture(page, { delay = 0, shellFirst = false, extraSessions = [] } = {}) {
   const accounts = [
     { id: "local-codex", name: "Codex Lokal", tool: "codex", kind: "local" },
@@ -100,22 +101,19 @@ test("Shell profile deep links are rejected and never become the profile navigat
   }
   await navigateTo(page, "Erweiterungen");
   await expect(page).toHaveURL(/\/extensions\/local-codex$/);
-  await expect(page.getByRole("combobox", { name: "CLI-Profil" })).toHaveValue(
-    "local-codex",
-  );
   await expect(
-    page
-      .getByRole("combobox", { name: "CLI-Profil" })
-      .locator('option[value="local-shell"]'),
-  ).toHaveCount(0);
+    profileList(page).getByRole("button", { name: /Codex Lokal/ }),
+  ).toHaveAttribute("aria-current", "true");
+  await expect(profileList(page).getByRole("button", { name: /Shell/ })).toHaveCount(0);
   await navigateTo(page, "Erweiterungen");
   await page.goto(`${base}/extensions/local-codex?tab=plugins`);
   await expect(page).toHaveURL(/\/extensions\/local-codex\?tab=plugins$/);
-  await expect(
-    page
-      .getByRole("combobox", { name: "CLI-Profil" })
-      .locator('option[value="local-shell"]'),
-  ).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: /^Plugins/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(profileList(page).getByRole("button")).toHaveCount(2);
+  await expect(profileList(page).getByRole("button", { name: /Shell/ })).toHaveCount(0);
   expect(
     calls.filter((call) => call.path.startsWith("/api/accounts/local-shell/")),
   ).toEqual([]);
@@ -123,21 +121,29 @@ test("Shell profile deep links are rejected and never become the profile navigat
 test("profile deep links and navigation survive reload and history", async ({ page }) => {
   await fixture(page);
   await page.goto(base + "/extensions/work-claude");
-  await expect(page.getByRole("combobox", { name: "CLI-Profil" })).toHaveValue(
-    "work-claude",
-  );
-  await page.getByRole("combobox", { name: "CLI-Profil" }).selectOption("local-codex");
+  const claude = profileList(page).getByRole("button", { name: /Claude Code/ });
+  const codex = profileList(page).getByRole("button", { name: /Codex Lokal/ });
+  await expect(claude).toHaveAttribute("aria-current", "true");
+  await codex.click();
   await expect(page).toHaveURL(/\/extensions\/local-codex$/);
+  await expect(codex).toHaveAttribute("aria-current", "true");
   await page.goBack();
-  await expect(page.getByRole("combobox", { name: "CLI-Profil" })).toHaveValue(
-    "work-claude",
+  await expect(claude).toHaveAttribute("aria-current", "true");
+  await page.getByRole("tab", { name: /^Skills/ }).click();
+  await expect(page).toHaveURL(/\/extensions\/work-claude\?tab=skills$/);
+  await page.goBack();
+  await expect(page.getByRole("tab", { name: /^MCP-Server/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
   );
   await navigateTo(page, "Erweiterungen");
   await page.goto(`${base}/extensions/work-claude?tab=plugins`);
   await expect(page).toHaveURL(/\/extensions\/work-claude\?tab=plugins$/);
   await page.reload();
-  await expect(page.getByRole("combobox", { name: "CLI-Profil" })).toHaveValue(
-    "work-claude",
+  await expect(claude).toHaveAttribute("aria-current", "true");
+  await expect(page.getByRole("tab", { name: /^Plugins/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
   );
   await navigateTo(page, "Accounts");
   await expect(page).toHaveURL(/\/accounts$/);
