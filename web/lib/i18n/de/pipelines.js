@@ -36,7 +36,6 @@ export const pipelineCopy = {
   projectDirectory: "Projektordner registrieren",
   accountDefault: "Account-Standard",
   interactive: "Interaktiv",
-  editLabel: "Bearbeiten",
   description: "Aufgabenprofile, überprüfbare Arbeitsschritte und native Sitzungen.",
   runs: "Läufe",
   definitions: "Definitionen",
@@ -228,4 +227,30 @@ export const pipelineCopy = {
   definitionUnavailable: "Diese Pipeline ist nicht verfügbar.",
   profileUnavailable: "Dieses Profil ist nicht verfügbar.",
   loading: "Pipelines werden geladen …",
+  allProfiles: "Alle Profile",
+  autonomousBadge: "Autonom",
+  duplicate: "Duplizieren",
+  profileCount: (count) => (count === 1 ? "1 Profil" : `${count} Profile`),
+  profileSections: {
+    basics: "Grundlagen",
+    execution: "Ausführung",
+    instructions: "Anweisungen",
+  },
+  noParameters: "Keine Parameter.",
+  discardProfileDraft:
+    "Die ungespeicherten Änderungen an diesem Profil gehen verloren. Trotzdem fortfahren?",
+  discardVerificationDraft:
+    "Die ungespeicherten Prüfschritte dieses Projekts gehen verloren. Trotzdem fortfahren?",
+  projects: "Projekte",
+  stepCount: (count) =>
+    count === 0
+      ? "Keine Prüfschritte"
+      : count === 1
+        ? "1 Prüfschritt"
+        : `${count} Prüfschritte`,
+  stepColumns: {
+    command: "Befehl",
+    timeout: "Zeitlimit (s)",
+    failure: "Verhalten bei Fehler",
+  },
 };

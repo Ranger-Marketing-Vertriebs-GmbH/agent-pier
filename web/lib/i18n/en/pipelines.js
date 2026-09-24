@@ -36,7 +36,6 @@ export const pipelineCopy = {
   projectDirectory: "Register project directory",
   accountDefault: "Account default",
   interactive: "Interactive",
-  editLabel: "Edit",
   description: "Task profiles, verifiable work stages and native sessions.",
   runs: "Runs",
   definitions: "Definitions",
@@ -225,4 +224,29 @@ export const pipelineCopy = {
   definitionUnavailable: "This pipeline is unavailable.",
   profileUnavailable: "This profile is unavailable.",
   loading: "Loading pipelines …",
+  allProfiles: "All profiles",
+  autonomousBadge: "Autonomous",
+  duplicate: "Duplicate",
+  profileCount: (count) => (count === 1 ? "1 profile" : `${count} profiles`),
+  profileSections: {
+    basics: "Basics",
+    execution: "Execution",
+    instructions: "Instructions",
+  },
+  noParameters: "No parameters.",
+  discardProfileDraft: "Unsaved changes to this profile will be lost. Continue anyway?",
+  discardVerificationDraft:
+    "Unsaved verification steps for this project will be lost. Continue anyway?",
+  projects: "Projects",
+  stepCount: (count) =>
+    count === 0
+      ? "No verification steps"
+      : count === 1
+        ? "1 verification step"
+        : `${count} verification steps`,
+  stepColumns: {
+    command: "Command",
+    timeout: "Timeout (s)",
+    failure: "On failure",
+  },
 };

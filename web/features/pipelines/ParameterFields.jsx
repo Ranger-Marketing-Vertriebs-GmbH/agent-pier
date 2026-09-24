@@ -4,8 +4,9 @@ export default function ParameterFields({ params, onChange }) {
   const patch = (index, change) =>
     onChange(params.map((param, i) => (i === index ? { ...param, ...change } : param)));
   return (
-    <fieldset>
-      <legend>{copy.parameters}</legend>
+    <fieldset className="profile-section">
+      <legend className="profile-caps">{copy.parameters}</legend>
+      {!params.length && <p className="field-description">{copy.noParameters}</p>}
       {params.map((param, index) => (
         <div className="pipeline-parameter" key={index}>
           <label>
@@ -46,7 +47,7 @@ export default function ParameterFields({ params, onChange }) {
       ))}
       <button
         type="button"
-        className="button secondary"
+        className="button secondary profile-add-parameter"
         onClick={() => onChange([...params, { key: "", label: "", required: false }])}
       >
         {copy.addParameter}

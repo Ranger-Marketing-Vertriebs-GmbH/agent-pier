@@ -1,9 +1,8 @@
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import Segment from "../../components/Segment.jsx";
-import React, { useState } from "react";
-import api from "../../lib/api.js";
-import ErrorMessage from "../../components/ErrorMessage.jsx";
+import React from "react";
 import useAsyncAction from "../../lib/useAsyncAction.js";
+import ProjectRegistration from "./ProjectRegistration.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 // Up to this many options fit a segment; longer lists keep the searchable select.
 export const segmentLimit = 6;
@@ -16,7 +15,6 @@ export default function ProjectFields({
   disabled = false,
   segment = false,
 }) {
-  const [cwd, setCwd] = useState(home || "");
   const action = useAsyncAction();
   const projects = resource.data?.projects || [];
   return (
@@ -63,30 +61,12 @@ export default function ProjectFields({
           />
         </label>
       )}
-      <details>
-        <summary>{copy.registerProject}</summary>
-        <div className="pipeline-controls">
-          <label>
-            {copy.projectDirectory}
-            <input value={cwd} onChange={(event) => setCwd(event.target.value)} />
-          </label>
-          <button
-            type="button"
-            className="button secondary"
-            disabled={action.busy || !cwd.trim()}
-            onClick={() =>
-              action.run(async () => {
-                const project = await api("/memory/projects", "POST", { cwd });
-                resource.refresh();
-                onChange(project.id, project);
-              })
-            }
-          >
-            {copy.registerProject}
-          </button>
-        </div>
-      </details>
-      <ErrorMessage error={resource.error || action.error} />
+      <ProjectRegistration
+        resource={resource}
+        home={home}
+        action={action}
+        onRegistered={(project) => onChange(project.id, project)}
+      />
     </div>
   );
 }

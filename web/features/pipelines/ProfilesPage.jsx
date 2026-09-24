@@ -1,11 +1,20 @@
 import React, { useState } from "react";
 import api from "../../lib/api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import Icon from "../../components/Icon.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import useResource from "../../lib/useResource.js";
+import useMobileLayout from "../../lib/useMobileLayout.js";
+import useSettledReplace from "../projects/useSettledReplace.js";
 import ProfileEditor from "./ProfileEditor.jsx";
+import ProfileList, { profileGroups } from "./ProfileList.jsx";
 import ConfirmAction from "./ConfirmAction.jsx";
+import useDraftGuard from "./useDraftGuard.jsx";
+import { pipelineRoutePath } from "./routes.js";
+import "./definitions.css";
+import "./profiles.css";
+
 export default function ProfilesPage({
   route,
   navigate,
@@ -15,110 +24,125 @@ export default function ProfilesPage({
 }) {
   const resource = useResource("/pipeline-profiles");
   const [clone, setClone] = useState(null),
-    [removing, setRemoving] = useState(null);
+    [removing, setRemoving] = useState(null),
+    [resets, setResets] = useState(0);
+  const mobile = useMobileLayout();
+  const draft = useDraftGuard(copy.discardProfileDraft);
   const profiles = resource.data?.profiles || [],
+    groups = profileGroups(profiles),
     item = route.pipelineItem,
-    selected = profiles.find((p) => p.id === item);
+    selected = profiles.find((p) => p.id === item),
+    ready = Boolean(resource.data);
   const stats = useResource(selected ? `/pipeline-profiles/${selected.id}/stats` : null);
-  const close = () => {
+  // Desktop opens the first profile in phase order; mobile shows the list first.
+  const target =
+    ready && !item && !mobile && groups.length
+      ? { ...route, pipelineItem: groups[0].items[0].id }
+      : null;
+  useSettledReplace({
+    target,
+    targetPath: target ? pipelineRoutePath(target) : "",
+    currentPath: pipelineRoutePath(route),
+    navigate: (next, replace) => navigate({ pipelineItem: next.pipelineItem }, replace),
+  });
+  const open = (id) =>
+    id !== item &&
+    draft.guarded(() => {
+      setClone(null);
+      navigate({ pipelineItem: id });
+    });
+  const startNew = (copied) =>
+    draft.guarded(() => {
+      setClone(copied);
+      if (item === "new") setResets((value) => value + 1);
+      else navigate({ pipelineItem: "new" });
+    });
+  const saved = (profile) => {
+    // The saved profile keeps its place in the list; a new one is appended.
+    resource.update({
+      ...resource.data,
+      profiles: profiles.some((p) => p.id === profile.id)
+        ? profiles.map((p) => (p.id === profile.id ? profile : p))
+        : [...profiles, profile],
+    });
+    refreshCounts?.();
     setClone(null);
-    navigate({ pipelineItem: "" });
+    // A fresh editor starts from what was saved, so it is no longer dirty.
+    setResets((value) => value + 1);
+    if (item !== profile.id) navigate({ pipelineItem: profile.id });
   };
+  const cancel = () => {
+    if (selected) setResets((value) => value + 1);
+    else {
+      setClone(null);
+      navigate({ pipelineItem: "" });
+    }
+  };
+  const detail =
+    item === "new" || selected ? (
+      <ProfileEditor
+        key={`${item}:${selected?.revision ?? ""}:${resets}`}
+        profile={selected || clone}
+        stats={selected ? stats.data : null}
+        accounts={accounts}
+        cancel={cancel}
+        saved={saved}
+        onDirtyChange={draft.setDirty}
+        onLaunch={() => onLaunchProfile(selected)}
+        onDuplicate={() =>
+          startNew({ ...selected, id: undefined, name: copy.copyName(selected.name) })
+        }
+        onRemove={() => setRemoving(selected)}
+      />
+    ) : (
+      item && ready && <ErrorMessage error={copy.profileUnavailable} />
+    );
   return (
-    <section>
-      <div className="pipeline-toolbar">
-        <h2>{copy.profiles}</h2>
-        <button
-          className="button primary"
-          onClick={() => {
-            setClone(null);
-            navigate({ pipelineItem: "new" });
-          }}
-        >
-          {copy.newProfile}
-        </button>
-        <button className="button secondary" onClick={resource.refresh}>
-          {commonCopy.refresh}
-        </button>
+    <section className="profiles-page">
+      <div className="definitions-toolbar">
+        <span>{ready ? copy.profileCount(profiles.length) : ""}</span>
+        <div className="pipeline-actions">
+          <button type="button" className="button secondary" onClick={resource.refresh}>
+            {commonCopy.refresh}
+          </button>
+          <button
+            type="button"
+            className="button primary"
+            onClick={() => (item !== "new" || clone) && startNew(null)}
+          >
+            <Icon name="plus" size={16} />
+            {copy.newProfile}
+          </button>
+        </div>
       </div>
       <ErrorMessage error={resource.error} />
-      {resource.loading && <p role="status">{copy.loading}</p>}
-      {!resource.loading && !profiles.length && <p>{copy.noProfiles}</p>}
-      {Object.entries(copy.phaseNames).map(([phase, label]) => {
-        const rows = profiles.filter((p) => (p.phaseKey || "custom") === phase);
-        return rows.length ? (
-          <section key={phase} className="pipeline-group">
-            <h3>{label}</h3>
-            {rows.map((profile) => (
-              <article key={profile.id} className="pipeline-card">
-                <div>
-                  <h3>{profile.name}</h3>
-                  <p>{profile.description}</p>
-                  <small>
-                    {profile.config.cliTool} ·{" "}
-                    {profile.config.run.autonomous ? copy.autonomous : copy.interactive} ·{" "}
-                    {profile.config.permissions.mode}
-                    {profile.enabled ? "" : ` · ${commonCopy.disabled}`}
-                  </small>
-                </div>
-                <div className="pipeline-actions">
-                  <button
-                    className="button secondary compact"
-                    aria-label={copy.edit(profile.name)}
-                    onClick={() => navigate({ pipelineItem: profile.id })}
-                  >
-                    {copy.editLabel}
-                  </button>
-                  <button
-                    className="button secondary compact"
-                    aria-label={copy.clone(profile.name)}
-                    onClick={() => {
-                      setClone({
-                        ...profile,
-                        id: undefined,
-                        name: copy.copyName(profile.name),
-                      });
-                      navigate({ pipelineItem: "new" });
-                    }}
-                  >
-                    {copy.clone(profile.name)}
-                  </button>
-                  <button
-                    className="button secondary compact"
-                    disabled={!profile.enabled}
-                    onClick={() => onLaunchProfile(profile)}
-                  >
-                    {copy.startProfile}
-                  </button>
-                  <button
-                    className="button secondary compact"
-                    aria-label={copy.remove(profile.name)}
-                    onClick={() => setRemoving(profile)}
-                  >
-                    {commonCopy.remove}
-                  </button>
-                </div>
-              </article>
-            ))}
-          </section>
-        ) : null;
-      })}
-      {item && item !== "new" && !selected && !resource.loading && (
-        <ErrorMessage error={copy.profileUnavailable} />
-      )}{" "}
-      {(item === "new" || selected) && (
-        <ProfileEditor
-          key={item + (clone?.name || "")}
-          profile={selected || clone}
-          stats={stats.data}
-          accounts={accounts}
-          close={close}
-          saved={() => {
-            resource.refresh();
-            close();
-          }}
-        />
-      )}
+      {resource.loading && !ready && <p role="status">{copy.loading}</p>}
+      <div className={`list-detail profiles-layout${item ? " has-detail" : ""}`}>
+        <nav className="list-detail-list" aria-label={copy.profiles}>
+          {ready && !profiles.length && (
+            <p className="definitions-empty">{copy.noProfiles}</p>
+          )}
+          <ProfileList groups={groups} selectedId={item} onSelect={open} />
+        </nav>
+        <div className="list-detail-detail">
+          {item && (
+            <button
+              type="button"
+              className="list-detail-back"
+              onClick={() =>
+                draft.guarded(() => {
+                  setClone(null);
+                  navigate({ pipelineItem: "" });
+                })
+              }
+            >
+              <Icon name="back" size={16} />
+              {copy.allProfiles}
+            </button>
+          )}
+          {detail}
+        </div>
+      </div>
       {removing && (
         <ConfirmAction
           description={copy.deleteProfile}
@@ -127,11 +151,18 @@ export default function ProfilesPage({
           action={async () => {
             await api(`/pipeline-profiles/${removing.id}`, "DELETE");
             setRemoving(null);
-            resource.refresh();
+            resource.update({
+              ...resource.data,
+              profiles: profiles.filter((p) => p.id !== removing.id),
+            });
             refreshCounts?.();
+            // A removed profile has no unsaved draft left to protect.
+            draft.setDirty(false);
+            if (removing.id === item) navigate({ pipelineItem: "" });
           }}
         />
       )}
+      {draft.confirm}
     </section>
   );
 }

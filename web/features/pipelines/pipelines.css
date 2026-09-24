@@ -107,13 +107,6 @@
   padding: 12px;
   border-radius: 8px;
 }
-.pipeline-group {
-  margin-top: 22px;
-}
-.pipeline-group > h3 {
-  font-size: 13px;
-  color: var(--muted);
-}
 .pipeline-controls {
   display: flex;
   align-items: end;
@@ -140,10 +133,6 @@
   max-height: 65dvh;
   overflow: auto;
   margin: 0;
-}
-.pipeline-verification-step {
-  display: grid;
-  gap: 12px;
 }
 .pipeline-actions a {
   display: inline-block;
