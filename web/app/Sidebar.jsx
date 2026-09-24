@@ -1,7 +1,6 @@
 import { artifactCopy } from "../lib/i18n/messages/artifacts.js";
 import LogoutButton from "../features/login/LogoutButton.jsx";
 import { pipelineCopy } from "../lib/i18n/messages/pipelines.js";
-import { memoryCopy } from "../lib/i18n/messages/memory.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import { filesCopy } from "../lib/i18n/messages/files.js";
 import { sidebarCopy as copy } from "../lib/i18n/messages/app.js";
@@ -18,7 +17,6 @@ export default function Sidebar({
   launch,
   installed,
   view,
-  route,
   page,
   state,
   selected,
@@ -86,13 +84,44 @@ export default function Sidebar({
           {artifactCopy.title}
         </button>
         <SidebarGroup
-          name="management"
-          label={commonCopy.management}
-          activeKey={view !== "workspace" && view !== "missing" ? view : ""}
+          name="projects"
+          label={commonCopy.projectsGroup}
+          activeKey={["projects", "files", "pipelines"].includes(view) ? view : ""}
+        >
+          <button
+            className={view === "projects" ? "nav-item selected" : "nav-item"}
+            aria-current={view === "projects" ? "page" : undefined}
+            onClick={() => page("projects")}
+          >
+            <Icon name="folder" />
+            {copy.projectsNavigation}
+          </button>
+          <button
+            className={view === "files" ? "nav-item selected" : "nav-item"}
+            aria-current={view === "files" ? "page" : undefined}
+            onClick={() => page("files")}
+          >
+            <Icon name="history" />
+            {filesCopy.tab}
+          </button>
+          <button
+            className={view === "pipelines" ? "nav-item selected" : "nav-item"}
+            aria-current={view === "pipelines" ? "page" : undefined}
+            onClick={() => page("pipelines")}
+          >
+            <Icon name="refresh" />
+            {pipelineCopy.title}
+          </button>
+        </SidebarGroup>
+        <SidebarGroup
+          name="configuration"
+          label={commonCopy.configurationGroup}
+          activeKey={["accounts", "extensions", "settings"].includes(view) ? view : ""}
         >
           <button
             aria-label={commonCopy.accounts}
             className={view === "accounts" ? "nav-item selected" : "nav-item"}
+            aria-current={view === "accounts" ? "page" : undefined}
             onClick={() => {
               page("accounts");
             }}
@@ -104,81 +133,19 @@ export default function Sidebar({
             </span>
           </button>
           <button
-            className={
-              view === "projects" && !["knowledge", "agentbus"].includes(route.projectTab)
-                ? "nav-item selected"
-                : "nav-item"
-            }
-            onClick={() => page("repositories")}
-          >
-            <Icon name="folder" />
-            {copy.repositoriesNavigation}
-          </button>
-          <button
-            className={view === "files" ? "nav-item selected" : "nav-item"}
-            onClick={() => page("files")}
-          >
-            <Icon name="folder" />
-            {filesCopy.tab}
-          </button>
-          <button
-            className={
-              view === "extensions" &&
-              !["plugins", "marketplaces"].includes(route.extensionTab)
-                ? "nav-item selected"
-                : "nav-item"
-            }
+            className={view === "extensions" ? "nav-item selected" : "nav-item"}
+            aria-current={view === "extensions" ? "page" : undefined}
             onClick={() => page("extensions")}
           >
             <Icon name="grid" />
             {copy.extensionsNavigation}
           </button>
           <button
-            className={
-              view === "extensions" &&
-              ["plugins", "marketplaces"].includes(route.extensionTab)
-                ? "nav-item selected"
-                : "nav-item"
-            }
-            onClick={() => page("plugins")}
-          >
-            <Icon name="grid" />
-            {copy.pluginsNavigation}
-          </button>
-          <button
-            className={
-              view === "projects" && route.projectTab === "agentbus"
-                ? "nav-item selected"
-                : "nav-item"
-            }
-            onClick={() => page("agentbus")}
-          >
-            <Icon name="link" />
-            {copy.agentBusNavigation}
-          </button>
-          <button
-            className={view === "pipelines" ? "nav-item selected" : "nav-item"}
-            onClick={() => page("pipelines")}
-          >
-            <Icon name="grid" />
-            {pipelineCopy.title}
-          </button>
-          <button
-            className={
-              view === "projects" && route.projectTab === "knowledge"
-                ? "nav-item selected"
-                : "nav-item"
-            }
-            onClick={() => page("memory")}
-          >
-            <Icon name="grid" />
-            {memoryCopy.title}
-          </button>
-          <button
             className={view === "settings" ? "nav-item selected" : "nav-item"}
+            aria-current={view === "settings" ? "page" : undefined}
             onClick={() => page("settings")}
           >
-            <Icon name="folder" />
+            <Icon name="settings" />
             {commonCopy.settings}
           </button>
         </SidebarGroup>

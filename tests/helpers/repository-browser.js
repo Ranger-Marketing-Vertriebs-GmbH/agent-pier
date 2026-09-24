@@ -139,5 +139,5 @@ export async function openRepositories(page) {
   await page.goto(base);
   if (await page.getByRole("button", { name: "Navigation öffnen" }).isVisible())
     await page.getByRole("button", { name: "Navigation öffnen" }).click();
-  await navigateTo(page, "Repositories");
+  await navigateTo(page, "Projekte");
 }

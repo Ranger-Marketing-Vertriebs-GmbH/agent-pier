@@ -1,4 +1,3 @@
-import { navigateTo } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
 test("bundled AgentBus status groups project sessions without consuming inboxes", async ({
@@ -49,8 +48,7 @@ test("bundled AgentBus status groups project sessions without consuming inboxes"
       });
     return route.fulfill({ json: {} });
   });
-  await page.goto(base);
-  await navigateTo(page, "AgentBus");
+  await page.goto(base + "/projects?tab=agentbus");
   await expect(
     page.getByRole("heading", { name: "AgentBus", exact: true }),
   ).toBeVisible();

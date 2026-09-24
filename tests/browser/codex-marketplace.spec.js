@@ -76,7 +76,10 @@ async function setup(page) {
     return route.fulfill({ json: {} });
   });
   await page.goto(baseURL);
-  await navigateTo(page, "Plugins & Marketplace");
+  await navigateTo(page, "Erweiterungen");
+  const extensionsUrl = new URL(page.url());
+  extensionsUrl.searchParams.set("tab", "plugins");
+  await page.goto(extensionsUrl.toString());
   return { writes, reads };
 }
 

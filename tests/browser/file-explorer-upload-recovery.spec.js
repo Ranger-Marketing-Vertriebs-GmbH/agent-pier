@@ -6,6 +6,7 @@ import path from "node:path";
 import { baseURL } from "../helpers/browser.js";
 import { selectEnglish } from "../helpers/file-explorer-browser.js";
 import { selectNativeFolder, uploadsFixture } from "../helpers/file-uploads-browser.js";
+import { navigateTo } from "../helpers/navigation.js";
 
 const source = (name, text = name) => ({
   name,
@@ -226,13 +227,13 @@ test("leaving the upload scope aborts the old XHR and returning does not restore
       .getByLabel("Upload files", { exact: true })
       .setInputFiles(source("scope.txt"));
     await expect.poll(() => f.raw.length).toBe(1);
-    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await navigateTo(page, "Settings");
     await expect
       .poll(() => page.evaluate(() => window.uploadRequests[0].aborted))
       .toBe(true);
     f.failures.add("scope.txt");
     f.release();
-    await page.getByRole("button", { name: "Files", exact: true }).click();
+    await navigateTo(page, "Files");
     await openExplorerPanel(page, "uploads");
     await page.getByText("Recover an upload", { exact: true }).click();
     const group = [...f.groups.values()][0];

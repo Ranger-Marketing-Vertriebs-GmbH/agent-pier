@@ -65,7 +65,7 @@ test("cancelled application navigation preserves the route and draft", async ({
   page,
 }, testInfo) => {
   const editor = await setup(page);
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await navigateTo(page, "Settings");
   await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("guard-english-desktop.png") });
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -89,16 +89,16 @@ test("German mobile guard preserves the draft on cancellation", async ({
 
 test("discard accepts navigation and closes the protected tab", async ({ page }) => {
   await setup(page);
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await navigateTo(page, "Settings");
   await page.getByRole("button", { name: "Discard and continue", exact: true }).click();
   await expect(page).toHaveURL(`${baseURL}/settings`);
-  await page.getByRole("button", { name: "Files", exact: true }).click();
+  await navigateTo(page, "Files");
   await expect(page.getByRole("tab")).toHaveCount(0);
 });
 
 test("saving a changed draft resolves navigation before committing", async ({ page }) => {
   await setup(page);
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await navigateTo(page, "Settings");
   await page.getByRole("button", { name: "Save and continue", exact: true }).click();
   await expect(page).toHaveURL(`${baseURL}/settings`);
 });
@@ -109,7 +109,7 @@ test("failed endpoint-mocked save keeps navigation blocked and the draft retaine
   const editor = await setup(page, {
     saveError: { status: 409, code: "FILE_INVALID_SCOPE" },
   });
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await navigateTo(page, "Settings");
   await page.getByRole("button", { name: "Save and continue", exact: true }).click();
   await expect(page).toHaveURL(editorURL);
   await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
@@ -121,7 +121,7 @@ test("Escape cannot cancel a decision while its save completion is pending", asy
 }) => {
   const saveGate = deferred();
   await setup(page, { saveGate });
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await navigateTo(page, "Settings");
   await page.getByRole("button", { name: "Save and continue", exact: true }).click();
   await expect(
     page.getByRole("dialog").getByRole("button", { name: "Saving…", exact: true }),
@@ -154,7 +154,7 @@ test("an obsolete save continuation cannot resolve a newer navigation decision",
   await page.getByRole("tab", { name: path, exact: true }).click();
   await first.fill("first draft");
   await expect(first).toHaveText("first draft");
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await navigateTo(page, "Settings");
   await page.getByRole("button", { name: "Save and continue", exact: true }).click();
   await page.evaluate(() => {
     [...document.querySelectorAll("button")]
@@ -172,8 +172,8 @@ test("an obsolete save continuation cannot resolve a newer navigation decision",
 test("Back restores the indexed route once while the guard decides", async ({ page }) => {
   const editor = await setup(page);
   await editor.fill("original");
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("button", { name: "Files", exact: true }).click();
+  await navigateTo(page, "Settings");
+  await navigateTo(page, "Files");
   await editor.fill("draft after history");
   const committedURL = page.url();
   await page.goBack({ waitUntil: "commit" }).catch(() => {});
@@ -186,9 +186,9 @@ test("Back restores the indexed route once while the guard decides", async ({ pa
 test("accepted Back replays once to the indexed route", async ({ page }) => {
   const editor = await setup(page);
   await editor.fill("original");
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await navigateTo(page, "Settings");
   const targetURL = page.url();
-  await page.getByRole("button", { name: "Files", exact: true }).click();
+  await navigateTo(page, "Files");
   await editor.fill("history draft");
   await page.goBack({ waitUntil: "commit" }).catch(() => {});
   await page.getByRole("button", { name: "Discard and continue", exact: true }).click();
@@ -203,8 +203,8 @@ test("application navigation during history replay reconciles before push", asyn
 }) => {
   const editor = await setup(page);
   await editor.fill("original");
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("button", { name: "Files", exact: true }).click();
+  await navigateTo(page, "Settings");
+  await navigateTo(page, "Files");
   await expect(page).toHaveURL(/\/files\?path=/);
   await editor.fill("interleaved draft");
   const committedURL = page.url();
@@ -248,10 +248,10 @@ test("rapid Back Back keeps the latest indexed intent and cancellation restores 
 }) => {
   const editor = await setup(page);
   await editor.fill("original");
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("button", { name: "Files", exact: true }).click();
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("button", { name: "Files", exact: true }).click();
+  await navigateTo(page, "Settings");
+  await navigateTo(page, "Files");
+  await navigateTo(page, "Settings");
+  await navigateTo(page, "Files");
   await editor.fill("rapid draft");
   const current = {
     url: page.url(),
@@ -284,8 +284,8 @@ test("rapid Back Forward returns to the current indexed entry without a stale co
   });
   const editor = await setup(page);
   await editor.fill("original");
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("button", { name: "Files", exact: true }).click();
+  await navigateTo(page, "Settings");
+  await navigateTo(page, "Files");
   await expect(page).toHaveURL(/\/files\?path=/);
   await editor.fill("forward draft");
   const current = {
@@ -313,13 +313,13 @@ test("a newer indexed traversal owns history before an older save completes", as
   const saveGate = deferred();
   const editor = await setup(page, { saveGate });
   await editor.fill("original");
-  await page.getByRole("button", { name: "Accounts", exact: true }).click();
+  await navigateTo(page, "Accounts");
   const target = {
     url: page.url(),
     index: await page.evaluate(() => history.state.agentPierNavigationIndex),
   };
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("button", { name: "Files", exact: true }).click();
+  await navigateTo(page, "Settings");
+  await navigateTo(page, "Files");
   await editor.fill("overlap draft");
   const length = await page.evaluate(() => history.length);
   await page.goBack({ waitUntil: "commit" }).catch(() => {});
@@ -358,7 +358,7 @@ test("a newer indexed traversal owns history before an older save completes", as
 test("navigation index preserves unrelated history state", async ({ page }) => {
   await setup(page);
   await page.evaluate(() => history.replaceState({ foreign: "keep" }, ""));
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await navigateTo(page, "Settings");
   await page.getByRole("button", { name: "Discard and continue", exact: true }).click();
   expect(await page.evaluate(() => history.state.foreign)).toBe("keep");
   expect(await page.evaluate(() => history.state.agentPierNavigationIndex)).toBe(1);
@@ -404,7 +404,7 @@ test("navigation rechecks an earlier tab protected during a later decision", asy
   await page.getByRole("tab", { name: path, exact: true }).click();
   await first.fill("first draft again");
   const committedURL = page.url();
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await navigateTo(page, "Settings");
   await page.getByRole("button", { name: "Save and continue", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
   await page.getByRole("tab", { name: path, exact: true }).click({ force: true });
