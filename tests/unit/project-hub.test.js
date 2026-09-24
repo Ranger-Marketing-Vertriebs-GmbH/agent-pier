@@ -5,6 +5,7 @@ import {
   resolveProjectId,
   groupRunCounts,
   latestGate,
+  sweepRunCounts,
 } from "../../web/features/projects/useProjectHub.js";
 
 test("repository, knowledge and AgentBus projects join by folder", () => {
@@ -110,4 +111,32 @@ test("the latest gate applies only answers newer than the last applied one", () 
   const next = gate.start();
   assert.equal(gate.apply(next), true);
   assert.equal(gate.apply(next), false);
+});
+
+test("the run sweep reads further pages at once and marks a capped status", async () => {
+  const runs = Array.from({ length: 130 }, (_, index) => ({
+    id: String(index),
+    projectId: index < 30 ? "m1" : "m2",
+  }));
+  const requested = [];
+  let open = 0,
+    parallel = 0;
+  const read = async (page) => {
+    requested.push(page);
+    open++;
+    parallel = Math.max(parallel, open);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    open--;
+    return { runs: runs.slice((page - 1) * 20, page * 20), total: 130, pageSize: 20 };
+  };
+  const result = await sweepRunCounts(read);
+  assert.deepEqual(requested.sort(), [1, 2, 3, 4, 5]);
+  assert.ok(parallel > 1);
+  assert.deepEqual(result, { counts: { m1: 30, m2: 70 }, capped: true });
+  const small = await sweepRunCounts(async () => ({
+    runs: [{ id: "1", projectId: "m1" }],
+    total: 1,
+    pageSize: 20,
+  }));
+  assert.deepEqual(small, { counts: { m1: 1 }, capped: false });
 });

@@ -124,7 +124,7 @@ export default function ProjectsPage({
         <div className="repository-load-error project-load-error">
           <p>{copy.partialError}</p>
           <ErrorMessage error={hub.error} />
-          <button className="button secondary" onClick={reload}>
+          <button className="button secondary" onClick={hub.retry}>
             {commonCopy.retry}
           </button>
         </div>
@@ -151,6 +151,7 @@ export default function ProjectsPage({
               item={item}
               decisions={hub.attention.decisions[item.memoryId] || 0}
               failed={hub.attention.failed[item.memoryId] || 0}
+              capped={hub.attention.capped}
             />
           )}
           detail={
@@ -216,7 +217,10 @@ export default function ProjectsPage({
   );
 }
 
-function ProjectItem({ item, decisions, failed }) {
+// Counts from a capped sweep are lower bounds and read as "100+".
+const hintCount = (count, capped) => (capped ? `${count}+` : count);
+
+function ProjectItem({ item, decisions, failed, capped }) {
   return (
     <>
       <span className="project-item-icon" aria-hidden="true">
@@ -226,10 +230,14 @@ function ProjectItem({ item, decisions, failed }) {
         <strong>{item.name}</strong>
         <small>{item.remote ? remoteShort(item.remote) : copy.localOnly}</small>
         {decisions > 0 && (
-          <small className="project-hint decision">{copy.decisions(decisions)}</small>
+          <small className="project-hint decision">
+            {copy.decisions(hintCount(decisions, capped.decisions))}
+          </small>
         )}
         {failed > 0 && (
-          <small className="project-hint failed">{copy.failedRuns(failed)}</small>
+          <small className="project-hint failed">
+            {copy.failedRuns(hintCount(failed, capped.failed))}
+          </small>
         )}
       </span>
       <Icon name="chevron" size={16} className="project-item-chevron" />
