@@ -125,21 +125,6 @@
   flex: 1;
   min-width: 160px;
 }
-.pipeline-stage {
-  display: grid;
-  gap: 14px;
-}
-.pipeline-stage header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.pipeline-stage header strong {
-  flex: 1;
-}
-.pipeline-stage select {
-  max-width: 100%;
-}
 .pipeline-json {
   width: 100%;
   min-height: 350px;
@@ -198,9 +183,6 @@
   }
   .pipeline-actions .button {
     font-size: 11px;
-  }
-  .pipeline-stage header {
-    flex-wrap: wrap;
   }
   .pipeline-json {
     min-height: 240px;
