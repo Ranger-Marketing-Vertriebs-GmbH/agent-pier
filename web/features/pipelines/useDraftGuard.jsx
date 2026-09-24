@@ -3,13 +3,20 @@ import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import ConfirmAction from "./ConfirmAction.jsx";
 
 // Leaving an edited draft through the page asks first instead of discarding it.
-// `guarded(go)` runs `go` at once while the draft is clean.
+// `guarded(go)` runs `go` at once while the draft is clean; `discarded` runs only after
+// a dirty draft was confirmed away, before `go`.
 export default function useDraftGuard(description) {
   const [leaving, setLeaving] = useState(null),
     [dirty, setDirty] = useState(false);
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
-  const guarded = (go) => (dirtyRef.current ? setLeaving(() => go) : go());
+  const guarded = (go, discarded) =>
+    dirtyRef.current
+      ? setLeaving(() => () => {
+          discarded?.();
+          go();
+        })
+      : go();
   const confirm = leaving && (
     <ConfirmAction
       description={description}

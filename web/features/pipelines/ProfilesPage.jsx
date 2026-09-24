@@ -88,7 +88,14 @@ export default function ProfilesPage({
         cancel={cancel}
         saved={saved}
         onDirtyChange={draft.setDirty}
-        onLaunch={() => onLaunchProfile(selected)}
+        // Launching uses the saved profile, so an unsaved draft is confirmed away and
+        // the editor shows the saved profile again.
+        onLaunch={() =>
+          draft.guarded(
+            () => onLaunchProfile(selected),
+            () => setResets((value) => value + 1),
+          )
+        }
         onDuplicate={() =>
           startNew({ ...selected, id: undefined, name: copy.copyName(selected.name) })
         }
