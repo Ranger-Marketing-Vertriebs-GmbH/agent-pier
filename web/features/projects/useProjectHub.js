@@ -117,16 +117,73 @@ export function latestGate() {
 }
 
 const maxRunPages = 5;
+// Reads the first page, then the remaining pages up to the cap at once. A status with
+// more runs than the swept pages is marked capped: its counts are lower bounds.
+export async function sweepRunCounts(read) {
+  const first = await read(1);
+  const pageSize = first.pageSize || 0,
+    total = first.total || 0;
+  const pages = pageSize ? Math.min(maxRunPages, Math.ceil(total / pageSize)) : 1;
+  const rest = await Promise.all(
+    Array.from({ length: Math.max(0, pages - 1) }, (_, index) => read(index + 2)),
+  );
+  const runs = [first, ...rest].flatMap((data) => data.runs || []);
+  return { counts: groupRunCounts(runs), capped: runs.length < total };
+}
+
 // One status-filtered listing per hint, grouped by the run's project, instead of
 // one request per listed project.
-async function runsWithStatus(status) {
-  const runs = [];
-  for (let page = 1; page <= maxRunPages; page++) {
-    const data = await api(`/pipeline-runs?status=${status}&page=${page}`);
-    runs.push(...(data.runs || []));
-    if (!data.pageSize || page * data.pageSize >= (data.total || 0)) break;
-  }
-  return groupRunCounts(runs);
+const runsWithStatus = (status) =>
+  sweepRunCounts((page) => api(`/pipeline-runs?status=${status}&page=${page}`));
+
+// The hints are full server-side scans, so they are read on mount, on an explicit
+// retry and slowly while the page is visible, not on every source reload.
+const attentionPoll = 60000;
+function useAttention(sweep) {
+  const [attention, setAttention] = useState({
+    decisions: {},
+    failed: {},
+    capped: { decisions: false, failed: false },
+  });
+  useEffect(() => {
+    let active = true,
+      reading = false,
+      timer = null;
+    // A hidden page stops the slow refresh; showing it again only re-arms the timer.
+    const schedule = () => {
+      if (active && !reading && timer === null && !document.hidden)
+        timer = setTimeout(read, attentionPoll);
+    };
+    const read = async () => {
+      timer = null;
+      reading = true;
+      try {
+        const [decisions, failed] = await Promise.all([
+          runsWithStatus("awaiting-human"),
+          runsWithStatus("failed"),
+        ]);
+        if (active)
+          setAttention({
+            decisions: decisions.counts,
+            failed: failed.counts,
+            capped: { decisions: decisions.capped, failed: failed.capped },
+          });
+      } catch {
+        // The hints are optional; the project list reports its own failures.
+      } finally {
+        reading = false;
+        schedule();
+      }
+    };
+    document.addEventListener("visibilitychange", schedule);
+    read();
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", schedule);
+    };
+  }, [sweep]);
+  return attention;
 }
 
 export default function useProjectHub() {
@@ -137,11 +194,16 @@ export default function useProjectHub() {
     memoryProjects: [],
   });
   const [busData, setBusData] = useState({ version: "", note: "", projects: [] });
-  const [attention, setAttention] = useState({ decisions: {}, failed: {} });
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({ repositories: "", memory: "", agentbus: "" });
   const [version, setVersion] = useState(0);
+  const [sweep, setSweep] = useState(0);
+  const attention = useAttention(sweep);
   const reload = useCallback(() => setVersion((value) => value + 1), []);
+  const retry = useCallback(() => {
+    setVersion((value) => value + 1);
+    setSweep((value) => value + 1);
+  }, []);
   const sourceError = useCallback(
     (source, message) =>
       setErrors((current) =>
@@ -201,11 +263,6 @@ export default function useProjectHub() {
       sourceError("memory", memory.status === "rejected" ? memory.reason.message : "");
       setLoading(false);
     });
-    Promise.all([runsWithStatus("awaiting-human"), runsWithStatus("failed")])
-      .then(([decisions, failed]) => {
-        if (alive) setAttention({ decisions, failed });
-      })
-      .catch(() => {});
     return () => {
       alive = false;
     };
@@ -264,6 +321,8 @@ export default function useProjectHub() {
     error: errors.repositories || errors.memory || errors.agentbus,
     errors,
     reload,
+    // A retry after a failing source also reads the run hints again.
+    retry,
     credentials: sources.credentials,
     attention,
     busProjects: busData.projects,
