@@ -16,7 +16,7 @@ import {
 } from "../memory/memory-presentation.js";
 import { relativeTime } from "./ProjectOverview.jsx";
 import { projectsRoute, projectsRoutePath } from "./routes.js";
-import useSettledReplace from "./useSettledReplace.js";
+import useSettledReplace from "../../lib/useSettledReplace.js";
 
 // Both totals ignore the current search text, matching the project's own
 // unfiltered entry counter shown on the hub tab.

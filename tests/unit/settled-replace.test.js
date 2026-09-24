@@ -4,7 +4,7 @@ import {
   nextReplaceStep,
   retryAfterRefusal,
   settledReplaceLimits,
-} from "../../web/features/projects/useSettledReplace.js";
+} from "../../web/lib/useSettledReplace.js";
 
 // Drives the hook's decision loop the way its effect does: one step per attempt,
 // a wait or a retried refusal moves on to the next attempt.
