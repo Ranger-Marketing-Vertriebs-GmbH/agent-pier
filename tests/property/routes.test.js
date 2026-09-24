@@ -12,11 +12,11 @@ test("generated public session and profile routes round-trip without changing id
     fc.property(publicId, fc.constantFrom(null, "reader", "terminal"), (id, mode) => {
       const route = { view: "workspace", sessionId: id, mode };
       assert.deepEqual(parse(routePath(route)), route);
-      for (const view of ["extensions", "plugins"]) {
-        assert.deepEqual(parse(routePath({ view, profileId: id })), {
-          view,
-          profileId: id,
-        });
+      for (const extensionTab of ["mcp", "skills", "plugins", "marketplaces", "agents"]) {
+        assert.deepEqual(
+          parse(routePath({ view: "extensions", profileId: id, extensionTab })),
+          { view: "extensions", profileId: id, extensionTab },
+        );
       }
       assert.deepEqual(parse(`/sessions/${id}/reader`), {
         ...route,
@@ -26,14 +26,20 @@ test("generated public session and profile routes round-trip without changing id
   );
 });
 
-test("generated AgentBus history links retain the project and pagination independently", () => {
+test("generated projects AgentBus links retain the project and pagination independently", () => {
   check(
     fc.property(publicId, fc.integer({ min: 1, max: 10000 }), (id, page) => {
       const route = {
-        view: "agentbus",
-        busTab: "messages",
+        view: "projects",
         projectId: id,
+        projectTab: "agentbus",
+        query: "",
+        archived: false,
+        memoryPage: 1,
+        busTab: "messages",
         messagePage: page,
+        pipelineStatus: "",
+        pipelinePage: 1,
       };
       assert.deepEqual(parse(routePath(route)), route);
     }),
@@ -63,7 +69,7 @@ test("encoded separators, control characters and invalid leading symbols cannot 
   );
 });
 
-test("generated memory links retain repository scope, Unicode search, archive and page", () => {
+test("generated projects knowledge links retain repository scope, Unicode search, archive and page", () => {
   check(
     fc.property(
       publicId,
@@ -71,7 +77,18 @@ test("generated memory links retain repository scope, Unicode search, archive an
       fc.boolean(),
       fc.integer({ min: 1, max: 100000 }),
       (projectId, query, archived, memoryPage) => {
-        const route = { view: "memory", projectId, query, archived, memoryPage };
+        const route = {
+          view: "projects",
+          projectId,
+          projectTab: "knowledge",
+          query,
+          archived,
+          memoryPage,
+          busTab: "status",
+          messagePage: 1,
+          pipelineStatus: "",
+          pipelinePage: 1,
+        };
         assert.deepEqual(parse(routePath(route)), route);
       },
     ),

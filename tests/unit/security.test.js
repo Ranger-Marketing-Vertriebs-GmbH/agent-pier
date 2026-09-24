@@ -152,7 +152,10 @@ test("user-clicked deep links are allowed only for documents, never APIs or imag
   for (const url of [
     "/accounts",
     "/repositories",
+    "/projects",
+    "/projects/example?tab=knowledge",
     "/settings",
+    "/settings/github",
     "/agentbus",
     "/agentbus/messages/demo?page=2",
     "/plugins/local-codex",

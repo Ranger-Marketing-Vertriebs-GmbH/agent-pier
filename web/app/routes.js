@@ -1,7 +1,17 @@
 import { readSettingsRoute, settingsRoutePath } from "../features/operations/routes.js";
 import { readPipelineRoute, pipelineRoutePath } from "../features/pipelines/routes.js";
 import { readExplorerRoute, explorerQuery } from "../features/files/routes.js";
+import {
+  readProjectsRoute,
+  projectsRoute,
+  projectsRoutePath,
+} from "../features/projects/routes.js";
 const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
+const extensionTabs = ["mcp", "skills", "plugins", "marketplaces", "agents"];
+function readExtensionTab(search) {
+  const tab = new URLSearchParams(search).get("tab");
+  return extensionTabs.includes(tab) ? tab : "mcp";
+}
 export function readRoute(location) {
   let pathname;
   try {
@@ -36,15 +46,18 @@ export function readRoute(location) {
       view: "workspace",
       sessionId: "",
     };
-  if (["/accounts", "/repositories"].includes(pathname))
+  if (pathname === "/accounts")
     return {
-      view: pathname.slice(1),
+      view: "accounts",
     };
+  if (pathname === "/repositories") return projectsRoute();
   if (pathname === "/files")
     return {
       view: "files",
       ...readExplorerRoute(location.search),
     };
+  const projectsRouteResult = readProjectsRoute(pathname, location.search);
+  if (projectsRouteResult) return projectsRouteResult;
   const settingsRoute = readSettingsRoute(pathname, location.search);
   if (settingsRoute) return settingsRoute;
   const pipelineRoute = readPipelineRoute(pathname, location.search);
@@ -56,9 +69,9 @@ export function readRoute(location) {
   if (memory && (!memory[1] || idPattern.test(memory[1]))) {
     const query = new URLSearchParams(location.search);
     const rawPage = query.get("page") || "1";
-    return {
-      view: "memory",
+    return projectsRoute({
       projectId: memory[1] || "",
+      projectTab: "knowledge",
       query: (query.get("q") || "").slice(0, 300),
       archived: query.get("archived") === "1",
       memoryPage:
@@ -67,7 +80,7 @@ export function readRoute(location) {
         Number(rawPage) <= 100000
           ? Number(rawPage)
           : 1,
-    };
+    });
   }
   const bus = /^\/agentbus(?:\/(messages)(?:\/([^/]+))?)?$/.exec(pathname);
   if (bus && (!bus[2] || idPattern.test(bus[2]))) {
@@ -76,18 +89,20 @@ export function readRoute(location) {
       bus[1] && /^[1-9]\d*$/.test(page) && Number.isSafeInteger(Number(page))
         ? Number(page)
         : 1;
-    return {
-      view: "agentbus",
-      busTab: bus[1] || "status",
+    return projectsRoute({
       projectId: bus[2] || "",
+      projectTab: "agentbus",
+      busTab: bus[1] || "status",
       messagePage,
-    };
+    });
   }
   const profile = /^\/(extensions|plugins)(?:\/([^/]+))?$/.exec(pathname);
   if (profile && (!profile[2] || idPattern.test(profile[2])))
     return {
-      view: profile[1],
+      view: "extensions",
       profileId: profile[2] || "",
+      extensionTab:
+        profile[1] === "plugins" ? "plugins" : readExtensionTab(location.search),
     };
   const session = /^\/sessions\/([^/]+)(?:\/(chat|reader|terminal|files))?$/.exec(
     pathname,
@@ -109,24 +124,17 @@ export function routePath(route) {
   if (route.view === "files") return `/files${explorerQuery(route)}`;
   if (route.view === "settings") return settingsRoutePath(route);
   if (route.view === "pipelines") return pipelineRoutePath(route);
-  if (route.view === "memory") {
-    const query = new URLSearchParams();
-    if (route.query) query.set("q", route.query);
-    if (route.archived) query.set("archived", "1");
-    if (Number.isSafeInteger(route.memoryPage) && route.memoryPage > 1)
-      query.set("page", String(route.memoryPage));
-    return `/memory${route.projectId ? `/${encodeURIComponent(route.projectId)}` : ""}${query.size ? `?${query}` : ""}`;
-  }
-  if (route.view === "agentbus")
-    return route.busTab === "messages"
-      ? `/agentbus/messages${route.projectId ? `/${encodeURIComponent(route.projectId)}` : ""}${Number.isSafeInteger(route.messagePage) && route.messagePage > 1 ? `?page=${route.messagePage}` : ""}`
-      : "/agentbus";
+  if (route.view === "projects") return projectsRoutePath(route);
   if (route.view === "workspace")
     return route.sessionId
       ? `/sessions/${encodeURIComponent(route.sessionId)}${route.mode ? `/${route.mode === "reader" ? "chat" : route.mode}` : ""}${route.mode === "files" ? explorerQuery(route) : ""}`
       : "/";
-  if (route.view === "extensions" || route.view === "plugins")
-    return `/${route.view}${route.profileId ? `/${encodeURIComponent(route.profileId)}` : ""}`;
+  if (route.view === "extensions") {
+    const query = new URLSearchParams();
+    if (route.extensionTab && route.extensionTab !== "mcp")
+      query.set("tab", route.extensionTab);
+    return `/extensions${route.profileId ? `/${encodeURIComponent(route.profileId)}` : ""}${query.size ? `?${query}` : ""}`;
+  }
   return `/${route.view}`;
 }
 export function defaultSessionMode(session, mobile) {

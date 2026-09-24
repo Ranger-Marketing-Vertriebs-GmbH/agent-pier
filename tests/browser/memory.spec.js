@@ -239,12 +239,12 @@ test("archiving the last entry on a page reloads the preceding page and replaces
     dispatchEvent(new PopStateEvent("popstate"));
   });
   await page.getByRole("button", { name: "Archivieren: Last note" }).click();
-  await expect(page).toHaveURL(/\/memory\/paged-project$/);
+  await expect(page).toHaveURL(/\/projects\/paged-project\?tab=knowledge$/);
   await expect(
     page.getByRole("heading", { name: "Last note", exact: true }),
   ).toBeVisible();
   await page.goBack();
-  await expect(page).toHaveURL(/\/memory$/);
+  await expect(page).toHaveURL(/\/projects\?tab=knowledge$/);
 });
 
 test("an excessive memory page normalizes only after its matching result arrives", async ({
