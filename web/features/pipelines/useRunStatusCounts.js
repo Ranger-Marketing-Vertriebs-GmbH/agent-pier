@@ -5,30 +5,46 @@ import { runStatuses } from "./run-presentation.js";
 // Every listing is a full scan on the server, so the pills poll slowly.
 const pillPoll = 30000;
 
+// What the pills depend on in the polled list: its total and the id and status of
+// every listed run. Missing data (loading, a failed read, the run detail) has none.
+export function listSignature(data) {
+  if (!data || !Number.isFinite(data.total)) return "";
+  return JSON.stringify([
+    data.total,
+    (data.runs || []).map((run) => `${run.id}:${run.status}`),
+  ]);
+}
+
 // The run list carries only its own total, so each status pill costs one listing
 // request. The pills load while they are shown, refresh slowly, after `version` changes
-// and whenever the polled list's total changes under the same filter (`listKey`).
+// and whenever the polled list page (`listKey` names its filter and page) changes its
+// total or the status of a listed run.
 export default function useRunStatusCounts({
   projectId = "",
   enabled = true,
   version = 0,
   listKey = "",
-  listTotal,
+  listData,
 }) {
   const [state, setState] = useState({ key: "", projectId: null, counts: null });
   const [changes, setChanges] = useState(0);
-  const seen = useRef({ listKey: null, total: undefined });
+  const seen = useRef({ listKey: null, signature: "", data: null, cached: null });
+  const signature = listSignature(listData);
   useEffect(() => {
-    if (!Number.isFinite(listTotal)) return;
     const last = seen.current;
-    seen.current = { listKey, total: listTotal };
-    if (
-      last.listKey === listKey &&
-      Number.isFinite(last.total) &&
-      last.total !== listTotal
-    )
-      setChanges((value) => value + 1);
-  }, [listKey, listTotal]);
+    // While the pills are off (a run detail is open) the list keeps its last data and
+    // shows it again on return; the next fresh read, not that copy, starts over, so
+    // returning costs only the pill round of the returning page itself.
+    if (!enabled) {
+      seen.current = { listKey: null, signature: "", data: null, cached: last.data };
+      return;
+    }
+    if (listData && listData === last.cached) return;
+    seen.current = { listKey, signature, data: listData, cached: null };
+    // Without list data (loading, paging, a failed read) the next read starts over.
+    if (!signature || !last.signature || last.listKey !== listKey) return;
+    if (last.signature !== signature) setChanges((value) => value + 1);
+  }, [enabled, listKey, signature, listData]);
   const key = JSON.stringify([projectId, version, changes]);
   useEffect(() => {
     if (!enabled) return;

@@ -30,8 +30,8 @@ export default function RunsPage({ route, navigate, home, onTotal }) {
     projectId: route.projectId || "",
     enabled: !detail,
     version,
-    listKey: JSON.stringify([route.projectId || "", route.pipelineStatus || ""]),
-    listTotal: list.data?.total,
+    listKey: JSON.stringify([route.projectId || "", route.pipelineStatus || "", page]),
+    listData: list.data,
   });
   // The tab counts all runs: the unfiltered list's total, else the sum of the pills
   // when no project narrows them.
