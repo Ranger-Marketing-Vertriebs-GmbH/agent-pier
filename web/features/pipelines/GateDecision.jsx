@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import useAsyncAction from "../../lib/useAsyncAction.js";
+import useRunAction from "./useRunAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import ConfirmAction from "./ConfirmAction.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
@@ -14,11 +14,13 @@ export const availableGateActions = (run) =>
   (run.actions || []).filter((action) => gateActions.includes(action));
 
 // The decision the current gate stage waits for: approve, retry with feedback, return
-// for repair or override. A failed request keeps the feedback so it can be resent.
-export default function GateDecision({ run, node, refresh }) {
-  const [feedback, setFeedback] = useState(""),
+// for repair or override. A failed request keeps the feedback so it can be resent; the
+// run detail owns the feedback so browsing other stages keeps the typed text.
+export default function GateDecision({ run, node, refresh, feedback: owned, shared }) {
+  const local = useState(""),
+    [feedback, setFeedback] = owned || local,
     [confirm, setConfirm] = useState(null);
-  const mutation = useAsyncAction();
+  const mutation = useRunAction(shared);
   const actions = availableGateActions(run);
   const execute = async (action) => {
     await requestRunAction(run, action, { feedback });
@@ -32,16 +34,17 @@ export default function GateDecision({ run, node, refresh }) {
       className="run-gate-decision"
       aria-labelledby={`run-gate-decision-${node.id}`}
     >
-      <strong id={`run-gate-decision-${node.id}`}>
-        {copy.statuses["awaiting-human"]}
-      </strong>
+      <h4 id={`run-gate-decision-${node.id}`}>{copy.statuses["awaiting-human"]}</h4>
       {actions.some((action) => ["feedback", "loop-back"].includes(action)) && (
-        <textarea
-          aria-label={copy.feedback}
-          rows={2}
-          value={feedback}
-          onChange={(event) => setFeedback(event.target.value)}
-        />
+        <label>
+          {copy.feedback}
+          <textarea
+            aria-label={copy.feedback}
+            rows={2}
+            value={feedback}
+            onChange={(event) => setFeedback(event.target.value)}
+          />
+        </label>
       )}
       <div className="pipeline-actions">
         {actions.map((action) => (

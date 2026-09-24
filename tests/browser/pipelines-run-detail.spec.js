@@ -298,6 +298,17 @@ test("verification evidence distinguishes timeouts from unavailable results", as
       exact: true,
     }),
   ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Verifikationsprotokoll: lint", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toContainText("Fixture verification log");
+  expect(state.calls.filter((call) => call.path.includes("/verify-logs/"))).toEqual([
+    {
+      path: "/pipeline-runs/run-one/nodes/stage-one/verify-logs/2",
+      method: "GET",
+      body: null,
+    },
+  ]);
 });
 
 test("failed native stage offers an explicit override with confirmation", async ({
@@ -495,4 +506,81 @@ test("back to all runs keeps the list filters of the route", async ({ page }) =>
   await openPipelines(page, "runs/run-one?status=awaiting-human&project=project-one");
   await page.getByRole("button", { name: "Alle Läufe", exact: true }).click();
   await expect(page).toHaveURL(/\/pipelines\?project=project-one&status=awaiting-human$/);
+});
+
+// A repair branch taken only when planning fails stays pending once planning passed.
+function branchRun(state, id = "run-one") {
+  const run = threeStageRun(state);
+  run.id = id;
+  const [plan, review, release] = run.nodes;
+  run.nodes = [plan, { ...release, id: "fixer" }, { ...review, id: "impl" }];
+  run.nodes[1].profileSnapshot = { ...release.profileSnapshot, name: "Reparatur" };
+  run.currentNodeId = "impl";
+  run.edges = [
+    { from: "plan", to: "impl", condition: "default", effects: {} },
+    { from: "plan", to: "fixer", condition: "fail", effects: {} },
+    { from: "fixer", to: "impl", condition: "default", effects: {} },
+    { from: "impl", to: null, condition: "default", effects: { humanGate: true } },
+  ];
+  run.executionLog = run.executionLog.map((entry) =>
+    entry.nodeId === "review" ? { ...entry, nodeId: "impl" } : entry,
+  );
+  return run;
+}
+
+test("untaken branches neither hide the decision nor lose typed feedback", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  const done = branchRun(state, "run-done");
+  done.status = "completed";
+  done.nodes[2].status = "passed";
+  done.actions = ["delete"];
+  state.runs.push(branchRun(state), done);
+  await openPipelines(page, "runs/run-one");
+  await expect(stageButtons(page).nth(2)).toHaveAttribute("aria-current", "step");
+  const decision = page.locator(".run-gate-decision");
+  await expect(decision.getByRole("heading", { level: 4 })).toHaveText(
+    "Entscheidung erforderlich",
+  );
+  await decision.getByLabel("Rückmeldung", { exact: true }).fill("Keep this text");
+  await stageButtons(page).nth(1).click();
+  await expect(decision).toHaveCount(0);
+  const cue = headerActions(page).getByRole("button", {
+    name: "Entscheidung erforderlich · Stufe 3",
+    exact: true,
+  });
+  await cue.click();
+  await expect(stageButtons(page).nth(2)).toHaveAttribute("aria-current", "step");
+  await expect(cue).toHaveCount(0);
+  await expect(decision.getByLabel("Rückmeldung", { exact: true })).toHaveValue(
+    "Keep this text",
+  );
+  await page.getByRole("button", { name: "Alle Läufe", exact: true }).click();
+  await openPipelines(page, "runs/run-done");
+  await expect(stageButtons(page).nth(2)).toHaveAttribute("aria-current", "step");
+});
+
+test("a pending decision disables the header actions until it settles", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  state.runs.push(threeStageRun(state));
+  await openPipelines(page, "runs/run-one");
+  state.hold = "/pipeline-runs/run-one/gate";
+  await page.getByRole("button", { name: "Freigeben", exact: true }).click();
+  await expect(
+    headerActions(page).getByRole("button", { name: "Lauf abbrechen", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    headerActions(page).getByRole("button", {
+      name: "Ergebnis erneut prüfen",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  state.hold = null;
+  state.release();
+  await expect(
+    headerActions(page).getByRole("button", { name: "Lauf abbrechen", exact: true }),
+  ).toBeEnabled();
 });

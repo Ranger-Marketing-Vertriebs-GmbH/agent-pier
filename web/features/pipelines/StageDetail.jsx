@@ -105,7 +105,9 @@ function Usage({ usage }) {
 
 // The selected stage: decision, summary, findings, verification, attempts, evidence and
 // the run's reported usage, in this order.
-export default function StageDetail({ run, node, index, navigate, refresh, showGate }) {
+// `gate` carries the decision's shared feedback and action runner when this stage is the
+// current gate stage.
+export default function StageDetail({ run, node, index, navigate, refresh, gate }) {
   const evidence = useEvidence(run.id, node);
   const verifying = isVerifying(run, node);
   const steps = verificationSteps(node);
@@ -131,8 +133,14 @@ export default function StageDetail({ run, node, index, navigate, refresh, showG
           <SessionLinks sessionId={node.sessionId} navigate={navigate} />
         )}
       </header>
-      {showGate ? (
-        <GateDecision run={run} node={node} refresh={refresh} />
+      {gate ? (
+        <GateDecision
+          run={run}
+          node={node}
+          refresh={refresh}
+          feedback={gate.feedback}
+          shared={gate.shared}
+        />
       ) : (
         node.gateDecision && (
           <p className="run-gate-confirmation">

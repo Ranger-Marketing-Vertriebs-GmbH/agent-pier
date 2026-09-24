@@ -7,10 +7,18 @@
   flex-direction: column;
   gap: 14px;
 }
-.run-gate-decision > strong {
+.run-gate-decision > h4 {
+  margin: 0;
   font-size: 14px;
   font-weight: 600;
   color: #ffc99d;
+}
+.run-gate-decision label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 11px;
+  color: #cdced2;
 }
 .run-gate-decision textarea {
   width: 100%;
