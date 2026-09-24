@@ -182,6 +182,7 @@ export const pipelineCopy = {
   openTerminal: "Terminal öffnen",
   unknown: "Nicht verfügbar",
   usage: "Gemeldete Nutzung",
+  usageWholeRun: "Gemeldete Nutzung · gesamter Lauf",
   input: "Eingabe",
   output: "Ausgabe",
   total: "Gesamt",

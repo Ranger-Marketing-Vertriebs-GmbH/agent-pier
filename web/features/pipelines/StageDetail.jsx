@@ -1,6 +1,6 @@
 import React from "react";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
-import { formatNumber, formatTimestamp } from "../../lib/i18n/index.js";
+import { formatTimestamp } from "../../lib/i18n/index.js";
 import { serverText } from "../../lib/server-messages.js";
 import VerificationStatus, { isVerifying } from "./VerificationStatus.jsx";
 import EvidenceTiles, {
@@ -10,6 +10,7 @@ import EvidenceTiles, {
 } from "./RunEvidence.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import GateDecision from "./GateDecision.jsx";
+import RunUsage from "./RunUsage.jsx";
 import { Findings, VerdictSummary } from "./Verdict.jsx";
 import { stageName, stageStatus, stageTone } from "./run-stages.js";
 
@@ -81,30 +82,8 @@ function StageAttempts({ run, node }) {
   );
 }
 
-function Usage({ usage }) {
-  if (!usage) return null;
-  const value = (key) => (Number.isFinite(usage[key]) ? formatNumber(usage[key]) : "–");
-  return (
-    <Block title={copy.usage}>
-      <div className="run-usage" role="group" aria-label={copy.usage}>
-        {[
-          [copy.input, value("inputTokens")],
-          [copy.output, value("outputTokens")],
-          [copy.total, value("totalTokens")],
-          [copy.cost, Number.isFinite(usage.costUsd) ? `${usage.costUsd} USD` : "–"],
-        ].map(([label, text]) => (
-          <div key={label}>
-            <span>{label}</span>
-            <strong>{text}</strong>
-          </div>
-        ))}
-      </div>
-    </Block>
-  );
-}
-
 // The selected stage: decision, summary, findings, verification, attempts, evidence and
-// the run's reported usage, in this order.
+// the whole run's reported usage, in this order.
 // `gate` carries the decision's shared feedback and action runner when this stage is the
 // current gate stage.
 export default function StageDetail({ run, node, index, navigate, refresh, gate }) {
@@ -176,7 +155,7 @@ export default function StageDetail({ run, node, index, navigate, refresh, gate 
       )}
       <ErrorMessage error={evidence.error} />
       {evidence.viewer}
-      <Usage usage={run.usage} />
+      <RunUsage usage={run.usage} />
       {(node.startedAt || node.profileSnapshot) && (
         <footer className="run-stage-footer">
           {node.startedAt && (

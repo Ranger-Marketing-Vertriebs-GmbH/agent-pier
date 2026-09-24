@@ -6,6 +6,7 @@ import RunHeader from "./RunHeader.jsx";
 import StageRail from "./StageRail.jsx";
 import StageDetail from "./StageDetail.jsx";
 import ExecutionHistory from "./ExecutionHistory.jsx";
+import RunUsage from "./RunUsage.jsx";
 import { availableGateActions } from "./GateDecision.jsx";
 import { gateActions } from "./run-action-request.js";
 import { defaultStageId } from "./run-stages.js";
@@ -57,6 +58,7 @@ export default function RunDetail({ id, navigate }) {
                 : null
             }
           />
+          {nodes.length === 0 && <RunUsage usage={run.usage} />}
           {nodes.length > 0 && (
             <div className="run-detail-layout">
               <div className="run-detail-side">
