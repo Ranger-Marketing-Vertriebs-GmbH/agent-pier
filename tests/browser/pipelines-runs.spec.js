@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { pipelinesFixture, openPipelines, sampleRun } from "./pipelines-fixture.js";
+import { baseURL } from "../helpers/browser.js";
 const runRows = (page) =>
   page
     .getByRole("row")
@@ -313,4 +314,18 @@ test("clicks on the project text and the progress cell open the run", async ({
   await page.goBack();
   await clickCentre(page, runRows(page).first().locator(".run-table-progress"));
   await expect(page).toHaveURL(/runs\/run-one$/);
+});
+
+test("a run page beyond the last one is replaced by the last page", async ({ page }) => {
+  const state = await pipelinesFixture(page);
+  for (let index = 0; index < 21; index++)
+    state.runs.push(sampleRun(state, `run-${index}`));
+  await page.goto(baseURL + "/pipelines");
+  await expect(runRows(page)).toHaveCount(20);
+  await page.goto(baseURL + "/pipelines?page=7");
+  await expect(page).toHaveURL(/\/pipelines\?page=2$/);
+  await expect(runRows(page)).toHaveCount(1);
+  // The clamp replaced the unreachable page, so Back returns to the first page.
+  await page.goBack();
+  await expect(page).toHaveURL(/\/pipelines$/);
 });

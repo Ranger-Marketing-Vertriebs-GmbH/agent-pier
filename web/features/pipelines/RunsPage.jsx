@@ -1,5 +1,6 @@
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import React, { useEffect, useState } from "react";
+import useSettledReplace from "../../lib/useSettledReplace.js";
 import Icon from "../../components/Icon.jsx";
 import { Pagination } from "../../components/Pagination.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
@@ -12,6 +13,7 @@ import RunStatusFilter from "./RunStatusFilter.jsx";
 import RunTable from "./RunTable.jsx";
 import useRunStatusCounts from "./useRunStatusCounts.js";
 import { runsPaging } from "./runs-paging.js";
+import { pipelineRoutePath } from "./routes.js";
 
 export default function RunsPage({ route, navigate, home, onTotal }) {
   const detail = route.pipelineItem && route.pipelineItem !== "new";
@@ -46,10 +48,17 @@ export default function RunsPage({ route, navigate, home, onTotal }) {
     page,
     setPage: (pipelinePage) => navigate({ pipelinePage }),
   });
-  useEffect(() => {
-    if (list.data && page > paging.pageCount)
-      navigate({ pipelinePage: paging.pageCount }, true);
-  }, [list.data, page, paging.pageCount, navigate]);
+  // A page beyond the last one is replaced by the last page once the URL has settled.
+  const pageTarget =
+    list.data && page > paging.pageCount
+      ? { ...route, pipelinePage: paging.pageCount }
+      : null;
+  useSettledReplace({
+    target: pageTarget,
+    targetPath: pageTarget ? pipelineRoutePath(pageTarget) : "",
+    currentPath: pipelineRoutePath(route),
+    navigate: (next, replace) => navigate({ pipelinePage: next.pipelinePage }, replace),
+  });
   if (detail)
     return (
       <RunDetail key={route.pipelineItem} id={route.pipelineItem} navigate={navigate} />
