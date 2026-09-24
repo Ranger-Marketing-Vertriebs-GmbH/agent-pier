@@ -42,6 +42,27 @@ dialog.run-dialog[open] {
   grid-auto-flow: row;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
 }
+.segment.run-dialog-segment label:has(.run-dialog-option-path) {
+  height: auto;
+  min-height: 33px;
+  padding: 6px 12px;
+}
+.segment.run-dialog-segment label > span:has(.run-dialog-option-path) {
+  display: grid;
+  gap: 2px;
+  text-align: center;
+}
+.run-dialog-option-name,
+.run-dialog-option-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.run-dialog-option-path {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  color: #8b8c90;
+}
 .run-dialog-empty {
   font-size: 12px;
   color: #97989c;
