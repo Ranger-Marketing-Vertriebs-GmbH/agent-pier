@@ -7,6 +7,7 @@ import {
   explorerFixture,
   selectEnglish,
 } from "../helpers/file-explorer-browser.js";
+import { navigateTo } from "../helpers/navigation.js";
 
 async function openDisclosure(page, selector) {
   const disclosure = page.locator(selector);
@@ -58,7 +59,7 @@ test("English management opens Files and keeps its path after reload", async ({
 }) => {
   const { requests, getPreferences } = await explorerFixture(page);
   await selectEnglish(page);
-  await page.getByRole("button", { name: "Files", exact: true }).click();
+  await navigateTo(page, "Files");
   await openDisclosure(page, ".explorer-path-options");
   await expect(page.getByRole("textbox", { name: "Path" })).toHaveValue("/home/test");
   await page.goto(baseURL + "/files?path=%2Fhome%2Ftest&hidden=1");

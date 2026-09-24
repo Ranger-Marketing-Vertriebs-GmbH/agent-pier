@@ -2,12 +2,19 @@ import { commonCopy } from "../lib/i18n/messages/common.js";
 import { mobileHeaderCopy as copy } from "../lib/i18n/messages/app.js";
 import React from "react";
 import Icon from "../components/Icon.jsx";
-export default function MobileHeader({ setMobileNav, select, launch, installed }) {
+export default function MobileHeader({
+  mobileNav,
+  setMobileNav,
+  select,
+  launch,
+  installed,
+}) {
   return (
     <div className="mobile-header">
       <button
         className="icon-button"
         aria-label={copy.iconButtonAriaLabel}
+        aria-expanded={mobileNav}
         onClick={() => setMobileNav(true)}
       >
         <Icon name="menu" />

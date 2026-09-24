@@ -78,7 +78,10 @@ async function setup(page, tool = "claude") {
   await page.goto(base);
   if (await page.getByRole("button", { name: "Navigation öffnen" }).isVisible())
     await page.getByRole("button", { name: "Navigation öffnen" }).click();
-  await navigateTo(page, "Plugins & Marketplace");
+  await navigateTo(page, "Erweiterungen");
+  const extensionsUrl = new URL(page.url());
+  extensionsUrl.searchParams.set("tab", "plugins");
+  await page.goto(extensionsUrl.toString());
   return { writes, data };
 }
 test("marketplace source, browse, install, disable and deliberate removal use selected CLI profile", async ({

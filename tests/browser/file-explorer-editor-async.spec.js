@@ -8,6 +8,7 @@ import {
   selectEnglish,
 } from "../helpers/file-explorer-browser.js";
 import { baseURL } from "../helpers/browser.js";
+import { navigateTo } from "../helpers/navigation.js";
 const d1 = `d1:${"1".repeat(64)}`,
   e1 = `e1:${"1".repeat(64)}`;
 const document = (path, text = "first\n") => ({
@@ -307,7 +308,7 @@ test("editor runtime stays unloaded and a late language cannot replace the activ
   });
   await selectEnglish(page);
   expect(assets.some((url) => /FileEditor-/.test(url))).toBe(false);
-  await page.getByRole("button", { name: "Files", exact: true }).click();
+  await navigateTo(page, "Files");
   await openExplorerDisclosure(page, ".explorer-path-options");
   await expect(page.getByRole("textbox", { name: "Path", exact: true })).toBeVisible();
   expect(assets.some((url) => /FileEditor-/.test(url))).toBe(false);

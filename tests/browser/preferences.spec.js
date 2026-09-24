@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
+import { navigateTo } from "../helpers/navigation.js";
 test("settings save a default folder and explicit repository launch wins", async ({
   page,
 }) => {
@@ -75,7 +76,7 @@ test("settings save a default folder and explicit repository launch wins", async
     "/work",
   );
   await page.getByRole("button", { name: "Dialog schließen" }).click();
-  await page.getByRole("button", { name: "Repositories", exact: true }).click();
+  await navigateTo(page, "Projekte");
   await expect(page.getByLabel("Übergeordneter Ordner", { exact: true })).toHaveValue(
     "/work",
   );

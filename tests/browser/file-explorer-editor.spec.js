@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { explorerFixture, selectEnglish } from "../helpers/file-explorer-browser.js";
 import { baseURL } from "../helpers/browser.js";
+import { navigateTo } from "../helpers/navigation.js";
 const path = "/home/test/readme.txt";
 const revision = `d1:${"1".repeat(64)}`;
 const metadataRevision = `e1:${"1".repeat(64)}`;
@@ -56,7 +57,7 @@ test("English guarded navigation keeps full history, saves CRLF/BOM, and offers 
   await page.getByRole("button", { name: "Close document", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await navigateTo(page, "Settings");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(content).toContainText("Changed");
   await content.press("ControlOrMeta+z");

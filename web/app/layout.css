@@ -153,14 +153,16 @@
 .sidebar-group-content[hidden] {
   display: none;
 }
-.management-group > .sidebar-group-content {
+.projects-group > .sidebar-group-content,
+.configuration-group > .sidebar-group-content {
   padding-left: 8px;
   max-height: 34dvh;
   overflow-y: auto;
 }
-.management-group .nav-item {
+.projects-group .nav-item,
+.configuration-group .nav-item {
   width: 100%;
-  min-height: 38px;
+  min-height: 33px;
   font-size: 11px;
 }
 .sessions-group {

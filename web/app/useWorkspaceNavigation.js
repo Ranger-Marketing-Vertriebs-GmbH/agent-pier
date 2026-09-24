@@ -279,10 +279,11 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     profileAccounts.find((a) => a.id === profileMemory.current)?.id ||
     profileAccounts[0]?.id ||
     "";
-  // Legacy sidebar view names redirect onto the new projects/extensions route shapes
-  // until Task 2 regroups the sidebar itself.
+  // "repositories" is a legacy alias for the Projekte sidebar item (used by utilityPages);
+  // memory/agentbus/plugins stay reachable by tab until the Projects hub replaces this
+  // stop-gap in a later task.
   const page = (view) => {
-    if (view === "repositories") return navigate(projectsRoute());
+    if (view === "repositories" || view === "projects") return navigate(projectsRoute());
     if (view === "memory") return navigate(projectsRoute({ projectTab: "knowledge" }));
     if (view === "agentbus") return navigate(projectsRoute({ projectTab: "agentbus" }));
     if (view === "plugins")

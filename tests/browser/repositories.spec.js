@@ -265,7 +265,7 @@ for (const outcome of ["success", "failure"]) {
     await page.getByRole("button", { name: "Repository klonen", exact: true }).click();
     await expect.poll(() => requests).toBe(1);
     await navigateTo(page, "Accounts");
-    await navigateTo(page, "Repositories");
+    await navigateTo(page, "Projekte");
     try {
       await expect(page.getByRole("button", { name: "Wird geklont …" })).toBeDisabled();
     } finally {

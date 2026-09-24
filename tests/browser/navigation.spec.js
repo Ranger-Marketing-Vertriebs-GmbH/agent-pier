@@ -98,7 +98,7 @@ test("Shell profile deep links are rejected and never become the profile navigat
     ).toBeVisible();
     await expect(page).toHaveURL(`${base}/${expected}`);
   }
-  await navigateTo(page, "MCP & Skills");
+  await navigateTo(page, "Erweiterungen");
   await expect(page).toHaveURL(/\/extensions\/local-codex$/);
   await expect(page.getByRole("combobox", { name: "CLI-Profil" })).toHaveValue(
     "local-codex",
@@ -108,7 +108,8 @@ test("Shell profile deep links are rejected and never become the profile navigat
       .getByRole("combobox", { name: "CLI-Profil" })
       .locator('option[value="local-shell"]'),
   ).toHaveCount(0);
-  await navigateTo(page, "Plugins & Marketplace");
+  await navigateTo(page, "Erweiterungen");
+  await page.goto(`${base}/extensions/local-codex?tab=plugins`);
   await expect(page).toHaveURL(/\/extensions\/local-codex\?tab=plugins$/);
   await expect(
     page
@@ -131,7 +132,8 @@ test("profile deep links and navigation survive reload and history", async ({ pa
   await expect(page.getByRole("combobox", { name: "CLI-Profil" })).toHaveValue(
     "work-claude",
   );
-  await navigateTo(page, "Plugins & Marketplace");
+  await navigateTo(page, "Erweiterungen");
+  await page.goto(`${base}/extensions/work-claude?tab=plugins`);
   await expect(page).toHaveURL(/\/extensions\/work-claude\?tab=plugins$/);
   await page.reload();
   await expect(page.getByRole("combobox", { name: "CLI-Profil" })).toHaveValue(
@@ -139,7 +141,7 @@ test("profile deep links and navigation survive reload and history", async ({ pa
   );
   await navigateTo(page, "Accounts");
   await expect(page).toHaveURL(/\/accounts$/);
-  await navigateTo(page, "Repositories");
+  await navigateTo(page, "Projekte");
   await expect(page).toHaveURL(/\/projects$/);
   await page.goBack();
   await expect(page.getByRole("heading", { name: "Deine Accounts" })).toBeVisible();

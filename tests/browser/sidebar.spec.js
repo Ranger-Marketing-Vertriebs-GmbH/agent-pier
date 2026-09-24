@@ -62,28 +62,44 @@ test("sidebar groups shorten the menu and remember explicit toggles across reloa
 }) => {
   await fixture(page);
   await page.goto(base);
-  const management = page.getByRole("button", { name: "Verwaltung", exact: true }),
+  const projects = page.locator(".projects-group > .sidebar-group-toggle"),
+    configuration = page.getByRole("button", { name: "Konfiguration", exact: true }),
     sessions = page.getByRole("button", { name: "Sitzungen", exact: true });
-  await expect(management).toHaveAttribute("aria-expanded", "false");
+  await expect(projects).toHaveAttribute("aria-expanded", "false");
+  await expect(configuration).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByRole("button", { name: "Accounts", exact: true })).toBeHidden();
   await expect(sessions).toHaveAttribute("aria-expanded", "true");
   await sessions.click();
   await expect(page.locator(".session-list")).toBeHidden();
-  await management.click();
+  await configuration.click();
   await expect(page.getByRole("button", { name: "Accounts", exact: true })).toBeVisible();
   await page.reload();
-  await expect(management).toHaveAttribute("aria-expanded", "true");
+  await expect(configuration).toHaveAttribute("aria-expanded", "true");
   await expect(sessions).toHaveAttribute("aria-expanded", "false");
-  await management.click();
+  await configuration.click();
   await page.reload();
-  await expect(management).toHaveAttribute("aria-expanded", "false");
+  await expect(configuration).toHaveAttribute("aria-expanded", "false");
   await page.goto(base + "/accounts");
-  await expect(management).toHaveAttribute("aria-expanded", "true");
+  await expect(configuration).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByRole("button", { name: "Accounts", exact: true })).toHaveClass(
     /selected/,
   );
+  await expect(configuration).toHaveCSS("color", "rgb(255, 201, 157)");
+  await page.goto(base + "/pipelines");
+  await expect(projects).toHaveAttribute("aria-expanded", "true");
+  await expect(projects).toHaveCSS("color", "rgb(255, 201, 157)");
   await page.goto(base + "/sessions/status-working/terminal");
   await expect(sessions).toHaveAttribute("aria-expanded", "true");
+});
+test("Escape closes the mobile drawer", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fixture(page);
+  await page.goto(base);
+  const drawer = page.locator(".sidebar");
+  await page.getByRole("button", { name: "Navigation öffnen", exact: true }).click();
+  await expect(drawer).toHaveClass(/open/);
+  await page.keyboard.press("Escape");
+  await expect(drawer).not.toHaveClass(/open/);
 });
 for (const mobile of [false, true])
   test(`activity labels distinguish working, unknown and Shell (${mobile ? "mobile" : "desktop"})`, async ({

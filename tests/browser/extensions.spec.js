@@ -88,7 +88,7 @@ async function open(page) {
   await page.goto(base);
   if (await page.getByRole("button", { name: "Navigation öffnen" }).isVisible())
     await page.getByRole("button", { name: "Navigation öffnen" }).click();
-  await navigateTo(page, "MCP & Skills");
+  await navigateTo(page, "Erweiterungen");
 }
 test("MCP configuration is account-scoped, preserves secrets only in request and can be removed", async ({
   page,

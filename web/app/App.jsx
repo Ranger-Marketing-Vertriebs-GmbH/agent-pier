@@ -48,6 +48,14 @@ function Application() {
     restoreFocus.current = false;
     (sidebarCollapsed ? expandButton : collapseButton).current?.focus();
   }, [sidebarCollapsed]);
+  useEffect(() => {
+    if (!mobileNav) return;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setMobileNav(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileNav]);
   const toggleSidebar = (collapsed) => {
     restoreFocus.current = true;
     setSidebarCollapsed(collapsed);
@@ -128,6 +136,7 @@ function Application() {
       <main>
         <MobileHeader
           {...{
+            mobileNav,
             setMobileNav,
             select,
             launch,
