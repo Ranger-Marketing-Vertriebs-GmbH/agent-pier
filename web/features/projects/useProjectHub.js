@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import api from "../../lib/api.js";
 import { getCloneOperation, subscribeToClone } from "../repositories/cloneStore.js";
 
@@ -94,6 +101,21 @@ export function groupRunCounts(runs) {
   return counts;
 }
 
+// Hands out tickets in request order and accepts an answer only when no newer
+// request has been applied yet, so a slow answer never replaces a newer one.
+export function latestGate() {
+  let started = 0,
+    applied = 0;
+  return {
+    start: () => ++started,
+    apply(ticket) {
+      if (ticket <= applied) return false;
+      applied = ticket;
+      return true;
+    },
+  };
+}
+
 const maxRunPages = 5;
 // One status-filtered listing per hint, grouped by the run's project, instead of
 // one request per listed project.
@@ -127,6 +149,29 @@ export default function useProjectHub() {
       ),
     [],
   );
+  // The load's own AgentBus read and the poll's reads race; only the answer to the
+  // most recently started request that has arrived so far is applied.
+  const busGate = useRef(latestGate());
+  const readBus = useCallback(
+    async (isActive) => {
+      const ticket = busGate.current.start();
+      try {
+        const data = await api("/agentbus");
+        if (isActive() && busGate.current.apply(ticket)) {
+          setBusData({
+            version: data.version || "",
+            note: data.note || "",
+            projects: data.projects || [],
+          });
+          sourceError("agentbus", "");
+        }
+      } catch (failure) {
+        if (isActive() && busGate.current.apply(ticket))
+          sourceError("agentbus", failure.message);
+      }
+    },
+    [sourceError],
+  );
   useEffect(() => {
     let alive = true;
     setLoading(true);
@@ -135,8 +180,8 @@ export default function useProjectHub() {
     Promise.allSettled([
       api("/repositories"),
       api("/memory/projects"),
-      api("/agentbus"),
-    ]).then(([repositories, memory, bus]) => {
+      readBus(() => alive),
+    ]).then(([repositories, memory]) => {
       if (!alive) return;
       if (repositories.status === "fulfilled")
         setSources((current) => ({
@@ -149,18 +194,11 @@ export default function useProjectHub() {
           ...current,
           memoryProjects: memory.value.projects || [],
         }));
-      if (bus.status === "fulfilled")
-        setBusData({
-          version: bus.value.version || "",
-          note: bus.value.note || "",
-          projects: bus.value.projects || [],
-        });
       sourceError(
         "repositories",
         repositories.status === "rejected" ? repositories.reason.message : "",
       );
       sourceError("memory", memory.status === "rejected" ? memory.reason.message : "");
-      sourceError("agentbus", bus.status === "rejected" ? bus.reason.message : "");
       setLoading(false);
     });
     Promise.all([runsWithStatus("awaiting-human"), runsWithStatus("failed")])
@@ -171,7 +209,7 @@ export default function useProjectHub() {
     return () => {
       alive = false;
     };
-  }, [version, sourceError]);
+  }, [version, sourceError, readBus]);
   // AgentBus refreshes every 4 s while the page is visible; a hidden page pauses the
   // poll and reads at once when it becomes visible again.
   useEffect(() => {
@@ -185,22 +223,9 @@ export default function useProjectHub() {
     async function read() {
       if (!active || reading || document.hidden) return;
       reading = true;
-      try {
-        const data = await api("/agentbus");
-        if (active) {
-          setBusData({
-            version: data.version || "",
-            note: data.note || "",
-            projects: data.projects || [],
-          });
-          sourceError("agentbus", "");
-        }
-      } catch (failure) {
-        if (active) sourceError("agentbus", failure.message);
-      } finally {
-        reading = false;
-        schedule();
-      }
+      await readBus(() => active);
+      reading = false;
+      schedule();
     }
     const visibility = () => {
       clearTimeout(timer);
@@ -213,7 +238,7 @@ export default function useProjectHub() {
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [version, sourceError]);
+  }, [version, readBus]);
   const repositories = useMemo(
     () => [
       ...clone.projects,
