@@ -49,7 +49,15 @@ async function fixture(page) {
           ? { availability: "ready", messages: [], tasks: [] }
           : path.endsWith("/models")
             ? { picker: null, pending: false }
-            : {};
+            : path === "/api/pipeline-runs"
+              ? { runs: [], total: 0, page: 1, pageSize: 20 }
+              : path === "/api/pipelines"
+                ? { pipelines: [] }
+                : path === "/api/pipeline-profiles"
+                  ? { profiles: [] }
+                  : path === "/api/memory/projects"
+                    ? { projects: [] }
+                    : {};
     await route.fulfill({ json: data });
   });
   await page.routeWebSocket("**/api/sessions/*/terminal", (ws) =>
@@ -86,6 +94,7 @@ test("sidebar groups shorten the menu and remember explicit toggles across reloa
   );
   await expect(configuration).toHaveCSS("color", "rgb(255, 201, 157)");
   await page.goto(base + "/pipelines");
+  await expect(page.getByText("Noch keine passenden Läufe.")).toBeVisible();
   await expect(projects).toHaveAttribute("aria-expanded", "true");
   await expect(projects).toHaveCSS("color", "rgb(255, 201, 157)");
   await page.goto(base + "/sessions/status-working/terminal");
