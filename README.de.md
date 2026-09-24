@@ -165,7 +165,7 @@ Unter **Erweiterungen → Agenten** lässt sich der öffentliche Katalog von [ms
 
 AgentBus ist nativ enthalten und bei neuen Coding-CLI-Sitzungen standardmäßig aktiviert. Sitzungen im selben realen Projektordner können einander entdecken, Nachrichten senden und ihre Inbox lesen. Beim Start lässt sich AgentBus abwählen. Shell- und Login-Sitzungen verwenden es nicht. Bestehende Sitzungen werden nicht nachträglich verändert.
 
-Unter **Projekte** im Tab **AgentBus** eines Projekts siehst du unter **Sitzungen** verbundene Sitzungen und wartende Nachrichten. **Nachrichten** zeigt Absender, Empfänger, Zeitpunkt, Text und Inbox-Status mit 20 Einträgen pro Seite. Diese Ansicht konsumiert keine Nachrichten und löst keine Modellarbeit aus. Die CLIs selbst können beim Nachrichtenaustausch weitere Modellarbeit auslösen. Codex kann eine native Prüfung neuer Hooks verlangen; die Statusansicht weist darauf hin.
+Unter **Projekte** im Tab **AgentBus** eines Projekts siehst du unter **Sitzungen** verbundene Sitzungen und wartende Nachrichten. **Nachrichten** zeigt Absender, Empfänger, Zeitpunkt, Text und Inbox-Status mit 20 Einträgen pro Seite. Diese Ansicht konsumiert keine Nachrichten und löst keine Modellarbeit aus. Die CLIs selbst können beim Nachrichtenaustausch weitere Modellarbeit auslösen. Codex kann eine native Prüfung neuer Hooks verlangen; die betroffene Sitzung unter **Sitzungen** weist darauf hin.
 
 Die Integration verwendet temporäre Konfiguration pro Sitzung und verändert keine globalen CLI-Konfigurationsdateien. Details zum enthaltenen Quellcode, den behobenen Fehlern und den Grenzen stehen in [AgentBus-Integration](docs/agentbus-integration.md).
 
