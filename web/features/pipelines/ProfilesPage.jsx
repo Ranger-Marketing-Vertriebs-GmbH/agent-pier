@@ -6,7 +6,13 @@ import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import useResource from "../../lib/useResource.js";
 import ProfileEditor from "./ProfileEditor.jsx";
 import ConfirmAction from "./ConfirmAction.jsx";
-export default function ProfilesPage({ route, navigate, accounts, onLaunchProfile }) {
+export default function ProfilesPage({
+  route,
+  navigate,
+  accounts,
+  onLaunchProfile,
+  refreshCounts,
+}) {
   const resource = useResource("/pipeline-profiles");
   const [clone, setClone] = useState(null),
     [removing, setRemoving] = useState(null);
@@ -122,6 +128,7 @@ export default function ProfilesPage({ route, navigate, accounts, onLaunchProfil
             await api(`/pipeline-profiles/${removing.id}`, "DELETE");
             setRemoving(null);
             resource.refresh();
+            refreshCounts?.();
           }}
         />
       )}

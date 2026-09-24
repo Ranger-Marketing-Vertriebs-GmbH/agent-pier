@@ -24,8 +24,6 @@ export const projectsHubCopy = {
   notFound: "Project not found",
   notFoundDescription:
     "This project no longer exists. Choose another project from the list.",
-  runsLink: "View runs in Pipelines",
-  runsDescription: "Pipeline runs for this project are listed under Pipelines.",
   runsUnavailable:
     "Runs belong to a project folder. Add the folder to start pipelines in it.",
 };

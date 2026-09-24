@@ -3,6 +3,26 @@ import { baseURL as base } from "../helpers/browser.js";
 
 const repositoryPath = "/work/agent-pier";
 
+const hubRun = (id, projectId, status) => ({
+  id,
+  projectId,
+  status,
+  pipelineName: "Entwicklungsablauf",
+  task: `Task ${id}`,
+  cwd: projectId === "m1" ? repositoryPath : "/work/notes",
+  createdAt: "2026-09-10T05:00:00Z",
+  nodes: [{ id: "n1", status: "pending", profileSnapshot: { name: "Planer" } }],
+  currentNodeId: "n1",
+  actions: [],
+});
+const hubRuns = [
+  hubRun("a", "m1", "awaiting-human"),
+  hubRun("r2", "m1", "running"),
+  hubRun("r3", "m1", "completed"),
+  hubRun("f1", "m2", "failed"),
+  hubRun("f2", "m2", "failed"),
+];
+
 async function hubFixture(page, controls = {}) {
   const calls = [];
   const memoryProjects = [
@@ -46,6 +66,9 @@ async function hubFixture(page, controls = {}) {
           { id: "c1", name: "Arbeit", host: "https://github.com", hasSecret: true },
         ],
         projects: [
+          ...(controls.unregistered
+            ? [{ id: "r2", name: "loose", url: "", path: "/work/loose" }]
+            : []),
           {
             id: "r1",
             name: "agent-pier",
@@ -91,24 +114,27 @@ async function hubFixture(page, controls = {}) {
         hasMore: false,
         truncated: false,
       };
+    else if (url.pathname === "/api/pipeline-runs" && method === "POST")
+      json = { run: { id: "new-run", ...request.postDataJSON() } };
     else if (url.pathname === "/api/pipeline-runs") {
-      const status = url.searchParams.get("status");
-      const runs =
-        status === "awaiting-human"
-          ? [{ id: "a", projectId: "m1" }]
-          : status === "failed"
-            ? [
-                { id: "f1", projectId: "m2" },
-                { id: "f2", projectId: "m2" },
-              ]
-            : [];
+      const status = url.searchParams.get("status"),
+        projectId = url.searchParams.get("projectId"),
+        page = Number(url.searchParams.get("page") || 1);
+      const runs = hubRuns.filter(
+        (run) =>
+          (!status || run.status === status) &&
+          (!projectId || run.projectId === projectId),
+      );
       json = {
-        runs,
-        total: url.searchParams.get("projectId") === "m1" ? 3 : runs.length,
-        page: 1,
+        runs: runs.slice((page - 1) * 20, page * 20),
+        total: runs.length,
+        page,
         pageSize: 20,
       };
-    }
+    } else if (url.pathname.startsWith("/api/pipeline-runs/"))
+      json = { run: hubRuns.find((run) => url.pathname.endsWith(`/${run.id}`)) };
+    else if (url.pathname === "/api/pipelines")
+      json = { pipelines: [{ id: "p1", name: "Entwicklungsablauf" }] };
     await route.fulfill({ json });
   });
   await page.routeWebSocket("**/api/sessions/*/terminal", () => {});
@@ -172,9 +198,7 @@ test("the hub joins projects, selects the first one and resolves every id space"
 
   await page.getByRole("tab", { name: /^Läufe/ }).click();
   await expect(page).toHaveURL(/\/projects\/m1\?tab=runs$/);
-  await page.getByRole("link", { name: "Läufe in Pipelines ansehen" }).click();
-  await expect(page).toHaveURL(/\/pipelines\?project=m1$/);
-  await page.goBack();
+  await expect(page.getByRole("button", { name: /^Lauf öffnen:/ })).toHaveCount(3);
   await page.getByRole("tab", { name: "Übersicht" }).click();
   await page.getByRole("button", { name: "Sitzung Hub fixture session öffnen" }).click();
   await expect(page).toHaveURL(/\/sessions\/s1\//);
@@ -253,6 +277,83 @@ test("mobile shows the list first, then the detail, and dialogs fit as sheets", 
   expect(await noOverflow(page)).toBe(true);
 });
 
+test("the runs tab lists the project's runs with filters bound to the projects URL", async ({
+  page,
+}) => {
+  const calls = await hubFixture(page);
+  await page.goto(base + "/projects/m1?tab=runs&page=4");
+  await expect(page).toHaveURL(/\/projects\/m1\?tab=runs$/);
+  const rows = page
+    .getByRole("row")
+    .filter({ has: page.getByRole("button", { name: /^Lauf öffnen:/ }) });
+  await expect(rows).toHaveCount(3);
+  await expect(page.getByRole("columnheader")).toHaveText([
+    "Aufgabe",
+    "Fortschritt",
+    "Status",
+    "Aktualisiert",
+  ]);
+  await expect(page.getByRole("combobox", { name: "Projekt" })).toHaveCount(0);
+  await expect(page.getByRole("tablist", { name: "Pipelines" })).toHaveCount(0);
+  const filter = page.getByRole("group", { name: "Status", exact: true });
+  await expect(filter.getByRole("button")).toHaveText([
+    /^Alle Status\s*3$/,
+    /^Entscheidung erforderlich\s*1$/,
+    /^Läuft\s*1$/,
+    /^Abgeschlossen\s*1$/,
+  ]);
+  const listCalls = calls.filter(
+    (call) =>
+      call.path === "/api/pipeline-runs" &&
+      call.search.includes("page=") &&
+      !call.search.includes("status="),
+  );
+  expect(listCalls.length).toBeGreaterThan(0);
+  expect(listCalls.every((call) => call.search.includes("projectId=m1"))).toBe(true);
+  await filter.getByRole("button", { name: /^Läuft/ }).click();
+  await expect(page).toHaveURL(/\/projects\/m1\?tab=runs&status=running$/);
+  await expect(rows).toHaveCount(1);
+  await page.reload();
+  await expect(filter.getByRole("button", { name: /^Läuft/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(rows).toHaveCount(1);
+  await page.getByRole("button", { name: "Lauf öffnen: Task r2" }).click();
+  await expect(page).toHaveURL(/\/pipelines\/runs\/r2$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/projects\/m1\?tab=runs&status=running$/);
+
+  await page.getByRole("button", { name: "Lauf starten", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Lauf starten" });
+  await expect(
+    dialog
+      .getByRole("radiogroup", { name: "Projekt" })
+      .getByRole("radio", { name: "agent-pier" }),
+  ).toBeChecked();
+  await expect(dialog.getByLabel("Arbeitsverzeichnis")).toHaveValue(repositoryPath);
+  await dialog.getByRole("radio", { name: "Entwicklungsablauf" }).check();
+  await dialog.getByLabel("Aufgabe").fill("Hub task");
+  await dialog.getByRole("button", { name: "Lauf starten", exact: true }).click();
+  await expect(page).toHaveURL(/\/pipelines\/runs\/new-run$/);
+});
+
+test("a folder without knowledge project offers registration on the runs tab", async ({
+  page,
+}) => {
+  const calls = await hubFixture(page, { unregistered: true });
+  await page.goto(base + "/projects/r2?tab=runs");
+  await expect(
+    page.getByText("Läufe gehören zu einem Projektordner.", { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByRole("group", { name: "Status" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Projekt hinzufügen", exact: true }).click();
+  await expect(page).toHaveURL(/\/projects\/m3\?tab=runs$/);
+  expect(calls.filter((call) => call.method === "POST")).toEqual([
+    { method: "POST", path: "/api/memory/projects", search: "" },
+  ]);
+});
+
 test.describe("English projects hub", () => {
   test.use({ locale: "en-GB" });
 
@@ -286,8 +387,15 @@ test.describe("English projects hub", () => {
     await expect(page.getByText("Local only").first()).toBeVisible();
     await expect(page.getByText("No sessions in this project yet.")).toBeVisible();
     await page.getByRole("tab", { name: /^Runs/ }).click();
+    await expect(page.getByRole("button", { name: "Open run: Task f1" })).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "View runs in Pipelines" }),
-    ).toBeVisible();
+      page.getByRole("group", { name: "Status" }).getByRole("button"),
+    ).toHaveText([/^All statuses\s*2$/, /^Failed\s*2$/]);
+    await expect(page.getByRole("columnheader")).toHaveText([
+      "Task",
+      "Progress",
+      "Status",
+      "Updated",
+    ]);
   });
 });
