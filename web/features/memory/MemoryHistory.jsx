@@ -6,6 +6,7 @@ import { Pagination } from "../../components/Pagination.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { memoryCopy as copy } from "../../lib/i18n/messages/memory.js";
 import { memoryPaging, entryAuthor } from "./memory-presentation.js";
+import "./memory.css";
 
 export default function MemoryHistory({ projectId, entry, close }) {
   const [page, setPage] = useState(1),

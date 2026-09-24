@@ -176,8 +176,8 @@ export default function ProjectsPage({
                 sessions={state.sessions}
                 select={select}
                 onLaunch={onLaunch}
-                home={home}
                 mobile={mobile}
+                reloadHub={reload}
               />
             ) : missing ? (
               <section className="project-card project-missing">

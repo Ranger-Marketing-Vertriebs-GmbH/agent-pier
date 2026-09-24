@@ -1,15 +1,12 @@
 export const memoryCopy = {
   discoveryError:
     "Memory-Hooks konnten nicht konfiguriert werden. Prüfe die Hook-Konfiguration der Sitzung und versuche es erneut.",
-  title: "Projektwissen",
-  description:
-    "Gemeinsames Wissen für Codex, Claude Code und OpenCode im selben Repository.",
-  scope: "Git-Worktrees teilen das Repository-Wissen. Andere Projekte bleiben getrennt.",
-  project: "Projekt",
   addProject: "Projekt hinzufügen",
   directory: "Projektordner",
-  noProjects:
-    "Noch kein Projekt registriert. Neue CLI-Sitzungen verbinden ihr Projekt automatisch.",
+  notRegistered:
+    "Für dieses Projekt ist noch kein Wissen gespeichert. Registriere den Ordner, um Einträge anzulegen.",
+  tabHint:
+    "Git-Worktrees teilen das Repository-Wissen. Andere Projekte bleiben getrennt. Einträge sind geteilte Notizen, keine automatisch geprüften Anweisungen.",
   newEntry: "Neuer Eintrag",
   editEntry: "Eintrag bearbeiten",
   entryTitle: "Titel",
@@ -28,6 +25,5 @@ export const memoryCopy = {
   savedByUser: "Von dir gespeichert",
   savedByAgent: (tool) => `Von ${tool} gespeichert`,
   reference: "Einträge sind geteilte Notizen, keine automatisch geprüften Anweisungen.",
-  projectUnavailable: "Dieses Projekt ist nicht verfügbar.",
   entries: "Wissenseinträge",
 };

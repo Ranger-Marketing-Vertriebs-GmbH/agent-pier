@@ -279,7 +279,136 @@
   gap: 8px;
   text-decoration: none;
 }
-/* Interim hosts for the pre-redesign knowledge and AgentBus pages. */
+.project-knowledge {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.project-knowledge-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.project-knowledge-toolbar form {
+  display: flex;
+  gap: 8px;
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.project-knowledge-toolbar form input {
+  flex: 1;
+  min-width: 0;
+}
+.project-knowledge-toolbar .button {
+  height: 38px;
+  gap: 8px;
+  padding: 0 14px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.project-knowledge-segment {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #404145;
+  border-radius: 7px;
+  background: #141519;
+}
+.project-knowledge-segment button {
+  height: 29px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #97989c;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.project-knowledge-segment button.selected {
+  background: #2c2d31;
+  color: #ffc99d;
+}
+.project-knowledge-hint {
+  margin: 14px 0 4px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #8b8c90;
+}
+.project-knowledge-entries {
+  display: flex;
+  flex-direction: column;
+}
+.project-knowledge-entry {
+  border-bottom: 1px solid #303137;
+}
+.project-knowledge-entry-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+  padding: 16px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.project-knowledge-entry-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.project-knowledge-entry-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e8e8ec;
+  overflow-wrap: anywhere;
+}
+.project-knowledge-entry-toggle[aria-expanded="true"] .project-knowledge-entry-title {
+  color: #ffc99d;
+}
+.project-knowledge-entry-time {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: #8b8c90;
+}
+.project-knowledge-entry-toggle p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #a7a8ac;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.project-knowledge-entry-toggle p.expanded {
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+.project-knowledge-entry-meta {
+  font-size: 10px;
+  color: #8b8c90;
+}
+.project-knowledge-entry-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+}
+.project-knowledge-entry-actions .button {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 10px;
+}
+/* Interim host for the pre-redesign AgentBus page. */
 .project-legacy > .page {
   max-width: none;
   margin: 0;
@@ -435,6 +564,12 @@ dialog.project-dialog[open] {
   }
   .clone-dialog .repository-clone-fields {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .project-knowledge-toolbar form {
+    flex-basis: 100%;
+  }
+  .project-knowledge-entry-toggle {
+    padding: 12px 0;
   }
 }
 .project-load-error {
