@@ -1,5 +1,4 @@
 export const agencyCopy = {
-  title: "Agency Agents",
   description:
     "Specialized agents from msitarzewski/agency-agents. Select individual agents for all accounts using this CLI.",
   search: "Search agency agents",
@@ -11,6 +10,10 @@ export const agencyCopy = {
   remove: "Remove agent",
   installed: "Installed",
   installedTitle: "Installed agency agents",
+  noInstalled: "No agency agents installed yet.",
+  scope: "Installed agents apply to all accounts using this CLI.",
+  appliesTo: (tool) => `Applies to all ${tool} accounts`,
+  catalogView: (count) => `Catalog · ${count}`,
   empty: "No matching agents found.",
   loading: "Loading agency catalog …",
   stale: "The GitHub catalog is currently unavailable. Showing the last saved version.",

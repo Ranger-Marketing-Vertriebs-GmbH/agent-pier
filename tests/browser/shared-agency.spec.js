@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import {
+  expectNoHorizontalOverflow,
+  openTab,
+  profileList,
+  revealRow,
+} from "../helpers/extensions.js";
 const revision = "a".repeat(40);
 async function fixture(page) {
   const writes = [];
@@ -15,6 +21,7 @@ async function fixture(page) {
     ],
   };
   const installed = [];
+  const agencyReads = [];
   await page.route("**/api/**", async (route) => {
     const request = route.request(),
       url = new URL(request.url()),
@@ -34,6 +41,14 @@ async function fixture(page) {
         skills: { items: [], note: "Shared", installPath: "/fixture/.claude/skills" },
       };
     else if (endpoint.endsWith("/extensions/share")) result = { shared: true };
+    else if (endpoint.endsWith("/plugins"))
+      result = {
+        available: true,
+        capabilities: { marketplaces: true, install: true },
+        installed: [],
+        marketplaces: [],
+        catalog: [],
+      };
     else if (endpoint.endsWith("/agency/preview"))
       result = {
         id: "engineering__frontend",
@@ -47,6 +62,7 @@ async function fixture(page) {
           "/engineering/frontend.md",
       };
     else if (endpoint.endsWith("/agency")) {
+      if (request.method() === "GET") agencyReads.push(url.search);
       if (request.method() === "POST")
         installed.push({
           id: "engineering__frontend",
@@ -75,32 +91,56 @@ async function fixture(page) {
     else throw Error("Unexpected fixture route: " + endpoint);
     await route.fulfill({ json: result });
   });
-  return writes;
+  return { writes, agencyReads };
 }
 for (const mobile of [false, true])
   test(`CLI groups normalize old account links and install a previewed Agency agent (${mobile ? "mobile" : "desktop"})`, async ({
     page,
   }) => {
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
-    const writes = await fixture(page);
+    const { writes, agencyReads } = await fixture(page);
     await page.goto(baseURL + "/extensions/work");
     await expect(page).toHaveURL(/extensions\/local-claude$/);
-    const cli = page.getByRole("combobox", { name: "CLI", exact: true });
-    await expect(cli.locator("option")).toHaveCount(2);
+    const profiles = profileList(page).getByRole("button");
+    await expect(profiles).toHaveCount(2);
+    await expect(profiles.filter({ hasText: "Claude Code" })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    await expect(page.getByRole("tab")).toHaveText([
+      /^MCP-Server/,
+      /^Skills/,
+      /^Plugins/,
+      /^Marketplaces/,
+      /^Agenten/,
+    ]);
     await page
       .getByRole("button", { name: "Vorhandene Account-Konfigurationen übernehmen" })
       .click();
     await expect(
       page.getByText("Vorhandene Erweiterungen wurden zusammengeführt."),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Agency Agents", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Agency Agents" })).toHaveCount(0);
+    expect(agencyReads).toEqual([]);
+    await openTab(page, "Agenten");
+    await expect(page).toHaveURL(/extensions\/local-claude\?tab=agents$/);
+    await expect(
+      page.getByText("Installierte Agenten gelten für alle Accounts dieser CLI."),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Katalog durchsuchen", exact: true }).click();
+    await expect(page.getByRole("radio", { name: /^Katalog/ })).toBeChecked();
     await page.getByLabel("Agency-Agenten suchen").fill("frontend");
+    await expect(
+      page.getByRole("heading", { name: "frontend", exact: true }),
+    ).toBeVisible();
+    await revealRow(page, "frontend");
     await page.getByRole("button", { name: "Agent ansehen" }).click();
     const dialog = page.getByRole("dialog", { name: "Frontend Expert" });
     await expect(dialog).toContainText("Use the selected project.");
     await expect(dialog).toContainText(
       "Modell und Berechtigungen werden von deiner Sitzung geerbt.",
     );
+    await expect(dialog.getByRole("link", { name: /Quelle auf GitHub/ })).toBeVisible();
     await page.screenshot({
       path: `/tmp/agentpier-agency-preview-${mobile ? "mobile" : "desktop"}.png`,
       animations: "disabled",
@@ -114,15 +154,17 @@ for (const mobile of [false, true])
       id: "engineering__frontend",
       revision,
     });
+    await page.getByRole("radio", { name: /^Installiert/ }).check();
+    await revealRow(page, "Frontend Expert");
     await page.getByRole("button", { name: "Agent entfernen", exact: true }).click();
     await page
       .getByRole("dialog")
       .getByRole("button", { name: "Agent entfernen", exact: true })
       .click();
     await expect(page.getByText("Agency-Agent entfernt.", { exact: true })).toBeVisible();
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-    ).toBe(true);
+    await expectNoHorizontalOverflow(page);
+    await page.getByRole("radio", { name: /^Katalog/ }).check();
+    await revealRow(page, "frontend");
     await expect(page.getByRole("button", { name: "Agent ansehen" })).toBeVisible();
     await page.screenshot({
       path: `/tmp/agentpier-agency-${mobile ? "mobile" : "desktop"}.png`,

@@ -45,8 +45,7 @@
   flex: 1;
   min-width: 0;
 }
-.extension-details h3,
-.extension-install h3 {
+.extension-details h3 {
   font-size: 14px;
   font-weight: 500;
   overflow-wrap: anywhere;
@@ -72,18 +71,6 @@
   padding: 20px;
   border: 1px dashed var(--line);
   border-radius: 9px;
-}
-.extension-add,
-.extension-install {
-  padding: 22px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-}
-.extension-add summary {
-  cursor: pointer;
-  color: #ffc99d;
-  font-size: 13px;
 }
 .extension-fields {
   border: 0;
@@ -176,10 +163,6 @@
   .extension-card {
     flex-direction: column;
     gap: 12px;
-  }
-  .extension-add,
-  .extension-install {
-    padding: 16px;
   }
   .extension-actions {
     flex-wrap: wrap;

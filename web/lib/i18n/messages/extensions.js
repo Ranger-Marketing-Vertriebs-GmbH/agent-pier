@@ -5,6 +5,10 @@ export const extensionsPageCopy = localizedCopy(
   de.extensionsPageCopy,
   en.extensionsPageCopy,
 );
+export const extensionsHubCopy = localizedCopy(
+  de.extensionsHubCopy,
+  en.extensionsHubCopy,
+);
 export const mcpFormCopy = localizedCopy(de.mcpFormCopy, en.mcpFormCopy);
 export const profileExtensionsCopy = localizedCopy(
   de.profileExtensionsCopy,

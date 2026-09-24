@@ -11,7 +11,6 @@ import Sidebar from "./Sidebar.jsx";
 import AppDialogs from "./AppDialogs.jsx";
 import { defaultSessionMode } from "./routes.js";
 import Repositories from "../features/repositories/RepositoriesPage.jsx";
-import Plugins from "../features/plugins/PluginsPage.jsx";
 import Extensions from "../features/extensions/ExtensionsPage.jsx";
 import Settings from "../features/settings/SettingsPage.jsx";
 import SessionWorkspace from "../features/sessions/SessionWorkspace.jsx";
@@ -233,34 +232,14 @@ function Application() {
               }
             />
           </Suspense>
-        ) : view === "extensions" &&
-          ["plugins", "marketplaces"].includes(route.extensionTab) ? (
-          <Plugins
-            shared={state.sharedCliExtensions}
-            accounts={state.accounts}
-            request={api}
-            profileId={route.profileId}
-            onProfileChange={(profileId) =>
-              navigate({
-                view,
-                profileId,
-                extensionTab: route.extensionTab,
-              })
-            }
-          />
         ) : view === "extensions" ? (
           <Extensions
             shared={state.sharedCliExtensions}
             accounts={state.accounts}
             request={api}
             profileId={route.profileId}
-            onProfileChange={(profileId) =>
-              navigate({
-                view,
-                profileId,
-                extensionTab: route.extensionTab,
-              })
-            }
+            extensionTab={route.extensionTab}
+            onNavigate={navigate}
           />
         ) : view === "projects" ? (
           // Stop-gap: renders the pre-redesign Repositories page for overview/runs tabs.

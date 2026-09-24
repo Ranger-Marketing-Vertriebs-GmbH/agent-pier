@@ -1,5 +1,11 @@
 import React from "react";
-export default function UnderlineTabs({ label, tabs, selected, onSelect }) {
+export default function UnderlineTabs({
+  label,
+  tabs,
+  selected,
+  onSelect,
+  disabled = false,
+}) {
   const move = (event, index) => {
     const count = tabs.length;
     let next = null;
@@ -22,6 +28,7 @@ export default function UnderlineTabs({ label, tabs, selected, onSelect }) {
           aria-selected={selected === tab.id}
           aria-controls={`underline-tabpanel-${tab.id}`}
           tabIndex={selected === tab.id ? 0 : -1}
+          disabled={disabled}
           onClick={() => onSelect(tab.id)}
           onKeyDown={(event) => move(event, index)}
         >

@@ -1,6 +1,13 @@
 import { navigateTo } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
+import {
+  expectNoHorizontalOverflow,
+  expectProfilesDisabled,
+  openTab,
+  profileList,
+  revealRow,
+} from "../helpers/extensions.js";
 async function fixture(page) {
   const accounts = [
     { id: "local-codex", name: "Codex Lokal", tool: "codex", kind: "local" },
@@ -46,6 +53,16 @@ async function fixture(page) {
         },
       });
     if (url.pathname.endsWith("/extensions")) return route.fulfill({ json: data });
+    if (url.pathname.endsWith("/plugins"))
+      return route.fulfill({
+        json: {
+          available: true,
+          capabilities: {},
+          installed: [],
+          marketplaces: [],
+          catalog: [],
+        },
+      });
     if (url.pathname.endsWith("/mcp") && method === "POST") {
       data.mcp.servers.push({
         name: body.name,
@@ -95,20 +112,41 @@ test("MCP configuration is account-scoped, preserves secrets only in request and
 }) => {
   const { writes } = await fixture(page);
   await open(page);
-  await page.getByRole("combobox", { name: "CLI-Profil" }).selectOption("managed-claude");
-  await page.getByText("MCP-Server hinzufügen", { exact: true }).click();
-  await page.getByLabel("MCP-Name").fill("fixture");
-  await page.getByLabel("Befehl", { exact: true }).fill("fixture-command");
-  await page.getByLabel("Argumente als JSON").fill('["--token","private-argument"]');
-  await page
+  await expect(
+    page.getByRole("heading", { name: "Erweiterungen", level: 1 }),
+  ).toBeVisible();
+  const claude = profileList(page).getByRole("button", { name: /Claude Code/ });
+  await claude.click();
+  await expect(claude).toHaveAttribute("aria-current", "true");
+  await expect(page).toHaveURL(/\/extensions\/managed-claude$/);
+  await expect(page.getByRole("tab")).toHaveText([/^MCP-Server/, /^Skills/, /^Plugins/]);
+  const add = page.getByRole("button", { name: "MCP-Server hinzufügen", exact: true });
+  await add.click();
+  const panel = page.getByRole("dialog", { name: "MCP-Server hinzufügen" });
+  await expect(panel).toContainText("Profil Claude Arbeit");
+  await panel.getByLabel("MCP-Name").fill("fixture");
+  await panel.getByLabel("Befehl", { exact: true }).fill("fixture-command");
+  await panel.getByLabel("Argumente als JSON").fill('["--token","private-argument"]');
+  await panel
     .getByLabel("Umgebungsvariablen als JSON")
     .fill('{"API_KEY":"private-token"}');
-  await page.getByRole("button", { name: "MCP speichern", exact: true }).click();
+  await panel.getByRole("button", { name: "MCP speichern", exact: true }).click();
+  await expect(panel).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "fixture", exact: true })).toBeVisible();
+  const row = page.getByRole("article").filter({
+    has: page.getByRole("heading", { name: "fixture", exact: true }),
+  });
+  await expect(row).toContainText("fixture-command · 2 Argumente");
+  await expect(row).toContainText("stdio");
+  await expect(row).toContainText("Konfiguriert");
+  await expect(row).toContainText("Zugangswerte gespeichert · 1 Variablen, 0 Header");
   expect(writes[0].path).toBe("/api/accounts/managed-claude/extensions/mcp");
   expect(writes[0].body.env.API_KEY).toBe("private-token");
-  await expect(page.getByLabel("Umgebungsvariablen als JSON")).toHaveValue("{}");
   await expect(page.getByText("private-token", { exact: true })).toHaveCount(0);
+  await add.click();
+  await expect(panel.getByLabel("Umgebungsvariablen als JSON")).toHaveValue("{}");
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
   await page.getByRole("button", { name: "MCP fixture entfernen" }).click();
   await page.getByRole("button", { name: "Entfernen bestätigen", exact: true }).click();
   await expect(page.getByRole("heading", { name: "fixture", exact: true })).toHaveCount(
@@ -121,6 +159,8 @@ test("skill file upload and GitHub download show native shared scope and protect
   const { writes } = await fixture(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page);
+  await openTab(page, "Skills");
+  await expect(page).toHaveURL(/\/extensions\/local-codex\?tab=skills$/);
   await expect(
     page.getByText(
       "Codex-Skills werden im Benutzerordner geteilt und gelten für alle Codex-Profile.",
@@ -130,44 +170,63 @@ test("skill file upload and GitHub download show native shared scope and protect
   await expect(
     page.getByRole("button", { name: "Skill shared-skill entfernen" }),
   ).toHaveCount(0);
-  await page.getByLabel("Skill-Datei").setInputFiles({
+  await page.getByRole("button", { name: "Skill installieren", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Skill installieren" });
+  await expect(panel).toContainText("/fixture/.agents/skills");
+  const sheet = await panel.boundingBox();
+  expect(sheet.x).toBeGreaterThanOrEqual(0);
+  expect(sheet.x + sheet.width).toBeLessThanOrEqual(390);
+  await expectNoHorizontalOverflow(page);
+  await panel.getByLabel("Skill-Datei").setInputFiles({
     name: "SKILL.md",
     mimeType: "text/markdown",
     buffer: Buffer.from("---\nname: demo-skill\ndescription: Fixture\n---\nInstructions"),
   });
-  await page.getByRole("button", { name: "Skill installieren", exact: true }).click();
+  await panel.getByRole("button", { name: "Skill installieren", exact: true }).click();
+  await expect(panel).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "demo-skill", exact: true }),
   ).toBeVisible();
   expect(Buffer.from(writes[0].body.contentBase64, "base64").toString()).toContain(
     "name: demo-skill",
   );
+  await revealRow(page, "demo-skill");
   await page.getByRole("button", { name: "Skill demo-skill entfernen" }).click();
   await page.getByRole("button", { name: "Entfernen bestätigen", exact: true }).click();
-  await page.getByRole("combobox", { name: "Skill-Quelle" }).selectOption("url");
-  await page
+  await expect(
+    page.getByRole("heading", { name: "demo-skill", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Skill installieren", exact: true }).click();
+  await panel
+    .getByRole("radiogroup", { name: "Skill-Quelle" })
+    .getByRole("radio", { name: "GitHub-Link" })
+    .check();
+  await panel
     .getByLabel("Öffentlicher GitHub-Link")
     .fill("https://github.com/example/skills/tree/main/demo");
-  await page.getByRole("button", { name: "Skill installieren", exact: true }).click();
+  await panel.getByRole("button", { name: "Skill installieren", exact: true }).click();
+  await expect(panel).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "demo-skill", exact: true }),
   ).toBeVisible();
   expect(writes.at(-1).body).toEqual({
     url: "https://github.com/example/skills/tree/main/demo",
   });
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-  ).toBeTruthy();
+  await expectNoHorizontalOverflow(page);
 });
 test("failed MCP writes preserve the draft and never submit twice while pending", async ({
   page,
 }) => {
   await fixture(page);
   await open(page);
-  await page.getByText("MCP-Server hinzufügen", { exact: true }).click();
-  await page.getByLabel("MCP-Name").fill("remote");
-  await page.getByRole("combobox", { name: "Verbindung" }).selectOption("http");
-  await page.getByLabel("MCP-URL").fill("https://example.invalid/mcp");
+  await page.getByRole("button", { name: "MCP-Server hinzufügen", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "MCP-Server hinzufügen" });
+  await panel.getByLabel("MCP-Name").fill("remote");
+  await panel
+    .getByRole("radiogroup", { name: "Verbindung" })
+    .getByRole("radio", { name: "Remote-URL · HTTP" })
+    .check();
+  await panel.getByLabel("MCP-URL").fill("https://example.invalid/mcp");
   let release;
   let calls = 0;
   const held = new Promise((resolve) => {
@@ -181,16 +240,25 @@ test("failed MCP writes preserve the draft and never submit twice while pending"
       json: { error: "Konfiguration gleichzeitig geändert" },
     });
   });
-  await page.getByRole("button", { name: "MCP speichern", exact: true }).click();
+  await panel.getByRole("button", { name: "MCP speichern", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "MCP wird gespeichert …" }),
+    panel.getByRole("button", { name: "MCP wird gespeichert …" }),
   ).toBeDisabled();
+  await expectProfilesDisabled(page);
+  await expect(panel.getByLabel("MCP-URL")).toBeDisabled();
   release();
   await expect(page.getByRole("alert")).toContainText(
     "Konfiguration gleichzeitig geändert",
   );
-  await expect(page.getByLabel("MCP-URL")).toHaveValue("https://example.invalid/mcp");
+  await expect(panel.getByRole("alert")).toHaveCount(1);
+  await expect(panel.getByLabel("MCP-Name")).toHaveValue("remote");
+  await expect(panel.getByLabel("MCP-URL")).toHaveValue("https://example.invalid/mcp");
   expect(calls).toBe(1);
+  await panel.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  await expect(
+    profileList(page).getByRole("button", { name: /Claude Code/ }),
+  ).toBeEnabled();
 });
 
 for (const mobile of [false, true])
@@ -211,8 +279,10 @@ for (const mobile of [false, true])
     }));
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
     await open(page);
-    const section = page.getByRole("region", { name: "Skills", exact: true });
-    await expect(section.locator("article.extension-card")).toHaveCount(20);
+    await expect(page.getByRole("tab", { name: /^Skills/ })).toContainText("50");
+    await openTab(page, "Skills");
+    const section = page.getByRole("tabpanel");
+    await expect(section.locator("article.extension-row")).toHaveCount(20);
     await expect(
       section.getByRole("heading", { name: "skill-01", exact: true }),
     ).toBeVisible();
@@ -228,7 +298,7 @@ for (const mobile of [false, true])
     await section
       .getByRole("button", { name: "Skills: Nächste Seite", exact: true })
       .click();
-    await expect(section.locator("article.extension-card")).toHaveCount(10);
+    await expect(section.locator("article.extension-row")).toHaveCount(10);
     await expect(
       section.getByRole("heading", { name: "skill-50", exact: true }),
     ).toBeVisible();
@@ -236,7 +306,7 @@ for (const mobile of [false, true])
       section.getByRole("button", { name: "Skills: Nächste Seite", exact: true }),
     ).toBeDisabled();
     await page.getByRole("searchbox", { name: "Skills suchen" }).fill("einzigartige");
-    await expect(section.locator("article.extension-card")).toHaveCount(1);
+    await expect(section.locator("article.extension-row")).toHaveCount(1);
     await expect(
       section.getByRole("heading", { name: "skill-50", exact: true }),
     ).toBeVisible();
@@ -256,20 +326,19 @@ for (const mobile of [false, true])
       section.getByText("Keine Skills passen zur Suche.", { exact: true }),
     ).toBeVisible();
     await page.getByRole("searchbox", { name: "Skills suchen" }).fill("");
-    await expect(section.locator("article.extension-card")).toHaveCount(20);
+    await expect(section.locator("article.extension-row")).toHaveCount(20);
     await expect(
       section.getByRole("heading", { name: "skill-01", exact: true }),
     ).toBeVisible();
     await page.getByRole("searchbox", { name: "Skills suchen" }).fill("skill-47");
-    await page
-      .getByRole("combobox", { name: "CLI-Profil" })
-      .selectOption("managed-claude");
+    await profileList(page)
+      .getByRole("button", { name: /Claude Code/ })
+      .click();
+    await expect(page).toHaveURL(/\/extensions\/managed-claude\?tab=skills$/);
     await expect(page.getByRole("searchbox", { name: "Skills suchen" })).toHaveValue("");
     await expect(
       section.getByRole("heading", { name: "skill-01", exact: true }),
     ).toBeVisible();
     expect(writes).toEqual([]);
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-    ).toBeTruthy();
+    await expectNoHorizontalOverflow(page);
   });

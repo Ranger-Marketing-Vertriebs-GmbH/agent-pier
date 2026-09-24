@@ -1,6 +1,5 @@
 export const installedPluginsCopy = {
   installedPluginsHeading: "Installed plugins",
-  sectionHeadingLabel: " found",
   pluginListSearch: "Search installed plugins",
   extensionScope: "Version not specified",
   toggleNotice: (value1, value2) => `${value1} was ${value2}.`,
@@ -10,8 +9,7 @@ export const installedPluginsCopy = {
 export const marketplacesCopy = {
   defaultMarketplace: "Codex default marketplace",
   builtinDescription: "Provided by Codex. Choose plugins from the catalog.",
-  marketplacesHeading: "Marketplaces",
-  sectionHeadingLabel: " sources",
+  empty: "No marketplace added yet.",
   buttonOnClick: (value1) => `${value1} was updated.`,
   extensionInstallOnSubmit: "Marketplace added.",
   extensionWide: "Marketplace source",
@@ -22,19 +20,12 @@ export const marketplacesCopy = {
 };
 export const pluginCatalogCopy = {
   catalogHeading: "Discover plugins",
-  sectionHeadingLabel: " results",
   searchPlugins: "Search plugins",
   filterMarketplace: "Filter marketplace",
   extensionFieldsOption: "All marketplaces",
   buttonOnClick: (value1) => `${value1} was installed.`,
   extensionEmpty: "No matching plugins. Add a marketplace or change the search filter.",
   extensionSectionLabel: "Plugin catalog",
-};
-export const pluginsPageCopy = {
-  pluginsPageEyebrow: "WORKSPACE / PLUGINS",
-  pluginsPageSubtitle: "Native CLI extensions",
-  pluginsPageTitle: "Plugins & Marketplace",
-  pluginsPageDescription: "Discover plugins and manage them for your CLI profile.",
 };
 export const profilePluginsCopy = {
   catalogReasons: {

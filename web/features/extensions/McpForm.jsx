@@ -1,9 +1,22 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { mcpFormCopy as copy } from "../../lib/i18n/messages/extensions.js";
 import { jsonField } from "./extensionInputs.js";
 import React from "react";
-export default function McpForm({ mutate, request, endpoint, alive, busy }) {
+import ErrorMessage from "../../components/ErrorMessage.jsx";
+import Segment from "../../components/Segment.jsx";
+import SidePanel from "../../components/SidePanel.jsx";
+export default function McpForm({
+  mutate,
+  request,
+  endpoint,
+  alive,
+  busy,
+  error,
+  subtitle,
+  close,
+}) {
+  const formId = useId();
   const [name, setName] = useState("");
   const [transport, setTransport] = useState("stdio");
   const [command, setCommand] = useState("");
@@ -12,9 +25,20 @@ export default function McpForm({ mutate, request, endpoint, alive, busy }) {
   const [url, setUrl] = useState("");
   const [headers, setHeaders] = useState("{}");
   return (
-    <details className="extension-add">
-      <summary>{copy.extensionAddSummary}</summary>
+    <SidePanel
+      title={copy.extensionAddSummary}
+      subtitle={subtitle}
+      close={close}
+      closeDisabled={Boolean(busy)}
+      footer={
+        <button className="button primary" form={formId} disabled={Boolean(busy)}>
+          {busy === "mcp" ? copy.savingMcp : commonCopy.saveMcp}
+        </button>
+      }
+    >
       <form
+        id={formId}
+        className="extension-panel-form"
         onSubmit={(event) => {
           event.preventDefault();
           mutate(
@@ -35,21 +59,16 @@ export default function McpForm({ mutate, request, endpoint, alive, busy }) {
                     }),
               };
               await request(`${endpoint}/mcp`, "POST", body);
-              if (alive.current) {
-                setName("");
-                setCommand("");
-                setArgs("[]");
-                setEnv("{}");
-                setUrl("");
-                setHeaders("{}");
-              }
+              // The panel closes on success; the next one starts with an empty draft.
+              if (alive.current) close();
             },
             copy.extensionAddOnSubmit,
           );
         }}
       >
         <fieldset className="extension-fields" disabled={Boolean(busy)}>
-          <label>
+          <ErrorMessage error={error} as="p" className="error extension-wide" />
+          <label className="extension-wide">
             {copy.commandLabel}
             <input
               value={name}
@@ -60,17 +79,18 @@ export default function McpForm({ mutate, request, endpoint, alive, busy }) {
               spellCheck={false}
             />
           </label>
-          <label>
-            {commonCopy.connection}
-            <select
-              aria-label={commonCopy.connection}
+          <div className="extension-field extension-wide">
+            <span aria-hidden="true">{commonCopy.connection}</span>
+            <Segment
+              label={commonCopy.connection}
               value={transport}
-              onChange={(event) => setTransport(event.target.value)}
-            >
-              <option value="stdio">{copy.localTransport}</option>
-              <option value="http">{copy.remoteTransport}</option>
-            </select>
-          </label>
+              onChange={setTransport}
+              options={[
+                { value: "stdio", label: copy.localTransport },
+                { value: "http", label: copy.remoteTransport },
+              ]}
+            />
+          </div>
           {transport === "stdio" ? (
             <>
               <label className="extension-wide">
@@ -140,12 +160,7 @@ export default function McpForm({ mutate, request, endpoint, alive, busy }) {
             {copy.secretStorageDescription}
           </p>
         </fieldset>
-        <div className="extension-actions">
-          <button className="button primary" disabled={Boolean(busy)}>
-            {busy === "mcp" ? copy.savingMcp : commonCopy.saveMcp}
-          </button>
-        </div>
       </form>
-    </details>
+    </SidePanel>
   );
 }

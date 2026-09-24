@@ -1,6 +1,12 @@
 import { navigateTo } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
+import {
+  expectNoHorizontalOverflow,
+  expectProfilesDisabled,
+  emptyExtensions,
+  openTab,
+} from "../helpers/extensions.js";
 async function setup(page, tool = "claude") {
   const writes = [];
   const account = { id: "fixture-" + tool, name: "Arbeit", kind: "managed", tool };
@@ -73,6 +79,8 @@ async function setup(page, tool = "claude") {
       }
       return route.fulfill({ json: data });
     }
+    if (url.pathname.endsWith("/extensions"))
+      return route.fulfill({ json: emptyExtensions() });
     return route.fulfill({ json: {} });
   });
   await page.goto(base);
@@ -89,8 +97,28 @@ test("marketplace source, browse, install, disable and deliberate removal use se
 }) => {
   const { writes } = await setup(page);
   expect(writes).toEqual([]);
-  await page.getByLabel("Marketplace-Quelle").fill("example/plugins");
+  await expect(page.getByRole("tab")).toHaveText([
+    /^MCP-Server/,
+    /^Skills/,
+    /^Plugins/,
+    /^Marketplaces/,
+  ]);
+  await openTab(page, "Marketplaces");
+  await expect(page).toHaveURL(/\?tab=marketplaces$/);
   await page.getByRole("button", { name: "Marketplace hinzufügen", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Marketplace hinzufügen" });
+  await expect(panel).toContainText("Profil Arbeit");
+  await panel.getByLabel("Marketplace-Quelle").fill("example/plugins");
+  await panel
+    .getByRole("button", { name: "Marketplace hinzufügen", exact: true })
+    .click();
+  await expect(panel).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "demo-market", exact: true }),
+  ).toBeVisible();
+  await openTab(page, "Plugins");
+  await page.getByRole("button", { name: "Plugins entdecken", exact: true }).click();
+  await expect(page.getByRole("radio", { name: /^Entdecken/ })).toBeChecked();
   await expect(page.getByRole("heading", { name: "Demo", exact: true })).toBeVisible();
   await page.screenshot({
     path: "/tmp/agentpier-plugins-desktop.png",
@@ -98,6 +126,7 @@ test("marketplace source, browse, install, disable and deliberate removal use se
     animations: "disabled",
   });
   await page.getByRole("button", { name: "Plugin Demo installieren" }).click();
+  await page.getByRole("radio", { name: /^Installiert/ }).check();
   await expect(
     page.getByRole("button", { name: "Plugin Demo deaktivieren" }),
   ).toBeVisible();
@@ -123,14 +152,18 @@ test("OpenCode installs explicit npm package and stays usable on mobile", async 
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const { writes } = await setup(page, "opencode");
+  await expect(page.getByRole("tab")).toHaveText([/^MCP-Server/, /^Skills/, /^Plugins/]);
+  await expect(page.getByRole("radio", { name: /^Entdecken/ })).toHaveCount(0);
   await expect(page.getByLabel("Marketplace-Quelle")).toHaveCount(0);
-  await page.getByLabel("npm-Paket").fill("@example/plugin@1.2.3");
-  await page.getByRole("button", { name: "Paket installieren", exact: true }).click();
+  await page.getByRole("button", { name: "npm-Plugin hinzufügen", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "npm-Plugin hinzufügen" });
+  await expectNoHorizontalOverflow(page);
+  await panel.getByLabel("npm-Paket").fill("@example/plugin@1.2.3");
+  await panel.getByRole("button", { name: "Paket installieren", exact: true }).click();
+  await expect(panel).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Demo", exact: true })).toBeVisible();
   expect(writes[0]).toEqual({ action: "install", source: "@example/plugin@1.2.3" });
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-  ).toBeTruthy();
+  await expectNoHorizontalOverflow(page);
   await page.screenshot({
     path: "/tmp/agentpier-plugins-mobile.png",
     fullPage: true,
@@ -153,13 +186,18 @@ test("plugin failures preserve source draft and prevent duplicate requests", asy
       json: { error: "Marketplace nicht erreichbar" },
     });
   });
-  await page.getByLabel("Marketplace-Quelle").fill("example/plugins");
+  await openTab(page, "Marketplaces");
   await page.getByRole("button", { name: "Marketplace hinzufügen", exact: true }).click();
-  await expect(page.getByLabel("CLI-Profil")).toBeDisabled();
-  await expect(page.getByLabel("Marketplace-Quelle")).toBeDisabled();
+  const panel = page.getByRole("dialog", { name: "Marketplace hinzufügen" });
+  await panel.getByLabel("Marketplace-Quelle").fill("example/plugins");
+  await panel
+    .getByRole("button", { name: "Marketplace hinzufügen", exact: true })
+    .click();
+  await expectProfilesDisabled(page);
+  await expect(panel.getByLabel("Marketplace-Quelle")).toBeDisabled();
   release();
   await expect(page.getByRole("alert")).toContainText("Marketplace nicht erreichbar");
-  await expect(page.getByLabel("Marketplace-Quelle")).toHaveValue("example/plugins");
+  await expect(panel.getByLabel("Marketplace-Quelle")).toHaveValue("example/plugins");
   expect(calls).toBe(1);
 });
 
@@ -185,12 +223,16 @@ test("marketplace removal reveals its confirmation and resets a removed catalog 
     removable: true,
   }));
   await page.getByRole("button", { name: "Neu laden", exact: true }).click();
+  await page.getByRole("radio", { name: /^Entdecken/ }).check();
   await page.getByLabel("Marketplace filtern").selectOption("A");
+  await openTab(page, "Marketplaces");
   await page.getByRole("button", { name: "Marketplace A entfernen" }).click();
   const confirm = page.getByRole("group", { name: "Entfernen bestätigen" });
   await expect(confirm).toBeFocused();
   await expect(confirm).toBeInViewport();
   await page.getByRole("button", { name: "Entfernen bestätigen", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "A", exact: true })).toHaveCount(0);
+  await openTab(page, "Plugins");
   await expect(page.getByLabel("Marketplace filtern")).toHaveValue("");
   await expect(
     page.getByRole("heading", { name: "Remaining plugin", exact: true }),
@@ -207,6 +249,7 @@ test("large marketplace catalogs stay bounded while search includes all entries"
     marketplace: "market",
   }));
   await page.getByRole("button", { name: "Neu laden", exact: true }).click();
+  await page.getByRole("radio", { name: "Entdecken · 130" }).check();
   await expect(
     page.getByRole("button", { name: /Plugin Plugin .* installieren/ }),
   ).toHaveCount(20);

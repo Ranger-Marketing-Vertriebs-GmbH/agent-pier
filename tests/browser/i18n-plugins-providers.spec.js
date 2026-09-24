@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { fixture as providerFixture } from "./providers-fixture.js";
+import { emptyAgency, emptyExtensions } from "../helpers/extensions.js";
 
 test.use({ locale: "en-GB" });
 
@@ -51,15 +52,58 @@ test("English Marketplace localizes empty and unavailable catalog guidance and n
           catalogAccountId: url.searchParams.get("catalogAccountId") || "local-codex",
         },
       });
+    if (url.pathname.endsWith("/extensions"))
+      return route.fulfill({ json: emptyExtensions() });
+    if (url.pathname.endsWith("/agency")) return route.fulfill({ json: emptyAgency() });
     return route.fulfill({ json: {} });
   });
   await page.goto("/plugins");
+  await expect(page).toHaveURL(/\/extensions\/local-codex\?tab=plugins$/);
+  await expect(page.getByRole("heading", { name: "Extensions", level: 1 })).toBeVisible();
+  await expect(
+    page.getByText("MCP servers, skills and plugins for each CLI profile.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  const profiles = page.getByRole("navigation", { name: "CLI profiles", exact: true });
+  await expect(profiles.getByRole("button", { name: /Codex/ })).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
+  await expect(page.getByRole("tab")).toHaveText([
+    /^MCP servers/,
+    /^Skills/,
+    /^Plugins/,
+    /^Marketplaces/,
+    /^Agents/,
+  ]);
+  await expect(page.getByRole("radio", { name: "Installed · 0" })).toBeChecked();
+  await page.getByRole("button", { name: "Discover plugins", exact: true }).click();
+  await expect(page.getByRole("radio", { name: "Discover · 0" })).toBeChecked();
   await expect(page.getByLabel("Marketplace account", { exact: true })).toHaveValue(
     "local-codex",
   );
+  await page.getByRole("tab", { name: /^Marketplaces/ }).click();
   await expect(
     page.getByRole("heading", { name: "Codex default marketplace", exact: true }),
   ).toBeVisible();
+  await page.getByRole("tab", { name: /^MCP servers/ }).click();
+  await page.getByRole("button", { name: "Add MCP server", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Add MCP server" });
+  await expect(panel).toContainText("Profile Codex");
+  await expect(
+    panel
+      .getByRole("radiogroup", { name: "Connection" })
+      .getByRole("radio", { name: "Local command · stdio" }),
+  ).toBeChecked();
+  await panel.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  await page.getByRole("tab", { name: /^Agents/ }).click();
+  await expect(
+    page.getByText("Installed agents apply to all accounts using this CLI."),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: /^Plugins/ }).click();
+  await expect(page.getByRole("radio", { name: "Discover · 0" })).toBeChecked();
   await expect(
     page.getByText(
       "No default plugins are available for this account. Choose an account signed in to Codex and reload.",

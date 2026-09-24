@@ -1,0 +1,51 @@
+.segment {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #404145;
+  border-radius: 7px;
+  background: #141519;
+  min-width: 0;
+}
+.segment label {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 33px;
+  padding: 0 12px;
+  border-radius: 5px;
+  color: #97989c;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.segment label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.segment label.selected {
+  background: #2c2d31;
+  color: #ffc99d;
+}
+.segment label:has(input:focus-visible) {
+  outline: 1px solid #f49a58;
+}
+.segment label:has(input:disabled) {
+  cursor: default;
+  opacity: 0.6;
+}
+.segment input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  cursor: inherit;
+}

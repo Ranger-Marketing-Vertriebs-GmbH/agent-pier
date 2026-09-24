@@ -13,6 +13,7 @@
 @import "../components/underline-tabs.css";
 @import "../components/list-detail.css";
 @import "../components/status-chip.css";
+@import "../components/segment.css";
 @import "../features/agentbus/agentbus.css";
 @import "base.css";
 @import "../app/layout.css";
