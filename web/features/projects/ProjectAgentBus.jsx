@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import StatusChip from "../../components/StatusChip.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
@@ -23,18 +23,32 @@ export default function ProjectAgentBus({
 }) {
   const busTab = route.busTab || "status";
   const busProject = busProjects.find((item) => item.id === project.busId) || null;
+  const busProjectId = busProject?.id || "";
   const sessions = busProject?.sessions || [];
   const connected = sessions.filter((session) => session.registered).length;
   const pending = sessions.reduce((total, session) => total + (session.pending || 0), 0);
   const changeTab = (tab) => busTab !== tab && onNavigate(tab);
+  // The segment's message count must agree with the message log's own total, not the
+  // status poll's pending-inbox count. While the messages segment is shown, MessageLog
+  // reports its own (already polling) total; otherwise a single one-shot read on mount
+  // or project change keeps the count current without a second poll.
+  const [messagesTotal, setMessagesTotal] = useState(0);
+  useEffect(() => {
+    if (!busProjectId || busTab === "messages") return;
+    let active = true;
+    request(`/agentbus/projects/${encodeURIComponent(busProjectId)}/messages?page=1`)
+      .then((result) => {
+        if (active) setMessagesTotal(result.total || 0);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [request, busProjectId, busTab]);
   return (
     <div className="project-agentbus">
       <div className="project-agentbus-toolbar">
-        <div
-          className="segment project-agentbus-segment"
-          role="tablist"
-          aria-label={copy.tabsLabel}
-        >
+        <div className="segment" role="tablist" aria-label={copy.tabsLabel}>
           <button
             type="button"
             role="tab"
@@ -51,7 +65,7 @@ export default function ProjectAgentBus({
             className={busTab === "messages" ? "selected" : ""}
             onClick={() => changeTab("messages")}
           >
-            {copy.messagesSegment(pending)}
+            {copy.messagesSegment(messagesTotal)}
           </button>
         </div>
         {busProject && (
@@ -120,6 +134,7 @@ export default function ProjectAgentBus({
           request={request}
           project={busProject}
           page={route.messagePage || 1}
+          onTotal={setMessagesTotal}
           onPage={(next, replace = false) => onNavigate("messages", next, replace)}
         />
       ) : (

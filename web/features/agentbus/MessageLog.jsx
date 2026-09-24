@@ -2,16 +2,27 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { messageLogCopy as copy } from "../../lib/i18n/messages/agentbus.js";
-import React from "react";
+import React, { useEffect } from "react";
 import { Pagination } from "../../components/Pagination.jsx";
 import useAgentBusMessages from "./useAgentBusMessages.js";
-export default function MessageLog({ request, project, page, onPage }) {
+export default function MessageLog({
+  request,
+  project,
+  page,
+  onPage,
+  onTotal = () => {},
+}) {
   const { error, setReload, data, paging } = useAgentBusMessages({
     request,
     project,
     page,
     onPage,
   });
+  // Whichever project's log is on screen owns the segment's live message count; the
+  // parent only needs its own one-shot read while this component is not mounted.
+  useEffect(() => {
+    if (data) onTotal(data.total);
+  }, [data, onTotal]);
   return (
     <section className="extension-section" aria-label={copy.extensionSectionAriaLabel}>
       <p className="field-description">{copy.inboxReadOnlyDescription}</p>
