@@ -146,12 +146,14 @@ test("settings deep links preserve durable jobs and bounded audit filters", () =
     "updates",
     "audit",
     "ssh",
+    "github",
   ]) {
     const route = read(`/settings/${section}`);
     assert.equal(route.view, "settings");
     assert.equal(route.settingsSection, section);
     assert.equal(routePath(route), `/settings/${section}`);
   }
+  assert.equal(read("/settings/github").settingsSection, "github");
   const job = read("/settings/updates?job=job-one");
   assert.equal(job.operationId, "job-one");
   assert.equal(routePath(job), "/settings/updates?job=job-one");

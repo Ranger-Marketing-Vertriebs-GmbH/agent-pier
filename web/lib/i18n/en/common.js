@@ -68,7 +68,7 @@ export const commonCopy = {
   installed: "Installed",
   install: "Install",
   reloadLatest: "Reload",
-  addToken: "Add token",
+  addToken: "Add access",
   profileName: "Profile name",
   githubHost: "GitHub host",
   deleteToken: "Delete token",

@@ -5,6 +5,7 @@ import { sections } from "../../web/features/operations/routes.js";
 
 test("every settings section is a document path the server serves on a deep link", () => {
   assert.ok(sections.has("remote"));
+  assert.ok(sections.has("github"));
   for (const section of sections)
     assert.equal(appDocumentPath.test(`/settings/${section}`), true, section);
   assert.equal(appDocumentPath.test("/settings"), true);

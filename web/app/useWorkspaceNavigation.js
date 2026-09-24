@@ -283,6 +283,8 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
   // memory/agentbus/plugins stay reachable by tab until the Projects hub replaces this
   // stop-gap in a later task.
   const page = (view) => {
+    if (view === "settings/github")
+      return navigate({ view: "settings", settingsSection: "github" });
     if (view === "repositories" || view === "projects") return navigate(projectsRoute());
     if (view === "memory") return navigate(projectsRoute({ projectTab: "knowledge" }));
     if (view === "agentbus") return navigate(projectsRoute({ projectTab: "agentbus" }));

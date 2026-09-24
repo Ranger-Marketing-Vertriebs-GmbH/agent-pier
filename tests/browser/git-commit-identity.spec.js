@@ -9,9 +9,12 @@ for (const locale of ["de-DE", "en-GB"]) {
     }) => {
       const { writes } = await fixture(page);
       const en = locale === "en-GB";
-      await page.goto("/repositories");
+      await page.goto("/settings/github");
       await page
-        .getByRole("button", { name: en ? "Add token" : "Token hinzufügen", exact: true })
+        .getByRole("button", {
+          name: en ? "Add access" : "Zugang hinzufügen",
+          exact: true,
+        })
         .click();
       await page
         .getByLabel(en ? "Profile name" : "Profilname", { exact: true })

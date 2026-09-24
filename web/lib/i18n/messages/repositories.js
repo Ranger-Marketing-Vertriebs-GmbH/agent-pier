@@ -10,6 +10,10 @@ export const credentialListCopy = localizedCopy(
   de.credentialListCopy,
   en.credentialListCopy,
 );
+export const githubAccessPageCopy = localizedCopy(
+  de.githubAccessPageCopy,
+  en.githubAccessPageCopy,
+);
 export const repositoriesPageCopy = localizedCopy(
   de.repositoriesPageCopy,
   en.repositoriesPageCopy,

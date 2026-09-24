@@ -1,16 +1,27 @@
+const title = "Settings";
+const groups = {
+  workspace: "Workspace",
+  access: "Access",
+  operations: "Operations",
+};
+const sections = {
+  general: "General",
+  mcp: "MCP & access",
+  remote: "Remote access",
+  ssh: "SSH accesses",
+  github: "GitHub connections",
+  notifications: "App & notifications",
+  diagnostics: "Diagnostics",
+  backups: "Backups",
+  updates: "Updates",
+  audit: "Activity log",
+};
 export const operationsCopy = {
-  sections: {
-    general: "General",
-    mcp: "MCP & access",
-    remote: "Remote access",
-    ssh: "SSH accesses",
-    notifications: "App & notifications",
-    diagnostics: "Diagnostics",
-    backups: "Backups",
-    updates: "Updates",
-    audit: "Activity log",
-  },
-  title: "Settings",
+  sections,
+  groups,
+  title,
+  topline: (group, section) =>
+    `${title.toUpperCase()} / ${group.toUpperCase()} / ${section.toUpperCase()}`,
   description: "Manage your workspace, app and operations.",
   loading: "Loading data …",
   refresh: "Refresh",

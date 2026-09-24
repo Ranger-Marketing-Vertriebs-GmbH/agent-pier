@@ -7,6 +7,7 @@ export const sections = new Set([
   "mcp",
   "remote",
   "ssh",
+  "github",
 ]);
 const identity = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
 export function readSettingsRoute(pathname, search) {
