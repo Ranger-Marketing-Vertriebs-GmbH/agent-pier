@@ -12,11 +12,12 @@ export async function probeNativeImages({
   waitFor,
   counts,
   directory,
+  tool = "claude",
 }) {
   const png = syntheticPng();
   const files = [];
   for (let n = 0; n < 7; n++) {
-    const file = path.join(directory, `synthetic-image-${n}.png`);
+    const file = path.join(directory, `synthetic image ${n}.png`);
     await fs.writeFile(file, png);
     files.push(file);
   }
@@ -26,7 +27,7 @@ export async function probeNativeImages({
   await send([marker, ...files].join("\n"));
   const submitMs = performance.now() - start;
   // Claude receives the image paths first and the text once all chips are shown.
-  assert.equal(counts.paste - before.paste, 2);
+  assert.equal(counts.paste - before.paste, tool === "claude" ? 2 : files.length + 1);
   assert.equal(counts.submit - before.submit, 1);
   try {
     await waitFor(
@@ -55,14 +56,14 @@ export async function probeNativeImages({
   return {
     files: files.length,
     bytesPerFile: png.length,
-    paste: 2,
+    paste: tool === "claude" ? 2 : files.length + 1,
     submit: 1,
     submitMs,
     accepted: true,
   };
 }
 
-function syntheticPng() {
+export function syntheticPng() {
   const width = 1536,
     height = 1024;
   const pixels = randomBytes((width * 3 + 1) * height);

@@ -2,8 +2,9 @@ import http from "node:http";
 import { createHash } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 
-/** Loopback-only, credential-free provider. It never asks the CLI to execute tools. */
-export async function createProbeProvider() {
+/** Loopback-only provider; opt-in permission probes request a disposable printf. */
+export async function createProbeProvider({ permissionProbe = false } = {}) {
+  let asked = false;
   const events = [];
   const server = http.createServer(async (request, response) => {
     let body = "";
@@ -77,6 +78,61 @@ export async function createProbeProvider() {
           output: [],
         },
       });
+    }
+    if (permissionProbe && !asked && marker === "AP_PROBE_PERMISSION") {
+      asked = true;
+      if (anthropic) {
+        emit("content_block_start", {
+          index: 0,
+          content_block: {
+            type: "tool_use",
+            id: "probe_permission",
+            name: "bash",
+            input: {},
+          },
+        });
+        emit("content_block_delta", {
+          index: 0,
+          delta: {
+            type: "input_json_delta",
+            partial_json: JSON.stringify({
+              command: "printf AP_PROBE_PERMISSION",
+              description: "Disposable permission probe",
+            }),
+          },
+        });
+        emit("content_block_stop", { index: 0 });
+        emit("message_delta", {
+          delta: { stop_reason: "tool_use", stop_sequence: null },
+          usage: { output_tokens: 5 },
+        });
+        emit("message_stop");
+      } else {
+        const item = {
+          type: "function_call",
+          id: "probe_permission",
+          call_id: "probe_permission",
+          name: "exec_command",
+          arguments: JSON.stringify({
+            cmd: "printf AP_PROBE_PERMISSION",
+            sandbox_permissions: "require_escalated",
+            justification: "May I run the disposable permission probe?",
+          }),
+        };
+        emit("response.output_item.added", { output_index: 0, item });
+        emit("response.output_item.done", { output_index: 0, item });
+        emit("response.completed", {
+          response: {
+            id: "resp_permission",
+            object: "response",
+            status: "completed",
+            output: [item],
+            usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+          },
+        });
+      }
+      response.end();
+      return;
     }
     if (marker === "AP_PROBE_HOLD") await sleep(8000);
     const answer = `Synthetic response complete: ${marker || "auxiliary"}.`;

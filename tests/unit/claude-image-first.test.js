@@ -221,23 +221,6 @@ test("submit-only matches an image draft with chips in place of the paths", asyn
   }
 });
 
-test("Codex and OpenCode keep one paste even with image paths", async (t) => {
-  const files = await images(t, 1);
-  const tmux = [];
-  for (const tool of ["codex", "opencode"]) {
-    const manager = {
-      target: () => "=synthetic",
-      tmux: async (args, options) => tmux.push([tool, args[0], options?.input]),
-    };
-    await chat.writeChatTuiInput(manager, { id: "x", tool }, `Look\n${files[0]}`);
-  }
-  assert.deepEqual(
-    tmux.filter(([, command]) => command === "load-buffer").map(([, , input]) => input),
-    [`Look\n${files[0]}`, `Look\n${files[0]}`],
-  );
-  assert.ok(!tmux.some(([, command]) => command === "display-message"));
-});
-
 test("regression: a question after a closed menu never receives the text", async (t) => {
   // Rewind opens right after the image paste; Escape closes it, then a
   // permission question appears at different moments of the following steps.

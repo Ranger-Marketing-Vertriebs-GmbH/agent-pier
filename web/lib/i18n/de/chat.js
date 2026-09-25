@@ -158,9 +158,9 @@ export const chatDeliveryCopy = {
   // The same reasons with only the image chips in the prompt (images-pasted).
   imagesPastedReasons: {
     CHAT_PROMPT_CHANGED:
-      "Die angehängten Bilder wurden in Claude eingefügt, aber das Eingabefeld hat sich während des Wartens verändert. Die Nachricht wurde deshalb nicht vervollständigt und nicht abgeschickt; bitte prüfe die TUI.",
+      "Die angehängten Bilder wurden in die CLI eingefügt, aber das Eingabefeld hat sich während des Wartens verändert. Die Nachricht wurde deshalb nicht vervollständigt und nicht abgeschickt; bitte prüfe die TUI.",
     CHAT_DIALOG_NOT_CLOSED:
-      "Die angehängten Bilder stehen im Eingabefeld der TUI, die Nachricht wurde aber nicht vervollständigt und nicht abgeschickt: Ein Claude-Menü ließ sich nicht schließen. Bitte prüfe die TUI, bevor du erneut sendest.",
+      "Die angehängten Bilder stehen im Eingabefeld der TUI, die Nachricht wurde aber nicht vervollständigt und nicht abgeschickt: In der CLI ist noch ein Dialog offen. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_QUESTION_OPEN:
       "Die angehängten Bilder stehen im Eingabefeld der TUI, die Nachricht wurde aber nicht vervollständigt und nicht abgeschickt: Claude wartet auf die Antwort zu einer Frage. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_REQUEST_PENDING:
@@ -168,21 +168,21 @@ export const chatDeliveryCopy = {
   },
   pastedReasons: {
     CHAT_PROMPT_CHANGED:
-      "Die Nachricht wurde in Claude eingefügt, aber das Eingabefeld hat sich während des Wartens verändert. Sie wurde deshalb nicht abgeschickt; bitte prüfe die TUI.",
+      "Die Nachricht wurde in die CLI eingefügt, aber das Eingabefeld hat sich während des Wartens verändert. Sie wurde deshalb nicht abgeschickt; bitte prüfe die TUI.",
     CHAT_DIALOG_NOT_CLOSED:
-      "Die Nachricht steht im Eingabefeld der TUI, wurde aber nicht abgeschickt: Ein Claude-Menü ließ sich nicht schließen. Bitte prüfe die TUI, bevor du erneut sendest.",
+      "Die Nachricht steht im Eingabefeld der TUI, wurde aber nicht abgeschickt: In der CLI ist noch ein Dialog offen. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_QUESTION_OPEN:
       "Die Nachricht steht im Eingabefeld der TUI, wurde aber nicht abgeschickt: Claude wartet auf die Antwort zu einer Frage. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_REQUEST_PENDING:
       "Die Nachricht steht im Eingabefeld der TUI, wurde aber nicht abgeschickt: Eine Anfrage wartet auf Antwort. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_COMPOSER_DIALOG:
-      "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt: Claude zeigt einen Dialog. Bitte prüfe die TUI, bevor du erneut sendest.",
+      "Die Nachricht wurde in die CLI eingefügt, aber nicht abgeschickt: Claude zeigt einen Dialog. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_COMPOSER_UNAVAILABLE:
-      "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt: Das Eingabefeld ist nicht sicher erkennbar. Bitte prüfe die TUI.",
+      "Die Nachricht wurde in die CLI eingefügt, aber nicht abgeschickt: Das Eingabefeld ist nicht sicher erkennbar. Bitte prüfe die TUI.",
     CHAT_COMPOSER_NOT_CLEARED:
-      "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt. Bitte prüfe die TUI, bevor du erneut sendest.",
+      "Die Nachricht wurde in die CLI eingefügt, aber nicht abgeschickt. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_IMAGES_UNCONFIRMED:
-      "Die Nachricht wurde in Claude eingefügt, aber nicht abgeschickt: Claude zeigt nicht alle angehängten Bilder im Eingabefeld an. Vergrößere das Terminal oder prüfe die TUI, bevor du erneut sendest.",
+      "Die Nachricht wurde in die CLI eingefügt, aber nicht abgeschickt: Die CLI zeigt nicht alle angehängten Bilder im Eingabefeld an. Vergrößere das Terminal oder prüfe die TUI, bevor du erneut sendest.",
   },
   // Informational, non-blocking notes on a completed handoff.
   notices: {
@@ -193,16 +193,16 @@ export const chatDeliveryCopy = {
     CHAT_DIALOG_CLOSED:
       "Ein offenes Claude-Menü (z. B. Zurückspulen oder Modellauswahl) wurde vor dem Senden mit Esc geschlossen.",
     CHAT_IMAGES_MAYBE_MISSING:
-      "Claude hat vor dem Senden nicht alle angehängten Bilder angezeigt; einzelne Bilder fehlen möglicherweise.",
+      "Die CLI hat vor dem Senden nicht alle angehängten Bilder angezeigt; einzelne Bilder fehlen möglicherweise.",
   },
   reasons: {
     CHAT_PROMPT_CHANGED:
-      "Die Nachricht wurde in Claude eingefügt, aber das Eingabefeld hat sich während des Wartens verändert. Sie wurde deshalb nicht abgeschickt; bitte prüfe die TUI.",
+      "Die Nachricht wurde in die CLI eingefügt, aber das Eingabefeld hat sich während des Wartens verändert. Sie wurde deshalb nicht abgeschickt; bitte prüfe die TUI.",
     CHAT_QUEUED:
       "Die Nachricht wartete hinter einer früheren Nachricht und wurde noch nicht eingegeben. Sende sie erneut.",
     CHAT_CANCELLED: "Abgebrochen, bevor die Nachricht in die TUI eingegeben wurde.",
     CHAT_DIALOG_NOT_CLOSED:
-      "Die Nachricht wartete darauf, dass sich ein Claude-Menü schließt, und wurde noch nicht eingegeben. Schließe das Menü im Terminal und sende sie dann erneut.",
+      "Die Nachricht wartete auf einen CLI-Dialog und wurde noch nicht eingegeben. Beantworte oder schließe den Dialog im Terminal und sende sie dann erneut.",
     CHAT_QUESTION_OPEN:
       "Die Nachricht wartete auf die Antwort zu einer Frage in der TUI und wurde noch nicht eingegeben. Beantworte die Frage im Terminal und sende sie dann erneut.",
     CHAT_REQUEST_PENDING:
@@ -214,8 +214,8 @@ export const chatDeliveryCopy = {
     CHAT_COMPOSER_NOT_CLEARED:
       "Der vorhandene Entwurf im Claude-Eingabefeld konnte nicht sicher ersetzt werden. Die Nachricht wurde nicht gesendet; bitte prüfe die TUI.",
     CHAT_SUBMIT_UNCONFIRMED:
-      "Claude hat die Übernahme der Nachricht nicht bestätigt. Bitte prüfe die TUI, bevor du erneut sendest.",
+      "Die CLI hat die Übernahme der Nachricht nicht bestätigt. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_IMAGES_UNCONFIRMED:
-      "Claude hat nicht bestätigt, dass alle angehängten Bilder übernommen wurden. Bitte prüfe die TUI, bevor du erneut sendest.",
+      "Die CLI hat nicht bestätigt, dass alle angehängten Bilder übernommen wurden. Bitte prüfe die TUI, bevor du erneut sendest.",
   },
 };

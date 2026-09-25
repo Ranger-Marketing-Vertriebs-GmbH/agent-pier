@@ -47,7 +47,7 @@ test("rejected receipts keep their stable reason for a translated notice", async
     assert.match(chatDeliveryCopy.reasons[item.reason], /dialog/);
     assert.match(
       chatDeliveryCopy.pastedReasons[item.reason],
-      /pasted into Claude but not submitted/,
+      /pasted into the CLI but not submitted/,
     );
   } finally {
     setLanguage("de");

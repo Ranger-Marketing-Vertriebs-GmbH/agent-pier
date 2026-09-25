@@ -1,3 +1,4 @@
+import { nativeImageDraft } from "../sessions/native-image-paste.js";
 import { nativeInputQueue } from "./native-input-queue.js";
 import { createHash } from "node:crypto";
 import {
@@ -39,9 +40,11 @@ async function recoveryPlan(tool, phase, { composer, raw, pane }, text) {
   if (phase === "reserved") return { plan: "resend" };
   if (!["pasted", "images-pasted", "text-intent"].includes(phase))
     return { reason: copy.recoveryUncertain };
-  const message = tool === "claude" ? await claudeImageMessage(text) : null;
+  const message = await claudeImageMessage(text);
   const full = message
-    ? claudeImageDraft(composer, message, { text: message.text })
+    ? tool === "claude"
+      ? claudeImageDraft(composer, message, { text: message.text })
+      : nativeImageDraft(tool, { composer, raw, pane }, message, { text: message.text })
     : composer.state === "text" && composer.text === text;
   let result;
   if (phase === "pasted")
@@ -51,12 +54,14 @@ async function recoveryPlan(tool, phase, { composer, raw, pane }, text) {
     result = full ? { plan: "submit" } : { reason: copy.recoveryUncertain };
   else
     result =
-      claudeImageDraft(composer, message) ||
-      (message && claudeChipsOnly(raw, pane, message.images.length))
+      (tool === "claude"
+        ? claudeImageDraft(composer, message)
+        : nativeImageDraft(tool, { composer, raw, pane }, message)) ||
+      (tool === "claude" && message && claudeChipsOnly(raw, pane, message.images.length))
         ? { plan: "text" }
         : { reason: copy.recoveryComposer };
   // A deleted attachment can no longer be compared with its chip.
-  if (result.reason && tool === "claude" && (await missingClaudeImages(text)))
+  if (result.reason && (await missingClaudeImages(text)))
     return { reason: copy.recoveryAttachmentMissing };
   return result;
 }
@@ -225,7 +230,7 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
     try {
       requireCurrentChatInput(delivery.requests, id);
       await delivery.models.guardInput(id, tx.session, tx.raw, {
-        nativeMenus: tx.session.tool === "claude",
+        nativeMenus: true,
       });
     } catch (error) {
       if (error.code === "CHAT_REQUEST_PENDING")
@@ -253,6 +258,7 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
     let proof;
     try {
       await tx.write(normalized, {
+        beforeImage: () => requireCurrentChatInput(delivery.requests, id),
         onProof: (value) => (proof = value),
         submitOnly,
         ...(plan === "text" ? { resume: "text" } : {}),

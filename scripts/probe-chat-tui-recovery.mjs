@@ -154,8 +154,8 @@ export async function probeNativeRecovery(
   assert.equal((await sendFresh()).status, "handed-off");
   assert.equal(counts.paste - beforeFresh.paste, 1);
   assert.equal(counts.submit - beforeFresh.submit, 1);
-  // Claude replaces a leftover draft; Codex and OpenCode append to it.
-  const replaces = session.tool === "claude";
+  // Each native adapter replaces a recognized leftover draft.
+  const replaces = true;
   for (let n = 0; n < 250; n++) {
     const screen = (await snapshot()).raw.replace(/\x1b\[[0-9;:]*m/g, "");
     if (

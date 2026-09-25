@@ -203,8 +203,8 @@ export class ModelController {
     });
   }
   /**
-   * `nativeMenus`: the caller closes a picker the user opened in the terminal
-   * itself; only a selection AgentPier started still has to finish first.
+   * `nativeMenus`: the caller handles a picker opened in the terminal (close
+   * or wait); only a selection AgentPier started still has to finish first.
    */
   guardInput(id, session, raw, { nativeMenus = false } = {}) {
     const menu =

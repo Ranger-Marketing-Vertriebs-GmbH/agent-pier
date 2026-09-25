@@ -29,3 +29,16 @@ export function claudeDraftScreen({ raw, pane }, text) {
   rows[pane.cursorY] = `\x1b[39m❯\u00a0${text}\x1b[7m \x1b[0m`;
   return { raw: rows.join("\n"), pane: { ...pane, cursorX: 2 + text.length } };
 }
+
+/** Responsive short native draft, preserving the recorded composer geometry. */
+export function nativeDraftScreen(tool, screen, text) {
+  if (tool === "claude") return claudeDraftScreen(screen, text);
+  if (!text) return screen;
+  const { raw, pane } = screen;
+  const rows = raw.split("\n");
+  rows[pane.cursorY] =
+    tool === "codex"
+      ? `\x1b[1m›\x1b[0m ${text}`
+      : `${" ".repeat(pane.cursorX - 3)}┃  \x1b[38;2;238;238;238m${text}\x1b[38;2;255;255;255m `;
+  return { raw: rows.join("\n"), pane: { ...pane, cursorX: pane.cursorX + text.length } };
+}
