@@ -1,0 +1,158 @@
+{
+  "version": "codex-cli 0.156.1",
+  "frames": {
+    "idle": {
+      "raw": "\u001b[2m╭───────────────────────────────────────────────────────────────╮\u001b[0m\n\u001b[2m│ \u001b[0;1m\u001b[38;2;99;168;248m✨ Update available!\u001b[0m \u001b[1m0.156.1 -> 0.157.0\u001b[0;2m                       │\u001b[0m\n\u001b[2m│ \u001b[0mSee \u001b[4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex\u001b\\https://github.com/openai/codex\u001b[0m\u001b]8;;\u001b\\ for installation options.\u001b[2m │\u001b[0m\n\u001b[2m│                                                               │\u001b[0m\n\u001b[2m│ \u001b[0mSee full release notes:\u001b[2m                                       │\u001b[0m\n\u001b[2m│ \u001b[0;4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex/releases/latest\u001b\\https://github.com/openai/codex/releases/latest\u001b[0;2m\u001b]8;;\u001b\\               │\u001b[0m\n\u001b[2m╰───────────────────────────────────────────────────────────────╯\u001b[0m\n\n\u001b[2m╭─────────────────────────────────────╮\u001b[0m\n\u001b[2m│ >_ \u001b[0;1mOpenAI Codex\u001b[0;2m (v0.156.1)          │\u001b[0m\n\u001b[2m│                                     │\u001b[0m\n\u001b[2m│ model:     \u001b[0mprobe\u001b[2m   \u001b[0m\u001b[38;2;99;168;248m/model\u001b[2m\u001b[39m to change │\u001b[0m\n\u001b[2m│ directory: \u001b[0m~/project\u001b[2m                │\u001b[0m\n\u001b[2m╰─────────────────────────────────────╯\u001b[0m\n\n  \u001b[1mTip:\u001b[0m Use \u001b[1m/side\u001b[0m to start a side conversation in a temporary fork without polluting the main thread.\n\n\n\u001b[1m›\u001b[0m \u001b[2mAsk Codex to do anything\u001b[0m\n\n  \u001b[38;2;246;226;183mprobe default\u001b[39m · \u001b[38;2;171;223;167m~/project\u001b[39m                                                                    ⚠ \u001b[38;2;196;167;103m1 warning\u001b[39m · \u001b[1mf2\u001b[0m to view\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 18,
+        "width": 120,
+        "height": 35
+      }
+    },
+    "short": {
+      "raw": "\u001b[2m╭───────────────────────────────────────────────────────────────╮\u001b[0m\n\u001b[2m│ \u001b[0;1m\u001b[38;2;99;168;248m✨ Update available!\u001b[0m \u001b[1m0.156.1 -> 0.157.0\u001b[0;2m                       │\u001b[0m\n\u001b[2m│ \u001b[0mSee \u001b[4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex\u001b\\https://github.com/openai/codex\u001b[0m\u001b]8;;\u001b\\ for installation options.\u001b[2m │\u001b[0m\n\u001b[2m│                                                               │\u001b[0m\n\u001b[2m│ \u001b[0mSee full release notes:\u001b[2m                                       │\u001b[0m\n\u001b[2m│ \u001b[0;4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex/releases/latest\u001b\\https://github.com/openai/codex/releases/latest\u001b[0;2m\u001b]8;;\u001b\\               │\u001b[0m\n\u001b[2m╰───────────────────────────────────────────────────────────────╯\u001b[0m\n\n\u001b[2m╭─────────────────────────────────────╮\u001b[0m\n\u001b[2m│ >_ \u001b[0;1mOpenAI Codex\u001b[0;2m (v0.156.1)          │\u001b[0m\n\u001b[2m│                                     │\u001b[0m\n\u001b[2m│ model:     \u001b[0mprobe\u001b[2m   \u001b[0m\u001b[38;2;99;168;248m/model\u001b[2m\u001b[39m to change │\u001b[0m\n\u001b[2m│ directory: \u001b[0m~/project\u001b[2m                │\u001b[0m\n\u001b[2m╰─────────────────────────────────────╯\u001b[0m\n\n  \u001b[1mTip:\u001b[0m Use \u001b[1m/side\u001b[0m to start a side conversation in a temporary fork without polluting the main thread.\n\n\n\u001b[1m›\u001b[0m AP_PROBE_DRAFT\n\n  \u001b[38;2;246;226;183mprobe default\u001b[39m · \u001b[38;2;171;223;167m~/project\u001b[39m                                                                    ⚠ \u001b[38;2;196;167;103m1 warning\u001b[39m · \u001b[1mf2\u001b[0m to view\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+      "pane": {
+        "cursorX": 16,
+        "cursorY": 18,
+        "width": 120,
+        "height": 35
+      }
+    },
+    "short-cleared": {
+      "raw": "\u001b[2m╭───────────────────────────────────────────────────────────────╮\u001b[0m\n\u001b[2m│ \u001b[0;1m\u001b[38;2;99;168;248m✨ Update available!\u001b[0m \u001b[1m0.156.1 -> 0.157.0\u001b[0;2m                       │\u001b[0m\n\u001b[2m│ \u001b[0mSee \u001b[4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex\u001b\\https://github.com/openai/codex\u001b[0m\u001b]8;;\u001b\\ for installation options.\u001b[2m │\u001b[0m\n\u001b[2m│                                                               │\u001b[0m\n\u001b[2m│ \u001b[0mSee full release notes:\u001b[2m                                       │\u001b[0m\n\u001b[2m│ \u001b[0;4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex/releases/latest\u001b\\https://github.com/openai/codex/releases/latest\u001b[0;2m\u001b]8;;\u001b\\               │\u001b[0m\n\u001b[2m╰───────────────────────────────────────────────────────────────╯\u001b[0m\n\n\u001b[2m╭─────────────────────────────────────╮\u001b[0m\n\u001b[2m│ >_ \u001b[0;1mOpenAI Codex\u001b[0;2m (v0.156.1)          │\u001b[0m\n\u001b[2m│                                     │\u001b[0m\n\u001b[2m│ model:     \u001b[0mprobe\u001b[2m   \u001b[0m\u001b[38;2;99;168;248m/model\u001b[2m\u001b[39m to change │\u001b[0m\n\u001b[2m│ directory: \u001b[0m~/project\u001b[2m                │\u001b[0m\n\u001b[2m╰─────────────────────────────────────╯\u001b[0m\n\n  \u001b[1mTip:\u001b[0m Use \u001b[1m/side\u001b[0m to start a side conversation in a temporary fork without polluting the main thread.\n\n\n\u001b[1m›\u001b[0m \u001b[2mAsk Codex to do anything\u001b[0m\n\n  \u001b[38;2;246;226;183mprobe default\u001b[39m · \u001b[38;2;171;223;167m~/project\u001b[39m                                                                    ⚠ \u001b[38;2;196;167;103m1 warning\u001b[39m · \u001b[1mf2\u001b[0m to view\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 18,
+        "width": 120,
+        "height": 35
+      }
+    },
+    "multiline": {
+      "raw": "\u001b[2m╭───────────────────────────────────────────────────────────────╮\u001b[0m\n\u001b[2m│ \u001b[0;1m\u001b[38;2;99;168;248m✨ Update available!\u001b[0m \u001b[1m0.156.1 -> 0.157.0\u001b[0;2m                       │\u001b[0m\n\u001b[2m│ \u001b[0mSee \u001b[4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex\u001b\\https://github.com/openai/codex\u001b[0m\u001b]8;;\u001b\\ for installation options.\u001b[2m │\u001b[0m\n\u001b[2m│                                                               │\u001b[0m\n\u001b[2m│ \u001b[0mSee full release notes:\u001b[2m                                       │\u001b[0m\n\u001b[2m│ \u001b[0;4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex/releases/latest\u001b\\https://github.com/openai/codex/releases/latest\u001b[0;2m\u001b]8;;\u001b\\               │\u001b[0m\n\u001b[2m╰───────────────────────────────────────────────────────────────╯\u001b[0m\n\n\u001b[2m╭─────────────────────────────────────╮\u001b[0m\n\u001b[2m│ >_ \u001b[0;1mOpenAI Codex\u001b[0;2m (v0.156.1)          │\u001b[0m\n\u001b[2m│                                     │\u001b[0m\n\u001b[2m│ model:     \u001b[0mprobe\u001b[2m   \u001b[0m\u001b[38;2;99;168;248m/model\u001b[2m\u001b[39m to change │\u001b[0m\n\u001b[2m│ directory: \u001b[0m~/project\u001b[2m                │\u001b[0m\n\u001b[2m╰─────────────────────────────────────╯\u001b[0m\n\n  \u001b[1mTip:\u001b[0m Use \u001b[1m/side\u001b[0m to start a side conversation in a temporary fork without polluting the main thread.\n\n\n\u001b[1m›\u001b[0m first\n  second\n  third\n\n  \u001b[38;2;246;226;183mprobe default\u001b[39m · \u001b[38;2;171;223;167m~/project\u001b[39m                                                                    ⚠ \u001b[38;2;196;167;103m1 warning\u001b[39m · \u001b[1mf2\u001b[0m to view\n\n\n\n\n\n\n\n\n\n\n\n\n",
+      "pane": {
+        "cursorX": 7,
+        "cursorY": 20,
+        "width": 120,
+        "height": 35
+      }
+    },
+    "multiline-cleared": {
+      "raw": "\u001b[2m╭───────────────────────────────────────────────────────────────╮\u001b[0m\n\u001b[2m│ \u001b[0;1m\u001b[38;2;99;168;248m✨ Update available!\u001b[0m \u001b[1m0.156.1 -> 0.157.0\u001b[0;2m                       │\u001b[0m\n\u001b[2m│ \u001b[0mSee \u001b[4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex\u001b\\https://github.com/openai/codex\u001b[0m\u001b]8;;\u001b\\ for installation options.\u001b[2m │\u001b[0m\n\u001b[2m│                                                               │\u001b[0m\n\u001b[2m│ \u001b[0mSee full release notes:\u001b[2m                                       │\u001b[0m\n\u001b[2m│ \u001b[0;4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex/releases/latest\u001b\\https://github.com/openai/codex/releases/latest\u001b[0;2m\u001b]8;;\u001b\\               │\u001b[0m\n\u001b[2m╰───────────────────────────────────────────────────────────────╯\u001b[0m\n\n\u001b[2m╭─────────────────────────────────────╮\u001b[0m\n\u001b[2m│ >_ \u001b[0;1mOpenAI Codex\u001b[0;2m (v0.156.1)          │\u001b[0m\n\u001b[2m│                                     │\u001b[0m\n\u001b[2m│ model:     \u001b[0mprobe\u001b[2m   \u001b[0m\u001b[38;2;99;168;248m/model\u001b[2m\u001b[39m to change │\u001b[0m\n\u001b[2m│ directory: \u001b[0m~/project\u001b[2m                │\u001b[0m\n\u001b[2m╰─────────────────────────────────────╯\u001b[0m\n\n  \u001b[1mTip:\u001b[0m Use \u001b[1m/side\u001b[0m to start a side conversation in a temporary fork without polluting the main thread.\n\n\n\u001b[1m›\u001b[0m \u001b[2mAsk Codex to do anything\u001b[0m\n\n  \u001b[38;2;246;226;183mprobe default\u001b[39m · \u001b[38;2;171;223;167m~/project\u001b[39m                                                                    ⚠ \u001b[38;2;196;167;103m1 warning\u001b[39m · \u001b[1mf2\u001b[0m to view\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 18,
+        "width": 120,
+        "height": 35
+      }
+    },
+    "long": {
+      "raw": "\u001b[2m╭───────────────────────────────────────────────────────────────╮\u001b[0m\n\u001b[2m│ \u001b[0;1m\u001b[38;2;99;168;248m✨ Update available!\u001b[0m \u001b[1m0.156.1 -> 0.157.0\u001b[0;2m                       │\u001b[0m\n\u001b[2m│ \u001b[0mSee \u001b[4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex\u001b\\https://github.com/openai/codex\u001b[0m\u001b]8;;\u001b\\ for installation options.\u001b[2m │\u001b[0m\n\u001b[2m│                                                               │\u001b[0m\n\u001b[2m│ \u001b[0mSee full release notes:\u001b[2m                                       │\u001b[0m\n\u001b[2m│ \u001b[0;4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex/releases/latest\u001b\\https://github.com/openai/codex/releases/latest\u001b[0;2m\u001b]8;;\u001b\\               │\u001b[0m\n\u001b[2m╰───────────────────────────────────────────────────────────────╯\u001b[0m\n\n\u001b[2m╭─────────────────────────────────────╮\u001b[0m\n\u001b[2m│ >_ \u001b[0;1mOpenAI Codex\u001b[0;2m (v0.156.1)          │\u001b[0m\n\u001b[2m│                                     │\u001b[0m\n\u001b[2m│ model:     \u001b[0mprobe\u001b[2m   \u001b[0m\u001b[38;2;99;168;248m/model\u001b[2m\u001b[39m to change │\u001b[0m\n\u001b[2m│ directory: \u001b[0m~/project\u001b[2m                │\u001b[0m\n\u001b[2m╰─────────────────────────────────────╯\u001b[0m\n\n  \u001b[1mTip:\u001b[0m Use \u001b[1m/side\u001b[0m to start a side conversation in a temporary fork without polluting the main thread.\n\n\n\u001b[1m›\u001b[0m AP_PROBE_LONG_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n  \u001b[38;2;246;226;183mprobe default\u001b[39m · \u001b[38;2;171;223;167m~/project\u001b[39m                                                                    ⚠ \u001b[38;2;196;167;103m1 warning\u001b[39m · \u001b[1mf2\u001b[0m to view\n\n\n\n\n\n\n\n\n\n\n\n\n",
+      "pane": {
+        "cursorX": 82,
+        "cursorY": 20,
+        "width": 120,
+        "height": 35
+      }
+    },
+    "long-cleared": {
+      "raw": "\u001b[2m╭───────────────────────────────────────────────────────────────╮\u001b[0m\n\u001b[2m│ \u001b[0;1m\u001b[38;2;99;168;248m✨ Update available!\u001b[0m \u001b[1m0.156.1 -> 0.157.0\u001b[0;2m                       │\u001b[0m\n\u001b[2m│ \u001b[0mSee \u001b[4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex\u001b\\https://github.com/openai/codex\u001b[0m\u001b]8;;\u001b\\ for installation options.\u001b[2m │\u001b[0m\n\u001b[2m│                                                               │\u001b[0m\n\u001b[2m│ \u001b[0mSee full release notes:\u001b[2m                                       │\u001b[0m\n\u001b[2m│ \u001b[0;4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex/releases/latest\u001b\\https://github.com/openai/codex/releases/latest\u001b[0;2m\u001b]8;;\u001b\\               │\u001b[0m\n\u001b[2m╰───────────────────────────────────────────────────────────────╯\u001b[0m\n\n\u001b[2m╭─────────────────────────────────────╮\u001b[0m\n\u001b[2m│ >_ \u001b[0;1mOpenAI Codex\u001b[0;2m (v0.156.1)          │\u001b[0m\n\u001b[2m│                                     │\u001b[0m\n\u001b[2m│ model:     \u001b[0mprobe\u001b[2m   \u001b[0m\u001b[38;2;99;168;248m/model\u001b[2m\u001b[39m to change │\u001b[0m\n\u001b[2m│ directory: \u001b[0m~/project\u001b[2m                │\u001b[0m\n\u001b[2m╰─────────────────────────────────────╯\u001b[0m\n\n  \u001b[1mTip:\u001b[0m Use \u001b[1m/side\u001b[0m to start a side conversation in a temporary fork without polluting the main thread.\n\n\n\u001b[1m›\u001b[0m \u001b[2mAsk Codex to do anything\u001b[0m\n\n  \u001b[38;2;246;226;183mprobe default\u001b[39m · \u001b[38;2;171;223;167m~/project\u001b[39m                                                                    ⚠ \u001b[38;2;196;167;103m1 warning\u001b[39m · \u001b[1mf2\u001b[0m to view\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 18,
+        "width": 120,
+        "height": 35
+      }
+    },
+    "slash": {
+      "raw": "\u001b[2m╭───────────────────────────────────────────────────────────────╮\u001b[0m\n\u001b[2m│ \u001b[0;1m\u001b[38;2;99;168;248m✨ Update available!\u001b[0m \u001b[1m0.156.1 -> 0.157.0\u001b[0;2m                       │\u001b[0m\n\u001b[2m│ \u001b[0mSee \u001b[4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex\u001b\\https://github.com/openai/codex\u001b[0m\u001b]8;;\u001b\\ for installation options.\u001b[2m │\u001b[0m\n\u001b[2m│                                                               │\u001b[0m\n\u001b[2m│ \u001b[0mSee full release notes:\u001b[2m                                       │\u001b[0m\n\u001b[2m│ \u001b[0;4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex/releases/latest\u001b\\https://github.com/openai/codex/releases/latest\u001b[0;2m\u001b]8;;\u001b\\               │\u001b[0m\n\u001b[2m╰───────────────────────────────────────────────────────────────╯\u001b[0m\n\n\u001b[2m╭─────────────────────────────────────╮\u001b[0m\n\u001b[2m│ >_ \u001b[0;1mOpenAI Codex\u001b[0;2m (v0.156.1)          │\u001b[0m\n\u001b[2m│                                     │\u001b[0m\n\u001b[2m│ model:     \u001b[0mprobe\u001b[2m   \u001b[0m\u001b[38;2;99;168;248m/model\u001b[2m\u001b[39m to change │\u001b[0m\n\u001b[2m│ directory: \u001b[0m~/project\u001b[2m                │\u001b[0m\n\u001b[2m╰─────────────────────────────────────╯\u001b[0m\n\n  \u001b[1mTip:\u001b[0m Use \u001b[1m/side\u001b[0m to start a side conversation in a temporary fork without polluting the main thread.\n\n\u001b[1;7m› /model  \u001b[0;7mchoose what model and reasoning effort to use\u001b[1m\n\u001b[0m\n\u001b[1m›\u001b[0m /model\n\n  \u001b[38;2;246;226;183mprobe default\u001b[39m · \u001b[38;2;171;223;167m~/project\u001b[39m\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+      "pane": {
+        "cursorX": 8,
+        "cursorY": 19,
+        "width": 120,
+        "height": 35
+      }
+    },
+    "model": {
+      "raw": "\u001b[2m╭───────────────────────────────────────────────────────────────╮\u001b[0m\n\u001b[2m│ \u001b[0;1m\u001b[38;2;99;168;248m✨ Update available!\u001b[0m \u001b[1m0.156.1 -> 0.157.0\u001b[0;2m                       │\u001b[0m\n\u001b[2m│ \u001b[0mSee \u001b[4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex\u001b\\https://github.com/openai/codex\u001b[0m\u001b]8;;\u001b\\ for installation options.\u001b[2m │\u001b[0m\n\u001b[2m│                                                               │\u001b[0m\n\u001b[2m│ \u001b[0mSee full release notes:\u001b[2m                                       │\u001b[0m\n\u001b[2m│ \u001b[0;4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex/releases/latest\u001b\\https://github.com/openai/codex/releases/latest\u001b[0;2m\u001b]8;;\u001b\\               │\u001b[0m\n\u001b[2m╰───────────────────────────────────────────────────────────────╯\u001b[0m\n\n\u001b[2m╭─────────────────────────────────────╮\u001b[0m\n\u001b[2m│ >_ \u001b[0;1mOpenAI Codex\u001b[0;2m (v0.156.1)          │\u001b[0m\n\u001b[2m│                                     │\u001b[0m\n\u001b[2m│ model:     \u001b[0mprobe\u001b[2m   \u001b[0m\u001b[38;2;99;168;248m/model\u001b[2m\u001b[39m to change │\u001b[0m\n\u001b[2m│ directory: \u001b[0m~/project\u001b[2m                │\u001b[0m\n\u001b[2m╰─────────────────────────────────────╯\u001b[0m\n\n  \u001b[1mTip:\u001b[0m Use \u001b[1m/side\u001b[0m to start a side conversation in a temporary fork without polluting the main thread.\n\n\n  \u001b[1mSelect Model and Effort\u001b[0m\n\n\n\u001b[1;7m› 1. GPT-6-Astra (default)  \u001b[0;7mFrontier intelligence for the most demanding work.\u001b[1m\n\u001b[0m  2. GPT-6-Sol              \u001b[2mWorkhorse model for coding and everyday work.\u001b[0m\n  3. GPT-6-Luna             \u001b[2mFast and affordable model for easier tasks.\u001b[0m\n  4. GPT-5.6-Sol            \u001b[2mOlder coding model for complex work.\u001b[0m\n  5. GPT-5.6-Terra          \u001b[2mOlder balanced model for straightforward work.\u001b[0m\n  6. GPT-5.6-Luna           \u001b[2mOlder fast and efficient model.\u001b[0m\n  7. GPT-5.5                \u001b[2mLegacy coding model.\u001b[0m\n\n  \u001b[1menter\u001b[0;2m select · \u001b[0;1mesc\u001b[0;2m back\n\n\n\n\n\n",
+      "pane": {
+        "cursorX": 120,
+        "cursorY": 29,
+        "width": 120,
+        "height": 35
+      }
+    },
+    "model-closed": {
+      "raw": "\u001b[2m╭───────────────────────────────────────────────────────────────╮\u001b[0m\n\u001b[2m│ \u001b[0;1m\u001b[38;2;99;168;248m✨ Update available!\u001b[0m \u001b[1m0.156.1 -> 0.157.0\u001b[0;2m                       │\u001b[0m\n\u001b[2m│ \u001b[0mSee \u001b[4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex\u001b\\https://github.com/openai/codex\u001b[0m\u001b]8;;\u001b\\ for installation options.\u001b[2m │\u001b[0m\n\u001b[2m│                                                               │\u001b[0m\n\u001b[2m│ \u001b[0mSee full release notes:\u001b[2m                                       │\u001b[0m\n\u001b[2m│ \u001b[0;4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex/releases/latest\u001b\\https://github.com/openai/codex/releases/latest\u001b[0;2m\u001b]8;;\u001b\\               │\u001b[0m\n\u001b[2m╰───────────────────────────────────────────────────────────────╯\u001b[0m\n\n\u001b[2m╭─────────────────────────────────────╮\u001b[0m\n\u001b[2m│ >_ \u001b[0;1mOpenAI Codex\u001b[0;2m (v0.156.1)          │\u001b[0m\n\u001b[2m│                                     │\u001b[0m\n\u001b[2m│ model:     \u001b[0mprobe\u001b[2m   \u001b[0m\u001b[38;2;99;168;248m/model\u001b[2m\u001b[39m to change │\u001b[0m\n\u001b[2m│ directory: \u001b[0m~/project\u001b[2m                │\u001b[0m\n\u001b[2m╰─────────────────────────────────────╯\u001b[0m\n\n  \u001b[1mTip:\u001b[0m Use \u001b[1m/side\u001b[0m to start a side conversation in a temporary fork without polluting the main thread.\n\n\n\u001b[1m›\u001b[0m \u001b[2mAsk Codex to do anything\u001b[0m\n\n  \u001b[38;2;246;226;183mprobe default\u001b[39m · \u001b[38;2;171;223;167m~/project\u001b[39m                                                                    ⚠ \u001b[38;2;196;167;103m1 warning\u001b[39m · \u001b[1mf2\u001b[0m to view\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+      "pane": {
+        "cursorX": 2,
+        "cursorY": 18,
+        "width": 120,
+        "height": 35
+      }
+    },
+    "menu-120": {
+      "raw": "\u001b[2m╭───────────────────────────────────────────────────────────────╮\u001b[0m\n\u001b[2m│ \u001b[0;1m\u001b[38;2;99;168;248m✨ Update available!\u001b[0m \u001b[1m0.156.1 -> 0.157.0\u001b[0;2m                       │\u001b[0m\n\u001b[2m│ \u001b[0mSee \u001b[4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex\u001b\\https://github.com/openai/codex\u001b[0m\u001b]8;;\u001b\\ for installation options.\u001b[2m │\u001b[0m\n\u001b[2m│                                                               │\u001b[0m\n\u001b[2m│ \u001b[0mSee full release notes:\u001b[2m                                       │\u001b[0m\n\u001b[2m│ \u001b[0;4m\u001b[38;2;99;168;248m\u001b]8;;https://github.com/openai/codex/releases/latest\u001b\\https://github.com/openai/codex/releases/latest\u001b[0;2m\u001b]8;;\u001b\\               │\u001b[0m\n\u001b[2m╰───────────────────────────────────────────────────────────────╯\u001b[0m\n\n\u001b[2m╭─────────────────────────────────────╮\u001b[0m\n\u001b[2m│ >_ \u001b[0;1mOpenAI Codex\u001b[0;2m (v0.156.1)          │\u001b[0m\n\u001b[2m│                                     │\u001b[0m\n\u001b[2m│ model:     \u001b[0mprobe\u001b[2m   \u001b[0m\u001b[38;2;99;168;248m/model\u001b[2m\u001b[39m to change │\u001b[0m\n\u001b[2m│ directory: \u001b[0m~/project\u001b[2m                │\u001b[0m\n\u001b[2m╰─────────────────────────────────────╯\u001b[0m\n\n  \u001b[1mTip:\u001b[0m \u001b[3mNew\u001b[0m Build faster with the \u001b[1mDesktop app\u001b[0m. Run 'codex app' or visit \u001b[4m\u001b[38;2;99;168;248m\u001b]8;;https://chatgpt.com/codex?app-landing-page=true\u001b\\https://chatgpt.com/codex?app-landing-page=true\u001b[0m\u001b]8;;\u001b\\\n\n\n  \u001b[1mSelect Model and Effort\u001b[0m\n\n\n\u001b[1;7m› 1. GPT-6-Astra (default)  \u001b[0;7mFrontier intelligence for the most demanding work.\u001b[1m\n\u001b[0m  2. GPT-6-Sol              \u001b[2mWorkhorse model for coding and everyday work.\u001b[0m\n  3. GPT-6-Luna             \u001b[2mFast and affordable model for easier tasks.\u001b[0m\n  4. GPT-5.6-Sol            \u001b[2mOlder coding model for complex work.\u001b[0m\n  5. GPT-5.6-Terra          \u001b[2mOlder balanced model for straightforward work.\u001b[0m\n  6. GPT-5.6-Luna           \u001b[2mOlder fast and efficient model.\u001b[0m\n  7. GPT-5.5                \u001b[2mLegacy coding model.\u001b[0m\n\n  \u001b[1menter\u001b[0;2m select · \u001b[0;1mesc\u001b[0;2m back\n\n\n\n\n\n",
+      "pane": {
+        "cursorX": 120,
+        "cursorY": 29,
+        "width": 120,
+        "height": 35
+      }
+    },
+    "menu-50": {
+      "raw": "\u001b[2m╯\u001b[0m\n\n\u001b[2m╭─────────────────────────────────────╮\u001b[0m\n\u001b[2m│ >_ \u001b[0;1mOpenAI Codex\u001b[0;2m (v0.156.1)          │\u001b[0m\n\u001b[2m│                                     │\u001b[0m\n\u001b[2m│ model:     \u001b[0mprobe\u001b[2m   \u001b[0m\u001b[38;2;99;168;248m/model\u001b[2m\u001b[39m to change │\u001b[0m\n\u001b[2m│ directory: \u001b[0m~/project\u001b[2m                │\u001b[0m\n\u001b[2m╰─────────────────────────────────────╯\u001b[0m\n\n  \u001b[1mTip:\u001b[0m \u001b[3mNew\u001b[0m Build faster with the \u001b[1mDesktop app\u001b[0m. Run\n  'codex app' or visit\n  \u001b[4m\u001b[38;2;99;168;248m\u001b]8;;https://chatgpt.com/codex?app-landing-page=true\u001b\\https://chatgpt.com/codex?app-landing-page=true\u001b[0m\u001b]8;;\u001b\\\n\n\n\u001b[1;2m› \u001b[0mAP_PROBE_MENU_120\n\n\n\u001b[2m• \u001b[0mSynthetic response complete: AP_PROBE_MENU_120.\n\n\u001b[2m  04:38\u001b[0m\n\n\n  \u001b[1mSelect Model and Effort\u001b[0m\n\n\n\u001b[1;7m› 1. GPT-6-Astra (default)\n\u001b[0m  2. GPT-6-Sol\n  3. GPT-6-Luna\n  4. GPT-5.6-Sol\n  5. GPT-5.6-Terra\n  6. GPT-5.6-Luna\n  7. GPT-5.5\n\n  \u001b[1menter\u001b[0;2m select · \u001b[0;1mesc\u001b[0;2m back\n",
+      "pane": {
+        "cursorX": 50,
+        "cursorY": 33,
+        "width": 50,
+        "height": 34
+      }
+    },
+    "menu-36": {
+      "raw": "\n\n  \u001b[1mSelect Model and Effort\u001b[0m\n\n\n\u001b[1;7m› 1. GPT-6-Astra (default)\n\u001b[0m  2. GPT-6-Sol\n  3. GPT-6-Luna\n  4. GPT-5.6-Sol\n  5. GPT-5.6-Terra\n\u001b[38;2;99;168;248m↓\u001b[39m\n  \u001b[1menter\u001b[0;2m select · \u001b[0;1mesc\u001b[0;2m back\n",
+      "pane": {
+        "cursorX": 36,
+        "cursorY": 11,
+        "width": 36,
+        "height": 12
+      }
+    },
+    "permission": {
+      "raw": "\n\n\u001b[2m• \u001b[0mSynthetic response complete: AP_PROBE_MENU_50.\n\n\u001b[2m  04:38\u001b[0m\n\n\n\u001b[1;2m› \u001b[0mAP_PROBE_MENU_36\n\n\n\u001b[2m• \u001b[0mSynthetic response complete: AP_PROBE_MENU_36.\n\n\u001b[2m  04:38\u001b[0m\n\n\n\u001b[1;2m› \u001b[0mAP_PROBE_PERMISSION\n\n\n\u001b[1m\u001b[38;2;128;128;128m•\u001b[0m \u001b[1mRunning\u001b[0m \u001b[38;2;137;180;250mprintf\u001b[38;2;205;214;244m AP_PROBE_PERMISSION\u001b[39m\n\n\n  \u001b[1mWould you like to run the following command?\u001b[0m\n\n  Environment: \u001b[1mlocal\u001b[0m\n\n  Reason: \u001b[3mMay I run the disposable permission probe?\u001b[0m\n\n  $ \u001b[38;2;137;180;250mprintf\u001b[38;2;205;214;244m AP_PROBE_PERMISSION\n\u001b[39m\n\n\u001b[1;7m› 1. Yes, proceed (y)\n\u001b[0m  2. Yes, and don't ask again for commands that start with `printf AP_PROBE_PERMISSION` (\u001b[1mp\u001b[0m)\n  3. No, and tell Codex what to do differently (\u001b[1mesc\u001b[0m)\n\n  \u001b[2mPress \u001b[0;1menter\u001b[0;2m to confirm or \u001b[0;1mesc\u001b[0;2m to cancel\n",
+      "pane": {
+        "cursorX": 120,
+        "cursorY": 34,
+        "width": 120,
+        "height": 35
+      }
+    },
+    "permission-120": {
+      "raw": "\n\n\u001b[2m• \u001b[0mSynthetic response complete: AP_PROBE_MENU_50.\n\n\u001b[2m  04:39\u001b[0m\n\n\n\u001b[1;2m› \u001b[0mAP_PROBE_MENU_36\n\n\n\u001b[2m• \u001b[0mSynthetic response complete: AP_PROBE_MENU_36.\n\n\u001b[2m  04:40\u001b[0m\n\n\n\u001b[1;2m› \u001b[0mAP_PROBE_PERMISSION\n\n\n\u001b[1m\u001b[38;2;167;167;167m•\u001b[0m \u001b[1mRunning\u001b[0m \u001b[38;2;137;180;250mprintf\u001b[38;2;205;214;244m AP_PROBE_PERMISSION\u001b[39m\n\n\n  \u001b[1mWould you like to run the following command?\u001b[0m\n\n  Environment: \u001b[1mlocal\u001b[0m\n\n  Reason: \u001b[3mMay I run the disposable permission probe?\u001b[0m\n\n  $ \u001b[38;2;137;180;250mprintf\u001b[38;2;205;214;244m AP_PROBE_PERMISSION\n\u001b[39m\n\n\u001b[1;7m› 1. Yes, proceed (y)\n\u001b[0m  2. Yes, and don't ask again for commands that start with `printf AP_PROBE_PERMISSION` (\u001b[1mp\u001b[0m)\n  3. No, and tell Codex what to do differently (\u001b[1mesc\u001b[0m)\n\n  \u001b[2mPress \u001b[0;1menter\u001b[0;2m to confirm or \u001b[0;1mesc\u001b[0;2m to cancel\n",
+      "pane": {
+        "cursorX": 120,
+        "cursorY": 34,
+        "width": 120,
+        "height": 35
+      }
+    },
+    "permission-50": {
+      "raw": "\u001b[2m  04:39\u001b[0m\n\n\n\u001b[1;2m› \u001b[0mAP_PROBE_MENU_36\n\n\n\u001b[2m• \u001b[0mSynthetic response complete: AP_PROBE_MENU_36.\n\n\u001b[2m  04:40\u001b[0m\n\n\n\u001b[1;2m› \u001b[0mAP_PROBE_PERMISSION\n\n\n\u001b[1m\u001b[38;2;128;128;128m•\u001b[0m \u001b[1mRunning\u001b[0m \u001b[38;2;137;180;250mprintf\u001b[38;2;205;214;244m AP_PROBE_PERMISSION\u001b[39m\n\n\n  \u001b[1mWould you like to run the following command?\u001b[0m\n\n  Environment: \u001b[1mlocal\u001b[0m\n\n  Reason: \u001b[3mMay I run the disposable permission\u001b[0m\n  \u001b[3mprobe?\u001b[0m\n\n  $ \u001b[38;2;137;180;250mprintf\u001b[38;2;205;214;244m AP_PROBE_PERMISSION\u001b[39m\n\n\n\u001b[1;7m› 1. Yes, proceed (y)\n\u001b[0m  2. Yes, and don't ask again for commands that\n     start with `printf AP_PROBE_PERMISSION` (\u001b[1mp\u001b[0m)\n  3. No, and tell Codex what to do differently\n     (\u001b[1mesc\u001b[0m)\n\n  \u001b[2mPress \u001b[0;1menter\u001b[0;2m to confirm or \u001b[0;1mesc\u001b[0;2m to cancel\n",
+      "pane": {
+        "cursorX": 50,
+        "cursorY": 33,
+        "width": 50,
+        "height": 34
+      }
+    },
+    "permission-36": {
+      "raw": "\n\n  \u001b[1mWould you like to run the\u001b[0m\n  \u001b[1mfollowing command?\u001b[0m\n\n  Environment: \u001b[1mlocal\u001b[0m\n  \u001b[2m[… 9 lines] \u001b[0;1mctrl+a\u001b[0;2m view all     \u001b[0m\n\u001b[1;7m› 1. Yes, proceed (y)\n\u001b[0m  2. Yes, and don't ask again for\n     commands that start with\n  \u001b[2mPress \u001b[0;1menter\u001b[0;2m to confirm or \u001b[0;1mesc\u001b[0;2m to\n\u001b[0m  \u001b[2mcancel\n",
+      "pane": {
+        "cursorX": 36,
+        "cursorY": 11,
+        "width": 36,
+        "height": 12
+      }
+    }
+  }
+}

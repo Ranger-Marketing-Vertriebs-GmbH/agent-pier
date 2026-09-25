@@ -5,12 +5,12 @@ import { chatDeliveryCopy } from "../../server/lib/i18n/de/chat-delivery.js";
 
 test.use({ locale: "en-GB", viewport: { width: 390, height: 844 } });
 
-async function fixture(page, receipt) {
+async function fixture(page, receipt, tool = "claude") {
   const state = { inputs: [] };
   const session = {
     id: "reasons",
-    accountId: "local-claude",
-    tool: "claude",
+    accountId: `local-${tool}`,
+    tool,
     createdAt: "2026-09-22",
     name: "Reasons",
     cwd: "/fixture",
@@ -23,7 +23,7 @@ async function fixture(page, receipt) {
     if (url.pathname === "/api/state")
       return route.fulfill({
         json: {
-          tools: [{ id: "claude", name: "Claude Code", installed: true }],
+          tools: [{ id: tool, name: tool, installed: true }],
           accounts: [],
           sessions: [session],
           home: "/fixture",
@@ -177,7 +177,7 @@ test("unconfirmed Claude image chips are explained in English as pasted but unse
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(
     page.getByText(
-      /pasted into Claude but not submitted: Claude's input field does not show all attached images/,
+      /pasted into the CLI but not submitted: the CLI's input field does not show all attached images/,
     ),
   ).toBeVisible();
   await expect(page.getByText(/eingefügt/)).toHaveCount(0);
@@ -204,3 +204,23 @@ test("a message with only its image chips in the prompt says so in English", asy
     page.getByRole("button", { name: "Cancel sending", exact: true }),
   ).toHaveCount(0);
 });
+
+for (const tool of ["codex", "opencode"]) {
+  test(`${tool}: unconfirmed submit is explained in English without naming Claude`, async ({
+    page,
+  }) => {
+    await fixture(page, { status: "uncertain", reason: "CHAT_SUBMIT_UNCONFIRMED" }, tool);
+    await input(page).fill("Check delivery");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(
+      page.getByText(
+        "The CLI did not confirm that it accepted the message. Check the TUI before sending again.",
+      ),
+    ).toBeVisible();
+    await expect(page.getByText(/Claude did not confirm/)).toHaveCount(0);
+    await page.screenshot({
+      path: test.info().outputPath(`${tool}-delivery.png`),
+      fullPage: true,
+    });
+  });
+}

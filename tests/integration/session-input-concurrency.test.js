@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chatTuiScreen, capturedChatTuiScreen } from "../helpers/chat-tui-fixture.js";
+import {
+  chatTuiScreen,
+  capturedChatTuiScreen,
+  nativeDraftScreen,
+} from "../helpers/chat-tui-fixture.js";
 import { randomUUID } from "node:crypto";
 import { applicationFixture } from "../helpers/application.js";
 
@@ -23,8 +27,14 @@ test("a waiting control in one session cannot delay another session's chat or te
     createdAt: "2026-09-11",
   });
   const screen = await chatTuiScreen("codex");
-  manager.tmux = async (args) =>
-    args[0] === "display-message" ? capturedChatTuiScreen(screen) : "";
+  let draft = "";
+  manager.tmux = async (args, options) => {
+    if (args[0] === "load-buffer") draft = options.input;
+    if (args[0] === "send-keys" && args.at(-1) === "Enter") draft = "";
+    return args[0] === "display-message"
+      ? capturedChatTuiScreen(nativeDraftScreen("codex", screen, draft))
+      : "";
+  };
   for (const id of ["a-slow", "b-fast"])
     await manager.save({ id, createdAt: "2026-09-11" });
   const started = gate(),
@@ -44,12 +54,12 @@ test("a waiting control in one session cannot delay another session's chat or te
   f.application.history.queue = async () =>
     assert.fail("Chat must not invoke native queue");
   const tmux = manager.tmux;
-  manager.tmux = async (args) => {
+  manager.tmux = async (args, options) => {
     if (args[0] === "send-keys" && args.at(-1) === "Enter") {
       complete = true;
       delivered.release();
     }
-    return tmux(args);
+    return tmux(args, options);
   };
   const input = f.request("/api/sessions/b-fast/input", {
     method: "POST",

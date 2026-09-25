@@ -208,6 +208,17 @@ function sessionManager() {
   manager.tmux = async (args, options) => {
     if (args[0] === "display-message")
       return `${manager.paneId}|${process.pid}|1|${manager.cursorX}|2|120|35|0\n${manager.screen}`;
+    if (args[0] === "load-buffer") manager.buffer = options.input;
+    if (args[0] === "paste-buffer") {
+      manager.screen = codexScreen("\x1b[1m›\x1b[0m " + manager.buffer);
+      manager.cursorX = 2 + manager.buffer.length;
+    }
+    if (args[0] === "send-keys" && (args.includes("C-u") || args.at(-1) === "Enter")) {
+      manager.screen = codexScreen(
+        "\x1b[1m›\x1b[0m \x1b[2mAsk Codex to do anything\x1b[0m",
+      );
+      manager.cursorX = 2;
+    }
     return original(args, options);
   };
   return manager;

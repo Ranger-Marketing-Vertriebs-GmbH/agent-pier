@@ -1,4 +1,5 @@
-import { waitFor, summary } from "./probe-chat-tui-utils.mjs";
+import { probePromptSpike } from "./probe-chat-tui-prompt.mjs";
+import { waitFor, summary, waitForProbeBinding } from "./probe-chat-tui-utils.mjs";
 import { startQueueStreamProbe } from "./probe-queue-stream.mjs";
 import * as claude from "./probe-claude-startup.mjs";
 import { probeCodexHookTrust } from "./probe-codex-hook-trust.mjs";
@@ -130,7 +131,9 @@ async function probeSynthetic(fixture) {
 }
 
 async function probeNative(fixture, cleanup) {
-  const provider = await createProbeProvider();
+  const provider = await createProbeProvider({
+    permissionProbe: options.includes("--prompt-spike"),
+  });
   try {
     const manager = fixture.application.sessions;
     const binary = (await execute("/usr/bin/which", [tool])).stdout.trim();
@@ -153,6 +156,7 @@ async function probeNative(fixture, cleanup) {
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
       OPENCODE_DISABLE_MODELS_FETCH: "true",
       OPENCODE_CONFIG_CONTENT: JSON.stringify({
+        ...(options.includes("--prompt-spike") ? { permission: { bash: "ask" } } : {}),
         provider: {
           anthropic: {
             options: { baseURL: `${provider.url}/v1`, apiKey: "synthetic-probe-key" },
@@ -335,7 +339,16 @@ async function probeNative(fixture, cleanup) {
       if (options.includes("--hook-trust"))
         await probeCodexHookTrust({ fixture, session, capture, keys });
       else {
-        await waitFor(capture, (screen) => screen.includes("Yes, continue"));
+        await waitFor(capture, (screen) =>
+          /Yes, continue|Trust and continue/.test(screen),
+        ).catch(async (error) => {
+          console.error(
+            "STARTUP",
+            version,
+            (await capture()).replaceAll(fixture.root, "<temporary-root>"),
+          );
+          throw error;
+        });
         await sleep(750);
         await keys("Enter");
       }
@@ -359,71 +372,7 @@ async function probeNative(fixture, cleanup) {
       );
     }
     if (bound && (tool !== "codex" || bootstrap))
-      await waitFor(
-        () => fixture.application.bindings.verifiedReceipt(session),
-        Boolean,
-      ).catch(async (error) => {
-        const scrub = (value) =>
-          value
-            .replaceAll(fixture.root, "<temporary-root>")
-            .replace(/[a-f0-9]{48}/g, "<fixture-token>");
-        console.error("BOUND_STARTUP", scrub(await capture()));
-        const launchFile = fixture.application.bindings.file(session.id);
-        const bindingReceipt = await fs
-          .readFile(launchFile.replace(/\.launch\.json$/, ".receipt.json"), "utf8")
-          .then(JSON.parse)
-          .catch((error) => ({ missing: error.code }));
-        const launchRecord = JSON.parse(await fs.readFile(launchFile, "utf8"));
-        console.error(
-          "BOUND_RECEIPT",
-          JSON.stringify(
-            bindingReceipt.missing
-              ? bindingReceipt
-              : {
-                  idMatch: bindingReceipt.id === session.id,
-                  accountMatch: bindingReceipt.accountId === session.accountId,
-                  cwdMatch: bindingReceipt.cwd === launchRecord.cwd,
-                  toolMatch: bindingReceipt.tool === tool,
-                  tokenMatch: bindingReceipt.token === launchRecord.token,
-                  pid: bindingReceipt.pid,
-                  pidStart: bindingReceipt.pidStart,
-                  updatedAt: bindingReceipt.updatedAt,
-                },
-          ),
-        );
-        if (tool === "claude") {
-          const debug = await fs
-            .readFile(path.join(fixture.root, "claude-debug.log"), "utf8")
-            .catch(() => "");
-          console.error(
-            "CLAUDE_HOOK_LOG",
-            scrub(
-              debug
-                .split("\n")
-                .filter((line) => /hook|plugin|agentpier/i.test(line))
-                .slice(-40)
-                .join("\n"),
-            ),
-          );
-        }
-        const logDirectory = path.join(env.CODEX_HOME, "log");
-        const names = await fs.readdir(logDirectory).catch(() => []);
-        for (const name of names)
-          if (name.endsWith(".log")) {
-            const content = await fs.readFile(path.join(logDirectory, name), "utf8");
-            console.error(
-              "BOUND_HOOK_LOG",
-              scrub(
-                content
-                  .split("\n")
-                  .filter((line) => /hook|binding/i.test(line))
-                  .slice(-15)
-                  .join("\n"),
-              ),
-            );
-          }
-        throw error;
-      });
+      await waitForProbeBinding({ fixture, session, tool, capture, env });
     if (options.includes("--keyboard-only")) {
       const result = await probeTerminalKeyboard({
         manager,
@@ -439,6 +388,28 @@ async function probeNative(fixture, cleanup) {
           platform: `${os.platform()} ${os.arch()}`,
           result,
         }),
+      );
+      return;
+    }
+    if (options.includes("--prompt-spike")) {
+      console.log(
+        JSON.stringify(
+          {
+            tool,
+            version,
+            spike: await probePromptSpike({
+              manager,
+              session,
+              snapshot,
+              capture,
+              keys,
+              provider,
+              fixture,
+            }),
+          },
+          null,
+          2,
+        ),
       );
       return;
     }
@@ -528,17 +499,17 @@ async function probeNative(fixture, cleanup) {
     const payloads = httpMode
       ? await probeNativePayloads({ tool, send, capture, provider, waitFor, counts })
       : undefined;
-    const images =
-      httpMode && tool === "claude"
-        ? await probeNativeImages({
-            send,
-            capture,
-            provider,
-            waitFor,
-            counts,
-            directory: session.cwd,
-          })
-        : undefined;
+    const images = httpMode
+      ? await probeNativeImages({
+          send,
+          capture,
+          provider,
+          waitFor,
+          counts,
+          directory: session.cwd,
+          tool,
+        })
+      : undefined;
     const recovery = httpMode
       ? await probeNativeRecovery(fixture, session, snapshot, counts, {
           capture,

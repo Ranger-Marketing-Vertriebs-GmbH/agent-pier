@@ -12,7 +12,8 @@ async function fixture(t, tool, screen, claude = tool === "claude" && !screen &&
   const f = await applicationFixture(t);
   const recorder = await createTuiInputRecorder(f, {
     screen: claude ? "" : renderChatTuiScreen(screen || (await chatTuiScreen(tool))),
-    claude: claude || undefined,
+    claude: tool === "claude" ? claude || undefined : undefined,
+    native: tool !== "claude" && (claude || !screen) ? { tool, ...claude } : undefined,
   });
   const account = f.application.accounts.create({ name: "HTTP transport fixture", tool });
   const session = await f.application.sessions.create({
@@ -57,10 +58,7 @@ for (const tool of ["codex", "claude", "opencode"]) {
     // would. Claude only proceeds without a visible dialog and says so.
     const result = await x.post(input);
     assert.equal(result.status, "handed-off");
-    assert.deepEqual(
-      result.notices,
-      tool === "claude" ? ["CHAT_PROMPT_UNREADABLE"] : undefined,
-    );
+    assert.deepEqual(result.notices, ["CHAT_PROMPT_UNREADABLE"]);
     const frame = `\x1b[200~${input.text}\x1b[201~\r`;
     await x.recorder.waitForText(frame);
     await x.post(input);
@@ -69,7 +67,7 @@ for (const tool of ["codex", "claude", "opencode"]) {
 }
 
 test("a permission request arriving after paste prevents the fresh Enter", async (t) => {
-  const x = await fixture(t, "codex");
+  const x = await fixture(t, "codex", await chatTuiScreen("codex"));
   const manager = x.f.application.sessions;
   const tmux = manager.tmux.bind(manager);
   manager.tmux = async (...args) => {
@@ -133,14 +131,18 @@ for (const tool of ["codex", "claude", "opencode"]) {
         "utf8",
       ),
     );
-    const x = await fixture(t, tool, screen, tool === "claude" && { draft: text });
+    const x = await fixture(t, tool, screen, { draft: text });
     const input = x.body(text);
     // Seed the durable boundary of a prior completed paste, using the actual
     // owned pane's generation and composer. The parser and writer remain real.
     const generation = await x.f.application.sessions.withChatInput(
       x.session.id,
       async (tx) => {
-        assert.deepEqual(tx.composer, { state: "text", text });
+        assert.deepEqual(
+          tx.composer,
+          { state: "text", text },
+          JSON.stringify({ raw: tx.raw, pane: tx.pane }),
+        );
         return tx.generation;
       },
     );

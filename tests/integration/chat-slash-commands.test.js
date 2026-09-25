@@ -3,9 +3,8 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import {
   chatTuiScreen,
-  renderChatTuiScreen,
   capturedChatTuiScreen,
-  claudeDraftScreen,
+  nativeDraftScreen,
 } from "../helpers/chat-tui-fixture.js";
 import { createTuiInputRecorder } from "../helpers/tui-input-recorder.js";
 import { applicationFixture } from "../helpers/application.js";
@@ -22,9 +21,7 @@ for (const tool of ["codex", "claude", "opencode"]) {
     let typed = "";
     manager.tmux = async (args) => {
       if (args[0] === "display-message")
-        return capturedChatTuiScreen(
-          tool === "claude" ? claudeDraftScreen(screen, typed) : screen,
-        );
+        return capturedChatTuiScreen(nativeDraftScreen(tool, screen, typed));
       calls.push(args);
       if (args[0] === "send-keys") typed = args.includes("-l") ? args.at(-1) : "";
       return "";
@@ -62,9 +59,7 @@ for (const tool of ["codex", "claude", "opencode"]) {
     const f = await applicationFixture(t);
     const recorder = await createTuiInputRecorder(
       f,
-      tool === "claude"
-        ? { claude: {} }
-        : { screen: renderChatTuiScreen(await chatTuiScreen(tool)) },
+      tool === "claude" ? { claude: {} } : { native: { tool } },
     );
     const account = f.application.accounts.create({ name: "Input fixture", tool });
     const session = await f.application.sessions.create({

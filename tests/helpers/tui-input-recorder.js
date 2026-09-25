@@ -1,3 +1,4 @@
+import { nativePromptRenderer } from "./native-prompt-model.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -20,6 +21,7 @@ const style = ${JSON.stringify(options.emptyStyle || "cursor")};
 const ignoreEnter = ${JSON.stringify(Boolean(options.ignoreEnter))};
 const ignoreEditing = ${JSON.stringify(Boolean(options.ignoreEditing))};
 function render() {
+${options.tool ? `{ ${nativePromptRenderer(options.tool)} }` : ""}
   const width = process.stdout.columns || 120;
   const height = process.stdout.rows || 35;
   const border = "\\x1b[38;2;136;136;136m" + "─".repeat(width);
@@ -99,7 +101,10 @@ process.stdin.on("data", (data) => {
 `;
 
 /** A raw TTY recorder owned and removed by an applicationFixture. */
-export async function createTuiInputRecorder(fixture, { screen = "", claude } = {}) {
+export async function createTuiInputRecorder(
+  fixture,
+  { screen = "", claude, native } = {},
+) {
   const directory = path.join(fixture.root, `tui-recorder-${randomUUID()}`);
   await fs.mkdir(directory);
   const script = path.join(directory, "recorder.mjs");
@@ -120,7 +125,7 @@ process.stdin.on("data", data => {
   offset += data.length;
 });
 process.stdout.write("\\x1b[?2004h" + ${JSON.stringify(screen)});
-${claude ? claudeComposer(claude) : ""}
+${claude || native ? claudeComposer(claude || native) : ""}
 fs.writeFileSync(${JSON.stringify(ready)}, "ready");
 `,
   );

@@ -48,13 +48,16 @@ process.stdin.on('data', data => {
   // A loaded TUI can consume bytes before its next render.
   const value=data.toString().replaceAll('\\x1b[200~','').replaceAll('\\x1b[201~','');
   for(const c of value) {
-    if(c==='\\r') fs.writeFileSync(${JSON.stringify(output)},JSON.stringify(draft));
+    if(c==='\\r') { fs.writeFileSync(${JSON.stringify(output)},JSON.stringify(draft)); draft=''; }
+    else if(c==='\\x15') draft='';
+    else if(c==='\\x05') {}
+    else if(c==='\\x7f') draft=draft.slice(0,-1);
     else draft+=c;
   }
   clearInterval(render);
   const paint=()=>{
     if(!fs.existsSync(${JSON.stringify(release)})) return false;
-    process.stdout.write('\\x1b[${fixture.pane.cursorY + 1};1H\\x1b[K\\x1b[1m›\\x1b[0m '+draft);
+    process.stdout.write('\\x1b[${fixture.pane.cursorY + 1};1H\\x1b[K\\x1b[1m›\\x1b[0m '+(draft || '\\x1b[2mAsk Codex to do anything\\x1b[0m')+'\\x1b[${fixture.pane.cursorY + 1};'+(3+draft.length)+'H');
     return true;
   };
   render=setInterval(()=>{ if(paint()) clearInterval(render); },20);
@@ -122,32 +125,22 @@ fs.writeFileSync(${JSON.stringify(ready)},'ready');
   };
 }
 
-test("an unrendered terminal draft is sent together with chat instead of blocking it", async (t) => {
+test("an unrendered paste never receives a blind Enter", async (t) => {
   const f = await delayedRenderSession(t);
   await f.client.write("UNSENT TERMINAL DRAFT");
-  // The draft is consumed but not rendered yet. Chat never waits on terminal
-  // state: it is appended like typed input and says so.
   const result = await f.send("CHAT PROMPT");
-  assert.equal(result.status, "handed-off");
-  assert.deepEqual(result.notices, ["CHAT_APPENDED_TO_DRAFT"]);
-  for (let n = 0; n < 250 && !(await exists(f.output)); n++) await sleep(20);
-  assert.equal(
-    JSON.parse(await fs.readFile(f.output, "utf8")),
-    "UNSENT TERMINAL DRAFTCHAT PROMPT",
-  );
+  assert.equal(result.status, "uncertain");
+  assert.equal(result.reason, "CHAT_SUBMIT_UNCONFIRMED");
+  assert.equal(await exists(f.output), false);
   assert.equal(f.manager.pendingTerminalInput.has(f.session.id), false);
 });
 
-test("a rendered Codex draft follows the explicit append policy for chat sends", async (t) => {
-  // docs/direct-chat-tui-validation.md: an explicit Codex send types into the
-  // visible composer and may combine an existing draft with the chat text.
+test("a rendered Codex draft is replaced before the chat message is sent", async (t) => {
+  // The responsive native fixture applies the validated clear keys.
   const f = await delayedRenderSession(t);
   await f.client.write("VISIBLE DRAFT");
   await f.releaseDraft(/VISIBLE DRAFT/);
   assert.equal((await f.send("CHAT PROMPT")).status, "handed-off");
   for (let n = 0; n < 250 && !(await exists(f.output)); n++) await sleep(20);
-  assert.equal(
-    JSON.parse(await fs.readFile(f.output, "utf8")),
-    "VISIBLE DRAFTCHAT PROMPT",
-  );
+  assert.equal(JSON.parse(await fs.readFile(f.output, "utf8")), "CHAT PROMPT");
 });

@@ -157,9 +157,9 @@ export const chatDeliveryCopy = {
   // The same reasons with only the image chips in the prompt (images-pasted).
   imagesPastedReasons: {
     CHAT_PROMPT_CHANGED:
-      "The attached images were pasted into Claude, but the prompt changed while the message waited, so it was not completed and not submitted. Please check the TUI.",
+      "The attached images were pasted into the CLI, but the prompt changed while the message waited, so it was not completed and not submitted. Please check the TUI.",
     CHAT_DIALOG_NOT_CLOSED:
-      "The attached images are in the TUI prompt, but the message was not completed and not submitted: a Claude menu could not be closed. Check the TUI before sending again.",
+      "The attached images are in the TUI prompt, but the message was not completed and not submitted: a CLI dialog is still open. Check the TUI before sending again.",
     CHAT_QUESTION_OPEN:
       "The attached images are in the TUI prompt, but the message was not completed and not submitted: Claude is waiting for an answer to a question. Check the TUI before sending again.",
     CHAT_REQUEST_PENDING:
@@ -167,21 +167,21 @@ export const chatDeliveryCopy = {
   },
   pastedReasons: {
     CHAT_PROMPT_CHANGED:
-      "The message was pasted into Claude, but the prompt changed while it waited, so it was not submitted. Please check the TUI.",
+      "The message was pasted into the CLI, but the prompt changed while it waited, so it was not submitted. Please check the TUI.",
     CHAT_DIALOG_NOT_CLOSED:
-      "The message is in the TUI prompt but was not submitted: a Claude menu could not be closed. Check the TUI before sending again.",
+      "The message is in the TUI prompt but was not submitted: a dialog is still open in the CLI. Check the TUI before sending again.",
     CHAT_QUESTION_OPEN:
       "The message is in the TUI prompt but was not submitted: Claude is waiting for an answer to a question. Check the TUI before sending again.",
     CHAT_REQUEST_PENDING:
       "The message is in the TUI prompt but was not submitted: a request is waiting for an answer. Check the TUI before sending again.",
     CHAT_COMPOSER_DIALOG:
-      "The message was pasted into Claude but not submitted: Claude is showing a dialog. Check the TUI before sending again.",
+      "The message was pasted into the CLI but not submitted: Claude is showing a dialog. Check the TUI before sending again.",
     CHAT_COMPOSER_UNAVAILABLE:
-      "The message was pasted into Claude but not submitted: its input field cannot be identified safely. Please check the TUI.",
+      "The message was pasted into the CLI but not submitted: its input field cannot be identified safely. Please check the TUI.",
     CHAT_COMPOSER_NOT_CLEARED:
-      "The message was pasted into Claude but not submitted. Check the TUI before sending again.",
+      "The message was pasted into the CLI but not submitted. Check the TUI before sending again.",
     CHAT_IMAGES_UNCONFIRMED:
-      "The message was pasted into Claude but not submitted: Claude's input field does not show all attached images. Enlarge the terminal or check the TUI before sending again.",
+      "The message was pasted into the CLI but not submitted: the CLI's input field does not show all attached images. Enlarge the terminal or check the TUI before sending again.",
   },
   // Informational, non-blocking notes on a completed handoff.
   notices: {
@@ -192,16 +192,16 @@ export const chatDeliveryCopy = {
     CHAT_DIALOG_CLOSED:
       "An open Claude menu (such as rewind or the model picker) was closed with Esc before sending.",
     CHAT_IMAGES_MAYBE_MISSING:
-      "Claude did not show all attached images before sending; some images may be missing.",
+      "The CLI did not show all attached images before sending; some images may be missing.",
   },
   reasons: {
     CHAT_PROMPT_CHANGED:
-      "The message was pasted into Claude, but the prompt changed while it waited, so it was not submitted. Please check the TUI.",
+      "The message was pasted into the CLI, but the prompt changed while it waited, so it was not submitted. Please check the TUI.",
     CHAT_QUEUED:
       "The message was waiting behind an earlier message and has not been typed yet. Send it again.",
     CHAT_CANCELLED: "Cancelled before the message was typed into the TUI.",
     CHAT_DIALOG_NOT_CLOSED:
-      "The message was waiting for a Claude menu to close and has not been typed yet. Close the menu in the terminal, then send it again.",
+      "The message was waiting for a CLI dialog and has not been typed yet. Answer or close the dialog in the terminal, then send it again.",
     CHAT_QUESTION_OPEN:
       "The message was waiting for a question in the TUI to be answered and has not been typed yet. Answer it in the terminal, then send it again.",
     CHAT_REQUEST_PENDING:
@@ -213,8 +213,8 @@ export const chatDeliveryCopy = {
     CHAT_COMPOSER_NOT_CLEARED:
       "The existing draft in Claude's input field could not be replaced safely. The message was not sent; please check the TUI.",
     CHAT_SUBMIT_UNCONFIRMED:
-      "Claude did not confirm that it accepted the message. Check the TUI before sending again.",
+      "The CLI did not confirm that it accepted the message. Check the TUI before sending again.",
     CHAT_IMAGES_UNCONFIRMED:
-      "Claude did not confirm that all attached images were accepted. Check the TUI before sending again.",
+      "The CLI did not confirm that all attached images were accepted. Check the TUI before sending again.",
   },
 };

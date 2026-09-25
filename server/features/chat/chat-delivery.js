@@ -264,11 +264,12 @@ export class ChatDelivery {
           this.write(file, receipt);
         }
         requireCurrentChatInput(this.requests, id);
-        // Claude's own /model picker is a menu closed before the paste.
+        // Native prompt adapters close Claude menus or wait for Codex/OpenCode dialogs.
         await this.models.guardInput(id, tx.session, tx.raw, {
-          nativeMenus: tx.session.tool === "claude",
+          nativeMenus: true,
         });
         await tx.write(text, {
+          beforeImage: () => requireCurrentChatInput(this.requests, id),
           allowComposerDraft: !submitOnly && !resume,
           submitOnly,
           ...(resume ? { resume: "text" } : {}),

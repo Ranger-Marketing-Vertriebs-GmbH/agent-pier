@@ -45,7 +45,9 @@ operations. Without `--http`, measurements describe direct tmux input only.
 
 ## Native input characterization
 
-### Explicit fresh input policy (2026-09-12)
+### Original explicit fresh input policy (2026-09-12)
+
+Superseded for recognized Codex/OpenCode prompts by the [native prompt guards](native-chat-prompt-validation.md). The unreadable-layout fallback remains.
 
 For Codex and OpenCode, a fresh chat send behaves like typing into the current TUI
 composer and pressing Enter. An existing draft or an unrecognized screen layout does
@@ -149,9 +151,10 @@ was not typed yet ("Deliver again" resends it); after twelve hours of waiting th
 receipt ends as `rejected` (nothing typed) or `uncertain` (pasted). A rejected
 message releases the chat composer with its text instead of locking it.
 
-Codex and OpenCode keep appending to an existing draft (notice
-`CHAT_APPENDED_TO_DRAFT` when the draft was readable) and share the request wait;
-the dialog and menu rules apply to Claude only.
+At the time of this Claude validation, Codex and OpenCode still appended to existing
+drafts. Their subsequent [native prompt guards](native-chat-prompt-validation.md)
+replace recognized drafts and share native-dialog waiting; automatic menu dismissal
+remains Claude-specific, while images use each CLI's validated paste sequence.
 
 A `▔` panel border, or a selected numbered option (`❯ 1.`) at the cursor or
 followed by further options, also marks a dialog,
