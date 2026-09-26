@@ -21,26 +21,96 @@
       content="Dein persönlicher Arbeitsbereich für Codex, Claude Code und OpenCode."
     />
     <title>AgentPier — Dein Terminal. Überall.</title>
+    <style>
+      html {
+        background: #101114;
+      }
+      body {
+        margin: 0;
+      }
+      #startup {
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        overflow: auto;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        box-sizing: border-box;
+        color: #f0e9e2;
+        background: #101114;
+        font:
+          15px/1.6 system-ui,
+          sans-serif;
+      }
+      #startup .startup-card {
+        width: min(100%, 360px);
+        text-align: center;
+      }
+      #startup .startup-brand {
+        font-size: 32px;
+        font-weight: 750;
+        letter-spacing: -2px;
+      }
+      #startup .startup-brand span {
+        color: #f49a58;
+      }
+      #startup .startup-name {
+        color: #bcb2aa;
+        letter-spacing: 2px;
+        margin: 8px 0 24px;
+      }
+      #startup h1 {
+        font-size: 22px;
+        line-height: 1.3;
+        margin: 0 0 16px;
+      }
+      #startup p {
+        overflow-wrap: anywhere;
+      }
+      #startup progress {
+        width: 100%;
+        height: 8px;
+        accent-color: #f49a58;
+      }
+      #startup [data-startup-detail] {
+        font-size: 13px;
+        color: #bcb2aa;
+        font-variant-numeric: tabular-nums;
+      }
+      #startup [data-startup-hint] {
+        color: #bcb2aa;
+      }
+      #startup a {
+        display: inline-block;
+        padding: 12px;
+        color: #ffc99d;
+      }
+      #startup [hidden] {
+        display: none;
+      }
+    </style>
   </head>
   <body>
-    <div id="root">
-      <div
-        style="
-          min-height: 100dvh;
-          display: grid;
-          place-content: center;
-          gap: 16px;
-          padding: 24px;
-          text-align: center;
-          color: #ddd;
-          background: #101114;
-          font-family: sans-serif;
-        "
-      >
-        <strong>AgentPier wird geladen …</strong>
-        <a href="/" style="color: #ffc99d">Erneut öffnen</a>
-      </div>
+    <div id="startup" aria-labelledby="startup-title">
+      <main class="startup-card">
+        <div class="startup-brand" aria-hidden="true">AP<span>•</span></div>
+        <p class="startup-name">AgentPier</p>
+        <h1 id="startup-title">__STARTUP_title__</h1>
+        <p data-startup-status role="status" aria-live="polite">__STARTUP_connecting__</p>
+        <progress
+          max="100"
+          value="0"
+          aria-label="__STARTUP_downloading__"
+          hidden
+        ></progress>
+        <p data-startup-detail hidden></p>
+        <p data-startup-hint hidden></p>
+        <a href="">__STARTUP_retry__</a>
+        <noscript><p>__STARTUP_noScript__</p></noscript>
+      </main>
     </div>
+    <div id="root"></div>
     <script type="module" src="/web/main.jsx"></script>
   </body>
 </html>

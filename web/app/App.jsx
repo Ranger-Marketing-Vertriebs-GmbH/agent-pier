@@ -9,17 +9,17 @@ import Icon from "../components/Icon.jsx";
 import Sidebar from "./Sidebar.jsx";
 import AppDialogs from "./AppDialogs.jsx";
 import { defaultSessionMode } from "./routes.js";
-import ProjectsPage from "../features/projects/ProjectsPage.jsx";
-import Extensions from "../features/extensions/ExtensionsPage.jsx";
-import Settings from "../features/settings/SettingsPage.jsx";
-import SessionWorkspace from "../features/sessions/SessionWorkspace.jsx";
-import AccountsPage from "../features/accounts/AccountsPage.jsx";
 import DashboardPage from "../features/dashboard/DashboardPage.jsx";
 import useWorkspaceState from "./useWorkspaceState.js";
 import useWorkspaceNavigation from "./useWorkspaceNavigation.js";
 import MobileHeader from "./MobileHeader.jsx";
 import useFileNavigationGuard from "../features/files/useFileNavigationGuard.js";
 import FileNavigationGuardDialog from "../features/files/FileNavigationGuardDialog.jsx";
+const ProjectsPage = lazy(() => import("../features/projects/ProjectsPage.jsx"));
+const Extensions = lazy(() => import("../features/extensions/ExtensionsPage.jsx"));
+const Settings = lazy(() => import("../features/settings/SettingsPage.jsx"));
+const AccountsPage = lazy(() => import("../features/accounts/AccountsPage.jsx"));
+const SessionWorkspace = lazy(() => import("../features/sessions/SessionWorkspace.jsx"));
 const PipelinePage = lazy(() => import("../features/pipelines/PipelinePage.jsx"));
 const ArtifactsPage = lazy(() => import("../features/artifacts/ArtifactsPage.jsx"));
 const FilesPage = lazy(() => import("../features/files/FilesPage.jsx"));
@@ -145,131 +145,139 @@ function Application() {
             <button onClick={() => refresh().catch(() => {})}>{commonCopy.retry}</button>
           </div>
         )}
-        {missing ? (
-          <div className="page">
-            <h1>{missing}</h1>
-            <p>{copy.pageDescription}</p>
-            <button className="button secondary" onClick={() => select(null)}>
-              {copy.returnToOverview}
-            </button>
-          </div>
-        ) : !ready && (selected || view === "extensions") ? (
-          <div className="page">
+        <Suspense
+          fallback={
             <p className="loading" role="status">
               {copy.workspaceLoading}
             </p>
-          </div>
-        ) : view === "pipelines" ? (
-          <Suspense
-            fallback={
+          }
+        >
+          {missing ? (
+            <div className="page">
+              <h1>{missing}</h1>
+              <p>{copy.pageDescription}</p>
+              <button className="button secondary" onClick={() => select(null)}>
+                {copy.returnToOverview}
+              </button>
+            </div>
+          ) : !ready && (selected || view === "extensions") ? (
+            <div className="page">
               <p className="loading" role="status">
                 {copy.workspaceLoading}
               </p>
-            }
-          >
-            <PipelinePage
+            </div>
+          ) : view === "pipelines" ? (
+            <Suspense
+              fallback={
+                <p className="loading" role="status">
+                  {copy.workspaceLoading}
+                </p>
+              }
+            >
+              <PipelinePage
+                route={route}
+                onNavigate={navigate}
+                accounts={state.accounts}
+                home={state.home}
+                onLaunchProfile={(profile) => setModal({ type: "launch", profile })}
+              />
+            </Suspense>
+          ) : view === "artifacts" ? (
+            <Suspense>
+              <ArtifactsPage route={route} onNavigate={navigate} />
+            </Suspense>
+          ) : view === "files" ? (
+            <Suspense
+              fallback={
+                <p className="loading" role="status">
+                  {copy.workspaceLoading}
+                </p>
+              }
+            >
+              <FilesPage route={route} navigate={navigate} />
+            </Suspense>
+          ) : view === "settings" ? (
+            <Settings
+              state={state}
+              refresh={refresh}
+              ready={ready}
               route={route}
               onNavigate={navigate}
-              accounts={state.accounts}
-              home={state.home}
-              onLaunchProfile={(profile) => setModal({ type: "launch", profile })}
             />
-          </Suspense>
-        ) : view === "artifacts" ? (
-          <Suspense>
-            <ArtifactsPage route={route} onNavigate={navigate} />
-          </Suspense>
-        ) : view === "files" ? (
-          <Suspense
-            fallback={
-              <p className="loading" role="status">
-                {copy.workspaceLoading}
-              </p>
-            }
-          >
-            <FilesPage route={route} navigate={navigate} />
-          </Suspense>
-        ) : view === "settings" ? (
-          <Settings
-            state={state}
-            refresh={refresh}
-            ready={ready}
-            route={route}
-            onNavigate={navigate}
-          />
-        ) : view === "extensions" ? (
-          <Extensions
-            shared={state.sharedCliExtensions}
-            accounts={state.accounts}
-            request={api}
-            profileId={route.profileId}
-            extensionTab={route.extensionTab}
-            onNavigate={navigate}
-          />
-        ) : view === "projects" ? (
-          <ProjectsPage
-            route={route}
-            onNavigate={navigate}
-            home={state.home}
-            defaultCwd={state.defaultCwd}
-            state={state}
-            select={select}
-            onLaunch={(cwd) =>
-              setModal({
-                type: "launch",
-                cwd,
-              })
-            }
-          />
-        ) : view === "accounts" ? (
-          <AccountsPage
-            {...{
-              refresh,
-              state,
-              setModal,
-              act,
-            }}
-          />
-        ) : activeSession ? (
-          <SessionWorkspace
-            openNavigation={() => setMobileNav(true)}
-            key={activeSession.id}
-            session={activeSession}
-            route={route}
-            navigate={navigate}
-            account={state.accounts.find((a) => a.id === activeSession.accountId)}
-            action={act}
-            mode={
-              activeSession.tool === "shell" && route.mode !== "files"
-                ? "terminal"
-                : route.mode ||
-                  defaultSessionMode(
-                    activeSession,
-                    window.matchMedia("(max-width: 700px)").matches,
-                  )
-            }
-            setMode={(mode) =>
-              navigate({
-                ...route,
-                mode,
-              })
-            }
-          />
-        ) : (
-          <DashboardPage
-            {...{
-              state,
-              installedToolCount,
-              availableTools,
-              installed,
-              error,
-              loading,
-              launch,
-              page,
-              setModal,
-            }}
-          />
-        )}
+          ) : view === "extensions" ? (
+            <Extensions
+              shared={state.sharedCliExtensions}
+              accounts={state.accounts}
+              request={api}
+              profileId={route.profileId}
+              extensionTab={route.extensionTab}
+              onNavigate={navigate}
+            />
+          ) : view === "projects" ? (
+            <ProjectsPage
+              route={route}
+              onNavigate={navigate}
+              home={state.home}
+              defaultCwd={state.defaultCwd}
+              state={state}
+              select={select}
+              onLaunch={(cwd) =>
+                setModal({
+                  type: "launch",
+                  cwd,
+                })
+              }
+            />
+          ) : view === "accounts" ? (
+            <AccountsPage
+              {...{
+                refresh,
+                state,
+                setModal,
+                act,
+              }}
+            />
+          ) : activeSession ? (
+            <SessionWorkspace
+              openNavigation={() => setMobileNav(true)}
+              key={activeSession.id}
+              session={activeSession}
+              route={route}
+              navigate={navigate}
+              account={state.accounts.find((a) => a.id === activeSession.accountId)}
+              action={act}
+              mode={
+                activeSession.tool === "shell" && route.mode !== "files"
+                  ? "terminal"
+                  : route.mode ||
+                    defaultSessionMode(
+                      activeSession,
+                      window.matchMedia("(max-width: 700px)").matches,
+                    )
+              }
+              setMode={(mode) =>
+                navigate({
+                  ...route,
+                  mode,
+                })
+              }
+            />
+          ) : (
+            <DashboardPage
+              {...{
+                state,
+                installedToolCount,
+                availableTools,
+                installed,
+                error,
+                loading,
+                launch,
+                page,
+                setModal,
+              }}
+            />
+          )}
+        </Suspense>
       </main>
       <AppDialogs
         {...{
