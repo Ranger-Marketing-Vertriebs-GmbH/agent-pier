@@ -38,6 +38,8 @@ test("startup stays visible and reports completed files while styles and authent
       await page.screenshot({ path: testInfo.outputPath("startup-progress.png") });
     releaseStyles();
     await expect(screen).toContainText("Checking sign-in");
+    await expect(page.getByRole("status")).toHaveCount(1);
+    await expect(page.locator("#root")).toHaveAttribute("inert", "");
     await expect(screen.locator("progress")).toBeHidden();
     releaseAuth();
     await expect(
