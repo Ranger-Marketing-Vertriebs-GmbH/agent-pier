@@ -1,3 +1,4 @@
+import { startupStage } from "../../startup/status.js";
 import useLanguage from "../../lib/i18n/useLanguage.js";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { LoginContext } from "./LoginContext.js";
@@ -11,6 +12,9 @@ export default function LoginGate({ children }) {
   const invalidate = useCallback(() => ++generation.current, []);
   const [status, setStatus] = useState(null);
   const [error, setError] = useState("");
+  useEffect(() => {
+    startupStage(status || error ? "done" : "authenticating");
+  }, [status, error]);
   const refresh = useCallback(async () => {
     const current = invalidate();
     try {
