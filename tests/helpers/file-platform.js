@@ -73,6 +73,48 @@ export async function detachOwnedDiskImage({
   }
 }
 
+// hdiutil's registry can report a detached image before macOS releases the
+// mount directory. Remove only that empty directory first, so recursive cleanup
+// cannot enter a lingering mount or delete the image while its mount is busy.
+export async function removeDetachedMountDirectory({
+  root,
+  directory,
+  attached,
+  stat = fs.stat,
+  remove = fs.rmdir,
+  wait = delay,
+  diagnostic,
+}) {
+  const delays = [100, 250, 500, 1000];
+  for (let attempt = 0; ; attempt++) {
+    assert.equal(await attached(), undefined, "retain fixture still attached");
+    const mount = await stat(directory).catch((error) => {
+      if (error.code !== "ENOENT") throw error;
+    });
+    if (!mount) return;
+    assert.equal(
+      mount.dev,
+      (await stat(root)).dev,
+      "retain fixture with a mounted directory",
+    );
+    try {
+      await remove(directory);
+      return;
+    } catch (error) {
+      diagnostic?.(
+        JSON.stringify({
+          fixture: "mount-directory-busy",
+          directory,
+          attempt: attempt + 1,
+          code: error.code,
+        }),
+      );
+      if (error.code !== "EBUSY" || attempt === delays.length) throw error;
+      await wait(delays[attempt]);
+    }
+  }
+}
+
 // Opt-in integration fixtures only; setup failures in required mode are failures.
 // Every command targets this newly allocated image/mount. Never infer disk numbers.
 export async function filenameFileSystem(
@@ -110,6 +152,12 @@ export async function filenameFileSystem(
         image,
         directory,
         identity,
+        attached,
+        diagnostic: (value) => t.diagnostic?.(value),
+      });
+      await removeDetachedMountDirectory({
+        root,
+        directory,
         attached,
         diagnostic: (value) => t.diagnostic?.(value),
       });

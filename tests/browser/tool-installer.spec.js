@@ -2,7 +2,7 @@ import { navigateTo } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 
 import { baseURL as base } from "../helpers/browser.js";
-async function fixture(page) {
+async function fixture(page, configure = () => {}) {
   const state = {
     tools: [
       { id: "codex", name: "Codex", installed: false },
@@ -68,6 +68,7 @@ async function fixture(page) {
     releaseStart: null,
     busy: false,
   };
+  configure(controls);
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/state") return route.fulfill({ json: state });
@@ -293,10 +294,11 @@ test("nono installs under its own name and offers an update instead of GitHub ac
 test("an installed utility does not enable session creation when no session tool is available", async ({
   page,
 }) => {
-  const controls = await fixture(page);
-  for (const tool of controls.state.tools) tool.installed = false;
-  controls.state.utilities[0].installed = true;
-  await page.reload();
+  // Set the initial state before navigation so setup cannot interrupt auth startup.
+  await fixture(page, ({ state }) => {
+    for (const tool of state.tools) tool.installed = false;
+    state.utilities[0].installed = true;
+  });
   await expect(
     card(page, "GitHub CLI").getByRole("button", { name: "GitHub-Zugänge", exact: true }),
   ).toBeEnabled();

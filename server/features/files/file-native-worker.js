@@ -232,6 +232,9 @@ parentPort.on("message", ({ id, operation, args }) => {
     } else parentPort.postMessage({ id, result: run(operation, args) });
   } catch (cause) {
     const { code, status, args: issueArgs } = fileSystemProblem(cause);
-    parentPort.postMessage({ id, error: { code, status, args: issueArgs } });
+    // Preserve only the errno identifier for server-side diagnostics, never the
+    // native message, syscall arguments, paths or file contents.
+    const nativeCode = /^E[A-Z0-9]+$/.test(cause.code || "") ? cause.code : undefined;
+    parentPort.postMessage({ id, error: { code, status, args: issueArgs, nativeCode } });
   }
 });

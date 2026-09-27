@@ -6,6 +6,7 @@ import { readdirSync, fstatSync } from "node:fs";
 import path from "node:path";
 import { FileNative } from "../../server/features/files/file-native.js";
 import { fileFixture } from "../helpers/file-explorer.js";
+import { fileHandler } from "../../server/http/file-response.js";
 
 function descriptorsFor(stat) {
   return readdirSync(process.platform === "linux" ? "/proc/self/fd" : "/dev/fd").filter(
@@ -227,4 +228,51 @@ test("borrowed rename parents stay open while owned parents remain opaque", asyn
   await assert.rejects(f.native.renameNoReplace(parent.fd, "before", parent.fd, "new"), {
     code: "FILE_INVALID_PATH",
   });
+});
+
+test("native failures retain operation and errno locally without exposing them to HTTP", async (t) => {
+  const f = await fixture(t);
+  const directory = path.join(f.project, "nonempty");
+  await fs.mkdir(directory);
+  await fs.writeFile(path.join(directory, "private-name"), "private-bytes");
+  const stat = await fs.stat(directory, { bigint: true });
+  let failure;
+  await assert.rejects(
+    f.native.run("removeEntry", {
+      directory: f.handle,
+      name: "nonempty",
+      identity: `${stat.dev}:${stat.ino}`,
+      type: "directory",
+    }),
+    (error) => {
+      failure = error;
+      assert.equal(error.code, "FILE_IO_ERROR");
+      assert.deepEqual(error.cause, { operation: "removeEntry", code: "ENOTEMPTY" });
+      assert.deepEqual(error.args, {});
+      assert.equal(JSON.stringify(error).includes("ENOTEMPTY"), false);
+      return true;
+    },
+  );
+  let response;
+  await fileHandler(() => {
+    throw failure;
+  })(
+    {},
+    {
+      status(code) {
+        assert.equal(code, 500);
+        return this;
+      },
+      json(body) {
+        response = body;
+      },
+    },
+  );
+  assert.deepEqual(Object.keys(response).sort(), ["args", "code", "error"]);
+  assert.equal(response.code, "FILE_IO_ERROR");
+  assert.deepEqual(response.args, {});
+  assert.equal(
+    /ENOTEMPTY|removeEntry|private-name/.test(JSON.stringify(response)),
+    false,
+  );
 });

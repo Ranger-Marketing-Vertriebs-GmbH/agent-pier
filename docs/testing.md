@@ -84,6 +84,10 @@ Install Playwright browser binaries as development prerequisites. To keep them i
 
 Chat fixtures must mock both HTTP and the chat WebSocket using `mockChatStream`; an HTTP-only fixture otherwise connects its invented session ID to the real test backend and can show unrelated errors. For geometry checks, read related bounds in one browser evaluation and retry the complete invariant after viewport changes. To test concurrent operations in two tabs, queue sequential pointer clicks behind a shared lock instead of racing mouse actions across pages.
 
+Configure a scenario's initial fixture state before navigating. A setup-only reload can interrupt the first authentication request before the application has initialized; retain reloads when reload behavior is itself under test.
+
+Reproduce asynchronous backend races with explicit gates around the relevant handoff, rather than sleeps. Upload retry coverage holds an older directory-preparation pass while admitting a new attempt, then verifies that receiving bytes waits for the pass that prepares its parent. Native filesystem failures retain operation and errno in the server-side error cause; HTTP responses continue to expose only the public error contract.
+
 CI repeats the WebKit model resize, model error polling and two-tab upload cases five times without retries. Every run must pass. Failure artifacts include Playwright traces as well as screenshots; inspect a downloaded trace with `npx playwright show-trace path/to/trace.zip` before classifying a failure as flaky. To repeat those cases locally:
 
 ```sh
