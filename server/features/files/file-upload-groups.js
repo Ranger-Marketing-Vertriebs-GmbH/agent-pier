@@ -13,11 +13,15 @@ export class UploadGroups {
   constructor(owner) {
     this.owner = owner;
     this.dirty = new Set();
+    this.preparing = new Map();
   }
   async wake(scope, id) {
     const { jobs, store, journal, barrier } = this.owner;
     if (jobs.closed || this.owner.closed) return;
     await barrier.run(() => {
+      // Shutdown may start while this wake waits for its mutation lease. Never
+      // enqueue preparation into a dispatcher that can no longer run it.
+      if (jobs.closed || this.owner.closed) return;
       const group = journal.group(id);
       if (!group?.committed || group.cancelled || group.invalid) return;
       if (jobs.owns(id)) {
@@ -28,6 +32,7 @@ export class UploadGroups {
       if (job.status === "completed") return;
       store.transition(id, job.status, "queued");
       jobs.reservations.delete(id);
+      if (!this.preparing.has(id)) this.preparing.set(id, Promise.withResolvers());
       jobs.enqueue({
         scope,
         job: jobs.get(scope, id),
@@ -36,6 +41,16 @@ export class UploadGroups {
         handler: (context) => this.run(context),
       });
     });
+  }
+  async prepare(scope, id) {
+    await this.wake(scope, id);
+    // One dispatcher join only observes the current pass. A retry can dirty a
+    // pass whose directory snapshot predates admission; wait through its handoff.
+    await this.preparing.get(id)?.promise;
+  }
+  finishPreparation(id) {
+    this.preparing.get(id)?.resolve();
+    this.preparing.delete(id);
   }
   async directory(context, row, target) {
     const { store, jobs, publisher, journal } = this.owner;
@@ -241,13 +256,24 @@ export class UploadGroups {
   }
   async settled(item) {
     const { jobs, store, journal, barrier } = this.owner;
-    if (item.ephemeral || jobs.closed || this.owner.closed) return;
+    if (item.ephemeral) return;
+    if (jobs.closed || this.owner.closed) {
+      this.finishPreparation(item.id);
+      return;
+    }
     const parent = item.operation.parentJobId;
     if (item.operation.kind === "upload_group") {
       const group = journal.group(item.id),
         dirty = this.dirty.delete(item.id);
-      if (item.result && (dirty || item.result.aggregatedGeneration !== group.generation))
-        await this.wake(item.scope, item.id);
+      try {
+        if (
+          item.result &&
+          (dirty || item.result.aggregatedGeneration !== group.generation)
+        )
+          await this.wake(item.scope, item.id);
+      } finally {
+        if (!jobs.owns(item.id)) this.finishPreparation(item.id);
+      }
       return;
     }
     if (item.operation.kind === "upload") {

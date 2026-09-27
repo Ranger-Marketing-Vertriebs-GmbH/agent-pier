@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { spawn, spawnSync } from "node:child_process";
+import { execFile, spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
+import { promisify } from "node:util";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 async function fixture(t) {
@@ -21,6 +23,26 @@ async function fixture(t) {
     AGENTPIER_TAILSCALE_SOCKET: "invalid-relative-socket",
   };
   return { root, alias, env };
+}
+async function execute(t, args, env) {
+  const result = promisify(execFile)(process.execPath, args, {
+    env,
+    encoding: "utf8",
+    signal: t.signal,
+    killSignal: "SIGKILL",
+  });
+  // execFile rejects immediately on abort; wait for the process to close before
+  // fixture cleanup so a test deadline cannot leave a child using its directory.
+  const closed = new Promise((resolve) => result.child.once("close", resolve));
+  try {
+    return await result;
+  } catch (error) {
+    throw new Error(`Entrypoint ${args.join(" ")} failed: ${error.message}`, {
+      cause: error,
+    });
+  } finally {
+    await closed;
+  }
 }
 test("CLI entrypoints execute through symlinked release paths with inert invalid arguments", async (t) => {
   const { alias, root, env } = await fixture(t);
@@ -93,48 +115,77 @@ test("native hook entrypoints keep their stdin protocol active through a symlink
     assert.equal((await completed)[0], 0, file);
   }
 });
-test("importing symlinked executable modules remains inert and extra helper flags stay required", async (t) => {
-  const { alias, env } = await fixture(t);
-  const files = [
-    "scripts/release-install.mjs",
-    "scripts/release-package.mjs",
-    "scripts/release-manifest.mjs",
-    "scripts/operations.mjs",
-    "scripts/service.mjs",
-    "scripts/tailscale.mjs",
-    "server/native-session-binding.js",
-    "server/github-credentials.js",
-    "server/features/sessions/native-session-binding.js",
-    "server/features/repositories/github-credentials.js",
-    "server/features/requests/claude-hook.js",
-    "server/features/requests/codex-launch.js",
-    "server/features/operations/release-helper.js",
-  ];
-  const code =
-    files
-      .map(
-        (file) =>
-          `await import(${JSON.stringify(pathToFileURL(path.join(alias, file)).href)});`,
-      )
-      .join("\n") + '\nconsole.log("imports-only");';
-  const child = spawnSync(process.execPath, ["--input-type=module", "-e", code], {
-    env,
-    encoding: "utf8",
-    timeout: 5000,
-  });
-  assert.equal(child.status, 0, child.stderr);
-  assert.equal(child.stdout, "imports-only\n");
-  for (const file of [
-    "server/native-session-binding.js",
-    "server/github-credentials.js",
-  ]) {
-    const inert = spawnSync(process.execPath, [path.join(alias, file)], {
+test(
+  "importing symlinked executable modules remains inert and extra helper flags stay required",
+  { timeout: 30000 },
+  async (t) => {
+    const { alias, env } = await fixture(t);
+    const files = [
+      "scripts/release-install.mjs",
+      "scripts/release-package.mjs",
+      "scripts/release-manifest.mjs",
+      "scripts/operations.mjs",
+      "scripts/service.mjs",
+      "scripts/tailscale.mjs",
+      "server/native-session-binding.js",
+      "server/github-credentials.js",
+      "server/features/sessions/native-session-binding.js",
+      "server/features/repositories/github-credentials.js",
+      "server/features/requests/claude-hook.js",
+      "server/features/requests/codex-launch.js",
+      "server/features/operations/release-helper.js",
+    ];
+    const code =
+      files
+        .map(
+          (file) =>
+            `await import(${JSON.stringify(pathToFileURL(path.join(alias, file)).href)});`,
+        )
+        .join("\n") + '\nconsole.log("imports-only");';
+    const child = await execute(t, ["--input-type=module", "-e", code], env);
+    // Node 22 emits its SQLite experimental warning during these imports.
+    // Successful exit and the exact marker prove import-only execution.
+    assert.equal(child.stdout, "imports-only\n");
+    for (const file of [
+      "server/native-session-binding.js",
+      "server/github-credentials.js",
+    ]) {
+      const inert = await execute(t, [path.join(alias, file)], env);
+      assert.equal(inert.stdout, "");
+      assert.equal(inert.stderr, "");
+    }
+  },
+);
+
+test(
+  "an aborted entrypoint closes before its fixture can be removed",
+  { timeout: 30000 },
+  async (t) => {
+    const { root, env } = await fixture(t);
+    const pidFile = path.join(root, "child.pid");
+    const controller = new AbortController();
+    t.after(() => controller.abort());
+    const pending = execute(
+      { signal: controller.signal },
+      [
+        "-e",
+        `require("node:fs").writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setInterval(() => {}, 1000);`,
+      ],
       env,
-      encoding: "utf8",
-      timeout: 3000,
-    });
-    assert.equal(inert.status, 0);
-    assert.equal(inert.stdout, "");
-    assert.equal(inert.stderr, "");
-  }
-});
+    );
+    const rejected = assert.rejects(
+      pending,
+      (error) => error.cause?.code === "ABORT_ERR",
+    );
+    let pid;
+    while (!pid) {
+      pid = await fs.readFile(pidFile, "utf8").catch((error) => {
+        if (error.code !== "ENOENT") throw error;
+      });
+      if (!pid) await delay(10, undefined, { signal: t.signal });
+    }
+    controller.abort();
+    await rejected;
+    assert.throws(() => process.kill(Number(pid), 0), { code: "ESRCH" });
+  },
+);

@@ -274,8 +274,7 @@ export class FileUploads {
       pending.promise.catch(() => {});
       try {
         if (upload.groupId) {
-          await this.groups.wake(scope, upload.groupId);
-          await this.jobs.join(scope, upload.groupId);
+          await this.groups.prepare(scope, upload.groupId);
           const row = this.store.getEntry(upload.groupId, upload.entryId);
           const parent = this.journal.rowByPath(
             upload.groupId,

@@ -161,8 +161,15 @@ export class FileNative {
       const pending = this.#pending.get(id);
       if (!pending) return;
       this.#pending.delete(id);
-      if (error) pending.reject(fileProblem(error.code, error.status, error.args));
-      else pending.resolve(result);
+      if (error) {
+        const failure = fileProblem(error.code, error.status, error.args);
+        if (error.nativeCode)
+          Object.defineProperty(failure, "cause", {
+            value: { operation: pending.operation, code: error.nativeCode },
+            configurable: true,
+          });
+        pending.reject(failure);
+      } else pending.resolve(result);
     });
     const fail = () => {
       this.#failed = true;
@@ -227,7 +234,7 @@ export class FileNative {
   #send(operation, args) {
     const id = ++this.#sequence;
     return new Promise((resolve, reject) => {
-      this.#pending.set(id, { resolve, reject });
+      this.#pending.set(id, { resolve, reject, operation });
       try {
         this.#worker.postMessage({ id, operation, args });
       } catch {

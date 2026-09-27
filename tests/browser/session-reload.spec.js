@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 
-async function fixture(page, language = "en") {
+async function fixture(page, language = "en", configure = () => {}) {
   const state = {
     session: {
       id: "reload",
@@ -32,6 +32,7 @@ async function fixture(page, language = "en") {
     assignedIds: [],
     tools: { state: "reload-required" },
   };
+  configure(state);
   await page.addInitScript(
     (language) => localStorage.setItem("agentpier-language", language),
     language,
@@ -352,11 +353,11 @@ for (const tool of ["codex", "claude"]) {
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    const state = await fixture(page);
-    state.session.tool = tool;
-    state.reload.activity = { state: "idle" };
-    state.reload.accountTargets = [{ id: "second-account", name: "Second account" }];
-    await page.reload();
+    const state = await fixture(page, "en", (initial) => {
+      initial.session.tool = tool;
+      initial.reload.activity = { state: "idle" };
+      initial.reload.accountTargets = [{ id: "second-account", name: "Second account" }];
+    });
     const input = page.getByLabel("Message", { exact: true });
     await input.fill("Keep this draft across accounts");
     await page
