@@ -142,6 +142,10 @@ test("consent reload stays read-only and explicit publication and provider choic
 }) => {
   const state = await mcpFixture(page);
   await page.goto(baseURL + "/settings/mcp?authorization=auth-one");
+  await expect(
+    page.getByRole("button", { name: "Auswahl freigeben", exact: true }),
+  ).toBeVisible();
+  expect(state.calls.filter((call) => call.method !== "GET")).toHaveLength(0);
   await page.reload();
   await page.getByLabel("Veröffentlichen", { exact: true }).check();
   await page.getByLabel("Testanbieter", { exact: true }).check();
