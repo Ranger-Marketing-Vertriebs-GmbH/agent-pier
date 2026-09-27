@@ -25,13 +25,21 @@ export function seedBundledSkills(dataDir, target) {
       if (error.code !== "EEXIST") throw error;
     }
     if (created) {
+      let staging;
       try {
-        fs.copyFileSync(
-          new URL(`./skills/${name}/SKILL.md`, import.meta.url),
-          path.join(directory, "SKILL.md"),
-          fs.constants.COPYFILE_EXCL,
-        );
-        fs.chmodSync(path.join(directory, "SKILL.md"), 0o600);
+        staging = fs.mkdtempSync(path.join(parent, `.install-${name}-`));
+        for (const relative of ["SKILL.md", "agents/openai.yaml"]) {
+          const destination = path.join(staging, relative);
+          fs.mkdirSync(path.dirname(destination), { recursive: true, mode: 0o700 });
+          fs.copyFileSync(
+            new URL(`./skills/${name}/${relative}`, import.meta.url),
+            destination,
+            fs.constants.COPYFILE_EXCL,
+          );
+          fs.chmodSync(destination, 0o600);
+        }
+        // Publish all skill files together into the empty directory we reserved.
+        fs.renameSync(staging, directory);
       } catch (error) {
         // Remove only an empty directory we just created, never another package.
         try {
@@ -40,6 +48,8 @@ export function seedBundledSkills(dataDir, target) {
           // Retain any content written before the failure.
         }
         throw error;
+      } finally {
+        if (staging) fs.rmSync(staging, { recursive: true, force: true });
       }
     }
     saved.push(name);

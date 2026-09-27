@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { parse } from "yaml";
 import { applicationFixture } from "../helpers/application.js";
 import { profileLocation } from "../../server/features/cli-profiles/configuration.js";
 import { skillMetadata } from "../../server/features/extensions/skill-packages.js";
@@ -22,6 +23,13 @@ for (const tool of ["codex", "claude", "opencode"]) {
     sharedProfiles.prepare(local, {});
     assert.deepEqual(fs.readFileSync(file), bundled);
     assert.equal(skillMetadata(bundled).name, name);
+    const frontmatter = parse(fs.readFileSync(file, "utf8").split("---")[1]);
+    assert.equal(frontmatter["disable-model-invocation"], true);
+    const policyFile = path.join(path.dirname(file), "agents", "openai.yaml");
+    assert.equal(
+      parse(fs.readFileSync(policyFile, "utf8")).policy.allow_implicit_invocation,
+      false,
+    );
     const account = accounts.create({ name: "Managed", tool });
     sharedProfiles.prepare(account, {});
     const managedFile = path.join(
@@ -91,4 +99,28 @@ test("shell preparation does not install bundled skills", async (t) => {
   const launch = {};
   assert.equal(f.application.sharedProfiles.prepare({ tool: "shell" }, launch), launch);
   assert.equal(fs.existsSync(path.join(f.dataDir, "bundled-skills.json")), false);
+});
+
+test("a failed policy copy leaves no partial skill and a subsequent launch retries", async (t) => {
+  const f = await applicationFixture(t);
+  const { accounts, sharedProfiles } = f.application;
+  const local = accounts.get("local-codex");
+  const root = profileLocation(accounts, local.id).root;
+  const directory = path.join(root, "skills", name);
+  const copy = fs.copyFileSync;
+  const mocked = t.mock.method(fs, "copyFileSync", (source, ...args) => {
+    if (String(source).endsWith("agents/openai.yaml"))
+      throw new Error("Policy copy failed");
+    return copy(source, ...args);
+  });
+  assert.throws(() => sharedProfiles.prepare(local, {}), /Policy copy failed/);
+  assert.equal(fs.existsSync(directory), false);
+  mocked.mock.restore();
+  sharedProfiles.prepare(local, {});
+  assert.deepEqual(fs.readFileSync(path.join(directory, "SKILL.md")), bundled);
+  assert.equal(
+    parse(fs.readFileSync(path.join(directory, "agents/openai.yaml"), "utf8")).policy
+      .allow_implicit_invocation,
+    false,
+  );
 });
