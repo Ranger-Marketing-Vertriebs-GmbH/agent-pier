@@ -1,6 +1,7 @@
 export const artifactCopy = {
   title: "Artifacts",
   viewer: "Artifact",
+  backToApp: "Back to AgentPier",
   loading: "Loading artifact…",
   unavailable: "This artifact is unavailable.",
   unsupported:

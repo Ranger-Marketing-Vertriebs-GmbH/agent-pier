@@ -41,7 +41,12 @@ export default function ArtifactViewer({ id }) {
   const current = state?.id === id ? state : null;
   return (
     <main className="artifact-viewer">
-      <h1>{current?.title || copy.viewer}</h1>
+      <header className="artifact-viewer-header">
+        <h1 title={current?.title || copy.viewer}>{current?.title || copy.viewer}</h1>
+        <a className="button secondary artifact-viewer-return" href="/artifacts">
+          {copy.backToApp}
+        </a>
+      </header>
       {!current ? (
         <p role="status">{copy.loading}</p>
       ) : current.error ? (
