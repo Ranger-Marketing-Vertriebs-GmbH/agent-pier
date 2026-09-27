@@ -97,3 +97,54 @@ test("inline SVG image references resolve bundled files for href and xlink:href"
   assert.match(result.html, /<image href="data:image\/svg\+xml;base64,/);
   assert.match(result.html, /<image xlink:href="data:image\/svg\+xml;base64,/);
 });
+
+test("artifact page links resolve relative to each document within the published bundle", async () => {
+  const result = await prepareArtifactDocument({
+    entrypoint: "pages/start.html",
+    files: [
+      file("pages/start.html", "text/html", "<h1>Start</h1>"),
+      file("comparison.html", "text/html", "<h1>Comparison</h1>"),
+      file("data.json", "application/json", "{}"),
+    ],
+  });
+  assert.deepEqual(result.resolveLink("../comparison.html?view=all#my%20result"), {
+    path: "comparison.html",
+    fragment: "my result",
+  });
+  assert.deepEqual(result.resolveLink("#start"), {
+    path: "pages/start.html",
+    fragment: "start",
+  });
+  for (const href of [
+    "../../comparison.html",
+    "/api/accounts",
+    "https://example.com",
+    "//example.com",
+    "javascript:alert(1)",
+    "data:text/html,hello",
+    "../data.json",
+    "missing.html",
+    "%2fapi",
+    "..%5ccomparison.html",
+    "#%xx",
+    {},
+    "x".repeat(4097),
+  ])
+    assert.throws(() => result.resolveLink(href), {
+      code: "ARTIFACT_RESOURCE_UNSUPPORTED",
+    });
+});
+
+test("artifact navigation also works when plain HTTP lacks crypto.randomUUID", async (t) => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis.crypto, "randomUUID");
+  t.after(() => {
+    if (descriptor) Object.defineProperty(globalThis.crypto, "randomUUID", descriptor);
+    else delete globalThis.crypto.randomUUID;
+  });
+  Object.defineProperty(globalThis.crypto, "randomUUID", {
+    value: undefined,
+    configurable: true,
+  });
+  const result = await prepareArtifactDocument(snapshot("<h1>Report</h1>"));
+  assert.match(result.navigationToken, /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/);
+});
