@@ -40,6 +40,14 @@ The first work-session launch for each CLI installs it into that CLI's shared na
 `skills` directory from the table above. Managed accounts inherit it through the
 existing asset links. Login and shell sessions do not install skills; already running
 sessions are not reloaded. The same `SKILL.md` is used by Codex, Claude Code and OpenCode.
+Composer is opt-in: explicitly invoke it or request its orchestration workflow.
+Ordinary ticket planning, implementation, CI/merge requests, and discussion or editing
+of the skill do not activate it. Codex receives `agents/openai.yaml` with
+`allow_implicit_invocation: false`; Claude Code uses `disable-model-invocation: true`.
+The shared description and activation section express the same boundary for other
+hosts, including OpenCode. Existing user-owned packages remain untouched; update
+the installed skill explicitly when adopting this policy for an existing profile.
+
 The composer identifies each ticket's system, instance and project from the task and
 verifies the ticket through an available integration, CLI or API. It does not assume
 Plane or infer the ticket system solely from the Git remote. Ticket-system access and

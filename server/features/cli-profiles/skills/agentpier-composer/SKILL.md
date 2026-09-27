@@ -1,9 +1,23 @@
 ---
 name: agentpier-composer
-description: Begleitet Themen, Epics oder mehrere Tickets von der Klärung über AgentPier-Pipelines und PR-Überwachung bis zum Merge und zur Abarbeitung aller beauftragten Batches. Verwenden, wenn Arbeit anhand von Tickets geplant und mit AgentPier koordiniert umgesetzt werden soll; reine Codeänderungen brauchen diesen Skill nicht.
+description: Nur verwenden, wenn der Nutzer AgentPier Composer ausdrücklich aufruft oder ausdrücklich mit dessen Orchestrierungsworkflow arbeiten will. Begleitet dann beauftragte Themen und Tickets über AgentPier-Pipelines bis zum Merge. Allgemeine Ticket-, Planungs-, Implementierungs- oder PR-Aufträge und Fragen zum Skill lösen ihn nicht aus.
+disable-model-invocation: true
 ---
 
 # AgentPier Composer
+
+## Aktivierung
+
+Starte diesen Workflow nur bei einem ausdrücklichen Nutzungsauftrag für AgentPier
+Composer, etwa `$agentpier-composer`, `/agentpier-composer` oder „Nutze den
+Composer für dieses Epic“. Allgemeine Aufträge zu Tickets, Planung, AgentPier,
+Pipelines, Implementierung, CI oder Merges sind kein Composer-Aufruf. Auch eine
+Frage zum Skill oder der Auftrag, den Skill zu bearbeiten, aktiviert den Workflow nicht.
+Ohne ausdrücklichen Nutzungsauftrag bearbeite die Aufgabe direkt mit den dafür
+passenden Werkzeugen; starte keine Composer-Orchestrierung.
+
+Ein ausdrücklich gestarteter Composer-Auftrag gilt für seine beauftragten Themen
+und Batches weiter. Er aktiviert Composer nicht für neue, unabhängige Aufgaben.
 
 Das jeweilige Ticketsystem hält die fachlichen Aufträge, AgentPier führt sie aus.
 Zerlege nur so weit, wie unabhängige Umsetzung und Prüfung davon profitieren. Nutze den bestehenden
