@@ -1,5 +1,7 @@
+import { browserUuid } from "../../lib/browser-uuid.js";
 import { parse, parseFragment, serialize } from "parse5";
 import { artifactBundle, unsupported } from "./artifact-bundle.js";
+import { artifactNavigationScript, resolveArtifactLink } from "./artifact-navigation.js";
 const policy =
   "default-src 'none'; script-src data: 'unsafe-inline'; style-src data: 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'";
 export async function prepareArtifactDocument(snapshot, options) {
@@ -104,8 +106,13 @@ export async function prepareArtifactDocument(snapshot, options) {
     "\\u003c",
   );
   bundle.charge(importMap.length);
+  const navigationToken = browserUuid();
+  const navigationScript = bundle.encoded(
+    "text/javascript",
+    artifactNavigationScript(navigationToken, options?.fragment),
+  );
   const prefix = parseFragment(
-    `<meta http-equiv="Content-Security-Policy" content="${policy}"><meta charset="utf-8"><script type="importmap">${importMap}</script>`,
+    `<meta http-equiv="Content-Security-Policy" content="${policy}"><meta charset="utf-8"><script type="importmap">${importMap}</script><script src="${navigationScript}"></script>`,
   );
   for (const child of prefix.childNodes) child.parentNode = head;
   head.childNodes.unshift(...prefix.childNodes);
@@ -117,5 +124,10 @@ export async function prepareArtifactDocument(snapshot, options) {
     if (node.content) measure(node.content);
   }
   measure(document);
-  return { html: serialize(document), dispose() {} };
+  return {
+    html: serialize(document),
+    navigationToken,
+    resolveLink: (href) => resolveArtifactLink(bundle, snapshot.entrypoint, href),
+    dispose() {},
+  };
 }

@@ -2,6 +2,9 @@ export const artifactCopy = {
   title: "Artifacts",
   viewer: "Artifact",
   backToApp: "Zurück zu AgentPier",
+  previousPage: "Vorherige Artifact-Seite",
+  linkUnavailable:
+    "Dieser Link kann hier nicht geöffnet werden. Unterstützt werden HTML-Seiten und Bilder, die in diesem Artifact enthalten sind.",
   loading: "Artifact wird geladen…",
   unavailable: "Dieses Artifact ist nicht verfügbar.",
   unsupported:
