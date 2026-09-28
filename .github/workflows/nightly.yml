@@ -1,0 +1,98 @@
+name: Nightly quality
+on:
+  schedule:
+    - cron: "23 1 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nightly-quality-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install terminal test prerequisite
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tmux
+      - run: npm ci
+      - name: Verify unchanged test baseline
+        id: baseline
+        timeout-minutes: 20
+        run: npm run check
+      - name: Additional property seeds
+        id: properties
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          for seed in 314159 271828 161803; do
+            echo "Property seed: $seed; runs: 1000"
+            FC_SEED="$seed" FC_RUNS=1000 npm run test:property
+          done
+      - name: Repeat delivery and upload recovery
+        id: recovery
+        if: ${{ !cancelled() && steps.baseline.outcome == 'success' }}
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..10}; do
+            echo "Recovery repetition: $attempt/10"
+            node --test --test-concurrency=2 \
+              tests/integration/chat-delivery.test.js \
+              tests/integration/chat-delivery-recovery.test.js \
+              tests/integration/file-upload-recovery.test.js
+          done
+      - name: Mutation pilot
+        id: mutation
+        if: ${{ !cancelled() && steps.baseline.outcome == 'success' }}
+        timeout-minutes: 15
+        run: npm run test:mutation
+        env:
+          FC_SEED: 20260906
+          FC_RUNS: 100
+      - name: Summarize nightly checks
+        if: always()
+        env:
+          BASELINE_OUTCOME: ${{ steps.baseline.outcome }}
+          PROPERTY_OUTCOME: ${{ steps.properties.outcome }}
+          RECOVERY_OUTCOME: ${{ steps.recovery.outcome }}
+          MUTATION_OUTCOME: ${{ steps.mutation.outcome }}
+        shell: bash
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## Nightly quality
+
+          Commit: $GITHUB_SHA
+
+          | Check | Result |
+          | --- | --- |
+          | Baseline | $BASELINE_OUTCOME |
+          | Additional property seeds | $PROPERTY_OUTCOME |
+          | Repeated recovery | $RECOVERY_OUTCOME |
+          | Mutation pilot | $MUTATION_OUTCOME |
+
+          EOF
+          if [ -f coverage/mutation/mutation.json ]; then
+            node scripts/mutation-summary.mjs >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No mutation report was produced. Check the failed or skipped steps above." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: mutation-report
+          path: coverage/mutation/
+          if-no-files-found: warn
+          retention-days: 14

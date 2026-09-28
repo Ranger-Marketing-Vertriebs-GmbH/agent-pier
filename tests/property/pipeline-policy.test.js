@@ -7,6 +7,32 @@ import {
   loopResetSet,
 } from "../../server/features/pipelines/graph-navigation.js";
 import { parseVerdict } from "../../server/features/pipelines/stage-verdict.js";
+
+test("only exclusively low-severity findings may bypass a repair loop", () => {
+  const run = {
+    edges: [{ from: "review", to: "build", condition: "fail", maxIterations: 2 }],
+    loopState: {},
+  };
+  for (const [findings, expected] of [
+    [undefined, "loop"],
+    [[], "loop"],
+    [[{ severity: "low" }], "pass"],
+    [[{ severity: "low" }, { severity: "high" }], "loop"],
+  ])
+    assert.equal(failDecision(run, { id: "review" }, { findings }), expected);
+  assert.equal(
+    failDecision(
+      run,
+      { id: "review" },
+      {
+        requiresHuman: true,
+        findings: [{ severity: "low" }],
+      },
+    ),
+    "escalate",
+  );
+});
+
 test("automatic repair loops never exceed budget or bypass human-required verdicts", () => {
   check(
     fc.property(
