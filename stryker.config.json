@@ -1,0 +1,46 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "testRunner": "tap",
+  "plugins": ["@stryker-mutator/tap-runner"],
+  "mutate": [
+    "server/features/files/file-archive-paths.js",
+    "server/features/mcp/tool-policy.js",
+    "server/features/pipelines/graph-navigation.js"
+  ],
+  "tap": {
+    "testFiles": [
+      "tests/unit/file-archive-paths.test.js",
+      "tests/unit/mcp-tool-policy.test.js",
+      "tests/property/file-archive-paths.test.js",
+      "tests/property/mcp-access-policy.test.js",
+      "tests/property/pipeline-policy.test.js",
+      "tests/integration/file-zip-stream.test.js",
+      "tests/integration/file-extract.test.js",
+      "tests/integration/mcp-http.test.js",
+      "tests/integration/mcp-tools.test.js",
+      "tests/integration/pipeline-engine.test.js",
+      "tests/integration/pipeline-storage.test.js"
+    ],
+    "forceBail": false
+  },
+  "concurrency": 2,
+  "timeoutMS": 5000,
+  "timeoutFactor": 2,
+  "dryRunTimeoutMinutes": 5,
+  "tempDirName": ".cache/stryker-tmp",
+  "ignorePatterns": [
+    ".cache",
+    ".data",
+    ".env*",
+    ".worktrees",
+    ".superpowers",
+    "coverage",
+    "test-results",
+    "playwright-report"
+  ],
+  "reporters": ["clear-text", "progress", "html", "json"],
+  "clearTextReporter": { "reportTests": false, "reportMutants": false },
+  "htmlReporter": { "fileName": "coverage/mutation/index.html" },
+  "jsonReporter": { "fileName": "coverage/mutation/mutation.json" },
+  "thresholds": { "high": 80, "low": 60, "break": null }
+}
