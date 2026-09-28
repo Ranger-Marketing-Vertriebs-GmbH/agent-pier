@@ -57,6 +57,7 @@ export class SessionManager {
       this.directory,
       "tmux.conf",
       // Enable OSC 52 clipboard; cap shared history (50000 lines exhausted RAM).
+      // Touch scrolling in terminal-touch.js assumes tmux's default wheel bindings.
       'set -g remain-on-exit on\nset -g default-shell /bin/sh\nset -g prefix None\nset -g history-limit 10000\nset -g status off\nset -g mouse on\nset -g default-terminal "tmux-256color"\nset -g set-clipboard on\nset -as terminal-features ",*:clipboard"\nset -g exit-empty off\nset -g escape-time 0\n',
     );
   }

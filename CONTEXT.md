@@ -27,6 +27,11 @@ _Avoid_: Middleware, plugin, hook.
 The variant a CLI is started in, such as a work session or a login session.
 _Avoid_: Session type.
 
+**Terminal history**:
+The earlier output of a session that tmux retains beyond the visible screen. It lives
+in tmux, not in the browser terminal, and is reached by scrolling the session.
+_Avoid_: Scrollback, buffer.
+
 ### Confinement
 
 The word _sandbox_ is load-bearing and ambiguous in this project. Never write it

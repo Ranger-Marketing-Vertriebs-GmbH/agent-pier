@@ -9,6 +9,7 @@ import { connectTerminal } from "./terminal-connection.js";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { terminalKey } from "./terminal-keyboard.js";
+import { attachTouchScroll } from "./terminal-touch.js";
 import { artifactLink } from "../artifacts/artifact-return-link.js";
 
 export default function useTerminalConnection({
@@ -78,6 +79,12 @@ export default function useTerminalConnection({
     terminal.loadAddon(fit);
     terminal.loadAddon(new WebLinksAddon(openLink));
     terminal.open(container.current);
+    const detachTouchScroll = attachTouchScroll(
+      container.current,
+      () =>
+        container.current.querySelector(".xterm-rows > div").getBoundingClientRect()
+          .height,
+    );
     terminalRef.current = terminal;
     focusRef.current = () => terminal.focus();
     const resize = () => {
@@ -155,6 +162,7 @@ export default function useTerminalConnection({
 
       observer.disconnect();
       dataListener.dispose();
+      detachTouchScroll();
       connection?.dispose();
       terminal.dispose();
       terminalRef.current = null;
