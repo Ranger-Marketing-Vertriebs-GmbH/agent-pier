@@ -58,6 +58,18 @@ The Shell lifecycle test launches a local shell with the fixture's empty home. I
 
 ## Matrix interpretation and remaining gaps
 
+The installed Codex reload compatibility test is opt-in:
+
+```sh
+AGENTPIER_TEST_CODEX_BIN=/absolute/path/to/codex node --test tests/integration/codex-remote-reload-native.test.js
+```
+
+It starts the real TUI and owned app-server in disposable profiles on a private tmux
+socket, using only a synthetic loopback model provider. Both normal and YOLO sessions
+must retain their conversation, model, permissions and attachment access across a
+reload, then accept a message through the Chat HTTP endpoint without a hook receipt.
+Without the executable variable these cases are reported as skipped.
+
 The launch matrix exercises actual `AccountStore` commands and generated profile configuration. It does not start Codex, Claude Code or OpenCode, and does not prove that a remote provider accepts a model, endpoint or entitlement. Provider-specific matrices and isolated MCP tests cover those contracts separately.
 
 The platform matrix checks the installation availability policy for macOS/Linux/Windows, ARM64/x64/ia32 and npm presence. It does not execute native binaries on simulated platforms. Run the blackbox suite on real macOS and Linux CI workers; an in-process platform parameter is not cross-platform runtime evidence.
