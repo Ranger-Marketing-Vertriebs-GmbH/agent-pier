@@ -223,6 +223,40 @@ test("runtime Codex binding uses only the exact child with its own writer lock a
     sessions: { target: (id) => "=" + id, tmux: async () => "101" },
   };
   assert.equal((await resolveCodexProcess(session, options))?.id, "native-exact");
+  const remote = {
+    ...options,
+    probe: {
+      ...probe,
+      children: async (pid) => ({ 101: [102, 103], 103: [104] })[pid] || [],
+      executable: async (pid) => ([102, 104].includes(pid) ? native : process.execPath),
+      files: async (pid) => (pid === 104 ? files : []),
+    },
+  };
+  assert.equal(
+    (await resolveCodexProcess(session, remote))?.id,
+    "native-exact",
+    "the remote TUI has no rollout; its deeper owned app-server holds the writer lock",
+  );
+  const remoteBindings = new NativeSessionBinding({
+    dataDir: ctx.accounts.dataDir,
+    accounts: ctx.accounts,
+    sessions: options.sessions,
+    history,
+    processOptions: { executable, probe: remote.probe },
+  });
+  assert.equal(
+    (await remoteBindings.resolve(session, { forInput: true }))?.id,
+    "native-exact",
+    "chat can resume before any native hook receipt arrives",
+  );
+  assert.equal(
+    await resolveCodexProcess(session, {
+      ...remote,
+      probe: { ...remote.probe, files: async () => files },
+    }),
+    null,
+    "multiple matching native owners remain ambiguous",
+  );
   const childRollout = path.join(root, "sessions/child.jsonl");
   const childLock = path.join(root, "thread-writer-locks/child.lock");
   fs.writeFileSync(childLock, "");

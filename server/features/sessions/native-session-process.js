@@ -190,41 +190,47 @@ export async function resolveCodexProcess(
       if (verifyRuntime ? verifyRuntime(pid) : file && file === expected) found.push(pid);
       else next.push(...(await probe.children(pid)));
     }
-    if (found.length) break;
     level = next;
   }
-  if (found.length !== 1) return null;
-  const started = await probe.start(found[0]);
-  if (!started) return null;
-  if (verifyRuntime && !verifyRuntime(found[0])) return null;
-  const files = await probe.files(found[0]);
+  if (!found.length) return null;
   const root = await fs
     .realpath(env.CODEX_HOME || path.join(env.HOME, ".codex"))
     .catch(() => null);
   if (!root) return null;
-  const locks = new Set();
-  const rollouts = [];
-  for (const file of files) {
-    if (!path.isAbsolute(file)) continue;
-    const real = await fs.realpath(file).catch(() => null);
-    if (!real || !real.startsWith(root + path.sep)) continue;
-    if (
-      path.dirname(real) === path.join(root, "thread-writer-locks") &&
-      /^[a-zA-Z0-9_-]+\.lock$/.test(path.basename(real))
-    )
-      locks.add(path.basename(real, ".lock"));
-    if (
-      real.startsWith(path.join(root, "sessions") + path.sep) &&
-      real.endsWith(".jsonl")
-    )
-      rollouts.push(real);
+  // A remote TUI and its owned app-server sit at different depths. Only the
+  // server holds the rollout and writer lock; an executable match is not enough.
+  const matches = [];
+  for (const pid of found) {
+    const started = await probe.start(pid);
+    if (!started || (verifyRuntime && !verifyRuntime(pid))) return null;
+    const files = await probe.files(pid);
+    const locks = new Set();
+    const rollouts = [];
+    for (const file of files) {
+      if (!path.isAbsolute(file)) continue;
+      const real = await fs.realpath(file).catch(() => null);
+      if (!real || !real.startsWith(root + path.sep)) continue;
+      if (
+        path.dirname(real) === path.join(root, "thread-writer-locks") &&
+        /^[a-zA-Z0-9_-]+\.lock$/.test(path.basename(real))
+      )
+        locks.add(path.basename(real, ".lock"));
+      if (
+        real.startsWith(path.join(root, "sessions") + path.sep) &&
+        real.endsWith(".jsonl")
+      )
+        rollouts.push(real);
+    }
+    const ids = new Set();
+    for (const file of new Set(rollouts)) {
+      const id = await history.codexRolloutIdentity(session, file).catch(() => null);
+      if (id && locks.has(id)) ids.add(id);
+    }
+    if (ids.size > 1 || (await probe.start(pid)) !== started) return null;
+    if (ids.size === 1) matches.push({ pid, started, id: [...ids][0] });
   }
-  const ids = new Set();
-  for (const file of new Set(rollouts)) {
-    const id = await history.codexRolloutIdentity(session, file).catch(() => null);
-    if (id && locks.has(id)) ids.add(id);
-  }
-  if (ids.size !== 1 || (await probe.start(found[0])) !== started) return null;
+  if (matches.length !== 1) return null;
+  const match = matches[0];
   const stillPane = pidValue(
     (
       await sessions.tmux([
@@ -236,6 +242,11 @@ export async function resolveCodexProcess(
       ])
     ).trim(),
   );
-  if (stillPane !== pane || (verifyRuntime && !verifyRuntime(found[0]))) return null;
-  return { id: [...ids][0], source: "native-process" };
+  if (
+    stillPane !== pane ||
+    (await probe.start(match.pid)) !== match.started ||
+    (verifyRuntime && !verifyRuntime(match.pid))
+  )
+    return null;
+  return { id: match.id, source: "native-process" };
 }
