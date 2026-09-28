@@ -2,6 +2,7 @@ import React, { useRef } from "react";
 import useLanguage from "../../lib/i18n/useLanguage.js";
 import { artifactCopy as copy } from "../../lib/i18n/messages/artifacts.js";
 import useArtifactDocument from "./useArtifactDocument.js";
+import { artifactReturnPath } from "./artifact-return-link.js";
 import "./artifacts.css";
 export default function ArtifactViewer({ id }) {
   useLanguage();
@@ -11,7 +12,10 @@ export default function ArtifactViewer({ id }) {
     <main className="artifact-viewer">
       <header className="artifact-viewer-header">
         <h1 title={title || copy.viewer}>{title || copy.viewer}</h1>
-        <a className="button secondary artifact-viewer-return" href="/artifacts">
+        <a
+          className="button secondary artifact-viewer-return"
+          href={artifactReturnPath(window.location.search)}
+        >
           {copy.backToApp}
         </a>
       </header>
