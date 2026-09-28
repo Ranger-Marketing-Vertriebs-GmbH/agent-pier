@@ -129,6 +129,62 @@ verification is not interrupted. The Secrets workflow still scans branch pushes.
 
 CI must use disposable homes and independent data directories. Cache dependency downloads, never generated credential files or test profiles. Mocked platform selection is useful contract coverage but does not replace actual Linux/macOS subprocess runs. External provider checks, CLI installations and tests with real credentials remain separate opt-in jobs; a skipped prerequisite must be reported as skipped rather than passed.
 
+## Nightly quality and mutation pilot
+
+The separate **Nightly quality** workflow runs on the default branch at 01:23 UTC
+(02:23 CET / 03:23 CEST) and can also be started with **Run workflow** on a selected
+branch. It uses one Linux worker with Node 24. The existing pull-request Verify
+matrix is unchanged; mutation testing is not part of `npm test` or `npm run check`.
+
+Each nightly run first executes `npm run check`. Only a successful baseline permits
+the additional checks: three property seeds with 1000 runs each, ten repetitions of
+chat delivery/recovery and upload recovery integration tests, and finally the
+Stryker mutation pilot. Recovery and mutation checks still run if an earlier extra
+check fails, while the workflow retains that failure. All fixtures remain isolated;
+these checks do not use real CLI sessions, credentials or paid provider calls.
+
+Stryker mutates three modules: archive path/ZIP entry validation, MCP tool policy
+and pipeline graph navigation. `stryker.config.json` explicitly lists the selected
+tests. This is a pilot score for that selection, not a measure of the entire test
+suite or application. The TAP runner uses the existing `node:test` files and
+selects tests at file granularity. Two workers bound concurrency, individual
+mutations have timeouts, and the CI mutation step has a 15-minute budget.
+
+The pilot pins Stryker 9.6.1: Stryker 10's Babel 8 dependencies require a newer Node
+minimum than this project's documented 22.13. The `typed-rest-client` dependency's
+`qs` override keeps Stryker's development-only dependency tree on the patched 6.16
+line. Stryker and its TAP runner are not needed by installed production instances.
+
+Run the same pilot locally after installing development dependencies:
+
+```sh
+npm ci
+npm run build
+FC_SEED=20260906 FC_RUNS=100 npm run test:mutation
+node scripts/mutation-summary.mjs
+```
+
+Build first because the selected integration tests start the application. Stryker
+works in a disposable `.cache/stryker-tmp` copy and writes reports under
+`coverage/mutation/`; both locations are ignored by Git, lint and formatting.
+Runtime data, environment files and nested worktrees are excluded from the copy.
+Runs are full rather than incremental so changes to shared helpers and dependencies
+cannot leave stale mutation results in the pilot.
+
+The Actions summary lists every check outcome and mutation counts per module.
+Download the **mutation-report** artifact (retained for 14 days) and open
+`index.html` for source-level findings; `mutation.json` supports further analysis.
+A missing report is reported explicitly rather than presented as a successful
+score. Baseline failures, runner errors, failed stress tests and job timeouts fail
+the workflow. Surviving mutants do not fail a score threshold during the pilot.
+
+Review **Survived** and **NoCoverage** findings for meaningful missing assertions,
+and turn confirmed gaps into focused tests in the normal suite. Some mutations are
+behaviorally equivalent or change diagnostic wording without violating a contract;
+do not add assertions or broad exclusions just to raise the score. **Timeout** is
+counted as detected by Stryker, but should be reviewed separately from mutations
+caught by assertions. Expand the pilot only after measuring its runtime and value.
+
 ## Pipeline contracts
 
 Pipeline blackbox tests drive all three native CLI adapters with inert executables. A public HTTP lifecycle test uses an owned tmux session, temporary Git worktree, verdict, verification command, artifact and stage diff; it restarts the web application at a human gate and checks that no native turn is duplicated. Native account/provider matrices reuse actual launch configuration without paid requests.
