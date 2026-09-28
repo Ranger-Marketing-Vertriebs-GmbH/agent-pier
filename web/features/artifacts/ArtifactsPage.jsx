@@ -4,6 +4,7 @@ import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { artifactCopy as copy } from "../../lib/i18n/messages/artifacts.js";
 import ArtifactList from "./ArtifactList.jsx";
+import { routePath } from "../../app/routes.js";
 export default function ArtifactsPage({ route, onNavigate }) {
   const [projects, setProjects] = useState([]),
     [error, setError] = useState("");
@@ -36,7 +37,11 @@ export default function ArtifactsPage({ route, onNavigate }) {
         ]}
         onChange={(projectId) => onNavigate({ view: "artifacts", projectId })}
       />
-      <ArtifactList key={route.projectId || "all"} projectId={route.projectId} />
+      <ArtifactList
+        key={route.projectId || "all"}
+        projectId={route.projectId}
+        returnTo={routePath(route)}
+      />
     </div>
   );
 }

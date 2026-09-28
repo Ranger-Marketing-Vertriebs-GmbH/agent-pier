@@ -126,6 +126,9 @@ test("German mixed-line document requires explicit format and localizes built-in
   await page.goto(editorURL);
   await page.getByRole("button", { name: "Im Editor öffnen", exact: true }).click();
   await expect(
+    page.getByRole("textbox", { name: `Dokumentinhalt: ${path}` }),
+  ).toBeVisible();
+  await expect(
     page.getByRole("button", { name: "Speichern", exact: true }),
   ).toBeDisabled();
   await page

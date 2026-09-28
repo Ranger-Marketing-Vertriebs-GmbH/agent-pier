@@ -11,6 +11,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { sessionWorkspaceCopy as copy } from "../../lib/i18n/messages/sessions.js";
 import React, { lazy, Suspense, useMemo, useRef, useState } from "react";
 import api from "../../lib/api.js";
+import { routePath } from "../../app/routes.js";
 import { names, statusLabels } from "../../lib/providers.js";
 import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
@@ -123,7 +124,11 @@ export default function SessionWorkspace({
               <summary>{artifactCopy.title}</summary>
               {artifactsOpen && (
                 <Suspense>
-                  <ArtifactList key={session.id} sessionId={session.id} />
+                  <ArtifactList
+                    key={session.id}
+                    sessionId={session.id}
+                    returnTo={routePath({ ...route, sessionId: session.id, mode })}
+                  />
                 </Suspense>
               )}
             </details>

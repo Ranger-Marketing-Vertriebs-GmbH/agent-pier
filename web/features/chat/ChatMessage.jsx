@@ -5,6 +5,7 @@ import ToolOutput from "./ToolOutput.jsx";
 import ToolChanges from "./ToolChanges.jsx";
 import Markdown, { defaultUrlTransform } from "react-markdown";
 import { projectLinkPath } from "./chat-file-link.js";
+import { artifactLink } from "../artifacts/artifact-return-link.js";
 import remarkGfm from "remark-gfm";
 import ChatImages from "./ChatImages.jsx";
 import { providerNames } from "./presentation.js";
@@ -56,10 +57,19 @@ export default function Message({ message, tool, sessionId, cwd, openFile }) {
           }
           components={{
             a: ({ node: _node, href, ...props }) => {
+              const artifact = artifactLink(
+                href,
+                `/sessions/${encodeURIComponent(sessionId)}/chat`,
+              );
               const file = projectLinkPath(href, cwd);
-              if (file === null)
+              if (artifact || file === null)
                 return (
-                  <a {...props} href={href} target="_blank" rel="noreferrer noopener" />
+                  <a
+                    {...props}
+                    href={artifact || href}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  />
                 );
               const target = `/sessions/${encodeURIComponent(sessionId)}/files?${new URLSearchParams({ file })}`;
               return (

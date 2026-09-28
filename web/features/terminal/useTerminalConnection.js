@@ -9,6 +9,7 @@ import { connectTerminal } from "./terminal-connection.js";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { terminalKey } from "./terminal-keyboard.js";
+import { artifactLink } from "../artifacts/artifact-return-link.js";
 
 export default function useTerminalConnection({
   session,
@@ -24,7 +25,23 @@ export default function useTerminalConnection({
   useEffect(() => {
     let disposed = false,
       connection;
+    const openLink = (_event, href, confirmDestination = false) => {
+      const target = artifactLink(
+        href,
+        `/sessions/${encodeURIComponent(session.id)}/terminal`,
+      );
+      // OSC 8 labels can hide their destination. Preserve xterm's confirmation
+      // for links outside the artifact viewer; plain URLs already show the target.
+      if (
+        confirmDestination &&
+        !target &&
+        !window.confirm(copy.openLinkConfirmation(href))
+      )
+        return;
+      window.open(target || href, "_blank", "noopener,noreferrer");
+    };
     const terminal = new XTerminal({
+      linkHandler: { activate: (event, href) => openLink(event, href, true) },
       cursorBlink: !session.pipeline?.headless,
       disableStdin: Boolean(session.pipeline?.headless),
       fontFamily: '"SFMono-Regular", Consolas, "Liberation Mono", monospace',
@@ -59,7 +76,7 @@ export default function useTerminalConnection({
     });
     const fit = new FitAddon();
     terminal.loadAddon(fit);
-    terminal.loadAddon(new WebLinksAddon());
+    terminal.loadAddon(new WebLinksAddon(openLink));
     terminal.open(container.current);
     terminalRef.current = terminal;
     focusRef.current = () => terminal.focus();

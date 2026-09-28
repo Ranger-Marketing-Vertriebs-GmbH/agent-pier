@@ -8,6 +8,7 @@ export const terminalViewCopy = {
 
   input: "Terminal disconnected. Your input was not sent.",
   connect: "The terminal response could not be read.",
+  openLinkConfirmation: (url) => `Open this link in a new tab?\n\n${url}`,
   clipboard:
     "Could not write to the clipboard. Select the text with Alt (macOS) or Shift and copy it manually.",
 };

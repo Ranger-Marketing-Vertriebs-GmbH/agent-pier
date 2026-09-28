@@ -7,8 +7,9 @@ import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { Pagination } from "../../components/Pagination.jsx";
 import useArtifacts from "./useArtifacts.js";
+import { artifactLink } from "./artifact-return-link.js";
 import "./artifacts.css";
-export default function ArtifactList({ sessionId, projectId }) {
+export default function ArtifactList({ sessionId, projectId, returnTo }) {
   const [page, setPage] = useState(1),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -84,7 +85,7 @@ export default function ArtifactList({ sessionId, projectId }) {
               <div className="artifact-actions">
                 <a
                   className="button secondary compact"
-                  href={`/artifacts/view/${row.id}`}
+                  href={artifactLink(`/artifacts/view/${row.id}`, returnTo)}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={copy.openLabel(row.title)}
