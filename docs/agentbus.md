@@ -23,7 +23,12 @@ Codex and Claude launch/prompt hooks register their exact native conversation an
 return instructions and pending-message counts. Claude wakes use the native
 registry only when its PID matches the registered process. Codex wakes require an
 independently verified native binding. If that cannot be proved, the next prompt
-hook supplies the pending-message hint.
+hook supplies the pending-message hint. During a broker lifetime, Codex receives
+one queued wake per unread batch and registered native process. Further sends join
+that batch until the inbox is fully drained. Failed wakes allow a later send to
+retry, and wakes still awaiting native proof are cancelled when the batch is read.
+A wake already accepted by Codex cannot be withdrawn; delayed hints remain safe
+to consume without replaying acknowledged message bodies.
 
 OpenCode uses an outgoing, authenticated long poll for notices; it exposes no
 inbound AgentBus socket. The plugin registers root conversations and attaches the
