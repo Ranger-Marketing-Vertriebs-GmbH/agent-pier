@@ -16,7 +16,7 @@ import { names, statusLabels } from "../../lib/providers.js";
 import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
 import ChatView from "../chat/ChatView.jsx";
-import useChatViewport from "../chat/useChatViewport.js";
+import useSessionViewport from "./useSessionViewport.js";
 const SessionReloadDialog = lazy(() => import("./SessionReloadDialog.jsx"));
 const PipelineSessionRecovery = lazy(
   () => import("../pipelines/PipelineSessionRecovery.jsx"),
@@ -55,7 +55,8 @@ export default function SessionWorkspace({
   const coding = session.tool !== "shell";
   const reloadable = coding && !session.pipeline && session.purpose !== "login";
   const mobileChat = coding && mode === "reader";
-  useChatViewport(mobileChat);
+  const mobileViewport = mobileChat || mode === "terminal";
+  useSessionViewport(mobileViewport);
   const sendRef = useRef(null);
   const focusRef = useRef(null);
   const showTerminal = () => {
@@ -77,7 +78,9 @@ export default function SessionWorkspace({
     ["Enter ↵", "\r", commonCopy.sendEnter],
   ];
   return (
-    <div className={`session-workspace${mobileChat ? " mobile-chat-workspace" : ""}`}>
+    <div
+      className={`session-workspace${mobileViewport ? " mobile-session-workspace" : ""}${mobileChat ? " mobile-chat-workspace" : ""}`}
+    >
       <header className="session-heading">
         {mobileChat && (
           <button
