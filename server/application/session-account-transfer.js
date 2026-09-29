@@ -5,6 +5,14 @@ import { randomUUID } from "node:crypto";
 import { problem } from "../lib/storage.js";
 import { providerId } from "../features/chat/provider-history.js";
 
+import {
+  fingerprint,
+  optionalFingerprint,
+  sameFingerprint,
+  stageFile,
+  historyValidator,
+} from "./session-transfer-files.js";
+
 const fail = (message) => problem(message, 409);
 const missing = (error) => error.code === "ENOENT";
 
@@ -52,8 +60,7 @@ async function collect(root, relative, files, optional = false) {
     for (const name of await fs.readdir(file))
       await collect(root, path.join(relative, name), files);
   } else if (stat.isFile()) {
-    if (files.length >= 5000 || stat.size > 256 * 1024 * 1024)
-      throw fail(serverMessages.sessionTransfer.tooLarge);
+    if (files.length >= 5000) throw fail(serverMessages.sessionTransfer.tooLarge);
     files.push(relative);
   } else throw fail(serverMessages.sessionTransfer.unsafeFile);
 }
@@ -113,19 +120,6 @@ export async function prepareAccountTransfer(
     historyMode = thread.historyMode || "legacy";
     if (!["legacy", "paginated"].includes(historyMode))
       throw fail(serverMessages.sessionTransfer.codexStorageUnsupported);
-    if (historyMode === "legacy") {
-      const full = await client.request("thread/read", {
-        threadId: id,
-        includeTurns: true,
-      });
-      if (
-        full.thread?.id !== id ||
-        full.thread?.cwd !== session.cwd ||
-        full.thread?.path !== thread.path ||
-        (full.thread?.historyMode || "legacy") !== historyMode
-      )
-        throw fail(serverMessages.sessionTransfer.changedDuringPreparation);
-    }
     file = thread.path;
   }
   const relative = relativeTo(source, file);
@@ -146,46 +140,21 @@ export async function prepareAccountTransfer(
       await collect(source, relative.slice(0, -6), files, true);
       await collect(source, path.join("file-history", id), files, true);
     }
-    let bytes = 0;
     const entries = [];
     for (const entry of files) {
-      const data = await fs.readFile(await checked(source, entry));
-      bytes += data.length;
-      if (bytes > 256 * 1024 * 1024) throw fail(serverMessages.sessionTransfer.tooLarge);
+      const input = await checked(source, entry);
       const output = await checked(target, destination(entry));
-      let previous;
-      try {
-        previous = await fs.readFile(output);
-      } catch (error) {
-        if (!missing(error)) throw error;
-      }
-      if (previous && !data.subarray(0, previous.length).equals(previous))
+      const previous = await optionalFingerprint(output);
+      const validator =
+        entry === relative ? historyValidator(session, id, historyMode) : null;
+      const data = await fingerprint(input, {
+        prefixSize: previous?.size,
+        onRecord: validator?.record,
+      });
+      validator?.finish();
+      if (previous && (previous.size > data.size || previous.hash !== data.prefix))
         throw fail(serverMessages.sessionTransfer.targetDiffers);
-      entries.push({ entry: destination(entry), data, previous });
-    }
-    const lines = entries[0].data.toString("utf8").trim().split("\n");
-    let records;
-    try {
-      records = lines.map((line) => JSON.parse(line));
-    } catch {
-      throw fail(serverMessages.sessionTransfer.incomplete);
-    }
-    const meta =
-      session.tool === "codex"
-        ? records.find((record) => record.type === "session_meta")?.payload
-        : records.find((record) => record.sessionId && record.cwd && !record.isSidechain);
-    if ((meta?.id || meta?.sessionId) !== id || meta.cwd !== session.cwd)
-      throw fail(serverMessages.sessionTransfer.identityMismatch);
-    if (session.tool === "codex") {
-      // Paginated history is still a native rollout. Codex rebuilds its SQLite
-      // projection on resume; copying an account database would leak other threads.
-      // Its ordinal sequence must be complete, both at preflight and after stop.
-      if (
-        (meta.history_mode || "legacy") !== historyMode ||
-        (historyMode === "paginated" &&
-          records.some((record, index) => record.ordinal !== index))
-      )
-        throw fail(serverMessages.sessionTransfer.notPortable);
+      entries.push({ input, entry: destination(entry), data, previous });
     }
     return entries;
   }
@@ -193,20 +162,15 @@ export async function prepareAccountTransfer(
   return {
     async commit() {
       const entries = await snapshot();
-      for (const { entry, data, previous } of entries) {
+      for (const { input, entry, data, previous } of entries) {
         const output = await checked(target, entry, true);
-        if (previous?.equals(data)) continue;
+        if (sameFingerprint(previous, data)) continue;
         const temp = output + `.agentpier-${randomUUID()}`;
         try {
-          await fs.writeFile(temp, data, { flag: "wx", mode: 0o600 });
+          await stageFile(input, temp, data);
           // Recheck before replacing; a second native writer must not lose its data.
-          let current;
-          try {
-            current = await fs.readFile(await checked(target, entry));
-          } catch (error) {
-            if (!missing(error)) throw error;
-          }
-          if (previous ? !current?.equals(previous) : current !== undefined)
+          const current = await optionalFingerprint(await checked(target, entry));
+          if (!sameFingerprint(previous, current))
             throw fail(serverMessages.sessionTransfer.targetChanged);
           await fs.rename(temp, output);
         } finally {

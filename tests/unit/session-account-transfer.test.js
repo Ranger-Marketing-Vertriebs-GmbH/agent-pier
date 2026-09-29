@@ -229,35 +229,24 @@ test("Codex rejects unknown future storage modes", async (t) => {
   await assert.rejects(f.prepare(), transferError("codexStorageUnsupported"));
 });
 
-test("Codex without a storage marker must support reading complete turns before transfer", async (t) => {
+test("Codex validates complete legacy rollouts without requesting all turn bodies", async (t) => {
   const f = await fixture(t, "codex");
   f.history.codex = () => ({
     request: async (_method, params) => {
-      if (params.includeTurns) throw Error("Full history unsupported");
+      assert.equal(params.includeTurns, false);
       return { thread: { id: f.id, cwd: f.root, path: f.file } };
     },
   });
-  await assert.rejects(f.prepare(), /unsupported/);
+  await (await f.prepare()).commit();
+  assert.equal(await fs.readFile(path.join(f.target, f.relative), "utf8"), f.text);
 });
 
-for (const key of ["id", "cwd", "path", "historyMode"]) {
-  test(`Codex rejects a legacy ${key} change during the complete history read`, async (t) => {
-    const f = await fixture(t, "codex");
-    f.history.codex = () => ({
-      request: async (_method, params) => ({
-        thread: {
-          id: f.id,
-          cwd: f.root,
-          path: f.file,
-          historyMode: "legacy",
-          ...(params.includeTurns ? { [key]: "changed" } : {}),
-        },
-      }),
-    });
-    await assert.rejects(
-      f.prepare(),
-      transferError("changedDuringPreparation", "targetChanged"),
-    );
+for (const tool of ["codex", "claude"]) {
+  test(`${tool}: malformed final JSON does not publish a partial transfer`, async (t) => {
+    const f = await fixture(t, tool);
+    const transfer = await f.prepare();
+    await fs.appendFile(f.file, '{"unfinished":');
+    await assert.rejects(transfer.commit(), transferError("incomplete"));
     await assert.rejects(fs.access(path.join(f.target, f.relative)));
   });
 }
