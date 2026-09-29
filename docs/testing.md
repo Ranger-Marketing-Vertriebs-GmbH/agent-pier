@@ -82,6 +82,8 @@ Run `npm run check` in a fresh checkout: it builds the frontend before HTTP docu
 
 Playwright discovers `tests/browser/*.spec.js`. `npm run test:e2e` starts a disposable application at `http://127.0.0.1:4389` after a production build. Its temporary home and data directory are removed on shutdown. Set `TUIUI_TEST_URL` only when intentionally using a separately owned fixture Vite/application server. These suites intercept API and terminal traffic; `live.spec.js` instead starts its own isolated application and inert shell/transcript fixtures. Neither mode authorizes interaction with real coding sessions.
 
+`terminal-viewport.spec.js` simulates mobile visual-viewport height and offset changes in Chromium and WebKit, verifies terminal row resizing and toolbar visibility, and checks cleanup when switching views or returning to desktop. `terminal-touch-scroll.spec.js` also covers native Chromium swipes and pinch zoom. These fixtures do not open a real device keyboard; use a phone to confirm browser-specific keyboard animation and focus behavior.
+
 ```sh
 npm run build
 npm run test:e2e

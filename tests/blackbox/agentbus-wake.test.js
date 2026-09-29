@@ -62,6 +62,10 @@ test(
     await f.bus.broker.drainWakes();
     assert.deepEqual(wakes()[0].slice(0, 3), ["queue", "--thread", "native-before"]);
 
+    await requestBus(recipient.launch.env, "tools/call", {
+      name: "inbox_read",
+      arguments: {},
+    });
     let enter, release;
     const entered = new Promise((resolve) => {
       enter = resolve;
@@ -88,7 +92,7 @@ test(
     );
     assert.equal(
       f.bus.queue(ctx.h).summary(target.key).count,
-      2,
+      1,
       "The durable message survives a refused advisory wake",
     );
 
@@ -231,4 +235,92 @@ test("broker close cancels a pending Claude socket connection and prevents late 
     clearTimeout(timer);
     socket.destroy();
   }
+});
+
+test("Codex coalesces unread notices, cancels stale wakes and retries failed wakes", async (t) => {
+  const f = await busFixture(t);
+  const sender = await f.prepare("batch-sender", "opencode");
+  const recipient = await f.prepare("batch-recipient", "codex");
+  hostRegister(f, sender, "native-sender");
+  const target = hostRegister(f, recipient, "native-recipient");
+  const ctx = f.bus.broker.access.record(recipient.id);
+  const output = path.join(f.root, "batch-wakes.jsonl");
+  const command = path.join(f.root, "batch-wake");
+  fs.writeFileSync(
+    command,
+    `#!${process.execPath}\nrequire('node:fs').appendFileSync(${JSON.stringify(output)}, JSON.stringify(process.argv.slice(2)) + '\\n');\n`,
+    { mode: 0o700 },
+  );
+  fs.writeFileSync(
+    path.join(ctx.h, "launches", `${recipient.id}.json`),
+    JSON.stringify({ ...ctx.launch, command }),
+  );
+  const send = async (text) => {
+    const response = await requestBus(sender.launch.env, "tools/call", {
+      name: "peer_send",
+      arguments: { __agentpierSession: "native-sender", to: target.key, text },
+    });
+    assert.equal(response.error, undefined);
+    assert.notEqual(response.result.isError, true);
+  };
+  const read = async () => {
+    const response = await requestBus(recipient.launch.env, "tools/call", {
+      name: "inbox_read",
+      arguments: {},
+    });
+    assert.equal(response.error, undefined);
+    assert.notEqual(response.result.isError, true);
+    return response.result.content[0].text;
+  };
+  const wakes = () => fs.readFileSync(output, "utf8").trim().split("\n").length;
+  const resolve = async () => ({ id: "native-recipient" });
+  f.bus.bindings = { resolve };
+  for (let i = 0; i < 10; i++) {
+    await send(`Batch message ${i}`);
+    await f.bus.broker.drainWakes();
+  }
+  assert.equal(wakes(), 1);
+  assert.equal(f.bus.queue(ctx.h).summary(target.key).count, 10);
+  assert.match(await read(), /Batch message/);
+  assert.equal(f.bus.queue(ctx.h).summary(target.key).count, 2);
+  await send("Still same batch");
+  await f.bus.broker.drainWakes();
+  assert.equal(wakes(), 1, "Partial reads retain the existing notice");
+  assert.match(await read(), /Still same batch/);
+  await send("Fresh batch");
+  await f.bus.broker.drainWakes();
+  assert.equal(wakes(), 2);
+  assert.match(await read(), /Fresh batch/);
+
+  let enter, release;
+  const entered = new Promise((done) => {
+    enter = done;
+  });
+  const gate = new Promise((done) => {
+    release = done;
+  });
+  t.after(() => release());
+  f.bus.bindings.resolve = async () => {
+    enter();
+    await gate;
+    return { id: "native-recipient" };
+  };
+  await send("Read before wake");
+  await entered;
+  assert.match(await read(), /Read before wake/);
+  release();
+  await f.bus.broker.drainWakes();
+  assert.equal(wakes(), 2, "Already acknowledged messages never enqueue a late wake");
+
+  f.bus.bindings.resolve = async () => ({ id: "wrong-native" });
+  await send("Failed proof");
+  await f.bus.broker.drainWakes();
+  assert.equal(wakes(), 2);
+  f.bus.bindings.resolve = resolve;
+  await send("Retry after failure");
+  await f.bus.broker.drainWakes();
+  assert.equal(wakes(), 3);
+  const remaining = await read();
+  assert.match(remaining, /Failed proof/);
+  assert.match(remaining, /Retry after failure/);
 });

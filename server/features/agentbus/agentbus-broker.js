@@ -93,6 +93,8 @@ export class AgentBusBroker {
     this.access = new AgentBusAccess(bus);
     this.notices = new AgentBusNotices();
     this.wakes = new Map();
+    // Keep successful queued hints until their unread batch is fully drained.
+    this.codexNotices = new Map();
     this.transport = new LocalRpcBroker({
       root: bus.root,
       name: "agentbus",
@@ -175,15 +177,29 @@ export class AgentBusBroker {
   }
   scheduleWake(ctx, target, from, message) {
     if (this.closed || this.wakes.size >= 32) return;
+    const noticeId = target.agentpierSessionId;
+    const previous = this.codexNotices.get(noticeId);
+    if (target.runtime === "codex" && previous && samePeer(previous.target, target))
+      return;
     const controller = new AbortController();
+    const notice = { target, controller };
+    if (target.runtime === "codex") {
+      previous?.controller.abort();
+      this.codexNotices.set(noticeId, notice);
+    }
+    let delivered = false;
     const timer = setTimeout(() => controller.abort(), 20000);
     timer.unref();
     const task = Promise.resolve()
-      .then(() => this.wake(ctx, target, from, message, controller.signal))
+      .then(async () => {
+        delivered = await this.wake(ctx, target, from, message, controller.signal);
+      })
       .catch(() => {}) // Delivery is durable; an advisory wake may fail.
       .finally(() => {
         clearTimeout(timer);
         this.wakes.delete(task);
+        if (!delivered && this.codexNotices.get(noticeId) === notice)
+          this.codexNotices.delete(noticeId);
       });
     this.wakes.set(task, controller);
   }
@@ -194,12 +210,9 @@ export class AgentBusBroker {
     if (this.closed || signal.aborted) return false;
     const record = this.access.record(target.agentpierSessionId);
     if (record.record.generation !== target.brokerGeneration) return false;
-    const text = nudgeText(
-      this.bus.queue(ctx.h).summary(target.key).count,
-      from.name,
-      target.runtime,
-      message.id,
-    );
+    const count = this.bus.queue(ctx.h).summary(target.key).count;
+    if (!count) return false;
+    const text = nudgeText(count, from.name, target.runtime, message.id);
     if (target.runtime === "opencode")
       return this.notices.push(record, target.nativeSessionId, text);
     if (target.runtime === "codex") {
@@ -220,6 +233,7 @@ export class AgentBusBroker {
     }
     if (!trustedPeers(ctx.h).some((peer) => peer.alive && samePeer(peer, target)))
       return false;
+    if (!this.bus.queue(ctx.h).summary(target.key).count) return false;
     return trustedNudge(ctx.h, target, text, from.name, {
       signal,
       exec: (command, args, options) =>
@@ -345,6 +359,11 @@ export class AgentBusBroker {
       throw Error("AgentBus inbox output exceeds its budget.");
     if (queue.ack(owner, claim.claimIds) !== claim.claimIds.length)
       throw Error("AgentBus acknowledgement failed.");
+    if (!queue.summary(self.key).count) {
+      const notice = this.codexNotices.get(self.agentpierSessionId);
+      notice?.controller.abort();
+      this.codexNotices.delete(self.agentpierSessionId);
+    }
     return result;
   }
   async respond(credential, request, signal) {
@@ -515,6 +534,8 @@ export class AgentBusBroker {
     }
   }
   revoke(id) {
+    this.codexNotices.get(id)?.controller.abort();
+    this.codexNotices.delete(id);
     try {
       const ctx = this.access.record(id);
       for (const peer of trustedPeers(ctx.h))
@@ -528,6 +549,7 @@ export class AgentBusBroker {
   async close() {
     this.closed = true;
     for (const controller of this.wakes.values()) controller.abort();
+    this.codexNotices.clear();
     this.notices.close();
     await this.transport.close();
     await this.drainWakes();

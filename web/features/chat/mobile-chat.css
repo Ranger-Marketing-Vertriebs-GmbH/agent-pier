@@ -4,30 +4,10 @@
 }
 
 @media (max-width: 700px) {
-  body:has(.mobile-chat-workspace) {
-    overflow: hidden;
-  }
-  .app:has(.mobile-chat-workspace) {
-    position: fixed;
-    top: var(--chat-viewport-top, 0px);
-    left: 0;
-    width: 100%;
-    height: var(--chat-viewport-height, 100dvh);
-    min-height: 0;
-  }
-  .app:has(.mobile-chat-workspace) main {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-  }
   .app:has(.mobile-chat-workspace) .mobile-header {
     display: none;
   }
   .mobile-chat-workspace {
-    height: auto;
-    flex: 1;
-    min-height: 0;
     padding: env(safe-area-inset-top) 0 0;
   }
   .mobile-chat-workspace .session-heading {

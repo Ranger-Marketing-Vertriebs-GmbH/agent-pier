@@ -23,6 +23,7 @@
 @import "../features/sessions/workspace.css";
 @import "desktop.css";
 @import "mobile.css";
+@import "../features/sessions/mobile-workspace.css";
 @import "accessibility.css";
 @import "../features/dashboard/snapshot.css";
 @import "../features/providers/providers.css";

@@ -1,22 +1,22 @@
 import { useEffect } from "react";
 
-export default function useChatViewport(active) {
+export default function useSessionViewport(active) {
   useEffect(() => {
     if (!active) return;
     const viewport = window.visualViewport;
     const media = window.matchMedia("(max-width: 700px)");
     const style = document.documentElement.style;
     const clear = () => {
-      style.removeProperty("--chat-viewport-height");
-      style.removeProperty("--chat-viewport-top");
+      style.removeProperty("--session-viewport-height");
+      style.removeProperty("--session-viewport-top");
     };
     const update = () => {
       if (!media.matches) return clear();
       if (document.hidden) return;
       const height = viewport?.height ?? window.innerHeight;
       if (!Number.isFinite(height) || height <= 0) return;
-      style.setProperty("--chat-viewport-height", `${height}px`);
-      style.setProperty("--chat-viewport-top", `${viewport?.offsetTop ?? 0}px`);
+      style.setProperty("--session-viewport-height", `${height}px`);
+      style.setProperty("--session-viewport-top", `${viewport?.offsetTop ?? 0}px`);
     };
     update();
     viewport?.addEventListener("resize", update);

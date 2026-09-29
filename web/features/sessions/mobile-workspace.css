@@ -1,0 +1,42 @@
+@media (max-width: 700px) {
+  html:has(.mobile-session-workspace),
+  body:has(.mobile-session-workspace) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  .app:has(.mobile-session-workspace) {
+    position: fixed;
+    top: var(--session-viewport-top, 0px);
+    left: 0;
+    width: 100%;
+    height: var(--session-viewport-height, 100dvh);
+    min-height: 0;
+    overflow: hidden;
+  }
+  .app:has(.mobile-session-workspace) main {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  .app:has(.mobile-session-workspace) .mobile-header,
+  .mobile-session-workspace .session-heading,
+  .mobile-session-workspace .terminal-topbar {
+    flex-shrink: 0;
+  }
+  .mobile-session-workspace {
+    height: auto;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .mobile-session-workspace .terminal-pane {
+    overflow: hidden;
+  }
+  .mobile-session-workspace .xterm-helper-textarea {
+    font-size: 16px;
+  }
+  .mobile-session-workspace .xterm-viewport {
+    overscroll-behavior: contain;
+  }
+}
