@@ -31,6 +31,12 @@ change it. Failed replacements preserve the previous publication. File selection
 rejects traversal, symlinks, hard links, special files and changes during copying.
 Absolute source paths must still be inside the session working directory.
 
+Every file in a selected directory must have a supported type. Keep documentation
+such as `README.md` outside the publication copy. Rejections identify unsupported
+files, unsafe links, invalid bundle names, duplicate names and invalid entrypoints;
+the MCP returns these explanations in English. Failed uploads do not modify the
+source directory or replace a previously published artifact.
+
 Supported entrypoints are HTML documents and individual images. Directory bundles
 use an HTML entrypoint and may contain CSS, JavaScript, JSON, images and fonts.
 Relative assets, CSS imports, static JavaScript modules and literal dynamic module

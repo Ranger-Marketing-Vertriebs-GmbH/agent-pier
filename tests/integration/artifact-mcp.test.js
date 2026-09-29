@@ -49,3 +49,38 @@ test("artifact discovery and invocation require a full trusted session context",
     status: 403,
   });
 });
+
+test("artifact MCP explains unsupported bundle files in English and preserves prior publication", async (t) => {
+  const f = await applicationFixture(t);
+  const issued = await issue(f, { tool: "codex", choices: true });
+  const client = await connect(t, f, issued);
+  const gallery = path.join(f.home, "gallery");
+  await fs.mkdir(gallery);
+  await fs.writeFile(path.join(gallery, "index.html"), "<h1>Gallery</h1>");
+  const args = {
+    requestId: randomUUID(),
+    title: "Gallery",
+    sourcePath: "gallery",
+    entrypoint: "index.html",
+  };
+  const first = await client.callTool({ name: "artifact_publish", arguments: args });
+  assert.notEqual(first.isError, true);
+  const published = JSON.parse(first.content[0].text);
+  await fs.writeFile(path.join(gallery, "README.md"), "Not a supported bundle file");
+  const result = await client.callTool({
+    name: "artifact_publish",
+    arguments: { ...args, requestId: randomUUID(), artifactId: published.id },
+  });
+  assert.equal(result.isError, true);
+  const error = JSON.parse(result.content[0].text);
+  assert.equal(error.status, 400);
+  assert.match(error.error, /Unsupported file type: "README.md"/);
+  assert.match(error.error, /output folder/);
+  assert.ok(!error.error.includes(f.home), "Do not expose host absolute paths");
+  const snapshot = await f.application.artifacts.snapshot(published.id);
+  assert.equal(snapshot.files.length, 1);
+  assert.equal(
+    Buffer.from(snapshot.files[0].base64, "base64").toString(),
+    "<h1>Gallery</h1>",
+  );
+});

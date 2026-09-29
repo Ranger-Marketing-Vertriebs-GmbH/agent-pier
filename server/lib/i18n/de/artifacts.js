@@ -1,4 +1,19 @@
 export const artifacts = {
+  ARTIFACT_UNSUPPORTED_FILE: (name) =>
+    `Dateityp nicht unterstützt: „${name}“. Veröffentliche einen Ausgabeordner mit HTML, CSS, JavaScript, JSON, Bildern und Schriftarten; entferne andere Dateien wie README.md aus dieser Kopie.`,
+  ARTIFACT_UNSAFE_FILE: (name) =>
+    `„${name}“ ist keine reguläre Datei mit genau einer Verknüpfung. Symbolische Links, Hardlinks und spezielle Dateien sind nicht erlaubt.`,
+  ARTIFACT_INVALID_BUNDLE_PATH: (name) =>
+    `Ungültiger Dateiname oder Pfad: „${name}“. Verwende einfache ASCII-Namen mit Buchstaben, Zahlen, Leerzeichen, Punkten, Unterstrichen oder Bindestrichen; keine übergeordneten Pfade (..).`,
+  ARTIFACT_DUPLICATE_FILE: (name) =>
+    `Dateiname mehrfach vorhanden: „${name}“. Namen müssen auch unabhängig von Groß- und Kleinschreibung eindeutig sein.`,
+  ARTIFACT_INVALID_ENTRYPOINT: (name) =>
+    `Ungültige Startdatei: „${name}“. Bei einem Ordner muss entrypoint eine enthaltene HTML-Datei benennen; bei einer einzelnen Datei muss der Name übereinstimmen.`,
+  ARTIFACT_OUTSIDE_WORKSPACE:
+    "Der Quellpfad liegt außerhalb des Sitzungsverzeichnisses. Wähle einen Ausgabeordner innerhalb dieses Verzeichnisses.",
+  ARTIFACT_STRUCTURE_LIMIT:
+    "Der Ausgabeordner enthält zu viele Einträge oder ist zu tief verschachtelt (maximal 1.500 Einträge und 32 Unterordnerebenen).",
+
   ARTIFACT_RESOURCE_UNSUPPORTED: "Nicht unterstützte oder fehlende Artifact-Ressourcen.",
   ARTIFACT_INVALID_SOURCE:
     "Wähle eine HTML-Datei, ein Bild oder einen Ausgabeordner im Sitzungsverzeichnis. Verknüpfungen und spezielle Dateien können nicht veröffentlicht werden.",
