@@ -358,6 +358,32 @@ export class ProviderHistory {
     this.environment(session);
     return readHistoryPage(this, session, id, state);
   }
+  async readReloadContext(session, id) {
+    if (session.tool !== "codex") return this.read(session, id);
+    providerId(id);
+    const { thread } = await this.codexRequest(session, (client) =>
+      client.request("thread/read", { threadId: id, includeTurns: false }),
+    );
+    if (
+      thread?.id !== id ||
+      thread?.cwd !== session.cwd ||
+      !thread.path ||
+      (await this.codexRolloutIdentity(session, thread.path)) !== id
+    )
+      throw problem(serverMessages.chat.historyProjectMismatch, 409);
+    // Reload needs verified identity and the latest model, not all turn bodies.
+    // The bounded metadata reader also works for rollouts larger than RPC limits.
+    const records = await this.codexMetadata.read(this, session, thread);
+    return {
+      observability: {
+        context: {
+          modelId:
+            records.find((record) => record.type === "turn_context")?.payload?.model ||
+            null,
+        },
+      },
+    };
+  }
   async read(session, id) {
     providerId(id);
     this.environment(session);

@@ -16,7 +16,7 @@ export function createReloadLifecycle(services) {
     const { accounts, history, tools, models } = services;
     if (session.agentpierTools?.enabled)
       services.sessionMcp?.validate(session.agentpierTools.selection);
-    const content = await history.read(session, nativeId);
+    const content = await history.readReloadContext(session, nativeId);
     const switching = targetAccountId && targetAccountId !== session.accountId;
     if (
       switching &&

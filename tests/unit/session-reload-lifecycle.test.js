@@ -30,7 +30,7 @@ function fixture() {
     },
     tools: () => [{ id: "claude", path: "/bin/sh", installed: true }],
     history: {
-      read: async (_session, id) => {
+      readReloadContext: async (_session, id) => {
         assert.equal(id, "native-exact");
         return { observability: { context: { modelId: "claude-opus-4-6" } } };
       },
@@ -93,7 +93,7 @@ test("reload preflight verifies exact native history and keeps current model; re
 });
 test("history failure cannot stop a running process", async () => {
   const f = fixture();
-  f.services.history.read = async () => {
+  f.services.history.readReloadContext = async () => {
     throw Error("unavailable");
   };
   await assert.rejects(f.prepareReload(f.session, "native-exact"));
@@ -119,7 +119,7 @@ test("changing the native conversation after preflight leaves the old process un
 
 test("a live model display name cannot silently fall back to the old history model", async () => {
   const f = fixture();
-  f.services.history.read = async () => ({
+  f.services.history.readReloadContext = async () => ({
     observability: { context: { modelId: "claude-sonnet-4-6" } },
   });
   await assert.rejects(f.prepareReload(f.session, "native-exact"), {
