@@ -1,9 +1,13 @@
 import { serverMessages } from "../../lib/i18n/de.js";
-export function artifactError(code, status = 400) {
-  return Object.assign(new Error(serverMessages.artifacts[code] || code), {
-    code,
-    status,
-  });
+export function artifactError(code, status = 400, ...args) {
+  const message = serverMessages.artifacts[code];
+  return Object.assign(
+    new Error(typeof message === "function" ? message(...args) : message || code),
+    {
+      code,
+      status,
+    },
+  );
 }
 export function artifactFailure(error) {
   if (error.code?.startsWith("ARTIFACT_")) return error;

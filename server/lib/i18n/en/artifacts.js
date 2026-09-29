@@ -1,4 +1,19 @@
 export const artifacts = {
+  ARTIFACT_UNSUPPORTED_FILE: (name) =>
+    `Unsupported file type: "${name}". Publish an output folder containing HTML, CSS, JavaScript, JSON, images and fonts; remove other files such as README.md from that copy.`,
+  ARTIFACT_UNSAFE_FILE: (name) =>
+    `"${name}" is not a regular file with exactly one link. Symbolic links, hard links and special files are not allowed.`,
+  ARTIFACT_INVALID_BUNDLE_PATH: (name) =>
+    `Invalid filename or path: "${name}". Use simple ASCII names with letters, digits, spaces, dots, underscores or hyphens; no parent paths (..).`,
+  ARTIFACT_DUPLICATE_FILE: (name) =>
+    `Duplicate filename: "${name}". Names must be unique even when ignoring letter case.`,
+  ARTIFACT_INVALID_ENTRYPOINT: (name) =>
+    `Invalid entrypoint: "${name}". For a folder, entrypoint must name an included HTML file; for a single file, the name must match.`,
+  ARTIFACT_OUTSIDE_WORKSPACE:
+    "The source path is outside the session workspace. Choose an output folder inside that directory.",
+  ARTIFACT_STRUCTURE_LIMIT:
+    "The output folder has too many entries or is nested too deeply (maximum 1,500 entries and 32 subfolder levels).",
+
   ARTIFACT_RESOURCE_UNSUPPORTED: "Unsupported or missing artifact resources.",
   ARTIFACT_INVALID_SOURCE:
     "Choose an HTML file, image or output folder inside the session workspace. Links and special files cannot be published.",

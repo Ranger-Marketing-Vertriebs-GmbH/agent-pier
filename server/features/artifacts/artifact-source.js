@@ -21,7 +21,14 @@ const types = {
   ".ttf": "font/ttf",
   ".otf": "font/otf",
 };
-const invalid = () => artifactError("ARTIFACT_INVALID_SOURCE");
+const invalid = (code, name = "") =>
+  artifactError(
+    code,
+    400,
+    String(name)
+      .replace(/[\x00-\x1f\x7f]/g, "?")
+      .slice(0, 240),
+  );
 export const safeBundlePath = (name) =>
   typeof name === "string" &&
   name.length <= 1024 &&
@@ -47,18 +54,26 @@ export async function copyArtifactSource(
       input.sourcePath.includes("\0") ||
       input.sourcePath.split(/[\\/]/).includes("..")
     )
-      throw invalid();
+      throw invalid("ARTIFACT_INVALID_BUNDLE_PATH", input.sourcePath);
     const cwd = await fs.realpath(context.cwd);
     const absolute = path.resolve(context.cwd, input.sourcePath);
     const relative = path.relative(path.resolve(context.cwd), absolute);
-    if (!safeBundlePath(relative)) throw invalid();
+    if (
+      relative === ".." ||
+      relative.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relative)
+    )
+      throw invalid("ARTIFACT_OUTSIDE_WORKSPACE");
+    if (!safeBundlePath(relative))
+      throw invalid("ARTIFACT_INVALID_BUNDLE_PATH", relative);
     const root = await native.run("openRoot", { path: cwd });
     const selectedParent = await native.run("openLookup", {
       directory: root.handle,
       path: path.dirname(relative) === "." ? "" : path.dirname(relative),
     });
     async function copy(parent, name, output, depth) {
-      if (++visited > 1500 || depth > 32 || !safeBundlePath(output)) throw invalid();
+      if (++visited > 1500 || depth > 32) throw invalid("ARTIFACT_STRUCTURE_LIMIT");
+      if (!safeBundlePath(output)) throw invalid("ARTIFACT_INVALID_BUNDLE_PATH", output);
       const info = await native.run("inspect", { directory: parent, name });
       if (info.type === "directory") {
         const lookup = await native.run("openLookup", { directory: parent, path: name });
@@ -81,10 +96,12 @@ export async function copyArtifactSource(
         }
         return;
       }
-      if (info.type !== "file" || info.nlink !== 1n || names.has(output.toLowerCase()))
-        throw invalid();
+      if (info.type !== "file" || info.nlink !== 1n)
+        throw invalid("ARTIFACT_UNSAFE_FILE", output);
+      if (names.has(output.toLowerCase()))
+        throw invalid("ARTIFACT_DUPLICATE_FILE", output);
       const mediaType = types[path.extname(output).toLowerCase()];
-      if (!mediaType) throw invalid();
+      if (!mediaType) throw invalid("ARTIFACT_UNSUPPORTED_FILE", output);
       if (
         files.length >= limits.files ||
         info.size > BigInt(limits.publicationBytes - sizeBytes)
@@ -98,7 +115,7 @@ export async function copyArtifactSource(
       try {
         const before = await native.run("stat", { handle: opened.handle });
         if (before.ino !== info.ino || before.dev !== info.dev || before.nlink !== 1n)
-          throw invalid();
+          throw artifactError("ARTIFACT_SOURCE_CHANGED", 409);
         for (;;) {
           const chunk = await native.run("read", {
             handle: opened.handle,
@@ -134,7 +151,8 @@ export async function copyArtifactSource(
     });
     let entrypoint;
     if (selected.type === "directory") {
-      if (!safeBundlePath(input.entrypoint)) throw invalid();
+      if (!safeBundlePath(input.entrypoint))
+        throw invalid("ARTIFACT_INVALID_ENTRYPOINT", input.entrypoint);
       const lookup = await native.run("openLookup", {
         directory: selectedParent.handle,
         path: leaf,
@@ -153,7 +171,8 @@ export async function copyArtifactSource(
       }
       entrypoint = input.entrypoint;
     } else {
-      if (input.entrypoint !== undefined && input.entrypoint !== leaf) throw invalid();
+      if (input.entrypoint !== undefined && input.entrypoint !== leaf)
+        throw invalid("ARTIFACT_INVALID_ENTRYPOINT", input.entrypoint);
       await copy(selectedParent.handle, leaf, leaf, 0);
       entrypoint = leaf;
     }
@@ -165,7 +184,7 @@ export async function copyArtifactSource(
         (selected.type !== "directory" && entry.mediaType.startsWith("image/"))
       )
     )
-      throw invalid();
+      throw invalid("ARTIFACT_INVALID_ENTRYPOINT", entrypoint);
     return { files, entrypoint, sizeBytes, mediaType: entry.mediaType };
   } finally {
     await native.close();
