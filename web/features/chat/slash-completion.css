@@ -1,0 +1,56 @@
+.chat-composer {
+  position: relative;
+}
+.chat-composer > .chat-slash-popup {
+  display: block;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  border: 1px solid #414146;
+  border-radius: 12px;
+  background: #202124;
+  box-shadow: 0 6px 24px #0005;
+  overflow: hidden;
+}
+.chat-slash-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.chat-slash-heading small {
+  color: #a6a6ad;
+}
+.chat-slash-options {
+  position: relative;
+  max-height: min(240px, 30dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.chat-slash-options button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+  color: #e6e6e8;
+}
+.chat-slash-options button[aria-selected="true"],
+.chat-slash-options button:hover {
+  background: #38312b;
+  color: #f5ac73;
+}
+.chat-slash-options small {
+  color: #aaaab1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

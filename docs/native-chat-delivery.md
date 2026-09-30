@@ -2,6 +2,33 @@
 
 AgentPier distinguishes a durable terminal handoff from an observed native queue and native consumption. Transport receipts and retry guards remain independent from display observations. No observation sends input, retries Enter or changes a delivery's custody status.
 
+## Slash-command completion
+
+Typing `/` at the start of the chat composer opens provider-specific built-in
+command suggestions for Codex, Claude Code and OpenCode. Continue typing to filter,
+use Up/Down to select, and Tab/Enter or a click/tap to insert the command. Completion
+adds a trailing space for arguments and never sends input by itself. Escape closes
+the suggestions without changing the draft. Paths, multiline text and command
+arguments do not activate completion. Unlisted commands can still be typed and sent.
+
+The catalog follows the official [Codex command reference](https://developers.openai.com/codex/cli/slash-commands),
+[Claude Code commands](https://code.claude.com/docs/en/commands) and
+[OpenCode TUI commands](https://opencode.ai/docs/tui/). It is a maintained list of
+built-ins, not live discovery of installed plugins, custom commands or skills;
+actual availability depends on the native CLI version and configuration.
+Native menus opened by commands are still handled in the terminal.
+
+## Provider failures in history
+
+Codex turn errors, including usage limits and their native reset-time text, appear
+in the chat even when the failed turn contains no assistant items. The live rollout
+reader retains `task_complete.error` while the native history API catches up; a
+stable per-turn ID prevents duplicate error messages after refresh. Legacy rollout
+normalization retains the same failures. Claude's structured `system/api_error`
+records are also shown, alongside its existing synthetic assistant error messages.
+Subagent-side errors and unrelated system metadata remain outside the transcript.
+Provider messages keep their original language and do not trigger retries.
+
 ## Display states
 
 - **Sent to TUI · awaiting CLI confirmation:** bracketed paste and Enter completed, but native acceptance has not been established.

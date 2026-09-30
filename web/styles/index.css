@@ -4,6 +4,7 @@
 @import "../features/chat/chat-images.css";
 @import "../features/chat/chat-attachments.css";
 @import "../features/chat/chat.css";
+@import "../features/chat/slash-completion.css";
 @import "../components/pagination.css";
 @import "../features/extensions/extensions.css";
 @import "../features/plugins/plugins.css";

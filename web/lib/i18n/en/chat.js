@@ -1,4 +1,6 @@
 export const chatComposerCopy = {
+  slashTitle: "Slash commands",
+  slashHint: "↑↓ select · Tab or Enter complete",
   requestPending:
     "Answer the open request above or in the terminal. Messages you send now are delivered afterwards.",
   messageSent: "Sent to the running session",
