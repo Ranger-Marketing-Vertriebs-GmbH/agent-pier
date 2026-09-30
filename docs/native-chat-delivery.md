@@ -38,8 +38,8 @@ the native wording and reset time when present. Identical visible warnings are
 deduplicated, and the status clears when the native warning disappears, the
 observer disconnects, or the conversation/session/account changes.
 
-Recognition is deliberately limited to known native UI: Codex's colored warning
-cell (including wrapped lines) and Claude's notifications below its ruled prompt.
+Recognition is deliberately limited to known native UI: Codex's styled warning
+cell (including wrapped lines and its model-switch dialog) and Claude's notifications below its ruled prompt.
 Drafts, ordinary transcript text and unknown/clipped formats are not interpreted
 as quota data. This is a live mirror of currently visible warnings, not an archive
 or an independently calculated account usage meter. Existing provider failures

@@ -1,10 +1,9 @@
 import { stripVTControlCharacters } from "node:util";
-import { inspectChatComposer } from "../sessions/session-chat-input.js";
 import { claudeComposerBox } from "../sessions/claude-composer.js";
 
-// Native Codex warning cell (0.157.x). Require its warning color and glyph,
+// Native Codex warning cell (0.157.x). Require its bold/color styling and glyph,
 // never search ordinary transcript prose or a typed prompt for keywords.
-const codexHead = /^(?:\x1b\[[0-9;]*m)*\x1b\[(?:33|93|38;5;3|38;5;11)m⚠ /;
+const codexHead = /^(?:\x1b\[[0-9;]*m)*\x1b\[(?:1|33|93|38;5;3|38;5;11)m⚠ /;
 const codexWarning =
   /^⚠ (Heads up, you have less than (?:[1-9]|[1-9][0-9])% of your [a-zA-Z0-9 ()-]{1,60} limit left\. Run \/status for a breakdown\.)$/;
 const claudeLimit =
@@ -32,12 +31,10 @@ export function nativeLimitWarnings(tool, raw, pane) {
   const lines = styled.map(stripVTControlCharacters);
   const warnings = new Set();
   if (tool === "codex") {
-    if (["unknown", "dialog"].includes(inspectChatComposer(tool, raw, pane).state))
-      return [];
-    for (let row = 0; row < pane.cursorY; row++) {
+    for (let row = 0; row < lines.length; row++) {
       if (!codexHead.test(styled[row])) continue;
       let value = "";
-      for (let end = row; end < Math.min(row + 6, pane.cursorY); end++) {
+      for (let end = row; end < Math.min(row + 6, lines.length); end++) {
         if (!lines[end].trim()) break;
         value += (value ? " " : "") + lines[end].trim();
         const match = codexWarning.exec(value);

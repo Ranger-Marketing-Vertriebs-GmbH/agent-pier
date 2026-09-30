@@ -86,3 +86,14 @@ test("unsupported tools, malformed screens and missing composer evidence stay si
   assert.deepEqual(nativeLimitWarnings("claude", "x".repeat(300000), frame.pane), []);
   assert.deepEqual(read("claude", { ...frame, raw: claude }), []);
 });
+
+test("Codex 0.157.1 bold warning remains visible while its model-switch dialog covers the composer", () => {
+  const raw =
+    "\x1b[1m⚠ " +
+    codex +
+    "\x1b[0m\n\n  1. Switch model\n  2. Keep current model\n  enter select · esc back";
+  const pane = { cursorX: 120, cursorY: 4, width: 120, height: 35 };
+  assert.deepEqual(nativeLimitWarnings("codex", raw, pane), [codex]);
+  assert.deepEqual(nativeLimitWarnings("codex", raw.replace("⚠", "•"), pane), []);
+  assert.deepEqual(nativeLimitWarnings("codex", raw.replace("⚠", "› ⚠"), pane), []);
+});
