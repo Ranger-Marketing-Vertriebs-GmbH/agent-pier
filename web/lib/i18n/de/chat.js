@@ -58,6 +58,7 @@ export const chatMessageCopy = {
   subtle: "[Bild",
 };
 export const chatViewCopy = {
+  limitWarning: "Limit-Warnung",
   jumpToLatest: "Zur neuesten Nachricht",
   resetRequested: "Neue Unterhaltung angefordert",
   resetConfirmed: "Neue Unterhaltung bereit",

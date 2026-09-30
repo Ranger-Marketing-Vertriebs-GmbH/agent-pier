@@ -264,6 +264,20 @@ export default function ChatView({
           data-native-request-pending={requestPending || undefined}
         >
           <ChatScrollToBottom {...{ active, output, stick, scroll }} />
+          {session.status === "running" &&
+            data?.nativeInput?.providerSessionId === data?.providerSessionId &&
+            data?.nativeInput?.warnings?.length > 0 && (
+              <div
+                className="chat-limit-warnings"
+                role="status"
+                aria-label={copy.limitWarning}
+              >
+                <strong>{copy.limitWarning}</strong>
+                {data.nativeInput.warnings.map((warning) => (
+                  <p key={warning}>{warning}</p>
+                ))}
+              </div>
+            )}
           {requestsAvailable && (
             <RequestPanel
               onStateChange={setRequestState}

@@ -29,6 +29,23 @@ records are also shown, alongside its existing synthetic assistant error message
 Subagent-side errors and unrelated system metadata remain outside the transcript.
 Provider messages keep their original language and do not trigger retries.
 
+## Current terminal limit warnings
+
+Chat mirrors recognized Codex and Claude Code advance usage warnings in a single
+status area above the composer. It reuses the existing read-only terminal observer;
+no provider requests, keystrokes or terminal resizing are added. Warnings retain
+the native wording and reset time when present. Identical visible warnings are
+deduplicated, and the status clears when the native warning disappears, the
+observer disconnects, or the conversation/session/account changes.
+
+Recognition is deliberately limited to known native UI: Codex's colored warning
+cell (including wrapped lines) and Claude's notifications below its ruled prompt.
+Drafts, ordinary transcript text and unknown/clipped formats are not interpreted
+as quota data. This is a live mirror of currently visible warnings, not an archive
+or an independently calculated account usage meter. Existing provider failures
+remain durable chat messages as described above. Fixtures follow Codex 0.157.x
+and Claude Code 2.1.x wording; the integration test uses a disposable tmux session.
+
 ## Display states
 
 - **Sent to TUI · awaiting CLI confirmation:** bracketed paste and Enter completed, but native acceptance has not been established.

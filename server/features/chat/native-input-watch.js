@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { chatInputSnapshot } from "../sessions/session-chat-input.js";
+import { nativeLimitWarnings } from "./native-limit-warnings.js";
 import { nativeInputQueue } from "./native-input-queue.js";
 
 /** Output-only, size-neutral tmux control client. No keys, resize or terminal replay. */
@@ -39,6 +40,7 @@ export function watchNativeInput({ sessions, session, onExit }, changed) {
         generation: snapshot.observationGeneration,
         providerSessionId: snapshot.providerSessionId,
         queue: nativeInputQueue(current.tool, snapshot.raw, snapshot.pane),
+        warnings: nativeLimitWarnings(current.tool, snapshot.raw, snapshot.pane),
       });
     } catch {
       publish(null);
