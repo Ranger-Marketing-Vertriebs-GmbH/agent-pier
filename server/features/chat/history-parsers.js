@@ -301,6 +301,11 @@ export function normalizeCodex(thread) {
           status: "completed",
         });
     });
+    const error = string(turn?.error?.message);
+    if (error) {
+      const id = `codex-turn-error:${identifier(turn.id) || turnIndex}`;
+      messages.set(id, { id, role: "assistant", text: error, status: "failed" });
+    }
     // Optional reader enrichment from a captured turn/plan/updated notification.
     if (Array.isArray(turn?.plan)) tasks = taskList(turn.plan, "codex-plan");
   });
@@ -329,6 +334,19 @@ export function normalizeCodexRecords(records) {
     const item = object(record?.payload);
     const isResponse = record?.type === "response_item";
     const isEvent = record?.type === "event_msg";
+    if (isEvent && item.type === "task_complete" && string(item.error?.message)) {
+      const id = `codex-turn-error:${identifier(item.turn_id) || index}`;
+      const message = {
+        id,
+        role: "assistant",
+        text: item.error.message,
+        status: "failed",
+        ...stamp(record.timestamp),
+      };
+      const existing = messages.findIndex((entry) => entry.id === id);
+      if (existing < 0) messages.push(message);
+      else messages[existing] = message;
+    }
     const role =
       isResponse && item.type === "message" && ["user", "assistant"].includes(item.role)
         ? item.role

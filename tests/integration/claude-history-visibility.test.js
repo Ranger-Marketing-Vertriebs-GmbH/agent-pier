@@ -111,3 +111,32 @@ test("live, indexed and full Claude reads agree on hidden provider input", async
   assert.ok(indexed.first.next?.indexed, "served from the index");
   assert.deepEqual(indexed.messages, full);
 });
+
+test("Claude limit failures survive live, indexed, full and appended history reads", async (t) => {
+  const f = await claudeHistoryFixture(t);
+  const error = {
+    uuid: "limit",
+    type: "system",
+    subtype: "api_error",
+    timestamp: "2026-09-30T09:00:00Z",
+    error: { status: 429, message: "Usage limit reached. Try again at 14:00." },
+  };
+  await f.write([f.user("u", "Continue"), error]);
+  const full = (await f.history.read(f.session, "native")).messages;
+  assert.equal(full.at(-1).text, error.error.message);
+  assert.deepEqual((await f.pages()).messages, full);
+  await f.indexed();
+  assert.deepEqual((await f.pages()).messages, full);
+  await f.append([
+    {
+      ...error,
+      uuid: "limit-again",
+      error: { status: 429, message: "Still limited. Try again at 15:00." },
+    },
+  ]);
+  await f.pages();
+  await f.indexed();
+  const appended = (await f.pages()).messages;
+  assert.equal(appended.at(-1).text, "Still limited. Try again at 15:00.");
+  assert.equal(appended.filter((m) => m.id === "limit").length, 1);
+});
