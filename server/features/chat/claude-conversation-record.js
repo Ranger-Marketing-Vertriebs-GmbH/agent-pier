@@ -26,6 +26,18 @@ function slashCommand(record) {
  * Queue operations alone are not conversation messages (they may be cancelled).
  */
 export function claudeConversationRecord(record) {
+  // Native API failures are system records, not assistant content blocks.
+  // Preserve the provider's explanation (including reset time), not its raw error object.
+  if (record?.type === "system" && record.subtype === "api_error") {
+    const text = record.error?.error?.message || record.error?.message;
+    if (typeof text === "string" && text.trim())
+      return {
+        ...record,
+        type: "assistant",
+        isApiErrorMessage: true,
+        message: { role: "assistant", content: text },
+      };
+  }
   const attachment = record?.attachment;
   if (
     record?.type !== "attachment" ||

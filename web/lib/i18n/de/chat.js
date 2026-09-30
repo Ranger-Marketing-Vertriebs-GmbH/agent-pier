@@ -1,4 +1,6 @@
 export const chatComposerCopy = {
+  slashTitle: "Slash-Befehle",
+  slashHint: "↑↓ wählen · Tab oder Enter übernehmen",
   requestPending:
     "Beantworte die offene Anfrage oben oder im Terminal. Jetzt gesendete Nachrichten werden danach zugestellt.",
   messageSent: "An die laufende Sitzung gesendet",
@@ -56,6 +58,7 @@ export const chatMessageCopy = {
   subtle: "[Bild",
 };
 export const chatViewCopy = {
+  limitWarning: "Limit-Warnung",
   jumpToLatest: "Zur neuesten Nachricht",
   resetRequested: "Neue Unterhaltung angefordert",
   resetConfirmed: "Neue Unterhaltung bereit",

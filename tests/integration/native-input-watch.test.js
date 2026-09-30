@@ -25,6 +25,12 @@ test(
         "utf8",
       ),
     ).codex.snapshots;
+    const warning =
+      "Heads up, you have less than 10% of your weekly limit left. Run /status for a breakdown.";
+    frames.queued.raw = frames.queued.raw.replace(
+      /^.*\n/,
+      "\x1b[38;5;3m⚠ " + warning + "\x1b[39m\n",
+    );
     const render = (frame) =>
       `\x1b[2J\x1b[H${frame.raw.replace(/\n$/, "").replaceAll("\n", "\r\n")}\x1b[${frame.pane.cursorY + 1};${frame.pane.cursorX + 1}H`;
     const file = path.join(fixture.home, "native-fixture.mjs");
@@ -64,9 +70,11 @@ test(
     await until(() => events.some(Boolean));
     await manager.tmux(["send-keys", "-t", target, "x"]);
     await until(() => events.at(-1)?.queue.includes(inputHash("AP_PROBE_SECOND")));
+    assert.deepEqual(events.at(-1).warnings, [warning]);
     assert.equal(await size(), before);
     await manager.tmux(["send-keys", "-t", target, "x"]);
     await until(() => events.at(-1)?.queue.length === 0);
+    assert.deepEqual(events.at(-1).warnings, []);
     const last = events.length;
     dispose();
     await until(

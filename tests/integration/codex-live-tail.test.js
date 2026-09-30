@@ -63,6 +63,25 @@ test("real chat WebSocket publishes a new rollout answer while the API stays sta
   f.application.chatEvents.publish(session.id, "source-changed");
   await until(() => current?.messages?.some((m) => m.id === "answer"));
   assert.equal(current.messages.at(-1).text, "new final answer");
+  await fs.appendFile(
+    x.file,
+    [
+      event("limited-live", "task_started"),
+      event("limited-live", "task_complete", {
+        error: {
+          message: "Usage limit reached. Try again at 14:00.",
+          codex_error_info: "usage_limit_exceeded",
+        },
+      }),
+    ]
+      .map((record) => JSON.stringify(record) + "\n")
+      .join(""),
+  );
+  f.application.chatEvents.publish(session.id, "source-changed");
+  await until(() =>
+    current?.messages?.some((m) => m.id === "codex-turn-error:limited-live"),
+  );
+  assert.equal(current.messages.at(-1).text, "Usage limit reached. Try again at 14:00.");
 });
 
 test("missing anchor cannot append older turns after the latest API history", async (t) => {
@@ -268,5 +287,42 @@ test("API catch-up does not duplicate items and foreign-thread events never appe
   assert.deepEqual(
     after.messages.map((m) => m.id),
     ["old", "answer"],
+  );
+});
+
+test("a usage-limit failure survives stale API history, repeated reads and API catch-up", async (t) => {
+  const x = await fixture(t);
+  const error = {
+    message: "You've hit your usage limit. Try again at 14:00.",
+    codex_error_info: "usage_limit_exceeded",
+  };
+  await x.write([
+    event("indexed", "task_started"),
+    item("indexed", "old", "before reload"),
+    event("limited", "task_started"),
+    event("limited", "task_complete", { error }),
+  ]);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const result = await readHistoryPage(x.history, x.session, "thread");
+    const failures = result.messages.filter((m) => m.id === "codex-turn-error:limited");
+    assert.equal(failures.length, 1);
+    assert.equal(failures[0].text, error.message);
+  }
+  const request = x.history.codexRequest;
+  x.history.codexRequest = (_session, run) =>
+    request(_session, (client) =>
+      run({
+        request: async (method, args) => {
+          const response = await client.request(method, args);
+          if (method === "thread/turns/list")
+            response.data.unshift({ id: "limited", status: "failed", error, items: [] });
+          return response;
+        },
+      }),
+    );
+  const result = await readHistoryPage(x.history, x.session, "thread");
+  assert.equal(
+    result.messages.filter((m) => m.id === "codex-turn-error:limited").length,
+    1,
   );
 });

@@ -2,6 +2,8 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { chatComposerCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { providerNames } from "./presentation.js";
 import React, { useLayoutEffect, useRef } from "react";
+import SlashCompletion from "./SlashCompletion.jsx";
+import useSlashCompletion from "./useSlashCompletion.js";
 import ChatAttachments from "./ChatAttachments.jsx";
 export default function ChatComposer({
   submit,
@@ -18,6 +20,20 @@ export default function ChatComposer({
   attachments,
 }) {
   const input = useRef(null);
+  const completion = useSlashCompletion({
+    session,
+    text,
+    setText,
+    setSent,
+    input,
+    disabled:
+      busy ||
+      deliveryLocked ||
+      modelPending ||
+      session.pipeline?.headless ||
+      session.status !== "running" ||
+      session.purpose === "login",
+  });
   useLayoutEffect(() => {
     const element = input.current;
     const media = window.matchMedia("(max-width: 700px)");
@@ -34,6 +50,7 @@ export default function ChatComposer({
   }, [text]);
   return (
     <form className="composer chat-composer" onSubmit={submit}>
+      <SlashCompletion completion={completion} />
       <ChatAttachments
         {...attachments}
         disabled={
@@ -47,6 +64,13 @@ export default function ChatComposer({
       />
       <textarea
         ref={input}
+        aria-autocomplete="list"
+        aria-controls={completion.open ? completion.id : undefined}
+        aria-activedescendant={
+          completion.open ? `${completion.id}-${completion.selected}` : undefined
+        }
+        onFocus={completion.onFocus}
+        onBlur={completion.onBlur}
         aria-label={commonCopy.message}
         placeholder={commonCopy.messagePlaceholder(providerNames[session.tool])}
         value={text}
@@ -69,6 +93,7 @@ export default function ChatComposer({
           if (!busy && !modelPending) attachments.add(event.clipboardData.files);
         }}
         onKeyDown={(event) => {
+          if (completion.onKeyDown(event)) return;
           if (
             event.key !== "Enter" ||
             event.nativeEvent.isComposing ||

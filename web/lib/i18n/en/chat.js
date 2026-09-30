@@ -1,4 +1,6 @@
 export const chatComposerCopy = {
+  slashTitle: "Slash commands",
+  slashHint: "↑↓ select · Tab or Enter complete",
   requestPending:
     "Answer the open request above or in the terminal. Messages you send now are delivered afterwards.",
   messageSent: "Sent to the running session",
@@ -56,6 +58,7 @@ export const chatMessageCopy = {
   subtle: "[Image",
 };
 export const chatViewCopy = {
+  limitWarning: "Usage limit warning",
   jumpToLatest: "Jump to latest",
   resetRequested: "New conversation requested",
   resetConfirmed: "New conversation ready",

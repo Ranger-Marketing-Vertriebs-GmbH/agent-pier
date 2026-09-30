@@ -50,7 +50,10 @@ async function readTail(history, session, thread) {
         turn = { id: event.turn_id, items: [], status: "inProgress" };
         turns.set(turn.id, turn);
       }
-      if (event.type === "task_complete") turn.status = "completed";
+      if (event.type === "task_complete") {
+        turn.status = event.error ? "failed" : "completed";
+        turn.error = event.error || null;
+      }
       if (event.type === "turn_aborted") turn.status = "interrupted";
       if (event.type === "task_started") turn.status = "inProgress";
       if (event.type !== "item_completed") continue;
