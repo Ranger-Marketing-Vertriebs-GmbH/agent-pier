@@ -2,6 +2,7 @@ import { clearContext, resetPresentation, validResetContext } from "./chat-reset
 import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { browserUuid } from "../../lib/browser-uuid.js";
 import { reusedDraft } from "./chat-draft-reuse.js";
+import { deliveryContentMatches } from "./delivery-content.js";
 
 export const deliveryScope = (session) =>
   JSON.stringify([
@@ -37,7 +38,6 @@ const predatesDelivery = (item, message) => {
     Number.isFinite(startedAt) && Number.isFinite(timestamp) && timestamp < startedAt
   );
 };
-const normalized = (text) => text.replaceAll("\r\n", "\n").trim();
 
 // Matching is presentation-only: native text is NOT an acknowledgement of delivery.
 // Consume rows once so two identical outgoing messages cannot both match one row.
@@ -60,7 +60,7 @@ export function deliveryMatches(items, messages) {
           (typeof message.timestamp === "number"
             ? message.timestamp
             : Date.parse(message.timestamp)) >= item.observation.startedAt) &&
-        normalized(message.text || "") === normalized(item.text),
+        deliveryContentMatches(item, message),
     );
     if (match) {
       used.add(match.id);

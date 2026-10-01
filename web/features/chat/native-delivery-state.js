@@ -1,4 +1,5 @@
 import { deliveryMatches } from "./chat-draft.js";
+import { deliveryContentMatches } from "./delivery-content.js";
 
 /** Display evidence only. Never changes custody, resend eligibility or transport receipts. */
 export function nativeDeliveryStates(items, messages, input, tool, live = true) {
@@ -34,16 +35,30 @@ export function nativeDeliveryStates(items, messages, input, tool, live = true) 
       Number.isFinite(item.observation.startedAt) &&
       timestamp >= item.observation.startedAt;
     const nativeMatch =
-      message?.text === item.text && !item.baselineIds.includes(message.id);
+      message &&
+      deliveryContentMatches(item, message, true) &&
+      !item.baselineIds.includes(message.id);
+    // Byte-identical reuploads have different path-based delivery hashes. One
+    // native image row cannot establish which attempt the CLI accepted.
+    const ambiguousImage =
+      message?.imageInput &&
+      items.some(
+        (other) =>
+          other.id !== item.id &&
+          (!other.matchedMessageId || other.matchedMessageId === message.id) &&
+          !other.baselineIds.includes(message.id) &&
+          deliveryContentMatches(other, message, true),
+      );
     if (queued === 1)
       states.set(item.id, {
         state: "nativeQueued",
-        messageId: nativeMatch && fresh ? messageId : null,
+        messageId: nativeMatch && fresh && !ambiguousImage ? messageId : null,
       });
     else if (
       queued === 0 &&
       fresh &&
       nativeMatch &&
+      !ambiguousImage &&
       (tool !== "opencode" || message.inputConsumed === true)
     )
       states.set(item.id, { state: "nativeAccepted", messageId });

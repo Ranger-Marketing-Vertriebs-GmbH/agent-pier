@@ -6,6 +6,7 @@ import os from "node:os";
 import { createHmac, randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { problem } from "../../lib/storage.js";
+import { UploadedImageInput } from "./uploaded-image-input.js";
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const imageExtension = /\.(?:png|jpe?g|gif|webp|avif)$/i;
@@ -122,12 +123,14 @@ export function rasterType(bytes) {
 }
 
 export class ChatImages {
-  constructor({ sessions, chat, home = os.homedir() }) {
+  constructor({ sessions, chat, attachments, home = os.homedir() }) {
     this.sessions = sessions;
     this.chat = chat;
+    this.attachments = attachments;
     this.home = home;
     this.key = randomBytes(32);
     this.historical = new Map();
+    this.uploadedInput = new UploadedImageInput();
   }
   descriptors(session, snapshot) {
     let remaining = 64;
@@ -162,10 +165,14 @@ export class ChatImages {
     const session = await this.sessions.get(id);
     return {
       ...snapshot,
-      messages: this.descriptors(session, snapshot).map((message) => ({
-        ...message,
-        images: message.images.map(({ fullPath: _fullPath, ...image }) => image),
-      })),
+      messages: await this.uploadedInput.decorate(
+        session,
+        this.descriptors(session, snapshot).map((message) => ({
+          ...message,
+          images: message.images.map(({ fullPath: _fullPath, ...image }) => image),
+        })),
+        session.attachments?.directory || this.attachments?.folder(id),
+      ),
     };
   }
   async read(id) {

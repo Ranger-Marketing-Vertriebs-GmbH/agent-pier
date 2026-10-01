@@ -1,4 +1,5 @@
 import { restoreClaudeImagePaths } from "./claude-image-history.js";
+import { codexImageInput } from "./codex-image-input.js";
 import { codexInputTime } from "./native-input-time.js";
 import { markOpenCodeInput } from "./opencode-input-state.js";
 import { toolFileChanges, codexFileChanges } from "./tool-file-changes.js";
@@ -236,7 +237,10 @@ export function normalizeCodex(thread) {
           messages.set(id, { id, role, text: value, ...extra, ...timestamp });
       };
       if (item.type === "userMessage")
-        add("user", text(item.content), stamp(item.timestamp ?? codexInputTime(item.id)));
+        add("user", text(item.content), {
+          ...stamp(item.timestamp ?? codexInputTime(item.id)),
+          ...codexImageInput(item.content),
+        });
       if (item.type === "agentMessage" || item.type === "plan")
         add("assistant", string(item.text));
       if (item.type === "commandExecution")
