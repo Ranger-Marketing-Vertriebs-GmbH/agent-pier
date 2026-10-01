@@ -23,7 +23,7 @@ const untranslated = new Map(
     "server/features/mcp/session-capability.js": [
       "Invalid AgentPier session capability.",
       "Unsafe AgentPier session capability storage.",
-      "AgentPier access expired, revoked or session unavailable. Reload the session to renew an expired grant.",
+      "AgentPier access revoked or session unavailable.",
     ],
     "server/features/mcp/start-requests.js": [
       "This request ID was already used for a different start.",
