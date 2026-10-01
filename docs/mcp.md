@@ -122,19 +122,21 @@ Login, shell and pipeline-owned sessions do not receive this integration. A
 pipeline cannot obtain it by adding launch parameters, so internal start rights
 are not automatically inherited by its workers.
 
-The session toolbar's **AgentPier tools** button shows permissions and expiry and
-allows immediate revocation. Grants expire after twelve hours, or earlier when the
-session stops, is removed or its owner revokes access. Reloading a session with
-access still enabled renews the grant and rotates its credential, while retaining
-run ownership. A web-only restart preserves existing sessions and grants; the
+The session toolbar's **AgentPier tools** button shows permissions and access status
+and allows immediate revocation. Grants have no time limit while the session is
+running. Access ends when the session stops, is removed or its owner revokes it.
+Reloading a session with access still enabled rotates its credential while retaining
+run ownership. Existing grants with a legacy expiry also follow this session
+lifecycle; updating AgentPier restores access for running sessions without a CLI
+reload. A web-only restart preserves existing sessions and grants; the
 stdio helper reconnects on its next request. Calls made while the web service is
 unavailable fail without automatically replaying mutations.
 
 Credentials are stored only in private generation-specific files below
 `session-mcp/<session-id>/` in the data directory. Launch arguments contain file
-paths, never tokens; browser session metadata contains only the selection,
-generation and expiry. Each request validates the generation, expiry and active
-session identity, and mutations recheck authorization after asynchronous waits.
+paths, never tokens; browser session metadata contains only the enabled state,
+selection and generation. Each request validates the generation and active session
+identity, and mutations recheck authorization after asynchronous waits.
 Internal credentials are not accepted by the public HTTP MCP endpoint. Logical
 backups omit the credential directory, and restored historical sessions lose this
 integration. These grants constrain MCP access, not the host user's OS access:

@@ -111,7 +111,7 @@ export class SessionMcp {
       if (!replace) throw problem(serverMessages.mcp.sessionAccessRevoked, 403);
       return {
         ...launch,
-        agentpierTools: { enabled: false, selection, expiresAt: Date.now() },
+        agentpierTools: { enabled: false, selection },
       };
     }
     const choices = this.validate(selection);
@@ -132,7 +132,6 @@ export class SessionMcp {
     privateDirectory(folder);
     const generation = randomUUID(),
       token = randomBytes(32).toString("hex");
-    const expiresAt = Date.now() + 12 * 60 * 60_000;
     const grant = {
       id: `session-${id}`,
       clientId: `session-${id}`,
@@ -147,7 +146,6 @@ export class SessionMcp {
     const record = {
       generation,
       token,
-      expiresAt,
       accountId: account.id,
       tool: account.tool,
       grant,
@@ -173,7 +171,7 @@ export class SessionMcp {
       });
       const tooled = {
         ...prepared,
-        agentpierTools: { enabled: true, generation, expiresAt, selection: choices },
+        agentpierTools: { enabled: true, generation, selection: choices },
       };
       // The capability folder carries the credential the spawned bridge reads, and
       // for claude the plugin directory written below it. The bridge then connects
