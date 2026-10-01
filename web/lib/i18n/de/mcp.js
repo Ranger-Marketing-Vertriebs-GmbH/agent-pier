@@ -3,7 +3,7 @@ export const mcpCopy = {
   sessionToolsSummary:
     "Alle Werkzeuge für alle Projekte, Accounts und Provider-Verbindungen.",
   sessionToolsHint:
-    "Gilt für diese Sitzung, höchstens zwölf Stunden. Neuladen erneuert eine aktive Freigabe. Gestartete Läufe laufen nach Ende der Sitzung weiter. Pipeline-Sitzungen erhalten diesen Zugang nicht.",
+    "Gilt ohne Zeitlimit, solange diese Sitzung läuft. Stoppen oder Löschen der Sitzung sowie ein Widerruf beenden die Freigabe. Gestartete Läufe laufen nach Ende der Sitzung weiter. Pipeline-Sitzungen erhalten diesen Zugang nicht.",
   title: "MCP & Zugriffe",
   introduction:
     "Verbinde deine Coding-CLI mit AgentPier und lege fest, welche Projekte und Aktionen sie nutzen darf.",

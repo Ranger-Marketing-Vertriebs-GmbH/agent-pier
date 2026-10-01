@@ -4,10 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { applicationFixture } from "../helpers/application.js";
 import { issue, connect, selection } from "../helpers/session-mcp.js";
-import {
-  capabilityDirectory,
-  checkSessionCapability,
-} from "../../server/features/mcp/session-capability.js";
+import { capabilityDirectory } from "../../server/features/mcp/session-capability.js";
 
 for (const tool of ["codex", "claude", "opencode"]) {
   test(`${tool}: native MCP config and real stdio client use session grants without OAuth`, async (t) => {
@@ -65,19 +62,10 @@ for (const tool of ["codex", "claude", "opencode"]) {
   });
 }
 
-test("expiry, process exit, session identity mismatch and generation rotation reject old capabilities", async (t) => {
+test("process exit, session identity mismatch and generation rotation reject old capabilities", async (t) => {
   const f = await applicationFixture(t);
   const issued = await issue(f);
   const id = issued.session.id;
-  assert.throws(
-    () =>
-      checkSessionCapability(
-        f.dataDir,
-        issued.token,
-        issued.session.agentpierTools.expiresAt,
-      ),
-    { status: 403 },
-  );
   const session = await f.application.sessions.get(id);
   await f.application.sessions.save({ ...session, accountId: "local-claude" });
   assert.throws(() => f.application.sessionMcp.check(issued.token), { status: 403 });

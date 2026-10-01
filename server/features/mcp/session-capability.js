@@ -34,7 +34,7 @@ export function revokeSessionMcp(dataDir, id) {
   safePath(directory, dataDir);
   fs.rmSync(directory, { recursive: true, force: true });
 }
-export function checkSessionCapability(dataDir, token, now = Date.now()) {
+export function checkSessionCapability(dataDir, token) {
   try {
     if (typeof token !== "string" || token.length > 200) throw Error();
     const [id, generation, secret, extra] = token.split(".");
@@ -45,11 +45,11 @@ export function checkSessionCapability(dataDir, token, now = Date.now()) {
       privatePath(path.join(directory, "active.json"), dataDir),
       null,
     );
+    // Older grants may carry expiresAt. Access now follows the session lifecycle,
+    // so those credentials remain usable without restarting their running CLI.
     if (
       !record ||
       record.generation !== generation ||
-      !Number.isFinite(record.expiresAt) ||
-      record.expiresAt <= now ||
       typeof record.token !== "string" ||
       record.token.length !== secret.length ||
       !timingSafeEqual(Buffer.from(record.token), Buffer.from(secret))
@@ -74,9 +74,6 @@ export function checkSessionCapability(dataDir, token, now = Date.now()) {
       throw Error();
     return { token, extra: { grant: record.grant }, sessionId: id };
   } catch {
-    throw problem(
-      "AgentPier access expired, revoked or session unavailable. Reload the session to renew an expired grant.",
-      403,
-    );
+    throw problem("AgentPier access revoked or session unavailable.", 403);
   }
 }
