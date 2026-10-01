@@ -126,7 +126,13 @@ export async function createServices(config) {
   await github.sync();
   const activity = new SessionActivity({ sessions });
   const models = new ModelController({ sessions });
-  const chatImages = new ChatImages({ sessions, chat, home: config.home });
+  const chatAttachments = new ChatAttachments({ dataDir: config.dataDir, sessions });
+  const chatImages = new ChatImages({
+    sessions,
+    chat,
+    attachments: chatAttachments,
+    home: config.home,
+  });
   const chatStreams = new ChatStreams({
     sessions,
     chat,
@@ -135,7 +141,6 @@ export async function createServices(config) {
     accounts,
     config,
   });
-  const chatAttachments = new ChatAttachments({ dataDir: config.dataDir, sessions });
   const sharedProfiles = new SharedCliProfiles({ accounts });
   const extensions = new ExtensionsStore({ accounts, home: config.home, sharedProfiles });
   const agency = new AgencyStore({ accounts, sharedProfiles });
