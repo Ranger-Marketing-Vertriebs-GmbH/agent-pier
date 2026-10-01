@@ -1,4 +1,4 @@
-@media (max-width: 700px) {
+@media (max-width: 700px), (any-pointer: coarse) {
   html:has(.mobile-session-workspace),
   body:has(.mobile-session-workspace) {
     overflow: hidden;
@@ -19,6 +19,14 @@
     height: 100%;
     min-height: 0;
   }
+  .app:has(.mobile-session-workspace) .sidebar {
+    top: var(--session-viewport-top, 0px);
+    bottom: auto;
+    height: var(--session-viewport-height, 100dvh);
+  }
+  .app:has(.mobile-session-workspace) .sidebar-float {
+    top: calc(var(--session-viewport-top, 0px) + 7px);
+  }
   .app:has(.mobile-session-workspace) .mobile-header,
   .mobile-session-workspace .session-heading,
   .mobile-session-workspace .terminal-topbar {
@@ -33,10 +41,23 @@
   .mobile-session-workspace .terminal-pane {
     overflow: hidden;
   }
-  .mobile-session-workspace .xterm-helper-textarea {
+  .mobile-session-workspace .xterm-helper-textarea,
+  .mobile-session-workspace .chat-composer textarea {
     font-size: 16px;
   }
   .mobile-session-workspace .xterm-viewport {
     overscroll-behavior: contain;
+  }
+}
+
+@media (min-width: 701px) and (any-pointer: coarse) {
+  .mobile-session-workspace {
+    padding-top: 12px;
+  }
+  .mobile-session-workspace .session-heading {
+    padding-bottom: 12px;
+  }
+  .mobile-session-workspace .session-footer {
+    padding-block: 6px;
   }
 }

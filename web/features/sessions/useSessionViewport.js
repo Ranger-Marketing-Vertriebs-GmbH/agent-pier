@@ -4,7 +4,9 @@ export default function useSessionViewport(active) {
   useEffect(() => {
     if (!active) return;
     const viewport = window.visualViewport;
-    const media = window.matchMedia("(max-width: 700px)");
+    // iPadOS may request a desktop layout, including when a trackpad is attached.
+    // Keep this query in sync with mobile-workspace.css.
+    const media = window.matchMedia("(max-width: 700px), (any-pointer: coarse)");
     const style = document.documentElement.style;
     const clear = () => {
       style.removeProperty("--session-viewport-height");

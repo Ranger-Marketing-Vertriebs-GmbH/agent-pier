@@ -56,15 +56,18 @@
     order: 4;
     width: 100%;
   }
-  .mobile-chat-workspace .chat-messages {
-    padding: 16px 16px 4px;
-    overscroll-behavior: contain;
-  }
   .mobile-chat-workspace .chat-message {
     margin-bottom: 20px;
   }
   .mobile-chat-workspace .message-byline {
     display: none;
+  }
+}
+
+@media (max-width: 700px), (any-pointer: coarse) {
+  .mobile-chat-workspace .chat-messages {
+    padding: 16px 16px 4px;
+    overscroll-behavior: contain;
   }
   .mobile-chat-workspace .chat-compose-area {
     margin: 0 8px;
