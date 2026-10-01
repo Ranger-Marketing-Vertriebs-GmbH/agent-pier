@@ -11,14 +11,43 @@ import { releaseSessionReferences } from "./release-references.js";
 const cleanupError = (code, message, status = 409) =>
   Object.assign(problem(message, status), { code });
 
-export function releaseProcessReferences(output) {
+export function releaseProcessReferences(output, executableFor = () => null) {
   return output
     .split("\n")
     .map((line) => {
       // tmux keeps the first client's launch command in its process title for its
       // entire lifetime. Only its executable is a live dependency, not those old args.
       const tmux = /^(\s*\d+\s+\d+\s+)?((?:\S*\/)?tmux)\s+/.exec(line);
-      return tmux ? `${tmux[1] || ""}${tmux[2]}` : line;
+      if (tmux) return `${tmux[1] || ""}${tmux[2]}`;
+      // macOS truncates a non-final comm column even with -ww. Recognize a
+      // possible truncated executable prefix, then verify the full comm alone.
+      // Linux reports tmux's server/client title instead; verify /proc's executable.
+      // Never infer tmux identity from a mention elsewhere in its arguments.
+      const columns = /^(\s*(\d+)\s+\d+\s+)(\S+)\s+(\S+)/.exec(line);
+      if (!columns) return line;
+      const [, prefix, pid, comm, command] = columns;
+      const titled = comm === "tmux:" && ["server", "client"].includes(command);
+      if (
+        !titled &&
+        (!path.isAbsolute(command) ||
+          path.basename(command) !== "tmux" ||
+          !command.startsWith(comm) ||
+          command === comm)
+      )
+        return line;
+      try {
+        const executable = executableFor(pid);
+        if (
+          typeof executable === "string" &&
+          path.isAbsolute(executable) &&
+          path.basename(executable) === "tmux" &&
+          (titled || executable === command)
+        )
+          return `${prefix}${executable}`;
+      } catch {
+        // Unavailable or changed process evidence must keep the release protected.
+      }
+      return line;
     })
     .join("\n");
 }
@@ -29,6 +58,14 @@ export function releaseProcesses() {
       ["-ww", "-u", String(process.getuid()), "-o", "pid=,ppid=,comm=,command="],
       { encoding: "utf8", timeout: 5000, maxBuffer: 8 * 1024 * 1024 },
     ),
+    (pid) =>
+      process.platform === "linux"
+        ? fs.readlinkSync(`/proc/${pid}/exe`)
+        : execFileSync("ps", ["-ww", "-p", pid, "-o", "comm="], {
+            encoding: "utf8",
+            timeout: 1500,
+            maxBuffer: 65536,
+          }).trim(),
   );
 }
 export function cleanupState({
