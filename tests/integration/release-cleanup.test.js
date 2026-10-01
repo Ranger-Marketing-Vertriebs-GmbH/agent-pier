@@ -282,6 +282,28 @@ test("a real isolated tmux with an absolute launch path does not pin historical 
   );
 });
 
+test("Linux tmux titles require a verified executable and preserve live release binaries", async (t) => {
+  const { releaseProcessReferences } =
+    await import("../../server/features/operations/release-cleanup.js");
+  const r = await fixture(t);
+  const old = `${r.installRoot}/releases/1.0.0`;
+  for (const title of ["server", "client"]) {
+    const line = `  100 1 tmux: ${title} /usr/bin/tmux new-session -e PATH=${old}/bin:/usr/bin`;
+    r.processes = () => releaseProcessReferences(line, () => "/usr/bin/tmux");
+    assert.equal(
+      r.cleanupStatus().versions.find((v) => v.version === "1.0.0").canDelete,
+      true,
+    );
+    for (const executable of [null, "/usr/bin/node", `${old}/bin/tmux`]) {
+      r.processes = () => releaseProcessReferences(line, () => executable);
+      assert.equal(
+        r.cleanupStatus().versions.find((v) => v.version === "1.0.0").deleteReason,
+        "inUse",
+      );
+    }
+  }
+});
+
 test("the cleanup job succeeds and records a valid audit event", async (t) => {
   const r = await fixture(t);
   const audit = new AuditStore({ dataDir: r.dataDir });

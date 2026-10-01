@@ -21,19 +21,29 @@ export function releaseProcessReferences(output, executableFor = () => null) {
       if (tmux) return `${tmux[1] || ""}${tmux[2]}`;
       // macOS truncates a non-final comm column even with -ww. Recognize a
       // possible truncated executable prefix, then verify the full comm alone.
+      // Linux reports tmux's server/client title instead; verify /proc's executable.
       // Never infer tmux identity from a mention elsewhere in its arguments.
       const columns = /^(\s*(\d+)\s+\d+\s+)(\S+)\s+(\S+)/.exec(line);
       if (!columns) return line;
       const [, prefix, pid, comm, command] = columns;
+      const titled = comm === "tmux:" && ["server", "client"].includes(command);
       if (
-        !path.isAbsolute(command) ||
-        path.basename(command) !== "tmux" ||
-        !command.startsWith(comm) ||
-        command === comm
+        !titled &&
+        (!path.isAbsolute(command) ||
+          path.basename(command) !== "tmux" ||
+          !command.startsWith(comm) ||
+          command === comm)
       )
         return line;
       try {
-        if (executableFor(pid) === command) return `${prefix}${command}`;
+        const executable = executableFor(pid);
+        if (
+          typeof executable === "string" &&
+          path.isAbsolute(executable) &&
+          path.basename(executable) === "tmux" &&
+          (titled || executable === command)
+        )
+          return `${prefix}${executable}`;
       } catch {
         // Unavailable or changed process evidence must keep the release protected.
       }
@@ -49,11 +59,13 @@ export function releaseProcesses() {
       { encoding: "utf8", timeout: 5000, maxBuffer: 8 * 1024 * 1024 },
     ),
     (pid) =>
-      execFileSync("ps", ["-ww", "-p", pid, "-o", "comm="], {
-        encoding: "utf8",
-        timeout: 1500,
-        maxBuffer: 65536,
-      }).trim(),
+      process.platform === "linux"
+        ? fs.readlinkSync(`/proc/${pid}/exe`)
+        : execFileSync("ps", ["-ww", "-p", pid, "-o", "comm="], {
+            encoding: "utf8",
+            timeout: 1500,
+            maxBuffer: 65536,
+          }).trim(),
   );
 }
 export function cleanupState({
