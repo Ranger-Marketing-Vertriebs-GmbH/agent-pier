@@ -181,6 +181,107 @@ test("cleanup state lists the sessions and process classes holding each version"
   );
 });
 
+test("a truncated macOS tmux comm is verified before historical PATH references are ignored", async (t) => {
+  const { releaseProcessReferences } =
+    await import("../../server/features/operations/release-cleanup.js");
+  const r = await fixture(t);
+  const old = `${r.installRoot}/releases/1.0.0`;
+  const command = "/opt/homebrew/bin/tmux";
+  const line = `  100     1 /opt/homebrew/bi ${command} new-session -e PATH=${old}/bin:/usr/bin`;
+  r.processes = () => releaseProcessReferences(line, () => command);
+  const state = r.cleanupStatus().versions.find((v) => v.version === "1.0.0");
+  assert.equal(state.canDelete, true);
+  assert.deepEqual(state.unidentifiedProcesses, []);
+  // Missing evidence, changed processes and other executables must remain protected.
+  for (const executable of [null, "", "/opt/homebrew/bin/node", `${old}/bin/tmux`]) {
+    r.processes = () => releaseProcessReferences(line, () => executable);
+    assert.equal(
+      r.cleanupStatus().versions.find((v) => v.version === "1.0.0").deleteReason,
+      "inUse",
+    );
+  }
+  r.processes = () =>
+    releaseProcessReferences(line, () => {
+      throw Error("ps unavailable");
+    });
+  assert.equal(
+    r.cleanupStatus().versions.find((v) => v.version === "1.0.0").deleteReason,
+    "inUse",
+  );
+  // A tmux binary inside the old release remains a live dependency, even with a truncated comm.
+  const bundled = `${old}/bin/tmux`;
+  r.processes = () =>
+    releaseProcessReferences(
+      `  100 1 ${bundled.slice(0, 15)} ${bundled} new-session`,
+      () => bundled,
+    );
+  assert.equal(
+    r.cleanupStatus().versions.find((v) => v.version === "1.0.0").deleteReason,
+    "inUse",
+  );
+  // An unrelated program mentioning tmux in arguments is never treated as tmux.
+  r.processes = () =>
+    releaseProcessReferences(
+      `  100 1 node node ${command} ${old}/server/worker.js`,
+      () => command,
+    );
+  assert.equal(
+    r.cleanupStatus().versions.find((v) => v.version === "1.0.0").deleteReason,
+    "inUse",
+  );
+  r.processes = () => releaseProcessReferences(line, () => command);
+  assert.deepEqual(await r.cleanup(["1.0.0"]), { removedVersions: ["1.0.0"] });
+});
+
+test("a real isolated tmux with an absolute launch path does not pin historical PATH entries", async (t) => {
+  const { execFileSync } = await import("node:child_process");
+  const { releaseProcesses } =
+    await import("../../server/features/operations/release-cleanup.js");
+  const r = await fixture(t);
+  const binary = execFileSync("which", [process.env.TMUX_PATH || "tmux"], {
+    encoding: "utf8",
+  }).trim();
+  const launcher = path.join(r.dataDir, "tmux");
+  await fs.symlink(binary, launcher);
+  // Unix sockets have a short platform limit; keep this disposable socket outside the fixture root.
+  const socketDir = await fs.mkdtemp(path.join(os.tmpdir(), "ap-tmux-"));
+  const socket = path.join(socketDir, "s");
+  t.after(async () => {
+    try {
+      execFileSync(binary, ["-S", socket, "kill-server"], { stdio: "ignore" });
+    } catch {}
+    await fs.rm(socketDir, { recursive: true, force: true });
+  });
+  execFileSync(
+    launcher,
+    [
+      "-S",
+      socket,
+      "-f",
+      "/dev/null",
+      "new-session",
+      "-d",
+      "-s",
+      "fixture",
+      "-e",
+      `PATH=${r.installRoot}/releases/1.0.0/bin:/usr/bin:/bin`,
+      "/bin/sh -c 'sleep 120'",
+    ],
+    { stdio: "pipe" },
+  );
+  r.processes = releaseProcesses;
+  assert.equal(
+    r.cleanupStatus().versions.find((v) => v.version === "1.0.0").canDelete,
+    true,
+  );
+  await r.cleanup(["1.0.0"]);
+  assert.doesNotThrow(() =>
+    execFileSync(binary, ["-S", socket, "has-session", "-t", "fixture"], {
+      stdio: "pipe",
+    }),
+  );
+});
+
 test("the cleanup job succeeds and records a valid audit event", async (t) => {
   const r = await fixture(t);
   const audit = new AuditStore({ dataDir: r.dataDir });
