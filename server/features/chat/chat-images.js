@@ -14,6 +14,8 @@ const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_HISTORY_PAGES = 20;
+const MISS_TTL = 60_000;
+const MAX_MISSES = 1024;
 const imageExtension = /\.(?:png|jpe?g|gif|webp|avif)$/i;
 function localPath(source, cwd, home) {
   if (typeof source !== "string") return null;
@@ -148,6 +150,7 @@ export class ChatImages {
     this.uploadedInput = new UploadedImageInput();
     this.toolTexts = toolTexts;
     this.toolImages = toolImages;
+    this.misses = new Map();
   }
   toolImageRefs(id, providerSessionId, row) {
     const images = [],
@@ -200,23 +203,61 @@ export class ChatImages {
     return type ? { type, body, immutable: true } : null;
   }
   // Rows evicted from the stores may only exist on older history pages. Walk a
-  // bounded number of pages back from the live window; an expired or mismatched
-  // cursor simply ends the walk.
+  // bounded number of pages back from the live window without registering
+  // client cursors; an expired or mismatched cursor simply ends the walk.
   async *olderMessages(id, snapshot) {
     const current = snapshot.providerSessionId ?? null;
-    let cursor = snapshot.history?.cursor;
-    for (let page = 0; page < MAX_HISTORY_PAGES; page += 1) {
-      if (typeof cursor !== "string" || !cursor) return;
-      let older;
-      try {
-        older = await this.chat.older(id, cursor);
-      } catch {
-        return;
+    const cursor = snapshot.history?.cursor;
+    if (typeof cursor !== "string" || !cursor || !this.chat.olderPages) return;
+    const pages = this.chat.olderPages(id, cursor, MAX_HISTORY_PAGES);
+    try {
+      for (;;) {
+        let next;
+        try {
+          next = await pages.next();
+        } catch {
+          return;
+        }
+        if (next.done || (next.value?.providerSessionId ?? null) !== current) return;
+        yield next.value.messages || [];
       }
-      if ((older?.providerSessionId ?? null) !== current) return;
-      yield older.messages || [];
-      cursor = older.history?.cursor;
+    } finally {
+      await pages.return?.().catch(() => {});
     }
+  }
+  // Unknown or stale ids are remembered briefly so repeated requests do not
+  // repeat the history walk.
+  missKey(id, snapshot, kind, value) {
+    return JSON.stringify([id, snapshot.providerSessionId ?? null, kind, value]);
+  }
+  knownMiss(key) {
+    const expires = this.misses.get(key);
+    if (expires > Date.now()) return true;
+    this.misses.delete(key);
+    return false;
+  }
+  rememberMiss(key) {
+    this.misses.delete(key);
+    this.misses.set(key, Date.now() + MISS_TTL);
+    while (this.misses.size > MAX_MISSES)
+      this.misses.delete(this.misses.keys().next().value);
+  }
+  forgetSession(id) {
+    this.toolTexts.forgetSession(id);
+    this.toolImages.forgetSession(id);
+    for (const key of this.misses.keys())
+      if (JSON.parse(key)[0] === id) this.misses.delete(key);
+  }
+  async walkFor(id, snapshot, kind, value, find) {
+    const key = this.missKey(id, snapshot, kind, value);
+    if (this.knownMiss(key)) return null;
+    for await (const messages of this.olderMessages(id, snapshot)) {
+      const found = find(messages);
+      if (found === null) break;
+      if (found !== undefined) return found;
+    }
+    this.rememberMiss(key);
+    return null;
   }
   storedToolImage(id, snapshot, imageId) {
     const current = snapshot.providerSessionId ?? null;
@@ -237,12 +278,15 @@ export class ChatImages {
   }
   async derivedToolImage(id, snapshot, imageId) {
     const current = snapshot.providerSessionId ?? null;
-    let found = this.toolImageEntry(id, current, snapshot.messages || [], imageId);
-    if (!found)
-      for await (const messages of this.olderMessages(id, snapshot)) {
-        found = this.toolImageEntry(id, current, messages, imageId);
-        if (found) break;
-      }
+    const found =
+      this.toolImageEntry(id, current, snapshot.messages || [], imageId) ||
+      (await this.walkFor(
+        id,
+        snapshot,
+        "image",
+        imageId,
+        (messages) => this.toolImageEntry(id, current, messages, imageId) || undefined,
+      ));
     if (!found) return null;
     const image = this.sniffedToolImage(found.data);
     if (!image) return null;
@@ -257,14 +301,13 @@ export class ChatImages {
     const isText = (row) => row?.role === "tool" && typeof row.text === "string";
     const row = snapshot.messages?.find((message) => message.id === messageId);
     if (isText(row)) return row.text;
-    for await (const messages of this.olderMessages(id, snapshot)) {
-      const older = messages.find((message) => message?.id === messageId);
-      if (!older) continue;
-      if (!isText(older)) break;
-      this.toolTexts.remember(id, messageId, current, older.text);
-      return older.text;
-    }
-    throw problem(serverMessages.chat.toolTextUnavailable, 404);
+    const older = await this.walkFor(id, snapshot, "text", messageId, (messages) => {
+      const found = messages.find((message) => message?.id === messageId);
+      return found ? (isText(found) ? found.text : null) : undefined;
+    });
+    if (older === null) throw problem(serverMessages.chat.toolTextUnavailable, 404);
+    this.toolTexts.remember(id, messageId, current, older);
+    return older;
   }
   descriptors(session, snapshot) {
     let remaining = 64;

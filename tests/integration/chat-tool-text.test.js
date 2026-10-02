@@ -160,20 +160,25 @@ test("a stored tool image is served without re-deriving tool images", async (t) 
   assert.equal(derived, 1);
 });
 
-// Pages keyed by cursor; each page names the cursor of the next older page.
+// Pages keyed by internal state; each page names the state of the next older
+// page, like ChatStore.olderPages walking from a client cursor.
 function stubOlderPages(f, pages, { providerSessionId = "native-one" } = {}) {
   const calls = [];
+  f.chatImages.forgetSession("one");
   f.snapshot.history = { cursor: "c1", generation: 1 };
-  f.chat.older = async (id, cursor) => {
-    calls.push(cursor);
-    const page = pages[cursor];
-    if (page instanceof Error) throw page;
-    if (!page) throw Object.assign(new Error("expired"), { status: 409 });
-    return structuredClone({
-      providerSessionId,
-      messages: page.messages,
-      history: { cursor: page.next ?? null, generation: 1 },
-    });
+  f.chat.older = async () => assert.fail("the walk must not register client cursors");
+  f.chat.olderPages = async function* (id, cursor, maxPages) {
+    assert.equal(id, "one");
+    assert.equal(maxPages, 20);
+    let state = cursor;
+    for (let index = 0; index < maxPages && state; index += 1) {
+      calls.push(state);
+      const page = pages[state];
+      if (page instanceof Error) throw page;
+      if (!page) throw Object.assign(new Error("expired"), { status: 409 });
+      yield structuredClone({ providerSessionId, messages: page.messages });
+      state = page.next ?? null;
+    }
   };
   return calls;
 }
@@ -250,6 +255,36 @@ test("the history walk stops at a null cursor, an error, or a provider change", 
   assert.equal(calls.length, 20);
   const response = await fetch(`${f.url}/api/sessions/one/chat/images/${"1".repeat(64)}`);
   assert.equal(response.status, 404);
+});
+
+test("unknown ids are remembered briefly so repeated lookups walk once", async (t) => {
+  const f = await fixture(t);
+  const calls = stubOlderPages(f, {
+    c1: { messages: [], next: "c2" },
+    c2: { messages: [], next: null },
+  });
+  for (let round = 0; round < 2; round += 1) {
+    await assert.rejects(f.chatImages.fullText("one", "missing"), { status: 404 });
+    await assert.rejects(f.chatImages.file("one", "1".repeat(64)), { status: 404 });
+  }
+  assert.deepEqual(calls, ["c1", "c2", "c1", "c2"]);
+  // Text and image misses are separate kinds even for the same id.
+  await assert.rejects(f.chatImages.fullText("one", "1".repeat(64)), { status: 404 });
+  assert.equal(calls.length, 6);
+  // A provider session change or forgetting the session walks again.
+  f.snapshot.providerSessionId = "native-two";
+  await assert.rejects(f.chatImages.fullText("one", "missing"), { status: 404 });
+  assert.equal(calls.length, 7);
+  f.snapshot.providerSessionId = "native-one";
+  f.chatImages.forgetSession("one");
+  await assert.rejects(f.chatImages.fullText("one", "missing"), { status: 404 });
+  assert.equal(calls.length, 9);
+  // Misses expire after a minute.
+  const now = Date.now;
+  t.after(() => (Date.now = now));
+  Date.now = () => now() + 61_000;
+  await assert.rejects(f.chatImages.fullText("one", "missing"), { status: 404 });
+  assert.equal(calls.length, 11);
 });
 
 test("tool images are cached immutably while path images stay uncached", async (t) => {

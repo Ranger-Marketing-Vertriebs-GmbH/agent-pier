@@ -171,6 +171,25 @@ export class ChatStore {
       },
     };
   }
+  /**
+   * Server-internal walk over older pages starting at a client cursor. It pages
+   * through the internal state directly, so it neither registers new cursors
+   * nor refreshes the recency of existing ones, and never resets the binding.
+   */
+  async *olderPages(id, cursor, maxPages) {
+    const entry = typeof cursor === "string" ? this.cursors.get(cursor) : null;
+    if (!entry || entry.id !== id) return;
+    const session = { ...(await this.sessions.get(id)) };
+    if (session.accountId !== entry.accountId || session.tool !== entry.tool) return;
+    let state = entry.state;
+    for (let page = 0; page < maxPages && state; page += 1) {
+      await this.current(session, entry.nativeId, entry.generation);
+      const content = await this.page(session, entry.nativeId, state);
+      await this.current(session, entry.nativeId, entry.generation);
+      yield { providerSessionId: entry.nativeId, messages: content.messages || [] };
+      state = content.next;
+    }
+  }
   initialize(session, nativeId, source = "manual") {
     this.reset(session.id);
     if (nativeId)
