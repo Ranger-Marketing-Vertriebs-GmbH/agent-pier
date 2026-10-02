@@ -42,7 +42,7 @@ export default function ConversationPicker({
         setBusy(true);
         setError("");
         try {
-          choose(
+          await choose(
             await request(`/sessions/${session.id}/chat/bind`, "POST", {
               providerSessionId: value,
             }),
