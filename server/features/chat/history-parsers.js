@@ -7,7 +7,11 @@ import {
   claudeConversationRecord,
   claudeVisibleRecord,
 } from "./claude-conversation-record.js";
-import { extractToolImages, imagePlaceholders } from "./tool-images.js";
+import {
+  attachmentPlaceholders,
+  extractToolImages,
+  imagePlaceholders,
+} from "./tool-images.js";
 import { createHash } from "node:crypto";
 
 const list = (value) => (Array.isArray(value) ? value : []);
@@ -64,7 +68,8 @@ const body = (value, images) => {
 };
 const withImages = (row, images, input) => {
   if (!images.length) return row;
-  const path = object(parse(input)).file_path;
+  const parsed = object(parse(input));
+  const path = parsed.file_path ?? parsed.filePath;
   return {
     ...row,
     toolImages: images,
@@ -532,6 +537,7 @@ export function normalizeOpenCode(exported) {
               text: join(
                 show(state.input, images),
                 body(state.output, images),
+                attachmentPlaceholders(state.attachments, images),
                 show(state.error, images),
               ),
               status,

@@ -27,11 +27,29 @@ export function extractToolImages(value, images) {
     Object.entries(value).map(([key, entry]) => [key, extractToolImages(entry, images)]),
   );
 }
-export function imagePlaceholders(value, images) {
-  const start = images.length;
-  extractToolImages(value, images);
-  return images
+const placeholdersFrom = (images, start) =>
+  images
     .slice(start)
     .map((_, index) => `[image ${start + index + 1}]`)
     .join("\n");
+export function imagePlaceholders(value, images) {
+  const start = images.length;
+  extractToolImages(value, images);
+  return placeholdersFrom(images, start);
+}
+const dataUrl = /^data:([^;,]+);base64,([A-Za-z0-9+/]+={0,2})$/;
+// OpenCode tools (for example read) report images as file attachments with a
+// base64 data URL beside a plain string output.
+export function attachmentPlaceholders(attachments, images) {
+  if (!Array.isArray(attachments)) return "";
+  const start = images.length;
+  for (const attachment of attachments) {
+    if (!record(attachment) || attachment.type !== "file") continue;
+    if (!TOOL_IMAGE_TYPES.has(attachment.mime) || typeof attachment.url !== "string")
+      continue;
+    const match = dataUrl.exec(attachment.url);
+    if (match && match[1] === attachment.mime)
+      images.push({ mime: attachment.mime, data: match[2] });
+  }
+  return placeholdersFrom(images, start);
 }

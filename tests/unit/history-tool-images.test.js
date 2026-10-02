@@ -141,3 +141,63 @@ test("OpenCode tool output extracts images", () => {
   assert.equal(messages[0].toolImages.length, 1);
   assert.equal(messages[0].toolImagePath, "/z.png");
 });
+
+test("OpenCode read attachments become tool images", () => {
+  const pngBase64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jzN8AAAAASUVORK5CYII=";
+  const attachment = (id, mime, url) => ({
+    id,
+    sessionID: "ses_1",
+    messageID: "msg_1",
+    type: "file",
+    mime,
+    url,
+  });
+  const { messages } = normalizeOpenCode({
+    messages: [
+      {
+        info: { id: "msg_1", role: "assistant", time: { created: 1 } },
+        parts: [
+          {
+            id: "prt_1",
+            sessionID: "ses_1",
+            messageID: "msg_1",
+            type: "tool",
+            callID: "call_1",
+            tool: "read",
+            state: {
+              status: "completed",
+              input: { filePath: "/repo/shot.png" },
+              output: "Image read successfully",
+              title: "shot.png",
+              metadata: { truncated: false },
+              time: { start: 1, end: 2 },
+              attachments: [
+                attachment("prt_a", "image/png", `data:image/png;base64,${pngBase64}`),
+                attachment(
+                  "prt_b",
+                  "image/svg+xml",
+                  "data:image/svg+xml;base64,PHN2Zy8+",
+                ),
+                attachment("prt_c", "image/png", "https://example.com/x.png"),
+                attachment("prt_d", "image/jpeg", `data:image/png;base64,${pngBase64}`),
+                attachment("prt_e", "image/png", `data:image/png;base64,${DATA}`),
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  });
+  const [row] = messages;
+  assert.equal(row.role, "tool");
+  assert.ok(row.text.includes("Image read successfully"));
+  assert.ok(row.text.endsWith("[image 1]\n[image 2]"));
+  assert.ok(!row.text.includes(pngBase64));
+  assert.ok(!row.text.includes(DATA));
+  assert.deepEqual(row.toolImages, [
+    { mime: "image/png", data: pngBase64 },
+    { mime: "image/png", data: DATA },
+  ]);
+  assert.equal(row.toolImagePath, "/repo/shot.png");
+});
