@@ -105,7 +105,11 @@ export default function ToolChanges({ message, sessionId }) {
         <summary>{copy.changeRaw}</summary>
         {raw &&
           (message.truncated ? (
-            <TruncatedToolOutput message={message} sessionId={sessionId} />
+            <TruncatedToolOutput
+              key={`${message.id}:${message.truncated.length}`}
+              message={message}
+              sessionId={sessionId}
+            />
           ) : (
             <ToolOutput text={message.text} toolName={message.toolName} />
           ))}

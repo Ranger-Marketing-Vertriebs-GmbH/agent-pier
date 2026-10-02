@@ -11,7 +11,7 @@ import { chatMessageCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { outputPreview, toolBlocks } from "./tool-output.js";
 import "./tool-output.css";
 const ToolCode = lazy(() => import("./ToolCode.jsx"));
-export default function ToolOutput({ text, toolName }) {
+export default function ToolOutput({ text, toolName, fromEnd = false }) {
   const [limit, setLimit] = useState(8);
   const id = useId();
   const content = useRef(null);
@@ -27,10 +27,16 @@ export default function ToolOutput({ text, toolName }) {
     return () => observer.disconnect();
   }, [limit, text]);
   const blocks = useMemo(() => toolBlocks(text, toolName), [text, toolName]);
-  const preview = useMemo(() => outputPreview(blocks, limit), [blocks, limit]);
+  const preview = useMemo(
+    () => outputPreview(blocks, limit, fromEnd),
+    [blocks, limit, fromEnd],
+  );
   return (
     <div className="tool-output">
-      <div id={id} className={`tool-output-blocks${limit === 8 ? " is-preview" : ""}`}>
+      <div
+        id={id}
+        className={`tool-output-blocks${limit === 8 ? " is-preview" : ""}${fromEnd ? " from-end" : ""}`}
+      >
         <div ref={content}>
           {preview.blocks.map((block, index) => (
             <div className="tool-output-block" key={index}>

@@ -81,3 +81,8 @@
   margin: 8px 0;
   color: #f4a49f;
 }
+.tool-output-blocks.is-preview.from-end {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}

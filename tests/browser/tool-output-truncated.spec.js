@@ -52,9 +52,13 @@ test("truncated tool output loads in full on demand", async ({ page }) => {
   const tool = await expand(page);
   await expect(tool).toContainText("HEAD-START");
   await expect(tool).toContainText(/KB omitted/);
-  // The preview caps characters per block, so the tail's last line sits behind "Show more lines".
-  await tool.getByRole("button", { name: "Show more lines" }).last().click();
   await expect(tool).toContainText("TAIL-END");
+  const clipped = await tool.locator(".tool-output-blocks.from-end").evaluate((box) => {
+    const end = [...box.querySelectorAll("pre")].at(-1).getBoundingClientRect();
+    const frame = box.getBoundingClientRect();
+    return end.bottom > frame.bottom + 1 || end.bottom < frame.top;
+  });
+  expect(clipped).toBe(false);
   const button = tool.getByRole("button", { name: /Load full output \(293 KB\)/ });
   await button.scrollIntoViewIfNeeded();
   await page.screenshot({ path: SHOT });
