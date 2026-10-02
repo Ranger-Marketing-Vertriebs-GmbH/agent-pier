@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { chatWindowPrefix, prependHistoryRows, readOlderPage } from "./chat-sync.js";
+import {
+  assertChatSnapshot,
+  chatWindowPrefix,
+  prependHistoryRows,
+  readOlderPage,
+} from "./chat-sync.js";
 import { createChatStream } from "./chat-stream-transport.js";
 
 export default function useChatStream({
@@ -191,6 +196,7 @@ export default function useChatStream({
     }
   }, [data, output]);
   const choose = (next) => {
+    assertChatSnapshot(next);
     stop.current?.();
     state.current = {
       live: null,

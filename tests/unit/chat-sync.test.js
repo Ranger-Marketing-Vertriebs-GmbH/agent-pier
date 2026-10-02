@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { ChatSync } from "../../server/features/chat/chat-sync.js";
 import {
   applyChatSync,
+  assertChatSnapshot,
+  isChatSnapshot,
   chatWindowPrefix,
   prependHistoryRows,
   readOlderPage,
@@ -200,4 +202,15 @@ test("an expired history cursor restarts from the live cursor without duplicates
     }),
     { status: 500 },
   );
+});
+
+test("isChatSnapshot accepts only objects with a messages array", () => {
+  assert.equal(isChatSnapshot({ messages: [] }), true);
+  for (const value of [{}, null, undefined, { messages: "x" }, []])
+    assert.equal(isChatSnapshot(value), false);
+});
+
+test("assertChatSnapshot throws the localized invalid-snapshot copy", () => {
+  assert.doesNotThrow(() => assertChatSnapshot({ messages: [] }));
+  assert.throws(() => assertChatSnapshot({}), { message: /\S/ });
 });
