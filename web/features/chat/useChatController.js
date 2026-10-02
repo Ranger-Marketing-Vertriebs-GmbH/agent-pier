@@ -1,4 +1,5 @@
 import { nativeDeliveryStates } from "./native-delivery-state.js";
+import { assertChatSnapshot } from "./chat-sync.js";
 import useChatStream from "./useChatStream.js";
 import useChatDelivery from "./useChatDelivery.js";
 import useChatAttachments from "./useChatAttachments.js";
@@ -143,6 +144,7 @@ export default function useChatController({ active, session, request, onConnecti
   }
 
   const choose = async (result) => {
+    assertChatSnapshot(result);
     await delivery.draft.dismissReset();
     stream.choose(result);
     setPicking(false);
