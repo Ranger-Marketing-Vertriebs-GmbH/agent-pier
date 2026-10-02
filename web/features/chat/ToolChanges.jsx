@@ -3,9 +3,10 @@ import { chatMessageCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { changePreview } from "./file-change-preview.js";
 import { fileLanguage } from "./tool-output.js";
 import ToolOutput from "./ToolOutput.jsx";
+import TruncatedToolOutput from "./TruncatedToolOutput.jsx";
 import "./tool-changes.css";
 const ToolDiffCode = lazy(() => import("./ToolDiffCode.jsx"));
-export default function ToolChanges({ message }) {
+export default function ToolChanges({ message, sessionId }) {
   const [limit, setLimit] = useState(8);
   const [raw, setRaw] = useState(false);
   const id = useId();
@@ -102,7 +103,12 @@ export default function ToolChanges({ message }) {
         onToggle={(event) => setRaw(event.currentTarget.open)}
       >
         <summary>{copy.changeRaw}</summary>
-        {raw && <ToolOutput text={message.text} toolName={message.toolName} />}
+        {raw &&
+          (message.truncated ? (
+            <TruncatedToolOutput message={message} sessionId={sessionId} />
+          ) : (
+            <ToolOutput text={message.text} toolName={message.toolName} />
+          ))}
       </details>
     </div>
   );

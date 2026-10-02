@@ -31,6 +31,9 @@ export const chatImagesCopy = {
   chatImagesAriaLabel: "Images in this message",
 };
 export const chatMessageCopy = {
+  outputOmitted: (size) => `… ${size} omitted …`,
+  loadFullOutput: (size) => `Load full output (${size})`,
+  loadFullOutputFailed: "The full output could not be loaded.",
   oldNoNewline: "No final newline in previous content",
   newNoNewline: "No final newline in new content",
   changeCreate: "Create",
