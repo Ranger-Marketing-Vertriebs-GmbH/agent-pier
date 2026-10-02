@@ -1,5 +1,6 @@
 import { initializeLanguage } from "./lib/i18n/index.js";
 import LoginGate from "./features/login/LoginGate.jsx";
+import UpdateNotice from "./features/updates/UpdateNotice.jsx";
 import "./styles/index.css";
 import React, { lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
@@ -8,7 +9,6 @@ const ArtifactViewer = lazy(() => import("./features/artifacts/ArtifactViewer.js
 const artifactView = /^\/artifacts\/view\/([A-Za-z0-9-]+)\/?$/.exec(
   window.location.pathname,
 );
-import UpdateNotice from "./features/updates/UpdateNotice.jsx";
 import AppErrorBoundary from "./app/AppErrorBoundary.jsx";
 import { registerPublicWorker } from "./features/notifications/register-worker.js";
 import { captureInstallPrompt } from "./features/notifications/install-prompt.js";
