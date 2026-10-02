@@ -1,5 +1,6 @@
 import { serverProblemText } from "../../lib/server-messages.js";
-import { applyChatSync } from "./chat-sync.js";
+import { chatViewCopy as copy } from "../../lib/i18n/messages/chat.js";
+import { applyChatSync, isChatSnapshot } from "./chat-sync.js";
 
 const CONNECT_TIMEOUT = 8000;
 // An open socket may wait for a slow first server read; it is not a dead socket.
@@ -57,6 +58,7 @@ export function createChatStream({
     try {
       const next = await read(controller.signal);
       if (!current()) return;
+      if (!isChatSnapshot(next)) return onError(copy.invalidSnapshot);
       snapshot = next;
       onSnapshot(next);
       onError("");
@@ -111,7 +113,7 @@ export function createChatStream({
             message.type === "sync"
               ? applyChatSync(snapshot, message.data)
               : message.snapshot;
-          if (!next || !Array.isArray(next.messages)) throw new Error("Invalid snapshot");
+          if (!isChatSnapshot(next)) throw new Error("Invalid snapshot");
           sequence = message.sequence;
           revision++;
           abortRead();

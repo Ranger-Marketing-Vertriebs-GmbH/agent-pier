@@ -1,3 +1,16 @@
+import { chatViewCopy as copy } from "../../lib/i18n/messages/chat.js";
+
+export const isChatSnapshot = (value) =>
+  Boolean(value) &&
+  typeof value === "object" &&
+  !Array.isArray(value) &&
+  Array.isArray(value.messages);
+
+/** Reject an unusable snapshot before any state is replaced. */
+export function assertChatSnapshot(value) {
+  if (!isChatSnapshot(value)) throw new Error(copy.invalidSnapshot);
+}
+
 /** Reject an unusable delta before publishing any part of it. */
 export function applyChatSync(previous, response) {
   if (!response.sync || response.sync.mode === "full") return response;

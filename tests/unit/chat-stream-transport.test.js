@@ -327,3 +327,20 @@ test("socket errors show server messages in the active UI language", async (t) =
   await settle();
   f.dispose();
 });
+
+test("an unusable fallback response keeps the old chat and reports it", async (t) => {
+  t.after(() => setLanguage("de"));
+  setLanguage("en");
+  const f = fixture(async () => ({}));
+  f.send(snapshot(1));
+  f.sockets[0].onclose();
+  await settle();
+  assert.equal(f.reads, 1);
+  assert.equal(f.snapshots.length, 1);
+  assert.equal(f.errors.at(-1), "The chat could not be loaded completely. Retrying…");
+  f.tick();
+  f.send(snapshot(1, "Again"));
+  assert.equal(f.snapshots.length, 2);
+  assert.equal(f.errors.at(-1), "");
+  f.dispose();
+});
