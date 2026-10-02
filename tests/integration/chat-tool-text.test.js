@@ -40,7 +40,7 @@ async function fixture(t) {
     return session;
   };
   app.chat.read = async () => structuredClone(snapshot);
-  return { ...app, url, snapshot };
+  return { ...app, url, snapshot, cwd };
 }
 
 test("long tool text is truncated in payloads and served in full", async (t) => {
@@ -158,4 +158,112 @@ test("a stored tool image is served without re-deriving tool images", async (t) 
   f.chatImages.toolImages.forgetSession("one");
   await f.chatImages.file("one", imageId);
   assert.equal(derived, 1);
+});
+
+// Pages keyed by cursor; each page names the cursor of the next older page.
+function stubOlderPages(f, pages, { providerSessionId = "native-one" } = {}) {
+  const calls = [];
+  f.snapshot.history = { cursor: "c1", generation: 1 };
+  f.chat.older = async (id, cursor) => {
+    calls.push(cursor);
+    const page = pages[cursor];
+    if (page instanceof Error) throw page;
+    if (!page) throw Object.assign(new Error("expired"), { status: 409 });
+    return structuredClone({
+      providerSessionId,
+      messages: page.messages,
+      history: { cursor: page.next ?? null, generation: 1 },
+    });
+  };
+  return calls;
+}
+
+test("tool text and images on older pages are served after store eviction", async (t) => {
+  const f = await fixture(t);
+  const olderText = "older-".repeat(5000) + "END";
+  const olderRows = [
+    { id: "old-big", role: "tool", text: olderText },
+    {
+      id: "old-img",
+      role: "tool",
+      text: "[image 1]",
+      toolImages: [{ mime: "image/png", data: pngBase64 }],
+    },
+  ];
+  const calls = stubOlderPages(f, {
+    c1: { messages: [{ id: "u1", role: "user", text: "hi" }], next: "c2" },
+    c2: { messages: [{ id: "u2", role: "user", text: "hello" }], next: "c3" },
+    c3: { messages: olderRows, next: null },
+  });
+  const page = await f.chatImages.decoratePage("one", {
+    providerSessionId: "native-one",
+    messages: structuredClone(olderRows),
+    history: { cursor: null, generation: 1 },
+  });
+  const imageId = page.messages[1].images[0].id;
+  assert.equal(page.messages[0].truncated.length, olderText.length);
+  f.chatImages.toolTexts.forgetSession("one");
+  f.chatImages.toolImages.forgetSession("one");
+  assert.equal(await f.chatImages.fullText("one", "old-big"), olderText);
+  assert.deepEqual(calls, ["c1", "c2", "c3"]);
+  const file = await f.chatImages.file("one", imageId);
+  assert.equal(file.type, "image/png");
+  assert.deepEqual(file.body, Buffer.from(pngBase64, "base64"));
+  assert.equal(file.immutable, true);
+  // Found rows are remembered, so a repeat lookup needs no further page walk.
+  calls.length = 0;
+  assert.equal(await f.chatImages.fullText("one", "old-big"), olderText);
+  await f.chatImages.file("one", imageId);
+  assert.deepEqual(calls, []);
+  const response = await fetch(`${f.url}/api/sessions/one/chat/messages/old-big/text`);
+  assert.equal((await response.json()).text, olderText);
+});
+
+test("the history walk stops at a null cursor, an error, or a provider change", async (t) => {
+  const f = await fixture(t);
+  let calls = stubOlderPages(f, {
+    c1: { messages: [], next: "c2" },
+    c2: { messages: [], next: null },
+  });
+  await assert.rejects(f.chatImages.fullText("one", "missing"), { status: 404 });
+  await assert.rejects(f.chatImages.file("one", "1".repeat(64)), { status: 404 });
+  assert.deepEqual(calls, ["c1", "c2", "c1", "c2"]);
+
+  calls = stubOlderPages(f, { c1: { messages: [], next: "c2" }, c2: new Error("boom") });
+  await assert.rejects(f.chatImages.fullText("one", "missing"), { status: 404 });
+  await assert.rejects(f.chatImages.file("one", "1".repeat(64)), { status: 404 });
+  assert.deepEqual(calls, ["c1", "c2", "c1", "c2"]);
+
+  calls = stubOlderPages(
+    f,
+    { c1: { messages: [{ id: "x", role: "tool", text: "other" }], next: "c2" } },
+    { providerSessionId: "native-two" },
+  );
+  await assert.rejects(f.chatImages.fullText("one", "x"), { status: 404 });
+  assert.deepEqual(calls, ["c1"]);
+
+  const endless = {};
+  for (let index = 1; index <= 30; index += 1)
+    endless[`c${index}`] = { messages: [], next: `c${index + 1}` };
+  calls = stubOlderPages(f, endless);
+  await assert.rejects(f.chatImages.fullText("one", "missing"), { status: 404 });
+  assert.equal(calls.length, 20);
+  const response = await fetch(`${f.url}/api/sessions/one/chat/images/${"1".repeat(64)}`);
+  assert.equal(response.status, 404);
+});
+
+test("tool images are cached immutably while path images stay uncached", async (t) => {
+  const f = await fixture(t);
+  fs.writeFileSync(path.join(f.cwd, "shot.png"), Buffer.from(pngBase64, "base64"));
+  f.snapshot.messages.push({ id: "a1", role: "assistant", text: "See `shot.png`" });
+  const data = await f.chatImages.read("one");
+  const toolImage = data.messages[1].images[0];
+  const pathImage = data.messages[2].images[0];
+  assert.ok(pathImage?.url);
+  const tool = await fetch(`${f.url}/api/sessions/one/chat/images/${toolImage.id}`);
+  assert.equal(tool.status, 200);
+  assert.equal(tool.headers.get("cache-control"), "private, max-age=31536000, immutable");
+  const local = await fetch(`${f.url}${pathImage.url}`);
+  assert.equal(local.status, 200);
+  assert.equal(local.headers.get("cache-control"), "no-store");
 });

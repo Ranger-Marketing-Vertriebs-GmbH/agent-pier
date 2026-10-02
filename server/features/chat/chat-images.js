@@ -13,6 +13,7 @@ import { ToolTextStore } from "./tool-text-store.js";
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const MAX_HISTORY_PAGES = 20;
 const imageExtension = /\.(?:png|jpe?g|gif|webp|avif)$/i;
 function localPath(source, cwd, home) {
   if (typeof source !== "string") return null;
@@ -191,10 +192,31 @@ export class ChatImages {
       this.toolTexts.remember(id, row.id, providerSessionId ?? null, full);
     return truncated;
   }
+  // Tool image ids hash the session, provider session, row and bytes, so the
+  // served content never changes for an id and clients may cache it for good.
   sniffedToolImage(base64) {
     const body = Buffer.from(base64, "base64");
     const type = rasterType(body);
-    return type ? { type, body } : null;
+    return type ? { type, body, immutable: true } : null;
+  }
+  // Rows evicted from the stores may only exist on older history pages. Walk a
+  // bounded number of pages back from the live window; an expired or mismatched
+  // cursor simply ends the walk.
+  async *olderMessages(id, snapshot) {
+    const current = snapshot.providerSessionId ?? null;
+    let cursor = snapshot.history?.cursor;
+    for (let page = 0; page < MAX_HISTORY_PAGES; page += 1) {
+      if (typeof cursor !== "string" || !cursor) return;
+      let older;
+      try {
+        older = await this.chat.older(id, cursor);
+      } catch {
+        return;
+      }
+      if ((older?.providerSessionId ?? null) !== current) return;
+      yield older.messages || [];
+      cursor = older.history?.cursor;
+    }
   }
   storedToolImage(id, snapshot, imageId) {
     const current = snapshot.providerSessionId ?? null;
@@ -203,28 +225,45 @@ export class ChatImages {
     const [provider] = JSON.parse(stored.providerSessionId);
     return provider === current ? this.sniffedToolImage(stored.text) : null;
   }
-  derivedToolImage(id, snapshot, imageId) {
-    const current = snapshot.providerSessionId ?? null;
-    for (const row of snapshot.messages || []) {
-      if (row.role !== "tool" || !row.toolImages?.length) continue;
+  toolImageEntry(id, current, messages, imageId) {
+    for (const row of messages) {
+      if (row?.role !== "tool" || !row.toolImages?.length) continue;
       const found = this.toolImageRefs(id, current, row).entries.find(
         (entry) => entry.imageId === imageId,
       );
-      if (!found) continue;
-      const image = this.sniffedToolImage(found.data);
-      if (!image) return null;
-      this.rememberToolImage(id, current, found);
-      return image;
+      if (found) return found;
     }
     return null;
+  }
+  async derivedToolImage(id, snapshot, imageId) {
+    const current = snapshot.providerSessionId ?? null;
+    let found = this.toolImageEntry(id, current, snapshot.messages || [], imageId);
+    if (!found)
+      for await (const messages of this.olderMessages(id, snapshot)) {
+        found = this.toolImageEntry(id, current, messages, imageId);
+        if (found) break;
+      }
+    if (!found) return null;
+    const image = this.sniffedToolImage(found.data);
+    if (!image) return null;
+    this.rememberToolImage(id, current, found);
+    return image;
   }
   async fullText(id, messageId) {
     const snapshot = await this.chat.read(id);
     const current = snapshot.providerSessionId ?? null;
     const stored = this.toolTexts.lookup(id, messageId);
     if (stored && stored.providerSessionId === current) return stored.text;
+    const isText = (row) => row?.role === "tool" && typeof row.text === "string";
     const row = snapshot.messages?.find((message) => message.id === messageId);
-    if (row?.role === "tool" && typeof row.text === "string") return row.text;
+    if (isText(row)) return row.text;
+    for await (const messages of this.olderMessages(id, snapshot)) {
+      const older = messages.find((message) => message?.id === messageId);
+      if (!older) continue;
+      if (!isText(older)) break;
+      this.toolTexts.remember(id, messageId, current, older.text);
+      return older.text;
+    }
     throw problem(serverMessages.chat.toolTextUnavailable, 404);
   }
   descriptors(session, snapshot) {
@@ -322,7 +361,7 @@ export class ChatImages {
     if (!image && historical?.scope === scope && historical.expires > Date.now())
       image = historical.image;
     if (!image) {
-      const derived = this.derivedToolImage(id, snapshot, imageId);
+      const derived = await this.derivedToolImage(id, snapshot, imageId);
       if (derived) return derived;
       throw problem(serverMessages.chat.imageHistoryMismatch, 404);
     }

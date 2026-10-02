@@ -36,6 +36,10 @@ export function chatRoutes(services) {
         "Content-Disposition": "inline",
         "Cross-Origin-Resource-Policy": "same-origin",
         "Content-Security-Policy": "default-src 'none'; sandbox",
+        // Tool image ids are content-addressed; path images can change on disk.
+        "Cache-Control": image.immutable
+          ? "private, max-age=31536000, immutable"
+          : "no-store",
       })
       .send(image.body);
   });
