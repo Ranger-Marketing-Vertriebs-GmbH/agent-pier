@@ -151,6 +151,8 @@ export class ChatImages {
     this.toolTexts = toolTexts;
     this.toolImages = toolImages;
     this.misses = new Map();
+    this.pendingWalks = new Map();
+    this.walkQueues = new Map();
   }
   toolImageRefs(id, providerSessionId, row) {
     const images = [],
@@ -204,11 +206,13 @@ export class ChatImages {
   }
   // Rows evicted from the stores may only exist on older history pages. Walk a
   // bounded number of pages back from the live window without registering
-  // client cursors; an expired or mismatched cursor simply ends the walk.
-  async *olderMessages(id, snapshot) {
+  // client cursors. The result is conclusive only when the walk covered its
+  // whole range: no start cursor or a failing page read proves nothing.
+  async walkHistory(id, snapshot, find) {
     const current = snapshot.providerSessionId ?? null;
     const cursor = snapshot.history?.cursor;
-    if (typeof cursor !== "string" || !cursor || !this.chat.olderPages) return;
+    if (typeof cursor !== "string" || !cursor || !this.chat.olderPages)
+      return { found: undefined, conclusive: false };
     const pages = this.chat.olderPages(id, cursor, MAX_HISTORY_PAGES);
     try {
       for (;;) {
@@ -216,10 +220,12 @@ export class ChatImages {
         try {
           next = await pages.next();
         } catch {
-          return;
+          return { found: undefined, conclusive: false };
         }
-        if (next.done || (next.value?.providerSessionId ?? null) !== current) return;
-        yield next.value.messages || [];
+        if (next.done || (next.value?.providerSessionId ?? null) !== current)
+          return { found: undefined, conclusive: true };
+        const found = find(next.value.messages || []);
+        if (found !== undefined) return { found, conclusive: true };
       }
     } finally {
       await pages.return?.().catch(() => {});
@@ -228,7 +234,13 @@ export class ChatImages {
   // Unknown or stale ids are remembered briefly so repeated requests do not
   // repeat the history walk.
   missKey(id, snapshot, kind, value) {
-    return JSON.stringify([id, snapshot.providerSessionId ?? null, kind, value]);
+    return JSON.stringify([
+      id,
+      snapshot.providerSessionId ?? null,
+      snapshot.history?.generation ?? null,
+      kind,
+      value,
+    ]);
   }
   knownMiss(key) {
     const expires = this.misses.get(key);
@@ -248,66 +260,104 @@ export class ChatImages {
     for (const key of this.misses.keys())
       if (JSON.parse(key)[0] === id) this.misses.delete(key);
   }
-  async walkFor(id, snapshot, kind, value, find) {
+  // Identical lookups share one in-flight walk. Walks over the same history
+  // range run one after another, so a lookup that waited can be answered from
+  // the rows the previous walk remembered instead of walking again.
+  walkFor(id, snapshot, kind, value, { find, stored }) {
     const key = this.missKey(id, snapshot, kind, value);
-    if (this.knownMiss(key)) return null;
-    for await (const messages of this.olderMessages(id, snapshot)) {
-      const found = find(messages);
-      if (found === null) break;
-      if (found !== undefined) return found;
-    }
-    this.rememberMiss(key);
-    return null;
+    if (this.knownMiss(key)) return Promise.resolve(null);
+    const pending = this.pendingWalks.get(key);
+    if (pending) return pending;
+    const scope = JSON.stringify([
+      id,
+      snapshot.providerSessionId ?? null,
+      snapshot.history?.generation ?? null,
+      snapshot.history?.cursor ?? null,
+    ]);
+    const run = (this.walkQueues.get(scope) || Promise.resolve())
+      .catch(() => {})
+      .then(async () => {
+        const remembered = stored();
+        if (remembered != null) return remembered;
+        if (this.knownMiss(key)) return null;
+        const { found, conclusive } = await this.walkHistory(id, snapshot, find);
+        if (found) {
+          this.toolPayload(id, snapshot.providerSessionId, found, found);
+          return found;
+        }
+        if (conclusive) this.rememberMiss(key);
+        return null;
+      });
+    const settled = run.finally(() => {
+      if (this.pendingWalks.get(key) === settled) this.pendingWalks.delete(key);
+      if (this.walkQueues.get(scope) === settled) this.walkQueues.delete(scope);
+    });
+    this.pendingWalks.set(key, settled);
+    this.walkQueues.set(scope, settled);
+    return settled;
   }
+  // Returns the image, false for stored bytes that are not a raster image, or
+  // null when nothing usable is stored.
   storedToolImage(id, snapshot, imageId) {
     const current = snapshot.providerSessionId ?? null;
     const stored = this.toolImages.lookup(id, imageId);
     if (!stored) return null;
     const [provider] = JSON.parse(stored.providerSessionId);
-    return provider === current ? this.sniffedToolImage(stored.text) : null;
+    if (provider !== current) return null;
+    return this.sniffedToolImage(stored.text) || false;
   }
-  toolImageEntry(id, current, messages, imageId) {
+  toolImageRow(id, current, messages, imageId) {
     for (const row of messages) {
       if (row?.role !== "tool" || !row.toolImages?.length) continue;
       const found = this.toolImageRefs(id, current, row).entries.find(
         (entry) => entry.imageId === imageId,
       );
-      if (found) return found;
+      if (found) return { row, entry: found };
     }
     return null;
   }
   async derivedToolImage(id, snapshot, imageId) {
     const current = snapshot.providerSessionId ?? null;
-    const found =
-      this.toolImageEntry(id, current, snapshot.messages || [], imageId) ||
-      (await this.walkFor(
-        id,
-        snapshot,
-        "image",
-        imageId,
-        (messages) => this.toolImageEntry(id, current, messages, imageId) || undefined,
-      ));
-    if (!found) return null;
-    const image = this.sniffedToolImage(found.data);
-    if (!image) return null;
-    this.rememberToolImage(id, current, found);
-    return image;
+    const live = this.toolImageRow(id, current, snapshot.messages || [], imageId);
+    if (live) {
+      const image = this.sniffedToolImage(live.entry.data);
+      if (image) this.rememberToolImage(id, current, live.entry);
+      return image;
+    }
+    // A found row remembers all of its images, so lookups that waited for the
+    // walk are answered from the store.
+    const result = await this.walkFor(id, snapshot, "image", imageId, {
+      find: (messages) =>
+        this.toolImageRow(id, current, messages, imageId)?.row || undefined,
+      stored: () => this.storedToolImage(id, snapshot, imageId),
+    });
+    if (!result) return null;
+    if (result.body) return result;
+    const entry = this.toolImageRow(id, current, [result], imageId)?.entry;
+    return entry ? this.sniffedToolImage(entry.data) : null;
   }
   async fullText(id, messageId) {
     const snapshot = await this.chat.read(id);
     const current = snapshot.providerSessionId ?? null;
-    const stored = this.toolTexts.lookup(id, messageId);
-    if (stored && stored.providerSessionId === current) return stored.text;
+    const storedText = () => {
+      const stored = this.toolTexts.lookup(id, messageId);
+      return stored && stored.providerSessionId === current ? stored.text : null;
+    };
+    const cached = storedText();
+    if (cached !== null) return cached;
     const isText = (row) => row?.role === "tool" && typeof row.text === "string";
     const row = snapshot.messages?.find((message) => message.id === messageId);
     if (isText(row)) return row.text;
-    const older = await this.walkFor(id, snapshot, "text", messageId, (messages) => {
-      const found = messages.find((message) => message?.id === messageId);
-      return found ? (isText(found) ? found.text : null) : undefined;
+    const older = await this.walkFor(id, snapshot, "text", messageId, {
+      find: (messages) => {
+        const found = messages.find((message) => message?.id === messageId);
+        return found ? (isText(found) ? found : null) : undefined;
+      },
+      stored: storedText,
     });
-    if (older === null) throw problem(serverMessages.chat.toolTextUnavailable, 404);
-    this.toolTexts.remember(id, messageId, current, older);
-    return older;
+    if (typeof older === "string") return older;
+    if (isText(older)) return older.text;
+    throw problem(serverMessages.chat.toolTextUnavailable, 404);
   }
   descriptors(session, snapshot) {
     let remaining = 64;
@@ -389,6 +439,7 @@ export class ChatImages {
     const snapshot = await this.chat.read(id);
     const cached = this.storedToolImage(id, snapshot, imageId);
     if (cached) return cached;
+    if (cached === false) throw problem(serverMessages.chat.imageHistoryMismatch, 404);
     let image = this.descriptors(session, snapshot)
       .flatMap((message) => message.images)
       .find((image) => image.id === imageId);

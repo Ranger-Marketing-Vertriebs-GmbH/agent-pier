@@ -302,3 +302,74 @@ test("tool images are cached immutably while path images stay uncached", async (
   assert.equal(local.status, 200);
   assert.equal(local.headers.get("cache-control"), "no-store");
 });
+
+const textRow = { id: "late", role: "tool", text: "late-".repeat(5000) };
+
+test("inconclusive walks do not remember a miss", async (t) => {
+  const f = await fixture(t);
+  const pages = { c1: { messages: [], next: "c2" }, c2: new Error("expired") };
+  const calls = stubOlderPages(f, pages);
+  // No start cursor (stale or indexing snapshot) proves nothing.
+  f.snapshot.history = { cursor: null, generation: 1 };
+  await assert.rejects(f.chatImages.fullText("one", "late"), { status: 404 });
+  assert.equal(f.chatImages.misses.size, 0);
+  assert.deepEqual(calls, []);
+  // A walk that fails partway proves nothing either.
+  f.snapshot.history = { cursor: "c1", generation: 1 };
+  await assert.rejects(f.chatImages.fullText("one", "late"), { status: 404 });
+  assert.equal(f.chatImages.misses.size, 0);
+  pages.c2 = { messages: [textRow], next: null };
+  assert.equal(await f.chatImages.fullText("one", "late"), textRow.text);
+});
+
+test("a history generation change invalidates a remembered miss", async (t) => {
+  const f = await fixture(t);
+  const pages = { c1: { messages: [], next: null } };
+  const calls = stubOlderPages(f, pages);
+  await assert.rejects(f.chatImages.fullText("one", "late"), { status: 404 });
+  assert.equal(f.chatImages.misses.size, 1);
+  pages.c1 = { messages: [textRow], next: null };
+  await assert.rejects(f.chatImages.fullText("one", "late"), { status: 404 });
+  assert.equal(calls.length, 1);
+  f.snapshot.history = { cursor: "c1", generation: 2 };
+  assert.equal(await f.chatImages.fullText("one", "late"), textRow.text);
+  assert.equal(calls.length, 2);
+});
+
+test("parallel lookups for one evicted row share a single walk", async (t) => {
+  const f = await fixture(t);
+  const row = {
+    id: "many",
+    role: "tool",
+    text: Array.from({ length: 5 }, (_, index) => `[image ${index + 1}]`).join("\n"),
+    toolImages: Array.from({ length: 5 }, () => ({ mime: "image/png", data: pngBase64 })),
+  };
+  const calls = stubOlderPages(f, {
+    c1: { messages: [{ id: "u1", role: "user", text: "hi" }], next: "c2" },
+    c2: { messages: [row], next: null },
+  });
+  const page = await f.chatImages.decoratePage("one", {
+    providerSessionId: "native-one",
+    messages: [structuredClone(row)],
+    history: { cursor: null, generation: 1 },
+  });
+  const ids = page.messages[0].images.map((image) => image.id);
+  assert.equal(new Set(ids).size, 5);
+  f.chatImages.forgetSession("one");
+  const files = await Promise.all(
+    ids.map((imageId) => f.chatImages.file("one", imageId)),
+  );
+  assert.deepEqual(calls, ["c1", "c2"]);
+  for (const file of files) assert.deepEqual(file.body, Buffer.from(pngBase64, "base64"));
+  for (const imageId of ids) assert.ok(f.chatImages.toolImages.lookup("one", imageId));
+  // Identical lookups for an unknown id also share one walk.
+  calls.length = 0;
+  await Promise.all(
+    [1, 2, 3].map(() =>
+      assert.rejects(f.chatImages.fullText("one", "missing"), { status: 404 }),
+    ),
+  );
+  assert.deepEqual(calls, ["c1", "c2"]);
+  assert.equal(f.chatImages.pendingWalks.size, 0);
+  assert.equal(f.chatImages.walkQueues.size, 0);
+});
