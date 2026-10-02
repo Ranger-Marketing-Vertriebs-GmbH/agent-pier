@@ -6,8 +6,6 @@ const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
   "base64",
 );
-const SHOT =
-  "/private/tmp/claude-501/-Users-d-kaulig-Projects-agent-pier/57444b1d-ee52-4ebe-9641-34847aaddfbf/scratchpad/truncated-tool-iphone.png";
 
 async function serve(page, language, tool) {
   await page.addInitScript(
@@ -61,7 +59,6 @@ test("truncated tool output loads in full on demand", async ({ page }) => {
   expect(clipped).toBe(false);
   const button = tool.getByRole("button", { name: /Load full output \(293 KB\)/ });
   await button.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: SHOT });
   await button.click();
   await expect(tool).toContainText("FULL-OUTPUT-MARKER");
   await expect(button).toHaveCount(0);
