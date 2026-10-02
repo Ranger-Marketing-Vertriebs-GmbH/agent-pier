@@ -1,5 +1,7 @@
 /** English product copy, addressed through the same semantic keys as the German catalog. */
 export const chat = Object.freeze({
+  toolTextUnavailable:
+    "This output is no longer available. Reload the chat to load it again.",
   imageNotFound: "Image not found.",
   imageHistoryMismatch: "This image does not belong to the current chat history.",
   imageNotRegularFile: "The image is not available as a regular file.",
