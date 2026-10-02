@@ -167,6 +167,8 @@ export class ChatImages {
         path: row.toolImagePath
           ? `${path.basename(row.toolImagePath)} · ${number}`
           : `image ${number}`,
+        // Clients preview only extracted tool output, never paths mentioned in tool text.
+        source: "tool",
       });
       entries.push({ imageId, mime, data });
     });

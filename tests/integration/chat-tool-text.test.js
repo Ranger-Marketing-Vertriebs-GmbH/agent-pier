@@ -69,6 +69,7 @@ test("tool images become references served on demand", async (t) => {
   assert.equal(row.images.length, 1);
   assert.match(row.images[0].id, /^[a-f0-9]{64}$/);
   assert.equal(row.images[0].path, "shot.png · 1");
+  assert.equal(row.images[0].source, "tool");
   assert.ok(!JSON.stringify(row).includes(pngBase64));
   assert.ok(!("toolImages" in row) && !("toolImagePath" in row));
   const expected = Buffer.from(pngBase64, "base64");

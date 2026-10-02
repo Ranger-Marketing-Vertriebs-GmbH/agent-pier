@@ -92,7 +92,7 @@ test("tool images load only after the row is opened", async ({ page }) => {
     toolName: "view_image",
     status: "completed",
     text: "ok",
-    images: [{ id: "a".repeat(64), path: "shot.png · 1" }],
+    images: [{ id: "a".repeat(64), path: "shot.png · 1", source: "tool" }],
   });
   let hits = 0;
   await page.route("**/api/sessions/*/chat/images/*", (route) => {
@@ -116,6 +116,7 @@ test("a tool row shows every image beyond the attachment limit", async ({ page }
   const images = Array.from({ length: 10 }, (_, index) => ({
     id: index.toString(16).repeat(64),
     path: `image ${index + 1}`,
+    source: "tool",
   }));
   await serve(page, "en", {
     id: "many",
