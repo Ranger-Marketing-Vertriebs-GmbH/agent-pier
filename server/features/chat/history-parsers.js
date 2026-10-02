@@ -7,6 +7,7 @@ import {
   claudeConversationRecord,
   claudeVisibleRecord,
 } from "./claude-conversation-record.js";
+import { extractToolImages, imagePlaceholders } from "./tool-images.js";
 import { createHash } from "node:crypto";
 
 const list = (value) => (Array.isArray(value) ? value : []);
@@ -31,8 +32,14 @@ const failedOutput = (item) => {
     (typeof output.metadata?.exit_code === "number" && output.metadata.exit_code !== 0)
   );
 };
-const show = (value) =>
-  typeof value === "string" ? value : value == null ? "" : JSON.stringify(value, null, 2);
+const show = (value, images) => {
+  const safe = images ? extractToolImages(value, images) : value;
+  return typeof safe === "string"
+    ? safe
+    : safe == null
+      ? ""
+      : JSON.stringify(safe, null, 2);
+};
 const text = (value) =>
   typeof value === "string"
     ? value
@@ -42,6 +49,28 @@ const text = (value) =>
         )
         .map((block) => string(block.text))
         .join("\n");
+// Text blocks win; images in the same content become `[image N]` placeholders.
+const body = (value, images) => {
+  const out = text(value);
+  if (out) return join(out, imagePlaceholders(value, images));
+  const start = images.length;
+  const safe = extractToolImages(value, images);
+  // A content array made only of images reads as plain placeholders, not JSON.
+  return images.length > start &&
+    Array.isArray(safe) &&
+    safe.every((e) => typeof e === "string")
+    ? safe.join("\n")
+    : show(safe);
+};
+const withImages = (row, images, input) => {
+  if (!images.length) return row;
+  const path = object(parse(input)).file_path;
+  return {
+    ...row,
+    toolImages: images,
+    ...(typeof path === "string" ? { toolImagePath: path } : {}),
+  };
+};
 const join = (...values) =>
   values.filter((value) => typeof value === "string" && value.length).join("\n\n");
 const stamp = (value) =>
@@ -171,18 +200,26 @@ export function normalizeClaude(records) {
       if (block.type === "tool_use" && record.type === "assistant") {
         const output = results.get(id);
         const input = object(parse(block.input));
-        messages.set(id, {
+        const images = [];
+        messages.set(
           id,
-          role: "tool",
-          toolName: string(block.name) || "Tool",
-          ...toolFileChanges(block.name, block.input),
-          text: join(
-            show(block.input),
-            output ? text(output.content) || show(output.content) : "",
+          withImages(
+            {
+              id,
+              role: "tool",
+              toolName: string(block.name) || "Tool",
+              ...toolFileChanges(block.name, block.input),
+              text: join(
+                show(block.input, images),
+                output ? body(output.content, images) : "",
+              ),
+              status: output ? (output.is_error ? "failed" : "completed") : "running",
+              ...timestamp,
+            },
+            images,
+            block.input,
           ),
-          status: output ? (output.is_error ? "failed" : "completed") : "running",
-          ...timestamp,
-        });
+        );
         if (output?.is_error) return;
         if (block.name === "TodoWrite" && Array.isArray(input.todos))
           todos = taskList(input.todos, "claude-todo");
@@ -205,14 +242,21 @@ export function normalizeClaude(records) {
       }
       if (block.type === "tool_result" && !messages.has(identifier(block.tool_use_id))) {
         const resultId = identifier(block.tool_use_id) || id;
-        messages.set(resultId, {
-          id: resultId,
-          role: "tool",
-          toolName: "Tool",
-          text: text(block.content) || show(block.content),
-          status: block.is_error ? "failed" : "completed",
-          ...timestamp,
-        });
+        const images = [];
+        messages.set(
+          resultId,
+          withImages(
+            {
+              id: resultId,
+              role: "tool",
+              toolName: "Tool",
+              text: body(block.content, images),
+              status: block.is_error ? "failed" : "completed",
+              ...timestamp,
+            },
+            images,
+          ),
+        );
       }
     });
   }
@@ -268,18 +312,26 @@ export function normalizeCodex(thread) {
           item.status,
           Boolean(item.error) || item.success === false,
         );
+        const images = [];
+        const shown = [item.result?.content, item.contentItems].find((value) =>
+          text(value),
+        );
         add(
           "tool",
           join(
-            show(item.arguments),
-            text(item.result?.content) || text(item.contentItems) || show(item.result),
-            show(item.error),
+            show(item.arguments, images),
+            shown ? body(shown, images) : show(item.result, images),
+            show(item.error, images),
           ),
-          {
-            toolName: string(item.tool) || "Tool",
-            ...toolFileChanges(item.tool, item.arguments),
-            status,
-          },
+          withImages(
+            {
+              toolName: string(item.tool) || "Tool",
+              ...toolFileChanges(item.tool, item.arguments),
+              status,
+            },
+            images,
+            item.arguments,
+          ),
         );
         const args = object(parse(item.arguments));
         if (
@@ -289,11 +341,17 @@ export function normalizeCodex(thread) {
         )
           tasks = taskList(args.plan, "codex-plan");
       }
-      if (item.type === "functionCallOutput")
-        add("tool", text(item.output), {
-          toolName: string(item.name) || "Tool",
-          status: "completed",
-        });
+      if (item.type === "functionCallOutput") {
+        const images = [];
+        add(
+          "tool",
+          join(text(item.output), imagePlaceholders(item.output, images)),
+          withImages(
+            { toolName: string(item.name) || "Tool", status: "completed" },
+            images,
+          ),
+        );
+      }
       if (item.type === "webSearch")
         add("tool", string(item.query), {
           toolName: "Web search",
@@ -321,6 +379,7 @@ export function normalizeCodexRecords(records) {
   const messages = [];
   const calls = new Map();
   const unpaired = new Map();
+  const callInputs = new Map();
   const failedCalls = new Set(
     list(records)
       .filter(
@@ -384,10 +443,11 @@ export function normalizeCodexRecords(records) {
     }
     if (isResponse && ["function_call", "custom_tool_call"].includes(item.type)) {
       const id = identifier(item.call_id || item.id) || `codex-record:${index}`;
+      const images = [];
       const message = {
         id,
         role: "tool",
-        text: show(item.arguments ?? item.input),
+        text: show(item.arguments ?? item.input, images),
         ...toolFileChanges(item.name, item.arguments ?? item.input),
         toolName: string(item.name) || "Tool",
         status: "running",
@@ -395,6 +455,7 @@ export function normalizeCodexRecords(records) {
       };
       messages.push(message);
       calls.set(id, message);
+      callInputs.set(id, { images, input: item.arguments ?? item.input });
       const args = object(parse(item.arguments));
       if (item.name === "update_plan" && !failedCalls.has(id) && Array.isArray(args.plan))
         tasks = taskList(args.plan, "codex-plan");
@@ -405,19 +466,27 @@ export function normalizeCodexRecords(records) {
     ) {
       const id = identifier(item.call_id || item.id) || `codex-record:${index}`;
       const call = calls.get(id);
-      const output = text(item.output) || show(item.output);
+      const pending = callInputs.get(id);
+      const images = pending?.images || [];
+      const output = body(item.output, images);
       if (call) {
         call.text = join(call.text, output);
         call.status = failedOutput(item) ? "failed" : "completed";
+        Object.assign(call, withImages({}, images, pending?.input));
       } else
-        messages.push({
-          id,
-          role: "tool",
-          toolName: "Tool",
-          text: output,
-          status: failedOutput(item) ? "failed" : "completed",
-          ...stamp(record.timestamp),
-        });
+        messages.push(
+          withImages(
+            {
+              id,
+              role: "tool",
+              toolName: "Tool",
+              text: output,
+              status: failedOutput(item) ? "failed" : "completed",
+              ...stamp(record.timestamp),
+            },
+            images,
+          ),
+        );
     }
   });
   return { messages, tasks };
@@ -447,23 +516,31 @@ export function normalizeOpenCode(exported) {
       if (part.type === "tool" && info.role === "assistant") {
         const state = object(part.state);
         const status = toolStatus(state.status);
-        messages.set(id, {
+        const images = [];
+        messages.set(
           id,
-          role: "tool",
-          toolName: string(part.tool) || "Tool",
-          ...toolFileChanges(
-            part.tool,
+          withImages(
+            {
+              id,
+              role: "tool",
+              toolName: string(part.tool) || "Tool",
+              ...toolFileChanges(
+                part.tool,
+                state.input,
+                status === "completed" ? state.metadata : {},
+              ),
+              text: join(
+                show(state.input, images),
+                body(state.output, images),
+                show(state.error, images),
+              ),
+              status,
+              ...timestamp,
+            },
+            images,
             state.input,
-            status === "completed" ? state.metadata : {},
           ),
-          text: join(
-            show(state.input),
-            text(state.output) || show(state.output),
-            show(state.error),
-          ),
-          status,
-          ...timestamp,
-        });
+        );
         const input = object(parse(state.input));
         if (
           part.tool === "todowrite" &&
