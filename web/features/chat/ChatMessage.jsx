@@ -2,6 +2,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { chatMessageCopy as copy } from "../../lib/i18n/messages/chat.js";
 import React, { useState } from "react";
 import ToolOutput from "./ToolOutput.jsx";
+import TruncatedToolOutput from "./TruncatedToolOutput.jsx";
 import ToolChanges from "./ToolChanges.jsx";
 import Markdown, { defaultUrlTransform } from "react-markdown";
 import { projectLinkPath } from "./chat-file-link.js";
@@ -28,9 +29,14 @@ export default function Message({ message, tool, sessionId, cwd, openFile }) {
             }[message.status] || copy.toolDetails}
           </small>
         </summary>
+        {toolOpen && message.images?.length > 0 && (
+          <ChatImages images={message.images} sessionId={sessionId} />
+        )}
         {toolOpen &&
           (message.fileChanges?.length ? (
-            <ToolChanges message={message} />
+            <ToolChanges message={message} sessionId={sessionId} />
+          ) : message.truncated ? (
+            <TruncatedToolOutput message={message} sessionId={sessionId} />
           ) : (
             <ToolOutput text={message.text} toolName={message.toolName} />
           ))}

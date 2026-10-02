@@ -71,3 +71,13 @@
   max-height: 178px;
   overflow: hidden;
 }
+.tool-output-omitted {
+  margin: 8px 0;
+  color: #a0a4ae;
+  font-size: 0.85em;
+  text-align: center;
+}
+.tool-output-error {
+  margin: 8px 0;
+  color: #f4a49f;
+}

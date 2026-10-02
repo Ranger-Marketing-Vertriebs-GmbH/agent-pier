@@ -31,6 +31,9 @@ export const chatImagesCopy = {
   chatImagesAriaLabel: "Bilder in der Nachricht",
 };
 export const chatMessageCopy = {
+  outputOmitted: (size) => `… ${size} ausgelassen …`,
+  loadFullOutput: (size) => `Vollständige Ausgabe laden (${size})`,
+  loadFullOutputFailed: "Die vollständige Ausgabe konnte nicht geladen werden.",
   oldNoNewline: "Kein abschließender Zeilenumbruch im vorherigen Inhalt",
   newNoNewline: "Kein abschließender Zeilenumbruch im neuen Inhalt",
   changeCreate: "Erstellen",
