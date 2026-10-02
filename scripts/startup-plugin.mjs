@@ -51,10 +51,16 @@ export function startupPlugin() {
         const hash = createHash("sha256").update(script).digest("hex").slice(0, 12);
         const fileName = `assets/startup-${hash}.js`;
         this.emitFile({ type: "asset", fileName, source: script });
-        html.source = source.replace(
-          "</body>",
-          `<script defer src="/${fileName}"></script></body>`,
-        );
+        // Any emitted file name change (including lazy chunks) or markup change
+        // yields a new build identity for update detection.
+        const build = createHash("sha256")
+          .update(JSON.stringify([...Object.keys(bundle), fileName].sort()))
+          .update(source)
+          .digest("hex")
+          .slice(0, 16);
+        html.source = source
+          .replace("</head>", `<meta name="agentpier-build" content="${build}"></head>`)
+          .replace("</body>", `<script defer src="/${fileName}"></script></body>`);
       },
     },
   };
