@@ -287,3 +287,42 @@ test("OpenCode edit metadata survives SQLite pagination and completed state refr
   assert.equal(completed.status, "completed");
   assert.equal(completed.fileChanges[0].rows[1].oldLine, 12);
 });
+
+test("OpenCode SQLite tool parts turn read attachments into tool images", async (t) => {
+  const { history, session, message, db } = fixture(t);
+  const id = message(1, 0);
+  const png =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jzN8AAAAASUVORK5CYII=";
+  db.prepare("INSERT INTO part VALUES (?, ?, ?, ?)").run(
+    `${id}_p000000`,
+    "ses_test",
+    id,
+    JSON.stringify({
+      type: "tool",
+      callID: "call_1",
+      tool: "read",
+      state: {
+        status: "completed",
+        input: { filePath: "/repo/shot.png" },
+        output: "Image read successfully",
+        title: "shot.png",
+        metadata: {},
+        time: { start: 1, end: 2 },
+        attachments: [
+          {
+            id: "prt_a",
+            type: "file",
+            mime: "image/png",
+            url: `data:image/png;base64,${png}`,
+          },
+        ],
+      },
+    }),
+  );
+  const page = await readOpenCodePage(history, session, "ses_test");
+  const row = page.messages.find((entry) => entry.role === "tool");
+  assert.ok(row.text.endsWith("[image 1]"));
+  assert.ok(!row.text.includes(png));
+  assert.deepEqual(row.toolImages, [{ mime: "image/png", data: png }]);
+  assert.equal(row.toolImagePath, "/repo/shot.png");
+});

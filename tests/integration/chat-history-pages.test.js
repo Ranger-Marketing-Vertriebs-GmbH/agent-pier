@@ -325,3 +325,40 @@ test("structured Codex changes survive snapshots and older page cursors", async 
   assert.equal(older.messages[0].id, "older");
   assert.deepEqual(older.messages[0].fileChanges, first.messages[0].fileChanges);
 });
+
+test("internal older page walks leave client cursors untouched", async (t) => {
+  const { store } = fixture(t, { maxCursorEntries: 3 });
+  const first = await store.read("test");
+  const second = await store.older("test", first.history.cursor);
+  const before = [...store.cursors.keys()];
+  const bytes = store.cursorBytes;
+  assert.equal(before.length, 2);
+  const pages = [];
+  for await (const page of store.olderPages("test", first.history.cursor, 20))
+    pages.push(page);
+  // 1105 messages: 10 newest live, then pages walk back until the bound or the end.
+  assert.ok(pages.length > 2);
+  assert.ok(pages.every((page) => page.providerSessionId === "native"));
+  assert.deepEqual(pages[0].messages, second.messages);
+  const walked = pages.flatMap((page) => page.messages).map((message) => message.id);
+  assert.equal(new Set(walked).size, walked.length);
+  assert.deepEqual([...store.cursors.keys()], before);
+  assert.equal(store.cursorBytes, bytes);
+  const limited = [];
+  for await (const page of store.olderPages("test", first.history.cursor, 2))
+    limited.push(page);
+  assert.equal(limited.length, 2);
+  // Both client cursors still page; without the internal walk they would have
+  // been evicted by the cursors the walk registered.
+  assert.deepEqual(
+    (await store.older("test", first.history.cursor)).messages,
+    second.messages,
+  );
+  const resumed = await store.older("test", second.history.cursor);
+  assert.deepEqual(resumed.messages, pages[1].messages);
+  const foreign = [];
+  for await (const page of store.olderPages("other", first.history.cursor, 20))
+    foreign.push(page);
+  for await (const page of store.olderPages("test", "unknown", 20)) foreign.push(page);
+  assert.deepEqual(foreign, []);
+});
