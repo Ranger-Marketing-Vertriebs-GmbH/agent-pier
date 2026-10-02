@@ -49,6 +49,7 @@ import { detectTools } from "./features/accounts/account-store.js";
 import { toolBinDirectories } from "./features/tools/tool-paths.js";
 import { authorizeRequest, securityHeaders } from "./http/security.js";
 import { registerResponses } from "./http/responses.js";
+import { buildHeader, buildIdentity } from "./http/build-identity.js";
 import { attachTerminalWebSocket } from "./http/terminal-websocket.js";
 import { attachChatWebSocket } from "./http/chat-websocket.js";
 import { workspaceRoutes } from "./http/routes/workspace.js";
@@ -125,6 +126,7 @@ export async function createApplication(config) {
   server.once("listening", () => services.mcpAccess.initialize());
   app.disable("x-powered-by");
   app.use(securityHeaders);
+  app.use(buildHeader(buildIdentity(config.buildDocument)));
   app.use((req, res, next) => {
     if (!isMcpMachinePath(req.path)) return next();
     try {
