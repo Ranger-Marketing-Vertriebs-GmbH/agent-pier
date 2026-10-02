@@ -39,6 +39,9 @@ export function chatRoutes(services) {
       })
       .send(image.body);
   });
+  router.get("/sessions/:id/chat/messages/:messageId/text", async (req, res) =>
+    res.json({ text: await chatImages.fullText(req.params.id, req.params.messageId) }),
+  );
   router.get("/sessions/:id/chat/choices", async (req, res) =>
     res.json({ choices: await chat.choices(req.params.id) }),
   );

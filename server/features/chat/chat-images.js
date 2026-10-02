@@ -3,10 +3,14 @@ import fs from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { createHmac, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { problem } from "../../lib/storage.js";
 import { UploadedImageInput } from "./uploaded-image-input.js";
+import { truncateToolRow } from "./tool-text.js";
+import { ToolTextStore } from "./tool-text-store.js";
+
+const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const imageExtension = /\.(?:png|jpe?g|gif|webp|avif)$/i;
@@ -123,7 +127,14 @@ export function rasterType(bytes) {
 }
 
 export class ChatImages {
-  constructor({ sessions, chat, attachments, home = os.homedir() }) {
+  constructor({
+    sessions,
+    chat,
+    attachments,
+    home = os.homedir(),
+    toolTexts = new ToolTextStore(),
+    toolImages = new ToolTextStore(),
+  }) {
     this.sessions = sessions;
     this.chat = chat;
     this.attachments = attachments;
@@ -131,6 +142,80 @@ export class ChatImages {
     this.key = randomBytes(32);
     this.historical = new Map();
     this.uploadedInput = new UploadedImageInput();
+    this.toolTexts = toolTexts;
+    this.toolImages = toolImages;
+  }
+  toolImageRefs(id, providerSessionId, row) {
+    const images = [],
+      entries = [];
+    (row.toolImages || []).forEach(({ mime, data }, index) => {
+      const number = index + 1;
+      const imageId = sha256(
+        JSON.stringify([id, providerSessionId ?? null, row.id, number, sha256(data)]),
+      );
+      images.push({
+        id: imageId,
+        path: row.toolImagePath
+          ? `${path.basename(row.toolImagePath)} · ${number}`
+          : `image ${number}`,
+      });
+      entries.push({ imageId, mime, data });
+    });
+    return { images, entries };
+  }
+  rememberToolImage(id, providerSessionId, { imageId, mime, data }) {
+    this.toolImages.remember(
+      id,
+      imageId,
+      JSON.stringify([providerSessionId ?? null, mime]),
+      data,
+    );
+  }
+  toolPayload(id, providerSessionId, source, row) {
+    if (source?.role !== "tool") return row;
+    let next = row;
+    if (source.toolImages?.length) {
+      const { images, entries } = this.toolImageRefs(id, providerSessionId, source);
+      for (const entry of entries) this.rememberToolImage(id, providerSessionId, entry);
+      const { toolImages: _images, toolImagePath: _path, ...rest } = next;
+      next = { ...rest, images };
+    } else if ("toolImages" in next || "toolImagePath" in next) {
+      const { toolImages: _images, toolImagePath: _path, ...rest } = next;
+      next = rest;
+    }
+    const { row: truncated, full } = truncateToolRow(next);
+    if (full !== null)
+      this.toolTexts.remember(id, row.id, providerSessionId ?? null, full);
+    return truncated;
+  }
+  async toolImage(id, snapshot, imageId) {
+    const current = snapshot.providerSessionId ?? null;
+    const stored = this.toolImages.lookup(id, imageId);
+    if (stored) {
+      const [provider, mime] = JSON.parse(stored.providerSessionId);
+      if (provider === current)
+        return { type: mime, body: Buffer.from(stored.text, "base64") };
+    }
+    for (const row of snapshot.messages || []) {
+      if (row.role !== "tool" || !row.toolImages?.length) continue;
+      const found = this.toolImageRefs(id, current, row).entries.find(
+        (entry) => entry.imageId === imageId,
+      );
+      if (found) {
+        this.rememberToolImage(id, current, found);
+        return { type: found.mime, body: Buffer.from(found.data, "base64") };
+      }
+    }
+    return null;
+  }
+  async fullText(id, messageId) {
+    const snapshot = await this.chat.read(id);
+    const current = snapshot.providerSessionId ?? null;
+    const stored = this.toolTexts.lookup(id, messageId);
+    if (stored && stored.providerSessionId === current) return stored.text;
+    const row = snapshot.messages?.find((message) => message.id === messageId);
+    if (row?.role === "tool" && typeof row.text === "string") return row.text;
+    throw problem(serverMessages.chat.toolTextUnavailable, 404);
   }
   descriptors(session, snapshot) {
     let remaining = 64;
@@ -163,15 +248,23 @@ export class ChatImages {
   }
   async decorate(id, snapshot) {
     const session = await this.sessions.get(id);
+    const messages = await this.uploadedInput.decorate(
+      session,
+      this.descriptors(session, snapshot).map((message) => ({
+        ...message,
+        images: message.images.map(({ fullPath: _fullPath, ...image }) => image),
+      })),
+      session.attachments?.directory || this.attachments?.folder(id),
+    );
     return {
       ...snapshot,
-      messages: await this.uploadedInput.decorate(
-        session,
-        this.descriptors(session, snapshot).map((message) => ({
-          ...message,
-          images: message.images.map(({ fullPath: _fullPath, ...image }) => image),
-        })),
-        session.attachments?.directory || this.attachments?.folder(id),
+      messages: messages.map((message, index) =>
+        this.toolPayload(
+          id,
+          snapshot.providerSessionId,
+          snapshot.messages?.[index],
+          message,
+        ),
       ),
     };
   }
@@ -202,6 +295,8 @@ export class ChatImages {
       throw problem(serverMessages.chat.imageNotFound, 404);
     const session = await this.sessions.get(id);
     const snapshot = await this.chat.read(id);
+    const toolImage = await this.toolImage(id, snapshot, imageId);
+    if (toolImage) return toolImage;
     let image = this.descriptors(session, snapshot)
       .flatMap((message) => message.images)
       .find((image) => image.id === imageId);

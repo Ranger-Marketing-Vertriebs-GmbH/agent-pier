@@ -62,6 +62,8 @@ export function sessionsRoutes(services) {
     await memoryIntegration.discard(req.params.id);
     activity.remove(req.params.id);
     chat.remove(req.params.id);
+    services.chatImages?.toolTexts.forgetSession(req.params.id);
+    services.chatImages?.toolImages.forgetSession(req.params.id);
     await bindings.discard(req.params.id);
     await github.discard(req.params.id);
     models.remove(req.params.id);
