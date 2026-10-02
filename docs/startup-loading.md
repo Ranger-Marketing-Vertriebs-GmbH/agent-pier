@@ -76,7 +76,8 @@ serves as `X-AgentPier-Build` on every response and re-reads it when
 `dist/index.html` changes. When the two differ, the app shows a non-modal "New
 version available" notice and never reloads on its own. On the mobile layout the
 notice sits below the mobile header so it never covers header controls. A lazy view
-that fails to load after an update shows the recovery view with update copy.
+that fails to load shows the recovery view, with update-specific copy when a newer
+build was already detected.
 
 Caching helps between updates. An update usually renames most chunks, so the first
 launch after an update downloads the start files again. Artifact links opened from

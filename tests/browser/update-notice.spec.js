@@ -48,6 +48,32 @@ test("a failed lazy module after an update explains the new version", async ({
   ).toBeVisible();
 });
 
+test("recovery copy switches when the update is detected after it appears", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  await page.route("**/assets/SettingsPage-*.js", (route) => route.abort());
+  await page.goto(baseURL + "/settings");
+  await expect(page.getByRole("heading", { name: "View unavailable" })).toBeVisible();
+  // A request still in flight (the workspace state fetch is aborted on unmount, so
+  // it cannot be held deterministically) reports a newer build after the view shows.
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("agentpier-update-available")),
+  );
+  await expect(
+    page.getByRole("heading", { name: "A new version is available" }),
+  ).toBeVisible();
+});
+
+test("in the artifact viewer on a phone the notice sits at the top", async ({ page }) => {
+  await announceNewBuild(page);
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto(baseURL + "/artifacts/view/missing-artifact");
+  const notice = page.getByRole("status").filter({ hasText: "New version available" });
+  await expect(notice).toBeVisible();
+  expect((await notice.boundingBox()).y).toBeLessThan(24);
+});
+
 function contains(outer, inner) {
   return (
     inner.x >= outer.x - 0.5 &&

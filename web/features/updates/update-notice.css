@@ -32,7 +32,7 @@
   flex-shrink: 0;
 }
 @media (max-width: 700px) {
-  .update-notice {
+  body:has(.mobile-header) .update-notice {
     top: calc(env(safe-area-inset-top) + 62px + 8px);
   }
 }
