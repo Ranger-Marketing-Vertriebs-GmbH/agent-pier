@@ -41,6 +41,34 @@ test("previews share a line and character budget across fields and can reveal th
   assert.equal(outputPreview([{ text: "x".repeat(100000) }]).blocks[0].text.length, 4000);
 });
 
+test("outputPreview fromEnd keeps the last lines and characters", () => {
+  const text = Array.from({ length: 20 }, (_, i) => `l${i}`).join("\n");
+  const preview = outputPreview([{ text }], 8, true);
+  assert.equal(preview.blocks[0].text, "l12\nl13\nl14\nl15\nl16\nl17\nl18\nl19");
+  assert.equal(preview.truncated, true);
+  assert.equal(
+    outputPreview(
+      [{ text: "a\n" + "x".repeat(9000) + "\nEND" }],
+      8,
+      true,
+    ).blocks[0].text.endsWith("\nEND"),
+    true,
+  );
+  assert.equal(
+    outputPreview([{ text: "x".repeat(9000) + "END" }], 8, true).blocks[0].text.length,
+    4000,
+  );
+  const two = outputPreview([{ text: "a\nb" }, { text: "c\nd" }], 3, true);
+  assert.deepEqual(
+    two.blocks.map((b) => b.text),
+    ["b", "c\nd"],
+  );
+  assert.deepEqual(outputPreview([{ text: "a" }], 200, true), {
+    blocks: [{ text: "a" }],
+    truncated: false,
+  });
+});
+
 test("read and edit tools use explicit file extensions for code highlighting", () => {
   assert.equal(
     toolBlocks('{"file_path":"/project/app.ts"}\n\nconst ok: boolean = true;', "Read")[1]

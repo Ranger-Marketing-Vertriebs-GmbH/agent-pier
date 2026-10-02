@@ -91,18 +91,20 @@ export function toolBlocks(source, toolName = "") {
   return fallback;
 }
 
-export function outputPreview(blocks, limit = 8) {
+export function outputPreview(blocks, limit = 8, fromEnd = false) {
   let lines = limit,
     chars = limit === 8 ? 4000 : limit * 100;
   const visible = [];
   let truncated = false;
-  for (const block of blocks) {
+  for (const block of fromEnd ? [...blocks].reverse() : blocks) {
     if (lines <= 0 || chars <= 0) {
       truncated = true;
       break;
     }
     const rows = block.text.split("\n");
-    const text = rows.slice(0, lines).join("\n").slice(0, chars);
+    const text = fromEnd
+      ? rows.slice(-lines).join("\n").slice(-chars)
+      : rows.slice(0, lines).join("\n").slice(0, chars);
     visible.push({ ...block, text });
     lines -= text.split("\n").length;
     chars -= text.length;
@@ -111,5 +113,5 @@ export function outputPreview(blocks, limit = 8) {
       break;
     }
   }
-  return { blocks: visible, truncated };
+  return { blocks: fromEnd ? visible.reverse() : visible, truncated };
 }

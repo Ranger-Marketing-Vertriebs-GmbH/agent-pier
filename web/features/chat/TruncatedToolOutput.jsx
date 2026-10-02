@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import api from "../../lib/api.js";
 import { chatMessageCopy as copy } from "../../lib/i18n/messages/chat.js";
 import useLanguage from "../../lib/i18n/useLanguage.js";
@@ -15,10 +15,6 @@ export default function TruncatedToolOutput({ message, sessionId }) {
   const [full, setFull] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    setFull(null);
-    setError("");
-  }, [message.id, message.truncated.length]);
   if (full !== null) return <ToolOutput text={full} toolName={message.toolName} />;
   const omitted =
     message.truncated.bytes - utf8(message.text) - utf8(message.textTail || "");
@@ -43,7 +39,7 @@ export default function TruncatedToolOutput({ message, sessionId }) {
       <p className="tool-output-omitted">
         {copy.outputOmitted(formatSize(Math.max(omitted, 0)))}
       </p>
-      <ToolOutput text={message.textTail || ""} toolName={message.toolName} />
+      <ToolOutput text={message.textTail || ""} toolName={message.toolName} fromEnd />
       {error && (
         <p className="tool-output-error" role="alert">
           {error}

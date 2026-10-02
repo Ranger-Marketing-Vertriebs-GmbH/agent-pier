@@ -36,7 +36,11 @@ export default function Message({ message, tool, sessionId, cwd, openFile }) {
           (message.fileChanges?.length ? (
             <ToolChanges message={message} sessionId={sessionId} />
           ) : message.truncated ? (
-            <TruncatedToolOutput message={message} sessionId={sessionId} />
+            <TruncatedToolOutput
+              key={`${message.id}:${message.truncated.length}`}
+              message={message}
+              sessionId={sessionId}
+            />
           ) : (
             <ToolOutput text={message.text} toolName={message.toolName} />
           ))}
