@@ -4,113 +4,142 @@
 
 `securityHeaders` (`server/http/security.js`) sets `Cache-Control: no-store` on every
 response, including Vite's content-hashed files under `/assets/`. The iPhone PWA
-therefore downloads the complete start bundle (about 1.2 MB in `dist/assets`) on
-every launch. Artifact links from the artifacts MCP (`/artifacts/view/:id`) are SPA
-routes, so each one reloads the whole AgentPier bundle before fetching the artifact.
+therefore downloads the complete start set (about 518 KB uncompressed) on every
+launch. Artifact links from the artifacts MCP (`/artifacts/view/:id`) load the start
+set plus the artifact viewer chunk (about 934 KB in total) every time.
 
-Open clients also cannot tell that the server now runs a newer build. After an update,
-lazy chunks of the old build no longer exist and a navigation fails.
+Open clients also cannot tell that the server now runs a newer build.
 
 ## Goals
 
-1. Content-hashed assets are downloaded once and reused (PWA and artifact links).
-2. After an update, clients switch to the new build cleanly, without mixed versions or
-   broken chunk loads.
+1. Content-hashed assets are downloaded once and reused until they change.
+2. After an update, clients learn about the new build and can switch cleanly.
 3. HTML and API data are never served from a cache. Without a reachable server, the
-   app shows the existing offline page instead of looking connected.
+   app must not show a cached app shell that looks connected.
 
-Non-goals: offline use of the workspace, app-shell precaching, changes to security
-headers or the content security policy, automatic reloads.
+Non-goals: offline use of the workspace, app-shell precaching, automatic reloads,
+response compression, chunk-splitting changes, changes to security headers or the
+content security policy.
 
 ## Decision
 
-HTTP caching headers only (approach A). The service worker keeps its current scope:
-offline page, icons and manifest; navigations remain network-first with the offline
-fallback; no HTML, API, or `/assets/` responses are cached by it.
+HTTP caching headers only, for hashed assets only. The service worker is unchanged:
+it serves its offline page, icons and manifest from its own versioned cache; navigations
+stay network-first with the offline fallback; it never intercepts `/assets/` or `/api`.
 
-A service-worker cache for `/assets/*` (approach B) is a follow-up only if a
-measurement on an iPhone shows that the standalone PWA ignores correct HTTP headers.
-A full app-shell precache is rejected because it can make a disconnected app look
-connected.
+A service-worker cache for `/assets/*` is a follow-up only if the manual iPhone
+measurement shows that the standalone PWA ignores correct HTTP headers. An app-shell
+precache is rejected because it can make a disconnected app look connected.
 
 ## 1. Cache policy (server)
 
-A small module `server/http/cache-policy.js` decides `Cache-Control` per resource
-class. `securityHeaders` keeps `no-store` as the default; the static and app-document
-handlers in `server/http/responses.js` override it for the classes below.
+A small module `server/http/cache-policy.js` owns the rules. `securityHeaders` keeps
+`no-store` as the default for every response.
 
-| Resource | `Cache-Control` | Validator |
-|---|---|---|
-| Existing files under `/assets/*` | `public, max-age=31536000, immutable` | — |
-| `index.html` and app document routes, including `/artifacts/view/:id` | `no-cache` | ETag (304 on match) |
-| `/sw.js` | `no-cache` | ETag |
-| Other root files in `dist/` (icons, manifest, `offline.*`, `pwa-*.js`, `third-party-licenses.txt`) | `no-cache` | ETag |
-| `/api/*`, `/auth/*`, downloads, WebSocket upgrades | `no-store` (unchanged) | — |
-| Missing `/assets/*` file (404) and all error responses | `no-store` | — |
+| Resource | `Cache-Control` |
+|---|---|
+| Content-hashed files under `/assets/*` (name matches the Vite hash pattern, e.g. `-[A-Za-z0-9_-]{8}.` or `startup-<12 hex>.`) | `max-age=31536000, immutable` |
+| Unhashed files under `/assets/*` | `no-cache` |
+| App documents (`/`, SPA routes, `/artifacts/view/:id`) | `no-store` (unchanged) |
+| `/sw.js` and other root files in `dist/` (icons, manifest, `offline.*`, `pwa-*.js`, licenses) | `no-cache` |
+| `/api/*`, `/auth/*`, downloads, WebSocket upgrades | `no-store` (unchanged) |
+| All 404 and error responses, including static 412/416 | `no-store`, set explicitly in the handlers of `server/http/responses.js` |
 
-Rules:
+Rationale:
 
-- `immutable` is applied only to responses for files that exist under `dist/assets/`.
-  Vite places content-hashed output there.
-- App document responses for unknown routes (404 via `appDocumentPath`) stay
-  `no-store`.
-- No other headers change. The artifact viewer CSP override remains as is.
+- **HTML stays `no-store`.** The document is about 2.6 KB. `no-store` keeps app pages
+  out of the back/forward cache and history reuse. Without it, a swipe back while the
+  server is down could show a working-looking shell from cache. This also matters for
+  plain-HTTP network mode, where no service worker and no offline fallback exist.
+- **No `public`.** The responses need no shared caching; a user's own reverse proxy
+  should not store them. `Vary` is not needed: there is no content negotiation.
+- **Error responses override explicitly**, because `send` applies `setHeaders` before
+  conditional/range checks, so a 412/416 would otherwise inherit `immutable`.
+- **Service worker files:** the worker serves its allowlisted files cache-first from
+  `agentpier-public-v2`, so `no-cache` on them only matters for its install step.
+  `importScripts` files are revalidated by the browser (`updateViaCache: "imports"`).
 
-## 2. Build identity and update notice (client)
+## 2. Build identity
 
-**Build ID.** `scripts/startup-plugin.mjs` already computes a content-hashed bootstrap
-asset from the exact start resource list. The plugin writes that hash into the
-app document as `<meta name="agentpier-build" content="<hash>">`. Development builds
-have no meta tag and never trigger the notice.
+**ID.** In `scripts/startup-plugin.mjs` (`generateBundle`, post), compute a short hash
+over the sorted list of all emitted bundle file names plus the final HTML source before
+the tag is inserted. Lazy chunks are covered because every chunk name is part of the
+list. Write it to the app document as `<meta name="agentpier-build" content="<id>">`.
+Development builds have no meta tag and never compare.
 
-**Server.** On start, the server reads the meta value from `dist/index.html` once and
-sends it as response header `X-AgentPier-Build` on every `/api` response. If the file
-or meta tag is missing, the header is omitted.
+Known gap: changes that only touch `public/` files do not change the ID. They do not
+affect the running app bundle; the service worker updates through its own mechanism.
 
-**Detection.** `web/lib/api.js` (and other fetch helpers that hit `/api`, if any bypass
-it) compares the header with the client's own build ID from the meta tag. On the first
-mismatch it dispatches a single `agentpier-update-available` window event. Existing
-API traffic, polling, and resume-from-background requests are sufficient; no extra
-request or timer is introduced.
+**Server.** A middleware registered before authentication (`server/app.js`, before
+`requireLogin`) adds `X-AgentPier-Build: <id>` to every response, including 401s and
+errors. The ID is read from `dist/index.html` and cached together with the file's
+mtime; a cheap `stat` per request re-reads it when the mtime changes. This keeps the
+ID correct when a source checkout rebuilds `dist/` in place while the server runs.
+If the file or meta tag is missing, the header is omitted.
 
-**Chunk load failures.** A `vite:preloadError` listener prevents the default error,
-dispatches the same event, and leaves the current screen intact.
+## 3. Update detection and notice (client)
 
-**Notice.** A small, non-modal banner in the app shell reads "New version available"
-with a "Reload" action (German and English catalogs, reactive messages). It does not
-block chat, input, or dialogs; once dismissed, it stays hidden until the next page load. Reload calls
-`location.reload()`. The app never reloads on its own, so chat drafts follow their
-existing persistence.
+**Shared check.** A helper `web/lib/build-check.js` exposes
+`observeBuild(response)`: it compares the response header with the meta tag and, on a
+mismatch, dispatches a single `agentpier-update-available` window event. If either
+value is missing, it does nothing. It reports at most once per page load.
 
-The banner must respect mobile layout constraints: it sits above the safe area and
-does not overlap the keyboard-anchored session controls.
+Every fetch helper calls it: `web/lib/api.js`, the auth calls used by `LoginGate`
+(which polls `/auth/status` every 60 s and on focus, also around the artifact viewer),
+`web/features/files/file-api.js`, `RestoreForm.jsx`, and `SshKeyCard.jsx`. A unit test
+guards against new raw `fetch("/api…")` calls in `web/` that bypass the helper.
+No new request or timer is introduced.
 
-## 3. Error handling
+**Notice.** A small non-modal banner reads "New version available" with "Reload" and a
+dismiss control (German and English catalogs, reactive messages). It is mounted at the
+level that wraps both the app and the artifact viewer, so both get it. It is fixed at
+the top below `env(safe-area-inset-top)`, never at the bottom, so it cannot collide
+with the keyboard-anchored session controls. It does not block input or dialogs.
+"Reload" calls `location.reload()`; dismiss hides it until the next page load. The app
+never reloads on its own.
 
-- Missing hashed asset after an update: 404 with `no-store`; the client shows the
-  update notice through `vite:preloadError`.
-- Server unreachable: unchanged. Navigations fall back to `offline.html`; API calls
-  fail as today. Nothing cached can mask the disconnected state, because HTML and API
-  responses are never cached.
-- Missing build metadata: no header, no comparison, no notice.
+**Chunk load failures.** Unchanged: a failed lazy import reaches the existing
+`AppErrorBoundary`, which shows `RecoveryView` with its reload action. No
+`vite:preloadError` handler is added; preventing it would turn import errors into
+`undefined` modules. If an update was already detected, `RecoveryView` shows
+update-specific copy ("A new version is available") instead of its generic text.
+A failed module import cannot be retried without a reload, because browsers cache the
+failure in the module map.
 
-## 4. Testing
+## 4. Expectations
 
-- Integration (`node:test`): header per resource class — hashed asset `immutable`,
-  app document and artifact view `no-cache` with ETag and 304 on `If-None-Match`,
-  `sw.js` and public files `no-cache`, API `no-store`, missing asset 404 `no-store`,
-  unknown app route `no-store`; `X-AgentPier-Build` present on `/api` responses and
-  absent when metadata is missing.
-- Unit: build-ID comparison in the API helper fires the event once per mismatch and
-  never when either ID is missing; startup plugin emits the meta tag.
-- Playwright (Chromium and WebKit): a response carrying a different build header shows
-  the banner in English; Reload reloads; a failing lazy chunk shows the banner instead
-  of a broken page.
-- i18n catalog parity tests for the new keys.
-- Manual: on an iPhone PWA, the second launch transfers no `/assets/*` files
-  (Safari Web Inspector). The result decides whether the approach B follow-up is needed.
+Caching helps between updates. Any change to the entry chunk renames most chunks, so
+the first launch after an update downloads nearly the whole start set again.
 
-## 5. Documentation
+Artifact links open with `target="_blank"`. On iOS standalone they probably open in an
+in-app Safari view or Safari, with an HTTP cache separate from the home-screen app.
+The manual check below determines the real benefit there.
 
-Add a short "Caching" section to `docs/startup-loading.md` describing the policy table,
-the build ID, and the update notice.
+## 5. Testing
+
+- **Integration (`node:test`):**
+  - Hashed asset: `max-age=31536000, immutable`, no `public`.
+  - Unhashed asset and root files: `no-cache`.
+  - App documents including `/artifacts/view/:id`: `no-store`.
+  - `/api`: `no-store`. Missing asset 404, static 412 and 416: `no-store`.
+  - `X-AgentPier-Build` is present on `/api`, `/auth/status`, 401 and static responses,
+    absent without metadata, and updated after `dist/index.html` changes.
+- **Unit:**
+  - `observeBuild`: fires once on mismatch, never when a value is missing.
+  - The startup plugin emits the meta tag, and the ID changes when only a lazy chunk name changes.
+  - A guard catches raw `/api` fetches that bypass the helper.
+- **Playwright (Chromium and WebKit):**
+  - A response with a different build header shows the banner in English, in the app and in the artifact viewer.
+  - Reload reloads the page.
+  - A failing lazy chunk after a detected update shows `RecoveryView` with update copy.
+  - The existing `app-recovery.spec.js` still passes.
+- **i18n:** catalog parity tests for the new keys.
+- **Manual (iPhone, Safari Web Inspector):**
+  - The second PWA launch transfers no `/assets/*` files.
+  - An artifact link opened from the PWA: the second open, and the first open after a PWA launch.
+  - The results decide the service-worker follow-up.
+
+## 6. Documentation
+
+Add a "Caching and updates" section to `docs/startup-loading.md`: the policy table,
+the build ID, the update notice, and the expectations from section 4.
