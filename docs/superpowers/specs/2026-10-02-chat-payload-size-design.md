@@ -27,7 +27,8 @@ understandable, recoverable state.
 
 ## Goals
 
-1. Images in tool output are never inlined as base64 into chat payloads or persisted snapshots.
+1. Images in tool output stay visible as real images in the chat, but are never inlined as base64 into
+   client-bound chat payloads; the client loads them on demand.
 2. Large textual tool output is capped in chat payloads, and the full output is available on demand.
 3. API responses and chat WebSocket frames are compressed.
 4. An invalid chat response never leaves the chat broken. It shows an explanation, and the chat recovers
@@ -43,20 +44,45 @@ Non-goals:
 
 ## 1. Image payloads in tool output (server parsers)
 
-In `server/features/chat/history-parsers.js`, structured output content is serialized before it becomes
-tool `text`. The serializer (the `show()` path used for tool input and output, and for Codex/MCP
-`result.content` items) replaces binary image payloads with a compact descriptor:
+Tool images remain visible: they are shown as real images, loaded on demand, using the chat's existing
+image infrastructure (the `ChatImages` component with thumbnails, a full-size dialog, and retry; served by
+`GET /api/sessions/:id/chat/images/:imageId`).
 
-- **Claude image blocks:** `{ type: "image", source: { type: "base64", media_type, data } }`.
-- **MCP and Codex image content items:** `{ type: "image", data, mimeType }`.
-- **Data URLs:** any string value matching `^data:[^;,]+;base64,` with more than 1,024 characters.
+**Parser extraction.** In `server/features/chat/history-parsers.js`, when tool input or output is
+serialized (the `show()` path, including Codex/MCP `result.content` items), structured image payloads are
+taken out of the serialized JSON:
 
-The descriptor is the string `[image <mime>, <size>]`, for example `[image image/png, 245 KB]`. The size is
-the decoded byte length (`floor(base64Length * 3 / 4)`) formatted as KB or MB with no decimals for KB and
-one decimal for MB. The descriptor is plain and language-neutral, and other fields are kept.
+- Claude image blocks: `{ type: "image", source: { type: "base64", media_type, data } }`.
+- MCP and Codex image items: `{ type: "image", data, mimeType }`.
 
-This applies to every provider parser that serializes tool input or output (`normalizeClaude`,
-`normalizeCodex`, `normalizeCodexRecords`, `normalizeOpenCode`). Persisted snapshots shrink accordingly.
+Only `image/png`, `image/jpeg`, `image/gif` and `image/webp` are extracted. Other types stay as they are.
+
+- Each extracted image is replaced in the text by the placeholder `[image N]`, with N starting at 1 per
+  row in order of appearance.
+- The row gains a server-internal field `toolImages: [{ mime, data }]`.
+- If the tool input has a `file_path` string (for example `Read`), it is recorded once as
+  `toolImagePath` for labelling.
+
+This applies to every provider parser that serializes tool input or output: `normalizeClaude`,
+`normalizeCodex`, `normalizeCodexRecords` and `normalizeOpenCode`.
+
+**Client-bound payload.** `ChatImages.decorate` replaces `toolImages` on each row with
+`images: [{ id, path }]`:
+- `id` is a sha256 hex of `[sessionId, providerSessionId, messageId, N, sha256(data)]`.
+- `path` is the `toolImagePath` basename plus ` · N` when present, otherwise `image N`.
+
+Base64 data never leaves the server in chat payloads. The decoded images are kept in a bounded in-memory
+`ToolImageStore`, keyed by `id`, with the same bounds and least-recently-used policy as the text store
+(section 2).
+
+**Serving.** `ChatImages.file(id, imageId)` checks the tool image store first. On a miss, it re-derives the
+image from `chat.read(id)`, which covers the live window. If both miss, it falls through to the existing
+file-based image lookup. The existing route keeps its headers (inline, same-origin, sandboxed CSP).
+
+**Client.** An expanded tool row renders `<ChatImages images={message.images} sessionId />` above its
+output. Thumbnails load lazily, so nothing is fetched until the row is opened.
+
+Persisted server snapshots keep the base64 (server-local). Only client-bound payloads shrink.
 
 ## 2. Large textual tool output (server and client)
 
@@ -150,8 +176,10 @@ third-party license output if the build tooling requires it.
 ## 5. Testing
 
 - **Unit:**
-  - Image descriptor serialization: Claude image block, MCP image item, data URL, size formatting, and
-    non-image JSON unchanged. Add a Read-with-image fixture for `normalizeClaude`.
+  - Image extraction: Claude image block and MCP image item become `[image N]` placeholders plus
+    `toolImages`; unsupported MIME types and non-image JSON stay unchanged; `toolImagePath` from
+    `file_path`. Add a Read-with-image fixture for `normalizeClaude`.
+  - `ToolImageStore` bounds and LRU (shared implementation with `ToolTextStore` is fine).
   - Truncation: the limit boundary, the only-if-smaller rule, head and tail lengths, the surrogate-pair
     boundary, non-tool rows, and the `truncated` metadata.
   - `ToolTextStore`: total and per-entry bounds, LRU eviction, replace accounting, and `forgetSession`.
@@ -165,19 +193,21 @@ third-party license output if the build tooling requires it.
     and `/chat/history`.
   - The text endpoint returns the original, re-derives after the store is cleared, and returns a translated
     404 for an unknown id.
+  - A Read-with-image tool row yields `images: [{ id, path }]` and no base64 in `GET /chat`; the image route
+    serves the decoded bytes with the correct content type, also after the store is cleared (re-derivation).
   - JSON responses carry `Content-Encoding: gzip` when the client accepts it. A file download does not.
   - The chat WebSocket negotiates `permessage-deflate`.
-- **Playwright (Chromium and WebKit):** a truncated row shows head, the omission line and tail. "Load full
+- **Playwright (Chromium and WebKit):** an expanded tool row with an image shows a thumbnail that opens the full-size dialog. A truncated row shows head, the omission line and tail. "Load full
   output" shows the full text, and the error state shows the translated message. Covered in EN and DE.
 - **i18n:** parity tests for all new keys, client and server.
 
 ## 6. Documentation
 
 - `docs/mobile-recovery.md`: transport behavior on slow links, invalid response handling, and compression.
-- `docs/chat-observability.md` (or `docs/architecture.md`): image descriptors, the truncation rule, and the
+- `docs/chat-observability.md` (or `docs/architecture.md`): tool image extraction and serving, the truncation rule, and the
   full-text endpoint.
 
 ## Expected effect
 
-Measured on the 2.0 MB example: replacing the image payloads leaves about 95 KB, before compression. gzip
-reduces this further.
+Measured on the 2.0 MB example: moving the image payloads out of the chat payload leaves about 95 KB before
+compression; gzip reduces this further. Images load only when their tool row is opened.

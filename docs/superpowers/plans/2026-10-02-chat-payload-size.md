@@ -2,12 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Keep chat payloads small on slow networks: no inlined base64 images, capped large tool text with an on-demand full-text endpoint, compressed HTTP and chat WebSocket, and no crash on invalid chat responses.
+**Goal:** Keep chat payloads small on slow networks. Tool images are still shown, but loaded on demand instead of being inlined as base64. Large tool text is capped and its full text loads on demand. HTTP and the chat WebSocket are compressed. An invalid chat response no longer crashes the chat.
 
 **Architecture:**
-- Parsers replace image payloads with descriptors before tool text is built.
-- `ChatImages.decorate`, the single client-bound choke point, caps long tool text into `text` + `textTail` + `truncated` metadata. It keeps the full text in a bounded `ToolTextStore`, and a new endpoint serves it.
-- `compression` middleware covers `/api` and static files. `permessage-deflate` covers the chat socket.
+- Parsers take image payloads out of serialized tool text into a server-internal `toolImages` field.
+- `ChatImages.decorate`, the single client-bound choke point, turns `toolImages` into `images: [{ id, path }]` references served by the existing chat image route.
+- `decorate` also caps long tool text into `text` + `textTail` + `truncated` metadata, keeping full texts and images in bounded stores. A new text endpoint serves the full text.
+- `compression` middleware covers `/api` and static files; `permessage-deflate` covers the chat socket.
 - The client validates every chat snapshot before accepting it.
 
 **Tech Stack:** Node.js 22 ES modules, Express 5.2, ws 8, React 19, `node:test`, Playwright.
@@ -16,25 +17,36 @@
 
 ## Global Constraints
 
-- Image descriptor format: `[image <mime>, <size>]`. Size is the decoded bytes `floor(base64Length * 3 / 4)`, formatted as `<n> KB` (integer, 1 KB = 1024 B, minimum 1) below 1 MiB, else `<n.n> MB`.
-- Data URLs are replaced only when they match `^data:[^;,]+;base64,` and are longer than 1,024 characters.
-- `TOOL_TEXT_LIMIT = 16384`, `TOOL_TEXT_HEAD = 12288`, `TOOL_TEXT_TAIL = 4096`. All three count UTF-16 code units. Truncate only `role: "tool"` rows, and only when `text.length > TOOL_TEXT_LIMIT`. Cuts never split a surrogate pair.
-- Truncated row shape: `text` = head, `textTail` = tail, `truncated: { length, bytes }`, where `bytes = Buffer.byteLength(original, "utf8")`. No marker string goes into the content.
-- `ToolTextStore`: 32 MiB total and 4 MiB per entry, counted as `text.length * 2`. LRU eviction; replacing a key subtracts the old size first. Not persisted.
-- Endpoint: `GET /api/sessions/:id/chat/messages/:messageId/text` returns `{ text }`. It returns 404 with a translated server message and no `code` field.
-- Compression: `compression` 1.8.x, threshold 1024. Mounted after `requireLogin`, before `fileTransferStreams`. Responses with `Content-Disposition: attachment` are excluded. Chat WebSocket: `perMessageDeflate: { threshold: 1024, serverNoContextTakeover: true }`. The terminal WebSocket stays unchanged.
+- Tool images: only `image/png`, `image/jpeg`, `image/gif` and `image/webp` are extracted, from Claude image blocks (`source.data`) and MCP/Codex image items (`data`, `mimeType`).
+  - The text placeholder is `[image N]`, with N starting at 1 per row.
+  - Server-internal row fields are `toolImages: [{ mime, data }]` and an optional `toolImagePath`.
+  - The client-bound row gets `images: [{ id, path }]`. `id` is 64 hex characters, a sha256 of `JSON.stringify([sessionId, providerSessionId, messageId, N, sha256hex(data)])`. `path` is `basename(toolImagePath) + " · N"` when present, otherwise `image N`.
+  - Base64 never appears in client-bound chat payloads.
+- `TOOL_TEXT_LIMIT = 16384`, `TOOL_TEXT_HEAD = 12288`, `TOOL_TEXT_TAIL = 4096`, all counted in UTF-16 code units.
+  - Truncate only `role: "tool"` rows, and only when `text.length > TOOL_TEXT_LIMIT`.
+  - Cuts never split a surrogate pair.
+- Truncated row shape: `text` = head, `textTail` = tail, `truncated: { length, bytes }` with `bytes = Buffer.byteLength(original, "utf8")`. No marker string is inserted into the content.
+- Stores (`ToolTextStore` class, two instances: tool texts keyed by `[sessionId, messageId]`, tool images keyed by `[sessionId, imageId]`):
+  - Bounds: 32 MiB total and 4 MiB per entry, counted as `string.length * 2`.
+  - Eviction: LRU. Replacing a key subtracts the old size first.
+  - Not persisted.
+- Text endpoint: `GET /api/sessions/:id/chat/messages/:messageId/text` returns `{ text }`. Images use the existing `GET /api/sessions/:id/chat/images/:imageId`. Unavailable text or image returns 404 with a translated server message and no `code` field.
+- Compression:
+  - HTTP: `compression` 1.8.x, threshold 1024. Mount it after `requireLogin` and before `fileTransferStreams`, and exclude `Content-Disposition: attachment`.
+  - Chat WebSocket: `perMessageDeflate: { threshold: 1024, serverNoContextTakeover: true }`.
+  - The terminal WebSocket is unchanged.
 - The client never assigns or accepts a chat value that fails `isChatSnapshot`. `choose` validates before stopping the stream.
 - Every UI and server string exists in German and English with matching keys. Client components import from `web/lib/i18n/messages/`.
-- Files stay at or below 600 lines. Prettier style. Tests never touch real sessions or the default tmux server.
-- Commits use `feat:`/`fix:`/`chore:` prefixes in English and end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Files are at most 600 lines and follow Prettier. Tests never touch real sessions or the default tmux server.
+- Commits use `feat:`/`fix:`/`chore:` in English and end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## Review Focus
 
-1. A running Codex or Claude tool row that grows past the limit while open must show fresh content. The full-text state resets when `truncated.length` changes. Pinned in Task 4.
-2. A tool output that legitimately contains the text `data:image/png;base64,` in prose shorter than 1,024 characters must stay unchanged. Pinned in Task 1.
-3. Emoji or CJK at the head/tail cut must not produce lone surrogates. Pinned in Task 2.
-4. After a server restart, the store is empty and the full-text request for a live-window row still succeeds via re-derivation. Pinned in Task 3.
-5. An invalid HTTP fallback must keep the previously shown chat visible, not blank it. Pinned in Task 5.
+1. A running tool row that grows past the limit while open must show fresh content. The full-text state resets when `truncated.length` changes. Pinned in Task 4.
+2. A tool result containing both text and an image keeps its text and shows the image, with no duplicated text. Pinned in Task 1.
+3. Emoji or CJK text at the head/tail cut produces no lone surrogates. Pinned in Task 2.
+4. After a server restart, the stores are empty, yet the full text and tool images of live-window rows still load via re-derivation. Pinned in Task 3.
+5. An invalid HTTP fallback keeps the previously shown chat visible instead of blanking it. Pinned in Task 5.
 
 ---
 
@@ -42,140 +54,151 @@
 
 | File | Responsibility |
 |---|---|
-| `server/features/chat/image-payload.js` (new) | `describeImagePayloads(value)`: deep-copies JSON values with image payloads replaced by descriptors. `imageDescriptor(mime, base64Length)`. |
-| `server/features/chat/history-parsers.js` (modify) | `show()` uses `describeImagePayloads`. |
-| `server/features/chat/tool-text.js` (new) | `truncateToolRow(row)` → `{ row, full }`, plus the constants. |
-| `server/features/chat/tool-text-store.js` (new) | `ToolTextStore` with `remember`, `lookup`, `forgetSession`. |
-| `server/features/chat/chat-images.js` (modify) | `decorate` truncates rows and stores full texts. Adds `fullText(id, messageId)`. |
-| `server/http/routes/chat.js`, `server/http/routes/sessions.js` (modify) | The endpoint, and `forgetSession` on session removal. |
-| `server/lib/i18n/{de,en}/chat.js` (modify) | The `toolTextUnavailable` message. |
-| `web/features/chat/TruncatedToolOutput.jsx` (new) | Renders head, omission line, tail, and the load-full button; then the full text via `ToolOutput`. |
-| `web/features/chat/ChatMessage.jsx`, `ToolChanges.jsx` (modify) | Use `TruncatedToolOutput` when `message.truncated` is set. |
-| `web/features/chat/chat-sync.js`, `chat-stream-transport.js`, `useChatStream.js` (modify) | `isChatSnapshot` and validation. |
-| `web/lib/i18n/{de,en}/chat.js`, `web/lib/i18n/messages/chat.js` (modify) | Client copy. |
-| `server/app.js`, `server/http/chat-websocket.js`, `package.json`, `package-lock.json` (modify) | Compression. |
-| `docs/mobile-recovery.md`, `docs/chat-observability.md` (modify) | Documentation. |
+| `server/features/chat/tool-images.js` (new) | `extractToolImages`, `imagePlaceholders`, `TOOL_IMAGE_TYPES` |
+| `server/features/chat/history-parsers.js` (modify) | Builds `toolImages` and `toolImagePath`; `[image N]` in text |
+| `server/features/chat/tool-text.js` (new) | `truncateToolRow(row)` → `{ row, full }`, plus constants |
+| `server/features/chat/tool-text-store.js` (new) | `ToolTextStore` with `remember`, `lookup`, `forgetSession` |
+| `server/features/chat/chat-images.js` (modify) | `decorate` turns tool images into references and truncates text; adds `fullText(id, messageId)`; `file()` serves tool images |
+| `server/http/routes/chat.js`, `server/http/routes/sessions.js` (modify) | Text endpoint; `forgetSession` on session removal |
+| `server/lib/i18n/{de,en}` chat catalogs (modify) | `toolTextUnavailable` |
+| `web/features/chat/TruncatedToolOutput.jsx` (new) | Head, omission line, tail, load-full button, then the full text |
+| `web/features/chat/ChatMessage.jsx`, `ToolChanges.jsx` (modify) | Tool images via `ChatImages`; `TruncatedToolOutput` when `truncated` is set |
+| `web/features/chat/chat-sync.js`, `chat-stream-transport.js`, `useChatStream.js` (modify) | `isChatSnapshot` and validation |
+| `web/lib/i18n/{de,en}/chat.js`, `web/lib/i18n/messages/chat.js` (modify) | Client copy |
+| `server/app.js`, `server/http/chat-websocket.js`, `package.json`, `package-lock.json` (modify) | Compression |
+| `docs/mobile-recovery.md`, `docs/chat-observability.md` (modify) | Documentation |
 
 ---
 
-### Task 1: Image descriptors in tool text
+### Task 1: Extract tool images from tool text (parsers)
 
 **Files:**
-- Create: `server/features/chat/image-payload.js`
-- Modify: `server/features/chat/history-parsers.js:34-35` (`show`)
-- Test: `tests/unit/image-payload.test.js`; extend the existing parser tests (find them with `grep -rln normalizeClaude tests/unit`)
+- Create: `server/features/chat/tool-images.js`
+- Modify: `server/features/chat/history-parsers.js` (`show` at L34-35 and the tool row builders at ~L174-217, ~L270-280, ~L385-430, ~L455-465)
+- Test: `tests/unit/tool-images.test.js`; extend `tests/unit/history.test.js` (570 lines). If adding there would exceed 600 lines, put the parser fixture test in a new `tests/unit/history-tool-images.test.js`.
 
 **Interfaces:**
 - Produces:
-  - `describeImagePayloads(value: unknown): unknown`. Returns a new value; never mutates its input.
-  - `imageDescriptor(mime: string, base64Length: number): string`.
+  - `extractToolImages(value, images: Array<{mime, data}>) → unknown`. Returns a deep copy of `value` in which every supported image payload is replaced by the string `[image N]`. N is `images.length` after pushing `{ mime, data }` onto the shared `images` array. The input is never mutated.
+  - `imagePlaceholders(value, images) → string`: runs `extractToolImages`, then returns only the newly added placeholders, joined by `"\n"` (`""` when there are none).
+  - `TOOL_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"])`.
+  - Parser tool rows that contained images get `toolImages: [{ mime, data }]`, plus `toolImagePath: <input.file_path>` when the tool input has a string `file_path`. Rows without images have neither field.
 
 - [ ] **Step 1: Write the failing tests**
 
-`tests/unit/image-payload.test.js`:
+`tests/unit/tool-images.test.js`:
 
 ```js
 import test from "node:test";
 import assert from "node:assert/strict";
-import { describeImagePayloads, imageDescriptor } from "../../server/features/chat/image-payload.js";
+import { extractToolImages } from "../../server/features/chat/tool-images.js";
 
-const b64 = (bytes) => "A".repeat(Math.ceil((bytes * 4) / 3));
-
-test("image descriptor sizes", () => {
-  assert.equal(imageDescriptor("image/png", 4), "[image image/png, 1 KB]");
-  assert.equal(imageDescriptor("image/png", Math.ceil((245 * 1024 * 4) / 3)), "[image image/png, 245 KB]");
-  assert.equal(imageDescriptor("image/jpeg", Math.ceil((1.5 * 1048576 * 4) / 3)), "[image image/jpeg, 1.5 MB]");
-});
-
-test("claude image blocks, mcp image items and long data urls become descriptors", () => {
+test("claude and mcp image payloads become numbered placeholders", () => {
+  const images = [];
   const value = [
     { type: "text", text: "kept" },
-    { type: "image", source: { type: "base64", media_type: "image/png", data: b64(2048) } },
-    { type: "image", mimeType: "image/webp", data: b64(4096) },
-    { note: `data:image/gif;base64,${b64(2048)}` },
+    { type: "image", source: { type: "base64", media_type: "image/png", data: "AAAA" } },
+    { type: "image", mimeType: "image/webp", data: "BBBB" },
   ];
-  const copy = describeImagePayloads(value);
-  assert.deepEqual(copy[0], { type: "text", text: "kept" });
-  assert.equal(copy[1], "[image image/png, 2 KB]");
-  assert.equal(copy[2], "[image image/webp, 4 KB]");
-  assert.equal(copy[3].note, "[image image/gif, 2 KB]");
-  assert.equal(value[1].source.data.length > 1000, true, "input not mutated");
+  const copy = extractToolImages(value, images);
+  assert.deepEqual(copy, [{ type: "text", text: "kept" }, "[image 1]", "[image 2]"]);
+  assert.deepEqual(images, [
+    { mime: "image/png", data: "AAAA" },
+    { mime: "image/webp", data: "BBBB" },
+  ]);
+  assert.equal(value[1].source.data, "AAAA", "input not mutated");
 });
 
-test("short data urls, prose and non-image json stay unchanged", () => {
-  const value = { text: "see data:image/png;base64,AAAA here", short: "data:image/png;base64,AAAA", n: 1 };
-  assert.deepEqual(describeImagePayloads(value), value);
-  assert.equal(describeImagePayloads("plain"), "plain");
-  assert.equal(describeImagePayloads(null), null);
+test("numbering continues across calls sharing one array", () => {
+  const images = [{ mime: "image/png", data: "X" }];
+  assert.equal(
+    extractToolImages({ type: "image", source: { media_type: "image/jpeg", data: "Y" } }, images),
+    "[image 2]",
+  );
+});
+
+test("unsupported types, strings and plain json are unchanged", () => {
+  const images = [];
+  const value = { a: "data:image/png;base64,AAAA", b: { type: "image", mimeType: "image/svg+xml", data: "S" }, n: 1 };
+  assert.deepEqual(extractToolImages(value, images), value);
+  assert.deepEqual(images, []);
+  assert.equal(extractToolImages("plain", images), "plain");
+  assert.equal(extractToolImages(null, images), null);
 });
 ```
 
-Add a parser test: a `normalizeClaude` Read `tool_use` whose `tool_result.content` is `[{ type: "image", source: { type: "base64", media_type: "image/png", data: <100 KB base64> } }]` produces a tool row whose `text` contains `[image image/png,` and is shorter than 2,000 characters. Model the fixture records on the existing Claude parser tests.
+Parser test: a `normalizeClaude` `Read` `tool_use` with `input: { file_path: "/tmp/shot.png" }`, whose matching `tool_result.content` is `[{ type: "image", source: { type: "base64", media_type: "image/png", data: "<100 KB of base64 'A'>" } }]`, produces a tool row with:
+- `text` containing `[image 1]`, without the base64, and shorter than 1,000 characters
+- `toolImages` equal to `[{ mime: "image/png", data: <that base64> }]`
+- `toolImagePath` equal to `"/tmp/shot.png"`
+
+Model the records on the existing Claude fixtures in `tests/unit/history.test.js`.
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `node --test tests/unit/image-payload.test.js`
+Run: `node --test tests/unit/tool-images.test.js`
 Expected: FAIL, because the module is missing.
 
-- [ ] **Step 3: Implement `server/features/chat/image-payload.js`**
+- [ ] **Step 3: Implement `server/features/chat/tool-images.js`**
 
 ```js
-const DATA_URL = /^data:([^;,]+);base64,/;
-export function imageDescriptor(mime, base64Length) {
-  const bytes = Math.floor((base64Length * 3) / 4);
-  const size =
-    bytes < 1048576
-      ? `${Math.max(1, Math.round(bytes / 1024))} KB`
-      : `${(bytes / 1048576).toFixed(1)} MB`;
-  return `[image ${mime || "image"}, ${size}]`;
-}
+export const TOOL_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
 const record = (value) => value && typeof value === "object" && !Array.isArray(value);
-// Provider tool output may embed screenshots as base64; chat payloads carry a
-// short descriptor instead so snapshots stay small on slow connections.
-export function describeImagePayloads(value) {
-  if (typeof value === "string") {
-    const match = value.length > 1024 && DATA_URL.exec(value);
-    return match ? imageDescriptor(match[1], value.length - match[0].length) : value;
+const payload = (value) => {
+  if (!record(value) || value.type !== "image") return null;
+  if (record(value.source) && typeof value.source.data === "string")
+    return { mime: value.source.media_type, data: value.source.data };
+  if (typeof value.data === "string")
+    return { mime: value.mimeType || value.mime_type, data: value.data };
+  return null;
+};
+// Images leave the serialized tool text so chat payloads stay small; the chat
+// serves them separately and shows them as real images on demand.
+export function extractToolImages(value, images) {
+  const image = payload(value);
+  if (image && TOOL_IMAGE_TYPES.has(image.mime)) {
+    images.push(image);
+    return `[image ${images.length}]`;
   }
-  if (Array.isArray(value)) return value.map(describeImagePayloads);
+  if (Array.isArray(value)) return value.map((entry) => extractToolImages(entry, images));
   if (!record(value)) return value;
-  if (value.type === "image") {
-    if (record(value.source) && typeof value.source.data === "string")
-      return imageDescriptor(value.source.media_type, value.source.data.length);
-    if (typeof value.data === "string")
-      return imageDescriptor(value.mimeType || value.mime_type, value.data.length);
-  }
   return Object.fromEntries(
-    Object.entries(value).map(([key, entry]) => [key, describeImagePayloads(entry)]),
+    Object.entries(value).map(([key, entry]) => [key, extractToolImages(entry, images)]),
   );
 }
+export function imagePlaceholders(value, images) {
+  const start = images.length;
+  extractToolImages(value, images);
+  return images
+    .slice(start)
+    .map((_, index) => `[image ${start + index + 1}]`)
+    .join("\n");
+}
 ```
 
-- [ ] **Step 4: Use it in `show()`**
+- [ ] **Step 4: Use it in the parsers**
 
 In `server/features/chat/history-parsers.js`:
-
-```js
-import { describeImagePayloads } from "./image-payload.js";
-// …
-const show = (value) => {
-  const safe = describeImagePayloads(value);
-  return typeof safe === "string" ? safe : safe == null ? "" : JSON.stringify(safe, null, 2);
-};
-```
-
-Then check every `text(...)` helper path at lines 274–276, 390, 408 and 460–462. `text()` already drops non-text blocks, so images only reach the output through `show()`. Codex `aggregatedOutput` and plain strings go through `show()` or stay as strings; strings get the data-URL rule.
+- Change `show` to take an optional images array: `const show = (value, images) => { const safe = images ? extractToolImages(value, images) : value; return typeof safe === "string" ? safe : safe == null ? "" : JSON.stringify(safe, null, 2); };`
+- Add a helper `const withImages = (row, images, input) => images.length ? { ...row, toolImages: images, ...(typeof object(parse(input)).file_path === "string" ? { toolImagePath: object(parse(input)).file_path } : {}) } : row;`.
+- In each tool row builder, create `const images = [];`, pass it to every `show(...)` call that serializes that row's input or output, and wrap the built row with `withImages(row, images, <tool input>)`. The builders are:
+  - Claude `tool_use` (~L174)
+  - Claude orphan `tool_result` (~L208)
+  - Codex `mcpToolCall`/`dynamicToolCall`/`functionCallOutput`/`imageView` (~L270-310)
+  - legacy Codex records (~L385-430), where the row is created first and its text extended later. Keep one images array per call id, for example on a side map, and apply `withImages` when the output is joined.
+  - OpenCode tool parts (~L455-465)
+- `text(...)` already drops non-text blocks, so in the `text(x) || show(x)` pattern images are only extracted when the content has no text blocks. Use `const out = text(x);` and then `out ? join(out, imagePlaceholders(x, images)) : show(x, images)`. A tool result with both text and an image then keeps its text and adds `[image N]` without duplicating text. Cover this mixed case in the parser test: a text block plus an image block gives the text, `[image 1]` and one `toolImages` entry.
 
 - [ ] **Step 5: Run the tests**
 
-Run: `node --test tests/unit/image-payload.test.js` plus the parser test files, then `npm run test:unit`.
+Run: `node --test tests/unit/tool-images.test.js tests/unit/history.test.js`, then `npm run test:unit`.
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add server/features/chat/image-payload.js server/features/chat/history-parsers.js tests/unit
-git commit -m "fix: describe images in tool output instead of inlining base64"
+git add server/features/chat/tool-images.js server/features/chat/history-parsers.js tests/unit
+git commit -m "feat: extract tool images from serialized tool text"
 ```
 
 ---
@@ -355,18 +378,26 @@ git commit -m "feat: cap long tool text with a bounded full-text store"
 
 ---
 
-### Task 3: Wire truncation into chat payloads and the full-text endpoint
+### Task 3: Tool image references, truncation in chat payloads, and the full-text endpoint
 
 **Files:**
-- Modify: `server/features/chat/chat-images.js` (`constructor`, `decorate` at ~L164, a new `fullText`). Also modify the service wiring that constructs `ChatImages` if a store instance has to be passed in; find it with `grep -rn "new ChatImages" server`.
+- Modify: `server/features/chat/chat-images.js`:
+  - `constructor`
+  - `decorate` (~L164)
+  - `file` (the image lookup behind `GET /chat/images/:imageId`)
+  - a new `fullText`
+
+  Also modify the service wiring that constructs `ChatImages` if a store has to be passed in; find it with `grep -rn "new ChatImages" server`.
 - Modify: `server/http/routes/chat.js` (new route), `server/http/routes/sessions.js:64` (forget on removal)
 - Modify: `server/lib/i18n/de/chat.js` and the English server catalog (find it with `grep -rln "historyUnavailable" server/lib/i18n`)
 - Test: `tests/integration/chat-tool-text.test.js` (new). Use existing chat integration fixtures; `tests/integration/chat-images.test.js` and `tests/integration/chat-websocket.test.js` show how a session with a provider history file is set up.
 
 **Interfaces:**
-- Consumes: `truncateToolRow` and `ToolTextStore` from Task 2.
+- Consumes: `truncateToolRow` and `ToolTextStore` from Task 2. Parser rows with `toolImages: [{ mime, data }]` and an optional `toolImagePath` from Task 1.
 - Produces:
-  - `chatImages.toolTexts`, a `ToolTextStore` instance.
+  - `chatImages.toolTexts` and `chatImages.toolImages`, two `ToolTextStore` instances. The image store holds base64 strings keyed by `[sessionId, imageId]`, with the store's `providerSessionId` slot holding `JSON.stringify([providerSessionId, mime])`.
+  - Client-bound tool rows carry `images: [{ id, path }]` and no `toolImages` or `toolImagePath`.
+  - `chatImages.file(id, imageId)` also resolves tool images and returns `{ type: mime, body: Buffer }`.
   - `chatImages.fullText(id, messageId) → Promise<string>`, which throws `problem(serverMessages.chat.toolTextUnavailable, 404)` when the text is unavailable.
   - Route `GET /api/sessions/:id/chat/messages/:messageId/text` → `{ text }`.
 
@@ -378,6 +409,9 @@ Create `tests/integration/chat-tool-text.test.js`. Build a fixture session whose
 3. After `chatImages.toolTexts.forgetSession(id)`, `fullText` still resolves by re-deriving from `chat.read(id)`.
 4. `fullText(id, "unknown")` rejects with status 404, and its message equals the German catalog `toolTextUnavailable`.
 5. `chatImages.decoratePage(id, page)` truncates history rows the same way.
+7. A fixture tool row with an image (Claude `Read` `tool_result` with a small valid PNG as base64; a 1×1 PNG is fine) yields client-bound `images: [{ id: <64 hex>, path: "shot.png · 1" }]`. `JSON.stringify(row)` does not contain the base64 string, and the row has no `toolImages` or `toolImagePath`.
+8. `chatImages.file(id, imageId)` returns `{ type: "image/png", body }`, and `body` equals the decoded PNG bytes. It still does so after `chatImages.toolImages.forgetSession(id)`, via re-derivation. An unknown image id behaves as before (the existing missing-image error).
+9. Through HTTP, `GET /api/sessions/:id/chat/images/:imageId` serves the PNG with `content-type: image/png`. This can live in the route-level test if the full fixture is impractical.
 6. Through the HTTP app (`applicationFixture` from `tests/helpers/application.js` with `fixtureFetch`), `GET /api/sessions/:id/chat/messages/:rowId/text` returns `{ text }` with `cache-control: no-store`, and an unknown id returns 404 JSON with `messageKey`.
 
 If wiring a provider history into the HTTP fixture is impractical, keep assertions 1–5 at the service level. Cover assertion 6 with a route-level test that stubs `chatImages.fullText`, and explain the choice in the report.
@@ -390,8 +424,22 @@ Expected: FAIL.
 - [ ] **Step 3: Implement**
 
 In `ChatImages`:
-- Create `this.toolTexts = new ToolTextStore()` in the constructor, or accept an injected store.
-- In `decorate(id, snapshot)`, after building the message list, map each message through `truncateToolRow`. When `full` is returned, call `this.toolTexts.remember(id, row.id, snapshot.providerSessionId ?? null, full)`.
+- Create `this.toolTexts = new ToolTextStore()` and `this.toolImages = new ToolTextStore()` in the constructor, or accept injected stores.
+- Add a helper `toolImageRefs(id, providerSessionId, row)` that returns `{ images, entries }`:
+  - For each `row.toolImages[i]` with `N = i + 1`, compute `imageId = sha256hex(JSON.stringify([id, providerSessionId, row.id, N, sha256hex(data)]))` and `path = row.toolImagePath ? \`${path.basename(row.toolImagePath)} · ${N}\` : \`image ${N}\``.
+  - `images` is `[{ id: imageId, path }]`.
+  - `entries` is `[{ imageId, mime, data }]`.
+- In `decorate(id, snapshot)`, after building the message list, process each tool row:
+  1. If it has `toolImages`, call `toolImageRefs`. Remember each entry with `this.toolImages.remember(id, imageId, JSON.stringify([snapshot.providerSessionId ?? null, mime]), data)`; the provider session and mime are packed into the providerSessionId slot, decoded on lookup. Then replace the row with `{ ...rest, images }`, dropping `toolImages` and `toolImagePath`.
+  2. Map the row through `truncateToolRow`. When `full` is returned, call `this.toolTexts.remember(id, row.id, snapshot.providerSessionId ?? null, full)`.
+
+  Keep the existing user-image handling for non-tool rows unchanged. Verify that `descriptors()` and `uploadedInput.decorate` ignore tool rows (they do today); the new `images` on tool rows must not be re-processed or stripped by them.
+- In `file(id, imageId)`, before the existing lookup:
+  1. Try `this.toolImages.lookup(id, imageId)`. On a hit whose packed provider session matches the current `chat.read(id)` snapshot's `providerSessionId`, return `{ type: mime, body: Buffer.from(data, "base64") }`.
+  2. On a miss, re-derive: run `toolImageRefs` over the tool rows of `await this.chat.read(id)`. If an entry with this `imageId` exists, remember it and return it.
+  3. Otherwise fall through to the existing code path unchanged.
+
+  Only call `chat.read` when the id was not found by the existing fast paths, if that ordering is cheaper; read the existing `file()` first and keep its error behavior for unknown ids.
 - Add `fullText`:
 
 ```js
@@ -406,7 +454,7 @@ In `ChatImages`:
   }
 ```
 
-`chat.read(id)` returns image-described but untruncated rows, because truncation happens only in `decorate`. Import `problem` and `serverMessages` the way neighbouring server modules do.
+`chat.read(id)` returns untruncated rows that still carry `toolImages`, because truncation and image references happen only in `decorate`. Image placeholders `[image N]` are already in the text. Import `problem` and `serverMessages` the way neighbouring server modules do.
 
 Route in `server/http/routes/chat.js`:
 
@@ -416,7 +464,7 @@ Route in `server/http/routes/chat.js`:
   );
 ```
 
-`securityHeaders` already sets `no-store`. In `server/http/routes/sessions.js`, next to `chat.remove(req.params.id)`, add `services.chatImages?.toolTexts.forgetSession(req.params.id);`, using whatever name the services object exposes.
+`securityHeaders` already sets `no-store`. In `server/http/routes/sessions.js`, next to `chat.remove(req.params.id)`, add `services.chatImages?.toolTexts.forgetSession(req.params.id); services.chatImages?.toolImages.forgetSession(req.params.id);`, using whatever name the services object exposes.
 
 Server copy:
 - DE: `toolTextUnavailable: "Diese Ausgabe ist nicht mehr verfügbar. Lade den Chat neu, um sie erneut zu laden."`
@@ -431,21 +479,29 @@ Expected: PASS. Fix any existing test that asserted full tool text through `deco
 
 ```bash
 git add server tests
-git commit -m "feat: serve capped tool output with an on-demand full-text endpoint"
+git commit -m "feat: reference tool images and cap tool text in chat payloads"
 ```
 
 ---
 
-### Task 4: Client rendering of truncated tool output
+### Task 4: Client rendering of tool images and truncated tool output
 
 **Files:**
 - Create: `web/features/chat/TruncatedToolOutput.jsx`
-- Modify: `web/features/chat/ChatMessage.jsx:31-36`, `web/features/chat/ToolChanges.jsx:105`, `web/lib/i18n/de/chat.js`, `web/lib/i18n/en/chat.js` (`chatMessageCopy`)
+- Modify:
+  - `web/features/chat/ChatMessage.jsx:31-36`
+  - `web/features/chat/ToolChanges.jsx:105`
+  - `web/lib/i18n/de/chat.js`, `web/lib/i18n/en/chat.js` (`chatMessageCopy`)
 - Test: `tests/browser/tool-output-truncated.spec.js`
 
 **Interfaces:**
-- Consumes: the row fields `text`, `textTail`, `truncated: { length, bytes }`, and the endpoint from Task 3.
-- Produces: `<TruncatedToolOutput message sessionId />`.
+- Consumes:
+  - the row fields `text`, `textTail`, `truncated: { length, bytes }`
+  - `images: [{ id, path }]` on tool rows
+  - the endpoint and image route from Task 3
+- Produces: `<TruncatedToolOutput message sessionId />`. Expanded tool rows render `<ChatImages images={message.images} sessionId={sessionId} />` above their output when `message.images?.length`.
+
+**Tool images:** In `ChatMessage.jsx`, inside `{toolOpen && …}`, render the existing `ChatImages` component (already imported in that file) before the output or changes block when `message.images?.length`. Browser test: a tool row with `images: [{ id: "a".repeat(64), path: "shot.png · 1" }]` and `**/api/sessions/*/chat/images/*` routed to a 1×1 PNG. Before opening the row, no image request is made; assert this by counting route hits. After opening, the thumbnail is visible and opens the full-size dialog. Put this test in `tests/browser/tool-output-truncated.spec.js` or a sibling file.
 
 - [ ] **Step 1: Write the failing browser test**
 
@@ -558,7 +614,7 @@ Expected: PASS, including the i18n parity tests.
 
 ```bash
 git add web tests/browser/tool-output-truncated.spec.js
-git commit -m "feat: load full tool output on demand in the chat"
+git commit -m "feat: show tool images and load full tool output on demand"
 ```
 
 ---
@@ -695,7 +751,7 @@ git commit -m "feat: compress API responses and chat stream frames"
 - API responses ≥ 1 KiB and chat frames ≥ 1 KiB are compressed (gzip, permessage-deflate). Downloads and the terminal stream are not.
 
 `docs/chat-observability.md`, a new section "Tool output size":
-- Image payloads in tool output become `[image <mime>, <size>]`.
+- Images in tool output (png, jpeg, gif, webp) are taken out of the tool text, which keeps an `[image N]` placeholder. They are served on demand through `/api/sessions/:id/chat/images/:imageId` and shown as thumbnails in the expanded tool row. A server restart is covered by re-derivation for live-window rows.
 - Tool rows over 16,384 characters carry a 12,288-character head and a 4,096-character tail, plus `truncated` metadata.
 - The full text is served by `GET /api/sessions/:id/chat/messages/:messageId/text`, from a bounded in-memory store (32 MiB, 4 MiB per entry) with re-derivation from the live window. History rows need a chat reload after a server restart.
 
