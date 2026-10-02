@@ -30,7 +30,7 @@ export default function Message({ message, tool, sessionId, cwd, openFile }) {
           </small>
         </summary>
         {toolOpen && message.images?.length > 0 && (
-          <ChatImages images={message.images} sessionId={sessionId} />
+          <ChatImages images={message.images} sessionId={sessionId} limit={Infinity} />
         )}
         {toolOpen &&
           (message.fileChanges?.length ? (

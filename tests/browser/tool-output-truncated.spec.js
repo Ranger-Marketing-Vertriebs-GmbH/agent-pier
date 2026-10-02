@@ -111,3 +111,25 @@ test("tool images load only after the row is opened", async ({ page }) => {
   await open.click();
   await expect(page.locator("dialog.chat-image-dialog")).toBeVisible();
 });
+
+test("a tool row shows every image beyond the attachment limit", async ({ page }) => {
+  const images = Array.from({ length: 10 }, (_, index) => ({
+    id: index.toString(16).repeat(64),
+    path: `image ${index + 1}`,
+  }));
+  await serve(page, "en", {
+    id: "many",
+    role: "tool",
+    toolName: "browser_screenshot",
+    status: "completed",
+    text: images.map((image) => `[${image.path}]`).join("\n"),
+    images,
+  });
+  await page.route("**/api/sessions/*/chat/images/*", (route) =>
+    route.fulfill({ body: PNG, contentType: "image/png" }),
+  );
+  const tool = await expand(page);
+  await expect(tool.locator(".chat-image-card")).toHaveCount(10);
+  await expect(tool.locator(".chat-image-card img")).toHaveCount(10);
+  await expect(tool.locator(".chat-image-card").last()).toContainText("image 10");
+});

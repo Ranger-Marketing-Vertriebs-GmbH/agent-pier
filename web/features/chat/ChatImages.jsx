@@ -110,14 +110,16 @@ function Thumbnail({ image, sessionId, open }) {
     </figure>
   );
 }
-export default function ChatImages({ images = [], sessionId }) {
+// User attachments are capped at eight on the server; tool rows pass their own
+// limit because a tool result may carry more images.
+export default function ChatImages({ images = [], sessionId, limit = 8 }) {
   const [selected, setSelected] = useState(null);
   const visible = images
     .filter(
       (image) =>
         image && /^[a-f0-9]{64}$/.test(image.id) && typeof image.path === "string",
     )
-    .slice(0, 8);
+    .slice(0, limit);
   if (!visible.length) return null;
   return (
     <>
