@@ -1,5 +1,6 @@
 import React from "react";
 import useLanguage from "../lib/i18n/useLanguage.js";
+import { updateDetected } from "../lib/build-check.js";
 import { appRecoveryCopy as copy } from "../lib/i18n/messages/app.js";
 
 export default class AppErrorBoundary extends React.Component {
@@ -15,10 +16,11 @@ export default class AppErrorBoundary extends React.Component {
 
 function RecoveryView() {
   useLanguage();
+  const updated = updateDetected();
   return (
     <main className="app-recovery" role="alert">
-      <h1>{copy.title}</h1>
-      <p>{copy.description}</p>
+      <h1>{updated ? copy.updateTitle : copy.title}</h1>
+      <p>{updated ? copy.updateDescription : copy.description}</p>
       <button
         className="button primary"
         type="button"

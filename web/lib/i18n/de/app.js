@@ -59,4 +59,12 @@ export const appRecoveryCopy = {
   title: "Ansicht nicht verfügbar",
   description: "Die App konnte diese Ansicht nicht laden. Bitte lade sie erneut.",
   reload: "Ansicht neu laden",
+  updateTitle: "Eine neue Version ist verfügbar",
+  updateDescription:
+    "AgentPier wurde aktualisiert. Lade neu, um mit der neuen Version weiterzuarbeiten.",
+};
+export const updateNoticeCopy = {
+  message: "Neue Version verfügbar",
+  reload: "Neu laden",
+  dismiss: "Ausblenden",
 };

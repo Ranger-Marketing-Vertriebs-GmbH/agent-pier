@@ -57,4 +57,11 @@ export const appRecoveryCopy = {
   title: "View unavailable",
   description: "The app could not load this view. Please reload it.",
   reload: "Reload view",
+  updateTitle: "A new version is available",
+  updateDescription: "AgentPier was updated. Reload to continue with the new version.",
+};
+export const updateNoticeCopy = {
+  message: "New version available",
+  reload: "Reload",
+  dismiss: "Dismiss",
 };

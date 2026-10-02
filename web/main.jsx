@@ -8,6 +8,7 @@ const ArtifactViewer = lazy(() => import("./features/artifacts/ArtifactViewer.js
 const artifactView = /^\/artifacts\/view\/([A-Za-z0-9-]+)\/?$/.exec(
   window.location.pathname,
 );
+import UpdateNotice from "./features/updates/UpdateNotice.jsx";
 import AppErrorBoundary from "./app/AppErrorBoundary.jsx";
 import { registerPublicWorker } from "./features/notifications/register-worker.js";
 import { captureInstallPrompt } from "./features/notifications/install-prompt.js";
@@ -17,6 +18,7 @@ registerPublicWorker();
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AppErrorBoundary>
+      <UpdateNotice />
       <LoginGate>
         {artifactView ? (
           <Suspense>
