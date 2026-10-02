@@ -15,3 +15,4 @@ export const useWorkspaceStateCopy = localizedCopy(
   en.useWorkspaceStateCopy,
 );
 export const appRecoveryCopy = localizedCopy(de.appRecoveryCopy, en.appRecoveryCopy);
+export const updateNoticeCopy = localizedCopy(de.updateNoticeCopy, en.updateNoticeCopy);
