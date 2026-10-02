@@ -12,7 +12,8 @@ import ChatImages from "./ChatImages.jsx";
 import { providerNames } from "./presentation.js";
 export default function Message({ message, tool, sessionId, cwd, openFile }) {
   const [toolOpen, setToolOpen] = useState(false);
-  if (message.role === "tool")
+  if (message.role === "tool") {
+    const toolImages = (message.images || []).filter((image) => image?.source === "tool");
     return (
       <details
         className="chat-tool"
@@ -29,8 +30,8 @@ export default function Message({ message, tool, sessionId, cwd, openFile }) {
             }[message.status] || copy.toolDetails}
           </small>
         </summary>
-        {toolOpen && message.images?.length > 0 && (
-          <ChatImages images={message.images} sessionId={sessionId} limit={Infinity} />
+        {toolOpen && toolImages.length > 0 && (
+          <ChatImages images={toolImages} sessionId={sessionId} limit={Infinity} />
         )}
         {toolOpen &&
           (message.fileChanges?.length ? (
@@ -46,6 +47,7 @@ export default function Message({ message, tool, sessionId, cwd, openFile }) {
           ))}
       </details>
     );
+  }
   return (
     <article
       className={`chat-message ${message.role}`}
