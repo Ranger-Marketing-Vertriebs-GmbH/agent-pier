@@ -30,6 +30,21 @@ two-minute inactivity lifetime; historical message bodies are not cached there.
 This reduces repeated network transfer. The server still reads the native history
 through its existing parser/cache and maintains its normal saved snapshot.
 
+## Slow connections
+
+Chat snapshots are validated before use, on the socket and on the HTTP fallback. An
+incomplete response shows a retry notice and keeps the previous chat instead of
+replacing it.
+
+If the first socket snapshot takes longer than 30 seconds, the HTTP fallback and a
+socket reconnect compete for the same bandwidth. This is why chat payloads are kept
+small: long tool output is capped and images are loaded on demand (see
+[Tool output size](chat-observability.md#tool-output-size)).
+
+API responses of 1 KiB or more are compressed with gzip, and chat WebSocket frames of
+1 KiB or more with permessage-deflate. Attachment downloads, the MCP machine transport,
+`/auth` and the terminal stream are not compressed.
+
 ## File uploads
 
 Each selected file has its own progress, completion or error state. Successful files
