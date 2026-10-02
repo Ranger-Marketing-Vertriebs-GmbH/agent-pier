@@ -96,3 +96,66 @@ test("full tool text is served over HTTP without caching", async (t) => {
   assert.equal(missing.status, 404);
   assert.ok((await missing.json()).messageKey);
 });
+
+function pngOfSize(size) {
+  const bytes = Buffer.alloc(size);
+  Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13]).copy(bytes);
+  bytes.write("IHDR", 12, "ascii");
+  bytes.writeUInt32BE(1, 16);
+  bytes.writeUInt32BE(1, 20);
+  return bytes;
+}
+
+test("a large tool image is cached and served from the store", async (t) => {
+  const f = await fixture(t);
+  const bytes = pngOfSize(3 * 1048576);
+  f.snapshot.messages = [
+    {
+      id: "large",
+      role: "tool",
+      text: "[image 1]",
+      toolImages: [{ mime: "image/png", data: bytes.toString("base64") }],
+    },
+  ];
+  const data = await f.chatImages.read("one");
+  const imageId = data.messages[0].images[0].id;
+  assert.ok(f.chatImages.toolImages.lookup("one", imageId));
+  f.snapshot.messages = [];
+  const file = await f.chatImages.file("one", imageId);
+  assert.equal(file.type, "image/png");
+  assert.equal(file.body.length, bytes.length);
+});
+
+test("a tool image whose bytes are not a raster image is not served", async (t) => {
+  const f = await fixture(t);
+  f.snapshot.messages = [
+    {
+      id: "fake",
+      role: "tool",
+      text: "[image 1]",
+      toolImages: [{ mime: "image/png", data: Buffer.from("<svg/>").toString("base64") }],
+    },
+  ];
+  const data = await f.chatImages.read("one");
+  const imageId = data.messages[0].images[0].id;
+  await assert.rejects(f.chatImages.file("one", imageId), { status: 404 });
+  f.chatImages.toolImages.forgetSession("one");
+  await assert.rejects(f.chatImages.file("one", imageId), { status: 404 });
+});
+
+test("a stored tool image is served without re-deriving tool images", async (t) => {
+  const f = await fixture(t);
+  const data = await f.chatImages.read("one");
+  const imageId = data.messages[1].images[0].id;
+  let derived = 0;
+  const original = f.chatImages.toolImageRefs.bind(f.chatImages);
+  f.chatImages.toolImageRefs = (...args) => {
+    derived += 1;
+    return original(...args);
+  };
+  await f.chatImages.file("one", imageId);
+  assert.equal(derived, 0);
+  f.chatImages.toolImages.forgetSession("one");
+  await f.chatImages.file("one", imageId);
+  assert.equal(derived, 1);
+});

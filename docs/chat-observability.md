@@ -71,6 +71,11 @@ bounded in-memory stores (32 MiB in total, 4 MiB per entry, least recently used
 eviction), with re-derivation from the live window. History rows need a chat reload
 after a server restart.
 
+Store limits count UTF-16 storage: text is limited to 32 MiB in total and 4 MiB per
+entry, images (stored as base64) to 128 MiB in total and 32 MiB per entry, which is
+roughly 48 MiB and 12 MiB of decoded image data. Outputs and images above the per-entry
+limit are only available while they are in the live window.
+
 ## Verification
 
 ```sh

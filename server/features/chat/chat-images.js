@@ -133,7 +133,10 @@ export class ChatImages {
     attachments,
     home = os.homedir(),
     toolTexts = new ToolTextStore(),
-    toolImages = new ToolTextStore(),
+    toolImages = new ToolTextStore({
+      maxBytes: 128 * 1048576,
+      maxEntryBytes: 32 * 1048576,
+    }),
   }) {
     this.sessions = sessions;
     this.chat = chat;
@@ -188,23 +191,30 @@ export class ChatImages {
       this.toolTexts.remember(id, row.id, providerSessionId ?? null, full);
     return truncated;
   }
-  async toolImage(id, snapshot, imageId) {
+  sniffedToolImage(base64) {
+    const body = Buffer.from(base64, "base64");
+    const type = rasterType(body);
+    return type ? { type, body } : null;
+  }
+  storedToolImage(id, snapshot, imageId) {
     const current = snapshot.providerSessionId ?? null;
     const stored = this.toolImages.lookup(id, imageId);
-    if (stored) {
-      const [provider, mime] = JSON.parse(stored.providerSessionId);
-      if (provider === current)
-        return { type: mime, body: Buffer.from(stored.text, "base64") };
-    }
+    if (!stored) return null;
+    const [provider] = JSON.parse(stored.providerSessionId);
+    return provider === current ? this.sniffedToolImage(stored.text) : null;
+  }
+  derivedToolImage(id, snapshot, imageId) {
+    const current = snapshot.providerSessionId ?? null;
     for (const row of snapshot.messages || []) {
       if (row.role !== "tool" || !row.toolImages?.length) continue;
       const found = this.toolImageRefs(id, current, row).entries.find(
         (entry) => entry.imageId === imageId,
       );
-      if (found) {
-        this.rememberToolImage(id, current, found);
-        return { type: found.mime, body: Buffer.from(found.data, "base64") };
-      }
+      if (!found) continue;
+      const image = this.sniffedToolImage(found.data);
+      if (!image) return null;
+      this.rememberToolImage(id, current, found);
+      return image;
     }
     return null;
   }
@@ -295,8 +305,8 @@ export class ChatImages {
       throw problem(serverMessages.chat.imageNotFound, 404);
     const session = await this.sessions.get(id);
     const snapshot = await this.chat.read(id);
-    const toolImage = await this.toolImage(id, snapshot, imageId);
-    if (toolImage) return toolImage;
+    const cached = this.storedToolImage(id, snapshot, imageId);
+    if (cached) return cached;
     let image = this.descriptors(session, snapshot)
       .flatMap((message) => message.images)
       .find((image) => image.id === imageId);
@@ -311,7 +321,11 @@ export class ChatImages {
     ]);
     if (!image && historical?.scope === scope && historical.expires > Date.now())
       image = historical.image;
-    if (!image) throw problem(serverMessages.chat.imageHistoryMismatch, 404);
+    if (!image) {
+      const derived = this.derivedToolImage(id, snapshot, imageId);
+      if (derived) return derived;
+      throw problem(serverMessages.chat.imageHistoryMismatch, 404);
+    }
     let handle;
     try {
       const source = await fs.lstat(image.fullPath);
