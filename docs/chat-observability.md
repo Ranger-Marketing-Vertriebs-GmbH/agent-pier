@@ -54,6 +54,23 @@ Each row contains `id`, `name`, `task`, `status`, `source` and `updatedAt`. Desc
 
 Statuses are `running`, `completed`, `failed` or `unknown`, based on the latest supported native report. They do not constitute process supervision. Unsupported schema versions, absent identifiers, dispatch-only results and ambiguous stopped/interrupted states remain unknown. Ordinary assistant prose, quoted JSON/XML, task-list items and arbitrary tool results never create subagent identities.
 
+## Tool output size
+
+Images in tool output (png, jpeg, gif, webp) are taken out of the tool text, which
+keeps an `[image N]` placeholder. Tool rows carry `images: [{ id, path }]`. The image
+bytes are served on demand through `GET /api/sessions/:id/chat/images/:imageId` and
+shown as thumbnails when the tool row is expanded. After a server restart, images of
+live-window rows are re-derived.
+
+Tool text longer than 16,384 UTF-16 units is capped: the row carries a 12,288-unit
+head in `text`, a 4,096-unit `textTail`, and `truncated: { length, bytes }`. The UI
+shows the head, an "omitted" marker, the tail and a "Load full output" action.
+
+The full text is served by `GET /api/sessions/:id/chat/messages/:messageId/text` from
+bounded in-memory stores (32 MiB in total, 4 MiB per entry, least recently used
+eviction), with re-derivation from the live window. History rows need a chat reload
+after a server restart.
+
 ## Verification
 
 ```sh
