@@ -1,3 +1,4 @@
+import { observeBuild } from "../../lib/build-check.js";
 import { apiCopy } from "../../lib/i18n/messages/components.js";
 import { fileErrorMessage } from "../../lib/i18n/messages/files.js";
 
@@ -131,18 +132,22 @@ export function fileApi(scopeRef) {
       return result;
     },
     async get(path, query = {}, signal) {
-      const response = await checked(await fetch(urlFor(base, path, query), { signal }));
+      const response = await checked(
+        observeBuild(await fetch(urlFor(base, path, query), { signal })),
+      );
       return response.json();
     },
     async mutate(path, { method = "POST", body, scopeId, signal, headers = {} } = {}) {
       requireScopeId(scopeId);
       const response = await checked(
-        await fetch(urlFor(base, path), {
-          method,
-          signal,
-          headers: headersFor(headers, { json: body !== undefined, scopeId }),
-          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        }),
+        observeBuild(
+          await fetch(urlFor(base, path), {
+            method,
+            signal,
+            headers: headersFor(headers, { json: body !== undefined, scopeId }),
+            ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+          }),
+        ),
       );
       return jsonOrEmpty(response);
     },
@@ -153,12 +158,14 @@ export function fileApi(scopeRef) {
       if (!["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase()))
         requireScopeId(scopeId);
       return checked(
-        await fetch(urlFor(base, path, query), {
-          method,
-          signal,
-          headers: headersFor(headers, { scopeId }),
-          ...(body === undefined ? {} : { body }),
-        }),
+        observeBuild(
+          await fetch(urlFor(base, path, query), {
+            method,
+            signal,
+            headers: headersFor(headers, { scopeId }),
+            ...(body === undefined ? {} : { body }),
+          }),
+        ),
       );
     },
   };

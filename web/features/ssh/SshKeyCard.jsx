@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { observeBuild } from "../../lib/build-check.js";
 import api, { apiError } from "../../lib/api.js";
 import SshCopy from "./SshCopy.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
@@ -37,9 +38,10 @@ export default function SshKeyCard({ sshKey, project, edited, removed }) {
             setBusy(true);
             setError("");
             try {
-              const response = await fetch(
-                `/api/ssh-keys/${encodeURIComponent(sshKey.id)}/download`,
-                { method: "POST" },
+              const response = observeBuild(
+                await fetch(`/api/ssh-keys/${encodeURIComponent(sshKey.id)}/download`, {
+                  method: "POST",
+                }),
               );
               if (!response.ok) throw await apiError(response);
               const blobUrl = URL.createObjectURL(await response.blob());

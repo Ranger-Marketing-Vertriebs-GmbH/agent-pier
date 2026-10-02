@@ -1,3 +1,4 @@
+import { observeBuild } from "../../lib/build-check.js";
 import BackupContents from "./BackupContents.jsx";
 import React, { useState } from "react";
 import api, { apiError } from "../../lib/api.js";
@@ -7,11 +8,13 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import ConfirmOperation from "./ConfirmOperation.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 async function uploadArchive(file) {
-  const response = await fetch("/api/operations/restore/upload", {
-    method: "POST",
-    headers: { "Content-Type": "application/octet-stream" },
-    body: file,
-  });
+  const response = observeBuild(
+    await fetch("/api/operations/restore/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: file,
+    }),
+  );
   if (!response.ok) throw await apiError(response);
   const result = await response.json();
   return result.archiveId;
