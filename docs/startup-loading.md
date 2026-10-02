@@ -59,3 +59,25 @@ navigation at approximately 5.4 seconds. The ten bootstrap/start resource reques
 transferred about 522 KB, with no repeated asset URLs. These are one machine's
 measurements, not performance guarantees. The main JS chunk fell from approximately
 839 KB to 411 KB uncompressed; this chunk comparison is not the entire startup transfer.
+
+## Caching and updates
+
+| Resource                                                       | `Cache-Control`               |
+| -------------------------------------------------------------- | ----------------------------- |
+| Content-hashed `/assets/*`                                     | `max-age=31536000, immutable` |
+| Other static files (`sw.js`, icons, manifest, unhashed assets) | `no-cache`                    |
+| App documents, `/api`, `/auth`, errors                         | `no-store`                    |
+
+App documents stay `no-store` so a disconnected device never shows a cached shell
+that looks connected; the service worker keeps serving `offline.html` for failed
+navigations. The production build writes a build ID into
+`<meta name="agentpier-build">`. The server sends the ID of the files it currently
+serves as `X-AgentPier-Build` on every response and re-reads it when
+`dist/index.html` changes. When the two differ, the app shows a non-modal "New
+version available" notice and never reloads on its own. On the mobile layout the
+notice sits below the mobile header so it never covers header controls. A lazy view
+that fails to load after an update shows the recovery view with update copy.
+
+Caching helps between updates. An update usually renames most chunks, so the first
+launch after an update downloads the start files again. Artifact links opened from
+the iOS home-screen app may use Safari's separate cache.

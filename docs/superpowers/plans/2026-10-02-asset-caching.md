@@ -35,30 +35,32 @@
 
 ## File Structure
 
-| File | Responsibility |
-|---|---|
-| `server/http/cache-policy.js` (new) | Pure mapping from a `dist`-relative file path to a `Cache-Control` value. |
-| `server/http/responses.js` (modify) | Apply the policy to `express.static`; force `no-store` on 404/error handlers. |
-| `scripts/startup-plugin.mjs` (modify) | Compute the build ID and insert the meta tag. |
-| `server/http/build-identity.js` (new) | Read and cache the build ID from `dist/index.html`; middleware that sets the header. |
-| `server/app.js` (modify) | Mount the build header middleware right after `securityHeaders`. |
-| `web/lib/build-check.js` (new) | Compare response header with the page meta tag; raise the event once. |
-| `web/lib/api.js`, `web/features/login/login-api.js`, `web/features/files/file-api.js`, `web/features/operations/RestoreForm.jsx`, `web/features/ssh/SshKeyCard.jsx` (modify) | Pass every response through `observeBuild`. |
-| `web/features/updates/UpdateNotice.jsx`, `web/features/updates/update-notice.css` (new) | The banner. |
-| `web/main.jsx`, `web/app/AppErrorBoundary.jsx` (modify) | Mount the banner; update copy in `RecoveryView`. |
-| `web/lib/i18n/{de,en}/app.js`, `web/lib/i18n/messages/app.js` (modify) | New copy. |
-| `docs/startup-loading.md` (modify) | "Caching and updates" section. |
+| File                                                                                                                                                                         | Responsibility                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `server/http/cache-policy.js` (new)                                                                                                                                          | Pure mapping from a `dist`-relative file path to a `Cache-Control` value.            |
+| `server/http/responses.js` (modify)                                                                                                                                          | Apply the policy to `express.static`; force `no-store` on 404/error handlers.        |
+| `scripts/startup-plugin.mjs` (modify)                                                                                                                                        | Compute the build ID and insert the meta tag.                                        |
+| `server/http/build-identity.js` (new)                                                                                                                                        | Read and cache the build ID from `dist/index.html`; middleware that sets the header. |
+| `server/app.js` (modify)                                                                                                                                                     | Mount the build header middleware right after `securityHeaders`.                     |
+| `web/lib/build-check.js` (new)                                                                                                                                               | Compare response header with the page meta tag; raise the event once.                |
+| `web/lib/api.js`, `web/features/login/login-api.js`, `web/features/files/file-api.js`, `web/features/operations/RestoreForm.jsx`, `web/features/ssh/SshKeyCard.jsx` (modify) | Pass every response through `observeBuild`.                                          |
+| `web/features/updates/UpdateNotice.jsx`, `web/features/updates/update-notice.css` (new)                                                                                      | The banner.                                                                          |
+| `web/main.jsx`, `web/app/AppErrorBoundary.jsx` (modify)                                                                                                                      | Mount the banner; update copy in `RecoveryView`.                                     |
+| `web/lib/i18n/{de,en}/app.js`, `web/lib/i18n/messages/app.js` (modify)                                                                                                       | New copy.                                                                            |
+| `docs/startup-loading.md` (modify)                                                                                                                                           | "Caching and updates" section.                                                       |
 
 ---
 
 ### Task 1: Static cache policy
 
 **Files:**
+
 - Create: `server/http/cache-policy.js`
 - Modify: `server/http/responses.js:12-55`
 - Test: `tests/integration/static-cache-policy.test.js`
 
 **Interfaces:**
+
 - Produces: `cacheControlFor(relativePath: string): string` and the constant `IMMUTABLE = "max-age=31536000, immutable"` exported from `server/http/cache-policy.js`.
 
 - [ ] **Step 1: Write the failing test**
@@ -83,7 +85,10 @@ async function releaseServer(t) {
   await fs.cp(path.join(project, "server"), path.join(release, "server"), {
     recursive: true,
   });
-  await fs.symlink(path.join(project, "node_modules"), path.join(release, "node_modules"));
+  await fs.symlink(
+    path.join(project, "node_modules"),
+    path.join(release, "node_modules"),
+  );
   await fs.writeFile(path.join(release, "package.json"), '{"type":"module"}');
   const dist = path.join(release, "dist");
   await fs.writeFile(path.join(dist, "index.html"), "<!doctype html><title>App</title>");
@@ -153,7 +158,11 @@ test("missing assets and failed conditional or range requests are never cached",
   for (const headers of [{ "if-match": '"nope"' }, { range: "bytes=999999-" }]) {
     const response = await fetch(base + "/assets/index-D5b101IB.js", { headers });
     assert.ok(response.status >= 400, JSON.stringify(headers));
-    assert.equal(response.headers.get("cache-control"), "no-store", JSON.stringify(headers));
+    assert.equal(
+      response.headers.get("cache-control"),
+      "no-store",
+      JSON.stringify(headers),
+    );
   }
 });
 ```
@@ -170,7 +179,8 @@ Create `server/http/cache-policy.js`:
 ```js
 // Vite emits content-hashed names (`name-XXXXXXXX.ext`); the startup plugin emits
 // `startup-<12 hex>.js`. Only these may be frozen; everything else revalidates.
-const hashedAsset = /^assets\/(?:startup-[a-f0-9]{12}|[^/]+-[A-Za-z0-9_-]{8})\.[a-z0-9]+$/;
+const hashedAsset =
+  /^assets\/(?:startup-[a-f0-9]{12}|[^/]+-[A-Za-z0-9_-]{8})\.[a-z0-9]+$/;
 export const IMMUTABLE = "max-age=31536000, immutable";
 export function cacheControlFor(relativePath) {
   const file = relativePath.split("\\").join("/");
@@ -186,15 +196,15 @@ Replace the `express.static` block and the two terminal handlers:
 ```js
 import { cacheControlFor } from "./cache-policy.js";
 // …
-  const dist = path.join(projectDir, "dist");
-  app.use(
-    express.static(dist, {
-      dotfiles: "deny",
-      index: "index.html",
-      setHeaders: (res, file) =>
-        res.setHeader("Cache-Control", cacheControlFor(path.relative(dist, file))),
-    }),
-  );
+const dist = path.join(projectDir, "dist");
+app.use(
+  express.static(dist, {
+    dotfiles: "deny",
+    index: "index.html",
+    setHeaders: (res, file) =>
+      res.setHeader("Cache-Control", cacheControlFor(path.relative(dist, file))),
+  }),
+);
 ```
 
 In the SPA fallback, replace `path.join(projectDir, "dist")` with `dist`. Make the last two handlers reset the header, because `send` applies `setHeaders` before its conditional and range checks:
@@ -224,10 +234,12 @@ git commit -m "feat: cache content-hashed assets immutably"
 ### Task 2: Build ID meta tag
 
 **Files:**
+
 - Modify: `scripts/startup-plugin.mjs:47-58`
 - Test: `tests/unit/startup-build-id.test.js`
 
 **Interfaces:**
+
 - Produces: the built `index.html` contains `<meta name="agentpier-build" content="<16 lowercase hex>">` inside `<head>`. Task 3 parses it with `/<meta name="agentpier-build" content="([a-f0-9]{16})">/`, and Task 4 reads it with `document.querySelector('meta[name="agentpier-build"]')`.
 
 - [ ] **Step 1: Write the failing test**
@@ -277,16 +289,16 @@ Expected: FAIL. There is no meta tag, so `id` is `undefined`.
 In `scripts/startup-plugin.mjs`, after `this.emitFile(...)`, replace the `html.source = …` assignment:
 
 ```js
-        // Any emitted file name change (including lazy chunks) or markup change
-        // yields a new build identity for update detection.
-        const build = createHash("sha256")
-          .update(JSON.stringify([...Object.keys(bundle), fileName].sort()))
-          .update(source)
-          .digest("hex")
-          .slice(0, 16);
-        html.source = source
-          .replace("</head>", `<meta name="agentpier-build" content="${build}"></head>`)
-          .replace("</body>", `<script defer src="/${fileName}"></script></body>`);
+// Any emitted file name change (including lazy chunks) or markup change
+// yields a new build identity for update detection.
+const build = createHash("sha256")
+  .update(JSON.stringify([...Object.keys(bundle), fileName].sort()))
+  .update(source)
+  .digest("hex")
+  .slice(0, 16);
+html.source = source
+  .replace("</head>", `<meta name="agentpier-build" content="${build}"></head>`)
+  .replace("</body>", `<script defer src="/${fileName}"></script></body>`);
 ```
 
 - [ ] **Step 4: Verify**
@@ -309,11 +321,13 @@ git commit -m "feat: embed a build identity in the app document"
 ### Task 3: Server build header
 
 **Files:**
+
 - Create: `server/http/build-identity.js`
 - Modify: `server/app.js:126-127` (imports at the top, mount after `app.use(securityHeaders)`)
 - Test: `tests/unit/build-identity.test.js`, `tests/blackbox/build-header.test.js`
 
 **Interfaces:**
+
 - Consumes: the meta tag format from Task 2.
 - Produces: `buildIdentity(file?: string): () => string`, which returns `""` when no ID is available, and `buildHeader(read?: () => string): express middleware`. `createApplication(config)` accepts an optional `config.buildDocument` (absolute path) that overrides `dist/index.html` for tests.
 
@@ -398,8 +412,8 @@ export function buildHeader(read = buildIdentity()) {
 ```js
 import { buildHeader, buildIdentity } from "./http/build-identity.js";
 // …
-  app.use(securityHeaders);
-  app.use(buildHeader(buildIdentity(config.buildDocument)));
+app.use(securityHeaders);
+app.use(buildHeader(buildIdentity(config.buildDocument)));
 ```
 
 `buildIdentity(undefined)` falls back to the default path.
@@ -459,11 +473,13 @@ git commit -m "feat: announce the served build on every response"
 ### Task 4: Client build check
 
 **Files:**
+
 - Create: `web/lib/build-check.js`
 - Modify: `web/lib/api.js:23-37`, `web/features/login/login-api.js:3-10`, `web/features/files/file-api.js:134-162`, `web/features/operations/RestoreForm.jsx:10-14`, `web/features/ssh/SshKeyCard.jsx:40-43`
 - Test: `tests/unit/build-check.test.js`
 
 **Interfaces:**
+
 - Consumes: the meta tag from Task 2 and the header from Task 3.
 - Produces, in `web/lib/build-check.js`:
   - `UPDATE_EVENT = "agentpier-update-available"`
@@ -488,7 +504,8 @@ import {
   updateDetected,
 } from "../../web/lib/build-check.js";
 
-const served = (id) => new Response("{}", { headers: id ? { "x-agentpier-build": id } : {} });
+const served = (id) =>
+  new Response("{}", { headers: id ? { "x-agentpier-build": id } : {} });
 
 test("a differing build header raises one update event", (t) => {
   const target = new EventTarget();
@@ -583,11 +600,13 @@ git commit -m "feat: detect a newer server build from responses"
 ### Task 5: Update notice and recovery copy
 
 **Files:**
+
 - Create: `web/features/updates/UpdateNotice.jsx`, `web/features/updates/update-notice.css`
 - Modify: `web/main.jsx:17-30`, `web/app/AppErrorBoundary.jsx:16-30`, `web/lib/i18n/de/app.js`, `web/lib/i18n/en/app.js`, `web/lib/i18n/messages/app.js`
 - Test: `tests/browser/update-notice.spec.js`
 
 **Interfaces:**
+
 - Consumes: `UPDATE_EVENT` and `updateDetected` from `web/lib/build-check.js` (Task 4).
 - Produces: `updateNoticeCopy` with keys `message`, `reload` and `dismiss`, and new `appRecoveryCopy` keys `updateTitle` and `updateDescription`.
 
@@ -635,14 +654,18 @@ test("the artifact viewer also shows the notice", async ({ page }) => {
   await expect(page.getByText("New version available")).toBeVisible();
 });
 
-test("a failed lazy module after an update explains the new version", async ({ page }) => {
+test("a failed lazy module after an update explains the new version", async ({
+  page,
+}) => {
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await announceNewBuild(page);
   await page.route("**/assets/SettingsPage-*.js", (route) => route.abort());
   await page.goto(baseURL);
   await expect(page.getByText("New version available")).toBeVisible();
   await page.goto(baseURL + "/settings");
-  await expect(page.getByRole("heading", { name: "A new version is available" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "A new version is available" }),
+  ).toBeVisible();
 });
 ```
 
@@ -680,7 +703,8 @@ export const appRecoveryCopy = {
   description: "Die App konnte diese Ansicht nicht laden. Bitte lade sie erneut.",
   reload: "Ansicht neu laden",
   updateTitle: "Eine neue Version ist verfügbar",
-  updateDescription: "AgentPier wurde aktualisiert. Lade neu, um mit der neuen Version weiterzuarbeiten.",
+  updateDescription:
+    "AgentPier wurde aktualisiert. Lade neu, um mit der neuen Version weiterzuarbeiten.",
 };
 export const updateNoticeCopy = {
   message: "Neue Version verfügbar",
@@ -797,12 +821,14 @@ function RecoveryView() {
 - [ ] **Step 6: Run the tests**
 
 Run:
+
 ```bash
 npm run build
 AGENTPIER_TEST_PORT=4397 AGENTPIER_TEST_BROWSER=chromium npx playwright test tests/browser/update-notice.spec.js tests/browser/app-recovery.spec.js
 AGENTPIER_TEST_PORT=4397 AGENTPIER_TEST_BROWSER=webkit npx playwright test tests/browser/update-notice.spec.js tests/browser/app-recovery.spec.js
 npm run test:unit
 ```
+
 Expected: all PASS, including the i18n catalog parity tests in the unit suite.
 
 - [ ] **Step 7: Screenshot for the PR**
@@ -821,6 +847,7 @@ git commit -m "feat: offer a reload when a new version is available"
 ### Task 6: Documentation, full verification, cleanup, PR
 
 **Files:**
+
 - Modify: `docs/startup-loading.md` (append a section)
 - Delete: `docs/superpowers/specs/2026-10-02-asset-caching-design.md`, `docs/superpowers/plans/2026-10-02-asset-caching.md`
 
@@ -831,11 +858,11 @@ Append to `docs/startup-loading.md`:
 ```markdown
 ## Caching and updates
 
-| Resource | `Cache-Control` |
-|---|---|
-| Content-hashed `/assets/*` | `max-age=31536000, immutable` |
-| Other static files (`sw.js`, icons, manifest, unhashed assets) | `no-cache` |
-| App documents, `/api`, `/auth`, errors | `no-store` |
+| Resource                                                       | `Cache-Control`               |
+| -------------------------------------------------------------- | ----------------------------- |
+| Content-hashed `/assets/*`                                     | `max-age=31536000, immutable` |
+| Other static files (`sw.js`, icons, manifest, unhashed assets) | `no-cache`                    |
+| App documents, `/api`, `/auth`, errors                         | `no-store`                    |
 
 App documents stay `no-store` so a disconnected device never shows a cached shell
 that looks connected; the service worker keeps serving `offline.html` for failed
@@ -872,6 +899,7 @@ gh pr create --title "feat: cache hashed assets and announce new versions" --bod
 ```
 
 The PR body (English) covers:
+
 - **Problem:** global `no-store` re-downloaded every asset on each PWA launch and artifact link.
 - **Behavior:** the cache table, build header, and update notice.
 - **Validation:** commands run with their results, and the screenshot.
