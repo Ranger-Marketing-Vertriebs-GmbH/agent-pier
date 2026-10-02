@@ -36,14 +36,14 @@ precache is rejected because it can make a disconnected app look connected.
 A small module `server/http/cache-policy.js` owns the rules. `securityHeaders` keeps
 `no-store` as the default for every response.
 
-| Resource | `Cache-Control` |
-|---|---|
-| Content-hashed files under `/assets/*` (name matches the Vite hash pattern, e.g. `-[A-Za-z0-9_-]{8}.` or `startup-<12 hex>.`) | `max-age=31536000, immutable` |
-| Unhashed files under `/assets/*` | `no-cache` |
-| App documents (`/`, SPA routes, `/artifacts/view/:id`) | `no-store` (unchanged) |
-| `/sw.js` and other root files in `dist/` (icons, manifest, `offline.*`, `pwa-*.js`, licenses) | `no-cache` |
-| `/api/*`, `/auth/*`, downloads, WebSocket upgrades | `no-store` (unchanged) |
-| All 404 and error responses, including static 412/416 | `no-store`, set explicitly in the handlers of `server/http/responses.js` |
+| Resource                                                                                                                      | `Cache-Control`                                                          |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Content-hashed files under `/assets/*` (name matches the Vite hash pattern, e.g. `-[A-Za-z0-9_-]{8}.` or `startup-<12 hex>.`) | `max-age=31536000, immutable`                                            |
+| Unhashed files under `/assets/*`                                                                                              | `no-cache`                                                               |
+| App documents (`/`, SPA routes, `/artifacts/view/:id`)                                                                        | `no-store` (unchanged)                                                   |
+| `/sw.js` and other root files in `dist/` (icons, manifest, `offline.*`, `pwa-*.js`, licenses)                                 | `no-cache`                                                               |
+| `/api/*`, `/auth/*`, downloads, WebSocket upgrades                                                                            | `no-store` (unchanged)                                                   |
+| All 404 and error responses, including static 412/416                                                                         | `no-store`, set explicitly in the handlers of `server/http/responses.js` |
 
 Rationale:
 
