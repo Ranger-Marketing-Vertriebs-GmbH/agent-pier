@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import useLanguage from "../lib/i18n/useLanguage.js";
-import { updateDetected } from "../lib/build-check.js";
+import { UPDATE_EVENT, updateDetected } from "../lib/build-check.js";
 import { appRecoveryCopy as copy } from "../lib/i18n/messages/app.js";
 
 export default class AppErrorBoundary extends React.Component {
@@ -16,7 +16,13 @@ export default class AppErrorBoundary extends React.Component {
 
 function RecoveryView() {
   useLanguage();
-  const updated = updateDetected();
+  const [updated, setUpdated] = useState(updateDetected);
+  useEffect(() => {
+    const show = () => setUpdated(true);
+    window.addEventListener(UPDATE_EVENT, show);
+    if (updateDetected()) setUpdated(true);
+    return () => window.removeEventListener(UPDATE_EVENT, show);
+  }, []);
   return (
     <main className="app-recovery" role="alert">
       <h1>{updated ? copy.updateTitle : copy.title}</h1>
