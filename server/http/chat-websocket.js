@@ -8,7 +8,7 @@ export function attachChatWebSocket(server, { sessions, streams, login, effectiv
   const wss = new WebSocketServer({
     noServer: true,
     maxPayload: 65536,
-    perMessageDeflate: false,
+    perMessageDeflate: { threshold: 1024, serverNoContextTakeover: true },
   });
   const sync = new ChatSync({ sessions });
   const upgrade = (req, socket, head) => {

@@ -34,6 +34,7 @@ import { remoteRoutes } from "./http/routes/remote.js";
 import { memoryRoutes } from "./http/routes/memory.js";
 import { providerRoutes } from "./http/routes/providers.js";
 import express from "express";
+import compression from "compression";
 import http from "node:http";
 import { createServices } from "./application/services.js";
 import { createSessionLifecycle } from "./application/session-lifecycle.js";
@@ -150,6 +151,15 @@ export async function createApplication(config) {
   });
   app.use("/auth", loginRoutes(services.login, effective));
   app.use("/api", requireLogin(services.login, effective));
+  // Slow mobile links benefit most; downloads stream raw bytes uncompressed.
+  app.use(
+    compression({
+      threshold: 1024,
+      filter: (req, res) =>
+        !/^attachment/i.test(String(res.getHeader("Content-Disposition") || "")) &&
+        compression.filter(req, res),
+    }),
+  );
   app.use(auditHttp(services.audit, { onError: services.onError }));
   app.use("/api", fileTransferStreams(services));
   app.use("/api", fileTextRoutes(services));

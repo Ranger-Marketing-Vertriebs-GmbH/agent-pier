@@ -102,6 +102,19 @@ test(
 );
 
 test(
+  "chat WebSocket negotiates permessage-deflate while the terminal does not",
+  { timeout },
+  async (t) => {
+    const f = await fixture(t);
+    const chat = connect(t, f, "chat-stream", { perMessageDeflate: true });
+    const terminal = connect(t, f, "terminal", { perMessageDeflate: true });
+    await Promise.all([chat.next("sync"), terminal.next("output")]);
+    assert.match(chat.ws.extensions, /permessage-deflate/);
+    assert.doesNotMatch(terminal.ws.extensions, /permessage-deflate/);
+  },
+);
+
+test(
   "chat WebSocket requires a login cookie and rejects foreign origins",
   { timeout },
   async (t) => {
