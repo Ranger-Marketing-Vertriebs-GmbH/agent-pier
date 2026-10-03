@@ -38,7 +38,9 @@ full snapshot. The HTTP route and the socket share one `ChatSync` instance, so a
 cursor issued by either transport is valid for the other (the socket-only
 `nativeInput` field is normalized away before fingerprints are compared).
 
-Baselines expire 30 minutes after they were last used, with at most 512 entries and
+Baselines expire 30 minutes after their cursor was last issued, or reissued because
+an unchanged snapshot reuses an existing cursor; using a cursor as a delta base does
+not extend its lifetime. There are at most 512 entries and
 16 MiB in total and eight active baselines per scope. When a socket closes, its last
 issued cursor is parked: only cursors the server issued are parked, at most two per
 scope and 256 in total, each for 30 minutes from the moment it was parked. Parked
@@ -52,11 +54,15 @@ its baselines, active and parked.
 The browser keeps a bounded cache of recently opened chats so that reopening one shows
 its messages immediately, before the socket has delivered anything.
 
-- Memory layer: an LRU of 12 chats, keyed by account, session and native conversation.
+- Memory layer: an LRU of 12 chats, keyed by `[session id, account, tool, createdAt]`.
 - Device layer: IndexedDB database `agentpier.chat.cache.v1`, object store `sessions`,
   with at most 12 entries and 8,000,000 in total serialized size (least recently used first out).
   Entries are serialized only when the cache is flushed (throttled writes, page hide),
-  not on every change. After the first device failure the cache stays memory-only.
+  not on every change. A flush writes its entries and the resulting evictions in one
+  transaction; eviction is decided from an in-memory index of entry sizes and access
+  times filled by the startup read, so no stored chats are read for it. Pruning
+  removed sessions reads keys only and is skipped while the session list is unchanged.
+  After the first device failure the cache stays memory-only.
 - Invalidation: entries carry a cache version and the build identifier. An entry with
   a different version or build, an invalid shape, or one whose session was removed is
   dropped on load.
@@ -65,15 +71,18 @@ A restored chat is not live. It is shown with the stale label, without native in
 warnings and without running subagents, and loading older history is disabled until
 the first server frame has been accepted; then the cached window is replaced and the
 scroll position is restored from its saved anchor. History is loaded after the
-restore. "Connected" in the transport means the first frame was accepted: when the
+restore. If the server no longer knows a restored paging cursor (409), paging falls
+back to the live window and retries once instead of showing a history error. "Connected" in the transport means the first frame was accepted: when the
 socket opens, the state is "connecting" and only becomes "connected" after that
-frame (or a successful HTTP fallback).
+frame on the open socket. An HTTP fallback read updates the chat but leaves the state
+as the socket reports it.
 
 Clearing rules:
 
 - Logout, or a session that is no longer authenticated, clears the whole cache.
-- Another tab changing the login (the `agentpier-auth-change` storage key) bumps an
-  auth epoch; a tab that notices a different epoch clears its cache instead of
+- Another tab changing the login updates the `agentpier-auth-change` storage key. Each
+  tab remembers the last seen login-change marker; a tab that notices a different
+  marker, including right before a queued device write, clears its cache instead of
   writing stale entries.
 - Removing a session forgets its entries and leaves a tombstone so a pending write
   cannot bring it back. Loading the session list prunes entries whose session is gone.
