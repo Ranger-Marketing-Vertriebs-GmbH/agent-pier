@@ -1,9 +1,9 @@
 const DATABASE = "agentpier.chat.cache.v1";
 const STORE = "sessions";
 
-function openDatabase() {
+function openDatabase(factory) {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DATABASE, 1);
+    const request = factory.open(DATABASE, 1);
     request.onupgradeneeded = () => {
       request.result.createObjectStore(STORE, { keyPath: "key" });
     };
@@ -13,55 +13,84 @@ function openDatabase() {
   });
 }
 
-// Runs `work(store, setResult)` in one transaction; resolves after it committed.
-async function transact(mode, work) {
-  const db = await openDatabase();
-  try {
-    return await new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE, mode);
+/**
+ * IndexedDB adapter, or null when the browser has none. Every method may reject.
+ * The open handle is cached; it closes on `versionchange` (another tab deletes or
+ * upgrades the database) and reopens on demand.
+ */
+export function openChatCacheStore(factory = globalThis.indexedDB) {
+  if (typeof factory === "undefined" || !factory) return null;
+  let handle = null;
+  let opening = null;
+  const drop = (db) => {
+    if (handle !== db) return;
+    handle = null;
+    try {
+      db.close();
+    } catch {
+      // already closed
+    }
+  };
+  const database = () => {
+    if (handle) return Promise.resolve(handle);
+    opening ??= openDatabase(factory).then(
+      (db) => {
+        opening = null;
+        handle = db;
+        db.onversionchange = () => drop(db);
+        db.onclose = () => drop(db);
+        return db;
+      },
+      (error) => {
+        opening = null;
+        throw error;
+      },
+    );
+    return opening;
+  };
+  const begin = async (mode) => {
+    const db = await database();
+    try {
+      return db.transaction(STORE, mode);
+    } catch {
+      // The cached handle closed underneath us: reopen once.
+      drop(db);
+      return (await database()).transaction(STORE, mode);
+    }
+  };
+  // Runs `work(store, setResult)` in one transaction; resolves after it committed.
+  const transact = async (mode, work) => {
+    const transaction = await begin(mode);
+    return new Promise((resolve, reject) => {
       let result;
-      work(transaction.objectStore(STORE), (value) => {
-        result = value;
-      });
       transaction.oncomplete = () => resolve(result);
       transaction.onerror = () => reject(transaction.error);
       transaction.onabort = () =>
         reject(transaction.error || new Error("Chat cache storage aborted"));
+      work(transaction.objectStore(STORE), (value) => {
+        result = value;
+      });
     });
-  } finally {
-    db.close();
-  }
-}
-
-/** IndexedDB adapter, or null when the browser has none. Every method may reject. */
-export function openChatCacheStore() {
-  if (typeof indexedDB === "undefined" || !indexedDB) return null;
+  };
+  const read = (method) =>
+    transact("readonly", (store, done) => {
+      const request = store[method]();
+      request.onsuccess = () => done(request.result);
+    });
   return {
-    getAll: () =>
-      transact("readonly", (store, done) => {
-        const request = store.getAll();
-        request.onsuccess = () => done(request.result);
-      }),
-    put: (entry) => transact("readwrite", (store) => store.put(entry)),
-    delete: (key) => transact("readwrite", (store) => store.delete(key)),
-    clear: () => transact("readwrite", (store) => store.clear()),
-    // Keeps at most maxEntries and maxSize bytes, dropping the least recently used.
-    evict: ({ maxEntries, maxSize }) =>
+    getAll: () => read("getAll"),
+    getAllKeys: () => read("getAllKeys"),
+    // Puts and deletes commit together in one readwrite transaction.
+    write: ({ puts = [], deletes = [] }) =>
       transact("readwrite", (store) => {
-        const request = store.getAll();
-        request.onsuccess = () => {
-          const entries = request.result.sort(
-            (a, b) => (a.accessedAt || 0) - (b.accessedAt || 0),
-          );
-          let total = entries.reduce((sum, entry) => sum + (entry.size || 0), 0);
-          let count = entries.length;
-          for (const entry of entries) {
-            if (count <= maxEntries && total <= maxSize) break;
-            store.delete(entry.key);
-            count -= 1;
-            total -= entry.size || 0;
-          }
-        };
+        for (const entry of puts) store.put(entry);
+        for (const key of deletes) store.delete(key);
       }),
+    clear: () => transact("readwrite", (store) => store.clear()),
+    // Closes the cached handle so a deleteDatabase is not blocked by this tab.
+    close: () => {
+      opening = null;
+      if (handle) drop(handle);
+    },
   };
 }
