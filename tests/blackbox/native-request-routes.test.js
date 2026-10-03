@@ -212,7 +212,7 @@ test("uncertain native delivery stays non-retryable and HTTP never resends an an
   assert.equal(attempts, 1);
 });
 
-test("web service disconnect releases a waiting Claude hook back to its native Terminal", async (t) => {
+test("web service disconnect keeps a waiting Claude permission hook for reconnect", async (t) => {
   const { broker, launch, url, root } = await fixture(t);
   const child = spawn(
     process.execPath,
@@ -234,6 +234,8 @@ test("web service disconnect releases a waiting Claude hook back to its native T
   );
   await poll(url);
   await broker.close();
+  // Claude shows its own dialog while the hook waits, so the terminal is never
+  // blocked; the hook keeps the request to republish it after a restart.
   let timer;
   const closed = await Promise.race([
     ended.then(() => true),
@@ -242,13 +244,8 @@ test("web service disconnect releases a waiting Claude hook back to its native T
     }),
   ]);
   clearTimeout(timer);
-  assert.equal(
-    closed,
-    true,
-    "native Terminal must not wait for the web service to return",
-  );
-  assert.equal((await ended)[0], 0, "native hook handoff is a successful empty decision");
-  assert.equal(stdout, "");
+  assert.equal(closed, false, "a server restart must not drop the chat approval");
+  assert.equal(stdout, "", "the hook never decides on its own");
 });
 
 test("dialog interactions are recorded through HTTP without consuming the request", async (t) => {

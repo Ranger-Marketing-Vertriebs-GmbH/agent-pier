@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
-import { recentlyUsedElsewhere } from "../requests/request-interaction.js";
+import { recentlyUsedElsewhere, settleNotice } from "../requests/request-interaction.js";
 
-// Claude's hook owns the question until it receives a handoff. Opening xterm
-// alone does not release it; leave the answer to Claude's native dialog.
-// Only a focused tab showing the terminal releases questions, so an open
-// terminal on another device cannot take a question away from chat.
+// Claude's hook owns a question or tool approval until it receives a handoff.
+// Opening xterm alone does not release it; leave the decision to Claude's
+// native dialog. Only a focused tab showing the terminal releases requests, so
+// an open terminal on another device cannot take one away from chat.
 export default function useClaudeTerminalQuestions({ session, active, request }) {
   const [error, setError] = useState("");
   const enabled = Boolean(
@@ -33,9 +33,15 @@ export default function useClaudeTerminalQuestions({ session, active, request })
         let unknown = false;
         for (const entry of result.requests) {
           if (controller.signal.aborted || !visible()) return;
+          // Hook-owned entries only: questions, legacy questions and plain tool
+          // approvals. Local startup/trust prompts are not hook invocations.
           if (
             entry.source !== "claude" ||
-            (entry.kind !== "question" && entry.presentation !== "claudeLegacyQuestion")
+            !(
+              entry.kind === "question" ||
+              entry.presentation === "claudeLegacyQuestion" ||
+              (entry.kind === "permission" && !entry.presentation)
+            )
           )
             continue;
           if (entry.status === "unknown") unknown = true;
@@ -48,6 +54,8 @@ export default function useClaudeTerminalQuestions({ session, active, request })
           )
             continue;
           if (entry.status === "unknown") released.add(entry.id);
+          // This tab shows the terminal; a "waiting in terminal" notice is moot.
+          settleNotice(entry.id);
           await request(
             `${base}/${encodeURIComponent(entry.id)}/handoff`,
             "POST",

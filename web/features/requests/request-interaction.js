@@ -35,3 +35,15 @@ export function recentlyUsedElsewhere(entry) {
     interaction.age < interactionWindow,
   );
 }
+
+// Terminal notices this tab already knows about: it released the request to
+// the terminal itself, or the user dismissed the notice. Bounded per tab.
+const settledNotices = new Set();
+export function settleNotice(id) {
+  settledNotices.add(id);
+  if (settledNotices.size > 200)
+    settledNotices.delete(settledNotices.values().next().value);
+}
+export function noticeSettled(id) {
+  return settledNotices.has(id);
+}

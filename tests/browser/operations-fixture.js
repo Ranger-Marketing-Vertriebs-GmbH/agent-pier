@@ -110,6 +110,7 @@ export async function operationsFixture(page, { tool = "codex" } = {}) {
       result = {
         requests: state.requests,
         ...(state.requestIntegration ? { integration: state.requestIntegration } : {}),
+        ...(state.requestNotice ? { notice: state.requestNotice } : {}),
       };
     else if (/\/requests\/[^/]+\/touch$/.test(path)) result = {};
     else if (/\/requests\/[^/]+\/(answer|handoff)$/.test(path)) {
