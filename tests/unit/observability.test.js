@@ -280,7 +280,7 @@ test("Codex context follows last total tokens and the native baseline-normalized
   assert.equal(context.usedTokens, 18000);
   assert.equal(context.remainingPercent, 95);
 });
-test("background dispatch completion does not establish a live OpenCode or Claude agent state", () => {
+test("background dispatch completion does not establish a live OpenCode state, but a Claude launch runs", () => {
   const opencode = observeOpenCode(fixture("opencode"));
   assert.equal(
     opencode.subagents.find((a) => a.id === "native-child-one").status,
@@ -306,7 +306,13 @@ test("background dispatch completion does not establish a live OpenCode or Claud
       toolUseResult: { agentId: "async-agent", isAsync: true, status: "launched" },
     },
   ]);
-  assert.equal(claude.subagents[0].status, "unknown");
+  // A background Claude launch runs until its notification or hand-back arrives;
+  // a stopped session turns the unresolved state into unknown.
+  assert.equal(claude.subagents[0].status, "running");
+  assert.equal(
+    finalizeObservability(claude, { status: "stopped" }).subagents[0].status,
+    "unknown",
+  );
 });
 
 test("Claude task and agent metadata correlate only through their shared native tool-use identifier", () => {

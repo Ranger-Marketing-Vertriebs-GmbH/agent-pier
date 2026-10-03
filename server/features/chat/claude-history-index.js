@@ -3,6 +3,7 @@ import {
   claudeConversationRecord,
   claudeVisibleRecord,
 } from "./claude-conversation-record.js";
+import { isSubagentTool, subagentEvent } from "./claude-subagents.js";
 import fs from "node:fs/promises";
 import syncFs from "node:fs";
 import path from "node:path";
@@ -58,6 +59,10 @@ export class ClaudeHistoryIndex {
       CREATE INDEX call_group ON calls(group_id,offset);
       CREATE TABLE results(id TEXT NOT NULL,group_id TEXT NOT NULL,offset INTEGER NOT NULL,end_offset INTEGER NOT NULL,PRIMARY KEY(id,offset));
       CREATE INDEX result_group ON results(group_id,offset);
+      CREATE TABLE subagents(call_id TEXT PRIMARY KEY,agent_id TEXT,group_id TEXT NOT NULL);
+      CREATE INDEX subagent_agent ON subagents(agent_id);
+      CREATE TABLE stops(offset INTEGER PRIMARY KEY,length INTEGER NOT NULL,agent_id TEXT NOT NULL);
+      CREATE INDEX stop_agent ON stops(agent_id);
     `);
     this.generation = randomUUID();
     this.position = 0;
@@ -91,7 +96,7 @@ export class ClaudeHistoryIndex {
   }
   reset() {
     this.db.exec(
-      "DELETE FROM records; DELETE FROM groups; DELETE FROM calls; DELETE FROM results;",
+      "DELETE FROM records; DELETE FROM groups; DELETE FROM calls; DELETE FROM results; DELETE FROM subagents; DELETE FROM stops;",
     );
     this.identity = null;
     this.position = 0;
@@ -159,9 +164,29 @@ export class ClaudeHistoryIndex {
       this.scanning = false;
     }
   }
+  // Hidden notification and hand-back records belong to the group of the Agent
+  // call they complete, so every page that shows the call also reads them.
+  subagentGroup(record) {
+    const event = subagentEvent(record);
+    if (!event) return null;
+    const row =
+      event.kind === "notification"
+        ? this.db
+            .prepare("SELECT group_id FROM subagents WHERE call_id=? OR agent_id=?")
+            .get(event.toolUseId, event.taskId)
+        : this.db
+            .prepare("SELECT group_id FROM subagents WHERE agent_id=?")
+            .get(event.agentId);
+    return row?.group_id ?? null;
+  }
   insert(record, offset, length) {
     const shown = claudeVisibleRecord(record);
-    if (!shown && !claudeImageSources(record)) return;
+    if (!shown && !claudeImageSources(record)) {
+      const target = this.subagentGroup(record);
+      if (target)
+        this.db.prepare("INSERT INTO records VALUES (?,?,?)").run(offset, length, target);
+      return;
+    }
     const group = claudeHistoryGroup(record);
     const content = record.message?.content;
     const blocks = Array.isArray(content) ? content : [];
@@ -182,11 +207,36 @@ export class ClaudeHistoryIndex {
         "INSERT INTO groups VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET visible=MAX(visible,excluded.visible)",
       )
       .run(group, offset, Number(visible));
+    // A stopped agent's TaskStop result stays in its own group; pages showing
+    // the Agent call read it as well.
+    const event = subagentEvent(record);
+    if (event?.kind === "stopped")
+      this.db
+        .prepare("INSERT OR IGNORE INTO stops VALUES (?,?,?)")
+        .run(offset, length, event.agentId);
+    const agentId = record.toolUseResult?.agentId;
     for (const block of blocks) {
       if (block?.type === "tool_use" && ["string", "number"].includes(typeof block.id))
         this.db
           .prepare("INSERT OR IGNORE INTO calls VALUES (?,?,?,?)")
           .run(String(block.id), group, offset, offset + length);
+      if (
+        block?.type === "tool_use" &&
+        record.type === "assistant" &&
+        isSubagentTool(block.name) &&
+        typeof block.id === "string"
+      )
+        this.db
+          .prepare("INSERT OR IGNORE INTO subagents VALUES (?,NULL,?)")
+          .run(block.id, group);
+      if (
+        block?.type === "tool_result" &&
+        typeof block.tool_use_id === "string" &&
+        typeof agentId === "string"
+      )
+        this.db
+          .prepare("UPDATE subagents SET agent_id=? WHERE call_id=? AND agent_id IS NULL")
+          .run(agentId, block.tool_use_id);
       if (
         block?.type === "tool_result" &&
         ["string", "number"].includes(typeof block.tool_use_id)
@@ -254,6 +304,12 @@ export class ClaudeHistoryIndex {
           )
           .iterate(group.id, identity.size, identity.size))
           tools.add(row.id);
+        for (const row of this.db
+          .prepare(
+            "SELECT s.offset,s.length FROM subagents a JOIN stops s ON s.agent_id=a.agent_id WHERE a.group_id=? AND s.offset+s.length<=?",
+          )
+          .iterate(group.id, identity.size))
+          addOffset(row);
       }
       for (const tool of tools) {
         const row = this.db
@@ -274,12 +330,19 @@ export class ClaudeHistoryIndex {
           record.type === "user" &&
           Array.isArray(record.message?.content) &&
           record.message.content.some((block) => block?.type === "tool_result");
-        if (!selected.has(claudeHistoryGroup(record)) || resultEnvelope)
+        // Subagent lifecycle records are kept even when none of their content is
+        // shown on this page: they only feed the state of their Agent row.
+        const lifecycle = Boolean(subagentEvent(record));
+        // Only lifecycle records of another group can carry plain-text content.
+        if (
+          (!selected.has(claudeHistoryGroup(record)) || resultEnvelope) &&
+          Array.isArray(record.message?.content)
+        )
           record.message.content = record.message.content.filter(
             (block) =>
               block?.type === "tool_result" && tools.has(String(block.tool_use_id)),
           );
-        if (resultEnvelope && !record.message.content.length) continue;
+        if (resultEnvelope && !record.message.content.length && !lifecycle) continue;
         records.push(record);
       }
       await reader.validate();

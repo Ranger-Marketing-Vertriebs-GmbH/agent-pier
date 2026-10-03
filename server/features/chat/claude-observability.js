@@ -10,6 +10,7 @@ import {
   agentStatus,
   putAgent,
 } from "./observability-values.js";
+import { asyncLaunch, subagentEvent } from "./claude-subagents.js";
 export function createClaudeObserver({ maxEntries = Infinity, compact = false } = {}) {
   let stale = false;
   const field = (value) => (typeof value === "string" ? text(value) : Boolean(value));
@@ -42,7 +43,7 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
     const previous = agents.get(agentId);
     agent(agentId, {
       ...values,
-      ...(values.status === "unknown" &&
+      ...((values.status === "unknown" || values.source === "claude-async-launch") &&
       ["completed", "failed"].includes(previous?.status)
         ? { status: previous.status }
         : {}),
@@ -114,20 +115,40 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
         );
         if (block && nativeId(result.agentId)) {
           const input = calls.get(block.tool_use_id);
+          const launched = !block.is_error && asyncLaunch(result);
           const status = block.is_error
             ? "failed"
-            : result.isAsync === true || result.status === "launched"
-              ? "unknown"
+            : launched
+              ? "running"
               : agentStatus(result.status);
           nativeAgent(block.tool_use_id, result.agentId, {
             name: text(input.name || input.subagent_type),
             task: text(input.description || input.prompt),
             status,
-            source: "claude-tool-result",
+            source: launched ? "claude-async-launch" : "claude-tool-result",
             updatedAt: at,
           });
         }
       }
+      // Background agents finish through generated user records, linked only by
+      // the native tool-use id of a known Agent call or a known agent id.
+      const event = subagentEvent(record);
+      if (event?.kind === "notification" && calls.has(event.toolUseId)) {
+        const input = calls.get(event.toolUseId);
+        nativeAgent(event.toolUseId, agentByCall.get(event.toolUseId) || event.taskId, {
+          name: text(input.name || input.subagent_type),
+          task: text(input.description || input.prompt),
+          status: event.status,
+          source: "claude-task-notification",
+          updatedAt: at,
+        });
+      }
+      if (["handback", "stopped"].includes(event?.kind) && agents.has(event.agentId))
+        agent(event.agentId, {
+          status: event.kind === "handback" ? "completed" : "unknown",
+          source: `claude-${event.kind}`,
+          updatedAt: at,
+        });
       if (record.type === "system" && nativeId(record.task_id)) {
         const callId = nativeId(record.tool_use_id) || tasks.get(record.task_id);
         const isAgentStart =

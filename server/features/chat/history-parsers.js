@@ -7,6 +7,7 @@ import {
   claudeConversationRecord,
   claudeVisibleRecord,
 } from "./claude-conversation-record.js";
+import { createSubagentTracker, isSubagentTool } from "./claude-subagents.js";
 import {
   attachmentPlaceholders,
   extractToolImages,
@@ -130,8 +131,10 @@ export function normalizeClaude(records) {
   const snapshots = new Map();
   const fragments = new Map();
   const results = new Map();
+  const subagents = createSubagentTracker();
   restoreClaudeImagePaths(list(records)).forEach((source, index) => {
     const record = claudeConversationRecord(source);
+    subagents.record(record);
     if (!claudeVisibleRecord(record)) return;
     const message = object(record.message);
     const id = identifier(message.id || record.uuid) || `claude:${index}`;
@@ -206,25 +209,23 @@ export function normalizeClaude(records) {
         const output = results.get(id);
         const input = object(parse(block.input));
         const images = [];
-        messages.set(
-          id,
-          withImages(
-            {
-              id,
-              role: "tool",
-              toolName: string(block.name) || "Tool",
-              ...toolFileChanges(block.name, block.input),
-              text: join(
-                show(block.input, images),
-                output ? body(output.content, images) : "",
-              ),
-              status: output ? (output.is_error ? "failed" : "completed") : "running",
-              ...timestamp,
-            },
-            images,
-            block.input,
-          ),
+        const row = withImages(
+          {
+            id,
+            role: "tool",
+            toolName: string(block.name) || "Tool",
+            ...toolFileChanges(block.name, block.input),
+            text: join(
+              show(block.input, images),
+              output ? body(output.content, images) : "",
+            ),
+            status: output ? (output.is_error ? "failed" : "completed") : "running",
+            ...timestamp,
+          },
+          images,
+          block.input,
         );
+        messages.set(id, isSubagentTool(block.name) ? subagents.apply(row, input) : row);
         if (output?.is_error) return;
         if (block.name === "TodoWrite" && Array.isArray(input.todos))
           todos = taskList(input.todos, "claude-todo");
