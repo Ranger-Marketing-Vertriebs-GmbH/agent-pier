@@ -26,34 +26,29 @@ function fakeStore({ failOn, once = false, gate } = {}) {
     rows,
     calls,
     async getAll() {
+      calls.push("getAll");
       guard("getAll");
       return [...rows.values()].map((row) => structuredClone(row));
     },
-    async put(entry) {
-      guard("put");
-      if (gate) await gate;
-      calls.push("put");
-      rows.set(entry.key, structuredClone(entry));
+    async getAllKeys() {
+      calls.push("getAllKeys");
+      guard("getAllKeys");
+      return [...rows.keys()];
     },
-    async delete(key) {
-      guard("delete");
-      rows.delete(key);
+    async write({ puts = [], deletes = [] }) {
+      calls.push(["write", puts.length, deletes.length]);
+      guard("write");
+      if (gate) await gate;
+      for (const entry of puts) rows.set(entry.key, structuredClone(entry));
+      for (const name of deletes) rows.delete(name);
     },
     async clear() {
+      calls.push("clear");
       guard("clear");
       rows.clear();
     },
-    async evict({ maxEntries, maxSize }) {
-      calls.push(["evict", maxEntries, maxSize]);
-      const sorted = [...rows.values()].sort((a, b) => a.accessedAt - b.accessedAt);
-      let total = sorted.reduce((sum, row) => sum + row.size, 0);
-      let count = sorted.length;
-      for (const row of sorted) {
-        if (count <= maxEntries && total <= maxSize) break;
-        rows.delete(row.key);
-        count -= 1;
-        total -= row.size;
-      }
+    close() {
+      calls.push("close");
     },
   };
 }
@@ -206,7 +201,7 @@ test("a clear discards a write that is already in flight", async () => {
 test("clear and forget still reach the device after a failed put", async () => {
   writeCachedChat(key("s1"), state());
   await flushChatCache();
-  store = fakeStore({ failOn: "put", once: true });
+  store = fakeStore({ failOn: "write", once: true });
   store.rows.set(key("old"), { key: key("old"), sessionId: "old" });
   store.rows.set(key("s2"), { key: key("s2"), sessionId: "s2" });
   __setChatCacheStore(store, () => build);
@@ -300,7 +295,7 @@ test("retain removes other keys from memory and device", async () => {
   assert.deepEqual([...store.rows.keys()], [key("s1")]);
 });
 
-for (const failOn of ["getAll", "put"]) {
+for (const failOn of ["getAll", "write"]) {
   test(`a store failing on ${failOn} leaves memory-only operation`, async () => {
     __setChatCacheStore(fakeStore({ failOn }), () => build);
     await preloadChatCache();
@@ -320,17 +315,110 @@ test("no adapter means memory-only", async () => {
   assert.notEqual(peekCachedChat(key("s1")), null);
 });
 
-test("device eviction runs after puts and drops the least recently accessed", async () => {
-  for (let i = 0; i < 13; i += 1) {
+test("device eviction drops the least recently accessed in the flush transaction", async () => {
+  await preloadChatCache();
+  for (let i = 0; i < 12; i += 1) {
     writeCachedChat(key(`s${i}`), state());
     await flushChatCache();
-    store.rows.get(key(`s${i}`)).accessedAt = i;
   }
-  assert.deepEqual(store.calls.at(-1), ["evict", 12, 8000000]);
-  writeCachedChat(key("s13"), state());
+  assert.equal(store.rows.size, 12);
+  store.calls.length = 0;
+  writeCachedChat(key("s12"), state());
   await flushChatCache();
   assert.equal(store.rows.size, 12);
   assert.equal(store.rows.has(key("s0")), false);
+  assert.deepEqual(store.calls, [["write", 1, 1]]);
+});
+
+test("a flush with several entries uses one transaction and reads no values", async () => {
+  for (let i = 0; i < 10; i += 1) writeCachedChat(key(`old${i}`), state());
+  await flushChatCache();
+  __setChatCacheStore(store, () => build);
+  await preloadChatCache();
+  store.calls.length = 0;
+  for (let i = 0; i < 5; i += 1) writeCachedChat(key(`new${i}`), state());
+  await flushChatCache();
+  assert.deepEqual(store.calls, [["write", 5, 3]]);
+  assert.equal(store.rows.size, 12);
+  for (let i = 0; i < 5; i += 1) assert.ok(store.rows.has(key(`new${i}`)));
+});
+
+test("eviction waits while the device index is unknown", async () => {
+  for (let i = 0; i < 13; i += 1) writeCachedChat(key(`s${i}`), state());
+  await flushChatCache();
+  assert.equal(store.rows.size, 13);
+  assert.deepEqual(store.calls, [["write", 13, 0]]);
+});
+
+test("retain with an unchanged key set does no device work", async () => {
+  writeCachedChat(key("s1"), state());
+  await flushChatCache();
+  retainCachedChats(new Set([key("s1")]));
+  await flushChatCache();
+  store.calls.length = 0;
+  for (let i = 0; i < 3; i += 1) retainCachedChats(new Set([key("s1")]));
+  await flushChatCache();
+  assert.deepEqual(store.calls, []);
+});
+
+test("retain decides deletions from keys only", async () => {
+  writeCachedChat(key("s1"), state());
+  writeCachedChat(key("s2"), state());
+  await flushChatCache();
+  store.calls.length = 0;
+  retainCachedChats(new Set([key("s1")]));
+  await flushChatCache();
+  assert.deepEqual(store.calls, ["getAllKeys", ["write", 0, 1]]);
+  assert.deepEqual([...store.rows.keys()], [key("s1")]);
+});
+
+test("a put of a key outside the retained set re-arms the next retain", async () => {
+  retainCachedChats(new Set([key("s1")]));
+  writeCachedChat(key("s9"), state());
+  await flushChatCache();
+  store.calls.length = 0;
+  retainCachedChats(new Set([key("s1")]));
+  await flushChatCache();
+  assert.deepEqual(store.calls, ["getAllKeys", ["write", 0, 1]]);
+  assert.equal(store.rows.size, 0);
+});
+
+test("a login change after enqueue clears instead of putting", async () => {
+  let auth = "1";
+  __setChatCacheStore(
+    store,
+    () => build,
+    () => auth,
+  );
+  writeCachedChat(key("s1"), state());
+  const flushed = flushChatCache();
+  auth = "2";
+  await flushed;
+  await flushChatCache();
+  assert.ok(!store.calls.some((call) => Array.isArray(call) && call[0] === "write"));
+  assert.ok(store.calls.includes("clear"));
+  assert.equal(store.rows.size, 0);
+  assert.equal(peekCachedChat(key("s1")), null);
+});
+
+test("a failed clear closes the cached handle before deleting the database", async (t) => {
+  const order = [];
+  const original = globalThis.indexedDB;
+  t.after(() => {
+    globalThis.indexedDB = original;
+  });
+  globalThis.indexedDB = {
+    deleteDatabase: (name) => order.push(["deleteDatabase", name]),
+  };
+  store = fakeStore({ failOn: "clear" });
+  const close = store.close;
+  store.close = () => {
+    close();
+    order.push("close");
+  };
+  __setChatCacheStore(store, () => build);
+  await clearChatCache();
+  assert.deepEqual(order, ["close", ["deleteDatabase", "agentpier.chat.cache.v1"]]);
 });
 
 test("restoredSnapshot marks a snapshot as not live", () => {

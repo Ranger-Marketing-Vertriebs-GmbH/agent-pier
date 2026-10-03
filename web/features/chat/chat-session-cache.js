@@ -19,6 +19,13 @@ let timer = null;
 let preloading = null;
 let persistRequested = false;
 let buildOf = currentBuild;
+// Device index `key -> { size, accessedAt }`, filled by the preload read and kept
+// current by every device write, so eviction never reads stored values. `null`
+// means unknown (no preload yet): eviction then waits, since a failed preload
+// leaves the cache memory-only and nothing is put.
+let index = null;
+// The key set of the last device retain; an unchanged poll does no device work.
+let retained = null;
 // Device writes stop after a failure; destructive operations always keep trying.
 let deviceWritable = true;
 const AUTH_KEY = "agentpier-auth-change";
@@ -103,10 +110,35 @@ function enqueue(task, { destructive = false, fallback } = {}) {
       await task(current);
     } catch {
       memoryOnly();
-      fallback?.();
+      index = null;
+      fallback?.(current);
     }
   });
   return chain;
+}
+
+const meta = (entry) => ({ size: entry.size || 0, accessedAt: entry.accessedAt || 0 });
+
+// Least recently used keys to drop so the device keeps MAX_ENTRIES and MAX_SIZE.
+function evictions(puts) {
+  const next = new Map(index);
+  for (const entry of puts) next.set(entry.key, meta(entry));
+  const sorted = [...next].sort((a, b) => a[1].accessedAt - b[1].accessedAt);
+  let total = sorted.reduce((sum, [, value]) => sum + value.size, 0);
+  let count = next.size;
+  const deletes = [];
+  for (const [key, value] of sorted) {
+    if (count <= MAX_ENTRIES && total <= MAX_SIZE) break;
+    deletes.push(key);
+    next.delete(key);
+    count -= 1;
+    total -= value.size;
+  }
+  return { next, deletes };
+}
+
+function forgetIndexed(keys) {
+  for (const key of keys) index?.delete(key);
 }
 
 function uniqueIds(rows) {
@@ -145,18 +177,22 @@ export function preloadChatCache() {
     requestPersistence();
     const started = generation;
     let entries;
-    try {
-      entries = await current.getAll();
-    } catch {
-      memoryOnly();
-      return;
-    }
+    // On the device queue, so the index matches exactly what earlier writes left.
+    await enqueue(async (device) => {
+      const loaded = await device.getAll();
+      if (!Array.isArray(loaded)) return;
+      const valid = [];
+      const stale = [];
+      for (const entry of loaded) {
+        if (validEntry(entry) && !tombstones.has(entry.sessionId)) valid.push(entry);
+        else if (typeof entry?.key === "string") stale.push(entry.key);
+      }
+      index = new Map(valid.map((entry) => [entry.key, meta(entry)]));
+      entries = valid;
+      if (stale.length) await device.write({ deletes: stale });
+    });
     if (started !== generation || !Array.isArray(entries)) return;
-    const valid = [];
-    for (const entry of entries) {
-      if (validEntry(entry) && !tombstones.has(entry.sessionId)) valid.push(entry);
-      else if (typeof entry?.key === "string") void enqueue((s) => s.delete(entry.key));
-    }
+    const valid = entries;
     // Fill free slots only, at the least recent end; never override a live key.
     valid.sort((a, b) => (b.accessedAt || 0) - (a.accessedAt || 0));
     const added = valid
@@ -260,13 +296,24 @@ export function flushChatCache() {
   if (batch.length === 0) return chain;
   requestPersistence();
   return enqueue(async (current) => {
-    let wrote = false;
-    for (const { generation: queued, entry } of batch) {
-      if (queued !== generation || tombstones.has(entry.sessionId)) continue;
-      await current.put(deviceEntry(entry));
-      wrote = true;
+    // A logout in another tab may land between enqueue and this task.
+    if (authOf() !== stamp) {
+      void clearChatCache();
+      return;
     }
-    if (wrote) await current.evict({ maxEntries: MAX_ENTRIES, maxSize: MAX_SIZE });
+    const puts = batch
+      .filter(
+        ({ generation: queued, entry }) =>
+          queued === generation && !tombstones.has(entry.sessionId),
+      )
+      .map(({ entry }) => deviceEntry(entry));
+    if (puts.length === 0) return;
+    const { next, deletes } = index ? evictions(puts) : { next: null, deletes: [] };
+    const kept = puts.filter((entry) => !deletes.includes(entry.key));
+    // Puts and evictions commit in one transaction.
+    await current.write({ puts: kept, deletes });
+    if (next) index = next;
+    if (retained && kept.some((entry) => !retained.has(entry.key))) retained = null;
   });
 }
 
@@ -282,26 +329,44 @@ export function forgetCachedChat(sessionId) {
   }
   void enqueue(
     async (current) => {
-      for (const entry of await current.getAll()) {
-        if (entry?.sessionId === sessionId || sessionIdOf(entry?.key) === sessionId) {
-          await current.delete(entry.key);
-        }
-      }
+      const deletes = (await current.getAll())
+        .filter(
+          (entry) =>
+            entry?.sessionId === sessionId || sessionIdOf(entry?.key) === sessionId,
+        )
+        .map((entry) => entry.key);
+      if (deletes.length) await current.write({ deletes });
+      forgetIndexed(deletes);
     },
     { destructive: true },
   );
 }
 
+const sameKeys = (left, right) =>
+  left !== null &&
+  left.size === right.size &&
+  [...left].sort().join("\n") === [...right].sort().join("\n");
+
+/** Called on every state poll: an unchanged key set does no device work. */
 export function retainCachedChats(validKeys) {
   for (const key of [...memory.keys()]) if (!validKeys.has(key)) memory.delete(key);
   for (const key of [...pending.keys()]) if (!validKeys.has(key)) pending.delete(key);
+  if (sameKeys(retained, validKeys)) return;
+  const keys = new Set(validKeys);
+  retained = keys;
   void enqueue(
     async (current) => {
-      for (const entry of await current.getAll()) {
-        if (!validKeys.has(entry?.key)) await current.delete(entry.key);
-      }
+      // Keys only: deciding deletions never reads stored chats.
+      const deletes = (await current.getAllKeys()).filter((key) => !keys.has(key));
+      if (deletes.length) await current.write({ deletes });
+      forgetIndexed(deletes);
     },
-    { destructive: true },
+    {
+      destructive: true,
+      fallback: () => {
+        retained = null;
+      },
+    },
   );
 }
 
@@ -314,10 +379,25 @@ export function clearChatCache() {
     timer = null;
   }
   stamp = authOf();
-  return enqueue((current) => current.clear(), {
-    destructive: true,
-    fallback: deleteDatabase,
-  });
+  retained = null;
+  return enqueue(
+    async (current) => {
+      await current.clear();
+      index = new Map();
+    },
+    {
+      destructive: true,
+      // The cached handle would block deleteDatabase; close it first.
+      fallback: (current) => {
+        try {
+          current?.close?.();
+        } catch {
+          // best effort
+        }
+        deleteDatabase();
+      },
+    },
+  );
 }
 
 /** Marks a cached snapshot as not live until the first accepted server frame. */
@@ -348,6 +428,8 @@ export function __setChatCacheStore(
   pending.clear();
   tombstones.clear();
   preloading = null;
+  index = null;
+  retained = null;
   persistRequested = false;
   chain = Promise.resolve();
   if (timer !== null) {
