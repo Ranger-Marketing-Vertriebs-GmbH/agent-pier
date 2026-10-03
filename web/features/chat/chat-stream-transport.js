@@ -30,7 +30,6 @@ export function createChatStream({
   let fallbacks = 0;
   let epoch = 0;
   let revision = 0;
-  let open = false;
   // A baseline without a cursor cannot seed a delta; treat it as absent.
   let snapshot =
     isChatSnapshot(initial) && typeof initial.sync?.cursor === "string" ? initial : null;
@@ -46,7 +45,6 @@ export function createChatStream({
   };
   const stopSocket = () => {
     cancel(deadline);
-    open = false;
     if (socket) {
       socket.onopen = socket.onmessage = socket.onerror = socket.onclose = null;
       socket.close();
@@ -72,16 +70,17 @@ export function createChatStream({
       let next;
       try {
         next = applyChatSync(snapshot, response);
-      } catch (error) {
+      } catch {
+        // A rejected delta must not seed the next read; its raw text never reaches the UI.
         snapshot = null;
-        throw error;
+        return onError(copy.invalidSnapshot);
       }
       if (!isChatSnapshot(next)) return onError(copy.invalidSnapshot);
       snapshot = next;
       onSnapshot(next);
       onError("");
-      // A live socket owns the state; it reports connected after its own first frame.
-      if (!open) onConnection("connected");
+      // The connection state stays with the socket: "connected" only follows an
+      // accepted frame on an open socket, never an HTTP recovery read.
     } catch (error) {
       if (current()) onError(error.message);
     } finally {
@@ -111,7 +110,6 @@ export function createChatStream({
         if (disposed || token !== epoch) return;
         cancel(deadline);
         deadline = schedule(() => fail(), FIRST_SNAPSHOT_TIMEOUT);
-        open = true;
         onConnection("connecting");
       };
       socket.onmessage = (event) => {
