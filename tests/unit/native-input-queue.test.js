@@ -110,6 +110,25 @@ test("queue disappearance, duplicate texts, composer-only text and replaced scop
     "nativeAccepted",
   );
 });
+test("trailing whitespace Claude trims and its paste wrapper still confirm acceptance", () => {
+  const observe = (text, native) =>
+    nativeDeliveryStates(
+      [{ ...item, text, observation: { ...item.observation, hash: inputHash(text) } }],
+      [{ ...message, text: native }],
+      { ...input, queue: [] },
+      "claude",
+    ).get("a")?.state;
+  assert.equal(observe("hello ", "hello"), "nativeAccepted");
+  assert.equal(observe("hello\n\t", "hello"), "nativeAccepted");
+  assert.equal(observe(" hello", "hello"), undefined);
+  assert.equal(
+    observe(
+      "a\nb\nc ",
+      '\n\n<pasted_content id="e8ae">\na\nb\nc\n</pasted_content id="e8ae">\n',
+    ),
+    "nativeAccepted",
+  );
+});
 test("OpenCode consumes only messages with an explicit native assistant parent", () => {
   const rows = [
     { ...message, id: "part-1" },

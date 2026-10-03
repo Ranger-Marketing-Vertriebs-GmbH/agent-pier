@@ -369,3 +369,59 @@ test("image companions stay with their prompt across indexed pages", async (t) =
     ["/uploads/image.png"],
   );
 });
+
+test("Claude paste wrappers are stripped on live tail and indexed pages", async (t) => {
+  const { readClaudePage } =
+    await import("../../server/features/chat/claude-history-page.js");
+  const text = "pasted one\npasted two\npasted three";
+  const wrap = (id) =>
+    `\n\n<pasted_content id="${id}">\n${text}\n</pasted_content id="${id}">\n`;
+  const f = await fixture(t, [
+    {
+      type: "user",
+      uuid: "s",
+      cwd: "/fixture",
+      sessionId: "native",
+      message: { role: "user", content: wrap("e8ae") },
+    },
+    {
+      type: "user",
+      uuid: "b",
+      message: { role: "user", content: [{ type: "text", text: wrap("0874") }] },
+    },
+    {
+      type: "attachment",
+      uuid: "a",
+      attachment: {
+        type: "queued_command",
+        commandMode: "prompt",
+        origin: { kind: "human" },
+        source_uuid: "q",
+        prompt: wrap("1a2b"),
+      },
+    },
+  ]);
+  const expected = [text, text, text];
+  const tail = await readClaudePage(
+    { claudeFile: async () => f.file },
+    { cwd: "/fixture" },
+    "native",
+  );
+  assert.deepEqual(
+    tail.messages.map((row) => row.text),
+    expected,
+  );
+  const identity = await f.identity();
+  await f.index.refresh(identity);
+  const page = await f.index.page({ identity });
+  const raw = page.records.map((record) =>
+    typeof record.message.content === "string"
+      ? record.message.content
+      : record.message.content[0].text,
+  );
+  assert.deepEqual(raw, expected);
+  assert.deepEqual(
+    normalizeClaude(page.records).messages.map((row) => row.text),
+    expected,
+  );
+});
