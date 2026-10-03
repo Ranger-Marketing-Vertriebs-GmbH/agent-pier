@@ -210,7 +210,7 @@ test("mobile task drawer lists working subagents first with their task immediate
   await expect(entries.nth(1)).toContainText("Worker beta");
   await expect(entries.nth(1).locator(".subagent-status")).toHaveText("Erledigt");
   await expect(
-    drawer.getByRole("heading", { name: "Aktive Unteragenten (1)" }),
+    drawer.getByRole("heading", { name: "Unteragenten (2 · 1 aktiv)" }),
   ).toBeVisible();
   await page.screenshot({ path: "docs/screenshots/active-subagents.png" });
   await page.keyboard.press("Escape");
@@ -237,7 +237,7 @@ test("subagent count and visible tasks follow live updates and keep recent compl
     },
   });
   const count = page.getByRole("button", { name: "Unteragenten anzeigen" });
-  await expect(count).toHaveText("Aktive Unteragenten (1)");
+  await expect(count).toHaveText("Unteragenten (4 · 1 aktiv)");
   await count.click();
   const panel = page.getByRole("complementary", { name: "Aufgabenliste" });
   await expect(panel.locator(".subagent-entry")).toHaveCount(4);

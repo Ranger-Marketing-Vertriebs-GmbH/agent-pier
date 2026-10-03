@@ -232,6 +232,7 @@ export default function ChatView({
               messages={history.previous}
               live={session.status === "running" && !data?.observability?.stale}
               subagentsLive={subagentsLive}
+              observedSubagents={data?.observability?.subagents}
               tool={session.tool}
               sessionId={session.id}
               cwd={session.cwd}
@@ -244,6 +245,7 @@ export default function ChatView({
             messages={history.current}
             live={session.status === "running" && !data?.observability?.stale}
             subagentsLive={subagentsLive}
+            observedSubagents={data?.observability?.subagents}
             tool={session.tool}
             sessionId={session.id}
             cwd={session.cwd}
