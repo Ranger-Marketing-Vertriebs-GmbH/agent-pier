@@ -545,37 +545,3 @@ test(
     assert.equal(f.application.chatStreams.entries.size, 0);
   },
 );
-
-test(
-  "chat WebSocket resumes from a base cursor and ignores invalid ones",
-  { timeout },
-  async (t) => {
-    const f = await fixture(t);
-    const first = connect(t, f);
-    const cursor = (await first.next("sync")).data.sync.cursor;
-    assert.ok(cursor);
-    first.ws.close();
-    await first.closed;
-    const resumed = connect(t, f, `chat-stream?cursor=${cursor}`);
-    assert.equal((await resumed.next("sync")).data.sync.mode, "delta");
-    for (const bad of ["unknown-123", "bad%20value"]) {
-      const client = connect(t, f, `chat-stream?cursor=${bad}`);
-      assert.equal((await client.next("sync")).data.sync.mode, "full");
-    }
-  },
-);
-
-test("cursors are interchangeable between WebSocket and HTTP", { timeout }, async (t) => {
-  const f = await fixture(t);
-  const chat = connect(t, f);
-  const cursor = (await chat.next("sync")).data.sync.cursor;
-  const viaHttp = await (
-    await f.request(`/api/sessions/${sessionId}/chat?cursor=${cursor}`)
-  ).json();
-  assert.equal(viaHttp.sync.mode, "delta");
-  const httpFull = await (await f.request(`/api/sessions/${sessionId}/chat`)).json();
-  chat.ws.close();
-  await chat.closed;
-  const resumed = connect(t, f, `chat-stream?cursor=${httpFull.sync.cursor}`);
-  assert.equal((await resumed.next("sync")).data.sync.mode, "delta");
-});

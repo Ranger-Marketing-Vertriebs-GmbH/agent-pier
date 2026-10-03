@@ -228,6 +228,19 @@ test("default lifetime keeps baselines valid at 29 minutes and expires them at 3
   assert.equal((await f.sync.read("one", first.sync.cursor)).sync.mode, "full");
 });
 
+test("defaults match the cache contract and parking restarts the lifetime", async () => {
+  let now = 1;
+  const f = fixture({ now: () => now });
+  assert.equal(f.sync.maxBytes, 16 * 1024 * 1024);
+  assert.equal(f.sync.maxEntries, 512);
+  assert.equal(f.sync.ttl, 30 * MINUTE);
+  const first = await f.sync.read("one");
+  now += 29 * MINUTE;
+  f.sync.park(first.sync.cursor);
+  now += 29 * MINUTE;
+  assert.equal((await f.sync.read("one", first.sync.cursor)).sync.mode, "delta");
+});
+
 test("a parked cursor survives later frames in the same scope and yields a delta", async () => {
   const f = fixture();
   const first = await f.sync.read("one");

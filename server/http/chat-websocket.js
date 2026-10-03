@@ -3,7 +3,7 @@ import { sessionToken } from "./login.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
 
-const CURSOR = /^[A-Za-z0-9_-]{1,128}$/;
+const CURSOR = /^[A-Za-z0-9-]{1,64}$/;
 
 export function attachChatWebSocket(server, { sync, streams, login, effective }) {
   const wss = new WebSocketServer({
@@ -44,7 +44,8 @@ export function attachChatWebSocket(server, { sync, streams, login, effective })
     let closed = false,
       alive = true,
       sequence = 0,
-      cursor = base;
+      cursor = base,
+      issued = false;
     const send = (message) => {
       if (closed || ws.readyState !== WebSocket.OPEN) return;
       if (ws.bufferedAmount > 2 * 1024 * 1024) return ws.close(1013);
@@ -66,7 +67,7 @@ export function attachChatWebSocket(server, { sync, streams, login, effective })
       clearInterval(ping);
       cleanupLogin();
       unsubscribe?.();
-      if (cursor) sync.park(cursor);
+      if (issued && cursor) sync.park(cursor);
     });
     unsubscribe = streams.subscribe(id, ({ session, snapshot, error }) => {
       if (closed || ws.readyState !== WebSocket.OPEN) return;
@@ -83,6 +84,7 @@ export function attachChatWebSocket(server, { sync, streams, login, effective })
         }
         const data = sync.encode(session, snapshot, cursor);
         cursor = data.sync.cursor;
+        issued = true;
         send({ type: "sync", sequence: ++sequence, data });
         if (
           session.status !== "running" &&
