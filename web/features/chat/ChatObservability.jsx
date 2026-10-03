@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { chatObservabilityCopy as copy } from "../../lib/i18n/messages/chat-observability.js";
 import { formatNumber, formatTimestamp } from "../../lib/i18n/index.js";
 import { sessionActivity } from "../sessions/sessionPresentation.js";
+import { subagentHeading } from "./subagent-presentation.js";
 
 const formatUsage = (value) => formatNumber(value, { maximumFractionDigits: 1 });
 const tokenCount = (value) => (Number.isSafeInteger(value) && value >= 0 ? value : null);
@@ -74,7 +75,7 @@ export default function ChatObservability({
       </div>
       {subagents.length > 0 && (
         <button type="button" aria-label={copy.showSubagents} onClick={showSubagents}>
-          {copy.subagentCount(subagents.length)}
+          {subagentHeading(subagents)}
         </button>
       )}
     </div>

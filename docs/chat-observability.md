@@ -50,7 +50,10 @@ Each row contains `id`, `name`, `task`, `status`, `source` and `updatedAt`. Desc
 
 - **Codex:** native collaboration receiver thread IDs and subagent activity events identify agents. Their reported agent state determines status. Finishing a spawn, send or wait tool operation does not itself finish an agent. [Official structured thread schema](https://github.com/openai/codex/blob/main/codex-rs/app-server-protocol/schema/typescript/v2/ThreadItem.ts).
 - **Claude Code:** Agent/Task calls correlate native progress and `toolUseResult.agentId`. Structured background task events are accepted only for agent tasks or a known Agent tool use. A shared `tool_use_id` links task IDs to the canonical agent ID when both are available, avoiding duplicate rows. Without that link, no identity equivalence is guessed. [Official SDK task event schema](https://code.claude.com/docs/en/agent-sdk/typescript).
+  Current CLIs launch subagents in the background: the Agent result (`isAsync: true`, `status: "async_launched"`) makes the agent `running`. Completion arrives as generated user records, which stay hidden from the chat. A record with `origin.kind: "task-notification"` completes it when its `<tool-use-id>` names a known Agent call; only the envelope's `<task-id>`, `<tool-use-id>`, `<status>` and `<summary>` tags are read. Notifications for background commands or workflows are ignored. `completed` maps to completed, `failed` to failed, and other states such as `killed` to unknown. A peer record with `origin.handback: true` from a known agent ID completes it as well. A successful `TaskStop` result for the agent (`toolUseResult.task_type: "local_agent"`) makes it unknown. Prose that only quotes these tags is never lifecycle evidence. While the parent session is not running, an unresolved `running` state becomes unknown.
 - **OpenCode:** task-tool metadata supplies the child session ID. A completed foreground task can establish completion. A completed background dispatch remains unknown because its later completion may only appear as synthetic prose, which this adapter deliberately does not interpret as lifecycle evidence. [Official task implementation](https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/tool/task.ts).
+
+In the chat, Claude Agent/Task rows carry `subagent: { description, type, status }` and are rendered as standalone rows labeled "Subagent: <description> (<type>)" outside the collapsed tool groups. For background agents, the row text is the last hand-back report (bounded to 256 KiB and then subject to the tool output cap below), else the notification summary, else the launch prompt. Indexed history pages store hidden completion and `TaskStop` records with the Agent call's group so that every page showing the call also reads them. The UI never shows a subagent as working from saved, restored or stale data. The task panel lists working agents first, then the five most recently finished ones; without live data it lists only completed and failed agents.
 
 Statuses are `running`, `completed`, `failed` or `unknown`, based on the latest supported native report. They do not constitute process supervision. Unsupported schema versions, absent identifiers, dispatch-only results and ambiguous stopped/interrupted states remain unknown. Ordinary assistant prose, quoted JSON/XML, task-list items and arbitrary tool results never create subagent identities.
 
@@ -80,6 +83,8 @@ limit are only available while they are in the live window.
 
 ```sh
 node --test tests/unit/observability.test.js \
+  tests/unit/claude-subagents.test.js \
+  tests/integration/claude-subagent-history.test.js \
   tests/integration/observability-history.test.js \
   tests/property/observability-usage.test.js \
   tests/matrix/observability-status.test.js

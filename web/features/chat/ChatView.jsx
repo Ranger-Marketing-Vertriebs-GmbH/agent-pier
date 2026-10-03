@@ -19,6 +19,7 @@ import ConversationPicker from "./ConversationPicker.jsx";
 import ChatComposer from "./ChatComposer.jsx";
 import ChatObservability from "./ChatObservability.jsx";
 import useChatController from "./useChatController.js";
+import { visibleSubagents } from "./subagent-presentation.js";
 export default function ChatView({
   active,
   session,
@@ -126,12 +127,9 @@ export default function ChatView({
     )
       void loadOlder();
   }, [restored, active, output, historyError, resetStatus, loadOlder]);
-  const subagents =
-    session.status === "running" && !restored && !data?.observability?.stale
-      ? (data?.observability?.subagents || []).filter(
-          (agent) => agent.status === "running",
-        )
-      : [];
+  const subagentsLive =
+    session.status === "running" && !restored && !data?.observability?.stale;
+  const subagents = visibleSubagents(data?.observability?.subagents, subagentsLive);
   return (
     <div className="chat-layout">
       <Tasks
@@ -233,6 +231,7 @@ export default function ChatView({
               key={`${session.id}:${data?.providerSessionId}:${data?.history?.generation}`}
               messages={history.previous}
               live={session.status === "running" && !data?.observability?.stale}
+              subagentsLive={subagentsLive}
               tool={session.tool}
               sessionId={session.id}
               cwd={session.cwd}
@@ -244,6 +243,7 @@ export default function ChatView({
             key={`${session.id}:${data?.providerSessionId}:${data?.history?.generation}`}
             messages={history.current}
             live={session.status === "running" && !data?.observability?.stale}
+            subagentsLive={subagentsLive}
             tool={session.tool}
             sessionId={session.id}
             cwd={session.cwd}

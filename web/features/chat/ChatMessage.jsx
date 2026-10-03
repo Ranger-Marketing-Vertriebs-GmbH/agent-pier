@@ -10,25 +10,44 @@ import { artifactLink } from "../artifacts/artifact-return-link.js";
 import remarkGfm from "remark-gfm";
 import ChatImages from "./ChatImages.jsx";
 import { providerNames } from "./presentation.js";
-export default function Message({ message, tool, sessionId, cwd, openFile }) {
+export default function Message({
+  message,
+  tool,
+  sessionId,
+  cwd,
+  openFile,
+  subagentsLive = true,
+}) {
   const [toolOpen, setToolOpen] = useState(false);
   if (message.role === "tool") {
     const toolImages = (message.images || []).filter((image) => image?.source === "tool");
+    const subagent = message.subagent;
+    // Saved or stale data never claims that a subagent is still working.
+    const status =
+      subagent && message.status === "running" && !subagentsLive
+        ? "unknown"
+        : message.status;
     return (
       <details
-        className="chat-tool"
+        className={subagent ? "chat-tool chat-subagent" : "chat-tool"}
         data-message-id={message.id}
+        data-status={subagent ? status : undefined}
         onToggle={(event) => setToolOpen(event.currentTarget.open)}
       >
         <summary>
-          <span aria-hidden="true">⌘</span>
-          <strong>{message.toolName || copy.chatToolLabel}</strong>
+          <span aria-hidden="true">{subagent ? "◇" : "⌘"}</span>
+          <strong>
+            {subagent
+              ? copy.subagentLabel(subagent.description, subagent.type)
+              : message.toolName || copy.chatToolLabel}
+          </strong>
           <small>
             {{
               running: commonCopy.running,
               completed: commonCopy.completed,
               failed: commonCopy.failed,
-            }[message.status] || copy.toolDetails}
+              ...(subagent ? { unknown: commonCopy.unknown } : {}),
+            }[status] || copy.toolDetails}
           </small>
         </summary>
         {toolOpen && toolImages.length > 0 && (

@@ -1,16 +1,19 @@
 import React from "react";
 import { chatObservabilityCopy as copy } from "../../lib/i18n/messages/chat-observability.js";
 import { formatTimestamp } from "../../lib/i18n/index.js";
+import { subagentHeading, subagentStatus } from "./subagent-presentation.js";
 export default function SubagentList({ subagents = [] }) {
   if (!subagents.length) return null;
   return (
     <section className="chat-subagents" aria-label={copy.subagents}>
-      <h3>{copy.subagentCount(subagents.length)}</h3>
+      <h3>{subagentHeading(subagents)}</h3>
       {subagents.map((agent) => (
         <article className="subagent-entry" key={agent.id}>
           <div className="subagent-heading">
             <span>{agent.name || agent.id}</span>
-            <small className="subagent-status running">{copy.running}</small>
+            <small className={`subagent-status ${subagentStatus(agent)}`}>
+              {copy[subagentStatus(agent)]}
+            </small>
           </div>
           <p>{agent.task || copy.noTask}</p>
           {agent.updatedAt && (

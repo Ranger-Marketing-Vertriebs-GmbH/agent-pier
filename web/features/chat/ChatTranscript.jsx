@@ -12,7 +12,8 @@ import "./tool-groups.css";
 export function groupMessages(messages, known = new Map()) {
   const groups = [];
   for (const message of messages) {
-    if (message.role !== "tool") {
+    // Subagent rows stand alone so their label and state stay visible.
+    if (message.role !== "tool" || message.subagent) {
       groups.push({ key: `message:${message.id}`, message });
     } else {
       let group = groups.at(-1);
@@ -40,7 +41,13 @@ export function groupMessages(messages, known = new Map()) {
   return { groups, keys };
 }
 
-export default function ChatTranscript({ messages, live, nativeStates, ...props }) {
+export default function ChatTranscript({
+  messages,
+  live,
+  subagentsLive = live,
+  nativeStates,
+  ...props
+}) {
   const known = useRef(new Map());
   const { groups, keys } = groupMessages(messages, known.current);
   known.current = keys;
@@ -51,7 +58,7 @@ export default function ChatTranscript({ messages, live, nativeStates, ...props 
       );
       return (
         <React.Fragment key={group.key}>
-          <Message message={group.message} {...props} />
+          <Message message={group.message} subagentsLive={subagentsLive} {...props} />
           {native && <NativeDeliveryBadge state={native.state} tool={props.tool} />}
         </React.Fragment>
       );
@@ -82,7 +89,12 @@ export default function ChatTranscript({ messages, live, nativeStates, ...props 
         </summary>
         <div className="tool-group-content">
           {group.tools.map((message) => (
-            <Message key={message.id} message={message} {...props} />
+            <Message
+              key={message.id}
+              message={message}
+              subagentsLive={subagentsLive}
+              {...props}
+            />
           ))}
         </div>
       </details>

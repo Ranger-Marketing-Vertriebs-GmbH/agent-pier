@@ -170,7 +170,7 @@ test("unknown usage remains unknown while a native limit may be shown independen
   await expect(context).toContainText("Kontextverbrauch nicht verfügbar");
 });
 
-test("mobile task drawer shows only active subagents with their task immediately visible", async ({
+test("mobile task drawer lists working subagents first with their task immediately visible", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -203,9 +203,12 @@ test("mobile task drawer shows only active subagents with their task immediately
   await expect(
     drawer.getByText("Inspect build configuration", { exact: true }),
   ).toBeVisible();
-  await expect(drawer).toContainText("Arbeitet");
-  await expect(drawer).not.toContainText("Worker beta");
-  await expect(drawer.locator(".subagent-entry")).toHaveCount(1);
+  const entries = drawer.locator(".subagent-entry");
+  await expect(entries).toHaveCount(2);
+  await expect(entries.nth(0)).toContainText("Worker alpha");
+  await expect(entries.nth(0).locator(".subagent-status")).toHaveText("Arbeitet");
+  await expect(entries.nth(1)).toContainText("Worker beta");
+  await expect(entries.nth(1).locator(".subagent-status")).toHaveText("Erledigt");
   await expect(
     drawer.getByRole("heading", { name: "Aktive Unteragenten (1)" }),
   ).toBeVisible();
@@ -218,7 +221,7 @@ test("mobile task drawer shows only active subagents with their task immediately
   ).toBe(true);
 });
 
-test("subagent count and visible tasks follow live updates and disappear on completion", async ({
+test("subagent count and visible tasks follow live updates and keep recent completions", async ({
   page,
 }) => {
   const { data, publish } = await fixture(page, {
@@ -237,8 +240,8 @@ test("subagent count and visible tasks follow live updates and disappear on comp
   await expect(count).toHaveText("Aktive Unteragenten (1)");
   await count.click();
   const panel = page.getByRole("complementary", { name: "Aufgabenliste" });
-  await expect(panel.locator(".subagent-entry")).toHaveCount(1);
-  await expect(panel.getByText("Check the API", { exact: true })).toBeVisible();
+  await expect(panel.locator(".subagent-entry")).toHaveCount(4);
+  await expect(panel.locator(".subagent-entry").first()).toContainText("Check the API");
   data.observability.subagents[0].task = "Verify the error handling";
   publish();
   await expect(
@@ -246,8 +249,11 @@ test("subagent count and visible tasks follow live updates and disappear on comp
   ).toBeVisible();
   data.observability.subagents[0].status = "completed";
   publish();
-  await expect(count).toHaveCount(0);
-  await expect(panel.locator(".subagent-entry")).toHaveCount(0);
+  await expect(count).toHaveText("Unteragenten (4)");
+  await expect(panel.locator(".subagent-entry")).toHaveCount(4);
+  await expect(panel.locator(".subagent-status.running")).toHaveCount(0);
+  await expect(panel.locator(".subagent-status.failed")).toHaveText("Fehlgeschlagen");
+  await expect(panel.locator(".subagent-status.unknown")).toHaveText("Status unbekannt");
 });
 
 for (const mode of ["stale", "stopped"]) {

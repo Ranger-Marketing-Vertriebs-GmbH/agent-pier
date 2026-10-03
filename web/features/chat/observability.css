@@ -64,6 +64,9 @@
 .subagent-status.running {
   color: var(--accent);
 }
+.subagent-status.failed {
+  color: #f0a08f;
+}
 .subagent-entry p {
   font-size: 11px;
   line-height: 1.6;
