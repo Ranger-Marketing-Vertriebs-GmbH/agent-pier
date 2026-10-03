@@ -30,6 +30,61 @@ two-minute inactivity lifetime; historical message bodies are not cached there.
 This reduces repeated network transfer. The server still reads the native history
 through its existing parser/cache and maintains its normal saved snapshot.
 
+### WebSocket base cursors
+
+The chat WebSocket accepts `?cursor=<id>` with the cursor the browser holds. The value
+must match `^[A-Za-z0-9-]{1,64}$`; anything else is ignored and the first frame is a
+full snapshot. The HTTP route and the socket share one `ChatSync` instance, so a
+cursor issued by either transport is valid for the other (the socket-only
+`nativeInput` field is normalized away before fingerprints are compared).
+
+Baselines expire 30 minutes after they were last used, with at most 512 entries and
+16 MiB in total and eight active baselines per scope. When a socket closes, its last
+issued cursor is parked: only cursors the server issued are parked, at most two per
+scope and 256 in total, each for 30 minutes from the moment it was parked. Parked
+baselines are evicted first under memory pressure and do not count against the
+per-scope active limit. This lets a reconnecting browser, or one restoring a cached
+chat, receive a delta instead of the full history. Deleting a session discards all of
+its baselines, active and parked.
+
+### Chat session cache in the browser
+
+The browser keeps a bounded cache of recently opened chats so that reopening one shows
+its messages immediately, before the socket has delivered anything.
+
+- Memory layer: an LRU of 12 chats, keyed by account, session and native conversation.
+- Device layer: IndexedDB database `agentpier.chat.cache.v1`, object store `sessions`,
+  with at most 12 entries and 8,000,000 in total serialized size (least recently used first out).
+  Entries are serialized only when the cache is flushed (throttled writes, page hide),
+  not on every change. After the first device failure the cache stays memory-only.
+- Invalidation: entries carry a cache version and the build identifier. An entry with
+  a different version or build, an invalid shape, or one whose session was removed is
+  dropped on load.
+
+A restored chat is not live. It is shown with the stale label, without native input
+warnings and without running subagents, and loading older history is disabled until
+the first server frame has been accepted; then the cached window is replaced and the
+scroll position is restored from its saved anchor. History is loaded after the
+restore. "Connected" in the transport means the first frame was accepted: when the
+socket opens, the state is "connecting" and only becomes "connected" after that
+frame (or a successful HTTP fallback).
+
+Clearing rules:
+
+- Logout, or a session that is no longer authenticated, clears the whole cache.
+- Another tab changing the login (the `agentpier-auth-change` storage key) bumps an
+  auth epoch; a tab that notices a different epoch clears its cache instead of
+  writing stale entries.
+- Removing a session forgets its entries and leaves a tombstone so a pending write
+  cannot bring it back. Loading the session list prunes entries whose session is gone.
+- Clearing also invalidates queued writes through a generation counter. It always
+  reaches the device, even after earlier device failures; if the store cannot be
+  cleared, the whole database is deleted as a fallback.
+
+Intentionally kept across logout, because they are not chat history caches: message
+drafts and the outbox (`localStorage`), pending uploads (IndexedDB `chat-upload-store`,
+see below), and the browser's HTTP cache of immutable tool images.
+
 ## Slow connections
 
 Chat snapshots are validated before use, on the socket and on the HTTP fallback. An
