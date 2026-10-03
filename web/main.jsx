@@ -1,6 +1,7 @@
 import { initializeLanguage } from "./lib/i18n/index.js";
 import LoginGate from "./features/login/LoginGate.jsx";
 import UpdateNotice from "./features/updates/UpdateNotice.jsx";
+import { preloadChatCache } from "./features/chat/chat-session-cache.js";
 import "./styles/index.css";
 import React, { lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
@@ -15,6 +16,7 @@ import { captureInstallPrompt } from "./features/notifications/install-prompt.js
 initializeLanguage();
 captureInstallPrompt();
 registerPublicWorker();
+void preloadChatCache();
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AppErrorBoundary>

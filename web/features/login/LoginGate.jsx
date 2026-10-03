@@ -5,6 +5,7 @@ import { LoginContext } from "./LoginContext.js";
 import { loginRequest, announceLoginChange } from "./login-api.js";
 import LoginPage from "./LoginPage.jsx";
 import { loginCopy as copy } from "../../lib/i18n/messages/login.js";
+import { clearChatCache } from "../chat/chat-session-cache.js";
 import "./login.css";
 export default function LoginGate({ children }) {
   useLanguage();
@@ -22,6 +23,7 @@ export default function LoginGate({ children }) {
       if (typeof next.configured !== "boolean" || typeof next.authenticated !== "boolean")
         throw new Error(copy.failed);
       if (current !== generation.current) return;
+      if (!next.authenticated) void clearChatCache();
       setStatus(next);
       setError("");
     } catch (failure) {
@@ -32,10 +34,13 @@ export default function LoginGate({ children }) {
     refresh();
     const expired = () => {
       invalidate();
+      void clearChatCache();
       setStatus({ configured: true, authenticated: false });
     };
     const changed = (event) => {
-      if (event.key === "agentpier-auth-change") refresh();
+      if (event.key !== "agentpier-auth-change") return;
+      void clearChatCache();
+      refresh();
     };
     window.addEventListener("agentpier-login-required", expired);
     window.addEventListener("storage", changed);
@@ -52,6 +57,7 @@ export default function LoginGate({ children }) {
   async function logout() {
     await loginRequest("logout", {});
     invalidate();
+    void clearChatCache();
     setStatus({ configured: true, authenticated: false });
     announceLoginChange();
   }

@@ -7,6 +7,7 @@ import Modal from "../components/Modal.jsx";
 import AsyncForm from "../components/AsyncForm.jsx";
 import LaunchDialog from "../features/sessions/LaunchDialog.jsx";
 import AccountDialog from "../features/accounts/AccountDialog.jsx";
+import { forgetCachedChat } from "../features/chat/chat-session-cache.js";
 import ToolInstaller from "../features/tools/ToolInstaller.jsx";
 import { toolInstallerCopy } from "../lib/i18n/messages/tools.js";
 export default function AppDialogs({
@@ -103,6 +104,7 @@ export default function AppDialogs({
                 if (modal.type === "stop") await api(`/sessions/${item.id}/stop`, "POST");
                 if (modal.type === "remove") {
                   await api(`/sessions/${item.id}`, "DELETE");
+                  forgetCachedChat(item.id);
                   select(null);
                 }
                 if (modal.type === "deleteAccount")
