@@ -10,7 +10,8 @@ const permission = {
   status: "pending",
   subject: {
     tool: "Workflow",
-    description: "nightly-review: Review open PRs",
+    name: "nightly-review",
+    description: "Review open PRs",
     cwd: "/fixture/project",
   },
   options: [
@@ -24,8 +25,8 @@ const answers = (state) => state.calls.filter((call) => call.path.endsWith("/ans
 for (const locale of ["de-DE", "en-GB"]) {
   const en = locale === "en-GB";
   const notice = en
-    ? "Approval is waiting in the terminal."
-    : "Freigabe wartet im Terminal.";
+    ? "Approval moved to the terminal."
+    : "Freigabe ins Terminal verschoben.";
   test.describe(`Claude terminal permissions ${locale}`, () => {
     test.use({ locale, viewport: { width: 390, height: 700 } });
 
@@ -59,9 +60,21 @@ for (const locale of ["de-DE", "en-GB"]) {
       const state = await operationsFixture(page, { tool: "claude" });
       state.requests = [permission];
       await page.goto("/sessions/fixture-session/chat");
-      await expect(
-        page.getByText("nightly-review: Review open PRs", { exact: true }),
-      ).toBeVisible();
+      await expect(page.getByText("Review open PRs", { exact: true })).toBeVisible();
+      await expect(page.locator(".native-request pre")).toHaveText(
+        "Workflow: nightly-review",
+      );
+      // EnterWorktree approvals name the tool beside their target path.
+      state.requests = [
+        {
+          ...permission,
+          id: "worktree-permission",
+          subject: { tool: "EnterWorktree", path: "/fixture/project/.worktrees/fix" },
+        },
+      ];
+      await expect(page.locator(".native-request pre")).toHaveText(
+        "EnterWorktree: /fixture/project/.worktrees/fix",
+      );
       expect(handoffs(state)).toHaveLength(0);
       // Another device released it, or the hook reached its lifetime.
       state.requests = [];

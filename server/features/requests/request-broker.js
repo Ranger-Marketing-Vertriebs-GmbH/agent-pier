@@ -13,6 +13,8 @@ import { refreshClaudeRuntime, confirmClaudeRuntime } from "./claude-runtime.js"
 import { validSession, requestValue, answerValue } from "./request-validation.js";
 import { messages, send } from "./wire.js";
 const stale = () => problem(copy.stale, 409);
+// A terminal notice describes a moment, not a state; it fades on its own.
+export const terminalNoticeMs = 10 * 60 * 1000;
 const equal = (a, b) =>
   typeof a === "string" &&
   typeof b === "string" &&
@@ -130,7 +132,24 @@ export class RequestBroker {
       !entry.presentation &&
       !entry.local
     )
-      this.notices.set(entry.sessionId, { id: entry.id, reason: "terminal" });
+      this.notices.set(entry.sessionId, {
+        id: entry.id,
+        reason: "terminal",
+        at: Date.now(),
+      });
+  }
+  /** Chat moved on (a message reached the terminal): the notice is history. */
+  clearNotice(sessionId) {
+    this.notices.delete(sessionId);
+  }
+  notice(sessionId) {
+    const notice = this.notices.get(sessionId);
+    if (!notice) return undefined;
+    if (Date.now() - notice.at >= terminalNoticeMs) {
+      this.notices.delete(sessionId);
+      return undefined;
+    }
+    return { id: notice.id, reason: notice.reason };
   }
   connection(socket) {
     if (this.clients.size >= 128) {
@@ -260,7 +279,7 @@ export class RequestBroker {
       ...(session.status === "running" && this.claudeReloadRequired.has(sessionId)
         ? { integration: { reloadRequired: true } }
         : {}),
-      ...(this.notices.has(sessionId) ? { notice: this.notices.get(sessionId) } : {}),
+      ...(this.notice(sessionId) ? { notice: this.notice(sessionId) } : {}),
       requests: [...this.entries.values()]
         .filter((e) => e.sessionId === sessionId)
         .map(

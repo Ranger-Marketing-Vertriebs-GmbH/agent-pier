@@ -1,4 +1,5 @@
 import test from "node:test";
+import { requestValue } from "../../server/features/requests/request-validation.js";
 import assert from "node:assert/strict";
 import { codexRequest } from "../../server/features/requests/codex-protocol.js";
 import { claudeRequest } from "../../server/features/requests/claude-hook.js";
@@ -268,50 +269,88 @@ test("Codex additional permissions disclose the full native turn scope", async (
   assert.equal(option.scope, "turn");
   assert.equal(option.label, "Für diesen Turn erlauben");
 });
-test("Claude EnterWorktree permissions show their target path", () => {
-  const { subject } = claudeRequest({
-    hook_event_name: "PermissionRequest",
-    tool_name: "EnterWorktree",
-    cwd: "/work/repo",
-    tool_input: { path: "/work/repo/.worktrees/fix-login" },
-  }).view;
+test("Claude EnterWorktree permissions show their target path beside the tool", () => {
+  const permission = (tool_name, tool_input) =>
+    claudeRequest({
+      hook_event_name: "PermissionRequest",
+      tool_name,
+      cwd: "/work/repo",
+      tool_input,
+    }).view.subject;
+  const subject = permission("EnterWorktree", { path: "/work/repo/.worktrees/fix" });
   assert.equal(subject.tool, "EnterWorktree");
-  assert.equal(subject.path, "/work/repo/.worktrees/fix-login");
+  assert.equal(subject.path, "/work/repo/.worktrees/fix");
   assert.equal(subject.cwd, "/work/repo");
   assert.equal(subject.command, undefined);
+  // For Glob/Grep `path` is only a search root, not the approval's subject.
+  for (const tool of ["Glob", "Grep"])
+    assert.equal(permission(tool, { pattern: "*.js", path: "/work" }).path, undefined);
 });
-test("Claude Workflow permissions summarize their meta name and description", () => {
-  const view = (tool_input) =>
+test("Claude Workflow permissions show meta.name and meta.description separately", () => {
+  const subject = (tool_input) =>
     claudeRequest({
       hook_event_name: "PermissionRequest",
       tool_name: "Workflow",
       tool_input,
-    }).view.subject.description;
-  assert.equal(
-    view({ meta: { name: "nightly-review", description: "Review open PRs" } }),
-    "nightly-review: Review open PRs",
-  );
-  assert.equal(
-    view({
-      script: `// header\nexport const meta = {\n  name: 'nightly-review',\n  description: "Review \\"open\\" PRs",\n  phases: [{ title: 'x' }],\n};\nexport default async () => {};`,
+    }).view.subject;
+  const pick = (tool_input) => {
+    const { name, description } = subject(tool_input);
+    return { name, description };
+  };
+  assert.deepEqual(pick({ meta: { name: "nightly", description: "Review open PRs" } }), {
+    name: "nightly",
+    description: "Review open PRs",
+  });
+  assert.deepEqual(
+    pick({
+      script: [
+        "// header",
+        "export const meta = {",
+        "  // name: 'commented'",
+        "  phases: [{ name: 'phase-one', title: 'x' }],",
+        "  name: 'nightly-review',",
+        '  "description": "Review \\"open\\"\\tPRs \\\\ now\\nplease",',
+        "};",
+        "export default async () => agent({ name: 'later', description: 'no' });",
+      ].join("\n"),
     }),
-    'nightly-review: Review "open" PRs',
+    { name: "nightly-review", description: 'Review "open" PRs \\ now please' },
+  );
+  // The scan ends with the meta object: later properties never leak in.
+  assert.deepEqual(
+    pick({ script: "export const meta = { title: 'x' };\nagent({ name: 'later' });" }),
+    { name: undefined, description: undefined },
   );
   assert.equal(
-    view({ script: "export const meta = { name: `only-name` };" }),
+    pick({ script: "export const meta = { name: `only-name` };" }).name,
     "only-name",
   );
   // Explicit descriptions win; unparseable or hostile scripts never throw or run.
-  assert.equal(view({ description: "Given", meta: { name: "n" } }), "Given");
+  assert.equal(
+    pick({ description: "Given", meta: { description: "n" } }).description,
+    "Given",
+  );
   for (const script of [
     "",
     "meta = { name: process.exit(1) }",
     "export const meta = { name: 'unterminated",
+    "export const meta = { name: `dynamic ${process.env.HOME}` };",
     "x".repeat(300000),
     42,
   ])
-    assert.equal(view({ script }), undefined);
-  assert.equal(view({ meta: { name: 7, description: ["x"] } }), undefined);
-  const long = view({ meta: { name: "n", description: "d".repeat(5000) } });
-  assert.ok(long.length <= 2000);
+    assert.deepEqual(pick({ script }), { name: undefined, description: undefined });
+  assert.deepEqual(pick({ meta: { name: 7, description: ["x"] } }), {
+    name: undefined,
+    description: undefined,
+  });
+  const long = pick({ meta: { name: "n".repeat(500), description: "d".repeat(5000) } });
+  assert.ok(long.name.length <= 200 && long.description.length <= 1500);
+  // The validated view keeps the name for the chat.
+  assert.equal(requestValue(claudeView({ meta: { name: "kept" } })).subject.name, "kept");
 });
+const claudeView = (tool_input) =>
+  claudeRequest({
+    hook_event_name: "PermissionRequest",
+    tool_name: "Workflow",
+    tool_input,
+  }).view;

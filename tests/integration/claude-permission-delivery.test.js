@@ -4,7 +4,10 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { Readable, Writable } from "node:stream";
-import { RequestBroker } from "../../server/features/requests/request-broker.js";
+import {
+  RequestBroker,
+  terminalNoticeMs,
+} from "../../server/features/requests/request-broker.js";
 import { runClaudeHook } from "../../server/features/requests/claude-hook.js";
 import { claudeHookTimeoutSeconds } from "../../server/features/requests/claude-runtime.js";
 
@@ -251,6 +254,24 @@ test("a permission handed to the terminal leaves a notice until the next request
   assert.equal((await state(f)).notice, undefined, "a newer request replaces the notice");
   await f.broker.answer("session", next.id, { expectedRevision: 1, choice: "deny" });
   await second.done;
+});
+
+test("a terminal notice fades after its time-to-live or once chat moves on", async (t) => {
+  const f = await fixture(t);
+  for (const clear of [
+    () => {
+      f.broker.notices.get("session").at -= terminalNoticeMs;
+    },
+    () => f.broker.clearNotice("session"),
+  ]) {
+    const run = hook(f, workflow, { timeout: 10_000 });
+    const request = await pending(f);
+    await f.broker.handoff("session", request.id, { expectedRevision: 1 });
+    await run.done;
+    assert.equal((await state(f)).notice?.id, request.id);
+    clear();
+    assert.equal((await state(f)).notice, undefined);
+  }
 });
 
 test("a released Claude question leaves no approval notice", async (t) => {

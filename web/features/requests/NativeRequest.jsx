@@ -60,9 +60,16 @@ export default function NativeRequest({ request, updated, openTerminal }) {
       {request.subject && !startup && (
         <div>
           {request.subject.description && <p>{request.subject.description}</p>}
-          {(request.subject.command || request.subject.path || request.subject.tool) && (
+          {(request.subject.command ||
+            request.subject.path ||
+            request.subject.name ||
+            request.subject.tool) && (
             <pre aria-label={copy.details}>
-              {request.subject.command || request.subject.path || request.subject.tool}
+              {request.subject.command ||
+                // A path or name is shown with its tool (EnterWorktree, Workflow, …).
+                [request.subject.tool, request.subject.path || request.subject.name]
+                  .filter(Boolean)
+                  .join(": ")}
             </pre>
           )}
           {request.subject.cwd && (
