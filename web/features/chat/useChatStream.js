@@ -98,9 +98,9 @@ export default function useChatStream({
     setHistoryLoading(false);
     const dispose = createChatStream({
       url: `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/api/sessions/${encodeURIComponent(session.id)}/chat-stream`,
-      read: (signal) =>
+      read: (signal, cursor) =>
         request(
-          `/sessions/${encodeURIComponent(session.id)}/chat`,
+          `/sessions/${encodeURIComponent(session.id)}/chat${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
           "GET",
           undefined,
           signal,
