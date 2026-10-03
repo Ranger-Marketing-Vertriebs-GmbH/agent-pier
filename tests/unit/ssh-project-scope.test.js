@@ -13,7 +13,7 @@ function fixture(t) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
 }
-test("ordinary directory binding detects replacement and git initialization", async (t) => {
+test("ordinary directory binding detects replacement and keeps its project after git init", async (t) => {
   const root = fixture(t),
     cwd = path.join(root, "project");
   fs.mkdirSync(cwd);
@@ -26,7 +26,19 @@ test("ordinary directory binding detects replacement and git initialization", as
   });
   const next = await createSshProjectBinding(cwd);
   execFileSync("git", ["init", "-q", cwd]);
-  await assert.rejects(validateSshProjectBinding(next), { code: "SSH_PROJECT_CHANGED" });
+  const initialized = await validateSshProjectBinding(next);
+  const repository = await createSshProjectBinding(cwd);
+  assert.equal(initialized.projectId, next.projectId, "No access is added");
+  assert.equal(initialized.kind, "directory");
+  assert.deepEqual(initialized.rebind, {
+    fromId: next.projectId,
+    toId: repository.projectId,
+  });
+  assert.equal((await validateSshProjectBinding(repository)).rebind, undefined);
+  fs.rmSync(path.join(cwd, ".git"), { recursive: true });
+  await assert.rejects(validateSshProjectBinding(repository), {
+    code: "SSH_PROJECT_CHANGED",
+  });
   fs.rmSync(cwd, { recursive: true });
   await assert.rejects(validateSshProjectBinding(next), {
     code: "SSH_PROJECT_UNAVAILABLE",
@@ -80,4 +92,29 @@ test("nested directories and separate clones retain separate identities", async 
   await assert.rejects(validateSshProjectBinding(null), {
     code: "SSH_PROJECT_UNAVAILABLE",
   });
+});
+
+test("only a folder that became the root of its own repository keeps its binding", async (t) => {
+  const root = fixture(t);
+  const changed = { code: "SSH_PROJECT_CHANGED" };
+  const child = path.join(root, "parent", "child");
+  fs.mkdirSync(child, { recursive: true });
+  const nested = await createSshProjectBinding(child);
+  execFileSync("git", ["init", "-q", path.dirname(child)]);
+  await assert.rejects(validateSshProjectBinding(nested), changed);
+
+  const separate = path.join(root, "separate");
+  fs.mkdirSync(separate);
+  const plain = await createSshProjectBinding(separate);
+  const outside = `--separate-git-dir=${path.join(root, "separate.git")}`;
+  execFileSync("git", ["init", "-q", outside, separate]);
+  await assert.rejects(validateSshProjectBinding(plain), changed);
+
+  const linked = path.join(root, "linked"),
+    elsewhere = path.join(root, "elsewhere");
+  fs.mkdirSync(linked);
+  const unlinked = await createSshProjectBinding(linked);
+  execFileSync("git", ["init", "-q", elsewhere]);
+  fs.symlinkSync(path.join(elsewhere, ".git"), path.join(linked, ".git"));
+  await assert.rejects(validateSshProjectBinding(unlinked), changed);
 });

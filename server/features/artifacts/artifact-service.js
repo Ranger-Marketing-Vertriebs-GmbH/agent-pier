@@ -197,6 +197,24 @@ export class ArtifactService {
       }
     });
   }
+  /** Records the Git project of a plain session folder that became a work tree. */
+  moveProject(fromProjectId, toProjectId) {
+    return this.serial(async () => {
+      const next = structuredClone(this.store.state);
+      let changed = false;
+      for (const record of Object.values(next.records))
+        if (record.projectId === fromProjectId) {
+          record.projectId = toProjectId;
+          changed = true;
+        }
+      for (const receipt of Object.values(next.receipts))
+        if (receipt.result?.projectId === fromProjectId) {
+          receipt.result.projectId = toProjectId;
+          changed = true;
+        }
+      if (changed) this.store.save(next);
+    });
+  }
   get(id) {
     return this.serial(() => this.summary(this.record(id)));
   }

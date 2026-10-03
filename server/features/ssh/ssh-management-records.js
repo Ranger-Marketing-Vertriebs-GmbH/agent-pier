@@ -87,6 +87,33 @@ export function trustedHostNow(store, grants, session, input, projectId) {
     );
 }
 
+export function ownsProjectAccess(catalog, projectId) {
+  const current = catalog.read();
+  return [...current.keys, ...current.hosts].some((row) => row.projectId === projectId);
+}
+/**
+ * Moves a plain-directory project that became a Git work tree to its Git scope.
+ * Unlike a user reassignment, request receipts move along, so a retried request
+ * replays the resource it created.
+ */
+export function adoptProject(catalog, fromProjectId, target) {
+  const current = catalog.read();
+  const moved = (row) =>
+    row.projectId === fromProjectId ? { ...row, projectId: target.id } : row;
+  for (const part of ["keys", "hosts", "receipts"])
+    catalog.replacePart(part, current[part].map(moved));
+  const previous = current.projects.filter(
+    (row) => row.id === fromProjectId || row.id === target.id,
+  );
+  const directories = [
+    ...new Set([target.cwd, ...previous.flatMap((row) => row.directories || [])]),
+  ];
+  catalog.replacePart("projects", [
+    ...current.projects.filter((row) => !previous.includes(row)),
+    { id: target.id, name: target.name, cwd: target.cwd, kind: target.kind, directories },
+  ]);
+}
+
 export function moveProject(catalog, fromProjectId, target) {
   const current = catalog.read();
   if (fromProjectId === target.id) return { ok: true };

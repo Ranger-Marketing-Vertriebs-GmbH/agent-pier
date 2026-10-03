@@ -247,6 +247,44 @@ export class ProjectMemory {
       return this.read(projectId, id);
     });
   }
+  reboundTo(fromId) {
+    return (
+      this.db.prepare("SELECT to_id FROM project_rebinds WHERE from_id=?").get(fromId)
+        ?.to_id ?? null
+    );
+  }
+  ownsEntries(projectId) {
+    return Boolean(
+      this.db.prepare("SELECT 1 FROM entries WHERE project_id=? LIMIT 1").get(projectId),
+    );
+  }
+  /** Moves a plain-directory project that became a Git work tree to its Git scope. */
+  adopt(fromId, scope) {
+    identifier(fromId);
+    identifier(scope.id);
+    return transaction(this.db, () => {
+      const recorded = this.reboundTo(fromId);
+      if (recorded && recorded !== scope.id)
+        throw failure(serverMessages.memory.projectChanged, 409);
+      const now = new Date().toISOString();
+      this.db
+        .prepare("INSERT OR IGNORE INTO projects VALUES (?,?,?,?,?,?)")
+        .run(scope.id, scope.name, scope.cwd, scope.kind, scope.identity, now);
+      for (const table of ["entries", "capabilities"])
+        this.db
+          .prepare(`UPDATE ${table} SET project_id=? WHERE project_id=?`)
+          .run(scope.id, fromId);
+      this.db
+        .prepare("UPDATE OR IGNORE requests SET project_id=? WHERE project_id=?")
+        .run(scope.id, fromId);
+      this.db.prepare("DELETE FROM requests WHERE project_id=?").run(fromId);
+      this.db.prepare("DELETE FROM projects WHERE id=?").run(fromId);
+      this.db
+        .prepare("INSERT OR IGNORE INTO project_rebinds VALUES (?,?,?)")
+        .run(fromId, scope.id, now);
+      return this.project(scope.id);
+    });
+  }
   close() {
     if (!this.closed) {
       this.closed = true;

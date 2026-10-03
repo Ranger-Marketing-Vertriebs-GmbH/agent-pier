@@ -1,6 +1,11 @@
 import { serverMessages } from "../../lib/i18n/de.js";
-import fs from "node:fs";
 import { projectScope } from "../memory/project-scope.js";
+import {
+  directoryProjectId,
+  folderIdentity,
+  isGitInitOf,
+  sameFolder,
+} from "../memory/project-rebind.js";
 import { problem } from "../../lib/storage.js";
 function unavailable() {
   return Object.assign(problem(serverMessages.ssh.projectDirectoryUnavailable, 409), {
@@ -12,36 +17,47 @@ function changed() {
     code: "SSH_PROJECT_CHANGED",
   });
 }
-function launchIdentity(cwd) {
-  const path = fs.realpathSync(cwd);
-  const stat = fs.statSync(path, { bigint: true });
-  if (!stat.isDirectory()) throw unavailable();
-  return { path, dev: String(stat.dev), ino: String(stat.ino) };
-}
-function same(a, b) {
-  return a?.path === b?.path && a?.dev === b?.dev && a?.ino === b?.ino;
-}
 export async function createSshProjectBinding(cwd) {
   let launch, scope, after;
   try {
-    launch = launchIdentity(cwd);
+    launch = folderIdentity(cwd);
     scope = await projectScope(cwd);
-    after = launchIdentity(cwd);
+    after = folderIdentity(cwd);
   } catch {
     throw unavailable();
   }
-  if (!same(launch, after)) throw changed();
+  if (!sameFolder(launch, after)) throw changed();
   const { id: projectId, ...metadata } = scope;
   return { projectId, ...metadata, launch };
+}
+/**
+ * A plain launch folder that became the root of its own Git work tree is still
+ * the session's project. Validation then keeps the launch project ID, so no
+ * access is added, and reports `rebind` so the server process can move the
+ * project to its Git identity. Every other identity change is rejected.
+ */
+function initialized(binding, current) {
+  return (
+    binding.kind === "directory" &&
+    binding.projectId === directoryProjectId(binding.launch) &&
+    isGitInitOf(binding.launch, current)
+  );
 }
 export async function validateSshProjectBinding(binding) {
   if (!binding?.launch?.path || !binding.projectId) throw unavailable();
   const current = await createSshProjectBinding(binding.launch.path);
-  if (
-    !same(binding.launch, current.launch) ||
-    current.projectId !== binding.projectId ||
-    current.identity !== binding.identity
-  )
-    throw changed();
-  return current;
+  if (!sameFolder(binding.launch, current.launch)) throw changed();
+  if (current.projectId === binding.projectId && current.identity === binding.identity)
+    return current;
+  if (!initialized(binding, current)) throw changed();
+  const { projectId, name, cwd, kind, identity } = binding;
+  return {
+    projectId,
+    name,
+    cwd,
+    kind,
+    identity,
+    launch: current.launch,
+    rebind: { fromId: projectId, toId: current.projectId },
+  };
 }

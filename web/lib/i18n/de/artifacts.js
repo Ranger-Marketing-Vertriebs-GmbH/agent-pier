@@ -42,6 +42,8 @@ export const artifactCopy = {
     ARTIFACT_SOURCE_CHANGED:
       "Die Quelldateien wurden während der Veröffentlichung geändert. Veröffentliche erneut mit einer neuen Anfrage-ID.",
     ARTIFACT_ACCESS_DENIED: "Diese Sitzung darf auf dieses Artifact nicht zugreifen.",
+    ARTIFACT_PROJECT_CHANGED:
+      "Das Projekt dieser Sitzung hat sich geändert. Lade die Sitzung neu, um fortzufahren.",
     ARTIFACT_SESSION_GONE:
       "Die ursprüngliche Sitzung wurde gelöscht oder wird gerade gelöscht.",
     ARTIFACT_NOT_FOUND: "Dieses Artifact ist nicht verfügbar oder wurde gelöscht.",

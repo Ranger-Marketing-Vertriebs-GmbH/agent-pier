@@ -24,7 +24,16 @@ and arguments after an uncertain response. To replace a publication, supply its
 `artifactId` and a new `requestId`; its URL and pin remain unchanged. The calling
 session identity comes from AgentPier's authenticated integration. A session can
 only update its own artifacts. `artifacts_list` lists that session's artifacts in
-pages of 20. External OAuth clients do not receive these session-only tools.
+pages of 20 and needs only the session identity. External OAuth clients do not
+receive these session-only tools.
+
+Publishing records the session's current project. When a plain session folder becomes
+its own Git work tree, publishing moves the project and the session's earlier artifacts
+to the Git identity, so updates keep working without a reload. The rule is described in
+[SSH access](ssh-access.md#git-initialization-in-a-session-folder). Any other
+project change is rejected with "The project of this session changed. Reload the
+session to continue." and audited as `artifact.denied`. A request ID retried across
+such a rebind returns a conflict; use a new request ID.
 
 A publication is an independent copy. Editing or removing the source does not
 change it. Failed replacements preserve the previous publication. File selection

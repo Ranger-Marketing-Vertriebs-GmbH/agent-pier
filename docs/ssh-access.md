@@ -12,6 +12,25 @@ In **Settings → SSH accesses**, use the **Accesses** and **Keys** tabs to brow
 
 Select the project when creating keys or hosts. The current project filter preselects ownership for new entries. A project host must use a key owned by the same project. Existing global entries remain global. Explicit session assignments add access to selected global or other-project hosts without transferring key ownership. The session picker marks inherited hosts as **Project**; manage those hosts in settings. Removing an explicit assignment does not remove independently inherited project access.
 
+### Git initialization in a session folder
+
+One identity change keeps a running session's project: its launch folder was a plain directory and became the root of its own Git work tree, for example after `git init`. AgentPier applies this rebind only when all of the following hold:
+
+- The folder has the same canonical path, device and inode as at launch.
+- Git reports that folder as the work-tree root.
+- The Git common directory is the folder's own `.git` directory. It must not be a symlink, a separate Git directory, a linked worktree or a parent repository.
+
+Out-of-process SSH tools keep using the launch project ID until the server rebinds the session, so no access is added. The first server-side SSH management call or artifact publication moves the project to its Git identity, along with:
+
+- memory entries, request receipts and session capabilities;
+- SSH keys, hosts and their request receipts;
+- artifact records;
+- the SSH binding of every session launched in that folder.
+
+The move is refused when the Git identity already owns memory entries, SSH keys or SSH hosts, for example after an older `.git` directory was restored. The session then keeps only its launch project's SSH access. A rebind is recorded once, as the `project.updated` audit event, and a folder never rebinds to a second Git identity.
+
+Every other change is rejected as before: a replaced folder, Git to plain directory, a different root or another common directory. Artifact tools answer "The project of this session changed. Reload the session to continue." (`ARTIFACT_PROJECT_CHANGED`), SSH answers `SSH_PROJECT_CHANGED` with the same text, and server-side denials are audited as `artifact.denied` and `ssh.denied`. Removing `.git` stays strict, because a Git identity can be shared by linked worktrees and clones of the same common directory, so splitting it into a directory project is not equally safe.
+
 Owner-only project reassignment moves the project's resources together. Colliding key identities or host endpoint/user combinations reject the whole move. The source project's sessions lose inherited access and the target project's sessions gain it; explicit assignments remain separate. Reload affected sessions to bind them to a changed launch project.
 
 ## Manage named keys
