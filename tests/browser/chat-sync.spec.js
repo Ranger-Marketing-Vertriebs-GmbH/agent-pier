@@ -36,7 +36,7 @@ async function fixture(
       cwd: "/fixture",
     },
   };
-  await page.routeWebSocket("**/api/sessions/sync/chat-stream", (socket) => {
+  await page.routeWebSocket(/\/api\/sessions\/sync\/chat-stream(\?.*)?$/, (socket) => {
     state.sockets.push(socket);
     state.sequence = 1;
     socket.send(JSON.stringify({ type: "sync", sequence: 1, data: state.current }));

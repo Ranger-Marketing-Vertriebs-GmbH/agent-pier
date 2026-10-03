@@ -15,6 +15,7 @@ export function createChatStream({
   onSnapshot,
   onConnection,
   onError,
+  initial,
   createSocket = (address) => new WebSocket(address),
   visibility = document,
   schedule = setTimeout,
@@ -29,7 +30,15 @@ export function createChatStream({
   let fallbacks = 0;
   let epoch = 0;
   let revision = 0;
-  let snapshot = null;
+  let open = false;
+  // A baseline without a cursor cannot seed a delta; treat it as absent.
+  let snapshot =
+    isChatSnapshot(initial) && typeof initial.sync?.cursor === "string" ? initial : null;
+  const cursor = () => snapshot?.sync?.cursor;
+  const socketUrl = () => {
+    const value = cursor();
+    return value ? `${url}?cursor=${encodeURIComponent(value)}` : url;
+  };
   let fallbackController;
   const abortRead = () => {
     fallbackController?.abort();
@@ -37,6 +46,7 @@ export function createChatStream({
   };
   const stopSocket = () => {
     cancel(deadline);
+    open = false;
     if (socket) {
       socket.onopen = socket.onmessage = socket.onerror = socket.onclose = null;
       socket.close();
@@ -56,12 +66,22 @@ export function createChatStream({
       if (fallbackController === controller) abortRead();
     }, FALLBACK_TIMEOUT);
     try {
-      const next = await read(controller.signal);
+      const response = await read(controller.signal, cursor());
       if (!current()) return;
+      if (!response || typeof response !== "object") return onError(copy.invalidSnapshot);
+      let next;
+      try {
+        next = applyChatSync(snapshot, response);
+      } catch (error) {
+        snapshot = null;
+        throw error;
+      }
       if (!isChatSnapshot(next)) return onError(copy.invalidSnapshot);
       snapshot = next;
       onSnapshot(next);
       onError("");
+      // A live socket owns the state; it reports connected after its own first frame.
+      if (!open) onConnection("connected");
     } catch (error) {
       if (current()) onError(error.message);
     } finally {
@@ -85,18 +105,20 @@ export function createChatStream({
       timer = schedule(connect, Math.min(1000 * 2 ** attempt++, 15000));
     };
     try {
-      socket = createSocket(url);
+      socket = createSocket(socketUrl());
       deadline = schedule(() => fail(), CONNECT_TIMEOUT);
       socket.onopen = () => {
         if (disposed || token !== epoch) return;
         cancel(deadline);
         deadline = schedule(() => fail(), FIRST_SNAPSHOT_TIMEOUT);
-        onConnection("connected");
+        open = true;
+        onConnection("connecting");
       };
       socket.onmessage = (event) => {
         if (disposed || token !== epoch) return;
+        let message;
         try {
-          const message = JSON.parse(event.data);
+          message = JSON.parse(event.data);
           if (message.type === "ended") {
             ended = true;
             ++epoch;
@@ -114,6 +136,7 @@ export function createChatStream({
               ? applyChatSync(snapshot, message.data)
               : message.snapshot;
           if (!isChatSnapshot(next)) throw new Error("Invalid snapshot");
+          const first = sequence < 0 ? message.sequence : -1;
           sequence = message.sequence;
           revision++;
           abortRead();
@@ -123,7 +146,10 @@ export function createChatStream({
           fallbacks = 0;
           onSnapshot(next);
           onError("");
+          if (sequence === first) onConnection("connected");
         } catch {
+          // A rejected baseline must not seed the next connection.
+          if (message?.type === "sync") snapshot = null;
           fail();
         }
       };
