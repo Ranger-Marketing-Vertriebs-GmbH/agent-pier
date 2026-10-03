@@ -2,19 +2,18 @@ import { messageIdentity } from "../lib/i18n/message-identity.js";
 import { sessionToken } from "./login.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
-import { ChatSync } from "../features/chat/chat-sync.js";
 
-export function attachChatWebSocket(server, { sessions, streams, login, effective }) {
+const CURSOR = /^[A-Za-z0-9_-]{1,128}$/;
+
+export function attachChatWebSocket(server, { sync, streams, login, effective }) {
   const wss = new WebSocketServer({
     noServer: true,
     maxPayload: 65536,
     perMessageDeflate: { threshold: 1024, serverNoContextTakeover: true },
   });
-  const sync = new ChatSync({ sessions });
   const upgrade = (req, socket, head) => {
-    const match = new URL(req.url, "http://localhost").pathname.match(
-      /^\/api\/sessions\/([a-zA-Z0-9_-]+)\/chat-stream$/,
-    );
+    const url = new URL(req.url, "http://localhost");
+    const match = url.pathname.match(/^\/api\/sessions\/([a-zA-Z0-9_-]+)\/chat-stream$/);
     if (!match) return;
     try {
       authorizeRequest(req, effective(), true);
@@ -25,7 +24,13 @@ export function attachChatWebSocket(server, { sessions, streams, login, effectiv
         return;
       }
       wss.handleUpgrade(req, socket, head, (ws) => {
-        wss.emit("connection", ws, { id: match[1], token, auth });
+        const base = url.searchParams.get("cursor");
+        wss.emit("connection", ws, {
+          id: match[1],
+          token,
+          auth,
+          base: CURSOR.test(base || "") ? base : undefined,
+        });
       });
     } catch (error) {
       socket.end(
@@ -35,11 +40,11 @@ export function attachChatWebSocket(server, { sessions, streams, login, effectiv
   };
   server.on("upgrade", upgrade);
   wss.once("close", () => server.off("upgrade", upgrade));
-  wss.on("connection", (ws, { id, token, auth }) => {
+  wss.on("connection", (ws, { id, token, auth, base }) => {
     let closed = false,
       alive = true,
       sequence = 0,
-      cursor;
+      cursor = base;
     const send = (message) => {
       if (closed || ws.readyState !== WebSocket.OPEN) return;
       if (ws.bufferedAmount > 2 * 1024 * 1024) return ws.close(1013);
@@ -61,6 +66,7 @@ export function attachChatWebSocket(server, { sessions, streams, login, effectiv
       clearInterval(ping);
       cleanupLogin();
       unsubscribe?.();
+      if (cursor) sync.park(cursor);
     });
     unsubscribe = streams.subscribe(id, ({ session, snapshot, error }) => {
       if (closed || ws.readyState !== WebSocket.OPEN) return;

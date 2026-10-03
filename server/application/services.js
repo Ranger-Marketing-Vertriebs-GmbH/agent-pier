@@ -21,6 +21,7 @@ import { ProviderHistory } from "../features/chat/provider-history.js";
 import { ChatDelivery } from "../features/chat/chat-delivery.js";
 import { ChatStore } from "../features/chat/chat-store.js";
 import { ChatImages } from "../features/chat/chat-images.js";
+import { ChatSync } from "../features/chat/chat-sync.js";
 import { ChatAttachments } from "../features/chat/chat-attachments.js";
 import { ModelController } from "../features/models/model-controller.js";
 import { ExtensionsStore } from "../features/extensions/extension-store.js";
@@ -133,6 +134,7 @@ export async function createServices(config) {
     attachments: chatAttachments,
     home: config.home,
   });
+  const chatSync = new ChatSync({ sessions, chatImages });
   const chatStreams = new ChatStreams({
     sessions,
     chat,
@@ -230,6 +232,7 @@ export async function createServices(config) {
     activity,
     models,
     chatImages,
+    chatSync,
     chatAttachments,
     chatDelivery,
     extensions,

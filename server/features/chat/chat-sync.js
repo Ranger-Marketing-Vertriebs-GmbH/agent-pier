@@ -8,17 +8,42 @@ export class ChatSync {
     sessions,
     chatImages,
     now = Date.now,
-    ttl = 120000,
-    maxEntries = 128,
+    ttl = 30 * 60000,
+    maxEntries = 512,
     maxBytes = 4 * 1024 * 1024,
   }) {
     Object.assign(this, { sessions, chatImages, now, ttl, maxEntries, maxBytes });
     this.cache = new Map();
+    this.parked = new Map();
     this.bytes = 0;
   }
-  discard(cursor) {
-    this.bytes -= this.cache.get(cursor)?.bytes || 0;
+  drop(cursor) {
+    this.bytes -= (this.cache.get(cursor) || this.parked.get(cursor))?.bytes || 0;
     this.cache.delete(cursor);
+    this.parked.delete(cursor);
+  }
+  /** Removes every baseline, active or parked, that belongs to a session. */
+  discard(sessionId) {
+    for (const map of [this.cache, this.parked])
+      for (const [cursor, entry] of [...map]) {
+        let owner;
+        try {
+          owner = JSON.parse(entry.scope)[0];
+        } catch {
+          continue;
+        }
+        if (owner === sessionId) this.drop(cursor);
+      }
+  }
+  /** Keeps a closed connection's last baseline outside the per-scope active limit. */
+  park(cursor) {
+    const entry = typeof cursor === "string" ? this.cache.get(cursor) : null;
+    if (!entry || entry.expires <= this.now()) return;
+    this.cache.delete(cursor);
+    this.parked.set(cursor, entry);
+    const scoped = [...this.parked].filter(([, other]) => other.scope === entry.scope);
+    for (const [old] of scoped.slice(0, Math.max(0, scoped.length - 2))) this.drop(old);
+    while (this.parked.size > 256) this.drop(this.parked.keys().next().value);
   }
   remember(scope, rows, digest) {
     for (const [cursor, entry] of this.cache) {
@@ -40,20 +65,28 @@ export class ChatSync {
     });
     this.bytes += bytes;
     const scoped = [...this.cache].filter(([, entry]) => entry.scope === scope);
-    for (const [old] of scoped.slice(0, Math.max(0, scoped.length - 8)))
-      this.discard(old);
-    while (this.cache.size > this.maxEntries || this.bytes > this.maxBytes)
-      this.discard(this.cache.keys().next().value);
+    for (const [old] of scoped.slice(0, Math.max(0, scoped.length - 8))) this.drop(old);
+    while (
+      this.cache.size + this.parked.size > this.maxEntries ||
+      this.bytes > this.maxBytes
+    )
+      this.drop(
+        this.parked.size
+          ? this.parked.keys().next().value
+          : this.cache.keys().next().value,
+      );
     return this.cache.has(cursor) ? cursor : null;
   }
   async read(id, cursor) {
     const session = await this.sessions.get(id);
-    const snapshot = await this.chatImages.read(id);
+    // Only the stream adds nativeInput; normalizing keeps cursors valid across transports.
+    const snapshot = { ...(await this.chatImages.read(id)), nativeInput: null };
     return this.encode(session, snapshot, cursor);
   }
   encode(session, snapshot, cursor) {
-    for (const [key, entry] of this.cache)
-      if (entry.expires <= this.now()) this.discard(key);
+    for (const map of [this.cache, this.parked])
+      for (const [key, entry] of [...map])
+        if (entry.expires <= this.now()) this.drop(key);
     const { messages, ...metadata } = snapshot;
     if (
       !Array.isArray(messages) ||
@@ -70,7 +103,10 @@ export class ChatSync {
       session.createdAt || null,
       snapshot.providerSessionId || null,
     ]);
-    const base = typeof cursor === "string" ? this.cache.get(cursor) : null;
+    const base =
+      typeof cursor === "string"
+        ? this.cache.get(cursor) || this.parked.get(cursor)
+        : null;
     const next = this.remember(scope, rows, hash([metadata, [...rows]]));
     if (!next || !base || base.scope !== scope)
       return { ...snapshot, sync: { mode: "full", cursor: next } };

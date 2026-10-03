@@ -214,3 +214,76 @@ test("assertChatSnapshot throws the localized invalid-snapshot copy", () => {
   assert.doesNotThrow(() => assertChatSnapshot({ messages: [] }));
   assert.throws(() => assertChatSnapshot({}), { message: /\S/ });
 });
+
+const MINUTE = 60000;
+const change = (f, n) => f.set({ ...f.snapshot, messages: [row("a", `v${n}`)] });
+
+test("default lifetime keeps baselines valid at 29 minutes and expires them at 31", async () => {
+  let now = 1;
+  const f = fixture({ now: () => now });
+  const first = await f.sync.read("one");
+  now += 29 * MINUTE;
+  assert.equal((await f.sync.read("one", first.sync.cursor)).sync.mode, "delta");
+  now += 31 * MINUTE;
+  assert.equal((await f.sync.read("one", first.sync.cursor)).sync.mode, "full");
+});
+
+test("a parked cursor survives later frames in the same scope and yields a delta", async () => {
+  const f = fixture();
+  const first = await f.sync.read("one");
+  const cursor = first.sync.cursor;
+  f.sync.park(cursor);
+  for (let n = 0; n < 9; n++) {
+    change(f, n);
+    await f.sync.read("one");
+  }
+  const result = await f.sync.read("one", cursor);
+  assert.equal(result.sync.mode, "delta");
+  assert.equal(result.sync.base, cursor);
+});
+
+test("parked cursors are bounded per scope and expire after 30 minutes", async () => {
+  let now = 1;
+  const f = fixture({ now: () => now });
+  const cursors = [];
+  for (let n = 0; n < 3; n++) {
+    change(f, n);
+    const { sync } = await f.sync.read("one");
+    cursors.push(sync.cursor);
+    f.sync.park(sync.cursor);
+  }
+  assert.equal(f.sync.parked.size, 2);
+  for (let n = 10; n < 20; n++) {
+    change(f, n);
+    await f.sync.read("one");
+  }
+  assert.equal((await f.sync.read("one", cursors[0])).sync.mode, "full");
+  assert.equal((await f.sync.read("one", cursors[2])).sync.mode, "delta");
+  now += 31 * MINUTE;
+  assert.equal((await f.sync.read("one", cursors[2])).sync.mode, "full");
+  assert.equal(f.sync.parked.size, 0);
+});
+
+test("reads normalize nativeInput so cursors match across transports", async () => {
+  const f = fixture();
+  const first = await f.sync.read("one");
+  const second = await f.sync.read("one", first.sync.cursor);
+  assert.equal(second.sync.mode, "delta");
+  assert.equal(second.sync.cursor, first.sync.cursor);
+  assert.deepEqual(second.upserts, []);
+  assert.equal(first.nativeInput, null);
+});
+
+test("discard removes active and parked entries for every scope of a session", async () => {
+  const f = fixture();
+  const first = await f.sync.read("one");
+  change(f, 1);
+  const second = await f.sync.read("one");
+  f.sync.park(second.sync.cursor);
+  const other = await f.sync.read("two");
+  f.sync.discard("one");
+  assert.equal((await f.sync.read("one", first.sync.cursor)).sync.mode, "full");
+  assert.equal((await f.sync.read("one", second.sync.cursor)).sync.mode, "full");
+  assert.equal((await f.sync.read("two", other.sync.cursor)).sync.mode, "delta");
+  assert.equal(f.sync.parked.size, 0);
+});

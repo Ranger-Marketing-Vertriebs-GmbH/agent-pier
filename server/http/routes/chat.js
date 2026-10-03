@@ -1,9 +1,8 @@
 import { Router, raw } from "express";
-import { ChatSync } from "../../features/chat/chat-sync.js";
 
 export function chatRoutes(services) {
   const { chatImages, chatAttachments, chat } = services;
-  const sync = new ChatSync(services);
+  const sync = services.chatSync;
   const router = Router();
   router.post(
     "/sessions/:id/chat/attachments",
