@@ -3,7 +3,7 @@ import {
   claudeConversationRecord,
   claudeVisibleRecord,
 } from "./claude-conversation-record.js";
-import { isSubagentTool, subagentEvent } from "./claude-subagents.js";
+import { isSubagentTool, subagentKey } from "./claude-subagents.js";
 import fs from "node:fs/promises";
 import syncFs from "node:fs";
 import path from "node:path";
@@ -167,7 +167,7 @@ export class ClaudeHistoryIndex {
   // Hidden notification and hand-back records belong to the group of the Agent
   // call they complete, so every page that shows the call also reads them.
   subagentGroup(record) {
-    const event = subagentEvent(record);
+    const event = subagentKey(record);
     if (!event) return null;
     const row =
       event.kind === "notification"
@@ -209,7 +209,7 @@ export class ClaudeHistoryIndex {
       .run(group, offset, Number(visible));
     // A stopped agent's TaskStop result stays in its own group; pages showing
     // the Agent call read it as well.
-    const event = subagentEvent(record);
+    const event = subagentKey(record);
     if (event?.kind === "stopped")
       this.db
         .prepare("INSERT OR IGNORE INTO stops VALUES (?,?,?)")
@@ -331,12 +331,13 @@ export class ClaudeHistoryIndex {
           Array.isArray(record.message?.content) &&
           record.message.content.some((block) => block?.type === "tool_result");
         // Subagent lifecycle records are kept even when none of their content is
-        // shown on this page: they only feed the state of their Agent row.
-        const lifecycle = Boolean(subagentEvent(record));
-        // Only lifecycle records of another group can carry plain-text content.
+        // shown on this page: they only feed the state of their Agent row. Hidden
+        // notifications and hand-backs keep their content, text or blocks; a
+        // TaskStop result keeps only tool results whose call is on this page.
+        const lifecycle = subagentKey(record);
         if (
           (!selected.has(claudeHistoryGroup(record)) || resultEnvelope) &&
-          Array.isArray(record.message?.content)
+          !["notification", "handback"].includes(lifecycle?.kind)
         )
           record.message.content = record.message.content.filter(
             (block) =>
