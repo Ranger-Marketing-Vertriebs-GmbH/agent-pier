@@ -10,7 +10,10 @@ import {
   agentStatus,
   putAgent,
 } from "./observability-values.js";
-import { asyncLaunch, subagentEvent } from "./claude-subagents.js";
+import { asyncLaunch, settleStatus, subagentEvent } from "./claude-subagents.js";
+
+// Identities retained per session; finished agents are evicted first.
+const MAX_AGENTS = 100;
 export function createClaudeObserver({ maxEntries = Infinity, compact = false } = {}) {
   let stale = false;
   const field = (value) => (typeof value === "string" ? text(value) : Boolean(value));
@@ -27,8 +30,13 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
     }
   }
   function agent(id, values) {
-    if (Number.isFinite(maxEntries) && !agents.has(id) && agents.size >= 100)
-      stale = true;
+    // At the identity cap the oldest finished agent makes room. Only when every
+    // retained agent is still running would a live state be lost.
+    if (!agents.has(id) && agents.size >= MAX_AGENTS) {
+      const finished = [...agents.values()].find((entry) => entry.status !== "running");
+      if (finished) agents.delete(finished.id);
+      else if (Number.isFinite(maxEntries)) stale = true;
+    }
     putAgent(agents, id, values);
   }
   function nativeAgent(callId, agentId, values) {
@@ -41,12 +49,13 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
       if (!agents.has(agentId)) agent(agentId, prior);
     }
     const previous = agents.get(agentId);
+    // A new background launch starts over; other reports follow settleStatus.
     agent(agentId, {
       ...values,
-      ...((values.status === "unknown" || values.source === "claude-async-launch") &&
-      ["completed", "failed"].includes(previous?.status)
-        ? { status: previous.status }
-        : {}),
+      status:
+        values.source === "claude-async-launch"
+          ? values.status
+          : settleStatus(previous?.status, values.status),
     });
   }
   function update(records) {
@@ -145,7 +154,7 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
       }
       if (["handback", "stopped"].includes(event?.kind) && agents.has(event.agentId))
         agent(event.agentId, {
-          status: event.kind === "handback" ? "completed" : "unknown",
+          status: settleStatus(agents.get(event.agentId).status, event.status),
           source: `claude-${event.kind}`,
           updatedAt: at,
         });

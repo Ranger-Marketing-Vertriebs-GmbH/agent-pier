@@ -95,6 +95,7 @@ test("Agent rows carry their subagent label, real status and the last hand-back 
     description: "Review parser",
     type: "general-purpose",
     status: "completed",
+    agentId: "agentreview01",
   });
   assert.equal(row("toolu_review").status, "completed");
   assert.equal(
@@ -105,6 +106,7 @@ test("Agent rows carry their subagent label, real status and the last hand-back 
     description: "Check styles",
     type: "Explore",
     status: "running",
+    agentId: "agentstyles02",
   });
   assert.equal(row("toolu_styles").status, "running");
   assert.equal(row("toolu_styles").text, "Check the stylesheet.");
@@ -157,6 +159,7 @@ test("foreground Agent calls keep their tool result and gain a subagent label", 
     description: "Inline",
     type: "reviewer",
     status: "completed",
+    agentId: "agentsync",
   });
   assert.equal(messages[0].status, "completed");
   assert.match(messages[0].text, /Done\.$/);

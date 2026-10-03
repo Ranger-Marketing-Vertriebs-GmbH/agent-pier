@@ -9,6 +9,7 @@ import { normalizeClaude } from "../../server/features/chat/history-parsers.js";
 import {
   backgroundRecords as background,
   taskStop,
+  notification,
 } from "../helpers/claude-subagents.js";
 
 const filler = (count) =>
@@ -83,5 +84,15 @@ test("a TaskStop on a newer page ends the background agent shown on an older pag
   const pages = await indexed(t, records);
   const styles = pages[0].find((message) => message.id === "toolu_styles");
   assert.equal(styles.status, "unknown");
+  assert.deepEqual(pages.flat(), normalizeClaude(records).messages);
+});
+
+test("block-shaped notifications on a newer page still complete their agent", async (t) => {
+  const note = notification("toolu_styles", "agentstyles02", "completed");
+  note.message.content = [{ type: "text", text: note.message.content }];
+  const records = [...background(), ...filler(60), note];
+  const pages = await indexed(t, records);
+  const styles = pages[0].find((message) => message.id === "toolu_styles");
+  assert.equal(styles.status, "completed");
   assert.deepEqual(pages.flat(), normalizeClaude(records).messages);
 });

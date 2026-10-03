@@ -61,52 +61,79 @@ function handbackReport(body) {
   return report.trim().slice(0, REPORT_LIMIT);
 }
 
-/** A subagent lifecycle event from a generated user record, or null. */
-export function subagentEvent(record) {
+function notificationEnvelope(record) {
+  const match = /<task-notification>([\s\S]*?)<\/task-notification>/.exec(
+    recordText(record),
+  );
+  return match ? match[1] : null;
+}
+
+/**
+ * Cheap identification of a lifecycle record: its kind and native ids only.
+ * The history index uses it per record; reports are built only by the tracker.
+ */
+export function subagentKey(record) {
   if (record?.type !== "user" || record.isSidechain) return null;
   const origin = object(record.origin);
   if (origin.kind === "task-notification") {
-    const source = recordText(record);
-    const envelope = /<task-notification>([\s\S]*?)<\/task-notification>/.exec(source);
-    if (!envelope) return null;
-    const taskId = nativeId(tag(envelope[1], "task-id"));
-    const toolUseId = nativeId(tag(envelope[1], "tool-use-id"));
-    if (!taskId && !toolUseId) return null;
-    return {
-      kind: "notification",
-      taskId,
-      toolUseId,
-      status: notificationStatus(tag(envelope[1], "status")),
-      summary: tag(envelope[1], "summary").slice(0, 1000),
-    };
+    const envelope = notificationEnvelope(record);
+    if (envelope === null) return null;
+    const taskId = nativeId(tag(envelope, "task-id"));
+    const toolUseId = nativeId(tag(envelope, "tool-use-id"));
+    return taskId || toolUseId ? { kind: "notification", taskId, toolUseId } : null;
   }
   if (origin.kind === "peer" && origin.handback === true && nativeId(origin.from))
-    return {
-      kind: "handback",
-      agentId: origin.from,
-      report: handbackReport(string(origin.body)),
-    };
+    return { kind: "handback", agentId: origin.from };
   // A successful TaskStop result names the stopped agent in its structured result.
   const result = object(record.toolUseResult);
-  const blocks = list(record.message?.content).filter(
-    (block) => block?.type === "tool_result",
-  );
   if (
     ["local_agent", "remote_agent"].includes(result.task_type) &&
     nativeId(result.task_id) &&
     typeof result.message === "string" &&
-    !blocks.some((block) => block.is_error)
+    !list(record.message?.content).some(
+      (block) => block?.type === "tool_result" && block.is_error,
+    )
   )
     return { kind: "stopped", agentId: result.task_id };
   return null;
 }
 
+/** A subagent lifecycle event with its state (and report for hand-backs), or null. */
+export function subagentEvent(record) {
+  const key = subagentKey(record);
+  if (key?.kind === "notification") {
+    const envelope = notificationEnvelope(record);
+    return {
+      ...key,
+      status: notificationStatus(tag(envelope, "status")),
+      summary: tag(envelope, "summary").slice(0, 1000),
+    };
+  }
+  if (key?.kind === "handback")
+    return {
+      ...key,
+      status: "completed",
+      report: handbackReport(string(record.origin.body)),
+    };
+  if (key?.kind === "stopped") return { ...key, status: "unknown" };
+  return null;
+}
+
+/**
+ * One precedence rule for chat rows and the observer: within one launch the
+ * latest event wins, but an inconclusive state (killed, stopped) never replaces
+ * a reported completion or failure. A new launch starts over as running.
+ */
+export function settleStatus(current, next) {
+  return next === "unknown" && ["completed", "failed"].includes(current) ? current : next;
+}
+
 /** Collects launches and lifecycle events so Agent rows show their real state. */
 export function createSubagentTracker() {
   const launches = new Map(); // tool-use id -> { agentId, async }
-  const byCall = new Map(); // tool-use id -> notification state
-  const byAgent = new Map(); // agent id -> latest event state
-  const order = { value: 0 };
+  const states = new Map(); // agent id (or call:<id>) -> state of the latest launch
+  const key = (toolUseId, agentId) =>
+    launches.get(toolUseId)?.agentId || agentId || (toolUseId && `call:${toolUseId}`);
   return {
     record(record) {
       if (record?.type !== "user" || record.isSidechain) return;
@@ -114,34 +141,25 @@ export function createSubagentTracker() {
         const block = list(record.message?.content).find(
           (item) => item?.type === "tool_result" && nativeId(item.tool_use_id),
         );
-        if (block)
-          launches.set(block.tool_use_id, {
-            agentId: nativeId(object(record.toolUseResult).agentId),
-            async: asyncLaunch(record.toolUseResult),
-          });
+        const agentId = nativeId(object(record.toolUseResult).agentId);
+        const async = asyncLaunch(record.toolUseResult);
+        if (block) launches.set(block.tool_use_id, { agentId, async });
+        // A launch reusing an agent id never inherits an earlier run's events.
+        if (block && async && agentId) states.set(agentId, { status: "running" });
       }
       const event = subagentEvent(record);
       if (!event) return;
-      const at = ++order.value;
-      if (event.kind === "notification") {
-        const state = { status: event.status, summary: event.summary, at };
-        if (event.toolUseId) byCall.set(event.toolUseId, state);
-        if (event.taskId)
-          byAgent.set(event.taskId, { ...byAgent.get(event.taskId), ...state });
-      } else if (event.kind === "stopped") {
-        byAgent.set(event.agentId, {
-          ...byAgent.get(event.agentId),
-          status: "unknown",
-          at,
-        });
-      } else {
-        byAgent.set(event.agentId, {
-          ...byAgent.get(event.agentId),
-          status: "completed",
-          report: event.report,
-          at,
-        });
-      }
+      const id =
+        event.kind === "notification"
+          ? key(event.toolUseId, event.taskId)
+          : key(null, event.agentId);
+      const current = states.get(id) || { status: "running" };
+      states.set(id, {
+        ...current,
+        status: settleStatus(current.status, event.status),
+        ...(event.summary ? { summary: event.summary } : {}),
+        ...(event.report ? { report: event.report } : {}),
+      });
     },
     /** Subagent fields for an Agent/Task tool row; `row` holds the generic values. */
     apply(row, input) {
@@ -150,14 +168,12 @@ export function createSubagentTracker() {
         description: string(input.description).slice(0, 300),
         type: string(input.subagent_type || input.name).slice(0, 120),
         status: row.status,
+        ...(launch?.agentId ? { agentId: launch.agentId } : {}),
       };
       if (!launch?.async) return { ...row, subagent };
-      const agent = launch.agentId ? byAgent.get(launch.agentId) : undefined;
-      const call = byCall.get(row.id);
-      const latest = [agent, call].filter(Boolean).sort((a, b) => b.at - a.at)[0];
-      const status = row.status === "failed" ? "failed" : latest?.status || "running";
-      const text =
-        agent?.report || call?.summary || agent?.summary || string(input.prompt);
+      const state = states.get(key(row.id)) || { status: "running" };
+      const status = row.status === "failed" ? "failed" : state.status;
+      const text = state.report || state.summary || string(input.prompt);
       return {
         ...row,
         text: text || row.text,
