@@ -1,5 +1,6 @@
 import { useWorkspaceStateCopy as copy } from "../lib/i18n/messages/app.js";
 import { useState, useCallback, useEffect } from "react";
+import { chatCacheKey, retainCachedChats } from "../features/chat/chat-session-cache.js";
 import api from "../lib/api.js";
 import { startVisiblePolling } from "../lib/visible-polling.js";
 export default function useWorkspaceState() {
@@ -19,6 +20,8 @@ export default function useWorkspaceState() {
       const data = await api("/state", "GET", undefined, signal);
       if (signal?.aborted) return;
       setState(data);
+      if (Array.isArray(data?.sessions))
+        retainCachedChats(new Set(data.sessions.map(chatCacheKey)));
       setReady(true);
       setError("");
       setLoading(false);
