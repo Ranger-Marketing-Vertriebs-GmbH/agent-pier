@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createChatStream } from "../../web/features/chat/chat-stream-transport.js";
+import { setLanguage } from "../../web/lib/i18n/index.js";
 
 const row = (id, text = id) => ({ id, text });
 const baseline = (cursor = "c1") => ({
@@ -24,6 +25,7 @@ function fixture({ initial, read = async () => baseline("fresh") } = {}) {
   const snapshots = [];
   const connections = [];
   const readCursors = [];
+  const errors = [];
   let listener;
   const visibility = {
     hidden: false,
@@ -39,7 +41,7 @@ function fixture({ initial, read = async () => baseline("fresh") } = {}) {
     },
     onSnapshot: (value) => snapshots.push(value),
     onConnection: (value) => connections.push(value),
-    onError: () => {},
+    onError: (value) => errors.push(value),
     visibility,
     schedule: (fn, delay) => {
       const id = Symbol();
@@ -60,6 +62,7 @@ function fixture({ initial, read = async () => baseline("fresh") } = {}) {
     snapshots,
     connections,
     readCursors,
+    errors,
     dispose,
     open: () => sockets.at(-1).onopen(),
     send: (data) => sockets.at(-1).onmessage({ data: JSON.stringify(data) }),
@@ -145,11 +148,27 @@ test("a socket that opens and closes without a frame never reports connected", (
   f.dispose();
 });
 
-test("a fallback success without an open socket reports connected", async () => {
+test("a fallback success without an open socket keeps the socket's state", async () => {
   const f = fixture();
   f.fail();
   await settle();
-  assert.equal(f.connections.at(-1), "connected");
+  assert.equal(f.snapshots.length, 1);
+  assert.ok(!f.connections.includes("connected"));
+  assert.equal(f.connections.at(-1), "disconnected");
+  f.dispose();
+});
+
+test("a rejected fallback delta reports translated copy, never the raw error", async (t) => {
+  t.after(() => setLanguage("de", { persist: false }));
+  setLanguage("en", { persist: false });
+  const f = fixture({ initial: baseline(), read: async () => delta("zz", "c2") });
+  f.fail();
+  await settle();
+  assert.equal(f.snapshots.length, 0);
+  assert.equal(f.errors.at(-1), "The chat could not be loaded completely. Retrying…");
+  assert.ok(!f.errors.includes("Invalid chat delta"));
+  f.tick();
+  assert.equal(f.urls[1], "ws://fixture/chat-stream");
   f.dispose();
 });
 
