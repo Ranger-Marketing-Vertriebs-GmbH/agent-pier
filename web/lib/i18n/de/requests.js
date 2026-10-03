@@ -53,6 +53,8 @@ export const requestCopy = {
   answer: "Antwort senden",
   handoff: "Im Terminal beantworten",
   terminal: "Terminal öffnen",
+  terminalApproval: "Freigabe wartet im Terminal.",
+  dismissNotice: "Ausblenden",
   unknown: "Zustellung unklar. Im Terminal prüfen.",
   responding: "Antwort wird zugestellt …",
   required: "Bitte jede Frage vollständig beantworten.",

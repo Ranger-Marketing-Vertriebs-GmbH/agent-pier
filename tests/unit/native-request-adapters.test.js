@@ -268,3 +268,50 @@ test("Codex additional permissions disclose the full native turn scope", async (
   assert.equal(option.scope, "turn");
   assert.equal(option.label, "Für diesen Turn erlauben");
 });
+test("Claude EnterWorktree permissions show their target path", () => {
+  const { subject } = claudeRequest({
+    hook_event_name: "PermissionRequest",
+    tool_name: "EnterWorktree",
+    cwd: "/work/repo",
+    tool_input: { path: "/work/repo/.worktrees/fix-login" },
+  }).view;
+  assert.equal(subject.tool, "EnterWorktree");
+  assert.equal(subject.path, "/work/repo/.worktrees/fix-login");
+  assert.equal(subject.cwd, "/work/repo");
+  assert.equal(subject.command, undefined);
+});
+test("Claude Workflow permissions summarize their meta name and description", () => {
+  const view = (tool_input) =>
+    claudeRequest({
+      hook_event_name: "PermissionRequest",
+      tool_name: "Workflow",
+      tool_input,
+    }).view.subject.description;
+  assert.equal(
+    view({ meta: { name: "nightly-review", description: "Review open PRs" } }),
+    "nightly-review: Review open PRs",
+  );
+  assert.equal(
+    view({
+      script: `// header\nexport const meta = {\n  name: 'nightly-review',\n  description: "Review \\"open\\" PRs",\n  phases: [{ title: 'x' }],\n};\nexport default async () => {};`,
+    }),
+    'nightly-review: Review "open" PRs',
+  );
+  assert.equal(
+    view({ script: "export const meta = { name: `only-name` };" }),
+    "only-name",
+  );
+  // Explicit descriptions win; unparseable or hostile scripts never throw or run.
+  assert.equal(view({ description: "Given", meta: { name: "n" } }), "Given");
+  for (const script of [
+    "",
+    "meta = { name: process.exit(1) }",
+    "export const meta = { name: 'unterminated",
+    "x".repeat(300000),
+    42,
+  ])
+    assert.equal(view({ script }), undefined);
+  assert.equal(view({ meta: { name: 7, description: ["x"] } }), undefined);
+  const long = view({ meta: { name: "n", description: "d".repeat(5000) } });
+  assert.ok(long.length <= 2000);
+});

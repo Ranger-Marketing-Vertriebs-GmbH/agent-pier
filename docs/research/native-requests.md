@@ -68,8 +68,8 @@ answers. The update notice alone does not block normal chat.
 A published question remains owned by its live hook and reconnects after a server
 restart with the same occurrence ID. Question hooks wait up to 24 hours instead
 of silently expiring after ten minutes. Initial connection failure falls back
-after ten seconds; ordinary permission hooks retain their earlier disconnect and
-timeout fallback. Unsupported question payloads return to native handling before
+after ten seconds. Ordinary permission hooks share this lifetime since
+2026-10-03 (see below). Unsupported question payloads return to native handling before
 opening a channel. Answer acknowledgement follows completion of the hook output
 write, with no automatic replay after uncertain delivery.
 
@@ -95,6 +95,57 @@ starts with that adapter, migrates its plugin, runs `/reload-plugins`, and verif
 the same conversation receives subsequent answers. AgentPier 1.17.0 to 1.17.10 was
 verified with this mode. The probe does not use user credentials or send prompts
 to a remote model.
+
+### Permission lifetime and terminal handoff (2026-10-03)
+
+Ordinary Claude tool approvals (`PermissionRequest` without `AskUserQuestion`)
+used to leave chat silently after 590 seconds, and a server restart dropped them.
+Permission hooks now use the same lifetime, ten-second connection window and
+reconnection after a restart as question hooks.
+
+Claude Code 2.1.288 shows its own approval dialog in the terminal while the
+hook is still waiting. Both dialogs are active, so these rules apply:
+
+- **Deny or Esc in the terminal.** Claude aborts the hook, and the chat request
+  disappears.
+- **Approval in the terminal.** Claude does not abort the hook. The waiting
+  hook watches the session transcript (`transcript_path`) for the
+  `tool_use` that matches its tool name and input. When that call's
+  `tool_result` appears, the hook exits with no output, and chat drops the
+  request without a notice. Approving a long-running tool in the terminal
+  therefore keeps the chat entry until the tool finishes. A chat decision made
+  in that window is ignored by Claude.
+- **No matching `tool_use`.** This covers, for example, subagent calls recorded
+  in another transcript. A terminal approval cannot be observed, so the hook
+  keeps the earlier 590-second bound. That bound stops a stale request from
+  holding chat messages for a day.
+
+A focused terminal view hands pending tool approvals to Claude in the same way
+as questions. The "Answer in terminal" action does the same from chat. A
+handoff never approves anything.
+
+When a tool approval leaves chat through a handoff or a timeout, chat shows the
+notice "Approval is waiting in the terminal" in English or German. The notice
+does not block chat. It is cleared when the next native request arrives. It
+can be dismissed, and the tab that performed the handoff never shows it.
+
+Permission subjects name their target:
+
+- `EnterWorktree` shows `tool_input.path`.
+- `Workflow` shows `meta.name: meta.description`. This comes from
+  `tool_input.meta` or from the literal `export const meta = { … }` in
+  `tool_input.script`. The script is matched as text and never evaluated.
+
+The behaviour was verified with an isolated probe. The probe used the real
+Claude Code 2.1.288 TUI, a private tmux server, a disposable home, synthetic
+credentials and a loopback provider that emits one `Bash` call. It checked
+that:
+
+- the native dialog is visible while the hook waits;
+- the request survives a broker restart;
+- terminal deny and terminal approval each withdraw the chat request without a
+  notice;
+- a handoff leaves the native dialog and the notice.
 
 ## OpenCode
 

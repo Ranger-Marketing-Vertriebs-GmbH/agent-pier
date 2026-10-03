@@ -4,7 +4,7 @@ import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
 import QuestionDialog from "./QuestionDialog.jsx";
-import { touchRequest } from "./request-interaction.js";
+import { touchRequest, settleNotice } from "./request-interaction.js";
 export default function NativeRequest({ request, updated, openTerminal }) {
   const action = useAsyncAction(),
     pending = request.status === "pending",
@@ -115,6 +115,8 @@ export default function NativeRequest({ request, updated, openTerminal }) {
             disabled={action.busy}
             onClick={() =>
               action.run(async () => {
+                // This tab opens the terminal itself; no notice needed here.
+                settleNotice(request.id);
                 try {
                   updated(
                     await api(base + "/handoff", "POST", {

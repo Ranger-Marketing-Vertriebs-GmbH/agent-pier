@@ -86,13 +86,20 @@ for (const locale of ["de-DE", "en-GB"]) {
       await expect(page.locator(".terminal-pane").getByRole("alert")).toHaveCount(0);
     });
 
-    test("uncertain questions are released once and ordinary permissions never", async ({
+    test("uncertain questions are released once and failures are not retried", async ({
       page,
     }) => {
       const state = await operationsFixture(page, { tool: "claude" });
       state.requests = [
         { ...question, status: "unknown", revision: 2 },
-        { ...question, id: "permission", kind: "permission", subject: { tool: "Bash" } },
+        // Startup prompts are AgentPier-owned, not hook invocations: never released.
+        {
+          ...question,
+          id: "startup",
+          kind: "permission",
+          presentation: "claudeStartupPrompt",
+          subject: { dialog: "theme" },
+        },
       ];
       state.fail = "/sessions/fixture-session/requests/terminal-question/handoff";
       await page.goto("/sessions/fixture-session/terminal");

@@ -29,6 +29,8 @@ export class RequestBroker {
     this.deliveries = new Map();
     this.created = new Set();
     this.claudeReloadRequired = new Set();
+    // Latest Claude approval per session that left chat for the terminal.
+    this.notices = new Map();
     const hash = createHash("sha256")
       .update(path.resolve(dataDir))
       .digest("hex")
@@ -120,6 +122,16 @@ export class RequestBroker {
       ).catch(() => {});
     } catch {}
   }
+  /** Claude now shows its own approval dialog; chat must not just go blank. */
+  terminalNotice(entry) {
+    if (
+      entry.source === "claude" &&
+      entry.kind === "permission" &&
+      !entry.presentation &&
+      !entry.local
+    )
+      this.notices.set(entry.sessionId, { id: entry.id, reason: "terminal" });
+  }
   connection(socket) {
     if (this.clients.size >= 128) {
       socket.destroy();
@@ -175,6 +187,7 @@ export class RequestBroker {
             if (old.presentation === "codexHookTrust" && message.outcome === "trusted")
               old.nativeOutcome = "trusted";
             this.entries.delete(id);
+            if (message.outcome === "timeout") this.terminalNotice(old);
             this.emit(old, "request.expired");
           }
           return;
@@ -213,6 +226,7 @@ export class RequestBroker {
         )
           throw Error("Too many native requests");
         this.entries.set(id, entry);
+        this.notices.delete(owner.id);
         this.emit(entry, "request.created");
       });
       return queue;
@@ -246,6 +260,7 @@ export class RequestBroker {
       ...(session.status === "running" && this.claudeReloadRequired.has(sessionId)
         ? { integration: { reloadRequired: true } }
         : {}),
+      ...(this.notices.has(sessionId) ? { notice: this.notices.get(sessionId) } : {}),
       requests: [...this.entries.values()]
         .filter((e) => e.sessionId === sessionId)
         .map(
@@ -330,6 +345,7 @@ export class RequestBroker {
     });
     if (status === "answered") {
       this.entries.delete(id);
+      if (handoff) this.terminalNotice(entry);
       this.emit(
         entry,
         handoff ? "request.handed-off" : "request.answered",
@@ -370,6 +386,7 @@ export class RequestBroker {
     return this.answer(sessionId, id, input, true);
   }
   async discard(sessionId, { removeLaunch = true } = {}) {
+    this.notices.delete(sessionId);
     for (const socket of this.clients)
       if (socket.owner?.id === sessionId) socket.destroy();
     for (const [id, entry] of this.entries)
