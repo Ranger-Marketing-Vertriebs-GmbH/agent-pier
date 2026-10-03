@@ -160,6 +160,18 @@ export class PipelineDefinitions {
     this.commit(next);
     return { projectId, steps: copy(steps) };
   }
+  /** Moves verification steps of a plain project folder that became a Git work tree. */
+  moveVerification(fromProjectId, toProjectId) {
+    const steps = this.state.verification;
+    if (!Object.hasOwn(steps, fromProjectId) || Object.hasOwn(steps, toProjectId)) return;
+    const next = copy(this.state);
+    next.verification[toProjectId] = next.verification[fromProjectId];
+    delete next.verification[fromProjectId];
+    this.commit(next);
+  }
+  hasVerification(projectId) {
+    return Object.hasOwn(this.state.verification, projectId);
+  }
   snapshot(pipelineId) {
     const pipeline = this.getPipeline(pipelineId);
     this.validateProfiles(pipeline.graph, 409);

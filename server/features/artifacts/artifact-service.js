@@ -18,8 +18,11 @@ export class ArtifactService {
     pollMs = 60000,
     clock = () => new Date(),
     barrier,
+    isRebound = () => false,
   }) {
     this.barrier = barrier;
+    // True when a plain project folder became this Git project (see ProjectRebind).
+    this.isRebound = isRebound;
     this.store = new ArtifactStore(dataDir);
     this.limits = { ...artifactLimits, ...limits };
     this.sessionExists = sessionExists;
@@ -134,7 +137,8 @@ export class ArtifactService {
         if (
           previous &&
           (previous.sessionId !== context.sessionId ||
-            previous.projectId !== context.projectId)
+            (previous.projectId !== context.projectId &&
+              !this.isRebound(previous.projectId, context.projectId)))
         )
           throw artifactError("ARTIFACT_ACCESS_DENIED", 403);
         const id = previous?.id || randomUUID(),
@@ -196,6 +200,11 @@ export class ArtifactService {
           await fs.rm(folder, { recursive: true, force: true }).catch(this.onError);
       }
     });
+  }
+  ownsProject(projectId) {
+    return Object.values(this.store.state.records).some(
+      (record) => record.projectId === projectId,
+    );
   }
   /** Records the Git project of a plain session folder that became a work tree. */
   moveProject(fromProjectId, toProjectId) {

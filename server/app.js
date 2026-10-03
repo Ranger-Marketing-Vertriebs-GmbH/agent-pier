@@ -90,6 +90,7 @@ export async function createApplication(config) {
   services.reload = new SessionReload({ services });
   await services.reload.initialize();
   Object.assign(services, await createPipelineServices(services));
+  services.projectRebind.definitions = services.pipelineDefinitions;
   services.operationsEvents = new OperationsEvents(services);
   services.events.current = services.operationsEvents;
   await services.operationsEvents.poll();

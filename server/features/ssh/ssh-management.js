@@ -152,6 +152,12 @@ export class SshManagement {
   ownsProject(projectId) {
     return ownsProjectAccess(this.catalog, projectId);
   }
+  knowsProject(projectId) {
+    return (
+      this.ownsProject(projectId) ||
+      this.catalog.read().projects.some((row) => row.id === projectId)
+    );
+  }
   rememberProject(project) {
     const record = {
       id: project.projectId ?? project.id,
@@ -323,7 +329,10 @@ export class SshManagement {
       }
       return await this.mutation(async () => {
         const current = await this.context(capability, signal);
-        const previous = requestReceipt(this.catalog, receiptContext);
+        // A project rebind may have completed while the key was being prepared.
+        const owner = current.project.projectId;
+        const ownedReceipt = { ...receiptContext, projectId: owner };
+        const previous = requestReceipt(this.catalog, ownedReceipt);
         if (previous) return replayReceipt(previous, resolve);
         this.rememberProject(current.project);
         const existing =
@@ -331,12 +340,22 @@ export class SshManagement {
           this.store.keyStore
             .list()
             .find(
-              (key) =>
-                key.projectId === projectId && key.publicKey === prepared.publicKey,
+              (key) => key.projectId === owner && key.publicKey === prepared.publicKey,
             );
-        const key = existing || (await this.store.keyStore.publish(prepared));
+        let key = existing || (await this.store.keyStore.publish(prepared));
+        if (key.projectId !== owner) {
+          this.catalog.replacePart(
+            "keys",
+            this.catalog
+              .read()
+              .keys.map((row) =>
+                row.id === key.id ? { ...row, projectId: owner } : row,
+              ),
+          );
+          key = this.store.keyStore.get(key.id);
+        }
         await this.context(capability, signal);
-        saveReceipt(this.catalog, receiptContext, key);
+        saveReceipt(this.catalog, ownedReceipt, key);
         this.catalog.afterCommit(() => this.emit("ssh.created", key.id, current));
         return { ...key, reused: Boolean(existing) };
       });
