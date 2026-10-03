@@ -10,7 +10,7 @@ export class ChatSync {
     now = Date.now,
     ttl = 30 * 60000,
     maxEntries = 512,
-    maxBytes = 4 * 1024 * 1024,
+    maxBytes = 16 * 1024 * 1024,
   }) {
     Object.assign(this, { sessions, chatImages, now, ttl, maxEntries, maxBytes });
     this.cache = new Map();
@@ -40,6 +40,7 @@ export class ChatSync {
     const entry = typeof cursor === "string" ? this.cache.get(cursor) : null;
     if (!entry || entry.expires <= this.now()) return;
     this.cache.delete(cursor);
+    entry.expires = this.now() + this.ttl;
     this.parked.set(cursor, entry);
     const scoped = [...this.parked].filter(([, other]) => other.scope === entry.scope);
     for (const [old] of scoped.slice(0, Math.max(0, scoped.length - 2))) this.drop(old);
@@ -66,6 +67,7 @@ export class ChatSync {
     this.bytes += bytes;
     const scoped = [...this.cache].filter(([, entry]) => entry.scope === scope);
     for (const [old] of scoped.slice(0, Math.max(0, scoped.length - 8))) this.drop(old);
+    // Parked entries are evicted first under maxEntries/maxBytes pressure.
     while (
       this.cache.size + this.parked.size > this.maxEntries ||
       this.bytes > this.maxBytes
