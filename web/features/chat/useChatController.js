@@ -5,6 +5,7 @@ import useChatDelivery from "./useChatDelivery.js";
 import useChatAttachments from "./useChatAttachments.js";
 import { withReadyUploads } from "./chat-upload-send.js";
 import { deliveryScope } from "./chat-draft.js";
+import { restoreScrollAnchor, scrollAnchor } from "./chat-scroll-anchor.js";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { chatAttachmentCopy as attachmentCopy } from "../../lib/i18n/messages/chat.js";
 export default function useChatController({ active, session, request, onConnection }) {
@@ -73,20 +74,25 @@ export default function useChatController({ active, session, request, onConnecti
     stick = useRef(true),
     scroll = useRef(0);
   const stream = useChatStream({ active, session, request, onConnection, output, stick });
-  const { data, loadError } = stream;
+  const { data, loadError, restored, restoreScroll, saveScroll } = stream;
+  // Cached rows are not server evidence: deliveries are judged on live frames only.
   useEffect(() => {
-    if (delivery.reset)
+    if (delivery.reset && !data?.restored)
       void delivery.draft.observeReset(data, session.restartGeneration || 0);
   }, [data, delivery.draft, delivery.reset, session.restartGeneration]);
   useEffect(() => {
-    if (data?.messages && delivery.recent.length)
+    if (data?.messages && !data.restored && delivery.recent.length)
       void delivery.draft.observeMessages(data.messages);
   }, [data, delivery.draft, delivery.recent]);
   useLayoutEffect(() => {
     const element = output.current;
     if (!active || !element) return;
     outputHeight.current = element.clientHeight;
-    element.scrollTop = stick.current ? element.scrollHeight : scroll.current;
+    const saved = restoreScroll.current;
+    restoreScroll.current = null;
+    if (saved) stick.current = !restoreScrollAnchor(element, saved);
+    if (saved && !stick.current) scroll.current = element.scrollTop;
+    else element.scrollTop = stick.current ? element.scrollHeight : scroll.current;
     // Keyboard animation and composer growth resize the message viewport without
     // changing the transcript. Follow its bottom only while already following.
     const observer = new ResizeObserver(() => {
@@ -94,8 +100,20 @@ export default function useChatController({ active, session, request, onConnecti
       outputHeight.current = element.clientHeight;
     });
     observer.observe(element);
-    return () => observer.disconnect();
-  }, [active]);
+    // Only a laid-out view has a position worth keeping; the cache is update-only.
+    const keep = () => {
+      if (element.clientHeight > 0) saveScroll(scrollAnchor(element, stick.current));
+    };
+    const hide = () => {
+      if (document.visibilityState === "hidden") keep();
+    };
+    document.addEventListener("visibilitychange", hide);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", hide);
+      keep();
+    };
+  }, [active, restoreScroll, saveScroll]);
   useLayoutEffect(() => {
     // Follow the committed transcript before a queued scroll event can mistake
     // its new height for a user scrolling away from the bottom.
@@ -106,7 +124,7 @@ export default function useChatController({ active, session, request, onConnecti
     delivery.send(messages, {
       tool: session.tool,
       providerSessionId:
-        data?.availability === "ready" && !data.observability?.stale
+        data?.availability === "ready" && !data.restored && !data.observability?.stale
           ? data.providerSessionId
           : null,
       restartGeneration: session.restartGeneration || 0,
@@ -154,18 +172,21 @@ export default function useChatController({ active, session, request, onConnecti
     historyError: stream.historyError,
     historyLoading: stream.historyLoading,
     loadOlder: stream.loadOlder,
+    restored,
     delivery: {
       ...delivery,
       send,
-      nativeStates: nativeDeliveryStates(
-        [...delivery.recent, ...(delivery.outbox ? [delivery.outbox] : [])],
-        data?.messages || [],
-        data?.nativeInput?.providerSessionId === data?.providerSessionId
-          ? data?.nativeInput
-          : null,
-        session.tool,
-        session.status === "running",
-      ),
+      nativeStates: restored
+        ? new Map()
+        : nativeDeliveryStates(
+            [...delivery.recent, ...(delivery.outbox ? [delivery.outbox] : [])],
+            data?.messages || [],
+            data?.nativeInput?.providerSessionId === data?.providerSessionId
+              ? data?.nativeInput
+              : null,
+            session.tool,
+            session.status === "running",
+          ),
     },
     tasksOpen,
     closeTasks,

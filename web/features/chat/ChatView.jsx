@@ -32,6 +32,7 @@ export default function ChatView({
     historyError,
     historyLoading,
     loadOlder,
+    restored,
     delivery,
     tasksOpen,
     closeTasks,
@@ -94,7 +95,11 @@ export default function ChatView({
   const history = resetHistory(delivery.reset, data?.messages || [], resetStatus);
   const historyLoader = data?.history?.cursor && (
     <div className="chat-history-loader">
-      <button type="button" disabled={historyLoading} onClick={() => void loadOlder()}>
+      <button
+        type="button"
+        disabled={historyLoading || restored}
+        onClick={() => void loadOlder()}
+      >
         {historyLoading
           ? copy.historyLoading
           : historyError
@@ -105,7 +110,7 @@ export default function ChatView({
     </div>
   );
   const subagents =
-    session.status === "running" && !data?.observability?.stale
+    session.status === "running" && !restored && !data?.observability?.stale
       ? (data?.observability?.subagents || []).filter(
           (agent) => agent.status === "running",
         )
@@ -265,6 +270,7 @@ export default function ChatView({
         >
           <ChatScrollToBottom {...{ active, output, stick, scroll }} />
           {session.status === "running" &&
+            !restored &&
             data?.nativeInput?.providerSessionId === data?.providerSessionId &&
             data?.nativeInput?.warnings?.length > 0 && (
               <div
