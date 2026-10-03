@@ -195,6 +195,12 @@ export class SessionMcp {
       const resources = this.resources();
       for (const [field, group] of Object.entries(fields))
         auth.extra.grant[field] = resources[group].map((resource) => resource.id);
+    } else {
+      // A plain project folder that became a Git work tree keeps its grant.
+      const projectIds = auth.extra.grant.projectIds.map(
+        (id) => this.services.memory.reboundTo?.(id) || id,
+      );
+      auth.extra.grant.projectIds = [...new Set(projectIds)];
     }
     return auth;
   }

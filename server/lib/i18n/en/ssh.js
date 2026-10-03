@@ -36,7 +36,8 @@ export const ssh = Object.freeze({
   requestInterrupted: "SSH request was interrupted.",
   projectUnavailable: "SSH project is unavailable.",
   projectChanged: "SSH project identity changed.",
-  projectChangedReload: "SSH project changed; reload the session.",
+  projectChangedReload:
+    "The project of this session changed. Reload the session to continue.",
   projectDirectoryUnavailable: "SSH project directory is unavailable.",
   targetProjectRequired: "A target project is required.",
   sourceProjectUnavailable: "The source SSH project is unavailable.",

@@ -23,6 +23,8 @@ export const artifacts = {
   ARTIFACT_SOURCE_CHANGED:
     "Source files changed during publication. Publish again with a new request ID.",
   ARTIFACT_ACCESS_DENIED: "This session cannot access that artifact.",
+  ARTIFACT_PROJECT_CHANGED:
+    "The project of this session changed. Reload the session to continue.",
   ARTIFACT_SESSION_GONE: "The originating session was deleted or is being deleted.",
   ARTIFACT_NOT_FOUND: "This artifact is unavailable or was deleted.",
   ARTIFACT_INVALID_INPUT: "Check the artifact arguments.",

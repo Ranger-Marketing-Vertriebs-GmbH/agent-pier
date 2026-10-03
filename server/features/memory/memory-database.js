@@ -41,6 +41,7 @@ export function openDatabase(dataDir) {
  CREATE TABLE IF NOT EXISTS revisions (entry_id TEXT NOT NULL REFERENCES entries(id), revision INTEGER NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, archived INTEGER NOT NULL, created_at TEXT NOT NULL, provenance TEXT NOT NULL, PRIMARY KEY(entry_id,revision));
  CREATE TABLE IF NOT EXISTS requests (project_id TEXT NOT NULL, actor TEXT NOT NULL, request_id TEXT NOT NULL, hash TEXT NOT NULL, entry_id TEXT NOT NULL, revision INTEGER NOT NULL, PRIMARY KEY(project_id,actor,request_id));
  CREATE TABLE IF NOT EXISTS capabilities (session_id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), account_id TEXT NOT NULL, tool TEXT NOT NULL, token_hash TEXT NOT NULL, active INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS project_rebinds (from_id TEXT PRIMARY KEY, to_id TEXT NOT NULL, created_at TEXT NOT NULL);
  CREATE INDEX IF NOT EXISTS entries_by_project ON entries(project_id);
  PRAGMA user_version=1;`);
     for (const suffix of ["-wal", "-shm"])

@@ -14,6 +14,7 @@ import { Operations } from "../features/operations/operations.js";
 import { ProjectMemory } from "../features/memory/project-memory.js";
 import { AuditStore } from "../features/audit/audit-store.js";
 import { MutationBarrier } from "./mutation-barrier.js";
+import { ProjectRebind } from "./project-rebind.js";
 import { MemoryIntegration } from "../features/memory/memory-integration.js";
 import { ProviderCatalog } from "../features/providers/provider-catalog.js";
 import { RepositoryStore } from "../features/repositories/repository-store.js";
@@ -193,6 +194,15 @@ export async function createServices(config) {
     barrier: mutationBarrier,
   });
   await artifacts.ready;
+  const projectRebind = new ProjectRebind({
+    dataDir: config.dataDir,
+    memory,
+    sshManagement,
+    artifacts,
+    sessions,
+    audit,
+  });
+  sshManagement.rebindProject = (input) => projectRebind.rebind(input);
   const operations = new Operations({
     config,
     audit,
@@ -201,6 +211,7 @@ export async function createServices(config) {
   });
   return {
     artifacts,
+    projectRebind,
     events,
     sshAccesses,
     sshSessions,

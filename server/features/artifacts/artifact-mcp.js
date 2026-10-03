@@ -25,7 +25,37 @@ export const artifactTools = {
 export function artifactToolEntries(grant, context) {
   return grant.allResources && context?.sessionId ? Object.entries(artifactTools) : [];
 }
+const denials = new Set(["ARTIFACT_ACCESS_DENIED", "ARTIFACT_PROJECT_CHANGED"]);
 export async function callArtifactTool(services, name, input, grant, context) {
+  try {
+    return await performArtifactTool(services, name, input, grant, context);
+  } catch (error) {
+    if (denials.has(error.code))
+      services.audit.append({
+        action: "artifact.denied",
+        resourceType: "artifact",
+        ...(validId(input?.artifactId) ? { resourceId: input.artifactId } : {}),
+        ...(validId(context?.sessionId) ? { sessionId: context.sessionId } : {}),
+        source: "mcp",
+        outcome: "failure",
+      });
+    throw error;
+  }
+}
+const validId = (value) => id.safeParse(value).success;
+/** The session's current project, after a safe rebind of a folder that became Git. */
+async function currentProject(services, session, grant, context) {
+  const project = await projectScope(session.cwd);
+  if (grant.projectIds.includes(project.id)) return project;
+  const rebound = await services.projectRebind?.rebind({
+    cwd: session.cwd,
+    previousIds: grant.projectIds,
+  });
+  if (rebound?.id !== project.id) throw artifactError("ARTIFACT_PROJECT_CHANGED", 409);
+  context.revalidate();
+  return rebound;
+}
+async function performArtifactTool(services, name, input, grant, context) {
   if (
     !grant.allResources ||
     !context?.sessionId ||
@@ -36,9 +66,6 @@ export async function callArtifactTool(services, name, input, grant, context) {
   if (!parsed.success) throw artifactError("ARTIFACT_INVALID_INPUT");
   context.revalidate();
   const session = await services.sessions.get(context.sessionId);
-  const project = await projectScope(session.cwd);
-  if (!grant.projectIds.includes(project.id))
-    throw artifactError("ARTIFACT_ACCESS_DENIED", 403);
   const config = services.effectiveConfig?.() || services.config;
   const origin = config.remoteUrl || `http://127.0.0.1:${config.port}`;
   const withUrl = (result) => ({
@@ -53,6 +80,7 @@ export async function callArtifactTool(services, name, input, grant, context) {
     context.revalidate();
     return { ...result, items: result.items.map(withUrl) };
   }
+  const project = await currentProject(services, session, grant, context);
   const result = await services.artifacts.publish(
     { sessionId: session.id, projectId: project.id, cwd: session.cwd },
     parsed.data,

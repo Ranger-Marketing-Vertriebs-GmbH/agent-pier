@@ -20,6 +20,8 @@ import {
   trustedHost,
   trustedHostNow,
   moveProject,
+  adoptProject,
+  ownsProjectAccess,
 } from "./ssh-management-records.js";
 
 const allowed = {
@@ -43,9 +45,16 @@ const allowed = {
 const busy = () => sshProblem("SSH_BUSY", serverMessages.ssh.managementBusy, 429);
 
 export class SshManagement {
-  constructor({ dataDir, home = os.homedir(), barrier, audit, projectRegistry } = {}) {
+  constructor({
+    dataDir,
+    home = os.homedir(),
+    barrier,
+    audit,
+    projectRegistry,
+    rebindProject,
+  } = {}) {
     this.dataDir = path.resolve(dataDir);
-    Object.assign(this, { home, barrier, audit, projectRegistry });
+    Object.assign(this, { home, barrier, audit, projectRegistry, rebindProject });
     this.catalog = new SshCatalog({ dataDir });
     this.store = new SshAccessStore({ dataDir, catalog: this.catalog });
     this.grants = new SshSessions({ dataDir, store: this.store });
@@ -107,11 +116,41 @@ export class SshManagement {
     if (signal?.aborted || this.closing)
       throw sshProblem("SSH_UNAVAILABLE", serverMessages.ssh.requestInterrupted, 503);
     const session = authorizeSsh(this.dataDir, capability);
-    const project = await validateSshProjectBinding(session.sshTools?.project);
+    let project;
+    try {
+      project = await validateSshProjectBinding(session.sshTools?.project);
+    } catch (error) {
+      if (error.code === "SSH_PROJECT_CHANGED")
+        this.audit?.append({
+          action: "ssh.denied",
+          resourceType: "ssh",
+          sessionId: session.id,
+          source: "mcp",
+          outcome: "failure",
+        });
+      throw error;
+    }
     authorizeSsh(this.dataDir, capability);
     if (signal?.aborted || this.closing)
       throw sshProblem("SSH_UNAVAILABLE", serverMessages.ssh.requestInterrupted, 503);
     return { session, project };
+  }
+  /** A launch folder that became its own Git work tree moves to its Git project. */
+  async rebound(capability, signal) {
+    const context = await this.context(capability, signal);
+    const { rebind, launch } = context.project;
+    if (!rebind || !this.rebindProject) return context;
+    await this.rebindProject({ cwd: launch.path, previousIds: [rebind.fromId] });
+    return this.context(capability, signal);
+  }
+  adoptProject(fromProjectId, scope) {
+    return this.track(async () => {
+      await this.ready;
+      return this.mutation(() => adoptProject(this.catalog, fromProjectId, scope));
+    });
+  }
+  ownsProject(projectId) {
+    return ownsProjectAccess(this.catalog, projectId);
   }
   rememberProject(project) {
     const record = {
@@ -181,7 +220,7 @@ export class SshManagement {
     const signal = externalSignal
       ? AbortSignal.any([externalSignal, AbortSignal.timeout(30000)])
       : AbortSignal.timeout(30000);
-    const context = await this.context(capability, signal),
+    const context = await this.rebound(capability, signal),
       projectId = context.project.projectId;
     if (name === "ssh_list_keys") {
       const page = input.page ?? 1;
