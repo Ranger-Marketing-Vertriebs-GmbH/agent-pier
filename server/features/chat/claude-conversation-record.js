@@ -6,6 +6,37 @@ const recordText = (record) => {
   const texts = blocks(record).filter((block) => block?.type === "text");
   return texts.length === 1 && typeof texts[0].text === "string" ? texts[0].text : null;
 };
+// Claude Code 2.1.288+ stores longer bracketed pastes as
+// "\n\n<pasted_content id=\"e8ae\">\n" + text + "\n</pasted_content id=\"e8ae\">\n".
+// Only that exact shape with the same id at both ends is unwrapped; text that merely
+// mentions the tag stays as written. Keep in sync with web/features/chat/delivery-content.js.
+const PASTED_CONTENT =
+  /\n\n<pasted_content id="([0-9a-f]{1,16})">\n([\s\S]*?)\n<\/pasted_content id="\1">\n/g;
+const unwrapClaudePaste = (text) =>
+  text.replace(PASTED_CONTENT, (match, _id, inner, offset, whole) => {
+    const rest = whole.slice(offset + match.length);
+    return `${offset ? "\n" : ""}${inner}${rest && !rest.startsWith("\n") ? "\n" : ""}`;
+  });
+function unwrapPastes(record) {
+  if (record?.type !== "user") return record;
+  const content = record.message?.content;
+  if (typeof content === "string") {
+    const text = unwrapClaudePaste(content);
+    return text === content
+      ? record
+      : { ...record, message: { ...record.message, content: text } };
+  }
+  if (!Array.isArray(content)) return record;
+  let changed = false;
+  const next = content.map((block) => {
+    if (block?.type !== "text" || typeof block.text !== "string") return block;
+    const text = unwrapClaudePaste(block.text);
+    if (text === block.text) return block;
+    changed = true;
+    return { ...block, text };
+  });
+  return changed ? { ...record, message: { ...record.message, content: next } } : record;
+}
 const COMMAND_NAME = /<command-name>([^<]*)<\/command-name>/;
 const COMMAND_ARGS = /<command-args>([\s\S]*?)<\/command-args>/;
 
@@ -50,12 +81,12 @@ export function claudeConversationRecord(record) {
     typeof attachment.prompt !== "string" ||
     !attachment.prompt
   )
-    return slashCommand(record);
+    return slashCommand(unwrapPastes(record));
   return {
     ...record,
     type: "user",
     uuid: attachment.source_uuid,
-    message: { role: "user", content: attachment.prompt },
+    message: { role: "user", content: unwrapClaudePaste(attachment.prompt) },
   };
 }
 

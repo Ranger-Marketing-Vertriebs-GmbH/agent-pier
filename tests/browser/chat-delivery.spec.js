@@ -2,7 +2,7 @@ import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 
-async function fixture(page, { mode = "success" } = {}) {
+async function fixture(page, { mode = "success", label = "Nachricht" } = {}) {
   const state = {
     session: {
       id: "delivery",
@@ -64,7 +64,7 @@ async function fixture(page, { mode = "success" } = {}) {
     return route.fulfill({ json: {} });
   });
   await page.goto(baseURL + "/sessions/delivery/chat");
-  await expect(page.getByLabel("Nachricht", { exact: true })).toBeVisible();
+  await expect(page.getByLabel(label, { exact: true })).toBeVisible();
   return state;
 }
 const input = (page) => page.getByLabel("Nachricht", { exact: true });
@@ -331,4 +331,57 @@ test("Claude image chips reconcile the uploaded path without a duplicate pending
   await page.reload();
   await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
   expect(state.inputs).toHaveLength(1);
+});
+
+// Claude Code 2.1.288+ writes longer bracketed pastes with this wrapper (synthetic text).
+const pasted = ["First line", "Second line", "Third line", "Fourth line", "Fifth line"];
+const wrapped = (id = "e8ae") =>
+  `\n\n<pasted_content id="${id}">\n${pasted.join("\n")}\n</pasted_content id="${id}">\n`;
+for (const copy of [
+  { locale: "de-DE", label: "Nachricht", send: "Senden", mine: "Deine Nachricht" },
+  { locale: "en-GB", label: "Message", send: "Send", mine: "Your message" },
+])
+  test.describe(copy.locale, () => {
+    test.use({ locale: copy.locale });
+    test("a pasted multi-line message appears once without Claude's paste wrapper", async ({
+      page,
+    }) => {
+      const { normalizeClaude } =
+        await import("../../server/features/chat/history-parsers.js");
+      const state = await fixture(page, { label: copy.label });
+      await page.getByLabel(copy.label, { exact: true }).fill(pasted.join("\n"));
+      await page.getByRole("button", { name: copy.send, exact: true }).click();
+      await expect(page.locator(".chat-delivery-message")).toHaveCount(1);
+      state.messages = normalizeClaude([
+        {
+          type: "user",
+          uuid: "pasted",
+          timestamp: new Date(Date.now() + 1000).toISOString(),
+          message: { role: "user", content: wrapped() },
+        },
+      ]).messages;
+      await state.publish();
+      await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+      await expect(page.locator(".chat-delivery-status")).toHaveCount(0);
+      const mine = page.getByRole("article", { name: copy.mine, exact: true });
+      await expect(mine).toHaveCount(1);
+      await expect(mine).toContainText("Fifth line");
+      await expect(page.locator("body")).not.toContainText("pasted_content");
+      expect(state.inputs).toHaveLength(1);
+    });
+  });
+
+test("a cached wrapped row from before the server fix still clears the handoff notice", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  await input(page).fill(pasted.join("\n"));
+  await send(page).click();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(1);
+  state.messages = [
+    { id: "cached", role: "user", text: wrapped("0874"), timestamp: Date.now() + 1000 },
+  ];
+  await state.publish();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+  await expect(page.locator(".chat-delivery-status")).toHaveCount(0);
 });
