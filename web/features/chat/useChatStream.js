@@ -67,6 +67,9 @@ export default function useChatStream({
   if (state.current === null) state.current = seededState(key);
   // The saved scroll position waits for the first active layout of the seeded rows.
   const restoreScroll = useRef(state.current.scroll);
+  // Set when the first frame replaced a restored window: the next commit must land
+  // at the bottom even if a queued scroll event of the restore cleared `stick`.
+  const followBottom = useRef(false);
   const [data, setData] = useState(() => view(state.current));
   const [loadError, setLoadError] = useState("");
   const [historyError, setHistoryError] = useState("");
@@ -111,6 +114,7 @@ export default function useChatStream({
           restoreScroll.current = null;
           current.scroll = null;
           stick.current = true;
+          followBottom.current = true;
         }
       }
       const prefix = reset ? [] : chatWindowPrefix(current.live, next);
@@ -271,6 +275,7 @@ export default function useChatStream({
     data,
     restored: Boolean(data?.restored),
     restoreScroll,
+    followBottom,
     saveScroll,
     loadError,
     historyError,

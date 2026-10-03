@@ -74,7 +74,7 @@ export default function useChatController({ active, session, request, onConnecti
     stick = useRef(true),
     scroll = useRef(0);
   const stream = useChatStream({ active, session, request, onConnection, output, stick });
-  const { data, loadError, restored, restoreScroll, saveScroll } = stream;
+  const { data, loadError, restored, restoreScroll, followBottom, saveScroll } = stream;
   // Cached rows are not server evidence: deliveries are judged on live frames only.
   useEffect(() => {
     if (delivery.reset && !data?.restored)
@@ -117,9 +117,13 @@ export default function useChatController({ active, session, request, onConnecti
   useLayoutEffect(() => {
     // Follow the committed transcript before a queued scroll event can mistake
     // its new height for a user scrolling away from the bottom.
-    if (active && stick.current && output.current)
-      output.current.scrollTop = output.current.scrollHeight;
-  }, [data, active, delivery.outbox, delivery.recent]);
+    if (!active || !output.current) return;
+    if (followBottom.current) {
+      followBottom.current = false;
+      stick.current = true;
+    }
+    if (stick.current) output.current.scrollTop = output.current.scrollHeight;
+  }, [data, active, delivery.outbox, delivery.recent, followBottom]);
   const send = (messages) =>
     delivery.send(messages, {
       tool: session.tool,

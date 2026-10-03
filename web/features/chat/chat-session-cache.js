@@ -230,7 +230,9 @@ export function writeCachedChat(key, state, { create = true, flush = false } = {
       scroll: merged.scroll,
     };
     remember(entry);
-    pending.set(key, { generation, entry: deviceEntry(entry) });
+    // Per write only the memory entry changes; the device copy (and its size
+    // serialization) is built once per flush, off the per-frame path.
+    pending.set(key, { generation, entry });
     if (flush) void flushChatCache();
     else schedule();
   } catch {
@@ -261,7 +263,7 @@ export function flushChatCache() {
     let wrote = false;
     for (const { generation: queued, entry } of batch) {
       if (queued !== generation || tombstones.has(entry.sessionId)) continue;
-      await current.put(entry);
+      await current.put(deviceEntry(entry));
       wrote = true;
     }
     if (wrote) await current.evict({ maxEntries: MAX_ENTRIES, maxSize: MAX_SIZE });

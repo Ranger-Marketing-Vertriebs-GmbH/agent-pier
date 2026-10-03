@@ -98,6 +98,26 @@ test("memory LRU holds at most 12 entries", () => {
   assert.equal(peekCachedChat(key("s12")) !== null, true);
 });
 
+test("writes serialize the entry only once per flush, not per frame", async (t) => {
+  const stringify = JSON.stringify;
+  let serialized = 0;
+  t.after(() => {
+    JSON.stringify = stringify;
+  });
+  JSON.stringify = (value, ...rest) => {
+    if (value && typeof value === "object" && "live" in value) serialized += 1;
+    return stringify(value, ...rest);
+  };
+  for (let i = 0; i < 50; i += 1)
+    writeCachedChat(key("s1"), state({ live: live({ sync: { cursor: `c${i}` } }) }));
+  assert.equal(serialized, 0);
+  await flushChatCache();
+  JSON.stringify = stringify;
+  assert.equal(serialized, 1);
+  assert.equal(store.rows.get(key("s1")).live.sync.cursor, "c49");
+  assert.ok(store.rows.get(key("s1")).size > 0);
+});
+
 test("unrestorable snapshots are not stored", async () => {
   writeCachedChat(key("a"), state({ live: live({ availability: "missing" }) }));
   writeCachedChat(key("b"), state({ live: live({ messages: [] }) }));
