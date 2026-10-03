@@ -19,6 +19,18 @@ let timer = null;
 let preloading = null;
 let persistRequested = false;
 let buildOf = currentBuild;
+// Device writes stop after a failure; destructive operations always keep trying.
+let deviceWritable = true;
+const AUTH_KEY = "agentpier-auth-change";
+const readAuth = () => {
+  try {
+    return globalThis.localStorage?.getItem(AUTH_KEY) ?? null;
+  } catch {
+    return null;
+  }
+};
+let authOf = readAuth;
+let stamp = authOf();
 
 export const chatCacheKey = (session) =>
   JSON.stringify([session.id, session.accountId, session.tool, session.createdAt]);
@@ -44,10 +56,25 @@ function getStore() {
   return store;
 }
 
-// Any device failure switches the cache to memory-only operation.
+// Any device failure switches the cache to memory-only writes.
 const memoryOnly = () => {
-  store = null;
+  deviceWritable = false;
 };
+
+// Another tab logged out or switched account while this one was frozen.
+function authChanged() {
+  if (authOf() === stamp) return false;
+  void clearChatCache();
+  return true;
+}
+
+function deleteDatabase() {
+  try {
+    globalThis.indexedDB?.deleteDatabase?.("agentpier.chat.cache.v1");
+  } catch {
+    // best effort
+  }
+}
 
 function requestPersistence() {
   if (persistRequested) return;
@@ -60,14 +87,23 @@ function requestPersistence() {
 }
 
 // Serializes device operations so a clear always follows earlier writes.
-function enqueue(task) {
+function enqueue(task, { destructive = false, fallback } = {}) {
   chain = chain.then(async () => {
-    const current = getStore();
+    if (!destructive && !deviceWritable) return;
+    let current = getStore();
+    if (!current && destructive) {
+      try {
+        current = openChatCacheStore();
+      } catch {
+        current = null;
+      }
+    }
     if (!current) return;
     try {
       await task(current);
     } catch {
       memoryOnly();
+      fallback?.();
     }
   });
   return chain;
@@ -91,9 +127,9 @@ function validEntry(entry) {
   if (typeof entry.key !== "string" || typeof entry.sessionId !== "string") return false;
   const build = buildOf();
   if (entry.build && build && entry.build !== build) return false;
-  if (!isChatSnapshot(entry.live)) return false;
-  const older = Array.isArray(entry.older) ? entry.older : [];
-  return uniqueIds([...older, ...entry.live.messages]);
+  if (entry.sessionId !== sessionIdOf(entry.key)) return false;
+  if (!restorable(entry.live) || !Array.isArray(entry.older)) return false;
+  return uniqueIds([...entry.older, ...entry.live.messages]);
 }
 
 function remember(entry) {
@@ -105,7 +141,7 @@ function remember(entry) {
 export function preloadChatCache() {
   preloading ??= (async () => {
     const current = getStore();
-    if (!current) return;
+    if (!current || !deviceWritable) return;
     requestPersistence();
     const started = generation;
     let entries;
@@ -121,16 +157,22 @@ export function preloadChatCache() {
       if (validEntry(entry) && !tombstones.has(entry.sessionId)) valid.push(entry);
       else if (typeof entry?.key === "string") void enqueue((s) => s.delete(entry.key));
     }
-    valid.sort((a, b) => (a.accessedAt || 0) - (b.accessedAt || 0));
-    for (const entry of valid.slice(-MAX_ENTRIES)) {
-      if (!memory.has(entry.key)) remember(entry);
-    }
+    // Fill free slots only, at the least recent end; never override a live key.
+    valid.sort((a, b) => (b.accessedAt || 0) - (a.accessedAt || 0));
+    const added = valid
+      .filter((entry) => !memory.has(entry.key))
+      .slice(0, Math.max(0, MAX_ENTRIES - memory.size))
+      .reverse();
+    const current_ = [...memory.values()];
+    memory.clear();
+    for (const entry of [...added, ...current_]) memory.set(entry.key, entry);
   })();
   return preloading;
 }
 
 /** Synchronous memory read; refreshes recency. */
 export function peekCachedChat(key) {
+  if (authChanged()) return null;
   const entry = memory.get(key);
   if (!entry) return null;
   entry.accessedAt = Date.now();
@@ -163,6 +205,7 @@ const definedOnly = (state) =>
  */
 export function writeCachedChat(key, state, { create = true, flush = false } = {}) {
   try {
+    if (authChanged()) return;
     const sessionId = sessionIdOf(key);
     if (sessionId === undefined || tombstones.has(sessionId)) return;
     const existing = memory.get(key);
@@ -205,6 +248,7 @@ function schedule() {
 }
 
 export function flushChatCache() {
+  if (authChanged()) return chain;
   if (timer !== null) {
     clearTimeout(timer);
     timer = null;
@@ -224,6 +268,8 @@ export function flushChatCache() {
   });
 }
 
+// Contract: only for real session deletion (ids are unique), so the tombstone stays
+// for the page lifetime. retainCachedChats deletes without tombstoning.
 export function forgetCachedChat(sessionId) {
   tombstones.add(sessionId);
   for (const key of [...memory.keys()]) {
@@ -232,23 +278,29 @@ export function forgetCachedChat(sessionId) {
   for (const key of [...pending.keys()]) {
     if (sessionIdOf(key) === sessionId) pending.delete(key);
   }
-  void enqueue(async (current) => {
-    for (const entry of await current.getAll()) {
-      if (entry?.sessionId === sessionId || sessionIdOf(entry?.key) === sessionId) {
-        await current.delete(entry.key);
+  void enqueue(
+    async (current) => {
+      for (const entry of await current.getAll()) {
+        if (entry?.sessionId === sessionId || sessionIdOf(entry?.key) === sessionId) {
+          await current.delete(entry.key);
+        }
       }
-    }
-  });
+    },
+    { destructive: true },
+  );
 }
 
 export function retainCachedChats(validKeys) {
   for (const key of [...memory.keys()]) if (!validKeys.has(key)) memory.delete(key);
   for (const key of [...pending.keys()]) if (!validKeys.has(key)) pending.delete(key);
-  void enqueue(async (current) => {
-    for (const entry of await current.getAll()) {
-      if (!validKeys.has(entry?.key)) await current.delete(entry.key);
-    }
-  });
+  void enqueue(
+    async (current) => {
+      for (const entry of await current.getAll()) {
+        if (!validKeys.has(entry?.key)) await current.delete(entry.key);
+      }
+    },
+    { destructive: true },
+  );
 }
 
 export function clearChatCache() {
@@ -259,7 +311,11 @@ export function clearChatCache() {
     clearTimeout(timer);
     timer = null;
   }
-  return enqueue((current) => current.clear());
+  stamp = authOf();
+  return enqueue((current) => current.clear(), {
+    destructive: true,
+    fallback: deleteDatabase,
+  });
 }
 
 /** Marks a cached snapshot as not live until the first accepted server frame. */
@@ -274,8 +330,15 @@ export function restoredSnapshot(live) {
 }
 
 // Test hook: installs an adapter (null for memory-only) and resets all state.
-export function __setChatCacheStore(adapter, getBuild = currentBuild) {
+export function __setChatCacheStore(
+  adapter,
+  getBuild = currentBuild,
+  getAuth = readAuth,
+) {
   store = adapter;
+  deviceWritable = true;
+  authOf = getAuth;
+  stamp = authOf();
   storeOpened = true;
   buildOf = getBuild;
   generation += 1;

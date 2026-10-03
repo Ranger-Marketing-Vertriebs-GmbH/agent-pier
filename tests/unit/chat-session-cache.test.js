@@ -13,11 +13,14 @@ import {
   writeCachedChat,
 } from "../../web/features/chat/chat-session-cache.js";
 
-function fakeStore({ failOn } = {}) {
+function fakeStore({ failOn, once = false, gate } = {}) {
   const rows = new Map();
   const calls = [];
   const guard = (name) => {
-    if (failOn === name) throw new Error(`${name} failed`);
+    if (failOn === name) {
+      if (once) failOn = undefined;
+      throw new Error(`${name} failed`);
+    }
   };
   return {
     rows,
@@ -28,6 +31,7 @@ function fakeStore({ failOn } = {}) {
     },
     async put(entry) {
       guard("put");
+      if (gate) await gate;
       calls.push("put");
       rows.set(entry.key, structuredClone(entry));
     },
@@ -164,10 +168,81 @@ test("a clear right after a write leaves nothing behind", async () => {
 });
 
 test("a clear discards a write that is already in flight", async () => {
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  store = fakeStore({ gate });
+  __setChatCacheStore(store, () => build);
   writeCachedChat(key("s1"), state());
-  void flushChatCache();
+  const flushed = flushChatCache();
+  await new Promise((resolve) => setImmediate(resolve));
+  const cleared = clearChatCache();
+  release();
+  await Promise.all([flushed, cleared]);
+  assert.equal(store.rows.size, 0);
+});
+
+test("clear and forget still reach the device after a failed put", async () => {
+  writeCachedChat(key("s1"), state());
+  await flushChatCache();
+  store = fakeStore({ failOn: "put", once: true });
+  store.rows.set(key("old"), { key: key("old"), sessionId: "old" });
+  store.rows.set(key("s2"), { key: key("s2"), sessionId: "s2" });
+  __setChatCacheStore(store, () => build);
+  writeCachedChat(key("s3"), state());
+  await flushChatCache();
+  forgetCachedChat("s2");
+  await flushChatCache();
+  assert.equal(store.rows.has(key("s2")), false);
   await clearChatCache();
   assert.equal(store.rows.size, 0);
+});
+
+test("preload fills free slots at the least recent end only", async () => {
+  for (let i = 0; i < 12; i += 1) writeCachedChat(key(`d${i}`), state());
+  await flushChatCache();
+  store.rows.get(key("d0")).accessedAt = 1;
+  __setChatCacheStore(store, () => build);
+  writeCachedChat(key("fresh"), state());
+  const fresh = peekCachedChat(key("fresh"));
+  await preloadChatCache();
+  assert.equal(peekCachedChat(key("fresh")), fresh);
+  assert.equal(peekCachedChat(key("d0")), null);
+  writeCachedChat(key("fresh"), { scroll: { offset: 7 } }, { create: false });
+  assert.equal(peekCachedChat(key("fresh")).scroll.offset, 7);
+});
+
+test("preload rejects mismatched, unrestorable or malformed entries", async () => {
+  for (const name of ["id", "empty", "older"]) writeCachedChat(key(name), state());
+  await flushChatCache();
+  store.rows.get(key("id")).sessionId = "other";
+  store.rows.get(key("empty")).live.messages = [];
+  store.rows.get(key("older")).older = "x";
+  __setChatCacheStore(store, () => build);
+  await preloadChatCache();
+  for (const name of ["id", "empty", "older"]) {
+    assert.equal(peekCachedChat(key(name)), null, name);
+  }
+});
+
+test("a tab that missed a logout clears instead of flushing or restoring", async () => {
+  let auth = "1";
+  __setChatCacheStore(
+    store,
+    () => build,
+    () => auth,
+  );
+  writeCachedChat(key("s1"), state());
+  await flushChatCache();
+  writeCachedChat(key("s2"), state());
+  auth = "2";
+  await flushChatCache();
+  assert.equal(peekCachedChat(key("s1")), null);
+  assert.equal(store.rows.size, 0);
+  auth = "3";
+  writeCachedChat(key("s3"), state());
+  assert.equal(peekCachedChat(key("s3")), null);
 });
 
 test("a tombstone blocks later writes for a forgotten session", async () => {
