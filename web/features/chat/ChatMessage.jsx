@@ -17,6 +17,7 @@ export default function Message({ message, tool, sessionId, cwd, openFile }) {
     return (
       <details
         className="chat-tool"
+        data-message-id={message.id}
         onToggle={(event) => setToolOpen(event.currentTarget.open)}
       >
         <summary>
@@ -51,6 +52,7 @@ export default function Message({ message, tool, sessionId, cwd, openFile }) {
   return (
     <article
       className={`chat-message ${message.role}`}
+      data-message-id={message.id}
       aria-label={
         message.role === "user"
           ? copy.ariaLabel

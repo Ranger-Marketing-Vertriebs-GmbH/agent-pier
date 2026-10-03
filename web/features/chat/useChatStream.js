@@ -6,6 +6,53 @@ import {
   readOlderPage,
 } from "./chat-sync.js";
 import { createChatStream } from "./chat-stream-transport.js";
+import {
+  chatCacheKey,
+  peekCachedChat,
+  restoredSnapshot,
+  writeCachedChat,
+} from "./chat-session-cache.js";
+
+const emptyState = (key, epoch = 0) => ({
+  key,
+  live: null,
+  older: [],
+  cursor: null,
+  paged: false,
+  epoch,
+  restored: false,
+  scroll: null,
+});
+
+// A cached chat seeds the first render; it stays `restored` until a frame is accepted.
+function seededState(key) {
+  const entry = peekCachedChat(key);
+  if (!entry) return emptyState(key);
+  return {
+    ...emptyState(key),
+    live: entry.live,
+    older: Array.isArray(entry.older) ? entry.older : [],
+    cursor: entry.cursor ?? null,
+    paged: Boolean(entry.paged),
+    restored: true,
+    scroll: entry.scroll || null,
+  };
+}
+
+function view(current) {
+  if (!current.live) return null;
+  const ids = new Set(current.live.messages.map((row) => row.id));
+  const data = {
+    ...current.live,
+    clientObservedAt: current.observedAt,
+    messages: [
+      ...current.older.filter((row) => !ids.has(row.id)),
+      ...current.live.messages,
+    ],
+    history: { ...current.live.history, cursor: current.cursor },
+  };
+  return current.restored ? restoredSnapshot(data) : data;
+}
 
 export default function useChatStream({
   active,
@@ -15,30 +62,24 @@ export default function useChatStream({
   output,
   stick,
 }) {
-  const [data, setData] = useState(null);
+  const key = chatCacheKey(session);
+  const state = useRef(null);
+  if (state.current === null) state.current = seededState(key);
+  // The saved scroll position waits for the first active layout of the seeded rows.
+  const restoreScroll = useRef(state.current.scroll);
+  const [data, setData] = useState(() => view(state.current));
   const [loadError, setLoadError] = useState("");
   const [historyError, setHistoryError] = useState("");
   const [historyLoading, setHistoryLoading] = useState(false);
   const [restart, setRestart] = useState(0);
-  const state = useRef({ live: null, older: [], cursor: null, paged: false, epoch: 0 });
   const loading = useRef(false);
   const anchor = useRef(null);
   const stop = useRef(null);
   const historyRequest = useRef(null);
-  const publish = useCallback(() => {
-    const current = state.current;
-    const ids = new Set(current.live?.messages?.map((row) => row.id));
-    setData(
-      current.live && {
-        ...current.live,
-        clientObservedAt: current.observedAt,
-        messages: [
-          ...current.older.filter((row) => !ids.has(row.id)),
-          ...current.live.messages,
-        ],
-        history: { ...current.live.history, cursor: current.cursor },
-      },
-    );
+  const publish = useCallback(() => setData(view(state.current)), []);
+  const save = useCallback(() => {
+    const { key: current, live, older, cursor, paged, scroll } = state.current;
+    writeCachedChat(current, { live, older, cursor, paged, scroll: scroll || undefined });
   }, []);
   const accept = useCallback(
     (next) => {
@@ -53,6 +94,8 @@ export default function useChatStream({
         current.live?.providerSessionId !== next.providerSessionId ||
         current.live?.history?.generation !== next.history?.generation ||
         !next.messages.length;
+      const restored = current.restored;
+      current.restored = false;
       if (reset) {
         historyRequest.current?.abort();
         historyRequest.current = null;
@@ -63,6 +106,12 @@ export default function useChatStream({
         anchor.current = null;
         setHistoryLoading(false);
         setHistoryError("");
+        if (restored) {
+          // The cached position belongs to a window that no longer exists.
+          restoreScroll.current = null;
+          current.scroll = null;
+          stick.current = true;
+        }
       }
       const prefix = reset ? [] : chatWindowPrefix(current.live, next);
       if (prefix.length) {
@@ -74,17 +123,15 @@ export default function useChatStream({
       current.live = next;
       if (!current.paged) current.cursor = next.history?.cursor || null;
       publish();
+      save();
     },
-    [publish],
+    [publish, save, stick],
   );
   useEffect(() => {
-    state.current = {
-      live: null,
-      older: [],
-      cursor: null,
-      paged: false,
-      epoch: state.current.epoch + 1,
-    };
+    // The mount already seeded this key; keep its rows and restored position.
+    if (state.current.key === key) return;
+    state.current = emptyState(key, state.current.epoch + 1);
+    restoreScroll.current = null;
     loading.current = false;
     anchor.current = null;
     setData(null);
@@ -92,11 +139,14 @@ export default function useChatStream({
     setHistoryLoading(false);
     setHistoryError("");
     stick.current = true;
-  }, [session.id, stick]);
+  }, [key, stick]);
   useEffect(() => {
     if (!active) return;
     setHistoryLoading(false);
+    const baseline = state.current.live;
     const dispose = createChatStream({
+      // Re-creation continues from the accepted (or cached) cursor instead of full.
+      initial: typeof baseline?.sync?.cursor === "string" ? baseline : undefined,
       url: `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/api/sessions/${encodeURIComponent(session.id)}/chat-stream`,
       read: (signal, cursor) =>
         request(
@@ -137,7 +187,14 @@ export default function useChatStream({
   ]);
   const loadOlder = async () => {
     const current = state.current;
-    if (!active || loading.current || !current.cursor || !current.live) return;
+    if (
+      !active ||
+      current.restored ||
+      loading.current ||
+      !current.cursor ||
+      !current.live
+    )
+      return;
     loading.current = true;
     setHistoryLoading(true);
     setHistoryError("");
@@ -176,6 +233,7 @@ export default function useChatStream({
       current.paged = true;
       stick.current = false;
       publish();
+      save();
     } catch (error) {
       if (state.current === current && epoch === current.epoch)
         setHistoryError(error.message);
@@ -198,16 +256,26 @@ export default function useChatStream({
   const choose = (next) => {
     assertChatSnapshot(next);
     stop.current?.();
-    state.current = {
-      live: null,
-      older: [],
-      cursor: null,
-      paged: false,
-      epoch: state.current.epoch + 1,
-    };
+    state.current = emptyState(state.current.key, state.current.epoch + 1);
+    restoreScroll.current = null;
     accept(next);
     stick.current = true;
     setRestart((value) => value + 1);
   };
-  return { data, loadError, historyError, historyLoading, loadOlder, choose };
+  // Update-only: a scroll position never creates a cache entry.
+  const saveScroll = useCallback((scroll) => {
+    state.current.scroll = scroll;
+    writeCachedChat(state.current.key, { scroll }, { create: false, flush: true });
+  }, []);
+  return {
+    data,
+    restored: Boolean(data?.restored),
+    restoreScroll,
+    saveScroll,
+    loadError,
+    historyError,
+    historyLoading,
+    loadOlder,
+    choose,
+  };
 }

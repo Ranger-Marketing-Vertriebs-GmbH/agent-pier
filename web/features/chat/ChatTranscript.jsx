@@ -62,7 +62,11 @@ export default function ChatTranscript({ messages, live, nativeStates, ...props 
       group.tools.some((message) => message.status === "running");
     const failures = group.tools.filter((message) => message.status === "failed").length;
     return (
-      <details className="chat-tool-group" key={group.key}>
+      <details
+        className="chat-tool-group"
+        key={group.key}
+        data-message-id={group.tools[0].id}
+      >
         <summary>
           <span className="tool-group-chevron" aria-hidden="true">
             ›
