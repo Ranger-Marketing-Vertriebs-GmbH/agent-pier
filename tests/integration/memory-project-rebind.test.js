@@ -68,7 +68,8 @@ test("a recorded rebind never adopts a different repository identity", async (t)
   execFileSync("git", ["init", "-q", cwd]);
   const first = await gitInitRebind(cwd);
   memory.adopt(plain.id, first.scope);
-  fs.rmSync(path.join(cwd, ".git"), { recursive: true });
+  // Keep the old directory alive so the new .git cannot reuse its inode (Linux does).
+  fs.renameSync(path.join(cwd, ".git"), path.join(cwd, "previous-git"));
   execFileSync("git", ["init", "-q", cwd]);
   const second = await gitInitRebind(cwd);
   assert.equal(second.fromId, plain.id);
