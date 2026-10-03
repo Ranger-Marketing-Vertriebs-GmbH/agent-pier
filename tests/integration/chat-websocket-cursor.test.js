@@ -31,10 +31,32 @@ async function fixture(t) {
     ],
     tasks: [],
   };
-  f.application.chat.read = async () => structuredClone(snapshot);
+  // `hold()` makes the next server reads wait until `release()`.
+  let gate = null;
+  let waiting = 0;
+  const read = async () => {
+    if (gate) {
+      waiting += 1;
+      await gate.promise;
+    }
+    return structuredClone(snapshot);
+  };
+  f.application.chat.read = read;
   f.application.chatImages.decorate = async (_id, value) => value;
-  f.application.chatImages.read = async () => structuredClone(snapshot);
+  f.application.chatImages.read = read;
   return Object.assign(f, {
+    hold() {
+      let resolve;
+      gate = { promise: new Promise((done) => (resolve = done)) };
+      gate.resolve = resolve;
+    },
+    release() {
+      gate?.resolve();
+      gate = null;
+    },
+    waiting() {
+      return waiting;
+    },
     change(text) {
       snapshot = { ...snapshot, messages: [{ id: "first", role: "assistant", text }] };
     },
@@ -95,23 +117,40 @@ test(
   },
 );
 
+test("chat WebSocket ignores invalid cursors", { timeout }, async (t) => {
+  const f = await fixture(t);
+  const invalid = ["unknown-123", "bad%20value", "with_underscore", "a".repeat(65)];
+  for (const bad of invalid) {
+    const client = connect(t, f, `?cursor=${bad}`);
+    assert.equal((await client.sync()).sync.mode, "full");
+  }
+});
+
 test(
-  "chat WebSocket ignores invalid cursors and does not park a never-used base",
+  "chat WebSocket does not park a base its connection never used",
   {
     timeout,
   },
   async (t) => {
+    // No other subscriber: a shared settled value would be sent at once.
     const f = await fixture(t);
-    const invalid = ["unknown-123", "bad%20value", "with_underscore", "a".repeat(65)];
-    for (const bad of invalid) {
-      const client = connect(t, f, `?cursor=${bad}`);
-      assert.equal((await client.sync()).sync.mode, "full");
-    }
     const http = await (await f.request(`/api/sessions/${sessionId}/chat`)).json();
+    // The server accepts the connection, but its first frame is held back, so the
+    // URL cursor is never issued on this socket.
+    f.hold();
+    t.after(() => f.release());
     const early = connect(t, f, `?cursor=${http.sync.cursor}`);
+    await new Promise((resolve, reject) => {
+      early.ws.once("open", resolve);
+      early.ws.once("error", reject);
+    });
+    await until(() => f.waiting() > 0, "the server must start reading the first frame");
     early.ws.close();
     await early.closed;
     await delay(50);
+    f.release();
+    await delay(50);
+    assert.equal(f.application.chatSync.parked.has(http.sync.cursor), false);
     assert.equal(f.application.chatSync.parked.size, 0);
   },
 );
