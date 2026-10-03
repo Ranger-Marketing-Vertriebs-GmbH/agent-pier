@@ -101,29 +101,40 @@ export default function useChatController({ active, session, request, onConnecti
     });
     observer.observe(element);
     // Only a laid-out view has a position worth keeping; the cache is update-only.
-    const keep = () => {
-      if (element.clientHeight > 0) saveScroll(scrollAnchor(element, stick.current));
+    const keep = (urgent) => {
+      if (element.clientHeight > 0)
+        saveScroll(scrollAnchor(element, stick.current), urgent);
     };
     const hide = () => {
-      if (document.visibilityState === "hidden") keep();
+      if (document.visibilityState === "hidden") keep(true);
     };
     document.addEventListener("visibilitychange", hide);
     return () => {
       observer.disconnect();
       document.removeEventListener("visibilitychange", hide);
-      keep();
+      keep(false);
     };
   }, [active, restoreScroll, saveScroll]);
   useLayoutEffect(() => {
     // Follow the committed transcript before a queued scroll event can mistake
     // its new height for a user scrolling away from the bottom.
     if (!active || !output.current) return;
+    // A cached chat adopted after the mount brings its own saved position.
+    const late = data?.restored ? restoreScroll.current : null;
+    if (late) {
+      restoreScroll.current = null;
+      stick.current = !restoreScrollAnchor(output.current, late);
+      if (!stick.current) {
+        scroll.current = output.current.scrollTop;
+        return;
+      }
+    }
     if (followBottom.current) {
       followBottom.current = false;
       stick.current = true;
     }
     if (stick.current) output.current.scrollTop = output.current.scrollHeight;
-  }, [data, active, delivery.outbox, delivery.recent, followBottom]);
+  }, [data, active, delivery.outbox, delivery.recent, followBottom, restoreScroll]);
   const send = (messages) =>
     delivery.send(messages, {
       tool: session.tool,

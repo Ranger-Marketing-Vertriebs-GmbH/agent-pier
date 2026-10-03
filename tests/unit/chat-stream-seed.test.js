@@ -202,3 +202,41 @@ test("an initial snapshot without a cursor behaves like no baseline", () => {
   assert.equal(f.urls[0], "ws://fixture/chat-stream");
   f.dispose();
 });
+
+test("a fallback landing before the socket's first frame keeps the socket's delta valid", async () => {
+  let release;
+  const f = fixture({
+    initial: baseline(),
+    read: () => new Promise((resolve) => (release = () => resolve(delta("c1", "c9")))),
+  });
+  f.fail();
+  f.tick();
+  assert.equal(f.urls[1], "ws://fixture/chat-stream?cursor=c1");
+  release();
+  await settle();
+  assert.equal(f.snapshots.at(-1).sync.cursor, "c9");
+  f.open();
+  f.send(sync(delta("c1", "c2")));
+  assert.equal(f.snapshots.at(-1).sync.cursor, "c2");
+  assert.deepEqual(ids(f.snapshots.at(-1)), ["a", "b"]);
+  assert.equal(f.connections.at(-1), "connected");
+  assert.equal(f.urls.length, 2);
+  f.dispose();
+});
+
+test("a first delta that fits neither baseline is still rejected", async () => {
+  let release;
+  const f = fixture({
+    initial: baseline(),
+    read: () => new Promise((resolve) => (release = () => resolve(delta("c1", "c9")))),
+  });
+  f.fail();
+  f.tick();
+  release();
+  await settle();
+  f.open();
+  f.send(sync(delta("zz", "c2")));
+  assert.equal(f.snapshots.at(-1).sync.cursor, "c9");
+  assert.notEqual(f.connections.at(-1), "connected");
+  f.dispose();
+});

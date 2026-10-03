@@ -80,6 +80,7 @@ test("API errors resolve server message keys and keep the German text otherwise"
   assert.equal(error.message, "Invalid native request or response.");
   assert.equal(error.status, 400);
   assert.equal(error.code, undefined);
+  assert.equal(error.messageKey, "requests.invalid");
   error = await apiError(
     response({ error: "Unbekannter Fehler", messageKey: "nope.nope" }),
   );

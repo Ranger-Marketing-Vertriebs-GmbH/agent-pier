@@ -16,6 +16,7 @@ let store;
 let storeOpened = false;
 let chain = Promise.resolve();
 let timer = null;
+let soon = false;
 let preloading = null;
 let persistRequested = false;
 let buildOf = currentBuild;
@@ -120,8 +121,8 @@ function enqueue(task, { destructive = false, fallback } = {}) {
 const meta = (entry) => ({ size: entry.size || 0, accessedAt: entry.accessedAt || 0 });
 
 // Least recently used keys to drop so the device keeps MAX_ENTRIES and MAX_SIZE.
-function evictions(puts) {
-  const next = new Map(index);
+function evictions(known, puts) {
+  const next = new Map(known);
   for (const entry of puts) next.set(entry.key, meta(entry));
   const sorted = [...next].sort((a, b) => a[1].accessedAt - b[1].accessedAt);
   let total = sorted.reduce((sum, [, value]) => sum + value.size, 0);
@@ -206,6 +207,14 @@ export function preloadChatCache() {
   return preloading;
 }
 
+/**
+ * The running device preload, or null when none was started. A view mounted
+ * before it settled adopts its entry late (see useChatStream).
+ */
+export function chatCachePreload() {
+  return preloading;
+}
+
 /** Synchronous memory read; refreshes recency. */
 export function peekCachedChat(key) {
   if (authChanged()) return null;
@@ -237,7 +246,9 @@ const definedOnly = (state) =>
 
 /**
  * Stores `{ live, older, cursor, paged, scroll? }`. With `create: false` only an
- * existing entry is merged and nothing is ever created.
+ * existing entry is merged and nothing is ever created. `flush: true` starts the
+ * device write now (page hiding: iOS may kill the page); `flush: "soon"` writes
+ * after the next paint, so a session switch never serializes on its critical path.
  */
 export function writeCachedChat(key, state, { create = true, flush = false } = {}) {
   try {
@@ -269,7 +280,8 @@ export function writeCachedChat(key, state, { create = true, flush = false } = {
     // Per write only the memory entry changes; the device copy (and its size
     // serialization) is built once per flush, off the per-frame path.
     pending.set(key, { generation, entry });
-    if (flush) void flushChatCache();
+    if (flush === "soon") flushSoon();
+    else if (flush) void flushChatCache();
     else schedule();
   } catch {
     // The cache never breaks the chat.
@@ -283,6 +295,21 @@ function schedule() {
     void flushChatCache();
   }, THROTTLE_MS);
   timer?.unref?.();
+}
+
+// After the next frame: the serialization and structured clone of the flush run
+// once the switched view has painted. Auth and generation checks apply at flush.
+function flushSoon() {
+  if (soon) return;
+  soon = true;
+  const run = () => {
+    soon = false;
+    void flushChatCache();
+  };
+  const later = () => setTimeout(run, 0)?.unref?.();
+  if (typeof globalThis.requestAnimationFrame === "function")
+    globalThis.requestAnimationFrame(later);
+  else later();
 }
 
 export function flushChatCache() {
@@ -308,11 +335,33 @@ export function flushChatCache() {
       )
       .map(({ entry }) => deviceEntry(entry));
     if (puts.length === 0) return;
-    const { next, deletes } = index ? evictions(puts) : { next: null, deletes: [] };
-    const kept = puts.filter((entry) => !deletes.includes(entry.key));
-    // Puts and evictions commit in one transaction.
-    await current.write({ puts: kept, deletes });
+    if (!index) {
+      // Unknown index (no preload yet): eviction waits, see `index`.
+      await current.write({ puts });
+      if (retained && puts.some((entry) => !retained.has(entry.key))) retained = null;
+      return;
+    }
+    const putKeys = new Set(puts.map((entry) => entry.key));
+    let next = null;
+    // Other tabs write the same store with their own index: the transaction reads
+    // the device keys (keys only), forgets keys gone from the device, and reads
+    // only the values of keys this tab has never seen, so the bounds hold globally.
+    await current.write({
+      puts,
+      evict: {
+        read: (keys) => keys.filter((key) => !index.has(key) && !putKeys.has(key)),
+        decide: (keys, foreign) => {
+          const present = new Set(keys);
+          const known = new Map([...index].filter(([key]) => present.has(key)));
+          for (const [key, value] of foreign) if (value) known.set(key, meta(value));
+          const plan = evictions(known, puts);
+          next = plan.next;
+          return plan.deletes;
+        },
+      },
+    });
     if (next) index = next;
+    const kept = puts.filter((entry) => next?.has(entry.key));
     if (retained && kept.some((entry) => !retained.has(entry.key))) retained = null;
   });
 }

@@ -19,6 +19,8 @@ export async function apiError(response) {
   );
   error.status = response.status;
   error.code = data.code;
+  // A stable identifier for callers that branch on the reason, never on text.
+  if (typeof data.messageKey === "string") error.messageKey = data.messageKey;
   return error;
 }
 export default async function api(path, method = "GET", body, signal) {

@@ -103,6 +103,22 @@ export function createChatStream({
       void fallback();
       timer = schedule(connect, Math.min(1000 * 2 ** attempt++, 15000));
     };
+    // The baseline whose cursor this socket's URL named. A fallback read may
+    // replace `snapshot` before the socket's first frame, whose delta still
+    // refers to this baseline.
+    const opened = snapshot;
+    // The first delta applies to the newest baseline, else to the one the socket
+    // named; it is rejected only when it fits neither.
+    const applyFrame = (data) => {
+      if (sequence >= 0 || !opened || opened === snapshot)
+        return applyChatSync(snapshot, data);
+      try {
+        return applyChatSync(snapshot, data);
+      } catch (error) {
+        if (data?.sync?.base !== opened.sync?.cursor) throw error;
+        return applyChatSync(opened, data);
+      }
+    };
     try {
       socket = createSocket(socketUrl());
       deadline = schedule(() => fail(), CONNECT_TIMEOUT);
@@ -130,9 +146,7 @@ export function createChatStream({
           if (!Number.isInteger(message.sequence) || message.sequence <= sequence) return;
           if (sequence >= 0 && message.sequence !== sequence + 1) return fail();
           const next =
-            message.type === "sync"
-              ? applyChatSync(snapshot, message.data)
-              : message.snapshot;
+            message.type === "sync" ? applyFrame(message.data) : message.snapshot;
           if (!isChatSnapshot(next)) throw new Error("Invalid snapshot");
           const first = sequence < 0 ? message.sequence : -1;
           sequence = message.sequence;

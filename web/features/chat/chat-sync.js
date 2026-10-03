@@ -124,10 +124,17 @@ export async function readOlderPage({ cursor, liveCursor, read, known }) {
   }
 }
 
+// Only this 409 means "the server does not know this cursor"; a pending or
+// unavailable history also answers 409 and must not discard restored rows.
+export const isHistoryCursorMismatch = (error) =>
+  error?.status === 409 && error?.messageKey === "chat.sessionHistoryMismatch";
+
 /**
  * A paging cursor restored from the device cache may be unknown to the server.
- * Its 409 resets paging to the live window (`reset` returns the ids still shown)
- * and retries once from the live cursor instead of reporting a history error.
+ * When a non-live cursor fails with a cursor mismatch, paging restarts from the
+ * live cursor with only the live rows as known (`liveKnown`). The result says
+ * whether the caller must drop the restored older rows (`reset`); it swaps them
+ * only together with the new page, so the view never shows the interim state.
  */
 export async function readRestoredOlderPage({
   restored,
@@ -135,13 +142,32 @@ export async function readRestoredOlderPage({
   liveCursor,
   read,
   known,
-  reset,
+  liveKnown,
 }) {
+  let failed;
+  const tracked = (value) => {
+    failed = value;
+    return read(value);
+  };
   try {
-    return await readOlderPage({ cursor, liveCursor, read, known });
+    return {
+      page: await readOlderPage({ cursor, liveCursor, read: tracked, known }),
+      reset: false,
+    };
   } catch (error) {
-    if (error?.status !== 409 || !restored || !liveCursor) throw error;
-    const shown = reset();
-    return readOlderPage({ cursor: liveCursor, liveCursor, read, known: shown });
+    if (
+      !restored ||
+      !liveCursor ||
+      failed === liveCursor ||
+      !isHistoryCursorMismatch(error)
+    )
+      throw error;
+    const page = await readOlderPage({
+      cursor: liveCursor,
+      liveCursor,
+      read,
+      known: liveKnown,
+    });
+    return { page, reset: true };
   }
 }
