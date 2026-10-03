@@ -162,7 +162,8 @@ export class PipelineDefinitions {
   }
   /** Moves verification steps of a plain project folder that became a Git work tree. */
   moveVerification(fromProjectId, toProjectId) {
-    if (!Object.hasOwn(this.state.verification, fromProjectId)) return;    const next = copy(this.state);
+    if (!Object.hasOwn(this.state.verification, fromProjectId)) return;
+    const next = copy(this.state);
     const merged = Object.hasOwn(next.verification, toProjectId)
       ? next.verification[toProjectId]
       : [];
