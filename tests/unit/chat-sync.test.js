@@ -8,6 +8,7 @@ import {
   chatWindowPrefix,
   prependHistoryRows,
   readOlderPage,
+  readRestoredOlderPage,
 } from "../../web/features/chat/chat-sync.js";
 
 const row = (id, text = id) => ({ id, role: "assistant", text, images: [] });
@@ -202,6 +203,68 @@ test("an expired history cursor restarts from the live cursor without duplicates
     }),
     { status: 500 },
   );
+});
+
+test("a restored cursor unknown to the server resets to the live window once", async () => {
+  const conflict = () => Object.assign(new Error("Conflict"), { status: 409 });
+  const pages = {
+    live: { messages: [{ id: "m1" }, { id: "m2" }], history: { cursor: null } },
+  };
+  const reads = [];
+  let resets = 0;
+  const read = async (cursor) => {
+    reads.push(cursor);
+    // Cached rows make the restarted read skip ahead into a cursor the server lost.
+    if (cursor === "cached" || cursor === "gone") throw conflict();
+    if (cursor === "live" && resets === 0)
+      return { messages: [{ id: "o1" }], history: { cursor: "gone" } };
+    return pages[cursor];
+  };
+  const page = await readRestoredOlderPage({
+    restored: true,
+    cursor: "cached",
+    liveCursor: "live",
+    read,
+    known: new Set(["o1", "m3"]),
+    reset: () => {
+      resets += 1;
+      return new Set(["m3"]);
+    },
+  });
+  assert.equal(resets, 1);
+  assert.deepEqual(reads, ["cached", "live", "gone", "live"]);
+  assert.deepEqual(page, pages.live);
+  await assert.rejects(
+    readRestoredOlderPage({
+      restored: false,
+      cursor: "cached",
+      liveCursor: "live",
+      read: async () => {
+        throw conflict();
+      },
+      known: new Set(),
+      reset: () => assert.fail("a live cursor is never reset"),
+    }),
+    { status: 409 },
+  );
+  let retried = 0;
+  await assert.rejects(
+    readRestoredOlderPage({
+      restored: true,
+      cursor: "cached",
+      liveCursor: "live",
+      read: async () => {
+        throw conflict();
+      },
+      known: new Set(),
+      reset: () => {
+        retried += 1;
+        return new Set();
+      },
+    }),
+    { status: 409 },
+  );
+  assert.equal(retried, 1);
 });
 
 test("isChatSnapshot accepts only objects with a messages array", () => {

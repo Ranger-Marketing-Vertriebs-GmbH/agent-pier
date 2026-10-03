@@ -3,7 +3,7 @@ import {
   assertChatSnapshot,
   chatWindowPrefix,
   prependHistoryRows,
-  readOlderPage,
+  readRestoredOlderPage,
 } from "./chat-sync.js";
 import { createChatStream } from "./chat-stream-transport.js";
 import {
@@ -21,6 +21,8 @@ const emptyState = (key, epoch = 0) => ({
   paged: false,
   epoch,
   restored: false,
+  // A paging cursor from the device cache that the server may no longer know.
+  cachedPaging: false,
   scroll: null,
 });
 
@@ -34,6 +36,7 @@ function seededState(key) {
     older: Array.isArray(entry.older) ? entry.older : [],
     cursor: entry.cursor ?? null,
     paged: Boolean(entry.paged),
+    cachedPaging: Boolean(entry.paged),
     restored: true,
     scroll: entry.scroll || null,
   };
@@ -105,6 +108,7 @@ export default function useChatStream({
         current.epoch++;
         current.older = [];
         current.paged = false;
+        current.cachedPaging = false;
         loading.current = false;
         anchor.current = null;
         setHistoryLoading(false);
@@ -212,11 +216,25 @@ export default function useChatStream({
         ...current.older.map((row) => row.id),
         ...(current.live?.messages || []).map((row) => row.id),
       ]);
+    const liveCursor = current.live.history?.cursor || null;
     try {
-      const page = await readOlderPage({
+      const page = await readRestoredOlderPage({
+        restored: current.cachedPaging,
         cursor,
-        liveCursor: current.live.history?.cursor || null,
+        liveCursor,
         known: shown(),
+        reset: () => {
+          if (state.current !== current || epoch !== current.epoch)
+            throw new Error("Stale history request");
+          // Fall back to the live window; its cursor is one the server issued.
+          current.cachedPaging = false;
+          current.older = [];
+          current.paged = false;
+          current.cursor = liveCursor;
+          publish();
+          save();
+          return shown();
+        },
         read: (value) =>
           request(
             `/sessions/${encodeURIComponent(session.id)}/chat/history?cursor=${encodeURIComponent(value)}`,
@@ -235,6 +253,7 @@ export default function useChatStream({
       current.older = prependHistoryRows(current.older, page.messages, shown());
       current.cursor = page.history?.cursor || null;
       current.paged = true;
+      current.cachedPaging = false;
       stick.current = false;
       publish();
       save();

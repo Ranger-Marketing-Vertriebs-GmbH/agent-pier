@@ -123,3 +123,25 @@ export async function readOlderPage({ cursor, liveCursor, read, known }) {
     return page;
   }
 }
+
+/**
+ * A paging cursor restored from the device cache may be unknown to the server.
+ * Its 409 resets paging to the live window (`reset` returns the ids still shown)
+ * and retries once from the live cursor instead of reporting a history error.
+ */
+export async function readRestoredOlderPage({
+  restored,
+  cursor,
+  liveCursor,
+  read,
+  known,
+  reset,
+}) {
+  try {
+    return await readOlderPage({ cursor, liveCursor, read, known });
+  } catch (error) {
+    if (error?.status !== 409 || !restored || !liveCursor) throw error;
+    const shown = reset();
+    return readOlderPage({ cursor: liveCursor, liveCursor, read, known: shown });
+  }
+}
