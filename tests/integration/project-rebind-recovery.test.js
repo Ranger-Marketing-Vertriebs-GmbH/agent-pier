@@ -140,3 +140,32 @@ test("project-changed messages keep distinct stable identifiers", () => {
     "artifacts.ARTIFACT_PROJECT_CHANGED",
   );
 });
+
+test("verification steps merge into an existing Git project so the move converges", async (t) => {
+  const f = await applicationFixture(t);
+  const s = await projectSession(t, f);
+  const definitions = f.application.pipelineDefinitions;
+  const step = (name) => ({ name, command: name, timeoutMs: 60000, blocking: true });
+  definitions.saveVerification(s.fromId, { steps: [step("shared"), step("plain")] });
+  gitInit(s.cwd);
+  const toId = (await projectScope(s.cwd)).id;
+  definitions.saveVerification(toId, { steps: [step("git"), step("shared")] });
+  const rebind = f.application.projectRebind;
+  const ensure = () => rebind.ensure({ cwd: s.cwd, previousIds: [s.fromId] });
+  assert.equal((await ensure()).id, toId);
+  assert.deepEqual(definitions.getVerification(toId).steps, [
+    step("git"),
+    step("shared"),
+    step("plain"),
+  ]);
+  assert.ok(!definitions.hasVerification(s.fromId));
+  assert.equal(rebind.remnants(s.fromId), false);
+  let adopted = 0;
+  const adopt = rebind.adopt;
+  rebind.adopt = (...args) => {
+    adopted += 1;
+    return adopt.apply(rebind, args);
+  };
+  assert.equal((await ensure()).id, toId);
+  assert.equal(adopted, 0, "A completed move takes the fast path");
+});

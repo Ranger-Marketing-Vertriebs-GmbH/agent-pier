@@ -27,7 +27,7 @@ Out-of-process SSH tools keep using the launch project ID until the server rebin
 - artifact records and pipeline verification steps;
 - the SSH binding of every session launched in that folder.
 
-The move is refused when the Git identity already owns memory entries, SSH keys or SSH hosts, for example after an older `.git` directory was restored. The session then keeps only its launch project's SSH access. A rebind is recorded once, as the `project.updated` audit event, and a folder never rebinds to a second Git identity. If a move is interrupted, or another session registered the new identity first, the next artifact publication or SSH management call finishes it. Session and OAuth grants that named the plain project follow it to the new identity.
+The move is refused when the Git identity already owns memory entries, SSH keys or SSH hosts, for example after an older `.git` directory was restored. The session then keeps only its launch project's SSH access. A rebind is recorded once, as the `project.updated` audit event, and a folder never rebinds to a second Git identity. If a move is interrupted, or another session registered the new identity first, the next artifact publication finishes it. An SSH management call finishes it only for a session that is still bound to the plain project ID. Verification steps merge into steps the Git project already has: missing steps are appended in order without duplicates, within the step limits. Session and OAuth grants that named the plain project follow it to the new identity.
 
 After the move, the project follows Git project rules: its hosts, keys and memory are also reachable from subdirectories and linked worktrees of the new repository.
 

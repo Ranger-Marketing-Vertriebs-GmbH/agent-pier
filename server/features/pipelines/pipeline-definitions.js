@@ -162,10 +162,22 @@ export class PipelineDefinitions {
   }
   /** Moves verification steps of a plain project folder that became a Git work tree. */
   moveVerification(fromProjectId, toProjectId) {
-    const steps = this.state.verification;
-    if (!Object.hasOwn(steps, fromProjectId) || Object.hasOwn(steps, toProjectId)) return;
-    const next = copy(this.state);
-    next.verification[toProjectId] = next.verification[fromProjectId];
+    if (!Object.hasOwn(this.state.verification, fromProjectId)) return;    const next = copy(this.state);
+    const merged = Object.hasOwn(next.verification, toProjectId)
+      ? next.verification[toProjectId]
+      : [];
+    // Append the old steps that are missing, in order, within the step limits.
+    const known = new Set(merged.map((step) => JSON.stringify(step)));
+    let timeout = merged.reduce((total, step) => total + step.timeoutMs, 0);
+    for (const step of next.verification[fromProjectId]) {
+      const key = JSON.stringify(step);
+      if (known.has(key)) continue;
+      if (merged.length >= 20 || timeout + step.timeoutMs > 7200000) break;
+      merged.push(step);
+      known.add(key);
+      timeout += step.timeoutMs;
+    }
+    next.verification[toProjectId] = merged;
     delete next.verification[fromProjectId];
     this.commit(next);
   }
