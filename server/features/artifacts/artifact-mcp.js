@@ -46,11 +46,15 @@ const validId = (value) => id.safeParse(value).success;
 /** The session's current project, after a safe rebind of a folder that became Git. */
 async function currentProject(services, session, grant, context) {
   const project = await projectScope(session.cwd);
-  if (grant.projectIds.includes(project.id)) return project;
-  const rebound = await services.projectRebind?.rebind({
-    cwd: session.cwd,
-    previousIds: grant.projectIds,
-  });
+  const ensure = () =>
+    services.projectRebind?.ensure({ cwd: session.cwd, previousIds: grant.projectIds });
+  if (grant.projectIds.includes(project.id)) {
+    // The Git identity may already be registered by another session, or a move
+    // may have been interrupted; finish it so earlier artifacts follow the project.
+    await ensure()?.catch(() => null);
+    return project;
+  }
+  const rebound = await ensure();
   if (rebound?.id !== project.id) throw artifactError("ARTIFACT_PROJECT_CHANGED", 409);
   context.revalidate();
   return rebound;

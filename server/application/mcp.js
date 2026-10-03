@@ -2,6 +2,7 @@ import path from "node:path";
 import { createMcpAccess } from "../features/mcp/access-service.js";
 import { mcpHttpRouter } from "../features/mcp/http-transport.js";
 import { McpTools } from "../features/mcp/tool-service.js";
+import { reboundProjectIds } from "../features/memory/project-rebind.js";
 export function createMcpServices(services, effective = () => services.config) {
   const options = {
     directory: path.join(services.config.dataDir, "mcp-access"),
@@ -60,6 +61,16 @@ export function createMcpServices(services, effective = () => services.config) {
     "revoke",
   ])
     mcpAccess[method] = (...args) => current()[method](...args);
+  // Grants naming a plain project folder that became a Git work tree follow it.
+  const rebound = (auth) => {
+    const grant = auth?.extra?.grant;
+    if (Array.isArray(grant?.projectIds))
+      grant.projectIds = reboundProjectIds(grant.projectIds, services.memory);
+    return auth;
+  };
+  mcpAccess.checkAccessToken = (token) => rebound(current().checkAccessToken(token));
+  mcpAccess.verifyAccessToken = async (token) =>
+    rebound(await current().verifyAccessToken(token));
   const mcpTools = new McpTools(services);
   const mcpTransport = mcpHttpRouter({ mcpAccess, mcpTools });
   return { mcpAccess, mcpTools, mcpTransport };

@@ -16,6 +16,7 @@ import {
   checkSessionCapability,
 } from "./session-capability.js";
 import { addGrant } from "../nono/sandbox-grants.js";
+import { reboundProjectIds } from "../memory/project-rebind.js";
 
 const fields = {
   projectIds: "projects",
@@ -197,10 +198,10 @@ export class SessionMcp {
         auth.extra.grant[field] = resources[group].map((resource) => resource.id);
     } else {
       // A plain project folder that became a Git work tree keeps its grant.
-      const projectIds = auth.extra.grant.projectIds.map(
-        (id) => this.services.memory.reboundTo?.(id) || id,
+      auth.extra.grant.projectIds = reboundProjectIds(
+        auth.extra.grant.projectIds,
+        this.services.memory,
       );
-      auth.extra.grant.projectIds = [...new Set(projectIds)];
     }
     return auth;
   }

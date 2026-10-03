@@ -8,9 +8,9 @@ Agents call `memory_search` with a targeted query when prior project decisions o
 
 For Git projects, the scope hashes the canonical Git common-directory path together with its filesystem device and inode. Subdirectories, symlink aliases and linked worktrees resolve to the same common directory. Separate clones and submodules have distinct common directories and therefore distinct memory. Replacing a directory at the same path creates a new identity. Moving the canonical repository path also creates a new scope; automatic migration would risk attaching unrelated knowledge.
 
-For a non-Git project, the selected canonical working directory is its root. No parent-directory inference is performed for non-Git projects. Launch from the same root to share memory.
+For a non-Git project, the selected canonical working directory is its root. No parent-directory inference is performed for non-Git projects. Launch from the same root to share memory. Git discovery is read-only, bounded to three seconds, and does not change native configuration or bypass Git ownership checks.
 
-Running `git init` in a non-Git project root keeps the project. See [Git initialization in a session folder](ssh-access.md#git-initialization-in-a-session-folder) for the rebind rule. Its entries, request receipts and session capabilities move to the Git identity, and the move is recorded, so session grants that named the old project follow it. Git discovery is read-only, bounded to three seconds, and does not change native configuration or bypass Git ownership checks.
+Running `git init` in a non-Git project root keeps the project. See [Git initialization in a session folder](ssh-access.md#git-initialization-in-a-session-folder) for the rebind rule. Its entries, request receipts and session capabilities move to the Git identity, along with its pipeline verification steps. The move is recorded, so session and OAuth grants that named the old project follow it.
 
 The project registry persists independently of sessions. Stopping or removing the last session does not delete its project or knowledge. If its registered checkout has been removed or now belongs to another project, registering a valid checkout of the same repository repairs the stored path while preserving entries and revisions. A still-valid registered checkout is retained.
 

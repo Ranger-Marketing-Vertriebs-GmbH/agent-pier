@@ -42,7 +42,7 @@ export const ssh = Object.freeze({
   projectUnavailable: "Das SSH-Projekt ist nicht verfügbar.",
   projectChanged: "Die Identität des SSH-Projekts hat sich geändert.",
   projectChangedReload:
-    "Das Projekt dieser Sitzung hat sich geändert. Lade die Sitzung neu, um fortzufahren.",
+    "Das Projekt dieser Sitzung hat sich geändert. Lade die Sitzung neu, um SSH weiter zu nutzen.",
   projectDirectoryUnavailable: "Das SSH-Projektverzeichnis ist nicht verfügbar.",
   targetProjectRequired: "Ein Zielprojekt ist erforderlich.",
   sourceProjectUnavailable: "Das SSH-Quellprojekt ist nicht verfügbar.",

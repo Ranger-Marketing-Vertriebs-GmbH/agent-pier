@@ -192,6 +192,7 @@ export async function createServices(config) {
       fs.existsSync(path.join(config.dataDir, "sessions", `${id}.json`)),
     onError,
     barrier: mutationBarrier,
+    isRebound: (from, to) => memory.reboundTo(from) === to,
   });
   await artifacts.ready;
   const projectRebind = new ProjectRebind({

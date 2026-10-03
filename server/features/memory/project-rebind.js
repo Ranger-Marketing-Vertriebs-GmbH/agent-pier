@@ -42,6 +42,10 @@ export function isGitInitOf(launch, scope) {
     return false;
   }
 }
+/** Grant project IDs with each rebound plain project replaced by its Git project. */
+export function reboundProjectIds(projectIds, memory) {
+  return [...new Set(projectIds.map((id) => memory?.reboundTo?.(id) || id))];
+}
 /**
  * Returns `{ fromId, scope, launch }` when `cwd` is a folder that became the root
  * of its own fresh Git work tree, so `fromId` (its plain-directory identity) and

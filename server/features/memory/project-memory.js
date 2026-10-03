@@ -253,6 +253,9 @@ export class ProjectMemory {
         ?.to_id ?? null
     );
   }
+  hasProject(projectId) {
+    return Boolean(this.db.prepare("SELECT 1 FROM projects WHERE id=?").get(projectId));
+  }
   ownsEntries(projectId) {
     return Boolean(
       this.db.prepare("SELECT 1 FROM entries WHERE project_id=? LIMIT 1").get(projectId),
