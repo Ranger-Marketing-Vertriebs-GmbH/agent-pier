@@ -311,7 +311,7 @@ test("switching back restores a cached chat that is not shown as live", async ({
   await expect(limitWarning(page)).toBeVisible();
   const anchor = await visitAndScroll(page, server);
   await expect(chatOf(page)).toContainText("Nachricht a 0");
-  await expect(page.locator(".connection")).not.toHaveText(/^Verbunden$/);
+  await expect(page.locator(".connection")).toHaveText("Verbinde …");
   await expect(page.locator(".chat-context-budget")).toContainText("Gespeicherter Stand");
   await expect(limitWarning(page)).toHaveCount(0);
   expect(Math.abs((await rowOffset(page, anchor.id)) - anchor.offset)).toBeLessThan(4);
@@ -343,6 +343,9 @@ test("a first frame that resets the window sticks to the bottom", async ({ page 
 test("a reload restores the device cache before the first frame", async ({ page }) => {
   // The cache preload races /api/state; the delay makes the restored path certain.
   const server = await restoreFixture(page, { delayState: 300 });
+  server.snapshots.a = liveSnapshot("a", "a1", {
+    history: { cursor: "older", generation: "native-a" },
+  });
   await page.goto(baseURL + "/sessions/b/chat");
   await expect(chatOf(page)).toContainText("Nachricht b 39");
   const cached = {
@@ -360,7 +363,7 @@ test("a reload restores the device cache before the first frame", async ({ page 
   await expect(chatOf(page)).toContainText("Nachricht a 0");
   await expect.poll(() => server.queue.length).toBe(1);
   expect(await chatOf(page).evaluate((element) => element.scrollTop)).toBeLessThan(100);
-  await expect(page.locator(".connection")).not.toHaveText(/^Verbunden$/);
+  await expect(page.locator(".connection")).toHaveText("Verbinde …");
   await expect(page.locator(".chat-context-budget")).toContainText("Gespeicherter Stand");
   await expect(limitWarning(page)).toHaveCount(0);
   await chatOf(page).evaluate((element) => {
@@ -371,4 +374,6 @@ test("a reload restores the device cache before the first frame", async ({ page 
   server.release();
   await expect(page.locator(".connection")).toHaveText("Verbunden");
   expect(server.frames.at(-1)).toEqual({ id: "a", cursor: "a1", mode: "delta" });
+  // The first live frame runs the near-top check the restored view had to skip.
+  await expect.poll(() => server.historyReads).toBe(1);
 });

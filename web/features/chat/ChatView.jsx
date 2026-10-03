@@ -11,7 +11,7 @@ import {
   chatAttachmentsCopy as attachmentsCopy,
 } from "../../lib/i18n/messages/chat.js";
 import { providerNames } from "./presentation.js";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ModelControl from "../models/ModelControl.jsx";
 import Tasks from "./TaskPanel.jsx";
 import ChatTranscript from "./ChatTranscript.jsx";
@@ -109,6 +109,23 @@ export default function ChatView({
       {historyError && <p role="alert">{copy.historyFailed}</p>}
     </div>
   );
+  // History paging waits for live data; once the first frame arrives, a view
+  // restored near the top loads older pages without another scroll.
+  const wasRestored = useRef(restored);
+  useEffect(() => {
+    const was = wasRestored.current;
+    wasRestored.current = restored;
+    const element = output.current;
+    if (!was || restored || !active || !element) return;
+    // Same condition as the scroll trigger, which only a scrollable view can fire.
+    if (
+      element.scrollHeight > element.clientHeight &&
+      element.scrollTop < 100 &&
+      !historyError &&
+      resetStatus !== "requested"
+    )
+      void loadOlder();
+  }, [restored, active, output, historyError, resetStatus, loadOlder]);
   const subagents =
     session.status === "running" && !restored && !data?.observability?.stale
       ? (data?.observability?.subagents || []).filter(
