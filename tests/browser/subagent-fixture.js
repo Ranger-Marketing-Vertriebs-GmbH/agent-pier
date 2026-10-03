@@ -2,8 +2,20 @@ import { expect } from "@playwright/test";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { baseURL } from "../helpers/browser.js";
 
-/** A running Claude chat with one completed and one working background subagent. */
-export async function subagentFixture(page) {
+const tool = (id, description, type, status, text, agentId) => ({
+  id,
+  role: "tool",
+  toolName: "Agent",
+  status,
+  text,
+  subagent: { description, type, status, agentId },
+});
+
+/**
+ * A running Claude chat with one completed and one working background subagent.
+ * `older` serves an older history page whose subagent row is a frozen snapshot.
+ */
+export async function subagentFixture(page, { older = false } = {}) {
   const session = {
     id: "subagents",
     name: "Subagent session",
@@ -13,18 +25,10 @@ export async function subagentFixture(page) {
     status: "running",
     activity: { state: "working" },
   };
-  const tool = (id, description, type, status, text) => ({
-    id,
-    role: "tool",
-    toolName: "Agent",
-    status,
-    text,
-    subagent: { description, type, status },
-  });
   const data = {
     availability: "ready",
     providerSessionId: "native",
-    history: { generation: "one" },
+    history: { generation: "one", cursor: older ? "older" : null },
     messages: [
       { id: "prompt", role: "user", text: "Review the parser and the styles" },
       {
@@ -40,14 +44,33 @@ export async function subagentFixture(page) {
         "general-purpose",
         "completed",
         "## Parser review\n\nThe parser handles every fixture shape.",
+        "agentreview01",
       ),
-      tool("toolu_styles", "Check styles", "Explore", "running", "Check the stylesheet."),
+      tool(
+        "toolu_styles",
+        "Check styles",
+        "Explore",
+        "running",
+        "Check the stylesheet.",
+        "agentstyles02",
+      ),
       { id: "reply", role: "assistant", text: "Both reviewers are on it." },
     ],
     tasks: [],
     observability: {
       context: { usedTokens: null, limitTokens: null, source: null },
       subagents: [
+        ...(older
+          ? [
+              {
+                id: "agentold03",
+                name: "Explore",
+                task: "Audit module",
+                status: "completed",
+                updatedAt: "2026-09-07T09:00:00Z",
+              },
+            ]
+          : []),
         {
           id: "agentreview01",
           name: "general-purpose",
@@ -77,6 +100,24 @@ export async function subagentFixture(page) {
           ],
           sessions: [session],
           home: "/fixture",
+        },
+      });
+    if (path.endsWith("/chat/history"))
+      return route.fulfill({
+        json: {
+          providerSessionId: "native",
+          history: { cursor: null },
+          messages: [
+            { id: "old-prompt", role: "user", text: "Audit the old module" },
+            tool(
+              "toolu_old",
+              "Audit module",
+              "Explore",
+              "running",
+              "Audit it.",
+              "agentold03",
+            ),
+          ],
         },
       });
     if (path.endsWith("/chat")) return route.fulfill({ json: data });

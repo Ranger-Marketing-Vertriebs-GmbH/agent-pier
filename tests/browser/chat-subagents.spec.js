@@ -3,27 +3,25 @@ import { subagentFixture } from "./subagent-fixture.js";
 
 const copy = {
   "de-DE": {
-    running: "Läuft",
+    running: "Arbeitet",
     completed: "Erledigt",
-    unknown: "Unbekannt",
-    working: "Arbeitet",
-    done: "Erledigt",
+    unknown: "Status unbekannt",
     review: "Unteragent: Review parser (general-purpose)",
     styles: "Unteragent: Check styles (Explore)",
     show: "Unteragenten anzeigen",
-    active: "Aktive Unteragenten (1)",
+    active: "Unteragenten (2 · 1 aktiv)",
+    older: "Ältere Nachrichten laden",
     total: "Unteragenten (2)",
   },
   "en-GB": {
-    running: "Running",
+    running: "Working",
     completed: "Completed",
-    unknown: "Unknown",
-    working: "Working",
-    done: "Completed",
+    unknown: "Status unknown",
     review: "Subagent: Review parser (general-purpose)",
     styles: "Subagent: Check styles (Explore)",
     show: "Show subagents",
-    active: "Active subagents (1)",
+    active: "Subagents (2 · 1 active)",
+    older: "Load older messages",
     total: "Subagents (2)",
   },
 };
@@ -66,13 +64,28 @@ for (const locale of ["de-DE", "en-GB"]) {
       const entries = panel.locator(".subagent-entry");
       await expect(entries).toHaveCount(2);
       await expect(entries.nth(0)).toContainText("Check styles");
-      await expect(entries.nth(0).locator(".subagent-status")).toHaveText(text.working);
+      await expect(entries.nth(0).locator(".subagent-status")).toHaveText(text.running);
       await expect(entries.nth(1)).toContainText("Review parser");
-      await expect(entries.nth(1).locator(".subagent-status")).toHaveText(text.done);
+      await expect(entries.nth(1).locator(".subagent-status")).toHaveText(text.completed);
       data.observability.subagents[1].status = "completed";
       publish();
       await expect(panel.getByRole("heading")).toHaveText(text.total);
       await expect(panel.locator(".subagent-status.running")).toHaveCount(0);
+    });
+
+    test("a frozen subagent row from an older page follows the observed state", async ({
+      page,
+    }) => {
+      const { data, publish } = await subagentFixture(page, { older: true });
+      await page.getByRole("button", { name: text.older }).click();
+      const old = page.locator('.chat-subagent[data-message-id="toolu_old"]');
+      // The older page still says running; the observer knows it completed.
+      await expect(old.locator("summary small")).toHaveText(text.completed);
+      data.observability.subagents = data.observability.subagents.filter(
+        (agent) => agent.id !== "agentold03",
+      );
+      publish();
+      await expect(old.locator("summary small")).toHaveText(text.unknown);
     });
   });
 }
