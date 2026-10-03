@@ -165,7 +165,7 @@ test("uncertain native input never retries automatically and needs explicit draf
   await expect(page.getByRole("status", { name: "Nachrichtenzustellung" })).toContainText(
     "Zustellung unklar",
   );
-  await expect(input(page)).toBeDisabled();
+  await expect(input(page)).toHaveAttribute("readonly", "");
   await expect(
     page.getByRole("button", { name: "Übergabe erneut versuchen" }),
   ).toHaveCount(0);
@@ -174,7 +174,7 @@ test("uncertain native input never retries automatically and needs explicit draf
   ).toBeVisible();
   await page.screenshot({ path: "test-results/mobile-delivery-uncertain.png" });
   await page.getByRole("button", { name: "Nach Prüfung als Entwurf übernehmen" }).click();
-  await expect(input(page)).toBeEnabled();
+  await expect(input(page)).not.toHaveAttribute("readonly");
   await expect(input(page)).toHaveValue("Vielleicht bereits übergeben");
   expect(state.inputs).toHaveLength(1);
 });
@@ -384,4 +384,86 @@ test("a cached wrapped row from before the server fix still clears the handoff n
   await state.publish();
   await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
   await expect(page.locator(".chat-delivery-status")).toHaveCount(0);
+});
+
+const focused = (page) =>
+  page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? "");
+const delivered = (page) =>
+  expect(page.getByRole("status", { name: "Nachrichtenzustellung" })).toContainText(
+    "An TUI gesendet",
+  );
+
+test("desktop Enter keeps the composer focused while sending and after unlock", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const state = await fixture(page, { mode: "slow" });
+  await input(page).click();
+  await input(page).fill("Fokus bleibt");
+  await input(page).press("Enter");
+  await expect.poll(() => Boolean(state.release)).toBe(true);
+  await expect(input(page)).toBeFocused();
+  await expect(input(page)).toHaveAttribute("readonly", "");
+  state.release();
+  await delivered(page);
+  await expect(input(page)).toBeFocused();
+  await page.keyboard.type("weiter");
+  await expect(input(page)).toHaveValue("weiter");
+  expect(state.inputs).toHaveLength(1);
+});
+
+test("desktop double Enter during sending posts a single input", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const state = await fixture(page, { mode: "slow" });
+  await input(page).click();
+  await input(page).fill("Nur einmal");
+  await input(page).press("Enter");
+  await expect.poll(() => Boolean(state.release)).toBe(true);
+  await input(page).press("Enter");
+  await input(page).press("Enter");
+  state.release();
+  await delivered(page);
+  expect(state.inputs).toHaveLength(1);
+});
+
+test("desktop Send button click returns focus to the composer", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const state = await fixture(page, { mode: "slow" });
+  await input(page).fill("Per Button");
+  await send(page).click();
+  await expect.poll(() => Boolean(state.release)).toBe(true);
+  state.release();
+  await delivered(page);
+  await expect(input(page)).toBeFocused();
+});
+
+test("desktop focus moved elsewhere while sending is not stolen back", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const state = await fixture(page, { mode: "slow" });
+  await input(page).click();
+  await input(page).fill("Nicht stehlen");
+  await input(page).press("Enter");
+  await expect.poll(() => Boolean(state.release)).toBe(true);
+  await page.evaluate(() => {
+    const other = document.createElement("input");
+    other.setAttribute("aria-label", "Anderes Feld");
+    document.body.append(other);
+    other.focus();
+  });
+  state.release();
+  await delivered(page);
+  expect(await focused(page)).toBe("Anderes Feld");
+});
+
+test("mobile layout does not force composer focus after sending", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await fixture(page, { mode: "slow" });
+  await input(page).fill("Mobil");
+  await send(page).click();
+  await expect.poll(() => Boolean(state.release)).toBe(true);
+  state.release();
+  await delivered(page);
+  await expect(input(page)).not.toBeFocused();
 });

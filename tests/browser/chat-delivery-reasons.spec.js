@@ -142,9 +142,9 @@ test("a message the server never accepted can be edited and dismissed", async ({
   await input(page).fill("Too large for the server");
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(page.getByText(/The server did not accept this message/)).toBeVisible();
-  await expect(input(page)).toBeDisabled();
+  await expect(input(page)).toHaveAttribute("readonly", "");
   await page.getByRole("button", { name: "Edit message", exact: true }).click();
-  await expect(input(page)).toBeEnabled();
+  await expect(input(page)).not.toHaveAttribute("readonly");
   await expect(input(page)).toHaveValue("Too large for the server");
   await page
     .getByRole("button", { name: "Dismiss delivery status", exact: true })
