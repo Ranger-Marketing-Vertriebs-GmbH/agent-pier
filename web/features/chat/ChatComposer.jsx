@@ -1,7 +1,7 @@
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { chatComposerCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { providerNames } from "./presentation.js";
-import React, { useLayoutEffect, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useRef } from "react";
 import SlashCompletion from "./SlashCompletion.jsx";
 import useSlashCompletion from "./useSlashCompletion.js";
 import ChatAttachments from "./ChatAttachments.jsx";
@@ -20,6 +20,9 @@ export default function ChatComposer({
   attachments,
 }) {
   const input = useRef(null);
+  const sendButton = useRef(null);
+  const restoreFocus = useRef(false);
+  const locked = busy || deliveryLocked;
   const completion = useSlashCompletion({
     session,
     text,
@@ -48,8 +51,28 @@ export default function ChatComposer({
     media.addEventListener("change", resize);
     return () => media.removeEventListener("change", resize);
   }, [text]);
+  // Delivery only makes the field read-only, so Enter keeps focus. If the focus
+  // still rests on the composer area when the lock lifts, hand it back.
+  useEffect(() => {
+    if (locked || !restoreFocus.current) return;
+    restoreFocus.current = false;
+    const active = document.activeElement;
+    const idle = !active || active === document.body || active === sendButton.current;
+    const compact = touchInput || window.matchMedia("(max-width: 700px)").matches;
+    if (idle && !compact && input.current && !input.current.disabled)
+      input.current.focus({ preventScroll: true });
+  }, [locked, touchInput]);
+  const submitForm = (event) => {
+    const active = document.activeElement;
+    restoreFocus.current =
+      !active ||
+      active === document.body ||
+      active === input.current ||
+      active === sendButton.current;
+    return submit(event);
+  };
   return (
-    <form className="composer chat-composer" onSubmit={submit}>
+    <form className="composer chat-composer" onSubmit={submitForm}>
       <SlashCompletion completion={completion} />
       <ChatAttachments
         {...attachments}
@@ -78,19 +101,16 @@ export default function ChatComposer({
           setText(event.target.value);
           setSent(false);
         }}
-        disabled={
-          busy ||
-          deliveryLocked ||
-          session.pipeline?.headless ||
-          session.status !== "running"
-        }
+        readOnly={locked}
+        aria-busy={locked || undefined}
+        disabled={session.pipeline?.headless || session.status !== "running"}
         maxLength={32000}
         rows={1}
         enterKeyHint={touchInput ? "enter" : "send"}
         onPaste={(event) => {
           if (!event.clipboardData.files.length) return;
           event.preventDefault();
-          if (!busy && !modelPending) attachments.add(event.clipboardData.files);
+          if (!locked && !modelPending) attachments.add(event.clipboardData.files);
         }}
         onKeyDown={(event) => {
           if (completion.onKeyDown(event)) return;
@@ -106,7 +126,7 @@ export default function ChatComposer({
           )
             return;
           event.preventDefault();
-          if (!event.repeat) submit(event);
+          if (!event.repeat) submitForm(event);
         }}
       />
       <div className="chat-compose-actions">
@@ -120,6 +140,7 @@ export default function ChatComposer({
                 : commonCopy.desktopSendHint}
         </span>
         <button
+          ref={sendButton}
           className="button primary chat-send"
           aria-label={busy ? commonCopy.sending : commonCopy.send}
           disabled={
