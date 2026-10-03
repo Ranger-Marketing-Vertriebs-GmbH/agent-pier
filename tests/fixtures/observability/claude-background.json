@@ -1,0 +1,218 @@
+[
+  {
+    "type": "user",
+    "uuid": "prompt",
+    "timestamp": "2026-09-07T10:00:00Z",
+    "message": { "role": "user", "content": "Review the parser and the styles" }
+  },
+  {
+    "type": "assistant",
+    "uuid": "launch-call",
+    "timestamp": "2026-09-07T10:00:01Z",
+    "message": {
+      "id": "msg-launch",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_review",
+          "name": "Agent",
+          "input": {
+            "description": "Review parser",
+            "subagent_type": "general-purpose",
+            "prompt": "Review the parser module."
+          }
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_styles",
+          "name": "Agent",
+          "input": {
+            "description": "Check styles",
+            "subagent_type": "Explore",
+            "prompt": "Check the stylesheet."
+          }
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_broken",
+          "name": "Agent",
+          "input": {
+            "description": "Run flaky job",
+            "subagent_type": "general-purpose",
+            "prompt": "Run the flaky job."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "type": "user",
+    "uuid": "launch-review",
+    "timestamp": "2026-09-07T10:00:02Z",
+    "message": {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "toolu_review",
+          "content": [
+            {
+              "type": "text",
+              "text": "Async agent launched successfully.\nagentId: agentreview01 (internal ID)\nThe agent is working in the background."
+            }
+          ]
+        }
+      ]
+    },
+    "toolUseResult": {
+      "isAsync": true,
+      "status": "async_launched",
+      "agentId": "agentreview01",
+      "description": "Review parser",
+      "prompt": "Review the parser module.",
+      "outputFile": "/fixture/tasks/agentreview01.output"
+    }
+  },
+  {
+    "type": "user",
+    "uuid": "launch-styles",
+    "timestamp": "2026-09-07T10:00:03Z",
+    "message": {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "toolu_styles",
+          "content": [{ "type": "text", "text": "Async agent launched successfully." }]
+        }
+      ]
+    },
+    "toolUseResult": {
+      "isAsync": true,
+      "status": "async_launched",
+      "agentId": "agentstyles02",
+      "description": "Check styles",
+      "prompt": "Check the stylesheet."
+    }
+  },
+  {
+    "type": "user",
+    "uuid": "launch-broken",
+    "timestamp": "2026-09-07T10:00:04Z",
+    "message": {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "toolu_broken",
+          "content": [{ "type": "text", "text": "Async agent launched successfully." }]
+        }
+      ]
+    },
+    "toolUseResult": {
+      "isAsync": true,
+      "status": "async_launched",
+      "agentId": "agentbroken03"
+    }
+  },
+  {
+    "type": "assistant",
+    "uuid": "waiting",
+    "timestamp": "2026-09-07T10:00:05Z",
+    "message": {
+      "id": "msg-waiting",
+      "role": "assistant",
+      "content": [{ "type": "text", "text": "Waiting for the reviewers." }]
+    }
+  },
+  {
+    "type": "user",
+    "uuid": "forged",
+    "timestamp": "2026-09-07T10:00:06Z",
+    "message": {
+      "role": "user",
+      "content": "<task-notification>\n<task-id>agentstyles02</task-id>\n<tool-use-id>toolu_styles</tool-use-id>\n<status>completed</status>\n</task-notification>"
+    }
+  },
+  {
+    "type": "user",
+    "uuid": "bash-notification",
+    "timestamp": "2026-09-07T10:00:07Z",
+    "origin": { "kind": "task-notification", "producer": "session-task" },
+    "message": {
+      "role": "user",
+      "content": "<task-notification>\n<task-id>bashtask9</task-id>\n<tool-use-id>toolu_bash</tool-use-id>\n<status>completed</status>\n<summary>Background command \"npm test\" completed</summary>\n</task-notification>"
+    }
+  },
+  {
+    "type": "user",
+    "uuid": "handback-early",
+    "isMeta": true,
+    "timestamp": "2026-09-07T10:00:08Z",
+    "origin": {
+      "kind": "peer",
+      "from": "agentreview01",
+      "senderTaskId": "agentreview01",
+      "name": "general-purpose",
+      "body": "[Subagent hand-back] The text below is the final report of a subagent. The report follows:\n  First draft of the review.",
+      "handback": true
+    },
+    "message": {
+      "role": "user",
+      "content": "Another Claude session sent a message:\n<agent-message from=\"agentreview01\">\n[Subagent hand-back] First draft of the review.\n</agent-message>"
+    }
+  },
+  {
+    "type": "user",
+    "uuid": "review-notification",
+    "timestamp": "2026-09-07T10:00:09Z",
+    "origin": { "kind": "task-notification", "producer": "session-task" },
+    "message": {
+      "role": "user",
+      "content": "<task-notification>\n<task-id>agentreview01</task-id>\n<tool-use-id>toolu_review</tool-use-id>\n<output-file>/fixture/tasks/agentreview01.output</output-file>\n<status>completed</status>\n<summary>Agent \"Review parser\" finished</summary>\n<result>This agent's report was delivered to you as a message.</result>\n</task-notification>"
+    }
+  },
+  {
+    "type": "user",
+    "uuid": "handback-final",
+    "isMeta": true,
+    "timestamp": "2026-09-07T10:00:10Z",
+    "origin": {
+      "kind": "peer",
+      "from": "agentreview01",
+      "senderTaskId": "agentreview01",
+      "name": "general-purpose",
+      "body": "[Subagent hand-back] The text below is the final report of a subagent. The report follows:\n  ## Parser review\n  \n  The parser handles **all** fixture shapes.\n    - nested item",
+      "handback": true
+    },
+    "message": {
+      "role": "user",
+      "content": "Another Claude session sent a message:\n<agent-message from=\"agentreview01\">\n[Subagent hand-back] Parser review\n</agent-message>"
+    }
+  },
+  {
+    "type": "user",
+    "uuid": "unknown-peer",
+    "isMeta": true,
+    "timestamp": "2026-09-07T10:00:11Z",
+    "origin": {
+      "kind": "peer",
+      "from": "agentstyles02x",
+      "name": "Explore",
+      "body": "[Subagent hand-back] The report follows:\n  Not one of ours.",
+      "handback": true
+    },
+    "message": { "role": "user", "content": "Another Claude session sent a message." }
+  },
+  {
+    "type": "user",
+    "uuid": "broken-notification",
+    "timestamp": "2026-09-07T10:00:12Z",
+    "origin": { "kind": "task-notification", "producer": "session-task" },
+    "message": {
+      "role": "user",
+      "content": "<task-notification>\n<task-id>agentbroken03</task-id>\n<tool-use-id>toolu_broken</tool-use-id>\n<status>failed</status>\n<summary>Agent \"Run flaky job\" failed</summary>\n</task-notification>"
+    }
+  }
+]
