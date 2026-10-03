@@ -57,6 +57,8 @@ export const chatMessageCopy = {
   toolFailures: (count) => `${count} failed`,
   chatToolLabel: "Tool activity",
   toolDetails: "Details",
+  subagentLabel: (description, type) =>
+    `Subagent: ${description || "Untitled task"}${type ? ` (${type})` : ""}`,
   ariaLabel: "Your message",
   subtle: "[Image",
 };

@@ -81,3 +81,9 @@
     transition: none;
   }
 }
+.chat-subagent[data-status="running"] summary small {
+  color: var(--accent);
+}
+.chat-subagent[data-status="failed"] summary small {
+  color: #f0a08f;
+}
