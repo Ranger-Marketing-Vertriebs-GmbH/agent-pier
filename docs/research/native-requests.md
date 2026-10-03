@@ -28,7 +28,7 @@ Source: [official app-server documentation](https://developers.openai.com/codex/
 
 ## Claude Code
 
-Permission hooks return the documented `hookSpecificOutput` decision with behavior `allow` or `deny`. Question hooks return the matching `PreToolUse` or `PermissionRequest` response with `updatedInput` containing the original questions and answers mapped by question text. A live hook invocation supplies the response channel; AgentPier does not invent a Claude native permission request ID. Empty output hands the operation to the native Terminal flow. Hooks run before the ordinary native prompt, so Chat includes explicit Terminal handoff rather than claiming both original dialogs are active simultaneously. [Claude hooks reference](https://code.claude.com/docs/en/hooks#permissionrequest)
+Permission hooks return the documented `hookSpecificOutput` decision with behavior `allow` or `deny`. Question hooks return the matching `PreToolUse` or `PermissionRequest` response with `updatedInput` containing the original questions and answers mapped by question text. A live hook invocation supplies the response channel; AgentPier does not invent a Claude native permission request ID. Empty output hands the operation to the native Terminal flow. `PreToolUse` question hooks run before Claude continues, so no native dialog competes with them. For `PermissionRequest`, Claude Code 2.1.288 shows its own approval dialog while the hook is still waiting, so both dialogs are active at once (see below). [Claude hooks reference](https://code.claude.com/docs/en/hooks#permissionrequest)
 
 ### Question delivery and runtime updates (2026-09-13)
 
@@ -110,7 +110,10 @@ hook is still waiting. Both dialogs are active, so these rules apply:
   disappears.
 - **Approval in the terminal.** Claude does not abort the hook. The waiting
   hook watches the session transcript (`transcript_path`) for the
-  `tool_use` that matches its tool name and input. When that call's
+  `tool_use` that matches its tool name and input. Only a call appended after
+  the hook started, or one among the last ten lines when it started, can match.
+  An older identical call without a result is an orphan of an interrupted run
+  and is ignored. The target is re-evaluated on every read. When that call's
   `tool_result` appears, the hook exits with no output, and chat drops the
   request without a notice. Approving a long-running tool in the terminal
   therefore keeps the chat entry until the tool finishes. A chat decision made
@@ -125,16 +128,24 @@ as questions. The "Answer in terminal" action does the same from chat. A
 handoff never approves anything.
 
 When a tool approval leaves chat through a handoff or a timeout, chat shows the
-notice "Approval is waiting in the terminal" in English or German. The notice
-does not block chat. It is cleared when the next native request arrives. It
-can be dismissed, and the tab that performed the handoff never shows it.
+notice "Approval moved to the terminal" ("Freigabe ins Terminal verschoben").
+The notice does not block chat. It is cleared by any of these:
+
+- the next native request;
+- the next chat message delivered to that session;
+- a ten-minute time-to-live.
+
+It can also be dismissed, and the tab that performed the handoff never shows it.
 
 Permission subjects name their target:
 
-- `EnterWorktree` shows `tool_input.path`.
-- `Workflow` shows `meta.name: meta.description`. This comes from
-  `tool_input.meta` or from the literal `export const meta = { … }` in
-  `tool_input.script`. The script is matched as text and never evaluated.
+- `EnterWorktree` shows `EnterWorktree: <tool_input.path>`. Other tools'
+  `path` inputs, such as the Glob or Grep search root, are not subjects.
+- `Workflow` shows `Workflow: <meta.name>`, with `meta.description` as the
+  description. Both come from `tool_input.meta`, or from the top-level string
+  properties of the literal `export const meta = { … }` in
+  `tool_input.script`. Nested properties and anything after the object are
+  ignored. The script is scanned as text and never evaluated.
 
 The behaviour was verified with an isolated probe. The probe used the real
 Claude Code 2.1.288 TUI, a private tmux server, a disposable home, synthetic

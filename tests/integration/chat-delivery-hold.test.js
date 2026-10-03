@@ -31,6 +31,8 @@ function setup(t, model) {
     pending: false,
     list: async () => ({ requests: requests.pending ? [{ id: "r" }] : [] }),
     hasPending: () => requests.pending,
+    cleared: [],
+    clearNotice: (id) => requests.cleared.push(id),
   };
   const delivery = new ChatDelivery({
     dataDir,
@@ -98,6 +100,15 @@ test("text held behind a question after its paste keeps waiting, then gets Enter
   assert.equal(done.status, "handed-off");
   // Multi-line text is submitted once, because the prompt box is unchanged.
   assert.deepEqual(model.submitted, ["first line\nsecond line"]);
+});
+
+test("a delivered message clears the session's terminal approval notice", async (t) => {
+  const model = claudePromptModel();
+  const x = setup(t, model);
+  const held = await x.send("after the approval");
+  const done = held.status === "pending" ? await x.settled(held.deliveryId) : held;
+  assert.equal(done.status, "handed-off");
+  assert.deepEqual(x.requests.cleared, ["one"]);
 });
 
 test("an appended message held after its paste is submitted with its draft", async (t) => {

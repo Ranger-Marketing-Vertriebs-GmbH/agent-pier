@@ -299,6 +299,8 @@ export class ChatDelivery {
         });
       });
       receipt.status = "handed-off";
+      // A message reached the terminal, so an earlier approval notice is history.
+      this.requests.clearNotice?.(id);
       delete receipt.waiting;
       delete receipt.reason;
     } catch (error) {

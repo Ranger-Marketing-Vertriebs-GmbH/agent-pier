@@ -6,6 +6,7 @@ import { questionsView, questionAnswers, claudeAnnotations } from "./native-ques
 import { claudeHookVersion, claudeHookTimeoutSeconds } from "./claude-runtime.js";
 import { requestValue } from "./request-validation.js";
 import { watchNativeDecision } from "./claude-native-decision.js";
+import { workflowMeta } from "./claude-workflow-meta.js";
 
 // Without a transcript match a terminal approval cannot be observed, so such a
 // permission keeps the earlier bounded wait instead of holding chat for a day.
@@ -23,37 +24,19 @@ function declineReason(questions, notes = {}) {
 }
 const trimmed = (value, limit) =>
   typeof value === "string" && value.trim() ? value.trim().slice(0, limit) : undefined;
-// Reads a quoted `key: "…"` literal from a Workflow script's `meta` object.
-// Text only: the script is never evaluated.
-function metaLiteral(source, key) {
-  const match = new RegExp(
-    `(?:^|[\\s,{])${key}\\s*:\\s*(?:"((?:[^"\\\\\\n]|\\\\.){0,4000})"|'((?:[^'\\\\\\n]|\\\\.){0,4000})'|\`((?:[^\`\\\\$]|\\\\.){0,4000})\`)`,
-  ).exec(source);
-  const raw = match && (match[1] ?? match[2] ?? match[3]);
-  return raw && raw.replace(/\\(.)/g, (_, char) => (char === "n" ? " " : char));
-}
-function workflowSummary(input) {
-  let meta = input?.meta;
-  if (!meta || typeof meta !== "object") {
-    const script = typeof input?.script === "string" ? input.script.slice(0, 65536) : "";
-    const start = script.search(/\bmeta\s*=\s*\{/);
-    if (start < 0) return undefined;
-    const source = script.slice(start, start + 16384);
-    meta = {
-      name: metaLiteral(source, "name"),
-      description: metaLiteral(source, "description"),
-    };
-  }
-  const parts = [trimmed(meta.name, 200), trimmed(meta.description, 1500)].filter(
-    Boolean,
-  );
-  return parts.length ? parts.join(": ") : undefined;
-}
-function permissionDescription(data) {
-  return (
-    trimmed(data.tool_input?.description, 2000) ??
-    (data.tool_name === "Workflow" ? workflowSummary(data.tool_input) : undefined)
-  );
+// Workflow approvals name their script: `meta.name` beside the tool, and
+// `meta.description` as the description.
+function workflowMetaOf(data) {
+  if (data.tool_name !== "Workflow") return {};
+  const input = data.tool_input;
+  const meta =
+    input?.meta && typeof input.meta === "object"
+      ? input.meta
+      : workflowMeta(input?.script);
+  return {
+    name: trimmed(meta?.name, 200),
+    description: trimmed(meta?.description, 1500),
+  };
 }
 export function claudeRequest(data) {
   if (
@@ -114,21 +97,26 @@ export function claudeRequest(data) {
       },
     };
   }
-  if (data.hook_event_name === "PermissionRequest")
+  if (data.hook_event_name === "PermissionRequest") {
+    const workflow = workflowMetaOf(data);
     return {
       view: {
         kind: "permission",
         subject: {
           tool: data.tool_name,
           command: data.tool_input?.command,
-          // EnterWorktree names its target as `path`.
+          // EnterWorktree names its target as `path`; for Glob/Grep it is only
+          // a search root, so other tools keep their tool name as the subject.
           path:
             data.tool_input?.file_path ??
-            (typeof data.tool_input?.path === "string"
+            (data.tool_name === "EnterWorktree" &&
+            typeof data.tool_input?.path === "string"
               ? data.tool_input.path
               : undefined),
+          name: workflow.name,
           cwd: data.cwd,
-          description: permissionDescription(data),
+          description:
+            trimmed(data.tool_input?.description, 2000) ?? workflow.description,
         },
         options: [
           { id: "allow", label: copy.once, scope: "once" },
@@ -145,6 +133,7 @@ export function claudeRequest(data) {
               },
             },
     };
+  }
   return null;
 }
 export async function runClaudeHook({
