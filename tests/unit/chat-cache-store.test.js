@@ -28,17 +28,48 @@ function fakeIndexedDB() {
         transaction(_store, mode) {
           if (db.closed) throw new Error("InvalidStateError");
           const ops = [];
-          log.transactions.push({ mode, ops });
+          const record = { mode, ops, aborted: false };
+          log.transactions.push(record);
+          // Mutations apply at once and roll back on abort, like a transaction.
+          const before = new Map(rows);
+          let pendingRequests = 0;
+          const tracked = (result) => {
+            pendingRequests += 1;
+            const value = request(result);
+            const settle = () => {
+              pendingRequests -= 1;
+              if (pendingRequests === 0) later(finish);
+            };
+            later(() => later(settle));
+            return value;
+          };
           const transaction = {
+            abort() {
+              record.aborted = true;
+              rows.clear();
+              for (const [name, entry] of before) rows.set(name, entry);
+              later(() => transaction.onabort?.());
+            },
             objectStore: () => ({
-              getAll: () => (ops.push("getAll"), request(() => [...rows.values()])),
-              getAllKeys: () => (ops.push("getAllKeys"), request(() => [...rows.keys()])),
-              put: (entry) => (ops.push("put"), rows.set(entry.key, entry)),
+              getAll: () => (ops.push("getAll"), tracked(() => [...rows.values()])),
+              getAllKeys: () => (ops.push("getAllKeys"), tracked(() => [...rows.keys()])),
+              get: (name) => (ops.push(["get", name]), tracked(() => rows.get(name))),
+              put: (entry) => {
+                ops.push("put");
+                if (entry.uncloneable) throw new Error("DataCloneError");
+                rows.set(entry.key, entry);
+              },
               delete: (key) => (ops.push("delete"), rows.delete(key)),
               clear: () => (ops.push("clear"), rows.clear()),
             }),
           };
-          later(() => later(() => transaction.oncomplete?.()));
+          let finished = false;
+          const finish = () => {
+            if (finished || record.aborted || pendingRequests > 0) return;
+            finished = true;
+            transaction.oncomplete?.();
+          };
+          later(() => later(finish));
           return transaction;
         },
       };
@@ -94,6 +125,65 @@ test("close releases the cached handle", async () => {
   assert.equal(log.closed, 1);
   await store.getAllKeys();
   assert.equal(log.opens, 2);
+});
+
+test("a synchronous throw in a write aborts so no partial put commits", async () => {
+  const { factory, rows, log } = fakeIndexedDB();
+  const store = openChatCacheStore(factory);
+  await store.write({ puts: [{ key: "kept" }] });
+  await assert.rejects(
+    store.write({ puts: [{ key: "a" }, { key: "b", uncloneable: true }] }),
+    /DataCloneError/,
+  );
+  assert.equal(log.transactions.at(-1).aborted, true);
+  assert.deepEqual([...rows.keys()], ["kept"]);
+});
+
+test("an evicting write reads keys, only unknown values, then commits once", async () => {
+  const { factory, rows, log } = fakeIndexedDB();
+  const store = openChatCacheStore(factory);
+  await store.write({ puts: [{ key: "mine" }, { key: "foreign", size: 9 }] });
+  log.transactions.length = 0;
+  let seen;
+  await store.write({
+    puts: [{ key: "new" }],
+    evict: {
+      read: (keys) => keys.filter((name) => name !== "mine"),
+      decide: (keys, values) => {
+        seen = { keys: [...keys], values: [...values] };
+        return ["foreign"];
+      },
+    },
+  });
+  assert.equal(log.transactions.length, 1);
+  assert.deepEqual(log.transactions[0].ops, [
+    "getAllKeys",
+    ["get", "foreign"],
+    "put",
+    "delete",
+  ]);
+  assert.deepEqual(seen.keys, ["mine", "foreign"]);
+  assert.deepEqual(seen.values, [["foreign", { key: "foreign", size: 9 }]]);
+  assert.deepEqual([...rows.keys()].sort(), ["mine", "new"]);
+});
+
+test("a throw while deciding evictions aborts the whole write", async () => {
+  const { factory, rows, log } = fakeIndexedDB();
+  const store = openChatCacheStore(factory);
+  await assert.rejects(
+    store.write({
+      puts: [{ key: "a" }],
+      evict: {
+        read: () => [],
+        decide: () => {
+          throw new Error("boom");
+        },
+      },
+    }),
+    /boom/,
+  );
+  assert.equal(log.transactions.at(-1).aborted, true);
+  assert.equal(rows.size, 0);
 });
 
 test("no IndexedDB means no adapter", () => {

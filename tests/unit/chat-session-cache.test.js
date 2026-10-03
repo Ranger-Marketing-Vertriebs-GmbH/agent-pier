@@ -3,6 +3,7 @@ import test, { beforeEach } from "node:test";
 import {
   __setChatCacheStore,
   chatCacheKey,
+  chatCachePreload,
   clearChatCache,
   flushChatCache,
   forgetCachedChat,
@@ -35,12 +36,22 @@ function fakeStore({ failOn, once = false, gate } = {}) {
       guard("getAllKeys");
       return [...rows.keys()];
     },
-    async write({ puts = [], deletes = [] }) {
-      calls.push(["write", puts.length, deletes.length]);
+    async write({ puts = [], deletes = [], evict }) {
+      let removed = deletes;
+      if (evict) {
+        const keys = [...rows.keys()];
+        const wanted = evict.read(keys);
+        if (wanted.length) calls.push(["get", wanted.length]);
+        const values = new Map(
+          wanted.map((name) => [name, structuredClone(rows.get(name))]),
+        );
+        removed = [...deletes, ...evict.decide(keys, values)];
+      }
+      calls.push(["write", puts.length, removed.length]);
       guard("write");
       if (gate) await gate;
       for (const entry of puts) rows.set(entry.key, structuredClone(entry));
-      for (const name of deletes) rows.delete(name);
+      for (const name of removed) rows.delete(name);
     },
     async clear() {
       calls.push("clear");
@@ -284,6 +295,41 @@ test("update-only writes never create and merge scroll", async () => {
   assert.equal(stored.live.messages.length, 2);
 });
 
+test("a switch-time scroll write serializes after paint, not synchronously", async (t) => {
+  writeCachedChat(key("s1"), state());
+  await flushChatCache();
+  store.calls.length = 0;
+  const stringify = JSON.stringify;
+  let serialized = 0;
+  t.after(() => {
+    JSON.stringify = stringify;
+  });
+  JSON.stringify = (value, ...rest) => {
+    if (value && typeof value === "object" && "live" in value) serialized += 1;
+    return stringify(value, ...rest);
+  };
+  writeCachedChat(key("s1"), { scroll: { offset: 7 } }, { create: false, flush: "soon" });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(serialized, 0);
+  assert.deepEqual(store.calls, []);
+  assert.equal(peekCachedChat(key("s1")).scroll.offset, 7);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await flushChatCache();
+  JSON.stringify = stringify;
+  assert.equal(serialized, 1);
+  assert.equal(store.rows.get(key("s1")).scroll.offset, 7);
+});
+
+test("a deferred flush still honors a clear that lands before it", async () => {
+  writeCachedChat(key("s1"), state());
+  writeCachedChat(key("s1"), { scroll: { offset: 7 } }, { create: false, flush: "soon" });
+  await clearChatCache();
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await flushChatCache();
+  assert.equal(store.rows.size, 0);
+});
+
 test("retain removes other keys from memory and device", async () => {
   writeCachedChat(key("s1"), state());
   writeCachedChat(key("s2"), state());
@@ -306,6 +352,18 @@ for (const failOn of ["getAll", "write"]) {
     assert.equal(peekCachedChat(key("s1")), null);
   });
 }
+
+test("a late view can wait on the running preload and then peek its entry", async () => {
+  writeCachedChat(key("s1"), state());
+  await flushChatCache();
+  __setChatCacheStore(store, () => build);
+  assert.equal(chatCachePreload(), null);
+  const running = preloadChatCache();
+  assert.equal(chatCachePreload(), running);
+  assert.equal(peekCachedChat(key("s1")), null);
+  await chatCachePreload();
+  assert.equal(peekCachedChat(key("s1")).live.messages.length, 2);
+});
 
 test("no adapter means memory-only", async () => {
   __setChatCacheStore(null, () => build);
@@ -348,6 +406,52 @@ test("eviction waits while the device index is unknown", async () => {
   await flushChatCache();
   assert.equal(store.rows.size, 13);
   assert.deepEqual(store.calls, [["write", 13, 0]]);
+});
+
+test("entries written by other tabs count toward the device bounds", async () => {
+  await preloadChatCache();
+  for (let i = 0; i < 6; i += 1) writeCachedChat(key(`mine${i}`), state());
+  await flushChatCache();
+  // Another tab wrote six newer entries and deleted one of ours.
+  const now = Date.now() + 1000;
+  for (let i = 0; i < 6; i += 1)
+    store.rows.set(key(`other${i}`), {
+      key: key(`other${i}`),
+      size: 10,
+      accessedAt: now + i,
+    });
+  store.rows.delete(key("mine5"));
+  store.calls.length = 0;
+  writeCachedChat(key("new"), state());
+  await flushChatCache();
+  assert.deepEqual(store.calls, [
+    ["get", 6],
+    ["write", 1, 0],
+  ]);
+  assert.equal(store.rows.size, 12);
+  writeCachedChat(key("newer"), state());
+  store.calls.length = 0;
+  await flushChatCache();
+  // Known now: no value reads, and the least recent of ours is evicted.
+  assert.deepEqual(store.calls, [["write", 1, 1]]);
+  assert.equal(store.rows.size, 12);
+  assert.equal(store.rows.has(key("mine0")), false);
+});
+
+test("a large foreign entry evicts older ones to keep the size bound", async () => {
+  await preloadChatCache();
+  for (let i = 0; i < 3; i += 1) writeCachedChat(key(`mine${i}`), state());
+  await flushChatCache();
+  store.rows.set(key("huge"), {
+    key: key("huge"),
+    size: 7_999_000,
+    accessedAt: Date.now() + 1000,
+  });
+  writeCachedChat(key("new"), state());
+  await flushChatCache();
+  const total = [...store.rows.values()].reduce((sum, row) => sum + row.size, 0);
+  assert.ok(total <= 8_000_000, `device holds ${total}`);
+  assert.ok(store.rows.has(key("huge")));
 });
 
 test("retain with an unchanged key set does no device work", async () => {

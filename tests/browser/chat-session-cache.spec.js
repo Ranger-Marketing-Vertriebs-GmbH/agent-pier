@@ -193,7 +193,47 @@ const warning = (id) => ({
   warnings: ["Fixture-Limit fast erreicht"],
 });
 
-async function restoreFixture(page, { delayState = 0 } = {}) {
+// Test-only IndexedDB instrumentation: counts finished `getAll` reads (the cache
+// preload) and, when the previous page set the flag, holds the cache database
+// open until `window.__releaseChatCache()`.
+const instrumentCache = (database) => {
+  window.__chatCacheReads = 0;
+  const getAll = IDBObjectStore.prototype.getAll;
+  IDBObjectStore.prototype.getAll = function (...args) {
+    const request = getAll.apply(this, args);
+    request.addEventListener("success", () => {
+      window.__chatCacheReads += 1;
+    });
+    return request;
+  };
+  if (localStorage.getItem("test-hold-chat-cache") !== "1") return;
+  localStorage.removeItem("test-hold-chat-cache");
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  window.__releaseChatCache = release;
+  const open = IDBFactory.prototype.open;
+  IDBFactory.prototype.open = function (name, ...rest) {
+    if (name !== database) return open.call(this, name, ...rest);
+    const proxy = { result: undefined, error: null };
+    held.then(() => {
+      const request = open.call(this, name, ...rest);
+      for (const type of ["upgradeneeded", "success", "error", "blocked"]) {
+        request.addEventListener(type, (event) => {
+          try {
+            proxy.result = request.result;
+          } catch {
+            proxy.error = request.error;
+          }
+          proxy[`on${type}`]?.(event);
+        });
+      }
+    });
+    return proxy;
+  };
+};
+
+async function restoreFixture(page) {
+  await page.addInitScript(instrumentCache, DATABASE);
   const server = {
     sessions: [running("a"), running("b")],
     snapshots: { a: liveSnapshot("a", "a1"), b: liveSnapshot("b", "b1") },
@@ -227,6 +267,14 @@ async function restoreFixture(page, { delayState = 0 } = {}) {
     if (server.hold) server.queue.push(deliver);
     else deliver();
   });
+  server.holdState = () => {
+    let open;
+    server.stateGate = new Promise((resolve) => (open = resolve));
+    server.releaseState = () => {
+      server.stateGate = null;
+      open();
+    };
+  };
   server.release = () => {
     server.hold = false;
     for (const deliver of server.queue.splice(0)) deliver();
@@ -237,7 +285,7 @@ async function restoreFixture(page, { delayState = 0 } = {}) {
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === "/api/state") {
-      if (delayState) await new Promise((resolve) => setTimeout(resolve, delayState));
+      await server.stateGate;
       return route.fulfill({
         json: {
           tools: [{ id: "claude", name: "claude", installed: true }],
@@ -340,26 +388,30 @@ test("a first frame that resets the window sticks to the bottom", async ({ page 
   await expect.poll(() => atBottom(page)).toBe(true);
 });
 
+const reloadEntry = () => ({
+  ...entry(running("a")),
+  live: liveSnapshot("a", "a1", {
+    nativeInput: warning("a"),
+    history: { cursor: "older", generation: "native-a" },
+  }),
+  cursor: "older",
+  scroll: { anchorId: "a-0", offset: 0, stick: false },
+});
+
 test("a reload restores the device cache before the first frame", async ({ page }) => {
-  // The cache preload races /api/state; the delay makes the restored path certain.
-  const server = await restoreFixture(page, { delayState: 300 });
+  const server = await restoreFixture(page);
   server.snapshots.a = liveSnapshot("a", "a1", {
     history: { cursor: "older", generation: "native-a" },
   });
   await page.goto(baseURL + "/sessions/b/chat");
   await expect(chatOf(page)).toContainText("Nachricht b 39");
-  const cached = {
-    ...entry(running("a")),
-    live: liveSnapshot("a", "a1", {
-      nativeInput: warning("a"),
-      history: { cursor: "older", generation: "native-a" },
-    }),
-    cursor: "older",
-    scroll: { anchorId: "a-0", offset: 0, stick: false },
-  };
-  await seed(page, [cached]);
+  await seed(page, [reloadEntry()]);
   server.hold = true;
+  // The workspace state answers only after the cache preload read finished.
+  server.holdState();
   await page.goto(baseURL + "/sessions/a/chat");
+  await page.waitForFunction(() => window.__chatCacheReads > 0);
+  server.releaseState();
   await expect(chatOf(page)).toContainText("Nachricht a 0");
   await expect.poll(() => server.queue.length).toBe(1);
   expect(await chatOf(page).evaluate((element) => element.scrollTop)).toBeLessThan(100);
@@ -376,4 +428,34 @@ test("a reload restores the device cache before the first frame", async ({ page 
   expect(server.frames.at(-1)).toEqual({ id: "a", cursor: "a1", mode: "delta" });
   // The first live frame runs the near-top check the restored view had to skip.
   await expect.poll(() => server.historyReads).toBe(1);
+});
+
+test("a cache preload that settles after the workspace state still restores", async ({
+  page,
+}) => {
+  const server = await restoreFixture(page);
+  await page.goto(baseURL + "/sessions/b/chat");
+  await expect(chatOf(page)).toContainText("Nachricht b 39");
+  await seed(page, [reloadEntry()]);
+  await page.evaluate(() => localStorage.setItem("test-hold-chat-cache", "1"));
+  server.hold = true;
+  await page.goto(baseURL + "/sessions/a/chat");
+  // The workspace rendered and the socket opened while the cache read is held.
+  await expect.poll(() => server.queue.length).toBe(1);
+  await expect(page.locator(".connection")).toHaveText("Verbinde …");
+  await expect(chatOf(page)).not.toContainText("Nachricht a 0");
+  await page.evaluate(() => window.__releaseChatCache());
+  await expect(chatOf(page)).toContainText("Nachricht a 0");
+  await expect(page.locator(".chat-context-budget")).toContainText("Gespeicherter Stand");
+  await expect(limitWarning(page)).toHaveCount(0);
+  expect(await chatOf(page).evaluate((element) => element.scrollTop)).toBeLessThan(100);
+  // The open socket is kept: no second connection for the late entry.
+  expect(server.queue.length).toBe(1);
+  server.release();
+  await expect(page.locator(".connection")).toHaveText("Verbunden");
+  expect(server.frames.filter((frame) => frame.id === "a")).toHaveLength(1);
+  expect(server.frames.at(-1)).toEqual({ id: "a", cursor: null, mode: "full" });
+  await expect(page.locator(".chat-context-budget")).not.toContainText(
+    "Gespeicherter Stand",
+  );
 });

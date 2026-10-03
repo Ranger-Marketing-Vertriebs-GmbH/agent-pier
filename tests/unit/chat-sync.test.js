@@ -205,66 +205,102 @@ test("an expired history cursor restarts from the live cursor without duplicates
   );
 });
 
+const historyConflict = (messageKey = "chat.sessionHistoryMismatch") =>
+  Object.assign(new Error("Conflict"), { status: 409, messageKey });
+
 test("a restored cursor unknown to the server resets to the live window once", async () => {
-  const conflict = () => Object.assign(new Error("Conflict"), { status: 409 });
   const pages = {
     live: { messages: [{ id: "m1" }, { id: "m2" }], history: { cursor: null } },
   };
   const reads = [];
-  let resets = 0;
+  let liveReads = 0;
   const read = async (cursor) => {
     reads.push(cursor);
     // Cached rows make the restarted read skip ahead into a cursor the server lost.
-    if (cursor === "cached" || cursor === "gone") throw conflict();
-    if (cursor === "live" && resets === 0)
+    if (cursor === "cached" || cursor === "gone") throw historyConflict();
+    if (cursor === "live" && liveReads++ === 0)
       return { messages: [{ id: "o1" }], history: { cursor: "gone" } };
     return pages[cursor];
   };
-  const page = await readRestoredOlderPage({
+  const result = await readRestoredOlderPage({
     restored: true,
     cursor: "cached",
     liveCursor: "live",
     read,
     known: new Set(["o1", "m3"]),
-    reset: () => {
-      resets += 1;
-      return new Set(["m3"]);
-    },
+    liveKnown: new Set(["m3"]),
   });
-  assert.equal(resets, 1);
   assert.deepEqual(reads, ["cached", "live", "gone", "live"]);
-  assert.deepEqual(page, pages.live);
+  assert.deepEqual(result, { page: pages.live, reset: true });
+});
+
+test("a restored cursor that still pages normally keeps the restored rows", async () => {
+  const page = { messages: [{ id: "o0" }], history: { cursor: null } };
+  const result = await readRestoredOlderPage({
+    restored: true,
+    cursor: "cached",
+    liveCursor: "live",
+    read: async () => page,
+    known: new Set(),
+    liveKnown: new Set(),
+  });
+  assert.deepEqual(result, { page, reset: false });
+});
+
+test("only a mismatch on a non-live restored cursor resets", async () => {
+  const failing = (error) => async () => {
+    throw error;
+  };
+  // A live (non-restored) cursor is never reset.
   await assert.rejects(
     readRestoredOlderPage({
       restored: false,
       cursor: "cached",
       liveCursor: "live",
-      read: async () => {
-        throw conflict();
-      },
+      read: failing(historyConflict()),
       known: new Set(),
-      reset: () => assert.fail("a live cursor is never reset"),
+      liveKnown: new Set(),
     }),
     { status: 409 },
   );
-  let retried = 0;
+  // The live cursor itself failing: the restored rows stay.
+  const reads = [];
   await assert.rejects(
     readRestoredOlderPage({
       restored: true,
       cursor: "cached",
       liveCursor: "live",
-      read: async () => {
-        throw conflict();
+      read: async (cursor) => {
+        reads.push(cursor);
+        throw historyConflict();
       },
       known: new Set(),
-      reset: () => {
-        retried += 1;
-        return new Set();
-      },
+      liveKnown: new Set(),
     }),
     { status: 409 },
   );
-  assert.equal(retried, 1);
+  assert.deepEqual(reads, ["cached", "live"]);
+  // A pending or unavailable history is no cursor mismatch.
+  for (const messageKey of ["chat.sessionHistoryPending", "chat.historyUnavailable"]) {
+    const seen = [];
+    await assert.rejects(
+      readRestoredOlderPage({
+        restored: true,
+        cursor: "cached",
+        liveCursor: "live",
+        read: async (cursor) => {
+          seen.push(cursor);
+          if (cursor === "live")
+            return { messages: [{ id: "o1" }], history: { cursor: "deep" } };
+          throw historyConflict(messageKey);
+        },
+        known: new Set(["o1"]),
+        liveKnown: new Set(),
+      }),
+      { status: 409, messageKey },
+    );
+    assert.deepEqual(seen, ["cached", "live", "deep"]);
+  }
 });
 
 test("isChatSnapshot accepts only objects with a messages array", () => {

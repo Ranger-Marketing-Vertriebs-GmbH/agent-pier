@@ -58,18 +58,40 @@ export function openChatCacheStore(factory = globalThis.indexedDB) {
       return (await database()).transaction(STORE, mode);
     }
   };
-  // Runs `work(store, setResult)` in one transaction; resolves after it committed.
+  // Runs `work(store, setResult, guard)` in one transaction; resolves after it
+  // committed. A throw in `work`, or in a request callback wrapped by `guard`,
+  // aborts the transaction so no partial puts commit.
   const transact = async (mode, work) => {
     const transaction = await begin(mode);
     return new Promise((resolve, reject) => {
       let result;
+      let failure;
       transaction.oncomplete = () => resolve(result);
-      transaction.onerror = () => reject(transaction.error);
+      transaction.onerror = () => reject(failure || transaction.error);
       transaction.onabort = () =>
-        reject(transaction.error || new Error("Chat cache storage aborted"));
-      work(transaction.objectStore(STORE), (value) => {
-        result = value;
-      });
+        reject(failure || transaction.error || new Error("Chat cache storage aborted"));
+      const guard =
+        (fn) =>
+        (...args) => {
+          try {
+            return fn(...args);
+          } catch (error) {
+            failure ??= error;
+            try {
+              transaction.abort();
+            } catch {
+              // Already finished: nothing more can commit.
+            }
+            reject(error);
+          }
+        };
+      guard(work)(
+        transaction.objectStore(STORE),
+        (value) => {
+          result = value;
+        },
+        guard,
+      );
     });
   };
   const read = (method) =>
@@ -80,11 +102,36 @@ export function openChatCacheStore(factory = globalThis.indexedDB) {
   return {
     getAll: () => read("getAll"),
     getAllKeys: () => read("getAllKeys"),
-    // Puts and deletes commit together in one readwrite transaction.
-    write: ({ puts = [], deletes = [] }) =>
-      transact("readwrite", (store) => {
-        for (const entry of puts) store.put(entry);
-        for (const key of deletes) store.delete(key);
+    /**
+     * Puts and deletes commit together in one readwrite transaction. With
+     * `evict`, the same transaction first reads the stored keys (keys only), then
+     * the values of `evict.read(keys)` (keys this tab does not know), and deletes
+     * `evict.decide(keys, values)` as well. Deletes run after the puts.
+     */
+    write: ({ puts = [], deletes = [], evict }) =>
+      transact("readwrite", (store, _done, guard) => {
+        const commit = (extra = []) => {
+          for (const entry of puts) store.put(entry);
+          for (const key of [...deletes, ...extra]) store.delete(key);
+        };
+        if (!evict) return commit();
+        const listing = store.getAllKeys();
+        listing.onsuccess = guard(() => {
+          const keys = listing.result;
+          const wanted = evict.read(keys);
+          const values = new Map();
+          const finish = () => commit(evict.decide(keys, values));
+          let left = wanted.length;
+          if (left === 0) return finish();
+          for (const key of wanted) {
+            const request = store.get(key);
+            request.onsuccess = guard(() => {
+              values.set(key, request.result);
+              left -= 1;
+              if (left === 0) finish();
+            });
+          }
+        });
       }),
     clear: () => transact("readwrite", (store) => store.clear()),
     // Closes the cached handle so a deleteDatabase is not blocked by this tab.

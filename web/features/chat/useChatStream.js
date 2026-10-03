@@ -8,6 +8,7 @@ import {
 import { createChatStream } from "./chat-stream-transport.js";
 import {
   chatCacheKey,
+  chatCachePreload,
   peekCachedChat,
   restoredSnapshot,
   writeCachedChat,
@@ -148,6 +149,30 @@ export default function useChatStream({
     setHistoryError("");
     stick.current = true;
   }, [key, stick]);
+  // The device preload may settle after the mount (it races /api/state). A late
+  // entry is adopted only while no frame was accepted for this key. The running
+  // socket is kept: it was opened without a cursor, so its first frame is a full
+  // snapshot that replaces the cached window under the usual restored rules.
+  useEffect(() => {
+    if (state.current.key !== key || state.current.live) return;
+    const preload = chatCachePreload();
+    if (!preload) return;
+    let current = true;
+    preload.then(
+      () => {
+        if (!current || state.current.key !== key || state.current.live) return;
+        const seeded = seededState(key);
+        if (!seeded.live) return;
+        state.current = { ...seeded, epoch: state.current.epoch + 1 };
+        restoreScroll.current = seeded.scroll;
+        publish();
+      },
+      () => {},
+    );
+    return () => {
+      current = false;
+    };
+  }, [key, publish]);
   useEffect(() => {
     if (!active) return;
     setHistoryLoading(false);
@@ -218,23 +243,12 @@ export default function useChatStream({
       ]);
     const liveCursor = current.live.history?.cursor || null;
     try {
-      const page = await readRestoredOlderPage({
+      const { page, reset } = await readRestoredOlderPage({
         restored: current.cachedPaging,
         cursor,
         liveCursor,
         known: shown(),
-        reset: () => {
-          if (state.current !== current || epoch !== current.epoch)
-            throw new Error("Stale history request");
-          // Fall back to the live window; its cursor is one the server issued.
-          current.cachedPaging = false;
-          current.older = [];
-          current.paged = false;
-          current.cursor = liveCursor;
-          publish();
-          save();
-          return shown();
-        },
+        liveKnown: new Set((current.live?.messages || []).map((row) => row.id)),
         read: (value) =>
           request(
             `/sessions/${encodeURIComponent(session.id)}/chat/history?cursor=${encodeURIComponent(value)}`,
@@ -249,6 +263,9 @@ export default function useChatStream({
       const element = output.current;
       if (element)
         anchor.current = { height: element.scrollHeight, top: element.scrollTop };
+      // The cached cursor was unknown: the restored older rows give way to the
+      // page read from the live cursor, in the same commit.
+      if (reset) current.older = [];
       // Rows that rolled out of the live window are already older than the page.
       current.older = prependHistoryRows(current.older, page.messages, shown());
       current.cursor = page.history?.cursor || null;
@@ -285,10 +302,15 @@ export default function useChatStream({
     stick.current = true;
     setRestart((value) => value + 1);
   };
-  // Update-only: a scroll position never creates a cache entry.
-  const saveScroll = useCallback((scroll) => {
+  // Update-only: a scroll position never creates a cache entry. Page hiding
+  // (`urgent`) starts the device write now; a session switch writes after paint.
+  const saveScroll = useCallback((scroll, urgent = false) => {
     state.current.scroll = scroll;
-    writeCachedChat(state.current.key, { scroll }, { create: false, flush: true });
+    writeCachedChat(
+      state.current.key,
+      { scroll },
+      { create: false, flush: urgent ? true : "soon" },
+    );
   }, []);
   return {
     data,

@@ -57,10 +57,12 @@ its messages immediately, before the socket has delivered anything.
 - Memory layer: an LRU of 12 chats, keyed by `[session id, account, tool, createdAt]`.
 - Device layer: IndexedDB database `agentpier.chat.cache.v1`, object store `sessions`,
   with at most 12 entries and 8,000,000 in total serialized size (least recently used first out).
-  Entries are serialized only when the cache is flushed (throttled writes, page hide),
-  not on every change. A flush writes its entries and the resulting evictions in one
-  transaction; eviction is decided from an in-memory index of entry sizes and access
-  times filled by the startup read, so no stored chats are read for it. Pruning
+  Entries are serialized only when the cache is flushed (throttled writes, page hide,
+  and after the next paint on a session switch), not on every change. A flush writes
+  its entries and the resulting evictions in one transaction; eviction is decided from
+  an in-memory index of entry sizes and access times filled by the startup read. The
+  same transaction lists the stored keys, forgets keys other tabs removed, and reads
+  only the few entries other tabs wrote, so the bounds hold across tabs. Pruning
   removed sessions reads keys only and is skipped while the session list is unchanged.
   After the first device failure the cache stays memory-only.
 - Invalidation: entries carry a cache version and the build identifier. An entry with
@@ -70,9 +72,17 @@ its messages immediately, before the socket has delivered anything.
 A restored chat is not live. It is shown with the stale label, without native input
 warnings and without running subagents, and loading older history is disabled until
 the first server frame has been accepted; then the cached window is replaced and the
-scroll position is restored from its saved anchor. History is loaded after the
-restore. If the server no longer knows a restored paging cursor (409), paging falls
-back to the live window and retries once instead of showing a history error. "Connected" in the transport means the first frame was accepted: when the
+scroll position is restored from its saved anchor (the first at least partly visible
+top-level row). The startup read races the workspace state: a chat view mounted
+before it settled adopts the cached entry when it arrives, as long as no server frame
+was accepted yet; its socket, opened without a cursor, stays open and its first full
+frame replaces the cached window. History is loaded after the restore. If the server
+no longer knows a restored, non-live paging cursor (409 with the history mismatch
+message), paging restarts from the live cursor and the restored older rows are
+replaced together with that page instead of showing a history error; a pending or
+unavailable history is reported as usual. A delta on a socket's first frame applies
+to the baseline the socket was opened with, even if an HTTP fallback read replaced it
+in between. "Connected" in the transport means the first frame was accepted: when the
 socket opens, the state is "connecting" and only becomes "connected" after that
 frame on the open socket. An HTTP fallback read updates the chat but leaves the state
 as the socket reports it.
