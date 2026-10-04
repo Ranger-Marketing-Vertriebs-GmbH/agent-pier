@@ -11,11 +11,16 @@ const tool = (id, description, type, status, text, agentId) => ({
   subagent: { description, type, status, agentId },
 });
 
+/** Client time of the fixture: the completed agent finished two seconds ago. */
+export const fixtureNow = new Date("2026-09-07T10:00:12Z");
+
 /**
  * A running Claude chat with one completed and one working background subagent.
  * `older` serves an older history page whose subagent row is a frozen snapshot.
+ * The page clock starts at `fixtureNow`; tests advance it to expire finished agents.
  */
 export async function subagentFixture(page, { older = false } = {}) {
+  await page.clock.install({ time: fixtureNow });
   const session = {
     id: "subagents",
     name: "Subagent session",

@@ -12,7 +12,10 @@ export default function SubagentList({ subagents = [] }) {
     <section className="chat-subagents" aria-label={copy.subagents}>
       <h3>{subagentHeading(subagents)}</h3>
       {subagents.map((agent) => (
-        <article className="subagent-entry" key={agent.id}>
+        <article
+          className={`subagent-entry${agent.fading ? " fading" : ""}`}
+          key={agent.id}
+        >
           <div className="subagent-heading">
             <span>{agent.name || agent.id}</span>
             <small className={`subagent-status ${subagentStatus(agent)}`}>
