@@ -125,3 +125,19 @@ test("an append before the index catches up keeps the indexed subagent state", a
     await f.indexed();
   }
 });
+
+test("a transcript rewritten in place never serves the old index as live", async (t) => {
+  const f = await claudeHistoryFixture(t);
+  await f.write([...background(), ...filler(120)]);
+  await f.history.readPage(f.session, "native");
+  await f.indexed();
+  const { ino, size } = await fs.stat(f.file);
+  // Same inode, larger, and without any subagent.
+  await f.write(filler(400));
+  const rewritten = await fs.stat(f.file);
+  assert.equal(rewritten.ino, ino);
+  assert.ok(rewritten.size > size);
+  const page = await f.history.readPage(f.session, "native");
+  assert.equal(page.observability.stale, true);
+  assert.deepEqual(page.observability.subagents, []);
+});

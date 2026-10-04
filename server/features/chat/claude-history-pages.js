@@ -129,10 +129,16 @@ export class ClaudeHistoryPages {
    * Tasks and observability of the whole indexed transcript while the index
    * catches up with an append. A provisional tail alone would forget earlier
    * subagents and tasks until the next indexed read, so live views would flip.
+   * A source rewritten in place (same inode, larger) fails the digest check and
+   * keeps the stale provisional state until the index is rebuilt.
    */
-  metadata(session, id, identity) {
+  async metadata(session, id, reader) {
     const entry = this.entries.get(session.id);
-    if (!entry || entry.id !== id || !entry.index.prefix(identity)) return null;
+    if (!entry || entry.id !== id || !entry.index.prefix(reader.identity)) return null;
+    if (!(await reader.extends(entry.index.identity))) return null;
+    // A scan may finish meanwhile; a reset leaves no identity to serve from.
+    if (this.entries.get(session.id) !== entry || !entry.index.prefix(reader.identity))
+      return null;
     return entry.metadata.snapshot();
   }
   warming(session, id, identity) {
