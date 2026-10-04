@@ -17,7 +17,8 @@ export const fixtureNow = new Date("2026-09-07T10:00:12Z");
 /**
  * A running Claude chat with one completed and one working background subagent.
  * `older` serves an older history page whose subagent row is a frozen snapshot.
- * The page clock starts at `fixtureNow`; tests advance it to expire finished agents.
+ * The page clock starts at `fixtureNow` and stands still once the chat has loaded,
+ * so finished agents never expire on a slow run; tests advance it explicitly.
  */
 export async function subagentFixture(page, { older = false } = {}) {
   await page.clock.install({ time: fixtureNow });
@@ -134,5 +135,7 @@ export async function subagentFixture(page, { older = false } = {}) {
   });
   await page.goto(baseURL + "/sessions/subagents/chat");
   await expect(page.locator(".chat-messages")).toContainText("Both reviewers are on it.");
+  const loaded = await page.evaluate(() => Date.now());
+  await page.clock.pauseAt(new Date(loaded + 10));
   return { session, data, publish };
 }
