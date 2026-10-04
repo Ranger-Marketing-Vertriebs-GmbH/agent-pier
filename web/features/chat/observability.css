@@ -46,6 +46,12 @@
   border-radius: 8px;
   margin-bottom: 8px;
   overflow: hidden;
+  /* Matches SUBAGENT_FADE_MS, after which a finished agent leaves the list.
+     accessibility.css drops the transition for reduced motion. */
+  transition: opacity 400ms ease;
+}
+.subagent-entry.fading {
+  opacity: 0;
 }
 .subagent-heading {
   display: flex;

@@ -19,7 +19,7 @@ import ConversationPicker from "./ConversationPicker.jsx";
 import ChatComposer from "./ChatComposer.jsx";
 import ChatObservability from "./ChatObservability.jsx";
 import useChatController from "./useChatController.js";
-import { visibleSubagents } from "./subagent-presentation.js";
+import useSubagentPresence from "./useSubagentPresence.js";
 export default function ChatView({
   active,
   session,
@@ -129,7 +129,11 @@ export default function ChatView({
   }, [restored, active, output, historyError, resetStatus, loadOlder]);
   const subagentsLive =
     session.status === "running" && !restored && !data?.observability?.stale;
-  const subagents = visibleSubagents(data?.observability?.subagents, subagentsLive);
+  const subagents = useSubagentPresence(
+    data?.observability?.subagents,
+    subagentsLive,
+    session.id,
+  );
   return (
     <div className="chat-layout">
       <Tasks

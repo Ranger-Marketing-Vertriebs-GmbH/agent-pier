@@ -1,7 +1,5 @@
 import { chatObservabilityCopy as copy } from "../../lib/i18n/messages/chat-observability.js";
 
-export const RECENT_SUBAGENTS = 5;
-
 export const subagentStatus = (agent) =>
   ["running", "completed", "failed"].includes(agent?.status) ? agent.status : "unknown";
 
@@ -19,28 +17,69 @@ export function subagentHeading(subagents) {
   return copy.subagentSummary(subagents.length, running);
 }
 
+/** How long a finished subagent stays listed, and how long it then fades out. */
+export const SUBAGENT_LINGER_MS = 10_000;
+export const SUBAGENT_FADE_MS = 400;
+
 const updated = (agent) => {
   const time = Date.parse(agent.updatedAt);
-  return Number.isFinite(time) ? time : -Infinity;
+  return Number.isFinite(time) ? time : null;
 };
 
 /**
- * Subagents for the task panel: working agents first, then the five most
- * recently updated finished ones. Saved or stale data (`live` false) never shows
+ * Subagents for the task panel at client time `now`. Working agents come first.
+ * A finished agent stays listed for SUBAGENT_LINGER_MS from the first frame in
+ * which this client saw it finished, then fades (`fading`) and is removed for
+ * good, unless it starts working again. Agents that finished long before they
+ * were first seen are not listed. Saved or stale data (`live` false) never shows
  * a working agent, and an unresolved state is only worth showing while live.
+ *
+ * `memory` (a Map per session view) remembers what was seen between frames; `next`
+ * is the client time of the next change without new data, or null.
  */
-export function visibleSubagents(subagents = [], live = false) {
-  const running = live ? subagents.filter((agent) => agent.status === "running") : [];
-  const finished = subagents
-    .map((agent, order) => ({ agent, order }))
-    .filter(({ agent }) =>
-      live ? agent.status !== "running" : ["completed", "failed"].includes(agent.status),
-    )
-    // Newest first; without timestamps the later observation counts as newer.
-    .sort((a, b) => updated(b.agent) - updated(a.agent) || b.order - a.order)
-    .slice(0, RECENT_SUBAGENTS)
-    .map(({ agent }) => agent);
-  return [...running, ...finished];
+export function presentSubagents(memory, subagents = [], live = false, now = Date.now()) {
+  const running = [],
+    finished = [];
+  let next = null;
+  const wake = (time) => {
+    if (next === null || time < next) next = time;
+  };
+  for (const [order, agent] of subagents.entries()) {
+    const seen = memory.get(agent.id);
+    if (agent.status === "running") {
+      if (!live) continue;
+      memory.set(agent.id, { running: true });
+      running.push(agent);
+      continue;
+    }
+    if (!live && !["completed", "failed"].includes(agent.status)) continue;
+    let finishedAt = seen?.finishedAt;
+    if (seen?.removed) continue;
+    if (finishedAt === undefined) {
+      const time = updated(agent);
+      if (!seen?.running && time !== null && now - time > SUBAGENT_LINGER_MS) {
+        memory.set(agent.id, { removed: true });
+        continue;
+      }
+      finishedAt = now;
+      memory.set(agent.id, { finishedAt });
+    }
+    const fadeAt = finishedAt + SUBAGENT_LINGER_MS,
+      removeAt = fadeAt + SUBAGENT_FADE_MS;
+    if (now >= removeAt) {
+      memory.set(agent.id, { removed: true });
+      continue;
+    }
+    wake(now < fadeAt ? fadeAt : removeAt);
+    finished.push({
+      agent: now < fadeAt ? agent : { ...agent, fading: true },
+      finishedAt,
+      order,
+    });
+  }
+  // Newest completion first; agents first seen together keep their observed order.
+  finished.sort((a, b) => b.finishedAt - a.finishedAt || a.order - b.order);
+  return { subagents: [...running, ...finished.map(({ agent }) => agent)], next };
 }
 
 /**

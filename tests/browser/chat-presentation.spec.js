@@ -174,6 +174,8 @@ test("mobile task drawer lists working subagents first with their task immediate
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
+  // Worker beta finished just before the view opened, so it is still listed.
+  await page.clock.install({ time: new Date("2026-09-06T10:00:05Z") });
   await fixture(page, {
     observability: {
       context: { usedTokens: null, limitTokens: null, source: null },
