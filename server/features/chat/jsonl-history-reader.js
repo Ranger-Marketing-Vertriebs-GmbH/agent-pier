@@ -91,6 +91,21 @@ export class JsonlHistoryReader {
     )
       throw mismatch();
   }
+  /** True when an earlier identity of this source is still its unchanged prefix. */
+  async extends(value) {
+    if (
+      !value ||
+      value.dev !== this.identity.dev ||
+      value.ino !== this.identity.ino ||
+      value.size > this.identity.size
+    )
+      return false;
+    return (
+      digest(await this.bytes(0, value.prefixLength)) === value.prefix &&
+      digest(await this.bytes(value.size - value.tailLength, value.tailLength)) ===
+        value.tail
+    );
+  }
   async metadata() {
     let pending = Buffer.alloc(0);
     for (let position = 0; position < this.identity.size;) {
