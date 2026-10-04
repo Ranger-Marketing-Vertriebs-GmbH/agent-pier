@@ -125,6 +125,16 @@ export class ClaudeHistoryPages {
           : null,
     };
   }
+  /**
+   * Tasks and observability of the whole indexed transcript while the index
+   * catches up with an append. A provisional tail alone would forget earlier
+   * subagents and tasks until the next indexed read, so live views would flip.
+   */
+  metadata(session, id, identity) {
+    const entry = this.entries.get(session.id);
+    if (!entry || entry.id !== id || !entry.index.prefix(identity)) return null;
+    return entry.metadata.snapshot();
+  }
   warming(session, id, identity) {
     const entry = this.entries.get(session.id);
     return Boolean(

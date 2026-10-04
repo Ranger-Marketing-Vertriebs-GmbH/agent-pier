@@ -77,6 +77,16 @@ export class ClaudeHistoryIndex {
       (identity.size < this.identity.size || same(identity, this.identity))
     );
   }
+  /** True while a completed scan covers a prefix of the same, appended source. */
+  prefix(identity) {
+    return (
+      !this.closed &&
+      Boolean(this.identity) &&
+      identity.dev === this.identity.dev &&
+      identity.ino === this.identity.ino &&
+      identity.size >= this.identity.size
+    );
+  }
   refresh(identity) {
     if (this.closed) return Promise.reject(mismatch());
     this.target = identity;

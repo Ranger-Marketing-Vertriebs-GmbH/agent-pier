@@ -11,6 +11,7 @@ import {
   taskStop,
   notification,
 } from "../helpers/claude-subagents.js";
+import { claudeHistoryFixture } from "../helpers/claude-history.js";
 
 const filler = (count) =>
   Array.from({ length: count }, (_, i) => ({
@@ -95,4 +96,32 @@ test("block-shaped notifications on a newer page still complete their agent", as
   const styles = pages[0].find((message) => message.id === "toolu_styles");
   assert.equal(styles.status, "completed");
   assert.deepEqual(pages.flat(), normalizeClaude(records).messages);
+});
+
+test("an append before the index catches up keeps the indexed subagent state", async (t) => {
+  const f = await claudeHistoryFixture(t);
+  // The Agent launches sit far before the provisional tail of the newest page.
+  await f.write([...background(), ...filler(120)]);
+  await f.history.readPage(f.session, "native");
+  await f.indexed();
+  const states = (page) =>
+    Object.fromEntries(
+      page.observability.subagents.map((agent) => [agent.id, agent.status]),
+    );
+  const ready = await f.history.readPage(f.session, "native");
+  assert.equal(ready.observability.stale, false);
+  assert.equal(states(ready).agentstyles02, "running");
+  for (let round = 0; round < 3; round++) {
+    // Each source change is read before the background index has seen it.
+    const more = filler(2).map((record) => ({
+      ...record,
+      uuid: `${round}${record.uuid}`,
+    }));
+    await f.append(more);
+    const page = await f.history.readPage(f.session, "native");
+    assert.equal(page.observability.stale, false);
+    assert.deepEqual(states(page), states(ready));
+    assert.deepEqual(page.tasks, ready.tasks);
+    await f.indexed();
+  }
 });
