@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { fixtureNow, subagentFixture } from "./subagent-fixture.js";
+import { subagentFixture } from "./subagent-fixture.js";
 
 const copy = {
   "de-DE": {
@@ -148,9 +148,6 @@ test.describe("subagent list updates", () => {
     await expect(panel.locator(".subagent-entry[data-original]")).toHaveCount(2);
   });
 
-  // Pauses client time a few seconds after load, so linger steps are exact.
-  const pause = (page) => page.clock.pauseAt(new Date(fixtureNow.getTime() + 6000));
-
   test("a finished agent shows its state, then fades out and leaves the list", async ({
     page,
   }) => {
@@ -159,25 +156,33 @@ test.describe("subagent list updates", () => {
     const styles = panel.locator(".subagent-entry", { hasText: "Check styles" });
     const review = panel.locator(".subagent-entry", { hasText: "Review parser" });
     await expect(styles.locator(".subagent-status")).toHaveText("Working");
-    await pause(page);
+    await page.clock.fastForward(5000);
     data.observability.subagents[1].status = "completed";
     publish();
     await expect(styles.locator(".subagent-status")).toHaveText("Completed");
     await expect(panel.getByRole("heading")).toHaveText("Subagents (2)");
     await watch(page);
     // The completion seen at load expires first; the new one keeps its full linger.
-    await page.clock.fastForward(8000);
+    await page.clock.fastForward(5500);
     await expect(review).toHaveCount(0);
     await expect(panel.getByRole("heading")).toHaveText("Subagents (1)");
     await expect(styles).not.toHaveClass(/fading/);
+    expect(await changes(page)).toEqual({ added: 0, removed: 1 });
     publish();
-    await page.clock.fastForward(2100);
+    // Client time now lags its timers, so the next timer fires before its time.
+    // It must be re-armed instead of stranding the entry.
+    await page.evaluate(() => {
+      const now = Date.now.bind(Date);
+      Date.now = () => now() - 2000;
+    });
+    await page.clock.fastForward(4600);
+    await expect(styles).not.toHaveClass(/fading/);
+    await page.clock.fastForward(2000);
     await expect(styles).toHaveClass(/fading/);
     await expect(styles.locator(".subagent-status")).toHaveText("Completed");
     expect(
       await styles.evaluate((element) => getComputedStyle(element).transitionDuration),
     ).toBe("0.4s");
-    expect(await changes(page)).toEqual({ added: 0, removed: 1 });
     await page.clock.fastForward(400);
     await expect(panel.locator(".subagent-entry")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Show subagents" })).toHaveCount(0);
@@ -197,16 +202,24 @@ test.describe("subagent list updates", () => {
     const { data, publish } = await subagentFixture(page);
     const panel = await open(page);
     const styles = panel.locator(".subagent-entry", { hasText: "Check styles" });
-    await pause(page);
-    data.observability.subagents[1].status = "failed";
-    publish();
-    await expect(styles.locator(".subagent-status")).toHaveText("Failed");
-    await page.clock.fastForward(10100);
-    await expect(styles).toHaveClass(/fading/);
     expect(
       await styles.evaluate((element) => getComputedStyle(element).transitionDuration),
     ).toBe("0s");
-    await page.clock.fastForward(400);
+    await page.clock.fastForward(1000);
+    data.observability.subagents[1].status = "failed";
+    publish();
+    await expect(styles.locator(".subagent-status")).toHaveText("Failed");
+    await watch(page);
+    await page.evaluate(() => {
+      window.fadingSeen = false;
+      new MutationObserver(() => {
+        if (document.querySelector(".subagent-entry.fading")) window.fadingSeen = true;
+      }).observe(document.body, { subtree: true, attributes: true, childList: true });
+    });
+    await page.clock.fastForward(9900);
+    await expect(styles).toBeVisible();
+    await page.clock.fastForward(200);
     await expect(styles).toHaveCount(0);
+    expect(await page.evaluate(() => window.fadingSeen)).toBe(false);
   });
 });

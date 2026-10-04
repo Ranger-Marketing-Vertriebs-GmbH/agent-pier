@@ -30,14 +30,21 @@ const updated = (agent) => {
  * Subagents for the task panel at client time `now`. Working agents come first.
  * A finished agent stays listed for SUBAGENT_LINGER_MS from the first frame in
  * which this client saw it finished, then fades (`fading`) and is removed for
- * good, unless it starts working again. Agents that finished long before they
- * were first seen are not listed. Saved or stale data (`live` false) never shows
+ * good, unless its state changes again (for one more linger) or it works again.
+ * Without a fade (`fade` 0, reduced motion) it leaves when its linger ends.
+ * Agents that finished long before they were first seen are not listed. Saved or stale data (`live` false) never shows
  * a working agent, and an unresolved state is only worth showing while live.
  *
  * `memory` (a Map per session view) remembers what was seen between frames; `next`
  * is the client time of the next change without new data, or null.
  */
-export function presentSubagents(memory, subagents = [], live = false, now = Date.now()) {
+export function presentSubagents(
+  memory,
+  subagents = [],
+  live = false,
+  now = Date.now(),
+  { fade = SUBAGENT_FADE_MS } = {},
+) {
   const running = [],
     finished = [];
   let next = null;
@@ -46,28 +53,31 @@ export function presentSubagents(memory, subagents = [], live = false, now = Dat
   };
   for (const [order, agent] of subagents.entries()) {
     const seen = memory.get(agent.id);
-    if (agent.status === "running") {
+    const { status } = agent;
+    if (status === "running") {
       if (!live) continue;
-      memory.set(agent.id, { running: true });
+      memory.set(agent.id, { status, running: true });
       running.push(agent);
       continue;
     }
-    if (!live && !["completed", "failed"].includes(agent.status)) continue;
-    let finishedAt = seen?.finishedAt;
-    if (seen?.removed) continue;
+    if (!live && !["completed", "failed"].includes(status)) continue;
+    // A removed agent stays gone until its state changes again.
+    if (seen?.removed && seen.status === status) continue;
+    let finishedAt = seen?.removed ? undefined : seen?.finishedAt;
     if (finishedAt === undefined) {
       const time = updated(agent);
-      if (!seen?.running && time !== null && now - time > SUBAGENT_LINGER_MS) {
-        memory.set(agent.id, { removed: true });
+      const changed = seen?.running || seen?.removed;
+      if (!changed && time !== null && now - time > SUBAGENT_LINGER_MS) {
+        memory.set(agent.id, { status, removed: true });
         continue;
       }
       finishedAt = now;
-      memory.set(agent.id, { finishedAt });
     }
+    memory.set(agent.id, { status, finishedAt });
     const fadeAt = finishedAt + SUBAGENT_LINGER_MS,
-      removeAt = fadeAt + SUBAGENT_FADE_MS;
+      removeAt = fadeAt + fade;
     if (now >= removeAt) {
-      memory.set(agent.id, { removed: true });
+      memory.set(agent.id, { status, removed: true });
       continue;
     }
     wake(now < fadeAt ? fadeAt : removeAt);

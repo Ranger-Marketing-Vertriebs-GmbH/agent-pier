@@ -68,13 +68,42 @@ test("a finished subagent lingers, fades out and is then removed for good", () =
   assert.deepEqual(ids(result), []);
   assert.equal(result.next, null);
   // Later frames never bring a removed agent back ...
-  for (const status of ["completed", "failed", "unknown"])
-    assert.deepEqual(
-      ids(presentSubagents(memory, [{ id: "a", status }], true, 99999)),
-      [],
-    );
+  assert.deepEqual(ids(presentSubagents(memory, done, true, 99999)), []);
   // ... unless it starts working again.
   assert.deepEqual(ids(presentSubagents(memory, working, true, 100000)), ["a"]);
+});
+
+test("a changed final state of a removed agent is shown for one more linger", () => {
+  const memory = new Map();
+  const at = Date.parse("2026-09-07T10:00:00Z");
+  const show = (status, time) =>
+    ids(
+      presentSubagents(
+        memory,
+        [{ id: "a", status, updatedAt: "2026-09-07T09:00:00Z" }],
+        true,
+        at + time,
+      ),
+    );
+  // Already old at first sight: removed without being listed.
+  assert.deepEqual(show("unknown", 0), []);
+  assert.deepEqual(show("unknown", 10), []);
+  assert.deepEqual(show("completed", 20), ["a"]);
+  assert.deepEqual(show("completed", 20 + LINGER - 1), ["a"]);
+  assert.deepEqual(show("completed", 20 + LINGER + FADE), []);
+  assert.deepEqual(show("completed", 21 + LINGER + FADE), []);
+});
+
+test("without a fade a finished agent is removed when its linger ends", () => {
+  const memory = new Map();
+  const done = [{ id: "a", status: "completed" }];
+  const options = { fade: 0 };
+  presentSubagents(memory, done, true, 0, options);
+  const before = presentSubagents(memory, done, true, LINGER - 1, options);
+  assert.deepEqual(ids(before), ["a"]);
+  assert.deepEqual(fading(before), []);
+  assert.equal(before.next, LINGER);
+  assert.deepEqual(ids(presentSubagents(memory, done, true, LINGER, options)), []);
 });
 
 test("agents that finished long before they were first seen are not listed", () => {
