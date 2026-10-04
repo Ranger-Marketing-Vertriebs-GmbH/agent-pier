@@ -105,10 +105,14 @@ export async function readClaudePage(history, session, id, state) {
     content = normalizeClaude(ordered);
     await reader.validate();
     if (!state) history.claudePages?.warm(session, id, reader.identity);
+    const whole = state
+      ? null
+      : history.claudePages?.metadata(session, id, reader.identity);
     return {
       ...content,
       indexing: history.claudePages?.warming(session, id, reader.identity) || false,
       observability: { ...observeClaude(ordered), stale: end > 0 },
+      ...whole,
       ...split(content.messages, end, reader.identity),
     };
   } finally {
