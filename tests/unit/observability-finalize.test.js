@@ -290,3 +290,25 @@ test("finalize merges subagent usage into rows and totals and drops the internal
   assert.deepEqual(saved.subagents[0].usage, value.subagents[0].usage);
   assert.deepEqual(finalizeObservability(null, firstParty).totals, null);
 });
+
+test("CLI exit cost is dropped for provider sessions and kept for first-party Claude", () => {
+  const value = {
+    totals: {
+      inputTokens: 10,
+      outputTokens: 5,
+      totalTokens: 15,
+      cost: { usd: 1.5, scope: "cli-exit-incl-subagents" },
+    },
+  };
+  assert.deepEqual(finalizeObservability(value, firstParty).totals.cost, {
+    usd: 1.5,
+    scope: "cli-exit-incl-subagents",
+  });
+  const provider = { ...firstParty, provider: { modelId: "glm-5" } };
+  const dropped = finalizeObservability(value, provider).totals;
+  assert.deepEqual([dropped.cost, dropped.totalTokens], [null, 15]);
+  const costOnly = { totals: { cost: value.totals.cost } };
+  assert.equal(finalizeObservability(costOnly, provider).totals, null);
+  const session = { totals: { ...value.totals, cost: { usd: 2, scope: "session" } } };
+  assert.equal(finalizeObservability(session, provider).totals.cost.usd, 2);
+});

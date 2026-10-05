@@ -30,7 +30,13 @@ export function finalizeObservability(
     session,
   );
   const usage = normalizeSubagentUsage(value?.subagentUsage);
-  const totals = normalizeTotals(value?.totals);
+  // Claude prices provider (gateway) models with its own table, so its CLI exit
+  // cost is no cost of a provider session.
+  const cliExitCost =
+    session?.provider && value?.totals?.cost?.scope === "cli-exit-incl-subagents";
+  const totals = normalizeTotals(
+    cliExitCost ? { ...value.totals, cost: null } : value?.totals,
+  );
   if (totals && usage) totals.subagents = subagentTotals(usage);
   return {
     context,

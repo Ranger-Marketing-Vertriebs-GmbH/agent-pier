@@ -81,7 +81,9 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
         };
       }
       if (record.type === "cost-state") {
-        const amount = usd(record.totalCostUSD);
+        // hasUnknownModelCost marks an estimate for models Claude has no price for.
+        const amount =
+          record.hasUnknownModelCost === true ? null : usd(record.totalCostUSD);
         cost = amount === null ? null : { usd: amount, after: false };
       }
       if (record.type === "assistant" && !record.isApiErrorMessage && cost)
