@@ -56,6 +56,7 @@ function fixture(t, { tokenColumns = true } = {}) {
     fs.rmSync(home, { recursive: true, force: true });
   });
   return {
+    db,
     session,
     message,
     local: { id: "local", tool: "opencode", accountId: "one", cwd: home },
@@ -140,6 +141,35 @@ test("databases without token columns keep paging and report no totals", async (
   const f = fixture(t, { tokenColumns: false });
   f.session("ses_parent");
   f.message(1, [{ type: "text", text: "Hello" }]);
+  const page = await readOpenCodePage(f.history, f.local, "ses_parent");
+  assert.ok(page.messages.length > 0);
+  assert.equal(page.observability.totals, null);
+  assert.equal(page.observability.subagentUsage, null);
+});
+
+test("children without usable token columns count as unavailable", async (t) => {
+  const f = fixture(t);
+  f.session("ses_parent", row(0.1, 1, 1, 0, 0, 0));
+  f.session("ses_child_a", row(0.25, 100, 20, 5, 400, 10, { parent_id: "ses_parent" }));
+  f.session(
+    "ses_child_null",
+    row(null, null, null, null, null, null, { parent_id: "ses_parent" }),
+  );
+  const page = await readOpenCodePage(f.history, f.local, "ses_parent");
+  assert.deepEqual(Object.keys(page.observability.subagentUsage.agents), ["ses_child_a"]);
+  assert.equal(page.observability.subagentUsage.unavailable, 1);
+});
+
+test("a failing totals query still serves the page with null totals", async (t) => {
+  const f = fixture(t);
+  f.session("ses_parent", row(0.1, 1, 1, 0, 0, 0));
+  f.message(1, [{ type: "text", text: "Hello" }]);
+  f.db.exec(`
+    ALTER TABLE session RENAME TO session_raw;
+    CREATE VIEW session AS SELECT id, directory, time_created, revert, parent_id,
+      time_updated, abs(-9223372036854775807 - 1) AS cost, tokens_input, tokens_output,
+      tokens_reasoning, tokens_cache_read, tokens_cache_write FROM session_raw;
+  `);
   const page = await readOpenCodePage(f.history, f.local, "ses_parent");
   assert.ok(page.messages.length > 0);
   assert.equal(page.observability.totals, null);

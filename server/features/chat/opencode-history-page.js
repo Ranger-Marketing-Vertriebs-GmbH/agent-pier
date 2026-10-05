@@ -154,7 +154,7 @@ const TOTAL_COLUMNS = [
 const MAX_CHILDREN = 512;
 
 /** OpenCode maintains these columns per session, so they cover the whole history. */
-function sessionUsage(db, id) {
+function readSessionUsage(db, id) {
   if (!hasColumns(db, "session", TOTAL_COLUMNS))
     return { totals: null, subagentUsage: null };
   const updated = hasColumns(db, "session", ["time_updated"]) ? ",time_updated" : "";
@@ -164,21 +164,35 @@ function sessionUsage(db, id) {
   if (!hasColumns(db, "session", ["parent_id"])) return { totals, subagentUsage: null };
   const agents = {};
   let count = 0;
+  let unavailable = 0;
   for (const child of db
     .prepare(
       `SELECT ${columns} FROM session WHERE parent_id=? ORDER BY time_created,id LIMIT ?`,
     )
-    .iterate(id, MAX_CHILDREN)) {
+    .iterate(id, MAX_CHILDREN + 1)) {
+    if (count >= MAX_CHILDREN) {
+      unavailable++;
+      break;
+    }
     count++;
     const usage = usageFromTotals(openCodeTotals(child, child.time_updated ?? null));
     if (nativeId(child.id) && usage) agents[child.id] = usage;
+    else unavailable++;
   }
   return {
     totals,
     subagentUsage: count
-      ? { agents, toolUses: {}, workflow: null, unavailable: 0, observedAt: null }
+      ? { agents, toolUses: {}, workflow: null, unavailable, observedAt: null }
       : null,
   };
+}
+
+function sessionUsage(db, id) {
+  try {
+    return readSessionUsage(db, id);
+  } catch {
+    return { totals: null, subagentUsage: null };
+  }
 }
 
 function page(db, id, scope, before) {
