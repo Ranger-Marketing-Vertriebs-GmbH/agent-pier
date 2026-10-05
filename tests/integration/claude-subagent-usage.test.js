@@ -6,6 +6,7 @@ import path from "node:path";
 import { claudeHistoryFixture } from "../helpers/claude-history.js";
 import { launch, notification } from "../helpers/claude-subagents.js";
 import { finalizeObservability } from "../../server/features/chat/chat-observability.js";
+import { ClaudeSubagentUsage } from "../../server/features/chat/claude-subagent-usage.js";
 
 const usageRecord = (id, output, stop) => ({
   type: "assistant",
@@ -205,4 +206,159 @@ test("a subagent directory outside the profile is ignored without failing the re
   await usage();
   await settle();
   assert.equal(await usage(), null);
+});
+
+test("an agent that finishes during a refresh has its final records read", async (t) => {
+  const { f, agent, directory, settle, usage } = await setup(
+    t,
+    launch("toolu_run", "agentrun01", "Run"),
+  );
+  await agent("agentrun01", [usageRecord("msg_a1", 10, "end_turn")], {
+    toolUseId: "toolu_run",
+  });
+  await usage();
+  await settle();
+  const cache = f.history.claudeUsage;
+  const scan = cache.workflowFiles;
+  let entered, release;
+  const scanning = new Promise((resolve) => (entered = resolve));
+  const gate = new Promise((resolve) => (release = resolve));
+  cache.workflowFiles = async (folder) => {
+    entered();
+    await gate;
+    return scan.call(cache, folder);
+  };
+  t.after(() => release());
+  await usage();
+  await scanning;
+  await fs.appendFile(
+    path.join(directory, "agent-agentrun01.jsonl"),
+    lines([usageRecord("msg_a2", 30, "end_turn")]),
+  );
+  await f.append([notification("toolu_run", "agentrun01", "completed")]);
+  // The chat now reports the agent as finished while the refresh is still running.
+  const entry = cache.entries.get(f.session.id);
+  const finished = () => cache.peek(entry.session, entry.id, entry.transcript, []);
+  finished();
+  release();
+  await settle();
+  cache.workflowFiles = scan;
+  finished();
+  await settle();
+  assert.equal(finished().agents.agentrun01.totalTokens, 122 + 142);
+});
+
+test("live usage notifications are paced with a trailing notification", async () => {
+  let clock = 10_000;
+  const timers = [],
+    updates = [];
+  const cache = new ClaudeSubagentUsage({
+    root: async () => {
+      throw new Error("not scanned");
+    },
+    onUpdated: () => updates.push(clock),
+    now: () => clock,
+    setTimer: (run, wait) => {
+      const timer = { run, wait };
+      timers.push(timer);
+      return timer;
+    },
+    clearTimer: (timer) => timers.splice(timers.indexOf(timer), 1),
+  });
+  cache.peek({ id: "s" }, "native", "/fixture/native.jsonl");
+  const entry = cache.entries.get("s");
+  await entry.pending;
+  const value = (tokens) => ({
+    agents: { agentx01: { totalTokens: tokens } },
+    toolUses: {},
+    workflow: null,
+    observedAt: null,
+    unavailable: 0,
+  });
+  cache.publish(entry, value(1));
+  assert.deepEqual(updates, [10_000]);
+  clock += 500;
+  cache.publish(entry, value(2));
+  clock += 300;
+  cache.publish(entry, value(3));
+  assert.deepEqual(updates, [10_000]);
+  assert.deepEqual(
+    timers.map((timer) => timer.wait),
+    [1000],
+  );
+  clock = 11_500;
+  timers.shift().run();
+  assert.deepEqual(updates, [10_000, 11_500]);
+  assert.equal(entry.result.agents.agentx01.totalTokens, 3);
+  clock = 13_000;
+  cache.publish(entry, value(4));
+  assert.deepEqual(updates, [10_000, 11_500, 13_000]);
+  assert.equal(timers.length, 0);
+  clock += 100;
+  cache.publish(entry, value(5));
+  assert.equal(timers.length, 1);
+  cache.close();
+  assert.equal(timers.length, 0);
+});
+
+test("an unreadable agent file keeps its last state without failing the refresh", async (t) => {
+  if (process.getuid?.() === 0) return t.skip("root reads every file");
+  const { agent, directory, settle, usage } = await setup(
+    t,
+    launch("toolu_run", "agentrun01", "Run"),
+  );
+  await agent("agentrun01", [usageRecord("msg_a1", 10, "end_turn")], {
+    toolUseId: "toolu_run",
+  });
+  await usage();
+  await settle();
+  const runFile = path.join(directory, "agent-agentrun01.jsonl");
+  await fs.appendFile(runFile, lines([usageRecord("msg_a2", 30, "end_turn")]));
+  await fs.chmod(runFile, 0);
+  t.after(() => fs.chmod(runFile, 0o600).catch(() => {}));
+  await agent("agentdone03", [usageRecord("msg_d1", 10, "end_turn")], null);
+  await usage();
+  await settle();
+  const value = await usage();
+  assert.equal(value.agents.agentrun01.totalTokens, 122);
+  assert.equal(value.agents.agentdone03.totalTokens, 122);
+  await fs.chmod(runFile, 0o600);
+  await usage();
+  await settle();
+  assert.equal((await usage()).agents.agentrun01.totalTokens, 122 + 142);
+});
+
+test("agent files beyond the cap count as unavailable", async (t) => {
+  const { f, agent, settle, usage } = await setup(t, []);
+  await agent("agenta01", [usageRecord("msg_1", 10, "end_turn")], null);
+  await agent("agentb02", [usageRecord("msg_2", 10, "end_turn")], null);
+  f.history.claudeUsage.maxFiles = 1;
+  await usage();
+  await settle();
+  const value = await usage();
+  assert.deepEqual([Object.keys(value.agents), value.unavailable], [["agenta01"], 1]);
+});
+
+test("symlinked workflows directories and meta files are ignored", async (t) => {
+  const { directory, agent, settle, usage } = await setup(t, []);
+  const outside = await fs.mkdtemp(path.join(os.tmpdir(), "claude-workflows-"));
+  t.after(() => fs.rm(outside, { recursive: true, force: true }));
+  const workflow = path.join(outside, "wf_fixture");
+  await agent("agentwf03", [usageRecord("msg_w1", 40, "end_turn")], null, workflow);
+  await fs.writeFile(
+    path.join(outside, "meta.json"),
+    JSON.stringify({ toolUseId: "toolu_link" }),
+  );
+  await agent("agentmain01", [usageRecord("msg_m1", 10, "end_turn")], null);
+  await fs.symlink(outside, path.join(directory, "workflows"));
+  await fs.symlink(
+    path.join(outside, "meta.json"),
+    path.join(directory, "agent-agentmain01.meta.json"),
+  );
+  await usage();
+  await settle();
+  const value = await usage();
+  assert.equal(value.workflow, null);
+  assert.deepEqual(value.toolUses, {});
+  assert.equal(value.agents.agentmain01.totalTokens, 122);
 });

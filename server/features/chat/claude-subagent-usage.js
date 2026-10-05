@@ -1,3 +1,4 @@
+import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { setImmediate as yieldTurn } from "node:timers/promises";
@@ -9,6 +10,7 @@ const MAX_LINE = 4 * 1024 * 1024;
 const MAX_META = 64 * 1024;
 const MAX_FILES = 1024;
 const MAX_DEPTH = 8;
+const NOTIFY_INTERVAL = 1500;
 const AGENT_FILE = /^agent-([A-Za-z0-9][A-Za-z0-9_-]{0,119})\.jsonl$/;
 const WORKFLOW_DIR = /^wf_[A-Za-z0-9_-]{1,120}$/;
 const USAGE = Buffer.from('"usage"');
@@ -96,7 +98,9 @@ export async function readAgentUsage(file, previous = null) {
 async function readMeta(file) {
   let handle;
   try {
-    handle = await fs.open(file, "r");
+    const stat = await fs.lstat(file);
+    if (!stat.isFile()) return {};
+    handle = await fs.open(file, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
     const buffer = Buffer.alloc(MAX_META);
     const { bytesRead } = await handle.read(buffer, 0, MAX_META, 0);
     if (bytesRead >= MAX_META) return {};
@@ -114,17 +118,32 @@ async function readMeta(file) {
 
 /** Bounded per-session cache of `<session>/subagents` usage, refreshed in the background. */
 export class ClaudeSubagentUsage {
-  constructor({ root, onUpdated, maxSessions = 16 } = {}) {
+  constructor({
+    root,
+    onUpdated,
+    maxSessions = 16,
+    maxFiles = MAX_FILES,
+    interval = NOTIFY_INTERVAL,
+    now = Date.now,
+    setTimer = setTimeout,
+    clearTimer = clearTimeout,
+  } = {}) {
     this.root = root;
     this.onUpdated = onUpdated;
     this.maxSessions = maxSessions;
+    this.maxFiles = maxFiles;
+    this.interval = interval;
+    this.now = now;
+    this.setTimer = setTimer;
+    this.clearTimer = clearTimer;
     this.entries = new Map();
   }
   peek(session, id, transcript, running = []) {
     if (this.closed) return null;
     const key = JSON.stringify([session.accountId, session.cwd, id, transcript]);
     let entry = this.entries.get(session.id);
-    if (!entry || entry.key !== key)
+    if (!entry || entry.key !== key) {
+      if (entry) this.forget(entry);
       entry = {
         key,
         session: { ...session },
@@ -133,6 +152,7 @@ export class ClaudeSubagentUsage {
         files: new Map(),
         metas: new Map(),
         names: [],
+        overflow: 0,
         directoryMtime: null,
         running: new Set(),
         previous: new Set(),
@@ -140,16 +160,28 @@ export class ClaudeSubagentUsage {
         digest: null,
         reads: 0,
         pending: null,
+        dirty: false,
+        notifiedAt: -Infinity,
+        timer: null,
       };
+    }
     this.entries.delete(session.id);
     this.entries.set(session.id, entry);
-    while (this.entries.size > this.maxSessions)
-      this.entries.delete(this.entries.keys().next().value);
+    while (this.entries.size > this.maxSessions) {
+      const [oldest, evicted] = this.entries.entries().next().value;
+      this.forget(evicted);
+      this.entries.delete(oldest);
+    }
     entry.running = new Set(running.filter(nativeId));
-    if (!entry.pending)
+    // A peek during a refresh asks for one follow-up refresh with the new running set.
+    if (entry.pending) entry.dirty = true;
+    else
       entry.pending = (async () => {
-        await yieldTurn();
-        await this.refresh(entry);
+        do {
+          entry.dirty = false;
+          await yieldTurn();
+          await this.refresh(entry);
+        } while (entry.dirty && !this.closed && this.entries.get(session.id) === entry);
       })()
         .catch(() => {})
         .finally(() => {
@@ -158,6 +190,9 @@ export class ClaudeSubagentUsage {
     return entry.result;
   }
   async refresh(entry) {
+    // Agents that finish during this refresh stay watched at the next one, so
+    // their final records are read even when they were written after this read.
+    const running = new Set(entry.running);
     const root = await this.root(entry.session);
     if (this.closed || this.entries.get(entry.session.id) !== entry) return;
     const directory = await inside(
@@ -167,10 +202,11 @@ export class ClaudeSubagentUsage {
     if (!directory) return this.publish(entry, null);
     const stat = await fs.stat(directory);
     if (stat.mtimeMs !== entry.directoryMtime) {
-      entry.names = (await fs.readdir(directory))
+      const names = (await fs.readdir(directory))
         .filter((name) => AGENT_FILE.test(name))
-        .sort()
-        .slice(0, MAX_FILES);
+        .sort();
+      entry.names = names.slice(0, this.maxFiles);
+      entry.overflow = names.length - entry.names.length;
       entry.directoryMtime = stat.mtimeMs;
     }
     const top = (agentId) => {
@@ -185,7 +221,7 @@ export class ClaudeSubagentUsage {
     };
     // New files are read once; afterwards only files of agents that run now or
     // ran at the previous refresh (their last records) are read again.
-    const watched = new Set([...entry.running, ...entry.previous]);
+    const watched = new Set([...running, ...entry.previous]);
     for (const name of entry.names) {
       const agentId = AGENT_FILE.exec(name)[1];
       const file = path.join(directory, name);
@@ -197,16 +233,16 @@ export class ClaudeSubagentUsage {
       if (known && !watched.has(agentId) && !watched.has(top(agentId))) continue;
       if (!(await regularFile(file))) continue;
       entry.reads++;
+      // An unreadable file keeps its last known state instead of failing the scan.
       entry.files.set(
         file,
-        await readAgentUsage(file, known).catch((error) => {
-          if (missing(error)) return null;
-          throw error;
-        }),
+        await readAgentUsage(file, known).catch((error) =>
+          missing(error) ? null : (known ?? null),
+        ),
       );
     }
-    const workflowFiles = await this.workflowFiles(directory);
-    for (const file of workflowFiles) {
+    const workflows = await this.workflowFiles(directory);
+    for (const file of workflows.files) {
       entry.reads++;
       entry.files.set(
         file,
@@ -215,33 +251,45 @@ export class ClaudeSubagentUsage {
         ),
       );
     }
-    entry.previous = new Set(entry.running);
-    this.publish(entry, this.summarize(entry, directory, workflowFiles, top));
+    entry.previous = new Set([...running, ...entry.running]);
+    const result = this.summarize(entry, directory, workflows.files, top);
+    this.publish(entry, {
+      ...result,
+      unavailable: entry.overflow + workflows.overflow,
+    });
   }
   async workflowFiles(directory) {
     const workflows = path.join(directory, "workflows");
+    const none = { files: [], overflow: 0 };
+    const stat = await fs.lstat(workflows).catch(() => null);
+    if (!stat?.isDirectory() || !(await inside(workflows, directory))) return none;
     const names = await fs.readdir(workflows).catch((error) => {
       if (missing(error)) return [];
       throw error;
     });
     const files = [];
+    let overflow = 0;
     for (const name of names.filter((value) => WORKFLOW_DIR.test(value)).sort()) {
       const folder = path.join(workflows, name);
       if (!(await fs.lstat(folder).catch(() => null))?.isDirectory()) continue;
       for (const file of (await fs.readdir(folder).catch(() => []))
         .filter((value) => AGENT_FILE.test(value))
         .sort()) {
+        if (files.length >= this.maxFiles) {
+          overflow++;
+          continue;
+        }
         if (!(await regularFile(path.join(folder, file)))) continue;
         files.push(path.join(folder, file));
-        if (files.length >= MAX_FILES) return files;
       }
     }
-    return files;
+    return { files, overflow };
   }
   summarize(entry, directory, workflowFiles, top) {
     const agents = {},
       toolUses = {},
-      current = new Set(workflowFiles);
+      current = new Set(workflowFiles),
+      present = new Set();
     let observedAt = null;
     const note = (totals) => {
       if (totals?.observedAt && (!observedAt || totals.observedAt > observedAt))
@@ -251,6 +299,7 @@ export class ClaudeSubagentUsage {
       const agentId = AGENT_FILE.exec(name)[1];
       const file = path.join(directory, name);
       current.add(file);
+      present.add(agentId);
       const meta = entry.metas.get(agentId);
       if (meta?.toolUseId && !meta.parentAgentId) toolUses[meta.toolUseId] = agentId;
       const totals = entry.files.get(file)?.usage.totals();
@@ -271,13 +320,14 @@ export class ClaudeSubagentUsage {
       .filter(Boolean);
     for (const file of entry.files.keys())
       if (!current.has(file)) entry.files.delete(file);
+    for (const agentId of entry.metas.keys())
+      if (!present.has(agentId)) entry.metas.delete(agentId);
     return {
       agents,
       toolUses,
       workflow: workflow.length
         ? { count: workflow.length, usage: sumUsage(workflow) }
         : null,
-      unavailable: 0,
       observedAt,
     };
   }
@@ -287,13 +337,35 @@ export class ClaudeSubagentUsage {
     const quiet = entry.digest === null && !result;
     entry.digest = digest;
     entry.result = result;
-    if (!quiet)
+    if (!quiet) this.notify(entry);
+  }
+  /**
+   * Each notification makes clients re-read the chat, which peeks again; pacing
+   * them keeps a writing subagent from turning that into a busy loop. The last
+   * change within an interval is announced when the interval ends.
+   */
+  notify(entry) {
+    if (entry.timer) return;
+    const wait = entry.notifiedAt + this.interval - this.now();
+    const send = () => {
+      entry.timer = null;
+      if (this.closed || this.entries.get(entry.session.id) !== entry) return;
+      entry.notifiedAt = this.now();
       void Promise.resolve(
         this.onUpdated?.({ session: entry.session, id: entry.id }),
       ).catch(() => {});
+    };
+    if (wait <= 0) return send();
+    entry.timer = this.setTimer(send, wait);
+    entry.timer?.unref?.();
+  }
+  forget(entry) {
+    if (entry.timer) this.clearTimer(entry.timer);
+    entry.timer = null;
   }
   close() {
     this.closed = true;
+    for (const entry of this.entries.values()) this.forget(entry);
     this.entries.clear();
   }
 }
