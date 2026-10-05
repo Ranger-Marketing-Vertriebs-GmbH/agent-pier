@@ -122,7 +122,7 @@ test("subagent usage sums files, rolls depth-2 agents into their ancestor and co
   assert.equal(final.totals.totalTokens, 2);
 });
 
-test("a live file is read in complete lines and re-read once after its agent stops running", async (t) => {
+test("live files are read in complete lines and re-read only when they change", async (t) => {
   const { f, agent, directory, settle, usage } = await setup(t, [
     ...launch("toolu_run", "agentrun01", "Run"),
     ...launch("toolu_done", "agentdone02", "Done"),
@@ -150,10 +150,10 @@ test("a live file is read in complete lines and re-read once after its agent sto
   );
   await usage();
   await settle();
-  assert.equal(entry.reads, reads + 1);
+  assert.equal(entry.reads, reads + 2);
   const value = await usage();
   assert.equal(value.agents.agentrun01.totalTokens, 122 + 142);
-  assert.equal(value.agents.agentdone02.totalTokens, 122);
+  assert.equal(value.agents.agentdone02.totalTokens, 122 + 122);
   await settle();
   await fs.appendFile(runFile, lines([usageRecord("msg_a3", 50, "end_turn")]));
   await f.append([notification("toolu_run", "agentrun01", "completed")]);
@@ -361,4 +361,82 @@ test("symlinked workflows directories and meta files are ignored", async (t) => 
   assert.equal(value.workflow, null);
   assert.deepEqual(value.toolUses, {});
   assert.equal(value.agents.agentmain01.totalTokens, 122);
+});
+
+test("agents the observer never reports as running are re-read when their files grow", async (t) => {
+  const { f, agent, directory, settle, usage } = await setup(t, []);
+  await agent("agentfork01", [usageRecord("msg_f1", 10, "end_turn")], {
+    toolUseId: "toolu_skill",
+  });
+  await agent("agentchild02", [usageRecord("msg_c1", 10, "end_turn")], {
+    parentAgentId: "agentfork01",
+    spawnDepth: 2,
+  });
+  await usage();
+  await settle();
+  assert.equal((await usage()).agents.agentfork01.totalTokens, 244);
+  const entry = f.history.claudeUsage.entries.get(f.session.id);
+  const reads = entry.reads;
+  await usage();
+  await settle();
+  assert.equal(entry.reads, reads);
+  await fs.appendFile(
+    path.join(directory, "agent-agentfork01.jsonl"),
+    lines([usageRecord("msg_f2", 30, "end_turn")]),
+  );
+  await fs.appendFile(
+    path.join(directory, "agent-agentchild02.jsonl"),
+    lines([usageRecord("msg_c2", 50, "end_turn")]),
+  );
+  await usage();
+  await settle();
+  assert.equal(entry.reads, reads + 2);
+  assert.equal((await usage()).agents.agentfork01.totalTokens, 244 + 142 + 162);
+});
+
+test("unchanged workflow agent files are not reopened", async (t) => {
+  const { f, agent, directory, settle, usage } = await setup(t, []);
+  const folder = path.join(directory, "workflows", "wf_fixture");
+  await agent("agentwf03", [usageRecord("msg_w1", 40, "end_turn")], null, folder);
+  await usage();
+  await settle();
+  const entry = f.history.claudeUsage.entries.get(f.session.id);
+  const reads = entry.reads;
+  await usage();
+  await settle();
+  assert.equal(entry.reads, reads);
+  await fs.appendFile(
+    path.join(folder, "agent-agentwf03.jsonl"),
+    lines([usageRecord("msg_w2", 10, "end_turn")]),
+  );
+  await usage();
+  await settle();
+  assert.equal(entry.reads, reads + 1);
+  assert.equal((await usage()).workflow.usage.totalTokens, 152 + 122);
+});
+
+test("an empty or half-written meta file is read again once it is complete", async (t) => {
+  const { agent, directory, settle, usage } = await setup(t, []);
+  await agent("agentreview01", [usageRecord("msg_r1", 10, "end_turn")], null);
+  await agent("agentnested02", [usageRecord("msg_n1", 10, "end_turn")], null);
+  const meta = (agentId) => path.join(directory, `agent-${agentId}.meta.json`);
+  await fs.writeFile(meta("agentreview01"), "");
+  await fs.writeFile(meta("agentnested02"), '{"parentAgentId":"agen');
+  await usage();
+  await settle();
+  assert.deepEqual((await usage()).toolUses, {});
+  await fs.writeFile(
+    meta("agentreview01"),
+    JSON.stringify({ toolUseId: "toolu_review" }),
+  );
+  await fs.writeFile(
+    meta("agentnested02"),
+    JSON.stringify({ parentAgentId: "agentreview01", spawnDepth: 2 }),
+  );
+  await usage();
+  await settle();
+  const value = await usage();
+  assert.deepEqual(value.toolUses, { toolu_review: "agentreview01" });
+  assert.deepEqual(Object.keys(value.agents), ["agentreview01"]);
+  assert.equal(value.agents.agentreview01.totalTokens, 244);
 });

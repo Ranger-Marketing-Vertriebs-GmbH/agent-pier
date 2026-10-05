@@ -2,7 +2,7 @@ import { CodexRolloutMetadata } from "./codex-rollout-metadata.js";
 import { CodexChildUsage } from "./codex-child-usage.js";
 import { activeOpenCodeExport } from "./opencode-revert.js";
 import { ClaudeHistoryPages } from "./claude-history-pages.js";
-import { ClaudeSubagentUsage, runningAgents } from "./claude-subagent-usage.js";
+import { ClaudeSubagentUsage } from "./claude-subagent-usage.js";
 import { readHistoryPage } from "./history-page.js";
 import { observeClaude, observeCodex, observeOpenCode } from "./chat-observability.js";
 import { serverMessages } from "../../lib/i18n/de.js";
@@ -407,12 +407,7 @@ export class ProviderHistory {
         ...normalizeClaude(records),
         observability: {
           ...observability,
-          subagentUsage: this.claudeUsage.peek(
-            session,
-            id,
-            file,
-            runningAgents(observability),
-          ),
+          subagentUsage: this.claudeUsage.peek(session, id, file),
         },
       };
     }

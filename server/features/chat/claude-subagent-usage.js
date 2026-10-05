@@ -2,7 +2,7 @@ import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { setImmediate as yieldTurn } from "node:timers/promises";
-import { list, nativeId } from "./observability-values.js";
+import { nativeId } from "./observability-values.js";
 import { createClaudeUsage, sumUsage, usageFromTotals } from "./token-usage.js";
 
 const BLOCK = 64 * 1024;
@@ -15,11 +15,6 @@ const AGENT_FILE = /^agent-([A-Za-z0-9][A-Za-z0-9_-]{0,119})\.jsonl$/;
 const WORKFLOW_DIR = /^wf_[A-Za-z0-9_-]{1,120}$/;
 const USAGE = Buffer.from('"usage"');
 const missing = (error) => ["ENOENT", "ENOTDIR"].includes(error?.code);
-
-export const runningAgents = (observability) =>
-  list(observability?.subagents)
-    .filter((agent) => agent?.status === "running" && nativeId(agent.id))
-    .map((agent) => agent.id);
 
 /** Real directory below the profile root, or null when absent or outside it. */
 async function inside(directory, root) {
@@ -35,7 +30,13 @@ async function inside(directory, root) {
   }
 }
 
-const regularFile = async (file) => (await fs.lstat(file).catch(() => null))?.isFile();
+const regularFile = async (file) => {
+  const stat = await fs.lstat(file).catch(() => null);
+  return stat?.isFile() ? stat : null;
+};
+/** A cached file state still describes the file when inode, size and mtime match. */
+const current = (state, stat) =>
+  state?.ino === stat.ino && state.size === stat.size && state.mtimeMs === stat.mtimeMs;
 
 /**
  * Continues a subagent file from its last complete line. Files are live-appended,
@@ -94,23 +95,36 @@ export async function readAgentUsage(file, previous = null) {
   }
 }
 
-/** `{ toolUseId, parentAgentId }`, or null while the meta file does not exist yet. */
-async function readMeta(file) {
+/**
+ * `{ meta }` with `{ toolUseId, parentAgentId }` once it is final: parsed, or `{}`
+ * for a meta that is no regular file or too large. `{ failed }` names the size and
+ * mtime of an empty or unparseable (half-written) meta, which is read again only
+ * after it changes. Null while it is missing or a read failed transiently.
+ */
+async function readMeta(file, failed) {
   let handle;
   try {
     const stat = await fs.lstat(file);
-    if (!stat.isFile()) return {};
+    if (!stat.isFile() || stat.size >= MAX_META) return { meta: {} };
+    if (failed?.size === stat.size && failed.mtimeMs === stat.mtimeMs) return { failed };
     handle = await fs.open(file, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
     const buffer = Buffer.alloc(MAX_META);
     const { bytesRead } = await handle.read(buffer, 0, MAX_META, 0);
-    if (bytesRead >= MAX_META) return {};
-    const meta = JSON.parse(buffer.subarray(0, bytesRead).toString("utf8"));
-    return {
-      toolUseId: nativeId(meta?.toolUseId),
-      parentAgentId: nativeId(meta?.parentAgentId),
-    };
+    if (bytesRead >= MAX_META) return { meta: {} };
+    try {
+      const meta = JSON.parse(buffer.subarray(0, bytesRead).toString("utf8"));
+      return {
+        meta: {
+          toolUseId: nativeId(meta?.toolUseId),
+          parentAgentId: nativeId(meta?.parentAgentId),
+        },
+      };
+    } catch {
+      return { failed: { size: stat.size, mtimeMs: stat.mtimeMs } };
+    }
   } catch (error) {
-    return missing(error) ? null : {};
+    // A symlink swapped in after lstat is no meta to follow.
+    return error?.code === "ELOOP" ? { meta: {} } : null;
   } finally {
     await handle?.close();
   }
@@ -138,7 +152,7 @@ export class ClaudeSubagentUsage {
     this.clearTimer = clearTimer;
     this.entries = new Map();
   }
-  peek(session, id, transcript, running = []) {
+  peek(session, id, transcript) {
     if (this.closed) return null;
     const key = JSON.stringify([session.accountId, session.cwd, id, transcript]);
     let entry = this.entries.get(session.id);
@@ -151,11 +165,10 @@ export class ClaudeSubagentUsage {
         transcript,
         files: new Map(),
         metas: new Map(),
+        metaFailures: new Map(),
         names: [],
         overflow: 0,
         directoryMtime: null,
-        running: new Set(),
-        previous: new Set(),
         result: null,
         digest: null,
         reads: 0,
@@ -172,8 +185,8 @@ export class ClaudeSubagentUsage {
       this.forget(evicted);
       this.entries.delete(oldest);
     }
-    entry.running = new Set(running.filter(nativeId));
-    // A peek during a refresh asks for one follow-up refresh with the new running set.
+    // A peek during a refresh asks for one follow-up refresh, so changes written
+    // during the running one are seen.
     if (entry.pending) entry.dirty = true;
     else
       entry.pending = (async () => {
@@ -190,9 +203,6 @@ export class ClaudeSubagentUsage {
     return entry.result;
   }
   async refresh(entry) {
-    // Agents that finish during this refresh stay watched at the next one, so
-    // their final records are read even when they were written after this read.
-    const running = new Set(entry.running);
     const root = await this.root(entry.session);
     if (this.closed || this.entries.get(entry.session.id) !== entry) return;
     const directory = await inside(
@@ -219,44 +229,43 @@ export class ClaudeSubagentUsage {
         id = entry.metas.get(id).parentAgentId;
       return id;
     };
-    // New files are read once; afterwards only files of agents that run now or
-    // ran at the previous refresh (their last records) are read again.
-    const watched = new Set([...running, ...entry.previous]);
+    // Every known file is stat-checked on each refresh and read again only when
+    // its size or mtime changed, whatever the observer reports about its agent.
     for (const name of entry.names) {
       const agentId = AGENT_FILE.exec(name)[1];
-      const file = path.join(directory, name);
       if (!entry.metas.has(agentId)) {
-        const meta = await readMeta(path.join(directory, `agent-${agentId}.meta.json`));
-        if (meta) entry.metas.set(agentId, meta);
+        const read = await readMeta(
+          path.join(directory, `agent-${agentId}.meta.json`),
+          entry.metaFailures.get(agentId),
+        );
+        if (read?.meta) {
+          entry.metas.set(agentId, read.meta);
+          entry.metaFailures.delete(agentId);
+        } else if (read?.failed) entry.metaFailures.set(agentId, read.failed);
       }
-      const known = entry.files.get(file);
-      if (known && !watched.has(agentId) && !watched.has(top(agentId))) continue;
-      if (!(await regularFile(file))) continue;
-      entry.reads++;
-      // An unreadable file keeps its last known state instead of failing the scan.
-      entry.files.set(
-        file,
-        await readAgentUsage(file, known).catch((error) =>
-          missing(error) ? null : (known ?? null),
-        ),
-      );
+      await this.update(entry, path.join(directory, name));
     }
     const workflows = await this.workflowFiles(directory);
-    for (const file of workflows.files) {
-      entry.reads++;
-      entry.files.set(
-        file,
-        await readAgentUsage(file, entry.files.get(file)).catch(
-          () => entry.files.get(file) ?? null,
-        ),
-      );
-    }
-    entry.previous = new Set([...running, ...entry.running]);
+    for (const file of workflows.files) await this.update(entry, file);
     const result = this.summarize(entry, directory, workflows.files, top);
     this.publish(entry, {
       ...result,
       unavailable: entry.overflow + workflows.overflow,
     });
+  }
+  /** Reads a file again only when it changed; an unreadable file keeps its last state. */
+  async update(entry, file) {
+    const stat = await regularFile(file);
+    if (!stat) return;
+    const known = entry.files.get(file);
+    if (known && current(known, stat)) return;
+    entry.reads++;
+    entry.files.set(
+      file,
+      await readAgentUsage(file, known).catch((error) =>
+        missing(error) ? null : (known ?? null),
+      ),
+    );
   }
   async workflowFiles(directory) {
     const workflows = path.join(directory, "workflows");
@@ -279,7 +288,6 @@ export class ClaudeSubagentUsage {
           overflow++;
           continue;
         }
-        if (!(await regularFile(path.join(folder, file)))) continue;
         files.push(path.join(folder, file));
       }
     }
@@ -322,6 +330,8 @@ export class ClaudeSubagentUsage {
       if (!current.has(file)) entry.files.delete(file);
     for (const agentId of entry.metas.keys())
       if (!present.has(agentId)) entry.metas.delete(agentId);
+    for (const agentId of entry.metaFailures.keys())
+      if (!present.has(agentId)) entry.metaFailures.delete(agentId);
     return {
       agents,
       toolUses,
