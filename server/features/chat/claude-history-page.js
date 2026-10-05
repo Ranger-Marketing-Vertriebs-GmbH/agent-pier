@@ -123,7 +123,10 @@ async function readClaudeContent(history, session, id, state, file) {
     content = normalizeClaude(ordered);
     await reader.validate();
     if (!state) history.claudePages?.warm(session, id, reader.identity);
-    const whole = state ? null : await history.claudePages?.metadata(session, id, reader);
+    const whole =
+      state || end === 0
+        ? null
+        : await history.claudePages?.metadata(session, id, reader);
     return {
       ...content,
       indexing: history.claudePages?.warming(session, id, reader.identity) || false,

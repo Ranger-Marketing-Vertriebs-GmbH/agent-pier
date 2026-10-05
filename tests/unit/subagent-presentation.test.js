@@ -5,6 +5,7 @@ import {
   presentSubagents,
   subagentHeading,
   SUBAGENT_LINGER_MS,
+  SUBAGENT_FIRST_SEEN_TOLERANCE_MS,
   SUBAGENT_FADE_MS,
 } from "../../web/features/chat/subagent-presentation.js";
 
@@ -115,6 +116,19 @@ test("agents that finished long before they were first seen are not listed", () 
   ];
   const result = presentSubagents(new Map(), agents, true, now);
   assert.deepEqual(ids(result), ["fresh", "untimed"]);
+  assert.equal(result.next, now + LINGER);
+});
+
+test("an agent first seen finished within the clock-skew tolerance is still listed", () => {
+  assert.equal(SUBAGENT_FIRST_SEEN_TOLERANCE_MS, 60_000);
+  const now = Date.parse("2026-09-07T10:01:00Z");
+  const agents = [
+    { id: "skewed", status: "completed", updatedAt: "2026-09-07T10:00:30Z" },
+    { id: "old", status: "completed", updatedAt: "2026-09-07T09:59:50Z" },
+  ];
+  const result = presentSubagents(new Map(), agents, true, now);
+  assert.deepEqual(ids(result), ["skewed"]);
+  // The linger runs on client time from the first frame.
   assert.equal(result.next, now + LINGER);
 });
 
