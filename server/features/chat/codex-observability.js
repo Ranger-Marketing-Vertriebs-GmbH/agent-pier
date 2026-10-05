@@ -9,10 +9,18 @@ import {
   agentStatus,
   putAgent,
 } from "./observability-values.js";
+import { codexTotals } from "./token-usage.js";
+import { codexRateLimit } from "./rate-limits.js";
 export function observeCodex(thread, records = []) {
   let context = emptyContext();
   const agents = new Map();
   let modelId = null;
+  let threadUsage = null,
+    processUsage = null,
+    limitsAt = null;
+  const limits = new Map();
+  // A rollout may carry records of other threads; without ids nothing is excluded.
+  const ownThread = (value) => !value || !thread?.id || value === thread.id;
   const native = (id, values) =>
     putAgent(agents, id, { source: "codex-agent-event", ...values });
   for (const record of list(records)) {
@@ -30,14 +38,30 @@ export function observeCodex(thread, records = []) {
         source: null,
         observedAt: at,
       };
+    if (
+      record?.type === "token_usage_record" &&
+      item.thread_token_usage &&
+      ownThread(item.thread_id)
+    )
+      threadUsage = { usage: item.thread_token_usage, at };
     if (record?.type !== "event_msg") continue;
-    if (item.type === "token_count" && item.info) {
-      context = codexContext(item.info.last_token_usage?.total_tokens, {
+    if (item.type === "token_count" && item.info?.last_token_usage) {
+      context = codexContext(item.info.last_token_usage.total_tokens, {
         limitTokens: item.info.model_context_window,
         source: "native-token-count",
         observedAt: at,
         modelId,
       });
+    }
+    if (item.type === "token_count" && item.info?.total_token_usage)
+      processUsage = { usage: item.info.total_token_usage, at };
+    if (item.type === "token_count" && item.rate_limits) {
+      const bucket = codexRateLimit(item.rate_limits);
+      if (bucket) {
+        limits.delete(bucket.limitId);
+        limits.set(bucket.limitId, bucket);
+        limitsAt = at;
+      }
     }
     if (item.type === "collab_agent_spawn_end")
       native(item.new_thread_id, {
@@ -126,5 +150,23 @@ export function observeCodex(thread, records = []) {
       source: "native-token-count",
       modelId: context.modelId,
     });
-  return { context, subagents: [...agents.values()], stale: false };
+  // Per-thread usage never decreases; the process total restarts on resume.
+  const totals = threadUsage
+    ? codexTotals(threadUsage.usage, "codex-thread", threadUsage.at)
+    : processUsage
+      ? codexTotals(processUsage.usage, "codex-process", processUsage.at)
+      : null;
+  return {
+    context,
+    totals,
+    limits: limits.size
+      ? {
+          source: "codex-rate-limits",
+          buckets: [...limits.values()],
+          observedAt: limitsAt,
+        }
+      : null,
+    subagents: [...agents.values()],
+    stale: false,
+  };
 }
