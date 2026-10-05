@@ -266,6 +266,15 @@ test("rollout metadata keeps the parent thread usage, bounded limits and the las
     { type: "session_meta", payload: { id: "parent" } },
   ]);
   assert.equal(observeCodex({ id: "parent" }, late).totals.totalTokens, 1000);
+  // A forked rollout repeats its parent's session_meta after its own.
+  const forked = run(fresh(), [
+    { type: "session_meta", payload: { id: "child" } },
+    { type: "session_meta", payload: { id: "parent" } },
+    usageRecord("parent", 1000),
+    usageRecord("child", 70),
+  ]);
+  const child = observeCodex({ id: "child" }, forked).totals;
+  assert.deepEqual([child.totalTokens, child.source], [70, "codex-thread"]);
   const big = "9".repeat(100_000);
   const limited = run(fresh(), [
     {

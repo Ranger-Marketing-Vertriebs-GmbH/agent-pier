@@ -154,7 +154,13 @@ export class CodexRolloutMetadata {
           },
         },
       ]);
-    if (record?.type === "session_meta" && typeof p?.id === "string") {
+    // The first session_meta is the rollout's own thread; forked and subagent
+    // rollouts repeat their parent's session_meta after it.
+    if (
+      record?.type === "session_meta" &&
+      typeof p?.id === "string" &&
+      !entry.sessionId
+    ) {
       entry.sessionId = p.id;
       for (const name of [...entry.records.keys()])
         if (name.startsWith("thread-usage:") && name !== `thread-usage:${p.id}`)
