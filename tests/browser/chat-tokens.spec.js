@@ -380,6 +380,8 @@ for (const locale of ["de-DE", "en-GB"]) {
       const chip = page.locator(".chat-context-chip");
       await expect(chip).toBeVisible();
       await expect(chip).toHaveText(text.chip);
+      // The chip is the only visible context value, so it must be readable.
+      await expect(chip).not.toHaveAttribute("aria-hidden");
       await expect(page.locator(".chat-context-budget")).toBeHidden();
       await expect(page.locator(".chat-token-details")).toBeHidden();
       await page.getByRole("button", { name: text.showContext }).click();

@@ -47,7 +47,7 @@ Explicit native compaction markers clear the last observed usage until another A
 
 After a Claude compaction, `context.compaction.conversationTokens` holds `compactMetadata.postTokens`. That count leaves out the system prompt, tools and re-injected attachments and is typically 2–13x smaller than the next real context, so it is shown as "conversation after compaction (excl. system/tools)" without a bar. `usedTokens` stays null until the next assistant usage.
 
-Saved Chat snapshots retain original sources and timestamps, with `observability.stale: true` when native history is unavailable and the saved view is used. A stopped parent session cannot display a child as currently running; unresolved running states become unknown. On mobile the collapsed chat shows only a compact "% remaining" chip when a window is known; for a saved snapshot the chip is dimmed and labeled "Saved state".
+Saved Chat snapshots retain original sources and timestamps, with `observability.stale: true` when native history is unavailable and the saved view is used. A stopped parent session cannot display a child as currently running; unresolved running states become unknown. On mobile the collapsed chat shows only a compact "% remaining" chip when a window is known, readable by screen readers because it is the only visible context value (it is not displayed whenever the full context row is); for a saved snapshot the chip is dimmed and labeled "Saved state".
 
 ## Session totals and cost
 
