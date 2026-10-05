@@ -69,6 +69,14 @@ test("first-party Claude sessions get an assumed window that is dropped when exc
     nativeModelId: "claude-sonnet-5[1m]",
   }).context;
   assert.deepEqual([fallback.limitTokens, fallback.remainingPercent], [1000000, null]);
+  assert.equal(assumedClaudeWindow("claude-sonnet-4-5[1m]"), 1000000);
+  const beta = (modelId) =>
+    finalizeObservability(claude({ modelId }), {
+      ...firstParty,
+      nativeModelId: "claude-sonnet-4-5[1m]",
+    }).context.limitTokens;
+  assert.equal(beta("claude-sonnet-4-5-20250929"), 1000000);
+  assert.equal(beta("claude-haiku-4-5-20251001"), 200000);
   const dropped = finalizeObservability(
     claude({
       usedTokens: 250000,
