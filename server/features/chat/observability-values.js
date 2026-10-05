@@ -22,6 +22,7 @@ export const emptyContext = () => ({
   limitSource: null,
   observedAt: null,
   modelId: null,
+  compaction: null,
 });
 export function inputTokens(input, ...caches) {
   if (tokens(input) === null) return null;
@@ -32,6 +33,10 @@ export function inputTokens(input, ...caches) {
     result += cache;
   }
   return tokens(result);
+}
+export function remainingPercent(used, limit) {
+  if (tokens(used) === null || !(tokens(limit) > 0)) return null;
+  return Math.round(Math.max(0, Math.min(100, (1 - used / limit) * 100)) * 10) / 10;
 }
 export function contextValue(
   usedTokens,
@@ -47,14 +52,12 @@ export function contextValue(
   return {
     usedTokens: used,
     limitTokens: limit,
-    remainingPercent:
-      used !== null && limit
-        ? Math.round(Math.max(0, Math.min(100, (1 - used / limit) * 100)) * 10) / 10
-        : null,
+    remainingPercent: remainingPercent(used, limit),
     source: used === null ? null : source,
     limitSource: limit ? "native" : null,
     observedAt: timestamp(observedAt),
     modelId: text(modelId, 200) || null,
+    compaction: null,
   };
 }
 export function agentStatus(value) {
