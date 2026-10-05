@@ -6,6 +6,7 @@ import {
 import { normalizeClaude } from "./history-parsers.js";
 import { observeClaude } from "./claude-observability.js";
 import { JsonlHistoryReader } from "./jsonl-history-reader.js";
+import { runningAgents } from "./claude-subagent-usage.js";
 import { problem } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 
@@ -24,6 +25,23 @@ export async function readClaudePage(history, session, id, state) {
     if (state) throw problem(serverMessages.chat.sessionHistoryMismatch, 409);
     throw error;
   }
+  const page = await readClaudeContent(history, session, id, state, file);
+  if (state || !page.observability || !history.claudeUsage) return page;
+  return {
+    ...page,
+    observability: {
+      ...page.observability,
+      subagentUsage: history.claudeUsage.peek(
+        session,
+        id,
+        file,
+        runningAgents(page.observability),
+      ),
+    },
+  };
+}
+
+async function readClaudeContent(history, session, id, state, file) {
   const reader = await JsonlHistoryReader.open(file, state?.identity);
   try {
     const metadata = await reader.metadata();
