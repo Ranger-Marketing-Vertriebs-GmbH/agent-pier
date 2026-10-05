@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { claudeHistoryFixture } from "../helpers/claude-history.js";
@@ -103,4 +104,48 @@ test("Chat keeps the last known totals while a page reports none", async (t) => 
   assert.equal((await restarted.read(session.id)).observability.totals.totalTokens, 10);
   restarted.initialize(session, "other", "manual");
   assert.equal((await restarted.read(session.id)).observability.totals, null);
+});
+
+test("an older-page read that reaches the transcript start reports no totals", async (t) => {
+  const f = await claudeHistoryFixture(t);
+  await f.write(transcript(f, 120));
+  let page = await f.history.readPage(f.session, "native");
+  assert.equal(page.observability.totals, null);
+  let older = 0;
+  while (page.next) {
+    page = await f.history.readPage(f.session, "native", page.next);
+    older++;
+    assert.equal(page.observability.totals, null);
+  }
+  assert.ok(older > 0);
+});
+
+test("Chat reads the saved snapshot at most once while totals stay unknown", async (t) => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "token-chat-"));
+  t.after(() => fs.rm(dataDir, { recursive: true, force: true }));
+  const session = { id: "fixture", accountId: "one", tool: "claude", cwd: dataDir };
+  const content = {
+    messages: [],
+    tasks: [],
+    observability: { context: {}, subagents: [], totals: null },
+    next: null,
+  };
+  const history = { readPage: async () => content };
+  const chat = new ChatStore({
+    dataDir,
+    sessions: { get: async () => session },
+    history,
+  });
+  const snapshotReads = (reads) =>
+    reads.mock.calls.filter((call) => String(call.arguments[0]).includes(".snapshot."))
+      .length;
+  const reads = t.mock.method(fsSync, "readFileSync");
+  chat.snapshot(session, "native", content);
+  assert.equal(snapshotReads(reads), 1);
+  chat.snapshot(session, "native", content);
+  chat.snapshot(session, "native", content);
+  assert.equal(snapshotReads(reads), 1);
+  chat.reset(session.id);
+  chat.snapshot(session, "native", content);
+  assert.equal(snapshotReads(reads), 2);
 });
