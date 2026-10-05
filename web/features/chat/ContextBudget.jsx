@@ -30,10 +30,11 @@ export default function ContextBudget({ context = {}, stale = false }) {
     used === null ? tokenCount(context.compaction?.conversationTokens) : null;
   return (
     <>
+      {/* Only the collapsed mobile row shows the chip, and it hides the budget
+          there; display: none keeps screen readers from hearing both. */}
       {remaining !== null && limit > 0 && (
         <span
           className={`chat-context-chip${stale ? " stale" : ""}`}
-          aria-hidden="true"
           title={stale ? copy.stale : undefined}
         >
           {copy.remaining(formatNumber(remaining, { maximumFractionDigits: 0 }))}
