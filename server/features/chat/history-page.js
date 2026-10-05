@@ -40,23 +40,25 @@ export async function readHistoryPage(history, session, id, state = null) {
   let full = { ...thread, turns: [...(page.data || [])].reverse() };
   if (!state) full = await reconcileCodexTail(history, session, full);
   const content = normalizeCodex(full);
-  let records = [];
-  if (!state && history.codexMetadata) {
-    try {
-      records = await history.codexMetadata.read(history, session, full);
-      if (records.some((record) => record.payload?.name === "update_plan"))
-        content.tasks = normalizeCodexRecords(records).tasks;
-    } catch {
-      /* API history remains available when supplemental metadata is unavailable. */
-    }
-  }
-  let children = null;
-  if (!state && history.codexChildren) {
-    try {
-      children = await history.codexChildren.read(history, session, id);
-    } catch {
-      /* Child usage is supplemental. */
-    }
+  const [records, children] = await Promise.all([
+    !state && history.codexMetadata
+      ? history.codexMetadata.read(history, session, full).catch(
+          // API history remains available when supplemental metadata is unavailable.
+          () => [],
+        )
+      : [],
+    !state && history.codexChildren
+      ? history.codexChildren.read(history, session, id).catch(
+          // Child usage is supplemental.
+          () => null,
+        )
+      : null,
+  ]);
+  try {
+    if (records.some((record) => record.payload?.name === "update_plan"))
+      content.tasks = normalizeCodexRecords(records).tasks;
+  } catch {
+    /* Plans stay as reported by the API when metadata cannot be normalized. */
   }
   return {
     ...content,

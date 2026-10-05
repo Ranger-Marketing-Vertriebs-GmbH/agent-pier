@@ -13,16 +13,25 @@ const BLOCK = 64 * 1024;
 const MAX_TAIL = 8 * 1024 * 1024;
 const MAX_LINE = 4 * 1024 * 1024;
 const MAX_CHILDREN = 512;
+const MAX_DEPTH = 4;
+const BUSY_TIMEOUT = 200;
 const RECORD = Buffer.from('"token_usage_record"');
-// Grandchildren roll up into the direct child that spawned them.
-const TREE = `WITH RECURSIVE tree(child, top, depth) AS (
-    SELECT child_thread_id, child_thread_id, 1 FROM thread_spawn_edges WHERE parent_thread_id=?
+// Grandchildren roll up into the direct child that spawned them. The walk goes one
+// level deeper than counted so truncated descendants are known; a cycle back to the
+// root or along the current path stops, and read() keeps each thread's shallowest row.
+const TREE = `WITH RECURSIVE tree(child, top, depth, path) AS (
+    SELECT child_thread_id, child_thread_id, 1, char(31) || child_thread_id || char(31)
+      FROM thread_spawn_edges WHERE parent_thread_id=?1 AND child_thread_id<>?1
     UNION
-    SELECT e.child_thread_id, tree.top, tree.depth + 1 FROM thread_spawn_edges e
-      JOIN tree ON e.parent_thread_id = tree.child WHERE tree.depth < 4
+    SELECT e.child_thread_id, tree.top, tree.depth + 1,
+        tree.path || e.child_thread_id || char(31)
+      FROM thread_spawn_edges e JOIN tree ON e.parent_thread_id = tree.child
+      WHERE tree.depth <= ${MAX_DEPTH} AND e.child_thread_id<>?1
+        AND instr(tree.path, char(31) || e.child_thread_id || char(31)) = 0
   )
-  SELECT tree.child AS id, tree.top AS top, t.rollout_path AS rollout
-  FROM tree LEFT JOIN threads t ON t.id = tree.child LIMIT ${MAX_CHILDREN}`;
+  SELECT tree.child AS id, tree.top AS top, tree.depth AS depth, t.rollout_path AS rollout
+  FROM tree LEFT JOIN threads t ON t.id = tree.child
+  ORDER BY tree.depth LIMIT ${MAX_CHILDREN + 1}`;
 
 function usageLine(line, threadId) {
   if (!line.includes(RECORD)) return null;
@@ -39,11 +48,16 @@ function usageLine(line, threadId) {
 }
 
 /** The last complete token_usage_record of a rollout, read backwards from its end. */
-export async function lastTokenUsage(
-  file,
-  threadId = null,
-  { maxBytes = MAX_TAIL } = {},
-) {
+export async function lastTokenUsage(file, threadId = null, options = {}) {
+  return (await scanTokenUsage(file, threadId, options)).totals;
+}
+
+/**
+ * `complete` is false when the scan gave up (tail or line cap) before the file start,
+ * so a missing record is unknown rather than absent.
+ */
+async function scanTokenUsage(file, threadId, { maxBytes = MAX_TAIL } = {}) {
+  const incomplete = { totals: null, complete: false };
   const handle = await fs.open(file, "r");
   try {
     const { size } = await handle.stat();
@@ -65,14 +79,15 @@ export async function lastTokenUsage(
         if (trailing) trailing = false;
         else {
           const found = usageLine(buffer.subarray(index + 1, cut), threadId);
-          if (found) return found;
+          if (found) return { totals: found, complete: true };
         }
         cut = index;
       }
       rest = buffer.subarray(0, cut);
-      if (rest.length > MAX_LINE) return null;
+      if (rest.length > MAX_LINE) return incomplete;
     }
-    return position === 0 && !trailing ? usageLine(rest, threadId) : null;
+    if (position > 0) return incomplete;
+    return { totals: trailing ? null : usageLine(rest, threadId), complete: true };
   } finally {
     await handle.close();
   }
@@ -80,9 +95,10 @@ export async function lastTokenUsage(
 
 /** Child threads from Codex's own state database; usage from their rollouts' tails. */
 export class CodexChildUsage {
-  constructor({ maxFiles = 512 } = {}) {
+  constructor({ maxFiles = 512, maxBytes = MAX_TAIL } = {}) {
     this.files = new Map();
     this.maxFiles = maxFiles;
+    this.maxBytes = maxBytes;
     this.reads = 0;
   }
   async read(history, session, threadId) {
@@ -93,7 +109,7 @@ export class CodexChildUsage {
     try {
       location = await locateDatabase(root, file);
       if (!location) return null;
-      db = openDatabase(location);
+      db = openDatabase(location, { busyTimeout: BUSY_TIMEOUT });
       if (
         !hasColumns(db, "thread_spawn_edges", ["parent_thread_id", "child_thread_id"]) ||
         !hasColumns(db, "threads", ["id", "rollout_path"])
@@ -108,12 +124,20 @@ export class CodexChildUsage {
     if (!rows.length || !(await unchangedDatabase(root, file, location))) return null;
     const realRoot = await fs.realpath(root).catch(() => null);
     const agents = {};
-    let unavailable = 0,
+    // A row beyond the limit means at least one more child could not be read.
+    let unavailable = rows.length > MAX_CHILDREN ? 1 : 0,
       observedAt = null;
-    for (const row of rows) {
+    const seen = new Set([threadId]);
+    for (const row of rows.slice(0, MAX_CHILDREN)) {
       const id = nativeId(row.id),
         top = nativeId(row.top);
-      if (!id || !top) continue;
+      // Rows come shallowest first; a revisit is a cycle or a duplicate path.
+      if (!id || !top || seen.has(id)) continue;
+      seen.add(id);
+      if (row.depth > MAX_DEPTH) {
+        unavailable++;
+        continue;
+      }
       const totals = await this.child(row.rollout, id, realRoot);
       if (totals === undefined) {
         unavailable++;
@@ -127,7 +151,10 @@ export class CodexChildUsage {
     }
     return { agents, toolUses: {}, workflow: null, unavailable, observedAt };
   }
-  /** Totals of one child; undefined when its rollout is missing or outside the profile. */
+  /**
+   * Totals of one child; undefined when its rollout is missing, no regular file, outside
+   * the profile or could not be scanned far enough to know its usage.
+   */
   async child(rollout, id, realRoot) {
     if (typeof rollout !== "string" || !rollout || !realRoot) return undefined;
     let real, stat;
@@ -135,6 +162,7 @@ export class CodexChildUsage {
       real = await fs.realpath(rollout);
       if (!real.startsWith(realRoot + path.sep)) return undefined;
       stat = await fs.stat(real);
+      if (!stat.isFile()) return undefined;
     } catch {
       return undefined;
     }
@@ -145,7 +173,10 @@ export class CodexChildUsage {
       return cached.totals;
     }
     this.reads++;
-    const totals = await lastTokenUsage(real, id).catch(() => null);
+    const scan = await scanTokenUsage(real, id, { maxBytes: this.maxBytes }).catch(
+      () => null,
+    );
+    const totals = scan?.complete || scan?.totals ? scan.totals : undefined;
     this.files.delete(real);
     this.files.set(real, { size: stat.size, mtimeMs: stat.mtimeMs, totals });
     while (this.files.size > this.maxFiles)

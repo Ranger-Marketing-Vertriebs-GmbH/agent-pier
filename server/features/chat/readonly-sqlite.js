@@ -57,7 +57,9 @@ export async function locateDatabase(root, file) {
  * Read-only connection inside an open transaction. Even READONLY SQLite creates WAL
  * sidecars for a checkpointed database; without sidecars it is opened immutable.
  */
-export function openDatabase(location) {
+export function openDatabase(location, { busyTimeout = 1500 } = {}) {
+  const timeout =
+    Number.isSafeInteger(busyTimeout) && busyTimeout >= 0 ? busyTimeout : 1500;
   const { DatabaseSync } = require("node:sqlite");
   const url = pathToFileURL(location.file);
   if (location.immutable) url.search = "?mode=ro&immutable=1";
@@ -67,7 +69,7 @@ export function openDatabase(location) {
   });
   try {
     db.exec(
-      "PRAGMA query_only=ON; PRAGMA trusted_schema=OFF; PRAGMA busy_timeout=1500; BEGIN",
+      `PRAGMA query_only=ON; PRAGMA trusted_schema=OFF; PRAGMA busy_timeout=${timeout}; BEGIN`,
     );
   } catch (error) {
     db.close();

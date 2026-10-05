@@ -200,3 +200,55 @@ test("the first Codex page carries thread totals and child usage", async (t) => 
   assert.equal(page.observability.totals.totalTokens, 110);
   assert.equal(page.observability.subagentUsage.agents["thread-a"].totalTokens, 11);
 });
+
+test("a spawn cycle through the root never counts the parent or a child twice", async (t) => {
+  const f = fixture(t);
+  f.rollout("thread-parent", [record("thread-parent", 90000, 9000)]);
+  f.rollout("thread-a", [record("thread-a", 100, 10)]);
+  f.rollout("thread-b", [record("thread-b", 20, 2)]);
+  f.edge("thread-parent", "thread-a");
+  f.edge("thread-a", "thread-b");
+  f.edge("thread-b", "thread-parent");
+  const value = await new CodexChildUsage().read(f.history, f.session, "thread-parent");
+  assert.deepEqual(Object.keys(value.agents), ["thread-a"]);
+  assert.equal(value.agents["thread-a"].totalTokens, 132);
+  assert.equal(value.unavailable, 0);
+});
+
+test("descendants beyond the depth limit and children beyond the row limit are unavailable", async (t) => {
+  const f = fixture(t);
+  const chain = ["thread-parent", "c1", "c2", "c3", "c4", "c5", "c6"];
+  for (const id of chain.slice(1)) f.rollout(id, [record(id, 1, 1)]);
+  for (let index = 1; index < chain.length; index++)
+    f.edge(chain[index - 1], chain[index]);
+  const deep = await new CodexChildUsage().read(f.history, f.session, "thread-parent");
+  assert.deepEqual(Object.keys(deep.agents), ["c1"]);
+  assert.equal(deep.agents.c1.totalTokens, 8);
+  assert.equal(deep.unavailable, 1);
+  f.db.exec("BEGIN");
+  for (let index = 0; index < 513; index++) f.edge("thread-wide", `wide-${index}`);
+  f.db.exec("COMMIT");
+  const wide = await new CodexChildUsage().read(f.history, f.session, "thread-wide");
+  assert.equal(wide.unavailable, 513);
+});
+
+test("a child whose tail scan gives up or whose rollout is no file is unavailable", async (t) => {
+  const f = fixture(t);
+  const file = f.rollout("thread-a", [
+    record("thread-a", 1, 1),
+    {
+      type: "event_msg",
+      payload: { type: "agent_message", message: "y".repeat(200000) },
+    },
+  ]);
+  const directory = path.join(f.root, "sessions", "rollout-dir");
+  fs.mkdirSync(directory);
+  f.db.prepare("INSERT INTO threads VALUES (?, ?)").run("thread-dir", directory);
+  f.edge("thread-parent", "thread-a");
+  f.edge("thread-parent", "thread-dir");
+  const children = new CodexChildUsage({ maxBytes: 64 * 1024 });
+  const value = await children.read(f.history, f.session, "thread-parent");
+  assert.deepEqual(value.agents, {});
+  assert.equal(value.unavailable, 2);
+  assert.equal((await lastTokenUsage(file, "thread-a")).totalTokens, 2);
+});
