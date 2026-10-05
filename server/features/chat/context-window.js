@@ -22,6 +22,16 @@ const baseId = (value) =>
     ?.toLowerCase()
     .replace(/-\d{8}$/, "") || null;
 
+/** A selection names the observed model by full id or by family alias like `sonnet`. */
+const selectsObserved = (selection, observed) => {
+  const chosen = baseId(selection);
+  const seen = baseId(observed);
+  if (!chosen || !seen) return false;
+  return (
+    chosen === seen || (/^[a-z]+$/.test(chosen) && seen.startsWith(`claude-${chosen}-`))
+  );
+};
+
 /** A trailing `[1m]` selects the 1M context beta and is 1M evidence by itself. */
 export function assumedClaudeWindow(modelId) {
   const base = baseId(modelId);
@@ -72,15 +82,13 @@ export function applyContextWindow(input, session) {
     // The transcript never carries `[1m]`, so a 1M selection of the observed
     // model (date suffix ignored) decides the window.
     const native = session.nativeModelId;
-    const window = assumedClaudeWindow(
-      !/^claude-/i.test(observed || "")
-        ? native
-        : typeof native === "string" &&
-            ONE_M.test(native.trim()) &&
-            baseId(native) === baseId(observed)
-          ? native
-          : context.modelId,
-    );
+    const oneM =
+      typeof native === "string" &&
+      ONE_M.test(native.trim()) &&
+      selectsObserved(native, observed);
+    const window = oneM
+      ? 1000000
+      : assumedClaudeWindow(!/^claude-/i.test(observed || "") ? native : context.modelId);
     const used = tokens(context.usedTokens);
     if (window && !(used !== null && used > window))
       Object.assign(context, {
