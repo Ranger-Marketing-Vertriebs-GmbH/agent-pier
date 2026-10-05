@@ -43,7 +43,7 @@ const current = (state, stat) =>
  * so an unfinished last line is read again on the next refresh.
  */
 export async function readAgentUsage(file, previous = null) {
-  const handle = await fs.open(file, "r");
+  const handle = await fs.open(file, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
   try {
     const stat = await handle.stat();
     let state = previous;
