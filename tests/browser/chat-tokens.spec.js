@@ -31,6 +31,7 @@ const copy = {
     inputCodex: "Eingabe (inkl. Cache)",
     used: /42\s%\sgenutzt/,
     week: "7 Tage",
+    reasoningInOutput: "davon Reasoning",
   },
   "en-GB": {
     context: "Context budget",
@@ -59,6 +60,7 @@ const copy = {
     inputCodex: "Input (incl. cached)",
     used: /42% used/,
     week: "7 days",
+    reasoningInOutput: "of which reasoning",
   },
 };
 
@@ -229,7 +231,9 @@ for (const locale of ["de-DE", "en-GB"]) {
     test("Codex shows thread totals without cost and its limit buckets", async ({
       page,
     }) => {
+      await page.clock.install();
       const resets = Date.now() + 3 * 3600 * 1000;
+      const soon = Date.now() + 60 * 1000;
       await codexFixture(page, {
         context: {
           usedTokens: 70000,
@@ -270,9 +274,16 @@ for (const locale of ["de-DE", "en-GB"]) {
               limitName: "GPT-5.3-Codex-Spark",
               plan: null,
               windows: [
-                { windowMinutes: 300, usedPercent: 12, resetsAt: resets },
+                { windowMinutes: 300, usedPercent: 12, resetsAt: soon },
                 { windowMinutes: 10080, usedPercent: 3, resetsAt: resets },
               ],
+              credits: null,
+            },
+            {
+              limitId: "codex_expired",
+              limitName: "Expired",
+              plan: null,
+              windows: [{ windowMinutes: 300, usedPercent: 90, resetsAt: soon }],
               credits: null,
             },
           ],
@@ -281,10 +292,15 @@ for (const locale of ["de-DE", "en-GB"]) {
       });
       await page.locator(".chat-token-details > summary").click();
       await expect(page.locator(".chat-token-totals")).toContainText(text.inputCodex);
-      await expect(page.locator(".chat-token-totals")).toContainText("Reasoning");
+      const rows = page.locator(".chat-token-totals tr");
+      await expect(rows.nth(1)).toContainText(text.outputLabel);
+      await expect(rows.nth(2)).toHaveText(new RegExp(`^${text.reasoningInOutput}800$`));
+      await expect(rows.nth(2)).toHaveClass(/sub/);
+      await expect(rows).toHaveCount(6);
       await expect(page.locator(".chat-token-cost")).toHaveCount(0);
       const buckets = page.locator(".chat-limit-bucket");
-      await expect(buckets).toHaveCount(2);
+      await expect(buckets).toHaveCount(3);
+      await expect(buckets.nth(1).locator(".chat-limit-window")).toHaveCount(2);
       await expect(buckets.nth(0)).toContainText(text.week);
       await expect(buckets.nth(0)).toContainText(text.used);
       await expect(buckets.nth(0).locator("time")).toHaveAttribute("title", /\d/);
@@ -292,6 +308,10 @@ for (const locale of ["de-DE", "en-GB"]) {
       await expect(buckets.nth(1)).toContainText("5 h");
       await expect(page.getByRole("meter", { name: text.meter })).toBeVisible();
       await expect(page.locator(".chat-token-totals")).not.toContainText(text.process);
+      // An open panel hides windows at their reset, without new data.
+      await page.clock.fastForward(61 * 1000);
+      await expect(buckets).toHaveCount(2);
+      await expect(buckets.nth(1).locator(".chat-limit-window")).toHaveCount(1);
     });
 
     test("process totals, credits, session cost and unavailable subagents are labelled", async ({
