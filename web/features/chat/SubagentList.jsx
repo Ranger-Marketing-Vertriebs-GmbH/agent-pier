@@ -6,28 +6,33 @@ import {
   subagentStatus,
   subagentStatusLabel,
 } from "./subagent-presentation.js";
+import { usageSummary } from "./token-presentation.js";
 export default function SubagentList({ subagents = [] }) {
   if (!subagents.length) return null;
   return (
     <section className="chat-subagents" aria-label={copy.subagents}>
       <h3>{subagentHeading(subagents)}</h3>
-      {subagents.map((agent) => (
-        <article
-          className={`subagent-entry${agent.fading ? " fading" : ""}`}
-          key={agent.id}
-        >
-          <div className="subagent-heading">
-            <span>{agent.name || agent.id}</span>
-            <small className={`subagent-status ${subagentStatus(agent)}`}>
-              {subagentStatusLabel(agent.status)}
-            </small>
-          </div>
-          <p>{agent.task || copy.noTask}</p>
-          {agent.updatedAt && (
-            <time dateTime={agent.updatedAt}>{formatTimestamp(agent.updatedAt)}</time>
-          )}
-        </article>
-      ))}
+      {subagents.map((agent) => {
+        const usage = usageSummary(agent.usage);
+        return (
+          <article
+            className={`subagent-entry${agent.fading ? " fading" : ""}`}
+            key={agent.id}
+          >
+            <div className="subagent-heading">
+              <span>{agent.name || agent.id}</span>
+              <small className={`subagent-status ${subagentStatus(agent)}`}>
+                {subagentStatusLabel(agent.status)}
+              </small>
+            </div>
+            <p>{agent.task || copy.noTask}</p>
+            {usage && <small className="subagent-usage">{usage}</small>}
+            {agent.updatedAt && (
+              <time dateTime={agent.updatedAt}>{formatTimestamp(agent.updatedAt)}</time>
+            )}
+          </article>
+        );
+      })}
     </section>
   );
 }
