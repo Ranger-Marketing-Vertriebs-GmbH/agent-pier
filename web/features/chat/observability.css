@@ -121,6 +121,13 @@
 .chat-context-chip {
   display: none;
 }
+.chat-context-chip.stale {
+  opacity: 0.6;
+  font-style: italic;
+}
+.chat-context-chip-stale::before {
+  content: " · ";
+}
 .chat-context-bar {
   position: relative;
   display: inline-block;
@@ -177,7 +184,7 @@
 .subagent-usage {
   margin-left: 8px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 10px;
 }
 .subagent-entry .subagent-usage {
   display: block;

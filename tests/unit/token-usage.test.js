@@ -89,7 +89,7 @@ test("malformed Claude usage is skipped, not counted as zero", () => {
   assert.equal(usage.totals().totalTokens, 7);
 });
 
-test("Codex totals are taken as reported and reasoning stays a subset of output", () => {
+test("Codex totals are taken as reported, reasoning stays a subset of output and cache writes stay unknown", () => {
   const totals = codexTotals(
     {
       input_tokens: 9000,
@@ -114,7 +114,7 @@ test("Codex totals are taken as reported and reasoning stays a subset of output"
       totals.source,
       totals.outputIsLowerBound,
     ],
-    [9000, 6000, 0, 700, 300, 9700, null, "codex-thread", false],
+    [9000, 6000, null, 700, 300, 9700, null, "codex-thread", false],
   );
 });
 
