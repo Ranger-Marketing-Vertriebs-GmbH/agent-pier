@@ -1,16 +1,17 @@
 import { openCodeRevert } from "./opencode-revert.js";
 import { markOpenCodeInput } from "./opencode-input-state.js";
-import fs from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
-import { createRequire } from "node:module";
 import { normalizeOpenCode } from "./history-parsers.js";
 import { observeOpenCode } from "./opencode-observability.js";
 import { problem } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
+import {
+  DatabaseLocationError,
+  locateDatabase,
+  openDatabase,
+} from "./readonly-sqlite.js";
 
-const require = createRequire(import.meta.url);
 const PAGE_MESSAGES = 50;
 const SCAN_PARTS = 200;
 const MAX_PAGE_BYTES = 16 * 1024 * 1024;
@@ -26,40 +27,10 @@ async function databaseFile(history, session) {
   if (env.OPENCODE_DB === ":memory:") return null;
   const file = path.resolve(root, "opencode", env.OPENCODE_DB || "opencode.db");
   try {
-    const [realRoot, realFile, stat] = await Promise.all([
-      fs.realpath(root),
-      fs.realpath(file),
-      fs.lstat(file),
-    ]);
-    if (
-      !realFile.startsWith(realRoot + path.sep) ||
-      !stat.isFile() ||
-      stat.isSymbolicLink() ||
-      stat.nlink !== 1
-    )
-      throw mismatch();
-    const sidecars = [];
-    for (const suffix of ["-wal", "-shm"]) {
-      const sidecar = await fs.lstat(file + suffix).catch((error) => {
-        if (error.code === "ENOENT") return null;
-        throw error;
-      });
-      sidecars.push(Boolean(sidecar));
-      if (
-        sidecar &&
-        (!sidecar.isFile() || sidecar.isSymbolicLink() || sidecar.nlink !== 1)
-      )
-        throw mismatch();
-    }
-    if (sidecars[0] !== sidecars[1]) throw unavailable();
-    return {
-      file: realFile,
-      identity: `${stat.dev}:${stat.ino}`,
-      version: `${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`,
-      immutable: !sidecars[0],
-    };
+    return await locateDatabase(root, file);
   } catch (error) {
-    if (error.code === "ENOENT") return null;
+    if (error instanceof DatabaseLocationError)
+      throw error.reason === "partial-wal" ? unavailable() : mismatch();
     throw error;
   }
 }
@@ -91,20 +62,9 @@ export async function readOpenCodePage(history, session, id, state = null) {
     if (state?.opencode) throw mismatch();
     return null; // Pre-SQLite storage stays on the explicit legacy adapter.
   }
-  const { DatabaseSync } = require("node:sqlite");
   let db;
   try {
-    const url = pathToFileURL(location.file);
-    // Even READONLY SQLite creates WAL sidecars for a checkpointed database.
-    // Without sidecars, forbid those writes and reject any concurrent file change.
-    if (location.immutable) url.search = "?mode=ro&immutable=1";
-    db = new DatabaseSync(location.immutable ? url.href : location.file, {
-      readOnly: true,
-      allowExtension: false,
-    });
-    db.exec(
-      "PRAGMA query_only=ON; PRAGMA trusted_schema=OFF; PRAGMA busy_timeout=1500; BEGIN",
-    );
+    db = openDatabase(location);
     if (!supported(db)) {
       if (state?.opencode) throw mismatch();
       return null;

@@ -50,10 +50,19 @@ export async function readHistoryPage(history, session, id, state = null) {
       /* API history remains available when supplemental metadata is unavailable. */
     }
   }
+  let children = null;
+  if (!state && history.codexChildren) {
+    try {
+      children = await history.codexChildren.read(history, session, id);
+    } catch {
+      /* Child usage is supplemental. */
+    }
+  }
   return {
     ...content,
     observability: {
       ...observeCodex(full, records),
+      ...(children ? { subagentUsage: children } : {}),
       ...(full.tailUnavailable ? { stale: true } : {}),
     },
     ...splitPage(content.messages, page.nextCursor ? { cursor: page.nextCursor } : null),

@@ -1,4 +1,5 @@
 import { CodexRolloutMetadata } from "./codex-rollout-metadata.js";
+import { CodexChildUsage } from "./codex-child-usage.js";
 import { activeOpenCodeExport } from "./opencode-revert.js";
 import { ClaudeHistoryPages } from "./claude-history-pages.js";
 import { ClaudeSubagentUsage, runningAgents } from "./claude-subagent-usage.js";
@@ -169,6 +170,7 @@ export class ProviderHistory {
     this.codexClientFactory = codexClientFactory;
     this.codexClients = new Map();
     this.codexMetadata = new CodexRolloutMetadata();
+    this.codexChildren = new CodexChildUsage();
     this.openCodeJobs = new Set();
     this.claudePages = new ClaudeHistoryPages({
       onIndexed: (event) => this.onIndexed?.(event),
@@ -467,6 +469,13 @@ export class ProviderHistory {
         } catch {
           /* Structured thread messages remain readable when legacy rollout storage is unavailable. */
         }
+      }
+      try {
+        const children = await this.codexChildren.read(this, session, id);
+        if (children)
+          result.observability = { ...result.observability, subagentUsage: children };
+      } catch {
+        /* Child usage is supplemental. */
       }
       return result;
     }
