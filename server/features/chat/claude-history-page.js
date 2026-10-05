@@ -6,7 +6,6 @@ import {
 import { normalizeClaude } from "./history-parsers.js";
 import { observeClaude } from "./claude-observability.js";
 import { JsonlHistoryReader } from "./jsonl-history-reader.js";
-import { runningAgents } from "./claude-subagent-usage.js";
 import { problem } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 
@@ -31,12 +30,7 @@ export async function readClaudePage(history, session, id, state) {
     ...page,
     observability: {
       ...page.observability,
-      subagentUsage: history.claudeUsage.peek(
-        session,
-        id,
-        file,
-        runningAgents(page.observability),
-      ),
+      subagentUsage: history.claudeUsage.peek(session, id, file),
     },
   };
 }
