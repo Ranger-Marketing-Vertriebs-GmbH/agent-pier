@@ -4954,3 +4954,28 @@ EOF
 2. Rebase onto `origin/main` once more (PR #172 may have merged meanwhile), rerun `npm run check`, and push `feat/token-tracking`.
 3. Open the pull request in English: problem, resulting behavior, the real-data validation numbers from Task 8 Step 5, test commands, and screenshots of the desktop details, Codex limits and the mobile chip. End the description with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 4. Run the local multi-agent review on the branch and resolve its findings before merge (rebase merge after required CI passes).
+
+---
+
+### Task 9: Follow-ups from the PR #172 review
+
+**Files:**
+- Modify: `server/features/chat/claude-history-page.js` (provisional first page, ~L108)
+- Modify: `web/features/chat/subagent-presentation.js` (first-seen cutoff, ~L72)
+- Modify: `tests/browser/chat-presentation.spec.js` (~L179), `tests/browser/subagent-fixture.js` (~L15)
+- Test: extend `tests/integration/claude-subagent-history.test.js` and `tests/unit/subagent-presentation.test.js`
+
+**Interfaces:** none new.
+
+- [ ] **Step 1: Write failing tests**
+  1. Integration: a small transcript is read completely by the backward read (`end === 0`). After an append that completes an agent, the provisional first page returns the fresh tail state, not the older indexed snapshot.
+  2. Unit: an agent first seen already finished, with `updatedAt` 30 s before the client's `now`, is still listed once. The first-seen tolerance is 60 s; the linger stays 10 s of client time.
+- [ ] **Step 2: Run them and confirm they fail**
+- [ ] **Step 3: Implement**
+  - `claude-history-page.js`: `const whole = state || end === 0 ? null : await history.claudePages?.metadata(session, id, reader);`. Keep the Task 2 totals rule: a complete page reports totals.
+  - `subagent-presentation.js`: add `SUBAGENT_FIRST_SEEN_TOLERANCE_MS = 60_000`, used only for the "first seen already finished" check (`now - time > tolerance`). The linger stays `SUBAGENT_LINGER_MS`.
+  - Browser fixtures: set `page.clock.install` time equal to the completed agent's `updatedAt` (or 1 s after it), so the full 10 s linger budget is available before `pauseClockSoon`.
+- [ ] **Step 4: Run the tests**
+  - The focused tests.
+  - `tests/browser/chat-presentation.spec.js` and `tests/browser/chat-subagents.spec.js` in Chromium and WebKit, the latter with `--repeat-each=3`.
+- [ ] **Step 5: Commit** `fix: serve complete small transcripts live and tolerate clock skew for finished subagents`
