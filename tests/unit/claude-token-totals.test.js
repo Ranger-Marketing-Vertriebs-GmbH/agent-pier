@@ -84,6 +84,11 @@ test("Claude cost is shown only while no assistant record follows the latest cos
     2,
   );
   assert.equal(observeClaude([...base, costState(-1)]).totals.cost, null);
+  // Claude flags estimates for models without a price (gateway models).
+  assert.equal(
+    observeClaude([...base, { ...costState(4), hasUnknownModelCost: true }]).totals.cost,
+    null,
+  );
   assert.equal(observeClaude([...base, costState("3")]).totals.cost, null);
   // The history index turns API errors into assistant records; they are no reply.
   assert.equal(
