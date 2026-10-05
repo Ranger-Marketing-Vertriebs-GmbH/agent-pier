@@ -233,3 +233,64 @@ test("rollout metadata projects thread totals, process totals and rate limits in
   assert.equal(next.context.usedTokens, 330);
   assert.equal(JSON.stringify(records).includes("resp1"), false);
 });
+
+test("rollout metadata keeps the parent thread usage, bounded limits and the last context", async () => {
+  const { CodexRolloutMetadata } = await import(
+    new URL("../../server/features/chat/codex-rollout-metadata.js", import.meta.url)
+  );
+  const meta = new CodexRolloutMetadata();
+  const usage = (total) => ({
+    input_tokens: total,
+    output_tokens: 0,
+    total_tokens: total,
+  });
+  const usageRecord = (thread, total) => ({
+    type: "token_usage_record",
+    timestamp: "2026-10-01T10:00:00Z",
+    payload: { thread_id: thread, thread_token_usage: usage(total) },
+  });
+  const fresh = () => ({ records: new Map(), plans: new Map(), agents: [] });
+  const run = (entry, items) => {
+    for (const item of items) meta.update(entry, item);
+    return [...entry.records.values()].flat();
+  };
+  const known = run(fresh(), [
+    { type: "session_meta", payload: { id: "parent" } },
+    usageRecord("parent", 1000),
+    usageRecord("child", 5),
+  ]);
+  assert.equal(observeCodex({ id: "parent" }, known).totals.totalTokens, 1000);
+  const late = run(fresh(), [
+    usageRecord("parent", 1000),
+    usageRecord("child", 5),
+    { type: "session_meta", payload: { id: "parent" } },
+  ]);
+  assert.equal(observeCodex({ id: "parent" }, late).totals.totalTokens, 1000);
+  const big = "9".repeat(100_000);
+  const limited = run(fresh(), [
+    {
+      type: "event_msg",
+      timestamp: "2026-10-01T10:00:00Z",
+      payload: {
+        type: "token_count",
+        info: { last_token_usage: { total_tokens: 300 }, model_context_window: 1000 },
+      },
+    },
+    {
+      type: "event_msg",
+      timestamp: "2026-10-01T10:00:01Z",
+      payload: {
+        type: "token_count",
+        info: null,
+        rate_limits: {
+          limit_id: "codex",
+          extra: big,
+          primary: { used_percent: 5, window_minutes: 300, resets_at: 4102444800, big },
+          credits: { has_credits: true, unlimited: false, balance: big },
+        },
+      },
+    },
+  ]);
+  assert.ok(JSON.stringify(limited).length < 2000);
+  assert.equal(observeCodex({}, limited).context.usedTokens, 300);
+});

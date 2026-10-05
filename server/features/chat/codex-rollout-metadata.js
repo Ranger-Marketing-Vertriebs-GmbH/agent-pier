@@ -1,9 +1,11 @@
 import { JsonlHistoryReader } from "./jsonl-history-reader.js";
+import { text } from "./observability-values.js";
 import { setImmediate as yieldTurn } from "node:timers/promises";
 
 const BLOCK = 64 * 1024;
 const MAX_RECORD = 2 * 1024 * 1024;
 const MAX_LIMITS = 16;
+const MAX_THREADS = 8;
 const USAGE_FIELDS = [
   "input_tokens",
   "cached_input_tokens",
@@ -12,10 +14,27 @@ const USAGE_FIELDS = [
   "reasoning_output_tokens",
   "total_tokens",
 ];
+const count = (value) => (Number.isFinite(value) && value >= 0 ? value : null);
 const usage = (value) =>
   value && typeof value === "object"
-    ? Object.fromEntries(USAGE_FIELDS.map((field) => [field, value[field]]))
+    ? Object.fromEntries(USAGE_FIELDS.map((field) => [field, count(value[field])]))
     : undefined;
+const windowOf = (value) =>
+  value && typeof value === "object"
+    ? {
+        used_percent: count(value.used_percent),
+        window_minutes: count(value.window_minutes),
+        resets_at: count(value.resets_at),
+      }
+    : null;
+const creditsOf = (value) =>
+  value && typeof value === "object"
+    ? {
+        has_credits: value.has_credits === true,
+        unlimited: value.unlimited === true,
+        balance: text(value.balance, 40) || null,
+      }
+    : null;
 /** Bounded metadata cache. Read complete append-only records without retaining conversation bodies. */
 export class CodexRolloutMetadata {
   constructor() {
@@ -47,6 +66,7 @@ export class CodexRolloutMetadata {
       } catch {
         entry.offset = 0;
         entry.records.clear();
+        entry.sessionId = null;
         entry.plans.clear();
         entry.agents = [];
       } finally {
@@ -94,6 +114,7 @@ export class CodexRolloutMetadata {
       entry.identity = null;
       entry.offset = 0;
       entry.records.clear();
+      entry.sessionId = null;
       entry.plans.clear();
       entry.agents = [];
       throw error;
@@ -111,7 +132,7 @@ export class CodexRolloutMetadata {
     if (
       record?.type === "compacted" ||
       (record?.type === "event_msg" &&
-        ["token_count", "context_compacted"].includes(p?.type))
+        (p?.type === "context_compacted" || (p?.type === "token_count" && p.info)))
     )
       entry.records.set("context", [
         ...(entry.records.has("model") ? [entry.records.get("model")] : []),
@@ -133,15 +154,31 @@ export class CodexRolloutMetadata {
           },
         },
       ]);
-    if (record?.type === "token_usage_record" && p?.thread_token_usage)
-      entry.records.set("thread-usage", {
-        type: "token_usage_record",
-        timestamp: record.timestamp,
-        payload: {
-          thread_id: p.thread_id,
-          thread_token_usage: usage(p.thread_token_usage),
-        },
-      });
+    if (record?.type === "session_meta" && typeof p?.id === "string") {
+      entry.sessionId = p.id;
+      for (const name of [...entry.records.keys()])
+        if (name.startsWith("thread-usage:") && name !== `thread-usage:${p.id}`)
+          entry.records.delete(name);
+    }
+    if (record?.type === "token_usage_record" && p?.thread_token_usage) {
+      const id = typeof p.thread_id === "string" ? p.thread_id.slice(0, 120) : "";
+      if (!entry.sessionId || !id || id === entry.sessionId) {
+        const key = `thread-usage:${id}`;
+        entry.records.delete(key);
+        entry.records.set(key, {
+          type: "token_usage_record",
+          timestamp: record.timestamp,
+          payload: {
+            thread_id: id || undefined,
+            thread_token_usage: usage(p.thread_token_usage),
+          },
+        });
+        const keys = [...entry.records.keys()].filter((name) =>
+          name.startsWith("thread-usage:"),
+        );
+        if (keys.length > MAX_THREADS) entry.records.delete(keys[0]);
+      }
+    }
     if (record?.type === "event_msg" && p?.type === "token_count") {
       if (p.info?.total_token_usage)
         entry.records.set("process-usage", {
@@ -154,7 +191,8 @@ export class CodexRolloutMetadata {
         });
       const limits = p.rate_limits;
       if (limits && typeof limits.limit_id === "string" && limits.limit_id) {
-        const key = `limits:${limits.limit_id.slice(0, 120)}`;
+        const id = limits.limit_id.slice(0, 120);
+        const key = `limits:${id}`;
         entry.records.delete(key);
         entry.records.set(key, {
           type: "event_msg",
@@ -162,12 +200,12 @@ export class CodexRolloutMetadata {
           payload: {
             type: "token_count",
             rate_limits: {
-              limit_id: limits.limit_id,
-              limit_name: limits.limit_name,
-              plan_type: limits.plan_type,
-              primary: limits.primary,
-              secondary: limits.secondary,
-              credits: limits.credits,
+              limit_id: id,
+              limit_name: text(limits.limit_name, 120) || null,
+              plan_type: text(limits.plan_type, 120) || null,
+              primary: windowOf(limits.primary),
+              secondary: windowOf(limits.secondary),
+              credits: creditsOf(limits.credits),
             },
           },
         });
