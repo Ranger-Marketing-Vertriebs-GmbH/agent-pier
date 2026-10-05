@@ -30,9 +30,14 @@ export default function ContextBudget({ context = {}, stale = false }) {
     used === null ? tokenCount(context.compaction?.conversationTokens) : null;
   return (
     <>
-      {remaining !== null && limit !== null && (
-        <span className="chat-context-chip" aria-hidden="true">
-          {copy.remainingShort(formatNumber(remaining, { maximumFractionDigits: 0 }))}
+      {remaining !== null && limit > 0 && (
+        <span
+          className={`chat-context-chip${stale ? " stale" : ""}`}
+          aria-hidden="true"
+          title={stale ? copy.stale : undefined}
+        >
+          {copy.remaining(formatNumber(remaining, { maximumFractionDigits: 0 }))}
+          {stale && <span className="chat-context-chip-stale">{copy.stale}</span>}
         </span>
       )}
       <div
@@ -55,18 +60,21 @@ export default function ContextBudget({ context = {}, stale = false }) {
         )}
         <span>
           {used !== null
-            ? `${sourceLabel(context.source)}: ${formatTokens(used)}`
+            ? `${sourceLabel(context.source)}: ${
+                limit > 0
+                  ? copy.usedOfWindow(formatTokens(used), formatTokens(limit))
+                  : formatTokens(used)
+              }`
             : compaction !== null
               ? copy.compaction(formatTokens(compaction))
               : copy.unknownUsage}
         </span>
-        {limit !== null && limit > 0 && (
+        {limit > 0 && (
           <span>
-            {limitLabel(context.limitSource)}: {formatTokens(limit)}
+            {used !== null
+              ? limitLabel(context.limitSource)
+              : `${limitLabel(context.limitSource)}: ${formatTokens(limit)}`}
           </span>
-        )}
-        {used !== null && limit !== null && limit > 0 && (
-          <span>{copy.usedOfWindow(formatTokens(used), formatTokens(limit))}</span>
         )}
         {remaining !== null && (
           <span>

@@ -59,47 +59,48 @@ function Limits({ limits }) {
   if (!limits?.buckets?.length) return null;
   return (
     <section className="chat-token-limits" aria-label={copy.limits}>
-      {limits.buckets.map((bucket) => (
-        <div className="chat-limit-bucket" key={bucket.limitId}>
-          <strong>
-            {[bucket.limitName || bucket.limitId, bucket.plan]
-              .filter(Boolean)
-              .join(" · ")}
-          </strong>
-          {bucket.windows.map((window, index) => {
-            const label = windowLabel(window.windowMinutes);
-            const resets = Number.isSafeInteger(window.resetsAt)
-              ? new Date(window.resetsAt).toISOString()
-              : null;
-            return (
-              <div className="chat-limit-window" key={index}>
-                <span>{label}</span>
-                <span
-                  className="chat-context-bar"
-                  role="meter"
-                  aria-label={label}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={window.usedPercent}
-                >
-                  <span style={{ width: `${window.usedPercent}%` }} />
-                </span>
-                <span>
-                  {copy.limitUsed(
-                    formatNumber(window.usedPercent, { maximumFractionDigits: 1 }),
+      {limits.buckets.map((bucket) => {
+        const name = [bucket.limitName || bucket.limitId, bucket.plan]
+          .filter(Boolean)
+          .join(" · ");
+        return (
+          <div className="chat-limit-bucket" key={bucket.limitId}>
+            <strong>{name}</strong>
+            {bucket.windows.map((window, index) => {
+              const label = windowLabel(window.windowMinutes);
+              const resets = Number.isSafeInteger(window.resetsAt)
+                ? new Date(window.resetsAt).toISOString()
+                : null;
+              return (
+                <div className="chat-limit-window" key={index}>
+                  <span>{label}</span>
+                  <span
+                    className="chat-context-bar"
+                    role="meter"
+                    aria-label={copy.limitMeter(name, label)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={window.usedPercent}
+                  >
+                    <span style={{ width: `${window.usedPercent}%` }} />
+                  </span>
+                  <span>
+                    {copy.limitUsed(
+                      formatNumber(window.usedPercent, { maximumFractionDigits: 1 }),
+                    )}
+                  </span>
+                  {resets && (
+                    <time dateTime={resets} title={formatTimestamp(resets)}>
+                      {copy.resets(relativeTime(resets))}
+                    </time>
                   )}
-                </span>
-                {resets && (
-                  <time dateTime={resets} title={formatTimestamp(resets)}>
-                    {copy.resets(relativeTime(resets))}
-                  </time>
-                )}
-              </div>
-            );
-          })}
-          <Credits credits={bucket.credits} />
-        </div>
-      ))}
+                </div>
+              );
+            })}
+            <Credits credits={bucket.credits} />
+          </div>
+        );
+      })}
     </section>
   );
 }

@@ -176,13 +176,16 @@ export function createClaudeUsage() {
   };
 }
 
-/** Codex token usage exactly as reported: input includes cached input. */
+/**
+ * Codex token usage exactly as reported: input includes cached input. Codex always
+ * reports cache writes as 0, so they stay unknown instead of claiming zero.
+ */
 export function codexTotals(usage, source, observedAt) {
   const value = object(usage);
   return totalsValue({
     inputTokens: value.input_tokens,
     cacheReadTokens: value.cached_input_tokens,
-    cacheWriteTokens: value.cache_write_input_tokens,
+    cacheWriteTokens: null,
     outputTokens: value.output_tokens,
     reasoningTokens: value.reasoning_output_tokens,
     totalTokens: value.total_tokens,
