@@ -3,12 +3,15 @@ import { markOpenCodeInput } from "./opencode-input-state.js";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { normalizeOpenCode } from "./history-parsers.js";
+import { openCodeTotals, usageFromTotals } from "./token-usage.js";
+import { nativeId } from "./observability-values.js";
 import { observeOpenCode } from "./opencode-observability.js";
 import { problem } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import {
   DatabaseLocationError,
   locateDatabase,
+  hasColumns,
   openDatabase,
 } from "./readonly-sqlite.js";
 
@@ -104,6 +107,7 @@ export async function readOpenCodePage(history, session, id, state = null) {
       validateBoundary(db, id, cutoff);
     }
     const result = page(db, id, scope, cursor?.before || cutoff);
+    if (!state) Object.assign(result.observability, sessionUsage(db, id));
     if (location.immutable) {
       const after = await databaseFile(history, session);
       if (
@@ -137,6 +141,44 @@ function validateBoundary(db, id, before) {
         .get(id, before.id, before.part))
   )
     throw mismatch();
+}
+
+const TOTAL_COLUMNS = [
+  "cost",
+  "tokens_input",
+  "tokens_output",
+  "tokens_reasoning",
+  "tokens_cache_read",
+  "tokens_cache_write",
+];
+const MAX_CHILDREN = 512;
+
+/** OpenCode maintains these columns per session, so they cover the whole history. */
+function sessionUsage(db, id) {
+  if (!hasColumns(db, "session", TOTAL_COLUMNS))
+    return { totals: null, subagentUsage: null };
+  const updated = hasColumns(db, "session", ["time_updated"]) ? ",time_updated" : "";
+  const columns = `id,${TOTAL_COLUMNS.join(",")}${updated}`;
+  const row = db.prepare(`SELECT ${columns} FROM session WHERE id=?`).get(id);
+  const totals = row ? openCodeTotals(row, row.time_updated ?? null) : null;
+  if (!hasColumns(db, "session", ["parent_id"])) return { totals, subagentUsage: null };
+  const agents = {};
+  let count = 0;
+  for (const child of db
+    .prepare(
+      `SELECT ${columns} FROM session WHERE parent_id=? ORDER BY time_created,id LIMIT ?`,
+    )
+    .iterate(id, MAX_CHILDREN)) {
+    count++;
+    const usage = usageFromTotals(openCodeTotals(child, child.time_updated ?? null));
+    if (nativeId(child.id) && usage) agents[child.id] = usage;
+  }
+  return {
+    totals,
+    subagentUsage: count
+      ? { agents, toolUses: {}, workflow: null, unavailable: 0, observedAt: null }
+      : null,
+  };
 }
 
 function page(db, id, scope, before) {
