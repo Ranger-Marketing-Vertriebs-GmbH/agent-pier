@@ -3,6 +3,19 @@ import { setImmediate as yieldTurn } from "node:timers/promises";
 
 const BLOCK = 64 * 1024;
 const MAX_RECORD = 2 * 1024 * 1024;
+const MAX_LIMITS = 16;
+const USAGE_FIELDS = [
+  "input_tokens",
+  "cached_input_tokens",
+  "cache_write_input_tokens",
+  "output_tokens",
+  "reasoning_output_tokens",
+  "total_tokens",
+];
+const usage = (value) =>
+  value && typeof value === "object"
+    ? Object.fromEntries(USAGE_FIELDS.map((field) => [field, value[field]]))
+    : undefined;
 /** Bounded metadata cache. Read complete append-only records without retaining conversation bodies. */
 export class CodexRolloutMetadata {
   constructor() {
@@ -120,6 +133,50 @@ export class CodexRolloutMetadata {
           },
         },
       ]);
+    if (record?.type === "token_usage_record" && p?.thread_token_usage)
+      entry.records.set("thread-usage", {
+        type: "token_usage_record",
+        timestamp: record.timestamp,
+        payload: {
+          thread_id: p.thread_id,
+          thread_token_usage: usage(p.thread_token_usage),
+        },
+      });
+    if (record?.type === "event_msg" && p?.type === "token_count") {
+      if (p.info?.total_token_usage)
+        entry.records.set("process-usage", {
+          type: "event_msg",
+          timestamp: record.timestamp,
+          payload: {
+            type: "token_count",
+            info: { total_token_usage: usage(p.info.total_token_usage) },
+          },
+        });
+      const limits = p.rate_limits;
+      if (limits && typeof limits.limit_id === "string" && limits.limit_id) {
+        const key = `limits:${limits.limit_id.slice(0, 120)}`;
+        entry.records.delete(key);
+        entry.records.set(key, {
+          type: "event_msg",
+          timestamp: record.timestamp,
+          payload: {
+            type: "token_count",
+            rate_limits: {
+              limit_id: limits.limit_id,
+              limit_name: limits.limit_name,
+              plan_type: limits.plan_type,
+              primary: limits.primary,
+              secondary: limits.secondary,
+              credits: limits.credits,
+            },
+          },
+        });
+        const keys = [...entry.records.keys()].filter((name) =>
+          name.startsWith("limits:"),
+        );
+        if (keys.length > MAX_LIMITS) entry.records.delete(keys[0]);
+      }
+    }
     if (JSON.stringify(record).length > 65536) return;
     if (
       record?.type === "event_msg" &&

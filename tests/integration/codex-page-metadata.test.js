@@ -12,6 +12,9 @@ const { ProviderHistory } = await import(
 const { ChatStore } = await import(
   new URL("../../server/features/chat/chat-store.js", import.meta.url)
 );
+const { observeCodex } = await import(
+  new URL("../../server/features/chat/codex-observability.js", import.meta.url)
+);
 function fixture(t, tool) {
   const root = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-observability-")),
@@ -151,4 +154,82 @@ test("rollout metadata reads complete appends and resets on replacement", async 
       .last_token_usage.total_tokens,
     10,
   );
+});
+
+test("rollout metadata projects thread totals, process totals and rate limits incrementally", async (t) => {
+  const f = fixture(t, "codex");
+  const file = path.join(f.home, ".codex", "sessions", "rollout.jsonl");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const usage = (input, output) => ({
+    input_tokens: input,
+    cached_input_tokens: input - 100,
+    cache_write_input_tokens: 0,
+    output_tokens: output,
+    reasoning_output_tokens: 5,
+    total_tokens: input + output,
+  });
+  const record = (input, output) => ({
+    timestamp: "2026-10-01T10:00:00Z",
+    ordinal: 1,
+    type: "token_usage_record",
+    payload: {
+      thread_id: "native-parent",
+      turn_id: "turn1",
+      session_id: "native-parent",
+      root_turn_id: "turn1",
+      response_id: "resp1",
+      usage: usage(101, 1),
+      turn_token_usage: usage(101, 1),
+      thread_token_usage: usage(input, output),
+    },
+  });
+  const count = {
+    timestamp: "2026-10-01T10:00:01Z",
+    type: "event_msg",
+    payload: {
+      type: "token_count",
+      info: {
+        total_token_usage: usage(300, 30),
+        last_token_usage: usage(300, 30),
+        model_context_window: 272000,
+      },
+      rate_limits: {
+        limit_id: "codex",
+        limit_name: null,
+        primary: { used_percent: 12.5, window_minutes: 10080, resets_at: 4102444800 },
+        secondary: null,
+        credits: { has_credits: false, unlimited: false, balance: "0" },
+        individual_limit: null,
+        spend_control_reached: null,
+        plan_type: "pro",
+        rate_limit_reached_type: null,
+      },
+    },
+  };
+  const line = (r) => JSON.stringify(r) + "\n";
+  fs.writeFileSync(
+    file,
+    line({ type: "session_meta", payload: { id: "native-parent", cwd: f.cwd } }) +
+      line(record(5000, 400)) +
+      line(count),
+  );
+  const thread = { id: "native-parent", path: file };
+  const read = () => f.history.codexMetadata.read(f.history, f.session, thread);
+  const first = observeCodex(thread, await read());
+  assert.deepEqual(
+    [first.totals.totalTokens, first.totals.source],
+    [5400, "codex-thread"],
+  );
+  assert.equal(first.limits.buckets[0].windows[0].usedPercent, 12.5);
+  assert.equal(first.context.usedTokens, 330);
+  const entry = [...f.history.codexMetadata.entries.values()][0];
+  const offset = entry.offset;
+  fs.appendFileSync(file, line(record(9000, 700)));
+  const records = await read();
+  assert.ok(entry.offset > offset);
+  assert.equal(records.filter((r) => r.type === "token_usage_record").length, 1);
+  const next = observeCodex(thread, records);
+  assert.equal(next.totals.totalTokens, 9700);
+  assert.equal(next.context.usedTokens, 330);
+  assert.equal(JSON.stringify(records).includes("resp1"), false);
 });
