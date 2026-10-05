@@ -105,11 +105,19 @@ export async function readClaudePage(history, session, id, state) {
     content = normalizeClaude(ordered);
     await reader.validate();
     if (!state) history.claudePages?.warm(session, id, reader.identity);
+    const observed = observeClaude(ordered);
     const whole = state ? null : await history.claudePages?.metadata(session, id, reader);
     return {
       ...content,
       indexing: history.claudePages?.warming(session, id, reader.identity) || false,
-      ...(whole || { observability: { ...observeClaude(ordered), stale: end > 0 } }),
+      ...(whole || {
+        // Only a page that reached the transcript start saw the whole history.
+        observability: {
+          ...observed,
+          totals: end > 0 ? null : observed.totals,
+          stale: end > 0,
+        },
+      }),
       ...split(content.messages, end, reader.identity),
     };
   } finally {

@@ -5,11 +5,13 @@ import {
   nativeId,
   timestamp,
   emptyContext,
+  tokens,
   inputTokens,
   contextValue,
   agentStatus,
   putAgent,
 } from "./observability-values.js";
+import { createClaudeUsage, usd } from "./token-usage.js";
 import { asyncLaunch, settleStatus, subagentEvent } from "./claude-subagents.js";
 
 // Identities retained per session; finished agents are evicted first.
@@ -18,6 +20,9 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
   let stale = false;
   const field = (value) => (typeof value === "string" ? text(value) : Boolean(value));
   let context = emptyContext();
+  const sessionUsage = createClaudeUsage();
+  // cost-state is written when the CLI exits; any later reply makes it outdated.
+  let cost = null;
   const agents = new Map(),
     calls = new Map(),
     tasks = new Map(),
@@ -52,6 +57,7 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
     // A new background launch starts over; other reports follow settleStatus.
     agent(agentId, {
       ...values,
+      toolUseId: nativeId(callId),
       status:
         values.source === "claude-async-launch"
           ? values.status
@@ -62,18 +68,28 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
     for (const record of list(records)) {
       if (!record || record.isSidechain) continue;
       const at = timestamp(record.timestamp);
-      if (record.type === "system" && record.subtype === "compact_boundary")
+      if (record.type === "system" && record.subtype === "compact_boundary") {
+        const conversationTokens = tokens(record.compactMetadata?.postTokens);
         context = {
           ...context,
           usedTokens: null,
           remainingPercent: null,
           source: null,
           observedAt: at,
+          compaction:
+            conversationTokens === null ? null : { conversationTokens, observedAt: at },
         };
+      }
+      if (record.type === "cost-state") {
+        const amount = usd(record.totalCostUSD);
+        cost = amount === null ? null : { usd: amount, after: false };
+      }
+      if (record.type === "assistant" && !record.isApiErrorMessage && cost)
+        cost.after = true;
       if (record.type === "assistant" && !record.isMeta && !record.isCompactSummary) {
         const message = object(record.message),
           usage = object(message.usage);
-        if (Object.hasOwn(usage, "input_tokens"))
+        if (Object.hasOwn(usage, "input_tokens")) {
           context = contextValue(
             inputTokens(
               usage.input_tokens,
@@ -82,6 +98,8 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
             ),
             { observedAt: at, modelId: message.model },
           );
+          sessionUsage.add(message, at);
+        }
         for (const block of list(message.content))
           if (
             block?.type === "tool_use" &&
@@ -150,6 +168,9 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
           status: event.status,
           source: "claude-task-notification",
           updatedAt: at,
+          ...(event.durationMs !== null || event.toolUses !== null
+            ? { usage: { toolUses: event.toolUses, durationMs: event.durationMs } }
+            : {}),
         });
       }
       if (["handback", "stopped"].includes(event?.kind) && agents.has(event.agentId))
@@ -187,6 +208,9 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
   }
   const snapshot = () => ({
     context: { ...context },
+    totals: sessionUsage.totals(
+      cost && !cost.after ? { usd: cost.usd, scope: "cli-exit-incl-subagents" } : null,
+    ),
     subagents: [...agents.values()].map((value) => ({ ...value })),
     stale,
   });

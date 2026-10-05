@@ -31,6 +31,7 @@ export class ChatStore {
     this.generations = new Map();
     this.cursors = new Map();
     this.cursorBytes = 0;
+    this.lastKnownTotals = new Map();
     this.maxCursorBytes = maxCursorBytes;
     this.maxCursorEntries = Math.max(1, maxCursorEntries);
     this.history.onIndexed = (event) => this.indexed(event);
@@ -68,9 +69,22 @@ export class ChatStore {
   }
   reset(id) {
     this.invalidate(id);
+    this.lastKnownTotals.delete(id);
     this.generations.set(id, randomUUID());
     fs.rmSync(this.file(id, "snapshot"), { force: true });
     for (const [key, entry] of this.cursors) if (entry.id === id) this.discardCursor(key);
+  }
+  /** A page without whole-history totals keeps the last ones of the same conversation. */
+  lastTotals(session, nativeId, totals) {
+    if (totals) return totals;
+    const remembered = this.lastKnownTotals.get(session.id);
+    if (remembered?.nativeId === nativeId) return remembered.totals;
+    const stored = readJSON(this.file(session.id, "snapshot"), null);
+    return stored?.providerSessionId === nativeId &&
+      stored.scope?.accountId === session.accountId &&
+      stored.scope?.tool === session.tool
+      ? stored.observability?.totals || null
+      : null;
   }
   page(session, nativeId, state) {
     return this.history.readPage
@@ -240,6 +254,15 @@ export class ChatStore {
     manualBindingSupported = true,
     { persist = true } = {},
   ) {
+    const observability = finalizeObservability(
+      {
+        ...content.observability,
+        totals: this.lastTotals(session, nativeId, content.observability?.totals),
+      },
+      session,
+    );
+    if (observability.totals)
+      this.lastKnownTotals.set(session.id, { nativeId, totals: observability.totals });
     const result = {
       availability: "ready",
       manualBindingSupported,
@@ -251,7 +274,7 @@ export class ChatStore {
         generation: this.generations.get(session.id),
       },
       tasks: content.tasks,
-      observability: finalizeObservability(content.observability, session),
+      observability,
     };
     if (persist)
       writePrivate(this.file(session.id, "snapshot"), {
