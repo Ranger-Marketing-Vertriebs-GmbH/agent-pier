@@ -1,6 +1,7 @@
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { pauseClockSoon } from "./subagent-fixture.js";
 
 async function fixture(
   page,
@@ -200,7 +201,7 @@ test("mobile task drawer lists working subagents first with their task immediate
     },
   });
   // Client time stands still once loaded, so Worker beta cannot expire on a slow run.
-  await page.clock.pauseAt(new Date((await page.evaluate(() => Date.now())) + 10));
+  await pauseClockSoon(page);
   await page.getByRole("button", { name: "Unteragenten anzeigen" }).click();
   const drawer = page.getByRole("dialog", { name: "Aufgabenliste" });
   await expect(drawer).toBeVisible();

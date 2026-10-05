@@ -135,7 +135,20 @@ export async function subagentFixture(page, { older = false } = {}) {
   });
   await page.goto(baseURL + "/sessions/subagents/chat");
   await expect(page.locator(".chat-messages")).toContainText("Both reviewers are on it.");
-  const loaded = await page.evaluate(() => Date.now());
-  await page.clock.pauseAt(new Date(loaded + 10));
+  await pauseClockSoon(page);
   return { session, data, publish };
+}
+
+// Stops client time shortly after "now". Slow runners can pass the target before
+// pauseAt runs, so retry from a fresh reading instead of failing.
+export async function pauseClockSoon(page) {
+  for (let attempt = 0; ; attempt += 1) {
+    const now = await page.evaluate(() => Date.now());
+    try {
+      await page.clock.pauseAt(new Date(now + 250));
+      return;
+    } catch (error) {
+      if (attempt >= 4 || !/past/i.test(error.message)) throw error;
+    }
+  }
 }
