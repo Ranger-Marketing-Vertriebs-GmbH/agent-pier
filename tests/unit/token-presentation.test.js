@@ -10,6 +10,8 @@ import {
   lowerBoundShown,
   usedPercent,
   observedAgent,
+  totalsRows,
+  currentBuckets,
 } from "../../web/features/chat/token-presentation.js";
 
 const nbsp = " ";
@@ -75,4 +77,61 @@ test("usage summaries show a lower bound only when output dominates", (t) => {
   );
   assert.equal(observedAgent({ id: "toolu_x", subagent: {} }, agents).id, "agentx");
   assert.equal(observedAgent({ id: "toolu_none", subagent: {} }, agents), null);
+});
+
+test("Codex reasoning is a sub-row of output; OpenCode keeps a separate row", (t) => {
+  t.after(() => setLanguage("de", { persist: false }));
+  const totals = (source) => ({
+    inputTokens: 900,
+    outputTokens: 100,
+    cacheReadTokens: 50,
+    cacheWriteTokens: null,
+    reasoningTokens: 40,
+    totalTokens: 1000,
+    source,
+  });
+  const rows = (source) =>
+    totalsRows(totals(source)).map((row) => [row.label, row.value, row.sub]);
+  setLanguage("en", { persist: false });
+  assert.deepEqual(rows("codex-thread"), [
+    ["Input (incl. cached)", 900, false],
+    ["Output", 100, false],
+    ["of which reasoning", 40, true],
+    ["Cache read", 50, false],
+    ["Total", 1000, false],
+  ]);
+  assert.deepEqual(rows("opencode-session"), [
+    ["Input", 900, false],
+    ["Output", 100, false],
+    ["Cache read", 50, false],
+    ["Reasoning", 40, false],
+    ["Total", 1000, false],
+  ]);
+  setLanguage("de", { persist: false });
+  assert.equal(totalsRows(totals("codex-process"))[2].label, "davon Reasoning");
+});
+
+test("limit windows past their reset and buckets left empty are hidden", () => {
+  const now = 1_000_000;
+  const window = (resetsAt) => ({ windowMinutes: 300, usedPercent: 5, resetsAt });
+  const limits = {
+    buckets: [
+      { limitId: "a", windows: [window(now - 1), window(now + 1), window(null)] },
+      { limitId: "b", windows: [window(now)], credits: null },
+      {
+        limitId: "c",
+        windows: [window(now - 5)],
+        credits: { hasCredits: false, unlimited: true, balance: null },
+      },
+    ],
+  };
+  const buckets = currentBuckets(limits, now);
+  assert.deepEqual(
+    buckets.map((bucket) => [bucket.limitId, bucket.windows.length]),
+    [
+      ["a", 2],
+      ["c", 0],
+    ],
+  );
+  assert.deepEqual(currentBuckets(null, now), []);
 });

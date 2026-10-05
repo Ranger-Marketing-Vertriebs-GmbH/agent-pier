@@ -166,6 +166,10 @@
 .chat-token-totals td {
   font-variant-numeric: tabular-nums;
 }
+.chat-token-totals tr.sub th {
+  padding-left: 12px;
+  color: var(--muted);
+}
 .chat-token-cost,
 .chat-token-subagents {
   margin: 4px 0;

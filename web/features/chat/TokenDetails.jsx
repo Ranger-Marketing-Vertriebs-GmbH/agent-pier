@@ -1,25 +1,32 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { chatObservabilityCopy as copy } from "../../lib/i18n/messages/chat-observability.js";
 import { formatNumber, formatTimestamp } from "../../lib/i18n/index.js";
 import { relativeTime } from "../projects/ProjectOverview.jsx";
 import {
+  currentBuckets,
   formatTokens,
   formatUsd,
   lowerBoundShown,
-  tokenCount,
+  nextReset,
+  totalsRows,
   windowLabel,
 } from "./token-presentation.js";
 
-function totalsRows(totals) {
-  const codex = typeof totals.source === "string" && totals.source.startsWith("codex-");
-  return [
-    [codex ? copy.inputInclCache : copy.input, totals.inputTokens, ""],
-    [copy.output, totals.outputTokens, totals.outputIsLowerBound ? "≥" : ""],
-    [copy.cacheRead, totals.cacheReadTokens, ""],
-    [copy.cacheWrite, totals.cacheWriteTokens, ""],
-    [copy.reasoning, totals.reasoningTokens, ""],
-    [copy.total, totals.totalTokens, lowerBoundShown(totals) ? "≥" : ""],
-  ].filter(([, value]) => tokenCount(value) !== null);
+const TICK = 30_000;
+
+/**
+ * Re-renders while the details are open: every 30 s for the relative reset times,
+ * and at the next reset so its window disappears on time.
+ */
+function useLimitClock(open, buckets) {
+  const [, setTick] = useState(0);
+  const reset = open ? nextReset(buckets) : null;
+  useEffect(() => {
+    if (!open) return undefined;
+    const wait = reset === null ? TICK : Math.min(TICK, Math.max(0, reset - Date.now()));
+    const timer = setTimeout(() => setTick((value) => value + 1), wait);
+    return () => clearTimeout(timer);
+  });
 }
 
 function Cost({ cost }) {
@@ -55,11 +62,11 @@ function Credits({ credits }) {
   return null;
 }
 
-function Limits({ limits }) {
-  if (!limits?.buckets?.length) return null;
+function Limits({ buckets }) {
+  if (!buckets.length) return null;
   return (
     <section className="chat-token-limits" aria-label={copy.limits}>
-      {limits.buckets.map((bucket) => {
+      {buckets.map((bucket) => {
         const name = [bucket.limitName || bucket.limitId, bucket.plan]
           .filter(Boolean)
           .join(" · ");
@@ -107,18 +114,23 @@ function Limits({ limits }) {
 
 /** Session totals, cost, subagent share and Codex limits behind one disclosure. */
 export default function TokenDetails({ totals, limits }) {
+  const [open, setOpen] = useState(false);
+  const buckets = currentBuckets(limits);
+  useLimitClock(open, buckets);
   const rows = totals ? totalsRows(totals) : [];
-  if (!rows.length && !totals?.cost && !totals?.subagents && !limits?.buckets?.length)
-    return null;
+  if (!rows.length && !totals?.cost && !totals?.subagents && !buckets.length) return null;
   return (
-    <details className="chat-token-details">
+    <details
+      className="chat-token-details"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <summary>{copy.usage}</summary>
       {rows.length > 0 && (
         <table className="chat-token-totals" aria-label={copy.totals}>
           {totals.source === "codex-process" && <caption>{copy.processTotals}</caption>}
           <tbody>
-            {rows.map(([label, value, prefix]) => (
-              <tr key={label}>
+            {rows.map(({ label, value, prefix, sub }) => (
+              <tr key={label} className={sub ? "sub" : undefined}>
                 <th scope="row">{label}</th>
                 <td>
                   {prefix}
@@ -131,7 +143,7 @@ export default function TokenDetails({ totals, limits }) {
       )}
       <Cost cost={totals?.cost} />
       <SubagentLine subagents={totals?.subagents} />
-      <Limits limits={limits} />
+      <Limits buckets={buckets} />
     </details>
   );
 }

@@ -76,3 +76,43 @@ export function observedAgent(message, observed = []) {
     ) || null
   );
 }
+
+/**
+ * Rows of the totals table. Codex reasoning is part of its output and is shown as
+ * an indented sub-row; OpenCode reports it separately, so it is a row of its own.
+ */
+export function totalsRows(totals) {
+  const codex = typeof totals?.source === "string" && totals.source.startsWith("codex-");
+  const row = (label, value, prefix = "", sub = false) => ({ label, value, prefix, sub });
+  return [
+    row(codex ? copy.inputInclCache : copy.input, totals?.inputTokens),
+    row(copy.output, totals?.outputTokens, totals?.outputIsLowerBound ? "≥" : ""),
+    ...(codex ? [row(copy.reasoningInOutput, totals?.reasoningTokens, "", true)] : []),
+    row(copy.cacheRead, totals?.cacheReadTokens),
+    row(copy.cacheWrite, totals?.cacheWriteTokens),
+    ...(codex ? [] : [row(copy.reasoning, totals?.reasoningTokens)]),
+    row(copy.total, totals?.totalTokens, lowerBoundShown(totals) ? "≥" : ""),
+  ].filter((entry) => tokenCount(entry.value) !== null);
+}
+
+/**
+ * Limit buckets as of `now`, by the server rule: windows past their reset are
+ * hidden, and a bucket left without windows and usable credits is dropped.
+ */
+export function currentBuckets(limits, now = Date.now()) {
+  return (limits?.buckets || []).flatMap((bucket) => {
+    const windows = (bucket.windows || []).filter(
+      (window) => !Number.isSafeInteger(window.resetsAt) || window.resetsAt > now,
+    );
+    const usable = bucket.credits?.hasCredits || bucket.credits?.unlimited;
+    return windows.length || usable ? [{ ...bucket, windows }] : [];
+  });
+}
+
+/** Earliest future reset of the shown windows, or null. */
+export function nextReset(buckets, now = Date.now()) {
+  const resets = buckets
+    .flatMap((bucket) => bucket.windows.map((window) => window.resetsAt))
+    .filter((value) => Number.isSafeInteger(value) && value > now);
+  return resets.length ? Math.min(...resets) : null;
+}

@@ -36,6 +36,7 @@ export const chatObservabilityCopy = {
   cacheRead: "Cache gelesen",
   cacheWrite: "Cache geschrieben",
   reasoning: "Reasoning",
+  reasoningInOutput: "davon Reasoning",
   total: "Gesamt",
   cost: "Kosten",
   costCliExit: "Kosten bei letztem CLI-Ende (inkl. Unteragenten)",
