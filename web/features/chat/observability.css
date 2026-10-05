@@ -118,3 +118,69 @@
     animation: none;
   }
 }
+.chat-context-chip {
+  display: none;
+}
+.chat-context-bar {
+  position: relative;
+  display: inline-block;
+  width: 72px;
+  height: 5px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--line);
+}
+.chat-context-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+}
+.chat-token-details > summary {
+  color: var(--accent);
+  cursor: pointer;
+}
+.chat-token-details[open] {
+  flex-basis: 100%;
+}
+.chat-token-totals {
+  border-collapse: collapse;
+  margin: 6px 0;
+}
+.chat-token-totals caption {
+  text-align: left;
+}
+.chat-token-totals th,
+.chat-token-totals td {
+  padding: 1px 12px 1px 0;
+  text-align: left;
+  font-weight: normal;
+}
+.chat-token-totals td {
+  font-variant-numeric: tabular-nums;
+}
+.chat-token-cost,
+.chat-token-subagents {
+  margin: 4px 0;
+}
+.chat-limit-bucket {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+.chat-limit-window {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.subagent-usage {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 9px;
+}
+.subagent-entry .subagent-usage {
+  display: block;
+  margin: 0;
+  padding: 0 10px 6px;
+}

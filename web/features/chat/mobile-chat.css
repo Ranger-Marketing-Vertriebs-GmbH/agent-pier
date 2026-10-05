@@ -56,6 +56,16 @@
     order: 4;
     width: 100%;
   }
+  .mobile-chat-workspace .chat-observability:not(.expanded) .chat-context-chip {
+    display: inline-block;
+  }
+  .mobile-chat-workspace .chat-observability:not(.expanded) .chat-token-details {
+    display: none;
+  }
+  .mobile-chat-workspace .chat-token-details {
+    order: 5;
+    width: 100%;
+  }
   .mobile-chat-workspace .chat-message {
     margin-bottom: 20px;
   }

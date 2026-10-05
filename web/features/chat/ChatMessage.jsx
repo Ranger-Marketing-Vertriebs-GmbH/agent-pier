@@ -11,6 +11,7 @@ import remarkGfm from "remark-gfm";
 import ChatImages from "./ChatImages.jsx";
 import { providerNames } from "./presentation.js";
 import { subagentRowStatus, subagentStatusLabel } from "./subagent-presentation.js";
+import { observedAgent, usageSummary } from "./token-presentation.js";
 export default function Message({
   message,
   tool,
@@ -27,6 +28,9 @@ export default function Message({
     const status = subagent
       ? subagentRowStatus(message, observedSubagents, subagentsLive)
       : message.status;
+    const usage = subagent
+      ? usageSummary(observedAgent(message, observedSubagents)?.usage)
+      : null;
     return (
       <details
         className={subagent ? "chat-tool chat-subagent" : "chat-tool"}
@@ -50,6 +54,7 @@ export default function Message({
                   failed: commonCopy.failed,
                 }[status] || copy.toolDetails}
           </small>
+          {usage && <small className="subagent-usage">{usage}</small>}
         </summary>
         {toolOpen && toolImages.length > 0 && (
           <ChatImages images={toolImages} sessionId={sessionId} limit={Infinity} />
