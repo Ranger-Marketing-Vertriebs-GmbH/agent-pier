@@ -46,6 +46,13 @@ const tag = (source, name) => {
   return match ? match[1].trim() : "";
 };
 
+// Only counts the notification reports itself; <subagent_tokens> is the last
+// request's size, not consumption, and is never read.
+const count = (source, name) => {
+  const value = tag(source, name);
+  return /^\d{1,15}$/.test(value) ? Number(value) : null;
+};
+
 function handbackReport(body) {
   const marker = body.indexOf(REPORT_MARKER);
   const report =
@@ -107,6 +114,8 @@ export function subagentEvent(record) {
       ...key,
       status: notificationStatus(tag(envelope, "status")),
       summary: tag(envelope, "summary").slice(0, 1000),
+      durationMs: count(envelope, "duration_ms"),
+      toolUses: count(envelope, "tool_uses"),
     };
   }
   if (key?.kind === "handback")
