@@ -80,11 +80,15 @@ export class ChatStore {
     const remembered = this.lastKnownTotals.get(session.id);
     if (remembered?.nativeId === nativeId) return remembered.totals;
     const stored = readJSON(this.file(session.id, "snapshot"), null);
-    return stored?.providerSessionId === nativeId &&
+    const found =
+      stored?.providerSessionId === nativeId &&
       stored.scope?.accountId === session.accountId &&
       stored.scope?.tool === session.tool
-      ? stored.observability?.totals || null
-      : null;
+        ? stored.observability?.totals || null
+        : null;
+    // Remembered even when empty, so later snapshots skip the disk read.
+    this.lastKnownTotals.set(session.id, { nativeId, totals: found });
+    return found;
   }
   page(session, nativeId, state) {
     return this.history.readPage
