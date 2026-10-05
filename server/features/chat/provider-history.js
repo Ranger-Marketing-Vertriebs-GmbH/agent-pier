@@ -1,6 +1,7 @@
 import { CodexRolloutMetadata } from "./codex-rollout-metadata.js";
 import { activeOpenCodeExport } from "./opencode-revert.js";
 import { ClaudeHistoryPages } from "./claude-history-pages.js";
+import { ClaudeSubagentUsage, runningAgents } from "./claude-subagent-usage.js";
 import { readHistoryPage } from "./history-page.js";
 import { observeClaude, observeCodex, observeOpenCode } from "./chat-observability.js";
 import { serverMessages } from "../../lib/i18n/de.js";
@@ -171,6 +172,11 @@ export class ProviderHistory {
     this.openCodeJobs = new Set();
     this.claudePages = new ClaudeHistoryPages({
       onIndexed: (event) => this.onIndexed?.(event),
+    });
+    // A finished background scan re-reads the chat like a finished index does.
+    this.claudeUsage = new ClaudeSubagentUsage({
+      root: async (session) => (await this.claudeDirectory(session)).root,
+      onUpdated: (event) => this.onIndexed?.({ ...event, replaced: false }),
     });
   }
   environment(session) {
@@ -388,12 +394,25 @@ export class ProviderHistory {
     providerId(id);
     this.environment(session);
     if (session.tool === "claude") {
-      const records = await readJsonLines(await this.claudeFile(session, id));
+      const file = await this.claudeFile(session, id);
+      const records = await readJsonLines(file);
       if (!records.some((r) => r?.cwd && r.sessionId && !r.isSidechain))
         throw problem(serverMessages.chat.sessionHistoryBeingWritten, 404);
       if (!this.claudeMatches(records, session, id))
         throw problem(serverMessages.chat.sessionHistoryMismatch, 409);
-      return { ...normalizeClaude(records), observability: observeClaude(records) };
+      const observability = observeClaude(records);
+      return {
+        ...normalizeClaude(records),
+        observability: {
+          ...observability,
+          subagentUsage: this.claudeUsage.peek(
+            session,
+            id,
+            file,
+            runningAgents(observability),
+          ),
+        },
+      };
     }
     if (session.tool === "codex") {
       // Fetch metadata first: paginated stores cannot include turns in thread/read.
@@ -493,6 +512,7 @@ export class ProviderHistory {
   async close() {
     if (this.closing) return this.closing;
     this.closed = true;
+    this.claudeUsage.close();
     const jobs = [...this.openCodeJobs];
     for (const job of jobs) job.child.kill("SIGKILL");
     this.closing = Promise.all(
