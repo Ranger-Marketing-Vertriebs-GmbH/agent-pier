@@ -20,6 +20,8 @@ export function subagentHeading(subagents) {
 /** How long a finished subagent stays listed, and how long it then fades out. */
 export const SUBAGENT_LINGER_MS = 10_000;
 export const SUBAGENT_FADE_MS = 400;
+/** Clock-skew tolerance for an agent first seen already finished. */
+export const SUBAGENT_FIRST_SEEN_TOLERANCE_MS = 60_000;
 
 const updated = (agent) => {
   const time = Date.parse(agent.updatedAt);
@@ -67,7 +69,7 @@ export function presentSubagents(
     if (finishedAt === undefined) {
       const time = updated(agent);
       const changed = seen?.running || seen?.removed;
-      if (!changed && time !== null && now - time > SUBAGENT_LINGER_MS) {
+      if (!changed && time !== null && now - time > SUBAGENT_FIRST_SEEN_TOLERANCE_MS) {
         memory.set(agent.id, { status, removed: true });
         continue;
       }

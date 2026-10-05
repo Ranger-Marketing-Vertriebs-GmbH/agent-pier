@@ -12,7 +12,7 @@ const tool = (id, description, type, status, text, agentId) => ({
 });
 
 /** Client time of the fixture: the completed agent finished two seconds ago. */
-export const fixtureNow = new Date("2026-09-07T10:00:12Z");
+export const fixtureNow = new Date("2026-09-07T10:00:10Z");
 
 /**
  * A running Claude chat with one completed and one working background subagent.

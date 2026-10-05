@@ -141,3 +141,19 @@ test("a transcript rewritten in place never serves the old index as live", async
   assert.equal(page.observability.stale, true);
   assert.deepEqual(page.observability.subagents, []);
 });
+
+test("a complete small transcript serves its fresh tail state before the index catches up", async (t) => {
+  const f = await claudeHistoryFixture(t);
+  await f.write(background());
+  await f.history.readPage(f.session, "native");
+  await f.indexed();
+  const states = (page) =>
+    Object.fromEntries(
+      page.observability.subagents.map((agent) => [agent.id, agent.status]),
+    );
+  const before = await f.history.readPage(f.session, "native");
+  assert.equal(states(before).agentstyles02, "running");
+  await f.append([notification("toolu_styles", "agentstyles02", "completed")]);
+  const page = await f.history.readPage(f.session, "native");
+  assert.equal(states(page).agentstyles02, "completed");
+});
