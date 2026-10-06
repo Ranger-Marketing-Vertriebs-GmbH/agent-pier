@@ -10,6 +10,7 @@ import { readJson } from "./files.js";
 import { detectTools } from "../accounts/account-store.js";
 import { toolBinDirectories } from "../tools/tool-paths.js";
 import { problem } from "../../lib/storage.js";
+import { validateEndpoint } from "../providers/endpoint-config.js";
 const execute = promisify(execFile);
 export async function inertCommand(command, args) {
   try {
@@ -187,6 +188,20 @@ export class Doctor {
         path.join(this.dataDir, "provider-connection-secrets", `${connection.id}.json`),
       );
       if (connection.providerId === "endpoint") {
+        let valid = true;
+        try {
+          validateEndpoint(connection.endpoint);
+        } catch {
+          valid = false;
+        }
+        if (!valid) {
+          add(
+            `provider-connection.${connection.id}`,
+            "warn",
+            `Custom endpoint settings are invalid; the connection is hidden and cannot be launched until provider-connections.json is repaired. Key ${keyed ? "configured" : "not configured"}.`,
+          );
+          continue;
+        }
         const missing = (connection.endpoint?.models || []).filter(
           (model) => !model.contextTokens,
         ).length;
