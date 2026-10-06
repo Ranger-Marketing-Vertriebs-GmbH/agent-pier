@@ -1,7 +1,8 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { nameValue, problem } from "../../lib/storage.js";
-import { endpointOrigins } from "../providers/endpoint-config.js";
+import { endpointBaseUrl } from "../providers/endpoint-config.js";
 import {
+  TOOL_PROTOCOL,
   providerDefinition,
   validateProviderSelection,
 } from "../providers/provider-definitions.js";
@@ -38,10 +39,16 @@ export function boundedText(value, message, max, { empty = true } = {}) {
   return value;
 }
 
-export function endpointSnapshot(endpoint, modelIds) {
+/**
+ * Freezes only what the profile's CLI uses: its protocol, the origin of its base URL and
+ * the limits of the profile's models. Re-tests or edits elsewhere do not break a run.
+ */
+export function endpointSnapshot(endpoint, modelIds, tool) {
+  const url = endpointBaseUrl(endpoint, tool);
+  const protocol = TOOL_PROTOCOL[tool];
   return {
-    origins: endpointOrigins(endpoint),
-    protocols: { ...endpoint.protocols },
+    origins: url ? [new URL(url).origin] : [],
+    protocols: { [protocol]: endpoint.protocols[protocol] === true },
     models: Object.fromEntries(
       modelIds.map((id) => {
         const model = endpoint.models.find((item) => item.modelId === id);
@@ -79,7 +86,13 @@ export function profileConnection(config, accounts) {
     providerId: connection.providerId,
     ...(gate ? { responsesAccess: connection.responsesAccess } : {}),
     ...(connection.endpoint
-      ? { endpoint: endpointSnapshot(connection.endpoint, config.models.available) }
+      ? {
+          endpoint: endpointSnapshot(
+            connection.endpoint,
+            config.models.available,
+            config.cliTool,
+          ),
+        }
       : {}),
   };
 }

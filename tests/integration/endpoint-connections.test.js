@@ -206,7 +206,7 @@ test("keyless endpoint resolves to an internal account with only id and model", 
   );
 });
 
-test("endpoint pipeline snapshot covers origins, protocols and selected model limits only", (t) => {
+test("endpoint pipeline snapshot covers the CLI's origin, protocol and selected model limits only", (t) => {
   const { connections, accounts } = full(t);
   const { id } = connections.create({
     name: "GPU",
@@ -222,7 +222,7 @@ test("endpoint pipeline snapshot covers origins, protocols and selected model li
     providerId: "endpoint",
     endpoint: {
       origins: ["http://127.0.0.1:11434"],
-      protocols: ollama.protocols,
+      protocols: { chatCompletions: true },
       models: { qwen3: { contextTokens: 32768, outputTokens: null } },
     },
   });
