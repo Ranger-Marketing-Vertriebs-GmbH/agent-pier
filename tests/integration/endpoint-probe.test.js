@@ -318,6 +318,52 @@ test("a long listing plus manual models stays saveable and warns", async (t) => 
   );
 });
 
+test("a 404 is a missing protocol when another protocol accepted the same model", async (t) => {
+  // llama-server started with -m <path>: the listed ID is skipped, any model name works.
+  const server = await fakeEndpoint(t, {
+    "GET /v1/models": () => ({ json: { data: [{ id: "/models/q.gguf" }] } }),
+    "POST /v1/chat/completions": () => ({ json: { choices: [] } }),
+  });
+  const manual = [
+    {
+      modelId: "qwen",
+      label: "qwen",
+      contextTokens: 32768,
+      outputTokens: null,
+      source: "manual",
+      contextEdited: true,
+    },
+  ];
+  const result = await runEndpointTest({
+    endpoint: draft(server.base, "llamacpp"),
+    apiKey: "",
+    previousModels: manual,
+    probeModelId: "qwen",
+  });
+  assert.deepEqual(result.protocols, {
+    messages: "unsupported",
+    responses: "unsupported",
+    chatCompletions: "ok",
+  });
+  assert.deepEqual(result.reasons, { messages: "notFound", responses: "notFound" });
+  // Nothing accepted the unlisted model, so the 404s still mean a missing model.
+  const azure = await fakeEndpoint(t, azureRoutes("az-key"));
+  const missing = await runEndpointTest({
+    endpoint: {
+      preset: "custom",
+      openaiBaseUrl: `${azure.base}/openai/v1`,
+      anthropicBaseUrl: null,
+      authHeader: "api-key",
+    },
+    apiKey: "az-key",
+    previousModels: [],
+    probeModelId: "other-deploy",
+  });
+  assert.equal(missing.protocols.responses, "failed");
+  assert.equal(missing.reasons.responses, "modelNotFound");
+  assert.equal(missing.reasons.chatCompletions, "modelNotFound");
+});
+
 test("upstream error bodies containing the key are never returned", async (t) => {
   const server = await fakeEndpoint(t, {
     "GET /v1/models": () => ({ json: { data: [{ id: "m" }] } }),

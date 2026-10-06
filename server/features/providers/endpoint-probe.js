@@ -75,28 +75,38 @@ export async function runEndpointTest({
   const protocols = {};
   const reasons = {};
   const headers = authHeaders(apiKey, endpoint.authHeader);
-  for (const [name, probe] of Object.entries(probes(endpoint, model))) {
-    if (!model || !probe) {
+  const planned = probes(endpoint, model);
+  const results = {};
+  for (const [name, probe] of Object.entries(planned)) {
+    if (!model || !probe) continue;
+    try {
+      results[name] = await endpointRequest({
+        url: probe.url,
+        method: "POST",
+        body: probe.body,
+        headers: { ...headers, ...(probe.headers || {}) },
+        timeoutMs: PROBE_TIMEOUT,
+        signal: combined,
+        lookup,
+      });
+    } catch (error) {
+      results[name] = { reason: error.reason || "network" };
+    }
+  }
+  // When any protocol accepted the probe model, the model exists, so a 404 elsewhere
+  // means the protocol is missing, even for a model the listing did not report.
+  const accepted = Object.values(results).some(
+    ({ reason, status }) =>
+      !reason && ((status >= 200 && status < 300) || status === 400 || status === 422),
+  );
+  for (const name of Object.keys(planned)) {
+    if (!results[name]) {
       protocols[name] = "skipped";
       continue;
     }
-    let outcome;
-    try {
-      outcome = classifyProbe(
-        await endpointRequest({
-          url: probe.url,
-          method: "POST",
-          body: probe.body,
-          headers: { ...headers, ...(probe.headers || {}) },
-          timeoutMs: PROBE_TIMEOUT,
-          signal: combined,
-          lookup,
-        }),
-        { listedModel },
-      );
-    } catch (error) {
-      outcome = classifyProbe({ reason: error.reason || "network" }, { listedModel });
-    }
+    const outcome = classifyProbe(results[name], {
+      listedModel: listedModel || accepted,
+    });
     protocols[name] = outcome.status;
     if (outcome.reason) reasons[name] = outcome.reason;
     if (outcome.warning) warnings.add(outcome.warning);
