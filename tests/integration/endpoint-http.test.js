@@ -133,6 +133,22 @@ test("unresolvable hosts are network failures; policy refusals stay notAllowed",
   );
 });
 
+test("a host resolving to ::1 first still reaches a server bound to 127.0.0.1", async (t) => {
+  const server = await fakeEndpoint(t, { "GET /v1/models": () => ({ json: { ok: 1 } }) });
+  const port = new URL(server.base).port;
+  const lookup = async () => [
+    { address: "::1", family: 6 },
+    { address: "127.0.0.1", family: 4 },
+  ];
+  const result = await endpointRequest({
+    url: `http://localhost:${port}/v1/models`,
+    timeoutMs: 5000,
+    lookup,
+  });
+  assert.deepEqual(result, { status: 200, json: { ok: 1 } });
+  assert.equal(server.seen[0].headers.host, `localhost:${port}`);
+});
+
 test("error statuses resolve without leaking bodies into errors", async (t) => {
   const server = await fakeEndpoint(t, {
     "POST /fail": ({ body }) => ({ status: 500, raw: `secret ${body.model}` }),
