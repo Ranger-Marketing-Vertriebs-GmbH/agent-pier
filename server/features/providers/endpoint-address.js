@@ -72,7 +72,7 @@ const LOCAL = new Set(["loopback", "private", "linkLocal", "cgnat"]);
  */
 export async function resolveEndpointTarget(
   value,
-  { lookup = dns.promises.lookup } = {},
+  { lookup = dns.promises.lookup, timeoutMs } = {},
 ) {
   const url = new URL(value);
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
@@ -84,11 +84,23 @@ export async function resolveEndpointTarget(
     Object.assign(problem(serverMessages.providers.endpointHostUnresolved, 502), {
       reason: "network",
     });
+  let timer;
+  // dns.lookup cannot be cancelled; with timeoutMs a stalled lookup ends as unresolved.
+  const deadline =
+    timeoutMs === undefined
+      ? []
+      : [
+          new Promise((_resolve, reject) => {
+            timer = setTimeout(() => reject(new Error("timeout")), timeoutMs);
+          }),
+        ];
   const addresses = net.isIP(hostname)
     ? [{ address: hostname, family: net.isIP(hostname) }]
-    : await lookup(hostname, { all: true, verbatim: true }).catch(() => {
-        throw unresolved();
-      });
+    : await Promise.race([lookup(hostname, { all: true, verbatim: true }), ...deadline])
+        .catch(() => {
+          throw unresolved();
+        })
+        .finally(() => clearTimeout(timer));
   if (!Array.isArray(addresses) || !addresses.length) throw unresolved();
   const kinds = addresses.map(({ address }) => classifyAddress(address));
   if (

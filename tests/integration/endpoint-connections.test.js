@@ -14,6 +14,7 @@ import { Doctor } from "../../server/features/operations/doctor.js";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
 import { profileConnection } from "../../server/features/pipelines/profile-validation.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 export const ollama = {
   preset: "ollama",
@@ -271,6 +272,16 @@ test("pre-launch target check refuses http to public resolution", async (t) => {
     lookup: async () => [{ address: "192.168.1.20", family: 4 }],
   });
   await accounts.verifyEndpointTarget("local-codex");
+  // A stalled resolver cannot hold a launch or reload: it ends as an unresolved host.
+  const started = Date.now();
+  await assert.rejects(
+    accounts.verifyEndpointTarget(account.id, {
+      lookup: () => new Promise(() => {}),
+      timeoutMs: 100,
+    }),
+    { status: 502, message: serverMessages.providers.endpointHostUnresolved },
+  );
+  assert.ok(Date.now() - started < 2000);
 });
 
 test("MCP models_list returns only endpoint models with a context window", async (t) => {
