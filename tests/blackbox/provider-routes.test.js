@@ -8,10 +8,22 @@ test("provider catalogs are public metadata and use explicit CLI filters", async
   assert.equal(response.status, 200);
   const catalog = await response.json();
   assert.deepEqual(catalog.providers.map((provider) => provider.id).sort(), [
+    "endpoint",
     "openrouter",
     "zai",
     "zai-coding-plan",
   ]);
+  assert.deepEqual(
+    Object.fromEntries(catalog.providers.map((provider) => [provider.id, provider.kind])),
+    {
+      openrouter: "catalog",
+      zai: "catalog",
+      "zai-coding-plan": "catalog",
+      endpoint: "endpoint",
+    },
+  );
+  assert.equal(Object.hasOwn(catalog.status, "endpoint"), false);
+  assert.equal((await app.request("/api/providers/endpoint/models")).status, 400);
   const models = await app.request("/api/providers/zai/models?tool=codex");
   assert.equal(models.status, 200);
   const data = await models.json();
