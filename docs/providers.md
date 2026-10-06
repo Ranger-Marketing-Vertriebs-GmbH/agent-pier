@@ -74,7 +74,10 @@ plus optional warnings. Paid endpoints may charge for the few tokens used.
 - Ollama: the context comes from `num_ctx` when the model sets it. Otherwise Ollama sizes
   the context by available VRAM or `OLLAMA_CONTEXT_LENGTH`, which its API does not report;
   confirm a value yourself (the model maximum is shown only as a hint).
-- llama.cpp: the loaded `n_ctx` is read from `/props`. Model IDs that are file paths are
+- llama.cpp: the loaded `n_ctx` is read from `/props`. In router mode only models that
+  are already loaded are asked (with `autoload=false`); for the others the context comes
+  from their `-c`/`--ctx-size` launch argument when the router reports it, otherwise
+  enter it yourself. A test never makes the router load a model. Model IDs that are file paths are
   skipped; start `llama-server` with `--alias` or add the model manually.
 - Azure OpenAI: use `https://<resource>.openai.azure.com/openai/v1` and add your
   deployment names as models; the model list shows base models, not deployments. For

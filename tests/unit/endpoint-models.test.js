@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  argsContext,
   parseOllamaNumCtx,
   mergeModels,
 } from "../../server/features/providers/endpoint-models.js";
@@ -11,6 +12,16 @@ test("parses num_ctx from Modelfile parameters", () => {
   assert.equal(parseOllamaNumCtx("temperature 0.7"), null);
   assert.equal(parseOllamaNumCtx(undefined), null);
   assert.equal(parseOllamaNumCtx("num_ctx 12"), null); // below 1024 is ignored
+});
+
+test("reads llama.cpp router context from launch arguments", () => {
+  assert.equal(argsContext(["llama-server", "-c", "8192"]), 8192);
+  assert.equal(argsContext(["llama-server", "--ctx-size", "32768"]), 32768);
+  assert.equal(argsContext(["llama-server", "--ctx-size=16384"]), 16384);
+  assert.equal(argsContext(["llama-server", "-ctx", "4096"]), 4096);
+  assert.equal(argsContext(["llama-server", "-c", "0"]), null); // 0 means model default
+  assert.equal(argsContext(["llama-server", "-m", "x.gguf"]), null);
+  assert.equal(argsContext(undefined), null);
 });
 
 test("merge keeps manual models and edits, replaces detected ones only after listing", () => {

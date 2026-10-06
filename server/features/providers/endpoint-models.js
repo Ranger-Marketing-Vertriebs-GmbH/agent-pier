@@ -15,6 +15,27 @@ export function parseOllamaNumCtx(parameters) {
   return valid(value) ? value : null;
 }
 
+const plainObject = (value) =>
+  !!value && typeof value === "object" && !Array.isArray(value);
+const CTX_FLAGS = new Set(["-c", "--ctx-size", "-ctx"]);
+
+/** Reads the context size from a llama.cpp router's per-model launch arguments. */
+export function argsContext(args) {
+  if (!Array.isArray(args)) return null;
+  for (let index = 0; index < args.length; index++) {
+    const arg = String(args[index]);
+    const value = CTX_FLAGS.has(arg)
+      ? args[index + 1]
+      : arg.startsWith("--ctx-size=")
+        ? arg.slice("--ctx-size=".length)
+        : undefined;
+    if (value === undefined) continue;
+    const number = Number(value);
+    return valid(number) ? number : null;
+  }
+  return null;
+}
+
 async function pool(items, size, task) {
   const results = new Array(items.length);
   let next = 0;
@@ -43,12 +64,17 @@ export async function listEndpointModels({ endpoint, apiKey, signal, lookup }) {
   const warnings = new Set();
   let ids = [];
   let listed = false;
+  // A llama.cpp router reports a status object per model; a single server does not.
+  const routerStatus = new Map();
   try {
     const result = await call(`${trim(endpoint.openaiBaseUrl)}/models`);
     if (result.status === 200 && Array.isArray(result.json?.data)) {
       ids = result.json.data
         .map((item) => item?.id)
         .filter((id) => typeof id === "string");
+      for (const item of result.json.data)
+        if (typeof item?.id === "string" && plainObject(item.status))
+          routerStatus.set(item.id, item.status);
       listed = true;
     }
   } catch {
@@ -106,17 +132,28 @@ export async function listEndpointModels({ endpoint, apiKey, signal, lookup }) {
       }
     }).then((head) => [...head, ...models.slice(50)]);
   if (endpoint.preset === "llamacpp") {
-    const router = models.length > 1;
+    const router = routerStatus.size > 0;
     models = await pool(models, 4, async (model) => {
+      const status = routerStatus.get(model.modelId);
+      // A router loads a model for /props?model= unless autoload=false, so only models
+      // that are already loaded are asked; the others use their launch arguments.
+      if (router && status?.value !== "loaded") {
+        const fromArgs = argsContext(status?.args);
+        return fromArgs ? { ...model, contextTokens: fromArgs } : model;
+      }
       try {
         const props = await call(
-          `${root}/props${router ? `?model=${encodeURIComponent(model.modelId)}` : ""}`,
+          `${root}/props${
+            router ? `?model=${encodeURIComponent(model.modelId)}&autoload=false` : ""
+          }`,
         );
         const nCtx = props.json?.default_generation_settings?.n_ctx;
-        return valid(nCtx) ? { ...model, contextTokens: nCtx } : model;
+        if (valid(nCtx)) return { ...model, contextTokens: nCtx };
       } catch {
-        return model;
+        /* Fall back to the launch arguments below. */
       }
+      const fromArgs = router ? argsContext(status?.args) : null;
+      return fromArgs ? { ...model, contextTokens: fromArgs } : model;
     });
   }
   return { listed, models, warnings: [...warnings] };

@@ -74,7 +74,12 @@ test("llama.cpp single and router mode", async (t) => {
     [["coder", 32768]],
   );
   assert.ok(one.warnings.includes("modelIdSkipped"));
-  const router = await fakeEndpoint(t, llamaRoutes({ router: true }));
+  assert.ok(!single.seen.some((entry) => entry.url.includes("model=")));
+});
+
+test("llama.cpp router detection never loads a model", async (t) => {
+  const loads = [];
+  const router = await fakeEndpoint(t, llamaRoutes({ router: true, loads }));
   const many = await listEndpointModels({
     endpoint: draft(router.base, "llamacpp"),
     apiKey: "",
@@ -84,8 +89,28 @@ test("llama.cpp single and router mode", async (t) => {
     [
       ["coder", 32768],
       ["small", 8192],
+      ["big", null],
     ],
   );
+  assert.deepEqual(loads, []);
+  const props = router.seen.filter((entry) => entry.url.startsWith("/props"));
+  assert.deepEqual(
+    props.map((entry) => entry.url),
+    ["/props?model=coder&autoload=false"],
+  );
+  const one = await fakeEndpoint(
+    t,
+    llamaRoutes({ router: true, models: ["coder"], loads }),
+  );
+  const alone = await listEndpointModels({
+    endpoint: draft(one.base, "llamacpp"),
+    apiKey: "",
+  });
+  assert.deepEqual(
+    alone.models.map((m) => [m.modelId, m.contextTokens]),
+    [["coder", 32768]],
+  );
+  assert.deepEqual(loads, []);
 });
 
 test("azure-like listing uses the custom header and never echoes bodies", async (t) => {
