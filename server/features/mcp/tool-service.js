@@ -3,6 +3,7 @@ import {
   artifactToolEntries,
   callArtifactTool,
 } from "../artifacts/artifact-mcp.js";
+import { endpointModel } from "../providers/endpoint-config.js";
 import { problem } from "../../lib/storage.js";
 import { projectScope } from "../memory/project-scope.js";
 import { toolSchemas } from "./tool-schemas.js";
@@ -188,10 +189,17 @@ export class McpTools {
             )
         )
           throw problem("No account for this CLI is authorized.", 403);
-        const models = providerCatalog.list({
-          providerId: connection.providerId,
-          tool: args.tool,
-        });
+        const models =
+          connection.providerId === "endpoint"
+            ? connection.endpoint.models
+                .filter((model) => model.contextTokens)
+                .map((model) =>
+                  endpointModel(connection.endpoint, model.modelId, args.tool),
+                )
+            : providerCatalog.list({
+                providerId: connection.providerId,
+                tool: args.tool,
+              });
         return pageItems(
           models.map((model) => ({ ...model, name: model.label })),
           args,

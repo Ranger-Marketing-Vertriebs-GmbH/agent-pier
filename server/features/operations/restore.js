@@ -139,6 +139,7 @@ export class Restore {
         [],
       ))
         if (
+          connection.providerId !== "endpoint" &&
           !secrets.some(
             (member) =>
               member.path === `provider-connection-secrets/${connection.id}.json`,
