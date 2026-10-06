@@ -11,7 +11,10 @@ function fixture(count = 0) {
   const operations = new SessionOperations(() => Promise.resolve());
   const services = {
     config: { home: "/tmp", dataDir: "/tmp" },
-    accounts: { command: () => ({ command: "/bin/sh", args: [], env: {} }) },
+    accounts: {
+      verifyEndpointTarget: async () => {},
+      command: () => ({ command: "/bin/sh", args: [], env: {} }),
+    },
     providerAccess: {
       resolve: () => ({
         account: { id: "account", tool: "codex", name: "test" },
@@ -86,5 +89,19 @@ test("a pipeline session cannot request a nono profile", async () => {
   await assert.rejects(
     f.launch({ nonoProfile: "claude-default" }, false, { pipeline: { id: "p" } }),
   );
+  assert.equal(f.sessions.length, 0);
+});
+test("a refused endpoint target stops the launch before the command is built", async () => {
+  const f = fixture();
+  let built = false;
+  f.services.accounts.command = () => {
+    built = true;
+    return { command: "/bin/sh", args: [], env: {} };
+  };
+  f.services.accounts.verifyEndpointTarget = async () => {
+    throw Object.assign(Error("refused"), { status: 400 });
+  };
+  await assert.rejects(f.launch({}, false), { status: 400 });
+  assert.equal(built, false);
   assert.equal(f.sessions.length, 0);
 });

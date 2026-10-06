@@ -23,6 +23,7 @@ function fixture() {
   const services = {
     accounts: {
       get: () => account,
+      verifyEndpointTarget: async () => {},
       command: (_id, _tools, _login, _mode, opts) => {
         calls.push(["command", opts]);
         return { command: "/bin/sh", args: ["--model", opts.modelId], env: {} };
@@ -241,4 +242,18 @@ test("a reloaded session without a sandbox profile is not wrapped in nono", asyn
   const launch = await f.restartReload(f.session, plan);
   assert.equal(launch.command, "/bin/sh");
   assert.deepEqual(launch.args.slice(-2), ["--resume", "native-exact"]);
+});
+
+test("a refused endpoint target stops the reload before the launch command is built", async () => {
+  const f = fixture();
+  let built = false;
+  f.services.accounts.command = () => {
+    built = true;
+    return { command: "/bin/sh", args: [], env: {} };
+  };
+  f.services.accounts.verifyEndpointTarget = async () => {
+    throw Object.assign(Error("refused"), { status: 400 });
+  };
+  await assert.rejects(f.prepareReload(f.session, "native-exact"), { status: 400 });
+  assert.equal(built, false);
 });
