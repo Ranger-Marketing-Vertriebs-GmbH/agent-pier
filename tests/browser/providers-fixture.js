@@ -1,14 +1,23 @@
 import { baseURL } from "../helpers/browser.js";
 export async function fixture(page, { account, session } = {}) {
-  const providers = ["openrouter", "zai", "zai-coding-plan"].map((id) => ({
-    id,
-    name: {
-      openrouter: "OpenRouter",
-      zai: "Z.ai API",
-      "zai-coding-plan": "Z.ai Coding Plan",
-    }[id],
-    tools: ["codex", "claude", "opencode"],
-  }));
+  const providers = [
+    ...["openrouter", "zai", "zai-coding-plan"].map((id) => ({
+      id,
+      name: {
+        openrouter: "OpenRouter",
+        zai: "Z.ai API",
+        "zai-coding-plan": "Z.ai Coding Plan",
+      }[id],
+      kind: "catalog",
+      tools: ["codex", "claude", "opencode"],
+    })),
+    {
+      id: "endpoint",
+      name: "Custom endpoint",
+      kind: "endpoint",
+      tools: ["codex", "claude", "opencode"],
+    },
+  ];
   const router = {
     providerId: "openrouter",
     modelId: "z-ai/glm-5.3",
@@ -66,6 +75,32 @@ export async function fixture(page, { account, session } = {}) {
     release: null,
     modelState: null,
     failConnection: false,
+    endpointProposal: {
+      models: [
+        {
+          modelId: "qwen3:8b",
+          label: "qwen3:8b",
+          contextTokens: 40960,
+          outputTokens: null,
+          source: "detected",
+          contextEdited: false,
+        },
+        {
+          modelId: "llama3:8b",
+          label: "llama3:8b",
+          contextTokens: null,
+          outputTokens: null,
+          source: "detected",
+          contextEdited: false,
+          contextHint: 131072,
+        },
+      ],
+      listed: true,
+      protocols: { messages: "ok", responses: "unsupported", chatCompletions: "ok" },
+      reasons: { responses: "notFound" },
+      probeModelId: "qwen3:8b",
+      warnings: ["ollamaContextUnknown"],
+    },
   };
   await page.route("**/api/**", async (route) => {
     const request = route.request(),
@@ -83,6 +118,8 @@ export async function fixture(page, { account, session } = {}) {
     if (path.startsWith("/api/provider-connections")) {
       if (method === "GET")
         return route.fulfill({ json: { connections: state.providerConnections } });
+      if (path === "/api/provider-connections/test")
+        return route.fulfill({ json: controls.endpointProposal });
       if (controls.failConnection)
         return route.fulfill({
           status: 409,
@@ -104,15 +141,26 @@ export async function fixture(page, { account, session } = {}) {
         ...body,
         id: existing.id || "connection-one",
         hasSecret: body.removeApiKey ? false : Boolean(body.apiKey || existing.hasSecret),
-        launchable: body.removeApiKey
-          ? false
-          : Boolean(body.apiKey || existing.hasSecret),
+        launchable:
+          (body.providerId || existing.providerId) === "endpoint" ||
+          (body.removeApiKey ? false : Boolean(body.apiKey || existing.hasSecret)),
         tools:
-          body.providerId === "openrouter" ||
-          existing.providerId === "openrouter" ||
-          (body.responsesAccess ?? existing.responsesAccess)
-            ? ["codex", "claude", "opencode"]
-            : ["claude", "opencode"],
+          body.endpoint || existing.endpoint
+            ? [
+                ["codex", "responses"],
+                ["claude", "messages"],
+                ["opencode", "chatCompletions"],
+              ]
+                .filter(
+                  ([, protocol]) =>
+                    (body.endpoint || existing.endpoint).protocols[protocol],
+                )
+                .map(([tool]) => tool)
+            : body.providerId === "openrouter" ||
+                existing.providerId === "openrouter" ||
+                (body.responsesAccess ?? existing.responsesAccess)
+              ? ["codex", "claude", "opencode"]
+              : ["claude", "opencode"],
         createdAt: "2026-09-07T12:00:00Z",
         updatedAt: "2026-09-07T12:00:00Z",
       };
