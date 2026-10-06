@@ -33,6 +33,18 @@ export function profileAccess(profile, modelId = profile.config.models.default) 
       : {}),
   };
 }
+function narrowed(snapshot, modelId) {
+  if (!snapshot?.endpoint) return snapshot;
+  return {
+    ...snapshot,
+    endpoint: {
+      ...snapshot.endpoint,
+      models: Object.hasOwn(snapshot.endpoint.models, modelId)
+        ? { [modelId]: snapshot.endpoint.models[modelId] }
+        : {},
+    },
+  };
+}
 export function validateProfileLaunch(
   profile,
   account,
@@ -48,7 +60,10 @@ export function validateProfileLaunch(
   );
   if (
     (profile.providerConnectionSnapshot &&
-      !isDeepStrictEqual(connection, profile.providerConnectionSnapshot)) ||
+      !isDeepStrictEqual(
+        connection,
+        narrowed(profile.providerConnectionSnapshot, modelId),
+      )) ||
     account.internal?.kind !== "provider-connection" ||
     account.internal.sourceAccountId !== profile.config.accountId ||
     account.internal.connectionId !== connection.id ||

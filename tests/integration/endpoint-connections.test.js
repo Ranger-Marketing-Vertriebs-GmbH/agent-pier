@@ -4,6 +4,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
+import { ProviderCatalog } from "../../server/features/providers/provider-catalog.js";
+import { ProviderAccess } from "../../server/features/providers/provider-access.js";
+import { AccountStore } from "../../server/features/accounts/account-store.js";
+import { profileConnection } from "../../server/features/pipelines/profile-validation.js";
 
 export const ollama = {
   preset: "ollama",
@@ -119,4 +123,84 @@ test("invalid stored endpoint records are skipped, not fatal, and preserved on s
     bad,
   );
   assert.equal(saved.length, 2);
+});
+
+function full(t) {
+  const { dataDir, connections } = store(t);
+  const providerCatalog = new ProviderCatalog({ dataDir });
+  const accounts = new AccountStore({
+    dataDir,
+    home: dataDir,
+    providerCatalog,
+    providerConnections: connections,
+  });
+  return {
+    connections,
+    accounts,
+    access: new ProviderAccess({ accounts, connections, providerCatalog }),
+  };
+}
+
+test("keyless endpoint resolves to an internal account with only id and model", (t) => {
+  const { connections, access } = full(t);
+  const { id } = connections.create({
+    name: "GPU",
+    providerId: "endpoint",
+    endpoint: ollama,
+  });
+  const resolved = access.resolve({
+    tool: "claude",
+    providerConnectionId: id,
+    providerModelId: "qwen3",
+  });
+  assert.deepEqual(resolved.account.provider, { id: "endpoint", modelId: "qwen3" });
+  assert.equal(resolved.selection.providerId, "endpoint");
+  assert.throws(
+    () =>
+      access.resolve({
+        tool: "claude",
+        providerConnectionId: id,
+        providerModelId: "nope",
+      }),
+    { status: 409 },
+  );
+});
+
+test("endpoint pipeline snapshot covers origins, protocols and selected model limits only", (t) => {
+  const { connections, accounts } = full(t);
+  const { id } = connections.create({
+    name: "GPU",
+    providerId: "endpoint",
+    endpoint: ollama,
+  });
+  const snapshot = profileConnection(
+    { providerConnectionId: id, cliTool: "opencode", models: { available: ["qwen3"] } },
+    accounts,
+  );
+  assert.deepEqual(snapshot, {
+    id,
+    providerId: "endpoint",
+    endpoint: {
+      origins: ["http://127.0.0.1:11434"],
+      protocols: ollama.protocols,
+      models: { qwen3: { contextTokens: 32768, outputTokens: null } },
+    },
+  });
+  connections.update(id, {
+    endpoint: {
+      ...ollama,
+      lastTest: {
+        at: new Date().toISOString(),
+        protocols: { messages: "ok", responses: "ok", chatCompletions: "ok" },
+        reasons: {},
+      },
+    },
+  });
+  assert.deepEqual(
+    profileConnection(
+      { providerConnectionId: id, cliTool: "opencode", models: { available: ["qwen3"] } },
+      accounts,
+    ),
+    snapshot,
+  );
 });

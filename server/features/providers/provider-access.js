@@ -1,6 +1,6 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import { validateProviderSelection } from "./provider-definitions.js";
+import { providerDefinition, validateProviderSelection } from "./provider-definitions.js";
 export class ProviderAccess {
   constructor({ accounts, connections, providerCatalog, preferences }) {
     this.preferences = preferences;
@@ -28,20 +28,22 @@ export class ProviderAccess {
     if (login || source.tool === "shell")
       throw problem(serverMessages.providers.connectionRequiresWorkSession);
     const connection = this.connections.get(body.providerConnectionId);
-    if (!connection.hasSecret)
+    if (!connection.launchable)
       throw problem(serverMessages.providers.apiKeyRequiredForSession, 409);
     if (!connection.tools.includes(source.tool))
       throw problem(serverMessages.providers.connectionToolUnsupported);
+    const definition = providerDefinition(connection.providerId);
     const provider = validateProviderSelection(
       {
         id: connection.providerId,
         modelId: body.providerModelId,
-        ...(source.tool === "codex" && connection.providerId !== "openrouter"
+        ...(source.tool === "codex" && definition.responsesGate
           ? { responsesAccess: connection.responsesAccess }
           : {}),
       },
       source.tool,
       this.catalog,
+      { endpoint: connection.endpoint },
     );
     const account = this.accounts.connectionProfile({ source, connection, provider });
     return {
