@@ -43,6 +43,26 @@ test("ollama listing reads num_ctx and keeps model maximum only as hint", async 
   assert.ok(result.warnings.includes("ollamaContextUnknown"));
 });
 
+test("native Ollama and llama.cpp routes follow the OpenAI URL, not a stale Anthropic URL", async (t) => {
+  const stale = await fakeEndpoint(t, {});
+  const ollama = await fakeEndpoint(t, ollamaRoutes());
+  const detected = await listEndpointModels({
+    endpoint: draft(ollama.base, "ollama", { anthropicBaseUrl: stale.base }),
+    apiKey: "",
+  });
+  assert.equal(detected.models[0].contextTokens, 40960);
+  const llama = await fakeEndpoint(t, llamaRoutes());
+  const single = await listEndpointModels({
+    endpoint: draft(llama.base, "llamacpp", { anthropicBaseUrl: stale.base }),
+    apiKey: "",
+  });
+  assert.deepEqual(
+    single.models.map((m) => [m.modelId, m.contextTokens]),
+    [["coder", 32768]],
+  );
+  assert.equal(stale.seen.length, 0);
+});
+
 test("llama.cpp single and router mode", async (t) => {
   const single = await fakeEndpoint(t, llamaRoutes());
   const one = await listEndpointModels({
