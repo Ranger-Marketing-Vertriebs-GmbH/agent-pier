@@ -151,7 +151,7 @@ test("lookup failures and empty results report an unresolved host, not a policy 
   );
 });
 
-test("lookup is called with all and verbatim and the first address is returned", async () => {
+test("lookup is called with all and verbatim and every checked address is returned", async () => {
   let args;
   const lookup = async (...rest) => {
     args = rest;
@@ -162,7 +162,15 @@ test("lookup is called with all and verbatim and the first address is returned",
   };
   const target = await resolveEndpointTarget("http://box.local:1234/v1", { lookup });
   assert.deepEqual(args, ["box.local", { all: true, verbatim: true }]);
-  assert.deepEqual(target, { hostname: "box.local", address: "10.0.0.2", family: 4 });
+  assert.deepEqual(target, {
+    hostname: "box.local",
+    address: "10.0.0.2",
+    family: 4,
+    addresses: [
+      { address: "10.0.0.2", family: 4 },
+      { address: "fd00::2", family: 6 },
+    ],
+  });
 });
 
 test("NAT64 addresses never reach http, even with private embeds", async () => {

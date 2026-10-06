@@ -25,8 +25,8 @@ function parseTarget(url) {
 }
 
 /**
- * Sends one request to the address that passed the endpoint URL rule. The resolved
- * address is pinned through a custom lookup, so DNS cannot change between the check and
+ * Sends one request to the addresses that passed the endpoint URL rule. The resolved
+ * addresses are pinned through a custom lookup, so DNS cannot change between the check and
  * the connection, while Host, SNI and certificate checks keep using the hostname.
  * Redirects are returned as plain statuses and bodies are capped at 1 MB.
  */
@@ -84,9 +84,12 @@ export async function endpointRequest({
                 }),
             ...headers,
           },
+          // Every checked address is offered, so the connection falls back between
+          // them (for example ::1 then 127.0.0.1 for localhost).
+          autoSelectFamily: true,
           lookup: (_hostname, options, callback) =>
             options?.all
-              ? callback(null, [{ address: target.address, family: target.family }])
+              ? callback(null, target.addresses)
               : callback(null, target.address, target.family),
           ...(secure && !net.isIP(target.hostname)
             ? { servername: target.hostname }

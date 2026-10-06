@@ -96,5 +96,11 @@ export async function resolveEndpointTarget(
     (url.protocol === "http:" && kinds.some((kind) => !LOCAL.has(kind)))
   )
     throw notAllowed();
-  return { hostname, address: addresses[0].address, family: addresses[0].family };
+  // Every address passed the check, so a connection may fall back between them.
+  return {
+    hostname,
+    address: addresses[0].address,
+    family: addresses[0].family,
+    addresses: addresses.map(({ address, family }) => ({ address, family })),
+  };
 }
