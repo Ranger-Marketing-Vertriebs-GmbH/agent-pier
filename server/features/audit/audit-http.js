@@ -59,6 +59,9 @@ export function requestAudit(req) {
   } else if (area === "ssh-accesses") {
     if (id === "scan") return null;
     if (operation === "test") action = "tested";
+  } else if (area === "provider-connections" && id === "test") {
+    action = "tested";
+    resourceId = undefined;
   } else if (area === "ssh-keys" && operation === "download") {
     return null; // The explicit download route records the export without its contents.
   } else if (area === "accounts" && operation) {

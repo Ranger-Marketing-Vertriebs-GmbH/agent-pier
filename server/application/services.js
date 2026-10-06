@@ -8,6 +8,7 @@ import { AgencyStore } from "../features/agency/agency-store.js";
 import { SharedCliProfiles } from "../features/cli-profiles/shared-profiles.js";
 import { ProviderConnections } from "../features/providers/provider-connections.js";
 import { ProviderAccess } from "../features/providers/provider-access.js";
+import { EndpointTester } from "../features/providers/endpoint-tester.js";
 import { NotificationService } from "../features/notifications/notification-service.js";
 import { RequestBroker } from "../features/requests/request-broker.js";
 import { Operations } from "../features/operations/operations.js";
@@ -51,6 +52,7 @@ export async function createServices(config) {
     dataDir: config.dataDir,
     providerCatalog,
   });
+  const endpointTester = new EndpointTester({ connections: providerConnections });
   const accounts = new AccountStore({ ...config, providerCatalog, providerConnections });
   const preferences = new Preferences({ ...config, accounts });
   const providerAccess = new ProviderAccess({
@@ -230,6 +232,7 @@ export async function createServices(config) {
     memoryIntegration,
     providerCatalog,
     providerConnections,
+    endpointTester,
     providerAccess,
     accounts,
     sessions,
