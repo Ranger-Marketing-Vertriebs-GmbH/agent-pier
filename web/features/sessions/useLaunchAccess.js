@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import useProviderCatalog from "../providers/useProviderCatalog.js";
+import useConnectionModels from "../providers/useConnectionModels.js";
 import api from "../../lib/api.js";
 export function launchAccesses(state, tool) {
   return {
@@ -19,8 +19,8 @@ function defaultAccess(state, tool) {
         !account.internal,
     )?.id ||
     accounts[0]?.id ||
-    (connections.find((connection) => connection.hasSecret)
-      ? `provider:${connections.find((connection) => connection.hasSecret).id}`
+    (connections.find((connection) => connection.launchable)
+      ? `provider:${connections.find((connection) => connection.launchable).id}`
       : "")
   );
 }
@@ -58,7 +58,7 @@ export default function useLaunchAccess(state, initialTool, initialProfile) {
     connection = connections.find(
       (connection) => `provider:${connection.id}` === accessId,
     );
-  const catalog = useProviderCatalog(connection?.providerId || "", tool),
+  const catalog = useConnectionModels(connection, tool),
     selectedModel = catalog.models.find((model) => model.modelId === modelId);
   function resetModel() {
     setModel("");
@@ -76,7 +76,7 @@ export default function useLaunchAccess(state, initialTool, initialProfile) {
   }
   const ready = Boolean(
     tools.some((item) => item.id === tool) &&
-    (account || (connection?.hasSecret && selectedModel && !catalog.loading)),
+    (account || (connection?.launchable && selectedModel && !catalog.loading)),
   );
   return {
     tools,

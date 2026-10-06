@@ -57,7 +57,7 @@ export default function ProfileProviderFields({
       {connection && (
         <>
           <p className="field-description">{copy.connectionHelp}</p>
-          {!connection.hasSecret && (
+          {!connection.launchable && (
             <p className="field-description">{copy.connectionKeyMissing}</p>
           )}
           <ProviderModelPicker

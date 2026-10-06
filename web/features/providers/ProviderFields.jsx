@@ -22,10 +22,12 @@ export default function ProviderFields({ controller, tool }) {
               disabled={controller.providersLoading}
               options={[
                 { value: "", label: copy.native },
-                ...controller.providers.map((provider) => ({
-                  value: provider.id,
-                  label: provider.name,
-                })),
+                ...controller.providers
+                  .filter((provider) => provider.kind !== "endpoint")
+                  .map((provider) => ({
+                    value: provider.id,
+                    label: provider.name,
+                  })),
               ]}
             />
           </label>

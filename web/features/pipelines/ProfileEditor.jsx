@@ -9,6 +9,7 @@ import ParameterFields from "./ParameterFields.jsx";
 import { blankProfile, profileBody } from "./profile-draft.js";
 import useResource from "../../lib/useResource.js";
 import ProfileExecutionFields from "./ProfileExecutionFields.jsx";
+import useConnectionModels from "../providers/useConnectionModels.js";
 import useProviderCatalog from "../providers/useProviderCatalog.js";
 
 const phaseLabel = (profile) =>
@@ -97,12 +98,12 @@ export default function ProfileEditor({
     (item) =>
       item.id === config.providerConnectionId && item.tools.includes(config.cliTool),
   );
-  const catalog = useProviderCatalog(
-    connection?.providerId ||
-      (!config.providerConnectionId && account?.provider?.id) ||
-      "",
+  const connectionModels = useConnectionModels(connection, config.cliTool);
+  const accountCatalog = useProviderCatalog(
+    !config.providerConnectionId && account?.provider?.id ? account.provider.id : "",
     config.cliTool,
   );
+  const catalog = config.providerConnectionId ? connectionModels : accountCatalog;
   const centralReady =
     !config.providerConnectionId ||
     Boolean(
