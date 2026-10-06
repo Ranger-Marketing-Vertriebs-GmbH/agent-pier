@@ -152,6 +152,7 @@ endpoint: {
   - a derived `launchable` flag: `hasSecret || !auth.required`
 
   The web gates that currently check `hasSecret` use `launchable` instead (see UI).
+
 - Backup and snapshot carry the record unchanged, because it lives in the same file.
 
 ### Key binding
@@ -303,14 +304,14 @@ connection persists the result together with `lastTest`.
 
    Classification:
 
-   | Response | Status | Reason |
-   | --- | --- | --- |
-   | 2xx with a parseable body | `ok` | |
-   | 400 or 422 | `ok` | `rejectedRequest` (warning). The route exists and only the minimal body was rejected, e.g. reasoning deployments requiring `max_completion_tokens`. |
-   | 404, 405 or 501, probe model came from this server's listing | `unsupported` | |
-   | 404, 405 or 501, probe model was manual or no listing succeeded | `failed` | `modelNotFound`. Ollama, Azure and llama.cpp router mode answer 404 for unknown models, so 404 alone does not prove a missing protocol. |
-   | 401 or 403 | `failed` | `auth` |
-   | anything else | `failed` | `timeout`, `http`, `invalidResponse` or `network` |
+   | Response                                                        | Status        | Reason                                                                                                                                              |
+   | --------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | 2xx with a parseable body                                       | `ok`          |                                                                                                                                                     |
+   | 400 or 422                                                      | `ok`          | `rejectedRequest` (warning). The route exists and only the minimal body was rejected, e.g. reasoning deployments requiring `max_completion_tokens`. |
+   | 404, 405 or 501, probe model came from this server's listing    | `unsupported` |                                                                                                                                                     |
+   | 404, 405 or 501, probe model was manual or no listing succeeded | `failed`      | `modelNotFound`. Ollama, Azure and llama.cpp router mode answer 404 for unknown models, so 404 alone does not prove a missing protocol.             |
+   | 401 or 403                                                      | `failed`      | `auth`                                                                                                                                              |
+   | anything else                                                   | `failed`      | `timeout`, `http`, `invalidResponse` or `network`                                                                                                   |
 
 3. **Merge models.**
    - Newly detected models replace previously detected ones, **only if the listing
@@ -685,5 +686,6 @@ The refactor is limited to what the launch description replaces:
 
   AgentPier's own API is not a useful target, because it refuses Bearer requests outside
   MCP and requires `Origin` on POST.
+
 - **Launch-time DNS.** The DNS check before launch is best effort. The CLI resolves the
   host itself.
