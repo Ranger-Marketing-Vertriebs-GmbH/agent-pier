@@ -7,6 +7,26 @@ import { names } from "../../lib/providers.js";
 import { connectionCopy as copy } from "../../lib/i18n/messages/connections.js";
 import ConnectionDialog from "./ConnectionDialog.jsx";
 import "./connections.css";
+function endpointHost(connection) {
+  const url = connection.endpoint?.openaiBaseUrl || connection.endpoint?.anthropicBaseUrl;
+  if (!url) return "";
+  try {
+    return new URL(url).host;
+  } catch {
+    return "";
+  }
+}
+function connectionSummary(connection) {
+  return [
+    copy.providerNames[connection.providerId] || connection.providerId,
+    endpointHost(connection),
+    connection.hasSecret
+      ? copy.keySaved
+      : connection.launchable
+        ? copy.keyNotRequired
+        : copy.keyMissing,
+  ].filter(Boolean);
+}
 export default function ProviderConnections({ connections = [], refresh }) {
   const [editing, setEditing] = useState(null),
     [removing, setRemoving] = useState(null);
@@ -27,18 +47,7 @@ export default function ProviderConnections({ connections = [], refresh }) {
         <article className="provider-connection-card" key={connection.id}>
           <div>
             <h3>{connection.name}</h3>
-            <p>
-              {copy.providerNames[connection.providerId] || connection.providerId}
-              {connection.endpoint
-                ? ` · ${new URL(connection.endpoint.openaiBaseUrl).host}`
-                : ""}{" "}
-              ·{" "}
-              {connection.hasSecret
-                ? copy.keySaved
-                : connection.launchable
-                  ? copy.keyNotRequired
-                  : copy.keyMissing}
-            </p>
+            <p>{connectionSummary(connection).join(" · ")}</p>
             <p>
               {copy.compatible}:{" "}
               {connection.tools.map((tool) => names[tool]).join(", ") ||
