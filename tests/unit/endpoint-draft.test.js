@@ -7,6 +7,7 @@ import {
   endpointPayload,
   initialEndpoint,
   keyReentryRequired,
+  withoutTest,
 } from "../../web/features/provider-connections/endpoint-draft.js";
 
 test("draft helpers", () => {
@@ -224,4 +225,32 @@ test("key re-entry ignores a whitespace-only key", () => {
     }),
     false,
   );
+});
+
+test("an existing connection never auto-fills its Anthropic URL", () => {
+  const saved = {
+    preset: "custom",
+    openaiBaseUrl: "https://gw.example/v1",
+    anthropicBaseUrl: null,
+    protocols: { messages: false, responses: false, chatCompletions: true },
+    authHeader: null,
+    models: [],
+    lastTest: null,
+  };
+  assert.equal(initialEndpoint({ endpoint: saved }).anthropicAuto, false);
+  assert.equal(initialEndpoint(null, "custom").anthropicAuto, undefined);
+});
+
+test("withoutTest drops the stored test result but keeps protocol choices", () => {
+  const draft = {
+    ...initialEndpoint(null, "ollama"),
+    protocols: { messages: true, responses: false, chatCompletions: true },
+    lastTest: { at: "2026-10-06T00:00:00.000Z", protocols: {}, reasons: {} },
+    modelsTruncated: true,
+  };
+  const next = withoutTest(draft);
+  assert.equal(next.lastTest, null);
+  assert.equal(next.modelsTruncated, false);
+  assert.deepEqual(next.protocols, draft.protocols);
+  assert.equal(endpointPayload(next).lastTest, null);
 });

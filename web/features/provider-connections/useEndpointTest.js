@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
 
+const IDLE = { busy: false, result: null, error: "" };
+
 export default function useEndpointTest({ connection, draft, apiKey, removeApiKey }) {
-  const [state, setState] = useState({ busy: false, result: null, error: "" });
+  const [state, setState] = useState(IDLE);
   const controller = useRef(null);
   useEffect(() => () => controller.current?.abort(), []);
   async function run(probeModelId) {
@@ -36,5 +38,13 @@ export default function useEndpointTest({ connection, draft, apiKey, removeApiKe
       return null;
     }
   }
-  return { ...state, run };
+  /** Forgets a shown or running test, e.g. after the address or key changed. */
+  function reset() {
+    controller.current?.abort();
+    controller.current = null;
+    setState((current) =>
+      current.busy || current.result || current.error ? IDLE : current,
+    );
+  }
+  return { ...state, run, reset };
 }

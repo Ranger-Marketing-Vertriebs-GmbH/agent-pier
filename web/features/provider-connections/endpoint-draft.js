@@ -23,6 +23,8 @@ export function initialEndpoint(connection, preset = "ollama") {
       anthropicBaseUrl: connection.endpoint.anthropicBaseUrl || "",
       authHeader: connection.endpoint.authHeader || "",
       models: structuredClone(connection.endpoint.models || []),
+      // A saved (or deliberately cleared) Anthropic URL is never overwritten.
+      anthropicAuto: false,
     };
   return {
     preset,
@@ -32,6 +34,13 @@ export function initialEndpoint(connection, preset = "ollama") {
     lastTest: null,
   };
 }
+
+// A test result only describes the address and key it ran against.
+export const withoutTest = (draft) => ({
+  ...draft,
+  lastTest: null,
+  modelsTruncated: false,
+});
 
 export const suggestAnthropicUrl = (url) =>
   url.trim().replace(/\/+$/, "").replace(/\/v1$/, "");
