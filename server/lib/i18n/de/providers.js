@@ -57,6 +57,8 @@ export const providers = Object.freeze({
     "Ungültige Modellliste: Prüfe IDs, Duplikate und Token-Grenzen (1024 bis 10.000.000).",
   endpointUrlNotAllowed:
     "Diese Endpunkt-Adresse ist nicht erlaubt. Unverschlüsseltes http ist nur für lokale, private oder Tailscale-Adressen erlaubt.",
+  endpointHostUnresolved:
+    "Der Endpunkt-Host konnte nicht aufgelöst werden. Prüfe Netzwerk, VPN oder Tailscale-Verbindung.",
   endpointProtocolDisabled:
     "Dieser Endpunkt bietet das Protokoll nicht an, das diese CLI braucht.",
   endpointModelUnknown: "Das Modell ist in dieser Endpunkt-Verbindung nicht eingetragen.",

@@ -112,6 +112,27 @@ test("non-http URLs and unparseable URLs are not allowed", async () => {
     });
 });
 
+test("unresolvable hosts are network failures; policy refusals stay notAllowed", async () => {
+  await assert.rejects(
+    endpointRequest({
+      url: "https://gpu-box.tailnet.ts.net/v1/models",
+      timeoutMs: 2000,
+      lookup: async () => {
+        throw Object.assign(new Error("ENOTFOUND"), { code: "ENOTFOUND" });
+      },
+    }),
+    (error) => error.reason === "network" && error.message === "network",
+  );
+  await assert.rejects(
+    endpointRequest({
+      url: "http://public.example/v1/models",
+      timeoutMs: 2000,
+      lookup: async () => [{ address: "8.8.8.8", family: 4 }],
+    }),
+    { reason: "notAllowed" },
+  );
+});
+
 test("error statuses resolve without leaking bodies into errors", async (t) => {
   const server = await fakeEndpoint(t, {
     "POST /fail": ({ body }) => ({ status: 500, raw: `secret ${body.model}` }),

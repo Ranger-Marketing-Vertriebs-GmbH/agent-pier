@@ -6,6 +6,7 @@ import {
   classifyAddress,
   resolveEndpointTarget,
 } from "../../server/features/providers/endpoint-address.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 const octet = fc.integer({ min: 0, max: 255 });
 const ipv4 = fc.tuple(octet, octet, octet, octet).map((parts) => parts.join("."));
@@ -123,18 +124,30 @@ test("IP literals do not call DNS", async () => {
   );
 });
 
-test("lookup failures and empty results become endpointUrlNotAllowed", async () => {
-  await assert.rejects(
-    resolveEndpointTarget("http://nx.example/v1", {
-      lookup: async () => {
-        throw Object.assign(new Error("ENOTFOUND"), { code: "ENOTFOUND" });
-      },
-    }),
-    (error) => error.status === 400 && error.code !== "ENOTFOUND",
-  );
+test("lookup failures and empty results report an unresolved host, not a policy refusal", async () => {
+  const unresolved = (error) =>
+    error.status === 502 &&
+    error.message === serverMessages.providers.endpointHostUnresolved &&
+    error.message !== serverMessages.providers.endpointUrlNotAllowed &&
+    error.code !== "ENOTFOUND";
+  for (const url of ["http://nx.example/v1", "https://gpu-box.tailnet.ts.net/v1"])
+    await assert.rejects(
+      resolveEndpointTarget(url, {
+        lookup: async () => {
+          throw Object.assign(new Error("ENOTFOUND"), { code: "ENOTFOUND" });
+        },
+      }),
+      unresolved,
+    );
   await assert.rejects(
     resolveEndpointTarget("http://empty.example/v1", { lookup: async () => [] }),
-    { status: 400 },
+    unresolved,
+  );
+  await assert.rejects(
+    resolveEndpointTarget("http://public.example/v1", {
+      lookup: async () => [{ address: "8.8.8.8", family: 4 }],
+    }),
+    { status: 400, message: serverMessages.providers.endpointUrlNotAllowed },
   );
 });
 
