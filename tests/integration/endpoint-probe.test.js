@@ -364,6 +364,25 @@ test("a 404 is a missing protocol when another protocol accepted the same model"
   assert.equal(missing.reasons.chatCompletions, "modelNotFound");
 });
 
+test("a 400 for an unknown model does not prove the model exists", async (t) => {
+  // OpenAI-style: one route rejects an unknown model with 400, another with 404.
+  const server = await fakeEndpoint(t, {
+    "GET /v1/models": () => ({ json: { data: [{ id: "real" }] } }),
+    "POST /v1/chat/completions": () => ({
+      status: 400,
+      json: { error: { code: "model_not_found" } },
+    }),
+  });
+  const result = await runEndpointTest({
+    endpoint: { ...draft(server.base, "custom"), anthropicBaseUrl: null },
+    apiKey: "",
+    previousModels: [],
+    probeModelId: "bogus",
+  });
+  assert.equal(result.protocols.responses, "failed");
+  assert.equal(result.reasons.responses, "modelNotFound");
+});
+
 test("upstream error bodies containing the key are never returned", async (t) => {
   const server = await fakeEndpoint(t, {
     "GET /v1/models": () => ({ json: { data: [{ id: "m" }] } }),
