@@ -2,6 +2,7 @@ import { validModelId } from "./provider-definitions.js";
 import { endpointRequest, authHeaders } from "./endpoint-http.js";
 
 const LIST_TIMEOUT = 10_000;
+export const MODEL_LIMIT = 200;
 const valid = (value) => Number.isInteger(value) && value >= 1024 && value <= 10_000_000;
 const trim = (url) => String(url || "").replace(/\/+$/, "");
 const rootUrl = (endpoint) =>
@@ -70,13 +71,13 @@ export async function listEndpointModels({ endpoint, apiKey, signal, lookup }) {
       /* Fall back to the OpenAI listing. */
     }
   }
-  const usable = [...new Set(ids)]
-    .filter((id) => {
-      if (validModelId(id)) return true;
-      warnings.add("modelIdSkipped");
-      return false;
-    })
-    .slice(0, 200);
+  const accepted = [...new Set(ids)].filter((id) => {
+    if (validModelId(id)) return true;
+    warnings.add("modelIdSkipped");
+    return false;
+  });
+  if (accepted.length > MODEL_LIMIT) warnings.add("modelListTruncated");
+  const usable = accepted.slice(0, MODEL_LIMIT);
   let models = usable.map((modelId) => ({
     modelId,
     label: modelId,
@@ -121,24 +122,35 @@ export async function listEndpointModels({ endpoint, apiKey, signal, lookup }) {
   return { listed, models, warnings: [...warnings] };
 }
 
+/**
+ * Detected models replace the previous detected ones; manual models always survive.
+ * Detected models are capped so the merged list never exceeds the saveable limit, and
+ * a listed model that was added manually is never dropped by the cap.
+ */
 export function mergeModels(previous, detection) {
   if (!detection.listed) return previous;
   const byId = new Map(previous.map((model) => [model.modelId, model]));
-  const detected = detection.models.map((model) => {
-    const old = byId.get(model.modelId);
-    return {
-      modelId: model.modelId,
-      label: old?.label ?? model.label,
-      contextTokens: old?.contextEdited ? old.contextTokens : model.contextTokens,
-      outputTokens: old?.contextEdited ? old.outputTokens : (old?.outputTokens ?? null),
-      source: "detected",
-      contextEdited: old?.contextEdited === true,
-      ...(model.contextHint ? { contextHint: model.contextHint } : {}),
-    };
-  });
-  const ids = new Set(detected.map((model) => model.modelId));
-  return [
-    ...detected,
-    ...previous.filter((model) => model.source === "manual" && !ids.has(model.modelId)),
-  ];
+  const listedIds = new Set(detection.models.map((model) => model.modelId));
+  const manual = previous.filter(
+    (model) => model.source === "manual" && !listedIds.has(model.modelId),
+  );
+  const pinned = detection.models.filter(
+    (model) => byId.get(model.modelId)?.source === "manual",
+  ).length;
+  let budget = Math.max(0, MODEL_LIMIT - manual.length - pinned);
+  const detected = detection.models
+    .filter((model) => byId.get(model.modelId)?.source === "manual" || budget-- > 0)
+    .map((model) => {
+      const old = byId.get(model.modelId);
+      return {
+        modelId: model.modelId,
+        label: old?.label ?? model.label,
+        contextTokens: old?.contextEdited ? old.contextTokens : model.contextTokens,
+        outputTokens: old?.contextEdited ? old.outputTokens : (old?.outputTokens ?? null),
+        source: "detected",
+        contextEdited: old?.contextEdited === true,
+        ...(model.contextHint ? { contextHint: model.contextHint } : {}),
+      };
+    });
+  return [...detected, ...manual];
 }

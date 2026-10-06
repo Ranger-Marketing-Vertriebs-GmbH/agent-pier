@@ -84,6 +84,42 @@ test("merge keeps manual models and edits, replaces detected ones only after lis
   assert.deepEqual(mergeModels(previous, { listed: false, models: [] }), previous);
 });
 
+const detectedModel = (modelId) => ({
+  modelId,
+  label: modelId,
+  contextTokens: null,
+  source: "detected",
+});
+const manualModel = (modelId) => ({
+  modelId,
+  label: modelId,
+  contextTokens: 128000,
+  outputTokens: null,
+  source: "manual",
+  contextEdited: true,
+});
+
+test("merge keeps every manual model and caps detected models at 200 in total", () => {
+  const previous = [
+    manualModel("deploy-a"),
+    manualModel("deploy-b"),
+    manualModel("m-199"),
+  ];
+  const detection = {
+    listed: true,
+    models: Array.from({ length: 200 }, (_, index) => detectedModel(`m-${index}`)),
+  };
+  const merged = mergeModels(previous, detection);
+  assert.equal(merged.length, 200);
+  const ids = merged.map((model) => model.modelId);
+  for (const id of ["deploy-a", "deploy-b", "m-199"]) assert.ok(ids.includes(id), id);
+  // A manual model that is also listed becomes detected and survives the cap.
+  assert.equal(merged.find((model) => model.modelId === "m-199").source, "detected");
+  assert.deepEqual(ids.slice(0, 3), ["m-0", "m-1", "m-2"]);
+  assert.ok(!ids.includes("m-198"));
+  assert.equal(new Set(ids).size, 200);
+});
+
 test("auth headers", () => {
   assert.deepEqual(authHeaders("", null), {});
   assert.deepEqual(authHeaders("k", null), { Authorization: "Bearer k" });

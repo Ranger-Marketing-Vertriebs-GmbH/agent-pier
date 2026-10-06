@@ -66,30 +66,35 @@ export const keyReentryRequired = ({ connection, draft, apiKey, removeApiKey }) 
   !removeApiKey &&
   originsChanged(connection.endpoint, draft);
 
+const MODEL_LIMIT = 200;
+
+// Same rule as the server: manual models always survive, detected ones are capped.
 function mergeModels(previous, proposal) {
-  if (!proposal.listed) return previous;
+  if (!proposal.listed) return { models: previous, truncated: false };
   const byId = new Map(previous.map((model) => [model.modelId, model]));
-  const detected = proposal.models
-    .filter((model) => model.source === "detected")
-    .map((model) => {
-      const old = byId.get(model.modelId);
-      return {
-        modelId: model.modelId,
-        label: old?.label ?? model.label,
-        contextTokens: old?.contextEdited ? old.contextTokens : model.contextTokens,
-        outputTokens: old?.contextEdited
-          ? old.outputTokens
-          : (old?.outputTokens ?? model.outputTokens ?? null),
-        source: "detected",
-        contextEdited: old?.contextEdited === true,
-        ...(model.contextHint ? { contextHint: model.contextHint } : {}),
-      };
-    });
-  const ids = new Set(detected.map((model) => model.modelId));
-  return [
-    ...detected,
-    ...previous.filter((model) => model.source === "manual" && !ids.has(model.modelId)),
-  ];
+  const listed = proposal.models.filter((model) => model.source === "detected");
+  const listedIds = new Set(listed.map((model) => model.modelId));
+  const manual = previous.filter(
+    (model) => model.source === "manual" && !listedIds.has(model.modelId),
+  );
+  const isManual = (model) => byId.get(model.modelId)?.source === "manual";
+  let budget = Math.max(0, MODEL_LIMIT - manual.length - listed.filter(isManual).length);
+  const kept = listed.filter((model) => isManual(model) || budget-- > 0);
+  const detected = kept.map((model) => {
+    const old = byId.get(model.modelId);
+    return {
+      modelId: model.modelId,
+      label: old?.label ?? model.label,
+      contextTokens: old?.contextEdited ? old.contextTokens : model.contextTokens,
+      outputTokens: old?.contextEdited
+        ? old.outputTokens
+        : (old?.outputTokens ?? model.outputTokens ?? null),
+      source: "detected",
+      contextEdited: old?.contextEdited === true,
+      ...(model.contextHint ? { contextHint: model.contextHint } : {}),
+    };
+  });
+  return { models: [...detected, ...manual], truncated: kept.length < listed.length };
 }
 
 export function applyProposal(draft, proposal, now = new Date().toISOString()) {
@@ -103,10 +108,12 @@ export function applyProposal(draft, proposal, now = new Date().toISOString()) {
           : false,
     ]),
   );
+  const merged = mergeModels(draft.models, proposal);
   return {
     ...draft,
     protocols,
-    models: mergeModels(draft.models, proposal),
+    models: merged.models,
+    modelsTruncated: merged.truncated,
     lastTest: { at: now, protocols: proposal.protocols, reasons: proposal.reasons },
   };
 }
