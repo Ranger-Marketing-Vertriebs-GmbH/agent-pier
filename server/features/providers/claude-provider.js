@@ -1,20 +1,25 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 
-function supportedVersion(version) {
+function atLeast(version, [major, minor, patch]) {
   const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version || "");
   if (!match) return false;
-  const [major, minor, patch] = match.slice(1).map(Number);
-  return major > 2 || (major === 2 && (minor > 1 || (minor === 1 && patch >= 193)));
+  const [a, b, c] = match.slice(1).map(Number);
+  return a !== major ? a > major : b !== minor ? b > minor : c >= patch;
 }
 
-export function configureClaudeProvider(launch, metadata, cliVersion) {
+export function configureClaudeProvider(
+  launch,
+  metadata,
+  cliVersion,
+  { forceCustom = false, customHeader = false } = {},
+) {
   const env = launch.env;
   const window =
     metadata.routingContextTokens && metadata.contextTokens
       ? Math.min(metadata.routingContextTokens, metadata.contextTokens)
       : metadata.routingContextTokens || metadata.contextTokens;
-  const recognizedClaude = /claude-/i.test(metadata.modelId);
+  const recognizedClaude = !forceCustom && /claude-/i.test(metadata.modelId);
   let cliModelId = metadata.modelId;
   let assumedContextTokens = null;
   if (recognizedClaude) {
@@ -25,8 +30,10 @@ export function configureClaudeProvider(launch, metadata, cliVersion) {
   } else {
     if (!/^\d+\.\d+\.\d+/.test(cliVersion || ""))
       throw problem(serverMessages.providers.claudeVersionUnverified, 409);
-    if (!supportedVersion(cliVersion))
+    if (!atLeast(cliVersion, [2, 1, 193]))
       throw problem(serverMessages.providers.claudeVersionTooOld, 409);
+    if (customHeader && !atLeast(cliVersion, [2, 1, 227]))
+      throw problem(serverMessages.providers.endpointClaudeCustomHeaderVersion, 409);
     if (!window) throw problem(serverMessages.providers.contextLimitUnverified, 409);
     env.CLAUDE_CODE_MAX_CONTEXT_TOKENS = String(window);
     assumedContextTokens = window;
@@ -41,6 +48,7 @@ export function configureClaudeProvider(launch, metadata, cliVersion) {
     env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = String(Math.min(metadata.outputTokens, 32000));
   if (metadata.providerId === "openrouter")
     env.CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY = "1";
+  if (forceCustom) env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS = "1";
   return {
     ...launch,
     args: [...launch.args, "--model", cliModelId],

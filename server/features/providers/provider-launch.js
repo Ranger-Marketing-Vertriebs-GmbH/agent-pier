@@ -3,10 +3,11 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { problem, readJSON, writePrivate } from "../../lib/storage.js";
 import { tomlValue } from "../../lib/launch-serialization.js";
-import { validateProviderSelection } from "./provider-definitions.js";
+import { launchDescription } from "./launch-description.js";
 import { providerEnvironment } from "./provider-environment.js";
 import { configureClaudeProvider } from "./claude-provider.js";
 import { glmCodexCatalog, writeTomlConfig } from "./native-config.js";
+import { endpointCodexLaunch, endpointOpenCodeLaunch } from "./endpoint-launch.js";
 
 export function readCliVersion(command) {
   const result = spawnSync(command, ["--version"], {
@@ -22,14 +23,17 @@ export function prepareProviderLaunch(
   account,
   secret,
   launch,
-  { root, catalog, cliVersion } = {},
+  { root, catalog, cliVersion, endpoint, connectionName } = {},
 ) {
   if (!account.provider || account.kind !== "managed") return launch;
-  const selection = validateProviderSelection(account.provider, account.tool, catalog);
-  if (typeof secret?.apiKey !== "string" || !secret.apiKey.trim())
+  const description = launchDescription(account, { catalog, endpoint });
+  const { selection, model } = description;
+  if (
+    description.auth.required &&
+    (typeof secret?.apiKey !== "string" || !secret.apiKey.trim())
+  )
     throw problem(serverMessages.providers.apiKeyRequiredForAccount, 409);
-  const model = catalog.get(selection.id, selection.modelId, { tool: account.tool });
-  const env = providerEnvironment(account, secret, launch.env, root);
+  const env = providerEnvironment(account, secret, launch.env, root, description);
   const metadata = {
     ...model,
     id: selection.id,
@@ -41,12 +45,35 @@ export function prepareProviderLaunch(
     modelChangeRequiresRestart: false,
   };
   const result = { ...launch, args: [...launch.args], env, provider: metadata };
+  const endpointKind = description.kind === "endpoint";
   if (account.tool === "claude")
     return configureClaudeProvider(
       result,
       metadata,
       cliVersion ?? readCliVersion(launch.command),
+      {
+        forceCustom: endpointKind,
+        customHeader:
+          endpointKind && !!description.auth.header && !!secret?.apiKey?.trim(),
+      },
     );
+  if (endpointKind) {
+    if (account.tool === "codex") endpointCodexLaunch(result, description, secret);
+    else if (account.tool === "opencode")
+      metadata.cliModelId = endpointOpenCodeLaunch(
+        result,
+        description,
+        secret,
+        connectionName,
+      );
+    Object.assign(metadata, {
+      assumedContextTokens: model.contextTokens,
+      contextStatus: "configured",
+      contextSource: "endpoint",
+      modelChangeRequiresRestart: true,
+    });
+    return result;
+  }
   if (account.tool === "codex") {
     const router = selection.id === "openrouter";
     const config = {
@@ -55,9 +82,9 @@ export function prepareProviderLaunch(
       cli_auth_credentials_store: "file",
       model_providers: {
         [selection.id]: {
-          name: router ? "OpenRouter" : "Z.ai",
+          name: description.displayName,
           wire_api: "responses",
-          base_url: router ? "https://openrouter.ai/api/v1" : "https://api.z.ai/api/v1",
+          base_url: description.endpoints.responses,
           ...(router
             ? {
                 auth: {
@@ -65,7 +92,7 @@ export function prepareProviderLaunch(
                   args: ["-c", "printf '%s' \"$OPENROUTER_API_KEY\""],
                 },
               }
-            : { env_key: "ZAI_API_KEY" }),
+            : { env_key: description.auth.keyEnv }),
         },
       },
     };
@@ -116,10 +143,7 @@ export function prepareProviderLaunch(
       provider: {
         [selection.id]: {
           options: {
-            apiKey:
-              selection.id === "openrouter"
-                ? "{env:OPENROUTER_API_KEY}"
-                : "{env:ZHIPU_API_KEY}",
+            apiKey: `{env:${description.auth.keyEnv}}`,
           },
           models: {
             [model.modelId]: {
