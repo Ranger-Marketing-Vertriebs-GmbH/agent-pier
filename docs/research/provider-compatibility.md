@@ -151,3 +151,10 @@ Proposed application contract:
 6. Regression tests should cover provider-specific auth variables, endpoint selection, native OpenCode IDs, alias-to-target labels, missing/contradictory limits, CLI-version gating, legacy account migration, and absence of secrets from API payloads/logs. Provider connectivity remains a separately authorized smoke test.
 
 These are design recommendations derived from the preceding evidence; they do not claim the current application already implements them.
+
+## OpenCode with OpenAI-compatible endpoints (verified 2026-10-06)
+
+OpenCode 1.18.33 bundles `@ai-sdk/openai-compatible`. A launch with the npm registry
+unreachable succeeded against a local Chat Completions server. `{env:NAME}` substitution
+works in `options.apiKey` and `options.headers`. No provisioning through installation
+scripts is required.
