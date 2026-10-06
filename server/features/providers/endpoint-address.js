@@ -51,10 +51,13 @@ export function classifyAddress(input) {
   const words = expandV6(ip);
   if (words.every((word) => word === 0)) return "forbidden";
   const zeros = (count) => words.slice(0, count).every((word) => word === 0);
-  // IPv4-mapped (::ffff:0:0/96) and NAT64 (64:ff9b::/96) classify as their IPv4 address.
+  // IPv4-mapped (::ffff:0:0/96) classifies as its IPv4 address; NAT64 (64:ff9b::/96) is
+  // reached via a translator, so it is public (or forbidden for non-global embeds).
   if (zeros(5) && words[5] === 0xffff) return classifyV4(wordsToV4(words[6], words[7]));
   if (words[0] === 0x64 && words[1] === 0xff9b && words.slice(2, 6).every((w) => w === 0))
-    return classifyV4(wordsToV4(words[6], words[7]));
+    return classifyV4(wordsToV4(words[6], words[7])) === "forbidden"
+      ? "forbidden"
+      : "public";
   if (zeros(7) && words[7] === 1) return "loopback";
   if (zeros(6)) return "forbidden"; // deprecated IPv4-compatible range
   if ((words[0] & 0xff00) === 0xff00) return "forbidden";
