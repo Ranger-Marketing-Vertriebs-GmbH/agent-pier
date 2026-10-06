@@ -1,5 +1,6 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { endpointModel } from "./endpoint-config.js";
 
 const TOOLS = ["codex", "claude", "opencode"];
 const ZAI_ENDPOINTS = {
@@ -91,7 +92,7 @@ export function validModelId(id) {
   );
 }
 
-export function validateProviderSelection(value, tool, catalog) {
+export function validateProviderSelection(value, tool, catalog, { endpoint } = {}) {
   if (value === null || value === undefined) return null;
   if (
     typeof value !== "object" ||
@@ -102,8 +103,16 @@ export function validateProviderSelection(value, tool, catalog) {
   const definition = providerDefinition(value.id);
   if (!definition.tools.includes(tool))
     throw problem(serverMessages.providers.providerToolUnsupported);
+  if (definition.kind === "endpoint") {
+    if (!endpoint || value.responsesAccess !== undefined)
+      throw problem(serverMessages.providers.invalidProviderSelection);
+    if (!validModelId(value.modelId))
+      throw problem(serverMessages.providers.invalidModelId);
+    endpointModel(endpoint, value.modelId, tool);
+    return { id: value.id, modelId: value.modelId };
+  }
   catalog.get(value.id, value.modelId, { tool });
-  const requiresResponses = tool === "codex" && value.id !== "openrouter";
+  const requiresResponses = tool === "codex" && definition.responsesGate;
   if (requiresResponses && value.responsesAccess !== true)
     throw problem(serverMessages.providers.zaiCodexRequiresResponses);
   if (!requiresResponses && value.responsesAccess !== undefined)

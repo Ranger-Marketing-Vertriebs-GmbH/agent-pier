@@ -1,6 +1,10 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { nameValue, problem } from "../../lib/storage.js";
-import { validateProviderSelection } from "../providers/provider-definitions.js";
+import { endpointOrigins } from "../providers/endpoint-config.js";
+import {
+  providerDefinition,
+  validateProviderSelection,
+} from "../providers/provider-definitions.js";
 
 export const PERMISSION_MODES = Object.freeze({
   claude: [
@@ -34,6 +38,22 @@ export function boundedText(value, message, max, { empty = true } = {}) {
   return value;
 }
 
+export function endpointSnapshot(endpoint, modelIds) {
+  return {
+    origins: endpointOrigins(endpoint),
+    protocols: { ...endpoint.protocols },
+    models: Object.fromEntries(
+      modelIds.map((id) => {
+        const model = endpoint.models.find((item) => item.modelId === id);
+        return [
+          id,
+          { contextTokens: model.contextTokens, outputTokens: model.outputTokens },
+        ];
+      }),
+    ),
+  };
+}
+
 export function profileConnection(config, accounts) {
   if (config.providerConnectionId === undefined) return null;
   if (!accounts.providerConnections)
@@ -41,23 +61,25 @@ export function profileConnection(config, accounts) {
   const connection = accounts.providerConnections.get(config.providerConnectionId);
   if (!connection.tools.includes(config.cliTool))
     throw problem(serverMessages.pipelineProfiles.connectionUnsupported);
+  const gate =
+    config.cliTool === "codex" && providerDefinition(connection.providerId).responsesGate;
   for (const modelId of config.models.available)
     validateProviderSelection(
       {
         id: connection.providerId,
         modelId,
-        ...(config.cliTool === "codex" && connection.providerId !== "openrouter"
-          ? { responsesAccess: connection.responsesAccess }
-          : {}),
+        ...(gate ? { responsesAccess: connection.responsesAccess } : {}),
       },
       config.cliTool,
       accounts.providerCatalog,
+      { endpoint: connection.endpoint },
     );
   return {
     id: connection.id,
     providerId: connection.providerId,
-    ...(config.cliTool === "codex" && connection.providerId !== "openrouter"
-      ? { responsesAccess: connection.responsesAccess }
+    ...(gate ? { responsesAccess: connection.responsesAccess } : {}),
+    ...(connection.endpoint
+      ? { endpoint: endpointSnapshot(connection.endpoint, config.models.available) }
       : {}),
   };
 }
