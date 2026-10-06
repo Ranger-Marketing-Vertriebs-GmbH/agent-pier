@@ -35,7 +35,23 @@ test("create a keyless Ollama connection, confirm context and launch with it", a
   const context = dialog.getByLabel("Context llama3:8b", { exact: true });
   await expect(context).toHaveAttribute("placeholder", "Model maximum: 131072");
   await context.fill("8192");
-  await expect(page.locator("body")).not.toHaveCSS("overflow-x", "scroll");
+  const overflow = await page.evaluate(() => {
+    const scroller = document.querySelector(".endpoint-model-scroll");
+    const row = document.querySelector(".endpoint-models tbody tr");
+    const id = row.querySelector(".endpoint-model-id");
+    return {
+      page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      dialog: [...document.querySelectorAll("[role=dialog], [role=dialog] *")].filter(
+        (element) => element.getBoundingClientRect().right > window.innerWidth + 1,
+      ).length,
+      scroller: scroller.scrollWidth - scroller.clientWidth,
+      idHeight: id.getBoundingClientRect().height,
+    };
+  });
+  expect(overflow.page).toBeLessThanOrEqual(0);
+  expect(overflow.dialog).toBe(0);
+  expect(overflow.scroller).toBeLessThanOrEqual(0);
+  expect(overflow.idHeight).toBeLessThan(40);
   await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   const created = controls.calls

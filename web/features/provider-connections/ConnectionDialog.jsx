@@ -115,6 +115,7 @@ export default function ConnectionDialog({ connection, close, saved }) {
                   setKey("");
                   setDraft(initialEndpoint(null));
                   setProbeModel("");
+                  tester.reset();
                 }}
                 options={options.map((provider) => ({
                   value: provider.id,
