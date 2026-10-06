@@ -28,8 +28,16 @@ export default function ProviderConnections({ connections = [], refresh }) {
           <div>
             <h3>{connection.name}</h3>
             <p>
-              {copy.providerNames[connection.providerId] || connection.providerId} ·{" "}
-              {connection.hasSecret ? copy.keySaved : copy.keyMissing}
+              {copy.providerNames[connection.providerId] || connection.providerId}
+              {connection.endpoint
+                ? ` · ${new URL(connection.endpoint.openaiBaseUrl).host}`
+                : ""}{" "}
+              ·{" "}
+              {connection.hasSecret
+                ? copy.keySaved
+                : connection.launchable
+                  ? copy.keyNotRequired
+                  : copy.keyMissing}
             </p>
             <p>
               {copy.compatible}:{" "}

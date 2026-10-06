@@ -56,8 +56,8 @@ export default function LaunchAccessFields({
             })),
             ...access.connections.map((connection) => ({
               value: `provider:${connection.id}`,
-              label: `${connection.name} · ${copy.providerNames[connection.providerId] || connection.providerId}${connection.hasSecret ? "" : ` · ${copy.keyMissing}`}`,
-              disabled: !connection.hasSecret,
+              label: `${connection.name} · ${copy.providerNames[connection.providerId] || connection.providerId}${connection.launchable ? "" : ` · ${copy.keyMissing}`}`,
+              disabled: !connection.launchable,
             })),
             ...(!access.accounts.length && !access.connections.length
               ? [{ value: "", label: copy.noAccess }]

@@ -36,7 +36,6 @@ export async function pipelinesFixture(page) {
         providerId: "openrouter",
         tools: ["codex", "claude"],
         hasSecret: true,
-        launchable: true,
       },
       {
         id: "central-zai",
@@ -44,7 +43,6 @@ export async function pipelinesFixture(page) {
         providerId: "zai",
         tools: ["claude"],
         hasSecret: false,
-        launchable: false,
       },
     ],
     profiles: [profile],
