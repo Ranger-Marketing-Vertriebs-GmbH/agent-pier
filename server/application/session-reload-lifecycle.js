@@ -44,6 +44,7 @@ export function createReloadLifecycle(services) {
         .filter((tool) => tool.installed)
         .map((tool) => [tool.id, tool.path]),
     );
+    await accounts.verifyEndpointTarget?.(account.id);
     let launch = accounts.command(account.id, binaries, false, session.launchMode, {
       modelId,
     });

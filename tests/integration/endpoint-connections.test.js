@@ -204,3 +204,31 @@ test("endpoint pipeline snapshot covers origins, protocols and selected model li
     snapshot,
   );
 });
+
+test("pre-launch target check refuses http to public resolution", async (t) => {
+  const { connections, access, accounts } = full(t);
+  const { id } = connections.create({
+    name: "Remote",
+    providerId: "endpoint",
+    endpoint: {
+      ...ollama,
+      openaiBaseUrl: "http://llm.example/v1",
+      anthropicBaseUrl: "http://llm.example",
+    },
+  });
+  const { account } = access.resolve({
+    tool: "opencode",
+    providerConnectionId: id,
+    providerModelId: "qwen3",
+  });
+  await assert.rejects(
+    accounts.verifyEndpointTarget(account.id, {
+      lookup: async () => [{ address: "93.184.216.34", family: 4 }],
+    }),
+    { status: 400 },
+  );
+  await accounts.verifyEndpointTarget(account.id, {
+    lookup: async () => [{ address: "192.168.1.20", family: 4 }],
+  });
+  await accounts.verifyEndpointTarget("local-codex");
+});

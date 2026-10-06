@@ -139,6 +139,7 @@ export function createSessionLifecycle(services) {
         .filter((t) => t.installed)
         .map((t) => [t.id, t.path]),
     );
+    await accounts.verifyEndpointTarget?.(account.id);
     let launch = accounts.command(account.id, binaries, login, body.launchMode, {
       modelId: trusted.modelId ?? nativeModelId,
     });
