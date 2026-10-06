@@ -149,9 +149,10 @@ for (const key of ["endpoint-secret", null])
       assert.equal(config.model, "agentpier-endpoint/qwen3-coder:30b");
       assert.equal(provider.npm, "@ai-sdk/openai-compatible");
       assert.equal(provider.options.baseURL, "https://llm.example/v1");
+      // With a custom header the key travels only there, as in the test and in Codex.
       assert.equal(
         provider.options.apiKey,
-        key ? "{env:AGENTPIER_ENDPOINT_API_KEY}" : undefined,
+        key && !header ? "{env:AGENTPIER_ENDPOINT_API_KEY}" : undefined,
       );
       assert.deepEqual(
         provider.options.headers,
