@@ -40,7 +40,8 @@ function inputValue(input, creation) {
     input.apiKey !== undefined &&
     (typeof input.apiKey !== "string" ||
       input.apiKey.length > 16384 ||
-      /[\x00-\x1f]/.test(input.apiKey))
+      // Keys travel as HTTP header values, which only carry visible Latin-1 bytes.
+      /[\x00-\x1f\x7f]|[^\x00-\xff]/.test(input.apiKey))
   )
     throw problem(serverMessages.providers.invalidApiKey);
   if (input.removeApiKey !== undefined && typeof input.removeApiKey !== "boolean")

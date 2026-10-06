@@ -67,54 +67,65 @@ export async function endpointRequest({
     const onAbort = () => finish(tagged("aborted"));
     const timer = setTimeout(() => finish(tagged("timeout")), timeoutMs);
     signal?.addEventListener("abort", onAbort, { once: true });
-    request = client.request(
-      parsed,
-      {
-        method,
-        agent: false,
-        headers: {
-          Accept: "application/json",
-          ...(payload === undefined
-            ? {}
-            : {
-                "Content-Type": "application/json",
-                "Content-Length": Buffer.byteLength(payload),
-              }),
-          ...headers,
+    const start = () =>
+      client.request(
+        parsed,
+        {
+          method,
+          agent: false,
+          headers: {
+            Accept: "application/json",
+            ...(payload === undefined
+              ? {}
+              : {
+                  "Content-Type": "application/json",
+                  "Content-Length": Buffer.byteLength(payload),
+                }),
+            ...headers,
+          },
+          lookup: (_hostname, options, callback) =>
+            options?.all
+              ? callback(null, [{ address: target.address, family: target.family }])
+              : callback(null, target.address, target.family),
+          ...(secure && !net.isIP(target.hostname)
+            ? { servername: target.hostname }
+            : {}),
         },
-        lookup: (_hostname, options, callback) =>
-          options?.all
-            ? callback(null, [{ address: target.address, family: target.family }])
-            : callback(null, target.address, target.family),
-        ...(secure && !net.isIP(target.hostname) ? { servername: target.hostname } : {}),
-      },
-      (response) => {
-        const chunks = [];
-        let size = 0;
-        response.on("error", () => finish(tagged("network")));
-        response.on("close", () => {
-          if (!response.complete) finish(tagged("network"));
-        });
-        if (Number(response.headers["content-length"]) > LIMIT) {
-          finish(tagged("tooLarge"));
-          return;
-        }
-        response.on("data", (chunk) => {
-          size += chunk.length;
-          if (size > LIMIT) finish(tagged("tooLarge"));
-          else chunks.push(chunk);
-        });
-        response.on("end", () => {
-          let json = null;
-          try {
-            json = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-          } catch {
-            json = null;
+        (response) => {
+          const chunks = [];
+          let size = 0;
+          response.on("error", () => finish(tagged("network")));
+          response.on("close", () => {
+            if (!response.complete) finish(tagged("network"));
+          });
+          if (Number(response.headers["content-length"]) > LIMIT) {
+            finish(tagged("tooLarge"));
+            return;
           }
-          finish(null, { status: response.statusCode, json });
-        });
-      },
-    );
+          response.on("data", (chunk) => {
+            size += chunk.length;
+            if (size > LIMIT) finish(tagged("tooLarge"));
+            else chunks.push(chunk);
+          });
+          response.on("end", () => {
+            let json = null;
+            try {
+              json = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+            } catch {
+              json = null;
+            }
+            finish(null, { status: response.statusCode, json });
+          });
+        },
+      );
+    try {
+      request = start();
+    } catch {
+      // Node validates header values synchronously; only the key can carry
+      // characters it refuses, so the error text (which may echo it) is dropped.
+      finish(tagged("invalidKey"));
+      return;
+    }
     request.on("error", () => finish(tagged("network")));
     if (payload !== undefined) request.write(payload);
     request.end();

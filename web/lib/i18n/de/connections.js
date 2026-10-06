@@ -97,6 +97,7 @@ export const connectionCopy = {
       modelNotFound: "Modell auf dem Server nicht gefunden",
       auth: "Anmeldung fehlgeschlagen",
       http: "Unerwartete Serverantwort",
+      invalidKey: "Der API-Key enthält Zeichen, die nicht gesendet werden können",
       invalidResponse: "Antwort nicht lesbar",
       timeout: "Zeitüberschreitung",
       network: "Server nicht erreichbar oder Adresse nicht erlaubt",

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
+import { EndpointTester } from "../../server/features/providers/endpoint-tester.js";
 import { ProviderCatalog } from "../../server/features/providers/provider-catalog.js";
 import { ProviderAccess } from "../../server/features/providers/provider-access.js";
 import { AccountStore } from "../../server/features/accounts/account-store.js";
@@ -100,6 +101,40 @@ test("changing the origin requires key re-entry or removal", (t) => {
   assert.equal(connections.secret(id).apiKey, "secret-2");
   connections.update(id, { endpoint: ollama, removeApiKey: true });
   assert.equal(connections.secret(id), null);
+});
+
+test("keys an HTTP header cannot carry are rejected on save and test", (t) => {
+  const { connections } = store(t);
+  const tester = new EndpointTester({ connections });
+  for (const apiKey of ["key\x7f", "schlüssel-ключ"]) {
+    assert.throws(
+      () =>
+        connections.create({
+          name: "GPU",
+          providerId: "endpoint",
+          endpoint: ollama,
+          apiKey,
+        }),
+      { status: 400, message: "Ungültiger Provider-API-Key." },
+    );
+    assert.throws(
+      () =>
+        tester.draft({
+          endpoint: { preset: "ollama", openaiBaseUrl: ollama.openaiBaseUrl },
+          apiKey,
+        }),
+      { status: 400, message: "Ungültiger Provider-API-Key." },
+    );
+  }
+  // Latin-1 characters stay valid header bytes.
+  assert.doesNotThrow(() =>
+    connections.create({
+      name: "GPU",
+      providerId: "endpoint",
+      endpoint: ollama,
+      apiKey: "schlüssel",
+    }),
+  );
 });
 
 test("invalid stored endpoint records are skipped, not fatal, and preserved on save", (t) => {
