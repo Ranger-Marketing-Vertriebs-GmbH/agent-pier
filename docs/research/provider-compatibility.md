@@ -161,13 +161,13 @@ scripts is required. This applies to OpenCode 1.18.33; re-verify after upgrades.
 
 ## Self-hosted and third-party servers (2026-10-06)
 
-| Server       | Chat Completions | Responses           | Anthropic Messages  | Notes                                                       |
-| ------------ | ---------------- | ------------------- | ------------------- | ----------------------------------------------------------- |
-| Ollama       | yes              | yes                 | yes                 | context via `num_ctx` / `OLLAMA_CONTEXT_LENGTH`             |
-| llama.cpp    | yes              | yes (recent builds) | yes (recent builds) | AgentPier preset enables only Chat Completions until tested |
-| LM Studio    | yes              | yes                 | yes                 | use Custom preset and test                                  |
-| vLLM         | yes              | yes                 | yes                 | check version; test before relying on it                    |
-| Azure OpenAI | yes              | yes                 | no                  | v1 API, deployments as model IDs                            |
+| Server       | Chat Completions | Responses     | Anthropic Messages  | Notes                                                       |
+| ------------ | ---------------- | ------------- | ------------------- | ----------------------------------------------------------- |
+| Ollama       | yes              | yes           | yes                 | context via `num_ctx` / `OLLAMA_CONTEXT_LENGTH`             |
+| llama.cpp    | yes              | check version | yes (recent builds) | AgentPier preset enables only Chat Completions until tested |
+| LM Studio    | yes              | yes           | yes                 | use Custom preset and test                                  |
+| vLLM         | yes              | yes           | yes                 | check version; test before relying on it                    |
+| Azure OpenAI | yes              | yes           | no                  | v1 API, deployments as model IDs                            |
 
 Sources: [Ollama OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility)
 (Responses, non-stateful, since v0.13.3), [Ollama Claude Code integration](https://docs.ollama.com/integrations/claude-code)
@@ -176,4 +176,6 @@ Sources: [Ollama OpenAI compatibility](https://docs.ollama.com/api/openai-compat
 [LM Studio OpenAI compatibility](https://lmstudio.ai/docs/developer/openai-compat) and
 [Anthropic compatibility](https://lmstudio.ai/docs/developer/anthropic-compat),
 [vLLM online serving](https://docs.vllm.ai/en/latest/serving/online_serving/). Azure OpenAI
-and the llama.cpp "recent builds" cells were verified in the spec review.
+and the llama.cpp Messages cell were verified in the spec review. Azure OpenAI:
+[v1 API lifecycle](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/api-version-lifecycle)
+(v1 API with Chat Completions and Responses; no Anthropic Messages endpoint).

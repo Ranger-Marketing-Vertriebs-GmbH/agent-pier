@@ -59,8 +59,9 @@ CLI resolves the host again when it connects.
 
 **API key.** Optional. It is sent as `Authorization: Bearer <key>` unless an auth header
 name is set under _Advanced_ (for example `api-key`; Claude Code 2.1.227 or later). The
-key is bound to the connection's host: changing the host while a key is saved is rejected
-with HTTP 409 until you enter the key again or remove it.
+key is bound to the connection's origins (scheme, host and port of both base URLs).
+Changing any of them while a key is saved is rejected with HTTP 409 until you enter the
+key again or remove it. A test with changed origins does not send the saved key.
 
 **Test connection.** Reads the model list (10 s timeout) and sends one minimal request per
 protocol (90 s each, 180 s in total). Only one test runs at a time. The result is a
