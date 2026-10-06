@@ -49,3 +49,48 @@
     align-items: flex-start;
   }
 }
+.endpoint-models,
+.endpoint-protocols {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+.endpoint-model-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.endpoint-models table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.endpoint-models th,
+.endpoint-models td {
+  text-align: left;
+  padding: 4px 6px;
+  overflow-wrap: anywhere;
+}
+.endpoint-models input[type="number"] {
+  width: 11ch;
+  min-width: 0;
+}
+.endpoint-models [data-missing-context] input:first-child {
+  outline: 1px solid var(--accent);
+}
+.endpoint-add-model {
+  display: flex;
+  gap: 8px;
+}
+.endpoint-add-model input {
+  flex: 1;
+  min-width: 0;
+}
+.endpoint-test {
+  display: grid;
+  gap: 10px;
+}
+.endpoint-protocols small {
+  display: block;
+}

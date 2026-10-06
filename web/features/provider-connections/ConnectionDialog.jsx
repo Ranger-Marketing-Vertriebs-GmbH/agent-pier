@@ -7,14 +7,34 @@ import useResource from "../../lib/useResource.js";
 import api from "../../lib/api.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { connectionCopy as copy } from "../../lib/i18n/messages/connections.js";
+import EndpointFields from "./EndpointFields.jsx";
+import EndpointTestResult from "./EndpointTestResult.jsx";
+import EndpointModelTable from "./EndpointModelTable.jsx";
+import useEndpointTest from "./useEndpointTest.js";
+import {
+  applyProposal,
+  endpointPayload,
+  initialEndpoint,
+  originsChanged,
+} from "./endpoint-draft.js";
 export default function ConnectionDialog({ connection, close, saved }) {
   const [name, setName] = useState(connection?.name || ""),
     [providerId, setProvider] = useState(connection?.providerId || "openrouter"),
     [apiKey, setKey] = useState(""),
     [removeApiKey, setRemove] = useState(false),
     [responsesAccess, setResponses] = useState(Boolean(connection?.responsesAccess));
+  const [draft, setDraft] = useState(() => initialEndpoint(connection)),
+    [probeModelId, setProbeModel] = useState("");
   const providers = useResource("/providers"),
     action = useAsyncAction();
+  const endpoint = providerId === "endpoint";
+  const tester = useEndpointTest({ connection, draft, apiKey, removeApiKey });
+  const keyReentry =
+    endpoint &&
+    Boolean(connection?.hasSecret) &&
+    !apiKey &&
+    !removeApiKey &&
+    originsChanged(connection.endpoint, draft);
   const dismiss = () => {
     if (!action.lock.current) close();
   };
@@ -44,9 +64,11 @@ export default function ConnectionDialog({ connection, close, saved }) {
               ...(apiKey ? { apiKey } : {}),
               ...(removeApiKey ? { removeApiKey: true } : {}),
               ...(providerId !== "openrouter" &&
+              !endpoint &&
               (!connection || responsesAccess !== Boolean(connection.responsesAccess))
                 ? { responsesAccess }
                 : {}),
+              ...(endpoint ? { endpoint: endpointPayload(draft) } : {}),
             };
             await api(
               connection
@@ -85,6 +107,8 @@ export default function ConnectionDialog({ connection, close, saved }) {
                   setProvider(value);
                   setResponses(false);
                   setKey("");
+                  setDraft(initialEndpoint(null));
+                  setProbeModel("");
                 }}
                 options={options.map((provider) => ({
                   value: provider.id,
@@ -92,6 +116,9 @@ export default function ConnectionDialog({ connection, close, saved }) {
                 }))}
               />
             </label>
+            {endpoint && (
+              <EndpointFields draft={draft} setDraft={setDraft} locked={false} />
+            )}
             {providers.loading && !connection && <p role="status">{copy.loading}</p>}
             <ErrorMessage error={providers.error} />
             <label>
@@ -102,11 +129,16 @@ export default function ConnectionDialog({ connection, close, saved }) {
                 value={apiKey}
                 disabled={removeApiKey}
                 placeholder={
-                  connection?.hasSecret ? copy.keyPlaceholder : copy.keyOptional
+                  connection?.hasSecret
+                    ? copy.keyPlaceholder
+                    : endpoint
+                      ? copy.endpoint.keyOptional
+                      : copy.keyOptional
                 }
                 onChange={(event) => setKey(event.target.value)}
               />
             </label>
+            {keyReentry && <p role="alert">{copy.endpoint.keyReentry}</p>}
             {connection?.hasSecret && (
               <label className="provider-check">
                 <input
@@ -120,7 +152,48 @@ export default function ConnectionDialog({ connection, close, saved }) {
                 <span>{copy.removeKey}</span>
               </label>
             )}
-            {providerId !== "openrouter" && (
+            {endpoint && (
+              <>
+                <div className="endpoint-test">
+                  <label>
+                    {copy.endpoint.probeModel}
+                    <AnchoredSelect
+                      label={copy.endpoint.probeModel}
+                      value={probeModelId}
+                      onChange={setProbeModel}
+                      options={[
+                        { value: "", label: copy.endpoint.probeAuto },
+                        ...draft.models.map((model) => ({
+                          value: model.modelId,
+                          label: model.modelId,
+                        })),
+                      ]}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="button secondary"
+                    disabled={tester.busy || !draft.openaiBaseUrl.trim()}
+                    onClick={async () => {
+                      const proposal = await tester.run(probeModelId);
+                      if (proposal)
+                        setDraft((current) => applyProposal(current, proposal));
+                    }}
+                  >
+                    {tester.busy ? copy.endpoint.testing : copy.endpoint.test}
+                  </button>
+                  <small>{copy.endpoint.testCost}</small>
+                  <ErrorMessage error={tester.error} />
+                </div>
+                <EndpointTestResult
+                  draft={draft}
+                  setDraft={setDraft}
+                  result={tester.result}
+                />
+                <EndpointModelTable draft={draft} setDraft={setDraft} />
+              </>
+            )}
+            {providerId !== "openrouter" && !endpoint && (
               <label className="provider-check">
                 <input
                   type="checkbox"
@@ -149,7 +222,7 @@ export default function ConnectionDialog({ connection, close, saved }) {
           </button>
           <button
             className="button primary"
-            disabled={action.busy || (!connection && !providers.data)}
+            disabled={action.busy || keyReentry || (!connection && !providers.data)}
           >
             {copy.save}
           </button>
