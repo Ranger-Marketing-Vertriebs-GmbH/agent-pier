@@ -49,4 +49,25 @@ export const providers = Object.freeze({
   unsafeConnectionStorage: "Unsicherer Speicher für Provider-Verbindungen.",
   unsafeConnectionDirectory: "Unsicheres Verzeichnis für Provider-Verbindungen.",
   invalidConnectionStorage: "Ungültiger Speicher für Provider-Verbindungen.",
+  invalidEndpoint: "Ungültige Einstellungen für den eigenen Endpunkt.",
+  invalidEndpointUrl:
+    "Gib eine http- oder https-Basis-URL ohne Zugangsdaten, Query oder Fragment an.",
+  invalidEndpointHeader: "Dieser Name für den Auth-Header ist nicht erlaubt.",
+  invalidEndpointModels:
+    "Ungültige Modellliste: Prüfe IDs, Duplikate und Token-Grenzen (1024 bis 10.000.000).",
+  endpointUrlNotAllowed:
+    "Diese Endpunkt-Adresse ist nicht erlaubt. Unverschlüsseltes http ist nur für lokale, private oder Tailscale-Adressen erlaubt.",
+  endpointProtocolDisabled:
+    "Dieser Endpunkt bietet das Protokoll nicht an, das diese CLI braucht.",
+  endpointModelUnknown: "Das Modell ist in dieser Endpunkt-Verbindung nicht eingetragen.",
+  endpointContextRequired:
+    "Trage für dieses Modell in der Endpunkt-Verbindung die Kontextgröße ein, bevor du es startest.",
+  endpointKeyReentryRequired:
+    "Die Endpunkt-Adresse hat sich geändert. Gib den API-Key erneut ein oder entferne ihn.",
+  endpointTestBusy:
+    "Ein anderer Endpunkt-Test läuft gerade. Versuche es gleich noch einmal.",
+  endpointTestConnectionInvalid:
+    "Nur eigene Endpunkt-Verbindungen können getestet werden.",
+  endpointClaudeCustomHeaderVersion:
+    "Eigene Auth-Header erfordern Claude Code 2.1.227 oder neuer. Aktualisiere die CLI oder nutze den Standard-Header.",
 });
