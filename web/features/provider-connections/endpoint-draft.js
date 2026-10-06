@@ -45,6 +45,15 @@ export const withoutTest = (draft) => ({
 export const suggestAnthropicUrl = (url) =>
   url.trim().replace(/\/+$/, "").replace(/\/v1$/, "");
 
+// Keeps the Anthropic URL derived from the OpenAI URL until the user edits it.
+export const withOpenaiUrl = (draft, value) => ({
+  ...draft,
+  openaiBaseUrl: value,
+  ...(draft.anthropicAuto !== false
+    ? { anthropicBaseUrl: suggestAnthropicUrl(value) }
+    : {}),
+});
+
 const origin = (url) => {
   try {
     return new URL(url).origin;
@@ -75,7 +84,40 @@ export const keyReentryRequired = ({ connection, draft, apiKey, removeApiKey }) 
   !removeApiKey &&
   originsChanged(connection.endpoint, draft);
 
-const MODEL_LIMIT = 200;
+export const MODEL_LIMIT = 200;
+const TOKEN_MIN = 1024;
+const TOKEN_MAX = 10_000_000;
+
+// Same rule as the server's validModelId.
+export const validModelId = (id) =>
+  typeof id === "string" &&
+  id.length <= 200 &&
+  /^(?:[a-zA-Z0-9~][a-zA-Z0-9._:+~-]*\/)*[a-zA-Z0-9~][a-zA-Z0-9._:+~-]*$/.test(id) &&
+  !id.split("/").some((part) => ["constructor", "prototype", "__proto__"].includes(part));
+
+const validTokens = (value) =>
+  value === null ||
+  value === undefined ||
+  (Number.isInteger(value) && value >= TOKEN_MIN && value <= TOKEN_MAX);
+
+// Mirrors the server's model rules; returns a message key or null per model.
+export function modelProblem(model, models) {
+  if (!validModelId(model.modelId)) return "invalidId";
+  if (models.filter((item) => item.modelId === model.modelId).length > 1)
+    return "duplicate";
+  if (!validTokens(model.contextTokens)) return "contextRange";
+  if (!validTokens(model.outputTokens)) return "outputRange";
+  if (
+    model.contextTokens &&
+    model.outputTokens &&
+    model.outputTokens > model.contextTokens
+  )
+    return "outputOverContext";
+  return null;
+}
+
+export const modelsInvalid = (models) =>
+  models.length > MODEL_LIMIT || models.some((model) => modelProblem(model, models));
 
 // Same rule as the server: manual models always survive, detected ones are capped.
 function mergeModels(previous, proposal) {

@@ -16,6 +16,7 @@ import {
   endpointPayload,
   initialEndpoint,
   keyReentryRequired,
+  modelsInvalid,
   withoutTest,
 } from "./endpoint-draft.js";
 export default function ConnectionDialog({ connection, close, saved }) {
@@ -41,6 +42,11 @@ export default function ConnectionDialog({ connection, close, saved }) {
     tester.reset();
     setDraft((current) => withoutTest(update(current)));
   };
+  const modelsBlocked = endpoint && modelsInvalid(draft.models);
+  // A test model that left the list falls back to "Automatic".
+  const activeProbeModel = draft.models.some((model) => model.modelId === probeModelId)
+    ? probeModelId
+    : "";
   const dismiss = () => {
     if (!action.lock.current) close();
   };
@@ -119,7 +125,7 @@ export default function ConnectionDialog({ connection, close, saved }) {
                 }}
                 options={options.map((provider) => ({
                   value: provider.id,
-                  label: provider.name,
+                  label: copy.providerNames[provider.id] || provider.name,
                 }))}
               />
             </label>
@@ -170,7 +176,7 @@ export default function ConnectionDialog({ connection, close, saved }) {
                     {copy.endpoint.probeModel}
                     <AnchoredSelect
                       label={copy.endpoint.probeModel}
-                      value={probeModelId}
+                      value={activeProbeModel}
                       onChange={setProbeModel}
                       options={[
                         { value: "", label: copy.endpoint.probeAuto },
@@ -187,7 +193,7 @@ export default function ConnectionDialog({ connection, close, saved }) {
                     className="button secondary"
                     disabled={tester.busy || !draft.openaiBaseUrl.trim()}
                     onClick={async () => {
-                      const proposal = await tester.run(probeModelId);
+                      const proposal = await tester.run(activeProbeModel);
                       if (proposal)
                         setDraft((current) => applyProposal(current, proposal));
                     }}
@@ -234,7 +240,12 @@ export default function ConnectionDialog({ connection, close, saved }) {
           </button>
           <button
             className="button primary"
-            disabled={action.busy || keyReentry || (!connection && !providers.data)}
+            disabled={
+              action.busy ||
+              keyReentry ||
+              modelsBlocked ||
+              (!connection && !providers.data)
+            }
           >
             {copy.save}
           </button>

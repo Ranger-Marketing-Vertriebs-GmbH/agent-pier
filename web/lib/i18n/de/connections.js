@@ -131,5 +131,16 @@ export const connectionCopy = {
     removeModel: (id) => `${id} entfernen`,
     azureHint: "Azure OpenAI: Trage deine Deployment-Namen als Modell-IDs ein.",
     noModels: "Noch keine Modelle. Teste die Verbindung oder füge ein Modell hinzu.",
+    modelProblems: {
+      invalidId:
+        "Diese Modell-ID kann nicht verwendet werden. Nutze Buchstaben, Ziffern und . _ : + ~ - ohne Leerzeichen und ohne führenden Schrägstrich.",
+      duplicate: "Diese Modell-ID kommt mehrfach vor.",
+      contextRange: "Der Kontext muss eine ganze Zahl von 1.024 bis 10.000.000 sein.",
+      outputRange:
+        "Die maximale Ausgabe muss eine ganze Zahl von 1.024 bis 10.000.000 sein.",
+      outputOverContext: "Die maximale Ausgabe darf den Kontext nicht überschreiten.",
+    },
+    tooManyModels: (max) =>
+      `Eine Verbindung enthält höchstens ${max} Modelle. Entferne einige.`,
   },
 };

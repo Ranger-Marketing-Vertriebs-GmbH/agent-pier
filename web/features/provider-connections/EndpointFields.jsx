@@ -1,7 +1,7 @@
 import React from "react";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import { connectionCopy } from "../../lib/i18n/messages/connections.js";
-import { PRESETS, suggestAnthropicUrl } from "./endpoint-draft.js";
+import { PRESETS, withOpenaiUrl } from "./endpoint-draft.js";
 
 export default function EndpointFields({ draft, setDraft, locked }) {
   const copy = connectionCopy.endpoint;
@@ -37,13 +37,7 @@ export default function EndpointFields({ draft, setDraft, locked }) {
           value={draft.openaiBaseUrl}
           onChange={(event) => {
             const value = event.target.value;
-            setDraft((current) => ({
-              ...current,
-              openaiBaseUrl: value,
-              ...(current.preset === "custom" && current.anthropicAuto !== false
-                ? { anthropicBaseUrl: suggestAnthropicUrl(value) }
-                : {}),
-            }));
+            setDraft((current) => withOpenaiUrl(current, value));
           }}
         />
         <small>{copy.openaiHelp}</small>

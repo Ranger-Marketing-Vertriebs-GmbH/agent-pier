@@ -129,5 +129,14 @@ export const connectionCopy = {
     removeModel: (id) => `Remove ${id}`,
     azureHint: "Azure OpenAI: enter your deployment names as model IDs.",
     noModels: "No models yet. Test the connection or add a model.",
+    modelProblems: {
+      invalidId:
+        "This model ID cannot be used. Use letters, digits and . _ : + ~ - without spaces or a leading slash.",
+      duplicate: "This model ID appears more than once.",
+      contextRange: "Context must be a whole number from 1,024 to 10,000,000.",
+      outputRange: "Max output must be a whole number from 1,024 to 10,000,000.",
+      outputOverContext: "Max output must not exceed the context.",
+    },
+    tooManyModels: (max) => `A connection holds at most ${max} models. Remove some.`,
   },
 };

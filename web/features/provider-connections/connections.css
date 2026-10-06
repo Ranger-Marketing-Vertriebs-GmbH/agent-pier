@@ -82,6 +82,12 @@
 .endpoint-models .endpoint-model-id {
   min-width: 14ch;
 }
+.endpoint-models .endpoint-model-problem {
+  display: block;
+  margin-top: 0.25rem;
+  font-weight: 400;
+  color: var(--danger, #b42318);
+}
 .endpoint-models .endpoint-model-source {
   white-space: nowrap;
   color: var(--muted);
