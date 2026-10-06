@@ -12,6 +12,7 @@ import {
   classifyProbe,
   runEndpointTest,
 } from "../../server/features/providers/endpoint-probe.js";
+import { validateEndpoint } from "../../server/features/providers/endpoint-config.js";
 
 const draft = (base, preset, extra = {}) => ({
   preset,
@@ -235,6 +236,41 @@ test("azure manual deployment: 404 on unlisted model is modelNotFound, 400 is re
     probeModelId: "gpt-4.1",
   });
   assert.equal(wrong.protocols.responses, "unsupported"); // gpt-4.1 was listed, so 404 means unsupported
+});
+
+test("a long listing plus manual models stays saveable and warns", async (t) => {
+  const ids = Array.from({ length: 205 }, (_, index) => `m-${index}`);
+  const server = await fakeEndpoint(t, {
+    "GET /v1/models": () => ({ json: { data: ids.map((id) => ({ id })) } }),
+    "POST /v1/chat/completions": () => ({ json: { choices: [] } }),
+  });
+  const manual = {
+    modelId: "my-deploy",
+    label: "my-deploy",
+    contextTokens: 128000,
+    outputTokens: null,
+    source: "manual",
+    contextEdited: true,
+  };
+  const result = await runEndpointTest({
+    endpoint: { ...draft(server.base, "custom"), anthropicBaseUrl: null },
+    apiKey: "",
+    previousModels: [manual],
+  });
+  assert.equal(result.models.length, 200);
+  assert.ok(result.models.some((model) => model.modelId === "my-deploy"));
+  assert.ok(result.warnings.includes("modelListTruncated"));
+  assert.doesNotThrow(() =>
+    validateEndpoint({
+      preset: "custom",
+      openaiBaseUrl: `${server.base}/v1`,
+      anthropicBaseUrl: null,
+      protocols: { messages: false, responses: false, chatCompletions: true },
+      authHeader: null,
+      models: result.models,
+      lastTest: null,
+    }),
+  );
 });
 
 test("upstream error bodies containing the key are never returned", async (t) => {

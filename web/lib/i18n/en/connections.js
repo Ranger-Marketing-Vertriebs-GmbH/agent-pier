@@ -110,6 +110,8 @@ export const connectionCopy = {
       storedKeyNotUsed: "The saved key was not sent because the address changed.",
       rejectedRequest:
         "The server rejected the minimal test request but the endpoint exists.",
+      modelListTruncated:
+        "A connection holds at most 200 models. Manual models are kept; some detected models were left out.",
     },
     notListed:
       "The model list could not be read. Previously detected and manual models are kept.",

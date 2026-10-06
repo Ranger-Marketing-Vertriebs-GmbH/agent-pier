@@ -69,6 +69,9 @@ export async function runEndpointTest({
     probeModelId || detection.models[0]?.modelId || models[0]?.modelId || null;
   const listedModel = listedIds.has(model);
   const warnings = new Set(detection.warnings);
+  const keptDetected = models.filter((item) => item.source === "detected").length;
+  if (detection.listed && keptDetected < detection.models.length)
+    warnings.add("modelListTruncated");
   const protocols = {};
   const reasons = {};
   const headers = authHeaders(apiKey, endpoint.authHeader);

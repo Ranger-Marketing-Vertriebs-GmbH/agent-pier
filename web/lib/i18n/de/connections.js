@@ -112,6 +112,8 @@ export const connectionCopy = {
         "Der gespeicherte Key wurde nicht gesendet, weil sich die Adresse geändert hat.",
       rejectedRequest:
         "Der Server hat die minimale Testanfrage abgelehnt, der Endpunkt existiert aber.",
+      modelListTruncated:
+        "Eine Verbindung fasst höchstens 200 Modelle. Manuelle Modelle bleiben erhalten; einige erkannte Modelle wurden nicht übernommen.",
     },
     notListed:
       "Die Modellliste konnte nicht gelesen werden. Bisher erkannte und manuelle Modelle bleiben erhalten.",

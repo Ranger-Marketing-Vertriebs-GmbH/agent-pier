@@ -3,6 +3,12 @@ import { connectionCopy } from "../../lib/i18n/messages/connections.js";
 
 export default function EndpointTestResult({ draft, setDraft, result }) {
   const copy = connectionCopy.endpoint;
+  const warnings = [
+    ...new Set([
+      ...(result?.warnings || []),
+      ...(result && draft.modelsTruncated ? ["modelListTruncated"] : []),
+    ]),
+  ];
   return (
     <fieldset className="endpoint-protocols">
       <legend>{copy.protocols}</legend>
@@ -36,7 +42,7 @@ export default function EndpointTestResult({ draft, setDraft, result }) {
         );
       })}
       {result && !result.listed && <p className="field-description">{copy.notListed}</p>}
-      {result?.warnings?.map((warning) => (
+      {warnings.map((warning) => (
         <p key={warning} className="field-description" role="status">
           {copy.warnings[warning] || warning}
         </p>
