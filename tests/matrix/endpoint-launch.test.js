@@ -7,6 +7,8 @@ import { parse as parseToml } from "smol-toml";
 import { ProviderCatalog } from "../../server/features/providers/provider-catalog.js";
 import { prepareProviderLaunch } from "../../server/features/providers/provider-launch.js";
 import { validateEndpoint } from "../../server/features/providers/endpoint-config.js";
+import { providerEnvironment } from "../../server/features/providers/provider-environment.js";
+import { launchTarget } from "../../server/features/providers/launch-description.js";
 
 const catalog = new ProviderCatalog();
 const endpointBlock = (overrides = {}) =>
@@ -216,3 +218,22 @@ test("disabled protocol refuses the launch", (t) => {
   });
   assert.throws(() => launch(t, "codex", { endpoint }), { status: 409 });
 });
+
+for (const header of [null, "api-key"])
+  test(`claude env never carries the endpoint key without a messages URL (${header || "bearer"})`, (t) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-endpoint-env-"));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const account = { tool: "claude", provider: { id: "endpoint" } };
+    const endpoint = endpointBlock({ anthropicBaseUrl: null, authHeader: header });
+    const env = providerEnvironment(
+      account,
+      { apiKey: "endpoint-secret" },
+      { PATH: "/bin" },
+      root,
+      launchTarget(account, endpoint),
+    );
+    assert.equal(env.ANTHROPIC_BASE_URL, undefined);
+    assert.equal(env.ANTHROPIC_AUTH_TOKEN, "agentpier-endpoint");
+    assert.equal(env.ANTHROPIC_CUSTOM_HEADERS, undefined);
+    assert.equal(JSON.stringify(env).includes("endpoint-secret"), false);
+  });
