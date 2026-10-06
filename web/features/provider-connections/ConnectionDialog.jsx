@@ -15,7 +15,7 @@ import {
   applyProposal,
   endpointPayload,
   initialEndpoint,
-  originsChanged,
+  keyReentryRequired,
 } from "./endpoint-draft.js";
 export default function ConnectionDialog({ connection, close, saved }) {
   const [name, setName] = useState(connection?.name || ""),
@@ -30,11 +30,7 @@ export default function ConnectionDialog({ connection, close, saved }) {
   const endpoint = providerId === "endpoint";
   const tester = useEndpointTest({ connection, draft, apiKey, removeApiKey });
   const keyReentry =
-    endpoint &&
-    Boolean(connection?.hasSecret) &&
-    !apiKey &&
-    !removeApiKey &&
-    originsChanged(connection.endpoint, draft);
+    endpoint && keyReentryRequired({ connection, draft, apiKey, removeApiKey });
   const dismiss = () => {
     if (!action.lock.current) close();
   };

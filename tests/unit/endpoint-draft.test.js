@@ -6,6 +6,7 @@ import {
   suggestAnthropicUrl,
   endpointPayload,
   initialEndpoint,
+  keyReentryRequired,
 } from "../../web/features/provider-connections/endpoint-draft.js";
 
 test("draft helpers", () => {
@@ -131,10 +132,56 @@ test("applyProposal keeps unsaved draft models", () => {
   assert.deepEqual(same.models, draft.models);
 });
 
-test("clearing the Anthropic URL counts as an origin change", () => {
-  const saved = { openaiBaseUrl: "http://a:1/v1", anthropicBaseUrl: "http://a:1" };
+test("origins compare like the server: deduplicated non-empty origins", () => {
+  const keyed = { openaiBaseUrl: "http://a:1/v1", anthropicBaseUrl: "http://a:1" };
+  // Clearing a same-host Anthropic URL keeps the origin set {http://a:1}.
   assert.equal(
-    originsChanged(saved, { openaiBaseUrl: "http://a:1/v1", anthropicBaseUrl: "" }),
+    originsChanged(keyed, { openaiBaseUrl: "http://a:1/v1", anthropicBaseUrl: "" }),
+    false,
+  );
+  // Adding a same-host Anthropic URL keeps the origin set as well.
+  assert.equal(
+    originsChanged(
+      { openaiBaseUrl: "http://a:1/v1", anthropicBaseUrl: null },
+      { openaiBaseUrl: "http://a:1/v1", anthropicBaseUrl: "http://a:1" },
+    ),
+    false,
+  );
+  assert.equal(
+    originsChanged(keyed, {
+      openaiBaseUrl: "http://a:1/v1",
+      anthropicBaseUrl: "http://b:1",
+    }),
     true,
+  );
+  assert.equal(
+    originsChanged(
+      { openaiBaseUrl: "http://a:1/v1", anthropicBaseUrl: "http://b:1" },
+      { openaiBaseUrl: "http://a:1/v1", anthropicBaseUrl: "" },
+    ),
+    true,
+  );
+});
+
+test("key re-entry ignores a whitespace-only key", () => {
+  const connection = {
+    hasSecret: true,
+    endpoint: { openaiBaseUrl: "http://a:1/v1", anthropicBaseUrl: null },
+  };
+  const draft = { openaiBaseUrl: "http://b:1/v1", anthropicBaseUrl: "" };
+  const required = (apiKey, removeApiKey = false) =>
+    keyReentryRequired({ connection, draft, apiKey, removeApiKey });
+  assert.equal(required(""), true);
+  assert.equal(required("   "), true);
+  assert.equal(required("new-key"), false);
+  assert.equal(required("", true), false);
+  assert.equal(
+    keyReentryRequired({
+      connection: { ...connection, hasSecret: false },
+      draft,
+      apiKey: "",
+      removeApiKey: false,
+    }),
+    false,
   );
 });
