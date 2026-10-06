@@ -58,7 +58,8 @@ export function prepareProviderLaunch(
       },
     );
   if (endpointKind) {
-    if (account.tool === "codex") endpointCodexLaunch(result, description, secret);
+    if (account.tool === "codex")
+      endpointCodexLaunch(result, description, secret, connectionName);
     else if (account.tool === "opencode")
       metadata.cliModelId = endpointOpenCodeLaunch(
         result,

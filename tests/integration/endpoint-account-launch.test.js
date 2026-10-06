@@ -7,6 +7,7 @@ import { ProviderConnections } from "../../server/features/providers/provider-co
 import { ProviderCatalog } from "../../server/features/providers/provider-catalog.js";
 import { ProviderAccess } from "../../server/features/providers/provider-access.js";
 import { AccountStore } from "../../server/features/accounts/account-store.js";
+import { parse as parseToml } from "smol-toml";
 
 const model = (modelId, contextTokens) => ({
   modelId,
@@ -75,6 +76,12 @@ for (const tool of ["claude", "codex", "opencode"])
     if (tool === "opencode") {
       const config = JSON.parse(launch.env.OPENCODE_CONFIG_CONTENT);
       assert.equal(config.provider["agentpier-endpoint"].name, "GPU box");
+    }
+    if (tool === "codex") {
+      const config = parseToml(
+        fs.readFileSync(path.join(launch.env.CODEX_HOME, "config.toml"), "utf8"),
+      );
+      assert.equal(config.model_providers["agentpier-endpoint"].name, "GPU box");
     }
     const switched = accounts.command(
       account.id,

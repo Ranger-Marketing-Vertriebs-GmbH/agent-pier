@@ -5,7 +5,7 @@ import { tomlValue } from "../../lib/launch-serialization.js";
 import { codexModelCatalog, writeTomlConfig } from "./native-config.js";
 
 /** Codex reads the key from the environment variable named here, never from config. */
-export function endpointCodexLaunch(result, description, secret) {
+export function endpointCodexLaunch(result, description, secret, connectionName) {
   const { model, auth } = description;
   const key = secret?.apiKey?.trim();
   const env = result.env;
@@ -17,7 +17,7 @@ export function endpointCodexLaunch(result, description, secret) {
     model_catalog_json: path.join(env.CODEX_HOME, "models.json"),
     model_providers: {
       [description.providerKey]: {
-        name: description.displayName,
+        name: connectionName || description.displayName,
         base_url: description.endpoints.responses,
         wire_api: "responses",
         requires_openai_auth: false,
