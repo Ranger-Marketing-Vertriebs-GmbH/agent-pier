@@ -11,6 +11,7 @@ export default function ProviderModelPicker({
   query,
   setQuery,
 }) {
+  const unavailable = catalog.unavailableModels || [];
   const selected = catalog.models.find((model) => model.modelId === modelId);
   return (
     <>
@@ -28,23 +29,31 @@ export default function ProviderModelPicker({
           onChange={setModel}
           options={[
             { value: "", label: catalog.loading ? copy.loading : copy.chooseModel },
-            ...(modelId && !selected
+            ...(modelId && !selected && !unavailable.some((m) => m.modelId === modelId)
               ? [{ value: modelId, label: modelId, disabled: true }]
               : []),
             ...catalog.models.map((model) => ({
               value: model.modelId,
               label: `${model.label} · ${model.modelId}`,
             })),
+            ...unavailable.map((model) => ({
+              value: model.modelId,
+              label: `${model.label} · ${model.modelId} (${copy.contextRequired})`,
+              disabled: true,
+            })),
           ]}
         />
       </label>
-      {!catalog.loading && modelId && !selected && (
+      {!catalog.loading && modelId && !selected && !unavailable.length && (
         <p className="field-description">{copy.missingModel}</p>
       )}
-      {!catalog.loading && !catalog.models.length && (
+      {!catalog.loading && !catalog.models.length && !unavailable.length && (
         <p className="field-description">{copy.noModels}</p>
       )}
-      <ProviderCatalogStatus catalog={catalog} />
+      {unavailable.length > 0 && (
+        <p className="field-description">{copy.modelsNeedContext(unavailable.length)}</p>
+      )}
+      {!catalog.endpoint && <ProviderCatalogStatus catalog={catalog} />}
       <ProviderModelDetails model={selected} tool={tool} />
       {tool === "claude" && <p className="field-description">{copy.claudeNotice}</p>}
     </>
