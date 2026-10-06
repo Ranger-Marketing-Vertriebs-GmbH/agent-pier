@@ -179,6 +179,7 @@ export default function ConnectionDialog({ connection, close, saved }) {
                         })),
                       ]}
                     />
+                    <small>{copy.endpoint.probeHint}</small>
                   </label>
                   <button
                     type="button"

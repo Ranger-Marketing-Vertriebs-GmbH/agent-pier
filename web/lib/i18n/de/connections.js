@@ -79,6 +79,7 @@ export const connectionCopy = {
       "Der Test sendet pro Protokoll ein paar Tokens. Bezahlte Endpunkte können dafür abrechnen.",
     probeModel: "Testmodell",
     probeAuto: "Automatisch",
+    probeHint: "Bei Azure OpenAI wähle eines deiner Deployments als Testmodell.",
     protocols: "Protokolle",
     protocolNames: {
       messages: "Anthropic Messages",
