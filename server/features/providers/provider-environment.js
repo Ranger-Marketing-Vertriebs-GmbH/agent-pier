@@ -25,11 +25,17 @@ export function providerEnvironment(account, secret, environment, root, descript
     env.ANTHROPIC_API_KEY = "";
     if (description.kind === "catalog") {
       if (key) env.ANTHROPIC_AUTH_TOKEN = key;
-    } else if (key && !description.auth.header) env.ANTHROPIC_AUTH_TOKEN = key;
-    else {
-      // Claude Code refuses to start without a token; the endpoint ignores this one.
-      env.ANTHROPIC_AUTH_TOKEN = "agentpier-endpoint";
-      if (key) env.ANTHROPIC_CUSTOM_HEADERS = `${description.auth.header}: ${key}`;
+    } else {
+      // Without its own messages URL Claude Code would talk to the default Anthropic
+      // origin, so the endpoint key is only handed over together with that URL.
+      const endpointKey = description.endpoints.messages ? key : null;
+      if (endpointKey && !description.auth.header) env.ANTHROPIC_AUTH_TOKEN = endpointKey;
+      else {
+        // Claude Code refuses to start without a token; the endpoint ignores this one.
+        env.ANTHROPIC_AUTH_TOKEN = "agentpier-endpoint";
+        if (endpointKey)
+          env.ANTHROPIC_CUSTOM_HEADERS = `${description.auth.header}: ${endpointKey}`;
+      }
     }
   } else if (account.tool === "opencode") {
     for (const [name, folder] of Object.entries({
