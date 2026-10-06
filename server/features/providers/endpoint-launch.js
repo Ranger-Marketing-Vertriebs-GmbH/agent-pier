@@ -59,7 +59,9 @@ export function endpointOpenCodeLaunch(result, description, secret, connectionNa
         name: connectionName || description.displayName,
         options: {
           baseURL: description.endpoints.chatCompletions,
-          ...(key ? { apiKey: reference } : {}),
+          // apiKey becomes `Authorization: Bearer`; with a custom header the key is sent
+          // only there, matching the connection test and Codex.
+          ...(key && !auth.header ? { apiKey: reference } : {}),
           ...(key && auth.header ? { headers: { [auth.header]: reference } } : {}),
         },
         models: {
