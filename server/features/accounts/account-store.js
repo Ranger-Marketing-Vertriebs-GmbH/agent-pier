@@ -8,6 +8,7 @@ import { connectionProfile } from "../providers/connection-profile.js";
 import { ProviderCatalog } from "../providers/provider-catalog.js";
 import { validateProviderSelection } from "../providers/provider-definitions.js";
 import { providerEnvironment } from "../providers/provider-environment.js";
+import { launchTarget } from "../providers/launch-description.js";
 import { prepareProviderLaunch } from "../providers/provider-launch.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 import {
@@ -180,6 +181,12 @@ export class AccountStore {
       ? this.providerConnections?.secret(account.internal.connectionId) || null
       : readJSON(path.join(this.profile(account.id), "secret.json"), null);
   }
+  endpointFor(account) {
+    if (account.provider?.id !== "endpoint") return undefined;
+    if (account.internal?.kind !== "provider-connection" || !this.providerConnections)
+      throw problem(serverMessages.providers.invalidProviderSelection);
+    return this.providerConnections.record(account.internal.connectionId).endpoint;
+  }
   profile(id) {
     const a = this.get(id);
     if (a.kind !== "managed") throw problem(serverMessages.accounts.localProfileReadOnly);
@@ -286,7 +293,23 @@ export class AccountStore {
     if (account.kind === "local") return env;
     const root = this.profile(id);
     const secret = this.secret(account);
-    if (account.provider) return providerEnvironment(account, secret, env, root);
+    if (account.provider) {
+      // History, plugins and transfers also read this environment, so a removed
+      // connection or model must not break it; launches re-resolve and validate.
+      let endpoint;
+      try {
+        endpoint = this.endpointFor(account);
+      } catch {
+        endpoint = undefined;
+      }
+      return providerEnvironment(
+        account,
+        secret,
+        env,
+        root,
+        launchTarget(account, endpoint),
+      );
+    }
     if (account.tool === "codex")
       env.CODEX_HOME = privateDirectory(path.join(root, "codex"));
     if (account.tool === "claude") {
@@ -308,6 +331,7 @@ export class AccountStore {
   }
   command(id, executables, login = false, launchMode = "default", { modelId } = {}) {
     let account = this.get(id);
+    const endpoint = this.endpointFor(account);
     if (modelId) {
       if (
         typeof modelId !== "string" ||
@@ -322,6 +346,7 @@ export class AccountStore {
             { ...account.provider, modelId },
             account.tool,
             this.providerCatalog,
+            { endpoint },
           ),
         };
     }
@@ -379,6 +404,10 @@ export class AccountStore {
     return prepareProviderLaunch(account, this.secret(account), launch, {
       root,
       catalog: this.providerCatalog,
+      endpoint,
+      connectionName: endpoint
+        ? this.providerConnections.record(account.internal.connectionId).name
+        : undefined,
     });
   }
 }

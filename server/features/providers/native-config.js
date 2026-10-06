@@ -26,30 +26,32 @@ export function writeTomlConfig(file, additions) {
   }
 }
 
-export function glmCodexCatalog(model) {
+export function codexModelCatalog(model, { contextTokens, description, reasoning }) {
   return {
     models: [
       {
         slug: model.modelId,
         display_name: model.label,
-        description: "GLM via Z.ai Responses API",
-        default_reasoning_level: "high",
-        supported_reasoning_levels: [
-          { effort: "low", description: "Low" },
-          { effort: "high", description: "High" },
-        ],
+        description,
+        default_reasoning_level: reasoning ? "high" : "medium",
+        supported_reasoning_levels: reasoning
+          ? [
+              { effort: "low", description: "Low" },
+              { effort: "high", description: "High" },
+            ]
+          : [{ effort: "medium", description: "Medium" }],
         shell_type: "shell_command",
         visibility: "list",
         supported_in_api: true,
         priority: 0,
         base_instructions: "",
-        supports_reasoning_summaries: true,
+        supports_reasoning_summaries: reasoning,
         default_reasoning_summary: "none",
         support_verbosity: false,
         apply_patch_tool_type: "freeform",
         truncation_policy: { mode: "bytes", limit: 10000 },
-        context_window: model.codexContextTokens,
-        max_context_window: model.codexContextTokens,
+        context_window: contextTokens,
+        max_context_window: contextTokens,
         effective_context_window_percent: 95,
         supports_parallel_tool_calls: true,
         experimental_supported_tools: [],
@@ -58,3 +60,10 @@ export function glmCodexCatalog(model) {
     ],
   };
 }
+
+export const glmCodexCatalog = (model) =>
+  codexModelCatalog(model, {
+    contextTokens: model.codexContextTokens,
+    description: "GLM via Z.ai Responses API",
+    reasoning: true,
+  });
