@@ -41,4 +41,22 @@ export const providers = Object.freeze({
   unsafeConnectionStorage: "Unsafe provider connection storage.",
   unsafeConnectionDirectory: "Unsafe provider connection directory.",
   invalidConnectionStorage: "Invalid provider connection storage.",
+  invalidEndpoint: "Invalid custom endpoint settings.",
+  invalidEndpointUrl:
+    "Enter an http or https base URL without credentials, query or fragment.",
+  invalidEndpointHeader: "The auth header name is not allowed.",
+  invalidEndpointModels:
+    "Invalid model list: check IDs, duplicates and token limits (1024 to 10,000,000).",
+  endpointUrlNotAllowed:
+    "This endpoint address is not allowed. Unencrypted http is only allowed for local, private or Tailscale addresses.",
+  endpointProtocolDisabled: "This endpoint does not offer the protocol this CLI needs.",
+  endpointModelUnknown: "The model is not configured on this endpoint connection.",
+  endpointContextRequired:
+    "Enter the context size for this model in the endpoint connection before launching it.",
+  endpointKeyReentryRequired:
+    "The endpoint address changed. Enter the API key again or remove it.",
+  endpointTestBusy: "Another endpoint test is running. Try again shortly.",
+  endpointTestConnectionInvalid: "Only custom endpoint connections can be tested.",
+  endpointClaudeCustomHeaderVersion:
+    "Custom auth headers require Claude Code 2.1.227 or later. Update the CLI or use the default header.",
 });
