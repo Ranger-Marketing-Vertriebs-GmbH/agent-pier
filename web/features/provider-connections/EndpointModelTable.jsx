@@ -37,8 +37,8 @@ export default function EndpointModelTable({ draft, setDraft }) {
                   key={model.modelId}
                   data-missing-context={!model.contextTokens || undefined}
                 >
-                  <td>{model.modelId}</td>
-                  <td>
+                  <td className="endpoint-model-id">{model.modelId}</td>
+                  <td data-label={copy.context}>
                     <input
                       type="number"
                       min={1024}
@@ -57,7 +57,7 @@ export default function EndpointModelTable({ draft, setDraft }) {
                       }
                     />
                   </td>
-                  <td>
+                  <td data-label={copy.output}>
                     <input
                       type="number"
                       min={1024}
@@ -71,8 +71,8 @@ export default function EndpointModelTable({ draft, setDraft }) {
                       }
                     />
                   </td>
-                  <td>{copy.sources[model.source]}</td>
-                  <td>
+                  <td className="endpoint-model-source">{copy.sources[model.source]}</td>
+                  <td className="endpoint-model-remove">
                     <button
                       type="button"
                       className="button secondary"
