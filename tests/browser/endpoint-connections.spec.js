@@ -139,6 +139,9 @@ test("changing the address after a test discards the stale test result", async (
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Connection name", { exact: true }).fill("GPU box");
   await dialog.getByLabel("API provider", { exact: true }).selectOption("endpoint");
+  await expect(
+    dialog.getByText("For Azure OpenAI choose one of your deployments as test model."),
+  ).toBeVisible();
   await dialog.getByRole("button", { name: "Test connection", exact: true }).click();
   const status = dialog.getByText("Not supported · Endpoint not found");
   await expect(status).toBeVisible();

@@ -77,7 +77,8 @@ plus optional warnings. Paid endpoints may charge for the few tokens used.
 - llama.cpp: the loaded `n_ctx` is read from `/props`. Model IDs that are file paths are
   skipped; start `llama-server` with `--alias` or add the model manually.
 - Azure OpenAI: use `https://<resource>.openai.azure.com/openai/v1` and add your
-  deployment names as models; the model list shows base models, not deployments.
+  deployment names as models; the model list shows base models, not deployments. For
+  Azure OpenAI choose one of your deployments as test model.
 
 Model changes inside a running endpoint session require a reload.
 
