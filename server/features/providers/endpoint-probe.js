@@ -93,11 +93,11 @@ export async function runEndpointTest({
       results[name] = { reason: error.reason || "network" };
     }
   }
-  // When any protocol accepted the probe model, the model exists, so a 404 elsewhere
-  // means the protocol is missing, even for a model the listing did not report.
+  // When any protocol answered the probe model with 2xx, the model exists, so a 404
+  // elsewhere means the protocol is missing, even for a model the listing did not report.
+  // A 400/422 is no proof: OpenAI-style servers reject unknown models with 400.
   const accepted = Object.values(results).some(
-    ({ reason, status }) =>
-      !reason && ((status >= 200 && status < 300) || status === 400 || status === 422),
+    ({ reason, status }) => !reason && status >= 200 && status < 300,
   );
   for (const name of Object.keys(planned)) {
     if (!results[name]) {
