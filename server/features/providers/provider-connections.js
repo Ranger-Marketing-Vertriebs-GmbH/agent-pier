@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { problem, nameValue, writePrivate } from "../../lib/storage.js";
 import { providerDefinition } from "./provider-definitions.js";
+import { endpointOrigins, endpointTools, validateEndpoint } from "./endpoint-config.js";
 const validId = (id) => typeof id === "string" && /^[a-f0-9-]{36}$/.test(id);
 function read(file, fallback) {
   let descriptor;
@@ -25,6 +26,7 @@ function inputValue(input, creation) {
     "name",
     "apiKey",
     "responsesAccess",
+    "endpoint",
     ...(creation ? ["providerId"] : ["removeApiKey"]),
   ];
   if (
@@ -61,12 +63,25 @@ export class ProviderConnections {
     if (!info.isDirectory() || (process.getuid && info.uid !== process.getuid()))
       throw problem(serverMessages.providers.unsafeConnectionDirectory);
     fs.chmodSync(this.directory, 0o700);
+    this.invalid = [];
+    this.skipped = [];
     this.records = read(this.file, []);
     if (
       !Array.isArray(this.records) ||
       this.records.some((record) => !validId(record.id))
     )
       throw problem(serverMessages.providers.invalidConnectionStorage);
+    this.records = this.records.filter((record) => {
+      if (record.providerId !== "endpoint") return true;
+      try {
+        record.endpoint = validateEndpoint(record.endpoint);
+        return true;
+      } catch {
+        this.invalid.push(record.id);
+        this.skipped.push(record);
+        return false;
+      }
+    });
   }
   record(id) {
     const record = validId(id) && this.records.find((value) => value.id === id);
@@ -79,22 +94,28 @@ export class ProviderConnections {
   }
   public(record) {
     const definition = providerDefinition(record.providerId);
+    const hasSecret = !!this.secret(record.id)?.apiKey;
+    const endpoint = definition.kind === "endpoint";
     return {
       id: record.id,
       name: record.name,
       providerId: record.providerId,
-      hasSecret: !!this.secret(record.id)?.apiKey,
-      tools: definition.tools.filter(
-        (tool) =>
-          tool !== "codex" ||
-          record.providerId === "openrouter" ||
-          record.responsesAccess === true,
-      ),
+      hasSecret,
+      launchable: hasSecret || !definition.keyRequired,
+      tools: endpoint
+        ? endpointTools(record.endpoint)
+        : definition.tools.filter(
+            (tool) =>
+              tool !== "codex" ||
+              !definition.responsesGate ||
+              record.responsesAccess === true,
+          ),
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
-      ...(record.providerId !== "openrouter"
+      ...(definition.responsesGate
         ? { responsesAccess: record.responsesAccess === true }
         : {}),
+      ...(endpoint ? { endpoint: structuredClone(record.endpoint) } : {}),
     };
   }
   list() {
@@ -104,7 +125,7 @@ export class ProviderConnections {
     return this.public(this.record(id));
   }
   save() {
-    writePrivate(this.file, this.records);
+    writePrivate(this.file, [...this.records, ...this.skipped]);
   }
   acquire(id) {
     this.record(id);
@@ -125,9 +146,11 @@ export class ProviderConnections {
   create(input) {
     const key = inputValue(input, true),
       name = nameValue(input.name);
-    providerDefinition(input.providerId);
-    if (input.providerId === "openrouter" && input.responsesAccess !== undefined)
+    const definition = providerDefinition(input.providerId);
+    if (!definition.responsesGate && input.responsesAccess !== undefined)
       throw problem(serverMessages.providers.responsesEntitlementZaiOnly);
+    if ((definition.kind === "endpoint") !== (input.endpoint !== undefined))
+      throw problem(serverMessages.providers.invalidConnectionFields);
     const now = new Date().toISOString();
     const record = {
       id: randomUUID(),
@@ -135,8 +158,11 @@ export class ProviderConnections {
       providerId: input.providerId,
       createdAt: now,
       updatedAt: now,
-      ...(input.providerId !== "openrouter"
+      ...(definition.responsesGate
         ? { responsesAccess: input.responsesAccess === true }
+        : {}),
+      ...(definition.kind === "endpoint"
+        ? { endpoint: validateEndpoint(input.endpoint) }
         : {}),
     };
     if (key)
@@ -149,14 +175,29 @@ export class ProviderConnections {
     this.requireMutable(id);
     const key = inputValue(input, false),
       current = this.record(id);
-    if (current.providerId === "openrouter" && input.responsesAccess !== undefined)
+    const definition = providerDefinition(current.providerId);
+    if (!definition.responsesGate && input.responsesAccess !== undefined)
       throw problem(serverMessages.providers.responsesEntitlementZaiOnly);
+    if (input.endpoint !== undefined && definition.kind !== "endpoint")
+      throw problem(serverMessages.providers.invalidConnectionFields);
+    const endpoint =
+      input.endpoint !== undefined ? validateEndpoint(input.endpoint) : current.endpoint;
+    if (
+      endpoint &&
+      this.secret(id)?.apiKey &&
+      !key &&
+      !input.removeApiKey &&
+      JSON.stringify(endpointOrigins(endpoint)) !==
+        JSON.stringify(endpointOrigins(current.endpoint))
+    )
+      throw problem(serverMessages.providers.endpointKeyReentryRequired, 409);
     const record = {
       ...current,
       ...(input.name !== undefined ? { name: nameValue(input.name) } : {}),
       ...(input.responsesAccess !== undefined
         ? { responsesAccess: input.responsesAccess }
         : {}),
+      ...(endpoint ? { endpoint } : {}),
       updatedAt: new Date().toISOString(),
     };
     const file = path.join(this.directory, `${id}.json`);
