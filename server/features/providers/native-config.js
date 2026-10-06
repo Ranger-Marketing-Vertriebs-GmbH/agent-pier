@@ -26,7 +26,14 @@ export function writeTomlConfig(file, additions) {
   }
 }
 
-export function codexModelCatalog(model, { contextTokens, description, reasoning }) {
+/**
+ * `applyPatchToolType` "freeform" sends apply_patch as an OpenAI grammar tool; generic
+ * Responses servers (Ollama, vLLM, LM Studio, llama.cpp) only handle "function" tools.
+ */
+export function codexModelCatalog(
+  model,
+  { contextTokens, description, reasoning, applyPatchToolType = "freeform" },
+) {
   return {
     models: [
       {
@@ -48,7 +55,7 @@ export function codexModelCatalog(model, { contextTokens, description, reasoning
         supports_reasoning_summaries: reasoning,
         default_reasoning_summary: "none",
         support_verbosity: false,
-        apply_patch_tool_type: "freeform",
+        apply_patch_tool_type: applyPatchToolType,
         truncation_policy: { mode: "bytes", limit: 10000 },
         context_window: contextTokens,
         max_context_window: contextTokens,
