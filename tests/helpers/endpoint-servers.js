@@ -97,20 +97,39 @@ export const ollamaRoutes = (models = ["qwen3:8b", "llama3:8b"]) => ({
   "POST /v1/chat/completions": known(models, chat),
 });
 
-export const llamaRoutes = ({ router = false } = {}) => ({
+/**
+ * In router mode, /v1/models carries a per-model status (as llama-server does). A
+ * /props?model= request without autoload=false would load the model; such loads are
+ * recorded in `loads`.
+ */
+const ROUTER_MODELS = {
+  coder: { value: "loaded", args: ["llama-server", "--ctx-size", "32768"] },
+  small: { value: "unloaded", args: ["llama-server", "-c", "8192"] },
+  big: { value: "unloaded" },
+};
+const ROUTER_CTX = { coder: 32768, small: 8192, big: 65536 };
+export const llamaRoutes = ({
+  router = false,
+  models = Object.keys(ROUTER_MODELS),
+  loads = [],
+} = {}) => ({
   "GET /v1/models": () => ({
     json: {
       data: router
-        ? [{ id: "coder" }, { id: "small" }]
+        ? models.map((id) => ({ id, status: ROUTER_MODELS[id] }))
         : [{ id: "/models/coder-q4.gguf" }, { id: "coder" }],
     },
   }),
   "GET /props": ({ url }) => {
-    const model = new URL(url, "http://x").searchParams.get("model");
-    if (router && !model) return { status: 400, json: {} };
-    return {
-      json: { default_generation_settings: { n_ctx: model === "small" ? 8192 : 32768 } },
-    };
+    const params = new URL(url, "http://x").searchParams;
+    const model = params.get("model");
+    if (!router) return { json: { default_generation_settings: { n_ctx: 32768 } } };
+    if (!model) return { json: { role: "router" } };
+    if (ROUTER_MODELS[model]?.value !== "loaded") {
+      if (params.get("autoload") === "false") return { status: 400, json: {} };
+      loads.push(model);
+    }
+    return { json: { default_generation_settings: { n_ctx: ROUTER_CTX[model] } } };
   },
   "POST /v1/chat/completions": () => chat,
 });
