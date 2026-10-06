@@ -8,6 +8,9 @@ const DEFAULT_TIMEOUT = 10_000;
 
 /** Errors carry only a stable reason; response bodies never reach messages. */
 const tagged = (reason) => Object.assign(new Error(reason), { reason });
+/** A signal that expired through AbortSignal.timeout is a timeout, not a cancellation. */
+const abortReason = (signal) =>
+  tagged(signal.reason?.name === "TimeoutError" ? "timeout" : "aborted");
 
 export function authHeaders(apiKey, authHeader) {
   if (!apiKey) return {};
@@ -40,15 +43,7 @@ export async function endpointRequest({
   lookup,
 }) {
   const parsed = parseTarget(url);
-  if (signal?.aborted) throw tagged("aborted");
-  let target;
-  try {
-    target = await resolveEndpointTarget(parsed.href, lookup ? { lookup } : {});
-  } catch (error) {
-    // An unresolvable host is a reachability failure, not a policy refusal.
-    throw tagged(error.reason === "network" ? "network" : "notAllowed");
-  }
-  if (signal?.aborted) throw tagged("aborted");
+  if (signal?.aborted) throw abortReason(signal);
   const secure = parsed.protocol === "https:";
   const client = secure ? https : http;
   const payload = body === undefined ? undefined : JSON.stringify(body);
@@ -65,10 +60,12 @@ export async function endpointRequest({
         reject(error);
       } else resolve(value);
     };
-    const onAbort = () => finish(tagged("aborted"));
+    // The timer and abort listener cover the DNS phase too: a stalled lookup cannot be
+    // cancelled, but the request settles on time and ignores its late result.
+    const onAbort = () => finish(abortReason(signal));
     const timer = setTimeout(() => finish(tagged("timeout")), timeoutMs);
     signal?.addEventListener("abort", onAbort, { once: true });
-    const start = () =>
+    const start = (target) =>
       client.request(
         parsed,
         {
@@ -122,16 +119,23 @@ export async function endpointRequest({
           });
         },
       );
-    try {
-      request = start();
-    } catch {
-      // Node validates header values synchronously; only the key can carry
-      // characters it refuses, so the error text (which may echo it) is dropped.
-      finish(tagged("invalidKey"));
-      return;
-    }
-    request.on("error", () => finish(tagged("network")));
-    if (payload !== undefined) request.write(payload);
-    request.end();
+    const send = (target) => {
+      if (settled) return;
+      try {
+        request = start(target);
+      } catch {
+        // Node validates header values synchronously; only the key can carry
+        // characters it refuses, so the error text (which may echo it) is dropped.
+        finish(tagged("invalidKey"));
+        return;
+      }
+      request.on("error", () => finish(tagged("network")));
+      if (payload !== undefined) request.write(payload);
+      request.end();
+    };
+    resolveEndpointTarget(parsed.href, lookup ? { lookup } : {}).then(send, (error) =>
+      // An unresolvable host is a reachability failure, not a policy refusal.
+      finish(tagged(error.reason === "network" ? "network" : "notAllowed")),
+    );
   });
 }
