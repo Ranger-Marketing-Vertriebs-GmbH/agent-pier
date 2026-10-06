@@ -356,6 +356,32 @@ test("doctor reports keyless endpoints with test state and models lacking contex
   );
 });
 
+test("doctor warns about stored endpoint connections that fail validation", async (t) => {
+  const { dataDir, connections } = store(t);
+  const good = connections.create({
+    name: "GPU",
+    providerId: "endpoint",
+    endpoint: ollama,
+  });
+  const file = path.join(dataDir, "provider-connections.json");
+  const records = JSON.parse(fs.readFileSync(file, "utf8"));
+  const badId = "00000000-0000-4000-8000-000000000000";
+  records.push({ ...records[0], id: badId, endpoint: { ...ollama, preset: "bad" } });
+  fs.writeFileSync(file, JSON.stringify(records));
+  const { checks } = await new Doctor({
+    dataDir,
+    command: async () => ({ code: 0, stdout: "fixture 1.0.0" }),
+    ptyCheck: async () => true,
+  }).run({ scope: "host" });
+  const bad = checks.find((entry) => entry.id === `provider-connection.${badId}`);
+  assert.equal(bad.status, "warn");
+  assert.match(bad.summary, /invalid/i);
+  assert.match(bad.summary, /hidden/);
+  const fine = checks.find((entry) => entry.id === `provider-connection.${good.id}`);
+  assert.equal(fine.status, "ok");
+  assert.doesNotMatch(fine.summary, /invalid/i);
+});
+
 test("restore never flags keyless endpoint connections for login", async (t) => {
   const { dataDir, connections } = store(t);
   const endpoint = connections.create({
