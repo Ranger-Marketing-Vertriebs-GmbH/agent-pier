@@ -5,8 +5,8 @@ const LIST_TIMEOUT = 10_000;
 export const MODEL_LIMIT = 200;
 const valid = (value) => Number.isInteger(value) && value >= 1024 && value <= 10_000_000;
 const trim = (url) => String(url || "").replace(/\/+$/, "");
-const rootUrl = (endpoint) =>
-  trim(endpoint.anthropicBaseUrl) || trim(endpoint.openaiBaseUrl).replace(/\/v1$/, "");
+/** Native Ollama and llama.cpp routes live beside the OpenAI routes the listing used. */
+const rootUrl = (endpoint) => trim(endpoint.openaiBaseUrl).replace(/\/v1$/, "");
 
 export function parseOllamaNumCtx(parameters) {
   if (typeof parameters !== "string") return null;
