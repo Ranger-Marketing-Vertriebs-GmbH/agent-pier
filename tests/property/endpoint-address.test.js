@@ -58,7 +58,9 @@ test("IPv6 edge cases: hex-mapped, zero-compressed, zone ids, brackets, garbage"
     ["[::ffff:7f00:1]", "loopback"],
     ["0:0:0:0:0:0:0:1", "loopback"],
     ["::2", "forbidden"],
-    ["64:ff9b::7f00:1", "loopback"],
+    ["64:ff9b::7f00:1", "public"],
+    ["64:ff9b::a00:1", "public"],
+    ["64:ff9b::e000:1", "forbidden"],
     ["not-an-ip", "forbidden"],
     ["", "forbidden"],
   ])
@@ -148,4 +150,12 @@ test("lookup is called with all and verbatim and the first address is returned",
   const target = await resolveEndpointTarget("http://box.local:1234/v1", { lookup });
   assert.deepEqual(args, ["box.local", { all: true, verbatim: true }]);
   assert.deepEqual(target, { hostname: "box.local", address: "10.0.0.2", family: 4 });
+});
+
+test("NAT64 addresses never reach http, even with private embeds", async () => {
+  const lookup = async () => assert.fail("lookup called");
+  for (const host of ["[64:ff9b::a00:1]", "[64:ff9b::7f00:1]"])
+    await assert.rejects(resolveEndpointTarget(`http://${host}/v1`, { lookup }), {
+      status: 400,
+    });
 });
