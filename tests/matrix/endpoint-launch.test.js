@@ -167,6 +167,34 @@ test("claude-named endpoint model takes the non-Claude path", (t) => {
   assert.equal(result.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, "16000");
 });
 
+test("a user-set endpoint output limit above 32000 reaches Claude Code unchanged", (t) => {
+  const endpoint = endpointBlock({
+    models: [
+      {
+        modelId: "big",
+        label: "Big",
+        contextTokens: 400000,
+        outputTokens: 64000,
+        source: "manual",
+        contextEdited: true,
+      },
+      {
+        modelId: "auto",
+        label: "Auto",
+        contextTokens: 400000,
+        outputTokens: null,
+        source: "manual",
+        contextEdited: true,
+      },
+    ],
+  });
+  const big = launch(t, "claude", { endpoint, modelId: "big" });
+  assert.equal(big.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, "64000");
+  // Without a user value the fallback formula keeps its 32000 cap.
+  const auto = launch(t, "claude", { endpoint, modelId: "auto" });
+  assert.equal(auto.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, "32000");
+});
+
 test("custom header on old Claude Code is refused; old version without header works", (t) => {
   assert.throws(
     () =>
