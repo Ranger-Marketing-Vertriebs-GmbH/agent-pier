@@ -8,6 +8,10 @@ import {
 } from "../helpers/endpoint-servers.js";
 import { listEndpointModels } from "../../server/features/providers/endpoint-models.js";
 import { endpointRequest } from "../../server/features/providers/endpoint-http.js";
+import {
+  classifyProbe,
+  runEndpointTest,
+} from "../../server/features/providers/endpoint-probe.js";
 
 const draft = (base, preset, extra = {}) => ({
   preset,
@@ -124,4 +128,128 @@ test("pinned lookup is used for hostnames", async (t) => {
   assert.equal(result.status, 200);
   assert.deepEqual(calls, ["model.test"]);
   assert.equal(server.seen[0].headers.host, `model.test:${port}`);
+});
+
+test("probe classification distinguishes missing protocol from missing model", () => {
+  assert.deepEqual(classifyProbe({ status: 200, json: {} }, { listedModel: true }), {
+    status: "ok",
+  });
+  assert.deepEqual(classifyProbe({ status: 404, json: {} }, { listedModel: true }), {
+    status: "unsupported",
+    reason: "notFound",
+  });
+  assert.deepEqual(classifyProbe({ status: 404, json: {} }, { listedModel: false }), {
+    status: "failed",
+    reason: "modelNotFound",
+  });
+  assert.deepEqual(classifyProbe({ status: 400, json: {} }, { listedModel: true }), {
+    status: "ok",
+    warning: "rejectedRequest",
+  });
+  assert.deepEqual(classifyProbe({ status: 401, json: {} }, { listedModel: true }), {
+    status: "failed",
+    reason: "auth",
+  });
+  assert.deepEqual(classifyProbe({ status: 302, json: null }, { listedModel: true }), {
+    status: "failed",
+    reason: "http",
+  });
+  assert.deepEqual(classifyProbe({ status: 200, json: null }, { listedModel: true }), {
+    status: "failed",
+    reason: "invalidResponse",
+  });
+  assert.deepEqual(classifyProbe({ reason: "timeout" }, { listedModel: true }), {
+    status: "failed",
+    reason: "timeout",
+  });
+});
+
+test("ollama test proposes all protocols", async (t) => {
+  const server = await fakeEndpoint(t, ollamaRoutes());
+  const result = await runEndpointTest({
+    endpoint: draft(server.base, "ollama"),
+    apiKey: "",
+    previousModels: [],
+  });
+  assert.equal(result.probeModelId, "qwen3:8b");
+  assert.deepEqual(result.protocols, {
+    messages: "ok",
+    responses: "ok",
+    chatCompletions: "ok",
+  });
+});
+
+test("llama.cpp without messages route reports unsupported", async (t) => {
+  const server = await fakeEndpoint(t, llamaRoutes());
+  const result = await runEndpointTest({
+    endpoint: draft(server.base, "llamacpp"),
+    apiKey: "",
+    previousModels: [],
+  });
+  assert.deepEqual(result.protocols, {
+    messages: "unsupported",
+    responses: "unsupported",
+    chatCompletions: "ok",
+  });
+});
+
+test("azure manual deployment: 404 on unlisted model is modelNotFound, 400 is rejectedRequest", async (t) => {
+  const server = await fakeEndpoint(t, azureRoutes("az-key"));
+  const endpoint = {
+    preset: "custom",
+    openaiBaseUrl: `${server.base}/openai/v1`,
+    anthropicBaseUrl: null,
+    authHeader: "api-key",
+  };
+  const manual = [
+    {
+      modelId: "my-deploy",
+      label: "my-deploy",
+      contextTokens: 128000,
+      outputTokens: null,
+      source: "manual",
+      contextEdited: true,
+    },
+  ];
+  const result = await runEndpointTest({
+    endpoint,
+    apiKey: "az-key",
+    previousModels: manual,
+    probeModelId: "my-deploy",
+  });
+  assert.deepEqual(result.protocols, {
+    messages: "skipped",
+    responses: "ok",
+    chatCompletions: "ok",
+  });
+  assert.ok(result.warnings.includes("rejectedRequest"));
+  assert.ok(
+    result.models.some(
+      (model) => model.modelId === "my-deploy" && model.source === "manual",
+    ),
+  );
+  const wrong = await runEndpointTest({
+    endpoint,
+    apiKey: "az-key",
+    previousModels: manual,
+    probeModelId: "gpt-4.1",
+  });
+  assert.equal(wrong.protocols.responses, "unsupported"); // gpt-4.1 was listed, so 404 means unsupported
+});
+
+test("upstream error bodies containing the key are never returned", async (t) => {
+  const server = await fakeEndpoint(t, {
+    "GET /v1/models": () => ({ json: { data: [{ id: "m" }] } }),
+    "POST /v1/chat/completions": () => ({
+      status: 500,
+      json: { error: "bad key secret-xyz" },
+    }),
+  });
+  const result = await runEndpointTest({
+    endpoint: { ...draft(server.base, "custom"), anthropicBaseUrl: null },
+    apiKey: "secret-xyz",
+    previousModels: [],
+  });
+  assert.equal(JSON.stringify(result).includes("secret-xyz"), false);
+  assert.equal(result.reasons.chatCompletions, "http");
 });
