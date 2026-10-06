@@ -182,16 +182,34 @@ export class Doctor {
     for (const connection of readJson(
       path.join(this.dataDir, "provider-connections.json"),
       [],
-    ))
+    )) {
+      const keyed = fs.existsSync(
+        path.join(this.dataDir, "provider-connection-secrets", `${connection.id}.json`),
+      );
+      if (connection.providerId === "endpoint") {
+        const missing = (connection.endpoint?.models || []).filter(
+          (model) => !model.contextTokens,
+        ).length;
+        const tested = connection.endpoint?.lastTest;
+        add(
+          `provider-connection.${connection.id}`,
+          missing ? "warn" : "ok",
+          `Custom endpoint; key ${keyed ? "configured" : "not configured"}; ${
+            tested
+              ? `last test ${tested.at}: ${Object.entries(tested.protocols || {})
+                  .map(([name, status]) => `${name}=${status}`)
+                  .join(", ")}`
+              : "never tested"
+          }; ${missing} model(s) without context. No network check was performed.`,
+        );
+        continue;
+      }
       add(
         `provider-connection.${connection.id}`,
-        fs.existsSync(
-          path.join(this.dataDir, "provider-connection-secrets", `${connection.id}.json`),
-        )
-          ? "ok"
-          : "warn",
+        keyed ? "ok" : "warn",
         "Provider key presence checked; validity and entitlement were not tested.",
       );
+    }
     const projects =
       readJson(path.join(this.dataDir, "repositories.json"), { projects: [] }).projects ||
       [];

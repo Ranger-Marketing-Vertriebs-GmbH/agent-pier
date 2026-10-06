@@ -7,6 +7,11 @@ import { ProviderConnections } from "../../server/features/providers/provider-co
 import { ProviderCatalog } from "../../server/features/providers/provider-catalog.js";
 import { ProviderAccess } from "../../server/features/providers/provider-access.js";
 import { AccountStore } from "../../server/features/accounts/account-store.js";
+import { applicationFixture } from "../helpers/application.js";
+import { McpTools } from "../../server/features/mcp/tool-service.js";
+import { Doctor } from "../../server/features/operations/doctor.js";
+import { Backup } from "../../server/features/operations/backup.js";
+import { Restore } from "../../server/features/operations/restore.js";
 import { profileConnection } from "../../server/features/pipelines/profile-validation.js";
 
 export const ollama = {
@@ -231,4 +236,106 @@ test("pre-launch target check refuses http to public resolution", async (t) => {
     lookup: async () => [{ address: "192.168.1.20", family: 4 }],
   });
   await accounts.verifyEndpointTarget("local-codex");
+});
+
+test("MCP models_list returns only endpoint models with a context window", async (t) => {
+  const app = await applicationFixture(t);
+  const { providerConnections } = app.application;
+  const { id } = providerConnections.create({
+    name: "GPU",
+    providerId: "endpoint",
+    endpoint: {
+      ...ollama,
+      models: [
+        ...ollama.models,
+        {
+          ...ollama.models[0],
+          modelId: "nocontext",
+          label: "nocontext",
+          contextTokens: null,
+        },
+      ],
+    },
+  });
+  const tools = new McpTools(app.application);
+  t.after(() => tools.close());
+  const result = await tools.call(
+    "models_list",
+    { connectionId: id, tool: "opencode" },
+    {
+      id: "g",
+      clientId: "c",
+      scopes: ["catalog:read"],
+      projectIds: [],
+      accountIds: ["local-opencode"],
+      connectionIds: [id],
+    },
+  );
+  assert.deepEqual(
+    result.items.map(({ modelId, name, contextTokens }) => ({
+      modelId,
+      name,
+      contextTokens,
+    })),
+    [{ modelId: "qwen3", name: "qwen3", contextTokens: 32768 }],
+  );
+});
+
+test("doctor reports keyless endpoints with test state and models lacking context", async (t) => {
+  const { dataDir, connections } = store(t);
+  const { id } = connections.create({
+    name: "GPU",
+    providerId: "endpoint",
+    endpoint: {
+      ...ollama,
+      models: [{ ...ollama.models[0], contextTokens: null }],
+    },
+  });
+  const run = () =>
+    new Doctor({
+      dataDir,
+      command: async () => ({ code: 0, stdout: "fixture 1.0.0" }),
+      ptyCheck: async () => true,
+    }).run({ scope: "host" });
+  const check = async () =>
+    (await run()).checks.find((entry) => entry.id === `provider-connection.${id}`);
+  let found = await check();
+  assert.equal(found.status, "warn");
+  assert.match(found.summary, /never tested/);
+  assert.match(found.summary, /1 model\(s\) without context/);
+  connections.update(id, {
+    endpoint: {
+      ...ollama,
+      lastTest: {
+        at: "2026-10-06T00:00:00.000Z",
+        protocols: { messages: "ok", responses: "ok", chatCompletions: "failed" },
+        reasons: {},
+      },
+    },
+  });
+  found = await check();
+  assert.equal(found.status, "ok");
+  assert.match(
+    found.summary,
+    /last test 2026-10-06T00:00:00.000Z: messages=ok, responses=ok, chatCompletions=failed/,
+  );
+});
+
+test("restore never flags keyless endpoint connections for login", async (t) => {
+  const { dataDir, connections } = store(t);
+  const endpoint = connections.create({
+    name: "GPU",
+    providerId: "endpoint",
+    endpoint: ollama,
+  });
+  const keyed = connections.create({ name: "R", providerId: "openrouter", apiKey: "k" });
+  const backup = await new Backup({ dataDir }).create({});
+  const target = path.join(dataDir, "..", `${path.basename(dataDir)}-restored`);
+  t.after(() => fs.rmSync(target, { recursive: true, force: true }));
+  const report = await new Restore({ dataDir }).apply({
+    archive: backup.file,
+    targetDataDir: target,
+  });
+  assert.equal(report.credentialsNeedingLogin.includes(`provider:${endpoint.id}`), false);
+  assert.equal(report.credentialsNeedingLogin.includes(`provider:${keyed.id}`), true);
 });
