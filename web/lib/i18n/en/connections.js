@@ -53,4 +53,77 @@ export const connectionCopy = {
     "This existing provider binding uses its saved model. Use a shared provider connection to choose a model independently.",
   chooseAccess: "Please choose a compatible connection and an available model.",
   directoryPlaceholder: "/path/to/project",
+  endpoint: {
+    preset: "Server type",
+    presets: {
+      ollama: "Ollama",
+      llamacpp: "llama.cpp",
+      custom: "Custom (OpenAI/Anthropic compatible)",
+    },
+    openaiBaseUrl: "OpenAI-compatible base URL",
+    openaiHelp:
+      "Usually ends with /v1. Used by Codex (Responses) and OpenCode (Chat Completions).",
+    advanced: "Advanced",
+    anthropicBaseUrl: "Anthropic-compatible base URL",
+    anthropicHelp:
+      "Used by Claude Code. Leave empty if the server has no Anthropic Messages API.",
+    authHeader: "Auth header name",
+    authHeaderHelp:
+      "Leave empty to send the key as Authorization: Bearer. Example: api-key.",
+    keyOptional: "Optional for local servers",
+    keyReentry: "The address changed. Enter the API key again or remove it.",
+    test: "Test connection",
+    testing: "Testing …",
+    testCost:
+      "The test sends a few tokens per protocol. Paid endpoints may charge for them.",
+    probeModel: "Test model",
+    probeAuto: "Automatic",
+    protocols: "Protocols",
+    protocolNames: {
+      messages: "Anthropic Messages",
+      responses: "OpenAI Responses",
+      chatCompletions: "OpenAI Chat Completions",
+    },
+    enables: { messages: "Claude Code", responses: "Codex", chatCompletions: "OpenCode" },
+    statuses: {
+      ok: "Available",
+      unsupported: "Not supported",
+      failed: "Failed",
+      skipped: "Not tested",
+    },
+    reasons: {
+      notFound: "Endpoint not found",
+      modelNotFound: "Model not found on the server",
+      auth: "Authentication failed",
+      http: "Unexpected server response",
+      invalidResponse: "Unreadable response",
+      timeout: "Timed out",
+      network: "Server not reachable or address not allowed",
+      tooLarge: "Response too large",
+      aborted: "Cancelled",
+    },
+    warnings: {
+      ollamaContextUnknown:
+        "Ollama does not report the loaded context for some models. Confirm the context size; the model maximum is only a hint.",
+      modelIdSkipped:
+        "Some model IDs could not be used (for example file paths). Start llama.cpp with --alias or add the model manually.",
+      storedKeyNotUsed: "The saved key was not sent because the address changed.",
+      rejectedRequest:
+        "The server rejected the minimal test request but the endpoint exists.",
+    },
+    notListed:
+      "The model list could not be read. Previously detected and manual models are kept.",
+    models: "Models",
+    modelId: "Model ID",
+    context: "Context",
+    output: "Max output",
+    source: "Source",
+    sources: { detected: "Detected", manual: "Manual" },
+    contextHint: (tokens) => `Model maximum: ${tokens}`,
+    contextMissing: "Context required",
+    addModel: "Add model",
+    removeModel: (id) => `Remove ${id}`,
+    azureHint: "Azure OpenAI: enter your deployment names as model IDs.",
+    noModels: "No models yet. Test the connection or add a model.",
+  },
 };
