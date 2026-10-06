@@ -1,7 +1,12 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { problem, readJSON, writePrivate } from "../../lib/storage.js";
-import { PROVIDERS, providerDefinition, validModelId } from "./provider-definitions.js";
+import {
+  CATALOG_PROVIDERS,
+  PROVIDERS,
+  catalogProviderDefinition,
+  validModelId,
+} from "./provider-definitions.js";
 import { catalogSnapshot } from "./catalog-snapshot.js";
 import { normalizeOpenRouter, normalizeZai } from "./catalog-normalization.js";
 
@@ -33,7 +38,7 @@ export class ProviderCatalog {
     this.fetch = fetchImpl;
     this.models = catalogSnapshot();
     this.states = Object.fromEntries(
-      Object.keys(PROVIDERS).map((id) => [
+      Object.keys(CATALOG_PROVIDERS).map((id) => [
         id,
         {
           source: "bundled",
@@ -48,7 +53,7 @@ export class ProviderCatalog {
     if (this.file) {
       try {
         const saved = readJSON(this.file, {});
-        for (const id of Object.keys(PROVIDERS)) {
+        for (const id of Object.keys(CATALOG_PROVIDERS)) {
           if (!saved[id]) continue;
           const models = this.normalize(id, saved[id].payload, saved[id].fetchedAt);
           if (!models.length) continue;
@@ -67,9 +72,10 @@ export class ProviderCatalog {
     }
   }
   providers() {
-    return Object.values(PROVIDERS).map(({ id, name, tools }) => ({
+    return Object.values(PROVIDERS).map(({ id, name, kind, tools }) => ({
       id,
       name,
+      kind,
       tools: [...tools],
     }));
   }
@@ -77,7 +83,9 @@ export class ProviderCatalog {
     return structuredClone(this.states);
   }
   list({ providerId, tool } = {}) {
-    const ids = providerId ? [providerDefinition(providerId).id] : Object.keys(PROVIDERS);
+    const ids = providerId
+      ? [catalogProviderDefinition(providerId).id]
+      : Object.keys(CATALOG_PROVIDERS);
     return structuredClone(
       ids
         .flatMap((id) => this.models[id])
@@ -85,7 +93,7 @@ export class ProviderCatalog {
     );
   }
   get(providerId, modelId, { tool } = {}) {
-    providerDefinition(providerId);
+    catalogProviderDefinition(providerId);
     if (!validModelId(modelId)) throw problem(serverMessages.providers.invalidModelId);
     const model = this.models[providerId].find(
       (item) => item.modelId === modelId && (!tool || item.tools.includes(tool)),
@@ -99,7 +107,7 @@ export class ProviderCatalog {
       : normalizeZai(payload, id, fetchedAt);
   }
   refresh(id) {
-    providerDefinition(id);
+    catalogProviderDefinition(id);
     if (this.pending.has(id)) return this.pending.get(id);
     const request = this.fetchCatalog(id).finally(() => this.pending.delete(id));
     this.pending.set(id, request);
@@ -107,7 +115,7 @@ export class ProviderCatalog {
   }
   async fetchCatalog(id) {
     try {
-      const response = await this.fetch(PROVIDERS[id].catalogUrl, {
+      const response = await this.fetch(CATALOG_PROVIDERS[id].catalogUrl, {
         redirect: "error",
         signal: AbortSignal.timeout(15000),
         headers: { Accept: "application/json" },
