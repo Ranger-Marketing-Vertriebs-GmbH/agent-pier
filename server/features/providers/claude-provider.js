@@ -44,8 +44,11 @@ export function configureClaudeProvider(
   env.CLAUDE_CODE_SUBAGENT_MODEL = cliModelId;
   env.ANTHROPIC_CUSTOM_MODEL_OPTION = cliModelId;
   env.ANTHROPIC_CUSTOM_MODEL_OPTION_NAME = metadata.label;
+  // Endpoint models carry the user's limit or an already capped fallback.
   if (metadata.outputTokens)
-    env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = String(Math.min(metadata.outputTokens, 32000));
+    env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = String(
+      forceCustom ? metadata.outputTokens : Math.min(metadata.outputTokens, 32000),
+    );
   if (metadata.providerId === "openrouter")
     env.CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY = "1";
   if (forceCustom) env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS = "1";
