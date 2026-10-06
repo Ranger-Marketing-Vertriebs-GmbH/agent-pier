@@ -189,15 +189,16 @@ export class AccountStore {
       throw problem(serverMessages.providers.invalidProviderSelection);
     return this.providerConnections.record(account.internal.connectionId).endpoint;
   }
-  async verifyEndpointTarget(id, { lookup } = {}) {
+  async verifyEndpointTarget(id, { lookup, timeoutMs = 10_000 } = {}) {
     const account = this.get(id);
     const endpoint = this.endpointFor(account);
     if (!endpoint) return;
     const url = endpointBaseUrl(endpoint, account.tool);
     // A missing URL for this tool is rejected later by command().
     if (!url) return;
-    // Best effort: the CLI resolves the host again when it connects.
-    await resolveEndpointTarget(url, lookup ? { lookup } : {});
+    // Best effort: the CLI resolves the host again when it connects. The lookup is
+    // bounded like model listings, so a stalled resolver cannot hold a launch or reload.
+    await resolveEndpointTarget(url, { timeoutMs, ...(lookup ? { lookup } : {}) });
   }
   profile(id) {
     const a = this.get(id);
