@@ -79,6 +79,32 @@ test("aborted signals reject with reason aborted", async (t) => {
   );
 });
 
+test("header values Node refuses settle at once with reason invalidKey", async (t) => {
+  const server = await fakeEndpoint(t, { "GET /ok": () => ({ json: {} }) });
+  const signal = new AbortController().signal;
+  let added = 0;
+  let removed = 0;
+  const add = signal.addEventListener.bind(signal);
+  const remove = signal.removeEventListener.bind(signal);
+  signal.addEventListener = (...args) => (added++, add(...args));
+  signal.removeEventListener = (...args) => (removed++, remove(...args));
+  for (const key of ["schlüssel-ключ", "key\x7f"]) {
+    const started = Date.now();
+    await assert.rejects(
+      endpointRequest({
+        url: `${server.base}/ok`,
+        headers: { Authorization: `Bearer ${key}` },
+        timeoutMs: 5000,
+        signal,
+      }),
+      (error) => error.reason === "invalidKey" && !error.message.includes(key),
+    );
+    assert.ok(Date.now() - started < 1000);
+  }
+  assert.equal(removed, added);
+  assert.equal(server.seen.length, 0);
+});
+
 test("non-http URLs and unparseable URLs are not allowed", async () => {
   for (const url of ["ftp://127.0.0.1/x", "file:///etc/passwd", "not a url", ""])
     await assert.rejects(endpointRequest({ url, timeoutMs: 200 }), {

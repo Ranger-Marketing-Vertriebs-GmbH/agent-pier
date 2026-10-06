@@ -31,7 +31,7 @@ export class EndpointTester {
       body.apiKey !== undefined &&
       (typeof body.apiKey !== "string" ||
         body.apiKey.length > 16384 ||
-        /[\x00-\x1f]/.test(body.apiKey))
+        /[\x00-\x1f\x7f]|[^\x00-\xff]/.test(body.apiKey))
     )
       throw problem(messages.invalidApiKey);
     if (body.probeModelId !== undefined && !validModelId(body.probeModelId))
