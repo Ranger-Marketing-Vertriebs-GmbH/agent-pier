@@ -49,6 +49,32 @@ export const originsChanged = (saved, draft) =>
   [origin(saved.openaiBaseUrl), origin(saved.anthropicBaseUrl)].sort().join() !==
     [origin(draft.openaiBaseUrl), origin(draft.anthropicBaseUrl)].sort().join();
 
+function mergeModels(previous, proposal) {
+  if (!proposal.listed) return previous;
+  const byId = new Map(previous.map((model) => [model.modelId, model]));
+  const detected = proposal.models
+    .filter((model) => model.source === "detected")
+    .map((model) => {
+      const old = byId.get(model.modelId);
+      return {
+        modelId: model.modelId,
+        label: old?.label ?? model.label,
+        contextTokens: old?.contextEdited ? old.contextTokens : model.contextTokens,
+        outputTokens: old?.contextEdited
+          ? old.outputTokens
+          : (old?.outputTokens ?? model.outputTokens ?? null),
+        source: "detected",
+        contextEdited: old?.contextEdited === true,
+        ...(model.contextHint ? { contextHint: model.contextHint } : {}),
+      };
+    });
+  const ids = new Set(detected.map((model) => model.modelId));
+  return [
+    ...detected,
+    ...previous.filter((model) => model.source === "manual" && !ids.has(model.modelId)),
+  ];
+}
+
 export function applyProposal(draft, proposal, now = new Date().toISOString()) {
   const protocols = Object.fromEntries(
     Object.entries(draft.protocols).map(([name, enabled]) => [
@@ -63,7 +89,7 @@ export function applyProposal(draft, proposal, now = new Date().toISOString()) {
   return {
     ...draft,
     protocols,
-    models: proposal.models,
+    models: mergeModels(draft.models, proposal),
     lastTest: { at: now, protocols: proposal.protocols, reasons: proposal.reasons },
   };
 }

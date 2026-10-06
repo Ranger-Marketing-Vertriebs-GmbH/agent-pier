@@ -78,6 +78,59 @@ test("payload carries only server-known fields", () => {
   ]);
 });
 
+test("applyProposal keeps unsaved draft models", () => {
+  const draft = {
+    ...initialEndpoint(null, "ollama"),
+    models: [
+      {
+        modelId: "d",
+        label: "My D",
+        contextTokens: 8192,
+        outputTokens: 2048,
+        source: "detected",
+        contextEdited: true,
+      },
+      {
+        modelId: "m",
+        label: "m",
+        contextTokens: 4096,
+        outputTokens: null,
+        source: "manual",
+        contextEdited: true,
+      },
+    ],
+  };
+  const proposal = {
+    listed: true,
+    protocols: { messages: "ok", responses: "ok", chatCompletions: "ok" },
+    reasons: {},
+    models: [
+      {
+        modelId: "d",
+        label: "d",
+        contextTokens: 131072,
+        outputTokens: null,
+        source: "detected",
+        contextEdited: false,
+        contextHint: 131072,
+      },
+    ],
+  };
+  const next = applyProposal(draft, proposal);
+  assert.deepEqual(
+    next.models.map((model) => [model.modelId, model.source, model.contextTokens]),
+    [
+      ["d", "detected", 8192],
+      ["m", "manual", 4096],
+    ],
+  );
+  assert.equal(next.models[0].label, "My D");
+  assert.equal(next.models[0].outputTokens, 2048);
+  assert.equal(next.models[0].contextHint, 131072);
+  const same = applyProposal(draft, { ...proposal, listed: false, models: [] });
+  assert.deepEqual(same.models, draft.models);
+});
+
 test("clearing the Anthropic URL counts as an origin change", () => {
   const saved = { openaiBaseUrl: "http://a:1/v1", anthropicBaseUrl: "http://a:1" };
   assert.equal(
