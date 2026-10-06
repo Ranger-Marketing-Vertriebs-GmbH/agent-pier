@@ -16,6 +16,7 @@ import {
   endpointPayload,
   initialEndpoint,
   keyReentryRequired,
+  withoutTest,
 } from "./endpoint-draft.js";
 export default function ConnectionDialog({ connection, close, saved }) {
   const [name, setName] = useState(connection?.name || ""),
@@ -31,6 +32,15 @@ export default function ConnectionDialog({ connection, close, saved }) {
   const tester = useEndpointTest({ connection, draft, apiKey, removeApiKey });
   const keyReentry =
     endpoint && keyReentryRequired({ connection, draft, apiKey, removeApiKey });
+  // Address, header, preset or key changes invalidate a test of the old values.
+  const invalidateTest = () => {
+    tester.reset();
+    setDraft(withoutTest);
+  };
+  const editAddress = (update) => {
+    tester.reset();
+    setDraft((current) => withoutTest(update(current)));
+  };
   const dismiss = () => {
     if (!action.lock.current) close();
   };
@@ -113,7 +123,7 @@ export default function ConnectionDialog({ connection, close, saved }) {
               />
             </label>
             {endpoint && (
-              <EndpointFields draft={draft} setDraft={setDraft} locked={false} />
+              <EndpointFields draft={draft} setDraft={editAddress} locked={false} />
             )}
             {providers.loading && !connection && <p role="status">{copy.loading}</p>}
             <ErrorMessage error={providers.error} />
@@ -131,7 +141,10 @@ export default function ConnectionDialog({ connection, close, saved }) {
                       ? copy.endpoint.keyOptional
                       : copy.keyOptional
                 }
-                onChange={(event) => setKey(event.target.value)}
+                onChange={(event) => {
+                  setKey(event.target.value);
+                  if (endpoint) invalidateTest();
+                }}
               />
             </label>
             {keyReentry && <p role="alert">{copy.endpoint.keyReentry}</p>}
@@ -143,6 +156,7 @@ export default function ConnectionDialog({ connection, close, saved }) {
                   onChange={(event) => {
                     setRemove(event.target.checked);
                     if (event.target.checked) setKey("");
+                    if (endpoint) invalidateTest();
                   }}
                 />
                 <span>{copy.removeKey}</span>

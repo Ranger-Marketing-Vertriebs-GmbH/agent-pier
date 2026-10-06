@@ -127,3 +127,38 @@ test("changing the address of a keyed endpoint requires the key again", async ({
   await expect(dialog.getByRole("alert")).toContainText("Enter the API key again");
   await expect(save).toBeDisabled();
 });
+
+test("changing the address after a test discards the stale test result", async ({
+  page,
+}) => {
+  const controls = await fixture(page);
+  await page.goto(baseURL + "/accounts");
+  await page
+    .getByRole("button", { name: "Add provider connection", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Connection name", { exact: true }).fill("GPU box");
+  await dialog.getByLabel("API provider", { exact: true }).selectOption("endpoint");
+  await dialog.getByRole("button", { name: "Test connection", exact: true }).click();
+  const status = dialog.getByText("Not supported · Endpoint not found");
+  await expect(status).toBeVisible();
+  await dialog
+    .getByLabel("OpenAI-compatible base URL")
+    .fill("http://gpu.example:11434/v1");
+  await expect(status).toHaveCount(0);
+  await expect(dialog.getByText(/does not report the loaded context/)).toHaveCount(0);
+  await dialog.getByLabel("Context llama3:8b", { exact: true }).fill("8192");
+  await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  const created = controls.calls
+    .filter((call) => call.path === "/api/provider-connections" && call.method === "POST")
+    .at(-1).body;
+  expect(created.endpoint.openaiBaseUrl).toBe("http://gpu.example:11434/v1");
+  expect(created.endpoint.lastTest).toBeNull();
+  // Protocol choices from the test stay as the user left them.
+  expect(created.endpoint.protocols).toEqual({
+    messages: true,
+    responses: false,
+    chatCompletions: true,
+  });
+});
