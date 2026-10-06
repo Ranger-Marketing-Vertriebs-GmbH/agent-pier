@@ -402,8 +402,9 @@ test("restore never flags keyless endpoint connections for login", async (t) => 
   });
   const keyed = connections.create({ name: "R", providerId: "openrouter", apiKey: "k" });
   const backup = await new Backup({ dataDir }).create({});
-  const target = path.join(dataDir, "..", `${path.basename(dataDir)}-restored`);
-  t.after(() => fs.rmSync(target, { recursive: true, force: true }));
+  const restoreRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-restore-"));
+  t.after(() => fs.rmSync(restoreRoot, { recursive: true, force: true }));
+  const target = path.join(restoreRoot, "restored");
   const report = await new Restore({ dataDir }).apply({
     archive: backup.file,
     targetDataDir: target,

@@ -13,7 +13,11 @@ export async function fakeEndpoint(t, routes) {
         body: body ? JSON.parse(body) : null,
       };
       seen.push(entry);
-      const handler = routes[`${request.method} ${request.url.split("?")[0]}`];
+      const key = `${request.method} ${request.url.split("?")[0]}`;
+      const handler =
+        Object.hasOwn(routes, key) && typeof routes[key] === "function"
+          ? routes[key]
+          : null;
       if (!handler) {
         response.writeHead(404, { "content-type": "application/json" });
         return response.end(JSON.stringify({ error: "not found" }));
