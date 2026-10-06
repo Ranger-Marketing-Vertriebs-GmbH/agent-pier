@@ -79,6 +79,52 @@ test("aborted signals reject with reason aborted", async (t) => {
   );
 });
 
+test("an expired deadline signal reports timeout, not aborted", async (t) => {
+  const server = await fakeEndpoint(t, { "GET /hang": () => "hang" });
+  const user = new AbortController();
+  const expired = AbortSignal.timeout(1);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  await assert.rejects(
+    endpointRequest({
+      url: `${server.base}/hang`,
+      timeoutMs: 5000,
+      signal: AbortSignal.any([user.signal, expired]),
+    }),
+    { reason: "timeout" },
+  );
+  await assert.rejects(
+    endpointRequest({
+      url: `${server.base}/hang`,
+      timeoutMs: 5000,
+      signal: AbortSignal.any([user.signal, AbortSignal.timeout(50)]),
+    }),
+    { reason: "timeout" },
+  );
+});
+
+test("the DNS phase is bounded by timeoutMs and the abort signal", async () => {
+  const stalled = () => new Promise(() => {});
+  let started = Date.now();
+  await assert.rejects(
+    endpointRequest({ url: "http://slow.local/v1", timeoutMs: 100, lookup: stalled }),
+    { reason: "timeout" },
+  );
+  assert.ok(Date.now() - started < 2000);
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), 50);
+  started = Date.now();
+  await assert.rejects(
+    endpointRequest({
+      url: "http://slow.local/v1",
+      timeoutMs: 5000,
+      signal: controller.signal,
+      lookup: stalled,
+    }),
+    { reason: "aborted" },
+  );
+  assert.ok(Date.now() - started < 2000);
+});
+
 test("header values Node refuses settle at once with reason invalidKey", async (t) => {
   const server = await fakeEndpoint(t, { "GET /ok": () => ({ json: {} }) });
   const signal = new AbortController().signal;
