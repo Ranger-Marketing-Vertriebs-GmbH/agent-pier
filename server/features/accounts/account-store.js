@@ -7,6 +7,8 @@ import { randomUUID } from "node:crypto";
 import { connectionProfile } from "../providers/connection-profile.js";
 import { ProviderCatalog } from "../providers/provider-catalog.js";
 import { validateProviderSelection } from "../providers/provider-definitions.js";
+import { resolveEndpointTarget } from "../providers/endpoint-address.js";
+import { endpointBaseUrl } from "../providers/endpoint-config.js";
 import { providerEnvironment } from "../providers/provider-environment.js";
 import { launchTarget } from "../providers/launch-description.js";
 import { prepareProviderLaunch } from "../providers/provider-launch.js";
@@ -186,6 +188,16 @@ export class AccountStore {
     if (account.internal?.kind !== "provider-connection" || !this.providerConnections)
       throw problem(serverMessages.providers.invalidProviderSelection);
     return this.providerConnections.record(account.internal.connectionId).endpoint;
+  }
+  async verifyEndpointTarget(id, { lookup } = {}) {
+    const account = this.get(id);
+    const endpoint = this.endpointFor(account);
+    if (!endpoint) return;
+    const url = endpointBaseUrl(endpoint, account.tool);
+    // A missing URL for this tool is rejected later by command().
+    if (!url) return;
+    // Best effort: the CLI resolves the host again when it connects.
+    await resolveEndpointTarget(url, lookup ? { lookup } : {});
   }
   profile(id) {
     const a = this.get(id);
