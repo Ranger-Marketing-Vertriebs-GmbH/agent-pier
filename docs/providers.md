@@ -35,6 +35,63 @@ A native session instead selects `{ "tool": "claude", "accountId": "local-claude
 
 For central connections, provider identity is immutable. PATCH can rename the connection, rotate its key, remove it explicitly with `removeApiKey:true`, or update the Z.ai Responses entitlement declaration. An omitted/blank key preserves the saved key. Key updates affect future launches; running processes retain their launch environment. These semantics differ from the legacy account-specific mutation restrictions below.
 
+## Custom endpoints
+
+A custom endpoint connection points the CLIs at your own model server. Presets fill
+defaults for **Ollama** and **llama.cpp**; **Custom** covers any OpenAI- or
+Anthropic-compatible server such as LM Studio, vLLM, LiteLLM or Azure OpenAI.
+
+| CLI         | Protocol needed         | URL used                             |
+| ----------- | ----------------------- | ------------------------------------ |
+| Claude Code | Anthropic Messages      | `<Anthropic base URL>/v1/messages`   |
+| Codex       | OpenAI Responses        | `<OpenAI base URL>/responses`        |
+| OpenCode    | OpenAI Chat Completions | `<OpenAI base URL>/chat/completions` |
+
+A CLI is offered only when its protocol is enabled on the connection. There is no
+protocol translation.
+
+**Addresses.** Plain `http` is accepted only for loopback, private (RFC 1918, `fc00::/7`),
+link-local and CGNAT/Tailscale (`100.64.0.0/10`) addresses; everything else needs
+`https`. Unspecified, multicast and broadcast addresses and the deprecated IPv4-compatible
+IPv6 range (`::a.b.c.d`) are always rejected. NAT64 (`64:ff9b::/96`) counts as public and
+needs `https`. AgentPier checks the resolved address when testing and before launch; the
+CLI resolves the host again when it connects.
+
+**API key.** Optional. It is sent as `Authorization: Bearer <key>` unless an auth header
+name is set under _Advanced_ (for example `api-key`; Claude Code 2.1.227 or later). The
+key is bound to the connection's host: changing the host while a key is saved is rejected
+with HTTP 409 until you enter the key again or remove it.
+
+**Test connection.** Reads the model list (10 s timeout) and sends one minimal request per
+protocol (90 s each, 180 s in total). Only one test runs at a time. The result is a
+proposal; nothing is saved until you save the connection. Failures carry a fixed reason
+(for example `auth`, `notFound`, `modelNotFound`, `invalidResponse`, `network`, `http`)
+plus optional warnings. Paid endpoints may charge for the few tokens used.
+
+**Models and context.** Every model needs a context size before it can be launched.
+
+- Ollama: the context comes from `num_ctx` when the model sets it. Otherwise Ollama sizes
+  the context by available VRAM or `OLLAMA_CONTEXT_LENGTH`, which its API does not report;
+  confirm a value yourself (the model maximum is shown only as a hint).
+- llama.cpp: the loaded `n_ctx` is read from `/props`. Model IDs that are file paths are
+  skipped; start `llama-server` with `--alias` or add the model manually.
+- Azure OpenAI: use `https://<resource>.openai.azure.com/openai/v1` and add your
+  deployment names as models; the model list shows base models, not deployments.
+
+Model changes inside a running endpoint session require a reload.
+
+**Launch.** Claude Code needs 2.1.193 or later for custom model contexts; AgentPier sets
+`CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1` for endpoint launches. Codex receives a
+provider named after the connection. Keys reach the CLI only through the child
+environment.
+
+**Backup and restore.** Endpoint connections are never flagged as needing a login, because
+a backup cannot tell a keyed endpoint from a keyless one. If a formerly keyed endpoint is
+restored from a backup without secrets, enter the key again.
+
+**Doctor.** The diagnostics report per endpoint whether a key is configured, the last test
+result and models without a context size. They make no network calls.
+
 ## Legacy account-specific provider configuration
 
 Managed accounts can select OpenRouter, Z.ai API, or Z.ai Coding Plan for Codex, Claude Code, and OpenCode. Existing local accounts and managed accounts without a provider retain their native behavior. Provider profiles use isolated configuration directories beneath the account profile; switching from a native login does not reuse its cached login.
@@ -53,7 +110,7 @@ Create a managed account with a server-catalog model ID:
 }
 ```
 
-`provider.id` accepts `openrouter`, `zai`, or `zai-coding-plan`. The model ID is the upstream ID, without OpenCode's extra provider prefix. Account selection cannot specify context sizes, endpoint URLs, authentication names, or arbitrary model IDs. Those values come from validated server metadata and native adapters.
+`provider.id` accepts `openrouter`, `zai`, or `zai-coding-plan`. The model ID is the upstream ID, without OpenCode's extra provider prefix. Account selection cannot specify context sizes, endpoint URLs, authentication names, or arbitrary model IDs for OpenRouter and Z.ai connections. Those values come from validated server metadata and native adapters.
 
 For Codex with either Z.ai service, select the verified `glm-5.3` model and explicitly set `responsesAccess: true`. This is an assertion that the selected account can use Z.ai's Responses endpoint, not an automatic credential check. Z.ai documents different protocol access for some historical subscriptions. A Chat-Completions-only account cannot use Codex through this adapter. See the [verified compatibility research](research/provider-compatibility.md) for the provider's current entitlement caveat.
 
@@ -61,11 +118,11 @@ Rotate a key by updating `apiKey`. An omitted or empty key preserves the saved k
 
 ## Native configuration and context
 
-| CLI         | OpenRouter                                                                                    | Z.ai services                                                |
-| ----------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Codex       | Responses endpoint, `OPENROUTER_API_KEY`, command authentication for native catalog discovery | Responses endpoint, `ZAI_API_KEY`, verified GLM catalog      |
-| Claude Code | Anthropic gateway endpoint and token authentication                                           | Z.ai Anthropic endpoint and token authentication             |
-| OpenCode    | Native `openrouter` adapter and `OPENROUTER_API_KEY`                                          | Native `zai` / `zai-coding-plan` adapter and `ZHIPU_API_KEY` |
+| CLI         | OpenRouter                                                                                    | Z.ai services                                                | Endpoint                            |
+| ----------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ----------------------------------- |
+| Codex       | Responses endpoint, `OPENROUTER_API_KEY`, command authentication for native catalog discovery | Responses endpoint, `ZAI_API_KEY`, verified GLM catalog      | if the endpoint offers the protocol |
+| Claude Code | Anthropic gateway endpoint and token authentication                                           | Z.ai Anthropic endpoint and token authentication             | if the endpoint offers the protocol |
+| OpenCode    | Native `openrouter` adapter and `OPENROUTER_API_KEY`                                          | Native `zai` / `zai-coding-plan` adapter and `ZHIPU_API_KEY` | if the endpoint offers the protocol |
 
 Only private secret storage and the child environment contain keys. Public account/catalog/session metadata, command arguments, and generated provider configuration contain no key values. Codex routing is pinned through native configuration overrides; OpenCode's launch config preserves its native adapter and merges with existing MCP/extension settings.
 
