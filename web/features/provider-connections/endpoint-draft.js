@@ -38,16 +38,33 @@ export const suggestAnthropicUrl = (url) =>
 
 const origin = (url) => {
   try {
-    return url ? new URL(url).origin : "";
+    return new URL(url).origin;
   } catch {
     return url;
   }
 };
 
+// Mirrors the server's endpointOrigins: the sorted set of non-empty origins.
+const origins = (endpoint) =>
+  [
+    ...new Set(
+      [endpoint.openaiBaseUrl, endpoint.anthropicBaseUrl]
+        .map((url) => (url || "").trim())
+        .filter(Boolean)
+        .map(origin),
+    ),
+  ]
+    .sort()
+    .join();
+
 export const originsChanged = (saved, draft) =>
-  !!saved &&
-  [origin(saved.openaiBaseUrl), origin(saved.anthropicBaseUrl)].sort().join() !==
-    [origin(draft.openaiBaseUrl), origin(draft.anthropicBaseUrl)].sort().join();
+  !!saved && origins(saved) !== origins(draft);
+
+export const keyReentryRequired = ({ connection, draft, apiKey, removeApiKey }) =>
+  Boolean(connection?.hasSecret) &&
+  !apiKey.trim() &&
+  !removeApiKey &&
+  originsChanged(connection.endpoint, draft);
 
 function mergeModels(previous, proposal) {
   if (!proposal.listed) return previous;
