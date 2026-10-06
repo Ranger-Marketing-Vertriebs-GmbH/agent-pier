@@ -66,21 +66,32 @@ export function classifyAddress(input) {
   return "public";
 }
 const LOCAL = new Set(["loopback", "private", "linkLocal", "cgnat"]);
+/**
+ * Resolves and checks an endpoint host. A host that does not resolve is a reachability
+ * problem (`reason: "network"`), not a policy refusal (`reason: "notAllowed"`).
+ */
 export async function resolveEndpointTarget(
   value,
   { lookup = dns.promises.lookup } = {},
 ) {
   const url = new URL(value);
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
-  const notAllowed = () => problem(serverMessages.providers.endpointUrlNotAllowed);
+  const notAllowed = () =>
+    Object.assign(problem(serverMessages.providers.endpointUrlNotAllowed), {
+      reason: "notAllowed",
+    });
+  const unresolved = () =>
+    Object.assign(problem(serverMessages.providers.endpointHostUnresolved, 502), {
+      reason: "network",
+    });
   const addresses = net.isIP(hostname)
     ? [{ address: hostname, family: net.isIP(hostname) }]
     : await lookup(hostname, { all: true, verbatim: true }).catch(() => {
-        throw notAllowed();
+        throw unresolved();
       });
+  if (!Array.isArray(addresses) || !addresses.length) throw unresolved();
   const kinds = addresses.map(({ address }) => classifyAddress(address));
   if (
-    !addresses.length ||
     kinds.includes("forbidden") ||
     (url.protocol === "http:" && kinds.some((kind) => !LOCAL.has(kind)))
   )

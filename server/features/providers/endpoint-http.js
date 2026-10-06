@@ -44,8 +44,9 @@ export async function endpointRequest({
   let target;
   try {
     target = await resolveEndpointTarget(parsed.href, lookup ? { lookup } : {});
-  } catch {
-    throw tagged("notAllowed");
+  } catch (error) {
+    // An unresolvable host is a reachability failure, not a policy refusal.
+    throw tagged(error.reason === "network" ? "network" : "notAllowed");
   }
   if (signal?.aborted) throw tagged("aborted");
   const secure = parsed.protocol === "https:";

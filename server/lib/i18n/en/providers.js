@@ -49,6 +49,8 @@ export const providers = Object.freeze({
     "Invalid model list: check IDs, duplicates and token limits (1024 to 10,000,000).",
   endpointUrlNotAllowed:
     "This endpoint address is not allowed. Unencrypted http is only allowed for local, private or Tailscale addresses.",
+  endpointHostUnresolved:
+    "The endpoint host could not be resolved. Check the network, VPN or Tailscale connection.",
   endpointProtocolDisabled: "This endpoint does not offer the protocol this CLI needs.",
   endpointModelUnknown: "The model is not configured on this endpoint connection.",
   endpointContextRequired:
