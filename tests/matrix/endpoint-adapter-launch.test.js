@@ -57,7 +57,13 @@ const overrides = (args) =>
     }),
   );
 
-function launch(t, tool, block, root = tempRoot(t)) {
+function launch(
+  t,
+  tool,
+  block,
+  root = tempRoot(t),
+  inherited = { NO_PROXY: "corp.example" },
+) {
   const result = prepareProviderLaunch(
     { kind: "managed", tool, provider: { id: "endpoint", modelId: "qwen3" } },
     { apiKey: KEY },
@@ -68,7 +74,7 @@ function launch(t, tool, block, root = tempRoot(t)) {
         PATH: "/bin",
         HOME: root,
         HTTPS_PROXY: "http://proxy:3128",
-        NO_PROXY: "corp.example",
+        ...inherited,
       },
     },
     {
@@ -100,12 +106,18 @@ function assertNoLeak(result, files) {
   assert.match(token, /^[A-Za-z0-9_-]{43}$/);
   assert.equal(JSON.stringify(result.env).includes(KEY), false, "key in env");
   assert.equal(JSON.stringify(result.args).includes(KEY), false, "key in argv");
+  for (const secret of [KEY, token])
+    assert.equal(
+      JSON.stringify(result.provider).includes(secret),
+      false,
+      "secret in provider metadata",
+    );
   for (const [file, text] of files) {
     for (const forbidden of [KEY, token, ADAPTER_URL_PLACEHOLDER, "127.0.0.1"])
       assert.equal(text.includes(forbidden), false, `${forbidden} in ${file}`);
   }
   assert.equal(result.env.NO_PROXY, "corp.example,127.0.0.1,localhost");
-  assert.equal(result.env.no_proxy, "127.0.0.1,localhost");
+  assert.equal(result.env.no_proxy, "corp.example,127.0.0.1,localhost");
   assert.equal(result.adapter.upstream.apiKey, KEY);
 }
 
@@ -207,4 +219,50 @@ test("auto on a Chat-only endpoint launches no adapter route in PR 2", (t) => {
   assert.throws(() => launch(t, "codex", endpoint({ chatCompletions: true })), {
     status: 409,
   });
+});
+
+test("loopback bypass merges both inherited lists into one", (t) => {
+  const { result } = launch(t, "claude", via("claude", "chatCompletions"), undefined, {
+    NO_PROXY: "a.example,127.0.0.1",
+    no_proxy: "b.example,a.example",
+  });
+  const expected = "a.example,127.0.0.1,b.example,localhost";
+  assert.equal(result.env.NO_PROXY, expected);
+  assert.equal(result.env.no_proxy, expected);
+  const lower = launch(t, "codex", via("codex", "messages"), undefined, {
+    no_proxy: "corp.example",
+  }).result;
+  assert.equal(lower.env.NO_PROXY, "corp.example,127.0.0.1,localhost");
+  assert.equal(lower.env.no_proxy, "corp.example,127.0.0.1,localhost");
+});
+
+test("Codex custom auth header stays on the adapter hop", (t) => {
+  const { result, files } = launch(
+    t,
+    "codex",
+    via("codex", "chatCompletions", { authHeader: "api-key" }),
+  );
+  assertNoLeak(result, files);
+  assert.equal(result.adapter.upstream.authHeader, "api-key");
+  const toml = parseToml(files.find(([f]) => f.endsWith("config.toml"))[1]);
+  for (const provider of [
+    toml.model_providers["agentpier-endpoint"],
+    overrides(result.args).model_providers["agentpier-endpoint"],
+  ]) {
+    assert.equal(provider.env_key, "AGENTPIER_ENDPOINT_API_KEY");
+    assert.equal(provider.env_http_headers, undefined);
+  }
+});
+
+test("a native route with a custom header before an adapter route leaves no stale config", (t) => {
+  const root = tempRoot(t);
+  launch(t, "codex", endpoint({ responses: true }, { authHeader: "api-key" }), root);
+  const { result, files } = launch(t, "codex", via("codex", "chatCompletions"), root);
+  assertNoLeak(result, files);
+  const toml = parseToml(files.find(([f]) => f.endsWith("config.toml"))[1]);
+  const provider = toml.model_providers["agentpier-endpoint"];
+  assert.equal(provider.base_url, undefined);
+  assert.equal(provider.env_http_headers, undefined);
+  assert.equal(provider.env_key, "AGENTPIER_ENDPOINT_API_KEY");
+  assert.equal(toml.web_search, "disabled");
 });
