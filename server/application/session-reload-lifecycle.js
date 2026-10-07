@@ -30,9 +30,22 @@ export function createReloadLifecycle(services) {
     if (live?.pending)
       throw problem(serverMessages.sessionReload.modelSelectionPending, 409);
     const displayedModel = live?.currentModel;
+    let codexModels;
+    if (session.tool === "codex" && displayedModel) {
+      codexModels = await history.readCodexModels(session);
+      if (session.provider?.label)
+        codexModels = [
+          ...(codexModels || []),
+          {
+            label: session.provider.label,
+            modelId: session.provider.requestedModelId || session.provider.cliModelId,
+          },
+        ];
+    }
     const { modelId, reasoningEffort } = resolveReloadModel({
       tool: session.tool,
       displayedModel,
+      codexModels,
       observedModel: content.observability?.context?.modelId,
       fallbackModel:
         session.nativeModelId ||

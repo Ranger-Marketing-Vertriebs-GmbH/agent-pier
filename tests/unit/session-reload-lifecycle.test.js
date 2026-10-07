@@ -31,6 +31,7 @@ function fixture() {
     },
     tools: () => [{ id: "claude", path: "/bin/sh", installed: true }],
     history: {
+      readCodexModels: async () => [{ modelId: "gpt-6", label: "GPT-6" }],
       readReloadContext: async (_session, id) => {
         assert.equal(id, "native-exact");
         return { observability: { context: { modelId: "claude-opus-4-6" } } };
@@ -256,4 +257,34 @@ test("a refused endpoint target stops the reload before the launch command is bu
   };
   await assert.rejects(f.prepareReload(f.session, "native-exact"), { status: 400 });
   assert.equal(built, false);
+});
+
+test("Codex reload maps the live provider label before rebuilding the launch", async () => {
+  const f = fixture();
+  f.session.tool = "codex";
+  f.services.accounts.get().tool = "codex";
+  f.session.provider = {
+    id: "endpoint",
+    label: "GPT Custom",
+    requestedModelId: "Vendor/Model",
+    cliModelId: "Vendor/Model",
+  };
+  f.services.models.read = async () => ({ currentModel: "GPT Custom max" });
+  f.services.history.readCodexModels = async () => [];
+  f.services.accounts.command = (_id, _tools, _login, _mode, opts) => {
+    f.calls.push(["command", opts]);
+    return {
+      command: "/bin/sh",
+      args: ["--model", opts.modelId],
+      env: {},
+      provider: f.session.provider,
+    };
+  };
+  const plan = await f.prepareReload(f.session, "native-exact");
+  assert.deepEqual(plan.launch.args.slice(0, 4), [
+    "--model",
+    "Vendor/Model",
+    "-c",
+    'model_reasoning_effort="max"',
+  ]);
 });

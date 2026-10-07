@@ -117,7 +117,13 @@ export class CodexHistoryClient {
   }
   rpc(method, params) {
     if (
-      !["initialize", "thread/list", "thread/read", "thread/turns/list"].includes(method)
+      ![
+        "initialize",
+        "thread/list",
+        "thread/read",
+        "thread/turns/list",
+        "model/list",
+      ].includes(method)
     )
       throw problem(serverMessages.chat.readOnlyHistoryRequired);
     return new Promise((resolve, reject) => {
@@ -260,6 +266,33 @@ export class ProviderHistory {
       if (client.close) await client.close().catch(() => {});
       return operation(this.codex(session));
     }
+  }
+  async readCodexModels(session) {
+    return this.codexRequest(session, async (client) => {
+      const models = [],
+        cursors = new Set();
+      let cursor = null;
+      do {
+        const result = await client.request("model/list", {
+          cursor,
+          limit: 100,
+          includeHidden: true,
+        });
+        if (!Array.isArray(result?.data) || models.length + result.data.length > 1000)
+          throw problem(serverMessages.chat.codexVersionUnsupported, 409);
+        for (const model of result.data)
+          if (typeof model.model === "string" && typeof model.displayName === "string")
+            models.push({ modelId: model.model, label: model.displayName });
+        cursor = result.nextCursor;
+        if (
+          cursor &&
+          (typeof cursor !== "string" || cursors.has(cursor) || cursors.size >= 9)
+        )
+          throw problem(serverMessages.chat.codexVersionUnsupported, 409);
+        cursors.add(cursor);
+      } while (cursor);
+      return models;
+    });
   }
   async opencode(session, args) {
     const env = this.environment(session);

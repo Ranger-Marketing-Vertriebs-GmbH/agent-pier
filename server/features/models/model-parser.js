@@ -1,3 +1,4 @@
+import { currentCodexModel, codexModelFooter } from "./codex-model-parser.js";
 import { createHash } from "node:crypto";
 import { stripVTControlCharacters } from "node:util";
 const plain = (value) => stripVTControlCharacters(value).replaceAll("\u00a0", " ");
@@ -247,20 +248,7 @@ export function currentModel(tool, raw) {
         .trim();
     return null;
   }
-  if (tool === "codex") {
-    const changes = [
-      ...text.matchAll(
-        /(?:Model changed to|Switched to|Model:)\s+((?:gpt-|codex-|o[1-9](?:\s|[-.]))[^\n]*)/g,
-      ),
-    ];
-    if (changes.length) return changes.at(-1)[1].trim();
-    return (
-      text
-        .match(/model:\s+([^\n│]+)/i)?.[1]
-        ?.replace(/\s+\/model.*/, "")
-        .trim() || null
-    );
-  }
+  if (tool === "codex") return currentCodexModel(text);
   if (tool === "opencode")
     return text.match(/┃\s+[^·\n]+·\s+([^\n┃]+)/)?.[1]?.trim() || null;
   return null;
@@ -286,7 +274,9 @@ export function modelPromptReady(tool, raw) {
     .slice(index + 1)
     .map((line) => line.text)
     .join("\n");
+  const codexFooter = tool === "codex" ? codexModelFooter(text) : null;
   const hasFooter =
+    !!codexFooter ||
     /(?:for shortcuts|context left|context window|gpt-|codex-|auto mode|manual mode)/i.test(
       footerText,
     ) ||
@@ -313,9 +303,10 @@ export function modelPromptReady(tool, raw) {
   const footer = lines.findLastIndex(
     (line, position) =>
       position > index &&
-      /(?:for shortcuts|context left|context window|gpt-|codex-|auto mode|manual mode)/i.test(
-        line.text,
-      ),
+      (position === codexFooter?.index ||
+        /(?:for shortcuts|context left|context window|gpt-|codex-|auto mode|manual mode)/i.test(
+          line.text,
+        )),
   );
   const chars = [
     ...prompt.cells.slice(offset),

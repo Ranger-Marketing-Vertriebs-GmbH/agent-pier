@@ -6,7 +6,10 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { applicationFixture } from "../helpers/application.js";
 import { createProbeProvider } from "../../scripts/probe-chat-tui-provider.mjs";
+import { createReloadLifecycle } from "../../server/application/session-reload-lifecycle.js";
 import { resumeLaunch } from "../../server/application/session-reload-launch.js";
+import { codexModelCatalog } from "../../server/features/providers/native-config.js";
+import { observeCodex } from "../../server/features/chat/codex-observability.js";
 import { codexSandboxArguments } from "../../server/lib/sandbox.js";
 
 // Opt-in real CLI compatibility check. All state and tmux processes belong to
@@ -26,10 +29,22 @@ for (const mode of ["default", "yolo"])
       const attachments = path.join(fixture.home, "attachments");
       await fs.mkdir(home, { recursive: true });
       await fs.mkdir(attachments);
+      const catalog = codexModelCatalog(
+        { modelId: "probe", label: "Probe" },
+        {
+          contextTokens: 272000,
+          description: "Isolated context probe",
+          reasoning: false,
+        },
+      );
+      catalog.models[0].max_context_window = 872000;
+      const catalogFile = path.join(home, "models.json");
+      await fs.writeFile(catalogFile, JSON.stringify(catalog));
       await fs.writeFile(
         path.join(home, "config.toml"),
         `model="probe"
 model_provider="probe"
+model_catalog_json=${JSON.stringify(catalogFile)}
 check_for_update_on_startup=false
 [model_providers.probe]
 name="probe"
@@ -51,6 +66,7 @@ trust_level="trusted"
         command: process.env.AGENTPIER_TEST_CODEX_BIN,
         args: [
           "--no-alt-screen",
+          ...(mode === "yolo" ? ["-c", "model_context_window=1000000"] : []),
           ...(mode === "yolo" ? ["--yolo"] : codexSandboxArguments()),
           "--add-dir",
           attachments,
@@ -139,6 +155,24 @@ trust_level="trusted"
       const context = (rows) =>
         rows.filter((row) => row.type === "turn_context").at(-1).payload;
       const permissions = context(before);
+      // Codex reserves 5% and clamps an override to the catalog maximum.
+      // AgentPier must preserve both the native default and an explicit window
+      // across the separate app-server process and a resumed TUI.
+      const expectedWindow = mode === "yolo" ? 828400 : 258400;
+      const live = await fixture.application.models.read(id);
+      assert.equal(live.currentModel, "Probe");
+      const lifecycle = createReloadLifecycle({
+        ...fixture.application,
+        tools: () => [
+          { id: "codex", installed: true, path: process.env.AGENTPIER_TEST_CODEX_BIN },
+        ],
+      });
+      const plan = await lifecycle.prepareReload(await sessions.get(id), nativeId);
+      assert.equal(plan.launch.nativeModelId, "probe");
+      assert.equal(plan.displayedModel, "Probe");
+      assert.ok(plan.launch.args.includes("probe"));
+      assert.equal(plan.launch.args.includes("Probe"), false);
+      assert.equal(observeCodex({}, before).context.limitTokens, expectedWindow);
       assert.equal(
         permissions.sandbox_policy.type,
         mode === "yolo" ? "danger-full-access" : "workspace-write",
@@ -165,7 +199,9 @@ trust_level="trusted"
       });
       assert.equal((await delivery.json()).status, "handed-off");
       await waitForScreen("Synthetic response complete: AP_PROBE_AFTER_RELOAD");
-      const after = context(await records());
+      const afterRecords = await records();
+      assert.equal(observeCodex({}, afterRecords).context.limitTokens, expectedWindow);
+      const after = context(afterRecords);
       assert.deepEqual(after.sandbox_policy, permissions.sandbox_policy);
       assert.equal(after.approval_policy, permissions.approval_policy);
       assert.equal(after.model, permissions.model);

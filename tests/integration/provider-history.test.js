@@ -233,3 +233,78 @@ setInterval(() => {}, 1000);\n`,
     { status: 503 },
   );
 });
+
+test("Codex reload catalog reads are scoped, paginated and return only model identity", async (t) => {
+  const { history, cwd, accounts } = await fixture(t);
+  const account = accounts.create({ name: "Catalog fixture", tool: "codex" });
+  history.executable = () => "codex";
+  const calls = [];
+  history.codexClientFactory = (_command, env) => {
+    assert.equal(env.CODEX_HOME, accounts.environment(account.id).CODEX_HOME);
+    return {
+      request: async (method, params) => {
+        calls.push([method, params]);
+        return params.cursor
+          ? {
+              data: [
+                {
+                  model: "vendor/Second",
+                  displayName: "Second Model",
+                  description: "omitted",
+                },
+              ],
+              nextCursor: null,
+            }
+          : {
+              data: [
+                {
+                  model: "probe",
+                  displayName: "Probe",
+                  baseInstructions: "not returned",
+                },
+              ],
+              nextCursor: "page-two",
+            };
+      },
+      close: async () => {},
+    };
+  };
+  assert.deepEqual(
+    await history.readCodexModels({ tool: "codex", accountId: account.id, cwd }),
+    [
+      { modelId: "probe", label: "Probe" },
+      { modelId: "vendor/Second", label: "Second Model" },
+    ],
+  );
+  assert.deepEqual(calls, [
+    ["model/list", { cursor: null, limit: 100, includeHidden: true }],
+    ["model/list", { cursor: "page-two", limit: 100, includeHidden: true }],
+  ]);
+});
+
+test("Codex reload catalog rejects repeated pagination cursors", async (t) => {
+  const { history, cwd } = await fixture(t);
+  history.executable = () => "codex";
+  history.codexClientFactory = () => ({
+    request: async () => ({ data: [], nextCursor: "loop" }),
+    close: async () => {},
+  });
+  await assert.rejects(
+    history.readCodexModels({ tool: "codex", accountId: "local-codex", cwd }),
+    { status: 409 },
+  );
+});
+
+test("Codex reload rejects an unbounded catalog instead of accepting a partial mapping", async (t) => {
+  const { history, cwd } = await fixture(t);
+  history.executable = () => "codex";
+  let pages = 0;
+  history.codexClientFactory = () => ({
+    request: async () => ({ data: [], nextCursor: ++pages < 12 ? String(pages) : null }),
+    close: async () => {},
+  });
+  await assert.rejects(
+    history.readCodexModels({ tool: "codex", accountId: "local-codex", cwd }),
+    { status: 409 },
+  );
+});
