@@ -601,6 +601,9 @@ completion_tokens_details {reasoning_tokens, …}}`; `prompt_tokens` includes ca
   length of 64."
 - **Source:** `openai-python@4e152cd:src/openai/types/shared/function_definition.py:10-16`.
 - **Consequence:** `^[a-zA-Z0-9_-]{1,64}$` confirmed.
+- **Responses upstream:** the function-name limit of the Responses API (`FunctionTool.name`) is
+  unverified; the adapter conservatively applies the same Chat rule (≤ 64 characters,
+  `[a-zA-Z0-9_-]`) through the per-session name map.
 
 ### 4.6 Vendor reasoning fields
 
