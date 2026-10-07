@@ -8,7 +8,7 @@ import { connectionProfile } from "../providers/connection-profile.js";
 import { ProviderCatalog } from "../providers/provider-catalog.js";
 import { validateProviderSelection } from "../providers/provider-definitions.js";
 import { resolveEndpointTarget } from "../providers/endpoint-address.js";
-import { endpointBaseUrl } from "../providers/endpoint-config.js";
+import { resolveRoute, routeBaseUrl } from "../providers/endpoint-routing.js";
 import { providerEnvironment } from "../providers/provider-environment.js";
 import { launchTarget } from "../providers/launch-description.js";
 import { prepareProviderLaunch } from "../providers/provider-launch.js";
@@ -193,7 +193,7 @@ export class AccountStore {
     const account = this.get(id);
     const endpoint = this.endpointFor(account);
     if (!endpoint) return;
-    const url = endpointBaseUrl(endpoint, account.tool);
+    const url = routeBaseUrl(endpoint, resolveRoute(endpoint, account.tool));
     // A missing URL for this tool is rejected later by command().
     if (!url) return;
     // Best effort: the CLI resolves the host again when it connects. The lookup is

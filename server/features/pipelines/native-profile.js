@@ -58,12 +58,18 @@ export function validateProfileLaunch(
     { ...profile.config, models: { available: [modelId] } },
     accounts,
   );
+  const frozen = narrowed(profile.providerConnectionSnapshot, modelId);
+  // Snapshots from before routes existed stored { [nativeProtocol]: true }; a route that
+  // is still native yields the same value, so they are compared without the route.
+  const legacy = frozen?.endpoint && !Object.hasOwn(frozen.endpoint, "route");
+  const current = legacy
+    ? {
+        ...connection,
+        endpoint: (({ route: _route, ...rest }) => rest)(connection.endpoint),
+      }
+    : connection;
   if (
-    (profile.providerConnectionSnapshot &&
-      !isDeepStrictEqual(
-        connection,
-        narrowed(profile.providerConnectionSnapshot, modelId),
-      )) ||
+    (profile.providerConnectionSnapshot && !isDeepStrictEqual(current, frozen)) ||
     account.internal?.kind !== "provider-connection" ||
     account.internal.sourceAccountId !== profile.config.accountId ||
     account.internal.connectionId !== connection.id ||

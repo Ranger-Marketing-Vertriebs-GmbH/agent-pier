@@ -1,5 +1,10 @@
-import { PROVIDERS, validateProviderSelection } from "./provider-definitions.js";
+import {
+  PROVIDERS,
+  TOOL_PROTOCOL,
+  validateProviderSelection,
+} from "./provider-definitions.js";
 import { endpointModel } from "./endpoint-config.js";
+import { resolveRoute } from "./endpoint-routing.js";
 
 /** Where and how a provider account connects, without validating its model. */
 export function launchTarget(account, endpoint) {
@@ -19,6 +24,7 @@ export function launchTarget(account, endpoint) {
         header: endpoint?.authHeader || null,
         required: false,
       },
+      route: endpoint ? resolveRoute(endpoint, account.tool) : null,
     };
   return {
     kind: "catalog",
@@ -30,6 +36,7 @@ export function launchTarget(account, endpoint) {
       header: null,
       required: true,
     },
+    route: { mode: "native", source: TOOL_PROTOCOL[account.tool] },
   };
 }
 

@@ -1,3 +1,5 @@
+import { PROTOCOLS, ROUTE_MODES } from "../providers/endpoint-routing.js";
+
 const stringFields = [
   "id",
   "providerId",
@@ -34,5 +36,8 @@ export function publicProviderConfiguration(provider) {
   }
   if (typeof provider.modelChangeRequiresRestart === "boolean")
     result.modelChangeRequiresRestart = provider.modelChangeRequiresRestart;
+  const route = provider.route;
+  if (route && ROUTE_MODES.includes(route.mode) && PROTOCOLS.includes(route.source))
+    result.route = { mode: route.mode, source: route.source };
   return result;
 }

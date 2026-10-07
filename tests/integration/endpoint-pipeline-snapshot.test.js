@@ -33,7 +33,7 @@ const changed = {
   message: serverMessages.pipelineProfiles.providerConfigurationChanged,
 };
 
-function setup(t, tool, available = ["qwen3", "llama"]) {
+function setup(t, tool, available = ["qwen3", "llama"], endpointOverrides = {}) {
   const dataDir = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-endpoint-snapshot-")),
   );
@@ -47,7 +47,11 @@ function setup(t, tool, available = ["qwen3", "llama"]) {
     providerConnections: connections,
   });
   const access = new ProviderAccess({ accounts, connections, providerCatalog });
-  const { id } = connections.create({ name: "GPU", providerId: "endpoint", endpoint });
+  const { id } = connections.create({
+    name: "GPU",
+    providerId: "endpoint",
+    endpoint: { ...endpoint, ...endpointOverrides },
+  });
   const config = {
     accountId: `local-${tool}`,
     cliTool: tool,
@@ -66,7 +70,8 @@ function setup(t, tool, available = ["qwen3", "llama"]) {
     });
     validateProfileLaunch(profile, account, accounts, modelId);
   };
-  const edit = (patch) => connections.update(id, { endpoint: { ...endpoint, ...patch } });
+  const edit = (patch) =>
+    connections.update(id, { endpoint: { ...endpoint, ...endpointOverrides, ...patch } });
   return { profile, launch, edit };
 }
 
@@ -75,6 +80,7 @@ test("endpoint snapshot keeps only the protocol and origin the profile's CLI use
   assert.deepEqual(opencode, {
     origins: ["http://127.0.0.1:11434"],
     protocols: { chatCompletions: true },
+    route: { mode: "native", source: "chatCompletions" },
     models: {
       qwen3: { contextTokens: 32768, outputTokens: null },
       llama: { contextTokens: 65536, outputTokens: null },
@@ -126,4 +132,42 @@ test("pipeline launch refuses a model the snapshot does not contain", (t) => {
   const { launch } = setup(t, "opencode", ["qwen3"]);
   launch();
   assert.throws(() => launch("llama"), changed);
+});
+
+test("snapshots freeze an explicit adapter route and its source origin", (t) => {
+  const { profile, launch, edit } = setup(t, "claude", ["qwen3"], {
+    protocols: { messages: false, responses: true, chatCompletions: true },
+    routing: { claude: "adapter:chatCompletions" },
+  });
+  assert.deepEqual(profile.providerConnectionSnapshot.endpoint.route, {
+    mode: "adapter",
+    source: "chatCompletions",
+  });
+  assert.deepEqual(profile.providerConnectionSnapshot.endpoint.origins, [
+    "http://127.0.0.1:11434",
+  ]);
+  launch();
+  edit({
+    protocols: { messages: false, responses: true, chatCompletions: true },
+    routing: { claude: "adapter:responses" },
+  });
+  assert.throws(() => launch(), changed); // route moved to adapter:responses
+});
+
+test("legacy snapshots without a route keep launching while the route is native (Review Focus 3)", (t) => {
+  const { profile, launch, edit } = setup(t, "codex");
+  delete profile.providerConnectionSnapshot.endpoint.route;
+  launch();
+  edit({
+    protocols: { messages: false, responses: false, chatCompletions: true },
+    routing: { codex: "adapter:chatCompletions" },
+  });
+  assert.throws(() => launch(), changed);
+});
+
+test("auto never moves a pipeline onto an adapter route in PR 2", (t) => {
+  const { launch, edit } = setup(t, "codex");
+  edit({ protocols: { messages: false, responses: false, chatCompletions: true } });
+  // ProviderAccess.resolve refuses with connectionToolUnsupported: codex is no longer offered
+  assert.throws(() => launch(), { status: 400 });
 });
