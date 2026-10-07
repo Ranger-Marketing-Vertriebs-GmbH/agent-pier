@@ -136,8 +136,11 @@ credentials are not duplicated into browser-visible assistant records.
 
 The team-creation policy is independent from operating-system sandboxing. It must
 support a direct user authorization for one assignment and a configurable
-per-assistant preference for autonomous team creation. The initial default is a
-product decision recorded under open decisions until confirmed.
+per-assistant preference for autonomous team creation. By default, an assistant
+must ask before creating a team on its own. The user can enable standing permission
+per assistant. An explicit instruction to form a team authorizes creation for that
+assignment without another confirmation; it does not change the standing preference.
+This default was confirmed by the user on 2026-10-07.
 
 ### 4. Lifecycle and delegation behavior
 
@@ -279,18 +282,15 @@ team creation and cross-platform installation remain unverified.
 
 ## Open decisions and delivery gates
 
-1. **Autonomous team creation default:** ask first with a per-agent opt-in, or allow
-   by default with a per-agent opt-out. A direct user assignment remains separately
-   authorized. This default is awaiting the user's current choice.
-2. **Team lifecycle:** retention/archive policy, durable promotion, recursion and
+1. **Team lifecycle:** retention/archive policy, durable promotion, recursion and
    concrete concurrency/budget limits. Design and test before team execution.
-3. **Actions with external effects:** per-service defaults for calendar mutations,
+2. **Actions with external effects:** per-service defaults for calendar mutations,
    outgoing messages and mail. The mockup's approval card is illustrative.
-4. **Channel identity:** whether a user's Telegram conversation continues a selected
+3. **Channel identity:** whether a user's Telegram conversation continues a selected
    AgentPier thread or is a separately linked conversation. Never guess routing.
-5. **Provider authentication:** supported ChatGPT/Codex login flow and lifecycle;
+4. **Provider authentication:** supported ChatGPT/Codex login flow and lifecycle;
    local/custom protocol support is gated on actual adapter tests.
-6. **Sandbox:** explicitly deferred; not a prerequisite for the initial design.
+5. **Sandbox:** explicitly deferred; not a prerequisite for the initial design.
 
 Create backlog work with acceptance criteria and dependencies in the AgentPier
 Plane project. Start with live multi-agent contract validation and managed runtime
