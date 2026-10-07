@@ -165,6 +165,31 @@ test("legacy snapshots without a route keep launching while the route is native 
   assert.throws(() => launch(), changed);
 });
 
+test("a legacy snapshot still refuses an origin change", (t) => {
+  const { profile, launch, edit } = setup(t, "codex");
+  delete profile.providerConnectionSnapshot.endpoint.route;
+  edit({ openaiBaseUrl: "http://127.0.0.1:8080/v1" });
+  assert.throws(() => launch(), changed);
+});
+
+test("a route-less opencode snapshot is refused once auto resolves to an sdk route", (t) => {
+  const { profile, launch, edit } = setup(t, "opencode");
+  delete profile.providerConnectionSnapshot.endpoint.route;
+  launch();
+  edit({ protocols: { messages: false, responses: true, chatCompletions: false } });
+  assert.throws(() => launch(), changed);
+});
+
+test("opencode sdk routes are frozen with mode, source and origin", (t) => {
+  const { profile } = setup(t, "opencode", ["qwen3"], {
+    protocols: { messages: false, responses: true, chatCompletions: false },
+  });
+  const frozen = profile.providerConnectionSnapshot.endpoint;
+  assert.deepEqual(frozen.route, { mode: "sdk", source: "responses" });
+  assert.deepEqual(frozen.protocols, { responses: true });
+  assert.deepEqual(frozen.origins, ["http://127.0.0.1:11434"]);
+});
+
 test("auto never moves a pipeline onto an adapter route in PR 2", (t) => {
   const { launch, edit } = setup(t, "codex");
   edit({ protocols: { messages: false, responses: false, chatCompletions: true } });
