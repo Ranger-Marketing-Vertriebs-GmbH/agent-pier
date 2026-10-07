@@ -502,9 +502,11 @@ contradicts sections above, these amendments win:
    `overloaded` → `response.failed` with `code: "server_error"` (retryable). Codex
    ignores `retry-after` on these paths.
 7. **Claude Code thinking**: `parseRequest` accepts `thinking.display`
-   (`summarized`/`omitted`) and `type: "between_tools"`; IR `thinking` gains `display`.
-   `between_tools` is passed through to Messages upstreams and treated as `disabled`
-   elsewhere.
+   (`summarized`/`omitted`/`updates`) and `type: "between_tools"`; IR `thinking` gains
+   `display`. `between_tools` is passed through to Messages upstreams and treated as
+   `disabled` elsewhere. `updates` behaves like `omitted` for final reasoning but allows
+   progress text between tool calls; toward OpenAI-style upstreams the adapter requests
+   reasoning summaries for `summarized` and `updates`, none for `omitted`.
 8. **Anthropic effort values** are `low|medium|high|xhigh|max`: `minimal` → `low`,
    `none` → thinking omitted toward Messages upstreams (models that reject a missing or
    `disabled` thinking, e.g. Sonnet 5.5, are handled by the 400 → capability retry, which

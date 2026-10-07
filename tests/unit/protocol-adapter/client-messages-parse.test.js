@@ -264,9 +264,20 @@ describe("thinking", () => {
     assert.deepEqual(dropped, []);
   });
 
+  test("display updates and summarized are kept", () => {
+    for (const display of ["updates", "summarized"]) {
+      const { ir, dropped } = thinkingOf({
+        thinking: { type: "adaptive", display },
+        output_config: { effort: "high" },
+      });
+      assert.deepEqual(ir.thinking, { mode: "adaptive", effort: "high", display });
+      assert.deepEqual(dropped, []);
+    }
+  });
+
   test("unknown display and unknown effort are dropped and normalized", () => {
     const { ir, dropped } = thinkingOf({
-      thinking: { type: "adaptive", display: "updates" },
+      thinking: { type: "adaptive", display: "verbose" },
       output_config: { effort: "turbo" },
     });
     assert.deepEqual(ir.thinking, { mode: "adaptive", effort: "medium" });
