@@ -2,8 +2,12 @@
 // SSE stream or a non-streaming Response object.
 
 import { encodeCarrier } from "./carrier.js";
-import { AdapterUpstreamError } from "./client-messages-emit.js";
-import { responseShell, responsesErrorStream, responsesFailedEvent } from "./errors.js";
+import {
+  AdapterUpstreamError,
+  responseShell,
+  responsesErrorStream,
+  responsesFailedEvent,
+} from "./errors.js";
 import { assertIrEvent } from "./ir.js";
 import { stopToResponses, usageToOpenAI } from "./mapping.js";
 import { sseEvent } from "./sse.js";

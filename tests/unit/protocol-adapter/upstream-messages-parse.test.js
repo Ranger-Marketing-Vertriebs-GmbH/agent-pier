@@ -270,6 +270,24 @@ describe("parseMessagesStream fixtures", () => {
     assert.equal(result.blocks[0].text, '{"topic":"a"}');
   });
 
+  test("missing usage is estimated from request and output characters", async () => {
+    const { usage: _ignored, ...withoutUsage } = MESSAGE;
+    const text = sse(
+      { type: "message_start", message: withoutUsage },
+      blockStart(0, { type: "text", text: "" }),
+      blockDelta(0, { type: "text_delta", text: "x".repeat(10) }),
+      blockStop(0),
+      blockStart(1, { type: "tool_use", id: "toolu_1", name: "Bash", input: {} }),
+      blockDelta(1, { type: "input_json_delta", partial_json: '{"a":1}' }),
+      blockStop(1),
+      { type: "message_delta", delta: { stop_reason: "tool_use", stop_sequence: null } },
+      messageStop,
+    );
+    const result = summarize(await parseText(text, context({ requestChars: 401 })));
+    // input: ceil(401 / 4); output: ceil((10 + "Bash" + '{"a":1}') / 4) = ceil(21 / 4)
+    assert.deepEqual(result.usage, [usage(101, 6, { estimated: true })]);
+  });
+
   test("tool input given only on block start is emitted once", async () => {
     const text = sse(
       messageStart,

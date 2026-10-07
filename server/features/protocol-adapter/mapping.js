@@ -227,6 +227,21 @@ export function usageFromMessages({
   };
 }
 
+/**
+ * IR usage fields estimated when an upstream reports no usage: characters / 4 (rounded
+ * up) of the serialized upstream request (`ctx.requestChars`) and of the output text.
+ */
+export function estimatedUsage(ctx, outputChars) {
+  return {
+    input: Math.ceil(count(ctx?.requestChars) / 4),
+    output: Math.ceil(count(outputChars) / 4),
+    cacheRead: 0,
+    cacheWrite: 0,
+    reasoning: 0,
+    estimated: true,
+  };
+}
+
 export function usageToMessages(ir) {
   return {
     input_tokens: count(ir.input),

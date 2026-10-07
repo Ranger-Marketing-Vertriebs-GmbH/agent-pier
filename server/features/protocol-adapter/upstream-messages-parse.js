@@ -2,10 +2,8 @@
 
 import { encodeCarrier } from "./carrier.js";
 import { classifyUpstreamError } from "./errors.js";
-import { stopFromMessages, usageFromMessages } from "./mapping.js";
-
-const isObject = (value) =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+import { isObject, modelName, nonEmpty, parseData } from "./shared.js";
+import { estimatedUsage, stopFromMessages, usageFromMessages } from "./mapping.js";
 
 /**
  * Carrier payload for a Messages thinking block: JSON `{"s": signature, "t": text}` for
@@ -38,13 +36,6 @@ export function thinkingBlockFromPayload(payload) {
   return { type: "thinking", thinking, signature: parsed.s };
 }
 
-const nonEmpty = (value) => typeof value === "string" && value !== "";
-
-function modelName(model) {
-  if (nonEmpty(model)) return model;
-  return isObject(model) && nonEmpty(model.id) ? model.id : "unknown";
-}
-
 /** Usage fields of a Messages usage object; absent fields keep their previous value. */
 function mergeUsage(previous, usage) {
   if (!isObject(usage)) return previous;
@@ -70,6 +61,7 @@ function createMessagesState(ctx) {
   let usageSent = false;
   let stopReason = null;
   let stopSequence = null;
+  let outputChars = 0;
 
   const ensureStarted = (message) => {
     if (started) return;
@@ -128,15 +120,19 @@ function createMessagesState(ctx) {
   };
 
   const textDelta = (block, text) => {
-    if (nonEmpty(text)) out.push({ type: "textDelta", index: block.index, text });
+    if (!nonEmpty(text)) return;
+    outputChars += text.length;
+    out.push({ type: "textDelta", index: block.index, text });
   };
   const thinkingDelta = (block, text) => {
     if (!nonEmpty(text)) return;
+    outputChars += text.length;
     block.text += text; // replayed byte-exact through the carrier
     out.push({ type: "reasoningDelta", index: block.index, text });
   };
   const inputDelta = (block, fragment) => {
     if (!nonEmpty(fragment)) return;
+    outputChars += fragment.length;
     block.deltas += 1;
     out.push({ type: "toolInputDelta", index: block.index, fragment });
   };
@@ -153,7 +149,9 @@ function createMessagesState(ctx) {
       const block = open(upstreamIndex, "reasoning");
       if (typeof content.data === "string") block.redacted = content.data;
     } else if (content.type === "tool_use") {
-      const block = open(upstreamIndex, "toolCall", { toolCall: toolCallOf(content) });
+      const toolCall = toolCallOf(content);
+      outputChars += toolCall.name.length;
+      const block = open(upstreamIndex, "toolCall", { toolCall });
       if (isObject(content.input) && Object.keys(content.input).length > 0) {
         block.input = JSON.stringify(content.input);
       }
@@ -211,8 +209,8 @@ function createMessagesState(ctx) {
     ensureStarted(null);
     closeOpenBlocks();
     if (!usageSent && !usageDirty) {
-      // No upstream usage at all: report zeros flagged as estimated.
-      out.push({ type: "usage", ...usageFromMessages({ ...totals, estimated: true }) });
+      // No upstream usage at all: estimate it, flagged, so compaction keeps working.
+      out.push({ type: "usage", ...estimatedUsage(ctx, outputChars) });
     }
     flushUsage();
     const stop = { type: "stop", reason: stopFromMessages(stopReason) };
@@ -291,14 +289,6 @@ function createMessagesState(ctx) {
       return drain();
     },
   };
-}
-
-function parseData(data) {
-  try {
-    return { ok: true, value: JSON.parse(data) };
-  } catch {
-    return { ok: false };
-  }
 }
 
 /** IR events for a Messages SSE stream (`{ event, data }` items from sse.js). */

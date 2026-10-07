@@ -4,52 +4,28 @@
 
 import { decodeCarrier } from "./carrier.js";
 import { maxTokensFor, resolveThinkingForMessages } from "./mapping.js";
+import {
+  customToolDescription,
+  customToolSchema,
+  dropHints,
+  isObject,
+  present,
+  textOf,
+  upstreamModel,
+} from "./shared.js";
 import { thinkingBlockFromPayload } from "./upstream-messages-parse.js";
 
 export { parseMessagesResponse, parseMessagesStream } from "./upstream-messages-parse.js";
 
-const CUSTOM_SCHEMA = Object.freeze({
-  properties: { input: { type: "string" } },
-  required: ["input"],
-  type: "object",
-});
-const MAX_GRAMMAR_CHARS = 4000;
 const MAX_BREAKPOINTS = 4;
 const EPHEMERAL = Object.freeze({ type: "ephemeral" });
 const MISSING_RESULT = "[no tool result was recorded for this call]";
-
-const isObject = (value) =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-const present = (value) => value !== undefined && value !== null;
-
-function upstreamModel(ir, model) {
-  if (typeof model === "string" && model !== "") return model;
-  if (isObject(model) && typeof model.id === "string" && model.id !== "") return model.id;
-  return ir.model;
-}
-
-function grammarNote(grammar) {
-  if (!isObject(grammar) || typeof grammar.definition !== "string") {
-    return 'Call this tool with {"input": "<raw tool input>"}.';
-  }
-  const definition =
-    grammar.definition.length > MAX_GRAMMAR_CHARS
-      ? `${grammar.definition.slice(0, MAX_GRAMMAR_CHARS)}\n[grammar truncated]`
-      : grammar.definition;
-  const syntax = typeof grammar.syntax === "string" ? `${grammar.syntax} ` : "";
-  return (
-    'Call this tool with {"input": "<raw tool input>"}; the string "input" carries ' +
-    `the raw text that must match this ${syntax}grammar:\n${definition}`
-  );
-}
 
 // --- tools -------------------------------------------------------------------------
 
 function messagesTool(tool, names) {
   const custom = tool.kind === "custom";
-  const description = custom
-    ? [tool.description, grammarNote(tool.grammar)].filter(Boolean).join("\n\n")
-    : tool.description;
+  const description = custom ? customToolDescription(tool) : tool.description;
   const result = { name: names.toUpstream(tool.name, tool.namespace) };
   if (typeof description === "string" && description !== "") {
     result.description = description;
@@ -57,9 +33,7 @@ function messagesTool(tool, names) {
   // Schemas pass through in client order (property order is meaningful to the model and
   // already stable per client); only `type: "object"` is enforced.
   const schema = isObject(tool.schema) ? tool.schema : { properties: {} };
-  result.input_schema = custom
-    ? JSON.parse(JSON.stringify(CUSTOM_SCHEMA))
-    : { ...schema, type: "object" };
+  result.input_schema = custom ? customToolSchema() : { ...schema, type: "object" };
   if (tool.cache) result.cache_control = { ...EPHEMERAL };
   return result;
 }
@@ -116,10 +90,7 @@ function toolResultBlock(part, ids) {
 }
 
 function orphanResultText(part) {
-  const body = part.parts
-    .filter((entry) => entry.type === "text")
-    .map((entry) => entry.text)
-    .join("\n");
+  const body = textOf(part.parts, "\n");
   const label = part.isError ? "Tool error" : "Tool result";
   return { type: "text", text: `[${label} for call ${part.callId}]\n${body}` };
 }
@@ -438,7 +409,7 @@ export function buildMessagesRequest(ir, ctx) {
   const dropped = [];
   const adjustments = [];
   const drop = (name) => dropped.push(name);
-  for (const key of Object.keys(ir.hints ?? {})) drop(`hints.${key}`);
+  dropHints(ir, drop);
   if (typeof ir.cache?.key === "string" && ir.cache.key !== "") drop("cache.key");
 
   const sampling = ir.sampling ?? {};

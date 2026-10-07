@@ -2,19 +2,11 @@
 
 import { encodeCarrier } from "./carrier.js";
 import { classifyUpstreamError } from "./errors.js";
-import { stopFromChat, usageFromOpenAI } from "./mapping.js";
+import { isObject, modelName, nonEmpty, parseData } from "./shared.js";
+import { estimatedUsage, stopFromChat, usageFromOpenAI } from "./mapping.js";
 
 const OPEN_TAG = "<think>";
 const CLOSE_TAG = "</think>";
-
-const isObject = (value) =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-const nonEmpty = (value) => typeof value === "string" && value !== "";
-
-function modelName(model) {
-  if (nonEmpty(model)) return model;
-  return isObject(model) && nonEmpty(model.id) ? model.id : "unknown";
-}
 
 /** Length of the longest suffix of `text` that is a proper prefix of `tag`. */
 function heldPrefix(text, tag) {
@@ -290,17 +282,7 @@ function createChatState(ctx) {
   const complete = () => {
     ensureStarted(null);
     finishBlocks();
-    if (!usageSeen) {
-      out.push({
-        type: "usage",
-        input: Math.ceil((ctx.requestChars ?? 0) / 4),
-        output: Math.ceil(outputChars / 4),
-        cacheRead: 0,
-        cacheWrite: 0,
-        reasoning: 0,
-        estimated: true,
-      });
-    }
+    if (!usageSeen) out.push({ type: "usage", ...estimatedUsage(ctx, outputChars) });
     const reason = finishReason
       ? stopFromChat(finishReason)
       : sawToolCalls
@@ -358,14 +340,6 @@ function createChatState(ctx) {
       return drain();
     },
   };
-}
-
-function parseData(data) {
-  try {
-    return { ok: true, value: JSON.parse(data) };
-  } catch {
-    return { ok: false };
-  }
 }
 
 /** IR events for a Chat Completions SSE stream (`{ event, data }` items from sse.js). */
