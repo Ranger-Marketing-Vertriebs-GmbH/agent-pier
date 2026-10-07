@@ -478,3 +478,42 @@ One spec and one plan, three PRs:
 - **Strict servers** rejecting optional parameters. Mitigation: conservative defaults,
   probe, one-shot fallback retry.
 - **Usage estimates** may differ from real tokenizers; flagged and counted.
+
+## Amendments from verified protocol facts (2026-10-07)
+
+`docs/research/protocol-adapter-facts.md` verified the protocols against Claude Code
+2.1.291, Codex 0.159.2 (`openai/codex@rust-v0.159.2`) and current API docs. Where it
+contradicts sections above, these amendments win:
+
+1. **Codex content filter**: emitted as `response.failed` with `error.code:
+"invalid_prompt"`, never `response.incomplete` (Codex treats every incomplete reason
+   except `interrupted` as an error).
+2. **Codex refusal**: emitted as an `output_text` part with the refusal text, then
+   `response.completed` (Codex has no `refusal` content part).
+3. **Codex errors**: every error that should drive Codex behavior (context overflow, rate
+   limit, overload, invalid prompt) is sent as HTTP 200 `text/event-stream` with
+   `response.created` → `response.failed` and then closed. Plain HTTP error bodies are
+   used only for authentication failures and `stream: false` requests.
+4. **Codex keep-alive**: `event: response.in_progress` data events every 15 s, not SSE
+   comments (Codex's SSE parser ignores comments, so they do not reset its idle timer).
+5. **Codex `apply_patch_tool_type`**: always `"freeform"` (the only accepted value). The
+   adapter maps the freeform tool to a function tool for Messages and Chat upstreams and
+   back. The existing `endpoint-launch.js` bug is fixed separately (PR #177).
+6. **Codex rate limits and overload**: `rateLimit` → `response.failed` with `code:
+"rate_limit_exceeded"` and message `Rate limit reached. Please try again in <n>s.`;
+   `overloaded` → `response.failed` with `code: "server_error"` (retryable). Codex
+   ignores `retry-after` on these paths.
+7. **Claude Code thinking**: `parseRequest` accepts `thinking.display`
+   (`summarized`/`omitted`) and `type: "between_tools"`; IR `thinking` gains `display`.
+   `between_tools` is passed through to Messages upstreams and treated as `disabled`
+   elsewhere.
+8. **Anthropic effort values** are `low|medium|high|xhigh|max`: `minimal` → `low`,
+   `none` → thinking omitted toward Messages upstreams.
+9. **Sampling toward Messages upstreams**: `temperature`, `top_p` and `top_k` are always
+   stripped (current Claude models reject non-default values; neither CLI relies on
+   them); a forced `tool_choice` is relaxed to `auto` whenever thinking is enabled or
+   adaptive, and the 400 → capability retry covers models that reject it outright.
+10. **Chat error envelopes**: `errors.js` accepts vLLM (`error.code` integer), LiteLLM
+    (`error.code` string) and LM Studio (`error` string) shapes.
+11. **Chat reasoning fields**: both `delta.reasoning` (vLLM) and
+    `delta.reasoning_content` are read; `reasoningReplay` sends `reasoning_content`.
