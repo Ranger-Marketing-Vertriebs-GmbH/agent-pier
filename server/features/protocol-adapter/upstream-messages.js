@@ -24,6 +24,11 @@ const EPHEMERAL = Object.freeze({ type: "ephemeral" });
 const SAMPLING_DROPS = new Set(["temperatureDropped", "topPDropped", "topKDropped"]);
 const MISSING_RESULT = "[no tool result was recorded for this call]";
 
+/** `cache_control` for a marked IR part or tool; the client's TTL is kept. */
+function cacheControl(part) {
+  return part.cacheTtl ? { ...EPHEMERAL, ttl: part.cacheTtl } : { ...EPHEMERAL };
+}
+
 // --- tools -------------------------------------------------------------------------
 
 function messagesTool(tool, names) {
@@ -37,7 +42,7 @@ function messagesTool(tool, names) {
   // already stable per client); only `type: "object"` is enforced.
   const schema = isObject(tool.schema) ? tool.schema : { properties: {} };
   result.input_schema = custom ? customToolSchema() : { ...schema, type: "object" };
-  if (tool.cache) result.cache_control = { ...EPHEMERAL };
+  if (tool.cache) result.cache_control = cacheControl(tool);
   return result;
 }
 
@@ -66,7 +71,7 @@ function toolChoice(choice, names, parallel) {
 // --- content blocks ----------------------------------------------------------------
 
 const withCache = (block, part) =>
-  part.cache ? { ...block, cache_control: { ...EPHEMERAL } } : block;
+  part.cache ? { ...block, cache_control: cacheControl(part) } : block;
 
 function imageBlock(part) {
   const source = present(part.data)

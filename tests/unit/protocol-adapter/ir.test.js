@@ -227,6 +227,11 @@ test("tool schema, strict and grammar fields and error status are validated", ()
     "request.tools[0].grammar.syntax",
   );
   assert.ok(assertIrRequest(tool({ schema: { type: "object" }, strict: true })));
+  assertPath(
+    () => assertIrRequest(tool({ cache: "ephemeral", cacheTtl: "2d" })),
+    "request.tools[0].cacheTtl",
+  );
+  assert.ok(assertIrRequest(tool({ cache: "ephemeral", cacheTtl: "1h" })));
   const error = (status) => ({
     type: "error",
     error: { kind: "server", status, message: "" },
