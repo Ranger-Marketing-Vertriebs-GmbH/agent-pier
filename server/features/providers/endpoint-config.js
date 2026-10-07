@@ -9,14 +9,14 @@ import {
 } from "./endpoint-routing.js";
 
 const messages = serverMessages.providers;
-const FORBIDDEN_HEADERS = new Set([
+export const FORBIDDEN_HEADERS = new Set([
   "host",
   "content-length",
   "transfer-encoding",
   "connection",
   "cookie",
 ]);
-const TOKEN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,64}$/;
+export const TOKEN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,64}$/;
 const BLOCK_KEYS = [
   "preset",
   "openaiBaseUrl",
@@ -231,7 +231,8 @@ export function endpointTools(endpoint) {
 }
 
 export function fallbackOutputTokens(contextTokens, outputTokens) {
-  return outputTokens ?? Math.min(Math.floor(contextTokens / 4), 32000);
+  // Never below the 1024 minimum the stored token limits (and the adapter) accept.
+  return outputTokens ?? Math.max(1024, Math.min(Math.floor(contextTokens / 4), 32000));
 }
 
 export function endpointModel(endpoint, modelId, tool) {

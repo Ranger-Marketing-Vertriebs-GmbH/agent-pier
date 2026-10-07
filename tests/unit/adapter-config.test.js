@@ -4,6 +4,7 @@ import {
   validateAdapterConfig,
   adapterDiagnosticsPath,
 } from "../../server/features/adapter-runtime/adapter-config.js";
+import { fallbackOutputTokens } from "../../server/features/providers/endpoint-config.js";
 import { validAdapterConfig, KEY } from "../helpers/adapter-fixture.js";
 
 test("a valid configuration passes and is returned unchanged", () => {
@@ -24,6 +25,7 @@ const invalidCases = {
   "same protocol": { upstreamProtocol: "messages" },
   baseUrl: { upstream: upstream({ baseUrl: "ftp://x/v1" }) },
   "baseUrl normalization": { upstream: upstream({ baseUrl: "http://127.0.0.1:9/v1/" }) },
+  "forbidden authHeader": { upstream: upstream({ authHeader: "Host" }) },
   authHeader: { upstream: upstream({ authHeader: "bad header" }) },
   "apiKey control": { upstream: upstream({ apiKey: "secret\u0000x" }) },
   "apiKey length": { upstream: upstream({ apiKey: "s".repeat(16385) }) },
@@ -56,5 +58,26 @@ test("null optional values are accepted", () => {
       upstream: upstream({ apiKey: null, authHeader: "x-api-key" }),
       model: model({ outputTokens: null, images: true }),
     }),
+  );
+});
+
+test("DEL in an API key is accepted like the account store does", () => {
+  validateAdapterConfig(validAdapterConfig({ upstream: upstream({ apiKey: "a\x7fb" }) }));
+});
+
+test("unknown capability names are dropped from the payload", () => {
+  const result = validateAdapterConfig(
+    validAdapterConfig({
+      capabilities: { streamUsage: false, bogus: 1, promptCache: true },
+    }),
+  );
+  assert.deepEqual(result.capabilities, { streamUsage: false });
+});
+
+test("the output token fallback of a small-context model passes validation", () => {
+  assert.equal(fallbackOutputTokens(2048, null), 1024);
+  const outputTokens = fallbackOutputTokens(2048, null);
+  validateAdapterConfig(
+    validAdapterConfig({ model: model({ contextTokens: 2048, outputTokens }) }),
   );
 });

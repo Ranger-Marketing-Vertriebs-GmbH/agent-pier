@@ -1,11 +1,14 @@
 import path from "node:path";
-import { normalizeEndpointUrl } from "../providers/endpoint-config.js";
+import {
+  FORBIDDEN_HEADERS,
+  TOKEN as HEADER_TOKEN,
+  normalizeEndpointUrl,
+} from "../providers/endpoint-config.js";
 import { validModelId } from "../providers/provider-definitions.js";
 import { resolveCapabilities } from "../protocol-adapter/capabilities.js";
 
 const CLIENT = ["messages", "responses"];
 const UPSTREAM = ["messages", "responses", "chat"];
-const HEADER_TOKEN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
 
 const plain = (value) => value && typeof value === "object" && !Array.isArray(value);
 const tokenCount = (value) =>
@@ -54,15 +57,15 @@ export function validateAdapterConfig(value) {
     "upstream.authHeader",
     upstream.authHeader === null ||
       (typeof upstream.authHeader === "string" &&
-        upstream.authHeader.length <= 256 &&
-        HEADER_TOKEN.test(upstream.authHeader)),
+        HEADER_TOKEN.test(upstream.authHeader) &&
+        !FORBIDDEN_HEADERS.has(upstream.authHeader.toLowerCase())),
   );
   check(
     "upstream.apiKey",
     upstream.apiKey === null ||
       (typeof upstream.apiKey === "string" &&
         upstream.apiKey.length <= 16384 &&
-        !/[\x00-\x1f\x7f]/.test(upstream.apiKey)),
+        !/[\x00-\x1f]/.test(upstream.apiKey)),
   );
   check("model", plain(model));
   check("model.modelId", validModelId(model.modelId));
@@ -73,8 +76,9 @@ export function validateAdapterConfig(value) {
   );
   check("model.images", [true, false, null].includes(model.images));
   check("capabilities", plain(value.capabilities));
+  let resolved;
   try {
-    resolveCapabilities(value.upstreamProtocol, value.capabilities);
+    resolved = resolveCapabilities(value.upstreamProtocol, value.capabilities);
   } catch {
     throw invalid("capabilities");
   }
@@ -102,7 +106,16 @@ export function validateAdapterConfig(value) {
       outputTokens: model.outputTokens,
       images: model.images,
     }),
-    capabilities: Object.freeze({ ...value.capabilities }),
+    // Only known capabilities with a given value; unknown names are dropped.
+    capabilities: Object.freeze(
+      Object.fromEntries(
+        Object.keys(value.capabilities)
+          .filter(
+            (name) => Object.hasOwn(resolved, name) && value.capabilities[name] != null,
+          )
+          .map((name) => [name, value.capabilities[name]]),
+      ),
+    ),
     thinkTagExtraction: value.thinkTagExtraction,
     diagnosticsPath: diagnostics,
   });

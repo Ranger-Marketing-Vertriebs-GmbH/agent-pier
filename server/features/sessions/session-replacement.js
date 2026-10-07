@@ -5,7 +5,10 @@ import { rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { privateWrite } from "./session-process-runtime.js";
 import { problem } from "../../lib/storage.js";
-import { checkedAdapter } from "../adapter-runtime/adapter-config.js";
+import {
+  adapterDiagnosticsPath,
+  checkedAdapter,
+} from "../adapter-runtime/adapter-config.js";
 import { validateReloadLaunch } from "../../application/session-reload-launch.js";
 
 const launcher = fileURLToPath(new URL("../../terminal-launcher.js", import.meta.url));
@@ -57,6 +60,8 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
           problem(serverMessages.sessions.invalidAdapterConfiguration),
         )
       : null;
+    // Diagnostics of the previous generation must not be mistaken for the new adapter.
+    await rm(adapterDiagnosticsPath(manager.directory, id), { force: true });
     await privateWrite(
       manager.directory,
       `${id}.launch.json`,
