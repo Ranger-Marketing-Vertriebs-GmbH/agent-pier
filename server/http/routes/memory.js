@@ -1,6 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
+import { wantsRemotes } from "../../features/repositories/git-remote.js";
 
 function pageValue(raw) {
   if (raw === undefined) return 1;
@@ -23,13 +24,14 @@ function content(body) {
 
 export function memoryRoutes({ memory, directory, gitRemotes }) {
   const router = Router();
-  router.get("/memory/projects", async (_request, response) => {
+  router.get("/memory/projects", async (request, response) => {
     const listed = memory.projects();
     response.json({
       ...listed,
-      projects: gitRemotes
-        ? await gitRemotes.annotate(listed.projects, "cwd")
-        : listed.projects,
+      projects:
+        gitRemotes && wantsRemotes(request)
+          ? await gitRemotes.annotate(listed.projects, "cwd")
+          : listed.projects,
     });
   });
   router.post("/memory/projects", async (request, response) => {

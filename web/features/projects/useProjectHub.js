@@ -269,10 +269,12 @@ export default function useProjectHub() {
     let alive = true;
     setLoading(true);
     // Each source loads on its own: a failing one keeps the others listed. The first
-    // AgentBus read belongs to the load, so AgentBus ids resolve at once.
+    // AgentBus read belongs to the load, so AgentBus ids resolve at once. Live git
+    // remotes come with the repository and knowledge lists, never with the frequent
+    // AgentBus poll.
     Promise.allSettled([
-      api("/repositories"),
-      api("/memory/projects"),
+      api("/repositories?remotes=1"),
+      api("/memory/projects?remotes=1"),
       readBus(() => alive),
     ]).then(([repositories, memory]) => {
       if (!alive) return;
