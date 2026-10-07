@@ -43,9 +43,21 @@ test("ignores comments and retry, keeps [DONE] as data", () => {
   ]);
 });
 
-test("an event without data is still reported", () => {
-  assert.deepEqual(parseAll("event: ping\n\n"), [
+test("a block without data is dropped, an explicit empty data line is kept", () => {
+  assert.deepEqual(parseAll("event: ping\n\nid: 1\n\n"), []);
+  assert.deepEqual(parseAll("event: ping\ndata:\n\n"), [
     { event: "ping", data: "", id: undefined },
+  ]);
+});
+
+test("a leading BOM is ignored", () => {
+  assert.deepEqual(parseAll("﻿data: x\n\n"), [
+    { event: undefined, data: "x", id: undefined },
+  ]);
+  const parser = createSseParser();
+  assert.deepEqual(parser.push("﻿"), []);
+  assert.deepEqual(parser.push("data: y\n\n"), [
+    { event: undefined, data: "y", id: undefined },
   ]);
 });
 

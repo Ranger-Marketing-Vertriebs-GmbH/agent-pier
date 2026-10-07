@@ -19,23 +19,23 @@ test("every upstream SSE fixture is covered", () => {
 });
 
 for (const file of files) {
-  test(`random chunk splits parse like a single push: ${file}`, () => {
-    const text = loadFixture(file);
-    const whole = parseChunks([text]);
-    assert.ok(whole.length > 0);
-    check(
-      fc.property(
-        fc.array(fc.integer({ min: 1, max: 64 }), { maxLength: 400 }),
-        (sizes) => {
-          assert.deepEqual(parseChunks(splitChunks(text, sizes)), whole);
-        },
-      ),
-      { numRuns: 50 },
-    );
-  });
-
-  test(`CRLF rewrite parses identically: ${file}`, () => {
-    const text = loadFixture(file);
-    assert.deepEqual(parseChunks([text.replace(/\n/g, "\r\n")]), parseChunks([text]));
-  });
+  const rewrites = { LF: "\n", CRLF: "\r\n", CR: "\r" };
+  for (const [label, terminator] of Object.entries(rewrites)) {
+    test(`${label} rewrite splits at random chunk boundaries like one push: ${file}`, () => {
+      const original = loadFixture(file);
+      const whole = parseChunks([original]);
+      assert.ok(whole.length > 0);
+      const text = original.replace(/\n/g, terminator);
+      assert.deepEqual(parseChunks([text]), whole);
+      check(
+        fc.property(
+          fc.array(fc.integer({ min: 1, max: 64 }), { maxLength: 400 }),
+          (sizes) => {
+            assert.deepEqual(parseChunks(splitChunks(text, sizes)), whole);
+          },
+        ),
+        { numRuns: 50 },
+      );
+    });
+  }
 }
