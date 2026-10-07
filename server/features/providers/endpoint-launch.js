@@ -43,11 +43,24 @@ export function endpointCodexLaunch(result, description, secret, connectionName)
   return config;
 }
 
+const PLACEHOLDER_KEY = "agentpier-endpoint";
 const SDK = {
   chatCompletions: { npm: "@ai-sdk/openai-compatible", keyOption: "apiKey" },
-  responses: { npm: "@ai-sdk/openai", keyOption: "apiKey" },
+  // The two official SDKs refuse to start without a key option (fact R4c) and send it as
+  // `credentialHeader`.
+  responses: {
+    npm: "@ai-sdk/openai",
+    keyOption: "apiKey",
+    credentialHeader: "authorization",
+    requiresKey: true,
+  },
   // Fact R4a: authToken is sent as `Authorization: Bearer`, like Claude Code.
-  messages: { npm: "@ai-sdk/anthropic", keyOption: "authToken" },
+  messages: {
+    npm: "@ai-sdk/anthropic",
+    keyOption: "authToken",
+    credentialHeader: "authorization",
+    requiresKey: true,
+  },
 };
 
 /** OpenCode resolves `{env:…}` references itself, so the key stays in the environment. */
@@ -58,6 +71,25 @@ export function endpointOpenCodeLaunch(result, description, secret, connectionNa
   const reference = `{env:${auth.keyEnv}}`;
   const source = description.route?.source ?? "chatCompletions";
   const sdk = SDK[source];
+  const header = auth.header?.toLowerCase();
+  // An SDK that requires a key gets a fixed non-secret placeholder when none is sent as
+  // such. With a custom header the SDK credential header is blanked, so only the custom
+  // header carries the key.
+  const keyOptions = key
+    ? auth.header
+      ? {
+          ...(sdk.requiresKey ? { [sdk.keyOption]: PLACEHOLDER_KEY } : {}),
+          headers: {
+            [auth.header]: reference,
+            ...(sdk.requiresKey && header !== sdk.credentialHeader
+              ? { [sdk.credentialHeader]: "" }
+              : {}),
+          },
+        }
+      : { [sdk.keyOption]: reference }
+    : sdk.requiresKey
+      ? { [sdk.keyOption]: PLACEHOLDER_KEY }
+      : {};
   // @ai-sdk/anthropic appends /messages itself, so its base ends with /v1 (fact R4b).
   const baseURL =
     source === "messages"
@@ -74,8 +106,7 @@ export function endpointOpenCodeLaunch(result, description, secret, connectionNa
           baseURL,
           // The key option becomes `Authorization: Bearer`; with a custom header the key is sent
           // only there, matching the connection test and Codex.
-          ...(key && !auth.header ? { [sdk.keyOption]: reference } : {}),
-          ...(key && auth.header ? { headers: { [auth.header]: reference } } : {}),
+          ...keyOptions,
         },
         models: {
           [model.modelId]: {
