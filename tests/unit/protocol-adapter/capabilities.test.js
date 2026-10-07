@@ -155,6 +155,18 @@ describe("capabilityForError", () => {
       ],
       ["responses", "Invalid value for 'include' in tool 'search' arguments", null],
       ["responses", "Unsupported content type 'reasoning' in message input", null],
+      // Responses: value errors keep reasoning on (only the value is wrong).
+      [
+        "responses",
+        "Unsupported value: 'reasoning.effort' does not support 'minimal' with this " +
+          "model. Supported values are: 'low', 'medium', and 'high'.",
+        "reasoning.effort",
+      ],
+      [
+        "responses",
+        "Invalid value: 'ultra'. Supported values are: 'low'.",
+        "reasoning.effort",
+      ],
       // Messages: any message containing "adaptive" is not an adaptive-thinking rejection.
       [
         "messages",
@@ -185,6 +197,22 @@ describe("capabilityForError", () => {
   });
 
   test("Chat: unsupported max_completion_tokens switches back to max_tokens", () => {
+    const reverse =
+      "Unsupported parameter: 'max_completion_tokens' is not supported with this model. " +
+      "Use 'max_tokens' instead.";
+    for (const param of ["max_completion_tokens", null]) {
+      assert.deepEqual(capabilityForError("chat", rejection(400, reverse, param)), {
+        name: "maxTokensField",
+        value: "max_tokens",
+      });
+    }
+    const forward =
+      "Unsupported parameter: 'max_tokens' is not supported with this model. " +
+      "Use 'max_completion_tokens' instead.";
+    assert.deepEqual(capabilityForError("chat", rejection(400, forward, "max_tokens")), {
+      name: "maxTokensField",
+      value: "max_completion_tokens",
+    });
     assert.deepEqual(
       capabilityForError(
         "chat",
