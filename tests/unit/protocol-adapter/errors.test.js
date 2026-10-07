@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  classifyTransportError,
   classifyUpstreamError,
   messagesErrorBody,
   messagesErrorEvent,
@@ -422,4 +423,34 @@ test("responsesFailedEvent continues an already started stream", () => {
   assert.equal(event.event, "response.failed");
   assert.equal(event.data.sequence_number, 9);
   assert.equal(event.data.response.error.message, "server msg");
+});
+
+test("classifyTransportError: timeouts, socket errors and classifier hints", () => {
+  const abort = Object.assign(new Error("This operation was aborted"), {
+    name: "AbortError",
+  });
+  assert.deepEqual(classifyTransportError(abort), {
+    kind: "timeout",
+    status: null,
+    message: "upstream timed out",
+  });
+  const undici = Object.assign(new TypeError("fetch failed"), {
+    cause: { code: "UND_ERR_HEADERS_TIMEOUT" },
+  });
+  assert.equal(classifyTransportError(undici).kind, "timeout");
+  const reset = Object.assign(new Error("read ECONNRESET sk-abcdefghijklmnop0123"), {
+    code: "ECONNRESET",
+  });
+  const network = classifyTransportError(reset);
+  assert.equal(network.kind, "network");
+  assert.equal(network.message, "read ECONNRESET [redacted]");
+  const hinted = Object.assign(new Error("idle for 240 s"), { adapterKind: "timeout" });
+  assert.deepEqual(classifyTransportError(hinted), {
+    kind: "timeout",
+    status: null,
+    message: "idle for 240 s",
+  });
+  const bogus = Object.assign(new Error("x"), { adapterKind: "bogus" });
+  assert.equal(classifyTransportError(bogus).kind, "network");
+  assert.equal(classifyTransportError(undefined).message, "upstream unreachable");
 });

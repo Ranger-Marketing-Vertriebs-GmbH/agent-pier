@@ -250,6 +250,39 @@ const DEFAULT_MESSAGES = Object.freeze({
   network: "upstream unreachable",
 });
 
+const TIMEOUT_NAMES = new Set(["AbortError", "TimeoutError"]);
+const TIMEOUT_CODES = new Set([
+  "ETIMEDOUT",
+  "ESOCKETTIMEDOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_BODY_TIMEOUT",
+]);
+
+const isTimeout = (error) =>
+  isObject(error) && (TIMEOUT_NAMES.has(error.name) || TIMEOUT_CODES.has(error.code));
+
+/**
+ * IrError for a failure of the upstream transport itself (no HTTP response, or a broken
+ * response stream): `timeout` for aborts and timeouts (the caller's idle timer aborts the
+ * fetch), `network` for socket errors and everything else. An `adapterKind` property on
+ * the error (any IrError kind) wins, so the caller can classify its own failures.
+ */
+export function classifyTransportError(error, secrets = []) {
+  const hint = isObject(error) ? error.adapterKind : undefined;
+  let kind;
+  if (typeof hint === "string" && Object.hasOwn(DEFAULT_MESSAGES, hint)) kind = hint;
+  else if (isTimeout(error) || isTimeout(error?.cause)) kind = "timeout";
+  else kind = "network";
+  // An abort's own message ("This operation was aborted") says less than the default.
+  const detail = kind === "timeout" && hint === undefined ? undefined : error?.message;
+  return {
+    kind,
+    status: null,
+    message: sanitizeMessage(detail, secrets) || DEFAULT_MESSAGES[kind],
+  };
+}
+
 const messageOf = (error) => nonEmpty(error.message) ?? DEFAULT_MESSAGES[error.kind];
 
 function retryHeaders(error) {
