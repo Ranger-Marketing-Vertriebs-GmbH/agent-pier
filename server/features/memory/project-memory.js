@@ -363,22 +363,60 @@ export class ProjectMemory {
    * Merges an older row of the same folder into the current project `scope` on the
    * owner's request and records the move as a rebind, so grants of the older row
    * follow it. Unlike adopt, a stale rebind of `fromId` is replaced (its row still
-   * existed) and rebinds that pointed at `fromId` now point at `scope`.
+   * existed) and rebinds that pointed at `fromId` now point at `scope`. A current
+   * project that itself is rebound elsewhere is refused. The merge stays recorded as
+   * pending until finishMerge, so an interrupted move of SSH access, artifacts,
+   * verification or sessions resumes later.
    */
   merge(fromId, scope) {
     identifier(fromId);
     identifier(scope.id);
     return transaction(this.db, () => {
+      if (this.reboundTo(scope.id))
+        throw failure(serverMessages.memory.duplicateMergeUnsafe, 409);
+      const now = new Date().toISOString();
       this.move(fromId, scope);
-      this.db.prepare("DELETE FROM project_rebinds WHERE from_id=?").run(scope.id);
       this.db
         .prepare("UPDATE project_rebinds SET to_id=? WHERE to_id=?")
         .run(scope.id, fromId);
       this.db
         .prepare("INSERT OR REPLACE INTO project_rebinds VALUES (?,?,?)")
-        .run(fromId, scope.id, new Date().toISOString());
+        .run(fromId, scope.id, now);
+      this.db
+        .prepare("INSERT OR REPLACE INTO project_merges VALUES (?,?,?)")
+        .run(fromId, scope.id, now);
       return this.project(scope.id);
     });
+  }
+  /** Owner-requested merges whose moves outside memory are not finished yet. */
+  pendingMerges() {
+    return this.db
+      .prepare("SELECT from_id AS fromId,to_id AS toId FROM project_merges")
+      .all()
+      .map((row) => ({ ...row }));
+  }
+  pendingMerge(fromId) {
+    const row = this.db
+      .prepare("SELECT to_id FROM project_merges WHERE from_id=?")
+      .get(fromId);
+    return row?.to_id ?? null;
+  }
+  finishMerge(fromId) {
+    this.db.prepare("DELETE FROM project_merges WHERE from_id=?").run(fromId);
+  }
+  /** Active and archived entries of a project; a merge moves both. */
+  entryCounts(projectId) {
+    const row = this.db
+      .prepare(
+        "SELECT SUM(r.archived=0) AS active, SUM(r.archived=1) AS archived FROM entries e JOIN revisions r ON r.entry_id=e.id AND r.revision=e.revision WHERE e.project_id=?",
+      )
+      .get(projectId);
+    return { active: row.active || 0, archived: row.archived || 0 };
+  }
+  capabilityCount(projectId) {
+    return this.db
+      .prepare("SELECT COUNT(*) AS total FROM capabilities WHERE project_id=?")
+      .get(projectId).total;
   }
   /** The stored identity of a project row, for a move into it. */
   scopeOf(id) {

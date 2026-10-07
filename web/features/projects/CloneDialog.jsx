@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Modal from "../../components/Modal.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import CloneForm from "../repositories/CloneForm.jsx";
+import "./project-dialogs.css";
 
 // The draft belongs to the page, so closing the dialog keeps it. A pending clone
 // restores its request after the page itself was left and opened again.

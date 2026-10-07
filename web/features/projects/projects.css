@@ -138,12 +138,6 @@
   justify-content: flex-end;
   gap: 8px;
 }
-.project-dialog .form-content ul {
-  margin: 0;
-  padding-left: 18px;
-  display: grid;
-  gap: 4px;
-}
 .project-card-primary .button {
   height: 38px;
   gap: 8px;
@@ -409,28 +403,6 @@
   height: 28px;
   padding: 0 10px;
   font-size: 10px;
-}
-dialog.project-dialog[open] {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.project-dialog > form,
-.project-dialog .repository-clone-form {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.project-dialog .form-content {
-  flex: 1;
-  min-height: 0;
-  align-content: start;
-  overflow: auto;
-  scrollbar-width: none;
-}
-.project-dialog .dialog-actions {
-  flex-shrink: 0;
 }
 .clone-dialog .repository-clone-fields {
   padding: 0;

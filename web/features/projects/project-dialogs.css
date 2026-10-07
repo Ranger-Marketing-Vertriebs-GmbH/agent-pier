@@ -1,0 +1,32 @@
+/* Dialogs of the projects hub: add folder, clone and merge older entry. */
+dialog.project-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.project-dialog > form,
+.project-dialog .repository-clone-form {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.project-dialog .form-content {
+  flex: 1;
+  min-height: 0;
+  align-content: start;
+  overflow: auto;
+  scrollbar-width: none;
+}
+.project-dialog .dialog-actions {
+  flex-shrink: 0;
+}
+.project-dialog .form-content ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+.project-merge-warning {
+  color: #ffc99d;
+}

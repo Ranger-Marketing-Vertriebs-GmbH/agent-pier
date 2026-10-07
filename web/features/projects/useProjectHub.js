@@ -277,7 +277,7 @@ export default function useProjectHub() {
     // AgentBus poll.
     Promise.allSettled([
       api("/repositories?remotes=1"),
-      api("/memory/projects?remotes=1"),
+      api("/memory/projects?remotes=1&duplicates=1"),
       readBus(() => alive),
     ]).then(([repositories, memory]) => {
       if (!alive) return;

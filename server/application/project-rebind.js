@@ -86,13 +86,19 @@ export class ProjectRebind {
    * Merges an older project row of a folder into its current project on the owner's
    * explicit request: memory, session capabilities, SSH access, artifacts,
    * verification and the bindings of every session that held the older project move,
-   * and the rebind is recorded and audited once. A repeated call finishes an
-   * interrupted move. The caller checks that the merge is current and safe.
+   * and the rebind is recorded and audited once. `check` runs first inside the queue
+   * and throws when the merge is stale or unsafe, so concurrent merges and resumes
+   * see each other's results. The merge stays pending in memory until every step is
+   * done; a repeated call (or the start-up resume) finishes it. A recorded rebind
+   * that is no pending merge (for example a finished one, or a `git init` rebind)
+   * moves nothing.
    */
-  mergeDuplicate(fromId, scope) {
+  mergeDuplicate(fromId, scope, check = async () => {}) {
     return this.serial(async () => {
+      await check();
       const recorded = this.memory.reboundTo(fromId);
       if (recorded && recorded !== scope.id) return null;
+      if (recorded && this.memory.pendingMerge(fromId) !== scope.id) return scope;
       this.incomplete.add(fromId);
       if (!recorded) {
         this.memory.merge(fromId, scope);
@@ -103,12 +109,16 @@ export class ProjectRebind {
           projectId: scope.id,
           source: "user",
           outcome: "success",
+          details: { fromProjectId: fromId },
         });
       }
       await this.sshManagement.adoptProject(fromId, scope);
       await this.artifacts.moveProject(fromId, scope.id);
       this.definitions?.moveVerification(fromId, scope.id);
-      if (await this.rebindSessions(fromId, scope, null)) this.incomplete.delete(fromId);
+      if (await this.rebindSessions(fromId, scope, null)) {
+        this.incomplete.delete(fromId);
+        this.memory.finishMerge(fromId);
+      }
       return scope;
     });
   }
