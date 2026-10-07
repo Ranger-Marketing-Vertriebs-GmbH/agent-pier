@@ -18,7 +18,7 @@
 - Routing values (verbatim): `claude: "auto" | "native" | "adapter:responses" | "adapter:chatCompletions" | "off"`, `codex: "auto" | "native" | "adapter:messages" | "adapter:chatCompletions" | "off"`, `opencode: "auto" | "messages" | "responses" | "chatCompletions" | "off"`. `auto`: native if enabled; else Claude Code/Codex take the first enabled of Responses > Messages > Chat; OpenCode the first enabled of Chat > Responses > Messages. **PR 2 ships with `ADAPTER_AUTO_ROUTES = false`** (exported from `endpoint-routing.js`): `auto` then resolves only native and OpenCode SDK routes; explicit `adapter:*` choices set through the API still work. PR 3 flips the constant together with the "via adapter" labels (see "PR 3 hand-off" at the end).
 - Adapter crash: the supervisor restarts it on the identical `127.0.0.1:<port>` with the same token and configuration, at most 3 restarts within 60 s; a failed rebind counts as a failed restart; after the budget is spent it gives up, records that in the diagnostics file, and the CLI keeps running.
 - Model `images: boolean | null` (default `null`); existing records without the new fields behave as `auto` with default capabilities.
-- Placeholder literal `__AGENTPIER_ADAPTER_URL__`, in CLI env values and argv only; persistent config files (Codex `config.toml`, OpenCode JSON) never contain the adapter URL, the session token or the upstream key on adapter routes.
+- Placeholder literals `__AGENTPIER_ADAPTER_URL__` (CLI env values and argv) and `__AGENTPIER_ADAPTER_PORT__` (nono `--open-port` argv, Task 15), substituted by the launcher after the adapter bound; persistent config files (Codex `config.toml`, OpenCode JSON) never contain the adapter URL, the session token or the upstream key on adapter routes.
 - Session token: 32 random bytes (base64url), in `ANTHROPIC_AUTH_TOKEN` (Claude Code) or the Codex `env_key` variable; the custom auth header applies only to adapter → upstream.
 - CLI env on adapter routes: `NO_PROXY` and `no_proxy` include `127.0.0.1,localhost`; Claude Code gets `CLAUDE_CODE_ATTRIBUTION_HEADER=0` and `CLAUDE_CODE_MAX_OUTPUT_TOKENS` from the model record; Codex gets `web_search = "disabled"` and `apply_patch_tool_type: "freeform"`.
 - Adapter: loopback only (`127.0.0.1:0`), token via `x-api-key` or `Authorization: Bearer`, constant-time comparison, 401 without body echo; `HEAD /api/hello` → 200 empty without token; request body cap 32 MB; per-event cap 16 MB; no total cap on response streams; keep-alive every 15 s (Messages `event: ping`, Responses `event: response.in_progress` data event); upstream idle timeout 240 s; never writes to stdout/stderr.
@@ -61,8 +61,8 @@
 | `server/features/adapter-runtime/adapter-supervisor.js`                                                                                                                                                                                                                                                                                                                                       | Launcher side: `startAdapter`, `substituteAdapterUrl`, exec args, minimal env                                                                                                       |
 | `server/adapter-process.js`                                                                                                                                                                                                                                                                                                                                                                   | Entry point (release root): IPC handshake, signals, parent-death exit                                                                                                               |
 | `tests/helpers/scripted-upstream.js`                                                                                                                                                                                                                                                                                                                                                          | Scripted HTTP upstream (SSE/JSON, delays, hangs) for adapter tests                                                                                                                  |
-| `tests/helpers/adapter-fixture.js`                                                                                                                                                                                                                                                                                                                                                            | Adapter config/fetch helpers shared by integration tests                                                                                                                            |
-| `tests/helpers/fake-cli.mjs`                                                                                                                                                                                                                                                                                                                                                                  | Fake CLI for launcher/blackbox tests (dumps env/argv, calls the adapter)                                                                                                            |
+| `tests/helpers/adapter-fixture.js` (config/fetch helpers, `startAdapterServer`) and `tests/helpers/adapter-process.js` (`alive`, `until`, `waitForFile`)                                                                                                                                                                                                                                      | Adapter config/fetch helpers shared by integration tests                                                                                                                            |
+| `tests/helpers/fake-cli.mjs`, `tests/helpers/smoke-upstreams.js` (Task 14)                                                                                                                                                                                                                                                                                                                    | Fake CLI for launcher/blackbox tests (dumps env/argv, calls the adapter)                                                                                                            |
 | `tests/unit/endpoint-routing.test.js`, `tests/unit/adapter-config.test.js`, `tests/unit/adapter-diagnostics.test.js`, `tests/unit/protocol-adapter/translate-diagnostics.test.js`                                                                                                                                                                                                             | Unit tests                                                                                                                                                                          |
 | `tests/integration/endpoint-stream.test.js`, `tests/integration/adapter-server.test.js`, `tests/integration/adapter-server-streams.test.js`, `tests/integration/adapter-retry.test.js`, `tests/integration/adapter-process.test.js`, `tests/integration/adapter-launcher.test.js`, `tests/integration/session-adapter-payload.test.js`, `tests/integration/endpoint-capability-probe.test.js` | Integration tests                                                                                                                                                                   |
 | `tests/blackbox/endpoint-adapter-session.test.js`                                                                                                                                                                                                                                                                                                                                             | Real lifecycle → tmux → launcher → adapter → fake upstream                                                                                                                          |
@@ -70,29 +70,29 @@
 
 **Modify**
 
-| File                                                                                                                                                                                                                                                                                               | Change                                                                                                                                         |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docs/research/protocol-adapter-facts.md`                                                                                                                                                                                                                                                          | New §6 "Runtime facts (PR 2)"                                                                                                                  |
-| `server/features/providers/endpoint-config.js`                                                                                                                                                                                                                                                     | New block/model keys, defaults, `inheritAdapterSettings`, `endpointTools` from routes, `endpointModel` adds `images`, remove `endpointBaseUrl` |
-| `server/features/providers/endpoint-address.js`                                                                                                                                                                                                                                                    | Extract `assertAllowedAddresses`, add `policyLookup`                                                                                           |
-| `server/features/providers/endpoint-models.js`                                                                                                                                                                                                                                                     | `mergeModels` keeps `images`                                                                                                                   |
-| `server/features/providers/provider-connections.js`                                                                                                                                                                                                                                                | `toolRoutes` in the public view; `update` inherits omitted adapter settings                                                                    |
-| `server/features/providers/launch-description.js`                                                                                                                                                                                                                                                  | `route` in `launchTarget`/`launchDescription`                                                                                                  |
-| `server/features/providers/provider-environment.js`                                                                                                                                                                                                                                                | Adapter-route environment (`adapterToken` option)                                                                                              |
-| `server/features/providers/provider-launch.js`                                                                                                                                                                                                                                                     | Token, `adapter` block, `provider.route`, Claude/Codex adapter wiring                                                                          |
-| `server/features/providers/endpoint-launch.js`                                                                                                                                                                                                                                                     | Codex adapter config (`-c` only base URL), OpenCode SDK routes                                                                                 |
-| `server/features/providers/native-config.js`                                                                                                                                                                                                                                                       | `codexModelCatalog` `images` option                                                                                                            |
-| `server/features/providers/endpoint-probe.js`                                                                                                                                                                                                                                                      | Calls the capability probe; result gains `capabilities`                                                                                        |
-| `server/features/accounts/account-store.js`                                                                                                                                                                                                                                                        | `verifyEndpointTarget` uses the route base URL                                                                                                 |
-| `server/features/pipelines/profile-validation.js`, `server/features/pipelines/native-profile.js`                                                                                                                                                                                                   | Snapshot `route`; legacy snapshot compatibility                                                                                                |
-| `server/features/sessions/provider-configuration.js`                                                                                                                                                                                                                                               | Persist `route`                                                                                                                                |
-| `server/features/sessions/session-creation.js`, `session-replacement.js`, `session-removal.js`                                                                                                                                                                                                     | Payload `adapter` block, diagnostics path, cleanup                                                                                             |
-| `server/features/protocol-adapter/translate.js`                                                                                                                                                                                                                                                    | `diagnostics().cacheReadTokens`                                                                                                                |
-| `server/terminal-launcher.js`                                                                                                                                                                                                                                                                      | Adapter start, substitution, signals, shutdown                                                                                                 |
-| `server/features/nono/nono-launch.js`                                                                                                                                                                                                                                                              | Only if Task 1 fact R1b requires `--open-port` (Task 15)                                                                                       |
-| `server/lib/i18n/{de,en}/providers.js`, `server/lib/i18n/{de,en}/sessions.js`                                                                                                                                                                                                                      | New messages                                                                                                                                   |
-| `docs/architecture.md`                                                                                                                                                                                                                                                                             | List `server/adapter-process.js` among stable entry points                                                                                     |
-| Existing tests: `tests/unit/endpoint-config.test.js`, `tests/integration/provider-connections.test.js`, `tests/integration/endpoint-pipeline-snapshot.test.js`, `tests/matrix/endpoint-launch.test.js`, `tests/integration/release-references.test.js`, `tests/integration/endpoint-probe.test.js` | Extended                                                                                                                                       |
+| File                                                                                                                                                                                                                                                                                                                                                                                                       | Change                                                                                                                                         |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/research/protocol-adapter-facts.md`                                                                                                                                                                                                                                                                                                                                                                  | New §6 "Runtime facts (PR 2)"                                                                                                                  |
+| `server/features/providers/endpoint-config.js`                                                                                                                                                                                                                                                                                                                                                             | New block/model keys, defaults, `inheritAdapterSettings`, `endpointTools` from routes, `endpointModel` adds `images`, remove `endpointBaseUrl` |
+| `server/features/providers/endpoint-address.js`                                                                                                                                                                                                                                                                                                                                                            | Extract `assertAllowedAddresses`, add `policyLookup`                                                                                           |
+| `server/features/providers/endpoint-models.js`                                                                                                                                                                                                                                                                                                                                                             | `mergeModels` keeps `images`                                                                                                                   |
+| `server/features/providers/provider-connections.js`                                                                                                                                                                                                                                                                                                                                                        | `toolRoutes` in the public view; `update` inherits omitted adapter settings                                                                    |
+| `server/features/providers/launch-description.js`                                                                                                                                                                                                                                                                                                                                                          | `route` in `launchTarget`/`launchDescription`                                                                                                  |
+| `server/features/providers/provider-environment.js`                                                                                                                                                                                                                                                                                                                                                        | Adapter-route environment (`adapterToken` option)                                                                                              |
+| `server/features/providers/provider-launch.js`                                                                                                                                                                                                                                                                                                                                                             | Token, `adapter` block, `provider.route`, Claude/Codex adapter wiring                                                                          |
+| `server/features/providers/endpoint-launch.js`                                                                                                                                                                                                                                                                                                                                                             | Codex adapter config (`-c` only base URL), OpenCode SDK routes                                                                                 |
+| `server/features/providers/native-config.js`                                                                                                                                                                                                                                                                                                                                                               | `codexModelCatalog` `images` option                                                                                                            |
+| `server/features/providers/endpoint-probe.js`                                                                                                                                                                                                                                                                                                                                                              | Calls the capability probe; result gains `capabilities`                                                                                        |
+| `server/features/accounts/account-store.js`                                                                                                                                                                                                                                                                                                                                                                | `verifyEndpointTarget` uses the route base URL                                                                                                 |
+| `server/features/pipelines/profile-validation.js`, `server/features/pipelines/native-profile.js`                                                                                                                                                                                                                                                                                                           | Snapshot `route`; legacy snapshot compatibility                                                                                                |
+| `server/features/sessions/provider-configuration.js`                                                                                                                                                                                                                                                                                                                                                       | Persist `route`                                                                                                                                |
+| `server/features/sessions/session-creation.js`, `session-replacement.js`, `session-removal.js`                                                                                                                                                                                                                                                                                                             | Payload `adapter` block, diagnostics path, cleanup                                                                                             |
+| `server/features/protocol-adapter/translate.js`                                                                                                                                                                                                                                                                                                                                                            | `diagnostics().cacheReadTokens`                                                                                                                |
+| `server/terminal-launcher.js`                                                                                                                                                                                                                                                                                                                                                                              | Adapter start, substitution, signals, shutdown                                                                                                 |
+| `server/features/nono/nono-launch.js`                                                                                                                                                                                                                                                                                                                                                                      | `--open-port` with the adapter port placeholder for adapter launches (Task 15, fact R1b)                                                       |
+| `server/lib/i18n/{de,en}/providers.js`, `server/lib/i18n/{de,en}/sessions.js`                                                                                                                                                                                                                                                                                                                              | New messages                                                                                                                                   |
+| `docs/superpowers/specs/2026-10-07-protocol-adapter-design.md` (Amendment 16, Task 8), `docs/architecture.md`                                                                                                                                                                                                                                                                                              | List `server/adapter-process.js` among stable entry points                                                                                     |
+| Existing tests: `tests/unit/endpoint-config.test.js`, `tests/integration/endpoint-connections.test.js`, `tests/integration/endpoint-pipeline-snapshot.test.js`, `tests/unit/endpoint-models.test.js`, `tests/blackbox/session-reload-lifecycle.test.js` (pattern only), `tests/matrix/endpoint-launch.test.js`, `tests/integration/release-references.test.js`, `tests/integration/endpoint-probe.test.js` | Extended                                                                                                                                       |
 
 ---
 
@@ -244,15 +244,15 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 - Create: `server/features/providers/endpoint-routing.js`
 - Modify: `server/features/providers/endpoint-config.js`, `server/features/providers/endpoint-models.js:167-193`, `server/features/providers/provider-connections.js:96-123,162-196`, `server/lib/i18n/de/providers.js`, `server/lib/i18n/en/providers.js`
-- Test: `tests/unit/endpoint-routing.test.js` (new), `tests/unit/endpoint-config.test.js`, `tests/integration/provider-connections.test.js`
+- Test: `tests/unit/endpoint-routing.test.js` (new), `tests/unit/endpoint-config.test.js`, `tests/unit/endpoint-models.test.js`, `tests/integration/endpoint-connections.test.js` (uses its existing `store(t)` and `ollama` helpers)
 
 **Interfaces:**
 
-- Consumes: `assertCapability` from `server/features/protocol-adapter/capabilities.js`; `TOOL_PROTOCOL` from `provider-definitions.js`.
+- Consumes: `assertCapability`, `CAPABILITY_DEFAULTS`, `resolveCapabilities` from `server/features/protocol-adapter/capabilities.js`; `TOOL_PROTOCOL` from `provider-definitions.js`.
 - Produces (all exported from `endpoint-routing.js`):
-  - `ROUTE_CHOICES: { claude: string[], codex: string[], opencode: string[] }`, `DEFAULT_ROUTING = { claude: "auto", codex: "auto", opencode: "auto" }`, `PROTOCOLS = ["messages", "responses", "chatCompletions"]`
+  - `ROUTE_CHOICES: { claude: string[], codex: string[], opencode: string[] }`, `DEFAULT_ROUTING = { claude: "auto", codex: "auto", opencode: "auto" }`, `PROTOCOLS = ["messages", "responses", "chatCompletions"]`, `ROUTE_MODES = ["native", "adapter", "sdk"]`
   - `validateRouting(value) → { claude, codex, opencode }` (undefined → defaults; throws `problem(messages.invalidEndpointRouting)`)
-  - `validateAdapterCapabilities(value) → { messages?, responses?, chatCompletions? }` (unknown capability names dropped; invalid values throw `problem(messages.invalidEndpointCapabilities)`)
+  - `validateAdapterCapabilities(value) → { messages?, responses?, chatCompletions? }` (unknown capability names dropped; `null`/`undefined` values skipped like `resolveCapabilities` does; invalid values throw `problem(messages.invalidEndpointCapabilities)`)
   - `ADAPTER_AUTO_ROUTES = false` (PR 3 sets it to `true`)
   - `resolveRoute(endpoint, tool, { adapterAuto = ADAPTER_AUTO_ROUTES } = {}) → { mode: "native" | "adapter" | "sdk", source: "messages" | "responses" | "chatCompletions" } | null` (the option exists so tests can prove the flag flip; production callers never pass it)
   - `toolRoutes(endpoint) → { claude: Route|null, codex: Route|null, opencode: Route|null }`
@@ -469,6 +469,7 @@ import { TOOL_PROTOCOL } from "./provider-definitions.js";
 
 const messages = serverMessages.providers;
 export const PROTOCOLS = Object.freeze(["messages", "responses", "chatCompletions"]);
+export const ROUTE_MODES = Object.freeze(["native", "adapter", "sdk"]);
 export const ROUTE_CHOICES = Object.freeze({
   claude: ["auto", "native", "adapter:responses", "adapter:chatCompletions", "off"],
   codex: ["auto", "native", "adapter:messages", "adapter:chatCompletions", "off"],
@@ -522,6 +523,7 @@ export function validateAdapterCapabilities(value) {
     const kept = {};
     for (const [name, setting] of Object.entries(given)) {
       if (!Object.hasOwn(CAPABILITY_DEFAULTS[upstream], name)) continue; // unknown → ignored
+      if (setting === undefined || setting === null) continue; // same rule as resolveCapabilities
       try {
         assertCapability(upstream, name, setting);
       } catch {
@@ -596,41 +598,49 @@ Expected: PASS.
 
 - [ ] **Step 5: Write the failing endpoint-config and connection tests**
 
-Add to `tests/unit/endpoint-config.test.js`:
+Add to `tests/unit/endpoint-config.test.js` (the file's `base` is a plain block object with one model; no new helpers):
 
 ```js
 test("validateEndpoint fills routing defaults and keeps adapter settings", () => {
-  const block = validateEndpoint({ ...base(), models: [{ ...model(), images: true }] });
+  const withImages = { ...base, models: [{ ...base.models[0], images: true }] };
+  const block = validateEndpoint(withImages);
   assert.deepEqual(block.routing, { claude: "auto", codex: "auto", opencode: "auto" });
   assert.deepEqual(block.adapterCapabilities, {});
   assert.equal(block.thinkTagExtraction, false);
   assert.equal(block.models[0].images, true);
-  assert.equal(validateEndpoint(base()).models[0].images, null);
-  assert.throws(() => validateEndpoint({ ...base(), thinkTagExtraction: "yes" }), {
+  assert.equal(validateEndpoint(base).models[0].images, null);
+  assert.deepEqual(
+    validateEndpoint({
+      ...base,
+      adapterCapabilities: { chatCompletions: { streamUsage: null } },
+    }).adapterCapabilities,
+    { chatCompletions: {} },
+  );
+  assert.throws(() => validateEndpoint({ ...base, thinkTagExtraction: "yes" }), {
     status: 400,
   });
   assert.throws(
-    () => validateEndpoint({ ...base(), models: [{ ...model(), images: "x" }] }),
+    () => validateEndpoint({ ...base, models: [{ ...base.models[0], images: "x" }] }),
     { status: 400 },
   );
 });
 
 test("endpointTools follows the resolved routes", () => {
   const protocols = { messages: false, responses: false, chatCompletions: true };
-  const chatOnly = validateEndpoint({ ...base(), protocols });
+  const chatOnly = validateEndpoint({ ...base, protocols });
   assert.deepEqual(
     endpointTools(chatOnly),
     ["opencode"],
     "auto offers no adapter routes in PR 2",
   );
   const explicit = validateEndpoint({
-    ...base(),
+    ...base,
     protocols,
     routing: { claude: "adapter:chatCompletions" },
   });
   assert.deepEqual(endpointTools(explicit), ["claude", "opencode"]);
   const off = validateEndpoint({
-    ...base(),
+    ...base,
     protocols,
     routing: { claude: "adapter:chatCompletions", opencode: "off" },
   });
@@ -638,28 +648,58 @@ test("endpointTools follows the resolved routes", () => {
 });
 ```
 
-(`base()`/`model()` are the file's existing block and model factories; add them if absent, mirroring `endpointBlock` in `tests/matrix/endpoint-launch.test.js`.)
-
-Add to `tests/integration/provider-connections.test.js` (Review Focus 1):
+Add to `tests/unit/endpoint-models.test.js`:
 
 ```js
+test("a re-detected model keeps the stored images flag", () => {
+  const previous = [
+    {
+      modelId: "a",
+      label: "a",
+      contextTokens: 32768,
+      outputTokens: null,
+      source: "detected",
+      contextEdited: false,
+      images: true,
+    },
+  ];
+  const detection = {
+    listed: true,
+    warnings: [],
+    models: [{ modelId: "a", label: "a", contextTokens: 65536, source: "detected" }],
+  };
+  assert.equal(mergeModels(previous, detection)[0].images, true);
+  assert.equal("images" in mergeModels([], detection)[0], false);
+});
+```
+
+Add to `tests/integration/endpoint-connections.test.js` (Review Focus 1; it already defines `store(t)` and the `ollama` block, and its "invalid stored endpoint records" test shows the raw-record pattern):
+
+```js
+const chatOnly = {
+  ...ollama,
+  protocols: { messages: false, responses: false, chatCompletions: true },
+};
+
 test("updates from a client without adapter fields keep the stored routing, capabilities and images", (t) => {
-  const connections = fixtureConnections(t); // the file's existing ProviderConnections factory
+  const { connections } = store(t);
   const created = connections.create({
     name: "GPU",
     providerId: "endpoint",
     endpoint: {
-      ...endpointInput(),
+      ...chatOnly,
       routing: { claude: "adapter:chatCompletions", codex: "off" },
       adapterCapabilities: {
         chatCompletions: { maxTokensField: "max_completion_tokens" },
       },
       thinkTagExtraction: true,
-      models: endpointInput().models.map((m) => ({ ...m, images: true })),
+      models: chatOnly.models.map((m) => ({ ...m, images: true })),
     },
   });
-  const legacyPayload = { ...endpointInput() }; // today's endpointPayload shape: no adapter fields
-  const updated = connections.update(created.id, { endpoint: legacyPayload });
+  // today's web endpointPayload shape: no routing, adapterCapabilities, thinkTagExtraction or images
+  const updated = connections.update(created.id, {
+    endpoint: { ...chatOnly, lastTest: null },
+  });
   assert.deepEqual(updated.endpoint.routing, {
     claude: "adapter:chatCompletions",
     codex: "off",
@@ -670,27 +710,54 @@ test("updates from a client without adapter fields keep the stored routing, capa
   });
   assert.equal(updated.endpoint.thinkTagExtraction, true);
   assert.equal(updated.endpoint.models[0].images, true);
-  assert.deepEqual(updated.toolRoutes.codex, null);
+  assert.equal(updated.toolRoutes.codex, null);
   assert.deepEqual(updated.toolRoutes.claude, {
     mode: "adapter",
     source: "chatCompletions",
   });
+  assert.deepEqual(updated.tools, ["claude", "opencode"]);
 });
 
-test("stored records without adapter fields load as auto and gain toolRoutes", (t) => {
-  // write provider-connections.json by hand with a PR #176 record (no routing/images, Chat only), then
-  // construct ProviderConnections and assert get(id).endpoint.routing is all "auto",
-  // models[*].images === null, toolRoutes is { claude: null, codex: null, opencode: native chat }
-  // (tools unchanged from PR #176), and the file on disk is untouched until the next save.
+test("stored PR #176 records without adapter fields load as auto and stay on disk untouched", (t) => {
+  const { dataDir } = store(t);
+  const file = path.join(dataDir, "provider-connections.json");
+  const id = "11111111-1111-4111-8111-111111111111";
+  const legacy = [
+    {
+      id,
+      name: "Legacy",
+      providerId: "endpoint",
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+      endpoint: chatOnly, // exactly the PR #176 shape: no routing, no images
+    },
+  ];
+  fs.writeFileSync(file, JSON.stringify(legacy));
+  const before = fs.readFileSync(file, "utf8");
+  const connections = new ProviderConnections({ dataDir });
+  const loaded = connections.get(id);
+  assert.deepEqual(loaded.endpoint.routing, {
+    claude: "auto",
+    codex: "auto",
+    opencode: "auto",
+  });
+  assert.deepEqual(loaded.endpoint.adapterCapabilities, {});
+  assert.equal(loaded.endpoint.thinkTagExtraction, false);
+  assert.equal(loaded.endpoint.models[0].images, null);
+  assert.deepEqual(loaded.toolRoutes, {
+    claude: null,
+    codex: null,
+    opencode: { mode: "native", source: "chatCompletions" },
+  });
+  assert.deepEqual(loaded.tools, ["opencode"], "same tools as in PR #176");
+  assert.equal(fs.readFileSync(file, "utf8"), before, "loading never rewrites the file");
 });
 ```
 
-Write the second test fully in the file's style (it already has a helper that writes raw records for the "invalid record" tests; reuse it).
-
 - [ ] **Step 6: Run to verify they fail**
 
-Run: `node --test tests/unit/endpoint-config.test.js tests/integration/provider-connections.test.js`
-Expected: FAIL (`routing` undefined, `images` rejected as unknown model key, `toolRoutes` undefined).
+Run: `node --test tests/unit/endpoint-config.test.js tests/unit/endpoint-models.test.js tests/integration/endpoint-connections.test.js`
+Expected: FAIL (`routing` undefined, `images` rejected as unknown model key, `toolRoutes` undefined, `images` lost by `mergeModels`).
 
 - [ ] **Step 7: Implement the record changes**
 
@@ -732,6 +799,7 @@ In `endpoint-models.js` `mergeModels`: add `...(old?.images !== undefined ? { im
 - [ ] **Step 8: Run tests**
 
 Run: `node --test tests/unit/endpoint-routing.test.js tests/unit/endpoint-config.test.js tests/unit/endpoint-models.test.js tests/integration/provider-connections.test.js tests/integration/endpoint-connections.test.js && npm run lint`
+(`endpoint-connections.test.js` grows from 414 to about 500 lines; stays under 600.)
 Expected: PASS. Fix existing assertions that compare whole endpoint blocks (they now include the three new fields and `images: null`).
 
 - [ ] **Step 9: Commit**
@@ -751,12 +819,12 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 
-- Modify: `server/features/providers/launch-description.js`, `server/features/accounts/account-store.js:192-202`, `server/features/sessions/provider-configuration.js`, `server/features/pipelines/profile-validation.js:42-61`, `server/features/pipelines/native-profile.js:36-75`
-- Test: `tests/integration/endpoint-pipeline-snapshot.test.js`, `tests/unit/provider-session.test.js`
+- Modify: `server/features/providers/launch-description.js`, `server/features/providers/endpoint-config.js` (delete `endpointBaseUrl`), `server/features/accounts/account-store.js:192-202`, `server/features/sessions/provider-configuration.js`, `server/features/pipelines/profile-validation.js:42-61`, `server/features/pipelines/native-profile.js:36-75`
+- Test: `tests/integration/endpoint-pipeline-snapshot.test.js`, `tests/integration/endpoint-connections.test.js:205-240` (existing snapshot expectation), `tests/unit/provider-session.test.js`
 
 **Interfaces:**
 
-- Consumes: `resolveRoute`, `routeBaseUrl` (Task 2).
+- Consumes: `resolveRoute`, `routeBaseUrl`, `PROTOCOLS`, `ROUTE_MODES` (Task 2).
 - Produces: `launchTarget(account, endpoint)` and `launchDescription(...)` include `route` (endpoint: `resolveRoute(endpoint, account.tool)`; catalog: `{ mode: "native", source: TOOL_PROTOCOL[account.tool] }`); `endpointSnapshot(endpoint, modelIds, tool)` returns `{ origins, protocols: { [route.source]: true }, route, models }`; `publicProviderConfiguration(provider)` keeps `route` when it is `{ mode ∈ native|adapter|sdk, source ∈ PROTOCOLS }`.
 
 - [ ] **Step 1: Write failing tests**
@@ -798,15 +866,29 @@ test("legacy snapshots without a route keep launching while the route is native 
 test("auto never moves a pipeline onto an adapter route in PR 2", (t) => {
   const { launch, edit } = setup(t, "codex");
   edit({ protocols: { messages: false, responses: false, chatCompletions: true } });
-  assert.throws(() => launch(), { status: 400 }); // connectionUnsupported: codex is no longer offered
+  // ProviderAccess.resolve refuses with connectionToolUnsupported: codex is no longer offered
+  assert.throws(() => launch(), { status: 400 });
 });
 ```
 
-Extend `setup(t, tool, available, endpointOverrides = {})` to merge `endpointOverrides` into the created endpoint. In `tests/unit/provider-session.test.js` add: `publicProviderConfiguration({ route: { mode: "adapter", source: "chatCompletions" } }).route` round-trips; `{ mode: "bogus" }` and `{ mode: "adapter", source: "x" }` are dropped.
+Extend `setup(t, tool, available, endpointOverrides = {})` to merge `endpointOverrides` into the created endpoint.
+
+In `tests/integration/endpoint-connections.test.js` ("endpoint pipeline snapshot covers the CLI's origin, protocol and selected model limits only", around line 222) the deep-equal expectation gains the route:
+
+```js
+    endpoint: {
+      origins: ["http://127.0.0.1:11434"],
+      protocols: { chatCompletions: true },
+      route: { mode: "native", source: "chatCompletions" },
+      models: { qwen3: { contextTokens: 32768, outputTokens: null } },
+    },
+```
+
+In `tests/unit/provider-session.test.js` add: `publicProviderConfiguration({ route: { mode: "adapter", source: "chatCompletions" } }).route` round-trips; `{ mode: "bogus" }` and `{ mode: "adapter", source: "x" }` are dropped.
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `node --test tests/integration/endpoint-pipeline-snapshot.test.js tests/unit/provider-session.test.js`
+Run: `node --test tests/integration/endpoint-pipeline-snapshot.test.js tests/integration/endpoint-connections.test.js tests/unit/provider-session.test.js`
 Expected: FAIL (`route` missing).
 
 - [ ] **Step 3: Implement**
@@ -840,28 +922,27 @@ const current = legacy
 if ((profile.providerConnectionSnapshot && !isDeepStrictEqual(current, frozen)) || …)
 ```
 
-- `provider-configuration.js`: after the token fields add
+- `provider-configuration.js`: import `PROTOCOLS`, `ROUTE_MODES` from `../providers/endpoint-routing.js`; after the token fields add
 
 ```js
 const route = provider.route;
-if (
-  route &&
-  ["native", "adapter", "sdk"].includes(route.mode) &&
-  ["messages", "responses", "chatCompletions"].includes(route.source)
-)
+if (route && ROUTE_MODES.includes(route.mode) && PROTOCOLS.includes(route.source))
   result.route = { mode: route.mode, source: route.source };
 ```
 
 - [ ] **Step 4: Run tests**
 
-Run: `node --test tests/integration/endpoint-pipeline-snapshot.test.js tests/unit/provider-session.test.js tests/integration/endpoint-account-launch.test.js tests/matrix/pipeline-provider-model.test.js`
+Run: `node --test tests/integration/endpoint-pipeline-snapshot.test.js tests/integration/endpoint-connections.test.js tests/unit/provider-session.test.js tests/integration/endpoint-account-launch.test.js tests/matrix/pipeline-provider-model.test.js && git grep -n endpointBaseUrl`
+Expected: tests PASS; `git grep` prints nothing.
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add server/features/providers/launch-description.js server/features/accounts/account-store.js \
-  server/features/sessions/provider-configuration.js server/features/pipelines tests
+git add server/features/providers/launch-description.js server/features/providers/endpoint-config.js \
+  server/features/accounts/account-store.js server/features/sessions/provider-configuration.js \
+  server/features/pipelines tests/integration/endpoint-pipeline-snapshot.test.js \
+  tests/integration/endpoint-connections.test.js tests/unit/provider-session.test.js
 git commit -m "feat: carry the resolved CLI route into launches, sessions and pipeline snapshots
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -873,13 +954,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 
-- Modify: `server/features/providers/endpoint-launch.js:57-90`
+- Modify: `server/features/providers/endpoint-launch.js:57-90`, `server/features/providers/provider-launch.js` (`metadata.route`)
 - Test: `tests/matrix/endpoint-launch.test.js`
 
 **Interfaces:**
 
 - Consumes: `description.route` (Task 3), fact R4a/R4b (Task 1).
-- Produces: `endpointOpenCodeLaunch` writes provider `npm` by route source: `chatCompletions` → `@ai-sdk/openai-compatible` (`baseURL: openaiBaseUrl`, unchanged), `responses` → `@ai-sdk/openai` (`baseURL: openaiBaseUrl`, `apiKey` reference), `messages` → `@ai-sdk/anthropic` (`baseURL: anthropicBaseUrl + "/v1"`, `authToken` reference — or `apiKey` if fact R4a says `authToken` is not passed through). Custom auth header: `headers: { [authHeader]: reference }` for every SDK, never also `apiKey`/`authToken`.
+- Produces: `endpointOpenCodeLaunch` writes provider `npm` by route source: `chatCompletions` → `@ai-sdk/openai-compatible` (`baseURL: openaiBaseUrl`, unchanged), `responses` → `@ai-sdk/openai` (`baseURL: openaiBaseUrl`, `apiKey` reference), `messages` → `@ai-sdk/anthropic` (`baseURL: anthropicBaseUrl + "/v1"`, `authToken` reference: fact R4a confirmed it yields `Authorization: Bearer`). Custom auth header: `headers: { [authHeader]: reference }` for every SDK, never also `apiKey`/`authToken`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -905,9 +986,8 @@ for (const [protocols, npm, baseURL, keyOption] of [
   ],
 ])
   test(`OpenCode uses ${npm} for its route`, (t) => {
-    const { result, files } = launch(t, "opencode", {
-      endpoint: endpointBlock({ protocols }),
-    });
+    // launch() returns the prepared launch and already asserts that no written file holds the key
+    const result = launch(t, "opencode", { endpoint: endpointBlock({ protocols }) });
     const config = JSON.parse(result.env.OPENCODE_CONFIG_CONTENT);
     const provider = config.provider["agentpier-endpoint"];
     assert.equal(provider.npm, npm);
@@ -918,14 +998,8 @@ for (const [protocols, npm, baseURL, keyOption] of [
       result.provider.route.mode,
       npm === "@ai-sdk/openai-compatible" ? "native" : "sdk",
     );
-    assert.equal(
-      files.some((text) => text.includes("endpoint-secret")),
-      false,
-    );
   });
 ```
-
-(Adapt to the file's `launch()` helper: return `{ result, files }` if it does not yet; `keyOption` for anthropic follows R4a.)
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -938,7 +1012,7 @@ Expected: FAIL (`npm` is always `@ai-sdk/openai-compatible`).
 const SDK = {
   chatCompletions: { npm: "@ai-sdk/openai-compatible", keyOption: "apiKey" },
   responses: { npm: "@ai-sdk/openai", keyOption: "apiKey" },
-  messages: { npm: "@ai-sdk/anthropic", keyOption: "authToken" }, // R4a decides authToken vs apiKey
+  messages: { npm: "@ai-sdk/anthropic", keyOption: "authToken" }, // R4a: Bearer, like Claude Code
 };
 // inside endpointOpenCodeLaunch
 const source = description.route?.source ?? "chatCompletions";
@@ -992,7 +1066,7 @@ Rules (adapter routes only):
 
 - Claude Code env: `ANTHROPIC_BASE_URL = ADAPTER_URL_PLACEHOLDER`, `ANTHROPIC_AUTH_TOKEN = token`, `ANTHROPIC_API_KEY = ""`, no `ANTHROPIC_CUSTOM_HEADERS`, `CLAUDE_CODE_ATTRIBUTION_HEADER = "0"`; `CLAUDE_CODE_MAX_OUTPUT_TOKENS` keeps coming from `configureClaudeProvider` (`forceCustom` → `metadata.outputTokens`, already `fallbackOutputTokens`); `customHeader` version gate is not applied (the header is the adapter's business).
 - Without `adapterToken` (the `AccountStore.environment()` path used by history, plugins, auth status): no base URL, `ANTHROPIC_AUTH_TOKEN = "agentpier-endpoint"`, never the key.
-- Codex env: `env[auth.keyEnv] = token` (never the key). `config.toml`: `model`, `model_provider`, `cli_auth_credentials_store`, `model_context_window`, `model_catalog_json`, `web_search = "disabled"`, provider `{ name, wire_api: "responses", requires_openai_auth: false, env_key: auth.keyEnv }` — **no `base_url`, no `env_http_headers`** (R3b fallback per Task 1). argv: the same keys via `-c`, the provider table additionally with `base_url = "__AGENTPIER_ADAPTER_URL__/v1"`.
+- Codex env: `env[auth.keyEnv] = token` (never the key). `config.toml`: `model`, `model_provider`, `cli_auth_credentials_store`, `model_context_window`, `model_catalog_json`, `web_search = "disabled"`, provider `{ name, wire_api: "responses", requires_openai_auth: false, env_key: auth.keyEnv }` — **no `base_url`, no `env_http_headers`** (fact R3b: Codex accepts the table without `base_url`). argv: the same keys via `-c`, the provider table additionally with `base_url = "__AGENTPIER_ADAPTER_URL__/v1"`.
 - Codex catalog: `apply_patch_tool_type: "freeform"` (unchanged), `input_modalities: images === true ? ["text", "image"] : ["text"]`, `reasoning: adapterReasoning(endpoint, route.source)` on adapter routes; native routes keep `reasoning: false`.
 - Both: `withLoopbackNoProxy(env)`.
 
@@ -1043,9 +1117,23 @@ const endpoint = (protocols, extra = {}) =>
     ...extra,
   });
 
-function launch(t, tool, block) {
+const tempRoot = (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-adapter-launch-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  return root;
+};
+
+/** Parses Codex `-c name=<toml value>` arguments the way Codex does (tomlValue quotes keys). */
+const overrides = (args) =>
+  Object.fromEntries(
+    args.flatMap((arg, index) => {
+      if (args[index - 1] !== "-c") return [];
+      const split = arg.indexOf("=");
+      return [[arg.slice(0, split), parseToml(`v = ${arg.slice(split + 1)}`).v]];
+    }),
+  );
+
+function launch(t, tool, block, root = tempRoot(t)) {
   const result = prepareProviderLaunch(
     { kind: "managed", tool, provider: { id: "endpoint", modelId: "qwen3" } },
     { apiKey: KEY },
@@ -1120,12 +1208,16 @@ for (const source of ["messages", "chatCompletions"])
     const { result, files, root } = launch(t, "codex", via("codex", source));
     assertNoLeak(result, files);
     assert.equal(result.env.AGENTPIER_ENDPOINT_API_KEY, result.adapter.token);
-    const argv = result.args.join(" ");
-    assert.match(
-      argv,
-      /base_url = "__AGENTPIER_ADAPTER_URL__\/v1"|base_url="__AGENTPIER_ADAPTER_URL__\/v1"/,
+    const argv = overrides(result.args);
+    assert.equal(
+      argv.model_providers["agentpier-endpoint"].base_url,
+      "__AGENTPIER_ADAPTER_URL__/v1",
     );
-    assert.match(argv, /web_search="disabled"/);
+    assert.equal(
+      argv.model_providers["agentpier-endpoint"].env_key,
+      "AGENTPIER_ENDPOINT_API_KEY",
+    );
+    assert.equal(argv.web_search, "disabled");
     const toml = parseToml(files.find(([f]) => f.endsWith("config.toml"))[1]);
     assert.equal(toml.web_search, "disabled");
     assert.equal(toml.model_providers["agentpier-endpoint"].base_url, undefined);
@@ -1153,9 +1245,29 @@ test("custom auth header stays on the adapter hop", (t) => {
 });
 
 test("a native route after an adapter route removes the adapter from config.toml and env", (t) => {
-  // launch codex on via("codex", "chatCompletions"), then on a responses endpoint with the same root:
-  // the second result has no `adapter`, config.toml has base_url "https://llm.example/v1",
-  // no web_search key is forced, and NO_PROXY is unchanged ("corp.example").
+  const root = tempRoot(t);
+  const first = launch(t, "codex", via("codex", "chatCompletions"), root);
+  assert.ok(first.result.adapter);
+  const { result, files } = launch(t, "codex", endpoint({ responses: true }), root);
+  assert.equal(result.adapter, undefined);
+  assert.deepEqual(result.provider.route, { mode: "native", source: "responses" });
+  const toml = parseToml(files.find(([f]) => f.endsWith("config.toml"))[1]);
+  assert.equal(
+    toml.model_providers["agentpier-endpoint"].base_url,
+    "https://llm.example/v1",
+  );
+  assert.equal(
+    toml.web_search,
+    undefined,
+    "the adapter-only web_search override is removed",
+  );
+  assert.equal(
+    overrides(result.args).model_providers["agentpier-endpoint"].base_url,
+    "https://llm.example/v1",
+  );
+  assert.equal(result.env.AGENTPIER_ENDPOINT_API_KEY, KEY, "native routes keep the key");
+  assert.equal(result.env.NO_PROXY, "corp.example");
+  assert.equal(result.env.no_proxy, undefined);
 });
 
 test("each launch gets a fresh token", (t) => {
@@ -1173,8 +1285,6 @@ test("auto on a Chat-only endpoint launches no adapter route in PR 2", (t) => {
   });
 });
 ```
-
-Write the "native after adapter" test body fully (reuse `launch` with a shared root by adding an optional `root` parameter).
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -1239,11 +1349,28 @@ export function adapterBlock({ tool, description, endpoint, secret, token }) {
 ```js
 const adapterRoute = description.route?.mode === "adapter";
 const token = adapterRoute ? createSessionToken() : null;
-const env = providerEnvironment(account, secret, launch.env, root, description, { adapterToken: token });
+const env = providerEnvironment(account, secret, launch.env, root, description, {
+  adapterToken: token,
+});
 if (adapterRoute) withLoopbackNoProxy(env);
-const metadata = { ...model, …existing…, ...(description.route ? { route: description.route } : {}) };
-const result = { ...launch, args: [...launch.args], env, provider: metadata,
-  ...(adapterRoute ? { adapter: adapterBlock({ tool: account.tool, description, endpoint, secret, token }) } : {}) };
+// metadata.route is already set by Task 4
+const result = {
+  ...launch,
+  args: [...launch.args],
+  env,
+  provider: metadata,
+  ...(adapterRoute
+    ? {
+        adapter: adapterBlock({
+          tool: account.tool,
+          description,
+          endpoint,
+          secret,
+          token,
+        }),
+      }
+    : {}),
+};
 // claude: customHeader: endpointKind && !adapterRoute && !!description.auth.header && !!secret?.apiKey?.trim()
 // codex: endpointCodexLaunch(result, description, secret, connectionName, { endpoint })
 ```
@@ -1324,7 +1451,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 
-- Create: `server/features/adapter-runtime/adapter-config.js`
+- Create: `server/features/adapter-runtime/adapter-config.js`, `tests/helpers/adapter-fixture.js`
 - Modify: `server/features/sessions/session-creation.js:92-110`, `server/features/sessions/session-replacement.js:50-62`, `server/features/sessions/session-removal.js:11-18`, `server/lib/i18n/de/sessions.js`, `server/lib/i18n/en/sessions.js`
 - Test: `tests/unit/adapter-config.test.js`, `tests/integration/session-adapter-payload.test.js`
 
@@ -1342,7 +1469,7 @@ Validation rules: `token` matches `/^[A-Za-z0-9_-]{43}$/`; `clientProtocol ∈ {
 
 `tests/unit/adapter-config.test.js`: one valid config passes and is returned unchanged; for each field above, one invalid value throws `TypeError` whose message does not contain the invalid value (use `apiKey: "secret\u0000x"` and `token: "short"` and assert `!error.message.includes("secret")`).
 
-`tests/integration/session-adapter-payload.test.js`:
+`tests/integration/session-adapter-payload.test.js` (no existing test calls `buildSessionLaunch`; this file defines its own minimal manager):
 
 ```js
 import test from "node:test";
@@ -1351,38 +1478,75 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { buildSessionLaunch } from "../../server/features/sessions/session-creation.js";
-import { validAdapterConfig } from "../helpers/adapter-fixture.js";
+import { removeSession } from "../../server/features/sessions/session-removal.js";
+import { validAdapterConfig, KEY } from "../helpers/adapter-fixture.js";
 
 function manager(t) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-adapter-payload-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const saved = [];
-  return { directory, file: (id) => path.join(directory, `${id}.json`), save: async (s) => saved.push(s), saved };
+  return {
+    directory,
+    saved,
+    file: (id) => path.join(directory, `${id}.json`),
+    save: async (session) => saved.push(session),
+    // removeSession needs these four
+    serial: (fn) => fn(),
+    current: async () => ({ status: "stopped" }),
+    tmux: async () => {},
+    onRemoving: async () => {},
+  };
 }
+const options = (m, extra = {}) => ({
+  name: "Adapter session",
+  tool: "claude",
+  accountId: "local-claude",
+  cwd: m.directory,
+  command: process.execPath,
+  args: [],
+  env: {},
+  ...extra,
+});
 
 test("the adapter block reaches only the private launch payload", async (t) => {
   const m = manager(t);
   const adapter = validAdapterConfig({ diagnosticsPath: undefined });
-  const { id, launchFile, session } = await buildSessionLaunch(m, {
-    tool: "claude", accountId: "local-claude".padEnd(36, "0"), // use a valid id helper from the file under test
-    cwd: m.directory, command: process.execPath, args: [], env: {}, adapter,
-  });
+  const { id, launchFile, session } = await buildSessionLaunch(
+    m,
+    options(m, { adapter }),
+  );
   const payload = JSON.parse(fs.readFileSync(launchFile, "utf8"));
   assert.equal(payload.adapter.token, adapter.token);
-  assert.equal(payload.adapter.diagnosticsPath, path.join(m.directory, `${id}.adapter.json`));
-  assert.equal((fs.statSync(launchFile).mode & 0o777), 0o600);
+  assert.equal(payload.adapter.upstream.apiKey, KEY);
+  assert.equal(
+    payload.adapter.diagnosticsPath,
+    path.join(m.directory, `${id}.adapter.json`),
+  );
+  assert.equal(fs.statSync(launchFile).mode & 0o777, 0o600);
   assert.equal(JSON.stringify(session).includes(adapter.token), false);
-  assert.equal(JSON.stringify(m.saved).includes(adapter.upstream.apiKey), false);
+  assert.equal(JSON.stringify(m.saved).includes(KEY), false);
+  assert.equal(JSON.stringify(m.saved).includes(adapter.token), false);
 });
 
 test("an invalid adapter block is refused before anything is written", async (t) => {
   const m = manager(t);
-  await assert.rejects(buildSessionLaunch(m, { …same…, adapter: { token: "x" } }), { status: 400 });
+  await assert.rejects(buildSessionLaunch(m, options(m, { adapter: { token: "x" } })), {
+    status: 400,
+  });
+  assert.deepEqual(fs.readdirSync(m.directory), []);
+});
+
+test("session removal deletes the adapter diagnostics file", async (t) => {
+  const m = manager(t);
+  const id = "adapter-removal";
+  for (const name of [`${id}.json`, `${id}.adapter.json`])
+    fs.writeFileSync(path.join(m.directory, name), "{}");
+  await removeSession(m, id);
   assert.deepEqual(fs.readdirSync(m.directory), []);
 });
 ```
 
-Use the id/accountId helpers the existing session-creation tests use (search `tests/` for `buildSessionLaunch(`) instead of the padded literal. Add a third test for `replaceSession`'s payload writer if an existing replacement test harness exists (`tests/integration/*reload*.test.js`); otherwise cover it in Task 12's blackbox reload step. Add `"adapter.json"` removal to an existing session-removal test.
+The reload path (`session-replacement.js` writing a fresh `adapter` block) is covered end to end by Task 12's mandatory reload test.
 
 Create `tests/helpers/adapter-fixture.js`:
 
@@ -1442,7 +1606,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 
-- Create: `server/features/providers/endpoint-stream.js`
+- Create: `server/features/providers/endpoint-stream.js`, `tests/helpers/scripted-upstream.js`
 - Modify: `server/features/providers/endpoint-address.js:95-117`
 - Test: `tests/integration/endpoint-stream.test.js`, `tests/integration/endpoint-http.test.js` (unchanged behavior)
 
@@ -1559,26 +1723,33 @@ test("redirects are returned, not followed; text() is capped", async (t) => {
   assert.equal(up.seen.length, 2);
 });
 
-test("each new connection re-resolves and re-checks the address policy (Review Focus 5)", async (t) => {
-  const up = await scriptedUpstream(t, async (_e, res) => res.writeHead(200).end("{}"));
+test("each new connection on the same client re-resolves and re-checks the address policy (Review Focus 5)", async (t) => {
+  // `connection: close` makes the server end every socket, so the one pooled agent must open a
+  // new connection (and run its lookup again) for each request.
+  const up = await scriptedUpstream(t, async (_e, res) =>
+    res.writeHead(200, { connection: "close" }).end("{}"),
+  );
   let address = "127.0.0.1";
+  let lookups = 0;
   const port = new URL(up.base).port;
   const client = createUpstreamClient({
     baseUrl: `http://upstream.test:${port}`,
-    lookup: (host, options, callback) => fixed(address)(host, options, callback),
+    lookup: (host, options, callback) => {
+      lookups += 1;
+      fixed(address)(host, options, callback);
+    },
   });
   t.after(() => client.close());
-  assert.equal((await client.request({ path: "/a", body: {}, headers: {} })).status, 200);
-  client.close(); // drop pooled sockets so the next request opens a new connection
-  address = "0.0.0.0";
-  const next = createUpstreamClient({
-    baseUrl: `http://upstream.test:${port}`,
-    lookup: fixed(address),
-  });
-  t.after(() => next.close());
-  await assert.rejects(next.request({ path: "/a", body: {}, headers: {} }), {
+  const first = await client.request({ path: "/a", body: {}, headers: {} });
+  assert.equal(first.status, 200);
+  await first.text(1024);
+  assert.equal(lookups, 1);
+  address = "0.0.0.0"; // the name now resolves to a forbidden address
+  await assert.rejects(client.request({ path: "/a", body: {}, headers: {} }), {
     adapterKind: "network",
   });
+  assert.equal(lookups, 2, "the second connection resolved the name again");
+  assert.equal(up.seen.length, 1, "nothing reached the forbidden address");
 });
 
 test("an IP-literal upstream outside the policy is refused at creation", () => {
@@ -1587,8 +1758,6 @@ test("an IP-literal upstream outside the policy is refused at creation", () => {
   });
 });
 ```
-
-(The DNS test must prove re-resolution on one client too: restructure it so the same client's agent is forced to open a new socket — e.g. the upstream answers the first request with `connection: close` — then flip `address` and expect rejection. Keep the second-client variant only if the first proves impractical.)
 
 Create `tests/helpers/scripted-upstream.js`:
 
@@ -1788,28 +1957,29 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 
-- Create: `server/features/adapter-runtime/adapter-http.js`, `adapter-request.js`, `adapter-counters.js`, `adapter-server.js`
+- Create: `server/features/adapter-runtime/adapter-http.js`, `adapter-request.js`, `adapter-counters.js`, `adapter-server.js`, `tests/helpers/adapter-process.js` (shared `startAdapterServer`, `alive`, `until`, `waitForJson`; Tasks 9–12 import it)
+- Modify: `docs/superpowers/specs/2026-10-07-protocol-adapter-design.md` (Amendment 16)
 - Test: `tests/integration/adapter-server.test.js` (auth, paths, errors), `tests/integration/adapter-server-streams.test.js` (streams, keep-alive, idle, disconnect, shutdown)
 
 **Interfaces:**
 
 - Consumes: `createTranslator`, `classifyTransportError` (`protocol-adapter/translate.js`); `messagesErrorBody`, `responsesErrorBody` (`protocol-adapter/errors.js`); `resolveCapabilities` (`capabilities.js`); `createUpstreamClient`, `transportError` (Task 7); `authHeaders` (`endpoint-http.js`); `AdapterConfig` (Task 6).
 - Produces:
-  - `createAdapterServer(config, { keepaliveMs = 15_000, idleTimeoutMs = 240_000, maxBodyBytes = 32 * 1024 * 1024, lookup, now = Date.now } = {}) → { listen(port = 0) → Promise<number>, close() → Promise<void>, snapshot() → DiagnosticsSnapshot }`. `listen` binds `127.0.0.1` only.
+  - `createAdapterServer(config, { keepaliveMs = 15_000, idleTimeoutMs = 240_000, maxBodyBytes = 32 * 1024 * 1024, lookup, now = Date.now } = {}) → { ctx, listen(port = 0) → Promise<number>, close() → Promise<void>, snapshot() → DiagnosticsSnapshot }`. `listen` binds `127.0.0.1` only. `ctx` is the per-session context below (Task 9 sets `ctx.retry` and `ctx.onDone` on it).
   - `adapter-http.js`: `tokenMatches(expected, headers) → boolean`, `routeFor(client, method, pathname) → "inference" | "hello" | "notFound"`, `readBody(req, limit) → Promise<string | null>` (null = over limit), `writeRendered(res, rendered)`, `clientError(client, kind, message) → { status, headers, body }`.
-  - `adapter-request.js`: `handleInference(ctx, req, res, rawBody) → Promise<void>`; `ctx = { client, upstream, translator, upstreamClient, upstreamAuth, secrets, timing: { keepaliveMs, idleTimeoutMs }, counters, now, retry? }` (`retry` is added in Task 9).
+  - `adapter-request.js`: `handleInference(ctx, req, res, rawBody) → Promise<void>`; `send(ctx, request, streaming, signal) → Promise<{ response } | { failure }>` (one upstream attempt, used by Task 9's retry); `ok(status) → boolean` (2xx); `ctx = { client, upstream, translator, upstreamClient, upstreamAuth, secrets, timing: { keepaliveMs, idleTimeoutMs }, counters, now, retry? }` (`retry` is added in Task 9).
   - `adapter-counters.js`: `createAdapterCounters() → { count(group, name), increment(name), status(code), snapshot() }` with groups `requests`, `upstreamStatus`, `errors`, `capabilityFallbacks` and scalars `unauthorized`, `clientDisconnects`.
   - `createAdapterServer` also accepts `restarts` (number of supervisor restarts before this process, Task 10) and reports it.
   - `DiagnosticsSnapshot = { version: 1, startedAt, updatedAt, route: { client, upstream }, restarts, requests, unauthorized, upstreamStatus, errors, clientDisconnects, dropped, adjustments, compactionDropped, capabilityFallbacks, capabilities, estimatedUsage, cacheReadTokens }`.
 
 Request rules:
 
-- `HEAD /api/hello` → 200 empty, no token needed. Every other request needs the token (`x-api-key` or `Authorization: Bearer`), else 401 in the client's format, body fixed (`"invalid adapter token"`), counted `unauthorized`.
-- Messages client: `POST /v1/messages` (query ignored) → inference; `GET /api/hello` → 200 empty; `POST /v1/messages/count_tokens` and everything else → 404 `not_found_error`. Responses client: `POST /responses`, `POST /v1/responses` → inference; everything else → 404 in Responses format. Count `requests[<pathname of known route> | "other"]`.
+- Messages client only: `HEAD /api/hello` → 200 empty, no token needed (spec: the probe belongs to Claude Code). Every other request needs the token (`x-api-key` or `Authorization: Bearer`), else 401 in the client's format, body fixed (`"invalid adapter token"`), counted `unauthorized`.
+- Messages client: `POST /v1/messages` (query ignored) → inference; `GET /api/hello` → 200 empty; `POST /v1/messages/count_tokens` and everything else → 404 `not_found_error`. Responses client: `POST /responses`, `POST /v1/responses` → inference; everything else (including `/api/hello`) → 404 in Responses format. Count `requests[<pathname of known route> | "other"]`.
 - Body over `maxBodyBytes` → 400 `invalidRequest` "request body exceeds 32 MB", `connection: close`.
 - `requestId`: `msg_<32 hex>` (Messages) / `resp_<32 hex>` (Responses) from `randomBytes(16)`, unique per request; `buildUpstream(body, req.headers, { requestId, now: now() })`; invalid JSON → `body = null` (the translator renders the 400).
 - Upstream headers: the translator's protocol headers + `authHeaders(apiKey, authHeader)` + `accept`. No client header is forwarded.
-- Streaming Responses clients get `200 text/event-stream` immediately and keep-alives from then on; Messages clients get headers only after the upstream answered 2xx (HTTP error bodies stay possible, which Claude Code needs to recognize "prompt is too long"), and `event: ping` only after the first frame.
+- Streaming Responses clients get `200 text/event-stream` immediately and keep-alives from then on; Messages clients get headers only after the upstream answered 2xx (HTTP error bodies stay possible, which Claude Code needs to recognize "prompt is too long"), and `event: ping` only after the first frame. This deviates from the spec's "pings while the upstream is silent" and is recorded as Amendment 16 in this task (the wait for upstream headers is bounded by the 240 s idle timeout, below Claude Code's 300 s watchdog).
 - Upstream status outside 2xx (incl. 3xx): read ≤ 1 MB text → `ctx.retry` (Task 9) → else `exchange.translateError({ status, body: text, headers }, { streaming, started })`.
 - Transport failure: `exchange.fail(classifyTransportError(error, secrets), { streaming, started })`; counted `errors["transport.<kind>"]` unless the client already disconnected.
 - Client disconnect (`res` closes before `writableFinished`): increment `clientDisconnects`, abort the upstream with `transportError("network", "client disconnected")`.
@@ -1824,26 +1994,11 @@ Request rules:
 ```js
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createAdapterServer } from "../../server/features/adapter-runtime/adapter-server.js";
 import { scriptedUpstream, sse, json } from "../helpers/scripted-upstream.js";
 import { loadFixture } from "../helpers/protocol-adapter.js";
-import {
-  TOKEN,
-  KEY,
-  validAdapterConfig,
-  authorized,
-} from "../helpers/adapter-fixture.js";
+import { TOKEN, KEY, authorized } from "../helpers/adapter-fixture.js";
+import { startAdapterServer as start } from "../helpers/adapter-process.js";
 
-async function start(t, upstream, overrides = {}, options = {}) {
-  const config = validAdapterConfig({
-    upstream: { baseUrl: upstream.base + "/v1", authHeader: null, apiKey: KEY },
-    ...overrides,
-  });
-  const server = createAdapterServer(config, options);
-  const port = await server.listen(0);
-  t.after(() => server.close());
-  return { url: `http://127.0.0.1:${port}`, server };
-}
 const claudeBody = () => loadFixture("clients/claude-code/text.json").body;
 const codexBody = () => loadFixture("clients/codex/text.json").body;
 
@@ -1893,6 +2048,13 @@ test("hello probes and unknown paths", async (t) => {
   assert.equal(counted.status, 404);
   assert.match(await counted.text(), /not_found_error/);
   assert.equal((await fetch(`${url}/v1/models`, { headers: authorized() })).status, 404);
+});
+
+test("the Responses client does not serve /api/hello", async (t) => {
+  const up = await scriptedUpstream(t, () => assert.fail("no upstream call expected"));
+  const { url } = await start(t, up, { clientProtocol: "responses" });
+  assert.equal((await fetch(`${url}/api/hello`, { headers: authorized() })).status, 404);
+  assert.equal((await fetch(`${url}/api/hello`, { method: "HEAD" })).status, 401);
 });
 
 test("Responses client paths and 404 format", async (t) => {
@@ -1966,13 +2128,20 @@ test("upstream messages are redacted and request bodies over the cap are refused
     json(res, 400, { error: { message: `bad key ${KEY} ${TOKEN}` } }),
   );
   const { url } = await start(t, up, {}, { maxBodyBytes: 4096 });
+  const small = {
+    model: "qwen3",
+    max_tokens: 64,
+    stream: false,
+    messages: [{ role: "user", content: "hello" }],
+  };
   const text = await (
     await fetch(`${url}/v1/messages`, {
       method: "POST",
       headers: authorized(),
-      body: JSON.stringify(claudeBody()).slice(0, 4000) + " ".repeat(10),
+      body: JSON.stringify(small),
     })
   ).text();
+  assert.match(text, /bad key/);
   assert.equal(text.includes(KEY) || text.includes(TOKEN), false);
   const big = await fetch(`${url}/v1/messages`, {
     method: "POST",
@@ -1983,8 +2152,9 @@ test("upstream messages are redacted and request bodies over the cap are refused
 });
 
 test("non-streaming requests get a JSON message", async (t) => {
+  const fixture = loadFixture("upstreams/messages/non-stream.json"); // { status, headers, body }
   const up = await scriptedUpstream(t, (_e, res) =>
-    json(res, 200, loadFixture("upstreams/messages/non-stream.json")),
+    json(res, fixture.status, fixture.body),
   );
   const { url } = await start(t, up, {
     clientProtocol: "responses",
@@ -2002,9 +2172,7 @@ test("non-streaming requests get a JSON message", async (t) => {
 });
 ```
 
-(The redaction test's first body must be valid JSON; build it with `JSON.stringify({ ...claudeBody(), messages: [...] })` sized under 4096 instead of slicing — the slice above only illustrates the size intent.)
-
-`tests/integration/adapter-server-streams.test.js` — write these tests with the same `start` helper (copy it; tests must stay independent):
+`tests/integration/adapter-server-streams.test.js` — write these tests with the shared `startAdapterServer` and `until` from `tests/helpers/adapter-process.js` (split by client into `adapter-server-streams-responses.test.js` if the file passes 550 lines):
 
 1. **Keep-alive (Messages):** upstream writes headers + first chat chunk, waits 250 ms, writes the rest; `keepaliveMs: 50` → body contains `event: ping` **after** `event: message_start` and ends with `event: message_stop`.
 2. **Keep-alive (Responses, before upstream headers):** upstream waits 250 ms before `writeHead`; `keepaliveMs: 50` → body starts with `event: response.in_progress` and ends with `response.completed`; every `sequence_number` is strictly increasing.
@@ -2014,6 +2182,66 @@ test("non-streaming requests get a JSON message", async (t) => {
 6. **Concurrent requests (Review Focus 4):** start two streaming requests whose upstream answers slowly; disconnect the first; the second completes with `message_stop`; the two `message_start` ids differ.
 7. **Shutdown with open sockets:** one hanging stream open; `await server.close()` resolves in < 1 s; the client's fetch body rejects or ends; the upstream request is closed.
 8. **Diagnostics snapshot:** after a request with a hosted tool dropped (Codex `web-search-disabled.json` is clean; use `clients/codex/mcp.json` or inject a `{ type: "web_search" }` tool) the snapshot has `dropped` counts and `requests["/v1/responses"] === 1`; `JSON.stringify(snapshot)` contains neither the prompt text, `KEY` nor `TOKEN`.
+
+Create `tests/helpers/adapter-process.js` (the only copy of these helpers; later tasks import them):
+
+```js
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { createAdapterServer } from "../../server/features/adapter-runtime/adapter-server.js";
+import { KEY, validAdapterConfig } from "./adapter-fixture.js";
+
+export const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Polls `check` (sync or async) until it is truthy; fails the test after `ms`. */
+export async function until(check, ms = 3000) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    if (await check()) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.fail("condition not reached");
+}
+
+/** Waits until `file` holds complete JSON and returns it parsed. */
+export async function waitForJson(file, ms = 10_000) {
+  let value;
+  await until(() => {
+    try {
+      value = JSON.parse(fs.readFileSync(file, "utf8"));
+      return true;
+    } catch {
+      return false;
+    }
+  }, ms);
+  return value;
+}
+
+/** In-process adapter server against a scripted upstream (base + "/v1" for OpenAI-style routes). */
+export async function startAdapterServer(t, upstream, overrides = {}, options = {}) {
+  const config = validAdapterConfig({
+    upstream: { baseUrl: `${upstream.base}/v1`, authHeader: null, apiKey: KEY },
+    ...overrides,
+  });
+  const server = createAdapterServer(config, options);
+  const port = await server.listen(0);
+  t.after(() => server.close());
+  return { url: `http://127.0.0.1:${port}`, server };
+}
+```
+
+Append to the spec (`docs/superpowers/specs/2026-10-07-protocol-adapter-design.md`, after Amendment 15):
+
+```markdown
+16. **Messages keep-alive timing**: the adapter sends Claude Code's response headers only after the upstream answered 2xx, and `event: ping` keep-alives only after the first frame. Before that nothing is written, so upstream rejections (notably context overflow) still reach Claude Code as HTTP 400 bodies, which it needs to recognize "prompt is too long". The wait is bounded by the 240 s upstream idle timeout, below Claude Code's 300 s watchdog. Codex streams start immediately (its errors are always in-stream, Amendment 3), so its keep-alives run from the first moment.
+```
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -2039,7 +2267,12 @@ export function tokenMatches(expected, headers) {
 }
 
 export function routeFor(client, method, pathname) {
-  if (pathname === "/api/hello" && (method === "GET" || method === "HEAD"))
+  // /api/hello is Claude Code's connection probe; the Responses client has no such path.
+  if (
+    client === "messages" &&
+    pathname === "/api/hello" &&
+    (method === "GET" || method === "HEAD")
+  )
     return "hello";
   if (method !== "POST") return "notFound";
   if (client === "messages")
@@ -2104,7 +2337,7 @@ import { writeRendered } from "./adapter-http.js";
 const SSE = { "content-type": "text/event-stream", "cache-control": "no-cache" };
 const MAX_ERROR_TEXT = 1024 * 1024;
 const MAX_JSON_TEXT = 32 * 1024 * 1024;
-const ok = (status) => status >= 200 && status < 300;
+export const ok = (status) => status >= 200 && status < 300;
 const newRequestId = (client) =>
   `${client === "messages" ? "msg" : "resp"}_${randomBytes(16).toString("hex")}`;
 
@@ -2408,7 +2641,8 @@ Expected: PASS.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add server/features/adapter-runtime tests/integration/adapter-server*.test.js tests/helpers/adapter-fixture.js
+git add server/features/adapter-runtime tests/integration/adapter-server*.test.js \
+  tests/helpers/adapter-process.js docs/superpowers/specs/2026-10-07-protocol-adapter-design.md
 git commit -m "feat: serve one session's protocol translation over a loopback adapter server
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -2421,15 +2655,15 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 
 - Create: `server/features/adapter-runtime/adapter-retry.js`, `server/features/adapter-runtime/adapter-diagnostics.js`
-- Modify: `server/features/adapter-runtime/adapter-server.js`, `server/features/protocol-adapter/translate.js` (`observe`, `stats`, `diagnostics`)
-- Test: `tests/integration/adapter-retry.test.js`, `tests/unit/adapter-diagnostics.test.js`, `tests/unit/protocol-adapter/translate-diagnostics.test.js`
+- Modify: `server/features/adapter-runtime/adapter-server.js`, `server/features/adapter-runtime/adapter-counters.js` (`fallback`), `server/features/protocol-adapter/translate.js` (`observe`, `stats`, `diagnostics`; keep the addition ≤ 15 lines — the file is at 549)
+- Test: `tests/integration/adapter-retry.test.js`, `tests/integration/adapter-server-streams.test.js` (compaction case), `tests/unit/adapter-diagnostics.test.js`, `tests/unit/protocol-adapter/translate-diagnostics.test.js`
 
 **Interfaces:**
 
 - Consumes: `capabilityForError` (`translate.js` re-export), `classifyUpstreamError` (`errors.js`), `send` and the retry outcome contract (Task 8).
 - Produces:
   - `createRetry(ctx) → (attempt) → Promise<RetryOutcome | null>` assigned to `ctx.retry` by `createAdapterServer`.
-  - `createDiagnosticsWriter({ path, intervalMs = 5000, snapshot, now = Date.now }) → { touch(), flush() → Promise<void> }`; `path === null` → no-op.
+  - `createDiagnosticsWriter({ path, intervalMs = 5000, snapshot, now = Date.now }) → { touch(), flush() → Promise<void> }`; `path === null` → no-op. Writes go through the repository's existing atomic private writer `writePrivate(file, value)` (`server/lib/storage.js`: temp file `wx` + mode 0600 + rename); no second atomic-write helper is created (Task 10 reuses it too).
   - `translator.diagnostics().cacheReadTokens: number` (sum over exchanges of the highest cumulative `cacheRead` each reported).
   - `createAdapterServer(...).close()` flushes diagnostics; `ctx.onDone` = `writer.touch`.
 
@@ -2438,7 +2672,25 @@ Retry rules: classify `(status, text, responseHeaders)` with `classifyUpstreamEr
 - [ ] **Step 1: Write the failing tests**
 
 ```js
-// tests/integration/adapter-retry.test.js (start() copied from adapter-server.test.js)
+// tests/integration/adapter-retry.test.js
+import test from "node:test";
+import assert from "node:assert/strict";
+import { scriptedUpstream, sse, json } from "../helpers/scripted-upstream.js";
+import { loadFixture } from "../helpers/protocol-adapter.js";
+import { authorized } from "../helpers/adapter-fixture.js";
+import { startAdapterServer as start, until } from "../helpers/adapter-process.js";
+
+const claudeBody = (extra = {}) => ({
+  ...loadFixture("clients/claude-code/text.json").body,
+  ...extra,
+});
+const post = (url, body = claudeBody()) =>
+  fetch(`${url}/v1/messages`, {
+    method: "POST",
+    headers: authorized(),
+    body: JSON.stringify(body),
+  });
+
 test("Responses upstream rejecting reasoning: retry once, keep the fallback after success", async (t) => {
   const up = await scriptedUpstream(t, (entry, res) => {
     if (entry.body.reasoning)
@@ -2453,11 +2705,7 @@ test("Responses upstream rejecting reasoning: retry once, keep the fallback afte
   });
   const { url, server } = await start(t, up, { upstreamProtocol: "responses" });
   for (let i = 0; i < 2; i++) {
-    const res = await fetch(`${url}/v1/messages`, {
-      method: "POST",
-      headers: authorized(),
-      body: JSON.stringify(claudeBody()),
-    });
+    const res = await post(url);
     assert.match(await res.text(), /event: message_stop/);
   }
   assert.deepEqual(
@@ -2530,20 +2778,94 @@ test("Chat max_tokens rejection switches to max_completion_tokens", async (t) =>
   assert.equal("max_completion_tokens" in up.seen[1].body, true);
 });
 
-test("no retry for errors that name no capability, and never more than one retry", async (t) => {
-  // (a) 400 "model not found" → exactly one upstream request;
-  // (b) upstream rejects reasoning first, then (without reasoning) rejects prompt_cache_key → 2 upstream requests, client sees the second error.
+test("no retry for errors that name no capability", async (t) => {
+  const up = await scriptedUpstream(t, (_e, res) =>
+    json(res, 400, { error: { message: "model not found" } }),
+  );
+  const { url, server } = await start(t, up, { upstreamProtocol: "responses" });
+  const res = await post(url);
+  assert.equal(res.status, 400);
+  assert.match(await res.text(), /model not found/);
+  assert.equal(up.seen.length, 1);
+  assert.deepEqual(server.snapshot().capabilityFallbacks, {});
+});
+
+test("never more than one retry per request", async (t) => {
+  // First the reasoning parameter is refused; the retry (without reasoning) is then refused
+  // for prompt_cache_key, which would map to another capability — no second retry.
+  const up = await scriptedUpstream(t, (entry, res) => {
+    if (entry.body.reasoning)
+      return json(res, 400, {
+        error: { message: "Unsupported parameter: 'reasoning'", param: "reasoning" },
+      });
+    if ("prompt_cache_key" in entry.body)
+      return json(res, 400, {
+        error: {
+          message: "Unsupported parameter: 'prompt_cache_key'",
+          param: "prompt_cache_key",
+        },
+      });
+    sse(res, loadFixture("upstreams/responses/text.sse"));
+  });
+  const { url, server } = await start(t, up, {
+    upstreamProtocol: "responses",
+    capabilities: { promptCacheKey: true },
+  });
+  const res = await post(url);
+  assert.equal(res.status, 400);
+  assert.match(await res.text(), /prompt_cache_key/);
+  assert.equal(up.seen.length, 2);
+  assert.deepEqual(server.snapshot().capabilityFallbacks, {
+    "reasoningEffort=false": { kept: 0, reverted: 1 },
+  });
+  assert.equal(server.snapshot().capabilities.promptCacheKey, true);
 });
 
 test("a retry in one request does not break a concurrent stream (Review Focus 4)", async (t) => {
-  // request A streams slowly from a chat upstream; request B triggers the maxTokensField retry meanwhile;
-  // A completes with message_stop and B succeeds.
+  // A (max_tokens 1000) streams slowly; B (max_tokens 2000) is refused for max_tokens and
+  // retried with max_completion_tokens while A is still streaming.
+  const [head, tail] = (() => {
+    const text = loadFixture("upstreams/chat/text.sse");
+    const cut = text.indexOf("
+
+") + 2;
+    return [text.slice(0, cut), text.slice(cut)];
+  })();
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  const up = await scriptedUpstream(t, async (entry, res) => {
+    if (entry.body.max_tokens === 2000)
+      return json(res, 400, {
+        error: {
+          message:
+            "Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.",
+          param: "max_tokens",
+        },
+      });
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    res.write(head);
+    if (entry.body.max_tokens === 1000) await gate;
+    res.end(tail);
+  });
+  const { url, server } = await start(t, up);
+  const a = post(url, claudeBody({ max_tokens: 1000 }));
+  await until(() => up.seen.length === 1);
+  const b = await post(url, claudeBody({ max_tokens: 2000 }));
+  assert.equal(b.status, 200);
+  assert.match(await b.text(), /event: message_stop/);
+  release();
+  const first = await a;
+  assert.equal(first.status, 200);
+  assert.match(await first.text(), /event: message_stop/);
+  assert.equal(up.seen[2].body.max_completion_tokens, 2000);
+  assert.deepEqual(server.snapshot().capabilityFallbacks["maxTokensField=max_completion_tokens"], {
+    kept: 1,
+    reverted: 0,
+  });
 });
 ```
 
-Write (a)/(b) and the concurrency test fully in the same style.
-
-`tests/unit/adapter-diagnostics.test.js`: with `intervalMs: 50` and a counter-backed `snapshot`, ten `touch()` calls within 20 ms produce one write; another `touch()` after 60 ms produces a second; `flush()` writes immediately; the file mode is `0o600`; a `.tmp` file never remains; `path: null` writes nothing; a missing directory does not throw.
+`tests/unit/adapter-diagnostics.test.js`: with `intervalMs: 50` and a counter-backed `snapshot`, ten `touch()` calls within 20 ms produce one write; another `touch()` after 60 ms produces a second; `flush()` writes immediately; the file mode is `0o600`; a `.tmp` file never remains; `path: null` writes nothing; a path whose parent is a regular file (unwritable) does not throw.
 
 `tests/unit/protocol-adapter/translate-diagnostics.test.js`: build a translator (`client: "messages"`, `upstream: "chat"`), run one exchange over `upstreams/chat/usage-cached.sse` with `translateStream`, assert `diagnostics().cacheReadTokens` equals the fixture's `cached_tokens`; a second exchange adds to it; an exchange that reports cumulative usage twice (e.g. Responses `cached-usage.sse`) is counted once.
 
@@ -2626,19 +2948,17 @@ export function createRetry(ctx) {
 
 Add `fallback(name, outcome)` to `adapter-counters.js` (`capabilityFallbacks[name] ??= { kept: 0, reverted: 0 }`). Restoring `previous` when another request changed the same capability in between is accepted (documented in a comment).
 
-- `adapter-diagnostics.js`:
+- `adapter-diagnostics.js` (reuses `writePrivate`; the file is a few KB, so the synchronous write is fine):
 
 ```js
-import { randomUUID } from "node:crypto";
-import { rename, rm, writeFile } from "node:fs/promises";
+import { writePrivate } from "../../lib/storage.js";
 
-async function writeAtomic(file, text) {
-  const temporary = `${file}.${randomUUID()}.tmp`;
+/** Atomic private write that never throws (diagnostics must not take the adapter down). */
+export function writeDiagnostics(file, value) {
   try {
-    await writeFile(temporary, text, { mode: 0o600, flag: "wx" });
-    await rename(temporary, file);
-  } finally {
-    await rm(temporary, { force: true });
+    writePrivate(file, value);
+  } catch {
+    /* a missing or read-only directory only loses diagnostics */
   }
 }
 
@@ -2649,14 +2969,11 @@ export function createDiagnosticsWriter({
   now = Date.now,
 }) {
   let last = -Infinity,
-    timer = null,
-    chain = Promise.resolve();
+    timer = null;
   const write = () => {
     timer = null;
     last = now();
-    const text = JSON.stringify(snapshot());
-    chain = chain.then(() => writeAtomic(file, text)).catch(() => {});
-    return chain;
+    writeDiagnostics(file, snapshot());
   };
   return {
     touch() {
@@ -2667,7 +2984,7 @@ export function createDiagnosticsWriter({
     async flush() {
       if (!file) return;
       clearTimeout(timer);
-      await write();
+      write();
     },
   };
 }
@@ -2696,21 +3013,21 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 
 - Create: `server/adapter-process.js`, `server/features/adapter-runtime/adapter-supervisor.js`
-- Test: `tests/integration/adapter-process.test.js`
+- Test: `tests/integration/adapter-process.test.js` (start, stop, signals, failures), `tests/integration/adapter-restart.test.js` (restart policy; a separate file keeps both under 600 lines)
 
 **Interfaces:**
 
-- Consumes: `validateAdapterConfig` (Task 6), `createAdapterServer` (Tasks 8–9), fact R5.
+- Consumes: `validateAdapterConfig` (Task 6), `createAdapterServer` (Tasks 8–9), `writeDiagnostics` (Task 9), `alive`/`until` (`tests/helpers/adapter-process.js`, Task 8), fact R5.
 - Produces (`adapter-supervisor.js`):
   - `ADAPTER_ENTRY` (absolute path of `server/adapter-process.js`, derived from the module URL)
   - `adapterExecArgv(flags = process.allowedNodeEnvironmentFlags) → string[]` (`["--use-system-ca"]` or `[]`)
   - `adapterEnvironment(cliEnv = {}, own = process.env) → { PATH, NODE_EXTRA_CA_CERTS? }` (never proxies, never keys)
   - `startAdapter(config, { entry = ADAPTER_ENTRY, timeoutMs = 10_000, cliEnv, signal, execArgv, restart: { max = 3, windowMs = 60_000, delayMs = 250 } = {} } = {}) → Promise<SupervisedAdapter>`; rejects with `Error` whose `reason ∈ timeout|config|bind|exited|spawn|aborted`.
   - `SupervisedAdapter = { port, url, child /* current child, replaced on restart */, restarts() → number, stop({ graceMs = 2000 } = {}) → Promise<void> }`.
-  - `spawnAdapter(config, { entry, timeoutMs, cliEnv, signal, execArgv, port = 0, restarts = 0 }) → Promise<ChildProcess>` (one start attempt; used for the first start and every restart).
+  - `spawnAdapter(config, { entry, timeoutMs, cliEnv, signal, execArgv, port = 0, restarts = 0, onSpawn }) → Promise<ChildProcess>` (one start attempt; used for the first start and every restart; `onSpawn(child)` hands the still-starting child to the caller so `stop()` can wait for it). The reason comes from the adapter's `failed` message; if the child exits without one, exit code 78 maps to `config`, 71 to `bind`, anything else to `exited`.
   - `substituteAdapterUrl({ env, args }, url) → { env, args }` (replaces every `__AGENTPIER_ADAPTER_URL__` substring in env values and args).
 - IPC protocol: launcher → adapter `{ type: "start", config, port, restarts }` once after `spawn` (`port` 0 on the first start, the original port on restarts; `restarts` = restarts so far, shown in the snapshot); adapter → launcher `{ type: "ready", port }` or `{ type: "failed", reason: "config" | "bind" }`. A restart is ready only when the reported port equals the original port.
-- Restart policy: an adapter exit the supervisor did not cause (crash, SIGKILL, OOM) triggers a restart after `delayMs` with the **same** `config` (same token) on the **same** port. Every attempt — successful or not (bind failure because the port was taken, start timeout) — consumes one unit of the budget: at most `max` attempts within any sliding `windowMs`. A failed attempt is retried after `delayMs` while budget remains. When the budget is spent the supervisor stops trying and merges `{ supervisor: { restarts, gaveUpAt, lastReason } }` into the diagnostics file (atomic, mode 0600; read-modify-write of the adapter's last snapshot). The CLI is never touched and nothing is written to stdio. `stop()` during a pending restart cancels the timer, kills a starting child, and resolves once no adapter child remains. The adapter exits on `SIGTERM` (graceful close) and on IPC `disconnect` (launcher died); it ignores `SIGINT`, `SIGQUIT`, `SIGHUP`; `stdio` is `["ignore", "ignore", "ignore", "ipc"]`; it is spawned `detached: true` (own process group: terminal Ctrl+C never reaches it); `uncaughtException`/`unhandledRejection` → close, exit 70.
+- Restart policy: an adapter exit the supervisor did not cause (crash, SIGKILL, OOM) triggers a restart after `delayMs` with the **same** `config` (same token) on the **same** port. Every attempt — successful or not (bind failure because the port was taken, start timeout) — consumes one unit of the budget: at most `max` attempts within any sliding `windowMs`. A failed attempt is retried after `delayMs` while budget remains. When the budget is spent the supervisor stops trying and merges `{ supervisor: { restarts, gaveUpAt, lastReason } }` into the diagnostics file (atomic, mode 0600; read-modify-write of the adapter's last snapshot). The CLI is never touched and nothing is written to stdio. `stop()` during a pending restart cancels the timer, aborts a starting child and **awaits its exit**, and resolves only once no adapter child remains. The adapter exits on `SIGTERM` (graceful close) and on IPC `disconnect` (launcher died); it ignores `SIGINT`, `SIGQUIT`, `SIGHUP`; `stdio` is `["ignore", "ignore", "ignore", "ipc"]`; it is spawned `detached: true` (own process group: terminal Ctrl+C never reaches it); `uncaughtException`/`unhandledRejection` → close, exit 70.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2728,26 +3045,13 @@ import {
   adapterEnvironment,
   substituteAdapterUrl,
 } from "../../server/features/adapter-runtime/adapter-supervisor.js";
+import net from "node:net";
+import { once } from "node:events";
+import { spawnAdapter } from "../../server/features/adapter-runtime/adapter-supervisor.js";
 import { scriptedUpstream, sse } from "../helpers/scripted-upstream.js";
 import { loadFixture } from "../helpers/protocol-adapter.js";
 import { KEY, validAdapterConfig, authorized } from "../helpers/adapter-fixture.js";
-
-const alive = (pid) => {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-};
-async function until(check, ms = 3000) {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {
-    if (await check()) return;
-    await new Promise((r) => setTimeout(r, 25));
-  }
-  assert.fail("condition not reached");
-}
+import { alive, until } from "../helpers/adapter-process.js";
 
 test("the adapter process serves one session and keeps the key out of argv, env and stdio", async (t) => {
   const up = await scriptedUpstream(t, (_e, res) =>
@@ -2815,7 +3119,8 @@ test("substitution touches env values and args only", () => {
   });
 });
 
-test("startup failures: invalid config, silent child, bind timeout", async (t) => {
+test("startup failures: invalid config and a silent child (start timeout)", async (t) => {
+  // The adapter reports `config` over IPC before it exits; the supervisor must see that reason.
   await assert.rejects(startAdapter({ token: "x" }), { reason: "config" });
   const silent = path.join(os.tmpdir(), `agentpier-silent-${process.pid}.mjs`);
   fs.writeFileSync(silent, "setInterval(() => {}, 1000);\n");
@@ -2844,14 +3149,64 @@ setInterval(() => {}, 1000);\n`,
   assert.equal(alive(adapter.child.pid), false);
 });
 
+test("a taken port fails the start with reason bind", async (t) => {
+  const blocker = net.createServer().listen(0, "127.0.0.1");
+  await once(blocker, "listening");
+  t.after(() => blocker.close());
+  await assert.rejects(
+    spawnAdapter(validAdapterConfig(), { port: blocker.address().port }),
+    { reason: "bind" },
+  );
+});
+
 test("the adapter exits when its launcher dies", async (t) => {
-  // spawn `node -e` script that imports startAdapter, starts it, prints the adapter pid, then waits;
-  // SIGKILL that parent; until(() => !alive(adapterPid)).
+  const supervisor = new URL(
+    "../../server/features/adapter-runtime/adapter-supervisor.js",
+    import.meta.url,
+  ).href;
+  const script = `
+import { startAdapter } from ${JSON.stringify(supervisor)};
+const adapter = await startAdapter(${JSON.stringify(validAdapterConfig())});
+console.log(adapter.child.pid);
+setInterval(() => {}, 1000);
+`;
+  const parent = spawn(process.execPath, ["--input-type=module", "-e", script], {
+    stdio: ["ignore", "pipe", "inherit"],
+  });
+  t.after(() => parent.kill("SIGKILL"));
+  const [line] = await once(parent.stdout, "data");
+  const pid = Number(String(line).trim());
+  assert.ok(alive(pid), "adapter started");
+  parent.kill("SIGKILL"); // no SIGTERM, no stop(): only the IPC disconnect tells the adapter
+  await until(() => !alive(pid), 5000);
 });
 
 test("SIGINT does not stop the adapter", async (t) => {
-  // start an adapter; process.kill(adapter.child.pid, "SIGINT"); wait 200 ms; hello HEAD still returns 200.
+  const adapter = await startAdapter(validAdapterConfig());
+  t.after(() => adapter.stop());
+  process.kill(adapter.child.pid, "SIGINT");
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal(alive(adapter.child.pid), true);
+  assert.equal(adapter.restarts(), 0, "not a crash and restart either");
+  assert.equal((await fetch(`${adapter.url}/api/hello`, { method: "HEAD" })).status, 200);
 });
+```
+
+`tests/integration/adapter-restart.test.js`:
+
+```js
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import net from "node:net";
+import { once } from "node:events";
+import { startAdapter } from "../../server/features/adapter-runtime/adapter-supervisor.js";
+import { scriptedUpstream, sse } from "../helpers/scripted-upstream.js";
+import { loadFixture } from "../helpers/protocol-adapter.js";
+import { KEY, validAdapterConfig, authorized } from "../helpers/adapter-fixture.js";
+import { alive, until } from "../helpers/adapter-process.js";
 
 test("a crashed adapter is restarted on the same port with the same token", async (t) => {
   const up = await scriptedUpstream(t, (_e, res) =>
@@ -2924,15 +3279,43 @@ test("stop during a pending restart leaves no adapter behind", async (t) => {
     null,
   );
 });
+
+test("stop waits for an adapter that is still starting", async (t) => {
+  // Stub entry: the first process reports ready; every later one stays silent (marker file),
+  // so the restart attempt is still "starting" when stop() runs.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-slow-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const marker = path.join(dir, "started");
+  const stub = path.join(dir, "stub.mjs");
+  fs.writeFileSync(
+    stub,
+    `import fs from "node:fs";
+const first = !fs.existsSync(${JSON.stringify(marker)});
+fs.writeFileSync(${JSON.stringify(marker)}, "");
+process.on("message", () => { if (first) process.send({ type: "ready", port: 47999 }); });
+setInterval(() => {}, 1000);\n`,
+  );
+  const adapter = await startAdapter(validAdapterConfig(), {
+    entry: stub,
+    timeoutMs: 5000,
+    restart: { delayMs: 20 },
+  });
+  process.kill(adapter.child.pid, "SIGKILL");
+  let startingPid = null;
+  await until(() => (startingPid = adapter.startingPid()) !== null);
+  await adapter.stop();
+  assert.equal(
+    alive(startingPid),
+    false,
+    "the starting child is gone when stop() resolves",
+  );
+  assert.equal(adapter.restarts(), 1);
+});
 ```
-
-Import `net` from `node:net` and `once` from `node:events` in this test file. If the budget test exceeds ~120 lines with its helpers, move the three restart tests to `tests/integration/adapter-restart.test.js` (keeps both files < 600 lines).
-
-Write the parent-death and SIGINT tests fully (the parent-death test uses `spawn(process.execPath, ["--input-type=module", "-e", script])` with `stdio: ["ignore", "pipe", "inherit"]` and reads the pid from stdout).
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `node --test tests/integration/adapter-process.test.js`
+Run: `node --test tests/integration/adapter-process.test.js tests/integration/adapter-restart.test.js`
 Expected: FAIL (modules missing).
 
 - [ ] **Step 3: Implement the supervisor**
@@ -2979,14 +3362,15 @@ export async function startAdapter(config, options = {}) {
   let total = 0,
     stopping = false,
     timer = null,
-    starting = null,
+    starting = null, // AbortController of a restart attempt in flight
+    startingChild = null, // its child process until it is ready or gone
     lastReason = "exited";
   const scheduleRestart = () => {
     if (stopping) return;
     const now = Date.now();
     while (attempts.length && now - attempts[0] > windowMs) attempts.shift();
     if (attempts.length >= max)
-      return void recordGiveUp(config.diagnosticsPath, { restarts: total, lastReason });
+      return recordGiveUp(config.diagnosticsPath, { restarts: total, lastReason });
     timer = setTimeout(async () => {
       timer = null;
       if (stopping) return;
@@ -3000,8 +3384,10 @@ export async function startAdapter(config, options = {}) {
           signal: controller.signal,
           port,
           restarts: total,
+          onSpawn: (spawned) => (startingChild = spawned),
         });
         starting = null;
+        startingChild = null;
         if (stopping) {
           next.kill("SIGKILL");
           return;
@@ -3014,6 +3400,7 @@ export async function startAdapter(config, options = {}) {
         watch(next);
       } catch (error) {
         starting = null;
+        startingChild = null;
         lastReason = error.reason ?? "exited";
         scheduleRestart(); // a failed rebind or start timeout consumed this attempt
       }
@@ -3036,10 +3423,13 @@ export async function startAdapter(config, options = {}) {
       return child;
     },
     restarts: () => total,
+    startingPid: () => startingChild?.pid ?? null, // test seam for "stop waits for a starting child"
     async stop({ graceMs = 2000 } = {}) {
       stopping = true;
       clearTimeout(timer);
-      starting?.abort(); // spawnAdapter kills a child that is still starting
+      const pending = startingChild;
+      starting?.abort(); // spawnAdapter SIGKILLs a child that is still starting …
+      if (pending) await exitOf(pending); // … and stop() waits until it is really gone
       const current = child;
       if (running(current)) {
         current.kill("SIGTERM");
@@ -3052,24 +3442,16 @@ export async function startAdapter(config, options = {}) {
 }
 
 /** Merges the give-up record into the adapter's last snapshot (atomic, 0600, never throws). */
-async function recordGiveUp(file, { restarts, lastReason }) {
+function recordGiveUp(file, { restarts, lastReason }) {
   if (!file) return;
   let current = {};
   try {
-    current = JSON.parse(await readFile(file, "utf8"));
+    current = JSON.parse(readFileSync(file, "utf8"));
   } catch {}
-  const text = JSON.stringify({
+  writeDiagnostics(file, {
     ...current,
     supervisor: { restarts, lastReason, gaveUpAt: new Date().toISOString() },
   });
-  const temporary = `${file}.${randomUUID()}.tmp`;
-  try {
-    await writeFile(temporary, text, { mode: 0o600, flag: "wx" });
-    await rename(temporary, file);
-  } catch {
-  } finally {
-    await rm(temporary, { force: true }).catch(() => {});
-  }
 }
 
 /** One start attempt; resolves with the ready child (`child.adapterPort` set). */
@@ -3083,6 +3465,7 @@ export function spawnAdapter(
     execArgv = adapterExecArgv(),
     port = 0,
     restarts = 0,
+    onSpawn,
   } = {},
 ) {
   return new Promise((resolve, reject) => {
@@ -3091,6 +3474,7 @@ export function spawnAdapter(
       detached: true,
       env: adapterEnvironment(cliEnv),
     });
+    onSpawn?.(child);
     let settled = false;
     const settle = () => {
       settled = true;
@@ -3108,7 +3492,10 @@ export function spawnAdapter(
     if (signal?.aborted) return onAbort();
     signal?.addEventListener("abort", onAbort, { once: true });
     child.once("error", () => fail("spawn"));
-    child.once("exit", () => fail("exited"));
+    // Fallback when the failed message was lost: the adapter's exit codes name the reason.
+    child.once("exit", (code) =>
+      fail(code === 78 ? "config" : code === 71 ? "bind" : "exited"),
+    );
     child.on("message", (message) => {
       if (settled) return;
       const port = message?.port;
@@ -3128,7 +3515,7 @@ export function spawnAdapter(
 }
 ```
 
-Imports for the supervisor: `readFile`, `writeFile`, `rename`, `rm` from `node:fs/promises`, `randomUUID` from `node:crypto`. `config` validity is checked by the adapter process (it reports `config`), so an invalid config rejects with `reason: "config"` as the test expects. Keep `adapter-supervisor.js` < 250 lines; if the restart logic pushes it further, move `startAdapter`'s restart loop to `adapter-restart.js`.
+Imports for the supervisor: `readFileSync` from `node:fs`, `writeDiagnostics` from `./adapter-diagnostics.js` (Task 9; the one atomic private writer). `config` validity is checked by the adapter process (it reports `config`), so an invalid config rejects with `reason: "config"` as the test expects. Keep `adapter-supervisor.js` < 250 lines; if the restart logic pushes it further, move `startAdapter`'s restart loop to `adapter-restart.js`.
 
 - [ ] **Step 4: Implement `server/adapter-process.js`**
 
@@ -3156,14 +3543,26 @@ process.on("SIGTERM", () => shutdown(0));
 process.on("disconnect", () => shutdown(0));
 process.on("uncaughtException", () => shutdown(70));
 process.on("unhandledRejection", () => shutdown(70));
+/** Reports a start failure, then exits — only after the IPC message is flushed (≤ 500 ms). */
+function fail(reason, code) {
+  const exit = () => {
+    clearTimeout(fallback);
+    shutdown(code);
+  };
+  const fallback = setTimeout(exit, 500);
+  try {
+    process.send({ type: "failed", reason }, exit);
+  } catch {
+    exit();
+  }
+}
 process.once("message", async (message) => {
   let config;
   try {
     if (message?.type !== "start") throw new TypeError("adapter: unexpected message");
     config = validateAdapterConfig(message.config);
   } catch {
-    process.send?.({ type: "failed", reason: "config" });
-    return shutdown(78);
+    return fail("config", 78);
   }
   try {
     // Restarts rebind the original port so the CLI's substituted URL stays valid.
@@ -3177,8 +3576,7 @@ process.once("message", async (message) => {
     const port = await server.listen(wanted);
     process.send({ type: "ready", port });
   } catch {
-    process.send?.({ type: "failed", reason: "bind" });
-    shutdown(71);
+    fail("bind", 71);
   }
 });
 ```
@@ -3187,13 +3585,14 @@ process.once("message", async (message) => {
 
 - [ ] **Step 5: Run tests**
 
-Run: `node --test tests/integration/adapter-process.test.js`
+Run: `node --test tests/integration/adapter-process.test.js tests/integration/adapter-restart.test.js`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add server/adapter-process.js server/features/adapter-runtime/adapter-supervisor.js tests/integration/adapter-process.test.js
+git add server/adapter-process.js server/features/adapter-runtime/adapter-supervisor.js \
+  tests/integration/adapter-process.test.js tests/integration/adapter-restart.test.js
 git commit -m "feat: run the protocol adapter as an IPC-configured child process
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -3263,9 +3662,11 @@ import os from "node:os";
 import path from "node:path";
 import { spawn, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { once } from "node:events";
 import { scriptedUpstream, sse } from "../helpers/scripted-upstream.js";
 import { loadFixture } from "../helpers/protocol-adapter.js";
 import { KEY, TOKEN, validAdapterConfig } from "../helpers/adapter-fixture.js";
+import { alive, until } from "../helpers/adapter-process.js";
 
 const launcher = fileURLToPath(
   new URL("../../server/terminal-launcher.js", import.meta.url),
@@ -3303,7 +3704,7 @@ const adapterPids = (launcherPid) =>
     )
     .map(([pid]) => Number(pid));
 
-async function setup(t, mode = "call") {
+async function setup(t, mode = "call", extra = () => ({})) {
   const up = await scriptedUpstream(t, (_e, res) =>
     sse(res, loadFixture("upstreams/chat/text.sse")),
   );
@@ -3322,6 +3723,7 @@ async function setup(t, mode = "call") {
       upstream: { baseUrl: `${up.base}/v1`, authHeader: null, apiKey: KEY },
       diagnosticsPath: path.join(d, "s.adapter.json"),
     }),
+    ...extra(d),
   }));
   return { up, dir, file, out: path.join(dir, "out.json") };
 }
@@ -3413,12 +3815,44 @@ test("Ctrl+C in the terminal does not stop the adapter (Review Focus 2)", async 
 });
 
 test("headless pipelines get the substituted URL through the native process group", async (t) => {
-  // payload adds observationPath/outcomePath in dir; fake CLI mode "call" prints FAKE-CLI-STDOUT;
-  // assert the observation file contains FAKE-CLI-STDOUT, out.json env has the real URL, outcome exitCode 0.
+  // observationPath switches the launcher to spawnNativeProcess (the pipeline path).
+  const { dir, file, out } = await setup(t, "call", (d) => ({
+    observationPath: path.join(d, "s.events.jsonl"),
+    outcomePath: path.join(d, "s.outcome.json"),
+  }));
+  const { child, done } = run(file);
+  const { code, stdout, stderr } = await done;
+  assert.equal(code, 0, stderr);
+  assert.match(stdout, /FAKE-CLI-STDOUT/);
+  assert.match(
+    fs.readFileSync(path.join(dir, "s.events.jsonl"), "utf8"),
+    /FAKE-CLI-STDOUT/,
+    "observation captured the CLI output",
+  );
+  const record = JSON.parse(fs.readFileSync(out, "utf8"));
+  assert.match(record.env.ANTHROPIC_BASE_URL, /^http:\/\/127\.0\.0\.1:\d+$/);
+  assert.equal(JSON.stringify(record).includes("__AGENTPIER_ADAPTER_URL__"), false);
+  assert.match(record.calls[0].text, /message_stop/);
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(dir, "s.outcome.json"), "utf8")).exitCode,
+    0,
+  );
+  assert.deepEqual(adapterPids(child.pid), [], "adapter stopped with the group");
+});
+
+test("SIGTERM during the adapter start never starts the CLI afterwards (race-tolerant)", async (t) => {
+  const { file, out } = await setup(t);
+  const { child, done } = run(file);
+  await once(child, "spawn");
+  child.kill("SIGTERM");
+  const { code } = await done;
+  // The signal lands either during the adapter start (exit 143, CLI never ran) or after the
+  // CLI started (the CLI was told to stop). The deterministic part: a 143 exit never has a CLI
+  // record. An adapter orphaned by a dying launcher exits on IPC disconnect (Task 10 test).
+  if (code === 143) assert.equal(fs.existsSync(out), false);
+  else assert.ok(fs.existsSync(out) || code !== 0);
 });
 ```
-
-Add `alive`/`until` helpers (same as Task 10). Write the headless test fully. Add a SIGTERM-during-start test: payload whose adapter `upstream.baseUrl` is valid but use `entry`? The launcher cannot take an entry override — instead send SIGTERM within 5 ms of spawn and assert exit code 143 and no `out.json` (tolerate the race by accepting either 143 without `out.json` or a normal SIGTERM exit; assert the adapter pid is gone in both cases).
 
 Add to `tests/integration/release-references.test.js`:
 
@@ -3541,6 +3975,8 @@ Expected: PASS.
 ```bash
 git add server/terminal-launcher.js docs/architecture.md tests/helpers/fake-cli.mjs \
   tests/integration/adapter-launcher.test.js tests/integration/release-references.test.js
+# only if Step 3 moved runCli out of the launcher:
+git add server/features/sessions/terminal-cli.js
 git commit -m "feat: start the protocol adapter from the terminal launcher before the CLI
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -3556,29 +3992,29 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Interfaces:**
 
-- Consumes: everything from Tasks 2–11; `applicationFixture` (`tests/helpers/application.js`); `fake-cli.mjs` (Task 11).
-- Produces: regression coverage that the adapter block survives the real launch chain (github, agentbus, memory, ssh, MCP, bindings, requests, nono adapters) and reload.
+- Consumes: everything from Tasks 2–11; `applicationFixture` (`tests/helpers/application.js`); `fake-cli.mjs` (Task 11); `until`, `waitForJson` (`tests/helpers/adapter-process.js`); the reload pattern of `tests/blackbox/session-reload-lifecycle.test.js` (synthetic CLI that records its native session, `POST /api/sessions/:id/reload`).
+- Produces: regression coverage that the adapter block survives the real launch chain (github, agentbus, memory, ssh, MCP, bindings, requests, nono adapters), session removal, and reload (Task 6's `session-replacement.js` path: new adapter, new token, old adapter stopped).
 
-- [ ] **Step 1: Write the test**
+- [ ] **Step 1: Write the tests**
 
 ```js
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { applicationFixture } from "../helpers/application.js";
 import { scriptedUpstream, sse } from "../helpers/scripted-upstream.js";
 import { loadFixture } from "../helpers/protocol-adapter.js";
+import { until, waitForJson } from "../helpers/adapter-process.js";
 
 const fakeCli = fileURLToPath(new URL("../helpers/fake-cli.mjs", import.meta.url));
 const KEY = "fixture-adapter-session-key";
+const BODY = JSON.stringify(loadFixture("clients/claude-code/text.json").body);
 
-test("a Claude Code session on a Chat-only endpoint runs through the adapter without exposing the key", async (t) => {
-  const f = await applicationFixture(t);
-  const up = await scriptedUpstream(t, (_e, res) =>
-    sse(res, loadFixture("upstreams/chat/text.sse")),
-  );
+/** Chat-only endpoint with Claude Code routed through the adapter explicitly (auto is off in PR 2). */
+async function adapterConnection(f, up) {
   const created = await f.request("/api/provider-connections", {
     method: "POST",
     body: {
@@ -3591,7 +4027,7 @@ test("a Claude Code session on a Chat-only endpoint runs through the adapter wit
         anthropicBaseUrl: null,
         protocols: { messages: false, responses: false, chatCompletions: true },
         authHeader: null,
-        routing: { claude: "adapter:chatCompletions" }, // explicit: auto offers no adapter routes in PR 2
+        routing: { claude: "adapter:chatCompletions" },
         models: [
           {
             modelId: "qwen3",
@@ -3606,13 +4042,27 @@ test("a Claude Code session on a Chat-only endpoint runs through the adapter wit
       },
     },
   });
-  assert.equal(created.status, 201);
-  const connection = await created.json();
-  assert.deepEqual(connection.toolRoutes.claude, {
-    mode: "adapter",
-    source: "chatCompletions",
+  assert.equal(created.status, 201, await created.clone().text());
+  return created.json();
+}
+
+async function startSession(f, connection) {
+  const started = await f.request("/api/sessions", {
+    method: "POST",
+    body: {
+      tool: "claude",
+      providerConnectionId: connection.id,
+      providerModelId: "qwen3",
+      cwd: f.home,
+      agentbus: false,
+    },
   });
-  const out = path.join(f.root, "cli.json");
+  assert.equal(started.status, 201, await started.clone().text());
+  return started.json();
+}
+
+/** Replaces the CLI with the fake CLI while keeping the prepared env and adapter block. */
+async function useFakeCli(f, out) {
   const version = path.join(f.root, "version-fixture");
   await fs.writeFile(version, "#!/bin/sh\nprintf '2.1.291\\n'\n", { mode: 0o755 });
   const original = f.application.accounts.command.bind(f.application.accounts);
@@ -3623,39 +4073,21 @@ test("a Claude Code session on a Chat-only endpoint runs through the adapter wit
       ...prepared,
       command: process.execPath,
       args: [fakeCli, out, "call"],
-      env: {
-        ...prepared.env,
-        FAKE_CLI_BODY: JSON.stringify(loadFixture("clients/claude-code/text.json").body),
-      },
+      env: { ...prepared.env, FAKE_CLI_BODY: BODY },
     };
   };
-  const started = await f.request("/api/sessions", {
-    method: "POST",
-    body: {
-      tool: "claude",
-      providerConnectionId: connection.id,
-      providerModelId: "qwen3",
-      cwd: f.home,
-    },
-  });
-  assert.equal(started.status, 201);
-  const session = await started.json();
-  assert.deepEqual(session.provider.route, {
-    mode: "adapter",
-    source: "chatCompletions",
-  });
-  // wait until the fake CLI wrote its record (poll up to 10 s)
-  const record = JSON.parse(await waitForFile(out));
-  assert.match(record.calls[0].text, /message_stop/);
-  assert.equal(up.seen[0].headers.authorization, `Bearer ${KEY}`);
-  const sessionsDir = path.join(f.dataDir ?? path.join(f.root, "data"), "sessions");
+}
+
+async function noKeyAnywhere(f) {
+  const sessionsDir = path.join(f.dataDir, "sessions");
   const files = await fs.readdir(sessionsDir);
   assert.equal(
     files.some((n) => n.endsWith(".launch.json")),
     false,
     "payload consumed",
   );
-  for (const name of files.filter((n) => !n.endsWith(".adapter.json")))
+  for (const name of files)
+    // includes <id>.adapter.json: diagnostics never hold the key
     assert.equal(
       (await fs.readFile(path.join(sessionsDir, name), "utf8")).includes(KEY),
       false,
@@ -3663,21 +4095,157 @@ test("a Claude Code session on a Chat-only endpoint runs through the adapter wit
     );
   const state = await (await f.request("/api/state")).json();
   assert.equal(JSON.stringify(state).includes(KEY), false);
+}
+
+test("a Claude Code session on a Chat-only endpoint runs through the adapter without exposing the key", async (t) => {
+  const f = await applicationFixture(t);
+  const up = await scriptedUpstream(t, (_e, res) =>
+    sse(res, loadFixture("upstreams/chat/text.sse")),
+  );
+  const connection = await adapterConnection(f, up);
+  assert.deepEqual(connection.toolRoutes.claude, {
+    mode: "adapter",
+    source: "chatCompletions",
+  });
+  const out = path.join(f.root, "cli.json");
+  await useFakeCli(f, out);
+  const session = await startSession(f, connection);
+  assert.deepEqual(session.provider.route, {
+    mode: "adapter",
+    source: "chatCompletions",
+  });
+  const record = await waitForJson(out);
+  assert.match(record.calls[0].text, /message_stop/);
+  assert.equal(up.seen[0].headers.authorization, `Bearer ${KEY}`);
+  await noKeyAnywhere(f);
+});
+
+test("removing a finished adapter session deletes its diagnostics file", async (t) => {
+  const f = await applicationFixture(t);
+  const up = await scriptedUpstream(t, (_e, res) =>
+    sse(res, loadFixture("upstreams/chat/text.sse")),
+  );
+  const connection = await adapterConnection(f, up);
+  const out = path.join(f.root, "cli.json");
+  await useFakeCli(f, out);
+  const session = await startSession(f, connection);
+  await waitForJson(out);
+  const diagnostics = path.join(f.dataDir, "sessions", `${session.id}.adapter.json`);
+  await until(
+    async () => (await f.application.sessions.get(session.id)).status === "stopped",
+    10_000,
+  );
+  await until(
+    () =>
+      fs.access(diagnostics).then(
+        () => true,
+        () => false,
+      ),
+    5000,
+  ); // final flush
+  assert.equal(
+    (await f.request(`/api/sessions/${session.id}`, { method: "DELETE" })).status,
+    204,
+  );
+  await assert.rejects(fs.access(diagnostics));
+});
+
+test("reload starts a new adapter with a new token and stops the old one", async (t) => {
+  const f = await applicationFixture(t);
+  const app = f.application;
+  const up = await scriptedUpstream(t, (_e, res) =>
+    sse(res, loadFixture("upstreams/chat/text.sse")),
+  );
+  const connection = await adapterConnection(f, up);
+  // Synthetic Claude Code (pattern of session-reload-lifecycle.test.js): records its native
+  // session so reload is eligible, calls the adapter once per launch, then keeps running.
+  const cli = path.join(f.root, "synthetic-claude.mjs");
+  const capture = path.join(f.root, "launches.jsonl");
+  const bindingModule = new URL(
+    "../../server/features/sessions/native-session-binding.js",
+    import.meta.url,
+  ).href;
+  await fs.writeFile(
+    cli,
+    `#!${process.execPath}
+import fs from 'node:fs';
+import path from 'node:path';
+import { recordNativeSession } from ${JSON.stringify(bindingModule)};
+const args = process.argv.slice(2);
+if (args.includes('--version')) { console.log('2.1.291'); process.exit(0); }
+const resumed = args.includes('--resume');
+const nativeId = args[args.indexOf(resumed ? '--resume' : '--session-id') + 1];
+const cwd = process.cwd();
+const folder = path.join(process.env.CLAUDE_CONFIG_DIR, 'projects', cwd.replace(/[^a-zA-Z0-9]/g, '-'));
+fs.mkdirSync(folder, { recursive: true });
+const history = path.join(folder, nativeId + '.jsonl');
+if (!resumed) fs.writeFileSync(history, JSON.stringify({ type: 'user', uuid: 'fixture-message', sessionId: nativeId, cwd, timestamp: new Date().toISOString(), message: { role: 'user', content: 'Keep this conversation' } }) + '\\n');
+recordNativeSession({ session_id: nativeId, cwd }, process.env, { pid: process.pid });
+const url = process.env.ANTHROPIC_BASE_URL, token = process.env.ANTHROPIC_AUTH_TOKEN;
+const res = await fetch(url + '/v1/messages', { method: 'POST', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: ${JSON.stringify(BODY)} });
+fs.appendFileSync(${JSON.stringify(capture)}, JSON.stringify({ resumed, url, token, status: res.status, text: await res.text() }) + '\\n');
+process.stdin.resume();
+setInterval(() => {}, 1000);
+`,
+    { mode: 0o700 },
+  );
+  const original = app.accounts.command.bind(app.accounts);
+  app.accounts.command = (id, _binaries, login, mode, options) =>
+    original(id, { claude: cli }, login, mode, options);
+  const session = await startSession(f, connection);
+  const rows = async () =>
+    (await fs.readFile(capture, "utf8").catch(() => ""))
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map(JSON.parse);
+  await until(async () => (await rows()).length === 1, 10_000);
+  const endpoint = `/api/sessions/${session.id}/reload`;
+  await until(async () => (await (await f.request(endpoint)).json()).eligible, 10_000);
+  const reload = await f.request(endpoint, {
+    method: "POST",
+    body: { requestId: randomUUID(), mode: "now", interrupt: true },
+  });
+  assert.ok(reload.ok, await reload.clone().text());
+  await until(
+    async () => (await (await f.request(endpoint)).json()).state === "completed",
+    15_000,
+  );
+  await until(async () => (await rows()).length === 2, 10_000);
+  const [first, second] = await rows();
+  assert.equal(second.resumed, true);
+  for (const row of [first, second]) {
+    assert.equal(row.status, 200);
+    assert.match(row.text, /message_stop/);
+  }
+  assert.notEqual(second.token, first.token, "every launch gets a fresh session token");
+  // The first adapter is gone: its URL refuses connections, or (same port reused) rejects the old token.
+  const old = await fetch(`${first.url}/api/hello`, {
+    headers: { authorization: `Bearer ${first.token}` },
+  }).catch(() => null);
+  assert.ok(
+    old === null || old.status === 401,
+    `old adapter still answers: ${old?.status}`,
+  );
+  const current = await app.sessions.get(session.id);
+  assert.deepEqual(current.provider.route, {
+    mode: "adapter",
+    source: "chatCompletions",
+  });
+  await noKeyAnywhere(f);
 });
 ```
-
-Add `waitForFile(file, ms = 10000)` (poll every 50 ms). Add a second test: after the session process exits, `DELETE /api/sessions/:id` removes `<id>.adapter.json`. Add a third test for reload if the fixture can reload a fake-CLI session (search `tests/blackbox` for `reload`); otherwise assert via `session-replacement` unit coverage that a reload payload contains a fresh token.
 
 - [ ] **Step 2: Run**
 
 Run: `node --test tests/blackbox/endpoint-adapter-session.test.js`
-Expected: PASS (if it fails, the failing step names which launch-chain adapter dropped `adapter`; fix that adapter to spread the launch it receives, with a focused regression test next to its existing tests).
+Expected: PASS. If the first test fails, the failing assertion names which launch-chain adapter dropped `adapter`; fix that adapter to spread the launch it receives, with a focused regression test next to its existing tests. If the reload test fails at `prepared.adapter`/payload level, the fix belongs in `session-replacement.js` (Task 6).
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add tests/blackbox/endpoint-adapter-session.test.js
-git commit -m "test: run an endpoint session through the adapter end to end
+git commit -m "test: run an endpoint session through the adapter end to end, including reload
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -3695,23 +4263,23 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Interfaces:**
 
 - Consumes: `endpointRequest`, `authHeaders` (`endpoint-http.js`); the base probe results of `runEndpointTest`.
-- Produces: `probeCapabilities({ endpoint, apiKey, model, results, signal, lookup, timeoutMs = 30_000 }) → Promise<{ messages?: object, responses?: object, chatCompletions?: object }>`; `runEndpointTest(...)` result gains `capabilities` (same shape; only protocols whose base probe returned 2xx; only keys whose probe answered 2xx or 400/422 — auth, timeouts, 5xx and the deadline omit the key).
+- Produces: `probeCapabilities({ endpoint, apiKey, model, results, signal, lookup, timeoutMs = 30_000 }) → Promise<{ messages?: object, responses?: object, chatCompletions?: object }>`; `runEndpointTest(...)` result gains `capabilities` (same shape; only keys whose probe answered 2xx or 400/422 — auth, timeouts, 5xx and the deadline omit the key). A protocol gets an entry when its base probe returned 2xx, **or** — Chat only — when the base probe was refused with 400/422 and the `max_completion_tokens` probe then answered 2xx: that protocol is present (`protocols.chatCompletions` stays `"ok"`, as `classifyProbe` already rates 400/422), its entry reports `maxTokensField: "max_completion_tokens"`, and its remaining probes are sent with `max_completion_tokens: 16` instead of `max_tokens`.
 
 Probe table (one request each, `max_tokens`/`max_output_tokens` 16 unless noted; `accepted` = 2xx, `rejected` = 400/422):
 
-| Protocol        | Capability          | Request delta over the base probe                                                                                                                                        | accepted →                  | rejected →                           |
-| --------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- | ------------------------------------ |
-| responses       | `reasoningEffort`   | `reasoning: { effort: "low", summary: "auto" }, include: ["reasoning.encrypted_content"]`                                                                                | `true`                      | `false`                              |
-| responses       | `promptCacheKey`    | `prompt_cache_key: "agentpier-probe"`                                                                                                                                    | `true`                      | `false`                              |
-| responses       | `parallelToolCalls` | `tools: [PROBE_TOOL_RESPONSES], parallel_tool_calls: true`                                                                                                               | `true`                      | `false`                              |
-| chatCompletions | `streamUsage`       | `stream: true, stream_options: { include_usage: true }`                                                                                                                  | `true`                      | `false`                              |
-| chatCompletions | `reasoningEffort`   | `reasoning_effort: "low"`                                                                                                                                                | `true`                      | `false`                              |
-| chatCompletions | `promptCacheKey`    | `prompt_cache_key: "agentpier-probe"`                                                                                                                                    | `true`                      | `false`                              |
-| chatCompletions | `parallelToolCalls` | `tools: [PROBE_TOOL_CHAT], parallel_tool_calls: true`                                                                                                                    | `true`                      | `false`                              |
-| chatCompletions | `systemMessages`    | `messages: [user "ok", assistant "ok", system "Answer briefly.", user "ok"]`                                                                                             | `"inline"`                  | `"merge"`                            |
-| chatCompletions | `maxTokensField`    | only when the base `max_tokens` probe was 400/422: `max_completion_tokens: 16` without `max_tokens`                                                                      | `"max_completion_tokens"`   | omit                                 |
-| messages        | `promptCache`       | `system: [{ type: "text", text: "ok", cache_control: { type: "ephemeral" } }]`                                                                                           | `true`                      | `false`                              |
-| messages        | `thinkingBudget`    | `thinking: { type: "adaptive" }, output_config: { effort: "low" }`; if rejected, a second request `thinking: { type: "enabled", budget_tokens: 1024 }, max_tokens: 1025` | adaptive accepted → `false` | enabled accepted → `true`, else omit |
+| Protocol        | Capability          | Request delta over the base probe                                                                                                                                         | accepted →                  | rejected →                           |
+| --------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------ |
+| responses       | `reasoningEffort`   | `reasoning: { effort: "low", summary: "auto" }, include: ["reasoning.encrypted_content"]`                                                                                 | `true`                      | `false`                              |
+| responses       | `promptCacheKey`    | `prompt_cache_key: "agentpier-probe"`                                                                                                                                     | `true`                      | `false`                              |
+| responses       | `parallelToolCalls` | `tools: [PROBE_TOOL_RESPONSES], parallel_tool_calls: true`                                                                                                                | `true`                      | `false`                              |
+| chatCompletions | `streamUsage`       | `stream: true, stream_options: { include_usage: true }`                                                                                                                   | `true`                      | `false`                              |
+| chatCompletions | `reasoningEffort`   | `reasoning_effort: "low"`                                                                                                                                                 | `true`                      | `false`                              |
+| chatCompletions | `promptCacheKey`    | `prompt_cache_key: "agentpier-probe"`                                                                                                                                     | `true`                      | `false`                              |
+| chatCompletions | `parallelToolCalls` | `tools: [PROBE_TOOL_CHAT], parallel_tool_calls: true`                                                                                                                     | `true`                      | `false`                              |
+| chatCompletions | `systemMessages`    | `messages: [user "ok", assistant "ok", system "Answer briefly.", user "ok"]`                                                                                              | `"inline"`                  | `"merge"`                            |
+| chatCompletions | `maxTokensField`    | runs first, only when the base `max_tokens` probe was 400/422: `max_completion_tokens: 16` without `max_tokens`; on 2xx the other Chat probes use `max_completion_tokens` | `"max_completion_tokens"`   | omit (and no other Chat probes run)  |
+| messages        | `promptCache`       | `system: [{ type: "text", text: "ok", cache_control: { type: "ephemeral" } }]`                                                                                            | `true`                      | `false`                              |
+| messages        | `thinkingBudget`    | `thinking: { type: "adaptive" }, output_config: { effort: "low" }`; if rejected, a second request `thinking: { type: "enabled", budget_tokens: 1024 }, max_tokens: 1025`  | adaptive accepted → `false` | enabled accepted → `true`, else omit |
 
 `reasoningReplay` is not probed (DeepSeek-style rejections appear only inside tool loops; the runtime retry covers it). `PROBE_TOOL_*` = a function `probe_noop` with `{ type: "object", properties: {} }`. Requests run sequentially under the test's combined signal (180 s total) with `timeoutMs` each.
 
@@ -3720,7 +4288,7 @@ Probe table (one request each, `max_tokens`/`max_output_tokens` 16 unless noted;
 Using `fakeEndpoint` from `tests/helpers/endpoint-servers.js` (JSON answers) — route handlers inspect `entry.body` and answer 200/400 per scenario:
 
 1. Chat server accepting everything except `reasoning_effort` and mid-conversation system → `capabilities.chatCompletions` = `{ streamUsage: true, reasoningEffort: false, promptCacheKey: true, parallelToolCalls: true, systemMessages: "merge" }` and no `maxTokensField`.
-2. Chat server rejecting `max_tokens` (base probe 400) but accepting `max_completion_tokens` → `maxTokensField: "max_completion_tokens"`.
+2. Chat server rejecting every request that carries `max_tokens` (base probe 400) but accepting `max_completion_tokens` → `protocols.chatCompletions === "ok"` and `capabilities.chatCompletions` contains `maxTokensField: "max_completion_tokens"` **and** the other Chat keys (all of their requests carried `max_completion_tokens`, none `max_tokens`). A server rejecting both fields → no `chatCompletions` entry.
 3. Responses server rejecting `reasoning` → `reasoningEffort: false`; accepted otherwise.
 4. Messages server rejecting adaptive but accepting enabled → `thinkingBudget: true`; rejecting cache_control → `promptCache: false`.
 5. A 401 on the capability request omits that key; a hanging capability request ends at `timeoutMs` (set 100 ms in the test) and omits the key; disabled/failed base protocols have no entry.
@@ -3734,7 +4302,7 @@ Expected: FAIL.
 
 - [ ] **Step 3: Implement**
 
-`endpoint-capability-probe.js` exports `CAPABILITY_PROBES` (the table as data: `{ protocol, capability, body(base) → body, accepted, rejected, when?(results) }`) and `probeCapabilities`. Base bodies reuse `probes(endpoint, model)` from `endpoint-probe.js` (export it). `runEndpointTest` calls it after the protocol loop when `model` is set and adds `capabilities` to its return value. `EndpointTester.test` passes it through unchanged.
+`endpoint-capability-probe.js` exports `CAPABILITY_PROBES` (the table as data: `{ protocol, capability, body(base) → body, accepted, rejected, when?(results) }`) and `probeCapabilities`. For Chat it first decides the token field: base 2xx → `max_tokens`; base 400/422 → run the `maxTokensField` probe, and only if it answers 2xx continue with a base body whose `max_tokens` is replaced by `max_completion_tokens`. Base bodies reuse `probes(endpoint, model)` from `endpoint-probe.js` (export it). `runEndpointTest` calls it after the protocol loop when `model` is set and adds `capabilities` to its return value. `EndpointTester.test` passes it through unchanged.
 
 - [ ] **Step 4: Run tests**
 
@@ -3763,13 +4331,19 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Consumes: `prepareProviderLaunch` (Tasks 4–5), the real launcher (Task 11), facts R2–R4.
 - Produces: one tool-call round trip per direction: Claude Code ← Responses, Claude Code ← Chat, Codex ← Messages, Codex ← Chat (through the launcher and adapter); OpenCode → `@ai-sdk/anthropic` and → `@ai-sdk/openai` (native SDK, no adapter).
 
-`smoke-upstreams.js` exports `smokeUpstream(t, protocol, { toolName, toolInput })` built on `scriptedUpstream`: turn 1 answers with a streamed tool call to `toolName` (only if the request's `tools` contain it; otherwise it answers 500 with a message the test asserts on, so a renamed CLI tool fails loudly); turn 2 asserts that the translated request carries the tool result (Chat: a `role: "tool"` message; Responses: a `function_call_output` item; Messages: a `tool_result` block) and answers with text `SMOKE-OK`. Turn 1 also streams reasoning (`reasoning_content` for Chat, a reasoning summary + `encrypted_content` for Responses, a thinking block with a signature for Messages) so the carrier round trip is exercised; turn 2 records whether the replayed carrier arrived (Responses/Messages origins) — Claude Code accepting carriers is asserted by the turn-2 request arriving at all (Claude Code drops the conversation on signature rejection). Build the SSE text from the PR 1 fixtures' shapes (`upstreams/<protocol>/function-calls.sse`, `parallel-tool-calls.sse`, `parallel-tool-use.sse`, `text.sse`), replacing names and arguments.
+`smoke-upstreams.js` exports `smokeUpstream(t, protocol, { toolName, toolInput })` built on `scriptedUpstream`, returning `{ base, seen, turns() }`. Requests **without any tools** (OpenCode's title generator, fact R4a/R4b; Claude Code side requests) are answered with a plain streamed text `TITLE` in the protocol's format and are not turns. Only tool-bearing requests count: `turns()` = number of requests whose body has a non-empty `tools` array. Turn 1 answers with a streamed tool call to `toolName` (if the request has tools but none named `toolName`, it answers 500 with a message the test asserts on, so a renamed CLI tool fails loudly); turn 2 asserts that the translated request carries the tool result (Chat: a `role: "tool"` message; Responses: a `function_call_output` item; Messages: a `tool_result` block) and answers with text `SMOKE-OK`. Turn 1 also streams reasoning (`reasoning_content` for Chat, a reasoning summary + `encrypted_content` for Responses, a thinking block with a signature for Messages) so the carrier round trip is exercised; turn 2 records whether the replayed carrier arrived (Responses/Messages origins) — Claude Code accepting carriers is asserted by the turn-2 request arriving at all (Claude Code drops the conversation on signature rejection). Build the SSE text from the PR 1 fixtures' shapes (`upstreams/<protocol>/function-calls.sse`, `parallel-tool-calls.sse`, `parallel-tool-use.sse`, `text.sse`), replacing names and arguments.
 
 Tool choices: Claude Code `Read` with `{ "file_path": "<cwd>/smoke.txt" }`; Codex `exec_command` with `{ "cmd": "cat smoke.txt" }` (Codex `exec` with `--skip-git-repo-check` and the default read-only sandbox may run it); OpenCode `read` with `{ "filePath": "<cwd>/smoke.txt" }`. `smoke.txt` contains `SMOKE-FILE-CONTENT`, which turn 2 asserts in the tool result.
 
 - [ ] **Step 1: Write the smoke tests**
 
 ```js
+// account(tool): the managed endpoint account the launch is prepared for
+const account = (tool) => ({
+  kind: "managed",
+  tool,
+  provider: { id: "endpoint", modelId: "qwen3" },
+});
 const installed = (cmd) =>
   spawnSync(cmd, ["--version"], { encoding: "utf8" }).status === 0;
 const opencodeBin =
@@ -3811,7 +4385,11 @@ for (const source of ["responses", "chatCompletions"])
       );
       const result = await runThroughLauncher(t, launch, cwd); // writes a payload incl. adapter + diagnosticsPath, spawns terminal-launcher.js
       assert.match(result.stdout, /SMOKE-OK/, result.stderr);
-      assert.equal(up.turns(), 2);
+      assert.equal(
+        up.turns(),
+        2,
+        "tool call and tool result; tool-less side requests excluded",
+      );
       assert.equal(
         up.seen.every((e) => e.headers.authorization === `Bearer ${KEY}`),
         true,
@@ -3845,31 +4423,221 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 
 - Create: `tests/matrix/nono-adapter-loopback.test.js`
-- Modify (only if fact R1b requires it): `server/features/nono/nono-launch.js`, `server/features/adapter-runtime/adapter-supervisor.js`, `server/features/providers/adapter-launch.js`
+- Modify: `server/features/providers/adapter-launch.js` (`ADAPTER_PORT_PLACEHOLDER`), `server/features/nono/nono-launch.js` (`--open-port`), `server/features/adapter-runtime/adapter-supervisor.js` (`substituteAdapterUrl` also replaces the port placeholder — same name, no rename), `server/terminal-launcher.js` (unchanged call; listed because the substituted argv now carries the port), `tests/unit/nono-launch.test.js`, `tests/integration/adapter-process.test.js` (substitution case)
 
 **Interfaces:**
 
-- Consumes: `wrapWithNono` (`nono-launch.js`), launcher (Task 11), `fake-cli.mjs`, fact R1a/R1b.
-- Produces: proof that a launch wrapped by `wrapWithNono` (launcher outside, CLI inside nono) reaches the adapter on `127.0.0.1`.
+- Consumes: `wrapWithNono` (`nono-launch.js`), launcher (Task 11), `fake-cli.mjs`, `validAdapterConfig`/`TOKEN`/`KEY`, facts R1a/R1b.
+- Produces: `ADAPTER_PORT_PLACEHOLDER = "__AGENTPIER_ADAPTER_PORT__"`; `wrapWithNono` adds `"--open-port", ADAPTER_PORT_PLACEHOLDER` before `--` whenever `launch.adapter` is present; `substituteAdapterUrl(launch, url)` replaces the URL placeholder with `url` and the port placeholder with `new URL(url).port`, so the nono argv is completed only after the adapter bound its port (fact R1b: a `network.block` profile denies loopback, `--open-port <port>` restores it).
 
-- [ ] **Step 1: Write the test**
+Why every adapter launch under nono gets the flag, not only blocking profiles: the server only knows the profile's name, and built-in or inherited profiles cannot be resolved reliably without nono itself. With an open network the flag grants nothing the CLI could use (the adapter already holds that port, so the CLI cannot listen on it, and connecting was allowed anyway); with a blocking profile it is exactly the one hole the session needs.
 
-Reuse `nonoExecutable()`, `workspace(t)` and the `restrictive` profile from `tests/matrix/nono-confinement.test.js` (copy them; matrix tests stay independent). Build a payload with `wrapWithNono({ launch: { command: process.execPath, args: [fakeCli, out, "call"], env, sandboxGrants: [{ access: "allow", path: dir }] }, executable, profile })`, add the `adapter` block, run `terminal-launcher.js`, assert `out.json` has a `message_stop` call and the fake upstream saw the key. Run it for `profile: "default"` (R1a) and for the restrictive profile with `network: { block: false }`. Skip with "nono is not installed" when missing.
+- [ ] **Step 1: Write the failing tests**
 
-- [ ] **Step 2: Run**
+`tests/unit/nono-launch.test.js`:
 
-Run: `node --test tests/matrix/nono-adapter-loopback.test.js`
-Expected: PASS (or SKIP without nono).
+```js
+test("adapter launches open exactly the adapter port placeholder", () => {
+  const base = { command: "/opt/claude", args: ["-p", "x"], env: {} };
+  const plain = wrapWithNono({
+    launch: base,
+    executable: "/bin/nono",
+    profile: "default",
+  });
+  assert.equal(plain.args.includes("--open-port"), false);
+  const adapted = wrapWithNono({
+    launch: { ...base, adapter: { token: "t" } },
+    executable: "/bin/nono",
+    profile: "default",
+  });
+  const at = adapted.args.indexOf("--open-port");
+  assert.ok(at > 0 && at < adapted.args.indexOf("--"));
+  assert.equal(adapted.args[at + 1], "__AGENTPIER_ADAPTER_PORT__");
+  assert.equal(adapted.adapter.token, "t", "the adapter block stays on the launch");
+});
+```
 
-- [ ] **Step 3: Only if R1b showed that `network.block: true` profiles deny loopback**
+`tests/integration/adapter-process.test.js` (extend the substitution test):
 
-Add a port placeholder `ADAPTER_PORT_PLACEHOLDER = "__AGENTPIER_ADAPTER_PORT__"` (export from `adapter-launch.js`); `wrapWithNono` adds `"--open-port", ADAPTER_PORT_PLACEHOLDER` before `--` when `launch.adapter` is present; `substituteAdapterUrl` also replaces the port placeholder with `String(port)` (rename the function to `substituteAdapterAddress` and update Task 11's call). Add a third case to the test with the restrictive profile and `network: { block: true }`, and a unit assertion in `tests/unit/nono-*.test.js` that the flag appears only for adapter launches. If R1b showed that `--open-port` does not help either, do not change code (nono profiles are opaque to the server, so the combination cannot be refused up front); record the limitation in the facts file and the PR description instead.
+```js
+test("substitution fills the port placeholder from the bound URL", () => {
+  const out = substituteAdapterUrl(
+    { env: {}, args: ["wrap", "--open-port", "__AGENTPIER_ADAPTER_PORT__", "--", "cli"] },
+    "http://127.0.0.1:43210",
+  );
+  assert.deepEqual(out.args, ["wrap", "--open-port", "43210", "--", "cli"]);
+});
+```
 
-- [ ] **Step 4: Commit**
+`tests/matrix/nono-adapter-loopback.test.js`:
+
+```js
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import {
+  wrapWithNono,
+  INSTALLATION_ROOT,
+} from "../../server/features/nono/nono-launch.js";
+import { ADAPTER_URL_PLACEHOLDER } from "../../server/features/providers/adapter-launch.js";
+import { scriptedUpstream, sse } from "../helpers/scripted-upstream.js";
+import { loadFixture } from "../helpers/protocol-adapter.js";
+import { KEY, TOKEN, validAdapterConfig } from "../helpers/adapter-fixture.js";
+
+const launcher = fileURLToPath(
+  new URL("../../server/terminal-launcher.js", import.meta.url),
+);
+const fakeCli = fileURLToPath(new URL("../helpers/fake-cli.mjs", import.meta.url));
+
+function nonoExecutable() {
+  for (const directory of (process.env.PATH || "").split(path.delimiter).filter(Boolean))
+    try {
+      const candidate = path.join(directory, "nono");
+      fs.accessSync(candidate, fs.constants.X_OK);
+      if (fs.statSync(candidate).isFile()) return candidate;
+    } catch {}
+  return null;
+}
+const executable = nonoExecutable();
+const reason = !executable
+  ? "nono is not installed"
+  : !["darwin", "linux"].includes(process.platform)
+    ? `nono does not support ${process.platform}`
+    : null;
+const options = reason ? { skip: reason } : {};
+// Fact R1b verified --open-port on macOS only.
+const blockNet = reason
+  ? { skip: reason }
+  : process.platform === "linux"
+    ? { skip: "--open-port under a blocking profile is unverified on Linux (facts R1b)" }
+    : {};
+
+// Same capability set as nono-confinement.test.js's `restrictive`, network chosen per test.
+const restrictive = (network) => ({
+  meta: { name: "agentpier-adapter-loopback" },
+  groups: { include: ["system_read_macos", "system_read_linux_core"], exclude: [] },
+  workdir: { access: "readwrite" },
+  filesystem: { allow: [], read: [], write: [], deny: [] },
+  network,
+});
+
+/** Scratch dir under the repo's .cache (nono refuses grants overlapping its state root). */
+function workspace(t, profileJson) {
+  const scratch = path.join(INSTALLATION_ROOT, ".cache");
+  fs.mkdirSync(scratch, { recursive: true });
+  const root = fs.mkdtempSync(path.join(scratch, "nono-adapter-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(root, "work"));
+  let profile = "default";
+  if (profileJson) {
+    profile = path.join(root, "profile.json");
+    fs.writeFileSync(profile, JSON.stringify(profileJson));
+  }
+  return { root, profile };
+}
+
+async function runSandboxed(t, profileJson) {
+  const { root, profile } = workspace(t, profileJson);
+  const up = await scriptedUpstream(t, (_e, res) =>
+    sse(res, loadFixture("upstreams/chat/text.sse")),
+  );
+  const work = path.join(root, "work");
+  const out = path.join(work, "out.json");
+  // The adapter block is on the launch BEFORE wrapping, as in the real chain (nono is last).
+  const wrapped = wrapWithNono({
+    executable,
+    profile,
+    launch: {
+      command: process.execPath,
+      args: [fakeCli, out, "call"],
+      env: {
+        PATH: process.env.PATH,
+        HOME: root,
+        ANTHROPIC_BASE_URL: ADAPTER_URL_PLACEHOLDER,
+        ANTHROPIC_AUTH_TOKEN: TOKEN,
+        FAKE_CLI_BODY: JSON.stringify(loadFixture("clients/claude-code/text.json").body),
+      },
+      sandboxGrants: [{ access: "read", path: fakeCli }],
+      adapter: validAdapterConfig({
+        upstream: { baseUrl: `${up.base}/v1`, authHeader: null, apiKey: KEY },
+        diagnosticsPath: path.join(root, "s.adapter.json"),
+      }),
+    },
+  });
+  assert.ok(wrapped.args.includes("--open-port"));
+  const payload = path.join(root, "s.launch.json");
+  fs.writeFileSync(payload, JSON.stringify({ ...wrapped, cwd: work }), { mode: 0o600 });
+  const result = spawnSync(process.execPath, [launcher, payload], {
+    cwd: work,
+    encoding: "utf8",
+    timeout: 60_000,
+  });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  const record = JSON.parse(fs.readFileSync(out, "utf8"));
+  assert.match(record.calls[0].text, /message_stop/);
+  assert.equal(up.seen[0].headers.authorization, `Bearer ${KEY}`);
+}
+
+test(
+  "a CLI under the default nono profile reaches the adapter on loopback (R1a)",
+  options,
+  (t) => runSandboxed(t, null),
+);
+
+test("a restrictive profile with an open network reaches the adapter", options, (t) =>
+  runSandboxed(t, restrictive({ block: false })),
+);
+
+test(
+  "a network-blocking profile reaches the adapter through --open-port (R1b)",
+  blockNet,
+  (t) => runSandboxed(t, restrictive({ block: true })),
+);
+```
+
+- [ ] **Step 2: Run to verify failure**
+
+Run: `node --test tests/unit/nono-launch.test.js tests/integration/adapter-process.test.js tests/matrix/nono-adapter-loopback.test.js`
+Expected: FAIL (`--open-port` missing; port placeholder not substituted; the block-net case is denied).
+
+- [ ] **Step 3: Implement**
+
+- `adapter-launch.js`: `export const ADAPTER_PORT_PLACEHOLDER = "__AGENTPIER_ADAPTER_PORT__";`
+- `nono-launch.js` `wrapWithNono`: import `ADAPTER_PORT_PLACEHOLDER`; in the returned `args`, directly before `"--"`, spread `...(launch.adapter ? ["--open-port", ADAPTER_PORT_PLACEHOLDER] : [])` with a comment pointing at fact R1b and the reason above.
+- `adapter-supervisor.js`:
+
+```js
+export function substituteAdapterUrl({ env = {}, args = [] }, url) {
+  const port = new URL(url).port;
+  const swap = (value) =>
+    value
+      .replaceAll(ADAPTER_URL_PLACEHOLDER, url)
+      .replaceAll(ADAPTER_PORT_PLACEHOLDER, port);
+  return {
+    env: Object.fromEntries(Object.entries(env).map(([k, v]) => [k, swap(v)])),
+    args: args.map(swap),
+  };
+}
+```
+
+`terminal-launcher.js` keeps calling `substituteAdapterUrl(payload, adapter.url)`; nothing else changes there.
+
+- [ ] **Step 4: Run tests**
+
+Run: `node --test tests/unit/nono-launch.test.js tests/integration/adapter-process.test.js tests/integration/adapter-launcher.test.js tests/matrix/nono-adapter-loopback.test.js tests/matrix/nono-sandbox-launch.test.js tests/matrix/sandbox-grant-chain.test.js`
+Expected: PASS (nono cases SKIP without nono; the block-net case SKIPs on Linux with the R1b reason).
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add tests/matrix/nono-adapter-loopback.test.js server/features/nono server/features/adapter-runtime server/features/providers
-git commit -m "test: confirm sandboxed CLIs reach the adapter on loopback
+git add tests/matrix/nono-adapter-loopback.test.js tests/unit/nono-launch.test.js \
+  tests/integration/adapter-process.test.js server/features/nono/nono-launch.js \
+  server/features/adapter-runtime/adapter-supervisor.js server/features/providers/adapter-launch.js \
+  server/terminal-launcher.js
+git commit -m "feat: open the adapter port for nono-sandboxed CLIs
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -3892,7 +4660,7 @@ Expected: PASS; skipped tests print the missing CLI/nono name.
 
 - [ ] **Step 3: Leak sweep**
 
-Run: `git grep -n "__AGENTPIER_ADAPTER_URL__" -- server` and confirm it appears only in `adapter-launch.js`, `provider-environment.js`, `endpoint-launch.js` and the supervisor. Run `git grep -nE "console\.(log|error)|process\.(stdout|stderr)\.write" -- server/adapter-process.js server/features/adapter-runtime` → no hits.
+Run: `git grep -n "__AGENTPIER_ADAPTER_URL__" -- server` and confirm the literal appears only in `adapter-launch.js` (everything else imports the constants); same for `__AGENTPIER_ADAPTER_PORT__`. Run `git grep -nE "console\.(log|error)|process\.(stdout|stderr)\.write" -- server/adapter-process.js server/features/adapter-runtime` → no hits.
 
 - [ ] **Step 4: Manual check in English**
 
@@ -3906,6 +4674,6 @@ Open the PR from `feat/protocol-adapter-runtime` with: problem, resulting behavi
 
 ## PR 3 hand-off
 
-- Flip `ADAPTER_AUTO_ROUTES` in `server/features/providers/endpoint-routing.js` to `true` **in the same PR** that adds the "via adapter" labels (connection list, launch dialog, session view from `provider.route`) and the routing select. Then update the tests that pin the PR 2 default: `tests/unit/endpoint-routing.test.js` ("PR 2 default…"), `tests/unit/endpoint-config.test.js` ("endpointTools follows the resolved routes"), `tests/integration/endpoint-pipeline-snapshot.test.js` ("auto never moves a pipeline onto an adapter route in PR 2"), `tests/matrix/endpoint-adapter-launch.test.js` ("auto on a Chat-only endpoint launches no adapter route in PR 2") and the legacy-record case in `tests/integration/provider-connections.test.js`. The flag-flip test (`resolveRoute(..., { adapterAuto: true })`) already covers the target behavior; afterwards the `adapterAuto` option can stay as a test seam or be removed.
+- Flip `ADAPTER_AUTO_ROUTES` in `server/features/providers/endpoint-routing.js` to `true` **in the same PR** that adds the "via adapter" labels (connection list, launch dialog, session view from `provider.route`) and the routing select. Then update the tests that pin the PR 2 default: `tests/unit/endpoint-routing.test.js` ("PR 2 default…"), `tests/unit/endpoint-config.test.js` ("endpointTools follows the resolved routes"), `tests/integration/endpoint-pipeline-snapshot.test.js` ("auto never moves a pipeline onto an adapter route in PR 2"), `tests/matrix/endpoint-adapter-launch.test.js` ("auto on a Chat-only endpoint launches no adapter route in PR 2") and the legacy-record case in `tests/integration/endpoint-connections.test.js`. The flag-flip test (`resolveRoute(..., { adapterAuto: true })`) already covers the target behavior; afterwards the `adapterAuto` option can stay as a test seam or be removed.
 - Flipping the flag changes `toolRoutes`/`tools` for existing Chat-, Messages- or Responses-only connections; pipeline profiles are unaffected (their snapshots freeze the route).
 - `doctor` reads `sessions/<id>.adapter.json` (snapshot incl. `restarts` and a `supervisor.gaveUpAt` entry after an exhausted restart budget).
