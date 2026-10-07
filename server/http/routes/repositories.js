@@ -1,14 +1,15 @@
 import { Router } from "express";
 
 export function repositoriesRoutes(services) {
-  const { repositories, github } = services;
+  const { repositories, github, gitRemotes } = services;
   const router = Router();
-  router.get("/repositories", async (_req, res) =>
+  router.get("/repositories", async (_req, res) => {
+    const projects = repositories.listProjects();
     res.json({
       credentials: repositories.listCredentials(),
-      projects: repositories.listProjects(),
-    }),
-  );
+      projects: gitRemotes ? await gitRemotes.annotate(projects, "path") : projects,
+    });
+  });
   router.post("/git-credentials", async (req, res) => {
     const credential = repositories.createCredential(req.body);
     await github.sync();

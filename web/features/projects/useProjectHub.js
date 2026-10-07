@@ -19,15 +19,23 @@ export function normalizePath(value) {
 
 const sortKey = (project) => project.name.toLocaleLowerCase();
 
+// The server reads each folder's git remote live (`remote`); the URL a repository
+// was cloned from (`url`) only stands in while no live remote is known.
 export function mergeProjects({ repositories, memoryProjects, busProjects }) {
   const byPath = new Map();
   const entries = [];
+  const live = new Set();
   const add = (project) => {
     entries.push(project);
     if (project.path) byPath.set(project.path, project);
   };
-  for (const memory of memoryProjects || [])
-    add({
+  const liveRemote = (project, remote) => {
+    if (!remote || live.has(project)) return;
+    project.remote = remote;
+    live.add(project);
+  };
+  for (const memory of memoryProjects || []) {
+    const project = {
       id: memory.id,
       name: memory.name || memory.cwd,
       path: normalizePath(memory.cwd),
@@ -38,48 +46,58 @@ export function mergeProjects({ repositories, memoryProjects, busProjects }) {
       busId: "",
       entryCount: memory.entryCount || 0,
       sessionCount: 0,
-    });
+    };
+    add(project);
+    liveRemote(project, memory.remote);
+  }
   for (const repository of repositories || []) {
     const path = normalizePath(repository.path);
-    const known = byPath.get(path);
-    if (known && !known.repositoryId)
-      Object.assign(known, {
+    let project = byPath.get(path);
+    if (project && !project.repositoryId)
+      Object.assign(project, {
         repositoryId: repository.id,
-        remote: repository.url || "",
+        remote: live.has(project) ? project.remote : repository.url || "",
         credentialId: repository.credentialId || "",
       });
-    else if (!known)
-      add({
-        id: repository.id,
-        name: repository.name,
-        path,
-        remote: repository.url || "",
-        credentialId: repository.credentialId || "",
-        repositoryId: repository.id,
-        memoryId: "",
-        busId: "",
-        entryCount: 0,
-        sessionCount: 0,
-      });
+    else if (!project)
+      add(
+        (project = {
+          id: repository.id,
+          name: repository.name,
+          path,
+          remote: repository.url || "",
+          credentialId: repository.credentialId || "",
+          repositoryId: repository.id,
+          memoryId: "",
+          busId: "",
+          entryCount: 0,
+          sessionCount: 0,
+        }),
+      );
+    liveRemote(project, repository.remote);
   }
   for (const bus of busProjects || []) {
     const path = normalizePath(bus.cwd);
-    const known = byPath.get(path);
+    let project = byPath.get(path);
     const sessionCount = bus.sessions?.length || 0;
-    if (known && !known.busId) Object.assign(known, { busId: bus.id, sessionCount });
-    else if (!known)
-      add({
-        id: bus.id,
-        name: bus.name || path.split("/").pop() || path,
-        path,
-        remote: "",
-        credentialId: "",
-        repositoryId: "",
-        memoryId: "",
-        busId: bus.id,
-        entryCount: 0,
-        sessionCount,
-      });
+    if (project && !project.busId)
+      Object.assign(project, { busId: bus.id, sessionCount });
+    else if (!project)
+      add(
+        (project = {
+          id: bus.id,
+          name: bus.name || path.split("/").pop() || path,
+          path,
+          remote: "",
+          credentialId: "",
+          repositoryId: "",
+          memoryId: "",
+          busId: bus.id,
+          entryCount: 0,
+          sessionCount,
+        }),
+      );
+    liveRemote(project, bus.remote);
   }
   return entries.sort(
     (a, b) => sortKey(a).localeCompare(sortKey(b)) || a.id.localeCompare(b.id),
