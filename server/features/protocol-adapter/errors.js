@@ -351,7 +351,8 @@ function streamMessage(error) {
   return `Rate limit reached. Please try again in ${Math.max(1, seconds)}s.`;
 }
 
-function responseShell({ responseId, model, createdAt }, status) {
+/** Minimal Responses `response` object shared by created, failed and completed events. */
+export function responseShell({ responseId, model, createdAt }, status) {
   const response = { id: responseId, object: "response" };
   if (Number.isFinite(createdAt)) response.created_at = createdAt;
   return { ...response, model, status, output: [] };

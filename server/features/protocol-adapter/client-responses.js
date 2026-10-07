@@ -459,3 +459,10 @@ export function parseResponsesRequest(body, _headers = {}) {
   };
   return { ir: assertIrRequest(ir), dropped: [...dropped], ...rejection(body) };
 }
+
+export {
+  emitResponsesResponse,
+  emitResponsesStream,
+  emitResponsesStreamError,
+  responsesKeepalive,
+} from "./client-responses-emit.js";
