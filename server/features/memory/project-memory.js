@@ -1,6 +1,6 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { createHash, randomUUID } from "node:crypto";
-import { openDatabase, transaction } from "./memory-database.js";
+import { backupDatabase, openDatabase, transaction } from "./memory-database.js";
 import {
   failure,
   identifier,
@@ -375,6 +375,40 @@ export class ProjectMemory {
         .prepare("INSERT OR REPLACE INTO project_rebinds VALUES (?,?,?)")
         .run(fromId, scope.id, new Date().toISOString());
       return this.project(scope.id);
+    });
+  }
+  migrationApplied(name) {
+    return Boolean(this.db.prepare("SELECT 1 FROM migrations WHERE name=?").get(name));
+  }
+  recordMigration(name) {
+    this.db
+      .prepare("INSERT OR IGNORE INTO migrations VALUES (?,?)")
+      .run(name, new Date().toISOString());
+  }
+  backup(label) {
+    return backupDatabase(this.db, this.root, label);
+  }
+  /** Whether a session capability (active or not) still names the project. */
+  heldBySession(projectId) {
+    return Boolean(
+      this.db
+        .prepare("SELECT 1 FROM capabilities WHERE project_id=? LIMIT 1")
+        .get(projectId),
+    );
+  }
+  /** Points a row at its project root folder; its identity stays the same. */
+  relocate(projectId, scope) {
+    this.db
+      .prepare("UPDATE projects SET name=?,cwd=? WHERE id=? AND kind=? AND identity=?")
+      .run(scope.name, scope.cwd, projectId, scope.kind, scope.identity);
+  }
+  /** Removes a project row that holds no entries and no session capability. */
+  removeEmpty(projectId) {
+    return transaction(this.db, () => {
+      if (this.ownsEntries(projectId) || this.heldBySession(projectId)) return false;
+      this.db.prepare("DELETE FROM requests WHERE project_id=?").run(projectId);
+      this.db.prepare("DELETE FROM projects WHERE id=?").run(projectId);
+      return true;
     });
   }
   close() {

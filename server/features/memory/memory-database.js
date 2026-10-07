@@ -42,6 +42,7 @@ export function openDatabase(dataDir) {
  CREATE TABLE IF NOT EXISTS requests (project_id TEXT NOT NULL, actor TEXT NOT NULL, request_id TEXT NOT NULL, hash TEXT NOT NULL, entry_id TEXT NOT NULL, revision INTEGER NOT NULL, PRIMARY KEY(project_id,actor,request_id));
  CREATE TABLE IF NOT EXISTS capabilities (session_id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), account_id TEXT NOT NULL, tool TEXT NOT NULL, token_hash TEXT NOT NULL, active INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS project_rebinds (from_id TEXT PRIMARY KEY, to_id TEXT NOT NULL, created_at TEXT NOT NULL);
+ CREATE TABLE IF NOT EXISTS migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL);
  CREATE INDEX IF NOT EXISTS entries_by_project ON entries(project_id);
  PRAGMA user_version=1;`);
     for (const suffix of ["-wal", "-shm"])
@@ -55,6 +56,15 @@ export function openDatabase(dataDir) {
     throw error;
   }
   return { root, db };
+}
+/** Copies the database to a private file next to it, before a one-off migration. */
+export function backupDatabase(db, root, label) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const file = path.join(root, `memory.sqlite.${label}-${stamp}`);
+  if (fs.existsSync(file)) throw failure(serverMessages.memory.unsafeStorage, 409);
+  db.prepare("VACUUM INTO ?").run(file);
+  fs.chmodSync(file, 0o600);
+  return file;
 }
 export function transaction(db, operation) {
   db.exec("BEGIN IMMEDIATE");
