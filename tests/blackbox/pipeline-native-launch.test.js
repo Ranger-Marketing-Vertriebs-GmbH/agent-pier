@@ -90,7 +90,7 @@ for (const providerId of [null, "openrouter", "zai", "zai-coding-plan"])
       await application.pipelineDriver.start({
         ...identity,
         profileSnapshot: profile,
-        cwd: app.home,
+        cwd: app.project,
         prompt: "First task",
         kind: "kickoff",
       });
@@ -187,7 +187,7 @@ for (const providerId of [null, "openrouter", "zai", "zai-coding-plan"])
       await application.pipelineDriver.start({
         ...next,
         profileSnapshot: profile,
-        cwd: app.home,
+        cwd: app.project,
         prompt: "Follow-up",
         kind: "gate-feedback",
         resumeNativeId: nativeId,
@@ -229,7 +229,7 @@ for (const providerId of [null, "openrouter", "zai", "zai-coding-plan"])
             ...next,
             sessionId: randomUUID(),
             profileSnapshot: profile,
-            cwd: app.home,
+            cwd: app.project,
             prompt: "Deleted connection",
             resumeNativeId: nativeId,
           }),

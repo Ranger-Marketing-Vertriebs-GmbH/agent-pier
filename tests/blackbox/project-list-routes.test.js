@@ -9,6 +9,52 @@ async function register(app, cwd) {
   return app.request("/api/memory/projects", { method: "POST", body: { cwd } });
 }
 
+test("the home folder and collection folders cannot be registered as projects", async (t) => {
+  const app = await applicationFixture(t);
+  assert.equal((await register(app, app.home)).status, 422);
+  const collection = path.join(app.root, "Projects");
+  for (const name of ["one", "two"]) {
+    await fs.mkdir(path.join(collection, name), { recursive: true });
+    execFileSync("git", ["init", "-q", path.join(collection, name)]);
+  }
+  assert.equal((await register(app, collection)).status, 422);
+  assert.equal((await register(app, path.join(collection, "one"))).status, 201);
+  const listed = await (await app.request("/api/memory/projects")).json();
+  assert.deepEqual(
+    listed.projects.map((project) => path.basename(project.cwd)),
+    ["one"],
+  );
+});
+
+test("sessions in the home folder launch without project memory or a current project", async (t) => {
+  const app = await applicationFixture(t);
+  const services = app.application;
+  const launch = { args: ["--keep"], env: { KEEP: "1" } };
+  const prepared = await services.memoryIntegration.prepare({
+    id: "home-session",
+    account: services.accounts.get("local-claude"),
+    cwd: app.home,
+    launch,
+  });
+  assert.equal(prepared, launch);
+  const tooled = await services.sessionMcp.prepare({
+    id: "home-tools",
+    account: services.accounts.get("local-codex"),
+    cwd: app.home,
+    launch: { args: [], env: {} },
+    selection: {
+      scopes: ["catalog:read"],
+      currentProject: true,
+      projectIds: [],
+      accountIds: [],
+      connectionIds: [],
+    },
+  });
+  assert.equal(tooled.agentpierTools.enabled, true);
+  services.sessionMcp.discard("home-tools");
+  assert.deepEqual(services.memory.projects().projects, []);
+});
+
 test("listed projects carry their live origin remote without credentials", async (t) => {
   const app = await applicationFixture(t);
   const lab = path.join(app.root, "electronic-lab");

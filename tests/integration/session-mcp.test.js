@@ -73,7 +73,7 @@ test("process exit, session identity mismatch and generation rotation reject old
   const renewed = await f.application.sessionMcp.prepare({
     id,
     account: f.application.accounts.get("local-codex"),
-    cwd: f.home,
+    cwd: f.project,
     launch: { args: [], env: {} },
     selection: selection(),
   });
@@ -115,7 +115,7 @@ test("launch rejects invalid grants, shell/login/pipeline access and cleans up a
       a.sessionMcp.prepare({
         id: "forbidden",
         account: a.accounts.get("local-codex"),
-        cwd: f.home,
+        cwd: f.project,
         launch: { args: [], env: {} },
         selection: selection(),
         ...input,
@@ -144,7 +144,7 @@ test("launch rejects invalid grants, shell/login/pipeline access and cleans up a
     method: "POST",
     body: {
       accountId: "local-codex",
-      cwd: f.home,
+      cwd: f.project,
       agentbus: false,
       agentpierTools: selection(),
     },
@@ -164,7 +164,7 @@ test("session lifecycle persists only safe grant metadata and stop revokes acces
     method: "POST",
     body: {
       accountId: "local-codex",
-      cwd: f.home,
+      cwd: f.project,
       agentbus: false,
       agentpierTools: selection(),
     },

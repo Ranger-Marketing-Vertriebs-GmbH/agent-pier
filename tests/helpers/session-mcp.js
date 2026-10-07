@@ -20,7 +20,7 @@ export async function issue(
   const launch = await f.application.sessionMcp.prepare({
     id,
     account,
-    cwd: f.home,
+    cwd: f.project,
     launch: { args: [], env: {} },
     selection: choices,
   });
@@ -30,7 +30,7 @@ export async function issue(
     name: "Disposable MCP session",
     tool,
     accountId: account.id,
-    cwd: f.home,
+    cwd: f.project,
     command: process.execPath,
     args: ["-e", "setInterval(() => {}, 1000)"],
   });

@@ -53,7 +53,7 @@ test("real session persistence inherits project hosts without explicit grants", 
   const f = await applicationFixture(t);
   const projectResponse = await f.request("/api/memory/projects", {
     method: "POST",
-    body: { cwd: f.home },
+    body: { cwd: f.project },
   });
   assert.equal(projectResponse.status, 201);
   const project = await projectResponse.json();
@@ -78,7 +78,7 @@ test("real session persistence inherits project hosts without explicit grants", 
   const host = await hostResponse.json();
   const start = await f.request("/api/sessions", {
     method: "POST",
-    body: { accountId: "local-shell", cwd: f.home },
+    body: { accountId: "local-shell", cwd: f.project },
   });
   assert.equal(start.status, 201);
   const session = await start.json();
@@ -97,7 +97,7 @@ test("real session persistence inherits project hosts without explicit grants", 
 test("project collision HTTP responses contain only bounded public conflicting IDs", async (t) => {
   const f = await applicationFixture(t);
   const projects = [];
-  for (const cwd of [f.home, f.dataDir]) {
+  for (const cwd of [f.project, f.dataDir]) {
     const response = await f.request("/api/memory/projects", {
       method: "POST",
       body: { cwd },

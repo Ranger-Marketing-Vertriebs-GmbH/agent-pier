@@ -76,7 +76,7 @@ test("internal starts use the same resource/publication checks, idempotency and 
       return {
         cwd,
         projectId: project.id,
-        projectRoot: f.home,
+        projectRoot: f.project,
         branch: `fixture/${runId}`,
       };
     },
@@ -215,7 +215,7 @@ test("explicit revocation wins over a reload with a stale enabled selection, inc
   const launch = await f.application.sessionMcp.prepare({
     id: issued.session.id,
     account: f.application.accounts.get("local-codex"),
-    cwd: f.home,
+    cwd: f.project,
     launch: { args: [], env: {} },
     selection: issued.session.agentpierTools.selection,
     replace: true,

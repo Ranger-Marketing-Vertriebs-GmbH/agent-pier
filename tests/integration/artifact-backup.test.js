@@ -12,8 +12,12 @@ for (const includeHistory of [false, true])
     const f = await applicationFixture(t);
     const issued = await issue(f, { choices: true });
     const project = f.application.memory.projects().projects[0];
-    await fs.writeFile(path.join(f.home, "report.html"), "<h1>saved</h1>");
-    const context = { sessionId: issued.session.id, projectId: project.id, cwd: f.home };
+    await fs.writeFile(path.join(f.project, "report.html"), "<h1>saved</h1>");
+    const context = {
+      sessionId: issued.session.id,
+      projectId: project.id,
+      cwd: f.project,
+    };
     const publish = () =>
       f.application.artifacts.publish(
         context,

@@ -9,7 +9,7 @@ for (const tool of ["codex", "claude", "opencode"])
   test(`${tool} publishes and lists its own session artifacts through native MCP`, async (t) => {
     const f = await applicationFixture(t);
     const issued = await issue(f, { tool, choices: true });
-    await fs.writeFile(path.join(f.home, "report.html"), "<h1>private</h1>");
+    await fs.writeFile(path.join(f.project, "report.html"), "<h1>private</h1>");
     const client = await connect(t, f, issued);
     assert.ok(
       (await client.listTools()).tools.some((entry) => entry.name === "artifact_publish"),
@@ -54,7 +54,7 @@ test("artifact MCP explains unsupported bundle files in English and preserves pr
   const f = await applicationFixture(t);
   const issued = await issue(f, { tool: "codex", choices: true });
   const client = await connect(t, f, issued);
-  const gallery = path.join(f.home, "gallery");
+  const gallery = path.join(f.project, "gallery");
   await fs.mkdir(gallery);
   await fs.writeFile(path.join(gallery, "index.html"), "<h1>Gallery</h1>");
   const args = {
@@ -76,7 +76,7 @@ test("artifact MCP explains unsupported bundle files in English and preserves pr
   assert.equal(error.status, 400);
   assert.match(error.error, /Unsupported file type: "README.md"/);
   assert.match(error.error, /output folder/);
-  assert.ok(!error.error.includes(f.home), "Do not expose host absolute paths");
+  assert.ok(!error.error.includes(f.project), "Do not expose host absolute paths");
   const snapshot = await f.application.artifacts.snapshot(published.id);
   assert.equal(snapshot.files.length, 1);
   assert.equal(

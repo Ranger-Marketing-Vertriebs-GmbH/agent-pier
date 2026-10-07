@@ -25,6 +25,9 @@ export async function applicationFixture(t, overrides = {}) {
   const dataDir = path.join(root, "data");
   const home = path.join(root, "home");
   await fs.mkdir(home, { mode: 0o700 });
+  // The home folder stands for no project, so sessions that need one use this folder.
+  const project = path.join(root, "fixture-project");
+  await fs.mkdir(project, { mode: 0o700 });
   let application;
   let listOwnedSessions;
   let url;
@@ -104,6 +107,7 @@ export async function applicationFixture(t, overrides = {}) {
     root,
     dataDir,
     home,
+    project,
     get application() {
       return application;
     },

@@ -160,6 +160,7 @@ export async function createServices(config) {
     sessions,
     dataDir: config.dataDir,
     home: config.home,
+    classifyFolder: (cwd) => memory.classifyFolder(cwd),
   });
   await agentbus.ready;
   // Detected per launch, the same way the workspace state and the installer see
@@ -209,6 +210,7 @@ export async function createServices(config) {
     audit,
   });
   sshManagement.rebindProject = (input) => projectRebind.rebind(input);
+  memory.rebindProject = (input) => projectRebind.rebind(input);
   const operations = new Operations({
     config,
     audit,

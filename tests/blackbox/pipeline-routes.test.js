@@ -63,7 +63,10 @@ test("pipeline definitions expose versioned profile CRUD, snapshots and project 
     409,
   );
   const scope = await (
-    await app.request("/api/memory/projects", { method: "POST", body: { cwd: app.home } })
+    await app.request("/api/memory/projects", {
+      method: "POST",
+      body: { cwd: app.project },
+    })
   ).json();
   const steps = [
     { name: "Test", command: "node --version", timeoutMs: 1000, blocking: true },
@@ -132,7 +135,7 @@ test("pipeline HTTP writes reject foreign origins and invalid graphs before star
     (
       await app.request("/api/pipeline-runs", {
         method: "POST",
-        body: { pipelineId: "missing", cwd: app.home, task: "Test" },
+        body: { pipelineId: "missing", cwd: app.project, task: "Test" },
       })
     ).status,
     404,

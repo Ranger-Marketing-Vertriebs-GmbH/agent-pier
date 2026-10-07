@@ -33,7 +33,7 @@ async function launchMemorySession(app, exitFile = null) {
     body: {
       accountId: "local-claude",
       name: "Memory fixture",
-      cwd: app.home,
+      cwd: app.project,
       agentbus: false,
     },
   });
@@ -266,7 +266,7 @@ test("invalid Memory discovery config returns a stable browser error and revokes
     body: {
       accountId: "local-codex",
       name: "Invalid hooks",
-      cwd: app.home,
+      cwd: app.project,
       agentbus: false,
     },
   });

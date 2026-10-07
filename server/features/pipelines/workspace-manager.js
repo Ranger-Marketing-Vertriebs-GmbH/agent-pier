@@ -170,8 +170,10 @@ export class PipelineWorkspace {
       (line) => !previous.split("\n").includes(line),
     );
     if (exclusions.length) await fs.appendFile(exclude, `\n${exclusions.join("\n")}\n`);
-    if (this.memory)
-      workspace.projectId = (await this.memory.register(workspace.projectRoot)).id;
+    if (this.memory) {
+      const project = await this.memory.register(workspace.projectRoot);
+      if (project) workspace.projectId = project.id;
+    }
     writePrivate(this.file(workspace.runId), workspace);
     return workspace;
   }

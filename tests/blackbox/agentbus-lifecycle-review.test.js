@@ -105,7 +105,7 @@ test("AgentBus revocation preserves a symlink target and keeps a failed cleanup 
 test("AgentBus permission drift cannot block session shutdown and reconciliation", async (t) => {
   const { applicationFixture } = await import("../helpers/application.js");
   const app = await applicationFixture(t);
-  const program = path.join(app.home, "agent-fixture.cjs");
+  const program = path.join(app.project, "agent-fixture.cjs");
   fs.writeFileSync(program, "setInterval(() => {}, 1000);");
   app.application.accounts.command = () => ({
     command: process.execPath,
@@ -118,7 +118,7 @@ test("AgentBus permission drift cannot block session shutdown and reconciliation
     body: {
       accountId: "local-claude",
       name: "AgentBus cleanup fixture",
-      cwd: app.home,
+      cwd: app.project,
     },
   });
   assert.equal(response.status, 201);

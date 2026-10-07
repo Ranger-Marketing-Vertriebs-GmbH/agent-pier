@@ -32,9 +32,11 @@ export function memoryRoutes({ memory, directory, gitRemotes }) {
         : listed.projects,
     });
   });
-  router.post("/memory/projects", async (request, response) =>
-    response.status(201).json(await memory.register(await directory(request.body?.cwd))),
-  );
+  router.post("/memory/projects", async (request, response) => {
+    const project = await memory.register(await directory(request.body?.cwd));
+    if (!project) throw problem(serverMessages.memory.projectFolderExcluded, 422);
+    response.status(201).json(project);
+  });
   const base = "/memory/projects/:projectId/entries";
   router.get(base, (request, response) => {
     const { page, q, archived } = request.query;

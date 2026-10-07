@@ -175,6 +175,8 @@ for (const tool of ["codex", "claude", "opencode"]) {
     const bus = {
       root: path.join(folder, "agentbus"),
       home: folder,
+      // The fixture folder doubles as home; it stands for the project here.
+      classifyFolder: async (cwd) => ({ kind: "project", cwd }),
       accounts: { get: () => account },
       broker: {
         transport: { socketPath: path.join(folder, "unused.sock") },

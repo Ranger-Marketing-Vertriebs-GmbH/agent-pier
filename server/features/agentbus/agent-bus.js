@@ -19,6 +19,7 @@ import { ensureDir, writeJsonAtomic } from "../../../vendor/agentbus/core/fsx.js
 import { peerKey } from "../../../vendor/agentbus/core/paths.js";
 import { openQueue } from "../../../vendor/agentbus/core/queue.js";
 import { addGrant } from "../nono/sandbox-grants.js";
+import { classifyProjectFolder, runWorktreeRoot } from "../memory/project-folders.js";
 
 import { AGENTBUS_VERSION as VERSION, trustedPeers } from "./agentbus-runtime.js";
 import { resolveAgentBusInterpreter } from "./agentbus-launch-identity.js";
@@ -28,9 +29,19 @@ const adapters = fileURLToPath(new URL("./", import.meta.url));
 const idPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
 
 export class AgentBus {
-  constructor({ dataDir, home = os.homedir(), accounts, sessions, bindings }) {
+  constructor({
+    dataDir,
+    home = os.homedir(),
+    accounts,
+    sessions,
+    bindings,
+    classifyFolder,
+  }) {
     this.dataDir = fs.realpathSync(dataDir);
     this.home = home;
+    // Shared with project memory, which also counts registered child projects.
+    this.classifyFolder =
+      classifyFolder || ((cwd) => classifyProjectFolder(cwd, { home }));
     this.accounts = accounts;
     this.sessions = sessions;
     this.bindings = bindings;
@@ -66,7 +77,12 @@ export class AgentBus {
     const canonical = fs.realpathSync(cwd);
     if (!fs.statSync(canonical).isDirectory())
       throw problem(serverMessages.common.invalidProjectDirectory);
-    const projectId = createHash("sha256").update(canonical).digest("hex");
+    // The home folder and collection folders stand for no project, so the session
+    // runs without AgentBus. A pipeline run worktree joins its project root.
+    const folder = await this.classifyFolder(canonical);
+    if (folder.kind !== "project") return { ...launch, agentbus: { enabled: false } };
+    const projectCwd = folder.cwd;
+    const projectId = createHash("sha256").update(projectCwd).digest("hex");
     const home = path.join(this.root, "projects", projectId);
     ensureDir(path.join(home, "launches"));
     const existing = path.join(home, "launches", `${id}.json`);
@@ -81,6 +97,7 @@ export class AgentBus {
       id,
       projectId,
       cwd: canonical,
+      ...(projectCwd !== canonical ? { projectCwd } : {}),
       accountId: selected.id,
       tool: selected.tool,
       command: launch.command,
@@ -228,12 +245,12 @@ export class AgentBus {
         continue;
       let project = projects.get(launch.projectId);
       if (!project) {
-        project = {
-          id: launch.projectId,
-          name: path.basename(launch.cwd),
-          cwd: launch.cwd,
-          sessions: [],
-        };
+        // Run worktrees launched by older releases still list under their root.
+        const cwd =
+          (typeof launch.projectCwd === "string" && launch.projectCwd) ||
+          runWorktreeRoot(launch.cwd) ||
+          launch.cwd;
+        project = { id: launch.projectId, name: path.basename(cwd), cwd, sessions: [] };
         projects.set(launch.projectId, project);
       }
       const peers = trustedPeers(h).filter(
