@@ -519,3 +519,4 @@ contradicts sections above, these amendments win:
     (`error.code` string) and LM Studio (`error` string) shapes.
 11. **Chat reasoning fields**: both `delta.reasoning` (vLLM) and
     `delta.reasoning_content` are read; `reasoningReplay` sends `reasoning_content`.
+12. **IR usage events** carry cumulative totals (each `usage` event replaces the previous values); upstream parsers convert incremental reports before emitting.
