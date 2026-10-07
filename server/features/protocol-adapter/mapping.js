@@ -202,7 +202,9 @@ export function clampMaxTokens(value, model, adjust = () => {}) {
   return limit;
 }
 
-const count = (value) => (Number.isFinite(value) && value > 0 ? value : 0);
+// Token counts are non-negative integers in the IR. Sloppy gateways may report fractional
+// or negative values; they are rounded or zeroed rather than discarding a valid answer.
+const count = (value) => (Number.isFinite(value) && value > 0 ? Math.round(value) : 0);
 
 /**
  * IR usage follows Messages semantics: `input` excludes cache reads and writes.

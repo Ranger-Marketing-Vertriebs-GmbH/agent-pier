@@ -283,6 +283,17 @@ test("usage conversion both ways", () => {
   });
 });
 
+test("usage mappers round fractional counts and zero invalid ones", () => {
+  assert.deepEqual(
+    usageFromOpenAI({ prompt: 12.5, completion: 1.4, cached: 2.6, reasoning: 0.4 }),
+    { input: 10, output: 1, cacheRead: 3, cacheWrite: 0, reasoning: 0, estimated: false },
+  );
+  assert.deepEqual(
+    usageFromMessages({ input: 7.5, output: -3, cacheRead: Infinity, cacheWrite: "4" }),
+    { input: 8, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, estimated: false },
+  );
+});
+
 test("usage IR keeps reasoning and estimated flags and fills defaults", () => {
   assert.deepEqual(usageFromOpenAI({ prompt: 10, completion: 5, reasoning: 3 }), {
     input: 10,
