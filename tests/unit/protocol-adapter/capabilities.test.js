@@ -130,6 +130,79 @@ describe("capabilityForError", () => {
     assert.equal(capabilityForError("chat", context), null);
     assert.equal(capabilityForError("chat", null), null);
   });
+
+  test("false positives: wordings that only quote a parameter propose nothing", () => {
+    for (const [upstream, message, param] of [
+      // Chat: value errors about max_tokens are not a field-name problem.
+      ["chat", "max_tokens is too large: 50000. This model supports at most 4096.", null],
+      ["chat", "max_tokens must be at least 1", "max_tokens"],
+      ["chat", "max_completion_tokens is too large: 50000", "max_completion_tokens"],
+      // Responses: item ordering and schema errors quoting 'reasoning' or 'include'.
+      [
+        "responses",
+        "Item 'rs_1' of type 'reasoning' was provided without its required following item.",
+        "input",
+      ],
+      [
+        "responses",
+        "Item 'rs_1' of type 'reasoning' was provided without its required following item.",
+        null,
+      ],
+      [
+        "responses",
+        "Invalid schema for function 'search': 'include' is not valid under any of the given schemas.",
+        "tools[0].parameters",
+      ],
+      ["responses", "Invalid value for 'include' in tool 'search' arguments", null],
+      ["responses", "Unsupported content type 'reasoning' in message input", null],
+      // Messages: any message containing "adaptive" is not an adaptive-thinking rejection.
+      [
+        "messages",
+        "max_tokens must be greater than 1024 when using adaptive thinking",
+        null,
+      ],
+      ["messages", "output_config.effort: adaptive value 'ultra' is invalid", null],
+    ]) {
+      assert.equal(
+        capabilityForError(upstream, rejection(400, message, param)),
+        null,
+        `${upstream}: ${message}`,
+      );
+    }
+  });
+
+  test("Chat: Missing reasoning_content turns reasoning replay on", () => {
+    const deepseek =
+      "Missing `reasoning_content` field in the assistant message at message index 2.";
+    assert.deepEqual(capabilityForError("chat", rejection(400, deepseek)), {
+      name: "reasoningReplay",
+      value: true,
+    });
+    assert.deepEqual(
+      capabilityForError("chat", rejection(400, "Unrecognized field: reasoning_content")),
+      { name: "reasoningReplay", value: false },
+    );
+  });
+
+  test("Chat: unsupported max_completion_tokens switches back to max_tokens", () => {
+    assert.deepEqual(
+      capabilityForError(
+        "chat",
+        rejection(400, "Unrecognized request argument supplied: max_completion_tokens"),
+      ),
+      { name: "maxTokensField", value: "max_tokens" },
+    );
+  });
+
+  test("Messages: adaptive thinking.type tag rejection switches to the budget table", () => {
+    const message =
+      "thinking.type: Input tag 'adaptive' found using 'type' does not match any of the " +
+      "expected tags: 'disabled', 'enabled'";
+    assert.deepEqual(capabilityForError("messages", rejection(400, message)), {
+      name: "thinkingBudget",
+      value: true,
+    });
+  });
 });
 
 describe("translator capabilities", () => {
