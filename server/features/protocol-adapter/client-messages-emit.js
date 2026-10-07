@@ -16,6 +16,14 @@ const TRUNCATED = Object.freeze({
 
 export { AdapterUpstreamError };
 
+/** Block kind each IR delta event belongs to (`blockStop` fits every kind). */
+const DELTA_KINDS = Object.freeze({
+  textDelta: "text",
+  reasoningDelta: "reasoning",
+  reasoningCarrier: "reasoning",
+  toolInputDelta: "toolCall",
+});
+
 function contentBlock(block) {
   if (block.kind === "text") return { type: "text", text: "" };
   if (block.kind === "reasoning")
@@ -129,6 +137,9 @@ function createWireState({ model, messageId, display, origin = "chat" }) {
   const blockEvent = (event) => {
     const block = open.get(event.index);
     if (!block) throw new TypeError("unknownBlockIndex");
+    const kind = DELTA_KINDS[event.type];
+    if (kind !== undefined && kind !== block.kind)
+      throw new TypeError("deltaKindMismatch");
     if (event.type === "blockStop") open.delete(event.index);
     if (block === queue[0]) apply(block, event);
     else block.pending.push(event);
@@ -202,12 +213,20 @@ export async function* emitMessagesStream(events, options = {}) {
   for await (const wire of wireEvents(events, options)) yield frame(wire);
 }
 
+/**
+ * Tool input object of the accumulated `input_json_delta` text. Invalid JSON (or JSON that
+ * is not an object) degrades to `{}` as on the stream path, where Claude Code receives the
+ * same raw fragments and cannot parse them either; the tool then reports the bad input.
+ */
 function parseToolInput(text) {
   if (text === "") return {};
   try {
-    return JSON.parse(text);
+    const parsed = JSON.parse(text);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? parsed
+      : {};
   } catch {
-    throw new TypeError("toolInputInvalidJson");
+    return {};
   }
 }
 

@@ -39,6 +39,14 @@ function mergeUsage(current, event) {
   return merged;
 }
 
+/** Block kind each IR delta event belongs to (`blockStop` fits every kind). */
+const DELTA_KINDS = Object.freeze({
+  textDelta: "text",
+  reasoningDelta: "reasoning",
+  reasoningCarrier: "reasoning",
+  toolInputDelta: "toolCall",
+});
+
 const toolKey = (name, namespace) => `${namespace ?? ""}\u0000${name}`;
 
 /** Item type for an IR block; function calls of declared custom tools are unwrapped. */
@@ -217,6 +225,9 @@ function createWireState(options) {
   const blockEvent = (event) => {
     const block = open.get(event.index);
     if (!block) throw new TypeError("unknownBlockIndex");
+    const kind = DELTA_KINDS[event.type];
+    if (kind !== undefined && kind !== block.kind)
+      throw new TypeError("deltaKindMismatch");
     if (event.type === "blockStop") open.delete(event.index);
     if (block === queue[0]) apply(block, event);
     else block.pending.push(event);
