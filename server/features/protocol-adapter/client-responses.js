@@ -84,7 +84,8 @@ function imagePart(item, path, drop) {
   const detail = isAbsent(item.detail)
     ? {}
     : { detail: requireString(item.detail, `${path}.detail`) };
-  const base64 = /^data:([^;,]+);base64,(.*)$/is.exec(url);
+  // Media type parameters (`data:image/png;foo=bar;base64,`) are allowed and ignored.
+  const base64 = /^data:([^;,]+)(?:;[^,]*)?;base64,(.*)$/is.exec(url);
   if (base64) {
     return {
       type: "image",
@@ -136,6 +137,11 @@ function toolCallPart(item, path, kind, inputField) {
 }
 
 function toolResultPart(item, path, drop) {
+  if (isAbsent(item.call_id)) {
+    // Codex never sends this; an output without a call cannot be paired, so skip it.
+    drop(`input.${item.type}.call_id`);
+    return null;
+  }
   return {
     type: "toolResult",
     callId: requireString(item.call_id, `${path}.call_id`),
@@ -146,10 +152,27 @@ function toolResultPart(item, path, drop) {
 
 function joinedTexts(list, path, types) {
   if (!Array.isArray(list)) return null;
-  const texts = list
-    .filter((entry) => isObject(entry) && types.includes(entry.type))
-    .map((entry, index) => requireString(entry.text, `${path}[${index}].text`));
+  const texts = [];
+  list.forEach((entry, index) => {
+    if (!isObject(entry) || !types.includes(entry.type)) return;
+    texts.push(requireString(entry.text, `${path}[${index}].text`));
+  });
   return texts.length > 0 ? texts.join("\n\n") : null;
+}
+
+/** Text of an `agent_message` (sub-agent message); encrypted parts cannot be read. */
+function agentMessageParts(item, path, drop) {
+  if (!Array.isArray(item.content)) shapeError(`${path}.content`, "an array");
+  const parts = [];
+  item.content.forEach((entry, index) => {
+    const entryPath = `${path}.content[${index}]`;
+    requireObject(entry, entryPath);
+    if (entry.type === "input_text") {
+      const part = textPart(requireString(entry.text, `${entryPath}.text`));
+      if (part) parts.push(part);
+    } else drop(`agent_message.${entry.type}`);
+  });
+  return parts;
 }
 
 function reasoningPart(item, path) {
@@ -174,10 +197,21 @@ const ITEM_PARSERS = {
     const parts = contentParts(item.content, `${path}.content`, drop);
     return { role: MESSAGE_ROLES[item.role], parts };
   },
-  function_call: (item, path) => ({
+  function_call: (item, path, drop) => {
+    if (!isAbsent(item.encrypted_function_args)) {
+      drop("function_call.encrypted_function_args");
+    }
+    return {
+      role: "assistant",
+      parts: [toolCallPart(item, path, "function", "arguments")],
+    };
+  },
+  agent_message: (item, path, drop) => ({
     role: "assistant",
-    parts: [toolCallPart(item, path, "function", "arguments")],
+    parts: agentMessageParts(item, path, drop),
   }),
+  // Responses-lite tool definitions; parseResponsesRequest merges them into `tools`.
+  additional_tools: () => null,
   custom_tool_call: (item, path) => ({
     role: "assistant",
     parts: [toolCallPart(item, path, "custom", "input")],
@@ -185,12 +219,12 @@ const ITEM_PARSERS = {
   reasoning: (item, path) => ({ role: "assistant", parts: [reasoningPart(item, path)] }),
   function_call_output: (item, path, drop) => ({
     role: "user",
-    parts: [toolResultPart(item, path, drop)],
+    parts: [toolResultPart(item, path, drop)].filter(Boolean),
     results: true,
   }),
   custom_tool_call_output: (item, path, drop) => ({
     role: "user",
-    parts: [toolResultPart(item, path, drop)],
+    parts: [toolResultPart(item, path, drop)].filter(Boolean),
     results: true,
   }),
 };
@@ -318,12 +352,10 @@ function hostedTool(tool, path) {
   return { name, kind: "hosted", hostedType, raw: tool };
 }
 
-function parseTools(tools, drop) {
-  const descriptions = {};
-  if (isAbsent(tools)) return { tools: [], descriptions };
-  if (!Array.isArray(tools)) shapeError("tools", "an array");
-  const parsed = tools.flatMap((tool, index) => {
-    const path = `tools[${index}]`;
+function parseToolList(tools, basePath, drop, descriptions) {
+  if (!Array.isArray(tools)) shapeError(basePath, "an array");
+  return tools.flatMap((tool, index) => {
+    const path = `${basePath}[${index}]`;
     requireObject(tool, path);
     requireString(tool.type, `${path}.type`);
     if (tool.type === "namespace") return namespaceTools(tool, path, drop, descriptions);
@@ -332,7 +364,26 @@ function parseTools(tools, drop) {
     }
     return [hostedTool(tool, path)];
   });
-  return { tools: parsed, descriptions };
+}
+
+/**
+ * Top-level `tools` followed by the tools of every `additional_tools` input item
+ * (Responses-lite mode sends its tools there instead of in `tools`).
+ */
+function parseTools(body, drop) {
+  const descriptions = {};
+  const tools = isAbsent(body.tools)
+    ? []
+    : parseToolList(body.tools, "tools", drop, descriptions);
+  if (Array.isArray(body.input)) {
+    body.input.forEach((item, index) => {
+      if (!isObject(item) || item.type !== "additional_tools") return;
+      tools.push(
+        ...parseToolList(item.tools, `input[${index}].tools`, drop, descriptions),
+      );
+    });
+  }
+  return { tools, descriptions };
 }
 
 function parseToolChoice(choice, drop) {
@@ -437,7 +488,7 @@ export function parseResponsesRequest(body, _headers = {}) {
 
   const model = requireString(body.model, "model");
   const { system, messages } = splitSystem(body, parseInput(body.input ?? [], drop));
-  const { tools, descriptions } = parseTools(body.tools, drop);
+  const { tools, descriptions } = parseTools(body, drop);
   const ir = {
     model,
     system,
