@@ -72,6 +72,14 @@ export function grammarNote(grammar) {
 export const customToolDescription = (tool) =>
   [tool.description, grammarNote(tool.grammar)].filter(Boolean).join("\n\n");
 
+/** The IR tool a named tool choice (`{ name, namespace? }`) points at, if any. */
+export function chosenTool(ir, choice) {
+  if (!isObject(choice)) return undefined;
+  return ir.tools.find(
+    (tool) => tool.name === choice.name && tool.namespace === choice.namespace,
+  );
+}
+
 // --- request bookkeeping ---------------------------------------------------------------
 
 // Hints the adapter honors itself on every route: `store` (always false upstream) and

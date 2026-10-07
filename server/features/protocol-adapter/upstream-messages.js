@@ -5,6 +5,7 @@
 import { decodeCarrier } from "./carrier.js";
 import { maxTokensFor, resolveThinkingForMessages } from "./mapping.js";
 import {
+  chosenTool,
   customToolDescription,
   customToolSchema,
   dropHints,
@@ -440,7 +441,13 @@ export function buildMessagesRequest(ir, ctx) {
   const tools = buildTools(ir, ctx.names, drop);
   if (tools.length > 0) {
     body.tools = tools;
-    body.tool_choice = toolChoice(resolved.toolChoice, ctx.names, ir.parallelToolCalls);
+    let choice = resolved.toolChoice;
+    // Hosted tools are dropped here, so a choice naming one would name a missing tool.
+    if (chosenTool(ir, choice)?.kind === "hosted") {
+      choice = "auto";
+      adjustments.push("toolChoice.hostedToolDropped");
+    }
+    body.tool_choice = toolChoice(choice, ctx.names, ir.parallelToolCalls);
   }
   if (resolved.thinking) body.thinking = resolved.thinking;
   const config = outputConfig(resolved.thinking ? resolved.effort : undefined, ir.output);
