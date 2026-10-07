@@ -7,6 +7,7 @@ import {
   createNameMap,
 } from "../../../server/features/protocol-adapter/names.js";
 import { loadFixture } from "../../helpers/protocol-adapter.js";
+import { assertResponsesRequest } from "../../helpers/protocol-adapter-shapes.js";
 
 const FUNCTION_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
 
@@ -42,103 +43,6 @@ function request(overrides = {}) {
   };
 }
 
-const ALLOWED_TOP = new Set([
-  "model",
-  "instructions",
-  "input",
-  "tools",
-  "tool_choice",
-  "parallel_tool_calls",
-  "reasoning",
-  "include",
-  "max_output_tokens",
-  "temperature",
-  "top_p",
-  "text",
-  "prompt_cache_key",
-  "store",
-  "stream",
-]);
-const IR_KEYS = new Set([
-  "parts",
-  "kind",
-  "namespace",
-  "cache",
-  "carrier",
-  "isError",
-  "callId",
-  "id",
-  "mediaType",
-  "data",
-]);
-const CONTENT_TYPES = {
-  user: ["input_text", "input_image"],
-  developer: ["input_text"],
-  assistant: ["output_text"],
-};
-
-function assertNoIrKeys(value, path) {
-  if (Array.isArray(value))
-    return value.forEach((item, i) => assertNoIrKeys(item, `${path}[${i}]`));
-  if (value === null || typeof value !== "object") return;
-  for (const [key, child] of Object.entries(value)) {
-    if (path.includes(".parameters")) continue; // tool schemas are client data
-    assert.ok(!IR_KEYS.has(key), `${path}.${key} is an IR leftover`);
-    assertNoIrKeys(child, `${path}.${key}`);
-  }
-}
-
-function assertContent(item, where) {
-  assert.ok(Array.isArray(item.content) && item.content.length > 0, where);
-  for (const part of item.content) {
-    assert.ok(CONTENT_TYPES[item.role].includes(part.type), `${where} ${part.type}`);
-    if (part.type === "input_image") assert.match(part.image_url, /^(data:|https?:)/);
-    else assert.equal(typeof part.text, "string");
-  }
-}
-
-/** Minimal Responses request validator for the item shapes this adapter sends. */
-function assertResponsesShape(body) {
-  for (const key of Object.keys(body))
-    assert.ok(ALLOWED_TOP.has(key), `unexpected ${key}`);
-  assert.equal(typeof body.model, "string");
-  assert.equal(body.store, false);
-  assert.ok(Array.isArray(body.input) && body.input.length > 0);
-  const toolNames = new Set();
-  for (const tool of body.tools ?? []) {
-    assert.ok(["function", "custom"].includes(tool.type));
-    assert.match(tool.name, FUNCTION_NAME);
-    if (tool.type === "function") assert.equal(typeof tool.strict, "boolean");
-    assert.ok(!toolNames.has(tool.name), "tool names are unique");
-    toolNames.add(tool.name);
-  }
-  const open = new Map();
-  body.input.forEach((item, index) => {
-    const where = `input[${index}]`;
-    assert.equal(item.id, undefined, `${where} carries no item id`);
-    if (item.type === "message") {
-      assert.ok(["user", "developer", "assistant"].includes(item.role), where);
-      assertContent(item, where);
-    } else if (item.type === "function_call" || item.type === "custom_tool_call") {
-      assert.match(item.name, FUNCTION_NAME);
-      assert.ok(toolNames.has(item.name), `${where} names a declared tool`);
-      open.set(item.call_id, item.type);
-    } else if (item.type.endsWith("_call_output")) {
-      const call = open.get(item.call_id);
-      assert.ok(call, `${where} answers an open call`);
-      assert.equal(item.type, `${call}_output`);
-      open.delete(item.call_id);
-      assert.ok(typeof item.output === "string" || Array.isArray(item.output));
-    } else if (item.type === "reasoning") {
-      assert.ok(Array.isArray(item.summary));
-      assert.equal(typeof item.encrypted_content, "string");
-    } else assert.fail(`${where} unknown type ${item.type}`);
-  });
-  assert.equal(open.size, 0, "every call has an output");
-  assertNoIrKeys(body.input, "input");
-  assertNoIrKeys(body.tools ?? [], "tools");
-}
-
 describe("buildResponsesRequest on Claude Code snapshots", () => {
   for (const name of [
     "text",
@@ -152,7 +56,7 @@ describe("buildResponsesRequest on Claude Code snapshots", () => {
       const ir = snapshot(name);
       const { path, body, dropped } = build(ir);
       assert.equal(path, "/responses");
-      assertResponsesShape(body);
+      assertResponsesRequest(body);
       assert.equal(body.model, "upstream-model");
       assert.equal(body.max_output_tokens, 32000);
       assert.equal(body.stream, true);
@@ -448,7 +352,7 @@ describe("buildResponsesRequest rules", () => {
         ],
       }),
     );
-    assertResponsesShape(body);
+    assertResponsesRequest(body);
     const [, first, , out1, out2, user] = body.input;
     assert.equal(first.arguments, "{}");
     assert.deepEqual(out1.output, [
@@ -487,7 +391,7 @@ describe("buildResponsesRequest rules", () => {
         ],
       }),
     );
-    assertResponsesShape(body);
+    assertResponsesRequest(body);
     assert.deepEqual(body.input[1], {
       type: "message",
       role: "assistant",
@@ -526,7 +430,7 @@ describe("buildResponsesRequest rules", () => {
         ],
       }),
     );
-    assertResponsesShape(body);
+    assertResponsesRequest(body);
     assert.deepEqual(body.input[1], {
       type: "reasoning",
       summary: [{ type: "summary_text", text: "Planning" }],
