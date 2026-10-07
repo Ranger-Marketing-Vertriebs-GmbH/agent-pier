@@ -434,6 +434,23 @@ describe("parameters and capabilities", () => {
     }
   });
 
+  test("max tokens are clamped to the model's output limit when known", () => {
+    const sampling = { maxOutputTokens: 32000, temperature: null, topP: null, stop: [] };
+    const model = { id: "m", outputTokens: 8192 };
+    const clamped = build(request({ sampling }), { model });
+    assert.equal(clamped.body.max_tokens, 8192);
+    assert.deepEqual(clamped.adjustments, ["maxTokens.clamped"]);
+    const fits = build(request({ sampling: { ...sampling, maxOutputTokens: 4096 } }), {
+      model,
+    });
+    assert.equal(fits.body.max_tokens, 4096);
+    assert.deepEqual(fits.adjustments, []);
+    const unknown = build(request({ sampling }), {
+      model: { id: "m", outputTokens: null },
+    });
+    assert.equal(unknown.body.max_tokens, 32000);
+  });
+
   test("tool_choice maps named tools; no tools means no tool fields", () => {
     const ir = request({
       tools: [{ name: "f", namespace: "ns", kind: "function", schema: {} }],

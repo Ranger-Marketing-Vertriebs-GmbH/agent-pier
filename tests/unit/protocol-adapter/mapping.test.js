@@ -247,6 +247,13 @@ test("maxTokensFor prefers sampling, then model output, then context share", () 
   assert.equal(maxTokensFor({ sampling: {}, model: { contextTokens: 64000 } }), 16000);
   assert.equal(maxTokensFor({ sampling: {}, model: { contextTokens: 1000000 } }), 32000);
   assert.equal(maxTokensFor({}), 32000);
+  const adjusted = [];
+  const clamped = maxTokensFor(
+    { sampling: { maxOutputTokens: 1500 }, model: { outputTokens: 900 } },
+    (name) => adjusted.push(name),
+  );
+  assert.equal(clamped, 900);
+  assert.deepEqual(adjusted, ["maxTokens.clamped"]);
 });
 
 test("usage conversion both ways", () => {

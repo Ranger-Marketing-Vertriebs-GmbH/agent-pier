@@ -15,14 +15,12 @@ import {
 
 const PROMPT_TOO_LONG = (prompt, max) =>
   `prompt is too long: ${prompt} tokens > ${max} maximum`;
-const EXCEEDS = (prompt, output, max) =>
-  `input length and \`max_tokens\` exceed context limit: ${prompt} + ${output} > ${max}, ` +
-  "decrease input length or `max_tokens` and try again";
 
 // Claude Code compacts on these exact wordings (facts §1.9).
 const MESSAGES_WORDING = {
-  "upstreams/chat/context-vllm.json": EXCEEDS(30000, 4096, 32768),
-  "upstreams/chat/context-litellm.json": EXCEEDS(30000, 4096, 32768),
+  // 32768 - 30000 - 1000 < 3000: shrinking max_tokens cannot help, so compact.
+  "upstreams/chat/context-vllm.json": PROMPT_TOO_LONG(34096, 32768),
+  "upstreams/chat/context-litellm.json": PROMPT_TOO_LONG(34096, 32768),
   "upstreams/chat/context-llamacpp.json": PROMPT_TOO_LONG(40000, 32768),
   "upstreams/chat/context-lmstudio-unverified.json": PROMPT_TOO_LONG(40000, 32768),
   "upstreams/chat/context-openai-unverified.json": PROMPT_TOO_LONG(130000, 128000),

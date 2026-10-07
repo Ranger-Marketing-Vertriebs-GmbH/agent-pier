@@ -306,23 +306,33 @@ const MESSAGES_ERRORS = Object.freeze({
   network: [502, "api_error"],
 });
 
-/** Claude Code's wording: it compacts on "prompt is too long", shrinks max_tokens otherwise. */
+// Claude Code retries a max_tokens overflow with max_tokens = max - prompt - 1000 and only
+// when that leaves at least 3000 tokens; otherwise it gives up instead of compacting.
+const SHRINK_MARGIN = 1000;
+const MIN_SHRUNK_OUTPUT = 3000;
+
+/**
+ * Claude Code's wording: it compacts on "prompt is too long" and shrinks `max_tokens` on
+ * "input length and `max_tokens` exceed context limit". The latter is used only when the
+ * shrunk output budget is usable; otherwise the total is reported as too long.
+ */
 function contextWording({
   promptTokens: prompt,
   outputTokens: output,
   contextWindow: max,
 }) {
   const known = (value) => Number.isInteger(value);
-  if (known(prompt) && known(output) && known(max) && prompt <= max) {
-    return (
-      `input length and \`max_tokens\` exceed context limit: ${prompt} + ${output} > ${max}, ` +
-      "decrease input length or `max_tokens` and try again"
-    );
+  if (!known(prompt) || !known(max)) return "prompt is too long";
+  if (known(output) && prompt <= max) {
+    if (max - prompt - SHRINK_MARGIN >= MIN_SHRUNK_OUTPUT) {
+      return (
+        `input length and \`max_tokens\` exceed context limit: ${prompt} + ${output} > ${max}, ` +
+        "decrease input length or `max_tokens` and try again"
+      );
+    }
+    return `prompt is too long: ${prompt + output} tokens > ${max} maximum`;
   }
-  if (known(prompt) && known(max)) {
-    return `prompt is too long: ${prompt} tokens > ${max} maximum`;
-  }
-  return "prompt is too long";
+  return `prompt is too long: ${prompt} tokens > ${max} maximum`;
 }
 
 function messagesError(error) {
