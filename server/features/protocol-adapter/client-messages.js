@@ -1,7 +1,7 @@
 // Claude Code client (Anthropic Messages wire format): parses requests into the adapter
 // IR. Fields the IR cannot carry are reported in `dropped` instead of failing.
 
-import { assertIrRequest, THINKING_DISPLAYS } from "./ir.js";
+import { assertIrRequest, CACHE_TTLS, THINKING_DISPLAYS } from "./ir.js";
 import { normalizeEffortWithInfo } from "./mapping.js";
 
 const KNOWN_FIELDS = new Set([
@@ -30,7 +30,6 @@ const TOOL_FIELDS = new Set([
   "cache_control",
   "strict",
 ]);
-const CACHE_TTLS = ["5m", "1h"];
 const MESSAGE_ROLES = ["user", "assistant", "system"];
 const IMAGE_TYPES = Object.freeze({
   png: "image/png",
