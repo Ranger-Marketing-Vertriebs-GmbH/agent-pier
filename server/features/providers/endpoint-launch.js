@@ -34,7 +34,6 @@ export function endpointCodexLaunch(result, description, secret, connectionName)
       contextTokens: model.contextTokens,
       description: "Custom endpoint model",
       reasoning: false,
-      applyPatchToolType: "function",
     }),
   );
   writeTomlConfig(path.join(env.CODEX_HOME, "config.toml"), config);
