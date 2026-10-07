@@ -3,52 +3,29 @@
 
 import { decodeCarrier } from "./carrier.js";
 import { clampMaxTokens, effortForBudget, normalizeEffort } from "./mapping.js";
+import {
+  customToolDescription,
+  customToolSchema,
+  dropHints,
+  imageUrl,
+  isObject,
+  present,
+  textOf,
+  upstreamModel,
+} from "./shared.js";
 
 export { parseChatResponse, parseChatStream } from "./upstream-chat-parse.js";
 
-const CUSTOM_SCHEMA = Object.freeze({
-  properties: { input: { type: "string" } },
-  required: ["input"],
-  type: "object",
-});
-const MAX_GRAMMAR_CHARS = 4000;
 const IMAGE_PLACEHOLDER = "[image attached in the next message]";
 const ERROR_PREFIX = "[error] ";
 
-const isObject = (value) =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-const present = (value) => value !== undefined && value !== null;
-
-function upstreamModel(ir, model) {
-  if (typeof model === "string" && model !== "") return model;
-  if (isObject(model) && typeof model.id === "string" && model.id !== "") return model.id;
-  return ir.model;
-}
-
-function grammarNote(grammar) {
-  if (!isObject(grammar) || typeof grammar.definition !== "string") {
-    return 'Call this tool with the JSON arguments {"input": "<raw tool input>"}.';
-  }
-  const definition =
-    grammar.definition.length > MAX_GRAMMAR_CHARS
-      ? `${grammar.definition.slice(0, MAX_GRAMMAR_CHARS)}\n[grammar truncated]`
-      : grammar.definition;
-  const syntax = typeof grammar.syntax === "string" ? `${grammar.syntax} ` : "";
-  return (
-    'Call this tool with the JSON arguments {"input": "<raw tool input>"}; the string ' +
-    `"input" carries the raw text that must match this ${syntax}grammar:\n${definition}`
-  );
-}
-
 function functionTool(tool, names) {
   const custom = tool.kind === "custom";
-  const description = custom
-    ? [tool.description, grammarNote(tool.grammar)].filter(Boolean).join("\n\n")
-    : tool.description;
+  const description = custom ? customToolDescription(tool) : tool.description;
   const fn = { name: names.toUpstream(tool.name, tool.namespace) };
   if (typeof description === "string" && description !== "") fn.description = description;
   fn.parameters = custom
-    ? structuredClone(CUSTOM_SCHEMA)
+    ? customToolSchema()
     : isObject(tool.schema)
       ? tool.schema
       : { type: "object", properties: {} };
@@ -76,10 +53,7 @@ function toolChoice(choice, names) {
 }
 
 function imagePart(part) {
-  const url = present(part.data)
-    ? `data:${part.mediaType};base64,${part.data}`
-    : part.url;
-  const image = { url };
+  const image = { url: imageUrl(part) };
   if (typeof part.detail === "string") image.detail = part.detail;
   return { type: "image_url", image_url: image };
 }
@@ -90,13 +64,6 @@ function userContent(parts) {
   return parts.map((part) =>
     part.type === "text" ? { type: "text", text: part.text } : imagePart(part),
   );
-}
-
-function textOf(parts, separator) {
-  return parts
-    .filter((part) => part.type === "text")
-    .map((part) => part.text)
-    .join(separator);
 }
 
 function systemMessage(parts, drop, path) {
@@ -265,7 +232,7 @@ export function buildChatRequest(ir, ctx) {
   const dropped = new Set();
   const adjustments = [];
   const drop = (name) => dropped.add(name);
-  for (const key of Object.keys(ir.hints ?? {})) drop(`hints.${key}`);
+  dropHints(ir, drop);
 
   const body = {
     model: upstreamModel(ir, ctx.model),

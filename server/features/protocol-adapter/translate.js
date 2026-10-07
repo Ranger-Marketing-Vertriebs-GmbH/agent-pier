@@ -75,7 +75,6 @@
  */
 
 import {
-  AdapterUpstreamError,
   emitMessagesResponse,
   emitMessagesStream,
   messagesPing,
@@ -88,6 +87,7 @@ import {
   responsesKeepalive,
 } from "./client-responses.js";
 import {
+  AdapterUpstreamError,
   classifyTransportError,
   classifyUpstreamError,
   messagesErrorBody,

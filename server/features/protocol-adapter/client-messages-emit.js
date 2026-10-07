@@ -2,7 +2,7 @@
 // Messages SSE stream or a non-streaming Message object.
 
 import { encodeCarrier } from "./carrier.js";
-import { messagesErrorEvent } from "./errors.js";
+import { AdapterUpstreamError, messagesErrorEvent } from "./errors.js";
 import { assertIrEvent } from "./ir.js";
 import { stopToMessages, usageToMessages } from "./mapping.js";
 import { sseEvent } from "./sse.js";
@@ -14,14 +14,7 @@ const TRUNCATED = Object.freeze({
   message: "upstream stream ended before completion",
 });
 
-/** Rejection of `emitMessagesResponse` when the upstream reported an error event. */
-export class AdapterUpstreamError extends Error {
-  constructor(error) {
-    super(error.message);
-    this.name = "AdapterUpstreamError";
-    this.error = error;
-  }
-}
+export { AdapterUpstreamError };
 
 function contentBlock(block) {
   if (block.kind === "text") return { type: "text", text: "" };

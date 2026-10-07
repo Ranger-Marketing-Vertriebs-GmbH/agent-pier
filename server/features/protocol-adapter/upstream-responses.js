@@ -3,6 +3,14 @@
 
 import { decodeCarrier } from "./carrier.js";
 import { clampMaxTokens, effortForBudget, normalizeEffort } from "./mapping.js";
+import {
+  dropHints,
+  imageUrl,
+  isObject,
+  present,
+  textOf,
+  upstreamModel,
+} from "./shared.js";
 
 export {
   parseResponsesResponse,
@@ -23,16 +31,6 @@ const UPSTREAM_EFFORT = Object.freeze({
   xhigh: "high",
   max: "high",
 });
-
-const isObject = (value) =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-const present = (value) => value !== undefined && value !== null;
-
-function upstreamModel(ir, model) {
-  if (typeof model === "string" && model !== "") return model;
-  if (isObject(model) && typeof model.id === "string" && model.id !== "") return model.id;
-  return ir.model;
-}
 
 function functionTool(tool, names) {
   const result = { type: "function", name: names.toUpstream(tool.name, tool.namespace) };
@@ -76,25 +74,15 @@ function toolChoice(choice, names) {
 }
 
 function inputImage(part) {
-  const url = present(part.data)
-    ? `data:${part.mediaType};base64,${part.data}`
-    : part.url;
   return {
     type: "input_image",
-    image_url: url,
+    image_url: imageUrl(part),
     detail: typeof part.detail === "string" ? part.detail : "auto",
   };
 }
 
 const inputPart = (part) =>
   part.type === "text" ? { type: "input_text", text: part.text } : inputImage(part);
-
-function textOf(parts, separator) {
-  return parts
-    .filter((part) => part.type === "text")
-    .map((part) => part.text)
-    .join(separator);
-}
 
 function systemText(parts, drop) {
   if (parts.some((part) => part.type !== "text")) drop("system.image");
@@ -276,7 +264,7 @@ export function buildResponsesRequest(ir, ctx) {
   const adjustments = [];
   const drop = (name) => dropped.push(name);
   const adjust = (name) => adjustments.push(name);
-  for (const key of Object.keys(ir.hints ?? {})) drop(`hints.${key}`);
+  dropHints(ir, drop);
 
   const { instructions, input, replayed } = buildInput(ir, ctx, drop);
   const body = { model: upstreamModel(ir, ctx.model) };

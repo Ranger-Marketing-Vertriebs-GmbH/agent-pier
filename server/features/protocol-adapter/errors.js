@@ -3,6 +3,18 @@
 
 import { sseEvent } from "./sse.js";
 
+/**
+ * Rejection of the non-streaming emitters (and `exchange.translateResponse`) when the
+ * upstream reported an error: `error` is the IrError.
+ */
+export class AdapterUpstreamError extends Error {
+  constructor(error) {
+    super(error.message);
+    this.name = "AdapterUpstreamError";
+    this.error = error;
+  }
+}
+
 const MAX_MESSAGE = 500;
 const REDACTED = "[redacted]";
 

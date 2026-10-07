@@ -2,7 +2,8 @@
 
 import { encodeCarrier } from "./carrier.js";
 import { classifyUpstreamError } from "./errors.js";
-import { stopFromResponses, usageFromOpenAI } from "./mapping.js";
+import { isObject, modelName, nonEmpty, parseData } from "./shared.js";
+import { estimatedUsage, stopFromResponses, usageFromOpenAI } from "./mapping.js";
 
 const SUMMARY_SEPARATOR = "\n\n";
 const CALL_TYPES = Object.freeze({
@@ -10,15 +11,7 @@ const CALL_TYPES = Object.freeze({
   custom_tool_call: "custom",
 });
 
-const isObject = (value) =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-const nonEmpty = (value) => typeof value === "string" && value !== "";
 const textOrEmpty = (value) => (typeof value === "string" ? value : "");
-
-function modelName(model) {
-  if (nonEmpty(model)) return model;
-  return isObject(model) && nonEmpty(model.id) ? model.id : "unknown";
-}
 
 function usageEvent(usage) {
   return {
@@ -246,17 +239,7 @@ function createResponsesState(ctx) {
     ensureStarted(response);
     finishBlocks();
     if (isObject(response?.usage)) out.push(usageEvent(response.usage));
-    else {
-      out.push({
-        type: "usage",
-        input: Math.ceil((ctx.requestChars ?? 0) / 4),
-        output: Math.ceil(outputChars / 4),
-        cacheRead: 0,
-        cacheWrite: 0,
-        reasoning: 0,
-        estimated: true,
-      });
-    }
+    else out.push({ type: "usage", ...estimatedUsage(ctx, outputChars) });
     const status = response?.status;
     const reason = response?.incomplete_details?.reason;
     let stop = stopFromResponses(status, reason, sawToolCalls);
@@ -320,14 +303,6 @@ function createResponsesState(ctx) {
       return drain();
     },
   };
-}
-
-function parseData(data) {
-  try {
-    return { ok: true, value: JSON.parse(data) };
-  } catch {
-    return { ok: false };
-  }
 }
 
 /** IR events for a Responses SSE stream (`{ event, data }` items from sse.js). */
