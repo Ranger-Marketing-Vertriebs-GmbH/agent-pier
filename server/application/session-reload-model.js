@@ -13,18 +13,37 @@ export function resolveReloadModel({
   displayedModel,
   observedModel,
   fallbackModel,
+  codexModels,
 }) {
   const observed = identifier(observedModel);
   if (!displayedModel) return { modelId: observed || identifier(fallbackModel) };
+  if (tool === "codex") {
+    const lookup = (name) => {
+      const matches = new Set(
+        (codexModels || [])
+          .filter((model) => model.label === name || model.modelId === name)
+          .map((model) => identifier(model.modelId))
+          .filter(Boolean),
+      );
+      if (matches.size > 1) throw unavailable();
+      if (matches.size) return [...matches][0];
+      const exact = identifier(name);
+      if (exact && (!codexModels || exact === observed || exact === fallbackModel))
+        return exact;
+      return undefined;
+    };
+    const exact = lookup(displayedModel);
+    if (exact) return { modelId: exact };
+    const codex =
+      /^(.*?) (none|minimal|low|medium|high|xhigh|max|ultra)(?: effort)?$/.exec(
+        displayedModel,
+      );
+    const modelId = codex && lookup(codex[1]);
+    if (modelId) return { modelId, reasoningEffort: codex[2] };
+    throw unavailable();
+  }
   const exact = identifier(displayedModel);
   if (exact) return { modelId: exact };
-  if (tool === "codex") {
-    const codex = /^(\S+) (minimal|low|medium|high|xhigh)(?: effort)?$/.exec(
-      displayedModel,
-    );
-    if (codex && identifier(codex[1]))
-      return { modelId: codex[1], reasoningEffort: codex[2] };
-  }
   if (tool === "claude") {
     const claude =
       /^(Opus|Sonnet|Haiku) (\d+(?:\.\d+)?)( \(1M context\))?( \(default\))?$/i.exec(

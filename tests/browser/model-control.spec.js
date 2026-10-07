@@ -1,3 +1,4 @@
+import { ModelController } from "../../server/features/models/model-controller.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "@playwright/test";
 
@@ -523,3 +524,37 @@ for (const language of ["de", "en"]) {
     controls.releaseOpen();
   });
 }
+
+test("Codex shows the live model instead of schema text and retains it after scrolling (English)", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  const controls = await fixture(page);
+  const controller = new ModelController({ sessions: {} });
+  Object.assign(
+    controls.model,
+    controller.state(
+      "model-demo",
+      "codex",
+      "• Tool schema:\n  model: string,\n\n› Ask Codex to do anything\n\n  GPT-6-Astra max · ~/project\n",
+    ),
+  );
+  const trigger = page.getByRole("button", { name: "Choose model", exact: true });
+  await expect(trigger).toHaveText("GPT-6-Astra max⌃", { timeout: 7000 });
+  await expect(page.locator(".model-caption")).toHaveText("Model");
+  const draft = page.locator(".chat-composer textarea");
+  await draft.fill("Keep this draft while the model status refreshes");
+  Object.assign(
+    controls.model,
+    controller.state("model-demo", "codex", "model: string,\n\n›\n\n  ? for shortcuts\n"),
+  );
+  await expect(page.locator(".model-caption")).toHaveText("Last confirmed", {
+    timeout: 7000,
+  });
+  await expect(trigger).toContainText("GPT-6-Astra max");
+  await expect(draft).toHaveValue("Keep this draft while the model status refreshes");
+  await page.locator(".chat-layout").screenshot({
+    path: "docs/screenshots/codex-model-status-english.png",
+    animations: "disabled",
+  });
+});
