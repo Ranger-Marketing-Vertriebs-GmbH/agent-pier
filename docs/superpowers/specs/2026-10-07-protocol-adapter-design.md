@@ -182,10 +182,9 @@ IrError { kind: "auth" | "permission" | "notFound" | "rateLimit" | "overloaded" 
 - `include: ["reasoning.encrypted_content"]` is honored only for a Responses upstream.
 - `previous_response_id` → `invalidRequest`.
 - The Codex model catalog written by AgentPier derives `input_modalities` from the
-  model's `images` flag, reasoning levels from the connection's reasoning support, and
-  `apply_patch_tool_type` from the route: `freeform` for a Responses upstream, `function`
-  otherwise (the adapter maps freeform ↔ function anyway, but `function` avoids needless
-  translation).
+  model's `images` flag and reasoning levels from the connection's reasoning support;
+  `apply_patch_tool_type` is always `freeform`, the only value Codex accepts (Amendment
+  5).
 
 ### Upstream: Messages
 
@@ -286,18 +285,17 @@ Each connection stores `adapterCapabilities` for the upstream protocol:
 
 ### Stop reasons
 
-| IR            | Messages client | Responses client                                   | from Chat upstream       |
-| ------------- | --------------- | -------------------------------------------------- | ------------------------ |
-| end           | `end_turn`      | `response.completed`                               | `stop`                   |
-| length        | `max_tokens`    | `response.completed` (see note below)              | `length`                 |
-| toolUse       | `tool_use`      | `response.completed` with function call items      | `tool_calls`             |
-| stopSequence  | `stop_sequence` | `response.completed`                               | `stop`                   |
-| contentFilter | `refusal`       | `response.incomplete` reason `content_filter`      | `content_filter`         |
-| refusal       | `refusal`       | `response.completed` with a `refusal` content part | (Messages upstream only) |
+| IR            | Messages client | Responses client                                       | from Chat upstream       |
+| ------------- | --------------- | ------------------------------------------------------ | ------------------------ |
+| end           | `end_turn`      | `response.completed`                                   | `stop`                   |
+| length        | `max_tokens`    | `response.completed` (see note below)                  | `length`                 |
+| toolUse       | `tool_use`      | `response.completed` with function call items          | `tool_calls`             |
+| stopSequence  | `stop_sequence` | `response.completed`                                   | `stop`                   |
+| contentFilter | `refusal`       | `response.failed` code `invalid_prompt` (Amendment 1)  | `content_filter`         |
+| refusal       | `refusal`       | `output_text` part, `response.completed` (Amendment 2) | (Messages upstream only) |
 
-Codex treats `response.incomplete` with any reason other than `interrupted` /
-`content_filter` as an error and retries; therefore `length` is emitted as
-`response.completed` (the plan verifies against current Codex source and fixtures).
+Codex treats `response.incomplete` with any reason other than `interrupted` as an error;
+therefore `length` is emitted as `response.completed`.
 
 ### Errors and context overflow
 
@@ -508,7 +506,9 @@ contradicts sections above, these amendments win:
    `between_tools` is passed through to Messages upstreams and treated as `disabled`
    elsewhere.
 8. **Anthropic effort values** are `low|medium|high|xhigh|max`: `minimal` → `low`,
-   `none` → thinking omitted toward Messages upstreams.
+   `none` → thinking omitted toward Messages upstreams (models that reject a missing or
+   `disabled` thinking, e.g. Sonnet 5.5, are handled by the 400 → capability retry, which
+   retries with `between_tools` at an effort of `low` or higher).
 9. **Sampling toward Messages upstreams**: `temperature`, `top_p` and `top_k` are always
    stripped (current Claude models reject non-default values; neither CLI relies on
    them); a forced `tool_choice` is relaxed to `auto` whenever thinking is enabled or
