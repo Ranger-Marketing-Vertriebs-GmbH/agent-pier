@@ -10,3 +10,22 @@ condition = "AND"
 paths = ['''(^|/)docs/research/provider-compatibility\.md$''']
 regexTarget = "line"
 regexes = ['''(?m)^ANTHROPIC_AUTH_TOKEN=<private OpenRouter key>$''']
+
+# The all-ref scan also sees the protocol-adapter fixtures before their PR merges.
+# These exact values are a synthetic redaction-test token and prompt-cache UUIDs,
+# not authentication credentials. Keep both the file and full line constrained.
+[[allowlists]]
+description = "Exact synthetic protocol adapter redaction-test token"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)tests/unit/protocol-adapter/errors-regressions\.test\.js$''']
+regexTarget = "line"
+regexes = ['''(?m)^const SECRET_TOKEN = "sk-fixture0123456789abcdef";$''']
+
+[[allowlists]]
+description = "Exact non-secret Codex prompt-cache UUIDs in protocol adapter fixtures"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)tests/fixtures/protocol-adapter/(clients|ir)/codex/(apply-patch|apply-patch-output|function-call|function-call-output|reasoning|reasoning-replay|text|web-search-disabled)\.json$''']
+regexTarget = "line"
+regexes = ['''(?m)^\s*"(?:prompt_cache_key|key)": "(?:01a115ae-3a28-78d2-ab5c-fdf8991414d1|01a115ae-3a7d-7272-81bc-ffe95f99532a|01a115ae-3b0e-7823-b310-eb49fd260733|01a115ae-3bea-76f2-b779-85ce4426c069|01a115ae-3c3d-7602-8a53-a7f43b85d160)",?$''']
