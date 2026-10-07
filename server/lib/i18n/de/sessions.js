@@ -16,6 +16,7 @@ export const sessions = Object.freeze({
     "Maximal 30 Sessions gleichzeitig. Bitte zuerst eine Session beenden.",
   stopBeforeLogin:
     "Bitte die laufenden Sessions dieses Accounts vor einer neuen Anmeldung beenden.",
+  invalidAdapterConfiguration: "Die Adapter-Konfiguration der Sitzung ist ungültig.",
   invalidNativeBinding: "Ungültige native Sitzungszuordnung.",
   invalidNativeBindingKey: "Ungültiger Schlüssel für die native Sitzungszuordnung.",
   nativeProjectMismatch: "Die native Sitzung gehört zu einem anderen Projekt.",

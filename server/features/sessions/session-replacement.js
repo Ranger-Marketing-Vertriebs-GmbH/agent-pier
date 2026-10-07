@@ -5,6 +5,7 @@ import { rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { privateWrite } from "./session-process-runtime.js";
 import { problem } from "../../lib/storage.js";
+import { checkedAdapter } from "../adapter-runtime/adapter-config.js";
 import { validateReloadLaunch } from "../../application/session-reload-launch.js";
 
 const launcher = fileURLToPath(new URL("../../terminal-launcher.js", import.meta.url));
@@ -51,6 +52,11 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
   try {
     const launch = await prepare(session);
     await validateReloadLaunch(launch, session.cwd);
+    const adapter = launch.adapter
+      ? checkedAdapter(launch.adapter, manager.directory, id, () =>
+          problem(serverMessages.sessions.invalidAdapterConfiguration),
+        )
+      : null;
     await privateWrite(
       manager.directory,
       `${id}.launch.json`,
@@ -59,6 +65,7 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
         args: launch.args || [],
         cwd: session.cwd,
         env: { TERM: "xterm-256color", ...launch.env },
+        ...(adapter ? { adapter } : {}),
       }),
     );
     if (launch.accountId) {
