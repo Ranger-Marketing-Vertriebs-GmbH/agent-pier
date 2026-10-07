@@ -136,3 +136,24 @@ test("auth headers", () => {
   assert.deepEqual(authHeaders("k", null), { Authorization: "Bearer k" });
   assert.deepEqual(authHeaders("k", "api-key"), { "api-key": "k" });
 });
+
+test("a re-detected model keeps the stored images flag", () => {
+  const previous = [
+    {
+      modelId: "a",
+      label: "a",
+      contextTokens: 32768,
+      outputTokens: null,
+      source: "detected",
+      contextEdited: false,
+      images: true,
+    },
+  ];
+  const detection = {
+    listed: true,
+    warnings: [],
+    models: [{ modelId: "a", label: "a", contextTokens: 65536, source: "detected" }],
+  };
+  assert.equal(mergeModels(previous, detection)[0].images, true);
+  assert.equal("images" in mergeModels([], detection)[0], false);
+});

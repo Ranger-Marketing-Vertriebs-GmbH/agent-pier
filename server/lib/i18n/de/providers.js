@@ -53,6 +53,8 @@ export const providers = Object.freeze({
   invalidEndpointUrl:
     "Gib eine http- oder https-Basis-URL ohne Zugangsdaten, Query oder Fragment an.",
   invalidEndpointHeader: "Dieser Name für den Auth-Header ist nicht erlaubt.",
+  invalidEndpointRouting: "Die CLI-Zuordnung der Verbindung ist ungültig.",
+  invalidEndpointCapabilities: "Die Adapter-Fähigkeiten der Verbindung sind ungültig.",
   invalidEndpointModels:
     "Ungültige Modellliste: Prüfe IDs, Duplikate und Token-Grenzen (1024 bis 10.000.000).",
   endpointUrlNotAllowed:

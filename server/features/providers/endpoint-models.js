@@ -186,6 +186,7 @@ export function mergeModels(previous, detection) {
         outputTokens: old?.contextEdited ? old.outputTokens : (old?.outputTokens ?? null),
         source: "detected",
         contextEdited: old?.contextEdited === true,
+        ...(old?.images !== undefined ? { images: old.images ?? null } : {}),
         ...(model.contextHint ? { contextHint: model.contextHint } : {}),
       };
     });

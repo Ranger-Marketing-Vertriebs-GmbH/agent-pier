@@ -412,3 +412,80 @@ test("restore never flags keyless endpoint connections for login", async (t) => 
   assert.equal(report.credentialsNeedingLogin.includes(`provider:${endpoint.id}`), false);
   assert.equal(report.credentialsNeedingLogin.includes(`provider:${keyed.id}`), true);
 });
+
+const chatOnly = {
+  ...ollama,
+  protocols: { messages: false, responses: false, chatCompletions: true },
+};
+
+test("updates from a client without adapter fields keep the stored routing, capabilities and images", (t) => {
+  const { connections } = store(t);
+  const created = connections.create({
+    name: "GPU",
+    providerId: "endpoint",
+    endpoint: {
+      ...chatOnly,
+      routing: { claude: "adapter:chatCompletions", codex: "off" },
+      adapterCapabilities: {
+        chatCompletions: { maxTokensField: "max_completion_tokens" },
+      },
+      thinkTagExtraction: true,
+      models: chatOnly.models.map((m) => ({ ...m, images: true })),
+    },
+  });
+  // today's web endpointPayload shape: no routing, adapterCapabilities, thinkTagExtraction or images
+  const updated = connections.update(created.id, {
+    endpoint: { ...chatOnly, lastTest: null },
+  });
+  assert.deepEqual(updated.endpoint.routing, {
+    claude: "adapter:chatCompletions",
+    codex: "off",
+    opencode: "auto",
+  });
+  assert.deepEqual(updated.endpoint.adapterCapabilities, {
+    chatCompletions: { maxTokensField: "max_completion_tokens" },
+  });
+  assert.equal(updated.endpoint.thinkTagExtraction, true);
+  assert.equal(updated.endpoint.models[0].images, true);
+  assert.equal(updated.toolRoutes.codex, null);
+  assert.deepEqual(updated.toolRoutes.claude, {
+    mode: "adapter",
+    source: "chatCompletions",
+  });
+  assert.deepEqual(updated.tools, ["claude", "opencode"]);
+});
+
+test("stored PR #176 records without adapter fields load as auto and stay on disk untouched", (t) => {
+  const { dataDir } = store(t);
+  const file = path.join(dataDir, "provider-connections.json");
+  const id = "11111111-1111-4111-8111-111111111111";
+  const legacy = [
+    {
+      id,
+      name: "Legacy",
+      providerId: "endpoint",
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+      endpoint: chatOnly, // exactly the PR #176 shape: no routing, no images
+    },
+  ];
+  fs.writeFileSync(file, JSON.stringify(legacy));
+  const before = fs.readFileSync(file, "utf8");
+  const connections = new ProviderConnections({ dataDir });
+  const loaded = connections.get(id);
+  assert.deepEqual(loaded.endpoint.routing, {
+    claude: "auto",
+    codex: "auto",
+    opencode: "auto",
+  });
+  assert.deepEqual(loaded.endpoint.adapterCapabilities, {});
+  assert.equal(loaded.endpoint.thinkTagExtraction, false);
+  assert.equal(loaded.endpoint.models[0].images, null);
+  assert.deepEqual(loaded.toolRoutes, {
+    claude: null,
+    codex: null,
+    opencode: { mode: "native", source: "chatCompletions" },
+  });
+  assert.deepEqual(loaded.tools, ["opencode"], "same tools as in PR #176");
+  assert.equal(fs.readFileSync(file, "utf8"), before, "loading never rewrites the file");
+});

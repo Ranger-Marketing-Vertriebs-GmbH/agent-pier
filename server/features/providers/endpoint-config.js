@@ -1,9 +1,14 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import { TOOL_PROTOCOL, validModelId } from "./provider-definitions.js";
+import { validModelId } from "./provider-definitions.js";
+import {
+  PROTOCOLS,
+  resolveRoute,
+  validateAdapterCapabilities,
+  validateRouting,
+} from "./endpoint-routing.js";
 
 const messages = serverMessages.providers;
-const PROTOCOLS = ["messages", "responses", "chatCompletions"];
 const FORBIDDEN_HEADERS = new Set([
   "host",
   "content-length",
@@ -20,6 +25,9 @@ const BLOCK_KEYS = [
   "authHeader",
   "models",
   "lastTest",
+  "routing",
+  "adapterCapabilities",
+  "thinkTagExtraction",
 ];
 const MODEL_KEYS = [
   "modelId",
@@ -29,6 +37,7 @@ const MODEL_KEYS = [
   "source",
   "contextEdited",
   "contextHint",
+  "images",
 ];
 const STATUSES = ["ok", "unsupported", "failed", "skipped"];
 
@@ -94,7 +103,10 @@ function model(value) {
       value.contextTokens &&
       value.outputTokens > value.contextTokens) ||
     !["detected", "manual"].includes(value.source) ||
-    (value.contextEdited !== undefined && typeof value.contextEdited !== "boolean")
+    (value.contextEdited !== undefined && typeof value.contextEdited !== "boolean") ||
+    (value.images !== undefined &&
+      value.images !== null &&
+      typeof value.images !== "boolean")
   )
     throw problem(messages.invalidEndpointModels);
   return {
@@ -104,6 +116,7 @@ function model(value) {
     outputTokens: value.outputTokens ?? null,
     source: value.source,
     contextEdited: value.contextEdited === true,
+    images: value.images ?? null,
     ...(value.contextHint ? { contextHint: value.contextHint } : {}),
   };
 }
@@ -154,6 +167,11 @@ export function validateEndpoint(input) {
   const models = input.models.map(model);
   if (new Set(models.map((item) => item.modelId)).size !== models.length)
     throw problem(messages.invalidEndpointModels);
+  if (
+    input.thinkTagExtraction !== undefined &&
+    typeof input.thinkTagExtraction !== "boolean"
+  )
+    throw problem(messages.invalidEndpoint);
   const anthropicBaseUrl = normalizeEndpointUrl(input.anthropicBaseUrl, {
     optional: true,
   });
@@ -168,6 +186,28 @@ export function validateEndpoint(input) {
     authHeader,
     models,
     lastTest: lastTest(input.lastTest),
+    routing: validateRouting(input.routing),
+    adapterCapabilities: validateAdapterCapabilities(input.adapterCapabilities),
+    thinkTagExtraction: input.thinkTagExtraction === true,
+  };
+}
+
+/** A client that does not know the adapter fields (today's UI) must not reset them. */
+export function inheritAdapterSettings(input, stored) {
+  if (!plainObject(input) || !stored) return input;
+  const images = new Map((stored.models || []).map((m) => [m.modelId, m.images ?? null]));
+  return {
+    ...input,
+    routing: input.routing ?? stored.routing,
+    adapterCapabilities: input.adapterCapabilities ?? stored.adapterCapabilities,
+    thinkTagExtraction: input.thinkTagExtraction ?? stored.thinkTagExtraction,
+    models: Array.isArray(input.models)
+      ? input.models.map((m) =>
+          plainObject(m) && m.images === undefined && images.has(m.modelId)
+            ? { ...m, images: images.get(m.modelId) }
+            : m,
+        )
+      : input.models,
   };
 }
 
@@ -186,9 +226,7 @@ export function endpointBaseUrl(endpoint, tool) {
 }
 
 export function endpointTools(endpoint) {
-  return ["codex", "claude", "opencode"].filter(
-    (tool) => endpoint.protocols[TOOL_PROTOCOL[tool]] && endpointBaseUrl(endpoint, tool),
-  );
+  return ["codex", "claude", "opencode"].filter((tool) => resolveRoute(endpoint, tool));
 }
 
 export function fallbackOutputTokens(contextTokens, outputTokens) {
@@ -208,6 +246,7 @@ export function endpointModel(endpoint, modelId, tool) {
     contextTokens: found.contextTokens,
     routingContextTokens: null,
     outputTokens: fallbackOutputTokens(found.contextTokens, found.outputTokens),
+    images: found.images ?? null,
     tools: endpointTools(endpoint),
     source: "endpoint",
     fetchedAt: null,
