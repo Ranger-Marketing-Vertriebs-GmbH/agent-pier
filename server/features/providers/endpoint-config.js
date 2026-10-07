@@ -192,7 +192,12 @@ export function validateEndpoint(input) {
   };
 }
 
-/** A client that does not know the adapter fields (today's UI) must not reset them. */
+/**
+ * A client that does not know the adapter fields (today's UI) must not reset them.
+ * Absent (undefined or null) fields inherit the stored value; a provided `routing` or
+ * `adapterCapabilities` object replaces the stored one as a whole (omitted tools in
+ * `routing` become "auto"); a model without `images` keeps the stored flag by modelId.
+ */
 export function inheritAdapterSettings(input, stored) {
   if (!plainObject(input) || !stored) return input;
   const images = new Map((stored.models || []).map((m) => [m.modelId, m.images ?? null]));
