@@ -285,8 +285,11 @@ Each connection stores `adapterCapabilities` for the upstream protocol:
   output), flagged `estimated: true`, counted in diagnostics, so both CLIs keep their
   automatic compaction working.
 - Toward OpenAI-style upstreams the adapter serializes system, tools and history
-  deterministically (stable key order, no per-request values in the prefix) so automatic
-  prefix caching (e.g. Azure OpenAI) hits.
+  deterministically (body keys in a fixed order, no per-request values in the prefix) so
+  automatic prefix caching (e.g. Azure OpenAI) hits. Tool parameter, custom-tool grammar
+  and structured-output schemas keep the client's key order (property order is
+  meaningful to the model, e.g. Claude Code's `Edit` tool lists `file_path`,
+  `old_string`, `new_string`, `replace_all`; it is already stable per client).
 
 ### Stop reasons
 
