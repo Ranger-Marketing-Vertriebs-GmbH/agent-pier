@@ -690,7 +690,7 @@
     "stream": true,
     "hints": {
       "metadata": {
-        "user_id": "{\"device_id\":\"c9100728954097f1668fd074710a8a77a020f568065b7d2aabb3ce49c5d69bf6\",\"account_uuid\":\"\",\"session_id\":\"be2b7295-f4b7-4728-b874-7ecd40a3f451\"}"
+        "user_id": "{\"device_id\":\"fixture-device-id-4\",\"account_uuid\":\"\",\"session_id\":\"00000000-0000-4000-8000-000000000004\"}"
       },
       "contextManagement": {
         "edits": [

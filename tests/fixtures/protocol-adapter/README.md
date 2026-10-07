@@ -133,7 +133,16 @@ when the case asks for it, text afterwards; `/responses` and `/v1/responses`: on
 `TZ=UTC`, and `HTTP(S)_PROXY` pointing at a dead local port so nothing can reach a real
 API. Temp paths, the home directory, user name, host name and e-mail addresses are
 rewritten to `/workspace`, `/home/user`, `user`, `host.example.test` and
-`user@example.test`.
+`user@example.test`. Install and session identifiers (Claude Code `metadata.user_id`
+`device_id`/`session_id` and `x-claude-code-session-id`; Codex `installation_id`,
+`session_id`/`thread_id` in `x-codex-turn-metadata`, `x-codex-installation-id`,
+`session-id`/`thread-id`, and every place these values recur, such as
+`prompt_cache_key`) become constants: sessions `00000000-0000-4000-8000-<n>`,
+installations `00000000-0000-4000-9000-<n>`, devices `fixture-device-id-<n>`, numbered
+in order of first appearance so one session keeps sharing its id
+(`scripts/dev/capture-cli-identifiers.mjs`; `fixtures.test.js` checks it). Turn ids are
+kept. Unscrubbed raw captures are written to a temp dir that is deleted at exit unless
+`--keep-raw` is passed.
 
 ```bash
 # both CLIs (pass version-pinned binaries to reproduce these fixtures)
@@ -163,6 +172,9 @@ CODEX_HOME=<tmp>/config HOME=<tmp>/home CAPTURE_KEY=fixture \
 
 The model catalog comes from `codexModelCatalog()` in
 `server/features/providers/native-config.js` (`apply_patch_tool_type: "freeform"`). The
+recorder imports it, so the Codex fixtures depend on it: a change to that catalog (tool
+types, reasoning settings) changes what Codex sends, and the Codex fixtures and their IR
+snapshots must be re-recorded and reviewed together. The
 MCP server is `scripts/dev/fixture-mcp-server.mjs`; the canned answers are in
 `scripts/dev/capture-cli-streams.mjs`. Upstream fixtures are hand-made and are edited
 directly.

@@ -473,7 +473,7 @@
     },
     "output": null,
     "cache": {
-      "key": "01a115ae-3cc1-7f21-9010-a73783aa3516"
+      "key": "00000000-0000-4000-8000-000000000007"
     },
     "stream": true,
     "hints": {
@@ -481,11 +481,11 @@
       "include": ["reasoning.encrypted_content"],
       "clientMetadata": {
         "root_turn_id": "01a115ae-3cc8-70a3-8d0e-f8b87bcf9982",
-        "x-codex-window-id": "01a115ae-3cc1-7f21-9010-a73783aa3516:0",
-        "x-codex-turn-metadata": "{\"installation_id\":\"8ef1f628-e3a6-4394-8043-3552bc49c561\",\"session_id\":\"01a115ae-3cc1-7f21-9010-a73783aa3516\",\"thread_id\":\"01a115ae-3cc1-7f21-9010-a73783aa3516\",\"agent_name\":\"/root\",\"turn_id\":\"01a115ae-3cc8-70a3-8d0e-f8b87bcf9982\",\"window_id\":\"01a115ae-3cc1-7f21-9010-a73783aa3516:0\",\"window_number\":0,\"context_window_id\":\"01a115ae-3cc1-7f21-9010-a75ce0eecb73\",\"request_kind\":\"turn\",\"root_turn_id\":\"01a115ae-3cc8-70a3-8d0e-f8b87bcf9982\",\"thread_source\":\"user\",\"turn_trigger\":\"exec\",\"sandbox\":\"seatbelt\",\"sandbox_mode\":\"read-only\",\"auto_review_enabled\":false,\"node_repl_auto_review_required\":false,\"node_repl_disabled\":false,\"turn_started_at_unix_ms\":1791365102793,\"analytics_enabled\":true,\"model\":\"qwen3-coder:30b\",\"reasoning_effort\":\"medium\"}",
-        "x-codex-installation-id": "8ef1f628-e3a6-4394-8043-3552bc49c561",
-        "session_id": "01a115ae-3cc1-7f21-9010-a73783aa3516",
-        "thread_id": "01a115ae-3cc1-7f21-9010-a73783aa3516",
+        "x-codex-window-id": "00000000-0000-4000-8000-000000000007:0",
+        "x-codex-turn-metadata": "{\"installation_id\":\"00000000-0000-4000-9000-000000000003\",\"session_id\":\"00000000-0000-4000-8000-000000000007\",\"thread_id\":\"00000000-0000-4000-8000-000000000007\",\"agent_name\":\"/root\",\"turn_id\":\"01a115ae-3cc8-70a3-8d0e-f8b87bcf9982\",\"window_id\":\"00000000-0000-4000-8000-000000000007:0\",\"window_number\":0,\"context_window_id\":\"01a115ae-3cc1-7f21-9010-a75ce0eecb73\",\"request_kind\":\"turn\",\"root_turn_id\":\"01a115ae-3cc8-70a3-8d0e-f8b87bcf9982\",\"thread_source\":\"user\",\"turn_trigger\":\"exec\",\"sandbox\":\"seatbelt\",\"sandbox_mode\":\"read-only\",\"auto_review_enabled\":false,\"node_repl_auto_review_required\":false,\"node_repl_disabled\":false,\"turn_started_at_unix_ms\":1791365102793,\"analytics_enabled\":true,\"model\":\"qwen3-coder:30b\",\"reasoning_effort\":\"medium\"}",
+        "x-codex-installation-id": "00000000-0000-4000-9000-000000000003",
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "thread_id": "00000000-0000-4000-8000-000000000007",
         "turn_id": "01a115ae-3cc8-70a3-8d0e-f8b87bcf9982"
       },
       "namespaceDescriptions": {

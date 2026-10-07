@@ -32,7 +32,7 @@
           },
           {
             "type": "text",
-            "text": "[Image: source: /private/tmp/claude-501/-workspace-work/ae8b6b6e-6c80-4c67-af3f-cbea889d5ac6/images/1.png]"
+            "text": "[Image: source: /private/tmp/claude-501/-workspace-work/00000000-0000-4000-8000-000000000001/images/1.png]"
           }
         ]
       },
@@ -662,7 +662,7 @@
     "stream": true,
     "hints": {
       "metadata": {
-        "user_id": "{\"device_id\":\"67bf6d4d6c92d354167442e3908d40b0bee8b5a7829798cf83ddf55cc067c4c8\",\"account_uuid\":\"\",\"session_id\":\"ae8b6b6e-6c80-4c67-af3f-cbea889d5ac6\"}"
+        "user_id": "{\"device_id\":\"fixture-device-id-1\",\"account_uuid\":\"\",\"session_id\":\"00000000-0000-4000-8000-000000000001\"}"
       },
       "contextManagement": {
         "edits": [
