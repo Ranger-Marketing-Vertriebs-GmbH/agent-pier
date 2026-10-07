@@ -18,7 +18,7 @@ Both owned Gateway processes and the model server were stopped after the probe.
 | Probe                      | Observed result                                                                                          |
 | -------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Local pinned installation  | Succeeded; about 728 MiB installed on the test machine                                                   |
-| Node requirement           | `>=24.16.0 <25                                                                                           |     | >=26.1.0`, incompatible with Node 22 |
+| Node requirement           | Node 24.16+ within major 24, or Node 26.1+; incompatible with Node 22                                    |
 | Backend loopback WebSocket | Authenticated protocol 4 handshake succeeded                                                             |
 | Startup readiness          | A listener can precede readiness; connect returned retryable `UNAVAILABLE` before succeeding             |
 | CLI config validation      | `config validate --json` succeeded; invalid startup configuration exited 78                              |
@@ -35,7 +35,7 @@ Both owned Gateway processes and the model server were stopped after the probe.
 | Session deletion           | Removed the list entry; archived transcript bytes may remain                                             |
 | Cleanup                    | Owned Gateway processes exited cleanly; model server closed                                              |
 
-The test model had no tools. It established transport, execution control and
+The initial test model had no tools. It established transport, execution control and
 persistence, not useful reasoning or service access. A token holder could request
 an admin connection; self-selected read scopes are not a separate credential
 boundary.
@@ -58,7 +58,11 @@ UI behavior; it was not an OpenClaw multi-agent execution test.
 
 ## Unverified requirements
 
-Live agent spawning and reconciliation; multiple-user/runtime isolation; Telegram
+The [follow-up team spike](openclaw-permanent-agent-spike.md) verified real tool-driven
+spawning, persistent profiles/conversations and parallel Gateways with synthetic
+model responses. Production reconciliation and multi-user isolation remain untested.
+
+Other unverified requirements: Telegram
 pairing and delivery; Deepgram audio; Google and Microsoft OAuth; native Apple
 permissions in the installed service context; ChatGPT login/refresh; local/custom
 model tool support; Linux installation; abrupt crash recovery; interrupted updates;

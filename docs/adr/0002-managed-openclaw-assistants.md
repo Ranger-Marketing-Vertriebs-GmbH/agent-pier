@@ -103,6 +103,14 @@ permanent assistant definition for every transient model turn. Conversely, every
 user-relevant delegated participant must receive an AgentPier identity and visible
 chat entry. Replayed spawn events must not create duplicate entries.
 
+The [permanent-agent spike](../research/openclaw-permanent-agent-spike.md) verified
+model-created persistent conversations through `sessions_spawn` with `visible: true`,
+and separately verified durable profiles through the backend `agents.create` API.
+Both survived a graceful Gateway restart. A spawn selects an existing profile; a
+permanent colleague with a new profile therefore needs an AgentPier provisioning
+bridge. Separate Gateway processes also worked, but native spawning did not create
+or federate them. Keep that deployment option outside the initial topology.
+
 Use stable parent/creator IDs, task IDs, session keys, run IDs and idempotency keys.
 Keep enough durable mapping to reconcile the hierarchy after either process
 restarts. Reconcile history and current runs when events are missed; do not assume
@@ -271,19 +279,23 @@ sandbox. It does not change [ADR 0001](0001-optional-per-session-nono-sandbox.md
 AgentPier gains a second execution subsystem in addition to native coding CLIs.
 The UI can share navigation, connections and project links while keeping the
 runtime's lifecycle and conversation semantics explicit. A single runtime can
-host multiple assistants, but multi-agent creation/discovery and restart behavior
-must be proven in a live contract test before this assumption becomes a shipped
-feature.
+host multiple assistants. A deterministic live contract probe verified profile
+creation, hidden/visible delegation, parent relationships and graceful restart
+persistence. Production reconciliation, active-crash recovery and provisioning
+authorization still need qualification before shipping.
 
 There is installation footprint, version/schema churn and operational work beyond
 adding a chat page. The pinned spike proves a useful control boundary, not the
 entire product. Real accounts, Apple service permissions, voice transcription,
-team creation and cross-platform installation remain unverified.
+the autonomous profile-provisioning bridge and cross-platform installation remain
+unverified.
 
 ## Open decisions and delivery gates
 
 1. **Team lifecycle:** retention/archive policy, durable promotion, recursion and
-   concrete concurrency/budget limits. Design and test before team execution.
+   concrete concurrency/budget limits. Define the explicit choice between a
+   task-bound member and provisioning a permanent profile, including authorization.
+   Design and test before team execution.
 2. **Actions with external effects:** per-service defaults for calendar mutations,
    outgoing messages and mail. The mockup's approval card is illustrative.
 3. **Channel identity:** whether a user's Telegram conversation continues a selected
@@ -302,6 +314,7 @@ plan before product code changes begin.
 ## References
 
 - [Pinned runtime spike evidence](../research/openclaw-runtime-spike.md)
+- [Permanent agents and parallel Gateways](../research/openclaw-permanent-agent-spike.md)
 - [OpenClaw embedding](https://docs.openclaw.ai/gateway/embedding)
 - [Gateway integrations](https://docs.openclaw.ai/gateway/external-apps)
 - [Deepgram provider](https://docs.openclaw.ai/providers/deepgram)
