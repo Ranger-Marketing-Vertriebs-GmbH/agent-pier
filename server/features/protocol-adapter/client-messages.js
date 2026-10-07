@@ -356,3 +356,11 @@ export function parseMessagesRequest(body, headers = {}) {
   };
   return { ir: assertIrRequest(ir), dropped: [...dropped] };
 }
+
+export {
+  AdapterUpstreamError,
+  emitMessagesResponse,
+  emitMessagesStream,
+  emitMessagesStreamError,
+  messagesPing,
+} from "./client-messages-emit.js";
