@@ -5,6 +5,7 @@ import {
   parseChatResponse,
   parseChatStream,
 } from "../../../server/features/protocol-adapter/upstream-chat.js";
+import { buildMessagesRequest } from "../../../server/features/protocol-adapter/upstream-messages.js";
 import { assertIrEvent } from "../../../server/features/protocol-adapter/ir.js";
 import {
   createIdMap,
@@ -243,4 +244,108 @@ describe("Chat stream hardening", () => {
       ["f", "g"],
     );
   });
+});
+
+describe("Chat tool call keys and truncation", () => {
+  const starts = (out) =>
+    out.filter((event) => event.type === "blockStart").map((event) => event.toolCall);
+  const inputs = (out) => {
+    const byIndex = new Map();
+    for (const event of out) {
+      if (event.type !== "toolInputDelta") continue;
+      byIndex.set(event.index, (byIndex.get(event.index) ?? "") + event.fragment);
+    }
+    return [...byIndex.entries()].sort(([a], [b]) => a - b).map(([, input]) => input);
+  };
+
+  test("Gemini-style whole calls without index or id are separate calls", async () => {
+    const out = await parse([
+      chunk({ tool_calls: [{ function: { name: "f", arguments: '{"x":1}' } }] }),
+      chunk({ tool_calls: [{ function: { name: "g", arguments: '{"y":2}' } }] }),
+      finish("tool_calls"),
+      "[DONE]",
+    ]);
+    assert.deepEqual(
+      starts(out).map((call) => call.name),
+      ["f", "g"],
+    );
+    assert.equal(new Set(starts(out).map((call) => call.id)).size, 2);
+    assert.deepEqual(inputs(out), ['{"x":1}', '{"y":2}']);
+  });
+
+  test("index-less fragments that repeat the name continue an incomplete call", async () => {
+    const out = await parse([
+      chunk({ tool_calls: [{ function: { name: "f", arguments: '{"x":' } }] }),
+      chunk({ tool_calls: [{ function: { name: "f", arguments: "1}" } }] }),
+      "[DONE]",
+    ]);
+    assert.equal(starts(out).length, 1);
+    assert.deepEqual(inputs(out), ['{"x":1}']);
+  });
+
+  test("mixed indexed and index-less entries continue the last indexed call", async () => {
+    const out = await parse([
+      chunk({
+        tool_calls: [{ index: 0, id: "a", function: { name: "f", arguments: "" } }],
+      }),
+      chunk({
+        tool_calls: [{ index: 1, id: "b", function: { name: "g", arguments: "" } }],
+      }),
+      chunk({ tool_calls: [{ function: { arguments: '{"y":2}' } }] }),
+      chunk({ tool_calls: [{ index: 0, function: { arguments: '{"x":1}' } }] }),
+      "[DONE]",
+    ]);
+    assert.deepEqual(
+      starts(out).map((call) => call.id),
+      ["a", "b"],
+    );
+    assert.deepEqual(inputs(out), ['{"x":1}', '{"y":2}']);
+  });
+
+  test("a stream cut off mid-tool-call leaves the call open and emits no stop", async () => {
+    const out = await parse([
+      chunk({ content: "Running" }),
+      chunk({
+        tool_calls: [
+          { index: 0, id: "a", function: { name: "f", arguments: '{"cmd":' } },
+        ],
+      }),
+    ]);
+    const types = out.map((event) => event.type);
+    assert.ok(!types.includes("stop"), "no stop");
+    assert.ok(!types.includes("usage"), "no usage");
+    const call = out.find(
+      (event) => event.type === "blockStart" && event.kind === "toolCall",
+    );
+    assert.ok(
+      !out.some((event) => event.type === "blockStop" && event.index === call.index),
+      "the cut-off call stays open",
+    );
+    assert.ok(out.some((event) => event.type === "blockStop" && event.index === 0));
+  });
+});
+
+test("tool_choice naming a dropped hosted tool becomes auto (Chat and Messages)", () => {
+  const ir = {
+    model: "m",
+    system: [],
+    messages: [user(text("search"))],
+    tools: [
+      { name: "f", kind: "function", schema: {} },
+      { name: "web_search", kind: "hosted", hostedType: "web_search" },
+    ],
+    toolChoice: { name: "web_search" },
+    parallelToolCalls: null,
+    sampling: { maxOutputTokens: null, stop: [] },
+    thinking: null,
+    stream: true,
+  };
+  const chat = buildChatRequest(ir, context());
+  assert.equal(chat.body.tool_choice, "auto");
+  assert.ok(chat.adjustments.includes("toolChoice.hostedToolDropped"));
+  const messages = buildMessagesRequest(ir, context());
+  assert.deepEqual(messages.body.tool_choice, { type: "auto" });
+  assert.ok(messages.adjustments.includes("toolChoice.hostedToolDropped"));
+  const named = buildChatRequest({ ...ir, toolChoice: { name: "f" } }, context());
+  assert.deepEqual(named.body.tool_choice, { type: "function", function: { name: "f" } });
 });

@@ -4,6 +4,7 @@
 import { decodeCarrier } from "./carrier.js";
 import { clampMaxTokens, effortForBudget, resolveEffort } from "./mapping.js";
 import {
+  chosenTool,
   customToolDescription,
   customToolSchema,
   dropHints,
@@ -232,6 +233,7 @@ export function buildChatRequest(ir, ctx) {
   const dropped = new Set();
   const adjustments = [];
   const drop = (name) => dropped.add(name);
+  const adjust = (name) => adjustments.push(name);
   dropHints(ir, drop);
 
   const body = {
@@ -241,7 +243,13 @@ export function buildChatRequest(ir, ctx) {
   const tools = buildTools(ir, ctx.names, drop);
   if (tools.length > 0) {
     body.tools = tools;
-    body.tool_choice = toolChoice(ir.toolChoice, ctx.names);
+    let choice = ir.toolChoice;
+    // Hosted tools are dropped here, so a choice naming one would name a missing tool.
+    if (chosenTool(ir, choice)?.kind === "hosted") {
+      choice = "auto";
+      adjust("toolChoice.hostedToolDropped");
+    }
+    body.tool_choice = toolChoice(choice, ctx.names);
     if (
       capabilities.parallelToolCalls === true &&
       typeof ir.parallelToolCalls === "boolean"
@@ -249,7 +257,6 @@ export function buildChatRequest(ir, ctx) {
       body.parallel_tool_calls = ir.parallelToolCalls;
     }
   }
-  const adjust = (name) => adjustments.push(name);
   applySampling(body, ir.sampling ?? {}, ctx, adjust);
   if (capabilities.reasoningEffort === true) {
     const effort = reasoningEffort(ir.thinking, adjust);

@@ -207,15 +207,38 @@ function createChatState(ctx) {
   const idKeys = new Map();
   let lastKey = 0;
   let highestKey = -1;
-  /** Index-less entries (some servers) are told apart by id, else continue the last call. */
+  /** True when the call's arguments so far are a complete JSON value. */
+  const argumentsComplete = (call) => {
+    try {
+      JSON.parse(call.args);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  /**
+   * Index-less entries (some servers, e.g. Gemini's whole calls per chunk) are told apart
+   * by id; without an id, a named entry after a call whose arguments are complete JSON
+   * starts a new call, anything else continues the last call. Indexed entries also set
+   * the last call, so mixed streams continue the right one.
+   */
   const callKey = (entry, position) => {
-    if (Number.isInteger(entry.index)) return entry.index;
+    if (Number.isInteger(entry.index)) {
+      lastKey = entry.index;
+      return lastKey;
+    }
     if (nonEmpty(entry.id)) {
       if (!idKeys.has(entry.id)) {
         idKeys.set(entry.id, calls.size === 0 ? position : highestKey + 1);
       }
       lastKey = idKeys.get(entry.id);
     } else if (calls.size === 0) lastKey = position;
+    else {
+      const last = calls.get(lastKey);
+      if (last?.name && nonEmpty(entry.function?.name) && argumentsComplete(last)) {
+        lastKey = highestKey + 1;
+      }
+    }
     return lastKey;
   };
 
@@ -224,13 +247,14 @@ function createChatState(ctx) {
     const key = callKey(entry, position);
     let call = calls.get(key);
     if (!call) {
-      call = { id: null, name: null, index: null, pending: "" };
+      call = { id: null, name: null, index: null, pending: "", args: "" };
       calls.set(key, call);
       highestKey = Math.max(highestKey, key);
     }
     if (!call.id && nonEmpty(entry.id)) call.id = entry.id;
     if (!call.name && nonEmpty(entry.function?.name)) call.name = entry.function.name;
     const fragment = argumentsText(entry.function?.arguments);
+    call.args += fragment;
     if (call.index === null) {
       call.pending += fragment;
       if (!call.name) return;
@@ -329,7 +353,12 @@ function createChatState(ctx) {
       if (!closed) complete();
       return drain();
     },
-    /** End of input: complete only when a finish reason was seen, else truncated. */
+    /**
+     * End of input: complete only when a finish reason was seen. A truncated stream (no
+     * finish reason, no `[DONE]`) closes an open text/reasoning block but leaves tool
+     * calls open and emits no `stop`: the call may be cut off, so the client emitters
+     * report the truncation as an error instead of executing a partial call.
+     */
     end() {
       if (!closed && finishReason) complete();
       else if (!closed) splitter?.flush();
