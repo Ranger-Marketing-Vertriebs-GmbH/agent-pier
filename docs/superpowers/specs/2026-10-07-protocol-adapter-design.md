@@ -269,7 +269,9 @@ are rejected. "Opt-in" capabilities default to off, "opt-out" ones to on:
   parameter and proposes the values; users can edit them.
 - At runtime, if the upstream rejects a request with 400/422 whose error names one of
   these optional parameters, the adapter retries once with the changed capability and
-  keeps it for the rest of the session (counted in diagnostics). The library provides the
+  keeps it for the rest of the session only if that retry succeeds (counted in
+  diagnostics); a failed retry restores the previous value, because the mapping is
+  heuristic and can misfire. The library provides the
   pure `capabilityForError(upstream, irError) → { name, value } | null` and
   `translator.setCapability(name, value)` (affects subsequent requests only); PR 2 owns
   the retry. Mappings: Responses `reasoning`, `reasoning.effort`, `reasoning.summary`,
@@ -564,7 +566,9 @@ contradicts sections above, these amendments win:
 9. **Sampling toward Messages upstreams**: `temperature`, `top_p` and `top_k` are always
    stripped (current Claude models reject non-default values; neither CLI relies on
    them); a forced `tool_choice` is relaxed to `auto` whenever thinking is enabled or
-   adaptive, and the 400 → capability retry covers models that reject it outright.
+   adaptive. Models that reject a forced `tool_choice` outright surface the upstream
+   error; Codex and Claude Code do not force tool choice in normal use, so no capability
+   exists for it.
 10. **Chat error envelopes**: `errors.js` accepts vLLM (`error.code` integer), LiteLLM
     (`error.code` string) and LM Studio (`error` string) shapes.
 11. **Chat reasoning fields**: both `delta.reasoning` (vLLM) and
