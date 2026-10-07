@@ -25,6 +25,8 @@ export const memory = Object.freeze({
   projectDirectoryUnavailable: "Das Memory-Projektverzeichnis ist nicht verfügbar.",
   gitProjectUnidentified: "Das Git-Projekt für Memory kann nicht bestimmt werden.",
   gitDiscoveryTimedOut: "Die Erkennung des Git-Projekts hat zu lange gedauert.",
+  projectFolderExcluded:
+    "Der Home-Ordner und Sammelordner mit mehreren Projekten sind keine Projekte.",
   unsupportedAccount: "Nicht unterstützter Memory-Account.",
   reservedMcpName: "Der reservierte Memory-MCP-Name ist bereits konfiguriert.",
   discoveryFailed: "Die Memory-Erkennungs-Hooks konnten nicht eingerichtet werden.",

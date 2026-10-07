@@ -25,11 +25,11 @@ test("public pipeline lifecycle drives a native turn, verification, evidence and
   const app = await applicationFixture(t);
   const env = { PATH: process.env.PATH, HOME: app.home, GIT_CONFIG_NOSYSTEM: "1" };
   const git = async (...args) =>
-    (await exec("git", args, { cwd: app.home, env })).stdout.trim();
+    (await exec("git", args, { cwd: app.project, env })).stdout.trim();
   await git("init", "-b", "main");
   await git("config", "user.name", "Pipeline fixture");
   await git("config", "user.email", "fixture@example.invalid");
-  await fs.writeFile(path.join(app.home, "tracked.txt"), "before\n");
+  await fs.writeFile(path.join(app.project, "tracked.txt"), "before\n");
   await git("add", "tracked.txt");
   await git("commit", "-m", "fixture baseline");
   const original = await git("rev-parse", "HEAD");
@@ -98,7 +98,10 @@ let prompt='';process.stdin.on('data',chunk=>prompt+=chunk);process.stdin.on('en
     ).json()
   ).pipeline;
   const project = await (
-    await app.request("/api/memory/projects", { method: "POST", body: { cwd: app.home } })
+    await app.request("/api/memory/projects", {
+      method: "POST",
+      body: { cwd: app.project },
+    })
   ).json();
   assert.equal(
     (
@@ -122,7 +125,7 @@ let prompt='';process.stdin.on('data',chunk=>prompt+=chunk);process.stdin.on('en
     method: "POST",
     body: {
       pipelineId: pipeline.id,
-      cwd: app.home,
+      cwd: app.project,
       task: "Update the fixture and report the result.",
     },
   });
@@ -132,9 +135,12 @@ let prompt='';process.stdin.on('data',chunk=>prompt+=chunk);process.stdin.on('en
   assert.equal(run.nodes[0].verdict.result, "pass");
   assert.equal(run.nodes[0].verifyResult.status, "pass");
   assert.equal(run.projectId, project.id);
-  assert.notEqual(run.workingDir, app.home);
+  assert.notEqual(run.workingDir, app.project);
   assert.equal(await git("rev-parse", "HEAD"), original);
-  assert.equal(await fs.readFile(path.join(app.home, "tracked.txt"), "utf8"), "before\n");
+  assert.equal(
+    await fs.readFile(path.join(app.project, "tracked.txt"), "utf8"),
+    "before\n",
+  );
   const diff = await (
     await app.request(`/api/pipeline-runs/${id}/nodes/work/diff`)
   ).json();

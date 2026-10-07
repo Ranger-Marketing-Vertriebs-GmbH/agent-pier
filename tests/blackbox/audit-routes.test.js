@@ -47,14 +47,14 @@ test("session and project audit filters include their creation and failed mutati
   const f = await applicationFixture(t);
   const started = await f.request("/api/sessions", {
     method: "POST",
-    body: { accountId: "local-shell", name: "Audit fixture", cwd: f.home },
+    body: { accountId: "local-shell", name: "Audit fixture", cwd: f.project },
   });
   assert.equal(started.status, 201);
   const session = await started.json();
   const sessions = await (await f.request(`/api/audit?sessionId=${session.id}`)).json();
   assert.equal(sessions.events[0]?.action, "session.started");
   const project = await (
-    await f.request("/api/memory/projects", { method: "POST", body: { cwd: f.home } })
+    await f.request("/api/memory/projects", { method: "POST", body: { cwd: f.project } })
   ).json();
   const response = await f.request(`/api/memory/projects/${project.id}/entries`, {
     method: "POST",

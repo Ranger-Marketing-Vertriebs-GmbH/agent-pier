@@ -10,11 +10,11 @@ test("artifact owner routes require login, return inert bundles and preserve pin
   const issued = await issue(f, { choices: true });
   const project = f.application.memory.projects().projects[0];
   await fs.writeFile(
-    path.join(f.home, "report.html"),
+    path.join(f.project, "report.html"),
     "<script>window.bad=true</script>",
   );
   const artifact = await f.application.artifacts.publish(
-    { sessionId: issued.session.id, projectId: project.id, cwd: f.home },
+    { sessionId: issued.session.id, projectId: project.id, cwd: f.project },
     { requestId: randomUUID(), title: "Report", sourcePath: "report.html" },
     async () => {},
   );

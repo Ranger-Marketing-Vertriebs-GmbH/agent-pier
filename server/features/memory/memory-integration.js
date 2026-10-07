@@ -58,6 +58,9 @@ export class MemoryIntegration {
     )
       throw failure(serverMessages.memory.reservedMcpName, 409);
     const project = await this.memory.register(cwd);
+    // The home folder and collection folders stand for no project: the session
+    // runs without project memory.
+    if (!project) return launch;
     const folder = issueCapability(this.memory, {
       id,
       account: selected,

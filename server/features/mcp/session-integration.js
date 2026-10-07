@@ -125,8 +125,11 @@ export class SessionMcp {
       throw problem(serverMessages.sessions.toolsStandaloneOnly);
     await this.ready;
     const projectIds = [...choices.projectIds];
-    if (choices.currentProject)
-      projectIds.push((await this.services.memory.register(cwd)).id);
+    if (choices.currentProject) {
+      // The home folder and collection folders have no current project.
+      const current = await this.services.memory.register(cwd);
+      if (current) projectIds.push(current.id);
+    }
     const folder = capabilityDirectory(this.dataDir, id);
     this.discard(id);
     privatePath(path.dirname(folder), this.dataDir);

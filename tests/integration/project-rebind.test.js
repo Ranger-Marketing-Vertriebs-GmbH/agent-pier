@@ -114,8 +114,14 @@ test("git init never adopts a git identity that already owns project data", asyn
   const { host } = await projectHost(f, s.fromId);
   gitInit(s.cwd);
   // Data that predates this session's rebind, as after restoring an older .git.
-  const target = await f.application.memory.register(s.cwd);
+  // (Registering the folder now would itself perform the rebind.)
+  const target = await projectScope(s.cwd);
+  f.application.memory.db
+    .prepare("INSERT INTO projects VALUES (?,?,?,?,?,?)")
+    .run(target.id, target.name, target.cwd, target.kind, target.identity, "2026-01-01");
   f.application.memory.write(target.id, { title: "Foreign", content: "Not adopted" });
+  // A later registration of the folder refuses the move as well.
+  assert.equal((await f.application.memory.register(s.cwd)).id, target.id);
   assert.equal(
     await f.application.projectRebind.rebind({ cwd: s.cwd, previousIds: [s.fromId] }),
     null,

@@ -13,7 +13,7 @@ import { serverMessages } from "../../server/lib/i18n/de.js";
 async function setup(t) {
   const app = await applicationFixture(t);
   const services = app.application;
-  const project = await services.memory.register(app.home);
+  const project = await services.memory.register(app.project);
   const otherPath = path.join(app.root, "other");
   await fs.mkdir(otherPath);
   const other = await services.memory.register(otherPath);
@@ -25,7 +25,7 @@ async function setup(t) {
       return {
         cwd,
         projectId: project.id,
-        projectRoot: app.home,
+        projectRoot: app.project,
         branch: `agentpier/${runId}`,
       };
     },
@@ -151,7 +151,7 @@ test("MCP lists only granted projects/accounts and rejects cross-scope operation
       {
         pipelineId: c.pipeline.id,
         projectId: c.project.id,
-        cwd: c.app.home,
+        cwd: c.app.project,
         task: "test",
         requestId: "raw-path",
       },
@@ -287,8 +287,11 @@ test("MCP frozen-run reads and lists reject ungranted accounts and projects", as
 
 test("MCP refuses a registered path whose project identity changed before reservation", async (t) => {
   const c = await setup(t);
-  await execute("git", ["init", "--quiet", c.app.home]);
-  const changed = await c.services.memory.register(c.app.home);
+  // A replaced folder (git init in place is a rebind that keeps the project).
+  await fs.rename(c.app.project, `${c.app.project}-replaced`);
+  await fs.mkdir(c.app.project);
+  await execute("git", ["init", "--quiet", c.app.project]);
+  const changed = await c.services.memory.register(c.app.project);
   assert.notEqual(changed.id, c.project.id);
   await assert.rejects(
     c.tools.call(
@@ -319,9 +322,9 @@ test("MCP refuses a registered path whose project identity changed before reserv
 test("MCP persists the expected project and refuses a mismatched prepared workspace before launch", async (t) => {
   const c = await setup(t);
   c.services.pipelines.workspace.prepare = async () => ({
-    cwd: c.app.home,
+    cwd: c.app.project,
     projectId: c.other.id,
-    projectRoot: c.app.home,
+    projectRoot: c.app.project,
     branch: "ungranted",
   });
   const result = await c.tools.call(
@@ -345,9 +348,9 @@ test("MCP persists the expected project and refuses a mismatched prepared worksp
 test("Recovered provisioning retains its project constraint before a native launch", async (t) => {
   const c = await setup(t);
   c.services.pipelines.workspace.prepare = async () => ({
-    cwd: c.app.home,
+    cwd: c.app.project,
     projectId: c.other.id,
-    projectRoot: c.app.home,
+    projectRoot: c.app.project,
     branch: "ungranted",
   });
   const result = await c.tools.call(
@@ -385,7 +388,7 @@ test("Owner HTTP request bodies cannot inject internal run IDs or project constr
     method: "POST",
     body: {
       pipelineId: c.pipeline.id,
-      cwd: c.app.home,
+      cwd: c.app.project,
       task: "test",
       id: "injected-run",
       expectedProjectId: c.other.id,
@@ -408,7 +411,7 @@ test("MCP retries return an existing frozen run even after the source project ch
     requestId: "existing-before-project-change",
   };
   const first = await c.tools.call("run_start", input, c.grant);
-  await execute("git", ["init", "--quiet", c.app.home]);
+  await execute("git", ["init", "--quiet", c.app.project]);
   const replay = await c.tools.call("run_start", input, c.grant);
   assert.equal(replay.run.id, first.run.id);
   assert.equal(replay.replayed, true);

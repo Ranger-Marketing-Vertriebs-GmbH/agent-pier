@@ -13,7 +13,7 @@ import { applicationFixture } from "../helpers/application.js";
 
 async function token(fixture, scopes = ["catalog:read", "runs:read"]) {
   const { application: a, url } = fixture;
-  const project = await a.memory.register(fixture.home);
+  const project = await a.memory.register(fixture.project);
   const registration = await fetch(url + "/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -236,7 +236,7 @@ test("MCP reads large Unicode artifacts and diffs within the full response envel
   const execute = promisify(execFile);
   const git = (args) =>
     execute("git", ["-c", "core.hooksPath=/dev/null", ...args], {
-      cwd: fixture.home,
+      cwd: fixture.project,
       env: {
         PATH: process.env.PATH,
         HOME: fixture.home,
@@ -245,7 +245,7 @@ test("MCP reads large Unicode artifacts and diffs within the full response envel
       },
     });
   await git(["init", "--quiet"]);
-  await fs.writeFile(path.join(fixture.home, "evidence.txt"), "original evidence\n");
+  await fs.writeFile(path.join(fixture.project, "evidence.txt"), "original evidence\n");
   await git(["add", "evidence.txt"]);
   await git([
     "-c",
@@ -288,7 +288,7 @@ test("MCP reads large Unicode artifacts and diffs within the full response envel
     async cancel() {},
   };
   const run = await a.pipelines.start(
-    { pipelineId: pipeline.id, cwd: fixture.home, task: "Evidence" },
+    { pipelineId: pipeline.id, cwd: fixture.project, task: "Evidence" },
     { expectedProjectId: access.project.id },
   );
   assert.equal(run.status, "running");

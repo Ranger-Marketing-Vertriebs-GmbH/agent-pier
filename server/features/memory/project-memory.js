@@ -9,6 +9,9 @@ import {
   record,
 } from "./memory-validation.js";
 import { projectScope } from "./project-scope.js";
+import { classifyProjectFolder, runWorktreeRoot } from "./project-folders.js";
+import { gitInitRebind } from "./project-rebind.js";
+import os from "node:os";
 const pageSize = 20;
 const selection = `SELECT e.id,e.project_id,r.*, (SELECT created_at FROM revisions WHERE entry_id=e.id AND revision=1) AS original_created FROM entries e JOIN revisions r ON r.entry_id=e.id`;
 function entry(row) {
@@ -36,12 +39,46 @@ function source(value) {
   throw failure(serverMessages.memory.invalidProvenance);
 }
 export class ProjectMemory {
-  constructor({ dataDir }) {
+  constructor({ dataDir, home = os.homedir() }) {
     Object.assign(this, openDatabase(dataDir));
+    this.home = home;
     this.closed = false;
   }
+  registeredAt(cwd) {
+    return Boolean(this.db.prepare("SELECT 1 FROM projects WHERE cwd=?").get(cwd));
+  }
+  /** Whether a project registered for exactly this folder holds memory entries. */
+  holdsKnowledge(cwd) {
+    return Boolean(
+      this.db
+        .prepare(
+          "SELECT 1 FROM projects p JOIN entries e ON e.project_id=p.id WHERE p.cwd=? LIMIT 1",
+        )
+        .get(cwd),
+    );
+  }
+  /** The folder's project kind; see classifyProjectFolder. */
+  classifyFolder(cwd) {
+    return classifyProjectFolder(cwd, {
+      home: this.home,
+      isRegistered: (dir) => this.registeredAt(dir),
+    });
+  }
+  /**
+   * Registers the project of a session folder. Returns null for the home folder and
+   * collection folders, which stand for no project (unless a project registered
+   * there already holds knowledge). A pipeline run worktree registers its project
+   * root. Another row for the same folder (an older identity, for example from
+   * before `git init`) merges into the current one, so each folder has one row.
+   */
   async register(cwd) {
-    const scope = await projectScope(cwd);
+    const folder = await this.classifyFolder(cwd);
+    if (folder.kind !== "project" && !this.holdsKnowledge(folder.cwd)) return null;
+    const scope = folder.scope || (await projectScope(folder.cwd));
+    for (const other of this.db
+      .prepare("SELECT id FROM projects WHERE cwd=? AND id<>? AND kind='directory'")
+      .all(scope.cwd, scope.id))
+      await this.followGitInit(other.id, scope);
     this.db
       .prepare("INSERT OR IGNORE INTO projects VALUES (?,?,?,?,?,?)")
       .run(
@@ -55,11 +92,13 @@ export class ProjectMemory {
     const existing = this.project(scope.id);
     if (existing.cwd !== scope.cwd) {
       let current;
-      try {
-        current = await projectScope(existing.cwd);
-      } catch (error) {
-        if (error.status !== 404) throw error;
-      }
+      // A row a run worktree registered first belongs to the project root.
+      if (runWorktreeRoot(existing.cwd) !== scope.cwd)
+        try {
+          current = await projectScope(existing.cwd);
+        } catch (error) {
+          if (error.status !== 404) throw error;
+        }
       if (current?.id !== scope.id) {
         const verified = await projectScope(scope.cwd);
         if (verified.id !== scope.id)
@@ -80,6 +119,25 @@ export class ProjectMemory {
       }
     }
     return this.project(scope.id);
+  }
+  /**
+   * Moves the plain-folder row `fromId` to the folder's Git identity when the folder
+   * itself became the root of its own fresh Git work tree (the strict rebind rule).
+   * The application's ProjectRebind (`rebindProject`) moves memory, SSH, artifacts
+   * and sessions together and refuses a Git identity that already owns data; without
+   * it only memory moves, under the same refusal. Any other identity change, such as
+   * a recreated folder, keeps its own row.
+   */
+  async followGitInit(fromId, scope) {
+    const found = await gitInitRebind(scope.cwd);
+    if (found?.fromId !== fromId || found.scope.id !== scope.id) return;
+    try {
+      if (this.rebindProject)
+        await this.rebindProject({ cwd: scope.cwd, previousIds: [fromId] });
+      else if (!this.ownsEntries(scope.id)) this.adopt(fromId, found.scope);
+    } catch {
+      // A refused or interrupted move keeps both rows; registration still succeeds.
+    }
   }
   project(id) {
     identifier(id);
@@ -269,22 +327,53 @@ export class ProjectMemory {
       const recorded = this.reboundTo(fromId);
       if (recorded && recorded !== scope.id)
         throw failure(serverMessages.memory.projectChanged, 409);
-      const now = new Date().toISOString();
-      this.db
-        .prepare("INSERT OR IGNORE INTO projects VALUES (?,?,?,?,?,?)")
-        .run(scope.id, scope.name, scope.cwd, scope.kind, scope.identity, now);
-      for (const table of ["entries", "capabilities"])
-        this.db
-          .prepare(`UPDATE ${table} SET project_id=? WHERE project_id=?`)
-          .run(scope.id, fromId);
-      this.db
-        .prepare("UPDATE OR IGNORE requests SET project_id=? WHERE project_id=?")
-        .run(scope.id, fromId);
-      this.db.prepare("DELETE FROM requests WHERE project_id=?").run(fromId);
-      this.db.prepare("DELETE FROM projects WHERE id=?").run(fromId);
+      this.move(fromId, scope);
       this.db
         .prepare("INSERT OR IGNORE INTO project_rebinds VALUES (?,?,?)")
-        .run(fromId, scope.id, now);
+        .run(fromId, scope.id, new Date().toISOString());
+      return this.project(scope.id);
+    });
+  }
+  /** Moves entries, requests and session capabilities into `scope`; no transaction. */
+  move(fromId, scope) {
+    this.db
+      .prepare("INSERT OR IGNORE INTO projects VALUES (?,?,?,?,?,?)")
+      .run(
+        scope.id,
+        scope.name,
+        scope.cwd,
+        scope.kind,
+        scope.identity,
+        new Date().toISOString(),
+      );
+    for (const table of ["entries", "capabilities"])
+      this.db
+        .prepare(`UPDATE ${table} SET project_id=? WHERE project_id=?`)
+        .run(scope.id, fromId);
+    this.db
+      .prepare("UPDATE OR IGNORE requests SET project_id=? WHERE project_id=?")
+      .run(scope.id, fromId);
+    this.db.prepare("DELETE FROM requests WHERE project_id=?").run(fromId);
+    this.db.prepare("DELETE FROM projects WHERE id=?").run(fromId);
+  }
+  /**
+   * Merges another row of the same folder into its current identity `scope` and
+   * records the move as a rebind, so grants and resources of the older identity
+   * follow it (ProjectRebind finishes SSH and artifact moves for a `git init`).
+   * Unlike adopt, a stale rebind of `fromId` is replaced: its row still existed.
+   */
+  merge(fromId, scope) {
+    identifier(fromId);
+    identifier(scope.id);
+    return transaction(this.db, () => {
+      this.move(fromId, scope);
+      this.db.prepare("DELETE FROM project_rebinds WHERE from_id=?").run(scope.id);
+      this.db
+        .prepare("UPDATE project_rebinds SET to_id=? WHERE to_id=?")
+        .run(scope.id, fromId);
+      this.db
+        .prepare("INSERT OR REPLACE INTO project_rebinds VALUES (?,?,?)")
+        .run(fromId, scope.id, new Date().toISOString());
       return this.project(scope.id);
     });
   }
