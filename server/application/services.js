@@ -19,6 +19,7 @@ import { ProjectRebind } from "./project-rebind.js";
 import { MemoryIntegration } from "../features/memory/memory-integration.js";
 import { ProviderCatalog } from "../features/providers/provider-catalog.js";
 import { RepositoryStore } from "../features/repositories/repository-store.js";
+import { GitRemotes } from "../features/repositories/git-remote.js";
 import { ProviderHistory } from "../features/chat/provider-history.js";
 import { ChatDelivery } from "../features/chat/chat-delivery.js";
 import { ChatStore } from "../features/chat/chat-store.js";
@@ -108,6 +109,8 @@ export async function createServices(config) {
   await sessions.ready;
   const files = createFileServices({ config, sessions, mutationBarrier });
   const repositories = new RepositoryStore(config);
+  // Each listed project's origin remote, read live from its folder.
+  const gitRemotes = new GitRemotes();
   const history = new ProviderHistory({ accounts, home: config.home });
   const chatEvents = new ChatEvents();
   const bindings = new NativeSessionBinding({
@@ -238,6 +241,7 @@ export async function createServices(config) {
     sessions,
     files,
     repositories,
+    gitRemotes,
     history,
     bindings,
     chat,

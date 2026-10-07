@@ -21,11 +21,17 @@ function content(body) {
   };
 }
 
-export function memoryRoutes({ memory, directory }) {
+export function memoryRoutes({ memory, directory, gitRemotes }) {
   const router = Router();
-  router.get("/memory/projects", (_request, response) =>
-    response.json(memory.projects()),
-  );
+  router.get("/memory/projects", async (_request, response) => {
+    const listed = memory.projects();
+    response.json({
+      ...listed,
+      projects: gitRemotes
+        ? await gitRemotes.annotate(listed.projects, "cwd")
+        : listed.projects,
+    });
+  });
   router.post("/memory/projects", async (request, response) =>
     response.status(201).json(await memory.register(await directory(request.body?.cwd))),
   );

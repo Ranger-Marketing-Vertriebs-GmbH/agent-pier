@@ -78,6 +78,40 @@ test("merged projects carry the joined facts and sort by name without case", () 
   assert.equal(resolveProjectId([first, second, third], ""), "");
 });
 
+test("the live git remote wins over the remote stored at clone time", () => {
+  const projects = mergeProjects({
+    repositories: [
+      {
+        id: "r1",
+        name: "moved",
+        url: "https://github.com/old/moved.git",
+        remote: "https://github.com/new/moved.git",
+        path: "/w/moved",
+      },
+      { id: "r2", name: "stored", url: "https://github.com/a/stored.git", path: "/w/s" },
+      { id: "r3", name: "joined", url: "https://github.com/a/old.git", path: "/w/j" },
+    ],
+    memoryProjects: [
+      { id: "m1", name: "lab", cwd: "/w/lab", remote: "git@github.com:acme/lab.git" },
+      { id: "m2", name: "plain", cwd: "/w/plain", remote: "" },
+      { id: "m3", name: "joined", cwd: "/w/j", remote: "https://github.com/a/new.git" },
+    ],
+    busProjects: [
+      { id: "b1", cwd: "/w/spool", remote: "https://github.com/acme/spool.git" },
+      { id: "b2", cwd: "/w/s", remote: "https://github.com/a/live.git" },
+    ],
+  });
+  const remote = Object.fromEntries(projects.map((p) => [p.path, p.remote]));
+  assert.deepEqual(remote, {
+    "/w/moved": "https://github.com/new/moved.git",
+    "/w/s": "https://github.com/a/live.git",
+    "/w/j": "https://github.com/a/new.git",
+    "/w/lab": "git@github.com:acme/lab.git",
+    "/w/plain": "",
+    "/w/spool": "https://github.com/acme/spool.git",
+  });
+});
+
 test("missing sources and a root folder are tolerated", () => {
   const projects = mergeProjects({
     repositories: undefined,

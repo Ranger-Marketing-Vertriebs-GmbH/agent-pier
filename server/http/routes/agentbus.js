@@ -2,9 +2,13 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
 export function agentbusRoutes(services) {
-  const { agentbus } = services;
+  const { agentbus, gitRemotes } = services;
   const router = Router();
-  router.get("/agentbus", async (_req, res) => res.json(await agentbus.list()));
+  router.get("/agentbus", async (_req, res) => {
+    const listed = await agentbus.list();
+    if (gitRemotes) listed.projects = await gitRemotes.annotate(listed.projects, "cwd");
+    res.json(listed);
+  });
   router.get("/agentbus/projects/:id/messages", async (req, res) => {
     const raw = req.query.page;
     if (
