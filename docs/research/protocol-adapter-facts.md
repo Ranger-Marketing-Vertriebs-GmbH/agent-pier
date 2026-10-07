@@ -819,6 +819,33 @@ tools, tool_choice, stream`. Same extra title-generator request as in R4a; no `G
   (OpenCode 1.18.35).
 - **Consequence:** Task 4: `baseURL` including `/v1` is right for both SDK packages.
 
+### R4c. OpenCode SDK providers without a key or with a custom header
+
+- **Value:** `@ai-sdk/anthropic` and `@ai-sdk/openai` do not start without a key option:
+  with no `apiKey`/`authToken` (keyless, or only `headers`) OpenCode exits 1 before any
+  request (`Anthropic|OpenAI API key is missing`), with an `env -i` environment. Observed
+  auth headers (all exit 0, fixture text printed; both requests per prompt identical):
+
+  | Case                                                                               | Headers that arrive                          |
+  | ---------------------------------------------------------------------------------- | -------------------------------------------- |
+  | anthropic `authToken: "agentpier-endpoint"`                                        | `authorization: Bearer agentpier-endpoint`   |
+  | anthropic `apiKey: "agentpier-endpoint"`                                           | `x-api-key: agentpier-endpoint`              |
+  | openai `apiKey: "agentpier-endpoint"`                                              | `authorization: Bearer agentpier-endpoint`   |
+  | anthropic `authToken` placeholder + `headers: {"api-key": key, authorization: ""}` | `api-key: key`, `authorization` empty string |
+  | openai `apiKey` placeholder + `headers: {"api-key": key, authorization: ""}`       | `api-key: key`, `authorization` empty string |
+
+  A header set to `""` in `options.headers` replaces the SDK credential header; it arrives
+  as an empty header, with no Bearer token or `x-api-key` value. Not verified: how Azure
+  treats an empty `Authorization` header next to `api-key`; an empty value was chosen over a
+  dummy Bearer token because it carries no misleading credential.
+
+- **Source:** `opencode run` (OpenCode 1.18.35) under `env -i` with temp `HOME`/`XDG_*`,
+  `OPENCODE_CONFIG_CONTENT`, a loopback capture server and the `messages/text.sse` and
+  `responses/text.sse` fixtures; the key was the placeholder `PLACEHOLDER-TOKEN`.
+- **Consequence:** Task 4: keyless SDK routes pass the fixed placeholder `agentpier-endpoint`
+  as the key option; with a custom header the key option is the placeholder too, the SDK
+  credential header (`authorization`) is blanked and only the custom header carries the key.
+
 ### R5. `--use-system-ca`
 
 - **Value:** `process.allowedNodeEnvironmentFlags.has("--use-system-ca")` is `true` on

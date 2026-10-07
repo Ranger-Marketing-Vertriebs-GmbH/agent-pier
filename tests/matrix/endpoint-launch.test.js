@@ -247,29 +247,42 @@ const only = (name) => ({
   chatCompletions: false,
   [name]: true,
 });
-for (const [protocols, npm, keyOption] of [
-  [only("messages"), "@ai-sdk/anthropic", "authToken"],
-  [only("responses"), "@ai-sdk/openai", "apiKey"],
-  [only("chatCompletions"), "@ai-sdk/openai-compatible", "apiKey"],
+for (const [protocols, npm, keyOption, sdkHeader] of [
+  [only("messages"), "@ai-sdk/anthropic", "authToken", "authorization"],
+  [only("responses"), "@ai-sdk/openai", "apiKey", "authorization"],
+  [only("chatCompletions"), "@ai-sdk/openai-compatible", "apiKey", null],
 ])
-  for (const header of [null, "api-key"])
-    test(`OpenCode uses ${npm} for its route (${header || "default header"})`, (t) => {
-      // launch() already asserts that no written file or argv holds the key
-      const result = launch(t, "opencode", {
-        endpoint: endpointBlock({ protocols, authHeader: header }),
+  for (const key of ["endpoint-secret", null])
+    for (const header of [null, "api-key"]) {
+      const label = `${key ? "key" : "no key"} / ${header || "default header"}`;
+      test(`OpenCode uses ${npm} for its route (${label})`, (t) => {
+        // launch() already asserts that no written file or argv holds the key
+        const result = launch(t, "opencode", {
+          key,
+          endpoint: endpointBlock({ protocols, authHeader: header }),
+        });
+        const config = JSON.parse(result.env.OPENCODE_CONFIG_CONTENT);
+        const { options, ...provider } = config.provider["agentpier-endpoint"];
+        const reference = "{env:AGENTPIER_ENDPOINT_API_KEY}";
+        assert.equal(provider.npm, npm);
+        assert.equal(options.baseURL, "https://llm.example/v1");
+        // The official SDKs do not start without a key option (fact R4c): a fixed
+        // non-secret placeholder stands in when the real key is not sent that way.
+        const placeholder = sdkHeader ? "agentpier-endpoint" : undefined;
+        assert.equal(options[keyOption], key && !header ? reference : placeholder);
+        for (const other of ["apiKey", "authToken"])
+          if (other !== keyOption) assert.equal(options[other], undefined);
+        assert.deepEqual(
+          options.headers,
+          key && header
+            ? { [header]: reference, ...(sdkHeader ? { [sdkHeader]: "" } : {}) }
+            : undefined,
+        );
+        assert.equal(JSON.stringify(config).includes("endpoint-secret"), false);
+        assert.equal(result.adapter, undefined, "OpenCode never uses the adapter");
+        assert.equal(
+          result.provider.route.mode,
+          npm === "@ai-sdk/openai-compatible" ? "native" : "sdk",
+        );
       });
-      const config = JSON.parse(result.env.OPENCODE_CONFIG_CONTENT);
-      const { options, ...provider } = config.provider["agentpier-endpoint"];
-      const reference = "{env:AGENTPIER_ENDPOINT_API_KEY}";
-      assert.equal(provider.npm, npm);
-      assert.equal(options.baseURL, "https://llm.example/v1");
-      assert.equal(options[keyOption], header ? undefined : reference);
-      for (const other of ["apiKey", "authToken"])
-        if (other !== keyOption) assert.equal(options[other], undefined);
-      assert.deepEqual(options.headers, header ? { [header]: reference } : undefined);
-      assert.equal(result.adapter, undefined, "OpenCode never uses the adapter");
-      assert.equal(
-        result.provider.route.mode,
-        npm === "@ai-sdk/openai-compatible" ? "native" : "sdk",
-      );
-    });
+    }
