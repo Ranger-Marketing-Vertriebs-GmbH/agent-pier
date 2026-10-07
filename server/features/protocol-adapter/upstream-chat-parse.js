@@ -283,7 +283,10 @@ function createChatState(ctx) {
   };
 
   const fail = (body) => {
-    out.push({ type: "error", error: classifyUpstreamError({ protocol: "chat", body }) });
+    out.push({
+      type: "error",
+      error: classifyUpstreamError({ protocol: "chat", body, secrets: ctx.secrets }),
+    });
     closed = true;
   };
 
