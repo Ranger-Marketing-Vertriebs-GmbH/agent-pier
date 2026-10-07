@@ -57,9 +57,19 @@ export function effortForBudget(budget) {
   return best;
 }
 
+/**
+ * Normalized effort; an unknown value becomes `medium` and is reported through `adjust`
+ * as `effortUnknown` (every upstream effort path uses this).
+ */
+export function resolveEffort(value, adjust = () => {}) {
+  const { effort, unknown } = normalizeEffortWithInfo(value);
+  if (unknown) adjust("effortUnknown");
+  return effort;
+}
+
 /** Anthropic accepts low|medium|high|xhigh|max; `none` means omit thinking. */
 function effortForMessages(effort, adjustments) {
-  const normalized = normalizeEffort(effort);
+  const normalized = resolveEffort(effort, (name) => adjustments.push(name));
   if (normalized === "minimal") {
     adjustments.push("effortMinimalToLow");
     return "low";
@@ -78,7 +88,15 @@ function withDisplay(thinking, display) {
 }
 
 function resolveEnabled(thinking, maxTokens, adjustments) {
-  let budget = thinking.budgetTokens ?? budgetForEffort(thinking.effort);
+  if (maxTokens <= MIN_THINKING_BUDGET) {
+    adjustments.push("thinkingDisabledMaxTokens");
+    return null;
+  }
+  let budget = thinking.budgetTokens;
+  if (budget === undefined || budget === null) {
+    const effort = resolveEffort(thinking.effort, (name) => adjustments.push(name));
+    budget = budgetForEffort(effort);
+  }
   if (!budget) {
     adjustments.push("thinkingOmittedEffortNone");
     return null;
@@ -98,20 +116,20 @@ function resolveEffortThinking(thinking, adjustments) {
   if (thinking.effort === undefined || thinking.effort === null) {
     return { thinking: withDisplay({ type: thinking.mode }, thinking.display) };
   }
-  if (normalizeEffort(thinking.effort) === "none") {
+  const effort = effortForMessages(thinking.effort, adjustments);
+  if (effort === "none") {
     adjustments.push("thinkingOmittedEffortNone");
     return { thinking: null };
   }
-  const effort = effortForMessages(thinking.effort, adjustments);
   return { thinking: withDisplay({ type: thinking.mode }, thinking.display), effort };
 }
 
+/**
+ * The `max_tokens` cutoff applies only to `enabled` (budget) thinking: a budget needs at
+ * least 1024 tokens below `max_tokens`. Adaptive thinking has no budget and is kept.
+ */
 function resolveThinkingShape(thinking, maxTokens, adjustments) {
   if (!thinking || thinking.mode === "disabled") return { thinking: null };
-  if (maxTokens <= MIN_THINKING_BUDGET) {
-    adjustments.push("thinkingDisabledMaxTokens");
-    return { thinking: null };
-  }
   if (thinking.mode === "enabled") {
     return { thinking: resolveEnabled(thinking, maxTokens, adjustments) };
   }
@@ -168,7 +186,8 @@ export function maxTokensFor({ sampling, model } = {}, adjust = () => {}) {
   const explicit = model?.outputTokens;
   if (explicit !== undefined && explicit !== null) return explicit;
   if (!Number.isFinite(model?.contextTokens)) return DEFAULT_MAX_TOKENS;
-  return Math.min(Math.floor(model.contextTokens / 4), DEFAULT_MAX_TOKENS);
+  // Never 0: Anthropic requires `max_tokens >= 1`, even for a tiny context window.
+  return Math.max(1, Math.min(Math.floor(model.contextTokens / 4), DEFAULT_MAX_TOKENS));
 }
 
 /**

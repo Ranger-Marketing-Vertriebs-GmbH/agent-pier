@@ -43,7 +43,12 @@ function request(overrides = {}) {
     ],
     tools: [
       { name: "read", namespace: "mcp", description: "d", kind: "function", schema: {} },
-      { name: "apply_patch", description: "p", kind: "custom", grammar: { syntax: "x" } },
+      {
+        name: "apply_patch",
+        description: "p",
+        kind: "custom",
+        grammar: { syntax: "lark", definition: "start: /.+/" },
+      },
       {
         name: "web_search",
         description: "",
@@ -206,4 +211,26 @@ test("invalid events throw TypeError with a path", () => {
       assertIrEvent({ type: "error", error: { kind: "boom", status: 500, message: "" } }),
     "event.error.kind",
   );
+});
+
+test("tool schema, strict and grammar fields and error status are validated", () => {
+  const tool = (fields) =>
+    request({ tools: [{ name: "x", kind: "function", ...fields }] });
+  assertPath(() => assertIrRequest(tool({ schema: "s" })), "request.tools[0].schema");
+  assertPath(() => assertIrRequest(tool({ strict: "yes" })), "request.tools[0].strict");
+  assertPath(
+    () => assertIrRequest(tool({ kind: "custom", grammar: { syntax: "lark" } })),
+    "request.tools[0].grammar.definition",
+  );
+  assertPath(
+    () => assertIrRequest(tool({ kind: "custom", grammar: { definition: "d" } })),
+    "request.tools[0].grammar.syntax",
+  );
+  assert.ok(assertIrRequest(tool({ schema: { type: "object" }, strict: true })));
+  const error = (status) => ({
+    type: "error",
+    error: { kind: "server", status, message: "" },
+  });
+  assertPath(() => assertIrEvent(error("500")), "event.error.status");
+  assert.ok(assertIrEvent(error(undefined)));
 });

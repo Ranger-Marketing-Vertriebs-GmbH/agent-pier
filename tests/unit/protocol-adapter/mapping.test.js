@@ -6,6 +6,7 @@ import {
   maxTokensFor,
   normalizeEffort,
   normalizeEffortWithInfo,
+  resolveEffort,
   resolveThinkingForMessages,
   stopFromChat,
   stopFromMessages,
@@ -224,15 +225,18 @@ test("enabled thinking without budget uses the effort table", () => {
   assert.equal(none.thinking, null);
 });
 
-test("adaptive thinking is disabled when max_tokens is at most 1024", () => {
-  const r = resolveThinkingForMessages({
-    thinking: { mode: "adaptive", effort: "high" },
-    maxTokens: 1000,
-    toolChoice: { name: "x" },
-  });
-  assert.equal(r.thinking, null);
-  assert.deepEqual(r.toolChoice, { name: "x" });
-  assert.deepEqual(r.adjustments, ["thinkingDisabledMaxTokens"]);
+test("adaptive thinking has no budget and is kept when max_tokens is at most 1024", () => {
+  for (const mode of ["adaptive", "between_tools"]) {
+    const r = resolveThinkingForMessages({
+      thinking: { mode, effort: "high" },
+      maxTokens: 1000,
+      toolChoice: { name: "x" },
+    });
+    assert.deepEqual(r.thinking, { type: mode });
+    assert.equal(r.effort, "high");
+    assert.equal(r.toolChoice, "auto");
+    assert.deepEqual(r.adjustments, ["toolChoiceRelaxed"]);
+  }
 });
 
 test("maxTokensFor prefers sampling, then model output, then context share", () => {
@@ -384,4 +388,47 @@ test("stop mapping is total", () => {
   }
   assert.throws(() => stopToMessages("bogus"), TypeError);
   assert.throws(() => stopToResponses("bogus"), TypeError);
+});
+
+test("unknown effort becomes medium and is reported as effortUnknown", () => {
+  const seen = [];
+  assert.equal(
+    resolveEffort("turbo", (name) => seen.push(name)),
+    "medium",
+  );
+  assert.equal(
+    resolveEffort("high", (name) => seen.push(name)),
+    "high",
+  );
+  assert.equal(
+    resolveEffort(undefined, (name) => seen.push(name)),
+    "medium",
+  );
+  assert.deepEqual(seen, ["effortUnknown"]);
+  const adaptive = resolveThinkingForMessages({
+    thinking: { mode: "adaptive", effort: "turbo" },
+    maxTokens: 32000,
+    toolChoice: "auto",
+  });
+  assert.equal(adaptive.effort, "medium");
+  assert.deepEqual(adaptive.adjustments, ["effortUnknown"]);
+  const enabled = resolveThinkingForMessages({
+    thinking: { mode: "enabled", effort: "turbo" },
+    maxTokens: 32000,
+    toolChoice: "auto",
+  });
+  assert.deepEqual(enabled.thinking, { type: "enabled", budget_tokens: 8192 });
+  assert.deepEqual(enabled.adjustments, ["effortUnknown"]);
+});
+
+test("maxTokensFor never returns 0 and clamps explicit values to the model limit", () => {
+  assert.equal(maxTokensFor({ sampling: {}, model: { contextTokens: 3 } }), 1);
+  assert.equal(maxTokensFor({ sampling: {}, model: { contextTokens: 0 } }), 1);
+  const adjusted = [];
+  const value = maxTokensFor(
+    { sampling: { maxOutputTokens: 64000 }, model: { outputTokens: 8192 } },
+    (name) => adjusted.push(name),
+  );
+  assert.equal(value, 8192);
+  assert.deepEqual(adjusted, ["maxTokens.clamped"]);
 });
