@@ -3,7 +3,7 @@ const LINE_END = /\r\n|\n|\r(?=[\s\S])/g;
 /**
  * Incremental Server-Sent-Events parser following the WHATWG rules: CRLF, LF and lone CR end
  * a line, comments and `retry:` are ignored, events are dispatched on a blank line and
- * `end()` flushes a trailing event. Events without any data or event name are dropped.
+ * `end()` flushes a trailing event. Blocks without a `data:` line are dropped.
  * Sizes are counted in UTF-16 code units.
  */
 export function createSseParser({ maxEventBytes = 16 * 1024 * 1024 } = {}) {
@@ -29,7 +29,7 @@ export function createSseParser({ maxEventBytes = 16 * 1024 * 1024 } = {}) {
   };
 
   const dispatch = (events) => {
-    if (hasData || eventName !== undefined) {
+    if (hasData) {
       events.push({ event: eventName, data: dataLines.join("\n"), id: eventId });
     }
     reset();
