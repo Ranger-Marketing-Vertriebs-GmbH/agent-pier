@@ -706,3 +706,124 @@ context length/i`, `/ContextWindowExceededError/`, `/prompt is too long/i`,
   Messages base **including `/v1`** for `@ai-sdk/anthropic`, and the Responses base
   **including `/v1`** for `@ai-sdk/openai` (spec: `anthropicBaseUrl + /v1` is correct
   when `anthropicBaseUrl` has no `/v1`).
+
+## 6. Runtime facts (PR 2)
+
+Date: 2026-10-07. Verified on macOS (Darwin 25.5.0, arm64) with the installed CLIs: Claude Code
+2.1.292, Codex 0.160.1, OpenCode 1.18.35, nono 0.79.0, Node.js v22.22.2. "Capture" = a local
+loopback server on `127.0.0.1:0` that answers with the recorded `text.sse` fixture and logs one
+JSON line per request; every CLI ran with an isolated temporary `HOME` and config directory,
+the placeholder token `session-token`, `NO_PROXY=127.0.0.1,localhost`, and (Claude Code, Codex)
+`HTTPS_PROXY` pointed at the dead port `127.0.0.1:9`. Nothing left the machine. Linux was not
+available here; facts marked macOS-only must be re-checked there.
+
+### R1a. nono default profile and loopback
+
+- **Value:** the `default` profile leaves outbound network allowed (`net outbound allowed`);
+  a sandboxed `node` fetch to a loopback server returned `pong`.
+- **Source:** `nono wrap -p default --allow-cwd -- node -e "fetch('http://127.0.0.1:<port>/')…"`
+  from a directory under the repository's ignored `.cache/` (nono 0.79.0, Node v22.22.2).
+- **Consequence:** Tasks 14 and 15: a nono-wrapped CLI reaches the adapter on `127.0.0.1`
+  without extra grants when the profile does not block the network.
+
+### R1b. nono `block: true` and `--open-port`
+
+- **Value:** a profile with `network: { block: true }` denies loopback: the fetch failed with
+  `EPERM` (`net outbound blocked`). Adding `--open-port <port>` (bidirectional localhost TCP on
+  that port, shown as `ipc localhost:<port>`) restored it: `pong`. Verified on macOS only
+  (Seatbelt); `--allow-connect-port` is documented as Linux Landlock V4+ only, and the Linux
+  behavior of `--open-port` is **not verified on this machine**.
+- **Source:** same command with `block.json` (copy of `restrictive` from
+  `tests/matrix/nono-confinement.test.js` with `network.block: true`), once plain and once with
+  `--open-port <port>`; `nono wrap --help` (nono 0.79.0).
+- **Consequence:** this contradicts the plan's assumption that loopback stays reachable under
+  block-net. Task 15 Step 3 applies: a launch with a blocking network profile and an adapter
+  route must add `--open-port <adapter port>` (the port is known only after the adapter
+  binds, so the nono argv is composed after the bind), and the Linux case needs a test that
+  skips when it cannot run.
+
+### R2. Claude Code against a loopback `ANTHROPIC_BASE_URL`
+
+- **Value:** `POST /v1/messages?beta=true`, `authorization: Bearer` (no `x-api-key`),
+  `max_tokens: 4096` from `CLAUDE_CODE_MAX_OUTPUT_TOKENS`, first system block is
+  `You are a Claude agent, …` (no `x-anthropic-billing-header` with
+  `CLAUDE_CODE_ATTRIBUTION_HEADER=0`), the CLI printed the fixture text
+  (`Hello from the fixture.`), exit 0, no request reached the dead `HTTPS_PROXY` (`NO_PROXY`
+  bypass works). For the unknown model id `custom-model-x` Claude Code also prints an
+  `unrecognized_model` notice on stderr; it does not affect the request.
+- **Source:** `claude -p "say ok"` with `ANTHROPIC_BASE_URL=http://127.0.0.1:<port>`,
+  `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_MODEL=custom-model-x`,
+  `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1`, `HTTPS_PROXY=http://127.0.0.1:9`
+  (Claude Code 2.1.292). Request body keys: `model, messages, system, tools, metadata,
+max_tokens, thinking, output_config, stream`; 21 tools.
+- **Consequence:** Task 4 (Claude Code launch env) and Task 10: the launch environment from the
+  Global Constraints is sufficient; scripted tests may parse stdout and ignore the stderr
+  notice.
+
+### R3a. Codex with a `-c model_providers=…` override
+
+- **Value:** with `model_providers={agentpier-endpoint={…,base_url="http://127.0.0.1:<port>/v1"}}`
+  and `model_provider="agentpier-endpoint"` given as `-c` arguments, Codex sent
+  `POST /v1/responses`, `authorization: Bearer` (from the `env_key` variable), no `x-api-key`,
+  `stream: true`; the tool list (`exec_command`, `write_stdin`, `request_user_input`,
+  `view_image`, `multi_agent_v1`, `get_goal`, `create_goal`, `update_goal`) contained no
+  `web_search` with `web_search="disabled"`; the CLI printed the fixture text, exit 0. A
+  `Model metadata … not found` warning appears for the unknown model slug (no catalog was
+  supplied in this run).
+- **Source:** `codex exec --skip-git-repo-check -c … --model fixture-model "say ok"` with
+  `CODEX_HOME` set to a temp directory (Codex 0.160.1).
+- **Consequence:** Task 5: the `-c` override carries the adapter URL at launch, so no URL is
+  written to disk; `web_search = "disabled"` verified again.
+
+### R3b. `config.toml` provider without `base_url`
+
+- **Value:** Codex accepts a `[model_providers.agentpier-endpoint]` table without `base_url`
+  (and `model_provider` pointing at it): it started, reported `provider: agentpier-endpoint`,
+  and tried to reach the network (stderr `Reconnecting... waiting for network`, with
+  `HTTPS_PROXY` dead and no request reaching the loopback capture); it was stopped after 90 s.
+  The default origin it targets was not asserted; this is consistent with the OpenAI default.
+- **Source:** same run without the `-c model_providers=…` argument, `CODEX_HOME/config.toml`
+  holding `model_provider = "agentpier-endpoint"` and the provider table with `name`,
+  `wire_api = "responses"`, `requires_openai_auth = false`, `env_key` and no `base_url`
+  (Codex 0.160.1).
+- **Consequence:** no correction: Task 5 may keep the provider table in `config.toml` without
+  `base_url`, and the adapter URL arrives only through the `-c model_providers=…` override at
+  launch. A launch that loses the override would try the default origin, so tests assert that
+  the override is present in argv.
+
+### R4a. OpenCode `@ai-sdk/anthropic`
+
+- **Value:** request path `POST /v1/messages` (with `baseURL` ending in `/v1`), no `?beta`.
+  `options.authToken` is passed through: `authorization: Bearer`, no `x-api-key`.
+  `options.apiKey` gives `x-api-key` and no `authorization`. Both exit 0 and printed the
+  fixture text. No `/v1/models` or other `GET` request; the only extra startup request is a
+  second `POST /v1/messages` for the title generator (a small system prompt `You are a title
+generator…`, no tools) before the main request (tools `bash, edit, glob, grep, read,
+skill, task, todowrite, webfetch, write`). `max_tokens` is 32000 in both.
+- **Source:** `opencode run --model agentpier-endpoint/fixture-model "say ok"` with
+  `XDG_*` and `HOME` in a temp directory and `OPENCODE_CONFIG_CONTENT` setting
+  `npm: "@ai-sdk/anthropic"`, `options.baseURL: "http://127.0.0.1:<port>/v1"` and
+  `authToken`/`apiKey` = `{env:AGENTPIER_ENDPOINT_API_KEY}` (OpenCode 1.18.35).
+- **Consequence:** Task 4: either option works; the adapter accepts both `Authorization: Bearer`
+  and `x-api-key` (Global Constraints), so keep `apiKey`. The adapter sees two Messages
+  requests per prompt.
+
+### R4b. OpenCode `@ai-sdk/openai`
+
+- **Value:** request path `POST /v1/responses`, `authorization: Bearer` from `options.apiKey`,
+  no `x-api-key`; body keys `model, input, max_output_tokens, store, prompt_cache_key,
+tools, tool_choice, stream`. Same extra title-generator request as in R4a; no `GET`
+  requests. Exit 0, fixture text printed.
+- **Source:** same invocation with `npm: "@ai-sdk/openai"` and the Responses fixture
+  (OpenCode 1.18.35).
+- **Consequence:** Task 4: `baseURL` including `/v1` is right for both SDK packages.
+
+### R5. `--use-system-ca`
+
+- **Value:** `process.allowedNodeEnvironmentFlags.has("--use-system-ca")` is `true` on
+  v22.22.2. The flag first appeared in v23.8.0 and was backported to v22.15.0.
+- **Source:** `node -p 'process.allowedNodeEnvironmentFlags.has("--use-system-ca")'`
+  (Node v22.22.2).
+- **Consequence:** Task 10: the adapter launcher passes `--use-system-ca` when the running Node
+  accepts it (feature-detect with `allowedNodeEnvironmentFlags`); Node 22.13 and 22.14 fall
+  back to passing `NODE_EXTRA_CA_CERTS` through.
