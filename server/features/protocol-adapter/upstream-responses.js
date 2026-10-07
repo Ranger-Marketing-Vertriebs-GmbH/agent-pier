@@ -11,9 +11,12 @@ export {
 
 const ENCRYPTED_REASONING = "reasoning.encrypted_content";
 const ERROR_PREFIX = "[error] ";
-/** OpenAI reasoning models accept minimal|low|medium|high; larger efforts are clamped. */
+/**
+ * Efforts every OpenAI reasoning model accepts: low|medium|high. `minimal` (rejected by
+ * gpt-5.1+) and xhigh/max are clamped and counted as `reasoning.effort.clamped`.
+ */
 const UPSTREAM_EFFORT = Object.freeze({
-  minimal: "minimal",
+  minimal: "low",
   low: "low",
   medium: "medium",
   high: "high",
@@ -48,7 +51,8 @@ function functionTool(tool, names) {
   result.parameters = sortKeys(
     isObject(tool.schema) ? tool.schema : { type: "object", properties: {} },
   );
-  if (tool.strict === true) result.strict = true;
+  // Responses treats an omitted `strict` as strict mode; client tools are non-strict.
+  result.strict = tool.strict === true;
   return result;
 }
 
@@ -179,7 +183,9 @@ function assistantItems(entry, ctx, callKinds, drop, state) {
   const flush = () => {
     const joined = texts.join("");
     if (joined !== "") {
-      items.push(message("assistant", [{ type: "output_text", text: joined }]));
+      items.push(
+        message("assistant", [{ type: "output_text", text: joined, annotations: [] }]),
+      );
     }
     texts = [];
   };
@@ -228,7 +234,7 @@ function buildInput(ir, ctx, drop) {
   };
 }
 
-function reasoningConfig(thinking) {
+function reasoningConfig(thinking, drop) {
   if (!thinking || (thinking.mode !== "enabled" && thinking.mode !== "adaptive")) {
     return undefined;
   }
@@ -239,6 +245,7 @@ function reasoningConfig(thinking) {
   else effort = normalizeEffort(undefined);
   if (effort === "none") return undefined;
   const reasoning = { effort: UPSTREAM_EFFORT[effort] };
+  if (reasoning.effort !== effort) drop("reasoning.effort.clamped");
   if (thinking.display !== "omitted" && thinking.summary !== "none") {
     reasoning.summary = "auto";
   }
@@ -257,7 +264,7 @@ function textFormat(output) {
   if (output?.format !== "json_schema") return undefined;
   const format = {
     type: "json_schema",
-    name: output.name,
+    name: typeof output.name === "string" && output.name !== "" ? output.name : "output",
     schema: sortKeys(output.schema),
   };
   if (output.strict !== undefined) format.strict = output.strict;
@@ -292,7 +299,9 @@ export function buildResponsesRequest(ir, ctx) {
     }
   }
   const reasoning =
-    capabilities.reasoningEffort === false ? undefined : reasoningConfig(ir.thinking);
+    capabilities.reasoningEffort === false
+      ? undefined
+      : reasoningConfig(ir.thinking, drop);
   if (reasoning) body.reasoning = reasoning;
   if (reasoning || replayed) body.include = [ENCRYPTED_REASONING];
   applySampling(body, ir.sampling ?? {}, drop);

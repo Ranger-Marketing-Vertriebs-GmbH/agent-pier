@@ -108,6 +108,7 @@ function assertResponsesShape(body) {
   for (const tool of body.tools ?? []) {
     assert.ok(["function", "custom"].includes(tool.type));
     assert.match(tool.name, FUNCTION_NAME);
+    if (tool.type === "function") assert.equal(typeof tool.strict, "boolean");
     assert.ok(!toolNames.has(tool.name), "tool names are unique");
     toolNames.add(tool.name);
   }
@@ -260,7 +261,7 @@ describe("buildResponsesRequest rules", () => {
       summary: "auto",
     });
     assert.equal(effort({ mode: "adaptive", effort: "xhigh" }).effort, "high");
-    assert.equal(effort({ mode: "adaptive", effort: "minimal" }).effort, "minimal");
+    assert.equal(effort({ mode: "adaptive", effort: "minimal" }).effort, "low");
     assert.equal(effort({ mode: "adaptive", effort: "low" }).effort, "low");
     assert.equal(effort({ mode: "enabled", budgetTokens: 8000 }).effort, "medium");
     assert.equal(effort({ mode: "enabled", budgetTokens: 30000 }).effort, "high");
@@ -271,6 +272,32 @@ describe("buildResponsesRequest rules", () => {
     assert.deepEqual(effort({ mode: "adaptive", effort: "low", summary: "none" }), {
       effort: "low",
     });
+  });
+
+  test("effort clamps are counted in dropped", () => {
+    const dropped = (effort) =>
+      build(request({ thinking: { mode: "adaptive", effort } })).dropped;
+    assert.ok(dropped("max").includes("reasoning.effort.clamped"));
+    assert.ok(dropped("xhigh").includes("reasoning.effort.clamped"));
+    assert.ok(dropped("minimal").includes("reasoning.effort.clamped"));
+    assert.ok(!dropped("high").includes("reasoning.effort.clamped"));
+    assert.ok(!dropped("low").includes("reasoning.effort.clamped"));
+  });
+
+  test("function tools always send an explicit strict flag", () => {
+    const { body } = build(
+      request({ tools: [{ name: "f", kind: "function", schema: { type: "object" } }] }),
+    );
+    assert.equal(body.tools[0].strict, false);
+  });
+
+  test("json schema output without a name gets a default name", () => {
+    const { body } = build(
+      request({
+        output: { format: "json_schema", name: "", schema: { type: "object" } },
+      }),
+    );
+    assert.equal(body.text.format.name, "output");
   });
 
   test("reasoning can be switched off by capability", () => {
@@ -464,7 +491,7 @@ describe("buildResponsesRequest rules", () => {
     assert.deepEqual(body.input[1], {
       type: "message",
       role: "assistant",
-      content: [{ type: "output_text", text: "Patching." }],
+      content: [{ type: "output_text", text: "Patching.", annotations: [] }],
     });
     assert.deepEqual(body.input[2], {
       type: "custom_tool_call",
