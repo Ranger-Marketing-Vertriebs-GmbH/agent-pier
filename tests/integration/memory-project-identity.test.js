@@ -152,11 +152,30 @@ test("excluded folders that already hold knowledge keep working", async (t) => {
   assert.equal(await memory.register(projects), null);
 });
 
+test("folders below a home that is a Git work tree register like any folder", async (t) => {
+  const { home, memory } = fixture(t);
+  execFileSync("git", ["init", "-q", home]);
+  const notes = folder(home, "notes");
+  assert.equal(await memory.register(home), null);
+  const project = await memory.register(notes);
+  assert.ok(project, "a subfolder is not the home folder");
+});
+
+test("plain subfolder projects never turn their parent into a collection", async (t) => {
+  const { root, memory } = fixture(t);
+  const site = folder(root, "site");
+  await memory.register(folder(site, "frontend"));
+  await memory.register(folder(site, "backend"));
+  assert.ok(await memory.register(site));
+});
+
 test("the collection-folder rule is conservative", async (t) => {
   const { root, home } = fixture(t);
-  const isRegistered = () => false;
-  const classify = (cwd, registered = isRegistered) =>
-    classifyProjectFolder(cwd, { home, isRegistered: registered }).then((f) => f.kind);
+  const none = () => false;
+  const classify = (cwd, isGitProject = none, holdsKnowledge = none) =>
+    classifyProjectFolder(cwd, { home, isGitProject, holdsKnowledge }).then(
+      (f) => f.kind,
+    );
   const one = folder(root, "one-repo");
   repository(one, "a");
   folder(one, "b");
@@ -168,8 +187,21 @@ test("the collection-folder rule is conservative", async (t) => {
   assert.equal(
     await classify(registered, (dir) => dir.startsWith(registered + path.sep)),
     "collection",
-    "registered child projects count",
+    "registered Git child projects count",
   );
+  const used = (dir) => dir === registered;
+  assert.equal(
+    await classify(registered, (dir) => dir.startsWith(registered + path.sep), used),
+    "project",
+    "a folder whose project holds knowledge is never a collection",
+  );
+  for (const marker of ["package.json", "README.md", "Makefile"]) {
+    const own = folder(root, `own-${marker}`);
+    repository(own, "a");
+    repository(own, "b");
+    fs.writeFileSync(path.join(own, marker), "x\n");
+    assert.equal(await classify(own), "project", `${marker} makes it a project`);
+  }
   const monorepo = repository(root, "monorepo");
   repository(monorepo, "a");
   repository(monorepo, "b");

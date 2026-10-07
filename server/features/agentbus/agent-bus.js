@@ -78,11 +78,13 @@ export class AgentBus {
     if (!fs.statSync(canonical).isDirectory())
       throw problem(serverMessages.common.invalidProjectDirectory);
     // The home folder and collection folders stand for no project, so the session
-    // runs without AgentBus. A pipeline run worktree joins its project root.
+    // runs without AgentBus (unless its project already holds memory knowledge).
+    // A pipeline run worktree keeps a bus of its own, so run agents never reach the
+    // user's sessions or other runs; it only lists under its project root.
     const folder = await this.classifyFolder(canonical);
     if (folder.kind !== "project") return { ...launch, agentbus: { enabled: false } };
     const projectCwd = folder.cwd;
-    const projectId = createHash("sha256").update(projectCwd).digest("hex");
+    const projectId = createHash("sha256").update(canonical).digest("hex");
     const home = path.join(this.root, "projects", projectId);
     ensureDir(path.join(home, "launches"));
     const existing = path.join(home, "launches", `${id}.json`);
