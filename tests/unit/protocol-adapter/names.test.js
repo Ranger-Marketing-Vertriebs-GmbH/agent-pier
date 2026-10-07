@@ -142,3 +142,59 @@ test("an empty namespace is the same as no namespace", () => {
   map.toUpstream("write", "");
   assert.deepEqual(map.fromUpstream("write"), { name: "write" });
 });
+
+test("two maps fed the same names in the same order allocate the same names", () => {
+  const order = [
+    ["read_file"],
+    [LONG, CODEX_NAMESPACE],
+    ["bad name"],
+    ["bad?name"],
+    [CLAUDE_MCP],
+    ["x".repeat(90)],
+    ["x".repeat(91)],
+  ];
+  const first = chat();
+  const second = chat();
+  assert.deepEqual(
+    order.map((args) => second.toUpstream(...args)),
+    order.map((args) => first.toUpstream(...args)),
+  );
+  const firstIds = createIdMap(/^[a-zA-Z0-9_-]+$/);
+  const secondIds = createIdMap(/^[a-zA-Z0-9_-]+$/);
+  const ids = ["fc:1", "fc 1", "call_1"];
+  assert.deepEqual(
+    ids.map((id) => secondIds.toUpstream(id)),
+    ids.map((id) => firstIds.toUpstream(id)),
+  );
+});
+
+test("a namespace with a trailing double underscore stays distinct and reversible", () => {
+  const map = messages();
+  const trailing = map.toUpstream("tool", "mcp__server__");
+  const leading = map.toUpstream("__tool", "mcp__server");
+  assert.equal(trailing, "mcp__server____tool");
+  assert.notEqual(leading, trailing);
+  assert.deepEqual(map.fromUpstream(trailing), {
+    name: "tool",
+    namespace: "mcp__server__",
+  });
+  assert.deepEqual(map.fromUpstream(leading), {
+    name: "__tool",
+    namespace: "mcp__server",
+  });
+});
+
+test("encodeCarrier treats an undefined payload as no payload", () => {
+  assert.equal(encodeCarrier("codex", undefined), encodeCarrier("codex", null));
+  assert.deepEqual(decodeCarrier(encodeCarrier("codex", undefined)), {
+    origin: "codex",
+    payload: null,
+  });
+});
+
+test("decodeCarrier rejects bodies that are not valid UTF-8", () => {
+  for (const bytes of [[0xff], [0xc3], [0xe2, 0x82], [0xed, 0xa0, 0x80]]) {
+    const body = Buffer.from(bytes).toString("base64url");
+    assert.equal(decodeCarrier(`ap1.codex.${body}`), null);
+  }
+});
