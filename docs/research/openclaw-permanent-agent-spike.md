@@ -84,7 +84,10 @@ credentials, local account data or host-specific paths are included in this reco
   default cleanup settings. The visible path creates an ordinary persistent session.
 - Reusing child sessions produced runtime diagnostics stating that a subagent
   terminal-signal owner changed before commit. Observed histories and replies were
-  intact, but registry/event consistency needs further testing before release.
+  intact. The [status follow-up](openclaw-status-recovery-spike.md) traced this to
+  competing callbacks for the same completed run, also on first execution; tested
+  terminal events were stored once. Broader failure consistency still needs
+  qualification before release.
 
 ## Recommendation for AgentPier
 
@@ -121,6 +124,7 @@ Linux installation and managed upgrades remain unverified.
 - [Multi-agent routing and profiles](https://docs.openclaw.ai/concepts/multi-agent)
 - [Multiple Gateways](https://docs.openclaw.ai/gateway/multiple-gateways)
 - [Initial runtime spike](openclaw-runtime-spike.md)
+- [Status diagnostics and recovery](openclaw-status-recovery-spike.md)
 - [Integration ADR](../adr/0002-managed-openclaw-assistants.md)
 
 The package's bundled documentation and tool schemas were checked alongside the

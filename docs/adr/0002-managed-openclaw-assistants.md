@@ -243,6 +243,17 @@ identity; test both graceful shutdown and abrupt failure. Version upgrades need
 schema/protocol compatibility checks, backup and a documented recovery path;
 rolling back a package alone may not undo state migrations.
 
+The [status/recovery probe](../research/openclaw-status-recovery-spike.md) verified
+reconciliation after a dropped connection and detected an interrupted child after
+SIGKILL. Resending that interrupted request could execute it again under the same
+runtime run ID. Keep an AgentPier request/action ledger, distinguish wait timeout
+from terminal failure, and reconcile external effects before retrying uncertain
+work. Native log warnings alone must not determine task status.
+
+The proposed [Gateway design](../assistant-gateway.md) places service operation in
+Settings > Assistants > Runtime while preserving direct agent chats. It separates
+service availability, status reconciliation, run outcome and external delivery.
+
 OpenClaw's logging path must be set explicitly; isolated HOME/TMPDIR does not by
 itself isolate every output. Translate stable browser-visible diagnostics through
 AgentPier's DE/EN catalogs while retaining native diagnostic evidence separately.
@@ -315,6 +326,8 @@ plan before product code changes begin.
 
 - [Pinned runtime spike evidence](../research/openclaw-runtime-spike.md)
 - [Permanent agents and parallel Gateways](../research/openclaw-permanent-agent-spike.md)
+- [Status diagnostics and recovery](../research/openclaw-status-recovery-spike.md)
+- [Managed Gateway design](../assistant-gateway.md)
 - [OpenClaw embedding](https://docs.openclaw.ai/gateway/embedding)
 - [Gateway integrations](https://docs.openclaw.ai/gateway/external-apps)
 - [Deepgram provider](https://docs.openclaw.ai/providers/deepgram)
