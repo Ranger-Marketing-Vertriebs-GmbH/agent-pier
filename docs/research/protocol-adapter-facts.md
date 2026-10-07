@@ -347,7 +347,11 @@ cannot be modified|invalid signature`, `bound to a different conversation`); Cla
 - **Source:** live capture; `llm-gateway-protocol.md` ("Feature pass-through",
   "Automatic retry and error forwarding").
 - **Consequence:** `client-messages.parseRequest` accepts string and array content for
-  system entries.
+  system entries. Toward a Messages upstream through the adapter (only Codex gets
+  there) the beta is not sent, so `upstream-messages.js` puts system messages that
+  precede every other message into top-level `system` and merges later ones into the
+  next user turn as a `<system>…</system>` text block after its `tool_result` blocks
+  (as for Chat, Amendment 13), keeping strict user/assistant alternation.
 
 ### 2.8 Attribution block / `CLAUDE_CODE_ATTRIBUTION_HEADER`
 

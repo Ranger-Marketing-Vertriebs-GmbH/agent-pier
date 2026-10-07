@@ -1,0 +1,283 @@
+// Anthropic Messages upstream: turns streamed events or a complete Message into IR events.
+
+import { encodeCarrier } from "./carrier.js";
+import { classifyUpstreamError } from "./errors.js";
+import { stopFromMessages, usageFromMessages } from "./mapping.js";
+
+/**
+ * Carrier payload prefix for `redacted_thinking` data. Thinking signatures are standard
+ * base64 and never contain `:`, so the prefix tells the two apart on replay.
+ */
+export const REDACTED_PREFIX = "redacted:";
+
+const isObject = (value) =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+const nonEmpty = (value) => typeof value === "string" && value !== "";
+
+function modelName(model) {
+  if (nonEmpty(model)) return model;
+  return isObject(model) && nonEmpty(model.id) ? model.id : "unknown";
+}
+
+/** Usage fields of a Messages usage object; absent fields keep their previous value. */
+function mergeUsage(previous, usage) {
+  if (!isObject(usage)) return previous;
+  const pick = (field, key) =>
+    Number.isFinite(usage[field]) ? usage[field] : previous[key];
+  return {
+    input: pick("input_tokens", "input"),
+    output: pick("output_tokens", "output"),
+    cacheRead: pick("cache_read_input_tokens", "cacheRead"),
+    cacheWrite: pick("cache_creation_input_tokens", "cacheWrite"),
+  };
+}
+
+/** Synchronous state machine shared by the stream and the non-streaming parser. */
+function createMessagesState(ctx) {
+  const out = [];
+  const blocks = new Map(); // upstream index → block state
+  let started = false;
+  let closed = false;
+  let nextIndex = 0;
+  let totals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  let usageDirty = false;
+  let usageSent = false;
+  let stopReason = null;
+  let stopSequence = null;
+
+  const ensureStarted = (message) => {
+    if (started) return;
+    started = true;
+    out.push({
+      type: "start",
+      id: nonEmpty(message?.id) ? message.id : "msg",
+      model: nonEmpty(message?.model) ? message.model : modelName(ctx.model),
+    });
+  };
+
+  const addUsage = (usage) => {
+    if (!isObject(usage)) return;
+    totals = mergeUsage(totals, usage);
+    usageDirty = true;
+  };
+
+  const flushUsage = () => {
+    if (!usageDirty) return;
+    usageDirty = false;
+    usageSent = true;
+    out.push({ type: "usage", ...usageFromMessages(totals) });
+  };
+
+  const open = (upstreamIndex, kind, extra = {}) => {
+    const block = { kind, index: nextIndex++, signature: "", input: null, deltas: 0 };
+    blocks.set(upstreamIndex, block);
+    out.push({ type: "blockStart", index: block.index, kind, ...extra });
+    return block;
+  };
+
+  const toolCallOf = (content) => {
+    const restored = ctx.names.fromUpstream(content.name ?? "");
+    const toolCall = {
+      id: ctx.ids.fromUpstream(nonEmpty(content.id) ? content.id : "toolu"),
+      name: restored.name,
+      kind: "function",
+    };
+    if (restored.namespace !== undefined) toolCall.namespace = restored.namespace;
+    return toolCall;
+  };
+
+  const carrier = (block, payload) => {
+    out.push({
+      type: "reasoningCarrier",
+      index: block.index,
+      carrier: encodeCarrier("messages", payload),
+    });
+  };
+
+  const textDelta = (block, text) => {
+    if (nonEmpty(text)) out.push({ type: "textDelta", index: block.index, text });
+  };
+  const thinkingDelta = (block, text) => {
+    if (nonEmpty(text)) out.push({ type: "reasoningDelta", index: block.index, text });
+  };
+  const inputDelta = (block, fragment) => {
+    if (!nonEmpty(fragment)) return;
+    block.deltas += 1;
+    out.push({ type: "toolInputDelta", index: block.index, fragment });
+  };
+
+  const startBlock = (upstreamIndex, content) => {
+    if (!isObject(content) || blocks.has(upstreamIndex)) return;
+    if (content.type === "text") {
+      textDelta(open(upstreamIndex, "text"), content.text);
+    } else if (content.type === "thinking") {
+      const block = open(upstreamIndex, "reasoning");
+      thinkingDelta(block, content.thinking);
+      if (nonEmpty(content.signature)) block.signature = content.signature;
+    } else if (content.type === "redacted_thinking") {
+      const block = open(upstreamIndex, "reasoning");
+      if (typeof content.data === "string") block.redacted = content.data;
+    } else if (content.type === "tool_use") {
+      const block = open(upstreamIndex, "toolCall", { toolCall: toolCallOf(content) });
+      if (isObject(content.input) && Object.keys(content.input).length > 0) {
+        block.input = JSON.stringify(content.input);
+      }
+    }
+    // Server tool blocks and unknown block types have no IR equivalent and are skipped.
+  };
+
+  const deltaBlock = (upstreamIndex, delta) => {
+    const block = blocks.get(upstreamIndex);
+    if (!block || !isObject(delta)) return;
+    if (delta.type === "text_delta" && block.kind === "text")
+      textDelta(block, delta.text);
+    else if (delta.type === "thinking_delta" && block.kind === "reasoning") {
+      thinkingDelta(block, delta.thinking);
+    } else if (delta.type === "signature_delta" && block.kind === "reasoning") {
+      if (typeof delta.signature === "string") block.signature += delta.signature;
+    } else if (delta.type === "input_json_delta" && block.kind === "toolCall") {
+      inputDelta(block, delta.partial_json);
+    }
+  };
+
+  const stopBlock = (upstreamIndex) => {
+    const block = blocks.get(upstreamIndex);
+    if (!block) return;
+    blocks.delete(upstreamIndex);
+    if (block.kind === "reasoning") {
+      if (block.redacted !== undefined)
+        carrier(block, `${REDACTED_PREFIX}${block.redacted}`);
+      else if (block.signature !== "") carrier(block, block.signature);
+    } else if (block.kind === "toolCall" && block.deltas === 0 && block.input !== null) {
+      inputDelta(block, block.input);
+    }
+    out.push({ type: "blockStop", index: block.index });
+  };
+
+  const closeOpenBlocks = () => {
+    for (const key of [...blocks.keys()].sort((a, b) => a - b)) stopBlock(key);
+  };
+
+  const fail = (body) => {
+    closeOpenBlocks();
+    out.push({
+      type: "error",
+      error: classifyUpstreamError({ protocol: "messages", body }),
+    });
+    closed = true;
+  };
+
+  const complete = () => {
+    ensureStarted(null);
+    closeOpenBlocks();
+    if (!usageSent && !usageDirty) {
+      // No upstream usage at all: report zeros flagged as estimated.
+      out.push({ type: "usage", ...usageFromMessages({ ...totals, estimated: true }) });
+    }
+    flushUsage();
+    const stop = { type: "stop", reason: stopFromMessages(stopReason) };
+    if (nonEmpty(stopSequence)) stop.stopSequence = stopSequence;
+    out.push(stop);
+    closed = true;
+  };
+
+  const drain = () => out.splice(0);
+
+  const handlers = {
+    message_start(json) {
+      ensureStarted(json.message);
+      addUsage(json.message?.usage);
+    },
+    content_block_start(json) {
+      ensureStarted(null);
+      startBlock(json.index, json.content_block);
+    },
+    content_block_delta(json) {
+      deltaBlock(json.index, json.delta);
+    },
+    content_block_stop(json) {
+      stopBlock(json.index);
+    },
+    message_delta(json) {
+      ensureStarted(null);
+      if (nonEmpty(json.delta?.stop_reason)) stopReason = json.delta.stop_reason;
+      if (nonEmpty(json.delta?.stop_sequence)) stopSequence = json.delta.stop_sequence;
+      addUsage(json.usage);
+      flushUsage();
+    },
+    message_stop() {
+      complete();
+    },
+    error(json) {
+      fail(json);
+    },
+  };
+
+  return {
+    get closed() {
+      return closed;
+    },
+    /** One parsed event payload; the SSE event name falls back to `data.type`. */
+    event(name, json) {
+      if (closed) return [];
+      if (!isObject(json)) {
+        fail(json);
+        return drain();
+      }
+      const type = name === "error" || json.type === "error" ? "error" : json.type;
+      if (Object.hasOwn(handlers, type)) handlers[type](json); // ping/unknown ignored
+      return drain();
+    },
+    error(body) {
+      if (!closed) fail(body);
+      return drain();
+    },
+    /** End of input without `message_stop`: truncated, no stop event. */
+    end() {
+      if (!closed) closeOpenBlocks();
+      closed = true;
+      return drain();
+    },
+    message(json) {
+      ensureStarted(json);
+      json.content.forEach((content, index) => {
+        startBlock(index, content);
+        stopBlock(index);
+      });
+      stopReason = json.stop_reason;
+      stopSequence = json.stop_sequence;
+      addUsage(json.usage);
+      complete();
+      return drain();
+    },
+  };
+}
+
+function parseData(data) {
+  try {
+    return { ok: true, value: JSON.parse(data) };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** IR events for a Messages SSE stream (`{ event, data }` items from sse.js). */
+export async function* parseMessagesStream(sseEvents, ctx) {
+  const state = createMessagesState(ctx);
+  for await (const { event, data } of sseEvents) {
+    const parsed = parseData(data);
+    if (parsed.ok) yield* state.event(event, parsed.value);
+    else yield* state.error(data);
+    if (state.closed) return;
+  }
+  yield* state.end();
+}
+
+/** IR events for a non-streaming Messages response body (a Message or an error body). */
+export function parseMessagesResponse(json, ctx) {
+  const state = createMessagesState(ctx);
+  if (!isObject(json) || json.type === "error" || !Array.isArray(json.content)) {
+    return state.error(json);
+  }
+  return state.message(json);
+}
