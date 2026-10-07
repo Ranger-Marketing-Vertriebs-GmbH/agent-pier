@@ -213,7 +213,7 @@ function buildInput(ir, ctx, drop) {
   };
 }
 
-function reasoningConfig(thinking, drop) {
+function reasoningConfig(thinking, adjust) {
   if (!thinking || (thinking.mode !== "enabled" && thinking.mode !== "adaptive")) {
     return undefined;
   }
@@ -224,7 +224,7 @@ function reasoningConfig(thinking, drop) {
   else effort = normalizeEffort(undefined);
   if (effort === "none") return undefined;
   const reasoning = { effort: UPSTREAM_EFFORT[effort] };
-  if (reasoning.effort !== effort) drop("reasoning.effort.clamped");
+  if (reasoning.effort !== effort) adjust("reasoning.effort.clamped");
   if (thinking.display !== "omitted" && thinking.summary !== "none") {
     reasoning.summary = "auto";
   }
@@ -284,7 +284,7 @@ export function buildResponsesRequest(ir, ctx) {
   const reasoning =
     capabilities.reasoningEffort === false
       ? undefined
-      : reasoningConfig(ir.thinking, drop);
+      : reasoningConfig(ir.thinking, adjust);
   if (reasoning) body.reasoning = reasoning;
   if (reasoning || replayed) body.include = [ENCRYPTED_REASONING];
   applySampling(body, ir.sampling ?? {}, ctx.model, drop, adjust);

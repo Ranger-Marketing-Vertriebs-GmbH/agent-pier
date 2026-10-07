@@ -178,14 +178,14 @@ describe("buildResponsesRequest rules", () => {
     });
   });
 
-  test("effort clamps are counted in dropped", () => {
-    const dropped = (effort) =>
-      build(request({ thinking: { mode: "adaptive", effort } })).dropped;
-    assert.ok(dropped("max").includes("reasoning.effort.clamped"));
-    assert.ok(dropped("xhigh").includes("reasoning.effort.clamped"));
-    assert.ok(dropped("minimal").includes("reasoning.effort.clamped"));
-    assert.ok(!dropped("high").includes("reasoning.effort.clamped"));
-    assert.ok(!dropped("low").includes("reasoning.effort.clamped"));
+  test("effort clamps are counted as adjustments", () => {
+    const adjusted = (effort) =>
+      build(request({ thinking: { mode: "adaptive", effort } })).adjustments;
+    assert.ok(adjusted("max").includes("reasoning.effort.clamped"));
+    assert.ok(adjusted("xhigh").includes("reasoning.effort.clamped"));
+    assert.ok(adjusted("minimal").includes("reasoning.effort.clamped"));
+    assert.ok(!adjusted("high").includes("reasoning.effort.clamped"));
+    assert.ok(!adjusted("low").includes("reasoning.effort.clamped"));
   });
 
   test("function tools always send an explicit strict flag", () => {

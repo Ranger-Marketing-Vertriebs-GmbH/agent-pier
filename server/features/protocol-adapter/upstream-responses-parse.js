@@ -2,7 +2,7 @@
 
 import { encodeCarrier } from "./carrier.js";
 import { classifyUpstreamError } from "./errors.js";
-import { isObject, modelName, nonEmpty, parseData } from "./shared.js";
+import { fallbackCallId, isObject, modelName, nonEmpty, parseData } from "./shared.js";
 import { estimatedUsage, stopFromResponses, usageFromOpenAI } from "./mapping.js";
 
 const SUMMARY_SEPARATOR = "\n\n";
@@ -144,7 +144,9 @@ function createResponsesState(ctx) {
     if (item.index !== null) return;
     const restored = ctx.names.fromUpstream(textOrEmpty(raw.name));
     const toolCall = {
-      id: ctx.ids.fromUpstream(nonEmpty(raw.call_id) ? raw.call_id : `call_${nextIndex}`),
+      id: ctx.ids.fromUpstream(
+        nonEmpty(raw.call_id) ? raw.call_id : fallbackCallId(ctx, nextIndex),
+      ),
       name: restored.name,
       kind: CALL_TYPES[raw.type],
     };

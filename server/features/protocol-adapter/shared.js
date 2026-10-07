@@ -74,7 +74,23 @@ export const customToolDescription = (tool) =>
 
 // --- request bookkeeping ---------------------------------------------------------------
 
-/** Lists every IR hint as `hints.<key>` in `drop`; no upstream sends hints. */
+// Hints the adapter honors itself on every route: `store` (always false upstream) and
+// `include` (encrypted reasoning toward Codex, `include` toward Responses upstreams).
+const CONSUMED_HINTS = new Set(["store", "include"]);
+
+/** Lists every IR hint the adapter does not consume as `hints.<key>` in `drop`. */
 export function dropHints(ir, drop) {
-  for (const key of Object.keys(ir.hints ?? {})) drop(`hints.${key}`);
+  for (const key of Object.keys(ir.hints ?? {})) {
+    if (!CONSUMED_HINTS.has(key)) drop(`hints.${key}`);
+  }
+}
+
+/**
+ * Call id for an upstream tool call that came without one: unique per request (the
+ * exchange's `ctx.requestId`, reduced to the id alphabet) and per call (`position`).
+ */
+export function fallbackCallId(ctx, position) {
+  const request = typeof ctx?.requestId === "string" ? ctx.requestId : "";
+  const safe = request.replace(/[^a-zA-Z0-9_-]+/g, "_");
+  return safe === "" ? `call_${position}` : `call_${safe}_${position}`;
 }

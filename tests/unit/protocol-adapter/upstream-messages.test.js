@@ -358,8 +358,8 @@ describe("buildMessagesRequest rules", () => {
     );
     assert.deepEqual(relaxed.body.tool_choice, { type: "auto" });
     assert.deepEqual(relaxed.body.output_config, { effort: "low" });
-    assert.ok(relaxed.dropped.includes("toolChoiceRelaxed"));
-    assert.ok(relaxed.dropped.includes("effortMinimalToLow"));
+    assert.ok(relaxed.adjustments.includes("toolChoiceRelaxed"));
+    assert.ok(relaxed.adjustments.includes("effortMinimalToLow"));
   });
 
   test("effort none omits thinking; budgets are clamped below max_tokens", () => {
@@ -390,7 +390,7 @@ describe("buildMessagesRequest rules", () => {
     assert.deepEqual(built.body.messages[2].content[1].cache_control, {
       type: "ephemeral",
     });
-    assert.ok(built.dropped.includes("cache.breakpoints"));
+    assert.ok(built.adjustments.includes("cache.breakpoints"));
   });
 
   test("json_schema output maps to output_config.format", () => {

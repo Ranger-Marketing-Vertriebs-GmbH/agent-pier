@@ -61,9 +61,10 @@ function createAllocator({ pattern, maxLength }) {
 export function createNameMap({ pattern, maxLength }) {
   const allocator = createAllocator({ pattern, maxLength });
   return {
-    toUpstream(name, namespace) {
+    toUpstream(name, rawNamespace) {
+      const namespace = rawNamespace || null; // "" and undefined both mean no namespace
       const full = namespace ? `${namespace}__${name}` : name;
-      const key = JSON.stringify([namespace ?? null, name]);
+      const key = JSON.stringify([namespace, name]);
       return allocator.allocate(key, full, (limit) =>
         allocator.leadingSlice(full, limit),
       );

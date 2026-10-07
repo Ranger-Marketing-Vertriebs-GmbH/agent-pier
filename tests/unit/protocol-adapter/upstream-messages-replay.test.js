@@ -124,7 +124,7 @@ describe("manual thinking in a tool loop", () => {
   test("is omitted when the assistant tool-use turn has no leading thinking", () => {
     const built = buildMessagesRequest(ir([call]), context());
     assert.equal(built.body.thinking, undefined);
-    assert.ok(built.dropped.includes("thinking.omittedNoLeadingBlock"));
+    assert.ok(built.adjustments.includes("thinking.omittedNoLeadingBlock"));
   });
 
   test("is kept when a messages-origin thinking block leads the turn", async () => {

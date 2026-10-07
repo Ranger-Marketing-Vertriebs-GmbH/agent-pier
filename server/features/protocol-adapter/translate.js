@@ -42,7 +42,12 @@
  *   calls only (TypeError for unknown names or invalid values). With the pure
  *   `capabilityForError(upstream, irError)` it implements the 400/422 → capability retry.
  * - `diagnostics()`: `{ dropped, adjustments, errors, estimatedUsage }`: counters by name
- *   and the number of responses whose usage was estimated.
+ *   and the number of responses whose usage was estimated. `dropped`: client features
+ *   not sent upstream (hints except the consumed `store`/`include`, hosted tools, sampling
+ *   values, orphaned parts); `adjustments`: values the adapter changed (thinking/effort
+ *   resolutions, cache breakpoints, clamped max tokens); `errors`: `request.invalid`,
+ *   `request.rejected`, `request.imageRejected`, `stream.invalid`, `stream.<kind>`,
+ *   `response.invalid`.
  *
  * Exchange methods (the exchange counts the client frames it handed out, so every error
  * it renders later continues the client's numbering):
@@ -259,7 +264,9 @@ export function createTranslator({
   };
   const stats = { dropped: {}, adjustments: {}, errors: {}, estimatedUsage: 0 };
 
-  const secretList = secrets.filter((secret) => typeof secret === "string");
+  const secretList = (Array.isArray(secrets) ? secrets : []).filter(
+    (secret) => typeof secret === "string",
+  );
 
   /** Client rendering of an IrError before any client output was written. */
   function renderError(error, { streaming, context }) {
@@ -365,7 +372,7 @@ export function createTranslator({
           count(stats.errors, `stream.${error.kind}`);
         } else {
           error = INVALID_STREAM;
-          count(stats.dropped, "stream.invalid");
+          count(stats.errors, "stream.invalid");
         }
       }
       yield inStreamError(clean(error));
@@ -379,7 +386,7 @@ export function createTranslator({
       } catch (cause) {
         if (cause instanceof AdapterUpstreamError) failure = cause;
         else if (cause instanceof TypeError || cause instanceof RangeError) {
-          count(stats.dropped, "response.invalid");
+          count(stats.errors, "response.invalid");
           failure = new AdapterUpstreamError(INVALID_RESPONSE);
         } else throw cause;
       }
@@ -457,17 +464,17 @@ export function createTranslator({
       parsed = clientSide.parse(body, headers);
     } catch (cause) {
       if (!(cause instanceof TypeError)) throw cause;
-      count(stats.dropped, "request.invalid");
+      count(stats.errors, "request.invalid");
       return reject(invalid(cause.message), nextState(options, null, streaming));
     }
     const { ir } = parsed;
     const state = nextState(options, ir, streaming);
     if (parsed.rejected) {
-      count(stats.dropped, "request.rejected");
+      count(stats.errors, "request.rejected");
       return reject(parsed.rejected, state);
     }
     if (session.model?.images === false && irHasImage(ir)) {
-      count(stats.dropped, "request.imageRejected");
+      count(stats.errors, "request.imageRejected");
       return reject(invalid(NO_IMAGES), state);
     }
     for (const tool of ir.tools) session.names.toUpstream(tool.name, tool.namespace);
@@ -476,7 +483,7 @@ export function createTranslator({
       built = upstreamSide.build(ir, session);
     } catch (cause) {
       if (!(cause instanceof TypeError)) throw cause;
-      count(stats.dropped, "request.invalid");
+      count(stats.errors, "request.invalid");
       return reject(invalid(cause.message), state);
     }
     const dropped = [...new Set([...(parsed.dropped ?? []), ...(built.dropped ?? [])])];

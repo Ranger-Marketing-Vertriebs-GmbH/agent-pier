@@ -2,7 +2,7 @@
 
 import { encodeCarrier } from "./carrier.js";
 import { classifyUpstreamError } from "./errors.js";
-import { isObject, modelName, nonEmpty, parseData } from "./shared.js";
+import { fallbackCallId, isObject, modelName, nonEmpty, parseData } from "./shared.js";
 import { estimatedUsage, stopFromChat, usageFromOpenAI } from "./mapping.js";
 
 const OPEN_TAG = "<think>";
@@ -234,7 +234,7 @@ function createChatState(ctx) {
     if (call.index === null) {
       call.pending += fragment;
       if (!call.name) return;
-      call.id ??= `${streamId}_call_${key}`;
+      call.id ??= fallbackCallId(ctx, key);
       startCall(call);
       callFragment(call, call.pending);
       call.pending = "";
@@ -269,7 +269,7 @@ function createChatState(ctx) {
     const open = [...calls.entries()].sort(([a], [b]) => a - b);
     for (const [key, call] of open) {
       if (call.index === null) {
-        call.id ??= `${streamId}_call_${key}`;
+        call.id ??= fallbackCallId(ctx, key);
         call.name ??= "";
         startCall(call);
         callFragment(call, call.pending);
@@ -283,11 +283,9 @@ function createChatState(ctx) {
     ensureStarted(null);
     finishBlocks();
     if (!usageSeen) out.push({ type: "usage", ...estimatedUsage(ctx, outputChars) });
-    const reason = finishReason
-      ? stopFromChat(finishReason)
-      : sawToolCalls
-        ? "toolUse"
-        : "end";
+    // Some servers finish tool calls with "stop"; a turn with calls is a tool-use stop.
+    let reason = finishReason ? stopFromChat(finishReason) : "end";
+    if (reason === "end" && sawToolCalls) reason = "toolUse";
     out.push({ type: "stop", reason });
     closed = true;
   };

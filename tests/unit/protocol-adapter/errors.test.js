@@ -449,6 +449,32 @@ test("responsesFailedEvent continues an already started stream", () => {
   assert.equal(event.data.response.error.message, "server msg");
 });
 
+test("status-less errors with a numeric code use it as the status", () => {
+  const vllm = classifyUpstreamError({
+    protocol: "chat",
+    body: { error: { message: "slow down", code: 429 } },
+  });
+  assert.equal(vllm.kind, "rateLimit");
+  assert.equal(vllm.status, 429);
+  const text = classifyUpstreamError({
+    protocol: "chat",
+    body: { error: { message: "busy", code: "503" } },
+  });
+  assert.equal(text.kind, "overloaded");
+  assert.equal(text.status, 503);
+  const http = classifyUpstreamError({
+    protocol: "chat",
+    status: 500,
+    body: { error: { message: "x", code: 429 } },
+  });
+  assert.equal(http.status, 500, "the HTTP status wins");
+  const odd = classifyUpstreamError({
+    protocol: "chat",
+    body: { error: { message: "x", code: 7 } },
+  });
+  assert.equal(odd.status, null, "codes outside 400–599 are not statuses");
+});
+
 test("classifyTransportError: timeouts, socket errors and classifier hints", () => {
   const abort = Object.assign(new Error("This operation was aborted"), {
     name: "AbortError",

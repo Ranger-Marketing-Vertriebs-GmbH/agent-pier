@@ -343,6 +343,6 @@ describe("non-streaming responses", () => {
       assert.equal(error.clientError.body.error.type, "api_error");
       return true;
     });
-    assert.equal(instance.diagnostics().dropped["response.invalid"], 1);
+    assert.equal(instance.diagnostics().errors["response.invalid"], 1);
   });
 });
