@@ -88,30 +88,6 @@ export function resolveCapabilities(upstream, capabilities) {
   return resolved;
 }
 
-// Rejections naming one of these parameters are retried once with the capability change.
-// Order matters: OpenAI's max_tokens error also names max_completion_tokens.
-const RULES = Object.freeze({
-  messages: [[["adaptive"], "thinkingBudget", true]],
-  responses: [
-    [
-      ["reasoning", "reasoning.effort", "reasoning.summary", "include"],
-      "reasoningEffort",
-      false,
-    ],
-    [["prompt_cache_key"], "promptCacheKey", false],
-    [["parallel_tool_calls"], "parallelToolCalls", false],
-  ],
-  chat: [
-    [["max_tokens"], "maxTokensField", "max_completion_tokens"],
-    [["max_completion_tokens"], "maxTokensField", "max_tokens"],
-    [["stream_options", "include_usage"], "streamUsage", false],
-    [["reasoning_effort"], "reasoningEffort", false],
-    [["reasoning_content"], "reasoningReplay", false],
-    [["prompt_cache_key"], "promptCacheKey", false],
-    [["parallel_tool_calls"], "parallelToolCalls", false],
-  ],
-});
-
 const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
@@ -121,24 +97,117 @@ const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function names(message, name) {
   const escaped = escapeRegExp(name);
   if (new RegExp(`['"\`]${escaped}(?:[.[][^'"\`]*)?['"\`]`).test(message)) return true;
-  if (name === "adaptive") return /\badaptive\b/i.test(message);
   if (!/[._]/.test(name)) return false;
   return new RegExp(`(?<![A-Za-z0-9_.])${escaped}(?![A-Za-z0-9_])`).test(message);
 }
 
+/**
+ * True when `message` rejects the parameter as such ("Unsupported parameter: 'reasoning'",
+ * "'reasoning.effort' is not supported"), not merely quoting the word in another role
+ * (an input item of type 'reasoning', a schema property).
+ */
+function rejectsParameter(message, name) {
+  const escaped = escapeRegExp(name);
+  const after = new RegExp(
+    `(?:unsupported|unknown|unrecognized|invalid|extra) (?:request )?` +
+      `(?:parameter|field|argument|input)s?(?: supplied)?[:\\s]+['"\`]?${escaped}(?![A-Za-z0-9_])`,
+    "i",
+  );
+  const before = new RegExp(
+    `['"\`]${escaped}(?:\\.[A-Za-z_.]*)?['"\`] (?:is|are) not (?:supported|permitted|allowed)`,
+    "i",
+  );
+  return after.test(message) || before.test(message);
+}
+
+const UNSUPPORTED =
+  /unsupported|not supported|does not support|unknown|unrecognized|not permitted|not allowed|extra (?:inputs|fields)/i;
+
 const paramNames = (param, name) =>
   param === name || param.startsWith(`${name}.`) || param.startsWith(`${name}[`);
 
+const mentions = ({ message, param }, parameters) =>
+  parameters.some(
+    (parameter) =>
+      (param !== "" && paramNames(param, parameter)) || names(message, parameter),
+  );
+
+// Each rule: [predicate over { message, param }, capability, value]. The first hit wins.
+const RULES = Object.freeze({
+  messages: [
+    [
+      ({ message }) =>
+        /\badaptive\b/i.test(message) &&
+        /thinking/i.test(message) &&
+        (UNSUPPORTED.test(message) || /expected tags|does not match/i.test(message)),
+      "thinkingBudget",
+      true,
+    ],
+  ],
+  responses: [
+    [
+      ({ message, param }) =>
+        (param !== "" && (paramNames(param, "reasoning") || param === "include")) ||
+        ["reasoning", "reasoning.effort", "reasoning.summary"].some((name) =>
+          rejectsParameter(message, name),
+        ) ||
+        (names(message, "include") && message.includes("reasoning.encrypted_content")),
+      "reasoningEffort",
+      false,
+    ],
+    [(error) => mentions(error, ["prompt_cache_key"]), "promptCacheKey", false],
+    [(error) => mentions(error, ["parallel_tool_calls"]), "parallelToolCalls", false],
+  ],
+  chat: [
+    // DeepSeek-style thinking with tools: the upstream wants reasoning replayed.
+    [
+      ({ message }) => /missing\b[^.]*reasoning_content/i.test(message),
+      "reasoningReplay",
+      true,
+    ],
+    // Order matters: OpenAI's max_tokens rejection also names max_completion_tokens.
+    [
+      (error) =>
+        (error.param === "max_tokens" || names(error.message, "max_tokens")) &&
+        (names(error.message, "max_completion_tokens") ||
+          UNSUPPORTED.test(error.message)),
+      "maxTokensField",
+      "max_completion_tokens",
+    ],
+    [
+      (error) =>
+        mentions(error, ["max_completion_tokens"]) && UNSUPPORTED.test(error.message),
+      "maxTokensField",
+      "max_tokens",
+    ],
+    [
+      (error) => mentions(error, ["stream_options", "include_usage"]),
+      "streamUsage",
+      false,
+    ],
+    [(error) => mentions(error, ["reasoning_effort"]), "reasoningEffort", false],
+    [(error) => mentions(error, ["reasoning_content"]), "reasoningReplay", false],
+    [(error) => mentions(error, ["prompt_cache_key"]), "promptCacheKey", false],
+    [(error) => mentions(error, ["parallel_tool_calls"]), "parallelToolCalls", false],
+  ],
+});
+
 /**
  * Capability change `{ name, value }` that avoids an upstream rejection (an IrError from
- * `classifyUpstreamError`), or null. Only 400/422 rejections that name an optional
- * parameter (in `param` or the message) qualify:
- * - Responses: `reasoning`, `reasoning.effort`, `reasoning.summary`, `include` →
- *   `reasoningEffort: false` (Amendment 14); `prompt_cache_key`, `parallel_tool_calls`.
- * - Chat: `max_tokens` → `maxTokensField: "max_completion_tokens"` (and back);
- *   `stream_options`/`include_usage` → `streamUsage: false`; `reasoning_effort`,
- *   `reasoning_content`, `prompt_cache_key`, `parallel_tool_calls` → off.
- * - Messages: "adaptive" thinking rejected → `thinkingBudget: true` (Amendment 15).
+ * `classifyUpstreamError`), or null. Only 400/422 rejections qualify:
+ * - Responses: `param` names `reasoning…`/`include`, the message rejects `reasoning`,
+ *   `reasoning.effort` or `reasoning.summary` as a parameter, or it rejects `include`
+ *   together with `reasoning.encrypted_content` → `reasoningEffort: false` (Amendment 14).
+ *   Item-ordering or schema errors that merely quote these words do not qualify.
+ *   `prompt_cache_key`, `parallel_tool_calls` named → off.
+ * - Chat: "Missing `reasoning_content`" → `reasoningReplay: true`; `max_tokens` named
+ *   (param or message) together with `max_completion_tokens` or an "unsupported" wording →
+ *   `maxTokensField: "max_completion_tokens"`; `max_completion_tokens` rejected as
+ *   unsupported → back to `max_tokens`. Value errors ("max_tokens is too large") do not
+ *   qualify. `stream_options`/`include_usage` → `streamUsage: false`; `reasoning_effort`,
+ *   `reasoning_content`, `prompt_cache_key`, `parallel_tool_calls` named → off.
+ * - Messages: adaptive thinking (`thinking.type`) rejected as unsupported →
+ *   `thinkingBudget: true` (Amendment 15); other messages mentioning "adaptive" do not.
  * The caller applies it with `translator.setCapability` when it differs from the current
  * value, retries once and counts the fallback.
  */
@@ -146,14 +215,12 @@ export function capabilityForError(upstream, error) {
   if (!error || typeof error !== "object" || !Object.hasOwn(RULES, upstream)) return null;
   if (error.status !== 400 && error.status !== 422) return null;
   if (error.kind === "contextLength") return null;
-  const message = typeof error.message === "string" ? error.message : "";
-  const param = typeof error.param === "string" ? error.param : "";
-  for (const [parameters, name, value] of RULES[upstream]) {
-    const hit = parameters.some(
-      (parameter) =>
-        (param !== "" && paramNames(param, parameter)) || names(message, parameter),
-    );
-    if (hit) return { name, value };
+  const probe = {
+    message: typeof error.message === "string" ? error.message : "",
+    param: typeof error.param === "string" ? error.param : "",
+  };
+  for (const [predicate, name, value] of RULES[upstream]) {
+    if (predicate(probe)) return { name, value };
   }
   return null;
 }
