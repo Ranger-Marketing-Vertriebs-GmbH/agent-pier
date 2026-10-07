@@ -8,9 +8,10 @@ const LINE_END = /\r\n|\n|\r(?=[\s\S])/g;
  * `maxEventBytes` caps one event's `data`, `event`, `id` and `retry` lines plus any pending
  * partial line. Despite the name it counts UTF-16 code units (JavaScript string length), not
  * encoded bytes; one code unit is at most three UTF-8 bytes. Each pushed chunk is scanned
- * once: a long partial line is not rescanned on later pushes.
+ * once: a long partial line is not rescanned on later pushes. A caller-supplied `stats`
+ * object (test hook) accumulates `scannedChars`, the characters handed to the line scanner.
  */
-export function createSseParser({ maxEventBytes = 16 * 1024 * 1024 } = {}) {
+export function createSseParser({ maxEventBytes = 16 * 1024 * 1024, stats } = {}) {
   let buffer = "";
   let scanFrom = 0;
   let started = false;
@@ -65,6 +66,7 @@ export function createSseParser({ maxEventBytes = 16 * 1024 * 1024 } = {}) {
   const drain = (final) => {
     const events = [];
     let start = 0;
+    if (stats) stats.scannedChars = (stats.scannedChars ?? 0) + buffer.length - scanFrom;
     LINE_END.lastIndex = scanFrom;
     let match;
     while ((match = LINE_END.exec(buffer))) {
