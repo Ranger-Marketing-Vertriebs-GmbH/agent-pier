@@ -4,7 +4,7 @@
 
 import { decodeCarrier } from "./carrier.js";
 import { maxTokensFor, resolveThinkingForMessages } from "./mapping.js";
-import { REDACTED_PREFIX } from "./upstream-messages-parse.js";
+import { thinkingBlockFromPayload } from "./upstream-messages-parse.js";
 
 export { parseMessagesResponse, parseMessagesStream } from "./upstream-messages-parse.js";
 
@@ -21,15 +21,6 @@ const MISSING_RESULT = "[no tool result was recorded for this call]";
 const isObject = (value) =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const present = (value) => value !== undefined && value !== null;
-
-/** Recursively sorts object keys so tool schemas serialize identically every time. */
-function sortKeys(value) {
-  if (Array.isArray(value)) return value.map(sortKeys);
-  if (!isObject(value)) return value;
-  const sorted = {};
-  for (const key of Object.keys(value).sort()) sorted[key] = sortKeys(value[key]);
-  return sorted;
-}
 
 function upstreamModel(ir, model) {
   if (typeof model === "string" && model !== "") return model;
@@ -63,8 +54,12 @@ function messagesTool(tool, names) {
   if (typeof description === "string" && description !== "") {
     result.description = description;
   }
+  // Schemas pass through in client order (property order is meaningful to the model and
+  // already stable per client); only `type: "object"` is enforced.
   const schema = isObject(tool.schema) ? tool.schema : { properties: {} };
-  result.input_schema = sortKeys(custom ? CUSTOM_SCHEMA : { ...schema, type: "object" });
+  result.input_schema = custom
+    ? JSON.parse(JSON.stringify(CUSTOM_SCHEMA))
+    : { ...schema, type: "object" };
   if (tool.cache) result.cache_control = { ...EPHEMERAL };
   return result;
 }
@@ -145,15 +140,9 @@ function toolInput(part, drop) {
 /** Signed thinking from a Messages upstream; null for every other reasoning part. */
 function thinkingBlock(part) {
   const carrier = decodeCarrier(part.carrier);
-  if (carrier?.origin !== "messages" || !carrier.payload) return null;
-  if (carrier.payload.startsWith(REDACTED_PREFIX)) {
-    return {
-      type: "redacted_thinking",
-      data: carrier.payload.slice(REDACTED_PREFIX.length),
-    };
-  }
-  const text = part.text ?? part.summary ?? "";
-  return { type: "thinking", thinking: text, signature: carrier.payload };
+  if (carrier?.origin !== "messages") return null;
+  // The carrier holds the exact upstream text; the IR text/summary may be edited.
+  return thinkingBlockFromPayload(carrier.payload);
 }
 
 /**
@@ -399,17 +388,50 @@ function outputConfig(effort, output) {
   const config = {};
   if (effort) config.effort = effort;
   if (output?.format === "json_schema") {
-    config.format = { type: "json_schema", schema: sortKeys(output.schema) };
+    config.format = { type: "json_schema", schema: output.schema };
   }
   return Object.keys(config).length > 0 ? config : undefined;
 }
 
 /**
- * Messages request for an IR request. Keys are inserted in a fixed order and tool
- * schemas are key-sorted so identical prefixes serialize identically (prompt caching).
- * IR hints, hosted tools and the cache key are never sent; they are listed in `dropped`
- * together with the thinking adjustments. `adjustments` lists additions such as the
- * automatic cache breakpoints.
+ * True when the request continues a tool loop (last user turn starts with tool results)
+ * whose assistant turn does not start with a thinking block. Manual (`enabled`) thinking
+ * is rejected by Anthropic in that case; adaptive thinking degrades on its own.
+ */
+function toolLoopWithoutThinking(messages) {
+  const [assistant, user] = messages.slice(-2);
+  if (assistant?.role !== "assistant" || user?.content[0]?.type !== "tool_result") {
+    return false;
+  }
+  const first = assistant.content[0]?.type;
+  return first !== "thinking" && first !== "redacted_thinking";
+}
+
+function resolveThinking(ir, ctx, maxTokens, messages) {
+  const sampling = ir.sampling ?? {};
+  const options = {
+    thinking: messagesThinking(ir.thinking, ctx.capabilities ?? {}),
+    maxTokens,
+    temperature: sampling.temperature,
+    topP: sampling.topP,
+    topK: sampling.topK,
+    toolChoice: ir.toolChoice,
+  };
+  const resolved = resolveThinkingForMessages(options);
+  if (resolved.thinking?.type !== "enabled" || !toolLoopWithoutThinking(messages)) {
+    return resolved;
+  }
+  const omitted = resolveThinkingForMessages({ ...options, thinking: null });
+  omitted.adjustments.push("thinking.omittedNoLeadingBlock");
+  return omitted;
+}
+
+/**
+ * Messages request for an IR request. Keys are inserted in a fixed order and schemas
+ * pass through in client order, so identical prefixes serialize identically (prompt
+ * caching). IR hints, hosted tools and the cache key are never sent; they are listed in
+ * `dropped` together with the thinking adjustments. `adjustments` lists additions such as
+ * the automatic cache breakpoints. Throws a TypeError when no message is left to send.
  */
 export function buildMessagesRequest(ir, ctx) {
   const capabilities = ctx.capabilities ?? {};
@@ -421,17 +443,13 @@ export function buildMessagesRequest(ir, ctx) {
 
   const sampling = ir.sampling ?? {};
   const maxTokens = maxTokensFor({ sampling, model: ctx.model });
-  const resolved = resolveThinkingForMessages({
-    thinking: messagesThinking(ir.thinking, capabilities),
-    maxTokens,
-    temperature: sampling.temperature,
-    topP: sampling.topP,
-    topK: sampling.topK,
-    toolChoice: ir.toolChoice,
-  });
+  const { system, messages } = buildConversation(ir, ctx, drop);
+  if (messages.length === 0) {
+    throw new TypeError("request.messages: no message is left for the Messages upstream");
+  }
+  const resolved = resolveThinking(ir, ctx, maxTokens, messages);
   dropped.push(...resolved.adjustments);
 
-  const { system, messages } = buildConversation(ir, ctx, drop);
   const body = { model: upstreamModel(ir, ctx.model), max_tokens: maxTokens };
   if (system.length > 0) body.system = system;
   body.messages = messages;

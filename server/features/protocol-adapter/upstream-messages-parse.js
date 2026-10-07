@@ -4,14 +4,40 @@ import { encodeCarrier } from "./carrier.js";
 import { classifyUpstreamError } from "./errors.js";
 import { stopFromMessages, usageFromMessages } from "./mapping.js";
 
-/**
- * Carrier payload prefix for `redacted_thinking` data. Thinking signatures are standard
- * base64 and never contain `:`, so the prefix tells the two apart on replay.
- */
-export const REDACTED_PREFIX = "redacted:";
-
 const isObject = (value) =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * Carrier payload for a Messages thinking block: JSON `{"s": signature, "t": text}` for
+ * `thinking` and `{"r": data}` for `redacted_thinking`. Anthropic rejects thinking blocks
+ * that are not passed back byte-exact, so the text travels with the signature and the
+ * client's (possibly summarized or edited) reasoning text is never replayed.
+ */
+export function encodeThinkingPayload({ signature, text, redacted }) {
+  return JSON.stringify(
+    redacted !== undefined ? { r: redacted } : { s: signature, t: text },
+  );
+}
+
+/**
+ * Messages content block for a carrier payload, or null. A payload that is not JSON is a
+ * plain signature (legacy) and is replayed with empty thinking text.
+ */
+export function thinkingBlockFromPayload(payload) {
+  if (typeof payload !== "string" || payload === "") return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(payload);
+  } catch {
+    return { type: "thinking", thinking: "", signature: payload };
+  }
+  if (!isObject(parsed)) return null;
+  if (typeof parsed.r === "string") return { type: "redacted_thinking", data: parsed.r };
+  if (typeof parsed.s !== "string" || parsed.s === "") return null;
+  const thinking = typeof parsed.t === "string" ? parsed.t : "";
+  return { type: "thinking", thinking, signature: parsed.s };
+}
+
 const nonEmpty = (value) => typeof value === "string" && value !== "";
 
 function modelName(model) {
@@ -69,7 +95,14 @@ function createMessagesState(ctx) {
   };
 
   const open = (upstreamIndex, kind, extra = {}) => {
-    const block = { kind, index: nextIndex++, signature: "", input: null, deltas: 0 };
+    const block = {
+      kind,
+      index: nextIndex++,
+      signature: "",
+      text: "",
+      input: null,
+      deltas: 0,
+    };
     blocks.set(upstreamIndex, block);
     out.push({ type: "blockStart", index: block.index, kind, ...extra });
     return block;
@@ -98,7 +131,9 @@ function createMessagesState(ctx) {
     if (nonEmpty(text)) out.push({ type: "textDelta", index: block.index, text });
   };
   const thinkingDelta = (block, text) => {
-    if (nonEmpty(text)) out.push({ type: "reasoningDelta", index: block.index, text });
+    if (!nonEmpty(text)) return;
+    block.text += text; // replayed byte-exact through the carrier
+    out.push({ type: "reasoningDelta", index: block.index, text });
   };
   const inputDelta = (block, fragment) => {
     if (!nonEmpty(fragment)) return;
@@ -145,9 +180,14 @@ function createMessagesState(ctx) {
     if (!block) return;
     blocks.delete(upstreamIndex);
     if (block.kind === "reasoning") {
-      if (block.redacted !== undefined)
-        carrier(block, `${REDACTED_PREFIX}${block.redacted}`);
-      else if (block.signature !== "") carrier(block, block.signature);
+      if (block.redacted !== undefined) {
+        carrier(block, encodeThinkingPayload({ redacted: block.redacted }));
+      } else if (block.signature !== "") {
+        carrier(
+          block,
+          encodeThinkingPayload({ signature: block.signature, text: block.text }),
+        );
+      }
     } else if (block.kind === "toolCall" && block.deltas === 0 && block.input !== null) {
       inputDelta(block, block.input);
     }

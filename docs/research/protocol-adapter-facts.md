@@ -170,6 +170,11 @@ ending in `/v1`.
 - **Consequence:** see Spec delta 7. When the client asked `display:"omitted"`, the
   adapter may still send thinking text (Claude Code accepts it); if it strips the text
   for fidelity, the carrier must keep whatever a Chat `reasoningReplay` needs.
+  Toward a Messages upstream (Codex client, spec Amendment 15): effort-only requests use
+  `adaptive` + `output_config.effort` (manual `enabled` is rejected on 4.7+); capability
+  `thinkingBudget` opts into `enabled` for older models. Thinking blocks must be passed
+  back complete and unmodified, so the messages carrier stores signature and exact text
+  as JSON `{"s","t"}` (`{"r"}` for redacted data).
 
 ### 1.5 `output_config.effort`
 

@@ -159,7 +159,10 @@ describe("parseMessagesStream fixtures", () => {
     assert.equal(result.blocks[0].text, "The user wants a greeting. Answer briefly.");
     assert.deepEqual(decodeCarrier(result.blocks[0].carrier), {
       origin: "messages",
-      payload: SIGNATURE,
+      payload: JSON.stringify({
+        s: SIGNATURE,
+        t: "The user wants a greeting. Answer briefly.",
+      }),
     });
     assert.equal(result.blocks[1].text, "Hello.");
     assert.deepEqual(result.usage, [usage(25, 30)]);
@@ -237,8 +240,7 @@ describe("parseMessagesStream fixtures", () => {
     assert.equal(result.blocks[0].kind, "reasoning");
     const carrier = decodeCarrier(result.blocks[0].carrier);
     assert.equal(carrier.origin, "messages");
-    assert.notEqual(carrier.payload, "opaque-data");
-    assert.ok(carrier.payload.endsWith("opaque-data"));
+    assert.equal(carrier.payload, JSON.stringify({ r: "opaque-data" }));
   });
 
   test("tool names and ids are mapped back; unknown blocks are skipped", async () => {
@@ -318,7 +320,10 @@ describe("parseMessagesResponse", () => {
       result.blocks.map((block) => block.kind),
       ["reasoning", "text", "toolCall"],
     );
-    assert.equal(decodeCarrier(result.blocks[0].carrier).payload, SIGNATURE);
+    assert.equal(
+      decodeCarrier(result.blocks[0].carrier).payload,
+      JSON.stringify({ s: SIGNATURE, t: "Short plan." }),
+    );
     assert.equal(result.blocks[2].text, '{"command":"ls"}');
     assert.deepEqual(result.usage, [usage(25, 40, { cacheRead: 1024 })]);
     assert.deepEqual(result.stop, [{ reason: "toolUse" }]);
