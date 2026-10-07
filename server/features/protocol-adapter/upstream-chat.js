@@ -1,0 +1,271 @@
+// Chat Completions upstream: builds `/chat/completions` request bodies from the IR.
+// Stream and response parsing live in upstream-chat-parse.js and are re-exported here.
+
+import { decodeCarrier } from "./carrier.js";
+import { effortForBudget, normalizeEffort } from "./mapping.js";
+
+export { parseChatResponse, parseChatStream } from "./upstream-chat-parse.js";
+
+const CUSTOM_SCHEMA = Object.freeze({
+  properties: { input: { type: "string" } },
+  required: ["input"],
+  type: "object",
+});
+const MAX_GRAMMAR_CHARS = 4000;
+const IMAGE_PLACEHOLDER = "[image attached in the next message]";
+const ERROR_PREFIX = "[error] ";
+
+const isObject = (value) =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+const present = (value) => value !== undefined && value !== null;
+
+/** Recursively sorts object keys so tool schemas serialize identically every time. */
+function sortKeys(value) {
+  if (Array.isArray(value)) return value.map(sortKeys);
+  if (!isObject(value)) return value;
+  const sorted = {};
+  for (const key of Object.keys(value).sort()) sorted[key] = sortKeys(value[key]);
+  return sorted;
+}
+
+function upstreamModel(ir, model) {
+  if (typeof model === "string" && model !== "") return model;
+  if (isObject(model) && typeof model.id === "string" && model.id !== "") return model.id;
+  return ir.model;
+}
+
+function grammarNote(grammar) {
+  if (!isObject(grammar) || typeof grammar.definition !== "string") {
+    return 'Call this tool with the JSON arguments {"input": "<raw tool input>"}.';
+  }
+  const definition =
+    grammar.definition.length > MAX_GRAMMAR_CHARS
+      ? `${grammar.definition.slice(0, MAX_GRAMMAR_CHARS)}\n[grammar truncated]`
+      : grammar.definition;
+  const syntax = typeof grammar.syntax === "string" ? `${grammar.syntax} ` : "";
+  return (
+    'Call this tool with the JSON arguments {"input": "<raw tool input>"}; the string ' +
+    `"input" carries the raw text that must match this ${syntax}grammar:\n${definition}`
+  );
+}
+
+function functionTool(tool, names) {
+  const custom = tool.kind === "custom";
+  const description = custom
+    ? [tool.description, grammarNote(tool.grammar)].filter(Boolean).join("\n\n")
+    : tool.description;
+  const fn = { name: names.toUpstream(tool.name, tool.namespace) };
+  if (typeof description === "string" && description !== "") fn.description = description;
+  fn.parameters = custom
+    ? sortKeys(CUSTOM_SCHEMA)
+    : sortKeys(isObject(tool.schema) ? tool.schema : { type: "object", properties: {} });
+  if (!custom && tool.strict === true) fn.strict = true;
+  return { type: "function", function: fn };
+}
+
+function buildTools(ir, names, drop) {
+  const tools = [];
+  for (const tool of ir.tools) {
+    if (tool.kind === "hosted") drop(`tools.${tool.hostedType ?? tool.name}`);
+    else tools.push(functionTool(tool, names));
+  }
+  return tools;
+}
+
+function toolChoice(choice, names) {
+  if (isObject(choice)) {
+    return {
+      type: "function",
+      function: { name: names.toUpstream(choice.name, choice.namespace) },
+    };
+  }
+  return choice;
+}
+
+function imagePart(part) {
+  const url = present(part.data)
+    ? `data:${part.mediaType};base64,${part.data}`
+    : part.url;
+  const image = { url };
+  if (typeof part.detail === "string") image.detail = part.detail;
+  return { type: "image_url", image_url: image };
+}
+
+/** Plain string for a single text part, content parts otherwise. */
+function userContent(parts) {
+  if (parts.length === 1 && parts[0].type === "text") return parts[0].text;
+  return parts.map((part) =>
+    part.type === "text" ? { type: "text", text: part.text } : imagePart(part),
+  );
+}
+
+function textOf(parts, separator) {
+  return parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join(separator);
+}
+
+function systemMessage(parts, drop, path) {
+  if (parts.some((part) => part.type !== "text")) drop(`${path}.image`);
+  const text = textOf(parts, "\n\n");
+  return text === "" ? null : { role: "system", content: text };
+}
+
+function toolMessage(result, ids, images) {
+  const resultImages = result.parts.filter((part) => part.type === "image");
+  images.push(...resultImages);
+  let content = textOf(result.parts, "\n");
+  if (content === "" && resultImages.length > 0) content = IMAGE_PLACEHOLDER;
+  if (result.isError) content = `${ERROR_PREFIX}${content}`;
+  return { role: "tool", tool_call_id: ids.toUpstream(result.callId), content };
+}
+
+/** Tool results become `tool` messages; their images and other parts follow as user. */
+function userMessages(message, ids, drop) {
+  const out = [];
+  const rest = [];
+  const images = [];
+  for (const part of message.parts) {
+    if (part.type === "toolResult") out.push(toolMessage(part, ids, images));
+    else if (part.type === "text" || part.type === "image") rest.push(part);
+    else drop(`user.${part.type}`);
+  }
+  const parts = [...images, ...rest];
+  if (parts.length > 0) out.push({ role: "user", content: userContent(parts) });
+  return out;
+}
+
+function reasoningText(part) {
+  if (typeof part.text === "string" && part.text !== "") return part.text;
+  const carrier = decodeCarrier(part.carrier);
+  if (carrier?.origin === "chat" && carrier.payload) return carrier.payload;
+  if (typeof part.summary === "string" && part.summary !== "") return part.summary;
+  return null;
+}
+
+function toolCallEntry(part, names, ids) {
+  const args =
+    part.kind === "custom"
+      ? JSON.stringify({ input: part.input })
+      : part.input === ""
+        ? "{}"
+        : part.input;
+  return {
+    id: ids.toUpstream(part.id),
+    type: "function",
+    function: { name: names.toUpstream(part.name, part.namespace), arguments: args },
+  };
+}
+
+function assistantMessage(message, ctx, replay, drop) {
+  const texts = [];
+  const reasoning = [];
+  const calls = [];
+  for (const part of message.parts) {
+    if (part.type === "text") texts.push(part.text);
+    else if (part.type === "toolCall")
+      calls.push(toolCallEntry(part, ctx.names, ctx.ids));
+    else if (part.type === "reasoning") {
+      const text = replay ? reasoningText(part) : null;
+      if (text !== null) reasoning.push(text);
+    } else drop(`assistant.${part.type}`);
+  }
+  const content = texts.join("");
+  if (content === "" && calls.length === 0) return null;
+  const result = { role: "assistant", content: content === "" ? null : content };
+  if (reasoning.length > 0) result.reasoning_content = reasoning.join("\n");
+  if (calls.length > 0) result.tool_calls = calls;
+  return result;
+}
+
+function buildMessages(ir, ctx, drop) {
+  const replay = ctx.capabilities?.reasoningReplay === true;
+  const messages = [];
+  const leading = systemMessage(ir.system, drop, "system");
+  if (leading) messages.push(leading);
+  for (const message of ir.messages) {
+    if (message.role === "system") {
+      const system = systemMessage(message.parts, drop, "system");
+      if (system) messages.push(system);
+    } else if (message.role === "user") {
+      messages.push(...userMessages(message, ctx.ids, drop));
+    } else {
+      const assistant = assistantMessage(message, ctx, replay, drop);
+      if (assistant) messages.push(assistant);
+    }
+  }
+  return messages;
+}
+
+function reasoningEffort(thinking) {
+  if (!thinking || (thinking.mode !== "enabled" && thinking.mode !== "adaptive")) {
+    return undefined;
+  }
+  if (present(thinking.effort)) return normalizeEffort(thinking.effort);
+  if (present(thinking.budgetTokens)) return effortForBudget(thinking.budgetTokens);
+  return normalizeEffort(undefined);
+}
+
+function applySampling(body, sampling) {
+  if (present(sampling.maxOutputTokens)) body.max_tokens = sampling.maxOutputTokens;
+  if (present(sampling.temperature)) body.temperature = sampling.temperature;
+  if (present(sampling.topP)) body.top_p = sampling.topP;
+  if (Array.isArray(sampling.stop) && sampling.stop.length > 0)
+    body.stop = [...sampling.stop];
+}
+
+function responseFormat(output) {
+  if (output?.format !== "json_schema") return undefined;
+  const schema = { name: output.name, schema: sortKeys(output.schema) };
+  if (output.strict !== undefined) schema.strict = output.strict;
+  return { type: "json_schema", json_schema: schema };
+}
+
+/**
+ * Chat Completions request for an IR request. Keys are inserted in a fixed order and tool
+ * schemas are key-sorted so identical prefixes serialize identically (prefix caching).
+ * IR hints and hosted tools are never sent; they are listed in `dropped`.
+ */
+export function buildChatRequest(ir, ctx) {
+  const capabilities = ctx.capabilities ?? {};
+  const dropped = new Set();
+  const drop = (name) => dropped.add(name);
+  for (const key of Object.keys(ir.hints ?? {})) drop(`hints.${key}`);
+
+  const body = {
+    model: upstreamModel(ir, ctx.model),
+    messages: buildMessages(ir, ctx, drop),
+  };
+  const tools = buildTools(ir, ctx.names, drop);
+  if (tools.length > 0) {
+    body.tools = tools;
+    body.tool_choice = toolChoice(ir.toolChoice, ctx.names);
+    if (
+      capabilities.parallelToolCalls === true &&
+      typeof ir.parallelToolCalls === "boolean"
+    ) {
+      body.parallel_tool_calls = ir.parallelToolCalls;
+    }
+  }
+  applySampling(body, ir.sampling ?? {});
+  if (capabilities.reasoningEffort === true) {
+    const effort = reasoningEffort(ir.thinking);
+    if (effort !== undefined) body.reasoning_effort = effort;
+  }
+  const format = responseFormat(ir.output);
+  if (format) body.response_format = format;
+  const cacheKey = ir.cache?.key ?? ctx.sessionKey;
+  if (
+    capabilities.promptCacheKey === true &&
+    typeof cacheKey === "string" &&
+    cacheKey !== ""
+  ) {
+    body.prompt_cache_key = cacheKey;
+  }
+  body.stream = ir.stream === true;
+  if (body.stream && capabilities.streamUsage !== false) {
+    body.stream_options = { include_usage: true };
+  }
+  return { path: "/chat/completions", body, dropped: [...dropped] };
+}
