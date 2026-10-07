@@ -488,4 +488,34 @@ test("stored PR #176 records without adapter fields load as auto and stay on dis
   });
   assert.deepEqual(loaded.tools, ["opencode"], "same tools as in PR #176");
   assert.equal(fs.readFileSync(file, "utf8"), before, "loading never rewrites the file");
+  connections.update(id, { endpoint: { ...chatOnly, lastTest: null } });
+  const stored = JSON.parse(fs.readFileSync(file, "utf8"))[0].endpoint;
+  assert.deepEqual(stored.routing, { claude: "auto", codex: "auto", opencode: "auto" });
+  assert.deepEqual(stored.adapterCapabilities, {});
+  assert.equal(stored.thinkTagExtraction, false);
+  assert.equal(stored.models[0].images, null);
+});
+
+test("update inheritance: absent fields inherit, a provided routing replaces as a whole", (t) => {
+  const { connections } = store(t);
+  const created = connections.create({
+    name: "GPU",
+    providerId: "endpoint",
+    endpoint: {
+      ...chatOnly,
+      routing: { claude: "adapter:chatCompletions", codex: "off" },
+    },
+  });
+  const nulled = connections.update(created.id, {
+    endpoint: { ...chatOnly, routing: null },
+  });
+  assert.equal(nulled.endpoint.routing.codex, "off", "null inherits like absent");
+  const partial = connections.update(created.id, {
+    endpoint: { ...chatOnly, routing: { claude: "off" } },
+  });
+  assert.deepEqual(partial.endpoint.routing, {
+    claude: "off",
+    codex: "auto",
+    opencode: "auto",
+  });
 });

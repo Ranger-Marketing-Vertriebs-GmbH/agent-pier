@@ -88,6 +88,9 @@ export function resolveRoute(endpoint, tool, { adapterAuto = ADAPTER_AUTO_ROUTES
     const source =
       choice === "auto" ? OPENCODE_ORDER.find((s) => enabled(endpoint, s)) : choice;
     if (!source || !enabled(endpoint, source)) return null;
+    // "sdk" routes (Messages/Responses through OpenCode's own SDK providers) are part of
+    // the route contract from this change on; the OpenCode launch and profile snapshot
+    // consume `mode` and `source` from the endpoint-launch changes of the same branch.
     return { mode: source === "chatCompletions" ? "native" : "sdk", source };
   }
   const native = TOOL_PROTOCOL[tool];

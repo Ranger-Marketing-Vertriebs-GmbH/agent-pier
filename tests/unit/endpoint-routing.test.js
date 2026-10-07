@@ -3,6 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   ADAPTER_AUTO_ROUTES,
+  ROUTE_MODES,
   resolveRoute,
   toolRoutes,
   validateRouting,
@@ -177,4 +178,52 @@ test("route base URL and reasoning support follow the source", () => {
     adapterReasoning(endpoint({ chatCompletions: true }), "chatCompletions"),
     false,
   );
+});
+
+test("explicit OpenCode choices: sdk for Messages/Responses, null for disabled sources", () => {
+  const all = { messages: true, responses: true, chatCompletions: true };
+  assert.deepEqual(resolveRoute(endpoint(all, { opencode: "responses" }), "opencode"), {
+    mode: "sdk",
+    source: "responses",
+  });
+  assert.deepEqual(resolveRoute(endpoint(all, { opencode: "messages" }), "opencode"), {
+    mode: "sdk",
+    source: "messages",
+  });
+  assert.deepEqual(
+    resolveRoute(endpoint(all, { opencode: "chatCompletions" }), "opencode"),
+    { mode: "native", source: "chatCompletions" },
+  );
+  assert.equal(
+    resolveRoute(
+      endpoint({ chatCompletions: true }, { opencode: "responses" }),
+      "opencode",
+    ),
+    null,
+  );
+});
+
+test("legacy Responses-only and Messages-only records resolve OpenCode sdk routes", () => {
+  const responses = endpoint({ responses: true });
+  delete responses.routing;
+  assert.deepEqual(toolRoutes(responses).opencode, { mode: "sdk", source: "responses" });
+  const messages = endpoint({ messages: true });
+  delete messages.routing;
+  assert.deepEqual(toolRoutes(messages).opencode, { mode: "sdk", source: "messages" });
+});
+
+test("route modes are the three launch strategies", () => {
+  assert.deepEqual([...ROUTE_MODES], ["native", "adapter", "sdk"]);
+});
+
+test("null and non-object inputs", () => {
+  assert.deepEqual(validateRouting(null), {
+    claude: "auto",
+    codex: "auto",
+    opencode: "auto",
+  });
+  assert.deepEqual(validateAdapterCapabilities(null), {});
+  assert.deepEqual(validateAdapterCapabilities(undefined), {});
+  for (const bad of [{ chatCompletions: "x" }, { chatCompletions: null }, [], "x"])
+    assert.throws(() => validateAdapterCapabilities(bad), { status: 400 });
 });
