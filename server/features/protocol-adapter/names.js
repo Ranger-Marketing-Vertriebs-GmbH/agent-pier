@@ -57,6 +57,16 @@ function createAllocator({ pattern, maxLength }) {
 /**
  * Per-session bijective map between client tool names (optionally namespaced) and the names an
  * upstream accepts. Valid names pass through, others become `<prefix>_<fnv1a hash>`.
+ *
+ * Contract: one instance lives for one session (one translated conversation). Its output
+ * depends on registration order, because a name that collides with an earlier one gets a
+ * counter suffix. Callers must therefore register the tool list in a stable order on every
+ * request of the session; two instances fed the same names in the same order produce the same
+ * upstream names.
+ *
+ * `pattern` must describe a per-character class (for example `/^[a-zA-Z0-9_-]{1,64}$/`): it is
+ * also tested against single characters to build the readable prefix of hashed names, so a
+ * pattern with ordering or cross-character rules would yield prefixes it rejects as a whole.
  */
 export function createNameMap({ pattern, maxLength }) {
   const allocator = createAllocator({ pattern, maxLength });
@@ -78,7 +88,10 @@ export function createNameMap({ pattern, maxLength }) {
   };
 }
 
-/** Per-session bijective map for ids that must match a pattern; invalid ids become `id_<hash>`. */
+/**
+ * Per-session bijective map for ids that must match a pattern; invalid ids become `id_<hash>`.
+ * The same per-session, registration-order contract as `createNameMap` applies.
+ */
 export function createIdMap(pattern) {
   const allocator = createAllocator({ pattern, maxLength: Infinity });
   return {

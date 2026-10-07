@@ -93,14 +93,51 @@ test("carrier round trips random payloads", () => {
   );
 });
 
-test("decodeCarrier rejects random base64 strings without the prefix", () => {
+const carrierInput = fc.tuple(
+  fc.stringMatching(/^[a-z0-9-]{1,12}$/),
+  fc.string({ unit: "binary", minLength: 1, maxLength: 200 }),
+);
+
+test("structurally broken mutations of valid carriers never decode", () => {
+  const mutations = {
+    extraDot: (carrier, at) => `${carrier.slice(0, at)}.${carrier.slice(at)}`,
+    plus: (carrier, at) => `${carrier.slice(0, at)}+${carrier.slice(at + 1)}`,
+    slash: (carrier, at) => `${carrier.slice(0, at)}/${carrier.slice(at + 1)}`,
+    padding: (carrier, _at, pad) => `${carrier}${"=".repeat(pad)}`,
+  };
   check(
     fc.property(
-      fc.uint8Array({ maxLength: 300 }),
-      fc.constantFrom("base64", "base64url"),
-      (bytes, encoding) => {
-        assert.equal(decodeCarrier(Buffer.from(bytes).toString(encoding)), null);
+      carrierInput,
+      fc.constantFrom(...Object.keys(mutations)),
+      fc.nat(),
+      fc.integer({ min: 1, max: 2 }),
+      ([origin, payload], kind, position, pad) => {
+        const carrier = encodeCarrier(origin, payload);
+        const bodyStart = carrier.lastIndexOf(".") + 1;
+        // Mutate inside the base64url body (or anywhere for the extra dot).
+        const at =
+          kind === "extraDot"
+            ? position % (carrier.length + 1)
+            : bodyStart + (position % (carrier.length - bodyStart));
+        assert.equal(decodeCarrier(mutations[kind](carrier, at, pad)), null);
       },
     ),
+  );
+});
+
+test("truncated carriers decode to null or to a different payload, never the original", () => {
+  check(
+    fc.property(carrierInput, fc.nat(), ([origin, payload], cut) => {
+      const carrier = encodeCarrier(origin, payload);
+      const decoded = decodeCarrier(carrier.slice(0, cut % carrier.length));
+      if (decoded !== null) {
+        assert.equal(decoded.origin, origin);
+        assert.notEqual(decoded.payload, payload);
+        assert.equal(
+          encodeCarrier(decoded.origin, decoded.payload).length < carrier.length,
+          true,
+        );
+      }
+    }),
   );
 });
