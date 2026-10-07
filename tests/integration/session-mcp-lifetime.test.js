@@ -26,7 +26,7 @@ for (const legacy of [false, true])
         agentpierTools: { ...issued.session.agentpierTools, expiresAt },
       });
     }
-    await fs.writeFile(path.join(f.home, "report.html"), "<h1>Session report</h1>");
+    await fs.writeFile(path.join(f.project, "report.html"), "<h1>Session report</h1>");
     t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
     t.mock.timers.tick(30 * 24 * 60 * 60_000);
     const input = {
