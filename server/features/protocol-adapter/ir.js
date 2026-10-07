@@ -12,7 +12,7 @@ export const THINKING_MODES = Object.freeze([
   "adaptive",
   "between_tools",
 ]);
-export const THINKING_DISPLAYS = Object.freeze(["summarized", "omitted"]);
+export const THINKING_DISPLAYS = Object.freeze(["summarized", "omitted", "updates"]);
 export const BLOCK_KINDS = Object.freeze(["text", "reasoning", "toolCall"]);
 export const ERROR_KINDS = Object.freeze([
   "auth",

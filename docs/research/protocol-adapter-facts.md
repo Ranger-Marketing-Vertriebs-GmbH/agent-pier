@@ -80,7 +80,7 @@ model_catalog_json … unknown variant 'function', expected 'freeform'` (verifie
    these paths.
 7. **Anthropic `thinking` has more shapes than the IR models.** (§1.4) Types:
    `enabled` (`budget_tokens`), `adaptive`, `disabled`, and `between_tools` (Sonnet
-   5.5 only); `adaptive` carries `display: "summarized" | "omitted"`. Claude Code
+   5.5 only); `adaptive` carries `display: "summarized" | "omitted" | "updates"`. Claude Code
    2.1.291 sends `{"type":"adaptive","display":"omitted"}` + `output_config.effort`
    (verified live). Correction: `parseRequest` accepts `display` and `between_tools`
    (treat `between_tools` as `disabled` for non-Messages upstreams, pass through to
@@ -156,15 +156,17 @@ ending in `/v1`.
 ### 1.4 `thinking` types
 
 - **Value:** `{type:"enabled", budget_tokens}` (manual, deprecated on 4.6, rejected on
-  4.7+), `{type:"adaptive", display?: "summarized"|"omitted"}`, `{type:"disabled"}`,
+  4.7+), `{type:"adaptive", display?: "summarized"|"omitted"|"updates"}`, `{type:"disabled"}`,
   `{type:"between_tools"}` (Sonnet 5.5 only). `display` defaults to `"omitted"` on
   current models (thinking blocks come back without text, signature only). Per-model
   rejects: e.g. Opus 5.5 rejects `enabled` and `disabled`.
 - **Source:** `platform.claude.com/docs/en/build-with-claude/thinking` (display
   defaults), `…/thinking-troubleshooting` (per-model table), `…/extended-thinking`
-  (deprecation). Live: Claude Code 2.1.291 sends
+  (deprecation); `display: "updates"`: same page, "Controlling thinking display", beta
+  `thinking-display-updates-2026-08-18`. Live: Claude Code 2.1.291 sends
   `"thinking":{"type":"adaptive","display":"omitted"}` for the unknown model id
-  `custom-model-x`.
+  `custom-model-x`, and `display: "updates"` (with that beta) in the recorded
+  `clients/claude-code/image.json` fixture.
 - **Consequence:** see Spec delta 7. When the client asked `display:"omitted"`, the
   adapter may still send thinking text (Claude Code accepts it); if it strips the text
   for fidelity, the carrier must keep whatever a Chat `reasoningReplay` needs.
