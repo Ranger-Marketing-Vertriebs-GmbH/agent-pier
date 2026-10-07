@@ -54,10 +54,10 @@ const usage = (input, output, extra = {}) => ({
   estimated: false,
   ...extra,
 });
-const wireUsage = (input, output, cached = 0, reasoning = 0) => ({
+const wireUsage = (input, output, cached = 0, reasoning = 0, cacheWrite = 0) => ({
   input_tokens: input,
   output_tokens: output,
-  input_tokens_details: { cached_tokens: cached },
+  input_tokens_details: { cached_tokens: cached, cache_write_tokens: cacheWrite },
   output_tokens_details: { reasoning_tokens: reasoning },
   total_tokens: input + output,
 });
@@ -173,7 +173,7 @@ describe("emitResponsesStream", () => {
   const reasoningEvents = (carrier) => [
     start,
     { type: "blockStart", index: 0, kind: "reasoning" },
-    { type: "reasoningDelta", index: 0, text: "Let me " },
+    { type: "reasoningDelta", index: 0, summary: "Let me " },
     { type: "reasoningDelta", index: 0, summary: "think." },
     ...(carrier ? [{ type: "reasoningCarrier", index: 0, carrier }] : []),
     { type: "blockStop", index: 0 },
@@ -186,6 +186,13 @@ describe("emitResponsesStream", () => {
     output_index: 0,
     summary_index: 0,
     delta,
+  });
+  const summaryDone = (text) => ({
+    type: "response.reasoning_summary_text.done",
+    item_id: "rs_resp_test_0",
+    output_index: 0,
+    summary_index: 0,
+    text,
   });
   const reasoningItem = (text, encrypted) => ({
     type: "reasoning",
@@ -203,6 +210,7 @@ describe("emitResponsesStream", () => {
       added(0, reasoningItem()),
       summaryDelta("Let me "),
       summaryDelta("think."),
+      summaryDone("Let me think."),
       done(0, reasoning),
       added(1, messageItem("msg_resp_test_1")),
       textDelta("msg_resp_test_1", 1, "Answer"),
@@ -214,7 +222,7 @@ describe("emitResponsesStream", () => {
   test("reasoning without a carrier gets an empty carrier of the origin", async () => {
     const events = await emitParsed(reasoningEvents(), { ...OPTIONS, origin: "chat" });
     assert.deepEqual(
-      events[4],
+      events[5],
       done(0, reasoningItem("Let me think.", encodeCarrier("chat", null))),
     );
   });
@@ -224,7 +232,7 @@ describe("emitResponsesStream", () => {
       ...OPTIONS,
       includeEncrypted: false,
     });
-    assert.deepEqual(events[4], done(0, reasoningItem("Let me think.", null)));
+    assert.deepEqual(events[5], done(0, reasoningItem("Let me think.", null)));
   });
 
   test("parallel function calls with interleaved deltas are serialized", async () => {
@@ -388,7 +396,7 @@ describe("emitResponsesStream", () => {
       usage(30, 12, { cacheRead: 100, cacheWrite: 5, reasoning: 4 }),
       stop("end"),
     ]);
-    assert.deepEqual(events.at(-1).response.usage, wireUsage(135, 12, 100, 4));
+    assert.deepEqual(events.at(-1).response.usage, wireUsage(135, 12, 100, 4, 5));
   });
 
   test("mid-stream error after partial output fails the response", async () => {

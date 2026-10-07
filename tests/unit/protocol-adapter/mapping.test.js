@@ -277,7 +277,7 @@ test("usage conversion both ways", () => {
   assert.deepEqual(usageToOpenAI(back), {
     input_tokens: 1010,
     output_tokens: 50,
-    input_tokens_details: { cached_tokens: 600 },
+    input_tokens_details: { cached_tokens: 600, cache_write_tokens: 10 },
     output_tokens_details: { reasoning_tokens: 0 },
     total_tokens: 1060,
   });
