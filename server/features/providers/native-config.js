@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { parse, stringify } from "smol-toml";
 import { privateDirectory, problem } from "../../lib/storage.js";
 
-export function writeTomlConfig(file, additions) {
+export function writeTomlConfig(file, additions, { remove = [] } = {}) {
   let current = {};
   try {
     current = parse(fs.readFileSync(file, "utf8"));
@@ -13,6 +13,7 @@ export function writeTomlConfig(file, additions) {
     if (error.code !== "ENOENT")
       throw problem(serverMessages.providers.managedConfigInvalid, 409);
   }
+  for (const name of remove) delete current[name];
   privateDirectory(path.dirname(file));
   const temporary = `${file}.${randomUUID()}.tmp`;
   try {
@@ -30,7 +31,10 @@ export function writeTomlConfig(file, additions) {
  * Codex accepts only "freeform" for `apply_patch_tool_type` (0.159.x rejects the whole
  * catalog otherwise); omitting it would disable apply_patch entirely.
  */
-export function codexModelCatalog(model, { contextTokens, description, reasoning }) {
+export function codexModelCatalog(
+  model,
+  { contextTokens, description, reasoning, images = false },
+) {
   return {
     models: [
       {
@@ -59,7 +63,7 @@ export function codexModelCatalog(model, { contextTokens, description, reasoning
         effective_context_window_percent: 95,
         supports_parallel_tool_calls: true,
         experimental_supported_tools: [],
-        input_modalities: ["text"],
+        input_modalities: images ? ["text", "image"] : ["text"],
       },
     ],
   };

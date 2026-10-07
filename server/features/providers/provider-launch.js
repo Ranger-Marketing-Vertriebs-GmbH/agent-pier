@@ -7,6 +7,11 @@ import { launchDescription } from "./launch-description.js";
 import { providerEnvironment } from "./provider-environment.js";
 import { configureClaudeProvider } from "./claude-provider.js";
 import { glmCodexCatalog, writeTomlConfig } from "./native-config.js";
+import {
+  adapterBlock,
+  createSessionToken,
+  withLoopbackNoProxy,
+} from "./adapter-launch.js";
 import { endpointCodexLaunch, endpointOpenCodeLaunch } from "./endpoint-launch.js";
 
 export function readCliVersion(command) {
@@ -33,7 +38,12 @@ export function prepareProviderLaunch(
     (typeof secret?.apiKey !== "string" || !secret.apiKey.trim())
   )
     throw problem(serverMessages.providers.apiKeyRequiredForAccount, 409);
-  const env = providerEnvironment(account, secret, launch.env, root, description);
+  const adapterRoute = description.route?.mode === "adapter";
+  const token = adapterRoute ? createSessionToken() : null;
+  const env = providerEnvironment(account, secret, launch.env, root, description, {
+    adapterToken: token,
+  });
+  if (adapterRoute) withLoopbackNoProxy(env);
   const metadata = {
     ...model,
     id: selection.id,
@@ -44,7 +54,23 @@ export function prepareProviderLaunch(
     contextStatus: "native-catalog",
     modelChangeRequiresRestart: false,
   };
-  const result = { ...launch, args: [...launch.args], env, provider: metadata };
+  const result = {
+    ...launch,
+    args: [...launch.args],
+    env,
+    provider: metadata,
+    ...(adapterRoute
+      ? {
+          adapter: adapterBlock({
+            tool: account.tool,
+            description,
+            endpoint,
+            secret,
+            token,
+          }),
+        }
+      : {}),
+  };
   const endpointKind = description.kind === "endpoint";
   if (endpointKind) metadata.route = description.route;
   if (account.tool === "claude")
@@ -55,12 +81,15 @@ export function prepareProviderLaunch(
       {
         forceCustom: endpointKind,
         customHeader:
-          endpointKind && !!description.auth.header && !!secret?.apiKey?.trim(),
+          endpointKind &&
+          !adapterRoute &&
+          !!description.auth.header &&
+          !!secret?.apiKey?.trim(),
       },
     );
   if (endpointKind) {
     if (account.tool === "codex")
-      endpointCodexLaunch(result, description, secret, connectionName);
+      endpointCodexLaunch(result, description, secret, connectionName, { endpoint });
     else if (account.tool === "opencode")
       metadata.cliModelId = endpointOpenCodeLaunch(
         result,

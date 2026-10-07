@@ -2,42 +2,71 @@ import path from "node:path";
 import { problem, readJSON, writePrivate } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { tomlValue } from "../../lib/launch-serialization.js";
+import { ADAPTER_URL_PLACEHOLDER } from "./adapter-launch.js";
+import { adapterReasoning } from "./endpoint-routing.js";
 import { codexModelCatalog, writeTomlConfig } from "./native-config.js";
 
 /** Codex reads the key from the environment variable named here, never from config. */
-export function endpointCodexLaunch(result, description, secret, connectionName) {
+export function endpointCodexLaunch(
+  result,
+  description,
+  secret,
+  connectionName,
+  { endpoint } = {},
+) {
   const { model, auth } = description;
   const key = secret?.apiKey?.trim();
   const env = result.env;
+  const adapter = description.route?.mode === "adapter";
+  // Adapter routes carry the session token in the env variable and no URL in config.toml;
+  // the placeholder URL exists only in argv until the launcher substitutes it.
+  const provider = {
+    name: connectionName || description.displayName,
+    wire_api: "responses",
+    requires_openai_auth: false,
+    ...(adapter
+      ? { env_key: auth.keyEnv }
+      : {
+          base_url: description.endpoints.responses,
+          ...(key && !auth.header ? { env_key: auth.keyEnv } : {}),
+          ...(key && auth.header
+            ? { env_http_headers: { [auth.header]: auth.keyEnv } }
+            : {}),
+        }),
+  };
   const config = {
     model: model.modelId,
     model_provider: description.providerKey,
     cli_auth_credentials_store: "file",
     model_context_window: model.contextTokens,
     model_catalog_json: path.join(env.CODEX_HOME, "models.json"),
-    model_providers: {
-      [description.providerKey]: {
-        name: connectionName || description.displayName,
-        base_url: description.endpoints.responses,
-        wire_api: "responses",
-        requires_openai_auth: false,
-        ...(key && !auth.header ? { env_key: auth.keyEnv } : {}),
-        ...(key && auth.header
-          ? { env_http_headers: { [auth.header]: auth.keyEnv } }
-          : {}),
-      },
-    },
+    model_providers: { [description.providerKey]: provider },
+    ...(adapter ? { web_search: "disabled" } : {}),
   };
   writePrivate(
     config.model_catalog_json,
     codexModelCatalog(model, {
       contextTokens: model.contextTokens,
       description: "Custom endpoint model",
-      reasoning: false,
+      reasoning: adapter && adapterReasoning(endpoint, description.route.source),
+      images: model.images === true,
     }),
   );
-  writeTomlConfig(path.join(env.CODEX_HOME, "config.toml"), config);
-  for (const [name, value] of Object.entries(config))
+  writeTomlConfig(path.join(env.CODEX_HOME, "config.toml"), config, {
+    remove: adapter ? [] : ["web_search"],
+  });
+  const argv = adapter
+    ? {
+        ...config,
+        model_providers: {
+          [description.providerKey]: {
+            ...provider,
+            base_url: `${ADAPTER_URL_PLACEHOLDER}/v1`,
+          },
+        },
+      }
+    : config;
+  for (const [name, value] of Object.entries(argv))
     result.args.push("-c", `${name}=${tomlValue(value)}`);
   result.args.push("--model", model.modelId);
   return config;
