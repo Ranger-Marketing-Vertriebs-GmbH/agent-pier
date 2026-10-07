@@ -104,16 +104,17 @@ test("id and retry lines count toward maxEventBytes", () => {
 });
 
 test("a long partial line pushed in tiny chunks is scanned once (no quadratic rescan)", () => {
-  const parser = createSseParser();
-  const started = performance.now();
+  const stats = { scannedChars: 0 };
+  const parser = createSseParser({ stats });
+  const n = 20_000;
   parser.push("data: ");
-  for (let i = 0; i < 200_000; i++) parser.push("x");
+  for (let i = 0; i < n; i++) parser.push("x");
   const events = parser.push("\r");
   events.push(...parser.push("\n\n"));
   assert.equal(events.length, 1);
-  assert.equal(events[0].data.length, 200_000);
-  // The former full rescan took several seconds here; a linear scan takes well under one.
-  assert.ok(performance.now() - started < 2000);
+  assert.equal(events[0].data.length, n);
+  // A linear scan examines each character about once; a full rescan would examine n^2 / 2.
+  assert.ok(stats.scannedChars <= 2 * n, `scanned ${stats.scannedChars} chars`);
 });
 
 test("a CR at a chunk end still pairs with the next LF after the scan offset moved", () => {
