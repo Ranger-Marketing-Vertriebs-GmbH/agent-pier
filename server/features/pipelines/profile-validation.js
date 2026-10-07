@@ -1,8 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { nameValue, problem } from "../../lib/storage.js";
-import { endpointBaseUrl } from "../providers/endpoint-config.js";
+import { resolveRoute, routeBaseUrl } from "../providers/endpoint-routing.js";
 import {
-  TOOL_PROTOCOL,
   providerDefinition,
   validateProviderSelection,
 } from "../providers/provider-definitions.js";
@@ -44,11 +43,12 @@ export function boundedText(value, message, max, { empty = true } = {}) {
  * the limits of the profile's models. Re-tests or edits elsewhere do not break a run.
  */
 export function endpointSnapshot(endpoint, modelIds, tool) {
-  const url = endpointBaseUrl(endpoint, tool);
-  const protocol = TOOL_PROTOCOL[tool];
+  const route = resolveRoute(endpoint, tool);
+  const url = routeBaseUrl(endpoint, route);
   return {
     origins: url ? [new URL(url).origin] : [],
-    protocols: { [protocol]: endpoint.protocols[protocol] === true },
+    protocols: route ? { [route.source]: true } : {},
+    route,
     models: Object.fromEntries(
       modelIds.map((id) => {
         const model = endpoint.models.find((item) => item.modelId === id);

@@ -224,6 +224,7 @@ test("endpoint pipeline snapshot covers the CLI's origin, protocol and selected 
     endpoint: {
       origins: ["http://127.0.0.1:11434"],
       protocols: { chatCompletions: true },
+      route: { mode: "native", source: "chatCompletions" },
       models: { qwen3: { contextTokens: 32768, outputTokens: null } },
     },
   });

@@ -69,3 +69,19 @@ test("model observation labels provider configuration separately from CLI-confir
   assert.deepEqual(result.configuration, provider);
   assert.equal(result.modelChangeRequiresRestart, true);
 });
+
+test("session provider metadata keeps only a valid route", () => {
+  assert.deepEqual(
+    publicProviderConfiguration({ route: { mode: "adapter", source: "chatCompletions" } })
+      .route,
+    { mode: "adapter", source: "chatCompletions" },
+  );
+  assert.equal(
+    publicProviderConfiguration({ route: { mode: "bogus" } }).route,
+    undefined,
+  );
+  assert.equal(
+    publicProviderConfiguration({ route: { mode: "adapter", source: "x" } }).route,
+    undefined,
+  );
+});

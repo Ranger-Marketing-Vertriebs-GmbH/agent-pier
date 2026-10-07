@@ -226,10 +226,6 @@ export function endpointOrigins(endpoint) {
   ].sort();
 }
 
-export function endpointBaseUrl(endpoint, tool) {
-  return tool === "claude" ? endpoint.anthropicBaseUrl : endpoint.openaiBaseUrl;
-}
-
 export function endpointTools(endpoint) {
   return ["codex", "claude", "opencode"].filter((tool) => resolveRoute(endpoint, tool));
 }
