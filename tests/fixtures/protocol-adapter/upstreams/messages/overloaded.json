@@ -1,0 +1,15 @@
+{
+  "status": 529,
+  "headers": {
+    "content-type": "application/json",
+    "request-id": "req_fixture_3"
+  },
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "overloaded_error",
+      "message": "Overloaded"
+    },
+    "request_id": "req_fixture_3"
+  }
+}

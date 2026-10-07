@@ -1,0 +1,15 @@
+{
+  "status": 400,
+  "headers": {
+    "content-type": "application/json",
+    "request-id": "req_fixture_1"
+  },
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "invalid_request_error",
+      "message": "prompt is too long: 215000 tokens > 200000 maximum"
+    },
+    "request_id": "req_fixture_1"
+  }
+}

@@ -1,0 +1,9 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_fixture_upstream","object":"response","created_at":1791331200,"model":"gpt-fixture-1","status":"in_progress","output":[]}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_fixture_upstream","object":"response","created_at":1791331200,"model":"gpt-fixture-1","status":"in_progress","output":[]}}
+
+event: response.failed
+data: {"type":"response.failed","sequence_number":2,"response":{"id":"resp_fixture_upstream","object":"response","created_at":1791331200,"model":"gpt-fixture-1","status":"failed","output":[],"error":{"code":"context_length_exceeded","message":"Your input exceeds the context window of this model. Please adjust your input and try again."},"usage":null}}
+

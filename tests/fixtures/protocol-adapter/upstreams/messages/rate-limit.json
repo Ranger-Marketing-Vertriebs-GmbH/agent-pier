@@ -1,0 +1,16 @@
+{
+  "status": 429,
+  "headers": {
+    "content-type": "application/json",
+    "retry-after": "30",
+    "request-id": "req_fixture_2"
+  },
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "rate_limit_error",
+      "message": "Rate limit exceeded. Please retry after 30 seconds."
+    },
+    "request_id": "req_fixture_2"
+  }
+}

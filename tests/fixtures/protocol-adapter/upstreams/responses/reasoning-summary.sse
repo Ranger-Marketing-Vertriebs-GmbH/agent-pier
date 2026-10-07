@@ -1,0 +1,48 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_fixture_upstream","object":"response","created_at":1791331200,"model":"gpt-fixture-1","status":"in_progress","output":[]}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_fixture_upstream","object":"response","created_at":1791331200,"model":"gpt-fixture-1","status":"in_progress","output":[]}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":0,"item":{"type":"reasoning","id":"rs_fixture_1","summary":[],"encrypted_content":"gAAAAABfixtureEncryptedReasoningContent0123456789=="}}
+
+event: response.reasoning_summary_part.added
+data: {"type":"response.reasoning_summary_part.added","sequence_number":3,"item_id":"rs_fixture_1","output_index":0,"summary_index":0,"part":{"type":"summary_text","text":""}}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","sequence_number":4,"item_id":"rs_fixture_1","output_index":0,"summary_index":0,"delta":"**Planning**\n\n"}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","sequence_number":5,"item_id":"rs_fixture_1","output_index":0,"summary_index":0,"delta":"Answer with a greeting."}
+
+event: response.reasoning_summary_text.done
+data: {"type":"response.reasoning_summary_text.done","sequence_number":6,"item_id":"rs_fixture_1","output_index":0,"summary_index":0,"text":"**Planning**\n\nAnswer with a greeting."}
+
+event: response.reasoning_summary_part.done
+data: {"type":"response.reasoning_summary_part.done","sequence_number":7,"item_id":"rs_fixture_1","output_index":0,"summary_index":0,"part":{"type":"summary_text","text":"**Planning**\n\nAnswer with a greeting."}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":8,"output_index":0,"item":{"type":"reasoning","id":"rs_fixture_1","summary":[{"type":"summary_text","text":"**Planning**\n\nAnswer with a greeting."}],"encrypted_content":"gAAAAABfixtureEncryptedReasoningContent0123456789=="}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":9,"output_index":1,"item":{"type":"message","id":"msg_fixture_after","status":"in_progress","role":"assistant","content":[]}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":10,"item_id":"msg_fixture_after","output_index":1,"content_index":0,"part":{"type":"output_text","text":"","annotations":[]}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":11,"item_id":"msg_fixture_after","output_index":1,"content_index":0,"delta":"Hello."}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":12,"item_id":"msg_fixture_after","output_index":1,"content_index":0,"text":"Hello."}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":13,"item_id":"msg_fixture_after","output_index":1,"content_index":0,"part":{"type":"output_text","text":"Hello.","annotations":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":14,"output_index":1,"item":{"type":"message","id":"msg_fixture_after","status":"completed","role":"assistant","content":[{"type":"output_text","text":"Hello.","annotations":[]}]}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":15,"response":{"id":"resp_fixture_upstream","object":"response","created_at":1791331200,"model":"gpt-fixture-1","status":"completed","output":[{"type":"reasoning","id":"rs_fixture_1","summary":[{"type":"summary_text","text":"**Planning**\n\nAnswer with a greeting."}],"encrypted_content":"gAAAAABfixtureEncryptedReasoningContent0123456789=="},{"type":"message","id":"msg_fixture_after","status":"completed","role":"assistant","content":[{"type":"output_text","text":"Hello.","annotations":[]}]}],"usage":{"input_tokens":40,"input_tokens_details":{"cached_tokens":0},"output_tokens":52,"output_tokens_details":{"reasoning_tokens":44},"total_tokens":92}}}
+

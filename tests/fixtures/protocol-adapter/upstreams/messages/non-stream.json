@@ -1,0 +1,39 @@
+{
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "id": "msg_01FixtureUpstream",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-fixture-1",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "Short plan.",
+        "signature": "EqQBCkYIBxgCKkBfixtureSignature0123456789abcdefghijklmnop=="
+      },
+      {
+        "type": "text",
+        "text": "Let me list the files."
+      },
+      {
+        "type": "tool_use",
+        "id": "toolu_01FixtureBash",
+        "name": "Bash",
+        "input": {
+          "command": "ls"
+        }
+      }
+    ],
+    "stop_reason": "tool_use",
+    "stop_sequence": null,
+    "usage": {
+      "input_tokens": 25,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 1024,
+      "output_tokens": 40
+    }
+  }
+}
