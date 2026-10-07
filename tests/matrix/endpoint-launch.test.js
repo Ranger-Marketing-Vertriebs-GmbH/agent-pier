@@ -135,8 +135,8 @@ for (const key of ["endpoint-secret", null])
       assert.equal(result.env.AGENTPIER_ENDPOINT_API_KEY, key || undefined);
       const catalogJson = JSON.parse(fs.readFileSync(config.model_catalog_json, "utf8"));
       assert.equal(catalogJson.models[0].context_window, 65536);
-      // Generic Responses servers only handle function tools, not freeform grammar tools.
-      assert.equal(catalogJson.models[0].apply_patch_tool_type, "function");
+      // Codex accepts only "freeform" here; any other value aborts the CLI at startup.
+      assert.equal(catalogJson.models[0].apply_patch_tool_type, "freeform");
       assert.deepEqual(result.args.slice(-2), ["--model", "qwen3-coder:30b"]);
     });
     test(`opencode endpoint launch ${label}`, (t) => {
