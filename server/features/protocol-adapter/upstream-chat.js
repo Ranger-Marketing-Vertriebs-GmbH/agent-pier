@@ -233,8 +233,14 @@ function reasoningEffort(thinking) {
   return normalizeEffort(undefined);
 }
 
-function applySampling(body, sampling) {
-  if (present(sampling.maxOutputTokens)) body.max_tokens = sampling.maxOutputTokens;
+function applySampling(body, sampling, capabilities) {
+  if (present(sampling.maxOutputTokens)) {
+    const field =
+      capabilities.maxTokensField === "max_completion_tokens"
+        ? "max_completion_tokens"
+        : "max_tokens";
+    body[field] = sampling.maxOutputTokens;
+  }
   if (present(sampling.temperature)) body.temperature = sampling.temperature;
   if (present(sampling.topP)) body.top_p = sampling.topP;
   if (Array.isArray(sampling.stop) && sampling.stop.length > 0)
@@ -275,7 +281,7 @@ export function buildChatRequest(ir, ctx) {
       body.parallel_tool_calls = ir.parallelToolCalls;
     }
   }
-  applySampling(body, ir.sampling ?? {});
+  applySampling(body, ir.sampling ?? {}, capabilities);
   if (capabilities.reasoningEffort === true) {
     const effort = reasoningEffort(ir.thinking);
     if (effort !== undefined) body.reasoning_effort = effort;

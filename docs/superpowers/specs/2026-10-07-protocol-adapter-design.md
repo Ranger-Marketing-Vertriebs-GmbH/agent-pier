@@ -234,20 +234,40 @@ min(floor(contextTokens / 4), 32000)`.
 
 ### Capabilities and strict servers
 
-Each connection stores `adapterCapabilities` for the upstream protocol:
+Each connection stores `adapterCapabilities` for the upstream protocol. The library
+exports the per-upstream defaults as `CAPABILITY_DEFAULTS` (`capabilities.js` documents
+every key); stored values override them, unknown names are ignored and invalid values
+are rejected. "Opt-in" capabilities default to off, "opt-out" ones to on:
 
-```js
-{ promptCacheKey: bool, streamUsage: bool, reasoningEffort: bool, parallelToolCalls: bool,
-  reasoningReplay: bool,    // reasoningReplay: echo reasoning_content on assistant messages (Chat)
-  systemMessages: "merge" | "inline" }  // Chat: mid-conversation system handling (default "merge")
-```
+| Upstream  | Capability          | Default        | Kind    | Effect                                                                    |
+| --------- | ------------------- | -------------- | ------- | ------------------------------------------------------------------------- |
+| Messages  | `promptCache`       | `true`         | opt-out | automatic `cache_control` breakpoints (last system and last user block)   |
+| Messages  | `thinkingBudget`    | `false`        | opt-in  | effort-only thinking as `enabled` + `budget_tokens` (Amendment 15)        |
+| Responses | `promptCacheKey`    | `false`        | opt-in  | `prompt_cache_key` (client key, else the session key)                     |
+| Responses | `reasoningEffort`   | `true`         | opt-out | `reasoning` and `include: ["reasoning.encrypted_content"]` (Amendment 14) |
+| Responses | `parallelToolCalls` | `false`        | opt-in  | forward `parallel_tool_calls`                                             |
+| Chat      | `promptCacheKey`    | `false`        | opt-in  | `prompt_cache_key`                                                        |
+| Chat      | `streamUsage`       | `true`         | opt-out | `stream_options.include_usage`                                            |
+| Chat      | `reasoningEffort`   | `false`        | opt-in  | `reasoning_effort`                                                        |
+| Chat      | `parallelToolCalls` | `false`        | opt-in  | forward `parallel_tool_calls`                                             |
+| Chat      | `reasoningReplay`   | `false`        | opt-in  | echo `reasoning_content` on assistant messages                            |
+| Chat      | `systemMessages`    | `"merge"`      | choice  | `"inline"` keeps mid-conversation `system` messages (Amendment 13)        |
+| Chat      | `maxTokensField`    | `"max_tokens"` | choice  | `"max_completion_tokens"` for OpenAI/Azure reasoning models               |
 
-- Defaults are conservative (`false` except `streamUsage`, which most servers accept);
-  the PR #176 "Test connection" probe is extended with one extra request per optional
+- The PR #176 "Test connection" probe is extended with one extra request per optional
   parameter and proposes the values; users can edit them.
 - At runtime, if the upstream rejects a request with 400/422 whose error names one of
-  these optional parameters, the adapter retries once without it and disables it for the
-  rest of the session (counted in diagnostics).
+  these optional parameters, the adapter retries once with the changed capability and
+  keeps it for the rest of the session (counted in diagnostics). The library provides the
+  pure `capabilityForError(upstream, irError) → { name, value } | null` and
+  `translator.setCapability(name, value)` (affects subsequent requests only); PR 2 owns
+  the retry. Mappings: Responses `reasoning`, `reasoning.effort`, `reasoning.summary`,
+  `include` → `reasoningEffort: false`; Chat `max_tokens` → `maxTokensField:
+"max_completion_tokens"` (and back), `stream_options`/`include_usage` →
+  `streamUsage: false`, `reasoning_effort`, `reasoning_content`; both: `prompt_cache_key`,
+  `parallel_tool_calls` → off; Messages "adaptive" thinking rejected →
+  `thinkingBudget: true`. The parameter is read from OpenAI's `error.param` or from the
+  message (quoted, or bare for names containing `_` or `.`).
 
 ### Reasoning round trip
 
@@ -516,9 +536,10 @@ contradicts sections above, these amendments win:
    progress text between tool calls; toward OpenAI-style upstreams the adapter requests
    reasoning summaries for `summarized` and `updates`, none for `omitted`.
 8. **Anthropic effort values** are `low|medium|high|xhigh|max`: `minimal` → `low`,
-   `none` → thinking omitted toward Messages upstreams (models that reject a missing or
-   `disabled` thinking, e.g. Sonnet 5.5, are handled by the 400 → capability retry, which
-   retries with `between_tools` at an effort of `low` or higher).
+   `none` → thinking omitted toward Messages upstreams. There is no capability retry for
+   this case: no verified model rejects a request without `thinking` (facts §1.4 lists
+   rejections of `enabled` and `disabled` only), so an extra `between_tools` fallback
+   would be speculative. `between_tools` from Claude Code is passed through unchanged.
 9. **Sampling toward Messages upstreams**: `temperature`, `top_p` and `top_k` are always
    stripped (current Claude models reject non-default values; neither CLI relies on
    them); a forced `tool_choice` is relaxed to `auto` whenever thinking is enabled or
