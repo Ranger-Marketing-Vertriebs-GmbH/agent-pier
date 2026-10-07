@@ -61,6 +61,8 @@ export function validateProfileLaunch(
   const frozen = narrowed(profile.providerConnectionSnapshot, modelId);
   // Snapshots from before routes existed stored { [nativeProtocol]: true }; a route that
   // is still native yields the same value, so they are compared without the route.
+  // An adapter route never matches: its source differs from the tool's native protocol,
+  // so protocols or origins differ and the launch is refused.
   const legacy = frozen?.endpoint && !Object.hasOwn(frozen.endpoint, "route");
   const current = legacy
     ? {
