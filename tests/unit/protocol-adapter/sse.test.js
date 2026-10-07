@@ -92,3 +92,43 @@ test("writers produce well-formed frames that the parser reads back", () => {
     ],
   );
 });
+
+test("id and retry lines count toward maxEventBytes", () => {
+  assert.throws(() => parseAll("id: 0123456789\ndata: x\n\n", { maxEventBytes: 8 }), {
+    message: "sseEventTooLarge",
+  });
+  assert.throws(() => parseAll("retry: 0123456789\ndata: x\n\n", { maxEventBytes: 8 }), {
+    message: "sseEventTooLarge",
+  });
+  assert.equal(parseAll("id: 1\nretry: 2\ndata: x\n\n", { maxEventBytes: 8 }).length, 1);
+});
+
+test("a long partial line pushed in tiny chunks is scanned once (no quadratic rescan)", () => {
+  const parser = createSseParser();
+  const started = performance.now();
+  parser.push("data: ");
+  for (let i = 0; i < 200_000; i++) parser.push("x");
+  const events = parser.push("\r");
+  events.push(...parser.push("\n\n"));
+  assert.equal(events.length, 1);
+  assert.equal(events[0].data.length, 200_000);
+  // The former full rescan took several seconds here; a linear scan takes well under one.
+  assert.ok(performance.now() - started < 2000);
+});
+
+test("a CR at a chunk end still pairs with the next LF after the scan offset moved", () => {
+  const parser = createSseParser();
+  assert.deepEqual(parser.push("data: a\r"), []);
+  assert.deepEqual(parser.push("\n"), []);
+  assert.deepEqual(parser.push("\r"), []);
+  assert.deepEqual(parser.push("\n"), [{ event: undefined, data: "a", id: undefined }]);
+});
+
+test("writers refuse undefined data and event names with line breaks", () => {
+  assert.throws(() => sseData(undefined), { name: "TypeError" });
+  assert.throws(() => sseEvent("x", undefined), { name: "TypeError" });
+  assert.throws(() => sseEvent("a\nb", {}), { message: "sseEventNameInvalid" });
+  assert.throws(() => sseEvent("a\rb", {}), { message: "sseEventNameInvalid" });
+  assert.throws(() => sseEvent("", {}), { message: "sseEventNameInvalid" });
+  assert.equal(sseData(null), "data: null\n\n");
+});
