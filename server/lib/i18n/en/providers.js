@@ -45,6 +45,8 @@ export const providers = Object.freeze({
   invalidEndpointUrl:
     "Enter an http or https base URL without credentials, query or fragment.",
   invalidEndpointHeader: "The auth header name is not allowed.",
+  invalidEndpointRouting: "The connection's CLI routing is invalid.",
+  invalidEndpointCapabilities: "The connection's adapter capabilities are invalid.",
   invalidEndpointModels:
     "Invalid model list: check IDs, duplicates and token limits (1024 to 10,000,000).",
   endpointUrlNotAllowed:

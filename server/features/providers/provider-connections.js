@@ -4,7 +4,13 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { problem, nameValue, writePrivate } from "../../lib/storage.js";
 import { providerDefinition } from "./provider-definitions.js";
-import { endpointOrigins, endpointTools, validateEndpoint } from "./endpoint-config.js";
+import {
+  endpointOrigins,
+  endpointTools,
+  inheritAdapterSettings,
+  validateEndpoint,
+} from "./endpoint-config.js";
+import { toolRoutes } from "./endpoint-routing.js";
 const validId = (id) => typeof id === "string" && /^[a-f0-9-]{36}$/.test(id);
 function read(file, fallback) {
   let descriptor;
@@ -116,7 +122,12 @@ export class ProviderConnections {
       ...(definition.responsesGate
         ? { responsesAccess: record.responsesAccess === true }
         : {}),
-      ...(endpoint ? { endpoint: structuredClone(record.endpoint) } : {}),
+      ...(endpoint
+        ? {
+            endpoint: structuredClone(record.endpoint),
+            toolRoutes: toolRoutes(record.endpoint),
+          }
+        : {}),
     };
   }
   list() {
@@ -182,7 +193,9 @@ export class ProviderConnections {
     if (input.endpoint !== undefined && definition.kind !== "endpoint")
       throw problem(serverMessages.providers.invalidConnectionFields);
     const endpoint =
-      input.endpoint !== undefined ? validateEndpoint(input.endpoint) : current.endpoint;
+      input.endpoint !== undefined
+        ? validateEndpoint(inheritAdapterSettings(input.endpoint, current.endpoint))
+        : current.endpoint;
     if (
       endpoint &&
       this.secret(id)?.apiKey &&

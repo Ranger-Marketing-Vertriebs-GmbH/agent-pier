@@ -95,3 +95,49 @@ test("presets and output fallback", () => {
   assert.equal(fallbackOutputTokens(1000000, null), 32000);
   assert.equal(fallbackOutputTokens(32768, 4096), 4096);
 });
+
+test("validateEndpoint fills routing defaults and keeps adapter settings", () => {
+  const withImages = { ...base, models: [{ ...base.models[0], images: true }] };
+  const block = validateEndpoint(withImages);
+  assert.deepEqual(block.routing, { claude: "auto", codex: "auto", opencode: "auto" });
+  assert.deepEqual(block.adapterCapabilities, {});
+  assert.equal(block.thinkTagExtraction, false);
+  assert.equal(block.models[0].images, true);
+  assert.equal(validateEndpoint(base).models[0].images, null);
+  assert.deepEqual(
+    validateEndpoint({
+      ...base,
+      adapterCapabilities: { chatCompletions: { streamUsage: null } },
+    }).adapterCapabilities,
+    { chatCompletions: {} },
+  );
+  assert.throws(() => validateEndpoint({ ...base, thinkTagExtraction: "yes" }), {
+    status: 400,
+  });
+  assert.throws(
+    () => validateEndpoint({ ...base, models: [{ ...base.models[0], images: "x" }] }),
+    { status: 400 },
+  );
+});
+
+test("endpointTools follows the resolved routes", () => {
+  const protocols = { messages: false, responses: false, chatCompletions: true };
+  const chatOnly = validateEndpoint({ ...base, protocols });
+  assert.deepEqual(
+    endpointTools(chatOnly),
+    ["opencode"],
+    "auto offers no adapter routes in PR 2",
+  );
+  const explicit = validateEndpoint({
+    ...base,
+    protocols,
+    routing: { claude: "adapter:chatCompletions" },
+  });
+  assert.deepEqual(endpointTools(explicit), ["claude", "opencode"]);
+  const off = validateEndpoint({
+    ...base,
+    protocols,
+    routing: { claude: "adapter:chatCompletions", opencode: "off" },
+  });
+  assert.deepEqual(endpointTools(off), ["claude"]);
+});
