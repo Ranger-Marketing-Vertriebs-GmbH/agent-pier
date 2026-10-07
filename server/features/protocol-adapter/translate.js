@@ -36,14 +36,20 @@
  *     forwarded.
  *   - `error` is already rendered in the client's error format (as `translateError`
  *     renders it); `exchange` is returned on rejections too, e.g. for keep-alives.
- * - `diagnostics()`: `{ dropped, adjustments, estimatedUsage }`: counters by name and the
- *   number of responses whose usage was estimated.
+ * - `diagnostics()`: `{ dropped, adjustments, errors, estimatedUsage }`: counters by name
+ *   and the number of responses whose usage was estimated.
  *
- * Exchange methods:
+ * Exchange methods (the exchange counts the client frames it handed out, so every error
+ * it renders later continues the client's numbering):
  * - `translateStream(chunks)`: upstream SSE text chunks (AsyncIterable<string>) → client
- *   SSE text (AsyncIterable<string>). Upstream errors and malformed streams end in the
- *   client's in-stream error (Messages `event: error`, Responses `response.failed` with
- *   the correct `sequence_number`); malformed streams count as `stream.invalid`.
+ *   SSE text (AsyncIterable<string>); it never throws. Upstream errors, malformed streams
+ *   and failures of the chunk iterator itself (the caller's idle timeout aborting the
+ *   fetch, socket resets) end in the client's in-stream error (Messages `event: error`,
+ *   Responses `response.failed` with the next `sequence_number`, or `response.created` +
+ *   `response.failed` when nothing was written yet). Iterator failures are classified by
+ *   `classifyTransportError`: an `adapterKind` property on the thrown error wins,
+ *   AbortError/TimeoutError and timeout codes are `timeout`, everything else `network`
+ *   (counted as `errors["stream.<kind>"]`); malformed streams count as `stream.invalid`.
  * - `translateResponse(json)`: non-streaming upstream body → Promise of the client body.
  *   Rejects with `AdapterUpstreamError` carrying `error` (IrError) and `clientError`
  *   (`{ status, headers, body }` rendered for the client) when the body is an error or
@@ -51,14 +57,16 @@
  * - `translateError({ status, body, headers }, { streaming, started, now })`: upstream
  *   HTTP error → client rendering. `streaming`: the client asked for a stream (defaults
  *   to the request's `stream`); `started`: the client response has already begun
- *   (headers sent), so only an in-stream frame (string) can be written. Messages client:
- *   HTTP body unless `started`. Responses client: `stream: true` errors are HTTP 200 SSE
- *   (`response.created` + `response.failed`, Amendment 3), `stream: false` errors are
- *   HTTP bodies. Caveat: with `started: true` the Codex `response.failed` frame carries
- *   `sequence_number: 1`, because the translator does not know how many frames the
- *   caller wrote; mid-stream failures should go through `translateStream`, which numbers
- *   them correctly.
- * - `keepalive()`: Messages `event: ping` or Responses `response.in_progress` frame.
+ *   (headers sent), so only an in-stream frame (string) can be written; once
+ *   `translateStream` handed out a frame the error is always in-stream and numbered from
+ *   the exchange. Messages client: HTTP body unless started. Responses client:
+ *   `stream: true` errors are HTTP 200 SSE (`response.created` + `response.failed`,
+ *   Amendment 3), `stream: false` errors are HTTP bodies.
+ * - `fail(irError, { streaming, started })`: adapter-local failure (e.g. the idle timer
+ *   fired while the caller stopped reading `translateStream`, or the connection failed:
+ *   `fail(classifyTransportError(cause))`), rendered exactly like `translateError`.
+ * - `keepalive()`: Messages `event: ping` or Responses `response.in_progress` frame
+ *   (no `sequence_number`; keep-alives do not count as frames).
  */
 
 import {
@@ -75,6 +83,7 @@ import {
   responsesKeepalive,
 } from "./client-responses.js";
 import {
+  classifyTransportError,
   classifyUpstreamError,
   messagesErrorBody,
   messagesErrorEvent,
@@ -96,6 +105,8 @@ import {
   parseResponsesResponse,
   parseResponsesStream,
 } from "./upstream-responses.js";
+
+export { classifyTransportError } from "./errors.js";
 
 const ENCRYPTED_REASONING = "reasoning.encrypted_content";
 const CALL_ID = /^[a-zA-Z0-9_-]+$/;
@@ -164,9 +175,41 @@ function upstreamModel(model) {
   return { ...model, id: model.modelId };
 }
 
+/** Wraps an error thrown by the caller's chunk iterator (idle timeout, socket reset, …). */
+class TransportFailure extends Error {
+  constructor(cause) {
+    super("the upstream transport failed");
+    this.name = "TransportFailure";
+    this.cause = cause;
+  }
+}
+
+/** SSE events of the upstream chunks; iterator failures surface as TransportFailure. */
 async function* sseEvents(chunks) {
   const parser = createSseParser();
-  for await (const chunk of chunks) yield* parser.push(chunk);
+  const iterator =
+    typeof chunks?.[Symbol.asyncIterator] === "function"
+      ? chunks[Symbol.asyncIterator]()
+      : chunks[Symbol.iterator]();
+  let finished = false;
+  try {
+    for (;;) {
+      let next;
+      try {
+        next = await iterator.next();
+      } catch (cause) {
+        finished = true;
+        throw new TransportFailure(cause);
+      }
+      if (next.done) {
+        finished = true;
+        break;
+      }
+      yield* parser.push(next.value);
+    }
+  } finally {
+    if (!finished) await iterator.return?.();
+  }
   yield* parser.end();
 }
 
@@ -206,21 +249,19 @@ export function createTranslator({
     sessionKey,
     thinkTagExtraction: thinkTagExtraction === true,
   };
-  const stats = { dropped: {}, adjustments: {}, estimatedUsage: 0 };
+  const stats = { dropped: {}, adjustments: {}, errors: {}, estimatedUsage: 0 };
 
   const secretList = secrets.filter((secret) => typeof secret === "string");
 
   /** Client rendering of an IrError before any client output was written. */
-  function renderError(error, { streaming, started, context, sequenceNumber }) {
+  function renderError(error, { streaming, context }) {
     if (client === "messages") {
-      if (started) return messagesErrorEvent(error);
       const rendered = messagesErrorBody(error);
       return {
         ...rendered,
         headers: { "content-type": "application/json", ...rendered.headers },
       };
     }
-    if (started) return responsesFailedEvent(error, { ...context, sequenceNumber });
     if (streaming) {
       return {
         status: 200,
@@ -241,12 +282,14 @@ export function createTranslator({
   });
 
   function createExchange(state) {
-    const ctx = { ...session, requestChars: state.requestChars };
-    const context = {
-      responseId: state.requestId,
-      model: state.clientModel,
-      createdAt: state.createdAt,
+    const ctx = {
+      ...session,
+      requestChars: state.requestChars,
+      requestId: state.requestId,
     };
+    const context = contextOf(state);
+    // Client frames handed out so far (Responses `sequence_number` of the next frame).
+    let frames = 0;
     const emitOptions =
       client === "messages"
         ? {
@@ -275,25 +318,49 @@ export function createTranslator({
       }
     }
 
+    /** In-stream error text numbered from the frames written so far. */
+    function inStreamError(error) {
+      if (client === "messages") {
+        frames += 1;
+        return messagesErrorEvent(error);
+      }
+      if (frames === 0) {
+        frames = 2;
+        return responsesErrorStream(error, context);
+      }
+      const frame = responsesFailedEvent(error, { ...context, sequenceNumber: frames });
+      frames += 1;
+      return frame;
+    }
+
+    /**
+     * Client error for an IrError: an in-stream frame once frames were written or when
+     * `started` (headers sent), else the full rendering (HTTP body or Codex error stream).
+     */
+    function render(error, { streaming, started } = {}) {
+      if (frames > 0 || started === true) return inStreamError(error);
+      return renderError(error, { streaming: streaming ?? state.streaming, context });
+    }
+
     async function* translateStream(chunks) {
-      let frames = 0;
+      let error;
       try {
         const events = observe(upstreamSide.parseStream(sseEvents(chunks), ctx));
         for await (const frame of clientSide.emitStream(events, emitOptions)) {
           frames += 1;
           yield frame;
         }
+        return;
       } catch (cause) {
-        if (!(cause instanceof TypeError || cause instanceof RangeError)) throw cause;
-        count(stats.dropped, "stream.invalid");
-        if (client === "messages") yield messagesErrorEvent(INVALID_STREAM);
-        else if (frames === 0) yield responsesErrorStream(INVALID_STREAM, context);
-        else
-          yield responsesFailedEvent(INVALID_STREAM, {
-            ...context,
-            sequenceNumber: frames,
-          });
+        if (cause instanceof TransportFailure) {
+          error = classifyTransportError(cause.cause, secretList);
+          count(stats.errors, `stream.${error.kind}`);
+        } else {
+          error = INVALID_STREAM;
+          count(stats.dropped, "stream.invalid");
+        }
       }
+      yield inStreamError(clean(error));
     }
 
     async function translateResponse(json) {
@@ -321,19 +388,23 @@ export function createTranslator({
         now: options.now ?? state.now,
         secrets: secretList,
       });
-      return renderError(error, {
-        streaming: options.streaming ?? state.streaming,
-        started: options.started === true,
-        context,
-        sequenceNumber: 1,
-      });
+      return render(error, options);
     }
+
+    /** Adapter-local failure (idle timeout, connect error, …) rendered for the client. */
+    const fail = (error, options = {}) => render(clean(error), options);
 
     const keepalive = () =>
       client === "messages" ? messagesPing() : responsesKeepalive(state.requestId);
 
-    return { translateStream, translateResponse, translateError, keepalive };
+    return { translateStream, translateResponse, translateError, fail, keepalive };
   }
+
+  const contextOf = (state) => ({
+    responseId: state.requestId,
+    model: state.clientModel,
+    createdAt: state.createdAt,
+  });
 
   function nextState(options, ir, streaming) {
     const requestId = options.requestId;
@@ -356,16 +427,13 @@ export function createTranslator({
   }
 
   function reject(error, state) {
-    const exchange = createExchange(state);
-    const context = {
-      responseId: state.requestId,
-      model: state.clientModel,
-      createdAt: state.createdAt,
-    };
     return {
       ok: false,
-      error: renderError(clean(error), { streaming: state.streaming, context }),
-      exchange,
+      error: renderError(clean(error), {
+        streaming: state.streaming,
+        context: contextOf(state),
+      }),
+      exchange: createExchange(state),
     };
   }
 
@@ -426,6 +494,7 @@ export function createTranslator({
     diagnostics: () => ({
       dropped: { ...stats.dropped },
       adjustments: { ...stats.adjustments },
+      errors: { ...stats.errors },
       estimatedUsage: stats.estimatedUsage,
     }),
   };
