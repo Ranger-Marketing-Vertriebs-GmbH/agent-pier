@@ -18,6 +18,7 @@ import {
   clientHeaders,
   roundTrip,
   translator,
+  REQ,
 } from "../helpers/protocol-adapter-directions.js";
 
 const SEEDS = [0, 1, 2, 3, 4, 5, 6, 7];
@@ -81,7 +82,7 @@ for (const { client, upstream } of DIRECTIONS) {
     for (const path of fixtureList(CLIENT_DIRS[client])) {
       test(`request ${path} builds a valid upstream request without client hints`, () => {
         const instance = translator(client, upstream);
-        const built = instance.buildUpstream(clientBody(path), clientHeaders(path));
+        const built = instance.buildUpstream(clientBody(path), clientHeaders(path), REQ);
         assert.equal(built.ok, true);
         VALIDATORS[upstream](built.request);
         assert.equal(built.request.body.model, "upstream-model");
@@ -302,7 +303,7 @@ describe("non-streaming responses", () => {
   test("an error body rejects with the rendered client error", async () => {
     const instance = translator("messages", "chat");
     const body = { ...clientBody(BASE_REQUEST.messages), stream: false };
-    const built = instance.buildUpstream(body);
+    const built = instance.buildUpstream(body, {}, REQ);
     await assert.rejects(
       built.exchange.translateResponse({
         error: { message: `bad key ${"sk-upstream-secret-0123456789abcdef"}` },
@@ -314,5 +315,34 @@ describe("non-streaming responses", () => {
         return true;
       },
     );
+  });
+
+  test("a malformed body rejects with a rendered server error, not a raw TypeError", async () => {
+    const instance = translator("messages", "chat");
+    const body = { ...clientBody(BASE_REQUEST.messages), stream: false };
+    const built = instance.buildUpstream(body, {}, REQ);
+    const call = {
+      id: "c1",
+      type: "function",
+      function: { name: "Bash", arguments: "{bad" },
+    };
+    const malformed = {
+      id: "chatcmpl-bad",
+      choices: [
+        {
+          index: 0,
+          message: { role: "assistant", content: null, tool_calls: [call] },
+          finish_reason: "tool_calls",
+        },
+      ],
+    };
+    await assert.rejects(built.exchange.translateResponse(malformed), (error) => {
+      assert.equal(error.name, "AdapterUpstreamError");
+      assert.equal(error.error.kind, "server");
+      assert.equal(error.clientError.status, 500);
+      assert.equal(error.clientError.body.error.type, "api_error");
+      return true;
+    });
+    assert.equal(instance.diagnostics().dropped["response.invalid"], 1);
   });
 });

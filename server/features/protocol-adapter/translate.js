@@ -11,44 +11,54 @@
  * - `model`: the connection model record `{ modelId, contextTokens, outputTokens, images }`.
  *   `modelId` is the upstream model id; `images: false` rejects image input.
  * - `capabilities`: the connection's `adapterCapabilities` for the upstream protocol.
- * - `sessionKey`: stable per-session string (prompt cache key fallback, response ids).
+ * - `sessionKey`: stable per-session string (prompt cache key fallback).
  * - `secrets`: strings redacted from every message that reaches the client.
  *
  * One tool-name map and one call-id map live per translator (= per session); both use the
  * upstream's patterns, and the IR's tools are registered in IR order on every request so
  * the mapping is stable for the whole session.
  *
- * Methods:
- * - `buildUpstream(body, headers, options?)` → `{ ok: true, request: { path, body,
- *   headers }, dropped, exchange }` or `{ ok: false, error: { status, headers, body } }`.
- *   `error` is already rendered in the client's error format (see `translateError`).
- *   `options` (all optional, for purity):
- *     - `now`: epoch milliseconds; Codex `created_at` and `retry-after` dates use it.
- *     - `requestId`: id echoed to the client as Messages `message.id` or Responses
- *       `response.id`. Default: deterministic `msg_<session hash>_<n>` /
- *       `resp_<session hash>_<n>` from a per-translator counter.
- *   `request.headers` contains only protocol headers (`content-type`, Messages
- *   `anthropic-version`); the caller adds authentication. Client headers are never
- *   forwarded.
- *   `exchange` is the per-request state with the same methods as below
- *   (`translateStream`, `translateResponse`, `translateError`, `keepalive`); callers that
- *   run concurrent requests in one session must use it. The translator-level methods
- *   delegate to the exchange of the most recent successful `buildUpstream`.
- * - `translateStream(chunks)`: upstream SSE text chunks (AsyncIterable<string>) → client
- *   SSE text (AsyncIterable<string>). Upstream errors and malformed streams end in the
- *   client's in-stream error (Messages `event: error`, Responses `response.failed`).
- * - `translateResponse(json)`: non-streaming upstream body → Promise of the client body.
- *   Rejects with `AdapterUpstreamError` carrying `error` (IrError) and `clientError`
- *   (`{ status, headers, body }` rendered for the client) when the body is an error.
- * - `translateError({ status, body, headers }, { streaming, started, now })`: upstream
- *   HTTP error → client rendering. `streaming`: the client asked for a stream;
- *   `started`: the client response has already begun (headers sent), so only an in-stream
- *   frame (string) can be written. Messages client: HTTP body unless `started`. Responses
- *   client: `stream: true` errors are HTTP 200 SSE (`response.created` +
- *   `response.failed`, Amendment 3), `stream: false` errors are HTTP bodies.
- * - `keepalive()`: Messages `event: ping` or Responses `response.in_progress` frame.
+ * Methods of the translator: `buildUpstream` and `diagnostics`. Everything that
+ * translates a response lives on the per-request `exchange`, so concurrent requests in one
+ * session (Claude Code main agent, subagents and small-model calls; Codex turns) never
+ * share a client model, id, request size, include flags, display or custom tools.
+ *
+ * - `buildUpstream(body, headers, { requestId, now? })` →
+ *   `{ ok: true, request: { path, body, headers }, dropped, exchange }` or
+ *   `{ ok: false, error: { status, headers, body }, exchange }`.
+ *   - `requestId` (required, non-empty string, else TypeError): id echoed to the client
+ *     as Messages `message.id` or Responses `response.id`. The caller generates a unique
+ *     (random) id: Claude Code merges messages by `message.id`, so ids must not repeat
+ *     across translator instances.
+ *   - `now` (optional): epoch milliseconds; Codex `created_at` and `retry-after` dates.
+ *   - `request.headers` contains only protocol headers (`content-type`, Messages
+ *     `anthropic-version`); the caller adds authentication. Client headers are never
+ *     forwarded.
+ *   - `error` is already rendered in the client's error format (as `translateError`
+ *     renders it); `exchange` is returned on rejections too, e.g. for keep-alives.
  * - `diagnostics()`: `{ dropped, adjustments, estimatedUsage }`: counters by name and the
  *   number of responses whose usage was estimated.
+ *
+ * Exchange methods:
+ * - `translateStream(chunks)`: upstream SSE text chunks (AsyncIterable<string>) → client
+ *   SSE text (AsyncIterable<string>). Upstream errors and malformed streams end in the
+ *   client's in-stream error (Messages `event: error`, Responses `response.failed` with
+ *   the correct `sequence_number`); malformed streams count as `stream.invalid`.
+ * - `translateResponse(json)`: non-streaming upstream body → Promise of the client body.
+ *   Rejects with `AdapterUpstreamError` carrying `error` (IrError) and `clientError`
+ *   (`{ status, headers, body }` rendered for the client) when the body is an error or
+ *   cannot be translated (a server error, counted as `response.invalid`).
+ * - `translateError({ status, body, headers }, { streaming, started, now })`: upstream
+ *   HTTP error → client rendering. `streaming`: the client asked for a stream (defaults
+ *   to the request's `stream`); `started`: the client response has already begun
+ *   (headers sent), so only an in-stream frame (string) can be written. Messages client:
+ *   HTTP body unless `started`. Responses client: `stream: true` errors are HTTP 200 SSE
+ *   (`response.created` + `response.failed`, Amendment 3), `stream: false` errors are
+ *   HTTP bodies. Caveat: with `started: true` the Codex `response.failed` frame carries
+ *   `sequence_number: 1`, because the translator does not know how many frames the
+ *   caller wrote; mid-stream failures should go through `translateStream`, which numbers
+ *   them correctly.
+ * - `keepalive()`: Messages `event: ping` or Responses `response.in_progress` frame.
  */
 
 import {
@@ -73,7 +83,7 @@ import {
   responsesFailedEvent,
   sanitizeMessage,
 } from "./errors.js";
-import { createIdMap, createNameMap, fnv1a } from "./names.js";
+import { createIdMap, createNameMap } from "./names.js";
 import { createSseParser } from "./sse.js";
 import { buildChatRequest, parseChatResponse, parseChatStream } from "./upstream-chat.js";
 import {
@@ -116,19 +126,21 @@ const CLIENTS = Object.freeze({
     parse: parseMessagesRequest,
     emitStream: emitMessagesStream,
     emitResponse: emitMessagesResponse,
-    idPrefix: "msg",
   },
   responses: {
     parse: parseResponsesRequest,
     emitStream: emitResponsesStream,
     emitResponse: emitResponsesResponse,
-    idPrefix: "resp",
   },
 });
 
 const INVALID_STREAM = Object.freeze({
   kind: "server",
   message: "the upstream stream could not be translated",
+});
+const INVALID_RESPONSE = Object.freeze({
+  kind: "server",
+  message: "the upstream response could not be translated",
 });
 const NO_IMAGES = "this model does not accept image input";
 
@@ -194,10 +206,7 @@ export function createTranslator({
     sessionKey,
     thinkTagExtraction: thinkTagExtraction === true,
   };
-  const sessionHash = fnv1a(String(sessionKey));
   const stats = { dropped: {}, adjustments: {}, estimatedUsage: 0 };
-  let sequence = 0;
-  let latest;
 
   const secretList = secrets.filter((secret) => typeof secret === "string");
 
@@ -288,15 +297,19 @@ export function createTranslator({
     }
 
     async function translateResponse(json) {
-      const events = observe(fromArray(upstreamSide.parseResponse(json, ctx)));
+      let failure;
       try {
+        const events = observe(fromArray(upstreamSide.parseResponse(json, ctx)));
         return await clientSide.emitResponse(events, emitOptions);
       } catch (cause) {
-        if (cause instanceof AdapterUpstreamError) {
-          cause.clientError = renderError(cause.error, { streaming: false, context });
-        }
-        throw cause;
+        if (cause instanceof AdapterUpstreamError) failure = cause;
+        else if (cause instanceof TypeError || cause instanceof RangeError) {
+          count(stats.dropped, "response.invalid");
+          failure = new AdapterUpstreamError(INVALID_RESPONSE);
+        } else throw cause;
       }
+      failure.clientError = renderError(failure.error, { streaming: false, context });
+      throw failure;
     }
 
     function translateError({ status, body, headers } = {}, options = {}) {
@@ -323,11 +336,7 @@ export function createTranslator({
   }
 
   function nextState(options, ir, streaming) {
-    sequence += 1;
-    const requestId =
-      typeof options.requestId === "string" && options.requestId !== ""
-        ? options.requestId
-        : `${clientSide.idPrefix}_${sessionHash}_${sequence}`;
+    const requestId = options.requestId;
     const now = Number.isFinite(options.now) ? options.now : undefined;
     return {
       requestId,
@@ -363,6 +372,9 @@ export function createTranslator({
   const invalid = (message) => ({ kind: "invalidRequest", status: 400, message });
 
   function buildUpstream(body, headers = {}, options = {}) {
+    if (typeof options?.requestId !== "string" || options.requestId === "") {
+      throw new TypeError("buildUpstream: options.requestId must be a non-empty string");
+    }
     const streaming = body?.stream === true;
     let parsed;
     try {
@@ -397,7 +409,6 @@ export function createTranslator({
     const serialized = JSON.stringify(built.body);
     state.requestChars = serialized.length;
     const exchange = createExchange(state);
-    latest = exchange;
     return {
       ok: true,
       request: {
@@ -410,14 +421,8 @@ export function createTranslator({
     };
   }
 
-  const current = () => latest ?? createExchange(nextState({}, null, false));
-
   return {
     buildUpstream,
-    translateStream: (chunks) => current().translateStream(chunks),
-    translateResponse: (json) => current().translateResponse(json),
-    translateError: (response, options) => current().translateError(response, options),
-    keepalive: () => current().keepalive(),
     diagnostics: () => ({
       dropped: { ...stats.dropped },
       adjustments: { ...stats.adjustments },

@@ -10,6 +10,7 @@ import {
   SECRET,
   clientBody,
   translator,
+  REQ,
 } from "../helpers/protocol-adapter-directions.js";
 
 const PROMPT_TOO_LONG = (prompt, max) =>
@@ -45,14 +46,14 @@ function prepared(client, upstream, overrides) {
   );
   const built = instance.buildUpstream(body, {}, { requestId: "req_fixed", now: 0 });
   assert.equal(built.ok, true);
-  return { instance, built };
+  return { instance, built, exchange: built.exchange };
 }
 
 describe("context overflow per client", () => {
   for (const [path, wording] of Object.entries(MESSAGES_WORDING)) {
     test(`Claude Code ← chat ${path}: exact compaction wording`, () => {
-      const { instance } = prepared("messages", "chat");
-      const rendered = instance.translateError(loadFixture(path), { streaming: true });
+      const { exchange } = prepared("messages", "chat");
+      const rendered = exchange.translateError(loadFixture(path), { streaming: true });
       assert.equal(rendered.status, 400);
       assert.deepEqual(rendered.body, {
         type: "error",
@@ -63,8 +64,8 @@ describe("context overflow per client", () => {
 
   for (const [upstream, path] of RESPONSES_CONTEXT) {
     test(`Codex ← ${upstream} ${path}: context_length_exceeded`, () => {
-      const { instance } = prepared("responses", upstream);
-      const streamed = instance.translateError(loadFixture(path), { streaming: true });
+      const { exchange } = prepared("responses", upstream);
+      const streamed = exchange.translateError(loadFixture(path), { streaming: true });
       assert.equal(streamed.status, 200);
       assert.equal(streamed.headers["content-type"], "text/event-stream");
       const { response, events } = assertResponsesStream(streamed.body);
@@ -75,7 +76,7 @@ describe("context overflow per client", () => {
       assert.equal(response.id, "req_fixed");
       assert.equal(response.model, "qwen3-coder:30b");
       assert.equal(response.error.code, "context_length_exceeded");
-      const plain = instance.translateError(loadFixture(path), { streaming: false });
+      const plain = exchange.translateError(loadFixture(path), { streaming: false });
       assert.equal(plain.status, 400);
       assert.equal(plain.body.error.code, "context_length_exceeded");
     });
@@ -90,8 +91,8 @@ describe("rate limits and overload", () => {
   };
 
   test("Claude Code ← chat 429 keeps retry-after and nothing else", () => {
-    const { instance } = prepared("messages", "chat");
-    const rendered = instance.translateError(chat429, { streaming: true });
+    const { exchange } = prepared("messages", "chat");
+    const rendered = exchange.translateError(chat429, { streaming: true });
     assert.equal(rendered.status, 429);
     assert.equal(rendered.body.error.type, "rate_limit_error");
     assert.deepEqual(rendered.headers, {
@@ -101,22 +102,22 @@ describe("rate limits and overload", () => {
   });
 
   test("Codex ← messages 429: in-stream rate_limit_exceeded, HTTP 429 without stream", () => {
-    const { instance } = prepared("responses", "messages");
+    const { exchange } = prepared("responses", "messages");
     const fixture = loadFixture("upstreams/messages/rate-limit.json");
-    const streamed = instance.translateError(fixture, { streaming: true });
+    const streamed = exchange.translateError(fixture, { streaming: true });
     const { response } = assertResponsesStream(streamed.body);
     assert.deepEqual(response.error, {
       code: "rate_limit_exceeded",
       message: "Rate limit reached. Please try again in 30s.",
     });
-    const plain = instance.translateError(fixture, { streaming: false });
+    const plain = exchange.translateError(fixture, { streaming: false });
     assert.equal(plain.status, 429);
     assert.equal(plain.headers["retry-after"], "30");
   });
 
   test("Codex ← messages 529 overloaded: retryable server_error", () => {
-    const { instance } = prepared("responses", "messages");
-    const streamed = instance.translateError(
+    const { exchange } = prepared("responses", "messages");
+    const streamed = exchange.translateError(
       loadFixture("upstreams/messages/overloaded.json"),
       {
         streaming: true,
@@ -129,20 +130,20 @@ describe("rate limits and overload", () => {
   });
 
   test("Codex ← chat 401: in-stream invalid_prompt (ruling), HTTP 401 without stream", () => {
-    const { instance } = prepared("responses", "chat");
+    const { exchange } = prepared("responses", "chat");
     const auth = { status: 401, body: { error: { message: "bad key" } } };
-    const streamed = instance.translateError(auth, { streaming: true });
+    const streamed = exchange.translateError(auth, { streaming: true });
     assert.equal(streamed.status, 200);
     assert.equal(
       assertResponsesStream(streamed.body).response.error.code,
       "invalid_prompt",
     );
-    assert.equal(instance.translateError(auth, { streaming: false }).status, 401);
+    assert.equal(exchange.translateError(auth, { streaming: false }).status, 401);
   });
 
   test("a started Claude Code stream gets an in-stream error frame", () => {
-    const { instance } = prepared("messages", "responses");
-    const frame = instance.translateError(chat429, { streaming: true, started: true });
+    const { exchange } = prepared("messages", "responses");
+    const frame = exchange.translateError(chat429, { streaming: true, started: true });
     assert.equal(typeof frame, "string");
     const [event] = parseSseText(frame);
     assert.equal(event.event, "error");
@@ -150,12 +151,12 @@ describe("rate limits and overload", () => {
   });
 
   test("secrets never reach the client", () => {
-    const { instance } = prepared("messages", "chat");
+    const { exchange } = prepared("messages", "chat");
     const leaky = {
       status: 500,
       body: { error: { message: `upstream key ${SECRET} failed` } },
     };
-    const rendered = instance.translateError(leaky, { streaming: true });
+    const rendered = exchange.translateError(leaky, { streaming: true });
     assert.ok(!JSON.stringify(rendered).includes(SECRET));
     assert.match(rendered.body.error.message, /\[redacted\]/);
   });
@@ -168,12 +169,12 @@ describe("request rejections", () => {
       ...clientBody("clients/codex/text.json"),
       previous_response_id: "resp_1",
     };
-    const streamed = instance.buildUpstream(body, {});
+    const streamed = instance.buildUpstream(body, {}, REQ);
     assert.equal(streamed.ok, false);
     assert.equal(streamed.error.status, 200);
     const { response } = assertResponsesStream(streamed.error.body);
     assert.equal(response.error.code, "invalid_prompt");
-    const plain = instance.buildUpstream({ ...body, stream: false }, {});
+    const plain = instance.buildUpstream({ ...body, stream: false }, {}, REQ);
     assert.equal(plain.error.status, 400);
     assert.equal(plain.error.body.error.type, "invalid_request_error");
   });
@@ -183,6 +184,7 @@ describe("request rejections", () => {
     const built = instance.buildUpstream(
       { model: "m", messages: "nope", stream: true },
       {},
+      REQ,
     );
     assert.equal(built.ok, false);
     assert.equal(built.error.status, 400);
@@ -192,7 +194,11 @@ describe("request rejections", () => {
 
   test("empty conversation toward Messages → invalidRequest, not a throw", () => {
     const instance = translator("responses", "messages");
-    const built = instance.buildUpstream({ model: "m", input: [], stream: false }, {});
+    const built = instance.buildUpstream(
+      { model: "m", input: [], stream: false },
+      {},
+      REQ,
+    );
     assert.equal(built.ok, false);
     assert.equal(built.error.status, 400);
     assert.match(built.error.body.error.message, /no message is left/);
@@ -203,7 +209,7 @@ describe("request rejections", () => {
       model: { ...MODEL, images: false },
     });
     const body = clientBody("clients/claude-code/image.json");
-    const built = instance.buildUpstream({ ...body, stream: false }, {});
+    const built = instance.buildUpstream({ ...body, stream: false }, {}, REQ);
     assert.equal(built.ok, false);
     assert.equal(built.error.status, 400);
     assert.match(built.error.body.error.message, /image/);
@@ -211,7 +217,7 @@ describe("request rejections", () => {
       model: { ...MODEL, images: false },
     });
     assert.equal(
-      codex.buildUpstream(clientBody("clients/codex/image.json"), {}).ok,
+      codex.buildUpstream(clientBody("clients/codex/image.json"), {}, REQ).ok,
       false,
     );
   });
@@ -219,34 +225,35 @@ describe("request rejections", () => {
 
 describe("keepalive, ids and diagnostics", () => {
   test("keepalive matches the client protocol", () => {
-    const messages = prepared("messages", "chat").instance;
+    const messages = prepared("messages", "chat").exchange;
     assert.equal(messages.keepalive(), 'event: ping\ndata: {"type":"ping"}\n\n');
-    const responses = prepared("responses", "chat").instance;
+    const responses = prepared("responses", "chat").exchange;
     const [frame] = parseSseText(responses.keepalive());
     assert.equal(frame.event, "response.in_progress");
     assert.equal(frame.data.response.id, "req_fixed");
   });
 
-  test("response ids are deterministic per session and request", () => {
-    const ids = () => {
-      const instance = translator("responses", "chat");
-      const body = clientBody("clients/codex/text.json");
-      return [1, 2].map(() => {
-        const built = instance.buildUpstream(body, {});
-        return parseSseText(built.exchange.keepalive())[0].data.response.id;
-      });
-    };
-    const first = ids();
-    assert.deepEqual(ids(), first);
-    assert.notEqual(first[0], first[1]);
-    assert.match(first[0], /^resp_[0-9a-f]{8}_1$/);
+  test("requestId is required and echoed as the client id", () => {
+    const instance = translator("responses", "chat");
+    const body = clientBody("clients/codex/text.json");
+    for (const options of [undefined, {}, { requestId: "" }]) {
+      assert.throws(() => instance.buildUpstream(body, {}, options), TypeError);
+    }
+    const built = instance.buildUpstream(body, {}, { requestId: "resp_random_1" });
+    const [frame] = parseSseText(built.exchange.keepalive());
+    assert.equal(frame.data.response.id, "resp_random_1");
+  });
+
+  test("the translator exposes no request-scoped methods", () => {
+    const instance = translator("messages", "chat");
+    assert.deepEqual(Object.keys(instance).sort(), ["buildUpstream", "diagnostics"]);
   });
 
   test("diagnostics count dropped hints, adjustments and per request", () => {
     const instance = translator("responses", "messages");
     const body = clientBody("clients/codex/text.json");
-    instance.buildUpstream(body, {});
-    instance.buildUpstream(body, {});
+    instance.buildUpstream(body, {}, REQ);
+    instance.buildUpstream(body, {}, REQ);
     const { dropped, adjustments, estimatedUsage } = instance.diagnostics();
     assert.equal(dropped["hints.clientMetadata"], 2);
     assert.equal(dropped["tools.web_search"], 2);

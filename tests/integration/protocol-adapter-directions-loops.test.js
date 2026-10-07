@@ -15,6 +15,7 @@ import {
   responsesReasoningToolStream,
   roundTrip,
   translator,
+  REQ,
 } from "../helpers/protocol-adapter-directions.js";
 
 const PATCH = "*** Begin Patch\n*** Add File: hello.txt\n+hello\n*** End Patch\n";
@@ -76,7 +77,7 @@ describe("multi-turn tool loops", () => {
         ]),
       ],
     };
-    const built = instance.buildUpstream(second, {});
+    const built = instance.buildUpstream(second, {}, REQ);
     assert.equal(built.ok, true);
     assertMessagesRequest(built.request);
     const assistant = lastAssistant(built.request.body.messages);
@@ -116,7 +117,7 @@ describe("multi-turn tool loops", () => {
     const second = claudeFollowUp(first, message, [
       { type: "tool_result", tool_use_id: "call_up_1", content: "a.txt" },
     ]);
-    const built = instance.buildUpstream(second, {});
+    const built = instance.buildUpstream(second, {}, REQ);
     assertChatRequest(built.request.body);
     const assistant = lastAssistant(built.request.body.messages);
     assert.equal(assistant.reasoning_content, "Need to run ls.");
@@ -126,7 +127,7 @@ describe("multi-turn tool loops", () => {
     assert.deepEqual([tool.tool_call_id, tool.content], ["call_up_1", "a.txt"]);
 
     const plain = translator("messages", "chat");
-    const withoutReplay = plain.buildUpstream(second, {});
+    const withoutReplay = plain.buildUpstream(second, {}, REQ);
     assert.ok(
       !("reasoning_content" in lastAssistant(withoutReplay.request.body.messages)),
     );
@@ -152,7 +153,7 @@ describe("multi-turn tool loops", () => {
     const second = claudeFollowUp(first, message, [
       { type: "tool_result", tool_use_id: "call_up_2", content: "a.txt" },
     ]);
-    const built = instance.buildUpstream(second, {});
+    const built = instance.buildUpstream(second, {}, REQ);
     assertResponsesRequest(built.request.body);
     const input = built.request.body.input;
     const reasoning = input.find((item) => item.type === "reasoning");
@@ -193,7 +194,7 @@ describe("multi-turn tool loops", () => {
         ]),
       ],
     };
-    const built = instance.buildUpstream(second, {});
+    const built = instance.buildUpstream(second, {}, REQ);
     assertChatRequest(built.request.body);
     const assistant = lastAssistant(built.request.body.messages);
     assert.equal(assistant.reasoning_content, "Think first.");
@@ -203,7 +204,7 @@ describe("multi-turn tool loops", () => {
   test("Claude Code ↔ Chat: long MCP names map to one stable short name", async () => {
     const instance = translator("messages", "chat");
     const first = clientBody("clients/claude-code/mcp.json");
-    const built = instance.buildUpstream(first, {});
+    const built = instance.buildUpstream(first, {}, REQ);
     const long = first.tools.find((tool) => tool.name.length > 64).name;
     const index = first.tools.findIndex((tool) => tool.name === long);
     const mapped = built.request.body.tools[index].function.name;
@@ -215,7 +216,7 @@ describe("multi-turn tool loops", () => {
     const second = claudeFollowUp(first, message, [
       { type: "tool_result", tool_use_id: "call_mcp", content: "docs" },
     ]);
-    const next = instance.buildUpstream(second, {});
+    const next = instance.buildUpstream(second, {}, REQ);
     assertChatRequest(next.request.body);
     assert.equal(
       lastAssistant(next.request.body.messages).tool_calls[0].function.name,
@@ -227,7 +228,7 @@ describe("multi-turn tool loops", () => {
   test("Codex ↔ Messages: namespaced MCP tools round trip", async () => {
     const instance = translator("responses", "messages");
     const first = clientBody("clients/codex/mcp.json");
-    const built = instance.buildUpstream(first, {});
+    const built = instance.buildUpstream(first, {}, REQ);
     const tool = built.request.body.tools.find((entry) => entry.name.startsWith("mcp__"));
     assert.ok(tool, "namespaced tool is flattened");
     const stream = messagesThinkingToolStream({
@@ -280,7 +281,7 @@ describe("Codex custom tools (apply_patch) through function-only upstreams", () 
         { type: "custom_tool_call_output", call_id: call.call_id, output: "Success." },
       ],
     };
-    const built = instance.buildUpstream(second, {});
+    const built = instance.buildUpstream(second, {}, REQ);
     assertChatRequest(built.request.body);
     const sent = lastAssistant(built.request.body.messages).tool_calls[0];
     assert.equal(sent.function.arguments, JSON.stringify({ input: PATCH }));
