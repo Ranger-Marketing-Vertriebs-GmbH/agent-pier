@@ -283,6 +283,18 @@ describe("Chat tool call keys and truncation", () => {
     assert.deepEqual(inputs(out), ['{"x":1}']);
   });
 
+  test("a trailing index-less entry with the name and empty arguments adds no call", async () => {
+    const out = await parse([
+      chunk({ tool_calls: [{ function: { name: "f", arguments: '{"x":' } }] }),
+      chunk({ tool_calls: [{ function: { name: "f", arguments: "1}" } }] }),
+      chunk({ tool_calls: [{ function: { name: "f", arguments: "" } }] }),
+      finish("tool_calls"),
+      "[DONE]",
+    ]);
+    assert.equal(starts(out).length, 1);
+    assert.deepEqual(inputs(out), ['{"x":1}']);
+  });
+
   test("mixed indexed and index-less entries continue the last indexed call", async () => {
     const out = await parse([
       chunk({

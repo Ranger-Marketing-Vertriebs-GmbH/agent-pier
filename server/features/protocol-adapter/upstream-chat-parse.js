@@ -218,8 +218,9 @@ function createChatState(ctx) {
   };
   /**
    * Index-less entries (some servers, e.g. Gemini's whole calls per chunk) are told apart
-   * by id; without an id, a named entry after a call whose arguments are complete JSON
-   * starts a new call, anything else continues the last call. Indexed entries also set
+   * by id; without an id, a named entry with a non-empty arguments fragment after a call
+   * whose arguments are complete JSON starts a new call, anything else continues the last
+   * call (so a trailing `{name, arguments: ""}` repeat adds no phantom call). Indexed entries also set
    * the last call, so mixed streams continue the right one.
    */
   const callKey = (entry, position) => {
@@ -235,7 +236,12 @@ function createChatState(ctx) {
     } else if (calls.size === 0) lastKey = position;
     else {
       const last = calls.get(lastKey);
-      if (last?.name && nonEmpty(entry.function?.name) && argumentsComplete(last)) {
+      if (
+        last?.name &&
+        nonEmpty(entry.function?.name) &&
+        argumentsText(entry.function?.arguments) !== "" &&
+        argumentsComplete(last)
+      ) {
         lastKey = highestKey + 1;
       }
     }
