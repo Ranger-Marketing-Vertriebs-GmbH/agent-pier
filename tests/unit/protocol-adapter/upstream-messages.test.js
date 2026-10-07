@@ -7,8 +7,11 @@ import {
   createNameMap,
 } from "../../../server/features/protocol-adapter/names.js";
 import { loadFixture } from "../../helpers/protocol-adapter.js";
+import {
+  assertMessagesRequest,
+  countBreakpoints,
+} from "../../helpers/protocol-adapter-shapes.js";
 
-const TOOL_NAME = /^[a-zA-Z0-9_-]{1,128}$/;
 const TOOL_ID = /^[a-zA-Z0-9_-]+$/;
 const SIGNATURE = "EqQBCkYIBxgCKkBfixtureSignature==";
 
@@ -58,113 +61,6 @@ function request(overrides = {}) {
   };
 }
 
-const ALLOWED_TOP = new Set([
-  "model",
-  "max_tokens",
-  "system",
-  "messages",
-  "tools",
-  "tool_choice",
-  "thinking",
-  "output_config",
-  "stop_sequences",
-  "stream",
-]);
-const IR_KEYS = new Set([
-  "parts",
-  "kind",
-  "namespace",
-  "cache",
-  "carrier",
-  "isError",
-  "callId",
-  "mediaType",
-  "hints",
-  "summary",
-  "redacted",
-]);
-const BLOCK_TYPES = {
-  user: ["text", "image", "tool_result"],
-  assistant: ["text", "tool_use", "thinking", "redacted_thinking"],
-};
-
-function assertNoIrKeys(value, path) {
-  if (Array.isArray(value))
-    value.forEach((item, i) => assertNoIrKeys(item, `${path}[${i}]`));
-  else if (value && typeof value === "object") {
-    for (const [key, item] of Object.entries(value)) {
-      if (key === "input_schema" || key === "input") continue; // user-defined content
-      assert.ok(!IR_KEYS.has(key), `IR key ${key} leaked at ${path}`);
-      assertNoIrKeys(item, `${path}.${key}`);
-    }
-  }
-}
-
-function countBreakpoints(body) {
-  let count = 0;
-  const visit = (value) => {
-    if (Array.isArray(value)) value.forEach(visit);
-    else if (value && typeof value === "object") {
-      if (value.cache_control) count += 1;
-      for (const [key, item] of Object.entries(value)) {
-        if (key !== "cache_control" && key !== "input_schema") visit(item);
-      }
-    }
-  };
-  visit([body.system, body.tools, body.messages]);
-  return count;
-}
-
-/** Structural validity of a Messages request as Anthropic documents it. */
-function assertValidMessagesRequest(built) {
-  const { body } = built;
-  assert.equal(built.path, "/v1/messages");
-  assert.deepEqual(built.headers, { "anthropic-version": "2023-06-01" });
-  for (const key of Object.keys(body)) assert.ok(ALLOWED_TOP.has(key), `top key ${key}`);
-  assert.ok(Number.isInteger(body.max_tokens) && body.max_tokens > 0);
-  assert.equal(body.messages[0].role, "user");
-  body.messages.forEach((message, index) => {
-    assert.ok(["user", "assistant"].includes(message.role));
-    if (index > 0) assert.notEqual(message.role, body.messages[index - 1].role);
-    assert.ok(Array.isArray(message.content) && message.content.length > 0);
-    for (const block of message.content) {
-      assert.ok(BLOCK_TYPES[message.role].includes(block.type), block.type);
-      if (block.type === "text") assert.ok(block.text !== "");
-    }
-    const uses = message.content.filter((block) => block.type === "tool_use");
-    for (const use of uses) {
-      assert.match(use.id, TOOL_ID);
-      assert.match(use.name, TOOL_NAME);
-      assert.ok(use.input && typeof use.input === "object" && !Array.isArray(use.input));
-    }
-    if (uses.length > 0) {
-      const next = body.messages[index + 1];
-      assert.ok(next, "tool_use is followed by a user message");
-      const leading = next.content.slice(0, uses.length);
-      assert.deepEqual(
-        leading.map((block) => block.type),
-        uses.map(() => "tool_result"),
-      );
-      assert.deepEqual(
-        new Set(leading.map((block) => block.tool_use_id)),
-        new Set(uses.map((use) => use.id)),
-      );
-    }
-  });
-  for (const tool of body.tools ?? []) {
-    assert.match(tool.name, TOOL_NAME);
-    assert.equal(tool.input_schema.type, "object");
-  }
-  for (const key of ["temperature", "top_p", "top_k"]) assert.ok(!(key in body));
-  assert.ok(countBreakpoints(body) <= 4, "at most 4 cache breakpoints");
-  if (body.thinking?.type === "enabled") {
-    assert.ok(body.thinking.budget_tokens >= 1024);
-    assert.ok(body.thinking.budget_tokens < body.max_tokens);
-  }
-  if (body.thinking) assert.ok(!["any", "tool"].includes(body.tool_choice?.type));
-  assertNoIrKeys(body, "body");
-}
-
 describe("buildMessagesRequest with Codex snapshots", () => {
   for (const name of [
     "text",
@@ -181,7 +77,7 @@ describe("buildMessagesRequest with Codex snapshots", () => {
   ]) {
     test(`${name} builds a valid Messages request`, () => {
       const built = build(snapshot(name));
-      assertValidMessagesRequest(built);
+      assertMessagesRequest(built);
       assert.equal(built.body.model, "claude-upstream");
       assert.equal(built.body.max_tokens, 32000);
       assert.equal(built.body.stream, true);
@@ -306,7 +202,7 @@ describe("buildMessagesRequest rules", () => {
       ],
     });
     const built = build(ir);
-    assertValidMessagesRequest(built);
+    assertMessagesRequest(built);
     assert.deepEqual(built.body.messages[1].content, [
       { type: "thinking", thinking: "Exact plan.", signature: SIGNATURE },
       { type: "tool_use", id: "call_a", name: "exec_command", input: { cmd: "ls" } },
@@ -331,7 +227,7 @@ describe("buildMessagesRequest rules", () => {
       ],
     });
     const built = build(ir, { capabilities: { promptCache: false } });
-    assertValidMessagesRequest(built);
+    assertMessagesRequest(built);
     const { system, messages } = built.body;
     assert.deepEqual(system, [
       { type: "text", text: "lead" },
@@ -374,7 +270,7 @@ describe("buildMessagesRequest rules", () => {
       ],
     });
     const built = build(ir);
-    assertValidMessagesRequest(built);
+    assertMessagesRequest(built);
     assert.equal(built.body.messages[0].content[0].type, "text");
     assert.match(built.body.messages[0].content[0].text, /ok/);
     assert.ok(built.dropped.includes("user.toolResult.orphan"));

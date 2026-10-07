@@ -7,8 +7,8 @@ import {
   createNameMap,
 } from "../../../server/features/protocol-adapter/names.js";
 import { loadFixture } from "../../helpers/protocol-adapter.js";
+import { assertChatRequest } from "../../helpers/protocol-adapter-shapes.js";
 
-const CHAT_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
 const ALL_CAPABILITIES = {
   promptCacheKey: true,
   streamUsage: true,
@@ -50,98 +50,6 @@ function request(overrides = {}) {
   };
 }
 
-const ALLOWED_TOP = new Set([
-  "model",
-  "messages",
-  "tools",
-  "tool_choice",
-  "parallel_tool_calls",
-  "max_tokens",
-  "temperature",
-  "top_p",
-  "stop",
-  "reasoning_effort",
-  "response_format",
-  "prompt_cache_key",
-  "stream",
-  "stream_options",
-]);
-const IR_KEYS = new Set([
-  "parts",
-  "kind",
-  "namespace",
-  "cache",
-  "carrier",
-  "isError",
-  "callId",
-]);
-
-function assertNoIrKeys(value, path) {
-  if (Array.isArray(value))
-    return value.forEach((item, i) => assertNoIrKeys(item, `${path}[${i}]`));
-  if (value === null || typeof value !== "object") return;
-  for (const [key, child] of Object.entries(value)) {
-    if (path.includes(".parameters")) continue; // tool schemas are client data
-    assert.ok(!IR_KEYS.has(key), `${path}.${key} is an IR leftover`);
-    assertNoIrKeys(child, `${path}.${key}`);
-  }
-}
-
-/** Minimal Chat Completions request validator (system only leading unless `inline`). */
-function assertChatShape(body, { inline = false } = {}) {
-  const roles = body.messages.map((message) => message.role);
-  roles.forEach((role, index) => {
-    if (index === 0) return;
-    assert.ok(
-      !(role === "user" && roles[index - 1] === "user"),
-      `consecutive user at ${index}`,
-    );
-    if (!inline)
-      assert.ok(role !== "system" || roles[index - 1] === "system", `system at ${index}`);
-  });
-  for (const key of Object.keys(body))
-    assert.ok(ALLOWED_TOP.has(key), `unexpected ${key}`);
-  assert.equal(typeof body.model, "string");
-  assert.ok(Array.isArray(body.messages) && body.messages.length > 0);
-  const toolNames = new Set();
-  for (const tool of body.tools ?? []) {
-    assert.equal(tool.type, "function");
-    assert.match(tool.function.name, CHAT_NAME);
-    assert.equal(typeof tool.function.parameters, "object");
-    assert.ok(!toolNames.has(tool.function.name), "tool names are unique");
-    toolNames.add(tool.function.name);
-  }
-  let pending = new Set();
-  body.messages.forEach((message, index) => {
-    const where = `messages[${index}]`;
-    assert.ok(["system", "user", "assistant", "tool"].includes(message.role), where);
-    if (message.role === "tool") {
-      assert.ok(pending.has(message.tool_call_id), `${where} answers an open tool call`);
-      assert.equal(typeof message.content, "string");
-      pending.delete(message.tool_call_id);
-      return;
-    }
-    assert.equal(pending.size, 0, `${where}: tool results must follow their calls`);
-    if (message.role === "assistant" && message.tool_calls) {
-      for (const call of message.tool_calls) {
-        assert.equal(call.type, "function");
-        assert.match(call.function.name, CHAT_NAME);
-        assert.ok(toolNames.has(call.function.name), `${call.function.name} is declared`);
-        assert.equal(typeof call.function.arguments, "string");
-        JSON.parse(call.function.arguments);
-        pending.add(call.id);
-      }
-    }
-    if (typeof message.content !== "string" && message.content !== null) {
-      assert.ok(Array.isArray(message.content), `${where} content`);
-      for (const part of message.content)
-        assert.ok(["text", "image_url"].includes(part.type));
-    }
-  });
-  assert.equal(pending.size, 0, "every tool call has a result");
-  assertNoIrKeys(body.messages, "messages");
-}
-
 const SNAPSHOTS = [
   "claude-code/mcp-tool-result",
   "claude-code/image",
@@ -160,7 +68,7 @@ describe("client IR snapshots", () => {
         const result = build(snapshot(name), { capabilities });
         assert.equal(result.path, "/chat/completions");
         assert.ok(Array.isArray(result.dropped));
-        assertChatShape(result.body);
+        assertChatRequest(result.body);
         assert.equal(result.body.model, "upstream-model");
       }
     });
@@ -347,7 +255,7 @@ describe("messages", () => {
       ],
     });
     const { body } = build(ir);
-    assertChatShape(body);
+    assertChatRequest(body);
     assert.deepEqual(body.messages.slice(1), [
       {
         role: "assistant",
