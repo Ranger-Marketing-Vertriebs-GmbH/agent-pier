@@ -4,7 +4,7 @@
     "accept": "application/json",
     "content-type": "application/json",
     "user-agent": "claude-cli/2.1.291 (external, sdk-cli)",
-    "x-claude-code-session-id": "c6402a3f-95b8-4dbc-a2ee-9cef0b4abd84",
+    "x-claude-code-session-id": "00000000-0000-4000-8000-000000000002",
     "x-stainless-arch": "arm64",
     "x-stainless-lang": "js",
     "x-stainless-os": "MacOS",
@@ -689,7 +689,7 @@
       }
     ],
     "metadata": {
-      "user_id": "{\"device_id\":\"6505473757942e050e5e347c1b79eb0d8d7ef0eee85e90648268b1c1f1ce325d\",\"account_uuid\":\"\",\"session_id\":\"c6402a3f-95b8-4dbc-a2ee-9cef0b4abd84\"}"
+      "user_id": "{\"device_id\":\"fixture-device-id-2\",\"account_uuid\":\"\",\"session_id\":\"00000000-0000-4000-8000-000000000002\"}"
     },
     "max_tokens": 32000,
     "thinking": {

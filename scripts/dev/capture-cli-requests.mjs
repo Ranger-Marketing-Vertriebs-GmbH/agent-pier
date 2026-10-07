@@ -5,6 +5,10 @@
 //   node scripts/dev/capture-cli-requests.mjs serve [--port 0] [--out DIR] [--plan text]
 //   node scripts/dev/capture-cli-requests.mjs record [--cli claude|codex|all]
 //        [--claude-bin claude] [--codex-bin codex] [--out tests/fixtures/protocol-adapter/clients]
+//        [--keep-raw]
+//
+// Raw (unscrubbed) captures go to a temp dir that is deleted at exit unless --keep-raw.
+// Install and session ids are replaced with constants (capture-cli-identifiers.mjs).
 //
 // Safety: the server binds 127.0.0.1 only, every CLI runs with throw-away HOME,
 // CLAUDE_CONFIG_DIR / CODEX_HOME and working directory under the system temp dir, the
@@ -16,6 +20,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { codexModelCatalog } from "../../server/features/providers/native-config.js";
+import { createIdentifierScrubber } from "./capture-cli-identifiers.mjs";
 import { messagesStream, responsesStream } from "./capture-cli-streams.mjs";
 
 const SECRET_HEADERS = new Set([
@@ -361,7 +366,7 @@ const isMainLoop = (record) =>
   Array.isArray(record.body?.tools) &&
   record.body.tools.length > 0;
 
-async function recordCli(label, cases, launchFor, outDir, rawDir) {
+async function recordCli(label, cases, launchFor, outDir, rawDir, identifiers) {
   fs.mkdirSync(outDir, { recursive: true });
   const skipped = [];
   for (const spec of cases) {
@@ -386,7 +391,7 @@ async function recordCli(label, cases, launchFor, outDir, rawDir) {
         skipped.push(`${label}/${file}`);
         return;
       }
-      const { path: requestPath, headers, body } = scrub(record);
+      const { path: requestPath, headers, body } = identifiers.scrub(scrub(record));
       fs.writeFileSync(
         path.join(outDir, `${file}.json`),
         `${JSON.stringify({ path: requestPath, headers, body }, null, 2)}\n`,
@@ -435,32 +440,41 @@ async function main() {
     option(args, "out", "tests/fixtures/protocol-adapter/clients"),
   );
   const rawDir = fs.mkdtempSync(path.join(os.tmpdir(), "capture-raw-"));
+  const keepRaw = args.includes("--keep-raw");
+  const identifiers = createIdentifierScrubber();
   const skipped = [];
-  if (cli === "all" || cli === "claude") {
-    const bin = option(args, "claude-bin", "claude");
-    skipped.push(
-      ...(await recordCli(
-        "claude-code",
-        claudeCases,
-        (spec) => claudeLaunch(bin, spec),
-        path.join(out, "claude-code"),
-        rawDir,
-      )),
-    );
+  try {
+    if (cli === "all" || cli === "claude") {
+      const bin = option(args, "claude-bin", "claude");
+      skipped.push(
+        ...(await recordCli(
+          "claude-code",
+          claudeCases,
+          (spec) => claudeLaunch(bin, spec),
+          path.join(out, "claude-code"),
+          rawDir,
+          identifiers,
+        )),
+      );
+    }
+    if (cli === "all" || cli === "codex") {
+      const bin = option(args, "codex-bin", "codex");
+      skipped.push(
+        ...(await recordCli(
+          "codex",
+          codexCases,
+          (spec) => codexLaunch(bin, spec),
+          path.join(out, "codex"),
+          rawDir,
+          identifiers,
+        )),
+      );
+    }
+  } finally {
+    // Raw captures are not anonymized; they stay only on request.
+    if (keepRaw) console.log(`raw captures: ${rawDir}`);
+    else fs.rmSync(rawDir, { recursive: true, force: true });
   }
-  if (cli === "all" || cli === "codex") {
-    const bin = option(args, "codex-bin", "codex");
-    skipped.push(
-      ...(await recordCli(
-        "codex",
-        codexCases,
-        (spec) => codexLaunch(bin, spec),
-        path.join(out, "codex"),
-        rawDir,
-      )),
-    );
-  }
-  console.log(`raw captures: ${rawDir}`);
   if (skipped.length) console.log(`not captured: ${skipped.join(", ")}`);
 }
 

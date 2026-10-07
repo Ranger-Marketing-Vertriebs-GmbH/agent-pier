@@ -2,11 +2,11 @@
   "path": "/v1/responses",
   "headers": {
     "x-codex-beta-features": "remote_compaction_v2",
-    "x-codex-window-id": "01a115ae-3b0e-7823-b310-eb49fd260733:0",
-    "x-codex-turn-metadata": "{\"installation_id\":\"f0308090-9604-4c39-bf2e-233362d151ca\",\"session_id\":\"01a115ae-3b0e-7823-b310-eb49fd260733\",\"thread_id\":\"01a115ae-3b0e-7823-b310-eb49fd260733\",\"agent_name\":\"/root\",\"turn_id\":\"01a115ae-3b16-7020-aee5-577c56a2ab8d\",\"window_id\":\"01a115ae-3b0e-7823-b310-eb49fd260733:0\",\"window_number\":0,\"context_window_id\":\"01a115ae-3b0f-7321-9ad8-2aed899e482d\",\"request_kind\":\"turn\",\"root_turn_id\":\"01a115ae-3b16-7020-aee5-577c56a2ab8d\",\"thread_source\":\"user\",\"turn_trigger\":\"exec\",\"sandbox\":\"seatbelt\",\"sandbox_mode\":\"workspace-write\",\"auto_review_enabled\":false,\"node_repl_auto_review_required\":false,\"node_repl_disabled\":false,\"turn_started_at_unix_ms\":1791365102359,\"analytics_enabled\":true,\"model\":\"qwen3-coder:30b\",\"reasoning_effort\":\"medium\"}",
-    "x-client-request-id": "01a115ae-3b0e-7823-b310-eb49fd260733",
-    "session-id": "01a115ae-3b0e-7823-b310-eb49fd260733",
-    "thread-id": "01a115ae-3b0e-7823-b310-eb49fd260733",
+    "x-codex-window-id": "00000000-0000-4000-8000-000000000005:0",
+    "x-codex-turn-metadata": "{\"installation_id\":\"00000000-0000-4000-9000-000000000001\",\"session_id\":\"00000000-0000-4000-8000-000000000005\",\"thread_id\":\"00000000-0000-4000-8000-000000000005\",\"agent_name\":\"/root\",\"turn_id\":\"01a115ae-3b16-7020-aee5-577c56a2ab8d\",\"window_id\":\"00000000-0000-4000-8000-000000000005:0\",\"window_number\":0,\"context_window_id\":\"01a115ae-3b0f-7321-9ad8-2aed899e482d\",\"request_kind\":\"turn\",\"root_turn_id\":\"01a115ae-3b16-7020-aee5-577c56a2ab8d\",\"thread_source\":\"user\",\"turn_trigger\":\"exec\",\"sandbox\":\"seatbelt\",\"sandbox_mode\":\"workspace-write\",\"auto_review_enabled\":false,\"node_repl_auto_review_required\":false,\"node_repl_disabled\":false,\"turn_started_at_unix_ms\":1791365102359,\"analytics_enabled\":true,\"model\":\"qwen3-coder:30b\",\"reasoning_effort\":\"medium\"}",
+    "x-client-request-id": "00000000-0000-4000-8000-000000000005",
+    "session-id": "00000000-0000-4000-8000-000000000005",
+    "thread-id": "00000000-0000-4000-8000-000000000005",
     "accept": "text/event-stream",
     "content-type": "application/json",
     "originator": "codex_exec",
@@ -488,15 +488,15 @@
     "store": false,
     "stream": true,
     "include": ["reasoning.encrypted_content"],
-    "prompt_cache_key": "01a115ae-3b0e-7823-b310-eb49fd260733",
+    "prompt_cache_key": "00000000-0000-4000-8000-000000000005",
     "client_metadata": {
-      "x-codex-turn-metadata": "{\"installation_id\":\"f0308090-9604-4c39-bf2e-233362d151ca\",\"session_id\":\"01a115ae-3b0e-7823-b310-eb49fd260733\",\"thread_id\":\"01a115ae-3b0e-7823-b310-eb49fd260733\",\"agent_name\":\"/root\",\"turn_id\":\"01a115ae-3b16-7020-aee5-577c56a2ab8d\",\"window_id\":\"01a115ae-3b0e-7823-b310-eb49fd260733:0\",\"window_number\":0,\"context_window_id\":\"01a115ae-3b0f-7321-9ad8-2aed899e482d\",\"request_kind\":\"turn\",\"root_turn_id\":\"01a115ae-3b16-7020-aee5-577c56a2ab8d\",\"thread_source\":\"user\",\"turn_trigger\":\"exec\",\"sandbox\":\"seatbelt\",\"sandbox_mode\":\"workspace-write\",\"auto_review_enabled\":false,\"node_repl_auto_review_required\":false,\"node_repl_disabled\":false,\"turn_started_at_unix_ms\":1791365102359,\"analytics_enabled\":true,\"model\":\"qwen3-coder:30b\",\"reasoning_effort\":\"medium\"}",
+      "x-codex-turn-metadata": "{\"installation_id\":\"00000000-0000-4000-9000-000000000001\",\"session_id\":\"00000000-0000-4000-8000-000000000005\",\"thread_id\":\"00000000-0000-4000-8000-000000000005\",\"agent_name\":\"/root\",\"turn_id\":\"01a115ae-3b16-7020-aee5-577c56a2ab8d\",\"window_id\":\"00000000-0000-4000-8000-000000000005:0\",\"window_number\":0,\"context_window_id\":\"01a115ae-3b0f-7321-9ad8-2aed899e482d\",\"request_kind\":\"turn\",\"root_turn_id\":\"01a115ae-3b16-7020-aee5-577c56a2ab8d\",\"thread_source\":\"user\",\"turn_trigger\":\"exec\",\"sandbox\":\"seatbelt\",\"sandbox_mode\":\"workspace-write\",\"auto_review_enabled\":false,\"node_repl_auto_review_required\":false,\"node_repl_disabled\":false,\"turn_started_at_unix_ms\":1791365102359,\"analytics_enabled\":true,\"model\":\"qwen3-coder:30b\",\"reasoning_effort\":\"medium\"}",
       "root_turn_id": "01a115ae-3b16-7020-aee5-577c56a2ab8d",
-      "session_id": "01a115ae-3b0e-7823-b310-eb49fd260733",
-      "x-codex-installation-id": "f0308090-9604-4c39-bf2e-233362d151ca",
-      "thread_id": "01a115ae-3b0e-7823-b310-eb49fd260733",
+      "session_id": "00000000-0000-4000-8000-000000000005",
+      "x-codex-installation-id": "00000000-0000-4000-9000-000000000001",
+      "thread_id": "00000000-0000-4000-8000-000000000005",
       "turn_id": "01a115ae-3b16-7020-aee5-577c56a2ab8d",
-      "x-codex-window-id": "01a115ae-3b0e-7823-b310-eb49fd260733:0"
+      "x-codex-window-id": "00000000-0000-4000-8000-000000000005:0"
     }
   }
 }

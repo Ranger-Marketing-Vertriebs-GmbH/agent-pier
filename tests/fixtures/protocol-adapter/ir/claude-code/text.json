@@ -653,7 +653,7 @@
     "stream": true,
     "hints": {
       "metadata": {
-        "user_id": "{\"device_id\":\"db9329d8f60f734c71e69951c6461818f3ec68728fcc2724d98581759165fff9\",\"account_uuid\":\"\",\"session_id\":\"ab34b277-ca83-4290-95ca-5088859eccc6\"}"
+        "user_id": "{\"device_id\":\"fixture-device-id-3\",\"account_uuid\":\"\",\"session_id\":\"00000000-0000-4000-8000-000000000003\"}"
       },
       "contextManagement": {
         "edits": [

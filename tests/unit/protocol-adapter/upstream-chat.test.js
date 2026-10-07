@@ -132,7 +132,7 @@ describe("client IR snapshots", () => {
       "Wall time: 0.0008 seconds\nOutput:\nMCP tool call requires approval, but approval policy is never",
     );
     assert.equal(body.parallel_tool_calls, true);
-    assert.equal(body.prompt_cache_key, "01a115ae-3b84-7af1-9171-1c717c4ea4ae");
+    assert.equal(body.prompt_cache_key, "00000000-0000-4000-8000-000000000008");
     assert.equal(body.max_tokens, undefined);
     const serialized = JSON.stringify(body);
     for (const leak of [

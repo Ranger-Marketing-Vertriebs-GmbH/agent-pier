@@ -487,20 +487,20 @@
     },
     "output": null,
     "cache": {
-      "key": "01a115ae-3a7d-7272-81bc-ffe95f99532a"
+      "key": "00000000-0000-4000-8000-000000000006"
     },
     "stream": true,
     "hints": {
       "store": false,
       "include": ["reasoning.encrypted_content"],
       "clientMetadata": {
-        "x-codex-turn-metadata": "{\"installation_id\":\"dd8351d2-c339-4d2e-92c1-612d5ecb8193\",\"session_id\":\"01a115ae-3a7d-7272-81bc-ffe95f99532a\",\"thread_id\":\"01a115ae-3a7d-7272-81bc-ffe95f99532a\",\"agent_name\":\"/root\",\"turn_id\":\"01a115ae-3a93-7ed1-bf88-f853f209d3c1\",\"window_id\":\"01a115ae-3a7d-7272-81bc-ffe95f99532a:0\",\"window_number\":0,\"context_window_id\":\"01a115ae-3a7d-7272-81bd-000d2acdeabf\",\"request_kind\":\"turn\",\"root_turn_id\":\"01a115ae-3a93-7ed1-bf88-f853f209d3c1\",\"thread_source\":\"user\",\"turn_trigger\":\"exec\",\"sandbox\":\"seatbelt\",\"sandbox_mode\":\"read-only\",\"auto_review_enabled\":false,\"node_repl_auto_review_required\":false,\"node_repl_disabled\":false,\"turn_started_at_unix_ms\":1791365102227,\"analytics_enabled\":true,\"model\":\"qwen3-coder:30b\",\"reasoning_effort\":\"medium\"}",
-        "x-codex-installation-id": "dd8351d2-c339-4d2e-92c1-612d5ecb8193",
-        "thread_id": "01a115ae-3a7d-7272-81bc-ffe95f99532a",
+        "x-codex-turn-metadata": "{\"installation_id\":\"00000000-0000-4000-9000-000000000002\",\"session_id\":\"00000000-0000-4000-8000-000000000006\",\"thread_id\":\"00000000-0000-4000-8000-000000000006\",\"agent_name\":\"/root\",\"turn_id\":\"01a115ae-3a93-7ed1-bf88-f853f209d3c1\",\"window_id\":\"00000000-0000-4000-8000-000000000006:0\",\"window_number\":0,\"context_window_id\":\"01a115ae-3a7d-7272-81bd-000d2acdeabf\",\"request_kind\":\"turn\",\"root_turn_id\":\"01a115ae-3a93-7ed1-bf88-f853f209d3c1\",\"thread_source\":\"user\",\"turn_trigger\":\"exec\",\"sandbox\":\"seatbelt\",\"sandbox_mode\":\"read-only\",\"auto_review_enabled\":false,\"node_repl_auto_review_required\":false,\"node_repl_disabled\":false,\"turn_started_at_unix_ms\":1791365102227,\"analytics_enabled\":true,\"model\":\"qwen3-coder:30b\",\"reasoning_effort\":\"medium\"}",
+        "x-codex-installation-id": "00000000-0000-4000-9000-000000000002",
+        "thread_id": "00000000-0000-4000-8000-000000000006",
         "root_turn_id": "01a115ae-3a93-7ed1-bf88-f853f209d3c1",
         "turn_id": "01a115ae-3a93-7ed1-bf88-f853f209d3c1",
-        "session_id": "01a115ae-3a7d-7272-81bc-ffe95f99532a",
-        "x-codex-window-id": "01a115ae-3a7d-7272-81bc-ffe95f99532a:0"
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "x-codex-window-id": "00000000-0000-4000-8000-000000000006:0"
       },
       "namespaceDescriptions": {
         "multi_agent_v1": "Tools for spawning and managing sub-agents."
