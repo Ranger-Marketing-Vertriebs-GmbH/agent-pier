@@ -317,7 +317,7 @@ describe("non-streaming responses", () => {
     );
   });
 
-  test("a malformed body rejects with a rendered server error, not a raw TypeError", async () => {
+  test("invalid JSON tool arguments degrade to an empty input as on the stream path", async () => {
     const instance = translator("messages", "chat");
     const body = { ...clientBody(BASE_REQUEST.messages), stream: false };
     const built = instance.buildUpstream(body, {}, REQ);
@@ -326,7 +326,7 @@ describe("non-streaming responses", () => {
       type: "function",
       function: { name: "Bash", arguments: "{bad" },
     };
-    const malformed = {
+    const response = await built.exchange.translateResponse({
       id: "chatcmpl-bad",
       choices: [
         {
@@ -335,6 +335,23 @@ describe("non-streaming responses", () => {
           finish_reason: "tool_calls",
         },
       ],
+    });
+    assert.deepEqual(response.content, [
+      { type: "tool_use", id: "c1", name: "Bash", input: {} },
+    ]);
+    assert.equal(response.stop_reason, "tool_use");
+    assert.equal(instance.diagnostics().errors["response.invalid"], undefined);
+  });
+
+  test("a malformed body rejects with a rendered server error, not a raw TypeError", async () => {
+    const instance = translator("messages", "chat");
+    const body = { ...clientBody(BASE_REQUEST.messages), stream: false };
+    const built = instance.buildUpstream(body, {}, REQ);
+    // Fractional token counts are not valid IR usage.
+    const malformed = {
+      id: "chatcmpl-bad",
+      choices: [{ index: 0, message: { content: "x" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 1.5, completion_tokens: 1 },
     };
     await assert.rejects(built.exchange.translateResponse(malformed), (error) => {
       assert.equal(error.name, "AdapterUpstreamError");
