@@ -85,6 +85,7 @@ export function chosenTool(ir, choice) {
 // Keywords OpenAI strict mode rejects (structured outputs "supported schemas").
 const STRICT_UNSUPPORTED = [
   "allOf",
+  "oneOf",
   "not",
   "if",
   "then",

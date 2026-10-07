@@ -114,7 +114,14 @@ describe("Claude Code request fields kept or counted", () => {
       additionalProperties: false,
       allOf: [{ properties: {} }],
     };
-    for (const input_schema of [schema, optional, nestedOpen, missingRequired, allOf]) {
+    const oneOf = {
+      type: "object",
+      properties: { a: { oneOf: [{ type: "string" }, { type: "number" }] } },
+      required: ["a"],
+      additionalProperties: false,
+    };
+    const inputSchemas = [schema, optional, nestedOpen, missingRequired, allOf, oneOf];
+    for (const input_schema of inputSchemas) {
       const { ir } = parse({ tools: [{ name: "f", input_schema, strict: true }] });
       const responses = buildResponsesRequest(ir, context());
       const chat = buildChatRequest(ir, context());
