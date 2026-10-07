@@ -91,6 +91,9 @@ export function auditEvent(input) {
   if (input.source === "mcp" || input.resourceType === "mcp")
     for (const key of ["grantId", "clientId"])
       if (details[key] !== undefined) event.details[key] = auditId(details[key]);
+  // A project merge names the older project it moved into the audited one.
+  if (input.resourceType === "project" && details.fromProjectId !== undefined)
+    event.details.fromProjectId = auditId(details.fromProjectId);
   if (["codex", "claude", "opencode", "shell", "gh"].includes(details.tool))
     event.details.tool = details.tool;
   if (["permission", "question", "gate", "completion"].includes(details.kind))

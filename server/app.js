@@ -94,6 +94,7 @@ export async function createApplication(config) {
   Object.assign(services, await createPipelineServices(services));
   services.projectRebind.definitions = services.pipelineDefinitions;
   services.projectDuplicates = new ProjectDuplicates(services);
+  await services.projectDuplicates.resume();
   // A failed one-off cleanup keeps no marker, so the next start retries it.
   // The cleanup handles no credentials, so its error code or message is safe to log.
   await cleanUpProjects(services).catch((error) =>

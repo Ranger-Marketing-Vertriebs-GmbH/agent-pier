@@ -55,7 +55,10 @@ export const projectDialogsCopy = {
   mergeSsh: (count) => `SSH-Schlüssel und -Hosts: ${count}`,
   mergeArtifacts: (count) => `Artefakte: ${count}`,
   mergeVerification: (count) => `Prüfschritte: ${count}`,
+  mergeArchived: (count) => `Archivierte Memory-Einträge: ${count}`,
   mergeSessions: (count) => `Sitzungen: ${count}`,
+  mergeSessionsUnknown:
+    "Sitzungen: unbekannt (ein Sitzungseintrag konnte nicht gelesen werden)",
   mergeWarning:
     "SSH-Zugänge und die Berechtigungen von Sitzungen, die den älteren Eintrag genutzt haben, gehen auf den aktuellen Ordner über. Das lässt sich nicht rückgängig machen.",
   mergeConfirm: "Zusammenführen",

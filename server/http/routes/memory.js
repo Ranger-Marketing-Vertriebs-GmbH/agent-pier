@@ -26,8 +26,11 @@ function content(body) {
 export function memoryRoutes({ memory, directory, gitRemotes, projectDuplicates }) {
   const router = Router();
   router.get("/memory/projects", async (request, response) => {
-    // Rows sharing a folder name their current row, so the hub lists that one only.
-    const projects = await withDuplicates(memory.projects().projects);
+    // Only the projects hub asks (?duplicates=1) which row of a shared folder is
+    // current; that reads the folder's Git identity, which other readers skip.
+    const listed = memory.projects().projects;
+    const projects =
+      request.query?.duplicates === "1" ? await withDuplicates(listed) : listed;
     response.json({
       projects:
         gitRemotes && wantsRemotes(request)
@@ -44,7 +47,7 @@ export function memoryRoutes({ memory, directory, gitRemotes, projectDuplicates 
     response.json(
       await projectDuplicates.merge(request.params.projectId, {
         olderId: request.body?.olderId,
-        entries: request.body?.entries,
+        fingerprint: request.body?.fingerprint,
       }),
     ),
   );

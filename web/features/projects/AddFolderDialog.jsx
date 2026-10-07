@@ -8,6 +8,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { memoryCopy } from "../../lib/i18n/messages/memory.js";
 import { projectDialogsCopy as copy } from "../../lib/i18n/messages/projects.js";
 import DirectoryPicker from "../directories/DirectoryPicker.jsx";
+import "./project-dialogs.css";
 
 export default function AddFolderDialog({ home, close, added }) {
   const action = useAsyncAction();

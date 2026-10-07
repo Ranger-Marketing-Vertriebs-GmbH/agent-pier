@@ -41,12 +41,23 @@ test("an older entry of a folder stays hidden and merges only after confirmation
             artifacts: 4,
             verification: 1,
             sessions: 2,
+            archivedEntries: 1,
+            fingerprint: "f1",
           },
         });
         return true;
       }
       if (url.pathname === "/api/memory/projects/m2/merge" && method === "POST") {
         posts.push(route.request().postDataJSON());
+        if (posts.length === 1) {
+          await route.fulfill({
+            status: 409,
+            json: {
+              error: "The older project entry changed. Reload the project and try again.",
+            },
+          });
+          return true;
+        }
         merged = true;
         await route.fulfill({ json: { id: "m2", name: "notes", cwd: "/work/notes" } });
         return true;
@@ -65,23 +76,34 @@ test("an older entry of a folder stays hidden and merges only after confirmation
     dialog.getByRole("list", { name: "What moves" }).getByRole("listitem"),
   ).toHaveText([
     "Memory entries: 3",
+    "Archived memory entries: 1",
     "Memory accesses of sessions: 1",
     "SSH keys and hosts: 2",
     "Artifacts: 4",
     "Verification steps: 1",
     "Sessions: 2",
   ]);
-  await expect(dialog.getByRole("alert")).toContainText(
-    "SSH access and the permissions of sessions",
-  );
+  await expect(
+    dialog.getByText(/SSH access and the permissions of sessions/),
+  ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   expect(posts).toEqual([]);
   await action.click();
   dialog = page.getByRole("dialog", { name: "Merge older entry" });
-  await dialog.getByRole("button", { name: "Merge", exact: true }).click();
+  const confirm = dialog.getByRole("button", { name: "Merge", exact: true });
+  await confirm.click();
+  // A refusal is shown in the dialog, which stays open.
+  await expect(
+    dialog.getByText("The older project entry changed.", { exact: false }),
+  ).toBeVisible();
+  await expect(dialog).toBeVisible();
+  await confirm.click();
   await expect(dialog).toBeHidden();
-  expect(posts).toEqual([{ olderId: "m9", entries: 3 }]);
+  expect(posts).toEqual([
+    { olderId: "m9", fingerprint: "f1" },
+    { olderId: "m9", fingerprint: "f1" },
+  ]);
   await expect(page.getByRole("button", { name: "Merge older entry" })).toHaveCount(0);
   await expect(list.getByRole("button")).toHaveCount(2);
 });

@@ -54,7 +54,9 @@ export const projectDialogsCopy = {
   mergeSsh: (count) => `SSH keys and hosts: ${count}`,
   mergeArtifacts: (count) => `Artifacts: ${count}`,
   mergeVerification: (count) => `Verification steps: ${count}`,
+  mergeArchived: (count) => `Archived memory entries: ${count}`,
   mergeSessions: (count) => `Sessions: ${count}`,
+  mergeSessionsUnknown: "Sessions: unknown (a session record could not be read)",
   mergeWarning:
     "SSH access and the permissions of sessions that used the older entry move to the current folder. This cannot be undone.",
   mergeConfirm: "Merge",
