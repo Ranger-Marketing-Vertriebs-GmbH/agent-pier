@@ -347,12 +347,15 @@ describe("non-streaming responses", () => {
     const instance = translator("messages", "chat");
     const body = { ...clientBody(BASE_REQUEST.messages), stream: false };
     const built = instance.buildUpstream(body, {}, REQ);
-    // Fractional token counts are not valid IR usage.
-    const malformed = {
-      id: "chatcmpl-bad",
-      choices: [{ index: 0, message: { content: "x" }, finish_reason: "stop" }],
-      usage: { prompt_tokens: 1.5, completion_tokens: 1 },
-    };
+    // The parsers tolerate every JSON shape, so a parser defect is simulated: reading the
+    // body throws a TypeError, which must still end in the rendered server error.
+    const malformed = { id: "chatcmpl-bad" };
+    Object.defineProperty(malformed, "choices", {
+      enumerable: true,
+      get() {
+        throw new TypeError("simulated parser defect");
+      },
+    });
     await assert.rejects(built.exchange.translateResponse(malformed), (error) => {
       assert.equal(error.name, "AdapterUpstreamError");
       assert.equal(error.error.kind, "server");
@@ -361,5 +364,25 @@ describe("non-streaming responses", () => {
       return true;
     });
     assert.equal(instance.diagnostics().errors["response.invalid"], 1);
+  });
+
+  test("fractional usage counts from a sloppy gateway are rounded, not discarded", async () => {
+    const instance = translator("messages", "chat");
+    const body = { ...clientBody(BASE_REQUEST.messages), stream: false };
+    const built = instance.buildUpstream(body, {}, REQ);
+    const response = await built.exchange.translateResponse({
+      id: "chatcmpl-frac",
+      choices: [{ index: 0, message: { content: "x" }, finish_reason: "stop" }],
+      usage: {
+        prompt_tokens: 12.5,
+        completion_tokens: 1.4,
+        prompt_tokens_details: { cached_tokens: 2.6 },
+      },
+    });
+    assert.deepEqual(response.content, [{ type: "text", text: "x" }]);
+    assert.equal(response.usage.input_tokens, 10);
+    assert.equal(response.usage.output_tokens, 1);
+    assert.equal(response.usage.cache_read_input_tokens, 3);
+    assert.equal(instance.diagnostics().errors["response.invalid"], undefined);
   });
 });
