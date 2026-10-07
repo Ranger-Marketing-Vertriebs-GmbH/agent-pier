@@ -123,6 +123,8 @@ function rejectsParameter(message, name) {
 const UNSUPPORTED =
   /unsupported|not supported|does not support|unknown|unrecognized|not permitted|not allowed|extra (?:inputs|fields)/i;
 
+const VALUE_ERROR = /\b(?:unsupported|invalid) value\b/i;
+
 const paramNames = (param, name) =>
   param === name || param.startsWith(`${name}.`) || param.startsWith(`${name}[`);
 
@@ -146,12 +148,23 @@ const RULES = Object.freeze({
   ],
   responses: [
     [
-      ({ message, param }) =>
-        (param !== "" && (paramNames(param, "reasoning") || param === "include")) ||
-        ["reasoning", "reasoning.effort", "reasoning.summary"].some((name) =>
-          rejectsParameter(message, name),
-        ) ||
-        (names(message, "include") && message.includes("reasoning.encrypted_content")),
+      ({ message, param }) => {
+        if (
+          names(message, "include") &&
+          message.includes("reasoning.encrypted_content")
+        ) {
+          return true;
+        }
+        // "Unsupported value: 'reasoning.effort' does not support 'minimal'": only the
+        // value is wrong, the parameter itself is accepted.
+        if (VALUE_ERROR.test(message)) return false;
+        return (
+          (param !== "" && (paramNames(param, "reasoning") || param === "include")) ||
+          ["reasoning", "reasoning.effort", "reasoning.summary"].some((name) =>
+            rejectsParameter(message, name),
+          )
+        );
+      },
       "reasoningEffort",
       false,
     ],
@@ -166,17 +179,23 @@ const RULES = Object.freeze({
       true,
     ],
     // Order matters: OpenAI's max_tokens rejection also names max_completion_tokens.
+    // A non-empty `param` names the rejected field; otherwise the message must not
+    // reject max_completion_tokens itself (the reverse wording names both fields).
     [
-      (error) =>
-        (error.param === "max_tokens" || names(error.message, "max_tokens")) &&
-        (names(error.message, "max_completion_tokens") ||
-          UNSUPPORTED.test(error.message)),
+      ({ message, param }) =>
+        (param !== ""
+          ? param === "max_tokens"
+          : names(message, "max_tokens") &&
+            !rejectsParameter(message, "max_completion_tokens")) &&
+        (names(message, "max_completion_tokens") || UNSUPPORTED.test(message)),
       "maxTokensField",
       "max_completion_tokens",
     ],
     [
-      (error) =>
-        mentions(error, ["max_completion_tokens"]) && UNSUPPORTED.test(error.message),
+      ({ message, param }) =>
+        (param !== ""
+          ? param === "max_completion_tokens"
+          : names(message, "max_completion_tokens")) && UNSUPPORTED.test(message),
       "maxTokensField",
       "max_tokens",
     ],
@@ -198,12 +217,14 @@ const RULES = Object.freeze({
  * - Responses: `param` names `reasoning…`/`include`, the message rejects `reasoning`,
  *   `reasoning.effort` or `reasoning.summary` as a parameter, or it rejects `include`
  *   together with `reasoning.encrypted_content` → `reasoningEffort: false` (Amendment 14).
- *   Item-ordering or schema errors that merely quote these words do not qualify.
+ *   Item-ordering or schema errors that merely quote these words, and value errors
+ *   ("Unsupported value: 'reasoning.effort' does not support …"), do not qualify.
  *   `prompt_cache_key`, `parallel_tool_calls` named → off.
  * - Chat: "Missing `reasoning_content`" → `reasoningReplay: true`; `max_tokens` named
  *   (param or message) together with `max_completion_tokens` or an "unsupported" wording →
  *   `maxTokensField: "max_completion_tokens"`; `max_completion_tokens` rejected as
- *   unsupported → back to `max_tokens`. Value errors ("max_tokens is too large") do not
+ *   unsupported → back to `max_tokens`; a non-empty `param` must name the rejected field
+ *   itself. Value errors ("max_tokens is too large") do not
  *   qualify. `stream_options`/`include_usage` → `streamUsage: false`; `reasoning_effort`,
  *   `reasoning_content`, `prompt_cache_key`, `parallel_tool_calls` named → off.
  * - Messages: adaptive thinking (`thinking.type`) rejected as unsupported →
