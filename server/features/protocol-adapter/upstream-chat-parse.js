@@ -95,6 +95,13 @@ function createThinkSplitter(emitReasoning, emitText) {
   };
 }
 
+/** Argument fragments are strings; servers that send a parsed object get it serialized. */
+function argumentsText(value) {
+  if (typeof value === "string") return value;
+  if (value === undefined || value === null) return "";
+  return JSON.stringify(value);
+}
+
 function usageEvent(usage) {
   const prompt = usage.prompt_tokens_details ?? {};
   const completion = usage.completion_tokens_details ?? {};
@@ -124,6 +131,7 @@ function createChatState(ctx) {
   let outputChars = 0;
   let closed = false;
   let streamId = "chatcmpl";
+  let heldSpace = "";
 
   const ensureStarted = (chunk) => {
     if (started) return;
@@ -149,7 +157,17 @@ function createChatState(ctx) {
     current = null;
   };
 
-  const appendBlock = (kind, text) => {
+  const appendBlock = (kind, value) => {
+    let text = value;
+    if (kind === "text" && current?.kind !== "text") {
+      // A text block opens only for visible text; leading whitespace waits for it.
+      text = heldSpace + text;
+      heldSpace = "";
+      if (text.trim() === "") {
+        heldSpace = text;
+        return;
+      }
+    }
     if (text === "") return;
     if (current?.kind !== kind) {
       closeCurrent();
@@ -173,6 +191,8 @@ function createChatState(ctx) {
     : null;
 
   const startCall = (call) => {
+    splitter?.flush(); // held content belongs before the call, never inside it
+    heldSpace = "";
     closeCurrent();
     call.index = nextIndex++;
     const restored = ctx.names.fromUpstream(call.name);
@@ -192,18 +212,33 @@ function createChatState(ctx) {
     out.push({ type: "toolInputDelta", index: call.index, fragment });
   };
 
+  const idKeys = new Map();
+  let lastKey = 0;
+  let highestKey = -1;
+  /** Index-less entries (some servers) are told apart by id, else continue the last call. */
+  const callKey = (entry, position) => {
+    if (Number.isInteger(entry.index)) return entry.index;
+    if (nonEmpty(entry.id)) {
+      if (!idKeys.has(entry.id)) {
+        idKeys.set(entry.id, calls.size === 0 ? position : highestKey + 1);
+      }
+      lastKey = idKeys.get(entry.id);
+    } else if (calls.size === 0) lastKey = position;
+    return lastKey;
+  };
+
   const toolDelta = (entry, position) => {
     sawToolCalls = true;
-    const key = Number.isInteger(entry.index) ? entry.index : position;
+    const key = callKey(entry, position);
     let call = calls.get(key);
     if (!call) {
       call = { id: null, name: null, index: null, pending: "" };
       calls.set(key, call);
+      highestKey = Math.max(highestKey, key);
     }
     if (!call.id && nonEmpty(entry.id)) call.id = entry.id;
     if (!call.name && nonEmpty(entry.function?.name)) call.name = entry.function.name;
-    const fragment =
-      typeof entry.function?.arguments === "string" ? entry.function.arguments : "";
+    const fragment = argumentsText(entry.function?.arguments);
     if (call.index === null) {
       call.pending += fragment;
       if (!call.name) return;
@@ -284,7 +319,7 @@ function createChatState(ctx) {
     /** One parsed chunk (or an error envelope). */
     chunk(json) {
       if (closed) return [];
-      if (!isObject(json) || json.error !== undefined) {
+      if (!isObject(json) || (json.error !== undefined && json.error !== null)) {
         fail(json);
         return drain();
       }
@@ -353,7 +388,8 @@ export async function* parseChatStream(sseEvents, ctx) {
 /** IR events for a non-streaming Chat Completions response body. */
 export function parseChatResponse(json, ctx) {
   const state = createChatState(ctx);
-  if (!isObject(json) || json.error !== undefined || !Array.isArray(json.choices)) {
+  const failed = json?.error !== undefined && json?.error !== null;
+  if (!isObject(json) || failed || !Array.isArray(json.choices)) {
     return state.error(json);
   }
   const choices = json.choices.map((choice) => {

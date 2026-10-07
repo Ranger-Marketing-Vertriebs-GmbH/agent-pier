@@ -179,22 +179,55 @@ function assistantMessage(message, ctx, replay, drop) {
   return result;
 }
 
+const asParts = (content) =>
+  typeof content === "string" ? [{ type: "text", text: content }] : content;
+const systemTag = (text) => ({ type: "text", text: `<system>\n${text}\n</system>` });
+
+/** Appends a message; adjacent user messages are merged (strict templates alternate). */
+function pushMessage(messages, message) {
+  const last = messages.at(-1);
+  if (message.role === "user" && last?.role === "user") {
+    last.content = [...asParts(last.content), ...asParts(message.content)];
+  } else messages.push(message);
+}
+
+/**
+ * Chat messages for the IR. Mid-conversation system messages are kept in place only with
+ * `capabilities.systemMessages: "inline"`; by default ("merge") their text moves into the
+ * next user turn as a leading `<system>` part (many chat templates reject a system message
+ * that is not first, and OpenAI rejects one between tool calls and their results).
+ */
 function buildMessages(ir, ctx, drop) {
   const replay = ctx.capabilities?.reasoningReplay === true;
+  const inline = ctx.capabilities?.systemMessages === "inline";
   const messages = [];
+  let pending = [];
   const leading = systemMessage(ir.system, drop, "system");
   if (leading) messages.push(leading);
   for (const message of ir.messages) {
     if (message.role === "system") {
       const system = systemMessage(message.parts, drop, "system");
-      if (system) messages.push(system);
+      if (!system) continue;
+      if (inline) messages.push(system);
+      else if (messages.every((entry) => entry.role === "system")) {
+        if (messages.length > 0) messages[0].content += `\n\n${system.content}`;
+        else messages.push(system);
+      } else pending.push(systemTag(system.content));
     } else if (message.role === "user") {
-      messages.push(...userMessages(message, ctx.ids, drop));
+      const converted = userMessages(message, ctx.ids, drop);
+      if (pending.length > 0) {
+        const user = converted.find((entry) => entry.role === "user");
+        if (user) user.content = [...pending, ...asParts(user.content)];
+        else converted.push({ role: "user", content: pending });
+        pending = [];
+      }
+      for (const entry of converted) pushMessage(messages, entry);
     } else {
       const assistant = assistantMessage(message, ctx, replay, drop);
       if (assistant) messages.push(assistant);
     }
   }
+  if (pending.length > 0) pushMessage(messages, { role: "user", content: pending });
   return messages;
 }
 
