@@ -4,6 +4,7 @@ import { parseSseText } from "../helpers/protocol-adapter-shapes.js";
 import {
   SECRET,
   clientBody,
+  messagesThinkingToolStream,
   translator,
 } from "../helpers/protocol-adapter-directions.js";
 
@@ -184,5 +185,79 @@ describe("exchange.fail and translateError numbering", () => {
     const fresh = exchangeFor("responses").exchange;
     const before = fresh.translateError({ status: 503, body: "busy" }, { started: true });
     assert.deepEqual(sequenceNumbers(before), [0, 1]);
+  });
+});
+
+/** A complete upstream stream; with `error`, the iterator throws after `[DONE]`. */
+async function* completeStream(error) {
+  yield chatChunk({ role: "assistant", content: "hello" });
+  yield chatChunk({}, "stop");
+  yield "data: [DONE]\n\n";
+  if (error) throw error;
+}
+
+const lateTimeout = { kind: "timeout", status: null, message: "idle" };
+
+const TERMINAL = {
+  messages: ["message_stop"],
+  responses: ["response.completed"],
+};
+
+describe("no error after a terminal frame", () => {
+  for (const client of ["messages", "responses"]) {
+    test(`${client}: fail and translateError return null after the stream completed`, async () => {
+      const { exchange } = exchangeFor(client);
+      const output = await frames(exchange.translateStream(completeStream()));
+      assert.deepEqual([parseSseText(output.join("")).at(-1).event], TERMINAL[client]);
+      assert.equal(exchange.fail(lateTimeout), null);
+      assert.equal(exchange.fail(lateTimeout, { started: true }), null);
+      assert.equal(exchange.translateError({ status: 500, body: "late" }), null);
+    });
+
+    test(`${client}: an iterator failure after the terminal frame adds no error frame`, async () => {
+      const { exchange, instance } = exchangeFor(client);
+      const output = await frames(
+        exchange.translateStream(completeStream(socketError())),
+      );
+      const events = parseSseText(output.join("")).map((frame) => frame.event);
+      assert.deepEqual([events.at(-1)], TERMINAL[client]);
+      assert.ok(!events.includes("error") && !events.includes("response.failed"));
+      assert.equal(instance.diagnostics().errors["stream.network"], undefined);
+    });
+
+    test(`${client}: a second in-stream error is not rendered`, () => {
+      const { exchange } = exchangeFor(client);
+      assert.equal(typeof exchange.fail(lateTimeout, { started: true }), "string");
+      assert.equal(exchange.fail(lateTimeout, { started: true }), null);
+      assert.equal(
+        exchange.translateError({ status: 503, body: "busy" }, { started: true }),
+        null,
+      );
+    });
+  }
+
+  test("an upstream that keeps the socket open after its last event fails without a frame", async () => {
+    const instance = translator("responses", "messages");
+    const built = instance.buildUpstream(
+      clientBody("clients/codex/text.json"),
+      {},
+      { requestId: "req_late", now: 0 },
+    );
+    const upstreamText = messagesThinkingToolStream({
+      thinking: "t",
+      signature: "sig",
+      id: "toolu_1",
+      name: "shell",
+      input: { cmd: "ls" },
+    });
+    async function* lateReset() {
+      yield upstreamText;
+      throw socketError();
+    }
+    const output = await frames(built.exchange.translateStream(lateReset()));
+    const events = parseSseText(output.join("")).map((frame) => frame.event);
+    assert.equal(events.at(-1), "response.completed");
+    assert.ok(!events.includes("response.failed"));
+    assert.equal(built.exchange.fail(lateTimeout), null);
   });
 });

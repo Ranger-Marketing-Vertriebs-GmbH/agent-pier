@@ -75,6 +75,13 @@
  * - `fail(irError, { streaming, started })`: adapter-local failure (e.g. the idle timer
  *   fired while the caller stopped reading `translateStream`, or the connection failed:
  *   `fail(classifyTransportError(cause))`), rendered exactly like `translateError`.
+ * - Callers must not render an error after the client stream reached a terminal frame
+ *   (Messages `message_stop`/`error`, Responses `response.completed|incomplete|failed`,
+ *   including an in-stream error frame rendered by `translateError`/`fail`). As a guard,
+ *   `translateError` and `fail` then return null instead of a second terminal frame, and
+ *   `translateStream` ends without an error frame when its iterator fails after one. Full
+ *   renderings before any frame (HTTP bodies, the Codex error stream) are alternatives the
+ *   caller picks from and do not end the exchange.
  * - `keepalive()`: Messages `event: ping` or Responses `response.in_progress` frame
  *   (no `sequence_number`; keep-alives do not count as frames).
  */
@@ -167,6 +174,9 @@ const INVALID_RESPONSE = Object.freeze({
   message: "the upstream response could not be translated",
 });
 const NO_IMAGES = "this model does not accept image input";
+// Client frames after which the response is over (both clients' terminal events).
+const TERMINAL_FRAME =
+  /^event: (?:message_stop|error|response\.(?:completed|incomplete|failed))\r?\n/;
 
 const count = (record, name) => {
   record[name] = (record[name] ?? 0) + 1;
@@ -312,6 +322,8 @@ export function createTranslator({
     const context = contextOf(state);
     // Client frames handed out so far (Responses `sequence_number` of the next frame).
     let frames = 0;
+    // A terminal frame handed out in-stream ends the client stream; nothing follows it.
+    let terminated = false;
     const emitOptions =
       client === "messages"
         ? {
@@ -360,7 +372,11 @@ export function createTranslator({
      * `started` (headers sent), else the full rendering (HTTP body or Codex error stream).
      */
     function render(error, { streaming, started } = {}) {
-      if (frames > 0 || started === true) return inStreamError(error);
+      if (terminated) return null;
+      if (frames > 0 || started === true) {
+        terminated = true;
+        return inStreamError(error);
+      }
       return renderError(error, { streaming: streaming ?? state.streaming, context });
     }
 
@@ -370,6 +386,7 @@ export function createTranslator({
         const events = observe(upstreamSide.parseStream(sseEvents(chunks), ctx));
         for await (const frame of clientSide.emitStream(events, emitOptions)) {
           frames += 1;
+          if (TERMINAL_FRAME.test(frame)) terminated = true;
           yield frame;
         }
         return;
@@ -382,6 +399,8 @@ export function createTranslator({
           count(stats.errors, "stream.invalid");
         }
       }
+      if (terminated) return;
+      terminated = true;
       yield inStreamError(clean(error));
     }
 
