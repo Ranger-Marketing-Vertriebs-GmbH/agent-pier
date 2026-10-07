@@ -4,9 +4,11 @@ import UnderlineTabs from "../../components/UnderlineTabs.jsx";
 import api from "../../lib/api.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import {
+  projectDialogsCopy as dialogsCopy,
   projectOverviewCopy as overviewCopy,
   projectsHubCopy as copy,
 } from "../../lib/i18n/messages/projects.js";
+import MergeDuplicateDialog from "./MergeDuplicateDialog.jsx";
 import { repositoriesPageCopy } from "../../lib/i18n/messages/repositories.js";
 import ProjectAgentBus from "./ProjectAgentBus.jsx";
 import ProjectKnowledge from "./ProjectKnowledge.jsx";
@@ -53,6 +55,9 @@ export default function ProjectDetail({
   home,
 }) {
   const runTotal = useRunTotal(project.memoryId);
+  const [merging, setMerging] = useState(false);
+  // Older entries of this folder merge one at a time, the most recent first.
+  const older = project.olderDuplicates?.[0];
   const sessions = projectSessions(allSessions, project);
   const credential = credentials.find((item) => item.id === project.credentialId);
   const branch = sessions.find((session) => session.branch)?.branch || "";
@@ -86,6 +91,15 @@ export default function ProjectDetail({
           <span>{meta.join(" · ")}</span>
         </div>
         <div className="project-card-primary">
+          {older && (
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => setMerging(true)}
+            >
+              {dialogsCopy.mergeOlder}
+            </button>
+          )}
           <button
             type="button"
             className="button primary"
@@ -151,6 +165,17 @@ export default function ProjectDetail({
           />
         )}
       </div>
+      {merging && older && (
+        <MergeDuplicateDialog
+          project={project}
+          older={older}
+          close={() => setMerging(false)}
+          merged={() => {
+            setMerging(false);
+            reloadHub();
+          }}
+        />
+      )}
     </section>
   );
 }

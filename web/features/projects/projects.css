@@ -132,6 +132,18 @@
   color: #8b8c90;
   overflow-wrap: anywhere;
 }
+.project-card-primary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.project-dialog .form-content ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
 .project-card-primary .button {
   height: 38px;
   gap: 8px;
@@ -512,6 +524,7 @@ dialog.project-dialog[open] {
     padding: 14px 23px 22px;
     background: #101114;
     border-top: 1px solid #28292d;
+    flex-direction: column;
   }
   .project-card-primary .button {
     width: 100%;

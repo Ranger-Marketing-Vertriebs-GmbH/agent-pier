@@ -45,4 +45,18 @@ export const projectDialogsCopy = {
   cloneContinues: "Das Klonen läuft weiter, wenn du diesen Dialog schließt.",
   addFolderDescription:
     "Ein vorhandener Ordner wird als Projekt für Wissen, AgentBus und Läufe registriert.",
+  mergeOlder: "Älteren Eintrag zusammenführen",
+  mergeOlderDescription: (name, date) =>
+    `Zu diesem Ordner gehört ein älterer Projekteintrag „${name}“ vom ${date}. Beim Zusammenführen geht alles, was er enthält, in dieses Projekt über.`,
+  mergeMoves: "Was übernommen wird",
+  mergeLoading: "Umfang wird ermittelt …",
+  mergeEntries: (count) => `Memory-Einträge: ${count}`,
+  mergeCapabilities: (count) => `Memory-Zugänge von Sitzungen: ${count}`,
+  mergeSsh: (count) => `SSH-Schlüssel und -Hosts: ${count}`,
+  mergeArtifacts: (count) => `Artefakte: ${count}`,
+  mergeVerification: (count) => `Prüfschritte: ${count}`,
+  mergeSessions: (count) => `Sitzungen: ${count}`,
+  mergeWarning:
+    "SSH-Zugänge und die Berechtigungen von Sitzungen, die den älteren Eintrag genutzt haben, gehen auf den aktuellen Ordner über. Das lässt sich nicht rückgängig machen.",
+  mergeConfirm: "Zusammenführen",
 };

@@ -359,6 +359,36 @@ export class ProjectMemory {
     this.db.prepare("DELETE FROM requests WHERE project_id=?").run(fromId);
     this.db.prepare("DELETE FROM projects WHERE id=?").run(fromId);
   }
+  /**
+   * Merges an older row of the same folder into the current project `scope` on the
+   * owner's request and records the move as a rebind, so grants of the older row
+   * follow it. Unlike adopt, a stale rebind of `fromId` is replaced (its row still
+   * existed) and rebinds that pointed at `fromId` now point at `scope`.
+   */
+  merge(fromId, scope) {
+    identifier(fromId);
+    identifier(scope.id);
+    return transaction(this.db, () => {
+      this.move(fromId, scope);
+      this.db.prepare("DELETE FROM project_rebinds WHERE from_id=?").run(scope.id);
+      this.db
+        .prepare("UPDATE project_rebinds SET to_id=? WHERE to_id=?")
+        .run(scope.id, fromId);
+      this.db
+        .prepare("INSERT OR REPLACE INTO project_rebinds VALUES (?,?,?)")
+        .run(fromId, scope.id, new Date().toISOString());
+      return this.project(scope.id);
+    });
+  }
+  /** The stored identity of a project row, for a move into it. */
+  scopeOf(id) {
+    this.project(id);
+    return {
+      ...this.db
+        .prepare("SELECT id,name,cwd,kind,identity FROM projects WHERE id=?")
+        .get(id),
+    };
+  }
   migrationApplied(name) {
     return Boolean(this.db.prepare("SELECT 1 FROM migrations WHERE name=?").get(name));
   }

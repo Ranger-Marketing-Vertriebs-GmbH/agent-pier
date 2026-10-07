@@ -35,6 +35,8 @@ export function mergeProjects({ repositories, memoryProjects, busProjects }) {
     live.add(project);
   };
   for (const memory of memoryProjects || []) {
+    // An older row of a folder stays hidden; its current row offers the merge.
+    if (memory.duplicateOf) continue;
     const project = {
       id: memory.id,
       name: memory.name || memory.cwd,
@@ -47,6 +49,7 @@ export function mergeProjects({ repositories, memoryProjects, busProjects }) {
       entryCount: memory.entryCount || 0,
       sessionCount: 0,
     };
+    if (memory.olderDuplicates?.length) project.olderDuplicates = memory.olderDuplicates;
     add(project);
     liveRemote(project, memory.remote);
   }

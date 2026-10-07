@@ -2,6 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
 import { wantsRemotes } from "../../features/repositories/git-remote.js";
+import { withDuplicates } from "../../features/memory/project-duplicates.js";
 
 function pageValue(raw) {
   if (raw === undefined) return 1;
@@ -22,18 +23,31 @@ function content(body) {
   };
 }
 
-export function memoryRoutes({ memory, directory, gitRemotes }) {
+export function memoryRoutes({ memory, directory, gitRemotes, projectDuplicates }) {
   const router = Router();
   router.get("/memory/projects", async (request, response) => {
-    const listed = memory.projects();
+    // Rows sharing a folder name their current row, so the hub lists that one only.
+    const projects = await withDuplicates(memory.projects().projects);
     response.json({
-      ...listed,
       projects:
         gitRemotes && wantsRemotes(request)
-          ? await gitRemotes.annotate(listed.projects, "cwd")
-          : listed.projects,
+          ? await gitRemotes.annotate(projects, "cwd")
+          : projects,
     });
   });
+  router.get("/memory/projects/:projectId/merge", async (request, response) =>
+    response.json(
+      await projectDuplicates.preview(request.params.projectId, request.query.olderId),
+    ),
+  );
+  router.post("/memory/projects/:projectId/merge", async (request, response) =>
+    response.json(
+      await projectDuplicates.merge(request.params.projectId, {
+        olderId: request.body?.olderId,
+        entries: request.body?.entries,
+      }),
+    ),
+  );
   router.post("/memory/projects", async (request, response) => {
     const project = await memory.register(await directory(request.body?.cwd));
     if (!project) throw problem(serverMessages.memory.projectFolderExcluded, 422);

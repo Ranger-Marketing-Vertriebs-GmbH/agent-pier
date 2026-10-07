@@ -24,6 +24,9 @@ export const memory = Object.freeze({
   projectDirectoryUnavailable: "Memory project directory is unavailable.",
   gitProjectUnidentified: "Cannot identify the Git memory project.",
   gitDiscoveryTimedOut: "Git project discovery timed out.",
+  duplicateChanged: "The older project entry changed. Reload the project and try again.",
+  duplicateMergeUnsafe:
+    "These entries cannot be merged safely: both hold SSH access, or the older entry already moved elsewhere.",
   projectFolderExcluded:
     "The home folder and collection folders holding several projects are not projects.",
   unsupportedAccount: "Unsupported memory account.",
