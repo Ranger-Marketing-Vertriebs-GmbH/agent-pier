@@ -399,7 +399,10 @@ describe("buildMessagesRequest rules", () => {
       request({ output: { format: "json_schema", name: "x", schema } }),
     );
     assert.deepEqual(built.body.output_config, {
-      format: { type: "json_schema", schema },
+      format: {
+        type: "json_schema",
+        schema: { ...schema, additionalProperties: false },
+      },
     });
   });
 });

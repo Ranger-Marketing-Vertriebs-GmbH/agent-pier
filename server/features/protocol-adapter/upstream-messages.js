@@ -310,10 +310,15 @@ function buildConversation(ir, ctx, drop) {
 
 /** Every block that may carry `cache_control`, in Anthropic's prefix order. */
 function cacheSlots(body) {
+  // Blocks nested in a tool_result precede the result's own mark in the prefix.
+  const nested = (block) =>
+    block?.type === "tool_result" && Array.isArray(block.content)
+      ? [...block.content, block]
+      : [block];
   return [
     ...(body.tools ?? []),
     ...(body.system ?? []),
-    ...body.messages.flatMap((message) => message.content),
+    ...body.messages.flatMap((message) => message.content.flatMap(nested)),
   ].filter(isObject);
 }
 
@@ -364,11 +369,69 @@ function messagesThinking(thinking, capabilities) {
   return result;
 }
 
-function outputConfig(effort, output) {
+// Keywords whose value is one subschema, a list of subschemas, or a map of subschemas.
+const SUBSCHEMA = [
+  "items",
+  "additionalProperties",
+  "not",
+  "if",
+  "then",
+  "else",
+  "contains",
+];
+const SUBSCHEMA_LISTS = ["anyOf", "oneOf", "allOf", "prefixItems", "items"];
+const SUBSCHEMA_MAPS = [
+  "properties",
+  "patternProperties",
+  "$defs",
+  "definitions",
+  "dependentSchemas",
+];
+
+const isObjectSchema = (schema) =>
+  schema.type === "object" ||
+  (Array.isArray(schema.type) && schema.type.includes("object")) ||
+  isObject(schema.properties);
+
+/**
+ * Copy of a JSON schema in which every object schema without `additionalProperties`
+ * gets `additionalProperties: false` (appended, so key order is kept): Anthropic
+ * structured outputs require closed objects. Calls `adjust` once when a schema changed.
+ */
+function closedSchema(schema, adjust) {
+  let changed = false;
+  const visit = (node) => {
+    if (Array.isArray(node)) return node.map(visit);
+    if (!isObject(node)) return node;
+    const copy = { ...node };
+    for (const key of SUBSCHEMA) {
+      if (isObject(copy[key])) copy[key] = visit(copy[key]);
+    }
+    for (const key of SUBSCHEMA_LISTS) {
+      if (Array.isArray(copy[key])) copy[key] = copy[key].map(visit);
+    }
+    for (const key of SUBSCHEMA_MAPS) {
+      if (!isObject(copy[key])) continue;
+      copy[key] = Object.fromEntries(
+        Object.entries(copy[key]).map(([name, value]) => [name, visit(value)]),
+      );
+    }
+    if (isObjectSchema(copy) && copy.additionalProperties === undefined) {
+      copy.additionalProperties = false;
+      changed = true;
+    }
+    return copy;
+  };
+  const result = visit(schema);
+  if (changed) adjust("output.additionalPropertiesClosed");
+  return result;
+}
+
+function outputConfig(effort, output, adjust) {
   const config = {};
   if (effort) config.effort = effort;
   if (output?.format === "json_schema") {
-    config.format = { type: "json_schema", schema: output.schema };
+    config.format = { type: "json_schema", schema: closedSchema(output.schema, adjust) };
   }
   return Object.keys(config).length > 0 ? config : undefined;
 }
@@ -450,7 +513,11 @@ export function buildMessagesRequest(ir, ctx) {
     body.tool_choice = toolChoice(choice, ctx.names, ir.parallelToolCalls);
   }
   if (resolved.thinking) body.thinking = resolved.thinking;
-  const config = outputConfig(resolved.thinking ? resolved.effort : undefined, ir.output);
+  const config = outputConfig(
+    resolved.thinking ? resolved.effort : undefined,
+    ir.output,
+    (name) => adjustments.push(name),
+  );
   if (config) body.output_config = config;
   if (Array.isArray(sampling.stop) && sampling.stop.length > 0) {
     body.stop_sequences = [...sampling.stop];
