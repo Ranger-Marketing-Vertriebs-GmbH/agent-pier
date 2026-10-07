@@ -47,30 +47,81 @@ const DELTA_KINDS = Object.freeze({
   toolInputDelta: "toolCall",
 });
 
+const nonEmptyText = (value) => typeof value === "string" && value !== "";
+
 const toolKey = (name, namespace) => `${namespace ?? ""}\u0000${name}`;
 
-/** Item type for an IR block; function calls of declared custom tools are unwrapped. */
-function itemType(block, customTools) {
-  if (block.kind === "text") return "message";
-  if (block.kind === "reasoning") return "reasoning";
-  if (block.toolCall.kind === "custom") return "custom_tool_call";
-  const { name, namespace } = block.toolCall;
-  if (customTools.has(toolKey(name, namespace))) {
-    block.wrapped = true;
-    return "custom_tool_call";
-  }
-  return "function_call";
+/** True for a function call of a declared custom tool (its `{"input": …}` is unwrapped). */
+function isWrappedCustomCall(block, customTools) {
+  if (block.kind !== "toolCall" || block.toolCall.kind === "custom") return false;
+  return customTools.has(toolKey(block.toolCall.name, block.toolCall.namespace));
 }
 
-/** Raw custom input from a function-call wrapper `{"input": "..."}`; raw text otherwise. */
+/** Item type for an IR block (`wrapped`: a function call of a declared custom tool). */
+function itemType(block, wrapped) {
+  if (block.kind === "text") return "message";
+  if (block.kind === "reasoning") return "reasoning";
+  return block.toolCall.kind === "custom" || wrapped
+    ? "custom_tool_call"
+    : "function_call";
+}
+
+const WRAPPER_START = /^\s*\{\s*"input"\s*:\s*"/;
+
+const ESCAPES = Object.freeze({
+  '"': '"',
+  "\\": "\\",
+  "/": "/",
+  b: "\b",
+  f: "\f",
+  n: "\n",
+  r: "\r",
+  t: "\t",
+});
+
+/**
+ * Decoded value of a JSON string whose closing quote may be missing (`text` starts right
+ * after the opening quote). Decoding stops at the closing quote or at an escape that was
+ * cut off; unknown escapes keep the escaped character.
+ */
+function partialJsonString(text) {
+  let value = "";
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (char === '"') break;
+    if (char !== "\\") {
+      value += char;
+      continue;
+    }
+    const next = text[i + 1];
+    if (next === undefined) break;
+    if (next === "u") {
+      const hex = text.slice(i + 2, i + 6);
+      if (!/^[0-9a-fA-F]{4}$/.test(hex)) break;
+      value += String.fromCharCode(Number.parseInt(hex, 16));
+      i += 5;
+    } else {
+      value += Object.hasOwn(ESCAPES, next) ? ESCAPES[next] : next;
+      i += 1;
+    }
+  }
+  return value;
+}
+
+/**
+ * Raw custom input from a function-call wrapper `{"input": "..."}`. A wrapper that was
+ * cut off (e.g. by `max_tokens`) is unwrapped best-effort to the partial string value;
+ * anything else is passed through as raw text.
+ */
 function unwrapCustomInput(text) {
   try {
     const parsed = JSON.parse(text);
     if (typeof parsed?.input === "string") return parsed.input;
+    return text;
   } catch {
-    // Not a wrapper: the upstream sent the raw input.
+    const start = WRAPPER_START.exec(text);
+    return start ? partialJsonString(text.slice(start[0].length)) : text;
   }
-  return text;
 }
 
 function itemSkeleton(type, id, toolCall) {
@@ -119,9 +170,10 @@ function createWireState(options) {
 
   const activate = (block) => {
     const outputIndex = output.length;
-    const type = itemType(block, customTools);
+    const wrapped = isWrappedCustomCall(block, customTools);
+    const type = itemType(block, wrapped);
     const id = `${ITEM_PREFIXES[type]}_${context().responseId}_${outputIndex}`;
-    Object.assign(block, { type, id, outputIndex, text: "" });
+    Object.assign(block, { type, id, outputIndex, wrapped, text: "", raw: "" });
     out.push({
       type: "response.output_item.added",
       output_index: outputIndex,
@@ -161,6 +213,7 @@ function createWireState(options) {
       item.content = [{ type: "output_text", text: block.text, annotations: [] }];
     } else if (block.type === "reasoning") {
       if (block.text !== "") item.summary = [{ type: "summary_text", text: block.text }];
+      if (block.raw !== "") item.content = [{ type: "reasoning_text", text: block.raw }];
       item.encrypted_content = includeEncrypted
         ? (block.carrier ?? encodeCarrier(origin, null))
         : null;
@@ -172,6 +225,31 @@ function createWireState(options) {
     return item;
   };
 
+  const closeReasoning = (block) => {
+    if (!block.hasSummary && block.raw !== "") {
+      // No summary arrived: the buffered raw reasoning becomes the visible summary.
+      const raw = block.raw;
+      block.raw = "";
+      summaryDelta(block, raw);
+    } else if (block.raw !== "") {
+      out.push({
+        type: "response.reasoning_text.delta",
+        item_id: block.id,
+        output_index: block.outputIndex,
+        content_index: 0,
+        delta: block.raw,
+      });
+    }
+    if (block.text === "") return;
+    out.push({
+      type: "response.reasoning_summary_text.done",
+      item_id: block.id,
+      output_index: block.outputIndex,
+      summary_index: 0,
+      text: block.text,
+    });
+  };
+
   const close = (block) => {
     if (block.wrapped) {
       const raw = block.text;
@@ -179,6 +257,7 @@ function createWireState(options) {
       const unwrapped = unwrapCustomInput(raw);
       if (unwrapped !== "") customDelta(block, unwrapped);
     }
+    if (block.type === "reasoning") closeReasoning(block);
     const item = completeItem(block);
     out.push({
       type: "response.output_item.done",
@@ -191,12 +270,24 @@ function createWireState(options) {
     if (queue.length > 0) activate(queue[0]);
   };
 
-  const reasoningDelta = (block, event) => {
-    // Summary text is preferred; raw reasoning text fills in while no summary arrived.
-    if (event.summary !== undefined) block.hasSummary = true;
-    const text = event.summary ?? (block.hasSummary ? undefined : event.text);
-    if (text === undefined || text === "") return;
+  const summaryDelta = (block, text) =>
     delta(block, "response.reasoning_summary_text.delta", { summary_index: 0 }, text);
+
+  /**
+   * Summary and raw reasoning text are never mixed. Only a Responses upstream can send
+   * summaries, so for that origin raw text is buffered until the block ends: it becomes
+   * the summary when no summary arrived, else the item's `reasoning_text` content (which
+   * Codex shows only with raw reasoning enabled). Other origins stream raw text as the
+   * summary right away (they have no summary channel).
+   */
+  const reasoningDelta = (block, event) => {
+    if (nonEmptyText(event.summary)) {
+      block.hasSummary = true;
+      summaryDelta(block, event.summary);
+    }
+    if (!nonEmptyText(event.text)) return;
+    if (origin === "responses" || block.hasSummary) block.raw += event.text;
+    else summaryDelta(block, event.text);
   };
 
   const toolInput = (block, fragment) => {
@@ -331,7 +422,11 @@ export async function emitResponsesResponse(events, options = {}) {
   return response;
 }
 
-/** Keep-alive for Codex's idle timer, which ignores SSE comments. */
+/**
+ * Keep-alive for Codex's idle timer, which ignores SSE comments. It carries no
+ * `sequence_number`: keep-alives are not counted as frames, so the numbering of the real
+ * frames stays gapless, and Codex ignores `response.in_progress` (facts §3.5).
+ */
 export function responsesKeepalive(responseId) {
   return sseEvent("response.in_progress", {
     type: "response.in_progress",

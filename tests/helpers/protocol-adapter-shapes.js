@@ -397,7 +397,11 @@ export function assertResponsesStream(text) {
       items.push(data.item);
       open = null;
     } else {
-      assert.ok(data.type.endsWith(".delta"), `unexpected ${data.type}`);
+      assert.ok(
+        data.type.endsWith(".delta") ||
+          data.type === "response.reasoning_summary_text.done",
+        `unexpected ${data.type}`,
+      );
       assert.equal(data.item_id, open?.id, "delta belongs to the open item");
     }
   }

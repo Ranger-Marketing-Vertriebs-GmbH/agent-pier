@@ -270,14 +270,20 @@ export function usageToMessages(ir) {
   };
 }
 
-/** Responses-style usage object (complete, as Codex requires when present). */
+/**
+ * Responses-style usage object (complete, as Codex requires when present). Codex reads
+ * the optional `input_tokens_details.cache_write_tokens` (facts §3.6).
+ */
 export function usageToOpenAI(ir) {
   const input = count(ir.input) + count(ir.cacheRead) + count(ir.cacheWrite);
   const output = count(ir.output);
   return {
     input_tokens: input,
     output_tokens: output,
-    input_tokens_details: { cached_tokens: count(ir.cacheRead) },
+    input_tokens_details: {
+      cached_tokens: count(ir.cacheRead),
+      cache_write_tokens: count(ir.cacheWrite),
+    },
     output_tokens_details: { reasoning_tokens: count(ir.reasoning) },
     total_tokens: input + output,
   };
