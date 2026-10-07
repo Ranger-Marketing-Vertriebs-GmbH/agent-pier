@@ -80,6 +80,66 @@ export function chosenTool(ir, choice) {
   );
 }
 
+// --- OpenAI strict mode --------------------------------------------------------------
+
+// Keywords OpenAI strict mode rejects (structured outputs "supported schemas").
+const STRICT_UNSUPPORTED = [
+  "allOf",
+  "not",
+  "if",
+  "then",
+  "else",
+  "patternProperties",
+  "dependentRequired",
+  "dependentSchemas",
+];
+
+function strictCompatible(schema) {
+  if (!isObject(schema)) return false;
+  if (STRICT_UNSUPPORTED.some((key) => Object.hasOwn(schema, key))) return false;
+  const types = Array.isArray(schema.type) ? schema.type : [schema.type];
+  const properties = schema.properties ?? {};
+  if (!isObject(properties)) return false;
+  if (types.includes("object") || Object.hasOwn(schema, "properties")) {
+    if (schema.additionalProperties !== false) return false;
+    const required = Array.isArray(schema.required) ? schema.required : [];
+    if (!Object.keys(properties).every((key) => required.includes(key))) return false;
+  }
+  const children = [...Object.values(properties)];
+  if (Object.hasOwn(schema, "items")) children.push(schema.items);
+  if (Object.hasOwn(schema, "anyOf")) {
+    if (!Array.isArray(schema.anyOf)) return false;
+    children.push(...schema.anyOf);
+  }
+  for (const key of ["$defs", "definitions"]) {
+    if (!Object.hasOwn(schema, key)) continue;
+    if (!isObject(schema[key])) return false;
+    children.push(...Object.values(schema[key]));
+  }
+  return children.every(strictCompatible);
+}
+
+/**
+ * True when a tool schema meets OpenAI strict-mode rules recursively: an object root,
+ * every object with `additionalProperties: false` and all properties `required`, and no
+ * unsupported keywords (`allOf`, `not`, `if`/`then`/`else`, ...). Claude Code's `strict`
+ * carries no such guarantee, so a failing schema is sent non-strict instead of 400ing.
+ */
+export function openAIStrictSchema(schema) {
+  return isObject(schema) && schema.type === "object" && strictCompatible(schema);
+}
+
+/**
+ * The `strict` flag for an OpenAI function tool: true only when the tool asks for it and
+ * its schema qualifies; a downgrade is counted as `tools.strictDowngraded`.
+ */
+export function strictFlag(tool, adjust) {
+  if (tool.strict !== true) return false;
+  if (openAIStrictSchema(tool.schema)) return true;
+  adjust("tools.strictDowngraded");
+  return false;
+}
+
 // --- request bookkeeping ---------------------------------------------------------------
 
 // Hints the adapter honors itself on every route: `store` (always false upstream) and

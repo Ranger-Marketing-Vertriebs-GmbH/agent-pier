@@ -11,6 +11,7 @@ import {
   imageUrl,
   isObject,
   present,
+  strictFlag,
   textOf,
   upstreamModel,
 } from "./shared.js";
@@ -20,7 +21,7 @@ export { parseChatResponse, parseChatStream } from "./upstream-chat-parse.js";
 const IMAGE_PLACEHOLDER = "[image attached in the next message]";
 const ERROR_PREFIX = "[error] ";
 
-function functionTool(tool, names) {
+function functionTool(tool, names, adjust) {
   const custom = tool.kind === "custom";
   const description = custom ? customToolDescription(tool) : tool.description;
   const fn = { name: names.toUpstream(tool.name, tool.namespace) };
@@ -30,15 +31,15 @@ function functionTool(tool, names) {
     : isObject(tool.schema)
       ? tool.schema
       : { type: "object", properties: {} };
-  if (!custom && tool.strict === true) fn.strict = true;
+  if (!custom && tool.strict === true) fn.strict = strictFlag(tool, adjust);
   return { type: "function", function: fn };
 }
 
-function buildTools(ir, names, drop) {
+function buildTools(ir, names, drop, adjust) {
   const tools = [];
   for (const tool of ir.tools) {
     if (tool.kind === "hosted") drop(`tools.${tool.hostedType ?? tool.name}`);
-    else tools.push(functionTool(tool, names));
+    else tools.push(functionTool(tool, names, adjust));
   }
   return tools;
 }
@@ -240,7 +241,7 @@ export function buildChatRequest(ir, ctx) {
     model: upstreamModel(ir, ctx.model),
     messages: buildMessages(ir, ctx, drop),
   };
-  const tools = buildTools(ir, ctx.names, drop);
+  const tools = buildTools(ir, ctx.names, drop, adjust);
   if (tools.length > 0) {
     body.tools = tools;
     let choice = ir.toolChoice;
