@@ -112,12 +112,15 @@ IrRequest {
   tools: {
     name, namespace?: string, description,
     kind: "function" | "custom" | "hosted",
-    schema?, grammar?, hostedType?                 // hosted: e.g. "web_search"
+    schema?, strict?: boolean,                      // function: client order kept
+    grammar?,                                       // custom: the client's format
+    hostedType?, raw?                               // hosted: e.g. "web_search"; raw = client definition
   }[],
   toolChoice: "auto" | "none" | "required" | { name, namespace? },
   parallelToolCalls: boolean | null,
   sampling: { maxOutputTokens: number | null, temperature, topP, stop: string[] },
-  thinking: { mode: "disabled" | "enabled" | "adaptive", budgetTokens?, effort?: string, summary?: "auto" | "none" } | null,
+  thinking: { mode: "disabled" | "enabled" | "adaptive" | "between_tools", budgetTokens?, effort?: string,
+              summary?: "auto" | "none", display?: "summarized" | "omitted" | "updates" } | null,
   output: { format: "text" } | { format: "json_schema", name, schema, strict },
   cache: { key: string | null },                    // breakpoints live on parts
   stream: boolean,
@@ -125,7 +128,7 @@ IrRequest {
 }
 Part =
   | { type: "text", text, cache?: "ephemeral" }
-  | { type: "image", mediaType, data?, url?, cache? }
+  | { type: "image", mediaType, data?, url?, detail?, cache? }   // detail: OpenAI image detail
   | { type: "toolCall", id, name, namespace?, kind: "function" | "custom", input }   // input: JSON text or raw custom text
   | { type: "toolResult", callId, parts: Part[], isError, cache? }
   | { type: "reasoning", text?, summary?, carrier?: string, redacted?: true }
@@ -143,7 +146,8 @@ IrEvent =
   | { type: "error", error: IrError }
 
 IrError { kind: "auth" | "permission" | "notFound" | "rateLimit" | "overloaded" | "invalidRequest"
-               | "contextLength" | "server" | "timeout" | "network", status, message, retryAfter? }
+               | "contextLength" | "server" | "timeout" | "network", status, message, retryAfter?,
+          promptTokens?, outputTokens?, contextWindow?, param? }
 ```
 
 `effort` is an open string. Known values: `none`, `minimal`, `low`, `medium`, `high`,
@@ -167,8 +171,9 @@ IrError { kind: "auth" | "permission" | "notFound" | "rateLimit" | "overloaded" 
 - `thinking: {type: "adaptive"}` plus `output_config.effort` (what Claude Code sends for
   non-Claude model ids) becomes `thinking.mode = "adaptive"` with that effort;
   `{type: "enabled", budget_tokens}` becomes `mode = "enabled"`.
-- `count_tokens`: forwarded when the upstream is Messages; otherwise 404 so Claude Code
-  uses its own estimate.
+- `count_tokens`: always 404, so Claude Code uses its own estimate. Claude Code never
+  reaches a Messages upstream through the adapter (that route is native), so there is
+  nothing to forward to.
 - AgentPier sets `CLAUDE_CODE_ATTRIBUTION_HEADER=0` for adapter routes so the attribution
   block is not injected into OpenAI-style system prompts.
 
@@ -183,7 +188,10 @@ IrError { kind: "auth" | "permission" | "notFound" | "rateLimit" | "overloaded" 
   counted** when the target has no equivalent (Responses upstreams keep them).
 - `store` is forced to `false` toward non-Responses targets; toward a Responses upstream
   item ids (`fc_…`, `rs_…`, `msg_…`) are stripped when `store` is false.
-- `include: ["reasoning.encrypted_content"]` is honored only for a Responses upstream.
+- `include: ["reasoning.encrypted_content"]` decides whether reasoning carriers reach
+  Codex as `encrypted_content` (every upstream). Toward a Responses upstream the adapter
+  sends its own `include` whenever it sends `reasoning` or replays encrypted reasoning;
+  the client's `include` and `store` are consumed, not counted as dropped.
 - `previous_response_id` → `invalidRequest`.
 - The Codex model catalog written by AgentPier derives `input_modalities` from the
   model's `images` flag and reasoning levels from the connection's reasoning support;
@@ -347,7 +355,12 @@ tokens > <max> maximum` (numbers when known; `<n>` is prompt + requested output 
 - Upstream messages are sanitized (500 chars, control characters removed, key and auth
   header values redacted); no upstream headers besides `retry-after` and request ids.
 - Mid-stream failures become the client's in-stream error (`event: error` for Messages,
-  `response.failed` for Responses) and the stream closes.
+  `response.failed` for Responses) and the stream closes. This includes failures of the
+  upstream transport itself (idle timeout abort → `timeout`, socket errors → `network`,
+  or the kind the caller sets as `adapterKind` on the thrown error). Each exchange counts
+  the frames it handed out, so `translateError`, `exchange.fail(irError)` (adapter-local
+  errors such as connection failures) and stream errors continue the Codex
+  `sequence_number` and send `response.created` first when nothing was written yet.
 
 ### Streaming obligations toward the clients
 
@@ -359,7 +372,8 @@ tokens > <max> maximum` (numbers when known; `<n>` is prompt + requested output 
   `response.custom_tool_call_input.delta` with `item_id`/`call_id`), and a complete
   `response.output_item.done` (Codex builds tool calls from `done`); the stream ends with
   `response.completed` (with usage) or `response.failed`. While the upstream is silent the
-  adapter sends an SSE comment every 15 s.
+  adapter sends an `event: response.in_progress` data event every 15 s (Amendment 4;
+  Codex ignores SSE comments).
 - Upstream idle timeout: 240 s (below Codex's 300 s and with pings keeping Claude Code's
   watchdog satisfied).
 
@@ -555,7 +569,7 @@ contradicts sections above, these amendments win:
     (`error.code` string) and LM Studio (`error` string) shapes.
 11. **Chat reasoning fields**: both `delta.reasoning` (vLLM) and
     `delta.reasoning_content` are read; `reasoningReplay` sends `reasoning_content`.
-12. **IR usage events** carry cumulative totals (each `usage` event replaces the previous values); upstream parsers convert incremental reports before emitting.
+12. **IR usage events** carry cumulative totals; upstream parsers convert incremental reports before emitting, and the client emitters keep the per-field maximum of all `usage` events (a later event with a lower or missing field never lowers a total).
 13. **Chat mid-conversation system messages** are merged into the next user turn as `<system>…</system>` text by default: model chat templates rendered by vLLM, llama.cpp and LM Studio (e.g. Qwen3.5, Gemma, Mistral) reject a system message that is not first, and OpenAI rejects one between tool calls and their results. Capability `systemMessages: "inline"` keeps `role: "system"` in place (OpenAI/Azure).
 14. **Responses upstream reasoning** is sent by default (opt-out with `capabilities.reasoningEffort = false`); PR 2's 400 → capability retry maps errors naming `reasoning`, `reasoning.effort`, `reasoning.summary` or `include` to `reasoningEffort = false` (which also drops `include` unless a carrier is replayed); the connection probe proposes the value.
 15. **Messages upstream thinking (Codex client)**: effort-only thinking (Codex sends `reasoning.effort`, no budget) is sent as `thinking: {type: "adaptive"}` with `output_config.effort`, because current Claude models reject manual `enabled` thinking. Capability `thinkingBudget: true` restores the effort → budget table (`enabled` + `budget_tokens`) for models without adaptive thinking; PR 2's 400 → capability retry maps "adaptive thinking not supported" errors to `thinkingBudget = true`. With manual thinking, a request that continues a tool loop whose assistant turn does not start with a replayable thinking block omits thinking (counted `thinking.omittedNoLeadingBlock`). Messages-origin carriers hold the JSON payload `{"s": signature, "t": thinking text}` (`{"r": data}` for `redacted_thinking`); replay uses this exact text and ignores the client's reasoning text, since Anthropic rejects modified thinking blocks. A payload that is not JSON is a plain signature (legacy).
