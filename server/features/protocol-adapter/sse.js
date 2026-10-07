@@ -4,10 +4,15 @@ const LINE_END = /\r\n|\n|\r(?=[\s\S])/g;
  * Incremental Server-Sent-Events parser following the WHATWG rules: CRLF, LF and lone CR end
  * a line, comments and `retry:` are ignored, events are dispatched on a blank line and
  * `end()` flushes a trailing event. Blocks without a `data:` line are dropped.
- * Sizes are counted in UTF-16 code units.
+ *
+ * `maxEventBytes` caps one event's `data`, `event`, `id` and `retry` lines plus any pending
+ * partial line. Despite the name it counts UTF-16 code units (JavaScript string length), not
+ * encoded bytes; one code unit is at most three UTF-8 bytes. Each pushed chunk is scanned
+ * once: a long partial line is not rescanned on later pushes.
  */
 export function createSseParser({ maxEventBytes = 16 * 1024 * 1024 } = {}) {
   let buffer = "";
+  let scanFrom = 0;
   let started = false;
   let eventName;
   let eventId;
@@ -49,24 +54,30 @@ export function createSseParser({ maxEventBytes = 16 * 1024 * 1024 } = {}) {
     } else if (field === "event") {
       grow(value.length);
       eventName = value;
-    } else if (field === "id" && !value.includes("\0")) {
-      eventId = value;
+    } else if (field === "id") {
+      grow(value.length);
+      if (!value.includes("\0")) eventId = value;
+    } else if (field === "retry") {
+      grow(value.length);
     }
   };
 
   const drain = (final) => {
     const events = [];
     let start = 0;
-    LINE_END.lastIndex = 0;
+    LINE_END.lastIndex = scanFrom;
     let match;
     while ((match = LINE_END.exec(buffer))) {
       processLine(buffer.slice(start, match.index), events);
       start = match.index + match[0].length;
     }
     buffer = buffer.slice(start);
+    // A trailing CR may still be followed by LF; resume the scan there, else after the buffer.
+    scanFrom = buffer.endsWith("\r") ? buffer.length - 1 : buffer.length;
     if (final) {
       if (buffer !== "") processLine(buffer.replace(/\r$/, ""), events);
       buffer = "";
+      scanFrom = 0;
       dispatch(events);
     } else if (eventSize + buffer.length > maxEventBytes) {
       throw new RangeError("sseEventTooLarge");
@@ -89,14 +100,26 @@ export function createSseParser({ maxEventBytes = 16 * 1024 * 1024 } = {}) {
   };
 }
 
-/** `data:` frame; the payload is JSON-encoded unless it is the `[DONE]` sentinel. */
+const encodeData = (data) => {
+  const json = JSON.stringify(data);
+  if (json === undefined) throw new TypeError("sseDataNotSerializable");
+  return json;
+};
+
+/**
+ * `data:` frame; the payload is JSON-encoded unless it is the `[DONE]` sentinel.
+ * Throws a TypeError for payloads JSON cannot encode (`undefined`, functions).
+ */
 export function sseData(data) {
-  return `data: ${data === "[DONE]" ? data : JSON.stringify(data)}\n\n`;
+  return `data: ${data === "[DONE]" ? data : encodeData(data)}\n\n`;
 }
 
-/** Named event frame with a JSON data payload. */
+/** Named event frame with a JSON data payload; the name must be a non-empty single line. */
 export function sseEvent(name, data) {
-  return `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`;
+  if (typeof name !== "string" || name === "" || /[\r\n]/.test(name)) {
+    throw new TypeError("sseEventNameInvalid");
+  }
+  return `event: ${name}\ndata: ${encodeData(data)}\n\n`;
 }
 
 /** Comment frame (keep-alive); line breaks in the text become separate comment lines. */
