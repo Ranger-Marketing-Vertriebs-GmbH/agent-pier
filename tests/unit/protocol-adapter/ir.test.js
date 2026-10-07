@@ -44,7 +44,13 @@ function request(overrides = {}) {
     tools: [
       { name: "read", namespace: "mcp", description: "d", kind: "function", schema: {} },
       { name: "apply_patch", description: "p", kind: "custom", grammar: { syntax: "x" } },
-      { name: "web_search", description: "", kind: "hosted", hostedType: "web_search" },
+      {
+        name: "web_search",
+        description: "",
+        kind: "hosted",
+        hostedType: "web_search",
+        raw: { type: "web_search" },
+      },
     ],
     toolChoice: "auto",
     parallelToolCalls: null,
@@ -105,6 +111,24 @@ test("invalid requests throw TypeError with a path", () => {
   assertPath(
     () => assertIrRequest(request({ tools: [{ name: "x", kind: "weird" }] })),
     "request.tools[0].kind",
+  );
+  assertPath(
+    () =>
+      assertIrRequest(
+        request({ tools: [{ name: "x", kind: "hosted", hostedType: "t", raw: "x" }] }),
+      ),
+    "request.tools[0].raw",
+  );
+  assertPath(
+    () =>
+      assertIrRequest(request({ tools: [{ name: "x", kind: "custom", grammar: "g" }] })),
+    "request.tools[0].grammar",
+  );
+  const badDetail = request();
+  badDetail.messages[3].parts[0].parts[1].detail = 3;
+  assertPath(
+    () => assertIrRequest(badDetail),
+    "request.messages[3].parts[0].parts[1].detail",
   );
   assertPath(() => assertIrRequest(request({ toolChoice: "any" })), "request.toolChoice");
   assertPath(

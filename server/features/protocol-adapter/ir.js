@@ -75,6 +75,7 @@ const PART_CHECKS = {
     optionalString(part.url, `${path}.url`);
     if (part.data === undefined && part.url === undefined)
       shapeError(path, "data or url");
+    optionalString(part.detail, `${path}.detail`);
     cacheMark(part.cache, `${path}.cache`);
   },
   toolCall(part, path) {
@@ -125,6 +126,9 @@ function irTool(tool, path) {
   oneOf(tool.kind, TOOL_KINDS, `${path}.kind`);
   if (tool.description !== undefined) string(tool.description, `${path}.description`);
   if (tool.kind === "hosted") string(tool.hostedType, `${path}.hostedType`);
+  // `grammar` is the custom tool's format; `raw` keeps a hosted tool as the client sent it.
+  if (tool.grammar !== undefined) object(tool.grammar, `${path}.grammar`);
+  if (tool.raw !== undefined) object(tool.raw, `${path}.raw`);
 }
 
 function toolChoice(value, path) {

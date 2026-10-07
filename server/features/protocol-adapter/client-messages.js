@@ -68,7 +68,8 @@ function textPart(block, path, drop) {
   return { type: "text", text, ...cacheOf(block, drop) };
 }
 
-function mediaTypeFromUrl(url) {
+/** Media type of a data URL, or a guess from the file extension of a plain URL. */
+export function mediaTypeFromUrl(url) {
   const dataUrl = /^data:([^;,]+)[;,]/i.exec(url);
   if (dataUrl) return dataUrl[1].toLowerCase();
   const extension = /\.([a-z0-9]+)(?:[?#]|$)/i.exec(url)?.[1]?.toLowerCase();
