@@ -2,7 +2,7 @@
 // Stream and response parsing live in upstream-responses-parse.js and are re-exported here.
 
 import { decodeCarrier } from "./carrier.js";
-import { effortForBudget, normalizeEffort } from "./mapping.js";
+import { clampMaxTokens, effortForBudget, normalizeEffort } from "./mapping.js";
 
 export {
   parseResponsesResponse,
@@ -243,9 +243,10 @@ function reasoningConfig(thinking, drop) {
   return reasoning;
 }
 
-function applySampling(body, sampling, drop) {
-  if (present(sampling.maxOutputTokens))
-    body.max_output_tokens = sampling.maxOutputTokens;
+function applySampling(body, sampling, model, drop, adjust) {
+  if (present(sampling.maxOutputTokens)) {
+    body.max_output_tokens = clampMaxTokens(sampling.maxOutputTokens, model, adjust);
+  }
   if (present(sampling.temperature)) body.temperature = sampling.temperature;
   if (present(sampling.topP)) body.top_p = sampling.topP;
   if (Array.isArray(sampling.stop) && sampling.stop.length > 0) drop("sampling.stop");
@@ -272,7 +273,9 @@ function textFormat(output) {
 export function buildResponsesRequest(ir, ctx) {
   const capabilities = ctx.capabilities ?? {};
   const dropped = [];
+  const adjustments = [];
   const drop = (name) => dropped.push(name);
+  const adjust = (name) => adjustments.push(name);
   for (const key of Object.keys(ir.hints ?? {})) drop(`hints.${key}`);
 
   const { instructions, input, replayed } = buildInput(ir, ctx, drop);
@@ -296,7 +299,7 @@ export function buildResponsesRequest(ir, ctx) {
       : reasoningConfig(ir.thinking, drop);
   if (reasoning) body.reasoning = reasoning;
   if (reasoning || replayed) body.include = [ENCRYPTED_REASONING];
-  applySampling(body, ir.sampling ?? {}, drop);
+  applySampling(body, ir.sampling ?? {}, ctx.model, drop, adjust);
   const format = textFormat(ir.output);
   if (format) body.text = format;
   const cacheKey = ir.cache?.key ?? ctx.sessionKey;
@@ -309,5 +312,10 @@ export function buildResponsesRequest(ir, ctx) {
   }
   body.store = false;
   body.stream = ir.stream === true;
-  return { path: "/responses", body, dropped: [...new Set(dropped)] };
+  return {
+    path: "/responses",
+    body,
+    dropped: [...new Set(dropped)],
+    adjustments: [...new Set(adjustments)],
+  };
 }

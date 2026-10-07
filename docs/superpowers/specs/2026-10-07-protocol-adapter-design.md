@@ -193,7 +193,10 @@ IrError { kind: "auth" | "permission" | "notFound" | "rateLimit" | "overloaded" 
 ### Upstream: Messages
 
 - `max_tokens` is required: `sampling.maxOutputTokens ?? model.outputTokens ??
-min(floor(contextTokens / 4), 32000)`.
+min(floor(contextTokens / 4), 32000)`. On every upstream a client value above a known
+  `model.outputTokens` is clamped to it (counted `maxTokens.clamped`); Claude Code always
+  sends `max_tokens: 32000` for unknown model ids, so PR 2 also sets
+  `CLAUDE_CODE_MAX_OUTPUT_TOKENS` from the model record for adapter routes.
 - Thinking: `adaptive` is sent as-is with `output_config.effort`; `enabled` sends
   `budget_tokens = max(1024, budget)`, and thinking is disabled when `max_tokens <= 1024`
   or when `budget >= max_tokens` cannot be resolved by lowering the budget to
@@ -331,7 +334,11 @@ therefore `length` is emitted as `response.completed`.
   Anthropic, OpenAI/Azure, vLLM, llama.cpp, LM Studio, LiteLLM) into `IrError`.
 - `contextLength` is emitted exactly as the client expects so automatic compaction works:
   - Messages client: 400 `invalid_request_error` with message `prompt is too long: <n>
-tokens > <max> maximum` (numbers when known).
+tokens > <max> maximum` (numbers when known; `<n>` is prompt + requested output when
+    the prompt alone fits). Only when the output budget is the problem and Claude Code
+    can shrink it usefully (`max - prompt - 1000 >= 3000`) the message is
+    ``input length and `max_tokens` exceed context limit: <prompt> + <output> > <max>``,
+    on which Claude Code retries with a smaller `max_tokens` instead of compacting.
   - Responses client: error `code: "context_length_exceeded"` (non-streaming body and
     `response.failed` in streams).
 - Other kinds map to the client's error types and statuses (429 `rate_limit_error`, 529

@@ -442,7 +442,9 @@ export function buildMessagesRequest(ir, ctx) {
   if (typeof ir.cache?.key === "string" && ir.cache.key !== "") drop("cache.key");
 
   const sampling = ir.sampling ?? {};
-  const maxTokens = maxTokensFor({ sampling, model: ctx.model });
+  const maxTokens = maxTokensFor({ sampling, model: ctx.model }, (name) =>
+    adjustments.push(name),
+  );
   const { system, messages } = buildConversation(ir, ctx, drop);
   if (messages.length === 0) {
     throw new TypeError("request.messages: no message is left for the Messages upstream");

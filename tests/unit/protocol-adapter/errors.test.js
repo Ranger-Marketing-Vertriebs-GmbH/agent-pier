@@ -62,15 +62,16 @@ for (const [protocol, file, prompt, max, output] of CONTEXT_FIXTURES) {
     const ccRegex = /prompt is too long[^0-9]*(\d+)\s*tokens?\s*>\s*(\d+)/i;
     const shrink =
       /input length and `max_tokens` exceed context limit: (\d+) \+ (\d+) > (\d+)/;
-    if (prompt > max || output === undefined) {
+    // Claude Code can only shrink max_tokens when ≥ 3000 tokens stay after its margin.
+    const shrinkable =
+      output !== undefined && prompt <= max && max - prompt - 1000 >= 3000;
+    if (!shrinkable) {
+      const total = prompt > max || output === undefined ? prompt : prompt + output;
       assert.equal(
         body.error.message,
-        `prompt is too long: ${prompt} tokens > ${max} maximum`,
+        `prompt is too long: ${total} tokens > ${max} maximum`,
       );
-      assert.deepEqual(ccRegex.exec(body.error.message).slice(1), [
-        `${prompt}`,
-        `${max}`,
-      ]);
+      assert.deepEqual(ccRegex.exec(body.error.message).slice(1), [`${total}`, `${max}`]);
     } else {
       assert.deepEqual(shrink.exec(body.error.message).slice(1), [
         `${prompt}`,
@@ -215,6 +216,29 @@ test("Anthropic max_tokens overflow keeps all three numbers", () => {
   assert.match(
     messagesErrorBody(error).body.error.message,
     /^input length and `max_tokens` exceed context limit: 188059 \+ 20000 > 200000/,
+  );
+});
+
+test("max_tokens wording only when Claude Code can shrink to ≥ 3000 tokens", () => {
+  const render = (promptTokens, outputTokens, contextWindow) =>
+    messagesErrorBody({
+      kind: "contextLength",
+      status: 400,
+      message: "x",
+      promptTokens,
+      outputTokens,
+      contextWindow,
+    }).body.error.message;
+  // 32768 - 28768 - 1000 = 3000: shrinking still leaves 3000 output tokens.
+  assert.match(render(28768, 8000, 32768), /^input length and `max_tokens` exceed/);
+  // 2999 left: Claude Code would give up, so it must compact instead.
+  assert.equal(
+    render(28769, 8000, 32768),
+    "prompt is too long: 36769 tokens > 32768 maximum",
+  );
+  assert.equal(
+    render(40000, 8000, 32768),
+    "prompt is too long: 40000 tokens > 32768 maximum",
   );
 });
 

@@ -2,7 +2,7 @@
 // Stream and response parsing live in upstream-chat-parse.js and are re-exported here.
 
 import { decodeCarrier } from "./carrier.js";
-import { effortForBudget, normalizeEffort } from "./mapping.js";
+import { clampMaxTokens, effortForBudget, normalizeEffort } from "./mapping.js";
 
 export { parseChatResponse, parseChatStream } from "./upstream-chat-parse.js";
 
@@ -233,13 +233,13 @@ function reasoningEffort(thinking) {
   return normalizeEffort(undefined);
 }
 
-function applySampling(body, sampling, capabilities) {
+function applySampling(body, sampling, ctx, adjust) {
   if (present(sampling.maxOutputTokens)) {
     const field =
-      capabilities.maxTokensField === "max_completion_tokens"
+      ctx.capabilities?.maxTokensField === "max_completion_tokens"
         ? "max_completion_tokens"
         : "max_tokens";
-    body[field] = sampling.maxOutputTokens;
+    body[field] = clampMaxTokens(sampling.maxOutputTokens, ctx.model, adjust);
   }
   if (present(sampling.temperature)) body.temperature = sampling.temperature;
   if (present(sampling.topP)) body.top_p = sampling.topP;
@@ -263,6 +263,7 @@ function responseFormat(output) {
 export function buildChatRequest(ir, ctx) {
   const capabilities = ctx.capabilities ?? {};
   const dropped = new Set();
+  const adjustments = [];
   const drop = (name) => dropped.add(name);
   for (const key of Object.keys(ir.hints ?? {})) drop(`hints.${key}`);
 
@@ -281,7 +282,7 @@ export function buildChatRequest(ir, ctx) {
       body.parallel_tool_calls = ir.parallelToolCalls;
     }
   }
-  applySampling(body, ir.sampling ?? {}, capabilities);
+  applySampling(body, ir.sampling ?? {}, ctx, (name) => adjustments.push(name));
   if (capabilities.reasoningEffort === true) {
     const effort = reasoningEffort(ir.thinking);
     if (effort !== undefined) body.reasoning_effort = effort;
@@ -300,5 +301,5 @@ export function buildChatRequest(ir, ctx) {
   if (body.stream && capabilities.streamUsage !== false) {
     body.stream_options = { include_usage: true };
   }
-  return { path: "/chat/completions", body, dropped: [...dropped] };
+  return { path: "/chat/completions", body, dropped: [...dropped], adjustments };
 }

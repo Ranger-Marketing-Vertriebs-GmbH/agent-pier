@@ -294,6 +294,17 @@ describe("buildResponsesRequest rules", () => {
     });
   });
 
+  test("max output tokens are clamped to the model's output limit when known", () => {
+    const sampling = { maxOutputTokens: 32000, temperature: null, topP: null, stop: [] };
+    const clamped = build(request({ sampling }), {
+      model: { id: "m", outputTokens: 16384 },
+    });
+    assert.equal(clamped.body.max_output_tokens, 16384);
+    assert.deepEqual(clamped.adjustments, ["maxTokens.clamped"]);
+    const unknown = build(request({ sampling }), { model: { id: "m" } });
+    assert.equal(unknown.body.max_output_tokens, 32000);
+  });
+
   test("tool and output schemas keep the client's key order", () => {
     const properties = { file_path: {}, old_string: {}, new_string: {}, replace_all: {} };
     const { body } = build(

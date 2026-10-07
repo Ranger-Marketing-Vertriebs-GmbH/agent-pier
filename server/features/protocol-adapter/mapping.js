@@ -156,12 +156,31 @@ export function resolveThinkingForMessages({
   return result;
 }
 
-/** Messages `max_tokens`: explicit value, model output limit, or a share of the context. */
-export function maxTokensFor({ sampling, model } = {}) {
-  const explicit = sampling?.maxOutputTokens ?? model?.outputTokens;
+/**
+ * Messages `max_tokens`: explicit value (clamped to the model output limit), model output
+ * limit, or a share of the context.
+ */
+export function maxTokensFor({ sampling, model } = {}, adjust = () => {}) {
+  const requested = sampling?.maxOutputTokens;
+  if (requested !== undefined && requested !== null) {
+    return clampMaxTokens(requested, model, adjust);
+  }
+  const explicit = model?.outputTokens;
   if (explicit !== undefined && explicit !== null) return explicit;
   if (!Number.isFinite(model?.contextTokens)) return DEFAULT_MAX_TOKENS;
   return Math.min(Math.floor(model.contextTokens / 4), DEFAULT_MAX_TOKENS);
+}
+
+/**
+ * Client max output tokens limited to the model's output limit when the model record
+ * knows it (Chat and Responses upstreams; Messages uses `maxTokensFor`). Calls `adjust`
+ * with `maxTokens.clamped` when the value was lowered.
+ */
+export function clampMaxTokens(value, model, adjust = () => {}) {
+  const limit = model?.outputTokens;
+  if (!Number.isInteger(limit) || limit <= 0 || !(value > limit)) return value;
+  adjust("maxTokens.clamped");
+  return limit;
 }
 
 const count = (value) => (Number.isFinite(value) && value > 0 ? value : 0);
