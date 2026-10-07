@@ -126,8 +126,14 @@ function irTool(tool, path) {
   oneOf(tool.kind, TOOL_KINDS, `${path}.kind`);
   if (tool.description !== undefined) string(tool.description, `${path}.description`);
   if (tool.kind === "hosted") string(tool.hostedType, `${path}.hostedType`);
+  if (tool.schema !== undefined) object(tool.schema, `${path}.schema`);
+  if (tool.strict !== undefined) boolean(tool.strict, `${path}.strict`);
   // `grammar` is the custom tool's format; `raw` keeps a hosted tool as the client sent it.
-  if (tool.grammar !== undefined) object(tool.grammar, `${path}.grammar`);
+  if (tool.grammar !== undefined) {
+    object(tool.grammar, `${path}.grammar`);
+    string(tool.grammar.syntax, `${path}.grammar.syntax`);
+    string(tool.grammar.definition, `${path}.grammar.definition`);
+  }
   if (tool.raw !== undefined) object(tool.raw, `${path}.raw`);
 }
 

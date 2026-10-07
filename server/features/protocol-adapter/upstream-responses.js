@@ -2,7 +2,7 @@
 // Stream and response parsing live in upstream-responses-parse.js and are re-exported here.
 
 import { decodeCarrier } from "./carrier.js";
-import { clampMaxTokens, effortForBudget, normalizeEffort } from "./mapping.js";
+import { clampMaxTokens, effortForBudget, resolveEffort } from "./mapping.js";
 import {
   dropHints,
   imageUrl,
@@ -218,10 +218,10 @@ function reasoningConfig(thinking, adjust) {
     return undefined;
   }
   let effort;
-  if (present(thinking.effort)) effort = normalizeEffort(thinking.effort);
+  if (present(thinking.effort)) effort = resolveEffort(thinking.effort, adjust);
   else if (present(thinking.budgetTokens))
     effort = effortForBudget(thinking.budgetTokens);
-  else effort = normalizeEffort(undefined);
+  else effort = resolveEffort(undefined);
   if (effort === "none") return undefined;
   const reasoning = { effort: UPSTREAM_EFFORT[effort] };
   if (reasoning.effort !== effort) adjust("reasoning.effort.clamped");

@@ -2,7 +2,7 @@
 // Stream and response parsing live in upstream-chat-parse.js and are re-exported here.
 
 import { decodeCarrier } from "./carrier.js";
-import { clampMaxTokens, effortForBudget, normalizeEffort } from "./mapping.js";
+import { clampMaxTokens, effortForBudget, resolveEffort } from "./mapping.js";
 import {
   customToolDescription,
   customToolSchema,
@@ -191,13 +191,13 @@ function buildMessages(ir, ctx, drop) {
   return messages;
 }
 
-function reasoningEffort(thinking) {
+function reasoningEffort(thinking, adjust) {
   if (!thinking || (thinking.mode !== "enabled" && thinking.mode !== "adaptive")) {
     return undefined;
   }
-  if (present(thinking.effort)) return normalizeEffort(thinking.effort);
+  if (present(thinking.effort)) return resolveEffort(thinking.effort, adjust);
   if (present(thinking.budgetTokens)) return effortForBudget(thinking.budgetTokens);
-  return normalizeEffort(undefined);
+  return resolveEffort(undefined);
 }
 
 function applySampling(body, sampling, ctx, adjust) {
@@ -249,9 +249,10 @@ export function buildChatRequest(ir, ctx) {
       body.parallel_tool_calls = ir.parallelToolCalls;
     }
   }
-  applySampling(body, ir.sampling ?? {}, ctx, (name) => adjustments.push(name));
+  const adjust = (name) => adjustments.push(name);
+  applySampling(body, ir.sampling ?? {}, ctx, adjust);
   if (capabilities.reasoningEffort === true) {
-    const effort = reasoningEffort(ir.thinking);
+    const effort = reasoningEffort(ir.thinking, adjust);
     if (effort !== undefined) body.reasoning_effort = effort;
   }
   const format = responseFormat(ir.output);
