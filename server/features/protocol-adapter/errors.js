@@ -51,10 +51,20 @@ const TYPE_KINDS = Object.freeze({
   api_error: "server",
   server_error: "server",
   timeout_error: "timeout",
+  // Responses `response.failed` codes Codex treats as fatal (facts §3.8).
+  credit_balance_exhausted: "permission",
+  usage_not_included: "permission",
+  cyber_policy: "invalidRequest",
+  bio_policy: "invalidRequest",
+  misalignment_policy_violation: "invalidRequest",
 });
 
 // Codes that mean "not retryable" even when the status says otherwise (OpenAI quota 429).
 const OVERRIDING_CODES = Object.freeze({ insufficient_quota: "permission" });
+
+// Unknown status-less codes that read as a rejection of the request (policy, validation,
+// unsupported feature): retrying cannot help, so they are not reported as `server` errors.
+const NON_RETRYABLE_CODE = /polic|^invalid_|unsupported|not_supported|content_filter/;
 
 const CONTEXT_PATTERNS = [
   /prompt is too long/i,
@@ -193,7 +203,9 @@ function kindFor({ status, type, code }) {
     if (status >= 500) return "server";
     if (status >= 400) return "invalidRequest";
   }
-  return TYPE_KINDS[code] ?? TYPE_KINDS[type] ?? "server";
+  const known = TYPE_KINDS[code] ?? TYPE_KINDS[type];
+  if (known) return known;
+  return NON_RETRYABLE_CODE.test(code ?? "") ? "invalidRequest" : "server";
 }
 
 function headerValue(headers, name) {
@@ -307,7 +319,12 @@ export function classifyTransportError(error, secrets = []) {
   };
 }
 
-const messageOf = (error) => nonEmpty(error.message) ?? DEFAULT_MESSAGES[error.kind];
+// Renderers sanitize again (defense in depth): an IrError may come from another producer
+// than the classifiers above, so its message is never trusted to be clean.
+const messageOf = (error) =>
+  sanitizeMessage(nonEmpty(error.message)) ||
+  DEFAULT_MESSAGES[error.kind] ||
+  DEFAULT_MESSAGES.server;
 
 function retryHeaders(error) {
   if (!Number.isFinite(error.retryAfter)) return {};
