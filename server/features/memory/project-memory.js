@@ -44,8 +44,10 @@ export class ProjectMemory {
     this.home = home;
     this.closed = false;
   }
-  registeredAt(cwd) {
-    return Boolean(this.db.prepare("SELECT 1 FROM projects WHERE cwd=?").get(cwd));
+  gitProjectAt(cwd) {
+    return Boolean(
+      this.db.prepare("SELECT 1 FROM projects WHERE cwd=? AND kind='git'").get(cwd),
+    );
   }
   /** Whether a project registered for exactly this folder holds memory entries. */
   holdsKnowledge(cwd) {
@@ -61,19 +63,20 @@ export class ProjectMemory {
   classifyFolder(cwd) {
     return classifyProjectFolder(cwd, {
       home: this.home,
-      isRegistered: (dir) => this.registeredAt(dir),
+      isGitProject: (dir) => this.gitProjectAt(dir),
+      holdsKnowledge: (dir) => this.holdsKnowledge(dir),
     });
   }
   /**
    * Registers the project of a session folder. Returns null for the home folder and
    * collection folders, which stand for no project (unless a project registered
    * there already holds knowledge). A pipeline run worktree registers its project
-   * root. Another row for the same folder (an older identity, for example from
-   * before `git init`) merges into the current one, so each folder has one row.
+   * root. A plain-folder row of the same folder that became its own Git work tree
+   * moves to the Git identity (the strict rebind rule), so that folder keeps one row.
    */
   async register(cwd) {
     const folder = await this.classifyFolder(cwd);
-    if (folder.kind !== "project" && !this.holdsKnowledge(folder.cwd)) return null;
+    if (folder.kind !== "project") return null;
     const scope = folder.scope || (await projectScope(folder.cwd));
     for (const other of this.db
       .prepare("SELECT id FROM projects WHERE cwd=? AND id<>? AND kind='directory'")

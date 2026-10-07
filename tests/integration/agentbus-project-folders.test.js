@@ -7,13 +7,15 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { AccountStore } from "../../server/features/accounts/account-store.js";
 import { AgentBus } from "../../server/features/agentbus/agent-bus.js";
+import { ProjectMemory } from "../../server/features/memory/project-memory.js";
+import { projectScope } from "../../server/features/memory/project-scope.js";
 
-async function setup(t) {
+async function setup(t, { home: givenHome, classifyFolder } = {}) {
   const root = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-busdir-")),
   );
-  const home = path.join(root, "home");
-  fs.mkdirSync(home);
+  const home = givenHome || path.join(root, "home");
+  if (!givenHome) fs.mkdirSync(home);
   const dataDir = path.join(root, "data");
   const accounts = new AccountStore({ dataDir, home });
   const rows = [];
@@ -23,7 +25,7 @@ async function setup(t) {
     target: (id) => `fixture-${id}`,
     tmux: async () => String(process.pid),
   };
-  const bus = new AgentBus({ dataDir, home, accounts, sessions });
+  const bus = new AgentBus({ dataDir, home, accounts, sessions, classifyFolder });
   await bus.ready;
   t.after(async () => {
     await bus.close();
@@ -89,19 +91,58 @@ test("AgentBus creates no project for the home folder or a collection folder", a
   );
 });
 
-test("a pipeline run worktree joins its root project on AgentBus", async (t) => {
+test("a pipeline run worktree keeps its own bus but lists under its root project", async (t) => {
   const ctx = await setup(t);
   const app = repository(path.join(ctx.root, "work", "app"));
   const run = path.join(app, ".agentpier-worktrees", "8c1d4e2f-run");
   execFileSync("git", ["-C", app, "worktree", "add", "-q", "--detach", run]);
   const inRun = await ctx.prepare("run-session", run);
   const inRoot = await ctx.prepare("root-session", app);
-  assert.equal(inRun.agentbus.projectId, createHash("sha256").update(app).digest("hex"));
-  assert.equal(inRun.agentbus.projectId, inRoot.agentbus.projectId);
+  const hash = (value) => createHash("sha256").update(value).digest("hex");
+  assert.equal(inRun.agentbus.projectId, hash(run));
+  assert.equal(inRoot.agentbus.projectId, hash(app));
+  assert.notEqual(inRun.agentbus.projectId, inRoot.agentbus.projectId);
   const listed = await ctx.bus.list();
-  assert.equal(listed.projects.length, 1);
   assert.deepEqual(
-    [listed.projects[0].name, listed.projects[0].cwd, listed.projects[0].sessions.length],
-    ["app", app, 2],
+    listed.projects
+      .map((project) => [project.id, project.name, project.cwd, project.sessions.length])
+      .sort(),
+    [
+      [hash(app), "app", app, 1],
+      [hash(run), "app", app, 1],
+    ].sort(),
   );
+});
+
+test("AgentBus stays on where project memory keeps a home project with knowledge", async (t) => {
+  const root = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-busmem-")),
+  );
+  const home = path.join(root, "home");
+  fs.mkdirSync(home);
+  const memory = new ProjectMemory({ dataDir: path.join(root, "memory"), home });
+  t.after(() => {
+    memory.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+  const scope = await projectScope(home);
+  memory.db
+    .prepare("INSERT INTO projects VALUES (?,?,?,?,?,?)")
+    .run(scope.id, scope.name, scope.cwd, scope.kind, scope.identity, "2026-01-01");
+  memory.write(scope.id, { title: "Kept", content: "Home notes" });
+  const ctx = await setup(t, {
+    home,
+    classifyFolder: (cwd) => memory.classifyFolder(cwd),
+  });
+  assert.equal((await ctx.prepare("home-session", home)).agentbus.enabled, true);
+  assert.equal((await memory.register(home)).id, scope.id);
+});
+
+test("folders below a home that is a Git work tree are no home folder", async (t) => {
+  const ctx = await setup(t);
+  execFileSync("git", ["init", "-q", ctx.home]);
+  const notes = path.join(ctx.home, "notes");
+  fs.mkdirSync(notes);
+  assert.equal((await ctx.prepare("home-session", ctx.home)).agentbus.enabled, false);
+  assert.equal((await ctx.prepare("notes-session", notes)).agentbus.enabled, true);
 });
