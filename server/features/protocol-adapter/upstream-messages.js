@@ -375,24 +375,15 @@ function messagesThinking(thinking, capabilities) {
   return result;
 }
 
-// Keywords whose value is one subschema, a list of subschemas, or a map of subschemas.
-const SUBSCHEMA = [
-  "items",
-  "additionalProperties",
-  "not",
-  "if",
-  "then",
-  "else",
-  "contains",
-];
-const SUBSCHEMA_LISTS = ["anyOf", "oneOf", "allOf", "prefixItems", "items"];
-const SUBSCHEMA_MAPS = [
-  "properties",
-  "patternProperties",
-  "$defs",
-  "definitions",
-  "dependentSchemas",
-];
+// Keywords whose value is one subschema, a list of subschemas, or a map of subschemas,
+// each validated on its own (closing them keeps the schema satisfiable).
+const SUBSCHEMA = ["items", "additionalProperties", "contains"];
+const SUBSCHEMA_LISTS = ["anyOf", "oneOf", "prefixItems", "items"];
+const SUBSCHEMA_MAPS = ["properties", "patternProperties", "$defs", "definitions"];
+// Subschemas applied together with their parent (or negated): closing them, or the
+// parent when they add properties, would reject valid instances (allOf of two property
+// sets becomes unsatisfiable). They are left untouched.
+const CONJUNCTIVE = ["allOf", "if", "then", "else", "dependentSchemas"];
 
 const isObjectSchema = (schema) =>
   schema.type === "object" ||
@@ -402,7 +393,10 @@ const isObjectSchema = (schema) =>
 /**
  * Copy of a JSON schema in which every object schema without `additionalProperties`
  * gets `additionalProperties: false` (appended, so key order is kept): Anthropic
- * structured outputs require closed objects. Calls `adjust` once when a schema changed.
+ * structured outputs require closed objects. `allOf`, `not`, `if`/`then`/`else` and
+ * `dependentSchemas` subschemas are left untouched, and an object composing `allOf`,
+ * `if`/`then`/`else` or `dependentSchemas` stays open. Calls `adjust` once when a schema
+ * changed.
  */
 function closedSchema(schema, adjust) {
   let changed = false;
@@ -422,7 +416,11 @@ function closedSchema(schema, adjust) {
         Object.entries(copy[key]).map(([name, value]) => [name, visit(value)]),
       );
     }
-    if (isObjectSchema(copy) && copy.additionalProperties === undefined) {
+    if (
+      isObjectSchema(copy) &&
+      copy.additionalProperties === undefined &&
+      !CONJUNCTIVE.some((key) => Object.hasOwn(copy, key))
+    ) {
       copy.additionalProperties = false;
       changed = true;
     }
