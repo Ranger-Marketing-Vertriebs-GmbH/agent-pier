@@ -187,7 +187,7 @@ describe("request rejections", () => {
     assert.equal(built.ok, false);
     assert.equal(built.error.status, 400);
     assert.equal(built.error.body.error.type, "invalid_request_error");
-    assert.equal(instance.diagnostics().dropped["request.invalid"], 1);
+    assert.equal(instance.diagnostics().errors["request.invalid"], 1);
   });
 
   test("empty conversation toward Messages → invalidRequest, not a throw", () => {
@@ -261,5 +261,49 @@ describe("keepalive, ids and diagnostics", () => {
     assert.equal(dropped["tools.web_search"], 2);
     assert.equal(adjustments["cache.autoBreakpoints"], 2);
     assert.equal(estimatedUsage, 0);
+  });
+
+  test("consumed hints are not dropped; errors and adjustments have their own counters", () => {
+    for (const upstream of ["messages", "chat"]) {
+      const instance = translator("responses", upstream);
+      const body = {
+        ...clientBody("clients/codex/text.json"),
+        store: false,
+        include: ["reasoning.encrypted_content"],
+      };
+      const built = instance.buildUpstream(body, {}, REQ);
+      assert.ok(!built.dropped.includes("hints.store"), upstream);
+      assert.ok(!built.dropped.includes("hints.include"), upstream);
+      instance.buildUpstream({ ...body, previous_response_id: "resp_1" }, {}, REQ);
+      instance.buildUpstream({ model: "m", input: 7 }, {}, REQ);
+      const { dropped, errors } = instance.diagnostics();
+      assert.equal(dropped["hints.store"], undefined);
+      assert.equal(dropped["request.rejected"], undefined);
+      assert.equal(errors["request.rejected"], 1);
+      assert.equal(errors["request.invalid"], 1);
+    }
+    const claude = translator("responses", "messages");
+    const body = clientBody("clients/codex/text.json");
+    claude.buildUpstream(
+      { ...body, reasoning: { effort: "minimal" }, temperature: 0.5 },
+      {},
+      REQ,
+    );
+    const { dropped, adjustments } = claude.diagnostics();
+    assert.equal(adjustments.effortMinimalToLow, 1);
+    assert.equal(dropped.effortMinimalToLow, undefined);
+    assert.equal(dropped.temperatureDropped, 1, "sampling drops stay feature drops");
+  });
+
+  test("secrets: null is treated as no secrets", () => {
+    const instance = translator("messages", "chat", { secrets: null });
+    const built = instance.buildUpstream(
+      clientBody("clients/claude-code/text.json"),
+      {},
+      REQ,
+    );
+    assert.equal(built.ok, true);
+    const rendered = built.exchange.translateError({ status: 500, body: "boom" });
+    assert.equal(rendered.body.error.message, "boom");
   });
 });

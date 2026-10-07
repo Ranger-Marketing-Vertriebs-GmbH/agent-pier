@@ -19,6 +19,9 @@ export { parseMessagesResponse, parseMessagesStream } from "./upstream-messages-
 
 const MAX_BREAKPOINTS = 4;
 const EPHEMERAL = Object.freeze({ type: "ephemeral" });
+// Sampling values removed for Messages upstreams are feature drops; the other
+// thinking resolutions (effort, budget, tool choice) are adjustments.
+const SAMPLING_DROPS = new Set(["temperatureDropped", "topPDropped", "topKDropped"]);
 const MISSING_RESULT = "[no tool result was recorded for this call]";
 
 // --- tools -------------------------------------------------------------------------
@@ -312,12 +315,12 @@ function cacheSlots(body) {
  * Keeps at most four breakpoints (dropping the oldest) and, unless disabled, marks the
  * last system block and the last block of the last user message when room is left.
  */
-function applyCache(body, capabilities, drop, adjust) {
+function applyCache(body, capabilities, adjust) {
   const marked = cacheSlots(body).filter((block) => block.cache_control);
   const excess = marked.length - MAX_BREAKPOINTS;
   for (const block of marked.slice(0, Math.max(0, excess))) {
     delete block.cache_control;
-    drop("cache.breakpoints");
+    adjust("cache.breakpoints");
   }
   if (capabilities.promptCache === false) return;
   let used = Math.min(marked.length, MAX_BREAKPOINTS);
@@ -401,8 +404,9 @@ function resolveThinking(ir, ctx, maxTokens, messages) {
  * Messages request for an IR request. Keys are inserted in a fixed order and schemas
  * pass through in client order, so identical prefixes serialize identically (prompt
  * caching). IR hints, hosted tools and the cache key are never sent; they are listed in
- * `dropped` together with the thinking adjustments. `adjustments` lists additions such as
- * the automatic cache breakpoints. Throws a TypeError when no message is left to send.
+ * `dropped` together with removed sampling values. `adjustments` lists changes such as
+ * thinking/effort resolutions, removed excess and added automatic cache breakpoints and
+ * a clamped `max_tokens`. Throws a TypeError when no message is left to send.
  */
 export function buildMessagesRequest(ir, ctx) {
   const capabilities = ctx.capabilities ?? {};
@@ -421,7 +425,9 @@ export function buildMessagesRequest(ir, ctx) {
     throw new TypeError("request.messages: no message is left for the Messages upstream");
   }
   const resolved = resolveThinking(ir, ctx, maxTokens, messages);
-  dropped.push(...resolved.adjustments);
+  for (const name of resolved.adjustments) {
+    (SAMPLING_DROPS.has(name) ? dropped : adjustments).push(name);
+  }
 
   const body = { model: upstreamModel(ir, ctx.model), max_tokens: maxTokens };
   if (system.length > 0) body.system = system;
@@ -438,7 +444,7 @@ export function buildMessagesRequest(ir, ctx) {
     body.stop_sequences = [...sampling.stop];
   }
   body.stream = ir.stream === true;
-  applyCache(body, capabilities, drop, (name) => adjustments.push(name));
+  applyCache(body, capabilities, (name) => adjustments.push(name));
   return {
     path: "/v1/messages",
     body,

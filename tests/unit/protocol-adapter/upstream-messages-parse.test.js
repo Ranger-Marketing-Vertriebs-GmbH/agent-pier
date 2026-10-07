@@ -288,6 +288,24 @@ describe("parseMessagesStream fixtures", () => {
     assert.deepEqual(result.usage, [usage(101, 6, { estimated: true })]);
   });
 
+  test("tool uses without id get ids unique per request and call", async () => {
+    const text = sse(
+      messageStart,
+      blockStart(0, { type: "tool_use", name: "Bash", input: {} }),
+      blockStop(0),
+      blockStart(1, { type: "tool_use", name: "Bash", input: {} }),
+      blockStop(1),
+      messageDelta("tool_use"),
+      messageStop,
+    );
+    const ids = async (requestId) =>
+      summarize(await parseText(text, context({ requestId }))).blocks.map(
+        (block) => block.toolCall.id,
+      );
+    assert.deepEqual(await ids("req_a"), ["call_req_a_0", "call_req_a_1"]);
+    assert.deepEqual(await ids("req_b"), ["call_req_b_0", "call_req_b_1"]);
+  });
+
   test("tool input given only on block start is emitted once", async () => {
     const text = sse(
       messageStart,

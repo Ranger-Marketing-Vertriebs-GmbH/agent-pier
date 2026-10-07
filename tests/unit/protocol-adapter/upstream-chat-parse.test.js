@@ -439,12 +439,19 @@ describe("tool calls", () => {
     assert.equal(block.text, '{"a":1}');
   });
 
-  test("a call without id gets a stable synthesized id", async () => {
+  test("a call without id gets an id unique per request and call", async () => {
     const call = { index: 3, function: { name: "f", arguments: "{}" } };
-    const events = await parseText(
-      sse(chunk({ tool_calls: [call] }), finish("tool_calls")),
-    );
-    assert.equal(summarize(events).blocks[0].toolCall.id, "chatcmpl-t_call_3");
+    const text = sse(chunk({ tool_calls: [call] }), finish("tool_calls"));
+    const first = await parseText(text, context({ requestId: "req_a" }));
+    assert.equal(summarize(first).blocks[0].toolCall.id, "call_req_a_3");
+    const second = await parseText(text, context({ requestId: "req.b/1" }));
+    assert.equal(summarize(second).blocks[0].toolCall.id, "call_req_b_1_3");
+  });
+
+  test('finish_reason "stop" with tool calls is a tool-use stop', async () => {
+    const call = { index: 0, id: "c1", function: { name: "f", arguments: "{}" } };
+    const events = await parseText(sse(chunk({ tool_calls: [call] }), finish("stop")));
+    assert.deepEqual(summarize(events).stop, ["toolUse"]);
   });
 
   test("text before a tool call is closed before the call starts", async () => {

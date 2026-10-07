@@ -2,7 +2,7 @@
 
 import { encodeCarrier } from "./carrier.js";
 import { classifyUpstreamError } from "./errors.js";
-import { isObject, modelName, nonEmpty, parseData } from "./shared.js";
+import { fallbackCallId, isObject, modelName, nonEmpty, parseData } from "./shared.js";
 import { estimatedUsage, stopFromMessages, usageFromMessages } from "./mapping.js";
 
 /**
@@ -103,7 +103,9 @@ function createMessagesState(ctx) {
   const toolCallOf = (content) => {
     const restored = ctx.names.fromUpstream(content.name ?? "");
     const toolCall = {
-      id: ctx.ids.fromUpstream(nonEmpty(content.id) ? content.id : "toolu"),
+      id: ctx.ids.fromUpstream(
+        nonEmpty(content.id) ? content.id : fallbackCallId(ctx, nextIndex),
+      ),
       name: restored.name,
       kind: "function",
     };

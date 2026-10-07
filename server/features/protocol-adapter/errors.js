@@ -150,8 +150,16 @@ function errorFields(rawBody) {
     message: nonEmpty(candidate.message) ?? nonEmpty(candidate.detail),
     type: symbolic(candidate.type),
     code: symbolic(candidate.code),
+    statusCode: httpCode(candidate.code),
     details: candidate,
   };
+}
+
+/** vLLM/LiteLLM put the HTTP status into `error.code` (integer or digit string). */
+function httpCode(value) {
+  const number =
+    typeof value === "string" && /^\d{3}$/.test(value) ? Number(value) : value;
+  return Number.isInteger(number) && number >= 400 && number <= 599 ? number : null;
 }
 
 function isContextOverflow({ status, message = "", type, code }) {
@@ -231,8 +239,9 @@ export function classifyUpstreamError({
   now,
   secrets = [],
 } = {}) {
-  const httpStatus = Number.isInteger(status) ? status : null;
   const fields = errorFields(body);
+  // Status-less errors (in-stream, or a 200 body) fall back to a numeric `error.code`.
+  const httpStatus = Number.isInteger(status) ? status : (fields.statusCode ?? null);
   const probe = { ...fields, status: httpStatus };
   const context = isContextOverflow(probe);
   const kind = context ? "contextLength" : kindFor(probe);

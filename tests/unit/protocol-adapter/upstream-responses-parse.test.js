@@ -247,6 +247,20 @@ describe("parseResponsesStream edge cases", () => {
     assert.ok(result.blocks.every((block) => !block.open));
   });
 
+  test("calls without call_id get ids unique per request and call", async () => {
+    const call = (index) => ({ type: "function_call", id: `fc_${index}`, name: "f" });
+    const text = sse(created, itemDone(0, call(0)), itemDone(1, call(1)), completed());
+    const ids = (events) => summarize(events).blocks.map((block) => block.toolCall.id);
+    assert.deepEqual(ids(await parseText(text, context({ requestId: "req_a" }))), [
+      "call_req_a_0",
+      "call_req_a_1",
+    ]);
+    assert.deepEqual(ids(await parseText(text, context({ requestId: "req_b" }))), [
+      "call_req_b_0",
+      "call_req_b_1",
+    ]);
+  });
+
   test("tool calls without deltas emit the done arguments once", async () => {
     const call = {
       type: "function_call",

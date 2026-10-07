@@ -132,3 +132,13 @@ test("real signatures and encrypted content are not carriers", () => {
   assert.equal(decodeCarrier(undefined), null);
   assert.equal(decodeCarrier(42), null);
 });
+
+test("an empty namespace is the same as no namespace", () => {
+  const map = createNameMap({ pattern: /^[a-zA-Z0-9_-]+$/, maxLength: 64 });
+  const plain = map.toUpstream("read");
+  assert.equal(map.toUpstream("read", ""), plain);
+  assert.equal(map.toUpstream("read", null), plain);
+  assert.deepEqual(map.fromUpstream(plain), { name: "read" });
+  map.toUpstream("write", "");
+  assert.deepEqual(map.fromUpstream("write"), { name: "write" });
+});
