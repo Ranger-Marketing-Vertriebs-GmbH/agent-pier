@@ -46,6 +46,7 @@ export function prepareProviderLaunch(
   };
   const result = { ...launch, args: [...launch.args], env, provider: metadata };
   const endpointKind = description.kind === "endpoint";
+  if (endpointKind) metadata.route = description.route;
   if (account.tool === "claude")
     return configureClaudeProvider(
       result,
