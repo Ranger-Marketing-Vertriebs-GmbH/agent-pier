@@ -804,9 +804,10 @@ skill, task, todowrite, webfetch, write`). `max_tokens` is 32000 in both.
   `XDG_*` and `HOME` in a temp directory and `OPENCODE_CONFIG_CONTENT` setting
   `npm: "@ai-sdk/anthropic"`, `options.baseURL: "http://127.0.0.1:<port>/v1"` and
   `authToken`/`apiKey` = `{env:AGENTPIER_ENDPOINT_API_KEY}` (OpenCode 1.18.35).
-- **Consequence:** Task 4: either option works; the adapter accepts both `Authorization: Bearer`
-  and `x-api-key` (Global Constraints), so keep `apiKey`. The adapter sees two Messages
-  requests per prompt.
+- **Consequence:** Task 4: SDK routes talk to the endpoint directly, without the adapter, so
+  they must send the same `Authorization: Bearer` header as Claude Code's native endpoint
+  route: use `authToken` for `@ai-sdk/anthropic`. A server sees two Messages requests per
+  OpenCode prompt.
 
 ### R4b. OpenCode `@ai-sdk/openai`
 
