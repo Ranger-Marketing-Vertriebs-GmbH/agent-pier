@@ -82,6 +82,36 @@ export class ProjectRebind {
     if (await this.rebindSessions(fromId, scope, launch)) this.incomplete.delete(fromId);
     return scope;
   }
+  /**
+   * Merges an older project row of a folder into its current project on the owner's
+   * explicit request: memory, session capabilities, SSH access, artifacts,
+   * verification and the bindings of every session that held the older project move,
+   * and the rebind is recorded and audited once. A repeated call finishes an
+   * interrupted move. The caller checks that the merge is current and safe.
+   */
+  mergeDuplicate(fromId, scope) {
+    return this.serial(async () => {
+      const recorded = this.memory.reboundTo(fromId);
+      if (recorded && recorded !== scope.id) return null;
+      this.incomplete.add(fromId);
+      if (!recorded) {
+        this.memory.merge(fromId, scope);
+        this.audit.append({
+          action: "project.updated",
+          resourceType: "project",
+          resourceId: scope.id,
+          projectId: scope.id,
+          source: "user",
+          outcome: "success",
+        });
+      }
+      await this.sshManagement.adoptProject(fromId, scope);
+      await this.artifacts.moveProject(fromId, scope.id);
+      this.definitions?.moveVerification(fromId, scope.id);
+      if (await this.rebindSessions(fromId, scope, null)) this.incomplete.delete(fromId);
+      return scope;
+    });
+  }
   /** Returns false when a busy session was skipped; a later call retries it. */
   async rebindSessions(fromId, scope, launch) {
     const directory = path.join(this.dataDir, "sessions");
@@ -124,7 +154,9 @@ export class ProjectRebind {
     }
     const binding = session.sshTools?.project;
     const memory = session.memory?.projectId === fromId;
-    const ssh = binding?.projectId === fromId && sameFolder(binding.launch, launch);
+    // Without a launch folder (an owner-requested merge) every binding moves.
+    const ssh =
+      binding?.projectId === fromId && (!launch || sameFolder(binding.launch, launch));
     if (!memory && !ssh) return;
     if (ssh) {
       const { id: projectId, name, cwd, kind, identity } = scope;

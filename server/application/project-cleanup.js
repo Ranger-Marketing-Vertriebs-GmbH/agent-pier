@@ -9,7 +9,7 @@ export const cleanupName = "2026-10-project-list-identity";
 const backupLabel = "before-project-cleanup";
 
 /** Session records, or null when one cannot be read (nothing may be removed then). */
-function sessionRecords(dataDir) {
+export function sessionRecords(dataDir) {
   const directory = path.join(dataDir, "sessions");
   let names = [];
   try {
@@ -22,7 +22,8 @@ function sessionRecords(dataDir) {
     if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}\.json$/.test(name)) continue;
     try {
       const text = fs.readFileSync(path.join(directory, name), "utf8");
-      records.push({ text, cwd: JSON.parse(text).cwd });
+      const data = JSON.parse(text);
+      records.push({ text, cwd: data.cwd, data });
     } catch {
       return null;
     }

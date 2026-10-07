@@ -40,6 +40,7 @@ import { createServices } from "./application/services.js";
 import { createSessionLifecycle } from "./application/session-lifecycle.js";
 import { createPipelineServices } from "./application/pipelines.js";
 import { cleanUpProjects } from "./application/project-cleanup.js";
+import { ProjectDuplicates } from "./application/project-duplicates.js";
 import { pipelineDefinitionRoutes } from "./http/routes/pipeline-definitions.js";
 import { pipelineRunRoutes } from "./http/routes/pipeline-runs.js";
 import { auditHttp } from "./features/audit/audit-http.js";
@@ -92,6 +93,7 @@ export async function createApplication(config) {
   await services.reload.initialize();
   Object.assign(services, await createPipelineServices(services));
   services.projectRebind.definitions = services.pipelineDefinitions;
+  services.projectDuplicates = new ProjectDuplicates(services);
   // A failed one-off cleanup keeps no marker, so the next start retries it.
   // The cleanup handles no credentials, so its error code or message is safe to log.
   await cleanUpProjects(services).catch((error) =>
