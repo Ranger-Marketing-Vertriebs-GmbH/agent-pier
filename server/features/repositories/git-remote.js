@@ -2,29 +2,42 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 
 const urlForm = /^([a-z][a-z0-9+.-]*:\/\/)([^/?#]*@)?([^?#]*)/i;
+const scpForm = /^([^@/]*)@([^/:]+:.*)$/;
 
 /**
- * The remote as the browser may see it: userinfo (which may hold a token or a
- * password), query and fragment are removed from URL remotes. The scp-like form
- * `user@host:path` names only a login user and stays as it is.
+ * The remote as the browser may see it. URL remotes lose userinfo (which may hold a
+ * token or a password), query and fragment. The scp-like form keeps a plain login
+ * name (`git@host:owner/repo`), which carries no secret and is what the remote
+ * display expects; a userinfo part with a `:` (password-like) is removed.
  */
 export function publicRemote(value) {
   const remote = String(value || "").trim();
   if (!remote || /[\x00-\x1f\x7f]/.test(remote)) return "";
-  const match = urlForm.exec(remote);
-  if (match) return `${match[1]}${match[3]}`;
+  const url = urlForm.exec(remote);
+  if (url) return `${url[1]}${url[3]}`;
+  const scp = scpForm.exec(remote);
+  if (scp && scp[1].includes(":")) return scp[2];
   return remote;
 }
 
 /**
  * Reads `git remote get-url origin` for listed project folders. Read-only, local
- * (no network), bounded by a short timeout and cached per folder for a few seconds.
- * Missing git, a folder that is no repository or has no origin all read as "".
+ * (no network), bounded by a short timeout, at most `concurrency` git processes at a
+ * time, and cached per folder for a few seconds. Missing git, a folder that is no
+ * repository or has no origin all read as "".
  */
 export class GitRemotes {
-  constructor({ git = "git", timeoutMs = 2000, ttlMs = 5000, now = Date.now } = {}) {
-    Object.assign(this, { git, timeoutMs, ttlMs, now });
+  constructor({
+    git = "git",
+    timeoutMs = 2000,
+    ttlMs = 5000,
+    concurrency = 4,
+    now = Date.now,
+  } = {}) {
+    Object.assign(this, { git, timeoutMs, ttlMs, concurrency, now });
     this.cache = new Map();
+    this.running = 0;
+    this.waiting = [];
   }
   read(cwd) {
     if (typeof cwd !== "string" || !path.isAbsolute(cwd) || /[\x00-\x1f]/.test(cwd))
@@ -33,9 +46,22 @@ export class GitRemotes {
     if (cached && cached.until > this.now()) return cached.value;
     for (const [key, item] of this.cache)
       if (item.until <= this.now()) this.cache.delete(key);
-    const value = this.lookup(cwd);
+    const value = this.limited(() => this.lookup(cwd));
     this.cache.set(cwd, { value, until: this.now() + this.ttlMs });
     return value;
+  }
+  async limited(task) {
+    // A finishing task hands its slot straight to the next waiting one.
+    if (this.running >= this.concurrency)
+      await new Promise((resolve) => this.waiting.push(resolve));
+    else this.running++;
+    try {
+      return await task();
+    } finally {
+      const next = this.waiting.shift();
+      if (next) next();
+      else this.running--;
+    }
   }
   lookup(cwd) {
     const env = {
@@ -63,4 +89,9 @@ export class GitRemotes {
       })),
     );
   }
+}
+
+/** Only the projects hub asks for remotes (`?remotes=1`); other readers skip git. */
+export function wantsRemotes(request) {
+  return request.query?.remotes === "1";
 }

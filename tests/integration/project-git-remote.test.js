@@ -50,6 +50,11 @@ test("credentials embedded in a remote never reach the caller", async (t) => {
     publicRemote("git@github.com:acme/app.git"),
     "git@github.com:acme/app.git",
   );
+  assert.equal(
+    publicRemote("deploy:hunter2@git.example.com:acme/app.git"),
+    "git.example.com:acme/app.git",
+    "a password-like scp userinfo is removed",
+  );
   assert.equal(publicRemote("/srv/git/app.git"), "/srv/git/app.git");
   assert.equal(publicRemote("https://github.com/a\nb"), "");
 });
@@ -103,4 +108,29 @@ process.stdout.write("https://github.com/acme/app.git\\n");`,
     listed.map((item) => item.remote),
     ["https://github.com/acme/app.git", ""],
   );
+});
+
+test("at most a few git processes run at a time", async (t) => {
+  const root = folder(t);
+  const log = path.join(root, "log");
+  const git = fakeGit(
+    root,
+    `const fs = require("node:fs");
+fs.appendFileSync(${JSON.stringify(log)}, "+");
+setTimeout(() => { fs.appendFileSync(${JSON.stringify(log)}, "-"); process.stdout.write("x\\n"); }, 150);`,
+  );
+  const folders = Array.from({ length: 7 }, (_, index) => {
+    const cwd = path.join(root, `p${index}`);
+    fs.mkdirSync(cwd);
+    return { cwd };
+  });
+  const listed = await new GitRemotes({ git, concurrency: 2 }).annotate(folders, "cwd");
+  assert.equal(listed.length, 7);
+  let running = 0,
+    peak = 0;
+  for (const mark of fs.readFileSync(log, "utf8")) {
+    running += mark === "+" ? 1 : -1;
+    peak = Math.max(peak, running);
+  }
+  assert.equal(peak, 2);
 });

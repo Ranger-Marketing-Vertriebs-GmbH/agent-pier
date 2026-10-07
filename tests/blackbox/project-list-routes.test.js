@@ -72,7 +72,10 @@ test("listed projects carry their live origin remote without credentials", async
     "origin",
     "https://x-token:secret@github.com/acme/electronic-lab.git",
   ]);
-  const response = await app.request("/api/memory/projects");
+  // Only the projects hub asks for remotes; other readers get no git call.
+  const plainList = await (await app.request("/api/memory/projects")).json();
+  assert.ok(plainList.projects.every((project) => !("remote" in project)));
+  const response = await app.request("/api/memory/projects?remotes=1");
   const text = await response.text();
   assert.equal(text.includes("secret"), false);
   const remotes = Object.fromEntries(
@@ -85,8 +88,8 @@ test("listed projects carry their live origin remote without credentials", async
     "electronic-lab": "https://github.com/acme/electronic-lab.git",
     notes: "",
   });
-  const repositories = await (await app.request("/api/repositories")).json();
+  const repositories = await (await app.request("/api/repositories?remotes=1")).json();
   assert.ok(Array.isArray(repositories.projects));
-  const bus = await (await app.request("/api/agentbus")).json();
+  const bus = await (await app.request("/api/agentbus?remotes=1")).json();
   assert.ok(Array.isArray(bus.projects));
 });

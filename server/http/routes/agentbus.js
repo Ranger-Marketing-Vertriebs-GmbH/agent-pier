@@ -1,12 +1,14 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
+import { wantsRemotes } from "../../features/repositories/git-remote.js";
 export function agentbusRoutes(services) {
   const { agentbus, gitRemotes } = services;
   const router = Router();
-  router.get("/agentbus", async (_req, res) => {
+  router.get("/agentbus", async (req, res) => {
     const listed = await agentbus.list();
-    if (gitRemotes) listed.projects = await gitRemotes.annotate(listed.projects, "cwd");
+    if (gitRemotes && wantsRemotes(req))
+      listed.projects = await gitRemotes.annotate(listed.projects, "cwd");
     res.json(listed);
   });
   router.get("/agentbus/projects/:id/messages", async (req, res) => {
