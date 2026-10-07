@@ -94,6 +94,96 @@ test("Messages keeps adaptive thinking with a small max_tokens", () => {
   assert.equal(built.body.output_config.effort, "high");
 });
 
+describe("Messages structured output and nested cache marks", () => {
+  test("every object schema is closed with additionalProperties: false", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        list: { type: "array", items: { type: "object", properties: { a: {} } } },
+        open: { type: "object", additionalProperties: true },
+        either: { anyOf: [{ type: "object" }, { type: "string" }] },
+        ref: { $ref: "#/$defs/node" },
+      },
+      required: ["list"],
+      $defs: { node: { type: ["object", "null"], properties: { v: {} } } },
+    };
+    const original = structuredClone(schema);
+    const built = buildMessagesRequest(
+      request({ output: { format: "json_schema", name: "out", schema } }),
+      context(),
+    );
+    const closed = built.body.output_config.format.schema;
+    assert.deepEqual(schema, original, "the client schema is not mutated");
+    assert.deepEqual(Object.keys(closed), [
+      "type",
+      "properties",
+      "required",
+      "$defs",
+      "additionalProperties",
+    ]);
+    assert.equal(closed.additionalProperties, false);
+    assert.equal(closed.properties.list.items.additionalProperties, false);
+    assert.equal(closed.properties.list.additionalProperties, undefined);
+    assert.equal(closed.properties.open.additionalProperties, true);
+    assert.equal(closed.properties.either.anyOf[0].additionalProperties, false);
+    assert.equal(closed.properties.either.anyOf[1].additionalProperties, undefined);
+    assert.equal(closed.$defs.node.additionalProperties, false);
+    assert.ok(built.adjustments.includes("output.additionalPropertiesClosed"));
+  });
+
+  test("an already closed schema is unchanged and not counted", () => {
+    const schema = { type: "object", properties: {}, additionalProperties: false };
+    const built = buildMessagesRequest(
+      request({ output: { format: "json_schema", name: "out", schema } }),
+      context(),
+    );
+    assert.deepEqual(built.body.output_config.format.schema, schema);
+    assert.ok(!built.adjustments.includes("output.additionalPropertiesClosed"));
+  });
+
+  test("cache marks inside tool_result content count toward the 4-breakpoint cap", () => {
+    const marked = (value) => ({ type: "text", text: value, cache: "ephemeral" });
+    const call = (id) => ({
+      type: "toolCall",
+      id,
+      name: "f",
+      kind: "function",
+      input: "{}",
+    });
+    const result = (callId) => ({
+      type: "toolResult",
+      callId,
+      parts: [marked("r1"), marked("r2")],
+      isError: false,
+    });
+    const built = buildMessagesRequest(
+      request({
+        tools: [{ name: "f", kind: "function", schema: {}, cache: "ephemeral" }],
+        system: [marked("sys")],
+        messages: [
+          { role: "user", parts: [text("go")] },
+          { role: "assistant", parts: [call("c1")] },
+          { role: "user", parts: [result("c1")] },
+          { role: "assistant", parts: [call("c2")] },
+          { role: "user", parts: [result("c2")] },
+        ],
+      }),
+      context({ capabilities: { promptCache: false } }),
+    );
+    const marks = [];
+    const visit = (node) => {
+      if (Array.isArray(node)) node.forEach(visit);
+      else if (node && typeof node === "object") {
+        if (node.cache_control) marks.push(node.text ?? node.type ?? node.name);
+        Object.values(node).forEach(visit);
+      }
+    };
+    visit(built.body);
+    assert.equal(marks.length, 4);
+    assert.ok(built.adjustments.includes("cache.breakpoints"));
+  });
+});
+
 describe("Responses forced tool choice", () => {
   const tools = [
     { name: "exec", kind: "function", schema: { type: "object" } },
