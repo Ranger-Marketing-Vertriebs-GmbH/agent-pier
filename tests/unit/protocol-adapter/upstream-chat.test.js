@@ -87,8 +87,18 @@ function assertNoIrKeys(value, path) {
   }
 }
 
-/** Minimal Chat Completions request validator. */
-function assertChatShape(body) {
+/** Minimal Chat Completions request validator (system only leading unless `inline`). */
+function assertChatShape(body, { inline = false } = {}) {
+  const roles = body.messages.map((message) => message.role);
+  roles.forEach((role, index) => {
+    if (index === 0) return;
+    assert.ok(
+      !(role === "user" && roles[index - 1] === "user"),
+      `consecutive user at ${index}`,
+    );
+    if (!inline)
+      assert.ok(role !== "system" || roles[index - 1] === "system", `system at ${index}`);
+  });
   for (const key of Object.keys(body))
     assert.ok(ALLOWED_TOP.has(key), `unexpected ${key}`);
   assert.equal(typeof body.model, "string");
@@ -175,8 +185,11 @@ describe("client IR snapshots", () => {
     });
     assert.deepEqual(
       body.messages.map((message) => message.role),
-      ["system", "user", "system", "assistant", "tool", "system"],
+      ["system", "user", "assistant", "tool", "user"],
     );
+    const trailing = body.messages.at(-1).content.map((part) => part.text);
+    assert.match(trailing[0], /^<system>\n# Environment/);
+    assert.match(trailing[1], /^<system>\n<total_tokens>/);
     assert.equal(body.max_tokens, 32000);
     assert.equal(body.reasoning_effort, "high");
     assert.equal(body.prompt_cache_key, "session-1");
@@ -413,7 +426,7 @@ describe("messages", () => {
     });
   });
 
-  test("assistant messages with only dropped content are omitted", () => {
+  test("assistant messages with only dropped content are omitted; users then merge", () => {
     const ir = request({
       messages: [
         { role: "user", parts: [text("q")] },
@@ -421,10 +434,15 @@ describe("messages", () => {
         { role: "user", parts: [text("again")] },
       ],
     });
-    assert.deepEqual(
-      build(ir).body.messages.map((message) => message.role),
-      ["user", "user"],
-    );
+    assert.deepEqual(build(ir).body.messages, [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "q" },
+          { type: "text", text: "again" },
+        ],
+      },
+    ]);
   });
 });
 

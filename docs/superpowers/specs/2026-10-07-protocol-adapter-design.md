@@ -158,8 +158,12 @@ IrError { kind: "auth" | "permission" | "notFound" | "rateLimit" | "overloaded" 
   `POST /v1/messages/count_tokens`, `HEAD`/`GET /api/hello` (200 empty). Everything else
   404 in Messages error format.
 - `system` is kept in block form in the IR. Mid-conversation `role: "system"` entries are
-  IR system messages; to OpenAI targets they become `developer` (Responses) or `system`
-  (Chat) messages at the same position; Messages upstreams keep them as sent.
+  IR system messages; to Responses targets they become `developer` messages at the same
+  position; to Chat targets their text is merged into the next user turn as a leading
+  `<system>…</system>` text part (after that turn's `tool` messages; appended to a trailing
+  user message or added as a new user message when none follows; adjacent user messages
+  are merged), unless the capability `systemMessages: "inline"` keeps them as `system`
+  messages in place (Amendment 13); Messages upstreams keep them as sent.
 - `thinking: {type: "adaptive"}` plus `output_config.effort` (what Claude Code sends for
   non-Claude model ids) becomes `thinking.mode = "adaptive"` with that effort;
   `{type: "enabled", budget_tokens}` becomes `mode = "enabled"`.
@@ -234,7 +238,8 @@ Each connection stores `adapterCapabilities` for the upstream protocol:
 
 ```js
 { promptCacheKey: bool, streamUsage: bool, reasoningEffort: bool, parallelToolCalls: bool,
-  reasoningReplay: bool }   // reasoningReplay: echo reasoning_content on assistant messages (Chat)
+  reasoningReplay: bool,    // reasoningReplay: echo reasoning_content on assistant messages (Chat)
+  systemMessages: "merge" | "inline" }  // Chat: mid-conversation system handling (default "merge")
 ```
 
 - Defaults are conservative (`false` except `streamUsage`, which most servers accept);
@@ -520,3 +525,4 @@ contradicts sections above, these amendments win:
 11. **Chat reasoning fields**: both `delta.reasoning` (vLLM) and
     `delta.reasoning_content` are read; `reasoningReplay` sends `reasoning_content`.
 12. **IR usage events** carry cumulative totals (each `usage` event replaces the previous values); upstream parsers convert incremental reports before emitting.
+13. **Chat mid-conversation system messages** are merged into the next user turn as `<system>…</system>` text by default: model chat templates rendered by vLLM, llama.cpp and LM Studio (e.g. Qwen3.5, Gemma, Mistral) reject a system message that is not first, and OpenAI rejects one between tool calls and their results. Capability `systemMessages: "inline"` keeps `role: "system"` in place (OpenAI/Azure).
