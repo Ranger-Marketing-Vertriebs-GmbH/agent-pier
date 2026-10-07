@@ -1,8 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { buildChatRequest } from "../../../server/features/protocol-adapter/upstream-chat.js";
-import { buildMessagesRequest } from "../../../server/features/protocol-adapter/upstream-messages.js";
-import { buildResponsesRequest } from "../../../server/features/protocol-adapter/upstream-responses.js";
+import {
+  buildChatRequest,
+  parseChatStream,
+} from "../../../server/features/protocol-adapter/upstream-chat.js";
+import {
+  buildMessagesRequest,
+  parseMessagesStream,
+} from "../../../server/features/protocol-adapter/upstream-messages.js";
+import {
+  buildResponsesRequest,
+  parseResponsesStream,
+} from "../../../server/features/protocol-adapter/upstream-responses.js";
+import { createTranslator } from "../../../server/features/protocol-adapter/translate.js";
+import { collect, fromChunks } from "../../helpers/protocol-adapter.js";
 import {
   createIdMap,
   createNameMap,
@@ -81,4 +92,110 @@ test("Messages keeps adaptive thinking with a small max_tokens", () => {
   assert.equal(built.body.max_tokens, 1000);
   assert.deepEqual(built.body.thinking, { type: "adaptive" });
   assert.equal(built.body.output_config.effort, "high");
+});
+
+describe("Responses forced tool choice", () => {
+  const tools = [
+    { name: "exec", kind: "function", schema: { type: "object" } },
+    { name: "apply_patch", kind: "custom", grammar: { syntax: "lark", definition: "x" } },
+    {
+      name: "web_search",
+      kind: "hosted",
+      hostedType: "web_search",
+      raw: { type: "web_search" },
+    },
+    {
+      name: "claude_search",
+      kind: "hosted",
+      hostedType: "web_search",
+      raw: { type: "web_search_20250305", name: "claude_search" },
+    },
+  ];
+  const choose = (toolChoice) =>
+    buildResponsesRequest(request({ tools, toolChoice }), context());
+
+  test("a custom tool is forced as { type: custom, name }", () => {
+    assert.deepEqual(choose({ name: "apply_patch" }).body.tool_choice, {
+      type: "custom",
+      name: "apply_patch",
+    });
+    assert.deepEqual(choose({ name: "exec" }).body.tool_choice, {
+      type: "function",
+      name: "exec",
+    });
+  });
+
+  test("a forwarded hosted tool is forced by type; a dropped one becomes auto", () => {
+    assert.deepEqual(choose({ name: "web_search" }).body.tool_choice, {
+      type: "web_search",
+    });
+    const dropped = choose({ name: "claude_search" });
+    assert.equal(dropped.body.tool_choice, "auto");
+    assert.ok(dropped.adjustments.includes("toolChoice.hostedToolDropped"));
+  });
+});
+
+describe("upstream parsers redact ctx.secrets from error messages", () => {
+  const SECRET = "plain-upstream-password";
+  const ctx = () => context({ secrets: [SECRET] });
+  const message = `invalid key ${SECRET}`;
+  async function* events(items) {
+    for (const item of items) yield { data: JSON.stringify(item) };
+  }
+  const errorOf = (out) => out.find((event) => event.type === "error").error;
+
+  test("Chat", async () => {
+    const out = await collect(parseChatStream(events([{ error: { message } }]), ctx()));
+    assert.doesNotMatch(errorOf(out).message, /plain-upstream-password/);
+  });
+
+  test("Responses", async () => {
+    const failed = { type: "response.failed", response: { error: { message } } };
+    const out = await collect(parseResponsesStream(events([failed]), ctx()));
+    assert.doesNotMatch(errorOf(out).message, /plain-upstream-password/);
+  });
+
+  test("Messages", async () => {
+    const error = { type: "error", error: { type: "api_error", message } };
+    const out = await collect(parseMessagesStream(events([error]), ctx()));
+    assert.doesNotMatch(errorOf(out).message, /plain-upstream-password/);
+  });
+});
+
+test("the translator passes one per-request ctx to the builder and the parser", async () => {
+  const translator = createTranslator({
+    client: "messages",
+    upstream: "chat",
+    model: { modelId: "upstream-model", contextTokens: 8000, outputTokens: null },
+  });
+  const built = translator.buildUpstream(
+    {
+      model: "m",
+      max_tokens: 100,
+      stream: true,
+      messages: [{ role: "user", content: "hi" }],
+    },
+    {},
+    { requestId: "req_ctx" },
+  );
+  const chunks = [
+    `data: ${JSON.stringify({
+      id: "x",
+      choices: [
+        {
+          index: 0,
+          delta: { tool_calls: [{ function: { name: "f", arguments: "{}" } }] },
+          finish_reason: "tool_calls",
+        },
+      ],
+    })}\n\n`,
+    "data: [DONE]\n\n",
+  ];
+  const text = (await collect(built.exchange.translateStream(fromChunks(chunks)))).join(
+    "",
+  );
+  // The parser sees the request id (fallback call id) and the built body's size.
+  assert.match(text, /"id":"call_req_ctx_0"/);
+  const input = Math.ceil(JSON.stringify(built.request.body).length / 4);
+  assert.match(text, new RegExp(`"input_tokens":${input}`));
 });

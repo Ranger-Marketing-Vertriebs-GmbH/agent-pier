@@ -296,12 +296,19 @@ export function createTranslator({
     message: sanitizeMessage(error.message, secretList) || "upstream error",
   });
 
-  function createExchange(state) {
-    const ctx = {
-      ...session,
-      requestChars: state.requestChars,
-      requestId: state.requestId,
-    };
+  /**
+   * Per-request upstream context: the session's maps, capabilities and model plus the
+   * request id, the redaction list and (after building) the serialized request size. The
+   * same object is passed to the upstream builder and to its stream/response parsers.
+   */
+  const requestContext = (state) => ({
+    ...session,
+    secrets: secretList,
+    requestId: state.requestId,
+    requestChars: 0,
+  });
+
+  function createExchange(state, ctx = requestContext(state)) {
     const context = contextOf(state);
     // Client frames handed out so far (Responses `sequence_number` of the next frame).
     let frames = 0;
@@ -437,7 +444,6 @@ export function createTranslator({
       customTools: (ir?.tools ?? [])
         .filter((tool) => tool.kind === "custom")
         .map(({ name, namespace }) => (namespace ? { name, namespace } : { name })),
-      requestChars: 0,
     };
   }
 
@@ -478,9 +484,10 @@ export function createTranslator({
       return reject(invalid(NO_IMAGES), state);
     }
     for (const tool of ir.tools) session.names.toUpstream(tool.name, tool.namespace);
+    const ctx = requestContext(state);
     let built;
     try {
-      built = upstreamSide.build(ir, session);
+      built = upstreamSide.build(ir, ctx);
     } catch (cause) {
       if (!(cause instanceof TypeError)) throw cause;
       count(stats.errors, "request.invalid");
@@ -489,9 +496,8 @@ export function createTranslator({
     const dropped = [...new Set([...(parsed.dropped ?? []), ...(built.dropped ?? [])])];
     for (const name of dropped) count(stats.dropped, name);
     for (const name of built.adjustments ?? []) count(stats.adjustments, name);
-    const serialized = JSON.stringify(built.body);
-    state.requestChars = serialized.length;
-    const exchange = createExchange(state);
+    ctx.requestChars = JSON.stringify(built.body).length;
+    const exchange = createExchange(state, ctx);
     return {
       ok: true,
       request: {

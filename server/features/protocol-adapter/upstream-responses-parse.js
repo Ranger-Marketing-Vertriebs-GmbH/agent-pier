@@ -232,7 +232,7 @@ function createResponsesState(ctx) {
     finishBlocks();
     out.push({
       type: "error",
-      error: classifyUpstreamError({ protocol: "responses", body }),
+      error: classifyUpstreamError({ protocol: "responses", body, secrets: ctx.secrets }),
     });
     closed = true;
   };

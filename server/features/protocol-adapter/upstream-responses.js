@@ -4,6 +4,7 @@
 import { decodeCarrier } from "./carrier.js";
 import { clampMaxTokens, effortForBudget, resolveEffort } from "./mapping.js";
 import {
+  chosenTool,
   dropHints,
   imageUrl,
   isObject,
@@ -71,11 +72,22 @@ function buildTools(ir, names, drop) {
   return tools;
 }
 
-function toolChoice(choice, names) {
-  if (isObject(choice)) {
-    return { type: "function", name: names.toUpstream(choice.name, choice.namespace) };
+/**
+ * Responses `tool_choice`: a forced custom tool is `{ type: "custom", name }` and a forced
+ * hosted tool `{ type: <hosted type> }` when its definition is forwarded; a choice naming
+ * a dropped hosted tool becomes `auto` (counted).
+ */
+function toolChoice(ir, tools, names, adjust) {
+  const choice = ir.toolChoice;
+  if (!isObject(choice)) return choice;
+  const tool = chosenTool(ir, choice);
+  if (tool?.kind === "hosted") {
+    if (tools.includes(tool.raw)) return { type: tool.hostedType };
+    adjust("toolChoice.hostedToolDropped");
+    return "auto";
   }
-  return choice;
+  const type = tool?.kind === "custom" ? "custom" : "function";
+  return { type, name: names.toUpstream(choice.name, choice.namespace) };
 }
 
 function inputImage(part) {
@@ -278,7 +290,7 @@ export function buildResponsesRequest(ir, ctx) {
   const tools = buildTools(ir, ctx.names, drop);
   if (tools.length > 0) {
     body.tools = tools;
-    body.tool_choice = toolChoice(ir.toolChoice, ctx.names);
+    body.tool_choice = toolChoice(ir, tools, ctx.names, adjust);
     if (
       capabilities.parallelToolCalls === true &&
       typeof ir.parallelToolCalls === "boolean"

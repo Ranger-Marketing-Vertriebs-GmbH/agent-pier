@@ -202,7 +202,7 @@ function createMessagesState(ctx) {
     closeOpenBlocks();
     out.push({
       type: "error",
-      error: classifyUpstreamError({ protocol: "messages", body }),
+      error: classifyUpstreamError({ protocol: "messages", body, secrets: ctx.secrets }),
     });
     closed = true;
   };
