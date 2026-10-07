@@ -231,6 +231,9 @@ export function classifyUpstreamError({
     status: httpStatus,
     message: sanitizeMessage(fields.message, secrets) || fallback,
   };
+  // OpenAI-style `param` names the rejected parameter (capability retry, capabilities.js).
+  const param = nonEmpty(fields.details.param);
+  if (param) error.param = sanitizeMessage(param, secrets).slice(0, 100);
   const retryAfter = retryAfterFrom(headers, now, kind, fields.message);
   if (retryAfter !== undefined) error.retryAfter = retryAfter;
   if (context) Object.assign(error, contextNumbers(fields.message, fields.details));

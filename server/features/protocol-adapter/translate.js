@@ -10,15 +10,17 @@
  *   routes never use the adapter), otherwise a TypeError is thrown.
  * - `model`: the connection model record `{ modelId, contextTokens, outputTokens, images }`.
  *   `modelId` is the upstream model id; `images: false` rejects image input.
- * - `capabilities`: the connection's `adapterCapabilities` for the upstream protocol.
+ * - `capabilities`: the connection's `adapterCapabilities` for the upstream protocol,
+ *   merged over `CAPABILITY_DEFAULTS[upstream]` (capabilities.js documents every key);
+ *   unknown names are ignored, invalid values throw a TypeError.
  * - `sessionKey`: stable per-session string (prompt cache key fallback).
- * - `secrets`: strings redacted from every message that reaches the client.
+ * - `secrets`: strings redacted from every message that reaches the client (null → none).
  *
  * One tool-name map and one call-id map live per translator (= per session); both use the
  * upstream's patterns, and the IR's tools are registered in IR order on every request so
  * the mapping is stable for the whole session.
  *
- * Methods of the translator: `buildUpstream` and `diagnostics`. Everything that
+ * Methods of the translator: `buildUpstream`, `setCapability` and `diagnostics`. Everything that
  * translates a response lives on the per-request `exchange`, so concurrent requests in one
  * session (Claude Code main agent, subagents and small-model calls; Codex turns) never
  * share a client model, id, request size, include flags, display or custom tools.
@@ -36,6 +38,9 @@
  *     forwarded.
  *   - `error` is already rendered in the client's error format (as `translateError`
  *     renders it); `exchange` is returned on rejections too, e.g. for keep-alives.
+ * - `setCapability(name, value)`: changes one capability for subsequent `buildUpstream`
+ *   calls only (TypeError for unknown names or invalid values). With the pure
+ *   `capabilityForError(upstream, irError)` it implements the 400/422 → capability retry.
  * - `diagnostics()`: `{ dropped, adjustments, errors, estimatedUsage }`: counters by name
  *   and the number of responses whose usage was estimated.
  *
@@ -106,6 +111,9 @@ import {
   parseResponsesStream,
 } from "./upstream-responses.js";
 
+import { assertCapability, resolveCapabilities } from "./capabilities.js";
+
+export { CAPABILITY_DEFAULTS, capabilityForError } from "./capabilities.js";
 export { classifyTransportError } from "./errors.js";
 
 const ENCRYPTED_REASONING = "reasoning.encrypted_content";
@@ -244,7 +252,7 @@ export function createTranslator({
   const session = {
     names: createNameMap(upstreamSide.names),
     ids: createIdMap(CALL_ID),
-    capabilities: { ...capabilities },
+    capabilities: resolveCapabilities(upstream, capabilities),
     model: upstreamModel(model),
     sessionKey,
     thinkTagExtraction: thinkTagExtraction === true,
@@ -489,8 +497,16 @@ export function createTranslator({
     };
   }
 
+  /** Changes one capability for subsequent `buildUpstream` calls (capability retry). */
+  function setCapability(name, value) {
+    assertCapability(upstream, name, value);
+    // A new object: exchanges of earlier requests keep the capabilities they were built with.
+    session.capabilities = { ...session.capabilities, [name]: value };
+  }
+
   return {
     buildUpstream,
+    setCapability,
     diagnostics: () => ({
       dropped: { ...stats.dropped },
       adjustments: { ...stats.adjustments },

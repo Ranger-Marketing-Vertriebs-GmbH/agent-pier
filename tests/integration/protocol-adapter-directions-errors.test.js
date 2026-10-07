@@ -246,7 +246,11 @@ describe("keepalive, ids and diagnostics", () => {
 
   test("the translator exposes no request-scoped methods", () => {
     const instance = translator("messages", "chat");
-    assert.deepEqual(Object.keys(instance).sort(), ["buildUpstream", "diagnostics"]);
+    assert.deepEqual(Object.keys(instance).sort(), [
+      "buildUpstream",
+      "diagnostics",
+      "setCapability",
+    ]);
   });
 
   test("diagnostics count dropped hints, adjustments and per request", () => {
