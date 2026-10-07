@@ -43,24 +43,38 @@ export function endpointCodexLaunch(result, description, secret, connectionName)
   return config;
 }
 
+const SDK = {
+  chatCompletions: { npm: "@ai-sdk/openai-compatible", keyOption: "apiKey" },
+  responses: { npm: "@ai-sdk/openai", keyOption: "apiKey" },
+  // Fact R4a: authToken is sent as `Authorization: Bearer`, like Claude Code.
+  messages: { npm: "@ai-sdk/anthropic", keyOption: "authToken" },
+};
+
 /** OpenCode resolves `{env:…}` references itself, so the key stays in the environment. */
 export function endpointOpenCodeLaunch(result, description, secret, connectionName) {
   const { model, auth } = description;
   const key = secret?.apiKey?.trim();
   const cliModelId = `${description.providerKey}/${model.modelId}`;
   const reference = `{env:${auth.keyEnv}}`;
+  const source = description.route?.source ?? "chatCompletions";
+  const sdk = SDK[source];
+  // @ai-sdk/anthropic appends /messages itself, so its base ends with /v1 (fact R4b).
+  const baseURL =
+    source === "messages"
+      ? `${description.endpoints.messages}/v1`
+      : description.endpoints.responses;
   const config = {
     $schema: "https://opencode.ai/config.json",
     model: cliModelId,
     provider: {
       [description.providerKey]: {
-        npm: "@ai-sdk/openai-compatible",
+        npm: sdk.npm,
         name: connectionName || description.displayName,
         options: {
-          baseURL: description.endpoints.chatCompletions,
-          // apiKey becomes `Authorization: Bearer`; with a custom header the key is sent
+          baseURL,
+          // The key option becomes `Authorization: Bearer`; with a custom header the key is sent
           // only there, matching the connection test and Codex.
-          ...(key && !auth.header ? { apiKey: reference } : {}),
+          ...(key && !auth.header ? { [sdk.keyOption]: reference } : {}),
           ...(key && auth.header ? { headers: { [auth.header]: reference } } : {}),
         },
         models: {
