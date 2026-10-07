@@ -236,12 +236,14 @@ describe("system", () => {
         { type: "text", text: "a", cache_control: { type: "ephemeral" } },
         { type: "text", text: "b", cache_control: { type: "ephemeral", ttl: "1h" } },
         { type: "text", text: "c" },
+        { type: "text", text: "d", cache_control: { type: "ephemeral", ttl: "2d" } },
       ],
     });
     assert.deepEqual(ir.system, [
       text("a", { cache: "ephemeral" }),
-      text("b", { cache: "ephemeral" }),
+      text("b", { cache: "ephemeral", cacheTtl: "1h" }),
       text("c"),
+      text("d", { cache: "ephemeral" }),
     ]);
     assert.deepEqual(dropped, ["cache_control.ttl"]);
     assert.deepEqual(parse().ir.system, []);
@@ -305,7 +307,7 @@ describe("thinking", () => {
   test("effort without thinking and unknown thinking types are dropped", () => {
     const effortOnly = thinkingOf({ output_config: { effort: "max" } });
     assert.equal(effortOnly.ir.thinking, null);
-    assert.deepEqual(effortOnly.dropped, ["output_config.effort"]);
+    assert.deepEqual(effortOnly.dropped, ["output_config.effort.withoutThinking"]);
     const unknown = thinkingOf({ thinking: { type: "dreaming" } });
     assert.equal(unknown.ir.thinking, null);
     assert.deepEqual(unknown.dropped, ["thinking"]);
@@ -345,7 +347,12 @@ describe("tools and tool choice", () => {
     assert.deepEqual(ir.tools, [
       { name: "find", kind: "function", schema, description: "Find" },
       { name: "mcp__srv__long_tool", kind: "function", schema, cache: "ephemeral" },
-      { name: "web_search", kind: "hosted", hostedType: "web_search" },
+      {
+        name: "web_search",
+        kind: "hosted",
+        hostedType: "web_search",
+        raw: { type: "web_search_20250305", name: "web_search", max_uses: 3 },
+      },
     ]);
     assert.deepEqual(dropped, ["tools.defer_loading", "tools.bash_20250124"]);
   });

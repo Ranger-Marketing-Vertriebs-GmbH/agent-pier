@@ -54,13 +54,18 @@ function customTool(tool, names) {
   return result;
 }
 
-/** Hosted tools are native here: the client's own definition is kept when it was recorded. */
+/**
+ * Hosted tools are native here: the client's own definition is kept when it is a
+ * Responses definition (`raw.type` equals the hosted type). Other clients' definitions,
+ * e.g. Claude Code's versioned `web_search_20250305`, are dropped and counted.
+ */
 function buildTools(ir, names, drop) {
   const tools = [];
   for (const tool of ir.tools) {
     if (tool.kind === "custom") tools.push(customTool(tool, names));
     else if (tool.kind !== "hosted") tools.push(functionTool(tool, names));
-    else if (isObject(tool.raw)) tools.push(tool.raw);
+    else if (isObject(tool.raw) && tool.raw.type === tool.hostedType)
+      tools.push(tool.raw);
     else drop(`tools.${tool.hostedType ?? tool.name}`);
   }
   return tools;

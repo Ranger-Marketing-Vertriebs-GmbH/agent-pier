@@ -28,7 +28,9 @@ const TOOL_FIELDS = new Set([
   "input_schema",
   "type",
   "cache_control",
+  "strict",
 ]);
+const CACHE_TTLS = ["5m", "1h"];
 const MESSAGE_ROLES = ["user", "assistant", "system"];
 const IMAGE_TYPES = Object.freeze({
   png: "image/png",
@@ -51,19 +53,25 @@ function requireString(value, path) {
   return value;
 }
 
+/** IR cache mark; a known `ttl` is kept as `cacheTtl` (only Messages upstreams use it). */
 function cacheOf(block, drop) {
   const control = block.cache_control;
   if (isAbsent(control)) return {};
-  if (control.ttl !== undefined) drop("cache_control.ttl");
   if (control.type !== "ephemeral") {
     drop("cache_control");
     return {};
   }
+  if (isAbsent(control.ttl)) return { cache: "ephemeral" };
+  if (CACHE_TTLS.includes(control.ttl))
+    return { cache: "ephemeral", cacheTtl: control.ttl };
+  drop("cache_control.ttl");
   return { cache: "ephemeral" };
 }
 
 function textPart(block, path, drop) {
   const text = requireString(block.text, `${path}.text`);
+  if (Array.isArray(block.citations) && block.citations.length > 0)
+    drop("text.citations");
   if (text === "") return null;
   return { type: "text", text, ...cacheOf(block, drop) };
 }
@@ -117,6 +125,9 @@ const BLOCK_PARSERS = {
   text: textPart,
   image: imagePart,
   tool_use(block, path, drop) {
+    if (!isAbsent(block.input) && !isObject(block.input)) {
+      shapeError(`${path}.input`, "an object");
+    }
     return {
       type: "toolCall",
       id: requireString(block.id, `${path}.id`),
@@ -201,7 +212,8 @@ function parseTool(tool, index, drop) {
   const cache = cacheOf(tool, drop);
   if (!isAbsent(tool.type) && tool.type !== "custom") {
     if (/^web_search_/.test(tool.type)) {
-      return { name, kind: "hosted", hostedType: "web_search", ...cache };
+      // `raw` keeps the versioned type and its configuration (max_uses, domains, …).
+      return { name, kind: "hosted", hostedType: "web_search", raw: tool, ...cache };
     }
     drop(`tools.${tool.type}`);
     return null;
@@ -215,6 +227,8 @@ function parseTool(tool, index, drop) {
   if (!isAbsent(tool.description)) {
     parsed.description = requireString(tool.description, `${path}.description`);
   }
+  if (typeof tool.strict === "boolean") parsed.strict = tool.strict;
+  else if (!isAbsent(tool.strict)) drop("tools.strict");
   return { ...parsed, ...cache };
 }
 
@@ -268,7 +282,8 @@ function parseThinking(body, drop) {
   const effort = parseEffort(body.output_config, drop);
   const thinking = body.thinking;
   if (isAbsent(thinking)) {
-    if (effort !== null) drop("output_config.effort");
+    // Effort without thinking has no IR place (thinking stays off as the client asked).
+    if (effort !== null) drop("output_config.effort.withoutThinking");
     return null;
   }
   if (!isObject(thinking)) shapeError("thinking", "an object");

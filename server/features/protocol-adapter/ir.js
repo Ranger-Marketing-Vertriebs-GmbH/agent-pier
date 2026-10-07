@@ -60,14 +60,18 @@ function array(value, path, check) {
   if (!Array.isArray(value)) shapeError(path, "an array");
   value.forEach((item, index) => check(item, `${path}[${index}]`));
 }
-function cacheMark(value, path) {
+export const CACHE_TTLS = Object.freeze(["5m", "1h"]);
+
+/** `cache` mark plus its optional `cacheTtl` sibling (`path` names the `cache` field). */
+function cacheMark(value, path, ttl) {
   if (value !== undefined) oneOf(value, ["ephemeral"], path);
+  if (ttl !== undefined) oneOf(ttl, CACHE_TTLS, `${path}Ttl`);
 }
 
 const PART_CHECKS = {
   text(part, path) {
     string(part.text, `${path}.text`);
-    cacheMark(part.cache, `${path}.cache`);
+    cacheMark(part.cache, `${path}.cache`, part.cacheTtl);
   },
   image(part, path) {
     string(part.mediaType, `${path}.mediaType`);
@@ -76,7 +80,7 @@ const PART_CHECKS = {
     if (part.data === undefined && part.url === undefined)
       shapeError(path, "data or url");
     optionalString(part.detail, `${path}.detail`);
-    cacheMark(part.cache, `${path}.cache`);
+    cacheMark(part.cache, `${path}.cache`, part.cacheTtl);
   },
   toolCall(part, path) {
     string(part.id, `${path}.id`);
@@ -89,7 +93,7 @@ const PART_CHECKS = {
     string(part.callId, `${path}.callId`);
     array(part.parts, `${path}.parts`, resultPart);
     boolean(part.isError, `${path}.isError`);
-    cacheMark(part.cache, `${path}.cache`);
+    cacheMark(part.cache, `${path}.cache`, part.cacheTtl);
   },
   reasoning(part, path) {
     optionalString(part.text, `${path}.text`);
@@ -127,6 +131,7 @@ function irTool(tool, path) {
   if (tool.description !== undefined) string(tool.description, `${path}.description`);
   if (tool.kind === "hosted") string(tool.hostedType, `${path}.hostedType`);
   if (tool.schema !== undefined) object(tool.schema, `${path}.schema`);
+  cacheMark(tool.cache, `${path}.cache`, tool.cacheTtl);
   if (tool.strict !== undefined) boolean(tool.strict, `${path}.strict`);
   // `grammar` is the custom tool's format; `raw` keeps a hosted tool as the client sent it.
   if (tool.grammar !== undefined) {
