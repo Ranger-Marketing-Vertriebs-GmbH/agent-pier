@@ -324,7 +324,8 @@ function cacheSlots(body) {
 
 /**
  * Keeps at most four breakpoints (dropping the oldest) and, unless disabled, marks the
- * last system block and the last block of the last user message when room is left.
+ * last system block and the last block of the last user message when room is left. An
+ * auto mark is "1h" when a later client mark is, else the default 5m (TTL ordering).
  */
 function applyCache(body, capabilities, adjust) {
   const marked = cacheSlots(body).filter((block) => block.cache_control);
@@ -337,10 +338,15 @@ function applyCache(body, capabilities, adjust) {
   let used = Math.min(marked.length, MAX_BREAKPOINTS);
   const lastUser = body.messages.findLast((message) => message.role === "user");
   const targets = [body.system?.at(-1), lastUser?.content.at(-1)];
+  const slots = cacheSlots(body);
   for (const block of targets) {
     if (!isObject(block) || block.cache_control || used >= MAX_BREAKPOINTS) continue;
     if (block.type === "thinking" || block.type === "redacted_thinking") continue;
-    block.cache_control = { ...EPHEMERAL };
+    // Anthropic requires longer TTLs before shorter ones: an auto mark followed by a
+    // client "1h" mark takes "1h" itself.
+    const later = slots.slice(slots.indexOf(block) + 1);
+    const longest = later.some((slot) => slot.cache_control?.ttl === "1h");
+    block.cache_control = longest ? { ...EPHEMERAL, ttl: "1h" } : { ...EPHEMERAL };
     used += 1;
     adjust("cache.autoBreakpoints");
   }

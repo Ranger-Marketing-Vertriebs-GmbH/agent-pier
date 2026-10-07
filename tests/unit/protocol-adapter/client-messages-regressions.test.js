@@ -165,6 +165,32 @@ describe("Claude Code request fields kept or counted", () => {
     assert.doesNotMatch(JSON.stringify(buildResponsesRequest(ir, context()).body), /ttl/);
   });
 
+  test("auto cache marks take the longest TTL of any later client mark", () => {
+    const { ir } = parse({
+      system: [{ type: "text", text: "s" }],
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "a", cache_control: { type: "ephemeral", ttl: "1h" } },
+          ],
+        },
+        { role: "assistant", content: "b" },
+        { role: "user", content: "c" },
+      ],
+    });
+    const { body, adjustments } = buildMessagesRequest(ir, context());
+    assert.deepEqual(body.system[0].cache_control, { type: "ephemeral", ttl: "1h" });
+    assert.deepEqual(body.messages[0].content[0].cache_control, {
+      type: "ephemeral",
+      ttl: "1h",
+    });
+    assert.deepEqual(body.messages.at(-1).content.at(-1).cache_control, {
+      type: "ephemeral",
+    });
+    assert.ok(adjustments.includes("cache.autoBreakpoints"));
+  });
+
   test("text citations and document/search_result blocks are counted", () => {
     const { ir, dropped } = parse({
       messages: [
