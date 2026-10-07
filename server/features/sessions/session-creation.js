@@ -2,6 +2,7 @@ import { problem as failure } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { validId, validName } from "./session-validation.js";
 import { privateWrite } from "./session-process-runtime.js";
+import { checkedAdapter } from "../adapter-runtime/adapter-config.js";
 import { publicProviderConfiguration } from "./provider-configuration.js";
 import { pipelineIdentity, nativeInput } from "../pipelines/native-session.js";
 import { randomUUID } from "node:crypto";
@@ -89,6 +90,11 @@ export async function buildSessionLaunch(manager, options) {
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
   }
+  const adapter = options.adapter
+    ? checkedAdapter(options.adapter, manager.directory, id, () =>
+        failure(serverMessages.sessions.invalidAdapterConfiguration),
+      )
+    : null;
   const launchFile = path.join(manager.directory, `${id}.launch.json`);
   await privateWrite(
     manager.directory,
@@ -99,6 +105,7 @@ export async function buildSessionLaunch(manager, options) {
       cwd,
       env: { TERM: "xterm-256color", ...env },
       ...input,
+      ...(adapter ? { adapter } : {}),
       ...(options.nativeObservation
         ? {
             observationPath: path.join(manager.directory, `${id}.events.jsonl`),

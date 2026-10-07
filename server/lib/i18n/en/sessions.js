@@ -13,6 +13,7 @@ export const sessions = Object.freeze({
   loginNameSuffix: " · Sign-in",
   sessionLimitReached: "At most 30 sessions at a time. Please stop a session first.",
   stopBeforeLogin: "Please stop this account's running sessions before a new sign-in.",
+  invalidAdapterConfiguration: "The session's adapter configuration is invalid.",
   invalidNativeBinding: "Invalid native session binding.",
   invalidNativeBindingKey: "Invalid key for the native session binding.",
   nativeProjectMismatch: "The native session belongs to a different project.",

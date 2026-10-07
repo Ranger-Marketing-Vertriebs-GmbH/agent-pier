@@ -15,6 +15,7 @@ export function removeSession(manager, id) {
       "launch.json",
       "events.jsonl",
       "outcome.json",
+      "adapter.json",
     ])
       await rm(path.join(manager.directory, `${id}.${extension}`), {
         force: true,
