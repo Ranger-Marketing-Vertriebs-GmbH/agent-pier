@@ -1,7 +1,16 @@
 import path from "node:path";
 import { privateDirectory } from "../../lib/storage.js";
+import { ADAPTER_URL_PLACEHOLDER } from "./adapter-launch.js";
 
-export function providerEnvironment(account, secret, environment, root, description) {
+export function providerEnvironment(
+  account,
+  secret,
+  environment,
+  root,
+  description,
+  { adapterToken } = {},
+) {
+  const adapterRoute = description.route?.mode === "adapter";
   const env = { ...environment };
   for (const key of Object.keys(env)) {
     if (
@@ -16,10 +25,21 @@ export function providerEnvironment(account, secret, environment, root, descript
   const key = secret?.apiKey?.trim() || null;
   if (account.tool === "codex") {
     env.CODEX_HOME = privateDirectory(path.join(directory, "codex"));
-    if (key) env[description.auth.keyEnv] = key;
+    if (adapterRoute) {
+      if (adapterToken) env[description.auth.keyEnv] = adapterToken;
+    } else if (key) env[description.auth.keyEnv] = key;
   } else if (account.tool === "claude") {
     env.CLAUDE_CONFIG_DIR = privateDirectory(path.join(directory, "claude"));
     env.CLAUDE_SECURESTORAGE_CONFIG_DIR = env.CLAUDE_CONFIG_DIR;
+    if (adapterRoute) {
+      // The launcher substitutes the placeholder once the adapter is bound; the CLI only
+      // ever holds the session token, never the upstream key.
+      if (adapterToken) env.ANTHROPIC_BASE_URL = ADAPTER_URL_PLACEHOLDER;
+      env.ANTHROPIC_API_KEY = "";
+      env.ANTHROPIC_AUTH_TOKEN = adapterToken || "agentpier-endpoint";
+      env.CLAUDE_CODE_ATTRIBUTION_HEADER = "0";
+      return env;
+    }
     if (description.endpoints.messages)
       env.ANTHROPIC_BASE_URL = description.endpoints.messages;
     env.ANTHROPIC_API_KEY = "";
