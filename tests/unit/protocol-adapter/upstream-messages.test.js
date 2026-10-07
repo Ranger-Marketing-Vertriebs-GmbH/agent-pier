@@ -282,15 +282,23 @@ describe("buildMessagesRequest rules", () => {
           parts: [
             {
               type: "reasoning",
-              summary: "Plan.",
-              carrier: encodeCarrier("messages", SIGNATURE),
+              summary: "Edited by the client.",
+              carrier: encodeCarrier(
+                "messages",
+                JSON.stringify({ s: SIGNATURE, t: "Exact plan." }),
+              ),
             },
             call("call_a"),
             {
               type: "reasoning",
-              carrier: encodeCarrier("messages", "redacted:opaque"),
+              carrier: encodeCarrier("messages", JSON.stringify({ r: "opaque" })),
             },
             call("call_b"),
+            {
+              type: "reasoning",
+              text: "Ignored.",
+              carrier: encodeCarrier("messages", "sig"),
+            },
             { type: "reasoning", text: "x", carrier: encodeCarrier("chat", "x") },
           ],
         },
@@ -300,10 +308,11 @@ describe("buildMessagesRequest rules", () => {
     const built = build(ir);
     assertValidMessagesRequest(built);
     assert.deepEqual(built.body.messages[1].content, [
-      { type: "thinking", thinking: "Plan.", signature: SIGNATURE },
+      { type: "thinking", thinking: "Exact plan.", signature: SIGNATURE },
       { type: "tool_use", id: "call_a", name: "exec_command", input: { cmd: "ls" } },
       { type: "redacted_thinking", data: "opaque" },
       { type: "tool_use", id: "call_b", name: "exec_command", input: { cmd: "ls" } },
+      { type: "thinking", thinking: "", signature: "sig" }, // legacy plain signature
     ]);
     assert.ok(built.dropped.includes("assistant.reasoning"));
   });
