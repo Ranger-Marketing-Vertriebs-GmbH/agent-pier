@@ -9,6 +9,7 @@ import {
   imageUrl,
   isObject,
   present,
+  strictFlag,
   textOf,
   upstreamModel,
 } from "./shared.js";
@@ -33,7 +34,7 @@ const UPSTREAM_EFFORT = Object.freeze({
   max: "high",
 });
 
-function functionTool(tool, names) {
+function functionTool(tool, names, adjust) {
   const result = { type: "function", name: names.toUpstream(tool.name, tool.namespace) };
   if (typeof tool.description === "string" && tool.description !== "") {
     result.description = tool.description;
@@ -41,8 +42,9 @@ function functionTool(tool, names) {
   result.parameters = isObject(tool.schema)
     ? tool.schema
     : { type: "object", properties: {} };
-  // Responses treats an omitted `strict` as strict mode; client tools are non-strict.
-  result.strict = tool.strict === true;
+  // Responses treats an omitted `strict` as strict mode; client tools are non-strict
+  // unless they ask for strict mode and their schema qualifies.
+  result.strict = strictFlag(tool, adjust);
   return result;
 }
 
@@ -60,11 +62,11 @@ function customTool(tool, names) {
  * Responses definition (`raw.type` equals the hosted type). Other clients' definitions,
  * e.g. Claude Code's versioned `web_search_20250305`, are dropped and counted.
  */
-function buildTools(ir, names, drop) {
+function buildTools(ir, names, drop, adjust) {
   const tools = [];
   for (const tool of ir.tools) {
     if (tool.kind === "custom") tools.push(customTool(tool, names));
-    else if (tool.kind !== "hosted") tools.push(functionTool(tool, names));
+    else if (tool.kind !== "hosted") tools.push(functionTool(tool, names, adjust));
     else if (isObject(tool.raw) && tool.raw.type === tool.hostedType)
       tools.push(tool.raw);
     else drop(`tools.${tool.hostedType ?? tool.name}`);
@@ -287,7 +289,7 @@ export function buildResponsesRequest(ir, ctx) {
   const body = { model: upstreamModel(ir, ctx.model) };
   if (instructions !== "") body.instructions = instructions;
   body.input = input;
-  const tools = buildTools(ir, ctx.names, drop);
+  const tools = buildTools(ir, ctx.names, drop, adjust);
   if (tools.length > 0) {
     body.tools = tools;
     body.tool_choice = toolChoice(ir, tools, ctx.names, adjust);

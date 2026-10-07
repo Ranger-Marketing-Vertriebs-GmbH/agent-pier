@@ -61,16 +61,68 @@ describe("Claude Code request fields kept or counted", () => {
   const schema = { type: "object", properties: {} };
 
   test("tool strict is kept in the IR and honored by OpenAI targets", () => {
+    const strictSchema = {
+      type: "object",
+      properties: {
+        a: { type: "string" },
+        b: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: { c: { anyOf: [{ type: "number" }, { type: "null" }] } },
+            required: ["c"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["b", "a"],
+      additionalProperties: false,
+    };
     const { ir, dropped } = parse({
-      tools: [{ name: "f", input_schema: schema, strict: true }],
+      tools: [{ name: "f", input_schema: strictSchema, strict: true }],
     });
     assert.equal(ir.tools[0].strict, true);
     assert.deepEqual(dropped, []);
-    assert.equal(buildResponsesRequest(ir, context()).body.tools[0].strict, true);
-    assert.equal(buildChatRequest(ir, context()).body.tools[0].function.strict, true);
+    const responses = buildResponsesRequest(ir, context());
+    const chat = buildChatRequest(ir, context());
+    assert.equal(responses.body.tools[0].strict, true);
+    assert.equal(chat.body.tools[0].function.strict, true);
+    assert.ok(!responses.adjustments.includes("tools.strictDowngraded"));
+    assert.ok(!chat.adjustments.includes("tools.strictDowngraded"));
     const invalid = parse({ tools: [{ name: "f", input_schema: schema, strict: "y" }] });
     assert.equal(invalid.ir.tools[0].strict, undefined);
     assert.deepEqual(invalid.dropped, ["tools.strict"]);
+  });
+
+  test("strict is downgraded and counted when the schema breaks OpenAI strict rules", () => {
+    const optional = { type: "object", properties: { a: { type: "string" } } };
+    const nestedOpen = {
+      type: "object",
+      properties: { a: { type: "object", properties: {}, required: [] } },
+      required: ["a"],
+      additionalProperties: false,
+    };
+    const missingRequired = {
+      type: "object",
+      properties: { a: { type: "string" }, b: { type: "string" } },
+      required: ["a"],
+      additionalProperties: false,
+    };
+    const allOf = {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+      allOf: [{ properties: {} }],
+    };
+    for (const input_schema of [schema, optional, nestedOpen, missingRequired, allOf]) {
+      const { ir } = parse({ tools: [{ name: "f", input_schema, strict: true }] });
+      const responses = buildResponsesRequest(ir, context());
+      const chat = buildChatRequest(ir, context());
+      assert.equal(responses.body.tools[0].strict, false);
+      assert.equal(chat.body.tools[0].function.strict, false);
+      assert.deepEqual(responses.adjustments, ["tools.strictDowngraded"]);
+      assert.deepEqual(chat.adjustments, ["tools.strictDowngraded"]);
+    }
   });
 
   test("tool_use input must be an object", () => {

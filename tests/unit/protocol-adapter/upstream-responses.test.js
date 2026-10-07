@@ -249,7 +249,12 @@ describe("buildResponsesRequest rules", () => {
             name: "f",
             kind: "function",
             description: "d",
-            schema: { type: "object", properties: { b: {}, a: {} } },
+            schema: {
+              type: "object",
+              properties: { b: { type: "string" }, a: { type: "string" } },
+              required: ["b", "a"],
+              additionalProperties: false,
+            },
             strict: true,
           },
           {
@@ -273,7 +278,12 @@ describe("buildResponsesRequest rules", () => {
       type: "function",
       name: "f",
       description: "d",
-      parameters: { properties: { a: {}, b: {} }, type: "object" },
+      parameters: {
+        properties: { a: { type: "string" }, b: { type: "string" } },
+        type: "object",
+        required: ["b", "a"],
+        additionalProperties: false,
+      },
       strict: true,
     });
     assert.deepEqual(body.tools[1], {
