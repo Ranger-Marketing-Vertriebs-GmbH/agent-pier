@@ -1,0 +1,9 @@
+{
+  "status": 400,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "error": "<LM Studio error> Trying to keep the first 40000 tokens when context the overflows. However, the model is loaded with context length of only 32768 tokens, which is not enough. Try to load the model with a larger context length, or provide a shorter input. Error Data: n/a, Additional Data: n/a"
+  }
+}

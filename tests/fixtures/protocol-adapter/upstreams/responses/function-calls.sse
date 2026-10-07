@@ -1,0 +1,39 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_fixture_upstream","object":"response","created_at":1791331200,"model":"gpt-fixture-1","status":"in_progress","output":[]}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_fixture_upstream","object":"response","created_at":1791331200,"model":"gpt-fixture-1","status":"in_progress","output":[]}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":0,"item":{"type":"function_call","id":"fc_fixture_a","status":"in_progress","call_id":"call_fixtureA","name":"exec_command","arguments":""}}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":3,"item_id":"fc_fixture_a","output_index":0,"delta":"{\"cmd\":"}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":4,"item_id":"fc_fixture_a","output_index":0,"delta":"\"ls a\"}"}
+
+event: response.function_call_arguments.done
+data: {"type":"response.function_call_arguments.done","sequence_number":5,"item_id":"fc_fixture_a","output_index":0,"arguments":"{\"cmd\":\"ls a\"}"}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":6,"output_index":0,"item":{"type":"function_call","id":"fc_fixture_a","status":"completed","call_id":"call_fixtureA","name":"exec_command","arguments":"{\"cmd\":\"ls a\"}"}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":7,"output_index":1,"item":{"type":"function_call","id":"fc_fixture_b","status":"in_progress","call_id":"call_fixtureB","name":"exec_command","arguments":""}}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":8,"item_id":"fc_fixture_b","output_index":1,"delta":"{\"cm"}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":9,"item_id":"fc_fixture_b","output_index":1,"delta":"d\":\"ls b\"}"}
+
+event: response.function_call_arguments.done
+data: {"type":"response.function_call_arguments.done","sequence_number":10,"item_id":"fc_fixture_b","output_index":1,"arguments":"{\"cmd\":\"ls b\"}"}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":11,"output_index":1,"item":{"type":"function_call","id":"fc_fixture_b","status":"completed","call_id":"call_fixtureB","name":"exec_command","arguments":"{\"cmd\":\"ls b\"}"}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":12,"response":{"id":"resp_fixture_upstream","object":"response","created_at":1791331200,"model":"gpt-fixture-1","status":"completed","output":[{"type":"function_call","id":"fc_fixture_a","status":"completed","call_id":"call_fixtureA","name":"exec_command","arguments":"{\"cmd\":\"ls a\"}"},{"type":"function_call","id":"fc_fixture_b","status":"completed","call_id":"call_fixtureB","name":"exec_command","arguments":"{\"cmd\":\"ls b\"}"}],"usage":{"input_tokens":50,"input_tokens_details":{"cached_tokens":0},"output_tokens":30,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":80}}}
+

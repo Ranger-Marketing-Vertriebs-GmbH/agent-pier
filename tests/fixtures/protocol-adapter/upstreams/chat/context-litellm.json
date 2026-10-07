@@ -1,0 +1,14 @@
+{
+  "status": 400,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "error": {
+      "message": "litellm.ContextWindowExceededError: litellm.BadRequestError: ContextWindowExceededError: Hosted_vllmException - This model's maximum context length is 32768 tokens. However, you requested 4096 output tokens and your prompt contains 30000 input tokens, for a total of 34096 tokens. Please reduce the length of the input prompt or the number of requested output tokens. (parameter=input_tokens, value=30000)",
+      "type": null,
+      "param": null,
+      "code": "400"
+    }
+  }
+}
