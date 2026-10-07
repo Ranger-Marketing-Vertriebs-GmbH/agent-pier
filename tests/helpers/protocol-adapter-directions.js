@@ -3,6 +3,7 @@
 import { createTranslator } from "../../server/features/protocol-adapter/translate.js";
 import { collect, fromChunks, loadFixture } from "./protocol-adapter.js";
 
+export const REQ = Object.freeze({ requestId: "req_test" });
 export const SECRET = "sk-upstream-secret-0123456789abcdef";
 export const MODEL = Object.freeze({
   modelId: "upstream-model",
@@ -68,9 +69,12 @@ export async function roundTrip(
   instance,
   body,
   upstreamText,
-  { seed = 1, headers } = {},
+  { seed = 1, headers, requestId = "req_test" } = {},
 ) {
-  const built = instance.buildUpstream(body, headers ?? {}, { now: 1791331200000 });
+  const built = instance.buildUpstream(body, headers ?? {}, {
+    requestId,
+    now: 1791331200000,
+  });
   if (!built.ok) throw new Error(`build failed: ${JSON.stringify(built.error.body)}`);
   const chunks = seed === 0 ? [upstreamText] : randomSplit(upstreamText, seed);
   const frames = await collect(built.exchange.translateStream(fromChunks(chunks)));
