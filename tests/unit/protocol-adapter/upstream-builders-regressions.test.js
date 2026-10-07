@@ -131,6 +131,38 @@ describe("Messages structured output and nested cache marks", () => {
     assert.ok(built.adjustments.includes("output.additionalPropertiesClosed"));
   });
 
+  test("conjunctive subschemas (allOf, not, if/then/else) are left open", () => {
+    const branches = {
+      allOf: [
+        { type: "object", properties: { a: { type: "string" } } },
+        { type: "object", properties: { b: { type: "string" } } },
+      ],
+      not: { type: "object", properties: { c: {} } },
+      if: { type: "object", properties: { d: {} } },
+      then: { type: "object", properties: { e: {} } },
+      else: { type: "object", properties: { f: {} } },
+      dependentSchemas: { a: { type: "object", properties: { g: {} } } },
+    };
+    const schema = { type: "object", properties: { x: { type: "object" } }, ...branches };
+    const built = buildMessagesRequest(
+      request({ output: { format: "json_schema", name: "out", schema } }),
+      context(),
+    );
+    const closed = built.body.output_config.format.schema;
+    for (const key of Object.keys(branches)) assert.deepEqual(closed[key], branches[key]);
+    // Branches add allowed properties, so the composing object itself stays open too.
+    assert.equal(closed.additionalProperties, undefined);
+    assert.equal(closed.properties.x.additionalProperties, false);
+
+    const negated = { type: "object", properties: {}, not: { type: "object" } };
+    const plain = buildMessagesRequest(
+      request({ output: { format: "json_schema", name: "out", schema: negated } }),
+      context(),
+    ).body.output_config.format.schema;
+    assert.deepEqual(plain.not, { type: "object" });
+    assert.equal(plain.additionalProperties, false);
+  });
+
   test("an already closed schema is unchanged and not counted", () => {
     const schema = { type: "object", properties: {}, additionalProperties: false };
     const built = buildMessagesRequest(
