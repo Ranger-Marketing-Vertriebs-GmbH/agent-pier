@@ -4,266 +4,338 @@ Date: 2026-10-07
 
 ## Problem
 
-Custom endpoint connections (PR #176) offer a CLI only when the endpoint natively
-speaks that CLI's wire protocol:
+Custom endpoint connections (PR #176) offer a CLI only when the endpoint natively speaks
+that CLI's wire protocol:
 
-| CLI         | Protocol                |
+| CLI         | Protocol today          |
 | ----------- | ----------------------- |
 | Claude Code | Anthropic Messages      |
 | Codex       | OpenAI Responses        |
 | OpenCode    | OpenAI Chat Completions |
 
 Many servers speak only Chat Completions (vLLM, older llama.cpp builds, many LiteLLM and
-company gateways), and some speak only Messages or only Responses. Users cannot run the
-CLI of their choice against the model of their choice.
+company gateways), some only Messages or only Responses. Users cannot run the CLI of
+their choice against the model of their choice.
 
 ## Goal
 
-1. Translate between all three protocols in every direction (6 directions), so every CLI
-   can use every custom endpoint that offers at least one supported protocol.
-2. Keep fidelity for agentic coding: text, streaming, tool calls (including parallel and
-   custom/freeform tools), system prompts, reasoning, images, structured output, prompt
-   caching hints and cache usage, stop reasons, token usage and errors.
-3. Prefer native protocols. Use the adapter automatically only when needed, show the
-   user when it is used, and allow per-CLI override per connection.
+1. Every CLI can use every custom endpoint that offers at least one of the three
+   protocols.
+2. Keep fidelity for agentic coding: text, streaming, tool calls (parallel, custom and
+   namespaced tools), system prompts (including mid-conversation system messages),
+   reasoning, images, structured output, prompt caching and cache usage, stop reasons,
+   token usage, context-overflow signalling and errors.
+3. Prefer native protocols. Use translation automatically only when needed, show it, and
+   allow a per-CLI override per connection.
 4. Keep running sessions independent of AgentPier server restarts and release
    activation.
 5. Do not expose the upstream API key to the CLI process when the adapter is used.
 
+## How each CLI reaches each protocol
+
+| CLI         | Messages upstream              | Responses upstream             | Chat Completions upstream              |
+| ----------- | ------------------------------ | ------------------------------ | -------------------------------------- |
+| Claude Code | native                         | adapter (Messages ← Responses) | adapter (Messages ← Chat)              |
+| Codex       | adapter (Responses ← Messages) | native                         | adapter (Responses ← Chat)             |
+| OpenCode    | native SDK `@ai-sdk/anthropic` | native SDK `@ai-sdk/openai`    | native SDK `@ai-sdk/openai-compatible` |
+
+OpenCode needs no adapter: it bundles the AI SDK providers for all three protocols
+(verified for `@ai-sdk/openai-compatible` in PR #176; `@ai-sdk/anthropic` and
+`@ai-sdk/openai` must be verified the same way — first plan task). AgentPier only
+switches the provider package and base URL. The adapter therefore implements **four
+directions**, with **two client protocols** (Messages for Claude Code, Responses for
+Codex) and **three upstream protocols**.
+
 ## Non-goals
 
 - Translation for catalog providers (OpenRouter, Z.ai). They stay native.
-- Realtime, audio, batch, files and assistants APIs.
-- Hosted tools without a counterpart on the target (web search, code interpreter, file
-  search, computer use). They are rejected with a clear error, not emulated.
-- Model capability discovery beyond what PR #176 already detects.
-- A general-purpose public proxy. The adapter serves exactly one session.
+- Realtime, audio, batch, files, assistants APIs, and Codex's websocket transport.
+- Stateful Responses features over the adapter (`previous_response_id`, server-side
+  storage). Codex does not send `previous_response_id` over HTTP; if it appears, the
+  adapter returns an `invalid_request_error`.
+- Emulating hosted tools (web search, code interpreter, file search, computer use,
+  `tool_search`) on targets without them.
+- Upstream HTTP(S) proxies (`HTTPS_PROXY`) in this iteration; documented as
+  unsupported for adapter routes. Private CAs are supported (see Security).
+- Model capability discovery beyond what PR #176 detects.
 
 ## Architecture
 
 ### Layers
 
-1. **Protocol library** — `server/features/protocol-adapter/`. Pure functions, no
-   network, no filesystem. Per protocol module (`messages.js`, `responses.js`,
-   `chat-completions.js`):
-   - `parseRequest(body) → IrRequest` (client request to IR)
-   - `buildRequest(ir, target) → { path, body }` (IR to upstream request)
-   - `parseStream(chunks) → AsyncIterable<IrEvent>` (upstream SSE to IR events)
-   - `emitStream(events) → AsyncIterable<string>` (IR events to client SSE)
-   - `parseResponse(json)` and `emitResponse(events)` for non-streaming calls; the
-     non-streaming emitter collects the event stream, so there is one code path.
-   - `parseError(status, body) → IrError` and `emitError(irError) → { status, body }`.
+1. **Protocol library** — `server/features/protocol-adapter/`, pure functions, no network,
+   no filesystem.
+   - Client side (2 modules): `client-messages.js` and `client-responses.js`, each with
+     `parseRequest(body, headers) → IrRequest`, `emitStream(events) →
+AsyncIterable<string>`, `emitResponse(events) → object` (collects the same event
+     stream), `emitError(irError) → { status, headers, body }`, `emitStreamError(irError)`.
+   - Upstream side (3 modules): `upstream-messages.js`, `upstream-responses.js`,
+     `upstream-chat.js`, each with `buildRequest(ir, capabilities) → { path, body,
+headers }`, `parseStream(chunks) → AsyncIterable<IrEvent>`, `parseResponse(json)`,
+     `parseError(status, body, headers) → IrError`.
+   - Shared: `ir.js` (types, validators), `sse.js` (incremental parser and writer),
+     `mapping.js` (stop reasons, effort ↔ budget, usage), `names.js` (per-session
+     bijective maps for tool names and call ids), `errors.js` (classifiers per server
+     family).
 
-   Shared modules: `ir.js` (types and validators), `sse.js` (incremental SSE parser and
-   writer), `mapping.js` (stop reasons, reasoning effort/budget table, usage mapping),
-   `tool-ids.js` (per-session id mapping), `state.js` (per-session conversation store for
-   `previous_response_id`).
+2. **Adapter process** — `server/adapter-process.js` (entry point at the release root next
+   to `terminal-launcher.js`, so release reference tracking covers it). A child process of
+   the launcher. It binds an HTTP server on `127.0.0.1:0`, reports the port to the launcher
+   over an IPC channel, and serves exactly one session. It never writes to stdout/stderr;
+   failures go to its diagnostics file and a sanitized one-line message the launcher prints.
 
-2. **Adapter server** — `server/features/protocol-adapter/adapter-server.js`. A small
-   HTTP server bound to `127.0.0.1` on an ephemeral port. It:
-   - authenticates every request with the per-session token;
-   - routes the client protocol's paths (below) through parse → build → upstream →
-     parse → emit;
-   - sends upstream requests with a streaming variant of `endpointRequest` from PR #176
-     (same address policy, address pinning, no redirects, TLS SNI) without the 1 MB
-     total cap but with an idle timeout and a request-body cap;
-   - answers side endpoints the CLIs call (see "Side endpoints").
+3. **Launcher integration** — `server/terminal-launcher.js` starts the adapter process
+   when the payload has an `adapter` block, waits for the bound port (timeout 10 s),
+   substitutes the adapter URL into the CLI's `env` values and `args`, spawns the CLI,
+   and stops the adapter (SIGTERM, then SIGKILL after 2 s) when the CLI exits or the
+   launcher is signalled. Signal handlers are registered before the adapter is started.
 
-3. **Integration** — the terminal launcher (`server/terminal-launcher.js`) starts the
-   adapter server in its own process before it spawns the CLI when the launch payload
-   contains an `adapter` block, substitutes the bound URL into the CLI launch, and stops
-   the adapter when the CLI exits.
+### Why a child of the launcher
 
-### Why in the launcher
+- The launcher outlives AgentPier server restarts; release activation is already guarded
+  by launcher references (`release-references.js`). In-flight streams survive server
+  restarts.
+- A separate process isolates adapter crashes from the TUI (the launcher's stdio is the
+  CLI's PTY) and from other sessions.
+- The upstream key lives only in the launcher payload and the adapter process.
 
-Each session already runs its CLI through a per-session launcher process that outlives
-AgentPier server restarts. Running the adapter there:
-
-- keeps in-flight streams alive across server restarts and release activation;
-- isolates failures to one session;
-- keeps the upstream key in the launcher process only.
-
-Release migration (existing session reload engine) restarts the launcher of migrated
-sessions, which restarts their adapter on the new release.
+Pipeline (headless) sessions use the same launcher path (`spawnNativeProcess`); the
+adapter is started the same way before the process group.
 
 ## Intermediate representation (IR)
 
 ```js
 IrRequest {
   model: string,
-  system: Part[],                       // text parts; cache breakpoints allowed
-  messages: { role: "user" | "assistant", parts: Part[] }[],
-  tools: { name, description, kind: "function" | "custom", schema?, grammar? }[],
-  toolChoice: "auto" | "none" | "required" | { name },
+  system: Part[],                                   // leading system/developer content
+  messages: { role: "system" | "user" | "assistant", parts: Part[] }[], // system allowed mid-conversation
+  tools: {
+    name, namespace?: string, description,
+    kind: "function" | "custom" | "hosted",
+    schema?, grammar?, hostedType?                 // hosted: e.g. "web_search"
+  }[],
+  toolChoice: "auto" | "none" | "required" | { name, namespace? },
   parallelToolCalls: boolean | null,
-  sampling: { maxOutputTokens, temperature, topP, stop: string[] },
-  reasoning: { effort?: "minimal"|"low"|"medium"|"high", budgetTokens?, summary?: "auto"|"none" } | null,
+  sampling: { maxOutputTokens: number | null, temperature, topP, stop: string[] },
+  thinking: { mode: "disabled" | "enabled" | "adaptive", budgetTokens?, effort?: string, summary?: "auto" | "none" } | null,
   output: { format: "text" } | { format: "json_schema", name, schema, strict },
-  cache: { key: string | null, breakpoints: PartRef[] },
+  cache: { key: string | null },                    // breakpoints live on parts
   stream: boolean,
-  metadata: object | null,
+  hints: { metadata?, user?, serviceTier?, ... }    // dropped-and-counted unless a target maps them
 }
 Part =
-  | { type: "text", text, cache?: true }
-  | { type: "image", mediaType, data? (base64), url? }
-  | { type: "toolCall", id, name, kind: "function"|"custom", input }   // input: JSON string or raw text for custom
-  | { type: "toolResult", callId, parts: Part[], isError }
-  | { type: "reasoning", text?, summary?, signature?, encrypted?, redacted?, origin: "messages"|"responses"|"chat" }
+  | { type: "text", text, cache?: "ephemeral" }
+  | { type: "image", mediaType, data?, url?, cache? }
+  | { type: "toolCall", id, name, namespace?, kind: "function" | "custom", input }   // input: JSON text or raw custom text
+  | { type: "toolResult", callId, parts: Part[], isError, cache? }
+  | { type: "reasoning", text?, summary?, carrier?: string, redacted?: true }
 
 IrEvent =
   | { type: "start", id, model }
-  | { type: "blockStart", index, kind: "text"|"reasoning"|"toolCall", toolCall?: { id, name, kind } }
+  | { type: "blockStart", index, kind: "text" | "reasoning" | "toolCall", toolCall?: { id, name, namespace?, kind } }
   | { type: "textDelta", index, text }
-  | { type: "reasoningDelta", index, text?, summary?, signature?, encrypted? }
+  | { type: "reasoningDelta", index, text?, summary? }
+  | { type: "reasoningCarrier", index, carrier }    // opaque replay data, see Reasoning
   | { type: "toolInputDelta", index, fragment }
   | { type: "blockStop", index }
-  | { type: "usage", input, output, cacheRead, cacheWrite, reasoning }
-  | { type: "stop", reason: "end"|"length"|"toolUse"|"stopSequence"|"contentFilter"|"refusal", stopSequence? }
-  | { type: "error", status, kind: "auth"|"permission"|"notFound"|"rateLimit"|"overloaded"|"invalidRequest"|"server"|"timeout"|"network", message }
+  | { type: "usage", input, output, cacheRead, cacheWrite, reasoning, estimated: boolean }
+  | { type: "stop", reason: "end" | "length" | "toolUse" | "stopSequence" | "contentFilter" | "refusal", stopSequence? }
+  | { type: "error", error: IrError }
+
+IrError { kind: "auth" | "permission" | "notFound" | "rateLimit" | "overloaded" | "invalidRequest"
+               | "contextLength" | "server" | "timeout" | "network", status, message, retryAfter? }
 ```
 
-Every IR value is validated (`ir.js`); unknown fields from clients are either mapped
-explicitly or recorded in diagnostics as dropped hints (see "Unsupported features").
+`effort` is an open string. Known values: `none`, `minimal`, `low`, `medium`, `high`,
+`xhigh`, `max` (Claude and Codex), further Codex values map to the nearest known value
+(`ultra`, `persistent` → `max`); unknown values map to `medium` and are counted.
 
 ## Translation rules
 
-### Messages and roles
+### Requests from Claude Code (Messages client)
 
-- System: Messages `system` (string or blocks) ↔ Responses `instructions` and
-  `system`/`developer` input items ↔ Chat `system`/`developer` messages. Multiple
-  system parts are concatenated in order with `\n\n` only when the target accepts a
-  single string.
-- Consecutive same-role messages are merged when the target requires alternation
-  (Messages); empty assistant turns are dropped.
+- Paths: `POST /v1/messages` (any query string, e.g. `?beta=true`, ignored for routing),
+  `POST /v1/messages/count_tokens`, `HEAD`/`GET /api/hello` (200 empty). Everything else
+  404 in Messages error format.
+- `system` is kept in block form in the IR. Mid-conversation `role: "system"` entries are
+  IR system messages; to OpenAI targets they become `developer` (Responses) or `system`
+  (Chat) messages at the same position; Messages upstreams keep them as sent.
+- `thinking: {type: "adaptive"}` plus `output_config.effort` (what Claude Code sends for
+  non-Claude model ids) becomes `thinking.mode = "adaptive"` with that effort;
+  `{type: "enabled", budget_tokens}` becomes `mode = "enabled"`.
+- `count_tokens`: forwarded when the upstream is Messages; otherwise 404 so Claude Code
+  uses its own estimate.
+- AgentPier sets `CLAUDE_CODE_ATTRIBUTION_HEADER=0` for adapter routes so the attribution
+  block is not injected into OpenAI-style system prompts.
 
-### Tool calls
+### Requests from Codex (Responses client)
 
-- Calls: Messages `tool_use` ↔ Responses `function_call`/`custom_tool_call` ↔ Chat
-  `tool_calls[]`.
-- Results: Messages `tool_result` blocks inside a user message ↔ Responses
-  `function_call_output`/`custom_tool_call_output` items ↔ one Chat `tool` message per
-  result. `is_error` becomes a `[error] ` text prefix where the target has no flag.
-  Image parts inside tool results are kept where the target allows them, otherwise
-  converted into a following user message with the images.
-- IDs: kept verbatim when valid for the target; otherwise a per-session bijective map
-  (`tool-ids.js`) translates them both ways (Messages requires `toolu_`-style ids only
-  by convention; Chat and Responses accept arbitrary strings — keep verbatim where
-  possible).
-- Streaming arguments: buffered per call index and re-emitted as the client protocol's
-  delta events (`input_json_delta`, `function_call_arguments.delta`,
-  `tool_calls[].function.arguments`). Parallel calls stay separated by index.
-- Custom/freeform tools (Codex `apply_patch` with grammar): to non-Responses targets they
-  become a function tool with one string parameter `input`; the call's argument string
-  is unwrapped on the way back so Codex receives a `custom_tool_call` with raw input.
-- `tool_choice` and `parallel_tool_calls` mapped per protocol; `disable_parallel_tool_use`
-  (Messages) ↔ `parallel_tool_calls: false`.
-- Hosted tools without counterpart: request rejected with `invalidRequest` naming the
-  tool.
+- Paths: `POST /responses` and `POST /v1/responses`; others 404 in Responses error format.
+- Tools: `function`, `custom` (freeform with grammar, e.g. `apply_patch`), `namespace`
+  (groups of MCP tools; each member becomes an IR tool with `namespace`), hosted tools
+  (`web_search`, `tool_search`, `local_shell`, …) become `kind: "hosted"`.
+- AgentPier writes `web_search = "disabled"` for Codex adapter routes (launch config), so
+  Codex normally sends no hosted tools. Hosted tools that still arrive are **dropped and
+  counted** when the target has no equivalent (Responses upstreams keep them).
+- `store` is forced to `false` toward non-Responses targets; toward a Responses upstream
+  item ids (`fc_…`, `rs_…`, `msg_…`) are stripped when `store` is false.
+- `include: ["reasoning.encrypted_content"]` is honored only for a Responses upstream.
+- `previous_response_id` → `invalidRequest`.
+- The Codex model catalog written by AgentPier derives `input_modalities` from the
+  model's `images` flag, reasoning levels from the connection's reasoning support, and
+  `apply_patch_tool_type` from the route: `freeform` for a Responses upstream, `function`
+  otherwise (the adapter maps freeform ↔ function anyway, but `function` avoids needless
+  translation).
 
-### Reasoning
+### Upstream: Messages
 
-- Upstream reasoning sources: Messages `thinking`/`redacted_thinking` blocks, Responses
-  `reasoning` items (summary text, `encrypted_content`), Chat `reasoning_content` or
-  `reasoning` fields. Inline `<think>…</think>` text is extracted only when the
-  connection enables `thinkTagExtraction` (default off).
-- To Claude Code: `thinking` blocks with streamed `thinking_delta`. Signatures from a
-  non-Messages origin are not available; the adapter emits a stable placeholder
-  signature and marks the block `origin` so that on the next request these blocks are
-  converted back into the upstream's own format (never sent to a Messages upstream as
-  signed thinking).
-- To Codex: `reasoning` items with summary deltas; `encrypted_content` only when the
-  origin is Responses and the upstream is the same endpoint.
-- Request control: Responses `reasoning.effort` ↔ Messages
-  `thinking.budget_tokens` ↔ Chat `reasoning_effort`, via a fixed table:
-  `minimal=1024`, `low=2048`, `medium=8192`, `high=24576` (budget clamped below
-  `max_tokens`). Budget → effort uses the nearest table entry.
-- Reasoning parts are only replayed to the upstream when its protocol can carry them;
-  otherwise they are dropped and counted in diagnostics.
+- `max_tokens` is required: `sampling.maxOutputTokens ?? model.outputTokens ??
+min(floor(contextTokens / 4), 32000)`.
+- Thinking: `adaptive` is sent as-is with `output_config.effort`; `enabled` sends
+  `budget_tokens = max(1024, budget)`, and thinking is disabled when `max_tokens <= 1024`
+  or when `budget >= max_tokens` cannot be resolved by lowering the budget to
+  `max_tokens - 1` with at least 1024 left. With thinking on, `temperature` and `top_p`
+  are removed and a forced `tool_choice` is relaxed to `auto` (Anthropic rejects forced
+  tool choice with thinking).
+- Effort → budget when the client sends effort but the upstream needs a budget:
+  `minimal=1024`, `low=2048`, `medium=8192`, `high=16384`, `xhigh=24576`, `max=32768`,
+  clamped as above.
+- `cache_control` on system, tools and parts preserved (max 4 breakpoints; extra ones
+  dropped from the oldest).
+- Tool names: Anthropic accepts `^[a-zA-Z0-9_-]{1,128}$` (to be verified against the
+  current docs in the plan); namespaced tools become `<namespace>__<name>`, mapped back
+  on the response. Call ids must match `^[a-zA-Z0-9_-]+$`; other ids are mapped.
+
+### Upstream: Responses
+
+- Messages client → Responses: `instructions` from the leading system blocks; messages,
+  tool calls and results as input items; `thinking` → `reasoning.effort` (budget → nearest
+  effort) and `reasoning.summary: "auto"`; `max_tokens` → `max_output_tokens`.
+- `prompt_cache_key` set to a stable per-session value **if the connection's capabilities
+  allow it** (see Capabilities).
+
+### Upstream: Chat Completions
+
+- Messages and system as chat messages; tool results as one `tool` message per result
+  (`is_error` as `[error] ` prefix); images in tool results moved to a following user
+  message.
+- Reasoning sent only through capabilities (`reasoning_effort`).
+- `stream_options.include_usage: true` when allowed by capabilities.
+- Tool names: `^[a-zA-Z0-9_-]{1,64}$`. Longer or invalid names (e.g. long
+  `mcp__server__tool` names) are mapped to a hashed short name per session and restored
+  on the way back (`names.js`, bijective).
+- Streaming tool calls: ids appear only on the first chunk per index; arguments are
+  accumulated per index; servers that send whole arguments at once are handled.
+- Reasoning arrives as `reasoning_content` or `reasoning` delta fields; `<think>` tags in
+  content are extracted only when the connection enables `thinkTagExtraction`.
+
+### Capabilities and strict servers
+
+Each connection stores `adapterCapabilities` for the upstream protocol:
+
+```js
+{ promptCacheKey: bool, streamUsage: bool, reasoningEffort: bool, parallelToolCalls: bool,
+  reasoningReplay: bool }   // reasoningReplay: echo reasoning_content on assistant messages (Chat)
+```
+
+- Defaults are conservative (`false` except `streamUsage`, which most servers accept);
+  the PR #176 "Test connection" probe is extended with one extra request per optional
+  parameter and proposes the values; users can edit them.
+- At runtime, if the upstream rejects a request with 400/422 whose error names one of
+  these optional parameters, the adapter retries once without it and disables it for the
+  rest of the session (counted in diagnostics).
+
+### Reasoning round trip
+
+- Carrier: the adapter stores replay data for a reasoning block in an opaque carrier
+  string `ap1.<origin>.<base64url(payload)>`, where payload is the upstream's own replay
+  data (Responses `encrypted_content`, Messages `signature`, or nothing).
+  - To Claude Code the carrier is placed in the `thinking` block's `signature`.
+  - To Codex the carrier is placed in the reasoning item's `encrypted_content` (only when
+    Codex requested `reasoning.encrypted_content`).
+  - On the next request the adapter reads the carrier back: Messages-origin signatures go
+    back to a Messages upstream; Responses-origin encrypted content goes back to the same
+    Responses upstream; everything else is dropped from the upstream request, except Chat
+    upstreams with `reasoningReplay` enabled, which get the text as `reasoning_content` on
+    the assistant message (required by DeepSeek/Kimi/GLM thinking modes within tool
+    loops).
+  - A thinking block without a carrier that arrives from Claude Code toward a Messages
+    upstream is sent unchanged (it came from that upstream).
+- If a Claude Code version rejects carrier signatures, the fallback is to omit thinking
+  blocks from the client stream (counted). The CLI smoke test detects this.
 
 ### Images
 
-- Base64 ↔ data URLs ↔ URLs per protocol (`image` source, `input_image`,
-  `image_url`). URLs are passed through, not fetched by the adapter.
-- When the selected model is marked `images: false` on the connection, image input is
-  rejected with `invalidRequest` and a clear message. Default `null` (unknown) means
-  pass through.
+- Base64 ↔ data URL ↔ URL per protocol; URLs are passed through, never fetched.
+- When a model is marked `images: false`, image input is rejected with `invalidRequest`.
 
-### Caching
+### Usage and caching
 
-- Messages target: `cache_control` breakpoints are preserved on system, tools and
-  message parts (max 4, as Anthropic allows).
-- OpenAI-style targets (Responses, Chat — e.g. Azure OpenAI): the adapter sets
-  `prompt_cache_key` to a stable per-session value and serializes system, tools and
-  history deterministically (stable key order, no per-request timestamps or ids in the
-  prefix) so automatic prefix caching hits. Breakpoints are dropped (recorded as a hint).
-- Usage back: OpenAI `prompt_tokens_details.cached_tokens` /
-  `input_tokens_details.cached_tokens` ↔ Messages `cache_read_input_tokens`;
-  `cache_creation_input_tokens` is 0 when the upstream does not report it. Messages
-  `input_tokens` excludes cached tokens; OpenAI `prompt_tokens` includes them — the
-  mapping converts accordingly so CLIs show correct context and cost.
+- Messages `input_tokens` excludes cache reads and writes; OpenAI `prompt_tokens` /
+  `input_tokens` include `cached_tokens`.
+  - OpenAI → Messages: `input_tokens = prompt_tokens - cached_tokens`,
+    `cache_read_input_tokens = cached_tokens`, `cache_creation_input_tokens = 0`.
+  - Messages → OpenAI: `input_tokens = input + cache_read + cache_creation`,
+    `cached_tokens = cache_read`.
+- Missing upstream usage: estimated (characters / 4 on the serialized request and
+  output), flagged `estimated: true`, counted in diagnostics, so both CLIs keep their
+  automatic compaction working.
+- Toward OpenAI-style upstreams the adapter serializes system, tools and history
+  deterministically (stable key order, no per-request values in the prefix) so automatic
+  prefix caching (e.g. Azure OpenAI) hits.
 
-### Stop reasons and usage
+### Stop reasons
 
-| IR            | Messages        | Responses                            | Chat             |
-| ------------- | --------------- | ------------------------------------ | ---------------- |
-| end           | `end_turn`      | `completed`                          | `stop`           |
-| length        | `max_tokens`    | `incomplete` (`max_output_tokens`)   | `length`         |
-| toolUse       | `tool_use`      | `completed` with function call items | `tool_calls`     |
-| stopSequence  | `stop_sequence` | `completed`                          | `stop`           |
-| contentFilter | `refusal`       | `incomplete` (`content_filter`)      | `content_filter` |
+| IR            | Messages client | Responses client                                   | from Chat upstream       |
+| ------------- | --------------- | -------------------------------------------------- | ------------------------ |
+| end           | `end_turn`      | `response.completed`                               | `stop`                   |
+| length        | `max_tokens`    | `response.completed` (see note below)              | `length`                 |
+| toolUse       | `tool_use`      | `response.completed` with function call items      | `tool_calls`             |
+| stopSequence  | `stop_sequence` | `response.completed`                               | `stop`                   |
+| contentFilter | `refusal`       | `response.incomplete` reason `content_filter`      | `content_filter`         |
+| refusal       | `refusal`       | `response.completed` with a `refusal` content part | (Messages upstream only) |
 
-- Chat targets get `stream_options.include_usage: true`. Missing usage stays 0, never
-  estimated.
+Codex treats `response.incomplete` with any reason other than `interrupted` /
+`content_filter` as an error and retries; therefore `length` is emitted as
+`response.completed` (the plan verifies against current Codex source and fixtures).
 
-### Structured output
+### Errors and context overflow
 
-- Chat `response_format: json_schema` ↔ Responses `text.format: json_schema`.
-- Messages target has no native equivalent: mapped to a forced single tool
-  (`tool_choice: {name}`) whose input is returned as the text content. Messages client
-  requests never ask for this, so the reverse is not needed.
+- Upstream errors are classified by status and by per-family recognizers (`errors.js`:
+  Anthropic, OpenAI/Azure, vLLM, llama.cpp, LM Studio, LiteLLM) into `IrError`.
+- `contextLength` is emitted exactly as the client expects so automatic compaction works:
+  - Messages client: 400 `invalid_request_error` with message `prompt is too long: <n>
+tokens > <max> maximum` (numbers when known).
+  - Responses client: error `code: "context_length_exceeded"` (non-streaming body and
+    `response.failed` in streams).
+- Other kinds map to the client's error types and statuses (429 `rate_limit_error`, 529
+  `overloaded_error` ↔ 503 `server_error`, …) so the CLIs' retry logic works;
+  `retry-after` is passed through.
+- Upstream messages are sanitized (500 chars, control characters removed, key and auth
+  header values redacted); no upstream headers besides `retry-after` and request ids.
+- Mid-stream failures become the client's in-stream error (`event: error` for Messages,
+  `response.failed` for Responses) and the stream closes.
 
-### Stateful Responses features
+### Streaming obligations toward the clients
 
-- `previous_response_id` from a Codex client to a non-Responses upstream: the adapter
-  keeps an in-memory store per session (`state.js`) of response id → full IR history,
-  bounded (default 64 responses, 32 MB, LRU). An unknown id returns `notFound` in the
-  Responses error format so Codex resends full input.
-- `store: false` and `include: ["reasoning.encrypted_content"]` are honored only for a
-  Responses upstream.
-
-### Errors
-
-- Upstream errors are classified into `IrError.kind` by status and protocol error type,
-  then emitted in the client protocol's format and status (Messages `overloaded_error`
-  529 ↔ 503/`server_error`, `rate_limit_error` 429, etc.), so the CLIs' built-in retry
-  logic works. `retry-after` headers are passed through.
-- Error messages from upstream are sanitized: length-capped (500 chars), control
-  characters removed, the API key and auth header values redacted. No upstream headers
-  are forwarded except `retry-after` and request ids.
-- Mid-stream upstream failures are emitted as the client protocol's in-stream error
-  event (Messages `event: error`, Responses `response.failed`, Chat error chunk) and the
-  stream is closed.
+- Messages client: full ordered sequence `message_start`, `content_block_start`,
+  deltas, `content_block_stop`, `message_delta` (stop reason, usage), `message_stop`.
+  While the upstream is silent the adapter sends `event: ping` every 15 s.
+- Responses client: every output item gets `response.output_item.added`, deltas
+  (`response.output_text.delta`, `response.reasoning_summary_text.delta`,
+  `response.custom_tool_call_input.delta` with `item_id`/`call_id`), and a complete
+  `response.output_item.done` (Codex builds tool calls from `done`); the stream ends with
+  `response.completed` (with usage) or `response.failed`. While the upstream is silent the
+  adapter sends an SSE comment every 15 s.
+- Upstream idle timeout: 240 s (below Codex's 300 s and with pings keeping Claude Code's
+  watchdog satisfied).
 
 ### Unsupported features
 
-Rule: **reject** what changes behavior (hosted tools, unsupported structured output
-modes, image input to a non-image model); **drop and count** what is only a hint
-(metadata, cache breakpoints without target support, `service_tier`, `user`). Counts go
-to diagnostics.
-
-## Side endpoints
-
-| Client protocol | Path                                             | Behavior                                                                                 |
-| --------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| Messages        | `POST /v1/messages`                              | translated                                                                               |
-| Messages        | `POST /v1/messages/count_tokens`                 | forwarded natively when upstream is Messages; else estimated (chars/4, marked estimated) |
-| Messages        | `GET /v1/models`                                 | returns the connection's models for this CLI                                             |
-| Responses       | `POST /v1/responses`, `/responses`               | translated                                                                               |
-| Responses       | `GET /v1/models`, `/models`                      | returns the connection's models                                                          |
-| Chat            | `POST /v1/chat/completions`, `/chat/completions` | translated                                                                               |
-| Chat            | `GET /v1/models`, `/models`                      | returns the connection's models                                                          |
-
-Any other path returns 404 in the client protocol's error format.
+Rule: **reject** what changes behavior and cannot be dropped safely (structured output
+modes the target cannot express, image input to a non-image model,
+`previous_response_id`); **drop and count** hints and hosted tools (metadata, user,
+service tier, extra cache breakpoints, hosted tools when the target lacks them).
 
 ## Routing and configuration
 
@@ -273,132 +345,136 @@ The `endpoint` block gains:
 routing: {
   claude:   "auto" | "native" | "adapter:responses" | "adapter:chatCompletions" | "off",
   codex:    "auto" | "native" | "adapter:messages"  | "adapter:chatCompletions" | "off",
-  opencode: "auto" | "native" | "adapter:messages"  | "adapter:responses"       | "off",
+  opencode: "auto" | "messages" | "responses" | "chatCompletions" | "off",
 },
+adapterCapabilities: { … },     // see Capabilities
 thinkTagExtraction: false,
 ```
 
 and each model gains `images: boolean | null` (default `null`).
 
-- `auto` (default): native when the CLI's protocol is enabled; otherwise the adapter
-  with the first enabled source protocol in the order Responses > Messages > Chat
-  Completions; otherwise unavailable.
-- `native`: only the native protocol; unavailable if disabled.
-- `adapter:<protocol>`: always the adapter from that source protocol; unavailable if
-  that protocol is disabled.
-- `off`: never offered.
-- Existing connections without `routing` behave as `auto`. Validation rejects unknown
-  values and an adapter source equal to the CLI's native protocol.
+- `auto`: native protocol if enabled; else, for Claude Code and Codex, the adapter from
+  the first enabled source in the order Responses > Messages > Chat; for OpenCode the
+  first enabled of Chat > Responses > Messages (its native SDK providers).
+- Existing connections without these fields behave as `auto` with default
+  capabilities. Validation rejects unknown values and adapter sources equal to the CLI's
+  native protocol.
 - `endpointTools()` derives the offered tools from routing; the public view adds
-  `toolRoutes: { claude: { mode: "native"|"adapter", source } | null, … }`.
-- Pipeline snapshots include the resolved route for the profile's CLI, so a routing
-  change mid-run is detected like other relevant changes.
+  `toolRoutes: { claude: { mode: "native" | "adapter" | "sdk", source } | null, … }`.
+- Pipeline snapshots include the resolved route of the profile's CLI.
 
 ## Launch
 
-- `launchDescription` gains `adapter: { clientProtocol, upstreamProtocol }` when the
-  resolved route is `adapter`.
-- The CLI configuration uses the literal placeholder `__AGENTPIER_ADAPTER_URL__` as its
-  base URL (the launcher replaces it with `http://127.0.0.1:<port>`) and a random 32-byte
-  session token as its API key (in the variable the CLI already reads:
-  `ANTHROPIC_AUTH_TOKEN`, Codex `env_key`, OpenCode `apiKey`). The custom auth header
-  setting does not apply to the adapter hop.
-- The launch payload gains:
-  ```js
-  adapter: {
-    token, clientProtocol, upstreamProtocol,
-    upstream: { baseUrl, authHeader, apiKey, addresses },   // addresses: pinned, checked at launch
-    models: [{ modelId, contextTokens, outputTokens, images }],
-    routing: { thinkTagExtraction },
-    configFiles: [absolute paths whose content contains the placeholder],
-    diagnosticsPath,
-  }
-  ```
-  The real key and upstream URL are in this private one-use payload only, never in the
-  CLI environment, argv, tmux metadata or written CLI config files.
-- The launcher binds the adapter server, then replaces `__AGENTPIER_ADAPTER_URL__` in
-  `env` values, `args` and the listed `configFiles` (atomic rewrite, mode preserved),
-  then spawns the CLI. If binding fails, the launcher prints a sanitized error and exits
-  127 without starting the CLI.
-- The adapter stops when the CLI exits or the launcher receives SIGHUP/SIGTERM.
-- Pre-launch address checks (PR #176) still run on the server; the launcher re-resolves
-  and re-checks the upstream address with the same policy when it starts (best effort,
-  like the CLI's own resolution before).
-- Model change, reload and release migration restart the launcher and therefore the
-  adapter; `modelChangeRequiresRestart` stays true for endpoint sessions.
+- `launchDescription` gains `route: { mode, source }`.
+- **OpenCode** with `sdk` routes: provider `npm` is `@ai-sdk/anthropic` (base URL
+  `anthropicBaseUrl` + `/v1`) or `@ai-sdk/openai` (base URL `openaiBaseUrl`), key handling
+  as in PR #176. No adapter.
+- **Adapter routes** (Claude Code, Codex):
+  - The CLI's base URL is the literal placeholder `__AGENTPIER_ADAPTER_URL__` in env
+    values and argv only. Persistent config files (Codex `config.toml`, OpenCode JSON) are
+    never given the adapter URL: Codex receives the provider through `-c` arguments (which
+    override `config.toml`); the shared `config.toml` keeps no endpoint base URL for
+    adapter routes.
+  - The CLI's API key is a random 32-byte session token in the variable the CLI already
+    reads (`ANTHROPIC_AUTH_TOKEN`; Codex `env_key`). The custom auth header setting
+    applies only to the adapter → upstream hop.
+  - `NO_PROXY` / `no_proxy` include `127.0.0.1,localhost` in the CLI environment.
+  - Payload `adapter` block:
+    ```js
+    adapter: {
+      token, clientProtocol, upstreamProtocol,
+      upstream: { baseUrl, authHeader, apiKey },
+      model: { modelId, contextTokens, outputTokens, images },
+      capabilities, thinkTagExtraction,
+      diagnosticsPath,
+    }
+    ```
+    The real key and upstream URL exist only in this private one-use payload and the
+    adapter process (passed over IPC, never in the adapter's argv or env).
+- If the adapter fails to start or bind within 10 s, the launcher prints a sanitized
+  one-line error and exits 127 without starting the CLI.
+- Model change, reload and release migration restart the launcher and adapter;
+  `modelChangeRequiresRestart` stays true for endpoint sessions.
 
 ## Security
 
-- Loopback only (`127.0.0.1`); every request must carry the session token in the header
-  the client protocol uses (`x-api-key` or `Authorization: Bearer`); others get 401
-  without body echo. Constant-time comparison.
-- Upstream requests go only to the single upstream origin checked at launch, with the
-  address policy, pinning, no redirects and TLS verification from PR #176.
-- Request body cap 32 MB (images); upstream response streams uncapped in total but with
-  a 5 min idle timeout and a per-event cap of 16 MB.
-- Tool-id and response stores are per session and in memory only.
-- No prompt, completion or key content is logged. Diagnostics contain only counters and
-  error kinds.
-- The adapter process runs with the launcher's privileges; the CLI's sandbox (nono) is
-  unchanged; loopback access from the CLI is already allowed.
+- Loopback only; every request must carry the session token (`x-api-key` or
+  `Authorization: Bearer`); others get 401 without body echo; constant-time comparison.
+  `/api/hello` probes also require the token except `HEAD`, which returns 200 empty.
+- Upstream requests go only to the configured upstream origin, under the PR #176 address
+  policy. DNS is re-resolved per new connection (no launch-time pinning that would break
+  multi-day sessions when DNS changes); each connection is pinned to its checked
+  addresses; TLS verification on the hostname; no redirects.
+- Upstream connections use a keep-alive agent with the policy-checked lookup.
+- Trust store: the adapter process is started with Node's system CA support
+  (`--use-system-ca` where available; otherwise `NODE_EXTRA_CA_CERTS` from AgentPier's
+  environment is passed through) so company gateways with private CAs work.
+- Request body cap 32 MB; per-event cap 16 MB; no total cap on response streams.
+- Names/ids maps are per session and in memory only. No prompt, completion or key
+  content is logged; diagnostics contain counters and error kinds only.
+- nono: the plan verifies that sandboxed CLIs can connect to `127.0.0.1` with the
+  profiles AgentPier uses (docs/sandbox.md says network is allowed by default under nono;
+  loopback must be confirmed explicitly with a test).
 
 ## Observability
 
-- The launcher writes `diagnosticsPath` (private, mode 0600, rewritten at most once per
-  5 s): request counts per path, error kinds, upstream status classes, dropped hints by
-  name, rejected features by name, cache read tokens, last error time.
-- `doctor` shows, for running sessions using the adapter, the last diagnostics summary.
-- The session view shows "via adapter (<source protocol>)" in the provider details.
+- The adapter writes `diagnosticsPath` (private, mode 0600, at most once per 5 s): request
+  counts per path, error kinds, upstream status classes, dropped hints and hosted tools by
+  name, rejected features, capability fallbacks, estimated-usage count, cache-read tokens.
+- `doctor` shows the latest summary for running adapter sessions; the session view shows
+  "via adapter (<source>)".
 
 ## UI
 
-- Connection dialog: per-CLI routing select with the options above, showing the resolved
-  result ("native", "via adapter from Chat Completions", "unavailable"); a
-  `thinkTagExtraction` checkbox under Advanced; per-model "supports images" tri-state in
-  the model table.
-- Connection list and launch dialog: compatible CLIs labeled "native" or "via adapter".
-- All new text in German and English with identical keys.
+- Connection dialog: per-CLI routing select with resolved result; capabilities checkboxes
+  (pre-filled by the extended test); `thinkTagExtraction` under Advanced; per-model
+  "supports images" tri-state.
+- Connection list and launch dialog: compatible CLIs labeled "native", "via adapter" or
+  (OpenCode) the protocol used.
+- German and English texts with identical keys.
 
 ## Testing
 
-- **Golden fixtures** per protocol (anonymized recordings): requests and SSE streams for
-  plain text, parallel tool calls with streamed arguments, custom/freeform tools,
-  reasoning (each origin), images, structured output, errors (4xx, 429, 529, mid-stream),
-  cache usage, every stop reason. Each of the 6 directions is tested request-wise and
-  stream-wise against expected outputs.
-- **Property tests** (fast-check): IR → protocol → IR round trips preserve everything the
-  protocol can express; SSE parser handles arbitrary chunk splits; tool-id map is
-  bijective; stop reason and usage mapping are total.
-- **Adapter server integration**: fake upstreams for all three protocols with real SSE,
-  token auth, idle timeout, abort mid-stream, upstream error mapping, side endpoints,
-  `previous_response_id` store.
-- **Launcher integration**: placeholder substitution in env, args and config files;
-  adapter stops with the CLI; key absent from CLI env/argv/config files.
-- **CLI smoke** (matrix): real Claude Code, Codex and OpenCode against the adapter with a
-  scripted fake upstream for each of the two non-native source protocols, one tool-call
-  round trip each (6 combinations). Skipped with a clear message when a CLI is not
-  installed.
-- **Browser**: routing select, labels in launch dialog, English UI.
+- **Golden fixtures** recorded from current CLI versions (Claude Code with adaptive
+  thinking and MCP tools; Codex with namespaced MCP tools, freeform `apply_patch`,
+  `store:false`, encrypted reasoning) and from upstream servers (Anthropic, OpenAI
+  Responses, Chat from vLLM/llama.cpp/LM Studio/LiteLLM shapes): text, parallel tool
+  calls with streamed arguments, custom and namespaced tools, reasoning per origin,
+  images, structured output, every stop reason, context overflow per family, 429/529,
+  mid-stream errors, cache usage. Each of the four directions is tested request-wise and
+  stream-wise.
+- **Property tests**: SSE parser under arbitrary chunk splits; name/id maps bijective;
+  carrier encode/decode round trip; usage mapping consistent; stop/error mapping total.
+- **Adapter process integration**: fake upstreams with real SSE; token auth; pings while
+  silent; idle timeout; abort mid-stream; capability fallback retry; context-overflow
+  mapping; shutdown with open sockets.
+- **Launcher integration**: placeholder substitution in env and argv only; no config file
+  contains the adapter URL or the upstream key; adapter stops with the CLI; adapter crash
+  does not write to the TUI.
+- **CLI smoke** (matrix): real Claude Code against the adapter with Responses and Chat
+  fake upstreams; real Codex with Messages and Chat fake upstreams; real OpenCode with
+  `@ai-sdk/anthropic` and `@ai-sdk/openai` against fake upstreams; one tool-call round
+  trip each. Skipped with a clear message when a CLI is not installed.
+- **nono**: a sandboxed launch reaches the adapter on loopback.
+- **Browser**: routing select, labels, English UI.
 
 ## Delivery
 
-One spec and one plan, delivered as three PRs, each mergeable on its own:
+One spec and one plan, three PRs:
 
-1. Protocol library and IR with all 6 directions, offline tests only.
-2. Adapter server, launcher integration, launch description, routing on the server,
-   launcher and CLI smoke tests.
-3. UI (routing, labels, images flag, think-tag option), doctor diagnostics, docs
-   (`docs/providers.md`, `docs/research/provider-compatibility.md`).
+1. Protocol library and IR: 2 client modules, 3 upstream modules, shared modules, golden
+   and property tests (offline).
+2. Adapter process, launcher integration, routing and launch description (incl. OpenCode
+   SDK routes), capabilities probe, launcher/CLI smoke and nono tests.
+3. UI, doctor diagnostics, docs (`docs/providers.md`,
+   `docs/research/provider-compatibility.md`).
 
 ## Risks
 
-- **Protocol drift**: CLIs and servers evolve their protocols. Mitigation: golden
-  fixtures recorded from current CLI versions, CLI smoke tests, and diagnostics that
-  count unknown fields.
-- **Reasoning signatures**: Claude Code may require valid signatures for thinking blocks
-  in some modes. Mitigation: placeholder signatures are never forwarded to a Messages
-  upstream; if a Claude Code version rejects unsigned thinking from the server, the
-  adapter falls back to emitting reasoning as hidden (dropped) and counts it.
-- **Token counting**: `count_tokens` estimates may differ from the real tokenizer;
-  marked as estimates, used only for Claude Code's context display.
-- **Memory**: the per-session response store is bounded (LRU).
+- **Protocol drift** in CLIs and servers. Mitigation: fixtures recorded from current CLI
+  versions, CLI smoke tests, diagnostics that count unknown fields and dropped features.
+- **Carrier signatures** rejected by a future Claude Code version. Mitigation: fallback
+  to omitting thinking from the client stream; smoke test detects it.
+- **Strict servers** rejecting optional parameters. Mitigation: conservative defaults,
+  probe, one-shot fallback retry.
+- **Usage estimates** may differ from real tokenizers; flagged and counted.
