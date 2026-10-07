@@ -294,6 +294,36 @@ describe("buildResponsesRequest rules", () => {
     });
   });
 
+  test("tool and output schemas keep the client's key order", () => {
+    const properties = { file_path: {}, old_string: {}, new_string: {}, replace_all: {} };
+    const { body } = build(
+      request({
+        tools: [
+          {
+            name: "Edit",
+            kind: "function",
+            schema: { type: "object", properties, required: ["file_path"] },
+          },
+          {
+            name: "apply_patch",
+            kind: "custom",
+            grammar: { type: "grammar", syntax: "lark", definition: "start: x" },
+          },
+        ],
+        output: {
+          format: "json_schema",
+          name: "o",
+          schema: { type: "object", properties: { z: {}, a: {} } },
+        },
+      }),
+    );
+    const { parameters } = body.tools[0];
+    assert.deepEqual(Object.keys(parameters), ["type", "properties", "required"]);
+    assert.deepEqual(Object.keys(parameters.properties), Object.keys(properties));
+    assert.deepEqual(Object.keys(body.tools[1].format), ["type", "syntax", "definition"]);
+    assert.deepEqual(Object.keys(body.text.format.schema.properties), ["z", "a"]);
+  });
+
   test("hosted tools with a raw definition are kept", () => {
     const raw = { type: "web_search", external_web_access: false };
     const { body, dropped } = build(

@@ -28,15 +28,6 @@ const isObject = (value) =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const present = (value) => value !== undefined && value !== null;
 
-/** Recursively sorts object keys so tool schemas serialize identically every time. */
-function sortKeys(value) {
-  if (Array.isArray(value)) return value.map(sortKeys);
-  if (!isObject(value)) return value;
-  const sorted = {};
-  for (const key of Object.keys(value).sort()) sorted[key] = sortKeys(value[key]);
-  return sorted;
-}
-
 function upstreamModel(ir, model) {
   if (typeof model === "string" && model !== "") return model;
   if (isObject(model) && typeof model.id === "string" && model.id !== "") return model.id;
@@ -48,9 +39,9 @@ function functionTool(tool, names) {
   if (typeof tool.description === "string" && tool.description !== "") {
     result.description = tool.description;
   }
-  result.parameters = sortKeys(
-    isObject(tool.schema) ? tool.schema : { type: "object", properties: {} },
-  );
+  result.parameters = isObject(tool.schema)
+    ? tool.schema
+    : { type: "object", properties: {} };
   // Responses treats an omitted `strict` as strict mode; client tools are non-strict.
   result.strict = tool.strict === true;
   return result;
@@ -61,7 +52,7 @@ function customTool(tool, names) {
   if (typeof tool.description === "string" && tool.description !== "") {
     result.description = tool.description;
   }
-  if (isObject(tool.grammar)) result.format = sortKeys(tool.grammar);
+  if (isObject(tool.grammar)) result.format = tool.grammar;
   return result;
 }
 
@@ -71,7 +62,7 @@ function buildTools(ir, names, drop) {
   for (const tool of ir.tools) {
     if (tool.kind === "custom") tools.push(customTool(tool, names));
     else if (tool.kind !== "hosted") tools.push(functionTool(tool, names));
-    else if (isObject(tool.raw)) tools.push(sortKeys(tool.raw));
+    else if (isObject(tool.raw)) tools.push(tool.raw);
     else drop(`tools.${tool.hostedType ?? tool.name}`);
   }
   return tools;
@@ -265,7 +256,7 @@ function textFormat(output) {
   const format = {
     type: "json_schema",
     name: typeof output.name === "string" && output.name !== "" ? output.name : "output",
-    schema: sortKeys(output.schema),
+    schema: output.schema,
   };
   if (output.strict !== undefined) format.strict = output.strict;
   return { format };
@@ -274,7 +265,8 @@ function textFormat(output) {
 /**
  * Responses request for an IR request. `store` is always false, so no item ids are sent
  * and reasoning is replayed only through `encrypted_content`. Keys are inserted in a fixed
- * order and tool schemas are key-sorted so identical prefixes serialize identically.
+ * order and schemas pass through in client order (property order is meaningful to the
+ * model and already stable per client), so identical prefixes serialize identically.
  * IR hints are never sent; they are listed in `dropped`.
  */
 export function buildResponsesRequest(ir, ctx) {

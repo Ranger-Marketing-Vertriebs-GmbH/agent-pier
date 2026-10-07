@@ -19,15 +19,6 @@ const isObject = (value) =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const present = (value) => value !== undefined && value !== null;
 
-/** Recursively sorts object keys so tool schemas serialize identically every time. */
-function sortKeys(value) {
-  if (Array.isArray(value)) return value.map(sortKeys);
-  if (!isObject(value)) return value;
-  const sorted = {};
-  for (const key of Object.keys(value).sort()) sorted[key] = sortKeys(value[key]);
-  return sorted;
-}
-
 function upstreamModel(ir, model) {
   if (typeof model === "string" && model !== "") return model;
   if (isObject(model) && typeof model.id === "string" && model.id !== "") return model.id;
@@ -57,8 +48,10 @@ function functionTool(tool, names) {
   const fn = { name: names.toUpstream(tool.name, tool.namespace) };
   if (typeof description === "string" && description !== "") fn.description = description;
   fn.parameters = custom
-    ? sortKeys(CUSTOM_SCHEMA)
-    : sortKeys(isObject(tool.schema) ? tool.schema : { type: "object", properties: {} });
+    ? structuredClone(CUSTOM_SCHEMA)
+    : isObject(tool.schema)
+      ? tool.schema
+      : { type: "object", properties: {} };
   if (!custom && tool.strict === true) fn.strict = true;
   return { type: "function", function: fn };
 }
@@ -250,14 +243,15 @@ function applySampling(body, sampling) {
 
 function responseFormat(output) {
   if (output?.format !== "json_schema") return undefined;
-  const schema = { name: output.name, schema: sortKeys(output.schema) };
+  const schema = { name: output.name, schema: output.schema };
   if (output.strict !== undefined) schema.strict = output.strict;
   return { type: "json_schema", json_schema: schema };
 }
 
 /**
- * Chat Completions request for an IR request. Keys are inserted in a fixed order and tool
- * schemas are key-sorted so identical prefixes serialize identically (prefix caching).
+ * Chat Completions request for an IR request. Keys are inserted in a fixed order and
+ * schemas pass through in client order (property order is meaningful to the model and
+ * already stable per client), so identical prefixes serialize identically (prefix caching).
  * IR hints and hosted tools are never sent; they are listed in `dropped`.
  */
 export function buildChatRequest(ir, ctx) {

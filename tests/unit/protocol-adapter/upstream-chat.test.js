@@ -192,26 +192,37 @@ describe("client IR snapshots", () => {
     assert.equal(user.content[0].type, "text");
   });
 
-  test("the body is deterministic and tool schema keys are sorted", () => {
+  test("the body is deterministic and schemas keep the client's key order", () => {
     const first = JSON.stringify(build(snapshot("codex/mcp-output")).body);
     const second = JSON.stringify(build(snapshot("codex/mcp-output")).body);
     assert.equal(first, second);
+    const properties = {
+      file_path: { type: "string" },
+      old_string: { type: "string" },
+      new_string: { type: "string" },
+      replace_all: { type: "boolean", default: false },
+    };
     const ir = request({
       tools: [
         {
-          name: "f",
+          name: "Edit",
           kind: "function",
-          schema: {
-            type: "object",
-            properties: { b: {}, a: { type: "string", description: "x" } },
-          },
+          schema: { type: "object", properties, required: ["file_path"] },
         },
       ],
+      output: {
+        format: "json_schema",
+        name: "o",
+        schema: { type: "object", properties: { z: {}, a: {} } },
+      },
     });
-    const { parameters } = build(ir).body.tools[0].function;
-    assert.deepEqual(Object.keys(parameters), ["properties", "type"]);
-    assert.deepEqual(Object.keys(parameters.properties), ["a", "b"]);
-    assert.deepEqual(Object.keys(parameters.properties.a), ["description", "type"]);
+    const { body } = build(ir);
+    const { parameters } = body.tools[0].function;
+    assert.deepEqual(Object.keys(parameters), ["type", "properties", "required"]);
+    assert.deepEqual(Object.keys(parameters.properties), Object.keys(properties));
+    assert.deepEqual(Object.keys(parameters.properties.replace_all), ["type", "default"]);
+    const output = body.response_format.json_schema.schema;
+    assert.deepEqual(Object.keys(output.properties), ["z", "a"]);
   });
 });
 
