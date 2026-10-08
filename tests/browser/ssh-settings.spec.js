@@ -186,6 +186,7 @@ test("deleting the last entry on a page returns to the remaining entries", async
     page.getByRole("button", { name: "Server 01", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("searchbox")).toBeFocused();
+  expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
 });
 
 test("German desktop and mobile views keep long project names readable and tabs keyboard accessible", async ({
