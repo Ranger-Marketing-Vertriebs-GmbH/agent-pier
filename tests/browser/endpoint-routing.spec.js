@@ -39,6 +39,21 @@ test("routes resolve live and explain unavailable choices", async ({ page }) => 
   await responses.check();
   await claude.selectOption("adapter:responses");
   await expect(uses("via adapter · Responses")).toBeVisible();
+  if (process.env.CAPTURE_ADAPTER_SCREENSHOTS) {
+    await dialog.getByText("Adapter options", { exact: true }).scrollIntoViewIfNeeded();
+    await dialog.screenshot({
+      path: "docs/screenshots/endpoint-routing-desktop.png",
+      animations: "disabled",
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await dialog.getByText("Adapter options", { exact: true }).scrollIntoViewIfNeeded();
+    await expect(routing).toBeInViewport({ ratio: 0.1 });
+    await dialog.screenshot({
+      path: "docs/screenshots/endpoint-routing-mobile.png",
+      animations: "disabled",
+    });
+    await page.setViewportSize({ width: 1280, height: 720 });
+  }
   // Review Focus 2: the explicit choice survives when its protocol is switched off again.
   await responses.uncheck();
   await expect(claude).toHaveValue("adapter:responses");
@@ -137,6 +152,12 @@ test("test proposals fill adapter options that stay editable", async ({ page }) 
   await expect(options.getByText("suggested by the test")).toHaveCount(2);
   await effort.check();
   await expect(effort).toHaveAccessibleDescription("changed by you");
+  if (process.env.CAPTURE_ADAPTER_SCREENSHOTS) {
+    await options.screenshot({
+      path: "docs/screenshots/endpoint-adapter-options.png",
+      animations: "disabled",
+    });
+  }
   await expect(
     options.getByLabel("Keep as system messages", { exact: true }),
   ).toBeChecked();
