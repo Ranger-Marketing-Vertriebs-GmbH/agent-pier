@@ -21,12 +21,16 @@ const MAX_MISSES = 1024;
 const imageExtension = /\.(?:png|jpe?g|gif|webp|avif)$/i;
 // Templates, globs, shell syntax and lists name no single file.
 const placeholder = /[<>{}*$|,]/;
-const requestLine = /(?:^|[^\w])(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)[ \t]+$/;
-function localPath(source, cwd, home, explicit = false) {
+const method = "(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)";
+const requestLine = new RegExp(`(?:^|[^\\w])${method}[ \\t]+$`);
+const requestValue = new RegExp(`^${method}\\s`);
+// `whole` marks a value that is the entire Markdown destination, quoted span or
+// line. Only such values may contain unescaped whitespace, as in screenshot names.
+function localPath(source, cwd, home, whole = false) {
   if (typeof source !== "string") return null;
   source = source.trim();
-  // Only explicit Markdown destinations may contain unescaped whitespace.
-  if (!explicit && /\s/.test(source.replace(/\\ /g, ""))) return null;
+  if (requestValue.test(source)) return null;
+  if (!whole && /\s/.test(source.replace(/\\ /g, ""))) return null;
   source = source.replace(/\\([ ()[\]])/g, "$1");
   if (
     !source ||
@@ -66,9 +70,9 @@ function reportedImages(text, cwd, home) {
   text = text.slice(0, 128000);
   const matches = [];
   let remaining = text;
-  const add = (source, index, explicit = false) => {
+  const add = (source, index, whole = false) => {
     if (requestLine.test(text.slice(Math.max(0, index - 16), index))) return false;
-    const item = localPath(source, cwd, home, explicit);
+    const item = localPath(source, cwd, home, whole);
     if (item) matches.push({ ...item, index });
     return Boolean(item);
   };
@@ -84,14 +88,14 @@ function reportedImages(text, cwd, home) {
     mask(match.index, match[0].length);
   }
   for (const match of remaining.matchAll(/[`"']([^`"'\n]+)[`"']/g))
-    if (add(match[1], match.index)) mask(match.index, match[0].length);
+    if (add(match[1], match.index, true)) mask(match.index, match[0].length);
   for (const match of remaining.matchAll(/^(?:[ \t]*)([^\n]+)$/gm)) {
     const value = match[1].trim();
     if (
       /^(?:\/|\.\.?\/|~\/)/.test(value) &&
       imageExtension.test(value) &&
       (value.match(/\.(?:png|jpe?g|gif|webp|avif)(?=$|[\s,;])/gi) || []).length === 1 &&
-      add(value, match.index)
+      add(value, match.index, true)
     )
       mask(match.index, match[0].length);
   }
