@@ -16,7 +16,7 @@ const filled = (value) => typeof value === "string" && value.trim() !== "";
 function unavailable(endpoint, source) {
   if (source === "messages" && !filled(endpoint.anthropicBaseUrl))
     return "anthropicUrlMissing";
-  if (source !== "messages" && !filled(endpoint.openaiBaseUrl)) return "protocolOff";
+  if (source !== "messages" && !filled(endpoint.openaiBaseUrl)) return "openaiUrlMissing";
   return endpoint.protocols?.[source] === true ? null : "protocolOff";
 }
 const enabled = (endpoint, source) => unavailable(endpoint, source) === null;
