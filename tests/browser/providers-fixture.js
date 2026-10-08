@@ -1,4 +1,8 @@
 import { baseURL } from "../helpers/browser.js";
+import {
+  resolveDraftRoute,
+  ROUTE_TOOLS,
+} from "../../web/features/provider-connections/endpoint-routes.js";
 export async function fixture(page, { account, session } = {}) {
   const providers = [
     ...["openrouter", "zai", "zai-coding-plan"].map((id) => ({
@@ -136,6 +140,13 @@ export async function fixture(page, { account, session } = {}) {
         method === "PATCH"
           ? state.providerConnections.find((item) => item.id === id)
           : {};
+      const endpointBlock = body.endpoint || existing.endpoint;
+      // Same rule as the server's toolRoutes/endpointTools (pinned by the parity test).
+      const toolRoutes = endpointBlock
+        ? Object.fromEntries(
+            ROUTE_TOOLS.map((tool) => [tool, resolveDraftRoute(endpointBlock, tool)]),
+          )
+        : null;
       const connection = {
         ...existing,
         ...body,
@@ -144,23 +155,14 @@ export async function fixture(page, { account, session } = {}) {
         launchable:
           (body.providerId || existing.providerId) === "endpoint" ||
           (body.removeApiKey ? false : Boolean(body.apiKey || existing.hasSecret)),
-        tools:
-          body.endpoint || existing.endpoint
-            ? [
-                ["codex", "responses"],
-                ["claude", "messages"],
-                ["opencode", "chatCompletions"],
-              ]
-                .filter(
-                  ([, protocol]) =>
-                    (body.endpoint || existing.endpoint).protocols[protocol],
-                )
-                .map(([tool]) => tool)
-            : body.providerId === "openrouter" ||
-                existing.providerId === "openrouter" ||
-                (body.responsesAccess ?? existing.responsesAccess)
-              ? ["codex", "claude", "opencode"]
-              : ["claude", "opencode"],
+        tools: toolRoutes
+          ? ["codex", "claude", "opencode"].filter((tool) => toolRoutes[tool])
+          : body.providerId === "openrouter" ||
+              existing.providerId === "openrouter" ||
+              (body.responsesAccess ?? existing.responsesAccess)
+            ? ["codex", "claude", "opencode"]
+            : ["claude", "opencode"],
+        ...(toolRoutes ? { toolRoutes } : {}),
         createdAt: "2026-09-07T12:00:00Z",
         updatedAt: "2026-09-07T12:00:00Z",
       };
