@@ -37,3 +37,28 @@ export function createAdapterCounters() {
 
   return { count, increment, status, fallback, snapshot: () => structuredClone(state) };
 }
+
+const plain = (value) =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+const counted = (value) =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0;
+
+/**
+ * Adds the counters of a previous snapshot (`base`, read back from the diagnostics file
+ * after a crash restart) to the current ones: numbers are summed, objects merged by name.
+ * Anything in `base` that is not a non-negative number or a plain object is ignored.
+ */
+export function addCounts(base, current, depth = 0) {
+  if (counted(base) || counted(current))
+    return (counted(base) ? base : 0) + (counted(current) ? current : 0);
+  if (depth > 3 || (!plain(base) && !plain(current))) return current;
+  const a = plain(base) ? base : {};
+  const b = plain(current) ? current : {};
+  const out = {};
+  for (const name of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if (name === "__proto__") continue;
+    const value = addCounts(a[name], b[name], depth + 1);
+    if (value !== undefined) out[name] = value;
+  }
+  return out;
+}

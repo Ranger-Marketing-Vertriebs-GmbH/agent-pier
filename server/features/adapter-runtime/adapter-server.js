@@ -4,7 +4,7 @@ import { createTranslator } from "../protocol-adapter/translate.js";
 import { resolveCapabilities } from "../protocol-adapter/capabilities.js";
 import { authHeaders } from "../providers/endpoint-http.js";
 import { createUpstreamClient } from "../providers/endpoint-stream.js";
-import { createAdapterCounters } from "./adapter-counters.js";
+import { addCounts, createAdapterCounters } from "./adapter-counters.js";
 import {
   bodyLimitMessage,
   clientError,
@@ -20,6 +20,37 @@ import { handleInference } from "./adapter-request.js";
 import { createRetry } from "./adapter-retry.js";
 import { createDiagnosticsWriter } from "./adapter-diagnostics.js";
 
+// Snapshot fields a crash restart continues (sums); everything else is per process.
+const CONTINUED = [
+  "requests",
+  "unauthorized",
+  "upstreamStatus",
+  "errors",
+  "forbidden",
+  "clientDisconnects",
+  "shutdownAborts",
+  "dropped",
+  "adjustments",
+  "compactionDropped",
+  "capabilityFallbacks",
+  "estimatedUsage",
+  "cacheReadTokens",
+];
+
+/** The configured capabilities with the predecessor's values; invalid ones are ignored. */
+function learnedCapabilities(upstream, given, previous) {
+  if (!previous || typeof previous !== "object") return given;
+  const merged = { ...given };
+  for (const name of Object.keys(resolveCapabilities(upstream, given)))
+    if (Object.hasOwn(previous, name)) merged[name] = previous[name];
+  try {
+    resolveCapabilities(upstream, merged);
+    return merged;
+  } catch {
+    return given;
+  }
+}
+
 /** Largest accepted client request body (Codex sends large requests). */
 export const MAX_REQUEST_BODY_BYTES = 64 * 1024 * 1024;
 
@@ -28,6 +59,8 @@ export const MAX_REQUEST_BODY_BYTES = 64 * 1024 * 1024;
  * routing, one translator exchange per request and diagnostics counters. `ctx` is the
  * shared per-session context: `ctx.retry` is the capability retry, `ctx.onDone` schedules
  * the throttled diagnostics write after every request (unauthorized ones included).
+ * `options.previous` is the last snapshot of a crashed predecessor of the same launch: its
+ * counters are continued and its capabilities (including kept fallbacks) reused.
  */
 export function createAdapterServer(config, options = {}) {
   const {
@@ -37,21 +70,27 @@ export function createAdapterServer(config, options = {}) {
     lookup,
     now = Date.now,
     restarts = 0,
+    previous = null,
   } = options;
   const client = config.clientProtocol;
   const upstream = config.upstreamProtocol;
   const secrets = [config.upstream.apiKey, config.token].filter(Boolean);
+  const given = learnedCapabilities(
+    upstream,
+    config.capabilities,
+    previous?.capabilities,
+  );
   const translator = createTranslator({
     client,
     upstream,
     model: config.model,
-    capabilities: config.capabilities,
+    capabilities: given,
     thinkTagExtraction: config.thinkTagExtraction,
     // Stable per session (also across adapter restarts); random only without a session.
     sessionKey: config.sessionKey ?? randomUUID(),
     secrets,
   });
-  const capabilities = resolveCapabilities(upstream, config.capabilities);
+  const capabilities = resolveCapabilities(upstream, given);
   const counters = createAdapterCounters();
   const upstreamClient = createUpstreamClient({
     baseUrl: config.upstream.baseUrl,
@@ -149,8 +188,7 @@ export function createAdapterServer(config, options = {}) {
   function snapshot() {
     const t = translator.diagnostics();
     const c = counters.snapshot();
-    return {
-      version: 1,
+    const own = {
       generation: config.generation ?? null,
       startedAt,
       updatedAt: new Date(now()).toISOString(),
@@ -171,6 +209,9 @@ export function createAdapterServer(config, options = {}) {
       estimatedUsage: t.estimatedUsage,
       cacheReadTokens: t.cacheReadTokens ?? 0,
     };
+    if (previous)
+      for (const name of CONTINUED) own[name] = addCounts(previous[name], own[name]);
+    return { version: 1, ...own };
   }
 
   const writer = createDiagnosticsWriter({

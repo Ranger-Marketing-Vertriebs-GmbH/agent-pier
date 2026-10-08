@@ -104,6 +104,26 @@ test("the restart budget is bounded; give-up keeps the port and the last counter
   assert.equal(await bindError(adapter.port), null, "stop releases the port");
 });
 
+test("a restarted adapter continues the previous adapter's counters", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-adapter-continue-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const diagnosticsPath = path.join(dir, "s.adapter.json");
+  const adapter = await startAdapter(validAdapterConfig({ diagnosticsPath }), {
+    restart: { delayMs: 50 },
+  });
+  t.after(() => adapter.stop());
+  const unauthorized = () => fetch(`${adapter.url}/v1/messages`, { method: "POST" });
+  assert.equal((await unauthorized()).status, 401);
+  await until(() => readRecord(diagnosticsPath)?.unauthorized === 1);
+  const pid = adapter.child.pid;
+  process.kill(pid, "SIGKILL");
+  await until(() => adapter.restarts() === 1 && adapter.child.pid !== pid, 5000);
+  assert.equal((await unauthorized()).status, 401);
+  await until(() => readRecord(diagnosticsPath)?.restarts === 1, 7000);
+  const record = readRecord(diagnosticsPath);
+  assert.equal(record.unauthorized, 2, "counted across the restart");
+});
+
 test("a failed restart attempt consumes the budget", async (t) => {
   // Stub: the 2nd process exits 71 without a message (start failure); the others are ready.
   const stub = writeStub(t, "");

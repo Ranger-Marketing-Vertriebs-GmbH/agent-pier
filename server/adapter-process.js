@@ -57,16 +57,24 @@ const httpTimeouts = (value) =>
 process.once("message", async (message) => {
   let config;
   try {
-    const [{ validateAdapterConfig }, { createAdapterServer }] = await Promise.all([
-      import("./features/adapter-runtime/adapter-config.js"),
-      import("./features/adapter-runtime/adapter-server.js"),
-    ]);
+    const [{ validateAdapterConfig }, { createAdapterServer }, { readOwnSnapshot }] =
+      await Promise.all([
+        import("./features/adapter-runtime/adapter-config.js"),
+        import("./features/adapter-runtime/adapter-server.js"),
+        import("./features/adapter-runtime/adapter-diagnostics.js"),
+      ]);
     if (message?.type !== "start") throw new TypeError("adapter: unexpected message");
     if (!validPort(message.port)) throw new TypeError("adapter: invalid port");
     config = validateAdapterConfig(message.config);
+    const restarts =
+      Number.isInteger(message.restarts) && message.restarts > 0 ? message.restarts : 0;
     // Throws synchronously only for a refused IP-literal upstream: a configuration error.
     server = createAdapterServer(config, {
-      restarts: Number.isInteger(message.restarts) ? message.restarts : 0,
+      restarts,
+      // A crash restart continues its predecessor's counters and learned capabilities.
+      previous: restarts
+        ? readOwnSnapshot(config.diagnosticsPath, config.generation)
+        : null,
       httpTimeouts: httpTimeouts(message.httpTimeouts),
     });
   } catch {

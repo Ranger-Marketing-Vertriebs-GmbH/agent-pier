@@ -281,3 +281,44 @@ test("an unexpected handler exception becomes a 500 and the server keeps serving
   delete server.ctx.retry;
   assert.equal((await request()).status, 400);
 });
+
+test("a crash restart continues the previous counters and learned capabilities", async (t) => {
+  const up = await scriptedUpstream(t, (_e, res) =>
+    sse(res, loadFixture("upstreams/chat/text.sse")),
+  );
+  const previous = {
+    version: 1,
+    requests: { "/v1/messages": 2 },
+    unauthorized: 3,
+    upstreamStatus: { "2xx": 2 },
+    errors: { broken: "not a number" },
+    capabilities: { streamUsage: false, bogus: 1 },
+    capabilityFallbacks: { "streamUsage=false": { kept: 1, reverted: 0 } },
+  };
+  const { url, server } = await start(t, up, {}, { previous, restarts: 1 });
+  const res = await fetch(`${url}/v1/messages`, {
+    method: "POST",
+    headers: authorized(),
+    body: JSON.stringify(claudeBody()),
+  });
+  assert.match(await res.text(), /message_stop/);
+  assert.equal(up.seen[0].body.stream_options, undefined, "learned value is used");
+  const snapshot = server.snapshot();
+  assert.deepEqual(snapshot.requests, { "/v1/messages": 3 });
+  assert.equal(snapshot.unauthorized, 3);
+  assert.deepEqual(snapshot.upstreamStatus, { "2xx": 3 });
+  assert.deepEqual(snapshot.errors, {});
+  assert.equal(snapshot.capabilities.streamUsage, false);
+  assert.equal(Object.hasOwn(snapshot.capabilities, "bogus"), false);
+  assert.deepEqual(snapshot.capabilityFallbacks, {
+    "streamUsage=false": { kept: 1, reverted: 0 },
+  });
+  // An invalid learned value is ignored: the configured capabilities apply.
+  const other = await start(
+    t,
+    up,
+    {},
+    { previous: { capabilities: { streamUsage: "x" } } },
+  );
+  assert.equal(other.server.snapshot().capabilities.streamUsage, true);
+});

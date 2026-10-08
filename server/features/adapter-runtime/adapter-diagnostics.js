@@ -23,6 +23,15 @@ export function ownsDiagnostics(file, generation) {
   return readJson(sessionRecordPath(file))?.adapterGeneration === generation;
 }
 
+/** This generation's last snapshot (a crash restart continues its counters), else null. */
+export function readOwnSnapshot(file, generation) {
+  if (!file) return null;
+  const snapshot = readJson(file);
+  return snapshot?.version === 1 && snapshot.generation === (generation ?? null)
+    ? snapshot
+    : null;
+}
+
 /**
  * Atomic private write that never throws (diagnostics must not take the adapter down);
  * returns whether the snapshot was kept. Removal deletes the session record before the
