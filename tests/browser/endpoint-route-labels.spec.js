@@ -107,6 +107,12 @@ test("the session header shows the route of endpoint sessions only", async ({ pa
     .locator(".session-title p")
     .evaluate((element) => element.textContent);
   expect(subtitle).toBe("Claude Code / GPU box via adapter · Chat Completions");
+  if (process.env.CAPTURE_ADAPTER_SCREENSHOTS) {
+    await page.locator(".session-title").screenshot({
+      path: "docs/screenshots/session-adapter-route.png",
+      animations: "disabled",
+    });
+  }
 });
 
 test("the route badge fits the session header on a phone", async ({ page }) => {
