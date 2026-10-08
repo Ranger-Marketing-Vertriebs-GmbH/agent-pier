@@ -14,6 +14,7 @@ import {
   adapterEnvironment,
   substituteAdapterUrl,
 } from "../../server/features/adapter-runtime/adapter-supervisor.js";
+import { adapterSessionChecks } from "../../server/features/operations/adapter-doctor.js";
 import { createAdapterServer } from "../../server/features/adapter-runtime/adapter-server.js";
 import { scriptedUpstream, sse } from "../helpers/scripted-upstream.js";
 import { loadFixture } from "../helpers/protocol-adapter.js";
@@ -310,6 +311,41 @@ test("a failed start is recorded in the diagnostics file; a cancelled one is not
   setTimeout(() => controller.abort(), 50);
   await assert.rejects(started, { reason: "aborted" });
   assert.equal(fs.existsSync(diagnosticsPath), false);
+});
+
+test("the doctor reports a failed start after the session has stopped", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-adapter-doctor-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const sessions = path.join(dataDir, "sessions");
+  fs.mkdirSync(sessions);
+  const generation = "generation-0000002";
+  const record = {
+    id: "s",
+    name: "Failing start",
+    tool: "claude",
+    status: "running",
+    adapterGeneration: generation,
+    provider: { route: { mode: "adapter", source: "chatCompletions" } },
+  };
+  fs.writeFileSync(path.join(sessions, "s.json"), JSON.stringify(record));
+  const config = validAdapterConfig({
+    diagnosticsPath: path.join(sessions, "s.adapter.json"),
+    generation,
+  });
+  const exits = writeStub(t, `process.once("message", () => process.exit(78));\n`).file;
+  await assert.rejects(startAdapter(config, { entry: exits }), { reason: "config" });
+  // The launcher exits without starting the CLI; the next refresh stops the session.
+  fs.writeFileSync(
+    path.join(sessions, "s.json"),
+    JSON.stringify({ ...record, status: "stopped" }),
+  );
+  const checks = adapterSessionChecks(dataDir);
+  assert.deepEqual(
+    checks.map((check) => [check.id, check.status]),
+    [["adapter-session.s", "fail"]],
+  );
+  assert.match(checks[0].summary, /"Failing start".*failed to start \(config\)/);
+  assert.equal(JSON.stringify(checks).includes(KEY), false);
 });
 
 test("the adapter trusts a private CA passed as NODE_EXTRA_CA_CERTS", async (t) => {

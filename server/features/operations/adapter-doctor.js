@@ -1,8 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 
-// Doctor checks for running protocol adapter sessions. Reads counters and fixed enums from
+// Doctor checks for protocol adapter sessions. Reads counters and fixed enums from
 // `sessions/<id>.adapter.json` only; a snapshot of another launch generation is ignored.
+// Running sessions are always reported. A stopped session is reported only while its
+// current generation records a recent adapter failure (a failed start ends the session,
+// so it is never seen running); older failures are history and stay out of the report.
 const TOOLS = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode" };
 // Counter maps: only numeric leaves under short identifier-like keys survive.
 const COUNTER_KEYS = [
@@ -35,6 +38,7 @@ const CAPABILITIES = {
   systemMessages: ["merge", "inline"],
   maxTokensField: ["max_tokens", "max_completion_tokens"],
 };
+const RECENT_FAILURE_MS = 24 * 60 * 60 * 1000;
 const RELOAD = "Reload the session to restart the protocol adapter.";
 
 const read = (file) => {
@@ -152,7 +156,15 @@ export function adapterCheck(session, snapshot) {
   };
 }
 
-export function adapterSessionChecks(dataDir) {
+// Whether a stopped session's snapshot records an adapter failure recent enough to report.
+const recentFailure = (snapshot, now) => {
+  const supervisor = snapshot?.supervisor;
+  if (!supervisor?.startFailed && !supervisor?.gaveUpAt) return false;
+  const at = Date.parse(time(supervisor.gaveUpAt) ?? time(supervisor.at) ?? "");
+  return Number.isFinite(at) && now - at <= RECENT_FAILURE_MS;
+};
+
+export function adapterSessionChecks(dataDir, { now = Date.now() } = {}) {
   const directory = path.join(dataDir, "sessions");
   let names;
   try {
@@ -165,12 +177,13 @@ export function adapterSessionChecks(dataDir) {
     .filter((n) => n.endsWith(".json") && n.split(".").length === 2)
     .sort()) {
     const session = read(path.join(directory, name));
-    if (!session?.adapterGeneration || session.status !== "running") continue;
+    if (!session?.adapterGeneration) continue;
     const snapshot = read(path.join(directory, name.replace(/\.json$/, ".adapter.json")));
     const current =
       snapshot?.version === 1 && snapshot.generation === session.adapterGeneration
         ? snapshot
         : null;
+    if (session.status !== "running" && !recentFailure(current, now)) continue;
     checks.push(adapterCheck(session, current));
   }
   return checks;

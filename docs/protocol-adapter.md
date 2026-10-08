@@ -50,7 +50,8 @@ diagnostics). Launch preparation lives in `server/features/providers/`.
   this as failed.
 - A start that fails (`config`, `timeout`, `spawn`, `listen`, `exited`) is recorded in the
   diagnostics file, the launcher prints a sanitized one-line message and exits 127 without
-  starting the CLI.
+  starting the CLI. The session then stops; the doctor still reports the failure for
+  24 hours.
 - Reloads, model changes and release migration restart launcher and adapter. A pipeline
   (headless) session uses the same path.
 
@@ -186,7 +187,9 @@ invalid values are rejected.
   recreate the file of a deleted session or overwrite a newer snapshot; a write that
   loses this race is taken back. The doctor ignores a snapshot of another generation.
 - The doctor (`server/features/operations/adapter-doctor.js`) reads only whitelisted
-  counter maps, ISO timestamps and fixed enums, and never writes.
+  counter maps, ISO timestamps and fixed enums, and never writes. It reports running
+  sessions and stopped sessions whose current snapshot records `startFailed` or
+  `gaveUpAt` within the last 24 hours.
 
 ## Testing
 

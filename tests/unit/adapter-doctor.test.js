@@ -83,7 +83,7 @@ test("details hold counters only", () => {
   assert.deepEqual(details.requests, snapshot().requests);
 });
 
-test("only running sessions of the current generation are reported (Review Focus 4)", (t) => {
+test("running sessions and recent failures of the current generation are reported", (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-adapter-doctor-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   const dir = path.join(dataDir, "sessions");
@@ -105,11 +105,34 @@ test("only running sessions of the current generation are reported (Review Focus
   );
   write("s3.json", { ...session, id: "s3", adapterGeneration: undefined });
   write("s1.outcome.json", { unrelated: true });
+  // A failed start ends the session, so its record is already stopped.
+  const now = Date.parse("2026-10-08T12:00:00.000Z");
+  const stoppedWith = (id, supervisor, generation = "g2") => {
+    write(`${id}.json`, { ...session, id, status: "stopped" });
+    write(`${id}.adapter.json`, { version: 1, generation, supervisor });
+  };
+  stoppedWith("s4", { startFailed: "spawn", at: "2026-10-08T11:00:00.000Z" });
+  stoppedWith("s5", { startFailed: "spawn", at: "2026-10-06T11:00:00.000Z" });
+  stoppedWith("s6", { startFailed: "spawn", at: "2026-10-08T11:00:00.000Z" }, "g1");
+  stoppedWith("s7", { restarts: 3, gaveUpAt: "2026-10-08T09:00:00.000Z" });
   const before = fs.readdirSync(dir).sort();
-  const checks = adapterSessionChecks(dataDir);
+  const checks = adapterSessionChecks(dataDir, { now });
   assert.deepEqual(
     checks.map((c) => [c.id, c.status]),
-    [["adapter-session.s1", "ok"]],
+    [
+      ["adapter-session.s1", "ok"],
+      ["adapter-session.s4", "fail"],
+      ["adapter-session.s7", "fail"],
+    ],
+  );
+  assert.match(checks[1].summary, /failed to start \(spawn\)/);
+  assert.match(checks[2].summary, /stopped after 3 restart/);
+  assert.deepEqual(
+    adapterSessionChecks(dataDir, { now: now + 2 * 24 * 60 * 60 * 1000 }).map(
+      (c) => c.id,
+    ),
+    ["adapter-session.s1"],
+    "failures older than a day are no longer reported",
   );
   assert.match(checks[0].summary, /no requests recorded/);
   assert.deepEqual(fs.readdirSync(dir).sort(), before, "the doctor writes nothing");
