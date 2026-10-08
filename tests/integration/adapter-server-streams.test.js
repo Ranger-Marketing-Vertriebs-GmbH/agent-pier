@@ -385,3 +385,33 @@ test("the diagnostics file holds counters only and gets a final flush on close",
   for (const secret of [prompt, KEY, TOKEN, answer])
     assert.equal(raw.includes(secret), false);
 });
+
+test("close settles in-flight requests before the final diagnostics write", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "adapter-diagnostics-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, "session.adapter.json");
+  const up = await scriptedUpstream(t, (_e, res) => {
+    head(res);
+    res.write(chatEvents().slice(0, 2).join("")); // then hangs until shutdown
+  });
+  const { url, server } = await start(t, up, { diagnosticsPath: file });
+  // Marks the moment the aborted handler settles (after its sockets closed).
+  const done = server.ctx.onDone;
+  server.ctx.onDone = () => {
+    server.ctx.counters.count("errors", "test.settled");
+    done();
+  };
+  const stream = streamRaw(`${url}/v1/messages`, claudeBody());
+  await until(() => stream.text.includes("message_start"));
+  await server.close();
+  assert.equal(server.snapshot().errors["test.settled"], 1);
+  await stream.done;
+  const withoutTime = ({ updatedAt: _updatedAt, ...rest }) => rest;
+  const written = JSON.parse(fs.readFileSync(file, "utf8"));
+  assert.equal(written.shutdownAborts, 1);
+  assert.deepEqual(withoutTime(written), withoutTime(server.snapshot()));
+  // Nothing is written after the final flush.
+  const { mtimeMs } = fs.statSync(file);
+  await delay(50);
+  assert.equal(fs.statSync(file).mtimeMs, mtimeMs);
+});
