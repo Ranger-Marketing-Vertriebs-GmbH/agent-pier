@@ -138,3 +138,18 @@ test("duplicate session ids across realpath and symlinked release paths collapse
   assert.deepEqual(releaseSessionReferences("", [release]), empty);
   assert.deepEqual(releaseSessionReferences(launcher(100, 50, id), []), empty);
 });
+
+test("an adapter process below a session launcher is a helper of that session", () => {
+  const output = [
+    launcher(100, 1, id),
+    proc(
+      101,
+      100,
+      `${release}/bin/node --use-system-ca ${release}/server/adapter-process.js`,
+    ),
+  ].join("\n");
+  const result = releaseSessionReferences(output, [release]);
+  assert.deepEqual(result.sessionIds, [id]);
+  assert.deepEqual(result.helperReferences, [{ reference: "server/adapter-process.js" }]);
+  assert.deepEqual(result.unidentified, []);
+});

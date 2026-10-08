@@ -27,7 +27,7 @@ The launch orchestrator validates the account, directory and launch mode, then c
 
 `SessionManager` serializes session operations, owns the private tmux socket and persists public session metadata. A web-process restart reconnects to existing terminals; it does not terminate them. Stopping a session and deleting its metadata are separate operations. Session-bound memory capabilities are revoked on stop or when native state inspection discovers an exit. Repository knowledge remains available after its writer exits.
 
-The stable `server/terminal-launcher.js`, `server/git-credential.mjs`, `server/github-credentials.js`, `server/native-session-binding.js` and `server/native-session-opencode.js` entry points are referenced by persisted or running CLI configurations. They remain compatibility boundaries even when their implementations move into features.
+The stable `server/terminal-launcher.js`, `server/adapter-process.js`, `server/git-credential.mjs`, `server/github-credentials.js`, `server/native-session-binding.js` and `server/native-session-opencode.js` entry points are referenced by persisted or running CLI configurations. They remain compatibility boundaries even when their implementations move into features.
 
 ## Chat and native observations
 
