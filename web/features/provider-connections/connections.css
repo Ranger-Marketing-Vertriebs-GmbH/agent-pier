@@ -178,3 +178,43 @@
 .endpoint-protocols small {
   display: block;
 }
+.endpoint-adapter {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.endpoint-adapter > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.endpoint-adapter-source,
+.endpoint-capability-choice {
+  border: 0;
+  padding: 0;
+  margin: 0 0 10px;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+.endpoint-adapter-source > legend {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.endpoint-adapter-source > button {
+  justify-self: start;
+}
+.endpoint-adapter .provider-check span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.endpoint-adapter .provider-check input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+.endpoint-capability-choice > .endpoint-capability-marker {
+  font-size: 11px;
+  color: var(--muted);
+}

@@ -85,6 +85,35 @@ export const connectionCopy = {
         other: "Voraussetzung nicht erfüllt",
       },
     },
+    adapter: {
+      title: "Adapter-Optionen",
+      none: "Mit diesen Einstellungen nutzt keine CLI den Protokoll-Adapter.",
+      source: (protocol) => `Adapter-Optionen · ${protocol}`,
+      reset: "Standard wiederherstellen",
+      proposed: "vom Test vorgeschlagen",
+      standard: "Standard",
+      capabilities: {
+        promptCache: "Prompt-Cache-Breakpoints setzen",
+        thinkingBudget:
+          "Reasoning als Token-Budget senden (Modelle ohne adaptives Denken)",
+        promptCacheKey: "prompt_cache_key senden",
+        reasoningEffort: "Reasoning-Stufe senden",
+        parallelToolCalls: "parallel_tool_calls weitergeben",
+        streamUsage: "Token-Verbrauch im Stream anfordern",
+        reasoningReplay: "Reasoning-Text zurücksenden (Denkmodi von DeepSeek, GLM, Kimi)",
+        systemMessages: "System-Nachrichten mitten im Verlauf",
+        maxTokensField: "Feld für das Ausgabelimit",
+      },
+      choices: {
+        merge: "In die nächste Nutzernachricht einbetten",
+        inline: "Als System-Nachrichten belassen",
+        max_tokens: "max_tokens",
+        max_completion_tokens: "max_completion_tokens",
+      },
+      think: "<think>-Tags als Reasoning auswerten",
+      thinkHelp:
+        "Nur für Adapter-Routen über Chat Completions, für Modelle, die ihr Reasoning in den Antworttext schreiben.",
+    },
     preset: "Server-Typ",
     presets: {
       ollama: "Ollama",

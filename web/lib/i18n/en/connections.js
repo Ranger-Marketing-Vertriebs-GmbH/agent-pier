@@ -85,6 +85,35 @@ export const connectionCopy = {
         other: "requirement not met",
       },
     },
+    adapter: {
+      title: "Adapter options",
+      none: "No CLI uses the protocol adapter with these settings.",
+      source: (protocol) => `Adapter options · ${protocol}`,
+      reset: "Restore defaults",
+      proposed: "suggested by the test",
+      standard: "default",
+      capabilities: {
+        promptCache: "Set prompt cache breakpoints",
+        thinkingBudget:
+          "Send thinking as a token budget (models without adaptive thinking)",
+        promptCacheKey: "Send prompt_cache_key",
+        reasoningEffort: "Send reasoning effort",
+        parallelToolCalls: "Forward parallel_tool_calls",
+        streamUsage: "Request token usage in the stream",
+        reasoningReplay: "Send reasoning text back (DeepSeek, GLM, Kimi thinking modes)",
+        systemMessages: "System messages in the middle of a conversation",
+        maxTokensField: "Output limit field",
+      },
+      choices: {
+        merge: "Merge into the next user message",
+        inline: "Keep as system messages",
+        max_tokens: "max_tokens",
+        max_completion_tokens: "max_completion_tokens",
+      },
+      think: "Read <think> tags as reasoning",
+      thinkHelp:
+        "Only for adapter routes over Chat Completions, for models that write their reasoning into the answer text.",
+    },
     preset: "Server type",
     presets: {
       ollama: "Ollama",

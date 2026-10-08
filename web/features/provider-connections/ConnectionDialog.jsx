@@ -11,6 +11,7 @@ import EndpointFields from "./EndpointFields.jsx";
 import EndpointTestResult from "./EndpointTestResult.jsx";
 import EndpointModelTable from "./EndpointModelTable.jsx";
 import EndpointRouting from "./EndpointRouting.jsx";
+import EndpointAdapterOptions from "./EndpointAdapterOptions.jsx";
 import useEndpointTest from "./useEndpointTest.js";
 import {
   applyProposal,
@@ -210,6 +211,7 @@ export default function ConnectionDialog({ connection, close, saved }) {
                   result={tester.result}
                 />
                 <EndpointRouting draft={draft} setDraft={setDraft} />
+                <EndpointAdapterOptions draft={draft} setDraft={setDraft} />
                 <EndpointModelTable draft={draft} setDraft={setDraft} />
               </>
             )}
