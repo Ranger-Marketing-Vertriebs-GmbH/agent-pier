@@ -1,3 +1,12 @@
+import { DEFAULT_ROUTING } from "./endpoint-routes.js";
+
+const adapterFields = (endpoint) => ({
+  routing: { ...DEFAULT_ROUTING, ...(endpoint?.routing || {}) },
+  adapterCapabilities: structuredClone(endpoint?.adapterCapabilities || {}),
+  thinkTagExtraction: endpoint?.thinkTagExtraction === true,
+  capabilityProposal: {},
+});
+
 export const PRESETS = {
   ollama: {
     openaiBaseUrl: "http://127.0.0.1:11434/v1",
@@ -22,7 +31,11 @@ export function initialEndpoint(connection, preset = "ollama") {
       ...structuredClone(connection.endpoint),
       anthropicBaseUrl: connection.endpoint.anthropicBaseUrl || "",
       authHeader: connection.endpoint.authHeader || "",
-      models: structuredClone(connection.endpoint.models || []),
+      models: structuredClone(connection.endpoint.models || []).map((model) => ({
+        ...model,
+        images: model.images ?? null,
+      })),
+      ...adapterFields(connection.endpoint),
       // A saved (or deliberately cleared) Anthropic URL is never overwritten.
       anthropicAuto: false,
     };
@@ -32,6 +45,7 @@ export function initialEndpoint(connection, preset = "ollama") {
     authHeader: "",
     models: [],
     lastTest: null,
+    ...adapterFields(null),
   };
 }
 
@@ -40,6 +54,7 @@ export const withoutTest = (draft) => ({
   ...draft,
   lastTest: null,
   modelsTruncated: false,
+  capabilityProposal: {},
 });
 
 export const suggestAnthropicUrl = (url) =>
@@ -142,11 +157,20 @@ function mergeModels(previous, proposal) {
         : (old?.outputTokens ?? model.outputTokens ?? null),
       source: "detected",
       contextEdited: old?.contextEdited === true,
+      images: old?.images ?? null,
       ...(model.contextHint ? { contextHint: model.contextHint } : {}),
     };
   });
   return { models: [...detected, ...manual], truncated: kept.length < listed.length };
 }
+
+const mergeCapabilities = (current = {}, proposed = {}) =>
+  Object.fromEntries(
+    [...new Set([...Object.keys(current), ...Object.keys(proposed)])].map((source) => [
+      source,
+      { ...(current[source] || {}), ...(proposed[source] || {}) },
+    ]),
+  );
 
 export function applyProposal(draft, proposal, now = new Date().toISOString()) {
   const protocols = Object.fromEntries(
@@ -166,8 +190,34 @@ export function applyProposal(draft, proposal, now = new Date().toISOString()) {
     models: merged.models,
     modelsTruncated: merged.truncated,
     lastTest: { at: now, protocols: proposal.protocols, reasons: proposal.reasons },
+    adapterCapabilities: mergeCapabilities(
+      draft.adapterCapabilities,
+      proposal.capabilities,
+    ),
+    capabilityProposal: structuredClone(proposal.capabilities || {}),
   };
 }
+
+export const setRoute = (draft, tool, choice) => ({
+  ...draft,
+  routing: { ...draft.routing, [tool]: choice },
+});
+export const setCapability = (draft, source, name, value) => ({
+  ...draft,
+  adapterCapabilities: {
+    ...draft.adapterCapabilities,
+    [source]: { ...(draft.adapterCapabilities[source] || {}), [name]: value },
+  },
+});
+export const resetCapabilities = (draft, source) => {
+  const { [source]: _removed, ...rest } = draft.adapterCapabilities;
+  const { [source]: _proposed, ...proposal } = draft.capabilityProposal || {};
+  return { ...draft, adapterCapabilities: rest, capabilityProposal: proposal };
+};
+export const setModelImages = (draft, modelId, images) => ({
+  ...draft,
+  models: draft.models.map((m) => (m.modelId === modelId ? { ...m, images } : m)),
+});
 
 const modelPayload = (model) => ({
   modelId: model.modelId,
@@ -177,6 +227,7 @@ const modelPayload = (model) => ({
   source: model.source,
   contextEdited: model.contextEdited,
   contextHint: model.contextHint,
+  images: model.images ?? null,
 });
 
 export function endpointPayload(draft) {
@@ -188,5 +239,8 @@ export function endpointPayload(draft) {
     authHeader: draft.authHeader.trim() || null,
     models: draft.models.map(modelPayload),
     lastTest: draft.lastTest,
+    routing: draft.routing,
+    adapterCapabilities: draft.adapterCapabilities,
+    thinkTagExtraction: draft.thinkTagExtraction,
   };
 }
