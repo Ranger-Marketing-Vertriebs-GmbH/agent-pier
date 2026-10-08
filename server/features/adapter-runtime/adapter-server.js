@@ -8,7 +8,9 @@ import { createAdapterCounters } from "./adapter-counters.js";
 import {
   bodyLimitMessage,
   clientError,
+  hostAllowed,
   readBody,
+  requestPath,
   requestCounterName,
   routeFor,
   tokenMatches,
@@ -64,6 +66,9 @@ export function createAdapterServer(config, options = {}) {
     timing: { keepaliveMs, idleTimeoutMs },
     capabilities,
     keepalives: new Set(),
+    // Abort functions of in-flight inference requests (shutdown aborts them).
+    requests: new Set(),
+    closing: false,
     setCapability(name, value) {
       translator.setCapability(name, value);
       capabilities[name] = value;
@@ -71,31 +76,37 @@ export function createAdapterServer(config, options = {}) {
     onDone: () => {},
   };
 
+  let port = null;
+
+  /** Answers without reading the body and closes the connection afterwards. */
+  function refuse(res, kind, message) {
+    res.setHeader("connection", "close");
+    writeRendered(res, clientError(client, kind, message));
+  }
+
   async function dispatch(req, res) {
-    const { pathname } = new URL(req.url, "http://adapter.invalid");
-    const route = routeFor(client, req.method, pathname);
+    if (!hostAllowed(req.headers, port)) {
+      counters.increment("forbidden");
+      return refuse(res, "permission", "request not allowed");
+    }
+    const pathname = requestPath(req.url);
+    const route =
+      pathname === null ? "malformed" : routeFor(client, req.method, pathname);
     // Claude Code's probe answers before auth; it carries no token.
     if (route === "hello" && req.method === "HEAD") return void res.writeHead(200).end();
     if (!tokenMatches(config.token, req.headers)) {
       counters.increment("unauthorized");
-      req.resume();
-      return writeRendered(res, clientError(client, "auth", "invalid adapter token"));
+      return refuse(res, "auth", "invalid adapter token");
     }
     if (route === "hello") return void res.writeHead(200).end();
     counters.count("requests", requestCounterName(client, pathname));
-    if (route !== "inference") {
-      // count_tokens included: never forwarded, Claude Code then estimates locally.
-      req.resume();
-      return writeRendered(res, clientError(client, "notFound", "not found"));
-    }
+    if (route === "malformed")
+      return refuse(res, "invalidRequest", "malformed request target");
+    // count_tokens included: never forwarded, Claude Code then estimates locally.
+    if (route !== "inference") return refuse(res, "notFound", "not found");
     const raw = await readBody(req, maxBodyBytes);
-    if (raw === null) {
-      res.setHeader("connection", "close");
-      return writeRendered(
-        res,
-        clientError(client, "invalidRequest", bodyLimitMessage(maxBodyBytes)),
-      );
-    }
+    if (raw === null)
+      return refuse(res, "invalidRequest", bodyLimitMessage(maxBodyBytes));
     await handleInference(ctx, req, res, raw);
   }
 
@@ -130,7 +141,9 @@ export function createAdapterServer(config, options = {}) {
       unauthorized: c.unauthorized,
       upstreamStatus: c.upstreamStatus,
       errors: { ...t.errors, ...c.errors },
+      forbidden: c.forbidden,
       clientDisconnects: c.clientDisconnects,
+      shutdownAborts: c.shutdownAborts,
       dropped: t.dropped,
       adjustments: t.adjustments,
       compactionDropped: t.dropped["input.compaction"] ?? 0,
@@ -145,18 +158,21 @@ export function createAdapterServer(config, options = {}) {
     ctx,
     snapshot,
     /** Binds 127.0.0.1 only; resolves the bound port. */
-    listen: (port = 0) =>
+    listen: (requested = 0) =>
       new Promise((resolve, reject) => {
         server.once("error", reject);
-        server.listen(port, "127.0.0.1", () => {
+        server.listen(requested, "127.0.0.1", () => {
           server.off("error", reject);
-          resolve(server.address().port);
+          port = server.address().port;
+          resolve(port);
         });
       }),
     /** Ends open client streams and upstream requests; resolves once all sockets closed. */
     close: () =>
       new Promise((resolve) => {
+        ctx.closing = true;
         for (const stop of [...ctx.keepalives]) stop();
+        for (const abort of [...ctx.requests]) abort("shutdown");
         server.close(() => resolve());
         server.closeAllConnections();
         upstreamClient.close();

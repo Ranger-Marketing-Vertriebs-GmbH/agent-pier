@@ -8,9 +8,19 @@ const SSE = { "content-type": "text/event-stream", "cache-control": "no-cache" }
 const MAX_ERROR_TEXT = 1024 * 1024;
 /** Non-streaming upstream bodies are read up to this size. */
 const MAX_JSON_TEXT = 32 * 1024 * 1024;
-// Client frames after which nothing else is written (no keep-alive after the end).
-const TERMINAL_FRAME =
-  /^event: (?:message_stop|error|response\.(?:completed|incomplete|failed))\r?\n/;
+
+/**
+ * Why a request was aborted by the adapter side: the counter it lands in and the
+ * transport error the upstream request is destroyed with. `firstFrame` is an upstream
+ * timeout (counted by the translator as `stream.timeout`); the others are not upstream
+ * failures and stay out of the translator's stream counters.
+ */
+const ABORTS = Object.freeze({
+  client: { scalar: "clientDisconnects", kind: "network", text: "client disconnected" },
+  shutdown: { scalar: "shutdownAborts", kind: "network", text: "adapter shutting down" },
+  stalled: { error: "client.stalled", kind: "network", text: "client stopped reading" },
+  firstFrame: { kind: "timeout", text: "upstream sent no client frame" },
+});
 
 export const ok = (status) => status >= 200 && status < 300;
 
@@ -30,7 +40,7 @@ function keepalives(ctx, res, current) {
     if (stopped) return;
     clearTimeout(timer);
     timer = setTimeout(() => {
-      if (stopped || res.destroyed) return;
+      if (stopped || res.destroyed || current().terminated) return;
       res.write(current().keepalive());
       arm();
     }, ctx.timing.keepaliveMs);
@@ -39,23 +49,31 @@ function keepalives(ctx, res, current) {
   return { arm, stop };
 }
 
-/** Resolves on `drain` or `close`, whichever comes first, removing both listeners. */
-function drained(res) {
+/**
+ * Resolves true on `drain`, false on `close` or when the client has not read for `ms`;
+ * removes its listeners and timer either way.
+ */
+function drained(res, ms) {
   return new Promise((resolve) => {
-    const done = () => {
-      res.off("drain", done);
-      res.off("close", done);
-      resolve();
+    let timer = null;
+    const finish = (value) => {
+      clearTimeout(timer);
+      res.off("drain", onDrain);
+      res.off("close", onClose);
+      resolve(value);
     };
-    res.on("drain", done);
-    res.on("close", done);
+    const onDrain = () => finish(true);
+    const onClose = () => finish(false);
+    res.on("drain", onDrain);
+    res.on("close", onClose);
+    timer = setTimeout(() => finish(false), ms);
   });
 }
 
 /**
  * One upstream attempt: the translator's protocol headers plus authentication and
  * `accept`; no client header is forwarded. Transport failures are classified and
- * counted unless `signal` was aborted (client disconnect).
+ * counted unless `signal` was aborted by the adapter side (disconnect, shutdown).
  */
 export async function send(ctx, request, streaming, signal) {
   try {
@@ -79,11 +97,26 @@ export async function send(ctx, request, streaming, signal) {
   }
 }
 
+/** Per-request abort: counts the cause once and aborts the upstream with it. */
+function createAbort(ctx, controller) {
+  let quiet = false;
+  const abort = (reason) => {
+    if (controller.signal.aborted) return;
+    const cause = ABORTS[reason];
+    if (cause.scalar) ctx.counters.increment(cause.scalar);
+    if (cause.error) ctx.counters.count("errors", cause.error);
+    quiet = reason !== "firstFrame";
+    controller.abort(transportError(cause.kind, cause.text));
+  };
+  return { abort, quiet: () => quiet };
+}
+
 /**
  * Serves one inference request with its own request id and exchange. Responses streams
  * start at once (errors are in-stream for Codex) and get keep-alives from the start;
  * Messages responses start only after the upstream answered 2xx, so upstream rejections
- * stay HTTP error bodies, and pings follow the first frame (spec Amendment 16).
+ * stay HTTP error bodies, and pings follow the first frame; until that frame the wait is
+ * bounded by the idle timeout (spec Amendment 16).
  */
 export async function handleInference(ctx, req, res, rawBody) {
   const requestId = newRequestId(ctx.client);
@@ -102,11 +135,14 @@ export async function handleInference(ctx, req, res, rawBody) {
   const started = streaming && ctx.client === "responses";
   let exchange = built.exchange;
   const controller = new AbortController();
-  res.on("close", () => {
-    if (res.writableFinished) return;
-    ctx.counters.increment("clientDisconnects");
-    controller.abort(transportError("network", "client disconnected"));
-  });
+  const { abort, quiet } = createAbort(ctx, controller);
+  const onClose = () => {
+    if (!res.writableFinished) abort(ctx.closing ? "shutdown" : "client");
+  };
+  res.on("close", onClose);
+  ctx.requests?.add(abort);
+  // The client may have gone away before the listener existed.
+  if (res.destroyed || req.socket?.destroyed) onClose();
   const pings = keepalives(ctx, res, () => exchange);
   if (started) {
     res.writeHead(200, SSE);
@@ -115,6 +151,7 @@ export async function handleInference(ctx, req, res, rawBody) {
   const render = (rendered) => writeRendered(res, rendered);
   let response = null;
   let consumed = false;
+  let firstFrame = null;
   try {
     const first = await send(ctx, built.request, streaming, controller.signal);
     if (first.failure)
@@ -163,22 +200,42 @@ export async function handleInference(ctx, req, res, rawBody) {
       consumed = true; // respondJson reads (or releases) the body itself
       return await respondJson(ctx, res, exchange, response, controller.signal);
     }
-    if (!started) res.writeHead(200, SSE);
+    if (!started) {
+      res.writeHead(200, SSE);
+      // Upstream bytes that yield no client frame (SSE comments, a lone role chunk) keep
+      // the upstream idle timer alive; this bounds Claude Code's wait for message_start.
+      firstFrame = setTimeout(() => abort("firstFrame"), ctx.timing.idleTimeoutMs);
+    }
     let stopped = false;
-    for await (const frame of exchange.translateStream(response.chunks)) {
+    for await (const frame of exchange.translateStream(response.chunks, {
+      silent: quiet,
+    })) {
+      clearTimeout(firstFrame);
       if (res.destroyed) {
         stopped = true;
         break;
       }
       const writable = res.write(frame);
-      if (TERMINAL_FRAME.test(frame)) pings.stop();
+      if (exchange.terminated) pings.stop();
       else pings.arm();
-      if (!writable && !res.destroyed) await drained(res);
+      if (
+        !writable &&
+        !res.destroyed &&
+        !(await drained(res, ctx.timing.idleTimeoutMs))
+      ) {
+        // The client stopped reading (or left): release the upstream and the socket.
+        abort("stalled");
+        res.destroy();
+        stopped = true;
+        break;
+      }
     }
     consumed = !stopped;
     if (!res.destroyed) res.end();
   } finally {
+    clearTimeout(firstFrame);
     pings.stop();
+    ctx.requests?.delete(abort);
     // A response the client no longer reads releases its upstream socket.
     if (response && !consumed) response.cancel();
   }

@@ -29,6 +29,7 @@ function streamRaw(url, body, onData = () => {}) {
       target,
       { method: "POST", headers: authorized(), agent: false },
       (res) => {
+        state.response = res;
         res.setEncoding("utf8");
         res.on("data", (chunk) => {
           state.text += chunk;
@@ -134,6 +135,9 @@ test("a client disconnect closes the upstream request and is not a timeout", asy
   const { errors } = server.snapshot();
   assert.equal(errors["stream.timeout"], undefined);
   assert.equal(errors["transport.timeout"], undefined);
+  // A user leaving is not an upstream failure.
+  assert.equal(errors["stream.network"], undefined);
+  assert.equal(errors["transport.network"], undefined);
 });
 
 test("concurrent requests get their own exchange and survive a sibling's disconnect", async (t) => {
@@ -178,6 +182,10 @@ test("close() ends open streams and upstream requests promptly", async (t) => {
   })().catch(() => "rejected");
   assert.ok(["end", "rejected"].includes(await rest));
   await until(() => up.seen[0].closed, 1000);
+  const snapshot = server.snapshot();
+  assert.equal(snapshot.shutdownAborts, 1);
+  assert.equal(snapshot.clientDisconnects, 0);
+  assert.equal(snapshot.errors["stream.network"], undefined);
 });
 
 test("the diagnostics snapshot holds counters only", async (t) => {
@@ -206,4 +214,131 @@ test("the diagnostics snapshot holds counters only", async (t) => {
   const serialized = JSON.stringify(snapshot);
   for (const secret of [prompt, KEY, TOKEN])
     assert.equal(serialized.includes(secret), false);
+});
+
+const contentChunk = (text) =>
+  `data: ${JSON.stringify({
+    id: "chatcmpl-fixture",
+    object: "chat.completion.chunk",
+    model: "qwen3",
+    choices: [{ index: 0, delta: { content: text }, finish_reason: null }],
+  })}\n\n`;
+
+/** Writes `chunk` until the adapter closes the request, honoring backpressure. */
+async function flood(entry, res, chunk) {
+  while (!entry.closed && !res.destroyed) {
+    if (!res.write(chunk))
+      await new Promise((resolve) => {
+        res.once("drain", resolve);
+        res.once("close", resolve);
+      });
+  }
+}
+
+test("Messages clients get nothing before the upstream headers, and errors stay HTTP", async (t) => {
+  const up = await scriptedUpstream(t, async (_e, res, index) => {
+    await delay(250);
+    if (index === 0) sse(res, loadFixture("upstreams/chat/text.sse"));
+    else {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: { message: "bad request" } }));
+    }
+  });
+  const { url } = await start(t, up, {}, { keepaliveMs: 50 });
+  const ok = await post(`${url}/v1/messages`, claudeBody());
+  assert.equal(ok.status, 200);
+  const text = await ok.text();
+  assert.ok(text.startsWith("event: message_start"));
+  const failed = await post(`${url}/v1/messages`, claudeBody());
+  assert.equal(failed.status, 400);
+  assert.equal((await failed.json()).type, "error");
+});
+
+test("no keep-alive follows a terminal frame", async (t) => {
+  const up = await scriptedUpstream(t, async (_e, res) => {
+    head(res);
+    res.write(loadFixture("upstreams/chat/text.sse"));
+    await delay(300); // the upstream keeps the connection open after [DONE]
+    res.end();
+  });
+  const messages = await start(t, up, {}, { keepaliveMs: 50 });
+  const a = await (await post(`${messages.url}/v1/messages`, claudeBody())).text();
+  assert.equal(lastEvent(a), "message_stop");
+  const responses = await start(
+    t,
+    up,
+    { clientProtocol: "responses" },
+    { keepaliveMs: 50 },
+  );
+  const b = await (await post(`${responses.url}/v1/responses`, codexBody())).text();
+  assert.equal(lastEvent(b), "response.completed");
+});
+
+test("upstream bytes without a client frame do not hold Claude Code past the idle limit", async (t) => {
+  const up = await scriptedUpstream(t, async (entry, res) => {
+    head(res);
+    while (!entry.closed) {
+      res.write(": PROCESSING\n\n");
+      await delay(40);
+    }
+  });
+  const { url, server } = await start(t, up, {}, { idleTimeoutMs: 200 });
+  const res = await post(`${url}/v1/messages`, claudeBody());
+  assert.equal(res.status, 200);
+  assert.equal(lastEvent(await res.text()), "error");
+  assert.equal(server.snapshot().errors["stream.timeout"], 1);
+  await until(() => up.seen[0].closed, 1000);
+});
+
+test("a client that stops reading is cut off after the idle limit", async (t) => {
+  const chunk = contentChunk("~".repeat(64 * 1024));
+  const up = await scriptedUpstream(t, async (entry, res) => {
+    head(res);
+    await flood(entry, res, chunk);
+  });
+  const { url, server } = await start(t, up, {}, { idleTimeoutMs: 300 });
+  const target = new URL(`${url}/v1/messages`);
+  const req = http.request(target, {
+    method: "POST",
+    headers: authorized(),
+    agent: false,
+  });
+  req.on("response", (res) => res.pause()); // never reads
+  req.on("error", () => {});
+  req.end(JSON.stringify(claudeBody()));
+  t.after(() => req.destroy());
+  await until(() => server.snapshot().errors["client.stalled"] === 1, 5000);
+  await until(() => up.seen[0].closed, 1000);
+  const snapshot = server.snapshot();
+  assert.equal(snapshot.clientDisconnects, 0);
+  assert.equal(snapshot.errors["stream.network"], undefined);
+});
+
+test("a slow reader gets the complete stream without listener growth", async (t) => {
+  const warnings = [];
+  const onWarning = (warning) => warnings.push(warning.name);
+  process.on("warning", onWarning);
+  t.after(() => process.off("warning", onWarning));
+  const count = 300;
+  const size = 16 * 1024;
+  const events = chatEvents();
+  const up = await scriptedUpstream(t, async (_e, res) => {
+    head(res);
+    res.write(events[0]);
+    for (let i = 0; i < count; i += 1)
+      if (!res.write(contentChunk("~".repeat(size))))
+        await new Promise((resolve) => res.once("drain", resolve));
+    res.end(events.slice(-2).join(""));
+  });
+  const { url } = await start(t, up);
+  const stream = streamRaw(`${url}/v1/messages`, claudeBody(), (state) => {
+    if (state.paused) return;
+    state.paused = true;
+    state.response.pause();
+    setTimeout(() => state.response.resume(), 300);
+  });
+  assert.equal(await stream.done, "end");
+  assert.equal(lastEvent(stream.text), "message_stop");
+  assert.equal(stream.text.match(/~/g).length, count * size);
+  assert.deepEqual(warnings, []);
 });

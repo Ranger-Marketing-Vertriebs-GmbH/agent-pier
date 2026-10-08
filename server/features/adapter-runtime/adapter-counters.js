@@ -1,5 +1,5 @@
 const GROUPS = ["requests", "upstreamStatus", "errors", "capabilityFallbacks"];
-const SCALARS = ["unauthorized", "clientDisconnects"];
+const SCALARS = ["unauthorized", "forbidden", "clientDisconnects", "shutdownAborts"];
 
 /**
  * In-memory counters of one adapter process: names and numbers only, never request,
