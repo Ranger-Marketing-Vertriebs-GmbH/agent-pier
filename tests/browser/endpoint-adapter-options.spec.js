@@ -97,6 +97,23 @@ test("a re-test keeps options the user changed and refreshes the others", async 
   expect(endpoint).not.toHaveProperty("capabilityEdits");
 });
 
+test("markers under radio groups align with the checkbox markers", async ({ page }) => {
+  const { dialog } = await openEndpoint(page);
+  const options = await openChatOptions(dialog);
+  const layout = await options.evaluate((group) => {
+    const box = (selector) => group.querySelector(selector).getBoundingClientRect();
+    const size = (selector) => getComputedStyle(group.querySelector(selector)).fontSize;
+    return {
+      checkboxMarker: box(".endpoint-capability > .endpoint-capability-marker").left,
+      choiceMarker: box(".endpoint-capability-choice > .endpoint-capability-marker").left,
+      checkboxLabel: size(".endpoint-capability .provider-check span"),
+      choiceLegend: size(".endpoint-capability-choice > legend"),
+    };
+  });
+  expect(layout.choiceMarker).toBe(layout.checkboxMarker);
+  expect(layout.choiceLegend).toBe(layout.checkboxLabel);
+});
+
 test("a re-test without edits takes the new suggestions", async ({ page }) => {
   const { dialog, status, runTest } = await openEndpoint(page);
   await runTest({ chatCompletions: { streamUsage: false } });
@@ -143,6 +160,29 @@ test("restoring defaults clears suggestions and edits of one protocol", async ({
   await expect(options.getByText("default", { exact: true })).toHaveCount(7);
   const endpoint = await savedEndpoint(dialog, controls);
   expect(endpoint.adapterCapabilities).toEqual({});
+});
+
+test("restoring defaults keeps its announcement while another protocol has suggestions", async ({
+  page,
+}) => {
+  const { dialog, status, runTest } = await openEndpoint(page, { preset: "ollama" });
+  await runTest(
+    { chatCompletions: { streamUsage: false }, messages: { promptCache: false } },
+    ALL_OK,
+  );
+  await dialog
+    .getByLabel("Route for Claude Code", { exact: true })
+    .selectOption("adapter:chatCompletions");
+  await dialog
+    .getByLabel("Route for Codex", { exact: true })
+    .selectOption("adapter:messages");
+  const options = await openChatOptions(dialog);
+  await options
+    .getByRole("button", { name: "Restore defaults for Chat Completions", exact: true })
+    .click();
+  await expect(status).toHaveText("Defaults restored for Chat Completions.");
+  await page.waitForTimeout(200);
+  await expect(status).toHaveText("Defaults restored for Chat Completions.");
 });
 
 test("without an adapter route, suggestions are not saved and <think> is inactive", async ({

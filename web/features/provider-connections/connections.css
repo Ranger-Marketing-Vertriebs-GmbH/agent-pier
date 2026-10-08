@@ -239,8 +239,17 @@
   color: var(--muted);
   overflow-wrap: anywhere;
 }
-/* Aligns checkbox descriptions with the label text beside the 16px box. */
-.endpoint-capability > .endpoint-capability-marker {
+/* Choice legends read like the checkbox labels beside them. */
+.endpoint-capability-choice > legend {
+  padding: 0;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #cdced2;
+}
+/* Aligns descriptions with the label text beside the 16px checkbox or radio. */
+.endpoint-capability > .endpoint-capability-marker,
+.endpoint-capability-choice > .endpoint-capability-marker {
   padding-left: 25px;
 }
 .endpoint-adapter-wrap {

@@ -62,10 +62,12 @@ function useAnnouncement(draft, sources) {
   const copy = connectionCopy.endpoint.adapter;
   const [message, setMessage] = useState("");
   const proposal = draft.capabilityProposal;
-  const [seen, setSeen] = useState(proposal);
-  // Only a new proposal object is news; edits and route changes are not.
-  if (proposal !== seen) {
-    setSeen(proposal);
+  const tested = draft.lastTest?.at ?? null;
+  const [seen, setSeen] = useState(tested);
+  // Only a new test is news; edits, route changes and a reset (which replaces the
+  // proposal object but keeps its own announcement) are not.
+  if (tested !== seen) {
+    setSeen(tested);
     const shown = sources.filter((source) => proposal?.[source]);
     const kept = shown.some((source) =>
       Object.keys(proposal[source]).some(
