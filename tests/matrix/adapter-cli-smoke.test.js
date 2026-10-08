@@ -185,7 +185,8 @@ async function runThroughLauncher(t, launch, cwd, extraArgs = []) {
       args: [...launch.args, ...extraArgs],
       cwd,
       env: launch.env,
-      adapter: { ...launch.adapter, diagnosticsPath },
+      // No session record: an unguarded generation, a random prompt-cache key.
+      adapter: { ...launch.adapter, diagnosticsPath, generation: null, sessionKey: null },
     }),
     { mode: 0o600 },
   );
