@@ -12,7 +12,7 @@ test.use({ locale: "en-GB" });
 
 // Synthetic transcript: Claude Code records a message queued while it was busy,
 // with re-encoded images, as an array-form queued_command and no upload paths.
-test("an image message queued while Claude is busy is confirmed and shown with its images", async ({
+test("an image message queued while Claude is busy is confirmed and shown with its image labels", async ({
   page,
 }) => {
   const { normalizeClaude } =
@@ -124,9 +124,15 @@ test("an image message queued while Claude is busy is confirmed and shown with i
   await expect(card).toHaveCount(0);
   await expect(page.locator(".chat-delivery-status")).toHaveCount(0);
   await expect(page.locator(".chat-native-delivery")).toContainText("Accepted by CLI");
+  // The row shows the recorded text, the same on every device and after the
+  // delivery notice is gone.
   const mine = page.getByRole("article", { name: "Your message", exact: true });
+  const recorded = `[Image #5][Image #6][Image #7][Image #8] ${authored}`;
   await expect(mine).toHaveCount(1);
-  await expect(mine).toContainText(authored);
-  for (const path of paths) await expect(mine).toContainText(path);
-  await expect(mine).not.toContainText("[Image #");
+  await expect(mine).toHaveText(recorded);
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await expect(mine).toHaveCount(1);
+  await expect(mine).toHaveText(recorded);
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
 });

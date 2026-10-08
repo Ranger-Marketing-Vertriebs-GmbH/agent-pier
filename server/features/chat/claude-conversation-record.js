@@ -109,7 +109,6 @@ export function claudeConversationRecord(record) {
     ...(images && {
       queuedCommand: true,
       imagePasteIds: attachment.imagePasteIds,
-      promptId: record.promptId ?? attachment.promptId,
     }),
     message: { role: "user", content: queuedContent(attachment.prompt) },
   };

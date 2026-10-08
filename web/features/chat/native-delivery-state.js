@@ -67,19 +67,3 @@ export function nativeDeliveryStates(items, messages, input, tool, live = true) 
   }
   return states;
 }
-
-/** A confirmed queued Claude image row shows the message as sent, with its upload paths. */
-export function deliveredImageMessages(items, messages) {
-  const texts = new Map();
-  for (const [itemId, messageId] of deliveryMatches(items, messages)) {
-    const item = items.find((candidate) => candidate.id === itemId);
-    const message = messages.find((row) => row.id === messageId);
-    if (message?.claudeImageInput && deliveryContentMatches(item, message, true))
-      texts.set(messageId, item.text);
-  }
-  return texts.size
-    ? messages.map((row) =>
-        texts.has(row.id) ? { ...row, text: texts.get(row.id) } : row,
-      )
-    : messages;
-}
