@@ -3,6 +3,10 @@
   gap: 16px;
   padding: 0 25px 25px;
 }
+/* An empty live region takes no grid row (and no gap) but stays in the a11y tree. */
+.session-reload-route:empty {
+  position: absolute;
+}
 .session-reload-dialog p {
   margin: 0;
   line-height: 1.5;
