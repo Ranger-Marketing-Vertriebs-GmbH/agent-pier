@@ -20,11 +20,20 @@ export function adapterEnvironment(cliEnv = {}, own = process.env) {
   return env;
 }
 
-export function substituteAdapterUrl({ env = {}, args = [] }, url) {
+/**
+ * Returns only the fields the launch has: a launch without `env` keeps inheriting the
+ * launcher's environment instead of getting an empty one. Every env value and argv
+ * element is rewritten, including user text passed in argv; the launcher cannot tell
+ * which entries the launch description produced. That is harmless: the replacement is
+ * the session's fixed, non-secret loopback origin, never the token or the key.
+ */
+export function substituteAdapterUrl({ env, args }, url) {
   const swap = (value) => value.replaceAll(ADAPTER_URL_PLACEHOLDER, url);
   return {
-    env: Object.fromEntries(Object.entries(env).map(([k, v]) => [k, swap(v)])),
-    args: args.map(swap),
+    ...(env
+      ? { env: Object.fromEntries(Object.entries(env).map(([k, v]) => [k, swap(v)])) }
+      : {}),
+    ...(args ? { args: args.map(swap) } : {}),
   };
 }
 
