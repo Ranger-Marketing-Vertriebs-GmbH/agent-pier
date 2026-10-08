@@ -108,6 +108,11 @@ export const operationsCopy = {
   releaseNotesUnavailable:
     "Release notes are currently unavailable. You can still update.",
   releaseNotesOriginal: "View release on GitHub",
+  releaseNotesSince: (version) => `What’s new since version ${version}`,
+  releaseNotesPublished: (date) => `published ${date}`,
+  releaseNotesEmpty: "This version has no release notes.",
+  releaseNotesOverflow: (count) => `Only the ${count} most recent versions are shown.`,
+  releaseNotesAll: "View all releases on GitHub",
   cleanupErrors: {
     cleanupInvalid: "Choose valid versions to remove.",
     cleanupBusy: "Another update operation is running. Try again after it finishes.",

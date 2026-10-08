@@ -92,6 +92,9 @@ export function operationsRoutes({ operations, releaseMigration }) {
     }),
   );
   router.get(`${root}/releases`, (_req, res) => res.json(operations.releases.status()));
+  router.get(`${root}/releases/notes`, async (req, res) =>
+    res.json(await operations.releases.notesRange(req.query.from, req.query.to)),
+  );
   router.get(`${root}/releases/notes/:version`, async (req, res) =>
     res.json(await operations.releases.notes(req.params.version)),
   );

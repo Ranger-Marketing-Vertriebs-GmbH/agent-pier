@@ -1,6 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { operationsFixture } from "./operations-fixture.js";
 
+const notesRoute = /\/api\/operations\/releases\/notes(?:\/|\?)/;
+const range = (release) => ({
+  from: "1.0.0",
+  to: release.version,
+  releases: [release],
+  truncated: false,
+  url: "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases",
+});
+
 for (const locale of ["de-DE", "en-GB"]) {
   test.describe(`update release notes ${locale}`, () => {
     test.use({ locale, viewport: { width: 390, height: 844 } });
@@ -10,14 +19,14 @@ for (const locale of ["de-DE", "en-GB"]) {
       const en = locale === "en-GB";
       await operationsFixture(page);
       const requests = [];
-      await page.route("**/api/operations/releases/notes/*", (route) => {
+      await page.route(notesRoute, (route) => {
         requests.push(route.request().url());
         return route.fulfill({
-          json: {
+          json: range({
             version: "1.1.0",
             body: "## Fixes\n\n- **All questions** are shown.\n- Queue indicators are clearer.\n\n[Details](https://example.com/changes)\n\n[Unsafe](javascript:alert(1))\n\n<img src=x onerror=alert(1)>\n\n![Tracking](https://example.com/tracking.png)",
             url: "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/tag/v1.1.0",
-          },
+          }),
         });
       });
       await page.goto("/settings/updates");
@@ -28,7 +37,7 @@ for (const locale of ["de-DE", "en-GB"]) {
         })
         .click();
       const notes = page.getByRole("region", {
-        name: en ? "What’s new in this version" : "Neu in dieser Version",
+        name: en ? "What’s new since version 1.0.0" : "Neu seit Version 1.0.0",
       });
       await expect(notes.locator("strong")).toHaveText("All questions");
       await expect(notes.getByRole("listitem")).toHaveCount(2);
@@ -58,7 +67,9 @@ for (const locale of ["de-DE", "en-GB"]) {
       await expect(page).toHaveURL(/job=job-stage/);
       await page.reload();
       await expect(notes.locator("strong")).toHaveText("All questions");
-      expect(requests.every((url) => url.endsWith("/notes/1.1.0"))).toBe(true);
+      expect(requests.every((url) => url.endsWith("/notes?from=1.0.0&to=1.1.0"))).toBe(
+        true,
+      );
     });
     test("slow or missing notes do not block staging", async ({ page }) => {
       const en = locale === "en-GB";
@@ -67,7 +78,7 @@ for (const locale of ["de-DE", "en-GB"]) {
       const gate = new Promise((resolve) => {
         finish = resolve;
       });
-      await page.route("**/api/operations/releases/notes/*", async (route) => {
+      await page.route(notesRoute, async (route) => {
         await gate;
         await route.fulfill({ status: 503, json: { error: "Unavailable" } });
       });
@@ -116,13 +127,13 @@ test.describe("English update preview", () => {
   test.use({ locale: "en-GB", viewport: { width: 390, height: 844 } });
   test("release highlights are readable on mobile", async ({ page }, testInfo) => {
     await operationsFixture(page);
-    await page.route("**/api/operations/releases/notes/*", (route) =>
+    await page.route(notesRoute, (route) =>
       route.fulfill({
-        json: {
+        json: range({
           version: "1.1.0",
           body: "## Chat improvements\n\n- Show when messages are waiting in the CLI queue.\n- Answer every question in a multi-question dialog.\n- Keep question navigation visible on mobile.",
           url: "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/tag/v1.1.0",
-        },
+        }),
       }),
     );
     await page.goto("/settings/updates");

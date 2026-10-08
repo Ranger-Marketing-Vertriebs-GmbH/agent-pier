@@ -108,6 +108,12 @@ export const operationsCopy = {
   releaseNotesUnavailable:
     "Versionshinweise sind gerade nicht verfügbar. Das Update ist trotzdem möglich.",
   releaseNotesOriginal: "Release auf GitHub ansehen",
+  releaseNotesSince: (version) => `Neu seit Version ${version}`,
+  releaseNotesPublished: (date) => `veröffentlicht am ${date}`,
+  releaseNotesEmpty: "Für diese Version gibt es keine Versionshinweise.",
+  releaseNotesOverflow: (count) =>
+    `Es werden nur die ${count} neuesten Versionen angezeigt.`,
+  releaseNotesAll: "Alle Releases auf GitHub ansehen",
   cleanupErrors: {
     cleanupInvalid: "Wähle gültige Versionen zum Löschen aus.",
     cleanupBusy:
