@@ -55,6 +55,7 @@ export const chatObservabilityCopy = {
   credits: (balance) => `Guthaben: ${balance}`,
   creditsUnlimited: "Guthaben: unbegrenzt",
   tokens: (value) => `${value} Tokens`,
+  fromCache: (value) => `${value} aus Cache`,
   durationSeconds: (seconds) => `${seconds} s`,
   durationMinutes: (minutes, seconds) => `${minutes} min ${seconds} s`,
   durationHours: (hours, minutes) => `${hours} h ${minutes} min`,

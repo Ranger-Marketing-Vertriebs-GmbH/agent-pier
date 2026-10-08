@@ -42,6 +42,34 @@ test("token, cost, duration and window formats follow the language", (t) => {
   assert.equal(windowLabel(10080), "7 Tage");
 });
 
+test("subagent usage shows tokens without cache reads and the cache reads apart", (t) => {
+  t.after(() => setLanguage("de", { persist: false }));
+  const usage = {
+    totalTokens: 7_811_000,
+    cacheReadTokens: 7_600_000,
+    outputTokens: 20_000,
+    outputIsLowerBound: true,
+    durationMs: 92000,
+  };
+  setLanguage("en", { persist: false });
+  assert.equal(usageSummary(usage), "211K tokens · 7.6M from cache · 1m 32s");
+  assert.equal(
+    usageSummary({ totalTokens: 1000, cacheReadTokens: 0 }),
+    "1K tokens",
+    "no cache reads, no cache part",
+  );
+  // Output dominates the tokens shown, so they are a lower bound.
+  assert.equal(
+    usageSummary({ ...usage, outputTokens: 150_000, durationMs: null }),
+    "≥211K tokens · 7.6M from cache",
+  );
+  setLanguage("de", { persist: false });
+  assert.equal(
+    usageSummary(usage),
+    `211.000 Tokens · 7,6${nbsp}Mio. aus Cache · 1 min 32 s`,
+  );
+});
+
 test("usage summaries show a lower bound only when output dominates", (t) => {
   t.after(() => setLanguage("de", { persist: false }));
   setLanguage("en", { persist: false });

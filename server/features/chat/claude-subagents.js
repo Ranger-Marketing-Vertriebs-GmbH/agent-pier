@@ -3,6 +3,8 @@
 // records: a task notification (origin.kind "task-notification") and, for agents
 // that call SubagentHandback, a peer hand-back (origin.kind "peer"). Both records
 // stay out of the visible chat; they only feed the subagent's state and report.
+// While the parent is mid-turn, Claude writes the same completions as
+// queued-command attachments instead (see lifecycleRecord).
 const REPORT_LIMIT = 256 * 1024;
 const REPORT_MARKER = "The report follows:\n";
 const HANDBACK_PREFIX = "[Subagent hand-back]";
@@ -75,12 +77,42 @@ function notificationEnvelope(record) {
   return match ? match[1] : null;
 }
 
+const lifecycleOrigin = (origin) =>
+  origin.kind === "task-notification" ||
+  (origin.kind === "peer" && origin.handback === true);
+
+/**
+ * The record a subagent lifecycle is read from: a non-sidechain user record as
+ * is, or a completion absorbed mid-turn (a queued-command attachment with a task
+ * notification or peer hand-back origin) in the same user-record shape. The
+ * preceding queue operations are ignored; they may still be cancelled.
+ */
+export function lifecycleRecord(record) {
+  if (!record || record.isSidechain) return null;
+  if (record.type === "user") return record;
+  const attachment = object(record.attachment);
+  const origin = object(attachment.origin);
+  if (
+    record.type !== "attachment" ||
+    attachment.type !== "queued_command" ||
+    !lifecycleOrigin(origin)
+  )
+    return null;
+  return {
+    ...record,
+    type: "user",
+    origin,
+    message: { role: "user", content: string(attachment.prompt) },
+  };
+}
+
 /**
  * Cheap identification of a lifecycle record: its kind and native ids only.
  * The history index uses it per record; reports are built only by the tracker.
  */
-export function subagentKey(record) {
-  if (record?.type !== "user" || record.isSidechain) return null;
+export function subagentKey(source) {
+  const record = lifecycleRecord(source);
+  if (!record) return null;
   const origin = object(record.origin);
   if (origin.kind === "task-notification") {
     const envelope = notificationEnvelope(record);
@@ -106,7 +138,8 @@ export function subagentKey(record) {
 }
 
 /** A subagent lifecycle event with its state (and report for hand-backs), or null. */
-export function subagentEvent(record) {
+export function subagentEvent(source) {
+  const record = lifecycleRecord(source);
   const key = subagentKey(record);
   if (key?.kind === "notification") {
     const envelope = notificationEnvelope(record);
@@ -144,8 +177,9 @@ export function createSubagentTracker() {
   const key = (toolUseId, agentId) =>
     launches.get(toolUseId)?.agentId || agentId || (toolUseId && `call:${toolUseId}`);
   return {
-    record(record) {
-      if (record?.type !== "user" || record.isSidechain) return;
+    record(source) {
+      const record = lifecycleRecord(source);
+      if (!record) return;
       if (record.toolUseResult) {
         const block = list(record.message?.content).find(
           (item) => item?.type === "tool_result" && nativeId(item.tool_use_id),

@@ -104,3 +104,50 @@ export const handback = (agentId, report) => ({
   },
   message: { role: "user", content: "Another Claude session sent a message." },
 });
+
+/**
+ * The same completions as Claude Code writes them while the parent is mid-turn:
+ * a queued-command attachment instead of a generated user record.
+ */
+export const queuedNotification = (callId, agentId, status) => {
+  const source = notification(callId, agentId, status);
+  return {
+    type: "attachment",
+    uuid: `queued-${source.uuid}`,
+    isSidechain: false,
+    attachment: {
+      type: "queued_command",
+      prompt: source.message.content,
+      source_uuid: `source-${source.uuid}`,
+      commandMode: "task-notification",
+      origin: source.origin,
+      usage: { totalTokens: 1200, toolUses: 3, durationMs: 4000 },
+    },
+  };
+};
+
+/** A peer hand-back absorbed mid-turn; `origin` overrides origin fields. */
+export const queuedHandback = (agentId, report, origin = {}) => {
+  const source = handback(agentId, report);
+  return {
+    type: "attachment",
+    uuid: `queued-${source.uuid}`,
+    isSidechain: false,
+    attachment: {
+      type: "queued_command",
+      prompt: `<peer-message from="${agentId}">\n${source.origin.body}\n</peer-message>`,
+      source_uuid: `source-${source.uuid}`,
+      commandMode: "prompt",
+      origin: { ...source.origin, ...origin },
+      isMeta: true,
+    },
+  };
+};
+
+/** The queue operation Claude writes before absorbing a queued command. */
+export const queueOperation = (content, operation = "enqueue") => ({
+  type: "queue-operation",
+  operation,
+  reason: "absorbed_mid_turn",
+  content,
+});
