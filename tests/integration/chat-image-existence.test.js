@@ -58,7 +58,27 @@ test("templated, globbed and request-line values are rejected before touching th
   assert.deepEqual(images, []);
   assert.equal(lstat.mock.callCount(), 0);
   fs.writeFileSync(path.join(f.cwd, "my file.png"), png);
-  assert.deepEqual(await f.scan("`my file.png` and 'my file.png'"), [[]]);
+  assert.deepEqual(await f.scan("Look at my file.png", "`GET my file.png`"), [[], []]);
+});
+
+test("a quoted or whole-line path with spaces gets a card only while the file exists", async (t) => {
+  let now = 0;
+  const f = fixture(t, { now: () => now });
+  const desktop = path.join(f.root, "Desktop");
+  fs.mkdirSync(desktop);
+  const quoted = path.join(desktop, "Bildschirmfoto 2026-10-08 um 11.45.00.png"),
+    line = path.join(desktop, "Bildschirmfoto 2026-10-08 um 11.46.00.png"),
+    relative = "./my file.png";
+  const texts = [`Siehe "${quoted}"`, `Hier:\n${line}\n`, `\`${relative}\``];
+  assert.deepEqual(await f.scan(...texts), [[], [], []]);
+  for (const file of [quoted, line, path.join(f.cwd, "my file.png")])
+    fs.writeFileSync(file, png);
+  now += 10_001;
+  const result = await f.scan(...texts);
+  assert.deepEqual(
+    result.map((found) => found.map((image) => image.fullPath)),
+    [[quoted], [line], [path.join(f.cwd, "my file.png")]],
+  );
 });
 
 test("existing references still produce cards in every supported notation", async (t) => {
