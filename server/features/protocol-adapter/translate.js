@@ -51,7 +51,7 @@
  *
  * Exchange methods (the exchange counts the client frames it handed out, so every error
  * it renders later continues the client's numbering):
- * - `translateStream(chunks)`: upstream SSE text chunks (AsyncIterable<string>) → client
+ * - `translateStream(chunks, { silent })`: upstream SSE text chunks (AsyncIterable<string>) → client
  *   SSE text (AsyncIterable<string>); it never throws. Upstream errors, malformed streams
  *   and failures of the chunk iterator itself (the caller's idle timeout aborting the
  *   fetch, socket resets) end in the client's in-stream error (Messages `event: error`,
@@ -60,6 +60,8 @@
  *   `classifyTransportError`: an `adapterKind` property on the thrown error wins,
  *   AbortError/TimeoutError and timeout codes are `timeout`, everything else `network`
  *   (counted as `errors["stream.<kind>"]`); malformed streams count as `stream.invalid`.
+ *   `silent()` (optional) returning true skips the `stream.<kind>` count, for failures the
+ *   caller caused itself (client disconnect, shutdown).
  * - `translateResponse(json)`: non-streaming upstream body → Promise of the client body.
  *   Rejects with `AdapterUpstreamError` carrying `error` (IrError) and `clientError`
  *   (`{ status, headers, body }` rendered for the client) when the body is an error or
@@ -84,6 +86,8 @@
  *   caller picks from and do not end the exchange.
  * - `keepalive()`: Messages `event: ping` or Responses `response.in_progress` frame
  *   (no `sequence_number`; keep-alives do not count as frames).
+ * - `terminated` (getter): true once a terminal client frame was handed out; nothing,
+ *   not even a keep-alive, may follow it.
  */
 
 import {
@@ -380,7 +384,7 @@ export function createTranslator({
       return renderError(error, { streaming: streaming ?? state.streaming, context });
     }
 
-    async function* translateStream(chunks) {
+    async function* translateStream(chunks, { silent } = {}) {
       let error;
       try {
         const events = observe(upstreamSide.parseStream(sseEvents(chunks), ctx));
@@ -393,7 +397,7 @@ export function createTranslator({
       } catch (cause) {
         if (cause instanceof TransportFailure) {
           error = classifyTransportError(cause.cause, secretList);
-          count(stats.errors, `stream.${error.kind}`);
+          if (!silent?.()) count(stats.errors, `stream.${error.kind}`);
         } else {
           error = INVALID_STREAM;
           count(stats.errors, "stream.invalid");
@@ -438,7 +442,16 @@ export function createTranslator({
     const keepalive = () =>
       client === "messages" ? messagesPing() : responsesKeepalive(state.requestId);
 
-    return { translateStream, translateResponse, translateError, fail, keepalive };
+    return {
+      translateStream,
+      translateResponse,
+      translateError,
+      fail,
+      keepalive,
+      get terminated() {
+        return terminated;
+      },
+    };
   }
 
   const contextOf = (state) => ({

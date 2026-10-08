@@ -18,6 +18,32 @@ export function tokenMatches(expected, headers) {
   return ok;
 }
 
+/**
+ * Defense in depth against DNS rebinding and browsers: the Host header must name the
+ * loopback listener (`127.0.0.1`, `localhost` or `[::1]` with the bound port), and no
+ * request may carry an `Origin` header (the CLIs never send one; browsers always do on
+ * cross-origin requests).
+ */
+export function hostAllowed(headers, port) {
+  if (headers.origin !== undefined) return false;
+  const host = String(headers.host ?? "").toLowerCase();
+  return [`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`].includes(host);
+}
+
+/**
+ * Pathname of an origin-form request target (`/path?query`), or null for anything else
+ * (absolute form, `//authority`, `*`, unparseable).
+ */
+export function requestPath(url) {
+  if (typeof url !== "string" || !url.startsWith("/") || url.startsWith("//"))
+    return null;
+  try {
+    return new URL(url, "http://adapter.invalid").pathname;
+  } catch {
+    return null;
+  }
+}
+
 /** Which handler serves a request; the query string never affects routing. */
 export function routeFor(client, method, pathname) {
   // /api/hello is Claude Code's connection probe; the Responses client has no such path.
