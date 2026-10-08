@@ -52,6 +52,11 @@ test("tokenMatches and routeFor cover both clients", () => {
   assert.equal(tokenMatches(TOKEN, { authorization: `bearer ${TOKEN}` }), true);
   assert.equal(tokenMatches(TOKEN, { "x-api-key": "", authorization: "" }), false);
   assert.equal(tokenMatches(TOKEN, { "x-api-key": `${TOKEN}x` }), false);
+  assert.equal(tokenMatches(TOKEN, { "x-api-key": TOKEN.slice(0, -1) }), false);
+  assert.equal(
+    tokenMatches(TOKEN, { "x-api-key": "wrong", authorization: `Bearer ${TOKEN}` }),
+    true,
+  );
   assert.equal(routeFor("messages", "POST", "/v1/messages"), "inference");
   assert.equal(routeFor("messages", "GET", "/v1/messages"), "notFound");
   assert.equal(routeFor("messages", "HEAD", "/api/hello"), "hello");
