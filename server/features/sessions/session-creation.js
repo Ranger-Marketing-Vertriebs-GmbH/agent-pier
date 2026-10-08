@@ -122,6 +122,8 @@ export async function buildSessionLaunch(manager, options) {
     cwd,
     status: "running",
     createdAt: new Date().toISOString(),
+    // Only this launch's adapter may write `<id>.adapter.json` (adapter-diagnostics.js).
+    ...(adapter ? { adapterGeneration: adapter.generation } : {}),
     ...(pipeline ? { pipeline } : {}),
     ...(options.launchMode ? { launchMode: options.launchMode } : {}),
     ...(options.purpose === "login" ? { purpose: "login" } : {}),

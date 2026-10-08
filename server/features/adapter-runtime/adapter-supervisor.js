@@ -67,7 +67,10 @@ export async function startAdapter(config, options = {}) {
   } = options;
   // Only the derived adapter env is kept; the CLI env (with its keys) is not retained.
   const spawnOptions = { ...rest, env: adapterEnvironment(cliEnv) };
-  const diagnosticsPath = config?.diagnosticsPath ?? null;
+  const diagnostics = {
+    file: config?.diagnosticsPath ?? null,
+    generation: config?.generation ?? null,
+  };
   const giveUpResponse = unavailableResponse(config?.clientProtocol);
   const listener = await createAdapterListener({ maxQueued, maxAgeMs });
   const { port } = listener;
@@ -92,7 +95,11 @@ export async function startAdapter(config, options = {}) {
     secret = null;
     // The port stays bound (nobody else can take it); the CLI gets a 503 in its format.
     listener.refuse(giveUpResponse);
-    recordGiveUp(diagnosticsPath, { restarts: total, lastReason });
+    recordSupervisor(diagnostics, {
+      restarts: total,
+      lastReason,
+      gaveUpAt: new Date().toISOString(),
+    });
   };
   const scheduleRestart = () => {
     if (stopping || !secret) return;
@@ -170,17 +177,20 @@ export async function startAdapter(config, options = {}) {
   };
 }
 
-/** Merges the give-up record into the adapter's last snapshot (atomic, 0600, never throws). */
-function recordGiveUp(file, { restarts, lastReason }) {
+/**
+ * Merges the supervisor record (give-up, start failure) into the adapter's last snapshot
+ * of this generation (atomic, 0600, never throws). Values are fixed enums, counts and
+ * timestamps only.
+ */
+function recordSupervisor({ file, generation }, supervisor) {
   if (!file) return;
   let current = {};
   try {
     current = JSON.parse(readFileSync(file, "utf8"));
   } catch {}
-  writeDiagnostics(file, {
-    ...current,
-    supervisor: { restarts, lastReason, gaveUpAt: new Date().toISOString() },
-  });
+  if (!current || (generation !== null && current.generation !== generation))
+    current = { version: 1 };
+  writeDiagnostics(file, { ...current, generation, supervisor }, generation);
 }
 
 /**

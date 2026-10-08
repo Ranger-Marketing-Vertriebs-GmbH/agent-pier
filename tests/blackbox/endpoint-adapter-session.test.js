@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { applicationFixture } from "../helpers/application.js";
 import { scriptedUpstream, sse } from "../helpers/scripted-upstream.js";
 import { loadFixture } from "../helpers/protocol-adapter.js";
+import { setTimeout as delay } from "node:timers/promises";
 import { until, waitForJson } from "../helpers/adapter-process.js";
 
 const fakeCli = fileURLToPath(new URL("../helpers/fake-cli.mjs", import.meta.url));
@@ -62,7 +63,7 @@ async function startSession(f, connection) {
 }
 
 /** Replaces the CLI with the fake CLI while keeping the prepared env and adapter block. */
-async function useFakeCli(f, out) {
+async function useFakeCli(f, out, cliMode = "call", extraEnv = {}) {
   const version = path.join(f.root, "version-fixture");
   await fs.writeFile(version, "#!/bin/sh\nprintf '2.1.291\\n'\n", { mode: 0o755 });
   const original = f.application.accounts.command.bind(f.application.accounts);
@@ -72,8 +73,8 @@ async function useFakeCli(f, out) {
     return {
       ...prepared,
       command: process.execPath,
-      args: [fakeCli, out, "call"],
-      env: { ...prepared.env, FAKE_CLI_BODY: BODY },
+      args: [fakeCli, out, cliMode],
+      env: { ...prepared.env, FAKE_CLI_BODY: BODY, ...extraEnv },
     };
   };
 }
@@ -130,25 +131,55 @@ test("removing a finished adapter session deletes its diagnostics file", async (
   await useFakeCli(f, out);
   const session = await startSession(f, connection);
   await waitForJson(out);
-  const diagnostics = path.join(f.dataDir, "sessions", `${session.id}.adapter.json`);
   await until(
     async () => (await f.application.sessions.get(session.id)).status === "stopped",
     10_000,
   );
-  await until(
-    () =>
-      fs.access(diagnostics).then(
-        () => true,
-        () => false,
-      ),
-    5000,
-  ); // final flush
+  // No wait for the adapter's final write: it may land after the DELETE and must not
+  // recreate the file.
+  await deleteAndExpectNoDiagnostics(f, session.id);
+});
+
+/** DELETE, then give a late final diagnostics write time to (wrongly) recreate the file. */
+async function deleteAndExpectNoDiagnostics(f, id) {
+  const diagnostics = path.join(f.dataDir, "sessions", `${id}.adapter.json`);
   assert.equal(
-    (await f.request(`/api/sessions/${session.id}`, { method: "DELETE" })).status,
+    (await f.request(`/api/sessions/${id}`, { method: "DELETE" })).status,
     204,
   );
-  await assert.rejects(fs.access(diagnostics));
-});
+  await delay(3500);
+  await assert.rejects(fs.access(diagnostics), "no orphaned diagnostics file");
+}
+
+for (const [mode, label] of [
+  ["wait", "an adapter that never served (create-failure cleanup)"],
+  ["call-wait", "an adapter that served a request"],
+])
+  test(`stop then immediate delete leaves no diagnostics: ${label}`, async (t) => {
+    const f = await applicationFixture(t);
+    const up = await scriptedUpstream(t, (_e, res) =>
+      sse(res, loadFixture("upstreams/chat/text.sse")),
+    );
+    const connection = await adapterConnection(f, up);
+    const out = path.join(f.root, "cli.json");
+    // The CLI ignores SIGHUP: the adapter stops (and writes its final snapshot) only ~1 s
+    // after the stop, well after the DELETE below.
+    await useFakeCli(f, out, mode, { FAKE_CLI_IGNORE_HUP: "1" });
+    const session = await startSession(f, connection);
+    await until(
+      () =>
+        fs.access(`${out}.ready`).then(
+          () => true,
+          () => false,
+        ),
+      10_000,
+    );
+    const stopped = await f.request(`/api/sessions/${session.id}/stop`, {
+      method: "POST",
+    });
+    assert.ok(stopped.ok, await stopped.clone().text());
+    await deleteAndExpectNoDiagnostics(f, session.id);
+  });
 
 test("reload starts a new adapter with a new token and stops the old one", async (t) => {
   const f = await applicationFixture(t);
@@ -184,6 +215,9 @@ recordNativeSession({ session_id: nativeId, cwd }, process.env, { pid: process.p
 const url = process.env.ANTHROPIC_BASE_URL, token = process.env.ANTHROPIC_AUTH_TOKEN;
 const res = await fetch(url + '/v1/messages', { method: 'POST', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: ${JSON.stringify(BODY)} });
 fs.appendFileSync(${JSON.stringify(capture)}, JSON.stringify({ resumed, url, token, status: res.status, text: await res.text() }) + '\\n');
+// Ignores SIGHUP: the old adapter then writes its final snapshot only after the
+// launcher's 1 s SIGKILL grace, while the reloaded generation already runs.
+process.on('SIGHUP', () => {});
 process.stdin.resume();
 setInterval(() => {}, 1000);
 `,
@@ -201,6 +235,7 @@ setInterval(() => {}, 1000);
       .map(JSON.parse);
   await until(async () => (await rows()).length === 1, 10_000);
   const endpoint = `/api/sessions/${session.id}/reload`;
+  const before = (await app.sessions.get(session.id)).adapterGeneration;
   await until(async () => (await (await f.request(endpoint)).json()).eligible, 10_000);
   const reload = await f.request(endpoint, {
     method: "POST",
@@ -219,6 +254,7 @@ setInterval(() => {}, 1000);
     assert.match(row.text, /message_stop/);
   }
   assert.notEqual(second.token, first.token, "every launch gets a fresh session token");
+  await delay(3000); // room for the old adapter's late final write (its CLI ignores SIGHUP)
   // The first adapter is gone: its URL refuses connections, or (same port reused) rejects the old token.
   const old = await fetch(`${first.url}/api/hello`, {
     headers: { authorization: `Bearer ${first.token}` },
@@ -228,6 +264,20 @@ setInterval(() => {}, 1000);
     `old adapter still answers: ${old?.status}`,
   );
   const current = await app.sessions.get(session.id);
+  assert.ok(before && current.adapterGeneration, "generations recorded");
+  assert.notEqual(current.adapterGeneration, before);
+  const snapshot = JSON.parse(
+    await fs.readFile(
+      path.join(f.dataDir, "sessions", `${session.id}.adapter.json`),
+      "utf8",
+    ),
+  );
+  assert.equal(
+    snapshot.generation,
+    current.adapterGeneration,
+    "old adapter did not overwrite",
+  );
+  assert.equal(snapshot.requests["/v1/messages"], 1);
   assert.deepEqual(current.provider.route, {
     mode: "adapter",
     source: "chatCompletions",

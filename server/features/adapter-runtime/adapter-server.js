@@ -47,7 +47,8 @@ export function createAdapterServer(config, options = {}) {
     model: config.model,
     capabilities: config.capabilities,
     thinkTagExtraction: config.thinkTagExtraction,
-    sessionKey: randomUUID(),
+    // Stable per session (also across adapter restarts); random only without a session.
+    sessionKey: config.sessionKey ?? randomUUID(),
     secrets,
   });
   const capabilities = resolveCapabilities(upstream, config.capabilities);
@@ -150,6 +151,7 @@ export function createAdapterServer(config, options = {}) {
     const c = counters.snapshot();
     return {
       version: 1,
+      generation: config.generation ?? null,
       startedAt,
       updatedAt: new Date(now()).toISOString(),
       route: { client, upstream },
@@ -173,6 +175,7 @@ export function createAdapterServer(config, options = {}) {
 
   const writer = createDiagnosticsWriter({
     path: config.diagnosticsPath,
+    generation: config.generation ?? null,
     snapshot,
     now,
   });

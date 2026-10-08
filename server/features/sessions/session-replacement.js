@@ -61,6 +61,11 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
         )
       : null;
     // Diagnostics of the previous generation must not be mistaken for the new adapter.
+    // The new generation is recorded first: the old adapter, possibly still shutting
+    // down, then refuses its late final write instead of recreating the file.
+    if (adapter) session.adapterGeneration = adapter.generation;
+    else delete session.adapterGeneration;
+    await manager.save(session);
     await rm(adapterDiagnosticsPath(manager.directory, id), { force: true });
     await privateWrite(
       manager.directory,

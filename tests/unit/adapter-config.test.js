@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   validateAdapterConfig,
   adapterDiagnosticsPath,
+  adapterSessionKey,
+  checkedAdapter,
 } from "../../server/features/adapter-runtime/adapter-config.js";
 import { fallbackOutputTokens } from "../../server/features/providers/endpoint-config.js";
 import { validAdapterConfig, KEY } from "../helpers/adapter-fixture.js";
@@ -37,6 +39,12 @@ const invalidCases = {
   thinkTagExtraction: { thinkTagExtraction: "no" },
   "diagnostics relative": { diagnosticsPath: "relative.json" },
   "diagnostics NUL": { diagnosticsPath: "/tmp/a\0b" },
+  generation: { generation: "short" },
+  "generation without a session diagnostics file": {
+    generation: "g".repeat(16),
+    diagnosticsPath: "/tmp/other.json",
+  },
+  sessionKey: { sessionKey: "bad key with spaces" },
 };
 
 for (const [name, overrides] of Object.entries(invalidCases))
@@ -59,6 +67,20 @@ test("null optional values are accepted", () => {
       model: model({ outputTokens: null, images: true }),
     }),
   );
+});
+
+test("the session wrapper adds a fresh generation and a stable prompt-cache key", () => {
+  const onInvalid = () => new Error("invalid");
+  const [a, b] = [1, 2].map(() =>
+    checkedAdapter(validAdapterConfig(), "/data/sessions", "session-1", onInvalid),
+  );
+  assert.equal(a.diagnosticsPath, "/data/sessions/session-1.adapter.json");
+  assert.match(a.generation, /^[A-Za-z0-9_-]{16}$/);
+  assert.notEqual(a.generation, b.generation, "every launch is a new generation");
+  assert.equal(a.sessionKey, b.sessionKey, "the cache key is stable per session");
+  assert.equal(a.sessionKey, adapterSessionKey("session-1"));
+  assert.notEqual(a.sessionKey, adapterSessionKey("session-2"));
+  assert.equal(a.sessionKey.includes("session-1"), false);
 });
 
 test("DEL in an API key is accepted like the account store does", () => {
