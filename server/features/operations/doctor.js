@@ -11,6 +11,8 @@ import { detectTools } from "../accounts/account-store.js";
 import { toolBinDirectories } from "../tools/tool-paths.js";
 import { problem } from "../../lib/storage.js";
 import { validateEndpoint } from "../providers/endpoint-config.js";
+import { toolRoutes } from "../providers/endpoint-routing.js";
+import { adapterSessionChecks } from "./adapter-doctor.js";
 const execute = promisify(execFile);
 export async function inertCommand(command, args) {
   try {
@@ -188,13 +190,13 @@ export class Doctor {
         path.join(this.dataDir, "provider-connection-secrets", `${connection.id}.json`),
       );
       if (connection.providerId === "endpoint") {
-        let valid = true;
+        let endpoint = null;
         try {
-          validateEndpoint(connection.endpoint);
+          endpoint = validateEndpoint(connection.endpoint);
         } catch {
-          valid = false;
+          endpoint = null;
         }
-        if (!valid) {
+        if (!endpoint) {
           add(
             `provider-connection.${connection.id}`,
             "warn",
@@ -202,6 +204,17 @@ export class Doctor {
           );
           continue;
         }
+        const routes = toolRoutes(endpoint);
+        const routeText = Object.entries(routes)
+          .map(
+            ([tool, route]) =>
+              `${tool}=${route ? `${route.mode}:${route.source}` : "off"}`,
+          )
+          .join(", ");
+        const blankAuthorization =
+          endpoint.authHeader && routes.opencode?.mode === "sdk"
+            ? ` OpenCode sends a blank Authorization header next to ${endpoint.authHeader} on its ${routes.opencode.source} route; whether Azure OpenAI accepts that is unverified.`
+            : "";
         const missing = (connection.endpoint?.models || []).filter(
           (model) => !model.contextTokens,
         ).length;
@@ -215,7 +228,7 @@ export class Doctor {
                   .map(([name, status]) => `${name}=${status}`)
                   .join(", ")}`
               : "never tested"
-          }; ${missing} model(s) without context. No network check was performed.`,
+          }; ${missing} model(s) without context; routes ${routeText}. No network check was performed.${blankAuthorization}`,
         );
         continue;
       }
@@ -225,6 +238,8 @@ export class Doctor {
         "Provider key presence checked; validity and entitlement were not tested.",
       );
     }
+    for (const check of adapterSessionChecks(this.dataDir))
+      add(check.id, check.status, check.summary, check.remedy, check.details);
     const projects =
       readJson(path.join(this.dataDir, "repositories.json"), { projects: [] }).projects ||
       [];

@@ -210,6 +210,7 @@ export const operationsCopy = {
 export const diagnosticCopy = {
   account: "Account profile",
   project: "Project directory",
+  adapterSession: "Adapter session",
   checks: {
     platform: "Operating system",
     node: "Node.js runtime",
