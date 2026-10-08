@@ -92,9 +92,15 @@ export function operationsRoutes({ operations, releaseMigration }) {
     }),
   );
   router.get(`${root}/releases`, (_req, res) => res.json(operations.releases.status()));
-  router.get(`${root}/releases/notes`, async (req, res) =>
-    res.json(await operations.releases.notesRange(req.query.from, req.query.to)),
-  );
+  router.get(`${root}/releases/notes`, async (req, res) => {
+    const { from, to } = req.query;
+    // Repeated query parameters arrive as arrays; only single version strings are valid.
+    if (typeof from !== "string" || typeof to !== "string")
+      throw problem(serverMessages.operations.invalidOptions);
+    res.json(
+      await operations.releases.notesRange(releaseVersion(from), releaseVersion(to)),
+    );
+  });
   router.get(`${root}/releases/notes/:version`, async (req, res) =>
     res.json(await operations.releases.notes(req.params.version)),
   );
