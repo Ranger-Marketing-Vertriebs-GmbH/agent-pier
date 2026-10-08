@@ -66,6 +66,51 @@ export function classifyAddress(input) {
   return "public";
 }
 const LOCAL = new Set(["loopback", "private", "linkLocal", "cgnat"]);
+const notAllowed = () =>
+  Object.assign(problem(serverMessages.providers.endpointUrlNotAllowed), {
+    reason: "notAllowed",
+  });
+
+/**
+ * Throws the `notAllowed` problem unless every address may be reached over `protocol`:
+ * no address may be forbidden, and plain http is limited to local address kinds.
+ */
+export function assertAllowedAddresses(addresses, protocol) {
+  const kinds = addresses.map(({ address }) => classifyAddress(address));
+  if (
+    kinds.includes("forbidden") ||
+    (protocol === "http:" && kinds.some((kind) => !LOCAL.has(kind)))
+  )
+    throw notAllowed();
+}
+
+/**
+ * A Node socket `lookup` that resolves every address of the host and applies the endpoint
+ * URL rule on each call. An agent using it re-checks the policy for every new connection,
+ * so a name that later resolves elsewhere (DNS rebinding) cannot reach a refused address;
+ * the socket connects only to the addresses that passed the check.
+ */
+export function policyLookup(protocol, lookup = dns.lookup) {
+  return (hostname, options, callback) =>
+    lookup(hostname, { all: true, verbatim: true }, (error, addresses) => {
+      if (error) return callback(error);
+      try {
+        if (!Array.isArray(addresses) || !addresses.length) throw new Error("unresolved");
+        assertAllowedAddresses(addresses, protocol);
+      } catch {
+        return callback(
+          Object.assign(new Error("upstream address not allowed"), {
+            code: "EADDRNOTALLOWED",
+            reason: "notAllowed",
+            adapterKind: "network",
+          }),
+        );
+      }
+      const checked = addresses.map(({ address, family }) => ({ address, family }));
+      if (options?.all) callback(null, checked);
+      else callback(null, checked[0].address, checked[0].family);
+    });
+}
 /**
  * Resolves and checks an endpoint host. A host that does not resolve is a reachability
  * problem (`reason: "network"`), not a policy refusal (`reason: "notAllowed"`).
@@ -76,10 +121,6 @@ export async function resolveEndpointTarget(
 ) {
   const url = new URL(value);
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
-  const notAllowed = () =>
-    Object.assign(problem(serverMessages.providers.endpointUrlNotAllowed), {
-      reason: "notAllowed",
-    });
   const unresolved = () =>
     Object.assign(problem(serverMessages.providers.endpointHostUnresolved, 502), {
       reason: "network",
@@ -102,12 +143,7 @@ export async function resolveEndpointTarget(
         })
         .finally(() => clearTimeout(timer));
   if (!Array.isArray(addresses) || !addresses.length) throw unresolved();
-  const kinds = addresses.map(({ address }) => classifyAddress(address));
-  if (
-    kinds.includes("forbidden") ||
-    (url.protocol === "http:" && kinds.some((kind) => !LOCAL.has(kind)))
-  )
-    throw notAllowed();
+  assertAllowedAddresses(addresses, url.protocol);
   // Every address passed the check, so a connection may fall back between them.
   return {
     hostname,
