@@ -19,9 +19,12 @@ export function claudeImageSources(record) {
   return paths.every(Boolean) ? paths : null;
 }
 
+// A queued prompt never receives source paths: its promptId may belong to an
+// earlier prompt and its own images are recorded without a source companion.
 const imageInput = (record) =>
   prompt(record) &&
   !record.isMeta &&
+  !record.queuedCommand &&
   record.origin?.kind === "human" &&
   blocks(record).some((block) => block?.type === "image");
 
@@ -121,5 +124,5 @@ export function claudeQueuedImageInput(record) {
     labels.some((match, i) => Number(match[1]) !== ids[i])
   )
     return null;
-  return { text: text.replace(LABEL, ""), count: images };
+  return { text: text.replace(LABEL, "").trim(), count: images };
 }

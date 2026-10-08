@@ -106,16 +106,36 @@ test("a queued human prompt with images becomes a visible user message with imag
       role: "user",
       text: labelled,
       timestamp: "2026-09-12T06:21:51.917Z",
-      claudeImageInput: { text: "    Compare these layouts", count: 4 },
+      claudeImageInput: { text: "Compare these layouts", count: 4 },
     },
   ]);
   assert.deepEqual(normalizeClaude([enqueue]).messages, []);
   // Queued attachments need not carry a promptId.
   const { promptId: _promptId, ...unprompted } = queuedImages();
   assert.deepEqual(normalizeClaude([unprompted]).messages[0].claudeImageInput, {
-    text: "    Compare these layouts",
+    text: "Compare these layouts",
     count: 4,
   });
+});
+test("source paths of an earlier prompt never attach to a queued image prompt", () => {
+  const source = (n) => ({
+    type: "user",
+    uuid: `source-${n}`,
+    promptId: "queued-prompt",
+    isMeta: true,
+    turnCompanion: true,
+    message: { content: [{ type: "text", text: `[Image: source: /old/${n}.png]` }] },
+  });
+  const [message] = normalizeClaude([
+    source(1),
+    source(2),
+    source(3),
+    source(4),
+    queuedImages(),
+  ]).messages;
+  assert.equal(message.text, labelled);
+  assert.doesNotMatch(message.text, /\/old\//);
+  assert.deepEqual(message.claudeImageInput, { text: "Compare these layouts", count: 4 });
 });
 test("queued image prompts only carry evidence when labels, ids and images agree", () => {
   const evidence = (patch) =>
@@ -153,5 +173,5 @@ test("pasted text inside an array prompt is unwrapped", () => {
     }),
   ]).messages;
   assert.equal(message.text, "[Image #5]\nFirst\nSecond");
-  assert.deepEqual(message.claudeImageInput, { text: "\nFirst\nSecond", count: 1 });
+  assert.deepEqual(message.claudeImageInput, { text: "First\nSecond", count: 1 });
 });

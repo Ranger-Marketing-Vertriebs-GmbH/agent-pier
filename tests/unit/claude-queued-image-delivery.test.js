@@ -3,10 +3,7 @@ import assert from "node:assert/strict";
 import { normalizeClaude } from "../../server/features/chat/history-parsers.js";
 import { inputHash } from "../../server/features/chat/native-input-queue.js";
 import { deliveryContentMatches } from "../../web/features/chat/delivery-content.js";
-import {
-  deliveredImageMessages,
-  nativeDeliveryStates,
-} from "../../web/features/chat/native-delivery-state.js";
+import { nativeDeliveryStates } from "../../web/features/chat/native-delivery-state.js";
 import { visibleDeliveries } from "../../web/features/chat/chat-draft.js";
 
 // Synthetic fixtures: Claude Code records a queued image prompt as an array prompt.
@@ -60,8 +57,8 @@ test("a queued 4-image Claude prompt confirms its delivery by text and image cou
     messageId: "q:0",
   });
   assert.deepEqual(visibleDeliveries([item()], messages), []);
-  // The confirmed row shows the message as sent, with its uploaded image paths.
-  assert.equal(deliveredImageMessages([item()], messages)[0].text, sent);
+  // The row keeps the recorded labelled text, with or without a known delivery.
+  assert.equal(messages[0].text, labelled);
   assert.deepEqual(
     states([item()], messages, { ...input, queue: [item().observation.hash] }).get(
       "delivery",
