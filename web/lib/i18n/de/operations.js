@@ -216,6 +216,7 @@ export const operationsCopy = {
 export const diagnosticCopy = {
   account: "Account-Profil",
   project: "Projektverzeichnis",
+  adapterSession: "Adapter-Sitzung",
   checks: {
     platform: "Betriebssystem",
     node: "Node.js-Laufzeit",
