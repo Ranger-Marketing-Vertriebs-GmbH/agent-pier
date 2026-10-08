@@ -1,8 +1,12 @@
 // Protocol adapter for one session. terminal-launcher.js starts it and sends the private
-// configuration over IPC; the key never appears in argv or env. It never writes to
-// stdout/stderr (the launcher's stdio is the CLI's terminal).
-import { validateAdapterConfig } from "./features/adapter-runtime/adapter-config.js";
-import { createAdapterServer } from "./features/adapter-runtime/adapter-server.js";
+// configuration over IPC; the key never appears in argv or env. It never binds a port:
+// the supervisor owns the loopback listener (so the port stays reserved across restarts)
+// and hands every accepted connection over IPC. It never writes to stdout/stderr (the
+// launcher's stdio is the CLI's terminal).
+//
+// No static imports: the IPC channel delivers messages as soon as it reads them, and a
+// message that arrives before a listener exists is lost. The start listener is therefore
+// registered first and the adapter modules are loaded inside it.
 
 for (const signal of ["SIGINT", "SIGQUIT", "SIGHUP"]) process.on(signal, () => {});
 let server = null;
@@ -34,26 +38,28 @@ function fail(reason, code) {
     exit();
   }
 }
+const validPort = (port) => Number.isInteger(port) && port > 0 && port < 65536;
+
 process.once("message", async (message) => {
   let config;
   try {
+    const [{ validateAdapterConfig }, { createAdapterServer }] = await Promise.all([
+      import("./features/adapter-runtime/adapter-config.js"),
+      import("./features/adapter-runtime/adapter-server.js"),
+    ]);
     if (message?.type !== "start") throw new TypeError("adapter: unexpected message");
+    if (!validPort(message.port)) throw new TypeError("adapter: invalid port");
     config = validateAdapterConfig(message.config);
-  } catch {
-    return fail("config", 78);
-  }
-  try {
-    // Restarts rebind the original port so the CLI's substituted URL stays valid.
-    const wanted =
-      Number.isInteger(message.port) && message.port > 0 && message.port < 65536
-        ? message.port
-        : 0;
+    // Throws synchronously only for a refused IP-literal upstream: a configuration error.
     server = createAdapterServer(config, {
       restarts: Number.isInteger(message.restarts) ? message.restarts : 0,
     });
-    const port = await server.listen(wanted);
-    process.send({ type: "ready", port });
   } catch {
-    fail("bind", 71);
+    return fail("config", 78);
   }
+  server.attach(message.port);
+  process.on("message", (next, socket) => {
+    if (next?.type === "connection" && socket) server.accept(socket);
+  });
+  process.send({ type: "ready", port: message.port });
 });

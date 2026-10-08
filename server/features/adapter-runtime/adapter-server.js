@@ -81,6 +81,8 @@ export function createAdapterServer(config, options = {}) {
   ctx.retry = createRetry(ctx);
 
   let port = null;
+  // Connections handed over by the supervisor (not tracked by the http server itself).
+  const accepted = new Set();
 
   /** Answers without reading the body and closes the connection afterwards. */
   function refuse(res, kind, message) {
@@ -188,9 +190,24 @@ export function createAdapterServer(config, options = {}) {
         });
       }),
     /**
+     * Serves connections accepted elsewhere (the supervisor owns the listening socket
+     * and hands each connection over IPC); `listenPort` is that socket's port, which
+     * the Host check needs.
+     */
+    attach(listenPort) {
+      port = listenPort;
+    },
+    accept(socket) {
+      if (ctx.closing || port === null) return void socket.destroy();
+      accepted.add(socket);
+      socket.once("close", () => accepted.delete(socket));
+      server.emit("connection", socket);
+    },
+    /**
      * Ends open client streams and upstream requests; resolves once all sockets closed,
      * the aborted handlers settled and the final diagnostics were written (later touches
-     * are ignored).
+     * are ignored). A server that never served (failed start) writes nothing, so the
+     * previous adapter's snapshot survives.
      */
     close: async () => {
       await new Promise((resolve) => {
@@ -199,10 +216,11 @@ export function createAdapterServer(config, options = {}) {
         for (const abort of [...ctx.requests]) abort("shutdown");
         server.close(() => resolve());
         server.closeAllConnections();
+        for (const socket of accepted) socket.destroy();
         upstreamClient.close();
       });
       await Promise.allSettled([...pending]);
-      await writer.flush();
+      if (port !== null) await writer.flush();
     },
   };
 }
