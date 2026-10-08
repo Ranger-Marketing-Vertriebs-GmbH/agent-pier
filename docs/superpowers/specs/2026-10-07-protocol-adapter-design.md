@@ -171,7 +171,8 @@ IrError { kind: "auth" | "permission" | "notFound" | "rateLimit" | "overloaded" 
 - `thinking: {type: "adaptive"}` plus `output_config.effort` (what Claude Code sends for
   non-Claude model ids) becomes `thinking.mode = "adaptive"` with that effort;
   `{type: "enabled", budget_tokens}` becomes `mode = "enabled"`.
-- `count_tokens`: always 404, so Claude Code uses its own estimate. Claude Code never
+- `count_tokens`: always 404 without contacting the upstream, so Claude Code uses its own
+  estimate; counted under its own `requests` key (Amendment 17). Claude Code never
   reaches a Messages upstream through the adapter (that route is native), so there is
   nothing to forward to.
 - AgentPier sets `CLAUDE_CODE_ATTRIBUTION_HEADER=0` for adapter routes so the attribution
@@ -458,7 +459,7 @@ and each model gains `images: boolean | null` (default `null`).
 - Trust store: the adapter process is started with Node's system CA support
   (`--use-system-ca` where available; otherwise `NODE_EXTRA_CA_CERTS` from AgentPier's
   environment is passed through) so company gateways with private CAs work.
-- Request body cap 32 MB; per-event cap 16 MB; no total cap on response streams.
+- Request body cap 64 MiB (Amendment 17); per-event cap 16 MB; no total cap on response streams.
 - Names/ids maps are per session and in memory only. No prompt, completion or key
   content is logged; diagnostics contain counters and error kinds only.
 - nono: the plan verifies that sandboxed CLIs can connect to `127.0.0.1` with the
@@ -577,3 +578,5 @@ contradicts sections above, these amendments win:
 13. **Chat mid-conversation system messages** are merged into the next user turn as `<system>…</system>` text by default: model chat templates rendered by vLLM, llama.cpp and LM Studio (e.g. Qwen3.5, Gemma, Mistral) reject a system message that is not first, and OpenAI rejects one between tool calls and their results. Capability `systemMessages: "inline"` keeps `role: "system"` in place (OpenAI/Azure).
 14. **Responses upstream reasoning** is sent by default (opt-out with `capabilities.reasoningEffort = false`); PR 2's 400 → capability retry maps errors naming `reasoning`, `reasoning.effort`, `reasoning.summary` or `include` to `reasoningEffort = false` (which also drops `include` unless a carrier is replayed); the connection probe proposes the value.
 15. **Messages upstream thinking (Codex client)**: effort-only thinking (Codex sends `reasoning.effort`, no budget) is sent as `thinking: {type: "adaptive"}` with `output_config.effort`, because current Claude models reject manual `enabled` thinking. Capability `thinkingBudget: true` restores the effort → budget table (`enabled` + `budget_tokens`) for models without adaptive thinking; PR 2's 400 → capability retry maps "adaptive thinking not supported" errors to `thinkingBudget = true`. With manual thinking, a request that continues a tool loop whose assistant turn does not start with a replayable thinking block omits thinking (counted `thinking.omittedNoLeadingBlock`). Messages-origin carriers hold the JSON payload `{"s": signature, "t": thinking text}` (`{"r": data}` for `redacted_thinking`); replay uses this exact text and ignores the client's reasoning text, since Anthropic rejects modified thinking blocks. A payload that is not JSON is a plain signature (legacy).
+16. **Messages keep-alive timing**: the adapter sends Claude Code's response headers only after the upstream answered 2xx, and `event: ping` keep-alives only after the first frame. Before that nothing is written, so upstream rejections (notably context overflow) still reach Claude Code as HTTP 400 bodies, which it needs to recognize "prompt is too long". The wait is bounded by the 240 s upstream idle timeout, below Claude Code's 300 s watchdog. Codex streams start immediately (its errors are always in-stream, Amendment 3), so its keep-alives run from the first moment.
+17. **Request body cap and `count_tokens` counting**: the adapter accepts client request bodies up to 64 MiB, because Codex resends the whole conversation (including images) on every turn. A larger body is refused before translation with HTTP 400 `invalid_request_error` in the client's own error format, naming the limit, and the connection is closed. Upstreams with a lower limit of their own answer with their error, which is translated as usual. Claude Code's `POST /v1/messages/count_tokens` stays 404 without an upstream call and is counted as `requests["/v1/messages/count_tokens"]`, so diagnostics do not read it as a misrouted request.

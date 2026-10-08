@@ -1,0 +1,49 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { createAdapterServer } from "../../server/features/adapter-runtime/adapter-server.js";
+import { KEY, validAdapterConfig } from "./adapter-fixture.js";
+
+export const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Polls `check` (sync or async) until it is truthy; fails the test after `ms`. */
+export async function until(check, ms = 3000) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    if (await check()) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.fail("condition not reached");
+}
+
+/** Waits until `file` holds complete JSON and returns it parsed. */
+export async function waitForJson(file, ms = 10_000) {
+  let value;
+  await until(() => {
+    try {
+      value = JSON.parse(fs.readFileSync(file, "utf8"));
+      return true;
+    } catch {
+      return false;
+    }
+  }, ms);
+  return value;
+}
+
+/** In-process adapter server against a scripted upstream (base + "/v1" for OpenAI-style routes). */
+export async function startAdapterServer(t, upstream, overrides = {}, options = {}) {
+  const config = validAdapterConfig({
+    upstream: { baseUrl: `${upstream.base}/v1`, authHeader: null, apiKey: KEY },
+    ...overrides,
+  });
+  const server = createAdapterServer(config, options);
+  const port = await server.listen(0);
+  t.after(() => server.close());
+  return { url: `http://127.0.0.1:${port}`, server };
+}
