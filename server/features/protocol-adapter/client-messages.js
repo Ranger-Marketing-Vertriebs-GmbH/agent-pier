@@ -103,6 +103,26 @@ function imagePart(block, path, drop) {
   return null;
 }
 
+/**
+ * Documents (e.g. PDFs from Claude Code's Read tool) have no IR representation. They are
+ * counted as dropped and replaced by a short text note so the model knows content is missing.
+ */
+function documentPlaceholder(block, scope, drop) {
+  drop(`${scope}.document`);
+  const mediaType =
+    typeof block.source?.media_type === "string" && block.source.media_type !== ""
+      ? block.source.media_type
+      : "unknown media type";
+  const title =
+    typeof block.title === "string" && block.title.trim() !== ""
+      ? `, ${block.title.trim()}`
+      : "";
+  return {
+    type: "text",
+    text: `[document omitted: ${mediaType}${title} — this model connection cannot read documents]`,
+  };
+}
+
 function toolResultParts(content, path, drop) {
   if (isAbsent(content)) return [];
   if (typeof content === "string")
@@ -114,6 +134,8 @@ function toolResultParts(content, path, drop) {
       if (!isObject(block)) shapeError(itemPath, "an object");
       if (block.type === "text") return textPart(block, itemPath, drop);
       if (block.type === "image") return imagePart(block, itemPath, drop);
+      if (block.type === "document")
+        return documentPlaceholder(block, "tool_result", drop);
       drop(`tool_result.${block.type}`);
       return null;
     })
@@ -123,6 +145,7 @@ function toolResultParts(content, path, drop) {
 const BLOCK_PARSERS = {
   text: textPart,
   image: imagePart,
+  document: (block, _path, drop) => documentPlaceholder(block, "content", drop),
   tool_use(block, path, drop) {
     if (!isAbsent(block.input) && !isObject(block.input)) {
       shapeError(`${path}.input`, "an object");

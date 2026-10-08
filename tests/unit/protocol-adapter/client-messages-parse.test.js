@@ -18,6 +18,8 @@ function body(overrides = {}) {
 const parse = (overrides, headers) => parseMessagesRequest(body(overrides), headers);
 const text = (value, extra = {}) => ({ type: "text", text: value, ...extra });
 
+const PLACEHOLDER =
+  "[document omitted: unknown media type — this model connection cannot read documents]";
 describe("recorded Claude Code requests", () => {
   for (const file of fixtures) {
     const name = file.split("/").pop();
@@ -146,7 +148,7 @@ describe("messages", () => {
     });
     assert.deepEqual(
       ir.messages[0].parts.map((part) => part.parts),
-      [[], []],
+      [[], [text(PLACEHOLDER)]],
     );
     assert.deepEqual(dropped, ["tool_result.document"]);
   });
@@ -218,10 +220,73 @@ describe("messages", () => {
       ],
     });
     assert.deepEqual(ir.messages, [
-      { role: "user", parts: [text("keep")] },
+      { role: "user", parts: [text(PLACEHOLDER), text("keep")] },
       { role: "system", parts: [text("sys")] },
     ]);
     assert.deepEqual(dropped, ["content.document", "content.image"]);
+  });
+});
+
+describe("documents", () => {
+  const pdf = (title) => ({
+    type: "document",
+    source: { type: "base64", media_type: "application/pdf", data: "JVBERg==" },
+    ...(title ? { title } : {}),
+  });
+  const note = (type, title = "") =>
+    `[document omitted: ${type}${title} — this model connection cannot read documents]`;
+
+  test("a document in a tool_result becomes a text note, images stay", () => {
+    const { ir, dropped } = parse({
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: "t1",
+              content: [
+                pdf("Spec.pdf"),
+                {
+                  type: "image",
+                  source: { type: "base64", media_type: "image/png", data: "AA" },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    assert.deepEqual(ir.messages[0].parts[0].parts, [
+      text(note("application/pdf", ", Spec.pdf")),
+      { type: "image", mediaType: "image/png", data: "AA" },
+    ]);
+    assert.deepEqual(dropped, ["tool_result.document"]);
+  });
+
+  test("a document in user content becomes a text note", () => {
+    const { ir } = parse({
+      messages: [{ role: "user", content: [pdf()] }],
+    });
+    assert.deepEqual(ir.messages[0].parts, [text(note("application/pdf"))]);
+  });
+
+  test("a document without a media type names it unknown", () => {
+    const { ir } = parse({
+      messages: [{ role: "user", content: [{ type: "document", source: {} }] }],
+    });
+    assert.deepEqual(ir.messages[0].parts, [text(note("unknown media type"))]);
+  });
+
+  test("mixed content keeps its order", () => {
+    const { ir } = parse({
+      messages: [{ role: "user", content: [text("a"), pdf(), text("b")] }],
+    });
+    assert.deepEqual(ir.messages[0].parts, [
+      text("a"),
+      text(note("application/pdf")),
+      text("b"),
+    ]);
   });
 });
 
