@@ -4,7 +4,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { createDiagnosticsWriter } from "../../server/features/adapter-runtime/adapter-diagnostics.js";
+import {
+  createDiagnosticsWriter,
+  writeDiagnostics,
+} from "../../server/features/adapter-runtime/adapter-diagnostics.js";
 
 function tempDir(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "adapter-diagnostics-"));
@@ -89,4 +92,49 @@ test("an unwritable path never throws", async (t) => {
   await writer.flush();
   assert.equal(source.writes(), 2);
   assert.deepEqual(fs.readdirSync(dir), ["file"]);
+});
+
+test("flush without any touch writes nothing (an adapter that never served)", async (t) => {
+  const dir = tempDir(t);
+  const source = counted();
+  const writer = createDiagnosticsWriter({
+    path: path.join(dir, "s.adapter.json"),
+    snapshot: source.snapshot,
+  });
+  await writer.flush();
+  assert.equal(source.writes(), 0);
+  assert.deepEqual(fs.readdirSync(dir), []);
+});
+
+test("a generation writes only while the session record names it", async (t) => {
+  const dir = tempDir(t);
+  const file = path.join(dir, "s.adapter.json");
+  const record = path.join(dir, "s.json");
+  const own = (generation) =>
+    fs.writeFileSync(record, JSON.stringify({ id: "s", adapterGeneration: generation }));
+  const [a, b] = ["generation-a-0001", "generation-b-0002"];
+  own(a);
+  assert.equal(writeDiagnostics(file, { n: 1 }, a), true);
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, "utf8")), { n: 1 });
+  // Reload: the record names the next generation; the old one neither overwrites …
+  own(b);
+  assert.equal(writeDiagnostics(file, { n: 2 }, a), false);
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, "utf8")), { n: 1 });
+  // … nor recreates the file the reload deleted.
+  fs.rmSync(file);
+  assert.equal(writeDiagnostics(file, { n: 3 }, a), false);
+  // Removal: no record, no write.
+  fs.rmSync(record);
+  assert.equal(writeDiagnostics(file, { n: 4 }, b), false);
+  assert.deepEqual(fs.readdirSync(dir), []);
+  // A writer tagged with a stale generation stays silent, flush included.
+  own(b);
+  const writer = createDiagnosticsWriter({
+    path: file,
+    generation: a,
+    snapshot: () => ({ n: 5 }),
+  });
+  writer.touch();
+  await writer.flush();
+  assert.deepEqual(fs.readdirSync(dir), ["s.json"]);
 });

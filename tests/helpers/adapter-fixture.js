@@ -10,6 +10,8 @@ export function validAdapterConfig(overrides = {}) {
     capabilities: {},
     thinkTagExtraction: false,
     diagnosticsPath: null,
+    generation: null,
+    sessionKey: null,
     ...overrides,
   };
 }

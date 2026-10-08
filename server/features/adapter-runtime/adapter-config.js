@@ -1,4 +1,5 @@
 import path from "node:path";
+import { createHash, randomBytes } from "node:crypto";
 import {
   FORBIDDEN_HEADERS,
   TOKEN as HEADER_TOKEN,
@@ -9,6 +10,11 @@ import { resolveCapabilities } from "../protocol-adapter/capabilities.js";
 
 const CLIENT = ["messages", "responses"];
 const UPSTREAM = ["messages", "responses", "chat"];
+
+// Launch generation and prompt-cache session key: opaque, non-secret identifiers.
+const IDENTIFIER = /^[A-Za-z0-9_-]{16,64}$/;
+const identifier = (value) =>
+  value === null || (typeof value === "string" && IDENTIFIER.test(value));
 
 const plain = (value) => value && typeof value === "object" && !Array.isArray(value);
 const tokenCount = (value) =>
@@ -91,6 +97,13 @@ export function validateAdapterConfig(value) {
         path.isAbsolute(diagnostics) &&
         !diagnostics.includes("\0")),
   );
+  check("generation", identifier(value.generation));
+  // A guarded generation needs the session record next to its diagnostics file.
+  check(
+    "diagnosticsPath",
+    value.generation === null || !!diagnostics?.endsWith(".adapter.json"),
+  );
+  check("sessionKey", identifier(value.sessionKey));
   return Object.freeze({
     token: value.token,
     clientProtocol: value.clientProtocol,
@@ -118,15 +131,31 @@ export function validateAdapterConfig(value) {
     ),
     thinkTagExtraction: value.thinkTagExtraction,
     diagnosticsPath: diagnostics,
+    generation: value.generation,
+    sessionKey: value.sessionKey,
   });
 }
 
-/** Session-facing wrapper: fixes the diagnostics path; `onInvalid()` builds the error. */
+/** Stable per-session prompt-cache key (survives adapter restarts and reloads). */
+export const adapterSessionKey = (id) =>
+  createHash("sha256")
+    .update(`agentpier-adapter-cache:${id}`)
+    .digest("base64url")
+    .slice(0, 32);
+
+/**
+ * Session-facing wrapper: fixes the diagnostics path, the session's prompt-cache key and a
+ * fresh launch generation (the caller records it on the session as `adapterGeneration`,
+ * so only this launch's adapter may write the diagnostics file); `onInvalid()` builds the
+ * error.
+ */
 export function checkedAdapter(value, directory, id, onInvalid) {
   try {
     return validateAdapterConfig({
       ...value,
       diagnosticsPath: adapterDiagnosticsPath(directory, id),
+      generation: randomBytes(12).toString("base64url"),
+      sessionKey: adapterSessionKey(id),
     });
   } catch (error) {
     if (error instanceof TypeError) throw onInvalid();
