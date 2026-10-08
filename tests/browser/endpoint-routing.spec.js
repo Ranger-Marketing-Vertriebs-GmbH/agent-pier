@@ -53,7 +53,7 @@ test("routes resolve live and explain unavailable choices", async ({ page }) => 
       animations: "disabled",
     });
   }
-  // Review Focus 2: the explicit choice survives when its protocol is switched off again.
+  // The explicit choice survives when its protocol is switched off again.
   await responses.uncheck();
   await expect(claude).toHaveValue("adapter:responses");
   await expect(

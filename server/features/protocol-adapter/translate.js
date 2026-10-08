@@ -74,7 +74,8 @@
  *   `translateStream` handed out a frame the error is always in-stream and numbered from
  *   the exchange. Messages client: HTTP body unless started. Responses client:
  *   `stream: true` errors are HTTP 200 SSE (`response.created` + `response.failed`,
- *   Amendment 3), `stream: false` errors are HTTP bodies.
+ *   because Codex reads errors only from the stream), `stream: false` errors are HTTP
+ *   bodies.
  * - `fail(irError, { streaming, started })`: adapter-local failure (e.g. the idle timer
  *   fired while the caller stopped reading `translateStream`, or the connection failed:
  *   `fail(classifyTransportError(cause))`), rendered exactly like `translateError`.

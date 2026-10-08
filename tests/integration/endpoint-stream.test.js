@@ -96,7 +96,7 @@ test("redirects are returned, not followed; text() is capped", async (t) => {
   assert.equal(up.seen.length, 2);
 });
 
-test("each new connection on the same client re-resolves and re-checks the address policy (Review Focus 5)", async (t) => {
+test("each new connection on the same client re-resolves and re-checks the address policy", async (t) => {
   // `connection: close` makes the server end every socket, so the one pooled agent must open a
   // new connection (and run its lookup again) for each request.
   const up = await scriptedUpstream(t, async (_e, res) =>

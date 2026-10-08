@@ -182,7 +182,7 @@ test("launcher shutdown during an adapter restart leaves no adapter behind", asy
   await allDead(seen);
 });
 
-test("Ctrl+C in the terminal does not stop the adapter (Review Focus 2)", async (t) => {
+test("Ctrl+C in the terminal does not stop the adapter", async (t) => {
   const { file, out } = await setup(t, "wait-sigint");
   const { child, done } = run(file, { detached: true }); // launcher leads its own process group, like a tmux pane
   await until(() => fs.existsSync(`${out}.ready`));
