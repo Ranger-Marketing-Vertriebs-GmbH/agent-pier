@@ -80,8 +80,16 @@ async function returnToSession(viewer, id, mode) {
     "href",
     `/sessions/${id}/${mode}`,
   );
-  await viewer.getByRole("link", { name: "Back to AgentPier" }).click();
-  await expect(viewer).toHaveURL(`${baseURL}/sessions/${id}/${mode}`);
+  const target = `${baseURL}/sessions/${id}/${mode}`;
+  // WebKit occasionally drops a full-page load when its network process restarts;
+  // retry the navigation while the viewer is still showing.
+  await expect(async () => {
+    if (viewer.url() !== target)
+      await viewer
+        .getByRole("link", { name: "Back to AgentPier" })
+        .click({ timeout: 2000 });
+    await expect(viewer).toHaveURL(target, { timeout: 3000 });
+  }).toPass({ timeout: 15000 });
   await expect(viewer.getByRole("heading", { name: `Session ${id}` })).toBeVisible();
   await expect(viewer.locator(".segmented button.selected")).toHaveText(
     mode === "chat" ? "Chat" : "Terminal",
