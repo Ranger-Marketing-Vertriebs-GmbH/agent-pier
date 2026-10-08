@@ -92,6 +92,10 @@ test("substitution touches env values and args only", () => {
     env: { A: "http://127.0.0.1:5", B: "x" },
     args: ["-c", 'p={base_url="http://127.0.0.1:5/v1"}'],
   });
+  // A launch without env keeps inheriting the launcher's environment.
+  assert.deepEqual(substituteAdapterUrl({ args: ["x"] }, "http://127.0.0.1:5"), {
+    args: ["x"],
+  });
 });
 
 test("startup failures: invalid config and a silent child (start timeout)", async (t) => {

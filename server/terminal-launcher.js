@@ -126,12 +126,14 @@ function runCli(payload, onClose) {
         process.stderr.write("Unable to retain native pipeline output.\n");
       }
     });
-  let shutdown;
+  let shutdown,
+    closed = false;
   child.on("error", () => {
     process.stderr.write("Unable to start the selected CLI.\n");
     process.exitCode = 127;
   });
   child.on("close", async (code, signal) => {
+    closed = true;
     clearTimeout(shutdown);
     if (observed !== null) closeSync(observed);
     const result = group?.outcome();
@@ -157,7 +159,8 @@ function runCli(payload, onClose) {
     } catch {}
   });
   return (signal) => {
-    if (shutdown) return;
+    // After close only the adapter is stopping; a kill timer would just delay the exit.
+    if (shutdown || closed) return;
     if (group) {
       group.stop();
       return;
