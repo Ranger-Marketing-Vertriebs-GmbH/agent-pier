@@ -120,19 +120,29 @@ test("test proposals fill adapter options that stay editable", async ({ page }) 
     warnings: [],
   };
   await dialog.getByRole("button", { name: "Test connection", exact: true }).click();
+  await expect(dialog.locator(".endpoint-adapter-status")).toHaveText(
+    "Adapter options updated with the test suggestions.",
+  );
   await dialog.getByText("Adapter options", { exact: true }).click();
   const options = dialog.getByRole("group", {
     name: "Adapter options · Chat Completions",
     exact: true,
   });
-  const effort = options.getByRole("checkbox", { name: /Send reasoning effort/ });
+  const effort = options.getByRole("checkbox", {
+    name: "Send reasoning effort",
+    exact: true,
+  });
   await expect(effort).not.toBeChecked();
+  await expect(effort).toHaveAccessibleDescription("suggested by the test");
   await expect(options.getByText("suggested by the test")).toHaveCount(2);
   await effort.check();
+  await expect(effort).toHaveAccessibleDescription("changed by you");
   await expect(
     options.getByLabel("Keep as system messages", { exact: true }),
   ).toBeChecked();
-  await dialog.getByRole("checkbox", { name: "Read <think> tags as reasoning" }).check();
+  await dialog
+    .getByRole("checkbox", { name: "Read <think> tags as reasoning", exact: true })
+    .check();
   await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   const created = controls.calls

@@ -214,7 +214,30 @@
   margin: 2px 0 0;
   accent-color: var(--accent);
 }
-.endpoint-capability-choice > .endpoint-capability-marker {
+.endpoint-capability {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.endpoint-capability-marker {
+  display: block;
   font-size: 11px;
+  font-weight: 400;
   color: var(--muted);
+  overflow-wrap: anywhere;
+}
+/* Aligns checkbox descriptions with the label text beside the 16px box. */
+.endpoint-capability > .endpoint-capability-marker {
+  padding-left: 25px;
+}
+.endpoint-adapter-wrap {
+  min-width: 0;
+}
+.endpoint-adapter-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

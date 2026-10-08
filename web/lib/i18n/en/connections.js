@@ -92,6 +92,14 @@ export const connectionCopy = {
       reset: "Restore defaults",
       proposed: "suggested by the test",
       standard: "default",
+      edited: "changed by you",
+      resetFor: (protocol) => `Restore defaults for ${protocol}`,
+      applied: "Adapter options updated with the test suggestions.",
+      appliedKept:
+        "Adapter options updated with the test suggestions. Options you changed keep your value.",
+      restored: (protocol) => `Defaults restored for ${protocol}.`,
+      thinkInactive:
+        "Inactive: no CLI uses an adapter route over Chat Completions with these settings.",
       capabilities: {
         promptCache: "Set prompt cache breakpoints",
         thinkingBudget:
