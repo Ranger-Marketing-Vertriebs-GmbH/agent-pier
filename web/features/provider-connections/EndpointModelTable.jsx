@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import { connectionCopy } from "../../lib/i18n/messages/connections.js";
-import { MODEL_LIMIT, modelProblem, validModelId } from "./endpoint-draft.js";
+import {
+  MODEL_LIMIT,
+  modelProblem,
+  setModelImages,
+  validModelId,
+} from "./endpoint-draft.js";
 
 const tokens = (value) => (value === "" ? null : Number(value));
 
@@ -49,6 +54,7 @@ export default function EndpointModelTable({ draft, setDraft }) {
                 <th>{copy.context}</th>
                 <th>{copy.output}</th>
                 <th>{copy.source}</th>
+                <th>{copy.images}</th>
                 <th />
               </tr>
             </thead>
@@ -107,6 +113,33 @@ export default function EndpointModelTable({ draft, setDraft }) {
                     <td className="endpoint-model-source">
                       {copy.sources[model.source]}
                     </td>
+                    <td className="endpoint-model-images" data-label={copy.images}>
+                      <select
+                        aria-label={copy.imagesFor(model.modelId)}
+                        aria-describedby="endpoint-images-help"
+                        value={
+                          model.images === true
+                            ? "yes"
+                            : model.images === false
+                              ? "no"
+                              : ""
+                        }
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setDraft((current) =>
+                            setModelImages(
+                              current,
+                              model.modelId,
+                              value === "" ? null : value === "yes",
+                            ),
+                          );
+                        }}
+                      >
+                        <option value="">{copy.imageChoices.auto}</option>
+                        <option value="yes">{copy.imageChoices.yes}</option>
+                        <option value="no">{copy.imageChoices.no}</option>
+                      </select>
+                    </td>
                     <td className="endpoint-model-remove">
                       <button
                         type="button"
@@ -130,6 +163,11 @@ export default function EndpointModelTable({ draft, setDraft }) {
             </tbody>
           </table>
         </div>
+      )}
+      {draft.models.length > 0 && (
+        <p id="endpoint-images-help" className="field-description">
+          {copy.imagesHelp}
+        </p>
       )}
       <div className="endpoint-add-model">
         <input
