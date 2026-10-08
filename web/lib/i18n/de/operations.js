@@ -113,6 +113,7 @@ export const operationsCopy = {
   releaseNotesEmpty: "Für diese Version gibt es keine Versionshinweise.",
   releaseNotesOverflow: (count) =>
     `Es werden nur die ${count} neuesten Versionen angezeigt.`,
+  releaseNotesIncomplete: "Einige Versionshinweise konnten nicht geladen werden.",
   releaseNotesAll: "Alle Releases auf GitHub ansehen",
   cleanupErrors: {
     cleanupInvalid: "Wähle gültige Versionen zum Löschen aus.",

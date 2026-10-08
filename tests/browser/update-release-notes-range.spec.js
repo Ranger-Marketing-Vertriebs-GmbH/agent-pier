@@ -103,4 +103,40 @@ test.describe("update release notes across versions", () => {
       "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases",
     );
   });
+  test("a partially loaded list is not presented as the version cap", async ({
+    page,
+  }) => {
+    await operationsFixture(page);
+    await page.route(/\/api\/operations\/releases\/notes\?/, (route) =>
+      route.fulfill({
+        json: {
+          from: "1.0.0",
+          to: "1.1.0",
+          releases: ["1.1.0", "1.0.5"].map((version) => ({
+            version,
+            body: `- Change in ${version}`,
+            url: tag(version),
+            publishedAt: "2026-09-20T10:00:00Z",
+          })),
+          truncated: false,
+          incomplete: true,
+          url: "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases",
+        },
+      }),
+    );
+    await page.goto("/settings/updates");
+    await page.getByRole("button", { name: "Check for updates", exact: true }).click();
+    const region = page.getByRole("region", { name: "What’s new since version 1.0.0" });
+    await expect(region.locator("details")).toHaveCount(2);
+    await expect(
+      region.getByText("Some release notes could not be loaded."),
+    ).toBeVisible();
+    await expect(region.getByText(/most recent versions are shown/)).toHaveCount(0);
+    await expect(
+      region.getByRole("link", { name: "View all releases on GitHub", exact: true }),
+    ).toHaveAttribute(
+      "href",
+      "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases",
+    );
+  });
 });

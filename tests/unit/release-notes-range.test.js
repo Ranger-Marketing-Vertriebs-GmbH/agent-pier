@@ -138,6 +138,7 @@ test("range notes use the paginated list endpoint and stop at the active version
     ["1.24.1", "1.24.0"],
   );
   assert.equal(result.truncated, false);
+  assert.equal(result.incomplete, false);
   assert.equal(
     result.url,
     "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases",
@@ -164,7 +165,39 @@ test("range notes bound pagination and flag possibly missing versions", async ()
   const result = await notes.range(officialChannel, "1.0.0", "9.5.99");
   assert.equal(calls, 5);
   assert.equal(result.truncated, true);
+  assert.equal(result.incomplete, false);
   assert.equal(result.releases.length, 20);
+});
+
+test("a failure after the first page keeps read releases and is not reported as the cap", async () => {
+  let calls = 0;
+  const notes = new ReleaseNotes(async () => {
+    calls++;
+    if (calls === 2) throw new DOMException("timed out", "TimeoutError");
+    return page(Array.from({ length: 100 }, (_, i) => release(`1.5.${100 - i}`)));
+  });
+  const result = await notes.range(officialChannel, "1.0.0", "1.5.100");
+  assert.equal(calls, 2);
+  assert.equal(result.releases.length, 20);
+  assert.equal(result.releases[0].version, "1.5.100");
+  assert.equal(result.truncated, true);
+  assert.equal(result.incomplete, true);
+  const few = new ReleaseNotes(async (url) =>
+    url.endsWith("&page=1")
+      ? page(
+          Array.from({ length: 100 }, (_, i) =>
+            release(`1.5.${100 - i}`, { draft: i > 2 }),
+          ),
+        )
+      : new Response("limited", { status: 403 }),
+  );
+  const partial = await few.range(officialChannel, "1.0.0", "1.5.100");
+  assert.deepEqual(
+    partial.releases.map((entry) => entry.version),
+    ["1.5.100", "1.5.99", "1.5.98"],
+  );
+  assert.equal(partial.truncated, false);
+  assert.equal(partial.incomplete, true);
 });
 
 test("range notes cache and coalesce reads with a bounded cache", async () => {
@@ -197,6 +230,7 @@ test("range notes fall back to the single target notes when the list fails", asy
     { version: "1.24.1", body: "Notes for 1.24.1", url: tag("1.24.1") },
   ]);
   assert.equal(result.truncated, false);
+  assert.equal(result.incomplete, true);
   assert.ok(urls[1].endsWith("/releases/tags/v1.24.1"));
 });
 
@@ -261,6 +295,7 @@ test("range notes stay offline for custom channels and validate versions", async
     to: "1.1.0",
     releases: [{ version: "1.1.0", body: null, url: null }],
     truncated: false,
+    incomplete: false,
     url: null,
   });
   await assert.rejects(notes.range(officialChannel, "../x", "1.1.0"));
