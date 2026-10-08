@@ -1,5 +1,6 @@
 import { endpointRequest, authHeaders } from "./endpoint-http.js";
 import { listEndpointModels, mergeModels } from "./endpoint-models.js";
+import { probeCapabilities } from "./endpoint-capability-probe.js";
 
 const PROBE_TIMEOUT = 90_000;
 const TOTAL_TIMEOUT = 180_000;
@@ -28,7 +29,7 @@ export function classifyProbe(result, { listedModel }) {
   return { status: "failed", reason: "http" };
 }
 
-function probes(endpoint, model) {
+export function probes(endpoint, model) {
   const ask = [{ role: "user", content: "ok" }];
   return {
     messages: endpoint.anthropicBaseUrl && {
@@ -111,11 +112,22 @@ export async function runEndpointTest({
     if (outcome.reason) reasons[name] = outcome.reason;
     if (outcome.warning) warnings.add(outcome.warning);
   }
+  const capabilities = model
+    ? await probeCapabilities({
+        endpoint,
+        apiKey,
+        model,
+        results,
+        signal: combined,
+        lookup,
+      })
+    : {};
   return {
     models,
     listed: detection.listed,
     protocols,
     reasons,
+    capabilities,
     probeModelId: model,
     warnings: [...warnings],
   };
