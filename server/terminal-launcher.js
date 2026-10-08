@@ -10,10 +10,6 @@ import {
 import { spawn } from "node:child_process";
 import { constants } from "node:os";
 import { spawnNativeProcess } from "./features/pipelines/native-process.js";
-import {
-  startAdapter,
-  substituteAdapterUrl,
-} from "./features/adapter-runtime/adapter-supervisor.js";
 
 const payloadPath = process.argv[2];
 let payload = null;
@@ -47,10 +43,14 @@ async function launch(payload) {
     });
   let adapter = null;
   if (payload.adapter) {
+    let substituteAdapterUrl;
     try {
+      // Loaded only for adapter launches: shells and native CLIs do not pay for it.
+      const supervisor = await import("./features/adapter-runtime/adapter-supervisor.js");
+      substituteAdapterUrl = supervisor.substituteAdapterUrl;
       // The private adapter block (key, token) reaches only the supervisor; the CLI env
       // is used only to derive the adapter's CA settings.
-      adapter = await startAdapter(payload.adapter, {
+      adapter = await supervisor.startAdapter(payload.adapter, {
         cliEnv: payload.env,
         signal: starting.signal,
       });

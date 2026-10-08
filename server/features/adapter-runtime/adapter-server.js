@@ -184,16 +184,6 @@ export function createAdapterServer(config, options = {}) {
   return {
     ctx,
     snapshot,
-    /** Binds 127.0.0.1 only; resolves the bound port. */
-    listen: (requested = 0) =>
-      new Promise((resolve, reject) => {
-        server.once("error", reject);
-        server.listen(requested, "127.0.0.1", () => {
-          server.off("error", reject);
-          port = server.address().port;
-          resolve(port);
-        });
-      }),
     /**
      * Serves connections accepted elsewhere (the supervisor owns the listening socket
      * and hands each connection over IPC); `listenPort` is that socket's port, which
