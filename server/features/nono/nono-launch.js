@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mergeGrants } from "./sandbox-grants.js";
 import { readSandboxProfiles } from "./nono-profiles.js";
+import { ADAPTER_PORT_PLACEHOLDER } from "../providers/adapter-launch.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 
@@ -124,6 +125,14 @@ export function wrapWithNono({ launch, executable, profile, isDirectory }) {
         ],
         { isDirectory },
       ),
+      // An adapter session's CLI talks to the adapter on 127.0.0.1. A profile with
+      // `network.block` denies loopback too, and `--open-port <port>` restores exactly
+      // that port (facts R1a/R1b). The server only knows the profile's name and cannot
+      // resolve built-in or inherited profiles, so every adapter launch gets the flag;
+      // with an open network it grants nothing new, since the adapter already holds the
+      // port. The port exists only once the launcher bound the adapter, which then
+      // substitutes the placeholder (`substituteAdapterUrl`).
+      ...(launch.adapter ? ["--open-port", ADAPTER_PORT_PLACEHOLDER] : []),
       "--",
       launch.command,
       ...(launch.args || []),

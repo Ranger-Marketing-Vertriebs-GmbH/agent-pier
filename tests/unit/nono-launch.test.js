@@ -291,3 +291,22 @@ test("the adapter leaves an unsandboxed launch alone but strips the grants", asy
     env: { TERM: "xterm-256color" },
   });
 });
+
+test("adapter launches open exactly the adapter port placeholder", () => {
+  const base = { command: "/opt/claude", args: ["-p", "x"], env: {} };
+  const plain = wrapWithNono({
+    launch: base,
+    executable: "/bin/nono",
+    profile: "default",
+  });
+  assert.equal(plain.args.includes("--open-port"), false);
+  const adapted = wrapWithNono({
+    launch: { ...base, adapter: { token: "t" } },
+    executable: "/bin/nono",
+    profile: "default",
+  });
+  const at = adapted.args.indexOf("--open-port");
+  assert.ok(at > 0 && at < adapted.args.indexOf("--"));
+  assert.equal(adapted.args[at + 1], "__AGENTPIER_ADAPTER_PORT__");
+  assert.equal(adapted.adapter.token, "t", "the adapter block stays on the launch");
+});

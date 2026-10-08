@@ -13,6 +13,11 @@ import {
  * values and argv are rewritten, never the initial input or any persisted file.
  */
 export const ADAPTER_URL_PLACEHOLDER = "__AGENTPIER_ADAPTER_URL__";
+/**
+ * The adapter's bare port (digits only), substituted by the same launcher step. The nono
+ * wrapper puts it behind `--open-port`, composed by the server before the port exists.
+ */
+export const ADAPTER_PORT_PLACEHOLDER = "__AGENTPIER_ADAPTER_PORT__";
 const CLIENT_PROTOCOL = Object.freeze({ claude: "messages", codex: "responses" });
 
 export const createSessionToken = () => randomBytes(32).toString("base64url");
