@@ -218,7 +218,9 @@ function createWireState(options) {
         ? (block.carrier ?? encodeCarrier(origin, null))
         : null;
     } else if (block.type === "function_call") {
-      item.arguments = block.text;
+      // A parameterless call arrives without argument text; Codex parses `""` as a JSON
+      // error ("EOF"), so it gets the empty object.
+      item.arguments = block.text === "" ? "{}" : block.text;
     } else {
       item.input = block.text;
     }
