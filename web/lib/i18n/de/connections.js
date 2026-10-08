@@ -155,7 +155,10 @@ export const connectionCopy = {
       responses: "OpenAI Responses",
       chatCompletions: "OpenAI Chat Completions",
     },
-    enables: { messages: "Claude Code", responses: "Codex", chatCompletions: "OpenCode" },
+    nativeFor: {
+      messages: "nativ für Claude Code",
+      responses: "nativ für Codex",
+    },
     statuses: {
       ok: "Verfügbar",
       unsupported: "Nicht unterstützt",

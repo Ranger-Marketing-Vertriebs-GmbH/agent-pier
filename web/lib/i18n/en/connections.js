@@ -154,7 +154,12 @@ export const connectionCopy = {
       responses: "OpenAI Responses",
       chatCompletions: "OpenAI Chat Completions",
     },
-    enables: { messages: "Claude Code", responses: "Codex", chatCompletions: "OpenCode" },
+    // Every CLI can use every protocol (natively or via the adapter); only the native
+    // pairing of Claude Code and Codex is named (OpenCode uses every protocol natively).
+    nativeFor: {
+      messages: "native for Claude Code",
+      responses: "native for Codex",
+    },
     statuses: {
       ok: "Available",
       unsupported: "Not supported",

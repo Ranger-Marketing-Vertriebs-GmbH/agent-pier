@@ -30,7 +30,8 @@ export default function EndpointTestResult({ draft, setDraft, result }) {
               }
             />
             <span>
-              {copy.protocolNames[name]} · {copy.enables[name]}
+              {copy.protocolNames[name]}
+              {copy.nativeFor[name] ? ` · ${copy.nativeFor[name]}` : ""}
               {status && (
                 <small data-status={status}>
                   {copy.statuses[status]}
