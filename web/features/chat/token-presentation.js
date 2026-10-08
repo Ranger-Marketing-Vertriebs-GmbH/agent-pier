@@ -60,7 +60,8 @@ export function usageSummary(usage) {
   const shown = formatTokens(own?.totalTokens);
   const duration = formatDuration(usage?.durationMs);
   const parts = [];
-  if (shown !== null)
+  // Cache-only usage shows no "0 tokens" part.
+  if (shown !== null && !(split && own.totalTokens === 0))
     parts.push(copy.tokens(`${lowerBoundShown(own) ? "≥" : ""}${shown}`));
   if (split) parts.push(copy.fromCache(formatTokens(cached)));
   if (duration) parts.push(duration);
