@@ -1,5 +1,5 @@
 import { deliveryMatches } from "./chat-draft.js";
-import { deliveryContentMatches } from "./delivery-content.js";
+import { deliveryContentMatches, queuedImagesUnique } from "./delivery-content.js";
 
 /** Display evidence only. Never changes custody, resend eligibility or transport receipts. */
 export function nativeDeliveryStates(items, messages, input, tool, live = true) {
@@ -41,14 +41,16 @@ export function nativeDeliveryStates(items, messages, input, tool, live = true) 
     // Byte-identical reuploads have different path-based delivery hashes. One
     // native image row cannot establish which attempt the CLI accepted.
     const ambiguousImage =
-      message?.imageInput &&
-      items.some(
-        (other) =>
-          other.id !== item.id &&
-          (!other.matchedMessageId || other.matchedMessageId === message.id) &&
-          !other.baselineIds.includes(message.id) &&
-          deliveryContentMatches(other, message, true),
-      );
+      (message?.claudeImageInput &&
+        !queuedImagesUnique(item, message, items, messages)) ||
+      (message?.imageInput &&
+        items.some(
+          (other) =>
+            other.id !== item.id &&
+            (!other.matchedMessageId || other.matchedMessageId === message.id) &&
+            !other.baselineIds.includes(message.id) &&
+            deliveryContentMatches(other, message, true),
+        ));
     if (queued === 1)
       states.set(item.id, {
         state: "nativeQueued",
@@ -64,4 +66,20 @@ export function nativeDeliveryStates(items, messages, input, tool, live = true) 
       states.set(item.id, { state: "nativeAccepted", messageId });
   }
   return states;
+}
+
+/** A confirmed queued Claude image row shows the message as sent, with its upload paths. */
+export function deliveredImageMessages(items, messages) {
+  const texts = new Map();
+  for (const [itemId, messageId] of deliveryMatches(items, messages)) {
+    const item = items.find((candidate) => candidate.id === itemId);
+    const message = messages.find((row) => row.id === messageId);
+    if (message?.claudeImageInput && deliveryContentMatches(item, message, true))
+      texts.set(messageId, item.text);
+  }
+  return texts.size
+    ? messages.map((row) =>
+        texts.has(row.id) ? { ...row, text: texts.get(row.id) } : row,
+      )
+    : messages;
 }

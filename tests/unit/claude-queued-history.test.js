@@ -80,3 +80,78 @@ test("queue changes and non-human or malformed attachments cannot confirm delive
   ];
   assert.deepEqual(normalizeClaude(records).messages, []);
 });
+// Synthetic: Claude Code writes a queued message with images as an array prompt.
+const image = {
+  type: "image",
+  source: { type: "base64", media_type: "image/png", data: "AA==" },
+};
+const labelled = "[Image #5] [Image #6] [Image #7] [Image #8] Compare these layouts";
+const queuedImages = (patch = {}) =>
+  attachment({
+    uuid: "queued-attachment",
+    promptId: "queued-prompt",
+    attachment: {
+      ...attachment().attachment,
+      source_uuid: "queued-source",
+      imagePasteIds: [5, 6, 7, 8],
+      prompt: [{ type: "text", text: labelled }, image, image, image, image],
+      ...patch,
+    },
+  });
+test("a queued human prompt with images becomes a visible user message with image evidence", () => {
+  const enqueue = { type: "queue-operation", operation: "enqueue", content: labelled };
+  assert.deepEqual(normalizeClaude([enqueue, queuedImages()]).messages, [
+    {
+      id: "queued-source:0",
+      role: "user",
+      text: labelled,
+      timestamp: "2026-09-12T06:21:51.917Z",
+      claudeImageInput: { text: "    Compare these layouts", count: 4 },
+    },
+  ]);
+  assert.deepEqual(normalizeClaude([enqueue]).messages, []);
+  // Queued attachments need not carry a promptId.
+  const { promptId: _promptId, ...unprompted } = queuedImages();
+  assert.deepEqual(normalizeClaude([unprompted]).messages[0].claudeImageInput, {
+    text: "    Compare these layouts",
+    count: 4,
+  });
+});
+test("queued image prompts only carry evidence when labels, ids and images agree", () => {
+  const evidence = (patch) =>
+    normalizeClaude([queuedImages(patch)]).messages[0]?.claudeImageInput;
+  const text = (value) => ({
+    prompt: [{ type: "text", text: value }, image, image, image, image],
+  });
+  assert.equal(evidence(text("[Image #5] [Image #6] [Image #7] Compare")), undefined);
+  assert.equal(
+    evidence(text("[Image #6] [Image #5] [Image #7] [Image #8] x")),
+    undefined,
+  );
+  assert.equal(evidence({ imagePasteIds: [5, 6, 7] }), undefined);
+  assert.equal(evidence({ imagePasteIds: undefined }), undefined);
+  assert.equal(
+    evidence({ prompt: [{ type: "text", text: labelled }, image, image, image] }),
+    undefined,
+  );
+  // Other block types, empty arrays and non-human input never become messages.
+  for (const patch of [
+    { prompt: [{ type: "text", text: labelled }, { type: "tool_result" }] },
+    { prompt: [] },
+    { prompt: [{ type: "text", text: 5 }] },
+    { origin: { kind: "agent" } },
+  ])
+    assert.deepEqual(normalizeClaude([queuedImages(patch)]).messages, []);
+});
+test("pasted text inside an array prompt is unwrapped", () => {
+  const wrapped =
+    '\n\n<pasted_content id="ab12">\nFirst\nSecond\n</pasted_content id="ab12">\n';
+  const [message] = normalizeClaude([
+    queuedImages({
+      imagePasteIds: [5],
+      prompt: [{ type: "text", text: `[Image #5]${wrapped}` }, image],
+    }),
+  ]).messages;
+  assert.equal(message.text, "[Image #5]\nFirst\nSecond");
+  assert.deepEqual(message.claudeImageInput, { text: "\nFirst\nSecond", count: 1 });
+});

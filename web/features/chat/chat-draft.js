@@ -2,7 +2,7 @@ import { clearContext, resetPresentation, validResetContext } from "./chat-reset
 import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { browserUuid } from "../../lib/browser-uuid.js";
 import { reusedDraft } from "./chat-draft-reuse.js";
-import { deliveryContentMatches } from "./delivery-content.js";
+import { deliveryContentMatches, queuedImagesUnique } from "./delivery-content.js";
 
 export const deliveryScope = (session) =>
   JSON.stringify([
@@ -60,7 +60,8 @@ export function deliveryMatches(items, messages) {
           (typeof message.timestamp === "number"
             ? message.timestamp
             : Date.parse(message.timestamp)) >= item.observation.startedAt) &&
-        deliveryContentMatches(item, message),
+        deliveryContentMatches(item, message) &&
+        (!message.claudeImageInput || queuedImagesUnique(item, message, items, messages)),
     );
     if (match) {
       used.add(match.id);

@@ -53,6 +53,22 @@ function slashCommand(record) {
   return { ...record, message: { ...record.message, content: command } };
 }
 
+// A queued prompt with images is an array of text and image blocks only.
+const queuedBlocks = (prompt) =>
+  Array.isArray(prompt) &&
+  prompt.length > 0 &&
+  prompt.every(
+    (block) =>
+      (block?.type === "text" && typeof block.text === "string") ||
+      block?.type === "image",
+  );
+const queuedContent = (prompt) =>
+  typeof prompt === "string"
+    ? unwrapClaudePaste(prompt)
+    : prompt.map((block) =>
+        block.type === "text" ? { ...block, text: unwrapClaudePaste(block.text) } : block,
+      );
+
 /** Claude surfaces human messages absorbed mid-turn as queued-command attachments.
  * Queue operations alone are not conversation messages (they may be cancelled).
  */
@@ -78,15 +94,24 @@ export function claudeConversationRecord(record) {
     attachment.origin?.kind !== "human" ||
     typeof attachment.source_uuid !== "string" ||
     !attachment.source_uuid ||
-    typeof attachment.prompt !== "string" ||
-    !attachment.prompt
+    !(
+      (typeof attachment.prompt === "string" && attachment.prompt) ||
+      queuedBlocks(attachment.prompt)
+    )
   )
     return slashCommand(unwrapPastes(record));
+  const images = Array.isArray(attachment.prompt);
   return {
     ...record,
     type: "user",
     uuid: attachment.source_uuid,
-    message: { role: "user", content: unwrapClaudePaste(attachment.prompt) },
+    origin: attachment.origin,
+    ...(images && {
+      queuedCommand: true,
+      imagePasteIds: attachment.imagePasteIds,
+      promptId: record.promptId ?? attachment.promptId,
+    }),
+    message: { role: "user", content: queuedContent(attachment.prompt) },
   };
 }
 

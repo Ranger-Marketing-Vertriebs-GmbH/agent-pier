@@ -1,4 +1,7 @@
-import { restoreClaudeImagePaths } from "./claude-image-history.js";
+import {
+  claudeQueuedImageInput,
+  restoreClaudeImagePaths,
+} from "./claude-image-history.js";
 import { codexImageInput } from "./codex-image-input.js";
 import { codexInputTime } from "./native-input-time.js";
 import { markOpenCodeInput } from "./opencode-input-state.js";
@@ -132,42 +135,44 @@ export function normalizeClaude(records) {
   const fragments = new Map();
   const results = new Map();
   const subagents = createSubagentTracker();
-  restoreClaudeImagePaths(list(records)).forEach((source, index) => {
-    const record = claudeConversationRecord(source);
-    subagents.record(record);
-    if (!claudeVisibleRecord(record)) return;
-    const message = object(record.message);
-    const id = identifier(message.id || record.uuid) || `claude:${index}`;
-    const previous = snapshots.get(id);
-    // Claude streams one content block per fragment record of a message.id, each
-    // at index 0. Blocks without an id are therefore keyed per record, so later
-    // fragments append instead of replacing an earlier text or thinking block.
-    const origin = identifier(record.uuid) || `record:${index}`;
-    const blockKey = (block, position) =>
-      identifier(block?.id) || `${origin}:${position}`;
-    if (record.type === "assistant" && previous && Array.isArray(message.content)) {
-      const blocks = fragments.get(id) || new Map();
-      message.content.forEach((block, position) =>
-        blocks.set(blockKey(block, position), block),
-      );
-      fragments.set(id, blocks);
-      snapshots.set(id, {
-        ...record,
-        message: { ...message, content: [...blocks.values()] },
-        normalizedId: id,
-      });
-    } else {
-      fragments.set(
-        id,
-        new Map(list(message.content).map((block, i) => [blockKey(block, i), block])),
-      );
-      snapshots.set(id, { ...record, message, normalizedId: id });
-    }
-    for (const block of list(message.content)) {
-      if (block?.type === "tool_result" && identifier(block.tool_use_id))
-        results.set(String(block.tool_use_id), block);
-    }
-  });
+  // Queued prompts become user records first, so path evidence can still apply.
+  restoreClaudeImagePaths(list(records).map(claudeConversationRecord)).forEach(
+    (record, index) => {
+      subagents.record(record);
+      if (!claudeVisibleRecord(record)) return;
+      const message = object(record.message);
+      const id = identifier(message.id || record.uuid) || `claude:${index}`;
+      const previous = snapshots.get(id);
+      // Claude streams one content block per fragment record of a message.id, each
+      // at index 0. Blocks without an id are therefore keyed per record, so later
+      // fragments append instead of replacing an earlier text or thinking block.
+      const origin = identifier(record.uuid) || `record:${index}`;
+      const blockKey = (block, position) =>
+        identifier(block?.id) || `${origin}:${position}`;
+      if (record.type === "assistant" && previous && Array.isArray(message.content)) {
+        const blocks = fragments.get(id) || new Map();
+        message.content.forEach((block, position) =>
+          blocks.set(blockKey(block, position), block),
+        );
+        fragments.set(id, blocks);
+        snapshots.set(id, {
+          ...record,
+          message: { ...message, content: [...blocks.values()] },
+          normalizedId: id,
+        });
+      } else {
+        fragments.set(
+          id,
+          new Map(list(message.content).map((block, i) => [blockKey(block, i), block])),
+        );
+        snapshots.set(id, { ...record, message, normalizedId: id });
+      }
+      for (const block of list(message.content)) {
+        if (block?.type === "tool_result" && identifier(block.tool_use_id))
+          results.set(String(block.tool_use_id), block);
+      }
+    },
+  );
   const messages = new Map();
   let todos = [];
   const tasks = new Map();
@@ -189,6 +194,7 @@ export function normalizeClaude(records) {
     const resultEnvelope =
       record.type === "user" &&
       list(content).some((block) => block?.type === "tool_result");
+    const queuedImages = claudeQueuedImageInput(record);
     list(content).forEach((block, index) => {
       if (!block) return;
       const id = identifier(block.id) || `${baseId}:${index}`;
@@ -203,6 +209,7 @@ export function normalizeClaude(records) {
           role: record.type,
           text: block.text,
           ...timestamp,
+          ...(queuedImages && { claudeImageInput: queuedImages }),
         });
       }
       if (block.type === "tool_use" && record.type === "assistant") {
