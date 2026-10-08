@@ -4,10 +4,8 @@ import path from "node:path";
 // Doctor checks for running protocol adapter sessions. Reads counters and fixed enums from
 // `sessions/<id>.adapter.json` only; a snapshot of another launch generation is ignored.
 const TOOLS = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode" };
-const DETAIL_KEYS = [
-  "startedAt",
-  "updatedAt",
-  "route",
+// Counter maps: only numeric leaves under short identifier-like keys survive.
+const COUNTER_KEYS = [
   "restarts",
   "requests",
   "unauthorized",
@@ -20,11 +18,23 @@ const DETAIL_KEYS = [
   "adjustments",
   "compactionDropped",
   "capabilityFallbacks",
-  "capabilities",
   "estimatedUsage",
   "cacheReadTokens",
-  "supervisor",
 ];
+const PROTOCOLS = ["messages", "responses", "chatCompletions"];
+const REASONS = ["listen", "timeout", "aborted", "spawn", "config", "exited"];
+// Every known capability with its allowed values (booleans unless listed).
+const CAPABILITIES = {
+  promptCache: null,
+  thinkingBudget: null,
+  promptCacheKey: null,
+  reasoningEffort: null,
+  parallelToolCalls: null,
+  streamUsage: null,
+  reasoningReplay: null,
+  systemMessages: ["merge", "inline"],
+  maxTokensField: ["max_tokens", "max_completion_tokens"],
+};
 const RELOAD = "Reload the session to restart the protocol adapter.";
 
 const read = (file) => {
@@ -40,32 +50,85 @@ const count = (value) =>
     : value && typeof value === "object"
       ? Object.values(value).reduce((sum, item) => sum + count(item), 0)
       : 0;
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
+const COUNTER_KEY = /^[\w./:-]{1,64}$/;
+const time = (value) =>
+  typeof value === "string" && ISO.test(value) ? value : undefined;
+const oneOf = (value, allowed) => (allowed.includes(value) ? value : undefined);
+const counters = (value) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const entries = Object.entries(value)
+    .filter(([key]) => COUNTER_KEY.test(key))
+    .map(([key, item]) => [key, counters(item)])
+    .filter(([, item]) => item !== undefined);
+  return Object.fromEntries(entries);
+};
+const compact = (entries) =>
+  Object.fromEntries(entries.filter(([, value]) => value !== undefined));
+const capabilities = (value) =>
+  value && typeof value === "object"
+    ? compact(
+        Object.entries(CAPABILITIES).map(([name, allowed]) => {
+          const item = value[name];
+          return [
+            name,
+            allowed ? oneOf(item, allowed) : typeof item === "boolean" ? item : undefined,
+          ];
+        }),
+      )
+    : undefined;
+const supervisorOf = (value) =>
+  value && typeof value === "object"
+    ? compact([
+        ["restarts", counters(value.restarts)],
+        ["lastReason", oneOf(value.lastReason, REASONS)],
+        ["gaveUpAt", time(value.gaveUpAt)],
+        ["startFailed", oneOf(value.startFailed, REASONS)],
+        ["at", time(value.at)],
+      ])
+    : undefined;
+// The only shape the doctor reports: counters, ISO timestamps and fixed enums.
 const details = (snapshot) =>
-  Object.fromEntries(
-    DETAIL_KEYS.filter((key) => key in snapshot).map((key) => [key, snapshot[key]]),
-  );
+  compact([
+    ["startedAt", time(snapshot.startedAt)],
+    ["updatedAt", time(snapshot.updatedAt)],
+    [
+      "route",
+      snapshot.route && typeof snapshot.route === "object"
+        ? compact([
+            ["client", oneOf(snapshot.route.client, PROTOCOLS)],
+            ["upstream", oneOf(snapshot.route.upstream, PROTOCOLS)],
+          ])
+        : undefined,
+    ],
+    ...COUNTER_KEYS.map((key) => [key, counters(snapshot[key])]),
+    ["capabilities", capabilities(snapshot.capabilities)],
+    ["supervisor", supervisorOf(snapshot.supervisor)],
+  ]);
 
 export function adapterCheck(session, snapshot) {
   const id = `adapter-session.${session.id}`;
-  const head = `"${session.name ?? session.id}": ${TOOLS[session.tool] ?? session.tool} via adapter (${
-    session.provider?.route?.source ?? "unknown"
+  const head = `"${session.name ?? session.id}": ${TOOLS[session.tool] ?? "Unknown CLI"} via adapter (${
+    oneOf(session.provider?.route?.source, PROTOCOLS) ?? "unknown"
   })`;
   if (!snapshot)
     return { id, status: "ok", summary: `${head}: no requests recorded yet.` };
-  const supervisor = snapshot.supervisor || {};
-  if (supervisor.gaveUpAt)
+  const supervisor = supervisorOf(snapshot.supervisor) || {};
+  const at = supervisor.gaveUpAt ?? supervisor.at ?? "an unknown time";
+  if (snapshot.supervisor?.gaveUpAt)
     return {
       id,
       status: "fail",
-      summary: `${head}: the protocol adapter stopped after ${count(supervisor.restarts)} restart(s) (${supervisor.lastReason ?? "exited"}) at ${supervisor.gaveUpAt}; every request of the CLI now gets HTTP 503.`,
+      summary: `${head}: the protocol adapter stopped after ${count(supervisor.restarts)} restart(s) (${supervisor.lastReason ?? "exited"}) at ${at}; every request of the CLI now gets HTTP 503.`,
       remedy: RELOAD,
       details: details(snapshot),
     };
-  if (supervisor.startFailed)
+  if (snapshot.supervisor?.startFailed)
     return {
       id,
       status: "fail",
-      summary: `${head}: the protocol adapter failed to start (${supervisor.startFailed}) at ${supervisor.at ?? "an unknown time"}.`,
+      summary: `${head}: the protocol adapter failed to start (${supervisor.startFailed ?? "unknown"}) at ${at}.`,
       remedy: `${RELOAD} If it fails again, test the connection and check its address.`,
       details: details(snapshot),
     };
