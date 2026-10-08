@@ -154,6 +154,25 @@ test("test proposals fill adapter options that stay editable", async ({ page }) 
   expect(created.endpoint.thinkTagExtraction).toBe(true);
 });
 
+test("image support per model is saved as a tri-state", async ({ page }) => {
+  const { controls, dialog } = await openNewEndpoint(page);
+  await dialog.getByRole("button", { name: "Test connection", exact: true }).click();
+  const images = dialog.getByLabel("Images qwen3:8b", { exact: true });
+  await expect(images).toHaveValue("");
+  await images.selectOption("no");
+  await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  const created = controls.calls
+    .filter((call) => call.path === "/api/provider-connections" && call.method === "POST")
+    .at(-1).body;
+  expect(created.endpoint.models.find((m) => m.modelId === "qwen3:8b").images).toBe(
+    false,
+  );
+  expect(
+    created.endpoint.models.find((m) => m.modelId === "llama3:8b").images,
+  ).toBeNull();
+});
+
 test.describe("narrow screen", () => {
   test.use({ viewport: { width: 390, height: 844 } });
   test("the routing section fits without horizontal overflow", async ({ page }) => {

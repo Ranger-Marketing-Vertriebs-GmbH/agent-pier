@@ -192,6 +192,11 @@ export const connectionCopy = {
     context: "Kontext",
     output: "Max. Output",
     source: "Herkunft",
+    images: "Bilder",
+    imagesFor: (id) => `Bilder ${id}`,
+    imageChoices: { auto: "Automatisch", yes: "Ja", no: "Nein" },
+    imagesHelp:
+      "Nein lässt den Adapter Bild-Eingaben für dieses Modell ablehnen; Codex führt es ohne Bildeingang.",
     sources: { detected: "Erkannt", manual: "Manuell" },
     contextHint: (tokens) => `Modell-Maximum: ${tokens}`,
     contextMissing: "Kontext erforderlich",

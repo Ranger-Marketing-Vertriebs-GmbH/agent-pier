@@ -108,6 +108,10 @@
   white-space: nowrap;
   color: var(--muted);
 }
+.endpoint-models .endpoint-model-images select {
+  min-width: 0;
+  max-width: 7.5rem;
+}
 @media (max-width: 700px) {
   .endpoint-model-scroll thead {
     position: absolute;
@@ -151,6 +155,15 @@
   }
   .endpoint-models td[data-label] {
     grid-row: 3;
+  }
+  /* Card layout: Context and Output share row 3; Images gets its own row. */
+  .endpoint-models td.endpoint-model-images {
+    grid-column: 1 / 3;
+    grid-row: 4;
+  }
+  .endpoint-models .endpoint-model-images select {
+    max-width: none;
+    width: 100%;
   }
   .endpoint-models td[data-label]::before {
     content: attr(data-label);
