@@ -205,8 +205,8 @@ invalid values are rejected.
   Rows skip with the CLI's name when it is not installed; `AGENTPIER_SKIP_CLI_SMOKE=1`
   skips the matrix.
 - nono: `tests/matrix/nono-adapter-loopback.test.js` (skips without nono).
-- Browser: `tests/browser/endpoint-routing.spec.js`, `endpoint-route-labels.spec.js` and
-  `operations-adapter-diagnostics.spec.js`. Run
+- Browser: `tests/browser/endpoint-routing.spec.js`, `endpoint-adapter-options.spec.js`,
+  `endpoint-route-labels.spec.js` and `operations-adapter-diagnostics.spec.js`. Run
   `CAPTURE_ADAPTER_SCREENSHOTS=1 AGENTPIER_TEST_BROWSER=chromium npx playwright test` on
   them to regenerate the documentation screenshots.
 
