@@ -1,4 +1,5 @@
-const GROUPS = ["requests", "upstreamStatus", "errors", "capabilityFallbacks"];
+const GROUPS = ["requests", "upstreamStatus", "errors"];
+const OUTCOMES = ["kept", "reverted"];
 const SCALARS = ["unauthorized", "forbidden", "clientDisconnects", "shutdownAborts"];
 
 /**
@@ -9,6 +10,7 @@ export function createAdapterCounters() {
   const state = Object.fromEntries([
     ...GROUPS.map((group) => [group, {}]),
     ...SCALARS.map((name) => [name, 0]),
+    ["capabilityFallbacks", {}],
   ]);
 
   function count(group, name) {
@@ -25,5 +27,13 @@ export function createAdapterCounters() {
   /** Counts an upstream HTTP status by class (`"2xx"`, `"4xx"`, …). */
   const status = (code) => count("upstreamStatus", `${Math.floor(code / 100)}xx`);
 
-  return { count, increment, status, snapshot: () => structuredClone(state) };
+  /** Counts a capability retry (`"<name>=<value>"`) as `kept` or `reverted`. */
+  function fallback(name, outcome) {
+    if (!OUTCOMES.includes(outcome))
+      throw new TypeError(`counters: unknown outcome ${outcome}`);
+    const record = (state.capabilityFallbacks[name] ??= { kept: 0, reverted: 0 });
+    record[outcome] += 1;
+  }
+
+  return { count, increment, status, fallback, snapshot: () => structuredClone(state) };
 }

@@ -41,9 +41,10 @@
  * - `setCapability(name, value)`: changes one capability for subsequent `buildUpstream`
  *   calls only (TypeError for unknown names or invalid values). With the pure
  *   `capabilityForError(upstream, irError)` it implements the 400/422 → capability retry.
- * - `diagnostics()`: `{ dropped, adjustments, errors, estimatedUsage }`: counters by name
- *   and the number of responses whose usage was estimated. `dropped`: client features
- *   not sent upstream (hints except the consumed `store`/`include`, hosted tools, sampling
+ * - `diagnostics()`: `{ dropped, adjustments, errors, estimatedUsage, cacheReadTokens }`:
+ *   counters by name, the number of responses whose usage was estimated and the cached
+ *   input tokens (per exchange its highest cumulative `cacheRead`). `dropped`: client
+ *   features not sent upstream (hints except the consumed `store`/`include`, hosted tools, sampling
  *   values, orphaned parts); `adjustments`: values the adapter changed (thinking/effort
  *   resolutions, cache breakpoints, clamped max tokens); `errors`: `request.invalid`,
  *   `request.rejected`, `request.imageRejected`, `stream.invalid`, `stream.<kind>`,
@@ -277,6 +278,7 @@ export function createTranslator({
     thinkTagExtraction: thinkTagExtraction === true,
   };
   const stats = { dropped: {}, adjustments: {}, errors: {}, estimatedUsage: 0 };
+  let cacheReadTokens = 0;
 
   const secretList = (Array.isArray(secrets) ? secrets : []).filter(
     (secret) => typeof secret === "string",
@@ -346,8 +348,13 @@ export function createTranslator({
           };
 
     let estimated = false;
+    let cacheRead = 0; // usage is cumulative: count each exchange's highest value once
     async function* observe(events) {
       for await (const event of events) {
+        if (event.type === "usage" && event.cacheRead > cacheRead) {
+          cacheReadTokens += event.cacheRead - cacheRead;
+          cacheRead = event.cacheRead;
+        }
         if (event.type === "usage" && event.estimated && !estimated) {
           estimated = true;
           stats.estimatedUsage += 1;
@@ -557,6 +564,7 @@ export function createTranslator({
       adjustments: { ...stats.adjustments },
       errors: { ...stats.errors },
       estimatedUsage: stats.estimatedUsage,
+      cacheReadTokens,
     }),
   };
 }

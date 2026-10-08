@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import http from "node:http";
+import os from "node:os";
+import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { scriptedUpstream, sse } from "../helpers/scripted-upstream.js";
 import { loadFixture } from "../helpers/protocol-adapter.js";
@@ -341,4 +344,44 @@ test("a slow reader gets the complete stream without listener growth", async (t)
   assert.equal(lastEvent(stream.text), "message_stop");
   assert.equal(stream.text.match(/~/g).length, count * size);
   assert.deepEqual(warnings, []);
+});
+
+test("a dropped Codex compaction item is surfaced as compactionDropped", async (t) => {
+  const up = await scriptedUpstream(t, (_e, res) =>
+    sse(res, loadFixture("upstreams/chat/text.sse")),
+  );
+  const { url, server } = await start(t, up, { clientProtocol: "responses" });
+  const body = codexBody();
+  body.input.unshift({ type: "compaction", encrypted_content: "x" });
+  await (await post(`${url}/v1/responses`, body)).text();
+  assert.equal(server.snapshot().dropped["input.compaction"], 1);
+  assert.equal(server.snapshot().compactionDropped, 1);
+});
+
+test("the diagnostics file holds counters only and gets a final flush on close", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "adapter-diagnostics-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, "session.adapter.json");
+  const up = await scriptedUpstream(t, (_e, res) =>
+    sse(res, loadFixture("upstreams/chat/usage-cached.sse")),
+  );
+  const { url, server } = await start(t, up, { diagnosticsPath: file });
+  const prompt = "diagnostics file canary prompt";
+  const body = claudeBody();
+  body.messages.push({ role: "user", content: prompt });
+  const answer = "Cached hello.";
+  assert.match(await (await post(`${url}/v1/messages`, body)).text(), /Cached hello\./);
+  await until(() => fs.existsSync(file));
+  // Within the 5 s interval: only the final flush on close records this one.
+  await fetch(`${url}/v1/messages`, { method: "POST", body: "{}" });
+  await server.close();
+  const raw = fs.readFileSync(file, "utf8");
+  const written = JSON.parse(raw);
+  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+  assert.equal(written.requests["/v1/messages"], 1);
+  assert.equal(written.unauthorized, 1);
+  assert.equal(written.cacheReadTokens, 3072);
+  assert.deepEqual(fs.readdirSync(dir), ["session.adapter.json"]);
+  for (const secret of [prompt, KEY, TOKEN, answer])
+    assert.equal(raw.includes(secret), false);
 });
