@@ -73,10 +73,20 @@ test("environment and exec args", () => {
   assert.deepEqual(adapterExecArgv(new Set()), []);
   assert.deepEqual(
     adapterEnvironment(
-      { NODE_EXTRA_CA_CERTS: "/ca.pem", HTTPS_PROXY: "x", K: KEY },
-      { PATH: "/bin" },
+      {
+        NODE_EXTRA_CA_CERTS: "/ca.pem",
+        SSL_CERT_FILE: "/certs/bundle.pem",
+        HTTPS_PROXY: "x",
+        K: KEY,
+      },
+      { PATH: "/bin", SSL_CERT_DIR: "/certs", HTTP_PROXY: "y" },
     ),
-    { PATH: "/bin", NODE_EXTRA_CA_CERTS: "/ca.pem" },
+    {
+      PATH: "/bin",
+      NODE_EXTRA_CA_CERTS: "/ca.pem",
+      SSL_CERT_FILE: "/certs/bundle.pem",
+      SSL_CERT_DIR: "/certs",
+    },
   );
 });
 
@@ -128,7 +138,7 @@ test("startup failures: invalid config and a silent child (start timeout)", asyn
 test("without a failed message the exit code names the reason", async (t) => {
   for (const [code, reason] of [
     [78, "config"],
-    [71, "bind"],
+    [71, "exited"], // the adapter never binds: no exit code of its own for that
     [3, "exited"],
   ]) {
     const stub = writeStub(t, `process.once("message", () => process.exit(${code}));\n`);
@@ -262,6 +272,89 @@ test("an adapter server that never served leaves the previous snapshot alone", a
   assert.deepEqual(JSON.parse(fs.readFileSync(diagnosticsPath, "utf8")), {
     unauthorized: 4,
   });
+});
+
+test("a ready for another port or a stray message fails the start as config", async (t) => {
+  for (const message of ['{ type: "ready", port: 1 }', '{ type: "hello" }']) {
+    const stub = writeStub(
+      t,
+      `process.once("message", () => process.send(${message}));\nsetInterval(() => {}, 1000);\n`,
+    );
+    await assert.rejects(
+      spawnAdapter(validAdapterConfig(), { entry: stub.file, port: 47999 }),
+      { reason: "config" },
+    );
+  }
+});
+
+test("a failed start is recorded in the diagnostics file; a cancelled one is not", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-adapter-startfail-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const diagnosticsPath = path.join(dir, "s.adapter.json");
+  const generation = "generation-0000001";
+  fs.writeFileSync(
+    path.join(dir, "s.json"),
+    JSON.stringify({ adapterGeneration: generation }),
+  );
+  const config = validAdapterConfig({ diagnosticsPath, generation });
+  const exits = writeStub(t, `process.once("message", () => process.exit(78));\n`).file;
+  await assert.rejects(startAdapter(config, { entry: exits }), { reason: "config" });
+  const record = JSON.parse(fs.readFileSync(diagnosticsPath, "utf8"));
+  assert.equal(record.generation, generation);
+  assert.equal(record.supervisor.startFailed, "config");
+  assert.equal(JSON.stringify(record).includes(KEY), false);
+  fs.rmSync(diagnosticsPath);
+  const silent = writeStub(t, "setInterval(() => {}, 1000);\n").file;
+  const controller = new AbortController();
+  const started = startAdapter(config, { entry: silent, signal: controller.signal });
+  setTimeout(() => controller.abort(), 50);
+  await assert.rejects(started, { reason: "aborted" });
+  assert.equal(fs.existsSync(diagnosticsPath), false);
+});
+
+test("the adapter trusts a private CA passed as NODE_EXTRA_CA_CERTS", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-adapter-ca-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const [key, cert] = ["key.pem", "cert.pem"].map((name) => path.join(dir, name));
+  execFileSync(
+    "openssl",
+    [
+      ...["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", key, "-out", cert],
+      ...[
+        "-days",
+        "1",
+        "-subj",
+        "/CN=127.0.0.1",
+        "-addext",
+        "subjectAltName=IP:127.0.0.1",
+      ],
+    ],
+    { stdio: "ignore" },
+  );
+  const tls = { key: fs.readFileSync(key), cert: fs.readFileSync(cert) };
+  const up = await scriptedUpstream(
+    t,
+    (_e, res) => sse(res, loadFixture("upstreams/chat/text.sse")),
+    { tls },
+  );
+  const config = validAdapterConfig({
+    upstream: { baseUrl: `${up.base}/v1`, authHeader: null, apiKey: KEY },
+  });
+  const call = async (cliEnv) => {
+    const adapter = await startAdapter(config, { cliEnv });
+    t.after(() => adapter.stop());
+    const res = await fetch(`${adapter.url}/v1/messages`, {
+      method: "POST",
+      headers: authorized(),
+      body: JSON.stringify(loadFixture("clients/claude-code/text.json").body),
+    });
+    return { status: res.status, text: await res.text() };
+  };
+  const trusted = await call({ NODE_EXTRA_CA_CERTS: cert });
+  assert.equal(trusted.status, 200);
+  assert.match(trusted.text, /message_stop/);
+  // Control: without the CA the certificate is refused.
+  assert.notEqual((await call({})).status, 200);
 });
 
 test("no adapter child outlives the tests", async () => {

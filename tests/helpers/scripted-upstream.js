@@ -1,10 +1,14 @@
 import http from "node:http";
+import https from "node:https";
 
-/** HTTP server whose handler writes the response itself (SSE, delays, hangs). */
-export async function scriptedUpstream(t, script) {
+/**
+ * HTTP server whose handler writes the response itself (SSE, delays, hangs); with
+ * `{ tls: { key, cert } }` an HTTPS server.
+ */
+export async function scriptedUpstream(t, script, { tls } = {}) {
   const seen = [];
   const open = new Set();
-  const server = http.createServer(async (request, response) => {
+  const handler = async (request, response) => {
     let raw = "";
     request.setEncoding("utf8");
     for await (const chunk of request) raw += chunk;
@@ -26,7 +30,8 @@ export async function scriptedUpstream(t, script) {
     response.on("close", () => (entry.closed = true));
     seen.push(entry);
     await script(entry, response, seen.length - 1);
-  });
+  };
+  const server = tls ? https.createServer(tls, handler) : http.createServer(handler);
   server.on("connection", (socket) => {
     open.add(socket);
     socket.on("close", () => open.delete(socket));
@@ -40,7 +45,7 @@ export async function scriptedUpstream(t, script) {
       }),
   );
   return {
-    base: `http://127.0.0.1:${server.address().port}`,
+    base: `${tls ? "https" : "http"}://127.0.0.1:${server.address().port}`,
     seen,
     openConnections: () => open.size,
   };
