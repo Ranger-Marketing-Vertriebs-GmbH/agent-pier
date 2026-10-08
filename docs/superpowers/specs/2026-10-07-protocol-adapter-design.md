@@ -80,13 +80,16 @@ headers }`, `parseStream(chunks) → AsyncIterable<IrEvent>`, `parseResponse(jso
 
 2. **Adapter process** — `server/adapter-process.js` (entry point at the release root next
    to `terminal-launcher.js`, so release reference tracking covers it). A child process of
-   the launcher. It binds an HTTP server on `127.0.0.1:0`, reports the port to the launcher
-   over an IPC channel, and serves exactly one session. It never writes to stdout/stderr;
-   failures go to its diagnostics file and a sanitized one-line message the launcher prints.
+   the launcher. It never binds a port: the launcher's supervisor owns the loopback
+   listener on `127.0.0.1:0` and hands every accepted connection to the adapter over an
+   IPC channel (Amendment 18). It serves exactly one session. It never writes to
+   stdout/stderr; failures go to its diagnostics file and a sanitized one-line message the
+   launcher prints.
 
 3. **Launcher integration** — `server/terminal-launcher.js` starts the adapter process
-   when the payload has an `adapter` block, waits for the bound port (timeout 10 s),
-   substitutes the adapter URL into the CLI's `env` values and `args`, spawns the CLI,
+   when the payload has an `adapter` block (it loads the adapter modules only then), binds
+   the listener, waits for the adapter's `ready` (timeout 10 s), substitutes the adapter
+   URL and port into the CLI's `env` values and `args`, spawns the CLI,
    and stops the adapter (SIGTERM, then SIGKILL after 2 s) when the CLI exits or the
    launcher is signalled. Signal handlers are registered before the adapter is started.
 
@@ -417,8 +420,8 @@ and each model gains `images: boolean | null` (default `null`).
 
 - `launchDescription` gains `route: { mode, source }`.
 - **OpenCode** with `sdk` routes: provider `npm` is `@ai-sdk/anthropic` (base URL
-  `anthropicBaseUrl` + `/v1`) or `@ai-sdk/openai` (base URL `openaiBaseUrl`), key handling
-  as in PR #176. No adapter.
+  `anthropicBaseUrl` + `/v1`) or `@ai-sdk/openai` (base URL `openaiBaseUrl`); key
+  handling per package as in Amendment 20. No adapter.
 - **Adapter routes** (Claude Code, Codex):
   - The CLI's base URL is the literal placeholder `__AGENTPIER_ADAPTER_URL__` in env
     values and argv only. Persistent config files (Codex `config.toml`, OpenCode JSON) are
@@ -436,13 +439,15 @@ and each model gains `images: boolean | null` (default `null`).
       upstream: { baseUrl, authHeader, apiKey },
       model: { modelId, contextTokens, outputTokens, images },
       capabilities, thinkTagExtraction,
-      diagnosticsPath,
+      diagnosticsPath, generation, sessionKey,
     }
     ```
+    `generation` and `sessionKey` are described in Amendment 19.
     The real key and upstream URL exist only in this private one-use payload and the
     adapter process (passed over IPC, never in the adapter's argv or env).
-- If the adapter fails to start or bind within 10 s, the launcher prints a sanitized
-  one-line error and exits 127 without starting the CLI.
+- If the listener cannot be bound or the adapter is not ready within 10 s, the launcher
+  records the reason in the diagnostics file (Amendment 18), prints a sanitized one-line
+  error and exits 127 without starting the CLI.
 - Model change, reload and release migration restart the launcher and adapter;
   `modelChangeRequiresRestart` stays true for endpoint sessions.
 
@@ -465,8 +470,10 @@ and each model gains `images: boolean | null` (default `null`).
   addresses; TLS verification on the hostname; no redirects.
 - Upstream connections use a keep-alive agent with the policy-checked lookup.
 - Trust store: the adapter process is started with Node's system CA support
-  (`--use-system-ca` where available; otherwise `NODE_EXTRA_CA_CERTS` from AgentPier's
-  environment is passed through) so company gateways with private CAs work.
+  (`--use-system-ca` where available) so company gateways with private CAs work.
+  `NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE` and `SSL_CERT_DIR` from the CLI environment (else
+  AgentPier's) are passed through; the adapter's environment holds nothing else but
+  `PATH` (Amendment 20).
 - Request body cap 64 MiB (Amendment 17); per-event cap 16 MB; no total cap on response streams.
 - Names/ids maps are per session and in memory only. No prompt, completion or key
   content is logged; diagnostics contain counters and error kinds only.
@@ -478,7 +485,9 @@ and each model gains `images: boolean | null` (default `null`).
 
 - The adapter writes `diagnosticsPath` (private, mode 0600, at most once per 5 s): request
   counts per path, error kinds, upstream status classes, dropped hints and hosted tools by
-  name, rejected features, capability fallbacks, estimated-usage count, cache-read tokens.
+  name, rejected features, capability fallbacks, estimated-usage count, cache-read tokens,
+  plus the launch `generation`, `restarts` and the supervisor's `supervisor` record
+  (Amendments 18 and 19).
 - `doctor` shows the latest summary for running adapter sessions; the session view shows
   "via adapter (<source>)".
 
@@ -588,3 +597,6 @@ contradicts sections above, these amendments win:
 15. **Messages upstream thinking (Codex client)**: effort-only thinking (Codex sends `reasoning.effort`, no budget) is sent as `thinking: {type: "adaptive"}` with `output_config.effort`, because current Claude models reject manual `enabled` thinking. Capability `thinkingBudget: true` restores the effort → budget table (`enabled` + `budget_tokens`) for models without adaptive thinking; PR 2's 400 → capability retry maps "adaptive thinking not supported" errors to `thinkingBudget = true`. With manual thinking, a request that continues a tool loop whose assistant turn does not start with a replayable thinking block omits thinking (counted `thinking.omittedNoLeadingBlock`). Messages-origin carriers hold the JSON payload `{"s": signature, "t": thinking text}` (`{"r": data}` for `redacted_thinking`); replay uses this exact text and ignores the client's reasoning text, since Anthropic rejects modified thinking blocks. A payload that is not JSON is a plain signature (legacy).
 16. **Messages keep-alive timing**: the adapter sends Claude Code's response headers only after the upstream answered 2xx, and `event: ping` keep-alives only after the first frame. Before that nothing is written, so upstream rejections (notably context overflow) still reach Claude Code as HTTP 400 bodies, which it needs to recognize "prompt is too long". The wait is bounded by the 240 s upstream idle timeout, below Claude Code's 300 s watchdog; after the upstream's 2xx headers, the wait for the first client frame is bounded by the same 240 s even when the upstream keeps sending bytes that yield no frame (SSE comments, a lone role chunk), and then ends in an in-stream `event: error` (counted as `stream.timeout`). Codex streams start immediately (its errors are always in-stream, Amendment 3), so its keep-alives run from the first moment.
 17. **Request body cap and `count_tokens` counting**: the adapter accepts client request bodies up to 64 MiB, because Codex resends the whole conversation (including images) on every turn. A larger body is refused before translation with HTTP 400 `invalid_request_error` in the client's own error format, naming the limit, and the connection is closed. Upstreams with a lower limit of their own answer with their error, which is translated as usual. Claude Code's `POST /v1/messages/count_tokens` stays 404 without an upstream call and is counted as `requests["/v1/messages/count_tokens"]`, so diagnostics do not read it as a misrouted request.
+18. **Adapter runtime: socket ownership, restarts and give-up** (replaces "the adapter binds `127.0.0.1:0` and reports the port"): the launcher's supervisor (`adapter-supervisor.js`, `adapter-listener.js`) binds `127.0.0.1:0` itself and keeps that listening socket for the whole session; the adapter process never binds. Accepted connections stay paused and are handed one by one to the current adapter child over IPC (a `connection` message carrying the socket handle); the child serves them through `attach(port)` + `accept(socket)` and answers the `start` message with a `ready` that echoes the supervisor's port. The port is never released while the session runs, so no other local process can take it during a restart (it would receive the session token and the prompts). An adapter exit the supervisor did not cause restarts the adapter with the same configuration and token after 250 ms; at most 3 restart attempts within a sliding 60 s window, and a failed or timed-out start attempt counts as one. While no child takes connections (restart window, or a child that announced `closing` on shutdown), connections wait in a queue bounded to 64 connections and 15 s age; connections beyond either bound are closed. A crash restart reads the last snapshot of its own launch generation and continues its counters and learned capabilities (`restarts` counts the restarts). When the budget is spent, the supervisor gives up: it drops the key and token, answers every waiting and later connection with a static HTTP 503 in the client's own error format ("the protocol adapter stopped after repeated crashes; restart the session") and closes it, keeps the port bound until the session ends, and merges `supervisor: { restarts, lastReason, gaveUpAt }` into the diagnostics file. The CLI keeps running and gets these 503s until the session is reloaded or restarted; before PR 3 nothing in the UI says so, and the PR 3 doctor must read the `supervisor` field. A failed start (`config`, `timeout`, `spawn`, `listen`, `exited`) writes `supervisor: { startFailed, at }` (fixed reasons only), after which the launcher prints its sanitized line and exits 127 without starting the CLI; a start cancelled by a stop records nothing.
+19. **Diagnostics ownership and the prompt-cache key**: every launch (create and reload) puts a random launch `generation` into the adapter block, and the session record stores it as `adapterGeneration`. Every snapshot carries its `generation`, and the adapter and its supervisor write `<id>.adapter.json` only while the session record exists and names their generation. Removal deletes the session record before the diagnostics file, and reload records the new generation before it deletes the old snapshot, so an adapter that is still shutting down can neither recreate the file of a deleted session nor overwrite the new generation's snapshot; a write that loses this race is taken back. An adapter that never served a request writes no final snapshot. The PR 3 doctor must ignore a snapshot whose `generation` differs from the session's. The adapter block also carries `sessionKey`, the prompt-cache key fallback (`prompt_cache_key` when the client sends none): a truncated SHA-256 of the session id, stable across adapter restarts and reloads, without revealing the id.
+20. **Launch details verified in PR 2**: (a) nono: every adapter launch under nono gets `--open-port <port>` before `--` (the server composes it with a port placeholder the launcher substitutes; it cannot resolve built-in or inherited profiles, and with an open network the flag grants nothing new). A `network.block` profile otherwise denies loopback (fact R1b); verified on macOS, the Linux block-network case is skipped in the matrix test and unverified. (b) OpenCode SDK routes: `@ai-sdk/openai-compatible` (Chat) takes the key as `apiKey` and needs none; `@ai-sdk/openai` (Responses) takes `apiKey` and `@ai-sdk/anthropic` (Messages) `authToken`, both sent as `Authorization: Bearer` (fact R4a), and both refuse to start without one, so keyless connections get the fixed non-secret placeholder `agentpier-endpoint` (fact R4c). With a custom auth header the key goes only into that header as an `{env:…}` reference; the official SDKs then get the placeholder key and a blank `Authorization` header. Whether Azure accepts an empty `Authorization` next to `api-key` is unverified (PR 3 docs and doctor). The key stays in the environment, never in `opencode.json`. (c) No upstream proxy: the adapter's upstream client uses its own keep-alive agent with the policy-checked lookup and never consults `HTTP_PROXY`, `HTTPS_PROXY` or `NO_PROXY`; the adapter process does not even receive them (its environment is `PATH` plus the CA variables `NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE` and `SSL_CERT_DIR`). Endpoints reachable only through a proxy therefore do not work over adapter routes. The CLI's own environment keeps its proxy settings, with `127.0.0.1,localhost` added to `NO_PROXY`/`no_proxy` so the CLI reaches the adapter directly. The 64 MiB request cap and `count_tokens` handling are Amendment 17.
