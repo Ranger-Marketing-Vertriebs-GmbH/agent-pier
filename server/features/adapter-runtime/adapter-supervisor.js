@@ -1,7 +1,10 @@
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { ADAPTER_URL_PLACEHOLDER } from "../providers/adapter-launch.js";
+import {
+  ADAPTER_PORT_PLACEHOLDER,
+  ADAPTER_URL_PLACEHOLDER,
+} from "../providers/adapter-launch.js";
 import { writeDiagnostics } from "./adapter-diagnostics.js";
 import { createAdapterListener } from "./adapter-listener.js";
 import { unavailableResponse } from "./adapter-http.js";
@@ -28,7 +31,12 @@ export function adapterEnvironment(cliEnv = {}, own = process.env) {
  * the session's fixed, non-secret loopback origin, never the token or the key.
  */
 export function substituteAdapterUrl({ env, args }, url) {
-  const swap = (value) => value.replaceAll(ADAPTER_URL_PLACEHOLDER, url);
+  // The port placeholder (nono `--open-port`) is the same origin's port, equally public.
+  const port = new URL(url).port;
+  const swap = (value) =>
+    value
+      .replaceAll(ADAPTER_URL_PLACEHOLDER, url)
+      .replaceAll(ADAPTER_PORT_PLACEHOLDER, port);
   return {
     ...(env
       ? { env: Object.fromEntries(Object.entries(env).map(([k, v]) => [k, swap(v)])) }

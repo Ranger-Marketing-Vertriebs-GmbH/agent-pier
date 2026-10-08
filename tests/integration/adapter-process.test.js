@@ -98,6 +98,14 @@ test("substitution touches env values and args only", () => {
   });
 });
 
+test("substitution fills the port placeholder from the bound URL", () => {
+  const out = substituteAdapterUrl(
+    { env: {}, args: ["wrap", "--open-port", "__AGENTPIER_ADAPTER_PORT__", "--", "cli"] },
+    "http://127.0.0.1:43210",
+  );
+  assert.deepEqual(out.args, ["wrap", "--open-port", "43210", "--", "cli"]);
+});
+
 test("startup failures: invalid config and a silent child (start timeout)", async (t) => {
   // The adapter reports `config` over IPC before it exits; the supervisor must see that reason.
   await assert.rejects(startAdapter({ token: "x" }), { reason: "config" });

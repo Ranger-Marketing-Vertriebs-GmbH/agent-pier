@@ -140,6 +140,16 @@ Network access is allowed by default under nono; no grant is needed for provider
 GitHub egress. An explicitly named sandbox profile keeps its own capabilities in effect
 alongside the grants AgentPier injects.
 
+A session on a protocol adapter route talks to its adapter on `127.0.0.1:<port>`. A
+profile with `network.block` denies loopback as well, so every adapter launch under nono
+also carries `--open-port <adapter port>`, placed just before `--`. The server composes the command
+before the port exists, so it writes a placeholder that the terminal launcher replaces
+once the adapter has bound. AgentPier adds the flag regardless of the profile, because
+it cannot resolve built-in or inherited profiles. With an open network the flag grants
+nothing new. The adapter already holds that port. With a blocking profile, it opens the
+one hole the session needs. This has been verified on macOS; Linux behavior is
+unverified.
+
 nono cannot initialize nested inside another operating-system sandbox: if the AgentPier
 server process itself already runs under one, wrapping a session in nono on top of it
 fails at launch. Run AgentPier unsandboxed if you want to use this feature.
