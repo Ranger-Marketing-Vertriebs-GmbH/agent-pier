@@ -17,6 +17,8 @@ import {
   writeRendered,
 } from "./adapter-http.js";
 import { handleInference } from "./adapter-request.js";
+import { createRetry } from "./adapter-retry.js";
+import { createDiagnosticsWriter } from "./adapter-diagnostics.js";
 
 /** Largest accepted client request body (Codex sends large requests). */
 export const MAX_REQUEST_BODY_BYTES = 64 * 1024 * 1024;
@@ -24,7 +26,8 @@ export const MAX_REQUEST_BODY_BYTES = 64 * 1024 * 1024;
 /**
  * The adapter's loopback HTTP server for one session: token auth, per-client path
  * routing, one translator exchange per request and diagnostics counters. `ctx` is the
- * shared per-session context; the capability retry attaches `ctx.retry` and `ctx.onDone`.
+ * shared per-session context: `ctx.retry` is the capability retry, `ctx.onDone` schedules
+ * the throttled diagnostics write after every request (unauthorized ones included).
  */
 export function createAdapterServer(config, options = {}) {
   const {
@@ -75,6 +78,7 @@ export function createAdapterServer(config, options = {}) {
     },
     onDone: () => {},
   };
+  ctx.retry = createRetry(ctx);
 
   let port = null;
 
@@ -154,6 +158,13 @@ export function createAdapterServer(config, options = {}) {
     };
   }
 
+  const writer = createDiagnosticsWriter({
+    path: config.diagnosticsPath,
+    snapshot,
+    now,
+  });
+  ctx.onDone = () => writer.touch();
+
   return {
     ctx,
     snapshot,
@@ -167,15 +178,20 @@ export function createAdapterServer(config, options = {}) {
           resolve(port);
         });
       }),
-    /** Ends open client streams and upstream requests; resolves once all sockets closed. */
-    close: () =>
-      new Promise((resolve) => {
+    /**
+     * Ends open client streams and upstream requests; resolves once all sockets closed
+     * and the final diagnostics were written.
+     */
+    close: async () => {
+      await new Promise((resolve) => {
         ctx.closing = true;
         for (const stop of [...ctx.keepalives]) stop();
         for (const abort of [...ctx.requests]) abort("shutdown");
         server.close(() => resolve());
         server.closeAllConnections();
         upstreamClient.close();
-      }),
+      });
+      await writer.flush();
+    },
   };
 }

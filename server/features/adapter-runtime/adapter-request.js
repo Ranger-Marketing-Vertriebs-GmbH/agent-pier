@@ -5,7 +5,7 @@ import { writeRendered } from "./adapter-http.js";
 
 const SSE = { "content-type": "text/event-stream", "cache-control": "no-cache" };
 /** Upstream error bodies are read up to this size (enough for any error envelope). */
-const MAX_ERROR_TEXT = 1024 * 1024;
+export const MAX_ERROR_TEXT = 1024 * 1024;
 /** Non-streaming upstream bodies are read up to this size. */
 const MAX_JSON_TEXT = 32 * 1024 * 1024;
 
@@ -24,13 +24,17 @@ const ABORTS = Object.freeze({
 
 export const ok = (status) => status >= 200 && status < 300;
 
-const newRequestId = (client) =>
+export const newRequestId = (client) =>
   `${client === "messages" ? "msg" : "resp"}_${randomBytes(16).toString("hex")}`;
 
-/** Keep-alive timer: one frame `ms` after the last write; `arm` restarts it. */
+/**
+ * Keep-alive timer: one frame `ms` after the last write; `arm` restarts it, `wrote` tells
+ * whether a keep-alive reached the client.
+ */
 function keepalives(ctx, res, current) {
   let timer = null;
   let stopped = false;
+  let wrote = false;
   const stop = () => {
     stopped = true;
     clearTimeout(timer);
@@ -42,11 +46,12 @@ function keepalives(ctx, res, current) {
     timer = setTimeout(() => {
       if (stopped || res.destroyed || current().terminated) return;
       res.write(current().keepalive());
+      wrote = true;
       arm();
     }, ctx.timing.keepaliveMs);
   };
   ctx.keepalives?.add(stop);
-  return { arm, stop };
+  return { arm, stop, wrote: () => wrote };
 }
 
 /**
@@ -120,6 +125,8 @@ function createAbort(ctx, controller) {
  */
 export async function handleInference(ctx, req, res, rawBody) {
   const requestId = newRequestId(ctx.client);
+  // The capabilities this request is built with (the retry compares against them).
+  const capabilities = { ...ctx.capabilities };
   let body = null;
   try {
     body = JSON.parse(rawBody);
@@ -161,20 +168,24 @@ export async function handleInference(ctx, req, res, rawBody) {
       let text = "";
       try {
         text = await response.text(MAX_ERROR_TEXT);
-        consumed = true;
       } catch {
-        /* An unreadable error body is classified by status alone. */
+        // An unreadable error body is classified by status alone; release its socket.
+        response.cancel();
       }
+      consumed = true;
+      // One retry at most, and never once a byte (a keep-alive) reached the client.
+      const retry = pings.wrote() || controller.signal.aborted ? null : ctx.retry;
       const outcome =
-        (await ctx.retry?.({
+        (await retry?.({
           body,
           headers: req.headers,
-          requestId,
+          capabilities,
           streaming,
           status: response.status,
           text,
           responseHeaders: response.headers,
           signal: controller.signal,
+          adopt: (next) => (exchange = next),
         })) ?? null;
       if (outcome?.exchange) exchange = outcome.exchange;
       if (outcome?.ok) {
