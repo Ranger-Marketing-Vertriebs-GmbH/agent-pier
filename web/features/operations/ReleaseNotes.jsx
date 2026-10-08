@@ -112,9 +112,11 @@ export default function ReleaseNotes({ version, from }) {
           );
         })
       )}
-      {!resource.loading && data?.truncated && (
+      {!resource.loading && !unavailable && (data?.truncated || data?.incomplete) && (
         <p className="release-notes-overflow">
-          {copy.releaseNotesOverflow(releases.length)}{" "}
+          {data.incomplete
+            ? copy.releaseNotesIncomplete
+            : copy.releaseNotesOverflow(releases.length)}{" "}
           <OriginalLink url={data.url}>{copy.releaseNotesAll}</OriginalLink>
         </p>
       )}

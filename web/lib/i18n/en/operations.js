@@ -112,6 +112,7 @@ export const operationsCopy = {
   releaseNotesPublished: (date) => `published ${date}`,
   releaseNotesEmpty: "This version has no release notes.",
   releaseNotesOverflow: (count) => `Only the ${count} most recent versions are shown.`,
+  releaseNotesIncomplete: "Some release notes could not be loaded.",
   releaseNotesAll: "View all releases on GitHub",
   cleanupErrors: {
     cleanupInvalid: "Choose valid versions to remove.",

@@ -75,6 +75,7 @@ export class ReleaseNotes {
         to,
         releases: [{ version: to, body: null, url: null }],
         truncated: false,
+        incomplete: false,
         url: null,
       };
     return remember(this.rangeCache, `${from}>${to}`, () =>
@@ -83,7 +84,8 @@ export class ReleaseNotes {
   }
   async loadRange(channel, from, to) {
     const entries = [];
-    let complete = false;
+    let complete = false,
+      failed = false;
     try {
       for (let page = 1; page <= maxPages && !complete; page++) {
         const items = await boundedJson(
@@ -99,6 +101,7 @@ export class ReleaseNotes {
       }
     } catch {
       // A partial list stays useful; the target is filled in below if it is missing.
+      failed = true;
     }
     const selected = selectReleaseRange(entries, from, to);
     const releases =
@@ -109,7 +112,9 @@ export class ReleaseNotes {
       from,
       to,
       releases,
-      truncated: selected.truncated || (!complete && entries.length > 0),
+      // Truncated means more versions exist than shown; incomplete means a request failed.
+      truncated: selected.truncated || (!complete && !failed),
+      incomplete: failed,
       url: releaseListPage,
     };
   }
