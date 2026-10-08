@@ -3,6 +3,7 @@ import ChatReset from "./ChatReset.jsx";
 import { resetPresentation, resetHistory } from "./chat-reset.js";
 import useFileDrop from "../../components/useFileDrop.js";
 import ChatDeliveryStatus from "./ChatDeliveryStatus.jsx";
+import { deliveredImageMessages } from "./native-delivery-state.js";
 import RequestPanel from "../requests/RequestPanel.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
@@ -93,7 +94,17 @@ export default function ChatView({
     data,
     session.restartGeneration || 0,
   );
-  const history = resetHistory(delivery.reset, data?.messages || [], resetStatus);
+  const split = resetHistory(delivery.reset, data?.messages || [], resetStatus);
+  // Confirmed queued Claude image rows show the message as sent (see native-delivery-state.js).
+  const shown = new Map(
+    deliveredImageMessages(
+      [...delivery.recent, ...(delivery.outbox ? [delivery.outbox] : [])],
+      data?.messages || [],
+    ).map((message) => [message.id, message]),
+  );
+  const asSent = (messages) =>
+    messages.map((message) => shown.get(message.id) || message);
+  const history = { previous: asSent(split.previous), current: asSent(split.current) };
   const historyLoader = data?.history?.cursor && (
     <div className="chat-history-loader">
       <button
