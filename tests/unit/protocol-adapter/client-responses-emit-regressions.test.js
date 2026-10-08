@@ -160,6 +160,40 @@ describe("custom tool wrappers cut off by the upstream", () => {
   });
 });
 
+describe("tool calls without argument text", () => {
+  const call = (...fragments) => [
+    start,
+    {
+      type: "blockStart",
+      index: 0,
+      kind: "toolCall",
+      toolCall: { id: "c1", name: "exec_command", kind: "function" },
+    },
+    ...fragments.map((fragment) => ({ type: "toolInputDelta", index: 0, fragment })),
+    { type: "blockStop", index: 0 },
+    stop("toolUse"),
+  ];
+
+  test("a function call without argument text completes with an empty object", async () => {
+    const { items } = await stream(call());
+    assert.equal(items[0].type, "function_call");
+    assert.equal(items[0].arguments, "{}");
+    const response = await emitResponsesResponse(fromChunks(call()), OPTIONS);
+    assert.equal(response.output[0].arguments, "{}");
+  });
+
+  test("streamed argument text is passed through unchanged", async () => {
+    const { items } = await stream(call('{"cmd":', '"ls"}'));
+    assert.equal(items[0].arguments, '{"cmd":"ls"}');
+  });
+
+  test("an empty custom tool input stays empty", async () => {
+    const { items } = await stream(call(), { customTools: [{ name: "exec_command" }] });
+    assert.equal(items[0].type, "custom_tool_call");
+    assert.equal(items[0].input, "");
+  });
+});
+
 test("keep-alive frames carry no sequence_number", () => {
   const [{ data }] = parseSseText(responsesKeepalive("resp_test"));
   assert.equal(data.type, "response.in_progress");

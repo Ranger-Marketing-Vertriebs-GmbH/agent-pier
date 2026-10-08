@@ -855,3 +855,17 @@ tools, tool_choice, stream`. Same extra title-generator request as in R4a; no `G
 - **Consequence:** Task 10: the adapter launcher passes `--use-system-ca` when the running Node
   accepts it (feature-detect with `allowedNodeEnvironmentFlags`); Node 22.13 and 22.14 fall
   back to passing `NODE_EXTRA_CA_CERTS` through.
+
+### R6. Function call with `arguments: ""`
+
+- **Value:** a Responses `function_call` item for `exec_command` (required `cmd`) with
+  `arguments: ""` made Codex answer the call itself with the output
+  `failed to parse function arguments: EOF while parsing a value at line 1 column 0` (stderr
+  `ERROR codex_core::tools::router`). The same item for `get_goal` (no required parameter)
+  was accepted and executed. Codex echoed the item with `arguments: ""` in the next request.
+- **Source:** `codex exec` (Codex 0.160.1) with an isolated `CODEX_HOME`/`HOME`, `env -i`-style
+  environment and a loopback fake Responses server that streamed one such `function_call`
+  followed by a text turn.
+- **Consequence:** a call without argument text (Messages `tool_use` with `input: {}` and no
+  `input_json_delta`, Chat call with empty `arguments`) is sent to Codex as `arguments: "{}"`.
+  Custom/freeform tools (`apply_patch`) keep their raw `input` string unchanged.
