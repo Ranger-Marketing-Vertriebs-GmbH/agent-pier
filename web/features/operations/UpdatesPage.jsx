@@ -61,7 +61,10 @@ export default function UpdatesPage({ route, navigate }) {
           {presentation.candidate && (
             <article className="operations-card">
               <h2>{presentation.candidate.version}</h2>
-              <ReleaseNotes version={presentation.candidate.version} />
+              <ReleaseNotes
+                version={presentation.candidate.version}
+                from={releases.current}
+              />
               <p>
                 {copy.platform}: {presentation.candidate.platform}
               </p>
@@ -87,7 +90,7 @@ export default function UpdatesPage({ route, navigate }) {
               <h3>
                 {copy.staged}: {staged.version}
               </h3>
-              <ReleaseNotes version={staged.version} />
+              <ReleaseNotes version={staged.version} from={releases.current} />
               <button
                 className="button primary"
                 aria-label={`${copy.activateRelease}: ${staged.version}`}

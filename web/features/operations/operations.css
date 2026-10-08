@@ -147,6 +147,29 @@
   margin: 16px 0;
   min-width: 0;
 }
+.release-notes-version {
+  border-top: 1px solid var(--line);
+  padding: 8px 0;
+}
+.release-notes-version > summary {
+  cursor: pointer;
+  padding: 4px 0;
+  overflow-wrap: anywhere;
+}
+.release-notes-version > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.release-notes-number {
+  font-weight: 600;
+}
+.release-notes-date,
+.release-notes-overflow {
+  color: var(--muted);
+}
+.release-notes-version[open] > summary {
+  margin-bottom: 8px;
+}
 .release-notes-content {
   max-height: 360px;
   overflow: auto;

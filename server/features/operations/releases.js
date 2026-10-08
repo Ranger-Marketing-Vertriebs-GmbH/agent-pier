@@ -145,6 +145,9 @@ export class Releases {
   notes(version) {
     return this.releaseNotes.read(this.channel, version);
   }
+  notesRange(from, to) {
+    return this.releaseNotes.range(this.channel, from, to);
+  }
   async check() {
     if (!this.channel) throw problem(serverMessages.releases.channelRequired, 409);
     const base = new URL(this.channel.endsWith("/") ? this.channel : `${this.channel}/`);
