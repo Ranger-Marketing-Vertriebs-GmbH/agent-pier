@@ -1,10 +1,12 @@
-import { DEFAULT_ROUTING } from "./endpoint-routes.js";
+import { adapterSources, DEFAULT_ROUTING } from "./endpoint-routes.js";
 
 const adapterFields = (endpoint) => ({
   routing: { ...DEFAULT_ROUTING, ...(endpoint?.routing || {}) },
   adapterCapabilities: structuredClone(endpoint?.adapterCapabilities || {}),
   thinkTagExtraction: endpoint?.thinkTagExtraction === true,
   capabilityProposal: {},
+  // Draft-only: fields the user changed, which a re-test never overwrites.
+  capabilityEdits: {},
 });
 
 export const PRESETS = {
@@ -49,9 +51,30 @@ export function initialEndpoint(connection, preset = "ollama") {
   };
 }
 
+// Proposed values for protocols no CLI reaches through the adapter were never shown,
+// so they are not kept; values the user changed stay.
+function withoutUnusedProposals(draft) {
+  const used = new Set(adapterSources(draft));
+  const proposal = draft.capabilityProposal || {};
+  const edits = draft.capabilityEdits || {};
+  const capabilities = {};
+  for (const [source, values] of Object.entries(draft.adapterCapabilities)) {
+    const kept = Object.fromEntries(
+      Object.entries(values).filter(
+        ([name]) =>
+          used.has(source) ||
+          !(name in (proposal[source] || {})) ||
+          edits[source]?.[name],
+      ),
+    );
+    if (Object.keys(kept).length) capabilities[source] = kept;
+  }
+  return { ...draft, adapterCapabilities: capabilities };
+}
+
 // A test result only describes the address and key it ran against.
 export const withoutTest = (draft) => ({
-  ...draft,
+  ...withoutUnusedProposals(draft),
   lastTest: null,
   modelsTruncated: false,
   capabilityProposal: {},
@@ -164,11 +187,19 @@ function mergeModels(previous, proposal) {
   return { models: [...detected, ...manual], truncated: kept.length < listed.length };
 }
 
-const mergeCapabilities = (current = {}, proposed = {}) =>
+// A re-test proposes values again; fields the user changed keep the user's value.
+const mergeCapabilities = (current = {}, proposed = {}, edits = {}) =>
   Object.fromEntries(
     [...new Set([...Object.keys(current), ...Object.keys(proposed)])].map((source) => [
       source,
-      { ...(current[source] || {}), ...(proposed[source] || {}) },
+      {
+        ...(current[source] || {}),
+        ...Object.fromEntries(
+          Object.entries(proposed[source] || {}).filter(
+            ([name]) => !edits[source]?.[name],
+          ),
+        ),
+      },
     ]),
   );
 
@@ -184,15 +215,17 @@ export function applyProposal(draft, proposal, now = new Date().toISOString()) {
     ]),
   );
   const merged = mergeModels(draft.models, proposal);
+  const previous = withoutUnusedProposals(draft);
   return {
-    ...draft,
+    ...previous,
     protocols,
     models: merged.models,
     modelsTruncated: merged.truncated,
     lastTest: { at: now, protocols: proposal.protocols, reasons: proposal.reasons },
     adapterCapabilities: mergeCapabilities(
-      draft.adapterCapabilities,
+      previous.adapterCapabilities,
       proposal.capabilities,
+      draft.capabilityEdits,
     ),
     capabilityProposal: structuredClone(proposal.capabilities || {}),
   };
@@ -208,12 +241,27 @@ export const setCapability = (draft, source, name, value) => ({
     ...draft.adapterCapabilities,
     [source]: { ...(draft.adapterCapabilities[source] || {}), [name]: value },
   },
+  capabilityEdits: {
+    ...draft.capabilityEdits,
+    [source]: { ...(draft.capabilityEdits?.[source] || {}), [name]: true },
+  },
 });
-export const resetCapabilities = (draft, source) => {
-  const { [source]: _removed, ...rest } = draft.adapterCapabilities;
-  const { [source]: _proposed, ...proposal } = draft.capabilityProposal || {};
-  return { ...draft, adapterCapabilities: rest, capabilityProposal: proposal };
+const without = (map = {}, key) => {
+  const { [key]: _removed, ...rest } = map;
+  return rest;
 };
+export const resetCapabilities = (draft, source) => ({
+  ...draft,
+  adapterCapabilities: without(draft.adapterCapabilities, source),
+  capabilityProposal: without(draft.capabilityProposal, source),
+  capabilityEdits: without(draft.capabilityEdits, source),
+});
+// Where a field's value comes from: "edited", "proposed", "stored" or "default".
+export function capabilityOrigin(draft, source, name) {
+  if (draft.capabilityEdits?.[source]?.[name]) return "edited";
+  if (name in (draft.capabilityProposal?.[source] || {})) return "proposed";
+  return name in (draft.adapterCapabilities[source] || {}) ? "stored" : "default";
+}
 export const setModelImages = (draft, modelId, images) => ({
   ...draft,
   models: draft.models.map((m) => (m.modelId === modelId ? { ...m, images } : m)),
@@ -240,7 +288,7 @@ export function endpointPayload(draft) {
     models: draft.models.map(modelPayload),
     lastTest: draft.lastTest,
     routing: draft.routing,
-    adapterCapabilities: draft.adapterCapabilities,
+    adapterCapabilities: withoutUnusedProposals(draft).adapterCapabilities,
     thinkTagExtraction: draft.thinkTagExtraction,
   };
 }
