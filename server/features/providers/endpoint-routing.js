@@ -21,11 +21,11 @@ export const DEFAULT_ROUTING = Object.freeze({
   opencode: "auto",
 });
 /**
- * Whether `auto` may fall back to an adapter route. Off until PR 3 ships the "via adapter"
- * labels, so existing connections do not silently start offering translated CLIs.
- * Explicit `adapter:*` choices work regardless.
+ * Whether `auto` may fall back to an adapter route. On since the UI labels adapter routes
+ * ("via adapter") in the connection list, launch dialog and session header. The
+ * `adapterAuto` option of `resolveRoute` stays as a test seam.
  */
-export const ADAPTER_AUTO_ROUTES = false;
+export const ADAPTER_AUTO_ROUTES = true;
 const ADAPTER_ORDER = ["responses", "messages", "chatCompletions"];
 const OPENCODE_ORDER = ["chatCompletions", "responses", "messages"];
 const LIBRARY = Object.freeze({

@@ -10,8 +10,7 @@ import { validateEndpoint } from "../../server/features/providers/endpoint-confi
 import { ADAPTER_URL_PLACEHOLDER } from "../../server/features/providers/adapter-launch.js";
 
 const KEY = "upstream-secret-key";
-// Adapter routes are explicit in PR 2 (ADAPTER_AUTO_ROUTES = false): `via(tool, source)`
-// enables exactly that source and routes the tool to it.
+// `via(tool, source)` enables exactly that source and routes the tool to it explicitly.
 const via = (tool, source, extra = {}) =>
   endpoint({ [source]: true }, { routing: { [tool]: `adapter:${source}` }, ...extra });
 const endpoint = (protocols, extra = {}) =>
@@ -212,13 +211,13 @@ test("each launch gets a fresh token", (t) => {
   assert.notEqual(a, b);
 });
 
-test("auto on a Chat-only endpoint launches no adapter route in PR 2", (t) => {
-  assert.throws(() => launch(t, "claude", endpoint({ chatCompletions: true })), {
-    status: 409,
-  }); // endpointProtocolDisabled
-  assert.throws(() => launch(t, "codex", endpoint({ chatCompletions: true })), {
-    status: 409,
-  });
+test("auto on a Chat-only endpoint launches Claude Code and Codex through the adapter", (t) => {
+  const claude = launch(t, "claude", endpoint({ chatCompletions: true })).result;
+  assert.equal(claude.adapter.clientProtocol, "messages");
+  assert.equal(claude.adapter.upstreamProtocol, "chat");
+  const codex = launch(t, "codex", endpoint({ chatCompletions: true })).result;
+  assert.equal(codex.adapter.clientProtocol, "responses");
+  assert.equal(codex.adapter.upstreamProtocol, "chat");
 });
 
 test("loopback bypass merges both inherited lists into one", (t) => {

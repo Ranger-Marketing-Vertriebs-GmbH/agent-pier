@@ -14,7 +14,7 @@ const fakeCli = fileURLToPath(new URL("../helpers/fake-cli.mjs", import.meta.url
 const KEY = "fixture-adapter-session-key";
 const BODY = JSON.stringify(loadFixture("clients/claude-code/text.json").body);
 
-/** Chat-only endpoint with Claude Code routed through the adapter explicitly (auto is off in PR 2). */
+/** Chat-only endpoint with Claude Code routed through the adapter explicitly (the explicit route keeps the test independent of auto). */
 async function adapterConnection(f, up) {
   const created = await f.request("/api/provider-connections", {
     method: "POST",

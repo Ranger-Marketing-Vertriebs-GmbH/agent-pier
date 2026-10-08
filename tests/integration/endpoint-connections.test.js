@@ -483,11 +483,11 @@ test("stored PR #176 records without adapter fields load as auto and stay on dis
   assert.equal(loaded.endpoint.thinkTagExtraction, false);
   assert.equal(loaded.endpoint.models[0].images, null);
   assert.deepEqual(loaded.toolRoutes, {
-    claude: null,
-    codex: null,
+    claude: { mode: "adapter", source: "chatCompletions" },
+    codex: { mode: "adapter", source: "chatCompletions" },
     opencode: { mode: "native", source: "chatCompletions" },
   });
-  assert.deepEqual(loaded.tools, ["opencode"], "same tools as in PR #176");
+  assert.deepEqual(loaded.tools, ["codex", "claude", "opencode"]);
   assert.equal(fs.readFileSync(file, "utf8"), before, "loading never rewrites the file");
   connections.update(id, { endpoint: { ...chatOnly, lastTest: null } });
   const stored = JSON.parse(fs.readFileSync(file, "utf8"))[0].endpoint;

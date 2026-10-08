@@ -190,9 +190,10 @@ test("opencode sdk routes are frozen with mode, source and origin", (t) => {
   assert.deepEqual(frozen.origins, ["http://127.0.0.1:11434"]);
 });
 
-test("auto never moves a pipeline onto an adapter route in PR 2", (t) => {
+test("auto moving a pipeline's CLI onto an adapter route invalidates its snapshot", (t) => {
   const { launch, edit } = setup(t, "codex");
+  launch();
   edit({ protocols: { messages: false, responses: false, chatCompletions: true } });
-  // ProviderAccess.resolve refuses with connectionToolUnsupported: codex is no longer offered
-  assert.throws(() => launch(), { status: 400 });
+  // codex now resolves to adapter:chatCompletions; the frozen route was native:responses.
+  assert.throws(() => launch(), changed);
 });
