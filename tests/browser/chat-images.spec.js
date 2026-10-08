@@ -48,7 +48,10 @@ async function fixture(page, large = false) {
     path,
     url: `/api/sessions/image-session/chat/images/${id}`,
   });
-  const messages = [
+  // The server only describes images whose files exist, so a mention of a file
+  // written later carries no image until the chat refreshes after the write.
+  let created = false;
+  const messages = () => [
     {
       id: "m1",
       role: "assistant",
@@ -64,7 +67,7 @@ async function fixture(page, large = false) {
       toolName: "Render",
       status: "completed",
       text: "/fixture/missing.png",
-      images: [item(missing, "/fixture/missing.png")],
+      images: created ? [item(missing, "/fixture/missing.png")] : [],
     },
     {
       id: "internal",
@@ -81,20 +84,21 @@ async function fixture(page, large = false) {
       images: [],
     },
   ];
-  await mockChatStream(page, () => ({
+  const snapshot = () => ({
     availability: "ready",
     providerSessionId: "native",
-    messages,
+    messages: messages(),
     tasks: [],
-  }));
+  });
+  const publish = await mockChatStream(page, snapshot);
   const imageRequests = [];
-  let missingReady = false;
+  let unavailable = new Set();
   await page.route("**/api/**", (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.includes("/chat/images/")) {
       imageRequests.push(url.pathname);
       return route.fulfill(
-        url.pathname.endsWith(missing) && !missingReady
+        unavailable.has(url.pathname.split("/").at(-1))
           ? { status: 404, json: { error: "Bild fehlt" } }
           : { contentType: "image/png", body: imageBody },
       );
@@ -108,10 +112,7 @@ async function fixture(page, large = false) {
           home: "/fixture",
         },
       });
-    if (url.pathname.endsWith("/chat"))
-      return route.fulfill({
-        json: { availability: "ready", providerSessionId: "native", messages, tasks: [] },
-      });
+    if (url.pathname.endsWith("/chat")) return route.fulfill({ json: snapshot() });
     return route.fulfill({ json: { supported: false, phase: "idle" } });
   });
   await page.routeWebSocket("**/api/sessions/*/terminal", (ws) =>
@@ -119,11 +120,17 @@ async function fixture(page, large = false) {
   );
   return {
     imageRequests,
-    makeMissingReady: () => {
-      missingReady = true;
+    createMissing: () => {
+      created = true;
+      publish();
+    },
+    setUnavailable: (ids) => {
+      unavailable = new Set(ids);
     },
   };
 }
+const imageRequestsFor = (f, id) =>
+  f.imageRequests.filter((url) => url.endsWith(id)).length;
 async function open(page) {
   await page.goto(base + "/#image-session");
   await page.getByRole("button", { name: "Chat", exact: true }).click();
@@ -159,20 +166,38 @@ test("reader renders local raster previews from assistant messages while retaini
     ),
   ).toBeTruthy();
 });
-test("missing assistant images keep a readable path and can retry after file appears", async ({
+test("a mentioned image without a file stays plain text until the file exists and the chat refreshes", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const f = await fixture(page);
   await open(page);
+  const mention = page.getByText("/fixture/missing.png", { exact: true });
+  await mention.scrollIntoViewIfNeeded();
+  await expect(mention).toBeVisible();
   const card = page
     .locator(".chat-image-card")
     .filter({ hasText: "/fixture/missing.png" });
+  await expect(card).toHaveCount(0);
+  await expect(page.getByText("Bild nicht verfügbar")).toHaveCount(0);
+  expect(imageRequestsFor(f, missing)).toBe(0);
+  f.createMissing();
+  await expect(card.getByRole("img")).toHaveJSProperty("naturalWidth", 1);
+  await expect(card).not.toContainText("Bild nicht verfügbar");
+});
+test("an image deleted after it was found keeps a readable path and can retry", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const f = await fixture(page);
+  f.setUnavailable([second]);
+  await open(page);
+  const card = page.locator(".chat-image-card").filter({ hasText: "./output.png" });
   await card.scrollIntoViewIfNeeded();
   await expect(card).toContainText("Bild nicht verfügbar");
   expect((await card.locator(".chat-image-open").boundingBox()).height).toBeLessThan(80);
   await expect(page.locator(".chat-tool")).not.toHaveAttribute("open", "");
-  f.makeMissingReady();
+  f.setUnavailable([]);
   await card.getByRole("button", { name: "Bild erneut laden" }).click();
   await expect(card.getByRole("img")).toHaveJSProperty("naturalWidth", 1);
 });
