@@ -115,3 +115,40 @@ test("only running sessions of the current generation are reported (Review Focus
   assert.deepEqual(fs.readdirSync(dir).sort(), before, "the doctor writes nothing");
   assert.deepEqual(adapterSessionChecks(path.join(dataDir, "missing")), []);
 });
+
+test("unexpected strings in snapshot objects never reach the report", () => {
+  const leak = "sk-leak-probe-0123456789";
+  const known = {
+    route: { client: "messages", upstream: "chatCompletions", note: leak },
+    capabilities: {
+      promptCacheKey: true,
+      systemMessages: "inline",
+      maxTokensField: leak,
+      futureFlag: leak,
+    },
+    errors: { rateLimit: 1, [leak + " with spaces"]: 2, nested: { message: leak } },
+    startedAt: leak,
+  };
+  const healthy = adapterCheck(session, snapshot(known));
+  assert.equal(JSON.stringify(healthy).includes("leak-probe"), false);
+  assert.deepEqual(healthy.details.route, {
+    client: "messages",
+    upstream: "chatCompletions",
+  });
+  assert.deepEqual(healthy.details.capabilities, {
+    promptCacheKey: true,
+    systemMessages: "inline",
+  });
+  assert.deepEqual(healthy.details.errors, { rateLimit: 1, nested: {} });
+  for (const supervisor of [
+    { restarts: 3, lastReason: leak, gaveUpAt: leak, extra: leak },
+    { startFailed: leak, at: leak },
+  ]) {
+    const check = adapterCheck(
+      { ...session, tool: leak, provider: { route: { source: leak } } },
+      snapshot({ ...known, supervisor }),
+    );
+    assert.equal(check.status, "fail");
+    assert.equal(JSON.stringify(check).includes("leak-probe"), false);
+  }
+});
