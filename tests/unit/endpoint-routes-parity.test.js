@@ -89,3 +89,18 @@ test("route options explain why a choice is unavailable (Review Focus 2)", () =>
   assert.equal(resolveDraftRoute(chatOnly, "claude"), null);
   assert.deepEqual(adapterSources(chatOnly), ["chatCompletions"]);
 });
+
+test("a missing OpenAI base URL is reported apart from a disabled protocol", () => {
+  const noOpenaiUrl = {
+    openaiBaseUrl: " ",
+    anthropicBaseUrl: "https://llm.example",
+    protocols: { messages: false, responses: true, chatCompletions: false },
+    routing: { claude: "auto", codex: "auto", opencode: "auto" },
+  };
+  const reasons = Object.fromEntries(
+    routeOptions(noOpenaiUrl, "codex").map((o) => [o.choice, o.reason]),
+  );
+  assert.equal(reasons.native, "openaiUrlMissing");
+  assert.equal(reasons["adapter:chatCompletions"], "openaiUrlMissing");
+  assert.equal(reasons["adapter:messages"], "protocolOff");
+});

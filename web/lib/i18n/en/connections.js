@@ -77,9 +77,12 @@ export const connectionCopy = {
       },
       resolved: (route) => `Uses: ${route}`,
       unavailable: (reason) => `Not available: ${reason}`,
+      choiceUnavailable: (choice, reason) => `${choice} – not available: ${reason}`,
       reasons: {
         protocolOff: "protocol not enabled",
         anthropicUrlMissing: "Anthropic-compatible base URL missing",
+        openaiUrlMissing: "OpenAI-compatible base URL missing",
+        other: "requirement not met",
       },
     },
     preset: "Server type",
