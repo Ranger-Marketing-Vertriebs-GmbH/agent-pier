@@ -17,7 +17,9 @@ It keeps text, streaming, tool calls (parallel, custom and namespaced), system p
 reasoning, images, structured output, prompt caching, stop reasons, usage and
 context-overflow signalling. It does not translate realtime, audio, batch or file APIs,
 Codex's websocket transport, or stateful Responses features (`previous_response_id` is
-rejected), and it does not emulate hosted tools on targets without them.
+rejected), and it does not emulate hosted tools on targets without them. Only custom
+endpoints use it: catalog providers (OpenRouter, Z.ai and so on) stay native, and model
+capabilities are not discovered beyond what the connection test detects.
 
 Code: `server/features/protocol-adapter/` (pure translation library, no network or
 filesystem) and `server/features/adapter-runtime/` (process, supervisor, HTTP server,
@@ -66,8 +68,9 @@ diagnostics). Launch preparation lives in `server/features/providers/`.
   process (passed over IPC, never in its argv or environment). The CLI never sees it. A
   custom auth header applies only to the adapter's upstream hop.
 - Upstream requests go only to the configured origin under the same address policy as the
-  connection test, re-checked for every new connection; each connection is pinned to its
-  checked addresses; TLS verifies the host name; redirects are not followed.
+  connection test. DNS is resolved and checked again for every new connection (nothing
+  is pinned at launch, so sessions that run for days follow DNS changes); each connection
+  is pinned to its checked addresses; TLS verifies the host name; redirects are not followed.
 - The adapter ignores `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` and does not receive
   them. Its environment holds `PATH` plus `NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE` and
   `SSL_CERT_DIR` (taken from the CLI environment, else AgentPier's); the process also runs
@@ -190,6 +193,18 @@ invalid values are rejected.
   counter maps, ISO timestamps and fixed enums, and never writes. It reports running
   sessions and stopped sessions whose current snapshot records `startFailed` or
   `gaveUpAt` within the last 24 hours.
+
+## Risks
+
+- Protocol drift in the CLIs and servers: golden fixtures are recorded from current CLI
+  versions, the CLI smoke matrix runs the real CLIs, and diagnostics count dropped
+  fields and capability fallbacks. Re-record fixtures when a CLI changes its requests.
+- A future Claude Code may reject the reasoning carriers in thinking signatures. The
+  fallback is to leave thinking out of the client stream; the smoke matrix detects it.
+- Strict servers reject optional request fields: conservative defaults, test
+  suggestions and the one-shot retry described under "Capabilities" cover this.
+- Usage estimates (servers that report no usage) may differ from the real tokenizer; they
+  are counted as `estimatedUsage`.
 
 ## Testing
 
