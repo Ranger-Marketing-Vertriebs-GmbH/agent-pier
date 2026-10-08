@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { ADAPTER_URL_PLACEHOLDER } from "../providers/adapter-launch.js";
 import { writeDiagnostics } from "./adapter-diagnostics.js";
 import { createAdapterListener } from "./adapter-listener.js";
+import { unavailableResponse } from "./adapter-http.js";
 
 export const ADAPTER_ENTRY = fileURLToPath(
   new URL("../../adapter-process.js", import.meta.url),
@@ -42,6 +43,7 @@ const exitOf = (child) =>
 export async function startAdapter(config, options = {}) {
   const {
     restart: { max = 3, windowMs = 60_000, delayMs = 250 } = {},
+    queue: { max: maxQueued, maxAgeMs } = {},
     cliEnv,
     signal,
     ...rest
@@ -49,7 +51,8 @@ export async function startAdapter(config, options = {}) {
   // Only the derived adapter env is kept; the CLI env (with its keys) is not retained.
   const spawnOptions = { ...rest, env: adapterEnvironment(cliEnv) };
   const diagnosticsPath = config?.diagnosticsPath ?? null;
-  const listener = await createAdapterListener();
+  const giveUpResponse = unavailableResponse(config?.clientProtocol);
+  const listener = await createAdapterListener({ maxQueued, maxAgeMs });
   const { port } = listener;
   let child;
   try {
@@ -70,7 +73,8 @@ export async function startAdapter(config, options = {}) {
     lastReason = "exited";
   const giveUp = () => {
     secret = null;
-    listener.refuse(); // the port stays bound: nobody else can take it
+    // The port stays bound (nobody else can take it); the CLI gets a 503 in its format.
+    listener.refuse(giveUpResponse);
     recordGiveUp(diagnosticsPath, { restarts: total, lastReason });
   };
   const scheduleRestart = () => {
@@ -108,6 +112,10 @@ export async function startAdapter(config, options = {}) {
   const watch = (next) => {
     child = next;
     listener.setTarget(next);
+    // A child that is shutting down (or lost its channel) takes no new connections.
+    const release = () => next === child && listener.setTarget(null);
+    next.on("message", (message) => message?.type === "closing" && release());
+    next.once("disconnect", release);
     next.once("exit", () => {
       if (next !== child) return;
       listener.setTarget(null);
@@ -173,6 +181,7 @@ export function spawnAdapter(
     execArgv = adapterExecArgv(),
     port,
     restarts = 0,
+    httpTimeouts,
     onSpawn,
   } = {},
 ) {
@@ -223,6 +232,8 @@ export function spawnAdapter(
         // A ready on another port is not this session's adapter.
         fail(message?.type === "ready" || message?.reason === "bind" ? "bind" : "config");
     });
-    child.once("spawn", () => child.send({ type: "start", config, port, restarts }));
+    child.once("spawn", () =>
+      child.send({ type: "start", config, port, restarts, httpTimeouts }),
+    );
   });
 }

@@ -11,9 +11,15 @@
 for (const signal of ["SIGINT", "SIGQUIT", "SIGHUP"]) process.on(signal, () => {});
 let server = null;
 let closing = false;
+let ready = false;
 async function shutdown(code) {
   if (closing) return;
   closing = true;
+  // The supervisor queues new connections from now on instead of handing them over.
+  if (ready && process.connected)
+    try {
+      process.send({ type: "closing" });
+    } catch {}
   const force = setTimeout(() => process.exit(code), 1500);
   try {
     await server?.close();
@@ -39,6 +45,14 @@ function fail(reason, code) {
   }
 }
 const validPort = (port) => Number.isInteger(port) && port > 0 && port < 65536;
+const TIMEOUTS = ["headersTimeout", "requestTimeout", "connectionsCheckingInterval"];
+/** Optional Node HTTP timeouts from the start message (positive integers only). */
+const httpTimeouts = (value) =>
+  Object.fromEntries(
+    TIMEOUTS.filter((key) => Number.isInteger(value?.[key]) && value[key] > 0).map(
+      (key) => [key, value[key]],
+    ),
+  );
 
 process.once("message", async (message) => {
   let config;
@@ -53,6 +67,7 @@ process.once("message", async (message) => {
     // Throws synchronously only for a refused IP-literal upstream: a configuration error.
     server = createAdapterServer(config, {
       restarts: Number.isInteger(message.restarts) ? message.restarts : 0,
+      httpTimeouts: httpTimeouts(message.httpTimeouts),
     });
   } catch {
     return fail("config", 78);
@@ -61,5 +76,6 @@ process.once("message", async (message) => {
   process.on("message", (next, socket) => {
     if (next?.type === "connection" && socket) server.accept(socket);
   });
+  ready = true;
   process.send({ type: "ready", port: message.port });
 });

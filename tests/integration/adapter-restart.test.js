@@ -3,25 +3,20 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import net from "node:net";
-import { once } from "node:events";
 import { startAdapter } from "../../server/features/adapter-runtime/adapter-supervisor.js";
+import { createAdapterListener } from "../../server/features/adapter-runtime/adapter-listener.js";
 import { scriptedUpstream, sse } from "../helpers/scripted-upstream.js";
 import { loadFixture } from "../helpers/protocol-adapter.js";
 import { KEY, validAdapterConfig, authorized } from "../helpers/adapter-fixture.js";
-import { alive, childPids, until, writeStub } from "../helpers/adapter-process.js";
-
-/** Resolves with the listen error for a second bind of `port` (closing it if it bound). */
-async function bindError(port) {
-  const server = net.createServer().listen(port, "127.0.0.1");
-  try {
-    await once(server, "listening"); // rejects with the listen error
-  } catch (error) {
-    return error.code;
-  }
-  await new Promise((resolve) => server.close(resolve));
-  return null;
-}
+import {
+  alive,
+  bindError,
+  childPids,
+  closed,
+  rawSocket,
+  until,
+  writeStub,
+} from "../helpers/adapter-process.js";
 
 const readRecord = (file) => {
   try {
@@ -39,7 +34,7 @@ test("a crashed adapter is restarted on the same port with the same token", asyn
     validAdapterConfig({
       upstream: { baseUrl: `${up.base}/v1`, authHeader: null, apiKey: KEY },
     }),
-    { restart: { delayMs: 300 } },
+    { restart: { delayMs: 1000 } },
   );
   t.after(() => adapter.stop());
   const { url } = adapter;
@@ -92,14 +87,21 @@ test("the restart budget is bounded; give-up keeps the port and the last counter
   assert.equal(record.supervisor.lastReason, "exited");
   assert.equal(record.unauthorized, 1, "restarts that served nothing keep the counters");
   assert.equal(fs.statSync(diagnosticsPath).mode & 0o777, 0o600);
-  // The port stays reserved, and the CLI gets an immediate error instead of a hang.
+  // The port stays reserved, and the CLI gets an immediate 503 in its own error format.
   assert.equal(await bindError(adapter.port), "EADDRINUSE");
   const started = Date.now();
-  assert.equal(
-    await fetch(`${adapter.url}/api/hello`, { method: "HEAD" }).catch(() => null),
-    null,
-  );
+  const res = await fetch(`${adapter.url}/v1/messages`, {
+    method: "POST",
+    headers: authorized(),
+    body: "{}",
+  });
+  assert.equal(res.status, 503);
+  const body = await res.json();
+  assert.equal(body.type, "error");
+  assert.match(body.error.message, /repeated crashes/);
   assert.ok(Date.now() - started < 2000);
+  await adapter.stop();
+  assert.equal(await bindError(adapter.port), null, "stop releases the port");
 });
 
 test("a failed restart attempt consumes the budget", async (t) => {
@@ -177,6 +179,38 @@ setInterval(() => {}, 1000);\n`,
     "the starting child is gone when stop() resolves",
   );
   assert.equal(adapter.restarts(), 1);
+});
+
+test("stop during a restart closes queued connections and releases the port", async (t) => {
+  const adapter = await startAdapter(validAdapterConfig(), {
+    restart: { delayMs: 2000 },
+  });
+  const pid = adapter.child.pid;
+  process.kill(pid, "SIGKILL");
+  await until(() => !alive(pid));
+  const socket = await rawSocket(t, adapter.port); // waits in the restart queue
+  const ended = closed(socket);
+  const started = Date.now();
+  await adapter.stop();
+  await ended;
+  assert.ok(Date.now() - started < 1000, "queued connection closed by stop()");
+  assert.equal(await bindError(adapter.port), null);
+  assert.equal(adapter.restarts(), 0);
+});
+
+test("the restart queue is bounded in size and age", async (t) => {
+  const listener = await createAdapterListener({ maxQueued: 2, maxAgeMs: 300 });
+  t.after(() => listener.close());
+  const first = await rawSocket(t, listener.port);
+  const firstClosed = closed(first);
+  await until(() => listener.queued() === 1);
+  await rawSocket(t, listener.port);
+  await until(() => listener.queued() === 2);
+  const overflow = await rawSocket(t, listener.port);
+  await closed(overflow); // the third connection is closed at once
+  assert.equal(listener.queued(), 2);
+  await firstClosed; // aged out after maxAgeMs
+  await until(() => listener.queued() === 0);
 });
 
 test("no adapter child outlives the tests", async () => {

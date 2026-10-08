@@ -18,7 +18,15 @@ import { createAdapterServer } from "../../server/features/adapter-runtime/adapt
 import { scriptedUpstream, sse } from "../helpers/scripted-upstream.js";
 import { loadFixture } from "../helpers/protocol-adapter.js";
 import { KEY, validAdapterConfig, authorized } from "../helpers/adapter-fixture.js";
-import { alive, childPids, until, writeStub } from "../helpers/adapter-process.js";
+import {
+  alive,
+  bindError,
+  childPids,
+  closed,
+  rawSocket,
+  until,
+  writeStub,
+} from "../helpers/adapter-process.js";
 
 test("the adapter process serves one session and keeps the key out of argv, env and stdio", async (t) => {
   const up = await scriptedUpstream(t, (_e, res) =>
@@ -143,11 +151,31 @@ test("the supervisor owns the port and the adapter never binds", async (t) => {
   // Connections still reach the adapter: the supervisor hands them over.
   assert.equal((await fetch(`${adapter.url}/api/hello`, { method: "HEAD" })).status, 200);
   await adapter.stop();
-  assert.equal(
-    await fetch(`${adapter.url}/api/hello`, { method: "HEAD" }).catch(() => null),
-    null,
-    "stop releases the port",
-  );
+  assert.equal(await bindError(adapter.port), null, "stop releases the port");
+});
+
+test("handed-over connections keep Node's header and request timeouts", async (t) => {
+  const adapter = await startAdapter(validAdapterConfig(), {
+    httpTimeouts: {
+      headersTimeout: 400,
+      requestTimeout: 800,
+      connectionsCheckingInterval: 100,
+    },
+  });
+  t.after(() => adapter.stop());
+  const started = Date.now();
+  const silent = await rawSocket(t, adapter.port); // connects, sends nothing
+  const trickling = await rawSocket(t, adapter.port);
+  trickling.write("POST /v1/messages HTTP/1.1\r\nhost: 127.0.0.1\r\n");
+  const drip = setInterval(() => trickling.writable && trickling.write("x-a: b\r\n"), 50);
+  t.after(() => clearInterval(drip));
+  const [fromSilent, fromTrickling] = await Promise.all([
+    closed(silent),
+    closed(trickling),
+  ]);
+  assert.ok(Date.now() - started < 3000, "both reaped within the limit");
+  assert.match(fromSilent, /^(HTTP\/1\.1 408|$)/);
+  assert.match(fromTrickling, /^(HTTP\/1\.1 408|$)/);
 });
 
 test("the adapter exits when its launcher dies", async (t) => {

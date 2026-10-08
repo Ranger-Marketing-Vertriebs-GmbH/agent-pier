@@ -137,3 +137,17 @@ export function readBody(req, limit) {
     req.on("close", () => settle(reject, clientAborted()));
   });
 }
+
+/** Static HTTP 503 in the client protocol's error format, written as raw bytes after the supervisor gave up. */
+export function unavailableResponse(client) {
+  const rendered = clientError(
+    client,
+    "server",
+    "the protocol adapter stopped after repeated crashes; restart the session",
+  );
+  const body = JSON.stringify(rendered.body);
+  return (
+    "HTTP/1.1 503 Service Unavailable\r\ncontent-type: application/json\r\n" +
+    `content-length: ${Buffer.byteLength(body)}\r\nconnection: close\r\n\r\n${body}`
+  );
+}

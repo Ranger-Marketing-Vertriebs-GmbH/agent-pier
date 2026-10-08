@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import net from "node:net";
+import { once } from "node:events";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -14,6 +16,34 @@ export const alive = (pid) => {
     return false;
   }
 };
+
+/** The error code of a second bind of `port` on 127.0.0.1, or null when it was free. */
+export async function bindError(port) {
+  const server = net.createServer().listen(port, "127.0.0.1");
+  try {
+    await once(server, "listening"); // rejects with the listen error
+  } catch (error) {
+    return error.code;
+  }
+  await new Promise((resolve) => server.close(resolve));
+  return null;
+}
+
+/** Connects a raw socket and resolves once it is connected. */
+export async function rawSocket(t, port) {
+  const socket = net.connect(port, "127.0.0.1");
+  t.after(() => socket.destroy());
+  socket.on("error", () => {});
+  await once(socket, "connect");
+  return socket;
+}
+
+/** Resolves with everything the peer sent once it closed the socket. */
+export function closed(socket) {
+  let data = "";
+  socket.on("data", (chunk) => (data += chunk));
+  return new Promise((resolve) => socket.once("close", () => resolve(data)));
+}
 
 /** Writes a stub adapter entry into a private temp dir (removed after the test). */
 export function writeStub(t, source) {
