@@ -87,7 +87,7 @@ export async function resolveEndpointTarget(
   let timer;
   // dns.lookup cannot be cancelled; with timeoutMs a stalled lookup ends as unresolved.
   const deadline =
-    timeoutMs === undefined
+    timeoutMs === undefined || net.isIP(hostname)
       ? []
       : [
           new Promise((_resolve, reject) => {
