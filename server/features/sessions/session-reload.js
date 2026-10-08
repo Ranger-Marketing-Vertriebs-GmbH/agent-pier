@@ -7,6 +7,22 @@ const failureMessage =
   "Die Sitzung konnte nicht neu geladen werden. Die bisherige Unterhaltung bleibt für einen erneuten Versuch erhalten.";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const active = (state) => ["waiting", "reloading"].includes(state);
+const sameRoute = (a, b) => !!a && !!b && a.mode === b.mode && a.source === b.source;
+
+/** The route a reload would use differs from the running one (reasoning carriers of the
+ * old route are dropped on the new one). Null when unknown or unchanged. */
+function routeChange(services, session) {
+  const from = session.provider?.route;
+  const id = session.access?.providerConnectionId;
+  if (!from || !id || !services.providerConnections) return null;
+  let to;
+  try {
+    to = services.providerConnections.get(id).toolRoutes?.[session.tool] ?? null;
+  } catch {
+    return null;
+  }
+  return sameRoute(from, to) ? null : { from, to };
+}
 
 /** Durable intent; interrupted reloads are never automatically replayed. */
 export class SessionReload {
@@ -70,6 +86,7 @@ export class SessionReload {
         state: session.reload?.state || "idle",
         error: session.reload?.error || null,
         requestId: session.reload?.requestId || null,
+        routeChange: routeChange(this.services, session),
       },
     };
   }

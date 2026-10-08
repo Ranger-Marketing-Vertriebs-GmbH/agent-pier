@@ -37,6 +37,7 @@ export const connectionCopy = {
   responsesHelp:
     "My Z.ai connection allows the Responses API for Codex. This is my own confirmation, not an automatic check.",
   compatible: "Compatible CLIs",
+  compatibleRoute: (cli, route) => `${cli} (${route})`,
   noCompatible: "No compatible CLI available",
   accountDescription:
     "Native sign-ins remain tied to their respective CLI. Shared API connections are managed separately.",

@@ -1,6 +1,7 @@
 import React, { useId } from "react";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import ProviderModelPicker from "../providers/ProviderModelPicker.jsx";
+import { routeLabel } from "../provider-connections/route-label.js";
 import { connectionCopy as copy } from "../../lib/i18n/messages/connections.js";
 import { launchDialogCopy as sandboxCopy } from "../../lib/i18n/messages/sessions.js";
 export default function LaunchAccessFields({
@@ -54,11 +55,19 @@ export default function LaunchAccessFields({
               value: account.id,
               label: account.name + (account.provider ? ` · ${copy.legacy}` : ""),
             })),
-            ...access.connections.map((connection) => ({
-              value: `provider:${connection.id}`,
-              label: `${connection.name} · ${copy.providerNames[connection.providerId] || connection.providerId}${connection.launchable ? "" : ` · ${copy.keyMissing}`}`,
-              disabled: !connection.launchable,
-            })),
+            ...access.connections.map((connection) => {
+              const route = connection.toolRoutes?.[access.tool];
+              return {
+                value: `provider:${connection.id}`,
+                label: [
+                  connection.name,
+                  copy.providerNames[connection.providerId] || connection.providerId,
+                  ...(route ? [routeLabel(route)] : []),
+                  ...(connection.launchable ? [] : [copy.keyMissing]),
+                ].join(" · "),
+                disabled: !connection.launchable,
+              };
+            }),
             ...(!access.accounts.length && !access.connections.length
               ? [{ value: "", label: copy.noAccess }]
               : []),
