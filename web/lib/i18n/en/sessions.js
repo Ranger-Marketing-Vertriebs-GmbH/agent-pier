@@ -63,6 +63,8 @@ export const sessionWorkspaceCopy = {
 export const sessionReloadCopy = {
   routeChanged: (from, to) =>
     `The route changed since this session started (before: ${from}, now: ${to}). Reasoning data from the earlier conversation cannot be carried over.`,
+  routeUnavailable: (from) =>
+    `The connection no longer offers a route for this CLI (before: ${from}). The reload may fail; check the connection's routing first.`,
   retryCurrent: "Retry with current account",
   switchTitle: "Continue with another account",
   switchHint:

@@ -65,6 +65,8 @@ export const sessionWorkspaceCopy = {
 export const sessionReloadCopy = {
   routeChanged: (from, to) =>
     `Die Route hat sich seit dem Start geändert (vorher: ${from}, jetzt: ${to}). Reasoning-Daten der bisherigen Unterhaltung können nicht übernommen werden.`,
+  routeUnavailable: (from) =>
+    `Die Verbindung bietet für diese CLI keine Route mehr an (vorher: ${from}). Das Neuladen kann fehlschlagen; prüfe zuerst das Routing der Verbindung.`,
   retryCurrent: "Mit aktuellem Account erneut versuchen",
   switchTitle: "Mit anderem Account fortsetzen",
   switchHint:

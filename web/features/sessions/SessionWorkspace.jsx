@@ -103,6 +103,8 @@ export default function SessionWorkspace({
               {session.access?.providerConnectionName ||
                 account?.name ||
                 copy.sessionTitleDescription}
+              {/* The space keeps screen readers from joining name and route. */}
+              {session.provider?.route && " "}
               {session.provider?.route && (
                 <span className="route-badge" title={copy.routeTitle}>
                   {routeLabel(session.provider.route)}

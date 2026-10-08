@@ -35,16 +35,21 @@ export default function SessionReloadDialog({
         {!data && !error && <p role="status">{copy.loading}</p>}
         {error && <p role="alert">{error}</p>}
         {busy && <p role="status">{copy.submitting}</p>}
+        {/* Present from the first render, so filling it is announced. */}
+        <div className="session-reload-route" role="status">
+          {data?.routeChange && (
+            <p>
+              {data.routeChange.to
+                ? copy.routeChanged(
+                    routeLabel(data.routeChange.from),
+                    routeLabel(data.routeChange.to),
+                  )
+                : copy.routeUnavailable(routeLabel(data.routeChange.from))}
+            </p>
+          )}
+        </div>
         {data && (
           <>
-            {data.routeChange && (
-              <p role="status">
-                {copy.routeChanged(
-                  routeLabel(data.routeChange.from),
-                  routeLabel(data.routeChange.to),
-                )}
-              </p>
-            )}
             {["waiting", "reloading", "completed", "failed"].includes(data.state) && (
               <p role={data.state === "failed" ? "alert" : "status"}>
                 {copy[data.state]}

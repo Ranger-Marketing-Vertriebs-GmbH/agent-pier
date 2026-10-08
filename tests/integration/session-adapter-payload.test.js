@@ -130,3 +130,36 @@ test("reload writes a fresh adapter payload and drops stale diagnostics", async 
   assert.equal(JSON.stringify(m.saved).includes(KEY), false);
   assert.equal(JSON.stringify(m.saved).includes(TOKEN), false);
 });
+
+test("reload records the route of the new launch in the session record", async (t) => {
+  const m = manager(t);
+  const id = "adapter-route";
+  const session = {
+    id,
+    tool: "claude",
+    cwd: m.directory,
+    status: "stopped",
+    accountId: "local-claude",
+    reload: { state: "reloading" },
+    provider: {
+      requestedModelId: "qwen3",
+      route: { mode: "native", source: "messages" },
+    },
+  };
+  Object.assign(m, {
+    metadata: async () => session,
+    clients: [],
+    pendingTerminalInput: new Map(),
+    reconciledStops: new Map(),
+  });
+  const route = { mode: "adapter", source: "chatCompletions" };
+  await replaceSession(m, id, async () => ({
+    command: process.execPath,
+    args: [],
+    env: {},
+    adapter: validAdapterConfig(),
+    provider: { route, cliModelId: "qwen3" },
+  }));
+  const stored = JSON.parse(fs.readFileSync(m.file(id), "utf8"));
+  assert.deepEqual(stored.provider, { requestedModelId: "qwen3", route });
+});
