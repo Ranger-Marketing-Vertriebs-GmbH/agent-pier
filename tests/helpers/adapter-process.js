@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import { createAdapterServer } from "../../server/features/adapter-runtime/adapter-server.js";
 import { KEY, validAdapterConfig } from "./adapter-fixture.js";
 
@@ -11,6 +12,21 @@ export const alive = (pid) => {
     return false;
   }
 };
+
+/** Live child processes of this test process (adapters are detached but keep their parent). */
+export function childPids() {
+  return execFileSync("ps", ["-A", "-o", "pid=,ppid=,stat=,comm="], { encoding: "utf8" })
+    .split("\n")
+    .map((line) => line.trim().split(/\s+/))
+    .filter(
+      ([pid, ppid, stat, comm]) =>
+        pid &&
+        Number(ppid) === process.pid &&
+        !stat?.startsWith("Z") &&
+        !/(^|\/)ps$/.test(comm ?? ""), // the ps call itself
+    )
+    .map(([pid]) => Number(pid));
+}
 
 /** Polls `check` (sync or async) until it is truthy; fails the test after `ms`. */
 export async function until(check, ms = 3000) {
