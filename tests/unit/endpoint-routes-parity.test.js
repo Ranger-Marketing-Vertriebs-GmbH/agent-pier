@@ -71,7 +71,7 @@ test("capability fields mirror the library defaults and choices", () => {
   assert.deepEqual(chat.maxTokensField.choices, ["max_tokens", "max_completion_tokens"]);
 });
 
-test("route options explain why a choice is unavailable (Review Focus 2)", () => {
+test("route options explain why a choice is unavailable", () => {
   const chatOnly = {
     openaiBaseUrl: "https://llm.example/v1",
     anthropicBaseUrl: "",

@@ -121,7 +121,7 @@ function createAbort(ctx, controller) {
  * start at once (errors are in-stream for Codex) and get keep-alives from the start;
  * Messages responses start only after the upstream answered 2xx, so upstream rejections
  * stay HTTP error bodies, and pings follow the first frame; until that frame the wait is
- * bounded by the idle timeout (spec Amendment 16).
+ * bounded by the idle timeout (see docs/protocol-adapter.md, "Process model").
  */
 export async function handleInference(ctx, req, res, rawBody) {
   const requestId = newRequestId(ctx.client);

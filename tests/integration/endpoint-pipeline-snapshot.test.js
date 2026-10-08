@@ -154,7 +154,7 @@ test("snapshots freeze an explicit adapter route and its source origin", (t) => 
   assert.throws(() => launch(), changed); // route moved to adapter:responses
 });
 
-test("legacy snapshots without a route keep launching while the route is native (Review Focus 3)", (t) => {
+test("legacy snapshots without a route keep launching while the route is native", (t) => {
   const { profile, launch, edit } = setup(t, "codex");
   delete profile.providerConnectionSnapshot.endpoint.route;
   launch();

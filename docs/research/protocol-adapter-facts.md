@@ -1,8 +1,9 @@
 # Protocol adapter facts
 
-Date: 2026-10-07. Verified for the protocol adapter library
-(`docs/superpowers/specs/2026-10-07-protocol-adapter-design.md`). Later tasks treat this
-file as the source of truth. Each fact lists **Value**, **Source** and **Consequence**
+Date: 2026-10-07. Verified for the protocol adapter library; the resulting design is
+described in [protocol-adapter.md](../protocol-adapter.md). "The spec" below means the
+design draft these facts were checked against. This file is the source of truth for
+the facts. Each fact lists **Value**, **Source** and **Consequence**
 (for the library unless noted).
 
 Versions and sources used:
@@ -170,7 +171,7 @@ ending in `/v1`.
 - **Consequence:** see Spec delta 7. When the client asked `display:"omitted"`, the
   adapter may still send thinking text (Claude Code accepts it); if it strips the text
   for fidelity, the carrier must keep whatever a Chat `reasoningReplay` needs.
-  Toward a Messages upstream (Codex client, spec Amendment 15): effort-only requests use
+  Toward a Messages upstream (Codex client): effort-only requests use
   `adaptive` + `output_config.effort` (manual `enabled` is rejected on 4.7+); capability
   `thinkingBudget` opts into `enabled` for older models. Thinking blocks must be passed
   back complete and unmodified, so the messages carrier stores signature and exact text
@@ -357,7 +358,7 @@ cannot be modified|invalid signature`, `bound to a different conversation`); Cla
   there) the beta is not sent, so `upstream-messages.js` puts system messages that
   precede every other message into top-level `system` and merges later ones into the
   next user turn as a `<system>…</system>` text block after its `tool_result` blocks
-  (as for Chat, Amendment 13), keeping strict user/assistant alternation.
+  (as for Chat with `systemMessages: "merge"`), keeping strict user/assistant alternation.
 
 ### 2.8 Attribution block / `CLAUDE_CODE_ATTRIBUTION_HEADER`
 

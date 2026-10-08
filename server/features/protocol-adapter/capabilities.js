@@ -1,6 +1,7 @@
 // Adapter capabilities per upstream protocol: explicit defaults, validation and the pure
 // mapping from an upstream rejection to the capability change that avoids it (the
-// caller retries once with it, PR 2).
+// caller retries once with it). User-facing summary: docs/protocol-adapter.md,
+// "Capabilities".
 
 /**
  * Every capability an upstream builder reads, with its default. Booleans opt in (`false`
@@ -11,12 +12,12 @@
  *   block and the last user block (client breakpoints are always kept, at most 4).
  * - `thinkingBudget` (opt-in): effort-only thinking is sent as `enabled` +
  *   `budget_tokens` from the effort table instead of `adaptive` + `output_config.effort`
- *   (models without adaptive thinking, Amendment 15).
+ *   (for models without adaptive thinking).
  *
  * Responses upstream
  * - `promptCacheKey` (opt-in): send `prompt_cache_key` (client key, else the session key).
  * - `reasoningEffort` (opt-out): send `reasoning` (effort, summary) and
- *   `include: ["reasoning.encrypted_content"]` (Amendment 14).
+ *   `include: ["reasoning.encrypted_content"]` (servers that reject either need it off).
  * - `parallelToolCalls` (opt-in): forward the client's `parallel_tool_calls`.
  *
  * Chat Completions upstream
@@ -27,7 +28,8 @@
  * - `reasoningReplay` (opt-in): echo reasoning as `reasoning_content` on assistant
  *   messages and keep it in carriers (DeepSeek/Kimi/GLM thinking in tool loops).
  * - `systemMessages`: `"merge"` (default, mid-conversation system text joins the next
- *   user turn) or `"inline"` (kept as `system` messages in place, Amendment 13).
+ *   user turn, for servers that allow only a leading system message) or `"inline"`
+ *   (kept as `system` messages in place, for OpenAI and Azure).
  * - `maxTokensField`: `"max_tokens"` (default, local servers) or
  *   `"max_completion_tokens"` (OpenAI/Azure reasoning models reject `max_tokens`).
  */
@@ -216,7 +218,7 @@ const RULES = Object.freeze({
  * `classifyUpstreamError`), or null. Only 400/422 rejections qualify:
  * - Responses: `param` names `reasoning…`/`include`, the message rejects `reasoning`,
  *   `reasoning.effort` or `reasoning.summary` as a parameter, or it rejects `include`
- *   together with `reasoning.encrypted_content` → `reasoningEffort: false` (Amendment 14).
+ *   together with `reasoning.encrypted_content` → `reasoningEffort: false`.
  *   Item-ordering or schema errors that merely quote these words, and value errors
  *   ("Unsupported value: 'reasoning.effort' does not support …"), do not qualify.
  *   `prompt_cache_key`, `parallel_tool_calls` named → off.
@@ -228,7 +230,7 @@ const RULES = Object.freeze({
  *   qualify. `stream_options`/`include_usage` → `streamUsage: false`; `reasoning_effort`,
  *   `reasoning_content`, `prompt_cache_key`, `parallel_tool_calls` named → off.
  * - Messages: adaptive thinking (`thinking.type`) rejected as unsupported →
- *   `thinkingBudget: true` (Amendment 15); other messages mentioning "adaptive" do not.
+ *   `thinkingBudget: true`; other messages mentioning "adaptive" do not.
  * The caller applies it with `translator.setCapability` when it differs from the current
  * value, retries once and counts the fallback.
  */

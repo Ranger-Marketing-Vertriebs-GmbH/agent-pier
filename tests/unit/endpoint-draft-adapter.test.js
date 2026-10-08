@@ -37,7 +37,7 @@ const stored = {
   },
 };
 
-test("an untouched stored connection round-trips its adapter fields (Review Focus 5)", () => {
+test("an untouched stored connection round-trips its adapter fields", () => {
   const payload = endpointPayload(initialEndpoint(stored));
   assert.deepEqual(payload.routing, stored.endpoint.routing);
   assert.deepEqual(payload.adapterCapabilities, stored.endpoint.adapterCapabilities);
@@ -70,7 +70,7 @@ test("records without adapter fields load as auto with defaults", () => {
   assert.equal(draft.thinkTagExtraction, false);
 });
 
-test("a re-test keeps the image choice of detected models (Review Focus 1)", () => {
+test("a re-test keeps the image choice of detected models", () => {
   const draft = initialEndpoint(stored);
   const next = applyProposal(draft, {
     listed: true,

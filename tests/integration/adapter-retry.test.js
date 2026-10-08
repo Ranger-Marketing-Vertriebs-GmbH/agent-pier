@@ -156,7 +156,7 @@ test("never more than one retry per request", async (t) => {
   assert.equal(server.snapshot().capabilities.promptCacheKey, true);
 });
 
-test("a retry in one request does not break a concurrent stream (Review Focus 4)", async (t) => {
+test("a retry in one request does not break a concurrent stream", async (t) => {
   // A (max_tokens 1000) streams slowly; B (max_tokens 2000) is refused for max_tokens and
   // retried with max_completion_tokens while A is still streaming.
   const [head, tail] = (() => {
