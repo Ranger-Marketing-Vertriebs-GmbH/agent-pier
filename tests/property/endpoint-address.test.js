@@ -180,3 +180,20 @@ test("NAT64 addresses never reach http, even with private embeds", async () => {
       status: 400,
     });
 });
+
+test("an IP literal with a lookup deadline leaves no pending timer or rejection", async () => {
+  const rejections = [];
+  const record = (error) => rejections.push(error);
+  process.on("unhandledRejection", record);
+  try {
+    const target = await resolveEndpointTarget("http://127.0.0.1:1234/v1", {
+      timeoutMs: 20,
+      lookup: async () => assert.fail("a literal is never looked up"),
+    });
+    assert.equal(target.address, "127.0.0.1");
+    await new Promise((resolve) => setTimeout(resolve, 80));
+  } finally {
+    process.off("unhandledRejection", record);
+  }
+  assert.deepEqual(rejections, []);
+});
