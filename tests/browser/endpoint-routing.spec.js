@@ -104,6 +104,46 @@ test("missing base URLs are named as the reason", async ({ page }) => {
   );
 });
 
+test("test proposals fill adapter options that stay editable", async ({ page }) => {
+  const { controls, dialog } = await openNewEndpoint(page);
+  controls.endpointProposal = {
+    ...controls.endpointProposal,
+    protocols: {
+      messages: "unsupported",
+      responses: "unsupported",
+      chatCompletions: "ok",
+    },
+    reasons: { messages: "notFound", responses: "notFound" },
+    capabilities: {
+      chatCompletions: { reasoningEffort: false, systemMessages: "inline" },
+    },
+    warnings: [],
+  };
+  await dialog.getByRole("button", { name: "Test connection", exact: true }).click();
+  await dialog.getByText("Adapter options", { exact: true }).click();
+  const options = dialog.getByRole("group", {
+    name: "Adapter options · Chat Completions",
+    exact: true,
+  });
+  const effort = options.getByRole("checkbox", { name: /Send reasoning effort/ });
+  await expect(effort).not.toBeChecked();
+  await expect(options.getByText("suggested by the test")).toHaveCount(2);
+  await effort.check();
+  await expect(
+    options.getByLabel("Keep as system messages", { exact: true }),
+  ).toBeChecked();
+  await dialog.getByRole("checkbox", { name: "Read <think> tags as reasoning" }).check();
+  await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  const created = controls.calls
+    .filter((call) => call.path === "/api/provider-connections" && call.method === "POST")
+    .at(-1).body;
+  expect(created.endpoint.adapterCapabilities).toEqual({
+    chatCompletions: { reasoningEffort: true, systemMessages: "inline" },
+  });
+  expect(created.endpoint.thinkTagExtraction).toBe(true);
+});
+
 test.describe("narrow screen", () => {
   test.use({ viewport: { width: 390, height: 844 } });
   test("the routing section fits without horizontal overflow", async ({ page }) => {
@@ -117,6 +157,23 @@ test.describe("narrow screen", () => {
       routing: element.scrollWidth - element.clientWidth,
     }));
     expect(overflow).toEqual({ page: 0, dialog: 0, routing: 0 });
+  });
+  test("the adapter options fit without horizontal overflow", async ({ page }) => {
+    const { dialog } = await openNewEndpoint(page);
+    await dialog.getByText("Adapter options", { exact: true }).click();
+    const options = dialog.getByRole("group", {
+      name: "Adapter options · Chat Completions",
+      exact: true,
+    });
+    await options.scrollIntoViewIfNeeded();
+    await expect(options).toBeVisible();
+    const overflow = await options.evaluate((element) => ({
+      page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      dialog:
+        element.closest("dialog").scrollWidth - element.closest("dialog").clientWidth,
+      options: element.scrollWidth - element.clientWidth,
+    }));
+    expect(overflow).toEqual({ page: 0, dialog: 0, options: 0 });
   });
 });
 
