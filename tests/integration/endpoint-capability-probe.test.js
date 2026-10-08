@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { fakeEndpoint } from "../helpers/endpoint-servers.js";
 import { runEndpointTest } from "../../server/features/providers/endpoint-probe.js";
+import { validateAdapterCapabilities } from "../../server/features/providers/endpoint-routing.js";
 import { probeCapabilities } from "../../server/features/providers/endpoint-capability-probe.js";
 
 const OK_CHAT = {
@@ -25,10 +26,26 @@ const run = (base, extra = {}) =>
     previousModels: [],
     ...extra,
   });
+// A realistic rejection naming the parameter the request carried.
+const refusal = (body) => {
+  const text = (message) => ({
+    status: 400,
+    json: { error: { message: `${message} SECRET` } },
+  });
+  if (body.thinking?.type === "adaptive")
+    return text("thinking.type adaptive is not supported");
+  if (body.thinking) return text("thinking is not supported");
+  if (body.system) return text("Unsupported parameter: cache_control");
+  if ("reasoning_effort" in body) return text("Unsupported parameter: reasoning_effort");
+  if ("reasoning" in body) return text("Unsupported parameter: reasoning");
+  if (body.messages?.slice(1).some((m) => m.role === "system"))
+    return text("system messages are not supported");
+  return text("Unsupported parameter: max_tokens");
+};
 const rejecting =
   (predicate, ok) =>
   ({ body }) =>
-    predicate(body) ? REFUSE : ok;
+    predicate(body) ? refusal(body) : ok;
 const midSystem = (body) => body.messages?.slice(1).some((m) => m.role === "system");
 
 test("chat probe proposes values from per-parameter answers", async (t) => {
@@ -137,11 +154,9 @@ test("a 401 omits the key; a hanging request ends at timeoutMs and omits it", as
     results,
     timeoutMs: 100,
   });
-  assert.deepEqual(capabilities.chatCompletions, {
-    streamUsage: true,
-    parallelToolCalls: true,
-    systemMessages: "inline",
-  });
+  // streamUsage answered, reasoningEffort 401 omitted, promptCacheKey hung: nothing after it.
+  assert.deepEqual(capabilities.chatCompletions, { streamUsage: true });
+  assert.equal(server.seen.length, 3);
 });
 
 test("failed or skipped base protocols have no entry and no extra requests", async (t) => {
@@ -160,4 +175,79 @@ test("results carry no upstream text or keys", async (t) => {
   const text = JSON.stringify(result);
   assert.ok(!text.includes("SECRET"));
   assert.ok(!text.includes("sk-secret"));
+});
+
+const chatOnly = (answer) => ({
+  "POST /v1/chat/completions": ({ body }) =>
+    "parallel_tool_calls" in body ? answer : OK_CHAT,
+});
+
+test("only a rejection naming the probed parameter counts as unsupported", async (t) => {
+  const named = await fakeEndpoint(
+    t,
+    chatOnly({
+      status: 400,
+      json: { error: { message: "Unsupported parameter: parallel_tool_calls" } },
+    }),
+  );
+  assert.equal(
+    (await run(named.base)).capabilities.chatCompletions.parallelToolCalls,
+    false,
+  );
+  const value = await fakeEndpoint(
+    t,
+    chatOnly({
+      status: 400,
+      json: { error: { message: "Invalid value: maybe is not a valid boolean." } },
+    }),
+  );
+  assert.equal(
+    "parallelToolCalls" in (await run(value.base)).capabilities.chatCompletions,
+    false,
+  );
+  const unrelated = await fakeEndpoint(
+    t,
+    chatOnly({
+      status: 400,
+      json: { error: { message: "model does not support tools" } },
+    }),
+  );
+  assert.equal(
+    "parallelToolCalls" in (await run(unrelated.base)).capabilities.chatCompletions,
+    false,
+  );
+});
+
+test("429 and 5xx answers omit the key", async (t) => {
+  for (const status of [429, 500, 503]) {
+    const server = await fakeEndpoint(t, chatOnly({ status, json: {} }));
+    const { chatCompletions } = (await run(server.base)).capabilities;
+    assert.equal("parallelToolCalls" in chatCompletions, false);
+    assert.equal(chatCompletions.streamUsage, true);
+  }
+});
+
+test("an expired deadline sends no capability request", async (t) => {
+  const server = await fakeEndpoint(t, {
+    "POST /v1/chat/completions": () => OK_CHAT,
+  });
+  const result = await probeCapabilities({
+    endpoint: draft(server.base),
+    apiKey: "",
+    model: "m1",
+    results: { chatCompletions: { status: 200, json: {} } },
+    signal: AbortSignal.abort(),
+  });
+  assert.deepEqual(result, {});
+  assert.equal(server.seen.length, 0);
+});
+
+test("the proposal passes validateAdapterCapabilities", async (t) => {
+  const server = await fakeEndpoint(t, {
+    "POST /v1/chat/completions": rejecting((body) => "max_tokens" in body, OK_CHAT),
+    "POST /v1/responses": () => OK_RESPONSES,
+    "POST /v1/messages": () => OK_MESSAGES,
+  });
+  const { capabilities } = await run(server.base);
+  assert.deepEqual(validateAdapterCapabilities(capabilities), capabilities);
 });

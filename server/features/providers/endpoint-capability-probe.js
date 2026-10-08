@@ -1,5 +1,7 @@
 import { endpointRequest, authHeaders } from "./endpoint-http.js";
-import { probes } from "./endpoint-probe.js";
+import { probes } from "./endpoint-probe-plan.js";
+import { capabilityForError } from "../protocol-adapter/capabilities.js";
+import { classifyUpstreamError } from "../protocol-adapter/errors.js";
 
 // Capability probe of the connection test: one extra request per optional parameter. The
 // result is a proposal for `adapterCapabilities`; only fixed values leave this module, so
@@ -16,6 +18,8 @@ const TOOL_RESPONSES = { type: "function", ...PROBE_TOOL };
 
 const turn = (role, content) => ({ role, content });
 
+// Smallest request providers accept for an enabled budget: budget_tokens >= 1024 and
+// max_tokens > budget_tokens.
 const THINKING_ENABLED = {
   body: (base) => ({
     ...base,
@@ -127,10 +131,42 @@ const maxCompletionBody = ({ max_tokens: _dropped, ...base }) => ({
 
 const isOk = (result) =>
   !!result && !result.reason && result.status >= 200 && result.status < 300;
+
+const UPSTREAM = {
+  messages: "messages",
+  responses: "responses",
+  chatCompletions: "chat",
+};
+// Capabilities without a capabilityForError rule: a rejection counts when it names one
+// of these keywords.
+const KEYWORDS = { promptCache: ["cache_control"], systemMessages: ["system"] };
+
 const isRefused = (result) =>
   !!result && !result.reason && (result.status === 400 || result.status === 422);
-const verdictOf = (result) =>
-  isOk(result) ? "accepted" : isRefused(result) ? "rejected" : null;
+
+/**
+ * "accepted" for 2xx; "rejected" only for a 400/422 that names the probed parameter (the
+ * same mapping the runtime retry uses). Value errors, unrelated 400s ("model does not
+ * support tools"), 401, 429, 5xx and transport failures answer null (key omitted).
+ * The streamUsage probe streams: a 2xx is judged by status alone (the body is read to
+ * its end, bounded by timeoutMs and the 1 MB cap).
+ */
+function verdictOf(result, protocol, probe) {
+  if (isOk(result)) return "accepted";
+  if (!result || result.reason || (result.status !== 400 && result.status !== 422))
+    return null;
+  const error = classifyUpstreamError({
+    protocol: UPSTREAM[protocol],
+    status: result.status,
+    body: result.json,
+  });
+  const change = capabilityForError(UPSTREAM[protocol], error);
+  if (change) return change.name === probe.capability ? "rejected" : null;
+  const words = KEYWORDS[probe.capability];
+  if (!words) return null;
+  const text = `${error.message} ${error.param ?? ""}`.toLowerCase();
+  return words.some((word) => text.includes(word)) ? "rejected" : null;
+}
 
 /** Base body of a protocol with the probe token budget. */
 const baseBody = (name, body) =>
@@ -154,7 +190,13 @@ export async function probeCapabilities({
 }) {
   const planned = probes(endpoint, model);
   const headers = authHeaders(apiKey, endpoint.authHeader);
+  // After a timeout or an abort (including the test deadline) no further request is sent.
+  let stopped = false;
   const send = async (name, body) => {
+    if (stopped || signal?.aborted) {
+      stopped = true;
+      return null;
+    }
     try {
       return await endpointRequest({
         url: planned[name].url,
@@ -165,14 +207,15 @@ export async function probeCapabilities({
         signal,
         lookup,
       });
-    } catch {
+    } catch (error) {
+      if (error?.reason === "timeout" || signal?.aborted) stopped = true;
       return null;
     }
   };
   const out = {};
   for (const name of ["messages", "responses", "chatCompletions"]) {
     const base = results?.[name];
-    if (!planned[name] || !base) continue;
+    if (stopped || !planned[name] || !base) continue;
     let body = baseBody(name, planned[name].body);
     const entry = {};
     if (name === "chatCompletions" && isRefused(base)) {
@@ -184,20 +227,21 @@ export async function probeCapabilities({
     } else if (!(isOk(base) && base.json)) continue;
     for (const probe of CAPABILITY_PROBES.filter((item) => item.protocol === name)) {
       let current = probe;
-      let verdict = verdictOf(await send(name, current.body(body)));
+      let verdict = verdictOf(await send(name, current.body(body)), name, current);
       while (
         verdict === "rejected" &&
         current.rejected &&
         typeof current.rejected === "object"
       ) {
         current = current.rejected;
-        verdict = verdictOf(await send(name, current.body(body)));
+        verdict = verdictOf(await send(name, current.body(body)), name, probe);
       }
       if (verdict === "accepted") entry[probe.capability] = current.accepted;
       else if (verdict === "rejected" && current.rejected !== undefined)
         entry[probe.capability] = current.rejected;
     }
-    out[name] = entry;
+    // A protocol without any proposal has no entry.
+    if (Object.keys(entry).length > 0) out[name] = entry;
   }
   return out;
 }
