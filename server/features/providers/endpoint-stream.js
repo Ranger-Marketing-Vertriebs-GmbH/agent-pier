@@ -1,10 +1,16 @@
 import http from "node:http";
 import https from "node:https";
 import net from "node:net";
-import { assertAllowedAddresses, policyLookup } from "./endpoint-address.js";
+import {
+  assertAllowedAddresses,
+  assertAllowedProtocol,
+  policyLookup,
+} from "./endpoint-address.js";
 
 /** Response headers beyond this size end the request (independent of Node's CLI flag). */
 const MAX_HEADER_BYTES = 16 * 1024;
+/** Socket errors that mean a pooled connection was closed by the upstream while idle. */
+const STALE_SOCKET = new Set(["ECONNRESET", "EPIPE"]);
 
 /**
  * A transport failure tagged with the adapter's error kind: `"timeout"` only for the idle
@@ -17,13 +23,18 @@ export const transportError = (kind, message) =>
 const asTransport = (error, message) =>
   error?.adapterKind ? error : transportError("network", message);
 
-/** Yields the response text; every chunk resets the idle timer. */
-async function* streamChunks(response, idle) {
+/**
+ * Yields the response text. The idle timer runs only while the consumer waits for the next
+ * chunk (and restarts on every upstream byte), so a slow consumer is never reported as an
+ * upstream timeout.
+ */
+async function* streamChunks(response, timer) {
   let finished = false;
   try {
     for await (const chunk of response) {
-      idle();
+      timer.hold();
       yield chunk;
+      timer.arm();
     }
     finished = true;
   } catch (error) {
@@ -34,10 +45,10 @@ async function* streamChunks(response, idle) {
   }
 }
 
-async function readText(response, limitBytes, idle) {
+async function readText(response, limitBytes, timer) {
   let text = "";
   let size = 0;
-  for await (const chunk of streamChunks(response, idle)) {
+  for await (const chunk of streamChunks(response, timer)) {
     size += Buffer.byteLength(chunk);
     if (size > limitBytes) {
       const error = transportError("network", "upstream response too large");
@@ -53,13 +64,17 @@ async function readText(response, limitBytes, idle) {
  * Streaming POST client for one configured upstream origin. Its keep-alive agent resolves
  * the host through `policyLookup` for every new socket, so the endpoint address policy is
  * re-checked per connection (no launch-time pinning); TLS verifies the hostname, redirects
- * are returned as plain statuses and no proxy is used.
+ * are returned as plain statuses and no proxy is used. Every response must be consumed
+ * with `chunks` or `text()`, or released with `cancel()`.
  */
-export function createUpstreamClient({ baseUrl, lookup, maxSockets = 32 }) {
+export function createUpstreamClient({
+  baseUrl,
+  lookup,
+  maxSockets = 32,
+  freeSocketTimeoutMs = 30_000,
+}) {
   const base = new URL(baseUrl);
-  // Only http(s) is allowed; any other scheme fails the policy as an unusable address.
-  if (base.protocol !== "http:" && base.protocol !== "https:")
-    assertAllowedAddresses([{ address: "" }], base.protocol);
+  assertAllowedProtocol(base.protocol);
   const secure = base.protocol === "https:";
   const hostname = base.hostname.replace(/^\[|\]$/g, "");
   if (net.isIP(hostname))
@@ -73,10 +88,13 @@ export function createUpstreamClient({ baseUrl, lookup, maxSockets = 32 }) {
     maxSockets,
     scheduling: "lifo",
     autoSelectFamily: true,
+    // Pooled sockets idle longer than this are closed instead of going stale.
+    timeout: freeSocketTimeoutMs,
     lookup: policyLookup(base.protocol, lookup),
   });
   // Close handlers of requests whose response is not finished (also unread responses).
   const active = new Set();
+  let closed = false;
   const prefix = `${base.origin}${base.pathname.replace(/\/+$/, "")}`;
 
   /** Resolves `path` below the base URL; anything leaving the origin is refused. */
@@ -92,23 +110,37 @@ export function createUpstreamClient({ baseUrl, lookup, maxSockets = 32 }) {
   }
 
   function request({ path, body, headers = {}, signal, idleTimeoutMs = 240_000 }) {
+    if (closed)
+      return Promise.reject(transportError("network", "upstream client closed"));
     const url = target(path);
     if (!url)
       return Promise.reject(transportError("network", "upstream path not allowed"));
     const payload = JSON.stringify(body);
+    if (typeof payload !== "string")
+      return Promise.reject(new TypeError("upstream request body must be JSON"));
     return new Promise((resolve, reject) => {
       let req = null;
+      let socket = null;
       let response = null;
-      let timer;
+      let handle;
+      let armed = false;
       // Transport errors stay in the adapter process; they are not browser problems.
       const destroyWith = (error) => (response ?? req)?.destroy(error);
-      const idle = () => {
-        clearTimeout(timer);
-        timer = setTimeout(
-          () => destroyWith(transportError("timeout", "upstream idle timeout")),
-          idleTimeoutMs,
-        );
+      const timer = {
+        arm() {
+          armed = true;
+          clearTimeout(handle);
+          handle = setTimeout(
+            () => destroyWith(transportError("timeout", "upstream idle timeout")),
+            idleTimeoutMs,
+          );
+        },
+        hold() {
+          armed = false;
+          clearTimeout(handle);
+        },
       };
+      const onBytes = () => armed && timer.arm();
       const abortError = () =>
         signal.reason?.adapterKind
           ? signal.reason
@@ -117,53 +149,74 @@ export function createUpstreamClient({ baseUrl, lookup, maxSockets = 32 }) {
       const onClose = () =>
         destroyWith(transportError("network", "upstream client closed"));
       const cleanup = () => {
-        clearTimeout(timer);
+        timer.hold();
+        socket?.off("data", onBytes);
         active.delete(onClose);
         signal?.removeEventListener("abort", onAbort);
       };
       if (signal?.aborted) return reject(abortError());
-      try {
-        req = client.request(url, {
-          method: "POST",
-          agent,
-          maxHeaderSize: MAX_HEADER_BYTES,
-          headers: {
-            "content-type": "application/json",
-            ...headers,
-            "content-length": Buffer.byteLength(payload),
-          },
-          ...(secure && !net.isIP(hostname) ? { servername: hostname } : {}),
+
+      const send = (retry) => {
+        try {
+          req = client.request(url, {
+            method: "POST",
+            agent,
+            maxHeaderSize: MAX_HEADER_BYTES,
+            headers: {
+              "content-type": "application/json",
+              ...headers,
+              "content-length": Buffer.byteLength(payload),
+            },
+            ...(secure && !net.isIP(hostname) ? { servername: hostname } : {}),
+          });
+        } catch {
+          // Node validates header values synchronously; its message may echo the key.
+          cleanup();
+          return reject(transportError("network", "invalid upstream request"));
+        }
+        const current = req;
+        current.on("socket", (s) => {
+          socket = s;
+          s.on("data", onBytes);
         });
-      } catch {
-        // Node validates header values synchronously and its message may echo them (the key).
-        return reject(transportError("network", "invalid upstream request"));
-      }
-      req.on("error", (error) => {
-        cleanup();
-        reject(asTransport(error, "upstream connection failed"));
-      });
-      req.on("response", (res) => {
-        response = res;
-        res.setEncoding("utf8");
-        // Failures surface through `chunks`/`text()`; an unread response must not throw.
-        res.on("error", () => {});
-        res.on("close", cleanup);
-        idle();
-        resolve({
-          status: res.statusCode,
-          headers: res.headers,
-          chunks: streamChunks(res, idle),
-          text: (limitBytes) => readText(res, limitBytes, idle),
+        current.on("error", (error) => {
+          socket?.off("data", onBytes);
+          // A pooled socket the upstream closed while idle fails before any answer;
+          // the request never reached the upstream, so it is sent once more.
+          if (retry && current.reusedSocket && !response && STALE_SOCKET.has(error.code))
+            return send(false);
+          cleanup();
+          reject(asTransport(error, "upstream connection failed"));
         });
-      });
+        current.on("response", (res) => {
+          response = res;
+          res.setEncoding("utf8");
+          // Failures surface through `chunks`/`text()`; an unread response must not throw.
+          res.on("error", () => {});
+          res.on("end", () => socket?.off("data", onBytes));
+          res.on("close", cleanup);
+          timer.arm();
+          resolve({
+            status: res.statusCode,
+            headers: res.headers,
+            chunks: streamChunks(res, timer),
+            text: (limitBytes) => readText(res, limitBytes, timer),
+            // Releases a response the caller does not read; its socket is not reused.
+            cancel: () => res.destroy(),
+          });
+        });
+        current.end(payload);
+      };
+
       signal?.addEventListener("abort", onAbort, { once: true });
       active.add(onClose);
-      idle();
-      req.end(payload);
+      timer.arm();
+      send(true);
     });
   }
 
   function close() {
+    closed = true;
     for (const onClose of [...active]) onClose();
     agent.destroy();
   }
