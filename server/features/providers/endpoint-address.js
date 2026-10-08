@@ -71,6 +71,11 @@ const notAllowed = () =>
     reason: "notAllowed",
   });
 
+/** Throws the `notAllowed` problem for any scheme other than http and https. */
+export function assertAllowedProtocol(protocol) {
+  if (protocol !== "http:" && protocol !== "https:") throw notAllowed();
+}
+
 /**
  * Throws the `notAllowed` problem unless every address may be reached over `protocol`:
  * no address may be forbidden, and plain http is limited to local address kinds.
