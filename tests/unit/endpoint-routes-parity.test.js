@@ -19,18 +19,19 @@ import {
 const SOURCES = ["messages", "responses", "chatCompletions"];
 function* endpoints() {
   for (let mask = 0; mask < 8; mask++)
-    for (const anthropicBaseUrl of ["https://llm.example", ""])
-      for (const claude of ROUTE_CHOICES.claude)
-        for (const codex of ROUTE_CHOICES.codex)
-          for (const opencode of ROUTE_CHOICES.opencode)
-            yield {
-              openaiBaseUrl: "https://llm.example/v1",
-              anthropicBaseUrl,
-              protocols: Object.fromEntries(
-                SOURCES.map((s, i) => [s, !!(mask & (1 << i))]),
-              ),
-              routing: { claude, codex, opencode },
-            };
+    for (const openaiBaseUrl of ["https://llm.example/v1", ""])
+      for (const anthropicBaseUrl of ["https://llm.example", ""])
+        for (const claude of ROUTE_CHOICES.claude)
+          for (const codex of ROUTE_CHOICES.codex)
+            for (const opencode of ROUTE_CHOICES.opencode)
+              yield {
+                openaiBaseUrl,
+                anthropicBaseUrl,
+                protocols: Object.fromEntries(
+                  SOURCES.map((s, i) => [s, !!(mask & (1 << i))]),
+                ),
+                routing: { claude, codex, opencode },
+              };
 }
 
 test("route choices equal the server's", () => {
@@ -43,7 +44,11 @@ test("the draft route equals the server route for every protocol set and choice"
       assert.deepEqual(
         resolveDraftRoute(endpoint, tool),
         resolveRoute(
-          { ...endpoint, anthropicBaseUrl: endpoint.anthropicBaseUrl || null },
+          {
+            ...endpoint,
+            openaiBaseUrl: endpoint.openaiBaseUrl || null,
+            anthropicBaseUrl: endpoint.anthropicBaseUrl || null,
+          },
           tool,
         ),
         JSON.stringify({ tool, endpoint }),
