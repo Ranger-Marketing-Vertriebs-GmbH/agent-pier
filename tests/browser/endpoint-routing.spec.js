@@ -35,6 +35,13 @@ test("routes resolve live and explain unavailable choices", async ({ page }) => 
     "Native (Messages) – not available: protocol not enabled",
   );
   await expect(claude.locator('option[value="adapter:responses"]')).toBeDisabled();
+  // Protocol labels name only the native pairing; Chat Completions has none.
+  for (const name of [
+    "Anthropic Messages · native for Claude Code",
+    "OpenAI Responses · native for Codex",
+    "OpenAI Chat Completions",
+  ])
+    await expect(dialog.getByRole("checkbox", { name, exact: true })).toBeVisible();
   const responses = dialog.getByRole("checkbox", { name: /OpenAI Responses/ });
   await responses.check();
   await claude.selectOption("adapter:responses");
