@@ -79,23 +79,44 @@ async function useFakeCli(f, out, cliMode = "call", extraEnv = {}) {
   };
 }
 
-async function noKeyAnywhere(f) {
+/** Every regular file below `dir` (sockets and other special files are skipped). */
+async function filesBelow(dir) {
+  const found = [];
+  for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
+    const file = path.join(dir, entry.name);
+    if (entry.isDirectory()) found.push(...(await filesBelow(file)));
+    else if (entry.isFile()) found.push(file);
+  }
+  return found;
+}
+
+async function noKeyAnywhere(f, sessionId) {
+  const files = await filesBelow(f.dataDir);
+  // The private launch payload (sessions/<id>.launch.json) is unlinked on read.
   const sessionsDir = path.join(f.dataDir, "sessions");
-  const files = await fs.readdir(sessionsDir);
   assert.equal(
-    files.some((n) => n.endsWith(".launch.json")),
+    files.some((n) => path.dirname(n) === sessionsDir && n.endsWith(".launch.json")),
     false,
     "payload consumed",
   );
-  for (const name of files)
-    // includes <id>.adapter.json: diagnostics never hold the key
+  // The whole data dir: session records, <id>.adapter.json diagnostics, provider config
+  // dirs (config.toml, opencode.json), pipeline store. Only the connection's own private
+  // secret store is meant to hold the key.
+  const secretStore = path.join(f.dataDir, "provider-connection-secrets");
+  for (const file of files.filter((n) => path.dirname(n) !== secretStore))
     assert.equal(
-      (await fs.readFile(path.join(sessionsDir, name), "utf8")).includes(KEY),
+      (await fs.readFile(file)).includes(KEY),
       false,
-      name,
+      path.relative(f.dataDir, file),
     );
-  const state = await (await f.request("/api/state")).json();
-  assert.equal(JSON.stringify(state).includes(KEY), false);
+  for (const route of [
+    "/api/state",
+    "/api/provider-connections",
+    `/api/sessions/${sessionId}/reload`,
+  ]) {
+    const response = await f.request(route);
+    assert.equal((await response.text()).includes(KEY), false, route);
+  }
 }
 
 test("a Claude Code session on a Chat-only endpoint runs through the adapter without exposing the key", async (t) => {
@@ -118,7 +139,7 @@ test("a Claude Code session on a Chat-only endpoint runs through the adapter wit
   const record = await waitForJson(out);
   assert.match(record.calls[0].text, /message_stop/);
   assert.equal(up.seen[0].headers.authorization, `Bearer ${KEY}`);
-  await noKeyAnywhere(f);
+  await noKeyAnywhere(f, session.id);
 });
 
 test("removing a finished adapter session deletes its diagnostics file", async (t) => {
@@ -282,5 +303,5 @@ setInterval(() => {}, 1000);
     mode: "adapter",
     source: "chatCompletions",
   });
-  await noKeyAnywhere(f);
+  await noKeyAnywhere(f, session.id);
 });
