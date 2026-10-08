@@ -53,7 +53,35 @@ export const connectionCopy = {
     "This existing provider binding uses its saved model. Use a shared provider connection to choose a model independently.",
   chooseAccess: "Please choose a compatible connection and an available model.",
   directoryPlaceholder: "/path/to/project",
+  routes: {
+    native: "native",
+    adapter: (protocol) => `via adapter · ${protocol}`,
+    notOffered: "not offered",
+    shortNames: {
+      messages: "Messages",
+      responses: "Responses",
+      chatCompletions: "Chat Completions",
+    },
+  },
   endpoint: {
+    routing: {
+      title: "CLIs and routes",
+      help: "Automatic uses the CLI's native protocol and otherwise the protocol adapter (Responses before Messages before Chat Completions).",
+      select: (cli) => `Route for ${cli}`,
+      choices: {
+        auto: "Automatic",
+        native: (protocol) => `Native (${protocol})`,
+        adapter: (protocol) => `Via adapter (${protocol})`,
+        sdk: (protocol) => protocol,
+        off: "Off",
+      },
+      resolved: (route) => `Uses: ${route}`,
+      unavailable: (reason) => `Not available: ${reason}`,
+      reasons: {
+        protocolOff: "protocol not enabled",
+        anthropicUrlMissing: "Anthropic-compatible base URL missing",
+      },
+    },
     preset: "Server type",
     presets: {
       ollama: "Ollama",
@@ -62,11 +90,11 @@ export const connectionCopy = {
     },
     openaiBaseUrl: "OpenAI-compatible base URL",
     openaiHelp:
-      "Usually ends with /v1. Used by Codex (Responses) and OpenCode (Chat Completions).",
+      "Usually ends with /v1. Used for the Responses and Chat Completions protocols.",
     advanced: "Advanced",
     anthropicBaseUrl: "Anthropic-compatible base URL",
     anthropicHelp:
-      "Used by Claude Code. Leave empty if the server has no Anthropic Messages API.",
+      "Used for the Anthropic Messages protocol. Leave empty if the server has no Anthropic Messages API.",
     authHeader: "Auth header name",
     authHeaderHelp:
       "Leave empty to send the key as Authorization: Bearer. Example: api-key.",

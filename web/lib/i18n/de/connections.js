@@ -53,7 +53,35 @@ export const connectionCopy = {
     "Diese bestehende Anbieterbindung verwendet ihr gespeichertes Modell. Für eine unabhängige Modellwahl einen zentralen Provider-Zugang verwenden.",
   chooseAccess: "Bitte einen kompatiblen Zugang und ein verfügbares Modell wählen.",
   directoryPlaceholder: "/Pfad/zum/Projekt",
+  routes: {
+    native: "nativ",
+    adapter: (protocol) => `über Adapter · ${protocol}`,
+    notOffered: "nicht angeboten",
+    shortNames: {
+      messages: "Messages",
+      responses: "Responses",
+      chatCompletions: "Chat Completions",
+    },
+  },
   endpoint: {
+    routing: {
+      title: "CLIs und Routen",
+      help: "Automatisch nutzt das native Protokoll der CLI, sonst den Protokoll-Adapter (Responses vor Messages vor Chat Completions).",
+      select: (cli) => `Route für ${cli}`,
+      choices: {
+        auto: "Automatisch",
+        native: (protocol) => `Nativ (${protocol})`,
+        adapter: (protocol) => `Über Adapter (${protocol})`,
+        sdk: (protocol) => protocol,
+        off: "Aus",
+      },
+      resolved: (route) => `Verwendet: ${route}`,
+      unavailable: (reason) => `Nicht verfügbar: ${reason}`,
+      reasons: {
+        protocolOff: "Protokoll nicht aktiviert",
+        anthropicUrlMissing: "Anthropic-kompatible Basis-URL fehlt",
+      },
+    },
     preset: "Server-Typ",
     presets: {
       ollama: "Ollama",
@@ -62,11 +90,11 @@ export const connectionCopy = {
     },
     openaiBaseUrl: "OpenAI-kompatible Basis-URL",
     openaiHelp:
-      "Endet meist auf /v1. Wird von Codex (Responses) und OpenCode (Chat Completions) genutzt.",
+      "Endet meist auf /v1. Wird für die Protokolle Responses und Chat Completions verwendet.",
     advanced: "Erweitert",
     anthropicBaseUrl: "Anthropic-kompatible Basis-URL",
     anthropicHelp:
-      "Wird von Claude Code genutzt. Leer lassen, wenn der Server keine Anthropic Messages API hat.",
+      "Wird für das Protokoll Anthropic Messages verwendet. Leer lassen, wenn der Server keine Anthropic-Messages-API hat.",
     authHeader: "Name des Auth-Headers",
     authHeaderHelp:
       "Leer lassen, um den Key als Authorization: Bearer zu senden. Beispiel: api-key.",

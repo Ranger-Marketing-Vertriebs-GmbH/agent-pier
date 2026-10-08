@@ -50,13 +50,33 @@
   }
 }
 .endpoint-models,
-.endpoint-protocols {
+.endpoint-protocols,
+.endpoint-routing {
   border: 0;
   padding: 0;
   margin: 0;
   min-width: 0;
   display: grid;
   gap: 10px;
+}
+.endpoint-routing .endpoint-route {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+/* Matches the form label look; a real <label> would retarget the options. */
+.endpoint-route-field {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #cdced2;
+}
+@media (max-width: 700px) {
+  .endpoint-route select {
+    width: 100%;
+  }
 }
 .endpoint-model-scroll {
   overflow-x: auto;
