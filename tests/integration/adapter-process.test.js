@@ -4,19 +4,21 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
+import net from "node:net";
+import { once } from "node:events";
+import { pathToFileURL } from "node:url";
 import {
   startAdapter,
+  spawnAdapter,
   adapterExecArgv,
   adapterEnvironment,
   substituteAdapterUrl,
 } from "../../server/features/adapter-runtime/adapter-supervisor.js";
-import net from "node:net";
-import { once } from "node:events";
-import { spawnAdapter } from "../../server/features/adapter-runtime/adapter-supervisor.js";
+import { createAdapterServer } from "../../server/features/adapter-runtime/adapter-server.js";
 import { scriptedUpstream, sse } from "../helpers/scripted-upstream.js";
 import { loadFixture } from "../helpers/protocol-adapter.js";
 import { KEY, validAdapterConfig, authorized } from "../helpers/adapter-fixture.js";
-import { alive, childPids, until } from "../helpers/adapter-process.js";
+import { alive, childPids, until, writeStub } from "../helpers/adapter-process.js";
 
 test("the adapter process serves one session and keeps the key out of argv, env and stdio", async (t) => {
   const up = await scriptedUpstream(t, (_e, res) =>
@@ -87,9 +89,7 @@ test("substitution touches env values and args only", () => {
 test("startup failures: invalid config and a silent child (start timeout)", async (t) => {
   // The adapter reports `config` over IPC before it exits; the supervisor must see that reason.
   await assert.rejects(startAdapter({ token: "x" }), { reason: "config" });
-  const silent = path.join(os.tmpdir(), `agentpier-silent-${process.pid}.mjs`);
-  fs.writeFileSync(silent, "setInterval(() => {}, 1000);\n");
-  t.after(() => fs.rmSync(silent, { force: true }));
+  const silent = writeStub(t, "setInterval(() => {}, 1000);\n").file;
   const started = Date.now();
   let spawned = null;
   await assert.rejects(
@@ -101,18 +101,31 @@ test("startup failures: invalid config and a silent child (start timeout)", asyn
     { reason: "timeout" },
   );
   assert.ok(Date.now() - started < 2000);
-  await until(() => !alive(spawned.pid), 2000); // the timed-out child is not orphaned
+  // The rejection waits for the killed child: nothing outlives a failed start.
+  assert.equal(alive(spawned.pid), false);
+});
+
+test("without a failed message the exit code names the reason", async (t) => {
+  for (const [code, reason] of [
+    [78, "config"],
+    [71, "bind"],
+    [3, "exited"],
+  ]) {
+    const stub = writeStub(t, `process.once("message", () => process.exit(${code}));\n`);
+    await assert.rejects(
+      spawnAdapter(validAdapterConfig(), { entry: stub.file, port: 47999 }),
+      { reason },
+    );
+  }
 });
 
 test("stop escalates to SIGKILL after the grace period", async (t) => {
-  const stubborn = path.join(os.tmpdir(), `agentpier-stubborn-${process.pid}.mjs`);
-  fs.writeFileSync(
-    stubborn,
+  const stubborn = writeStub(
+    t,
     `process.on("SIGTERM", () => {});
-process.once("message", () => process.send({ type: "ready", port: 1 }));
+process.once("message", (m) => process.send({ type: "ready", port: m.port }));
 setInterval(() => {}, 1000);\n`,
-  );
-  t.after(() => fs.rmSync(stubborn, { force: true }));
+  ).file;
   const adapter = await startAdapter(validAdapterConfig(), { entry: stubborn });
   const started = Date.now();
   await adapter.stop({ graceMs: 200 });
@@ -120,13 +133,20 @@ setInterval(() => {}, 1000);\n`,
   assert.equal(alive(adapter.child.pid), false);
 });
 
-test("a taken port fails the start with reason bind", async (t) => {
-  const blocker = net.createServer().listen(0, "127.0.0.1");
-  await once(blocker, "listening");
-  t.after(() => blocker.close());
-  await assert.rejects(
-    spawnAdapter(validAdapterConfig(), { port: blocker.address().port }),
-    { reason: "bind" },
+test("the supervisor owns the port and the adapter never binds", async (t) => {
+  const adapter = await startAdapter(validAdapterConfig());
+  t.after(() => adapter.stop());
+  const blocker = net.createServer();
+  blocker.listen(adapter.port, "127.0.0.1");
+  const [error] = await once(blocker, "error");
+  assert.equal(error.code, "EADDRINUSE");
+  // Connections still reach the adapter: the supervisor hands them over.
+  assert.equal((await fetch(`${adapter.url}/api/hello`, { method: "HEAD" })).status, 200);
+  await adapter.stop();
+  assert.equal(
+    await fetch(`${adapter.url}/api/hello`, { method: "HEAD" }).catch(() => null),
+    null,
+    "stop releases the port",
   );
 });
 
@@ -152,14 +172,56 @@ setInterval(() => {}, 1000);
   await until(() => !alive(pid), 5000);
 });
 
-test("SIGINT does not stop the adapter", async (t) => {
+test("SIGINT, SIGQUIT and SIGHUP do not stop the adapter", async (t) => {
   const adapter = await startAdapter(validAdapterConfig());
   t.after(() => adapter.stop());
-  process.kill(adapter.child.pid, "SIGINT");
+  for (const signal of ["SIGINT", "SIGQUIT", "SIGHUP"])
+    process.kill(adapter.child.pid, signal);
   await new Promise((resolve) => setTimeout(resolve, 200));
   assert.equal(alive(adapter.child.pid), true);
   assert.equal(adapter.restarts(), 0, "not a crash and restart either");
   assert.equal((await fetch(`${adapter.url}/api/hello`, { method: "HEAD" })).status, 200);
+});
+
+test("an uncaught exception exits with 70 and the supervisor restarts the adapter", async (t) => {
+  // Preload: the first adapter process throws shortly after it reported ready. It wraps
+  // process.send instead of listening for messages, so the adapter still gets `start`.
+  const preload = writeStub(t, "");
+  const marker = path.join(preload.dir, "thrown");
+  fs.writeFileSync(
+    preload.file,
+    `import fs from "node:fs";
+const send = process.send.bind(process);
+process.send = (message, ...rest) => {
+  const sent = send(message, ...rest);
+  if (message?.type === "ready" && !fs.existsSync(${JSON.stringify(marker)})) {
+    fs.writeFileSync(${JSON.stringify(marker)}, "");
+    setTimeout(() => { throw new Error("boom"); }, 100);
+  }
+  return sent;
+};\n`,
+  );
+  const adapter = await startAdapter(validAdapterConfig(), {
+    execArgv: [...adapterExecArgv(), "--import", pathToFileURL(preload.file).href],
+    restart: { delayMs: 20 },
+  });
+  t.after(() => adapter.stop());
+  const first = adapter.child;
+  const [code] = await once(first, "exit");
+  assert.equal(code, 70);
+  await until(() => adapter.restarts() === 1 && adapter.child !== first);
+  assert.equal((await fetch(`${adapter.url}/api/hello`, { method: "HEAD" })).status, 200);
+});
+
+test("an adapter server that never served leaves the previous snapshot alone", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-adapter-unserved-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const diagnosticsPath = path.join(dir, "s.adapter.json");
+  fs.writeFileSync(diagnosticsPath, JSON.stringify({ unauthorized: 4 }));
+  await createAdapterServer(validAdapterConfig({ diagnosticsPath })).close();
+  assert.deepEqual(JSON.parse(fs.readFileSync(diagnosticsPath, "utf8")), {
+    unauthorized: 4,
+  });
 });
 
 test("no adapter child outlives the tests", async () => {

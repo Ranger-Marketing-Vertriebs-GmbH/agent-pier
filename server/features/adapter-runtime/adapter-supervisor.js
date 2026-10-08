@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ADAPTER_URL_PLACEHOLDER } from "../providers/adapter-launch.js";
 import { writeDiagnostics } from "./adapter-diagnostics.js";
+import { createAdapterListener } from "./adapter-listener.js";
 
 export const ADAPTER_ENTRY = fileURLToPath(
   new URL("../../adapter-process.js", import.meta.url),
@@ -32,11 +33,34 @@ const exitOf = (child) =>
     ? new Promise((resolve) => child.once("exit", () => resolve()))
     : Promise.resolve();
 
+/**
+ * Starts the adapter for one session and keeps it running. The supervisor owns the
+ * loopback port for the whole session (see adapter-listener.js); an adapter exit it did
+ * not cause triggers a restart with the same configuration, bounded by `restart`.
+ * `signal` cancels only the start; once resolved, `stop()` is the only way to end it.
+ */
 export async function startAdapter(config, options = {}) {
-  const { restart: { max = 3, windowMs = 60_000, delayMs = 250 } = {}, ...spawnOptions } =
-    options;
-  let child = await spawnAdapter(config, spawnOptions);
-  const port = child.adapterPort;
+  const {
+    restart: { max = 3, windowMs = 60_000, delayMs = 250 } = {},
+    cliEnv,
+    signal,
+    ...rest
+  } = options;
+  // Only the derived adapter env is kept; the CLI env (with its keys) is not retained.
+  const spawnOptions = { ...rest, env: adapterEnvironment(cliEnv) };
+  const diagnosticsPath = config?.diagnosticsPath ?? null;
+  const listener = await createAdapterListener();
+  const { port } = listener;
+  let child;
+  try {
+    child = await spawnAdapter(config, { ...spawnOptions, signal, port });
+  } catch (error) {
+    await listener.close();
+    throw error;
+  }
+  // `secret` holds the key and token while restarts may need them; dropped on stop/give-up.
+  let secret = config;
+  config = null;
   const attempts = []; // timestamps of restart attempts (sliding window)
   let total = 0,
     stopping = false,
@@ -44,21 +68,25 @@ export async function startAdapter(config, options = {}) {
     starting = null, // AbortController of a restart attempt in flight
     startingChild = null, // its child process until it is ready or gone
     lastReason = "exited";
+  const giveUp = () => {
+    secret = null;
+    listener.refuse(); // the port stays bound: nobody else can take it
+    recordGiveUp(diagnosticsPath, { restarts: total, lastReason });
+  };
   const scheduleRestart = () => {
-    if (stopping) return;
+    if (stopping || !secret) return;
     const now = Date.now();
     while (attempts.length && now - attempts[0] > windowMs) attempts.shift();
-    if (attempts.length >= max)
-      return recordGiveUp(config.diagnosticsPath, { restarts: total, lastReason });
+    if (attempts.length >= max) return giveUp();
     timer = setTimeout(async () => {
       timer = null;
-      if (stopping) return;
+      if (stopping || !secret) return;
       attempts.push(Date.now());
       total += 1;
       const controller = new AbortController();
       starting = controller;
       try {
-        const next = await spawnAdapter(config, {
+        const next = await spawnAdapter(secret, {
           ...spawnOptions,
           signal: controller.signal,
           port,
@@ -67,31 +95,25 @@ export async function startAdapter(config, options = {}) {
         });
         starting = null;
         startingChild = null;
-        if (stopping) {
-          next.kill("SIGKILL");
-          return;
-        }
-        if (next.adapterPort !== port) {
-          next.kill("SIGKILL");
-          lastReason = "bind";
-          return scheduleRestart();
-        }
+        if (stopping) return void next.kill("SIGKILL");
         watch(next);
       } catch (error) {
         starting = null;
         startingChild = null;
         lastReason = error.reason ?? "exited";
-        scheduleRestart(); // a failed rebind or start timeout consumed this attempt
+        scheduleRestart(); // a failed or timed-out start consumed this attempt
       }
     }, delayMs);
   };
   const watch = (next) => {
     child = next;
+    listener.setTarget(next);
     next.once("exit", () => {
-      if (!stopping && next === child) {
-        lastReason = "exited";
-        scheduleRestart();
-      }
+      if (next !== child) return;
+      listener.setTarget(null);
+      if (stopping) return;
+      lastReason = "exited";
+      scheduleRestart();
     });
   };
   watch(child);
@@ -105,7 +127,9 @@ export async function startAdapter(config, options = {}) {
     startingPid: () => startingChild?.pid ?? null, // test seam for "stop waits for a starting child"
     async stop({ graceMs = 2000 } = {}) {
       stopping = true;
+      secret = null;
       clearTimeout(timer);
+      listener.refuse();
       const pending = startingChild;
       starting?.abort(); // spawnAdapter SIGKILLs a child that is still starting …
       if (pending) await exitOf(pending); // … and stop() waits until it is really gone
@@ -116,6 +140,7 @@ export async function startAdapter(config, options = {}) {
         await exitOf(current);
         clearTimeout(kill);
       }
+      await listener.close();
     },
   };
 }
@@ -133,16 +158,20 @@ function recordGiveUp(file, { restarts, lastReason }) {
   });
 }
 
-/** One start attempt; resolves with the ready child (`child.adapterPort` set). */
+/**
+ * One start attempt for the supervisor's `port`; resolves with the ready child. Rejects
+ * only once a child it killed has exited (bounded), so nothing it started outlives it.
+ */
 export function spawnAdapter(
   config,
   {
     entry = ADAPTER_ENTRY,
     timeoutMs = 10_000,
     cliEnv,
+    env = adapterEnvironment(cliEnv),
     signal,
     execArgv = adapterExecArgv(),
-    port = 0,
+    port,
     restarts = 0,
     onSpawn,
   } = {},
@@ -151,7 +180,7 @@ export function spawnAdapter(
     const child = spawn(process.execPath, [...execArgv, entry], {
       stdio: ["ignore", "ignore", "ignore", "ipc"],
       detached: true,
-      env: adapterEnvironment(cliEnv),
+      env,
     });
     onSpawn?.(child);
     let settled = false;
@@ -163,31 +192,36 @@ export function spawnAdapter(
     const fail = (reason) => {
       if (settled) return;
       settle();
+      const error = Object.assign(new Error("the protocol adapter did not start"), {
+        reason,
+      });
+      if (child.pid === undefined || !running(child)) return reject(error);
       child.kill("SIGKILL");
-      reject(Object.assign(new Error("the protocol adapter did not start"), { reason }));
+      const bound = setTimeout(() => reject(error), 1000);
+      exitOf(child).then(() => {
+        clearTimeout(bound);
+        reject(error);
+      });
     };
     const timer = setTimeout(() => fail("timeout"), timeoutMs);
     const onAbort = () => fail("aborted");
     if (signal?.aborted) return onAbort();
     signal?.addEventListener("abort", onAbort, { once: true });
-    child.once("error", () => fail("spawn"));
+    // `on`, not `once`: a later error (a failed kill or send) must not go unhandled.
+    child.on("error", () => fail("spawn"));
     // Fallback when the failed message was lost: the adapter's exit codes name the reason.
     child.once("exit", (code) =>
       fail(code === 78 ? "config" : code === 71 ? "bind" : "exited"),
     );
     child.on("message", (message) => {
       if (settled) return;
-      const port = message?.port;
-      if (
-        message?.type === "ready" &&
-        Number.isInteger(port) &&
-        port > 0 &&
-        port < 65536
-      ) {
+      if (message?.type === "ready" && message.port === port) {
         settle();
         child.adapterPort = port;
         resolve(child);
-      } else fail(message?.reason === "bind" ? "bind" : "config");
+      } else
+        // A ready on another port is not this session's adapter.
+        fail(message?.type === "ready" || message?.reason === "bind" ? "bind" : "config");
     });
     child.once("spawn", () => child.send({ type: "start", config, port, restarts }));
   });

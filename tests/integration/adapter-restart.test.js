@@ -9,7 +9,27 @@ import { startAdapter } from "../../server/features/adapter-runtime/adapter-supe
 import { scriptedUpstream, sse } from "../helpers/scripted-upstream.js";
 import { loadFixture } from "../helpers/protocol-adapter.js";
 import { KEY, validAdapterConfig, authorized } from "../helpers/adapter-fixture.js";
-import { alive, childPids, until } from "../helpers/adapter-process.js";
+import { alive, childPids, until, writeStub } from "../helpers/adapter-process.js";
+
+/** Resolves with the listen error for a second bind of `port` (closing it if it bound). */
+async function bindError(port) {
+  const server = net.createServer().listen(port, "127.0.0.1");
+  try {
+    await once(server, "listening"); // rejects with the listen error
+  } catch (error) {
+    return error.code;
+  }
+  await new Promise((resolve) => server.close(resolve));
+  return null;
+}
+
+const readRecord = (file) => {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return null;
+  }
+};
 
 test("a crashed adapter is restarted on the same port with the same token", async (t) => {
   const up = await scriptedUpstream(t, (_e, res) =>
@@ -19,59 +39,100 @@ test("a crashed adapter is restarted on the same port with the same token", asyn
     validAdapterConfig({
       upstream: { baseUrl: `${up.base}/v1`, authHeader: null, apiKey: KEY },
     }),
-    { restart: { delayMs: 50 } },
+    { restart: { delayMs: 300 } },
   );
   t.after(() => adapter.stop());
   const { url } = adapter;
   const first = adapter.child.pid;
   process.kill(first, "SIGKILL");
-  await until(() => adapter.child.pid !== first && adapter.restarts() === 1);
-  assert.equal(adapter.url, url);
+  await until(() => !alive(first));
+  // Restart window: the port stays bound by the supervisor, nobody else can take it …
+  assert.equal(adapter.restarts(), 0, "still inside the restart delay");
+  assert.equal(await bindError(adapter.port), "EADDRINUSE");
+  // … and a request sent now waits for the restarted adapter instead of failing.
   const res = await fetch(`${url}/v1/messages`, {
     method: "POST",
     headers: authorized(),
     body: JSON.stringify(loadFixture("clients/claude-code/text.json").body),
   });
   assert.match(await res.text(), /message_stop/);
+  assert.equal(adapter.restarts(), 1);
+  assert.notEqual(adapter.child.pid, first);
+  assert.equal(adapter.url, url);
 });
 
-test("the restart budget is bounded and a taken port counts as a failed restart", async (t) => {
+test("the restart budget is bounded; give-up keeps the port and the last counters", async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-adapter-budget-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const diagnosticsPath = path.join(dir, "s.adapter.json");
   const adapter = await startAdapter(validAdapterConfig({ diagnosticsPath }), {
-    restart: { max: 3, windowMs: 60_000, delayMs: 300 },
+    restart: { max: 3, windowMs: 60_000, delayMs: 50 },
   });
   t.after(() => adapter.stop());
-  // 1st crash: occupy the port during the restart delay → bind failure consumes one attempt; release it → next attempt succeeds
+  // One counted request so the first adapter writes a snapshot.
+  assert.equal(
+    (await fetch(`${adapter.url}/v1/messages`, { method: "POST" })).status,
+    401,
+  );
+  await until(() => readRecord(diagnosticsPath)?.unauthorized === 1);
+  for (let restart = 1; restart <= 3; restart += 1) {
+    const pid = adapter.child.pid;
+    process.kill(pid, "SIGKILL");
+    await until(() => adapter.restarts() === restart && adapter.child.pid !== pid, 5000);
+  }
+  // 4th crash: budget spent → no new child, the give-up is recorded.
+  const pid = adapter.child.pid;
+  process.kill(pid, "SIGKILL");
+  await until(() => readRecord(diagnosticsPath)?.supervisor?.gaveUpAt, 5000);
+  await new Promise((r) => setTimeout(r, 200));
+  assert.equal(adapter.child.pid, pid, "no further restart");
+  assert.equal(adapter.restarts(), 3);
+  const record = readRecord(diagnosticsPath);
+  assert.equal(record.supervisor.restarts, 3);
+  assert.equal(record.supervisor.lastReason, "exited");
+  assert.equal(record.unauthorized, 1, "restarts that served nothing keep the counters");
+  assert.equal(fs.statSync(diagnosticsPath).mode & 0o777, 0o600);
+  // The port stays reserved, and the CLI gets an immediate error instead of a hang.
+  assert.equal(await bindError(adapter.port), "EADDRINUSE");
+  const started = Date.now();
+  assert.equal(
+    await fetch(`${adapter.url}/api/hello`, { method: "HEAD" }).catch(() => null),
+    null,
+  );
+  assert.ok(Date.now() - started < 2000);
+});
+
+test("a failed restart attempt consumes the budget", async (t) => {
+  // Stub: the 2nd process exits 71 without a message (start failure); the others are ready.
+  const stub = writeStub(t, "");
+  const counter = path.join(stub.dir, "count");
+  const diagnosticsPath = path.join(stub.dir, "s.adapter.json");
+  fs.writeFileSync(
+    stub.file,
+    `import fs from "node:fs";
+let n = 1;
+try { n = Number(fs.readFileSync(${JSON.stringify(counter)}, "utf8")) + 1; } catch {}
+fs.writeFileSync(${JSON.stringify(counter)}, String(n));
+process.on("disconnect", () => process.exit(0));
+process.once("message", (m) => {
+  if (n === 2) process.exit(71);
+  process.send({ type: "ready", port: m.port });
+});
+setInterval(() => {}, 1000);\n`,
+  );
+  const adapter = await startAdapter(validAdapterConfig({ diagnosticsPath }), {
+    entry: stub.file,
+    restart: { max: 2, delayMs: 20 },
+  });
+  t.after(() => adapter.stop());
   let pid = adapter.child.pid;
   process.kill(pid, "SIGKILL");
-  await until(() => !alive(pid)); // the port is free only once the process is gone
-  const blocker = net.createServer().listen(adapter.port, "127.0.0.1");
-  await once(blocker, "listening");
-  await new Promise((r) => setTimeout(r, 400));
-  blocker.close();
-  await until(() => adapter.child.pid !== pid && alive(adapter.child.pid), 3000);
-  // 2nd crash consumes the 3rd attempt
+  await until(() => adapter.restarts() === 2 && adapter.child.pid !== pid);
   pid = adapter.child.pid;
   process.kill(pid, "SIGKILL");
-  await until(() => adapter.child.pid !== pid);
-  // 3rd crash: budget spent → no new child, diagnostics record the give-up
-  pid = adapter.child.pid;
-  process.kill(pid, "SIGKILL");
-  // Nothing was requested, so the file appears only with the give-up record.
-  await until(() => {
-    try {
-      return JSON.parse(fs.readFileSync(diagnosticsPath, "utf8")).supervisor?.gaveUpAt;
-    } catch {
-      return false;
-    }
-  }, 3000);
-  await new Promise((r) => setTimeout(r, 500));
-  assert.equal(adapter.child.pid, pid, "no further restart");
-  const record = JSON.parse(fs.readFileSync(diagnosticsPath, "utf8")).supervisor;
-  assert.equal(record.restarts, 3);
-  assert.equal(fs.statSync(diagnosticsPath).mode & 0o777, 0o600);
+  await until(() => readRecord(diagnosticsPath)?.supervisor?.gaveUpAt);
+  assert.equal(readRecord(diagnosticsPath).supervisor.restarts, 2);
+  assert.equal(fs.readFileSync(counter, "utf8"), "3");
 });
 
 test("stop during a pending restart leaves no adapter behind", async () => {
@@ -91,20 +152,18 @@ test("stop during a pending restart leaves no adapter behind", async () => {
 test("stop waits for an adapter that is still starting", async (t) => {
   // Stub entry: the first process reports ready; every later one stays silent (marker file),
   // so the restart attempt is still "starting" when stop() runs.
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-slow-"));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  const marker = path.join(dir, "started");
-  const stub = path.join(dir, "stub.mjs");
+  const stub = writeStub(t, "");
+  const marker = path.join(stub.dir, "started");
   fs.writeFileSync(
-    stub,
+    stub.file,
     `import fs from "node:fs";
 const first = !fs.existsSync(${JSON.stringify(marker)});
 fs.writeFileSync(${JSON.stringify(marker)}, "");
-process.on("message", () => { if (first) process.send({ type: "ready", port: 47999 }); });
+process.on("message", (m) => { if (first) process.send({ type: "ready", port: m.port }); });
 setInterval(() => {}, 1000);\n`,
   );
   const adapter = await startAdapter(validAdapterConfig(), {
-    entry: stub,
+    entry: stub.file,
     timeoutMs: 5000,
     restart: { delayMs: 20 },
   });

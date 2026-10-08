@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { createAdapterServer } from "../../server/features/adapter-runtime/adapter-server.js";
 import { KEY, validAdapterConfig } from "./adapter-fixture.js";
@@ -12,6 +14,15 @@ export const alive = (pid) => {
     return false;
   }
 };
+
+/** Writes a stub adapter entry into a private temp dir (removed after the test). */
+export function writeStub(t, source) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-adapter-stub-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, "stub.mjs");
+  fs.writeFileSync(file, source);
+  return { dir, file };
+}
 
 /** Live child processes of this test process (adapters are detached but keep their parent). */
 export function childPids() {
