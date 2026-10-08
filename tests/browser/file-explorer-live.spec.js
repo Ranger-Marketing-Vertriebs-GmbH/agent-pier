@@ -47,6 +47,18 @@ async function createEntry(page, kind, name) {
   await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
 }
 
+function cancelledApiFetch(error, origin) {
+  const text = `${error.message}\n${error.stack || ""}`;
+  const match = /^Fetch API cannot load (\S+)/m.exec(text);
+  if (!match) return false;
+  try {
+    const url = new URL(match[1]);
+    return url.origin === new URL(origin).origin && url.pathname.startsWith("/api/");
+  } catch {
+    return false;
+  }
+}
+
 test("owned live Explorer creates, transfers, edits, resolves and restores", async ({
   browser,
 }) => {
@@ -70,7 +82,12 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
     ]);
     const page = await context.newPage();
     const pageErrors = [];
-    page.on("pageerror", (error) => pageErrors.push(error.message));
+    page.on("pageerror", (error) => {
+      // Navigating away cancels in-flight requests; WebKit reports the aborted
+      // same-origin API fetch as an access-control page error.
+      if (cancelledApiFetch(error, f.url)) return;
+      pageErrors.push(error.message);
+    });
 
     await page.goto(`${f.url}/settings`);
     await page.getByLabel("Sprache", { exact: true }).selectOption("en");
@@ -222,6 +239,14 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
     await expect
       .poll(() => readTextWhenPresent(document))
       .toBe(process.platform === "darwin" ? "local-edit" : "external");
+    // Let the job-triggered Trash refresh settle before leaving the page.
+    await expect(
+      page
+        .locator(".file-trash-list li")
+        .filter({ hasText: "Deleted" })
+        .getByRole("checkbox", { name: "Select document.txt", exact: true }),
+    ).toHaveCount(0);
+    await expect(page.getByText("Loading every Trash page …")).toHaveCount(0);
 
     await page.goto(`${f.url}/settings`);
     await page.getByLabel("Language", { exact: true }).selectOption("de");
