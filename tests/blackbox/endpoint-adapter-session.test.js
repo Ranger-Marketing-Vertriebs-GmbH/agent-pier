@@ -103,12 +103,16 @@ async function noKeyAnywhere(f, sessionId) {
   // dirs (config.toml, opencode.json), pipeline store. Only the connection's own private
   // secret store is meant to hold the key.
   const secretStore = path.join(f.dataDir, "provider-connection-secrets");
-  for (const file of files.filter((n) => path.dirname(n) !== secretStore))
-    assert.equal(
-      (await fs.readFile(file)).includes(KEY),
-      false,
-      path.relative(f.dataDir, file),
-    );
+  for (const file of files.filter((n) => path.dirname(n) !== secretStore)) {
+    // A running adapter may rename its atomic-write temp file (`*.adapter.json.<uuid>.tmp`)
+    // into place between listing and reading; its content then lives in the target file,
+    // which is listed and read as well.
+    const content = await fs.readFile(file).catch((error) => {
+      if (error.code === "ENOENT" && file.endsWith(".tmp")) return Buffer.alloc(0);
+      throw error;
+    });
+    assert.equal(content.includes(KEY), false, path.relative(f.dataDir, file));
+  }
   for (const route of [
     "/api/state",
     "/api/provider-connections",
@@ -139,6 +143,12 @@ test("a Claude Code session on a Chat-only endpoint runs through the adapter wit
   const record = await waitForJson(out);
   assert.match(record.calls[0].text, /message_stop/);
   assert.equal(up.seen[0].headers.authorization, `Bearer ${KEY}`);
+  await noKeyAnywhere(f, session.id);
+  // Again after the launcher (and with it the adapter's final write) has finished.
+  await until(
+    async () => (await f.application.sessions.get(session.id)).status === "stopped",
+    10_000,
+  );
   await noKeyAnywhere(f, session.id);
 });
 
