@@ -120,6 +120,12 @@ export default function SshSettings() {
     setSelectedId(null);
     requestAnimationFrame(() => (row?.isConnected ? row : searchRef.current)?.focus());
   };
+  // The removed row may still be mounted when the next frame runs, so focus the
+  // search box directly instead of a row that is about to disappear.
+  const closeRemoved = () => {
+    setSelectedId(null);
+    requestAnimationFrame(() => searchRef.current?.focus());
+  };
   const showKey = (id) => {
     const ordered = [...keys].sort(
       (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
@@ -305,7 +311,7 @@ export default function SshSettings() {
                 loading={!ready}
                 viewKey={showKey}
                 removed={(id) => {
-                  closeDetails();
+                  closeRemoved();
                   setData((current) => ({
                     accesses: current.accesses.filter((item) => item.id !== id),
                   }));
@@ -317,7 +323,7 @@ export default function SshSettings() {
                 project={projectFor(selected)}
                 edited={setEditingKey}
                 removed={(id) => {
-                  closeDetails();
+                  closeRemoved();
                   catalog.setData((current) => ({
                     keys: current.keys.filter((key) => key.id !== id),
                   }));
