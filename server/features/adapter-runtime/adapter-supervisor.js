@@ -16,10 +16,16 @@ export const ADAPTER_ENTRY = fileURLToPath(
 export const adapterExecArgv = (flags = process.allowedNodeEnvironmentFlags) =>
   flags.has("--use-system-ca") ? ["--use-system-ca"] : [];
 
+// Trust-store settings only: Node's extra CA bundle, and the OpenSSL locations its
+// system-CA loading honors (corporate setups use them on Linux). Never proxies or keys.
+const CA_VARIABLES = ["NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR"];
+
 export function adapterEnvironment(cliEnv = {}, own = process.env) {
   const env = { PATH: own.PATH || "/usr/bin:/bin" };
-  const ca = cliEnv.NODE_EXTRA_CA_CERTS || own.NODE_EXTRA_CA_CERTS;
-  if (ca) env.NODE_EXTRA_CA_CERTS = ca;
+  for (const name of CA_VARIABLES) {
+    const value = cliEnv[name] || own[name];
+    if (value) env[name] = value;
+  }
   return env;
 }
 
@@ -72,15 +78,23 @@ export async function startAdapter(config, options = {}) {
     generation: config?.generation ?? null,
   };
   const giveUpResponse = unavailableResponse(config?.clientProtocol);
-  const listener = await createAdapterListener({ maxQueued, maxAgeMs });
-  const { port } = listener;
+  let listener = null;
   let child;
   try {
-    child = await spawnAdapter(config, { ...spawnOptions, signal, port });
+    listener = await createAdapterListener({ maxQueued, maxAgeMs });
+    child = await spawnAdapter(config, { ...spawnOptions, signal, port: listener.port });
   } catch (error) {
-    await listener.close();
+    listener?.close();
+    error.reason ??= "listen";
+    // A stop during the start is no failure; every other reason is a fixed enum.
+    if (error.reason !== "aborted")
+      recordSupervisor(diagnostics, {
+        startFailed: error.reason,
+        at: new Date().toISOString(),
+      });
     throw error;
   }
+  const { port } = listener;
   // `secret` holds the key and token while restarts may need them; dropped on stop/give-up.
   let secret = config;
   config = null;
@@ -93,7 +107,9 @@ export async function startAdapter(config, options = {}) {
     lastReason = "exited";
   const giveUp = () => {
     secret = null;
-    // The port stays bound (nobody else can take it); the CLI gets a 503 in its format.
+    // The port stays bound until the session ends, so nobody else can take it. The CLI
+    // keeps running but every request gets a static 503 in its format until a reload;
+    // only the `supervisor` diagnostics field records why (no UI hint before the doctor).
     listener.refuse(giveUpResponse);
     recordSupervisor(diagnostics, {
       restarts: total,
@@ -246,18 +262,15 @@ export function spawnAdapter(
     // `on`, not `once`: a later error (a failed kill or send) must not go unhandled.
     child.on("error", () => fail("spawn"));
     // Fallback when the failed message was lost: the adapter's exit codes name the reason.
-    child.once("exit", (code) =>
-      fail(code === 78 ? "config" : code === 71 ? "bind" : "exited"),
-    );
+    child.once("exit", (code) => fail(code === 78 ? "config" : "exited"));
     child.on("message", (message) => {
       if (settled) return;
+      // The adapter never binds; its ready echoes the supervisor's port. Any other
+      // message (`failed`, or one not for this start) is a configuration failure.
       if (message?.type === "ready" && message.port === port) {
         settle();
-        child.adapterPort = port;
         resolve(child);
-      } else
-        // A ready on another port is not this session's adapter.
-        fail(message?.type === "ready" || message?.reason === "bind" ? "bind" : "config");
+      } else fail("config");
     });
     child.once("spawn", () =>
       child.send({ type: "start", config, port, restarts, httpTimeouts }),
