@@ -8,7 +8,7 @@
 
 **Tech Stack:** React 18 + Vite (JSX, ES modules), Express, `node:test` + `node:assert/strict`, Playwright (Chromium and WebKit), the reactive i18n catalogs in `web/lib/i18n/{de,en}/` and `web/lib/i18n/messages/`.
 
-**Spec:** `docs/superpowers/specs/2026-10-07-protocol-adapter-design.md` (binding, Amendments 1–20; PR 3 = "Delivery" item 3, "UI", "Observability", plus Amendments 18–20 hand-offs). UI decisions: `pr3-ui-proposal.md` (recommendations assumed below; each decision point is marked **[Decision n]**).
+**Spec:** `docs/superpowers/specs/2026-10-07-protocol-adapter-design.md` (binding, Amendments 1–20; PR 3 = "Delivery" item 3, "UI", "Observability", plus Amendments 18–20 hand-offs). UI decisions: taken by the human on 2026-10-08 and recorded in `.superpowers/sdd/protocol-adapter-ui/progress.md`; each decision point is marked **[Decision n]** below.
 
 ## Global Constraints
 
@@ -72,6 +72,9 @@
 | `web/features/sessions/SessionReloadDialog.jsx`                                                                                                                                                                                                                                                                                    | Route-change warning                                                                     |
 | `web/features/operations/diagnostic-labels.js`                                                                                                                                                                                                                                                                                     | Label for `adapter-session.*`                                                            |
 | `server/features/sessions/session-reload.js`                                                                                                                                                                                                                                                                                       | `routeChange` in `inspect()`                                                             |
+| `server/features/sessions/provider-configuration.js`, `server/features/sessions/session-replacement.js`                                                                                                                                                                                                                            | A reload records the route it actually launched (`reloadedProvider`)                     |
+| `tests/unit/endpoint-draft.test.js`                                                                                                                                                                                                                                                                                                | Payload key list gains the adapter fields                                                |
+| `docs/session-reload.md`                                                                                                                                                                                                                                                                                                           | Route-change warning                                                                     |
 | `server/features/operations/doctor.js`                                                                                                                                                                                                                                                                                             | Adapter session checks; routes and Azure note in the endpoint summary                    |
 | `web/lib/i18n/{de,en}/connections.js`, `sessions.js`, `operations.js`                                                                                                                                                                                                                                                              | New keys                                                                                 |
 | `tests/browser/providers-fixture.js`                                                                                                                                                                                                                                                                                               | Compute `toolRoutes`/`tools` with the web mirror                                         |
@@ -84,7 +87,7 @@
 
 ### Task 1: Let `auto` fall back to adapter routes
 
-**[Decision 1]** assumed: flip for all connections, existing ones included. If the human chooses "keep existing connections native", replace Step 3 with a one-time migration that writes `routing: { claude: "native", codex: "native" }` into stored records whose `routing` is absent, and keep the legacy test's `tools: ["opencode"]` assertion.
+**[Decision 1]** decided: flip for all connections, existing ones included — existing single-protocol connections offer adapter routes under `auto`, clearly labeled (Task 7). No migration.
 
 **Files:**
 
@@ -467,7 +470,7 @@ git commit -m "feat: mirror endpoint route resolution in the web client"
   - `applyProposal(draft, proposal)` additionally merges `proposal.capabilities` into `adapterCapabilities` and stores it as `capabilityProposal`
   - `endpointPayload(draft)` adds `routing`, `adapterCapabilities`, `thinkTagExtraction`, model `images`
 
-**[Decision 2]** assumed: proposals are applied to the draft automatically. If the human prefers an explicit "Apply suggestions" button, `applyProposal` only sets `capabilityProposal`, and a new `acceptProposal(draft)` merges it (Task 5 then renders the button).
+**[Decision 2]** decided: test proposals are applied to the draft automatically, marked ("suggested by the test") and stay editable. No "Apply suggestions" button.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -684,10 +687,39 @@ export const setModelImages = (draft, modelId, images) => ({
 
 Check the file stays ≤ 600 lines (it grows from 192 to about 250).
 
+In `tests/unit/endpoint-draft.test.js` ("payload carries only server-known fields") the exact key lists now include the adapter fields; replace the two expected arrays (do not loosen the assertion):
+
+```js
+assert.deepEqual(Object.keys(payload).sort(), [
+  "adapterCapabilities",
+  "anthropicBaseUrl",
+  "authHeader",
+  "lastTest",
+  "models",
+  "openaiBaseUrl",
+  "preset",
+  "protocols",
+  "routing",
+  "thinkTagExtraction",
+]);
+assert.deepEqual(Object.keys(payload.models[0]).sort(), [
+  "contextEdited",
+  "contextHint",
+  "contextTokens",
+  "images",
+  "label",
+  "modelId",
+  "outputTokens",
+  "source",
+]);
+```
+
+`capabilityProposal` must not appear in the first list (it is UI-only).
+
 - [ ] **Step 4: Run them to verify they pass**
 
 Run: `node --test tests/unit/endpoint-draft-adapter.test.js tests/unit/endpoint-draft.test.js tests/unit/endpoint-draft-rules.test.js`
-Expected: PASS. If an existing `endpoint-draft.test.js` assertion compares a whole payload or draft with `deepEqual`, extend its expected object with the new fields (do not loosen it to `partialDeepStrictEqual`).
+Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -791,22 +823,50 @@ German (`web/lib/i18n/de/connections.js`), same keys and arities:
     },
 ```
 
+The existing URL help texts name only the native users and become wrong once `auto` uses the adapter; replace them in both catalogs (keys unchanged):
+
+- en `endpoint.openaiHelp`: `"Usually ends with /v1. Used for the Responses and Chat Completions protocols."`; `endpoint.anthropicHelp`: `"Used for the Anthropic Messages protocol. Leave empty if the server has no Anthropic Messages API."`
+- de `endpoint.openaiHelp`: `"Endet meist auf /v1. Wird für die Protokolle Responses und Chat Completions verwendet."`; `endpoint.anthropicHelp`: `"Wird für das Protokoll Anthropic Messages verwendet. Leer lassen, wenn der Server keine Anthropic-Messages-API hat."`
+
 Run: `node --test tests/unit/i18n-catalogs.test.js` → PASS.
 
 - [ ] **Step 2: Update the browser fixture to compute routes like the server**
 
-In `tests/browser/providers-fixture.js` import `{ resolveDraftRoute, ROUTE_TOOLS }` from `../../web/features/provider-connections/endpoint-routes.js` and replace the protocol-based `tools` computation for endpoint connections:
+In `tests/browser/providers-fixture.js` add the import
+
+```js
+import {
+  resolveDraftRoute,
+  ROUTE_TOOLS,
+} from "../../web/features/provider-connections/endpoint-routes.js";
+```
+
+and, in the POST/PATCH branch, compute the routes right after `const existing = …;`:
 
 ```js
 const endpointBlock = body.endpoint || existing.endpoint;
+// Same rule as the server's toolRoutes/endpointTools (pinned by the parity test).
 const toolRoutes = endpointBlock
   ? Object.fromEntries(
       ROUTE_TOOLS.map((tool) => [tool, resolveDraftRoute(endpointBlock, tool)]),
     )
-  : undefined;
+  : null;
 ```
 
-then `tools: endpointBlock ? ["codex", "claude", "opencode"].filter((tool) => toolRoutes[tool]) : …existing catalog branch…`, and add `...(toolRoutes ? { toolRoutes } : {})` to `connection`. Seeded `state.providerConnections` entries in existing specs keep their literal `tools`.
+Replace the whole `tools:` property of `connection` (the protocol-based endpoint branch and the catalog branch) with
+
+```js
+        tools: toolRoutes
+          ? ["codex", "claude", "opencode"].filter((tool) => toolRoutes[tool])
+          : body.providerId === "openrouter" ||
+              existing.providerId === "openrouter" ||
+              (body.responsesAccess ?? existing.responsesAccess)
+            ? ["codex", "claude", "opencode"]
+            : ["claude", "opencode"],
+        ...(toolRoutes ? { toolRoutes } : {}),
+```
+
+Seeded `state.providerConnections` entries in existing specs keep their literal `tools` (and get no `toolRoutes` until they are saved through the fixture).
 
 Run: `AGENTPIER_TEST_BROWSER=chromium npx playwright test tests/browser/endpoint-connections.spec.js tests/browser/endpoint-model-editing.spec.js tests/browser/endpoint-picker-hints.spec.js`
 Expected: PASS except the first test of `endpoint-connections.spec.js`, which now sees Codex offered for the Ollama connection (Responses unsupported, Messages ok → Codex via the adapter from Messages). Change its assertion `await expect(access.locator('option[value="provider:connection-one"]')).toHaveCount(0);` to `toHaveCount(1)` and add `await expect(access.locator('option[value="provider:connection-one"]')).toContainText("via adapter · Messages");` in Task 7 Step 8, once labels exist; make only the count change now.
@@ -837,20 +897,30 @@ async function openNewEndpoint(page) {
 test("routes resolve live and explain unavailable choices", async ({ page }) => {
   const { controls, dialog } = await openNewEndpoint(page);
   const routing = dialog.getByRole("group", { name: "CLIs and routes", exact: true });
-  await expect(routing.getByText("Uses: via adapter · Chat Completions")).toHaveCount(2);
-  await expect(routing.getByText("Uses: native")).toBeVisible();
+  const uses = (text) => routing.getByText(`Uses: ${text}`, { exact: true });
+  // llama.cpp preset: only Chat Completions is enabled.
+  await expect(uses("via adapter · Chat Completions")).toHaveCount(2);
+  await expect(uses("native")).toHaveCount(1);
   const claude = routing.getByLabel("Route for Claude Code", { exact: true });
-  await expect(claude.locator("option", { hasText: "Native (Messages)" })).toBeDisabled();
+  await expect(claude.locator('option[value="native"]')).toBeDisabled();
+  await expect(claude.locator('option[value="adapter:responses"]')).toBeDisabled();
+  const responses = dialog.getByRole("checkbox", { name: /OpenAI Responses/ });
+  await responses.check();
   await claude.selectOption("adapter:responses");
-  await expect(routing.getByText("Not available: protocol not enabled")).toBeVisible();
-  await expect(routing.getByText("Uses: not offered")).toBeVisible();
-  await dialog.getByRole("checkbox", { name: /OpenAI Responses/ }).check();
-  await expect(routing.getByText("Uses: via adapter · Responses").first()).toBeVisible();
+  await expect(uses("via adapter · Responses")).toBeVisible();
+  // Review Focus 2: the explicit choice survives when its protocol is switched off again.
+  await responses.uncheck();
+  await expect(claude).toHaveValue("adapter:responses");
+  await expect(
+    routing.getByText("Not available: protocol not enabled", { exact: true }),
+  ).toBeVisible();
+  await expect(uses("not offered")).toBeVisible();
   await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   const created = controls.calls
     .filter((call) => call.path === "/api/provider-connections" && call.method === "POST")
     .at(-1).body;
+  expect(created.endpoint.protocols.responses).toBe(false);
   expect(created.endpoint.routing).toEqual({
     claude: "adapter:responses",
     codex: "auto",
@@ -859,7 +929,7 @@ test("routes resolve live and explain unavailable choices", async ({ page }) => 
 });
 ```
 
-The label "Server type" and the protocol checkbox names come from the existing catalog (`preset`, `protocolNames`). If `AnchoredSelect` does not render native `<option disabled>`, assert the reason text next to the select instead of `toBeDisabled()`; read `web/components/AnchoredSelect.jsx` first and keep the option `disabled` flag it already supports (it is used with `disabled` in `LaunchAccessFields.jsx`).
+The label "Server type" and the protocol checkbox names ("OpenAI Responses · Codex") come from the existing catalog (`preset`, `protocolNames`, `enables`). `AnchoredSelect` renders a native `<select>` with `<option disabled>`, so `toBeDisabled()` on the option works; Playwright's `selectOption` refuses disabled options, which is why the test enables Responses before choosing `adapter:responses` and only then switches it off.
 
 - [ ] **Step 4: Run it to verify it fails**
 
@@ -947,7 +1017,7 @@ export default function EndpointRouting({ draft, setDraft }) {
 
 The currently selected choice stays selectable even when unavailable (Review Focus 2), so a stored explicit route never disappears from the select.
 
-In `ConnectionDialog.jsx` render `<EndpointRouting draft={draft} setDraft={setDraft} />` between `<EndpointTestResult …/>` and `<EndpointModelTable …/>`. In `connections.css` add `.endpoint-routing .endpoint-route { display: grid; gap: 4px; }` and make the select full width below 600 px (`@media (max-width: 600px) { .endpoint-route select { width: 100%; } }`).
+In `ConnectionDialog.jsx` render `<EndpointRouting draft={draft} setDraft={setDraft} />` between `<EndpointTestResult …/>` and `<EndpointModelTable …/>`. In `connections.css` add `.endpoint-routing .endpoint-route { display: grid; gap: 4px; }` and make the select full width at the file's existing mobile breakpoint (`@media (max-width: 700px) { .endpoint-route select { width: 100%; } }`).
 
 - [ ] **Step 6: Run the specs (Chromium and WebKit)**
 
@@ -1223,8 +1293,27 @@ git commit -m "feat: edit adapter capabilities and think tag extraction with tes
 
 - [ ] **Step 1: Catalog keys**
 
-English inside `endpoint`: `images: "Images", imagesFor: (id) => \`Images ${id}\`, imageChoices: { auto: "Automatic", yes: "Yes", no: "No" }, imagesHelp: "No makes the adapter refuse image input for this model, and Codex lists it without image input.",`
-German: `images: "Bilder", imagesFor: (id) => \`Bilder ${id}\`, imageChoices: { auto: "Automatisch", yes: "Ja", no: "Nein" }, imagesHelp: "Nein lässt den Adapter Bild-Eingaben für dieses Modell ablehnen; Codex führt es ohne Bildeingang.",`
+English, inside `endpoint`:
+
+```js
+    images: "Images",
+    imagesFor: (id) => `Images ${id}`,
+    imageChoices: { auto: "Automatic", yes: "Yes", no: "No" },
+    imagesHelp:
+      "No makes the adapter refuse image input for this model, and Codex lists it without image input.",
+```
+
+German, same keys:
+
+```js
+    images: "Bilder",
+    imagesFor: (id) => `Bilder ${id}`,
+    imageChoices: { auto: "Automatisch", yes: "Ja", no: "Nein" },
+    imagesHelp:
+      "Nein lässt den Adapter Bild-Eingaben für dieses Modell ablehnen; Codex führt es ohne Bildeingang.",
+```
+
+Run: `node --test tests/unit/i18n-catalogs.test.js` → PASS.
 
 - [ ] **Step 2: Write the failing test**
 
@@ -1235,7 +1324,6 @@ test("image support per model is saved as a tri-state", async ({ page }) => {
   const images = dialog.getByLabel("Images qwen3:8b", { exact: true });
   await expect(images).toHaveValue("");
   await images.selectOption("no");
-  await dialog.getByLabel("Context llama3:8b", { exact: true }).fill("8192");
   await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   const created = controls.calls
@@ -1250,7 +1338,7 @@ test("image support per model is saved as a tri-state", async ({ page }) => {
 });
 ```
 
-(Model ids come from the fixture's default `endpointProposal`; check `providers-fixture.js` lines 80–104 and use its ids.)
+(`qwen3:8b` and `llama3:8b` are the two detected models of the fixture's default `endpointProposal`; a model without context does not block saving.)
 
 - [ ] **Step 3: Run it to verify it fails**
 
@@ -1259,10 +1347,10 @@ Expected: FAIL — no "Images qwen3:8b".
 
 - [ ] **Step 4: Implement**
 
-In `EndpointModelTable.jsx` add `<th>{copy.images}</th>` after the "Source" header, and per row:
+In `EndpointModelTable.jsx` import `setModelImages` from `./endpoint-draft.js`, add `<th>{copy.images}</th>` after the "Source" header, and per row, after the source cell:
 
 ```jsx
-<td>
+<td className="endpoint-model-images" data-label={copy.images}>
   <select
     aria-label={copy.imagesFor(model.modelId)}
     value={model.images === true ? "yes" : model.images === false ? "no" : ""}
@@ -1280,12 +1368,32 @@ In `EndpointModelTable.jsx` add `<th>{copy.images}</th>` after the "Source" head
 </td>
 ```
 
-Use a native `<select>` (the table cells already use native inputs; `AnchoredSelect` is for form-level selects). Do **not** route through the table's `update()` helper — it sets `contextEdited: true`. Add `<p className="field-description">{copy.imagesHelp}</p>` under the table. In `connections.css` give the column `select { min-width: 0; max-width: 7.5rem; }`.
+Use a native `<select>` (the table cells already use native inputs; `AnchoredSelect` is for form-level selects). Do **not** route through the table's `update()` helper — it sets `contextEdited: true`. Add `<p className="field-description">{copy.imagesHelp}</p>` under the table. In `connections.css`:
+
+```css
+.endpoint-models .endpoint-model-images select {
+  min-width: 0;
+  max-width: 7.5rem;
+}
+@media (max-width: 700px) {
+  /* Card layout: Context and Output share row 3; Images gets its own row. */
+  .endpoint-models td.endpoint-model-images {
+    grid-column: 1 / 3;
+    grid-row: 4;
+  }
+  .endpoint-models .endpoint-model-images select {
+    max-width: none;
+    width: 100%;
+  }
+}
+```
+
+The second block must come after the existing `td[data-label] { grid-row: 3; }` rule so it wins.
 
 - [ ] **Step 5: Run the specs incl. the mobile overflow check (Review Focus 3)**
 
 Run: `AGENTPIER_TEST_BROWSER=chromium npx playwright test tests/browser/endpoint-routing.spec.js tests/browser/endpoint-connections.spec.js tests/browser/endpoint-model-editing.spec.js` and the same with `webkit`.
-Expected: PASS, including `overflow.scroller <= 0` at 390 px in `endpoint-connections.spec.js`. If the scroller overflows, hide the "Source" column below 600 px (`@media (max-width: 600px) { .endpoint-models th:nth-child(4), .endpoint-models td:nth-child(4) { display: none; } }`) rather than relaxing the assertion.
+Expected: PASS, including `overflow.scroller <= 0` and `overflow.dialog === 0` at 390 px in `endpoint-connections.spec.js` (that test now also renders the routing section and the Images cell). Fix overflow in CSS; never relax the assertion.
 
 - [ ] **Step 6: Commit**
 
@@ -1298,17 +1406,17 @@ git commit -m "feat: mark image support per endpoint model"
 
 ### Task 7: "Via adapter" labels in the connection list, launch dialog and session header; reload warning
 
-**[Decision 4]** assumed: labels in the session header, connection list and launch dialog, not in the sidebar. **[Decision 3]** assumed: no adapter-health indicator in the session header (doctor only, Task 8).
+**[Decision 4]** decided: labels in the session header, connection list and launch dialog, not in the sidebar. **[Decision 3]** decided: an adapter give-up is visible only in the doctor (Task 8); no health indicator in the session header. "Cross-route resume warning" = a warning in the reload dialog when the route changed since the session started (ledger interpretation).
 
 **Files:**
 
-- Modify: `web/features/provider-connections/ProviderConnections.jsx:51-55`, `web/features/sessions/LaunchAccessFields.jsx:57-61`, `web/features/sessions/SessionWorkspace.jsx:95-106`, `web/features/sessions/SessionReloadDialog.jsx`, `server/features/sessions/session-reload.js:43-74`, `web/lib/i18n/{de,en}/connections.js`, `web/lib/i18n/{de,en}/sessions.js`, `web/features/sessions/workspace.css`
+- Modify: `web/features/provider-connections/ProviderConnections.jsx:51-55`, `web/features/sessions/LaunchAccessFields.jsx:57-61`, `web/features/sessions/SessionWorkspace.jsx:95-106`, `web/features/sessions/SessionReloadDialog.jsx`, `server/features/sessions/session-reload.js:43-74`, `server/features/sessions/provider-configuration.js`, `server/features/sessions/session-replacement.js:66-67`, `web/lib/i18n/{de,en}/connections.js`, `web/lib/i18n/{de,en}/sessions.js`, `web/features/sessions/workspace.css`
 - Test: `tests/unit/session-reload-route.test.js`, `tests/browser/endpoint-route-labels.spec.js`, `tests/browser/endpoint-connections.spec.js` (text assertion deferred from Task 4)
 
 **Interfaces:**
 
-- Consumes: `routeLabel` (Task 4); public connection `toolRoutes`; session `provider.route`; `services.providerConnections.get(id)` (public view with `toolRoutes`).
-- Produces: reload status field `routeChange: { from: Route, to: Route | null } | null` (`Route = { mode, source }`); i18n `connectionCopy.compatibleRoute(cli, label)`, `sessionWorkspaceCopy.route(label)`, `sessionReloadCopy.routeChanged(from, to)`.
+- Consumes: `routeLabel` (Task 4); public connection `toolRoutes`; session `provider.route` (set at creation by `publicProviderConfiguration`, endpoint sessions only); `services.providerConnections.get(id)` (synchronous, public view with `toolRoutes`, throws 404 for a missing id); the reload launch's `provider.route` (`prepareProviderLaunch` metadata).
+- Produces: reload status field `routeChange: { from: Route, to: Route | null } | null` (`Route = { mode, source }`); `reloadedProvider(current, launched)` in `provider-configuration.js`; i18n `connectionCopy.compatibleRoute(cli, route)`, `sessionWorkspaceCopy.routeTitle`, `sessionReloadCopy.routeChanged(from, to)`.
 
 - [ ] **Step 1: Write the failing server test**
 
@@ -1366,9 +1474,30 @@ test("native accounts, missing connections and route-less sessions report nothin
   ])
     assert.equal((await reloadWith(session, {}).status("s1")).routeChange, null);
 });
+
+test("a reload records the route it launched, so the warning does not outlive it", () => {
+  const to = { mode: "adapter", source: "chatCompletions" };
+  assert.deepEqual(reloadedProvider(base.provider, { route: to, cliModelId: "x" }), {
+    route: to,
+  });
+  assert.deepEqual(
+    reloadedProvider(
+      { requestedModelId: "qwen3", route: base.provider.route },
+      { route: { ...to, extra: "dropped" } },
+    ),
+    { requestedModelId: "qwen3", route: to },
+  );
+  // Catalog launches carry no route; invalid routes are ignored.
+  assert.deepEqual(reloadedProvider(base.provider, {}), base.provider);
+  assert.deepEqual(
+    reloadedProvider(base.provider, { route: { mode: "x", source: "messages" } }),
+    base.provider,
+  );
+  assert.equal(reloadedProvider(undefined, { route: to }), undefined);
+});
 ```
 
-If `accountSwitchTargets` needs more services than this stub, copy the minimal stub from `tests/unit/session-reload.test.js:9-35` and add `providerConnections`.
+with the additional import `import { reloadedProvider } from "../../server/features/sessions/provider-configuration.js";`. `accountSwitchTargets` reads only `services.accounts?.list()`, so the stub needs no accounts.
 
 - [ ] **Step 2: Run it to verify it fails**
 
@@ -1398,19 +1527,69 @@ function routeChange(services, session) {
 }
 ```
 
-and add `routeChange: routeChange(this.services, session),` to the `value` object in `inspect()`. Confirm `services.providerConnections` is the `ProviderConnections` instance in `server/application/services.js:239` (it is passed as `services` to `new SessionReload` in `server/app.js:92`).
+and add `routeChange: routeChange(this.services, session),` to the `value` object in `inspect()`. `services.providerConnections` is the `ProviderConnections` instance (`server/application/services.js:239`, passed to `new SessionReload` in `server/app.js:92`).
+
+A reload resolves the route anew, but today only session creation writes `session.provider`; without the next change the header keeps the old route and the warning stays after a successful reload. In `provider-configuration.js` (which already imports `ROUTE_MODES` and `PROTOCOLS`):
+
+```js
+/** The provider record after a reload: the route the new launch actually uses. */
+export function reloadedProvider(current, launched) {
+  const route = launched?.route;
+  if (
+    !current ||
+    !route ||
+    !ROUTE_MODES.includes(route.mode) ||
+    !PROTOCOLS.includes(route.source)
+  )
+    return current;
+  return { ...current, route: { mode: route.mode, source: route.source } };
+}
+```
+
+In `session-replacement.js` import it and, directly after the two `adapterGeneration` lines (before the `manager.save(session)` that follows them), add:
+
+```js
+// The route may differ from the first launch (connection edited since).
+if (session.provider)
+  session.provider = reloadedProvider(session.provider, launch.provider);
+```
+
+`launch.provider` is the `prepareProviderLaunch` metadata that `session-reload-lifecycle.js:66-71` already reads; the reload preparation chain spreads `launch`, so it is still present here. The blackbox test `tests/blackbox/endpoint-adapter-session.test.js` ("reload starts a new adapter …") already asserts `current.provider.route` after a reload and must stay green.
 
 - [ ] **Step 4: Run it to verify it passes**
 
-Run: `node --test tests/unit/session-reload-route.test.js tests/unit/session-reload.test.js`
+Run: `node --test tests/unit/session-reload-route.test.js tests/unit/session-reload.test.js tests/unit/session-reload-lifecycle.test.js tests/blackbox/endpoint-adapter-session.test.js`
 Expected: PASS.
 
 - [ ] **Step 5: Catalog keys**
 
-`connections.js` (top level) — en: `compatibleRoute: (cli, route) => \`${cli} (${route})\`,`de: same function body.`sessions.js`—`sessionWorkspaceCopy.route: (label) => label`would be pointless; instead add`sessionWorkspaceCopy.routeTitle: "Connection route"`(de:`"Verbindungsroute"`) for the badge's `title`. `sessionReloadCopy.routeChanged: (from, to) => …`:
+`web/lib/i18n/en/connections.js` and `web/lib/i18n/de/connections.js`, top level of `connectionCopy` (identical in both languages; the route label itself is translated):
 
-- en: `` `The route changed since this session started (before: ${from}, now: ${to}). Reasoning data from the earlier conversation cannot be carried over.` ``
-- de: `` `Die Route hat sich seit dem Start geändert (vorher: ${from}, jetzt: ${to}). Reasoning-Daten der bisherigen Unterhaltung können nicht übernommen werden.` ``
+```js
+  compatibleRoute: (cli, route) => `${cli} (${route})`,
+```
+
+`web/lib/i18n/en/sessions.js`:
+
+```js
+// in sessionWorkspaceCopy
+  routeTitle: "Connection route",
+// in sessionReloadCopy
+  routeChanged: (from, to) =>
+    `The route changed since this session started (before: ${from}, now: ${to}). Reasoning data from the earlier conversation cannot be carried over.`,
+```
+
+`web/lib/i18n/de/sessions.js`:
+
+```js
+// in sessionWorkspaceCopy
+  routeTitle: "Verbindungsroute",
+// in sessionReloadCopy
+  routeChanged: (from, to) =>
+    `Die Route hat sich seit dem Start geändert (vorher: ${from}, jetzt: ${to}). Reasoning-Daten der bisherigen Unterhaltung können nicht übernommen werden.`,
+```
+
+Run: `node --test tests/unit/i18n-catalogs.test.js` → PASS.
 
 - [ ] **Step 6: Write the failing browser test**
 
@@ -1464,9 +1643,87 @@ test("connection list and launch dialog label adapter routes", async ({ page }) 
       .locator('option[value="provider:gpu"]'),
   ).toContainText("via adapter · Chat Completions");
 });
-```
 
-and a session-header case using the fixture's `session` option (read `fixture(page, { session })` in `providers-fixture.js` first): a session with `provider: { route: { mode: "adapter", source: "chatCompletions" } }` and `access: { providerConnectionId: "gpu", providerConnectionName: "GPU box" }` shows `"via adapter · Chat Completions"` inside `.session-title`; a native-account session shows no badge (`toHaveCount(0)`). Add a reload-dialog case: route the reload status request (find its path in `useSessionReload.js`) to return `{ eligible: true, state: "idle", activity: { state: "idle" }, accountTargets: [], routeChange: { from: { mode: "native", source: "messages" }, to: { mode: "adapter", source: "chatCompletions" } } }` and expect the text `"before: native, now: via adapter · Chat Completions"`.
+const adapterSession = {
+  id: "adapter-session",
+  name: "Adapter session",
+  tool: "claude",
+  accountId: "internal-isolated-profile",
+  cwd: "/fixture",
+  status: "running",
+  access: {
+    providerConnectionId: "gpu",
+    providerConnectionName: "GPU box",
+    providerId: "endpoint",
+    providerModelId: "qwen3",
+  },
+  provider: {
+    requestedModelId: "qwen3",
+    modelChangeRequiresRestart: true,
+    route: { mode: "adapter", source: "chatCompletions" },
+  },
+};
+
+test("the session header shows the route of endpoint sessions only", async ({ page }) => {
+  await fixture(page, { session: adapterSession });
+  await page.goto(baseURL + "/sessions/adapter-session/chat");
+  await expect(page.locator(".session-title .route-badge")).toHaveText(
+    "via adapter · Chat Completions",
+  );
+});
+
+test("native account sessions have no route badge", async ({ page }) => {
+  await fixture(page, {
+    session: {
+      id: "native-session",
+      name: "Native session",
+      tool: "codex",
+      accountId: "local-codex",
+      cwd: "/fixture",
+      status: "running",
+    },
+  });
+  await page.goto(baseURL + "/sessions/native-session/chat");
+  await expect(page.locator(".session-title h1")).toHaveText("Native session");
+  await expect(page.locator(".session-title .route-badge")).toHaveCount(0);
+});
+
+test("the reload dialog warns when the route changed since the start", async ({
+  page,
+}) => {
+  await fixture(page, { session: adapterSession });
+  // Registered after the fixture, so it takes precedence over its catch-all route
+  // (which throws on unknown requests).
+  await page.route("**/api/sessions/adapter-session/reload", (route) =>
+    route.fulfill({
+      json: {
+        eligible: true,
+        reason: null,
+        nativeId: "native-fixture",
+        accountTargets: [],
+        activity: { state: "idle" },
+        state: "idle",
+        error: null,
+        requestId: null,
+        routeChange: {
+          from: { mode: "native", source: "messages" },
+          to: { mode: "adapter", source: "chatCompletions" },
+        },
+      },
+    }),
+  );
+  await page.goto(baseURL + "/sessions/adapter-session/chat");
+  await page.getByRole("button", { name: "Reload & resume", exact: true }).click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByText(
+        "The route changed since this session started (before: native, now: via adapter · Chat Completions). Reasoning data from the earlier conversation cannot be carried over.",
+        { exact: true },
+      ),
+  ).toBeVisible();
+});
+```
 
 - [ ] **Step 7: Run it to verify it fails**
 
@@ -1475,58 +1732,100 @@ Expected: FAIL.
 
 - [ ] **Step 8: Implement the labels**
 
-`ProviderConnections.jsx`:
+All three files import `routeLabel` from `../provider-connections/route-label.js` (`ProviderConnections.jsx`: `./route-label.js`).
+
+`ProviderConnections.jsx` — replace the "Compatible CLIs" paragraph:
 
 ```jsx
-{
-  connection.tools
+<p>
+  {copy.compatible}:{" "}
+  {connection.tools
     .map((tool) =>
       connection.toolRoutes
         ? copy.compatibleRoute(names[tool], routeLabel(connection.toolRoutes[tool]))
         : names[tool],
     )
-    .join(", ") || copy.noCompatible;
-}
+    .join(", ") || copy.noCompatible}
+</p>
 ```
 
-`LaunchAccessFields.jsx` — the option label gains the route of the selected CLI:
-
-```js
-label: `${connection.name} · ${copy.providerNames[connection.providerId] || connection.providerId}${
-  connection.toolRoutes?.[access.tool] ? ` · ${routeLabel(connection.toolRoutes[access.tool])}` : ""
-}${connection.launchable ? "" : ` · ${copy.keyMissing}`}`,
-```
-
-`SessionWorkspace.jsx` inside the `<p>` after the connection name:
+`LaunchAccessFields.jsx` — the connection option label gains the route of the selected CLI (same order as before: name · provider · route · key missing):
 
 ```jsx
-{
-  session.provider?.route && (
+...access.connections.map((connection) => {
+  const route = connection.toolRoutes?.[access.tool];
+  return {
+    value: `provider:${connection.id}`,
+    label: [
+      connection.name,
+      copy.providerNames[connection.providerId] || connection.providerId,
+      ...(route ? [routeLabel(route)] : []),
+      ...(connection.launchable ? [] : [copy.keyMissing]),
+    ].join(" · "),
+    disabled: !connection.launchable,
+  };
+}),
+```
+
+`SessionWorkspace.jsx` — the subtitle paragraph of `.session-title` becomes:
+
+```jsx
+<p>
+  {names[session.tool]}
+  <span> / </span>
+  {session.access?.providerConnectionName ||
+    account?.name ||
+    copy.sessionTitleDescription}
+  {session.provider?.route && (
     <span className="route-badge" title={copy.routeTitle}>
       {routeLabel(session.provider.route)}
     </span>
-  );
+  )}
+</p>
+```
+
+`workspace.css` — `.session-title p > span` already styles the separator span (color, padding), so the badge needs a more specific rule placed after it (the file uses literal colors, there is no border token):
+
+```css
+.session-title p > .route-badge {
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid #404145;
+  border-radius: 999px;
+  color: #9a9b9f;
+  white-space: nowrap;
 }
 ```
 
-with `.route-badge { margin-left: 6px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--border); font-size: 0.75rem; white-space: nowrap; }` in `workspace.css` (use the existing border token name from that file).
-
-`SessionReloadDialog.jsx` after the hints:
+`SessionReloadDialog.jsx` — the `{data && (…)}` fragment gains the warning as its first child (shown with its surrounding fragment so the snippet stays valid JSX):
 
 ```jsx
-{
-  data?.routeChange && (
-    <p role="status" className="session-reload-warning">
-      {copy.routeChanged(
-        routeLabel(data.routeChange.from),
-        routeLabel(data.routeChange.to),
+<div className="session-reload-dialog">
+  {/* existing hints, terminal button, loading/error/submitting lines unchanged */}
+  {data && (
+    <>
+      {data.routeChange && (
+        <p role="status">
+          {copy.routeChanged(
+            routeLabel(data.routeChange.from),
+            routeLabel(data.routeChange.to),
+          )}
+        </p>
       )}
-    </p>
-  );
-}
+      {/* existing children of the fragment follow unchanged */}
+    </>
+  )}
+  {/* rest of the dialog unchanged */}
+</div>
 ```
 
-Then add the deferred assertion to `endpoint-connections.spec.js` (Task 4 Step 2).
+Then add the deferred assertion to `endpoint-connections.spec.js` (Task 4 Step 2), directly after the `toHaveCount(1)` line:
+
+```js
+await expect(access.locator('option[value="provider:connection-one"]')).toContainText(
+  "via adapter · Messages",
+);
+```
 
 - [ ] **Step 9: Run the specs (Chromium and WebKit) and the catalogs test**
 
@@ -1537,7 +1836,7 @@ Expected: PASS.
 - [ ] **Step 10: Commit**
 
 ```bash
-git add server/features/sessions/session-reload.js web/ tests/unit/session-reload-route.test.js tests/browser/endpoint-route-labels.spec.js tests/browser/endpoint-connections.spec.js
+git add server/features/sessions/session-reload.js server/features/sessions/provider-configuration.js server/features/sessions/session-replacement.js web/ tests/unit/session-reload-route.test.js tests/browser/endpoint-route-labels.spec.js tests/browser/endpoint-connections.spec.js
 git commit -m "feat: label adapter routes and warn when a reload changes the route"
 ```
 
@@ -1890,20 +2189,34 @@ Expected: FAIL — no `routes` in the summary; no adapter check.
 
 - [ ] **Step 7: Wire the doctor**
 
-In `doctor.js` import `{ toolRoutes }` from `../providers/endpoint-routing.js` and `{ adapterSessionChecks }` from `./adapter-doctor.js`. In the endpoint branch, after validation, build
+In `doctor.js` import `{ toolRoutes }` from `../providers/endpoint-routing.js` and `{ adapterSessionChecks }` from `./adapter-doctor.js`. In the endpoint branch keep the validated endpoint instead of discarding it (routes must be resolved on the normalized value, which fills `routing` defaults):
 
 ```js
-const routes = toolRoutes(connection.endpoint);
-const routeText = Object.entries(routes)
-  .map(([tool, route]) => `${tool}=${route ? `${route.mode}:${route.source}` : "off"}`)
-  .join(", ");
-const blankAuthorization =
-  connection.endpoint.authHeader && routes.opencode?.mode === "sdk"
-    ? ` OpenCode sends a blank Authorization header next to ${connection.endpoint.authHeader} on its ${routes.opencode.source} route; whether Azure OpenAI accepts that is unverified.`
-    : "";
+        let endpoint = null;
+        try {
+          endpoint = validateEndpoint(connection.endpoint);
+        } catch {
+          endpoint = null;
+        }
+        if (!endpoint) {
+          add(
+            `provider-connection.${connection.id}`,
+            "warn",
+            `Custom endpoint settings are invalid; the connection is hidden and cannot be launched until provider-connections.json is repaired. Key ${keyed ? "configured" : "not configured"}.`,
+          );
+          continue;
+        }
+        const routes = toolRoutes(endpoint);
+        const routeText = Object.entries(routes)
+          .map(([tool, route]) => `${tool}=${route ? `${route.mode}:${route.source}` : "off"}`)
+          .join(", ");
+        const blankAuthorization =
+          endpoint.authHeader && routes.opencode?.mode === "sdk"
+            ? ` OpenCode sends a blank Authorization header next to ${endpoint.authHeader} on its ${routes.opencode.source} route; whether Azure OpenAI accepts that is unverified.`
+            : "";
 ```
 
-and change the summary template to `` `Custom endpoint; key …; …; ${missing} model(s) without context; routes ${routeText}. No network check was performed.${blankAuthorization}` `` (keep the existing substrings the older test matches: `never tested`, `1 model(s) without context`, `last test …`). `connection.endpoint` here is the stored record; run `toolRoutes` on the validated value (`validateEndpoint(connection.endpoint)`), which the code already computes in the `try` — keep it in a variable instead of discarding it. After the provider-connection loop add:
+(this replaces the existing `let valid = true; try { … } catch { … } if (!valid) { … }` block; the warning text is unchanged). In the existing summary template replace the tail `` `; ${missing} model(s) without context. No network check was performed.` `` with `` `; ${missing} model(s) without context; routes ${routeText}. No network check was performed.${blankAuthorization}` ``. The substrings the older tests match (`never tested`, `1 model(s) without context`, `last test …: messages=ok, …`) stay intact. After the provider-connection loop add:
 
 ```js
 for (const check of adapterSessionChecks(this.dataDir))
@@ -1923,7 +2236,75 @@ Expected: PASS.
 if (id.startsWith("adapter-session.")) return `${copy.adapterSession}: ${id.slice(16)}`;
 ```
 
-`tests/browser/operations-adapter-diagnostics.spec.js`: reuse the doctor route mocking from `operations-diagnostics-project.spec.js` (read it and its fixture first); return a report with one `fail` check `{ id: "adapter-session.s1", status: "fail", summary: "\"Nightly\": Codex via adapter (chatCompletions): the protocol adapter stopped after 3 restart(s) (exited) …", remedy: "Reload the session to restart the protocol adapter.", details: { restarts: 3 } }` and one `warn` check; with `locale: "en-GB"` expect the headings `"Adapter session: s1"`, the status texts `"Failed"` and `"Notice"`, the remedy text, and that the `details` element is collapsed until clicked.
+(`"adapter-session.".length === 16`; the id stays the raw session id, the session name is in the summary.)
+
+`tests/browser/operations-adapter-diagnostics.spec.js` (doctor route mocked like `operations-diagnostics-project.spec.js`; the route registered after `operationsFixture` takes precedence over its own doctor handler; `DiagnosticsPage.jsx` renders one `article.operations-card` per check with the label and status in its `header` and the details in a `<details>`):
+
+```js
+import { test, expect } from "@playwright/test";
+import { operationsFixture } from "./operations-fixture.js";
+import { baseURL } from "../helpers/browser.js";
+
+test.use({ locale: "en-GB" });
+
+const report = {
+  version: "0.0.0-test",
+  generatedAt: "2026-10-08T10:00:00.000Z",
+  checks: [
+    {
+      id: "adapter-session.s1",
+      status: "fail",
+      summary:
+        '"Nightly": Codex via adapter (chatCompletions): the protocol adapter stopped after 3 restart(s) (exited) at 2026-10-08T09:59:00.000Z; every request of the CLI now gets HTTP 503.',
+      remedy: "Reload the session to restart the protocol adapter.",
+      details: {
+        restarts: 3,
+        supervisor: {
+          restarts: 3,
+          lastReason: "exited",
+          gaveUpAt: "2026-10-08T09:59:00.000Z",
+        },
+      },
+    },
+    {
+      id: "adapter-session.s2",
+      status: "warn",
+      summary:
+        '"Refactor": Claude Code via adapter (responses): 12 request(s), 1 error(s), 0 restart(s), 0 capability fallback(s), 0 estimated usage report(s), 0 compaction item(s) dropped.',
+      details: { requests: { "/v1/messages": 12 }, errors: { rateLimit: 1 } },
+    },
+  ],
+};
+
+test("adapter session checks show label, status, remedy and collapsed details", async ({
+  page,
+}) => {
+  await operationsFixture(page);
+  await page.route("**/api/operations/doctor", (route) =>
+    route.fulfill({
+      json: { report: route.request().method() === "GET" ? null : report },
+    }),
+  );
+  await page.goto(baseURL + "/settings/diagnostics");
+  await page.getByRole("button", { name: "Run checks", exact: true }).click();
+  const card = (label) =>
+    page.locator("article.operations-card").filter({
+      has: page.getByText(label, { exact: true }),
+    });
+  const failed = card("Adapter session: s1");
+  await expect(failed.locator("header")).toContainText("Failed");
+  await expect(
+    failed.getByText("Reload the session to restart the protocol adapter.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  const details = failed.locator("details");
+  await expect(details.locator("pre")).toBeHidden();
+  await details.locator("summary").click();
+  await expect(details.locator("pre")).toContainText('"gaveUpAt"');
+  await expect(card("Adapter session: s2").locator("header")).toContainText("Notice");
+});
+```
 
 Run: `node --test tests/unit/i18n-catalogs.test.js` and `AGENTPIER_TEST_BROWSER=chromium npx playwright test tests/browser/operations-adapter-diagnostics.spec.js` plus `webkit`.
 Expected: PASS.
@@ -1944,19 +2325,25 @@ git commit -m "feat: report protocol adapter sessions and endpoint routes in the
 - Modify: `tests/browser/endpoint-routing.spec.js`, `tests/browser/endpoint-route-labels.spec.js`, `tests/browser/operations-adapter-diagnostics.spec.js`
 - Create (generated): `docs/screenshots/endpoint-routing-desktop.png`, `docs/screenshots/endpoint-routing-mobile.png`, `docs/screenshots/endpoint-adapter-options.png`, `docs/screenshots/session-adapter-route.png`, `docs/screenshots/diagnostics-adapter-session.png`
 
-- [ ] **Step 1: Add env-gated captures** at the end of the relevant tests, following `artifacts.spec.js:74-90`:
+- [ ] **Step 1: Add env-gated captures** following `artifacts.spec.js:74-90`. In the first test of `endpoint-routing.spec.js`, directly after `await expect(uses("via adapter · Responses")).toBeVisible();` (before Responses is unchecked again):
 
 ```js
 if (process.env.CAPTURE_ADAPTER_SCREENSHOTS) {
-  await expect(routing.getByText("Uses: via adapter · Responses").first()).toBeVisible();
   await dialog.screenshot({
     path: "docs/screenshots/endpoint-routing-desktop.png",
     animations: "disabled",
   });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(routing).toBeInViewport({ ratio: 0.1 });
+  await dialog.screenshot({
+    path: "docs/screenshots/endpoint-routing-mobile.png",
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 1280, height: 720 });
 }
 ```
 
-For the mobile capture call `page.setViewportSize({ width: 390, height: 844 })` first and wait with `expect(dialog).toBeInViewport()`; for the options capture open the `<details>` first and wait for its group to be visible; for the session header capture `.session-title`'s parent header; for diagnostics capture the two cards.
+In the "test proposals" test, after `await effort.check();`, capture `options` (already visible) to `endpoint-adapter-options.png`; in "the session header shows the route …" capture `page.locator(".session-title")` to `session-adapter-route.png` after its `toHaveText` assertion; in the diagnostics spec call `page.screenshot({ path: "docs/screenshots/diagnostics-adapter-session.png", animations: "disabled" })` after the last assertion (the opened details stay in the shot). Every capture waits on an asserted state, never on a timeout.
 
 - [ ] **Step 2: Capture**
 
@@ -1977,7 +2364,7 @@ git commit -m "docs: add protocol adapter UI screenshots"
 **Files:**
 
 - Create: `docs/protocol-adapter.md`
-- Modify: `docs/providers.md:38-99`, `docs/research/provider-compatibility.md`, `docs/sandbox.md:143-150`, `docs/architecture.md`
+- Modify: `docs/providers.md:38-99`, `docs/research/provider-compatibility.md`, `docs/sandbox.md:143-150`, `docs/architecture.md`, `docs/session-reload.md`
 
 **Interfaces:** none (docs). Every statement must match code on this branch; quote numbers from the code, not from memory.
 
@@ -1995,11 +2382,11 @@ git commit -m "docs: add protocol adapter UI screenshots"
 
 - [ ] **Step 3: `docs/research/provider-compatibility.md`** — add a dated section "Protocol adapter routes (2026-10-08)" with the CLI × upstream matrix and which combinations the CLI smoke matrix verified (from `tests/matrix/adapter-cli-smoke.test.js` rows and the CLI versions recorded in `docs/research/protocol-adapter-facts.md`); note the unverified Azure blank-Authorization case and the unverified Linux `network.block` nono case.
 
-- [ ] **Step 4: `docs/sandbox.md`** — keep the adapter paragraph; add a link to `protocol-adapter.md#security`. `docs/architecture.md` — add `server/features/protocol-adapter/` and `server/features/adapter-runtime/` with one line each and a link.
+- [ ] **Step 4: `docs/sandbox.md`** — keep the adapter paragraph; add a link to `protocol-adapter.md#security`. `docs/architecture.md` — add `server/features/protocol-adapter/` and `server/features/adapter-runtime/` with one line each and a link. `docs/session-reload.md` — add one paragraph: for provider-connection sessions the reload dialog warns when the connection's route for the CLI changed since the session started (before/now labels; reasoning data of the earlier conversation is not carried over); after the reload the session records and shows the new route.
 
 - [ ] **Step 5: Format and check**
 
-Run: `npx prettier --check docs/providers.md docs/protocol-adapter.md docs/research/provider-compatibility.md docs/sandbox.md docs/architecture.md` (fix with `--write`), then `npm run check:structure`.
+Run: `npx prettier --check docs/providers.md docs/protocol-adapter.md docs/research/provider-compatibility.md docs/sandbox.md docs/architecture.md docs/session-reload.md` (fix with `--write`), then `npm run check:structure`.
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -2037,13 +2424,13 @@ Run `npm run build && npm start` with a disposable `AGENTPIER_DATA_DIR` (see `do
 
 **Files:**
 
-- Delete: `docs/superpowers/specs/2026-10-07-protocol-adapter-design.md` (and `docs/superpowers/plans/2026-10-08-protocol-adapter-ui.md` if this plan was committed)
-- Modify: comments that cite "spec Amendment n": `server/features/adapter-runtime/adapter-request.js:124`, `server/features/protocol-adapter/translate.js:77`, `server/features/protocol-adapter/capabilities.js:14,19,30,219,231`; `docs/research/protocol-adapter-facts.md` (its link to the spec)
+- Delete: `docs/superpowers/specs/2026-10-07-protocol-adapter-design.md` and this plan, `docs/superpowers/plans/2026-10-08-protocol-adapter-ui.md` (committed in 401c4bb2; AGENTS.md: completed plans and specs go in the final cleanup commit)
+- Modify: comments that cite "spec Amendment n": `server/features/adapter-runtime/adapter-request.js:124`, `server/features/protocol-adapter/translate.js:77`, `server/features/protocol-adapter/capabilities.js:14,19,30,219,231` (and its "PR 2" mention at line 3); `docs/research/protocol-adapter-facts.md` (its link to the spec)
 
 - [ ] **Step 1: Find every reference**
 
 Run: `git grep -n -e "protocol-adapter-design" -e "Amendment [0-9]" -e "spec Amendment"`
-Expected: only the files listed above.
+Expected: only the files listed above plus the spec and this plan themselves (both deleted in Step 4).
 
 - [ ] **Step 2: Replace references** — each comment states the rule itself and points to the matching `docs/protocol-adapter.md` section, e.g. `(see docs/protocol-adapter.md, "Capabilities")`. In `protocol-adapter-facts.md` link to `../protocol-adapter.md` instead of the spec.
 
@@ -2053,16 +2440,17 @@ Expected: only the files listed above.
 
 ```bash
 git rm docs/superpowers/specs/2026-10-07-protocol-adapter-design.md
-git grep -n "protocol-adapter-design"
+git rm docs/superpowers/plans/2026-10-08-protocol-adapter-ui.md
+git grep -n -e "protocol-adapter-design" -e "Amendment [0-9]"
 ```
 
-Expected: no matches. Run `npm run lint && npm run format:check && npm run check:structure`.
+Expected: no matches. Run `npm run lint`, `npm run format:check` and `npm run check:structure` (one command each).
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add -A docs server
-git commit -m "chore: remove the completed protocol adapter spec"
+git commit -m "chore: remove the completed protocol adapter spec and plan"
 ```
 
 - [ ] **Step 6: Open the PR** from `feat/protocol-adapter-ui`: title `feat: protocol adapter UI, auto routes and diagnostics`; body with problem (adapter routes needed explicit API choices and were invisible), resulting behavior (auto fallback, routing section, adapter options with test suggestions, images, `<think>`, labels, reload warning, doctor, docs), the behavior change for existing Chat-, Messages- or Responses-only connections (**[Decision 1]**), validation (suites, both browsers, manual English pass), the five screenshots, known limitations (no upstream proxy; Azure blank `Authorization` unverified; Linux `network.block` nono unverified; adapter give-up needs a reload), and the attribution line.
