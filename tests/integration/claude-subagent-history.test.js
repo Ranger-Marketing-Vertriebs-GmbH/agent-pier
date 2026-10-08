@@ -10,6 +10,9 @@ import {
   backgroundRecords as background,
   taskStop,
   notification,
+  queueOperation,
+  queuedHandback,
+  queuedNotification,
 } from "../helpers/claude-subagents.js";
 import { claudeHistoryFixture } from "../helpers/claude-history.js";
 
@@ -95,6 +98,23 @@ test("block-shaped notifications on a newer page still complete their agent", as
   const pages = await indexed(t, records);
   const styles = pages[0].find((message) => message.id === "toolu_styles");
   assert.equal(styles.status, "completed");
+  assert.deepEqual(pages.flat(), normalizeClaude(records).messages);
+});
+
+test("queued-command completions on a newer page still complete their agent", async (t) => {
+  const note = queuedNotification("toolu_styles", "agentstyles02", "completed");
+  const records = [
+    ...background(),
+    ...filler(60),
+    queueOperation(note.attachment.prompt),
+    note,
+    queuedHandback("agentstyles02", "Queued styles report"),
+  ];
+  const pages = await indexed(t, records);
+  assert.equal(pages.length, 2);
+  const styles = pages[0].find((message) => message.id === "toolu_styles");
+  assert.equal(styles.status, "completed");
+  assert.equal(styles.text, "Queued styles report");
   assert.deepEqual(pages.flat(), normalizeClaude(records).messages);
 });
 

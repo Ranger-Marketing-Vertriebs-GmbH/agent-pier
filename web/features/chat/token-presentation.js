@@ -47,13 +47,22 @@ export function lowerBoundShown(usage) {
   );
 }
 
-/** "12.4K tokens · 1m 32s"; null when neither tokens nor a duration are known. */
+/**
+ * Subagent usage: "211K tokens · 7.6M from cache · 1m 32s". Cache reads are
+ * shown apart from the other tokens; null when neither tokens nor a duration
+ * are known.
+ */
 export function usageSummary(usage) {
-  const total = formatTokens(usage?.totalTokens);
+  const total = tokenCount(usage?.totalTokens),
+    cached = tokenCount(usage?.cacheReadTokens);
+  const split = total !== null && cached > 0 && cached <= total;
+  const own = split ? { ...usage, totalTokens: total - cached } : usage;
+  const shown = formatTokens(own?.totalTokens);
   const duration = formatDuration(usage?.durationMs);
   const parts = [];
-  if (total !== null)
-    parts.push(copy.tokens(`${lowerBoundShown(usage) ? "≥" : ""}${total}`));
+  if (shown !== null)
+    parts.push(copy.tokens(`${lowerBoundShown(own) ? "≥" : ""}${shown}`));
+  if (split) parts.push(copy.fromCache(formatTokens(cached)));
   if (duration) parts.push(duration);
   return parts.length ? parts.join(" · ") : null;
 }
