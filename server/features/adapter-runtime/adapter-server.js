@@ -118,7 +118,9 @@ export function createAdapterServer(config, options = {}) {
 
   // Handlers in flight: close() lets them settle (and count) before the final write.
   const pending = new Set();
-  const server = http.createServer((req, res) => {
+  // `httpTimeouts`: Node's headersTimeout/requestTimeout/connectionsCheckingInterval
+  // (tests shorten them; the defaults reap slow or silent clients after 60 s / 300 s).
+  const server = http.createServer(options.httpTimeouts ?? {}, (req, res) => {
     const handling = handle(req, res);
     pending.add(handling);
     const settled = () => pending.delete(handling);
@@ -192,10 +194,13 @@ export function createAdapterServer(config, options = {}) {
     /**
      * Serves connections accepted elsewhere (the supervisor owns the listening socket
      * and hands each connection over IPC); `listenPort` is that socket's port, which
-     * the Host check needs.
+     * the Host check needs. Node starts its connection checks (headersTimeout,
+     * requestTimeout) on 'listening'; without a bind that event is emitted here, or
+     * handed-over connections that send nothing or trickle headers would never be reaped.
      */
     attach(listenPort) {
       port = listenPort;
+      server.emit("listening");
     },
     accept(socket) {
       if (ctx.closing || port === null) return void socket.destroy();
