@@ -11,7 +11,7 @@ export function writeDiagnostics(file, value) {
 
 /**
  * Throttled diagnostics file: `touch()` schedules a write at most once per `intervalMs`,
- * `flush()` writes at once (shutdown). The snapshot holds counters only; the file is
+ * `flush()` writes at once and closes the writer (shutdown): later touches are ignored. The snapshot holds counters only; the file is
  * small, so the synchronous atomic write is fine. A null `path` disables the writer.
  */
 export function createDiagnosticsWriter({
@@ -22,6 +22,7 @@ export function createDiagnosticsWriter({
 }) {
   let last = -Infinity;
   let timer = null;
+  let closed = false;
   const write = () => {
     clearTimeout(timer);
     timer = null;
@@ -30,12 +31,14 @@ export function createDiagnosticsWriter({
   };
   return {
     touch() {
-      if (!file || timer) return;
+      if (!file || timer || closed) return;
       timer = setTimeout(write, Math.max(0, last + intervalMs - now()));
       timer.unref();
     },
     async flush() {
-      if (file) write();
+      if (!file || closed) return;
+      closed = true;
+      write();
     },
   };
 }

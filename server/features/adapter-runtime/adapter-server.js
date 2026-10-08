@@ -114,7 +114,16 @@ export function createAdapterServer(config, options = {}) {
     await handleInference(ctx, req, res, raw);
   }
 
-  const server = http.createServer(async (req, res) => {
+  // Handlers in flight: close() lets them settle (and count) before the final write.
+  const pending = new Set();
+  const server = http.createServer((req, res) => {
+    const handling = handle(req, res);
+    pending.add(handling);
+    const settled = () => pending.delete(handling);
+    handling.then(settled, settled);
+  });
+
+  async function handle(req, res) {
     try {
       await dispatch(req, res);
     } catch (error) {
@@ -128,7 +137,7 @@ export function createAdapterServer(config, options = {}) {
     } finally {
       ctx.onDone();
     }
-  });
+  }
   // The process never writes to stdout/stderr; malformed client requests just close.
   server.on("clientError", (_error, socket) => socket.destroy());
 
@@ -179,8 +188,9 @@ export function createAdapterServer(config, options = {}) {
         });
       }),
     /**
-     * Ends open client streams and upstream requests; resolves once all sockets closed
-     * and the final diagnostics were written.
+     * Ends open client streams and upstream requests; resolves once all sockets closed,
+     * the aborted handlers settled and the final diagnostics were written (later touches
+     * are ignored).
      */
     close: async () => {
       await new Promise((resolve) => {
@@ -191,6 +201,7 @@ export function createAdapterServer(config, options = {}) {
         server.closeAllConnections();
         upstreamClient.close();
       });
+      await Promise.allSettled([...pending]);
       await writer.flush();
     },
   };

@@ -11,13 +11,17 @@ import { newRequestId, ok, send, MAX_ERROR_TEXT } from "./adapter-request.js";
  * Concurrency: `capabilities` is the snapshot the failed request was built with. A
  * request built with the fallback value already is not retried (the mapping misfired);
  * one whose capability another request switched meanwhile is rebuilt with the current
- * value without owning (counting or reverting) the change. A revert restores the value
- * this request replaced, even if another request changed it in between (accepted: the
- * next rejection switches it again).
+ * value without owning the change. Any successful retry confirms its value (counted
+ * `kept` once per confirmation); an owner whose own retry fails afterwards (transient
+ * 429/5xx, transport) does not revert a confirmed value. A revert restores the value this
+ * request replaced, even if another request changed it in between (accepted: the next
+ * rejection switches it again).
  */
 export function createRetry(ctx) {
   const tally = (change, outcome) =>
     ctx.counters.fallback(`${change.name}=${change.value}`, outcome);
+  // Per capability: the value a successful retry proved (survives later failed retries).
+  const confirmed = {};
   return async ({
     body,
     headers,
@@ -41,7 +45,11 @@ export function createRetry(ctx) {
     const owned = ctx.capabilities[change.name] !== change.value;
     const previous = ctx.capabilities[change.name];
     if (owned) ctx.setCapability(change.name, change.value);
-    const revert = () => owned && ctx.setCapability(change.name, previous);
+    const revert = () => {
+      if (!owned || confirmed[change.name] === change.value) return false;
+      ctx.setCapability(change.name, previous);
+      return true;
+    };
     const rebuilt = ctx.translator.buildUpstream(body, headers, {
       requestId: newRequestId(ctx.client),
       now: ctx.now(),
@@ -54,12 +62,12 @@ export function createRetry(ctx) {
     adopt(rebuilt.exchange);
     const attempt = await send(ctx, rebuilt.request, streaming, signal);
     if (attempt.response && ok(attempt.response.status)) {
-      if (owned) tally(change, "kept");
+      if (confirmed[change.name] !== change.value) tally(change, "kept");
+      confirmed[change.name] = change.value;
       return { ok: true, response: attempt.response, exchange: rebuilt.exchange };
     }
-    revert();
     // An adapter-side abort (client gone, shutdown) says nothing about the capability.
-    if (owned && !signal?.aborted) tally(change, "reverted");
+    if (revert() && !signal?.aborted) tally(change, "reverted");
     if (attempt.failure)
       return { ok: false, exchange: rebuilt.exchange, failure: attempt.failure };
     let retryText = "";
