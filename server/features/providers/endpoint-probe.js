@@ -1,10 +1,10 @@
 import { endpointRequest, authHeaders } from "./endpoint-http.js";
 import { listEndpointModels, mergeModels } from "./endpoint-models.js";
+import { probes } from "./endpoint-probe-plan.js";
 import { probeCapabilities } from "./endpoint-capability-probe.js";
 
 const PROBE_TIMEOUT = 90_000;
 const TOTAL_TIMEOUT = 180_000;
-const trim = (url) => String(url || "").replace(/\/+$/, "");
 
 /**
  * Maps one probe response to a protocol status. Only fixed reason identifiers leave
@@ -27,25 +27,6 @@ export function classifyProbe(result, { listedModel }) {
       : { status: "failed", reason: "modelNotFound" };
   if (status === 401 || status === 403) return { status: "failed", reason: "auth" };
   return { status: "failed", reason: "http" };
-}
-
-export function probes(endpoint, model) {
-  const ask = [{ role: "user", content: "ok" }];
-  return {
-    messages: endpoint.anthropicBaseUrl && {
-      url: `${trim(endpoint.anthropicBaseUrl)}/v1/messages`,
-      body: { model, max_tokens: 1, messages: ask },
-      headers: { "anthropic-version": "2023-06-01" },
-    },
-    responses: {
-      url: `${trim(endpoint.openaiBaseUrl)}/responses`,
-      body: { model, input: "ok", max_output_tokens: 16 },
-    },
-    chatCompletions: {
-      url: `${trim(endpoint.openaiBaseUrl)}/chat/completions`,
-      body: { model, max_tokens: 1, messages: ask },
-    },
-  };
 }
 
 export async function runEndpointTest({
