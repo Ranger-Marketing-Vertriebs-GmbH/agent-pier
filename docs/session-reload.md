@@ -14,6 +14,10 @@ If the restarted CLI still needs verification, AgentPier opens the terminal auto
 
 Codex stores trust for each exact hook definition; use `/hooks` to review and trust hooks in the current account profile. AgentPier supplies stable hook commands with release paths taken from its launch environment, so ordinary AgentPier updates do not change those definitions. Existing users must approve the new definitions once. Changed definitions and different account profiles can still need approval. User and project hooks retain their own trust requirements; interactive sessions do not bypass hook trust. See the [official OpenAI hook documentation](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks).
 
+## Provider connection routes
+
+For sessions that use a provider connection, the reload dialog warns when the connection's route for the CLI changed since the session started (before and now labels, for example native and via adapter). Reasoning data of the earlier conversation is not carried over to the new route. If the connection no longer offers a route for the CLI, the dialog says so and the reload may fail. After the reload the session records and shows the new route.
+
 ## Model verification
 
 Reload preflight checks the current model before stopping the CLI. If the CLI reports only a display name that cannot be resolved reliably, AgentPier rejects the reload instead of forcing an older model from the conversation history. This currently affects some OpenCode display names and unfamiliar native model labels. Changing the model immediately before reloading can also require a new response to confirm its exact identity in the native history. The error leaves the running CLI untouched.

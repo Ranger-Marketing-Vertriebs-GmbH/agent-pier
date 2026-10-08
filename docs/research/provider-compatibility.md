@@ -179,3 +179,28 @@ Sources: [Ollama OpenAI compatibility](https://docs.ollama.com/api/openai-compat
 and the llama.cpp Messages cell were verified in the spec review. Azure OpenAI:
 [v1 API lifecycle](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/api-version-lifecycle)
 (v1 API with Chat Completions and Responses; no Anthropic Messages endpoint).
+
+## Protocol adapter routes (2026-10-08)
+
+Custom endpoint connections can reach every CLI through the protocol adapter (see [protocol-adapter.md](../protocol-adapter.md)). Protocol facts: [protocol-adapter-facts.md](protocol-adapter-facts.md).
+
+| CLI         | Messages upstream | Responses upstream | Chat Completions upstream |
+| ----------- | ----------------- | ------------------ | ------------------------- |
+| Claude Code | native            | adapter            | adapter                   |
+| Codex       | adapter           | native             | adapter                   |
+| OpenCode    | native SDK        | native SDK         | native SDK                |
+
+Verified by `tests/matrix/adapter-cli-smoke.test.js` (real CLIs against scripted loopback upstreams, one tool-call round trip each; macOS, Claude Code 2.1.292, Codex 0.160.1, OpenCode 1.18.35, nono 0.79.0):
+
+| CLI         | Verified upstream rows                                                                                        |
+| ----------- | ------------------------------------------------------------------------------------------------------------- |
+| Claude Code | Responses and Chat Completions through the adapter                                                            |
+| Codex       | Messages and Chat Completions through the adapter, including a tool call without arguments (Chat Completions) |
+| OpenCode    | Messages and Responses SDK routes                                                                             |
+
+The native pairs and OpenCode's Chat Completions route are not part of this matrix. The matrix uses placeholder keys and no real server, so it shows that the translation works, not that a given model or gateway accepts every optional parameter; the per-connection adapter options and the connection test cover that.
+
+Unverified:
+
+- Azure OpenAI with a custom auth header on OpenCode's Messages and Responses SDK routes: the SDK providers send an empty `Authorization` header next to `api-key`, and whether Azure accepts that is unknown. The doctor flags such connections.
+- `--open-port` under a nono profile with `network.block` on Linux: verified on macOS only; the Linux case is skipped in `tests/matrix/nono-adapter-loopback.test.js`.
