@@ -158,8 +158,10 @@ restored from a backup without secrets, enter the key again.
 result, models without a context size and the route of each CLI. They also report one
 entry per running adapter session: requests, errors, restarts, capability fallbacks,
 estimated usage and dropped compaction items. An entry fails when the adapter gave up
-after repeated crashes or failed to start. Only counters and fixed values are read from
-the session's diagnostics file. The checks make no network calls.
+after repeated crashes or failed to start. A failed start ends the session, so stopped
+sessions are reported too while their latest launch failed within the last 24 hours.
+Only counters and fixed values are read from the session's diagnostics file. The checks
+make no network calls.
 
 ## Legacy account-specific provider configuration
 
