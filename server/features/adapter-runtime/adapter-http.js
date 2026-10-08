@@ -1,20 +1,23 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
 import { messagesErrorBody, responsesErrorBody } from "../protocol-adapter/errors.js";
 
 const MIB = 1024 * 1024;
-const digest = (value) => createHash("sha256").update(value).digest();
 
 /**
- * True when `x-api-key` or `Authorization: Bearer` carries the session token. Both sides
- * are hashed first so the comparison is constant-time regardless of the candidate length.
+ * True when `x-api-key` or `Authorization: Bearer` carries the session token. The token
+ * is random with a fixed length, so a length mismatch reveals nothing secret; equal
+ * lengths are compared in constant time.
  */
 export function tokenMatches(expected, headers) {
   if (typeof expected !== "string" || expected === "") return false;
+  const wanted = Buffer.from(expected);
   const bearer = /^Bearer\s+(\S+)\s*$/i.exec(headers.authorization ?? "")?.[1];
   const candidates = [headers["x-api-key"], bearer].filter((v) => typeof v === "string");
   let ok = false;
-  for (const candidate of candidates)
-    ok = timingSafeEqual(digest(candidate), digest(expected)) || ok;
+  for (const candidate of candidates) {
+    const given = Buffer.from(candidate);
+    ok = (given.length === wanted.length && timingSafeEqual(given, wanted)) || ok;
+  }
   return ok;
 }
 
