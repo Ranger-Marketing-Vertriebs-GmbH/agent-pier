@@ -71,6 +71,8 @@ Every supported coding CLI receives a native MCP server bound to its AgentPier s
 
 The provider catalog retains native identifiers, advertised context, routed context, output limits, source and freshness. Launch adapters separately translate account configuration for Codex, Claude Code and OpenCode. Public account/session projections omit credentials; provider keys are passed through isolated native environment/configuration mechanisms. A model label is not evidence of protocol compatibility or a successful connection. See [provider compatibility and limits](providers.md).
 
+Custom endpoint connections add two features that let every CLI use any endpoint protocol; see [the protocol adapter](protocol-adapter.md). `server/features/protocol-adapter/` is the pure translation library between Anthropic Messages, OpenAI Responses and Chat Completions (no network or filesystem). `server/features/adapter-runtime/` runs it per session: the supervisor inside the terminal launcher, the adapter child process, the HTTP server and the diagnostics file.
+
 ## Native pipelines
 
 Pipeline definitions and task profiles are independent from credential accounts. The definition store validates profile configuration and bounded graphs before atomically persisting revisions. Run snapshots retain explicit profile and public account configuration without secrets. The execution engine owns durable attempts, human decisions, bounded loops, verification and recovery; injectable native/workspace ports own process and Git effects.

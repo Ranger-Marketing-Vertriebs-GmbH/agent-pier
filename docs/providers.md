@@ -41,14 +41,74 @@ A custom endpoint connection points the CLIs at your own model server. Presets f
 defaults for **Ollama** and **llama.cpp**; **Custom** covers any OpenAI- or
 Anthropic-compatible server such as LM Studio, vLLM, LiteLLM or Azure OpenAI.
 
-| CLI         | Protocol needed         | URL used                             |
-| ----------- | ----------------------- | ------------------------------------ |
-| Claude Code | Anthropic Messages      | `<Anthropic base URL>/v1/messages`   |
-| Codex       | OpenAI Responses        | `<OpenAI base URL>/responses`        |
-| OpenCode    | OpenAI Chat Completions | `<OpenAI base URL>/chat/completions` |
+![Connection dialog with CLI routes](screenshots/endpoint-routing-desktop.png)
 
-A CLI is offered only when its protocol is enabled on the connection. There is no
-protocol translation.
+**Routes.** Every CLI can use a connection that enables at least one protocol. A CLI
+talks to its native protocol directly; otherwise a local protocol adapter translates
+(see [protocol-adapter.md](protocol-adapter.md) for internals).
+
+| CLI         | Messages upstream              | Responses upstream             | Chat Completions upstream              |
+| ----------- | ------------------------------ | ------------------------------ | -------------------------------------- |
+| Claude Code | native                         | adapter (Messages ← Responses) | adapter (Messages ← Chat)              |
+| Codex       | adapter (Responses ← Messages) | native                         | adapter (Responses ← Chat)             |
+| OpenCode    | native SDK `@ai-sdk/anthropic` | native SDK `@ai-sdk/openai`    | native SDK `@ai-sdk/openai-compatible` |
+
+Native URLs are `<Anthropic base URL>/v1/messages`, `<OpenAI base URL>/responses` and
+`<OpenAI base URL>/chat/completions`.
+
+**Routing.** Each CLI has a route: Automatic, Native, Via adapter (protocol) or Off.
+OpenCode chooses among its built-in providers (Chat Completions, Responses, Messages)
+and never needs the adapter. Automatic takes the native protocol when enabled, otherwise
+the adapter from the first enabled of Responses, Messages, Chat Completions (OpenCode:
+Chat Completions, Responses, Messages). The dialog shows the resolved route and why a
+choice is unavailable. Running sessions and pipeline profiles keep the route they started
+with; a pipeline profile whose CLI would now take another route is refused until it is
+saved again.
+
+**Adapter options.** Servers differ in which optional request fields they accept. Each
+connection stores options for the upstream protocol; the defaults suit most servers.
+
+| Upstream  | Option                       | Default      | Effect                                                        |
+| --------- | ---------------------------- | ------------ | ------------------------------------------------------------- |
+| Messages  | prompt caching               | on           | automatic `cache_control` breakpoints                         |
+| Messages  | thinking budget              | off          | effort-only thinking as `enabled` plus `budget_tokens`        |
+| Responses | `prompt_cache_key`           | off          | send a cache key                                              |
+| Responses | reasoning effort             | on           | send `reasoning` and request encrypted reasoning              |
+| Responses | `parallel_tool_calls`        | off          | forward the setting                                           |
+| Chat      | `prompt_cache_key`           | off          | send a cache key                                              |
+| Chat      | token usage in the stream    | on           | `stream_options.include_usage`                                |
+| Chat      | reasoning effort             | off          | send `reasoning_effort`                                       |
+| Chat      | `parallel_tool_calls`        | off          | forward the setting                                           |
+| Chat      | reasoning text back          | off          | echo `reasoning_content` (DeepSeek, GLM, Kimi thinking)       |
+| Chat      | system messages mid-dialogue | merge        | `inline` keeps them as `system` messages (OpenAI, Azure)      |
+| Chat      | output limit field           | `max_tokens` | `max_completion_tokens` for OpenAI and Azure reasoning models |
+
+_Test connection_ sends one extra request per option and pre-fills its result; the dialog
+marks values "suggested by the test" and "changed by you", and _Restore defaults_ resets
+them. Nothing is saved before _Save connection_. At runtime, when the server rejects a
+request with 400 or 422 naming one of these options, the adapter retries once with the
+option changed and keeps the change for that session only if the retry succeeds.
+_Read `<think>` tags as reasoning_ (Chat adapter routes only) extracts `<think>…</think>`
+from the reply text as reasoning. Each model has an _Images_ setting (Automatic, Yes, No);
+with No the adapter rejects image input.
+
+**Labels.** The connection list, the launch dialog and the session header show "native",
+"via adapter · <protocol>" or, for OpenCode, only the protocol. When a connection's route
+for the CLI changed since a session started, the reload dialog shows the before and now
+labels and warns that reasoning data of the earlier conversation is not carried over.
+
+**Limits.**
+
+- Adapter routes ignore upstream HTTP(S) proxies: endpoints reachable only through a
+  proxy do not work. The CLI keeps its proxy settings, with `127.0.0.1,localhost` added
+  to `NO_PROXY`.
+- Request bodies up to 64 MiB are accepted.
+- Hosted tools (web search and similar) are dropped on targets without them.
+  `previous_response_id` is rejected.
+- After 3 adapter restarts within 60 s the CLI gets HTTP 503 until the session is
+  reloaded.
+- With a custom auth header, OpenCode's Messages and Responses providers send a blank
+  `Authorization` header next to it. Whether Azure OpenAI accepts this is unverified.
 
 **Addresses.** Plain `http` is accepted only for loopback, private (RFC 1918, `fc00::/7`),
 link-local and CGNAT/Tailscale (`100.64.0.0/10`) addresses; everything else needs
@@ -95,7 +155,11 @@ a backup cannot tell a keyed endpoint from a keyless one. If a formerly keyed en
 restored from a backup without secrets, enter the key again.
 
 **Doctor.** The diagnostics report per endpoint whether a key is configured, the last test
-result and models without a context size. They make no network calls.
+result, models without a context size and the route of each CLI. They also report one
+entry per running adapter session: requests, errors, restarts, capability fallbacks,
+estimated usage and dropped compaction items. An entry fails when the adapter gave up
+after repeated crashes or failed to start. Only counters and fixed values are read from
+the session's diagnostics file. The checks make no network calls.
 
 ## Legacy account-specific provider configuration
 

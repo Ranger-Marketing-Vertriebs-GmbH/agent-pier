@@ -148,7 +148,7 @@ once the adapter has bound. AgentPier adds the flag regardless of the profile, b
 it cannot resolve built-in or inherited profiles. With an open network the flag grants
 nothing new. The adapter already holds that port. With a blocking profile, it opens the
 one hole the session needs. This has been verified on macOS; Linux behavior is
-unverified.
+unverified. See [the adapter's security model](protocol-adapter.md#security).
 
 nono cannot initialize nested inside another operating-system sandbox: if the AgentPier
 server process itself already runs under one, wrapping a session in nono on top of it
