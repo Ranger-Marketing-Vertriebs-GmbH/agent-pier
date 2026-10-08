@@ -3,6 +3,8 @@ import { adapterSources, DEFAULT_ROUTING } from "./endpoint-routes.js";
 const adapterFields = (endpoint) => ({
   routing: { ...DEFAULT_ROUTING, ...(endpoint?.routing || {}) },
   adapterCapabilities: structuredClone(endpoint?.adapterCapabilities || {}),
+  // Draft-only: the saved values, restored where an unshown proposal replaced them.
+  savedCapabilities: structuredClone(endpoint?.adapterCapabilities || {}),
   thinkTagExtraction: endpoint?.thinkTagExtraction === true,
   capabilityProposal: {},
   // Draft-only: fields the user changed, which a re-test never overwrites.
@@ -52,20 +54,25 @@ export function initialEndpoint(connection, preset = "ollama") {
 }
 
 // Proposed values for protocols no CLI reaches through the adapter were never shown,
-// so they are not kept; values the user changed stay.
+// so they are not kept: the saved value comes back, or the field is left out. Values the
+// user changed stay.
 function withoutUnusedProposals(draft) {
   const used = new Set(adapterSources(draft));
   const proposal = draft.capabilityProposal || {};
   const edits = draft.capabilityEdits || {};
+  const saved = draft.savedCapabilities || {};
   const capabilities = {};
   for (const [source, values] of Object.entries(draft.adapterCapabilities)) {
     const kept = Object.fromEntries(
-      Object.entries(values).filter(
-        ([name]) =>
+      Object.entries(values).flatMap(([name, value]) => {
+        if (
           used.has(source) ||
           !(name in (proposal[source] || {})) ||
-          edits[source]?.[name],
-      ),
+          edits[source]?.[name]
+        )
+          return [[name, value]];
+        return name in (saved[source] || {}) ? [[name, saved[source][name]]] : [];
+      }),
     );
     if (Object.keys(kept).length) capabilities[source] = kept;
   }

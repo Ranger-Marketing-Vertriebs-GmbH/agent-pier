@@ -109,3 +109,27 @@ test("stored values of an unused protocol survive a test that proposes nothing f
   });
   assert.equal(capabilityOrigin(draft, "messages", "promptCache"), "stored");
 });
+
+test("a proposal for an unused protocol never replaces its stored value", () => {
+  const stored = initialEndpoint({
+    endpoint: {
+      ...fresh(),
+      routing: { claude: "native", codex: "native", opencode: "auto" },
+      adapterCapabilities: { messages: { promptCache: false, thinkingBudget: true } },
+    },
+  });
+  const all = { messages: "ok", responses: "ok", chatCompletions: "ok" };
+  let draft = applyProposal(
+    stored,
+    proposal({ messages: { promptCache: true, thinkingBudget: false } }, all),
+  );
+  draft = applyProposal(draft, proposal({ messages: { promptCache: true } }, all));
+  const saved = { messages: { promptCache: false, thinkingBudget: true } };
+  assert.deepEqual(endpointPayload(draft).adapterCapabilities, saved);
+  assert.deepEqual(withoutTest(draft).adapterCapabilities, saved);
+  // Routed through the Messages adapter, the shown proposal is saved instead.
+  const routed = setRoute(draft, "codex", "adapter:messages");
+  assert.deepEqual(endpointPayload(routed).adapterCapabilities, {
+    messages: { promptCache: true, thinkingBudget: true },
+  });
+});
