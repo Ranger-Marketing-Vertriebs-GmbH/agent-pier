@@ -93,14 +93,25 @@ export async function waitForJson(file, ms = 10_000) {
   return value;
 }
 
-/** In-process adapter server against a scripted upstream (base + "/v1" for OpenAI-style routes). */
+/**
+ * In-process adapter server against a scripted upstream (base + "/v1" for OpenAI-style
+ * routes). It is served the way production serves it: a separate listener accepts each
+ * connection and hands it over with `attach()` + `accept()` (the supervisor's role).
+ */
 export async function startAdapterServer(t, upstream, overrides = {}, options = {}) {
   const config = validAdapterConfig({
     upstream: { baseUrl: `${upstream.base}/v1`, authHeader: null, apiKey: KEY },
     ...overrides,
   });
   const server = createAdapterServer(config, options);
-  const port = await server.listen(0);
-  t.after(() => server.close());
+  const listener = net.createServer((socket) => server.accept(socket));
+  listener.listen(0, "127.0.0.1");
+  await once(listener, "listening");
+  const { port } = listener.address();
+  server.attach(port);
+  t.after(async () => {
+    listener.close();
+    await server.close();
+  });
   return { url: `http://127.0.0.1:${port}`, server };
 }
