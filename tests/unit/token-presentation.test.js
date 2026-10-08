@@ -63,7 +63,15 @@ test("subagent usage shows tokens without cache reads and the cache reads apart"
     usageSummary({ ...usage, outputTokens: 150_000, durationMs: null }),
     "≥211K tokens · 7.6M from cache",
   );
+  assert.equal(
+    usageSummary({ totalTokens: 7_600_000, cacheReadTokens: 7_600_000 }),
+    "7.6M from cache",
+  );
   setLanguage("de", { persist: false });
+  assert.equal(
+    usageSummary({ totalTokens: 7_600_000, cacheReadTokens: 7_600_000 }),
+    `7,6${nbsp}Mio. aus Cache`,
+  );
   assert.equal(
     usageSummary(usage),
     `211.000 Tokens · 7,6${nbsp}Mio. aus Cache · 1 min 32 s`,

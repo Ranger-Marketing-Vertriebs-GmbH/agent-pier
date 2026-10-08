@@ -85,7 +85,7 @@ test("unrelated or cancellable records never complete a subagent", () => {
   }
 });
 
-test("an async launch completes through an attachment-only notification", () => {
+test("an attachment-only notification ends an async launch (killed is inconclusive, not running)", () => {
   for (const [status, expected] of [
     ["completed", "completed"],
     ["failed", "failed"],
@@ -101,6 +101,8 @@ test("an async launch completes through an attachment-only notification", () => 
     assert.equal(observed(records, "agentq").status, expected, status);
     assert.equal(row(records, "toolu_q").status, expected, status);
     assert.equal(row(records, "toolu_q").subagent.status, expected, status);
+    assert.notEqual(observed(records, "agentq").status, "running", status);
+    assert.notEqual(row(records, "toolu_q").status, "running", status);
   }
 });
 
