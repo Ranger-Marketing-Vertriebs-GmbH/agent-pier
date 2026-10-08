@@ -61,9 +61,11 @@ OpenCode chooses among its built-in providers (Chat Completions, Responses, Mess
 and never needs the adapter. Automatic takes the native protocol when enabled, otherwise
 the adapter from the first enabled of Responses, Messages, Chat Completions (OpenCode:
 Chat Completions, Responses, Messages). The dialog shows the resolved route and why a
-choice is unavailable. Running sessions and pipeline profiles keep the route they started
-with; a pipeline profile whose CLI would now take another route is refused until it is
-saved again.
+choice is unavailable. Running sessions keep the route they started with until a reload, which
+warns first. A pipeline run freezes the connection, including each CLI's route, when it
+starts; if the route changes during the run, its next stage launch is refused with a
+request to start a new run. A new run takes the new route; saving the profile again is
+not needed.
 
 **Adapter options.** Servers differ in which optional request fields they accept. Each
 connection stores options for the upstream protocol; the defaults suit most servers.
@@ -92,10 +94,14 @@ _Read `<think>` tags as reasoning_ (Chat adapter routes only) extracts `<think>â
 from the reply text as reasoning. Each model has an _Images_ setting (Automatic, Yes, No);
 with No the adapter rejects image input.
 
+![Adapter options with test suggestions](screenshots/endpoint-adapter-options.png)
+
 **Labels.** The connection list, the launch dialog and the session header show "native",
 "via adapter Â· <protocol>" or, for OpenCode, only the protocol. When a connection's route
 for the CLI changed since a session started, the reload dialog shows the before and now
 labels and warns that reasoning data of the earlier conversation is not carried over.
+
+![Session header with an adapter route](screenshots/session-adapter-route.png)
 
 **Limits.**
 
@@ -162,6 +168,8 @@ after repeated crashes or failed to start. A failed start ends the session, so s
 sessions are reported too while their latest launch failed within the last 24 hours.
 Only counters and fixed values are read from the session's diagnostics file. The checks
 make no network calls.
+
+![Doctor entry for an adapter session](screenshots/diagnostics-adapter-session.png)
 
 ## Legacy account-specific provider configuration
 

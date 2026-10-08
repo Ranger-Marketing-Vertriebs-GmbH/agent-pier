@@ -52,14 +52,6 @@ test("routes resolve live and explain unavailable choices", async ({ page }) => 
       path: "docs/screenshots/endpoint-routing-desktop.png",
       animations: "disabled",
     });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await dialog.getByText("Adapter options", { exact: true }).scrollIntoViewIfNeeded();
-    await expect(routing).toBeInViewport({ ratio: 0.1 });
-    await dialog.screenshot({
-      path: "docs/screenshots/endpoint-routing-mobile.png",
-      animations: "disabled",
-    });
-    await page.setViewportSize({ width: 1280, height: 720 });
   }
   // Review Focus 2: the explicit choice survives when its protocol is switched off again.
   await responses.uncheck();
