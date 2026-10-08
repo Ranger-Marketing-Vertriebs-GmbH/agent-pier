@@ -32,7 +32,7 @@ const base = {
 test("normalizes a valid endpoint block", () => {
   const value = validateEndpoint(base);
   assert.equal(value.openaiBaseUrl, "http://127.0.0.1:11434/v1");
-  assert.deepEqual(endpointTools(value), ["claude", "opencode"]);
+  assert.deepEqual(endpointTools(value), ["codex", "claude", "opencode"]);
   assert.deepEqual(endpointOrigins(value), ["http://127.0.0.1:11434"]);
 });
 
@@ -68,10 +68,15 @@ test("rejects forbidden auth headers and bad models", () => {
   assert.throws(() => validateEndpoint({ ...base, extra: 1 }), { status: 400 });
 });
 
-test("disabling messages or clearing the anthropic URL removes claude", () => {
-  assert.deepEqual(endpointTools(validateEndpoint({ ...base, anthropicBaseUrl: null })), [
-    "opencode",
-  ]);
+test("clearing the anthropic URL removes the native claude route, auto falls back to the adapter", () => {
+  const value = validateEndpoint({ ...base, anthropicBaseUrl: null });
+  assert.deepEqual(endpointTools(value), ["codex", "claude", "opencode"]);
+  const off = validateEndpoint({
+    ...base,
+    anthropicBaseUrl: null,
+    routing: { claude: "native", codex: "off" },
+  });
+  assert.deepEqual(endpointTools(off), ["opencode"]);
 });
 
 test("model lookup enforces protocol and context", () => {
@@ -83,7 +88,8 @@ test("model lookup enforces protocol and context", () => {
     ],
   });
   assert.equal(endpointModel(value, "qwen3-coder:30b", "claude").contextTokens, 32768);
-  assert.throws(() => endpointModel(value, "qwen3-coder:30b", "codex"), /Protokoll/);
+  const noCodex = validateEndpoint({ ...base, routing: { codex: "off" } });
+  assert.throws(() => endpointModel(noCodex, "qwen3-coder:30b", "codex"), /Protokoll/);
   assert.throws(() => endpointModel(value, "missing", "claude"), /nicht eingetragen/);
   assert.throws(() => endpointModel(value, "nocontext", "claude"), /Kontextgröße/);
 });
@@ -125,19 +131,19 @@ test("endpointTools follows the resolved routes", () => {
   const chatOnly = validateEndpoint({ ...base, protocols });
   assert.deepEqual(
     endpointTools(chatOnly),
-    ["opencode"],
-    "auto offers no adapter routes in PR 2",
+    ["codex", "claude", "opencode"],
+    "auto offers Codex and Claude Code through the adapter",
   );
   const explicit = validateEndpoint({
     ...base,
     protocols,
-    routing: { claude: "adapter:chatCompletions" },
+    routing: { claude: "adapter:chatCompletions", codex: "off" },
   });
   assert.deepEqual(endpointTools(explicit), ["claude", "opencode"]);
   const off = validateEndpoint({
     ...base,
     protocols,
-    routing: { claude: "adapter:chatCompletions", opencode: "off" },
+    routing: { claude: "adapter:chatCompletions", codex: "off", opencode: "off" },
   });
   assert.deepEqual(endpointTools(off), ["claude"]);
 });

@@ -22,21 +22,33 @@ const endpoint = (protocols, routing, extra = {}) => ({
   ...extra,
 });
 
-test("PR 2 default: auto resolves native routes only", () => {
-  assert.equal(ADAPTER_AUTO_ROUTES, false);
+test("auto prefers native routes and falls back to the adapter", () => {
+  assert.equal(ADAPTER_AUTO_ROUTES, true);
   const all = endpoint({ messages: true, responses: true, chatCompletions: true });
   assert.deepEqual(resolveRoute(all, "claude"), { mode: "native", source: "messages" });
   assert.deepEqual(resolveRoute(all, "codex"), { mode: "native", source: "responses" });
   const chat = endpoint({ chatCompletions: true });
-  assert.equal(resolveRoute(chat, "claude"), null);
-  assert.equal(resolveRoute(chat, "codex"), null);
+  assert.deepEqual(resolveRoute(chat, "claude"), {
+    mode: "adapter",
+    source: "chatCompletions",
+  });
+  assert.deepEqual(resolveRoute(chat, "codex"), {
+    mode: "adapter",
+    source: "chatCompletions",
+  });
   assert.deepEqual(resolveRoute(chat, "opencode"), {
     mode: "native",
     source: "chatCompletions",
   });
 });
 
-test("explicit adapter routes work while auto adapter routes are off", () => {
+test("the adapterAuto seam still turns the fallback off", () => {
+  const chat = endpoint({ chatCompletions: true });
+  assert.equal(resolveRoute(chat, "claude", { adapterAuto: false }), null);
+  assert.equal(resolveRoute(chat, "codex", { adapterAuto: false }), null);
+});
+
+test("explicit adapter routes resolve to their source", () => {
   const chat = endpoint(
     { chatCompletions: true },
     { claude: "adapter:chatCompletions", codex: "adapter:chatCompletions" },
@@ -51,29 +63,28 @@ test("explicit adapter routes work while auto adapter routes are off", () => {
   });
 });
 
-test("flipping the flag (PR 3) makes auto fall back to Responses > Messages > Chat", () => {
-  const on = { adapterAuto: true };
+test("auto falls back in the order Responses > Messages > Chat", () => {
   const chat = endpoint({ chatCompletions: true });
-  assert.deepEqual(resolveRoute(chat, "claude", on), {
+  assert.deepEqual(resolveRoute(chat, "claude"), {
     mode: "adapter",
     source: "chatCompletions",
   });
-  assert.deepEqual(resolveRoute(chat, "codex", on), {
+  assert.deepEqual(resolveRoute(chat, "codex"), {
     mode: "adapter",
     source: "chatCompletions",
   });
   const responsesOnly = endpoint({ responses: true, chatCompletions: true });
-  assert.deepEqual(resolveRoute(responsesOnly, "claude", on), {
+  assert.deepEqual(resolveRoute(responsesOnly, "claude"), {
     mode: "adapter",
     source: "responses",
   });
   const messagesOnly = endpoint({ messages: true, chatCompletions: true });
-  assert.deepEqual(resolveRoute(messagesOnly, "codex", on), {
+  assert.deepEqual(resolveRoute(messagesOnly, "codex"), {
     mode: "adapter",
     source: "messages",
   });
   const all = endpoint({ messages: true, responses: true, chatCompletions: true });
-  assert.deepEqual(resolveRoute(all, "claude", on), {
+  assert.deepEqual(resolveRoute(all, "claude"), {
     mode: "native",
     source: "messages",
   });
@@ -115,8 +126,7 @@ test("records without routing behave as auto", () => {
     mode: "native",
     source: "responses",
   });
-  assert.equal(resolveRoute(legacy, "claude"), null);
-  assert.deepEqual(resolveRoute(legacy, "claude", { adapterAuto: true }), {
+  assert.deepEqual(resolveRoute(legacy, "claude"), {
     mode: "adapter",
     source: "responses",
   });

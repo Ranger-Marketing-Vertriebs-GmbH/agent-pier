@@ -76,7 +76,7 @@ const account = (tool) => ({
   provider: { id: "endpoint", modelId: "qwen3" },
 });
 
-/** Enables only `source`; adapter routes are explicit because ADAPTER_AUTO_ROUTES = false. */
+/** Enables only `source`; the explicit adapter route keeps the test independent of auto. */
 const endpointFor = (up, tool, source) =>
   validateEndpoint({
     preset: "custom",

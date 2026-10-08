@@ -217,7 +217,8 @@ test("custom header on old Claude Code is refused; old version without header wo
 
 test("disabled protocol refuses the launch", (t) => {
   const endpoint = endpointBlock({
-    protocols: { messages: true, responses: false, chatCompletions: true },
+    protocols: { messages: true, responses: true, chatCompletions: false },
+    routing: { codex: "adapter:chatCompletions" },
   });
   assert.throws(() => launch(t, "codex", { endpoint }), { status: 409 });
 });
