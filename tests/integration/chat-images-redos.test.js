@@ -1,11 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { ChatImages } from "../../server/features/chat/chat-images.js";
 
 const execute = promisify(execFile);
 const moduleUrl = new URL("../../server/features/chat/chat-images.js", import.meta.url);
+const png = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jzN8AAAAASUVORK5CYII=",
+  "base64",
+);
 
 test("malformed Markdown image destinations cannot stall transcript decoration", async () => {
   // A separate process makes the deadline enforceable even when the regex blocks
@@ -14,7 +21,7 @@ test("malformed Markdown image destinations cannot stall transcript decoration",
     import assert from "node:assert/strict";
     import { ChatImages } from ${JSON.stringify(moduleUrl.href)};
     const images = new ChatImages({});
-    const messages = images.descriptors({ id: "fixture", cwd: "/tmp" }, {
+    const messages = await images.descriptors({ id: "fixture", cwd: "/tmp" }, {
       messages: [{ role: "assistant", text: "[](" + "\\\\!".repeat(64) }],
     });
     assert.deepEqual(messages[0].images, []);
@@ -25,10 +32,14 @@ test("malformed Markdown image destinations cannot stall transcript decoration",
   });
 });
 
-test("Markdown image destinations preserve escaped spaces and parentheses", () => {
+test("Markdown image destinations preserve escaped spaces and parentheses", async (t) => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-markdown-images-"));
+  t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  for (const name of ["image (final).png", "other image.png"])
+    fs.writeFileSync(path.join(cwd, name), png);
   const images = new ChatImages({});
-  const messages = images.descriptors(
-    { id: "fixture", cwd: "/tmp" },
+  const messages = await images.descriptors(
+    { id: "fixture", cwd },
     {
       messages: [
         {
@@ -40,6 +51,6 @@ test("Markdown image destinations preserve escaped spaces and parentheses", () =
   );
   assert.deepEqual(
     messages[0].images.map((image) => image.fullPath),
-    ["/tmp/image (final).png", "/tmp/other image.png"],
+    [path.join(cwd, "image (final).png"), path.join(cwd, "other image.png")],
   );
 });

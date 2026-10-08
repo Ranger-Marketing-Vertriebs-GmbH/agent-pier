@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { applicationFixture } from "../helpers/application.js";
+
+const png = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jzN8AAAAASUVORK5CYII=",
+  "base64",
+);
 
 test("authenticated chat cursors preserve decorated images and never bypass session lookup", async (t) => {
   const f = await applicationFixture(t);
@@ -11,6 +18,8 @@ test("authenticated chat cursors preserve decorated images and never bypass sess
     cwd: f.root,
     status: "stopped",
   };
+  for (const name of ["result.png", "other.png"])
+    fs.writeFileSync(path.join(f.root, name), png);
   const snapshot = {
     availability: "ready",
     providerSessionId: "native",

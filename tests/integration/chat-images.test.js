@@ -129,20 +129,27 @@ test("missing, oversized, symlinked and disguised active/text files never stream
     },
   ];
   const data = await listing(f);
-  assert.equal(data.messages[0].images?.length, 5);
-  for (const image of data.messages[0].images) {
-    const response = await fetch(f.url + image.url);
-    assert.ok(
-      [404, 413, 415].includes(response.status),
-      `${image.path}: ${response.status}`,
-    );
-    assert.equal((await response.text()).includes("private-token-value"), false);
-  }
+  assert.deepEqual(data.messages[0].images, []);
+});
+test("an image that passed the probe but changes later is refused by the route", async (t) => {
+  const f = await fixture(t);
+  const file = path.join(f.cwd, "replaced.png");
+  fs.writeFileSync(file, png);
+  f.snapshots.one.messages = [{ id: "m", role: "assistant", text: "replaced.png" }];
+  const [image] = (await listing(f)).messages[0].images;
+  assert.ok(image, "an existing image yields a card");
+  fs.writeFileSync(file, "private-token-value");
+  const changed = await fetch(f.url + image.url);
+  assert.equal(changed.status, 404);
+  assert.equal((await changed.text()).includes("private-token-value"), false);
+  fs.rmSync(file);
+  assert.equal((await fetch(f.url + image.url)).status, 404);
 });
 test("relative and file URI paths resolve against the session, duplicate references collapse and lists stay bounded", async (t) => {
   const f = await fixture(t);
   fs.writeFileSync(path.join(f.home, "home.png"), png);
   fs.writeFileSync(path.join(f.cwd, "image space.png"), png);
+  for (let i = 0; i < 20; i++) fs.writeFileSync(path.join(f.cwd, `image-${i}.png`), png);
   f.snapshots.one.messages = [
     {
       id: "m",

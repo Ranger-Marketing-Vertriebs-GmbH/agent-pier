@@ -9,19 +9,28 @@ import { problem } from "../../lib/storage.js";
 import { UploadedImageInput } from "./uploaded-image-input.js";
 import { truncateToolRow } from "./tool-text.js";
 import { ToolTextStore } from "./tool-text-store.js";
+import { ChatImageProbe, MAX_IMAGE_BYTES, rasterType } from "./chat-image-probe.js";
+
+export { rasterType };
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
-const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_HISTORY_PAGES = 20;
 const MISS_TTL = 60_000;
 const MAX_MISSES = 1024;
 const imageExtension = /\.(?:png|jpe?g|gif|webp|avif)$/i;
-function localPath(source, cwd, home) {
+// Templates, globs, shell syntax and lists name no single file.
+const placeholder = /[<>{}*$|,]/;
+const requestLine = /(?:^|[^\w])(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)[ \t]+$/;
+function localPath(source, cwd, home, explicit = false) {
   if (typeof source !== "string") return null;
-  source = source.trim().replace(/\\([ ()[\]])/g, "$1");
+  source = source.trim();
+  // Only explicit Markdown destinations may contain unescaped whitespace.
+  if (!explicit && /\s/.test(source.replace(/\\ /g, ""))) return null;
+  source = source.replace(/\\([ ()[\]])/g, "$1");
   if (
     !source ||
+    placeholder.test(source) ||
     source.length > 4096 ||
     /[\x00-\x1f\x7f]/.test(source) ||
     source.startsWith("//")
@@ -42,6 +51,7 @@ function localPath(source, cwd, home) {
   }
   if (
     !imageExtension.test(value) ||
+    placeholder.test(value) ||
     /[\x00-\x1f\x7f\\]/.test(value) ||
     value.startsWith("//")
   )
@@ -56,8 +66,9 @@ function reportedImages(text, cwd, home) {
   text = text.slice(0, 128000);
   const matches = [];
   let remaining = text;
-  const add = (source, index) => {
-    const item = localPath(source, cwd, home);
+  const add = (source, index, explicit = false) => {
+    if (requestLine.test(text.slice(Math.max(0, index - 16), index))) return false;
+    const item = localPath(source, cwd, home, explicit);
     if (item) matches.push({ ...item, index });
     return Boolean(item);
   };
@@ -69,7 +80,7 @@ function reportedImages(text, cwd, home) {
   for (const match of text.matchAll(
     /!?\[[^\]\n]*\]\(\s*(?:<([^>\n]+)>|((?:\\.|[^\\\s)])+))(?:\s+["'][^\n]*?["'])?\s*\)/g,
   )) {
-    add(match[1] || match[2], match.index);
+    add(match[1] || match[2], match.index, Boolean(match[1]));
     mask(match.index, match[0].length);
   }
   for (const match of remaining.matchAll(/[`"']([^`"'\n]+)[`"']/g))
@@ -84,51 +95,18 @@ function reportedImages(text, cwd, home) {
     )
       mask(match.index, match[0].length);
   }
-  for (const match of remaining.matchAll(/[^\s<>()[\]`"']+/g))
+  for (const match of remaining.matchAll(/[^\s<>()[\]`"']+/g)) {
+    // A token touching template brackets is a fragment such as `<type>.png`.
+    const end = match.index + match[0].length;
+    if (/[<>{}]/.test((remaining[match.index - 1] || "") + (remaining[end] || "")))
+      continue;
     add(match[0].replace(/[.,;:!?]+$/, ""), match.index);
+  }
   const unique = new Map();
   for (const item of matches.sort((a, b) => a.index - b.index))
     if (!unique.has(item.fullPath)) unique.set(item.fullPath, item);
   return [...unique.values()].slice(0, 8);
 }
-export function rasterType(bytes) {
-  const ascii = (start, end) => bytes.toString("ascii", start, end);
-  if (
-    bytes.length >= 33 &&
-    bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) &&
-    ascii(12, 16) === "IHDR"
-  ) {
-    const width = bytes.readUInt32BE(16),
-      height = bytes.readUInt32BE(20);
-    if (width && height && width * height <= 80_000_000) return "image/png";
-    return null;
-  }
-  if (bytes.length >= 10 && ["GIF87a", "GIF89a"].includes(ascii(0, 6))) {
-    const width = bytes.readUInt16LE(6),
-      height = bytes.readUInt16LE(8);
-    if (width && height && width * height <= 80_000_000) return "image/gif";
-    return null;
-  }
-  if (bytes.length >= 12 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff)
-    return "image/jpeg";
-  if (
-    bytes.length >= 20 &&
-    ascii(0, 4) === "RIFF" &&
-    ascii(8, 12) === "WEBP" &&
-    ["VP8 ", "VP8L", "VP8X"].includes(ascii(12, 16))
-  )
-    return "image/webp";
-  if (bytes.length >= 24 && ascii(4, 8) === "ftyp") {
-    const boxSize = bytes.readUInt32BE(0);
-    if (boxSize < 16 || boxSize > Math.min(bytes.length, 4096) || boxSize % 4 !== 0)
-      return null;
-    for (let offset = 8; offset + 4 <= boxSize; offset += 4)
-      if (offset !== 12 && ["avif", "avis"].includes(ascii(offset, offset + 4)))
-        return "image/avif";
-  }
-  return null;
-}
-
 export class ChatImages {
   constructor({
     sessions,
@@ -140,7 +118,9 @@ export class ChatImages {
       maxBytes: 128 * 1048576,
       maxEntryBytes: 32 * 1048576,
     }),
+    now = Date.now,
   }) {
+    this.probe = new ChatImageProbe({ now });
     this.sessions = sessions;
     this.chat = chat;
     this.attachments = attachments;
@@ -361,8 +341,11 @@ export class ChatImages {
     if (isText(older)) return older.text;
     throw problem(serverMessages.chat.toolTextUnavailable, 404);
   }
-  descriptors(session, snapshot) {
+  // Only paths derived from the transcript are probed, never client input. A
+  // mention becomes an image card only when it names an existing raster image.
+  async descriptors(session, snapshot) {
     let remaining = 64;
+    const exists = this.probe.scan();
     const messages = (snapshot.messages || []).map((message) => ({
       ...message,
       images: [],
@@ -371,7 +354,10 @@ export class ChatImages {
       // Internal tool logs contain source code and temporary paths, not images
       // addressed to the user. They must not consume the conversation image budget.
       if (!["assistant", "user"].includes(message.role) || !remaining) continue;
-      message.images = reportedImages(message.text, session.cwd, this.home)
+      const reported = reportedImages(message.text, session.cwd, this.home);
+      const found = await Promise.all(reported.map((item) => exists(item.fullPath)));
+      message.images = reported
+        .filter((_item, index) => found[index])
         .slice(0, remaining)
         .map((item) => {
           const id = createHmac("sha256", this.key)
@@ -394,7 +380,7 @@ export class ChatImages {
     const session = await this.sessions.get(id);
     const messages = await this.uploadedInput.decorate(
       session,
-      this.descriptors(session, snapshot).map((message) => ({
+      (await this.descriptors(session, snapshot)).map((message) => ({
         ...message,
         images: message.images.map(({ fullPath: _fullPath, ...image }) => image),
       })),
@@ -425,7 +411,7 @@ export class ChatImages {
       snapshot.providerSessionId,
       snapshot.history?.generation,
     ]);
-    for (const message of this.descriptors(session, snapshot))
+    for (const message of await this.descriptors(session, snapshot))
       for (const image of message.images) {
         this.historical.delete(image.id);
         this.historical.set(image.id, { image, scope, expires: Date.now() + 3600000 });
@@ -442,7 +428,7 @@ export class ChatImages {
     const cached = this.storedToolImage(id, snapshot, imageId);
     if (cached) return cached;
     if (cached === false) throw problem(serverMessages.chat.imageHistoryMismatch, 404);
-    let image = this.descriptors(session, snapshot)
+    let image = (await this.descriptors(session, snapshot))
       .flatMap((message) => message.images)
       .find((image) => image.id === imageId);
     const historical = this.historical.get(imageId);
