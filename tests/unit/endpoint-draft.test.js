@@ -61,6 +61,7 @@ test("payload carries only server-known fields", () => {
   };
   const payload = endpointPayload(draft);
   assert.deepEqual(Object.keys(payload).sort(), [
+    "adapterCapabilities",
     "anthropicBaseUrl",
     "authHeader",
     "lastTest",
@@ -68,11 +69,14 @@ test("payload carries only server-known fields", () => {
     "openaiBaseUrl",
     "preset",
     "protocols",
+    "routing",
+    "thinkTagExtraction",
   ]);
   assert.deepEqual(Object.keys(payload.models[0]).sort(), [
     "contextEdited",
     "contextHint",
     "contextTokens",
+    "images",
     "label",
     "modelId",
     "outputTokens",
