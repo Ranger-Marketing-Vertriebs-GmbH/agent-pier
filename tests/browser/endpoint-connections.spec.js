@@ -78,6 +78,9 @@ test("create a keyless Ollama connection, confirm context and launch with it", a
   await page.getByLabel("CLI", { exact: true }).selectOption("codex");
   const access = page.getByLabel("Connection", { exact: true });
   await expect(access.locator('option[value="provider:connection-one"]')).toHaveCount(1);
+  await expect(access.locator('option[value="provider:connection-one"]')).toContainText(
+    "via adapter · Messages",
+  );
   await page.getByLabel("CLI", { exact: true }).selectOption("claude");
   await access.selectOption("provider:connection-one");
   await expect(

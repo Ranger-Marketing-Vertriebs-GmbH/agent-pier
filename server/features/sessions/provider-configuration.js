@@ -41,3 +41,16 @@ export function publicProviderConfiguration(provider) {
     result.route = { mode: route.mode, source: route.source };
   return result;
 }
+
+/** The provider record after a reload: the route the new launch actually uses. */
+export function reloadedProvider(current, launched) {
+  const route = launched?.route;
+  if (
+    !current ||
+    !route ||
+    !ROUTE_MODES.includes(route.mode) ||
+    !PROTOCOLS.includes(route.source)
+  )
+    return current;
+  return { ...current, route: { mode: route.mode, source: route.source } };
+}

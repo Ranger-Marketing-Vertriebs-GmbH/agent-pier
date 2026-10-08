@@ -6,6 +6,7 @@ import api from "../../lib/api.js";
 import { names } from "../../lib/providers.js";
 import { connectionCopy as copy } from "../../lib/i18n/messages/connections.js";
 import ConnectionDialog from "./ConnectionDialog.jsx";
+import { routeLabel } from "./route-label.js";
 import "./connections.css";
 function endpointHost(connection) {
   const url = connection.endpoint?.openaiBaseUrl || connection.endpoint?.anthropicBaseUrl;
@@ -50,8 +51,16 @@ export default function ProviderConnections({ connections = [], refresh }) {
             <p>{connectionSummary(connection).join(" · ")}</p>
             <p>
               {copy.compatible}:{" "}
-              {connection.tools.map((tool) => names[tool]).join(", ") ||
-                copy.noCompatible}
+              {connection.tools
+                .map((tool) =>
+                  connection.toolRoutes
+                    ? copy.compatibleRoute(
+                        names[tool],
+                        routeLabel(connection.toolRoutes[tool]),
+                      )
+                    : names[tool],
+                )
+                .join(", ") || copy.noCompatible}
             </p>
           </div>
           <div className="account-actions">

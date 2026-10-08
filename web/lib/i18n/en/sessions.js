@@ -51,6 +51,7 @@ export const sessionWorkspaceCopy = {
   openNavigation: "Open navigation",
   interruptKeyboardLabel: "Interrupt with Control C",
   sessionTitleDescription: "Account removed",
+  routeTitle: "Connection route",
   terminalTab: "Terminal",
   chatTab: "Chat",
   terminalTopbarDisconnected: "Disconnected · retrying …",
@@ -60,6 +61,8 @@ export const sessionWorkspaceCopy = {
 };
 
 export const sessionReloadCopy = {
+  routeChanged: (from, to) =>
+    `The route changed since this session started (before: ${from}, now: ${to}). Reasoning data from the earlier conversation cannot be carried over.`,
   retryCurrent: "Retry with current account",
   switchTitle: "Continue with another account",
   switchHint:

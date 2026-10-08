@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import Modal from "../../components/Modal.jsx";
 import { sessionReloadCopy as copy } from "../../lib/i18n/messages/sessions.js";
 import useSessionReload from "./useSessionReload.js";
+import { routeLabel } from "../provider-connections/route-label.js";
 import "./session-reload.css";
 
 export default function SessionReloadDialog({
@@ -36,6 +37,14 @@ export default function SessionReloadDialog({
         {busy && <p role="status">{copy.submitting}</p>}
         {data && (
           <>
+            {data.routeChange && (
+              <p role="status">
+                {copy.routeChanged(
+                  routeLabel(data.routeChange.from),
+                  routeLabel(data.routeChange.to),
+                )}
+              </p>
+            )}
             {["waiting", "reloading", "completed", "failed"].includes(data.state) && (
               <p role={data.state === "failed" ? "alert" : "status"}>
                 {copy[data.state]}

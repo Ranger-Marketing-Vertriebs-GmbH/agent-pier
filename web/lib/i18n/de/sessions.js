@@ -53,6 +53,7 @@ export const sessionWorkspaceCopy = {
   openNavigation: "Navigation öffnen",
   interruptKeyboardLabel: "Unterbrechen mit Control C",
   sessionTitleDescription: "Account entfernt",
+  routeTitle: "Verbindungsroute",
   terminalTab: "Terminal",
   chatTab: "Chat",
   terminalTopbarDisconnected: "Verbindung getrennt · neuer Versuch …",
@@ -62,6 +63,8 @@ export const sessionWorkspaceCopy = {
 };
 
 export const sessionReloadCopy = {
+  routeChanged: (from, to) =>
+    `Die Route hat sich seit dem Start geändert (vorher: ${from}, jetzt: ${to}). Reasoning-Daten der bisherigen Unterhaltung können nicht übernommen werden.`,
   retryCurrent: "Mit aktuellem Account erneut versuchen",
   switchTitle: "Mit anderem Account fortsetzen",
   switchHint:

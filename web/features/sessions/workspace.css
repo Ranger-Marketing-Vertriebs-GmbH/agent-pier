@@ -39,6 +39,14 @@
   color: #5a5b5f;
   padding: 0 5px;
 }
+.session-title p > .route-badge {
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid #404145;
+  border-radius: 999px;
+  color: #9a9b9f;
+  white-space: nowrap;
+}
 .session-actions {
   display: flex;
   gap: 5px;

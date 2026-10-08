@@ -15,6 +15,7 @@ import { routePath } from "../../app/routes.js";
 import { names, statusLabels } from "../../lib/providers.js";
 import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
+import { routeLabel } from "../provider-connections/route-label.js";
 import ChatView from "../chat/ChatView.jsx";
 import useSessionViewport from "./useSessionViewport.js";
 const SessionReloadDialog = lazy(() => import("./SessionReloadDialog.jsx"));
@@ -102,6 +103,11 @@ export default function SessionWorkspace({
               {session.access?.providerConnectionName ||
                 account?.name ||
                 copy.sessionTitleDescription}
+              {session.provider?.route && (
+                <span className="route-badge" title={copy.routeTitle}>
+                  {routeLabel(session.provider.route)}
+                </span>
+              )}
             </p>
           </div>
         </div>

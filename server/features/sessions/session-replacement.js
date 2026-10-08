@@ -10,6 +10,7 @@ import {
   checkedAdapter,
 } from "../adapter-runtime/adapter-config.js";
 import { validateReloadLaunch } from "../../application/session-reload-launch.js";
+import { reloadedProvider } from "./provider-configuration.js";
 
 const launcher = fileURLToPath(new URL("../../terminal-launcher.js", import.meta.url));
 
@@ -65,6 +66,9 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
     // down, then refuses its late final write instead of recreating the file.
     if (adapter) session.adapterGeneration = adapter.generation;
     else delete session.adapterGeneration;
+    // The route may differ from the first launch (connection edited since).
+    if (session.provider)
+      session.provider = reloadedProvider(session.provider, launch.provider);
     await manager.save(session);
     await rm(adapterDiagnosticsPath(manager.directory, id), { force: true });
     await privateWrite(
