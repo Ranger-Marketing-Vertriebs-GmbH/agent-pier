@@ -13,6 +13,8 @@ import { promisify } from "node:util";
 import { detectTools } from "../accounts/account-store.js";
 import { toolBinDirectories } from "../tools/tool-paths.js";
 import { problem } from "../../lib/storage.js";
+import { readClaudeReloadContext } from "./claude-reload-context.js";
+import { readOpenCodeReloadContext } from "./opencode-history-page.js";
 import {
   normalizeClaude,
   normalizeCodex,
@@ -400,6 +402,20 @@ export class ProviderHistory {
     return readHistoryPage(this, session, id, state);
   }
   async readReloadContext(session, id) {
+    if (session.tool === "claude") {
+      providerId(id);
+      this.environment(session);
+      // Reload needs identity and the latest model; a long session may outgrow
+      // the chat history limit, so stream the transcript instead of loading it.
+      return readClaudeReloadContext(await this.claudeFile(session, id), session, id);
+    }
+    if (session.tool === "opencode") {
+      providerId(id);
+      this.environment(session);
+      return (
+        (await readOpenCodeReloadContext(this, session, id)) || this.read(session, id)
+      );
+    }
     if (session.tool !== "codex") return this.read(session, id);
     providerId(id);
     const { thread } = await this.codexRequest(session, (client) =>
