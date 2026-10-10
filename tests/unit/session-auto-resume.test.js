@@ -116,13 +116,14 @@ test("an attempt cut off by a restart is not repeated", async () => {
 });
 
 test("ineligible sessions are skipped with the reload reason", async () => {
-  const { resume, store, calls } = fixture([interrupted("pipeline", 1)], {
+  const { resume, store, calls, audit } = fixture([interrupted("pipeline", 1)], {
     status: { pipeline: { eligible: false, reason: "unsupported-session" } },
   });
   await resume.initialize();
   assert.deepEqual(calls, []);
   assert.equal(store.get("pipeline").interruption.resume, "skipped");
   assert.equal(store.get("pipeline").interruption.reason, "unsupported-session");
+  assert.deepEqual(audit, []);
 });
 
 test("preparation errors, failed reloads and timeouts are recorded as failures", async () => {
@@ -253,4 +254,51 @@ test("a failed attempt does not overwrite a marker cleared during the attempt", 
   });
   await resume.initialize();
   assert.equal(store.get("stopped").interruption, undefined);
+});
+
+test("notification bursts during a drain coalesce into one further drain", async () => {
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  const { resume, store, calls } = fixture([interrupted("first", 1)], {
+    request: async (session) => {
+      if (session.id === "first") await gate;
+      session.status = "running";
+      delete session.interruption;
+      return { state: "completed" };
+    },
+  });
+  let lists = 0;
+  const list = resume.services.sessions.list;
+  resume.services.sessions.list = async () => {
+    lists++;
+    return list();
+  };
+  const running = resume.notify();
+  while (calls.length === 0) await new Promise((resolve) => setImmediate(resolve));
+  const before = lists;
+  store.set("second", structuredClone(interrupted("second", 2)));
+  const burst = Array.from({ length: 5 }, () => resume.notify());
+  release();
+  await Promise.all([running, ...burst]);
+  assert.ok(lists - before <= 2, `expected at most 2 more lists, got ${lists - before}`);
+  assert.deepEqual(
+    calls.map((call) => call.id),
+    ["first", "second"],
+  );
+  assert.equal(store.get("second").interruption, undefined);
+});
+
+test("a manual reload before the request aborts the attempt silently", async () => {
+  const { resume, store, calls, audit } = fixture([interrupted("manual", 1)]);
+  const original = resume.services.reload.status;
+  resume.services.reload.status = async (id) => {
+    const session = store.get(id);
+    session.status = "running";
+    delete session.interruption;
+    return original(id);
+  };
+  await resume.initialize();
+  assert.deepEqual(calls, []);
+  assert.deepEqual(audit, []);
+  assert.equal(store.get("manual").interruption, undefined);
 });
