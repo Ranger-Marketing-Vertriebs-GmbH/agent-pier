@@ -7,6 +7,7 @@ import Icon from "../../components/Icon.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Modal from "../../components/Modal.jsx";
 import DirectoryPicker from "../directories/DirectoryPicker.jsx";
+import SessionRecoverySettings from "./SessionRecoverySettings.jsx";
 export default function DirectorySettings({ state, refresh, ready }) {
   // Mount the editable form with its loaded default; no hydration effect may
   // update its value between becoming enabled and the user's first keystroke.
@@ -29,6 +30,7 @@ export default function DirectorySettings({ state, refresh, ready }) {
         refresh={refresh}
         ready={ready}
       />
+      <SessionRecoverySettings state={state} refresh={refresh} ready={ready} />
     </div>
   );
 }

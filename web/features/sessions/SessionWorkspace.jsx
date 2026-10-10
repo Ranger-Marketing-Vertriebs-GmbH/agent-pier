@@ -1,6 +1,9 @@
 import { artifactCopy } from "../../lib/i18n/messages/artifacts.js";
 import { mcpCopy } from "../../lib/i18n/messages/mcp.js";
-import { sessionReloadCopy } from "../../lib/i18n/messages/sessions.js";
+import {
+  sessionInterruptionCopy,
+  sessionReloadCopy,
+} from "../../lib/i18n/messages/sessions.js";
 import "./session-reload.css";
 import "../artifacts/artifacts.css";
 import { sshCopy } from "../../lib/i18n/messages/ssh.js";
@@ -213,6 +216,18 @@ export default function SessionWorkspace({
             </button>
           </div>
         )}
+      {reloadable && session.status === "stopped" && session.interruption && (
+        <div className="session-reload-notice" role="status">
+          <span>
+            {["failed", "skipped"].includes(session.interruption.resume)
+              ? sessionInterruptionCopy.failed(
+                  sessionInterruptionCopy.reasons[session.interruption.reason] ||
+                    sessionInterruptionCopy.reasons["reload-failed"],
+                )
+              : sessionInterruptionCopy.resuming}
+          </span>
+        </div>
+      )}
       {session.pipeline?.headless && (
         <div className="pipeline-session-notice">
           <span>{pipelineCopy.pipelineSessionReadOnly}</span>
