@@ -204,6 +204,34 @@ test("an error while preparing one session does not stop the others", async () =
   );
 });
 
+test("a failing startup sweep rejects initialize without unhandled rejections", async () => {
+  const { resume, calls } = fixture([interrupted("later", 1)]);
+  const list = resume.services.sessions.list;
+  let first = true;
+  resume.services.sessions.list = async () => {
+    if (first) {
+      first = false;
+      throw new Error("store unreadable");
+    }
+    return list();
+  };
+  const unhandled = [];
+  const spy = (reason) => unhandled.push(reason);
+  process.on("unhandledRejection", spy);
+  try {
+    await assert.rejects(resume.initialize(), /store unreadable/);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(unhandled, []);
+    await resume.notify();
+    assert.deepEqual(
+      calls.map((call) => call.id),
+      ["later"],
+    );
+  } finally {
+    process.off("unhandledRejection", spy);
+  }
+});
+
 test("a sweep and a notification never overlap", async () => {
   const { resume, store, calls } = fixture([interrupted("live", 1)]);
   const initializing = resume.initialize();
