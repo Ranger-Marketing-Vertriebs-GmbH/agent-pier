@@ -1,4 +1,3 @@
-// tests/unit/session-auto-resume.test.js
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SessionAutoResume } from "../../server/features/sessions/session-auto-resume.js";
@@ -177,4 +176,53 @@ test("closing stops further resumes", async () => {
   await resume.close();
   await resume.notify();
   assert.deepEqual(calls, []);
+});
+
+test("an error while preparing one session does not stop the others", async () => {
+  const { resume, store, calls, audit } = fixture([
+    interrupted("first", 1),
+    interrupted("second", 2),
+  ]);
+  const original = resume.services.reload.status;
+  resume.services.reload.status = async (id) => {
+    if (id === "first") throw new Error("history unreadable");
+    return original(id);
+  };
+  await resume.initialize();
+  assert.deepEqual(
+    calls.map((call) => call.id),
+    ["second"],
+  );
+  assert.equal(store.get("first").interruption.resume, "failed");
+  assert.equal(store.get("first").interruption.reason, "prepare-failed");
+  assert.deepEqual(
+    audit.map((event) => [event.sessionId, event.outcome]),
+    [
+      ["first", "failure"],
+      ["second", "success"],
+    ],
+  );
+});
+
+test("a sweep and a notification never overlap", async () => {
+  const { resume, store, calls } = fixture([interrupted("live", 1)]);
+  const initializing = resume.initialize();
+  const notifying = resume.notify();
+  await Promise.all([initializing, notifying]);
+  assert.deepEqual(
+    calls.map((call) => call.id),
+    ["live"],
+  );
+  assert.equal(store.get("live").interruption, undefined);
+});
+
+test("a failed attempt does not overwrite a marker cleared during the attempt", async () => {
+  const { resume, store } = fixture([interrupted("stopped", 1)], {
+    request: (session) => {
+      delete session.interruption;
+      return { state: "failed" };
+    },
+  });
+  await resume.initialize();
+  assert.equal(store.get("stopped").interruption, undefined);
 });

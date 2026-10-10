@@ -1,4 +1,3 @@
-// server/features/sessions/session-auto-resume.js
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -14,7 +13,19 @@ export class SessionAutoResume {
     this.queue = Promise.resolve();
     this.closed = false;
   }
-  async initialize() {
+  initialize() {
+    this.enqueue(() => this.sweep());
+    return this.notify();
+  }
+  notify() {
+    return this.enqueue(() => this.drain());
+  }
+  enqueue(task) {
+    const next = this.queue.then(task);
+    this.queue = next.catch(() => {});
+    return next;
+  }
+  async sweep() {
     // An attempt that a restart cut off is not repeated; a crashing CLI must not loop.
     for (const session of await this.services.sessions.list())
       if (session.interruption?.resume === "started")
@@ -23,12 +34,6 @@ export class SessionAutoResume {
           resume: "failed",
           reason: "attempt-interrupted",
         });
-    return this.notify();
-  }
-  notify() {
-    const next = this.queue.then(() => this.drain());
-    this.queue = next.catch(() => {});
-    return next;
   }
   async drain() {
     if (this.closed || !this.enabled()) return;
@@ -37,7 +42,13 @@ export class SessionAutoResume {
       .sort((a, b) => a.interruption.at.localeCompare(b.interruption.at));
     for (const { id } of pending) {
       if (this.closed || !this.enabled()) return;
-      await this.resume(id);
+      try {
+        await this.resume(id);
+      } catch (error) {
+        console.error(
+          `AgentPier could not resume a session: ${error?.code || error?.message || "unknown error"}`,
+        );
+      }
     }
   }
   async resume(id) {
@@ -53,15 +64,13 @@ export class SessionAutoResume {
       return;
     const interruption = { ...session.interruption, resume: "started" };
     await sessions.setInterruption(id, interruption);
-    const status = await reload.status(id);
-    if (!status.eligible)
-      return this.finish(session, "failure", {
-        ...interruption,
-        resume: "skipped",
-        reason: status.reason || "unsupported-session",
-      });
+    const failed = (reason, resume = "failed") =>
+      this.finish(session, "failure", { ...interruption, resume, reason });
     let result;
     try {
+      const status = await reload.status(id);
+      if (!status.eligible)
+        return await failed(status.reason || "unsupported-session", "skipped");
       result = await reload.request(id, { requestId: randomUUID(), mode: "now" });
       const deadline = Date.now() + this.timeoutMs;
       while (
@@ -73,23 +82,19 @@ export class SessionAutoResume {
         result = await reload.status(id);
       }
     } catch {
-      return this.finish(session, "failure", {
-        ...interruption,
-        resume: "failed",
-        reason: "prepare-failed",
-      });
+      return failed("prepare-failed");
     }
     // A completed replacement already removed the marker.
     if (result.state === "completed") return this.finish(session, "success", null);
-    return this.finish(session, "failure", {
-      ...interruption,
-      resume: "failed",
-      reason: result.state === "failed" ? "reload-failed" : "timeout",
-    });
+    return failed(result.state === "failed" ? "reload-failed" : "timeout");
   }
   async finish(session, outcome, interruption) {
-    if (interruption)
-      await this.services.sessions.setInterruption(session.id, interruption);
+    try {
+      if (interruption && (await this.isCurrent(session)))
+        await this.services.sessions.setInterruption(session.id, interruption);
+    } catch {
+      /* The session may be gone; the audit entry below still records the outcome. */
+    }
     try {
       this.services.audit?.append({
         action: "session.restored",
@@ -102,6 +107,16 @@ export class SessionAutoResume {
       });
     } catch {
       /* The audit trail is supplemental; the session marker stays authoritative. */
+    }
+  }
+  // Only the attempt's own "started" marker may be replaced; newer state wins.
+  async isCurrent(session) {
+    try {
+      const stored = (await this.services.sessions.get(session.id)).interruption;
+      return stored?.resume === "started" && stored.at === session.interruption.at;
+    } catch (error) {
+      if (error.status === 404) return false;
+      throw error;
     }
   }
   async close() {
