@@ -21,11 +21,16 @@ test("default directory persists independently of service configuration and reso
   fs.symlinkSync(target, path.join(home, "project"));
   fs.writeFileSync(path.join(dir, "config.json"), '{"port":9911}');
   const prefs = new Preferences({ dataDir: dir, home });
-  assert.deepEqual(prefs.get(), { defaultCwd: home, defaultAccountIds: {} });
+  assert.deepEqual(prefs.get(), {
+    defaultCwd: home,
+    defaultAccountIds: {},
+    autoResumeInterrupted: true,
+  });
   await prefs.update({ defaultCwd: "~/project" });
   assert.deepEqual(new Preferences({ dataDir: dir, home }).get(), {
     defaultCwd: target,
     defaultAccountIds: {},
+    autoResumeInterrupted: true,
   });
   assert.equal(fs.readFileSync(path.join(dir, "config.json"), "utf8"), '{"port":9911}');
   assert.equal(fs.statSync(path.join(dir, "preferences.json")).mode & 0o777, 0o600);
@@ -38,7 +43,11 @@ test("default directory persists independently of service configuration and reso
     target + "\0bad",
   ])
     await assert.rejects(() => prefs.update({ defaultCwd }));
-  assert.deepEqual(prefs.get(), { defaultCwd: target, defaultAccountIds: {} });
+  assert.deepEqual(prefs.get(), {
+    defaultCwd: target,
+    defaultAccountIds: {},
+    autoResumeInterrupted: true,
+  });
 });
 test("preference API requires same-origin mutation and new work launches use explicit/default directory precedence", async (t) => {
   const { root: dir, application: app, url } = await applicationFixture(t);
@@ -66,6 +75,7 @@ test("preference API requires same-origin mutation and new work launches use exp
   assert.deepEqual(await (await fetch(url + "/api/preferences")).json(), {
     defaultCwd: work,
     defaultAccountIds: {},
+    autoResumeInterrupted: true,
   });
   for (const body of [
     { accountId: "local-codex" },
@@ -85,4 +95,19 @@ test("preference API requires same-origin mutation and new work launches use exp
     launches.map((s) => s.cwd),
     [work, explicit],
   );
+});
+
+test("automatic resume of interrupted sessions defaults on and persists a boolean", async (t) => {
+  const dir = directory(t);
+  const prefs = new Preferences({ dataDir: dir, home: dir });
+  assert.equal(prefs.get().autoResumeInterrupted, true);
+  await prefs.update({ autoResumeInterrupted: false });
+  assert.equal(
+    new Preferences({ dataDir: dir, home: dir }).get().autoResumeInterrupted,
+    false,
+  );
+  for (const autoResumeInterrupted of ["false", 0, null])
+    await assert.rejects(() => prefs.update({ autoResumeInterrupted }));
+  await prefs.update({ autoResumeInterrupted: true });
+  assert.equal(prefs.get().autoResumeInterrupted, true);
 });

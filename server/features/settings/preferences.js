@@ -26,7 +26,11 @@ export class Preferences {
         accounts.some((account) => this.eligible(account, tool) && account.id === id),
       ),
     );
-    return { defaultCwd: this.value.defaultCwd || this.home, defaultAccountIds };
+    return {
+      defaultCwd: this.value.defaultCwd || this.home,
+      defaultAccountIds,
+      autoResumeInterrupted: this.value.autoResumeInterrupted !== false,
+    };
   }
   eligible(account, tool) {
     return (
@@ -60,7 +64,15 @@ export class Preferences {
       !body ||
       typeof body !== "object" ||
       Array.isArray(body) ||
-      Object.keys(body).some((key) => !["defaultCwd", "defaultAccountIds"].includes(key))
+      Object.keys(body).some(
+        (key) =>
+          !["defaultCwd", "defaultAccountIds", "autoResumeInterrupted"].includes(key),
+      )
+    )
+      throw problem(serverMessages.settings.invalidPreferences);
+    if (
+      Object.hasOwn(body, "autoResumeInterrupted") &&
+      typeof body.autoResumeInterrupted !== "boolean"
     )
       throw problem(serverMessages.settings.invalidPreferences);
     const defaultCwd = Object.hasOwn(body, "defaultCwd")
@@ -70,6 +82,8 @@ export class Preferences {
     const next = { ...this.value };
     if (Object.hasOwn(body, "defaultAccountIds"))
       next.defaultAccountIds = this.accountDefaults(body.defaultAccountIds);
+    if (Object.hasOwn(body, "autoResumeInterrupted"))
+      next.autoResumeInterrupted = body.autoResumeInterrupted;
     if (defaultCwd !== undefined) next.defaultCwd = defaultCwd;
     writePrivate(this.file, next);
     this.value = next;
