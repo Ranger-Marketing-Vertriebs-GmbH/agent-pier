@@ -293,3 +293,25 @@ test("a running native turn exposes its observed terminal event", async (t) => {
   assert.equal(running.status, "running");
   assert.equal(running.nativeResult, "completed");
 });
+
+test("finishing a turn whose launcher already exited keeps its tmux session", async (t) => {
+  const dataDir = await fs.mkdtemp(path.join(tmpdir(), "agentpier-native-finish-"));
+  t.after(() => fs.rm(dataDir, { recursive: true, force: true }));
+  const stopped = [];
+  const driver = new NativePipelineDriver({
+    dataDir,
+    sessions: {
+      // tmux 3.4 reports a dead pane before it has reaped the exit status.
+      get: async () => ({
+        id: "session",
+        status: "running",
+        pipeline: { ...identity, headless: true },
+      }),
+      target: (id) => `tuiui-${id}`,
+      tmux: async () => "1|4242\n",
+      stop: async (id) => stopped.push(id),
+    },
+  });
+  await driver.finish(identity);
+  assert.deepEqual(stopped, []);
+});

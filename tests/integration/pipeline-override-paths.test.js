@@ -146,7 +146,11 @@ test("a settle stop that did not land is repeated after another grace period", a
   await f.engine.reconcile();
   await f.engine.reconcile();
   assert.equal(finished.length, 1);
+  // A shorter grace still leaves the launcher time to exit before the next signal.
   now += 1001;
+  await f.engine.reconcile();
+  assert.equal(finished.length, 1);
+  now += 1000;
   await f.engine.reconcile();
   assert.equal(finished.length, 2);
 });
@@ -185,7 +189,7 @@ test("a restart after the settle flag was saved concludes once the CLI has stopp
       quiesced: true,
       nativeResult: "completed",
     });
-  now += 1001;
+  now += 2000; // The repeated stop waits at least two seconds.
   await f.engine.reconcile();
   await f.engine.reconcile();
   assert.equal(f.engine.get(r.id).status, "completed");

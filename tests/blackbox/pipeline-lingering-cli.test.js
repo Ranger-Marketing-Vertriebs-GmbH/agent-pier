@@ -99,7 +99,11 @@ async function lingeringRun(t, pipelines, complete) {
 test("a native CLI that never exits after its completed turn is stopped and the stage concludes", async (t) => {
   const { app, id, pidFile } = await lingeringRun(t, { completionGraceMs: 300 }, true);
   const run = await waitFor(app, id, (r) => r.status !== "running");
-  assert.equal(run.status, "completed", JSON.stringify(run.nodes[0]));
+  assert.equal(
+    run.status,
+    "completed",
+    JSON.stringify({ node: run.nodes[0], log: run.executionLog }),
+  );
   assert.equal(run.nodes[0].status, "passed");
   assert.equal(run.nodes[0].verdict.summary, "Created hello.txt");
   assert.ok(run.executionLog[0].settledAfterCompletion);
