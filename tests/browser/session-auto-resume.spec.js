@@ -66,5 +66,51 @@ for (const locale of ["de-DE", "en-GB"]) {
         ),
       ).toBeVisible();
     });
+
+    test("a skipped resume without a known reason shows the generic notice", async ({
+      page,
+    }) => {
+      const en = locale === "en-GB";
+      await operationsFixture(page);
+      await page.route("**/api/state", (route) =>
+        route.fulfill({
+          json: {
+            tools: [{ id: "codex", name: "codex", installed: true }],
+            accounts: [
+              { id: "local-codex", tool: "codex", kind: "local", name: "Codex lokal" },
+            ],
+            sessions: [
+              {
+                id: "fixture-session",
+                name: "Fixture session",
+                tool: "codex",
+                accountId: "local-codex",
+                status: "stopped",
+                cwd: "/fixture",
+                interruption: {
+                  cause: "tmux-server-lost",
+                  at: "2026-10-10T10:00:00.000Z",
+                  resume: "skipped",
+                },
+              },
+            ],
+            home: "/fixture",
+            defaultCwd: "/fixture",
+          },
+        }),
+      );
+      await page.route("**/api/sessions/fixture-session/screen", (route) =>
+        route.fulfill({ json: { text: "" } }),
+      );
+      await page.goto(baseURL + "/sessions/fixture-session");
+      await expect(
+        page.getByText(
+          en
+            ? "This session was interrupted and could not be resumed automatically."
+            : "Diese Sitzung wurde unterbrochen und konnte nicht automatisch fortgesetzt werden.",
+          { exact: true },
+        ),
+      ).toBeVisible();
+    });
   });
 }

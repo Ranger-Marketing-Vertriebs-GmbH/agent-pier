@@ -109,12 +109,15 @@ export const sessionReloadCopy = {
 };
 
 export const sessionInterruptionCopy = {
+  failedUnknown:
+    "Diese Sitzung wurde unterbrochen und konnte nicht automatisch fortgesetzt werden.",
   resuming: "Diese Sitzung wurde unterbrochen und wird automatisch fortgesetzt …",
   failed: (reason) =>
     `Diese Sitzung wurde unterbrochen und konnte nicht automatisch fortgesetzt werden: ${reason}`,
   reasons: {
     "unsupported-session": "Diese Art Sitzung lässt sich nicht fortsetzen.",
-    "native-session-unverified": "Ihre Unterhaltung konnte nicht bestätigt werden.",
+    "native-session-unverified":
+      "Die Unterhaltung dieser Sitzung konnte nicht bestätigt werden.",
     "prepare-failed": "Der Neustart konnte nicht vorbereitet werden.",
     "reload-failed": "Das Neuladen ist fehlgeschlagen.",
     timeout: "Die CLI hat die Unterhaltung nicht rechtzeitig bestätigt.",
