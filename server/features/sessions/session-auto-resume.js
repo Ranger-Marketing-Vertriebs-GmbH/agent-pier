@@ -11,6 +11,7 @@ export class SessionAutoResume {
     this.timeoutMs = timeoutMs;
     this.pollMs = pollMs;
     this.queue = Promise.resolve();
+    this.queuedDrain = null;
     this.closed = false;
   }
   async initialize() {
@@ -20,8 +21,16 @@ export class SessionAutoResume {
     if (sweep.status === "rejected") throw sweep.reason;
     if (drain.status === "rejected") throw drain.reason;
   }
+  // A burst of notifications shares the drain that has not started yet; a notification
+  // during a running drain queues exactly one more, so nothing recorded meanwhile is missed.
   notify() {
-    return this.enqueue(() => this.drain());
+    if (this.queuedDrain) return this.queuedDrain;
+    const drain = this.enqueue(() => {
+      this.queuedDrain = null;
+      return this.drain();
+    });
+    this.queuedDrain = drain;
+    return drain;
   }
   enqueue(task) {
     const next = this.queue.then(task);
@@ -67,13 +76,19 @@ export class SessionAutoResume {
       return;
     const interruption = { ...session.interruption, resume: "started" };
     await sessions.setInterruption(id, interruption);
-    const failed = (reason, resume = "failed") =>
-      this.finish(session, "failure", { ...interruption, resume, reason });
+    const failed = (reason) =>
+      this.finish(session, "failure", { ...interruption, resume: "failed", reason });
     let result;
     try {
       const status = await reload.status(id);
       if (!status.eligible)
-        return await failed(status.reason || "unsupported-session", "skipped");
+        return await this.mark(session, {
+          ...interruption,
+          resume: "skipped",
+          reason: status.reason || "unsupported-session",
+        });
+      // A manual reload or stop that ran meanwhile wins; this attempt leaves no trace.
+      if (!(await this.isCurrent(session, { stopped: true }))) return;
       result = await reload.request(id, { requestId: randomUUID(), mode: "now" });
       const deadline = Date.now() + this.timeoutMs;
       while (
@@ -91,13 +106,17 @@ export class SessionAutoResume {
     if (result.state === "completed") return this.finish(session, "success", null);
     return failed(result.state === "failed" ? "reload-failed" : "timeout");
   }
-  async finish(session, outcome, interruption) {
+  // A skip is no resume attempt, so it only updates the marker and writes no audit event.
+  async mark(session, interruption) {
     try {
       if (interruption && (await this.isCurrent(session)))
         await this.services.sessions.setInterruption(session.id, interruption);
     } catch {
-      /* The session may be gone; the audit entry below still records the outcome. */
+      /* The session may be gone; an attempt's audit entry still records the outcome. */
     }
+  }
+  async finish(session, outcome, interruption) {
+    await this.mark(session, interruption);
     try {
       this.services.audit?.append({
         action: "session.restored",
@@ -113,9 +132,11 @@ export class SessionAutoResume {
     }
   }
   // Only the attempt's own "started" marker may be replaced; newer state wins.
-  async isCurrent(session) {
+  async isCurrent(session, { stopped = false } = {}) {
     try {
-      const stored = (await this.services.sessions.get(session.id)).interruption;
+      const current = await this.services.sessions.get(session.id);
+      if (stopped && current.status !== "stopped") return false;
+      const stored = current.interruption;
       return stored?.resume === "started" && stored.at === session.interruption.at;
     } catch (error) {
       if (error.status === 404) return false;
