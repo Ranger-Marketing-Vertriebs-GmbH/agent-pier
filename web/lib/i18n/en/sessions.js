@@ -103,3 +103,17 @@ export const sessionReloadCopy = {
   close: "Close",
   refresh: "Check again",
 };
+
+export const sessionInterruptionCopy = {
+  resuming: "This session was interrupted and is being resumed automatically …",
+  failed: (reason) =>
+    `This session was interrupted and could not be resumed automatically: ${reason}`,
+  reasons: {
+    "unsupported-session": "this session type cannot be resumed.",
+    "native-session-unverified": "its conversation could not be verified.",
+    "prepare-failed": "the restart could not be prepared.",
+    "reload-failed": "the reload failed.",
+    timeout: "the CLI did not confirm the conversation in time.",
+    "attempt-interrupted": "AgentPier restarted during the attempt.",
+  },
+};

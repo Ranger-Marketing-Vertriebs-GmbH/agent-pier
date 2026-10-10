@@ -107,3 +107,17 @@ export const sessionReloadCopy = {
   close: "Schließen",
   refresh: "Erneut prüfen",
 };
+
+export const sessionInterruptionCopy = {
+  resuming: "Diese Sitzung wurde unterbrochen und wird automatisch fortgesetzt …",
+  failed: (reason) =>
+    `Diese Sitzung wurde unterbrochen und konnte nicht automatisch fortgesetzt werden: ${reason}`,
+  reasons: {
+    "unsupported-session": "Diese Art Sitzung lässt sich nicht fortsetzen.",
+    "native-session-unverified": "Ihre Unterhaltung konnte nicht bestätigt werden.",
+    "prepare-failed": "Der Neustart konnte nicht vorbereitet werden.",
+    "reload-failed": "Das Neuladen ist fehlgeschlagen.",
+    timeout: "Die CLI hat die Unterhaltung nicht rechtzeitig bestätigt.",
+    "attempt-interrupted": "AgentPier wurde während des Versuchs neu gestartet.",
+  },
+};
