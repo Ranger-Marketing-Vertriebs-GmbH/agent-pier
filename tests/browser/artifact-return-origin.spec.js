@@ -25,6 +25,11 @@ const bundle = {
 
 async function fixture(context, { terminal = "", respond } = {}) {
   await context.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  // WebKit can lose the injected login cookie when its network process restarts
+  // during the viewer reload; the login state is not what these tests cover.
+  await context.route("**/auth/status", (route) =>
+    route.fulfill({ json: { configured: true, authenticated: true, canSetup: false } }),
+  );
   await context.route("**/api/**", (route) => {
     const { pathname } = new URL(route.request().url());
     if (pathname === "/api/artifacts/example/bundle")
