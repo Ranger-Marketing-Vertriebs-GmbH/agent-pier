@@ -81,9 +81,20 @@ export async function runEndpointTest({
   const accepted = Object.values(results).some(
     ({ reason, status }) => !reason && status >= 200 && status < 300,
   );
-  for (const name of Object.keys(planned)) {
+  // Without a model nothing was probed. A listing the server refused with 401/403
+  // names the likely cause for protocols on the same origin, but they stay untested:
+  // only a protocol that itself answered 401/403 fails, so a refused listing never
+  // disables routes that were usable before.
+  const listingOrigin = new URL(endpoint.openaiBaseUrl).origin;
+  for (const [name, probe] of Object.entries(planned)) {
     if (!results[name]) {
       protocols[name] = "skipped";
+      if (
+        detection.listReason === "auth" &&
+        probe &&
+        new URL(probe.url).origin === listingOrigin
+      )
+        reasons[name] = "auth";
       continue;
     }
     const outcome = classifyProbe(results[name], {
@@ -106,6 +117,7 @@ export async function runEndpointTest({
   return {
     models,
     listed: detection.listed,
+    ...(detection.listReason ? { listReason: detection.listReason } : {}),
     protocols,
     reasons,
     capabilities,

@@ -4,6 +4,7 @@ import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import { isVerifying } from "./VerificationStatus.jsx";
 import { runTitle } from "./run-title.js";
+import { runStatusLabel } from "./run-codes.js";
 import {
   runProgress,
   runProject,
@@ -79,7 +80,7 @@ function RunRow({ run, onOpen, showProject }) {
       </div>
       <div role="cell" className="run-table-status">
         <StatusChip tone={verifying ? "running" : runStatusTone(run.status)}>
-          {verifying ? copy.verificationRunning : copy.statuses[run.status] || run.status}
+          {verifying ? copy.verificationRunning : runStatusLabel(run.status)}
         </StatusChip>
       </div>
       <div role="cell" className="run-table-updated">

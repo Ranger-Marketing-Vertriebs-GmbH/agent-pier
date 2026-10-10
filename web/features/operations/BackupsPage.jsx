@@ -10,6 +10,18 @@ import BackupForm from "./BackupForm.jsx";
 import RestoreForm from "./RestoreForm.jsx";
 import ConfirmOperation from "./ConfirmOperation.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
+const UNITS = [
+  ["megabyte", 1048576, 1],
+  ["kilobyte", 1024, 0],
+];
+function backupSize(bytes = 0) {
+  const [unit, size, digits] = UNITS.find(([, size]) => bytes >= size) || ["byte", 1, 0];
+  return formatNumber(bytes / size, {
+    style: "unit",
+    unit,
+    maximumFractionDigits: digits,
+  });
+}
 export default function BackupsPage({ route, navigate }) {
   const resource = useResource("/operations/backups"),
     [dialog, setDialog] = useState(""),
@@ -41,9 +53,13 @@ export default function BackupsPage({ route, navigate }) {
         <article className="operations-card" key={backup.id}>
           <h3>{formatTimestamp(backup.createdAt)}</h3>
           <p>
-            {formatNumber(backup.bytes)} B ·{" "}
-            {backup.includeHistory ? copy.includeHistory : ""} ·{" "}
-            {backup.withCredentials ? copy.withCredentials : ""}
+            {[
+              backupSize(backup.bytes),
+              backup.includeHistory && copy.includeHistory,
+              backup.withCredentials && copy.withCredentials,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
           <div className="operations-actions">
             <a

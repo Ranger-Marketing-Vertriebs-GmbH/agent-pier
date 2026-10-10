@@ -3,6 +3,8 @@ export function createShutdown({ services, wss, server }) {
   const { agentbus, installer, plugins, repositories, extensions, history, sessions } =
     services;
   async function close() {
+    // Closes only the assistant services that the opt-in actually created.
+    await services.assistantFeature?.close();
     services.chatStreams?.close();
     for (const socketServer of [wss, services.chatWss])
       for (const ws of socketServer?.clients || []) {

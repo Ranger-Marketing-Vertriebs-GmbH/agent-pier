@@ -1,0 +1,37 @@
+{
+  "id": "agentpier-teams",
+  "name": "AgentPier teams",
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "tools": [
+      "agentpier_team_propose",
+      "agentpier_team_status",
+      "agentpier_team_stop",
+      "agentpier_reminder",
+      "agentpier_routine",
+      "agentpier_workspace"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string"
+      },
+      "token": {
+        "type": "string"
+      },
+      "workspaces": {
+        "type": "string"
+      },
+      "guardReportMs": {
+        "type": "integer",
+        "minimum": 1000
+      }
+    },
+    "required": ["url", "token"],
+    "additionalProperties": false
+  }
+}

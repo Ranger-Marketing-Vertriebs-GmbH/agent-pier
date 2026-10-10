@@ -5,6 +5,7 @@ const groups = {
   operations: "Operations",
 };
 const sections = {
+  assistants: "Agents",
   general: "General",
   mcp: "MCP & access",
   remote: "Remote access",
@@ -83,6 +84,8 @@ export const operationsCopy = {
   omissions: "Not included",
   consistency: "Snapshot boundaries",
   requiresPassphrase: "A passphrase is required to encrypt credentials.",
+  assistantCredentialsNote:
+    "Agent credentials in this backup can only be restored on this host. Any credential or provider connection change makes them unreadable; agents then need to sign in again.",
   download: "Download",
   deleteBackup: "Delete this backup?",
   inspectArchive: "Inspect and restore backup",
@@ -92,6 +95,10 @@ export const operationsCopy = {
   restore: "Restore to new directory",
   restoreHelp:
     "The target must be new and its parent directory must already exist. The running application and native sessions remain unchanged.",
+  restoreTargetRequired: "Enter the new data directory.",
+  restoreMappingRequired: (projects) =>
+    `Enter a directory for every project: ${projects}`,
+  restorePassphraseRequired: "Enter the backup passphrase.",
   projectMapping: "Map project directories",
   restoreConfirmation:
     "The inspected archive will be restored to a new data directory. No native sessions will be started.",
@@ -241,6 +248,31 @@ export const backupCopy = {
     chat: "Chat history",
     terminal: "Terminal captures",
     "agentbus-history": "AgentBus history",
+    assistants: "Agents, their chats, channels and workspaces",
+    "sealed-assistant-credentials":
+      "Agent credentials (sealed; restorable only on this host until any credential or provider connection changes)",
+    "Assistant runtimes, package caches, update snapshots, TLS and backup keys":
+      "Agent runtimes, package caches, update snapshots, TLS and backup keys",
+    "Speech connection (Deepgram key and settings)":
+      "Speech connection (Deepgram key and settings)",
+    "Agent data skipped: unfinished update state":
+      "Agent data skipped: unfinished update state",
+    "Agent workspaces too large": "Agent workspaces too large",
+    "Agent data too large": "Agent data too large",
+    "Unreadable agent runtime files": "Unreadable agent runtime files",
+    "Assistant data in unsafe storage": "Agent data in unsafe storage",
+    "Assistant links and files not owned by AgentPier":
+      "Agent links and files not owned by AgentPier",
+    "provider-connections": "Provider connections",
+    "encrypted-provider-credentials": "Provider connection keys (encrypted)",
+    "Managed SSH accesses, private keys and session assignments":
+      "Managed SSH accesses, private keys and session assignments",
+    "Workspace login credentials and browser sessions":
+      "Workspace login credentials and browser sessions",
+    "MCP client grants, OAuth credentials and start request capabilities":
+      "MCP client grants, OAuth credentials and start request capabilities",
+    "Shared native extensions, Agency agent files and their local installation records":
+      "Shared native extensions, Agency agent files and their local installation records",
     "encrypted-managed-profiles": "Managed profiles and credentials (encrypted)",
     "encrypted-repository-credentials": "Repository credentials (encrypted)",
     "External local CLI profiles and OS keychains":

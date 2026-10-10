@@ -13,7 +13,17 @@ else
   validate_installer_options "$@"
   INSTALL_TARGET="$SCRIPT_DIR/release-install.mjs"
 fi
-if command -v node >/dev/null 2>&1 && node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||a===22&&b>=13?0:1)' >/dev/null 2>&1; then
+# Behind a proxy, Node's fetch needs NODE_USE_ENV_PROXY (Node 22.21+); loopback
+# health checks must never be sent to the proxy.
+NODE_ROUTE=direct
+if [ -n "${HTTPS_PROXY:-}${https_proxy:-}${HTTP_PROXY:-}${http_proxy:-}" ]; then
+  NODE_USE_ENV_PROXY=1
+  NO_PROXY="${NO_PROXY:+$NO_PROXY,}${no_proxy:+$no_proxy,}localhost,127.0.0.1,::1,[::1]"
+  no_proxy=$NO_PROXY
+  export NODE_USE_ENV_PROXY NO_PROXY no_proxy
+  NODE_ROUTE=proxy
+fi
+if command -v node >/dev/null 2>&1 && node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit((process.argv[1]==="proxy"?a>=24||a===22&&b>=21:a>22||a===22&&b>=13)?0:1)' "$NODE_ROUTE" >/dev/null 2>&1; then
   exec node "$INSTALL_TARGET" "$@"
 fi
 case $(uname -s) in Darwin) PLATFORM=darwin;; Linux) PLATFORM=linux;; *) echo 'Unsupported operating system.' >&2; exit 1;; esac

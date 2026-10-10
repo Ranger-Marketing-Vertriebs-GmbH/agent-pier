@@ -96,7 +96,7 @@ test("run detail offers engine-authorized decisions and reads exact evidence wit
   await page.getByRole("button", { name: "Prüfbericht", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("Fixture report evidence");
   await page.getByRole("button", { name: "Dialog schließen" }).click();
-  await page.getByRole("button", { name: "Verifikationsprotokoll", exact: true }).click();
+  await page.getByRole("button", { name: "Prüfprotokoll", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("Fixture verification log");
   await page.getByRole("button", { name: "Dialog schließen" }).click();
   await page.getByLabel("Rückmeldung", { exact: true }).fill("Please fix validation");
@@ -134,7 +134,7 @@ test("manual loops accept optional feedback and display the actual iteration and
     page.getByText("Wartet auf Freigabe · 1 / 2", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("Keine Verifikation konfiguriert.", { exact: true }),
+    page.getByText("Keine Prüfung konfiguriert.", { exact: true }),
   ).toBeVisible();
   await page
     .getByRole("button", { name: "Zur Reparatur zurückspringen", exact: true })
@@ -221,9 +221,9 @@ test("verification is visible during polling and long run text stays readable on
   };
   state.runs.push(run);
   await openPipelines(page, "runs/run-one");
-  const verification = page.getByRole("region", { name: "Verifikation", exact: true });
+  const verification = page.getByRole("region", { name: "Prüfung", exact: true });
   await expect(verification).toBeVisible();
-  await expect(verification).toContainText("Verifikation läuft");
+  await expect(verification).toContainText("Prüfung läuft");
   await expect(verification).toContainText("Gestartet:");
   await expect(page.getByText("Old Git operation failed")).toHaveCount(0);
   await expect(
@@ -298,9 +298,7 @@ test("verification evidence distinguishes timeouts from unavailable results", as
       exact: true,
     }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Verifikationsprotokoll: lint", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Prüfprotokoll: lint", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("Fixture verification log");
   expect(state.calls.filter((call) => call.path.includes("/verify-logs/"))).toEqual([
     {
@@ -323,7 +321,10 @@ test("failed native stage offers an explicit override with confirmation", async 
   await openPipelines(page, "runs/run-one");
   await page.getByRole("button", { name: "Übergehen & fortsetzen", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog).toContainText("trotz ihres bisherigen Ergebnisses");
+  // A failed turn continues into its configured checks.
+  await expect(dialog).toContainText(
+    "Konfigurierte Prüfung und menschliche Freigabe folgen",
+  );
   expect(state.calls.some((call) => call.path.endsWith("/gate"))).toBe(false);
   await page.screenshot({ path: "test-results/pipeline-failed-stage-override.png" });
   await dialog
@@ -362,7 +363,7 @@ test("the first open stage is selected and the rail shows progress and graph fla
   );
   await expect(stageButtons(page).nth(1).locator(".run-stage-flag")).toHaveText([
     "Freigabe",
-    "Verifikation",
+    "Prüfung",
     "↺ zu Stufe 1",
   ]);
   await expect(stageButtons(page).nth(2).locator(".run-stage-flag")).toHaveText([
@@ -389,7 +390,7 @@ test("the first open stage is selected and the rail shows progress and graph fla
     "Versuch 1",
   );
   await page.getByText("Ausführungsverlauf (2)", { exact: true }).click();
-  await expect(page.locator(".run-execution-log")).toContainText("plan · stage");
+  await expect(page.locator(".run-execution-log")).toContainText("Planer · Durchgang");
   await page.screenshot({ path: "test-results/pipeline-run-detail-desktop.png" });
 });
 

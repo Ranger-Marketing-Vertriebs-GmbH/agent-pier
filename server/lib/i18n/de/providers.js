@@ -4,27 +4,26 @@ export const providers = Object.freeze({
   nativeOrProviderModel:
     "Bitte entweder ein natives Modell oder ein Provider-Modell wählen.",
   connectionRequiredForModel:
-    "Bitte für das Provider-Modell eine Provider-Verbindung wählen.",
+    "Bitte für das Provider-Modell einen Provider-Zugang wählen.",
   nativeAccountToolMismatch: "Der native Account gehört nicht zum gewählten CLI.",
-  connectionRequiresWorkSession:
-    "Provider-Verbindungen benötigen eine Coding-Arbeitssitzung.",
+  connectionRequiresWorkSession: "Provider-Zugänge benötigen eine Coding-Arbeitssitzung.",
   apiKeyRequiredForSession:
     "Bitte vor dem Start dieser Sitzung einen Provider-API-Key hinterlegen.",
   apiKeyRequiredForAccount:
     "Bitte vor dem Start dieses Accounts einen Provider-API-Key hinterlegen.",
   connectionToolUnsupported:
-    "Diese Verbindung unterstützt das gewählte CLI nicht oder hat keinen angegebenen Zugriff auf die Responses API.",
+    "Dieser Provider-Zugang unterstützt das gewählte CLI nicht oder hat keinen angegebenen Zugriff auf die Responses API.",
   invalidModelId: "Ungültige Modell-ID.",
   modelNotInCatalog:
     "Das Modell ist nicht im unterstützten Provider-Katalog. Bitte den Katalog aktualisieren oder ein anderes Modell wählen.",
   catalogRefreshFailed:
     "Die Katalogaktualisierung ist fehlgeschlagen; der bisherige Katalog bleibt verfügbar.",
-  invalidConnectionFields: "Ungültige Angaben für die Provider-Verbindung.",
+  invalidConnectionFields: "Ungültige Angaben für den Provider-Zugang.",
   invalidApiKey: "Ungültiger Provider-API-Key.",
   invalidKeyRemoval: "Ungültige Auswahl zum Entfernen des Keys.",
   responsesAccessBoolean:
     "Der Zugriff auf die Responses API muss ausdrücklich als Wahrheitswert angegeben werden.",
-  connectionNotFound: "Provider-Verbindung nicht gefunden.",
+  connectionNotFound: "Provider-Zugang nicht gefunden.",
   connectionPreparingSession:
     "Mit dieser Verbindung wird gerade eine Sitzung vorbereitet. Bitte nach dem Sitzungsstart erneut versuchen.",
   responsesEntitlementZaiOnly:
@@ -46,9 +45,9 @@ export const providers = Object.freeze({
     "Die verwaltete Provider-Konfiguration ist ungültig. Bitte vor dem Start reparieren.",
   managedOpenCodeConfigInvalid:
     "Die verwaltete OpenCode-Konfiguration ist ungültig. Bitte vor dem Start reparieren.",
-  unsafeConnectionStorage: "Unsicherer Speicher für Provider-Verbindungen.",
-  unsafeConnectionDirectory: "Unsicheres Verzeichnis für Provider-Verbindungen.",
-  invalidConnectionStorage: "Ungültiger Speicher für Provider-Verbindungen.",
+  unsafeConnectionStorage: "Unsicherer Speicher für Provider-Zugänge.",
+  unsafeConnectionDirectory: "Unsicheres Verzeichnis für Provider-Zugänge.",
+  invalidConnectionStorage: "Ungültiger Speicher für Provider-Zugänge.",
   invalidEndpoint: "Ungültige Einstellungen für den eigenen Endpunkt.",
   invalidEndpointUrl:
     "Gib eine http- oder https-Basis-URL ohne Zugangsdaten, Query oder Fragment an.",

@@ -10,9 +10,9 @@ export const pipelineProfiles = Object.freeze({
   invalidVerificationStepName: "Ungültiger Name des Prüfschritts",
   invalidVerificationCommand: "Ungültiger Prüfbefehl",
   invalidPipelineDescription: "Ungültige Pipeline-Beschreibung",
-  connectionsUnavailable: "Provider-Verbindungen sind nicht verfügbar.",
+  connectionsUnavailable: "Provider-Zugänge sind nicht verfügbar.",
   connectionUnsupported:
-    "Diese Verbindung unterstützt das CLI des Profils nicht oder erfordert Zugriff auf die Responses API.",
+    "Dieser Provider-Zugang unterstützt das CLI des Profils nicht oder erfordert Zugriff auf die Responses API.",
   enabledBoolean: "enabled im Profil muss ein Boolean sein",
   invalidCli: "Ungültiges Profil-CLI",
   accountCliMismatch: "Account und CLI des Profils müssen übereinstimmen",
@@ -29,7 +29,7 @@ export const pipelineProfiles = Object.freeze({
   modelUnavailable: "Das Modell ist in diesem Profil nicht verfügbar",
   verificationStepLimit: "Die Prüfung darf höchstens 20 Schritte haben",
   verificationTimeoutRange:
-    "Das Zeitlimit der Prüfung muss 1000–7200000 Millisekunden betragen",
+    "Das Zeitlimit der Prüfung muss zwischen 1 Sekunde und 2 Stunden liegen",
   verificationBlockingBoolean: "blocking bei der Prüfung muss ein Boolean sein",
   verificationTotalTimeout:
     "Das gesamte Zeitlimit der Prüfung darf zwei Stunden nicht überschreiten",
@@ -43,6 +43,7 @@ export const pipelineProfiles = Object.freeze({
   claudePermissionModeUnsupported:
     "Diese Claude-Version bietet den Berechtigungsmodus des Profils nicht an.",
   disabled: "Dieses Profil ist deaktiviert.",
+  notFound: "Aufgabenprofil nicht gefunden.",
   invalidSessionCli: "Ungültiges Sitzungs-CLI.",
   mustBeEnabledAndAutonomous: (name) =>
     `Das Pipeline-Profil muss aktiviert und autonom sein: ${name}`,

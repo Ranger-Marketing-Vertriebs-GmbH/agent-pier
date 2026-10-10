@@ -83,3 +83,11 @@ dialog.run-dialog[open] {
   flex: 1;
   min-width: 0;
 }
+.run-dialog-help {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #8b8c90;
+}

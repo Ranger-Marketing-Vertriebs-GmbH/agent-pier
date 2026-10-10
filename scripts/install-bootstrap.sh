@@ -7,7 +7,7 @@ validate_installer_options() {
       --skip-dependencies) INSTALLER_SKIP=1;;
       --install-dependencies) INSTALLER_EXPLICIT=1;;
       --dependencies-only) INSTALLER_ONLY=1;;
-      --service|--resume) INSTALLER_RELEASE=1;;
+      --service|--resume|--with-assistants) INSTALLER_RELEASE=1;;
       --archive|--install-root|--data-dir|--channel|--initial-channel)
         [ "$#" -gt 1 ] && [ -n "$2" ] || { echo 'Missing installer option value.' >&2; return 1; }
         case "$2" in --*) echo 'Missing installer option value.' >&2; return 1;; esac
@@ -37,7 +37,7 @@ validate_setup_options() {
   SETUP_DATA=${AGENTPIER_DATA_DIR:-"${HOME:-}/Library/Application Support/AgentPier"}
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --no-service|--skip-dependencies)
+      --no-service|--skip-dependencies|--with-assistants)
         SETUP_OTHER=1
         ;;
       --dependencies-only)

@@ -139,7 +139,13 @@ test("recovery after durable loop reset launches one repair without consuming an
 test("an interrupted operator reconciliation resumes its proven successful verdict", async (t) => {
   const f = fixture(t),
     r = await f.engine.start({ pipelineId: "definition", cwd: f.dir, task: "Task" });
-  await f.end(undefined, { status: "failed", exitCode: 7 });
+  // A clean exit whose owned process group was not yet proven stopped.
+  await f.end(undefined, {
+    status: "failed",
+    exitCode: 0,
+    isError: true,
+    quiesced: false,
+  });
   f.outcomes.set(f.launches[0].sessionId, {
     status: "completed",
     exitCode: 0,

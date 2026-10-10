@@ -1,3 +1,4 @@
+import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { expect } from "@playwright/test";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { baseURL } from "../helpers/browser.js";
@@ -95,7 +96,8 @@ export async function subagentFixture(page, { older = false } = {}) {
     },
   };
   const publish = await mockChatStream(page, () => data);
-  await page.route("**/api/**", (route) => {
+  await page.route("**/api/**", async (route) => {
+    if (await fulfillDormantAssistantRequest(route)) return;
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/state")
       return route.fulfill({

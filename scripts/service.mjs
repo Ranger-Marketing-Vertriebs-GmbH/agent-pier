@@ -8,6 +8,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { projectDir, loadConfig } from "../server/lib/config.js";
 import { privateDirectory } from "../server/lib/storage.js";
 import { hostEnvironment } from "../server/lib/host-environment.js";
+import { proxyEnvironment } from "../server/lib/proxy-environment.js";
 const label = "dev.agentpier.server";
 const xml = (v) =>
   String(v).replace(
@@ -29,6 +30,7 @@ export function renderLaunchAgent({
   launcher,
   installRoot,
   channel,
+  proxy = {},
 }) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -36,7 +38,11 @@ export function renderLaunchAgent({
 <key>Label</key><string>${label}</string>
 <key>ProgramArguments</key><array>${launcher ? `<string>${xml(launcher)}</string>` : `<string>${xml(node)}</string><string>${xml(path.join(projectDir, "server/index.js"))}</string>`}</array>
 <key>WorkingDirectory</key><string>${xml(projectDir)}</string>
-<key>EnvironmentVariables</key><dict><key>PATH</key><string>${xml(envPath)}</string><key>AGENTPIER_DATA_DIR</key><string>${xml(dataDir)}</string>${installRoot ? `<key>AGENTPIER_INSTALL_ROOT</key><string>${xml(installRoot)}</string>` : ""}${channel ? `<key>AGENTPIER_RELEASE_CHANNEL</key><string>${xml(channel)}</string>` : ""}</dict>
+<key>EnvironmentVariables</key><dict><key>PATH</key><string>${xml(envPath)}</string><key>AGENTPIER_DATA_DIR</key><string>${xml(dataDir)}</string>${installRoot ? `<key>AGENTPIER_INSTALL_ROOT</key><string>${xml(installRoot)}</string>` : ""}${channel ? `<key>AGENTPIER_RELEASE_CHANNEL</key><string>${xml(channel)}</string>` : ""}${Object.entries(
+    proxy,
+  )
+    .map(([key, value]) => `<key>${xml(key)}</key><string>${xml(value)}</string>`)
+    .join("")}</dict>
 <key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ThrottleInterval</key><integer>5</integer>
 <key>StandardOutPath</key><string>${xml(path.join(dataDir, "server.log"))}</string>
 <key>StandardErrorPath</key><string>${xml(path.join(dataDir, "server-error.log"))}</string>
@@ -61,6 +67,7 @@ export function renderSystemdUnit({
   launcher,
   installRoot,
   channel,
+  proxy = {},
 }) {
   for (const value of [projectDir, node, dataDir])
     if (typeof value !== "string" || !path.isAbsolute(value))
@@ -78,7 +85,11 @@ WorkingDirectory=${unitValue(projectDir)}/.
 ExecStart=:${launcher ? unitQuote(launcher) : `${unitQuote(node)} ${unitQuote(path.join(projectDir, "server/index.js"))}`}
 Environment=${unitQuote(`PATH=${envPath}`)}
 Environment=${unitQuote(`AGENTPIER_DATA_DIR=${dataDir}`)}
-${installRoot ? `Environment=${unitQuote(`AGENTPIER_INSTALL_ROOT=${installRoot}`)}\n` : ""}${channel ? `Environment=${unitQuote(`AGENTPIER_RELEASE_CHANNEL=${channel}`)}\n` : ""}\
+${installRoot ? `Environment=${unitQuote(`AGENTPIER_INSTALL_ROOT=${installRoot}`)}\n` : ""}${channel ? `Environment=${unitQuote(`AGENTPIER_RELEASE_CHANNEL=${channel}`)}\n` : ""}${Object.entries(
+    proxy,
+  )
+    .map(([key, value]) => `Environment=${unitQuote(`${key}=${value}`)}\n`)
+    .join("")}\
 Restart=always
 RestartSec=5
 TimeoutStopSec=10
@@ -136,6 +147,8 @@ export async function runService({
     ? path.join(path.resolve(installRoot), "bin/agentpier")
     : undefined;
   const channel = env.AGENTPIER_RELEASE_CHANNEL;
+  // Proxy settings present at install time are the only other variables persisted.
+  const proxy = proxyEnvironment(env);
   if (installRoot) {
     if (!path.isAbsolute(installRoot) || !env.AGENTPIER_DATA_DIR)
       throw new Error(
@@ -181,6 +194,7 @@ export async function runService({
       launcher,
       installRoot,
       channel,
+      proxy,
     });
     try {
       systemctl(["show", "--property=Version", "--value"]);
@@ -238,6 +252,7 @@ export async function runService({
       launcher,
       installRoot,
       channel,
+      proxy,
     }),
   );
   run("plutil", ["-lint", file], { stdio: "inherit" });

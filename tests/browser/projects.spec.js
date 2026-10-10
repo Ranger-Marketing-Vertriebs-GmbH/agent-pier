@@ -203,7 +203,9 @@ test("the runs tab lists the project's runs with filters bound to the projects U
       .getByRole("radiogroup", { name: "Projekt" })
       .getByRole("radio", { name: "agent-pier" }),
   ).toBeChecked();
-  await expect(dialog.getByLabel("Arbeitsverzeichnis")).toHaveValue(repositoryPath);
+  await expect(dialog.getByLabel("Repository-Ordner", { exact: true })).toHaveValue(
+    repositoryPath,
+  );
   await dialog.getByRole("radio", { name: "Entwicklungsablauf" }).check();
   await dialog.getByLabel("Aufgabe").fill("Hub task");
   await dialog.getByRole("button", { name: "Lauf starten", exact: true }).click();

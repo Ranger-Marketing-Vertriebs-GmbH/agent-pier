@@ -18,6 +18,7 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
   const definitions = useResource("/pipelines"),
     profiles = useResource("/pipeline-profiles");
   const [removing, setRemoving] = useState(null),
+    [clone, setClone] = useState(null),
     [resets, setResets] = useState(0);
   // Leaving an edited draft through this page asks first instead of discarding it.
   const { guarded, setDirty, confirm } = useDraftGuard(copy.discardDraft);
@@ -37,7 +38,19 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
     currentPath: pipelineRoutePath(route),
     navigate: (next, replace) => navigate({ pipelineItem: next.pipelineItem }, replace),
   });
-  const open = (id) => id !== item && guarded(() => navigate({ pipelineItem: id }));
+  const open = (id) =>
+    id !== item &&
+    guarded(() => {
+      setClone(null);
+      navigate({ pipelineItem: id });
+    });
+  // A new pipeline, empty or prefilled from `copied`.
+  const startNew = (copied) =>
+    guarded(() => {
+      setClone(copied);
+      if (item === "new") setResets((value) => value + 1);
+      else navigate({ pipelineItem: "new" });
+    });
   const replaceItems = (pipelines) =>
     definitions.update({ ...definitions.data, pipelines });
   const saved = (pipeline) => {
@@ -48,19 +61,24 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
         : [...items, pipeline],
     );
     refreshCounts?.();
+    setClone(null);
     // A fresh builder starts from what was saved, so it is no longer dirty.
     setResets((value) => value + 1);
     if (item !== pipeline.id) navigate({ pipelineItem: pipeline.id });
   };
   const cancel = () => {
     if (selected) setResets((value) => value + 1);
-    else navigate({ pipelineItem: "" });
+    else {
+      setClone(null);
+      navigate({ pipelineItem: "" });
+    }
   };
   const detail =
     item === "new" || selected ? (
       <PipelineBuilder
         key={`${item}:${selected?.revision ?? ""}:${resets}`}
         pipeline={selected}
+        template={selected ? null : clone}
         profiles={profiles.data?.profiles || []}
         saved={saved}
         cancel={cancel}
@@ -76,9 +94,7 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
         <button
           type="button"
           className="button primary"
-          onClick={() =>
-            item !== "new" && guarded(() => navigate({ pipelineItem: "new" }))
-          }
+          onClick={() => (item !== "new" || clone) && startNew(null)}
         >
           <Icon name="plus" size={16} />
           {copy.newPipeline}
@@ -104,6 +120,13 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
                 }),
               )
             }
+            onDuplicate={(pipeline) =>
+              startNew({
+                name: copy.copyName(pipeline.name),
+                description: pipeline.description,
+                graph: pipeline.graph,
+              })
+            }
             onRemove={setRemoving}
           />
         </nav>
@@ -112,7 +135,12 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
             <button
               type="button"
               className="list-detail-back"
-              onClick={() => guarded(() => navigate({ pipelineItem: "" }))}
+              onClick={() =>
+                guarded(() => {
+                  setClone(null);
+                  navigate({ pipelineItem: "" });
+                })
+              }
             >
               <Icon name="back" size={16} />
               {copy.allPipelines}

@@ -93,6 +93,43 @@ test("mobile archive inspection restores only into the specified fresh target wi
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true);
 });
+test("restore without a project mapping explains what is missing instead of doing nothing", async ({
+  page,
+}) => {
+  const state = await operationsFixture(page);
+  await page.goto(baseURL + "/settings/backups");
+  await page
+    .getByRole("button", { name: "Sicherung prüfen und wiederherstellen", exact: true })
+    .click();
+  await page.getByLabel("Sicherungsdatei", { exact: true }).setInputFiles({
+    name: "fixture.apb",
+    mimeType: "application/octet-stream",
+    buffer: Buffer.from("fixture archive"),
+  });
+  await page.getByRole("button", { name: "Archiv prüfen", exact: true }).click();
+  const restore = page.getByRole("button", {
+    name: "In neuem Verzeichnis wiederherstellen",
+    exact: true,
+  });
+  await restore.click();
+  await expect(page.getByRole("alert")).toHaveText("Gib das neue Datenverzeichnis an.");
+  await page
+    .getByLabel("Neues Datenverzeichnis", { exact: true })
+    .fill("/fixture/restored");
+  await restore.click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "Gib für jedes Projekt ein Verzeichnis an: Imported project",
+  );
+  await expect(page.getByLabel("Imported project", { exact: true })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Bestätigen" })).toHaveCount(0);
+  await page.getByLabel("Imported project", { exact: true }).fill("/fixture/project");
+  await restore.click();
+  await expect(
+    page.getByRole("button", { name: "Bestätigen", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(state.calls.some((call) => call.path === "/operations/restore")).toBe(false);
+});
 test("release flow stages the checked version then confirms activation without repeating on reload", async ({
   page,
 }) => {

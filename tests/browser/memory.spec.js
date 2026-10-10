@@ -1,3 +1,4 @@
+import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 
@@ -36,6 +37,7 @@ async function fixture(page) {
   let conflict = false;
   const calls = [];
   await page.route("**/api/**", async (route) => {
+    if (await fulfillDormantAssistantRequest(route)) return;
     const request = route.request(),
       url = new URL(request.url()),
       method = request.method();
@@ -181,6 +183,7 @@ async function newEntryFixture(page) {
   const project = { id: "project-one", name: "AgentPier", cwd: "/workspace/agentpier" };
   const entries = [];
   await page.route("**/api/**", async (route) => {
+    if (await fulfillDormantAssistantRequest(route)) return;
     const request = route.request(),
       url = new URL(request.url()),
       method = request.method();
@@ -237,6 +240,7 @@ async function unregisteredFixture(page) {
   };
   let registered = null;
   await page.route("**/api/**", async (route) => {
+    if (await fulfillDormantAssistantRequest(route)) return;
     const request = route.request(),
       url = new URL(request.url()),
       method = request.method();
@@ -341,6 +345,7 @@ async function pagedFixture(page) {
     releaseEntries: null,
   };
   await page.route("**/api/**", async (route) => {
+    if (await fulfillDormantAssistantRequest(route)) return;
     const request = route.request(),
       url = new URL(request.url()),
       requestedPage = Number(url.searchParams.get("page") || 1);

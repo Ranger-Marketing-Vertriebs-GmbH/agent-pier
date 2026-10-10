@@ -24,6 +24,14 @@ import {
   cleanupSetupTransients,
 } from "./setup-state.mjs";
 import { inspectSetupService } from "./setup-service.mjs";
+import { provisionInstallerRuntime } from "../server/features/assistants/runtime-provisioning.js";
+import { proxyEnvironment, proxyVariables } from "../server/lib/proxy-environment.js";
+const proxyKeys = [...proxyVariables, "NODE_USE_ENV_PROXY"];
+const withoutProxy = (env = {}) =>
+  Object.fromEntries(Object.entries(env).filter(([key]) => !proxyKeys.includes(key)));
+const sameEntries = (a, b) =>
+  Object.keys(a).length === Object.keys(b).length &&
+  Object.entries(a).every(([key, value]) => b[key] === value);
 const officialChannel =
   "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/latest/download/";
 function channelBase(channel) {
@@ -42,7 +50,9 @@ async function selectTarget(archive, channel, fetchImpl) {
     return { version: manifest.version, sha256: digest(bytes), bytes };
   }
   const manifest = JSON.parse(
-    await download(new URL("latest.json", channel).href, fetchImpl, 1024 * 1024),
+    await download(new URL("latest.json", channel).href, fetchImpl, 1024 * 1024, {
+      retries: 1,
+    }),
   );
   releaseVersion(manifest.version);
   const artifact = manifest.artifacts?.[`${process.platform}-${process.arch}`];
@@ -75,6 +85,7 @@ export async function resumeSetup(
     platform = process.platform,
     home = os.homedir(),
     afterPhase = async () => {},
+    assistantRuntime,
   } = {},
 ) {
   let inspected = inspectSetup(options);
@@ -189,6 +200,11 @@ export async function resumeSetup(
       switchRelease(installRoot, version);
       await advance("selected");
     }
+    // Before the service starts, so its first start finds the runtime in place.
+    const assistants = await provisionInstallerRuntime(
+      { dataDir, enable: options.withAssistants === true },
+      { assistantRuntime },
+    );
     if (options.service) {
       let serviceState = await inspectService(serviceInput);
       if (
@@ -196,9 +212,15 @@ export async function resumeSetup(
         (serviceState.listener && serviceState.state !== "matching")
       )
         throw Error("Setup conflict: service or port 4380 changed during installation.");
+      // A rerun with proxy settings updates the service; a rerun without any keeps
+      // the ones the service already has.
+      const wanted = proxyEnvironment(dependencies.env || env);
+      const proxy = Object.keys(wanted).length ? wanted : serviceState.proxy || {};
+      const proxyCurrent = sameEntries(proxy, serviceState.proxy || {});
       const alreadyHealthy =
         serviceState.state === "matching" &&
         serviceState.listener &&
+        proxyCurrent &&
         (await health({ port: 4380, version }));
       if (!alreadyHealthy) {
         await serviceRunner({
@@ -206,7 +228,8 @@ export async function resumeSetup(
           platform,
           home,
           env: {
-            ...dependencies.env,
+            ...withoutProxy(dependencies.env),
+            ...proxy,
             AGENTPIER_INSTALL_ROOT: installRoot,
             AGENTPIER_DATA_DIR: dataDir,
             AGENTPIER_RELEASE_CHANNEL: serviceState.channel || channel,
@@ -231,6 +254,7 @@ export async function resumeSetup(
       installedDependencies: dependencies.installed,
       serviceInstalled: Boolean(options.service),
       ...(options.service ? { url: "http://127.0.0.1:4380" } : {}),
+      ...(assistants ? { assistantRuntime: assistants } : {}),
     };
   } finally {
     unlock();

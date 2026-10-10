@@ -37,4 +37,6 @@ export const backups = Object.freeze({
   invalidOptions: "Invalid backup options.",
   invalidOption: "Invalid backup option.",
   uploadType: "Upload an application/octet-stream backup archive.",
+  assistantsBusy:
+    "Agents are being updated or maintained. Create the backup again afterwards.",
 });

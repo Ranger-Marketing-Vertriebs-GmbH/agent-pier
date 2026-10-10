@@ -16,9 +16,9 @@ function PipelineField({ definitions, value, onChange, disabled }) {
   if (pipelines.length > segmentLimit)
     return (
       <label>
-        {copy.pipelineName}
+        {copy.runPipeline}
         <AnchoredSelect
-          label={copy.pipelineName}
+          label={copy.runPipeline}
           required
           value={value}
           disabled={disabled}
@@ -32,10 +32,10 @@ function PipelineField({ definitions, value, onChange, disabled }) {
     );
   return (
     <div className="run-dialog-field">
-      <span>{copy.pipelineName}</span>
+      <span>{copy.runPipeline}</span>
       {pipelines.length ? (
         <Segment
-          label={copy.pipelineName}
+          label={copy.runPipeline}
           className="run-dialog-segment"
           required
           value={value}
@@ -112,14 +112,25 @@ export default function NewRunDialog({
             }}
             home={home}
           />
-          <label>
-            {copy.directory}
-            <input
-              required
-              value={cwd}
-              onChange={(event) => setCwd(event.target.value)}
-            />
-          </label>
+          <div>
+            <label>
+              {copy.runFolder}
+              <input
+                required
+                value={cwd}
+                aria-describedby="run-dialog-folder-help"
+                onChange={(event) => {
+                  setCwd(event.target.value);
+                  // A different folder is no longer the chosen project's folder.
+                  const project = projects.data?.projects.find((p) => p.id === projectId);
+                  if (project && project.cwd !== event.target.value) setProjectId("");
+                }}
+              />
+            </label>
+            <small id="run-dialog-folder-help" className="run-dialog-help">
+              {copy.runFolderHelp}
+            </small>
+          </div>
           <label>
             {copy.task}
             <textarea

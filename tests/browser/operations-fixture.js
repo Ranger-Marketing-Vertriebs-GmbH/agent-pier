@@ -1,3 +1,4 @@
+import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { operationState, operationResponse } from "./operations-http-fixture.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 export async function operationsFixture(page, { tool = "codex" } = {}) {
@@ -40,6 +41,7 @@ export async function operationsFixture(page, { tool = "codex" } = {}) {
     })),
   };
   await page.route("**/api/**", async (route) => {
+    if (await fulfillDormantAssistantRequest(route)) return;
     const request = route.request(),
       url = new URL(request.url()),
       path = url.pathname.slice(4),

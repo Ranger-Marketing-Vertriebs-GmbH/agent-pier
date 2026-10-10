@@ -71,7 +71,16 @@ export function operationResponse(state, path, method, body, query) {
   if (operation === "/backups/plan")
     return {
       plan: {
-        components: ["preferences", "chat", "pipeline-history"],
+        components: [
+          "preferences",
+          "chat",
+          "pipeline-history",
+          ...(state.planComponents || []),
+          ...(state.assistants ? ["assistants"] : []),
+          ...(state.assistants && body.withCredentials
+            ? ["sealed-assistant-credentials"]
+            : []),
+        ],
         omissions: ["External local CLI profiles and OS keychains"],
         consistency: "coordinated-application-snapshot; independent-native-captures",
         requiresPassphrase: Boolean(body.withCredentials),

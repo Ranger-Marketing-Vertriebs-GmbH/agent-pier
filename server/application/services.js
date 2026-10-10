@@ -43,6 +43,8 @@ import { ChatEvents } from "../features/chat/chat-events.js";
 import { ChatStreams } from "../features/chat/chat-streams.js";
 import { createFileServices } from "./files.js";
 
+import { createAssistantFeature } from "./assistants.js";
+
 export async function createServices(config) {
   const mutationBarrier = new MutationBarrier();
   const audit = new AuditStore(config);
@@ -215,9 +217,13 @@ export async function createServices(config) {
     config,
     audit,
     withSnapshotBarrier: (fn) => mutationBarrier.snapshot(fn),
+    // A running runtime update or provider change makes a host backup wait.
+    assistantsBusy: () =>
+      !!services.assistantUpdates?.status().busy ||
+      !!services.assistantProviderSynchronization?.changing,
     doctorOptions: { serving: true },
   });
-  return {
+  const services = {
     artifacts,
     projectRebind,
     events,
@@ -265,4 +271,7 @@ export async function createServices(config) {
     preferences,
     nonoSandbox,
   };
+  // Assistant services stay null until the owner opts in; failures never stop startup.
+  services.assistantFeature = createAssistantFeature(services);
+  return services;
 }

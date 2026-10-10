@@ -134,6 +134,8 @@ export const chatDeliveryCopy = {
   waitingDialog:
     "Waiting for a dialog in the TUI · sent automatically once it is answered or closed",
   waitingQueue: "Waiting behind an earlier message · sent automatically afterwards",
+  waitingStarting:
+    "Waiting for the CLI to finish starting · sent automatically afterwards",
   cancel: "Cancel sending",
   rejected: "Not delivered",
   uncertainHint:
@@ -215,6 +217,8 @@ export const chatDeliveryCopy = {
       "The message was waiting for a question in the TUI to be answered and has not been typed yet. Answer it in the terminal, then send it again.",
     CHAT_REQUEST_PENDING:
       "The message was waiting for an open request to be answered and has not been typed yet. Send it again once the request is answered.",
+    CHAT_CLI_STARTING:
+      "The message was waiting for the CLI to finish starting and has not been typed yet. Send it again once the CLI shows its prompt.",
     CHAT_COMPOSER_DIALOG:
       "Claude is showing a dialog or picker. The message was not sent; answer or close the dialog in the TUI.",
     CHAT_COMPOSER_UNAVAILABLE:

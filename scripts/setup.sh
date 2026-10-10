@@ -16,6 +16,7 @@ Usage: agentpier-install [options]
   --data-dir PATH       Private application data directory
   --skip-dependencies   Check but do not install Git and tmux
   --dependencies-only   Install missing Git and tmux only
+  --with-assistants     Enable assistants and pre-install their runtime
   --help                Show this help
   --version             Show the installer version
 EOF

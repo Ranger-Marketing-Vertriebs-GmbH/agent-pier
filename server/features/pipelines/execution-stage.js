@@ -73,7 +73,10 @@ async function prepareStage(
     baseSha: workspaceState?.headSha || run.workspace.baseSha,
   };
   // Verdicts belong to the turn that produced them; history retains prior results.
+  // An override applies to the turn it overrode, never to this new one.
   delete node.verdict;
+  delete node.overridden;
+  delete node.gateBypassed;
   node.status = "running";
   node.startedAt = now;
   delete node.finishedAt;
@@ -157,6 +160,7 @@ export function park(engine, run, node, reason, detail, verdict) {
   const retryable = [
     "session-error",
     "inactivity-timeout",
+    "turn-timeout",
     "pr-failed",
     "usage-limit-exceeded",
   ].includes(reason);
@@ -190,7 +194,14 @@ export async function applyOutcome(engine, run, outcome) {
     run.usage = aggregateUsage(run.executionLog);
   }
   run.activeTurn = null;
-  if (outcome.exitCode !== 0 || outcome.isError) {
+  // A CLI stopped by AgentPier after its own completion event keeps its native result.
+  const settled =
+    Boolean(attempt.settledAfterCompletion) &&
+    outcome.quiesced === true &&
+    outcome.nativeResult === "completed" &&
+    !outcome.observationError;
+  if (Number.isInteger(outcome.exitCode)) attempt.exitCode = outcome.exitCode;
+  if (!settled && (outcome.exitCode !== 0 || outcome.isError)) {
     if (
       outcome.usageLimit ||
       outcome.errorCode === 429 ||
@@ -216,7 +227,10 @@ export async function applyOutcome(engine, run, outcome) {
       run,
       node,
       "session-error",
-      outcome.observationError || serverMessages.pipelines.nativeTurnFailed,
+      outcome.observationError ||
+        (outcome.error
+          ? serverMessages.pipelines.nativeTurnFailedWith(outcome.error)
+          : serverMessages.pipelines.nativeTurnFailed),
     );
     return;
   }
@@ -233,13 +247,17 @@ export async function applyOutcome(engine, run, outcome) {
       });
       return;
     }
-    park(
-      engine,
-      run,
-      node,
-      found.invalid ? "verdict-invalid" : "verdict-missing",
-      found.reason || serverMessages.pipelines.verdictMissing,
-    );
+    // A repair turn for failed verification is blocked by that failure, not by its verdict.
+    const failure = verificationFailure(node);
+    if (failure) park(engine, run, node, "verify-failed", failure);
+    else
+      park(
+        engine,
+        run,
+        node,
+        found.invalid ? "verdict-invalid" : "verdict-missing",
+        found.reason || serverMessages.pipelines.verdictMissing,
+      );
     return;
   }
   node.verdict = found.verdict;
@@ -247,6 +265,19 @@ export async function applyOutcome(engine, run, outcome) {
   run.pendingConclusion = { nodeId: node.id, verdict: found.verdict };
   engine.store.save(run);
   await conclude(engine, run, node, found.verdict);
+}
+function verificationFailure(node) {
+  const result = node.verifyResult;
+  if (node.verified || !["fail", "timed-out"].includes(result?.status)) return null;
+  const steps = Array.isArray(result.steps) ? result.steps : [];
+  const step =
+    steps.find((s) => s.blocking !== false && (s.timedOut || s.exitCode !== 0)) ||
+    steps.find((s) => s.timedOut || s.exitCode !== 0);
+  const name = String(step?.name || "?").slice(0, 100);
+  return step?.timedOut ||
+    (result.status === "timed-out" && !Number.isInteger(step?.exitCode))
+    ? serverMessages.pipelines.verificationStepTimedOut(name)
+    : serverMessages.pipelines.verificationStepFailed(name, step?.exitCode ?? "?");
 }
 function aggregateUsage(log) {
   const value = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
@@ -265,11 +296,14 @@ function aggregateUsage(log) {
 }
 export async function conclude(engine, run, node, verdict) {
   if (!(await checkpointStage(engine, run, node))) return;
-  const decision = verdict.requiresHuman
-    ? "escalate"
-    : verdict.result === "pass"
-      ? "pass"
-      : failDecision(run, node, verdict);
+  // An explicit override accepts the stage result; its verification and gate still apply.
+  const decision = node.overridden
+    ? "pass"
+    : verdict.requiresHuman
+      ? "escalate"
+      : verdict.result === "pass"
+        ? "pass"
+        : failDecision(run, node, verdict);
   const selected =
     decision === "route"
       ? outgoing(run, node.id, "fail")

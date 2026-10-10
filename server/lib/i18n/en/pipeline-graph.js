@@ -7,7 +7,8 @@ export const pipelineGraph = Object.freeze({
   invalidProfileReference: (node) => `Invalid profile reference on node ${node}`,
   singlePullRequest: "A pipeline may create only one pull request",
   entryMustBeProfile: "The entry must reference a profile node",
-  invalidEdge: "Invalid pipeline edge",
+  invalidEdge: (from, to, condition) =>
+    `Invalid pipeline edge: ${from} → ${to} (${condition})`,
   oneEdgePerCondition: "A node may have only one edge per condition",
   loopBudgetRange: "Fail loop budgets must be between 1 and 5",
   invalidSideEffectRouting: (node) => `Invalid side-effect routing on node ${node}`,

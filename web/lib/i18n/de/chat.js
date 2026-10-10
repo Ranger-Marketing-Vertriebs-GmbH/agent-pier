@@ -136,6 +136,7 @@ export const chatDeliveryCopy = {
     "Wartet auf einen Dialog in der TUI · wird automatisch gesendet, sobald er beantwortet oder geschlossen ist",
   waitingQueue:
     "Wartet hinter einer früheren Nachricht · wird danach automatisch gesendet",
+  waitingStarting: "Wartet, bis die CLI gestartet ist · wird danach automatisch gesendet",
   cancel: "Senden abbrechen",
   rejected: "Nicht zugestellt",
   uncertainHint:
@@ -217,6 +218,8 @@ export const chatDeliveryCopy = {
       "Die Nachricht wartete auf die Antwort zu einer Frage in der TUI und wurde noch nicht eingegeben. Beantworte die Frage im Terminal und sende sie dann erneut.",
     CHAT_REQUEST_PENDING:
       "Die Nachricht wartete auf die Antwort zu einer offenen Anfrage und wurde noch nicht eingegeben. Sende sie erneut, sobald die Anfrage beantwortet ist.",
+    CHAT_CLI_STARTING:
+      "Die Nachricht wartete auf den Start der CLI und wurde noch nicht eingegeben. Sende sie erneut, sobald die CLI ihre Eingabezeile zeigt.",
     CHAT_COMPOSER_DIALOG:
       "Claude zeigt gerade einen Dialog oder eine Auswahl. Die Nachricht wurde nicht gesendet; bitte beantworte oder schließe den Dialog in der TUI.",
     CHAT_COMPOSER_UNAVAILABLE:

@@ -221,6 +221,12 @@ export default function ProfileEditor({
         />
       </fieldset>
       <ErrorMessage error={action.error} />
+      {!centralReady && (
+        // Save stays disabled until the provider connection has a usable model.
+        <p className="field-description" id={`${headingId}-save-blocked`}>
+          {catalog.loading ? copy.connectionModelsLoading : copy.connectionModelRequired}
+        </p>
+      )}
       <div className="profile-footer">
         <button
           type="button"
@@ -230,7 +236,11 @@ export default function ProfileEditor({
         >
           {commonCopy.cancel}
         </button>
-        <button className="button primary" disabled={action.busy || !centralReady}>
+        <button
+          className="button primary"
+          disabled={action.busy || !centralReady}
+          aria-describedby={!centralReady ? `${headingId}-save-blocked` : undefined}
+        >
           {commonCopy.save}
         </button>
       </div>

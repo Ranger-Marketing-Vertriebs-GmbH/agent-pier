@@ -5,7 +5,11 @@ import {
   observeHookTrust,
   answerHookTrust,
 } from "../../server/features/requests/codex-hook-trust.js";
-import { hookScreen, hookList } from "../fixtures/requests/codex-hook-trust.js";
+import {
+  hookScreen,
+  hookScreenV160,
+  hookList,
+} from "../fixtures/requests/codex-hook-trust.js";
 
 test("startup trust recognition rejects prose, incomplete menus and noncurrent frames", () => {
   for (const selected of [1, 2, 3])
@@ -33,6 +37,16 @@ test("startup trust recognition rejects prose, incomplete menus and noncurrent f
     hookTrustScreen(hookScreen(2, "Failed to trust hooks: fixture")).error,
     true,
   );
+});
+test("Codex 0.160 hook review menu with its short footer is recognized", () => {
+  for (const selected of [1, 2, 3])
+    assert.deepEqual(hookTrustScreen(hookScreenV160(selected)), {
+      count: 7,
+      selected,
+      error: false,
+    });
+  assert.equal(hookTrustScreen(hookScreenV160() + "\n› User input"), null);
+  assert.equal(hookTrustScreen("Assistant said:\n" + hookScreenV160()), null);
 });
 test("real startup hooks RPC supplies details and native hash-matched write acknowledges trust", () => {
   const asks = [],
@@ -82,7 +96,7 @@ test("real startup hooks RPC supplies details and native hash-matched write ackn
   observer.incoming({ id: "late", result: hookList });
   assert.equal(asks.length, 1);
 });
-function controlFixture() {
+function controlFixture(render = hookScreen, hookCount = 2) {
   let selected = 1,
     raw = null;
   const keys = [];
@@ -90,7 +104,7 @@ function controlFixture() {
     id: "request",
     sessionId: "one",
     accountId: "account",
-    hookCount: 2,
+    hookCount,
     launchIdentity: "launch",
   };
   const broker = {
@@ -104,7 +118,7 @@ function controlFixture() {
             tool: "codex",
             nativeRequests: { enabled: true },
           },
-          screen: async () => raw ?? hookScreen(selected),
+          screen: async () => raw ?? render(selected),
           keys: async (values) => {
             keys.push(...values);
             for (const key of values) {
@@ -124,6 +138,16 @@ function controlFixture() {
 test("startup answer selects the exact native option and submits once", async () => {
   for (const choice of ["trust", "skip"]) {
     const f = controlFixture();
+    await answerHookTrust(f.broker, f.entry, choice);
+    assert.deepEqual(
+      f.keys,
+      choice === "trust" ? ["Down", "Enter"] : ["Down", "Down", "Enter"],
+    );
+  }
+});
+test("Codex 0.160 hook trust from chat selects and confirms the native option", async () => {
+  for (const choice of ["trust", "skip"]) {
+    const f = controlFixture(hookScreenV160, 7);
     await answerHookTrust(f.broker, f.entry, choice);
     assert.deepEqual(
       f.keys,

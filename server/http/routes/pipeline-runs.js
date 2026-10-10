@@ -46,7 +46,10 @@ export function pipelineRunRoutes({ pipelines }) {
     res.json({ run: pipelines.get(req.params.id) }),
   );
   router.delete("/pipeline-runs/:id", async (req, res) => {
-    await pipelines.delete(req.params.id);
+    // Confirms removal of a clean worktree whose commits exist only locally.
+    await pipelines.delete(req.params.id, {
+      confirmLocalCommits: req.query.confirmLocalCommits === "true",
+    });
     res.sendStatus(204);
   });
   router.post("/pipeline-runs/:id/gate", async (req, res) =>

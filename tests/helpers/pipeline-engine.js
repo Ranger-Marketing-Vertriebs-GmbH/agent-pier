@@ -5,7 +5,7 @@ import { PipelineEngine } from "../../server/features/pipelines/pipeline-engine.
 
 export function fixture(
   t,
-  { gate = false, loop = false, verification = false, verify, clock } = {},
+  { gate = false, loop = false, verification = false, verify, clock, options = {} } = {},
 ) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-pipeline-engine-"));
   const launches = [],
@@ -90,6 +90,7 @@ export function fixture(
       pollIntervalMs: 0,
       ...(verify ? { verify } : {}),
       ...(clock ? { clock } : {}),
+      ...options,
     });
   let engine = make();
   t.after(async () => {

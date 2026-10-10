@@ -38,5 +38,9 @@ export const pipelineWorkspaces = Object.freeze({
   uncommittedChanges:
     "Der Worktree enthält nicht committete Änderungen; bitte vor dem Aufräumen sichern oder committen.",
   unpublishedCommits:
-    "Der Worktree enthält unveröffentlichte Commits; bitte vor dem Aufräumen pushen.",
+    "Der Worktree enthält Commits, die nur lokal existieren. Zum Entfernen bitte bestätigen; der Lauf-Branch behält die Commits.",
+  noRemoteForPullRequest:
+    "Diese Pipeline erstellt einen Pull Request, aber das Repository hat kein Remote. Bitte ein Remote hinzufügen oder den Pull-Request-Schritt entfernen.",
+  noRemote:
+    "Dieses Repository hat kein Remote, daher kann kein Pull Request erstellt werden.",
 });

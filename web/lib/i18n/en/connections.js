@@ -31,8 +31,12 @@ export const connectionCopy = {
   editNamed: (name) => `Edit ${name}`,
   deleteNamed: (name) => `Delete ${name}`,
   delete: "Delete connection",
-  deleteConfirm: (name) =>
-    `Delete provider connection “${name}” and its saved key? New sessions will no longer be able to use this connection. Existing sessions and their history will be preserved.`,
+  restartRequired:
+    "Agents use this connection. Applying the change restarts their Gateway, so agents are briefly unavailable.",
+  saveAndRestart: "Save and restart agents",
+  deleteAndRestart: "Delete and restart agents",
+  deleteConfirm: (name, hasKey) =>
+    `Delete provider connection “${name}”${hasKey ? " and its saved key" : ""}? New sessions will no longer be able to use this connection. Existing sessions and their history will be preserved.`,
   responses: "Responses API access confirmed",
   responsesHelp:
     "My Z.ai connection allows the Responses API for Codex. This is my own confirmation, not an automatic check.",
@@ -169,7 +173,7 @@ export const connectionCopy = {
     reasons: {
       notFound: "Endpoint not found",
       modelNotFound: "Model not found on the server",
-      auth: "Authentication failed",
+      auth: "Authentication failed (401/403)",
       http: "Unexpected server response",
       invalidKey: "The API key contains characters that cannot be sent",
       invalidResponse: "Unreadable response",
@@ -191,6 +195,8 @@ export const connectionCopy = {
     },
     notListed:
       "The model list could not be read. Previously detected and manual models are kept.",
+    notListedAuth:
+      "Authentication failed (401/403): the server rejected the API key. Check the key and the header.",
     models: "Models",
     modelId: "Model ID",
     context: "Context",

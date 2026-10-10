@@ -4,10 +4,10 @@ import React, { useState } from "react";
 import ToolOutput from "./ToolOutput.jsx";
 import TruncatedToolOutput from "./TruncatedToolOutput.jsx";
 import ToolChanges from "./ToolChanges.jsx";
-import Markdown, { defaultUrlTransform } from "react-markdown";
+import { defaultUrlTransform } from "react-markdown";
+import ChatMarkdown from "../../components/ChatMarkdown.jsx";
 import { projectLinkPath } from "./chat-file-link.js";
 import { artifactLink } from "../artifacts/artifact-return-link.js";
-import remarkGfm from "remark-gfm";
 import ChatImages from "./ChatImages.jsx";
 import { providerNames } from "./presentation.js";
 import { subagentRowStatus, subagentStatusLabel } from "./subagent-presentation.js";
@@ -88,9 +88,7 @@ export default function Message({
         <div className="message-byline">{providerNames[tool]}</div>
       )}
       <div className="message-content">
-        <Markdown
-          remarkPlugins={[remarkGfm]}
-          skipHtml
+        <ChatMarkdown
           urlTransform={(url) =>
             projectLinkPath(url, cwd) === null ? defaultUrlTransform(url) : url
           }
@@ -131,16 +129,10 @@ export default function Message({
                 />
               );
             },
-            img: ({ alt }) => (
-              <span className="subtle">
-                {copy.subtle}
-                {alt ? `: ${alt}` : ""}]
-              </span>
-            ),
           }}
         >
           {message.text}
-        </Markdown>
+        </ChatMarkdown>
       </div>
       <ChatImages images={message.images} sessionId={sessionId} />
     </article>

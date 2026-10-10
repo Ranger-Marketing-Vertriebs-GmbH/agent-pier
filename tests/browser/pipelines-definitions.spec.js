@@ -12,7 +12,7 @@ test("ordered builder saves gates verification singleton PR and bounded backward
   await stageTile(page, 1).click();
   await expect(page.getByRole("heading", { name: "Stufe 1 bearbeiten" })).toBeVisible();
   await page.getByLabel("Menschliche Freigabe", { exact: true }).check();
-  await page.getByLabel("Verifikation ausführen", { exact: true }).check();
+  await page.getByLabel("Prüfung ausführen", { exact: true }).check();
   await page.getByLabel("Pull Request erstellen", { exact: true }).check();
   await page.getByRole("button", { name: "Stufe hinzufügen", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Stufe 2 bearbeiten" })).toBeVisible();
@@ -131,7 +131,7 @@ test("mobile verification edits timeout blocking order and deletion while preser
     .click();
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
   await expect(
-    page.getByText("Keine Verifikation konfiguriert.", { exact: true }),
+    page.getByText("Keine Prüfung konfiguriert.", { exact: true }),
   ).toBeVisible();
   expect(state.steps).toEqual([]);
   expect(
@@ -306,11 +306,21 @@ test("unknown definitions report unavailability and new pipelines start empty", 
     page.getByRole("textbox", { name: "Pipelinename", exact: true }),
   ).toHaveValue("");
   await page.getByRole("textbox", { name: "Pipelinename", exact: true }).fill("Neu");
+  await page.getByRole("button", { name: "Speichern", exact: true }).click();
+  const emptyStages = page.getByText(
+    "Mindestens eine Stufe mit Profil ist erforderlich.",
+    {
+      exact: true,
+    },
+  );
+  await expect(emptyStages).toBeVisible();
   await page.getByRole("button", { name: "Stufe hinzufügen", exact: true }).click();
   await page
     .getByRole("radiogroup", { name: "Aufgabenprofil", exact: true })
     .getByRole("radio", { name: "Planer", exact: true })
     .check();
+  // The rule is satisfied now, so its alert no longer stands.
+  await expect(emptyStages).toHaveCount(0);
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
   await expect(page).toHaveURL(/\/pipelines\/definitions\/pipeline-new$/);
   await expect(
@@ -376,4 +386,25 @@ test.describe("English pipeline definitions", () => {
     ).toContainText("2 stages");
     await expect(page.getByRole("button", { name: "Add stage" })).toBeVisible();
   });
+});
+
+test("duplicating a pipeline opens a new prefilled copy and saves it separately", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  const original = state.pipelines[0];
+  await openPipelines(page, "definitions/pipeline-one");
+  await page
+    .getByRole("button", { name: `Duplizieren: ${original.name}`, exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/pipelines\/definitions\/new$/);
+  const name = page.getByRole("textbox", { name: "Pipelinename", exact: true });
+  await expect(name).toHaveValue(`${original.name} (Kopie)`);
+  await page.getByRole("button", { name: "Speichern", exact: true }).click();
+  await expect(page).toHaveURL(/\/pipelines\/definitions\/pipeline-new$/);
+  const saved = state.calls.find((c) => c.path === "/pipelines" && c.method === "POST");
+  expect(saved.body.name).toBe(`${original.name} (Kopie)`);
+  expect(saved.body.graph).toEqual(original.graph);
+  expect(state.calls.some((c) => c.method === "PATCH")).toBe(false);
+  expect(state.pipelines.find((p) => p.id === "pipeline-one").name).toBe(original.name);
 });

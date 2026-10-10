@@ -53,6 +53,8 @@ for (const tool of ["codex", "claude", "opencode"]) {
       raw: "Synthetic native output\nExisting native draft\nWorking",
       pane: { cursorX: 2, cursorY: 2, width: 120, height: 35 },
     });
+    // A CLI past its startup: the prompt is unreadable, not still loading.
+    x.f.application.sessions.chatInputTiming = { startupMs: 0 };
     const input = x.body("Fresh chat message");
     // Chat never refuses an unreadable prompt: paste and Enter, as typed input
     // would. Claude only proceeds without a visible dialog and says so.
@@ -65,6 +67,30 @@ for (const tool of ["codex", "claude", "opencode"]) {
     assert.deepEqual(await x.recorder.readBytes(), Buffer.from(frame));
   });
 }
+
+for (const tool of ["codex", "opencode"])
+  test(`${tool}: the first chat message waits until a starting CLI shows its prompt`, async (t) => {
+    // Regression: a message sent while the TUI was still loading was pasted into
+    // a screen that dropped it, then left "Delivery uncertain".
+    const x = await fixture(t, tool, null, { startupDelayMs: 1500 });
+    x.f.application.chatDelivery.retryMs = 50;
+    const input = x.body("First message after start");
+    const first = await x.post(input);
+    assert.equal(first.status, "pending");
+    assert.equal(first.waiting, "starting");
+    assert.deepEqual(await x.recorder.readBytes(), Buffer.alloc(0));
+    let result;
+    for (let attempt = 0; attempt < 200; attempt++) {
+      result = await x.post(input);
+      if (result.status !== "pending") break;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    assert.equal(result.status, "handed-off");
+    assert.equal(result.notices, undefined);
+    const frame = `\x1b[200~${input.text}\x1b[201~\r`;
+    await x.recorder.waitForText(frame);
+    assert.deepEqual(await x.recorder.readBytes(), Buffer.from(frame));
+  });
 
 test("a permission request arriving after paste prevents the fresh Enter", async (t) => {
   const x = await fixture(t, "codex", await chatTuiScreen("codex"));
@@ -280,6 +306,8 @@ for (const tool of ["codex", "claude", "opencode"]) {
       },
     );
     const manager = x.f.application.sessions;
+    // The static screen models a running CLI, not one that is still starting.
+    manager.chatInputTiming = { startupMs: 0 };
     let attached = false;
     const client = await manager.attach(x.session.id, {
       onData: () => (attached = true),

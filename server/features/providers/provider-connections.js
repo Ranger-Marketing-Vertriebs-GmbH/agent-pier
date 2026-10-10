@@ -96,8 +96,10 @@ export class ProviderConnections {
     return record;
   }
   secret(id) {
-    if (!validId(id) || !this.records.some((record) => record.id === id)) return null;
-    return read(path.join(this.directory, `${id}.json`), null);
+    const record = validId(id) && this.records.find((value) => value.id === id);
+    if (!record) return null;
+    // Request IDs select records; only persisted or generated IDs name files.
+    return read(path.join(this.directory, `${record.id}.json`), null);
   }
   public(record) {
     const definition = providerDefinition(record.providerId);
@@ -198,7 +200,7 @@ export class ProviderConnections {
         : current.endpoint;
     if (
       endpoint &&
-      this.secret(id)?.apiKey &&
+      this.secret(current.id)?.apiKey &&
       !key &&
       !input.removeApiKey &&
       JSON.stringify(endpointOrigins(endpoint)) !==
@@ -214,7 +216,7 @@ export class ProviderConnections {
       ...(endpoint ? { endpoint } : {}),
       updatedAt: new Date().toISOString(),
     };
-    const file = path.join(this.directory, `${id}.json`);
+    const file = path.join(this.directory, `${current.id}.json`);
     if (input.removeApiKey) fs.rmSync(file, { force: true });
     else if (key) writePrivate(file, { apiKey: key });
     this.records = this.records.map((value) => (value.id === id ? record : value));
@@ -222,9 +224,9 @@ export class ProviderConnections {
     return this.public(record);
   }
   remove(id) {
-    this.record(id);
-    this.requireMutable(id);
-    fs.rmSync(path.join(this.directory, `${id}.json`), { force: true });
+    const record = this.record(id);
+    this.requireMutable(record.id);
+    fs.rmSync(path.join(this.directory, `${record.id}.json`), { force: true });
     this.records = this.records.filter((record) => record.id !== id);
     this.save();
   }

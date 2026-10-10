@@ -110,7 +110,13 @@ export class NativePipelineDriver {
       ...(observed.nativeId ? { nativeId: observed.nativeId } : {}),
       ...(observed.usage ? { usage: observed.usage } : {}),
     };
-    if (session.status === "running") return { ...common, status: "running" };
+    // The terminal native event lets the engine settle a CLI that never exits.
+    if (session.status === "running")
+      return {
+        ...common,
+        status: "running",
+        nativeResult: observed.incomplete ? null : observed.result || null,
+      };
     const receipt = await this.reader.receipt(session.id).catch(() => null);
     const quiesced =
       receipt?.groupStopped === true && receipt.exitCode === session.exitCode;
@@ -143,6 +149,38 @@ export class NativePipelineDriver {
       throw error;
     }
     if (session.status === "running") await this.sessions.stop(session.id);
+  }
+  /**
+   * Ends a turn whose CLI reported completion but never exited. The launcher stops its
+   * owned process group and exits normally, so the exit status and the quiescence
+   * receipt stay comparable; killing the tmux session would lose both.
+   */
+  async finish(identity) {
+    let session;
+    try {
+      session = await this.owned(identity);
+    } catch (error) {
+      if (error.status === 404) return;
+      throw error;
+    }
+    if (session.status !== "running") return;
+    try {
+      const pane = (
+        await this.sessions.tmux([
+          "display-message",
+          "-p",
+          "-t",
+          `${this.sessions.target(session.id)}:0.0`,
+          "#{pane_dead}|#{pane_pid}",
+        ])
+      ).trim();
+      const [dead, pid] = pane.split("|");
+      if (dead === "0" && /^[1-9]\d*$/.test(pid)) {
+        process.kill(Number(pid), "SIGTERM");
+        return;
+      }
+    } catch {}
+    await this.sessions.stop(session.id);
   }
   async launchProfile(
     profile,

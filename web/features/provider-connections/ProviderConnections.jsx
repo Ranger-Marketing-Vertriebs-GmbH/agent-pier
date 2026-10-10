@@ -6,6 +6,8 @@ import api from "../../lib/api.js";
 import { names } from "../../lib/providers.js";
 import { connectionCopy as copy } from "../../lib/i18n/messages/connections.js";
 import ConnectionDialog from "./ConnectionDialog.jsx";
+import AffectedAgents from "./AffectedAgents.jsx";
+import { restartRequired } from "./restart-confirmation.js";
 import { routeLabel } from "./route-label.js";
 import "./connections.css";
 function endpointHost(connection) {
@@ -30,7 +32,13 @@ function connectionSummary(connection) {
 }
 export default function ProviderConnections({ connections = [], refresh }) {
   const [editing, setEditing] = useState(null),
-    [removing, setRemoving] = useState(null);
+    [removing, setRemoving] = useState(null),
+    [confirmRestart, setConfirmRestart] = useState(false),
+    [affected, setAffected] = useState(null);
+  const remove = (connection) => {
+    setConfirmRestart(false);
+    setRemoving(connection);
+  };
   return (
     <section className="provider-connections">
       <header className="page-heading">
@@ -74,7 +82,7 @@ export default function ProviderConnections({ connections = [], refresh }) {
             <button
               className="icon-button"
               aria-label={copy.deleteNamed(connection.name)}
-              onClick={() => setRemoving(connection)}
+              onClick={() => remove(connection)}
             >
               <Icon name="trash" size={16} />
             </button>
@@ -92,18 +100,28 @@ export default function ProviderConnections({ connections = [], refresh }) {
         <Modal title={copy.delete} close={() => setRemoving(null)}>
           <AsyncForm
             close={() => setRemoving(null)}
-            button={copy.delete}
+            button={confirmRestart ? copy.deleteAndRestart : copy.delete}
             danger
             submit={async () => {
-              await api(
-                `/provider-connections/${encodeURIComponent(removing.id)}`,
-                "DELETE",
-              );
+              try {
+                await api(
+                  `/provider-connections/${encodeURIComponent(removing.id)}`,
+                  "DELETE",
+                  confirmRestart ? { confirmRestart: true } : undefined,
+                );
+              } catch (error) {
+                if (!restartRequired(error)) throw error;
+                setConfirmRestart(true);
+                setAffected(error.affected);
+                return;
+              }
               await refresh();
               setRemoving(null);
             }}
           >
-            <p>{copy.deleteConfirm(removing.name)}</p>
+            <p>{copy.deleteConfirm(removing.name, removing.hasSecret === true)}</p>
+            {confirmRestart && <p role="status">{copy.restartRequired}</p>}
+            {confirmRestart && <AffectedAgents affected={affected} />}
           </AsyncForm>
         </Modal>
       )}

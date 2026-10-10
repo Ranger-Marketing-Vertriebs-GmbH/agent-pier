@@ -1,4 +1,5 @@
 export const sections = new Set([
+  "assistants",
   "notifications",
   "diagnostics",
   "backups",

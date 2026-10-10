@@ -19,39 +19,13 @@ import { requireDataCompatibility } from "./release-schema.js";
 
 import { cleanupState, cleanupReleases, releaseProcesses } from "./release-cleanup.js";
 import { officialChannel, ReleaseNotes } from "./release-notes.js";
+import { download } from "./release-download.js";
 
-export async function download(url, fetchImpl, limit) {
-  let response;
-  for (let redirect = 0; redirect <= 5; redirect++) {
-    const target = new URL(url);
-    if (target.protocol !== "https:" || target.username || target.password)
-      throw problem(serverMessages.releases.httpsDownloadRequired);
-    response = await fetchImpl(target.href, {
-      signal: AbortSignal.timeout(120000),
-      redirect: "manual",
-    });
-    if (![301, 302, 303, 307, 308].includes(response.status)) break;
-    if (redirect === 5 || !response.headers.get("location"))
-      throw problem(serverMessages.releases.redirectLimit);
-    url = new URL(response.headers.get("location"), target).href;
-    await response.body?.cancel();
-  }
-  if (!response.ok)
-    throw problem(
-      serverMessages.releases.downloadFailed,
-      response.status === 404 ? 404 : 502,
-    );
-  if (Number(response.headers.get("content-length")) > limit)
-    throw problem(serverMessages.releases.downloadLimit, 413);
-  const chunks = [];
-  let length = 0;
-  for await (const chunk of response.body) {
-    length += chunk.length;
-    if (length > limit) throw problem(serverMessages.releases.downloadLimit, 413);
-    chunks.push(Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks);
-}
+export {
+  download,
+  downloadRetryDelay,
+  DOWNLOAD_IDLE_TIMEOUT,
+} from "./release-download.js";
 export class Releases {
   constructor({
     dataDir,
@@ -155,8 +129,11 @@ export class Releases {
       throw problem(serverMessages.releases.channelHttpsRequired);
     let manifest;
     try {
+      // The small manifest gets one retry; a stalled channel reports its own code.
       manifest = JSON.parse(
-        await download(new URL("latest.json", base).href, this.fetchImpl, 1024 * 1024),
+        await download(new URL("latest.json", base).href, this.fetchImpl, 1024 * 1024, {
+          retries: 1,
+        }),
       );
     } catch (error) {
       if (error.status === 404) throw problem(releaseCopy.notPublished, 404);

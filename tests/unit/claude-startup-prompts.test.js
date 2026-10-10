@@ -11,6 +11,7 @@ import {
   securityNotesScreen,
   themeLabels,
   themeScreen,
+  themeScreenV296,
   transcriptLookalikeScreen,
   unknownMenuScreen,
 } from "../fixtures/requests/claude-startup-prompts.js";
@@ -30,6 +31,21 @@ test("theme selection exposes every style with the native selection", () => {
     ["1", "2", "3", "4", "5", "6", "7"],
   );
   assert.equal(startupScreen(themeScreen(3, { narrow: true }), cwd).selected, "3");
+});
+test("Claude 2.1.296 theme rows without numbers keep the native order and cursor", () => {
+  for (const selected of [1, 2, 5]) {
+    const screen = startupScreen(themeScreenV296(selected), cwd, { started: false });
+    assert.equal(screen?.dialog, "theme");
+    assert.equal(screen.selected, String(selected));
+    assert.deepEqual(
+      screen.options.map((o) => o.label),
+      themeLabels,
+    );
+    assert.deepEqual(
+      screen.options.map((o) => o.id),
+      ["1", "2", "3", "4", "5", "6", "7"],
+    );
+  }
 });
 test("API key confirmation offers yes and no without exposing the key", () => {
   const screen = startupScreen(apiKeyScreen(), cwd);
@@ -87,4 +103,14 @@ test("the composer and running permission prompts are not startup dialogs", () =
 test("quoted onboarding phrases in a transcript never count as a startup dialog", () => {
   assert.equal(startupScreen(transcriptLookalikeScreen(), cwd, { started: true }), null);
   assert.equal(startupScreen(transcriptLookalikeScreen(), cwd, { started: false }), null);
+});
+
+test("a theme phrase without the standalone /theme hint line is not a theme dialog", () => {
+  const raw = [
+    " Choose the text style that looks best with your terminal",
+    " To change this later, run /theme in the prompt",
+    " ❯ Dark mode",
+    "   Light mode",
+  ].join("\n");
+  assert.equal(startupScreen(raw, cwd), null);
 });

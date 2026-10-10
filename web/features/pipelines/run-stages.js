@@ -1,5 +1,6 @@
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { isVerifying } from "./VerificationStatus.jsx";
+import { effectiveNodeStatus, nodeStatusLabel } from "./run-codes.js";
 
 // CLI product names are not translated.
 const cliNames = { codex: "Codex", claude: "Claude Code", opencode: "OpenCode" };
@@ -17,14 +18,14 @@ export function stageTone(run, node) {
       "awaiting-gate": "waiting",
       passed: "ok",
       failed: "error",
-    }[node.status] || "neutral"
+    }[effectiveNodeStatus(run, node)] || "neutral"
   );
 }
 
 export function stageStatus(run, node) {
   const status = isVerifying(run, node)
     ? copy.verificationRunning
-    : copy.nodeStatuses[node.status] || node.status;
+    : nodeStatusLabel(effectiveNodeStatus(run, node));
   return node.loop
     ? `${status} · ${node.loop.iteration} / ${node.loop.maxIterations}`
     : status;

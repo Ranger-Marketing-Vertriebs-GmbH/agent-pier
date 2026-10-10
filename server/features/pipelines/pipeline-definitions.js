@@ -63,7 +63,13 @@ export class PipelineDefinitions {
   get(kind, id) {
     identity(id);
     const row = this.state[kind].find((item) => item.id === id);
-    if (!row) throw problem(serverMessages.pipelineGraph.definitionNotFound, 404);
+    if (!row)
+      throw problem(
+        kind === "profiles"
+          ? serverMessages.pipelineProfiles.notFound
+          : serverMessages.pipelineGraph.definitionNotFound,
+        404,
+      );
     return copy(row);
   }
   save(kind, body, value, id) {
@@ -92,7 +98,14 @@ export class PipelineDefinitions {
   validateProfiles(graph, status = 400) {
     for (const node of graph.nodes) {
       if (node.kind !== "profile") continue;
-      const profile = this.getProfile(node.profileId);
+      let profile;
+      try {
+        profile = this.getProfile(node.profileId);
+      } catch (error) {
+        // A graph that names a missing profile is invalid input, not a missing route.
+        if (error.status === 404) throw problem(error.message, status);
+        throw error;
+      }
       if (!profile.enabled || !profile.config.run.autonomous)
         throw problem(
           serverMessages.pipelineProfiles.mustBeEnabledAndAutonomous(profile.name),

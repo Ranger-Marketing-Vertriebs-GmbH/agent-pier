@@ -1,3 +1,4 @@
+import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 
@@ -21,7 +22,8 @@ async function fixture(page) {
   };
   const authStates = { "managed-claude": "authenticated" };
   const launches = [];
-  await page.route("**/api/**", (route) => {
+  await page.route("**/api/**", async (route) => {
+    if (await fulfillDormantAssistantRequest(route)) return;
     const endpoint = new URL(route.request().url()).pathname;
     let result = {};
     if (endpoint === "/api/state") result = state;

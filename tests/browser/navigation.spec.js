@@ -1,3 +1,4 @@
+import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { navigateTo } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
@@ -21,6 +22,7 @@ async function fixture(page, { delay = 0, shellFirst = false, extraSessions = []
   const calls = [];
   let first = true;
   await page.route("**/api/**", async (route) => {
+    if (await fulfillDormantAssistantRequest(route)) return;
     const req = route.request(),
       path = new URL(req.url()).pathname;
     calls.push({ path, method: req.method() });

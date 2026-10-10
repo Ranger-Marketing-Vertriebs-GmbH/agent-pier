@@ -378,6 +378,10 @@ export async function chatInputSnapshot(manager, session) {
     recoveryGeneration: native.recoverable ? generation : null,
     // A bound Claude session without its native receipt is still starting up.
     nativeStarted: native.recoverable,
+    // When the pane's process started: a CLI may need a while to show its prompt.
+    // A restarted CLI runs in a new process that can be much younger than its
+    // tmux session, so the process start time wins; `ps` reports it in UTC.
+    paneStartedAt: Date.parse(`${processStart} UTC`) || Number(started) * 1000,
     composer: inspectChatComposer(session.tool, raw, pane),
   };
 }

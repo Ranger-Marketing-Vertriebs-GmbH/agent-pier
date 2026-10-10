@@ -20,7 +20,13 @@ const state = {
 const style = ${JSON.stringify(options.emptyStyle || "cursor")};
 const ignoreEnter = ${JSON.stringify(Boolean(options.ignoreEnter))};
 const ignoreEditing = ${JSON.stringify(Boolean(options.ignoreEditing))};
+// \`startupDelayMs\`: a CLI still starting shows no prompt and drops typed input.
+let loading = ${JSON.stringify(Boolean(options.startupDelayMs))};
 function render() {
+  if (loading) {
+    process.stdout.write("\\x1b[2J\\x1b[1;1HStarting…");
+    return;
+  }
 ${options.tool ? `{ ${nativePromptRenderer(options.tool)} }` : ""}
   const width = process.stdout.columns || 120;
   const height = process.stdout.rows || 35;
@@ -60,6 +66,7 @@ ${options.tool ? `{ ${nativePromptRenderer(options.tool)} }` : ""}
   process.stdout.write(out);
 }
 function key(input) {
+  if (loading) return;
   for (const ch of input) {
     if (state.escape) {
       state.escape += ch;
@@ -93,6 +100,11 @@ function key(input) {
   }
 }
 render();
+if (loading)
+  setTimeout(() => {
+    loading = false;
+    render();
+  }, ${Number(options.startupDelayMs) || 0});
 process.stdout.on("resize", render);
 process.stdin.on("data", (data) => {
   key(data.toString());

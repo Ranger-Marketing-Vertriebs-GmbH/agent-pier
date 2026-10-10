@@ -1,0 +1,42 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { AssistantDrafts } from "../../web/features/assistants/assistant-drafts.js";
+test("drafts and delivery keys stay separate per chat and survive uncertain delivery", () => {
+  const drafts = new AssistantDrafts();
+  drafts.set("one", "Dinner");
+  drafts.set("two", "Network");
+  const first = drafts.delivery("one");
+  assert.equal(drafts.get("one"), "Dinner");
+  assert.equal(drafts.get("two"), "Network");
+  assert.equal(drafts.delivery("one").clientRequestId, first.clientRequestId);
+  drafts.set("one", "New dinner");
+  assert.notEqual(drafts.delivery("one").clientRequestId, first.clientRequestId);
+  drafts.clear("one");
+  assert.equal(drafts.get("one"), "");
+  assert.equal(drafts.get("two"), "Network");
+});
+test("late acknowledgements only clear the submitted draft identity", () => {
+  const drafts = new AssistantDrafts();
+  drafts.set("chat", "First");
+  const sent = drafts.delivery("chat");
+  drafts.set("chat", "New unsent text");
+  assert.equal(drafts.acknowledge("chat", sent.clientRequestId), false);
+  assert.equal(drafts.get("chat"), "New unsent text");
+  const next = drafts.delivery("chat");
+  assert.equal(drafts.acknowledge("chat", next.clientRequestId), true);
+  assert.equal(drafts.get("chat"), "");
+});
+test("one-message team permission follows its draft identity and is cleared after acceptance", () => {
+  const drafts = new AssistantDrafts();
+  drafts.set("chat", "Plan");
+  drafts.allowTeam("chat", true);
+  const sent = drafts.delivery("chat");
+  assert.equal(sent.teamAllowed, true);
+  drafts.set("chat", "Edited");
+  assert.equal(drafts.teamAllowed("chat"), true);
+  assert.notEqual(drafts.delivery("chat").clientRequestId, sent.clientRequestId);
+  assert.equal(drafts.acknowledge("chat", sent.clientRequestId), false);
+  const next = drafts.delivery("chat");
+  drafts.acknowledge("chat", next.clientRequestId);
+  assert.equal(drafts.teamAllowed("chat"), false);
+});

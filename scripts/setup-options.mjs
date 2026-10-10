@@ -14,7 +14,14 @@ export function resolveSetupOptions(args, { home, env, platform, arch }) {
   const present = new Set();
   for (let index = 0; index < args.length; index++) {
     const option = args[index];
-    if (["--no-service", "--skip-dependencies", "--dependencies-only"].includes(option)) {
+    if (
+      [
+        "--no-service",
+        "--skip-dependencies",
+        "--dependencies-only",
+        "--with-assistants",
+      ].includes(option)
+    ) {
       present.add(option);
       continue;
     }
@@ -70,6 +77,7 @@ export function resolveSetupOptions(args, { home, env, platform, arch }) {
     service: !present.has("--no-service"),
     installDependencies: !present.has("--skip-dependencies"),
     dependenciesOnly: present.has("--dependencies-only"),
+    ...(present.has("--with-assistants") ? { withAssistants: true } : {}),
     resume: true,
   };
 }
@@ -93,6 +101,7 @@ export function installerArguments(options, version) {
   ];
   if (options.service) args.push("--service");
   if (!options.installDependencies) args.push("--skip-dependencies");
+  if (options.withAssistants) args.push("--with-assistants");
   return args;
 }
 

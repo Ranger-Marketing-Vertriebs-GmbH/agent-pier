@@ -1,6 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 const resources = new Set([
+  "assistant",
   "artifact",
   "ssh",
   "mcp",
@@ -96,10 +97,36 @@ export function auditEvent(input) {
     event.details.fromProjectId = auditId(details.fromProjectId);
   if (["codex", "claude", "opencode", "shell", "gh"].includes(details.tool))
     event.details.tool = details.tool;
-  if (["permission", "question", "gate", "completion"].includes(details.kind))
+  if (
+    ["permission", "question", "gate", "completion", "team", "action"].includes(
+      details.kind,
+    )
+  )
     event.details.kind = details.kind;
-  if (["allow", "deny", "answer", "handoff"].includes(details.decision))
+  if (
+    ["allow", "deny", "answer", "handoff", "approve", "decline", "review"].includes(
+      details.decision,
+    )
+  )
     event.details.decision = details.decision;
+  // Assistant approval decisions name the deciding actor and surface.
+  if (["owner", "assistant"].includes(details.actor)) event.details.actor = details.actor;
+  if (["ui", "telegram", "mcp", "tool"].includes(details.channel))
+    event.details.channel = details.channel;
+  if (details.actionId !== undefined) event.details.actionId = auditId(details.actionId);
+  // Pipeline overrides name the stage, the result they overrode and what followed.
+  if (input.resourceType === "pipeline") {
+    if (details.stageId !== undefined) event.details.stageId = auditId(details.stageId);
+    if (
+      typeof details.failReason === "string" &&
+      /^[a-z]+(?:-[a-z]+){0,4}$/.test(details.failReason)
+    )
+      event.details.failReason = details.failReason;
+    if (["checks-follow", "skips-checks", "gate-decision"].includes(details.path))
+      event.details.path = details.path;
+  }
+  for (const key of ["requestedBy", "teamId"])
+    if (details[key] !== undefined) event.details[key] = auditId(details[key]);
   if (typeof details.enabled === "boolean") event.details.enabled = details.enabled;
   if (["0.0.0.0", "::"].includes(details.bind)) event.details.bind = details.bind;
   for (const key of ["statusCode", "count", "revision", "skipped"])

@@ -28,7 +28,7 @@ export const pipelineProfiles = Object.freeze({
   parameterRequired: (label) => `Profile parameter is required: ${label}`,
   modelUnavailable: "The model is not available in this profile",
   verificationStepLimit: "Verification requires at most 20 steps",
-  verificationTimeoutRange: "Verification timeout must be 1000–7200000 milliseconds",
+  verificationTimeoutRange: "Verification timeout must be between 1 second and 2 hours",
   verificationBlockingBoolean: "Verification blocking must be a boolean",
   verificationTotalTimeout: "Total verification timeout cannot exceed two hours",
   invalidNativePermissionMode: (tool) => `Invalid ${tool} permission mode.`,
@@ -40,6 +40,7 @@ export const pipelineProfiles = Object.freeze({
   claudePermissionModeUnsupported:
     "This Claude version does not advertise the profile permission mode.",
   disabled: "This profile is disabled.",
+  notFound: "Task profile not found.",
   invalidSessionCli: "Invalid session CLI.",
   mustBeEnabledAndAutonomous: (name) =>
     `Pipeline profile must be enabled and autonomous: ${name}`,

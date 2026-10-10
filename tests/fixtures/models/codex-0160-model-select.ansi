@@ -1,0 +1,37 @@
+
+  [38;2;99;168;248m>_ [1m[39mOpenAI Codex[0;2m (v0.160.1)[0m
+     [2m~/spike-project[0m
+
+  [38;2;99;168;248mThis terminal has excellent conversational potential.[39m
+
+[2m  To get started, describe a task or try one of these commands:[0m
+
+  /init[2m - create an AGENTS.md file with instructions for Codex[0m
+  /status[2m - show current session configuration[0m
+  /permissions[2m - choose what Codex is allowed to do[0m
+  /model[2m - choose what model and reasoning effort to use[0m
+  /review[2m - review any changes and find issues[0m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  [1mSelect Model and Effort[0m
+
+
+[1;7m› 1. Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M (current)  [0;7mCustom endpoint model[1m
+[0m
+  [1menter[0;2m select · [0;1mesc[0;2m back

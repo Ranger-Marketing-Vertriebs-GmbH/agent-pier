@@ -224,3 +224,36 @@ test("an unchanged route shows no reload warning", async ({ page }) => {
   ).toBeVisible();
   await expect(dialog.locator(".session-reload-route")).toBeEmpty();
 });
+
+test("a restart-only endpoint session labels the model button with its configured model", async ({
+  page,
+}) => {
+  const controls = await fixture(page, { session: adapterSession });
+  controls.modelState = { currentModel: null, currentSource: null };
+  await page.goto(baseURL + "/sessions/adapter-session/chat");
+  const trigger = page.getByRole("button", { name: "Choose model", exact: true });
+  await expect(trigger).toBeDisabled();
+  await expect(trigger).toContainText("qwen3");
+  await expect(
+    page.getByText("Configured provider model: qwen3", { exact: true }),
+  ).toBeVisible();
+});
+
+test("a session with native model changes never labels its button with the configured model", async ({
+  page,
+}) => {
+  const session = {
+    ...adapterSession,
+    provider: { ...adapterSession.provider, modelChangeRequiresRestart: false },
+  };
+  const controls = await fixture(page, { session });
+  controls.modelState = {
+    currentModel: null,
+    currentSource: null,
+    modelChangeRequiresRestart: false,
+  };
+  await page.goto(baseURL + "/sessions/adapter-session/chat");
+  const trigger = page.getByRole("button", { name: "Choose model", exact: true });
+  await expect(trigger).toBeVisible();
+  await expect(trigger).not.toContainText("qwen3");
+});

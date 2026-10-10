@@ -7,7 +7,8 @@ export const pipelineGraph = Object.freeze({
   invalidProfileReference: (node) => `Ungültiger Profilverweis am Knoten ${node}`,
   singlePullRequest: "Eine Pipeline darf nur einen Pull Request erstellen",
   entryMustBeProfile: "Der Einstieg muss auf einen Profilknoten verweisen",
-  invalidEdge: "Ungültige Pipeline-Kante",
+  invalidEdge: (from, to, condition) =>
+    `Ungültige Pipeline-Kante: ${from} → ${to} (${condition})`,
   oneEdgePerCondition: "Ein Knoten darf pro Bedingung nur eine Kante haben",
   loopBudgetRange: "Schleifenbudgets für Fehlschläge müssen zwischen 1 und 5 liegen",
   invalidSideEffectRouting: (node) =>

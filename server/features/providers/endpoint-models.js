@@ -64,10 +64,16 @@ export async function listEndpointModels({ endpoint, apiKey, signal, lookup }) {
   const warnings = new Set();
   let ids = [];
   let listed = false;
+  // 401/403 on a listing route: the key (or its header) was rejected.
+  let rejected = false;
+  const denied = (status) => {
+    if (status === 401 || status === 403) rejected = true;
+  };
   // A llama.cpp router reports a status object per model; a single server does not.
   const routerStatus = new Map();
   try {
     const result = await call(`${trim(endpoint.openaiBaseUrl)}/models`);
+    denied(result.status);
     if (result.status === 200 && Array.isArray(result.json?.data)) {
       ids = result.json.data
         .map((item) => item?.id)
@@ -84,6 +90,7 @@ export async function listEndpointModels({ endpoint, apiKey, signal, lookup }) {
   if (endpoint.preset === "ollama") {
     try {
       const tags = await call(`${root}/api/tags`);
+      denied(tags.status);
       if (tags.status === 200 && Array.isArray(tags.json?.models)) {
         ids = [
           ...new Set([
@@ -156,7 +163,12 @@ export async function listEndpointModels({ endpoint, apiKey, signal, lookup }) {
       return fromArgs ? { ...model, contextTokens: fromArgs } : model;
     });
   }
-  return { listed, models, warnings: [...warnings] };
+  return {
+    listed,
+    ...(!listed && rejected ? { listReason: "auth" } : {}),
+    models,
+    warnings: [...warnings],
+  };
 }
 
 /**

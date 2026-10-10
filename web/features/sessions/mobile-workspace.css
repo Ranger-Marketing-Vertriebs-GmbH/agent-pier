@@ -1,10 +1,11 @@
 @media (max-width: 700px), (any-pointer: coarse) {
-  html:has(.mobile-session-workspace),
-  body:has(.mobile-session-workspace) {
+  /* The agent chat (assistants) shares this containment via :is(). */
+  html:has(:is(.mobile-session-workspace, .assistant-chat)),
+  body:has(:is(.mobile-session-workspace, .assistant-chat)) {
     overflow: hidden;
     overscroll-behavior: none;
   }
-  .app:has(.mobile-session-workspace) {
+  .app:has(:is(.mobile-session-workspace, .assistant-chat)) {
     position: fixed;
     top: var(--session-viewport-top, 0px);
     left: 0;
@@ -13,21 +14,21 @@
     min-height: 0;
     overflow: hidden;
   }
-  .app:has(.mobile-session-workspace) main {
+  .app:has(:is(.mobile-session-workspace, .assistant-chat)) main {
     display: flex;
     flex-direction: column;
     height: 100%;
     min-height: 0;
   }
-  .app:has(.mobile-session-workspace) .sidebar {
+  .app:has(:is(.mobile-session-workspace, .assistant-chat)) .sidebar {
     top: var(--session-viewport-top, 0px);
     bottom: auto;
     height: var(--session-viewport-height, 100dvh);
   }
-  .app:has(.mobile-session-workspace) .sidebar-float {
+  .app:has(:is(.mobile-session-workspace, .assistant-chat)) .sidebar-float {
     top: calc(var(--session-viewport-top, 0px) + 7px);
   }
-  .app:has(.mobile-session-workspace) .mobile-header,
+  .app:has(:is(.mobile-session-workspace, .assistant-chat)) .mobile-header,
   .mobile-session-workspace .session-heading,
   .mobile-session-workspace .terminal-topbar {
     flex-shrink: 0;

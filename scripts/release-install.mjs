@@ -13,6 +13,7 @@ import { runService } from "./service.mjs";
 import { resumeSetup } from "./setup-resume.mjs";
 export { ensureDependencies } from "./install-dependencies.mjs";
 import { ensureDependencies } from "./install-dependencies.mjs";
+import { provisionInstallerRuntime } from "../server/features/assistants/runtime-provisioning.js";
 export async function installRelease(options, dependencies = {}) {
   if (options.resume) return resumeSetup(options, dependencies);
   return installInitialRelease(options, dependencies);
@@ -26,6 +27,7 @@ async function installInitialRelease(
     initialChannel,
     installDependencies = true,
     service = false,
+    withAssistants = false,
   },
   {
     run,
@@ -35,6 +37,7 @@ async function installInitialRelease(
     env = process.env,
     platform = process.platform,
     home = os.homedir(),
+    assistantRuntime,
   } = {},
 ) {
   if (
@@ -64,6 +67,10 @@ async function installInitialRelease(
     : await releases.stage({ version: (await releases.check()).version });
   const launcher = installLauncher({ installRoot, dataDir });
   switchRelease(installRoot, staged.version);
+  const assistants = await provisionInstallerRuntime(
+    { dataDir, enable: withAssistants },
+    { assistantRuntime },
+  );
   const configuredEnv = {
     ...dependencies.env,
     AGENTPIER_INSTALL_ROOT: installRoot,
@@ -90,6 +97,7 @@ async function installInitialRelease(
     launcher,
     installedDependencies: dependencies.installed,
     serviceInstalled: service,
+    ...(assistants ? { assistantRuntime: assistants } : {}),
   };
 }
 export async function runInstaller(args, dependencies = {}) {
@@ -103,6 +111,7 @@ export async function runInstaller(args, dependencies = {}) {
         "--install-dependencies",
         "--skip-dependencies",
         "--dependencies-only",
+        "--with-assistants",
       ].includes(key)
     )
       options[key] = true;
@@ -149,6 +158,7 @@ export async function runInstaller(args, dependencies = {}) {
       resume: options["--resume"] === true,
       service: options["--service"] === true,
       installDependencies: options["--skip-dependencies"] !== true,
+      withAssistants: options["--with-assistants"] === true,
     },
     dependencies,
   );

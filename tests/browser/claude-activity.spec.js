@@ -1,3 +1,4 @@
+import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { readFileSync } from "node:fs";
 import { test, expect } from "@playwright/test";
 import { parseSessionActivity } from "../../server/features/sessions/session-activity.js";
@@ -33,7 +34,8 @@ test("Claude native activity drives English session and chat indicators through 
     tasks: [],
   };
   await mockChatStream(page, () => data);
-  await page.route("**/api/**", (route) => {
+  await page.route("**/api/**", async (route) => {
+    if (await fulfillDormantAssistantRequest(route)) return;
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/state")
       return route.fulfill({

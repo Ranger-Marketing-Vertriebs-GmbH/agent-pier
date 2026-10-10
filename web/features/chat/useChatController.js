@@ -1,3 +1,4 @@
+import useTouchInput from "./useTouchInput.js";
 import { nativeDeliveryStates } from "./native-delivery-state.js";
 import { assertChatSnapshot } from "./chat-sync.js";
 import useChatStream from "./useChatStream.js";
@@ -12,9 +13,7 @@ export default function useChatController({ active, session, request, onConnecti
   const [error, setError] = useState(""),
     [sent, setSent] = useState(false),
     [picking, setPicking] = useState(false);
-  const [touchInput, setTouchInput] = useState(
-    () => window.matchMedia("(pointer: coarse)").matches,
-  );
+  const touchInput = useTouchInput();
   const [modelPending, setModelPending] = useState(false);
   const delivery = useChatDelivery({ session, request, active });
   const { text, setText } = delivery;
@@ -58,12 +57,6 @@ export default function useChatController({ active, session, request, onConnecti
       setCompactTasks(media.matches);
       setTasksOpen(!media.matches);
     };
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
-  useEffect(() => {
-    const media = window.matchMedia("(pointer: coarse)");
-    const update = () => setTouchInput(media.matches);
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);

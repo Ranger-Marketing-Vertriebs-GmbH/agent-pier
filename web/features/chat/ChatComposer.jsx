@@ -5,6 +5,7 @@ import React, { useEffect, useLayoutEffect, useRef } from "react";
 import SlashCompletion from "./SlashCompletion.jsx";
 import useSlashCompletion from "./useSlashCompletion.js";
 import ChatAttachments from "./ChatAttachments.jsx";
+import { enterKeyHint, sendHint, shouldSubmitOnEnter } from "./enter-submit.js";
 export default function ChatComposer({
   submit,
   session,
@@ -106,7 +107,7 @@ export default function ChatComposer({
         disabled={session.pipeline?.headless || session.status !== "running"}
         maxLength={32000}
         rows={1}
-        enterKeyHint={touchInput ? "enter" : "send"}
+        enterKeyHint={enterKeyHint(touchInput)}
         onPaste={(event) => {
           if (!event.clipboardData.files.length) return;
           event.preventDefault();
@@ -114,17 +115,7 @@ export default function ChatComposer({
         }}
         onKeyDown={(event) => {
           if (completion.onKeyDown(event)) return;
-          if (
-            event.key !== "Enter" ||
-            event.nativeEvent.isComposing ||
-            event.keyCode === 229 ||
-            touchInput ||
-            event.shiftKey ||
-            event.altKey ||
-            event.ctrlKey ||
-            event.metaKey
-          )
-            return;
+          if (!shouldSubmitOnEnter(event, touchInput)) return;
           event.preventDefault();
           if (!event.repeat) submitForm(event);
         }}
@@ -135,9 +126,7 @@ export default function ChatComposer({
             ? copy.requestPending
             : sent
               ? copy.messageSent
-              : touchInput
-                ? copy.touchSendHint
-                : commonCopy.desktopSendHint}
+              : sendHint(touchInput)}
         </span>
         <button
           ref={sendButton}

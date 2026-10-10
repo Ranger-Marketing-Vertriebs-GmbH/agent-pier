@@ -6,6 +6,8 @@ import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import {
   confirmDescription,
   confirmedActions,
+  localCommitsBlockDelete,
+  offeredRunActions,
   requestRunAction,
 } from "./run-action-request.js";
 
@@ -17,11 +19,31 @@ export default function RunActions({ run, refresh, removed, exclude = [], shared
     [resumeAt, setResumeAt] = useState(""),
     [confirm, setConfirm] = useState(null);
   const mutation = useRunAction(shared);
-  const actions = (run.actions || []).filter(
+  const actions = offeredRunActions(run).filter(
     (action) => copy.actions[action] && !exclude.includes(action),
   );
   const execute = async (action) => {
-    if (await requestRunAction(run, action, { feedback, resumeAt })) {
+    let deleted;
+    try {
+      deleted = await requestRunAction(
+        run,
+        action === "delete-local" ? "delete" : action,
+        {
+          feedback,
+          resumeAt,
+          confirmLocalCommits: action === "delete-local",
+        },
+      );
+    } catch (error) {
+      // Local-only commits ask once more; confirming removes the worktree and keeps
+      // the run branch.
+      if (action === "delete" && localCommitsBlockDelete(error)) {
+        setConfirm("delete-local");
+        return;
+      }
+      throw error;
+    }
+    if (deleted) {
       removed();
       return;
     }
@@ -72,8 +94,11 @@ export default function RunActions({ run, refresh, removed, exclude = [], shared
       <ErrorMessage error={mutation.error} />
       {confirm && (
         <ConfirmAction
-          label={copy.actions[confirm]}
-          description={confirmDescription(confirm)}
+          key={confirm}
+          label={
+            confirm === "delete-local" ? copy.deleteKeepBranch : copy.actions[confirm]
+          }
+          description={confirmDescription(confirm, run)}
           close={() => setConfirm(null)}
           action={() => execute(confirm)}
         />

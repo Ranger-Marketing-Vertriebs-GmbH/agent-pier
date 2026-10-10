@@ -67,6 +67,9 @@ export default function BackupForm({ close, started }) {
             <>
               <h3>{copy.components}</h3>
               <BackupContents values={plan.components} />
+              {plan.components.includes("sealed-assistant-credentials") && (
+                <p className="field-description">{copy.assistantCredentialsNote}</p>
+              )}
               <h3>{copy.omissions}</h3>
               <BackupContents values={plan.omissions} />
               <h3>{copy.consistency}</h3>

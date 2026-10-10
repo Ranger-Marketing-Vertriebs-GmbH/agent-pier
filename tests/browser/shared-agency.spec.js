@@ -1,3 +1,4 @@
+import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import {
@@ -23,6 +24,7 @@ async function fixture(page) {
   const installed = [];
   const agencyReads = [];
   await page.route("**/api/**", async (route) => {
+    if (await fulfillDormantAssistantRequest(route)) return;
     const request = route.request(),
       url = new URL(request.url()),
       endpoint = url.pathname;

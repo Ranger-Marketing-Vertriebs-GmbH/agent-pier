@@ -1,4 +1,5 @@
 export const memoryCopy = {
+  savedByAssistant: "Von einem Agenten gespeichert",
   discoveryError:
     "Memory-Hooks konnten nicht konfiguriert werden. Prüfe die Hook-Konfiguration der Sitzung und versuche es erneut.",
   addProject: "Projekt hinzufügen",

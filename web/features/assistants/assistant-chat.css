@@ -1,0 +1,44 @@
+.assistant-composer {
+  position: relative;
+  flex-wrap: wrap;
+}
+.assistant-composer textarea {
+  flex-basis: min(100%, 320px);
+}
+.assistant-composer .assistant-actions {
+  flex: 1 1 auto;
+}
+.assistant-announcer {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.assistant-actions .chat-send-hint {
+  align-self: center;
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+.assistant-message .message-content > :first-child {
+  margin-top: 8px;
+}
+.assistant-message .message-content > :last-child {
+  margin-bottom: 0;
+}
+
+/* Page containment and sidebar placement come from sessions/mobile-workspace.css,
+   which lists .assistant-chat next to the session workspace. */
+@media (max-width: 700px), (any-pointer: coarse) {
+  .assistant-chat {
+    flex: 1;
+    height: auto;
+  }
+  .assistant-composer textarea {
+    font-size: 16px;
+  }
+  .assistant-transcript {
+    overscroll-behavior: contain;
+  }
+}

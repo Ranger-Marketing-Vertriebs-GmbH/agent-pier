@@ -399,3 +399,40 @@ test("upstream error bodies containing the key are never returned", async (t) =>
   assert.equal(JSON.stringify(result).includes("secret-xyz"), false);
   assert.equal(result.reasons.chatCompletions, "http");
 });
+
+// A listing refused with 401/403 names the likely cause, but protocols nobody probed
+// stay untested: a stale or wrong key must not disable routes that worked before.
+test("a rejected listing key marks unprobed protocols untested with the auth reason", async (t) => {
+  const reject = () => ({ status: 401, json: { error: "invalid key wrong-key-123" } });
+  const server = await fakeEndpoint(t, {
+    "GET /v1/models": reject,
+    "POST /v1/responses": reject,
+    "POST /v1/chat/completions": reject,
+    "POST /v1/messages": reject,
+  });
+  const result = await runEndpointTest({
+    endpoint: draft(server.base, "custom"),
+    apiKey: "wrong-key-123",
+    previousModels: [],
+  });
+  assert.equal(result.listed, false);
+  assert.equal(result.listReason, "auth");
+  for (const name of ["messages", "responses", "chatCompletions"]) {
+    assert.equal(result.protocols[name], "skipped", name);
+    assert.equal(result.reasons[name], "auth", name);
+  }
+  assert.equal(JSON.stringify(result).includes("wrong-key-123"), false);
+  // With a model to probe, every protocol answers for itself.
+  const forbidden = await fakeEndpoint(t, {
+    "GET /v1/models": () => ({ status: 403, json: {} }),
+    "POST /v1/chat/completions": () => ({ status: 403, json: {} }),
+  });
+  const probed = await runEndpointTest({
+    endpoint: { ...draft(forbidden.base, "custom"), anthropicBaseUrl: null },
+    apiKey: "wrong-key-123",
+    probeModelId: "m",
+  });
+  assert.equal(probed.listReason, "auth");
+  assert.equal(probed.protocols.chatCompletions, "failed");
+  assert.equal(probed.reasons.chatCompletions, "auth");
+});

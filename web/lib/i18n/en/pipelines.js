@@ -47,6 +47,12 @@ export const pipelineCopy = {
   name: "Name",
   profileName: "Profile name",
   pipelineName: "Pipeline name",
+  runPipeline: "Pipeline",
+  runFolder: "Repository folder",
+  runFolderHelp:
+    "The run works in its own Git worktree created from this folder. Choosing a project fills in its folder.",
+  runWorktree: "Run worktree",
+  runSource: "Created from",
   descriptionLabel: "Description",
   enabled: "Enabled",
   phase: "Phase",
@@ -143,6 +149,9 @@ export const pipelineCopy = {
   nonlinear:
     "This graph contains advanced connections. The JSON view preserves them all.",
   emptyStages: "At least one stage with a profile is required.",
+  connectionModelRequired:
+    "Choose an available model for the provider connection, including the default model, before saving.",
+  connectionModelsLoading: "Loading the connection's models …",
   invalidLoop: "Loops must point to an earlier stage with 1–5 rounds.",
   newStep: "Add verification step",
   stepName: (n) => `Verification step ${n}: name`,
@@ -173,6 +182,28 @@ export const pipelineCopy = {
     "awaiting-gate": "Awaiting approval",
     passed: "Passed",
     failed: "Failed",
+    cancelled: "Cancelled",
+    skipped: "Skipped",
+  },
+  failReasons: {
+    "session-error": "The session ended with an error",
+    "turn-timeout": "The turn exceeded its maximum run time",
+    "stage-timeout": "The turn exceeded its maximum run time",
+    "inactivity-timeout": "No activity within the time limit",
+    "pr-failed": "The pull request could not be created",
+    "usage-limit-exceeded": "Usage limit reached",
+    "verdict-missing": "No result reported",
+    "verdict-invalid": "The reported result is invalid",
+    "verdict-fail": "The stage reported a failure",
+    "verify-failed": "Verification failed",
+    unknown: "The stage stopped",
+  },
+  attemptKinds: {
+    kickoff: "Start",
+    "verdict-nudge": "Result reminder",
+    "gate-feedback": "Rework after feedback",
+    "verify-feedback": "Repair after verification",
+    unknown: "Turn",
   },
   noRuns: "No matching runs yet.",
   noDefinitions: "No pipelines defined yet.",
@@ -215,8 +246,18 @@ export const pipelineCopy = {
   },
   deleteRun:
     "The run and its dedicated working directory will be removed. This cannot be undone.",
+  deleteLocalCommits:
+    "This worktree has commits that exist only locally, for example because the repository has no remote. Removing the worktree keeps them on the run branch.",
+  deleteKeepBranch: "Remove worktree, keep branch",
+  overrides: "Overridden results",
+  overrideEntry: (time, reason) => `${time} · overrode: ${reason}`,
   cancelRun: "The active stage will be stopped. The working directory will be preserved.",
-  overrideRun: "This decision continues the stage despite its previous result.",
+  overrideFailedTurn:
+    "The stage continues despite its failed turn. Configured verification and human approval still follow.",
+  overrideVerification:
+    "The failed verification is accepted as is. The stage advances without running verification again and without a separate approval.",
+  overrideGate:
+    "This decision approves the stage at its gate despite its result. Configured verification still runs if it has not passed yet.",
   prConfirm: "Changes will be published and the pull request will be created or updated.",
   verdictMissing: "No valid result yet.",
   savedConfiguration: "Saved configuration",

@@ -34,6 +34,12 @@ function cyclic(ids, edges) {
   return [...ids].some(visit);
 }
 
+// Untrusted edge values named in a message are bounded plain text.
+const edgePart = (value) =>
+  typeof value === "string" && value
+    ? value.replace(/[\x00-\x1f]/g, "").slice(0, 64)
+    : "?";
+
 /** Validate before copying: unknown graph shapes must never silently become a chain. */
 export function validateGraph(graph) {
   if (!Array.isArray(graph?.nodes) || !graph.nodes.length || graph.nodes.length > 100)
@@ -74,7 +80,13 @@ export function validateGraph(graph) {
       !ids.has(edge?.to) ||
       !["default", "pass", "fail"].includes(edge.condition)
     )
-      throw problem(serverMessages.pipelineGraph.invalidEdge);
+      throw problem(
+        serverMessages.pipelineGraph.invalidEdge(
+          edgePart(edge?.from),
+          edgePart(edge?.to),
+          edgePart(edge?.condition),
+        ),
+      );
     const key = `${edge.from}:${edge.condition}`;
     if (conditions.has(key))
       throw problem(serverMessages.pipelineGraph.oneEdgePerCondition);

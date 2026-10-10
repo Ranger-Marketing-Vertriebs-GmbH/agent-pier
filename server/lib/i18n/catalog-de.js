@@ -1,3 +1,4 @@
+import { assistants } from "./de/assistants.js";
 import { accounts } from "./de/accounts.js";
 import { agentbus } from "./de/agentbus.js";
 import { artifacts } from "./de/artifacts.js";
@@ -37,6 +38,7 @@ import { audit } from "./de/audit.js";
 // Browser-visible German server messages; top-level names are the stable key prefix.
 // Operator script output (de/scripts.js) is terminal-only and stays out on purpose.
 export const germanServerMessages = Object.freeze({
+  assistants,
   sessionInput,
   sessionReload,
   sessionTransfer,

@@ -46,6 +46,24 @@ test("central connection HTTP CRUD persists only public metadata and rejects cli
     ).status,
     400,
   );
+  for (const id of [
+    "../neighbor",
+    "..\\neighbor",
+    `${connection.id}/../../neighbor`,
+    "00000000-0000-0000-0000-000000000000",
+  ]) {
+    const route = `/provider-connections/${encodeURIComponent(id)}`;
+    assert.equal(
+      (await request(route, "PATCH", { apiKey: "must-not-write" })).status,
+      404,
+    );
+    assert.equal((await request(route, "PATCH", { removeApiKey: true })).status, 404);
+    assert.equal((await request(route, "DELETE")).status, 404);
+  }
+  assert.equal(
+    providerConnections.secret(connection.id).apiKey,
+    "fixture-central-secret",
+  );
   assert.equal(
     (
       await (

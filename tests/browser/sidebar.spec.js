@@ -1,3 +1,4 @@
+import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
 async function fixture(page) {
@@ -32,6 +33,7 @@ async function fixture(page) {
   });
   const writes = [];
   await page.route("**/api/**", async (route) => {
+    if (await fulfillDormantAssistantRequest(route)) return;
     const request = route.request(),
       path = new URL(request.url()).pathname;
     if (request.method() !== "GET") writes.push(path);
@@ -78,7 +80,7 @@ test("sidebar groups shorten the menu and remember explicit toggles across reloa
   await expect(page.getByRole("button", { name: "Accounts", exact: true })).toBeHidden();
   await expect(sessions).toHaveAttribute("aria-expanded", "true");
   await sessions.click();
-  await expect(page.locator(".session-list")).toBeHidden();
+  await expect(page.locator(".sessions-group .session-list")).toBeHidden();
   await configuration.click();
   await expect(page.getByRole("button", { name: "Accounts", exact: true })).toBeVisible();
   await page.reload();

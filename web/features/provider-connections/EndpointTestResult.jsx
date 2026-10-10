@@ -42,7 +42,11 @@ export default function EndpointTestResult({ draft, setDraft, result }) {
           </label>
         );
       })}
-      {result && !result.listed && <p className="field-description">{copy.notListed}</p>}
+      {result && !result.listed && (
+        <p className="field-description" role={result.listReason ? "alert" : undefined}>
+          {result.listReason === "auth" ? copy.notListedAuth : copy.notListed}
+        </p>
+      )}
       {warnings.map((warning) => (
         <p key={warning} className="field-description" role="status">
           {copy.warnings[warning] || warning}

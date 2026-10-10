@@ -59,6 +59,8 @@ test("explicit fresh input replaces an existing draft but cannot bypass recovery
 
 test("explicit fresh input still refuses a replaced runtime before submitting", async () => {
   const manager = sessionManager();
+  // The pane process is this young test process; the screen models a CLI past startup.
+  manager.chatInputTiming = { startupMs: 0 };
   manager.screen = "Unrecognizable native screen";
   await chat.withChatInput(manager, "one", async (tx) => {
     await assert.rejects(

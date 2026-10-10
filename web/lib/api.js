@@ -21,6 +21,8 @@ export async function apiError(response) {
   error.code = data.code;
   // A stable identifier for callers that branch on the reason, never on text.
   if (typeof data.messageKey === "string") error.messageKey = data.messageKey;
+  // Agents affected by a connection change, named in its confirmation.
+  if (data.affected && typeof data.affected === "object") error.affected = data.affected;
   return error;
 }
 export default async function api(path, method = "GET", body, signal) {
