@@ -111,3 +111,32 @@ test("automatic resume of interrupted sessions defaults on and persists a boolea
   await prefs.update({ autoResumeInterrupted: true });
   assert.equal(prefs.get().autoResumeInterrupted, true);
 });
+
+test("enabling automatic resume over the API drains pending interruptions", async (t) => {
+  const { application: app, url } = await applicationFixture(t);
+  let notified = 0;
+  app.autoResume.notify = async () => {
+    notified++;
+  };
+  const patch = async (body) => {
+    const response = await fetch(url + "/api/preferences", {
+      method: "PATCH",
+      headers: { origin: url, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  assert.equal(
+    (await patch({ autoResumeInterrupted: false })).autoResumeInterrupted,
+    false,
+  );
+  assert.equal(notified, 0);
+  assert.equal(
+    (await patch({ autoResumeInterrupted: true })).autoResumeInterrupted,
+    true,
+  );
+  assert.equal(notified, 1);
+  await patch({ defaultAccountIds: {} });
+  assert.equal(notified, 1);
+});

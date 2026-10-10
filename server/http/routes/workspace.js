@@ -40,9 +40,19 @@ export function workspaceRoutes(services) {
     res.json({ available: true, profiles: await readSandboxProfiles({ executable }) });
   });
   router.get("/preferences", (_req, res) => res.json(preferences.get()));
-  router.patch("/preferences", async (req, res) =>
-    res.json(await preferences.update(req.body)),
-  );
+  router.patch("/preferences", async (req, res) => {
+    const updated = await preferences.update(req.body);
+    // Sessions interrupted while the setting was off are resumed once it is turned on.
+    if (req.body?.autoResumeInterrupted === true)
+      services.autoResume
+        ?.notify()
+        .catch((error) =>
+          console.error(
+            `AgentPier could not resume interrupted sessions: ${error?.code || error?.message || "unknown error"}`,
+          ),
+        );
+    res.json(updated);
+  });
   router.get("/directories", async (req, res) => {
     const dir = await directory(req.query.path || config.home);
     res.json(await listDirectories(dir));
