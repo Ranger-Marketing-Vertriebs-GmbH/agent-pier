@@ -1,13 +1,16 @@
 import React, { useState } from "react";
+import AnchoredSelect from "../../components/AnchoredSelect.jsx";
+import useProviderCatalog from "../providers/useProviderCatalog.js";
+import ProviderCatalogStatus from "../providers/ProviderCatalogStatus.jsx";
+import { providerCopy } from "../../lib/i18n/messages/providers.js";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { assistantWorkflowCopy } from "../../lib/i18n/messages/assistant-workflows.js";
 
 const CUSTOM = "\u0000custom";
 
 /**
- * Connection and model choice. Connections that publish a model catalog (local
- * endpoints) offer it as a list; a custom model ID stays available for every
- * connection, and the only option for connections without a catalog.
+ * Search remote provider catalogs and configured local endpoint models. Custom
+ * IDs remain available, including when a remote catalog cannot be reached.
  */
 export default function AssistantModelFields({
   models,
@@ -16,7 +19,15 @@ export default function AssistantModelFields({
   setConnection,
   setModel,
 }) {
-  const catalog = models.find((m) => m.id === connectionId)?.models || [];
+  const connection = models.find((m) => m.id === connectionId);
+  const remote = ["openrouter", "zai", "zai-coding-plan"].includes(
+    connection?.providerId,
+  );
+  const resource = useProviderCatalog(remote ? connection.providerId : "", undefined, {
+    autoRefresh: true,
+  });
+  const catalog = remote ? resource.models : connection?.models || [];
+  const [query, setQuery] = useState("");
   const listed = catalog.some((m) => m.modelId === modelId);
   const [customChosen, setCustomChosen] = useState(false);
   // A typed custom ID survives switching to a catalog connection until the owner
@@ -27,11 +38,14 @@ export default function AssistantModelFields({
   if (seen !== connectionId) {
     setSeen(connectionId);
     setCustomChosen(false);
+    setQuery("");
   }
   const custom = !catalog.length || customChosen || (!!modelId && !listed);
   function chooseConnection(value) {
     setConnection(value);
     const next = models.find((m) => m.id === value)?.models || [];
+    // Remote catalogs arrive asynchronously. Preserve the ID until the owner
+    // chooses another model, including when discovery is unavailable.
     if (next.length && modelId && !next.some((m) => m.modelId === modelId)) {
       setTyped(modelId);
       setModel("");
@@ -69,22 +83,34 @@ export default function AssistantModelFields({
       {catalog.length > 0 && (
         <label>
           {copy.modelChoice}
-          <select
+          <AnchoredSelect
+            label={copy.modelChoice}
+            searchLabel={providerCopy.search}
+            noMatches={copy.noMatchingModels}
+            query={query}
+            onQuery={setQuery}
             required
             value={custom ? CUSTOM : modelId}
-            onChange={(e) => chooseModel(e.target.value)}
-          >
-            <option value="">{copy.chooseModel}</option>
-            {catalog.map((m) => (
-              <option key={m.modelId} value={m.modelId}>
-                {m.label && m.label !== m.modelId
-                  ? `${m.label} (${m.modelId})`
-                  : m.modelId}
-              </option>
-            ))}
-            <option value={CUSTOM}>{copy.customModel}</option>
-          </select>
+            onChange={chooseModel}
+            options={[
+              { value: "", label: copy.chooseModel },
+              ...catalog.map((m) => ({
+                value: m.modelId,
+                label:
+                  m.label && m.label !== m.modelId
+                    ? `${m.label} (${m.modelId})`
+                    : m.modelId,
+              })),
+              { value: CUSTOM, label: copy.customModel },
+            ]}
+          />
         </label>
+      )}
+      {remote && (
+        <div>
+          {resource.loading && <p role="status">{providerCopy.loading}</p>}
+          <ProviderCatalogStatus catalog={resource} />
+        </div>
       )}
       {custom && (
         <label>

@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
 
-export default function useProviderCatalog(providerId, tool) {
+export default function useProviderCatalog(
+  providerId,
+  tool,
+  { autoRefresh = false } = {},
+) {
   const key = `${providerId}:${tool}`;
   const [resource, setResource] = useState({ key: "", models: [], status: null });
   const [loading, setLoading] = useState(false);
@@ -22,27 +26,42 @@ export default function useProviderCatalog(providerId, tool) {
     }
     setLoading(true);
     api(
-      `/providers/${encodeURIComponent(providerId)}/models?tool=${encodeURIComponent(tool)}`,
+      `/providers/${encodeURIComponent(providerId)}/models${tool ? `?tool=${encodeURIComponent(tool)}` : ""}`,
       "GET",
       undefined,
       controller.signal,
     )
-      .then((result) => {
-        if (version === generation.current)
-          setResource({ key, models: result.models || [], status: result.status });
+      .then(async (result) => {
+        if (version !== generation.current) return;
+        setResource({ key, models: result.models || [], status: result.status });
+        if (autoRefresh && result.status?.stale) {
+          setLoading(false);
+          setReloading(true);
+          const fresh = await api(
+            `/providers/${encodeURIComponent(providerId)}/refresh`,
+            "POST",
+            {},
+            controller.signal,
+          );
+          if (version === generation.current)
+            setResource({ key, models: fresh.models || [], status: fresh.status });
+        }
       })
       .catch((error) => {
         if (!controller.signal.aborted && version === generation.current)
           setError(error.message);
       })
       .finally(() => {
-        if (version === generation.current) setLoading(false);
+        if (version === generation.current) {
+          setLoading(false);
+          setReloading(false);
+        }
       });
     return () => {
       invalidateRequests();
       controller.abort();
     };
-  }, [providerId, tool, key, invalidateRequests]);
+  }, [providerId, tool, key, invalidateRequests, autoRefresh]);
   const refresh = useCallback(async () => {
     if (!providerId || reloading) return;
     const version = ++generation.current;
@@ -70,7 +89,9 @@ export default function useProviderCatalog(providerId, tool) {
   }, [providerId, reloading, key]);
   const current = resource.key === key;
   return {
-    models: current ? resource.models.filter((model) => model.tools?.includes(tool)) : [],
+    models: current
+      ? resource.models.filter((model) => !tool || model.tools?.includes(tool))
+      : [],
     status: current ? resource.status : null,
     loading: loading || Boolean(providerId && !current && !error),
     error,
