@@ -59,14 +59,14 @@ New service `server/features/sessions/session-auto-resume.js`, created in `servi
   `running` with `reload.state: "completed"` or the reload has failed, with a 2-minute timeout per
   session.
 - **One attempt per interruption:** before the call `interruption.resume` becomes `"started"`, so
-  a server restart during the attempt does not repeat it. Afterwards it becomes `"resumed"` or
-  `"failed"` with the error message. A new interruption after a successful resume starts a new
+  a server restart during the attempt does not repeat it. A successful replacement removes the
+  marker; otherwise it becomes `"failed"` with a stable reason code. A new interruption after a successful resume starts a new
   attempt; a session whose resume failed is not retried automatically.
 - **Eligibility:** exactly the existing reload rules (`SessionReload.inspect`: supported tool, no
   purpose/pipeline/history-only, verified native conversation). Ineligible sessions get
   `resume: "skipped"` with the reason and stay stopped.
 - **Errors before the reload is recorded** (for example a missing CLI binary or changed provider)
-  are stored as `resume: "failed"` with the problem message, because `SessionReload` records no
+  are stored as `resume: "failed"` with reason `prepare-failed`, because `SessionReload` records no
   state for preparation failures.
 - The existing `SessionReload` and `replaceSession` code paths stay unchanged apart from clearing
   `interruption` on a successful replacement.
@@ -83,10 +83,10 @@ nothing is resumed automatically. The directory settings page gets a toggle:
 
 ## Visibility
 
-- The session list and session view show a short state for interrupted sessions: resuming,
-  resumed after interruption, or resume failed with the reason. A failed or skipped session keeps
+- The session view shows a short notice for stopped interrupted sessions: being resumed, or
+  resume failed/skipped with the translated reason. A failed or skipped session keeps
   the existing manual "Neu laden & fortsetzen" action.
-- An audit event `session.auto-resumed` (outcome success/failure, source `system`) is written per
+- An audit event `session.restored` (outcome success/failure, source `system`) is written per
   attempt next to the existing `session.ended`.
 
 ## Testing
