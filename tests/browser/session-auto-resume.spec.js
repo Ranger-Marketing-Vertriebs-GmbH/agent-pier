@@ -112,5 +112,63 @@ for (const locale of ["de-DE", "en-GB"]) {
         ),
       ).toBeVisible();
     });
+
+    test("a pending interruption says whether it will be resumed", async ({ page }) => {
+      const en = locale === "en-GB";
+      const resuming = en
+        ? "This session was interrupted and is being resumed automatically …"
+        : "Diese Sitzung wurde unterbrochen und wird automatisch fortgesetzt …";
+      const disabled = en
+        ? "This session was interrupted. Automatic resume is off; use Reload & resume to continue it."
+        : "Diese Sitzung wurde unterbrochen. Das automatische Fortsetzen ist aus; nutze „Neu laden & fortsetzen“, um sie fortzusetzen.";
+      await operationsFixture(page);
+      const pending = {
+        status: "stopped",
+        interruption: {
+          cause: "tmux-server-lost",
+          at: "2026-10-10T10:00:00.000Z",
+          resume: "pending",
+        },
+      };
+      const scenarios = [
+        [pending, true, resuming],
+        [pending, false, disabled],
+        [{ status: "running" }, true, null],
+      ];
+      for (const [session, autoResumeInterrupted, expected] of scenarios) {
+        await page.unroute("**/api/state");
+        await page.route("**/api/state", (route) =>
+          route.fulfill({
+            json: {
+              tools: [{ id: "codex", name: "codex", installed: true }],
+              accounts: [
+                { id: "local-codex", tool: "codex", kind: "local", name: "Codex lokal" },
+              ],
+              sessions: [
+                {
+                  id: "fixture-session",
+                  name: "Fixture session",
+                  tool: "codex",
+                  accountId: "local-codex",
+                  cwd: "/fixture",
+                  ...session,
+                },
+              ],
+              home: "/fixture",
+              defaultCwd: "/fixture",
+              autoResumeInterrupted,
+            },
+          }),
+        );
+        await page.route("**/api/sessions/fixture-session/screen", (route) =>
+          route.fulfill({ json: { text: "" } }),
+        );
+        await page.goto(baseURL + "/sessions/fixture-session");
+        await expect(page.getByText("Fixture session").first()).toBeVisible();
+        for (const text of [resuming, disabled])
+          if (text === expected) await expect(page.getByText(text)).toBeVisible();
+          else await expect(page.getByText(text)).toHaveCount(0);
+      }
+    });
   });
 }

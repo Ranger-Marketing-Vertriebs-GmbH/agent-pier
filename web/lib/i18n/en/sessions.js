@@ -107,6 +107,8 @@ export const sessionReloadCopy = {
 export const sessionInterruptionCopy = {
   failedUnknown: "This session was interrupted and could not be resumed automatically.",
   resuming: "This session was interrupted and is being resumed automatically …",
+  disabled:
+    "This session was interrupted. Automatic resume is off; use Reload & resume to continue it.",
   failed: (reason) =>
     `This session was interrupted and could not be resumed automatically: ${reason}`,
   reasons: {
