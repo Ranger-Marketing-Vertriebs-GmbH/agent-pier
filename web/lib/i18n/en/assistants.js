@@ -381,6 +381,7 @@ export const assistantCopy = {
   model: "Model ID",
   modelChoice: "Model",
   chooseModel: "Choose a model",
+  noMatchingModels: "No matching models found.",
   customModel: "Custom model ID…",
   chooseConnection: "Choose a connection",
   connections: "Manage connections",
