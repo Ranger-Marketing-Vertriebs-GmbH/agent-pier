@@ -11,6 +11,11 @@ import { assertInteractiveSession } from "../pipelines/native-session.js";
 import { validId, validName, dimensions, textInput } from "./session-validation.js";
 import { safeEnvironment, execute, privateWrite } from "./session-process-runtime.js";
 import { replaceSession, blocksTerminalInput } from "./session-replacement.js";
+import {
+  readTmuxServer,
+  sameTmuxServer,
+  tmuxServerGone,
+} from "./tmux-server-identity.js";
 import { createHash, randomUUID } from "node:crypto";
 import { chmod, lstat, mkdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
@@ -39,6 +44,7 @@ export class SessionManager {
     this.clients = new Set();
     this.onStopped = onStopped;
     this.onRemoving = onRemoving;
+    this.onInterrupted = () => {};
     this.reconciledStops = new Set();
     this.replacing = new Set();
     this.pendingTerminalInput = new Set();
@@ -102,9 +108,19 @@ export class SessionManager {
     await this.onStopped(session);
     this.reconciledStops.add(session.id);
   }
+  async serverLost(session, error) {
+    if (session.status !== "running") return false;
+    if (tmuxServerGone(error.message)) return true;
+    if (!session.tmuxServer) return false;
+    return !sameTmuxServer(
+      session.tmuxServer,
+      await readTmuxServer(this).catch(() => null),
+    );
+  }
   async current(id) {
     const session = await this.metadata(id);
     let state;
+    let lost = false;
     const readState = async () =>
       (
         await this.tmux([
@@ -132,6 +148,7 @@ export class SessionManager {
       )
         throw error;
       state = null;
+      lost = await this.serverLost(session, error);
     }
     const [dead, code, signal] = state?.split("|") || [];
     const exit =
@@ -144,11 +161,25 @@ export class SessionManager {
       state === null || (dead === "1" && (exit !== undefined || signal))
         ? "stopped"
         : "running";
+    let interrupted = false;
     if (session.status !== status || (exit !== undefined && session.exitCode !== exit)) {
+      if (lost && status === "stopped") {
+        session.interruption = {
+          cause: "tmux-server-lost",
+          at: new Date().toISOString(),
+          resume: "pending",
+        };
+        interrupted = true;
+      }
       session.status = status;
       if (exit !== undefined && Number.isFinite(exit)) session.exitCode = exit;
       if (state !== null && status === "stopped") await this.remember(id);
       await this.save(session);
+    }
+    if (interrupted) {
+      // Never call back inside the per-session lock: the callback reads sessions.
+      const copy = structuredClone(session);
+      setImmediate(() => Promise.resolve(this.onInterrupted(copy)).catch(() => {}));
     }
     if (
       status === "stopped" &&
@@ -184,6 +215,11 @@ export class SessionManager {
         await rm(this.file(id), { force: true });
         throw error;
       }
+      const server = await readTmuxServer(this).catch(() => null);
+      if (server) {
+        session.tmuxServer = server;
+        await this.save(session);
+      }
       return session;
     });
   }
@@ -192,6 +228,15 @@ export class SessionManager {
       const session = await this.metadata(id);
       session.reload = reload;
       await this.save(session);
+    }, id);
+  }
+  setInterruption(id, interruption) {
+    return this.serial(async () => {
+      const session = await this.metadata(id);
+      if (interruption) session.interruption = interruption;
+      else delete session.interruption;
+      await this.save(session);
+      return session;
     }, id);
   }
   replace(id, prepare, beforeStop) {
@@ -225,6 +270,7 @@ export class SessionManager {
       }
       this.pendingTerminalInput.delete(id);
       session.status = "stopped";
+      delete session.interruption;
       if (session.reload)
         session.reload = { ...session.reload, state: "idle", nativeId: null };
       await this.reconcileStopped(session);
