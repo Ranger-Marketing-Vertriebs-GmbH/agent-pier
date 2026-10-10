@@ -142,9 +142,8 @@ export class SessionManager {
     } catch (error) {
       // Only a missing pane/server means stopped; executable/permission failures must surface.
       if (
-        !/no server running|failed to connect|can't find|no such file|no current target|error connecting/i.test(
-          error.message,
-        )
+        !tmuxServerGone(error.message) &&
+        !/can't find|no current target/i.test(error.message)
       )
         throw error;
       state = null;

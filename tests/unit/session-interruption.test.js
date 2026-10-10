@@ -58,6 +58,15 @@ test("an unreachable tmux server marks a running session as interrupted", async 
   assert.deepEqual(interrupted, ["owned-fixture"]);
 });
 
+test("a tmux server caught while shutting down marks the session as interrupted", async (t) => {
+  const { tmux, read } = await fixture(t);
+  tmux.paneError = "server exited unexpectedly";
+  tmux.serverError = "server exited unexpectedly";
+  const session = await read();
+  assert.equal(session.status, "stopped");
+  assert.equal(session.interruption?.resume, "pending");
+});
+
 test("a missing session on a replaced tmux server is an interruption", async (t) => {
   const { tmux, read } = await fixture(t, {
     tmuxServer: { pid: 100, startTime: 1700000000 },

@@ -1,5 +1,7 @@
 // Errors that mean the whole tmux server is gone, not one session or pane.
-const SERVER_GONE = /no server running|failed to connect|error connecting|no such file/i;
+// A client that reaches a server while it shuts down reports "server exited unexpectedly".
+const SERVER_GONE =
+  /no server running|failed to connect|error connecting|no such file|server exited unexpectedly/i;
 
 export function tmuxServerGone(message) {
   return SERVER_GONE.test(String(message || ""));
