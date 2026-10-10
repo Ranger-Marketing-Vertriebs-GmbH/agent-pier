@@ -162,6 +162,11 @@ export class SessionManager {
         ? "stopped"
         : "running";
     let interrupted = false;
+    // A live pane disproves a transient interruption; a later self-exit must not resume.
+    if (status === "running" && session.interruption) {
+      delete session.interruption;
+      await this.save(session);
+    }
     if (session.status !== status || (exit !== undefined && session.exitCode !== exit)) {
       if (lost && status === "stopped") {
         session.interruption = {

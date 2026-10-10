@@ -138,3 +138,14 @@ test("a failing identity probe is no interruption", async (t) => {
   await settle();
   assert.deepEqual(interrupted, []);
 });
+
+test("a session seen running again loses a transient interruption", async (t) => {
+  const { manager, tmux, read } = await fixture(t);
+  tmux.paneError = "failed to connect to server";
+  assert.equal((await read()).interruption?.resume, "pending");
+  tmux.paneError = null;
+  const session = await read();
+  assert.equal(session.status, "running");
+  assert.equal(session.interruption, undefined);
+  assert.equal((await manager.metadata("owned-fixture")).interruption, undefined);
+});
