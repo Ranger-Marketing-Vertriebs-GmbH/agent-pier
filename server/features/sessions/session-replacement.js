@@ -105,7 +105,9 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
       launchFile,
     ]);
     const server = await readTmuxServer(manager).catch(() => null);
+    // A stale identity could later flag the relaunched session as interrupted.
     if (server) session.tmuxServer = server;
+    else delete session.tmuxServer;
     delete session.interruption;
     for (const key of [
       "agentbus",
