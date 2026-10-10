@@ -11,6 +11,7 @@ import {
 } from "../adapter-runtime/adapter-config.js";
 import { validateReloadLaunch } from "../../application/session-reload-launch.js";
 import { reloadedProvider } from "./provider-configuration.js";
+import { readTmuxServer } from "./tmux-server-identity.js";
 
 const launcher = fileURLToPath(new URL("../../terminal-launcher.js", import.meta.url));
 
@@ -103,6 +104,9 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
       launcher,
       launchFile,
     ]);
+    const server = await readTmuxServer(manager).catch(() => null);
+    if (server) session.tmuxServer = server;
+    delete session.interruption;
     for (const key of [
       "agentbus",
       "memory",
