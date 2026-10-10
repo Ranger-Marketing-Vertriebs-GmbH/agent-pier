@@ -27,7 +27,14 @@ const files = (
 if (!files.length) throw new Error(`No ${strategy} tests were discovered`);
 const child = spawnSync(
   process.execPath,
-  ["--test", "--test-concurrency=4", ...options, ...files],
+  [
+    "--import",
+    path.join(root, "tests/helpers/tmux-reaper.js"),
+    "--test",
+    "--test-concurrency=4",
+    ...options,
+    ...files,
+  ],
   { cwd: root, stdio: "inherit" },
 );
 if (child.error) throw child.error;

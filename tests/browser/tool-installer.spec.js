@@ -1,3 +1,4 @@
+import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { navigateTo } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 
@@ -70,6 +71,7 @@ async function fixture(page, configure = () => {}) {
   };
   configure(controls);
   await page.route("**/api/**", async (route) => {
+    if (await fulfillDormantAssistantRequest(route)) return;
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/state") return route.fulfill({ json: state });
     if (path === "/api/ssh-accesses") return route.fulfill({ json: { accesses: [] } });

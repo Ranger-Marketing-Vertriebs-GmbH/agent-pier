@@ -1,3 +1,4 @@
+import { fulfillDormantAssistantRequest } from "./assistant-browser-fixture.js";
 import { expect } from "@playwright/test";
 import { navigateTo } from "./navigation.js";
 import { baseURL as base } from "./browser.js";
@@ -34,6 +35,7 @@ export async function fixture(page) {
   };
   const writes = [];
   await page.route("**/api/**", async (route) => {
+    if (await fulfillDormantAssistantRequest(route)) return;
     const request = route.request();
     const path = new URL(request.url()).pathname;
     const method = request.method();

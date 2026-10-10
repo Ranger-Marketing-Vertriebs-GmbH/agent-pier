@@ -194,6 +194,12 @@ test("central connection rotation removal and deletion preserve one immutable pr
     responsesAccess: true,
   });
   await expect(page.locator(".provider-connection-card")).toContainText("Codex");
+  await page.getByRole("button", { name: "Shared Z.ai löschen", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText(
+    "Provider-Zugang „Shared Z.ai“ und seinen gespeicherten Key löschen?",
+  );
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("button", { name: "Shared Z.ai bearbeiten", exact: true }).click();
   await page.getByLabel("Gespeicherten API-Key entfernen", { exact: true }).check();
   await page.getByRole("button", { name: "Zugang speichern", exact: true }).click();
@@ -203,6 +209,11 @@ test("central connection rotation removal and deletion preserve one immutable pr
     removeApiKey: true,
   });
   await page.getByRole("button", { name: "Shared Z.ai löschen", exact: true }).click();
+  // A keyless connection has no saved key to delete.
+  await expect(page.getByRole("dialog")).toContainText(
+    "Provider-Zugang „Shared Z.ai“ löschen?",
+  );
+  await expect(page.getByRole("dialog")).not.toContainText("Key");
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Zugang löschen", exact: true })

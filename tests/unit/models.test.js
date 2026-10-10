@@ -60,6 +60,45 @@ test("Codex model and reasoning stages remain distinct; current marker differs f
     null,
   );
 });
+test("Codex 0.160 pickers with short key-hint footers are recognized", async () => {
+  const select = parseModelPicker("codex", await fixture("codex-0160-model-select.ansi"));
+  assert.equal(select?.kind, "model");
+  assert.equal(select.selected, "0");
+  assert.equal(select.currentModel, "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M");
+  assert.equal(select.selectKey, "Enter");
+  const single = parseModelPicker(
+    "codex",
+    await fixture("codex-0160-model-session.ansi"),
+  );
+  assert.equal(single?.kind, "model");
+  assert.equal(single.options.length, 1);
+  assert.equal(single.selectKey, "Enter");
+  const effort = parseModelPicker("codex", await fixture("codex-0160-effort.ansi"));
+  assert.equal(effort?.kind, "effort");
+  assert.deepEqual(
+    effort.options.map((o) => o.label),
+    ["Low", "Medium (default)", "High"],
+  );
+  assert.equal(effort.selected, "1");
+  assert.equal(effort.selectKey, "Enter");
+  const quoted = await fixture("codex-0160-effort.ansi");
+  assert.equal(
+    parseModelPicker("codex", quoted.trimEnd() + "\n› Ask Codex\n  model medium"),
+    null,
+  );
+});
+test("Codex 0.160 composer with a shortcut hint below the model line is ready", async () => {
+  for (const name of ["codex-0160-composer.ansi", "codex-0160-composer-agents.ansi"]) {
+    const raw = await fixture(name);
+    assert.equal(
+      currentModel("codex", raw),
+      "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M medium",
+    );
+    assert.equal(modelPromptReady("codex", raw), true);
+    const draft = raw.replace(/Ask Codex to do anything/, "\x1b[0mreal draft");
+    assert.equal(modelPromptReady("codex", draft), false);
+  }
+});
 test("OpenCode parses ANSI highlighted model and omits provider-auth choices", async () => {
   const menu = parseModelPicker("opencode", await fixture("opencode-model.ansi"));
   assert.equal(menu.searchable, true);

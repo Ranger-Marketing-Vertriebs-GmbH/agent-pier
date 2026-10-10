@@ -30,6 +30,8 @@ export async function createPipelineServices(services) {
     driver: pipelineDriver,
     workspace: pipelineWorkspace,
     mutationBarrier: services.mutationBarrier,
+    audit: services.audit,
+    ...config.pipelines,
     onChange: (run) => services.operationsEvents?.pipeline(run),
   });
   try {

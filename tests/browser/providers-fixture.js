@@ -79,6 +79,8 @@ export async function fixture(page, { account, session } = {}) {
     release: null,
     modelState: null,
     failConnection: false,
+    // Connections agents use: changing them needs confirmRestart, as on the server.
+    assistantConnections: new Set(),
     endpointProposal: {
       models: [
         {
@@ -113,6 +115,62 @@ export async function fixture(page, { account, session } = {}) {
       method = request.method();
     const body = method === "GET" ? null : request.postDataJSON();
     controls.calls.push({ path, method, body, tool: url.searchParams.get("tool") });
+    if (method === "GET" && path === "/api/assistant-feature")
+      return route.fulfill({ json: { enabled: false, error: null } });
+    if (method === "GET" && path === "/api/assistant-runtime/updates")
+      return route.fulfill({
+        json: {
+          phase: "idle",
+          currentVersion: "2026.9.8",
+          targetVersion: "2026.9.8",
+          candidateReady: false,
+          affectedAssistants: 0,
+          blockers: [],
+          diagnostic: null,
+          recoveryRequired: false,
+          busy: false,
+        },
+      });
+    if (method === "GET" && path === "/api/assistant-workspace-catalog")
+      return route.fulfill({ json: { projects: [], pipelines: [] } });
+    if (method === "GET" && /^\/api\/assistants\/[^/]+\/access$/.test(path))
+      return route.fulfill({
+        json: {
+          revision: 0,
+          projectIds: [],
+          pipelineIds: [],
+          memoryWrite: false,
+          autonomous: false,
+          publish: false,
+        },
+      });
+    if (method === "GET" && /^\/api\/assistants\/[^/]+\/actions$/.test(path))
+      return route.fulfill({ json: { actions: [] } });
+    if (path === "/api/assistants")
+      return route.fulfill({
+        json: {
+          assistants: [],
+          conversations: [],
+          models: [],
+          policies: {},
+          teamSettings: { revision: 0, hostMaxConcurrent: 8 },
+        },
+      });
+    if (path === "/api/assistant-channels")
+      return route.fulfill({ json: { channels: [] } });
+    if (path === "/api/assistant-speech")
+      return route.fulfill({
+        json: { revision: 0, model: "nova-3", language: "auto", hasSecret: false },
+      });
+    if (path === "/api/assistant-model-accounts")
+      return route.fulfill({ json: { accounts: [] } });
+    if (path === "/api/assistant-runtime")
+      return route.fulfill({ json: { availability: "disabled", sync: "stale" } });
+    if (path === "/api/assistant-events")
+      return route.fulfill({
+        contentType: "text/event-stream",
+        body: 'data: {"type":"connected"}\n\n',
+      });
     if (path === "/api/state") return route.fulfill({ json: state });
     if (path === "/api/pipeline-profiles")
       return route.fulfill({ json: { profiles: [] } });
@@ -130,6 +188,19 @@ export async function fixture(page, { account, session } = {}) {
           json: { error: "Fixture connection conflict" },
         });
       const id = path.split("/").at(-1);
+      if (
+        ["PATCH", "DELETE"].includes(method) &&
+        controls.assistantConnections.has(id) &&
+        body?.confirmRestart !== true
+      )
+        return route.fulfill({
+          status: 409,
+          json: {
+            code: "ASSISTANT_RESTART_REQUIRED",
+            error: "Neustart bestätigen",
+            ...(controls.assistantAffected && { affected: controls.assistantAffected }),
+          },
+        });
       if (method === "DELETE") {
         state.providerConnections = state.providerConnections.filter(
           (item) => item.id !== id,
@@ -168,6 +239,7 @@ export async function fixture(page, { account, session } = {}) {
       };
       delete connection.apiKey;
       delete connection.removeApiKey;
+      delete connection.confirmRestart;
       state.providerConnections = [
         ...state.providerConnections.filter((item) => item.id !== connection.id),
         connection,

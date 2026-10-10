@@ -45,4 +45,6 @@ export const backups = Object.freeze({
   invalidOptions: "Ungültige Backup-Optionen.",
   invalidOption: "Ungültige Backup-Option.",
   uploadType: "Bitte ein Backup-Archiv als application/octet-stream hochladen.",
+  assistantsBusy:
+    "Agenten werden gerade aktualisiert oder gewartet. Erstelle das Backup danach erneut.",
 });

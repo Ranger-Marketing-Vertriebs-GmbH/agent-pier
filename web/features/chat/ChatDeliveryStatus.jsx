@@ -66,7 +66,9 @@ export default function ChatDeliveryStatus({
                   ? copy.waitingDialog
                   : status === "pending" && item.waiting === "queue"
                     ? copy.waitingQueue
-                    : copy[status] || copy.checking}
+                    : status === "pending" && item.waiting === "starting"
+                      ? copy.waitingStarting
+                      : copy[status] || copy.checking}
             </span>
             {detail && <span role="alert">{detail}</span>}
             {item.recovery?.action === "blocked" && (

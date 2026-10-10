@@ -72,10 +72,10 @@ test("mobile run creation suppresses duplicate submissions and opens the persist
   await openPipelines(page, "runs/new");
   const dialog = startDialog(page);
   await dialog
-    .getByRole("radiogroup", { name: "Pipelinename", exact: true })
+    .getByRole("radiogroup", { name: "Pipeline", exact: true })
     .getByRole("radio", { name: "Entwicklungsablauf", exact: true })
     .check();
-  await dialog.getByLabel("Arbeitsverzeichnis", { exact: true }).fill("/fixture/project");
+  await dialog.getByLabel("Repository-Ordner", { exact: true }).fill("/fixture/project");
   await dialog
     .getByLabel("Aufgabe", { exact: true })
     .fill("A long task " + "details ".repeat(60) + "identifier".repeat(40));
@@ -111,7 +111,7 @@ test("newly registered project supplies the run working directory", async ({ pag
     .getByLabel("Projektordner registrieren", { exact: true })
     .fill("/fixture/registered");
   await dialog.getByRole("button", { name: "Projekt hinzufügen", exact: true }).click();
-  await expect(dialog.getByLabel("Arbeitsverzeichnis", { exact: true })).toHaveValue(
+  await expect(dialog.getByLabel("Repository-Ordner", { exact: true })).toHaveValue(
     "/fixture/registered",
   );
   await expect(
@@ -161,7 +161,7 @@ for (const width of [1440, 390]) {
       /^Läufe\s*3$/,
       /^Definitionen\s*1$/,
       /^Aufgabenprofile\s*1$/,
-      "Verifikation",
+      "Prüfung",
     ]);
     const rows = runRows(page);
     await expect(rows).toHaveCount(3);
@@ -179,7 +179,7 @@ for (const width of [1440, 390]) {
     expect(
       await rows.first().evaluate((element) => element.getBoundingClientRect().height),
     ).toBeLessThan(width > 700 ? 110 : 260);
-    await expect(rows.first()).toContainText("Verifikation läuft");
+    await expect(rows.first()).toContainText("Prüfung läuft");
     await expect(rows.first()).toContainText("Aktuelle Stufe: Planer");
     await expect(rows.first()).toContainText("0 von 1 Stufen abgeschlossen");
     await expect(rows.first().getByTitle("/fixture/project")).toHaveText("project");
@@ -256,14 +256,14 @@ test("the start-run dialog opens over the list, preselects a definition and clos
   await dialog
     .getByRole("radio", { name: "Projekt /fixture/worktree", exact: true })
     .check();
-  await expect(dialog.getByLabel("Arbeitsverzeichnis", { exact: true })).toHaveValue(
+  await expect(dialog.getByLabel("Repository-Ordner", { exact: true })).toHaveValue(
     "/fixture/worktree",
   );
   await dialog
     .getByRole("radio", { name: "Projekt /fixture/project", exact: true })
     .check();
   await page.screenshot({ path: "test-results/pipeline-start-run-dialog.png" });
-  await expect(dialog.getByLabel("Arbeitsverzeichnis", { exact: true })).toHaveValue(
+  await expect(dialog.getByLabel("Repository-Ordner", { exact: true })).toHaveValue(
     "/fixture/project",
   );
   await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
@@ -292,8 +292,13 @@ test("many pipelines fall back to the select with the same accessible name", asy
   await openPipelines(page, "runs/new");
   const dialog = startDialog(page);
   await expect(dialog.getByLabel("Aufgabe", { exact: true })).toBeVisible();
-  await expect(dialog.getByRole("radiogroup", { name: "Pipelinename" })).toHaveCount(0);
-  await dialog.getByLabel("Pipelinename", { exact: true }).selectOption("pipeline-6");
+  const cwd = dialog.getByLabel("Repository-Ordner", { exact: true });
+  await cwd.fill("/fixture");
+  await expect(cwd).toHaveValue("/fixture");
+  await expect(
+    dialog.getByRole("radiogroup", { name: "Pipeline", exact: true }),
+  ).toHaveCount(0);
+  await dialog.getByLabel("Pipeline", { exact: true }).selectOption("pipeline-6");
   await dialog.getByLabel("Aufgabe", { exact: true }).fill("Use the last pipeline");
   await dialog.getByRole("button", { name: "Lauf starten", exact: true }).click();
   await expect(page).toHaveURL(/runs\/new-run$/);
@@ -328,4 +333,29 @@ test("a run page beyond the last one is replaced by the last page", async ({ pag
   // The clamp replaced the unreachable page, so Back returns to the first page.
   await page.goBack();
   await expect(page).toHaveURL(/\/pipelines$/);
+});
+
+test("the start-run dialog explains the folder and a typed folder replaces the project", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  await openPipelines(page, "runs/new");
+  const dialog = startDialog(page);
+  const project = dialog.getByRole("radio", {
+    name: "Projekt /fixture/project",
+    exact: true,
+  });
+  await project.check();
+  const folder = dialog.getByLabel("Repository-Ordner", { exact: true });
+  await expect(folder).toHaveValue("/fixture/project");
+  await expect(folder).toHaveAccessibleDescription(/eigenen Git-Worktree/);
+  await folder.fill("/fixture/other");
+  await expect(project).not.toBeChecked();
+  await dialog.getByRole("radio", { name: "Entwicklungsablauf", exact: true }).check();
+  await dialog.getByLabel("Aufgabe", { exact: true }).fill("Use another folder");
+  await dialog.getByRole("button", { name: "Lauf starten", exact: true }).click();
+  await expect(page).toHaveURL(/runs\/new-run$/);
+  expect(
+    state.calls.find((c) => c.path === "/pipeline-runs" && c.method === "POST").body.cwd,
+  ).toBe("/fixture/other");
 });

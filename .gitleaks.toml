@@ -29,3 +29,23 @@ condition = "AND"
 paths = ['''(^|/)tests/fixtures/protocol-adapter/(clients|ir)/codex/(apply-patch|apply-patch-output|function-call|function-call-output|reasoning|reasoning-replay|text|web-search-disabled)\.json$''']
 regexTarget = "line"
 regexes = ['''(?m)^\s*"(?:prompt_cache_key|key)": "(?:01a115ae-3a28-78d2-ab5c-fdf8991414d1|01a115ae-3a7d-7272-81bc-ffe95f99532a|01a115ae-3b0e-7823-b310-eb49fd260733|01a115ae-3bea-76f2-b779-85ce4426c069|01a115ae-3c3d-7602-8a53-a7f43b85d160)",?$''']
+
+# A test names a synthetic backup-key file path with a fixed UUID; the line holds
+# no key material (the test writes a buffer of 0x01 bytes). Keep file and line exact.
+[[allowlists]]
+description = "Exact synthetic backup-key file path in a channel store test"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)tests/unit/assistant-channel-store\.test\.js$''']
+regexTarget = "line"
+regexes = ['''(?m)^\s*const key = path\.join\(keys, "8b0c5f0e-8f43-4a8e-9a55-3c2f4c1d0e01\.key"\);$''']
+
+# Endpoint probe tests send a deliberately wrong key to a local fake endpoint to
+# exercise the rejected-credential path. Keep file and line exact.
+[[allowlists]]
+description = "Exact synthetic wrong API key in endpoint probe tests"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)tests/integration/endpoint-probe\.test\.js$''']
+regexTarget = "line"
+regexes = ['''(?m)^\s*apiKey: "wrong-key-123",$''']

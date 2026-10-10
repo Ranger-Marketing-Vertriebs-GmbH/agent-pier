@@ -1,15 +1,21 @@
+import useAssistantFeature from "../assistants/useAssistantFeature.js";
 import useAccountAuthStatus from "./useAccountAuthStatus.js";
 import NativeAccountActions from "./NativeAccountActions.jsx";
 import ProviderConnections from "../provider-connections/ProviderConnections.jsx";
 import { connectionCopy } from "../../lib/i18n/messages/connections.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { accountsPageCopy as copy } from "../../lib/i18n/messages/accounts.js";
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import ProviderAccountSummary from "../providers/ProviderAccountSummary.jsx";
 import { names } from "../../lib/providers.js";
 import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
-export default function AccountsPage({ state, setModal, act, refresh }) {
+const SpeechSettings = lazy(() => import("../assistants/SpeechSettings.jsx"));
+const AssistantModelAccounts = lazy(
+  () => import("../assistants/AssistantModelAccounts.jsx"),
+);
+export default function AccountsPage({ state, setModal, act, refresh, onNavigate }) {
+  const { enabled: agentsEnabled } = useAssistantFeature();
   return (
     <div className="page accounts-page">
       <div className="page-topline">
@@ -40,6 +46,12 @@ export default function AccountsPage({ state, setModal, act, refresh }) {
         connections={state.providerConnections || []}
         refresh={refresh}
       />
+      {agentsEnabled && (
+        <Suspense fallback={null}>
+          <AssistantModelAccounts navigate={onNavigate} />
+          <SpeechSettings />
+        </Suspense>
+      )}
       <h2>{connectionCopy.native}</h2>
       <div className="account-list">
         {state.accounts

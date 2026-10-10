@@ -2,6 +2,8 @@ import React from "react";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import Verdict from "./Verdict.jsx";
+import { stageName } from "./run-stages.js";
+import { attemptKindLabel, failReasonLabel } from "./run-codes.js";
 
 // The complete execution log of the run across all stages and attempts.
 export default function ExecutionHistory({ run }) {
@@ -14,14 +16,16 @@ export default function ExecutionHistory({ run }) {
       {run.executionLog.map((entry, index) => (
         <article className="run-execution-entry" key={entry.id || index}>
           <h3>
-            {entry.nodeId} · {entry.kind}
+            {stageName(run.nodes?.find((node) => node.id === entry.nodeId) || {}) ||
+              entry.nodeId}{" "}
+            · {attemptKindLabel(entry.kind)}
           </h3>
           <small>
             {formatTimestamp(entry.startedAt)}
             {entry.finishedAt && ` — ${formatTimestamp(entry.finishedAt)}`}
           </small>
           <Verdict verdict={entry.verdict} />
-          {entry.failReason && <p>{entry.failReason}</p>}
+          {entry.failReason && <p>{failReasonLabel(entry.failReason)}</p>}
           {entry.sessionId && (
             <a href={`/sessions/${encodeURIComponent(entry.sessionId)}/chat`}>
               {copy.openChat}

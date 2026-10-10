@@ -25,6 +25,21 @@ export class PipelineWorkspace {
   file(runId) {
     return path.join(this.directory, `${validId(runId)}.json`);
   }
+  /** Whether the repository containing `cwd` has the `origin` remote runs publish to. */
+  async hasRemote(cwd) {
+    let projectRoot;
+    try {
+      projectRoot = (
+        await git(await fs.realpath(cwd), ["rev-parse", "--show-toplevel"])
+      ).trim();
+    } catch {
+      // Not a usable repository: preparation reports that with its own message.
+      return true;
+    }
+    return Boolean(
+      await git(projectRoot, ["remote", "get-url", "origin"]).catch(() => null),
+    );
+  }
   async prepare({ runId, cwd, baseBranch }) {
     validId(runId);
     const projectRoot = await fs.realpath(
@@ -85,6 +100,8 @@ export class PipelineWorkspace {
       ownership: randomUUID(),
       projectDevice: source.dev,
       projectInode: source.ino,
+      // Without a remote there is nowhere to publish a pull request.
+      hasRemote: Boolean(origin),
       ...(fetchWarning ? { fetchWarning } : {}),
     };
     writePrivate(file, { ...workspace, preparing: true });
@@ -279,7 +296,11 @@ export class PipelineWorkspace {
     const stored = await this.validate(workspace);
     return createWorkspacePr(this, stored, run);
   }
-  async remove({ workspace }) {
+  /**
+   * Local-only commits block cleanup unless the operator confirms. The run branch is
+   * kept either way, so removing the worktree never discards a commit.
+   */
+  async remove({ workspace, confirmLocalCommits = false }) {
     const stored = await this.validate(workspace),
       state = await this.inspect(stored);
     if (this.sessions) {
@@ -303,11 +324,14 @@ export class PipelineWorkspace {
         "--not",
         "--remotes=origin",
       ]);
-      if (unpublished !== "0")
-        throw problem(serverMessages.pipelineWorkspaces.unpublishedCommits, 409);
+      if (unpublished !== "0" && confirmLocalCommits !== true)
+        throw Object.assign(
+          problem(serverMessages.pipelineWorkspaces.unpublishedCommits, 409),
+          { code: "PIPELINE_LOCAL_COMMITS" },
+        );
     }
     await git(stored.projectRoot, ["worktree", "remove", stored.cwd], { timeout: 60000 });
     writePrivate(this.file(stored.runId), { ...stored, removed: true });
-    return { removed: true };
+    return { removed: true, keptBranch: stored.branch };
   }
 }

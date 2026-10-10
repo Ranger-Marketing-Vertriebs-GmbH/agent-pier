@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { readJSON } from "./storage.js";
 import { readFileLimits } from "../features/files/file-limits.js";
 import { normalizeNetworkConfig } from "./network-config.js";
+import { pipelineTiming } from "../features/pipelines/pipeline-timing.js";
 export const projectDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
@@ -26,6 +27,7 @@ export function loadConfig() {
     remoteUrl: saved.remoteUrl || null,
     ownerLogin: saved.ownerLogin || null,
     network,
+    pipelines: pipelineTiming(saved.pipelines),
     devOrigins:
       (process.env.AGENTPIER_DEV || process.env.TUIUI_DEV) === "1"
         ? ["http://127.0.0.1:5173", "http://localhost:5173"]

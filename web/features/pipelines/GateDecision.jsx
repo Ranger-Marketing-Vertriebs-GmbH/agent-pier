@@ -66,7 +66,7 @@ export default function GateDecision({ run, node, refresh, feedback: owned, shar
       {confirm && (
         <ConfirmAction
           label={copy.actions[confirm]}
-          description={confirmDescription(confirm)}
+          description={confirmDescription(confirm, run)}
           close={() => setConfirm(null)}
           action={() => execute(confirm)}
         />

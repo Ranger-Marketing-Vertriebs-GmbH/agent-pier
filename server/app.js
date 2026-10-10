@@ -1,3 +1,4 @@
+import { assistantRoutes } from "./http/routes/assistants.js";
 import { agentText } from "./lib/i18n/agent-text.js";
 import { messageIdentity } from "./lib/i18n/message-identity.js";
 import { artifactsRoutes } from "./http/routes/artifacts.js";
@@ -131,12 +132,15 @@ export async function createApplication(config) {
   Object.assign(services, createMcpServices(services, effective));
   services.sessionMcp = new SessionMcp(services);
   await services.sessionMcp.ready;
+  // Runs after SessionMcp so assistant recovery can never delay it; failures stay isolated.
+  await services.assistantFeature.connect();
   services.releaseMigration = new ReleaseSessionMigration({
     services,
     operations: services.operations,
   });
   server.once("listening", () => services.releaseMigration.resumeAfterActivation());
   server.once("listening", () => services.mcpAccess.initialize());
+  server.once("listening", () => services.assistantFeature.start());
   app.disable("x-powered-by");
   app.use(securityHeaders);
   app.use(buildHeader(buildIdentity(config.buildDocument)));
@@ -208,6 +212,7 @@ export async function createApplication(config) {
   mount(agentbusRoutes(services));
   mount(providerRoutes(services));
   mount(providerConnectionRoutes(services));
+  mount(assistantRoutes(services));
   mount(memoryRoutes(services));
   mount(pipelineDefinitionRoutes(services));
   mount(pipelineRunRoutes(services));

@@ -17,6 +17,16 @@
   --muted: #92949d;
   --line: #303137;
   --panel: #18191d;
+  --surface-input: #101114;
+  --surface-raised: #23262b;
+  --surface-accent: #30261c;
+  --accent-faint: #f49a5810;
+  --accent-soft: #f49a581a;
+  --accent-line: #f49a5833;
+  --success: #7dd6a5;
+  --success-muted: #a4cdb3;
+  --success-faint: #a4cdb310;
+  --success-line: #a4cdb333;
 }
 * {
   box-sizing: border-box;

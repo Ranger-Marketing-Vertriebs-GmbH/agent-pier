@@ -3,7 +3,16 @@ import path from "node:path";
 import os from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { proxyVariables } from "../server/lib/proxy-environment.js";
 const execute = promisify(execFile);
+// Persisted proxy settings; extra or missing keys never affect service ownership.
+const proxyKeys = [...proxyVariables, "NODE_USE_ENV_PROXY"];
+const pickProxy = (variables) =>
+  Object.fromEntries(
+    proxyKeys
+      .filter((key) => typeof variables[key] === "string")
+      .map((key) => [key, variables[key]]),
+  );
 const label = "dev.agentpier.server";
 export async function inspectSetupService({
   installRoot,
@@ -36,7 +45,8 @@ export async function inspectSetupService({
         );
   let configured = false,
     pid = null,
-    channel;
+    channel,
+    proxy = {};
   try {
     const stat = fs.lstatSync(file);
     if (!stat.isFile() || stat.nlink !== 1 || stat.size > 1024 * 1024)
@@ -53,6 +63,7 @@ export async function inspectSetupService({
         vars.AGENTPIER_INSTALL_ROOT === installRoot &&
         vars.AGENTPIER_DATA_DIR === dataDir;
       channel = vars.AGENTPIER_RELEASE_CHANNEL;
+      proxy = pickProxy(vars);
     } else {
       const text = fs.readFileSync(file, "utf8");
       const quote = (value) =>
@@ -72,6 +83,22 @@ export async function inspectSetupService({
         channel = JSON.parse(channelLine.slice("Environment=".length))
           .slice("AGENTPIER_RELEASE_CHANNEL=".length)
           .replaceAll("%%", "%");
+      const assignments = {};
+      for (const line of text.split("\n")) {
+        if (!line.startsWith('Environment="')) continue;
+        try {
+          const assignment = JSON.parse(line.slice("Environment=".length)).replaceAll(
+            "%%",
+            "%",
+          );
+          const index = assignment.indexOf("=");
+          if (index > 0)
+            assignments[assignment.slice(0, index)] = assignment.slice(index + 1);
+        } catch {
+          // Lines AgentPier did not render carry no proxy settings.
+        }
+      }
+      proxy = pickProxy(assignments);
     }
     if (!configured) return { state: "conflict", listener: false };
   } catch (error) {
@@ -143,6 +170,7 @@ export async function inspectSetupService({
     listener: listeners.length > 0,
     pid,
     channel,
+    proxy,
   };
 }
 

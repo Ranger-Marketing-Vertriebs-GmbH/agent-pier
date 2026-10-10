@@ -114,6 +114,9 @@ export function nativeFreshInput({
 }) {
   const timeoutMs = timing.timeoutMs ?? 2000;
   const settleMs = timing.settleMs ?? 100;
+  // A fresh TUI drops input until it draws its prompt; OpenCode can take tens of
+  // seconds on first start. Until then an unreadable screen means "starting".
+  const startupMs = timing.startupMs ?? 120_000;
   const stateOf = (fresh) => nativePromptState(tool, fresh);
   const assertOpen = (fresh) => {
     const state = stateOf(fresh);
@@ -136,6 +139,13 @@ export function nativeFreshInput({
     async prepare(fresh) {
       const deadline = performance.now() + timeoutMs;
       let state = assertOpen(fresh);
+      // Nothing was written yet: the delivery holds the message and retries.
+      if (
+        state.state === "unknown" &&
+        Number.isFinite(fresh.paneStartedAt) &&
+        Date.now() - fresh.paneStartedAt < startupMs
+      )
+        throw composerProblem("CHAT_CLI_STARTING");
       for (
         let round = 0;
         state.state === "draft" && round < 40 && performance.now() < deadline;

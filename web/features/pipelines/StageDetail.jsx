@@ -13,6 +13,7 @@ import GateDecision from "./GateDecision.jsx";
 import RunUsage from "./RunUsage.jsx";
 import { Findings, VerdictSummary } from "./Verdict.jsx";
 import { stageName, stageStatus, stageTone } from "./run-stages.js";
+import { attemptKindLabel, failReasonLabel, gateDecisionLabel } from "./run-codes.js";
 
 function Block({ title, children }) {
   return (
@@ -65,10 +66,13 @@ function StageAttempts({ run, node }) {
             <li key={entry.id || index}>
               <span className={`run-dot tone-${tone}`} aria-hidden="true" />
               <strong>{copy.attemptNumber(index + 1)}</strong>
+              <span>{attemptKindLabel(entry.kind)}</span>
               <span>
                 {entry.verdict
                   ? `${copy.verdict}: ${entry.verdict.result === "pass" ? copy.pass : copy.fail}`
-                  : entry.failReason || ""}
+                  : entry.failReason
+                    ? failReasonLabel(entry.failReason)
+                    : ""}
               </span>
               <small>
                 {formatTimestamp(entry.startedAt)}
@@ -124,14 +128,14 @@ export default function StageDetail({ run, node, index, navigate, refresh, gate 
         node.gateDecision && (
           <p className="run-gate-confirmation">
             <span className="run-dot tone-ok" aria-hidden="true" />
-            {copy.gateDecisions[node.gateDecision] || node.gateDecision}
+            {gateDecisionLabel(node.gateDecision)}
           </p>
         )
       )}
       {(node.verdict || node.failReason) && (
         <div className="run-stage-summary">
           <VerdictSummary verdict={node.verdict} />
-          {node.failReason && <p>{node.failReason}</p>}
+          {node.failReason && <p>{failReasonLabel(node.failReason)}</p>}
           {node.failReason && node.failDetail && <p>{serverText(node.failDetail)}</p>}
         </div>
       )}
@@ -145,6 +149,20 @@ export default function StageDetail({ run, node, index, navigate, refresh, gate 
           <VerificationStatus run={run} node={node} />
           {notConfigured && <p>{copy.noSteps}</p>}
           <VerificationSteps evidence={evidence} node={node} />
+        </Block>
+      )}
+      {node.overrides?.length > 0 && (
+        <Block title={copy.overrides}>
+          <ul className="run-stage-overrides">
+            {node.overrides.map((entry, index) => (
+              <li key={`${entry.at}-${index}`}>
+                {copy.overrideEntry(
+                  formatTimestamp(entry.at),
+                  entry.failReason ? failReasonLabel(entry.failReason) : copy.verdict,
+                )}
+              </li>
+            ))}
+          </ul>
         </Block>
       )}
       <StageAttempts run={run} node={node} />

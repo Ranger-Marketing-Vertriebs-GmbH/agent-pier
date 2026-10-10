@@ -31,8 +31,12 @@ export const connectionCopy = {
   editNamed: (name) => `${name} bearbeiten`,
   deleteNamed: (name) => `${name} löschen`,
   delete: "Zugang löschen",
-  deleteConfirm: (name) =>
-    `Provider-Zugang „${name}“ und seinen gespeicherten Key löschen? Neue Sitzungen können diesen Zugang dann nicht mehr verwenden. Bestehende Sitzungen und ihre Verläufe bleiben erhalten.`,
+  restartRequired:
+    "Agenten nutzen diesen Zugang. Die Änderung startet ihr Gateway neu; die Agenten sind dabei kurz nicht erreichbar.",
+  saveAndRestart: "Speichern und Agenten neu starten",
+  deleteAndRestart: "Löschen und Agenten neu starten",
+  deleteConfirm: (name, hasKey) =>
+    `Provider-Zugang „${name}“${hasKey ? " und seinen gespeicherten Key" : ""} löschen? Neue Sitzungen können diesen Zugang dann nicht mehr verwenden. Bestehende Sitzungen und ihre Verläufe bleiben erhalten.`,
   responses: "Responses-API-Zugang bestätigt",
   responsesHelp:
     "Mein Z.ai-Zugang erlaubt die Responses API für Codex. Diese Angabe ist eine eigene Bestätigung und keine automatische Prüfung.",
@@ -168,7 +172,7 @@ export const connectionCopy = {
     reasons: {
       notFound: "Endpunkt nicht gefunden",
       modelNotFound: "Modell auf dem Server nicht gefunden",
-      auth: "Anmeldung fehlgeschlagen",
+      auth: "Anmeldung fehlgeschlagen (401/403)",
       http: "Unerwartete Serverantwort",
       invalidKey: "Der API-Key enthält Zeichen, die nicht gesendet werden können",
       invalidResponse: "Antwort nicht lesbar",
@@ -187,10 +191,12 @@ export const connectionCopy = {
       rejectedRequest:
         "Der Server hat die minimale Testanfrage abgelehnt, der Endpunkt existiert aber.",
       modelListTruncated:
-        "Eine Verbindung fasst höchstens 200 Modelle. Manuelle Modelle bleiben erhalten; einige erkannte Modelle wurden nicht übernommen.",
+        "Ein Provider-Zugang fasst höchstens 200 Modelle. Manuelle Modelle bleiben erhalten; einige erkannte Modelle wurden nicht übernommen.",
     },
     notListed:
       "Die Modellliste konnte nicht gelesen werden. Bisher erkannte und manuelle Modelle bleiben erhalten.",
+    notListedAuth:
+      "Anmeldung fehlgeschlagen (401/403): Der Server hat den API-Key abgelehnt. Prüfe den Key und den Header.",
     models: "Modelle",
     modelId: "Modell-ID",
     context: "Kontext",
@@ -218,6 +224,6 @@ export const connectionCopy = {
       outputOverContext: "Die maximale Ausgabe darf den Kontext nicht überschreiten.",
     },
     tooManyModels: (max) =>
-      `Eine Verbindung enthält höchstens ${max} Modelle. Entferne einige.`,
+      `Ein Provider-Zugang enthält höchstens ${max} Modelle. Entferne einige.`,
   },
 };

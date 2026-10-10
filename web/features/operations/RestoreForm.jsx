@@ -19,6 +19,25 @@ async function uploadArchive(file) {
   const result = await response.json();
   return result.archiveId;
 }
+/** The first unfilled restore input and its explanation; null when restore may start. */
+function restoreGap({ inspection, targetDataDir, projectMap, passphrase }) {
+  if (!targetDataDir.trim())
+    return { field: "target", message: copy.restoreTargetRequired };
+  const unmapped = inspection.projects.filter(
+    (project) => !projectMap[project.id]?.trim(),
+  );
+  if (unmapped.length)
+    return {
+      field: `project-${unmapped[0].id}`,
+      projects: unmapped.map((project) => project.id),
+      message: copy.restoreMappingRequired(
+        unmapped.map((project) => project.name).join(", "),
+      ),
+    };
+  if (inspection.requiresPassphrase && !passphrase)
+    return { field: "passphrase", message: copy.restorePassphraseRequired };
+  return null;
+}
 export default function RestoreForm({ close, started }) {
   const [file, setFile] = useState(null),
     [archiveId, setArchiveId] = useState(""),
@@ -26,7 +45,8 @@ export default function RestoreForm({ close, started }) {
     [targetDataDir, setTarget] = useState(""),
     [projectMap, setMap] = useState({}),
     [passphrase, setPassphrase] = useState(""),
-    [confirm, setConfirm] = useState(false);
+    [confirm, setConfirm] = useState(false),
+    [missing, setMissing] = useState(null);
   const action = useAsyncAction(),
     dismiss = () => {
       if (!action.lock.current && !confirm) close();
@@ -40,9 +60,17 @@ export default function RestoreForm({ close, started }) {
     >
       <form
         className="operations-form"
+        // Explained in place: the browser's own bubble is easy to miss in a scrolled dialog.
+        noValidate
         onSubmit={(event) => {
           event.preventDefault();
           if (inspection) {
+            const gap = restoreGap({ inspection, targetDataDir, projectMap, passphrase });
+            setMissing(gap);
+            if (gap) {
+              event.currentTarget.querySelector(`[name="${gap.field}"]`)?.focus();
+              return;
+            }
             setConfirm(true);
             return;
           }
@@ -67,6 +95,7 @@ export default function RestoreForm({ close, started }) {
                 setFile(event.target.files[0] || null);
                 setArchiveId("");
                 setInspection(null);
+                setMissing(null);
                 setMap({});
                 setPassphrase("");
               }}
@@ -81,6 +110,8 @@ export default function RestoreForm({ close, started }) {
                 {copy.targetDataDir}
                 <input
                   required
+                  name="target"
+                  aria-invalid={missing?.field === "target" || undefined}
                   value={targetDataDir}
                   onChange={(event) => setTarget(event.target.value)}
                 />
@@ -91,6 +122,12 @@ export default function RestoreForm({ close, started }) {
                   {project.name}
                   <input
                     required
+                    name={`project-${project.id}`}
+                    aria-invalid={
+                      (missing?.projects?.includes(project.id) &&
+                        !projectMap[project.id]?.trim()) ||
+                      undefined
+                    }
                     aria-label={project.name}
                     value={projectMap[project.id] || ""}
                     placeholder={project.cwd}
@@ -108,6 +145,7 @@ export default function RestoreForm({ close, started }) {
                   {copy.passphrase}
                   <input
                     required
+                    name="passphrase"
                     type="password"
                     value={passphrase}
                     autoComplete="off"
@@ -118,7 +156,7 @@ export default function RestoreForm({ close, started }) {
             </>
           )}
         </fieldset>
-        <ErrorMessage error={action.error} />
+        <ErrorMessage error={missing?.message || action.error} />
         <div className="operations-actions">
           <button
             type="button"

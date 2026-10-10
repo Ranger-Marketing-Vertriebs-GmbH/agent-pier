@@ -65,6 +65,39 @@ test("central credentials are redacted, rotated and removed without provider ide
   assert.deepEqual(connections.list(), []);
   assert.throws(() => connections.get(connection.id), { status: 404 });
 });
+test("untrusted connection identifiers cannot read or mutate neighboring credential files", (t) => {
+  const { dataDir, connections } = fixture(t);
+  const connection = connections.create({
+    name: "Canonical",
+    providerId: "openrouter",
+    apiKey: "selected-fixture-key",
+  });
+  const neighbor = path.join(dataDir, "neighbor.json");
+  fs.writeFileSync(neighbor, JSON.stringify({ apiKey: "neighbor-fixture-key" }));
+  const before = fs.readFileSync(neighbor, "utf8");
+  const metadata = fs.readFileSync(connections.file, "utf8");
+  for (const id of [
+    "../neighbor",
+    "..\\neighbor",
+    "%2e%2e%2fneighbor",
+    path.join(dataDir, "neighbor"),
+    `${connection.id}/../../neighbor`,
+    `${connection.id}\0`,
+    "00000000-0000-0000-0000-000000000000",
+    null,
+    { toString: () => connection.id },
+  ]) {
+    assert.equal(connections.secret(id), null);
+    assert.throws(() => connections.update(id, { apiKey: "replacement" }), {
+      status: 404,
+    });
+    assert.throws(() => connections.update(id, { removeApiKey: true }), { status: 404 });
+    assert.throws(() => connections.remove(id), { status: 404 });
+  }
+  assert.equal(fs.readFileSync(neighbor, "utf8"), before);
+  assert.equal(fs.readFileSync(connections.file, "utf8"), metadata);
+  assert.equal(connections.secret(connection.id).apiKey, "selected-fixture-key");
+});
 test("generated profiles reuse central keys and retain exact history roots after restart and deletion", async (t) => {
   const { dataDir, providerCatalog, connections, accounts, access } = fixture(t);
   const connection = connections.create({

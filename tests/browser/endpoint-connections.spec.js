@@ -184,3 +184,32 @@ test("changing the address after a test discards the stale test result", async (
     chatCompletions: true,
   });
 });
+
+test("a rejected API key reads as an authentication failure", async ({ page }) => {
+  const controls = await fixture(page);
+  // The refused listing left every protocol unprobed: untested, with the cause.
+  controls.endpointProposal = {
+    models: [],
+    listed: false,
+    listReason: "auth",
+    protocols: { messages: "skipped", responses: "skipped", chatCompletions: "skipped" },
+    reasons: { messages: "auth", responses: "auth", chatCompletions: "auth" },
+    probeModelId: null,
+    warnings: [],
+  };
+  await page.goto(baseURL + "/accounts");
+  await page
+    .getByRole("button", { name: "Add provider connection", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("API provider", { exact: true }).selectOption("endpoint");
+  await dialog.getByRole("button", { name: "Test connection", exact: true }).click();
+  await expect(
+    dialog.getByText("Not tested · Authentication failed (401/403)"),
+  ).toHaveCount(3);
+  await expect(dialog.getByRole("alert")).toContainText(
+    "the server rejected the API key",
+  );
+  // An untested protocol keeps its setting instead of being switched off.
+  await expect(dialog.getByRole("checkbox", { name: /Chat Completions/ })).toBeChecked();
+});

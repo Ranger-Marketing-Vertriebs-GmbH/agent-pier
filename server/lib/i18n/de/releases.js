@@ -60,6 +60,9 @@ export const releaseCopy = Object.freeze({
     "Release-Downloads erfordern HTTPS ohne eingebettete Zugangsdaten.",
   redirectLimit: "Zu viele Weiterleitungen beim Release-Download.",
   downloadFailed: "Der Release-Download ist fehlgeschlagen.",
+  downloadStalled: "Der Download hat zu lange keine Daten empfangen.",
+  proxyRequiresNewerNode: (minimum) =>
+    `Downloads über einen Proxy erfordern Node.js ${minimum} oder neuer.`,
   channelRequired: "Bitte zuerst auf dem Server einen HTTPS-Release-Kanal einrichten.",
   channelHttpsRequired:
     "Der Release-Kanal muss HTTPS ohne eingebettete Zugangsdaten verwenden.",

@@ -44,7 +44,9 @@ export function reduceNativeEvent(tool, previous, event) {
       "The native CLI reported an error.";
     return state;
   }
-  if (tool === "opencode" && event.type === "step_finish") {
+  // A new OpenCode step after a final one means the turn continues.
+  if (tool === "opencode" && event.type === "step_start") delete state.result;
+  else if (tool === "opencode" && event.type === "step_finish") {
     const tokens = event.part?.tokens;
     if (
       tokens &&

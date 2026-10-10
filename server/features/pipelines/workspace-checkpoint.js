@@ -43,7 +43,10 @@ export async function checkpointWorkspace(manager, { workspace, run, node, attem
   }
   const staged = await git(stored.cwd, ["diff", "--cached", "--name-only"]);
   if (staged) {
-    const label = String(node?.id || attempt?.nodeId || "checkpoint")
+    // Commit subjects name the stage (its profile); node ids are internal.
+    const label = String(
+      node?.profileSnapshot?.name || node?.id || attempt?.nodeId || "checkpoint",
+    )
       .replace(/[\r\n\x00]/g, " ")
       .slice(0, 100);
     await git(

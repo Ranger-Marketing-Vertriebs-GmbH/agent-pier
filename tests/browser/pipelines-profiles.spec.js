@@ -190,19 +190,30 @@ for (const width of [1440, 390])
     await page.setViewportSize({ width, height: 1000 });
     const state = await pipelinesFixture(page);
     await openPipelines(page, "profiles/new");
+    const sourceAccount = page.getByRole("combobox", { name: "Account", exact: true });
+    await sourceAccount.selectOption("local-codex");
+    await expect(sourceAccount).toHaveValue("local-codex");
     await page
       .getByRole("textbox", { name: "Profilname", exact: true })
       .fill("Zentrales Profil");
     const access = page.getByRole("combobox", {
-      name: "Provider-Verbindung",
+      name: "Provider-Zugang",
       exact: true,
     });
     await expect(access.locator("option[value=central-zai]")).toHaveCount(0);
     await access.selectOption("central-openrouter");
+    const save = page.getByRole("button", { name: "Speichern", exact: true });
+    // Without a model the disabled Save explains what it waits for.
+    if (await save.isDisabled())
+      await expect(save).toHaveAccessibleDescription(
+        "Vor dem Speichern ein verfügbares Modell des Provider-Zugangs wählen, einschließlich des Standardmodells.",
+      );
     await page
       .getByRole("combobox", { name: "Anbietermodell", exact: true })
       .selectOption("fixture/model");
-    await page.getByRole("button", { name: "Speichern", exact: true }).click();
+    await expect(save).toBeEnabled();
+    await expect(save).not.toHaveAttribute("aria-describedby");
+    await save.click();
     await expect(page).toHaveURL(/\/pipelines\/profiles\/profile-new$/);
     await expect(
       page.getByRole("heading", { name: "Zentrales Profil", exact: true }),
@@ -266,7 +277,7 @@ test("desktop profiles select the first profile, group by phase and edit inline"
   await expect(list.locator(".profile-group-caps")).toHaveText([
     "Klärung",
     "Planung",
-    "Prüfung",
+    "Review",
     "Eigene Profile",
   ]);
   // The first profile in phase order opens without a dialog.

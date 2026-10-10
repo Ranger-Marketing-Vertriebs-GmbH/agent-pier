@@ -1,9 +1,14 @@
 import React, { lazy, Suspense } from "react";
 import DirectorySettings from "./DirectorySettings.jsx";
+import AssistantFeatureSettings from "../assistants/AssistantFeatureSettings.jsx";
+import useAssistantFeature from "../assistants/useAssistantFeature.js";
 import GithubAccessPage from "./GithubAccessPage.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import "../operations/operations.css";
 import "./settings-tabs.css";
+const AssistantRuntimeSettings = lazy(
+  () => import("../assistants/AssistantRuntimeSettings.jsx"),
+);
 const SshSettings = lazy(() => import("../ssh/SshSettings.jsx"));
 const McpSettings = lazy(() => import("../mcp/McpSettings.jsx"));
 const RemoteSettings = lazy(() => import("../remote/RemoteSettings.jsx"));
@@ -11,11 +16,12 @@ const OperationsPage = lazy(() => import("../operations/OperationsPage.jsx"));
 // Section ids grouped for the tab row. This is a structural map (not translated
 // copy), so it stays a plain constant here rather than living in i18n.
 const sectionGroups = {
-  workspace: ["general", "notifications"],
+  workspace: ["general", "notifications", "assistants"],
   access: ["mcp", "remote", "ssh", "github"],
   operations: ["diagnostics", "backups", "updates", "audit"],
 };
 export default function SettingsPage({ state, refresh, ready, route, onNavigate }) {
+  const { enabled: agentsEnabled } = useAssistantFeature();
   const section = route.settingsSection || "general";
   const navigate = (changes, replace = false) =>
     onNavigate({ ...route, ...changes, view: "settings" }, replace);
@@ -45,6 +51,15 @@ export default function SettingsPage({ state, refresh, ready, route, onNavigate 
       </nav>
       {section === "general" ? (
         <DirectorySettings state={state} refresh={refresh} ready={ready} />
+      ) : section === "assistants" ? (
+        <>
+          <AssistantFeatureSettings />
+          {agentsEnabled && (
+            <Suspense fallback={<p role="status">{copy.loading}</p>}>
+              <AssistantRuntimeSettings />
+            </Suspense>
+          )}
+        </>
       ) : section === "github" ? (
         <GithubAccessPage />
       ) : section === "ssh" ? (

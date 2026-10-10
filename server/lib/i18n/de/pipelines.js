@@ -68,7 +68,7 @@ export const pipelines = Object.freeze({
     "Die Prüfung ist auch nach drei Versuchen fehlgeschlagen.",
   frozenAccountRequired: "Eine eingefrorene Account-Konfiguration ist erforderlich.",
   frozenConnectionRequired:
-    "Eine eingefrorene Konfiguration der Provider-Verbindung ist erforderlich.",
+    "Eine eingefrorene Konfiguration des Provider-Zugangs ist erforderlich.",
   noNativeConversationToResume:
     "Der vorherige Turn hat keine geprüfte native Unterhaltung, die fortgesetzt werden kann.",
   invalidNativeConversation: "Ungültige Kennung der nativen Unterhaltung.",
@@ -89,6 +89,9 @@ export const pipelines = Object.freeze({
   usageLimitReached: "Das Nutzungslimit des nativen Providers ist erreicht.",
   nativeTurnFailed:
     "Der native Turn der Stufe ist nicht erfolgreich beendet worden. Bitte die Terminalausgabe prüfen.",
+  // Das Argument ist native CLI-Ausgabe und bleibt in ihrer Originalsprache.
+  nativeTurnFailedWith: (error) =>
+    `Der native Turn der Stufe ist nicht erfolgreich beendet worden: ${error}`,
   verdictMissing: "Die Stufe hat kein frisches Ergebnis geliefert.",
   pullRequestPublishFailed:
     "Der Branch des Laufs oder der Pull Request konnte nicht veröffentlicht werden. Bitte die PR-Aktion wiederholen.",
@@ -97,7 +100,13 @@ export const pipelines = Object.freeze({
   operationInterrupted:
     "Der vorherige Vorgang wurde unterbrochen. Bitte vor einem neuen Versuch den erhaltenen Arbeitsbereich prüfen.",
   inactivityTimeout:
-    "Die native Stufe hat ihr Inaktivitätsbudget von zwei Stunden überschritten.",
+    "Der native Turn hat innerhalb seines Inaktivitätslimits keine Ausgabe erzeugt und wurde beendet.",
+  turnTimeout:
+    "Der native Turn hat seine maximale Laufzeit überschritten und wurde beendet.",
+  verificationStepFailed: (step, exitCode) =>
+    `Prüfschritt „${step}“ ist mit Exit-Code ${exitCode} fehlgeschlagen.`,
+  verificationStepTimedOut: (step) =>
+    `Prüfschritt „${step}“ hat das Zeitlimit überschritten.`,
   turnNotRecovered:
     "Der genaue native Turn konnte nicht wiederhergestellt werden. Sein Arbeitsbereich bleibt erhalten.",
   checkpointFailed:

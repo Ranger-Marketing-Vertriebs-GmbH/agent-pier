@@ -10,6 +10,7 @@ import {
   availableActions,
   gateAction,
   cancelRun,
+  overridePath,
   requireLiveRun,
 } from "./pipeline-actions.js";
 import { reconcileRun } from "./pipeline-recovery.js";
@@ -39,7 +40,13 @@ export class PipelineEngine {
     onError = () => {},
     mutationBarrier,
     onChange,
+    completionGraceMs = 30000,
+    inactivityTimeoutMs = 7200000,
+    turnTimeoutMs = 21600000,
+    audit,
   }) {
+    this.audit = audit;
+    this.timing = { completionGraceMs, inactivityTimeoutMs, turnTimeoutMs };
     fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
     this.store = new RunStore(dataDir, onChange);
     this.definitions = definitions;
@@ -153,6 +160,13 @@ export class PipelineEngine {
     const snapshot = this.definitions.snapshot(pipelineId),
       compiled = compileSnapshot(snapshot),
       id = reservedId === undefined ? randomUUID() : runId(reservedId);
+    // A pull request step can never succeed without a remote; refuse before any work.
+    if (
+      compiled.edges.some((edge) => edge.effects?.createPr) &&
+      this.workspace.hasRemote &&
+      !(await this.workspace.hasRemote(cwd))
+    )
+      throw problem(serverMessages.pipelineWorkspaces.noRemoteForPullRequest, 409);
     const initial = {
       id,
       pipelineId: snapshot.pipeline.id,
@@ -188,7 +202,28 @@ export class PipelineEngine {
     return this.get(id);
   }
   async gate(id, input) {
-    await this.lock(id, () => gateAction(this, this.store.get(id), input));
+    let overridden;
+    await this.lock(id, () => {
+      const run = this.store.get(id),
+        node = activeNode(run);
+      if (input?.action === "override" && node)
+        overridden = {
+          stageId: node.id,
+          failReason: node.failReason,
+          path: overridePath(node),
+        };
+      return gateAction(this, run, input);
+    });
+    // An override accepts a result the stage itself did not deliver; keep a trace.
+    if (overridden)
+      this.audit?.append({
+        action: "pipeline.overridden",
+        resourceType: "pipeline",
+        resourceId: id,
+        source: "user",
+        outcome: "success",
+        details: { kind: "gate", ...overridden },
+      });
     return this.get(id);
   }
   async cancel(id) {
@@ -211,21 +246,24 @@ export class PipelineEngine {
     await this.lock(id, async () => {
       const run = this.store.get(id);
       requireLiveRun(run);
-      if (!terminal(run))
+      if (run.status !== "completed")
         throw problem(serverMessages.pipelines.finishBeforePublishing, 409);
       if (run.pullRequestUrl) return;
+      if (run.workspace?.hasRemote === false)
+        throw problem(serverMessages.pipelineWorkspaces.noRemote, 409);
       const pr = await this.workspace.createPr({ workspace: run.workspace, run });
       run.pullRequestUrl = pr.url;
       this.store.save(run);
     });
     return this.get(id);
   }
-  async delete(id) {
+  async delete(id, { confirmLocalCommits = false } = {}) {
     await this.lock(id, async () => {
       const run = this.store.get(id);
       if (!terminal(run))
         throw problem(serverMessages.pipelines.cancelBeforeDeleting, 409);
-      if (run.workspace) await this.workspace.remove({ workspace: run.workspace });
+      if (run.workspace)
+        await this.workspace.remove({ workspace: run.workspace, confirmLocalCommits });
       this.store.remove(id);
     });
   }

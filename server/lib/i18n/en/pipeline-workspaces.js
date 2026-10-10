@@ -33,5 +33,9 @@ export const pipelineWorkspaces = Object.freeze({
     "Wait for the owned native pipeline processes to finish before cleanup.",
   uncommittedChanges:
     "The worktree has uncommitted changes; preserve or commit them before cleanup.",
-  unpublishedCommits: "The worktree has unpublished commits; push them before cleanup.",
+  unpublishedCommits:
+    "The worktree has commits that exist only locally. Confirm to remove it; the run branch keeps the commits.",
+  noRemoteForPullRequest:
+    "This pipeline creates a pull request, but the repository has no remote. Add a remote or remove the pull request step.",
+  noRemote: "This repository has no remote, so no pull request can be created.",
 });

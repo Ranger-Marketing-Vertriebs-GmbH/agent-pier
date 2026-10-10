@@ -1,4 +1,5 @@
 export const memoryCopy = {
+  savedByAssistant: "Saved by an agent",
   discoveryError:
     "Memory discovery hooks could not be configured. Check the session hook configuration and try again.",
   addProject: "Add project",

@@ -13,6 +13,7 @@ import EndpointModelTable from "./EndpointModelTable.jsx";
 import EndpointRouting from "./EndpointRouting.jsx";
 import EndpointAdapterOptions from "./EndpointAdapterOptions.jsx";
 import useEndpointTest from "./useEndpointTest.js";
+import { restartRequired } from "./restart-confirmation.js";
 import {
   applyProposal,
   endpointPayload,
@@ -26,7 +27,8 @@ export default function ConnectionDialog({ connection, close, saved }) {
     [providerId, setProvider] = useState(connection?.providerId || "openrouter"),
     [apiKey, setKey] = useState(""),
     [removeApiKey, setRemove] = useState(false),
-    [responsesAccess, setResponses] = useState(Boolean(connection?.responsesAccess));
+    [responsesAccess, setResponses] = useState(Boolean(connection?.responsesAccess)),
+    [confirmRestart, setConfirmRestart] = useState(false);
   const [draft, setDraft] = useState(() => initialEndpoint(connection)),
     [probeModelId, setProbeModel] = useState("");
   const providers = useResource("/providers"),
@@ -83,14 +85,21 @@ export default function ConnectionDialog({ connection, close, saved }) {
                 ? { responsesAccess }
                 : {}),
               ...(endpoint ? { endpoint: endpointPayload(draft) } : {}),
+              ...(confirmRestart ? { confirmRestart: true } : {}),
             };
-            await api(
-              connection
-                ? `/provider-connections/${encodeURIComponent(connection.id)}`
-                : "/provider-connections",
-              connection ? "PATCH" : "POST",
-              body,
-            );
+            try {
+              await api(
+                connection
+                  ? `/provider-connections/${encodeURIComponent(connection.id)}`
+                  : "/provider-connections",
+                connection ? "PATCH" : "POST",
+                body,
+              );
+            } catch (error) {
+              if (!connection || !restartRequired(error)) throw error;
+              setConfirmRestart(true);
+              return;
+            }
             setKey("");
             await saved();
             close();
@@ -231,6 +240,11 @@ export default function ConnectionDialog({ connection, close, saved }) {
             )}
             <p className="field-description">{copy.keyHelp}</p>
           </fieldset>
+          {confirmRestart && (
+            <p className="field-description" role="status">
+              {copy.restartRequired}
+            </p>
+          )}
           <ErrorMessage error={action.error} />
         </div>
         <div className="dialog-actions">
@@ -251,7 +265,7 @@ export default function ConnectionDialog({ connection, close, saved }) {
               (!connection && !providers.data)
             }
           >
-            {copy.save}
+            {confirmRestart ? copy.saveAndRestart : copy.save}
           </button>
         </div>
       </form>

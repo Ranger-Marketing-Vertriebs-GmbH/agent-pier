@@ -139,3 +139,20 @@ stehen in der [Datei-Explorer-Anleitung](file-explorer.md).
 Die Service-Tests prüfen die Linux-Unit, Pfade mit Leerzeichen, Anführungszeichen, Backslashes, Dollar- und Prozentzeichen, private Dateirechte, Konfliktvermeidung sowie Installieren, Status und Stoppen mit einem simulierten Befehlsausführer. Der macOS-LaunchAgent wird weiter geprüft. Diese Änderung wurde auf macOS getestet; ein echter Linux-/systemd-Dienst wurde dabei nicht installiert oder gestartet.
 
 Die Unit verwendet für `ExecStart` den dokumentierten `:`-Präfix gegen Variablenexpansion. In `Environment` sind Dollarzeichen bereits literal; Prozentzeichen werden als systemd-Specifier gesondert maskiert. [systemd.service](https://github.com/systemd/systemd/blob/main/man/systemd.service.xml), [systemd.exec](https://github.com/systemd/systemd/blob/main/man/systemd.exec.xml)
+
+### Optional assistants
+
+Managed assistants use a separate pinned Node runtime on Linux x64 and arm64.
+Provisioning is shared with macOS and described in [installation](installation.md#managed-assistant-runtime).
+There is no additional systemd service: AgentPier owns the foreground Gateway.
+Unsupported platforms fail before downloading. Apple Reminders remains a macOS integration.
+
+The assistant runtime installer pins Linux arm64 and x64 packages. The deterministic
+native contracts run on Ubuntu in CI (`native-contracts` job), but Linux assistant
+qualification on real hosts, including the systemd `KillMode=process` orphan reclaim,
+remains outstanding. Behind a proxy, set the standard proxy variables when running the
+installer; they are written into the unit (see [installation](installation.md#managed-assistant-runtime)).
+Use the isolated source-checkout
+probe in [Assistant Gateway](assistant-gateway.md#qualification-and-diagnostics)
+before enabling it on a Linux host. AgentPier's existing Node requirement remains
+unchanged; the optional Gateway uses its separately provisioned Node runtime.

@@ -1,7 +1,6 @@
 export const mcpCopy = {
   sessionTools: "AgentPier-Werkzeuge",
-  sessionToolsSummary:
-    "Alle Werkzeuge für alle Projekte, Accounts und Provider-Verbindungen.",
+  sessionToolsSummary: "Alle Werkzeuge für alle Projekte, Accounts und Provider-Zugänge.",
   sessionToolsHint:
     "Gilt ohne Zeitlimit, solange diese Sitzung läuft. Stoppen oder Löschen der Sitzung sowie ein Widerruf beenden die Freigabe. Gestartete Läufe laufen nach Ende der Sitzung weiter. Pipeline-Sitzungen erhalten diesen Zugang nicht.",
   title: "MCP & Zugriffe",

@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { claudeHookVersion, writeClaudeHooks } from "./claude-runtime.js";
 import { addGrant } from "../nono/sandbox-grants.js";
+import { ADAPTER_URL_PLACEHOLDER } from "../providers/adapter-launch.js";
 const moduleFile = (name) => fileURLToPath(new URL(name, import.meta.url));
 export async function prepareRequests(
   broker,
@@ -51,6 +52,11 @@ export async function prepareRequests(
     grants.reduce((granted, item) => addGrant(granted, item), prepared);
   if (account.tool === "codex") {
     const wrapper = moduleFile("./codex-launch.js");
+    // codex-launch.js starts Codex from the request file, which the launcher never
+    // rewrites. The launcher substitutes env values, so the wrapper learns the bound
+    // adapter origin from this variable and replaces the placeholder in Codex argv.
+    if (args.some((arg) => String(arg).includes(ADAPTER_URL_PLACEHOLDER)))
+      env.AGENTPIER_ADAPTER_URL = ADAPTER_URL_PLACEHOLDER;
     return grant(
       {
         ...launch,

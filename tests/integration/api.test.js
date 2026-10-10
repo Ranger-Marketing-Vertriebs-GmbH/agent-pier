@@ -360,6 +360,10 @@ test("plugin routes enforce account identity, origins and busy-account protectio
 test("browser deep links serve the app while missing assets and APIs keep their 404", async (t) => {
   const { url } = await fixture(t);
   for (const route of [
+    "/agents",
+    "/agents/home/settings",
+    "/agents/home/chats/dinner",
+    "/settings/assistants",
     "/accounts",
     "/repositories",
     "/settings",

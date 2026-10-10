@@ -7,6 +7,7 @@ import { compareReleaseVersions, applicationRoot } from "./version.js";
 import { readJson } from "./files.js";
 import { problem } from "../../lib/storage.js";
 import { releaseSessionReferences } from "./release-references.js";
+import { processExecutable } from "../../lib/process-identity.js";
 
 const cleanupError = (code, message, status = 409) =>
   Object.assign(problem(message, status), { code });
@@ -58,14 +59,7 @@ export function releaseProcesses() {
       ["-ww", "-u", String(process.getuid()), "-o", "pid=,ppid=,comm=,command="],
       { encoding: "utf8", timeout: 5000, maxBuffer: 8 * 1024 * 1024 },
     ),
-    (pid) =>
-      process.platform === "linux"
-        ? fs.readlinkSync(`/proc/${pid}/exe`)
-        : execFileSync("ps", ["-ww", "-p", pid, "-o", "comm="], {
-            encoding: "utf8",
-            timeout: 1500,
-            maxBuffer: 65536,
-          }).trim(),
+    processExecutable,
   );
 }
 export function cleanupState({

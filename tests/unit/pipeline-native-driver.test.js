@@ -254,3 +254,42 @@ test("central frozen provider, connection and source drift cannot create a nativ
   });
   assert.equal(starts, 1);
 });
+test("OpenCode completion is reported only while no later step has started", async () => {
+  const { reduceNativeEvent } =
+    await import("../../server/features/pipelines/native-events.js");
+  const finish = { type: "step_finish", sessionID: "ses", part: { reason: "stop" } };
+  let state = reduceNativeEvent("opencode", {}, { type: "step_start", sessionID: "ses" });
+  state = reduceNativeEvent("opencode", state, finish);
+  assert.equal(state.result, "completed");
+  state = reduceNativeEvent("opencode", state, { type: "step_start", sessionID: "ses" });
+  assert.equal(state.result, undefined);
+  assert.equal(reduceNativeEvent("opencode", state, finish).result, "completed");
+});
+test("a running native turn exposes its observed terminal event", async (t) => {
+  const dataDir = await fs.mkdtemp(path.join(tmpdir(), "agentpier-native-running-"));
+  t.after(() => fs.rm(dataDir, { recursive: true, force: true }));
+  await fs.mkdir(path.join(dataDir, "sessions"));
+  const session = {
+    id: "session",
+    tool: "opencode",
+    status: "running",
+    pipeline: { ...identity, headless: true },
+    createdAt: "2026-09-07T00:00:00.000Z",
+  };
+  const driver = new NativePipelineDriver({
+    dataDir,
+    sessions: { get: async () => session },
+  });
+  const file = path.join(dataDir, "sessions/session.events.jsonl");
+  await fs.writeFile(file, '{"type":"step_start","sessionID":"ses"}\n');
+  assert.equal((await driver.inspect(identity)).nativeResult, null);
+  await fs.appendFile(
+    file,
+    '{"type":"step_finish","sessionID":"ses","part":{"reason":"stop"}}\n{"type":"text"',
+  );
+  assert.equal((await driver.inspect(identity)).nativeResult, null);
+  await fs.appendFile(file, "}\n");
+  const running = await driver.inspect(identity);
+  assert.equal(running.status, "running");
+  assert.equal(running.nativeResult, "completed");
+});

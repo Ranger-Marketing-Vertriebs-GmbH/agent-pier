@@ -66,7 +66,14 @@ export default function ModelControl({
           }
           onClick={() => (picker || state.pending ? setExpanded(true) : mutate("open"))}
         >
-          <span>{state.currentModel || copy.modelTriggerAriaLabel}</span>
+          <span>
+            {state.currentModel ||
+              // Only restart-only sessions are pinned to their configured model; a
+              // native /model change could make it stale everywhere else.
+              (requiresRestart &&
+                (configuration?.requestedModelId || configuration?.modelId)) ||
+              copy.modelTriggerAriaLabel}
+          </span>
           <span aria-hidden="true">⌃</span>
         </button>
         {busy && (

@@ -28,6 +28,12 @@ function entry(row) {
   };
 }
 function source(value) {
+  if (value?.kind === "assistant")
+    return {
+      kind: "assistant",
+      assistantId: identifier(value.assistantId),
+      actionId: identifier(value.actionId),
+    };
   if (value?.kind === "user") return { kind: "user" };
   if (value?.kind === "session" && ["codex", "claude", "opencode"].includes(value.tool))
     return {
@@ -233,7 +239,9 @@ export class ProjectMemory {
     const hash = createHash("sha256")
       .update(JSON.stringify({ id, title, content, expected }))
       .digest("hex");
-    const actor = author.sessionId || "user";
+    const actor =
+      author.sessionId ||
+      (author.kind === "assistant" ? `assistant:${author.assistantId}` : "user");
     return transaction(this.db, () => {
       if (requestId) {
         const prior = this.db
@@ -274,6 +282,14 @@ export class ProjectMemory {
           .run(projectId, actor, requestId, hash, entryId, revision);
       return this.read(projectId, entryId);
     });
+  }
+  writeReceipt(projectId, actor, requestId) {
+    const row = this.db
+      .prepare(
+        "SELECT entry_id,revision FROM requests WHERE project_id=? AND actor=? AND request_id=?",
+      )
+      .get(projectId, actor, requestId);
+    return row ? this.read(projectId, row.entry_id, { revision: row.revision }) : null;
   }
   archive(
     projectId,

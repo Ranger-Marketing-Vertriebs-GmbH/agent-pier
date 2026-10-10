@@ -31,15 +31,32 @@ function themeDialog(lines, text) {
     )
   )
     return null;
-  const rows = marked(lines, /^\s*(❯| )?\s*([1-9])\. (.+?)(?: ✔)?$/);
-  if (rows.length < 2) return null;
-  const selected = selection(rows, (m) => m[2]);
-  if (!selected) return null;
-  return {
-    dialog: "theme",
-    selected,
-    options: rows.map((m) => ({ id: m[2], label: m[3] })),
-  };
+  // Rows follow the /theme hint as one contiguous block. Claude 2.1.270 numbered
+  // them ("❯ 2. Dark mode ✔"); 2.1.296 drops numbers and leads with the check mark.
+  const start = lines.findIndex(
+    (line) => line.trim() === "To change this later, run /theme",
+  );
+  // The phrase alone (quoted or wrapped differently) never anchors the rows.
+  if (start < 0) return null;
+  const block = [];
+  for (const line of lines.slice(start + 1)) {
+    if (!line.trim() || /^\s*╌/.test(line)) {
+      if (block.length) break;
+      continue;
+    }
+    block.push(line);
+  }
+  const rows = block.map((line) =>
+    line.match(/^\s*(❯)?\s*(?:([1-9])\.\s+)?(?:✔\s+)?(\S.*?)(?:\s+✔)?$/),
+  );
+  if (rows.length < 2 || rows.length > 9 || rows.some((m) => !m || m[3].includes("❯")))
+    return null;
+  const numbered = rows.every((m, index) => m[2] === String(index + 1));
+  if (!numbered && rows.some((m) => m[2])) return null;
+  const options = rows.map((m, index) => ({ id: String(index + 1), label: m[3] }));
+  const cursor = rows.flatMap((m, index) => (m[1] === "❯" ? [index] : []));
+  if (cursor.length !== 1) return null;
+  return { dialog: "theme", selected: options[cursor[0]].id, options };
 }
 function keyConfirmationDialog(lines) {
   const heading = lines.findIndex(

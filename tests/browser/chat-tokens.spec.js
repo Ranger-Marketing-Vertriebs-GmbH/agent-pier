@@ -1,3 +1,4 @@
+import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { test, expect } from "@playwright/test";
 import { subagentFixture } from "./subagent-fixture.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
@@ -144,7 +145,8 @@ async function codexFixture(page, observability, tool = "codex") {
     observability,
   };
   const publish = await mockChatStream(page, () => data);
-  await page.route("**/api/**", (route) => {
+  await page.route("**/api/**", async (route) => {
+    if (await fulfillDormantAssistantRequest(route)) return;
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/state")
       return route.fulfill({

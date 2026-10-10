@@ -17,6 +17,7 @@ export function memoryPaging(data, page, setPage) {
   };
 }
 export function entryAuthor(entry) {
+  if (entry.provenance?.kind === "assistant") return copy.savedByAssistant;
   return entry.provenance?.kind === "session"
     ? copy.savedByAgent(names[entry.provenance.tool] || entry.provenance.tool)
     : copy.savedByUser;

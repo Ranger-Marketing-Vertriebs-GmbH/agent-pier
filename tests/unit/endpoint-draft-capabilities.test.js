@@ -133,3 +133,26 @@ test("a proposal for an unused protocol never replaces its stored value", () => 
     messages: { promptCache: true, thinkingBudget: true },
   });
 });
+
+test("a test whose listing was refused keeps protocols it did not probe", () => {
+  const draft = applyProposal(
+    {
+      ...fresh(),
+      protocols: { messages: false, responses: true, chatCompletions: true },
+    },
+    {
+      listed: false,
+      listReason: "auth",
+      protocols: { messages: "skipped", responses: "skipped", chatCompletions: "failed" },
+      reasons: { messages: "auth", responses: "auth", chatCompletions: "auth" },
+      models: [],
+      capabilities: {},
+    },
+  );
+  assert.deepEqual(draft.protocols, {
+    messages: false,
+    responses: true,
+    chatCompletions: false,
+  });
+  assert.equal(draft.lastTest.reasons.responses, "auth");
+});

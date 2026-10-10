@@ -50,13 +50,13 @@ export class RunStore {
   get(id) {
     const row = this.db.prepare("SELECT doc FROM runs WHERE id=?").get(runId(id));
     if (!row) throw problem(serverMessages.pipelines.runNotFound, 404);
-    return JSON.parse(row.doc);
+    return normalizeRun(JSON.parse(row.doc));
   }
   all() {
     return this.db
       .prepare("SELECT doc FROM runs ORDER BY rowid DESC")
       .all()
-      .map((r) => JSON.parse(r.doc));
+      .map((r) => normalizeRun(JSON.parse(r.doc)));
   }
   create(run) {
     run.revision = 1;
@@ -83,4 +83,13 @@ export class RunStore {
   close() {
     this.db.close();
   }
+}
+
+// Earlier builds recorded the per-turn wall-clock bound as "stage-timeout".
+const legacyReasons = { "stage-timeout": "turn-timeout" };
+function normalizeRun(run) {
+  for (const entry of [...(run.nodes || []), ...(run.executionLog || [])])
+    if (Object.hasOwn(legacyReasons, entry?.failReason))
+      entry.failReason = legacyReasons[entry.failReason];
+  return run;
 }

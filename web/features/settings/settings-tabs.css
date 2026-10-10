@@ -63,3 +63,19 @@
     padding: 9px;
   }
 }
+.assistant-feature {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 16px 0;
+}
+.assistant-feature .switch-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+.assistant-feature .switch-row input {
+  width: auto;
+  accent-color: var(--accent);
+}

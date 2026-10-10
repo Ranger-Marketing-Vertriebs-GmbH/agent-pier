@@ -156,3 +156,19 @@ test("verification plans are bounded, secret-free profile seeds are editable and
     { message: copy.verificationBlockingBoolean },
   );
 });
+test("a pipeline naming an unknown task profile reports the missing profile", async (t) => {
+  const { store } = await fixture(t);
+  const graph = {
+    entry: "work",
+    nodes: [{ id: "work", kind: "profile", profileId: "missing-profile" }],
+    edges: [],
+  };
+  assert.throws(() => store.savePipeline({ name: "Unknown", graph }), {
+    message: copy.notFound,
+    status: 400,
+  });
+  assert.throws(() => store.getProfile("missing-profile"), {
+    message: copy.notFound,
+    status: 404,
+  });
+});

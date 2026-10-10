@@ -1,0 +1,120 @@
+name: Assistant runtime
+on:
+  workflow_dispatch:
+  schedule:
+    # Nightly: upstream registries and hosted runner images change without a commit.
+    - cron: "23 2 * * *"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/assistant-runtime.yml"
+      - "server/features/assistants/**"
+      - "server/features/assistant-channels/**"
+      - "server/features/operations/releases.js"
+      - "server/lib/storage.js"
+      - "scripts/*assistant*.mjs"
+      - "tests/**/assistant*"
+      - "tests/helpers/openclaw-dist-exports.js"
+      - "package.json"
+      - "package-lock.json"
+  pull_request:
+    paths:
+      - ".github/workflows/assistant-runtime.yml"
+      - "server/features/assistants/**"
+      - "server/features/assistant-channels/**"
+      - "server/features/operations/releases.js"
+      - "server/lib/storage.js"
+      - "scripts/*assistant*.mjs"
+      - "tests/**/assistant*"
+      - "tests/helpers/openclaw-dist-exports.js"
+      - "package.json"
+      - "package-lock.json"
+permissions:
+  contents: read
+concurrency:
+  group: assistant-runtime-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  fresh-install:
+    name: Fresh install (${{ matrix.target }})
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      # Native labels verified against the GitHub-hosted runners reference.
+      # Existing backend CI covers host Node 22 and 24; this job always executes
+      # the independently pinned managed Node/npm from the shipped installer.
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: linux-x64
+          - runner: ubuntu-24.04-arm
+            target: linux-arm64
+          - runner: macos-15
+            target: darwin-arm64
+          - runner: macos-15-intel
+            target: darwin-x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - name: Verify native runner architecture
+        env:
+          EXPECTED_TARGET: ${{ matrix.target }}
+        run: node --input-type=module -e 'import assert from "node:assert/strict"; assert.equal(`${process.platform}-${process.arch}`, process.env.EXPECTED_TARGET)'
+      - run: npm ci
+      - name: Qualify fresh shipped runtime without model credentials
+        run: node scripts/verify-assistant-installation.mjs
+  native-contracts:
+    name: Native contracts (${{ matrix.runner }})
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Read the pinned runtime identity
+        id: runtime
+        run: >-
+          node --input-type=module -e 'import { runtimeManifest as m } from
+          "./server/features/assistants/runtime-manifest.js";
+          console.log(`identity=${m.version}-node${m.nodeVersion}-${m.dependencyLockSha256}`)'
+          >> "$GITHUB_OUTPUT"
+      # Only the immutable installation is cached; the data directory stays fresh.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/agentpier-assistant-contracts/assistants/runtimes
+          key: assistant-runtime-${{ runner.os }}-${{ runner.arch }}-${{ steps.runtime.outputs.identity }}
+      - name: Provision through the installer's --with-assistants step
+        run: >-
+          node scripts/provision-assistant-contracts.mjs
+          --data-dir "$RUNNER_TEMP/agentpier-assistant-contracts"
+          --env-file "$GITHUB_ENV"
+      # Simulated model endpoints, accounts and channels only: no secrets, so the
+      # live provider test and the predecessor-runtime cross-version test skip.
+      - name: Run the deterministic native contracts
+        run: >-
+          node --test --test-concurrency=1
+          --test-reporter=spec --test-reporter-destination=stdout
+          --test-reporter=tap --test-reporter-destination="$RUNNER_TEMP/native-contracts.tap"
+          tests/integration/assistant-runtime-contract.test.js
+          tests/integration/assistant-provider-contract.test.js
+          tests/integration/assistant-provider-schedule-contract.test.js
+          tests/integration/assistant-account-logout-contract.test.js
+          tests/integration/assistant-routine-contract.test.js
+          tests/integration/assistant-schedule-qualification.test.js
+          tests/integration/assistant-memory-contract.test.js
+          tests/integration/assistant-runtime-update-native.test.js
+          tests/integration/assistant-native-write-contract.test.js
+          tests/integration/assistant-team-plugin-contract.test.js
+      - name: Fail when a contract skipped instead of running
+        run: grep -qx '# skipped 0' "$RUNNER_TEMP/native-contracts.tap"

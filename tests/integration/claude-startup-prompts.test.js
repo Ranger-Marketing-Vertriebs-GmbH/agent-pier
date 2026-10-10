@@ -10,6 +10,7 @@ import {
   loginScreen,
   securityNotesScreen,
   themeScreen,
+  themeScreenV296,
   unknownMenuScreen,
 } from "../fixtures/requests/claude-startup-prompts.js";
 
@@ -133,6 +134,21 @@ test("fresh profile onboarding is walked step by step from chat", async (t) => {
   assert.equal(afterNotes.requests[0].presentation, "claudeFolderTrust");
   assert.equal(afterNotes.requests.length, 1);
   await assert.rejects(answer(f, theme, "1"), { status: 409 });
+});
+test("Claude 2.1.296 unnumbered theme rows are answered from chat", async (t) => {
+  const f = await fixture(t, {
+    screens: [
+      () => themeScreenV296(f.state.theme),
+      () => securityNotesScreen(),
+      () => "Normal chat composer",
+    ],
+  });
+  const theme = (await f.broker.list("onboarding")).requests[0];
+  assert.equal(theme.subject.dialog, "theme");
+  assert.equal(theme.options[1].label, "Dark mode");
+  const next = await answer(f, theme, "3");
+  assert.deepEqual(f.keys, ["Down", "Enter"]);
+  assert.equal(next.requests[0].subject.dialog, "securityNotes");
 });
 test("startup prompts reject unknown choices and vanish when the screen moves on", async (t) => {
   const f = await fixture(t);

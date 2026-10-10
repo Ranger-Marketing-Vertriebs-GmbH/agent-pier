@@ -122,6 +122,27 @@ test("a held message frees the composer, can be cancelled and edited again", asy
   await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
 });
 
+test("a message held while the CLI starts says so and stays cancellable", async ({
+  page,
+}) => {
+  await fixture(
+    page,
+    { status: "pending", waiting: "starting", pasted: false },
+    "opencode",
+  );
+  await input(page).fill("First message");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(
+    page.getByText(
+      "Waiting for the CLI to finish starting · sent automatically afterwards",
+    ),
+  ).toBeVisible();
+  await expect(page.getByText("Delivery uncertain")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Cancel sending", exact: true }),
+  ).toBeVisible();
+});
+
 test("pasted text held for a dialog offers only the terminal, not cancel", async ({
   page,
 }) => {

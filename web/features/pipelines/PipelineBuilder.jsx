@@ -85,20 +85,23 @@ function useStageDraft(initial) {
   };
 }
 
+// `template` prefills a new pipeline, for example a duplicate of an existing one.
 export default function PipelineBuilder({
   pipeline,
+  template,
   profiles,
   saved,
   cancel,
   onDirtyChange,
 }) {
-  const initial = graphToStages(pipeline?.graph);
+  const source = pipeline || template;
+  const initial = graphToStages(source?.graph);
   const draft = useStageDraft(initial);
-  const [name, setName] = useState(pipeline?.name || ""),
-    [description, setDescription] = useState(pipeline?.description || ""),
-    [advanced, setAdvanced] = useState(Boolean(pipeline && !initial)),
+  const [name, setName] = useState(source?.name || ""),
+    [description, setDescription] = useState(source?.description || ""),
+    [advanced, setAdvanced] = useState(Boolean(source && !initial)),
     [json, setJson] = useState(
-      formatGraph(pipeline?.graph || { entry: "", nodes: [], edges: [] }),
+      formatGraph(source?.graph || { entry: "", nodes: [], edges: [] }),
     ),
     [error, setError] = useState("");
   const [baseline] = useState(() =>
@@ -228,7 +231,17 @@ export default function PipelineBuilder({
           </>
         )}
       </fieldset>
-      <ErrorMessage error={error || action.error} />
+      <ErrorMessage
+        error={
+          error ||
+          // A stage rule that the edited stages now satisfy is no longer shown.
+          ([copy.emptyStages, copy.invalidLoop].includes(action.error) &&
+          !advanced &&
+          !stageError(draft.stages, copy)
+            ? ""
+            : action.error)
+        }
+      />
       <div className="definition-footer">
         <button
           type="button"

@@ -8,6 +8,11 @@ import { decodeArchive, decryptCredentials } from "./archive.js";
 import { backupProjects, mapProjects, historicalOnly, database } from "./restore-data.js";
 import { problem } from "../../lib/storage.js";
 import { AuditStore } from "../audit/audit-store.js";
+import {
+  isAssistantMember,
+  restoreAssistants,
+  validateAssistantManifest,
+} from "./assistant-backup.js";
 
 const publicPath =
   /^(artifacts\/(?:index\.json|generations\/[a-f0-9-]{36}\/\d{1,3})|accounts\.json|provider-connections\.json|repositories\.json|preferences\.json|config\.json|pipelines\/definitions\.json|memory\/memory\.sqlite|pipeline-runs\/runs\.sqlite|audit\/events\.json|sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
@@ -18,7 +23,7 @@ function extract(files, target, credentials = false) {
         ? /^(profiles\/[A-Za-z0-9_-]+\/.+|(?:repository-secrets|provider-connection-secrets)\/[A-Za-z0-9_-]+\.json)$/.test(
             member.path,
           )
-        : publicPath.test(member.path))
+        : publicPath.test(member.path) || isAssistantMember(member.path))
     )
       throw problem(serverMessages.backups.unexpectedComponent);
     const file = path.join(target, member.path);
@@ -53,6 +58,7 @@ export class Restore {
       Boolean(value.credentials) !== value.manifest.withCredentials
     )
       throw problem(serverMessages.backups.credentialManifestMismatch);
+    validateAssistantManifest(manifest.assistants, value.files);
     const scratch = folder(path.join(this.directory, `.inspect-${randomUUID()}`));
     try {
       extract(value.files, scratch);
@@ -114,6 +120,12 @@ export class Restore {
     try {
       extract(value.files, stage);
       extract(secrets, stage, true);
+      const assistants = await restoreAssistants({
+        stage,
+        target,
+        liveDataDir: this.dataDir,
+        value: value.manifest.assistants,
+      });
       const projectMappings = await mapProjects(stage, projectMap);
       const counts = historicalOnly(stage);
       const auditFile = path.join(stage, "audit/events.json");
@@ -156,6 +168,8 @@ export class Restore {
           )
         )
           credentialsNeedingLogin.push(`repository:${credential.id}`);
+      // Sealed agent credentials restore only while this host still holds their key.
+      if (assistants.withheld) credentialsNeedingLogin.push("assistants");
       const importRecord = {
         targetDataDir: target,
         credentialsRestored: Boolean(value.credentials),

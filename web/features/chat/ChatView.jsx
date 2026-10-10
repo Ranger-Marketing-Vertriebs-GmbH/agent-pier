@@ -6,6 +6,7 @@ import ChatDeliveryStatus from "./ChatDeliveryStatus.jsx";
 import RequestPanel from "../requests/RequestPanel.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { serverText } from "../../lib/server-messages.js";
 import {
   chatViewCopy as copy,
   chatAttachmentsCopy as attachmentsCopy,
@@ -213,7 +214,7 @@ export default function ChatView({
                 cancel={picking ? () => setPicking(false) : undefined}
               />
             )}
-          {data?.notice && <p className="chat-notice">{data.notice}</p>}
+          {data?.notice && <p className="chat-notice">{serverText(data.notice)}</p>}
           <ChatReset key={delivery.reset?.deliveryId || "history"} status={resetStatus}>
             {historyLoader}
             <ChatDeliveryStatus

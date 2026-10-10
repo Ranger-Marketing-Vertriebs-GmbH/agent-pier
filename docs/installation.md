@@ -43,6 +43,8 @@ Die entsprechenden `AGENTPIER_INSTALL_ROOT`-/`AGENTPIER_DATA_DIR`-Umgebungsvaria
 werden ebenfalls berücksichtigt. Verwende absolute, normalisierte Pfade ohne `..`;
 das Datenverzeichnis muss außerhalb des Anwendungsverzeichnisses liegen.
 `--dependencies-only` repariert ausschließlich fehlende Voraussetzungen.
+`--with-assistants` schaltet die optionalen Agenten ein und installiert deren Laufzeit
+vorab (siehe [Managed assistant runtime](#managed-assistant-runtime)).
 
 Nach einem Abbruch denselben Befehl erneut aufrufen. Eine passende bestehende
 Einrichtung wird wiederaufgenommen; eine bereits aktualisierte AgentPier-Version
@@ -220,3 +222,79 @@ Eine Version mit laufenden Prozessen zeigt über **Sessions anzeigen** die Agent
 Sessions, die nicht neu geladen werden können (Pipeline-, Login-, Shell- oder unverifizierte Sessions), müssen manuell beendet werden. Prozesse außerhalb einer Session, etwa ein laufender Pipeline-Supervisor oder der Release-Helfer, blockieren den Umzug und werden mit ihrem Pfad genannt. Node-Prozesse, die nur das Node-Binary der Version nutzen, blockieren nicht; sie werden nach dem Umzug erneut geprüft. Verwenden nach dem Umzug weiterhin Prozesse die Version, bleibt sie erhalten und der Vorgang nennt die verbleibenden Verweise.
 
 Beim Aktivieren einer vorbereiteten Version bietet die Bestätigung **Laufende Sessions danach auf die neue Version umziehen** an. Der Umzug beginnt erst, nachdem die neue Version ihre Zustandsprüfung bestanden hat, und unterbricht nichts. Schlägt die Aktivierung fehl oder wird sie zurückgerollt, findet kein Umzug statt.
+
+### Managed assistant runtime
+
+The assistant service is optional and off initially: until the owner turns on
+**Settings > Agents**, nothing is created, downloaded or started. Installations that
+already used agents before this switch existed come back enabled. Enabling it provisions a
+private OpenClaw 2026.9.8 installation and Node 26.7.0 under the data directory's
+`assistants/runtimes/` directory. AgentPier itself retains its Node 22.13+ support.
+Downloads are checked against pinned official Node checksums and npm package
+integrity before activation. Failed staging preserves the previously selected runtime.
+The release package includes the installer; no global OpenClaw or second daemon is
+required. The runtime's dependencies are installed with lifecycle scripts disabled;
+optional tools needing native builds are not qualified.
+
+Provisioning paths:
+
+- `agentpier-install --with-assistants` (or `scripts/install.sh … --with-assistants`)
+  enables assistants and installs the runtime before the service starts. The
+  installer, rerun on an installation with assistants enabled, provisions the
+  runtime as well. A failed download never fails the AgentPier installation; the
+  result reports `assistantRuntime.status: "failed"` with a code, and the runtime is
+  installed on the first assistant start.
+- After an AgentPier update, an installation with assistants enabled prepares the
+  runtime the new version ships in the background through the same staging path
+  and installation lock. AgentPier starts without waiting; the selection is not
+  changed. Activation stays an owner action under Settings > Agents > Agent service. With
+  assistants disabled, nothing is downloaded.
+
+Downloads are aborted only after 30 seconds without data, not after a total
+duration, so slow links complete. Interrupted transfers and server errors are
+retried up to three times with growing pauses (1, 2, 4 seconds); a retry resumes
+with an HTTP range request only when the server sent a strong ETag or a
+Last-Modified date, and otherwise starts again from the beginning. The small
+release channel manifest is retried once; a stalled channel reports
+`DOWNLOAD_IDLE_TIMEOUT`. AgentPier's own release
+downloads use the same rules.
+
+Proxies: run the installer in a shell where `HTTPS_PROXY`/`HTTP_PROXY` (either
+case), `NO_PROXY`/`no_proxy` and, for a company CA, `NODE_EXTRA_CA_CERTS` are set.
+No manual service edits are needed:
+
+- The installer writes exactly these variables, plus `NODE_USE_ENV_PROXY=1`, into
+  the launchd `EnvironmentVariables` or the systemd `Environment=` lines. No other
+  variable of the shell is persisted. Rerunning the installer with changed proxy
+  settings updates the service; a rerun from a shell without proxy variables keeps
+  the settings the service already has.
+- AgentPier passes the same set to `npm ci` and to the assistant Gateway.
+- `localhost`, `127.0.0.1`, `::1` and `[::1]` are always added to `NO_PROXY` and
+  `no_proxy`, so health checks and the Gateway connection never use the proxy.
+- Node's built-in `fetch` honours the proxy on Node 22.21+ or 24+ (not on Node 23,
+  and not on Node 22 before 22.21). The release bundles a suitable Node; if
+  AgentPier runs on another Node while a proxy is set, downloads fail at once with
+  `PROXY_REQUIRES_NEWER_NODE` instead of bypassing the proxy. When a proxy is set,
+  the installer does not use such a system Node; it downloads its own pinned Node
+  instead.
+- Behaviour change: this also applies to AgentPier's own self-update downloads.
+  An installation that runs on Node 22.13 to 22.20 behind a proxy now stops an
+  update download with `PROXY_REQUIRES_NEWER_NODE` instead of trying a direct
+  connection. Upgrade the Node that runs AgentPier to 22.21+ or 24+.
+
+For isolated diagnostics, the same installer is available as
+`node scripts/install-assistant-runtime.mjs --data-dir /absolute/disposable/path`.
+This installs the runtime only; it does not enable or start a service.
+
+### Assistant qualification in a source checkout
+
+The optional assistant service is configured under **Settings > Agents**;
+create profiles under **Agents**, then use their direct sidebar chats. Agents use
+the model connections and ChatGPT accounts configured in AgentPier (OpenRouter,
+Ollama, llama.cpp, generic and Azure OpenAI-compatible endpoints; see
+[model connections](assistant-model-connections.md)).
+For an isolated runtime probe, use
+`node scripts/verify-assistant-runtime.mjs --data-dir /absolute/empty-directory`.
+See [Assistant Gateway](assistant-gateway.md#implemented-foundation)
+for recovery behavior and current capability limits. Do not use live application
+data for this probe.

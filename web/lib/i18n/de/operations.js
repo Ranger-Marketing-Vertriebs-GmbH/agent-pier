@@ -5,6 +5,7 @@ const groups = {
   operations: "Betrieb",
 };
 const sections = {
+  assistants: "Agenten",
   general: "Allgemein",
   mcp: "MCP & Zugriffe",
   remote: "Fernzugriff",
@@ -83,6 +84,8 @@ export const operationsCopy = {
   omissions: "Nicht enthalten",
   consistency: "Aufnahmegrenzen",
   requiresPassphrase: "Für verschlüsselte Zugangsdaten ist eine Passphrase erforderlich.",
+  assistantCredentialsNote:
+    "Agent-Zugangsdaten in dieser Sicherung lassen sich nur auf diesem Host wiederherstellen. Jede Änderung an Zugangsdaten oder Provider-Zugängen macht sie unlesbar; Agenten müssen sich dann erneut anmelden.",
   download: "Herunterladen",
   deleteBackup: "Diese Sicherung löschen?",
   inspectArchive: "Sicherung prüfen und wiederherstellen",
@@ -92,6 +95,10 @@ export const operationsCopy = {
   restore: "In neuem Verzeichnis wiederherstellen",
   restoreHelp:
     "Das Ziel muss neu sein, sein übergeordnetes Verzeichnis bereits existieren. Die laufende Anwendung und native Sitzungen bleiben unverändert.",
+  restoreTargetRequired: "Gib das neue Datenverzeichnis an.",
+  restoreMappingRequired: (projects) =>
+    `Gib für jedes Projekt ein Verzeichnis an: ${projects}`,
+  restorePassphraseRequired: "Gib die Passphrase der Sicherung an.",
   projectMapping: "Projektverzeichnisse zuordnen",
   restoreConfirmation:
     "Das geprüfte Archiv wird in einem neuen Datenverzeichnis wiederhergestellt. Es werden keine nativen Sitzungen gestartet.",
@@ -247,6 +254,31 @@ export const backupCopy = {
     chat: "Chat-Verläufe",
     terminal: "Terminal-Aufnahmen",
     "agentbus-history": "AgentBus-Verlauf",
+    assistants: "Agenten, ihre Chats, Kanäle und Arbeitsbereiche",
+    "sealed-assistant-credentials":
+      "Agent-Zugangsdaten (versiegelt; nur auf diesem Host wiederherstellbar, bis Zugangsdaten oder Provider-Zugänge geändert werden)",
+    "Assistant runtimes, package caches, update snapshots, TLS and backup keys":
+      "Agent-Laufzeiten, Paket-Caches, Update-Sicherungen, TLS- und Sicherungsschlüssel",
+    "Speech connection (Deepgram key and settings)":
+      "Sprachverbindung (Deepgram-Key und Einstellungen)",
+    "Agent data skipped: unfinished update state":
+      "Agent-Daten übersprungen: unvollendeter Update-Zustand",
+    "Agent workspaces too large": "Agent-Arbeitsbereiche zu groß",
+    "Agent data too large": "Agent-Daten zu groß",
+    "Unreadable agent runtime files": "Unlesbare Agent-Laufzeitdateien",
+    "Assistant data in unsafe storage": "Agent-Daten in unsicherem Speicher",
+    "Assistant links and files not owned by AgentPier":
+      "Agent-Verknüpfungen und Dateien, die nicht AgentPier gehören",
+    "provider-connections": "Provider-Zugänge",
+    "encrypted-provider-credentials": "Keys der Provider-Zugänge (verschlüsselt)",
+    "Managed SSH accesses, private keys and session assignments":
+      "Verwaltete SSH-Zugänge, private Schlüssel und Sitzungszuordnungen",
+    "Workspace login credentials and browser sessions":
+      "Anmeldedaten für Arbeitsbereiche und Browsersitzungen",
+    "MCP client grants, OAuth credentials and start request capabilities":
+      "MCP-Client-Freigaben, OAuth-Zugangsdaten und Berechtigungen für Startanfragen",
+    "Shared native extensions, Agency agent files and their local installation records":
+      "Gemeinsame native Erweiterungen, Agency-Agentendateien und ihre lokalen Installationsdaten",
     "encrypted-managed-profiles": "Verwaltete Profile und Zugangsdaten (verschlüsselt)",
     "encrypted-repository-credentials": "Repository-Zugangsdaten (verschlüsselt)",
     "External local CLI profiles and OS keychains":

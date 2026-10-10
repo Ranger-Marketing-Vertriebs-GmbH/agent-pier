@@ -5,6 +5,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createApplication } from "../../server/app.js";
+import { writeAssistantFeature } from "../../server/features/assistants/assistant-feature.js";
 
 const execute = promisify(execFile);
 const authenticatedOrigins = new Map();
@@ -15,9 +16,14 @@ export function fixtureFetch(input, options = {}) {
   return fetch(input, { ...options, headers: { cookie, ...options.headers } });
 }
 
+/** Fixture options for suites that exercise assistants, which are opt-in. */
+export const enabledAssistants = {
+  prepareDataDir: (dataDir) => writeAssistantFeature(dataDir, { enabled: true }),
+};
+
 /** Owns one temporary app, its private tmux socket and every fixture it launches. */
 export async function applicationFixture(t, overrides = {}) {
-  const { authenticateFixture = true, ...configuration } = overrides;
+  const { authenticateFixture = true, prepareDataDir, ...configuration } = overrides;
   let cookie = "";
   const root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-blackbox-")),
@@ -97,6 +103,8 @@ export async function applicationFixture(t, overrides = {}) {
 
   t.after(dispose);
   try {
+    // Seeds the disposable data directory before the first start, e.g. feature state.
+    await prepareDataDir?.(dataDir);
     await start();
   } catch (error) {
     await dispose();

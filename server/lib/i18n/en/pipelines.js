@@ -79,6 +79,8 @@ export const pipelines = Object.freeze({
   usageLimitReached: "Native provider usage limit reached.",
   nativeTurnFailed:
     "The native stage turn ended unsuccessfully. Inspect its terminal output.",
+  // The argument is native CLI output and keeps its original language.
+  nativeTurnFailedWith: (error) => `The native stage turn ended unsuccessfully: ${error}`,
   verdictMissing: "The stage did not provide a fresh verdict.",
   pullRequestPublishFailed:
     "The run branch or pull request could not be published. Retry the PR action.",
@@ -86,7 +88,12 @@ export const pipelines = Object.freeze({
     "The existing pull request branch could not be updated. The workspace is preserved.",
   operationInterrupted:
     "The prior operation was interrupted. Inspect the preserved workspace before retrying.",
-  inactivityTimeout: "The native stage exceeded its two-hour inactivity budget.",
+  inactivityTimeout:
+    "The native turn produced no output within its inactivity limit and was stopped.",
+  turnTimeout: "The native turn exceeded its maximum run time and was stopped.",
+  verificationStepFailed: (step, exitCode) =>
+    `Verification step "${step}" failed with exit code ${exitCode}.`,
+  verificationStepTimedOut: (step) => `Verification step "${step}" timed out.`,
   turnNotRecovered:
     "The exact native turn could not be recovered. Its workspace is preserved.",
   checkpointFailed:

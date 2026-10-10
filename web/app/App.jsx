@@ -1,3 +1,5 @@
+import AssistantsGate from "../features/assistants/AssistantsGate.jsx";
+import useAssistantFeature from "../features/assistants/useAssistantFeature.js";
 import { FileEditorProvider } from "../features/files/file-editor-context.jsx";
 import useLanguage from "../lib/i18n/useLanguage.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
@@ -15,6 +17,8 @@ import useWorkspaceNavigation from "./useWorkspaceNavigation.js";
 import MobileHeader from "./MobileHeader.jsx";
 import useFileNavigationGuard from "../features/files/useFileNavigationGuard.js";
 import FileNavigationGuardDialog from "../features/files/FileNavigationGuardDialog.jsx";
+import AgentsOff from "../features/assistants/AgentsOff.jsx";
+const AgentsPage = lazy(() => import("../features/assistants/AgentsPage.jsx"));
 const ProjectsPage = lazy(() => import("../features/projects/ProjectsPage.jsx"));
 const Extensions = lazy(() => import("../features/extensions/ExtensionsPage.jsx"));
 const Settings = lazy(() => import("../features/settings/SettingsPage.jsx"));
@@ -24,13 +28,17 @@ const PipelinePage = lazy(() => import("../features/pipelines/PipelinePage.jsx")
 const ArtifactsPage = lazy(() => import("../features/artifacts/ArtifactsPage.jsx"));
 const FilesPage = lazy(() => import("../features/files/FilesPage.jsx"));
 export default function App() {
+  const { enabled } = useAssistantFeature();
   return (
     <FileEditorProvider>
-      <Application />
+      <AssistantsGate enabled={enabled}>
+        <Application />
+      </AssistantsGate>
     </FileEditorProvider>
   );
 }
 function Application() {
+  const { enabled: agentsEnabled, loading: agentsLoading } = useAssistantFeature();
   useLanguage();
   const { state, loading, error, ready, refresh } = useWorkspaceState();
   const [modal, setModal] = useState(null),
@@ -123,6 +131,8 @@ function Application() {
           installed,
           view,
           page,
+          navigate,
+          route,
           state,
           selected,
           error,
@@ -166,6 +176,16 @@ function Application() {
                 {copy.workspaceLoading}
               </p>
             </div>
+          ) : view === "agents" ? (
+            agentsEnabled ? (
+              <AgentsPage route={route} navigate={navigate} />
+            ) : agentsLoading ? (
+              <p className="loading" role="status">
+                {copy.workspaceLoading}
+              </p>
+            ) : (
+              <AgentsOff navigate={navigate} />
+            )
           ) : view === "pipelines" ? (
             <Suspense
               fallback={
@@ -235,6 +255,7 @@ function Application() {
                 state,
                 setModal,
                 act,
+                onNavigate: navigate,
               }}
             />
           ) : activeSession ? (

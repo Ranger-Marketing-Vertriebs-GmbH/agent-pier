@@ -1,3 +1,4 @@
+import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 export async function pipelinesFixture(page) {
@@ -59,6 +60,7 @@ export async function pipelinesFixture(page) {
     release: null,
   };
   await page.route("**/api/**", async (route) => {
+    if (await fulfillDormantAssistantRequest(route)) return;
     const req = route.request(),
       url = new URL(req.url()),
       path = url.pathname.replace("/api", ""),

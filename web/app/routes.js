@@ -46,6 +46,22 @@ export function readRoute(location) {
       view: "workspace",
       sessionId: "",
     };
+  if (pathname === "/agents") return { view: "agents" };
+  const agent =
+    /^\/agents\/([A-Za-z0-9_-]+)\/(settings|chats\/([A-Za-z0-9_-]+)|teams\/([A-Za-z0-9_-]+))$/.exec(
+      pathname,
+    );
+  const child = agent?.[3] || agent?.[4];
+  if (agent && idPattern.test(agent[1]) && (!child || idPattern.test(child)))
+    return {
+      view: "agents",
+      assistantId: agent[1],
+      ...(agent[3]
+        ? { conversationId: agent[3] }
+        : agent[4]
+          ? { teamId: agent[4] }
+          : { agentSettings: true }),
+    };
   if (pathname === "/accounts")
     return {
       view: "accounts",
@@ -122,6 +138,14 @@ export function routePath(route) {
   if (route.view === "artifacts")
     return `/artifacts${route.projectId ? `/${encodeURIComponent(route.projectId)}` : ""}`;
   if (route.view === "files") return `/files${explorerQuery(route)}`;
+  if (route.view === "agents")
+    return route.conversationId
+      ? `/agents/${encodeURIComponent(route.assistantId)}/chats/${encodeURIComponent(route.conversationId)}`
+      : route.teamId
+        ? `/agents/${encodeURIComponent(route.assistantId)}/teams/${encodeURIComponent(route.teamId)}`
+        : route.assistantId
+          ? `/agents/${encodeURIComponent(route.assistantId)}/settings`
+          : "/agents";
   if (route.view === "settings") return settingsRoutePath(route);
   if (route.view === "pipelines") return pipelineRoutePath(route);
   if (route.view === "projects") return projectsRoutePath(route);

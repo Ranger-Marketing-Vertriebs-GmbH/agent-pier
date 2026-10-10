@@ -82,7 +82,9 @@ export const waitingFor = (code) =>
     ? "request"
     : ["CHAT_QUESTION_OPEN", "CHAT_DIALOG_NOT_CLOSED"].includes(code)
       ? "dialog"
-      : null;
+      : code === "CHAT_CLI_STARTING"
+        ? "starting"
+        : null;
 
 /** Informational, non-blocking notes on how a message reached the TUI. */
 export const noticeRecorder = (receipt) => async (code) => {

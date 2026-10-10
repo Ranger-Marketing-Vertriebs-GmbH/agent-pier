@@ -1,16 +1,23 @@
+import useAssistantFeature from "../features/assistants/useAssistantFeature.js";
+import { assistantCopy } from "../lib/i18n/messages/assistants.js";
 import { artifactCopy } from "../lib/i18n/messages/artifacts.js";
 import LogoutButton from "../features/login/LogoutButton.jsx";
 import { pipelineCopy } from "../lib/i18n/messages/pipelines.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import { filesCopy } from "../lib/i18n/messages/files.js";
 import { sidebarCopy as copy } from "../lib/i18n/messages/app.js";
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import Icon from "../components/Icon.jsx";
 import ProviderMark from "../components/ProviderMark.jsx";
 import { names } from "../lib/providers.js";
+const AssistantSidebar = lazy(
+  () => import("../features/assistants/AssistantSidebar.jsx"),
+);
 import SidebarGroup, { sessionActivity, sandboxBadge } from "./SidebarGroup.jsx";
 export default function Sidebar({
   mobileNav,
+  navigate,
+  route,
   collapse,
   collapseRef,
   select,
@@ -23,6 +30,7 @@ export default function Sidebar({
   error,
   loading,
 }) {
+  const { enabled: agentsEnabled } = useAssistantFeature();
   const hostname = window.location.hostname.replace(/\.$/, "");
   const localAccess =
     hostname === "localhost" ||
@@ -83,6 +91,16 @@ export default function Sidebar({
           <Icon name="grid" />
           {artifactCopy.title}
         </button>
+        {agentsEnabled && (
+          <button
+            className={view === "agents" ? "nav-item selected" : "nav-item"}
+            aria-current={view === "agents" ? "page" : undefined}
+            onClick={() => page("agents")}
+          >
+            <Icon name="users" />
+            {assistantCopy.title}
+          </button>
+        )}
         <SidebarGroup
           name="projects"
           label={commonCopy.projectsGroup}
@@ -150,6 +168,11 @@ export default function Sidebar({
           </button>
         </SidebarGroup>
       </nav>
+      {agentsEnabled && (
+        <Suspense fallback={null}>
+          <AssistantSidebar navigate={navigate} route={route} />
+        </Suspense>
+      )}
       <SidebarGroup
         name="sessions"
         label={commonCopy.sessions}

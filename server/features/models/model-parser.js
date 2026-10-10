@@ -53,7 +53,9 @@ function pickerFooter(lines, start = -1) {
   const index = lines.findLastIndex(
     (line, position) =>
       position > start &&
-      /^\s*(?:press )?enter to (?:confirm|set as default)/i.test(line.text),
+      /^\s*(?:(?:press )?enter to (?:confirm|set as default)|enter (?:select|confirm|default) · )/i.test(
+        line.text,
+      ),
   );
   if (index < 0) return null;
   const footer = lines
@@ -62,9 +64,11 @@ function pickerFooter(lines, start = -1) {
     .join(" ")
     .replace(/\s+/g, " ")
     .trim();
+  // Codex 0.160 renders short key hints: "enter select · esc back" while a model
+  // still needs an effort, "enter default · s session · esc back" on the last step.
   return /^(?:press )?enter to (?:confirm|set as default)(?: or | · (?:s to use this session only · )?)esc to (?:cancel|go back)$/i.test(
     footer,
-  )
+  ) || /^enter (?:select|confirm|default) · (?:s session · )?esc back$/i.test(footer)
     ? footer
     : null;
 }
@@ -300,14 +304,16 @@ export function modelPromptReady(tool, raw) {
   const offset = prompt.text.indexOf("›") + 1;
   // A newline at the start of a draft leaves the prompt row empty. Preserve
   // every continuation row up to the native footer before typing /model.
-  const footer = lines.findLastIndex(
-    (line, position) =>
-      position > index &&
-      (position === codexFooter?.index ||
-        /(?:for shortcuts|context left|context window|gpt-|codex-|auto mode|manual mode)/i.test(
-          line.text,
-        )),
-  );
+  const footer =
+    codexFooter?.index > index
+      ? codexFooter.index
+      : lines.findLastIndex(
+          (line, position) =>
+            position > index &&
+            /(?:for shortcuts|context left|context window|gpt-|codex-|auto mode|manual mode)/i.test(
+              line.text,
+            ),
+        );
   const chars = [
     ...prompt.cells.slice(offset),
     ...lines.slice(index + 1, footer).flatMap((line) => line.cells),

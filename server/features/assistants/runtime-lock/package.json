@@ -1,0 +1,8 @@
+{
+  "name": "agentpier-managed-assistants",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "openclaw": "file:openclaw.tgz"
+  }
+}

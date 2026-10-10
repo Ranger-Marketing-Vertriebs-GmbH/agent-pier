@@ -131,3 +131,35 @@ ${"─".repeat(120)}
 ${"─".repeat(120)}
   ⏵⏵ auto mode on (shift+tab to cycle) · ← for agents
 `;
+/**
+ * Captured from Claude Code 2.1.296 (tmux capture-pane -e, 139 columns): theme rows
+ * lost their numbers and the current theme's check mark precedes the label.
+ */
+export const themeScreenV296 = (selected = 2) => {
+  const word = (color, text) =>
+    text
+      .split(" ")
+      .map((part) => `\u001b[${color}m${part}\u001b[${color === "1" ? 0 : 39}m`)
+      .join(" ");
+  const rows = themeLabels.map((label, index) => {
+    const cursor = index + 1 === selected;
+    const check = index === 1 ? "\u001b[38;2;78;186;101m✔\u001b[39m " : "  ";
+    const text = cursor ? word("38;2;177;185;249", label) : label;
+    return ` ${cursor ? "\u001b[38;2;177;185;249m❯\u001b[39m" : " "} ${check}${text}`;
+  });
+  return `${"\n".repeat(16)} Let's get started.
+
+ ${word("1", "Choose the text style that looks best with your terminal")}
+ ${word("38;2;153;153;153", "To change this later, run /theme")}
+
+${rows.join("\n")}
+
+ \u001b[38;2;80;80;80m${"╌".repeat(135)}\u001b[39m
+ \u001b[2m\u001b[38;2;248;248;242m 1\u001b[0m \u001b[38;2;248;248;242m function greet() {\u001b[39m
+ 2 -  console.log("Hello, World!");
+ 2 +  console.log("Hello, Claude!");
+ \u001b[2m 3\u001b[0m  }
+ \u001b[38;2;80;80;80m${"╌".repeat(135)}\u001b[39m
+ \u001b[38;2;153;153;153m Syntax theme: Monokai Extended (ctrl+t to disable)\u001b[39m
+`;
+};

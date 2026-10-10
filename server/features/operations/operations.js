@@ -14,13 +14,14 @@ export class Operations {
     config,
     audit,
     withSnapshotBarrier,
+    assistantsBusy,
     doctorOptions = {},
     releaseOptions = {},
   }) {
     config = { ...config, dataDir: fs.realpathSync(config.dataDir) };
     this.config = config;
     this.audit = audit;
-    this.backup = new Backup({ ...config, audit, withSnapshotBarrier });
+    this.backup = new Backup({ ...config, audit, withSnapshotBarrier, assistantsBusy });
     this.restore = new Restore({ ...config, audit });
     this.releases = new Releases({ ...config, ...releaseOptions });
     this.doctor = new Doctor({ ...config, ...doctorOptions });

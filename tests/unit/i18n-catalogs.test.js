@@ -43,3 +43,31 @@ test("every message has matching German and English catalogs and reactive export
     compare(de, messages, `${file} German exports`, true);
   }
 });
+
+// The product calls them agents; "Assistent"/"assistant" must not leak into UI copy.
+function strings(value, found = []) {
+  if (typeof value === "function") {
+    found.push(value(...Array.from({ length: value.length }, () => "x")));
+  } else if (typeof value === "string") found.push(value);
+  else if (value && typeof value === "object")
+    for (const child of Object.values(value)) strings(child, found);
+  return found;
+}
+test("catalogs say agent consistently instead of assistant", async () => {
+  for (const file of (await readdir(new URL("de/", base))).filter((n) =>
+    n.endsWith(".js"),
+  )) {
+    const de = strings(await import(new URL(`de/${file}`, base)));
+    const en = strings(await import(new URL(`en/${file}`, base)));
+    assert.deepEqual(
+      de.filter((text) => /Assistent/i.test(text)),
+      [],
+      `${file} German`,
+    );
+    assert.deepEqual(
+      en.filter((text) => /\bassistants?\b/i.test(text)),
+      [],
+      `${file} English`,
+    );
+  }
+});

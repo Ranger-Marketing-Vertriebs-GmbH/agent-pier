@@ -50,6 +50,9 @@ export const releaseCopy = Object.freeze({
   httpsDownloadRequired: "Release downloads require HTTPS without embedded credentials.",
   redirectLimit: "Release redirect limit exceeded.",
   downloadFailed: "Release download failed.",
+  downloadStalled: "The download received no data for too long.",
+  proxyRequiresNewerNode: (minimum) =>
+    `Downloads through a proxy require Node.js ${minimum} or newer.`,
   channelRequired: "Configure an HTTPS release channel on the server first.",
   channelHttpsRequired: "Release channel must use HTTPS without embedded credentials.",
   channelManifestInvalid: "Release channel manifest is invalid.",

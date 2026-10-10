@@ -5,9 +5,16 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 const stageCount = (pipeline) =>
   pipeline.graph.nodes.filter((node) => node.kind === "profile").length;
 
-// Choosing a pipeline opens it for editing; each row also starts a run with it or
-// removes it.
-export default function DefinitionList({ items, selectedId, onSelect, onRun, onRemove }) {
+// Choosing a pipeline opens it for editing; each row also starts a run with it,
+// duplicates it or removes it.
+export default function DefinitionList({
+  items,
+  selectedId,
+  onSelect,
+  onRun,
+  onDuplicate,
+  onRemove,
+}) {
   return (
     <div className="list-detail-items definition-list">
       {items.map((item) => {
@@ -32,6 +39,14 @@ export default function DefinitionList({ items, selectedId, onSelect, onRun, onR
                 onClick={() => onRun(item.id)}
               >
                 {copy.newRun}
+              </button>
+              <button
+                type="button"
+                className="button secondary compact"
+                aria-label={copy.clone(item.name)}
+                onClick={() => onDuplicate(item)}
+              >
+                {copy.duplicate}
               </button>
               <button
                 type="button"

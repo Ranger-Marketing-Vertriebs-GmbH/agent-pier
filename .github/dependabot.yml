@@ -2,6 +2,11 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    # The managed assistant runtime lock must match the dependencyLockSha256 pinned
+    # in runtime-manifest.js; only scripts/refresh-assistant-runtime-lock.mjs updates
+    # it (see docs/assistant-runtime-updates.md).
+    exclude-paths:
+      - "server/features/assistants/runtime-lock/**"
     schedule:
       interval: weekly
       day: monday
@@ -19,6 +24,16 @@ updates:
       security-updates:
         applies-to: security-updates
         patterns: ["*"]
+  # The runtime lock is its own npm manifest directory, so the root entry's
+  # exclude-paths does not cover its security updates. Ignore everything here;
+  # alerts for this directory are resolved with refresh-assistant-runtime-lock.mjs.
+  - package-ecosystem: npm
+    directory: /server/features/assistants/runtime-lock
+    schedule:
+      interval: weekly
+      day: monday
+    ignore:
+      - dependency-name: "*"
   - package-ecosystem: github-actions
     directory: /
     schedule:

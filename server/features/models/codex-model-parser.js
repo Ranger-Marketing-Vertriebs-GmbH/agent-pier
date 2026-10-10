@@ -7,7 +7,11 @@ const label = (value) => /^[A-Za-z0-9][A-Za-z0-9._/:\[\] ()-]{0,299}$/.test(valu
 export function codexModelFooter(text) {
   const lines = text.trimEnd().split("\n");
   const prompt = lines.findLastIndex((line) => /^\s*›(?:\s|$)/.test(line));
-  const last = lines.length - 1;
+  // Codex 0.160 prints a key hint ("? for shortcuts", "← for agents · …") below it.
+  const last =
+    lines.length -
+    1 -
+    (/^ {2}\S.*\bfor (?:shortcuts|agents)$/.test(lines.at(-1)) ? 1 : 0);
   if (
     prompt >= 0 &&
     last > prompt &&

@@ -6,6 +6,16 @@ import { fileURLToPath } from "node:url";
 import { createCodexProxy } from "./codex-proxy.js";
 import { NativeRequestChannel } from "./native-channel.js";
 import { stopOwnedGroup } from "../pipelines/native-owned-group.js";
+import { ADAPTER_URL_PLACEHOLDER } from "../providers/adapter-launch.js";
+
+/** The launcher substituted AGENTPIER_ADAPTER_URL; the request file still holds the placeholder. */
+export function adapterArgs(args, env) {
+  const url = env.AGENTPIER_ADAPTER_URL;
+  if (!args.some((arg) => String(arg).includes(ADAPTER_URL_PLACEHOLDER))) return args;
+  if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(url || ""))
+    throw Error("Codex adapter launch without a bound adapter URL");
+  return args.map((arg) => String(arg).replaceAll(ADAPTER_URL_PLACEHOLDER, url));
+}
 
 export function appServerArgs(args) {
   const config = [];
@@ -27,7 +37,7 @@ export async function runCodexLaunch(file, { env = process.env } = {}) {
     !Array.isArray(launch.args)
   )
     throw Error("Invalid Codex request launch");
-  const args = remoteLaunchArgs(launch.args, { env, cwd: launch.cwd });
+  const args = remoteLaunchArgs(adapterArgs(launch.args, env), { env, cwd: launch.cwd });
   const channel = new NativeRequestChannel({ env });
   const keeper = fileURLToPath(new URL("./codex-owned-backend.js", import.meta.url));
   const backend = spawn(process.execPath, [keeper], {

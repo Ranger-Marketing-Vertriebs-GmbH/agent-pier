@@ -9,6 +9,7 @@ import { isVerifying } from "./VerificationStatus.jsx";
 import RunActions from "./RunActions.jsx";
 import { runTitle } from "./run-title.js";
 import { runProject, runStatusTone } from "./run-presentation.js";
+import { runStatusLabel } from "./run-codes.js";
 
 // Back link, task title, status, meta line and the run-wide actions; the task text
 // stays collapsible below. `decisionCue` leads to the waiting gate stage while another
@@ -39,9 +40,7 @@ export default function RunHeader({ run, back, refresh, exclude, shared, decisio
             <h2>{runTitle(run)}</h2>
             <span className="run-header-status" role="status">
               <StatusChip tone={verifying ? "running" : runStatusTone(run.status)}>
-                {verifying
-                  ? copy.verificationRunning
-                  : copy.statuses[run.status] || run.status}
+                {verifying ? copy.verificationRunning : runStatusLabel(run.status)}
               </StatusChip>
             </span>
           </div>
@@ -53,11 +52,26 @@ export default function RunHeader({ run, back, refresh, exclude, shared, decisio
               </React.Fragment>
             ))}
           </p>
-          {run.cwd && (
-            <p className="run-header-cwd">
-              <span>{copy.directory}</span>
-              <code>{run.cwd}</code>
-            </p>
+          {run.workingDir ? (
+            <>
+              <p className="run-header-cwd">
+                <span>{copy.runWorktree}</span>
+                <code>{run.workingDir}</code>
+              </p>
+              {run.cwd && run.cwd !== run.workingDir && (
+                <p className="run-header-cwd run-header-source">
+                  <span>{copy.runSource}</span>
+                  <code>{run.cwd}</code>
+                </p>
+              )}
+            </>
+          ) : (
+            run.cwd && (
+              <p className="run-header-cwd">
+                <span>{copy.directory}</span>
+                <code>{run.cwd}</code>
+              </p>
+            )
           )}
           {run.pullRequestUrl && (
             <a href={run.pullRequestUrl} target="_blank" rel="noreferrer">
