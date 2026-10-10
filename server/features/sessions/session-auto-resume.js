@@ -13,9 +13,12 @@ export class SessionAutoResume {
     this.queue = Promise.resolve();
     this.closed = false;
   }
-  initialize() {
-    this.enqueue(() => this.sweep());
-    return this.notify();
+  async initialize() {
+    const swept = this.enqueue(() => this.sweep());
+    const drained = this.notify();
+    const [sweep, drain] = await Promise.allSettled([swept, drained]);
+    if (sweep.status === "rejected") throw sweep.reason;
+    if (drain.status === "rejected") throw drain.reason;
   }
   notify() {
     return this.enqueue(() => this.drain());
