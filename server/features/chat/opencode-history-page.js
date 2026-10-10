@@ -126,6 +126,68 @@ export async function readOpenCodePage(history, session, id, state = null) {
   }
 }
 
+/** Reload needs identity and the latest model, never the complete conversation. */
+export async function readOpenCodeReloadContext(history, session, id) {
+  const location = await databaseFile(history, session);
+  if (!location) return null; // Pre-SQLite storage stays on the explicit legacy adapter.
+  let db;
+  try {
+    db = openDatabase(location);
+    if (!supported(db)) return null;
+    const info = db.prepare("SELECT directory,revert FROM session WHERE id=?").get(id);
+    if (!info) throw problem(serverMessages.chat.sessionHistoryPending, 404);
+    if (info.directory !== session.cwd)
+      throw problem(serverMessages.chat.historyProjectMismatch, 409);
+    const revert = openCodeRevert(info.revert);
+    let rows;
+    if (revert) {
+      const target = db
+        .prepare("SELECT time_created FROM message WHERE session_id=? AND id=?")
+        .get(id, revert.messageID);
+      if (!target) throw mismatch();
+      // A part revert keeps the target message itself, like activeOpenCodeExport.
+      const before = revert.partID ? "<=" : "<";
+      rows = db
+        .prepare(
+          `SELECT data FROM message WHERE session_id=? AND (time_created,id)${before}(?,?) ORDER BY time_created DESC,id DESC`,
+        )
+        .iterate(id, target.time_created, revert.messageID);
+    } else
+      rows = db
+        .prepare(
+          "SELECT data FROM message WHERE session_id=? ORDER BY time_created DESC,id DESC",
+        )
+        .iterate(id);
+    let modelId = null;
+    for (const row of rows) {
+      let message;
+      try {
+        message = JSON.parse(row.data);
+      } catch {
+        continue;
+      }
+      modelId = observeOpenCode({ info: { id }, messages: [{ info: message }] }).context
+        .modelId;
+      if (modelId) break;
+    }
+    if (location.immutable) {
+      const after = await databaseFile(history, session);
+      if (
+        !after?.immutable ||
+        after.identity !== location.identity ||
+        after.version !== location.version
+      )
+        throw mismatch();
+    }
+    return { observability: { context: { modelId } } };
+  } catch (error) {
+    if (error.status) throw error;
+    throw unavailable();
+  } finally {
+    db?.close();
+  }
+}
+
 function validateBoundary(db, id, before) {
   if (!before || typeof before.id !== "string" || !Number.isSafeInteger(before.time))
     throw mismatch();
