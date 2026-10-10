@@ -15,6 +15,7 @@ export function createShutdown({ services, wss, server }) {
       }
     await services.artifacts?.close();
     await services.files?.close();
+    await services.autoResume?.close();
     await services.reload?.close();
     await services.sshManagement?.close();
     services.accountAuthStatus?.close();

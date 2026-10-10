@@ -5,6 +5,7 @@ import { artifactsRoutes } from "./http/routes/artifacts.js";
 import { fileTextRoutes } from "./http/routes/file-text.js";
 import { SessionMcp } from "./features/mcp/session-integration.js";
 import { SessionReload } from "./features/sessions/session-reload.js";
+import { SessionAutoResume } from "./features/sessions/session-auto-resume.js";
 import { sshRoutes } from "./http/routes/ssh.js";
 import { LoginStore } from "./features/login/login-store.js";
 import { loginRoutes, requireLogin } from "./http/login.js";
@@ -92,6 +93,10 @@ export async function createApplication(config) {
   Object.assign(services, createSessionLifecycle(services));
   services.reload = new SessionReload({ services });
   await services.reload.initialize();
+  services.autoResume = new SessionAutoResume({
+    services,
+    enabled: () => services.preferences.get().autoResumeInterrupted,
+  });
   Object.assign(services, await createPipelineServices(services));
   services.projectRebind.definitions = services.pipelineDefinitions;
   services.projectDuplicates = new ProjectDuplicates(services);
@@ -140,6 +145,14 @@ export async function createApplication(config) {
   });
   server.once("listening", () => services.releaseMigration.resumeAfterActivation());
   server.once("listening", () => services.mcpAccess.initialize());
+  server.once("listening", () => {
+    const report = (error) =>
+      console.error(
+        `AgentPier could not resume interrupted sessions: ${error?.code || error?.message || "unknown error"}`,
+      );
+    services.sessions.onInterrupted = () => services.autoResume.notify().catch(report);
+    services.autoResume.initialize().catch(report);
+  });
   server.once("listening", () => services.assistantFeature.start());
   app.disable("x-powered-by");
   app.use(securityHeaders);
