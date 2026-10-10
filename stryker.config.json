@@ -21,6 +21,14 @@
       "tests/integration/pipeline-engine.test.js",
       "tests/integration/pipeline-storage.test.js"
     ],
+    "nodeArgs": [
+      "--import",
+      "./tests/helpers/tmux-reaper.js",
+      "--test-reporter=tap",
+      "-r",
+      "{{hookFile}}",
+      "{{testFile}}"
+    ],
     "forceBail": false
   },
   "concurrency": 2,
