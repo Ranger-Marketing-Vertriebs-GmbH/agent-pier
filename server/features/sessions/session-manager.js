@@ -112,10 +112,10 @@ export class SessionManager {
     if (session.status !== "running") return false;
     if (tmuxServerGone(error.message)) return true;
     if (!session.tmuxServer) return false;
-    return !sameTmuxServer(
-      session.tmuxServer,
-      await readTmuxServer(this).catch(() => null),
-    );
+    // Only a successfully read, different identity means a replaced server. An empty
+    // answer (live server, no sessions) or a failing probe is not evidence of loss.
+    const current = await readTmuxServer(this).catch(() => null);
+    return !!current && !sameTmuxServer(session.tmuxServer, current);
   }
   async current(id) {
     const session = await this.metadata(id);

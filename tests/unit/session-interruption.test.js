@@ -113,3 +113,28 @@ test("a user stop clears the interruption and setInterruption persists changes",
   await manager.setInterruption("owned-fixture", null);
   assert.equal((await manager.metadata("owned-fixture")).interruption, undefined);
 });
+
+test("a live server without sessions is no interruption", async (t) => {
+  const { tmux, interrupted, settle, read } = await fixture(t, {
+    tmuxServer: { pid: 100, startTime: 1700000000 },
+  });
+  tmux.paneError = "can't find session: tuiui-owned-fixture";
+  tmux.server = ""; // exit-empty off: the server answers with no output.
+  const session = await read();
+  assert.equal(session.status, "stopped");
+  assert.equal(session.interruption, undefined);
+  await settle();
+  assert.deepEqual(interrupted, []);
+});
+
+test("a failing identity probe is no interruption", async (t) => {
+  const { tmux, interrupted, settle, read } = await fixture(t, {
+    tmuxServer: { pid: 100, startTime: 1700000000 },
+  });
+  tmux.paneError = "can't find session: tuiui-owned-fixture";
+  tmux.serverError = "permission denied";
+  const session = await read();
+  assert.equal(session.interruption, undefined);
+  await settle();
+  assert.deepEqual(interrupted, []);
+});
