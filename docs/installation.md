@@ -166,7 +166,7 @@ npm run service:status
 
 Die Installation schreibt ausschließlich den AgentPier-LaunchAgent `~/Library/LaunchAgents/dev.agentpier.server.plist`. Er startet den Webdienst beim Benutzer-Login und nach einem Absturz neu. Der Dienst läuft mit diesem Benutzerkonto; es ist kein Systemdienst vor der Anmeldung.
 
-Die Plist speichert Node-Pfad, Projekt-/Datenverzeichnis und PATH zum Installationszeitpunkt. Nach Verschieben des Projekts oder einem Node-Upgrade `npm run service:install` erneut ausführen. Eigene CLI-Sitzungen bleiben beim Neustart des Webdienstes erhalten.
+Die Plist speichert Node-Pfad, Projekt-/Datenverzeichnis und PATH zum Installationszeitpunkt. Nach Verschieben des Projekts oder einem Node-Upgrade `npm run service:install` erneut ausführen. Eigene CLI-Sitzungen bleiben beim Neustart des Webdienstes erhalten. Ein Rechnerneustart oder Absturz beendet dagegen alle CLI-Prozesse: Nach dem nächsten Start – unter macOS also nach dem Login, weil der LaunchAgent erst dann startet – setzt AgentPier unterbrochene Sitzungen automatisch mit ihrer eigenen Unterhaltung fort, sofern „Unterbrochene Sitzungen automatisch fortsetzen“ in den Einstellungen aktiv ist (Standard: an). Laufende Antworten und Prozesse zum Zeitpunkt der Unterbrechung gehen verloren; vom Nutzer gestoppte Sitzungen bleiben gestoppt.
 
 ## 5. Optional: privater Fernzugriff
 
