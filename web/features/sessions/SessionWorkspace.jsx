@@ -220,10 +220,14 @@ export default function SessionWorkspace({
         <div className="session-reload-notice" role="status">
           <span>
             {["failed", "skipped"].includes(session.interruption.resume)
-              ? sessionInterruptionCopy.failed(
-                  sessionInterruptionCopy.reasons[session.interruption.reason] ||
-                    sessionInterruptionCopy.reasons["reload-failed"],
+              ? Object.hasOwn(
+                  sessionInterruptionCopy.reasons,
+                  session.interruption.reason,
                 )
+                ? sessionInterruptionCopy.failed(
+                    sessionInterruptionCopy.reasons[session.interruption.reason],
+                  )
+                : sessionInterruptionCopy.failedUnknown
               : sessionInterruptionCopy.resuming}
           </span>
         </div>

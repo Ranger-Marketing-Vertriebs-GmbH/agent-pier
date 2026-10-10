@@ -69,13 +69,15 @@
   padding: 1rem;
   margin: 16px 0;
 }
-.assistant-feature .switch-row {
+.assistant-feature .switch-row,
+.session-recovery .switch-row {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 0.5rem;
 }
-.assistant-feature .switch-row input {
+.assistant-feature .switch-row input,
+.session-recovery .switch-row input {
   width: auto;
   accent-color: var(--accent);
 }

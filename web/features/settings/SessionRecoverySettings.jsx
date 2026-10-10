@@ -8,7 +8,7 @@ export default function SessionRecoverySettings({ state, refresh, ready }) {
     [error, setError] = useState("");
   const enabled = state.autoResumeInterrupted !== false;
   return (
-    <section className="settings-form">
+    <section className="settings-form session-recovery">
       <label className="switch-row">
         <input
           type="checkbox"
