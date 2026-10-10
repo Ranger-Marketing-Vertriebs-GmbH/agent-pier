@@ -11,6 +11,10 @@ function stopTurn(engine, identity) {
     ? engine.driver.finish(identity)
     : engine.driver.cancel(identity);
 }
+// The launcher escalates its group stop to SIGKILL after one second. A repeated
+// SIGTERM that lands while it exits kills it by signal, losing the exit status
+// that its quiescence receipt is compared with.
+const RESTOP_MIN_MS = 2000;
 /**
  * Some CLIs (observed with `opencode run`) report their terminal event and then
  * never exit. A completed turn that stays idle for the grace period is stopped and
@@ -32,7 +36,7 @@ async function superviseRunningTurn(engine, run, node, identity, outcome) {
     // A stop that did not land is repeated after another grace period.
     (!attempt.settledAfterCompletion ||
       !Number.isFinite(settledAt) ||
-      now - settledAt >= completionGraceMs)
+      now - settledAt >= Math.max(completionGraceMs, RESTOP_MIN_MS))
   ) {
     attempt.settledAfterCompletion = engine.now();
     engine.store.save(run);

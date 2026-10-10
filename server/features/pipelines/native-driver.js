@@ -179,6 +179,9 @@ export class NativePipelineDriver {
         process.kill(Number(pid), "SIGTERM");
         return;
       }
+      // An earlier stop already landed: killing the session now could discard the
+      // exit status tmux has not reaped yet, and with it the quiescence comparison.
+      if (dead === "1") return;
     } catch {}
     await this.sessions.stop(session.id);
   }
