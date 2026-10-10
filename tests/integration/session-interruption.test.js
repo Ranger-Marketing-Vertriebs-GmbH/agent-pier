@@ -67,3 +67,22 @@ test("a replacement after an interruption records the new server and clears the 
   assert.notDeepEqual(after.tmuxServer, before.tmuxServer);
   assert.equal((await manager.metadata("replaced")).interruption, undefined);
 });
+
+test("a replacement whose server probe answers empty drops the stale identity", async (t) => {
+  const { manager, create } = await fixture(t);
+  assert.equal(typeof (await create("unprobed")).tmuxServer.pid, "number");
+  await manager.tmux(["kill-server"]);
+  assert.equal((await manager.get("unprobed")).interruption.resume, "pending");
+  await manager.updateReload("unprobed", { state: "reloading", nativeId: "native" });
+  const tmux = manager.tmux.bind(manager);
+  let launched = false;
+  t.mock.method(manager, "tmux", async (args) => {
+    if (args[0] === "new-session") launched = true;
+    if (launched && args[0] === "list-sessions") return "";
+    return tmux(args);
+  });
+  const after = await manager.replace("unprobed", async () => launch);
+  assert.equal(after.status, "running");
+  assert.equal(after.tmuxServer, undefined);
+  assert.equal((await manager.metadata("unprobed")).tmuxServer, undefined);
+});
