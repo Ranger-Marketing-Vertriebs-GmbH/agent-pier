@@ -39,6 +39,7 @@ export default function SessionWorkspace({
   route,
   navigate,
   openNavigation,
+  autoResume = true,
 }) {
   const [artifactsOpen, setArtifactsOpen] = useState(false);
   const [sshSession, setSshSession] = useState(null);
@@ -228,7 +229,9 @@ export default function SessionWorkspace({
                     sessionInterruptionCopy.reasons[session.interruption.reason],
                   )
                 : sessionInterruptionCopy.failedUnknown
-              : sessionInterruptionCopy.resuming}
+              : session.interruption.resume === "pending" && !autoResume
+                ? sessionInterruptionCopy.disabled
+                : sessionInterruptionCopy.resuming}
           </span>
         </div>
       )}

@@ -112,6 +112,8 @@ export const sessionInterruptionCopy = {
   failedUnknown:
     "Diese Sitzung wurde unterbrochen und konnte nicht automatisch fortgesetzt werden.",
   resuming: "Diese Sitzung wurde unterbrochen und wird automatisch fortgesetzt …",
+  disabled:
+    "Diese Sitzung wurde unterbrochen. Das automatische Fortsetzen ist aus; nutze „Neu laden & fortsetzen“, um sie fortzusetzen.",
   failed: (reason) =>
     `Diese Sitzung wurde unterbrochen und konnte nicht automatisch fortgesetzt werden: ${reason}`,
   reasons: {

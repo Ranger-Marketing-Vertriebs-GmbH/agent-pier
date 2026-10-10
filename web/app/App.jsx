@@ -266,6 +266,7 @@ function Application() {
               route={route}
               navigate={navigate}
               account={state.accounts.find((a) => a.id === activeSession.accountId)}
+              autoResume={state.autoResumeInterrupted !== false}
               action={act}
               mode={
                 activeSession.tool === "shell" && route.mode !== "files"
