@@ -67,11 +67,14 @@ export class AssistantConfig {
       lease = await this.models.resolve(assistant.model);
     const nativeReady = !!this.nativeReady?.();
     const capabilities = personalCapabilities(assistant);
+    // The same availability the Gateway start compiled (webToolsAvailability).
+    const available = this.webToolsAvailable?.() || {};
     const allowed = profileTools(
       assistant,
       this.teamReady?.(),
       nativeReady,
       !!this.writeGuard?.(),
+      available,
     );
     const bootstrap = assistantBootstrap(assistant, lease.display);
     const fingerprint = createHash("sha256")
@@ -149,6 +152,7 @@ export class AssistantConfig {
               agentRuntime: lease.agentRuntime,
               toolsManaged: !!(this.teamReady || this.nativeReady),
               memoryManaged: !!this.nativeReady,
+              available,
             });
           const keyed = agents.entries && !Array.isArray(agents.entries);
           const patch = keyed

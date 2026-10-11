@@ -297,6 +297,74 @@ test("managed profiles apply exact parent/member tools without copying native cr
   ]);
 });
 
+test("a live apply withholds web tools the started Gateway could not serve", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-web-tools-"));
+  const store = new AssistantStore({ dataDir });
+  t.after(() => {
+    store.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  });
+  const assistant = store.createAssistant({
+    name: "Researcher",
+    model: { connectionId: "c", modelId: "m" },
+    capabilities: {
+      memory: false,
+      reminders: false,
+      webSearch: true,
+      webFetch: true,
+      browser: true,
+    },
+  });
+  const effective = {
+    agents: { entries: { [assistant.runtimeAgentId]: { model: "c/m" } } },
+  };
+  const files = {};
+  const client = {
+    async call(method, params) {
+      if (method === "config.get")
+        return { hash: "h", config: structuredClone(effective) };
+      if (method === "config.patch") {
+        Object.assign(effective.agents.entries, JSON.parse(params.raw).agents.entries);
+        return {};
+      }
+      if (method === "agents.list") return { agents: [{ id: assistant.runtimeAgentId }] };
+      if (method === "agents.update") return {};
+      if (method === "agents.files.get")
+        return {
+          file:
+            params.name in files ? { content: files[params.name] } : { missing: true },
+        };
+      if (method === "agents.files.set") {
+        files[params.name] = params.content;
+        return {};
+      }
+      assert.fail(method);
+    },
+  };
+  let available = { browser: false, webSearch: false };
+  const config = new AssistantConfig({
+    client,
+    store,
+    workspaces: dataDir,
+    teamReady: () => true,
+    models: { resolve: () => ({ modelRef: "c/m", release() {} }) },
+  });
+  Object.assign(config, {
+    nativeReady: () => true,
+    writeGuard: () => false,
+    webToolsAvailable: () => available,
+  });
+  await config.apply(assistant.id);
+  const tools = () => effective.agents.entries[assistant.runtimeAgentId].tools.allow;
+  assert.ok(tools().includes("web_fetch"));
+  assert.ok(!tools().includes("web_search"));
+  assert.ok(!tools().includes("browser"));
+  available = { browser: true, webSearch: true };
+  await config.apply(assistant.id);
+  assert.ok(tools().includes("web_search"));
+  assert.ok(tools().includes("browser"));
+});
+
 test("every turn admission restores tampered bootstrap files even when nothing changed", async (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-bootstrap-"));
   const store = new AssistantStore({ dataDir });

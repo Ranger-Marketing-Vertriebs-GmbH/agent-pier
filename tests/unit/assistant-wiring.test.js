@@ -73,8 +73,28 @@ test("createAssistantServices returns a graph whose every reference is connected
   assert.ok(assistantUpdates);
   for (const hook of ["teamConfiguration", "maintenance", "beforeSpawn", "afterReady"])
     assert.equal(typeof assistantRuntime[hook], "function", hook);
-  for (const hook of ["teamReady", "writeGuard", "hostCapacity", "nativeReady"])
+  for (const hook of [
+    "teamReady",
+    "writeGuard",
+    "hostCapacity",
+    "nativeReady",
+    "webToolsAvailable",
+  ])
     assert.equal(typeof assistants.config[hook], "function", hook);
+  // Live applies see what the last start compiled; before any start, nothing.
+  assert.deepEqual(assistants.config.webToolsAvailable(), {
+    browser: false,
+    webSearch: false,
+  });
+  assistantRuntime.webTools = {
+    search: { provider: "duckduckgo", requiresPlugin: true },
+    browser: { available: true, executablePath: "/usr/bin/chromium" },
+    searchPlugins: { duckduckgo: { id: "duckduckgo", directory: "/rt/ddg" } },
+  };
+  assert.deepEqual(assistants.config.webToolsAvailable(), {
+    browser: true,
+    webSearch: true,
+  });
   assert.equal(assistants.maintenance, false);
   // Connected services work without recovery having run.
   assert.deepEqual(assistants.list().assistants, []);

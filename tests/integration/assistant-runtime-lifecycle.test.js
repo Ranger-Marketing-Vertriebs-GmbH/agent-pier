@@ -204,6 +204,50 @@ test("offline provider preparation finishes before spawn and cancellation cannot
   assert.equal(runtime.status().availability, "disabled");
 });
 
+test("a start compiles the web tools its team configuration reports", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-web-tools-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const webTools = {
+    search: { provider: "duckduckgo", requiresPlugin: true },
+    browser: { available: true, name: "Chromium", executablePath: "/usr/bin/chromium" },
+    searchPlugins: { duckduckgo: { id: "duckduckgo", directory: "/rt/ddg" } },
+  };
+  const runtime = new RuntimeSupervisor({
+    dataDir,
+    install: async () => ({
+      nodePath: process.execPath,
+      entryPath: "unused",
+      version: "f",
+    }),
+    spawn: () => assert.fail("spawned after stop"),
+  });
+  runtime.teamConfiguration = async () => ({
+    directory: "/rt/teams",
+    connection: { url: "http://127.0.0.1:1", token: "fixture" },
+    hostMaxConcurrent: 1,
+    native: { token: "hook" },
+    profiles: [
+      {
+        id: "a1",
+        runtimeAgentId: "ap-a1",
+        capabilities: { browser: true, webSearch: true },
+      },
+    ],
+    webTools,
+  });
+  let compiled;
+  runtime.beforeSpawn = async () => {
+    compiled = JSON.parse(fs.readFileSync(runtime.paths.config, "utf8"));
+    await runtime.stop();
+  };
+  await runtime.start();
+  assert.equal(runtime.webTools, webTools);
+  assert.equal(compiled.browser.executablePath, "/usr/bin/chromium");
+  assert.deepEqual(compiled.tools.web, { search: { provider: "duckduckgo" } });
+  assert.ok(compiled.tools.allow.includes("web_search"));
+  assert.deepEqual(compiled.plugins.load.paths, ["/rt/teams", "/rt/ddg"]);
+});
+
 const until = async (predicate, timeoutMs = 10000) => {
   for (const end = Date.now() + timeoutMs; !predicate();) {
     if (Date.now() > end) assert.fail("condition not reached");

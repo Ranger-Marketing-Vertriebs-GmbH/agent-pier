@@ -6,6 +6,11 @@ import { guardedTools, memoryTools } from "./native-capabilities.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { hardenedDefaults } from "./openclaw-config/locked-core.js";
 import { applyOverrides } from "./openclaw-config/overrides.js";
+import {
+  applyWebTools,
+  webToolsAvailability,
+  webToolsSections,
+} from "./openclaw-config/web-tools.js";
 
 export const teamTools = [
   "session_status",
@@ -47,6 +52,8 @@ export function compileOpenClawConfig({
   overrides = [],
   runtime: { maintenance = false } = {},
   tls,
+  // { search, browser, searchPlugins }; see openclaw-config/web-tools.js.
+  webTools,
 }) {
   const config = applyOverrides(existing || freshDefaults(paths), overrides);
   // Paths are this installation's; a restored or copied configuration cannot pick them.
@@ -118,6 +125,9 @@ export function compileOpenClawConfig({
       webhookToken: teams.native.token,
       webhookSsrfPolicy: { allowedHostnames: ["127.0.0.1"] },
     };
+    // Unused or unavailable web capabilities leave every section as above.
+    applyWebTools(config, webToolsSections({ profiles: teams.profiles, webTools, port }));
+    const available = webToolsAvailability(webTools);
     const entries = config.agents.entries || config.agents.list;
     for (const [key, entry] of Object.entries(entries || {})) {
       delete entry.skills;
@@ -132,6 +142,7 @@ export function compileOpenClawConfig({
           teamsReady: true,
           nativeReady: true,
           guardProven: false,
+          available,
         }),
       );
     }
@@ -185,7 +196,7 @@ export function prepareRuntimeConfig(
   paths,
   port,
   teams,
-  { maintenance = false, tls, overrides = [] } = {},
+  { maintenance = false, tls, overrides = [], webTools } = {},
 ) {
   const existing = readJSON(paths.config, null);
   const token = existing?.gateway?.auth?.token || randomBytes(32).toString("hex");
@@ -200,6 +211,7 @@ export function prepareRuntimeConfig(
       overrides,
       runtime: { maintenance },
       tls,
+      webTools,
     }),
   );
   return token;
