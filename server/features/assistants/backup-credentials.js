@@ -34,13 +34,15 @@ const credentialTables = new Set([
   "worker_environment_credentials",
   "channel_credentials",
 ]);
-// Secret members of openclaw.json: Gateway, cron and plugin tokens and provider keys.
+// Secret members of openclaw.json: Gateway, cron and plugin tokens, provider keys
+// and MCP server environment values.
 const secretMembers = new Set([
   "token",
   "apiKey",
   "api_key",
   "webhookToken",
   "headers",
+  "env",
   "authorization",
   "secret",
   "clientSecret",
