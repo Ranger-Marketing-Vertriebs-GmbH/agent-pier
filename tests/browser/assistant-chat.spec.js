@@ -52,6 +52,17 @@ async function setup(page, { messages = filler, member = null } = {}) {
         conversations: [{ id: "dinner", assistantId: "home" }],
         models: [{ id: "router", name: "OpenRouter", available: true }],
         members: member ? [member] : [],
+        activity: member
+          ? {
+              home: {
+                state: "working",
+                reason: "member",
+                label: "team.states.running",
+                pendingApprovals: 0,
+                team: null,
+              },
+            }
+          : {},
       };
     else if (p === "/api/assistant-events")
       return route.fulfill({ contentType: "text/event-stream", body: "" });
@@ -198,8 +209,8 @@ for (const [name, size, touch] of [
           phase: "running",
         },
       });
-      const badge = page.locator(".assistant-state-badge");
-      await expect(badge).toHaveText("Working");
+      const status = page.locator(".assistant-header-status");
+      await expect(status).toContainText("Working");
       await expect(page.getByText("Ready", { exact: true })).toHaveCount(0);
     });
   });

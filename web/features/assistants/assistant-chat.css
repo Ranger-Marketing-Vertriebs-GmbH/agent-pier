@@ -1,3 +1,196 @@
+/* Agent chat (handoff 1d, 2a–2d, 2f): one header bar, flat transcript, one composer. */
+.assistant-detail .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.assistant-detail.assistant-chat {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+.assistant-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  height: 68px;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--header-line);
+}
+.assistant-header .assistant-avatar {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+.assistant-header-title {
+  flex: 1;
+  min-width: 0;
+}
+.assistant-header h1 {
+  margin: 0;
+  overflow: hidden;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assistant-header-status,
+.assistant-header-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.assistant-header-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-meta);
+}
+.assistant-header-label {
+  flex: none;
+}
+.assistant-header-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.assistant-header-status.ready .assistant-header-dot {
+  background: var(--success);
+}
+.assistant-header-status.ready .assistant-header-label {
+  color: var(--success-muted);
+}
+.assistant-header-status:is(.working, .waiting, .attention) .assistant-header-label {
+  color: var(--accent-text);
+}
+.assistant-header-status.working .assistant-header-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.assistant-header-status.waiting .assistant-header-dot {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--accent-text);
+  background: transparent;
+}
+.assistant-header-status.attention .assistant-header-dot {
+  border: 1px dashed var(--accent-text);
+  background: transparent;
+}
+.assistant-header-status.missing .assistant-header-dot {
+  display: none;
+}
+.assistant-header-status.missing .assistant-header-label {
+  color: var(--accent);
+}
+.assistant-header-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  color: var(--text-menu);
+}
+.assistant-header-icon:hover {
+  background: var(--button-secondary-bg);
+  color: var(--accent-text);
+}
+.assistant-header-menu {
+  display: none;
+}
+.assistant-header-settings {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--button-secondary-line);
+  border-radius: 7px;
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.assistant-header-settings svg {
+  width: 16px;
+  height: 16px;
+}
+@media (min-width: 701px) {
+  /* The floating expand/new-session buttons sit where the header starts. */
+  .app.sidebar-collapsed main:has(.assistant-detail) {
+    padding-top: 0;
+  }
+  .app.sidebar-collapsed .assistant-header {
+    padding-left: 106px;
+  }
+}
+@media (max-width: 700px) {
+  .app:has(.assistant-detail) .mobile-header {
+    display: none;
+  }
+  .assistant-header {
+    gap: 8px;
+    height: 56px;
+    padding: 0 8px;
+    background: var(--header-bg);
+  }
+  .assistant-header .assistant-avatar {
+    flex-basis: 30px;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    font-size: 13px;
+  }
+  .assistant-header h1 {
+    font-size: 15px;
+  }
+  .assistant-header-status,
+  .assistant-header-sub {
+    margin-top: 2px;
+    font-size: 11px;
+  }
+  .assistant-header-menu {
+    display: grid;
+  }
+  .assistant-header-settings {
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text-menu);
+  }
+  .assistant-header-settings svg {
+    width: 18px;
+    height: 18px;
+  }
+  .assistant-header-settings span {
+    display: none;
+  }
+}
 .assistant-composer {
   position: relative;
   flex-wrap: wrap;
@@ -31,7 +224,7 @@
 /* Page containment and sidebar placement come from sessions/mobile-workspace.css,
    which lists .assistant-chat next to the session workspace. */
 @media (max-width: 700px), (any-pointer: coarse) {
-  .assistant-chat {
+  .assistant-detail.assistant-chat {
     flex: 1;
     height: auto;
   }

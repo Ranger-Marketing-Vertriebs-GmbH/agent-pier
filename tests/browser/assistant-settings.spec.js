@@ -332,17 +332,11 @@ test("mobile settings have section links and inline permission checkboxes", asyn
   ).toBeLessThanOrEqual(8);
 });
 
-test("ready badge uses a valid translucent success colour", async ({ page }) => {
+test("settings header names the view instead of a status badge", async ({ page }) => {
   await setup(page);
   await page.goto(baseURL + "/agents/home/settings");
-  const badge = page.locator(".assistant-state-badge.ready");
-  await expect(badge).toBeVisible();
-  const style = await badge.evaluate((el) => {
-    const css = getComputedStyle(el);
-    return { background: css.backgroundColor, border: css.borderTopColor };
-  });
-  expect(style.background).toMatch(/^rgba\(164, 205, 179, 0\.0[6-7]\d*\)$/);
-  expect(style.border).toMatch(/^rgba\(164, 205, 179, 0\.2\d*\)$/);
+  await expect(page.locator(".assistant-header-sub")).toHaveText("Settings");
+  await expect(page.locator(".assistant-header-status")).toHaveCount(0);
 });
 
 test("section links move focus to the section heading", async ({ page }) => {
