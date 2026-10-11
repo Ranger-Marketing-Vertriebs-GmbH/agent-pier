@@ -19,6 +19,9 @@ export class AssistantService {
     this.closed = false;
     this.onStatus = (state) => {
       if (this.maintenance) {
+        // A maintenance restart replaces the client while readiness is absorbed
+        // here, so subscriptions follow it now; leaving maintenance resyncs.
+        if (state.availability === "ready") this.bindGateway();
         this.lastAvailability = state.availability;
         this.events.publish({ type: "runtime", ...state });
         return;
@@ -30,8 +33,7 @@ export class AssistantService {
       this.lastAvailability = state.availability;
       if (becameReady) {
         this.config.reset?.();
-        this.bindEvents();
-        this.gatewayEvents.bind(this.runtime.client);
+        this.bindGateway();
         this.gatewayEvents.ready();
         this.accounts
           ?.list()
@@ -47,8 +49,7 @@ export class AssistantService {
       }
     };
     runtime.on("status", this.onStatus);
-    this.bindEvents();
-    this.gatewayEvents.bind(this.runtime.client);
+    this.bindGateway();
     this.poll = setInterval(() => this.pollReconcile(), 2000);
     this.poll.unref();
   }
@@ -65,6 +66,10 @@ export class AssistantService {
       if (["pending", "accepted", "running"].includes(attempt.state))
         this.ledger.transition(attempt.id, "uncertain");
     }
+  }
+  bindGateway() {
+    this.bindEvents();
+    this.gatewayEvents.bind(this.runtime.client);
   }
   bindEvents() {
     this.unsubscribe?.();

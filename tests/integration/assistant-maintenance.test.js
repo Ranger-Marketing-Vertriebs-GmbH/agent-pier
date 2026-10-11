@@ -22,6 +22,8 @@ test("maintenance joins workers, blocks admissions, reports unresolved effects a
   };
   f.assistants.locks = new Map();
   f.assistants.reconcile = async () => {};
+  let resyncs = 0;
+  f.assistants.gatewayEvents = { ready: () => resyncs++ };
   const s = {
     ...f.services,
     assistantRuntime: f.assistants.runtime,
@@ -37,9 +39,11 @@ test("maintenance joins workers, blocks admissions, reports unresolved effects a
   assert.ok((await m.blockers()).includes("ASSISTANT_WORK"));
   await m.quiesce();
   assert.equal(f.assistants.maintenance, true);
+  assert.equal(resyncs, 0);
   await m.leave();
   assert.equal(f.assistants.maintenance, false);
   assert.equal(resumed, 1);
+  assert.equal(resyncs, 1, "leaving maintenance resyncs Gateway events");
 });
 
 function cronFixture(t) {
