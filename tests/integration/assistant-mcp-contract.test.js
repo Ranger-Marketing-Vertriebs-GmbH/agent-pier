@@ -13,7 +13,9 @@ import { provisionTeamPlugin } from "../../server/features/assistants/team-plugi
 import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import {
+  endStdioServers,
   httpMcpServer,
+  leakedFiles,
   stdioMcpScript,
   stdioRecords,
 } from "../helpers/mcp-test-servers.js";
@@ -90,6 +92,9 @@ async function harness(t, { team }) {
       await model.close();
       store.close();
     } finally {
+      // Safety net: no stdio server outlives the test, even after a failure.
+      for (const name of fs.readdirSync(dataDir))
+        if (name.endsWith(".jsonl")) await endStdioServers(path.join(dataDir, name));
       fs.rmSync(dataDir, { recursive: true, force: true });
     }
   });
@@ -219,42 +224,6 @@ async function harness(t, { team }) {
 }
 
 const mcpTools = (offered) => offered.filter((n) => n.includes("__")).sort();
-
-// Every file below the data directory except copies of OpenClaw's configuration
-// (openclaw.json, its backups and its atomic-write temporaries), which hold the
-// values by design.
-function leakedFiles(dataDir) {
-  const found = [];
-  const configuration = (text) => {
-    try {
-      const parsed = JSON.parse(text);
-      return Boolean(parsed.gateway && parsed.mcp);
-    } catch {
-      return false;
-    }
-  };
-  const walk = (dir) => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const file = path.join(dir, entry.name);
-      if (entry.isDirectory()) walk(file);
-      else if (entry.isFile()) {
-        let text;
-        try {
-          text = fs.readFileSync(file, "utf8");
-        } catch {
-          continue; // removed while walking
-        }
-        if (
-          (text.includes(headerValue) || text.includes(envValue)) &&
-          !configuration(text)
-        )
-          found.push(file);
-      }
-    }
-  };
-  walk(dataDir);
-  return found;
-}
 
 test(
   "the Gateway connects HTTP and stdio MCP servers for the bound agent only",
@@ -399,7 +368,7 @@ test(
     assert.equal(runtime.generation, generation, "no restart");
 
     // Neither value appears in a session transcript, log or other state file.
-    assert.deepEqual(leakedFiles(dataDir), []);
+    assert.deepEqual(leakedFiles(dataDir, [headerValue, envValue]), []);
   },
 );
 
@@ -515,6 +484,6 @@ test(
     assert.doesNotMatch(logged, /requires gateway restart/);
     await patchConfig(client, () => ({ patch: { mcp: { sessionIdleTtlMs: 0 } } }));
     assert.equal(runtime.generation, generation);
-    assert.deepEqual(leakedFiles(dataDir), []);
+    assert.deepEqual(leakedFiles(dataDir, [headerValue, envValue]), []);
   },
 );

@@ -776,6 +776,114 @@ key that Perplexity uses, take effect at the next Gateway start.
   agent ("Available after saving the agent"); the server stores them as off on
   create. Switch them on in the agent's settings after saving.
 
+## MCP servers for agents (2026-10-11)
+
+Agents can use tools from MCP servers that the owner manages in one central list
+(AGENTPIER-29). The facts behind this section are recorded in the
+[MCP qualification](assistant-mcp-qualification.md).
+
+### Central list
+
+**Accounts → MCP servers** lists, adds, edits and removes servers. The list is
+stored in `<data>/mcp-servers/servers.sqlite` (a private directory, mode 0700) and
+is independent of the coding CLIs' own MCP configuration.
+
+- **Name:** 1 to 30 letters, digits, `-` or `_`, starting with a letter, unique
+  regardless of case. OpenClaw uses the name unchanged as the tool prefix, so an
+  agent sees the server's tools as `<name>__<tool>`.
+- **Responses** never contain header or environment values, only their names. An
+  address is shown as origin and path; a query string or fragment, which can carry
+  a token, stays in the store.
+- **Removing** a server removes its bindings and stored values with it; the agents
+  using it lose it at once.
+
+### Transports
+
+| Connection             | Stored                               | Compiled into `mcp.servers.<name>`                                |
+| ---------------------- | ------------------------------------ | ----------------------------------------------------------------- |
+| HTTP (Streamable HTTP) | address, headers                     | `{ url, transport: "streamable-http", headers }`                  |
+| SSE                    | address, headers                     | `{ url, transport: "sse", headers }`                              |
+| Local command (stdio)  | command, arguments, cwd, environment | `{ command, args, env, cwd? }`, `command` always an absolute path |
+
+`transport` is always written: without it OpenClaw falls back to SSE, which offers no
+tools from a Streamable HTTP server.
+
+### Local commands (stdio)
+
+A stdio server runs its command with the owner's operating-system user rights and
+without a sandbox. OpenClaw has no per-agent server scope: once a stdio server is
+compiled, **it starts for every session of every agent**, including agents that
+are not bound to it and are never offered its tools. The processes stay up until
+the server is removed or the Gateway stops.
+
+AgentPier therefore asks for explicit consent. Adding a stdio server, binding one to
+an agent, and changing a stdio server's command, arguments, working directory or
+environment are refused with `409 MCP_STDIO_CONFIRMATION_REQUIRED` until the owner
+confirms the warning; nothing is stored before that.
+
+**Command resolution.** On save, a bare command (`npx`, `uvx`) is resolved on the
+AgentPier service's own `PATH`, not on an interactive login shell's, and the
+absolute path is stored and shown as **Resolved path**. An absolute command must be
+an existing executable file. The Gateway starts the process with its own
+environment: its private `HOME` (`<data>/assistants/home`), no `TMPDIR`, and a
+restricted `PATH`. A command found only on the owner's interactive `PATH` (nvm,
+`~/.local/bin`) must be entered as an absolute path, and a server that expects the
+owner's `HOME` or a `TMPDIR` does not find them.
+
+### Bindings
+
+- **Personal agents and permanent team members** are bound by the owner in the
+  agent's settings (**MCP servers**). Archived agents get no servers.
+- **Temporary team members** cannot be bound directly; the agent update refuses it.
+  They get servers only through their lead's team proposal. The lead's proposal
+  tool lists optional `mcpServers` per member: names of servers bound to the lead,
+  at most 16. Any other name rejects the whole proposal (`MCP_SERVER_NOT_BOUND`).
+  The approval (in the web UI and on Telegram) shows each member's servers by name
+  with a stdio marker, never addresses, commands or values.
+- An approved temporary member holds exactly its approved servers that its lead
+  still holds, and only while it runs. When it ends, is stopped or the lead loses a
+  server, the binding goes at the next scheduler tick; every Gateway start runs the
+  same reconciliation first.
+- A member approved as permanent receives its servers once; the owner manages them
+  afterwards.
+
+**Owner decision: automatic teams.** A team that is approved automatically (by a
+task authorization, `/team`, or a standing autonomous policy) passes the servers
+its lead lists to the members, including stdio servers, without a per-server
+approval. The members can only receive servers the lead already holds. By enabling
+automatic teams the owner accepts this.
+
+### Compilation and live changes
+
+Only servers bound to at least one eligible agent are compiled, and only in team
+mode with the native interfaces ready (the same gate as the web tools). A start
+adds `bundle-mcp` to the global `tools.allow` and `<name>__*` to each bound agent's
+own `tools.allow`; `plugins.allow` stays unchanged, because `bundle-mcp` is not a
+plugin. A bound server that cannot be compiled (for example an unreadable stored
+value) is skipped by name, with a warning, and never blocks the start.
+
+OpenClaw reloads `mcp` and `tools.allow` hot, also under the team plugin's
+restrictive `plugins.allow`. Every change (binding, unbinding, editing or removing a
+server, and team members gaining or losing servers) is applied to a running Gateway
+with `config.patch`, without a restart. A removed server is written as a `null`
+merge with each of its arrays (`mcp.servers.<name>.args`) in `replacePaths`. Agents
+whose globs change are re-applied afterwards. With the Gateway stopped, the next
+start compiles the store.
+
+### Secrets
+
+Header and environment values are stored in the server store and reach only the
+compiled `openclaw.json` (mode 0600). OpenClaw returns them redacted on
+`config.get`; the contracts verify that no transcript, log or other state file
+holds them. Rotated values remain in OpenClaw's configuration backups
+(`openclaw.json.bak*`, `.last-good`) until those rotate out.
+
+Runtime update backups seal every `headers` and `env` member of `openclaw.json` (at
+any depth) with the backup's own key, like the other credentials. A rollback with
+the key restores them; after a credential revocation destroyed the key, they are
+withheld and the restore reports `credentialsWithheld`, so the servers need their
+values entered again. The server store itself is not part of the Gateway backup.
+
 ## Continuous integration
 
 The `Assistant runtime` workflow runs the opt-in native contracts in a
@@ -805,6 +913,9 @@ follows the requalification checklist in
 - **Not started:** Gmail, Microsoft 365, Google Calendar and Apple service adapters, a
   sandbox design, independent Gateway instances and Linux or other architectures
   beyond the qualified hosts.
+- **MCP servers:** SSE servers, OAuth (AGENTPIER-37), OpenClaw's idle eviction of
+  stdio processes and its stdio environment filtering are not qualified; Linux runs
+  only in CI (see [MCP qualification](assistant-mcp-qualification.md#boundaries)).
 - Plain-language team authorization has the accepted limits described under Visible
   teams. Rollback or restore after a credential revocation needs a new login, and
   works on the same host only (see [runtime updates](assistant-runtime-updates.md)).
