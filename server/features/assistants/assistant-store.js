@@ -72,6 +72,9 @@ export class AssistantStore {
       throw assistantProblem("conflict", 409);
     const { confirmInstructions, ...fields } = changes;
     const result = { ...current, ...fields, revision: revision + 1 };
+    // Older clients send only the original keys; keep stored newer capabilities.
+    if (fields.capabilities)
+      result.capabilities = { ...current.capabilities, ...fields.capabilities };
     // Model-written instructions stay flagged until the owner rewrites or confirms them.
     if (
       current.instructionsSource &&
