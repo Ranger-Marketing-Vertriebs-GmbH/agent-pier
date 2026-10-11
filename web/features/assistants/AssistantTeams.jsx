@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
+import { mcpServerCopy as mcpCopy } from "../../lib/i18n/messages/mcp-servers.js";
+import "../mcp-servers/mcp-servers.css";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import useAssistants from "./useAssistants.js";
 import { assistantApi } from "./assistant-api.js";
@@ -85,6 +87,18 @@ export default function AssistantTeams({ assistant, focusTeamId, navigate }) {
                         {m.name} · {m.role}
                       </strong>
                       <p>{m.assignment}</p>
+                      {m.mcpServers?.length > 0 && (
+                        <p className="mcp-team-servers">
+                          {mcpCopy.teamServers}:{" "}
+                          {m.mcpServers.map((server, index) => (
+                            <span key={server.name}>
+                              {index > 0 && ", "}
+                              {server.name}
+                              {server.stdio && ` (${mcpCopy.stdioMarker})`}
+                            </span>
+                          ))}
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>

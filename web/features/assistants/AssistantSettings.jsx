@@ -14,6 +14,7 @@ import { assistantApi } from "./assistant-api.js";
 import useAssistants from "./useAssistants.js";
 import useSyncedForm from "./useSyncedForm.js";
 import AssistantCapabilities, { capabilityDefaults } from "./AssistantCapabilities.jsx";
+import AgentMcpServers from "../mcp-servers/AgentMcpServers.jsx";
 import RestartConfirmation from "./RestartConfirmation.jsx";
 import { restartRequired } from "../provider-connections/restart-confirmation.js";
 const conflictLabels = {
@@ -188,6 +189,11 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
       {assistant && personal && (
         <div id="agent-access" className="assistant-anchor">
           <AssistantWorkflows assistantId={assistant.id} />
+        </div>
+      )}
+      {assistant && personal && Array.isArray(assistant.mcpServers) && (
+        <div id="agent-mcp" className="assistant-anchor">
+          <AgentMcpServers assistant={assistant} refresh={refresh} navigate={navigate} />
         </div>
       )}
       {assistant && personal && assistant.capabilities?.memory && (

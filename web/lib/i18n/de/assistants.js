@@ -209,6 +209,7 @@ export const assistantCopy = {
     memory: "Gedächtnis",
     reminders: "Erinnerungen",
     routines: "Routinen",
+    mcp: "MCP-Server",
     team: "Team",
     telegram: "Telegram",
   },

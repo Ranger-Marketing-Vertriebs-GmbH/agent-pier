@@ -11,6 +11,7 @@ import { names } from "../../lib/providers.js";
 import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
 const SpeechSettings = lazy(() => import("../assistants/SpeechSettings.jsx"));
+const McpServersSettings = lazy(() => import("../mcp-servers/McpServersSettings.jsx"));
 const WebSearchSettings = lazy(() => import("../assistants/WebSearchSettings.jsx"));
 const AssistantModelAccounts = lazy(
   () => import("../assistants/AssistantModelAccounts.jsx"),
@@ -52,6 +53,7 @@ export default function AccountsPage({ state, setModal, act, refresh, onNavigate
           <AssistantModelAccounts navigate={onNavigate} />
           <SpeechSettings />
           <WebSearchSettings connections={state.providerConnections || []} />
+          <McpServersSettings />
         </Suspense>
       )}
       <h2>{connectionCopy.native}</h2>

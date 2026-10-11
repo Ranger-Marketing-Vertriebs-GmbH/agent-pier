@@ -44,9 +44,20 @@ export function mcpServerRoutes({ assistantMcpChanges: changes }) {
     }
     res.status(201).json(server);
   });
-  router.put("/mcp-servers/:id", async (req, res) =>
-    res.json(await changes.update(req.params.id, req.body)),
-  );
+  router.put("/mcp-servers/:id", async (req, res) => {
+    const body = req.body;
+    const { confirmStdio, ...input } = record(body) ? body : {};
+    try {
+      res.json(
+        await changes.update(req.params.id, record(body) ? input : body, {
+          confirmStdio: confirmStdio === true,
+        }),
+      );
+    } catch (error) {
+      if (replyStdioConfirmation(res, error)) return;
+      throw error;
+    }
+  });
   router.delete("/mcp-servers/:id", async (req, res) => {
     await changes.remove(req.params.id);
     res.status(204).end();
