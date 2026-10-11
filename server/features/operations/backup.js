@@ -5,7 +5,13 @@ import os from "node:os";
 import { randomUUID } from "node:crypto";
 import { folder, atomic, identifier, readJson } from "./files.js";
 import { encodeArchive, encryptCredentials } from "./archive.js";
-import { capture, omissions, backupOptions } from "./snapshot.js";
+import {
+  backupOptions,
+  capture,
+  mcpServerOmission,
+  mcpServersPresent,
+  omissions,
+} from "./snapshot.js";
 import { applicationVersion } from "./version.js";
 import { problem } from "../../lib/storage.js";
 import {
@@ -62,6 +68,7 @@ export class Backup {
       omissions: [
         ...omissions,
         ...(assistants ? assistantOmissions : []),
+        ...(mcpServersPresent(this.dataDir) ? [mcpServerOmission] : []),
         ...(!options.withCredentials
           ? ["Managed native configuration and credentials"]
           : []),

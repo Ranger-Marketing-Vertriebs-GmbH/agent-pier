@@ -287,6 +287,8 @@ export const backupCopy = {
       "File trash, file journals and transfer bytes",
     "Global atomicity across independent native writers":
       "Global atomicity across independent native writers",
+    "MCP servers for agents (definitions, values and bindings)":
+      "MCP servers for agents (definitions, values and bindings)",
     "Managed native configuration and credentials":
       "Managed native configuration and credentials",
     "coordinated-application-snapshot; independent-native-captures":
