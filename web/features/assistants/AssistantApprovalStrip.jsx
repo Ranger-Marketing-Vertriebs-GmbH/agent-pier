@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { assistantWorkflowCopy } from "../../lib/i18n/messages/assistant-workflows.js";
@@ -12,11 +12,12 @@ export default function AssistantApprovalStrip({ count, output }) {
     () => setTarget(Boolean(output.current?.querySelector("[data-pending]"))),
     [output],
   );
-  // Re-checked after every render: the chat re-renders when a card arrives.
-  useLayoutEffect(update);
-  useLayoutEffect(() => {
+  // useEffect, not a layout effect: the strip renders before the transcript, whose ref
+  // is only attached once every layout effect has run.
+  useEffect(() => {
     const element = output.current;
     if (!element) return undefined;
+    update();
     const changes = new MutationObserver(update);
     changes.observe(element, {
       childList: true,

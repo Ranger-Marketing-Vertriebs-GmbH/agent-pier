@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
-import { chatAssistant, chatFixture } from "../helpers/assistant-chat-fixture.js";
+import { chatAssistant, chatFixture, emit } from "../helpers/assistant-chat-fixture.js";
 
 const chat = baseURL + "/agents/home/chats/dinner";
 const long = {
@@ -61,6 +61,24 @@ test.describe("approval strip", () => {
         .getByRole("button", { name: "Approve action", exact: true })
         .first(),
     ).toBeVisible();
+  });
+
+  test("enables the jump once a card arrives after the strip mounted", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const state = await chatFixture(page, { history: long, activity: waiting(1) });
+    await page.goto(chat);
+    const strip = page.getByRole("button", { name: /Waiting for your approval · 1/ });
+    await expect(strip).toBeDisabled();
+    state.actions = [action("late-1")];
+    await emit(page, { type: "change" });
+    const card = page.locator(".assistant-approval-card").first();
+    await expect(card).toBeVisible();
+    await expect(strip).toBeEnabled();
+    await page.locator(".assistant-transcript").evaluate((e) => (e.scrollTop = 0));
+    await strip.click();
+    await expect(card).toBeInViewport();
   });
 
   test("is absent without approvals and in member chats", async ({ page }) => {
