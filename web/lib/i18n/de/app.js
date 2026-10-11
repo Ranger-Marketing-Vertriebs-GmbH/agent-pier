@@ -40,7 +40,8 @@ export const sidebarCopy = {
   serviceConnecting: "Verbindung wird hergestellt",
   localHostDescription: "Auf deinem Rechner",
   remoteLink: "Remote öffnen",
-  sidebarCaption: "DEIN RECHNER. DEINE TOOLS.",
+  menu: "Menü",
+  closeMenu: "Menü schließen",
 };
 export const sidebarGroupCopy = {
   activeTerminalLabel: "Terminal aktiv",
