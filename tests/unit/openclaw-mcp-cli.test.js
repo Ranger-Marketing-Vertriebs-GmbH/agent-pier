@@ -13,6 +13,7 @@ import {
   parseLoginOutput,
   redact,
   supervisorMcpCli,
+  sweepLogoutConfigs,
 } from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 
@@ -178,11 +179,33 @@ test("logout with a server definition reads a private one-server config", async 
   await cli.logout("docs", { server: { ...server, auth: "oauth" } });
   const run = recorded();
   assert.deepEqual(run.argv, ["mcp", "logout", "docs"]);
-  assert.notEqual(run.env.OPENCLAW_CONFIG_PATH, path.join(run.env.HOME, "openclaw.json"));
+  // Inside the Gateway's private state directory, not the shared temp directory.
+  assert.equal(
+    path.dirname(path.dirname(run.env.OPENCLAW_CONFIG_PATH)),
+    run.env.OPENCLAW_STATE_DIR,
+  );
+  assert.match(
+    path.basename(path.dirname(run.env.OPENCLAW_CONFIG_PATH)),
+    /^agentpier-mcp-logout-/,
+  );
+  assert.equal(run.configMode & 0o777, 0o600);
+  assert.equal(run.configDirMode & 0o777, 0o700);
   assert.deepEqual(run.config, {
     mcp: { servers: { docs: { ...server, auth: "oauth" } } },
   });
   assert.equal(fs.existsSync(run.env.OPENCLAW_CONFIG_PATH), false, "removed afterwards");
+});
+
+test("logout configs a killed run left behind are swept", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-cli-sweep-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(dir, "agentpier-mcp-logout-abc123"));
+  fs.writeFileSync(path.join(dir, "agentpier-mcp-logout-abc123", "openclaw.json"), "{}");
+  fs.mkdirSync(path.join(dir, "state"));
+  fs.writeFileSync(path.join(dir, "openclaw.json"), "{}");
+  assert.equal(sweepLogoutConfigs(dir), 1);
+  assert.deepEqual(fs.readdirSync(dir).sort(), ["openclaw.json", "state"]);
+  assert.equal(sweepLogoutConfigs(path.join(dir, "missing")), 0);
 });
 
 test("status maps every recorded state of OAuth servers", async (t) => {

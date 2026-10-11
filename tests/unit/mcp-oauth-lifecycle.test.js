@@ -101,16 +101,16 @@ test("a server OpenClaw does not know has nothing to log out", async (t) => {
   assert.deepEqual(f.servers.deferredLogouts(), []);
 });
 
-test("deferred logouts drain at the next apply and before a login reuses the name and URL", async (t) => {
+test("deferred logouts drain in the background and before a login reuses the name and URL", async (t) => {
   let broken = true;
   const f = setup(t, {
     logout: () => {
-      if (broken) throw new McpCliError("cli-timeout", "x");
+      if (broken) throw new McpCliError("cli-failed", "x");
     },
   });
   await f.changes.remove(f.docs.id);
   assert.equal(f.servers.deferredLogouts().length, 1);
-  // The same name and URL again, bound and compiled.
+  // The same name and URL again, bound.
   const again = f.servers.create({
     name: "docs",
     transport: "http",
@@ -136,12 +136,12 @@ test("deferred logouts drain at the next apply and before a login reuses the nam
   );
   assert.deepEqual(f.servers.deferredLogouts(), []);
 
-  // A Gateway apply drains too (and so does a start, through the same call).
+  // A rename that defers: the background drain clears it once the CLI works.
   broken = true;
   await f.changes.update(again.id, { revision: 1, name: "renamed" });
   assert.equal(f.servers.deferredLogouts().length, 1);
   broken = false;
-  await f.changes.apply();
+  await f.oauth.backgroundDrain();
   assert.deepEqual(f.servers.deferredLogouts(), []);
 });
 
@@ -149,7 +149,7 @@ test("a server with an undrained logout for its name and URL is not compiled", a
   let broken = true;
   const f = setup(t, {
     logout: () => {
-      if (broken) throw new McpCliError("cli-timeout", "x");
+      if (broken) throw new McpCliError("cli-failed", "x");
     },
     status: () => ({ docs: { state: "authorized", hasTokens: true } }),
   });
@@ -167,24 +167,68 @@ test("a server with an undrained logout for its name and URL is not compiled", a
     auth: "oauth",
   });
   await f.service.update(f.home.id, { mcpServers: [again.id, other.id] }, 1);
-  // Left out like an unbound server; the apply stays pending and retries.
+  // Left out like an unbound server; the apply itself is complete.
   assert.deepEqual(f.runtime.mcp.servers, ["other"]);
   assert.deepEqual(Object.keys(f.gateway.config.mcp.servers), ["other"]);
-  assert.equal(f.changes.pending, true);
+  assert.equal(f.changes.pending, false);
   const listed = (await f.oauth.decorate(f.changes.list())).find(
     (s) => s.id === again.id,
   );
   assert.equal(listed.oauthStatus, "login-required");
   assert.equal(listed.oauthReason.code, "logout-pending");
   assert.equal(listed.oauthReason.messageKey, "mcpServers.oauthLogoutPending");
-  // Once the logout goes through, the next apply compiles it again.
+  // Once the background drain goes through, the freed server compiles again.
   broken = false;
-  await f.changes.apply();
+  await f.oauth.backgroundDrain();
   assert.deepEqual(f.servers.deferredLogouts(), []);
   assert.deepEqual(f.runtime.mcp.servers, ["docs", "other"]);
-  assert.equal(f.changes.pending, false);
   const after = (await f.oauth.decorate(f.changes.list())).find((s) => s.id === again.id);
   assert.equal(after.oauthReason, undefined);
+});
+
+test("an orphan logout with a hanging CLI neither keeps applies pending nor holds the lock", async (t) => {
+  let release;
+  const hang = new Promise((done) => (release = done));
+  let hanging = false;
+  const f = setup(t, {
+    logout: async () => {
+      if (!hanging) throw new McpCliError("cli-timeout", "x");
+      await hang;
+      throw new McpCliError("cli-timeout", "x");
+    },
+  });
+  t.after(() => release());
+  await f.changes.remove(f.docs.id); // an orphan: no server has that name and URL
+  hanging = true;
+  // Drive the background drain by hand instead of its timer.
+  clearTimeout(f.oauth.drainTimer);
+  f.oauth.drainTimer = null;
+  const draining = f.oauth.backgroundDrain();
+  const plain = f.servers.create({ name: "plain", transport: "http", url: "https://p/" });
+  f.servers.setBindings("agent", f.home.id, [plain.id]);
+  // Applies and other admitted operations do not wait for the hanging logout.
+  const quick = await Promise.race([
+    f.service.admit(() => f.changes.apply()).then(() => "applied"),
+    new Promise((done) => setTimeout(() => done("waited"), 500)),
+  ]);
+  assert.equal(quick, "applied");
+  assert.equal(f.changes.pending, false);
+  release();
+  await draining;
+  assert.equal(f.servers.deferredLogouts().length, 1);
+});
+
+test("a drain stops at the first timeout instead of paying one per entry", async (t) => {
+  const f = setup(t, { logout: new McpCliError("cli-timeout", "x") });
+  f.servers.deferLogout({ name: "a", url: "https://a/", transport: "http" });
+  f.servers.deferLogout({ name: "b", url: "https://b/", transport: "http" });
+  f.servers.deferLogout({ name: "c", url: "https://c/", transport: "http" });
+  // The bounded pass before a Gateway start compiles.
+  await f.changes.drainLogouts();
+  assert.equal(f.logouts().length, 1);
+  assert.equal(f.servers.deferredLogouts().length, 3);
+  // The rest is left to the background drain, which is scheduled.
+  assert.ok(f.oauth.drainTimer);
 });
 
 test("a login start and a rename are serialized by the admission lock", async (t) => {

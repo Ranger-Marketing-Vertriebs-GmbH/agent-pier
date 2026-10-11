@@ -4,7 +4,6 @@
 // running Gateway. Nothing here logs; thrown messages are redacted.
 import { spawn as nodeSpawn } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { runtimeEnvironment } from "../assistants/runtime-config.js";
 import { namePattern } from "./command-resolution.js";
@@ -289,7 +288,22 @@ export function createMcpCli({
       checkedName(name);
       let stdout;
       if (server) {
-        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-mcp-logout-"));
+        // Inside the Gateway's private state directory, next to the tokens it
+        // clears: a 0700 directory with a 0600 file, swept at startup if a kill left
+        // it behind (sweepLogoutConfigs).
+        const current = resolve(runtime);
+        const stateDir =
+          current?.nodePath && current?.entryPath
+            ? resolve(environment)?.OPENCLAW_STATE_DIR
+            : null;
+        if (!stateDir || !path.isAbsolute(stateDir))
+          throw new McpCliError(
+            "runtime-unavailable",
+            "The assistant runtime is not available.",
+          );
+        fs.mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+        const dir = fs.mkdtempSync(path.join(stateDir, logoutPrefix));
+        fs.chmodSync(dir, 0o700);
         const config = path.join(dir, "openclaw.json");
         try {
           fs.writeFileSync(
@@ -319,6 +333,25 @@ export function createMcpCli({
       return parsed;
     },
   };
+}
+
+const logoutPrefix = "agentpier-mcp-logout-";
+
+/** Removes one-server logout configs a killed process left in `stateDir`. */
+export function sweepLogoutConfigs(stateDir) {
+  let entries = [];
+  try {
+    entries = fs.readdirSync(stateDir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  let removed = 0;
+  for (const entry of entries)
+    if (entry.isDirectory() && entry.name.startsWith(logoutPrefix)) {
+      fs.rmSync(path.join(stateDir, entry.name), { recursive: true, force: true });
+      removed++;
+    }
+  return removed;
 }
 
 /** The Gateway's private environment for the CLI, without the Gateway token. */

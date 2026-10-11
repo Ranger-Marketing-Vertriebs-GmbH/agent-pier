@@ -177,15 +177,19 @@ export class McpChanges {
       return { pending: await this.applySaved(), logoutDeferred: !!oauth.deferred };
     });
   }
-  /** Retries deferred OAuth logouts; never fails the caller. */
+  /**
+   * Bounded drain of deferred OAuth logouts before a Gateway start compiles: one
+   * pass that stops at the first timeout; whatever remains drains in the
+   * background. Never fails the caller.
+   */
   async drainLogouts() {
     try {
-      if (this.oauth && this.servers.deferredLogouts().length)
-        return await this.oauth.drain();
+      if (!this.oauth || !this.servers.deferredLogouts().length) return;
+      const { remaining } = await this.oauth.drain();
+      if (remaining) this.oauth.scheduleDrain(1000);
     } catch {
-      // Kept for the next apply or start.
+      // Kept for the background drain.
     }
-    return 0;
   }
   /**
    * Applies a change that is already stored. A failed or impossible live apply is not
@@ -217,9 +221,9 @@ export class McpChanges {
       return false;
     }
     try {
-      // Logouts that failed earlier go first: a server re-created under the same
-      // name and URL must not get the old tokens back.
-      const held = await this.drainLogouts();
+      // Servers held back by a deferred logout are left out by readMcpInputs; the
+      // logouts drain in the background, outside this lock.
+      if (this.oauth && this.servers.deferredLogouts().length) this.oauth.scheduleDrain();
       const inputs = readMcpInputs(this.servers, { redirectUrl: this.redirectUrl() });
       if (inputs.unreadable) {
         this.failed({ code: "MCP_STORE_UNREADABLE" });
@@ -232,14 +236,7 @@ export class McpChanges {
         if (known.has(id)) await this.assistants.config.apply(id);
         this.stale.delete(id);
       }
-      const failures = this.failures;
       this.settled();
-      // A server held back by a logout that still fails compiles once a retry
-      // succeeds: keep the apply pending, retried with the usual growing backoff.
-      if (held) {
-        this.failures = failures;
-        this.failed({ code: "MCP_OAUTH_LOGOUT_PENDING" });
-      }
       return patched;
     } catch (error) {
       this.failed(error);

@@ -50,6 +50,7 @@ async function setup(t, extra = {}) {
   const env = {
     PATH: process.env.PATH,
     HOME: f.home,
+    OPENCLAW_STATE_DIR: path.join(f.root, "openclaw-state"),
     FAKE_OPENCLAW_LOG: log,
     FAKE_OPENCLAW_STATE: "11111111-1111-4111-8111-111111111111",
   };

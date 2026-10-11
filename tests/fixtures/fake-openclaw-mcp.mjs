@@ -14,6 +14,14 @@ if (process.env.FAKE_OPENCLAW_RECORD)
       argv: process.argv.slice(2),
       env: process.env,
       pid: process.pid,
+      ...(fs.existsSync(process.env.OPENCLAW_CONFIG_PATH || "")
+        ? {
+            configMode: fs.statSync(process.env.OPENCLAW_CONFIG_PATH).mode,
+            configDirMode: fs.statSync(
+              process.env.OPENCLAW_CONFIG_PATH.replace(/\/[^/]+$/, ""),
+            ).mode,
+          }
+        : {}),
       config: fs.existsSync(process.env.OPENCLAW_CONFIG_PATH || "")
         ? JSON.parse(fs.readFileSync(process.env.OPENCLAW_CONFIG_PATH, "utf8"))
         : null,
