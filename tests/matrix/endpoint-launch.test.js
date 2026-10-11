@@ -115,8 +115,10 @@ for (const key of ["endpoint-secret", null])
         key,
         endpoint: endpointBlock({ authHeader: header }),
       });
-      const config = parseToml(
-        fs.readFileSync(path.join(result.env.CODEX_HOME, "config.toml"), "utf8"),
+      const config = structuredClone(
+        parseToml(
+          fs.readFileSync(path.join(result.env.CODEX_HOME, "config.toml"), "utf8"),
+        ),
       );
       const provider = config.model_providers["agentpier-endpoint"];
       assert.equal(config.model_provider, "agentpier-endpoint");

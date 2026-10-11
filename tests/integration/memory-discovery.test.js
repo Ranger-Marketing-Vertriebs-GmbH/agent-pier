@@ -51,7 +51,7 @@ test("Codex discovery preserves AgentBus, binding and unrelated configuration", 
   ];
   const env = { OTHER: "kept" };
   await prepare({ tool: "codex", folder: directory(t), args, env });
-  const entries = parse(args[1]).hooks.SessionStart;
+  const entries = structuredClone(parse(args[1]).hooks.SessionStart);
   assert.deepEqual(entries.slice(0, 2), existing);
   assert.equal(entries.length, 3);
   assert.deepEqual(args.slice(2), ["-c", "hooks.UserPromptSubmit=[]", "--resume"]);
