@@ -26,6 +26,7 @@ test("create returns a redacted public server and list/get never expose secrets"
     name: "docs",
     transport: "http",
     url: "https://example.com/mcp",
+    auth: "headers",
     headerNames: ["Authorization"],
     envNames: [],
     revision: 1,
