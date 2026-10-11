@@ -68,8 +68,7 @@
 }
 .assistant-form input,
 .assistant-form textarea,
-.assistant-form select,
-.assistant-composer textarea {
+.assistant-form select {
   color: inherit;
   background: var(--surface-input);
   border: 1px solid var(--line);
@@ -90,30 +89,6 @@
 .assistant-detail {
   padding: 28px;
   min-width: 0;
-}
-.assistant-composer {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  padding: 18px 20px;
-  border-top: 1px solid var(--line);
-}
-.assistant-composer > label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-.assistant-composer textarea {
-  min-width: 0;
-  flex: 1;
-  resize: vertical;
-}
-.assistant-composer .assistant-actions {
-  justify-content: flex-end;
-  margin-top: 0;
-  flex-shrink: 0;
 }
 .assistant-notice {
   padding: 14px 22px;
@@ -248,16 +223,6 @@
 @media (max-width: 650px) {
   .assistant-detail {
     padding: 16px 12px;
-  }
-  .assistant-composer {
-    flex-wrap: wrap;
-    padding: 12px;
-  }
-  .assistant-composer textarea {
-    flex-basis: 100%;
-  }
-  .assistant-composer .assistant-actions {
-    width: 100%;
   }
   .assistant-settings-layout {
     margin-top: 18px;
