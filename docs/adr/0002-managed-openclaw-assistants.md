@@ -446,6 +446,7 @@ points. A version bump must re-check each of them.
 | `web.login.start`/`wait`                                                                    | native interfaces contract                                      | Still excluded from discovery; channel-plugin gating                                  |
 | Hello `features.methods`/`features.events` and operator scopes                              | `gateway-client.js`, `gateway-protocol.js`                      | Field path, event list, scopes and caps in the handshake                              |
 | Locked configuration paths                                                                  | `openclaw-config/locked-core.js`                                | Every path still exists and still carries the same safety meaning                     |
+| Web search plugins (DuckDuckGo, Perplexity, Brave)                                          | `runtime-manifest.js` `searchPlugins`, web tools contract       | Pins match OpenClaw; provider accepted once loaded; `webSearch.apiKey` path           |
 
 Requalification checklist for a version bump:
 
@@ -455,7 +456,9 @@ Requalification checklist for a version bump:
    target only if the cross-version test passes.
 3. Run `npm run check` and the full native contracts (the `native-contracts` CI job
    or locally with the `AGENTPIER_ASSISTANT_*` variables), including the native
-   interfaces contract (`AGENTPIER_NATIVE_INTERFACES_CONTRACT_RUNTIME`).
+   interfaces contract (`AGENTPIER_NATIVE_INTERFACES_CONTRACT_RUNTIME`) and the web
+   tools contract (`AGENTPIER_WEB_TOOLS_CONTRACT_RUNTIME`). Bump the search plugin
+   pins in the manifest together with OpenClaw.
 4. Run the manual live-provider and cross-version tests with disposable state.
 5. Run `scripts/verify-assistant-runtime.mjs` and `scripts/verify-assistant-teams.mjs`
    against new data directories.

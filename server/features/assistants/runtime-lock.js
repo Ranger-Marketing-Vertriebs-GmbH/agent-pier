@@ -13,6 +13,35 @@ export function dependencyLockDigest(packageBytes, lockBytes) {
     .update(lockBytes)
     .digest("hex");
 }
+const byKey = (object) =>
+  Object.entries(object || {}).sort(([a], [b]) => (a < b ? -1 : 1));
+const sorted = (object) => JSON.stringify(byKey(object));
+/**
+ * The pinned search plugins of a manifest or installation receipt. A receipt
+ * written before plugins were bundled has none.
+ */
+export function searchPluginPins(manifest) {
+  const pins = Object.entries(manifest.searchPlugins || {});
+  for (const [key, pin] of pins)
+    if (
+      !/^[a-z0-9-]+$/.test(key) ||
+      pin?.id !== key ||
+      !/^@openclaw\/[a-z0-9-]+-plugin$/.test(pin.package) ||
+      !/^\d+\.\d+\.\d+$/.test(pin.version) ||
+      !/^[A-Za-z0-9+/]{86}==$/.test(pin.integrity)
+    )
+      throw Error("Invalid assistant search plugin pin.");
+  return pins;
+}
+/** The root dependencies of the locked graph: OpenClaw's archive plus each plugin. */
+export function lockedDependencies(manifest) {
+  const dependencies = { openclaw: "file:openclaw.tgz" };
+  for (const [, pin] of searchPluginPins(manifest))
+    dependencies[pin.package] = pin.version;
+  return Object.fromEntries(byKey(dependencies));
+}
+const pluginTarball = (pin) =>
+  `https://registry.npmjs.org/${pin.package}/-/${pin.package.split("/")[1]}-${pin.version}.tgz`;
 export function readRuntimeLock(manifest, directory = runtimeLockDirectory) {
   const read = (name) => {
     const file = path.join(directory, name),
@@ -33,16 +62,27 @@ export function readRuntimeLock(manifest, directory = runtimeLockDirectory) {
   if (
     pkg.name !== "agentpier-managed-assistants" ||
     pkg.private !== true ||
-    JSON.stringify(pkg.dependencies) !==
-      JSON.stringify({ openclaw: "file:openclaw.tgz" }) ||
+    sorted(pkg.dependencies) !== sorted(lockedDependencies(manifest)) ||
     lock.lockfileVersion !== 3 ||
     (root?.name && root.name !== pkg.name) ||
-    JSON.stringify(root?.dependencies) !== JSON.stringify(pkg.dependencies) ||
+    sorted(root?.dependencies) !== sorted(pkg.dependencies) ||
     upstream?.version !== manifest.version ||
     upstream?.resolved !== "file:openclaw.tgz" ||
     upstream?.integrity !== `sha512-${manifest.packageIntegrity}`
   )
     throw Error("Invalid assistant dependency lock metadata.");
+  for (const [, pin] of searchPluginPins(manifest)) {
+    const entry = lock.packages[`node_modules/${pin.package}`];
+    if (
+      entry?.version !== pin.version ||
+      entry.resolved !== pluginTarball(pin) ||
+      entry.integrity !== `sha512-${pin.integrity}` ||
+      entry.dev ||
+      entry.optional ||
+      entry.inBundle
+    )
+      throw Error("Invalid assistant search plugin lock entry.");
+  }
   for (const [name, entry] of Object.entries(lock.packages)) {
     if (!name) continue;
     if (

@@ -340,7 +340,17 @@ export async function qualifyFreshInstallation() {
       readJSON(path.join(path.dirname(installed.entryPath), "package.json")).version,
       runtimeManifest.version,
     );
-    console.log("Exact managed Node, npm, OpenClaw and dependency lock verified.");
+    for (const [key, pin] of Object.entries(runtimeManifest.searchPlugins)) {
+      const plugin = installed.searchPlugins?.[key];
+      assert.equal(plugin?.id, pin.id);
+      assert.equal(
+        readJSON(path.join(plugin.directory, "package.json")).version,
+        pin.version,
+      );
+    }
+    console.log(
+      "Exact managed Node, npm, OpenClaw, search plugins and dependency lock verified.",
+    );
     const selectionFile = path.join(paths.root, "runtime.json");
     const selected = fs.readFileSync(selectionFile, "utf8");
     const receiptBefore = fs.readFileSync(path.join(directory, "receipt.json"), "utf8");

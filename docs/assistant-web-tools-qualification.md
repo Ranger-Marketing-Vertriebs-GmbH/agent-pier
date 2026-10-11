@@ -8,10 +8,13 @@ configuration through `patchConfig`, and has the deterministic model from
 model account or credential is involved. The page that the tools try to reach is
 a local HTTP server on `127.0.0.1`.
 
-The findings about the external search plugins come from separate manual probes.
-They were run against the same isolated runtime and the official 2026.9.8 plugin
-tarballs. The contract does not repeat them, because the pinned runtime does not
-include these plugins.
+The external search plugins are part of the managed runtime's locked dependency
+graph (see [runtime updates](assistant-runtime-updates.md#bundled-search-plugins)).
+A separate web tools contract (`tests/integration/assistant-web-tools-contract.test.js`)
+loads each one from the installed runtime and checks that its provider is
+accepted. Some details below (search results, the Brave request) come from manual
+probes against the official 2026.9.8 plugin tarballs; the contract does not repeat
+them.
 
 ## Running the contract
 
@@ -30,6 +33,26 @@ The browser always runs headless, with its profile in the test's temporary
 On 2026-10-11, all tests in the file passed on macOS arm64 (Darwin 25.5) against the
 pinned `2026.9.8-node26.7.0-darwin-arm64` runtime and Google Chrome, with zero
 skips or failures.
+
+The search plugin contract needs a runtime provisioned from the current lock (one
+whose directory name ends in `-lock563cf3904093` or later), for example with
+`scripts/provision-assistant-contracts.mjs`:
+
+```sh
+AGENTPIER_WEB_TOOLS_CONTRACT_RUNTIME=/absolute/path/to/2026.9.8-node26.7.0-darwin-arm64-lock563cf3904093 \
+  node --test tests/integration/assistant-web-tools-contract.test.js
+```
+
+For each of `duckduckgo`, `perplexity` and `brave`, it checks the installed package
+version and plugin id, asserts that `tools.web.search.provider` is rejected while
+the plugin is not loaded, then loads it with `plugins.load.paths` (the package
+directory under `app/node_modules/@openclaw/`) and `plugins.allow: [<id>]`. The
+provider is then accepted, `plugins.list` reports the pinned package and version
+with `origin: "config"` and `runtime.state: "active"`, and a fixture key in
+`plugins.entries.<id>.config.webSearch.apiKey` (Perplexity, Brave) is redacted by
+`config.get`. On 2026-10-11 it passed on macOS arm64 against a fresh
+`2026.9.8-node26.7.0-darwin-arm64-lock563cf3904093` runtime. All three patches
+reloaded without a Gateway restart.
 
 ## Verified configuration
 
@@ -50,7 +73,7 @@ Without the plugin, `config.patch` rejects
 `ollama`, `parallel`, `parallel-free`, `perplexity`, `searxng` and `tavily`. The
 contract asserts this rejection.
 
-With the unpacked package directory in `plugins.load.paths`, the provider is
+With the package directory in `plugins.load.paths`, the provider is
 accepted and `web_search` returns DuckDuckGo results (probe). The plugin shows up in
 `plugins.list` with `origin: "config"` and `runtime.state: "active"`:
 
@@ -58,7 +81,7 @@ accepted and `web_search` returns DuckDuckGo results (probe). The plugin shows u
 {
   plugins: {
     allow: [/* existing entries */ "duckduckgo"],
-    load: { paths: ["<dir>/duckduckgo-plugin/package"] },
+    load: { paths: ["<runtime>/app/node_modules/@openclaw/duckduckgo-plugin"] },
   },
   tools: { web: { search: { provider: "duckduckgo" } } },
 }
@@ -98,7 +121,7 @@ loopback hosts, so the tool returned `provider_error`.
 {
   plugins: {
     allow: [/* ... */ "perplexity"],
-    load: { paths: ["<dir>/perplexity-plugin/package"] },
+    load: { paths: ["<runtime>/app/node_modules/@openclaw/perplexity-plugin"] },
     entries: { perplexity: { config: { webSearch: { apiKey: "<openrouter key>" } } } },
   },
   tools: { web: { search: { provider: "perplexity" } } },
@@ -230,9 +253,12 @@ and restart the Gateway when they change, rather than relying on live patches.
 
 ## Boundaries
 
-- The contract does not load the external search plugins. Tasks that enable search
-  must add them to the runtime installation and its update path, and extend this
-  contract to cover them.
+- The web tools contract loads one search plugin at a time on a live Gateway
+  without an existing `plugins.allow`. Combining them with the team plugin's
+  restrictive allow list is left to the configuration compiler (startup
+  configuration plus restart, see above).
+- A runtime installed before the plugins were bundled (lock `93bd048153fd`, or the
+  2026.9.7 rollback target) has none; its descriptor reports `searchPlugins: {}`.
 - No real search API was called. One probe incidentally ran a real DuckDuckGo
   search, which is not repeated.
 - The Perplexity key and transport were verified through configuration acceptance

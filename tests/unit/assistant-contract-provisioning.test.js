@@ -39,6 +39,7 @@ test("contracts use the runtime the installer's --with-assistants step selected"
     AGENTPIER_ASSISTANT_UPDATE_RUNTIME: runtime,
     AGENTPIER_TEAM_CONTRACT_RUNTIME: runtime,
     AGENTPIER_NATIVE_INTERFACES_CONTRACT_RUNTIME: runtime,
+    AGENTPIER_WEB_TOOLS_CONTRACT_RUNTIME: runtime,
   });
 });
 

@@ -175,11 +175,41 @@ runtime through the backup, validation and rollback flow. Starting/reusing a loc
 installation checks its lock metadata again. This detects changed lock files; it does not claim immutable or
 cryptographically attested installed filesystem contents.
 
+## Bundled search plugins
+
+The runtime also contains the official OpenClaw web search plugins
+`@openclaw/duckduckgo-plugin`, `@openclaw/perplexity-plugin` and
+`@openclaw/brave-plugin`, each at version 2026.9.8. They are exact root
+dependencies in `runtime-lock/package.json`. The manifest pins each one's
+package name, version, plugin id and npm SHA-512 integrity (`searchPlugins`), and
+the lock check refuses a graph whose plugin entry differs from the pin or does not
+come from the npm registry. `npm ci --ignore-scripts` installs them with the rest
+of the graph; they have no dependencies of their own and only a peer dependency on
+`openclaw`. Nothing is downloaded at Gateway start.
+
+After `npm ci`, the installer checks each plugin directory
+(`app/node_modules/@openclaw/<id>-plugin`): its `package.json` must name the pinned
+package and version, and its `openclaw.plugin.json` the pinned id. The receipt
+records the pins. The runtime descriptor (`install()`, `ensureAssistantRuntime()`
+and `selectedAssistantRuntime()`) exposes them as
+`searchPlugins: { duckduckgo: { id, directory }, perplexity: …, brave: … }`.
+For a selected runtime, the pins come from its receipt: a runtime installed before
+the plugins were bundled, such as the previous lock or the 2026.9.7 rollback
+target, reports `searchPlugins: {}`. A Gateway loads a plugin only when its
+configuration names the directory in `plugins.load.paths` and the id in
+`plugins.allow`.
+
+Existing installations receive the plugins through the normal update path. The
+plugins change the lock digest, so an AgentPier update stages a new candidate
+installation next to the selected runtime even though OpenClaw stays at 2026.9.8.
+Activation then switches to it through the backup, validation and rollback flow
+described above.
+
 ## Fresh native qualification
 
 Run `node scripts/verify-assistant-installation.mjs`. It invokes the shipped installer
 in a new private temporary directory, verifies exact Node/npm/OpenClaw versions and
-lock receipt, checks authenticated Gateway access, creates a synthetic agent/session,
+lock receipt and the bundled search plugins, checks authenticated Gateway access, creates a synthetic agent/session,
 and verifies history after restart. A second stage must reuse the installation
 without downloading/executing an installer or changing the selected runtime/running
 Gateway. All owned processes and temporary state are removed; no model credentials
@@ -218,7 +248,11 @@ node scripts/refresh-assistant-runtime-lock.mjs \
 ```
 
 The script uses fresh temporary state, verifies the upstream archive, resolves the
-new graph with pinned npm and prints its digest. Copy both reviewed JSON files to
+new graph with pinned npm and prints its digest. The root dependencies are
+OpenClaw's archive plus the manifest's `searchPlugins` pins. With `--keep-graph`
+as the last argument, npm starts from the shipped lock and only adds what is
+missing, for example after adding a pinned plugin. The qualified transitive graph
+then stays unchanged; without the flag, the whole graph is resolved again. Copy both reviewed JSON files to
 `server/features/assistants/runtime-lock/`, update `dependencyLockSha256` in the
 manifest, and run unit checks plus the four native CI installations. A deliberate
 refresh may select newer transitive versions and change npm's bundled-package

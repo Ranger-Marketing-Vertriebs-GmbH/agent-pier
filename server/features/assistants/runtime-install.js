@@ -6,7 +6,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { download as fetchDownload } from "../operations/releases.js";
 import { readJSON, writePrivate } from "../../lib/storage.js";
-import { readRuntimeLock } from "./runtime-lock.js";
+import { readRuntimeLock, searchPluginPins } from "./runtime-lock.js";
 import { runtimeManifest } from "./runtime-manifest.js";
 import { runtimePaths, privateFolder } from "./runtime-paths.js";
 import { acquireInstallLock, withInstallLock } from "./runtime-install-lock.js";
@@ -118,6 +118,9 @@ export async function selectedAssistantRuntime(options) {
   readRuntimeLock({ ...saved, version: selected.version }, path.join(directory, "app"));
   return {
     ...selected,
+    // The receipt's pins, so a runtime installed before plugins were bundled
+    // (or a rollback target) reports none instead of the manifest's.
+    searchPlugins: installedSearchPlugins(saved, path.join(directory, "app")),
     teamPlugin: provisionTeamPlugin({ paths, runtimeVersion: selected.version }),
   };
 }
@@ -135,6 +138,35 @@ function isLink(file) {
   } catch {
     return false;
   }
+}
+/**
+ * Descriptors of the bundled search plugins, verified against the pins: each
+ * directory holds the pinned package and declares the expected plugin id. Nothing
+ * is fetched at Gateway start; a Gateway loads a plugin only when configured to.
+ */
+function installedSearchPlugins(pins, app) {
+  const plugins = {};
+  for (const [key, pin] of searchPluginPins(pins)) {
+    const directory = path.join(app, "node_modules", ...pin.package.split("/"));
+    for (let parent = directory; parent !== app; parent = path.dirname(parent)) {
+      const stat = fs.lstatSync(parent);
+      if (!stat.isDirectory() || stat.isSymbolicLink())
+        throw Error("Unsafe assistant search plugin directory.");
+    }
+    const manifestFile = path.join(directory, "package.json"),
+      pluginFile = path.join(directory, "openclaw.plugin.json");
+    regular(manifestFile);
+    regular(pluginFile);
+    const installed = readJSON(manifestFile);
+    if (
+      installed.name !== pin.package ||
+      installed.version !== pin.version ||
+      readJSON(pluginFile).id !== pin.id
+    )
+      throw Error("Assistant search plugin installation mismatch.");
+    plugins[key] = { id: pin.id, directory };
+  }
+  return plugins;
 }
 function regular(file) {
   const stat = fs.lstatSync(file);
@@ -179,6 +211,7 @@ async function install({
     readRuntimeLock(manifest, path.join(directory, "app"));
     regular(result.nodePath);
     regular(result.entryPath);
+    result.searchPlugins = installedSearchPlugins(manifest, path.join(directory, "app"));
     result.teamPlugin = provisionTeamPlugin({ paths, runtimeVersion: manifest.version });
     return result;
   }
@@ -249,14 +282,17 @@ async function install({
       timeout: 60000,
       maxBuffer: 32768,
     });
+    installedSearchPlugins(manifest, app);
     fs.rmSync(archive);
     fs.rmSync(tarball);
     writePrivate(path.join(stage, "receipt.json"), {
       dependencyLockSha256: lock.digest,
       packageIntegrity: manifest.packageIntegrity,
       nodeChecksum: manifest.nodeChecksums[target],
+      searchPlugins: manifest.searchPlugins || {},
     });
     fs.renameSync(stage, directory);
+    result.searchPlugins = installedSearchPlugins(manifest, path.join(directory, "app"));
     // The verified installation no longer needs downloaded package tarballs.
     fs.rmSync(env.npm_config_cache, { recursive: true, force: true });
     result.teamPlugin = provisionTeamPlugin({ paths, runtimeVersion: manifest.version });

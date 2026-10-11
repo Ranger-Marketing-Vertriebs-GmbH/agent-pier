@@ -9,6 +9,7 @@ import { download as fetchDownload } from "../server/features/operations/release
 import { runtimeManifest } from "../server/features/assistants/runtime-manifest.js";
 import {
   dependencyLockDigest,
+  lockedDependencies,
   readRuntimeLock,
   runtimeLockDirectory,
 } from "../server/features/assistants/runtime-lock.js";
@@ -22,6 +23,9 @@ export async function refreshAssistantRuntimeLock({
   manifest = runtimeManifest,
   download = (url) => fetchDownload(url, fetch, 256 * 1024 * 1024),
   execute = promisify(execFile),
+  // A lock directory whose graph npm keeps: it then only adds missing packages
+  // instead of re-resolving (and drifting) the qualified transitive graph.
+  seedDirectory = null,
 }) {
   if (!path.isAbsolute(runtimeDirectory) || !path.isAbsolute(outputDirectory))
     throw Error("Absolute runtime and output directories are required.");
@@ -57,13 +61,20 @@ export async function refreshAssistantRuntimeLock({
           name: "agentpier-managed-assistants",
           version: "1.0.0",
           private: true,
-          dependencies: { openclaw: "file:openclaw.tgz" },
+          // OpenClaw's verified archive plus the exact search plugin versions; the
+          // lock check below requires their registry integrity to match the pins.
+          dependencies: lockedDependencies(manifest),
         },
         null,
         2,
       ) + "\n",
     );
     fs.writeFileSync(path.join(root, "package.json"), packageBytes, { mode: 0o600 });
+    if (seedDirectory)
+      fs.copyFileSync(
+        path.join(seedDirectory, "package-lock.json"),
+        path.join(root, "package-lock.json"),
+      );
     await execute(
       node,
       [
@@ -97,19 +108,22 @@ export async function refreshAssistantRuntimeLock({
 }
 if (isMainModule(import.meta.url)) {
   const args = process.argv.slice(2);
+  const keepGraph = args.at(-1) === "--keep-graph";
+  if (keepGraph) args.pop();
   if (
     ![2, 4].includes(args.length) ||
     args[0] !== "--runtime" ||
     (args.length === 4 && args[2] !== "--output")
   )
     throw Error(
-      "Usage: node scripts/refresh-assistant-runtime-lock.mjs --runtime <absolute-managed-runtime> [--output <absolute-lock-directory>]",
+      "Usage: node scripts/refresh-assistant-runtime-lock.mjs --runtime <absolute-managed-runtime> [--output <absolute-lock-directory>] [--keep-graph]",
     );
   console.log(
     JSON.stringify(
       await refreshAssistantRuntimeLock({
         runtimeDirectory: args[1],
         ...(args[3] ? { outputDirectory: args[3] } : {}),
+        ...(keepGraph ? { seedDirectory: runtimeLockDirectory } : {}),
       }),
     ),
   );
