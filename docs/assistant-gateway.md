@@ -507,9 +507,10 @@ API references: [Telegram polling](https://core.telegram.org/bots/api#getupdates
 
 The assigning assistant offers a team proposal by default. Approve or decline it
 in the parent chat or through its paired private Telegram chat. A `/team <task>`
-text command or the composer’s one-message checkbox authorizes one proposal for
-that request. An explicit owner request in ordinary words ("build a team that …")
-authorizes that one team as well: the team proposal tool carries
+text command or the one-message team switch behind the composer’s „+“ options button
+authorizes one proposal for that request; while it is on, a „Team allowed“ chip
+next to the button shows it and turns it off again when tapped. An explicit owner
+request in ordinary words ("build a team that …") authorizes that one team as well: the team proposal tool carries
 `ownerRequestedTeam` and a verbatim `ownerRequestQuote` (at most 300 characters),
 and AgentPier admits the team without confirmation only when the quote has at
 least three words, contains "team" (also inside compounds such as "Rechercheteam")
