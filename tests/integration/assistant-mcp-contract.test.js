@@ -332,13 +332,17 @@ test(
     t.diagnostic(`stdio starts=${started.length} first=${JSON.stringify(first)}`);
     assert.equal(first.env.HOME, runtime.paths.home);
     assert.equal(first.env.TMPDIR, undefined);
-    // OpenClaw appends its platform's standard directories (on macOS
-    // /opt/homebrew/bin and /usr/local/bin) to the Gateway's own PATH.
+    // OpenClaw appends its platform's standard directories (macOS: Homebrew and
+    // /usr/local/bin; Linux: Linuxbrew) to the Gateway's own PATH.
     const [runtimeBin, ...rest] = first.env.PATH.split(path.delimiter);
     assert.equal(runtimeBin, path.dirname(node));
     assert.deepEqual(rest.slice(0, 2), ["/usr/bin", "/bin"]);
-    for (const dir of rest.slice(2))
-      assert.ok(["/opt/homebrew/bin", "/usr/local/bin"].includes(dir), dir);
+    const standard = [
+      "/opt/homebrew/bin",
+      "/usr/local/bin",
+      "/home/linuxbrew/.linuxbrew/bin",
+    ];
+    for (const dir of rest.slice(2)) assert.ok(standard.includes(dir), dir);
     assert.equal(fs.realpathSync(first.cwd), fs.realpathSync(cwd));
     assert.equal(first.env.MCP_FIXTURE_SECRET, "set");
     // One stdio process per session (eight turns so far), each kept running.
