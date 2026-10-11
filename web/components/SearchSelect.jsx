@@ -19,7 +19,8 @@ export default function SearchSelect({
   const [active, setActive] = useState(-1);
   const root = useRef(null),
     trigger = useRef(null),
-    input = useRef(null);
+    input = useRef(null),
+    touch = useRef(false);
   const id = useId();
   const search = query ?? localQuery;
   const filtered = onQuery
@@ -54,7 +55,13 @@ export default function SearchSelect({
     <div
       className="search-select"
       ref={root}
+      onPointerDownCapture={(event) => {
+        touch.current = event.pointerType === "touch";
+      }}
       onBlur={(event) => {
+        // iOS blurs without a target when a tapped button takes no focus or the
+        // keyboard is dismissed; a tap outside closes the panel through pointerdown.
+        if (touch.current && !event.relatedTarget) return;
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
       }}
     >

@@ -187,3 +187,36 @@ test("Enter in repository search does not submit a filled clone form", async ({
   );
   expect(writes.filter((write) => write.path.endsWith("/clone"))).toHaveLength(0);
 });
+
+test.describe("on a phone", () => {
+  test.use({ isMobile: true, hasTouch: true, viewport: { width: 390, height: 844 } });
+
+  // iOS blurs the search without a target when the keyboard is dismissed or a
+  // tapped button takes no focus.
+  test("a targetless blur keeps the organization search open", async ({ page }) => {
+    await fixture(page);
+    await page.route("**/api/repositories/discover?*", (route) =>
+      route.fulfill({
+        json: {
+          organizations: [{ login: "Acme" }, { login: "Other" }],
+          repositories: [],
+          total: 0,
+          page: 1,
+          hasMore: false,
+          truncated: false,
+        },
+      }),
+    );
+    await openRepositories(page);
+    const dialog = await openCloneDialog(page);
+    await dialog.getByRole("radio", { name: /Persönlich/ }).check();
+    const trigger = page.getByRole("button", { name: "Organisation", exact: true });
+    await trigger.tap();
+    const search = page.getByRole("combobox", { name: "Organisation suchen" });
+    await expect(search).toBeFocused();
+    await search.evaluate((input) => input.blur());
+    await expect(search).toBeVisible();
+    await page.getByRole("option", { name: "Acme", exact: true }).tap();
+    await expect(trigger).toContainText("Acme");
+  });
+});
