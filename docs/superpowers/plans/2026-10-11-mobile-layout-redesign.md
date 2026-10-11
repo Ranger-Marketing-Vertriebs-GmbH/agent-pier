@@ -23,12 +23,12 @@ open the `.dc.html` files next to `support.js`.
 
 ## Plan parts (execute in order)
 
-| Part | File | Scope |
-|---|---|---|
-| 1 | `2026-10-11-mobile-layout-redesign-part-1-activity.md` | Backend activity, client data, status helpers |
-| 2 | `2026-10-11-mobile-layout-redesign-part-2-sidebar.md` | Tokens, Menü popover, drawer, agent and session rows, test helper |
-| 3 | `2026-10-11-mobile-layout-redesign-part-3-chat.md` | Header, approval strip, transcript, composer, teams, member context |
-| 4 | `2026-10-11-mobile-layout-redesign-part-4-settings.md` | Settings scroll container, section chips, dirty state, save bar, docs, final verification and cleanup |
+| Part | File                                                   | Scope                                                                                                 |
+| ---- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| 1    | `2026-10-11-mobile-layout-redesign-part-1-activity.md` | Backend activity, client data, status helpers                                                         |
+| 2    | `2026-10-11-mobile-layout-redesign-part-2-sidebar.md`  | Tokens, Menü popover, drawer, agent and session rows, test helper                                     |
+| 3    | `2026-10-11-mobile-layout-redesign-part-3-chat.md`     | Header, approval strip, transcript, composer, teams, member context                                   |
+| 4    | `2026-10-11-mobile-layout-redesign-part-4-settings.md` | Settings scroll container, section chips, dirty state, save bar, docs, final verification and cleanup |
 
 Each part ends with `npm run check` green and its affected browser specs passing in
 Chromium. One branch, one PR, opened only after part 4.
@@ -60,16 +60,16 @@ Chromium. One branch, one PR, opened only after part 4.
 Part 1 produces, later parts consume:
 
 - `RequestLedger#latestByConversation(): Array<{ conversationId: string,
-  requestId: string, requestState: string, attemptId: string | null,
-  attemptState: string | null, reviewedAt: string | null }>`
+requestId: string, requestState: string, attemptId: string | null,
+attemptState: string | null, reviewedAt: string | null }>`
 - `AssistantActionStore#awaitingCounts(now = Date.now()): Record<assistantId,
-  { own: number, team: number }>`
+{ own: number, team: number }>`
 - `assistantActivity({ assistants, conversations, latest, awaiting, teams, members })`
   in `server/features/assistants/assistant-activity.js` →
   `Record<assistantId, ActivityEntry>` where
   `ActivityEntry = { state: "idle"|"working"|"waiting"|"attention",
-  reason: "attempt"|"member"|"queued"|"approval"|"team"|null, label: string | null,
-  pendingApprovals: number, team: "awaiting"|"active"|null }`.
+reason: "attempt"|"member"|"queued"|"approval"|"team"|null, label: string | null,
+pendingApprovals: number, team: "awaiting"|"active"|null }`.
   `label` is a dotted copy path inside `assistantCopy`, e.g. `"status.accepted"`,
   `"team.states.queued"`, `"teamActive.awaiting"`.
 - `GET /api/assistants` → adds top-level `activity: Record<assistantId, ActivityEntry>`.
@@ -80,9 +80,9 @@ Part 1 produces, later parts consume:
   - `activityDot(entry): "working" | "waiting" | "unknown" | null`
   - `copyAt(copy, path): string | undefined` (resolves dotted paths)
   - `headerStatus({ assistant, models, runtime, attempt, entry, member, copy }):
-    { tone: "missing"|"muted"|"attention"|"working"|"waiting"|"ready", label: string }`
+{ tone: "missing"|"muted"|"attention"|"working"|"waiting"|"ready", label: string }`
   - `sidebarSubline({ assistant, entry, member, model, copy }):
-    { text: string, tone: "accent" | "meta" }` — `model` is the agent's own
+{ text: string, tone: "accent" | "meta" }` — `model` is the agent's own
     `assistant.model` (`{ connectionId, modelId }`), not a connection record. Order:
     team state (`teamActive.*`), then the activity label, then for members only the
     phase (callers add role or assignment), else `model.modelId`.
@@ -96,7 +96,7 @@ Part 2 produces:
 - Tokens in `web/styles/base.css` (full table from the spec, added at once).
 - `web/app/SidebarMenu.jsx` default export
   `SidebarMenu({ view, selected, page, select, state, agentsEnabled, localAccess, error,
-  loading, mobileNav })` (no `desktop`: geometry is pure CSS; `error`/`loading` feed the
+loading, mobileNav })` (no `desktop`: geometry is pure CSS; `error`/`loading` feed the
   host status, `mobileNav` closes it with the drawer). Trigger `.sidebar-menu-button`,
   popover `#sidebar-menu`, scrim `.sidebar-menu-scrim`, styles in
   `web/app/sidebar-menu.css`. Escape is stopped in React (`stopPropagation()`), so
@@ -104,12 +104,12 @@ Part 2 produces:
 - Sidebar structure: `.sidebar-head`, `.sidebar-launch`, `.sidebar-scroll` (the only
   scroll container); closed phone drawer `inert`.
 - `web/app/SessionRow.jsx` default export `SessionRow({ session, selected, onSelect,
-  names })`.
+names })`.
 - `ProviderMark({ tool, small, size, label })`: `label` (opt-in accessible name) and
   `size="row"`.
 - `SidebarGroup` new prop `ariaLabel`.
 - Agent rows: `div.assistant-sidebar-row` › `button.session-item.assistant-sidebar-item`
-  + `button.assistant-team-pill`; styles in `web/features/assistants/assistant-sidebar.css`.
+  - `button.assistant-team-pill`; styles in `web/features/assistants/assistant-sidebar.css`.
 - `tests/helpers/navigation.js` `openMenu(page): Promise<Locator>` and updated
   `navigateTo(page, name)`.
 - Copy keys: `sidebarCopy.menu`, `sidebarCopy.closeMenu`, `assistantCopy.agentsGroup`;
@@ -118,7 +118,7 @@ Part 2 produces:
 Part 3 produces:
 
 - `AssistantHeader({ assistant, variant: "conversation" | "settings", navigate,
-  onBack, openNavigation, navigationOpen, attempt, member })` (no `onChat`). Status
+onBack, openNavigation, navigationOpen, attempt, member })` (no `onChat`). Status
   line class `.assistant-header-status` with tone modifiers (not `.assistant-status`,
   which `AssistantRuntimeSettings.jsx` already uses); settings subline
   `.assistant-header-sub`.

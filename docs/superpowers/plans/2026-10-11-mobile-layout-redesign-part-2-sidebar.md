@@ -25,11 +25,13 @@ Focused commands used below:
 ### Task 1: Theme tokens
 
 **Files:**
+
 - Modify: `web/styles/base.css:15-30` (custom properties in `:root`)
 - Modify: `web/features/assistants/assistants.css:444-453,459-465`
 - Create: `tests/unit/theme-tokens.test.js`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: every token of the spec table; later tasks and parts use them by name.
 
@@ -119,37 +121,37 @@ Expected: FAIL — `--border is undefined` (assistants.css) and `--text` missing
 In `web/styles/base.css`, append inside `:root` after `--success-line: #a4cdb333;`:
 
 ```css
-  --text: #e8e8ec;
-  --sidebar-bg: #15161a;
-  --header-bg: #16171b;
-  --header-line: #28292d;
-  --popover-bg: #1b1c20;
-  --popover-raised: #1f2024;
-  --popover-shadow: 0 18px 40px -12px #000;
-  --scrim: #0b0c0e99;
-  --accent-text: #ffc99d;
-  --accent-focus: #f49a5866;
-  --button-secondary-bg: #202125;
-  --button-secondary-line: #323337;
-  --button-secondary-text: #dcdde1;
-  --nav-selected: #26272b;
-  --pill-bg: #1c1d21;
-  --pill-text: #b9babe;
-  --text-row: #cfd0d4;
-  --text-meta: #8a8b8f;
-  --text-menu: #c4c5c9;
-  --text-group: #97989c;
-  --text-faint: #6f7075;
-  --text-message: #e1e2e6;
-  --placeholder: #6b6c70;
-  --hint: #7e7f83;
-  --approval-bg: #1b1a19;
-  --approval-line: #2e2924;
-  --divider: #2a2b30;
-  --divider-soft: #24252a;
-  --switch-off: #3a3b3f;
-  --switch-knob: #fff;
-  --on-accent: #242529;
+--text: #e8e8ec;
+--sidebar-bg: #15161a;
+--header-bg: #16171b;
+--header-line: #28292d;
+--popover-bg: #1b1c20;
+--popover-raised: #1f2024;
+--popover-shadow: 0 18px 40px -12px #000;
+--scrim: #0b0c0e99;
+--accent-text: #ffc99d;
+--accent-focus: #f49a5866;
+--button-secondary-bg: #202125;
+--button-secondary-line: #323337;
+--button-secondary-text: #dcdde1;
+--nav-selected: #26272b;
+--pill-bg: #1c1d21;
+--pill-text: #b9babe;
+--text-row: #cfd0d4;
+--text-meta: #8a8b8f;
+--text-menu: #c4c5c9;
+--text-group: #97989c;
+--text-faint: #6f7075;
+--text-message: #e1e2e6;
+--placeholder: #6b6c70;
+--hint: #7e7f83;
+--approval-bg: #1b1a19;
+--approval-line: #2e2924;
+--divider: #2a2b30;
+--divider-soft: #24252a;
+--switch-off: #3a3b3f;
+--switch-knob: #fff;
+--on-accent: #242529;
 ```
 
 In `web/features/assistants/assistants.css` replace the undefined variables:
@@ -179,11 +181,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 2: Sidebar copy
 
 **Files:**
+
 - Modify: `web/lib/i18n/de/app.js:28-44`, `web/lib/i18n/en/app.js:26-42`
 - Modify: `web/lib/i18n/de/assistants.js:362`, `web/lib/i18n/en/assistants.js:351`
 - Create: `tests/unit/sidebar-copy.test.js`
 
 **Interfaces:**
+
 - Produces: `sidebarCopy.menu`, `sidebarCopy.closeMenu`, `assistantCopy.agentsGroup`.
   Removes `sidebarCopy.sidebarCaption` (decision 8).
 
@@ -259,6 +263,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 3: Menü popover, navigation helper and the specs that use the old nav
 
 **Files:**
+
 - Create: `web/app/SidebarMenu.jsx`, `web/app/sidebar-menu.css`, `tests/browser/sidebar-menu.spec.js`
 - Modify: `web/app/Sidebar.jsx:1-16,43-54,79-170,229-258`
 - Modify: `web/styles/index.css:21` (import), `web/app/layout.css:107-111,156-167,361-401`
@@ -269,9 +274,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   `remote-menu.spec.js:29-32,50,62,71`, `i18n.spec.js:111-113`, `tool-installer.spec.js:236`
 
 **Interfaces:**
+
 - Consumes: Task 1 tokens, Task 2 copy.
 - Produces: `SidebarMenu({ view, selected, page, select, state, agentsEnabled,
-  localAccess, error, loading, mobileNav })` (default export; popover
+localAccess, error, loading, mobileNav })` (default export; popover
   `id="sidebar-menu"`, trigger `.sidebar-menu-button`);
   `openMenu(page): Promise<Locator>` and `navigateTo(page, name)` in
   `tests/helpers/navigation.js`.
@@ -455,7 +461,12 @@ export default function SidebarMenu({
         aria-hidden="true"
         onClick={() => close()}
       />
-      <div id="sidebar-menu" className="sidebar-menu-popover" hidden={!open} ref={popover}>
+      <div
+        id="sidebar-menu"
+        className="sidebar-menu-popover"
+        hidden={!open}
+        ref={popover}
+      >
         {entry({
           key: "overview",
           icon: "grid",
@@ -544,7 +555,12 @@ export default function SidebarMenu({
           <Icon name="shield" size={16} />
         </div>
         {state.remoteUrl && localAccess && (
-          <a className="remote-link" href={state.remoteUrl} target="_blank" rel="noreferrer">
+          <a
+            className="remote-link"
+            href={state.remoteUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
             <Icon name="link" size={14} />
             {copy.remoteLink}
             <Icon name="arrow" size={14} />
@@ -567,31 +583,31 @@ Remove the imports that moved (`artifactCopy`, `LogoutButton`, `pipelineCopy`,
 (`:44-54`) with:
 
 ```jsx
-      <div className="sidebar-top">
-        <button
-          ref={collapseRef}
-          className="icon-button sidebar-collapse"
-          aria-label={copy.collapseSidebar}
-          title={copy.collapseSidebar}
-          onClick={collapse}
-        >
-          <Icon name="back" />
-        </button>
-        <SidebarMenu
-          {...{
-            view,
-            selected,
-            page,
-            select,
-            state,
-            agentsEnabled,
-            localAccess,
-            error,
-            loading,
-            mobileNav,
-          }}
-        />
-      </div>
+<div className="sidebar-top">
+  <button
+    ref={collapseRef}
+    className="icon-button sidebar-collapse"
+    aria-label={copy.collapseSidebar}
+    title={copy.collapseSidebar}
+    onClick={collapse}
+  >
+    <Icon name="back" />
+  </button>
+  <SidebarMenu
+    {...{
+      view,
+      selected,
+      page,
+      select,
+      state,
+      agentsEnabled,
+      localAccess,
+      error,
+      loading,
+      mobileNav,
+    }}
+  />
+</div>
 ```
 
 Delete the whole `<nav aria-label={copy.ariaLabel}>…</nav>` block (`:79-170`) and the
@@ -786,7 +802,7 @@ and add `import { openMenu } from "../helpers/navigation.js";` at the top.
 `await drawer.getByRole("button", { name: "Übersicht" }).click();` →
 
 ```js
-  await (await openMenu(page)).getByRole("button", { name: "Übersicht" }).click();
+await (await openMenu(page)).getByRole("button", { name: "Übersicht" }).click();
 ```
 
 plus `import { openMenu } from "../helpers/navigation.js";`.
@@ -805,10 +821,10 @@ first so they cannot pass vacuously). At `:103` keep the landmark assertion. At
 `:131-134` replace the label query with
 
 ```js
-  const menu = await openMenu(page);
-  const labels = await menu
-    .locator(".nav-item")
-    .evaluateAll((items) => items.map((item) => item.textContent.trim()));
+const menu = await openMenu(page);
+const labels = await menu
+  .locator(".nav-item")
+  .evaluateAll((items) => items.map((item) => item.textContent.trim()));
 ```
 
 At `:196` (`"Overview"` visible within 1500 ms) insert `await openMenu(page);` before
@@ -856,12 +872,14 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 4: Sidebar structure, widths, one scroll area and inert drawer
 
 **Files:**
+
 - Modify: `web/app/Sidebar.jsx` (render tree), `web/app/layout.css:1-60,97-106,112-114,168-182,254-258`
 - Modify: `web/styles/mobile.css:2-7`, `web/styles/desktop.css:25-32`
 - Modify: `tests/browser/sidebar-collapse.spec.js:12,19`
 - Test: `tests/browser/sidebar-menu.spec.js` (append)
 
 **Interfaces:**
+
 - Consumes: `useMobileLayout()` from `web/lib/useMobileLayout.js`; `SidebarMenu`.
 - Produces: `.sidebar-head`, `.sidebar-launch`, `.sidebar-scroll` (the only scroll
   container; Task 7's agent group and Task 6's sessions render inside it).
@@ -895,9 +913,9 @@ test("the closed phone drawer is inert and fits 320 px without horizontal scroll
   await page.getByRole("button", { name: "Navigation öffnen", exact: true }).click();
   await expect.poll(() => aside.evaluate((node) => node.inert)).toBe(false);
   expect((await aside.boundingBox()).width).toBe(264);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-    true,
-  );
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(async () => (await aside.boundingBox()).width).toBe(316);
 });
@@ -925,82 +943,82 @@ Add `import useMobileLayout from "../lib/useMobileLayout.js";` and inside the
 component, before `return`:
 
 ```jsx
-  // Off-canvas on phones: keep the closed drawer out of the tab order.
-  const mobile = useMobileLayout();
+// Off-canvas on phones: keep the closed drawer out of the tab order.
+const mobile = useMobileLayout();
 ```
 
 Replace the returned tree with:
 
 ```jsx
-    <aside className={`sidebar ${mobileNav ? "open" : ""}`} inert={mobile && !mobileNav}>
-      <div className="sidebar-head">
-        <button
-          ref={collapseRef}
-          className="icon-button sidebar-collapse"
-          aria-label={copy.collapseSidebar}
-          title={copy.collapseSidebar}
-          onClick={collapse}
-        >
-          <Icon name="back" />
-        </button>
-        <button
-          className="brand"
-          onClick={() => select(null)}
-          aria-label={copy.brandAriaLabel}
-        >
-          <span className="brand-symbol">
-            <Icon name="terminal" size={mobile ? 18 : 22} />
-          </span>
-          <span>
-            {copy.brandLabel}
-            <span className="brand-dot">.</span>
-          </span>
-          <span className="local-badge">{copy.localBadge}</span>
-        </button>
-        <SidebarMenu
-          {...{
-            view,
-            selected,
-            page,
-            select,
-            state,
-            agentsEnabled,
-            localAccess,
-            error,
-            loading,
-            mobileNav,
-          }}
-        />
-      </div>
-      <div className="sidebar-launch">
-        <button
-          aria-label={commonCopy.newSession}
-          className="button primary new-session"
-          onClick={() => launch()}
-          disabled={!installed}
-        >
-          <Icon name="plus" />
-          {commonCopy.newSession}
-          <span className="shortcut">↗</span>
-        </button>
-      </div>
-      <div className="sidebar-scroll">
-        {agentsEnabled && (
-          <Suspense fallback={null}>
-            <AssistantSidebar navigate={navigate} route={route} />
-          </Suspense>
-        )}
-        <SidebarGroup
-          name="sessions"
-          label={commonCopy.sessions}
-          count={sessions.length.toString().padStart(2, "0")}
-          defaultOpen
-          activeKey={selected}
-        >
-          {/* session list unchanged here; Task 6 extracts SessionRow */}
-        </SidebarGroup>
-      </div>
-    </aside>
+<aside className={`sidebar ${mobileNav ? "open" : ""}`} inert={mobile && !mobileNav}>
+  <div className="sidebar-head">
+    <button
+      ref={collapseRef}
+      className="icon-button sidebar-collapse"
+      aria-label={copy.collapseSidebar}
+      title={copy.collapseSidebar}
+      onClick={collapse}
+    >
+      <Icon name="back" />
+    </button>
+    <button
+      className="brand"
+      onClick={() => select(null)}
+      aria-label={copy.brandAriaLabel}
+    >
+      <span className="brand-symbol">
+        <Icon name="terminal" size={mobile ? 18 : 22} />
+      </span>
+      <span>
+        {copy.brandLabel}
+        <span className="brand-dot">.</span>
+      </span>
+      <span className="local-badge">{copy.localBadge}</span>
+    </button>
+    <SidebarMenu
+      {...{
+        view,
+        selected,
+        page,
+        select,
+        state,
+        agentsEnabled,
+        localAccess,
+        error,
+        loading,
+        mobileNav,
+      }}
+    />
+  </div>
+  <div className="sidebar-launch">
+    <button
+      aria-label={commonCopy.newSession}
+      className="button primary new-session"
+      onClick={() => launch()}
+      disabled={!installed}
+    >
+      <Icon name="plus" />
+      {commonCopy.newSession}
+      <span className="shortcut">↗</span>
+    </button>
+  </div>
+  <div className="sidebar-scroll">
+    {agentsEnabled && (
+      <Suspense fallback={null}>
+        <AssistantSidebar navigate={navigate} route={route} />
+      </Suspense>
+    )}
+    <SidebarGroup
+      name="sessions"
+      label={commonCopy.sessions}
+      count={sessions.length.toString().padStart(2, "0")}
+      defaultOpen
+      activeKey={selected}
+    >
+      {/* session list unchanged here; Task 6 extracts SessionRow */}
+    </SidebarGroup>
+  </div>
+</aside>
 ```
 
 Keep the existing `<div className="session-list">…</div>` body verbatim inside the
@@ -1074,41 +1092,41 @@ rest of the media query).
 `web/styles/mobile.css:2-7` → replace the `.sidebar` block with:
 
 ```css
-  .sidebar {
-    width: min(316px, calc(100vw - 56px));
-    transform: translateX(-100%);
-    transition: transform 0.2s;
-  }
-  .sidebar-head {
-    grid-template-columns: 1fr auto;
-    grid-template-areas: "brand menu";
-    gap: 10px;
-    padding: 14px 14px 14px 18px;
-  }
-  .sidebar-head .brand {
-    gap: 10px;
-    padding: 0;
-    font-size: 22px;
-    letter-spacing: -1.2px;
-  }
-  .sidebar-head .brand-symbol {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-  }
-  .sidebar-head .local-badge,
-  .sidebar-launch .shortcut {
-    display: none;
-  }
-  .sidebar-launch {
-    padding: 0 14px 10px;
-  }
-  .sidebar-launch .new-session {
-    height: 40px;
-  }
-  .sidebar-scroll {
-    padding: 0 6px 16px;
-  }
+.sidebar {
+  width: min(316px, calc(100vw - 56px));
+  transform: translateX(-100%);
+  transition: transform 0.2s;
+}
+.sidebar-head {
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "brand menu";
+  gap: 10px;
+  padding: 14px 14px 14px 18px;
+}
+.sidebar-head .brand {
+  gap: 10px;
+  padding: 0;
+  font-size: 22px;
+  letter-spacing: -1.2px;
+}
+.sidebar-head .brand-symbol {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+.sidebar-head .local-badge,
+.sidebar-launch .shortcut {
+  display: none;
+}
+.sidebar-launch {
+  padding: 0 14px 10px;
+}
+.sidebar-launch .new-session {
+  height: 40px;
+}
+.sidebar-scroll {
+  padding: 0 6px 16px;
+}
 ```
 
 - [ ] **Step 5: Update the collapse spec**
@@ -1137,10 +1155,12 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 5: Sticky group headers and a separate accessible group name
 
 **Files:**
+
 - Modify: `web/app/SidebarGroup.jsx:2-9,36-48`, `web/app/layout.css:119-155`
 - Test: `tests/browser/sidebar-menu.spec.js` (append)
 
 **Interfaces:**
+
 - Produces: `SidebarGroup({ …, ariaLabel })` — `ariaLabel` overrides the toggle's
   accessible name; defaults to `label`.
 
@@ -1210,12 +1230,14 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 6: Session rows
 
 **Files:**
+
 - Create: `web/app/SessionRow.jsx`
 - Modify: `web/components/ProviderMark.jsx` (whole), `web/app/Sidebar.jsx:183-227`,
   `web/app/layout.css:275-341`
 - Modify specs: `tests/browser/sidebar.spec.js:137,149`, `tests/browser/chat-presentation.spec.js:285-296,477-484`
 
 **Interfaces:**
+
 - Produces: `SessionRow({ session, selected, onSelect, names })`;
   `ProviderMark({ tool, small = false, size, label })` — `size="row"` renders the
   30 px mark with mock glyph sizes; `label` adds `role="img"` + `aria-label`.
@@ -1225,15 +1247,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 `tests/browser/sidebar.spec.js` — replace `:137` and the later `:149` expectations:
 
 ```js
-    await expect(row("Projekt 3").locator("small")).toHaveText(
-      /^Wartet.* · project-2$/,
-    );
-    await expect(row("Projekt 3").locator(".provider-mark")).toHaveAttribute(
-      "aria-label",
-      "Codex",
-    );
-    await expect(row("Projekt 3")).not.toContainText("Codex");
-    await expect(row("Lokale Shell").locator("small")).toHaveText("Terminal aktiv");
+await expect(row("Projekt 3").locator("small")).toHaveText(/^Wartet.* · project-2$/);
+await expect(row("Projekt 3").locator(".provider-mark")).toHaveAttribute(
+  "aria-label",
+  "Codex",
+);
+await expect(row("Projekt 3")).not.toContainText("Codex");
+await expect(row("Lokale Shell").locator("small")).toHaveText("Terminal aktiv");
 ```
 
 and at `:149` (after `sessions[0].activity = …waiting`):
@@ -1258,13 +1278,13 @@ test("session rows show the folder name and keep the full path as title", async 
 `:477-484` → replace the two `.session-directory` assertions with:
 
 ```js
-  await expect(row.locator("small")).toContainText(" · website");
-  await expect(row).toHaveAttribute("title", "/fixture/projects/website");
-  await expect(row.locator(".provider-mark.codex")).toHaveAttribute("aria-label", "Codex");
+await expect(row.locator("small")).toContainText(" · website");
+await expect(row).toHaveAttribute("title", "/fixture/projects/website");
+await expect(row.locator(".provider-mark.codex")).toHaveAttribute("aria-label", "Codex");
 ```
 
 - [ ] **Step 2: Run** `AGENTPIER_TEST_PORT=4391 npx playwright test tests/browser/sidebar.spec.js tests/browser/chat-presentation.spec.js --output .cache/pw-part2`
-Expected: FAIL (`· Codex` still visible, no aria-label).
+      Expected: FAIL (`· Codex` still visible, no aria-label).
 
 - [ ] **Step 3: `web/components/ProviderMark.jsx`**
 
@@ -1289,7 +1309,13 @@ export default function ProviderMark({ tool, small = false, size, label }) {
       aria-hidden={label ? undefined : "true"}
     >
       {tool === "codex" ? (
-        <svg width={px.codex} height={px.codex} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <svg
+          width={px.codex}
+          height={px.codex}
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          aria-hidden="true"
+        >
           {/* keep the existing <path d="M22.2819 …"/> verbatim */}
         </svg>
       ) : tool === "claude" ? (
@@ -1362,15 +1388,15 @@ export default function SessionRow({ session, selected, onSelect, names }) {
 `web/app/Sidebar.jsx` — replace the `sessions.map((s) => { … })` body with
 
 ```jsx
-            sessions.map((s) => (
-              <SessionRow
-                key={s.id}
-                session={s}
-                selected={selected === s.id && view === "workspace"}
-                onSelect={select}
-                names={names}
-              />
-            ))
+sessions.map((s) => (
+  <SessionRow
+    key={s.id}
+    session={s}
+    selected={selected === s.id && view === "workspace"}
+    onSelect={select}
+    names={names}
+  />
+));
 ```
 
 add `import SessionRow from "./SessionRow.jsx";`, remove the now unused
@@ -1462,6 +1488,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 7: Agent rows, team pill and expanded team block
 
 **Files:**
+
 - Modify: `web/features/assistants/AssistantSidebar.jsx` (render code `:81-197`)
 - Create: `web/features/assistants/assistant-sidebar.css`
 - Modify: `web/features/assistants/AssistantsRoot.jsx:1-3` (import)
@@ -1475,6 +1502,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Test: `tests/browser/assistant-sidebar-rows.spec.js` (new)
 
 **Interfaces:**
+
 - Consumes (Part 1): `useAssistants().activity`; from `./assistant-status.js`:
   `activityFor(activity, id)`, `activityDot(entry)`,
   `sidebarSubline({ assistant, entry, member, model, copy })` → `{ text, tone }`.
@@ -1512,7 +1540,10 @@ async function fixture(page, activity) {
     if (path === "/api/assistant-feature")
       return route.fulfill({ json: { enabled: true, error: null } });
     if (path === "/api/assistant-events")
-      return route.fulfill({ contentType: "text/event-stream", body: 'data: {"type":"connected"}\n\n' });
+      return route.fulfill({
+        contentType: "text/event-stream",
+        body: 'data: {"type":"connected"}\n\n',
+      });
     if (path === "/api/assistant-runtime")
       return route.fulfill({ json: { availability: "ready", sync: "current" } });
     if (path === "/api/assistants")
@@ -1521,8 +1552,28 @@ async function fixture(page, activity) {
           assistants: [lead, scout],
           conversations: [],
           models: [{ id: "router", name: "OpenRouter", available: true }],
-          teams: [{ id: "t1", parentAssistantId: "lead", objective: "Prepare the relaunch", phase: "running", members: [], memberIds: ["m1"] }],
-          members: [{ id: "m1", teamId: "t1", assistantId: "scout", name: "Recherche-Lead", role: "Research", assignment: "Review competitor pages", phase: "running", lifetime: "task" }],
+          teams: [
+            {
+              id: "t1",
+              parentAssistantId: "lead",
+              objective: "Prepare the relaunch",
+              phase: "running",
+              members: [],
+              memberIds: ["m1"],
+            },
+          ],
+          members: [
+            {
+              id: "m1",
+              teamId: "t1",
+              assistantId: "scout",
+              name: "Recherche-Lead",
+              role: "Research",
+              assignment: "Review competitor pages",
+              phase: "running",
+              lifetime: "task",
+            },
+          ],
           policies: {},
           teamSettings: { revision: 0, hostMaxConcurrent: 8 },
           ...(activity ? { activity } : {}),
@@ -1537,29 +1588,38 @@ test("agent rows show activity, a team pill and truncate long English copy", asy
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await fixture(page, {
-    lead: { state: "working", reason: "team", label: "teamActive.working", pendingApprovals: 0, team: "active" },
+    lead: {
+      state: "working",
+      reason: "team",
+      label: "teamActive.working",
+      pendingApprovals: 0,
+      team: "active",
+    },
   });
   await page.goto(baseURL);
   await page.getByRole("button", { name: "Open navigation", exact: true }).click();
   const row = page.locator(".assistant-sidebar-row").first();
   await expect(row.locator(".activity-dot")).toHaveClass(/working/);
-  await expect(row.locator(".assistant-sidebar-item small").first()).toHaveText("Team working");
+  await expect(row.locator(".assistant-sidebar-item small").first()).toHaveText(
+    "Team working",
+  );
   const name = row.locator("strong").first();
   expect(await name.evaluate((n) => n.scrollWidth > n.clientWidth)).toBe(true);
   await expect(name).toHaveCSS("text-overflow", "ellipsis");
   const pill = row.getByRole("button", { name: /Show team members \(1\)/ });
   await expect(pill).toHaveAttribute("aria-expanded", "false");
   await pill.click();
-  await expect(row.getByRole("button", { name: /Hide team members \(1\)/ })).toHaveAttribute(
-    "aria-expanded",
-    "true",
-  );
+  await expect(
+    row.getByRole("button", { name: /Hide team members \(1\)/ }),
+  ).toHaveAttribute("aria-expanded", "true");
   const group = page.getByRole("group", { name: "Prepare the relaunch" });
   await expect(group.locator(".assistant-sidebar-member")).toHaveCount(1);
-  await expect(group.getByRole("button", { name: /^Recherche-Lead, / })).toHaveAccessibleDescription(
-    "Review competitor pages",
-  );
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await expect(
+    group.getByRole("button", { name: /^Recherche-Lead, / }),
+  ).toHaveAccessibleDescription("Review competitor pages");
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
 });
 
 test("a list response without activity renders idle rows", async ({ page }) => {
@@ -1575,7 +1635,7 @@ test("a list response without activity renders idle rows", async ({ page }) => {
 ```
 
 - [ ] **Step 2: Run** `AGENTPIER_TEST_PORT=4391 npx playwright test tests/browser/assistant-sidebar-rows.spec.js --output .cache/pw-part2`
-Expected: FAIL (`.assistant-sidebar-row` not found).
+      Expected: FAIL (`.assistant-sidebar-row` not found).
 
 - [ ] **Step 3: Rewrite the render part of `AssistantSidebar.jsx`**
 
@@ -1586,167 +1646,167 @@ Destructure `activity = {}` from `useAssistants()`. Keep `open`, `roots`,
 returned JSX with:
 
 ```jsx
-  const quiet = (phase) =>
-    ["ready", "completed", "failed", "cancelled", "declined", "partial"].includes(phase);
-  function item(assistant) {
-    const member = members.find((m) => m.assistantId === assistant.id);
-    const nested = assistant.teamMemberId && assistant.lifetime === "task";
-    const chat = conversations.find(
-      (c) =>
-        c.assistantId === assistant.id &&
-        !c.archivedAt &&
-        (!c.channel || c.channel === "agentpier"),
-    );
-    const entry = activityFor(activity, assistant.id);
-    const dot = activityDot(entry);
-    const subline = sidebarSubline({
-      assistant,
-      entry,
-      member,
-      model: assistant.model,
-      copy,
-    });
-    const current = route.assistantId === assistant.id && route.view === "agents";
-    return (
-      <button
-        key={assistant.id}
-        className={`session-item assistant-sidebar-item ${nested ? "assistant-sidebar-member" : ""} ${current ? "selected" : ""}`}
-        aria-label={copy.sidebarLabel(
-          assistant.name,
-          member ? member.role : assistant.model.modelId,
-          member
-            ? copy.team.states[member.phase]
-            : connectionMissing(assistant, models)
-              ? copy.status.connectionMissing
-              : copy.status[runtime.availability],
-        )}
-        aria-describedby={member ? `assistant-task-${assistant.id}` : undefined}
-        aria-current={current ? "page" : undefined}
-        disabled={!!opening && !chat && !member}
-        onClick={() => open(assistant, chat)}
-      >
-        <span className="assistant-avatar-wrap" aria-hidden="true">
-          <span className="assistant-avatar">{avatarGlyph(assistant.name)}</span>
-          {dot && <span className={`activity-dot ${dot}`} />}
-        </span>
-        <span>
-          <strong>{assistant.name}</strong>
-          {opening === assistant.id ? (
-            <small>{copy.loading}</small>
-          ) : nested ? (
-            <small>
-              <span className={quiet(member?.phase) ? "" : "accent"}>{subline.text}</span>
-              {member && (
-                <>
-                  {" · "}
-                  <span id={`assistant-task-${assistant.id}`} title={member.assignment}>
-                    {member.assignment}
-                  </span>
-                </>
-              )}
-            </small>
-          ) : (
-            <>
-              <small className={subline.tone === "accent" ? "accent" : ""}>
-                {member ? `${member.role} · ${subline.text}` : subline.text}
-              </small>
-              {member && (
-                <small
-                  id={`assistant-task-${assistant.id}`}
-                  className="assistant-sidebar-task"
-                  title={member.assignment}
-                >
-                  {member.assignment}
-                </small>
-              )}
-            </>
-          )}
-        </span>
-      </button>
-    );
-  }
-  if (!roots.length) return null;
-  return (
-    <SidebarGroup
-      name="assistant-chats"
-      label={copy.agentsGroup}
-      ariaLabel={copy.chats}
-      count={String(roots.length)}
-      defaultOpen
-      activeKey={route.assistantId}
-    >
-      <ErrorMessage error={error} />
-      <div className="session-list">
-        {roots.map((parent) => {
-          const groups = new Map();
-          for (const child of visible.filter(
-            (a) => a.parentAssistantId === parent.id && a.lifetime === "task",
-          )) {
-            const member = members.find((m) => m.assistantId === child.id);
-            const id = member?.teamId || child.teamId;
-            if (!groups.has(id)) groups.set(id, []);
-            groups.get(id).push(child);
-          }
-          const memberCount = [...groups.values()].reduce((n, c) => n + c.length, 0);
-          const hidden = folded(parent);
-          const current = route.assistantId === parent.id && route.view === "agents";
-          return (
-            <React.Fragment key={parent.id}>
-              <div className={`assistant-sidebar-row ${current ? "selected" : ""}`}>
-                {item(parent)}
-                {memberCount > 0 && (
-                  <button
-                    type="button"
-                    className="assistant-team-pill"
-                    aria-expanded={!hidden}
-                    aria-label={
-                      hidden ? copy.showMembers(memberCount) : copy.hideMembers(memberCount)
-                    }
-                    onClick={() => toggle(parent.id)}
-                  >
-                    <Icon name="users" size={12} />
-                    {memberCount}
-                  </button>
-                )}
-              </div>
-              {!hidden &&
-                [...groups].reverse().map(([id, children]) => {
-                  const team = teams.find((t) => t.id === id);
-                  const label = team?.objective || copy.team.title;
-                  const state = team && (team.status || team.phase);
-                  return (
-                    <div
-                      className="assistant-sidebar-team"
-                      role="group"
-                      aria-label={label}
-                      key={id || "members"}
-                    >
-                      <div className="assistant-sidebar-assignment">
-                        <strong title={label}>{label}</strong>
-                        {team && (
-                          <small className={quiet(state) ? "" : "accent"}>
-                            · {copy.team.states[state]}
-                          </small>
-                        )}
-                      </div>
-                      {children.map(item)}
-                    </div>
-                  );
-                })}
-            </React.Fragment>
-          );
-        })}
-      </div>
-    </SidebarGroup>
+const quiet = (phase) =>
+  ["ready", "completed", "failed", "cancelled", "declined", "partial"].includes(phase);
+function item(assistant) {
+  const member = members.find((m) => m.assistantId === assistant.id);
+  const nested = assistant.teamMemberId && assistant.lifetime === "task";
+  const chat = conversations.find(
+    (c) =>
+      c.assistantId === assistant.id &&
+      !c.archivedAt &&
+      (!c.channel || c.channel === "agentpier"),
   );
+  const entry = activityFor(activity, assistant.id);
+  const dot = activityDot(entry);
+  const subline = sidebarSubline({
+    assistant,
+    entry,
+    member,
+    model: assistant.model,
+    copy,
+  });
+  const current = route.assistantId === assistant.id && route.view === "agents";
+  return (
+    <button
+      key={assistant.id}
+      className={`session-item assistant-sidebar-item ${nested ? "assistant-sidebar-member" : ""} ${current ? "selected" : ""}`}
+      aria-label={copy.sidebarLabel(
+        assistant.name,
+        member ? member.role : assistant.model.modelId,
+        member
+          ? copy.team.states[member.phase]
+          : connectionMissing(assistant, models)
+            ? copy.status.connectionMissing
+            : copy.status[runtime.availability],
+      )}
+      aria-describedby={member ? `assistant-task-${assistant.id}` : undefined}
+      aria-current={current ? "page" : undefined}
+      disabled={!!opening && !chat && !member}
+      onClick={() => open(assistant, chat)}
+    >
+      <span className="assistant-avatar-wrap" aria-hidden="true">
+        <span className="assistant-avatar">{avatarGlyph(assistant.name)}</span>
+        {dot && <span className={`activity-dot ${dot}`} />}
+      </span>
+      <span>
+        <strong>{assistant.name}</strong>
+        {opening === assistant.id ? (
+          <small>{copy.loading}</small>
+        ) : nested ? (
+          <small>
+            <span className={quiet(member?.phase) ? "" : "accent"}>{subline.text}</span>
+            {member && (
+              <>
+                {" · "}
+                <span id={`assistant-task-${assistant.id}`} title={member.assignment}>
+                  {member.assignment}
+                </span>
+              </>
+            )}
+          </small>
+        ) : (
+          <>
+            <small className={subline.tone === "accent" ? "accent" : ""}>
+              {member ? `${member.role} · ${subline.text}` : subline.text}
+            </small>
+            {member && (
+              <small
+                id={`assistant-task-${assistant.id}`}
+                className="assistant-sidebar-task"
+                title={member.assignment}
+              >
+                {member.assignment}
+              </small>
+            )}
+          </>
+        )}
+      </span>
+    </button>
+  );
+}
+if (!roots.length) return null;
+return (
+  <SidebarGroup
+    name="assistant-chats"
+    label={copy.agentsGroup}
+    ariaLabel={copy.chats}
+    count={String(roots.length)}
+    defaultOpen
+    activeKey={route.assistantId}
+  >
+    <ErrorMessage error={error} />
+    <div className="session-list">
+      {roots.map((parent) => {
+        const groups = new Map();
+        for (const child of visible.filter(
+          (a) => a.parentAssistantId === parent.id && a.lifetime === "task",
+        )) {
+          const member = members.find((m) => m.assistantId === child.id);
+          const id = member?.teamId || child.teamId;
+          if (!groups.has(id)) groups.set(id, []);
+          groups.get(id).push(child);
+        }
+        const memberCount = [...groups.values()].reduce((n, c) => n + c.length, 0);
+        const hidden = folded(parent);
+        const current = route.assistantId === parent.id && route.view === "agents";
+        return (
+          <React.Fragment key={parent.id}>
+            <div className={`assistant-sidebar-row ${current ? "selected" : ""}`}>
+              {item(parent)}
+              {memberCount > 0 && (
+                <button
+                  type="button"
+                  className="assistant-team-pill"
+                  aria-expanded={!hidden}
+                  aria-label={
+                    hidden ? copy.showMembers(memberCount) : copy.hideMembers(memberCount)
+                  }
+                  onClick={() => toggle(parent.id)}
+                >
+                  <Icon name="users" size={12} />
+                  {memberCount}
+                </button>
+              )}
+            </div>
+            {!hidden &&
+              [...groups].reverse().map(([id, children]) => {
+                const team = teams.find((t) => t.id === id);
+                const label = team?.objective || copy.team.title;
+                const state = team && (team.status || team.phase);
+                return (
+                  <div
+                    className="assistant-sidebar-team"
+                    role="group"
+                    aria-label={label}
+                    key={id || "members"}
+                  >
+                    <div className="assistant-sidebar-assignment">
+                      <strong title={label}>{label}</strong>
+                      {team && (
+                        <small className={quiet(state) ? "" : "accent"}>
+                          · {copy.team.states[state]}
+                        </small>
+                      )}
+                    </div>
+                    {children.map(item)}
+                  </div>
+                );
+              })}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  </SidebarGroup>
+);
 ```
 
 Note: the pill is no longer hidden while a member is selected; `folded()` already
 forces the block open then, so the pill shows `aria-expanded="true"`.
 
 - [ ] **Step 4: `web/features/assistants/assistant-sidebar.css`** (and
-`import "./assistant-sidebar.css";` after `import "./assistants.css";` in
-`AssistantsRoot.jsx`)
+      `import "./assistant-sidebar.css";` after `import "./assistants.css";` in
+      `AssistantsRoot.jsx`)
 
 ```css
 /* Agent rows in the shared sidebar scroll area (handoff 1a / 2f). */
@@ -1915,6 +1975,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 8: Fidelity check and part gate
 
 **Files:**
+
 - Create (scratchpad, not in repo): `$SCRATCH/part2-shots.mjs`
   where `SCRATCH=/private/tmp/claude-501/-Users-d-kaulig-Projects-agent-pier/3626d7cc-0f3d-4fbe-a2de-02ec5106bcb6/scratchpad`
 

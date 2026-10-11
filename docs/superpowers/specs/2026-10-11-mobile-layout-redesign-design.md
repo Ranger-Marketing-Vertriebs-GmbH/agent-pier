@@ -94,32 +94,32 @@ on B. Anything step B introduces on the settings page
 in `web/styles/base.css`. New and rewritten rules (in assistant CSS and in the touched
 shell rules) use tokens; untouched rules in `layout.css` keep their literals.
 
-| Token | Value | Use |
-|---|---|---|
-| `--text` | `#e8e8ec` | default text, Stoppen pill, popover rows |
-| `--sidebar-bg` | `#15161a` | drawer, sticky group headers, context strip, save bar |
-| `--header-bg` | `#16171b` | mobile chat top bar, mobile header |
-| `--header-line` | `#28292d` | bar borders |
-| `--popover-bg` | `#1b1c20` | Menü popover |
-| `--popover-raised` | `#1f2024` | composer options popover |
-| `--popover-shadow` | `0 18px 40px -12px #000` | both popovers (full shadow value) |
-| `--scrim` | `#0b0c0e99` | drawer scrim while Menü is open |
-| `--accent-text` | `#ffc99d` | working/waiting labels, active items |
-| `--accent-focus` | `#f49a5866` | composer focus border |
-| `--button-secondary-bg` | `#202125` | secondary buttons, Menü button |
-| `--button-secondary-line` | `#323337` | secondary borders, round composer buttons |
-| `--button-secondary-text` | `#dcdde1` | secondary button text |
-| `--nav-selected` | `#26272b` | active popover item |
-| `--pill-bg` / `--pill-text` | `#1c1d21` / `#b9babe` | team pill |
-| `--text-row` / `--text-meta` | `#cfd0d4` / `#8a8b8f` | row names / sublines |
-| `--text-menu` | `#c4c5c9` | popover items, header icons, form labels |
-| `--text-group` / `--text-faint` | `#97989c` / `#6f7075` | group headers / group labels, chevrons, checkbox border |
-| `--text-message` | `#e1e2e6` | agent reply text |
-| `--placeholder` / `--hint` | `#6b6c70` / `#7e7f83` | composer placeholder / keyboard hint |
-| `--approval-bg` / `--approval-line` | `#1b1a19` / `#2e2924` | approval strip |
-| `--divider` / `--divider-soft` | `#2a2b30` / `#24252a` | card member list / running team rows |
-| `--switch-off` / `--switch-knob` | `#3a3b3f` / `#fff` | switch track off / knob |
-| `--on-accent` | `#242529` | icon on the accent send button |
+| Token                               | Value                    | Use                                                     |
+| ----------------------------------- | ------------------------ | ------------------------------------------------------- |
+| `--text`                            | `#e8e8ec`                | default text, Stoppen pill, popover rows                |
+| `--sidebar-bg`                      | `#15161a`                | drawer, sticky group headers, context strip, save bar   |
+| `--header-bg`                       | `#16171b`                | mobile chat top bar, mobile header                      |
+| `--header-line`                     | `#28292d`                | bar borders                                             |
+| `--popover-bg`                      | `#1b1c20`                | Menü popover                                            |
+| `--popover-raised`                  | `#1f2024`                | composer options popover                                |
+| `--popover-shadow`                  | `0 18px 40px -12px #000` | both popovers (full shadow value)                       |
+| `--scrim`                           | `#0b0c0e99`              | drawer scrim while Menü is open                         |
+| `--accent-text`                     | `#ffc99d`                | working/waiting labels, active items                    |
+| `--accent-focus`                    | `#f49a5866`              | composer focus border                                   |
+| `--button-secondary-bg`             | `#202125`                | secondary buttons, Menü button                          |
+| `--button-secondary-line`           | `#323337`                | secondary borders, round composer buttons               |
+| `--button-secondary-text`           | `#dcdde1`                | secondary button text                                   |
+| `--nav-selected`                    | `#26272b`                | active popover item                                     |
+| `--pill-bg` / `--pill-text`         | `#1c1d21` / `#b9babe`    | team pill                                               |
+| `--text-row` / `--text-meta`        | `#cfd0d4` / `#8a8b8f`    | row names / sublines                                    |
+| `--text-menu`                       | `#c4c5c9`                | popover items, header icons, form labels                |
+| `--text-group` / `--text-faint`     | `#97989c` / `#6f7075`    | group headers / group labels, chevrons, checkbox border |
+| `--text-message`                    | `#e1e2e6`                | agent reply text                                        |
+| `--placeholder` / `--hint`          | `#6b6c70` / `#7e7f83`    | composer placeholder / keyboard hint                    |
+| `--approval-bg` / `--approval-line` | `#1b1a19` / `#2e2924`    | approval strip                                          |
+| `--divider` / `--divider-soft`      | `#2a2b30` / `#24252a`    | card member list / running team rows                    |
+| `--switch-off` / `--switch-knob`    | `#3a3b3f` / `#fff`       | switch track off / knob                                 |
+| `--on-accent`                       | `#242529`                | icon on the accent send button                          |
 
 The undefined `var(--border)` and `var(--surface)` in `assistants.css` are replaced with
 real tokens while restyling.
@@ -195,15 +195,16 @@ request state. The server derives it from data it already stores.
   rows, otherwise the model ID.
 - **Header status precedence** (first match wins):
 
-| # | Condition | Label | Style |
-|---|---|---|---|
-| 1 | `connectionMissing` | `status.connectionMissing` | accent label, no dot |
-| 2 | `runtime.availability !== "ready"` | `status[availability]` | `failed`/`stale`: attention; others: muted dot |
-| 3 | active attempt in the loaded history (live, faster than the list) | `status[attempt.state]` | working; `uncertain`/`interrupted`: attention |
-| 4 | `activity.state !== "idle"` | `activity.label` | per state (working / waiting / attention) |
-| 5 | otherwise | `status.ready` (idle member chat: `team.states[member.phase]`) | ready (success dot, success-muted label) |
+| #   | Condition                                                         | Label                                                          | Style                                          |
+| --- | ----------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------- |
+| 1   | `connectionMissing`                                               | `status.connectionMissing`                                     | accent label, no dot                           |
+| 2   | `runtime.availability !== "ready"`                                | `status[availability]`                                         | `failed`/`stale`: attention; others: muted dot |
+| 3   | active attempt in the loaded history (live, faster than the list) | `status[attempt.state]`                                        | working; `uncertain`/`interrupted`: attention  |
+| 4   | `activity.state !== "idle"`                                       | `activity.label`                                               | per state (working / waiting / attention)      |
+| 5   | otherwise                                                         | `status.ready` (idle member chat: `team.states[member.phase]`) | ready (success dot, success-muted label)       |
 
-  Conversation variants append „ · {modelId}“; member chats append „ · {role}“.
+Conversation variants append „ · {modelId}“; member chats append „ · {role}“.
+
 - The approval strip count is `activity.pendingApprovals`; scroll targets are the
   pending cards in the DOM (`data-pending`), so sidebar and chat agree.
 
@@ -260,7 +261,7 @@ request state. The server derives it from data it already stores.
     `assistantCopy.chats` („Agenten-Chats“), so it does not collide with the popover item
     „Agenten“.
   - DOM per root: `div.assistant-sidebar-row` containing the row `button.session-item.
-    assistant-sidebar-item` and, as a sibling (never nested), the team pill button.
+assistant-sidebar-item` and, as a sibling (never nested), the team pill button.
   - Row: 30 px avatar (radius 9) with the status dot, name, subline per Agent activity (client use).
   - Pill: `aria-expanded`, accessible name `showMembers(n)` / `hideMembers(n)`, visible
     users icon + count; toggles the existing `expanded` set. While a member of that agent
@@ -504,21 +505,21 @@ request state. The server derives it from data it already stores.
 
 Added to `web/lib/i18n/de` and `web/lib/i18n/en` with matching keys and arguments:
 
-| Key | de | en |
-|---|---|---|
-| `sidebarCopy.menu` | Menü | Menu |
-| `sidebarCopy.closeMenu` | Menü schließen | Close menu |
-| `assistantCopy.agentsGroup` | Agenten | Agents |
-| `assistantCopy.teamActive.working` | Team arbeitet | Team working |
-| `assistantCopy.teamActive.awaiting` | Team wartet auf Freigabe | Team awaiting approval |
-| `assistantCopy.team.allowedChip` | Team erlaubt | Team allowed |
-| `assistantCopy.stopShort` | Stoppen | Stop |
-| `assistantCopy.showApprovals` | Anzeigen | Show |
-| `assistantCopy.memberCount(n)` | 1 Mitglied / {n} Mitglieder | 1 member / {n} members |
-| `assistantCopy.pendingConfigShort` | Gilt ab der nächsten Nachricht. | Applies before the next message. |
-| `assistantCopy.options` | Optionen | Options |
-| `assistantCopy.optionsClose` | Optionen schließen | Close options |
-| `assistantCopy.backToChat` | Zurück zur Unterhaltung | Back to conversation |
+| Key                                 | de                              | en                               |
+| ----------------------------------- | ------------------------------- | -------------------------------- |
+| `sidebarCopy.menu`                  | Menü                            | Menu                             |
+| `sidebarCopy.closeMenu`             | Menü schließen                  | Close menu                       |
+| `assistantCopy.agentsGroup`         | Agenten                         | Agents                           |
+| `assistantCopy.teamActive.working`  | Team arbeitet                   | Team working                     |
+| `assistantCopy.teamActive.awaiting` | Team wartet auf Freigabe        | Team awaiting approval           |
+| `assistantCopy.team.allowedChip`    | Team erlaubt                    | Team allowed                     |
+| `assistantCopy.stopShort`           | Stoppen                         | Stop                             |
+| `assistantCopy.showApprovals`       | Anzeigen                        | Show                             |
+| `assistantCopy.memberCount(n)`      | 1 Mitglied / {n} Mitglieder     | 1 member / {n} members           |
+| `assistantCopy.pendingConfigShort`  | Gilt ab der nächsten Nachricht. | Applies before the next message. |
+| `assistantCopy.options`             | Optionen                        | Options                          |
+| `assistantCopy.optionsClose`        | Optionen schließen              | Close options                    |
+| `assistantCopy.backToChat`          | Zurück zur Unterhaltung         | Back to conversation             |
 
 Reused: `commonCopy.messagePlaceholder(name)`, `mobileHeaderCopy.iconButtonAriaLabel`,
 `assistantCopy.settings`, `settingsTab`, `chats` (group toggle aria-label), `send`,
