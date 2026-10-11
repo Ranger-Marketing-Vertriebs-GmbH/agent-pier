@@ -84,6 +84,10 @@ export const assistantApi = {
   updateMcpServer: (id, input) =>
     api(`/mcp-servers/${encodeURIComponent(id)}`, "PUT", input),
   removeMcpServer: (id) => api(`/mcp-servers/${encodeURIComponent(id)}`, "DELETE"),
+  loginMcpServer: (id) =>
+    api(`/mcp-servers/${encodeURIComponent(id)}/oauth/login`, "POST", {}),
+  logoutMcpServer: (id) =>
+    api(`/mcp-servers/${encodeURIComponent(id)}/oauth/logout`, "POST", {}),
   accounts: () => api("/assistant-model-accounts"),
   startLogin: () => api("/assistant-model-login", "POST", {}),
   loginStatus: (id) => api(`/assistant-model-login/${encodeURIComponent(id)}`),

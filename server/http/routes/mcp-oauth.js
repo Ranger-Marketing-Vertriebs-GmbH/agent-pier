@@ -3,7 +3,8 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { oauthCallbackPath } from "../../features/mcp-servers/oauth-redirect.js";
 
-const settingsPath = "/settings/mcp";
+// The central MCP server list lives on the Accounts page.
+const settingsPath = "/accounts";
 
 /** Answers an OAuth refusal or failure with its stable code; false for any other error. */
 function replyOAuth(res, error) {
