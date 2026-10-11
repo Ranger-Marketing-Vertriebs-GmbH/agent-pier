@@ -112,4 +112,44 @@ test.describe("agent settings on phones", () => {
         }),
       ).toBe(true);
     });
+
+  test("the chip of the section in view is active", async ({ page }) => {
+    await setupAssistantSettings(page, { assistant: full });
+    await page.goto(baseURL + "/agents/home/settings");
+    const nav = page.getByRole("navigation", { name: "Settings sections" });
+    const current = nav.locator('a[aria-current="location"]');
+    await expect(current).toHaveText("Profile");
+    await page
+      .locator("#agent-memory")
+      .evaluate((el) => el.scrollIntoView({ block: "start" }));
+    await expect(current).toHaveText("Memory");
+    await expect(current).toHaveCount(1);
+    // Chips fade between states, so wait for the transition to settle.
+    await expect
+      .poll(() =>
+        current.evaluate((el) => {
+          const css = getComputedStyle(el);
+          return { color: css.color, background: css.backgroundColor };
+        }),
+      )
+      .toEqual({ color: "rgb(255, 201, 157)", background: "rgb(48, 38, 28)" });
+  });
+
+  test("clicking a chip activates it at once and keeps it in the chip row", async ({
+    page,
+  }) => {
+    await setupAssistantSettings(page, { assistant: full });
+    await page.goto(baseURL + "/agents/home/settings");
+    const nav = page.getByRole("navigation", { name: "Settings sections" });
+    const telegram = nav.getByRole("link", { name: "Telegram" });
+    await telegram.click();
+    await expect(telegram).toHaveAttribute("aria-current", "location");
+    await expect(page.getByRole("heading", { name: "Telegram" })).toBeFocused();
+    const inRow = await telegram.evaluate((el) => {
+      const row = el.parentElement.getBoundingClientRect();
+      const chip = el.getBoundingClientRect();
+      return chip.left >= row.left && chip.right <= row.right;
+    });
+    expect(inRow).toBe(true);
+  });
 });
