@@ -33,8 +33,10 @@ Credentials are sealed in the backup with AES-256-GCM: OpenClaw's auth stores
 (`auth-profiles.json`, `auth-state.json`, `auth.json`, `oauth.json` and
 `state/credentials/`), its credential tables (`auth_profile_store`,
 `auth_profile_state`, `secret_store_entries`, MCP OAuth stores, device and worker
-credential tables), the secret members of `openclaw.json` (Gateway, cron and plugin
-tokens, provider API keys and headers) and the Telegram bot tokens in
+credential tables), the secret members of `openclaw.json` and of each copy beside
+it that parses as JSON, such as `.bak*` and `.last-good` (Gateway, cron and plugin
+tokens, provider API keys, headers and MCP server environments; a copy that does not
+parse is left out) and the Telegram bot tokens in
 `channels.sqlite`. Each backup has its own key under `assistants/backup-keys/`
 (0600), never inside the backup. Logging out of a model account, changing a provider
 connection, or rotating or disconnecting a Telegram bot destroys every backup key
@@ -57,7 +59,8 @@ record, the reminder webhook secret and the host-bound runtime state (`runtime.j
 with 409 while a runtime update or provider change is running; update or maintenance
 state left behind without one (a crash, a failed recovery, a dormant install) skips
 the agent data with a declared omission instead. Live databases are copied
-consistently first. Absolute paths below `assistants/` in `openclaw.json` and in
+consistently first. Absolute paths below `assistants/` in `openclaw.json` (and its
+`.bak*` and `.last-good` copies, sealed like it) and in
 OpenClaw's legacy session index (`state/agents/*/sessions/sessions.json`) are stored
 relative to that folder and point at the restored location after a restore; a path
 that would leave it rejects the archive. The Gateway's default workspace is set from

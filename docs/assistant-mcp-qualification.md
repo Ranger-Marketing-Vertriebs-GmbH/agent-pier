@@ -225,9 +225,12 @@ With a header value and an environment value set:
   until they rotate out (_probe_). The compiled contract checks the old and the new
   header value: apart from those copies, only AgentPier's own server store holds
   them.
-- AgentPier's runtime update backups seal `headers` and `env` in `openclaw.json`;
-  `tests/integration/assistant-runtime-snapshot.test.js` verifies the restore with
-  the key and the withheld restore after the key was destroyed.
+- AgentPier's runtime update backups and host backups seal `headers` and `env` in
+  `openclaw.json` and in every copy beside it that parses as JSON (`.bak*`,
+  `.last-good`); a copy that does not parse (an unfinished temporary) is left out.
+  `tests/integration/assistant-runtime-snapshot.test.js` and
+  `tests/integration/assistant-host-backup.test.js` verify the restore with the key
+  and the withheld restore after the key was destroyed.
 
 ## Consequences for AgentPier
 
@@ -243,7 +246,9 @@ With a header value and an environment value set:
 - stdio commands must be absolute; servers that need `TMPDIR` or the owner's
   `HOME` will not find them.
 - Rotated header or environment values linger in OpenClaw's configuration
-  backups; update backups and data deletion must treat these files as secret.
+  backups. Update and host backups therefore seal every `openclaw.json*` copy that
+  parses like `openclaw.json` itself and leave out copies that do not; data
+  deletion must treat these files as secret too.
 
 ## Boundaries
 
