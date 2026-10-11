@@ -132,8 +132,8 @@ async function setup(page, options = {}) {
   });
   return state;
 }
-const save = (page) =>
-  page.locator("#agent-profile").getByRole("button", { name: "Save agent" });
+// Phones save from the sticky save bar, desktop from the profile form.
+const save = (page) => page.getByRole("button", { name: "Save agent", exact: true });
 
 for (const [label, use] of [
   ["desktop", {}],
