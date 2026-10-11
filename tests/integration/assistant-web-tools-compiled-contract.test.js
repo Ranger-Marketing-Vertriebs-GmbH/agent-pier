@@ -337,7 +337,12 @@ test(
         for (const profile of profiles)
           assert.equal(profile.driver, "openclaw", profile.name);
         const { result: imported } = await call({ action: "importprofile" }, "import");
-        assert.match(imported, /system profile import is disabled/);
+        // macOS refuses through allowSystemProfileImport: false; Linux has no system
+        // profile import in this OpenClaw release and refuses it outright.
+        assert.match(
+          imported,
+          /system profile import is (disabled|only supported on macOS)/,
+        );
         const { result: blocked } = await call({ action: "open", url: local }, "blocked");
         assert.match(blocked, /browser navigation blocked by policy/);
         assert.equal(page.hits, 0);
