@@ -12,6 +12,14 @@ const refusal = {
     messageKey: "mcpServers.stdioConfirmationRequired",
   },
 };
+const tokenColor = (page, token) =>
+  page.evaluate((name) => {
+    const probe = document.body.appendChild(document.createElement("span"));
+    probe.style.color = `var(${name})`;
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  }, token);
 const stdioChange = (body) =>
   ["command", "args", "cwd", "env"].some((key) => body[key] !== undefined);
 
@@ -400,6 +408,10 @@ for (const [label, use] of [
       await expect(card.locator(".mcp-team-warning")).toHaveText(
         "A listed stdio server runs a local command with your user rights, without a sandbox.",
       );
+      await expect(card.locator(".mcp-team-warning")).toHaveCSS(
+        "color",
+        await tokenColor(page, "--muted"),
+      );
       await expect(
         card.getByRole("button", { name: "Approve team", exact: true }),
       ).toBeEnabled();
@@ -415,6 +427,9 @@ for (const [label, use] of [
       ).toHaveText(
         "The MCP server list cannot be read right now. The team cannot be approved until it can.",
       );
+      await expect(
+        card.getByRole("alert").filter({ hasText: "MCP server list" }),
+      ).toHaveCSS("color", await tokenColor(page, "--accent"));
       await expect(card.locator(".mcp-team-servers")).toHaveCount(0);
       await expect(
         card.getByRole("button", { name: "Approve team", exact: true }),
