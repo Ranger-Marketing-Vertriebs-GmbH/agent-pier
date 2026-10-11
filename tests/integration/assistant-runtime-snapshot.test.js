@@ -228,6 +228,30 @@ test("backups seal credentials and withhold them once their key is destroyed", a
   assert.equal(config.models.providers["ap-x"].models[0].maxTokens, 5);
 });
 
+test("update backups seal MCP server environment and header secrets", async (t) => {
+  const { paths, backup } = fixture(t);
+  fs.mkdirSync(paths.state, { recursive: true });
+  fs.writeFileSync(
+    paths.config,
+    JSON.stringify({
+      mcp: {
+        servers: {
+          x: {
+            command: "server",
+            env: { TOKEN: "env-secret-value" },
+            headers: { Authorization: "Bearer header-secret" },
+          },
+        },
+      },
+    }),
+  );
+  const manifest = await createUpdateSnapshot(paths, backup, metadata);
+  assert.ok(manifest.sealed.includes("state/openclaw.json"));
+  const bytes = backupBytes(backup);
+  assert.equal(bytes.includes("env-secret-value"), false);
+  assert.equal(bytes.includes("header-secret"), false);
+});
+
 test("files named like databases that are not Gateway SQLite stores keep their bytes", async (t) => {
   const { paths, backup, payload } = fixture(t);
   const corrupt = Buffer.concat([Buffer.from("SQLite format 3\0"), Buffer.alloc(80, 7)]);
