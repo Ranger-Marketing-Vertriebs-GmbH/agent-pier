@@ -322,6 +322,29 @@ git commit -m "feat: detect an installed Chromium-based browser for agents"
 
 ---
 
+### Task 3b: Bundle the web search plugins in the qualified runtime
+
+Added 2026-10-11 by owner decision: DuckDuckGo, Perplexity and Brave web search are external OpenClaw plugins (npm, version 2026.9.8), not bundled in the runtime package. AgentPier never installs at runtime, so they join the qualified runtime lock.
+
+**Files:**
+
+- Modify: `server/features/assistants/runtime-lock/package.json` and `package-lock.json` (via `scripts/refresh-assistant-runtime-lock.mjs`, extended if it only knows the openclaw tarball)
+- Modify: `server/features/assistants/runtime-manifest.js` (integrity entries if the manifest pins artefacts), `server/features/assistants/runtime-install.js` (install the plugins with `--ignore-scripts` alongside openclaw, and on the update path for existing installations)
+- Modify: `server/features/assistants/runtime-config.js` (expose the installed plugin directories so Task 5 can add `plugins.load.paths` and `plugins.allow` entries only when the provider is used)
+- Test: the runtime install/provisioning unit tests that cover the lock (find them with `grep -rl runtime-lock tests`), plus the web tools contract asserting each provider is accepted once its plugin is loaded
+
+**Interfaces:**
+
+- Produces: `searchPlugins = { duckduckgo: { id, directory }, perplexity: {...}, brave: {...} }` from the runtime descriptor (the object `install()` returns), consumed by Task 5.
+
+- [ ] **Step 1:** Read how the runtime lock, manifest and install work (`runtime-install.js`, `runtime-manifest.js`, `scripts/refresh-assistant-runtime-lock.mjs`, `scripts/verify-assistant-installation.mjs`, `docs/assistant-runtime-updates.md`). Identify the exact npm package names of the three plugins from the T1 qualification doc / report.
+- [ ] **Step 2:** Write failing tests: the lock contains the three plugins at 2026.9.8 with integrity; a fresh install and an update of an existing installation both place them; the runtime descriptor exposes their directories.
+- [ ] **Step 3:** Implement with the existing transactional install and update mechanisms; no network access at Gateway start.
+- [ ] **Step 4:** Extend the web tools contract: with a plugin loaded (`plugins.load.paths` + `plugins.allow`), `tools.web.search.provider` is accepted for each of the three; record in `docs/assistant-web-tools-qualification.md`.
+- [ ] **Step 5:** Run the runtime install/update tests and the contract; update `docs/assistant-runtime-updates.md` and the ADR coupling table; commit `feat: bundle the OpenClaw web search plugins with the managed runtime`.
+
+---
+
 ### Task 4: Web search settings store and route
 
 **Files:**
