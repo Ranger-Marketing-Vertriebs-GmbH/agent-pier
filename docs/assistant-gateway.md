@@ -680,13 +680,108 @@ state and copied credentials were removed after stopping the owned runtimes.
 
 For the later merged branch, see the [release qualification](assistant-release-qualification.md).
 
+## Web, browser and document capabilities (2026-10-11)
+
+Agent settings group four more switches under **Web & documents**. All default to
+off. Like memory and reminders, they apply only to permanent agents: task-scoped
+team members never get them, and archived agents do not count. The tools exist only
+in team mode (native teams), where AgentPier compiles them into the Gateway's
+startup configuration.
+
+| Switch                        | Grants              | What it does                                                                                    |
+| ----------------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
+| **Search the web**            | `web_search`        | Searches with the provider chosen under **Accounts → Web search**                               |
+| **Read web pages**            | `web_fetch`         | Fetches a public address and reads its text; private, loopback and internal targets are refused |
+| **Use a browser**             | `browser`           | Drives a separate, headless browser profile owned by AgentPier                                  |
+| **Read documents and images** | `pdf`, `view_image` | Reads PDF files and looks at images; needs a model that accepts images                          |
+
+Web content is untrusted data. OpenClaw wraps fetched and browsed content as
+external content, and the switches do not grant any other tool.
+
+### Browser isolation
+
+AgentPier installs no browser. `detectBrowser()` looks for Chrome, Brave, Edge or
+Chromium in the platform's standard locations, and the compiled `browser` block
+names that executable. The block:
+
+- uses only OpenClaw-managed profiles (`driver: "openclaw"`). OpenClaw's implicit
+  `user` profile (which attaches to the signed-in system browser) and `chrome`
+  profile (extension relay) are redefined as managed profiles on their own CDP
+  ports, so no profile name reaches the owner's browser;
+- keeps the profile data in the Gateway's state directory below the AgentPier data
+  directory, never in the owner's browser profile;
+- sets `allowSystemProfileImport: false`, so the agent cannot copy cookies from a
+  system browser profile, and `evaluateEnabled: false`;
+- runs `headless`, so no window appears;
+- sets no `ssrfPolicy`: OpenClaw's default already blocks loopback and private
+  networks, while an explicit `dangerouslyAllowPrivateNetwork: false` would make every
+  navigation fail. `browser.noSandbox` is never set.
+
+The `browser`, `mcp`, `secrets`, `env`, `plugins` and `tools` paths are locked
+against configuration overrides; the compiler rewrites the browser block on each
+start and removes any `mcp` block it did not write.
+
+### Search provider
+
+**Accounts → Web search** selects one provider for all agents:
+
+- **DuckDuckGo** (default) needs no key.
+- **Perplexity** uses an existing OpenRouter connection's key; searches are billed to
+  that OpenRouter account.
+- **Brave Search** takes its own API key, stored in `assistants/web-search.sqlite`.
+  The browser only learns whether a key is stored.
+
+The provider plugins are bundled with the managed runtime (see
+[runtime updates](assistant-runtime-updates.md#bundled-search-plugins)). The key is
+written only into the provider plugin's entry in the Gateway configuration, which
+OpenClaw redacts on read; it is not passed as an environment variable.
+
+### Restart confirmation
+
+In team mode `plugins.allow` is restrictive, and OpenClaw needs a Gateway restart to
+activate the browser or a search plugin. AgentPier therefore compares the global
+web-tools sections (the global tool allow list, `tools.web`, the browser block and
+the search plugin) that a save would compile with those of the running Gateway:
+
+- If they are unchanged (for example, a second agent switches on a tool another agent
+  already uses), the save applies live.
+- If they change, the save answers `409 ASSISTANT_RESTART_REQUIRED` and stores
+  nothing. The settings page shows **Restart the agent service?** with the agents
+  that will be briefly unavailable. Confirming resends the save; AgentPier then runs
+  the maintenance restart used for provider changes. If an agent is busy, the save is
+  refused and nothing changes.
+- Switching off the last agent that uses a tool also changes the sections and asks
+  for a restart.
+- With the Gateway stopped, the save is stored and compiled at the next start.
+
+Creating or archiving an agent with web capabilities, and rotating the OpenRouter
+key that Perplexity uses, take effect at the next Gateway start.
+
+### Unavailable states
+
+- **No browser found:** the **Use a browser** switch is disabled with a hint to install
+  Chrome, Brave, Edge or Chromium. An agent that already has it switched on keeps
+  the setting but is not granted `browser`.
+- **Search not set up** (Perplexity without a usable OpenRouter connection, Brave
+  without a key): the **Search the web** switch is disabled and the web search
+  settings show **Not configured**. `web_search` is withheld; OpenClaw would
+  otherwise offer it and fail every call.
+- **Runtime without the bundled plugins** (an installation not yet updated, or a
+  rollback target): web search is unavailable until the staged update is activated.
+- **Documents:** OpenClaw 2026.9.8 offers `view_image` only for models that accept
+  images, and offers `pdf` for AgentPier's custom providers only with a configured
+  `pdfModel`, which AgentPier does not compile yet. The switch grants `pdf`, but the
+  model is not offered it (see [web tools qualification](assistant-web-tools-qualification.md)).
+
 ## Continuous integration
 
 The `Assistant runtime` workflow runs the opt-in native contracts in a
 `native-contracts` job (Ubuntu and macOS, nightly and on pull requests touching
 assistants). It provisions the pinned runtime with
 `scripts/provision-assistant-contracts.mjs`, uses simulated model endpoints, accounts
-and channels, needs no secrets, and fails if any contract skips. The live provider
+and channels, needs no secrets, and fails if any contract skips. It also points the
+compiled web tools contract at the runner's preinstalled Google Chrome and fails
+when none is installed. The live provider
 test and the cross-version test stay manual. The browser matrix runs every
 `assistant*.spec.js` in Chromium and WebKit; a Playwright `tablet` project (820x1180,
 touch) repeats those specs at iPad size.
