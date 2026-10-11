@@ -249,6 +249,58 @@ test("credentialed host backups seal assistant secrets with a revocable key", as
   assert.equal(fs.existsSync(path.join(revoked, "state/credentials/oauth.json")), false);
 });
 
+test("host backups seal OpenClaw's configuration copies and leave out temporaries", async (t) => {
+  const { dataDir, root } = fixture(t);
+  assistantData(root);
+  const copy = (n) =>
+    JSON.stringify({
+      agents: { defaults: { workspace: path.join(root, "workspaces") } },
+      mcp: {
+        servers: {
+          x: {
+            command: "/bin/server",
+            env: { TOKEN: `mcp-env-secret-${n}` },
+            headers: { Authorization: `Bearer mcp-header-secret-${n}` },
+          },
+        },
+      },
+    });
+  const copies = ["state/openclaw.json.bak", "state/openclaw.json.last-good"];
+  copies.forEach((relative, n) => write(root, relative, copy(n)));
+  write(root, "state/openclaw.json.77.partial", copy(9).slice(0, -30));
+  for (const withCredentials of [true, false]) {
+    const backup = await new Backup({ dataDir }).create({ withCredentials, passphrase });
+    const bytes = plaintext(backup.file);
+    assert.doesNotMatch(bytes, /mcp-(env|header)-secret/);
+    const names = members(backup.file).map((m) => m.path);
+    assert.ok(!names.includes("assistants/state/openclaw.json.77.partial"));
+    const target = path.join(path.dirname(dataDir), `restored-${withCredentials}`);
+    await new Restore({ dataDir }).apply({
+      archive: backup.file,
+      targetDataDir: target,
+      passphrase,
+    });
+    copies.forEach((relative, n) => {
+      const restored = JSON.parse(
+        fs.readFileSync(path.join(target, "assistants", relative)),
+      );
+      // Paths are relocated like those of openclaw.json itself.
+      assert.equal(
+        restored.agents.defaults.workspace,
+        path.join(target, "assistants", "workspaces"),
+      );
+      const server = restored.mcp.servers.x;
+      assert.equal(server.command, "/bin/server");
+      if (withCredentials) {
+        assert.deepEqual(server.env, { TOKEN: `mcp-env-secret-${n}` });
+        assert.deepEqual(server.headers, {
+          Authorization: `Bearer mcp-header-secret-${n}`,
+        });
+      } else assert.equal(JSON.stringify(server).includes("secret"), false);
+    });
+  }
+});
+
 test("removing a host backup destroys its assistant key", async (t) => {
   const { dataDir, root } = fixture(t);
   assistantData(root);

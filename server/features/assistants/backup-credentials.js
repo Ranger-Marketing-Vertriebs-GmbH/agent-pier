@@ -52,6 +52,24 @@ const secretMembers = new Set([
   "botToken",
 ]);
 export const configPath = "state/openclaw.json";
+// openclaw.json and the copies OpenClaw keeps beside it: its atomic-write temporary,
+// `.bak` … `.bak.4` and `.last-good`. Every copy may hold the same secrets.
+const configCopy = /^state\/openclaw\.json(\.[^/]+)?$/;
+export const isConfigFile = (relative) =>
+  configCopy.test(relative) && !relative.endsWith(sealedSuffix);
+/**
+ * Whether a configuration copy can be sealed: a JSON object. Anything else (an
+ * unfinished atomic-write temporary) is left out of every backup, since its secret
+ * members cannot be found.
+ */
+export function configShaped(text) {
+  try {
+    const value = JSON.parse(text);
+    return !!value && typeof value === "object" && !Array.isArray(value);
+  } catch {
+    return false;
+  }
+}
 export const isDatabase = (name) => /\.(sqlite3?|db)$/.test(name);
 export function isCredentialFile(relative) {
   const [tree, ...rest] = relative.split("/");

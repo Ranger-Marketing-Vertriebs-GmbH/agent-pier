@@ -11,8 +11,10 @@ import {
 import { needsAssistantMaintenance } from "../assistants/assistant-maintenance.js";
 import {
   configPath,
+  configShaped,
   createBackupKey,
   destroyBackupKey,
+  isConfigFile,
   isCredentialFile,
   readBackupKey,
   seal,
@@ -199,10 +201,16 @@ export async function captureAssistants({
         sealed.push(relative);
       } else withheld ||= moved;
     } else if (isSqlite(content)) add(relative, sqliteSnapshot(source, work));
-    else if (isRelocatable(relative)) {
+    else if (
+      isConfigFile(relative) &&
+      relative !== configPath &&
+      !configShaped(content.toString("utf8"))
+    ) {
+      // An unfinished configuration temporary: its secrets cannot be found.
+    } else if (isRelocatable(relative)) {
       const text = portableText(content.toString("utf8"), root);
       if (text === null) unreadable = true;
-      else if (relative !== configPath) add(relative, Buffer.from(text));
+      else if (!isConfigFile(relative)) add(relative, Buffer.from(text));
       else addConfig(relative, text, aad);
     } else if (isCredentialFile(relative)) {
       if (!sealing) withheld = true;
@@ -269,7 +277,14 @@ export function forgetAssistantBackup(dataDir, id) {
 }
 
 function relocatableFiles(root) {
-  const found = fs.existsSync(path.join(root, configPath)) ? [configPath] : [];
+  const state = path.join(root, "state");
+  const found = fs.existsSync(state)
+    ? fs
+        .readdirSync(state)
+        .sort()
+        .map((name) => `state/${name}`)
+        .filter((relative) => isConfigFile(relative) && isRelocatable(relative))
+    : [];
   const agents = path.join(root, "state", "agents");
   if (fs.existsSync(agents))
     for (const agent of fs.readdirSync(agents).sort()) {
@@ -318,7 +333,7 @@ export function validateAssistantManifest(value, files) {
     sidecars.some((name) => !expected.has(name.slice(0, -sealedSuffix.length))) ||
     value.sealed.some((relative) => {
       const name = `${prefix}/${relative}`;
-      return !paths.has(relative === configPath ? name : name + sealedSuffix);
+      return !paths.has(isConfigFile(relative) ? name : name + sealedSuffix);
     })
   )
     throw problem(serverMessages.backups.invalidManifest);
@@ -348,7 +363,7 @@ export async function restoreAssistants({ stage, target, liveDataDir, value }) {
     const file = path.join(root, relative),
       sidecar = file + sealedSuffix,
       aad = `${value.id}\0${relative}`;
-    if (relative === configPath) {
+    if (isConfigFile(relative)) {
       const result = unsealConfig(await fsp.readFile(file, "utf8"), key, aad);
       await fsp.writeFile(file, result.text, { mode: 0o600 });
       withheld ||= result.withheld;

@@ -7,8 +7,10 @@ import { privateFolder } from "./runtime-paths.js";
 import { readJSON, writePrivate } from "../../lib/storage.js";
 import {
   configPath,
+  configShaped,
   createBackupKey,
   isCredentialFile,
+  isConfigFile,
   isDatabase,
   readBackupKey,
   seal,
@@ -126,8 +128,13 @@ async function copyEntry(source, destination, context, relative) {
 }
 async function sealEntry(source, destination, context, relative, stat) {
   const aad = `${context.id}\0${relative}`;
-  if (relative === configPath) {
-    const result = sealConfig(await fsp.readFile(source, "utf8"), context.key, aad);
+  if (isConfigFile(relative)) {
+    const text = await fsp.readFile(source, "utf8");
+    // A copy that is no configuration (an unfinished temporary) is left out; the
+    // configuration itself must parse, as before.
+    if (relative !== configPath && !configShaped(text))
+      return context.skipped.push(relative);
+    const result = sealConfig(text, context.key, aad);
     await fsp.writeFile(destination, result.text, { mode: 0o600, flag: "wx" });
     if (result.sealed) context.sealed.push(relative);
   } else if (isCredentialFile(relative)) {
@@ -354,7 +361,7 @@ export async function restoreUpdateSnapshot(paths, directory, exclusions = []) {
     if (!trees.includes(tree)) continue;
     const live = path.join(paths[tree], ...rest);
     const aad = `${id}\0${relative}`;
-    if (relative === configPath) {
+    if (isConfigFile(relative)) {
       const result = unsealConfig(await fsp.readFile(live, "utf8"), key, aad);
       await fsp.writeFile(live, result.text, { mode: 0o600 });
       withheld ||= result.withheld;

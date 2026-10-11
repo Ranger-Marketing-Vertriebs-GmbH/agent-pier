@@ -878,11 +878,17 @@ compiled `openclaw.json` (mode 0600). OpenClaw returns them redacted on
 holds them. Rotated values remain in OpenClaw's configuration backups
 (`openclaw.json.bak*`, `.last-good`) until those rotate out.
 
-Runtime update backups seal every `headers` and `env` member of `openclaw.json` (at
-any depth) with the backup's own key, like the other credentials. A rollback with
-the key restores them; after a credential revocation destroyed the key, they are
-withheld and the restore reports `credentialsWithheld`, so the servers need their
-values entered again. The server store itself is not part of the Gateway backup.
+Runtime update backups and host backups seal every `headers` and `env` member of
+`openclaw.json` (at any depth) with the backup's own key, like the other
+credentials, and treat each copy beside it that parses as JSON (`.bak*`,
+`.last-good`) the same way; a copy that does not parse (an unfinished atomic-write
+temporary) is left out. A rollback or restore with the key restores the values;
+after a credential revocation destroyed the key, they are withheld and the restore
+reports `credentialsWithheld`, so the servers need their values entered again. A
+host backup without credentials leaves the values out. The server store
+(`<data>/mcp-servers/`) is part of neither backup: a host backup of a host that has
+it declares the omission "MCP servers for agents (definitions, values and
+bindings)".
 
 ## Continuous integration
 

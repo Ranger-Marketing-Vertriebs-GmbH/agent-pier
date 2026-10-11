@@ -271,6 +271,57 @@ test("update backups seal MCP server environment and header secrets", async (t) 
   assert.equal(JSON.stringify(kept).includes("header-secret"), false);
 });
 
+test("update backups seal OpenClaw's configuration copies and leave out temporaries", async (t) => {
+  const { paths, backup } = fixture(t);
+  fs.mkdirSync(paths.state, { recursive: true });
+  const config = (n) =>
+    JSON.stringify({
+      mcp: {
+        servers: {
+          x: {
+            command: "server",
+            env: { TOKEN: `env-secret-${n}` },
+            headers: { Authorization: `Bearer header-secret-${n}` },
+          },
+        },
+      },
+    });
+  const copies = ["openclaw.json.bak", "openclaw.json.bak.2", "openclaw.json.last-good"];
+  fs.writeFileSync(paths.config, config(0));
+  copies.forEach((name, n) =>
+    fs.writeFileSync(path.join(paths.state, name), config(n + 1)),
+  );
+  // An atomic-write temporary caught half written.
+  const temporary = path.join(paths.state, "openclaw.json.4242.tmp");
+  fs.writeFileSync(temporary, config(9).slice(0, -20));
+  const manifest = await createUpdateSnapshot(paths, backup, metadata);
+  for (const name of ["openclaw.json", ...copies])
+    assert.ok(manifest.sealed.includes(`state/${name}`), name);
+  assert.ok(manifest.skipped.includes("state/openclaw.json.4242.tmp"));
+  assert.doesNotMatch(backupBytes(backup), /secret-/);
+
+  fs.rmSync(paths.state, { recursive: true });
+  fs.mkdirSync(paths.state);
+  const restored = await restoreUpdateSnapshot(paths, backup);
+  assert.equal(restored.credentialsWithheld, false);
+  assert.equal(fs.existsSync(temporary), false);
+  copies.forEach((name, n) => {
+    const server = JSON.parse(fs.readFileSync(path.join(paths.state, name))).mcp.servers
+      .x;
+    assert.deepEqual(server.env, { TOKEN: `env-secret-${n + 1}` });
+    assert.deepEqual(server.headers, { Authorization: `Bearer header-secret-${n + 1}` });
+  });
+
+  destroyBackupKeys(paths.root);
+  const withheld = await restoreUpdateSnapshot(paths, backup);
+  assert.equal(withheld.credentialsWithheld, true);
+  for (const name of copies) {
+    const text = fs.readFileSync(path.join(paths.state, name), "utf8");
+    assert.doesNotMatch(text, /secret-/);
+    assert.equal(JSON.parse(text).mcp.servers.x.command, "server");
+  }
+});
+
 test("files named like databases that are not Gateway SQLite stores keep their bytes", async (t) => {
   const { paths, backup, payload } = fixture(t);
   const corrupt = Buffer.concat([Buffer.from("SQLite format 3\0"), Buffer.alloc(80, 7)]);

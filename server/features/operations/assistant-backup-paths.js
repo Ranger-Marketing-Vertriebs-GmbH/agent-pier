@@ -1,7 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { problem } from "../../lib/storage.js";
-import { configPath } from "../assistants/backup-credentials.js";
+import { isConfigFile } from "../assistants/backup-credentials.js";
 
 /**
  * Absolute paths below assistants/ in the Gateway's JSON files are stored relative to
@@ -11,11 +11,12 @@ import { configPath } from "../assistants/backup-credentials.js";
 export const rootMarker = "$AGENTPIER_ASSISTANTS";
 const invalid = () => problem(serverMessages.backups.invalidManifest);
 
-// The Gateway configuration and OpenClaw's legacy per-agent session index, whose
-// entries may name transcripts by absolute path (see docs/assistant-runtime-updates.md).
+// The Gateway configuration with OpenClaw's copies of it, and OpenClaw's legacy
+// per-agent session index, whose entries may name transcripts by absolute path (see
+// docs/assistant-runtime-updates.md).
 const sessionIndex = /^state\/agents\/[^/]+\/sessions\/sessions\.json$/;
 export const isRelocatable = (relative) =>
-  relative === configPath || sessionIndex.test(relative);
+  isConfigFile(relative) || sessionIndex.test(relative);
 
 function relocate(value, from, to, contained) {
   if (typeof value === "string") {
