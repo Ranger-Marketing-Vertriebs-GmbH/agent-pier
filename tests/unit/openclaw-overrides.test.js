@@ -78,3 +78,35 @@ test("a launch writes stored overrides but never over the core", async (t) => {
   assert.equal(config.agents.defaults.timeoutSeconds, 600);
   assert.equal(config.gateway.controlUi.enabled, false);
 });
+
+test("an invalid stored override is skipped and never blocks a launch", async (t) => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const { runtimePaths } =
+    await import("../../server/features/assistants/runtime-paths.js");
+  const { prepareRuntimeConfig } =
+    await import("../../server/features/assistants/runtime-config.js");
+  const { readJSON } = await import("../../server/lib/storage.js");
+  const db = new DatabaseSync(":memory:");
+  migrateAssistants(db);
+  const skipped = [];
+  const store = new OverrideStore(db, { onSkip: (p) => skipped.push(p) });
+  store.set("agents.defaults.timeoutSeconds", 600);
+  const insert = db.prepare(
+    "INSERT INTO openclaw_overrides (path, value, revision) VALUES (?, ?, 1)",
+  );
+  insert.run("models.corrupt", "{not json");
+  insert.run("gateway.auth.token", JSON.stringify("secret-value"));
+  const rows = store.list();
+  assert.deepEqual(rows, [
+    { path: "agents.defaults.timeoutSeconds", value: 600, revision: 1 },
+  ]);
+  assert.deepEqual(skipped.sort(), ["gateway.auth.token", "models.corrupt"]);
+  assert.ok(!JSON.stringify(skipped).includes("secret-value"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "overrides-skip-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const paths = runtimePaths(dir);
+  prepareRuntimeConfig(paths, 1234, undefined, { overrides: rows });
+  assert.equal(readJSON(paths.config).agents.defaults.timeoutSeconds, 600);
+});

@@ -389,6 +389,7 @@ export class AssistantService {
     this.closed = true;
     clearInterval(this.poll);
     this.unsubscribe?.();
+    this.gatewayEvents.unsubscribe?.();
     this.runtime.off("status", this.onStatus);
     await this.workflows?.close();
     await this.teams?.close();

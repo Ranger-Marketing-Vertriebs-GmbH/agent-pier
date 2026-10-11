@@ -197,12 +197,12 @@ test(
       });
       return { session, sent };
     }
-    const toolResult = (runId) =>
+    const toolResult = (index) =>
       model.requests
         .flatMap((r) => r.messages || [])
         .filter((m) => m.role === "tool")
         .map((m) => String(m.content))
-        .at(runId);
+        .at(index);
 
     // AgentPier's own client declares no approval caps: nothing can answer, so
     // OpenClaw denies inline instead of waiting.

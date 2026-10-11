@@ -68,9 +68,8 @@ proves this with a write that lands between the helper's read and its patch.
 deterministic model calls `exec` with `touch <marker>`:
 
 - With only AgentPier's own client connected (no client caps), OpenClaw has no
-  approval route and denies inline. The tool result starts with
-  `exec denied: Headless runs cannot wait for interactive exec approval.` and no
-  event is sent.
+  approval route; OpenClaw denies the call inline. The tool result starts with
+  `exec denied: Headless runs cannot wait for interactive exec approval.`
 - A client declaring the handshake cap `exec-approvals` (or `approvals`) with
   `operator.admin` or `operator.approvals` is an approval route. It receives
   `exec.approval.requested` with
@@ -78,7 +77,8 @@ deterministic model calls `exec` with `touch <marker>`:
   `request` carries `command`, `cwd`, `host: "gateway"`, `security: "allowlist"`,
   `ask: "on-miss"`, `commandAnalysis`, `allowedDecisions`
   (`["allow-once", "allow-always", "deny"]`), `agentId`, `resolvedPath`,
-  `sessionKey`, `runId`, `toolCallId` and `turnSourceChannel: "webchat"`.
+  `sessionKey` (the session is under `request`, not at the payload top level),
+  `runId`, `toolCallId` and `turnSourceChannel: "webchat"`.
 - `exec.approval.get { id }` returns `id`, `commandText`, `commandPreview`,
   `allowedDecisions`, `host`, `nodeId`, `agentId` and `expiresAtMs`, and
   `exec.approval.list {}` returns the pending entries.
@@ -87,7 +87,7 @@ deterministic model calls `exec` with `touch <marker>`:
   and `request`. The tool result reads `Exec denied (gateway id=<id>, user-denied)`,
   and the marker file never exists.
 
-The approval event names its `sessionKey`, so `GatewayEventHub` dispatches events
+The approval event names its session under `request.sessionKey`, so `GatewayEventHub` dispatches events
 by name and skips only `chat` frames.
 
 **Pairing.** `channels.pairing.list {}` answers with the operator scopes AgentPier

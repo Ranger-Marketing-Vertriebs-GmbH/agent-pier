@@ -16,6 +16,8 @@ export async function patchConfig(client, build) {
     });
   } catch (error) {
     if (error.answered && error.code === "INVALID_REQUEST") {
+      // An INVALID_REQUEST racing a concurrent write is reported as 409; a retry
+      // surfaces the real error.
       const latest = await client.call("config.get", {}).catch(() => null);
       if (latest && latest.hash !== current.hash) throw assistantProblem("conflict", 409);
     }

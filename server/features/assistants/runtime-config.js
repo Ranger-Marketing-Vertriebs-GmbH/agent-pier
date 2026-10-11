@@ -81,6 +81,8 @@ export function compileOpenClawConfig({
       : {}),
   };
   if (enabled && teams.native) {
+    // memory and skills.workshop are written only here; otherwise they stay inert
+    // (memory slot "none", cron off).
     config.plugins.slots.memory = "memory-core";
     config.plugins.allow.push("memory-core");
     config.plugins.entries["memory-core"] = {

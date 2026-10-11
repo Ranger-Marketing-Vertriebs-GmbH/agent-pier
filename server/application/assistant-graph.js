@@ -39,7 +39,10 @@ export function constructAssistantGraph(host, created = {}) {
     new RuntimeSupervisor({
       dataDir,
       // Read at each launch; the store is constructed right after the supervisor.
-      configOverrides: () => new OverrideStore(store.db).list(),
+      configOverrides: () => new OverrideStore(store.db, {
+          onSkip: (path) =>
+            console.warn(`Skipped invalid OpenClaw configuration override: ${path}`),
+        }).list(),
     }),
     "assistantRuntime",
     ["teamConfiguration", "maintenance", "beforeSpawn", "afterReady"],
