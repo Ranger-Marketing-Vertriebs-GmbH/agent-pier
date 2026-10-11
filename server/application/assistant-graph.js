@@ -8,6 +8,8 @@ import { ChannelService } from "../features/assistant-channels/channel-service.j
 import { WebSearchSettings } from "../features/assistants/web-search-settings.js";
 import { detectBrowser } from "../features/assistants/browser-detection.js";
 import { webToolsAvailability } from "../features/assistants/openclaw-config/web-tools.js";
+import { readMcpInputs } from "../features/assistants/openclaw-config/mcp-servers.js";
+import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { SpeechConnections } from "../features/speech/speech-connections.js";
 import { AssistantModelAccounts } from "../features/assistants/model-accounts.js";
 import { AssistantAccountLogin } from "../features/assistants/model-account-login.js";
@@ -74,7 +76,14 @@ export function constructAssistantGraph(host, created = {}) {
       workspaces: assistantRuntime.paths.workspaces,
     }),
     "configuration",
-    ["teamReady", "writeGuard", "hostCapacity", "nativeReady", "webToolsAvailable"],
+    [
+      "teamReady",
+      "writeGuard",
+      "hostCapacity",
+      "nativeReady",
+      "webToolsAvailable",
+      "mcpTools",
+    ],
   );
   const assistants = (created.assistants = expectWiring(
     new AssistantService({
@@ -112,6 +121,7 @@ export function constructAssistantGraph(host, created = {}) {
     dataDir,
     connections: providerConnections,
   }));
+  const assistantMcpServers = (created.mcpServers = new McpServerStore({ dataDir }));
   const assistantChannels = (created.channels = new ChannelService({
     dataDir,
     assistants,
@@ -136,6 +146,7 @@ export function constructAssistantGraph(host, created = {}) {
     assistantModelLogin,
     assistantSpeech,
     assistantWebSearch,
+    assistantMcpServers,
     assistantChannels,
     assistantMemory,
     assistantReminders,
@@ -187,6 +198,7 @@ export function constructAssistantGraph(host, created = {}) {
 const graphMembers = [
   "assistantRuntime",
   "assistantWebSearch",
+  "assistantMcpServers",
   "assistants",
   "assistantTeams",
   "assistantReminders",
@@ -218,6 +230,7 @@ export function connectAssistantServices(graph) {
     assistantWorkflows: workflows,
     assistantProviderSynchronization: synchronization,
     assistantWebSearch: webSearch,
+    assistantMcpServers: mcpServers,
     assistantWebTools: webToolsChanges,
     store,
     configuration,
@@ -238,6 +251,8 @@ export function connectAssistantServices(graph) {
     hostCapacity: () => teams.store.settings().hostMaxConcurrent,
     nativeReady: () => !!reminders.webhook.server?.listening,
     webToolsAvailable: () => runtime.webTools?.availability || webToolsAvailability(),
+    // Before any start, and for agents the start did not bind, no MCP tools.
+    mcpTools: (assistant) => runtime.mcp?.agentTools?.[assistant.runtimeAgentId] || [],
   });
   wire(runtime, "assistantRuntime", {
     teamConfiguration: async (installed) => {
@@ -251,6 +266,8 @@ export function connectAssistantServices(graph) {
         hostMaxConcurrent: teams.store.settings().hostMaxConcurrent,
         native: await reminders.start(),
         profiles: store.listAssistants(),
+        // Read at each start; secrets reach only the compiled openclaw.json.
+        mcp: readMcpInputs(mcpServers),
         webTools: {
           search: webSearch.resolve(),
           browser: detectBrowser(),

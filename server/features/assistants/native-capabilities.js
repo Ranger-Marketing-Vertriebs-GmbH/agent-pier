@@ -50,6 +50,8 @@ export function profileTools(
   nativeReady,
   writeGuard = false,
   available = {},
+  // `<name>__*` globs of the MCP servers bound to this agent (mcpSections).
+  mcpTools = [],
 ) {
   const capabilities = personalCapabilities(assistant);
   return [
@@ -71,5 +73,6 @@ export function profileTools(
           capabilities[key] && available[key] !== false ? tools : [],
         )
       : []),
+    ...(nativeReady && !assistant.archivedAt ? mcpTools : []),
   ];
 }

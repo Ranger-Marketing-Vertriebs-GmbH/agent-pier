@@ -119,6 +119,47 @@ export class McpServerStore {
   get(id) {
     return this.publicServer(this.row(id));
   }
+  /**
+   * Unredacted definitions for the OpenClaw compiler, ordered by name. A row whose
+   * stored arguments cannot be parsed reports `args: null` instead of throwing.
+   */
+  definitions() {
+    return this.db
+      .prepare("SELECT * FROM servers ORDER BY name")
+      .all()
+      .map((row) => {
+        let args = null;
+        try {
+          args = JSON.parse(row.args);
+        } catch {
+          /* Left to the compiler, which skips the server by name. */
+        }
+        return {
+          id: row.id,
+          name: row.name,
+          transport: row.transport,
+          url: row.url,
+          command: row.command,
+          args,
+          cwd: row.cwd,
+        };
+      });
+  }
+  /** `{ [targetId]: serverId[] }` for one target kind, servers ordered by name. */
+  bindingsByTarget(kind) {
+    if (!targetKinds.includes(kind)) throw invalid(messages.invalidTarget);
+    const out = {};
+    for (const r of this.db
+      .prepare(
+        "SELECT b.target_id, b.server_id FROM bindings b JOIN servers s ON s.id=b.server_id WHERE b.target_kind=? ORDER BY b.target_id, s.name",
+      )
+      .all(kind))
+      (out[r.target_id] ||= []).push(r.server_id);
+    return out;
+  }
+  close() {
+    this.db.close();
+  }
   secrets(id) {
     this.row(id);
     const out = { headers: {}, env: {} };

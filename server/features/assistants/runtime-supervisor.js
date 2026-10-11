@@ -14,6 +14,7 @@ import { reclaimOwner, recordOwner } from "./gateway-ownership.js";
 import { processIdentity } from "../../lib/process-identity.js";
 import { assertWired } from "./service-wiring.js";
 import { webToolsSnapshot } from "./openclaw-config/web-tools.js";
+import { mcpStartSnapshot } from "./openclaw-config/mcp-servers.js";
 
 // Errors an unattended retry cannot fix; they wait for the owner instead.
 const terminal = new Set([
@@ -174,12 +175,16 @@ export class RuntimeSupervisor extends EventEmitter {
     const webTools =
       teams?.webTools &&
       webToolsSnapshot({ profiles: teams.profiles, webTools: teams.webTools });
+    // Likewise for MCP servers: names and globs only, never header or env values.
+    this.mcp = null;
+    const mcp = teams?.native && teams.mcp && mcpStartSnapshot(teams);
     const tls = prepareGatewayTls(this.paths);
     const token = prepareRuntimeConfig(this.paths, port, teams, {
       maintenance: !!this.maintenance?.(),
       tls,
       overrides: this.configOverrides?.() || [],
       webTools: teams?.webTools,
+      mcp: teams?.mcp,
     });
     await this.beforeSpawn?.();
     if (generation !== this.generation) return;
@@ -272,6 +277,7 @@ export class RuntimeSupervisor extends EventEmitter {
     this.lastReadyMs = Date.now() - spawned;
     // Live applies grant web tools against the state this Gateway was started with.
     this.webTools = webTools;
+    this.mcp = mcp;
     await this.afterReady?.();
     if (generation !== this.generation) return;
     this.setState({ availability: "ready", sync: "reconciling" });
