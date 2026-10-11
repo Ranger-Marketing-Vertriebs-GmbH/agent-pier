@@ -190,8 +190,7 @@ export function constructAssistantGraph(host, created = {}) {
     servers: assistantMcpServers,
     runtime: assistantRuntime,
     admit: (operation) => assistants.admit(operation),
-    // Read per call; assistantMcpChanges is constructed right below.
-    isCurrent: () => !assistantMcpChanges.pending,
+    redirectUrl: () => oauthRedirect(host.effectiveConfig?.() || config),
     remoteUrl: () => (host.effectiveConfig?.() || config).remoteUrl,
   });
   const assistantMcpChanges = new McpChanges({
@@ -290,6 +289,9 @@ export function connectAssistantServices(graph) {
       // Team members' MCP bindings follow their records before the start compiles
       // them, so a member that ended while the Gateway was down holds none.
       teams.mcp.sync();
+      // OAuth logouts that failed earlier are retried before the start compiles
+      // (the CLI needs no running Gateway).
+      await mcpChanges.drainLogouts();
       return {
         directory: installed.teamPlugin.directory,
         connection: await bridge.start(),

@@ -158,19 +158,32 @@ export class McpChanges {
       if (this.changesStdio(this.servers.get(id), input))
         requireStdioConfirmation(confirmStdio === true);
       // OpenClaw keys a login by name and URL: log out under the old ones first.
-      if (this.oauth)
-        await this.oauth.beforeUpdate(id, this.servers.previewUpdate(id, input));
+      const oauth = this.oauth
+        ? await this.oauth.beforeUpdate(id, this.servers.previewUpdate(id, input))
+        : {};
       const server = this.servers.update(id, input);
-      return { server, pending: await this.applySaved() };
+      return {
+        server,
+        pending: await this.applySaved(),
+        logoutDeferred: !!oauth.deferred,
+      };
     });
   }
   remove(id) {
     return this.assistants.admit(async () => {
-      if (this.oauth) await this.oauth.beforeRemove(id);
+      const oauth = this.oauth ? await this.oauth.beforeRemove(id) : {};
       // The store removes the server's bindings with it.
       this.servers.remove(id);
-      return { pending: await this.applySaved() };
+      return { pending: await this.applySaved(), logoutDeferred: !!oauth.deferred };
     });
+  }
+  /** Retries deferred OAuth logouts; never fails the caller. */
+  async drainLogouts() {
+    try {
+      if (this.oauth && this.servers.deferredLogouts().length) await this.oauth.drain();
+    } catch {
+      // Kept for the next apply or start.
+    }
   }
   /**
    * Applies a change that is already stored. A failed or impossible live apply is not
@@ -202,6 +215,9 @@ export class McpChanges {
       return false;
     }
     try {
+      // Logouts that failed earlier go first: a server re-created under the same
+      // name and URL must not get the old tokens back.
+      await this.drainLogouts();
       const inputs = readMcpInputs(this.servers, { redirectUrl: this.redirectUrl() });
       if (inputs.unreadable) {
         this.failed({ code: "MCP_STORE_UNREADABLE" });

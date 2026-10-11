@@ -36,4 +36,6 @@ export const mcpServers = {
   oauthLoginFailed: "Die OAuth-Anmeldung ist fehlgeschlagen. Bitte erneut versuchen.",
   oauthLogoutFailed:
     "Die OAuth-Anmeldung des Servers ließ sich nicht entfernen. Bitte erneut versuchen.",
+  oauthLogoutDeferred:
+    "Gespeichert. Die bisherige OAuth-Anmeldung ließ sich gerade nicht entfernen; AgentPier holt das beim nächsten Start der Assistenz nach.",
 };

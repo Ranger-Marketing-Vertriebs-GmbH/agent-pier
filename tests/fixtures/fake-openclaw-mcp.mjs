@@ -10,7 +10,14 @@ const mode = process.env.FAKE_OPENCLAW_MODE || "ok";
 if (process.env.FAKE_OPENCLAW_RECORD)
   fs.writeFileSync(
     process.env.FAKE_OPENCLAW_RECORD,
-    JSON.stringify({ argv: process.argv.slice(2), env: process.env, pid: process.pid }),
+    JSON.stringify({
+      argv: process.argv.slice(2),
+      env: process.env,
+      pid: process.pid,
+      config: fs.existsSync(process.env.OPENCLAW_CONFIG_PATH || "")
+        ? JSON.parse(fs.readFileSync(process.env.OPENCLAW_CONFIG_PATH, "utf8"))
+        : null,
+    }),
   );
 
 // FAKE_OPENCLAW_LOG, when set, gets one JSON line per call: the arguments after `mcp`.

@@ -172,6 +172,19 @@ test("logout clears credentials", async (t) => {
   assert.deepEqual(recorded().argv, ["mcp", "logout", "docs"]);
 });
 
+test("logout with a server definition reads a private one-server config", async (t) => {
+  const { cli, recorded } = setup(t);
+  const server = { url: "https://mcp.example.com/v1", transport: "streamable-http" };
+  await cli.logout("docs", { server: { ...server, auth: "oauth" } });
+  const run = recorded();
+  assert.deepEqual(run.argv, ["mcp", "logout", "docs"]);
+  assert.notEqual(run.env.OPENCLAW_CONFIG_PATH, path.join(run.env.HOME, "openclaw.json"));
+  assert.deepEqual(run.config, {
+    mcp: { servers: { docs: { ...server, auth: "oauth" } } },
+  });
+  assert.equal(fs.existsSync(run.env.OPENCLAW_CONFIG_PATH), false, "removed afterwards");
+});
+
 test("status maps every recorded state of OAuth servers", async (t) => {
   const { cli, recorded } = setup(t);
   const status = await cli.status();

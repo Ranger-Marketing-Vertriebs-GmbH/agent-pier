@@ -125,6 +125,13 @@ export function auditEvent(input) {
     if (["checks-follow", "skips-checks", "gate-decision"].includes(details.path))
       event.details.path = details.path;
   }
+  // MCP OAuth logins name why one failed, as a stable code (never state or code).
+  if (
+    input.resourceType === "mcp" &&
+    typeof details.failReason === "string" &&
+    /^[a-z]+(?:-[a-z]+){0,4}$/.test(details.failReason)
+  )
+    event.details.failReason = details.failReason;
   for (const key of ["requestedBy", "teamId"])
     if (details[key] !== undefined) event.details[key] = auditId(details[key]);
   if (typeof details.enabled === "boolean") event.details.enabled = details.enabled;

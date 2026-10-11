@@ -24,7 +24,10 @@ CREATE TABLE IF NOT EXISTS bindings(
   server_id TEXT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
   target_kind TEXT NOT NULL, target_id TEXT NOT NULL,
   PRIMARY KEY(server_id, target_kind, target_id));
-CREATE INDEX IF NOT EXISTS bindings_target ON bindings(target_kind, target_id);`;
+CREATE INDEX IF NOT EXISTS bindings_target ON bindings(target_kind, target_id);
+CREATE TABLE IF NOT EXISTS oauth_logouts(
+  name TEXT NOT NULL, url TEXT NOT NULL, transport TEXT NOT NULL,
+  PRIMARY KEY(name, url));`;
 
 /**
  * A URL as responses show it: origin and path only. The query string and fragment
@@ -279,14 +282,17 @@ export class McpServerStore {
     )
       throw invalid(serverMessages.extensions.invalidEnvironmentOrHeadersObject);
   }
-  insertOrUpdate(sql, fields, id, revision) {
-    // Names that differ only in case would confuse the owner and the agents' globs.
+  /** Names that differ only in case would confuse the owner and the agents' globs. */
+  requireFreeName(name, id) {
     if (
       this.db
         .prepare("SELECT 1 FROM servers WHERE lower(name)=lower(?) AND id<>?")
-        .get(fields.name, id)
+        .get(name, id)
     )
       throw problem(messages.nameTaken, 409);
+  }
+  insertOrUpdate(sql, fields, id, revision) {
+    this.requireFreeName(fields.name, id);
     try {
       return this.db
         .prepare(sql)
@@ -340,7 +346,9 @@ export class McpServerStore {
       ...patch,
     };
     // The stored absolute command is only re-resolved when the owner changes it.
-    return this.definition(merged, patch.command === undefined);
+    const fields = this.definition(merged, patch.command === undefined);
+    this.requireFreeName(fields.name, row.id);
+    return fields;
   }
   /**
    * What an update would change about where OpenClaw keeps the server's OAuth login
@@ -352,7 +360,12 @@ export class McpServerStore {
     const { revision, ...patch } = input;
     const row = this.row(id);
     const fields = this.patched(row, revision, patch);
-    const pick = (value) => ({ name: value.name, url: value.url, auth: value.auth });
+    const pick = (value) => ({
+      name: value.name,
+      url: value.url,
+      auth: value.auth,
+      transport: value.transport,
+    });
     return { before: pick({ ...row, auth: row.auth ?? "headers" }), after: pick(fields) };
   }
   /**
@@ -377,6 +390,21 @@ export class McpServerStore {
       this.db
         .prepare("UPDATE servers SET oauth_login_redirect=? WHERE id=?")
         .run(loginRedirect, id);
+  }
+  /**
+   * OAuth logins OpenClaw may still hold for a name and URL no server uses any more,
+   * because their logout failed. Never shown in responses.
+   */
+  deferredLogouts() {
+    return this.db.prepare("SELECT name,url,transport FROM oauth_logouts").all();
+  }
+  deferLogout({ name, url, transport }) {
+    this.db
+      .prepare("INSERT OR IGNORE INTO oauth_logouts(name,url,transport) VALUES (?,?,?)")
+      .run(name, url, transport);
+  }
+  settleLogout({ name, url }) {
+    this.db.prepare("DELETE FROM oauth_logouts WHERE name=? AND url=?").run(name, url);
   }
   update(id, input) {
     if (!record(input)) throw invalid();

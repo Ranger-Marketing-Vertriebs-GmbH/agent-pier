@@ -6,6 +6,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { applicationFixture, enabledAssistants } from "../helpers/application.js";
 import { createMcpCli } from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
+import {
+  mcpServerConfig,
+  mcpServerSignature,
+} from "../../server/features/assistants/openclaw-config/mcp-servers.js";
 
 const fakeEntry = fileURLToPath(
   new URL("../fixtures/fake-openclaw-mcp.mjs", import.meta.url),
@@ -35,11 +39,12 @@ function raw(base, endpoint, headers) {
   });
 }
 
-async function setup(t) {
+async function setup(t, extra = {}) {
   const f = await applicationFixture(t, {
     ...enabledAssistants,
     remoteUrl: `https://${remoteHost}`,
     ownerLogin: owner,
+    ...extra,
   });
   const log = path.join(f.root, "cli.log");
   const env = {
@@ -66,8 +71,15 @@ async function setup(t) {
   const server = await created.json();
   // The running Gateway compiled the server (the fixture starts no Gateway).
   const compiled = (name) => {
-    f.application.assistantRuntime.mcp = { servers: [name], redirectUrl: redirect };
-    f.application.assistantMcpChanges.pending = false;
+    const definition = f.application.assistantMcpServers
+      .definitions()
+      .find((d) => d.name === name);
+    const config = mcpServerConfig(definition, null, redirect);
+    f.application.assistantRuntime.mcp = {
+      servers: [name],
+      serverSignatures: { [name]: mcpServerSignature(config) },
+      redirectUrl: redirect,
+    };
   };
   compiled("docs");
   const calls = () =>
@@ -93,7 +105,7 @@ async function setup(t) {
       host: remoteHost,
       "tailscale-user-login": owner,
     });
-  return { f, server, calls, start, local, remote, compiled };
+  return { f, env, server, calls, start, local, remote, compiled };
 }
 
 const codes = (calls) => calls.filter((args) => args.some((a) => a.startsWith("--code")));
@@ -211,16 +223,92 @@ test("the list carries the status; logout and lifecycle changes log out first", 
   assert.deepEqual(calls().at(-1), ["logout", "renamed"]);
   const logouts = calls().filter(([command]) => command === "logout").length;
   // A header server has no login to remove when deleted.
-  assert.equal(
-    (await f.request(`/api/mcp-servers/${server.id}`, { method: "DELETE" })).status,
-    200,
+  // Pending: the fixture runs no Gateway to apply to.
+  assert.deepEqual(
+    await (await f.request(`/api/mcp-servers/${server.id}`, { method: "DELETE" })).json(),
+    { pending: true },
   );
   assert.equal(calls().filter(([command]) => command === "logout").length, logouts);
 });
 
-test("deleting an OAuth server logs it out", async (t) => {
-  const { f, server, calls } = await setup(t);
+test("deleting an OAuth server logs it out, or defers that with a warning", async (t) => {
+  const { f, env, server, calls } = await setup(t);
   const removed = await f.request(`/api/mcp-servers/${server.id}`, { method: "DELETE" });
-  assert.ok([200, 204].includes(removed.status));
+  assert.deepEqual(await removed.json(), { pending: true });
   assert.deepEqual(calls(), [["logout", "docs"]]);
+
+  // A failing CLI never blocks the owner: the change is saved with a warning.
+  env.FAKE_OPENCLAW_MODE = "fail-generic";
+  const again = await f.request("/api/mcp-servers", {
+    method: "POST",
+    body: {
+      name: "docs",
+      transport: "http",
+      url: "https://mcp.example.com/v1",
+      auth: "oauth",
+    },
+  });
+  const { id } = await again.json();
+  const renamed = await f.request(`/api/mcp-servers/${id}`, {
+    method: "PUT",
+    body: { revision: 1, name: "renamed" },
+  });
+  assert.equal(renamed.status, 200);
+  const body = await renamed.json();
+  assert.equal(body.name, "renamed");
+  assert.equal(body.oauthWarning.code, "oauth-logout-deferred");
+  assert.equal(body.oauthWarning.messageKey, "mcpServers.oauthLogoutDeferred");
+  const deleted = await f.request(`/api/mcp-servers/${id}`, { method: "DELETE" });
+  assert.equal(deleted.status, 200);
+  assert.equal((await deleted.json()).oauthWarning.code, "oauth-logout-deferred");
+  assert.equal(f.application.assistantMcpServers.deferredLogouts().length, 2);
+});
+
+test("the callback is audited, refuses HEAD and waits out an exclusive barrier", async (t) => {
+  const { f, server, calls, start, local } = await setup(t);
+  const state = "cccccccc-1111-4111-8111-111111111111";
+  await start(state);
+  // HEAD never consumes a state.
+  const head = await new Promise((resolve, reject) => {
+    const req = http.request(
+      `${f.url}/api/mcp-servers/oauth/callback?state=${state}&code=h`,
+      { method: "HEAD" },
+      (res) => resolve(res.statusCode),
+    );
+    req.on("error", reject);
+    req.end();
+  });
+  assert.equal(head, 405);
+  // While a snapshot holds the barrier the callback answers "unavailable".
+  f.application.mutationBarrier.exclusive = true;
+  const blocked = await local({ state, code: "b" });
+  f.application.mutationBarrier.exclusive = false;
+  assert.equal(blocked.headers.location, "/settings/mcp?oauth=error&reason=unavailable");
+  assert.deepEqual(codes(calls()), []);
+  const done = await local({ state, code: "secret-code" });
+  assert.match(done.headers.location, /oauth=connected/);
+  const events = JSON.stringify(f.application.audit.list({}));
+  assert.match(events, /"action":"mcp\.completed"/);
+  assert.ok(events.includes(server.id));
+  assert.ok(!events.includes("secret-code") && !events.includes(state));
+  // A failure is audited with its stable reason.
+  await start(state);
+  await local({ state, error: "access_denied" });
+  assert.match(
+    JSON.stringify(f.application.audit.list({})),
+    /"failReason":"access-denied"/,
+  );
+});
+
+test("the callback refuses the plain network host", async (t) => {
+  const { f } = await setup(t, {
+    network: { enabled: true, bind: "127.0.0.1", hosts: ["agentpier.home.arpa"] },
+  });
+  const port = new URL(f.url).port;
+  const refused = await raw(f.url, "/api/mcp-servers/oauth/callback?state=s&code=c", {
+    ...navigation,
+    host: `agentpier.home.arpa:${port}`,
+  });
+  assert.equal(refused.status, 403);
+  assert.equal(JSON.parse(refused.body).code, "plain-http-remote");
 });

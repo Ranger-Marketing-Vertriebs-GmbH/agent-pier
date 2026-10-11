@@ -14,6 +14,7 @@ import { patchConfig } from "../../server/features/assistants/openclaw-config/li
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { approve, oauthMcpServer } from "../helpers/mcp-oauth-test-server.js";
 import { nudgedIdleTtl } from "../../server/features/mcp-servers/mcp-oauth-logins.js";
+import { createMcpCli } from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
 
 // The installation provisioned by scripts/provision-assistant-contracts.mjs.
 // docs/mcp-oauth-qualification.md records what this contract establishes.
@@ -416,6 +417,26 @@ test(
     assert.equal((await state("docs")).state, "unauthenticated");
     await servers({ docs }, []);
     assert.equal((await state("docs")).state, "authorized", "orphaned row kept");
+    // AgentPier clears such an orphan with a one-server config of its own while the
+    // Gateway's config no longer names it (McpOAuthLogins deferred logouts).
+    await servers({ docs: null, renamed: docs }, ["mcp.servers.docs"]);
+    const own = createMcpCli({
+      runtime: { ...runtime.runtime, cwd: runtime.paths.root },
+      environment: gatewayEnv,
+    });
+    await own.logout("docs", { server: docs });
+    await servers({ renamed: null, docs }, ["mcp.servers.renamed"]);
+    assert.equal((await state("docs")).state, "unauthenticated", "orphan cleared");
+    const fourth = await cli(["mcp", "login", "docs"]);
+    const fourthCallback = await approve(printedUrl(fourth, "docs").href);
+    const fourthDone = await cli([
+      "mcp",
+      "login",
+      "docs",
+      "--code",
+      fourthCallback.searchParams.get("code"),
+    ]);
+    assert.equal(fourthDone.code, 0, fourthDone.stderr);
 
     // (f) The CLI needs only HOME, OPENCLAW_STATE_DIR and OPENCLAW_CONFIG_PATH
     // (and a PATH); no Gateway token and no running Gateway.

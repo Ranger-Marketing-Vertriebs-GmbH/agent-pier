@@ -119,7 +119,9 @@ ends), so the patch toggles between them (`nudgedIdleTtl`: unset to `0`, `0` to
 unset; an owner's positive value moves by 1 ms). The contract applies exactly this
 patch (unset to `0`); a manual probe on 2026-10-11 confirmed that `0` to unset lifts
 the backoff as well. The compiled MCP signature does not include the key, so the
-toggle never triggers a re-apply, and a Gateway start drops it.
+toggle never triggers a re-apply (a unit test applies after the nudge and sees no
+patch), and a Gateway start drops it. The reset is not free: the reload disposes the
+MCP runtimes of every session (stdio servers restart too), once per login.
 
 ### (c) `openclaw mcp status --json`
 
@@ -192,6 +194,18 @@ refresh (or answers 403 `insufficient_scope`). `expiresAt` follows the token's
   original name and URL shows `authorized` again. The row stays in
   `<state>/state/openclaw.sqlite` as an orphan, keyed by name and URL. AgentPier must
   run `logout` under the old name and URL before renaming or changing it.
+- `logout` also works when the Gateway's config no longer names the server: with
+  `OPENCLAW_CONFIG_PATH` pointing at a private one-server config (`{ mcp: { servers:
+{ <name>: <compiled entry> } } }`) and the Gateway's state directory, the login for
+  that name and URL is cleared. The contract renames the server away, clears the
+  orphan this way, and finds it `unauthenticated` when the name returns.
+
+AgentPier therefore always logs out through such a config. A logout that fails anyway
+(runtime unavailable, timeout, CLI error) never blocks the owner's edit or delete: it
+is recorded in `oauth_logouts` (name, URL, transport; no secret beyond the URL the
+store already holds) and retried before every Gateway start compiles, before every
+live MCP apply, and before a login of a server with that name and URL. Such a login is
+refused while the retry fails, so old tokens never come back.
 
 ### (f) Environment
 
