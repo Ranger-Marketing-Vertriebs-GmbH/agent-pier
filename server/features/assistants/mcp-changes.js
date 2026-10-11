@@ -92,8 +92,22 @@ export class McpChanges {
       return server;
     });
   }
-  update(id, input) {
+  /** Whether a patch alters what a stdio server runs: command, arguments, cwd or env. */
+  changesStdio(current, patch) {
+    if (current.transport !== "stdio" || !record(patch)) return false;
+    const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+    return (
+      (patch.command !== undefined && patch.command !== current.command) ||
+      (patch.args !== undefined && !same(patch.args, current.args)) ||
+      (patch.cwd !== undefined && (patch.cwd || null) !== (current.cwd || null)) ||
+      (record(patch.env) && Object.keys(patch.env).length > 0)
+    );
+  }
+  update(id, input, { confirmStdio = false } = {}) {
     return this.assistants.admit(async () => {
+      // Editing what a stdio server runs needs the same confirmation as adding one.
+      if (this.changesStdio(this.servers.get(id), input))
+        requireStdioConfirmation(confirmStdio === true);
       const server = this.servers.update(id, input);
       await this.apply();
       return server;

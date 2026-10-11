@@ -99,6 +99,34 @@ test("MCP server routes are owner-only, origin-checked and never return secrets"
   assert.equal(stale.status, 409);
   assert.equal((await read(stale)).messageKey, "mcpServers.conflict");
 
+  // Changing what a stdio server runs needs the confirmation again; nothing persists.
+  const edit = (revision, body) =>
+    f.request(`/api/mcp-servers/${local.id}`, {
+      method: "PUT",
+      body: { revision, ...body },
+    });
+  for (const change of [
+    { args: ["other.js"] },
+    { cwd: "/tmp" },
+    { env: { TOKEN: "next" } },
+    { command: "node" },
+  ]) {
+    const refusedEdit = await edit(1, change);
+    assert.equal(refusedEdit.status, 409);
+    assert.equal((await read(refusedEdit)).code, "MCP_STDIO_CONFIRMATION_REQUIRED");
+  }
+  const kept = (await read(await f.request("/api/mcp-servers"))).find(
+    (s) => s.id === local.id,
+  );
+  assert.equal(kept.revision, 1);
+  assert.deepEqual(kept.args, ["server.js"]);
+  // Unchanged values need none; a confirmed change is stored.
+  assert.equal((await edit(1, { args: ["server.js"] })).status, 200);
+  const changed = await edit(2, { args: ["other.js"], confirmStdio: true });
+  assert.equal(changed.status, 200);
+  assert.deepEqual((await read(changed)).args, ["other.js"]);
+  local.revision = 3;
+
   // The owner binds servers to an agent through the agent's settings.
   const agent = f.application.assistants.store.createAssistant({
     name: "Home",

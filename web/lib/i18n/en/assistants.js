@@ -204,6 +204,7 @@ export const assistantCopy = {
     memory: "Memory",
     reminders: "Reminders",
     routines: "Routines",
+    mcp: "MCP servers",
     team: "Team",
     telegram: "Telegram",
   },

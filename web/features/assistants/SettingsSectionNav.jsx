@@ -5,6 +5,7 @@ export default function SettingsSectionNav({ assistant, personal }) {
   const sections = [
     ["profile", "agent-profile"],
     ...(personal ? [["access", "agent-access"]] : []),
+    ...(personal && Array.isArray(assistant.mcpServers) ? [["mcp", "agent-mcp"]] : []),
     ...(personal && assistant.capabilities?.memory ? [["memory", "agent-memory"]] : []),
     ...(personal && assistant.capabilities?.reminders
       ? [

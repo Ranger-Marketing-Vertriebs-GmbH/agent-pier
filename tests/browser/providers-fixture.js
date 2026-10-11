@@ -166,6 +166,8 @@ export async function fixture(page, { account, session } = {}) {
       return route.fulfill({
         json: { revision: 0, provider: "duckduckgo", hasBraveKey: false, ready: true },
       });
+    if (method === "GET" && path === "/api/mcp-servers")
+      return route.fulfill({ json: [] });
     if (path === "/api/assistant-model-accounts")
       return route.fulfill({ json: { accounts: [] } });
     if (path === "/api/assistant-runtime")
