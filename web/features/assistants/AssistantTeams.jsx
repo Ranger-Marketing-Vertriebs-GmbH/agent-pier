@@ -124,12 +124,12 @@ export default function AssistantTeams({ assistant, focusTeamId, navigate }) {
                     ))}
                   </ul>
                   {unavailable && (
-                    <p className="mcp-team-warning" role="alert">
+                    <p className="mcp-team-warning blocking" role="alert">
                       {mcpCopy.teamServersUnavailable}
                     </p>
                   )}
                   {team.members.some((m) => m.mcpServers?.some((s) => s.stdio)) && (
-                    <p className="mcp-team-warning">{mcpCopy.teamStdioWarning}</p>
+                    <p className="mcp-team-warning notice">{mcpCopy.teamStdioWarning}</p>
                   )}
                   <div className="assistant-card-actions">
                     <button

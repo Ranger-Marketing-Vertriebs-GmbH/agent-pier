@@ -352,7 +352,14 @@
 }
 .assistant-team-card .mcp-team-warning {
   margin-bottom: 0;
-  color: var(--accent-text);
   font-size: 12px;
   line-height: 1.5;
+}
+/* The unreadable server list blocks the approval; the stdio note only informs. */
+.assistant-team-card .mcp-team-warning.blocking {
+  color: var(--accent);
+  font-weight: 600;
+}
+.assistant-team-card .mcp-team-warning.notice {
+  color: var(--muted);
 }
