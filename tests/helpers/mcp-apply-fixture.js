@@ -36,6 +36,7 @@ export function fakeGateway(initial) {
   const gateway = { config: structuredClone(initial), hash: 1, patches: [] };
   const merge = (target, patch, at, replace) => {
     for (const [key, value] of Object.entries(patch)) {
+      if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
       const here = at ? `${at}.${key}` : key;
       if (value === null || Array.isArray(value)) {
         for (const p of arrayPaths(target[key], here))
