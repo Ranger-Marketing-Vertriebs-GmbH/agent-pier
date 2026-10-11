@@ -133,5 +133,6 @@ jobs:
           tests/integration/assistant-web-tools-contract.test.js
           tests/integration/assistant-web-tools-compiled-contract.test.js
           tests/integration/assistant-mcp-contract.test.js
+          tests/integration/assistant-mcp-compiled-contract.test.js
       - name: Fail when a contract skipped instead of running
         run: grep -qx '# skipped 0' "$RUNNER_TEMP/native-contracts.tap"

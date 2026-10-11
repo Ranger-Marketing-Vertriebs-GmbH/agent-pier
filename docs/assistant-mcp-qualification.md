@@ -14,7 +14,10 @@ the environment it started with). The deterministic model from
 `tests/helpers/assistant-model-server.js` calls the tools. No external server,
 model account or credential is involved.
 
-`tests/integration/assistant-mcp-contract.test.js` covers:
+Two contracts use them.
+
+`tests/integration/assistant-mcp-contract.test.js` qualifies OpenClaw itself, with
+`mcp` written by hand through `patchConfig`:
 
 1. HTTP and stdio servers for one bound agent, not for an unbound one (allow lists,
    calls, environment, process lifetime, removal, no restart, no leaked values).
@@ -22,10 +25,29 @@ model account or credential is involved.
 3. Sanitised, prefixed and truncated server names.
 4. The same servers under the team plugin's restrictive `plugins.allow`.
 
-The configuration is written as live patches through `patchConfig`, because the
-compiler strips the locked `mcp` path today. Some details below (marked
-_probe_) come from manual probes on 2026-10-11 and are not repeated by the
-contract.
+`tests/integration/assistant-mcp-compiled-contract.test.js` drives AgentPier's own
+path in team mode: the server store, `AssistantService`, `TeamService` with the
+team bridge and plugin, the start compile and `McpChanges`' live patches:
+
+1. **Compiled start and live changes.** An HTTP server with a header and a stdio
+   server (bare `node`, resolved by the store to an absolute path) with an
+   environment value, created and bound through the owner's path (stdio refused
+   without confirmation). The start compiles exactly those servers, `bundle-mcp`
+   and the bound agent's globs; the bound agent is offered and reaches both
+   servers, an unbound agent neither. Then, on the running Gateway and without a
+   restart: binding the HTTP server to the second agent, rotating its header (the
+   next call carries the new value), removing the stdio server (the `null` merge
+   with `replacePaths: ["mcp.servers.local.args"]`; its processes end) and removing
+   the last server (the global grant and every glob go).
+2. **Team member.** A lead bound to the HTTP server proposes, through the team
+   plugin tool on the deterministic model, a member with `mcpServers: ["docs"]`.
+   The proposal awaits approval and lists the server; the owner approves; the
+   scheduler binds, patches and provisions the member, whose own turn is offered
+   `docs__echo` and calls the server. When the member's run completes, its binding,
+   its glob and its tools are gone while the lead keeps them; no restart happens.
+
+Some details below (marked _probe_) come from manual probes on 2026-10-11 and are
+not repeated by the contracts.
 
 ## Running the contract
 
@@ -33,16 +55,19 @@ contract.
 touch /tmp/contracts.env
 node scripts/provision-assistant-contracts.mjs --data-dir /tmp/agentpier-contracts --env-file /tmp/contracts.env
 set -a; . /tmp/contracts.env; set +a
-node --test --test-concurrency=1 tests/integration/assistant-mcp-contract.test.js
+node --test --test-concurrency=1 tests/integration/assistant-mcp-contract.test.js \
+  tests/integration/assistant-mcp-compiled-contract.test.js
 ```
 
-It needs `AGENTPIER_MCP_CONTRACT_RUNTIME` and `AGENTPIER_ASSISTANT_CONTRACT_DIR`
-and skips without them. The `native-contracts` CI job runs it with the other
+Both need `AGENTPIER_MCP_CONTRACT_RUNTIME` and `AGENTPIER_ASSISTANT_CONTRACT_DIR`
+and skip without them. The `native-contracts` CI job runs them with the other
 native contracts and fails on any skip.
 
-On 2026-10-11 the contract passed on macOS arm64 (Darwin 25.5) against the
-`2026.9.8-node26.7.0-darwin-arm64-lock563cf3904093` runtime: 4 tests, 0 skips,
-0 failures, about 56 seconds.
+On 2026-10-11 both passed on macOS arm64 (Darwin 25.5) against the
+`2026.9.8-node26.7.0-darwin-arm64-lock563cf3904093` runtime, whose lock equals the
+current `runtime-lock/package-lock.json`: the OpenClaw contract with 4 tests in
+about 50 seconds, the compiled contract with 2 tests in about 30 seconds, 0 skips
+and 0 failures each.
 
 ## Verified facts
 
@@ -123,9 +148,10 @@ The tools are offered only when **both** levels allow them:
 | `+ bundle-mcp`            | `+ bundle-mcp`      | every server's tools |
 
 The design's form (global `bundle-mcp`, per-agent `<prefix>__*`) is verified in
-plain and team mode. An agent without a glob is offered none of the tools, and its own call to one does
-not reach either server. (Temporary team members were not exercised; they get no
-glob unless AgentPier writes one.)
+plain and team mode, by hand and as compiled. An agent without a glob is offered
+none of the tools, and its own call to one does not reach either server. A
+temporary team member is offered exactly the servers its approved proposal named
+while it runs, and none after it ended.
 
 ### (d) Team mode and restarts
 
@@ -149,8 +175,8 @@ changes; they can go through `patchConfig`.
 `config.schema.lookup` reports `reloadKind: "hot"` for `mcp`, `mcp.servers`,
 `mcp.servers.*.url`, `.transport`, `.headers`, `.command`, `.args`, `.env`,
 `.cwd`, and `tools.allow`. The live behaviour matches: adding servers took effect on the
-next session without a restart in both modes; removing and changing them did so
-in plain mode.
+next session without a restart in both modes; removing servers, rotating a header
+and changing bindings did so in plain mode and, through `McpChanges`, in team mode.
 
 Removing a server needs care: a merge patch `{ mcp: { servers: { <name>: null } } }`
 is refused with `INVALID_REQUEST: config.patch would remove entries from array
@@ -159,8 +185,10 @@ path(s): mcp.servers.<name>.args`. It is accepted with
 `replacePaths: ["mcp.servers"]` does not remove keys (it applies to arrays only,
 _probe_). Disabling with `enabled: false` is accepted (_probe_).
 
-Changing a header value by merge patch takes effect on the next call, and a
-patch that leaves a redacted value untouched keeps the stored value (_probe_).
+Changing a header value by merge patch takes effect on the next call (compiled
+contract), and a patch that leaves a redacted value untouched keeps the stored
+value (_probe_). After the last server is removed, an empty `mcp.servers` stays in
+the live configuration until the next start drops it; it is harmless.
 
 ### (f) stdio process lifetime and environment
 
@@ -194,7 +222,12 @@ With a header value and an environment value set:
   copies of the configuration itself: `openclaw.json`, its atomic-write
   temporary, `.bak` … `.bak.4` and `.last-good` (all mode 0600).
 - After a value is changed, the old value stays in the configuration backups
-  until they rotate out (_probe_).
+  until they rotate out (_probe_). The compiled contract checks the old and the new
+  header value: apart from those copies, only AgentPier's own server store holds
+  them.
+- AgentPier's runtime update backups seal `headers` and `env` in `openclaw.json`;
+  `tests/integration/assistant-runtime-snapshot.test.js` verifies the restore with
+  the key and the withheld restore after the key was destroyed.
 
 ## Consequences for AgentPier
 
@@ -214,8 +247,12 @@ With a header value and an environment value set:
 
 ## Boundaries
 
-- Linux was not run locally; the contract accepts OpenClaw's Linux standard
-  directories on `PATH` and relies on the CI job.
+- Linux was not run locally; the contracts accept OpenClaw's Linux standard
+  directories on `PATH` and rely on the CI job.
+- The team contract covers an owner-approved proposal and a member whose run
+  completes. Automatically approved teams, owner stops, a permanent approval and a
+  lead losing a server use the same reconciliation and are covered against a fake
+  Gateway (`tests/integration/assistant-team-mcp.test.js`).
 - SSE servers were not exercised beyond the default-transport check; OAuth
   (AGENTPIER-37) is out of scope.
 - The idle eviction (`mcp.sessionIdleTtlMs`) and session cleanup of stdio
