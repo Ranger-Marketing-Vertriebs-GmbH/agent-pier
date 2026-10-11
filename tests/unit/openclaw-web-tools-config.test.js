@@ -243,7 +243,7 @@ test("a missing browser withholds the tool even when an agent has the capability
   assert.deepEqual(config.browser, { enabled: false });
   assert.deepEqual(config.plugins.allow, ["agentpier-teams", "memory-core"]);
   // Documents need no detection.
-  assert.deepEqual(config.tools.allow, [...nativeAllow, "pdf", "view_image"]);
+  assert.deepEqual(config.tools.allow, [...nativeAllow, "view_image"]);
   // Without any web tools input nothing is detected either.
   const unknown = compile([{ ...personal, capabilities: { browser: true } }]);
   assert.deepEqual(unknown.browser, { enabled: false });

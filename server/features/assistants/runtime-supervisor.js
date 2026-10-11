@@ -25,7 +25,15 @@ const terminal = new Set([
   "RUNTIME_LOCK_MISSING",
 ]);
 
-async function freePort() {
+// The browser's CDP ports sit at the Gateway port + 12 and + 13 (web-tools.js).
+export const maxGatewayPort = 65535 - 13;
+export async function freePort({ draw = drawPort } = {}) {
+  for (;;) {
+    const port = await draw();
+    if (port <= maxGatewayPort) return port;
+  }
+}
+async function drawPort() {
   const server = net.createServer();
   await new Promise((resolve, reject) => {
     server.once("error", reject);

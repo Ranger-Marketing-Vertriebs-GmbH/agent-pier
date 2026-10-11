@@ -247,8 +247,9 @@ test(
     const entry = (agent) => running.agents.entries[agent.runtimeAgentId];
     const granted = entry(web).tools.allow;
     t.diagnostic(`web agent allow=${JSON.stringify(granted)}`);
-    for (const name of ["web_search", "web_fetch", "pdf", "view_image"])
+    for (const name of ["web_search", "web_fetch", "view_image"])
       assert.ok(granted.includes(name), name);
+    assert.equal(granted.includes("pdf"), false);
     assert.equal(granted.includes("browser"), browser.available);
     const withheld = entry(member).tools.allow;
     t.diagnostic(`member allow=${JSON.stringify(withheld)}`);
@@ -296,9 +297,9 @@ test(
     for (const name of ["web_search", "web_fetch", "view_image"])
       assert.ok(fetched.offered.includes(name), `offered ${name}`);
     assert.equal(fetched.offered.includes("browser"), browser.available);
-    // Known gap (docs/assistant-web-tools-qualification.md): OpenClaw offers `pdf`
-    // for a custom provider only with agents.defaults.pdfModel, which AgentPier does
-    // not compile, so the granted tool is not offered yet.
+    // docs/assistant-web-tools-qualification.md: OpenClaw offers `pdf` for a custom
+    // provider only with agents.defaults.pdfModel, which AgentPier does not compile;
+    // the switch therefore neither grants nor is offered `pdf`.
     assert.equal(fetched.offered.includes("pdf"), false);
     assert.match(fetched.result, /Blocked hostname or private\/internal\/special-use IP/);
     assert.equal(page.hits, 0);

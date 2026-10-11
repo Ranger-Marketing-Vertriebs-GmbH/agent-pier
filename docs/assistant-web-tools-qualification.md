@@ -1,7 +1,7 @@
 # Web tools and browser qualification
 
 Two opt-in contracts check how OpenClaw 2026.9.8 serves `web_search`, `web_fetch`,
-`browser`, `pdf` and `view_image` with the configuration AgentPier writes. Both run
+`browser` and `view_image` (and shows why `pdf` is not offered) with the configuration AgentPier writes. Both run
 a real isolated Gateway started by `RuntimeSupervisor` in a temporary data
 directory. The deterministic model from `tests/helpers/assistant-model-server.js`
 calls each tool once. No search API, model account or credential is involved, and
@@ -83,16 +83,16 @@ applied, the Gateway restarts so that they also come from the startup compile.
   key. `tools.web` is `{ search: { provider: "duckduckgo" }, fetch: { ssrfPolicy:
 { dangerouslyAllowPrivateNetwork: false } } }`, and the root `browser` block equals
   `webToolsSections` for the running port.
-- **The agent** is granted `web_search`, `web_fetch`, `browser`, `pdf` and
-  `view_image`, and is offered `web_search`, `web_fetch`, `browser` and
-  `view_image`. `web_search` is not called (no real search). `web_fetch` of the
+- **The agent** is granted `web_search`, `web_fetch`, `browser` and
+  `view_image` (the Read images switch no longer grants `pdf`), and is offered
+  `web_search`, `web_fetch`, `browser` and `view_image`. `web_search` is not called (no real search). `web_fetch` of the
   loopback page fails with `Blocked hostname or private/internal/special-use IP
 address`; the page receives no request.
-- **`pdf` is granted but not offered.** OpenClaw offers `pdf` for a custom provider
+- **`pdf` is not granted by AgentPier and not offered.** OpenClaw offers `pdf` for a custom provider
   only when `agents.defaults.pdfModel` (or `imageModel`) names a model. AgentPier
   compiles neither, and a per-agent `pdfModel` in `agents.entries.<id>` is rejected
   with `INVALID_REQUEST`; a probe with `agents.defaults.pdfModel` made `pdf`
-  appear. The contract asserts the current gap so a fix shows up as a change.
+  appear. The contract asserts that `pdf` stays not offered; a global `pdfModel` is tracked separately.
 - **The temporary member** gets only `session_status` and `agentpier_workspace`: no
   capability tool in its entry and none offered to the model, so its `web_fetch`
   request cannot run.

@@ -688,12 +688,12 @@ team members never get them, and archived agents do not count. The tools exist o
 in team mode (native teams), where AgentPier compiles them into the Gateway's
 startup configuration.
 
-| Switch                        | Grants              | What it does                                                                                    |
-| ----------------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
-| **Search the web**            | `web_search`        | Searches with the provider chosen under **Accounts → Web search**                               |
-| **Read web pages**            | `web_fetch`         | Fetches a public address and reads its text; private, loopback and internal targets are refused |
-| **Use a browser**             | `browser`           | Drives a separate, headless browser profile owned by AgentPier                                  |
-| **Read documents and images** | `pdf`, `view_image` | Reads PDF files and looks at images; needs a model that accepts images                          |
+| Switch             | Grants       | What it does                                                                                    |
+| ------------------ | ------------ | ----------------------------------------------------------------------------------------------- |
+| **Search the web** | `web_search` | Searches with the provider chosen under **Accounts → Web search**                               |
+| **Read web pages** | `web_fetch`  | Fetches a public address and reads its text; private, loopback and internal targets are refused |
+| **Use a browser**  | `browser`    | Drives a separate, headless browser profile owned by AgentPier                                  |
+| **Read images**    | `view_image` | Looks at images; needs a model that accepts images                                              |
 
 Web content is untrusted data. OpenClaw wraps fetched and browsed content as
 external content, and the switches do not grant any other tool.
@@ -769,9 +769,12 @@ key that Perplexity uses, take effect at the next Gateway start.
 - **Runtime without the bundled plugins** (an installation not yet updated, or a
   rollback target): web search is unavailable until the staged update is activated.
 - **Documents:** OpenClaw 2026.9.8 offers `view_image` only for models that accept
-  images, and offers `pdf` for AgentPier's custom providers only with a configured
-  `pdfModel`, which AgentPier does not compile yet. The switch grants `pdf`, but the
-  model is not offered it (see [web tools qualification](assistant-web-tools-qualification.md)).
+  images. `pdf` is not offered: OpenClaw needs a global `agents.defaults.pdfModel`
+  for it, which AgentPier does not compile (tracked separately), so the switch
+  grants `view_image` only (see [web tools qualification](assistant-web-tools-qualification.md)).
+- **New agents:** the web, browser and image switches are disabled while creating an
+  agent ("Available after saving the agent"); the server stores them as off on
+  create. Switch them on in the agent's settings after saving.
 
 ## Continuous integration
 

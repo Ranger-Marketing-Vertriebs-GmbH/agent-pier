@@ -24,7 +24,12 @@ const names = {
 };
 
 /** The agent's capability switches; the web ones say why they cannot be used yet. */
-export default function AssistantCapabilities({ capabilities, onChange, browser }) {
+export default function AssistantCapabilities({
+  capabilities,
+  onChange,
+  browser,
+  creating = false,
+}) {
   const copy = assistantCopy.personal;
   const [search, setSearch] = useState(null);
   useEffect(() => {
@@ -36,6 +41,9 @@ export default function AssistantCapabilities({ capabilities, onChange, browser 
       .catch(() => {});
     return () => controller.abort();
   }, []);
+  // A new agent has no stored profile for the live Gateway to apply: the web
+  // capabilities are switched on after saving.
+  const later = (key) => creating && groups[1][1].includes(key);
   const missing = {
     browser: browser?.available === false ? copy.browserUnavailable : "",
     webSearch: search && search.ready === false ? copy.searchUnavailable : "",
@@ -47,14 +55,14 @@ export default function AssistantCapabilities({ capabilities, onChange, browser 
           <legend>{copy[title]}</legend>
           {keys.map((key) => {
             const [label, description] = names[key];
-            const reason = missing[key];
+            const reason = later(key) ? copy.availableAfterSaving : missing[key];
             return (
               <label className="assistant-team-permission assistant-capability" key={key}>
                 <input
                   type="checkbox"
-                  checked={capabilities[key] === true}
+                  checked={!later(key) && capabilities[key] === true}
                   // A switched-on capability can always be turned off.
-                  disabled={!!reason && capabilities[key] !== true}
+                  disabled={later(key) || (!!reason && capabilities[key] !== true)}
                   aria-describedby={`capability-${key}-hint`}
                   onChange={(e) => onChange({ ...capabilities, [key]: e.target.checked })}
                 />

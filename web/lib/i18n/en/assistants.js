@@ -53,23 +53,25 @@ export const assistantCopy = {
     enableWebSearch: "Search the web",
     enableWebFetch: "Read web pages",
     enableBrowser: "Use a browser",
-    enableDocuments: "Read documents and images",
+    enableDocuments: "Read images",
     memoryDescription: "Keeps its own notes between conversations.",
     remindersDescription: "Sends reminders and runs schedules through Telegram.",
     webSearchDescription: "Looks things up with the web search provider set in Accounts.",
     webFetchDescription: "Opens a web address and reads the page text.",
     browserDescription:
       "Drives a separate browser profile to use pages that need clicking or signing in.",
-    documentsDescription: "Reads PDF files and looks at images in its workspace.",
+    documentsDescription:
+      "Looks at images in its workspace. Needs a model that accepts images.",
     browserUnavailable:
       "No supported browser found on this computer. Install Chrome, Brave, Edge or Chromium to use this.",
     searchUnavailable:
       "Web search is not set up. Choose a provider and add its key in Accounts.",
+    availableAfterSaving: "Available after saving the agent",
     webHint:
-      "Web content is untrusted: the agent may read pages but cannot act on instructions found in them. Changing these options can restart the agents' service.",
+      "Web pages can contain instructions meant to mislead the agent. Switch these on only for agents whose other tools you would trust with that.",
     restartTitle: "Restart the agent service?",
     restartBody:
-      "This change restarts the agents' service briefly. Running conversations finish first; if an agent is busy, the save stops with a message and nothing changes.",
+      "This change restarts the agents' service briefly. Running work is not interrupted: if an agent is busy, the save is refused and nothing changes.",
     restartAffected: (names, members = 0) =>
       `Briefly unavailable: ${names || "no agents"}${members ? ` (+${members} team ${members === 1 ? "member" : "members"})` : ""}`,
     restartConfirm: "Save and restart",

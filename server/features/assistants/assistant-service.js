@@ -4,6 +4,7 @@ import { AssistantEvents } from "./assistant-events.js";
 import { conversationHistory } from "./conversations.js";
 import { reconcileRuns } from "./run-reconciler.js";
 import { GatewayEventHub } from "./gateway-event-hub.js";
+import { webCapabilityKeys } from "./native-capabilities.js";
 import { assertWired } from "./service-wiring.js";
 
 const sessionRetryMs = 60000;
@@ -125,7 +126,14 @@ export class AssistantService {
     return this.admit(async () => {
       const lease = await this.models.resolve(input.model || {});
       lease.release();
-      const record = this.store.createAssistant(input);
+      // Web capabilities need the Gateway sections an update can apply with the
+      // owner's confirmation; a new agent starts with them off.
+      const capabilities = input.capabilities && { ...input.capabilities };
+      for (const key of webCapabilityKeys)
+        if (capabilities && key in capabilities) capabilities[key] = false;
+      const record = this.store.createAssistant(
+        capabilities ? { ...input, capabilities } : input,
+      );
       this.changed();
       return record;
     });
