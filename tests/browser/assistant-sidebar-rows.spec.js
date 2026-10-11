@@ -16,7 +16,7 @@ const scout = {
   lifetime: "task",
   teamId: "t1",
 };
-async function fixture(page, activity) {
+async function fixture(page, activity, withMembers = true) {
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.route(/\/api\/assistant/, (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -45,18 +45,20 @@ async function fixture(page, activity) {
               memberIds: ["m1"],
             },
           ],
-          members: [
-            {
-              id: "m1",
-              teamId: "t1",
-              assistantId: "scout",
-              name: "Recherche-Lead",
-              role: "Research",
-              assignment: "Review competitor pages",
-              phase: "running",
-              lifetime: "task",
-            },
-          ],
+          members: withMembers
+            ? [
+                {
+                  id: "m1",
+                  teamId: "t1",
+                  assistantId: "scout",
+                  name: "Recherche-Lead",
+                  role: "Research",
+                  assignment: "Review competitor pages",
+                  phase: "running",
+                  lifetime: "task",
+                },
+              ]
+            : [],
           policies: {},
           teamSettings: { revision: 0, hostMaxConcurrent: 8 },
           ...(activity ? { activity } : {}),
@@ -132,4 +134,13 @@ test("a list response without activity renders idle rows", async ({ page }) => {
   await expect(row.locator(".assistant-sidebar-item small").first()).toHaveText(
     "google/gemini-3.8-flash",
   );
+});
+
+test("nested row subline colour follows the subline tone", async ({ page }) => {
+  await fixture(page, undefined, false);
+  await page.goto(baseURL);
+  await page.locator(".assistant-team-pill").click();
+  const small = page.locator(".assistant-sidebar-member small").first();
+  await expect(small).toContainText("google/gemini-3.8-flash");
+  await expect(small.locator(".accent")).toHaveCount(0);
 });

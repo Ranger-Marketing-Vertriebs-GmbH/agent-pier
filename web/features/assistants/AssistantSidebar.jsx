@@ -130,7 +130,9 @@ export default function AssistantSidebar({ navigate, route }) {
             <small>{copy.loading}</small>
           ) : nested ? (
             <small>
-              <span className={quiet(member?.phase) ? "" : "accent"}>{subline.text}</span>
+              <span className={subline.tone === "accent" ? "accent" : ""}>
+                {subline.text}
+              </span>
               {member && (
                 <>
                   {" · "}
