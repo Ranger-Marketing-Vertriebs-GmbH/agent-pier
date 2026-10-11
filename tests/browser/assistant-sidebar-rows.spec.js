@@ -92,6 +92,9 @@ test("agent rows show activity, a team pill and truncate long English copy", asy
   expect(await name.evaluate((n) => n.scrollWidth > n.clientWidth)).toBe(true);
   await expect(name).toHaveCSS("text-overflow", "ellipsis");
   const pill = row.getByRole("button", { name: /Show team members \(1\)/ });
+  const [rowBox, pillBox] = [await row.boundingBox(), await pill.boundingBox()];
+  expect(rowBox.x + rowBox.width - (pillBox.x + pillBox.width)).toBe(10);
+  await expect(pill.locator("svg")).toHaveAttribute("stroke-width", "1.8");
   await expect(pill).toHaveAttribute("aria-expanded", "false");
   await pill.click();
   await expect(

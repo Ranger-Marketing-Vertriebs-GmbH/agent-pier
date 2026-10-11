@@ -203,7 +203,7 @@ export default function AssistantSidebar({ navigate, route }) {
                     }
                     onClick={() => toggle(parent.id)}
                   >
-                    <Icon name="users" size={12} />
+                    <Icon name="users" size={12} strokeWidth="1.8" />
                     {memberCount}
                   </button>
                 )}

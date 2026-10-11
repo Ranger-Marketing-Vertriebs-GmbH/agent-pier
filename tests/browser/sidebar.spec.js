@@ -90,6 +90,38 @@ test("the sessions group stays collapsible and remembers its state", async ({ pa
     "rgb(255, 201, 157)",
   );
 });
+test("an open group keeps a neutral header; a collapsed one marks the selection", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.goto(base + "/sessions/status-working/terminal");
+  const header = page.locator(".sessions-group > .sidebar-group-toggle");
+  await expect(header).toHaveAttribute("aria-expanded", "true");
+  await expect(header).toHaveCSS("color", "rgb(151, 152, 156)");
+  const count = header.locator(".sidebar-group-count");
+  await expect(count).toHaveCSS("font-size", "10px");
+  await expect(count).toHaveCSS("font-weight", "600");
+  await header.click();
+  await expect(header).toHaveAttribute("aria-expanded", "false");
+  await expect(header).toHaveCSS("color", "rgb(255, 201, 157)");
+});
+test("a session without a working directory still renders its row", async ({ page }) => {
+  const { sessions } = await fixture(page);
+  sessions.push({
+    id: "no-cwd",
+    name: "Ohne Ordner",
+    tool: "codex",
+    accountId: "local-codex",
+    cwd: null,
+    status: "running",
+    activity: { state: "idle", label: "Bereit" },
+  });
+  await page.goto(base);
+  const row = page
+    .locator(".session-item")
+    .filter({ has: page.getByText("Ohne Ordner", { exact: true }) });
+  await expect(row.locator("small")).toHaveText("Bereit");
+});
 test("Escape closes the mobile drawer", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await fixture(page);

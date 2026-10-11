@@ -27,7 +27,7 @@ test("the menu keeps the landmark, opens, and closes on Escape with focus restor
 test("outside taps, the scrim and navigation close the menu", async ({ page }) => {
   await page.goto(baseURL);
   await trigger(page).click();
-  await page.locator("main").click({ position: { x: 600, y: 400 } });
+  await page.locator(".sidebar ~ main").click({ position: { x: 600, y: 400 } });
   await expect(popover(page)).toBeHidden();
   await trigger(page).click();
   await page.locator(".sidebar-menu-scrim").click({ position: { x: 20, y: 600 } });
@@ -76,10 +76,12 @@ test("desktop sidebar is 280 px, 240 px below 1150 px, and never inert", async (
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(baseURL);
   const aside = page.locator(".sidebar");
-  await expect(page.locator("main")).toHaveCSS("margin-left", "280px");
+  // The app's own main, not the startup or login card that may still be mounted.
+  const main = page.locator(".sidebar ~ main");
+  await expect(main).toHaveCSS("margin-left", "280px");
   expect(await aside.evaluate((node) => node.inert)).toBe(false);
   await page.setViewportSize({ width: 1100, height: 900 });
-  await expect(page.locator("main")).toHaveCSS("margin-left", "240px");
+  await expect(main).toHaveCSS("margin-left", "240px");
 });
 
 test("the closed phone drawer is inert and fits 320 px without horizontal scroll", async ({
@@ -105,6 +107,7 @@ test("the closed phone drawer is inert and fits 320 px without horizontal scroll
 
 test("agents and sessions share one scroll container", async ({ page }) => {
   await page.goto(baseURL);
+  await expect(page.locator(".sidebar-scroll")).toBeVisible();
   const scrollers = await page.locator(".sidebar *").evaluateAll((nodes) =>
     nodes
       .filter((node) => !node.closest("#sidebar-menu"))
@@ -135,4 +138,34 @@ test("group headers stay pinned while the list scrolls", async ({ page }) => {
   const scroller = await page.locator(".sidebar-scroll").boundingBox();
   await expect.poll(async () => (await header.boundingBox()).y).toBe(scroller.y);
   await expect(header).toHaveCSS("position", "sticky");
+});
+
+test("Escape closes the menu when focus fell back to the page", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(baseURL);
+  const drawer = page.locator(".sidebar");
+  await page.getByRole("button", { name: "Navigation öffnen", exact: true }).click();
+  await trigger(page).click();
+  // A click on a non-focusable part of the popover leaves focus on the body.
+  await popover(page).locator(".sidebar-menu-label").first().click();
+  await expect(popover(page)).toBeVisible();
+  expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(popover(page)).toBeHidden();
+  await expect(drawer).toHaveClass(/open/);
+  await expect(trigger(page)).toBeFocused();
+});
+
+test("the sidebar head follows the handoff measurements", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(baseURL);
+  const collapse = await page.locator(".sidebar-collapse").boundingBox();
+  expect([collapse.width, collapse.height]).toEqual([32, 32]);
+  const launch = page.locator(".sidebar-launch .new-session");
+  const button = await launch.boundingBox();
+  const plus = await launch.locator("svg").boundingBox();
+  const arrow = await launch.locator(".shortcut").boundingBox();
+  expect(plus.x - button.x).toBe(13);
+  expect(button.x + button.width - (arrow.x + arrow.width)).toBe(13);
+  expect(button.height).toBe(43);
 });
