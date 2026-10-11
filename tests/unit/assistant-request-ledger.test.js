@@ -65,3 +65,65 @@ test("reviewing an uncertain request keeps its unknown outcome and leaves reconc
   assert.ok(ledger.getAttempt(attempt.id).reviewedAt);
   assert.equal(ledger.unresolved().length, 0);
 });
+test("latest request per conversation carries its latest attempt and review", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-latest-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const store = new AssistantStore({ dataDir });
+  t.after(() => store.close());
+  const a = store.createAssistant({
+    name: "Home",
+    model: { connectionId: "c", modelId: "m" },
+  });
+  const busy = store.saveConversation({ assistantId: a.id, runtimeSessionKey: "busy" });
+  const done = store.saveConversation({ assistantId: a.id, runtimeSessionKey: "done" });
+  store.saveConversation({ assistantId: a.id, runtimeSessionKey: "empty" });
+  const ledger = new RequestLedger(store.db);
+  const old = ledger.accept(busy.id, { clientRequestId: "old", text: "First" });
+  ledger.transition(ledger.recordAttempt(old.id).id, "completed");
+  const current = ledger.accept(busy.id, { clientRequestId: "new", text: "Second" });
+  const attempt = ledger.recordAttempt(current.id);
+  ledger.transition(attempt.id, "accepted", { runtimeRunId: "run" });
+  const lost = ledger.accept(done.id, { clientRequestId: "lost", text: "Third" });
+  const lostAttempt = ledger.recordAttempt(lost.id);
+  ledger.transition(lostAttempt.id, "uncertain");
+  ledger.review(lostAttempt.id);
+
+  const rows = ledger.latestByConversation();
+
+  assert.equal(rows.length, 2, "conversations without requests are omitted");
+  const byId = Object.fromEntries(rows.map((r) => [r.conversationId, r]));
+  assert.deepEqual(byId[busy.id], {
+    conversationId: busy.id,
+    requestId: current.id,
+    requestState: "accepted",
+    attemptId: attempt.id,
+    attemptState: "accepted",
+    reviewedAt: null,
+  });
+  assert.equal(byId[done.id].attemptState, "uncertain");
+  assert.ok(byId[done.id].reviewedAt);
+});
+
+test("a request without an attempt reports null attempt fields", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-latest-none-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const store = new AssistantStore({ dataDir });
+  t.after(() => store.close());
+  const a = store.createAssistant({
+    name: "Home",
+    model: { connectionId: "c", modelId: "m" },
+  });
+  const c = store.saveConversation({ assistantId: a.id, runtimeSessionKey: "c" });
+  const ledger = new RequestLedger(store.db);
+  const r = ledger.accept(c.id, { clientRequestId: "only", text: "Hi" });
+  assert.deepEqual(ledger.latestByConversation(), [
+    {
+      conversationId: c.id,
+      requestId: r.id,
+      requestState: "pending",
+      attemptId: null,
+      attemptState: null,
+      reviewedAt: null,
+    },
+  ]);
+});
