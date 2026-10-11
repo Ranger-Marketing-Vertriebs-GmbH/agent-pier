@@ -337,12 +337,9 @@ test(
     const [runtimeBin, ...rest] = first.env.PATH.split(path.delimiter);
     assert.equal(runtimeBin, path.dirname(node));
     assert.deepEqual(rest.slice(0, 2), ["/usr/bin", "/bin"]);
-    const standard = [
-      "/opt/homebrew/bin",
-      "/usr/local/bin",
-      "/home/linuxbrew/.linuxbrew/bin",
-    ];
-    for (const dir of rest.slice(2)) assert.ok(standard.includes(dir), dir);
+    const standard =
+      /^(\/opt\/homebrew|\/usr\/local|\/home\/linuxbrew\/\.linuxbrew)\/s?bin$/;
+    for (const dir of rest.slice(2)) assert.match(dir, standard);
     assert.equal(fs.realpathSync(first.cwd), fs.realpathSync(cwd));
     assert.equal(first.env.MCP_FIXTURE_SECRET, "set");
     // One stdio process per session (eight turns so far), each kept running.
