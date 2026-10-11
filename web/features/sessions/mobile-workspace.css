@@ -51,6 +51,35 @@
   }
 }
 
+@media (max-width: 700px) {
+  /* Agent settings scroll inside .assistant-settings-scroll below the fixed header. */
+  html:has(.assistant-settings-page),
+  body:has(.assistant-settings-page) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  .app:has(.assistant-settings-page) {
+    position: fixed;
+    top: var(--session-viewport-top, 0px);
+    left: 0;
+    width: 100%;
+    height: var(--session-viewport-height, 100dvh);
+    min-height: 0;
+    overflow: hidden;
+  }
+  .app:has(.assistant-settings-page) main {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  .app:has(.assistant-settings-page) .sidebar {
+    top: var(--session-viewport-top, 0px);
+    bottom: auto;
+    height: var(--session-viewport-height, 100dvh);
+  }
+}
+
 @media (min-width: 701px) and (any-pointer: coarse) {
   .mobile-session-workspace {
     padding-top: 12px;

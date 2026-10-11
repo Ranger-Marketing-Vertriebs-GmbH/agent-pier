@@ -91,6 +91,9 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
     <>
       {assistant && <SettingsSectionNav assistant={assistant} personal={personal} />}
       <form className="assistant-form" id="agent-profile" onSubmit={save}>
+        {assistant && (
+          <h2 className="assistant-section-title">{copy.sections.profile}</h2>
+        )}
         <ErrorMessage error={error} />
         {form.conflicts.length > 0 && (
           <p role="status" className="assistant-notice">

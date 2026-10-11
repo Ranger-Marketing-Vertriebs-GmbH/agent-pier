@@ -7,6 +7,7 @@ import useAssistants from "./useAssistants.js";
 import { assistantApi } from "./assistant-api.js";
 import AssistantSettings from "./AssistantSettings.jsx";
 import AssistantChat from "./AssistantChat.jsx";
+import useSessionViewport from "../sessions/useSessionViewport.js";
 import { connectionMissing } from "./connection-state.js";
 export default function AgentsPage({ route, navigate, openNavigation, navigationOpen }) {
   const {
@@ -55,6 +56,9 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
     route.teamId &&
     teams.find((t) => t.id === route.teamId && t.parentAssistantId === route.assistantId);
   const conversationId = route.conversationId || team?.parentConversationId;
+  // Settings on phones scroll inside their own container under the fixed header, so
+  // the visual viewport (keyboard) must size the app like the chat does.
+  useSessionViewport(Boolean(route.agentSettings && assistant && !conversationId));
   if (conversationId && assistant)
     return (
       <AssistantChat

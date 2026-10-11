@@ -1,7 +1,9 @@
 .assistant-anchor {
   scroll-margin-top: 72px;
 }
-.assistant-section-nav {
+.assistant-section-nav,
+.assistant-section-title,
+.assistant-save-bar {
   display: none;
 }
 .assistant-team-permission input {
@@ -10,6 +12,15 @@
   height: 18px;
   padding: 0;
   margin: 0;
+}
+.assistant-detail.assistant-settings-page {
+  padding: 0;
+}
+.assistant-settings-scroll {
+  padding: 28px;
+}
+.assistant-settings-scroll > .assistant-settings-layout {
+  margin-top: 0;
 }
 @media (max-width: 650px) {
   .assistant-section-nav {
@@ -33,22 +44,139 @@
     white-space: nowrap;
   }
 }
+@media (max-width: 700px) {
+  .assistant-settings-page.assistant-detail {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .assistant-settings-scroll {
+    flex: 1;
+    min-height: 0;
+    padding: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .assistant-settings-page .assistant-settings-layout {
+    margin-top: 0;
+    gap: 0;
+  }
+  .assistant-settings-page :is(.assistant-anchor, #agent-profile) {
+    scroll-margin-top: 56px;
+  }
+  .assistant-settings-page .assistant-form {
+    gap: 16px;
+    padding: 18px 16px;
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+  .assistant-settings-page :is(.assistant-anchor, .assistant-runtime-card) {
+    border-top: 1px solid var(--line);
+  }
+  .assistant-settings-page .assistant-runtime-card {
+    margin: 0;
+    border-width: 1px 0 0;
+    border-radius: 0;
+    background: none;
+    padding: 18px 16px;
+  }
+  .assistant-section-title,
+  .assistant-settings-page .assistant-form h2 {
+    display: block;
+    margin: 0;
+    font:
+      600 17px Manrope,
+      sans-serif;
+  }
+  .assistant-settings-page .assistant-form label {
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-menu);
+  }
+  .assistant-settings-page .assistant-form :is(input, textarea, select) {
+    font-size: 16px;
+    color: var(--text);
+  }
+  .assistant-settings-page .assistant-capability-options {
+    gap: 12px;
+    padding: 14px;
+    border-radius: 12px;
+  }
+  .assistant-settings-page .assistant-capability-options legend {
+    float: left;
+    width: 100%;
+    padding: 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .assistant-settings-page .assistant-capability-options label {
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+  }
+  /* 2e centres the box on the row; the desktop rule below tops it with !important. */
+  .assistant-settings-page .assistant-capability {
+    align-items: center !important;
+  }
+  .assistant-settings-page input[type="checkbox"]:not([role="switch"]) {
+    appearance: none;
+    display: grid;
+    place-content: center;
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
+    border: 1.5px solid var(--text-faint);
+    border-radius: 4px;
+    background: none;
+  }
+  .assistant-settings-page input[type="checkbox"]:not([role="switch"]):checked {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+  .assistant-settings-page input[type="checkbox"]:not([role="switch"]):checked::before {
+    content: "";
+    width: 8px;
+    height: 4px;
+    margin-top: -2px;
+    border: solid var(--on-accent);
+    border-width: 0 0 2.4px 2.4px;
+    transform: rotate(-45deg);
+  }
+  .assistant-settings-page input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
 .assistant-state-badge.connectionMissing {
   color: var(--accent);
   border-color: var(--accent-line);
   background: var(--accent-faint);
 }
-.assistant-detail.assistant-settings-page {
-  padding: 0;
+.assistant-capability > span {
+  display: grid;
+  gap: 2px;
 }
-.assistant-settings-scroll {
-  padding: 28px;
+.assistant-capability small {
+  color: var(--muted, inherit);
+  font-size: 12px;
 }
-.assistant-settings-scroll > .assistant-settings-layout {
-  margin-top: 0;
+.assistant-capability {
+  align-items: flex-start !important;
 }
-@media (max-width: 700px) {
-  .assistant-settings-scroll {
-    padding: 16px 12px;
-  }
+.assistant-restart-confirmation {
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+.assistant-restart-confirmation p {
+  margin: 0;
 }
