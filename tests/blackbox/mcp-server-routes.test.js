@@ -44,6 +44,7 @@ test("MCP server routes are owner-only, origin-checked and never return secrets"
     name: "docs",
     transport: "http",
     url: "https://mcp.example.com/v1",
+    auth: "headers",
     headerNames: ["Authorization"],
     envNames: [],
     revision: 1,

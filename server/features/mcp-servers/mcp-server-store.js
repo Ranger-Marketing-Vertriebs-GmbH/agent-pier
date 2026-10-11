@@ -13,7 +13,8 @@ const schema = `
 CREATE TABLE IF NOT EXISTS servers(
   id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, transport TEXT NOT NULL,
   url TEXT, command TEXT, args TEXT NOT NULL DEFAULT '[]', cwd TEXT,
-  settings TEXT NOT NULL DEFAULT '{}', revision INTEGER NOT NULL);
+  settings TEXT NOT NULL DEFAULT '{}', revision INTEGER NOT NULL,
+  auth TEXT NOT NULL DEFAULT 'headers', oauth_scope TEXT);
 CREATE TABLE IF NOT EXISTS server_secrets(
   server_id TEXT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
   kind TEXT NOT NULL CHECK(kind IN ('header','env')), name TEXT NOT NULL, value TEXT NOT NULL,
@@ -35,6 +36,22 @@ export function publicUrl(value) {
   } catch {
     return undefined;
   }
+}
+/** `auth` and `oauthScope` of a remote definition; a stdio server has neither. */
+function cleanAuth(input) {
+  const auth = input.auth ?? "headers";
+  if (auth !== "headers" && auth !== "oauth") throw invalid();
+  if (input.transport === "stdio") {
+    if (input.auth !== undefined || input.oauthScope) throw invalid();
+    return { auth: "headers", oauthScope: null };
+  }
+  let scope = input.oauthScope;
+  if (scope === undefined || scope === null) scope = "";
+  if (typeof scope !== "string") throw invalid();
+  scope = scope.trim();
+  if (scope.length > 512 || /[\x00-\x1f\x7f]/.test(scope)) throw invalid();
+  // A scope only means something with OAuth; with headers it is dropped.
+  return { auth, oauthScope: auth === "oauth" && scope ? scope : null };
 }
 const invalid = (message = messages.invalidRequest) => problem(message);
 const target = (kind, id) => {
@@ -84,6 +101,12 @@ export class McpServerStore {
     this.db = privateDatabase(path.join(dataDir, "mcp-servers"), "servers.sqlite");
     this.db.exec("PRAGMA foreign_keys=ON");
     this.db.exec(schema);
+    // Databases from before OAuth lack the columns; their servers read as headers.
+    const columns = this.db.prepare("PRAGMA table_info(servers)").all();
+    if (!columns.some((c) => c.name === "auth"))
+      this.db.exec("ALTER TABLE servers ADD COLUMN auth TEXT NOT NULL DEFAULT 'headers'");
+    if (!columns.some((c) => c.name === "oauth_scope"))
+      this.db.exec("ALTER TABLE servers ADD COLUMN oauth_scope TEXT");
   }
   transaction(work) {
     this.db.exec("BEGIN IMMEDIATE");
@@ -112,6 +135,8 @@ export class McpServerStore {
       ...(row.url ? { url: publicUrl(row.url) } : {}),
       ...(row.command ? { command: row.command, args: JSON.parse(row.args) } : {}),
       ...(row.cwd ? { cwd: row.cwd } : {}),
+      auth: row.auth ?? "headers",
+      ...(row.oauth_scope ? { oauthScope: row.oauth_scope } : {}),
       headerNames: this.names(row.id, "header"),
       envNames: this.names(row.id, "env"),
       revision: row.revision,
@@ -154,6 +179,8 @@ export class McpServerStore {
           command: row.command,
           args,
           cwd: row.cwd,
+          auth: row.auth ?? "headers",
+          oauthScope: row.oauth_scope ?? null,
         };
       });
   }
@@ -197,6 +224,7 @@ export class McpServerStore {
           : resolveCommand(input.command, this.resolveOptions),
         args: cleanArgs(input.args),
         cwd: cleanCwd(input.cwd),
+        ...cleanAuth(input),
       };
     }
     if (input.command !== undefined || input.args?.length || input.cwd) throw invalid();
@@ -207,10 +235,23 @@ export class McpServerStore {
       command: null,
       args: [],
       cwd: null,
+      ...cleanAuth(input),
     };
   }
-  writeSecrets(id, input, transport, replace) {
+  writeSecrets(id, input, transport, replace, auth = "headers") {
     const stdio = transport === "stdio";
+    if (!stdio && auth === "oauth") {
+      // An OAuth server stores no headers; switching to OAuth drops the old ones.
+      if (
+        input.headers !== undefined &&
+        !(record(input.headers) && !Object.keys(input.headers).length)
+      )
+        throw invalid();
+      this.db
+        .prepare("DELETE FROM server_secrets WHERE server_id=? AND kind='header'")
+        .run(id);
+      return;
+    }
     if ((stdio && input.headers !== undefined) || (!stdio && input.env !== undefined))
       throw invalid();
     const kind = stdio ? "env" : "header";
@@ -248,6 +289,8 @@ export class McpServerStore {
           fields.command,
           JSON.stringify(fields.args),
           fields.cwd,
+          fields.auth,
+          fields.oauthScope,
           revision,
           id,
         );
@@ -261,12 +304,12 @@ export class McpServerStore {
     const id = randomUUID();
     this.transaction(() => {
       this.insertOrUpdate(
-        "INSERT INTO servers(name,transport,url,command,args,cwd,revision,id) VALUES (?,?,?,?,?,?,?,?)",
+        "INSERT INTO servers(name,transport,url,command,args,cwd,auth,oauth_scope,revision,id) VALUES (?,?,?,?,?,?,?,?,?,?)",
         fields,
         id,
         1,
       );
-      this.writeSecrets(id, input, fields.transport, true);
+      this.writeSecrets(id, input, fields.transport, true, fields.auth);
     });
     return this.get(id);
   }
@@ -286,17 +329,20 @@ export class McpServerStore {
         command: row.command ?? undefined,
         args: JSON.parse(row.args),
         cwd: row.cwd ?? undefined,
+        ...(row.transport === "stdio"
+          ? {}
+          : { auth: row.auth ?? "headers", oauthScope: row.oauth_scope ?? undefined }),
         ...patch,
       };
       // The stored absolute command is only re-resolved when the owner changes it.
       const fields = this.definition(merged, patch.command === undefined);
       this.insertOrUpdate(
-        "UPDATE servers SET name=?,transport=?,url=?,command=?,args=?,cwd=?,revision=? WHERE id=?",
+        "UPDATE servers SET name=?,transport=?,url=?,command=?,args=?,cwd=?,auth=?,oauth_scope=?,revision=? WHERE id=?",
         fields,
         id,
         revision + 1,
       );
-      this.writeSecrets(id, patch, fields.transport, false);
+      this.writeSecrets(id, patch, fields.transport, false, fields.auth);
     });
     return this.get(id);
   }
