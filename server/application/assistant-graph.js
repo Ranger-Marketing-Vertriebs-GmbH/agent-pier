@@ -28,6 +28,7 @@ import { RuntimeUpdates } from "../features/assistants/runtime-updates.js";
 import { AssistantProviderSynchronization } from "../features/assistants/assistant-provider-synchronization.js";
 import { WebToolsChanges } from "../features/assistants/web-tools-changes.js";
 import { McpChanges } from "../features/assistants/mcp-changes.js";
+import { oauthRedirect } from "../features/mcp-servers/oauth-redirect.js";
 import {
   expectWiring,
   requireReferences,
@@ -185,6 +186,8 @@ export function constructAssistantGraph(host, created = {}) {
   const assistantMcpChanges = new McpChanges({
     assistants,
     servers: assistantMcpServers,
+    // Read at each compile: the listener port is known only after listen.
+    redirectUrl: () => oauthRedirect(host.effectiveConfig?.() || config),
   });
   Object.assign(scope, {
     assistantWorkflows,
@@ -280,7 +283,7 @@ export function connectAssistantServices(graph) {
         native: await reminders.start(),
         profiles: store.listAssistants(),
         // Read at each start; secrets reach only the compiled openclaw.json.
-        mcp: readMcpInputs(mcpServers),
+        mcp: readMcpInputs(mcpServers, { redirectUrl: mcpChanges.redirectUrl() }),
         webTools: {
           search: webSearch.resolve(),
           browser: detectBrowser(),

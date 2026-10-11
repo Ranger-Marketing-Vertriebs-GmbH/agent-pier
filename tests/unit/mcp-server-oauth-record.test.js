@@ -120,3 +120,26 @@ test("records from before OAuth read as headers", () => {
   assert.equal(s.definitions()[0].auth, "headers");
   assert.equal(s.update("1", { revision: 1, auth: "oauth" }).auth, "oauth");
 });
+
+test("oauth rejects env on a remote server", () => {
+  const s = store();
+  assert.throws(() => s.create(remote({ auth: "oauth", env: { A: "b" } })), {
+    status: 400,
+  });
+  const { id } = s.create(remote({ auth: "oauth" }));
+  assert.throws(() => s.update(id, { revision: 1, env: {} }), { status: 400 });
+  assert.equal(s.get(id).revision, 1);
+});
+
+test("switching to oauth with headers is rejected and keeps the stored secrets", () => {
+  const s = store();
+  const { id } = s.create(remote({ headers: { Authorization: "Bearer x" } }));
+  assert.throws(
+    () => s.update(id, { revision: 1, auth: "oauth", headers: { Authorization: "y" } }),
+    { status: 400 },
+  );
+  const kept = s.get(id);
+  assert.equal(kept.revision, 1);
+  assert.equal(kept.auth, "headers");
+  assert.deepEqual(s.secrets(id).headers, { Authorization: "Bearer x" });
+});
