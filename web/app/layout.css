@@ -419,7 +419,7 @@ main {
 }
 .sidebar-float {
   position: fixed;
-  top: 7px;
+  top: 10px;
   left: 14px;
   align-items: center;
   z-index: 21;
