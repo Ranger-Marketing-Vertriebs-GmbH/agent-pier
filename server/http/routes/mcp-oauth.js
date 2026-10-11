@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
+import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { oauthCallbackPath } from "../../features/mcp-servers/oauth-redirect.js";
 
@@ -31,8 +33,29 @@ const handle = (work) => async (req, res, next) => {
  */
 export function mcpOAuthRoutes({ assistantMcpOAuth: oauth }) {
   const router = Router();
+  // Each login registers a client and starts the OpenClaw CLI. One shared owner
+  // budget covers every login and proxy address without trusting forwarded IPs.
+  const limited = rateLimit({
+    windowMs: 60_000,
+    limit: 30,
+    keyGenerator: () => "owner",
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    handler: (_req, res) => {
+      const message = serverMessages.mcpServers.oauthRateLimited;
+      res
+        .status(429)
+        .set("Cache-Control", "no-store")
+        .json({
+          code: "oauth-rate-limited",
+          error: message,
+          ...messageIdentity(message),
+        });
+    },
+  });
   router.post(
     "/mcp-servers/:id/oauth/login",
+    limited,
     handle(async (req, res) => {
       const started = await oauth.start(req.params.id, {
         requestOrigin: req.headers.origin,
@@ -46,6 +69,7 @@ export function mcpOAuthRoutes({ assistantMcpOAuth: oauth }) {
   );
   router.post(
     "/mcp-servers/:id/oauth/logout",
+    limited,
     handle(async (req, res) => {
       await oauth.logout(req.params.id);
       res.status(204).end();

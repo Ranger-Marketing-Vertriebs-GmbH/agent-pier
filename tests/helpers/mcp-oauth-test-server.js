@@ -184,9 +184,8 @@ export async function oauthMcpServer({ expiresIn = 3600 } = {}) {
         return await token(req, res);
       if (url.pathname === "/mcp") return await mcp(req, res);
       res.writeHead(404).end();
-    } catch (error) {
-      if (!res.headersSent)
-        json(res, 500, { error: "server_error", detail: String(error) });
+    } catch {
+      if (!res.headersSent) json(res, 500, { error: "server_error" });
     }
   });
   await new Promise((r) => listener.listen(0, "127.0.0.1", r));

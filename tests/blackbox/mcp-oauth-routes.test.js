@@ -369,3 +369,21 @@ test("a callback after an AgentPier restart reports an invalid state", async (t)
   assert.equal(after.headers.location, invalidState);
   assert.deepEqual(codes(calls()), []);
 });
+
+test("OAuth logins and logouts share one owner rate limit", async (t) => {
+  const f = await applicationFixture(t, enabledAssistants);
+  const statuses = [];
+  for (let i = 0; i < 30; i += 1) {
+    const endpoint = `/api/mcp-servers/missing/oauth/${i % 2 ? "logout" : "login"}`;
+    statuses.push((await f.request(endpoint, { method: "POST" })).status);
+  }
+  assert.equal(statuses.includes(429), false);
+  const limited = await f.request("/api/mcp-servers/missing/oauth/login", {
+    method: "POST",
+  });
+  assert.equal(limited.status, 429);
+  assert.equal(limited.headers.get("cache-control"), "no-store");
+  const body = await limited.json();
+  assert.equal(body.code, "oauth-rate-limited");
+  assert.equal(body.messageKey, "mcpServers.oauthRateLimited");
+});
