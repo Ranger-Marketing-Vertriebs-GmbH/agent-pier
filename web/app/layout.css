@@ -104,13 +104,8 @@
   font-size: 17px;
   opacity: 0.6;
 }
-.sidebar nav {
-  display: grid;
-  gap: 5px;
-  margin-top: 27px;
-}
 .sidebar {
-  overflow-y: auto;
+  overflow: visible;
 }
 .sidebar-group {
   min-width: 0;
@@ -152,18 +147,6 @@
 }
 .sidebar-group-content[hidden] {
   display: none;
-}
-.projects-group > .sidebar-group-content,
-.configuration-group > .sidebar-group-content {
-  padding-left: 8px;
-  max-height: 34dvh;
-  overflow-y: auto;
-}
-.projects-group .nav-item,
-.configuration-group .nav-item {
-  width: 100%;
-  min-height: 33px;
-  font-size: 11px;
 }
 .sessions-group {
   margin-top: 16px;
@@ -358,11 +341,6 @@
 .session-item .status-dot {
   margin-top: 5px;
 }
-.sidebar-bottom {
-  padding: 17px 10px 0;
-  border-top: 1px solid var(--line);
-  margin-top: 20px;
-}
 .host-status {
   display: flex;
   align-items: center;
@@ -388,7 +366,6 @@
   gap: 8px;
   font-size: 10px;
   color: var(--accent);
-  margin-top: 17px;
 }
 .remote-link svg:last-child {
   margin-left: auto;

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { openMenu } from "../helpers/navigation.js";
 
 test("login detects browser language and preserves typed values when switching", async ({
   page,
@@ -108,8 +109,12 @@ test("directory editing waits for initial settings and later refresh preserves d
   const loaded = page.waitForResponse("**/api/state");
   releaseInitial();
   await loaded;
+  await openMenu(page);
   await expect(
-    page.getByRole("button", { name: "Accounts", exact: true }).locator(".count"),
+    page
+      .locator("#sidebar-menu")
+      .getByRole("button", { name: "Accounts", exact: true })
+      .locator(".count"),
   ).toHaveText("1");
   await expect(directory).toBeEnabled();
   await expect(directory).toHaveValue("/fixture/initial-home");

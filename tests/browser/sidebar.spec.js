@@ -1,6 +1,7 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
+import { openMenu } from "../helpers/navigation.js";
 async function fixture(page) {
   const sessions = ["working", "idle", "waiting", "unknown", "stopped"].map(
     (activity, index) => ({
@@ -67,40 +68,27 @@ async function fixture(page) {
   );
   return { sessions, writes };
 }
-test("sidebar groups shorten the menu and remember explicit toggles across reload", async ({
-  page,
-}) => {
+test("the sessions group stays collapsible and remembers its state", async ({ page }) => {
   await fixture(page);
   await page.goto(base);
-  const projects = page.locator(".projects-group > .sidebar-group-toggle"),
-    configuration = page.getByRole("button", { name: "Konfiguration", exact: true }),
-    sessions = page.getByRole("button", { name: "Sitzungen", exact: true });
-  await expect(projects).toHaveAttribute("aria-expanded", "false");
-  await expect(configuration).toHaveAttribute("aria-expanded", "false");
-  await expect(page.getByRole("button", { name: "Accounts", exact: true })).toBeHidden();
+  const sessions = page.getByRole("button", { name: "Sitzungen", exact: true });
   await expect(sessions).toHaveAttribute("aria-expanded", "true");
   await sessions.click();
   await expect(page.locator(".sessions-group .session-list")).toBeHidden();
-  await configuration.click();
-  await expect(page.getByRole("button", { name: "Accounts", exact: true })).toBeVisible();
   await page.reload();
-  await expect(configuration).toHaveAttribute("aria-expanded", "true");
   await expect(sessions).toHaveAttribute("aria-expanded", "false");
-  await configuration.click();
-  await page.reload();
-  await expect(configuration).toHaveAttribute("aria-expanded", "false");
-  await page.goto(base + "/accounts");
-  await expect(configuration).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("button", { name: "Accounts", exact: true })).toHaveClass(
-    /selected/,
-  );
-  await expect(configuration).toHaveCSS("color", "rgb(255, 201, 157)");
-  await page.goto(base + "/pipelines");
-  await expect(page.getByText("Noch keine passenden Läufe.")).toBeVisible();
-  await expect(projects).toHaveAttribute("aria-expanded", "true");
-  await expect(projects).toHaveCSS("color", "rgb(255, 201, 157)");
   await page.goto(base + "/sessions/status-working/terminal");
   await expect(sessions).toHaveAttribute("aria-expanded", "true");
+  const menu = await openMenu(page);
+  await menu.getByRole("button", { name: "Accounts", exact: true }).click();
+  await openMenu(page);
+  await expect(menu.getByRole("button", { name: "Accounts", exact: true })).toHaveClass(
+    /selected/,
+  );
+  await expect(menu.getByRole("button", { name: "Accounts", exact: true })).toHaveCSS(
+    "color",
+    "rgb(255, 201, 157)",
+  );
 });
 test("Escape closes the mobile drawer", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
