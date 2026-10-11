@@ -7,7 +7,12 @@ import { sharedDrafts } from "./useAssistants.js";
 // Lazily loaded owner of the assistant data and the event stream. It renders nothing
 // and publishes into the always-mounted gate, so toggling it never remounts the app.
 export default function AssistantsHost({ publishState, publishEvents }) {
-  const [data, setData] = useState({ assistants: [], conversations: [], models: [] });
+  const [data, setData] = useState({
+    assistants: [],
+    conversations: [],
+    models: [],
+    activity: {},
+  });
   const [runtime, setRuntime] = useState({ availability: "disabled", sync: "stale" });
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(true);
@@ -28,6 +33,7 @@ export default function AssistantsHost({ publishState, publishEvents }) {
           members: next.members || [],
           policies: next.policies || {},
           teamSettings: next.teamSettings,
+          activity: next.activity || {},
         });
         setRuntime(status);
         setError("");

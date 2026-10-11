@@ -504,4 +504,8 @@ export const assistantCopy = {
     uncertain: "Outcome unknown",
     cancelled: "Cancelled",
   },
+  teamActive: {
+    working: "Team working",
+    awaiting: "Team awaiting approval",
+  },
 };
