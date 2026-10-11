@@ -49,3 +49,13 @@ condition = "AND"
 paths = ['''(^|/)tests/integration/endpoint-probe\.test\.js$''']
 regexTarget = "line"
 regexes = ['''(?m)^\s*apiKey: "wrong-key-123",$''']
+
+# The web tools compiler test plants a synthetic search key to prove it appears
+# only in the provider's plugin entry. Keep file and line exact.
+[[allowlists]]
+description = "Exact synthetic web search key in the web tools compiler test"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)tests/unit/openclaw-web-tools-config\.test\.js$''']
+regexTarget = "line"
+regexes = ['''(?m)^\s*const key = "BSA-secret-fixture-7f3a";$''']
