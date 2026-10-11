@@ -16,51 +16,53 @@ content.
 
 ## Values from handoff 2e (exact)
 
-| Element | Value |
-|---|---|
-| Chip row | `padding: 8px 12px; gap: 8px; background: var(--surface-input); border-bottom: 1px solid var(--line)` |
-| Chip | `padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px` |
-| Active chip | `background: var(--surface-accent); border-color: var(--accent-line); color: var(--accent-text)` |
-| Form body | `padding: 18px 16px; gap: 16px` |
-| Section title | `font: 600 17px Manrope, sans-serif` |
-| Label | `font-size: 13px; color: var(--text-menu); gap: 8px` |
-| Input | `background: var(--surface-input); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: 16px; color: var(--text)` |
-| Capability box | `border: 1px solid var(--line); border-radius: 12px; padding: 14px; gap: 12px`, title 13/600 |
-| Checkbox | 18×18, radius 4; on: `var(--accent)` fill, check 12 px stroke 2.4 `var(--on-accent)`; off: `1.5px solid var(--text-faint)`; row gap 10, 13 px |
-| Save bar | `padding: 10px 12px 14px; gap: 8px; border-top: 1px solid var(--header-line); background: var(--sidebar-bg)` |
-| Save bar note | `flex: 1; font-size: 11px; color: var(--muted); line-height: 1.4` |
-| Save bar buttons | height 40, radius 7, 12/600; cancel `padding: 0 14px` secondary, save `padding: 0 16px` primary |
+| Element          | Value                                                                                                                                         |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chip row         | `padding: 8px 12px; gap: 8px; background: var(--surface-input); border-bottom: 1px solid var(--line)`                                         |
+| Chip             | `padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px`                                                     |
+| Active chip      | `background: var(--surface-accent); border-color: var(--accent-line); color: var(--accent-text)`                                              |
+| Form body        | `padding: 18px 16px; gap: 16px`                                                                                                               |
+| Section title    | `font: 600 17px Manrope, sans-serif`                                                                                                          |
+| Label            | `font-size: 13px; color: var(--text-menu); gap: 8px`                                                                                          |
+| Input            | `background: var(--surface-input); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: 16px; color: var(--text)`     |
+| Capability box   | `border: 1px solid var(--line); border-radius: 12px; padding: 14px; gap: 12px`, title 13/600                                                  |
+| Checkbox         | 18×18, radius 4; on: `var(--accent)` fill, check 12 px stroke 2.4 `var(--on-accent)`; off: `1.5px solid var(--text-faint)`; row gap 10, 13 px |
+| Save bar         | `padding: 10px 12px 14px; gap: 8px; border-top: 1px solid var(--header-line); background: var(--sidebar-bg)`                                  |
+| Save bar note    | `flex: 1; font-size: 11px; color: var(--muted); line-height: 1.4`                                                                             |
+| Save bar buttons | height 40, radius 7, 12/600; cancel `padding: 0 14px` secondary, save `padding: 0 16px` primary                                               |
 
 ## File map
 
-| File | Change |
-|---|---|
-| `web/features/assistants/synced-form-state.js` | **Create.** Pure `sameValue`, `isDirty` |
-| `web/features/assistants/useSyncedForm.js` | Use `sameValue`, return `dirty` |
-| `tests/unit/assistant-synced-form-state.test.js` | **Create.** Unit tests for `isDirty` |
-| `web/features/assistants/AgentsPage.jsx` | `useSessionViewport` for settings (the `.assistant-settings-scroll` wrapper exists since Part 3) |
-| `web/features/sessions/mobile-workspace.css` | ≤700 px containment for `.assistant-settings-page` |
-| `web/features/assistants/assistant-settings.css` | Scroller, flat form, checkboxes, chips, save bar |
-| `web/features/assistants/assistants.css` | Remove the 650 px `.assistant-form` padding rule (net line removal only) |
-| `web/features/assistants/SettingsSectionNav.jsx` | Active chip via IntersectionObserver |
-| `web/features/assistants/AssistantSaveBar.jsx` | **Create.** Sticky save bar |
-| `web/features/assistants/AssistantSettings.jsx` | Profile title, save bar, form class |
-| `web/lib/i18n/de/assistants.js`, `web/lib/i18n/en/assistants.js` | `pendingConfigShort` |
-| `tests/helpers/assistant-settings-browser.js` | **Create.** Fixture extracted from the settings spec |
-| `tests/browser/assistant-settings.spec.js` | Import the extracted fixture |
-| `tests/browser/assistant-settings-mobile.spec.js` | **Create.** Step C coverage |
-| `docs/assistant-gateway.md`, `docs/screenshots/agentpier-sidebar-*.png` | Docs refresh |
+| File                                                                    | Change                                                                                           |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `web/features/assistants/synced-form-state.js`                          | **Create.** Pure `sameValue`, `isDirty`                                                          |
+| `web/features/assistants/useSyncedForm.js`                              | Use `sameValue`, return `dirty`                                                                  |
+| `tests/unit/assistant-synced-form-state.test.js`                        | **Create.** Unit tests for `isDirty`                                                             |
+| `web/features/assistants/AgentsPage.jsx`                                | `useSessionViewport` for settings (the `.assistant-settings-scroll` wrapper exists since Part 3) |
+| `web/features/sessions/mobile-workspace.css`                            | ≤700 px containment for `.assistant-settings-page`                                               |
+| `web/features/assistants/assistant-settings.css`                        | Scroller, flat form, checkboxes, chips, save bar                                                 |
+| `web/features/assistants/assistants.css`                                | Remove the 650 px `.assistant-form` padding rule (net line removal only)                         |
+| `web/features/assistants/SettingsSectionNav.jsx`                        | Active chip via IntersectionObserver                                                             |
+| `web/features/assistants/AssistantSaveBar.jsx`                          | **Create.** Sticky save bar                                                                      |
+| `web/features/assistants/AssistantSettings.jsx`                         | Profile title, save bar, form class                                                              |
+| `web/lib/i18n/de/assistants.js`, `web/lib/i18n/en/assistants.js`        | `pendingConfigShort`                                                                             |
+| `tests/helpers/assistant-settings-browser.js`                           | **Create.** Fixture extracted from the settings spec                                             |
+| `tests/browser/assistant-settings.spec.js`                              | Import the extracted fixture                                                                     |
+| `tests/browser/assistant-settings-mobile.spec.js`                       | **Create.** Step C coverage                                                                      |
+| `docs/assistant-gateway.md`, `docs/screenshots/agentpier-sidebar-*.png` | Docs refresh                                                                                     |
 
 ---
 
 ### Task 1: Dirty state for the synced form
 
 **Files:**
+
 - Create: `web/features/assistants/synced-form-state.js`
 - Modify: `web/features/assistants/useSyncedForm.js:1-40`
 - Test: `tests/unit/assistant-synced-form-state.test.js`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `sameValue(a, b): boolean`, `isDirty(values, base): boolean`;
   `useSyncedForm(server)` returns `{ values, set, conflicts, reload, dirty }`.
@@ -78,10 +80,7 @@ Create `tests/unit/assistant-synced-form-state.test.js`:
 ```js
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
-  isDirty,
-  sameValue,
-} from "../../web/features/assistants/synced-form-state.js";
+import { isDirty, sameValue } from "../../web/features/assistants/synced-form-state.js";
 
 const base = {
   name: "Home",
@@ -157,13 +156,13 @@ import { isDirty, sameValue as same } from "./synced-form-state.js";
 and replace the last line of the hook body:
 
 ```js
-  return { values, set, conflicts, reload };
+return { values, set, conflicts, reload };
 ```
 
 with:
 
 ```js
-  return { values, set, conflicts, reload, dirty: isDirty(values, server) };
+return { values, set, conflicts, reload, dirty: isDirty(values, server) };
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -189,10 +188,12 @@ Pure test refactor so the new mobile spec does not duplicate the 100-line route 
 and `assistant-settings.spec.js` (405 lines) shrinks instead of growing.
 
 **Files:**
+
 - Create: `tests/helpers/assistant-settings-browser.js`
 - Modify: `tests/browser/assistant-settings.spec.js:1-124`
 
 **Interfaces:**
+
 - Consumes: `fulfillEnabledAssistantFeature` (`tests/helpers/assistant-browser-fixture.js`),
   `fixture` (`tests/browser/providers-fixture.js`).
 - Produces: `home(extra)`, `setupAssistantSettings(page, options) → state`,
@@ -217,31 +218,31 @@ Create `tests/helpers/assistant-settings-browser.js`. Move lines 1–124 of
 4. Add `opened: 0,` to the `state` object after `updates: [],`.
 5. Replace the PATCH branch:
    ```js
-    if (path === "/api/assistants/home" && method === "PATCH") {
-      state.updates.push(route.request().postDataJSON());
-      return route.fulfill({ json: state.assistants[0] });
-    }
+   if (path === "/api/assistants/home" && method === "PATCH") {
+     state.updates.push(route.request().postDataJSON());
+     return route.fulfill({ json: state.assistants[0] });
+   }
    ```
    with:
    ```js
-    if (path === "/api/assistants/home" && method === "PATCH") {
-      const body = route.request().postDataJSON();
-      state.updates.push(body);
-      if (options.saveDelay) await new Promise((r) => setTimeout(r, options.saveDelay));
-      if (options.applyUpdates) {
-        const { revision: _revision, confirmInstructions: _confirm, ...fields } = body;
-        state.assistants[0] = {
-          ...state.assistants[0],
-          ...fields,
-          revision: state.assistants[0].revision + 1,
-        };
-      }
-      return route.fulfill({ json: state.assistants[0] });
-    }
-    if (path === "/api/assistants/home/conversations" && method === "POST") {
-      state.opened += 1;
-      return route.fulfill({ json: { id: "c1", assistantId: "home" } });
-    }
+   if (path === "/api/assistants/home" && method === "PATCH") {
+     const body = route.request().postDataJSON();
+     state.updates.push(body);
+     if (options.saveDelay) await new Promise((r) => setTimeout(r, options.saveDelay));
+     if (options.applyUpdates) {
+       const { revision: _revision, confirmInstructions: _confirm, ...fields } = body;
+       state.assistants[0] = {
+         ...state.assistants[0],
+         ...fields,
+         revision: state.assistants[0].revision + 1,
+       };
+     }
+     return route.fulfill({ json: state.assistants[0] });
+   }
+   if (path === "/api/assistants/home/conversations" && method === "POST") {
+     state.opened += 1;
+     return route.fulfill({ json: { id: "c1", assistantId: "home" } });
+   }
    ```
 6. `const change = (page) =>` becomes `export const emitChange = (page) =>`.
 
@@ -285,6 +286,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 3: Settings scroll container and flat mobile form
 
 **Files:**
+
 - Modify: `web/features/assistants/AgentsPage.jsx` (imports; one hook call before the
   early returns)
 - Modify: `web/features/sessions/mobile-workspace.css` (append a block after line 52)
@@ -295,11 +297,12 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Test: `tests/browser/assistant-settings-mobile.spec.js` (create)
 
 **Interfaces:**
+
 - Consumes: `useSessionViewport(active)` (`web/features/sessions/useSessionViewport.js`),
   `AssistantHeader` settings variant (Part 3), tokens `--text`, `--text-menu`,
   `--text-faint`, `--on-accent`, `--header-line`, `--sidebar-bg` (Part 2).
 - Produces: DOM `section.assistant-detail.assistant-settings-page >
-  [header] + div.assistant-settings-scroll > ErrorMessage + .assistant-settings-layout`;
+[header] + div.assistant-settings-scroll > ErrorMessage + .assistant-settings-layout`;
   `h2.assistant-section-title` inside `#agent-profile`.
 
 - [ ] **Step 1: Write the failing browser tests**
@@ -326,7 +329,8 @@ test.describe("agent settings on phones", () => {
     await expect(nav).toBeVisible();
     await expect(page.locator(".mobile-header")).toBeHidden();
     const before = await page.evaluate(() => ({
-      header: document.querySelector(".assistant-settings-page > header")
+      header: document
+        .querySelector(".assistant-settings-page > header")
         .getBoundingClientRect().top,
       nav: document.querySelector(".assistant-section-nav").getBoundingClientRect().top,
     }));
@@ -334,7 +338,8 @@ test.describe("agent settings on phones", () => {
     await expect
       .poll(() =>
         page.evaluate(() => ({
-          header: document.querySelector(".assistant-settings-page > header")
+          header: document
+            .querySelector(".assistant-settings-page > header")
             .getBoundingClientRect().top,
           nav: document.querySelector(".assistant-section-nav").getBoundingClientRect()
             .top,
@@ -379,9 +384,9 @@ test.describe("agent settings on phones", () => {
     expect(Math.round(box.width)).toBe(18);
     await memory.check();
     await expect(memory).toBeChecked();
-    expect(
-      await memory.evaluate((el) => getComputedStyle(el).backgroundColor),
-    ).toBe("rgb(244, 154, 88)");
+    expect(await memory.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(
+      "rgb(244, 154, 88)",
+    );
   });
 
   for (const width of [390, 320])
@@ -433,9 +438,9 @@ Directly after
 `if (conversationId && assistant)` add (hooks must run before the early returns):
 
 ```js
-  // Settings on phones scroll inside their own container under the fixed header, so
-  // the visual viewport (keyboard) must size the app like the chat does.
-  useSessionViewport(Boolean(route.agentSettings && assistant && !conversationId));
+// Settings on phones scroll inside their own container under the fixed header, so
+// the visual viewport (keyboard) must size the app like the chat does.
+useSessionViewport(Boolean(route.agentSettings && assistant && !conversationId));
 ```
 
 `AssistantChat` keeps its own `useSessionViewport(true)`; the `!conversationId` guard
@@ -448,7 +453,9 @@ In `web/features/assistants/AssistantSettings.jsx`, directly after
 `<form className="assistant-form" id="agent-profile" onSubmit={save}>` add:
 
 ```jsx
-        {assistant && <h2 className="assistant-section-title">{copy.sections.profile}</h2>}
+{
+  assistant && <h2 className="assistant-section-title">{copy.sections.profile}</h2>;
+}
 ```
 
 It is the focus target of the „Profile“ chip (SettingsSectionNav focuses the first
@@ -500,9 +507,9 @@ In `web/features/assistants/assistants.css`, inside the `@media (max-width: 650p
 that follows `.assistant-status.ready { color: var(--success); }`, delete:
 
 ```css
-  .assistant-form {
-    padding: 18px;
-  }
+.assistant-form {
+  padding: 18px;
+}
 ```
 
 Replace the whole content of `web/features/assistants/assistant-settings.css` with the
@@ -604,7 +611,9 @@ and keeps `.assistant-state-badge.connectionMissing`, which the agent list card 
   .assistant-settings-page .assistant-form h2 {
     display: block;
     margin: 0;
-    font: 600 17px Manrope, sans-serif;
+    font:
+      600 17px Manrope,
+      sans-serif;
   }
   .assistant-settings-page .assistant-form label {
     gap: 8px;
@@ -699,11 +708,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 4: Active section chip
 
 **Files:**
+
 - Modify: `web/features/assistants/SettingsSectionNav.jsx:1-40`
 - Modify: `web/features/assistants/assistant-settings.css` (inside the ≤700 block)
 - Test: `tests/browser/assistant-settings-mobile.spec.js`
 
 **Interfaces:**
+
 - Consumes: DOM from Task 3 (`.assistant-settings-scroll` as observer root).
 - Produces: `a[aria-current="location"]` on exactly one chip.
 
@@ -713,44 +724,44 @@ Append inside the `test.describe("agent settings on phones", …)` block of
 `tests/browser/assistant-settings-mobile.spec.js`:
 
 ```js
-  test("the chip of the section in view is active", async ({ page }) => {
-    await setupAssistantSettings(page, { assistant: full });
-    await page.goto(baseURL + "/agents/home/settings");
-    const nav = page.getByRole("navigation", { name: "Settings sections" });
-    const current = nav.locator('a[aria-current="location"]');
-    await expect(current).toHaveText("Profile");
-    await page
-      .locator("#agent-memory")
-      .evaluate((el) => el.scrollIntoView({ block: "start" }));
-    await expect(current).toHaveText("Memory");
-    await expect(current).toHaveCount(1);
-    const style = await current.evaluate((el) => {
-      const css = getComputedStyle(el);
-      return { color: css.color, background: css.backgroundColor };
-    });
-    expect(style).toEqual({
-      color: "rgb(255, 201, 157)",
-      background: "rgb(48, 38, 28)",
-    });
+test("the chip of the section in view is active", async ({ page }) => {
+  await setupAssistantSettings(page, { assistant: full });
+  await page.goto(baseURL + "/agents/home/settings");
+  const nav = page.getByRole("navigation", { name: "Settings sections" });
+  const current = nav.locator('a[aria-current="location"]');
+  await expect(current).toHaveText("Profile");
+  await page
+    .locator("#agent-memory")
+    .evaluate((el) => el.scrollIntoView({ block: "start" }));
+  await expect(current).toHaveText("Memory");
+  await expect(current).toHaveCount(1);
+  const style = await current.evaluate((el) => {
+    const css = getComputedStyle(el);
+    return { color: css.color, background: css.backgroundColor };
   });
+  expect(style).toEqual({
+    color: "rgb(255, 201, 157)",
+    background: "rgb(48, 38, 28)",
+  });
+});
 
-  test("clicking a chip activates it at once and keeps it in the chip row", async ({
-    page,
-  }) => {
-    await setupAssistantSettings(page, { assistant: full });
-    await page.goto(baseURL + "/agents/home/settings");
-    const nav = page.getByRole("navigation", { name: "Settings sections" });
-    const telegram = nav.getByRole("link", { name: "Telegram" });
-    await telegram.click();
-    await expect(telegram).toHaveAttribute("aria-current", "location");
-    await expect(page.getByRole("heading", { name: "Telegram" })).toBeFocused();
-    const inRow = await telegram.evaluate((el) => {
-      const row = el.parentElement.getBoundingClientRect();
-      const chip = el.getBoundingClientRect();
-      return chip.left >= row.left && chip.right <= row.right;
-    });
-    expect(inRow).toBe(true);
+test("clicking a chip activates it at once and keeps it in the chip row", async ({
+  page,
+}) => {
+  await setupAssistantSettings(page, { assistant: full });
+  await page.goto(baseURL + "/agents/home/settings");
+  const nav = page.getByRole("navigation", { name: "Settings sections" });
+  const telegram = nav.getByRole("link", { name: "Telegram" });
+  await telegram.click();
+  await expect(telegram).toHaveAttribute("aria-current", "location");
+  await expect(page.getByRole("heading", { name: "Telegram" })).toBeFocused();
+  const inRow = await telegram.evaluate((el) => {
+    const row = el.parentElement.getBoundingClientRect();
+    const chip = el.getBoundingClientRect();
+    return chip.left >= row.left && chip.right <= row.right;
   });
+  expect(inRow).toBe(true);
+});
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -789,7 +800,8 @@ export default function SettingsSectionNav({ assistant, personal }) {
   const held = useRef(0);
   useEffect(() => {
     const scroll = nav.current?.closest(".assistant-settings-scroll");
-    const root = scroll && getComputedStyle(scroll).overflowY !== "visible" ? scroll : null;
+    const root =
+      scroll && getComputedStyle(scroll).overflowY !== "visible" ? scroll : null;
     const targets = ids
       .split(" ")
       .map((id) => document.getElementById(id))
@@ -858,33 +870,33 @@ In `web/features/assistants/assistant-settings.css`, inside the `@media (max-wid
 block, add after the `.assistant-settings-scroll` rule:
 
 ```css
-  .assistant-section-nav {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding: 8px 12px;
-    background: var(--surface-input);
-    border-bottom: 1px solid var(--line);
-    scrollbar-width: none;
-  }
-  .assistant-section-nav a {
-    flex: none;
-    padding: 6px 12px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    color: inherit;
-    font-size: 13px;
-    text-decoration: none;
-    white-space: nowrap;
-  }
-  .assistant-section-nav a[aria-current="location"] {
-    border-color: var(--accent-line);
-    background: var(--surface-accent);
-    color: var(--accent-text);
-  }
+.assistant-section-nav {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 12px;
+  background: var(--surface-input);
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+}
+.assistant-section-nav a {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: inherit;
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.assistant-section-nav a[aria-current="location"] {
+  border-color: var(--accent-line);
+  background: var(--surface-accent);
+  color: var(--accent-text);
+}
 ```
 
 Delete the old `@media (max-width: 650px)` block for `.assistant-section-nav` that Task 3
@@ -911,6 +923,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 5: Sticky save bar
 
 **Files:**
+
 - Create: `web/features/assistants/AssistantSaveBar.jsx`
 - Modify: `web/features/assistants/AssistantSettings.jsx` (imports; end of the fragment;
   `.assistant-actions` div of the profile form)
@@ -920,6 +933,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Test: `tests/browser/assistant-settings-mobile.spec.js`
 
 **Interfaces:**
+
 - Consumes: `useSyncedForm().dirty` (Task 1), `AssistantSettings` `busy`, `onCancel`.
 - Produces: `AssistantSaveBar({ form, busy, creating, onCancel })` rendering
   `div.assistant-save-bar` (hidden above 700 px); copy `assistantCopy.pendingConfigShort`.
@@ -929,64 +943,64 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 Append inside the `test.describe("agent settings on phones", …)` block:
 
 ```js
-  const bar = (page) => page.locator(".assistant-save-bar");
+const bar = (page) => page.locator(".assistant-save-bar");
 
-  test("the save bar appears after an edit and saves the profile", async ({ page }) => {
-    const state = await setupAssistantSettings(page, { applyUpdates: true });
-    await page.goto(baseURL + "/agents/home/settings");
-    await expect(page.locator("#agent-profile")).toBeVisible();
-    await expect(bar(page)).toHaveCount(0);
-    await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
-    await expect(bar(page)).toBeVisible();
-    await expect(bar(page)).toContainText("Applies before the next message.");
-    await expect(page.getByRole("button", { name: "Save agent" })).toHaveCount(1);
-    await bar(page).getByRole("button", { name: "Save agent" }).click();
-    await expect.poll(() => state.updates.at(-1)?.name).toBe("Home 2");
-    await expect(bar(page)).toHaveCount(0);
-  });
+test("the save bar appears after an edit and saves the profile", async ({ page }) => {
+  const state = await setupAssistantSettings(page, { applyUpdates: true });
+  await page.goto(baseURL + "/agents/home/settings");
+  await expect(page.locator("#agent-profile")).toBeVisible();
+  await expect(bar(page)).toHaveCount(0);
+  await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
+  await expect(bar(page)).toBeVisible();
+  await expect(bar(page)).toContainText("Applies before the next message.");
+  await expect(page.getByRole("button", { name: "Save agent" })).toHaveCount(1);
+  await bar(page).getByRole("button", { name: "Save agent" }).click();
+  await expect.poll(() => state.updates.at(-1)?.name).toBe("Home 2");
+  await expect(bar(page)).toHaveCount(0);
+});
 
-  test("the save bar mirrors a running save", async ({ page }) => {
-    await setupAssistantSettings(page, { applyUpdates: true, saveDelay: 800 });
-    await page.goto(baseURL + "/agents/home/settings");
-    await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
-    await bar(page).getByRole("button", { name: "Save agent" }).click();
-    const busy = bar(page).getByRole("button", { name: "Loading…" });
-    await expect(busy).toBeDisabled();
-    await expect(bar(page)).toHaveCount(0);
-  });
+test("the save bar mirrors a running save", async ({ page }) => {
+  await setupAssistantSettings(page, { applyUpdates: true, saveDelay: 800 });
+  await page.goto(baseURL + "/agents/home/settings");
+  await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
+  await bar(page).getByRole("button", { name: "Save agent" }).click();
+  const busy = bar(page).getByRole("button", { name: "Loading…" });
+  await expect(busy).toBeDisabled();
+  await expect(bar(page)).toHaveCount(0);
+});
 
-  test("cancel in the save bar returns to the conversation", async ({ page }) => {
-    const state = await setupAssistantSettings(page);
-    await page.goto(baseURL + "/agents/home/settings");
-    await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
-    await bar(page).getByRole("button", { name: "Cancel" }).click();
-    await expect(page).toHaveURL(/\/agents\/home\/chats\/c1$/);
-    expect(state.opened).toBe(1);
-  });
+test("cancel in the save bar returns to the conversation", async ({ page }) => {
+  const state = await setupAssistantSettings(page);
+  await page.goto(baseURL + "/agents/home/settings");
+  await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
+  await bar(page).getByRole("button", { name: "Cancel" }).click();
+  await expect(page).toHaveURL(/\/agents\/home\/chats\/c1$/);
+  expect(state.opened).toBe(1);
+});
 
-  test("the save bar never covers the last section", async ({ page }) => {
-    await setupAssistantSettings(page, { assistant: full });
-    await page.goto(baseURL + "/agents/home/settings");
-    await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
-    await scroller(page).evaluate((el) => (el.scrollTop = el.scrollHeight));
-    const last = page.locator("#agent-telegram button").last();
-    await expect(last).toBeVisible();
-    const overlap = await page.evaluate(() => {
-      const buttons = document.querySelectorAll("#agent-telegram button");
-      const b = buttons[buttons.length - 1].getBoundingClientRect();
-      const s = document.querySelector(".assistant-save-bar").getBoundingClientRect();
-      return b.bottom > s.top && b.top < s.bottom;
-    });
-    expect(overlap).toBe(false);
+test("the save bar never covers the last section", async ({ page }) => {
+  await setupAssistantSettings(page, { assistant: full });
+  await page.goto(baseURL + "/agents/home/settings");
+  await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
+  await scroller(page).evaluate((el) => (el.scrollTop = el.scrollHeight));
+  const last = page.locator("#agent-telegram button").last();
+  await expect(last).toBeVisible();
+  const overlap = await page.evaluate(() => {
+    const buttons = document.querySelectorAll("#agent-telegram button");
+    const b = buttons[buttons.length - 1].getBoundingClientRect();
+    const s = document.querySelector(".assistant-save-bar").getBoundingClientRect();
+    return b.bottom > s.top && b.top < s.bottom;
   });
+  expect(overlap).toBe(false);
+});
 
-  test("creating an agent shows the save bar at once", async ({ page }) => {
-    await setupAssistantSettings(page);
-    await page.goto(baseURL + "/agents");
-    await page.getByRole("button", { name: "New agent" }).click();
-    await expect(bar(page)).toBeVisible();
-    await expect(bar(page).getByRole("button", { name: "Save agent" })).toBeVisible();
-  });
+test("creating an agent shows the save bar at once", async ({ page }) => {
+  await setupAssistantSettings(page);
+  await page.goto(baseURL + "/agents");
+  await page.getByRole("button", { name: "New agent" }).click();
+  await expect(bar(page)).toBeVisible();
+  await expect(bar(page).getByRole("button", { name: "Save agent" })).toBeVisible();
+});
 ```
 
 Then append at the end of the file, **after** the closing `});` of the describe block:
@@ -1065,14 +1079,16 @@ In `web/features/assistants/AssistantSettings.jsx`:
 3. As the last child of the returned fragment (after the Telegram anchor block, before
    `</>`), add:
    ```jsx
-      {(form.dirty || !assistant) && (
-        <AssistantSaveBar
-          form="agent-profile"
-          busy={busy}
-          creating={!assistant}
-          onCancel={onCancel}
-        />
-      )}
+   {
+     (form.dirty || !assistant) && (
+       <AssistantSaveBar
+         form="agent-profile"
+         busy={busy}
+         creating={!assistant}
+         onCancel={onCancel}
+       />
+     );
+   }
    ```
 
 The bar is the last in-flow element of the settings column, so at the end of the scroll
@@ -1084,41 +1100,41 @@ In `web/features/assistants/assistant-settings.css`, inside the `@media (max-wid
 block, add:
 
 ```css
-  .assistant-profile-actions {
-    display: none;
-  }
-  .assistant-save-bar {
-    position: sticky;
-    bottom: 0;
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px calc(14px + env(safe-area-inset-bottom));
-    border-top: 1px solid var(--header-line);
-    background: var(--sidebar-bg);
-  }
-  .assistant-save-bar p {
-    flex: 1;
-    min-width: 0;
-    margin: 0;
-    color: var(--muted);
-    font-size: 11px;
-    line-height: 1.4;
-  }
-  .assistant-save-bar .button {
-    height: 40px;
-    border-radius: 7px;
-    font-size: 12px;
-    font-weight: 600;
-  }
-  .assistant-save-bar .button.secondary {
-    margin-left: auto;
-    padding: 0 14px;
-  }
-  .assistant-save-bar .button.primary {
-    padding: 0 16px;
-  }
+.assistant-profile-actions {
+  display: none;
+}
+.assistant-save-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--header-line);
+  background: var(--sidebar-bg);
+}
+.assistant-save-bar p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.assistant-save-bar .button {
+  height: 40px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.assistant-save-bar .button.secondary {
+  margin-left: auto;
+  padding: 0 14px;
+}
+.assistant-save-bar .button.primary {
+  padding: 0 16px;
+}
 ```
 
 The top-level `.assistant-save-bar { display: none; }` from Task 3 keeps the bar out of
@@ -1173,6 +1189,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 7: Documentation and screenshots
 
 **Files:**
+
 - Modify: `docs/assistant-gateway.md` (section „Visible teams: operation and recovery“,
   the sentence with „the composer’s one-message checkbox“, around line 497)
 - Modify: `docs/screenshots/agentpier-sidebar-desktop.png`,
@@ -1213,10 +1230,10 @@ row assertions (Part 2 only changes its subline expectations). Confirm with
 missing, add before the `page.screenshot` call:
 
 ```js
-    if (mobile) {
-      await page.getByRole("button", { name: "Navigation öffnen" }).click();
-      await expect(page.locator(".sidebar")).toHaveClass(/open/);
-    }
+if (mobile) {
+  await page.getByRole("button", { name: "Navigation öffnen" }).click();
+  await expect(page.locator(".sidebar")).toHaveClass(/open/);
+}
 ```
 
 Run:
@@ -1333,15 +1350,15 @@ Expected: PNGs for every state in DE and EN at 390, 1440 and 320 px.
 
 For each state open the pair with the Read tool:
 
-| Handoff | After |
-|---|---|
-| `shots/explore-1a.png` | `drawer-de-390.png`, `menu-de-390.png` |
-| `shots/explore-1d.png` | chat idle and options popover, `de-390` |
-| `shots/detail-2a.png` | chat working, `de-390` |
-| `shots/detail-2c.png` | approval strip and cards, running team, `de-390` |
-| `shots/detail-2d.png` | member chat, `de-390` |
-| `shots/detail-2e.png` | `settings-dirty-de-390.png` |
-| `shots/detail-2f.png` | chat and sidebar, `de-1440` |
+| Handoff                | After                                            |
+| ---------------------- | ------------------------------------------------ |
+| `shots/explore-1a.png` | `drawer-de-390.png`, `menu-de-390.png`           |
+| `shots/explore-1d.png` | chat idle and options popover, `de-390`          |
+| `shots/detail-2a.png`  | chat working, `de-390`                           |
+| `shots/detail-2c.png`  | approval strip and cards, running team, `de-390` |
+| `shots/detail-2d.png`  | member chat, `de-390`                            |
+| `shots/detail-2e.png`  | `settings-dirty-de-390.png`                      |
+| `shots/detail-2f.png`  | chat and sidebar, `de-1440`                      |
 
 Check: bar heights (56/68), paddings, radii, font sizes, icon choice and size, colours,
 dot states, truncation. For any visible deviation measure in the browser
@@ -1363,6 +1380,7 @@ the PR description. Any failure: fix plus regression test.
 ### Task 9: Cleanup and pull request
 
 **Files:**
+
 - Delete: `docs/superpowers/specs/2026-10-11-mobile-layout-redesign-design.md`,
   `docs/superpowers/plans/2026-10-11-mobile-layout-redesign*.md`
 

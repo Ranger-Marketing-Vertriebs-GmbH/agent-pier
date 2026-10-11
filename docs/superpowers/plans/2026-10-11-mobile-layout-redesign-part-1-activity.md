@@ -19,15 +19,17 @@ All commands run from `.worktrees/mobile-layout-redesign`. Focused Node tests ru
 ### Task 1: `RequestLedger#latestByConversation()`
 
 **Files:**
+
 - Modify: `server/features/assistants/request-ledger.js:123-135` (add method after
   `unresolved()`)
 - Test: `tests/unit/assistant-request-ledger.test.js` (append; file has 67 lines)
 
 **Interfaces:**
+
 - Consumes: existing schema (`requests`, `attempts`, `attempt_reviews`).
 - Produces: `RequestLedger#latestByConversation(): Array<{ conversationId: string,
-  requestId: string, requestState: string, attemptId: string | null,
-  attemptState: string | null, reviewedAt: string | null }>` — one row per conversation
+requestId: string, requestState: string, attemptId: string | null,
+attemptState: string | null, reviewedAt: string | null }>` — one row per conversation
   that has at least one request, describing its latest request (highest rowid) and that
   request's latest attempt.
 
@@ -80,7 +82,10 @@ test("a request without an attempt reports null attempt fields", (t) => {
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   const store = new AssistantStore({ dataDir });
   t.after(() => store.close());
-  const a = store.createAssistant({ name: "Home", model: { connectionId: "c", modelId: "m" } });
+  const a = store.createAssistant({
+    name: "Home",
+    model: { connectionId: "c", modelId: "m" },
+  });
   const c = store.saveConversation({ assistantId: a.id, runtimeSessionKey: "c" });
   const ledger = new RequestLedger(store.db);
   const r = ledger.accept(c.id, { clientRequestId: "only", text: "Hi" });
@@ -155,16 +160,18 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 2: `AssistantActionStore#awaitingCounts(now)`
 
 **Files:**
+
 - Modify: `server/features/assistants/assistant-action-store.js:38` (add method after
   `open()`)
 - Create: `tests/unit/assistant-action-counts.test.js`
 
 **Interfaces:**
+
 - Consumes: `assistant_actions` rows written by `reserve()`; body fields `state`,
   `teamId`, `expiresAt` (epoch ms, set in `reserve()` at line 64).
 - Produces: `AssistantActionStore#awaitingCounts(now = Date.now()):
-  Record<assistantId, { own: number, team: number }>`. Only `state ===
-  "awaiting_approval"` and `expiresAt > now` (or no `expiresAt`) count. `teamId` set →
+Record<assistantId, { own: number, team: number }>`. Only `state ===
+"awaiting_approval"` and `expiresAt > now` (or no `expiresAt`) count. `teamId` set →
   `team`, otherwise `own`. Assistants without awaiting actions are absent.
 
 - [ ] **Step 1: Write the failing test**
@@ -277,30 +284,32 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 3: Pure `assistantActivity()` derivation
 
 **Files:**
+
 - Create: `server/features/assistants/assistant-activity.js`
 - Create: `tests/unit/assistant-activity.test.js`
 
 **Interfaces:**
+
 - Consumes: shapes from Task 1 (`latest`) and Task 2 (`awaiting`); `teams` and
   `members` as returned by `TeamService.list()` (team: `id, parentAssistantId, phase,
-  archivedAt`; member: `assistantId, phase, archivedAt`); assistant and conversation
+archivedAt`; member: `assistantId, phase, archivedAt`); assistant and conversation
   records from `AssistantStore`.
 - Produces: `assistantActivity({ assistants, conversations, latest, awaiting, teams,
-  members }): Record<assistantId, ActivityEntry>` and the exported set
+members }): Record<assistantId, ActivityEntry>` and the exported set
   `teamActivePhases`. `ActivityEntry = { state, reason, label, pendingApprovals, team }`
   exactly as in the main plan. Labels are dotted paths inside `assistantCopy`:
 
-| Condition (first match wins) | state | reason | label |
-|---|---|---|---|
-| unreviewed latest attempt `uncertain`/`interrupted` | `attention` | `attempt` | `status.<attemptState>` |
-| member phase `uncertain`/`provisioning_uncertain` | `attention` | `member` | `team.states.<phase>` |
-| `pendingApprovals > 0`, team awaiting | `waiting` | `approval` | `teamActive.awaiting` |
-| `pendingApprovals > 0`, otherwise | `waiting` | `approval` | `team.states.awaiting_approval` |
-| unreviewed latest attempt `pending`/`accepted`/`running` | `working` | `attempt` | `status.running` |
-| member phase `provisioning`/`admitting`/`running`/`stopping` | `working` | `member` | `team.states.<phase>` |
-| member phase `queued` | `working` | `queued` | `team.states.queued` |
-| own team active | `working` | `team` | `teamActive.working` |
-| otherwise (including a `failed` last attempt) | `idle` | `null` | `null` |
+| Condition (first match wins)                                 | state       | reason     | label                           |
+| ------------------------------------------------------------ | ----------- | ---------- | ------------------------------- |
+| unreviewed latest attempt `uncertain`/`interrupted`          | `attention` | `attempt`  | `status.<attemptState>`         |
+| member phase `uncertain`/`provisioning_uncertain`            | `attention` | `member`   | `team.states.<phase>`           |
+| `pendingApprovals > 0`, team awaiting                        | `waiting`   | `approval` | `teamActive.awaiting`           |
+| `pendingApprovals > 0`, otherwise                            | `waiting`   | `approval` | `team.states.awaiting_approval` |
+| unreviewed latest attempt `pending`/`accepted`/`running`     | `working`   | `attempt`  | `status.running`                |
+| member phase `provisioning`/`admitting`/`running`/`stopping` | `working`   | `member`   | `team.states.<phase>`           |
+| member phase `queued`                                        | `working`   | `queued`   | `team.states.queued`            |
+| own team active                                              | `working`   | `team`     | `teamActive.working`            |
+| otherwise (including a `failed` last attempt)                | `idle`      | `null`     | `null`                          |
 
 Archived assistants are omitted; archived conversations, archived teams and archived
 members are ignored.
@@ -315,7 +324,12 @@ import assert from "node:assert/strict";
 import { assistantActivity } from "../../server/features/assistants/assistant-activity.js";
 
 const agent = (id, extra = {}) => ({ id, name: id, archivedAt: null, ...extra });
-const chat = (id, assistantId, extra = {}) => ({ id, assistantId, archivedAt: null, ...extra });
+const chat = (id, assistantId, extra = {}) => ({
+  id,
+  assistantId,
+  archivedAt: null,
+  ...extra,
+});
 const row = (conversationId, attemptState, reviewedAt = null) => ({
   conversationId,
   requestId: `r-${conversationId}`,
@@ -356,15 +370,17 @@ for (const state of ["pending", "accepted", "running"])
 for (const state of ["uncertain", "interrupted"])
   test(`an unreviewed ${state} attempt needs attention`, () => {
     const entry = derive({ latest: [row("c", state)] }).home;
-    assert.deepEqual([entry.state, entry.reason, entry.label], [
-      "attention",
-      "attempt",
-      `status.${state}`,
-    ]);
+    assert.deepEqual(
+      [entry.state, entry.reason, entry.label],
+      ["attention", "attempt", `status.${state}`],
+    );
   });
 
 test("a reviewed uncertain attempt and a failed attempt leave the agent idle", () => {
-  assert.equal(derive({ latest: [row("c", "uncertain", "2026-10-11")] }).home.state, "idle");
+  assert.equal(
+    derive({ latest: [row("c", "uncertain", "2026-10-11")] }).home.state,
+    "idle",
+  );
   assert.equal(derive({ latest: [row("c", "failed")] }).home.state, "idle");
   assert.equal(derive({ latest: [row("c", "completed")] }).home.state, "idle");
 });
@@ -395,15 +411,26 @@ test("pending approvals sum own actions, team coding requests and team proposals
 
 test("attention outranks waiting, waiting outranks working", () => {
   const awaiting = { home: { own: 1, team: 0 } };
-  assert.equal(derive({ awaiting, latest: [row("c", "uncertain")] }).home.state, "attention");
-  assert.equal(derive({ awaiting, latest: [row("c", "accepted")] }).home.state, "waiting");
+  assert.equal(
+    derive({ awaiting, latest: [row("c", "uncertain")] }).home.state,
+    "attention",
+  );
+  assert.equal(
+    derive({ awaiting, latest: [row("c", "accepted")] }).home.state,
+    "waiting",
+  );
 });
 
 test("an active own team makes the parent work and is reported as team state", () => {
   const entry = derive({
     teams: [
       { id: "t", parentAssistantId: "home", phase: "running" },
-      { id: "old", parentAssistantId: "home", phase: "awaiting_approval", archivedAt: "x" },
+      {
+        id: "old",
+        parentAssistantId: "home",
+        phase: "awaiting_approval",
+        archivedAt: "x",
+      },
     ],
   }).home;
   assert.deepEqual(entry, {
@@ -413,7 +440,9 @@ test("an active own team makes the parent work and is reported as team state", (
     pendingApprovals: 0,
     team: "active",
   });
-  const done = derive({ teams: [{ id: "t", parentAssistantId: "home", phase: "completed" }] });
+  const done = derive({
+    teams: [{ id: "t", parentAssistantId: "home", phase: "completed" }],
+  });
   assert.equal(done.home.state, "idle");
   assert.equal(done.home.team, null);
 });
@@ -429,18 +458,24 @@ test("the agent's own attempt outranks its team for the working reason", () => {
 test("member phases map to working, queued and attention", () => {
   const member = (phase) =>
     derive({
-      assistants: [agent("home"), agent("m", { teamMemberId: "m", parentAssistantId: "home" })],
+      assistants: [
+        agent("home"),
+        agent("m", { teamMemberId: "m", parentAssistantId: "home" }),
+      ],
       members: [{ id: "m", assistantId: "m", teamId: "t", phase }],
     }).m;
   for (const phase of ["provisioning", "admitting", "running", "stopping"])
     assert.deepEqual([member(phase).state, member(phase).reason], ["working", "member"]);
-  assert.deepEqual([member("queued").state, member("queued").reason], ["working", "queued"]);
+  assert.deepEqual(
+    [member("queued").state, member("queued").reason],
+    ["working", "queued"],
+  );
   assert.equal(member("queued").label, "team.states.queued");
   for (const phase of ["uncertain", "provisioning_uncertain"])
-    assert.deepEqual([member(phase).state, member(phase).label], [
-      "attention",
-      `team.states.${phase}`,
-    ]);
+    assert.deepEqual(
+      [member(phase).state, member(phase).label],
+      ["attention", `team.states.${phase}`],
+    );
   for (const phase of ["ready", "completed", "failed", "cancelled"])
     assert.equal(member(phase).state, "idle");
 });
@@ -500,7 +535,8 @@ function attemptStates(conversations, latest) {
 
 function classify({ attempts, member, pendingApprovals, team }) {
   const attention = attempts.find((s) => attentionAttempts.has(s));
-  if (attention) return { state: "attention", reason: "attempt", label: `status.${attention}` };
+  if (attention)
+    return { state: "attention", reason: "attempt", label: `status.${attention}` };
   const phase = member?.phase;
   if (attentionMembers.has(phase))
     return { state: "attention", reason: "member", label: `team.states.${phase}` };
@@ -508,7 +544,8 @@ function classify({ attempts, member, pendingApprovals, team }) {
     return {
       state: "waiting",
       reason: "approval",
-      label: team === "awaiting" ? "teamActive.awaiting" : "team.states.awaiting_approval",
+      label:
+        team === "awaiting" ? "teamActive.awaiting" : "team.states.awaiting_approval",
     };
   if (attempts.some((s) => workingAttempts.has(s)))
     return { state: "working", reason: "attempt", label: "status.running" };
@@ -516,7 +553,8 @@ function classify({ attempts, member, pendingApprovals, team }) {
     return { state: "working", reason: "member", label: `team.states.${phase}` };
   if (phase === "queued")
     return { state: "working", reason: "queued", label: "team.states.queued" };
-  if (team === "active") return { state: "working", reason: "team", label: "teamActive.working" };
+  if (team === "active")
+    return { state: "working", reason: "team", label: "teamActive.working" };
   return idle;
 }
 
@@ -535,7 +573,9 @@ export function assistantActivity({
   const result = {};
   for (const assistant of assistants) {
     if (assistant.archivedAt) continue;
-    const own = teams.filter((t) => t.parentAssistantId === assistant.id && !t.archivedAt);
+    const own = teams.filter(
+      (t) => t.parentAssistantId === assistant.id && !t.archivedAt,
+    );
     const proposals = own.filter((t) => t.phase === "awaiting_approval").length;
     const team = proposals
       ? "awaiting"
@@ -579,20 +619,22 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 4: Serve `activity` from the list and announce runtime failures
 
 **Files:**
+
 - Modify: `server/features/assistants/assistant-service.js:1-8` (import),
   `:29` (runtime failure), `:101-123` (`list()`)
 - Create: `tests/integration/assistant-activity.test.js`
 - Modify: `tests/blackbox/assistant-routes.test.js:28-31` (assert the field exists)
 
 **Interfaces:**
+
 - Consumes: `RequestLedger#latestByConversation()` (Task 1),
   `AssistantActionStore#awaitingCounts(now)` (Task 2) reached through the wired
   `this.workflows.store` (set in `server/application/assistant-graph.js` `wire(assistants,
-  …, { workflows })`; absent in standalone tests → `{}`), `assistantActivity()` (Task 3),
+…, { workflows })`; absent in standalone tests → `{}`), `assistantActivity()` (Task 3),
   `this.teams?.list()` (already called in `list()`).
 - Produces: `AssistantService#list()` returns `activity: Record<assistantId,
-  ActivityEntry>` at the top level; a runtime `failed` status publishes `{ type:
-  "change" }` after moving outstanding attempts to `uncertain`.
+ActivityEntry>` at the top level; a runtime `failed` status publishes `{ type:
+"change" }` after moving outstanding attempts to `uncertain`.
 
 Do **not** construct a second `AssistantActionStore` in the service: its constructor
 patches `executing` actions to `unknown`.
@@ -612,7 +654,10 @@ function agentChat(f, key) {
     name: "Home",
     model: { connectionId: "c", modelId: "m" },
   });
-  const chat = f.store.saveConversation({ assistantId: agent.id, runtimeSessionKey: key });
+  const chat = f.store.saveConversation({
+    assistantId: agent.id,
+    runtimeSessionKey: key,
+  });
   return { agent, chat };
 }
 
@@ -651,7 +696,10 @@ test("a runtime failure marks running requests uncertain and announces the chang
 
   assert.ok(events.includes("change"), `events were ${events.join(", ")}`);
   assert.deepEqual(
-    [f.assistants.list().activity[agent.id].state, f.assistants.list().activity[agent.id].label],
+    [
+      f.assistants.list().activity[agent.id].state,
+      f.assistants.list().activity[agent.id].label,
+    ],
     ["attention", "status.uncertain"],
   );
 });
@@ -712,17 +760,17 @@ import { assistantActivity } from "./assistant-activity.js";
 2. Replace line 29
 
 ```js
-      if (state.availability === "failed") this.markOutstandingUnknown();
+if (state.availability === "failed") this.markOutstandingUnknown();
 ```
 
 with
 
 ```js
-      // Outstanding attempts become uncertain; clients only refetch on change.
-      if (state.availability === "failed") {
-        this.markOutstandingUnknown();
-        this.changed();
-      }
+// Outstanding attempts become uncertain; clients only refetch on change.
+if (state.availability === "failed") {
+  this.markOutstandingUnknown();
+  this.changed();
+}
 ```
 
 3. Replace the body of `list()` (lines 101-123) with:
@@ -771,20 +819,20 @@ in `reserve()`, while `this.now` is a test clock for session retries.
 In `tests/blackbox/assistant-routes.test.js`, replace lines 28-31
 
 ```js
-  const listed = await fixtureFetch(url + "/api/assistants");
-  const text = await listed.text();
-  assert.ok(!text.includes("private-assistant-key"));
-  assert.ok(text.includes(assistant.id));
+const listed = await fixtureFetch(url + "/api/assistants");
+const text = await listed.text();
+assert.ok(!text.includes("private-assistant-key"));
+assert.ok(text.includes(assistant.id));
 ```
 
 with
 
 ```js
-  const listed = await fixtureFetch(url + "/api/assistants");
-  const text = await listed.text();
-  assert.ok(!text.includes("private-assistant-key"));
-  assert.ok(text.includes(assistant.id));
-  assert.equal(JSON.parse(text).activity[assistant.id].state, "idle");
+const listed = await fixtureFetch(url + "/api/assistants");
+const text = await listed.text();
+assert.ok(!text.includes("private-assistant-key"));
+assert.ok(text.includes(assistant.id));
+assert.equal(JSON.parse(text).activity[assistant.id].state, "idle");
 ```
 
 - [ ] **Step 5: Run the tests**
@@ -811,6 +859,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 5: Client activity state, copy and status helpers
 
 **Files:**
+
 - Modify: `web/features/assistants/AssistantsRoot.jsx:23-31` (copy `activity`)
 - Modify: `web/features/assistants/useAssistants.js:10-19` (idle default)
 - Modify: `web/lib/i18n/de/assistants.js` and `web/lib/i18n/en/assistants.js`
@@ -820,14 +869,15 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Create: `tests/browser/assistant-activity.spec.js`
 
 **Interfaces:**
+
 - Consumes: `GET /api/assistants` → `activity` (Task 4); `connectionMissing(assistant,
-  models)` from `web/features/assistants/connection-state.js`.
+models)` from `web/features/assistants/connection-state.js`.
 - Produces (used by parts 2 and 3; names exactly as in the main plan):
   - `useAssistants().activity` — `{}` until data arrives or when the server omits it.
   - `assistantCopy.teamActive.working` / `.awaiting`.
   - `IDLE_ACTIVITY`, `activityFor(activity, assistantId)`, `activityDot(entry)`,
     `copyAt(copy, path)`, `headerStatus({ assistant, models, runtime, attempt, entry,
-    member, copy })`, `sidebarSubline({ assistant, entry, member, model, copy })`.
+member, copy })`, `sidebarSubline({ assistant, entry, member, model, copy })`.
   - `sidebarSubline` returns only the state part for member rows (activity label while
     not idle, otherwise the member phase); the caller adds the role (root member rows)
     or the assignment (rows in the expanded team block, handoff „{phase} ·
@@ -835,7 +885,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `headerStatus` returns only the state label; `AssistantHeader` (part 3) appends
     „ · {modelId}“ in conversations and „ · {role}“ in member chats. For an idle member
     chat the label is the member phase (`team.states[member.phase]`).
-  - `attempt` passed to `headerStatus` is the chat's *active* attempt only (not
+  - `attempt` passed to `headerStatus` is the chat's _active_ attempt only (not
     reviewed, not terminal) or `null`; `member` is the team member record when the chat
     belongs to a member, else `null`; `model` passed to `sidebarSubline` is the
     assistant's `model` object (`{ connectionId, modelId }`).
@@ -1037,7 +1087,15 @@ export function copyAt(copy, path) {
   return typeof value === "string" ? value : undefined;
 }
 
-export function headerStatus({ assistant, models, runtime, attempt, entry, member, copy }) {
+export function headerStatus({
+  assistant,
+  models,
+  runtime,
+  attempt,
+  entry,
+  member,
+  copy,
+}) {
   if (connectionMissing(assistant, models))
     return { tone: "missing", label: copy.status.connectionMissing };
   const availability = runtime?.availability;
@@ -1053,7 +1111,10 @@ export function headerStatus({ assistant, models, runtime, attempt, entry, membe
     };
   const current = entry ?? IDLE_ACTIVITY;
   if (current.state !== "idle")
-    return { tone: current.state, label: copyAt(copy, current.label) ?? copy.status.ready };
+    return {
+      tone: current.state,
+      label: copyAt(copy, current.label) ?? copy.status.ready,
+    };
   if (member?.phase)
     return { tone: "ready", label: copy.team.states[member.phase] ?? copy.status.ready };
   return { tone: "ready", label: copy.status.ready };
@@ -1061,11 +1122,16 @@ export function headerStatus({ assistant, models, runtime, attempt, entry, membe
 
 export function sidebarSubline({ assistant, entry, member, model, copy }) {
   const current = entry ?? IDLE_ACTIVITY;
-  if (current.team) return { text: copy.teamActive[current.team === "awaiting" ? "awaiting" : "working"], tone: "accent" };
+  if (current.team)
+    return {
+      text: copy.teamActive[current.team === "awaiting" ? "awaiting" : "working"],
+      tone: "accent",
+    };
   const label = current.state !== "idle" ? copyAt(copy, current.label) : undefined;
   if (label) return { text: label, tone: "accent" };
   // Member rows add the role (root rows) or the assignment (team block) themselves.
-  if (member) return { text: copy.team.states[member.phase] ?? member.phase, tone: "meta" };
+  if (member)
+    return { text: copy.team.states[member.phase] ?? member.phase, tone: "meta" };
   return { text: model?.modelId ?? assistant?.model?.modelId ?? "", tone: "meta" };
 }
 ```
@@ -1089,12 +1155,12 @@ add after `teamSettings: next.teamSettings,`:
 and change the initial state on line 10 to
 
 ```js
-  const [data, setData] = useState({
-    assistants: [],
-    conversations: [],
-    models: [],
-    activity: {},
-  });
+const [data, setData] = useState({
+  assistants: [],
+  conversations: [],
+  models: [],
+  activity: {},
+});
 ```
 
 In `web/features/assistants/useAssistants.js`, add to `idleAssistants` after
@@ -1135,7 +1201,11 @@ async function activityFixture(page, list = {}) {
     if (await fulfillEnabledAssistantFeature(route)) return;
     const p = new URL(route.request().url()).pathname;
     if (
-      ["/api/assistant-channels", "/api/assistant-speech", "/api/assistant-runtime/updates"].includes(p)
+      [
+        "/api/assistant-channels",
+        "/api/assistant-speech",
+        "/api/assistant-runtime/updates",
+      ].includes(p)
     )
       return route.fallback();
     if (p === "/api/assistant-events")
@@ -1148,7 +1218,8 @@ async function activityFixture(page, list = {}) {
         models: [{ id: "router", name: "OpenRouter", available: true }],
         ...list,
       };
-    else if (p === "/api/assistant-runtime") body = { availability: "ready", sync: "current" };
+    else if (p === "/api/assistant-runtime")
+      body = { availability: "ready", sync: "current" };
     else if (p.endsWith("/messages")) body = { messages: [], requests: [], stale: false };
     else if (p.endsWith("/conversations")) body = { id: "dinner", assistantId: "home" };
     else if (p === "/api/assistants/home") body = home;
@@ -1158,7 +1229,10 @@ async function activityFixture(page, list = {}) {
 
 for (const [name, list] of [
   ["without an activity map", {}],
-  ["with an activity map that lacks the agent", { activity: { other: { state: "working" } } }],
+  [
+    "with an activity map that lacks the agent",
+    { activity: { other: { state: "working" } } },
+  ],
 ])
   test(`agent chat and sidebar render idle ${name}`, async ({ page }) => {
     const errors = [];
@@ -1190,9 +1264,11 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 6: Document the activity layer and verify part 1
 
 **Files:**
+
 - Modify: `docs/assistant-gateway.md:253-260` (status model table and a paragraph)
 
 **Interfaces:**
+
 - Consumes: Tasks 1–5.
 - Produces: documentation only.
 
@@ -1202,7 +1278,7 @@ In `docs/assistant-gateway.md`, add a row to the „Status model“ table after 
 `Action/delivery` row:
 
 ```markdown
-| Agent activity  | idle, working, waiting, attention                          | Derived per agent for the sidebar dot, chat header and approval count |
+| Agent activity | idle, working, waiting, attention | Derived per agent for the sidebar dot, chat header and approval count |
 ```
 
 and add this paragraph directly after the table:

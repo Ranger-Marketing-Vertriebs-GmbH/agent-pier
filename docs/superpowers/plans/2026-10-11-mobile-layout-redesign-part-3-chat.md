@@ -28,34 +28,34 @@ to `support.js`).
 
 ## File map
 
-| File | Change |
-|---|---|
-| `web/components/Icon.jsx` | `fill` prop |
-| `web/lib/i18n/{de,en}/assistants.js` | 7 new keys |
-| `web/app/App.jsx` | `openNavigation` with focus return on Esc, `navigationOpen` |
-| `web/features/assistants/AgentsPage.jsx` | pass `openNavigation` and `navigationOpen`, settings header, back fallback, `.assistant-settings-scroll` |
-| `web/features/assistants/AssistantHeader.jsx` | rewrite: one bar, two variants |
-| `web/features/assistants/AssistantChat.jsx` | header props, transcript order, composer, strip, member context |
-| `web/features/assistants/AssistantMessage.jsx` | sr-only user name, `streaming` |
-| `web/features/assistants/AssistantComposer.jsx` | new |
-| `web/features/assistants/ComposerOptions.jsx` | new |
-| `web/features/assistants/useAssistantActions.js` | new (from `AssistantActionApprovals`) |
-| `web/features/assistants/AssistantActionApprovals.jsx` | presentational card list |
-| `web/features/assistants/AssistantApprovalStrip.jsx` | new |
-| `web/features/assistants/transcript-scroll.js` | new `scrollToChild` |
-| `web/features/assistants/AssistantMemberContext.jsx` | new |
-| `web/features/assistants/AssistantTeams.jsx` | rewrite (cards, whole-row members, no member summary) |
-| `web/features/assistants/TeamCodingRequests.jsx` | card markup |
-| `web/features/assistants/AssistantsRoot.jsx` | import `assistant-teams.css` |
-| `web/features/assistants/assistant-chat.css` | rewrite |
-| `web/features/assistants/assistant-teams.css` | new |
-| `web/features/assistants/assistant-settings.css` | settings page padding wrapper |
-| `web/features/assistants/assistants.css` | only deletions |
-| `tests/helpers/assistant-chat-fixture.js` | new fixture |
-| `tests/browser/assistant-chat-layout.spec.js` | new (header, transcript, composer) |
-| `tests/browser/assistant-chat-teams.spec.js` | new (strip, member context, team cards) |
-| `tests/unit/assistant-chat-copy.test.js`, `tests/unit/assistant-transcript-scroll.test.js` | new |
-| existing specs | `assistants`, `assistant-chat`, `assistant-teams`, `assistant-settings` |
+| File                                                                                       | Change                                                                                                   |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `web/components/Icon.jsx`                                                                  | `fill` prop                                                                                              |
+| `web/lib/i18n/{de,en}/assistants.js`                                                       | 7 new keys                                                                                               |
+| `web/app/App.jsx`                                                                          | `openNavigation` with focus return on Esc, `navigationOpen`                                              |
+| `web/features/assistants/AgentsPage.jsx`                                                   | pass `openNavigation` and `navigationOpen`, settings header, back fallback, `.assistant-settings-scroll` |
+| `web/features/assistants/AssistantHeader.jsx`                                              | rewrite: one bar, two variants                                                                           |
+| `web/features/assistants/AssistantChat.jsx`                                                | header props, transcript order, composer, strip, member context                                          |
+| `web/features/assistants/AssistantMessage.jsx`                                             | sr-only user name, `streaming`                                                                           |
+| `web/features/assistants/AssistantComposer.jsx`                                            | new                                                                                                      |
+| `web/features/assistants/ComposerOptions.jsx`                                              | new                                                                                                      |
+| `web/features/assistants/useAssistantActions.js`                                           | new (from `AssistantActionApprovals`)                                                                    |
+| `web/features/assistants/AssistantActionApprovals.jsx`                                     | presentational card list                                                                                 |
+| `web/features/assistants/AssistantApprovalStrip.jsx`                                       | new                                                                                                      |
+| `web/features/assistants/transcript-scroll.js`                                             | new `scrollToChild`                                                                                      |
+| `web/features/assistants/AssistantMemberContext.jsx`                                       | new                                                                                                      |
+| `web/features/assistants/AssistantTeams.jsx`                                               | rewrite (cards, whole-row members, no member summary)                                                    |
+| `web/features/assistants/TeamCodingRequests.jsx`                                           | card markup                                                                                              |
+| `web/features/assistants/AssistantsRoot.jsx`                                               | import `assistant-teams.css`                                                                             |
+| `web/features/assistants/assistant-chat.css`                                               | rewrite                                                                                                  |
+| `web/features/assistants/assistant-teams.css`                                              | new                                                                                                      |
+| `web/features/assistants/assistant-settings.css`                                           | settings page padding wrapper                                                                            |
+| `web/features/assistants/assistants.css`                                                   | only deletions                                                                                           |
+| `tests/helpers/assistant-chat-fixture.js`                                                  | new fixture                                                                                              |
+| `tests/browser/assistant-chat-layout.spec.js`                                              | new (header, transcript, composer)                                                                       |
+| `tests/browser/assistant-chat-teams.spec.js`                                               | new (strip, member context, team cards)                                                                  |
+| `tests/unit/assistant-chat-copy.test.js`, `tests/unit/assistant-transcript-scroll.test.js` | new                                                                                                      |
+| existing specs                                                                             | `assistants`, `assistant-chat`, `assistant-teams`, `assistant-settings`                                  |
 
 **Deviation from the spec, recorded here:** the header status class is
 `.assistant-header-status`, not `.assistant-status`, because
@@ -66,12 +66,14 @@ to `support.js`).
 ### Task 1: Icon fill and chat copy
 
 **Files:**
+
 - Modify: `web/components/Icon.jsx:2,38`
 - Modify: `web/lib/i18n/de/assistants.js` (team block ~:134, top level ~:418)
 - Modify: `web/lib/i18n/en/assistants.js` (team block ~:130, top level ~:406)
 - Test: `tests/unit/assistant-chat-copy.test.js`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `<Icon fill />` (boolean, fills with `currentColor`);
   `assistantCopy.team.allowedChip`, `stopShort`, `showApprovals`, `memberCount(n)`,
@@ -176,6 +178,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 2: One header bar for chat and settings
 
 **Files:**
+
 - Create: `tests/helpers/assistant-chat-fixture.js`
 - Create: `tests/browser/assistant-chat-layout.spec.js`
 - Rewrite: `web/features/assistants/AssistantHeader.jsx`
@@ -189,12 +192,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   `tests/browser/assistant-chat.spec.js`, `tests/browser/assistant-settings.spec.js`
 
 **Interfaces:**
+
 - Consumes: `headerStatus`, `activityFor` (part 1); `navigateTo` (part 2).
 - Produces: `AssistantHeader({ assistant, variant, navigate, onBack, openNavigation,
-  navigationOpen, attempt, member })` (no `onChat`: the conversation variant navigates
+navigationOpen, attempt, member })` (no `onChat`: the conversation variant navigates
   to settings itself and the settings variant uses `onBack`); `AgentsPage({ route,
-  navigate, openNavigation, navigationOpen })`; `AssistantChat({ …, openNavigation,
-  navigationOpen })`; `navigationOpen` is App's `mobileNav` and drives the menu
+navigate, openNavigation, navigationOpen })`; `AssistantChat({ …, openNavigation,
+navigationOpen })`; `navigationOpen` is App's `mobileNav` and drives the menu
   button's `aria-expanded`; `chatFixture(page, options)`,
   `chatAssistant(overrides)`, `emit(page, event)` test helpers; settings content
   wrapper `.assistant-settings-scroll` (part 4 turns it into the scroll container).
@@ -285,7 +289,10 @@ export async function chatFixture(page, options = {}) {
       if (method === "POST") state.posted.push(route.request().postDataJSON());
       body =
         method === "POST"
-          ? { request: { id: "sent" }, attempt: { id: "sent-attempt", state: "accepted" } }
+          ? {
+              request: { id: "sent" },
+              attempt: { id: "sent-attempt", state: "accepted" },
+            }
           : state.history;
     } else if (p.endsWith("/actions")) body = { actions: state.actions };
     else if (p.endsWith("/conversations")) {
@@ -325,7 +332,9 @@ test.describe("agent chat header", () => {
     const header = page.locator(".assistant-header");
     await expect(header.getByRole("heading", { level: 1 })).toHaveText("Home assistant");
     await expect(page.locator(".mobile-header")).toBeHidden();
-    await expect(page.locator(".assistant-breadcrumb, .assistant-view-tabs")).toHaveCount(0);
+    await expect(page.locator(".assistant-breadcrumb, .assistant-view-tabs")).toHaveCount(
+      0,
+    );
     const status = header.locator(".assistant-header-status");
     await expect(status).toHaveClass(/\bready\b/);
     await expect(status).toContainText("Ready");
@@ -342,7 +351,9 @@ test.describe("agent chat header", () => {
     await expect(page).toHaveURL(/\/agents\/home\/chats\/dinner$/);
   });
 
-  test("header menu opens the drawer and Escape returns focus to it", async ({ page }) => {
+  test("header menu opens the drawer and Escape returns focus to it", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await chatFixture(page);
     await page.goto(chat);
@@ -362,7 +373,9 @@ test.describe("agent chat header", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await chatFixture(page, { models: [{ id: "other", name: "Other", available: true }] });
+    await chatFixture(page, {
+      models: [{ id: "other", name: "Other", available: true }],
+    });
     await page.goto(baseURL + "/agents/home/settings");
     await expect(page.locator(".assistant-header-status")).toHaveText(
       "Provider connection missing",
@@ -404,7 +417,10 @@ test.describe("agent chat header", () => {
         assistants: [
           chatAssistant({
             name: "Chief of Staff with a long agent name",
-            model: { connectionId: "router", modelId: "anthropic/claude-sonnet-4.5-long" },
+            model: {
+              connectionId: "router",
+              modelId: "anthropic/claude-sonnet-4.5-long",
+            },
           }),
         ],
         activity: {
@@ -555,11 +571,11 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
 After `open(a)` (after line 47) add:
 
 ```jsx
-  // Without its connection the chat cannot open; the agent list is the way out.
-  function back(a) {
-    if (connectionMissing(a, models)) navigate({ view: "agents" });
-    else open(a);
-  }
+// Without its connection the chat cannot open; the agent list is the way out.
+function back(a) {
+  if (connectionMissing(a, models)) navigate({ view: "agents" });
+  else open(a);
+}
 ```
 
 In the `AssistantChat` element add `openNavigation={openNavigation}` and
@@ -569,25 +585,25 @@ Replace the settings branch header and wrap its content (lines 63-72 and the clo
 `</div>` before `</section>` at 111-112):
 
 ```jsx
-  if (route.agentSettings && assistant)
-    return (
-      <section className="assistant-detail assistant-settings-page">
-        <AssistantHeader
-          assistant={assistant}
-          variant="settings"
-          navigate={navigate}
-          onBack={() => back(assistant)}
-          openNavigation={openNavigation}
-          navigationOpen={navigationOpen}
-        />
-        <div className="assistant-settings-scroll">
-          <ErrorMessage error={error || loadError} />
-          <div className="assistant-settings-layout">
-            {/* unchanged: settings main and runtime aside */}
-          </div>
+if (route.agentSettings && assistant)
+  return (
+    <section className="assistant-detail assistant-settings-page">
+      <AssistantHeader
+        assistant={assistant}
+        variant="settings"
+        navigate={navigate}
+        onBack={() => back(assistant)}
+        openNavigation={openNavigation}
+        navigationOpen={navigationOpen}
+      />
+      <div className="assistant-settings-scroll">
+        <ErrorMessage error={error || loadError} />
+        <div className="assistant-settings-layout">
+          {/* unchanged: settings main and runtime aside */}
         </div>
-      </section>
-    );
+      </div>
+    </section>
+  );
 ```
 
 (Move the existing `assistant-settings-main` div and `aside` unchanged into the inner
@@ -611,15 +627,15 @@ export default function AssistantChat({
 Replace the header element (lines 165-178) with:
 
 ```jsx
-      <AssistantHeader
-        assistant={assistant}
-        variant="conversation"
-        navigate={navigate}
-        openNavigation={openNavigation}
-        navigationOpen={navigationOpen}
-        attempt={active ? latest.attempt : null}
-        member={member}
-      />
+<AssistantHeader
+  assistant={assistant}
+  variant="conversation"
+  navigate={navigate}
+  openNavigation={openNavigation}
+  navigationOpen={navigationOpen}
+  attempt={active ? latest.attempt : null}
+  member={member}
+/>
 ```
 
 - [ ] **Step 7: Wire `App.jsx` with focus return**
@@ -629,34 +645,34 @@ Add `useCallback` to the React import. After `restoreFocus = useRef(false);` add
 declaration:
 
 ```jsx
-  // In-page menu buttons (agent chat, session chat) get the focus back on Escape.
-  const openNavigation = useCallback(() => {
-    navOpener.current = document.activeElement;
-    setMobileNav(true);
-  }, []);
+// In-page menu buttons (agent chat, session chat) get the focus back on Escape.
+const openNavigation = useCallback(() => {
+  navOpener.current = document.activeElement;
+  setMobileNav(true);
+}, []);
 ```
 
 Replace the Escape handler body (lines 58-60):
 
 ```jsx
-    const closeOnEscape = (event) => {
-      if (event.key !== "Escape") return;
-      setMobileNav(false);
-      const opener = navOpener.current;
-      navOpener.current = null;
-      if (opener?.isConnected) queueMicrotask(() => opener.focus());
-    };
+const closeOnEscape = (event) => {
+  if (event.key !== "Escape") return;
+  setMobileNav(false);
+  const opener = navOpener.current;
+  navOpener.current = null;
+  if (opener?.isConnected) queueMicrotask(() => opener.focus());
+};
 ```
 
 Pass it on:
 
 ```jsx
-              <AgentsPage
-                route={route}
-                navigate={navigate}
-                openNavigation={openNavigation}
-                navigationOpen={mobileNav}
-              />
+<AgentsPage
+  route={route}
+  navigate={navigate}
+  openNavigation={openNavigation}
+  navigationOpen={mobileNav}
+/>
 ```
 
 and `openNavigation={openNavigation}` on `SessionWorkspace` (replacing the inline arrow).
@@ -907,6 +923,7 @@ Append to `web/features/assistants/assistant-settings.css`:
 - [ ] **Step 9: Update the existing specs that used tabs, breadcrumb and the badge**
 
 `tests/browser/assistants.spec.js`:
+
 - Add `import { navigateTo } from "../helpers/navigation.js";`.
 - Lines 79, 178, 183: `"Open chat"` → `"Back to conversation"`.
 - Loop at 234-277: delete `const nav = …` and its `aria-current` assertions (237-240,
@@ -917,9 +934,9 @@ Append to `web/features/assistants/assistant-settings.css`:
 - Lines 303-311 (settings source):
 
 ```js
-      await page.getByRole("button", { name: "Back to conversation", exact: true }).click();
-      await requested;
-      await navigateTo(page, "Agents");
+await page.getByRole("button", { name: "Back to conversation", exact: true }).click();
+await requested;
+await navigateTo(page, "Agents");
 ```
 
 - Line 353: `.assistant-state-badge` → `.assistant-header-status`.
@@ -948,8 +965,8 @@ and in „header shows the member state while it works“ replace
 `await expect(badge).toHaveText("Working");` (originally lines 201-202) with
 
 ```js
-      const status = page.locator(".assistant-header-status");
-      await expect(status).toContainText("Working");
+const status = page.locator(".assistant-header-status");
+await expect(status).toContainText("Working");
 ```
 
 `tests/browser/assistant-settings.spec.js` lines 335-346: replace the badge test with
@@ -983,12 +1000,14 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 3: Flat transcript
 
 **Files:**
+
 - Modify: `web/features/assistants/AssistantMessage.jsx`
 - Modify: `web/features/assistants/AssistantChat.jsx:206-209,249-261`
 - Modify: `web/features/assistants/assistant-chat.css`, `assistants.css` (deletions)
 - Test: `tests/browser/assistant-chat-layout.spec.js`
 
 **Interfaces:**
+
 - Consumes: `chatFixture`, `emit` (Task 2).
 - Produces: `AssistantMessage({ role, name, text, streaming })`; transcript order
   `log → teams → own approvals` (Task 5 relies on cards being inside
@@ -1003,13 +1022,20 @@ Remove the `export { emit };` line and append to
 const working = {
   messages: [{ id: "q", role: "user", text: "Plan my week" }],
   requests: [
-    { id: "r", text: "Plan my week", state: "accepted", attempt: { id: "a1", state: "accepted" } },
+    {
+      id: "r",
+      text: "Plan my week",
+      state: "accepted",
+      attempt: { id: "a1", state: "accepted" },
+    },
   ],
   stale: false,
 };
 
 test.describe("agent chat transcript", () => {
-  test("replies are flat and the user bubble hides its name visually", async ({ page }) => {
+  test("replies are flat and the user bubble hides its name visually", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await chatFixture(page);
     await page.goto(chat);
@@ -1032,7 +1058,11 @@ test.describe("agent chat transcript", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await chatFixture(page, { history: working });
     await page.goto(chat);
-    await emit(page, { type: "delta", conversationId: "dinner", text: "Here is a draft" });
+    await emit(page, {
+      type: "delta",
+      conversationId: "dinner",
+      text: "Here is a draft",
+    });
     const streaming = page.locator(".assistant-message.streaming");
     await expect(streaming).toContainText("Here is a draft");
     expect(
@@ -1058,7 +1088,9 @@ test.describe("agent chat transcript", () => {
       history: { ...working, messages: [] },
     });
     await page.goto(chat);
-    const bubble = page.locator(".assistant-message.user").filter({ hasText: "Plan my week" });
+    const bubble = page
+      .locator(".assistant-message.user")
+      .filter({ hasText: "Plan my week" });
     await expect(bubble).toHaveCount(1);
     await expect(bubble.locator("strong")).toHaveClass(/sr-only/);
   });
@@ -1066,7 +1098,10 @@ test.describe("agent chat transcript", () => {
   test("desktop centres the transcript at 760px", async ({ page }) => {
     await chatFixture(page);
     await page.goto(chat);
-    const reply = await page.locator(".assistant-message.assistant").first().boundingBox();
+    const reply = await page
+      .locator(".assistant-message.assistant")
+      .first()
+      .boundingBox();
     expect(Math.round(reply.width)).toBe(760);
   });
 });
@@ -1108,31 +1143,33 @@ Replace the optimistic `<article className="assistant-message user">…</article
 (lines 249-252) with:
 
 ```jsx
-                <AssistantMessage role="user" name={copy.you} text={latest.text} />
+<AssistantMessage role="user" name={copy.you} text={latest.text} />
 ```
 
 Replace the delta and status note (lines 254-261) with:
 
 ```jsx
-            {delta && (
-              <AssistantMessage
-                role="assistant"
-                name={assistant.name}
-                text={delta}
-                streaming={Boolean(active)}
-              />
-            )}
-            {latest?.attempt && (
-              <p
-                role="status"
-                className={`assistant-note assistant-run-state${active && !uncertain ? " working" : ""}`}
-              >
-                {active && !uncertain && (
-                  <span className="assistant-run-dot" aria-hidden="true" />
-                )}
-                {copy.status[latest.attempt.state]}
-              </p>
-            )}
+{
+  delta && (
+    <AssistantMessage
+      role="assistant"
+      name={assistant.name}
+      text={delta}
+      streaming={Boolean(active)}
+    />
+  );
+}
+{
+  latest?.attempt && (
+    <p
+      role="status"
+      className={`assistant-note assistant-run-state${active && !uncertain ? " working" : ""}`}
+    >
+      {active && !uncertain && <span className="assistant-run-dot" aria-hidden="true" />}
+      {copy.status[latest.attempt.state]}
+    </p>
+  );
+}
 ```
 
 - [ ] **Step 5: Transcript CSS**
@@ -1270,17 +1307,17 @@ rules and add (after the header rules, before the `@media (min-width: 701px)` bl
 and inside the existing `@media (max-width: 700px)` block of the header rules add:
 
 ```css
-  .assistant-transcript {
-    gap: 16px;
-    padding: 16px;
-  }
-  .assistant-message {
-    line-height: 1.65;
-  }
-  .assistant-message.user {
-    max-width: 85%;
-    padding: 9px 14px;
-  }
+.assistant-transcript {
+  gap: 16px;
+  padding: 16px;
+}
+.assistant-message {
+  line-height: 1.65;
+}
+.assistant-message.user {
+  max-width: 85%;
+  padding: 9px 14px;
+}
 ```
 
 - [ ] **Step 6: Run the specs**
@@ -1303,6 +1340,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 4: Single composer with options popover
 
 **Files:**
+
 - Create: `web/features/assistants/AssistantComposer.jsx`,
   `web/features/assistants/ComposerOptions.jsx`
 - Modify: `web/features/assistants/AssistantChat.jsx` (imports :15-17, form :300-357)
@@ -1312,12 +1350,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Test: `tests/browser/assistant-chat-layout.spec.js`
 
 **Interfaces:**
+
 - Consumes: `Icon fill`, copy keys (Task 1); `useMobileLayout()`
   (`web/lib/useMobileLayout.js`).
 - Produces: `AssistantComposer({ assistant, conversationId, drafts, text, setText,
-  teamAllowed, setTeamAllowed, canSend, busy, active, touchInput, onSubmit, onStop,
-  output, stick, scroll })`; `ComposerOptions({ id, open, teamAllowed, onTeamAllowed,
-  hint, trigger, onClose })`.
+teamAllowed, setTeamAllowed, canSend, busy, active, touchInput, onSubmit, onStop,
+output, stick, scroll })`; `ComposerOptions({ id, open, teamAllowed, onTeamAllowed,
+hint, trigger, onClose })`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1519,7 +1558,12 @@ export default function AssistantComposer({
     drafts.allowTeam(conversationId, value);
   };
   const submit = active ? (
-    <button type="button" className="assistant-stop" aria-label={copy.stop} onClick={onStop}>
+    <button
+      type="button"
+      className="assistant-stop"
+      aria-label={copy.stop}
+      onClick={onStop}
+    >
       <Icon name="stop" size={12} fill />
       {copy.stopShort}
     </button>
@@ -1559,7 +1603,9 @@ export default function AssistantComposer({
           rows={1}
           enterKeyHint={enterKeyHint(touchInput)}
           placeholder={
-            member ? commonCopy.messagePlaceholder(assistant.name) : copy.messagePlaceholder
+            member
+              ? commonCopy.messagePlaceholder(assistant.name)
+              : copy.messagePlaceholder
           }
           onKeyDown={(event) => {
             if (!shouldSubmitOnEnter(event, touchInput)) return;
@@ -1618,37 +1664,37 @@ Remove the imports of `enterKeyHint, sendHint, shouldSubmitOnEnter` and
 Add before `return (`:
 
 ```jsx
-  async function stop() {
-    try {
-      await assistantApi.cancel(latest.attempt.id);
-      await refresh();
-    } catch (e) {
-      setError(e.message);
-    }
+async function stop() {
+  try {
+    await assistantApi.cancel(latest.attempt.id);
+    await refresh();
+  } catch (e) {
+    setError(e.message);
   }
+}
 ```
 
 Replace the whole `<form className="assistant-composer" …>…</form>` (lines 300-357) with:
 
 ```jsx
-        <AssistantComposer
-          assistant={assistant}
-          conversationId={conversationId}
-          drafts={drafts}
-          text={text}
-          setText={setText}
-          teamAllowed={teamAllowed}
-          setTeamAllowed={setTeamAllowed}
-          canSend={canSend}
-          busy={busy}
-          active={Boolean(active)}
-          touchInput={touchInput}
-          onSubmit={send}
-          onStop={stop}
-          output={output}
-          stick={stick}
-          scroll={scroll}
-        />
+<AssistantComposer
+  assistant={assistant}
+  conversationId={conversationId}
+  drafts={drafts}
+  text={text}
+  setText={setText}
+  teamAllowed={teamAllowed}
+  setTeamAllowed={setTeamAllowed}
+  canSend={canSend}
+  busy={busy}
+  active={Boolean(active)}
+  touchInput={touchInput}
+  onSubmit={send}
+  onStop={stop}
+  output={output}
+  stick={stick}
+  scroll={scroll}
+/>
 ```
 
 - [ ] **Step 6: Composer CSS**
@@ -1875,24 +1921,24 @@ rules, and in the bottom `@media (max-width: 700px), (any-pointer: coarse)` bloc
 and inside the `@media (max-width: 700px)` block add:
 
 ```css
-  .assistant-composer {
-    padding: 6px 10px calc(12px + env(safe-area-inset-bottom));
-  }
-  .assistant-composer-box {
-    gap: 8px;
-    padding: 10px 8px 8px 14px;
-  }
-  .assistant-composer textarea {
-    font-size: 16px;
-  }
-  .assistant-composer-row {
-    gap: 8px;
-  }
-  .assistant-options {
-    right: 10px;
-    bottom: calc(100% + 2px);
-    left: 10px;
-  }
+.assistant-composer {
+  padding: 6px 10px calc(12px + env(safe-area-inset-bottom));
+}
+.assistant-composer-box {
+  gap: 8px;
+  padding: 10px 8px 8px 14px;
+}
+.assistant-composer textarea {
+  font-size: 16px;
+}
+.assistant-composer-row {
+  gap: 8px;
+}
+.assistant-options {
+  right: 10px;
+  bottom: calc(100% + 2px);
+  left: 10px;
+}
 ```
 
 - [ ] **Step 7: Update the two existing specs**
@@ -1902,15 +1948,15 @@ and inside the `@media (max-width: 700px)` block add:
 line 157; Task 2 shifted it):
 
 ```js
-        if (size.width <= 700)
-          await page.getByRole("button", { name: "Options", exact: true }).click();
+if (size.width <= 700)
+  await page.getByRole("button", { name: "Options", exact: true }).click();
 ```
 
 `tests/browser/assistant-teams.spec.js` line 200 becomes:
 
 ```js
-  await page.getByRole("button", { name: "Options", exact: true }).click();
-  await page.getByLabel("Allow a team for this message").check();
+await page.getByRole("button", { name: "Options", exact: true }).click();
+await page.getByLabel("Allow a team for this message").check();
 ```
 
 - [ ] **Step 8: Run the specs**
@@ -1933,6 +1979,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 5: Approval strip and action cards
 
 **Files:**
+
 - Create: `web/features/assistants/transcript-scroll.js`,
   `web/features/assistants/useAssistantActions.js`,
   `web/features/assistants/AssistantApprovalStrip.jsx`,
@@ -1943,6 +1990,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   `tests/browser/assistant-chat-teams.spec.js`
 
 **Interfaces:**
+
 - Consumes: `activityFor` (part 1), `chatFixture` (Task 2).
 - Produces: `scrollToChild(container, element, offset = 12): boolean`;
   `useAssistantActions(assistantId, enabled = true) → { actions, error, decide, reload }`;
@@ -2024,14 +2072,26 @@ const action = (id) => ({
   state: "awaiting_approval",
   projectName: "Website",
   pipelineName: "Build",
-  payload: { action: "coding_start", title: `Fix ${id}`, task: "Repair the contact form" },
+  payload: {
+    action: "coding_start",
+    title: `Fix ${id}`,
+    task: "Repair the contact form",
+  },
 });
 const waiting = (pendingApprovals) => ({
-  home: { state: "waiting", reason: "approval", label: "teamActive.awaiting", pendingApprovals, team: null },
+  home: {
+    state: "waiting",
+    reason: "approval",
+    label: "teamActive.awaiting",
+    pendingApprovals,
+    team: null,
+  },
 });
 
 test.describe("approval strip", () => {
-  test("counts server approvals and jumps to the first pending card", async ({ page }) => {
+  test("counts server approvals and jumps to the first pending card", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await chatFixture(page, {
       history: long,
@@ -2061,7 +2121,11 @@ test.describe("approval strip", () => {
     await chatFixture(page, {
       assistants: [
         chatAssistant(),
-        chatAssistant({ id: "member-0", name: "Research lead", teamMemberId: "member-0" }),
+        chatAssistant({
+          id: "member-0",
+          name: "Research lead",
+          teamMemberId: "member-0",
+        }),
       ],
       conversations: [
         { id: "dinner", assistantId: "home" },
@@ -2111,7 +2175,8 @@ export default function useAssistantActions(assistantId, enabled = true) {
     [assistantId],
   );
   useEffect(() => {
-    if (enabled && (!lastEvent || ["change", "connected"].includes(lastEvent.type))) load();
+    if (enabled && (!lastEvent || ["change", "connected"].includes(lastEvent.type)))
+      load();
   }, [enabled, lastEvent, load]);
   usePolling(load, 5000, {
     enabled: enabled && actions.length > 0,
@@ -2164,7 +2229,9 @@ export default function AssistantActionApprovals({ actions, error, decide }) {
       {actions.map((a) => (
         <article className="assistant-approval-card" data-pending="" key={a.id}>
           <div className="assistant-approval-head">
-            <strong>{a.payload.action === "coding_start" ? copy.coding : copy.memory}</strong>
+            <strong>
+              {a.payload.action === "coding_start" ? copy.coding : copy.memory}
+            </strong>
             <small>{copy.states.awaiting_approval}</small>
           </div>
           {(a.projectName || a.pipelineName) && (
@@ -2266,16 +2333,18 @@ import { activityFor } from "./assistant-status.js";
 Destructure `activity = {}` from `useAssistants()`. After `const uncertain = …` add:
 
 ```jsx
-  const ownActions = useAssistantActions(assistant.id, !assistant.teamMemberId);
-  const entry = activityFor(activity, assistant.id);
+const ownActions = useAssistantActions(assistant.id, !assistant.teamMemberId);
+const entry = activityFor(activity, assistant.id);
 ```
 
 Directly after `<AssistantHeader … />` add:
 
 ```jsx
-      {!assistant.teamMemberId && (
-        <AssistantApprovalStrip count={entry.pendingApprovals} output={output} />
-      )}
+{
+  !assistant.teamMemberId && (
+    <AssistantApprovalStrip count={entry.pendingApprovals} output={output} />
+  );
+}
 ```
 
 Replace `<AssistantActionApprovals assistantId={assistant.id} />` with
@@ -2286,11 +2355,11 @@ Replace `<AssistantActionApprovals assistantId={assistant.id} />` with
 the deep-link effect (lines 15-20) with:
 
 ```jsx
-  useEffect(() => {
-    if (!focused) return;
-    const card = document.getElementById(`assistant-team-${focusTeamId}`);
-    scrollToChild(card?.closest(".assistant-transcript"), card);
-  }, [focusTeamId, focused]);
+useEffect(() => {
+  if (!focused) return;
+  const card = document.getElementById(`assistant-team-${focusTeamId}`);
+  scrollToChild(card?.closest(".assistant-transcript"), card);
+}, [focusTeamId, focused]);
 ```
 
 and add to the `<details>` element:
@@ -2428,12 +2497,14 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 6: Member chat context strip
 
 **Files:**
+
 - Create: `web/features/assistants/AssistantMemberContext.jsx`
 - Modify: `AssistantChat.jsx` (after the strip), `AssistantTeams.jsx:39-47`,
   `assistants.css` (deletions), `assistant-teams.css`
 - Test: `tests/browser/assistant-chat-teams.spec.js`
 
 **Interfaces:**
+
 - Consumes: `useAssistants()` (`teams`, `assistants`, `refresh`),
   `assistantApi.teamAction`, `AssistantComposer` member variant (Task 4).
 - Produces: `AssistantMemberContext({ member, navigate })`; `.assistant-member-summary`
@@ -2512,7 +2583,9 @@ test.describe("member chat", () => {
     const status = page.locator(".assistant-header-status");
     await expect(status).toContainText("Working");
     await expect(status).toContainText("· Research");
-    await expect(page.getByRole("button", { name: "Options", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Options", exact: true })).toHaveCount(
+      0,
+    );
     await expect(page.getByLabel("Message", { exact: true })).toHaveAttribute(
       "placeholder",
       "Message Research lead …",
@@ -2526,10 +2599,14 @@ test.describe("member chat", () => {
     await expect(page).toHaveURL(/\/agents\/home\/teams\/team$/);
   });
 
-  test("permanent or orphaned members show only role and assignment", async ({ page }) => {
+  test("permanent or orphaned members show only role and assignment", async ({
+    page,
+  }) => {
     await chatFixture(
       page,
-      memberSetup({ members: [memberRecord({ lifetime: "permanent", phase: "completed" })] }),
+      memberSetup({
+        members: [memberRecord({ lifetime: "permanent", phase: "completed" })],
+      }),
     );
     await page.goto(baseURL + "/agents/member-0/chats/member-chat");
     const strip = page.locator(".assistant-member-context");
@@ -2580,7 +2657,9 @@ export default function AssistantMemberContext({ member, navigate }) {
       setBusy(false);
     }
   }
-  const assignment = <span className="assistant-member-assignment">{member.assignment}</span>;
+  const assignment = (
+    <span className="assistant-member-assignment">{member.assignment}</span>
+  );
   return (
     <>
       <div className="assistant-member-context">
@@ -2609,7 +2688,12 @@ export default function AssistantMemberContext({ member, navigate }) {
           </div>
         )}
         {!terminal.includes(member.phase) && (
-          <button type="button" className="button secondary" disabled={busy} onClick={stop}>
+          <button
+            type="button"
+            className="button secondary"
+            disabled={busy}
+            onClick={stop}
+          >
             {copy.team.stopMember}
           </button>
         )}
@@ -2625,14 +2709,16 @@ export default function AssistantMemberContext({ member, navigate }) {
 `AssistantChat.jsx`: import it and render after the approval strip:
 
 ```jsx
-      {member && <AssistantMemberContext member={member} navigate={navigate} />}
+{
+  member && <AssistantMemberContext member={member} navigate={navigate} />;
+}
 ```
 
 `AssistantTeams.jsx`: replace the member summary return (lines 39-47) with:
 
 ```jsx
-  // A member's chat shows its team context above the transcript instead.
-  if (member) return null;
+// A member's chat shows its team context above the transcript instead.
+if (member) return null;
 ```
 
 In `assistants.css` delete `.assistant-member-summary p` and remove
@@ -2714,6 +2800,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 7: Team cards with whole-row members
 
 **Files:**
+
 - Rewrite: `web/features/assistants/AssistantTeams.jsx`
 - Modify: `web/features/assistants/TeamCodingRequests.jsx`
 - Modify: `assistants.css` (deletions), `assistant-teams.css`
@@ -2721,6 +2808,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Test: `tests/browser/assistant-chat-teams.spec.js`
 
 **Interfaces:**
+
 - Consumes: `memberCount` (Task 1), `scrollToChild` (Task 5), card classes (Task 5).
 - Produces: `.assistant-team-card[.awaiting]`, `.assistant-team-member` buttons.
 
@@ -2764,7 +2852,9 @@ test.describe("team cards", () => {
     await running.locator("summary").click();
     const row = running.getByRole("button", { name: /^Research lead/ });
     await expect(row).toContainText("Compare the three biggest vendors");
-    await expect(running.getByRole("button", { name: "Stop team", exact: true })).toBeVisible();
+    await expect(
+      running.getByRole("button", { name: "Stop team", exact: true }),
+    ).toBeVisible();
     await row.click();
     await expect(page).toHaveURL(/\/agents\/member-0\/chats\/member-chat$/);
   });
@@ -2943,9 +3033,7 @@ export default function AssistantTeams({ assistant, focusTeamId, navigate }) {
                           <span className="assistant-team-member-text">
                             <strong>{m.name}</strong>
                             <small>
-                              <span
-                                className={quiet.has(m.phase) ? undefined : "active"}
-                              >
+                              <span className={quiet.has(m.phase) ? undefined : "active"}>
                                 {copy.team.states[m.phase]}
                               </span>
                               {m.assignment ? ` · ${m.assignment}` : ""}
@@ -3261,10 +3349,10 @@ insertion; match the `.getByRole("button", { name: "Reviewer 1", exact: true })`
 inside `.assistant-team-members`) become:
 
 ```js
-  await page
-    .locator(".assistant-team-members")
-    .getByRole("button", { name: /^Reviewer 1\b/ })
-    .click({ timeout: 3000 });
+await page
+  .locator(".assistant-team-members")
+  .getByRole("button", { name: /^Reviewer 1\b/ })
+  .click({ timeout: 3000 });
 ```
 
 - [ ] **Step 6: Run the specs**
@@ -3288,10 +3376,12 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 8: Sweep, fidelity check and full verification
 
 **Files:**
+
 - Temporary (never committed): `tests/browser/zz-pixel-check.spec.js`
 - Possibly modify: any spec the sweep finds
 
 **Interfaces:**
+
 - Consumes: everything above.
 - Produces: a green branch state for part 4.
 
@@ -3322,10 +3412,20 @@ import { chatFixture } from "../helpers/assistant-chat-fixture.js";
 const out = process.env.PIXEL_OUT;
 const working = {
   messages: [{ id: "q", role: "user", text: "Plane mir die Woche" }],
-  requests: [{ id: "r", text: "Plane mir die Woche", state: "accepted", attempt: { id: "a", state: "accepted" } }],
+  requests: [
+    {
+      id: "r",
+      text: "Plane mir die Woche",
+      state: "accepted",
+      attempt: { id: "a", state: "accepted" },
+    },
+  ],
   stale: false,
 };
-for (const [name, width, height] of [["phone", 390, 844], ["desktop", 1440, 900]])
+for (const [name, width, height] of [
+  ["phone", 390, 844],
+  ["desktop", 1440, 900],
+])
   test(`pixel ${name}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await chatFixture(page, { language: "de" });
@@ -3340,7 +3440,11 @@ test("pixel working", async ({ page }) => {
   await page.goto(baseURL + "/agents/home/chats/dinner");
   await page.evaluate(() =>
     window.assistantTestStream.onmessage({
-      data: JSON.stringify({ type: "delta", conversationId: "dinner", text: "Gern. Hier ist ein erster Vorschlag:" }),
+      data: JSON.stringify({
+        type: "delta",
+        conversationId: "dinner",
+        text: "Gern. Hier ist ein erster Vorschlag:",
+      }),
     }),
   );
   await page.screenshot({ path: `${out}/2a-phone.png` });
