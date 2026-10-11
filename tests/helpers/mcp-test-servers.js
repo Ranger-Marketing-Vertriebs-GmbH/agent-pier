@@ -7,6 +7,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isMainModule } from "../../server/lib/is-main-module.js";
+import { processIdentity } from "../../server/lib/process-identity.js";
 
 // Minimal MCP servers for the OpenClaw MCP contract. Each exposes one `echo` tool
 // that answers `echo:<text>` and records every call.
@@ -125,40 +126,68 @@ export function leakedFiles(dataDir, values, exempt = []) {
   return found;
 }
 
+// Signals end a recorded process; any of these records means it is gone.
+const endEvents = new Set(["exit", "SIGTERM", "SIGINT"]);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * The stdio servers recorded in `file` that may still run: pid and the start time
+ * the process recorded about itself. A later start of a reused pid replaces an
+ * earlier one; any end record removes it.
+ */
+export function runningStdioServers(file) {
+  const running = new Map();
+  for (const entry of stdioRecords(file))
+    if (entry.event === "start") running.set(entry.pid, entry.startTime ?? null);
+    else if (endEvents.has(entry.event)) running.delete(entry.pid);
+  return [...running].map(([pid, startTime]) => ({ pid, startTime }));
+}
+
+/**
+ * Whether `pid` is still the stdio server that recorded `startTime` in `file`: the
+ * same start time and a command line naming this helper and that record file. Any
+ * doubt (no recorded start time, an unobservable process) is a mismatch.
+ */
+export function ownStdioServer({ pid, startTime }, file, identity = processIdentity) {
+  if (!startTime) return false;
+  try {
+    const current = identity(pid);
+    return (
+      current.startTime === startTime &&
+      current.command.includes(stdioMcpScript) &&
+      current.command.includes(file)
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * A safety net for t.after: ends every stdio server process recorded in `file` that
  * still runs (the Gateway normally ends them at removal or stop) and waits briefly.
+ * A pid is signalled only while it provably is that server, never on a mismatch, so
+ * a reused pid of an unrelated process is never touched.
  */
-export async function endStdioServers(file) {
-  const alive = (pid) => {
+export async function endStdioServers(
+  file,
+  { identity = processIdentity, kill = process.kill.bind(process), delay = 100 } = {},
+) {
+  const own = (server) => ownStdioServer(server, file, identity);
+  const send = (server, signal) => {
+    if (!own(server)) return false;
     try {
-      process.kill(pid, 0);
+      kill(server.pid, signal);
       return true;
     } catch {
-      return false;
+      return false; // Already gone.
     }
   };
-  const pids = [
-    ...new Set(
-      stdioRecords(file)
-        .filter((e) => e.event === "start")
-        .map((e) => e.pid),
-    ),
-  ];
-  for (const pid of pids.filter(alive))
-    try {
-      process.kill(pid, "SIGTERM");
-    } catch {
-      /* Already gone. */
-    }
-  for (let n = 0; n < 30 && pids.some(alive); n++)
-    await new Promise((r) => setTimeout(r, 100));
-  for (const pid of pids.filter(alive))
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch {
-      /* Already gone. */
-    }
+  let left = runningStdioServers(file).filter((server) => send(server, "SIGTERM"));
+  for (let n = 0; n < 30 && left.length; n++) {
+    await sleep(delay);
+    left = left.filter(own);
+  }
+  for (const server of left) send(server, "SIGKILL");
 }
 
 if (isMainModule(import.meta.url)) {
@@ -167,8 +196,16 @@ if (isMainModule(import.meta.url)) {
     fs.appendFileSync(file, `${JSON.stringify({ pid: process.pid, ...entry })}\n`);
   // The environment the Gateway spawned the server with; secret values are reduced
   // to their presence so the record file never holds them.
+  // The start time lets the t.after safety net prove a pid is still this process.
+  let startTime = null;
+  try {
+    startTime = processIdentity(process.pid).startTime;
+  } catch {
+    /* Without it the safety net never signals this process. */
+  }
   write({
     event: "start",
+    startTime,
     cwd: process.cwd(),
     ppid: process.ppid,
     env: {
