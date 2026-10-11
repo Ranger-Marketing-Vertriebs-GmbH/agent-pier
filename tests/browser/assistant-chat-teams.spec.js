@@ -81,6 +81,18 @@ test.describe("approval strip", () => {
     await expect(card).toBeInViewport();
   });
 
+  test("German action buttons fit a 320px card without widening it", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await chatFixture(page, { language: "de", actions: [action("narrow")] });
+    await page.goto(chat);
+    const card = page.locator(".assistant-approval-card");
+    await expect(card.getByRole("button", { name: "Aktion freigeben" })).toBeVisible();
+    const box = await card.boundingBox();
+    expect(Math.round(box.x + box.width)).toBe(304);
+    for (const button of await card.locator(".assistant-card-actions .button").all())
+      expect(await button.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
+  });
+
   test("is absent without approvals and in member chats", async ({ page }) => {
     await chatFixture(page, {
       assistants: [
