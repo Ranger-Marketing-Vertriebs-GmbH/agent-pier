@@ -38,15 +38,8 @@ export default function AssistantTeams({ assistant, focusTeamId, navigate }) {
       setBusy(false);
     }
   }
-  if (member)
-    return (
-      <div className="assistant-member-summary">
-        <strong>
-          {member.role} · {copy.team.states[member.phase]}
-        </strong>
-        <p>{member.assignment}</p>
-      </div>
-    );
+  // A member's chat shows its team context above the transcript instead.
+  if (member) return null;
   const own = teams.filter((t) => t.parentAssistantId === assistant.id);
   if (!own.length) return null;
   return (

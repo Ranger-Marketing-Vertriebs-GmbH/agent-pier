@@ -2,6 +2,7 @@ import AssistantTeams from "./AssistantTeams.jsx";
 import AssistantHeader from "./AssistantHeader.jsx";
 import AssistantActionApprovals from "./AssistantActionApprovals.jsx";
 import AssistantApprovalStrip from "./AssistantApprovalStrip.jsx";
+import AssistantMemberContext from "./AssistantMemberContext.jsx";
 import useAssistantActions from "./useAssistantActions.js";
 import { activityFor } from "./assistant-status.js";
 import React, {
@@ -189,6 +190,7 @@ export default function AssistantChat({
       {!assistant.teamMemberId && (
         <AssistantApprovalStrip count={entry.pendingApprovals} output={output} />
       )}
+      {member && <AssistantMemberContext member={member} navigate={navigate} />}
 
       <div className="assistant-chat-panel">
         <ErrorMessage error={error} />

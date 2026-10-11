@@ -234,8 +234,7 @@
   gap: 10px;
   margin-bottom: 16px;
 }
-.assistant-team-card,
-.assistant-member-summary {
+.assistant-team-card {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 14px;
@@ -288,10 +287,6 @@
 }
 .assistant-team-settings {
   margin-top: 20px;
-}
-.assistant-member-summary p {
-  margin: 6px 0 0;
-  overflow-wrap: anywhere;
 }
 
 .assistant-member-provenance p {

@@ -104,3 +104,103 @@ test.describe("approval strip", () => {
     await expect(page.locator(".assistant-approval-strip")).toHaveCount(0);
   });
 });
+
+const memberRecord = (overrides = {}) => ({
+  id: "member-0",
+  kind: "member",
+  teamId: "team",
+  parentAssistantId: "home",
+  assistantId: "member-0",
+  name: "Research lead",
+  role: "Research",
+  assignment: "Compare the three biggest vendors",
+  lifetime: "task",
+  phase: "running",
+  conversationId: "member-chat",
+  ...overrides,
+});
+const runningTeam = (overrides = {}) => ({
+  id: "team",
+  revision: 1,
+  parentAssistantId: "home",
+  parentConversationId: "dinner",
+  objective: "Prepare the website relaunch",
+  phase: "running",
+  members: [],
+  memberIds: ["member-0"],
+  ...overrides,
+});
+const memberSetup = (overrides = {}) => ({
+  assistants: [
+    chatAssistant(),
+    chatAssistant({
+      id: "member-0",
+      name: "Research lead",
+      teamMemberId: "member-0",
+      teamId: "team",
+      parentAssistantId: "home",
+      lifetime: "task",
+    }),
+  ],
+  conversations: [
+    { id: "dinner", assistantId: "home" },
+    { id: "member-chat", assistantId: "member-0" },
+  ],
+  members: [memberRecord()],
+  teams: [runningTeam()],
+  activity: {
+    "member-0": {
+      state: "working",
+      reason: "member",
+      label: "team.states.running",
+      pendingApprovals: 0,
+      team: null,
+    },
+  },
+  ...overrides,
+});
+
+test.describe("member chat", () => {
+  test("context strip links back, stops the member and the composer is one row", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const state = await chatFixture(page, memberSetup());
+    await page.goto(baseURL + "/agents/member-0/chats/member-chat");
+    const strip = page.locator(".assistant-member-context");
+    await expect(strip).toContainText("Home assistant · Prepare the website relaunch");
+    await expect(strip).toContainText("Compare the three biggest vendors");
+    const status = page.locator(".assistant-header-status");
+    await expect(status).toContainText("Working");
+    await expect(status).toContainText("· Research");
+    await expect(page.getByRole("button", { name: "Options", exact: true })).toHaveCount(
+      0,
+    );
+    await expect(page.getByLabel("Message", { exact: true })).toHaveAttribute(
+      "placeholder",
+      "Message Research lead …",
+    );
+    await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
+    await strip.getByRole("button", { name: "Stop member", exact: true }).click();
+    await expect
+      .poll(() => state.calls)
+      .toContain("/api/assistant-team-members/member-0/stop");
+    await strip.getByRole("button", { name: /Home assistant · Prepare/ }).click();
+    await expect(page).toHaveURL(/\/agents\/home\/teams\/team$/);
+  });
+
+  test("permanent or orphaned members show only role and assignment", async ({
+    page,
+  }) => {
+    await chatFixture(
+      page,
+      memberSetup({
+        members: [memberRecord({ lifetime: "permanent", phase: "completed" })],
+      }),
+    );
+    await page.goto(baseURL + "/agents/member-0/chats/member-chat");
+    const strip = page.locator(".assistant-member-context");
+    await expect(strip).toContainText("Research");
+    await expect(strip.getByRole("button")).toHaveCount(0);
+  });
+});
