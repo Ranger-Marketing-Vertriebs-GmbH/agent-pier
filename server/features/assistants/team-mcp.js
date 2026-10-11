@@ -70,10 +70,20 @@ export class TeamMcpBindings {
       return [];
     }
   }
+  leadActive(id) {
+    try {
+      return !this.assistants.store.getAssistant(id).archivedAt;
+    } catch {
+      return false;
+    }
+  }
   /** Brings the store in line with the team records; returns whether it changed. */
   sync() {
     const servers = this.servers;
     if (!servers) return false;
+    const all = this.teams.members();
+    // Members only ever hold servers through their records' approved lists.
+    if (!all.some((m) => m.mcpServerIds?.length)) return false;
     let changed = false,
       bound;
     try {
@@ -81,11 +91,16 @@ export class TeamMcpBindings {
     } catch {
       return false;
     }
-    for (const m of this.teams.members())
+    for (const m of all)
       try {
+        // Ended members without bindings have nothing left to converge.
+        if (ended.has(m.phase) && !bound[m.assistantId]?.length) continue;
         const a = this.assistants.store.getAssistant(m.assistantId);
         const live = !ended.has(m.phase) && !a.archivedAt;
-        const lead = new Set(bound[m.parentAssistantId] || []);
+        // An archived lead holds no servers for its members.
+        const lead = new Set(
+          this.leadActive(m.parentAssistantId) ? bound[m.parentAssistantId] || [] : [],
+        );
         const approved = (m.mcpServerIds || []).filter((id) => lead.has(id));
         const current = bound[a.id] || [];
         if (temporaryMember(a)) {
@@ -94,8 +109,9 @@ export class TeamMcpBindings {
           servers.setBindings("agent", a.id, desired);
           changed = true;
         } else if (m.mcpServerIds?.length && !m.mcpGranted && live) {
-          servers.setBindings("agent", a.id, [...new Set([...current, ...approved])]);
+          // Recorded first: a grant is never repeated over the owner's later edits.
           this.teams.write(m, { mcpGranted: true });
+          servers.setBindings("agent", a.id, [...new Set([...current, ...approved])]);
           changed = true;
         }
       } catch {
@@ -107,12 +123,17 @@ export class TeamMcpBindings {
   /**
    * Syncs and patches a ready Gateway that compiled MCP servers at its start; any
    * other state compiles the store at the next start. Callers hold the admission
-   * lock. A failed patch stays pending for the next call.
+   * lock. A change, or an earlier apply that did not finish, stays pending until an
+   * apply succeeds; failures back off (McpChanges.due).
    */
   async refresh() {
     this.sync();
-    if (!this.dirty || !this.assistants.mcp) return;
-    await this.assistants.mcp.apply();
-    this.dirty = false;
+    const mcp = this.assistants.mcp;
+    if (!mcp) return;
+    if (this.dirty) {
+      mcp.pending = true;
+      this.dirty = false;
+    }
+    if (mcp.pending && (mcp.due?.() ?? true)) await mcp.apply();
   }
 }
