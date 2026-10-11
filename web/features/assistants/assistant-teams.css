@@ -69,13 +69,16 @@
   margin: 0;
   color: var(--muted);
   font-size: 12px;
-  line-height: 1.5;
+  line-height: normal;
   overflow-wrap: anywhere;
 }
 .assistant-approval-card .assistant-approval-title,
 .assistant-approval-card .assistant-approval-task {
   color: var(--text-row);
   font-size: 13px;
+}
+.assistant-approval-card .assistant-approval-task {
+  line-height: 1.5;
 }
 .assistant-card-actions {
   display: flex;
@@ -201,9 +204,13 @@
   color: var(--accent-text);
   font-size: 12px;
 }
+/* The same "›" glyph as the sidebar group headers (handoff 2c). */
 .assistant-team-chevron {
   flex: none;
   color: var(--muted);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1;
   transition: transform 0.15s;
 }
 .assistant-team-card[open] .assistant-team-chevron {
@@ -309,7 +316,7 @@
   margin: 8px;
 }
 .assistant-team-card:not(.awaiting) .assistant-card-actions {
-  margin: 6px 8px 0;
+  margin: 6px 10px 0;
 }
 .assistant-team-card:not(.awaiting) .assistant-card-actions .button {
   height: 36px;
@@ -337,6 +344,10 @@
   .assistant-team-card:not([open]) .assistant-team-icon {
     width: 30px;
     height: 30px;
+  }
+  .assistant-team-card:not([open]) .assistant-team-icon svg {
+    width: 16px;
+    height: 16px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
