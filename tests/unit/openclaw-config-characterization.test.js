@@ -88,3 +88,51 @@ test("models and unknown keys of an existing file survive a start", (t) => {
   assert.deepEqual(config.models, seeded.models);
   assert.deepEqual(config.custom, { kept: true });
 });
+
+test("native teams wire the plugin, memory, tools, cron and skills", (t) => {
+  const paths = fixture(t);
+  prepareRuntimeConfig(paths, 1234, teams({ native: { token: "hook" }, profiles: [] }));
+  const config = readJSON(paths.config);
+  assert.deepEqual(config.plugins.allow, ["agentpier-teams", "memory-core"]);
+  assert.deepEqual(config.plugins.load, { paths: ["/private/plugin"] });
+  assert.deepEqual(config.plugins.entries["agentpier-teams"], {
+    enabled: true,
+    config: {
+      url: "http://127.0.0.1:1235",
+      token: "bridge",
+      workspaces: paths.workspaces,
+    },
+  });
+  assert.equal(config.plugins.slots.memory, "memory-core");
+  assert.deepEqual(config.plugins.entries["memory-core"], {
+    enabled: true,
+    config: { dreaming: { enabled: false } },
+  });
+  assert.deepEqual(config.memory.search, {
+    enabled: false,
+    provider: "none",
+    sources: ["memory"],
+    rememberAcrossConversations: false,
+  });
+  assert.deepEqual(config.tools.allow, [
+    "session_status",
+    "agentpier_team_propose",
+    "agentpier_team_status",
+    "agentpier_team_stop",
+    "memory_search",
+    "memory_get",
+    "read",
+    "write",
+    "edit",
+    "agentpier_reminder",
+    "agentpier_routine",
+    "agentpier_workspace",
+  ]);
+  assert.equal(config.tools.fs.workspaceOnly, true);
+  assert.deepEqual(config.cron, {
+    enabled: true,
+    webhookToken: "hook",
+    webhookSsrfPolicy: { allowedHostnames: ["127.0.0.1"] },
+  });
+  assert.deepEqual(config.skills.workshop.autonomous, { mode: "off" });
+});
