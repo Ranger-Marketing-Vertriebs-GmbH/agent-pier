@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+import { isDirty, sameValue as same } from "./synced-form-state.js";
 // Form values that follow the saved server record without discarding edits:
 // untouched fields adopt newer server values, edited fields stay and are reported
 // as conflicts when the server changed them too.
@@ -36,5 +36,5 @@ export default function useSyncedForm(server) {
     setValues(server);
     setConflicts([]);
   }, [server]);
-  return { values, set, conflicts, reload };
+  return { values, set, conflicts, reload, dirty: isDirty(values, server) };
 }
