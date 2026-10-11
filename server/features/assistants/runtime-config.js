@@ -147,6 +147,8 @@ export function prepareRuntimeConfig(
     port,
     auth: { mode: "token", token },
     controlUi: { enabled: false },
+    // OpenClaw enables an operator terminal by default: a host shell for admin clients.
+    terminal: { enabled: false },
     tailscale: { mode: "off" },
     reload: { mode: "hybrid" },
     // Loopback WSS with an AgentPier-issued certificate the client pins.
