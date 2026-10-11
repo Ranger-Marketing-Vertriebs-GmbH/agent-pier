@@ -142,3 +142,8 @@
   margin: 4px 0 0;
   font-size: 0.9em;
 }
+
+.mcp-team-warning {
+  margin: 4px 0 8px;
+  color: var(--warning, inherit);
+}

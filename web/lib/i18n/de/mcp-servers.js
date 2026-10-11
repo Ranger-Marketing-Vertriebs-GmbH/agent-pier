@@ -52,15 +52,17 @@ export const mcpServerCopy = {
   removeRow: "Eintrag entfernen",
   secretNote:
     "Gespeicherte Werte lassen sich ersetzen oder entfernen, werden aber nie angezeigt. Adressen mit Token im Query-String werden ebenfalls nicht angezeigt.",
+  secretPlacement:
+    "Lege Token und Passwörter in Header- oder Umgebungswerten ab, nie im Adresspfad oder in den Argumenten: Diese werden angezeigt.",
   stdioMarker: "stdio, lokaler Befehl",
   stdioBadge: "stdio",
   stdioWarningTitle: "Lokalen Befehl ausführen?",
   stdioWarning:
-    "Ein stdio-Server führt diesen Befehl mit deinen macOS-Benutzerrechten aus, ohne Sandbox. Er startet für jede Sitzung jedes Agenten, sobald er hinzugefügt ist, auch für Agenten, die ihn nie nutzen. Füge nur Befehle hinzu, denen du vertraust.",
+    "Ein stdio-Server führt diesen Befehl mit deinen Benutzerrechten aus, ohne Sandbox. Sobald er einem Agenten zugewiesen ist, startet er für jede Sitzung jedes Agenten, auch für Agenten, die ihn nie nutzen. Füge nur Befehle hinzu, denen du vertraust.",
   stdioConfirm: "Bestätigen und speichern",
   stdioBindingTitle: "Agenten einen lokalen Befehl geben?",
   stdioBindingWarning:
-    "Die gewählten stdio-Server führen lokale Befehle mit deinen macOS-Benutzerrechten aus, ohne Sandbox. Sie starten für jede Sitzung jedes Agenten, sobald sie hinzugefügt sind, nicht nur für diesen Agenten.",
+    "Die gewählten stdio-Server führen lokale Befehle mit deinen Benutzerrechten aus, ohne Sandbox. Sobald sie einem Agenten zugewiesen sind, starten sie für jede Sitzung jedes Agenten, nicht nur für diesen Agenten.",
   stdioBindingConfirm: "Bestätigen und speichern",
   agentTitle: "MCP-Server",
   agentDescription:
@@ -75,4 +77,8 @@ export const mcpServerCopy = {
   temporaryNone: "Der leitende Agent hat keine MCP-Server gewährt.",
   teamServers: "MCP-Server",
   teamServersNote: "Aus den Servern des leitenden Agenten gewährt.",
+  teamStdioWarning:
+    "Ein aufgeführter stdio-Server führt einen lokalen Befehl mit deinen Benutzerrechten aus, ohne Sandbox.",
+  teamServersUnavailable:
+    "Die Liste der MCP-Server lässt sich gerade nicht lesen. Das Team kann erst danach genehmigt werden.",
 };

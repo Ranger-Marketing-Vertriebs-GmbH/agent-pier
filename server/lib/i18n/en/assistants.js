@@ -34,6 +34,8 @@ export const assistants = {
     `Team approval: ${objective}\n${count} members. Approve or decline?`,
   teamMcpServers: (names) => `MCP servers: ${names}`,
   teamMcpStdio: (name) => `${name} (stdio, local command)`,
+  teamMcpUnavailable:
+    "MCP servers: the list cannot be read right now. Approve the team in AgentPier once it can be read.",
   teamApprove: "Approve team",
   teamDecline: "Decline team",
   teamApproved:
@@ -66,6 +68,8 @@ export const assistants = {
   channelPolling: "Another service is using this Telegram bot. Stop it before resuming.",
   channelToken: "The Telegram bot token is invalid.",
 
+  teamMcpServersUnavailable:
+    "The MCP server list of this team cannot be read right now. Try again later.",
   teamMcpServerNotBound:
     "A proposed team member names an MCP server that is not bound to the lead agent.",
   invalid: "Invalid agent input.",

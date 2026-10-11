@@ -155,6 +155,7 @@ export default function McpServerForm({ server, onSaved, close }) {
           </>
         )}
         <p className="mcp-hint">{copy.secretNote}</p>
+        <p className="mcp-hint">{copy.secretPlacement}</p>
         {confirming && (
           <StdioConfirmation
             busy={busy}

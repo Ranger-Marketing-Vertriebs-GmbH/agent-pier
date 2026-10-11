@@ -63,12 +63,21 @@ export class TeamMcpBindings {
   get servers() {
     return this.assistants.mcp?.servers || null;
   }
+  /**
+   * The servers for an approval, or null when the store cannot be read: callers
+   * then show the list as unavailable and refuse approval rather than omit servers.
+   */
   describe(ids) {
     try {
       return describeServers(this.servers, ids);
     } catch {
-      return [];
+      return null;
     }
+  }
+  /** Whether every member of a proposal can be shown with its servers. */
+  describable(record) {
+    const drafts = Array.isArray(record?.members) ? record.members : [];
+    return drafts.every((m) => !m.mcpServerIds?.length || this.describe(m.mcpServerIds));
   }
   leadActive(id) {
     try {

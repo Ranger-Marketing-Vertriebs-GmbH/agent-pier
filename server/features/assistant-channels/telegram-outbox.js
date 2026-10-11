@@ -55,6 +55,8 @@ export class TelegramOutbox {
     const path = teamPath(t);
     const msg = telegramMessages(this.service.store.get(t.origin.channelId));
     if (t.phase === "awaiting_approval" && !this.transferred(`approval:${t.id}`)) {
+      // Servers that cannot be listed cannot be approved here; only declining is offered.
+      const listable = t.members.every((m) => this.servers(msg, m.mcpServerIds));
       const entry = outbox.enqueue({
         key: `team-approval:${t.id}`,
         source,
@@ -68,17 +70,21 @@ export class TelegramOutbox {
             [
               `${n + 1}. ${m.name} · ${m.role}`,
               m.assignment,
-              ...this.servers(msg, m.mcpServerIds),
+              ...(this.servers(msg, m.mcpServerIds) || [msg.teamMcpUnavailable]),
             ].join("\n"),
           ),
         ].join("\n\n"),
         actions: [
-          {
-            decision: "approve",
-            label: msg.teamApprove,
-            proposalId: t.id,
-            revision: t.revision,
-          },
+          ...(listable
+            ? [
+                {
+                  decision: "approve",
+                  label: msg.teamApprove,
+                  proposalId: t.id,
+                  revision: t.revision,
+                },
+              ]
+            : []),
           {
             decision: "decline",
             label: msg.teamDecline,
@@ -131,10 +137,13 @@ export class TelegramOutbox {
     });
     this.recordTransfer(`result:${t.id}`, entry.id);
   }
-  // A member's MCP servers by name, stdio ones marked; never URLs or commands.
+  // A member's MCP servers by name, stdio ones marked; never URLs or commands. Null
+  // when the list cannot be read.
   servers(msg, ids) {
-    const list = this.service.assistants.teams?.mcp?.describe(ids) || [];
-    if (!list.length) return [];
+    if (!ids?.length) return [];
+    const list = this.service.assistants.teams?.mcp?.describe(ids);
+    if (list === null) return null;
+    if (!list?.length) return [];
     const names = list.map((s) => (s.stdio ? msg.teamMcpStdio(s.name) : s.name));
     return [msg.teamMcpServers(names.join(", "))];
   }

@@ -80,6 +80,14 @@ export default function AssistantTeams({ assistant, focusTeamId, navigate }) {
             {team.phase === "awaiting_approval" ? (
               <>
                 <p>{copy.team.approvalHint}</p>
+                {team.members.some((m) => m.mcpServersUnavailable) && (
+                  <p className="mcp-team-warning" role="alert">
+                    {mcpCopy.teamServersUnavailable}
+                  </p>
+                )}
+                {team.members.some((m) => m.mcpServers?.some((s) => s.stdio)) && (
+                  <p className="mcp-team-warning">{mcpCopy.teamStdioWarning}</p>
+                )}
                 <ul>
                   {team.members.map((m, n) => (
                     <li key={n}>
@@ -106,7 +114,7 @@ export default function AssistantTeams({ assistant, focusTeamId, navigate }) {
                   <button
                     type="button"
                     className="button primary"
-                    disabled={busy}
+                    disabled={busy || team.members.some((m) => m.mcpServersUnavailable)}
                     onClick={() =>
                       act(() =>
                         assistantApi.decideTeam(team.id, {

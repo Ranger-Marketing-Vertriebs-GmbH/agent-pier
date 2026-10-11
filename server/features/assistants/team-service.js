@@ -14,9 +14,17 @@ function exact(input, keys) {
   )
     throw assistantProblem("invalid");
 }
-// Drafts show their MCP servers by name with the stdio marker, never their ids.
-const publicDraft = ({ mcpServerIds, ...draft }, describe) =>
-  mcpServerIds?.length ? { ...draft, mcpServers: describe(mcpServerIds) } : draft;
+// Drafts show their MCP servers by name with the stdio marker, never their ids. A
+// list that cannot be read is marked unavailable instead of shown short.
+const servers = (ids, describe) => {
+  if (!ids?.length) return {};
+  const list = describe(ids);
+  return list ? { mcpServers: list } : { mcpServersUnavailable: true };
+};
+const publicDraft = ({ mcpServerIds, ...draft }, describe) => ({
+  ...draft,
+  ...servers(mcpServerIds, describe),
+});
 export function publicTeam(record, describe = () => []) {
   const keys =
     record.kind === "member"
@@ -57,9 +65,7 @@ export function publicTeam(record, describe = () => []) {
   return {
     ...Object.fromEntries(keys.filter((k) => k in record).map((k) => [k, record[k]])),
     ...(record.kind === "member"
-      ? record.mcpServerIds?.length
-        ? { mcpServers: describe(record.mcpServerIds) }
-        : {}
+      ? servers(record.mcpServerIds, describe)
       : Array.isArray(record.members)
         ? { members: record.members.map((m) => publicDraft(m, describe)) }
         : {}),
@@ -211,6 +217,9 @@ export class TeamService {
       },
       () => {
         exact(input, ["revision", "decision", "lifetime"]);
+        // The owner approves only servers they could see.
+        if (input.decision === "approve" && !this.mcp.describable(this.store.get(id)))
+          throw assistantProblem("teamMcpServersUnavailable", 503);
         const record = this.store.decide(id, input, origin);
         if (record.phase === "approved") {
           this.store.reserve(id);
