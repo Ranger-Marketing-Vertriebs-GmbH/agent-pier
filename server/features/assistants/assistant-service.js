@@ -161,20 +161,31 @@ export class AssistantService {
       const restart =
         !!patch.capabilities &&
         !!this.webTools?.differs({ profiles: this.webTools.profilesWith(id, patch) });
-      if (restart) this.webTools.confirm(confirmed);
-      if (current.capabilities?.reminders && patch.capabilities?.reminders === false)
-        await this.reminders?.disable(id);
-      // The Gateway stops for the restart; the next start compiles the new entry.
-      if (restart) return { restart };
+      const disableReminders =
+        !!current.capabilities?.reminders && patch.capabilities?.reminders === false;
+      if (restart) {
+        this.webTools.confirm(confirmed);
+        // Reminders are switched off inside the restart, once no blocker can refuse.
+        return { restart, disableReminders };
+      }
+      if (disableReminders) await this.reminders?.disable(id);
       const record = this.store.updateAssistant(id, patch, revision);
       if (patch.capabilities && this.runtime.client?.ready) await this.config.apply(id);
       this.changed();
       return { record };
     });
     if (!restart.restart) return restart.record;
-    // Maintenance drains the admission lock, so the restart runs outside admit().
-    const record = await this.webTools.restart(() =>
-      this.store.updateAssistant(id, patch, revision),
+    // Maintenance drains the admission lock, so the restart runs outside admit() and
+    // the decision above may be stale by now. A save that slipped in between fails
+    // the revision check in updateAssistant after the restart, which is harmless:
+    // the Gateway then simply runs with the current state.
+    const record = await this.webTools.restart(
+      () => this.store.updateAssistant(id, patch, revision),
+      {
+        beforeChange: restart.disableReminders
+          ? () => this.reminders?.disable(id)
+          : undefined,
+      },
     );
     if (this.runtime.client?.ready) await this.config.apply(id);
     return record;

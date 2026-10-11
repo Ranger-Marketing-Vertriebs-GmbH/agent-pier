@@ -60,9 +60,12 @@ export class WebToolsChanges {
   confirm(confirmed) {
     if (!confirmed) throw restartRequired("webToolsRestartRequired", this.usage());
   }
-  /** Persists `operation` in maintenance and restarts the Gateway with its result. */
-  restart(operation) {
-    return this.synchronization.restartGateway(operation);
+  /**
+   * Persists `operation` in maintenance and restarts the Gateway with its result.
+   * `beforeChange` runs once no blocker can refuse, while the Gateway still runs.
+   */
+  restart(operation, { beforeChange } = {}) {
+    return this.synchronization.restartGateway(operation, { beforeChange });
   }
   /** Saves the web search settings; a changed provider or key restarts the Gateway. */
   async saveSearch(input, { confirmed = false } = {}) {

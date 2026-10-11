@@ -154,9 +154,11 @@ test("a capability that needs new global sections asks for the owner's confirmat
   await f.service.update(a.id, { capabilities: caps({ webSearch: true }) }, a.revision, {
     confirmed: true,
   });
+  // Reminders go off once no blocker can refuse, before the Gateway stops and the
+  // profile is saved.
   assert.deepEqual(f.calls, [
-    `disable:${a.id}`,
     "enter",
+    `disable:${a.id}`,
     "stop",
     "quiesce",
     "start",
@@ -197,16 +199,24 @@ test("a confirmed capability change persists in maintenance and restarts the Gat
 
 test("busy work refuses the confirmed restart and persists nothing", async (t) => {
   const f = fixture(t);
-  const a = f.agent("Home");
+  const a = f.agent("Home", { reminders: true });
   f.started();
+  f.service.reminders = {
+    disable: async (id) => f.calls.push(`disable:${id}`),
+    close: async () => {},
+  };
   f.setBlockers(["ASSISTANT_WORK"]);
+  // Also switching reminders off: a refused restart leaves them on.
   await assert.rejects(
     f.service.update(a.id, { capabilities: caps({ webFetch: true }) }, a.revision, {
       confirmed: true,
     }),
     { status: 409, key: "active" },
   );
-  assert.equal(f.store.getAssistant(a.id).capabilities.webFetch, undefined);
+  const stored = f.store.getAssistant(a.id);
+  assert.equal(stored.revision, a.revision);
+  assert.equal(stored.capabilities.webFetch, undefined);
+  assert.equal(stored.capabilities.reminders, true);
   assert.deepEqual(f.calls, ["enter", "leave"]);
   assert.equal(f.service.maintenance, false);
 });
