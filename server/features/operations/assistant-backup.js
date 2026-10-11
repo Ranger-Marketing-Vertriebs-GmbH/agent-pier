@@ -301,15 +301,17 @@ export function validateAssistantManifest(value, files) {
     .map((member) => member.path)
     .filter((name) => name.startsWith(`${prefix}/`) && name.endsWith(sealedSuffix));
   // Relocated files must parse and stay inside assistants/ wherever they land.
-  for (const member of files)
-    if (
-      member.path.startsWith(`${prefix}/`) &&
-      isRelocatable(member.path.slice(prefix.length + 1))
-    )
-      restoredText(
-        Buffer.from(member.content, "base64").toString("utf8"),
-        path.join(path.parse(process.cwd()).root, "agentpier-restore", prefix),
-      );
+  // Older backups may hold unparsable configuration copies; those are skipped.
+  for (const member of files) {
+    const relative = member.path.slice(prefix.length + 1);
+    if (!member.path.startsWith(`${prefix}/`) || !isRelocatable(relative)) continue;
+    const text = Buffer.from(member.content, "base64").toString("utf8");
+    if (unusableCopy(relative, text)) continue;
+    restoredText(
+      text,
+      path.join(path.parse(process.cwd()).root, "agentpier-restore", prefix),
+    );
+  }
   if (value === undefined) {
     if (sidecars.length) throw problem(serverMessages.backups.invalidManifest);
     return;
@@ -339,6 +341,10 @@ export function validateAssistantManifest(value, files) {
     throw problem(serverMessages.backups.invalidManifest);
 }
 
+/** A configuration copy beside openclaw.json that is not JSON; configPath stays strict. */
+const unusableCopy = (relative, text) =>
+  isConfigFile(relative) && relative !== configPath && !configShaped(text);
+
 /**
  * Restores sealed assistant credentials into a staged data directory, using the key
  * still held by this host's live store. Without it they stay withheld.
@@ -348,11 +354,11 @@ export async function restoreAssistants({ stage, target, liveDataDir, value }) {
   // Paths inside the Gateway's JSON files point at the restored location.
   for (const relative of relocatableFiles(root)) {
     const file = path.join(root, relative);
-    await fsp.writeFile(
-      file,
-      restoredText(await fsp.readFile(file, "utf8"), path.join(target, prefix)),
-      { mode: 0o600 },
-    );
+    const text = await fsp.readFile(file, "utf8");
+    if (unusableCopy(relative, text)) continue;
+    await fsp.writeFile(file, restoredText(text, path.join(target, prefix)), {
+      mode: 0o600,
+    });
   }
   if (!value) return { withheld: false };
   const key = value.sealed.length

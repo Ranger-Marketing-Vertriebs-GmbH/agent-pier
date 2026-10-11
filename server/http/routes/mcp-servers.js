@@ -48,19 +48,21 @@ export function mcpServerRoutes({ assistantMcpChanges: changes }) {
     const body = req.body;
     const { confirmStdio, ...input } = record(body) ? body : {};
     try {
-      res.json(
-        await changes.update(req.params.id, record(body) ? input : body, {
-          confirmStdio: confirmStdio === true,
-        }),
+      const { server, pending } = await changes.update(
+        req.params.id,
+        record(body) ? input : body,
+        { confirmStdio: confirmStdio === true },
       );
+      res.json(pending ? { ...server, pending: true } : server);
     } catch (error) {
       if (replyStdioConfirmation(res, error)) return;
       throw error;
     }
   });
   router.delete("/mcp-servers/:id", async (req, res) => {
-    await changes.remove(req.params.id);
-    res.status(204).end();
+    const { pending } = await changes.remove(req.params.id);
+    if (pending) res.json({ pending: true });
+    else res.status(204).end();
   });
   router.use("/mcp-servers", (error, _req, _res, next) =>
     // Validation, conflicts and a busy Gateway keep their reason; storage and

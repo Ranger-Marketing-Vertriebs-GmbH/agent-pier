@@ -30,9 +30,10 @@ export default function McpServerForm({ server, onSaved, close }) {
         ...requestBody(draft, server),
         ...(confirmStdio ? { confirmStdio } : {}),
       };
-      if (server) await assistantApi.updateMcpServer(server.id, body);
-      else await assistantApi.createMcpServer(body);
-      await onSaved();
+      const saved = server
+        ? await assistantApi.updateMcpServer(server.id, body)
+        : await assistantApi.createMcpServer(body);
+      await onSaved(saved);
     } catch (e) {
       if (stdioConfirmationRequired(e)) setConfirming(true);
       else setError(e.message);

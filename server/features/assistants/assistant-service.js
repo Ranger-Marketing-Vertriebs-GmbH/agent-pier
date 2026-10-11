@@ -142,6 +142,11 @@ export class AssistantService {
   withMcp(profile) {
     return this.mcp ? this.mcp.decorate(profile) : profile;
   }
+  /** The decorated profile, flagged `pending` while the Gateway lags behind. */
+  withPending(profile, pending) {
+    const decorated = this.withMcp(profile);
+    return pending ? { ...decorated, pending: true } : decorated;
+  }
   /**
    * `confirmed` is the owner's consent to restart the Gateway when the change needs
    * global web tool sections the running Gateway was not started with. `mcpServers`
@@ -189,16 +194,18 @@ export class AssistantService {
       }
       if (disableReminders) await this.reminders?.disable(id);
       const record = this.store.updateAssistant(id, patch, revision);
+      let pending = false;
       if (binds) {
         this.mcp.setBindings(id, mcpServers);
         // Patches the Gateway's MCP sections and re-applies agents whose globs changed.
-        await this.mcp.apply();
+        // The save is stored: a failed live apply stays pending instead of an error.
+        pending = await this.mcp.applySaved();
       }
       if (patch.capabilities && this.runtime.client?.ready) await this.config.apply(id);
       this.changed();
-      return { record };
+      return { record, pending };
     });
-    if (!restart.restart) return this.withMcp(restart.record);
+    if (!restart.restart) return this.withPending(restart.record, restart.pending);
     // Maintenance drains the admission lock, so the restart runs outside admit() and
     // the decision above may be stale by now. A save that slipped in between fails
     // the revision check in updateAssistant after the restart, which is harmless:
