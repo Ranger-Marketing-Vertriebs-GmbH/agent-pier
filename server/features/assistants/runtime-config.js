@@ -5,6 +5,7 @@ import { readJSON, writePrivate } from "../../lib/storage.js";
 import { guardedTools, memoryTools } from "./native-capabilities.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { hardenedDefaults } from "./openclaw-config/locked-core.js";
+import { applyOverrides } from "./openclaw-config/overrides.js";
 
 export const teamTools = [
   "session_status",
@@ -13,33 +14,41 @@ export const teamTools = [
   "agentpier_team_stop",
 ];
 
-export function prepareRuntimeConfig(
-  paths,
-  port,
-  teams,
-  { maintenance = false, tls } = {},
-) {
-  const existing = readJSON(paths.config, null);
-  const token = existing?.gateway?.auth?.token || randomBytes(32).toString("hex");
-  const config = existing || {
+function freshDefaults(paths) {
+  const hardened = hardenedDefaults();
+  return {
     agents: {
       defaults: {
         workspace: paths.workspaces,
         skipBootstrap: true,
-        heartbeat: { every: "0m" },
+        heartbeat: hardened.heartbeat,
       },
       list: [{ id: "main", default: true }],
     },
-    channels: {},
-    browser: { enabled: false },
+    channels: hardened.channels,
+    browser: hardened.browser,
     cron: { enabled: false },
     plugins: { slots: { memory: "none" } },
-    skills: { allowBundled: [] },
+    skills: { allowBundled: hardened.skillsAllowBundled },
     tools: { allow: ["session_status"] },
-    discovery: { mdns: { mode: "off" } },
-    telemetry: { enabled: false },
-    update: { checkOnStart: false, auto: { enabled: false } },
+    discovery: hardened.discovery,
+    telemetry: hardened.telemetry,
+    update: hardened.update,
   };
+}
+
+// Pure: the same inputs and runtime state always yield the same configuration.
+export function compileOpenClawConfig({
+  existing,
+  paths,
+  port,
+  token,
+  teams,
+  overrides = [],
+  runtime: { maintenance = false } = {},
+  tls,
+}) {
+  const config = applyOverrides(existing || freshDefaults(paths), overrides);
   // Paths are this installation's; a restored or copied configuration cannot pick them.
   config.agents = {
     ...config.agents,
@@ -167,9 +176,33 @@ export function prepareRuntimeConfig(
       },
     }),
   };
-  writePrivate(paths.config, config);
+  return config;
+}
+
+export function prepareRuntimeConfig(
+  paths,
+  port,
+  teams,
+  { maintenance = false, tls, overrides = [] } = {},
+) {
+  const existing = readJSON(paths.config, null);
+  const token = existing?.gateway?.auth?.token || randomBytes(32).toString("hex");
+  writePrivate(
+    paths.config,
+    compileOpenClawConfig({
+      existing,
+      paths,
+      port,
+      token,
+      teams,
+      overrides,
+      runtime: { maintenance },
+      tls,
+    }),
+  );
   return token;
 }
+
 export function runtimeEnvironment(paths, nodePath, token, parent = process.env) {
   return {
     ...proxyEnvironment(parent),

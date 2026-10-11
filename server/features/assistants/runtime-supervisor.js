@@ -42,9 +42,17 @@ export class RuntimeSupervisor extends EventEmitter {
     clientFactory = (options) => new GatewayClient(options),
     identity = processIdentity,
     timing = {},
+    configOverrides,
   }) {
     super();
-    Object.assign(this, { dataDir, install, spawn, clientFactory, identity });
+    Object.assign(this, {
+      dataDir,
+      install,
+      spawn,
+      clientFactory,
+      identity,
+      configOverrides,
+    });
     this.timing = {
       reconnectMs: 1000,
       restartMs: 1000,
@@ -155,6 +163,7 @@ export class RuntimeSupervisor extends EventEmitter {
     const token = prepareRuntimeConfig(this.paths, port, teams, {
       maintenance: !!this.maintenance?.(),
       tls,
+      overrides: this.configOverrides?.() || [],
     });
     await this.beforeSpawn?.();
     if (generation !== this.generation) return;
