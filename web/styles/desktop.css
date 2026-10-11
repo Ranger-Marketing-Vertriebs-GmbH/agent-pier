@@ -24,11 +24,7 @@
 }
 @media (max-width: 1150px) {
   .app {
-    --sidebar-width: 220px;
-  }
-  .sidebar {
-    padding-left: 14px;
-    padding-right: 14px;
+    --sidebar-width: 240px;
   }
   .page {
     padding: 30px 32px 24px;

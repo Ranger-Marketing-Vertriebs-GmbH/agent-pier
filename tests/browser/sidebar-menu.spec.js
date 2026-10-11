@@ -69,3 +69,47 @@ test("the popover fits a 240 px sidebar and a 320 px phone", async ({ page }) =>
     await page.keyboard.press("Escape");
   }
 });
+
+test("desktop sidebar is 280 px, 240 px below 1150 px, and never inert", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(baseURL);
+  const aside = page.locator(".sidebar");
+  await expect(page.locator("main")).toHaveCSS("margin-left", "280px");
+  expect(await aside.evaluate((node) => node.inert)).toBe(false);
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await expect(page.locator("main")).toHaveCSS("margin-left", "240px");
+});
+
+test("the closed phone drawer is inert and fits 320 px without horizontal scroll", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto(baseURL);
+  const aside = page.locator(".sidebar");
+  await expect.poll(() => aside.evaluate((node) => node.inert)).toBe(true);
+  await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => !!document.activeElement.closest(".sidebar"))).toBe(
+    false,
+  );
+  await page.getByRole("button", { name: "Navigation öffnen", exact: true }).click();
+  await expect.poll(() => aside.evaluate((node) => node.inert)).toBe(false);
+  expect((await aside.boundingBox()).width).toBe(264);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(async () => (await aside.boundingBox()).width).toBe(316);
+});
+
+test("agents and sessions share one scroll container", async ({ page }) => {
+  await page.goto(baseURL);
+  const scrollers = await page.locator(".sidebar *").evaluateAll((nodes) =>
+    nodes
+      .filter((node) => !node.closest("#sidebar-menu"))
+      .filter((node) => ["auto", "scroll"].includes(getComputedStyle(node).overflowY))
+      .map((node) => node.className),
+  );
+  expect(scrollers).toEqual(["sidebar-scroll"]);
+});

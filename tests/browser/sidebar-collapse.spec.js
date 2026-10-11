@@ -10,14 +10,14 @@ test("the sidebar collapses on wide screens and expands again from the floating 
   const sidebar = page.locator(".sidebar");
   const main = page.locator("main");
   await expect(sidebar).toBeVisible();
-  await expect(main).toHaveCSS("margin-left", "252px");
+  await expect(main).toHaveCSS("margin-left", "280px");
   await page.getByRole("button", { name: "Navigation einklappen" }).click();
   // Hiding the sidebar outright also keeps its navigation out of the tab order.
   await expect(sidebar).toBeHidden();
   await expect(main).toHaveCSS("margin-left", "0px");
   await page.getByRole("button", { name: "Navigation ausklappen" }).click();
   await expect(sidebar).toBeVisible();
-  await expect(main).toHaveCSS("margin-left", "252px");
+  await expect(main).toHaveCSS("margin-left", "280px");
 });
 
 test("a collapsed sidebar does not break the mobile drawer", async ({ page }) => {
