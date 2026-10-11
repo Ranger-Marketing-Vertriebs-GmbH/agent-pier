@@ -1,13 +1,26 @@
 import React from "react";
 import Icon from "./Icon.jsx";
+const glyphs = {
+  default: { codex: 24, claude: 30, terminal: 24 },
+  small: { codex: 18, claude: 22, terminal: 16 },
+  // Sidebar rows (handoff 1a): same 30 px mark, slightly smaller glyphs.
+  row: { codex: 17, claude: 20, terminal: 16 },
+};
 // OpenAI glyph: Simple Icons 13.0.0 (CC0), icons/openai.svg.
-export default function ProviderMark({ tool, small = false }) {
+export default function ProviderMark({ tool, small = false, size, label }) {
+  const variant = size === "row" ? "row" : small ? "small" : "default";
+  const px = glyphs[variant];
   return (
-    <span className={`provider-mark ${tool} ${small ? "small" : ""}`} aria-hidden="true">
+    <span
+      className={`provider-mark ${tool} ${variant !== "default" ? "small" : ""} ${variant === "row" ? "row" : ""}`}
+      role={label ? "img" : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : "true"}
+    >
       {tool === "codex" ? (
         <svg
-          width={small ? 18 : 24}
-          height={small ? 18 : 24}
+          width={px.codex}
+          height={px.codex}
           viewBox="0 0 24 24"
           fill="currentColor"
           aria-hidden="true"
@@ -16,8 +29,8 @@ export default function ProviderMark({ tool, small = false }) {
         </svg>
       ) : tool === "claude" ? (
         <svg
-          width={small ? 22 : 30}
-          height={small ? 22 : 30}
+          width={px.claude}
+          height={px.claude}
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -30,7 +43,7 @@ export default function ProviderMark({ tool, small = false }) {
       ) : tool === "opencode" ? (
         <span className="opencode-glyph">⌑</span>
       ) : (
-        <Icon name="terminal" size={small ? 16 : 24} />
+        <Icon name="terminal" size={px.terminal} />
       )}
     </span>
   );

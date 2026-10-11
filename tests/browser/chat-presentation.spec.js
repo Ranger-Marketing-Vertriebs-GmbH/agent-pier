@@ -282,17 +282,16 @@ for (const mode of ["stale", "stopped"]) {
   });
 }
 
-test("session rows show a bounded directory and remain collapsible", async ({ page }) => {
+test("session rows show the folder name and keep the full path as title", async ({
+  page,
+}) => {
   await fixture(page);
-  const directory = page.locator(".session-directory");
-  await expect(directory).toHaveText("/fixture/projects/website");
-  const bounds = await directory.evaluate((element) => ({
-    overflow: getComputedStyle(element).textOverflow,
-    whitespace: getComputedStyle(element).whiteSpace,
-  }));
-  expect(bounds).toEqual({ overflow: "ellipsis", whitespace: "nowrap" });
+  const row = page.locator(".session-item");
+  await expect(row.locator("small")).toContainText(" · website");
+  await expect(row).toHaveAttribute("title", "/fixture/projects/website");
+  await expect(page.locator(".session-directory")).toHaveCount(0);
   await page.getByRole("button", { name: "Sitzungen", exact: true }).click();
-  await expect(directory).toBeHidden();
+  await expect(row).toBeHidden();
 });
 
 test("mobile chat input keeps a focus-safe font size and fits the viewport", async ({
@@ -476,10 +475,11 @@ test("session rows show the CLI mark and repository name with the full path avai
   await fixture(page, { repositoryName: "website" });
   const row = page.locator(".session-item");
   await expect(row.locator(".provider-mark.codex svg")).toBeVisible();
-  await expect(row.locator(".session-directory")).toHaveText("website");
-  await expect(row.locator(".session-directory")).toHaveAttribute(
-    "title",
-    "/fixture/projects/website",
+  await expect(row.locator("small")).toContainText(" · website");
+  await expect(row).toHaveAttribute("title", "/fixture/projects/website");
+  await expect(row.locator(".provider-mark.codex")).toHaveAttribute(
+    "aria-label",
+    "Codex",
   );
   await expect(page.locator(".session-footer")).toContainText("website");
   await page.screenshot({ path: "/tmp/agentpier-session-labels.png" });
