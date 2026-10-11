@@ -38,6 +38,8 @@ export const mcpServers = {
     "Die OAuth-Anmeldung des Servers ließ sich nicht entfernen. Bitte erneut versuchen.",
   oauthLogoutDeferred:
     "Gespeichert. Die bisherige OAuth-Anmeldung ließ sich gerade nicht entfernen; AgentPier versucht es im Hintergrund weiter. Bis dahin bleibt ein Server mit demselben Namen und derselben Adresse inaktiv.",
+  oauthRateLimited:
+    "Zu viele OAuth-Anmeldungen und -Abmeldungen. Bitte in einer Minute erneut versuchen.",
   oauthLogoutPending:
     "Die bisherige Anmeldung wird noch entfernt. Bis dahin ist der Server nicht aktiv.",
 };
