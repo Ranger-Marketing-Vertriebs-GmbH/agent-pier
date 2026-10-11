@@ -1,5 +1,9 @@
 import http from "node:http";
-export async function assistantModelServer() {
+// By default the model calls `session_status` once; `tool` names another tool (with its
+// arguments) to call once instead, when that tool is offered.
+export async function assistantModelServer({
+  tool = { name: "session_status", arguments: {} },
+} = {}) {
   const requests = [];
   const server = http.createServer(async (req, res) => {
     let bytes = "";
@@ -9,7 +13,7 @@ export async function assistantModelServer() {
     if (input.messages?.some((m) => JSON.stringify(m.content).includes("HOLD_FOR_CRASH")))
       return;
     const useTool =
-      input.tools?.some((t) => t.function?.name === "session_status") &&
+      input.tools?.some((t) => t.function?.name === tool.name) &&
       !input.messages.some((m) => m.role === "tool");
     res.writeHead(200, { "content-type": "text/event-stream" });
     const delta = useTool
@@ -17,9 +21,9 @@ export async function assistantModelServer() {
           tool_calls: [
             {
               index: 0,
-              id: "status-call",
+              id: `${tool.name}-call`,
               type: "function",
-              function: { name: "session_status", arguments: "{}" },
+              function: { name: tool.name, arguments: JSON.stringify(tool.arguments) },
             },
           ],
         }

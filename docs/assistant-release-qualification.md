@@ -42,10 +42,12 @@ prevails.
 | Native scheduling  | Nine native scheduler cases cover Berlin/New York DST, explicit timezones, 30-day downtime, restart, missed-run policy, backlog spacing and duplicate completion delivery. | Injected clock with real scheduler/SQLite; not an operating-system suspend or crash experiment. |
 | Runtime update     | Two native cases verify OpenClaw 2026.9.7 → 2026.9.8 activation and rollback after injected candidate validation failure.                                                  | Node 26.7.0, macOS arm64, exact adjacent pair only.                                             |
 | Project identity   | Three real Git/ProjectMemory/ProjectRebind cases cover git initialization, automatic rebind and duplicate-project merging.                                                 | Synthetic projects; no real user coding task executed.                                          |
+| Native interfaces  | Two pinned Gateway contracts verify the locked core, hello features, config schema and lookup, `replacePaths`, stale hashes, pairing list and a denied exec approval.      | Deterministic HTTP model; no WhatsApp login, pairing approval or allowed exec.                  |
 | Provider endpoints | Explicit opt-in runner for Ollama, llama.cpp and Azure-compatible endpoints.                                                                                               | Ollama and llama.cpp passed with small local models (2026-10-10); Azure remains unqualified.    |
 
 The detailed records are [memory](assistant-memory-qualification.md),
-[schedules](assistant-routine-qualification.md), and
+[schedules](assistant-routine-qualification.md),
+[native interfaces](assistant-native-interface-qualification.md), and
 [providers](assistant-provider-qualification.md). Native memory and update tests
 exercise actual Gateway processes with a deterministic HTTP model. Provider
 protocol tests against simulated endpoints are not actual vendor qualification.
