@@ -145,7 +145,8 @@ export class AssistantProviderSynchronization {
         safeToLeave = true;
         throw assistantProblem("active", 409);
       }
-      beforeChange();
+      // Awaited while the Gateway still runs, after nothing can refuse the change.
+      await beforeChange();
       const wasRunning = a.runtime.status().availability !== "disabled";
       if (!online) {
         await a.runtime.stop();
