@@ -2,12 +2,8 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { proxyEnvironment } from "../../lib/proxy-environment.js";
 import { readJSON, writePrivate } from "../../lib/storage.js";
-import {
-  guardedTools,
-  memoryTools,
-  personalCapabilities,
-  profileTools,
-} from "./native-capabilities.js";
+import { guardedTools, memoryTools } from "./native-capabilities.js";
+import { agentEntry } from "./openclaw-config/agent-entry.js";
 
 export const teamTools = [
   "session_status",
@@ -110,13 +106,14 @@ export function prepareRuntimeConfig(
         entry.tools.allow = entry.tools.allow.filter((t) => !guardedTools.includes(t));
       const profile = teams.profiles?.find((a) => a.runtimeAgentId === (entry.id || key));
       if (!profile) continue;
-      entry.tools = { allow: profileTools(profile, true, true, false) };
-      entry.memory = {
-        search: {
-          enabled: personalCapabilities(profile).memory,
-          rememberAcrossConversations: false,
-        },
-      };
+      Object.assign(
+        entry,
+        agentEntry(entry, profile, {
+          teamsReady: true,
+          nativeReady: true,
+          guardProven: false,
+        }),
+      );
     }
   }
   config.cron = { ...config.cron, enabled: !!(enabled && teams.native && !maintenance) };

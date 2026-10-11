@@ -5,6 +5,7 @@ import { personalCapabilities, profileTools } from "./native-capabilities.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { assertWired } from "./service-wiring.js";
 import { assistantBootstrap } from "./assistant-bootstrap.js";
+import { agentEntry } from "./openclaw-config/agent-entry.js";
 // Bootstrap files the Gateway exposes besides AGENTS.md. AgentPier never creates
 // them (skipBootstrap), so any content is foreign and is neutralized. USER.md is
 // the owner's preference note and stays under owner control.
@@ -143,31 +144,15 @@ export class AssistantConfig {
         const previous = await this.client.call("config.get", {});
         const agents = previous.config.agents;
         const arrayKey = Array.isArray(agents.entries) ? "entries" : "list";
-        const configure = (entry = {}) => ({
-          ...entry,
-          ...(this.teamReady || this.nativeReady ? { tools: { allow: allowed } } : {}),
-          ...(this.nativeReady
-            ? {
-                memory: {
-                  search: {
-                    enabled: nativeReady && capabilities.memory,
-                    rememberAcrossConversations: false,
-                  },
-                },
-              }
-            : {}),
-          ...(lease.agentRuntime
-            ? {
-                models: {
-                  ...entry.models,
-                  [lease.agentRuntime.model]: {
-                    ...entry.models?.[lease.agentRuntime.model],
-                    agentRuntime: { id: lease.agentRuntime.id },
-                  },
-                },
-              }
-            : {}),
-        });
+        const configure = (entry = {}) =>
+          agentEntry(entry, assistant, {
+            teamsReady: !!this.teamReady?.(),
+            nativeReady,
+            guardProven: !!this.writeGuard?.(),
+            agentRuntime: lease.agentRuntime,
+            toolsManaged: !!(this.teamReady || this.nativeReady),
+            memoryManaged: !!this.nativeReady,
+          });
         const patch =
           agents.entries && !Array.isArray(agents.entries)
             ? {
