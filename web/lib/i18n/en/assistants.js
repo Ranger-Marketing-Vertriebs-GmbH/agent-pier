@@ -197,7 +197,6 @@ export const assistantCopy = {
     },
     inherited: (name, revision) => `Created by ${name} · inherited revision ${revision}`,
   },
-  navigation: "Agent views",
   settingsSections: "Settings sections",
   sections: {
     profile: "Profile",

@@ -62,7 +62,7 @@ export default function SidebarMenu({
       className={active ? "nav-item selected" : "nav-item"}
       aria-current={active ? "page" : undefined}
       onClick={() => {
-        setOpen(false);
+        close();
         onClick();
       }}
     >

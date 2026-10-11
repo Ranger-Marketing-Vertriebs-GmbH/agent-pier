@@ -33,21 +33,36 @@ export default function SettingsSectionNav({ assistant, personal }) {
       .filter(Boolean);
     if (!targets.length || typeof IntersectionObserver !== "function") return;
     const visible = new Set();
+    // A short last section never reaches the band, so the scroll end selects it.
+    const edge = root || document.scrollingElement;
+    const update = () => {
+      if (Date.now() < held.current) return;
+      const atEnd =
+        edge &&
+        edge.scrollTop > 0 &&
+        edge.scrollTop + edge.clientHeight >= edge.scrollHeight - 2;
+      const first = targets.find((target) => visible.has(target.id));
+      if (atEnd) setActive(targets[targets.length - 1].id);
+      else if (first) setActive(first.id);
+    };
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries)
           if (entry.isIntersecting) visible.add(entry.target.id);
           else visible.delete(entry.target.id);
-        if (Date.now() < held.current) return;
-        const first = targets.find((target) => visible.has(target.id));
-        if (first) setActive(first.id);
+        update();
       },
       // The band below the sticky chip row decides which section is current; it starts 2px
       // below the scroll offset so a section that merely touches the edge does not count.
       { root, rootMargin: "-58px 0px -55% 0px" },
     );
     targets.forEach((target) => observer.observe(target));
-    return () => observer.disconnect();
+    const listened = root || window;
+    listened.addEventListener("scroll", update, { passive: true });
+    return () => {
+      observer.disconnect();
+      listened.removeEventListener("scroll", update);
+    };
   }, [ids]);
   useEffect(() => {
     const row = nav.current;

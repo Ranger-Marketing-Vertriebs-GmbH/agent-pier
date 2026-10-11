@@ -192,6 +192,18 @@
     font-size: 11px;
     line-height: 1.4;
   }
+  .assistant-save-bar p.assistant-save-error {
+    padding: 6px 8px;
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 11px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
   .assistant-save-bar .button {
     flex: none;
     height: 40px;

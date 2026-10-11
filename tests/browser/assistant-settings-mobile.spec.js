@@ -163,6 +163,19 @@ test.describe("agent settings on phones", () => {
       .toEqual({ color: "rgb(255, 201, 157)", background: "rgb(48, 38, 28)" });
   });
 
+  test("the last section becomes active when the scroller reaches its end", async ({
+    page,
+  }) => {
+    await setupAssistantSettings(page, { assistant: full });
+    await page.goto(baseURL + "/agents/home/settings");
+    const nav = page.getByRole("navigation", { name: "Settings sections" });
+    await expect(nav.locator('a[aria-current="location"]')).toHaveText("Profile");
+    await scroller(page).evaluate((el) => (el.scrollTop = el.scrollHeight));
+    const current = nav.locator('a[aria-current="location"]');
+    await expect(current).toHaveText("Telegram");
+    await expect(current).toHaveCount(1);
+  });
+
   test("clicking a chip activates it at once and keeps it in the chip row", async ({
     page,
   }) => {
@@ -192,6 +205,18 @@ test.describe("agent settings on phones", () => {
     await bar(page).getByRole("button", { name: "Save agent" }).click();
     await expect.poll(() => state.updates.at(-1)?.name).toBe("Home 2");
     await expect(bar(page)).toHaveCount(0);
+  });
+
+  test("a failed save shows its error in the save bar", async ({ page }) => {
+    await setupAssistantSettings(page, { saveStatus: 409 });
+    await page.goto(baseURL + "/agents/home/settings");
+    await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
+    await scroller(page).evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await bar(page).getByRole("button", { name: "Save agent" }).click();
+    const alert = bar(page).getByRole("alert");
+    await expect(alert).toContainText("Revision conflict");
+    await expect(alert).toBeInViewport();
+    await expect(bar(page).getByRole("button", { name: "Save agent" })).toBeEnabled();
   });
 
   test("the save bar mirrors a running save", async ({ page }) => {

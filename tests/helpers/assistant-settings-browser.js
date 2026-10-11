@@ -52,6 +52,11 @@ export async function setupAssistantSettings(page, options = {}) {
       const body = route.request().postDataJSON();
       state.updates.push(body);
       if (options.saveDelay) await new Promise((r) => setTimeout(r, options.saveDelay));
+      if (options.saveStatus)
+        return route.fulfill({
+          status: options.saveStatus,
+          json: { error: options.saveError || "Revision conflict" },
+        });
       if (options.applyUpdates) {
         const { revision: _revision, confirmInstructions: _confirm, ...fields } = body;
         state.assistants[0] = {
