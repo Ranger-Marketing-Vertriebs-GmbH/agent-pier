@@ -30,6 +30,7 @@ export const assistantServiceNames = [
   "assistantUpdates",
   "assistantProviderSynchronization",
   "assistantWebTools",
+  "assistantMcpChanges",
 ];
 
 /**

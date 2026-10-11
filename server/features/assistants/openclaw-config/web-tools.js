@@ -116,13 +116,15 @@ export function webToolsSignature({ profiles, webTools }) {
 
 /**
  * What the supervisor keeps about a Gateway start: the availability live applies
- * grant against, the runtime's search plugins and the signature of the compiled
- * sections. It never holds the search key.
+ * grant against, the runtime's search plugins, the tool names the start appended to
+ * the global `tools.allow` (live MCP applies rewrite that list) and the signature of
+ * the compiled sections. It never holds the search key.
  */
 export function webToolsSnapshot({ profiles, webTools }) {
   return {
     availability: webToolsAvailability(webTools),
     searchPlugins: webTools?.searchPlugins || {},
+    tools: webToolsSections({ profiles, webTools, port: 0 }).tools,
     signature: webToolsSignature({ profiles, webTools }),
   };
 }

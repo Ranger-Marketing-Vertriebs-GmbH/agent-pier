@@ -111,7 +111,7 @@ export class AssistantService {
             teamSettings: teamData.settings,
           }
         : {}),
-      assistants: this.store.listAssistants(),
+      assistants: this.store.listAssistants().map((a) => this.withMcp(a)),
       conversations: this.store
         .listConversations()
         .map((c) =>
@@ -138,13 +138,22 @@ export class AssistantService {
       return record;
     });
   }
+  /** The profile with its bound MCP server ids, for agents the owner binds. */
+  withMcp(profile) {
+    return this.mcp ? this.mcp.decorate(profile) : profile;
+  }
   /**
    * `confirmed` is the owner's consent to restart the Gateway when the change needs
-   * global web tool sections the running Gateway was not started with.
+   * global web tool sections the running Gateway was not started with. `mcpServers`
+   * (server ids) replaces the agent's MCP bindings; adding a stdio server needs
+   * `confirmStdio: true`.
    */
-  async update(id, patch, revision, { confirmed = false } = {}) {
+  async update(id, input, revision, { confirmed = false } = {}) {
+    const { mcpServers, confirmStdio, ...patch } = input || {};
+    const binds = mcpServers !== undefined;
     const restart = await this.admit(async () => {
       validateDefinition(patch, true);
+      if (binds && !this.mcp) throw assistantProblem("invalid");
       const current = this.store.getAssistant(id);
       if (current.revision !== revision) throw assistantProblem("conflict", 409);
       const member = this.teams?.store.find(id);
@@ -165,6 +174,8 @@ export class AssistantService {
         const lease = await this.models.resolve(patch.model);
         lease.release();
       }
+      // Refuses ineligible agents and unconfirmed stdio servers before any change.
+      if (binds) this.mcp.checkBindings(current, mcpServers, confirmStdio);
       // Without the owner's confirmation nothing changes, not even reminders.
       const restart =
         !!patch.capabilities &&
@@ -178,17 +189,27 @@ export class AssistantService {
       }
       if (disableReminders) await this.reminders?.disable(id);
       const record = this.store.updateAssistant(id, patch, revision);
+      if (binds) {
+        this.mcp.setBindings(id, mcpServers);
+        // Patches the Gateway's MCP sections and re-applies agents whose globs changed.
+        await this.mcp.apply();
+      }
       if (patch.capabilities && this.runtime.client?.ready) await this.config.apply(id);
       this.changed();
       return { record };
     });
-    if (!restart.restart) return restart.record;
+    if (!restart.restart) return this.withMcp(restart.record);
     // Maintenance drains the admission lock, so the restart runs outside admit() and
     // the decision above may be stale by now. A save that slipped in between fails
     // the revision check in updateAssistant after the restart, which is harmless:
     // the Gateway then simply runs with the current state.
+    // The restarted Gateway compiles the new bindings at its start.
     const record = await this.webTools.restart(
-      () => this.store.updateAssistant(id, patch, revision),
+      () => {
+        const saved = this.store.updateAssistant(id, patch, revision);
+        if (binds) this.mcp.setBindings(id, mcpServers);
+        return saved;
+      },
       {
         beforeChange: restart.disableReminders
           ? () => this.reminders?.disable(id)
@@ -196,7 +217,7 @@ export class AssistantService {
       },
     );
     if (this.runtime.client?.ready) await this.config.apply(id);
-    return record;
+    return this.withMcp(record);
   }
   admit(operation) {
     return this.serialize("admission", () => {

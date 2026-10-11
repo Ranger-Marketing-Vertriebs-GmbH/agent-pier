@@ -12,4 +12,8 @@ export const mcpServers = Object.freeze({
   invalidRequest: "Invalid request for MCP servers.",
   notFound: "MCP server not found.",
   conflict: "The MCP server changed in the meantime. Reload and try again.",
+  stdioConfirmationRequired:
+    "A stdio server runs a command with your rights and without a sandbox. Please confirm.",
+  agentNotEligible:
+    "MCP servers cannot be assigned to this agent: temporary team members receive them through the team approval, archived agents not at all.",
 });

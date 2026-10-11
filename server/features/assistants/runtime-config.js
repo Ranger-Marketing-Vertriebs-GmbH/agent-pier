@@ -20,6 +20,18 @@ export const teamTools = [
   "agentpier_team_stop",
 ];
 
+/**
+ * The global `tools.allow` of a native team Gateway before applyWebTools and applyMcp
+ * append their tools. Live MCP applies start from the same list.
+ */
+export const nativeTools = [
+  ...teamTools,
+  ...memoryTools,
+  "agentpier_reminder",
+  "agentpier_routine",
+  "agentpier_workspace",
+];
+
 function freshDefaults(paths) {
   const hardened = hardenedDefaults();
   return {
@@ -123,13 +135,7 @@ export function compileOpenClawConfig({
         autonomous: { mode: "off" },
       },
     };
-    config.tools.allow = [
-      ...teamTools,
-      ...memoryTools,
-      "agentpier_reminder",
-      "agentpier_routine",
-      "agentpier_workspace",
-    ];
+    config.tools.allow = [...nativeTools];
     config.tools.fs = { workspaceOnly: true };
     config.cron = {
       enabled: true,

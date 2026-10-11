@@ -57,13 +57,29 @@ test("update sets, keeps and removes headers", () => {
   assert.deepEqual(s.secrets(id).headers, { B: "2", C: "3" });
 });
 
-test("names are validated and unique", () => {
+test("names are validated and unique regardless of case", () => {
   const s = store();
   for (const name of ["a.b", "a".repeat(31), "1abc", ""])
     assert.throws(() => s.create(http({ name })), { status: 400 });
-  s.create(http());
+  const { id } = s.create(http());
   assert.throws(() => s.create(http()), { status: 409 });
-  assert.doesNotThrow(() => s.create(http({ name: "Docs" })));
+  assert.throws(() => s.create(http({ name: "Docs" })), { status: 409 });
+  const other = s.create(http({ name: "other" }));
+  assert.throws(() => s.update(other.id, { revision: 1, name: "DOCS" }), {
+    status: 409,
+  });
+  // Renaming a server to another case of its own name is allowed.
+  assert.equal(s.update(id, { revision: 1, name: "Docs" }).name, "Docs");
+});
+
+test("public servers show only the URL's origin and path", () => {
+  const s = store();
+  const full = "https://example.com:8443/mcp/v1?token=query-secret";
+  const { id } = s.create(http({ url: full }));
+  assert.equal(s.get(id).url, "https://example.com:8443/mcp/v1");
+  assert.doesNotMatch(JSON.stringify(s.list()), /query-secret/);
+  // The compiler still reads the full URL.
+  assert.equal(s.definitions()[0].url, full);
 });
 
 test("URLs with credentials, fragments or other schemes are rejected", () => {

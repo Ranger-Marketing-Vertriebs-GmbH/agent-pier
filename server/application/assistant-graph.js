@@ -27,6 +27,7 @@ import { AssistantWorkflows } from "../features/assistants/assistant-workflows.j
 import { RuntimeUpdates } from "../features/assistants/runtime-updates.js";
 import { AssistantProviderSynchronization } from "../features/assistants/assistant-provider-synchronization.js";
 import { WebToolsChanges } from "../features/assistants/web-tools-changes.js";
+import { McpChanges } from "../features/assistants/mcp-changes.js";
 import {
   expectWiring,
   requireReferences,
@@ -102,6 +103,7 @@ export function constructAssistantGraph(host, created = {}) {
       "workflows",
       "providerSynchronization",
       "webTools",
+      "mcp",
     ],
   ));
   // Initial state, not a reference: an interrupted update or maintenance persists.
@@ -180,11 +182,16 @@ export function constructAssistantGraph(host, created = {}) {
     webSearch: assistantWebSearch,
     synchronization: assistantProviderSynchronization,
   });
+  const assistantMcpChanges = new McpChanges({
+    assistants,
+    servers: assistantMcpServers,
+  });
   Object.assign(scope, {
     assistantWorkflows,
     assistantUpdates,
     assistantProviderSynchronization,
     assistantWebTools,
+    assistantMcpChanges,
   });
   return {
     ...scope,
@@ -206,6 +213,7 @@ const graphMembers = [
   "assistantWorkflows",
   "assistantProviderSynchronization",
   "assistantWebTools",
+  "assistantMcpChanges",
   "store",
   "configuration",
   "bridge",
@@ -232,6 +240,7 @@ export function connectAssistantServices(graph) {
     assistantWebSearch: webSearch,
     assistantMcpServers: mcpServers,
     assistantWebTools: webToolsChanges,
+    assistantMcpChanges: mcpChanges,
     store,
     configuration,
     bridge,
@@ -244,6 +253,7 @@ export function connectAssistantServices(graph) {
     workflows,
     providerSynchronization: synchronization,
     webTools: webToolsChanges,
+    mcp: mcpChanges,
   });
   wire(configuration, "configuration", {
     teamReady: () => bridge.status().ready,
