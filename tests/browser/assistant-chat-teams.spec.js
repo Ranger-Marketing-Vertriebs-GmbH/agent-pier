@@ -204,3 +204,46 @@ test.describe("member chat", () => {
     await expect(strip.getByRole("button")).toHaveCount(0);
   });
 });
+
+test.describe("team cards", () => {
+  test("running members are whole-row links; proposals use full-width buttons", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await chatFixture(page, {
+      ...memberSetup(),
+      teams: [
+        runningTeam(),
+        runningTeam({
+          id: "proposal",
+          objective: "Plan a second launch",
+          phase: "awaiting_approval",
+          memberIds: [],
+          members: [{ name: "Reviewer", role: "Review", assignment: "Check results" }],
+        }),
+      ],
+    });
+    await page.goto(chat);
+    const proposal = page.locator(".assistant-team-card.awaiting");
+    await expect(proposal).toHaveAttribute("open", "");
+    await expect(proposal).toContainText("Reviewer · Review");
+    const [approve, decline] = await Promise.all([
+      proposal.getByRole("button", { name: "Approve team", exact: true }).boundingBox(),
+      proposal.getByRole("button", { name: "Decline team", exact: true }).boundingBox(),
+    ]);
+    expect(Math.abs(approve.width - decline.width)).toBeLessThanOrEqual(1);
+    expect(approve.height).toBe(40);
+    const running = page
+      .locator(".assistant-team-card")
+      .filter({ hasText: "Prepare the website relaunch" });
+    await expect(running.locator("summary")).toContainText("Working · 1 member");
+    await running.locator("summary").click();
+    const row = running.getByRole("button", { name: /^Research lead/ });
+    await expect(row).toContainText("Compare the three biggest vendors");
+    await expect(
+      running.getByRole("button", { name: "Stop team", exact: true }),
+    ).toBeVisible();
+    await row.click();
+    await expect(page).toHaveURL(/\/agents\/member-0\/chats\/member-chat$/);
+  });
+});

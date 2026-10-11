@@ -394,13 +394,14 @@ for (const [label, use] of [
     }) => {
       await setup(page);
       await page.goto(baseURL + "/agents/home/chats/parent-chat");
-      const line = page.locator(".mcp-team-servers");
+      const card = page.locator(".assistant-team-card.awaiting");
+      const line = card.locator(".assistant-team-proposal li .mcp-team-servers");
       await expect(line).toContainText("docs, local (stdio, local command)");
-      await expect(page.locator(".mcp-team-warning")).toHaveText(
+      await expect(card.locator(".mcp-team-warning")).toHaveText(
         "A listed stdio server runs a local command with your user rights, without a sandbox.",
       );
       await expect(
-        page.getByRole("button", { name: "Approve team" }).first(),
+        card.getByRole("button", { name: "Approve team", exact: true }),
       ).toBeEnabled();
       if (label === "phone") await fits(page);
     });
@@ -408,15 +409,19 @@ for (const [label, use] of [
     test("an unreadable server list blocks the team approval", async ({ page }) => {
       await setup(page, { serversUnavailable: true });
       await page.goto(baseURL + "/agents/home/chats/parent-chat");
+      const card = page.locator(".assistant-team-card.awaiting");
       await expect(
-        page.getByRole("alert").filter({ hasText: "MCP server list" }),
+        card.getByRole("alert").filter({ hasText: "MCP server list" }),
       ).toHaveText(
         "The MCP server list cannot be read right now. The team cannot be approved until it can.",
       );
-      await expect(page.locator(".mcp-team-servers")).toHaveCount(0);
+      await expect(card.locator(".mcp-team-servers")).toHaveCount(0);
       await expect(
-        page.getByRole("button", { name: "Approve team" }).first(),
+        card.getByRole("button", { name: "Approve team", exact: true }),
       ).toBeDisabled();
+      await expect(
+        card.getByRole("button", { name: "Decline team", exact: true }),
+      ).toBeEnabled();
     });
   });
 }
