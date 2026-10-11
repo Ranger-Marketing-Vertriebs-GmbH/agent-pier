@@ -1,5 +1,5 @@
 import React from "react";
-export default function Icon({ name, size = 18, ...props }) {
+export default function Icon({ name, size = 18, fill = false, ...props }) {
   const paths = {
     upload: "M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6",
     history: "M12 8v5l4 2M3 12a9 9 0 1 0 3-6M3 3v6h6",
@@ -35,7 +35,7 @@ export default function Icon({ name, size = 18, ...props }) {
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
+      fill={fill ? "currentColor" : "none"}
       stroke="currentColor"
       strokeWidth="1.6"
       strokeLinecap="round"
