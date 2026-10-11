@@ -46,15 +46,36 @@ test("an unchanged value sends no patch", async () => {
   assert.equal(gateway.calls.length, 1);
 });
 
+// OpenClaw 2026.9.8 answers a stale base hash with the generic INVALID_REQUEST
+// ("config changed since last load"), so the hash is re-read to tell it apart.
 test("a stale base hash becomes a conflict", async () => {
-  const stale = Object.assign(Error("stale"), { code: "CONFLICT", answered: true });
+  const stale = Object.assign(Error("stale"), {
+    code: "INVALID_REQUEST",
+    answered: true,
+  });
+  let reads = 0;
   const gateway = client({
-    "config.get": { hash: "h1", config: {} },
+    "config.get": () => ({ hash: reads++ ? "h2" : "h1", config: {} }),
     "config.patch": stale,
   });
   await assert.rejects(
     patchConfig(gateway, () => ({ patch: { a: 1 } })),
     { status: 409 },
+  );
+});
+
+test("an invalid patch on an unchanged configuration is not a conflict", async () => {
+  const invalid = Object.assign(Error("bad"), {
+    code: "INVALID_REQUEST",
+    answered: true,
+  });
+  const gateway = client({
+    "config.get": { hash: "h1", config: {} },
+    "config.patch": invalid,
+  });
+  await assert.rejects(
+    patchConfig(gateway, () => ({ patch: { a: 1 } })),
+    invalid,
   );
 });
 

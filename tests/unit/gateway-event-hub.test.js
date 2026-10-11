@@ -18,15 +18,22 @@ function fakeClient(methods = ["config.get"]) {
   };
 }
 
-test("events are dispatched by name and session events are ignored", () => {
+test("events are dispatched by name, session-scoped ones included, chat excluded", () => {
   const hub = new GatewayEventHub();
   const seen = [];
   hub.on("exec.approval.requested", (payload) => seen.push(payload.id));
+  hub.on("chat", (payload) => seen.push(`chat:${payload.sessionKey}`));
   const client = fakeClient();
   hub.bind(client);
   client.emit({ event: "exec.approval.requested", payload: { id: "e1" } });
+  // A live exec approval names its session; it must still reach the hub.
+  client.emit({
+    event: "exec.approval.requested",
+    payload: { id: "e2", request: { sessionKey: "s" }, sessionKey: "s" },
+  });
+  // Chat frames belong to the conversation path in the assistant service.
   client.emit({ event: "chat", payload: { sessionKey: "s" } });
-  assert.deepEqual(seen, ["e1"]);
+  assert.deepEqual(seen, ["e1", "e2"]);
 });
 
 test("every ready runs each resync exactly once and rebinding drops the old client", async () => {

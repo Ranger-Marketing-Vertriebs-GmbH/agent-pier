@@ -1,4 +1,6 @@
-export function gatewayHandshake(token) {
+// `caps` declares optional client capabilities; OpenClaw routes exec approvals only
+// to clients declaring "exec-approvals" (or "approvals").
+export function gatewayHandshake(token, caps = []) {
   return {
     minProtocol: 4,
     maxProtocol: 4,
@@ -10,7 +12,7 @@ export function gatewayHandshake(token) {
     },
     role: "operator",
     scopes: ["operator.admin", "operator.read", "operator.write"],
-    caps: [],
+    caps,
     auth: { token },
   };
 }
