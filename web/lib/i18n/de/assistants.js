@@ -465,6 +465,7 @@ export const assistantCopy = {
   revisions: (saved, applied) =>
     `Gespeicherte Revision: ${saved} · Angewendete Revision: ${applied}`,
   pendingConfig: "Gespeicherte Änderungen gelten ab der nächsten Nachricht.",
+  pendingConfigShort: "Gilt ab der nächsten Nachricht.",
   message: "Nachricht",
   send: "Senden",
   stop: "Antwort stoppen",

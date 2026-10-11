@@ -8,6 +8,7 @@ import AssistantMemberSettings from "./AssistantMemberSettings.jsx";
 import TelegramSettings from "./TelegramSettings.jsx";
 import React, { useState } from "react";
 import SettingsSectionNav from "./SettingsSectionNav.jsx";
+import AssistantSaveBar from "./AssistantSaveBar.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantApi } from "./assistant-api.js";
@@ -180,7 +181,7 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
             {copy.pendingConfig}
           </p>
         )}
-        <div className="assistant-actions">
+        <div className="assistant-actions assistant-profile-actions">
           <button className="button primary" disabled={busy}>
             {busy ? copy.loading : copy.save}
           </button>
@@ -226,6 +227,14 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
         <div id="agent-telegram" className="assistant-anchor">
           <TelegramSettings assistantId={assistant.id} navigate={navigate} />
         </div>
+      )}
+      {(form.dirty || !assistant) && (
+        <AssistantSaveBar
+          form="agent-profile"
+          busy={busy}
+          creating={!assistant}
+          onCancel={onCancel}
+        />
       )}
     </>
   );
