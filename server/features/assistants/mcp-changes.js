@@ -51,8 +51,18 @@ function mergeDiff(current, target) {
  * state compiles the store at the next start.
  */
 export class McpChanges {
-  constructor({ assistants, servers, now = Date.now, warn = console.warn }) {
-    Object.assign(this, { assistants, servers, now, warn });
+  constructor({
+    assistants,
+    servers,
+    redirectUrl = () => null,
+    oauth = null,
+    now = Date.now,
+    warn = console.warn,
+  }) {
+    // `redirectUrl()`: the OAuth redirect URL OAuth servers compile with, read at
+    // each compile so a changed AgentPier origin hot-applies. `oauth`
+    // (McpOAuthLogins) logs a server out before a change would orphan its login.
+    Object.assign(this, { assistants, servers, redirectUrl, oauth, now, warn });
     // Whether the running Gateway may lag behind the store. Set by every apply that
     // could not finish; the team scheduler's tick and each Gateway start retry it.
     this.pending = false;
@@ -147,16 +157,41 @@ export class McpChanges {
       // Editing what a stdio server runs needs the same confirmation as adding one.
       if (this.changesStdio(this.servers.get(id), input))
         requireStdioConfirmation(confirmStdio === true);
+      // OpenClaw keys a login by name and URL: log out under the old ones first.
+      const oauth = this.oauth
+        ? await this.oauth.beforeUpdate(id, this.servers.previewUpdate(id, input))
+        : {};
       const server = this.servers.update(id, input);
-      return { server, pending: await this.applySaved() };
+      return {
+        server,
+        pending: await this.applySaved(),
+        logoutDeferred: !!oauth.deferred,
+      };
     });
   }
   remove(id) {
     return this.assistants.admit(async () => {
+      const oauth = this.oauth ? await this.oauth.beforeRemove(id) : {};
       // The store removes the server's bindings with it.
       this.servers.remove(id);
-      return { pending: await this.applySaved() };
+      return { pending: await this.applySaved(), logoutDeferred: !!oauth.deferred };
     });
+  }
+  /**
+   * Bounded drain of deferred OAuth logouts before a Gateway start compiles: one
+   * pass that stops at the first timeout; whatever remains drains in the
+   * background. Never fails the caller.
+   */
+  async drainLogouts() {
+    try {
+      // A background drain already running (for example after a rollback) covers it.
+      if (!this.oauth || this.oauth.draining || !this.servers.deferredLogouts().length)
+        return;
+      const { remaining } = await this.oauth.drain();
+      if (remaining) this.oauth.scheduleDrain(1000);
+    } catch {
+      // Kept for the background drain.
+    }
   }
   /**
    * Applies a change that is already stored. A failed or impossible live apply is not
@@ -188,7 +223,10 @@ export class McpChanges {
       return false;
     }
     try {
-      const inputs = readMcpInputs(this.servers);
+      // Servers held back by a deferred logout are left out by readMcpInputs; the
+      // logouts drain in the background, outside this lock.
+      if (this.oauth && this.servers.deferredLogouts().length) this.oauth.scheduleDrain();
+      const inputs = readMcpInputs(this.servers, { redirectUrl: this.redirectUrl() });
       if (inputs.unreadable) {
         this.failed({ code: "MCP_STORE_UNREADABLE" });
         return false;

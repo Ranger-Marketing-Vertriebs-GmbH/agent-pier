@@ -46,7 +46,12 @@ overwrite; the guarantee rests on unlinking and on keeping keys out of backups, 
 on the overwrite reaching the storage medium. Update backups written before sealing
 existed (snapshot format 1) hold these credentials in plain text; the same
 revocation deletes them entirely. A later rollback restores history and state but leaves the
-affected credentials absent; the status asks the owner to sign in again. Deepgram
+affected credentials absent; the status asks the owner to sign in again. MCP OAuth
+logins are the exception: a logout keeps the keys, because host backups never hold
+them. AgentPier remembers each cleared MCP login (name, URL, time; at most 500), and a
+rollback queues every one cleared since the snapshot as a deferred logout before the
+Gateway starts again, so a server with that name and URL stays uncompiled until the
+logout went through. Deepgram
 keys live outside the restore boundary. The per-start Gateway TLS key is not part of
 any snapshot; it is generated again on each start. Central accounts and coding
 sessions are outside this restore boundary. Backups must not be attached to
@@ -59,7 +64,9 @@ record, the reminder webhook secret and the host-bound runtime state (`runtime.j
 with 409 while a runtime update or provider change is running; update or maintenance
 state left behind without one (a crash, a failed recovery, a dormant install) skips
 the agent data with a declared omission instead. Live databases are copied
-consistently first. Absolute paths below `assistants/` in `openclaw.json` (and its
+consistently first. MCP OAuth logins (`mcp_oauth_stores`,
+`mcp_oauth_pending_authorizations`) are always left out, like the MCP servers they
+belong to; a restore drops them from older backups too. Absolute paths below `assistants/` in `openclaw.json` (and its
 `.bak*` and `.last-good` copies, sealed like it) and in
 OpenClaw's legacy session index (`state/agents/*/sessions/sessions.json`) are stored
 relative to that folder and point at the restored location after a restore; a path

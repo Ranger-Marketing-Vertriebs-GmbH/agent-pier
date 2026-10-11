@@ -51,6 +51,17 @@ const secretMembers = new Set([
   "refreshToken",
   "botToken",
 ]);
+/**
+ * OpenClaw's MCP OAuth logins (tokens and client registrations, keyed by server name
+ * and URL). Update snapshots seal them like other credentials; host backups leave
+ * them out, because the MCP servers they belong to are not part of a host backup
+ * (see operations/snapshot.js) and a restored instance could only hold them as
+ * orphans with an unknown client registration.
+ */
+export const mcpOAuthTables = new Set([
+  "mcp_oauth_stores",
+  "mcp_oauth_pending_authorizations",
+]);
 export const configPath = "state/openclaw.json";
 // openclaw.json and the copies OpenClaw keeps beside it: its atomic-write temporary,
 // `.bak` … `.bak.4` and `.last-good`. Every copy may hold the same secrets.
@@ -266,9 +277,14 @@ const decode = (value) =>
 
 /**
  * Writes a self-contained copy of an SQLite database. Credential tables are moved
- * into a sealed sidecar; VACUUM INTO guarantees the copy keeps no freed plaintext.
+ * into a sealed sidecar, those in `omit` are only emptied; VACUUM INTO guarantees
+ * the copy keeps no freed plaintext. Returns whether a sidecar was written.
  */
-export async function sealDatabase(source, destination, { key, aad, tmp }) {
+export async function sealDatabase(
+  source,
+  destination,
+  { key, aad, tmp, omit = new Set() },
+) {
   const work = path.join(privateFolder(tmp), `snapshot-${randomUUID()}`);
   await fsp.mkdir(work, { mode: 0o700 });
   try {
@@ -290,6 +306,10 @@ export async function sealDatabase(source, destination, { key, aad, tmp }) {
       if (tables.length) {
         const dump = {};
         for (const table of tables) {
+          if (omit.has(table)) {
+            database.exec(`DELETE FROM ${quote(table)}`);
+            continue;
+          }
           const statement = database.prepare(`SELECT * FROM ${quote(table)}`);
           statement.setReadBigInts(true);
           dump[table] = statement
@@ -299,12 +319,14 @@ export async function sealDatabase(source, destination, { key, aad, tmp }) {
             );
           database.exec(`DELETE FROM ${quote(table)}`);
         }
-        await fsp.writeFile(
-          destination + sealedSuffix,
-          seal(key, aad, JSON.stringify(dump)),
-          { mode: 0o600, flag: "wx" },
-        );
-        sealed = true;
+        if (Object.keys(dump).length) {
+          await fsp.writeFile(
+            destination + sealedSuffix,
+            seal(key, aad, JSON.stringify(dump)),
+            { mode: 0o600, flag: "wx" },
+          );
+          sealed = true;
+        }
       }
       database.prepare("VACUUM INTO ?").run(destination);
     } finally {
@@ -316,8 +338,11 @@ export async function sealDatabase(source, destination, { key, aad, tmp }) {
     await fsp.rm(work, { recursive: true, force: true });
   }
 }
-/** Re-inserts sealed credential rows, or leaves the tables empty without a key. */
-export async function unsealDatabase(file, sidecar, key, aad) {
+/**
+ * Re-inserts sealed credential rows except those of tables in `omit`, or leaves the
+ * tables empty without a key.
+ */
+export async function unsealDatabase(file, sidecar, key, aad, omit = new Set()) {
   if (!key) return false;
   const dump = JSON.parse(unseal(key, aad, await fsp.readFile(sidecar)).toString());
   const database = new DatabaseSync(file);
@@ -326,7 +351,7 @@ export async function unsealDatabase(file, sidecar, key, aad) {
     database.exec("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE");
     open = true;
     for (const [table, rows] of Object.entries(dump))
-      for (const row of rows) {
+      for (const row of omit.has(table) ? [] : rows) {
         const names = Object.keys(row);
         database
           .prepare(

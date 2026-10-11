@@ -16,6 +16,7 @@ import {
   destroyBackupKey,
   isConfigFile,
   isCredentialFile,
+  mcpOAuthTables,
   readBackupKey,
   seal,
   sealConfig,
@@ -34,7 +35,8 @@ import { fileMember, sqliteSnapshot } from "./snapshot.js";
  * or bound to this host's live processes and paths. Credentials never leave in plain
  * text: with credentials (and the feature on) they are sealed under a per-backup key
  * that stays in the live private store (assistants/backup-keys) and is destroyed by
- * every logout or revocation; otherwise they are left out entirely.
+ * every logout or revocation; otherwise they are left out entirely. MCP OAuth logins
+ * are always left out, like the MCP servers they belong to.
  */
 const prefix = "assistants";
 const excludedFolders = new Set([
@@ -194,7 +196,13 @@ export async function captureAssistants({
       const consistent = path.join(work, randomUUID());
       fs.writeFileSync(consistent, sqliteSnapshot(source, work), { mode: 0o600 });
       const copy = path.join(work, randomUUID());
-      const moved = await sealDatabase(consistent, copy, { key, aad, tmp: work });
+      // MCP OAuth logins stay on this host (see mcpOAuthTables).
+      const moved = await sealDatabase(consistent, copy, {
+        key,
+        aad,
+        tmp: work,
+        omit: mcpOAuthTables,
+      });
       add(relative, readFile(copy, limit));
       if (moved && sealing) {
         add(relative + sealedSuffix, readFile(copy + sealedSuffix, limit));
@@ -380,7 +388,9 @@ export async function restoreAssistants({ stage, target, liveDataDir, value }) {
           flag: "wx",
         });
       else withheld = true;
-    } else withheld ||= !(await unsealDatabase(file, sidecar, key, aad));
+    } else
+      // Backups written before MCP OAuth logins were left out may still seal them.
+      withheld ||= !(await unsealDatabase(file, sidecar, key, aad, mcpOAuthTables));
     await fsp.rm(sidecar, { force: true });
   }
   return { withheld };

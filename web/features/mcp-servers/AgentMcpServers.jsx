@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import { mcpOAuthCopy } from "../../lib/i18n/messages/mcp-oauth.js";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
 import { assistantApi } from "../assistants/assistant-api.js";
+import McpOAuthStatus, { oauthStatusOf, usesOAuth } from "./McpOAuthStatus.jsx";
 import StdioConfirmation from "./StdioConfirmation.jsx";
 import { stdioConfirmationRequired } from "./stdio-confirmation.js";
 import "./mcp-servers.css";
@@ -16,6 +18,11 @@ export default function AgentMcpServers({ assistant, refresh, navigate }) {
     [busy, setBusy] = useState(false),
     [confirming, setConfirming] = useState(false);
   const boundKey = bound.join("\n");
+  // Bound OAuth servers show their login; one without it gives agents no tools.
+  const loginShown = (server) => usesOAuth(server) && bound.includes(server.id);
+  const loginMissing = (servers || []).some(
+    (server) => loginShown(server) && oauthStatusOf(server) !== "connected",
+  );
   useEffect(() => {
     setSelected(boundKey ? boundKey.split("\n") : []);
   }, [boundKey]);
@@ -48,6 +55,8 @@ export default function AgentMcpServers({ assistant, refresh, navigate }) {
       setConfirming(false);
       setNotice(saved?.pending ? copy.pendingNotice : copy.agentSaved);
       await refresh();
+      // A new binding compiles the server; its login status may change with it.
+      await assistantApi.mcpServers().then(setServers, () => {});
     } catch (e) {
       if (stdioConfirmationRequired(e)) setConfirming(true);
       else setError(e.message);
@@ -96,10 +105,12 @@ export default function AgentMcpServers({ assistant, refresh, navigate }) {
                   {server.transport === "stdio" && (
                     <span className="mcp-badge mcp-badge-warn">{copy.stdioBadge}</span>
                   )}
+                  {loginShown(server) && <McpOAuthStatus server={server} />}
                 </span>
               </label>
             ))}
           </fieldset>
+          {loginMissing && <p className="mcp-hint">{mcpOAuthCopy.agentLoginHint}</p>}
           {confirming && (
             <StdioConfirmation
               binding

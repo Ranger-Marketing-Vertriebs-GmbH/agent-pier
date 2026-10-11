@@ -147,3 +147,63 @@
   margin: 4px 0 8px;
   color: var(--warning, inherit);
 }
+
+.mcp-oauth-connected {
+  color: var(--success);
+  border-color: var(--success-line);
+}
+.mcp-oauth-login-required,
+.mcp-oauth-logout-pending {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+.mcp-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mcp-advanced summary {
+  cursor: pointer;
+  min-height: 32px;
+  display: list-item;
+}
+.mcp-advanced > label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.mcp-advanced input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.mcp-notice,
+.mcp-oauth-banner {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: 10px;
+  background: var(--accent-faint);
+  overflow-wrap: anywhere;
+}
+.mcp-oauth-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.mcp-oauth-banner p {
+  flex: 1 1 220px;
+  margin: 0;
+}
+.mcp-oauth-banner.success {
+  border-color: var(--success-line);
+  background: var(--success-faint);
+}
+.mcp-item .error {
+  margin: 0;
+  flex: 1 1 100%;
+  overflow-wrap: anywhere;
+}

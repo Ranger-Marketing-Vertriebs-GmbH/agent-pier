@@ -15,4 +15,31 @@ export const mcpServers = {
     "Ein stdio-Server führt einen Befehl mit deinen Rechten und ohne Sandbox aus. Bitte bestätigen.",
   agentNotEligible:
     "Diesem Agenten lassen sich keine MCP-Server zuordnen: Temporäre Teammitglieder erhalten sie über die Teamfreigabe, archivierte Agenten gar nicht.",
+  oauthNotOAuth: "Dieser Server meldet sich nicht mit OAuth an.",
+  oauthNotCompiled:
+    "Der Server ist noch nicht aktiv. Bitte ihn einem Agenten zuordnen und warten, bis die Assistenz läuft.",
+  oauthPlainHttpRemote:
+    "OAuth braucht HTTPS oder den AgentPier-Rechner selbst. Bitte AgentPier über Tailscale (HTTPS) oder direkt auf dem AgentPier-Rechner öffnen.",
+  oauthLoopbackRedirect:
+    "Die Anmeldung kehrt zur lokalen Adresse des AgentPier-Rechners zurück. Bitte AgentPier direkt auf diesem Rechner öffnen oder Tailscale (HTTPS) einrichten.",
+  oauthStateInvalid:
+    "Diese Anmeldung ist abgelaufen, wurde ersetzt oder ist unbekannt. Bitte die Anmeldung neu starten.",
+  oauthNoDynamicRegistration:
+    "Dieser Anbieter unterstützt keine automatische Client-Registrierung. Bitte stattdessen einen Token in den Headern verwenden.",
+  oauthRedirectRejected: (redirect) =>
+    `Der Anbieter hat die Rücksprungadresse ${redirect} abgelehnt.`,
+  oauthSessionMissing:
+    "Die Anmeldesitzung ist nicht mehr gültig. Bitte die Anmeldung neu starten.",
+  oauthCliTimeout:
+    "Die Anmeldung hat nicht rechtzeitig geantwortet. Bitte erneut versuchen.",
+  oauthRuntimeUnavailable: "Die Assistenz-Laufzeit ist nicht verfügbar.",
+  oauthLoginFailed: "Die OAuth-Anmeldung ist fehlgeschlagen. Bitte erneut versuchen.",
+  oauthLogoutFailed:
+    "Die OAuth-Anmeldung des Servers ließ sich nicht entfernen. Bitte erneut versuchen.",
+  oauthLogoutDeferred:
+    "Gespeichert. Die bisherige OAuth-Anmeldung ließ sich gerade nicht entfernen; AgentPier versucht es im Hintergrund weiter. Bis dahin bleibt ein Server mit demselben Namen und derselben Adresse inaktiv.",
+  oauthRateLimited:
+    "Zu viele OAuth-Anmeldungen und -Abmeldungen. Bitte in einer Minute erneut versuchen.",
+  oauthLogoutPending:
+    "Die bisherige Anmeldung wird noch entfernt. Bis dahin ist der Server nicht aktiv.",
 };

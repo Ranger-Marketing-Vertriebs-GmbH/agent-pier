@@ -16,7 +16,14 @@ const WebSearchSettings = lazy(() => import("../assistants/WebSearchSettings.jsx
 const AssistantModelAccounts = lazy(
   () => import("../assistants/AssistantModelAccounts.jsx"),
 );
-export default function AccountsPage({ state, setModal, act, refresh, onNavigate }) {
+export default function AccountsPage({
+  state,
+  setModal,
+  act,
+  refresh,
+  onNavigate,
+  mcpOAuth,
+}) {
   const { enabled: agentsEnabled } = useAssistantFeature();
   return (
     <div className="page accounts-page">
@@ -53,7 +60,7 @@ export default function AccountsPage({ state, setModal, act, refresh, onNavigate
           <AssistantModelAccounts navigate={onNavigate} />
           <SpeechSettings />
           <WebSearchSettings connections={state.providerConnections || []} />
-          <McpServersSettings />
+          <McpServersSettings oauthResult={mcpOAuth} />
         </Suspense>
       )}
       <h2>{connectionCopy.native}</h2>

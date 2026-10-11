@@ -1,7 +1,15 @@
 import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { STDIO_CONFIRMATION_REQUIRED } from "../../features/assistants/mcp-changes.js";
+import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
+import { mcpOAuthRoutes } from "./mcp-oauth.js";
+
+/** A saved change whose OAuth logout is retried later (see McpOAuthLogins.forget). */
+function deferredWarning() {
+  const message = serverMessages.mcpServers.oauthLogoutDeferred;
+  return { code: "oauth-logout-deferred", error: message, ...messageIdentity(message) };
+}
 
 const record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 
@@ -23,13 +31,19 @@ export function replyStdioConfirmation(response, error) {
  * The owner's central MCP servers. Responses carry header and environment names
  * only and URLs without query or fragment; values never leave the store.
  */
-export function mcpServerRoutes({ assistantMcpChanges: changes }) {
+export function mcpServerRoutes(services) {
+  const { assistantMcpChanges: changes, assistantMcpOAuth: oauth } = services;
   const router = Router();
   router.use("/mcp-servers", (_req, res, next) => {
     res.set("Cache-Control", "no-store");
     next();
   });
-  router.get("/mcp-servers", (_req, res) => res.json(changes.list()));
+  // OAuth servers carry their login status (see McpOAuthLogins.decorate).
+  router.get("/mcp-servers", async (_req, res) => {
+    const list = changes.list();
+    res.json(oauth ? await oauth.decorate(list) : list);
+  });
+  router.use(mcpOAuthRoutes(services));
   router.post("/mcp-servers", async (req, res) => {
     const body = req.body;
     const { confirmStdio, ...input } = record(body) ? body : {};
@@ -48,20 +62,28 @@ export function mcpServerRoutes({ assistantMcpChanges: changes }) {
     const body = req.body;
     const { confirmStdio, ...input } = record(body) ? body : {};
     try {
-      const { server, pending } = await changes.update(
+      const { server, pending, logoutDeferred } = await changes.update(
         req.params.id,
         record(body) ? input : body,
         { confirmStdio: confirmStdio === true },
       );
-      res.json(pending ? { ...server, pending: true } : server);
+      res.json({
+        ...server,
+        ...(pending ? { pending: true } : {}),
+        ...(logoutDeferred ? { oauthWarning: deferredWarning() } : {}),
+      });
     } catch (error) {
       if (replyStdioConfirmation(res, error)) return;
       throw error;
     }
   });
   router.delete("/mcp-servers/:id", async (req, res) => {
-    const { pending } = await changes.remove(req.params.id);
-    if (pending) res.json({ pending: true });
+    const { pending, logoutDeferred } = await changes.remove(req.params.id);
+    if (pending || logoutDeferred)
+      res.json({
+        ...(pending ? { pending: true } : {}),
+        ...(logoutDeferred ? { oauthWarning: deferredWarning() } : {}),
+      });
     else res.status(204).end();
   });
   router.use("/mcp-servers", (error, _req, _res, next) =>

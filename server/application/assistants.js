@@ -31,6 +31,7 @@ export const assistantServiceNames = [
   "assistantProviderSynchronization",
   "assistantWebTools",
   "assistantMcpChanges",
+  "assistantMcpOAuth",
 ];
 
 /**
@@ -102,14 +103,20 @@ export function createAssistantFeature(services) {
     console.error(`AgentPier could not start assistants: ${error}`);
   };
   const release = async () => {
-    const { assistants, assistantChannels, assistantWebSearch, assistantMcpServers } =
-      services;
+    const {
+      assistants,
+      assistantChannels,
+      assistantWebSearch,
+      assistantMcpServers,
+      assistantMcpOAuth,
+    } = services;
     recovered = false;
     for (const name of assistantServiceNames) services[name] = null;
     await assistantChannels?.close().catch(() => {});
     try {
       assistantWebSearch?.close();
     } catch {}
+    assistantMcpOAuth?.close();
     try {
       assistantMcpServers?.close();
     } catch {}

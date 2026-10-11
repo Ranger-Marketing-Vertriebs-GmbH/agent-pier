@@ -4,25 +4,37 @@ import Segment from "../../components/Segment.jsx";
 import SidePanel from "../../components/SidePanel.jsx";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
 import { assistantApi } from "../assistants/assistant-api.js";
+import McpAuthFields, { OAuthSwitchConfirmation } from "./McpAuthFields.jsx";
 import McpSecretRows from "./McpSecretRows.jsx";
 import StdioConfirmation from "./StdioConfirmation.jsx";
-import { draftFrom, requestBody } from "./mcp-server-draft.js";
+import { draftFrom, dropsStoredHeaders, requestBody } from "./mcp-server-draft.js";
 import { stdioConfirmationRequired } from "./stdio-confirmation.js";
 
-/** Adds a server (`server` is null) or edits one; stdio changes are confirmed first. */
+/**
+ * Adds a server (`server` is null) or edits one. Stdio changes, and a switch to
+ * OAuth that deletes stored headers, are confirmed first.
+ */
 export default function McpServerForm({ server, onSaved, close }) {
   const formId = useId();
   const [draft, setDraft] = useState(() => draftFrom(server));
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [confirming, setConfirming] = useState(false);
+    [confirming, setConfirming] = useState(false),
+    [switching, setSwitching] = useState(false);
   const set = (key) => (value) => {
     setConfirming(false);
+    setSwitching(false);
     setDraft((current) => ({ ...current, [key]: value }));
   };
   const text = (key) => (event) => set(key)(event.target.value);
   const stdio = draft.transport === "stdio";
-  async function submit(confirmStdio = false) {
+  const oauth = !stdio && draft.auth === "oauth";
+  async function submit(confirmStdio = false, confirmSwitch = false) {
+    if (dropsStoredHeaders(draft, server) && !confirmSwitch) {
+      setSwitching(true);
+      return;
+    }
+    setSwitching(false);
     setBusy(true);
     setError("");
     try {
@@ -148,15 +160,26 @@ export default function McpServerForm({ server, onSaved, close }) {
               />
               {server && <small className="mcp-hint">{copy.urlHint}</small>}
             </label>
-            <McpSecretRows
-              label={copy.headersLabel}
-              rows={draft.headers}
-              onChange={set("headers")}
-            />
+            <McpAuthFields draft={draft} server={server} set={set} />
+            {!oauth && (
+              <McpSecretRows
+                label={copy.headersLabel}
+                rows={draft.headers}
+                onChange={set("headers")}
+              />
+            )}
           </>
         )}
         <p className="mcp-hint">{copy.secretNote}</p>
         <p className="mcp-hint">{copy.secretPlacement}</p>
+        {switching && (
+          <OAuthSwitchConfirmation
+            names={server.headerNames}
+            busy={busy}
+            onConfirm={() => submit(false, true)}
+            onCancel={() => setSwitching(false)}
+          />
+        )}
         {confirming && (
           <StdioConfirmation
             busy={busy}

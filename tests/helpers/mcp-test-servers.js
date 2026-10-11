@@ -15,7 +15,7 @@ import { processIdentity } from "../../server/lib/process-identity.js";
 /** Run as `<absolute node> <this file> <record file>` for the stdio server. */
 export const stdioMcpScript = fileURLToPath(import.meta.url);
 
-function echoServer(name, record) {
+export function echoServer(name, record) {
   const server = new McpServer({ name, version: "1.0.0" });
   server.registerTool(
     "echo",

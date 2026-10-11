@@ -40,6 +40,7 @@ export class RuntimeUpdates {
     isBlocked = () => false,
     freeSpace = availableBytes,
     manifest = runtimeManifest,
+    onRolledBack = () => {},
   }) {
     Object.assign(this, {
       dataDir,
@@ -50,6 +51,7 @@ export class RuntimeUpdates {
       isBlocked,
       freeSpace,
       manifest,
+      onRolledBack,
     });
     this.paths = runtimePaths(dataDir);
     this.fence = ledgerFence(this.paths.root);
@@ -253,6 +255,8 @@ export class RuntimeUpdates {
         // A credential revoked after the backup stays revoked: its key is gone.
         if (restored.credentialsWithheld)
           diagnostic = "UPDATE_ROLLED_BACK_LOGIN_REQUIRED";
+        // Before the Gateway starts on the restored state (MCP OAuth logouts).
+        await this.onRolledBack({ createdAt: restored.createdAt });
       }
       this.fence.open();
       durablePrivate(this.selection, journal.previous);
