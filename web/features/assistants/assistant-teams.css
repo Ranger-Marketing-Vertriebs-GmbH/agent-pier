@@ -15,6 +15,7 @@
 }
 .assistant-approval-strip:disabled {
   cursor: default;
+  opacity: 0.6;
 }
 .assistant-approval-ring {
   flex: none;
