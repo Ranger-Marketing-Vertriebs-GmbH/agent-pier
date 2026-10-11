@@ -55,7 +55,11 @@ function Application() {
     (sidebarCollapsed ? expandButton : collapseButton).current?.focus();
   }, [sidebarCollapsed]);
   useEffect(() => {
-    if (!mobileNav) return;
+    // Backdrop, navigation and Escape all close the drawer; none may leave a stale opener.
+    if (!mobileNav) {
+      navOpener.current = null;
+      return;
+    }
     const closeOnEscape = (event) => {
       if (event.key !== "Escape") return;
       setMobileNav(false);

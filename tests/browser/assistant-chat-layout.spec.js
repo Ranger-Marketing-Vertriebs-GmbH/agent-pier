@@ -51,6 +51,32 @@ test.describe("agent chat header", () => {
     await expect(menu).toBeFocused();
   });
 
+  test("closing the drawer by the backdrop forgets the menu as focus target", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await chatFixture(page);
+    await page.goto(chat);
+    const menu = page
+      .locator(".assistant-header")
+      .getByRole("button", { name: "Open navigation", exact: true });
+    await menu.click();
+    await expect(page.locator(".sidebar")).toHaveClass(/\bopen\b/);
+    await page.mouse.click(385, 420);
+    await expect(page.locator(".sidebar")).not.toHaveClass(/\bopen\b/);
+    const field = page.locator(".assistant-composer textarea");
+    await field.focus();
+    // Another opener that does not record itself (the app header's own button).
+    await page.evaluate(() =>
+      document.querySelector(".mobile-header .icon-button").click(),
+    );
+    await expect(page.locator(".sidebar")).toHaveClass(/\bopen\b/);
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".sidebar")).not.toHaveClass(/\bopen\b/);
+    await expect(menu).not.toBeFocused();
+    await expect(field).toBeFocused();
+  });
+
   test("settings without a connection still reach the drawer and the agent list", async ({
     page,
   }) => {
