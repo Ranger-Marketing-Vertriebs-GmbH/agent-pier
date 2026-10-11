@@ -191,6 +191,8 @@ export function constructAssistantGraph(host, created = {}) {
     runtime: assistantRuntime,
     admit: (operation) => assistants.admit(operation),
     redirectUrl: () => oauthRedirect(host.effectiveConfig?.() || config),
+    // Called under admission by a login start; assistantMcpChanges is built below.
+    reapply: () => assistantMcpChanges.apply(),
     remoteUrl: () => (host.effectiveConfig?.() || config).remoteUrl,
   });
   const assistantMcpChanges = new McpChanges({

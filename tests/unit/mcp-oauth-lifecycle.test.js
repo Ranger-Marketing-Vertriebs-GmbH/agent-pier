@@ -145,6 +145,48 @@ test("deferred logouts drain at the next apply and before a login reuses the nam
   assert.deepEqual(f.servers.deferredLogouts(), []);
 });
 
+test("a server with an undrained logout for its name and URL is not compiled", async (t) => {
+  let broken = true;
+  const f = setup(t, {
+    logout: () => {
+      if (broken) throw new McpCliError("cli-timeout", "x");
+    },
+    status: () => ({ docs: { state: "authorized", hasTokens: true } }),
+  });
+  await f.changes.remove(f.docs.id);
+  const again = f.servers.create({
+    name: "docs",
+    transport: "http",
+    url: v1,
+    auth: "oauth",
+  });
+  const other = f.servers.create({
+    name: "other",
+    transport: "http",
+    url: "https://o.example/",
+    auth: "oauth",
+  });
+  await f.service.update(f.home.id, { mcpServers: [again.id, other.id] }, 1);
+  // Left out like an unbound server; the apply stays pending and retries.
+  assert.deepEqual(f.runtime.mcp.servers, ["other"]);
+  assert.deepEqual(Object.keys(f.gateway.config.mcp.servers), ["other"]);
+  assert.equal(f.changes.pending, true);
+  const listed = (await f.oauth.decorate(f.changes.list())).find(
+    (s) => s.id === again.id,
+  );
+  assert.equal(listed.oauthStatus, "login-required");
+  assert.equal(listed.oauthReason.code, "logout-pending");
+  assert.equal(listed.oauthReason.messageKey, "mcpServers.oauthLogoutPending");
+  // Once the logout goes through, the next apply compiles it again.
+  broken = false;
+  await f.changes.apply();
+  assert.deepEqual(f.servers.deferredLogouts(), []);
+  assert.deepEqual(f.runtime.mcp.servers, ["docs", "other"]);
+  assert.equal(f.changes.pending, false);
+  const after = (await f.oauth.decorate(f.changes.list())).find((s) => s.id === again.id);
+  assert.equal(after.oauthReason, undefined);
+});
+
 test("a login start and a rename are serialized by the admission lock", async (t) => {
   const f = setup(t);
   // Start first: it registers under the old name, then the rename logs it out.

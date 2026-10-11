@@ -88,7 +88,18 @@ export function readMcpInputs(store, { redirectUrl = null } = {}) {
   };
   if (!store) return inputs;
   try {
-    inputs.servers = store.definitions();
+    // An OAuth server whose old login still awaits its logout is left out, like an
+    // unbound one, until that logout went through (McpOAuthLogins.drain).
+    const deferred = store.deferredLogouts?.() || [];
+    inputs.servers = store
+      .definitions()
+      .filter(
+        (s) =>
+          !(
+            s.auth === "oauth" &&
+            deferred.some((t) => t.name === s.name && t.url === s.url)
+          ),
+      );
     inputs.bindings = store.bindingsByTarget("agent");
   } catch {
     return { servers: [], bindings: {}, secrets: {}, unreadable: true, redirectUrl };

@@ -53,6 +53,7 @@ export function oauthFixture(t, script, options = {}) {
     admit: (operation) => f.service.admit(operation),
     redirectUrl: () => currentRedirect,
     remoteUrl: () => options.remoteUrl ?? null,
+    reapply: () => f.changes.apply(),
     now: () => clock,
     warn: (text) => warnings.push(text),
   });
