@@ -11,6 +11,7 @@ export const idleAssistants = {
   assistants: [],
   conversations: [],
   models: [],
+  activity: {},
   runtime: { availability: "disabled", sync: "stale" },
   error: "",
   connected: true,

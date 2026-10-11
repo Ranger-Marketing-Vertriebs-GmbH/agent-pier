@@ -518,4 +518,8 @@ export const assistantCopy = {
     uncertain: "Ausgang unklar",
     cancelled: "Abgebrochen",
   },
+  teamActive: {
+    working: "Team arbeitet",
+    awaiting: "Team wartet auf Freigabe",
+  },
 };
