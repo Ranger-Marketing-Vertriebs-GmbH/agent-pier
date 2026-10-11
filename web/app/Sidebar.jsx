@@ -1,10 +1,5 @@
 import useAssistantFeature from "../features/assistants/useAssistantFeature.js";
-import { assistantCopy } from "../lib/i18n/messages/assistants.js";
-import { artifactCopy } from "../lib/i18n/messages/artifacts.js";
-import LogoutButton from "../features/login/LogoutButton.jsx";
-import { pipelineCopy } from "../lib/i18n/messages/pipelines.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
-import { filesCopy } from "../lib/i18n/messages/files.js";
 import { sidebarCopy as copy } from "../lib/i18n/messages/app.js";
 import React, { lazy, Suspense } from "react";
 import Icon from "../components/Icon.jsx";
@@ -13,6 +8,7 @@ import { names } from "../lib/providers.js";
 const AssistantSidebar = lazy(
   () => import("../features/assistants/AssistantSidebar.jsx"),
 );
+import SidebarMenu from "./SidebarMenu.jsx";
 import SidebarGroup, { sessionActivity, sandboxBadge } from "./SidebarGroup.jsx";
 export default function Sidebar({
   mobileNav,
@@ -51,6 +47,20 @@ export default function Sidebar({
         >
           <Icon name="back" />
         </button>
+        <SidebarMenu
+          {...{
+            view,
+            selected,
+            page,
+            select,
+            state,
+            agentsEnabled,
+            localAccess,
+            error,
+            loading,
+            mobileNav,
+          }}
+        />
       </div>
       <button
         className="brand"
@@ -76,98 +86,6 @@ export default function Sidebar({
         {commonCopy.newSession}
         <span className="shortcut">↗</span>
       </button>
-      <nav aria-label={copy.ariaLabel}>
-        <button
-          className={view === "workspace" && !selected ? "nav-item selected" : "nav-item"}
-          onClick={() => select(null)}
-        >
-          <Icon name="grid" />
-          {commonCopy.overview}
-        </button>
-        <button
-          className={view === "artifacts" ? "nav-item selected" : "nav-item"}
-          onClick={() => page("artifacts")}
-        >
-          <Icon name="grid" />
-          {artifactCopy.title}
-        </button>
-        {agentsEnabled && (
-          <button
-            className={view === "agents" ? "nav-item selected" : "nav-item"}
-            aria-current={view === "agents" ? "page" : undefined}
-            onClick={() => page("agents")}
-          >
-            <Icon name="users" />
-            {assistantCopy.title}
-          </button>
-        )}
-        <SidebarGroup
-          name="projects"
-          label={commonCopy.projectsGroup}
-          activeKey={["projects", "files", "pipelines"].includes(view) ? view : ""}
-        >
-          <button
-            className={view === "projects" ? "nav-item selected" : "nav-item"}
-            aria-current={view === "projects" ? "page" : undefined}
-            onClick={() => page("projects")}
-          >
-            <Icon name="folder" />
-            {copy.projectsNavigation}
-          </button>
-          <button
-            className={view === "files" ? "nav-item selected" : "nav-item"}
-            aria-current={view === "files" ? "page" : undefined}
-            onClick={() => page("files")}
-          >
-            <Icon name="history" />
-            {filesCopy.tab}
-          </button>
-          <button
-            className={view === "pipelines" ? "nav-item selected" : "nav-item"}
-            aria-current={view === "pipelines" ? "page" : undefined}
-            onClick={() => page("pipelines")}
-          >
-            <Icon name="refresh" />
-            {pipelineCopy.title}
-          </button>
-        </SidebarGroup>
-        <SidebarGroup
-          name="configuration"
-          label={commonCopy.configurationGroup}
-          activeKey={["accounts", "extensions", "settings"].includes(view) ? view : ""}
-        >
-          <button
-            aria-label={commonCopy.accounts}
-            className={view === "accounts" ? "nav-item selected" : "nav-item"}
-            aria-current={view === "accounts" ? "page" : undefined}
-            onClick={() => {
-              page("accounts");
-            }}
-          >
-            <Icon name="users" />
-            {commonCopy.accounts}
-            <span className="count">
-              {state.accounts.filter((a) => a.tool !== "shell").length}
-            </span>
-          </button>
-          <button
-            className={view === "extensions" ? "nav-item selected" : "nav-item"}
-            aria-current={view === "extensions" ? "page" : undefined}
-            onClick={() => page("extensions")}
-          >
-            <Icon name="grid" />
-            {copy.extensionsNavigation}
-          </button>
-          <button
-            className={view === "settings" ? "nav-item selected" : "nav-item"}
-            aria-current={view === "settings" ? "page" : undefined}
-            onClick={() => page("settings")}
-          >
-            <Icon name="settings" />
-            {commonCopy.settings}
-          </button>
-        </SidebarGroup>
-      </nav>
       {agentsEnabled && (
         <Suspense fallback={null}>
           <AssistantSidebar navigate={navigate} route={route} />
@@ -226,35 +144,6 @@ export default function Sidebar({
           )}
         </div>
       </SidebarGroup>
-      <div className="sidebar-bottom">
-        <div className="host-status">
-          <span className={`status-dot ${error ? "stopped" : "running"}`} />
-          <span>
-            {copy.hostStatusLabel}
-            <small>
-              {error
-                ? commonCopy.serviceUnavailable
-                : loading
-                  ? copy.serviceConnecting
-                  : copy.localHostDescription}
-            </small>
-          </span>
-          <Icon name="shield" size={16} />
-        </div>
-        {state.remoteUrl && localAccess && (
-          <a
-            className="remote-link"
-            href={state.remoteUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <Icon name="link" size={14} />
-            {copy.remoteLink}
-            <Icon name="arrow" size={14} />
-          </a>
-        )}
-        <LogoutButton />
-      </div>
     </aside>
   );
 }

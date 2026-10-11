@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { openMenu } from "../helpers/navigation.js";
 
 const remoteUrl = "https://agentpier.example.test:8443";
 
@@ -27,6 +28,7 @@ async function workspace(page, origin, configuredUrl = remoteUrl) {
     return route.fulfill({ response });
   });
   await page.goto(origin);
+  await openMenu(page);
   await expect(page.locator(".host-status")).toContainText(
     /Auf deinem Rechner|On your computer/,
   );

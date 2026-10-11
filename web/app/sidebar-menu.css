@@ -1,0 +1,104 @@
+/* Menü: trigger, drawer scrim and the navigation popover (handoff 1a / 2f). */
+.sidebar-menu {
+  display: flex;
+}
+.sidebar-menu-button {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--button-secondary-line);
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.sidebar-menu-button.open {
+  border-color: var(--accent-line);
+  background: var(--surface-accent);
+  color: var(--accent-text);
+}
+.sidebar-menu-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: var(--scrim);
+}
+.sidebar-menu-popover {
+  position: absolute;
+  top: 52px;
+  right: 12px;
+  z-index: 3;
+  width: min(256px, calc(100% - 20px));
+  max-height: calc(100% - 62px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--popover-bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--popover-shadow);
+}
+.sidebar-menu-scrim[hidden],
+.sidebar-menu-popover[hidden] {
+  display: none;
+}
+.sidebar-menu-popover .nav-item {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  gap: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-menu);
+}
+.sidebar-menu-popover .nav-item.selected {
+  background: var(--nav-selected);
+  color: var(--accent-text);
+}
+.sidebar-menu-label {
+  padding: 12px 12px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.sidebar-menu-divider {
+  height: 1px;
+  margin: 6px;
+  background: var(--line);
+}
+.sidebar-menu-popover .host-status {
+  padding: 8px 12px;
+}
+.sidebar-menu-popover .host-status small {
+  margin-top: 4px;
+}
+.sidebar-menu-popover .remote-link {
+  margin: 0;
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+.sidebar-menu-logout .nav-item {
+  color: #9d9ea2;
+}
+@media (max-width: 700px) {
+  .sidebar-menu-button {
+    height: 36px;
+  }
+  .sidebar-menu-popover {
+    top: 58px;
+    right: 10px;
+    max-height: calc(100% - 68px);
+  }
+  .sidebar-menu-popover .nav-item {
+    min-height: 40px;
+  }
+}

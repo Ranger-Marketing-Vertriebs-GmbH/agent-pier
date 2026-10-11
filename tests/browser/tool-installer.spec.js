@@ -233,7 +233,7 @@ test("GitHub CLI installs as a utility and opens GitHub credentials without a se
   await expect(page.getByRole("heading", { name: "GitHub-Zugänge" })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(controls.state.sessions).toEqual([]);
-  await page.getByRole("button", { name: "Übersicht", exact: true }).click();
+  await navigateTo(page, "Übersicht");
   await card(page, "GitHub CLI")
     .getByRole("button", { name: "GitHub-Zugänge", exact: true })
     .click();

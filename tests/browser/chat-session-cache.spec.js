@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { openMenu } from "../helpers/navigation.js";
 
 const DATABASE = "agentpier.chat.cache.v1";
 const session = (id) => ({
@@ -119,7 +120,11 @@ test("logout empties the chat cache", async ({ page }) => {
   const state = await fixture(page);
   await seed(page, state.sessions.map(entry));
   expect(await storedKeys(page)).toHaveLength(2);
-  await page.getByRole("button", { name: "Abmelden", exact: true }).click();
+  await openMenu(page);
+  await page
+    .locator("#sidebar-menu")
+    .getByRole("button", { name: "Abmelden", exact: true })
+    .click();
   await expect(loginHeading(page)).toBeVisible();
   await expect.poll(() => storedKeys(page)).toEqual([]);
 });

@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createApplication } from "../../server/app.js";
+import { openMenu } from "../helpers/navigation.js";
 
 test("first user setup, reload, logout and login protect the complete workspace", async ({
   page,
@@ -35,12 +36,18 @@ test("first user setup, reload, logout and login protect the complete workspace"
       0,
     );
     await page.setViewportSize({ width: 1440, height: 1000 });
+    await openMenu(page);
     await expect(
-      page.getByRole("button", { name: "Abmelden", exact: true }),
+      page
+        .locator("#sidebar-menu")
+        .getByRole("button", { name: "Abmelden", exact: true }),
     ).toBeVisible();
     await page.reload();
+    await openMenu(page);
     await expect(
-      page.getByRole("button", { name: "Abmelden", exact: true }),
+      page
+        .locator("#sidebar-menu")
+        .getByRole("button", { name: "Abmelden", exact: true }),
     ).toBeVisible();
     let releaseStatus;
     let statusRequested;
@@ -59,7 +66,11 @@ test("first user setup, reload, logout and login protect the complete workspace"
     });
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await requested;
-    await page.getByRole("button", { name: "Abmelden", exact: true }).click();
+    await openMenu(page);
+    await page
+      .locator("#sidebar-menu")
+      .getByRole("button", { name: "Abmelden", exact: true })
+      .click();
     await expect(
       page.getByRole("heading", { name: "Anmelden", exact: true }),
     ).toBeVisible();
@@ -98,8 +109,11 @@ test("first user setup, reload, logout and login protect the complete workspace"
       .getByLabel("Passwort", { exact: true })
       .fill("disposable-browser-password");
     await page.getByRole("button", { name: "Anmelden", exact: true }).click();
+    await openMenu(page);
     await expect(
-      page.getByRole("button", { name: "Abmelden", exact: true }),
+      page
+        .locator("#sidebar-menu")
+        .getByRole("button", { name: "Abmelden", exact: true }),
     ).toBeVisible();
   } finally {
     await application.close();

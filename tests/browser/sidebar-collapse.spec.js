@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { openMenu } from "../helpers/navigation.js";
 
 test("the sidebar collapses on wide screens and expands again from the floating control", async ({
   page,
@@ -33,7 +34,7 @@ test("a collapsed sidebar does not break the mobile drawer", async ({ page }) =>
   await page.getByRole("button", { name: "Navigation öffnen" }).click();
   await expect(drawer).toHaveClass(/open/);
   await expect.poll(left).toBe(0);
-  await drawer.getByRole("button", { name: "Übersicht" }).click();
+  await (await openMenu(page)).getByRole("button", { name: "Übersicht" }).click();
   await expect(drawer).not.toHaveClass(/open/);
   await expect.poll(left).toBeLessThan(0);
   // The collapsed desktop layout survives the detour through the drawer.
