@@ -3,6 +3,7 @@ import { baseURL } from "../helpers/browser.js";
 import { setupAssistantSettings } from "../helpers/assistant-settings-browser.js";
 
 const full = { capabilities: { memory: true, reminders: true } };
+const bar = (page) => page.locator(".assistant-save-bar");
 const scroller = (page) => page.locator(".assistant-settings-scroll");
 
 test.describe("agent settings on phones", () => {
@@ -152,4 +153,102 @@ test.describe("agent settings on phones", () => {
     });
     expect(inRow).toBe(true);
   });
+
+  test("the save bar appears after an edit and saves the profile", async ({ page }) => {
+    const state = await setupAssistantSettings(page, { applyUpdates: true });
+    await page.goto(baseURL + "/agents/home/settings");
+    await expect(page.locator("#agent-profile")).toBeVisible();
+    await expect(bar(page)).toHaveCount(0);
+    await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
+    await expect(bar(page)).toBeVisible();
+    await expect(bar(page)).toContainText("Applies before the next message.");
+    await bar(page).getByRole("button", { name: "Save agent" }).click();
+    await expect.poll(() => state.updates.at(-1)?.name).toBe("Home 2");
+    await expect(bar(page)).toHaveCount(0);
+  });
+
+  test("the save bar mirrors a running save", async ({ page }) => {
+    await setupAssistantSettings(page, { applyUpdates: true, saveDelay: 800 });
+    await page.goto(baseURL + "/agents/home/settings");
+    await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
+    await bar(page).getByRole("button", { name: "Save agent" }).click();
+    await expect(bar(page).getByRole("button", { name: "Loading…" })).toBeDisabled();
+    await expect(bar(page)).toHaveCount(0);
+  });
+
+  test("cancel in the save bar returns to the conversation", async ({ page }) => {
+    const state = await setupAssistantSettings(page);
+    await page.goto(baseURL + "/agents/home/settings");
+    await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
+    await bar(page).getByRole("button", { name: "Cancel" }).click();
+    await expect(page).toHaveURL(/\/agents\/home\/chats\/c1$/);
+    expect(state.opened).toBe(1);
+  });
+
+  test("the save bar never covers the last section", async ({ page }) => {
+    await setupAssistantSettings(page, { assistant: full });
+    await page.goto(baseURL + "/agents/home/settings");
+    await page.getByRole("textbox", { name: "Name", exact: true }).fill("Home 2");
+    await expect(bar(page)).toBeVisible();
+    // Stuck to the bottom edge while the form is still long.
+    expect(
+      await page.evaluate(
+        () =>
+          Math.round(
+            document.querySelector(".assistant-save-bar").getBoundingClientRect().bottom,
+          ) ===
+          Math.round(
+            document.querySelector(".assistant-settings-scroll").getBoundingClientRect()
+              .bottom,
+          ),
+      ),
+    ).toBe(true);
+    await scroller(page).evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await expect(page.locator("#agent-telegram button").last()).toBeVisible();
+    const overlap = await page.evaluate(() => {
+      const buttons = document.querySelectorAll("#agent-telegram button");
+      const b = buttons[buttons.length - 1].getBoundingClientRect();
+      const s = document.querySelector(".assistant-save-bar").getBoundingClientRect();
+      return b.bottom > s.top && b.top < s.bottom;
+    });
+    expect(overlap).toBe(false);
+  });
+
+  test("the save bar fits a 320px phone", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await setupAssistantSettings(page);
+    await page.goto(baseURL + "/agents/home/settings");
+    await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
+    await expect(bar(page)).toBeVisible();
+    const fit = await bar(page).evaluate((el) => {
+      const row = el.getBoundingClientRect();
+      return {
+        noOverflow: el.scrollWidth <= el.clientWidth,
+        inside: [...el.children].every((c) => {
+          const r = c.getBoundingClientRect();
+          return r.left >= row.left && r.right <= row.right;
+        }),
+      };
+    });
+    expect(fit).toEqual({ noOverflow: true, inside: true });
+  });
+
+  test("creating an agent shows the save bar at once", async ({ page }) => {
+    await setupAssistantSettings(page);
+    await page.goto(baseURL + "/agents");
+    await page.getByRole("button", { name: "New agent" }).click();
+    await expect(bar(page)).toBeVisible();
+    await expect(bar(page).getByRole("button", { name: "Save agent" })).toBeVisible();
+  });
+});
+
+test("desktop settings keep the in-form buttons and no save bar", async ({ page }) => {
+  await setupAssistantSettings(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(baseURL + "/agents/home/settings");
+  await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
+  await expect(page.locator(".assistant-save-bar")).toBeHidden();
+  await expect(
+    page.locator("#agent-profile").getByRole("button", { name: "Save agent" }),
+  ).toBeVisible();
 });

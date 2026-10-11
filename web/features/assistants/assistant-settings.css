@@ -162,6 +162,42 @@
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
+  .assistant-profile-actions {
+    display: none;
+  }
+  .assistant-save-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px calc(14px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--header-line);
+    background: var(--sidebar-bg);
+  }
+  .assistant-save-bar p {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .assistant-save-bar .button {
+    flex: none;
+    height: 40px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .assistant-save-bar .button.secondary {
+    margin-left: auto;
+    padding: 0 14px;
+  }
+  .assistant-save-bar .button.primary {
+    padding: 0 16px;
+  }
 }
 .assistant-state-badge.connectionMissing {
   color: var(--accent);

@@ -452,6 +452,7 @@ export const assistantCopy = {
   revisions: (saved, applied) =>
     `Saved revision: ${saved} · Applied revision: ${applied}`,
   pendingConfig: "Saved changes apply before the next message.",
+  pendingConfigShort: "Applies before the next message.",
   message: "Message",
   send: "Send",
   stop: "Stop response",
