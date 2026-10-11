@@ -55,7 +55,6 @@ export function oauthFixture(t, script, options = {}) {
     remoteUrl: () => options.remoteUrl ?? null,
     reapply: () => f.changes.apply(),
     onFreed: () => f.service.admit(() => f.changes.apply()),
-    revokeBackups: options.revokeBackups,
     now: () => clock,
     warn: (text) => warnings.push(text),
   });

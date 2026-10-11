@@ -232,6 +232,37 @@ test("the list carries the status; logout and lifecycle changes log out first", 
   assert.equal(calls().filter(([command]) => command === "logout").length, logouts);
 });
 
+test("MCP logouts keep backup keys; a rollback queues them again", async (t) => {
+  const { f, server, calls } = await setup(t);
+  // Host backups hold no MCP login, so their sealed credentials stay restorable.
+  const keys = path.join(f.dataDir, "assistants", "backup-keys");
+  fs.mkdirSync(keys, { recursive: true, mode: 0o700 });
+  const key = path.join(keys, "8b0c5f0e-8f43-4a8e-9a55-3c2f4c1d0e01.key");
+  fs.writeFileSync(key, Buffer.alloc(32, 1), { mode: 0o600 });
+  const since = Date.now();
+  f.application.assistantMcpServers.rememberOAuth(server.id, { connected: true });
+  const loggedOut = await f.request(`/api/mcp-servers/${server.id}/oauth/logout`, {
+    method: "POST",
+  });
+  assert.equal(loggedOut.status, 204);
+  const renamed = await f.request(`/api/mcp-servers/${server.id}`, {
+    method: "PUT",
+    body: { revision: 1, name: "renamed" },
+  });
+  assert.equal(renamed.status, 200);
+  assert.equal(calls().filter(([command]) => command === "logout").length, 2);
+  assert.equal(fs.existsSync(key), true);
+  // The update rollback hook reaches the login service before the Gateway starts.
+  await f.application.assistantUpdates.onRolledBack({ createdAt: since });
+  const oauth = f.application.assistantMcpOAuth;
+  clearTimeout(oauth.drainTimer);
+  oauth.drainTimer = null;
+  assert.deepEqual(
+    f.application.assistantMcpServers.deferredLogouts().map((d) => d.name),
+    ["docs"],
+  );
+});
+
 test("deleting an OAuth server logs it out, or defers that with a warning", async (t) => {
   const { f, env, server, calls } = await setup(t);
   const removed = await f.request(`/api/mcp-servers/${server.id}`, { method: "DELETE" });

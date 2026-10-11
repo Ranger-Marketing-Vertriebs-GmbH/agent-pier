@@ -30,7 +30,6 @@ import { WebToolsChanges } from "../features/assistants/web-tools-changes.js";
 import { McpChanges } from "../features/assistants/mcp-changes.js";
 import { oauthRedirect } from "../features/mcp-servers/oauth-redirect.js";
 import { McpOAuthLogins } from "../features/mcp-servers/mcp-oauth-logins.js";
-import { destroyBackupKeys } from "../features/assistants/backup-credentials.js";
 import {
   supervisorMcpCli,
   sweepLogoutConfigs,
@@ -172,6 +171,8 @@ export function constructAssistantGraph(host, created = {}) {
     runtime: assistantRuntime,
     maintenance,
     isBlocked: () => !!scope.assistantProviderSynchronization?.changing,
+    // MCP OAuth logins cleared since the snapshot are logged out again.
+    onRolledBack: ({ createdAt }) => scope.assistantMcpOAuth?.afterRollback(createdAt),
     affected: () => {
       const profiles = store.listAssistants();
       const members = profiles.filter(temporaryMember).length;
@@ -201,8 +202,6 @@ export function constructAssistantGraph(host, created = {}) {
     reapply: () => assistantMcpChanges.apply(),
     onFreed: () => assistants.admit(() => assistantMcpChanges.apply()),
     remoteUrl: () => (host.effectiveConfig?.() || config).remoteUrl,
-    // Logins are sealed in host backups and update snapshots; a logout revokes them.
-    revokeBackups: () => destroyBackupKeys(assistantRuntime.paths.root),
   });
   const assistantMcpChanges = new McpChanges({
     assistants,

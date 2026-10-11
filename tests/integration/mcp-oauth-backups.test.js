@@ -153,7 +153,7 @@ test("a host restore drops MCP logins an older backup still sealed", async (t) =
   assert.equal(count(copy, "auth_profile_store"), 1);
 });
 
-test("update snapshots seal MCP logins; a rollback keeps them until a logout", async (t) => {
+test("update snapshots seal MCP logins; a rollback keeps them while the key exists", async (t) => {
   const { dataDir } = temporary(t);
   const paths = runtimePaths(dataDir);
   seedState(path.join(paths.state, "state", "openclaw.sqlite"));
@@ -178,7 +178,7 @@ test("update snapshots seal MCP logins; a rollback keeps them until a logout", a
   const stored = db.prepare("SELECT value_json FROM mcp_oauth_stores").get().value_json;
   db.close();
   assert.ok(stored.includes(access));
-  // An MCP logout destroys the keys first (McpOAuthLogins.revokeBackups).
+  // Another credential revocation destroys the keys: the login is withheld too.
   destroyBackupKeys(paths.root);
   const withheld = await rollback();
   assert.equal(withheld.credentialsWithheld, true);

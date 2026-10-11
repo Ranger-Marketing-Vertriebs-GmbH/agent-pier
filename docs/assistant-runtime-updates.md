@@ -38,16 +38,20 @@ it that parses as JSON, such as `.bak*` and `.last-good` (Gateway, cron and plug
 tokens, provider API keys, headers and MCP server environments; a copy that does not
 parse is left out) and the Telegram bot tokens in
 `channels.sqlite`. Each backup has its own key under `assistants/backup-keys/`
-(0600), never inside the backup. Logging out of a model account or of an MCP server's
-OAuth login, changing a provider connection, or rotating or disconnecting a Telegram
-bot destroys every backup key
+(0600), never inside the backup. Logging out of a model account, changing a provider
+connection, or rotating or disconnecting a Telegram bot destroys every backup key
 before the change, once the change has been admitted (a change refused for active
 work or a running update keeps the keys). Keys are unlinked after a best-effort
 overwrite; the guarantee rests on unlinking and on keeping keys out of backups, not
 on the overwrite reaching the storage medium. Update backups written before sealing
 existed (snapshot format 1) hold these credentials in plain text; the same
 revocation deletes them entirely. A later rollback restores history and state but leaves the
-affected credentials absent; the status asks the owner to sign in again. Deepgram
+affected credentials absent; the status asks the owner to sign in again. MCP OAuth
+logins are the exception: a logout keeps the keys, because host backups never hold
+them. AgentPier remembers each cleared MCP login (name, URL, time; at most 500), and a
+rollback queues every one cleared since the snapshot as a deferred logout before the
+Gateway starts again, so a server with that name and URL stays uncompiled until the
+logout went through. Deepgram
 keys live outside the restore boundary. The per-start Gateway TLS key is not part of
 any snapshot; it is generated again on each start. Central accounts and coding
 sessions are outside this restore boundary. Backups must not be attached to

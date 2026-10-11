@@ -27,7 +27,12 @@ CREATE TABLE IF NOT EXISTS bindings(
 CREATE INDEX IF NOT EXISTS bindings_target ON bindings(target_kind, target_id);
 CREATE TABLE IF NOT EXISTS oauth_logouts(
   name TEXT NOT NULL, url TEXT NOT NULL, transport TEXT NOT NULL,
+  PRIMARY KEY(name, url));
+CREATE TABLE IF NOT EXISTS oauth_logout_history(
+  name TEXT NOT NULL, url TEXT NOT NULL, transport TEXT NOT NULL, at INTEGER NOT NULL,
   PRIMARY KEY(name, url));`;
+// Logouts remembered for a rollback to an earlier update snapshot.
+const logoutHistoryLimit = 500;
 
 /**
  * A URL as responses show it: origin and path only. The query string and fragment
@@ -402,6 +407,25 @@ export class McpServerStore {
     this.db
       .prepare("INSERT OR IGNORE INTO oauth_logouts(name,url,transport) VALUES (?,?,?)")
       .run(name, url, transport);
+  }
+  /** Remembers that OpenClaw cleared the login of `{ name, url }` at `at`. */
+  recordLogout({ name, url, transport }, at) {
+    this.db
+      .prepare(
+        "INSERT INTO oauth_logout_history(name,url,transport,at) VALUES (?,?,?,?) ON CONFLICT(name,url) DO UPDATE SET at=excluded.at, transport=excluded.transport",
+      )
+      .run(name, url, transport ?? "http", at);
+    this.db
+      .prepare(
+        "DELETE FROM oauth_logout_history WHERE rowid NOT IN (SELECT rowid FROM oauth_logout_history ORDER BY at DESC LIMIT ?)",
+      )
+      .run(logoutHistoryLimit);
+  }
+  /** Logins cleared at or after `at`, as `{ name, url, transport }`. */
+  logoutsSince(at) {
+    return this.db
+      .prepare("SELECT name,url,transport FROM oauth_logout_history WHERE at>=?")
+      .all(at);
   }
   settleLogout({ name, url }) {
     this.db.prepare("DELETE FROM oauth_logouts WHERE name=? AND url=?").run(name, url);
