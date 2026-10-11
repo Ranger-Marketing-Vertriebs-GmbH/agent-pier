@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "@openclaw/brave-plugin": "2026.9.8",
+    "@openclaw/duckduckgo-plugin": "2026.9.8",
+    "@openclaw/perplexity-plugin": "2026.9.8",
     "openclaw": "file:openclaw.tgz"
   }
 }

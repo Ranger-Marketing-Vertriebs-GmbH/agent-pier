@@ -95,9 +95,65 @@ export function assistantInstallFixture(t) {
           JSON.stringify({ version: manifest.version }),
         );
         fs.writeFileSync(path.join(dir, "openclaw.mjs"), "fixture entry");
+        const { dependencies } = JSON.parse(
+          fs.readFileSync(path.join(opts.cwd, "package.json")),
+        );
+        for (const [name, version] of Object.entries(dependencies)) {
+          if (name === "openclaw") continue;
+          const plugin = path.join(opts.cwd, "node_modules", name);
+          fs.mkdirSync(plugin, { recursive: true });
+          fs.writeFileSync(
+            path.join(plugin, "package.json"),
+            JSON.stringify({ name, version }),
+          );
+          fs.writeFileSync(
+            path.join(plugin, "openclaw.plugin.json"),
+            JSON.stringify({ id: /^@openclaw\/(.+)-plugin$/.exec(name)[1] }),
+          );
+        }
       }
       return { stdout: manifest.version };
     },
   };
   return { root, dataDir, lockDirectory, manifest, digest, options, commands };
+}
+
+/**
+ * Adds the three pinned search plugins (synthetic registry integrity) to a
+ * fixture's lock and returns the manifest that pins them.
+ */
+export function addSearchPlugins(f) {
+  const searchPlugins = Object.fromEntries(
+    ["duckduckgo", "perplexity", "brave"].map((id) => [
+      id,
+      {
+        id,
+        package: `@openclaw/${id}-plugin`,
+        version: "2026.9.8",
+        integrity: createHash("sha512").update(id).digest("base64"),
+      },
+    ]),
+  );
+  const read = (name) => JSON.parse(fs.readFileSync(path.join(f.lockDirectory, name)));
+  const pkg = read("package.json"),
+    lock = read("package-lock.json");
+  for (const pin of Object.values(searchPlugins)) {
+    pkg.dependencies[pin.package] = pin.version;
+    lock.packages[`node_modules/${pin.package}`] = {
+      version: pin.version,
+      resolved: `https://registry.npmjs.org/${pin.package}/-/${pin.id}-plugin-${pin.version}.tgz`,
+      integrity: `sha512-${pin.integrity}`,
+      peerDependencies: { openclaw: ">=2026.9.8" },
+    };
+  }
+  lock.packages[""].dependencies = pkg.dependencies;
+  for (const [name, value] of [
+    ["package.json", pkg],
+    ["package-lock.json", lock],
+  ])
+    fs.writeFileSync(
+      path.join(f.lockDirectory, name),
+      JSON.stringify(value, null, 2) + "\n",
+    );
+  return { ...f.manifest, searchPlugins, dependencyLockSha256: f.digest() };
 }
