@@ -91,54 +91,6 @@
   padding: 28px;
   min-width: 0;
 }
-.assistant-chat-panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  flex: 1;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  overflow: hidden;
-}
-.assistant-transcript {
-  overflow-y: auto;
-  flex: 1;
-  padding: 28px;
-}
-.assistant-message {
-  margin-bottom: 22px;
-  width: fit-content;
-  max-width: 88%;
-  border: 1px solid var(--line);
-  background: var(--surface-raised);
-  border-radius: 12px;
-  padding: 16px 20px;
-  line-height: 1.7;
-  overflow-wrap: anywhere;
-}
-.assistant-message strong {
-  font-size: 12px;
-  color: var(--muted);
-}
-.assistant-message p {
-  white-space: pre-wrap;
-  margin: 8px 0;
-}
-.assistant-message.user {
-  background: var(--surface-accent);
-  border-color: var(--accent-line);
-  margin-left: auto;
-}
-.assistant-message.user strong {
-  color: var(--accent);
-}
-.assistant-message pre {
-  overflow-x: auto;
-}
-.assistant-message img {
-  max-width: 100%;
-}
 .assistant-composer {
   display: flex;
   align-items: flex-end;
@@ -296,13 +248,6 @@
 @media (max-width: 650px) {
   .assistant-detail {
     padding: 16px 12px;
-  }
-  .assistant-transcript {
-    padding: 18px 12px;
-  }
-  .assistant-message {
-    max-width: 94%;
-    padding: 12px 14px;
   }
   .assistant-composer {
     flex-wrap: wrap;

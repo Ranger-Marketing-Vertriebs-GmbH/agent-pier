@@ -95,7 +95,10 @@ export async function chatFixture(page, options = {}) {
   return state;
 }
 
-export const emit = (page, event) =>
-  page.evaluate((event) => {
+// Waits until the page has opened and wired its event stream.
+export const emit = async (page, event) => {
+  await page.waitForFunction(() => window.assistantTestStream?.onmessage);
+  await page.evaluate((event) => {
     window.assistantTestStream.onmessage({ data: JSON.stringify(event) });
   }, event);
+};

@@ -130,4 +130,89 @@ test.describe("agent chat header", () => {
     });
 });
 
-export { emit };
+const working = {
+  messages: [{ id: "q", role: "user", text: "Plan my week" }],
+  requests: [
+    {
+      id: "r",
+      text: "Plan my week",
+      state: "accepted",
+      attempt: { id: "a1", state: "accepted" },
+    },
+  ],
+  stale: false,
+};
+
+test.describe("agent chat transcript", () => {
+  test("replies are flat and the user bubble hides its name visually", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await chatFixture(page);
+    await page.goto(chat);
+    const reply = page.locator(".assistant-message.assistant").first();
+    await expect(reply).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(reply).toHaveCSS("border-top-width", "0px");
+    await expect(reply).toHaveCSS("font-size", "15px");
+    const user = page.locator(".assistant-message.user").first();
+    await expect(user.locator("strong")).toHaveText("You");
+    expect(
+      await user.locator("strong").evaluate((e) => e.getBoundingClientRect().width),
+    ).toBeLessThanOrEqual(1);
+    await expect(user).toHaveCSS("border-bottom-right-radius", "4px");
+    const [u, a] = [await user.boundingBox(), await reply.boundingBox()];
+    expect(a.width).toBeGreaterThan(350);
+    expect(u.x + u.width).toBeGreaterThan(370);
+  });
+
+  test("streaming shows a block cursor and an accent working note", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await chatFixture(page, { history: working });
+    await page.goto(chat);
+    await emit(page, {
+      type: "delta",
+      conversationId: "dinner",
+      text: "Here is a draft",
+    });
+    const streaming = page.locator(".assistant-message.streaming");
+    await expect(streaming).toContainText("Here is a draft");
+    expect(
+      await streaming
+        .locator(".message-content > :last-child")
+        .evaluate((e) => getComputedStyle(e, "::after").width),
+    ).toBe("8px");
+    const note = page.locator(".assistant-run-state.working");
+    await expect(note).toContainText("Accepted");
+    await expect(note).toHaveCSS("color", "rgb(255, 201, 157)");
+    const gap = await page
+      .locator(".assistant-transcript")
+      .evaluate(
+        (e) =>
+          e.getBoundingClientRect().bottom -
+          e.querySelector(".assistant-run-state").getBoundingClientRect().bottom,
+      );
+    expect(gap).toBeLessThan(40);
+  });
+
+  test("an optimistic request renders as a user bubble", async ({ page }) => {
+    await chatFixture(page, {
+      history: { ...working, messages: [] },
+    });
+    await page.goto(chat);
+    const bubble = page
+      .locator(".assistant-message.user")
+      .filter({ hasText: "Plan my week" });
+    await expect(bubble).toHaveCount(1);
+    await expect(bubble.locator("strong")).toHaveClass(/sr-only/);
+  });
+
+  test("desktop centres the transcript at 760px", async ({ page }) => {
+    await chatFixture(page);
+    await page.goto(chat);
+    const reply = await page
+      .locator(".assistant-message.assistant")
+      .first()
+      .boundingBox();
+    expect(Math.round(reply.width)).toBe(760);
+  });
+});

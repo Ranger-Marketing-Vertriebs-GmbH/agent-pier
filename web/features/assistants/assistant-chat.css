@@ -137,6 +137,124 @@
   width: 16px;
   height: 16px;
 }
+.assistant-chat-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.assistant-transcript {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 28px max(28px, calc((100% - 760px) / 2));
+}
+/* Short conversations sit at the bottom, next to the composer. */
+.assistant-transcript::before {
+  content: "";
+  margin-top: auto;
+}
+.assistant-transcript > [role="log"] {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.assistant-message {
+  max-width: 100%;
+  margin: 0;
+  color: var(--text-message);
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.assistant-message > strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.assistant-message .message-content > * {
+  margin: 0 0 10px;
+}
+.assistant-message .message-content > :last-child {
+  margin-bottom: 0;
+}
+.assistant-message .message-content strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.assistant-message p {
+  white-space: pre-wrap;
+}
+.assistant-message pre {
+  overflow-x: auto;
+}
+.assistant-message img {
+  max-width: 100%;
+}
+.assistant-message.user {
+  width: fit-content;
+  max-width: 75%;
+  margin-left: auto;
+  padding: 10px 16px;
+  border: 1px solid var(--accent-line);
+  border-radius: 14px 14px 4px 14px;
+  background: var(--surface-accent);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.assistant-message.streaming .message-content > :last-child::after {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  margin-left: 3px;
+  border-radius: 1px;
+  background: var(--accent);
+  vertical-align: -2px;
+  animation: assistant-cursor 1s steps(1) infinite;
+}
+@keyframes assistant-cursor {
+  50% {
+    opacity: 0;
+  }
+}
+.assistant-transcript .assistant-run-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.assistant-transcript .assistant-run-state.working {
+  color: var(--accent-text);
+}
+.assistant-run-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.assistant-transcript .assistant-event {
+  margin: 0;
+  padding: 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-message.streaming .message-content > :last-child::after {
+    animation: none;
+  }
+}
 @media (min-width: 701px) {
   /* The floating expand/new-session buttons sit where the header starts. */
   .app.sidebar-collapsed main:has(.assistant-detail) {
@@ -190,6 +308,17 @@
   .assistant-header-settings span {
     display: none;
   }
+  .assistant-transcript {
+    gap: 16px;
+    padding: 16px;
+  }
+  .assistant-message {
+    line-height: 1.65;
+  }
+  .assistant-message.user {
+    max-width: 85%;
+    padding: 9px 14px;
+  }
 }
 .assistant-composer {
   position: relative;
@@ -213,12 +342,6 @@
   margin-right: auto;
   font-size: 12px;
   color: var(--muted);
-}
-.assistant-message .message-content > :first-child {
-  margin-top: 8px;
-}
-.assistant-message .message-content > :last-child {
-  margin-bottom: 0;
 }
 
 /* Page containment and sidebar placement come from sessions/mobile-workspace.css,
