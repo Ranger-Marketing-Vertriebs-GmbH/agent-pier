@@ -444,7 +444,7 @@
 .assistant-sidebar-member {
   margin-left: 18px;
   width: calc(100% - 18px);
-  border-left: 2px solid var(--border);
+  border-left: 2px solid var(--line);
 }
 .assistant-sidebar-member .assistant-avatar {
   width: 26px;
@@ -458,10 +458,10 @@
 }
 .assistant-team-card,
 .assistant-member-summary {
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: 14px;
-  background: var(--surface);
+  background: var(--panel);
 }
 .assistant-team-card summary {
   cursor: pointer;
