@@ -21,6 +21,13 @@ export const omissions = [
   "Live native processes, delivery channels, capabilities and subscriptions",
   "Global atomicity across independent native writers",
 ];
+// The central MCP server store (<data>/mcp-servers) is not captured: its header and
+// environment values, and tokens in stored addresses, have no sealed form in host
+// backups yet. A backup of a host that has the store declares it instead.
+export const mcpServerOmission =
+  "MCP servers for agents (definitions, values and bindings)";
+export const mcpServersPresent = (dataDir) =>
+  fs.existsSync(path.join(dataDir, "mcp-servers", "servers.sqlite"));
 export function fileMember(name, value) {
   const content = Buffer.isBuffer(value) ? value : Buffer.from(JSON.stringify(value));
   return {

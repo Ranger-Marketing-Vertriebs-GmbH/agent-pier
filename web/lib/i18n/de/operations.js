@@ -293,6 +293,8 @@ export const backupCopy = {
       "Dateipapierkorb, Dateijournale und Übertragungsdaten",
     "Global atomicity across independent native writers":
       "Ein gemeinsamer Aufnahmezeitpunkt für alle unabhängig schreibenden nativen Prozesse",
+    "MCP servers for agents (definitions, values and bindings)":
+      "MCP-Server für Agenten (Definitionen, Werte und Zuweisungen)",
     "Managed native configuration and credentials":
       "Verwaltete native Konfiguration und Zugangsdaten",
     "coordinated-application-snapshot; independent-native-captures":
