@@ -463,8 +463,9 @@ Requalification checklist for a version bump:
    or locally with the `AGENTPIER_ASSISTANT_*` variables), including the native
    interfaces contract (`AGENTPIER_NATIVE_INTERFACES_CONTRACT_RUNTIME`) and both web
    tools contracts (`AGENTPIER_WEB_TOOLS_CONTRACT_RUNTIME` with
-   `AGENTPIER_ASSISTANT_CONTRACT_DIR`, and a Chromium-based browser). Bump the search
-   plugin pins in the manifest together with OpenClaw.
+   `AGENTPIER_ASSISTANT_CONTRACT_DIR`, and a Chromium-based browser) and the MCP
+   contract (`AGENTPIER_MCP_CONTRACT_RUNTIME`). Bump the search plugin pins in the
+   manifest together with OpenClaw.
 4. Run the manual live-provider and cross-version tests with disposable state.
 5. Run `scripts/verify-assistant-runtime.mjs` and `scripts/verify-assistant-teams.mjs`
    against new data directories.

@@ -44,12 +44,14 @@ prevails.
 | Project identity      | Three real Git/ProjectMemory/ProjectRebind cases cover git initialization, automatic rebind and duplicate-project merging.                                                                                                                                                                                            | Synthetic projects; no real user coding task executed.                                                                                    |
 | Native interfaces     | Two pinned Gateway contracts verify the locked core, hello features, config schema and lookup, `replacePaths`, stale hashes, pairing list and a denied exec approval.                                                                                                                                                 | Deterministic HTTP model; no WhatsApp login, pairing approval or allowed exec.                                                            |
 | Web tools and browser | The compiled team-mode startup configuration (team plugin, memory, DuckDuckGo plugin from the runtime descriptor, isolated browser) is accepted; `web_fetch` refuses loopback, the browser uses only `openclaw` profiles in the data dir, temporary members get no capability tool; each bundled search plugin loads. | Deterministic model, no real search; `pdf` granted but not offered on custom providers; Linux Chrome sandbox CI-only, unverified locally. |
+| MCP servers           | Live-patched Streamable HTTP and stdio servers reach only the bound agent (global `bundle-mcp`, agent `<prefix>__*`), hot-apply in team mode without a restart, sanitised names, redacted header and env values.                                                                                                      | Local test servers and deterministic model; SSE, OAuth and idle eviction unqualified.                                                     |
 | Provider endpoints    | Explicit opt-in runner for Ollama, llama.cpp and Azure-compatible endpoints.                                                                                                                                                                                                                                          | Ollama and llama.cpp passed with small local models (2026-10-10); Azure remains unqualified.                                              |
 
 The detailed records are [memory](assistant-memory-qualification.md),
 [schedules](assistant-routine-qualification.md),
 [native interfaces](assistant-native-interface-qualification.md),
-[web tools](assistant-web-tools-qualification.md), and
+[web tools](assistant-web-tools-qualification.md),
+[MCP servers](assistant-mcp-qualification.md), and
 [providers](assistant-provider-qualification.md). Native memory and update tests
 exercise actual Gateway processes with a deterministic HTTP model. Provider
 protocol tests against simulated endpoints are not actual vendor qualification.
