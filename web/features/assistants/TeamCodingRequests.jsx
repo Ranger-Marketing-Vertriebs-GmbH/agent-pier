@@ -8,26 +8,32 @@ export default function TeamCodingRequests({ actions, busy, onDecide }) {
     <section className="assistant-team-coding" aria-label={copy.teamRequests}>
       <h4>{copy.teamRequests}</h4>
       {actions.map((a) => (
-        <article className="assistant-card assistant-reminder-row" key={a.id}>
-          <strong>{copy.requestedBy(a.memberName)}</strong>
+        <article
+          className="assistant-approval-card"
+          data-pending={a.state === "awaiting_approval" ? "" : undefined}
+          key={a.id}
+        >
+          <div className="assistant-approval-head">
+            <strong>{copy.requestedBy(a.memberName)}</strong>
+            <small>{copy.states[a.state]}</small>
+          </div>
           <p>
             {a.projectName}
             {a.pipelineName ? ` · ${a.pipelineName}` : ""}
           </p>
-          <p className="assistant-memory-text">{a.payload.task}</p>
+          <p className="assistant-approval-task">{a.payload.task}</p>
           {a.payload.baseBranch && (
             <p>
               {copy.branch}: {a.payload.baseBranch}
             </p>
           )}
-          <p>{copy.states[a.state]}</p>
           {a.diagnostic && copy.diagnostics[a.diagnostic] && (
             <p className="assistant-note">{copy.diagnostics[a.diagnostic]}</p>
           )}
           {a.state === "awaiting_approval" && (
             <>
               <p className="assistant-note">{copy.memberApprovalHint}</p>
-              <div className="assistant-actions">
+              <div className="assistant-card-actions">
                 {["approve", "decline"].map((decision) => (
                   <button
                     key={decision}

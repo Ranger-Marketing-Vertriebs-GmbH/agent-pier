@@ -142,3 +142,217 @@
     padding: 10px 12px 10px 14px;
   }
 }
+
+.assistant-teams {
+  display: grid;
+  gap: 14px;
+}
+.assistant-team-card {
+  padding: 6px 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+.assistant-team-card.awaiting {
+  padding: 14px;
+  border-color: var(--accent-line);
+}
+.assistant-team-card.awaiting > * + * {
+  margin-top: 12px;
+}
+.assistant-team-card summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  cursor: pointer;
+  list-style: none;
+}
+.assistant-team-card summary::-webkit-details-marker {
+  display: none;
+}
+.assistant-team-card.awaiting summary {
+  align-items: flex-start;
+  padding: 0;
+}
+.assistant-team-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.assistant-team-title {
+  flex: 1;
+  min-width: 0;
+}
+.assistant-team-title strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.assistant-team-title > span {
+  display: block;
+  margin-top: 3px;
+  color: var(--accent-text);
+  font-size: 12px;
+}
+.assistant-team-chevron {
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.assistant-team-card[open] .assistant-team-chevron {
+  transform: rotate(90deg);
+}
+.assistant-team-reason {
+  margin: 0 8px 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.assistant-team-card.awaiting .assistant-team-reason {
+  margin: 12px 0 0;
+}
+.assistant-team-hint {
+  margin-bottom: 0;
+  color: var(--text-row);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.assistant-team-proposal {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--divider);
+  list-style: none;
+}
+.assistant-team-proposal li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+}
+.assistant-team-proposal .assistant-avatar {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 10px;
+}
+.assistant-team-proposal strong,
+.assistant-team-member strong {
+  display: block;
+  color: var(--text-row);
+  font-size: 13px;
+  font-weight: 500;
+}
+.assistant-team-proposal small,
+.assistant-team-member small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-meta);
+  font-size: 12px;
+}
+.assistant-team-members {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0 2px;
+  list-style: none;
+}
+.assistant-team-member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 8px;
+  border-top: 1px solid var(--divider-soft);
+  border-radius: 8px;
+  text-align: left;
+}
+.assistant-team-member:hover {
+  background: var(--button-secondary-bg);
+}
+.assistant-team-member .assistant-avatar {
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  font-size: 11px;
+}
+.assistant-team-member-text {
+  flex: 1;
+  min-width: 0;
+}
+.assistant-team-member small {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assistant-team-member small .active {
+  color: var(--accent-text);
+}
+.assistant-team-member > svg {
+  flex: none;
+  color: var(--text-faint);
+}
+.assistant-team-card:not(.awaiting) .assistant-team-coding {
+  margin: 8px;
+}
+.assistant-team-card:not(.awaiting) .assistant-card-actions {
+  margin: 6px 8px 0;
+}
+.assistant-team-card:not(.awaiting) .assistant-card-actions .button {
+  height: 36px;
+}
+.assistant-team-card:not(.awaiting) .assistant-card-actions:empty {
+  display: none;
+}
+.assistant-team-archived {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.assistant-team-archived input {
+  width: auto;
+}
+@media (min-width: 701px) {
+  .assistant-team-card:not([open]) {
+    padding: 12px 14px;
+  }
+  .assistant-team-card:not([open]) summary {
+    padding: 0;
+  }
+  .assistant-team-card:not([open]) .assistant-team-icon {
+    width: 30px;
+    height: 30px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-team-chevron {
+    transition: none;
+  }
+}
+.assistant-team-proposal .mcp-team-servers {
+  margin: 2px 0 0;
+  color: var(--text-faint);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.assistant-team-card .mcp-team-warning {
+  margin-bottom: 0;
+  color: var(--accent-text);
+  font-size: 12px;
+  line-height: 1.5;
+}

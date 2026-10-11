@@ -229,51 +229,6 @@
   }
 }
 
-.assistant-teams {
-  display: grid;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-.assistant-team-card {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 14px;
-  background: var(--panel);
-}
-.assistant-team-card summary {
-  cursor: pointer;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px;
-}
-.assistant-team-card summary span {
-  font-size: 12px;
-  color: var(--muted);
-}
-.assistant-team-reason {
-  margin: 8px 0 0;
-  font-size: 13px;
-  color: var(--muted);
-  overflow-wrap: anywhere;
-}
-.assistant-team-members {
-  list-style: none;
-  padding: 0;
-  display: grid;
-  gap: 12px;
-}
-.assistant-team-members li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-.assistant-team-members li p {
-  width: 100%;
-  margin: 0;
-  overflow-wrap: anywhere;
-}
 .assistant-team-permission {
   display: flex !important;
   flex-direction: row;

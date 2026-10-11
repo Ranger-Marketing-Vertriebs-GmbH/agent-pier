@@ -283,7 +283,7 @@ test("members without a conversation expose recovery through sidebar and parent 
     .click();
   await page
     .locator(".assistant-team-members")
-    .getByRole("button", { name: "Reviewer 1", exact: true })
+    .getByRole("button", { name: /^Reviewer 1\b/ })
     .click({ timeout: 3000 });
   await expect(page).toHaveURL(/\/agents\/member-0\/settings$/);
   await expect(
