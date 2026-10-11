@@ -233,6 +233,8 @@ test.describe("agent chat transcript", () => {
   });
 
   test("desktop centres the transcript at 760px", async ({ page }) => {
+    // The tablet project runs every spec on a touch 820 px screen.
+    test.skip(test.info().project.name === "tablet", "desktop-only layout");
     await chatFixture(page);
     await page.goto(chat);
     const reply = await page
@@ -419,6 +421,8 @@ test.describe("agent chat composer", () => {
   });
 
   test("desktop shows the hint inline and centres the composer", async ({ page }) => {
+    // The tablet project runs every spec on a touch 820 px screen.
+    test.skip(test.info().project.name === "tablet", "desktop-only layout");
     await chatFixture(page);
     await page.goto(chat);
     await expect(page.locator(".assistant-composer-hint")).toHaveText(
