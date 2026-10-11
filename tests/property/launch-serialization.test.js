@@ -32,7 +32,7 @@ test("TOML launch values round-trip nested data without creating extra config ke
   );
   check(
     fc.property(value, (input) => {
-      assert.deepEqual(parse(`configuration = ${tomlValue(input)}`), {
+      assert.deepEqual(structuredClone(parse(`configuration = ${tomlValue(input)}`)), {
         configuration: JSON.parse(JSON.stringify(input)),
       });
     }),

@@ -28,7 +28,9 @@ for (const prepared of [false, true])
       [`private-${index}@${remote}`]: { enabled: true },
       [`same-name@${remote}`]: { enabled: index === 1 },
     }));
-    const read = async (index) => parse(await fs.readFile(files[index], "utf8"));
+    // smol-toml returns null-prototype tables; compare them as plain data.
+    const read = async (index) =>
+      structuredClone(parse(await fs.readFile(files[index], "utf8")));
     for (const [index, file] of files.entries()) {
       await fs.mkdir(path.dirname(file), { recursive: true });
       await fs.writeFile(
