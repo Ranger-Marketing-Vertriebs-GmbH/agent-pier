@@ -1,0 +1,52 @@
+import { useCallback, useEffect, useState } from "react";
+import api from "../../lib/api.js";
+import usePolling from "./usePolling.js";
+import { useAssistantEvent } from "./useAssistants.js";
+
+// The agent's own coding tasks and memory changes waiting for the owner. Loaded on
+// change events and polled while one waits, because approvals expire. Team members'
+// requests belong to their team card (useTeamCodingRequests).
+export default function useAssistantActions(assistantId, enabled = true) {
+  const [actions, setActions] = useState([]),
+    [error, setError] = useState("");
+  const lastEvent = useAssistantEvent();
+  const load = useCallback(
+    async (signal) => {
+      try {
+        const r = await api(`/assistants/${encodeURIComponent(assistantId)}/actions`);
+        if (!signal?.aborted)
+          setActions(
+            (r.actions || []).filter((a) => a.state === "awaiting_approval" && !a.teamId),
+          );
+      } catch {
+        // Settings report load failures; the chat keeps the last list.
+      }
+    },
+    [assistantId],
+  );
+  useEffect(() => {
+    if (enabled && (!lastEvent || ["change", "connected"].includes(lastEvent.type)))
+      load();
+  }, [enabled, lastEvent, load]);
+  usePolling(load, 5000, {
+    enabled: enabled && actions.length > 0,
+    immediate: false,
+    restartKey: load,
+  });
+  const decide = useCallback(
+    async (a, decision) => {
+      setError("");
+      try {
+        await api(`/assistant-actions/${encodeURIComponent(a.id)}/decision`, "POST", {
+          revision: a.revision,
+          decision,
+        });
+        await load();
+      } catch (e) {
+        setError(e.message);
+      }
+    },
+    [load],
+  );
+  return { actions, error, decide, reload: load };
+}

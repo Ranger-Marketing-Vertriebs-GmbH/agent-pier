@@ -7,6 +7,7 @@ import useAssistants from "./useAssistants.js";
 import { assistantApi } from "./assistant-api.js";
 import TeamCodingRequests from "./TeamCodingRequests.jsx";
 import useTeamCodingRequests from "./useTeamCodingRequests.js";
+import { scrollToChild } from "./transcript-scroll.js";
 export default function AssistantTeams({ assistant, focusTeamId, navigate }) {
   const { teams = [], members = [], refresh } = useAssistants();
   const [error, setError] = useState(""),
@@ -15,10 +16,9 @@ export default function AssistantTeams({ assistant, focusTeamId, navigate }) {
   // A deep link to a team task (from a Telegram notice) shows that team.
   const focused = teams.some((t) => t.id === focusTeamId);
   useEffect(() => {
-    if (focused)
-      document
-        .getElementById(`assistant-team-${focusTeamId}`)
-        ?.scrollIntoView({ block: "nearest" });
+    if (!focused) return;
+    const card = document.getElementById(`assistant-team-${focusTeamId}`);
+    scrollToChild(card?.closest(".assistant-transcript"), card);
   }, [focusTeamId, focused]);
   const member = members.find((m) => m.assistantId === assistant.id);
   const coding = useTeamCodingRequests(
@@ -67,6 +67,14 @@ export default function AssistantTeams({ assistant, focusTeamId, navigate }) {
               )
             }
             className="assistant-team-card"
+            data-pending={
+              team.phase === "awaiting_approval" ||
+              coding.actions.some(
+                (a) => a.teamId === team.id && a.state === "awaiting_approval",
+              )
+                ? ""
+                : undefined
+            }
           >
             <summary>
               <strong>{team.objective}</strong>

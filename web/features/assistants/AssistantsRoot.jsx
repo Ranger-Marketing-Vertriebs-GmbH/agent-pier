@@ -1,6 +1,7 @@
 import "./assistants.css";
 import "./assistant-sidebar.css";
 import "./assistant-chat.css";
+import "./assistant-teams.css";
 import "./assistant-settings.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { assistantApi } from "./assistant-api.js";

@@ -1,6 +1,9 @@
 import AssistantTeams from "./AssistantTeams.jsx";
 import AssistantHeader from "./AssistantHeader.jsx";
 import AssistantActionApprovals from "./AssistantActionApprovals.jsx";
+import AssistantApprovalStrip from "./AssistantApprovalStrip.jsx";
+import useAssistantActions from "./useAssistantActions.js";
+import { activityFor } from "./assistant-status.js";
 import React, {
   memo,
   useCallback,
@@ -35,6 +38,7 @@ export default function AssistantChat({
     runtime,
     members = [],
     conversations = [],
+    activity = {},
   } = useAssistants();
   const conversationFault =
     copy.conversationDiagnostics[
@@ -92,6 +96,8 @@ export default function AssistantChat({
     !latest.attempt.reviewedAt &&
     !["completed", "failed", "cancelled"].includes(latest.attempt.state);
   const uncertain = ["uncertain", "interrupted"].includes(latest?.attempt?.state);
+  const ownActions = useAssistantActions(assistant.id, !assistant.teamMemberId);
+  const entry = activityFor(activity, assistant.id);
   const canSend = Boolean(
     text.trim() &&
     !busy &&
@@ -180,6 +186,9 @@ export default function AssistantChat({
         attempt={active ? latest.attempt : null}
         member={member}
       />
+      {!assistant.teamMemberId && (
+        <AssistantApprovalStrip count={entry.pendingApprovals} output={output} />
+      )}
 
       <div className="assistant-chat-panel">
         <ErrorMessage error={error} />
@@ -296,9 +305,7 @@ export default function AssistantChat({
             )}
           </div>
           <Teams assistant={assistant} focusTeamId={focusTeamId} navigate={navigate} />
-          {!assistant.teamMemberId && (
-            <AssistantActionApprovals assistantId={assistant.id} />
-          )}
+          {!assistant.teamMemberId && <AssistantActionApprovals {...ownActions} />}
         </div>
         <div
           className="assistant-announcer"
