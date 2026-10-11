@@ -3,6 +3,9 @@
 // OPENCLAW_STATE_DIR and OPENCLAW_CONFIG_PATH (plus PATH), neither its token nor a
 // running Gateway. Nothing here logs; thrown messages are redacted.
 import { spawn as nodeSpawn } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { runtimeEnvironment } from "../assistants/runtime-config.js";
 import { namePattern } from "./command-resolution.js";
 
@@ -187,13 +190,13 @@ export function createMcpCli({
   maxOutputBytes = defaultMaxOutputBytes,
   spawn = nodeSpawn,
 }) {
-  function run(command, args, secrets = []) {
+  function run(command, args, secrets = [], overrides = {}) {
     const current = resolve(runtime);
     if (!current?.nodePath || !current?.entryPath)
       return Promise.reject(
         new McpCliError("runtime-unavailable", "The assistant runtime is not available."),
       );
-    const env = { ...resolve(environment) };
+    const env = { ...resolve(environment), ...overrides };
     delete env.OPENCLAW_GATEWAY_TOKEN;
     return new Promise((done, reject) => {
       // Its own process group, so a timeout or an output flood also ends what the
@@ -276,9 +279,33 @@ export function createMcpCli({
           "OpenClaw MCP login did not save credentials.",
         );
     },
-    async logout(name) {
+    /**
+     * Clears the login of `name`. With `server` (its compiled `mcp.servers` entry) the
+     * CLI reads a private one-server config instead of the Gateway's, so a login can
+     * be cleared under a name and URL the Gateway no longer compiles: OpenClaw keys
+     * logins by name and URL only (docs/mcp-oauth-qualification.md (e)).
+     */
+    async logout(name, { server } = {}) {
       checkedName(name);
-      const stdout = await run("logout", ["logout", name]);
+      let stdout;
+      if (server) {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-mcp-logout-"));
+        const config = path.join(dir, "openclaw.json");
+        try {
+          fs.writeFileSync(
+            config,
+            JSON.stringify({ mcp: { servers: { [name]: server } } }),
+            {
+              mode: 0o600,
+            },
+          );
+          stdout = await run("logout", ["logout", name], [], {
+            OPENCLAW_CONFIG_PATH: config,
+          });
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      } else stdout = await run("logout", ["logout", name]);
       if (!lines(stdout).includes(`MCP OAuth credentials cleared for "${name}".`))
         throw new McpCliError(
           "cli-failed",

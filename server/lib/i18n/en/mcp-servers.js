@@ -34,4 +34,6 @@ export const mcpServers = Object.freeze({
   oauthRuntimeUnavailable: "The assistant runtime is not available.",
   oauthLoginFailed: "The OAuth login failed. Please try again.",
   oauthLogoutFailed: "The server's OAuth login could not be removed. Please try again.",
+  oauthLogoutDeferred:
+    "Saved. The previous OAuth login could not be removed right now; AgentPier retries when the assistant runtime starts next.",
 });

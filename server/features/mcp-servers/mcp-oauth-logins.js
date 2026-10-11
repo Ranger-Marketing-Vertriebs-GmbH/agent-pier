@@ -1,13 +1,17 @@
 // OAuth logins of central MCP servers, driven through the OpenClaw CLI (see
 // docs/mcp-oauth-qualification.md). AgentPier holds only what OpenClaw does not:
 // the pending logins it started (state, server, start time; never a code or token),
-// a short status cache, and per server whether it was ever connected and the
-// redirect URL its last login registered.
+// a short status cache, per server whether it was ever connected and the redirect
+// URL its last login registered, and logouts that failed and are retried later.
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { patchConfig } from "../assistants/openclaw-config/live-patch.js";
+import {
+  mcpServerConfig,
+  mcpServerSignature,
+} from "../assistants/openclaw-config/mcp-servers.js";
 import { oauthStatus } from "./openclaw-mcp-cli.js";
-import { oauthLoginUsable } from "./oauth-redirect.js";
+import { oauthCallbackPath, oauthLoginUsable } from "./oauth-redirect.js";
 
 const messages = serverMessages.mcpServers;
 export const pendingLoginMs = 10 * 60 * 1000;
@@ -63,8 +67,8 @@ export class McpOAuthLogins {
    * - `cli`: openclaw-mcp-cli wrapper (startLogin, completeLogin, logout, status).
    * - `servers`: the McpServerStore.
    * - `runtime`: the RuntimeSupervisor (`mcp` snapshot, `client`).
-   * - `admit(operation)`: the assistants' admission lock for live config writes.
-   * - `isCurrent()`: false while a stored MCP change still waits to be applied.
+   * - `admit(operation)`: the assistants' admission lock (store edits, config writes).
+   * - `redirectUrl()`: the redirect URL the store compiles OAuth servers with now.
    * - `remoteUrl()`: the configured HTTPS remote origin, if any.
    */
   constructor({
@@ -72,7 +76,7 @@ export class McpOAuthLogins {
     servers,
     runtime,
     admit = (operation) => operation(),
-    isCurrent = () => true,
+    redirectUrl = () => runtime?.mcp?.redirectUrl ?? null,
     remoteUrl = () => null,
     now = Date.now,
     warn = console.warn,
@@ -82,7 +86,7 @@ export class McpOAuthLogins {
       servers,
       runtime,
       admit,
-      isCurrent,
+      redirectUrl,
       remoteUrl,
       now,
       warn,
@@ -113,6 +117,23 @@ export class McpOAuthLogins {
     return !!this.runtime?.mcp?.servers?.includes(name);
   }
 
+  /** The unredacted definition of server `id` (throws 404 like the store). */
+  definition(id) {
+    this.servers.get(id);
+    return this.servers.definitions().find((server) => server.id === id);
+  }
+
+  /**
+   * Whether the running Gateway carries this server exactly as the store compiles
+   * it now. A change still waiting to be applied to this server (name, URL, scope or
+   * redirect) refuses its login; changes to other servers do not.
+   */
+  current(definition) {
+    const signature = this.runtime?.mcp?.serverSignatures?.[definition.name];
+    const config = mcpServerConfig(definition, null, this.redirectUrl());
+    return !!signature && !!config && signature === mcpServerSignature(config);
+  }
+
   /** The unexpired pending login of `serverId`, pruning expired ones. */
   pendingFor(serverId) {
     let found = null;
@@ -129,9 +150,29 @@ export class McpOAuthLogins {
   }
 
   /**
+   * Clears OpenClaw's login for `{ name, url, transport }` under a one-server config,
+   * so it works whether or not the Gateway compiles that name now. A server OpenClaw
+   * does not know has nothing to log out. Callers serialize by name.
+   */
+  async clearLogin(target) {
+    const server = mcpServerConfig(
+      { ...target, auth: "oauth" },
+      null,
+      this.redirectUrl() || `http://127.0.0.1${oauthCallbackPath}`,
+    );
+    try {
+      await this.cli.logout(target.name, server ? { server } : {});
+    } catch (error) {
+      if (error?.code !== "server-unknown") throw error;
+    }
+  }
+
+  /**
    * Starts a login for server `id` from a browser on `requestOrigin`. Returns
    * `{ authorizationUrl }`, or `{ connected: true }` when OpenClaw only refreshed.
    * Refuses before running the CLI when the browser could not reach the redirect.
+   * Runs under the admission lock, so no edit can rename or move the server between
+   * its checks and the CLI.
    */
   async start(id, { requestOrigin } = {}) {
     const server = this.servers.get(id);
@@ -146,18 +187,39 @@ export class McpOAuthLogins {
         usable.reason,
         409,
       );
+    const result = await this.admit(() => this.startAdmitted(id));
+    if (result.connected) await this.resetBackoff();
+    return result;
+  }
+
+  async startAdmitted(id) {
+    const definition = this.definition(id);
+    const name = definition.name;
     const redirect = this.runtime?.mcp?.redirectUrl;
-    if (!redirect || !this.compiled(server.name) || !this.isCurrent())
+    if (definition.auth !== "oauth" || !redirect || !this.current(definition))
       throw failure(messages.oauthNotCompiled, "not-compiled", 409);
-    const name = server.name;
-    const result = await this.serial(name, async () => {
+    return this.serial(name, async () => {
       // A second start replaces the first: its state no longer completes.
       this.dropPending(id);
       try {
+        // A login an earlier logout could not clear must go before this one
+        // registers, so old tokens never come back under the same name and URL.
+        const stale = this.servers
+          .deferredLogouts()
+          .find((t) => t.name === name && t.url === definition.url);
+        if (stale) {
+          try {
+            await this.clearLogin(stale);
+          } catch {
+            throw failure(messages.oauthLogoutFailed, "logout-failed", 409);
+          }
+          this.servers.settleLogout(stale);
+        }
         // OpenClaw registered the client for the redirect of the last login; a
         // changed redirect needs a new registration, which a logout forces.
         const { loginRedirect } = this.servers.oauthMemory(id);
-        if (loginRedirect && loginRedirect !== redirect) await this.logoutQuietly(name);
+        if (loginRedirect && loginRedirect !== redirect)
+          await this.clearLogin(definition);
         const started = await this.cli.startLogin(name);
         this.servers.rememberOAuth(id, { loginRedirect: redirect });
         if (started.authorized) {
@@ -177,17 +239,6 @@ export class McpOAuthLogins {
         this.invalidate();
       }
     });
-    if (result.connected) await this.resetBackoff();
-    return result;
-  }
-
-  /** Logs out `name`; a server OpenClaw does not know has nothing to log out. */
-  async logoutQuietly(name) {
-    try {
-      await this.cli.logout(name);
-    } catch (error) {
-      if (error?.code !== "server-unknown") throw error;
-    }
   }
 
   /**
@@ -198,7 +249,7 @@ export class McpOAuthLogins {
    */
   async complete({ state, code, error } = {}) {
     const login = typeof state === "string" ? this.pending.get(state) : undefined;
-    // Single use: consumed before anything runs.
+    // Single use: consumed synchronously, before anything awaits.
     if (login) this.pending.delete(state);
     let current = null;
     try {
@@ -237,8 +288,9 @@ export class McpOAuthLogins {
 
   /**
    * A successful `--code` does not lift OpenClaw's failed-start backoff; any hot
-   * change under `mcp` does (qualification (b)). Failures are logged: the login
-   * stands, the tools follow at the latest after the backoff.
+   * change under `mcp` does (qualification (b)). It disposes the MCP runtimes of
+   * every session once, which is acceptable once per login. Failures are logged: the
+   * login stands, the tools follow at the latest after the backoff.
    */
   async resetBackoff() {
     const runtime = this.runtime;
@@ -265,56 +317,77 @@ export class McpOAuthLogins {
 
   /** Logs server `id` out (owner action). */
   async logout(id) {
-    const server = this.servers.get(id);
-    if (server.transport === "stdio" || server.auth !== "oauth")
+    const definition = this.definition(id);
+    if (definition.transport === "stdio" || definition.auth !== "oauth")
       throw failure(messages.oauthNotOAuth, "not-oauth", 409);
     this.dropPending(id);
-    if (!this.compiled(server.name))
-      throw failure(messages.oauthNotCompiled, "not-compiled", 409);
     try {
-      await this.serial(server.name, () => this.logoutQuietly(server.name));
+      await this.serial(definition.name, () => this.clearLogin(definition));
     } catch (error) {
       throw cliFailure(error, this.runtime?.mcp?.redirectUrl);
+    } finally {
+      this.invalidate();
+    }
+    this.servers.rememberOAuth(id, { connected: false, loginRedirect: null });
+  }
+
+  /**
+   * Before a change moves the login elsewhere (rename, URL change, switch to
+   * headers, delete): clears it under the old name and URL. The owner is never
+   * blocked: a logout that fails is recorded and retried (drain), and the result
+   * says so with `{ deferred: true }`.
+   */
+  async forget(id, before) {
+    this.dropPending(id);
+    this.servers.rememberOAuth(id, { connected: false, loginRedirect: null });
+    try {
+      await this.serial(before.name, () => this.clearLogin(before));
+      return { deferred: false };
+    } catch (error) {
+      this.warn(
+        `An MCP server's OAuth login could not be removed yet (${error?.code || "ERROR"}); retrying later.`,
+      );
+      this.servers.deferLogout(before);
+      return { deferred: true };
     } finally {
       this.invalidate();
     }
   }
 
   /**
-   * Before a change moves the login elsewhere (rename, URL change, switch to
-   * headers, delete): logs out under the old name while OpenClaw can still address
-   * it. A server the running Gateway did not compile cannot be addressed and is
-   * skipped. A server OpenClaw does not know has nothing to log out; any other
-   * failure blocks the change, so no login is orphaned silently.
+   * Retries logouts that failed before. Called before a Gateway start compiles and
+   * before a live MCP apply, so a server re-created under the same name and URL never
+   * gets the old tokens back once the CLI works. Returns how many remain.
    */
-  async forget(id, name) {
-    this.dropPending(id);
-    if (!this.compiled(name)) return;
-    try {
-      await this.serial(name, () => this.logoutQuietly(name));
-    } catch (error) {
-      this.warn(
-        `An MCP server's OAuth login could not be removed (${error?.code || "ERROR"}).`,
-      );
-      throw failure(messages.oauthLogoutFailed, "logout-failed", 409);
-    } finally {
-      this.invalidate();
+  async drain() {
+    const left = [];
+    for (const target of this.servers.deferredLogouts()) {
+      try {
+        await this.serial(target.name, () => this.clearLogin(target));
+        this.servers.settleLogout(target);
+      } catch {
+        left.push(target);
+      } finally {
+        this.invalidate();
+      }
     }
+    return left.length;
   }
 
   /** Called with the store's previewUpdate before an update is saved. */
   async beforeUpdate(id, { before, after }) {
-    if (before.auth !== "oauth") return;
+    if (before.auth !== "oauth") return { deferred: false };
     if (after.auth === "oauth" && before.name === after.name && before.url === after.url)
-      return;
-    await this.forget(id, before.name);
+      return { deferred: false };
+    return this.forget(id, before);
   }
 
   /** Called before server `id` is deleted. */
   async beforeRemove(id) {
-    const server = this.servers.get(id);
-    if (server.auth === "oauth" && server.transport !== "stdio")
-      await this.forget(id, server.name);
+    const definition = this.definition(id);
+    if (definition.auth !== "oauth" || definition.transport === "stdio")
+      return { deferred: false };
+    return this.forget(id, definition);
   }
 
   /** `openclaw mcp status` by name, cached briefly; {} when nothing is compiled. */

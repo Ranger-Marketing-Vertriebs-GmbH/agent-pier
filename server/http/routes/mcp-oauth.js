@@ -62,34 +62,64 @@ const one = (value) => (typeof value === "string" ? value : undefined);
  * and the redirect host (127.0.0.1) may differ from the one the owner uses. The
  * unguessable, single-use `state` of a login the owner started (10 minutes) is the
  * authentication. The answer reveals only success or a stable error code.
+ *
+ * - Plain network hosts never serve it: no redirect is compiled for them, so only a
+ *   leaked state could arrive there.
+ * - HEAD is refused, so only the navigation consumes a state.
+ * - It holds a mutation lease like every other write; while a backup or restore
+ *   holds the barrier exclusively it answers "unavailable" and consumes nothing.
+ * - Every completion is audited with the server and the result only.
  */
 export function mcpOAuthCallbackRoutes(services) {
   const router = Router();
-  router.get(oauthCallbackPath.replace(/^\/api/, ""), async (req, res) => {
+  const route = oauthCallbackPath.replace(/^\/api/, "");
+  const refuse = (res, status, code, message) =>
+    res.status(status).json({ code, error: message, ...messageIdentity(message) });
+  router.head(route, (_req, res) => res.status(405).set("Allow", "GET").end());
+  router.get(route, async (req, res) => {
     res.set("Cache-Control", "no-store");
+    const messages = serverMessages.mcpServers;
+    if (req.trustBranch === "network")
+      return refuse(res, 403, "plain-http-remote", messages.oauthPlainHttpRemote);
     const oauth = services.assistantMcpOAuth;
-    const invalidState = () => {
-      const message = serverMessages.mcpServers.oauthStateInvalid;
-      res
-        .status(400)
-        .json({ code: "state-invalid", error: message, ...messageIdentity(message) });
-    };
     // Without the assistant services no login can be pending.
-    if (!oauth) return invalidState();
-    let done;
-    try {
-      done = await oauth.complete({
+    if (!oauth) return refuse(res, 400, "state-invalid", messages.oauthStateInvalid);
+    const barrier = services.mutationBarrier;
+    if (barrier?.exclusive)
+      return res.redirect(303, `${settingsPath}?oauth=error&reason=unavailable`);
+    const complete = () =>
+      oauth.complete({
         state: one(req.query.state),
         code: one(req.query.code),
         error: one(req.query.error),
       });
+    let done;
+    try {
+      done = barrier ? await barrier.run(complete) : await complete();
     } catch (error) {
-      if (error?.code === "state-invalid") return invalidState();
+      if (error?.code === "state-invalid")
+        return refuse(res, 400, "state-invalid", messages.oauthStateInvalid);
       return res.redirect(303, `${settingsPath}?oauth=error&reason=unavailable`);
     }
+    audit(services, done);
     const query = new URLSearchParams({ oauth: done.result, server: done.serverId });
     if (done.reason) query.set("reason", done.reason);
     res.redirect(303, `${settingsPath}?${query}`);
   });
   return router;
+}
+
+function audit({ audit: log }, done) {
+  try {
+    log?.append({
+      action: done.result === "connected" ? "mcp.completed" : "mcp.failed",
+      resourceType: "mcp",
+      resourceId: done.serverId,
+      source: "user",
+      outcome: done.result === "connected" ? "success" : "failure",
+      details: done.reason ? { failReason: done.reason.replaceAll("_", "-") } : {},
+    });
+  } catch {
+    // The audit trail must not undo a completed login.
+  }
 }

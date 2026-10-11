@@ -188,13 +188,29 @@ export function mcpSignature(sections) {
 }
 
 /**
+ * A secret-free fingerprint of one compiled `mcp.servers` entry, so a caller can tell
+ * whether the running Gateway carries a server exactly as the store compiles it now.
+ */
+export function mcpServerSignature(config) {
+  return createHmac("sha256", signatureSecret)
+    .update(JSON.stringify(config ?? null))
+    .digest("hex");
+}
+
+/**
  * What the supervisor keeps about a Gateway start: the per-agent globs live applies
- * grant, the compiled server names, the OAuth redirect URL OpenClaw registered and
- * the signature. It never holds a secret.
+ * grant, the compiled server names, the OAuth redirect URL OpenClaw registered,
+ * per-server signatures and the signature. It never holds a secret.
  */
 export function mcpSnapshot(sections) {
   return {
     servers: Object.keys(sections.servers),
+    serverSignatures: Object.fromEntries(
+      Object.entries(sections.servers).map(([name, config]) => [
+        name,
+        mcpServerSignature(config),
+      ]),
+    ),
     globalTools: [...sections.globalTools],
     agentTools: structuredClone(sections.agentTools),
     skipped: [...sections.skipped],
