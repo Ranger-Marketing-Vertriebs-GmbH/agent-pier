@@ -136,7 +136,7 @@ export default function AssistantComposer({
                 className="assistant-team-chip"
                 onClick={() => allowTeam(false)}
               >
-                <Icon name="users" size={13} />
+                <Icon name="users" size={13} strokeWidth="1.8" />
                 {copy.team.allowedChip}
               </button>
             )}

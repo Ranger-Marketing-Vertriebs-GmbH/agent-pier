@@ -85,7 +85,9 @@ export default function AssistantTeams({ assistant, focusTeamId, navigate }) {
                   </span>
                 </span>
                 {!awaiting && (
-                  <Icon name="chevron" size={16} className="assistant-team-chevron" />
+                  <span className="assistant-team-chevron" aria-hidden="true">
+                    ›
+                  </span>
                 )}
               </summary>
               {team.ownerRequestQuote && (
