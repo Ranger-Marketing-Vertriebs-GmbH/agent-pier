@@ -111,3 +111,32 @@ test("saving the search settings passes the confirmation and keeps busy reasons"
     [input, { confirmed: true }],
   ]);
 });
+
+test("the runtime status reports whether a browser is available, without paths", async (t) => {
+  const runtime = { status: () => ({ availability: "ready", sync: "current" }) };
+  const get = async (detect) => {
+    const request = await serve(t, {
+      assistantRuntime: runtime,
+      assistants: { store: { listAssistants: () => [] } },
+      assistantWebTools: { detect },
+    });
+    return (await request("GET", "/assistant-runtime")).json();
+  };
+  const found = await get(() => ({
+    available: true,
+    name: "Chrome",
+    executablePath: "/Applications/Secret/Chrome",
+  }));
+  assert.deepEqual(found.browser, { available: true, name: "Chrome" });
+  assert.deepEqual((await get(() => ({ available: false }))).browser, {
+    available: false,
+  });
+  assert.deepEqual(
+    (
+      await get(() => {
+        throw new Error("boom");
+      })
+    ).browser,
+    { available: false },
+  );
+});

@@ -77,6 +77,8 @@ export const assistantApi = {
     ),
   speech: (signal) => api("/assistant-speech", "GET", undefined, signal),
   saveSpeech: (input) => api("/assistant-speech", "PUT", input),
+  webSearch: (signal) => api("/assistant-web-search", "GET", undefined, signal),
+  saveWebSearch: (input) => api("/assistant-web-search", "PUT", input),
   accounts: () => api("/assistant-model-accounts"),
   startLogin: () => api("/assistant-model-login", "POST", {}),
   loginStatus: (id) => api(`/assistant-model-login/${encodeURIComponent(id)}`),

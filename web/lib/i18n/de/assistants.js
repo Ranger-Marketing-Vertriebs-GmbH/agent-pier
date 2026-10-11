@@ -52,6 +52,33 @@ export const assistantCopy = {
   },
 
   personal: {
+    memoryGroup: "Gedächtnis & Erinnerungen",
+    webGroup: "Web & Dokumente",
+    enableWebSearch: "Im Web suchen",
+    enableWebFetch: "Webseiten lesen",
+    enableBrowser: "Einen Browser nutzen",
+    enableDocuments: "Dokumente und Bilder lesen",
+    memoryDescription: "Führt eigene Notizen über Unterhaltungen hinweg.",
+    remindersDescription: "Sendet Erinnerungen und führt Zeitpläne über Telegram aus.",
+    webSearchDescription: "Recherchiert mit dem in den Zugängen gewählten Suchanbieter.",
+    webFetchDescription: "Öffnet eine Webadresse und liest den Text der Seite.",
+    browserDescription:
+      "Steuert ein eigenes Browserprofil für Seiten, die Klicken oder Anmelden erfordern.",
+    documentsDescription:
+      "Liest PDF-Dateien und betrachtet Bilder in seinem Arbeitsordner.",
+    browserUnavailable:
+      "Auf diesem Rechner wurde kein unterstützter Browser gefunden. Installiere Chrome, Brave, Edge oder Chromium, um dies zu nutzen.",
+    searchUnavailable:
+      "Die Websuche ist nicht eingerichtet. Wähle in den Zugängen einen Anbieter und hinterlege seinen Schlüssel.",
+    webHint:
+      "Webinhalte sind nicht vertrauenswürdig: Der Agent darf Seiten lesen, folgt darin gefundenen Anweisungen aber nicht. Änderungen dieser Optionen können den Agentendienst neu starten.",
+    restartTitle: "Agentendienst neu starten?",
+    restartBody:
+      "Diese Änderung startet den Dienst der Agenten kurz neu. Laufende Unterhaltungen werden zuerst beendet; ist ein Agent beschäftigt, bricht das Speichern mit einer Meldung ab und nichts ändert sich.",
+    restartAffected: (names, members = 0) =>
+      `Kurz nicht erreichbar: ${names || "keine Agenten"}${members ? ` (+${members} Teammitglied${members === 1 ? "" : "er"})` : ""}`,
+    restartConfirm: "Speichern und neu starten",
+    restartCancel: "Abbrechen",
     capabilities: "Persönliche Assistenz",
     enableMemory: "Informationen merken",
     enableReminders: "Telegram-Erinnerungen erlauben",
@@ -201,6 +228,27 @@ export const assistantCopy = {
   conversation: "Unterhaltung",
   settingsTab: "Einstellungen",
   messagePlaceholder: "Nachricht an deinen Agenten …",
+  webSearch: {
+    title: "Websuche",
+    description:
+      "Der Suchanbieter, den Agenten bei eingeschalteter Websuche nutzen. Änderungen können den Agentendienst neu starten.",
+    provider: "Suchanbieter",
+    duckduckgo: "DuckDuckGo (kein Schlüssel nötig)",
+    perplexity: "Perplexity (über eine OpenRouter-Verbindung)",
+    brave: "Brave Search (API-Schlüssel)",
+    connection: "OpenRouter-Verbindung",
+    noConnection: "Verbindung wählen",
+    noConnections: "Lege oben eine OpenRouter-Verbindung an, um Perplexity zu nutzen.",
+    braveKey: "Brave-API-Schlüssel",
+    braveKeyStored: "Schlüssel gespeichert",
+    braveKeyMissing: "Kein Schlüssel gespeichert",
+    removeKey: "Brave-Schlüssel entfernen",
+    ready: "Bereit",
+    notConfigured:
+      "Nicht eingerichtet: Agenten können das Web erst durchsuchen, wenn dies vollständig ist.",
+    save: "Sucheinstellungen speichern",
+    saving: "Speichert …",
+  },
   speech: {
     title: "Spracherkennung",
     description:
