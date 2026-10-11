@@ -2,7 +2,8 @@ import React from "react";
 import ProviderMark from "../components/ProviderMark.jsx";
 import { sessionActivity, sandboxBadge } from "./SidebarGroup.jsx";
 
-const folder = (cwd = "") => cwd.split("/").filter(Boolean).at(-1) || cwd;
+// Sessions may lack a working directory (cwd null); they then show no location.
+const folder = (cwd) => (cwd ? cwd.split("/").filter(Boolean).at(-1) || cwd : "");
 
 // The provider mark names the tool, so the subline only carries state and location.
 export default function SessionRow({ session, selected, onSelect, names }) {

@@ -39,8 +39,20 @@ export default function SidebarMenu({
     const outside = (event) => {
       if (!root.current?.contains(event.target)) setOpen(false);
     };
+    // Document level, so Escape works even when focus fell back to the body; stopping
+    // it here keeps App's window listener from also closing the drawer (one layer).
+    const escape = (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    };
     document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
   }, [open]);
   const entry = ({ key, icon, label, active, onClick, ariaLabel, extra }) => (
     <button
@@ -60,18 +72,7 @@ export default function SidebarMenu({
     </button>
   );
   return (
-    <nav
-      className="sidebar-menu"
-      aria-label={copy.ariaLabel}
-      ref={root}
-      onKeyDown={(event) => {
-        if (event.key !== "Escape" || !open) return;
-        // The window listener in App closes the drawer; one Escape closes one layer.
-        event.preventDefault();
-        event.stopPropagation();
-        close();
-      }}
-    >
+    <nav className="sidebar-menu" aria-label={copy.ariaLabel} ref={root}>
       <button
         ref={trigger}
         type="button"

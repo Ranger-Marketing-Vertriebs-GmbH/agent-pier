@@ -26,10 +26,11 @@
   align-items: center;
   padding: 12px 14px 0;
 }
-.sidebar-collapse {
+.sidebar-head .sidebar-collapse {
   grid-area: collapse;
   width: 32px;
   height: 32px;
+  color: #9d9ea2;
 }
 .sidebar-menu {
   grid-area: menu;
@@ -123,7 +124,8 @@
 .new-session {
   width: 100%;
   justify-content: flex-start;
-  padding: 0 13px;
+  /* 13px to the content edge in the handoff, inside the 1px button border. */
+  padding: 0 12px;
 }
 .shortcut {
   margin-left: auto;
@@ -158,7 +160,8 @@
   background: #222327;
   color: #ffe2c9;
 }
-.sidebar-group.active > .sidebar-group-toggle {
+/* An open group shows its selected row; only a collapsed one marks the header (1a). */
+.sidebar-group.active.collapsed > .sidebar-group-toggle {
   color: #ffc99d;
 }
 .sidebar-group-chevron {
