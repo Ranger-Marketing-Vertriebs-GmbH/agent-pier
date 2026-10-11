@@ -4,6 +4,7 @@ import { proxyEnvironment } from "../../lib/proxy-environment.js";
 import { readJSON, writePrivate } from "../../lib/storage.js";
 import { guardedTools, memoryTools } from "./native-capabilities.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
+import { hardenedDefaults } from "./openclaw-config/locked-core.js";
 
 export const teamTools = [
   "session_status",
@@ -44,6 +45,14 @@ export function prepareRuntimeConfig(
     ...config.agents,
     defaults: { ...config.agents?.defaults, workspace: paths.workspaces },
   };
+  const hardened = hardenedDefaults();
+  config.channels = hardened.channels;
+  config.browser = { ...config.browser, ...hardened.browser };
+  config.discovery = hardened.discovery;
+  config.telemetry = hardened.telemetry;
+  config.update = hardened.update;
+  config.skills = { ...config.skills, allowBundled: hardened.skillsAllowBundled };
+  config.agents.defaults.heartbeat = hardened.heartbeat;
   const enabled = !!(teams?.directory && teams?.connection);
   config.tools = { allow: enabled ? teamTools : ["session_status"], toolSearch: false };
   config.plugins = {
