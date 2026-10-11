@@ -252,12 +252,24 @@ for the implementation and remaining native platform/version qualification.
 
 ## Status model
 
-| Layer           | Examples                                                   | Meaning                                                         |
-| --------------- | ---------------------------------------------------------- | --------------------------------------------------------------- |
-| Service         | starting, ready, reconnecting, stopped, failed             | Whether the managed runtime is reachable and usable             |
-| Reconciliation  | current, checking, uncertain                               | Whether displayed task data has been refreshed from the runtime |
-| Run             | queued, running, succeeded, failed, cancelled, interrupted | Outcome of a particular execution attempt                       |
-| Action/delivery | pending, confirmed, failed, uncertain                      | Whether a requested external effect actually occurred           |
+| Layer           | Examples                                                   | Meaning                                                               |
+| --------------- | ---------------------------------------------------------- | --------------------------------------------------------------------- |
+| Service         | starting, ready, reconnecting, stopped, failed             | Whether the managed runtime is reachable and usable                   |
+| Reconciliation  | current, checking, uncertain                               | Whether displayed task data has been refreshed from the runtime       |
+| Run             | queued, running, succeeded, failed, cancelled, interrupted | Outcome of a particular execution attempt                             |
+| Action/delivery | pending, confirmed, failed, uncertain                      | Whether a requested external effect actually occurred                 |
+| Agent activity  | idle, working, waiting, attention                          | Derived per agent for the sidebar dot, chat header and approval count |
+
+Agent activity is derived on every `GET /api/assistants` from the latest request per
+conversation, pending approvals and team state (`assistant-activity.js`); it is never
+stored. First match wins: an unreviewed `uncertain` or `interrupted` attempt, or a
+member in `uncertain` / `provisioning_uncertain`, needs **attention**; any pending
+approval (own actions, team coding requests, team proposals) means **waiting**; an
+unreviewed `pending` / `accepted` / `running` attempt, a working or queued member, or an
+active own team means **working**; everything else, including a `failed` last attempt,
+is **idle**. `pendingApprovals` carries the count shown in the chat. Clients refetch the
+list on every `change` event, so a runtime failure publishes `change` after marking
+outstanding attempts uncertain.
 
 Keep session keys and run IDs separate. A session can be reused for several runs;
 even the same run ID can appear when an interrupted request is retried in the tested
