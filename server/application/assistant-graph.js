@@ -30,7 +30,10 @@ import { WebToolsChanges } from "../features/assistants/web-tools-changes.js";
 import { McpChanges } from "../features/assistants/mcp-changes.js";
 import { oauthRedirect } from "../features/mcp-servers/oauth-redirect.js";
 import { McpOAuthLogins } from "../features/mcp-servers/mcp-oauth-logins.js";
-import { supervisorMcpCli } from "../features/mcp-servers/openclaw-mcp-cli.js";
+import {
+  supervisorMcpCli,
+  sweepLogoutConfigs,
+} from "../features/mcp-servers/openclaw-mcp-cli.js";
 import {
   expectWiring,
   requireReferences,
@@ -185,6 +188,8 @@ export function constructAssistantGraph(host, created = {}) {
     webSearch: assistantWebSearch,
     synchronization: assistantProviderSynchronization,
   });
+  // Logout configs a killed CLI run left behind (they can name a server URL).
+  sweepLogoutConfigs(assistantRuntime.paths.state);
   const assistantMcpOAuth = new McpOAuthLogins({
     cli: supervisorMcpCli(assistantRuntime),
     servers: assistantMcpServers,
@@ -193,6 +198,7 @@ export function constructAssistantGraph(host, created = {}) {
     redirectUrl: () => oauthRedirect(host.effectiveConfig?.() || config),
     // Called under admission by a login start; assistantMcpChanges is built below.
     reapply: () => assistantMcpChanges.apply(),
+    onFreed: () => assistants.admit(() => assistantMcpChanges.apply()),
     remoteUrl: () => (host.effectiveConfig?.() || config).remoteUrl,
   });
   const assistantMcpChanges = new McpChanges({

@@ -200,12 +200,24 @@ refresh (or answers 403 `insufficient_scope`). `expiresAt` follows the token's
   that name and URL is cleared. The contract renames the server away, clears the
   orphan this way, and finds it `unauthenticated` when the name returns.
 
-AgentPier therefore always logs out through such a config. A logout that fails anyway
-(runtime unavailable, timeout, CLI error) never blocks the owner's edit or delete: it
-is recorded in `oauth_logouts` (name, URL, transport; no secret beyond the URL the
-store already holds) and retried before every Gateway start compiles, before every
-live MCP apply, and before a login of a server with that name and URL. Such a login is
-refused while the retry fails, so old tokens never come back.
+AgentPier therefore always logs out through such a config, written to a 0700
+directory with a 0600 file inside the Gateway's private state directory and removed
+afterwards (leftovers of a killed run are swept when the assistant services start).
+A logout that fails anyway (runtime unavailable, timeout, CLI error) never blocks the
+owner's edit or delete. It is recorded in `oauth_logouts` (name, URL, transport; no
+secret beyond the URL the store already holds) and:
+
+- an OAuth server with that same name and URL is not compiled (left out like an
+  unbound server, status "login-required" with reason `logout-pending`) until the
+  logout went through, so OpenClaw cannot reuse the old tokens;
+- the entries drain in the background, outside the admission lock, one at a time,
+  retried from one second up to ten minutes; a drain that frees a current server
+  applies the store so it compiles again. Entries that match no server never make
+  an apply pending;
+- one bounded pass runs before a Gateway start compiles; it stops at the first
+  timeout or missing runtime, so a broken CLI delays a start by one timeout at most;
+- a login of a server with that name and URL clears its entry first and is refused
+  while that fails.
 
 ### (f) Environment
 

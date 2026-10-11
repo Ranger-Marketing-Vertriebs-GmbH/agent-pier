@@ -17,6 +17,10 @@ import { oauthCallbackPath, oauthLoginUsable } from "./oauth-redirect.js";
 const messages = serverMessages.mcpServers;
 export const pendingLoginMs = 10 * 60 * 1000;
 const statusTtlMs = 10 * 1000;
+const firstDrainMs = 1000;
+const lastDrainMs = 10 * 60 * 1000;
+// Failures that would fail every further logout the same way.
+const stalls = new Set(["cli-timeout", "runtime-unavailable"]);
 // Provider errors (RFC 6749 4.1.2.1) passed through as they are; others are generic.
 const providerErrors = new Set([
   "access_denied",
@@ -84,7 +88,8 @@ export class McpOAuthLogins {
    * - `admit(operation)`: the assistants' admission lock (store edits, config writes).
    * - `redirectUrl()`: the redirect URL the store compiles OAuth servers with now.
    * - `remoteUrl()`: the configured HTTPS remote origin, if any.
-   * - `reapply()`: drains deferred logouts and applies what that frees (admitted).
+   * - `reapply()`: applies the store now (called while admitted).
+   * - `onFreed()`: applies the store after a background drain freed a server.
    */
   constructor({
     cli,
@@ -94,6 +99,7 @@ export class McpOAuthLogins {
     redirectUrl = () => runtime?.mcp?.redirectUrl ?? null,
     remoteUrl = () => null,
     reapply = null,
+    onFreed = null,
     now = Date.now,
     warn = console.warn,
   }) {
@@ -105,6 +111,7 @@ export class McpOAuthLogins {
       redirectUrl,
       remoteUrl,
       reapply,
+      onFreed,
       now,
       warn,
     });
@@ -219,15 +226,25 @@ export class McpOAuthLogins {
     // A login an earlier logout could not clear must go first: until then the
     // server is not compiled, so old tokens never come back under its name and URL.
     if (this.held(definition)) {
+      const target = this.servers
+        .deferredLogouts()
+        .find((t) => heldByLogout(definition, [t]));
       try {
-        // Drains and compiles what it freed (McpChanges.apply), or drains only.
-        await (this.reapply ? this.reapply() : this.drain());
+        await this.serial(target.name, () => this.clearLogin(target));
       } catch {
-        // Judged by what is left below.
+        this.scheduleDrain();
+        throw failure(messages.oauthLogoutFailed, "logout-failed", 409);
+      } finally {
+        this.invalidate();
+      }
+      this.servers.settleLogout(target);
+      // Compiles the server it freed (McpChanges.apply; admitted like this start).
+      try {
+        await this.reapply?.();
+      } catch {
+        // Judged by current() below.
       }
       definition = this.definition(id);
-      if (this.held(definition))
-        throw failure(messages.oauthLogoutFailed, "logout-failed", 409);
     }
     const name = definition.name;
     const redirect = this.runtime?.mcp?.redirectUrl;
@@ -370,6 +387,7 @@ export class McpOAuthLogins {
         `An MCP server's OAuth login could not be removed yet (${error?.code || "ERROR"}); retrying later.`,
       );
       this.servers.deferLogout(before);
+      this.scheduleDrain(firstDrainMs);
       return { deferred: true };
     } finally {
       this.invalidate();
@@ -377,23 +395,71 @@ export class McpOAuthLogins {
   }
 
   /**
-   * Retries logouts that failed before. Called before a Gateway start compiles and
-   * before a live MCP apply, so a server re-created under the same name and URL never
-   * gets the old tokens back once the CLI works. Returns how many remain.
+   * Retries logouts that failed before, one after another. It stops at the first
+   * timeout or missing runtime, so a broken CLI costs one timeout, not one per
+   * entry. Returns `{ remaining, freed }`: `freed` when a cleared entry matched a
+   * current OAuth server, which then compiles again with the next apply.
    */
   async drain() {
-    const left = [];
+    let freed = false;
     for (const target of this.servers.deferredLogouts()) {
       try {
         await this.serial(target.name, () => this.clearLogin(target));
+        const definitions = this.servers.definitions();
         this.servers.settleLogout(target);
-      } catch {
-        left.push(target);
+        if (definitions.some((d) => heldByLogout(d, [target]))) freed = true;
+      } catch (error) {
+        if (stalls.has(error?.code)) break;
       } finally {
         this.invalidate();
       }
     }
-    return left.length;
+    return { remaining: this.servers.deferredLogouts().length, freed };
+  }
+
+  /**
+   * Drains in the background, outside the admission lock: serialized, retried with
+   * a backoff from one second to ten minutes while entries remain. A drain that
+   * frees a current server calls `onFreed()` so the next apply compiles it.
+   */
+  scheduleDrain(delay = 0) {
+    if (this.closed || this.drainTimer || this.draining) return;
+    this.drainTimer = setTimeout(() => this.backgroundDrain(), delay);
+    this.drainTimer.unref?.();
+  }
+
+  async backgroundDrain() {
+    this.drainTimer = null;
+    if (this.closed) return;
+    this.draining = true;
+    let result = { remaining: 1, freed: false };
+    try {
+      result = await this.drain();
+    } catch {
+      // The store may be closing; retried below unless closed.
+    } finally {
+      this.draining = false;
+    }
+    if (result.freed) {
+      try {
+        await this.onFreed?.();
+      } catch {
+        // The next apply or start compiles it.
+      }
+    }
+    if (!result.remaining) {
+      this.drainDelay = firstDrainMs;
+      return;
+    }
+    const delay = this.drainDelay || firstDrainMs;
+    this.drainDelay = Math.min(lastDrainMs, delay * 2);
+    this.scheduleDrain(delay);
+  }
+
+  close() {
+    this.closed = true;
+    clearTimeout(this.drainTimer);
+    this.drainTimer = null;
   }
 
   /** Called with the store's previewUpdate before an update is saved. */

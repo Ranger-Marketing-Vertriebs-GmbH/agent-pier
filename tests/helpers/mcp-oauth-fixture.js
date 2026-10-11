@@ -54,10 +54,12 @@ export function oauthFixture(t, script, options = {}) {
     redirectUrl: () => currentRedirect,
     remoteUrl: () => options.remoteUrl ?? null,
     reapply: () => f.changes.apply(),
+    onFreed: () => f.service.admit(() => f.changes.apply()),
     now: () => clock,
     warn: (text) => warnings.push(text),
   });
   f.changes.oauth = oauth;
+  t.after(() => oauth.close());
   const home = f.agent("Home");
   const docs = f.servers.create({
     name: "docs",
