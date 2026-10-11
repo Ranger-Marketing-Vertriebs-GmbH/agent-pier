@@ -7,7 +7,7 @@ import { issueGatewayCertificate } from "../../server/features/assistants/gatewa
 
 // Mirrors the managed Gateway transport: loopback WSS with a certificate whose
 // public half is written to a private file that the client pins.
-export async function gatewayFixture({ token = "fixture", delay = 0 } = {}) {
+export async function gatewayFixture({ token = "fixture", delay = 0, features } = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-gateway-tls-"));
   const { cert, key } = issueGatewayCertificate();
   const certPath = path.join(directory, "gateway-cert.pem");
@@ -40,7 +40,7 @@ export async function gatewayFixture({ token = "fixture", delay = 0 } = {}) {
               ? {
                   payload:
                     req.method === "connect"
-                      ? { type: "hello-ok", protocol: 4 }
+                      ? { type: "hello-ok", protocol: 4, ...(features && { features }) }
                       : { value: 42 },
                 }
               : { error: { code: "UNAUTHORIZED", message: "secret must not escape" } }),

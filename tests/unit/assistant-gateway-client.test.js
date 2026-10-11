@@ -201,3 +201,34 @@ test("late socket errors of a closed or replaced connection never escape", async
   assert.equal(client.ready, true);
   assert.deepEqual(await client.call("anything", {}), { value: 42 });
 });
+
+test("the hello's advertised methods and events are recorded", async (t) => {
+  const fixture = await gatewayFixture({
+    features: { methods: ["config.get"], events: ["chat"] },
+  });
+  t.after(() => fixture.close());
+  const client = new GatewayClient({
+    url: fixture.url,
+    certPath: fixture.certPath,
+    token: "fixture",
+  });
+  t.after(() => client.close());
+  assert.equal(client.supports("config.get"), false);
+  await client.connect();
+  assert.equal(client.supports("config.get"), true);
+  assert.equal(client.supports("web.login.start"), false);
+  assert.equal(client.features.events.has("chat"), true);
+});
+
+test("a hello without features advertises nothing", async (t) => {
+  const fixture = await gatewayFixture();
+  t.after(() => fixture.close());
+  const client = new GatewayClient({
+    url: fixture.url,
+    certPath: fixture.certPath,
+    token: "fixture",
+  });
+  t.after(() => client.close());
+  await client.connect();
+  assert.equal(client.supports("config.get"), false);
+});

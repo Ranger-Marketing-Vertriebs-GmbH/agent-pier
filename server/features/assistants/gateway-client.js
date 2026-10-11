@@ -111,6 +111,13 @@ export class GatewayClient extends EventEmitter {
             this.request("connect", gatewayHandshake(this.token))
               .then((hello) => {
                 if (hello?.protocol !== 4) throw gatewayError("PROTOCOL_MISMATCH");
+                const features = hello?.features || {};
+                this.features = {
+                  methods: new Set(
+                    Array.isArray(features.methods) ? features.methods : [],
+                  ),
+                  events: new Set(Array.isArray(features.events) ? features.events : []),
+                };
                 clearTimeout(timer);
                 this.ready = true;
                 resolve();
@@ -145,6 +152,9 @@ export class GatewayClient extends EventEmitter {
         reject(gatewayError());
       });
     });
+  }
+  supports(method) {
+    return !!this.features?.methods.has(method);
   }
   subscribe(listener) {
     this.on("event", listener);

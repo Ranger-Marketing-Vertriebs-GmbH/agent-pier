@@ -3,6 +3,7 @@ import { RequestLedger } from "./request-ledger.js";
 import { AssistantEvents } from "./assistant-events.js";
 import { conversationHistory } from "./conversations.js";
 import { reconcileRuns } from "./run-reconciler.js";
+import { GatewayEventHub } from "./gateway-event-hub.js";
 import { assertWired } from "./service-wiring.js";
 
 const sessionRetryMs = 60000;
@@ -13,6 +14,7 @@ export class AssistantService {
     this.ledger = new RequestLedger(store.db);
     this.markOutstandingUnknown();
     this.events = new AssistantEvents();
+    this.gatewayEvents = new GatewayEventHub();
     this.locks = new Map();
     this.closed = false;
     this.onStatus = (state) => {
@@ -29,6 +31,8 @@ export class AssistantService {
       if (becameReady) {
         this.config.reset?.();
         this.bindEvents();
+        this.gatewayEvents.bind(this.runtime.client);
+        this.gatewayEvents.ready();
         this.accounts
           ?.list()
           .then(() => this.changed())
@@ -44,6 +48,7 @@ export class AssistantService {
     };
     runtime.on("status", this.onStatus);
     this.bindEvents();
+    this.gatewayEvents.bind(this.runtime.client);
     this.poll = setInterval(() => this.pollReconcile(), 2000);
     this.poll.unref();
   }
