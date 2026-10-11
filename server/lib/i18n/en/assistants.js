@@ -77,4 +77,6 @@ export const assistants = {
     "The agent storage folder is unsafe. Check its owner and links in the data directory.",
   restartRequired:
     "Agents use this connection. Changing it restarts their Gateway; confirm the restart.",
+  webToolsRestartRequired:
+    "This web tool change restarts the agents' Gateway; confirm the restart.",
 };

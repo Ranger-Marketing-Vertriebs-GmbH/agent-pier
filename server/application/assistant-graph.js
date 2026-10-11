@@ -24,6 +24,7 @@ import {
 import { AssistantWorkflows } from "../features/assistants/assistant-workflows.js";
 import { RuntimeUpdates } from "../features/assistants/runtime-updates.js";
 import { AssistantProviderSynchronization } from "../features/assistants/assistant-provider-synchronization.js";
+import { WebToolsChanges } from "../features/assistants/web-tools-changes.js";
 import {
   expectWiring,
   requireReferences,
@@ -85,7 +86,14 @@ export function constructAssistantGraph(host, created = {}) {
       accounts: assistantModelAccounts,
     }),
     "assistants",
-    ["teams", "reminders", "routines", "workflows", "providerSynchronization"],
+    [
+      "teams",
+      "reminders",
+      "routines",
+      "workflows",
+      "providerSynchronization",
+      "webTools",
+    ],
   ));
   // Initial state, not a reference: an interrupted update or maintenance persists.
   assistants.maintenance = needsAssistantMaintenance(assistantRuntime.paths);
@@ -156,10 +164,16 @@ export function constructAssistantGraph(host, created = {}) {
     maintenance,
     isUpdating: () => scope.assistantUpdates.status().busy,
   });
+  const assistantWebTools = new WebToolsChanges({
+    assistants,
+    webSearch: assistantWebSearch,
+    synchronization: assistantProviderSynchronization,
+  });
   Object.assign(scope, {
     assistantWorkflows,
     assistantUpdates,
     assistantProviderSynchronization,
+    assistantWebTools,
   });
   return {
     ...scope,
@@ -179,6 +193,7 @@ const graphMembers = [
   "assistantRoutines",
   "assistantWorkflows",
   "assistantProviderSynchronization",
+  "assistantWebTools",
   "store",
   "configuration",
   "bridge",
@@ -203,6 +218,7 @@ export function connectAssistantServices(graph) {
     assistantWorkflows: workflows,
     assistantProviderSynchronization: synchronization,
     assistantWebSearch: webSearch,
+    assistantWebTools: webToolsChanges,
     store,
     configuration,
     bridge,
@@ -214,13 +230,14 @@ export function connectAssistantServices(graph) {
     routines,
     workflows,
     providerSynchronization: synchronization,
+    webTools: webToolsChanges,
   });
   wire(configuration, "configuration", {
     teamReady: () => bridge.status().ready,
     writeGuard: () => bridge.guardLive(),
     hostCapacity: () => teams.store.settings().hostMaxConcurrent,
     nativeReady: () => !!reminders.webhook.server?.listening,
-    webToolsAvailable: () => webToolsAvailability(runtime.webTools),
+    webToolsAvailable: () => runtime.webTools?.availability || webToolsAvailability(),
   });
   wire(runtime, "assistantRuntime", {
     teamConfiguration: async (installed) => {

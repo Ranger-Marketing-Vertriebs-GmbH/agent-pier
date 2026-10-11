@@ -130,8 +130,12 @@ export class AssistantService {
       return record;
     });
   }
-  update(id, patch, revision) {
-    return this.admit(async () => {
+  /**
+   * `confirmed` is the owner's consent to restart the Gateway when the change needs
+   * global web tool sections the running Gateway was not started with.
+   */
+  async update(id, patch, revision, { confirmed = false } = {}) {
+    const restart = await this.admit(async () => {
       validateDefinition(patch, true);
       const current = this.store.getAssistant(id);
       if (current.revision !== revision) throw assistantProblem("conflict", 409);
@@ -153,13 +157,27 @@ export class AssistantService {
         const lease = await this.models.resolve(patch.model);
         lease.release();
       }
+      // Without the owner's confirmation nothing changes, not even reminders.
+      const restart =
+        !!patch.capabilities &&
+        !!this.webTools?.differs({ profiles: this.webTools.profilesWith(id, patch) });
+      if (restart) this.webTools.confirm(confirmed);
       if (current.capabilities?.reminders && patch.capabilities?.reminders === false)
         await this.reminders?.disable(id);
+      // The Gateway stops for the restart; the next start compiles the new entry.
+      if (restart) return { restart };
       const record = this.store.updateAssistant(id, patch, revision);
       if (patch.capabilities && this.runtime.client?.ready) await this.config.apply(id);
       this.changed();
-      return record;
+      return { record };
     });
+    if (!restart.restart) return restart.record;
+    // Maintenance drains the admission lock, so the restart runs outside admit().
+    const record = await this.webTools.restart(() =>
+      this.store.updateAssistant(id, patch, revision),
+    );
+    if (this.runtime.client?.ready) await this.config.apply(id);
+    return record;
   }
   admit(operation) {
     return this.serialize("admission", () => {

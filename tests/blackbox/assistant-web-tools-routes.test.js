@@ -1,0 +1,113 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { once } from "node:events";
+import express from "express";
+import { assistantRoutes } from "../../server/http/routes/assistants.js";
+import { assistantProblem } from "../../server/features/assistants/assistant-validation.js";
+import { restartRequired } from "../../server/features/assistants/assistant-provider-synchronization.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
+
+const affected = { agents: [{ id: "a", name: "Home" }], teamMembers: 1 };
+
+async function serve(t, services) {
+  const app = express();
+  app.use(express.json());
+  app.use(
+    assistantRoutes({
+      assistantFeature: { enabled: true },
+      ...services,
+      assistants: { maintenance: false, ...services.assistants },
+    }),
+  );
+  app.use((error, _req, res, _next) =>
+    res.status(error.status || 500).json({ error: error.message, key: error.key }),
+  );
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(async () => {
+    server.closeAllConnections();
+    await new Promise((r) => server.close(r));
+  });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  return (method, url, body) =>
+    fetch(`${base}${url}`, {
+      method,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+}
+const expectRestart = async (response) => {
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), {
+    code: "ASSISTANT_RESTART_REQUIRED",
+    error: serverMessages.assistants.webToolsRestartRequired,
+    affected,
+    messageKey: "assistants.webToolsRestartRequired",
+  });
+};
+
+test("saving an agent passes the owner's restart confirmation and reports the need", async (t) => {
+  const calls = [];
+  const request = await serve(t, {
+    assistants: {
+      async update(id, patch, revision, options) {
+        calls.push([id, patch, revision, options]);
+        if (!options.confirmed)
+          throw restartRequired("webToolsRestartRequired", affected);
+        return { id, revision: revision + 1 };
+      },
+    },
+  });
+  const patch = { capabilities: { memory: false, reminders: false, browser: true } };
+  await expectRestart(await request("PATCH", "/assistants/a", { revision: 3, ...patch }));
+  const saved = await request("PATCH", "/assistants/a", {
+    revision: 3,
+    confirmRestart: true,
+    ...patch,
+  });
+  assert.equal(saved.status, 200);
+  assert.deepEqual(await saved.json(), { id: "a", revision: 4 });
+  // The confirmation is never part of the saved definition.
+  assert.deepEqual(calls, [
+    ["a", patch, 3, { confirmed: false }],
+    ["a", patch, 3, { confirmed: true }],
+  ]);
+});
+
+test("saving the search settings passes the confirmation and keeps busy reasons", async (t) => {
+  const calls = [];
+  let busy = false;
+  const request = await serve(t, {
+    assistantWebSearch: { get: () => ({ revision: 0, provider: "duckduckgo" }) },
+    assistantWebTools: {
+      async saveSearch(input, options) {
+        calls.push([input, options]);
+        if (busy) throw assistantProblem("active", 409);
+        if (!options.confirmed)
+          throw restartRequired("webToolsRestartRequired", affected);
+        return { revision: 1, provider: input.provider };
+      },
+    },
+  });
+  const input = { revision: 0, provider: "brave", braveKey: "secret-fixture" };
+  await expectRestart(await request("PUT", "/assistant-web-search", input));
+  const saved = await request("PUT", "/assistant-web-search", {
+    ...input,
+    confirmRestart: true,
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.headers.get("cache-control"), "no-store");
+  assert.equal(JSON.stringify(await saved.json()).includes("secret-fixture"), false);
+  busy = true;
+  const refused = await request("PUT", "/assistant-web-search", {
+    ...input,
+    confirmRestart: true,
+  });
+  assert.equal(refused.status, 409);
+  assert.equal((await refused.json()).key, "active");
+  assert.deepEqual(calls, [
+    [input, { confirmed: false }],
+    [input, { confirmed: true }],
+    [input, { confirmed: true }],
+  ]);
+});

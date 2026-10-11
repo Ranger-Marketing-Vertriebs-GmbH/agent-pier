@@ -6,6 +6,7 @@ import path from "node:path";
 import tls from "node:tls";
 import { EventEmitter, once } from "node:events";
 import { RuntimeSupervisor } from "../../server/features/assistants/runtime-supervisor.js";
+import { webToolsSignature } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import { consoleLogLimit } from "../../server/features/assistants/gateway-log.js";
 import { issueGatewayCertificate } from "../../server/features/assistants/gateway-tls.js";
 test("disabled service stays inert and interrupted installation cannot launch after close", async (t) => {
@@ -241,11 +242,61 @@ test("a start compiles the web tools its team configuration reports", async (t) 
     await runtime.stop();
   };
   await runtime.start();
-  assert.equal(runtime.webTools, webTools);
+  // Stopped before that Gateway answered: no running state was recorded.
+  assert.equal(runtime.webTools, null);
   assert.equal(compiled.browser.executablePath, "/usr/bin/chromium");
   assert.deepEqual(compiled.tools.web, { search: { provider: "duckduckgo" } });
   assert.ok(compiled.tools.allow.includes("web_search"));
   assert.deepEqual(compiled.plugins.load.paths, ["/rt/teams", "/rt/ddg"]);
+});
+
+test("a Gateway's key-free web tool state is recorded once it answers", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-web-snapshot-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const entryPath = path.join(dataDir, "alive.mjs");
+  fs.writeFileSync(entryPath, "setInterval(() => {}, 1000)");
+  const profiles = [
+    { id: "a1", runtimeAgentId: "ap-a1", capabilities: { webSearch: true } },
+  ];
+  const webTools = {
+    search: { provider: "brave", key: "secret-brave-fixture", requiresPlugin: true },
+    browser: { available: false },
+    searchPlugins: { brave: { id: "brave", directory: "/rt/brave" } },
+  };
+  const seen = [];
+  const runtime = new RuntimeSupervisor({
+    dataDir,
+    install: async () => ({ nodePath: process.execPath, entryPath, version: "f" }),
+    clientFactory: () =>
+      Object.assign(new EventEmitter(), {
+        ready: false,
+        async connect() {
+          seen.push(runtime.webTools);
+          this.ready = true;
+        },
+        close() {
+          this.ready = false;
+        },
+      }),
+  });
+  t.after(() => runtime.close());
+  runtime.teamConfiguration = async () => ({
+    directory: "/rt/teams",
+    connection: { url: "http://127.0.0.1:1", token: "fixture" },
+    hostMaxConcurrent: 1,
+    native: { token: "hook" },
+    profiles,
+    webTools,
+  });
+  runtime.webTools = { stale: true };
+  runtime.beforeSpawn = async () => seen.push(runtime.webTools);
+  await runtime.start();
+  // The previous Gateway's state is gone before the new one answers.
+  assert.deepEqual(seen, [null, null]);
+  assert.deepEqual(runtime.webTools.availability, { browser: false, webSearch: true });
+  assert.deepEqual(runtime.webTools.searchPlugins, webTools.searchPlugins);
+  assert.equal(runtime.webTools.signature, webToolsSignature({ profiles, webTools }));
+  assert.equal(JSON.stringify(runtime.webTools).includes("secret-brave-fixture"), false);
 });
 
 const until = async (predicate, timeoutMs = 10000) => {
