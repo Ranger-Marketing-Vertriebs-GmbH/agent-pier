@@ -83,6 +83,33 @@ test.describe("agent settings on phones", () => {
     });
   });
 
+  test("selects show the 16px handoff chevron 12px from the edge", async ({ page }) => {
+    await setupAssistantSettings(page);
+    await page.goto(baseURL + "/agents/home/settings");
+    const select = page.locator("#agent-profile select").first();
+    await expect(select).toBeVisible();
+    const style = await select.evaluate((el) => {
+      const css = getComputedStyle(el);
+      return {
+        appearance: css.appearance,
+        chevron: css.backgroundImage.startsWith('url("data:image/svg+xml'),
+        size: css.backgroundSize,
+        // Engines serialise "right 12px center" differently.
+        position: /^(calc\(100% - 12px\) 50%|right 12px (center|top 50%))$/.test(
+          css.backgroundPosition,
+        ),
+        paddingRight: css.paddingRight,
+      };
+    });
+    expect(style).toEqual({
+      appearance: "none",
+      chevron: true,
+      size: "16px 16px",
+      position: true,
+      paddingRight: "40px",
+    });
+  });
+
   test("custom checkboxes keep their native semantics", async ({ page }) => {
     await setupAssistantSettings(page);
     await page.goto(baseURL + "/agents/home/settings");

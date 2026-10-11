@@ -48,6 +48,8 @@
   --text-menu: #c4c5c9;
   --text-group: #97989c;
   --text-faint: #6f7075;
+  /* Down chevron for restyled selects, stroked in --muted (handoff 2e). */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2392949d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 9 7 7 7-7'/%3E%3C/svg%3E");
   --text-message: #e1e2e6;
   --placeholder: #6b6c70;
   --hint: #7e7f83;

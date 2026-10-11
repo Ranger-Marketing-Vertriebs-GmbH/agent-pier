@@ -114,6 +114,14 @@
     height: 47px;
     line-height: 21px;
   }
+  .assistant-settings-page .assistant-form select {
+    appearance: none;
+    padding-right: 40px;
+    background-image: var(--select-chevron);
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px 16px;
+  }
   .assistant-settings-page .assistant-capability-options {
     margin: 0;
     gap: 12px;
