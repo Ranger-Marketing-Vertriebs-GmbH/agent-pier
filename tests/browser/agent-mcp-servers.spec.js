@@ -15,7 +15,7 @@ const refusal = {
 const stdioChange = (body) =>
   ["command", "args", "cwd", "env"].some((key) => body[key] !== undefined);
 
-async function setup(page) {
+async function setup(page, { serversUnavailable = false } = {}) {
   await fixture(page);
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   const state = { requests: [], servers: [], bindings: [], nextId: 1 };
@@ -68,10 +68,14 @@ async function setup(page) {
         name: "Planner",
         role: "Plan",
         assignment: "Plan next step",
-        mcpServers: [
-          { name: "docs", stdio: false },
-          { name: "local", stdio: true },
-        ],
+        ...(serversUnavailable
+          ? { mcpServersUnavailable: true }
+          : {
+              mcpServers: [
+                { name: "docs", stdio: false },
+                { name: "local", stdio: true },
+              ],
+            }),
       },
     ],
     revision: 1,
@@ -254,7 +258,7 @@ for (const [label, use] of [
       await dialog.getByLabel("Arguments (one per line)").fill("-y\nserver");
       await dialog.getByRole("button", { name: "Save server" }).click();
       const warning = dialog.getByRole("alertdialog");
-      await expect(warning).toContainText("your macOS user rights, without a sandbox");
+      await expect(warning).toContainText("your user rights, without a sandbox");
       await expect(warning).toContainText("every session of every agent");
       expect(state.servers).toHaveLength(0);
       if (label === "phone") await fits(page);
@@ -344,7 +348,27 @@ for (const [label, use] of [
       await page.goto(baseURL + "/agents/home/chats/parent-chat");
       const line = page.locator(".mcp-team-servers");
       await expect(line).toContainText("docs, local (stdio, local command)");
+      await expect(page.locator(".mcp-team-warning")).toHaveText(
+        "A listed stdio server runs a local command with your user rights, without a sandbox.",
+      );
+      await expect(
+        page.getByRole("button", { name: "Approve team" }).first(),
+      ).toBeEnabled();
       if (label === "phone") await fits(page);
+    });
+
+    test("an unreadable server list blocks the team approval", async ({ page }) => {
+      await setup(page, { serversUnavailable: true });
+      await page.goto(baseURL + "/agents/home/chats/parent-chat");
+      await expect(
+        page.getByRole("alert").filter({ hasText: "MCP server list" }),
+      ).toHaveText(
+        "The MCP server list cannot be read right now. The team cannot be approved until it can.",
+      );
+      await expect(page.locator(".mcp-team-servers")).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: "Approve team" }).first(),
+      ).toBeDisabled();
     });
   });
 }

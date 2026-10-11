@@ -429,3 +429,43 @@ for (const [language, heading, marker] of [
     for (const secret of ["secret", "mcp.example.test", "/abs/files", "/private/data"])
       assert.ok(!text.includes(secret), secret);
   });
+
+test("an unreadable server list is shown as unavailable and only declining is offered", async (t) => {
+  const f = setup(t, { language: () => "en" });
+  const servers = new McpServerStore({ dataDir: f.dataDir, pathEnv: "/fake/bin" });
+  t.after(() => servers.close());
+  f.assistants.mcp = { servers };
+  const github = servers.create({
+    name: "github",
+    transport: "http",
+    url: "https://g.test/",
+  });
+  servers.setBindings("agent", f.channel.assistantId, [github.id]);
+  await f.proposal([
+    { name: "Planner", role: "Plan", assignment: "Plan", mcpServers: ["github"] },
+  ]);
+  servers.list = () => {
+    throw Error("SQLITE_IOERR");
+  };
+  await f.service.teamOutbox.transfer();
+  const [entry] = f.service.outbox.pending(f.channel.id);
+  assert.match(entry.text, /MCP servers: the list cannot be read right now/);
+  assert.deepEqual(
+    entry.actions.map((a) => a.decision),
+    ["decline"],
+  );
+  const team = f.assistants.teams.store.list()[0];
+  assert.throws(
+    () =>
+      f.assistants.teams.decide(
+        team.id,
+        { revision: team.revision, decision: "approve" },
+        { kind: "owner", channel: "ui" },
+      ),
+    { status: 503, key: "teamMcpServersUnavailable" },
+  );
+  assert.equal(f.assistants.teams.store.get(team.id).phase, "awaiting_approval");
+  const shown = f.assistants.teams.list().teams[0].members[0];
+  assert.equal(shown.mcpServersUnavailable, true);
+  assert.equal(shown.mcpServers, undefined);
+});

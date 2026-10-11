@@ -52,15 +52,17 @@ export const mcpServerCopy = {
   removeRow: "Remove entry",
   secretNote:
     "Stored values can be replaced or removed but are never displayed. Addresses with tokens in the query string are not displayed either.",
+  secretPlacement:
+    "Put tokens and passwords in header or environment values, never in the address path or the arguments: those are shown.",
   stdioMarker: "stdio, local command",
   stdioBadge: "stdio",
   stdioWarningTitle: "Run a local command?",
   stdioWarning:
-    "A stdio server runs this command with your macOS user rights, without a sandbox. It starts for every session of every agent as soon as it is added, even for agents that never use it. Only add commands you trust.",
+    "A stdio server runs this command with your user rights, without a sandbox. Once it is bound to an agent, it starts for every session of every agent, even for agents that never use it. Only add commands you trust.",
   stdioConfirm: "Confirm and save",
   stdioBindingTitle: "Give agents a local command?",
   stdioBindingWarning:
-    "The selected stdio servers run local commands with your macOS user rights, without a sandbox. They start for every session of every agent once they are added, not only for this agent.",
+    "The selected stdio servers run local commands with your user rights, without a sandbox. Once bound to an agent, they start for every session of every agent, not only for this agent.",
   stdioBindingConfirm: "Confirm and save",
   agentTitle: "MCP servers",
   agentDescription:
@@ -75,4 +77,8 @@ export const mcpServerCopy = {
   temporaryNone: "The lead agent granted no MCP servers.",
   teamServers: "MCP servers",
   teamServersNote: "Granted from the lead agent's servers.",
+  teamStdioWarning:
+    "A listed stdio server runs a local command with your user rights, without a sandbox.",
+  teamServersUnavailable:
+    "The MCP server list cannot be read right now. The team cannot be approved until it can.",
 };
