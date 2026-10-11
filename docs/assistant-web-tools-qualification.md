@@ -1,58 +1,123 @@
 # Web tools and browser qualification
 
-The web tools test in the native interfaces contract checks the OpenClaw 2026.9.8
-configuration for `web_search`, `web_fetch`, `browser`, `pdf` and `view_image`. It
-runs a real isolated Gateway started by `RuntimeSupervisor`, writes the
-configuration through `patchConfig`, and has the deterministic model from
-`tests/helpers/assistant-model-server.js` call each tool once. No search API,
-model account or credential is involved. The page that the tools try to reach is
-a local HTTP server on `127.0.0.1`.
+Two opt-in contracts check how OpenClaw 2026.9.8 serves `web_search`, `web_fetch`,
+`browser`, `pdf` and `view_image` with the configuration AgentPier writes. Both run
+a real isolated Gateway started by `RuntimeSupervisor` in a temporary data
+directory. The deterministic model from `tests/helpers/assistant-model-server.js`
+calls each tool once. No search API, model account or credential is involved, and
+every page the tools try to reach is a local HTTP server on `127.0.0.1`.
+
+- `tests/integration/assistant-web-tools-contract.test.js` loads each bundled search
+  plugin from the installed runtime and checks that its provider is accepted.
+- `tests/integration/assistant-web-tools-compiled-contract.test.js` starts the
+  Gateway from the **compiled** startup configuration in team mode and checks what
+  the agents are actually offered (see [compiled configuration](#compiled-configuration-in-team-mode)).
 
 The external search plugins are part of the managed runtime's locked dependency
 graph (see [runtime updates](assistant-runtime-updates.md#bundled-search-plugins)).
-A separate web tools contract (`tests/integration/assistant-web-tools-contract.test.js`)
-loads each one from the installed runtime and checks that its provider is
-accepted. Some details below (search results, the Brave request) come from manual
-probes against the official 2026.9.8 plugin tarballs; the contract does not repeat
-them.
+Some details below (search results, the Brave request, the reload kinds) come from
+manual probes against the official 2026.9.8 plugin tarballs and from the earlier
+hand-patched contract; the contracts do not repeat them.
 
-## Running the contract
+## Running the contracts
 
-```sh
-AGENTPIER_NATIVE_INTERFACES_CONTRACT_RUNTIME=/absolute/path/to/2026.9.8-node26.7.0-darwin-arm64 \
-AGENTPIER_TEST_BROWSER_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-  node --test tests/integration/assistant-native-interfaces-contract.test.js
-```
-
-Without `AGENTPIER_TEST_BROWSER_PATH`, the test looks for
-`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`, `/usr/bin/chromium`
-and `/usr/bin/google-chrome`. If it finds none, it skips only the browser subtest.
-The browser always runs headless, with its profile in the test's temporary
-`HOME`. It never opens the user's Chrome profile.
-
-On 2026-10-11, all tests in the file passed on macOS arm64 (Darwin 25.5) against the
-pinned `2026.9.8-node26.7.0-darwin-arm64` runtime and Google Chrome, with zero
-skips or failures.
-
-The search plugin contract needs a runtime provisioned from the current lock (one
-whose directory name ends in `-lock563cf3904093` or later), for example with
-`scripts/provision-assistant-contracts.mjs`:
+Both need a runtime provisioned from the current lock (directory name ending in
+`-lock563cf3904093` or later). `scripts/provision-assistant-contracts.mjs` writes
+the variables, including `AGENTPIER_ASSISTANT_CONTRACT_DIR`, into an env file.
+Node intercepts `--env-file` itself, so locally the file must exist first:
 
 ```sh
-AGENTPIER_WEB_TOOLS_CONTRACT_RUNTIME=/absolute/path/to/2026.9.8-node26.7.0-darwin-arm64-lock563cf3904093 \
-  node --test tests/integration/assistant-web-tools-contract.test.js
+touch /tmp/contracts.env
+node scripts/provision-assistant-contracts.mjs --data-dir /tmp/agentpier-contracts --env-file /tmp/contracts.env
+set -a; . /tmp/contracts.env; set +a
+node --test --test-concurrency=1 \
+  tests/integration/assistant-web-tools-contract.test.js \
+  tests/integration/assistant-web-tools-compiled-contract.test.js
 ```
 
-For each of `duckduckgo`, `perplexity` and `brave`, it checks the installed package
-version and plugin id, asserts that `tools.web.search.provider` is rejected while
-the plugin is not loaded, then loads it with `plugins.load.paths` (the package
-directory under `app/node_modules/@openclaw/`) and `plugins.allow: [<id>]`. The
-provider is then accepted, `plugins.list` reports the pinned package and version
-with `origin: "config"` and `runtime.state: "active"`, and a fixture key in
+The compiled contract reads the search plugins from the provisioned installation's
+runtime descriptor (`selectedAssistantRuntime()` on
+`AGENTPIER_ASSISTANT_CONTRACT_DIR`), never from a hand-built path, and provisions the
+team plugin into its own temporary data directory. It uses AgentPier's
+`detectBrowser()` unless `AGENTPIER_TEST_BROWSER_PATH` names a browser. Without a
+browser it skips only the browser subtest; with `CI` set it fails instead, because
+the `native-contracts` job requires zero skips. The browser always runs headless,
+with its profile below the test's temporary data directory. It never opens the
+user's Chrome profile.
+
+### Continuous integration
+
+The `native-contracts` job (`.github/workflows/assistant-runtime.yml`) exports
+`AGENTPIER_TEST_BROWSER_PATH` from the runner's preinstalled Google Chrome
+(`/usr/bin/google-chrome` on `ubuntu-latest`,
+`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` on `macos-latest`)
+and fails that step when neither exists.
+
+AgentPier never compiles `browser.noSandbox`. The Chrome package on the Ubuntu
+runners installs the setuid `chrome-sandbox` helper, so Chrome's sandbox should
+start even where AppArmor restricts unprivileged user namespaces, and the job runs
+as a regular user, not root. **This is an assumption that has not been verified on
+a hosted runner.** If the Linux job fails with `No usable sandbox`, set
+`AGENTPIER_TEST_BROWSER_NO_SANDBOX=1` for that job only: the contract then adds
+`noSandbox` to its own startup file in `beforeSpawn`, never to AgentPier's
+compiled configuration.
+
+## Compiled configuration in team mode
+
+On 2026-10-11 the compiled contract passed on macOS arm64 (Darwin 25.5) against a
+fresh `2026.9.8-node26.7.0-darwin-arm64-lock563cf3904093` runtime and Google Chrome
+(2 tests including the browser subtest, 0 skips, 0 failures). The setup uses the
+real code paths: `AssistantStore` profiles, `WebSearchSettings` (default
+DuckDuckGo), the runtime descriptor's `searchPlugins`, `TeamBridge`, the team
+plugin, and `AssistantConfig.apply` for the agent entries. After the entries are
+applied, the Gateway restarts so that they also come from the startup compile.
+
+- **One agent with every capability** (memory, reminders, web search, web fetch,
+  browser, documents) and **one temporary team member** with every capability
+  recorded.
+- **The Gateway accepts the compiled startup configuration** under the restrictive
+  team allow list: `plugins.allow` is exactly
+  `["agentpier-teams", "memory-core", "duckduckgo", "browser"]`,
+  `plugins.load.paths` is the team plugin and the DuckDuckGo package from the
+  descriptor, and `plugins.list` reports all four `active`. DuckDuckGo carries no
+  key. `tools.web` is `{ search: { provider: "duckduckgo" }, fetch: { ssrfPolicy:
+{ dangerouslyAllowPrivateNetwork: false } } }`, and the root `browser` block equals
+  `webToolsSections` for the running port.
+- **The agent** is granted `web_search`, `web_fetch`, `browser`, `pdf` and
+  `view_image`, and is offered `web_search`, `web_fetch`, `browser` and
+  `view_image`. `web_search` is not called (no real search). `web_fetch` of the
+  loopback page fails with `Blocked hostname or private/internal/special-use IP
+address`; the page receives no request.
+- **`pdf` is granted but not offered.** OpenClaw offers `pdf` for a custom provider
+  only when `agents.defaults.pdfModel` (or `imageModel`) names a model. AgentPier
+  compiles neither, and a per-agent `pdfModel` in `agents.entries.<id>` is rejected
+  with `INVALID_REQUEST`; a probe with `agents.defaults.pdfModel` made `pdf`
+  appear. The contract asserts the current gap so a fix shows up as a change.
+- **The temporary member** gets only `session_status` and `agentpier_workspace`: no
+  capability tool in its entry and none offered to the model, so its `web_fetch`
+  request cannot run.
+- **Browser:** `status` reports the `openclaw` profile and driver with the detected
+  executable. `profiles` lists `chrome`, `openclaw` and `user`, all with driver
+  `openclaw`. `importprofile` answers `system profile import is disabled`. `open` on
+  the loopback page answers `browser navigation blocked by policy`. `start` launches
+  Chrome, whose `userDataDir` lies inside the test's data directory, and `stop` ends
+  it.
+
+This contract replaced an earlier hand-patched web tools test in the native
+interfaces contract. Its additional findings (the
+reload kinds and the `allowedHostnames` page snapshot) remain recorded below.
+
+### Search plugins one at a time
+
+For each of `duckduckgo`, `perplexity` and `brave`, the search plugin contract
+checks the installed package version and plugin id, asserts that
+`tools.web.search.provider` is rejected while the plugin is not loaded, then loads
+it with `plugins.load.paths` (the package directory under
+`app/node_modules/@openclaw/`) and `plugins.allow: [<id>]`. The provider is then
+accepted, `plugins.list` reports the pinned package and version with
+`origin: "config"` and `runtime.state: "active"`, and a fixture key in
 `plugins.entries.<id>.config.webSearch.apiKey` (Perplexity, Brave) is redacted by
-`config.get`. On 2026-10-11 it passed on macOS arm64 against a fresh
-`2026.9.8-node26.7.0-darwin-arm64-lock563cf3904093` runtime. All three patches
-reloaded without a Gateway restart.
+`config.get`. It passed on 2026-10-11 against the same runtime.
 
 ## Verified configuration
 
@@ -152,8 +217,8 @@ the same shape as (b), with `brave` in place of `perplexity`.
 - `allowedHostnames`
 - `blockedHostnames`
 
-Private targets are blocked by default. The contract sets
-`{ dangerouslyAllowPrivateNetwork: false }` and asserts that
+Private targets are blocked by default. AgentPier compiles
+`{ dangerouslyAllowPrivateNetwork: false }`, and the compiled contract asserts that
 `web_fetch http://127.0.0.1:<port>/` fails before any request reaches the server.
 The tool result has `status: "error"` and contains
 `Blocked hostname or private/internal/special-use IP address`. In a probe, the same
@@ -196,16 +261,18 @@ Findings:
   to `false`, the tool answers `system profile import is disabled`, as the contract
   asserts.
 - **`ssrfPolicy`.** The default (no `ssrfPolicy`) already blocks `127.0.0.1`,
-  `localhost` and `10.0.0.0/8` with `browser navigation blocked by policy`. Do not
+  `localhost` and `10.0.0.0/8` with `browser navigation blocked by policy`, which the
+  compiled contract asserts. Do not
   set `dangerouslyAllowPrivateNetwork: false` explicitly. That switches the policy
   into strict mode, which needs Playwright to inspect redirects. Local managed
   profiles do not have that, so every `http(s)` navigation fails with
   `strict browser SSRF policy requires Playwright-backed redirect-hop
-inspection`. `allowedHostnames: ["127.0.0.1"]` allows a host on its own. The
-  contract uses this to open a local page and read its marker from a snapshot.
+inspection`. `allowedHostnames: ["127.0.0.1"]` allows a host on its own; a
+  hand-patched probe used this to open a local page and read its marker from a
+  snapshot. AgentPier compiles no `ssrfPolicy`.
 - **Isolation.** The `openclaw` profile keeps its data in
   `<state>/browser/openclaw/user-data` inside the Gateway's data directory, which
-  the contract asserts. `action: "stop"` ends Chrome. `headless: true` keeps a
+  the compiled contract asserts. `action: "stop"` ends Chrome. `headless: true` keeps a
   window from appearing on the desktop. Without it, macOS launches a visible
   window.
 - **`plugins.allow`.** An explicit root `browser` block activates the bundled
@@ -253,18 +320,19 @@ and restart the Gateway when they change, rather than relying on live patches.
 
 ## Boundaries
 
-- The web tools contract loads one search plugin at a time on a live Gateway
-  without an existing `plugins.allow`. Combining them with the team plugin's
-  restrictive allow list is left to the configuration compiler (startup
-  configuration plus restart, see above).
+- The combination of a search plugin and the browser with the team plugin's
+  restrictive allow list is covered for DuckDuckGo only. Perplexity and Brave are
+  covered one at a time without the team allow list; their compiled form differs
+  only by the key entry.
 - A runtime installed before the plugins were bundled (lock `93bd048153fd`, or the
-  2026.9.7 rollback target) has none; its descriptor reports `searchPlugins: {}`.
-- No real search API was called. One probe incidentally ran a real DuckDuckGo
+  2026.9.7 rollback target) has none; its descriptor reports `searchPlugins: {}`
+  and AgentPier withholds web search.
+- No real search API was called. One early probe incidentally ran a real DuckDuckGo
   search, which is not repeated.
 - The Perplexity key and transport were verified through configuration acceptance
   and the plugin source, not with a request.
-- Linux Chrome runs headless without `noSandbox`. CI runners with
-  `/usr/bin/google-chrome` will run the browser subtest; on Linux, the sandbox may
-  need checking.
+- `pdf` is not offered with AgentPier's custom providers (see above).
+- Headless Linux Chrome without `noSandbox` is unverified on hosted runners (see
+  [continuous integration](#continuous-integration)).
 - The browser plugin's bundled `browser-automation` skill is skipped in the
   temporary data directory (`symlink prefix resolves outside the root ancestry`).

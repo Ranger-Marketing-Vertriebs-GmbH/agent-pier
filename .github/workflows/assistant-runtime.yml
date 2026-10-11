@@ -99,6 +99,19 @@ jobs:
           node scripts/provision-assistant-contracts.mjs
           --data-dir "$RUNNER_TEMP/agentpier-assistant-contracts"
           --env-file "$GITHUB_ENV"
+      # The compiled web tools contract drives the runner's preinstalled Google Chrome
+      # headless, with its own profile in the test's temporary data directory. A
+      # runner without Chrome fails here instead of skipping the browser checks.
+      - name: Locate the browser for the web tools contract
+        run: |
+          for candidate in /usr/bin/google-chrome "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
+            if [ -x "$candidate" ]; then
+              echo "AGENTPIER_TEST_BROWSER_PATH=$candidate" >> "$GITHUB_ENV"
+              exit 0
+            fi
+          done
+          echo "::error::No Google Chrome on this runner for the web tools contract."
+          exit 1
       # Simulated model endpoints, accounts and channels only: no secrets, so the
       # live provider test and the predecessor-runtime cross-version test skip.
       - name: Run the deterministic native contracts
@@ -118,5 +131,6 @@ jobs:
           tests/integration/assistant-team-plugin-contract.test.js
           tests/integration/assistant-native-interfaces-contract.test.js
           tests/integration/assistant-web-tools-contract.test.js
+          tests/integration/assistant-web-tools-compiled-contract.test.js
       - name: Fail when a contract skipped instead of running
         run: grep -qx '# skipped 0' "$RUNNER_TEMP/native-contracts.tap"

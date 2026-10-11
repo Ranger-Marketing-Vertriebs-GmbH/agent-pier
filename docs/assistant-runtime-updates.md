@@ -197,7 +197,11 @@ For a selected runtime, the pins come from its receipt: a runtime installed befo
 the plugins were bundled, such as the previous lock or the 2026.9.7 rollback
 target, reports `searchPlugins: {}`. A Gateway loads a plugin only when its
 configuration names the directory in `plugins.load.paths` and the id in
-`plugins.allow`.
+`plugins.allow`; AgentPier compiles both only for the provider chosen in the web
+search settings, and only while an agent uses web search. A plugin directory that
+no longer matches its pin (name, version, id, or a symbolic link) fails the
+selected runtime's installation check, so the Gateway does not start even when no
+agent uses web search.
 
 Existing installations receive the plugins through the normal update path. The
 plugins change the lock digest, so an AgentPier update stages a new candidate
@@ -252,7 +256,11 @@ new graph with pinned npm and prints its digest. The root dependencies are
 OpenClaw's archive plus the manifest's `searchPlugins` pins. With `--keep-graph`
 as the last argument, npm starts from the shipped lock and only adds what is
 missing, for example after adding a pinned plugin. The qualified transitive graph
-then stays unchanged; without the flag, the whole graph is resolved again. Copy both reviewed JSON files to
+then stays unchanged; without the flag, the whole graph is resolved again.
+**Do not use `--keep-graph` for a security alert or an OpenClaw version change:**
+it keeps every already locked transitive version, including the vulnerable or
+outdated one the refresh is meant to replace. Those refreshes always resolve the
+whole graph. Copy both reviewed JSON files to
 `server/features/assistants/runtime-lock/`, update `dependencyLockSha256` in the
 manifest, and run unit checks plus the four native CI installations. A deliberate
 refresh may select newer transitive versions and change npm's bundled-package
