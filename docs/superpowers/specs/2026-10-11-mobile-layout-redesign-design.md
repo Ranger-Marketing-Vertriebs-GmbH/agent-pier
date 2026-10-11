@@ -201,7 +201,7 @@ request state. The server derives it from data it already stores.
 | 2 | `runtime.availability !== "ready"` | `status[availability]` | `failed`/`stale`: attention; others: muted dot |
 | 3 | active attempt in the loaded history (live, faster than the list) | `status[attempt.state]` | working; `uncertain`/`interrupted`: attention |
 | 4 | `activity.state !== "idle"` | `activity.label` | per state (working / waiting / attention) |
-| 5 | otherwise | `status.ready` | ready (success dot, success-muted label) |
+| 5 | otherwise | `status.ready` (idle member chat: `team.states[member.phase]`) | ready (success dot, success-muted label) |
 
   Conversation variants append „ · {modelId}“; member chats append „ · {role}“.
 - The approval strip count is `activity.pendingApprovals`; scroll targets are the
@@ -328,14 +328,17 @@ request state. The server derives it from data it already stores.
 - Desktop (2f): height 68, padding `0 28`, no background (border only), avatar 36
   (radius 10, glyph 15), name 17/600, status 12 px with `margin-top: 3`, settings button
   height 38, padding `0 14`.
-- `App.jsx` passes `openNavigation={() => setMobileNav(true)}` to `AgentsPage`, which
-  passes it to the header. On ≤700 px `.app:has(.assistant-detail) .mobile-header` is
+- `App.jsx` passes `openNavigation` (sets `mobileNav`, remembers the opener for focus
+  return on Esc) and `navigationOpen={mobileNav}` (for `aria-expanded`) to `AgentsPage`,
+  which passes both to the header. On ≤700 px `.app:has(.assistant-detail) .mobile-header` is
   hidden (chat and settings), and the `calc(100dvh - 62px)` rule goes away.
 - Collapsed desktop sidebar: `.sidebar-float` must not cover the header; add
   `padding-left` to the header and drop `main`'s `padding-top: 52px` for agent pages
   (same approach as `.session-heading`, `layout.css:433-443`).
 - Breadcrumb and `.assistant-view-tabs` are removed. `.assistant-state-badge` is replaced
-  by the status line (`.assistant-status` with state modifier classes).
+  in the header by the status line (`.assistant-header-status` with state modifier
+  classes; `.assistant-status.ready` is already taken by `AssistantRuntimeSettings.jsx`).
+  The agent list card keeps `.assistant-state-badge.connectionMissing`.
 
 ### Approval strip
 
@@ -476,14 +479,18 @@ request state. The server derives it from data it already stores.
   scrolled into the row with `scrollLeft`; `aria-current="location"`. Click scrolling and
   heading focus unchanged.
 - **Dirty state**: a pure `isDirty(values, base)` is extracted and unit-tested;
-  `useSyncedForm` keeps the synced base in state (not only a ref) and returns `dirty`, so
-  the value re-renders when the server converges.
+  `useSyncedForm` returns `dirty = isDirty(values, server)` with the current `server`
+  prop as the base (a render input, not a ref), so the value re-renders when the server
+  converges. Untouched fields already adopt newer server values, so a difference means
+  an unsaved edit or an unresolved conflict.
 - **`AssistantSaveBar.jsx`** (new): sticky bottom in the settings scroller on ≤700 px
   while dirty (or when creating): `pendingConfigShort` left (11 px muted), „Abbrechen“
   (`onCancel`) and „Agent speichern“ (`form="agent-profile"`) right, height 40, padding
   `10 12 14` + safe area, border-top `--header-line`, `--sidebar-bg`. It mirrors
-  `busy` (label `copy.loading`, disabled). The scroller gets bottom padding equal to the
-  bar height so later sections stay reachable. The full revision note stays in the form.
+  `busy` (label `copy.loading`, disabled). The bar is the last in-flow element of the
+  settings column (sticky, not fixed), so at the end of the scroll range it rests below
+  the last section and later sections stay reachable without extra bottom padding. The
+  full revision note stays in the form.
 
 ### Tests (step C)
 
@@ -500,6 +507,7 @@ Added to `web/lib/i18n/de` and `web/lib/i18n/en` with matching keys and argument
 | Key | de | en |
 |---|---|---|
 | `sidebarCopy.menu` | Menü | Menu |
+| `sidebarCopy.closeMenu` | Menü schließen | Close menu |
 | `assistantCopy.agentsGroup` | Agenten | Agents |
 | `assistantCopy.teamActive.working` | Team arbeitet | Team working |
 | `assistantCopy.teamActive.awaiting` | Team wartet auf Freigabe | Team awaiting approval |
