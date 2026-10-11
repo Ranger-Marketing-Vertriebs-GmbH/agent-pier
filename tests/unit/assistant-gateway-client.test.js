@@ -232,3 +232,29 @@ test("a hello without features advertises nothing", async (t) => {
   await client.connect();
   assert.equal(client.supports("config.get"), false);
 });
+
+test("declared client caps reach the handshake and closing forgets the features", async (t) => {
+  const fixture = await gatewayFixture({ features: { methods: ["config.get"] } });
+  t.after(() => fixture.close());
+  const plain = new GatewayClient({
+    url: fixture.url,
+    certPath: fixture.certPath,
+    token: "fixture",
+  });
+  const approver = new GatewayClient({
+    url: fixture.url,
+    certPath: fixture.certPath,
+    token: "fixture",
+    caps: ["exec-approvals"],
+  });
+  t.after(() => Promise.all([plain.close(), approver.close()]));
+  await plain.connect();
+  await approver.connect();
+  const caps = fixture.calls
+    .filter((c) => c.method === "connect")
+    .map((c) => c.params.caps);
+  assert.deepEqual(caps, [[], ["exec-approvals"]]);
+  plain.close();
+  assert.equal(plain.features, undefined);
+  assert.equal(plain.supports("config.get"), false);
+});

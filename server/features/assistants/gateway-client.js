@@ -42,9 +42,9 @@ function pinnedSocket(url, certPath, handshake) {
 }
 
 export class GatewayClient extends EventEmitter {
-  constructor({ url, token, certPath, timeoutMs = 10000 }) {
+  constructor({ url, token, certPath, timeoutMs = 10000, caps = [] }) {
     super();
-    Object.assign(this, { url, token, certPath, timeoutMs });
+    Object.assign(this, { url, token, certPath, timeoutMs, caps });
     this.pending = new Map();
     this.ready = false;
   }
@@ -108,7 +108,7 @@ export class GatewayClient extends EventEmitter {
         } else if (frame.type === "event") {
           if (frame.event === "connect.challenge" && !challenged) {
             challenged = true;
-            this.request("connect", gatewayHandshake(this.token))
+            this.request("connect", gatewayHandshake(this.token, this.caps))
               .then((hello) => {
                 if (hello?.protocol !== 4) throw gatewayError("PROTOCOL_MISMATCH");
                 const features = hello?.features || {};
@@ -174,6 +174,7 @@ export class GatewayClient extends EventEmitter {
   }
   close() {
     this.ready = false;
+    this.features = undefined;
     this.rejectPending();
     if (this.ws) {
       this.ws.removeAllListeners("message");
