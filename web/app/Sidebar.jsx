@@ -3,14 +3,14 @@ import { commonCopy } from "../lib/i18n/messages/common.js";
 import { sidebarCopy as copy } from "../lib/i18n/messages/app.js";
 import React, { lazy, Suspense } from "react";
 import Icon from "../components/Icon.jsx";
-import ProviderMark from "../components/ProviderMark.jsx";
 import { names } from "../lib/providers.js";
 const AssistantSidebar = lazy(
   () => import("../features/assistants/AssistantSidebar.jsx"),
 );
 import useMobileLayout from "../lib/useMobileLayout.js";
 import SidebarMenu from "./SidebarMenu.jsx";
-import SidebarGroup, { sessionActivity, sandboxBadge } from "./SidebarGroup.jsx";
+import SidebarGroup from "./SidebarGroup.jsx";
+import SessionRow from "./SessionRow.jsx";
 export default function Sidebar({
   mobileNav,
   navigate,
@@ -106,41 +106,15 @@ export default function Sidebar({
         >
           <div className="session-list">
             {sessions.length ? (
-              sessions.map((s) => {
-                const activity = sessionActivity(s);
-                return (
-                  <button
-                    key={s.id}
-                    className={`session-item ${selected === s.id && view === "workspace" ? "selected" : ""}`}
-                    onClick={() => select(s)}
-                    title={s.cwd}
-                  >
-                    <span className="session-provider">
-                      <ProviderMark tool={s.tool} small />
-                      <span
-                        className={`activity-dot ${activity.state}`}
-                        aria-hidden="true"
-                      />
-                    </span>
-                    <span>
-                      <strong>{s.name}</strong>
-                      {s.cwd && (
-                        <span className="session-directory" title={s.cwd}>
-                          <Icon name="folder" size={10} />
-                          <span>{s.repositoryName || s.cwd}</span>
-                        </span>
-                      )}
-                      <small>
-                        <span className={`activity-label ${activity.state}`}>
-                          {activity.label}
-                        </span>
-                        {s.tool !== "shell" && ` · ${names[s.tool]}`}
-                        {s.sandbox && ` · ${sandboxBadge(s)}`}
-                      </small>
-                    </span>
-                  </button>
-                );
-              })
+              sessions.map((s) => (
+                <SessionRow
+                  key={s.id}
+                  session={s}
+                  selected={selected === s.id && view === "workspace"}
+                  onSelect={select}
+                  names={names}
+                />
+              ))
             ) : (
               <div className="sidebar-empty">
                 <Icon name="terminal" size={20} />

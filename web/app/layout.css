@@ -270,12 +270,12 @@
 }
 .session-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   text-align: left;
   gap: 10px;
-  padding: 12px;
+  padding: 8px 10px;
   width: 100%;
-  border-radius: 6px;
+  border-radius: 8px;
   min-width: 0;
 }
 .session-item:hover {
@@ -285,52 +285,40 @@
   background: #28292d;
 }
 .session-item > span:last-child {
+  flex: 1;
   min-width: 0;
 }
 .session-provider {
   position: relative;
   flex-shrink: 0;
 }
+.session-provider .provider-mark.row.opencode {
+  font-size: 24px;
+}
 .session-provider .activity-dot {
   position: absolute;
   right: -2px;
   bottom: -2px;
+  width: 8px;
+  height: 8px;
+  flex-basis: 8px;
   margin: 0;
-  box-shadow: 0 0 0 2px #202125;
+  box-shadow: 0 0 0 2px var(--sidebar-bg);
 }
 .session-item strong {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #cfd0d4;
-}
-.session-directory {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 4px;
-  color: #8a8b8f;
-  font-size: 10px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.session-directory svg {
-  flex-shrink: 0;
-}
-.session-directory > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--text-row);
 }
 .session-item small {
   display: block;
-  font-size: 10px;
-  color: #8a8b8f;
-  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-meta);
+  margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
