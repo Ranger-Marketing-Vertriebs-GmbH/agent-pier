@@ -37,6 +37,26 @@ export function values(value = {}, headers = false) {
       throw problem(serverMessages.extensions.invalidEnvironmentOrHeader);
   return value;
 }
+/** Validate a remote MCP URL (no credentials, no fragment, http/https) and return its href. */
+export function mcpUrl(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw problem(serverMessages.extensions.invalidMcpUrl);
+  }
+  if (
+    typeof value !== "string" ||
+    value.length > 4096 ||
+    /[\x00-\x1f\x7f\\]/.test(value) ||
+    url.username ||
+    url.password ||
+    url.hash ||
+    !["http:", "https:"].includes(url.protocol)
+  )
+    throw problem(serverMessages.extensions.mcpUrlCredentialsForbidden);
+  return url.href;
+}
 export function cleanMcp(input = {}) {
   const name = nameValue(input.name);
   if (input.transport === "stdio") {
@@ -66,26 +86,11 @@ export function cleanMcp(input = {}) {
   }
   if (input.transport !== "http")
     throw problem(serverMessages.extensions.transportRequired);
-  let url;
-  try {
-    url = new URL(input.url);
-  } catch {
-    throw problem(serverMessages.extensions.invalidMcpUrl);
-  }
-  if (
-    typeof input.url !== "string" ||
-    input.url.length > 4096 ||
-    /[\x00-\x1f\x7f\\]/.test(input.url) ||
-    url.username ||
-    url.password ||
-    url.hash ||
-    !["http:", "https:"].includes(url.protocol)
-  )
-    throw problem(serverMessages.extensions.mcpUrlCredentialsForbidden);
+  const url = mcpUrl(input.url);
   return {
     name,
     transport: "http",
-    url: url.href,
+    url,
     headers: values(input.headers, true),
   };
 }
