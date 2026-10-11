@@ -12,6 +12,7 @@ import { AssistantStore } from "../features/assistants/assistant-store.js";
 import { AssistantModels } from "../features/assistants/assistant-models.js";
 import { AssistantConfig } from "../features/assistants/assistant-config.js";
 import { AssistantService } from "../features/assistants/assistant-service.js";
+import { OverrideStore } from "../features/assistants/openclaw-config/overrides.js";
 import { RuntimeSupervisor } from "../features/assistants/runtime-supervisor.js";
 import {
   AssistantMaintenance,
@@ -35,7 +36,11 @@ export function constructAssistantGraph(host, created = {}) {
   const { config, providerConnections, audit } = host;
   const { dataDir } = config;
   const assistantRuntime = expectWiring(
-    new RuntimeSupervisor({ dataDir }),
+    new RuntimeSupervisor({
+      dataDir,
+      // Read at each launch; the store is constructed right after the supervisor.
+      configOverrides: () => new OverrideStore(store.db).list(),
+    }),
     "assistantRuntime",
     ["teamConfiguration", "maintenance", "beforeSpawn", "afterReady"],
   );
