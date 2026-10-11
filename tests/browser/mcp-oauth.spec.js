@@ -157,16 +157,12 @@ async function setup(page, { language = "en" } = {}) {
         : { status: 204, body: "" },
     );
   });
-  // A download keeps the page, like a tab that comes back from the provider.
+  // A cancelled navigation keeps the page, like a tab that comes back from the
+  // provider. (WebKit renders a fulfilled attachment instead of downloading it.)
   await page.route(`${provider}/**`, (route) =>
-    route.fulfill(
-      state.providerStays
-        ? {
-            headers: { "Content-Disposition": "attachment; filename=stay.txt" },
-            body: "stay",
-          }
-        : { contentType: "text/html", body: "<h1>Provider consent</h1>" },
-    ),
+    state.providerStays
+      ? route.abort("aborted")
+      : route.fulfill({ contentType: "text/html", body: "<h1>Provider consent</h1>" }),
   );
   return state;
 }
@@ -300,6 +296,7 @@ for (const [label, use] of [
       await login.click();
       await expect(login).toHaveText("Opening login …");
       await expect(login).toBeDisabled();
+      expect(page.url()).toBe(baseURL + "/accounts");
       await expect(panel.getByText(/cannot start from the address/)).toHaveCount(0);
       state.status.s1 = { oauthStatus: "login-required" };
       await page.evaluate(() =>
