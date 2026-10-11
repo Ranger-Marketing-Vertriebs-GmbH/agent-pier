@@ -22,7 +22,7 @@ const lastDrainMs = 10 * 60 * 1000;
 // Failures that would fail every further logout the same way.
 const stalls = new Set(["cli-timeout", "runtime-unavailable"]);
 // Provider errors (RFC 6749 4.1.2.1) passed through as they are; others are generic.
-const providerErrors = new Set([
+export const providerErrors = new Set([
   "access_denied",
   "invalid_request",
   "invalid_scope",

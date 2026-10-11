@@ -6,6 +6,7 @@ import {
   projectsRoute,
   projectsRoutePath,
 } from "../features/projects/routes.js";
+import { readMcpOAuthResult } from "../features/mcp-servers/oauth-result.js";
 const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 const extensionTabs = ["mcp", "skills", "plugins", "marketplaces", "agents"];
 function readExtensionTab(search) {
@@ -65,6 +66,8 @@ export function readRoute(location) {
   if (pathname === "/accounts")
     return {
       view: "accounts",
+      // An MCP OAuth login's result; the address drops it (see routePath).
+      ...readMcpOAuthResult(location.search),
     };
   if (pathname === "/repositories") return projectsRoute();
   if (pathname === "/files")

@@ -21,6 +21,8 @@ export function draftFrom(server) {
     command: server?.command || "",
     args: (server?.args || []).join("\n"),
     cwd: server?.cwd || "",
+    auth: server?.auth === "oauth" ? "oauth" : "headers",
+    oauthScope: server?.oauthScope || "",
     headers: storedRows(server?.headerNames),
     env: storedRows(server?.envNames),
   };
@@ -38,14 +40,28 @@ function secretMap(rows) {
   return map;
 }
 
+/** An existing header server switching to OAuth loses its stored headers. */
+export function dropsStoredHeaders(draft, server) {
+  return (
+    !!server &&
+    draft.transport !== "stdio" &&
+    server.auth !== "oauth" &&
+    draft.auth === "oauth" &&
+    (server.headerNames || []).length > 0
+  );
+}
+
 /**
  * The create body, or for an existing server the revision plus only what the owner
  * changed: the address is sent only when edited (the shown one has no query string).
+ * An OAuth server sends no headers; its optional scope replaces them.
  */
 export function requestBody(draft, server) {
   const stdio = draft.transport === "stdio";
-  const secrets = secretMap(stdio ? draft.env : draft.headers);
+  const oauth = !stdio && draft.auth === "oauth";
+  const secrets = oauth ? {} : secretMap(stdio ? draft.env : draft.headers);
   const secretKey = stdio ? "env" : "headers";
+  const scope = draft.oauthScope.trim();
   if (!server)
     return {
       name: draft.name.trim(),
@@ -57,6 +73,7 @@ export function requestBody(draft, server) {
             ...(draft.cwd.trim() ? { cwd: draft.cwd.trim() } : {}),
           }
         : { url: draft.url.trim() }),
+      ...(oauth ? { auth: "oauth", ...(scope ? { oauthScope: scope } : {}) } : {}),
       ...(Object.keys(secrets).length ? { [secretKey]: secrets } : {}),
     };
   const original = draftFrom(server);
@@ -70,9 +87,13 @@ export function requestBody(draft, server) {
           ...(draft.args !== original.args ? { args: lines(draft.args) } : {}),
           ...(changed("cwd") ? { cwd: draft.cwd.trim() } : {}),
         }
-      : changed("url")
-        ? { url: draft.url.trim() }
-        : {}),
+      : {
+          ...(changed("url") ? { url: draft.url.trim() } : {}),
+          ...(draft.auth !== original.auth ? { auth: draft.auth } : {}),
+          ...(oauth && (changed("oauthScope") || draft.auth !== original.auth)
+            ? { oauthScope: scope }
+            : {}),
+        }),
     ...(Object.keys(secrets).length ? { [secretKey]: secrets } : {}),
   };
 }

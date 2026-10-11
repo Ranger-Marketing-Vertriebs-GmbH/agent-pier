@@ -140,10 +140,7 @@ test("an OAuth login completes through the callback by its state alone", async (
   // The provider's redirect on the HTTPS remote host, without a session cookie.
   const done = await remote({ code: "code-1", state: stateA });
   assert.equal(done.status, 303);
-  assert.equal(
-    done.headers.location,
-    `/settings/mcp?oauth=connected&server=${server.id}`,
-  );
+  assert.equal(done.headers.location, `/accounts?oauth=connected&server=${server.id}`);
   assert.ok(!done.body.includes("code-1"));
   assert.deepEqual(codes(calls()), [["login", "docs", "--code=code-1"]]);
   // Single use.
@@ -166,7 +163,7 @@ test("an OAuth login completes through the callback by its state alone", async (
   const denied = await local({ error: "access_denied", state: stateA, x: "<b>" });
   assert.equal(
     denied.headers.location,
-    `/settings/mcp?oauth=error&server=${server.id}&reason=access_denied`,
+    `/accounts?oauth=error&server=${server.id}&reason=access_denied`,
   );
   // A cross-site fetch (not a navigation) never reaches the callback.
   await start(stateB);
@@ -315,7 +312,7 @@ test("the callback is audited, refuses HEAD and waits out an exclusive barrier",
   f.application.mutationBarrier.exclusive = true;
   const blocked = await local({ state, code: "b" });
   f.application.mutationBarrier.exclusive = false;
-  assert.equal(blocked.headers.location, "/settings/mcp?oauth=error&reason=unavailable");
+  assert.equal(blocked.headers.location, "/accounts?oauth=error&reason=unavailable");
   assert.deepEqual(codes(calls()), []);
   const done = await local({ state, code: "secret-code" });
   assert.match(done.headers.location, /oauth=connected/);

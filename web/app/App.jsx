@@ -256,6 +256,7 @@ function Application() {
                 setModal,
                 act,
                 onNavigate: navigate,
+                mcpOAuth: route.mcpOAuth,
               }}
             />
           ) : activeSession ? (
