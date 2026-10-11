@@ -332,3 +332,73 @@ test.describe("agent chat transcript layout details", () => {
     expect(Math.abs(bubble.width - log.width * 0.85)).toBeLessThan(2);
   });
 });
+
+test.describe("agent chat composer", () => {
+  test("options hold the team switch and the hint; the chip shows the choice", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const state = await chatFixture(page);
+    await page.goto(chat);
+    const options = page.getByRole("button", { name: "Options", exact: true });
+    await expect(options).toHaveAttribute("aria-expanded", "false");
+    await options.click();
+    const toggle = page.getByRole("switch", { name: "Allow a team for this message" });
+    await expect(toggle).toBeFocused();
+    await expect(page.locator(".assistant-options-hint")).toBeVisible();
+    await toggle.check();
+    await expect(
+      page.getByRole("button", { name: "Close options", exact: true }),
+    ).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".assistant-options")).toBeHidden();
+    await expect(options).toBeFocused();
+    const chip = page.getByRole("button", { name: "Team allowed", exact: true });
+    await expect(chip).toBeVisible();
+    await options.click();
+    await page.locator(".assistant-transcript").click({ position: { x: 20, y: 20 } });
+    await expect(page.locator(".assistant-options")).toBeHidden();
+    await page.getByLabel("Message", { exact: true }).fill("Review the project");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect.poll(() => state.posted[0]?.teamAllowed).toBe(true);
+    await expect(chip).toHaveCount(0);
+  });
+
+  test("a working request swaps send for Stop and keeps the draft", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const state = await chatFixture(page, { history: working });
+    await page.goto(chat);
+    const stop = page.getByRole("button", { name: "Stop response", exact: true });
+    await expect(stop).toHaveText("Stop");
+    await expect(stop.locator("svg")).toHaveAttribute("fill", "currentColor");
+    await expect(page.getByRole("button", { name: "Send", exact: true })).toHaveCount(0);
+    const input = page.getByLabel("Message", { exact: true });
+    await input.fill("Next idea while it works");
+    await stop.click();
+    await expect.poll(() => state.calls).toContain("/api/assistant-attempts/a1/cancel");
+    await expect(input).toHaveValue("Next idea while it works");
+  });
+
+  test("the message field grows up to six lines", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await chatFixture(page);
+    await page.goto(chat);
+    const input = page.getByLabel("Message", { exact: true });
+    const lines = (n) => Array.from({ length: n }, (_, i) => `line ${i}`).join("\n");
+    const one = (await input.boundingBox()).height;
+    await input.fill(lines(3));
+    expect((await input.boundingBox()).height).toBeGreaterThan(one + 30);
+    await input.fill(lines(12));
+    expect((await input.boundingBox()).height).toBeLessThanOrEqual(133);
+  });
+
+  test("desktop shows the hint inline and centres the composer", async ({ page }) => {
+    await chatFixture(page);
+    await page.goto(chat);
+    await expect(page.locator(".assistant-composer-hint")).toHaveText(
+      "Enter: send · Shift + Enter: new line",
+    );
+    const box = await page.locator(".assistant-composer-box").boundingBox();
+    expect(Math.round(box.width)).toBe(760);
+  });
+});

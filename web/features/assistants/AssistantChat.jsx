@@ -9,12 +9,11 @@ import React, {
   useRef,
   useState,
 } from "react";
+import AssistantComposer from "./AssistantComposer.jsx";
 import AssistantMessage from "./AssistantMessage.jsx";
 import CodingRunNote from "./CodingRunNote.jsx";
 import { plainText } from "./plain-text.js";
 import useTouchInput from "../chat/useTouchInput.js";
-import { enterKeyHint, sendHint, shouldSubmitOnEnter } from "../chat/enter-submit.js";
-import ChatScrollToBottom from "../chat/ChatScrollToBottom.jsx";
 import useSessionViewport from "../sessions/useSessionViewport.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
@@ -162,6 +161,14 @@ export default function AssistantChat({
       setError(e.message);
     }
   }
+  async function stop() {
+    try {
+      await assistantApi.cancel(latest.attempt.id);
+      await refresh();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
   return (
     <section className="assistant-detail assistant-chat">
       <AssistantHeader
@@ -301,64 +308,24 @@ export default function AssistantChat({
         >
           {announcement}
         </div>
-        <form className="assistant-composer" onSubmit={send}>
-          <ChatScrollToBottom active output={output} stick={stick} scroll={scroll} />
-          <label className="sr-only" htmlFor="assistant-message">
-            {copy.message}
-          </label>
-          <textarea
-            id="assistant-message"
-            value={text}
-            maxLength={65536}
-            rows={2}
-            enterKeyHint={enterKeyHint(touchInput)}
-            placeholder={copy.messagePlaceholder}
-            onKeyDown={(event) => {
-              if (!shouldSubmitOnEnter(event, touchInput)) return;
-              event.preventDefault();
-              if (!event.repeat) event.currentTarget.form.requestSubmit();
-            }}
-            onChange={(e) => {
-              setText(e.target.value);
-              drafts.set(conversationId, e.target.value);
-            }}
-          />
-          <div className="assistant-actions">
-            <span className="chat-send-hint">{sendHint(touchInput)}</span>
-            {!assistant.teamMemberId && (
-              <label className="assistant-team-permission">
-                <input
-                  type="checkbox"
-                  checked={teamAllowed}
-                  onChange={(e) => {
-                    setTeamAllowed(e.target.checked);
-                    drafts.allowTeam(conversationId, e.target.checked);
-                  }}
-                />
-                {copy.team.allowOnce}
-              </label>
-            )}
-            {active && (
-              <button
-                type="button"
-                className="button secondary"
-                onClick={async () => {
-                  try {
-                    await assistantApi.cancel(latest.attempt.id);
-                    await refresh();
-                  } catch (e) {
-                    setError(e.message);
-                  }
-                }}
-              >
-                {copy.stop}
-              </button>
-            )}
-            <button className="button primary" disabled={!canSend}>
-              {busy ? copy.loading : copy.send}
-            </button>
-          </div>
-        </form>
+        <AssistantComposer
+          assistant={assistant}
+          conversationId={conversationId}
+          drafts={drafts}
+          text={text}
+          setText={setText}
+          teamAllowed={teamAllowed}
+          setTeamAllowed={setTeamAllowed}
+          canSend={canSend}
+          busy={busy}
+          active={Boolean(active)}
+          touchInput={touchInput}
+          onSubmit={send}
+          onStop={stop}
+          output={output}
+          stick={stick}
+          scroll={scroll}
+        />
       </div>
     </section>
   );

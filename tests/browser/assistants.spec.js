@@ -148,7 +148,11 @@ test("uncertain requests remain distinct from a ready runtime and keep drafts", 
     page.getByRole("log").getByText("Outcome unknown", { exact: true }),
   ).toBeVisible();
   await page.getByLabel("Message", { exact: true }).fill("Next idea");
-  await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
+  // An unresolved request is active, so Stop replaces Send and the draft cannot go out.
+  await expect(page.getByRole("button", { name: "Send", exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Stop response", exact: true }),
+  ).toBeVisible();
   await expect(page.getByText(/Your draft is preserved/)).toBeVisible();
   await expect(page.getByLabel("Message", { exact: true })).toHaveValue("Next idea");
   await expect(

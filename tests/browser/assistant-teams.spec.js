@@ -197,6 +197,7 @@ test("approval and one-request permission remain accessible on mobile", async ({
     page.getByRole("button", { name: "Approve team", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Decline team", exact: true }).click();
+  await page.getByRole("button", { name: "Options", exact: true }).click();
   await page.getByLabel("Allow a team for this message").check();
   await page.getByLabel("Message", { exact: true }).fill("Review this project");
   await page.getByRole("button", { name: "Send", exact: true }).click();

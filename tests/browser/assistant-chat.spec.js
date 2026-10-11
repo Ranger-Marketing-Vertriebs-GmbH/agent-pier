@@ -165,6 +165,8 @@ for (const [name, size, touch] of [
       if (touch) {
         await expect(input).toHaveValue("first\nsecond\n");
         expect(state.posted).toHaveLength(0);
+        if (size.width <= 700)
+          await page.getByRole("button", { name: "Options", exact: true }).click();
         await expect(page.getByText("Use the button to send")).toBeVisible();
       } else {
         await expect.poll(() => state.posted.length).toBe(1);
