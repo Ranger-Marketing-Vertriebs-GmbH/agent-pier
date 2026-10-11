@@ -700,9 +700,9 @@ context length/i`, `/ContextWindowExceededError/`, `/prompt is too long/i`,
   `provider(modelId)` / `languageModel` = Responses model. An experimental native path
   (`OPENCODE_EXPERIMENTAL_NATIVE_LLM`) uses the same `/v1` + `/messages` convention.
 - **Source:** OpenCode 1.18.33 binary (function `sV`/`iV` for Anthropic:
-  `jQ="https://api.anthropic.com",FQ=\`${jQ}/v1\``; `buildRequestUrl … \`${this.config.baseURL}/messages\``;
-`FX`/`dY`for OpenAI:`url:({path:B})=>\`${$}${B}\``, `K.languageModel=V` →
-  `provider:\`${J}.responses\``).
+  ``jQ="https://api.anthropic.com",FQ=`${jQ}/v1` ``; ``buildRequestUrl … `${this.config.baseURL}/messages` ``;
+  `FX`/`dY` for OpenAI: ``url:({path:B})=>`${$}${B}` ``, `K.languageModel=V` →
+  ``provider:`${J}.responses` ``).
 - **Consequence (PR 2):** OpenCode `sdk` routes must set `baseURL` to the endpoint's
   Messages base **including `/v1`** for `@ai-sdk/anthropic`, and the Responses base
   **including `/v1`** for `@ai-sdk/openai` (spec: `anthropicBaseUrl + /v1` is correct

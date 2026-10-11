@@ -320,7 +320,7 @@ sessions.forEach((session, index) => {
 
 Expose `f.launcherPid = (id) => 100 + sessions.findIndex((s) => s.id === id)`. Update every `f.extra.push(...)`:
 
-- plan test: `f.extra.push(\` 500 1 node ${f.old}/bin/node /Users/me/tool.js\`)` (stays node-only) and `f.extra.push(\`  501     1 node ${f.old}/bin/node ${f.old}/server/features/pipelines/verify-supervisor.js\`)` (stays unidentified).
+- plan test: ``f.extra.push(` 500 1 node ${f.old}/bin/node /Users/me/tool.js`)`` (stays node-only) and ``f.extra.push(`  501     1 node ${f.old}/bin/node ${f.old}/server/features/pipelines/verify-supervisor.js`)`` (stays unidentified).
 - lingering-helpers test (`vendor/agentbus/agentpier/mcp.js`): `f.extra.push(\` 600 1 node ${f.old}/bin/node ${f.old}/vendor/agentbus/agentpier/mcp.js\`)`— an orphan; with Task 2's`awaitReferences`change it is awaited for the settle budget and then reported as`remaining: [{ reference: "vendor/agentbus/agentpier/mcp.js" }]`, so the assertion stays the same. Until Task 2 lands this test fails with the same code but immediately; that is expected and noted in the report.
 
 - [ ] **Step 6: Amend spec section 1**
