@@ -123,6 +123,11 @@ calls `listen(port, host)`. It does support `gateway.tls`, so AgentPier uses tha
   `ENDPOINT_UNTRUSTED`; a refused connection while the Gateway is still starting is
   retried.
 
+The Gateway serves no browser surface: every start rewrites
+`gateway.controlUi.enabled` and `gateway.terminal.enabled` to `false`, also over
+values an existing configuration holds. OpenClaw enables the operator terminal by
+default; it gives admin-scoped clients a host shell with the Gateway's environment.
+
 ### Process ownership and supervision
 
 `assistants/owner.json` records the Gateway's pid, its process start time, the
