@@ -2,6 +2,7 @@ import React, { useEffect, useId, useState } from "react";
 export default function SidebarGroup({
   name,
   label,
+  ariaLabel,
   count,
   defaultOpen = false,
   activeKey = "",
@@ -35,7 +36,7 @@ export default function SidebarGroup({
     >
       <button
         className="sidebar-group-toggle"
-        aria-label={label}
+        aria-label={ariaLabel || label}
         aria-expanded={open}
         aria-controls={id}
         onClick={toggle}

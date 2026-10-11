@@ -113,3 +113,26 @@ test("agents and sessions share one scroll container", async ({ page }) => {
   );
   expect(scrollers).toEqual(["sidebar-scroll"]);
 });
+
+test("group headers stay pinned while the list scrolls", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 500 });
+  await page.route("**/api/state", async (route) => {
+    const response = await route.fetch();
+    const json = await response.json();
+    json.sessions = Array.from({ length: 30 }, (_, i) => ({
+      id: `s${i}`,
+      name: `Sitzung ${i}`,
+      tool: "codex",
+      cwd: `/work/p${i}`,
+      status: "running",
+      activity: { state: "idle", label: "Bereit" },
+    }));
+    await route.fulfill({ response, json });
+  });
+  await page.goto(baseURL);
+  const header = page.locator(".sessions-group > .sidebar-group-toggle");
+  await page.locator(".sidebar-scroll").evaluate((node) => node.scrollBy(0, 400));
+  const scroller = await page.locator(".sidebar-scroll").boundingBox();
+  await expect.poll(async () => (await header.boundingBox()).y).toBe(scroller.y);
+  await expect(header).toHaveCSS("position", "sticky");
+});

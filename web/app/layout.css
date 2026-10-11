@@ -139,13 +139,20 @@
   align-items: center;
   gap: 9px;
   width: 100%;
-  min-height: 38px;
+  min-height: 36px;
+  height: 36px;
   padding: 0 12px;
   border-radius: 6px;
   text-align: left;
   font-size: 11px;
   font-weight: 600;
-  color: #97989c;
+  color: var(--text-group);
+}
+.sidebar-scroll .sidebar-group-toggle {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--sidebar-bg);
 }
 .sidebar-group-toggle:hover {
   background: #222327;
@@ -166,7 +173,7 @@
 .sidebar-group-count {
   margin-left: auto;
   font-size: 10px;
-  color: #97989c;
+  color: var(--text-group);
 }
 .sidebar-group-content[hidden] {
   display: none;
