@@ -40,13 +40,13 @@ export default function AgentMcpServers({ assistant, refresh, navigate }) {
     setBusy(true);
     setError("");
     try {
-      await assistantApi.update(assistant.id, {
+      const saved = await assistantApi.update(assistant.id, {
         revision: assistant.revision,
         mcpServers: selected,
         ...(confirmStdio ? { confirmStdio: true } : {}),
       });
       setConfirming(false);
-      setNotice(copy.agentSaved);
+      setNotice(saved?.pending ? copy.pendingNotice : copy.agentSaved);
       await refresh();
     } catch (e) {
       if (stdioConfirmationRequired(e)) setConfirming(true);

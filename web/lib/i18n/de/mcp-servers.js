@@ -71,6 +71,7 @@ export const mcpServerCopy = {
   agentOpenAccounts: "Accounts öffnen",
   agentSave: "MCP-Server speichern",
   agentSaved: "MCP-Server gespeichert.",
+  pendingNotice: "Gespeichert — wird in Kürze auf laufende Agenten angewendet.",
   agentServersLegend: "MCP-Server für diesen Agenten",
   temporaryTitle: "MCP-Server",
   temporaryNote: "Vom Teamvorschlag des leitenden Agenten gewährt. Nur lesbar.",

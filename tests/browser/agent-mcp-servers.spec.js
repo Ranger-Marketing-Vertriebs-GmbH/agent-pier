@@ -120,7 +120,13 @@ async function setup(page, { serversUnavailable = false } = {}) {
       if (stdio && body.confirmStdio !== true) return route.fulfill(refusal);
       state.bindings = body.mcpServers;
       home.revision += 1;
-      return route.fulfill({ json: { ...home, mcpServers: state.bindings } });
+      return route.fulfill({
+        json: {
+          ...home,
+          mcpServers: state.bindings,
+          ...(state.pending && { pending: true }),
+        },
+      });
     }
     if (path === "/api/assistant-runtime")
       return route.fulfill({ json: { availability: "ready", sync: "current" } });
@@ -179,9 +185,12 @@ async function setup(page, { serversUnavailable = false } = {}) {
         revision: server.revision + 1,
       });
       if (body.args) server.args = body.args;
-      return route.fulfill({ json: publicServer(server) });
+      return route.fulfill({
+        json: { ...publicServer(server), ...(state.pending && { pending: true }) },
+      });
     }
     state.servers = state.servers.filter((s) => s.id !== id);
+    if (state.pending) return route.fulfill({ json: { pending: true } });
     return route.fulfill({ status: 204, body: "" });
   });
   return state;
@@ -304,6 +313,45 @@ for (const [label, use] of [
       await expect(panel.getByRole("alertdialog")).toContainText("lose access");
       await panel.getByRole("button", { name: "Remove server" }).click();
       await expect(panel.getByText("No MCP servers yet.")).toBeVisible();
+    });
+
+    test("a saved change whose live apply is pending shows a notice", async ({
+      page,
+    }) => {
+      const state = await setup(page);
+      state.pending = true;
+      state.servers.push(
+        {
+          id: "s1",
+          name: "docs",
+          transport: "http",
+          url: "https://a.example/mcp",
+          headerNames: [],
+          envNames: [],
+        },
+        {
+          id: "s2",
+          name: "more",
+          transport: "http",
+          url: "https://b.example/mcp",
+          headerNames: [],
+          envNames: [],
+        },
+      );
+      const notice = "Saved \u2014 will be applied to running agents shortly.";
+      await page.goto(baseURL + "/agents/home/settings");
+      const panel = page.getByRole("region", { name: "MCP servers" });
+      await panel.getByLabel("docs").check();
+      await panel.getByRole("button", { name: "Save MCP servers" }).click();
+      await expect(panel.getByText(notice)).toBeVisible();
+      expect(state.bindings).toEqual(["s1"]);
+      await page.goto(baseURL + "/accounts");
+      const settings = page.getByRole("region", { name: "MCP servers" });
+      await settings.getByRole("button", { name: "Remove more" }).click();
+      await settings.getByRole("button", { name: "Remove server" }).click();
+      await expect(settings.getByText(notice)).toBeVisible();
+      await expect(settings.getByText("more")).toHaveCount(0);
+      if (label === "phone") await fits(page);
     });
 
     test("binding a stdio server to an agent asks for confirmation", async ({ page }) => {

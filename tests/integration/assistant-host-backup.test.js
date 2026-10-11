@@ -301,6 +301,43 @@ test("host backups seal OpenClaw's configuration copies and leave out temporarie
   }
 });
 
+test("restoring an older backup skips unparsable configuration copies", async (t) => {
+  const { dataDir, root } = fixture(t);
+  assistantData(root);
+  write(root, "state/openclaw.json", JSON.stringify({ gateway: { port: 1 } }));
+  const backup = await new Backup({ dataDir }).create({ passphrase });
+  const archive = decodeArchive(backup.file);
+  const add = (name, text) => {
+    const content = Buffer.from(text);
+    archive.files.push({
+      path: name,
+      mode: 0o600,
+      content: content.toString("base64"),
+      sha256: createHash("sha256").update(content).digest("hex"),
+    });
+  };
+  // An older capture kept OpenClaw's unfinished atomic-write temporary.
+  add("assistants/state/openclaw.json.tmp-1234", '{"gateway": {"port"');
+  const older = path.join(path.dirname(dataDir), "older.apbackup");
+  fs.writeFileSync(older, encodeArchive(archive));
+  await new Restore({ dataDir }).inspect({ archive: older });
+  const target = path.join(path.dirname(dataDir), "older-restored");
+  await new Restore({ dataDir }).apply({ archive: older, targetDataDir: target });
+  const state = path.join(target, "assistants", "state");
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(state, "openclaw.json"))).gateway.port,
+    1,
+  );
+  // The configuration itself stays strict.
+  archive.files.find((m) => m.path === "assistants/state/openclaw.json").content =
+    Buffer.from("{broken").toString("base64");
+  const broken = path.join(path.dirname(dataDir), "broken.apbackup");
+  fs.writeFileSync(broken, encodeArchive(archive));
+  await assert.rejects(new Restore({ dataDir }).inspect({ archive: broken }), {
+    status: 400,
+  });
+});
+
 test("removing a host backup destroys its assistant key", async (t) => {
   const { dataDir, root } = fixture(t);
   assistantData(root);

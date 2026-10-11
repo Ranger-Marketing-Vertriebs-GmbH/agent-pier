@@ -158,7 +158,9 @@ test("MCP server routes are owner-only, origin-checked and never return secrets"
   const removed = await f.request(`/api/mcp-servers/${server.id}`, {
     method: "DELETE",
   });
-  assert.equal(removed.status, 204);
+  // No Gateway runs in this fixture, so the live apply stays pending.
+  assert.equal(removed.status, 200);
+  assert.deepEqual(await read(removed), { pending: true });
   const after = await read(await f.request("/api/assistants"));
   assert.deepEqual(after.assistants.find((a) => a.id === agent.id).mcpServers, [
     local.id,
@@ -168,4 +170,20 @@ test("MCP server routes are owner-only, origin-checked and never return secrets"
   });
   assert.equal(missing.status, 404);
   await read(missing);
+
+  // A stored change whose live apply fails still succeeds and reports `pending`.
+  f.application.assistantMcpChanges.apply = async () => {
+    throw Object.assign(Error("busy"), { code: "UNAVAILABLE" });
+  };
+  const renamed = await f.request(`/api/mcp-servers/${local.id}`, {
+    method: "PUT",
+    body: { revision: 3, name: "renamed" },
+  });
+  assert.equal(renamed.status, 200);
+  const renamedBody = await read(renamed);
+  assert.equal(renamedBody.pending, true);
+  assert.equal(renamedBody.name, "renamed");
+  const dropped = await f.request(`/api/mcp-servers/${local.id}`, { method: "DELETE" });
+  assert.equal(dropped.status, 200);
+  assert.deepEqual(await read(dropped), { pending: true });
 });

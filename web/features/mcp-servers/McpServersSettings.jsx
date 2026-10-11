@@ -56,6 +56,7 @@ export default function McpServersSettings() {
     [error, setError] = useState(""),
     [editing, setEditing] = useState(undefined),
     [removing, setRemoving] = useState(null),
+    [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false);
   const load = useCallback(async () => {
     try {
@@ -71,7 +72,8 @@ export default function McpServersSettings() {
   async function remove(server) {
     setBusy(true);
     try {
-      await assistantApi.removeMcpServer(server.id);
+      const result = await assistantApi.removeMcpServer(server.id);
+      setNotice(result?.pending ? copy.pendingNotice : "");
       setRemoving(null);
       await load();
     } catch (e) {
@@ -85,6 +87,11 @@ export default function McpServersSettings() {
       <h2>{copy.title}</h2>
       <p className="mcp-hint">{copy.description}</p>
       <ErrorMessage error={error} />
+      {notice && (
+        <p role="status" className="mcp-hint">
+          {notice}
+        </p>
+      )}
       {servers && !servers.length && <p className="mcp-hint">{copy.empty}</p>}
       <ul className="mcp-list">
         {(servers || []).map((server) => (
@@ -152,7 +159,8 @@ export default function McpServersSettings() {
           key={editing?.id || "new"}
           server={editing}
           close={() => setEditing(undefined)}
-          onSaved={async () => {
+          onSaved={async (saved) => {
+            setNotice(saved?.pending ? copy.pendingNotice : "");
             setEditing(undefined);
             await load();
           }}

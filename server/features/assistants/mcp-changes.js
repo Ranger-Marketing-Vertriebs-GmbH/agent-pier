@@ -148,16 +148,28 @@ export class McpChanges {
       if (this.changesStdio(this.servers.get(id), input))
         requireStdioConfirmation(confirmStdio === true);
       const server = this.servers.update(id, input);
-      await this.apply();
-      return server;
+      return { server, pending: await this.applySaved() };
     });
   }
   remove(id) {
     return this.assistants.admit(async () => {
       // The store removes the server's bindings with it.
       this.servers.remove(id);
-      await this.apply();
+      return { pending: await this.applySaved() };
     });
+  }
+  /**
+   * Applies a change that is already stored. A failed or impossible live apply is not
+   * an error then: the store is the truth, `failed()` keeps the retry pending, and the
+   * caller reports `pending`. Returns whether the Gateway still lags behind.
+   */
+  async applySaved() {
+    try {
+      await this.apply();
+    } catch {
+      // failed() recorded the failure and scheduled the retry.
+    }
+    return this.pending;
   }
   /**
    * Patches the running Gateway with what the store compiles now: the `mcp` block and
