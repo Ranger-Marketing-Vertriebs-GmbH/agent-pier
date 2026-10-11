@@ -133,4 +133,29 @@ export class RequestLedger {
       .all()
       .map(attemptRecord);
   }
+  // One row per conversation: its latest request and that request's latest attempt.
+  // The list endpoint derives agent activity from this on every refresh, so it stays a
+  // single statement over the existing indexes.
+  latestByConversation() {
+    return this.db
+      .prepare(
+        `SELECT r.conversation_id, r.id AS request_id, r.state AS request_state,
+          a.id AS attempt_id, a.state AS attempt_state,
+          (SELECT reviewed_at FROM attempt_reviews WHERE attempt_id=a.id) AS reviewed_at
+        FROM requests r
+        LEFT JOIN attempts a
+          ON a.rowid=(SELECT MAX(rowid) FROM attempts WHERE request_id=r.id)
+        WHERE r.rowid=(SELECT MAX(rowid) FROM requests WHERE conversation_id=r.conversation_id)
+        ORDER BY r.rowid`,
+      )
+      .all()
+      .map((r) => ({
+        conversationId: r.conversation_id,
+        requestId: r.request_id,
+        requestState: r.request_state,
+        attemptId: r.attempt_id ?? null,
+        attemptState: r.attempt_state ?? null,
+        reviewedAt: r.reviewed_at ?? null,
+      }));
+  }
 }
