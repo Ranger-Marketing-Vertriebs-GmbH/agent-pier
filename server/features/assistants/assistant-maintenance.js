@@ -1,4 +1,5 @@
 import { assistantProblem } from "./assistant-validation.js";
+import { patchConfig } from "./openclaw-config/live-patch.js";
 import fs from "node:fs";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -154,12 +155,9 @@ export class AssistantMaintenance {
   }
   async setCron(enabled) {
     const runtime = this.s.assistantRuntime;
-    const previous = await runtime.client.call("config.get", {});
-    if (previous.config?.cron?.enabled !== enabled)
-      await runtime.client.call("config.patch", {
-        baseHash: previous.hash,
-        raw: JSON.stringify({ cron: { enabled } }),
-      });
+    await patchConfig(runtime.client, (config) =>
+      config.cron?.enabled === enabled ? null : { patch: { cron: { enabled } } },
+    );
     for (let attempt = 0; attempt < 100; attempt++) {
       try {
         if (
