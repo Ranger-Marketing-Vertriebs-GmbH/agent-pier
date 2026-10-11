@@ -13,6 +13,9 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantApi } from "./assistant-api.js";
 import useAssistants from "./useAssistants.js";
 import useSyncedForm from "./useSyncedForm.js";
+import AssistantCapabilities, { capabilityDefaults } from "./AssistantCapabilities.jsx";
+import RestartConfirmation from "./RestartConfirmation.jsx";
+import { restartRequired } from "../provider-connections/restart-confirmation.js";
 const conflictLabels = {
   name: () => copy.name,
   instructions: () => copy.instructions,
@@ -21,13 +24,13 @@ const conflictLabels = {
   capabilities: () => copy.personal.capabilities,
 };
 export default function AssistantSettings({ assistant, onSaved, onCancel, navigate }) {
-  const { models, refresh } = useAssistants();
+  const { models, refresh, runtime } = useAssistants();
   const form = useSyncedForm({
     name: assistant?.name || "",
     instructions: assistant?.instructions || "",
     connectionId: assistant?.model.connectionId || "",
     modelId: assistant?.model.modelId || "",
-    capabilities: assistant?.capabilities || { memory: false, reminders: false },
+    capabilities: { ...capabilityDefaults, ...assistant?.capabilities },
   });
   const { name, instructions, connectionId, modelId, capabilities } = form.values;
   const setName = (value) => form.set("name", value),
@@ -36,6 +39,7 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
     setModel = (value) => form.set("modelId", value);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [restart, setRestart] = useState(null);
   const personal = !assistant?.teamMemberId || assistant.lifetime === "permanent";
   async function confirmInstructions() {
     setBusy(true);
@@ -53,8 +57,8 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
       setBusy(false);
     }
   }
-  async function save(event) {
-    event.preventDefault();
+  async function save(event, confirmRestart = false) {
+    event?.preventDefault();
     setBusy(true);
     setError("");
     try {
@@ -68,12 +72,16 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
         ? await assistantApi.update(assistant.id, {
             ...input,
             revision: assistant.revision,
+            ...(confirmRestart ? { confirmRestart: true } : {}),
           })
         : await assistantApi.create(input);
+      setRestart(null);
       await refresh();
       onSaved(result);
     } catch (e) {
-      setError(e.message);
+      // The owner confirms first; the same body is then sent again.
+      if (assistant && restartRequired(e)) setRestart(e.affected || {});
+      else setError(e.message);
     } finally {
       setBusy(false);
     }
@@ -136,22 +144,22 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
           <p className="assistant-note">{copy.noConnections}</p>
         )}
         {personal && (
-          <fieldset className="assistant-capability-options">
-            <legend>{copy.personal.capabilities}</legend>
-            {["memory", "reminders"].map((key) => (
-              <label className="assistant-team-permission" key={key}>
-                <input
-                  type="checkbox"
-                  checked={capabilities[key]}
-                  onChange={(e) =>
-                    form.set("capabilities", { ...capabilities, [key]: e.target.checked })
-                  }
-                />
-                {copy.personal[key === "memory" ? "enableMemory" : "enableReminders"]}
-              </label>
-            ))}
-            <p className="assistant-note">{copy.personal.capabilityHint}</p>
-          </fieldset>
+          <AssistantCapabilities
+            capabilities={capabilities}
+            browser={runtime?.browser}
+            onChange={(next) => {
+              setRestart(null);
+              form.set("capabilities", next);
+            }}
+          />
+        )}
+        {restart && (
+          <RestartConfirmation
+            affected={restart}
+            busy={busy}
+            onConfirm={() => save(null, true)}
+            onCancel={() => setRestart(null)}
+          />
         )}
         <button
           type="button"

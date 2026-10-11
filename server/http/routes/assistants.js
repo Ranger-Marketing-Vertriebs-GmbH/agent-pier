@@ -53,6 +53,14 @@ export function assistantRoutes(services) {
   });
   return router;
 }
+function browserStatus(webTools) {
+  try {
+    const { available, name } = webTools?.detect() || {};
+    return available ? { available: true, name } : { available: false };
+  } catch {
+    return { available: false };
+  }
+}
 function activeAssistantRoutes(services) {
   const { assistants, assistantRuntime, audit } = services;
   const router = Router();
@@ -119,9 +127,11 @@ function activeAssistantRoutes(services) {
     res.json(await assistants.recover(req.params.id, req.body)),
   );
   router.get("/assistant-runtime", (_req, res) =>
-    res.json(
-      runtimeStatus(assistantRuntime, assistants, services.assistantTeams?.bridge),
-    ),
+    res.json({
+      ...runtimeStatus(assistantRuntime, assistants, services.assistantTeams?.bridge),
+      // Whether the agents can drive a browser; the settings page gates its switch on it.
+      browser: browserStatus(services.assistantWebTools),
+    }),
   );
   router.post("/assistant-runtime/:action", async (req, res) =>
     assistants.admit(async () => {
