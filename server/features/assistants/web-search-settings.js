@@ -51,12 +51,9 @@ export class WebSearchSettings {
   /** The compiler's view; the only place a key leaves the store. */
   resolve() {
     const row = this.row();
-    const key = this.keyFor(row.provider, row.connection_id);
-    if (row.provider !== "duckduckgo" && !key)
-      return { provider: row.provider, requiresPlugin: true, unavailable: true };
-    return { provider: row.provider, ...(key ? { key } : {}), requiresPlugin: true };
+    return this.resolved(row.provider, this.keyFor(row.provider, row.connection_id));
   }
-  save(input) {
+  validate(input) {
     if (
       !input ||
       typeof input !== "object" ||
@@ -80,6 +77,26 @@ export class WebSearchSettings {
     )
       throw assistantProblem("invalid");
     if (input.revision !== this.row().revision) throw assistantProblem("conflict", 409);
+    return { provider, connectionId, braveKey };
+  }
+  /** What resolve() would return once `input` is saved; validates like save(). */
+  preview(input) {
+    const { provider, connectionId, braveKey } = this.validate(input);
+    const key =
+      provider === "brave"
+        ? braveKey === null
+          ? undefined
+          : (braveKey ?? this.braveKey())
+        : this.keyFor(provider, connectionId);
+    return this.resolved(provider, key);
+  }
+  resolved(provider, key) {
+    if (provider !== "duckduckgo" && !key)
+      return { provider, requiresPlugin: true, unavailable: true };
+    return { provider, ...(key ? { key } : {}), requiresPlugin: true };
+  }
+  save(input) {
+    const { provider, connectionId, braveKey } = this.validate(input);
     this.db.exec("BEGIN IMMEDIATE");
     try {
       if (typeof braveKey === "string")

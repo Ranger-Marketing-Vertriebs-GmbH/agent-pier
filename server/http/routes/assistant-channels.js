@@ -3,16 +3,12 @@ import { assistantProblem } from "../../features/assistants/assistant-validation
 export function assistantChannelRoutes({
   assistantChannels: channels,
   assistantSpeech: speech,
-  assistantWebSearch: webSearch,
 }) {
   const router = Router();
-  router.use(
-    ["/assistant-channels", "/assistant-speech", "/assistant-web-search"],
-    (_req, res, next) => {
-      res.set("Cache-Control", "no-store");
-      next();
-    },
-  );
+  router.use(["/assistant-channels", "/assistant-speech"], (_req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+  });
   router.get("/assistant-channels", (_req, res) => res.json(channels.list()));
   router.post("/assistant-channels", async (req, res) =>
     res.status(201).json(await channels.create(req.body)),
@@ -51,8 +47,6 @@ export function assistantChannelRoutes({
   );
   router.get("/assistant-speech", (_req, res) => res.json(speech.get()));
   router.put("/assistant-speech", (req, res) => res.json(speech.save(req.body)));
-  router.get("/assistant-web-search", (_req, res) => res.json(webSearch.get()));
-  router.put("/assistant-web-search", (req, res) => res.json(webSearch.save(req.body)));
   router.use((error, _req, _res, next) => {
     const key =
       {

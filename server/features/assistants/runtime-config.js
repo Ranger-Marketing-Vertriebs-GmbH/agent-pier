@@ -63,7 +63,9 @@ export function compileOpenClawConfig({
   };
   const hardened = hardenedDefaults();
   config.channels = hardened.channels;
-  config.browser = { ...config.browser, ...hardened.browser };
+  // Assigned outright: a stale browser block must not survive a disabled capability.
+  // applyWebTools sets the verified block when an agent uses an available browser.
+  config.browser = hardened.browser;
   config.discovery = hardened.discovery;
   config.telemetry = hardened.telemetry;
   config.update = hardened.update;

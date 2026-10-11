@@ -28,6 +28,7 @@ export const assistantServiceNames = [
   "assistantWorkflows",
   "assistantUpdates",
   "assistantProviderSynchronization",
+  "assistantWebTools",
 ];
 
 /**

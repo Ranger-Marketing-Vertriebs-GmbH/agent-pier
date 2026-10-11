@@ -8,6 +8,8 @@ import { agentEntry } from "../../server/features/assistants/openclaw-config/age
 import {
   webToolsAvailability,
   webToolsSections,
+  webToolsSignature,
+  webToolsSnapshot,
 } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import { usedCapabilities } from "../../server/features/assistants/native-capabilities.js";
 
@@ -58,7 +60,7 @@ const webTools = (extra = {}) => ({
   ...extra,
 });
 
-function compile(profiles, tools) {
+function compile(profiles, tools, browser = { enabled: false }) {
   const existing = {
     agents: {
       defaults: {},
@@ -66,7 +68,7 @@ function compile(profiles, tools) {
         profiles.map((p) => [p.runtimeAgentId, { id: p.runtimeAgentId }]),
       ),
     },
-    browser: { enabled: false },
+    browser,
   };
   return compileOpenClawConfig({
     existing,
@@ -302,4 +304,43 @@ test("a start and a live apply grant the same web tools", () => {
   assert.deepEqual(agentAllow(config, "ap-a1"), live.tools.allow);
   assert.ok(live.tools.allow.includes("web_search"));
   assert.ok(!live.tools.allow.includes("browser"));
+});
+
+test("a stale browser block from an earlier start never survives", () => {
+  const stale = {
+    enabled: true,
+    executablePath: "/old/chrome",
+    cdpUrl: "http://127.0.0.1:9222",
+    profiles: { user: { driver: "existing-session" } },
+  };
+  // The capability was switched off: the hardened block replaces it outright.
+  assert.deepEqual(compile([plain], webTools(), stale).browser, { enabled: false });
+  // Still on: only the verified block remains, without the stale keys.
+  const active = compile([personal], webTools(), stale).browser;
+  assert.deepEqual(
+    active,
+    webToolsSections({ profiles: [personal], webTools: webTools(), port }).browser,
+  );
+  assert.equal("cdpUrl" in active, false);
+});
+
+test("the running state signs the global sections without keeping the key", () => {
+  const brave = (key) =>
+    webTools({ search: { provider: "brave", key, requiresPlugin: true } });
+  const snapshot = webToolsSnapshot({ profiles: [personal], webTools: brave("k-one") });
+  assert.equal(JSON.stringify(snapshot).includes("k-one"), false);
+  assert.deepEqual(snapshot.availability, { browser: true, webSearch: true });
+  assert.deepEqual(snapshot.searchPlugins, plugins);
+  const sign = (profiles, tools) => webToolsSignature({ profiles, webTools: tools });
+  assert.equal(sign([personal], brave("k-one")), snapshot.signature);
+  // A new key, provider or browser, or an agent with new tools, changes it.
+  assert.notEqual(sign([personal], brave("k-two")), snapshot.signature);
+  assert.notEqual(sign([personal], webTools()), snapshot.signature);
+  assert.notEqual(
+    sign([personal], { ...brave("k-one"), browser: { available: false } }),
+    snapshot.signature,
+  );
+  assert.notEqual(sign([plain], brave("k-one")), snapshot.signature);
+  // Agents without web tools and temporary members leave it as it is.
+  assert.equal(sign([personal, plain, member], brave("k-one")), snapshot.signature);
 });

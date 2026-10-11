@@ -8,6 +8,7 @@ import {
   constructAssistantGraph,
 } from "../../server/application/assistant-graph.js";
 import { createAssistantServices } from "../../server/application/assistants.js";
+import { webToolsSnapshot } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { TeamService } from "../../server/features/assistants/team-service.js";
 import { AssistantService } from "../../server/features/assistants/assistant-service.js";
@@ -69,6 +70,11 @@ test("createAssistantServices returns a graph whose every reference is connected
   assert.equal(assistants.routines, assistantRoutines);
   assert.equal(assistants.workflows, assistantWorkflows);
   assert.equal(assistants.providerSynchronization, assistantProviderSynchronization);
+  assert.equal(assistants.webTools, services.assistantWebTools);
+  assert.equal(
+    services.assistantWebTools.synchronization,
+    assistantProviderSynchronization,
+  );
   assert.ok(assistantTeams.bridge);
   assert.ok(assistantUpdates);
   for (const hook of ["teamConfiguration", "maintenance", "beforeSpawn", "afterReady"])
@@ -86,11 +92,14 @@ test("createAssistantServices returns a graph whose every reference is connected
     browser: false,
     webSearch: false,
   });
-  assistantRuntime.webTools = {
-    search: { provider: "duckduckgo", requiresPlugin: true },
-    browser: { available: true, executablePath: "/usr/bin/chromium" },
-    searchPlugins: { duckduckgo: { id: "duckduckgo", directory: "/rt/ddg" } },
-  };
+  assistantRuntime.webTools = webToolsSnapshot({
+    profiles: [],
+    webTools: {
+      search: { provider: "duckduckgo", requiresPlugin: true },
+      browser: { available: true, executablePath: "/usr/bin/chromium" },
+      searchPlugins: { duckduckgo: { id: "duckduckgo", directory: "/rt/ddg" } },
+    },
+  });
   assert.deepEqual(assistants.config.webToolsAvailable(), {
     browser: true,
     webSearch: true,

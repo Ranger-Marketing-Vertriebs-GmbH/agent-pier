@@ -13,6 +13,7 @@ import { openConsoleLog, rotateConsoleLog } from "./gateway-log.js";
 import { reclaimOwner, recordOwner } from "./gateway-ownership.js";
 import { processIdentity } from "../../lib/process-identity.js";
 import { assertWired } from "./service-wiring.js";
+import { webToolsSnapshot } from "./openclaw-config/web-tools.js";
 
 // Errors an unattended retry cannot fix; they wait for the owner instead.
 const terminal = new Set([
@@ -159,8 +160,12 @@ export class RuntimeSupervisor extends EventEmitter {
       ? await this.teamConfiguration(runtime)
       : undefined;
     if (generation !== this.generation) return;
-    // What this start compiled; live applies grant web tools against the same state.
-    this.webTools = teams?.webTools;
+    // What this start compiles, without the search key. It becomes the running
+    // Gateway's state only once that Gateway answers; until then nothing runs.
+    this.webTools = null;
+    const webTools =
+      teams?.webTools &&
+      webToolsSnapshot({ profiles: teams.profiles, webTools: teams.webTools });
     const tls = prepareGatewayTls(this.paths);
     const token = prepareRuntimeConfig(this.paths, port, teams, {
       maintenance: !!this.maintenance?.(),
@@ -257,6 +262,8 @@ export class RuntimeSupervisor extends EventEmitter {
       return;
     }
     this.lastReadyMs = Date.now() - spawned;
+    // Live applies grant web tools against the state this Gateway was started with.
+    this.webTools = webTools;
     await this.afterReady?.();
     if (generation !== this.generation) return;
     this.setState({ availability: "ready", sync: "reconciling" });

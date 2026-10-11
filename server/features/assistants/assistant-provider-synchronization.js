@@ -5,6 +5,12 @@ import { destroyBackupKeys } from "./backup-credentials.js";
 
 const blockedModel = { primary: "agentpier-unavailable/blocked", fallbacks: [] };
 const central = (profile) => !profile.model.connectionId.startsWith("openclaw:");
+/** The owner must confirm a Gateway restart; `affected` names who it interrupts. */
+export const restartRequired = (key, affected) =>
+  Object.assign(assistantProblem(key, 409), {
+    code: "ASSISTANT_RESTART_REQUIRED",
+    affected,
+  });
 
 export class AssistantProviderSynchronization {
   constructor({ assistants, connections, maintenance, isUpdating = () => false }) {
@@ -108,10 +114,26 @@ export class AssistantProviderSynchronization {
       return operation();
     }
     if (!online && !confirmed)
-      throw Object.assign(assistantProblem("restartRequired", 409), {
-        code: "ASSISTANT_RESTART_REQUIRED",
-        affected: this.usage(connectionId),
-      });
+      throw restartRequired("restartRequired", this.usage(connectionId));
+    return this.restartGateway(operation, {
+      online,
+      beforeChange: revokeBackups,
+      // Native logout rewrites model references. Disable dependent jobs before
+      // that RPC, while the global cron/admission gate is already closed.
+      dependent: (profile) => profile.model.connectionId === connectionId,
+    });
+  }
+  /**
+   * Runs an owner-confirmed `operation` in maintenance and restarts the Gateway, so
+   * the next start compiles its result. Offline, the Gateway is stopped before the
+   * operation; `online` runs it against the live Gateway (after disabling the jobs of
+   * `dependent` profiles) and stops afterwards. Busy work refuses with 409 first.
+   */
+  async restartGateway(
+    operation,
+    { online = false, beforeChange = () => {}, dependent = () => false } = {},
+  ) {
+    const a = this.assistants;
     if (this.changing || a.maintenance || this.isUpdating())
       throw assistantProblem("active", 409);
     if (!this.maintenance) throw assistantProblem("unavailable", 503);
@@ -123,16 +145,14 @@ export class AssistantProviderSynchronization {
         safeToLeave = true;
         throw assistantProblem("active", 409);
       }
-      revokeBackups();
+      beforeChange();
       const wasRunning = a.runtime.status().availability !== "disabled";
       if (!online) {
         await a.runtime.stop();
         await this.maintenance.quiesce();
       } else {
-        // Native logout rewrites model references. Disable dependent jobs before
-        // that RPC, while the global cron/admission gate is already closed.
         for (const profile of a.store.listAssistants())
-          if (profile.model.connectionId === connectionId && !profile.archivedAt)
+          if (dependent(profile) && !profile.archivedAt)
             await a.reminders?.disable(profile.id);
       }
       let result, failure;

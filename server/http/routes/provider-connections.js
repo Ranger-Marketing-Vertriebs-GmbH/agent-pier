@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { messageIdentity } from "../../lib/i18n/message-identity.js";
+import { replyRestartRequired as restartRequired } from "./restart-required.js";
 export function providerConnectionRoutes(services) {
   const { providerConnections, endpointTester } = services;
   const router = Router();
@@ -25,15 +25,6 @@ export function providerConnectionRoutes(services) {
           confirmed: request.body?.confirmRestart === true,
         })
       : operation();
-  const restartRequired = (response, error) => {
-    if (error?.code !== "ASSISTANT_RESTART_REQUIRED") throw error;
-    response.status(409).json({
-      code: error.code,
-      error: error.message,
-      ...(error.affected ? { affected: error.affected } : {}),
-      ...messageIdentity(error.message),
-    });
-  };
   const withoutConfirmation = (body) => {
     if (!body || typeof body !== "object" || Array.isArray(body)) return body;
     const { confirmRestart: _confirmRestart, ...rest } = body;

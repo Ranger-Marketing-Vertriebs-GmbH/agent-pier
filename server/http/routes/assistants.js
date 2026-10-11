@@ -4,6 +4,7 @@ import { assistantRoutineRoutes } from "./assistant-routines.js";
 import { assistantTeamRoutes } from "./assistant-teams.js";
 import { assistantCapabilityRoutes } from "./assistant-capabilities.js";
 import { assistantChannelRoutes } from "./assistant-channels.js";
+import { assistantWebSearchRoutes } from "./assistant-web-search.js";
 import { assistantAccountRoutes } from "./assistant-accounts.js";
 import { Router } from "express";
 import path from "node:path";
@@ -14,6 +15,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { ASSISTANT_STORAGE_UNSAFE } from "../../features/assistants/assistant-feature.js";
 import { runtimeStatus } from "../../features/assistants/team-bridge.js";
+import { replyRestartRequired } from "./restart-required.js";
 
 const assistantPath = /^\/assistants?(?:[-/]|$)/;
 const reply = (res, status, code, message) =>
@@ -68,6 +70,7 @@ function activeAssistantRoutes(services) {
   router.use(assistantWorkflowRoutes(services));
   router.use(assistantRuntimeUpdateRoutes(services));
   router.use(assistantChannelRoutes(services));
+  router.use(assistantWebSearchRoutes(services));
   router.use(assistantTeamRoutes(services));
   router.use(assistantAccountRoutes(services));
   router.get("/assistants", (_req, res) => res.json(assistants.list()));
@@ -83,8 +86,17 @@ function activeAssistantRoutes(services) {
     res.status(201).json(result);
   });
   router.patch("/assistants/:id", async (req, res) => {
-    const { revision, ...patch } = req.body;
-    res.json(await assistants.update(req.params.id, patch, revision));
+    const { revision, confirmRestart, ...patch } = req.body;
+    let result;
+    try {
+      // The owner confirms a Gateway restart for new global web tool sections.
+      result = await assistants.update(req.params.id, patch, revision, {
+        confirmed: confirmRestart === true,
+      });
+    } catch (error) {
+      return replyRestartRequired(res, error);
+    }
+    res.json(result);
   });
   router.post("/assistants/:id/conversations", async (req, res) =>
     res.json(await assistants.openConversation(req.params.id)),

@@ -1,3 +1,4 @@
+import { createHmac, randomBytes } from "node:crypto";
 import { capabilityTools, usedCapabilities } from "../native-capabilities.js";
 
 // Verified against OpenClaw 2026.9.8, see docs/assistant-web-tools-qualification.md.
@@ -97,4 +98,31 @@ export function applyWebTools(config, sections) {
     };
   config.plugins.entries = { ...config.plugins.entries, ...entries };
   return config;
+}
+
+// Per process: a signature is only compared with one from the same AgentPier process,
+// and a search key cannot be recovered from it by guessing.
+const signatureSecret = randomBytes(32);
+
+/**
+ * A key-free fingerprint of the global sections these inputs compile. The CDP ports
+ * follow the Gateway port and are left out: a restart picks a new port anyway.
+ */
+export function webToolsSignature({ profiles, webTools }) {
+  return createHmac("sha256", signatureSecret)
+    .update(JSON.stringify(webToolsSections({ profiles, webTools, port: 0 })))
+    .digest("hex");
+}
+
+/**
+ * What the supervisor keeps about a Gateway start: the availability live applies
+ * grant against, the runtime's search plugins and the signature of the compiled
+ * sections. It never holds the search key.
+ */
+export function webToolsSnapshot({ profiles, webTools }) {
+  return {
+    availability: webToolsAvailability(webTools),
+    searchPlugins: webTools?.searchPlugins || {},
+    signature: webToolsSignature({ profiles, webTools }),
+  };
 }
