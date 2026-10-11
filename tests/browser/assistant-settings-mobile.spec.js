@@ -48,7 +48,21 @@ test.describe("agent settings on phones", () => {
       const css = getComputedStyle(el);
       const input = getComputedStyle(el.querySelector("input"));
       const title = getComputedStyle(el.querySelector(".assistant-section-title"));
+      // The text box inside a field: what is left after padding; below it the text clips.
+      const textBox = (field) => {
+        const c = getComputedStyle(field);
+        return (
+          field.clientHeight - parseFloat(c.paddingTop) - parseFloat(c.paddingBottom)
+        );
+      };
+      const field = el.querySelector("input");
+      const select = el.querySelector("select");
+      const caps = el.querySelector(".assistant-capability-options");
       return {
+        selectHeight: select.offsetHeight === field.offsetHeight,
+        selectUnclipped: textBox(select) >= textBox(field),
+        capsAligned:
+          caps.getBoundingClientRect().left === field.getBoundingClientRect().left,
         border: css.borderTopWidth,
         padding: css.padding,
         inputSize: input.fontSize,
@@ -57,6 +71,9 @@ test.describe("agent settings on phones", () => {
       };
     });
     expect(style).toEqual({
+      selectHeight: true,
+      selectUnclipped: true,
+      capsAligned: true,
       border: "0px",
       padding: "18px 16px",
       inputSize: "16px",

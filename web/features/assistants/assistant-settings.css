@@ -102,7 +102,15 @@
     font-size: 16px;
     color: var(--text);
   }
+  /* Selects shrink their text box below the 16px line; one size keeps them like inputs. */
+  .assistant-settings-page
+    .assistant-form
+    :is(input:not([type="checkbox"], [type="radio"]), select) {
+    height: 47px;
+    line-height: 21px;
+  }
   .assistant-settings-page .assistant-capability-options {
+    margin: 0;
     gap: 12px;
     padding: 14px;
     border-radius: 12px;
@@ -118,10 +126,6 @@
     align-items: center;
     gap: 10px;
     color: var(--text);
-  }
-  /* 2e centres the box on the row; the desktop rule below tops it with !important. */
-  .assistant-settings-page .assistant-capability {
-    align-items: center !important;
   }
   .assistant-settings-page input[type="checkbox"]:not([role="switch"]) {
     appearance: none;
@@ -167,8 +171,10 @@
   color: var(--muted, inherit);
   font-size: 12px;
 }
-.assistant-capability {
-  align-items: flex-start !important;
+@media (min-width: 701px) {
+  .assistant-capability {
+    align-items: flex-start !important;
+  }
 }
 .assistant-restart-confirmation {
   border: 1px solid var(--line);
