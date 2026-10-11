@@ -6,6 +6,7 @@ import { guardedTools, memoryTools } from "./native-capabilities.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { hardenedDefaults } from "./openclaw-config/locked-core.js";
 import { applyOverrides } from "./openclaw-config/overrides.js";
+import { applyMcp, mcpSections } from "./openclaw-config/mcp-servers.js";
 import {
   applyWebTools,
   webToolsAvailability,
@@ -54,6 +55,8 @@ export function compileOpenClawConfig({
   tls,
   // { search, browser, searchPlugins }; see openclaw-config/web-tools.js.
   webTools,
+  // { servers, bindings, secrets }; see openclaw-config/mcp-servers.js readMcpInputs.
+  mcp,
 }) {
   const config = applyOverrides(existing || freshDefaults(paths), overrides);
   // Paths are this installation's; a restored or copied configuration cannot pick them.
@@ -71,7 +74,8 @@ export function compileOpenClawConfig({
   config.update = hardened.update;
   config.skills = { ...config.skills, allowBundled: hardened.skillsAllowBundled };
   config.agents.defaults.heartbeat = hardened.heartbeat;
-  // Compiler-owned: an MCP server could run host commands. Nothing writes it yet.
+  // Compiler-owned: an MCP server could run host commands. Only applyMcp writes it,
+  // from the servers bound to eligible agents.
   delete config.mcp;
   // Likewise `secrets` and `env`: AgentPier never writes them and they are locked.
   delete config.secrets;
@@ -134,6 +138,9 @@ export function compileOpenClawConfig({
     };
     // Unused or unavailable web capabilities leave every section as above.
     applyWebTools(config, webToolsSections({ profiles: teams.profiles, webTools, port }));
+    // Without bindings to usable servers nothing is added.
+    const mcpServers = mcpSections({ profiles: teams.profiles, ...mcp });
+    applyMcp(config, mcpServers);
     const available = webToolsAvailability(webTools);
     const entries = config.agents.entries || config.agents.list;
     for (const [key, entry] of Object.entries(entries || {})) {
@@ -150,6 +157,7 @@ export function compileOpenClawConfig({
           nativeReady: true,
           guardProven: false,
           available,
+          mcpTools: mcpServers.agentTools[profile.runtimeAgentId],
         }),
       );
     }
@@ -203,7 +211,7 @@ export function prepareRuntimeConfig(
   paths,
   port,
   teams,
-  { maintenance = false, tls, overrides = [], webTools } = {},
+  { maintenance = false, tls, overrides = [], webTools, mcp } = {},
 ) {
   const existing = readJSON(paths.config, null);
   const token = existing?.gateway?.auth?.token || randomBytes(32).toString("hex");
@@ -219,6 +227,7 @@ export function prepareRuntimeConfig(
       runtime: { maintenance },
       tls,
       webTools,
+      mcp,
     }),
   );
   return token;

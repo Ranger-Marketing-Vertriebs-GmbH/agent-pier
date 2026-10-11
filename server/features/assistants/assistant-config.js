@@ -69,12 +69,15 @@ export class AssistantConfig {
     const capabilities = personalCapabilities(assistant);
     // The same availability the Gateway start compiled (webToolsAvailability).
     const available = this.webToolsAvailable?.() || {};
+    // The agent's MCP globs the running Gateway was started with (mcpSections).
+    const mcpTools = this.mcpTools?.(assistant) || [];
     const allowed = profileTools(
       assistant,
       this.teamReady?.(),
       nativeReady,
       !!this.writeGuard?.(),
       available,
+      mcpTools,
     );
     const bootstrap = assistantBootstrap(assistant, lease.display);
     const fingerprint = createHash("sha256")
@@ -153,6 +156,7 @@ export class AssistantConfig {
               toolsManaged: !!(this.teamReady || this.nativeReady),
               memoryManaged: !!this.nativeReady,
               available,
+              mcpTools,
             });
           const keyed = agents.entries && !Array.isArray(agents.entries);
           const patch = keyed

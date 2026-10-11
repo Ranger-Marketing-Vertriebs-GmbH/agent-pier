@@ -85,8 +85,15 @@ test("createAssistantServices returns a graph whose every reference is connected
     "hostCapacity",
     "nativeReady",
     "webToolsAvailable",
+    "mcpTools",
   ])
     assert.equal(typeof assistants.config[hook], "function", hook);
+  // MCP globs follow the last start's snapshot; before any start, none.
+  const agent = { runtimeAgentId: "ap-x" };
+  assert.deepEqual(assistants.config.mcpTools(agent), []);
+  assistantRuntime.mcp = { agentTools: { "ap-x": ["docs__*"] } };
+  assert.deepEqual(assistants.config.mcpTools(agent), ["docs__*"]);
+  assert.ok(services.assistantMcpServers);
   // Live applies see what the last start compiled; before any start, nothing.
   assert.deepEqual(assistants.config.webToolsAvailable(), {
     browser: false,
