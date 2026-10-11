@@ -19,8 +19,8 @@ const candidates = {
     ["Brave", "/usr/bin/brave-browser"],
     ["Edge", "/usr/bin/microsoft-edge"],
     ["Chromium", "/usr/bin/chromium"],
-    ["Chromium", "/usr/bin/chromium-browser"],
-    ["Chromium", "/snap/bin/chromium"],
+    // Snap Chromium (/snap/bin/chromium, and the /usr/bin/chromium-browser wrapper
+    // Ubuntu ships for it) is confined and cannot be driven with an isolated profile.
   ],
 };
 

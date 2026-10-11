@@ -10,8 +10,11 @@ export const capabilityTools = {
   webSearch: ["web_search"],
   webFetch: ["web_fetch"],
   browser: ["browser"],
-  documents: ["pdf", "view_image"],
+  // `pdf` is not offered: OpenClaw needs a global agents.defaults.pdfModel (tracked
+  // separately), so only image reading is granted.
+  documents: ["view_image"],
 };
+export const webCapabilityKeys = ["webSearch", "webFetch", "browser", "documents"];
 export const memoryTools = ["memory_search", "memory_get", "read", "write", "edit"];
 // Writes reach the workspace only through the plugin's before_tool_call guard, which
 // is verified live on these runtimes; elsewhere memory stays read-only.

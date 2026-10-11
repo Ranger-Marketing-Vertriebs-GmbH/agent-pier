@@ -57,7 +57,7 @@ export const assistantCopy = {
     enableWebSearch: "Im Web suchen",
     enableWebFetch: "Webseiten lesen",
     enableBrowser: "Einen Browser nutzen",
-    enableDocuments: "Dokumente und Bilder lesen",
+    enableDocuments: "Bilder lesen",
     memoryDescription: "Führt eigene Notizen über Unterhaltungen hinweg.",
     remindersDescription: "Sendet Erinnerungen und führt Zeitpläne über Telegram aus.",
     webSearchDescription: "Recherchiert mit dem in den Zugängen gewählten Suchanbieter.",
@@ -65,16 +65,17 @@ export const assistantCopy = {
     browserDescription:
       "Steuert ein eigenes Browserprofil für Seiten, die Klicken oder Anmelden erfordern.",
     documentsDescription:
-      "Liest PDF-Dateien und betrachtet Bilder in seinem Arbeitsordner.",
+      "Betrachtet Bilder in seinem Arbeitsordner. Braucht ein Modell, das Bilder annimmt.",
     browserUnavailable:
       "Auf diesem Rechner wurde kein unterstützter Browser gefunden. Installiere Chrome, Brave, Edge oder Chromium, um dies zu nutzen.",
     searchUnavailable:
       "Die Websuche ist nicht eingerichtet. Wähle in den Zugängen einen Anbieter und hinterlege seinen Schlüssel.",
+    availableAfterSaving: "Nach dem Speichern verfügbar",
     webHint:
-      "Webinhalte sind nicht vertrauenswürdig: Der Agent darf Seiten lesen, folgt darin gefundenen Anweisungen aber nicht. Änderungen dieser Optionen können den Agentendienst neu starten.",
+      "Webseiten können Anweisungen enthalten, die den Agenten in die Irre führen sollen. Schalte das nur für Agenten ein, deren übrige Werkzeuge du dem anvertrauen würdest.",
     restartTitle: "Agentendienst neu starten?",
     restartBody:
-      "Diese Änderung startet den Dienst der Agenten kurz neu. Laufende Unterhaltungen werden zuerst beendet; ist ein Agent beschäftigt, bricht das Speichern mit einer Meldung ab und nichts ändert sich.",
+      "Diese Änderung startet den Dienst der Agenten kurz neu. Laufende Arbeit wird nicht unterbrochen: Ist ein Agent beschäftigt, wird das Speichern abgelehnt und nichts ändert sich.",
     restartAffected: (names, members = 0) =>
       `Kurz nicht erreichbar: ${names || "keine Agenten"}${members ? ` (+${members} Teammitglied${members === 1 ? "" : "er"})` : ""}`,
     restartConfirm: "Speichern und neu starten",

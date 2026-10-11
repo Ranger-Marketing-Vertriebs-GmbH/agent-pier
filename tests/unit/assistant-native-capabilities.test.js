@@ -159,11 +159,10 @@ test("eligible agents get granted web and document tools, temporary members none
     documents: true,
   };
   const personal = { id: "a", capabilities: caps };
-  assert.deepEqual(profileTools(personal, true, true, false).slice(-5), [
+  assert.deepEqual(profileTools(personal, true, true, false).slice(-4), [
     "web_search",
     "web_fetch",
     "browser",
-    "pdf",
     "view_image",
   ]);
   const temporary = { id: "m", teamMemberId: "t", lifetime: "task", capabilities: caps };

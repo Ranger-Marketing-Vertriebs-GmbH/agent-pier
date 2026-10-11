@@ -73,6 +73,9 @@ export function compileOpenClawConfig({
   config.agents.defaults.heartbeat = hardened.heartbeat;
   // Compiler-owned: an MCP server could run host commands. Nothing writes it yet.
   delete config.mcp;
+  // Likewise `secrets` and `env`: AgentPier never writes them and they are locked.
+  delete config.secrets;
+  delete config.env;
   const enabled = !!(teams?.directory && teams?.connection);
   config.tools = { allow: enabled ? teamTools : ["session_status"], toolSearch: false };
   config.plugins = {

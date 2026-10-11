@@ -19,6 +19,7 @@ async function setup(page, options = {}) {
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   const state = {
     patches: [],
+    creates: [],
     puts: [],
     restartFirst: options.restartFirst ?? false,
     search: {
@@ -53,6 +54,10 @@ async function setup(page, options = {}) {
           },
         });
       return route.fulfill({ json: { ...home, revision: 2 } });
+    }
+    if (path === "/api/assistants" && method === "POST") {
+      state.creates.push(request.postDataJSON());
+      return route.fulfill({ json: { ...home, id: "fresh", revision: 1 } });
     }
     if (path === "/api/assistants")
       return route.fulfill({
@@ -144,7 +149,7 @@ for (const [label, use] of [
       await expect(page.getByText("Web & documents")).toBeVisible();
       await page.getByLabel("Search the web").check();
       await page.getByLabel("Read web pages").check();
-      await page.getByLabel("Read documents and images").check();
+      await page.getByLabel("Read images").check();
       await page.getByLabel("Remember information").check();
       await expect(page.getByLabel("Use a browser")).toBeEnabled();
       if (label === "phone") {
@@ -167,6 +172,38 @@ for (const [label, use] of [
         documents: true,
       });
       expect(state.patches[0].confirmRestart).toBeUndefined();
+    });
+
+    test("the create form disables the web switches until the agent is saved", async ({
+      page,
+    }) => {
+      const state = await setup(page);
+      await page.goto(baseURL + "/agents");
+      await page.getByRole("button", { name: "New agent" }).click();
+      for (const name of [
+        "Search the web",
+        "Read web pages",
+        "Use a browser",
+        "Read images",
+      ]) {
+        await expect(page.getByLabel(name)).toBeDisabled();
+        await expect(page.getByLabel(name)).not.toBeChecked();
+      }
+      await expect(page.getByText("Available after saving the agent")).toHaveCount(4);
+      await expect(page.getByLabel("Remember information")).toBeEnabled();
+      await page.getByLabel("Name", { exact: true }).fill("Fresh");
+      await page.getByLabel("Model connection").selectOption("router");
+      await page.getByRole("textbox", { name: "Model ID" }).fill("model");
+      await page.getByLabel("Remember information").check();
+      await page.getByRole("button", { name: "Save agent" }).click();
+      await expect.poll(() => state.creates.length).toBe(1);
+      expect(state.creates[0].capabilities).toMatchObject({
+        memory: true,
+        webSearch: false,
+        webFetch: false,
+        browser: false,
+        documents: false,
+      });
     });
 
     test("the browser switch is disabled and explained without a browser", async ({
@@ -200,7 +237,7 @@ for (const [label, use] of [
         name: "Restart the agent service?",
       });
       await expect(dialog).toBeVisible();
-      await expect(dialog).toContainText("Running conversations finish first");
+      await expect(dialog).toContainText("Running work is not interrupted");
       await expect(dialog).toContainText("Home");
       expect(state.patches).toHaveLength(1);
       await dialog.getByRole("button", { name: "Save and restart" }).click();

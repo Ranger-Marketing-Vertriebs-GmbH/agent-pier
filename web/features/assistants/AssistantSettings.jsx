@@ -147,6 +147,7 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
           <AssistantCapabilities
             capabilities={capabilities}
             browser={runtime?.browser}
+            creating={!assistant}
             onChange={(next) => {
               setRestart(null);
               form.set("capabilities", next);
