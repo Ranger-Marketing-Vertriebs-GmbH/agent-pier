@@ -33,18 +33,27 @@ export function applyOverrides(config, overrides) {
 }
 
 export class OverrideStore {
-  constructor(db) {
+  // `onSkip(path)` reports a stored row that cannot be applied; never its value.
+  constructor(db, { onSkip } = {}) {
     this.db = db;
+    this.onSkip = onSkip;
   }
+  // An invalid stored row (corrupt JSON, or a path now locked) is skipped so it can
+  // never block a Gateway launch.
   list() {
-    return this.db
+    const rows = [];
+    for (const row of this.db
       .prepare("SELECT path, value, revision FROM openclaw_overrides ORDER BY path")
-      .all()
-      .map((row) => ({
-        path: row.path,
-        value: JSON.parse(row.value),
-        revision: row.revision,
-      }));
+      .all()) {
+      try {
+        const value = JSON.parse(row.value);
+        validateOverride(row.path, value);
+        rows.push({ path: row.path, value, revision: row.revision });
+      } catch {
+        this.onSkip?.(row.path);
+      }
+    }
+    return rows;
   }
   set(target, value) {
     const valid = validateOverride(target, value);

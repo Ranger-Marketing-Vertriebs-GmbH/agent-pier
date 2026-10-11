@@ -1,6 +1,6 @@
-// Gateway events by name, session-scoped ones included (a live exec approval names
-// its session). Chat frames stay with the conversation path in the assistant
-// service. Events sent while disconnected are lost, so every ready runs each
+// Gateway events by name, session-scoped ones included: approval events name their
+// session under `request.sessionKey`, not at the payload top level. Only `chat`
+// belongs to the session path in the assistant service. Events sent while disconnected are lost, so every ready runs each
 // registered resync once.
 export class GatewayEventHub {
   constructor() {
