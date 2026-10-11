@@ -239,6 +239,10 @@ test("status maps every recorded state of OAuth servers", async (t) => {
   assert.equal(oauthStatus(status.pending, { pendingLogin: true }), "login-pending");
   assert.equal(oauthStatus(status.pending), "login-required");
   assert.equal(oauthStatus(status.fresh), "not-connected");
+  // What a turn's failed start leaves on a server never logged in (live contract).
+  const tried = { state: "pending-authorization", hasTokens: false };
+  assert.equal(oauthStatus({ ...tried, hasClientInformation: false }), "not-connected");
+  assert.equal(oauthStatus(tried, { everConnected: true }), "login-required");
   assert.equal(oauthStatus(status.fresh, { everConnected: true }), "login-required");
   assert.equal(oauthStatus(undefined), "not-connected");
 });

@@ -799,11 +799,12 @@ is independent of the coding CLIs' own MCP configuration.
 
 ### Transports
 
-| Connection             | Stored                               | Compiled into `mcp.servers.<name>`                                |
-| ---------------------- | ------------------------------------ | ----------------------------------------------------------------- |
-| HTTP (Streamable HTTP) | address, headers                     | `{ url, transport: "streamable-http", headers }`                  |
-| SSE                    | address, headers                     | `{ url, transport: "sse", headers }`                              |
-| Local command (stdio)  | command, arguments, cwd, environment | `{ command, args, env, cwd? }`, `command` always an absolute path |
+| Connection             | Stored                               | Compiled into `mcp.servers.<name>`                                  |
+| ---------------------- | ------------------------------------ | ------------------------------------------------------------------- |
+| HTTP (Streamable HTTP) | address, headers                     | `{ url, transport: "streamable-http", headers }`                    |
+| SSE                    | address, headers                     | `{ url, transport: "sse", headers }`                                |
+| HTTP or SSE with OAuth | address, optional scope              | `{ url, transport, auth: "oauth", oauth: { redirectUrl, scope? } }` |
+| Local command (stdio)  | command, arguments, cwd, environment | `{ command, args, env, cwd? }`, `command` always an absolute path   |
 
 `transport` is always written: without it OpenClaw falls back to SSE, which offers no
 tools from a Streamable HTTP server.
@@ -890,6 +891,78 @@ host backup without credentials leaves the values out. The server store
 it declares the omission "MCP servers for agents (definitions, values and
 bindings)".
 
+### OAuth logins (AGENTPIER-37)
+
+A remote server (HTTP or SSE) authenticates with one of two methods, chosen under
+**Authentication** in its form:
+
+- **Headers (token):** static header values, as above. Use this for providers
+  without dynamic client registration, for example GitHub: create a token there and
+  enter it as an `Authorization` header.
+- **OAuth:** the owner logs in once from the list; OpenClaw stores the tokens and
+  refreshes them unattended. An optional scope sits under **Advanced**. Switching a
+  server with stored headers to OAuth deletes those headers after a confirmation.
+
+OAuth needs a provider that supports dynamic client registration (RFC 7591):
+OpenClaw registers itself as a public client for exactly AgentPier's redirect URL.
+There is no field for a client ID or secret. A provider without registration fails
+the login with a message that points to the token option.
+
+**Redirect rule.** OAuth servers compile with
+`oauth.redirectUrl = <origin>/api/mcp-servers/oauth/callback`, where the origin is
+the configured HTTPS remote origin (Tailscale Serve, see
+[remote access](remote-access.md)) when there is one, and otherwise AgentPier's own
+loopback listener `http://127.0.0.1:<port>`. A login must start from a browser that
+can reach that address: from the HTTPS origin, or on the AgentPier host itself.
+AgentPier refuses the start beforehand (`409`) on a plain-HTTP network address
+(`plain-http-remote`: plain-HTTP network mode cannot log in) and on a remote browser
+when only the loopback redirect exists (`loopback-redirect`). Changing the origin
+changes the redirect, which needs a new client registration; the next login logs out
+first so OpenClaw registers again.
+
+**Login.** **Log in** runs `openclaw mcp login <name>` with the Gateway's private
+environment. Because AgentPier's listener holds the redirect port, the CLI prints the
+authorization URL and exits; the browser opens it. The provider redirects to the
+callback, which accepts only the unguessable, single-use `state` of a login the owner
+started in the last 10 minutes, runs `openclaw mcp login <name> --code <code>`, and
+returns to **Accounts** with the result. Codes and tokens are never logged or
+returned. After a successful login AgentPier makes one hot `mcp` change
+(`mcp.sessionIdleTtlMs` toggles between unset and `0`, which mean the same): a turn
+that tried the server without credentials backs it off for up to 10 minutes, and
+only such a change lifts that backoff. It restarts the MCP runtimes of every session
+once (stdio servers too), without a Gateway restart.
+
+**Status** (from `openclaw mcp status --json`, cached for 10 seconds and refreshed
+after a login or logout):
+
+| Status            | Meaning                                                                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Connected         | OpenClaw holds a valid login; the expiry is shown when known. Agents bound to the server get its tools.                                          |
+| Login in progress | A login started in AgentPier awaits the provider's redirect.                                                                                     |
+| Login required    | The server was logged in before, or the provider revoked or refused the tokens; or an old login under this name and URL still awaits its logout. |
+| Not connected     | Never logged in, or logged out.                                                                                                                  |
+| Status unknown    | OpenClaw could not be asked.                                                                                                                     |
+
+A bound server without a valid login is left out of the agent's tools; the turn
+runs on without them.
+
+**Logout, rename and delete.** **Log out** runs `openclaw mcp logout <name>`.
+OpenClaw keys a login by server name and URL, so a rename, a URL change, a switch to
+headers and a delete first log out under the old name and URL; the edit is saved
+afterwards. Such a logout never blocks the edit: when it fails, AgentPier records
+it, answers with the warning `oauth-logout-deferred`, keeps any server with the old
+name and URL uncompiled ("Login required", logout pending), and retries in the
+background and before every Gateway start compiles.
+
+**Backups.** Logins live in OpenClaw's `state/openclaw.sqlite` (`mcp_oauth_stores`,
+`mcp_oauth_pending_authorizations`). Host backups leave them out, with or without
+credentials, like the server store; a restored host starts "Not connected". Runtime
+update snapshots stay on the host and keep them sealed with the other credentials,
+so a rollback keeps logins; every login logged out since the snapshot is logged out
+again after the rollback, before the Gateway starts (see
+[runtime updates](assistant-runtime-updates.md)). The facts behind this section are
+recorded in the [MCP OAuth qualification](mcp-oauth-qualification.md).
+
 ## Continuous integration
 
 The `Assistant runtime` workflow runs the opt-in native contracts in a
@@ -919,9 +992,11 @@ follows the requalification checklist in
 - **Not started:** Gmail, Microsoft 365, Google Calendar and Apple service adapters, a
   sandbox design, independent Gateway instances and Linux or other architectures
   beyond the qualified hosts.
-- **MCP servers:** SSE servers, OAuth (AGENTPIER-37), OpenClaw's idle eviction of
-  stdio processes and its stdio environment filtering are not qualified; Linux runs
-  only in CI (see [MCP qualification](assistant-mcp-qualification.md#boundaries)).
+- **MCP servers:** SSE servers (with headers or OAuth), OpenClaw's idle eviction of
+  stdio processes and its stdio environment filtering are not qualified; OAuth is
+  qualified against a local authorization server on Streamable HTTP only, and Linux
+  runs only in CI (see [MCP qualification](assistant-mcp-qualification.md#boundaries)
+  and [MCP OAuth qualification](mcp-oauth-qualification.md)).
 - Plain-language team authorization has the accepted limits described under Visible
   teams. Rollback or restore after a credential revocation needs a new login, and
   works on the same host only (see [runtime updates](assistant-runtime-updates.md)).

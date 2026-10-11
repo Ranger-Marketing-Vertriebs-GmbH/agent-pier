@@ -29,15 +29,25 @@ a temporary data directory. No external server, account or credential is involve
 2. **HTTPS redirect URL.** `oauth.redirectUrl` on an HTTPS origin that does not
    resolve locally.
 
+`tests/integration/assistant-mcp-oauth-compiled-contract.test.js` drives AgentPier's
+own path instead of the CLI by hand, in team mode as
+`server/application/assistant-graph.js` wires it: the server store, the start
+compile and `McpChanges`' live patches, `McpOAuthLogins` with the real CLI wrapper
+(`supervisorMcpCli`) on the Gateway's private state, and the HTTP routes
+(`mcpServerRoutes`, `mcpOAuthCallbackRoutes`) on a loopback listener whose port is
+the compiled redirect, as AgentPier's own listener is. One test, see
+[the compiled path](#compiled-path) below.
+
 ## Running the contract
 
 ```sh
 set -a; . /tmp/contracts.env; set +a   # see docs/assistant-mcp-qualification.md
-node --test --test-concurrency=1 tests/integration/assistant-mcp-oauth-contract.test.js
+node --test --test-concurrency=1 tests/integration/assistant-mcp-oauth-contract.test.js \
+  tests/integration/assistant-mcp-oauth-compiled-contract.test.js
 ```
 
-It needs `AGENTPIER_MCP_CONTRACT_RUNTIME` and `AGENTPIER_ASSISTANT_CONTRACT_DIR` and
-skips without them. The `native-contracts` CI job runs it with the other native
+Both need `AGENTPIER_MCP_CONTRACT_RUNTIME` and `AGENTPIER_ASSISTANT_CONTRACT_DIR` and
+skip without them. The `native-contracts` CI job runs them with the other native
 contracts and fails on any skip.
 
 On 2026-10-11 it passed on macOS arm64 (Darwin 25.5) against the
@@ -162,12 +172,20 @@ MCP runtimes of every session (stdio servers restart too), once per login.
 | login printed the URL                 | no     | no      | yes    | yes      | yes       | yes     | `pending-authorization`  |
 | `--code` completed                    | yes    | no      | yes    | no       | yes       | no      | `authorized` + expiresAt |
 | refresh token revoked (invalid_grant) | no     | no      | yes    | no       | yes       | no      | `pending-authorization`  |
+| a turn tried it without any login     | no     | no      | no     | –        | –         | –       | `pending-authorization`  |
 | token still refused after a refresh   | yes    | yes     | yes    | no       | yes       | no      | `requires-authorization` |
 
 A revoked refresh token does **not** yield `requires-authorization`: the MCP SDK
 drops the tokens on `invalid_grant`, which leaves `pending-authorization` without
 tokens. AgentPier must treat "`pending-authorization` and `hasTokens: false` with no
-login in progress" as needing a login, like `requires-authorization`.
+login in progress" as needing a login, like `requires-authorization`, but only when
+OpenClaw holds a client registration (`hasClientInformation`) or AgentPier connected
+the server before: an agent turn that tries a server never logged in leaves
+`pending-authorization` without a client (the compiled contract reads the flags the
+wrapper keeps; `–` was not recorded), and that server still reads "Not connected".
+The contract asserts the top-level keys of `status --json` (`path`, `servers`) and of
+each server entry (the fields above), and the full `authStatus` of every state in
+the table.
 `requires-authorization` arises when the server refuses the token again after one
 refresh (or answers 403 `insufficient_scope`). `expiresAt` follows the token's
 `expires_in`; it moves forward after each refresh.
@@ -242,3 +260,46 @@ After approval, run openclaw mcp login <name> --code <code>.
 
 The URL carries that `redirect_uri`; the authorization server redirects there, and
 `--code` with that code completes (`authorized`).
+
+## Compiled path
+
+The compiled contract runs one server `docs` (logged in) and one server `spare`
+(never logged in), both `auth: "oauth"`, created through `POST /api/mcp-servers` and
+bound to one agent. It verifies, against the pinned Gateway and the mock
+authorization server:
+
+- **Compile.** The start compiles both with
+  `oauth: { redirectUrl: "http://127.0.0.1:<listener port>/api/mcp-servers/oauth/callback" }`,
+  `auth: "oauth"` and no headers; the list reads "not-connected".
+- **Backoff and nudge.** A turn before any login runs (`agent.wait` `ok`), is
+  offered no MCP tool and backs the servers off; OpenClaw then reports
+  `pending-authorization` without a client, which still reads "not-connected".
+- **Login.** `POST /api/mcp-servers/<id>/oauth/login` (origin `http://127.0.0.1:<port>`)
+  answers `authorize` with a URL for the compiled redirect; the list reads
+  "login-pending". The mock authorization server auto-approves; the callback route
+  with `code` and `state` answers `303` to `/accounts?oauth=connected&server=<id>`,
+  and replaying it answers `400 state-invalid`. The list reads "connected" with
+  `oauthExpiresAt`, OpenClaw `authorized`, and the post-login nudge set
+  `mcp.sessionIdleTtlMs` to `0`. The next turn, inside the backoff window of the
+  failed one, is offered `docs__echo` and calls it.
+- **Refresh.** The first token is stale at once (31 s lifetime against the 30 s
+  skew); the turn after the login refreshes it unattended. After a server-side
+  expiry the call refreshes once and succeeds.
+- **Unauthenticated server.** `spare` is bound throughout and never offered; no
+  turn fails because of it and it never reaches its token endpoint.
+- **Logout.** `POST .../oauth/logout` answers `204`; OpenClaw reads
+  `unauthenticated`, the list "not-connected", and the next turn has no tools.
+- **Rename.** After a second login, `PUT` renames `docs` to `renamed`: the logout
+  under the old name runs first, `renamed` is `unauthenticated`, and renaming back
+  finds `docs` `unauthenticated` (OpenClaw alone keeps the orphan, see (e)). No
+  Gateway restart happened up to here.
+- **Deferred logout drained at the start.** After a third login the Gateway stops
+  and the wrapper's logouts fail as a timed-out CLI would. A rename answers with
+  `oauthWarning.code: "oauth-logout-deferred"`; after renaming back, `docs` (same
+  name and URL as the deferred entry) reads "login-required" with reason
+  `logout-pending`. The next start drains the entry with the real CLI before it
+  compiles: no deferred logout remains, `docs` is compiled again and
+  `unauthenticated`, and a fourth login offers the tool again.
+
+On 2026-10-11 it passed on macOS arm64 against the same runtime in about 65
+seconds.

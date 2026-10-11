@@ -170,9 +170,13 @@ export function oauthStatus(
   if (state === "authorized") return "connected";
   if (pendingLogin) return "login-pending";
   if (state === "requires-authorization") return "login-required";
-  // A revoked refresh token leaves pending-authorization without tokens.
-  if (state === "pending-authorization") return "login-required";
-  if (state === "unauthenticated" && (everConnected || authStatus.hasClientInformation))
+  // A revoked refresh token leaves pending-authorization without tokens, but with the
+  // registered client. An agent turn that tried a server never logged in leaves
+  // pending-authorization without a client: that server is still not connected.
+  if (
+    (state === "pending-authorization" || state === "unauthenticated") &&
+    (everConnected || authStatus.hasClientInformation)
+  )
     return "login-required";
   return "not-connected";
 }
