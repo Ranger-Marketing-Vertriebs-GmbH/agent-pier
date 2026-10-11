@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { mcpOAuthCopy as copy } from "../../lib/i18n/messages/mcp-oauth.js";
 import { assistantApi } from "../assistants/assistant-api.js";
 import { oauthStatusOf } from "./McpOAuthStatus.jsx";
@@ -20,12 +20,25 @@ export function useMcpOAuth({ reload, notify, open = openAuthorization }) {
     [originBlocked, setOriginBlocked] = useState(false);
   const fail = (id, message) => setErrors((current) => ({ ...current, [id]: message }));
   const clear = (id) => setErrors(({ [id]: _dropped, ...current }) => current);
+  // Back from the provider, a page restored from the back-forward cache (iPhone)
+  // would still say "Opening login": release the buttons and refresh the statuses.
+  useEffect(() => {
+    const restored = (event) => {
+      if (!event.persisted) return;
+      setBusy(null);
+      void reload();
+    };
+    window.addEventListener("pageshow", restored);
+    return () => window.removeEventListener("pageshow", restored);
+  }, [reload]);
   async function login(server) {
     setBusy(server.id);
     clear(server.id);
     notify("");
     try {
       const started = await assistantApi.loginMcpServer(server.id);
+      // The server accepted this address, so an earlier refusal no longer applies.
+      setOriginBlocked(false);
       if (started?.status === "authorize") {
         const target = authorizationTarget(started.authorizationUrl);
         if (!target) throw new Error(copy.invalidAuthorizationUrl);

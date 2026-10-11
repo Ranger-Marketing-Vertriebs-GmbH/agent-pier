@@ -55,6 +55,8 @@ export default function AgentMcpServers({ assistant, refresh, navigate }) {
       setConfirming(false);
       setNotice(saved?.pending ? copy.pendingNotice : copy.agentSaved);
       await refresh();
+      // A new binding compiles the server; its login status may change with it.
+      await assistantApi.mcpServers().then(setServers, () => {});
     } catch (e) {
       if (stdioConfirmationRequired(e)) setConfirming(true);
       else setError(e.message);

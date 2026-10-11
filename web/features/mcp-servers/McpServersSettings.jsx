@@ -70,13 +70,16 @@ function ServerDetails({ server }) {
   );
 }
 
-/** A saved change's notice; a deferred OAuth logout is worth knowing about. */
+/** A saved change's notices: a pending apply and a deferred OAuth logout. */
 const savedNotice = (saved) =>
-  saved?.oauthWarning?.code === "oauth-logout-deferred"
-    ? mcpOAuthCopy.logoutDeferred
-    : saved?.pending
-      ? copy.pendingNotice
-      : "";
+  [
+    saved?.pending ? copy.pendingNotice : "",
+    saved?.oauthWarning?.code === "oauth-logout-deferred"
+      ? mcpOAuthCopy.logoutDeferred
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
 /**
  * The owner's central MCP servers: list, add, edit and remove, and log in to OAuth

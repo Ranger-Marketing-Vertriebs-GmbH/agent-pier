@@ -31,6 +31,8 @@ async function setup(page, { language = "en" } = {}) {
     status: {},
     refusal: "",
     deferLogout: false,
+    pendingApply: false,
+    providerStays: false,
     nextId: 1,
   };
   const home = {
@@ -70,6 +72,12 @@ async function setup(page, { language = "en" } = {}) {
           members: [],
         },
       });
+    if (path === "/api/assistants/home" && route.request().method() === "PATCH") {
+      state.bindings = route.request().postDataJSON().mcpServers;
+      // Binding compiles the server, so OpenClaw can now report its login.
+      for (const id of state.bindings) state.status[id] = { oauthStatus: "connected" };
+      return route.fulfill({ json: { ...home, mcpServers: state.bindings } });
+    }
     if (path === "/api/assistant-runtime")
       return route.fulfill({ json: { availability: "ready", sync: "current" } });
     return route.fulfill({ json: {} });
@@ -138,6 +146,7 @@ async function setup(page, { language = "en" } = {}) {
       state.deferLogout
         ? {
             json: {
+              ...(state.pendingApply ? { pending: true } : {}),
               oauthWarning: {
                 code: "oauth-logout-deferred",
                 error: german.oauthLogoutDeferred,
@@ -148,8 +157,16 @@ async function setup(page, { language = "en" } = {}) {
         : { status: 204, body: "" },
     );
   });
+  // A download keeps the page, like a tab that comes back from the provider.
   await page.route(`${provider}/**`, (route) =>
-    route.fulfill({ contentType: "text/html", body: "<h1>Provider consent</h1>" }),
+    route.fulfill(
+      state.providerStays
+        ? {
+            headers: { "Content-Disposition": "attachment; filename=stay.txt" },
+            body: "stay",
+          }
+        : { contentType: "text/html", body: "<h1>Provider consent</h1>" },
+    ),
   );
   return state;
 }
@@ -276,6 +293,21 @@ for (const [label, use] of [
         "The provider rejected the redirect address http://127.0.0.1:4380/api/mcp-servers/oauth/callback.",
       );
       if (label === "phone") await fits(page);
+      // An accepted login lifts the address notice; a page restored from the
+      // back-forward cache releases the buttons and refreshes the statuses.
+      state.refusal = "";
+      state.providerStays = true;
+      await login.click();
+      await expect(login).toHaveText("Opening login …");
+      await expect(login).toBeDisabled();
+      await expect(panel.getByText(/cannot start from the address/)).toHaveCount(0);
+      state.status.s1 = { oauthStatus: "login-required" };
+      await page.evaluate(() =>
+        window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })),
+      );
+      await expect(login).toHaveText("Log in");
+      await expect(login).toBeEnabled();
+      await expect(item.getByText("Login required", { exact: true })).toBeVisible();
     });
 
     test("a failed callback names the reason and the redirect in use", async ({
@@ -368,10 +400,11 @@ for (const [label, use] of [
       await expect(wiki).toContainText("The previous login is still being removed.");
       if (label === "phone") await fits(page);
       state.deferLogout = true;
+      state.pendingApply = true;
       await panel.getByRole("button", { name: "Remove wiki" }).click();
       await panel.getByRole("button", { name: "Remove server" }).click();
       await expect(panel.getByRole("status")).toHaveText(
-        "Saved. The previous OAuth login could not be removed right now; AgentPier retries in the background.",
+        "Saved \u2014 will be applied to running agents shortly. Saved. The previous OAuth login could not be removed right now; AgentPier retries in the background.",
       );
       await page.goto(baseURL + "/agents/home/settings");
       const agent = page.getByRole("region", { name: "MCP servers" });
@@ -380,6 +413,11 @@ for (const [label, use] of [
       await expect(agent.getByText("Connected", { exact: true })).toBeVisible();
       await expect(agent).toContainText("Log in to OAuth servers under Accounts");
       if (label === "phone") await fits(page);
+      // Saving the bindings reads the statuses again.
+      await agent.getByRole("button", { name: "Save MCP servers" }).click();
+      await expect(agent.getByText("MCP servers saved.")).toBeVisible();
+      await expect(agent.getByText("Connected", { exact: true })).toHaveCount(2);
+      await expect(agent).not.toContainText("Log in to OAuth servers under Accounts");
     });
   });
 }
