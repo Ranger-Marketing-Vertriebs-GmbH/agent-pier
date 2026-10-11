@@ -16,6 +16,8 @@ on:
       - "tests/**/assistant*"
       - "tests/helpers/openclaw-dist-exports.js"
       - "tests/helpers/mcp-*"
+      - "server/features/mcp-servers/**"
+      - "server/http/routes/mcp-*"
       - "package.json"
       - "package-lock.json"
   pull_request:
@@ -29,6 +31,8 @@ on:
       - "tests/**/assistant*"
       - "tests/helpers/openclaw-dist-exports.js"
       - "tests/helpers/mcp-*"
+      - "server/features/mcp-servers/**"
+      - "server/http/routes/mcp-*"
       - "package.json"
       - "package-lock.json"
 permissions:
@@ -137,5 +141,6 @@ jobs:
           tests/integration/assistant-mcp-contract.test.js
           tests/integration/assistant-mcp-compiled-contract.test.js
           tests/integration/assistant-mcp-oauth-contract.test.js
+          tests/integration/assistant-mcp-oauth-compiled-contract.test.js
       - name: Fail when a contract skipped instead of running
         run: grep -qx '# skipped 0' "$RUNNER_TEMP/native-contracts.tap"

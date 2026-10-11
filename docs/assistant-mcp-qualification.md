@@ -258,8 +258,9 @@ With a header value and an environment value set:
   completes. Automatically approved teams, owner stops, a permanent approval and a
   lead losing a server use the same reconciliation and are covered against a fake
   Gateway (`tests/integration/assistant-team-mcp.test.js`).
-- SSE servers were not exercised beyond the default-transport check; OAuth
-  (AGENTPIER-37) is out of scope.
+- SSE servers were not exercised beyond the default-transport check. OAuth
+  (AGENTPIER-37) has its own contracts, recorded in the
+  [MCP OAuth qualification](mcp-oauth-qualification.md).
 - The idle eviction (`mcp.sessionIdleTtlMs`) and session cleanup of stdio
   processes are not qualified.
 - Stdio env filtering (`NODE_OPTIONS`, `DYLD_*` and similar, documented upstream)

@@ -62,13 +62,20 @@ async function harness(t) {
       return selected;
     },
   });
+  // Each step runs even when an earlier one throws.
   t.after(async () => {
     try {
       await runtime.close();
-      await model.close();
-      store.close();
     } finally {
-      fs.rmSync(dataDir, { recursive: true, force: true });
+      try {
+        await model.close();
+      } finally {
+        try {
+          store.close();
+        } finally {
+          fs.rmSync(dataDir, { recursive: true, force: true });
+        }
+      }
     }
   });
   await runtime.start();
@@ -237,6 +244,21 @@ test(
     // (c) Before any login. No turn runs yet: a failed start backs the server off.
     const first = await status("docs");
     t.diagnostic(`status unauthenticated ${JSON.stringify(first.parsed)}`);
+    assert.deepEqual(Object.keys(first.parsed).sort(), ["path", "servers"]);
+    assert.equal(first.parsed.path, gatewayEnv.OPENCLAW_CONFIG_PATH);
+    assert.deepEqual(Object.keys(first.server).sort(), [
+      "auth",
+      "authStatus",
+      "configured",
+      "connectionTimeoutMs",
+      "enabled",
+      "launch",
+      "name",
+      "ok",
+      "requestTimeoutMs",
+      "supportsParallelToolCalls",
+      "transport",
+    ]);
     assert.equal(first.server.auth, "oauth");
     assert.deepEqual(first.server.authStatus, {
       hasTokens: false,
@@ -295,15 +317,27 @@ test(
     const callback = await approve(authorizationUrl.href);
     assert.equal(callback.searchParams.get("state"), query.get("state"));
     const code = callback.searchParams.get("code");
+    const exchangedFrom = Date.now();
     const done = await cli(["mcp", "login", "docs", "--code", code]);
+    const exchangedTo = Date.now();
     assert.equal(done.code, 0, done.stderr);
     assert.equal(done.stdout, 'MCP OAuth credentials saved for "docs".\n');
     oauth.state.expiresIn = 3600;
     const authorized = await state("docs");
-    assert.equal(authorized.state, "authorized");
-    assert.equal(authorized.hasTokens, true);
-    assert.equal(authorized.hasCodeVerifier, false);
-    assert.ok(Math.abs(authorized.expiresAt - (Date.now() + 31000)) < 15000);
+    // Issued during the --code run, however slow the runner.
+    const { expiresAt } = authorized;
+    assert.ok(expiresAt >= exchangedFrom + 30000, `${expiresAt - exchangedFrom} ms`);
+    assert.ok(expiresAt <= exchangedTo + 32000, `${expiresAt - exchangedTo} ms`);
+    assert.deepEqual(authorized, {
+      hasTokens: true,
+      requiresAuthorization: false,
+      hasClientInformation: true,
+      hasCodeVerifier: false,
+      hasDiscoveryState: true,
+      hasLastAuthorizationUrl: false,
+      expiresAt,
+      state: "authorized",
+    });
     // Once completed, the session is gone: a second --code fails before reaching the
     // authorization server.
     const reused = await cli(["mcp", "login", "docs", "--code", code]);
@@ -312,7 +346,8 @@ test(
 
     // (b, d) The next turn, without a config reload, refreshes the stale token
     // unattended and offers the tool.
-    await sleep(1500);
+    // Stale once now + 30 s passes expiresAt: wait until then, with a margin.
+    await sleep(Math.max(0, expiresAt - 30000 - Date.now()) + 2000);
     assert.deepEqual(grants(), ["authorization_code"]);
     assert.deepEqual((await turn(null, "after-login")).offered, ["docs__echo"]);
     assert.ok(grants().includes("refresh_token"), JSON.stringify(grants()));
