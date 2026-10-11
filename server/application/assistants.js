@@ -20,6 +20,7 @@ export const assistantServiceNames = [
   "assistantModelAccounts",
   "assistantModelLogin",
   "assistantSpeech",
+  "assistantWebSearch",
   "assistantChannels",
   "assistantMemory",
   "assistantReminders",
@@ -45,6 +46,7 @@ export function createAssistantServices(options) {
       created.workflows,
       created.bridge,
       created.teams,
+      created.webSearch,
       created.channels || created.speech,
       created.assistants || created.store,
     ].filter(Boolean);
@@ -96,10 +98,13 @@ export function createAssistantFeature(services) {
     console.error(`AgentPier could not start assistants: ${error}`);
   };
   const release = async () => {
-    const { assistants, assistantChannels } = services;
+    const { assistants, assistantChannels, assistantWebSearch } = services;
     recovered = false;
     for (const name of assistantServiceNames) services[name] = null;
     await assistantChannels?.close().catch(() => {});
+    try {
+      assistantWebSearch?.close();
+    } catch {}
     await assistants?.close().catch(() => {});
   };
   const create = () => {
