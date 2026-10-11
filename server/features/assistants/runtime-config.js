@@ -71,6 +71,8 @@ export function compileOpenClawConfig({
   config.update = hardened.update;
   config.skills = { ...config.skills, allowBundled: hardened.skillsAllowBundled };
   config.agents.defaults.heartbeat = hardened.heartbeat;
+  // Compiler-owned: an MCP server could run host commands. Nothing writes it yet.
+  delete config.mcp;
   const enabled = !!(teams?.directory && teams?.connection);
   config.tools = { allow: enabled ? teamTools : ["session_status"], toolSearch: false };
   config.plugins = {
