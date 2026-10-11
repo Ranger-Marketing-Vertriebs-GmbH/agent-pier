@@ -132,9 +132,6 @@
   .assistant-model-fields {
     grid-template-columns: 1fr;
   }
-  .assistant-form {
-    padding: 18px;
-  }
 }
 .assistant-accounts {
   margin: 24px 0;
