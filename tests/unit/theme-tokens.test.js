@@ -65,6 +65,7 @@ test("redesign tokens exist with the handoff values", async () => {
     "--switch-knob": "#fff",
     "--on-accent": "#242529",
   };
+  const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   for (const [name, value] of Object.entries(expected))
-    assert.match(css, new RegExp(`${name}:\\s*${value.replace(/[-#]/g, "\\$&")};`), name);
+    assert.match(css, new RegExp(`${escape(name)}:\\s*${escape(value)};`), name);
 });
