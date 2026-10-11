@@ -5,6 +5,7 @@ import { NativeMemory } from "../features/assistants/native-memory.js";
 import { NativeReminders } from "../features/assistants/native-reminders.js";
 import { TeamBridge } from "../features/assistants/team-bridge.js";
 import { ChannelService } from "../features/assistant-channels/channel-service.js";
+import { WebSearchSettings } from "../features/assistants/web-search-settings.js";
 import { SpeechConnections } from "../features/speech/speech-connections.js";
 import { AssistantModelAccounts } from "../features/assistants/model-accounts.js";
 import { AssistantAccountLogin } from "../features/assistants/model-account-login.js";
@@ -97,6 +98,10 @@ export function constructAssistantGraph(host, created = {}) {
     generation: () => assistantRuntime.generation,
   }));
   const assistantSpeech = (created.speech = new SpeechConnections({ dataDir }));
+  const assistantWebSearch = (created.webSearch = new WebSearchSettings({
+    dataDir,
+    connections: providerConnections,
+  }));
   const assistantChannels = (created.channels = new ChannelService({
     dataDir,
     assistants,
@@ -120,6 +125,7 @@ export function constructAssistantGraph(host, created = {}) {
     assistantModelAccounts,
     assistantModelLogin,
     assistantSpeech,
+    assistantWebSearch,
     assistantChannels,
     assistantMemory,
     assistantReminders,
