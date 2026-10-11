@@ -36,4 +36,6 @@ export const mcpServers = Object.freeze({
   oauthLogoutFailed: "The server's OAuth login could not be removed. Please try again.",
   oauthLogoutDeferred:
     "Saved. The previous OAuth login could not be removed right now; AgentPier retries when the assistant runtime starts next.",
+  oauthLogoutPending:
+    "The previous login is still being removed. Until then the server is not active.",
 });

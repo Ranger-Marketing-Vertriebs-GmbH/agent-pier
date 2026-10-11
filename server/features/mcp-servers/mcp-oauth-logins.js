@@ -4,6 +4,7 @@
 // a short status cache, per server whether it was ever connected and the redirect
 // URL its last login registered, and logouts that failed and are retried later.
 import { serverMessages } from "../../lib/i18n/de.js";
+import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { problem } from "../../lib/storage.js";
 import { patchConfig } from "../assistants/openclaw-config/live-patch.js";
 import {
@@ -62,6 +63,19 @@ export function nudgedIdleTtl(current) {
   return 0;
 }
 
+/**
+ * Whether a deferred logout `{ name, url }` matches the OAuth server `definition`:
+ * OpenClaw keys logins by name and URL, so such a server must not be compiled until
+ * the logout went through.
+ */
+export function heldByLogout(definition, deferred) {
+  return (
+    definition?.auth === "oauth" &&
+    definition.transport !== "stdio" &&
+    deferred.some((t) => t.name === definition.name && t.url === definition.url)
+  );
+}
+
 export class McpOAuthLogins {
   /**
    * - `cli`: openclaw-mcp-cli wrapper (startLogin, completeLogin, logout, status).
@@ -70,6 +84,7 @@ export class McpOAuthLogins {
    * - `admit(operation)`: the assistants' admission lock (store edits, config writes).
    * - `redirectUrl()`: the redirect URL the store compiles OAuth servers with now.
    * - `remoteUrl()`: the configured HTTPS remote origin, if any.
+   * - `reapply()`: drains deferred logouts and applies what that frees (admitted).
    */
   constructor({
     cli,
@@ -78,6 +93,7 @@ export class McpOAuthLogins {
     admit = (operation) => operation(),
     redirectUrl = () => runtime?.mcp?.redirectUrl ?? null,
     remoteUrl = () => null,
+    reapply = null,
     now = Date.now,
     warn = console.warn,
   }) {
@@ -88,6 +104,7 @@ export class McpOAuthLogins {
       admit,
       redirectUrl,
       remoteUrl,
+      reapply,
       now,
       warn,
     });
@@ -132,6 +149,11 @@ export class McpOAuthLogins {
     const signature = this.runtime?.mcp?.serverSignatures?.[definition.name];
     const config = mcpServerConfig(definition, null, this.redirectUrl());
     return !!signature && !!config && signature === mcpServerSignature(config);
+  }
+
+  /** Whether a deferred logout for its name and URL keeps `definition` uncompiled. */
+  held(definition) {
+    return heldByLogout(definition, this.servers.deferredLogouts());
   }
 
   /** The unexpired pending login of `serverId`, pruning expired ones. */
@@ -193,7 +215,20 @@ export class McpOAuthLogins {
   }
 
   async startAdmitted(id) {
-    const definition = this.definition(id);
+    let definition = this.definition(id);
+    // A login an earlier logout could not clear must go first: until then the
+    // server is not compiled, so old tokens never come back under its name and URL.
+    if (this.held(definition)) {
+      try {
+        // Drains and compiles what it freed (McpChanges.apply), or drains only.
+        await (this.reapply ? this.reapply() : this.drain());
+      } catch {
+        // Judged by what is left below.
+      }
+      definition = this.definition(id);
+      if (this.held(definition))
+        throw failure(messages.oauthLogoutFailed, "logout-failed", 409);
+    }
     const name = definition.name;
     const redirect = this.runtime?.mcp?.redirectUrl;
     if (definition.auth !== "oauth" || !redirect || !this.current(definition))
@@ -202,19 +237,6 @@ export class McpOAuthLogins {
       // A second start replaces the first: its state no longer completes.
       this.dropPending(id);
       try {
-        // A login an earlier logout could not clear must go before this one
-        // registers, so old tokens never come back under the same name and URL.
-        const stale = this.servers
-          .deferredLogouts()
-          .find((t) => t.name === name && t.url === definition.url);
-        if (stale) {
-          try {
-            await this.clearLogin(stale);
-          } catch {
-            throw failure(messages.oauthLogoutFailed, "logout-failed", 409);
-          }
-          this.servers.settleLogout(stale);
-        }
         // OpenClaw registered the client for the redirect of the last login; a
         // changed redirect needs a new registration, which a logout forces.
         const { loginRedirect } = this.servers.oauthMemory(id);
@@ -413,8 +435,27 @@ export class McpOAuthLogins {
     } catch {
       statuses = null;
     }
+    let deferred = [];
+    let definitions = [];
+    try {
+      deferred = this.servers.deferredLogouts();
+      if (deferred.length) definitions = this.servers.definitions();
+    } catch {
+      deferred = [];
+    }
     return list.map((server) => {
       if (!oauth.includes(server)) return server;
+      const definition = definitions.find((d) => d.id === server.id);
+      if (definition && heldByLogout(definition, deferred))
+        return {
+          ...server,
+          oauthStatus: "login-required",
+          oauthReason: {
+            code: "logout-pending",
+            error: messages.oauthLogoutPending,
+            ...messageIdentity(messages.oauthLogoutPending),
+          },
+        };
       if (!statuses) return { ...server, oauthStatus: "unknown" };
       let everConnected = false;
       try {
