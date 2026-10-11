@@ -216,3 +216,119 @@ test.describe("agent chat transcript", () => {
     expect(Math.round(reply.width)).toBe(760);
   });
 });
+
+test.describe("agent chat transcript layout details", () => {
+  const cursor = (page) =>
+    page
+      .locator(".assistant-message.streaming .message-content > :last-child")
+      .evaluate((e) => getComputedStyle(e, "::after").animationName);
+  const stream = async (page) => {
+    await chatFixture(page, { history: working });
+    await page.goto(chat);
+    await emit(page, { type: "delta", conversationId: "dinner", text: "Draft" });
+    await expect(page.locator(".assistant-message.streaming")).toBeVisible();
+  };
+
+  test("the streaming cursor blinks unless motion is reduced", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await stream(page);
+    expect(await cursor(page)).not.toBe("none");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    expect(await cursor(page)).toBe("none");
+  });
+
+  test("the log comes before team and approval cards", async ({ page }) => {
+    const task = (extra) => ({
+      id: "a1",
+      state: "awaiting_approval",
+      revision: 1,
+      projectName: "Site",
+      payload: { action: "coding_start", task: "Fix it" },
+      ...extra,
+    });
+    await chatFixture(page, {
+      teams: [
+        {
+          id: "team",
+          kind: "team",
+          parentAssistantId: "home",
+          objective: "Review",
+          phase: "running",
+          memberIds: [],
+          revision: 1,
+        },
+      ],
+      actions: [task()],
+    });
+    await page.goto(chat);
+    await expect(page.locator(".assistant-action-approvals")).toBeVisible();
+    const order = await page
+      .locator(".assistant-transcript")
+      .evaluate((root) =>
+        [...root.children]
+          .map((c) =>
+            c.matches('[role="log"]')
+              ? "log"
+              : c.matches(".assistant-teams")
+                ? "teams"
+                : c.matches(".assistant-action-approvals")
+                  ? "approvals"
+                  : "",
+          )
+          .filter(Boolean),
+      );
+    expect(order).toEqual(["log", "teams", "approvals"]);
+  });
+
+  test("internal events are centred in the transcript", async ({ page }) => {
+    await chatFixture(page, {
+      history: {
+        messages: [
+          { id: "q", role: "user", text: "Go" },
+          { id: "e", role: "event", event: "team-result" },
+        ],
+        requests: [],
+        stale: false,
+      },
+    });
+    await page.goto(chat);
+    const event = page.locator(".assistant-event");
+    await expect(event).toHaveCSS("text-align", "center");
+    const [e, t] = [
+      await event.boundingBox(),
+      await page.locator(".assistant-transcript").boundingBox(),
+    ];
+    expect(Math.abs(e.x + e.width / 2 - (t.x + t.width / 2))).toBeLessThan(2);
+  });
+
+  for (const width of [390, 1440]) {
+    test(`a short conversation sits at the bottom (${width}px)`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 844 });
+      await chatFixture(page);
+      await page.goto(chat);
+      const messages = page.locator(".assistant-message");
+      await expect(messages).toHaveCount(2);
+      const t = await page.locator(".assistant-transcript").boundingBox();
+      const first = await messages.first().boundingBox();
+      const last = await messages.last().boundingBox();
+      expect(first.y - t.y).toBeGreaterThan(200);
+      expect(t.y + t.height - (last.y + last.height)).toBeLessThan(40);
+    });
+  }
+
+  test("phones use 16px padding and 85% user bubbles", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await chatFixture(page, {
+      history: {
+        messages: [{ id: "q", role: "user", text: "word ".repeat(80) }],
+        requests: [],
+        stale: false,
+      },
+    });
+    await page.goto(chat);
+    await expect(page.locator(".assistant-transcript")).toHaveCSS("padding-left", "16px");
+    const log = await page.locator('.assistant-transcript > [role="log"]').boundingBox();
+    const bubble = await page.locator(".assistant-message.user").boundingBox();
+    expect(Math.abs(bubble.width - log.width * 0.85)).toBeLessThan(2);
+  });
+});
