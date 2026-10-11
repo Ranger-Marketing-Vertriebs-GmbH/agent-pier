@@ -51,8 +51,16 @@ function mergeDiff(current, target) {
  * state compiles the store at the next start.
  */
 export class McpChanges {
-  constructor({ assistants, servers, now = Date.now, warn = console.warn }) {
-    Object.assign(this, { assistants, servers, now, warn });
+  constructor({
+    assistants,
+    servers,
+    redirectUrl = () => null,
+    now = Date.now,
+    warn = console.warn,
+  }) {
+    // `redirectUrl()`: the OAuth redirect URL OAuth servers compile with, read at
+    // each compile so a changed AgentPier origin hot-applies.
+    Object.assign(this, { assistants, servers, redirectUrl, now, warn });
     // Whether the running Gateway may lag behind the store. Set by every apply that
     // could not finish; the team scheduler's tick and each Gateway start retry it.
     this.pending = false;
@@ -188,7 +196,7 @@ export class McpChanges {
       return false;
     }
     try {
-      const inputs = readMcpInputs(this.servers);
+      const inputs = readMcpInputs(this.servers, { redirectUrl: this.redirectUrl() });
       if (inputs.unreadable) {
         this.failed({ code: "MCP_STORE_UNREADABLE" });
         return false;

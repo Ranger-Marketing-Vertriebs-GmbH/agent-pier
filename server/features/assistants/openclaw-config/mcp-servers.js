@@ -23,10 +23,13 @@ export function mcpEligible(profile) {
 
 /**
  * The verified `mcp.servers.<name>` object, or null when the stored definition or
- * its secrets are unusable (the caller skips the server by name).
+ * its secrets are unusable (the caller skips the server by name). An OAuth server
+ * carries no headers: OpenClaw holds its tokens and registers `redirectUrl`, the
+ * AgentPier callback, by DCR (see docs/mcp-oauth-qualification.md).
  */
-export function mcpServerConfig(server, secrets) {
+export function mcpServerConfig(server, secrets, redirectUrl = null) {
   if (!record(server) || !serverName.test(server.name ?? "")) return null;
+  if (server.auth === "oauth") return oauthServerConfig(server, redirectUrl);
   if (!record(secrets)) return null;
   const { headers = {}, env = {} } = secrets;
   if (server.transport === "stdio") {
@@ -51,6 +54,20 @@ export function mcpServerConfig(server, secrets) {
   return { url: server.url, transport, headers: { ...headers } };
 }
 
+/** `{ url, transport, auth: "oauth", oauth: { redirectUrl, scope? } }`; never stdio. */
+function oauthServerConfig(server, redirectUrl) {
+  const transport = httpTransports[server.transport];
+  if (!transport || typeof server.url !== "string") return null;
+  if (typeof redirectUrl !== "string" || !redirectUrl) return null;
+  const scope = typeof server.oauthScope === "string" ? server.oauthScope.trim() : "";
+  return {
+    url: server.url,
+    transport,
+    auth: "oauth",
+    oauth: { redirectUrl, ...(scope ? { scope } : {}) },
+  };
+}
+
 /**
  * Reads what a Gateway start compiles from the MCP server store. Never throws: a
  * store that cannot be read compiles no servers; a server whose secrets cannot be
@@ -58,15 +75,23 @@ export function mcpServerConfig(server, secrets) {
  * - `servers`: stored definitions (unredacted URL), ordered by name.
  * - `bindings`: `{ [assistantId]: serverId[] }` for `agent` targets.
  * - `secrets`: `{ [serverId]: { headers, env } | null }` for bound servers.
+ * - `redirectUrl`: the OAuth redirect URL (oauthRedirect), read by the caller at
+ *   each call so a changed origin reaches the next start or live apply.
  */
-export function readMcpInputs(store) {
-  const inputs = { servers: [], bindings: {}, secrets: {}, unreadable: false };
+export function readMcpInputs(store, { redirectUrl = null } = {}) {
+  const inputs = {
+    servers: [],
+    bindings: {},
+    secrets: {},
+    unreadable: false,
+    redirectUrl,
+  };
   if (!store) return inputs;
   try {
     inputs.servers = store.definitions();
     inputs.bindings = store.bindingsByTarget("agent");
   } catch {
-    return { servers: [], bindings: {}, secrets: {}, unreadable: true };
+    return { servers: [], bindings: {}, secrets: {}, unreadable: true, redirectUrl };
   }
   const bound = new Set(Object.values(inputs.bindings).flat());
   for (const server of inputs.servers) {
@@ -87,19 +112,27 @@ export function readMcpInputs(store) {
  * - `globalTools`: appended to the global `tools.allow`.
  * - `agentTools`: `{ [runtimeAgentId]: ["<name>__*", ...] }` for bound agents.
  * - `skipped`: names of bound servers left out because they cannot be compiled.
+ * - `redirectUrl`: the OAuth redirect URL compiled servers carry, else null.
  */
 export function mcpSections({
   profiles = [],
   servers = [],
   bindings = {},
   secrets = {},
+  redirectUrl = null,
 }) {
-  const sections = { servers: {}, globalTools: [], agentTools: {}, skipped: [] };
+  const sections = {
+    servers: {},
+    globalTools: [],
+    agentTools: {},
+    skipped: [],
+    redirectUrl: null,
+  };
   const order = new Map(servers.map((server, index) => [server.id, index]));
   const compiled = new Map();
   const compile = (server) => {
     if (!compiled.has(server.id)) {
-      const config = mcpServerConfig(server, secrets[server.id]);
+      const config = mcpServerConfig(server, secrets[server.id], redirectUrl);
       compiled.set(server.id, config);
       if (!config) sections.skipped.push(String(server.name));
     }
@@ -123,6 +156,8 @@ export function mcpSections({
   for (const server of servers)
     if (used.has(server.id)) sections.servers[server.name] = compiled.get(server.id);
   if (used.size) sections.globalTools = [mcpGlobalTool];
+  if (Object.values(sections.servers).some((server) => server.auth === "oauth"))
+    sections.redirectUrl = redirectUrl;
   sections.skipped.sort();
   return sections;
 }
@@ -141,7 +176,10 @@ export function applyMcp(config, sections) {
 // Per process, like webToolsSignature: header and env values cannot be recovered.
 const signatureSecret = randomBytes(32);
 
-/** A secret-free fingerprint of the sections, including the secrets they carry. */
+/**
+ * A secret-free fingerprint of the sections, including the secrets they carry and
+ * the OAuth redirect URL, so a changed origin hot-applies like any other change.
+ */
 export function mcpSignature(sections) {
   const { servers, globalTools, agentTools } = sections;
   return createHmac("sha256", signatureSecret)
@@ -151,7 +189,8 @@ export function mcpSignature(sections) {
 
 /**
  * What the supervisor keeps about a Gateway start: the per-agent globs live applies
- * grant, the compiled server names and the signature. It never holds a secret.
+ * grant, the compiled server names, the OAuth redirect URL OpenClaw registered and
+ * the signature. It never holds a secret.
  */
 export function mcpSnapshot(sections) {
   return {
@@ -159,6 +198,7 @@ export function mcpSnapshot(sections) {
     globalTools: [...sections.globalTools],
     agentTools: structuredClone(sections.agentTools),
     skipped: [...sections.skipped],
+    redirectUrl: sections.redirectUrl ?? null,
     signature: mcpSignature(sections),
   };
 }

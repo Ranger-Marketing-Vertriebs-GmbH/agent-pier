@@ -72,7 +72,7 @@ export function fakeGateway(initial) {
   return gateway;
 }
 
-export function mcpApplyFixture(t, { now, warn } = {}) {
+export function mcpApplyFixture(t, { now, warn, redirectUrl } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-mcp-apply-"));
   const store = new AssistantStore({ dataDir });
   const servers = new McpServerStore({
@@ -99,7 +99,13 @@ export function mcpApplyFixture(t, { now, warn } = {}) {
     models: { listCapabilities: () => [] },
     config: { apply: async (id) => applied.push(id), reset() {} },
   });
-  const changes = new McpChanges({ assistants: service, servers, now, warn });
+  const changes = new McpChanges({
+    assistants: service,
+    servers,
+    redirectUrl,
+    now,
+    warn,
+  });
   service.mcp = changes;
   t.after(async () => {
     await service.close();

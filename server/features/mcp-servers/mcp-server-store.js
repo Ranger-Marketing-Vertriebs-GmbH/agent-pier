@@ -243,8 +243,9 @@ export class McpServerStore {
     if (!stdio && auth === "oauth") {
       // An OAuth server stores no headers; switching to OAuth drops the old ones.
       if (
-        input.headers !== undefined &&
-        !(record(input.headers) && !Object.keys(input.headers).length)
+        input.env !== undefined ||
+        (input.headers !== undefined &&
+          !(record(input.headers) && !Object.keys(input.headers).length))
       )
         throw invalid();
       this.db
