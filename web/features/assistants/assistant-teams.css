@@ -85,8 +85,11 @@
   gap: 8px;
   margin-top: 4px;
 }
+/* Like the handoff, the two full-width buttons share the card instead of widening it. */
 .assistant-card-actions .button {
   flex: 1;
+  min-width: 0;
+  padding: 0 8px;
   height: 40px;
   font-weight: 600;
 }
