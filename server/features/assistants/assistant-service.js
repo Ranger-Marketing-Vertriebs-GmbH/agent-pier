@@ -6,6 +6,7 @@ import { reconcileRuns } from "./run-reconciler.js";
 import { GatewayEventHub } from "./gateway-event-hub.js";
 import { webCapabilityKeys } from "./native-capabilities.js";
 import { assertWired } from "./service-wiring.js";
+import { assistantActivity } from "./assistant-activity.js";
 
 const sessionRetryMs = 60000;
 export class AssistantService {
@@ -27,7 +28,11 @@ export class AssistantService {
         this.events.publish({ type: "runtime", ...state });
         return;
       }
-      if (state.availability === "failed") this.markOutstandingUnknown();
+      // Outstanding attempts become uncertain; clients only refetch on change.
+      if (state.availability === "failed") {
+        this.markOutstandingUnknown();
+        this.changed();
+      }
       this.events.publish({ type: "runtime", ...state });
       const becameReady =
         state.availability === "ready" && this.lastAvailability !== "ready";
@@ -102,6 +107,14 @@ export class AssistantService {
   list() {
     assertWired(this);
     const teamData = this.teams?.list();
+    const assistants = this.store.listAssistants().map((a) => this.withMcp(a));
+    const conversations = this.store
+      .listConversations()
+      .map((c) =>
+        this.sessionFailures.has(c.id)
+          ? { ...c, diagnostic: this.sessionFailures.get(c.id).diagnostic }
+          : c,
+      );
     return {
       ...(teamData
         ? {
@@ -111,15 +124,17 @@ export class AssistantService {
             teamSettings: teamData.settings,
           }
         : {}),
-      assistants: this.store.listAssistants().map((a) => this.withMcp(a)),
-      conversations: this.store
-        .listConversations()
-        .map((c) =>
-          this.sessionFailures.has(c.id)
-            ? { ...c, diagnostic: this.sessionFailures.get(c.id).diagnostic }
-            : c,
-        ),
+      assistants,
+      conversations,
       models: this.models.listCapabilities(),
+      activity: assistantActivity({
+        assistants,
+        conversations,
+        latest: this.ledger.latestByConversation(),
+        awaiting: this.workflows?.store?.awaitingCounts(Date.now()) ?? {},
+        teams: teamData?.teams ?? [],
+        members: teamData?.members ?? [],
+      }),
     };
   }
   create(input) {

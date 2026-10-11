@@ -29,6 +29,7 @@ test("assistant API persists definitions, rejects foreign origins and never expo
   const text = await listed.text();
   assert.ok(!text.includes("private-assistant-key"));
   assert.ok(text.includes(assistant.id));
+  assert.equal(JSON.parse(text).activity[assistant.id].state, "idle");
   assert.equal((await fetch(url + "/api/assistants")).status, 401);
   assert.equal(
     (
