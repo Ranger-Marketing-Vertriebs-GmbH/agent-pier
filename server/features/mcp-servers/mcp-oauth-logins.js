@@ -90,8 +90,6 @@ export class McpOAuthLogins {
    * - `remoteUrl()`: the configured HTTPS remote origin, if any.
    * - `reapply()`: applies the store now (called while admitted).
    * - `onFreed()`: applies the store after a background drain freed a server.
-   * - `revokeBackups()`: destroys every backup key before a login is removed, so no
-   *   host backup or update rollback brings it back (backup-credentials.js).
    */
   constructor({
     cli,
@@ -102,7 +100,6 @@ export class McpOAuthLogins {
     remoteUrl = () => null,
     reapply = null,
     onFreed = null,
-    revokeBackups = () => {},
     now = Date.now,
     warn = console.warn,
   }) {
@@ -115,7 +112,6 @@ export class McpOAuthLogins {
       remoteUrl,
       reapply,
       onFreed,
-      revokeBackups,
       now,
       warn,
     });
@@ -198,6 +194,23 @@ export class McpOAuthLogins {
     } catch (error) {
       if (error?.code !== "server-unknown") throw error;
     }
+    // A rollback to an earlier update snapshot would bring this login back.
+    this.servers.recordLogout(target, this.now());
+  }
+
+  /**
+   * After a runtime update rollback restored OpenClaw's state of `since` (the
+   * snapshot time): every login cleared since then is logged out again before the
+   * Gateway starts. Each becomes a deferred logout, which keeps a server with that
+   * name and URL uncompiled until the drain cleared it. Without a known snapshot
+   * time every remembered logout is repeated.
+   */
+  afterRollback(since) {
+    const from = Number.isSafeInteger(since) ? since : 0;
+    for (const target of this.servers.logoutsSince(from))
+      this.servers.deferLogout(target);
+    this.invalidate();
+    if (this.servers.deferredLogouts().length) this.scheduleDrain(0);
   }
 
   /**
@@ -234,7 +247,6 @@ export class McpOAuthLogins {
         .deferredLogouts()
         .find((t) => heldByLogout(definition, [t]));
       try {
-        this.revokeBackups();
         await this.serial(target.name, () => this.clearLogin(target));
       } catch {
         this.scheduleDrain();
@@ -365,7 +377,6 @@ export class McpOAuthLogins {
     if (definition.transport === "stdio" || definition.auth !== "oauth")
       throw failure(messages.oauthNotOAuth, "not-oauth", 409);
     this.dropPending(id);
-    this.revokeBackups();
     try {
       await this.serial(definition.name, () => this.clearLogin(definition));
     } catch (error) {
@@ -384,11 +395,8 @@ export class McpOAuthLogins {
    */
   async forget(id, before) {
     this.dropPending(id);
-    const memory = this.servers.oauthMemory(id);
     this.servers.rememberOAuth(id, { connected: false, loginRedirect: null });
     try {
-      // Only a server AgentPier logged in can hold a login worth revoking.
-      if (memory.everConnected || memory.loginRedirect) this.revokeBackups();
       await this.serial(before.name, () => this.clearLogin(before));
       return { deferred: false };
     } catch (error) {
@@ -413,7 +421,6 @@ export class McpOAuthLogins {
     let freed = false;
     for (const target of this.servers.deferredLogouts()) {
       try {
-        this.revokeBackups();
         await this.serial(target.name, () => this.clearLogin(target));
         const definitions = this.servers.definitions();
         this.servers.settleLogout(target);

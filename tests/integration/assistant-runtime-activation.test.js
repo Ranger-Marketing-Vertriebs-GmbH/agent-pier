@@ -128,6 +128,25 @@ test("failed candidate restores matching history/runtime and preserves recorded 
   assert.equal(JSON.stringify(f.updates.status()).includes("private upstream"), false);
 });
 
+test("a rollback reports its snapshot time before the old runtime starts", async (t) => {
+  const f = fixture(t);
+  const before = Date.now();
+  const updates = new RuntimeUpdates({
+    ...f.options,
+    onRolledBack: ({ createdAt }) => f.calls.push({ rolledBack: createdAt }),
+  });
+  await updates.stage();
+  f.maintenance.validate = async () => {
+    if (readJSON(f.selected).version === "target") throw Error("failed");
+  };
+  await assert.rejects(updates.activate(), { code: "UPDATE_ROLLED_BACK" });
+  const at = f.calls.findIndex((call) => call.rolledBack);
+  const { rolledBack } = f.calls[at];
+  assert.ok(rolledBack >= before && rolledBack <= Date.now());
+  // MCP OAuth logins cleared since then are queued before the Gateway starts.
+  assert.equal(f.calls.indexOf("start:old") > at, true);
+});
+
 test("changed effect ledger forbids rollback and leaves admission stopped", async (t) => {
   const f = fixture(t);
   await f.updates.stage();
