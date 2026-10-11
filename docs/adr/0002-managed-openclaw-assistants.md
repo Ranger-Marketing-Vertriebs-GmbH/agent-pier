@@ -430,15 +430,22 @@ the qualified runtime upgrade pair and project identity isolation after merging 
 AgentPier depends on OpenClaw 2026.9.8 (qualified predecessor 2026.9.7) at these
 points. A version bump must re-check each of them.
 
-| Coupling point                                                     | Where                                                           | What to re-check                                                 |
-| ------------------------------------------------------------------ | --------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Gateway protocol 4                                                 | `gateway-protocol.js` (`minProtocol`/`maxProtocol`)             | Connect handshake, scopes, events, method names                  |
-| Config shape `agents.entries` or `agents.list`, `models.providers` | `assistant-provider-synchronization.js`, `runtime-config.js`    | Offline rewrite still applies; Gateway accepts the written shape |
-| TLS listener (`gateway.tls`)                                       | `gateway-tls.js`, `runtime-config.js`                           | Certificate and key paths, `autoGenerate: false`                 |
-| Credential and state tables, SQLite stores                         | `runtime-update-snapshot.js`, `backup-credentials.js`           | Sealed table list and ledger digests still cover every secret    |
-| Bundled `agentpier-teams` plugin and tool guard                    | `team-plugin/`, `team-plugin-install.js`                        | Plugin API, hook order, path-repair behavior of file tools       |
-| Internal export names used by native contracts                     | `tests/helpers/openclaw-dist-exports.js`                        | Symbols still exported; failure names the version                |
-| Native cron, memory and webhook shapes                             | `native-reminders.js`, `native-routines.js`, `native-memory.js` | Response shapes, declaration-key creation                        |
+| Coupling point                                                                              | Where                                                           | What to re-check                                                                      |
+| ------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Gateway protocol 4                                                                          | `gateway-protocol.js` (`minProtocol`/`maxProtocol`)             | Connect handshake, scopes, events, method names                                       |
+| Config shape `agents.entries` or `agents.list`, `models.providers`                          | `assistant-provider-synchronization.js`, `runtime-config.js`    | Offline rewrite still applies; Gateway accepts the written shape                      |
+| TLS listener (`gateway.tls`)                                                                | `gateway-tls.js`, `runtime-config.js`                           | Certificate and key paths, `autoGenerate: false`                                      |
+| Credential and state tables, SQLite stores                                                  | `runtime-update-snapshot.js`, `backup-credentials.js`           | Sealed table list and ledger digests still cover every secret                         |
+| Bundled `agentpier-teams` plugin and tool guard                                             | `team-plugin/`, `team-plugin-install.js`                        | Plugin API, hook order, path-repair behavior of file tools                            |
+| Internal export names used by native contracts                                              | `tests/helpers/openclaw-dist-exports.js`                        | Symbols still exported; failure names the version                                     |
+| Native cron, memory and webhook shapes                                                      | `native-reminders.js`, `native-routines.js`, `native-memory.js` | Response shapes, declaration-key creation                                             |
+| `config.schema` and `config.schema.lookup`                                                  | `openclaw-config/`, native interfaces contract                  | `uiHints`, `reloadKind` values `hot` and `restart`                                    |
+| `config.patch` with `baseHash` and `replacePaths`                                           | `openclaw-config/live-patch.js`                                 | Exact array paths; stale hash still `INVALID_REQUEST` with a changed hash             |
+| Exec approvals (`exec.approval.requested`/`resolved`, `exec.approval.get`/`list`/`resolve`) | `gateway-event-hub.js`, native interfaces contract              | Payload fields, `exec-approvals` client cap, inline denial without an approval client |
+| `channels.pairing.list`/`approve`/`dismiss`                                                 | native interfaces contract                                      | Required scopes and response shape                                                    |
+| `web.login.start`/`wait`                                                                    | native interfaces contract                                      | Still excluded from discovery; channel-plugin gating                                  |
+| Hello `features.methods`/`features.events` and operator scopes                              | `gateway-client.js`, `gateway-protocol.js`                      | Field path, event list, scopes and caps in the handshake                              |
+| Locked configuration paths                                                                  | `openclaw-config/locked-core.js`                                | Every path still exists and still carries the same safety meaning                     |
 
 Requalification checklist for a version bump:
 
@@ -447,7 +454,8 @@ Requalification checklist for a version bump:
 2. Update the plugin compatibility list and keep the previous version as rollback
    target only if the cross-version test passes.
 3. Run `npm run check` and the full native contracts (the `native-contracts` CI job
-   or locally with the `AGENTPIER_ASSISTANT_*` variables).
+   or locally with the `AGENTPIER_ASSISTANT_*` variables), including the native
+   interfaces contract (`AGENTPIER_NATIVE_INTERFACES_CONTRACT_RUNTIME`).
 4. Run the manual live-provider and cross-version tests with disposable state.
 5. Run `scripts/verify-assistant-runtime.mjs` and `scripts/verify-assistant-teams.mjs`
    against new data directories.
