@@ -1,0 +1,93 @@
+/* Approval strip, approval cards, team cards and the member context (handoff 2c, 2d). */
+.assistant-approval-strip {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--approval-line);
+  background: var(--approval-bg);
+  color: var(--accent-text);
+  font-size: 13px;
+  text-align: left;
+}
+.assistant-approval-strip:disabled {
+  cursor: default;
+}
+.assistant-approval-ring {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--accent-text);
+  border-radius: 50%;
+}
+.assistant-approval-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assistant-approval-show {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+.assistant-action-approvals,
+.assistant-team-coding {
+  display: grid;
+  gap: 14px;
+}
+.assistant-approval-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--accent-line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+.assistant-approval-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.assistant-approval-head strong {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+}
+.assistant-approval-head small {
+  color: var(--accent-text);
+  font-size: 12px;
+}
+.assistant-approval-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.assistant-approval-card .assistant-approval-title,
+.assistant-approval-card .assistant-approval-task {
+  color: var(--text-row);
+  font-size: 13px;
+}
+.assistant-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.assistant-card-actions .button {
+  flex: 1;
+  height: 40px;
+  font-weight: 600;
+}
+@media (max-width: 700px) {
+  .assistant-approval-strip {
+    padding: 0 16px;
+  }
+}
