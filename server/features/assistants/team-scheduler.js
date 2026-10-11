@@ -1,8 +1,8 @@
 import { TeamProvisioning } from "./team-provisioning.js";
 import { memberTerminal, TeamResults } from "./team-results.js";
 export class TeamScheduler {
-  constructor({ teams, assistants, now = Date.now }) {
-    Object.assign(this, { teams, assistants, now });
+  constructor({ teams, assistants, now = Date.now, mcp = null }) {
+    Object.assign(this, { teams, assistants, now, mcp });
     this.provisioning = new TeamProvisioning({ teams, assistants });
     this.results = new TeamResults({ teams, assistants });
     // A claim without step evidence did nothing yet and returns to the queue; a
@@ -31,6 +31,7 @@ export class TeamScheduler {
     for (const t of teams.list()) if (t.phase === "approved") teams.reserve(t.id);
     for (const m of teams.members()) await this.observe(m.id);
     if (this.closed) return;
+    await this.applyMcp();
     const selected = teams.transaction(() => {
       const members = teams.members();
       let occupied = members.filter(
@@ -73,6 +74,17 @@ export class TeamScheduler {
     }
     a.changed();
     if (failure) throw failure;
+  }
+  // New members get their servers before provisioning applies their profile, and
+  // ended ones lose theirs. A refused admission or a failed patch is retried at the
+  // next tick; a member provisioned meanwhile is re-applied by that patch.
+  async applyMcp() {
+    if (!this.mcp) return;
+    try {
+      await this.assistants.admit(() => this.mcp.refresh());
+    } catch {
+      /* Retried at the next tick. */
+    }
   }
   async dispatch(id) {
     const { teams, assistants: a } = this;

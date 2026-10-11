@@ -94,7 +94,7 @@ export function teamFixture(t) {
     await assistants.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
   });
-  async function proposal({ count = 4, allowed = true, parent } = {}) {
+  async function proposal({ count = 4, allowed = true, parent, members } = {}) {
     parent ||= store.createAssistant({
       name: "Parent",
       instructions: "Original",
@@ -114,11 +114,13 @@ export function teamFixture(t) {
       { attemptId: attempt.id, toolCallId: "call", assertCurrent() {} },
       {
         objective: "Review",
-        members: Array.from({ length: count }, (_, n) => ({
-          name: `Member ${n}`,
-          role: "Review",
-          assignment: `Review area ${n}`,
-        })),
+        members:
+          members ||
+          Array.from({ length: count }, (_, n) => ({
+            name: `Member ${n}`,
+            role: "Review",
+            assignment: `Review area ${n}`,
+          })),
       },
     );
     return { team: service.store.get(result.id), parent, chat, attempt };

@@ -32,6 +32,8 @@ export const assistants = {
   teamResultStates: { completed: "Completed", failed: "Failed", cancelled: "Cancelled" },
   teamApproval: (objective, count) =>
     `Team approval: ${objective}\n${count} members. Approve or decline?`,
+  teamMcpServers: (names) => `MCP servers: ${names}`,
+  teamMcpStdio: (name) => `${name} (stdio, local command)`,
   teamApprove: "Approve team",
   teamDecline: "Decline team",
   teamApproved:
@@ -64,6 +66,8 @@ export const assistants = {
   channelPolling: "Another service is using this Telegram bot. Stop it before resuming.",
   channelToken: "The Telegram bot token is invalid.",
 
+  teamMcpServerNotBound:
+    "A proposed team member names an MCP server that is not bound to the lead agent.",
   invalid: "Invalid agent input.",
   notFound: "Agent or conversation not found.",
   conflict: "The data has changed. Please reload.",
