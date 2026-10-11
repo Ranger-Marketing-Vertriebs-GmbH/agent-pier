@@ -162,6 +162,8 @@ export class RuntimeSupervisor extends EventEmitter {
     this.setState({ availability: "installing", diagnostic: null, sync: "stale" });
     const runtime = await this.install({ dataDir: this.dataDir });
     if (generation !== this.generation) return;
+    // The runtime the Gateway runs; the OpenClaw CLI (MCP OAuth) uses the same one.
+    this.runtime = runtime;
     if (runtime.diagnostic) this.setState({ diagnostic: runtime.diagnostic });
     const port = await freePort();
     if (generation !== this.generation) return;

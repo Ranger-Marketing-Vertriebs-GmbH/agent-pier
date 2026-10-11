@@ -4,7 +4,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 
 /** OpenClaw prefixes tools with the server name; names are validated so this is the identity. */
-const namePattern = /^[A-Za-z][A-Za-z0-9_-]{0,29}$/;
+export const namePattern = /^[A-Za-z][A-Za-z0-9_-]{0,29}$/;
 export function sanitisedPrefix(name) {
   if (typeof name !== "string" || !namePattern.test(name))
     throw problem(serverMessages.mcpServers.invalidName);
