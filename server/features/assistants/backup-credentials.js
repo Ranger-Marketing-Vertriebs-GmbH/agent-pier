@@ -227,7 +227,9 @@ export function unsealConfig(text, key, aad) {
       },
       trail,
     );
-  return { withheld, text: JSON.stringify(visit(JSON.parse(text), []), null, 2) };
+  // Visit before reading `withheld`: the walk is what sets it.
+  const restored = JSON.stringify(visit(JSON.parse(text), []), null, 2);
+  return { withheld, text: restored };
 }
 
 const quote = (name) => `"${name.replaceAll('"', '""')}"`;

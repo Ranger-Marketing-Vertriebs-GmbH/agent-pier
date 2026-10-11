@@ -250,6 +250,25 @@ test("update backups seal MCP server environment and header secrets", async (t) 
   const bytes = backupBytes(backup);
   assert.equal(bytes.includes("env-secret-value"), false);
   assert.equal(bytes.includes("header-secret"), false);
+
+  // A restore with the key brings both values back unchanged.
+  fs.rmSync(paths.state, { recursive: true });
+  fs.mkdirSync(paths.state);
+  const restored = await restoreUpdateSnapshot(paths, backup);
+  assert.equal(restored.credentialsWithheld, false);
+  const server = JSON.parse(fs.readFileSync(paths.config)).mcp.servers.x;
+  assert.deepEqual(server.env, { TOKEN: "env-secret-value" });
+  assert.deepEqual(server.headers, { Authorization: "Bearer header-secret" });
+  assert.equal(server.command, "server");
+
+  // Without the key both are withheld; the rest of the server definition survives.
+  destroyBackupKeys(paths.root);
+  const withheld = await restoreUpdateSnapshot(paths, backup);
+  assert.equal(withheld.credentialsWithheld, true);
+  const kept = JSON.parse(fs.readFileSync(paths.config)).mcp.servers.x;
+  assert.equal(kept.command, "server");
+  assert.equal(JSON.stringify(kept).includes("env-secret-value"), false);
+  assert.equal(JSON.stringify(kept).includes("header-secret"), false);
 });
 
 test("files named like databases that are not Gateway SQLite stores keep their bytes", async (t) => {
