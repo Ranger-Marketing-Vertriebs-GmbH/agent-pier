@@ -34,6 +34,33 @@ test("trash panel exposes restore and frozen permanent-delete consent", async ({
   await expect(page.getByRole("dialog")).toContainText("/home/test/report.txt");
 });
 
+test("a Trash refresh keeps the listed selection actionable", async ({ page }) => {
+  const f = await actionsFixture(page);
+  let release;
+  const held = new Promise((resolve) => {
+    release = resolve;
+  });
+  let hold = false;
+  // Job completion refreshes Trash in the background; hold such a revalidation.
+  await page.route("**/api/files/trash", async (route) => {
+    if (hold) await held;
+    await route.fallback();
+  });
+  await selectEnglish(page);
+  await page.goto(baseURL + "/files?panel=trash");
+  const report = page.getByRole("checkbox", { name: "Select report.txt", exact: true });
+  await report.check();
+  hold = true;
+  await page.getByRole("button", { name: "Refresh Trash", exact: true }).click();
+  await expect(page.getByText("Loading every Trash page …")).toBeVisible();
+  await expect(report).toBeChecked();
+  await expect(page.getByRole("button", { name: "Restore", exact: true })).toBeEnabled();
+  release();
+  await expect(page.getByText("Loading every Trash page …")).toHaveCount(0);
+  await expect(report).toBeChecked();
+  expect(f.unknown).toEqual([]);
+});
+
 test("restore preserves a colliding original until Keep both is decided", async ({
   page,
   browserName,

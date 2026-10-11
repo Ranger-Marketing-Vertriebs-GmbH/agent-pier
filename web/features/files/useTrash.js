@@ -5,10 +5,8 @@ export default function useTrash(client, scopeId) {
   const [version, setVersion] = useState(0);
   const [result, setResult] = useState(null);
   const generation = useRef(0);
-  const current =
-    result?.client === client && result.scopeId === scopeId && result.version === version
-      ? result
-      : null;
+  const sameSource = result?.client === client && result.scopeId === scopeId;
+  const current = sameSource && result.version === version ? result : null;
   useEffect(() => {
     const controller = new AbortController(),
       request = ++generation.current;
@@ -42,7 +40,9 @@ export default function useTrash(client, scopeId) {
     return () => controller.abort();
   }, [client, scopeId, version]);
   return {
-    entries: current?.entries || [],
+    // A refresh revalidates in place: blanking the list would drop the user's
+    // selection and disable actions they are already clicking.
+    entries: (sameSource && result.entries) || [],
     loading: current?.loading ?? true,
     error: current?.error,
     refresh: () => setVersion((value) => value + 1),
