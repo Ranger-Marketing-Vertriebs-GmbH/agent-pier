@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { oauthCallbackPath } from "../../features/mcp-servers/oauth-redirect.js";
 
@@ -62,7 +61,9 @@ const one = (value) => (typeof value === "string" ? value : undefined);
  * the provider's top-level navigation carries no session cookie (SameSite=Strict),
  * and the redirect host (127.0.0.1) may differ from the one the owner uses. The
  * unguessable, single-use `state` of a login the owner started (10 minutes) is the
- * authentication. The answer reveals only success or a stable error code.
+ * authentication. It always answers 303 to the Accounts page with only the result,
+ * the server of a valid state, and a stable reason; an unknown, expired, used or
+ * replaced state (pending logins are lost on restart) gets `state-invalid`.
  *
  * - Plain network hosts never serve it: no redirect is compiled for them, so only a
  *   leaked state could arrive there.
@@ -74,20 +75,19 @@ const one = (value) => (typeof value === "string" ? value : undefined);
 export function mcpOAuthCallbackRoutes(services) {
   const router = Router();
   const route = oauthCallbackPath.replace(/^\/api/, "");
-  const refuse = (res, status, code, message) =>
-    res.status(status).json({ code, error: message, ...messageIdentity(message) });
   router.head(route, (_req, res) => res.status(405).set("Allow", "GET").end());
   router.get(route, async (req, res) => {
     res.set("Cache-Control", "no-store");
-    const messages = serverMessages.mcpServers;
-    if (req.trustBranch === "network")
-      return refuse(res, 403, "plain-http-remote", messages.oauthPlainHttpRemote);
+    // Refusals return to the Accounts page with a stable reason the UI translates;
+    // they run nothing and name no server.
+    const fail = (reason) =>
+      res.redirect(303, `${settingsPath}?oauth=error&reason=${reason}`);
+    if (req.trustBranch === "network") return fail("plain-http-remote");
     const oauth = services.assistantMcpOAuth;
     // Without the assistant services no login can be pending.
-    if (!oauth) return refuse(res, 400, "state-invalid", messages.oauthStateInvalid);
+    if (!oauth) return fail("state-invalid");
     const barrier = services.mutationBarrier;
-    if (barrier?.exclusive)
-      return res.redirect(303, `${settingsPath}?oauth=error&reason=unavailable`);
+    if (barrier?.exclusive) return fail("unavailable");
     const complete = () =>
       oauth.complete({
         state: one(req.query.state),
@@ -98,9 +98,7 @@ export function mcpOAuthCallbackRoutes(services) {
     try {
       done = barrier ? await barrier.run(complete) : await complete();
     } catch (error) {
-      if (error?.code === "state-invalid")
-        return refuse(res, 400, "state-invalid", messages.oauthStateInvalid);
-      return res.redirect(303, `${settingsPath}?oauth=error&reason=unavailable`);
+      return fail(error?.code === "state-invalid" ? "state-invalid" : "unavailable");
     }
     audit(services, done);
     const query = new URLSearchParams({ oauth: done.result, server: done.serverId });

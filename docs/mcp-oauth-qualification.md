@@ -133,6 +133,12 @@ toggle never triggers a re-apply (a unit test applies after the nudge and sees n
 patch), and a Gateway start drops it. The reset is not free: the reload disposes the
 MCP runtimes of every session (stdio servers restart too), once per login.
 
+Accepted exposure: the CLI takes the code only as an argument (no stdin input), so
+for the about one second `login --code=<code>` runs, other local users of the
+AgentPier host can see the authorization code in the process list. PKCE (the
+verifier stays in OpenClaw's private state) and single use limit what such a code is
+worth; AgentPier accepts this and never logs the code itself.
+
 ### (c) `openclaw mcp status --json`
 
 ```json

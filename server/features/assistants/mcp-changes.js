@@ -184,7 +184,9 @@ export class McpChanges {
    */
   async drainLogouts() {
     try {
-      if (!this.oauth || !this.servers.deferredLogouts().length) return;
+      // A background drain already running (for example after a rollback) covers it.
+      if (!this.oauth || this.oauth.draining || !this.servers.deferredLogouts().length)
+        return;
       const { remaining } = await this.oauth.drain();
       if (remaining) this.oauth.scheduleDrain(1000);
     } catch {
