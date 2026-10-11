@@ -22,8 +22,12 @@ to the agents bound to it. Tokens are refreshed without the owner's involvement.
   In network mode without Tailscale (plain HTTP), AgentPier states before the login
   starts that OAuth needs HTTPS or the AgentPier host itself.
 
-- OAuth logins are not part of backups. After a restore the server shows "Login
-  required".
+- OAuth logins are not part of host backups, like the MCP servers they belong to.
+  Runtime update snapshots seal them like other OpenClaw credentials, so a
+  rollback keeps them; a logout destroys every backup key first, so no rollback
+  brings a removed login back. After a rollback without the login, the server
+  shows "Login required"; if the redirect changed meanwhile, the next login logs
+  out first.
 - Only the owner starts a login in AgentPier. Agents do not start MCP logins.
 - Optional OAuth settings (scope) live in the server's advanced section.
 
@@ -107,7 +111,24 @@ returns stable error identifiers (DE/EN messages in the UI).
 
 ### Backups
 
-OAuth logins are not exported. Restored OAuth servers show "Login required".
+OpenClaw keeps the logins (tokens and the dynamic client registration) in
+`<state-dir>/state/openclaw.sqlite`, tables `mcp_oauth_stores` and
+`mcp_oauth_pending_authorizations`.
+
+- **Host backups** (Settings > Backups) leave both tables empty, with or without
+  credentials. The MCP server store is not part of host backups either, so a
+  restored instance has neither the servers nor their logins; a server created
+  again starts "Not connected". A restore also drops such rows from older
+  backups that still sealed them.
+- **Runtime update snapshots** stay on the host and seal the rows with the other
+  OpenClaw credentials (AES-256-GCM, per-snapshot key under
+  `assistants/backup-keys/`). A rollback keeps logins; AgentPier's server store is
+  outside the rollback.
+- **Logout** (owner action, and the logout before a rename, URL change, switch to
+  headers or delete of a server that was logged in) destroys every backup key
+  before OpenClaw forgets the login, as for other credentials. A rollback after it
+  withholds the login; the server shows "Login required", and a changed redirect
+  makes the next login log out first.
 
 ### Agents
 

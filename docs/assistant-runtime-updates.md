@@ -38,8 +38,9 @@ it that parses as JSON, such as `.bak*` and `.last-good` (Gateway, cron and plug
 tokens, provider API keys, headers and MCP server environments; a copy that does not
 parse is left out) and the Telegram bot tokens in
 `channels.sqlite`. Each backup has its own key under `assistants/backup-keys/`
-(0600), never inside the backup. Logging out of a model account, changing a provider
-connection, or rotating or disconnecting a Telegram bot destroys every backup key
+(0600), never inside the backup. Logging out of a model account or of an MCP server's
+OAuth login, changing a provider connection, or rotating or disconnecting a Telegram
+bot destroys every backup key
 before the change, once the change has been admitted (a change refused for active
 work or a running update keeps the keys). Keys are unlinked after a best-effort
 overwrite; the guarantee rests on unlinking and on keeping keys out of backups, not
@@ -59,7 +60,9 @@ record, the reminder webhook secret and the host-bound runtime state (`runtime.j
 with 409 while a runtime update or provider change is running; update or maintenance
 state left behind without one (a crash, a failed recovery, a dormant install) skips
 the agent data with a declared omission instead. Live databases are copied
-consistently first. Absolute paths below `assistants/` in `openclaw.json` (and its
+consistently first. MCP OAuth logins (`mcp_oauth_stores`,
+`mcp_oauth_pending_authorizations`) are always left out, like the MCP servers they
+belong to; a restore drops them from older backups too. Absolute paths below `assistants/` in `openclaw.json` (and its
 `.bak*` and `.last-good` copies, sealed like it) and in
 OpenClaw's legacy session index (`state/agents/*/sessions/sessions.json`) are stored
 relative to that folder and point at the restored location after a restore; a path

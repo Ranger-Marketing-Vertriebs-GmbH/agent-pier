@@ -90,6 +90,8 @@ export class McpOAuthLogins {
    * - `remoteUrl()`: the configured HTTPS remote origin, if any.
    * - `reapply()`: applies the store now (called while admitted).
    * - `onFreed()`: applies the store after a background drain freed a server.
+   * - `revokeBackups()`: destroys every backup key before a login is removed, so no
+   *   host backup or update rollback brings it back (backup-credentials.js).
    */
   constructor({
     cli,
@@ -100,6 +102,7 @@ export class McpOAuthLogins {
     remoteUrl = () => null,
     reapply = null,
     onFreed = null,
+    revokeBackups = () => {},
     now = Date.now,
     warn = console.warn,
   }) {
@@ -112,6 +115,7 @@ export class McpOAuthLogins {
       remoteUrl,
       reapply,
       onFreed,
+      revokeBackups,
       now,
       warn,
     });
@@ -230,6 +234,7 @@ export class McpOAuthLogins {
         .deferredLogouts()
         .find((t) => heldByLogout(definition, [t]));
       try {
+        this.revokeBackups();
         await this.serial(target.name, () => this.clearLogin(target));
       } catch {
         this.scheduleDrain();
@@ -360,6 +365,7 @@ export class McpOAuthLogins {
     if (definition.transport === "stdio" || definition.auth !== "oauth")
       throw failure(messages.oauthNotOAuth, "not-oauth", 409);
     this.dropPending(id);
+    this.revokeBackups();
     try {
       await this.serial(definition.name, () => this.clearLogin(definition));
     } catch (error) {
@@ -378,8 +384,11 @@ export class McpOAuthLogins {
    */
   async forget(id, before) {
     this.dropPending(id);
+    const memory = this.servers.oauthMemory(id);
     this.servers.rememberOAuth(id, { connected: false, loginRedirect: null });
     try {
+      // Only a server AgentPier logged in can hold a login worth revoking.
+      if (memory.everConnected || memory.loginRedirect) this.revokeBackups();
       await this.serial(before.name, () => this.clearLogin(before));
       return { deferred: false };
     } catch (error) {
@@ -404,6 +413,7 @@ export class McpOAuthLogins {
     let freed = false;
     for (const target of this.servers.deferredLogouts()) {
       try {
+        this.revokeBackups();
         await this.serial(target.name, () => this.clearLogin(target));
         const definitions = this.servers.definitions();
         this.servers.settleLogout(target);
