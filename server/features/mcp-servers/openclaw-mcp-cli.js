@@ -2,7 +2,7 @@
 // docs/mcp-oauth-qualification.md). The CLI needs the Gateway's HOME,
 // OPENCLAW_STATE_DIR and OPENCLAW_CONFIG_PATH (plus PATH), neither its token nor a
 // running Gateway. Nothing here logs; thrown messages are redacted.
-import { execFile as nodeExecFile } from "node:child_process";
+import { spawn as nodeSpawn } from "node:child_process";
 import { runtimeEnvironment } from "../assistants/runtime-config.js";
 import { namePattern } from "./command-resolution.js";
 
@@ -57,8 +57,13 @@ export function redact(text, secrets = []) {
 
 const known = [
   [/does not support dynamic client registration/i, "no-dynamic-registration"],
-  // OpenClaw's own test for a registration refused over the redirect URL.
-  [/invalid_client_metadata|redirect_uri/i, "redirect-rejected"],
+  // A registration or authorization refused over the redirect URL (OpenClaw's own
+  // test uses invalid_client_metadata). A bare "redirect_uri" in a printed URL or an
+  // unrelated message does not count.
+  [
+    /\binvalid_client_metadata\b|\binvalid_redirect_uri\b|\bredirect[_ ]ur[il]\b[^\n]{0,80}\b(?:invalid|not allowed|not registered|mismatch(?:ed)?|rejected)\b|\b(?:invalid|unregistered|mismatch(?:ed)?)\b[^\n]{0,40}\bredirect[_ ]ur[il]\b/i,
+    "redirect-rejected",
+  ],
   [/Missing MCP OAuth authorization session/i, "session-missing"],
   [/No MCP server named/i, "server-unknown"],
 ];
@@ -72,21 +77,14 @@ function reasonOf(stderr) {
   return reason.replace(/^(Error|Reason):\s*/i, "");
 }
 
-function failure(command, error, stderr, secrets) {
-  if (error.killed && error.signal && error.code !== "ERR_CHILD_PROCESS_STDIO_MAXBUFFER")
-    return new McpCliError("cli-timeout", `OpenClaw MCP ${command} timed out.`);
-  if (error.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER")
-    return new McpCliError(
-      "cli-failed",
-      `OpenClaw MCP ${command} printed too much output.`,
-    );
-  if (typeof error.code !== "number")
+function failure(command, exitCode, stderr, secrets) {
+  if (!Number.isInteger(exitCode))
     return new McpCliError("cli-failed", `OpenClaw MCP ${command} could not run.`);
   const code = known.find(([pattern]) => pattern.test(stderr))?.[1] || "cli-failed";
   const reason = redact(reasonOf(stderr), secrets).slice(0, reasonLength);
   return new McpCliError(
     code,
-    `OpenClaw MCP ${command} failed (exit ${error.code})${reason ? `: ${reason}` : "."}`,
+    `OpenClaw MCP ${command} failed (exit ${exitCode})${reason ? `: ${reason}` : "."}`,
   );
 }
 
@@ -187,7 +185,7 @@ export function createMcpCli({
   environment,
   timeoutMs = defaultTimeoutMs,
   maxOutputBytes = defaultMaxOutputBytes,
-  execFile = nodeExecFile,
+  spawn = nodeSpawn,
 }) {
   function run(command, args, secrets = []) {
     const current = resolve(runtime);
@@ -197,23 +195,55 @@ export function createMcpCli({
       );
     const env = { ...resolve(environment) };
     delete env.OPENCLAW_GATEWAY_TOKEN;
-    return new Promise((done, fail) => {
-      execFile(
-        current.nodePath,
-        [current.entryPath, "mcp", ...args],
-        {
-          env,
-          cwd: current.cwd,
-          timeout: timeoutMs,
-          killSignal: "SIGKILL",
-          maxBuffer: maxOutputBytes,
-          windowsHide: true,
-        },
-        (error, stdout, stderr) => {
-          if (error) fail(failure(command, error, stderr || "", secrets));
-          else done(String(stdout));
-        },
-      );
+    return new Promise((done, reject) => {
+      // Its own process group, so a timeout or an output flood also ends what the
+      // CLI spawned, and nothing outside that group. (execFile cannot detach.)
+      const child = spawn(current.nodePath, [current.entryPath, "mcp", ...args], {
+        env,
+        cwd: current.cwd,
+        detached: true,
+        stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
+      });
+      const output = { stdout: [], stderr: [], bytes: 0 };
+      let reason = null;
+      const stop = (why) => {
+        if (reason) return;
+        reason = why;
+        try {
+          process.kill(-child.pid, "SIGKILL");
+        } catch {
+          child.kill("SIGKILL");
+        }
+      };
+      const timer = setTimeout(() => stop("timeout"), timeoutMs);
+      for (const stream of ["stdout", "stderr"])
+        child[stream].on("data", (chunk) => {
+          output.bytes += chunk.length;
+          if (output.bytes > maxOutputBytes) return stop("flood");
+          output[stream].push(chunk);
+        });
+      const text = (stream) => Buffer.concat(output[stream]).toString("utf8");
+      child.once("error", () => {
+        clearTimeout(timer);
+        reject(new McpCliError("cli-failed", `OpenClaw MCP ${command} could not run.`));
+      });
+      child.once("close", (code) => {
+        clearTimeout(timer);
+        if (reason === "timeout")
+          return reject(
+            new McpCliError("cli-timeout", `OpenClaw MCP ${command} timed out.`),
+          );
+        if (reason === "flood")
+          return reject(
+            new McpCliError(
+              "cli-failed",
+              `OpenClaw MCP ${command} printed too much output.`,
+            ),
+          );
+        if (code === 0) return done(text("stdout"));
+        reject(failure(command, code, text("stderr"), secrets));
+      });
     });
   }
 

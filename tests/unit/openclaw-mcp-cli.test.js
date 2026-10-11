@@ -38,7 +38,7 @@ function setup(t, mode = "ok", options = {}) {
     }),
     ...options,
   });
-  return { cli, recorded: () => JSON.parse(fs.readFileSync(record, "utf8")) };
+  return { cli, record, recorded: () => JSON.parse(fs.readFileSync(record, "utf8")) };
 }
 
 const rejects = (promise, code) =>
@@ -102,6 +102,18 @@ test("a hanging CLI times out and only its own child is killed", async (t) => {
   assert.equal(alive(bystander.pid), true, "an unrelated process survives");
 });
 
+test("a timeout kills the CLI's whole process group", async (t) => {
+  const { cli, record, recorded } = setup(t, "hang-group", { timeoutMs: 1500 });
+  await rejects(cli.startLogin("docs"), "cli-timeout");
+  const grandchild = Number(fs.readFileSync(`${record}.child`, "utf8"));
+  t.after(() => alive(grandchild) && process.kill(grandchild, "SIGKILL"));
+  // The kill is asynchronous; give the kernel a moment to reap the group.
+  for (let i = 0; i < 50 && alive(grandchild); i++)
+    await new Promise((done) => setTimeout(done, 20));
+  assert.equal(alive(recorded().pid), false, "the CLI child was killed");
+  assert.equal(alive(grandchild), false, "its own child was killed with it");
+});
+
 test("output beyond the cap fails without hanging", async (t) => {
   const { cli } = setup(t, "flood", { maxOutputBytes: 4096 });
   await rejects(cli.status(), "cli-failed");
@@ -114,6 +126,8 @@ test("known OpenClaw failures map to stable codes", async (t) => {
     "fail-session": "session-missing",
     "fail-unknown": "server-unknown",
     "fail-generic": "cli-failed",
+    // A printed URL carrying redirect_uri is not a rejected redirect.
+    "fail-url": "cli-failed",
   };
   for (const [mode, code] of Object.entries(cases)) {
     const { cli } = setup(t, mode);

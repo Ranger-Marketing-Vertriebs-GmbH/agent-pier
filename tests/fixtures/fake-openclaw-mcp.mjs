@@ -1,7 +1,9 @@
 // A stand-in for `openclaw mcp login|status|logout` that prints the outputs recorded
-// in docs/mcp-oauth-qualification.md. FAKE_OPENCLAW_MODE picks the behaviour;
+// in docs/mcp-oauth-qualification.md. FAKE_OPENCLAW_MODE picks the behaviour
+// (FAKE_OPENCLAW_STATE overrides the printed login state);
 // FAKE_OPENCLAW_RECORD, when set, receives the argv, environment and pid as JSON.
 import fs from "node:fs";
+import { spawn } from "node:child_process";
 
 const [, , group, command, name, ...rest] = process.argv;
 const mode = process.env.FAKE_OPENCLAW_MODE || "ok";
@@ -11,7 +13,14 @@ if (process.env.FAKE_OPENCLAW_RECORD)
     JSON.stringify({ argv: process.argv.slice(2), env: process.env, pid: process.pid }),
   );
 
-const state = "3f2b8c1e-4d5a-4f6b-9c7d-8e9f0a1b2c3d";
+// FAKE_OPENCLAW_LOG, when set, gets one JSON line per call: the arguments after `mcp`.
+if (process.env.FAKE_OPENCLAW_LOG)
+  fs.appendFileSync(
+    process.env.FAKE_OPENCLAW_LOG,
+    `${JSON.stringify(process.argv.slice(3))}\n`,
+  );
+
+const state = process.env.FAKE_OPENCLAW_STATE || "3f2b8c1e-4d5a-4f6b-9c7d-8e9f0a1b2c3d";
 const url =
   "http://127.0.0.1:41234/authorize?response_type=code&client_id=client-1" +
   "&code_challenge=Zx9w8v7u6t5s4r3q2p1o0nMLKJIHGFEDCBA_abcdefg&code_challenge_method=S256" +
@@ -87,6 +96,17 @@ const row = (serverName, auth) => ({
 
 if (group !== "mcp") fail(`unexpected ${group}`);
 if (mode === "hang") setInterval(() => {}, 1000);
+else if (mode === "hang-group") {
+  // A grandchild in the CLI's process group, recorded next to the CLI's own pid.
+  const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+    stdio: "ignore",
+  });
+  fs.writeFileSync(`${process.env.FAKE_OPENCLAW_RECORD}.child`, String(child.pid));
+  setInterval(() => {}, 1000);
+} else if (mode === "fail-url")
+  fail(
+    "Error: request to http://127.0.0.1:41234/authorize?redirect_uri=x failed: ECONNREFUSED",
+  );
 else if (mode === "flood") out("x".repeat(1024 * 1024));
 else if (mode === "fail-generic")
   fail(`Error: something broke for ${rest.join(" ")} Bearer abc.def.ghi`);

@@ -29,6 +29,8 @@ import { AssistantProviderSynchronization } from "../features/assistants/assista
 import { WebToolsChanges } from "../features/assistants/web-tools-changes.js";
 import { McpChanges } from "../features/assistants/mcp-changes.js";
 import { oauthRedirect } from "../features/mcp-servers/oauth-redirect.js";
+import { McpOAuthLogins } from "../features/mcp-servers/mcp-oauth-logins.js";
+import { supervisorMcpCli } from "../features/mcp-servers/openclaw-mcp-cli.js";
 import {
   expectWiring,
   requireReferences,
@@ -183,11 +185,21 @@ export function constructAssistantGraph(host, created = {}) {
     webSearch: assistantWebSearch,
     synchronization: assistantProviderSynchronization,
   });
+  const assistantMcpOAuth = new McpOAuthLogins({
+    cli: supervisorMcpCli(assistantRuntime),
+    servers: assistantMcpServers,
+    runtime: assistantRuntime,
+    admit: (operation) => assistants.admit(operation),
+    // Read per call; assistantMcpChanges is constructed right below.
+    isCurrent: () => !assistantMcpChanges.pending,
+    remoteUrl: () => (host.effectiveConfig?.() || config).remoteUrl,
+  });
   const assistantMcpChanges = new McpChanges({
     assistants,
     servers: assistantMcpServers,
     // Read at each compile: the listener port is known only after listen.
     redirectUrl: () => oauthRedirect(host.effectiveConfig?.() || config),
+    oauth: assistantMcpOAuth,
   });
   Object.assign(scope, {
     assistantWorkflows,
@@ -195,6 +207,7 @@ export function constructAssistantGraph(host, created = {}) {
     assistantProviderSynchronization,
     assistantWebTools,
     assistantMcpChanges,
+    assistantMcpOAuth,
   });
   return {
     ...scope,
@@ -217,6 +230,7 @@ const graphMembers = [
   "assistantProviderSynchronization",
   "assistantWebTools",
   "assistantMcpChanges",
+  "assistantMcpOAuth",
   "store",
   "configuration",
   "bridge",

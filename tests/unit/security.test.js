@@ -283,3 +283,36 @@ test("local and Tailscale branches are unchanged by the network mode", () => {
     true,
   );
 });
+
+test("the provider's redirect to the MCP OAuth callback is a navigation on both hosts", () => {
+  // A redirect from the provider carries no activation; WebKit may omit everything.
+  const headers = {
+    "sec-fetch-site": "cross-site",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-dest": "document",
+  };
+  const url = "/api/mcp-servers/oauth/callback?code=c&state=s";
+  assert.equal(authorizeRequest({ ...request(headers), url }, config), true);
+  const remote = {
+    ...request({
+      ...headers,
+      host: "host.example.ts.net:8443",
+      "tailscale-user-login": "owner@example.com",
+    }),
+    url,
+  };
+  assert.equal(authorizeRequest(remote, config), true);
+  // Only a top-level GET document navigation, only that path, only the owner.
+  const denied = [
+    {
+      ...request({ ...headers, "sec-fetch-mode": "cors", "sec-fetch-dest": "empty" }),
+      url,
+    },
+    { ...request({ ...headers, "sec-fetch-dest": "iframe" }), url },
+    { ...request(headers, "POST"), url },
+    { ...request(headers), url: "/api/mcp-servers/oauth/callbackx?state=s" },
+    { ...request(headers), url: "/api/mcp-servers/x/oauth/login" },
+    { ...remote, headers: { ...remote.headers, "tailscale-user-login": "other@x.com" } },
+  ];
+  for (const req of denied) assert.throws(() => authorizeRequest(req, config), req.url);
+});
