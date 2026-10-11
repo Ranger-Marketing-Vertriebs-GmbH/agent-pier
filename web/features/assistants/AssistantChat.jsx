@@ -201,10 +201,6 @@ export default function AssistantChat({
               element.scrollHeight - element.scrollTop - element.clientHeight < 80;
           }}
         >
-          <Teams assistant={assistant} focusTeamId={focusTeamId} navigate={navigate} />
-          {!assistant.teamMemberId && (
-            <AssistantActionApprovals assistantId={assistant.id} />
-          )}
           <div role="log" aria-live="off" aria-label={copy.conversation}>
             {history.nextBefore && (
               <button className="button secondary" onClick={earlier}>
@@ -243,17 +239,23 @@ export default function AssistantChat({
               !latest.internal &&
               !history.messages.some(
                 (m) => m.role === "user" && m.text === latest.text,
-              ) && (
-                <article className="assistant-message user">
-                  <strong>{copy.you}</strong>
-                  <p>{latest.text}</p>
-                </article>
-              )}
+              ) && <AssistantMessage role="user" name={copy.you} text={latest.text} />}
             {delta && (
-              <AssistantMessage role="assistant" name={assistant.name} text={delta} />
+              <AssistantMessage
+                role="assistant"
+                name={assistant.name}
+                text={delta}
+                streaming={Boolean(active)}
+              />
             )}
             {latest?.attempt && (
-              <p role="status" className="assistant-note">
+              <p
+                role="status"
+                className={`assistant-note assistant-run-state${active && !uncertain ? " working" : ""}`}
+              >
+                {active && !uncertain && (
+                  <span className="assistant-run-dot" aria-hidden="true" />
+                )}
                 {copy.status[latest.attempt.state]}
               </p>
             )}
@@ -286,6 +288,10 @@ export default function AssistantChat({
               </div>
             )}
           </div>
+          <Teams assistant={assistant} focusTeamId={focusTeamId} navigate={navigate} />
+          {!assistant.teamMemberId && (
+            <AssistantActionApprovals assistantId={assistant.id} />
+          )}
         </div>
         <div
           className="assistant-announcer"
