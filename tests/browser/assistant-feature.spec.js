@@ -105,7 +105,7 @@ test("disabled agents make one request and render no assistant UI", async ({ pag
   expect(requests).toEqual(["GET /api/assistant-feature"]);
   await openMenu(page);
   await expect(agentsNav(page)).toHaveCount(0);
-  await expect(page.getByText("Agent chats")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Agent chats" })).toHaveCount(0);
   expect(await hasAssistantCss(page)).toBe(false);
   await page.goto(baseURL + "/settings/assistants");
   await expect(page.getByRole("switch", { name: "Enable agents" })).toBeVisible();
@@ -141,7 +141,7 @@ test("agent group stays hidden without agents", async ({ page }) => {
   await page.goto(baseURL + "/");
   await openMenu(page);
   await expect(agentsNav(page)).toBeVisible();
-  await expect(page.getByText("Agent chats")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Agent chats" })).toHaveCount(0);
 });
 
 test("team members are collapsed under their parent", async ({ page }) => {

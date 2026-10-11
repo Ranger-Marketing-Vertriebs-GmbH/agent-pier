@@ -1,4 +1,5 @@
 import "./assistants.css";
+import "./assistant-sidebar.css";
 import "./assistant-chat.css";
 import "./assistant-settings.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

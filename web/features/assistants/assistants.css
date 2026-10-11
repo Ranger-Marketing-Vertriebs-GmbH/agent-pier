@@ -367,22 +367,6 @@
 .assistant-operation-summary dl {
   gap: 18px;
 }
-.assistant-sidebar-item {
-  align-items: center;
-}
-.assistant-sidebar-item small {
-  display: block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.assistant-sidebar-item.selected {
-  background: var(--surface-accent);
-}
-.assistant-sidebar-item.selected strong {
-  color: var(--accent);
-}
 @media (max-width: 700px) {
   .assistant-chat {
     height: calc(100dvh - 62px);
@@ -441,16 +425,6 @@
   }
 }
 
-.assistant-sidebar-member {
-  margin-left: 18px;
-  width: calc(100% - 18px);
-  border-left: 2px solid var(--line);
-}
-.assistant-sidebar-member .assistant-avatar {
-  width: 26px;
-  height: 26px;
-  font-size: 12px;
-}
 .assistant-teams {
   display: grid;
   gap: 10px;
@@ -516,49 +490,8 @@
   overflow-wrap: anywhere;
 }
 
-.assistant-sidebar-item > span:last-child {
-  min-width: 0;
-}
-.assistant-sidebar-team {
-  min-width: 0;
-}
-.assistant-sidebar-assignment {
-  display: grid;
-  gap: 2px;
-  margin: 12px 8px 5px 20px;
-  color: var(--muted);
-  font-size: 11px;
-}
-.assistant-sidebar-assignment strong {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  font-weight: 500;
-}
-.assistant-sidebar-assignment small {
-  font-size: 10px;
-}
-.assistant-sidebar-item .assistant-sidebar-task {
-  margin-top: 3px;
-  color: var(--muted);
-}
 .assistant-member-provenance p {
   margin: 6px 0;
-}
-.assistant-chats-group {
-  display: flex;
-  flex-direction: column;
-  flex: 0 1 auto;
-}
-.assistant-chats-group > .sidebar-group-toggle {
-  flex-shrink: 0;
-}
-.assistant-chats-group > .sidebar-group-content:not([hidden]) {
-  min-height: 0;
-  max-height: 34dvh;
-  overflow-y: auto;
 }
 .assistant-personal-panel {
   margin-top: 1.5rem;
@@ -587,14 +520,4 @@
 }
 .assistant-capability-options input {
   width: auto;
-}
-.assistant-sidebar-toggle {
-  margin: 0 0 4px 36px;
-  padding: 2px 6px;
-  border: 0;
-  background: none;
-  color: var(--muted, inherit);
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
 }

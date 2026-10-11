@@ -6,6 +6,8 @@ import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import useAssistants from "./useAssistants.js";
 import { avatarGlyph } from "./avatar-glyph.js";
 import { connectionMissing } from "./connection-state.js";
+import Icon from "../../components/Icon.jsx";
+import { activityFor, activityDot, sidebarSubline } from "./assistant-status.js";
 export default function AssistantSidebar({ navigate, route }) {
   const {
     assistants,
@@ -14,6 +16,7 @@ export default function AssistantSidebar({ navigate, route }) {
     teams = [],
     models = [],
     runtime,
+    activity = {},
     refresh,
   } = useAssistants();
   const [opening, setOpening] = useState(null),
@@ -78,24 +81,31 @@ export default function AssistantSidebar({ navigate, route }) {
         !child.archivedAt,
     ),
   ]);
+  const quiet = (phase) =>
+    ["ready", "completed", "failed", "cancelled", "declined", "partial"].includes(phase);
   function item(assistant) {
     const member = members.find((m) => m.assistantId === assistant.id);
+    const nested = assistant.teamMemberId && assistant.lifetime === "task";
     const chat = conversations.find(
       (c) =>
         c.assistantId === assistant.id &&
         !c.archivedAt &&
         (!c.channel || c.channel === "agentpier"),
     );
-    const detail =
-      opening === assistant.id
-        ? copy.loading
-        : member
-          ? `${member.role} · ${copy.team.states[member.phase]}`
-          : assistant.model.modelId;
+    const entry = activityFor(activity, assistant.id);
+    const dot = activityDot(entry);
+    const subline = sidebarSubline({
+      assistant,
+      entry,
+      member,
+      model: assistant.model,
+      copy,
+    });
+    const current = route.assistantId === assistant.id && route.view === "agents";
     return (
       <button
         key={assistant.id}
-        className={`session-item assistant-sidebar-item ${assistant.teamMemberId && assistant.lifetime === "task" ? "assistant-sidebar-member" : ""} ${route.assistantId === assistant.id && route.view === "agents" ? "selected" : ""}`}
+        className={`session-item assistant-sidebar-item ${nested ? "assistant-sidebar-member" : ""} ${current ? "selected" : ""}`}
         aria-label={copy.sidebarLabel(
           assistant.name,
           member ? member.role : assistant.model.modelId,
@@ -106,28 +116,45 @@ export default function AssistantSidebar({ navigate, route }) {
               : copy.status[runtime.availability],
         )}
         aria-describedby={member ? `assistant-task-${assistant.id}` : undefined}
-        aria-current={
-          route.assistantId === assistant.id && route.view === "agents"
-            ? "page"
-            : undefined
-        }
+        aria-current={current ? "page" : undefined}
         disabled={!!opening && !chat && !member}
         onClick={() => open(assistant, chat)}
       >
-        <span className="assistant-avatar" aria-hidden="true">
-          {avatarGlyph(assistant.name)}
+        <span className="assistant-avatar-wrap" aria-hidden="true">
+          <span className="assistant-avatar">{avatarGlyph(assistant.name)}</span>
+          {dot && <span className={`activity-dot ${dot}`} />}
         </span>
         <span>
           <strong>{assistant.name}</strong>
-          <small>{detail}</small>
-          {member && (
-            <small
-              id={`assistant-task-${assistant.id}`}
-              className="assistant-sidebar-task"
-              title={member.assignment}
-            >
-              {member.assignment}
+          {opening === assistant.id ? (
+            <small>{copy.loading}</small>
+          ) : nested ? (
+            <small>
+              <span className={quiet(member?.phase) ? "" : "accent"}>{subline.text}</span>
+              {member && (
+                <>
+                  {" · "}
+                  <span id={`assistant-task-${assistant.id}`} title={member.assignment}>
+                    {member.assignment}
+                  </span>
+                </>
+              )}
             </small>
+          ) : (
+            <>
+              <small className={subline.tone === "accent" ? "accent" : ""}>
+                {member ? `${member.role} · ${subline.text}` : subline.text}
+              </small>
+              {member && (
+                <small
+                  id={`assistant-task-${assistant.id}`}
+                  className="assistant-sidebar-task"
+                  title={member.assignment}
+                >
+                  {member.assignment}
+                </small>
+              )}
+            </>
           )}
         </span>
       </button>
@@ -137,7 +164,8 @@ export default function AssistantSidebar({ navigate, route }) {
   return (
     <SidebarGroup
       name="assistant-chats"
-      label={copy.chats}
+      label={copy.agentsGroup}
+      ariaLabel={copy.chats}
       count={String(roots.length)}
       defaultOpen
       activeKey={route.assistantId}
@@ -156,22 +184,33 @@ export default function AssistantSidebar({ navigate, route }) {
           }
           const memberCount = [...groups.values()].reduce((n, c) => n + c.length, 0);
           const hidden = folded(parent);
+          const current = route.assistantId === parent.id && route.view === "agents";
           return (
             <React.Fragment key={parent.id}>
-              {item(parent)}
-              {memberCount > 0 && !selectedMember(parent) && (
-                <button
-                  className="assistant-sidebar-toggle"
-                  aria-expanded={!hidden}
-                  onClick={() => toggle(parent.id)}
-                >
-                  {hidden ? copy.showMembers(memberCount) : copy.hideMembers(memberCount)}
-                </button>
-              )}
+              <div className={`assistant-sidebar-row ${current ? "selected" : ""}`}>
+                {item(parent)}
+                {memberCount > 0 && (
+                  <button
+                    type="button"
+                    className="assistant-team-pill"
+                    aria-expanded={!hidden}
+                    aria-label={
+                      hidden
+                        ? copy.showMembers(memberCount)
+                        : copy.hideMembers(memberCount)
+                    }
+                    onClick={() => toggle(parent.id)}
+                  >
+                    <Icon name="users" size={12} />
+                    {memberCount}
+                  </button>
+                )}
+              </div>
               {!hidden &&
                 [...groups].reverse().map(([id, children]) => {
                   const team = teams.find((t) => t.id === id);
                   const label = team?.objective || copy.team.title;
+                  const state = team && (team.status || team.phase);
                   return (
                     <div
                       className="assistant-sidebar-team"
@@ -182,7 +221,9 @@ export default function AssistantSidebar({ navigate, route }) {
                       <div className="assistant-sidebar-assignment">
                         <strong title={label}>{label}</strong>
                         {team && (
-                          <small>{copy.team.states[team.status || team.phase]}</small>
+                          <small className={quiet(state) ? "" : "accent"}>
+                            {copy.team.states[state]}
+                          </small>
                         )}
                       </div>
                       {children.map(item)}
