@@ -1,5 +1,6 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { capabilityKeys } from "./native-capabilities.js";
 // The key travels with the error so agent tools can name a stable reason.
 export const assistantProblem = (key, status = 400) =>
   Object.assign(problem(serverMessages.assistants[key], status), { key });
@@ -38,12 +39,15 @@ export function validateDefinition(input, partial = false) {
     if (
       !c ||
       Array.isArray(c) ||
-      Object.keys(c).some((k) => !["memory", "reminders"].includes(k)) ||
+      Object.keys(c).some((k) => !capabilityKeys.includes(k)) ||
       typeof c.memory !== "boolean" ||
-      typeof c.reminders !== "boolean"
+      typeof c.reminders !== "boolean" ||
+      Object.values(c).some((v) => typeof v !== "boolean")
     )
       throw assistantProblem("invalid");
-    result.capabilities = { memory: c.memory, reminders: c.reminders };
+    result.capabilities = Object.fromEntries(
+      capabilityKeys.filter((k) => k in c).map((k) => [k, c[k]]),
+    );
   }
   if (!partial || "name" in input) result.name = textValue(input.name, 100).trim();
   if (!partial || "instructions" in input)
