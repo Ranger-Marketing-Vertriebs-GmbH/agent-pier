@@ -141,6 +141,8 @@ export class AssistantMaintenance {
     if (paths) ledgerFence(paths.root).open();
     this.s.assistants.maintenance = false;
     this.s.assistantChannels.resume();
+    // Events sent while in maintenance were not handled; resync them now.
+    this.s.assistants.gatewayEvents?.ready();
     this.s.assistants.reconcile().catch(() => {});
   }
   recoveryState() {

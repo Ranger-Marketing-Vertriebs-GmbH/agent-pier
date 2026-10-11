@@ -185,3 +185,48 @@ test("recovery blocks new dispatch until the owned process exits and preserves u
   assert.ok(service.ledger.getAttempt(attempt.id).reviewedAt);
   assert.equal(service.ledger.pending().length, 0);
 });
+
+test("a Gateway restart during maintenance moves event subscriptions to the new client", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-maintenance-rebind-"));
+  const store = new AssistantStore({ dataDir });
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const gatewayClient = () => {
+    const client = new EventEmitter();
+    client.ready = true;
+    client.subscribe = (f) => {
+      client.on("event", f);
+      return () => client.off("event", f);
+    };
+    client.call = async () => ({});
+    return client;
+  };
+  const runtime = new EventEmitter();
+  runtime.client = gatewayClient();
+  runtime.close = async () => {};
+  const service = new AssistantService({
+    store,
+    runtime,
+    models: { listCapabilities: () => [], resolve: () => ({ release() {} }) },
+    config: { apply: async () => {}, reset() {} },
+  });
+  t.after(() => service.close());
+  const seen = [];
+  service.gatewayEvents.on("exec.approval.requested", (p) => seen.push(p.id));
+  const old = runtime.client;
+  service.maintenance = true;
+  runtime.client = gatewayClient();
+  runtime.emit("status", { availability: "ready" });
+  service.maintenance = false;
+  old.emit("event", { event: "exec.approval.requested", payload: { id: "old" } });
+  runtime.client.emit("event", {
+    event: "exec.approval.requested",
+    payload: { id: "new" },
+  });
+  assert.deepEqual(seen, ["new"]);
+  assert.equal(
+    runtime.client.listenerCount("event"),
+    2,
+    "conversation and hub listeners",
+  );
+  assert.equal(old.listenerCount("event"), 0);
+});
