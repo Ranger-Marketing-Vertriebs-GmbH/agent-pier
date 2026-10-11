@@ -1,5 +1,7 @@
 // Paths AgentPier owns. A later capability step moves a path out of this list
-// together with its safety rule.
+// together with its safety rule. `tools`, `browser` and `plugins` also carry what
+// the agents' web capabilities need (openclaw-config/web-tools.js); that content
+// comes from the profiles and detected availability, never from overrides.
 export const lockedPaths = [
   "gateway",
   "update",

@@ -6,6 +6,8 @@ import { NativeReminders } from "../features/assistants/native-reminders.js";
 import { TeamBridge } from "../features/assistants/team-bridge.js";
 import { ChannelService } from "../features/assistant-channels/channel-service.js";
 import { WebSearchSettings } from "../features/assistants/web-search-settings.js";
+import { detectBrowser } from "../features/assistants/browser-detection.js";
+import { webToolsAvailability } from "../features/assistants/openclaw-config/web-tools.js";
 import { SpeechConnections } from "../features/speech/speech-connections.js";
 import { AssistantModelAccounts } from "../features/assistants/model-accounts.js";
 import { AssistantAccountLogin } from "../features/assistants/model-account-login.js";
@@ -71,7 +73,7 @@ export function constructAssistantGraph(host, created = {}) {
       workspaces: assistantRuntime.paths.workspaces,
     }),
     "configuration",
-    ["teamReady", "writeGuard", "hostCapacity", "nativeReady"],
+    ["teamReady", "writeGuard", "hostCapacity", "nativeReady", "webToolsAvailable"],
   );
   const assistants = (created.assistants = expectWiring(
     new AssistantService({
@@ -170,6 +172,7 @@ export function constructAssistantGraph(host, created = {}) {
 
 const graphMembers = [
   "assistantRuntime",
+  "assistantWebSearch",
   "assistants",
   "assistantTeams",
   "assistantReminders",
@@ -199,6 +202,7 @@ export function connectAssistantServices(graph) {
     assistantRoutines: routines,
     assistantWorkflows: workflows,
     assistantProviderSynchronization: synchronization,
+    assistantWebSearch: webSearch,
     store,
     configuration,
     bridge,
@@ -216,6 +220,7 @@ export function connectAssistantServices(graph) {
     writeGuard: () => bridge.guardLive(),
     hostCapacity: () => teams.store.settings().hostMaxConcurrent,
     nativeReady: () => !!reminders.webhook.server?.listening,
+    webToolsAvailable: () => webToolsAvailability(runtime.webTools),
   });
   wire(runtime, "assistantRuntime", {
     teamConfiguration: async (installed) => {
@@ -229,6 +234,12 @@ export function connectAssistantServices(graph) {
         hostMaxConcurrent: teams.store.settings().hostMaxConcurrent,
         native: await reminders.start(),
         profiles: store.listAssistants(),
+        webTools: {
+          search: webSearch.resolve(),
+          browser: detectBrowser(),
+          // A runtime installed before the plugins were bundled reports none.
+          searchPlugins: installed.searchPlugins || {},
+        },
       };
     },
     maintenance: () => assistants.maintenance,

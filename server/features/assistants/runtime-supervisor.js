@@ -159,11 +159,14 @@ export class RuntimeSupervisor extends EventEmitter {
       ? await this.teamConfiguration(runtime)
       : undefined;
     if (generation !== this.generation) return;
+    // What this start compiled; live applies grant web tools against the same state.
+    this.webTools = teams?.webTools;
     const tls = prepareGatewayTls(this.paths);
     const token = prepareRuntimeConfig(this.paths, port, teams, {
       maintenance: !!this.maintenance?.(),
       tls,
       overrides: this.configOverrides?.() || [],
+      webTools: teams?.webTools,
     });
     await this.beforeSpawn?.();
     if (generation !== this.generation) return;

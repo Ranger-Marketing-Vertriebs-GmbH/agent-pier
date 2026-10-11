@@ -33,6 +33,14 @@ export function personalCapabilities(assistant) {
     ]),
   );
 }
+/** The capabilities at least one eligible profile has switched on. */
+export function usedCapabilities(profiles = []) {
+  const used = new Set();
+  for (const profile of profiles)
+    for (const [key, on] of Object.entries(personalCapabilities(profile)))
+      if (on) used.add(key);
+  return used;
+}
 export function profileTools(
   assistant,
   teamsReady,
@@ -56,9 +64,8 @@ export function profileTools(
     ...(nativeReady && !assistant.archivedAt ? ["agentpier_workspace"] : []),
     ...(nativeReady
       ? Object.entries(capabilityTools).flatMap(([key, tools]) =>
-          capabilities[key] && !(key === "browser" && available.browser === false)
-            ? tools
-            : [],
+          // `available` withholds a tool whose browser or search provider is absent.
+          capabilities[key] && available[key] !== false ? tools : [],
         )
       : []),
   ];
