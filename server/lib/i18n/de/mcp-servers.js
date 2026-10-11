@@ -11,4 +11,8 @@ export const mcpServers = {
   invalidRequest: "Ungültige Anfrage für MCP-Server.",
   notFound: "MCP-Server nicht gefunden.",
   conflict: "Der MCP-Server wurde inzwischen geändert. Bitte neu laden.",
+  stdioConfirmationRequired:
+    "Ein stdio-Server führt einen Befehl mit deinen Rechten und ohne Sandbox aus. Bitte bestätigen.",
+  agentNotEligible:
+    "Diesem Agenten lassen sich keine MCP-Server zuordnen: Temporäre Teammitglieder erhalten sie über die Teamfreigabe, archivierte Agenten gar nicht.",
 };

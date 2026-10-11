@@ -24,6 +24,18 @@ CREATE TABLE IF NOT EXISTS bindings(
   PRIMARY KEY(server_id, target_kind, target_id));
 CREATE INDEX IF NOT EXISTS bindings_target ON bindings(target_kind, target_id);`;
 
+/**
+ * A URL as responses show it: origin and path only. The query string and fragment
+ * can carry tokens and stay in the store; the compiler alone reads the full URL.
+ */
+export function publicUrl(value) {
+  try {
+    const url = new URL(value);
+    return `${url.protocol}//${url.host}${url.pathname}`;
+  } catch {
+    return undefined;
+  }
+}
 const invalid = (message = messages.invalidRequest) => problem(message);
 const target = (kind, id) => {
   if (!targetKinds.includes(kind)) throw invalid(messages.invalidTarget);
@@ -97,7 +109,7 @@ export class McpServerStore {
       id: row.id,
       name: row.name,
       transport: row.transport,
-      ...(row.url ? { url: row.url } : {}),
+      ...(row.url ? { url: publicUrl(row.url) } : {}),
       ...(row.command ? { command: row.command, args: JSON.parse(row.args) } : {}),
       ...(row.cwd ? { cwd: row.cwd } : {}),
       headerNames: this.names(row.id, "header"),
@@ -219,6 +231,13 @@ export class McpServerStore {
       throw invalid(serverMessages.extensions.invalidEnvironmentOrHeadersObject);
   }
   insertOrUpdate(sql, fields, id, revision) {
+    // Names that differ only in case would confuse the owner and the agents' globs.
+    if (
+      this.db
+        .prepare("SELECT 1 FROM servers WHERE lower(name)=lower(?) AND id<>?")
+        .get(fields.name, id)
+    )
+      throw problem(messages.nameTaken, 409);
     try {
       return this.db
         .prepare(sql)

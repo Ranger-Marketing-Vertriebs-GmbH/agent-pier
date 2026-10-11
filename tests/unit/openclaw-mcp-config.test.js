@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
+import {
+  compileOpenClawConfig,
+  nativeTools,
+} from "../../server/features/assistants/runtime-config.js";
+import { webToolsSnapshot } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
 import {
   applyMcp,
@@ -313,4 +317,20 @@ test("a start and a live apply grant the same MCP tools and the readback holds",
   tools = [];
   await apply.apply(assistant.id);
   assert.ok(!allow().includes("docs__*"));
+});
+
+test("a live apply targets the global tools.allow and mcp block a start compiles", () => {
+  const reader = { ...personal, capabilities: { webFetch: true } };
+  const profiles = [reader, other];
+  const mcp = inputs({ a1: ["s-http"], a2: ["s-stdio"] });
+  const started = compile(profiles, mcp);
+  // What McpChanges.apply builds from the start's web tools snapshot.
+  const web = webToolsSnapshot({ profiles }).tools;
+  assert.ok(web.length, "the agent's web tools are part of the global list");
+  const live = applyMcp(
+    { tools: { allow: [...nativeTools, ...web] } },
+    mcpSections({ profiles, ...mcp }),
+  );
+  assert.deepEqual(live.tools.allow, started.tools.allow);
+  assert.deepEqual(live.mcp, started.mcp);
 });

@@ -177,7 +177,12 @@ export class RuntimeSupervisor extends EventEmitter {
       webToolsSnapshot({ profiles: teams.profiles, webTools: teams.webTools });
     // Likewise for MCP servers: names and globs only, never header or env values.
     this.mcp = null;
-    const mcp = teams?.native && teams.mcp && mcpStartSnapshot(teams);
+    // The same gate as the compiler's native branch, which alone writes MCP servers.
+    const mcp =
+      teams?.directory &&
+      teams?.connection &&
+      teams?.native &&
+      mcpStartSnapshot({ profiles: teams.profiles, mcp: teams.mcp || {} });
     const tls = prepareGatewayTls(this.paths);
     const token = prepareRuntimeConfig(this.paths, port, teams, {
       maintenance: !!this.maintenance?.(),

@@ -6,6 +6,7 @@ import { assistantCapabilityRoutes } from "./assistant-capabilities.js";
 import { assistantChannelRoutes } from "./assistant-channels.js";
 import { assistantWebSearchRoutes } from "./assistant-web-search.js";
 import { assistantAccountRoutes } from "./assistant-accounts.js";
+import { mcpServerRoutes, replyStdioConfirmation } from "./mcp-servers.js";
 import { Router } from "express";
 import path from "node:path";
 import { writePrivate } from "../../lib/storage.js";
@@ -17,7 +18,8 @@ import { ASSISTANT_STORAGE_UNSAFE } from "../../features/assistants/assistant-fe
 import { runtimeStatus } from "../../features/assistants/team-bridge.js";
 import { replyRestartRequired } from "./restart-required.js";
 
-const assistantPath = /^\/assistants?(?:[-/]|$)/;
+// MCP servers belong to the assistant graph: they exist while its services do.
+const assistantPath = /^\/(?:assistants?(?:[-/]|$)|mcp-servers(?:\/|$))/;
 const reply = (res, status, code, message) =>
   res.status(status).json({ code, error: message, ...messageIdentity(message) });
 /**
@@ -81,6 +83,7 @@ function activeAssistantRoutes(services) {
   router.use(assistantWebSearchRoutes(services));
   router.use(assistantTeamRoutes(services));
   router.use(assistantAccountRoutes(services));
+  router.use(mcpServerRoutes(services));
   router.get("/assistants", (_req, res) => res.json(assistants.list()));
   router.post("/assistants", async (req, res) => {
     const result = await assistants.create(req.body);
@@ -97,11 +100,13 @@ function activeAssistantRoutes(services) {
     const { revision, confirmRestart, ...patch } = req.body;
     let result;
     try {
-      // The owner confirms a Gateway restart for new global web tool sections.
+      // The owner confirms a Gateway restart for new global web tool sections;
+      // `confirmStdio` in the patch confirms binding a stdio MCP server.
       result = await assistants.update(req.params.id, patch, revision, {
         confirmed: confirmRestart === true,
       });
     } catch (error) {
+      if (replyStdioConfirmation(res, error)) return;
       return replyRestartRequired(res, error);
     }
     res.json(result);
