@@ -33,21 +33,22 @@ Sources of truth, in order: this spec (decisions and deviations), the `.dc.html`
 One branch (`feat/mobile-layout-redesign`) and one pull request, built in three steps
 (A sidebar, B chat, C settings). Each step ends with `npm run check` green and the
 affected browser specs passing in Chromium, so the branch is runnable after every step.
-Step B builds on A, step C on B. Anything step B introduces on the settings page
+Step A starts with the backend activity, then the sidebar. Step B builds on A, step C
+on B. Anything step B introduces on the settings page
 (header variant, scroll container, navigation escape) is complete within step B.
 
 ## Non-goals
 
-- No backend or API changes. All data (teams, members, actions, runtime, models) is
-  already available in the web client. Consequently the agent activity dot reflects
-  team and member state only (see Status model); a per-conversation "agent is working"
-  signal does not exist client-side and is not added.
+- Backend changes are limited to a derived per-agent activity in the assistant list
+  response (see Agent activity). No new storage and no schema migration.
 - No change to draft persistence, `canSend`, Enter-to-send, delivery acknowledgement,
   team decisions, stop/archive/restore semantics or route shapes (`web/app/routes.js`).
 - No visual regression framework. Fidelity is checked by comparing Playwright screenshots
   against the rendered design states during development.
 - No redesign of pages other than the shell, the agent chat and the agent settings.
   Other pages keep the 62 px `.mobile-header`.
+- No live-update protocol. The client keeps refetching the list on `change` events
+  (see Follow-up).
 
 ## Decisions and deviations from the handoff
 
@@ -140,41 +141,80 @@ Assistant selectors stay in assistant CSS files loaded by `AssistantsRoot.jsx`
 file stays below 600 lines; new browser coverage goes into new spec files where existing
 specs would exceed 600 lines (`assistant-teams.spec.js` is at 474).
 
-## Status model
+## Agent activity (backend)
 
-One helper module, `web/features/assistants/assistant-status.js` (new), feeds the sidebar
-row, the header status line and the activity dot.
+Today the client cannot tell whether an agent is working: conversations carry no
+request state. The server derives it from data it already stores.
 
-**Team phases** (read `team.phase`; the label uses `team.status || team.phase` as
-today):
+- **`RequestLedger.latestByConversation()`** (`request-ledger.js`): one SQL statement
+  returning, per conversation, the latest request joined to its latest attempt and
+  `attempt_reviews`. Uses the existing `UNIQUE(conversation_id, client_key)` and
+  `attempts_request` indexes; no per-conversation `attemptFor` loop.
+- **`AssistantActionStore.awaitingCounts(now)`** (`assistant-action-store.js`): awaiting
+  approval actions per `assistant_id`, split into own actions (`teamId` unset) and team
+  coding requests (`teamId` set, stored on the parent), excluding `expiresAt <= now`.
+- **`assistant-activity.js` (new, pure):**
+  `assistantActivity({assistants, conversations, latest, awaiting, teams, members})`
+  returns `{ [assistantId]: { state, reason, label, pendingApprovals, team } }`:
+  - `state`: `attention` > `waiting` > `working` > `idle` (first match wins):
+    - `attention`: latest attempt `uncertain` or `interrupted` and not reviewed
+      (`reason: "attempt"`), or the agent is a member in `uncertain` /
+      `provisioning_uncertain` (`reason: "member"`).
+    - `waiting`: `pendingApprovals > 0` (`reason: "approval"`).
+    - `working`: latest attempt `pending` / `accepted` / `running` and not reviewed
+      (`reason: "attempt"`); member phase `provisioning`, `admitting`, `running`,
+      `stopping` (`reason: "member"`) or `queued` (`reason: "queued"`); an own team in
+      an active phase (`reason: "team"`).
+    - otherwise `idle`. A `failed` last attempt does not produce a lasting state.
+  - `pendingApprovals` = own awaiting actions + team coding awaiting actions + own teams
+    in `awaiting_approval`.
+  - `team`: `awaiting` if any non-archived own team awaits approval, else `active` if any
+    is in an active phase (`approved`, `queued`, `provisioning`,
+    `provisioning_uncertain`, `ready`, `admitting`, `running`, `stopping`), else `null`.
+    Team labels keep using `team.status || team.phase`.
+  - `label`: the copy key the client renders (`status.running`, `team.states.<phase>`,
+    `teamActive.awaiting`, …), so server and client agree on wording without the server
+    holding translations.
+  - Archived assistants are skipped.
+- **`AssistantService.list()`** adds the top-level `activity` map. It is not merged into
+  assistant records, so settings forms can never write it back.
+- **Fix:** `markOutstandingUnknown()` on runtime `failed` also calls `changed()`, so the
+  client learns that attempts became uncertain.
+- `assistant-service.js` (404 lines) only wires the call; the logic lives in the new
+  module.
 
-- awaiting: `awaiting_approval`
-- active: `approved`, `queued`, `provisioning`, `provisioning_uncertain`, `ready`,
-  `admitting`, `running`, `stopping`
-- everything else (`partial`, `completed`, `failed`, `cancelled`, `declined`,
-  `uncertain`, archived teams): no team state
+### Client use
 
-An agent's team state is `awaiting` if any non-archived own team is awaiting, else
-`active` if any is active.
+- `AssistantsRoot.jsx` copies `activity` into the state; `useAssistants.js` defaults it
+  to `{}`. A missing entry means `idle`, so existing browser mocks of `/api/assistants`
+  keep working.
+- **`web/features/assistants/assistant-status.js` (new)** turns activity plus local
+  context into what the UI shows. Sidebar dot: `working` → `.activity-dot.working`,
+  `waiting` → `.waiting`, `attention` → `.unknown` (dashed); `idle` → no dot. Sidebar
+  subline: team state (`teamActive.*`) when `team` is set, the member phase for member
+  rows, otherwise the model ID.
+- **Header status precedence** (first match wins):
 
-**Header status precedence** (first match wins):
-
-| # | Condition | Label | Dot / label style |
+| # | Condition | Label | Style |
 |---|---|---|---|
 | 1 | `connectionMissing` | `status.connectionMissing` | accent label, no dot |
-| 2 | `runtime.availability !== "ready"` | `status[availability]` | `failed`/`stale`: attention (dashed dot, accent-text label); others: muted dot |
-| 3 | active attempt | `status[attempt.state]` | working (accent dot + ring, accent-text); `uncertain`/`interrupted`: attention |
-| 4 | member chat, member not terminal | `team.states[phase]` + „ · {role}“ | working; `awaiting_approval`: waiting |
-| 5 | team awaiting | `teamActive.awaiting` | waiting (ring dot, accent-text) |
-| 6 | team active | `teamActive.working` | working |
-| 7 | otherwise | `status.ready` | ready (success dot, success-muted label) |
+| 2 | `runtime.availability !== "ready"` | `status[availability]` | `failed`/`stale`: attention; others: muted dot |
+| 3 | active attempt in the loaded history (live, faster than the list) | `status[attempt.state]` | working; `uncertain`/`interrupted`: attention |
+| 4 | `activity.state !== "idle"` | `activity.label` | per state (working / waiting / attention) |
+| 5 | otherwise | `status.ready` | ready (success dot, success-muted label) |
 
-The model ID follows as „ · {modelId}“ in conversation variants (not in member chats,
-which show the role instead).
+  Conversation variants append „ · {modelId}“; member chats append „ · {role}“.
+- The approval strip count is `activity.pendingApprovals`; scroll targets are the
+  pending cards in the DOM (`data-pending`), so sidebar and chat agree.
 
-**Sidebar activity dot**: rows 4–6 map to the existing `.activity-dot.working` /
-`.waiting`; idle agents show no dot. The subline shows the team state (rows 5–6) or the
-model ID.
+### Tests (activity)
+
+- Unit: `assistantActivity` precedence and every reason, archived and member cases,
+  `failed` stays idle; `awaitingCounts` split and expiry.
+- Integration: `latestByConversation` against a real ledger (multiple requests and
+  attempts, reviews); `list().activity` is `working` while a request is accepted and
+  `idle` after completion; runtime failure emits `change` and yields `attention`.
+- Browser: sidebar dot and subline follow mocked activity; header status precedence.
 
 ## Step A: sidebar and Menü (1a, 2f)
 
@@ -221,7 +261,7 @@ model ID.
     „Agenten“.
   - DOM per root: `div.assistant-sidebar-row` containing the row `button.session-item.
     assistant-sidebar-item` and, as a sibling (never nested), the team pill button.
-  - Row: 30 px avatar (radius 9) with the status dot, name, subline per Status model.
+  - Row: 30 px avatar (radius 9) with the status dot, name, subline per Agent activity (client use).
   - Pill: `aria-expanded`, accessible name `showMembers(n)` / `hideMembers(n)`, visible
     users icon + count; toggles the existing `expanded` set. While a member of that agent
     is selected the block is forced open as today and the pill shows the open state.
@@ -275,7 +315,7 @@ model ID.
 
 - **Conversation variant**: menu button (≤700 px only; `aria-label` =
   `mobileHeaderCopy.iconButtonAriaLabel` „Navigation öffnen“, `aria-expanded`, calls
-  `openNavigation`), avatar, name, status line (Status model), settings control:
+  `openNavigation`), avatar, name, status line (header status precedence), settings control:
   gear icon button on mobile, secondary button „Einstellungen“ with a 16 px gear on
   desktop; both keep the accessible name `assistantCopy.settings`.
 - **Settings variant**: menu button (≤700 px, as above), back button
@@ -303,9 +343,11 @@ model ID.
   `decide` from `AssistantActionApprovals`. `AssistantChat` calls it and
   `useTeamCodingRequests` once each and passes the results down to the strip, the action
   cards and `AssistantTeams`; no component fetches twice.
-- Count = pending own actions + own teams in `awaiting_approval` + team coding actions in
-  `awaiting_approval`. Shown only when > 0, directly under the bar.
-- „Anzeigen ›“ scrolls the transcript to the first pending card using `scrollTop`. The
+- Count = `activity[assistant.id].pendingApprovals` (own actions + team coding actions +
+  own teams awaiting approval, computed server-side). Shown only when > 0, directly under
+  the bar. Not shown in member chats (their approvals land on the parent).
+- „Anzeigen ›“ scrolls the transcript to the first card marked `data-pending` using
+  `scrollTop`. If no card is rendered yet (hooks still loading), the button is disabled. The
   team deep-link scroll in `AssistantTeams.jsx` switches from `scrollIntoView` to the same
   `scrollTop` helper.
 - `section aria-label={pendingApprovals}` and the existing region names of action and
@@ -477,6 +519,8 @@ New German strings respect `tests/unit/i18n-terminology.test.js`.
 
 ## Documentation
 
+- `docs/assistant-gateway.md`: add an „Agent activity“ layer to the status model table
+  (derivation, precedence, `pendingApprovals`).
 - `docs/assistant-gateway.md` (composer checkbox description, around line 498) is
   updated to the „+“ options and chip.
 - Refresh `docs/screenshots/agentpier-sidebar-desktop.png` and
@@ -489,6 +533,13 @@ New German strings respect `tests/unit/i18n-terminology.test.js`.
 - Fidelity: Playwright screenshots at 390×844 and 1440×900 with fixture data, compared
   side by side with the rendered handoff states 1a, 1d, 2a–2f; also exercised in English
   and at 320×640.
+
+## Follow-up (not in this PR)
+
+Replace full-list refetching with live updates: `change` events carry the changed
+entities (or the activity delta), and the 1 s team and workflow ticks
+(`team-scheduler.js`, `assistant-workflows.js`) only emit when something changed. The
+activity map is shaped so it can be pushed unchanged.
 
 ## Cleanup
 
