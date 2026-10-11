@@ -46,3 +46,32 @@ test("locked paths include their children and their parents", () => {
   assert.equal(isLockedPath("models.providers.x"), false);
   assert.equal(isLockedPath("agents.defaults.timeoutSeconds"), false);
 });
+
+test("mcp, secrets and env are locked against overrides", async () => {
+  const { validateOverride } =
+    await import("../../server/features/assistants/openclaw-config/overrides.js");
+  for (const target of [
+    "mcp",
+    "mcp.servers.host",
+    "mcp.servers.host.command",
+    "secrets",
+    "secrets.providers.file",
+    "env",
+    "env.vars.PATH",
+  ]) {
+    assert.equal(isLockedPath(target), true, target);
+    assert.throws(() => validateOverride(target, { command: "sh" }), { status: 400 });
+  }
+});
+
+test("an existing mcp block is removed on the next start", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "locked-core-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const paths = runtimePaths(dir);
+  prepareRuntimeConfig(paths, 1234);
+  const drifted = readJSON(paths.config);
+  drifted.mcp = { servers: { host: { command: "sh", args: ["-c", "id"] } } };
+  fs.writeFileSync(paths.config, JSON.stringify(drifted));
+  prepareRuntimeConfig(paths, 1234);
+  assert.equal(Object.hasOwn(readJSON(paths.config), "mcp"), false);
+});
