@@ -6,6 +6,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { assertWired } from "./service-wiring.js";
 import { assistantBootstrap } from "./assistant-bootstrap.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
+import { patchConfig } from "./openclaw-config/live-patch.js";
 // Bootstrap files the Gateway exposes besides AGENTS.md. AgentPier never creates
 // them (skipBootstrap), so any content is foreign and is neutralized. USER.md is
 // the owner's preference note and stays under owner control.
@@ -100,15 +101,10 @@ export class AssistantConfig {
           status: "applied",
         };
       }
-      if (lease.provider) {
-        const previous = await this.client.call("config.get", {});
-        await this.client.call("config.patch", {
-          baseHash: previous.hash,
-          raw: JSON.stringify({
-            models: { providers: { [lease.providerId]: lease.provider } },
-          }),
-        });
-      }
+      if (lease.provider)
+        await patchConfig(this.client, () => ({
+          patch: { models: { providers: { [lease.providerId]: lease.provider } } },
+        }));
       const agents = await this.client.call("agents.list", {});
       if (!agents.agents?.some((a) => a.id === assistant.runtimeAgentId)) {
         const created = await this.client.call("agents.create", {
@@ -141,20 +137,21 @@ export class AssistantConfig {
         model: lease.modelRef,
       });
       if (this.teamReady || this.nativeReady || lease.agentRuntime) {
-        const previous = await this.client.call("config.get", {});
-        const agents = previous.config.agents;
-        const arrayKey = Array.isArray(agents.entries) ? "entries" : "list";
-        const configure = (entry = {}) =>
-          agentEntry(entry, assistant, {
-            teamsReady: !!this.teamReady?.(),
-            nativeReady,
-            guardProven: !!this.writeGuard?.(),
-            agentRuntime: lease.agentRuntime,
-            toolsManaged: !!(this.teamReady || this.nativeReady),
-            memoryManaged: !!this.nativeReady,
-          });
-        const patch =
-          agents.entries && !Array.isArray(agents.entries)
+        await patchConfig(this.client, (config) => {
+          const agents = config.agents;
+          const arrayKey = Array.isArray(agents.entries) ? "entries" : "list";
+          // Live writes keep the managed paths even before the Gateway reports readiness.
+          const configure = (entry = {}) =>
+            agentEntry(entry, assistant, {
+              teamsReady: !!this.teamReady?.(),
+              nativeReady,
+              guardProven: !!this.writeGuard?.(),
+              agentRuntime: lease.agentRuntime,
+              toolsManaged: !!(this.teamReady || this.nativeReady),
+              memoryManaged: !!this.nativeReady,
+            });
+          const keyed = agents.entries && !Array.isArray(agents.entries);
+          const patch = keyed
             ? {
                 entries: {
                   [assistant.runtimeAgentId]: configure(
@@ -167,15 +164,14 @@ export class AssistantConfig {
                   a.id === assistant.runtimeAgentId ? configure(a) : a,
                 ),
               };
-        if (this.hostCapacity)
-          patch.defaults = { maxConcurrent: this.hostCapacity() + 8 };
-        await this.client.call("config.patch", {
-          baseHash: previous.hash,
-          raw: JSON.stringify({ agents: patch }),
-          replacePaths:
-            agents.entries && !Array.isArray(agents.entries)
+          if (this.hostCapacity)
+            patch.defaults = { maxConcurrent: this.hostCapacity() + 8 };
+          return {
+            patch: { agents: patch },
+            replacePaths: keyed
               ? [`agents.entries.${assistant.runtimeAgentId}.tools.allow`]
               : [`agents.${arrayKey}`],
+          };
         });
       }
       const file = await this.client.call("agents.files.get", {

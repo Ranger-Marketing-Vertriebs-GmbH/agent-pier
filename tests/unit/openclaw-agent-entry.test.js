@@ -55,3 +55,36 @@ test("a wired but not yet ready Gateway still resets tools and memory", () => {
     search: { enabled: false, rememberAcrossConversations: false },
   });
 });
+
+test("a start and a live apply yield the same entry for the same runtime state", async (t) => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const { runtimePaths } =
+    await import("../../server/features/assistants/runtime-paths.js");
+  const { prepareRuntimeConfig } =
+    await import("../../server/features/assistants/runtime-config.js");
+  const { readJSON } = await import("../../server/lib/storage.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "equivalence-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const paths = runtimePaths(dir);
+  prepareRuntimeConfig(paths, 1234);
+  const seeded = readJSON(paths.config);
+  seeded.agents.entries = { "ap-a1": { id: "ap-a1" } };
+  fs.writeFileSync(paths.config, JSON.stringify(seeded));
+  prepareRuntimeConfig(paths, 1234, {
+    directory: "/p",
+    connection: { url: "http://127.0.0.1:1", token: "t" },
+    hostMaxConcurrent: 1,
+    native: { token: "n" },
+    profiles: [assistant],
+  });
+  const started = readJSON(paths.config).agents.entries["ap-a1"];
+  const live = agentEntry({ id: "ap-a1" }, assistant, {
+    teamsReady: true,
+    nativeReady: true,
+    guardProven: false,
+  });
+  assert.deepEqual(started.tools, live.tools);
+  assert.deepEqual(started.memory, live.memory);
+});
