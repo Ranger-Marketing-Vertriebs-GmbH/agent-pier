@@ -85,6 +85,10 @@ export const mcpOAuthCopy = {
       "Der Abschluss der Anmeldung ist fehlgeschlagen. Bitte erneut versuchen.",
     unavailable:
       "AgentPier konnte die Anmeldung gerade nicht abschließen, zum Beispiel während einer Sicherung oder Wiederherstellung. Starte die Anmeldung erneut.",
+    "state-invalid":
+      "Diese Anmeldung ist abgelaufen, wurde schon verwendet oder ersetzt, zum Beispiel durch eine neuere Anmeldung oder einen Neustart von AgentPier. Starte die Anmeldung erneut.",
+    "plain-http-remote":
+      "OAuth-Anmeldungen brauchen HTTPS oder den AgentPier-Rechner selbst. Öffne AgentPier über Tailscale (HTTPS) oder direkt auf dem AgentPier-Rechner.",
     unknown: "Die Anmeldung ließ sich nicht abschließen. Bitte erneut versuchen.",
   },
   agentLoginHint: "Melde OAuth-Server unter Accounts › MCP-Server an.",

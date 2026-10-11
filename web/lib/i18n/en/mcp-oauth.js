@@ -77,6 +77,10 @@ export const mcpOAuthCopy = {
     "cli-failed": "Completing the login failed. Please try again.",
     unavailable:
       "AgentPier could not complete the login right now, for example during a backup or restore. Start the login again.",
+    "state-invalid":
+      "This login has expired, was already used or was replaced, for example by a newer login or a restart of AgentPier. Start the login again.",
+    "plain-http-remote":
+      "OAuth logins need HTTPS or the AgentPier host itself. Open AgentPier through Tailscale (HTTPS) or directly on the AgentPier host.",
     unknown: "The login could not be completed. Please try again.",
   },
   agentLoginHint: "Log in to OAuth servers under Accounts › MCP servers.",

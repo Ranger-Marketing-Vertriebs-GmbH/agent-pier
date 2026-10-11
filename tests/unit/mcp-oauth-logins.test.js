@@ -270,10 +270,15 @@ test("the list carries each OAuth server's status from a briefly cached status c
   });
   assert.equal((await list())[0].oauthStatus, "not-connected");
   assert.equal(f.cli.calls.filter(([m]) => m === "status").length, 4);
-  // Without a compiled OAuth server nothing is asked; a failing CLI reads "unknown".
+  // Without a compiled Gateway (starting, or a failed start) nothing is asked and
+  // nothing is known; a failing CLI reads "unknown" too.
   f.advance(60000);
   f.cli.calls.length = 0;
   f.runtime.mcp = null;
+  assert.equal((await list())[0].oauthStatus, "unknown");
+  assert.deepEqual(f.cli.calls, []);
+  // A Gateway that compiled no OAuth server asks nothing either.
+  f.runtime.mcp = { servers: [], serverSignatures: {} };
   assert.equal((await list())[0].oauthStatus, "not-connected");
   assert.deepEqual(f.cli.calls, []);
   const failing = setup(t, { status: new McpCliError("cli-timeout", "x") });

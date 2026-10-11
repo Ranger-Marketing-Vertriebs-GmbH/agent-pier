@@ -264,3 +264,62 @@ test("a login start and a rename are serialized by the admission lock", async (t
     ],
   );
 });
+
+test("an edit rejected for its headers or environment never logs out", async (t) => {
+  const f = setup(t);
+  for (const change of [
+    { auth: "headers", headers: { "bad name": "x" } },
+    { auth: "headers", headers: { Authorization: "a\nb" } },
+    { env: { TOKEN: "x" } },
+    { name: "renamed", headers: { Authorization: "Bearer t" } },
+    {
+      auth: "headers",
+      headers: Object.fromEntries(Array.from({ length: 101 }, (_, i) => [`H${i}`, "v"])),
+    },
+  ])
+    await assert.rejects(f.changes.update(f.docs.id, { revision: 1, ...change }), {
+      status: 400,
+    });
+  assert.deepEqual(f.cli.calls, []);
+  assert.equal(f.servers.get(f.docs.id).revision, 1);
+});
+
+test("a drain skips an entry a login cleared in the meantime", async (t) => {
+  let release;
+  const gate = new Promise((done) => (release = done));
+  const f = setup(t, {
+    logout: async (name) => {
+      if (name === "aaa") await gate;
+    },
+  });
+  // Two deferred logouts; the drain snapshot holds both, and waits on the first.
+  f.servers.deferLogout({ name: "aaa", url: "https://a.example/", transport: "http" });
+  f.servers.deferLogout({ name: "docs", url: v1, transport: "http" });
+  f.compile();
+  const draining = f.oauth.drain();
+  // Meanwhile the owner logs in to docs: its entry is cleared first, then a login.
+  await f.oauth.start(f.docs.id, { requestOrigin: local });
+  await f.oauth.complete({ state: "state-1", code: "c" });
+  release();
+  await draining;
+  const docsLogouts = f.logouts().filter(([, name]) => name === "docs");
+  assert.equal(docsLogouts.length, 1, "only the login start's own clearing");
+  // Nothing logged out after the fresh login completed.
+  assert.equal(f.cli.calls.at(-1)[0], "completeLogin");
+  assert.equal(f.servers.oauthMemory(f.docs.id).everConnected, true);
+});
+
+test("a rename queued behind --code leaves the server not ever connected", async (t) => {
+  let release;
+  const gate = new Promise((done) => (release = done));
+  const f = setup(t, { completeLogin: () => gate });
+  await f.oauth.start(f.docs.id, { requestOrigin: local });
+  const completing = f.oauth.complete({ state: "state-1", code: "c" });
+  await new Promise((done) => setImmediate(done));
+  const renaming = f.changes.update(f.docs.id, { revision: 1, name: "renamed" });
+  await new Promise((done) => setImmediate(done));
+  release();
+  await Promise.all([completing, renaming]);
+  assert.equal(f.servers.get(f.docs.id).name, "renamed");
+  assert.equal(f.servers.oauthMemory(f.docs.id).everConnected, false);
+});

@@ -13,13 +13,16 @@ import {
 import { readRoute, routePath } from "../../web/app/routes.js";
 
 // Every reason the callback can carry: provider errors, the CLI's codes, and the
-// callback's own ("provider-error", "code-missing", "unavailable").
+// callback's own ("provider-error", "code-missing", "unavailable", "state-invalid",
+// "plain-http-remote").
 const reasons = [
   ...providerErrors,
   ...mcpCliErrorCodes,
   "provider-error",
   "code-missing",
   "unavailable",
+  "state-invalid",
+  "plain-http-remote",
 ];
 
 test("every callback reason has German and English text", () => {
@@ -59,6 +62,12 @@ test("result text names the server, the reason and the redirect in use", () => {
         "https://host.example",
       ),
       /docs failed\. .*https:\/\/host\.example\/api\/mcp-servers\/oauth\/callback/,
+    );
+    // An expired, used or replaced state names no server.
+    const stale = readMcpOAuthResult("?oauth=error&reason=state-invalid").mcpOAuth;
+    assert.match(
+      oauthResultText(stale, servers, ""),
+      /^The OAuth login failed\. This login has expired, was already used or was replaced/,
     );
     assert.match(
       oauthResultText({ result: "error", reason: "constructor" }, [], ""),

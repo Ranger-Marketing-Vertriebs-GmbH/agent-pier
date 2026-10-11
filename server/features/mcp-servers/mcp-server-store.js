@@ -253,6 +253,35 @@ export class McpServerStore {
       ...cleanAuth(input),
     };
   }
+  /**
+   * The checks writeSecrets applies, without writing: an update that would fail on
+   * its headers or environment fails here, before anything else happens (such as
+   * an OAuth logout).
+   */
+  checkSecrets(id, input, transport, auth = "headers") {
+    const stdio = transport === "stdio";
+    if (!stdio && auth === "oauth") {
+      if (
+        input.env !== undefined ||
+        (input.headers !== undefined &&
+          !(record(input.headers) && !Object.keys(input.headers).length))
+      )
+        throw invalid();
+      return;
+    }
+    if ((stdio && input.headers !== undefined) || (!stdio && input.env !== undefined))
+      throw invalid();
+    const kind = stdio ? "env" : "header";
+    const { set, drop } = splitMap(stdio ? input.env : input.headers, !stdio);
+    const rows = this.db
+      .prepare("SELECT kind,name FROM server_secrets WHERE server_id=?")
+      .all(id);
+    const names = new Set(rows.filter((r) => r.kind === kind).map((r) => r.name));
+    for (const key of drop) names.delete(key);
+    for (const key of Object.keys(set)) names.add(key);
+    if (rows.filter((r) => r.kind !== kind).length + names.size > 100)
+      throw invalid(serverMessages.extensions.invalidEnvironmentOrHeadersObject);
+  }
   writeSecrets(id, input, transport, replace, auth = "headers") {
     const stdio = transport === "stdio";
     if (!stdio && auth === "oauth") {
@@ -365,6 +394,7 @@ export class McpServerStore {
     const { revision, ...patch } = input;
     const row = this.row(id);
     const fields = this.patched(row, revision, patch);
+    this.checkSecrets(id, patch, fields.transport, fields.auth);
     const pick = (value) => ({
       name: value.name,
       url: value.url,

@@ -384,8 +384,11 @@ test(
     docsServer.state.expiresIn = 3600;
     // The state is single use.
     const replayed = await fetch(callback, { redirect: "manual" });
-    assert.equal(replayed.status, 400);
-    assert.equal((await replayed.json()).code, "state-invalid");
+    assert.equal(replayed.status, 303);
+    assert.equal(
+      replayed.headers.get("location"),
+      "/accounts?oauth=error&reason=state-invalid",
+    );
     const connected = await listed("docs");
     assert.equal(connected.oauthStatus, "connected");
     assert.ok(Number.isFinite(connected.oauthExpiresAt));

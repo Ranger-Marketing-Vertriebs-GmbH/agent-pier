@@ -109,6 +109,8 @@ async function setup(t, extra = {}) {
   return { f, env, server, calls, start, local, remote, compiled };
 }
 
+const invalidState = "/accounts?oauth=error&reason=state-invalid";
+
 const codes = (calls) => calls.filter((args) => args.some((a) => a.startsWith("--code")));
 
 test("an OAuth login completes through the callback by its state alone", async (t) => {
@@ -129,11 +131,12 @@ test("an OAuth login completes through the callback by its state alone", async (
   assert.equal(new URL(body.authorizationUrl).searchParams.get("state"), stateA);
   assert.deepEqual(calls(), [["login", "docs"]]);
 
-  // Wrong or missing state: 400 without a session and without running --code.
+  // Wrong or missing state: back to Accounts with a stable reason, no session
+  // needed, and no --code run.
   for (const query of [{ state: "wrong", code: "c" }, { code: "c" }, {}]) {
     const refused = await local(query);
-    assert.equal(refused.status, 400);
-    assert.equal(JSON.parse(refused.body).code, "state-invalid");
+    assert.equal(refused.status, 303);
+    assert.equal(refused.headers.location, invalidState);
   }
   assert.deepEqual(codes(calls()), []);
 
@@ -144,12 +147,18 @@ test("an OAuth login completes through the callback by its state alone", async (
   assert.ok(!done.body.includes("code-1"));
   assert.deepEqual(codes(calls()), [["login", "docs", "--code=code-1"]]);
   // Single use.
-  assert.equal((await remote({ code: "code-1", state: stateA })).status, 400);
+  assert.equal(
+    (await remote({ code: "code-1", state: stateA })).headers.location,
+    invalidState,
+  );
 
   // A second start replaces the first; the callback also works on 127.0.0.1.
   await start(stateA);
   await start(stateB);
-  assert.equal((await local({ code: "code-2", state: stateA })).status, 400);
+  assert.equal(
+    (await local({ code: "code-2", state: stateA })).headers.location,
+    invalidState,
+  );
   const second = await local({ code: "code-3", state: stateB });
   assert.equal(second.status, 303);
   assert.match(second.headers.location, /oauth=connected/);
@@ -338,6 +347,25 @@ test("the callback refuses the plain network host", async (t) => {
     ...navigation,
     host: `agentpier.home.arpa:${port}`,
   });
-  assert.equal(refused.status, 403);
-  assert.equal(JSON.parse(refused.body).code, "plain-http-remote");
+  assert.equal(refused.status, 303);
+  assert.equal(
+    refused.headers.location,
+    "/accounts?oauth=error&reason=plain-http-remote",
+  );
+});
+
+test("a callback after an AgentPier restart reports an invalid state", async (t) => {
+  const { f, calls, start } = await setup(t);
+  const state = "dddddddd-1111-4111-8111-111111111111";
+  assert.equal((await start(state)).status, 200);
+  // Pending logins live in memory only.
+  await f.restart();
+  const after = await raw(
+    f.url,
+    `/api/mcp-servers/oauth/callback?${new URLSearchParams({ state, code: "c" })}`,
+    navigation,
+  );
+  assert.equal(after.status, 303);
+  assert.equal(after.headers.location, invalidState);
+  assert.deepEqual(codes(calls()), []);
 });

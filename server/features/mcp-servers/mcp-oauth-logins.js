@@ -337,7 +337,15 @@ export class McpOAuthLogins {
     } finally {
       this.invalidate();
     }
-    this.servers.rememberOAuth(serverId, { connected: true });
+    // A rename or delete queued behind the CLI call logged this login out again.
+    let still = null;
+    try {
+      still = this.servers.get(serverId);
+    } catch {
+      still = null;
+    }
+    if (still?.name === login.name && still.auth === "oauth")
+      this.servers.rememberOAuth(serverId, { connected: true });
     await this.resetBackoff();
     return { serverId, result: "connected" };
   }
@@ -395,7 +403,6 @@ export class McpOAuthLogins {
    */
   async forget(id, before) {
     this.dropPending(id);
-    this.servers.rememberOAuth(id, { connected: false, loginRedirect: null });
     try {
       await this.serial(before.name, () => this.clearLogin(before));
       return { deferred: false };
@@ -407,6 +414,8 @@ export class McpOAuthLogins {
       this.scheduleDrain(firstDrainMs);
       return { deferred: true };
     } finally {
+      // After the CLI call: a --code queued before it may just have recorded a login.
+      this.servers.rememberOAuth(id, { connected: false, loginRedirect: null });
       this.invalidate();
     }
   }
@@ -421,7 +430,15 @@ export class McpOAuthLogins {
     let freed = false;
     for (const target of this.servers.deferredLogouts()) {
       try {
-        await this.serial(target.name, () => this.clearLogin(target));
+        // Re-checked in turn: a login start may have cleared this entry and logged
+        // in afterwards; logging out then would wipe that fresh login.
+        const cleared = await this.serial(target.name, async () => {
+          if (!heldByLogout({ ...target, auth: "oauth" }, this.servers.deferredLogouts()))
+            return false;
+          await this.clearLogin(target);
+          return true;
+        });
+        if (!cleared) continue;
         const definitions = this.servers.definitions();
         this.servers.settleLogout(target);
         if (definitions.some((d) => heldByLogout(d, [target]))) freed = true;
@@ -514,7 +531,8 @@ export class McpOAuthLogins {
     if (!oauth.length) return list;
     let statuses = null;
     try {
-      statuses = await this.statuses(oauth.map((s) => s.name));
+      // Without a compiled Gateway (starting, or a failed start) nothing is known.
+      if (this.runtime?.mcp) statuses = await this.statuses(oauth.map((s) => s.name));
     } catch {
       statuses = null;
     }
