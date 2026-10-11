@@ -382,12 +382,6 @@
 .host-status > svg {
   color: #8c8d91;
 }
-.sidebar-caption {
-  font-size: 8px;
-  letter-spacing: 1.5px;
-  color: #68696d;
-  margin-top: 24px;
-}
 .remote-link {
   display: flex;
   align-items: center;

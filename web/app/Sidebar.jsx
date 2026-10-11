@@ -254,7 +254,6 @@ export default function Sidebar({
           </a>
         )}
         <LogoutButton />
-        <div className="sidebar-caption">{copy.sidebarCaption}</div>
       </div>
     </aside>
   );

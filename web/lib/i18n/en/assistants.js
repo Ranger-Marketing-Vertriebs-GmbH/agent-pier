@@ -398,6 +398,7 @@ export const assistantCopy = {
   },
   title: "Agents",
   chats: "Agent chats",
+  agentsGroup: "Agents",
   feature: {
     title: "Enable agents",
     description:
