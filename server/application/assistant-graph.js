@@ -291,7 +291,13 @@ export function connectAssistantServices(graph) {
     },
     maintenance: () => assistants.maintenance,
     beforeSpawn: () => synchronization.prepare(),
-    afterReady: () => synchronization.pauseBlocked(),
+    afterReady: async () => {
+      await synchronization.pauseBlocked();
+      // A change made while this Gateway started, or an apply that failed before it,
+      // converges now. Not awaited: a start may itself run under admission.
+      mcpChanges.ready();
+      if (mcpChanges.pending) assistants.admit(() => mcpChanges.apply()).catch(() => {});
+    },
   });
   return graph;
 }

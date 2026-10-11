@@ -15,6 +15,9 @@ const messages = serverMessages.mcpServers;
 export const STDIO_CONFIRMATION_REQUIRED = "MCP_STDIO_CONFIRMATION_REQUIRED";
 // Compiled server names; anything else cannot be addressed as a dotted path.
 const pathName = /^[A-Za-z][A-Za-z0-9_-]{0,29}$/;
+// Retry delays of a failed live apply: doubling from one second to one minute.
+const firstRetryMs = 1000;
+const lastRetryMs = 60000;
 
 const record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 
@@ -48,8 +51,39 @@ function mergeDiff(current, target) {
  * state compiles the store at the next start.
  */
 export class McpChanges {
-  constructor({ assistants, servers }) {
-    Object.assign(this, { assistants, servers });
+  constructor({ assistants, servers, now = Date.now, warn = console.warn }) {
+    Object.assign(this, { assistants, servers, now, warn });
+    // Whether the running Gateway may lag behind the store. Set by every apply that
+    // could not finish; the team scheduler's tick and each Gateway start retry it.
+    this.pending = false;
+    this.failures = 0;
+    this.retryAt = 0;
+    // Agents whose profile re-apply after a patch is still outstanding.
+    this.stale = new Set();
+  }
+  /** Whether a pending apply is due now (failures back off up to one minute). */
+  due() {
+    return this.pending && this.now() >= this.retryAt;
+  }
+  /** A Gateway start answered: a pending apply is retried at once. */
+  ready() {
+    this.retryAt = 0;
+  }
+  failed(error) {
+    this.pending = true;
+    this.failures++;
+    this.retryAt =
+      this.now() + Math.min(lastRetryMs, firstRetryMs * 2 ** (this.failures - 1));
+    // One diagnostic per failure streak, with the error code only: no values.
+    if (this.failures === 1)
+      this.warn(
+        `MCP servers could not be applied to the running Gateway (${
+          error?.code || error?.name || "ERROR"
+        }); retrying.`,
+      );
+  }
+  settled() {
+    Object.assign(this, { pending: false, failures: 0, retryAt: 0 });
   }
   /** Personal agents and permanent members; temporary members get team bindings. */
   ownerManaged(profile) {
@@ -58,7 +92,12 @@ export class McpChanges {
   /** The profile as responses show it: with its bound server ids when owner-managed. */
   decorate(profile) {
     if (!profile || !this.ownerManaged(profile)) return profile;
-    return { ...profile, mcpServers: this.servers.bindings("agent", profile.id) };
+    try {
+      return { ...profile, mcpServers: this.servers.bindings("agent", profile.id) };
+    } catch {
+      // An unreadable server store must not fail the agent list; bindings are omitted.
+      return profile;
+    }
   }
   /**
    * Validates a new binding set for `profile` before anything is persisted. Adding a
@@ -124,15 +163,41 @@ export class McpChanges {
    * Patches the running Gateway with what the store compiles now: the `mcp` block and
    * the global `tools.allow` (built with the start's helpers from the start's web
    * tools), then re-applies each agent whose MCP globs changed. Callers hold the
-   * admission lock. Returns whether the Gateway was patched.
+   * admission lock. Returns whether the Gateway was patched. Anything that keeps the
+   * Gateway from converging leaves the change pending: no ready Gateway (its start
+   * compiles the store), an unreadable store (never live-removes servers), a failed
+   * patch or a failed agent re-apply (rethrown).
    */
   async apply() {
     const runtime = this.assistants.runtime;
     const running = runtime.client?.ready && runtime.mcp;
-    if (!running) return false;
-    const store = this.assistants.store;
-    const profiles = store.listAssistants();
-    const sections = mcpSections({ profiles, ...readMcpInputs(this.servers) });
+    if (!running) {
+      this.pending = true;
+      return false;
+    }
+    try {
+      const inputs = readMcpInputs(this.servers);
+      if (inputs.unreadable) {
+        this.failed({ code: "MCP_STORE_UNREADABLE" });
+        return false;
+      }
+      const profiles = this.assistants.store.listAssistants();
+      const patched = await this.patch(runtime, running, profiles, inputs);
+      const known = new Set(profiles.map((profile) => profile.id));
+      for (const id of [...this.stale]) {
+        if (known.has(id)) await this.assistants.config.apply(id);
+        this.stale.delete(id);
+      }
+      this.settled();
+      return patched;
+    } catch (error) {
+      this.failed(error);
+      throw error;
+    }
+  }
+  /** Patches when the compiled signature changed; marks agents whose globs changed. */
+  async patch(runtime, running, profiles, inputs) {
+    const sections = mcpSections({ profiles, ...inputs });
     const snapshot = mcpSnapshot(sections);
     if (snapshot.signature === running.signature) return false;
     // applyMcp on the start's global list: `mcp` and `tools.allow` as a start writes.
@@ -154,16 +219,11 @@ export class McpChanges {
     });
     const before = running.agentTools || {};
     runtime.mcp = snapshot;
-    const changed = new Set(
-      [...Object.keys(before), ...Object.keys(snapshot.agentTools)].filter(
-        (agent) =>
-          JSON.stringify(before[agent] || []) !==
-          JSON.stringify(snapshot.agentTools[agent] || []),
-      ),
-    );
+    const same = (agent) =>
+      JSON.stringify(before[agent] || []) ===
+      JSON.stringify(snapshot.agentTools[agent] || []);
     for (const profile of profiles)
-      if (changed.has(profile.runtimeAgentId))
-        await this.assistants.config.apply(profile.id);
+      if (!same(profile.runtimeAgentId)) this.stale.add(profile.id);
     return true;
   }
 }

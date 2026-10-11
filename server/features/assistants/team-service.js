@@ -148,12 +148,28 @@ export class TeamService {
           if (!member.archivedAt && member.lifetime === "permanent")
             await this.assistants.reminders?.disable(member.assistantId);
       const result = this.store[action](id, revision);
+      await this.applyMcp();
       if (this.assistants.runtime.client?.ready)
         for (const member of members)
           await this.assistants.config.apply(member.assistantId);
       this.assistants.changed();
       return result;
     });
+  }
+  /**
+   * Archived agents hold no MCP servers and restored ones hold theirs again; a patch
+   * that fails stays pending for the scheduler's next tick. Callers hold admission.
+   */
+  async applyMcp() {
+    const mcp = this.assistants.mcp;
+    if (!mcp) return;
+    this.mcp.sync();
+    this.mcp.dirty = false;
+    try {
+      await mcp.apply();
+    } catch {
+      /* Pending; retried at the next tick. */
+    }
   }
   async propose(inv, input) {
     assertWired(this);

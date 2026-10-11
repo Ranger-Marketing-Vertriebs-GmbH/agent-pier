@@ -28,8 +28,10 @@ function setup(t) {
   let failApply = false;
   f.assistants.mcp = {
     servers,
+    pending: false,
     async apply() {
       log.push("mcp");
+      this.pending = failApply;
       if (failApply) throw Object.assign(Error("conflict"), { status: 409 });
       return true;
     },
@@ -194,4 +196,77 @@ test("a proposal naming another agent's server is refused and stores nothing", a
   f.servers.setBindings("agent", f.lead.id, [f.github.id]);
   await assert.rejects(f.propose(), { status: 400, key: "teamMcpServerNotBound" });
   assert.deepEqual(f.service.store.list(), []);
+});
+
+test("archiving a member removes servers bound only to it; restoring returns them", async (t) => {
+  const f = setup(t),
+    { team } = await f.propose({ allowed: false });
+  const a0 = f.service.store.get(team.id);
+  await f.service.decide(
+    team.id,
+    { revision: a0.revision, decision: "approve", lifetime: "permanent" },
+    { kind: "owner" },
+  );
+  await f.service.reconcile();
+  const a = f.memberOf(team, "A");
+  const own = f.servers.create({
+    name: "own",
+    transport: "http",
+    url: "https://o.test/",
+  });
+  f.servers.setBindings("agent", a.assistantId, [own.id]);
+  f.complete(f.service.store.member(a.id).attemptId);
+  await f.service.reconcile();
+  const compiled = () =>
+    Object.keys(
+      mcpSections({ profiles: f.store.listAssistants(), ...readMcpInputs(f.servers) })
+        .servers,
+    );
+  assert.ok(compiled().includes("own"));
+  f.log.length = 0;
+  const member = f.service.store.member(a.id);
+  await f.service.lifecycle("archive", a.id, member.revision);
+  assert.equal(f.log[0], "mcp");
+  assert.ok(!compiled().includes("own"));
+  f.log.length = 0;
+  await f.service.lifecycle("restore", a.id, f.service.store.member(a.id).revision);
+  assert.equal(f.log[0], "mcp");
+  assert.ok(compiled().includes("own"));
+});
+
+test("an archived lead holds no servers for its running members", async (t) => {
+  const f = setup(t),
+    { team } = await f.propose();
+  await f.service.reconcile();
+  const a = f.memberOf(team, "A");
+  assert.equal(f.bound(a.assistantId).length, 2);
+  const lead = f.store.getAssistant(f.lead.id);
+  f.store.db
+    .prepare("UPDATE assistants SET body=? WHERE id=?")
+    .run(JSON.stringify({ ...lead, archivedAt: "2026-10-01" }), lead.id);
+  assert.equal(f.service.mcp.sync(), true);
+  assert.deepEqual(f.bound(a.assistantId), []);
+});
+
+test("a permanent grant is recorded before its bindings and never repeated", async (t) => {
+  const f = setup(t),
+    { team } = await f.propose({ allowed: false });
+  const a0 = f.service.store.get(team.id);
+  const order = [];
+  const write = f.service.store.write.bind(f.service.store);
+  f.service.store.write = (m, patch) => {
+    if (patch.mcpGranted) order.push("granted");
+    return write(m, patch);
+  };
+  const setBindings = f.servers.setBindings.bind(f.servers);
+  f.servers.setBindings = (...args) => {
+    order.push("bindings");
+    return setBindings(...args);
+  };
+  await f.service.decide(
+    team.id,
+    { revision: a0.revision, decision: "approve", lifetime: "permanent" },
+    { kind: "owner" },
+  );
+  assert.deepEqual(order.slice(0, 2), ["granted", "bindings"]);
 });
