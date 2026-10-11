@@ -53,6 +53,7 @@ import { directoryResolver } from "./lib/directories.js";
 import { detectTools } from "./features/accounts/account-store.js";
 import { toolBinDirectories } from "./features/tools/tool-paths.js";
 import { authorizeRequest, securityHeaders } from "./http/security.js";
+import { mcpOAuthCallbackRoutes } from "./http/routes/mcp-oauth.js";
 import { registerResponses } from "./http/responses.js";
 import { buildHeader, buildIdentity } from "./http/build-identity.js";
 import { attachTerminalWebSocket } from "./http/terminal-websocket.js";
@@ -179,6 +180,8 @@ export async function createApplication(config) {
     }
   });
   app.use("/auth", loginRoutes(services.login, effective));
+  // Authenticated by its single-use OAuth state, not the session cookie.
+  app.use("/api", mcpOAuthCallbackRoutes(services));
   app.use("/api", requireLogin(services.login, effective));
   // Slow mobile links benefit most; downloads stream raw bytes uncompressed.
   app.use(

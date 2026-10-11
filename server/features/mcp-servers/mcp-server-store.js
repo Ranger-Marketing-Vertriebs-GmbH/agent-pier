@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS servers(
   id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, transport TEXT NOT NULL,
   url TEXT, command TEXT, args TEXT NOT NULL DEFAULT '[]', cwd TEXT,
   settings TEXT NOT NULL DEFAULT '{}', revision INTEGER NOT NULL,
-  auth TEXT NOT NULL DEFAULT 'headers', oauth_scope TEXT);
+  auth TEXT NOT NULL DEFAULT 'headers', oauth_scope TEXT,
+  oauth_connected INTEGER NOT NULL DEFAULT 0, oauth_login_redirect TEXT);
 CREATE TABLE IF NOT EXISTS server_secrets(
   server_id TEXT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
   kind TEXT NOT NULL CHECK(kind IN ('header','env')), name TEXT NOT NULL, value TEXT NOT NULL,
@@ -107,6 +108,12 @@ export class McpServerStore {
       this.db.exec("ALTER TABLE servers ADD COLUMN auth TEXT NOT NULL DEFAULT 'headers'");
     if (!columns.some((c) => c.name === "oauth_scope"))
       this.db.exec("ALTER TABLE servers ADD COLUMN oauth_scope TEXT");
+    if (!columns.some((c) => c.name === "oauth_connected"))
+      this.db.exec(
+        "ALTER TABLE servers ADD COLUMN oauth_connected INTEGER NOT NULL DEFAULT 0",
+      );
+    if (!columns.some((c) => c.name === "oauth_login_redirect"))
+      this.db.exec("ALTER TABLE servers ADD COLUMN oauth_login_redirect TEXT");
   }
   transaction(work) {
     this.db.exec("BEGIN IMMEDIATE");
@@ -314,29 +321,69 @@ export class McpServerStore {
     });
     return this.get(id);
   }
+  /** The row fields `patch` yields at `revision`; throws what update() would. */
+  patched(row, revision, patch) {
+    if (!Number.isSafeInteger(revision) || revision !== row.revision)
+      throw problem(messages.conflict, 409);
+    if (patch.transport !== undefined && patch.transport !== row.transport)
+      throw invalid(messages.transportLocked);
+    const merged = {
+      name: row.name,
+      transport: row.transport,
+      url: row.url ?? undefined,
+      command: row.command ?? undefined,
+      args: JSON.parse(row.args),
+      cwd: row.cwd ?? undefined,
+      ...(row.transport === "stdio"
+        ? {}
+        : { auth: row.auth ?? "headers", oauthScope: row.oauth_scope ?? undefined }),
+      ...patch,
+    };
+    // The stored absolute command is only re-resolved when the owner changes it.
+    return this.definition(merged, patch.command === undefined);
+  }
+  /**
+   * What an update would change about where OpenClaw keeps the server's OAuth login
+   * (keyed by name and full URL), without writing: `{ before, after }` with `name`,
+   * `url` and `auth` each. Throws what update() would.
+   */
+  previewUpdate(id, input) {
+    if (!record(input)) throw invalid();
+    const { revision, ...patch } = input;
+    const row = this.row(id);
+    const fields = this.patched(row, revision, patch);
+    const pick = (value) => ({ name: value.name, url: value.url, auth: value.auth });
+    return { before: pick({ ...row, auth: row.auth ?? "headers" }), after: pick(fields) };
+  }
+  /**
+   * What AgentPier remembers about an OAuth server's logins, never a secret:
+   * whether it was ever connected and the redirect URL its last login registered.
+   */
+  oauthMemory(id) {
+    const row = this.row(id);
+    return {
+      everConnected: row.oauth_connected === 1,
+      loginRedirect: row.oauth_login_redirect ?? null,
+    };
+  }
+  /** Records `{ connected?, loginRedirect? }`; the revision stays unchanged. */
+  rememberOAuth(id, { connected, loginRedirect } = {}) {
+    this.row(id);
+    if (connected !== undefined)
+      this.db
+        .prepare("UPDATE servers SET oauth_connected=? WHERE id=?")
+        .run(connected ? 1 : 0, id);
+    if (loginRedirect !== undefined)
+      this.db
+        .prepare("UPDATE servers SET oauth_login_redirect=? WHERE id=?")
+        .run(loginRedirect, id);
+  }
   update(id, input) {
     if (!record(input)) throw invalid();
     const { revision, ...patch } = input;
     this.transaction(() => {
       const row = this.row(id);
-      if (!Number.isSafeInteger(revision) || revision !== row.revision)
-        throw problem(messages.conflict, 409);
-      if (patch.transport !== undefined && patch.transport !== row.transport)
-        throw invalid(messages.transportLocked);
-      const merged = {
-        name: row.name,
-        transport: row.transport,
-        url: row.url ?? undefined,
-        command: row.command ?? undefined,
-        args: JSON.parse(row.args),
-        cwd: row.cwd ?? undefined,
-        ...(row.transport === "stdio"
-          ? {}
-          : { auth: row.auth ?? "headers", oauthScope: row.oauth_scope ?? undefined }),
-        ...patch,
-      };
-      // The stored absolute command is only re-resolved when the owner changes it.
-      const fields = this.definition(merged, patch.command === undefined);
+      const fields = this.patched(row, revision, patch);
       this.insertOrUpdate(
         "UPDATE servers SET name=?,transport=?,url=?,command=?,args=?,cwd=?,auth=?,oauth_scope=?,revision=? WHERE id=?",
         fields,

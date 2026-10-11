@@ -13,6 +13,7 @@ import { runtimeEnvironment } from "../../server/features/assistants/runtime-con
 import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { approve, oauthMcpServer } from "../helpers/mcp-oauth-test-server.js";
+import { nudgedIdleTtl } from "../../server/features/mcp-servers/mcp-oauth-logins.js";
 
 // The installation provisioned by scripts/provision-assistant-contracts.mjs.
 // docs/mcp-oauth-qualification.md records what this contract establishes.
@@ -367,7 +368,10 @@ test(
     // The failed start above backs the server off for 30 s (doubling up to 10 min);
     // a new session within that window is offered nothing despite valid tokens.
     assert.deepEqual((await turn(null, "relogin-backed-off")).offered, []);
-    await patchConfig(client, () => ({ patch: { mcp: { sessionIdleTtlMs: 600000 } } }));
+    // AgentPier's reset after a login (McpOAuthLogins.resetBackoff): unset -> 0.
+    await patchConfig(client, (config) => ({
+      patch: { mcp: { sessionIdleTtlMs: nudgedIdleTtl(config.mcp?.sessionIdleTtlMs) } },
+    }));
     assert.deepEqual((await turn(null, "relogin-reset")).offered, ["docs__echo"]);
 
     // (c) A token the server still refuses after one refresh: `requires-authorization`.

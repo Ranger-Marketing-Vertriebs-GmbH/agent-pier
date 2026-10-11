@@ -111,6 +111,16 @@ Gateway has no RPC to reset it otherwise (`mcp.*` RPCs: only `mcp.authLogin`).
 AgentPier must reset the backoff after a successful login, for example by a
 deliberate `mcp` patch.
 
+AgentPier does so once after every successful login (`--code`, or a start that only
+refreshed) while a Gateway is ready: `McpOAuthLogins.resetBackoff` patches
+`mcp.sessionIdleTtlMs` through `patchConfig` under the assistants' admission lock.
+Unset and `0` mean the same to OpenClaw (MCP runtimes live until their session
+ends), so the patch toggles between them (`nudgedIdleTtl`: unset to `0`, `0` to
+unset; an owner's positive value moves by 1 ms). The contract applies exactly this
+patch (unset to `0`); a manual probe on 2026-10-11 confirmed that `0` to unset lifts
+the backoff as well. The compiled MCP signature does not include the key, so the
+toggle never triggers a re-apply, and a Gateway start drops it.
+
 ### (c) `openclaw mcp status --json`
 
 ```json

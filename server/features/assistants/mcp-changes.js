@@ -55,12 +55,14 @@ export class McpChanges {
     assistants,
     servers,
     redirectUrl = () => null,
+    oauth = null,
     now = Date.now,
     warn = console.warn,
   }) {
     // `redirectUrl()`: the OAuth redirect URL OAuth servers compile with, read at
-    // each compile so a changed AgentPier origin hot-applies.
-    Object.assign(this, { assistants, servers, redirectUrl, now, warn });
+    // each compile so a changed AgentPier origin hot-applies. `oauth`
+    // (McpOAuthLogins) logs a server out before a change would orphan its login.
+    Object.assign(this, { assistants, servers, redirectUrl, oauth, now, warn });
     // Whether the running Gateway may lag behind the store. Set by every apply that
     // could not finish; the team scheduler's tick and each Gateway start retry it.
     this.pending = false;
@@ -155,12 +157,16 @@ export class McpChanges {
       // Editing what a stdio server runs needs the same confirmation as adding one.
       if (this.changesStdio(this.servers.get(id), input))
         requireStdioConfirmation(confirmStdio === true);
+      // OpenClaw keys a login by name and URL: log out under the old ones first.
+      if (this.oauth)
+        await this.oauth.beforeUpdate(id, this.servers.previewUpdate(id, input));
       const server = this.servers.update(id, input);
       return { server, pending: await this.applySaved() };
     });
   }
   remove(id) {
     return this.assistants.admit(async () => {
+      if (this.oauth) await this.oauth.beforeRemove(id);
       // The store removes the server's bindings with it.
       this.servers.remove(id);
       return { pending: await this.applySaved() };
