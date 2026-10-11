@@ -36,6 +36,24 @@ export class AssistantActionStore {
       .all()
       .map((r) => JSON.parse(r.body));
   }
+  // Approvals the owner still has to decide, per agent. Team coding requests are stored
+  // on the parent agent with a teamId. Expiry is applied lazily elsewhere, so it is
+  // checked here as well.
+  awaitingCounts(now = Date.now()) {
+    const counts = {};
+    const rows = this.db
+      .prepare(
+        "SELECT assistant_id, json_extract(body,'$.teamId') AS team_id, json_extract(body,'$.expiresAt') AS expires_at FROM assistant_actions WHERE json_extract(body,'$.state')='awaiting_approval'",
+      )
+      .all();
+    for (const r of rows) {
+      if (r.expires_at != null && r.expires_at <= now) continue;
+      const count = (counts[r.assistant_id] ??= { own: 0, team: 0 });
+      if (r.team_id) count.team++;
+      else count.own++;
+    }
+    return counts;
+  }
   get(id) {
     const r = this.db.prepare("SELECT body FROM assistant_actions WHERE id=?").get(id);
     if (!r) throw assistantProblem("notFound", 404);
