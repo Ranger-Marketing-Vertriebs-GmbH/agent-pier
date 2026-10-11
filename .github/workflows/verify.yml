@@ -1,7 +1,7 @@
 name: Verify
+# The merge queue tests the exact commit that lands on main, so a push run would
+# only repeat it.
 on:
-  push:
-    branches: [main]
   pull_request:
   merge_group:
 permissions:
@@ -73,11 +73,12 @@ jobs:
         env:
           FC_SEED: 173205
           FC_RUNS: 300
-  browser:
+  chromium-shards:
+    name: browser (chromium) shard ${{ matrix.shard }}/4
     strategy:
       fail-fast: false
       matrix:
-        browser: [chromium, webkit]
+        shard: [1, 2, 3, 4]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -93,13 +94,63 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y tmux
       - run: npm ci
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Restore the Playwright browser
+        id: playwright-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - run: npm run build
-      - run: npm run test:e2e
+      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/4
         env:
-          AGENTPIER_TEST_BROWSER: ${{ matrix.browser }}
+          AGENTPIER_TEST_BROWSER: chromium
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: failure()
+        with:
+          name: browser-failure-chromium-${{ matrix.shard }}
+          path: test-results/
+          retention-days: 7
+  webkit-shards:
+    name: browser (webkit) shard ${{ matrix.shard }}/4
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install browser test prerequisites
+        run: |
+          # Playwright downloads its own browsers; the runner's Chrome APT
+          # repository is unnecessary and can fail while its index is updating.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+          sudo apt-get update
+          sudo apt-get install -y tmux
+      - run: npm ci
+      - name: Restore the Playwright browser
+        id: playwright-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-webkit-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps webkit
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps webkit
+      - run: npm run build
+      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/4
+        env:
+          AGENTPIER_TEST_BROWSER: webkit
       - name: Repeat WebKit timing regressions
-        if: matrix.browser == 'webkit'
+        if: matrix.shard == 1
         run: >-
           npx playwright test tests/browser/model-control.spec.js tests/browser/chat-upload-recovery.spec.js
           --grep 'two tabs retry|model field.*390x500|model errors remain'
@@ -109,6 +160,22 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
         with:
-          name: browser-failure-${{ matrix.browser }}
+          name: browser-failure-webkit-${{ matrix.shard }}
           path: test-results/
           retention-days: 7
+  # Branch protection requires "browser (chromium)"; it passes only when every shard did.
+  chromium:
+    name: browser (chromium)
+    needs: chromium-shards
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.chromium-shards.result }}" = success
+  # Branch protection requires "browser (webkit)"; it passes only when every shard did.
+  webkit:
+    name: browser (webkit)
+    needs: webkit-shards
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.webkit-shards.result }}" = success

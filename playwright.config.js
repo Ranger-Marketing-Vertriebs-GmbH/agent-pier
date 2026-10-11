@@ -45,14 +45,23 @@ export default defineConfig({
         },
       }),
   // The browser comes from AGENTPIER_TEST_BROWSER (CI runs Chromium and WebKit).
-  // Agent pages are also used on iPads, so their specs repeat at tablet size.
+  // Agent pages are also used on iPads, so their specs repeat at tablet size, once,
+  // in WebKit: the engine every iPad browser uses.
   projects: [
     { name: "desktop" },
-    {
-      name: "tablet",
-      testMatch: "**/assistant*.spec.js",
-      use: { viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: true },
-    },
+    ...(browserName === "webkit"
+      ? [
+          {
+            name: "tablet",
+            testMatch: "**/assistant*.spec.js",
+            use: {
+              viewport: { width: 820, height: 1180 },
+              hasTouch: true,
+              isMobile: true,
+            },
+          },
+        ]
+      : []),
   ],
   reporter: "list",
 });
