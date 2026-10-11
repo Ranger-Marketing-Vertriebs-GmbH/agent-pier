@@ -1,5 +1,6 @@
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 export default function AnchoredSelect({
   id: selectId,
   label,
@@ -18,6 +19,7 @@ export default function AnchoredSelect({
     select = useRef(null),
     list = useRef(null),
     search = useRef(null),
+    touch = useRef(false),
     typeahead = useRef({
       text: "",
       time: 0,
@@ -53,19 +55,23 @@ export default function AnchoredSelect({
     if (disabled || !options.length) return;
     if (searchLabel) onQuery("");
     setActive(options[selected]?.disabled ? (enabledIndices[0] ?? selected) : selected);
+    // A focused select opens the native picker on iOS, which takes the focus from
+    // the search. Touch focuses the search within the tap, so the keyboard opens.
+    if (touch.current && searchLabel) {
+      flushSync(() => setOpen(true));
+      search.current?.focus({ preventScroll: true });
+      return;
+    }
     setOpen(true);
-    select.current?.focus({
-      preventScroll: true,
-    });
+    if (!touch.current) select.current?.focus({ preventScroll: true });
   }
   function choose(index) {
     const option = options[index];
     if (!option || option.disabled) return;
     onChange(option.value);
     setOpen(false);
-    select.current?.focus({
-      preventScroll: true,
-    });
+    if (touch.current) document.activeElement?.blur();
+    else select.current?.focus({ preventScroll: true });
   }
   useEffect(() => {
     if (disabled) setOpen(false);
@@ -188,7 +194,13 @@ export default function AnchoredSelect({
     <div
       ref={root}
       className="anchored-select"
+      onPointerDownCapture={(event) => {
+        touch.current = event.pointerType === "touch";
+      }}
       onBlur={(event) => {
+        // iOS blurs without a target while it finishes a tap; a tap outside
+        // closes the menu through its pointerdown instead.
+        if (touch.current && !event.relatedTarget) return;
         if (!root.current?.contains(event.relatedTarget)) setOpen(false);
       }}
     >
@@ -208,13 +220,17 @@ export default function AnchoredSelect({
           setOpen(false);
         }}
         onPointerDown={(event) => {
+          // iOS ends a tap by blurring the element focused during it, which would
+          // close the menu and its search at once. Touch toggles on click instead,
+          // and its pointerdown keeps its default so that WebKit dispatches the click.
+          if (touch.current) return;
           event.preventDefault();
           open ? setOpen(false) : show();
         }}
         onMouseDown={(event) => event.preventDefault()}
         onClick={(event) => {
           event.preventDefault();
-          if (event.detail === 0) open ? setOpen(false) : show();
+          if (event.detail === 0 || touch.current) open ? setOpen(false) : show();
         }}
         onKeyDown={keydown}
       >
