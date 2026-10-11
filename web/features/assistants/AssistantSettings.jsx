@@ -233,6 +233,7 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
           form="agent-profile"
           busy={busy}
           creating={!assistant}
+          error={error}
           onCancel={onCancel}
         />
       )}

@@ -38,6 +38,14 @@ test("outside taps, the scrim and navigation close the menu", async ({ page }) =
   await expect(popover(page)).toBeHidden();
 });
 
+test("choosing a menu item returns focus to the menu button", async ({ page }) => {
+  await page.goto(baseURL);
+  await trigger(page).click();
+  await popover(page).getByRole("button", { name: "Übersicht", exact: true }).click();
+  await expect(popover(page)).toBeHidden();
+  await expect(trigger(page)).toBeFocused();
+});
+
 test("on phones Escape closes the menu first and the drawer second", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(baseURL);
