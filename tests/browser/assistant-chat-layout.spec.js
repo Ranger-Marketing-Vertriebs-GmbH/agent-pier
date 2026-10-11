@@ -401,4 +401,138 @@ test.describe("agent chat composer", () => {
     const box = await page.locator(".assistant-composer-box").boundingBox();
     expect(Math.round(box.width)).toBe(760);
   });
+
+  test("Escape closes the options before the drawer, and only then the drawer", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await chatFixture(page);
+    await page.goto(chat);
+    const sidebar = page.locator(".sidebar");
+    await page
+      .locator(".assistant-header")
+      .getByRole("button", { name: "Open navigation", exact: true })
+      .click();
+    await expect(sidebar).toHaveClass(/\bopen\b/);
+    // The drawer covers the composer, so reach the button by keyboard.
+    await page.getByRole("button", { name: "Options", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".assistant-options")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".assistant-options")).toBeHidden();
+    await expect(sidebar).toHaveClass(/\bopen\b/);
+    await expect(
+      page.getByRole("button", { name: "Options", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(sidebar).not.toHaveClass(/\bopen\b/);
+  });
+
+  test("Escape in the message field with closed options still closes the drawer", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await chatFixture(page);
+    await page.goto(chat);
+    await page
+      .locator(".assistant-header")
+      .getByRole("button", { name: "Open navigation", exact: true })
+      .click();
+    await page.getByLabel("Message", { exact: true }).focus();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".sidebar")).not.toHaveClass(/\bopen\b/);
+  });
+
+  test("draft and team permission survive switching conversations", async ({ page }) => {
+    await chatFixture(page, {
+      conversations: [
+        { id: "dinner", assistantId: "home" },
+        { id: "lunch", assistantId: "home" },
+      ],
+    });
+    await page.goto(chat);
+    await page.getByLabel("Message", { exact: true }).fill("Keep this draft");
+    await page.getByRole("button", { name: "Options", exact: true }).click();
+    await page.getByRole("switch", { name: "Allow a team for this message" }).check();
+    await page.evaluate(() => {
+      history.pushState({}, "", "/agents/home/chats/lunch");
+      dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await expect(page.getByLabel("Message", { exact: true })).toHaveValue("");
+    await expect(
+      page.getByRole("button", { name: "Team allowed", exact: true }),
+    ).toHaveCount(0);
+    await page.evaluate(() => {
+      history.pushState({}, "", "/agents/home/chats/dinner");
+      dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await expect(page.getByLabel("Message", { exact: true })).toHaveValue(
+      "Keep this draft",
+    );
+    await expect(
+      page.getByRole("button", { name: "Team allowed", exact: true }),
+    ).toBeVisible();
+  });
+
+  test("the field returns to one row after a successful send", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const state = await chatFixture(page);
+    await page.goto(chat);
+    const input = page.getByLabel("Message", { exact: true });
+    const one = (await input.boundingBox()).height;
+    await input.fill("a\nb\nc\nd");
+    expect((await input.boundingBox()).height).toBeGreaterThan(one + 30);
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect.poll(() => state.posted.length).toBe(1);
+    await expect(input).toHaveValue("");
+    await expect
+      .poll(async () => (await input.boundingBox()).height)
+      .toBeLessThan(one + 2);
+  });
+});
+
+test.describe("team member composer", () => {
+  const member = {
+    assistants: [
+      chatAssistant(),
+      chatAssistant({ id: "worker", name: "Worker", teamMemberId: "m1" }),
+    ],
+    conversations: [{ id: "dinner", assistantId: "worker" }],
+  };
+  const memberChat = baseURL + "/agents/worker/chats/dinner";
+
+  test("one row without options or hint, with the member placeholder", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await chatFixture(page, {
+      ...member,
+      members: [{ id: "m1", assistantId: "worker", phase: "ready" }],
+    });
+    await page.goto(memberChat);
+    const input = page.getByLabel("Message", { exact: true });
+    await expect(input).toHaveAttribute("placeholder", "Message Worker …");
+    await expect(page.getByRole("button", { name: "Options", exact: true })).toHaveCount(
+      0,
+    );
+    await expect(
+      page.locator(".assistant-composer-hint, .assistant-options"),
+    ).toHaveCount(0);
+    const [f, b] = [
+      await input.boundingBox(),
+      await page.getByRole("button", { name: "Send", exact: true }).boundingBox(),
+    ];
+    expect(Math.abs(f.y + f.height / 2 - (b.y + b.height / 2))).toBeLessThan(6);
+    expect(b.x).toBeGreaterThan(f.x + f.width - 2);
+  });
+
+  test("send stays disabled while the member is busy", async ({ page }) => {
+    await chatFixture(page, {
+      ...member,
+      members: [{ id: "m1", assistantId: "worker", phase: "running" }],
+    });
+    await page.goto(memberChat);
+    await page.getByLabel("Message", { exact: true }).fill("Hello");
+    await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
+  });
 });
