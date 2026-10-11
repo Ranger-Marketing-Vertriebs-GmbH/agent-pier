@@ -4,7 +4,7 @@ import { FileEditorProvider } from "../features/files/file-editor-context.jsx";
 import useLanguage from "../lib/i18n/useLanguage.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import { appCopy as copy, sidebarCopy } from "../lib/i18n/messages/app.js";
-import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import api from "../lib/api.js";
 import ErrorMessage from "../components/ErrorMessage.jsx";
 import Icon from "../components/Icon.jsx";
@@ -46,7 +46,8 @@ function Application() {
     [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const expandButton = useRef(null),
     collapseButton = useRef(null),
-    restoreFocus = useRef(false);
+    restoreFocus = useRef(false),
+    navOpener = useRef(null);
   // The activated toggle is unmounted by the transition, so its replacement takes the focus.
   useEffect(() => {
     if (!restoreFocus.current) return;
@@ -56,7 +57,11 @@ function Application() {
   useEffect(() => {
     if (!mobileNav) return;
     const closeOnEscape = (event) => {
-      if (event.key === "Escape") setMobileNav(false);
+      if (event.key !== "Escape") return;
+      setMobileNav(false);
+      const opener = navOpener.current;
+      navOpener.current = null;
+      if (opener?.isConnected) queueMicrotask(() => opener.focus());
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
@@ -65,6 +70,11 @@ function Application() {
     restoreFocus.current = true;
     setSidebarCollapsed(collapsed);
   };
+  // In-page menu buttons (agent chat, session chat) get the focus back on Escape.
+  const openNavigation = useCallback(() => {
+    navOpener.current = document.activeElement;
+    setMobileNav(true);
+  }, []);
   const fileNavigationGuard = useFileNavigationGuard();
   const { route, view, selected, navigate, select, activeSession, page, missing } =
     useWorkspaceNavigation({
@@ -178,7 +188,12 @@ function Application() {
             </div>
           ) : view === "agents" ? (
             agentsEnabled ? (
-              <AgentsPage route={route} navigate={navigate} />
+              <AgentsPage
+                route={route}
+                navigate={navigate}
+                openNavigation={openNavigation}
+                navigationOpen={mobileNav}
+              />
             ) : agentsLoading ? (
               <p className="loading" role="status">
                 {copy.workspaceLoading}
@@ -261,7 +276,7 @@ function Application() {
             />
           ) : activeSession ? (
             <SessionWorkspace
-              openNavigation={() => setMobileNav(true)}
+              openNavigation={openNavigation}
               key={activeSession.id}
               session={activeSession}
               route={route}

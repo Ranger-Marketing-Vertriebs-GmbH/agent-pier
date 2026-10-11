@@ -8,7 +8,7 @@ import { assistantApi } from "./assistant-api.js";
 import AssistantSettings from "./AssistantSettings.jsx";
 import AssistantChat from "./AssistantChat.jsx";
 import { connectionMissing } from "./connection-state.js";
-export default function AgentsPage({ route, navigate }) {
+export default function AgentsPage({ route, navigate, openNavigation, navigationOpen }) {
   const {
     assistants,
     teams = [],
@@ -45,6 +45,11 @@ export default function AgentsPage({ route, navigate }) {
       if (request.current === ticket) setError(e.message);
     }
   }
+  // Without its connection the chat cannot open; the agent list is the way out.
+  function back(a) {
+    if (connectionMissing(a, models)) navigate({ view: "agents" });
+    else open(a);
+  }
   // A team task opens in the parent chat that proposed it.
   const team =
     route.teamId &&
@@ -58,6 +63,8 @@ export default function AgentsPage({ route, navigate }) {
         conversationId={conversationId}
         focusTeamId={team?.id}
         navigate={navigate}
+        openNavigation={openNavigation}
+        navigationOpen={navigationOpen}
       />
     );
   if (route.agentSettings && assistant)
@@ -65,49 +72,53 @@ export default function AgentsPage({ route, navigate }) {
       <section className="assistant-detail assistant-settings-page">
         <AssistantHeader
           assistant={assistant}
-          view="settings"
+          variant="settings"
           navigate={navigate}
-          onChat={() => open(assistant)}
+          onBack={() => back(assistant)}
+          openNavigation={openNavigation}
+          navigationOpen={navigationOpen}
         />
-        <ErrorMessage error={error || loadError} />
-        <div className="assistant-settings-layout">
-          <div className="assistant-settings-main">
-            <AssistantSettings
-              key={assistant.id}
-              assistant={assistant}
-              navigate={navigate}
-              onSaved={() => {}}
-              onCancel={() => open(assistant)}
-            />
+        <div className="assistant-settings-scroll">
+          <ErrorMessage error={error || loadError} />
+          <div className="assistant-settings-layout">
+            <div className="assistant-settings-main">
+              <AssistantSettings
+                key={assistant.id}
+                assistant={assistant}
+                navigate={navigate}
+                onSaved={() => {}}
+                onCancel={() => open(assistant)}
+              />
+            </div>
+            <aside className="assistant-runtime-card assistant-operation-summary">
+              <h2>{copy.runtime}</h2>
+              <p className="assistant-note">{copy.runtimeDescription}</p>
+              {copy.runtimeDiagnostics[runtime.diagnostic] && (
+                <p role="status" className="assistant-notice">
+                  {copy.runtimeDiagnostics[runtime.diagnostic]}
+                </p>
+              )}
+              <dl>
+                <div>
+                  <dt>{copy.serviceState}</dt>
+                  <dd>{copy.status[runtime.availability]}</dd>
+                </div>
+                <div>
+                  <dt>{copy.syncState}</dt>
+                  <dd>{copy.status[runtime.sync]}</dd>
+                </div>
+              </dl>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() =>
+                  navigate({ view: "settings", settingsSection: "assistants" })
+                }
+              >
+                {copy.runtimeLink}
+              </button>
+            </aside>
           </div>
-          <aside className="assistant-runtime-card assistant-operation-summary">
-            <h2>{copy.runtime}</h2>
-            <p className="assistant-note">{copy.runtimeDescription}</p>
-            {copy.runtimeDiagnostics[runtime.diagnostic] && (
-              <p role="status" className="assistant-notice">
-                {copy.runtimeDiagnostics[runtime.diagnostic]}
-              </p>
-            )}
-            <dl>
-              <div>
-                <dt>{copy.serviceState}</dt>
-                <dd>{copy.status[runtime.availability]}</dd>
-              </div>
-              <div>
-                <dt>{copy.syncState}</dt>
-                <dd>{copy.status[runtime.sync]}</dd>
-              </div>
-            </dl>
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() =>
-                navigate({ view: "settings", settingsSection: "assistants" })
-              }
-            >
-              {copy.runtimeLink}
-            </button>
-          </aside>
         </div>
       </section>
     );

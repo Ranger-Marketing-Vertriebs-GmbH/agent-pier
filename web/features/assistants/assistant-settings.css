@@ -38,24 +38,17 @@
   border-color: var(--accent-line);
   background: var(--accent-faint);
 }
-.assistant-capability > span {
-  display: grid;
-  gap: 2px;
+.assistant-detail.assistant-settings-page {
+  padding: 0;
 }
-.assistant-capability small {
-  color: var(--muted, inherit);
-  font-size: 12px;
+.assistant-settings-scroll {
+  padding: 28px;
 }
-.assistant-capability {
-  align-items: flex-start !important;
+.assistant-settings-scroll > .assistant-settings-layout {
+  margin-top: 0;
 }
-.assistant-restart-confirmation {
-  border: 1px solid var(--line);
-  border-radius: 0.75rem;
-  padding: 1rem;
-  display: grid;
-  gap: 0.5rem;
-}
-.assistant-restart-confirmation p {
-  margin: 0;
+@media (max-width: 700px) {
+  .assistant-settings-scroll {
+    padding: 16px 12px;
+  }
 }

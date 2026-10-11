@@ -27,6 +27,8 @@ export default function AssistantChat({
   conversationId,
   focusTeamId,
   navigate,
+  openNavigation,
+  navigationOpen,
 }) {
   const {
     drafts,
@@ -164,18 +166,14 @@ export default function AssistantChat({
     <section className="assistant-detail assistant-chat">
       <AssistantHeader
         assistant={assistant}
-        view="conversation"
+        variant="conversation"
         navigate={navigate}
-        state={active ? latest.attempt.state : runtime.availability}
-        label={
-          !active && memberBusy && runtime.availability === "ready"
-            ? copy.team.states[member.phase]
-            : undefined
-        }
-        onChat={() =>
-          navigate({ view: "agents", assistantId: assistant.id, conversationId })
-        }
+        openNavigation={openNavigation}
+        navigationOpen={navigationOpen}
+        attempt={active ? latest.attempt : null}
+        member={member}
       />
+
       <div className="assistant-chat-panel">
         <ErrorMessage error={error} />
         {!connected && (

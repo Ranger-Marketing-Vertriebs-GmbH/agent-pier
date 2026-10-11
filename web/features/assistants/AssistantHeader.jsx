@@ -1,72 +1,96 @@
 import React from "react";
+import Icon from "../../components/Icon.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
+import { mobileHeaderCopy } from "../../lib/i18n/messages/app.js";
 import useAssistants from "./useAssistants.js";
 import { avatarGlyph } from "./avatar-glyph.js";
-import { connectionMissing } from "./connection-state.js";
+import { activityFor, headerStatus } from "./assistant-status.js";
+
+// One bar for the agent chat and its settings (handoff 1d, 2e, 2f). Below 701px it
+// replaces the app's mobile header, so it carries the navigation button itself.
 export default function AssistantHeader({
   assistant,
-  view,
+  variant,
   navigate,
-  onChat,
-  state,
-  label,
+  onBack,
+  openNavigation,
+  navigationOpen = false,
+  attempt,
+  member,
 }) {
-  const { runtime, models } = useAssistants();
-  const missing = connectionMissing(assistant, models);
-  const status = missing ? "connectionMissing" : state || runtime.availability;
-  const settings = () =>
-    navigate({ view: "agents", assistantId: assistant.id, agentSettings: true });
+  const { runtime, models, activity = {} } = useAssistants();
+  const status = headerStatus({
+    assistant,
+    models,
+    runtime,
+    attempt,
+    entry: activityFor(activity, assistant.id),
+    member,
+    copy,
+  });
+  const missing = status.tone === "missing";
+  const settings = variant === "settings";
+  const detail = member ? member.role : assistant.model.modelId;
   return (
-    <div className="assistant-profile-header">
-      <div className="assistant-breadcrumb">
-        <button type="button" onClick={() => navigate({ view: "agents" })}>
-          {copy.title}
-        </button>
-        <span aria-hidden="true">›</span>
-        <span>{assistant.name}</span>
-      </div>
-      <header className="assistant-chat-header">
+    <>
+      <header className={`assistant-header ${variant}`}>
+        {openNavigation && (
+          <button
+            type="button"
+            className="assistant-header-icon assistant-header-menu"
+            aria-label={mobileHeaderCopy.iconButtonAriaLabel}
+            aria-expanded={navigationOpen}
+            onClick={openNavigation}
+          >
+            <Icon name="menu" />
+          </button>
+        )}
+        {settings && (
+          <button
+            type="button"
+            className="assistant-header-icon"
+            aria-label={copy.backToChat}
+            onClick={onBack}
+          >
+            <Icon name="back" />
+          </button>
+        )}
         <span className="assistant-avatar" aria-hidden="true">
           {avatarGlyph(assistant.name)}
         </span>
-        <div className="assistant-profile-title">
-          <div className="assistant-title-line">
-            <h1>{assistant.name}</h1>
-            <span className={`assistant-state-badge ${status}`}>
-              {missing ? copy.status[status] : label || copy.status[status]}
-            </span>
-          </div>
-          <p className="assistant-note">{assistant.model.modelId}</p>
+        <div className="assistant-header-title">
+          <h1>{assistant.name}</h1>
+          {settings && !missing ? (
+            <p className="assistant-header-sub">{copy.settingsTab}</p>
+          ) : (
+            <p className={`assistant-header-status ${status.tone}`}>
+              <span className="assistant-header-dot" aria-hidden="true" />
+              <span className="assistant-header-label">{status.label}</span>
+              {!settings && detail && (
+                <span className="assistant-header-detail">· {detail}</span>
+              )}
+            </p>
+          )}
         </div>
-        <button
-          type="button"
-          className="button secondary"
-          onClick={view === "conversation" ? settings : onChat}
-        >
-          {view === "conversation" ? copy.settings : copy.chat}
-        </button>
+        {!settings && (
+          <button
+            type="button"
+            className="assistant-header-settings"
+            aria-label={copy.settings}
+            onClick={() =>
+              navigate({ view: "agents", assistantId: assistant.id, agentSettings: true })
+            }
+          >
+            <Icon name="settings" />
+            <span>{copy.settingsTab}</span>
+          </button>
+        )}
       </header>
       {missing && (
         <p role="status" className="assistant-notice">
           {copy.connectionMissingHint}
         </p>
       )}
-      <nav className="assistant-view-tabs" aria-label={copy.navigation}>
-        <button
-          type="button"
-          aria-current={view === "conversation" ? "page" : undefined}
-          onClick={onChat}
-        >
-          {copy.conversation}
-        </button>
-        <button
-          type="button"
-          aria-current={view === "settings" ? "page" : undefined}
-          onClick={settings}
-        >
-          {copy.settingsTab}
-        </button>
-      </nav>
-    </div>
+    </>
   );
 }

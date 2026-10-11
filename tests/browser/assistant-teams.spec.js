@@ -178,7 +178,7 @@ test("nested members open directly, retain drafts and show independent settings"
     page.getByText("Created by Home assistant · inherited revision 1"),
   ).toBeVisible();
   await expect(page.getByText("Task-bound member", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Open chat", exact: true }).click();
+  await page.getByRole("button", { name: "Back to conversation", exact: true }).click();
   await expect(page.getByLabel("Message", { exact: true })).toHaveValue(
     "Keep member draft",
   );
@@ -233,7 +233,7 @@ test("completed member keeps its chat through archive, restore and promotion; pa
       revision: 1,
     });
   await expect(notice).toHaveCount(0);
-  await page.getByRole("button", { name: "Open chat", exact: true }).click();
+  await page.getByRole("button", { name: "Back to conversation", exact: true }).click();
   await expect(page).toHaveURL(/\/agents\/member-0\/chats\/chat-0$/);
   await page.goto(baseURL + "/agents/home/settings");
   await page.getByLabel("Allow teams without asking each time").check();
