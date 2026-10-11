@@ -9,6 +9,8 @@ const reasons = {
     "Give the time as an ISO timestamp with a UTC offset or Z, for example 2026-10-09T09:00:00+02:00.",
   INVALID_INPUT:
     "The parameters were rejected. Check required fields and use IDs returned by catalog, list or status.",
+  MCP_SERVER_NOT_BOUND:
+    "mcpServers may only name MCP servers bound to you (the prefix before __ in your MCP tool names). Remove the other names and propose again.",
   FORBIDDEN:
     "This action is not permitted for this agent in the current turn. Do not retry; explain this to the owner.",
   NOT_FOUND:
@@ -27,6 +29,7 @@ const byKey = {
   reminderTimezoneRequired: "INVALID_TIME",
   reminderReviewRequired: "REVIEW_REQUIRED",
   routineReviewRequired: "REVIEW_REQUIRED",
+  teamMcpServerNotBound: "MCP_SERVER_NOT_BOUND",
   notFound: "NOT_FOUND",
   conflict: "CONFLICT",
   active: "BUSY",

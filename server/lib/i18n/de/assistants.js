@@ -37,6 +37,8 @@ export const assistants = {
   },
   teamApproval: (objective, count) =>
     `Team-Freigabe: ${objective}\n${count} Mitglieder. Freigeben oder ablehnen?`,
+  teamMcpServers: (names) => `MCP-Server: ${names}`,
+  teamMcpStdio: (name) => `${name} (stdio, lokaler Befehl)`,
   teamApprove: "Team freigeben",
   teamDecline: "Team ablehnen",
   teamApproved:
@@ -73,6 +75,8 @@ export const assistants = {
     "Ein anderer Dienst verwendet diesen Telegram-Bot. Stoppe ihn vor dem Fortsetzen.",
   channelToken: "Der Telegram-Bot-Token ist ungültig.",
 
+  teamMcpServerNotBound:
+    "Ein vorgeschlagenes Teammitglied nennt einen MCP-Server, der dem leitenden Agenten nicht zugewiesen ist.",
   invalid: "Ungültige Agenten-Eingabe.",
   notFound: "Agent oder Unterhaltung nicht gefunden.",
   conflict: "Die Daten wurden inzwischen geändert. Bitte neu laden.",

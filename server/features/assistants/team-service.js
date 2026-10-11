@@ -4,6 +4,7 @@ import { TeamScheduler } from "./team-scheduler.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { decideAudited } from "./approval-audit.js";
 import { assertWired } from "./service-wiring.js";
+import { TeamMcpBindings } from "./team-mcp.js";
 function exact(input, keys) {
   if (
     !input ||
@@ -13,7 +14,10 @@ function exact(input, keys) {
   )
     throw assistantProblem("invalid");
 }
-export function publicTeam(record) {
+// Drafts show their MCP servers by name with the stdio marker, never their ids.
+const publicDraft = ({ mcpServerIds, ...draft }, describe) =>
+  mcpServerIds?.length ? { ...draft, mcpServers: describe(mcpServerIds) } : draft;
+export function publicTeam(record, describe = () => []) {
   const keys =
     record.kind === "member"
       ? [
@@ -52,6 +56,13 @@ export function publicTeam(record) {
         ];
   return {
     ...Object.fromEntries(keys.filter((k) => k in record).map((k) => [k, record[k]])),
+    ...(record.kind === "member"
+      ? record.mcpServerIds?.length
+        ? { mcpServers: describe(record.mcpServerIds) }
+        : {}
+      : Array.isArray(record.members)
+        ? { members: record.members.map((m) => publicDraft(m, describe)) }
+        : {}),
     inheritedRevision: record.snapshot?.parentRevision,
     // The owner's own words that started this team, shown beside it.
     ...(record.authorization?.source === "ownerRequest"
@@ -62,13 +73,17 @@ export function publicTeam(record) {
 export class TeamService {
   constructor({
     assistants,
-    store = new TeamStore({ store: assistants.store }),
+    store = new TeamStore({
+      store: assistants.store,
+      servers: () => assistants.mcp?.servers,
+    }),
     autoStart = true,
     now,
     audit = null,
   }) {
     Object.assign(this, { assistants, store, audit });
-    this.scheduler = new TeamScheduler({ teams: store, assistants, now });
+    this.mcp = new TeamMcpBindings({ teams: store, assistants });
+    this.scheduler = new TeamScheduler({ teams: store, assistants, now, mcp: this.mcp });
     if (autoStart) {
       this.poll = setInterval(() => this.reconcile().catch(() => {}), 1000);
       this.poll.unref();
@@ -99,7 +114,7 @@ export class TeamService {
     return this.assistants.events.subscribe(listener);
   }
   project(record) {
-    const result = publicTeam(record);
+    const result = publicTeam(record, (ids) => this.mcp.describe(ids));
     if (record.kind === "member")
       result.overrides = memberOverrides(
         record,
@@ -159,7 +174,11 @@ export class TeamService {
       operationId: inv.toolCallId,
       parentAttemptId: inv.attemptId,
     });
-    if (record.phase === "approved") this.store.reserve(record.id);
+    if (record.phase === "approved") {
+      this.store.reserve(record.id);
+      // Saved now; the next tick applies it before the members are provisioned.
+      this.mcp.sync();
+    }
     a.changed();
     return this.project(this.store.get(record.id));
   }
@@ -177,7 +196,10 @@ export class TeamService {
       () => {
         exact(input, ["revision", "decision", "lifetime"]);
         const record = this.store.decide(id, input, origin);
-        if (record.phase === "approved") this.store.reserve(id);
+        if (record.phase === "approved") {
+          this.store.reserve(id);
+          this.mcp.sync();
+        }
         this.assistants.changed();
         return this.project(this.store.get(id));
       },
@@ -229,6 +251,8 @@ export class TeamService {
         .filter((m) => !memberId || m.id === memberId)
         .map((m) => this.scheduler.stop(m.id)),
     );
+    // Cancelled members lose their servers at once; stopping ones once they end.
+    this.mcp.sync();
     this.assistants.changed();
     return this.project(this.store.get(id));
   }

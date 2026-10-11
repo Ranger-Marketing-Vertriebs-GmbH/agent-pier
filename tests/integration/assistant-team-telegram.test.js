@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { channelFixture, telegramMessage } from "../helpers/assistant-channel-fixture.js";
 import { TeamService } from "../../server/features/assistants/team-service.js";
-function setup(t) {
-  const f = channelFixture(t);
+import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
+function setup(t, options) {
+  const f = channelFixture(t, options);
   f.assistants.models = { resolve: async () => ({ release() {} }) };
   f.assistants.teams = new TeamService({ assistants: f.assistants, autoStart: false });
   t.after(() => f.assistants.teams.close());
@@ -26,7 +27,9 @@ function setup(t) {
   return {
     ...f,
     sends,
-    async proposal() {
+    async proposal(
+      members = [{ name: "Planner", role: "Plan", assignment: "Make a plan" }],
+    ) {
       await f.service.ingress.receive(f.channel.id, [
         telegramMessage(1, "Plan something"),
       ]);
@@ -37,7 +40,7 @@ function setup(t) {
         { attemptId: entry.attemptId, toolCallId: "call", assertCurrent() {} },
         {
           objective: "Plan",
-          members: [{ name: "Planner", role: "Plan", assignment: "Make a plan" }],
+          members,
         },
       );
       return f.assistants.teams.store.get(p.id);
@@ -375,3 +378,54 @@ test("a transcribed owner voice request starts a team; a forwarded one never doe
     .find((e) => e.key === `team-started:${owner.id}`);
   assert.match(started.text, /Gestartet, weil du geschrieben hast: „build a team“$/);
 });
+for (const [language, heading, marker] of [
+  ["de", "MCP-Server: ", "(stdio, lokaler Befehl)"],
+  ["en", "MCP servers: ", "(stdio, local command)"],
+])
+  test(`the ${language} approval lists each member's MCP servers and marks stdio`, async (t) => {
+    const f = setup(t, { language: () => language });
+    const servers = new McpServerStore({
+      dataDir: f.dataDir,
+      pathEnv: "/fake/bin",
+      exists: (file) => file === "/abs/files",
+    });
+    t.after(() => servers.close());
+    f.assistants.mcp = { servers };
+    const github = servers.create({
+      name: "github",
+      transport: "http",
+      url: "https://mcp.example.test/v1?key=secret-query",
+      headers: { Authorization: "Bearer secret-token" },
+    });
+    const files = servers.create({
+      name: "files",
+      transport: "stdio",
+      command: "/abs/files",
+      args: ["--root", "/private/data"],
+      env: { FILES_TOKEN: "secret-env" },
+    });
+    servers.setBindings("agent", f.channel.assistantId, [github.id, files.id]);
+    await f.proposal([
+      {
+        name: "Planner",
+        role: "Plan",
+        assignment: "Make a plan",
+        mcpServers: ["github"],
+      },
+      {
+        name: "Writer",
+        role: "Write",
+        assignment: "Write it",
+        mcpServers: ["files", "github"],
+      },
+      { name: "Critic", role: "Review", assignment: "Review it" },
+    ]);
+    await f.service.teamOutbox.transfer();
+    const { text } = f.service.outbox.pending(f.channel.id)[0];
+    const [, planner, writer, critic] = text.split("\n\n");
+    assert.equal(planner.split("\n").at(-1), `${heading}github`);
+    assert.equal(writer.split("\n").at(-1), `${heading}files ${marker}, github`);
+    assert.ok(!critic.includes(heading.trim()));
+    for (const secret of ["secret", "mcp.example.test", "/abs/files", "/private/data"])
+      assert.ok(!text.includes(secret), secret);
+  });

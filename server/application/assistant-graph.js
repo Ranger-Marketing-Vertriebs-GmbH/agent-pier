@@ -270,6 +270,9 @@ export function connectAssistantServices(graph) {
         throw Object.assign(Error("Team plugin unavailable"), {
           code: "TEAM_PLUGIN_UNAVAILABLE",
         });
+      // Team members' MCP bindings follow their records before the start compiles
+      // them, so a member that ended while the Gateway was down holds none.
+      teams.mcp.sync();
       return {
         directory: installed.teamPlugin.directory,
         connection: await bridge.start(),

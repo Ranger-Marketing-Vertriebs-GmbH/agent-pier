@@ -7,6 +7,7 @@ import {
 } from "./team-policy.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { RequestLedger } from "./request-ledger.js";
+import { leadServerIds, memberServerNames } from "./team-mcp.js";
 const terminal = new Set(["completed", "failed", "cancelled", "declined"]);
 // The quote must prove a team request, not merely an owner turn: at least three
 // words containing "team" (also in compounds such as "Rechercheteam"), found
@@ -24,8 +25,10 @@ const teamCommand = /^\/team\s+\S/;
 const fingerprint = (value) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 export class TeamStore {
-  constructor({ store }) {
+  constructor({ store, servers = () => null }) {
     this.store = store;
+    // The central MCP server store, looked up when a proposal names servers.
+    this.servers = servers;
     this.db = store.db;
     this.ledger = new RequestLedger(this.db);
     migrateTeams(this.db);
@@ -193,13 +196,17 @@ export class TeamStore {
       ownerRequestQuote = undefined;
     if (!Array.isArray(members) || !members.length || members.length > 8)
       throw assistantProblem("invalid");
+    const memberKeys = ["name", "role", "assignment", "mcpServers"];
     const drafts = members.map((m) => {
-      if (!m || Object.keys(m).some((k) => !["name", "role", "assignment"].includes(k)))
+      if (!m || Object.keys(m).some((k) => !memberKeys.includes(k)))
         throw assistantProblem("invalid");
+      const servers = memberServerNames(m.mcpServers);
       return {
         name: textValue(m.name, 100),
         role: textValue(m.role, 200),
         assignment: textValue(m.assignment, 8192),
+        // Server names belong to the fingerprint: another list is another proposal.
+        ...(servers.length ? { mcpServers: servers } : {}),
       };
     });
     return this.transaction(() => {
@@ -220,6 +227,11 @@ export class TeamStore {
       if (parent.teamMemberId || parent.archivedAt) throw assistantProblem("active", 409);
       const policy = this.policy(parent.id);
       if (members.length > policy.maxMembers) throw assistantProblem("invalid");
+      // A lead passes on only servers bound to itself, resolved now by name.
+      const stored = drafts.map(({ mcpServers = [], ...draft }) => {
+        const ids = leadServerIds(this.servers(), parent.id, mcpServers);
+        return ids.length ? { ...draft, mcpServerIds: ids } : draft;
+      });
       if (this.list(parent.id).some((t) => !terminal.has(t.phase)))
         throw assistantProblem("active", 409);
       const context = this.context(request.id),
@@ -259,7 +271,7 @@ export class TeamStore {
           parentRequestId: request.id,
           parentAttemptId,
           objective,
-          members: drafts,
+          members: stored,
           memberIds: [],
           policy,
           snapshot: {
