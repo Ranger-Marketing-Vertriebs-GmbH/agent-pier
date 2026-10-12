@@ -330,10 +330,48 @@ test(
     };
     const h = await harness(t, { tool });
     const { servers, runtime, api, listed, authState, loggedOut, turn, running } = h;
-    const grants = () => docsServer.log.filter((e) => e.grant).map((e) => e.grant);
+    const grants = () =>
+      docsServer.log.filter((e) => e.grant && !e.refused).map((e) => e.grant);
     // Why a login callback failed: the CLI's message and the server's last requests.
     const why = () =>
       JSON.stringify({ cli: h.failures, server: docsServer.log.slice(-4) });
+
+    // The browser's part of a login: approve, then follow the redirect to the callback.
+    // Known upstream defect of OpenClaw 2026.9.8 (docs/mcp-oauth-qualification.md (b)):
+    // right after a turn started the server without credentials, `login --code` can
+    // send a PKCE verifier that does not match the challenge it printed. `mismatch`
+    // is true only for exactly that: InvalidGrantError from the CLI and a token request
+    // the server refused for its code_verifier.
+    async function authorize(authorizationUrl) {
+      const logFrom = docsServer.log.length;
+      const failFrom = h.failures.length;
+      const back = await approve(authorizationUrl);
+      const done = await fetch(back, { redirect: "manual" });
+      const mismatch =
+        !/oauth=connected/.test(done.headers.get("location")) &&
+        h.failures.slice(failFrom).some((f) => /\bInvalidGrantError\b/.test(f)) &&
+        docsServer.log
+          .slice(logFrom)
+          .some((e) => e.path === "/token" && e.refused === "code_verifier mismatch");
+      return { back, done, mismatch };
+    }
+    // Each login: start, approve, callback; the nudge makes the next turn see it. A
+    // verifier mismatch is repeated once and logged; any other failure fails.
+    async function login(label, { repeated = false } = {}) {
+      const begun = await api("POST", `/mcp-servers/${docs.id}/oauth/login`);
+      assert.equal(begun.body.status, "authorize", label);
+      const { back, done, mismatch } = await authorize(begun.body.authorizationUrl);
+      assert.equal(done.status, 303, label);
+      if (mismatch && !repeated) {
+        t.diagnostic(
+          `${label}: OpenClaw code_verifier mismatch, login repeated ${why()}`,
+        );
+        return login(label, { repeated: true });
+      }
+      assert.match(done.headers.get("location"), /oauth=connected/, `${label} ${why()}`);
+      assert.equal((await listed("docs")).oauthStatus, "connected", label);
+      return back;
+    }
     const agent = h.store.createAssistant({
       name: "Bound",
       instructions: "Use the tool.",
@@ -418,15 +456,19 @@ test(
     assert.equal((await listed("docs")).oauthStatus, "login-pending");
 
     // The browser follows the URL; the provider redirects to AgentPier's callback.
-    const callback = await approve(authorizationUrl.href);
+    const first = await authorize(authorizationUrl.href);
+    let callback = first.back;
     assert.equal(`${callback.origin}${callback.pathname}`, redirectUrl);
-    const completed = await fetch(callback, { redirect: "manual" });
-    assert.equal(completed.status, 303);
-    assert.equal(
-      completed.headers.get("location"),
-      `/accounts?oauth=connected&server=${docs.id}`,
-      why(),
-    );
+    assert.equal(first.done.status, 303);
+    if (first.mismatch) {
+      t.diagnostic(`first: OpenClaw code_verifier mismatch, login repeated ${why()}`);
+      callback = await login("first", { repeated: true });
+    } else
+      assert.equal(
+        first.done.headers.get("location"),
+        `/accounts?oauth=connected&server=${docs.id}`,
+        why(),
+      );
     docsServer.state.expiresIn = 3600;
     // The state is single use.
     const replayed = await fetch(callback, { redirect: "manual" });
@@ -473,16 +515,6 @@ test(
     assert.equal((await listed("docs")).oauthStatus, "not-connected");
     assert.deepEqual((await turn(agent, "after-logout")).offered, []);
 
-    // Each login: start, approve, callback; the nudge makes the next turn see it.
-    async function login(label) {
-      const begun = await api("POST", `/mcp-servers/${docs.id}/oauth/login`);
-      assert.equal(begun.body.status, "authorize", label);
-      const back = await approve(begun.body.authorizationUrl);
-      const done = await fetch(back, { redirect: "manual" });
-      assert.equal(done.status, 303, label);
-      assert.match(done.headers.get("location"), /oauth=connected/, `${label} ${why()}`);
-      assert.equal((await listed("docs")).oauthStatus, "connected", label);
-    }
     await login("second");
     assert.deepEqual((await turn(agent, "second-login")).offered, ["docs__echo"]);
 

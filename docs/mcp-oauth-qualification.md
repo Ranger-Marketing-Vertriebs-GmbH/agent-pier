@@ -133,6 +133,22 @@ toggle never triggers a re-apply (a unit test applies after the nudge and sees n
 patch), and a Gateway start drops it. The reset is not free: the reload disposes the
 MCP runtimes of every session (stdio servers restart too), once per login.
 
+**Known defect (OpenClaw 2026.9.8): verifier mismatch.** Rarely, `login --code`
+exits `1` with `[openclaw] Reason: InvalidGrantError`. The authorization server
+refused the code exchange because the `code_verifier` did not match the
+`code_challenge` in the URL that the same `login` had just printed. OpenClaw's SDK
+then repeats the exchange with the now-used code, which is refused as well. There was
+one registration, one authorization and no other OAuth traffic, and AgentPier ran no
+other CLI call in between. The mismatch is therefore inside OpenClaw. Every
+occurrence followed a turn that had just started the server without credentials:
+a first login, the login after the start-up drain, or the live contract's login
+after its logged-out turn (CI job 114686246612, 2026-10-12, Linux). Frequency: two
+of about twelve CI runs of the compiled contract on 2026-10-12, and about one in
+twelve loaded local runs. Owner impact: a rare failed login (`oauth=error`,
+`reason=cli-failed`) that succeeds when started again. The compiled contract repeats
+such a login once and reports it with a test diagnostic. Any other failure, or a
+second mismatch, still fails.
+
 Accepted exposure: the CLI takes the code only as an argument (no stdin input), so
 for the about one second `login --code=<code>` runs, other local users of the
 AgentPier host can see the authorization code in the process list. PKCE (the
