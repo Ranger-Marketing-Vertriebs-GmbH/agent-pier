@@ -409,7 +409,14 @@ test(
     // A server-side expiry: OpenClaw refreshes and retries the call unattended.
     docsServer.expireAccessTokens();
     const before = grants().length;
-    assert.equal((await turn(agent, "CALL docs__echo again")).result, "echo:via-oauth");
+    const logBefore = docsServer.log.length;
+    const again = await turn(agent, "CALL docs__echo again");
+    // The server log tells a missed refresh from a dropped retry.
+    assert.equal(
+      again.result,
+      "echo:via-oauth",
+      JSON.stringify({ ...again, server: docsServer.log.slice(logBefore) }),
+    );
     assert.deepEqual(grants().slice(before), ["refresh_token"]);
     assert.equal(spareServer.log.filter((e) => e.path === "/token").length, 0);
 
