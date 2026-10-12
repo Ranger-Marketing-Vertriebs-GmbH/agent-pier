@@ -35,11 +35,19 @@ test("a header value with a reference is refused at the headers, in English", as
   const alert = headers.getByRole("alert");
   await expect(alert).toHaveText(`${message} Affected: Authorization`);
   await expect(headers).toHaveAccessibleDescription(`${message} Affected: Authorization`);
+  await expect(headers.getByLabel("Value", { exact: true })).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
   await expect(dialog).toBeVisible();
   // The general error line stays empty: the message belongs to its field.
   await expect(dialog.getByRole("alert")).toHaveCount(1);
   await headers.getByLabel("Value", { exact: true }).fill("Bearer literal");
   await expect(alert).toHaveCount(0);
+  await expect(headers.getByLabel("Value", { exact: true })).not.toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
 });
 
 test("a working directory with a reference is refused at that field", async ({

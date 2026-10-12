@@ -257,3 +257,34 @@ test("a server value with a reference is refused with its field and never echoed
   );
   assert.deepEqual(await read(await f.request("/api/mcp-servers")), []);
 });
+
+test("a stored reference does not block an unrelated save; a changed one is refused", async (t) => {
+  const f = await applicationFixture(t);
+  t.after(() => f.dispose());
+  const created = await read(
+    await f.request("/api/mcp-servers", {
+      method: "POST",
+      body: { name: "docs", transport: "http", url: "https://mcp.example.test/mcp" },
+    }),
+  );
+  f.application.mcpServers.db
+    .prepare("UPDATE servers SET url=? WHERE id=?")
+    .run("https://mcp.example.test/${X}/mcp", created.id);
+  let response = await f.request(`/api/mcp-servers/${created.id}`, {
+    method: "PUT",
+    body: {
+      revision: created.revision,
+      name: "docs2",
+      url: "https://mcp.example.test/${X}/mcp",
+      clis: ["codex"],
+    },
+  });
+  assert.equal(response.status, 200);
+  const saved = await read(response);
+  response = await f.request(`/api/mcp-servers/${created.id}`, {
+    method: "PUT",
+    body: { revision: saved.revision, url: "https://mcp.example.test/${Y}/mcp" },
+  });
+  assert.equal(response.status, 400);
+  assert.equal((await read(response)).field, "url");
+});

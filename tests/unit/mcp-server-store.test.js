@@ -198,3 +198,51 @@ test("values with environment or file references are refused on create and updat
   });
   assert.deepEqual(updated.headerNames, ["Authorization", "X-Key"]);
 });
+
+test("an unchanged stored reference never blocks a save; a changed one is refused", () => {
+  const s = store();
+  const remote = s.create(http());
+  const local = s.create({
+    name: "local",
+    transport: "stdio",
+    command: "/abs/server",
+    args: ["--plain"],
+  });
+  // Stored before the check existed: written directly.
+  s.db
+    .prepare("UPDATE servers SET url=? WHERE id=?")
+    .run("https://example.com/${X}/mcp", remote.id);
+  s.db
+    .prepare("UPDATE servers SET args=?, cwd=? WHERE id=?")
+    .run(JSON.stringify(["--root", "${X}"]), "/work/${X}", local.id);
+  const renamed = s.update(remote.id, {
+    revision: remote.revision,
+    name: "docs2",
+    url: "https://example.com/${X}/mcp",
+  });
+  assert.equal(renamed.name, "docs2");
+  const saved = s.update(local.id, {
+    revision: local.revision,
+    command: "/abs/server",
+    args: ["--root", "${X}"],
+    cwd: "/work/${X}",
+    env: { PLAIN: "value" },
+  });
+  assert.deepEqual(saved.envNames, ["PLAIN"]);
+  assert.throws(
+    () =>
+      s.update(remote.id, {
+        revision: renamed.revision,
+        url: "https://example.com/${Y}/mcp",
+      }),
+    { status: 400, code: "MCP_SERVER_VALUE_REFERENCE", field: "url" },
+  );
+  assert.throws(
+    () => s.update(local.id, { revision: saved.revision, args: ["--root", "${Y}"] }),
+    { status: 400, code: "MCP_SERVER_VALUE_REFERENCE", field: "args" },
+  );
+  assert.throws(
+    () => s.update(local.id, { revision: saved.revision, env: { K: "{env:Y}" } }),
+    { status: 400, code: "MCP_SERVER_VALUE_REFERENCE", field: "env" },
+  );
+});
