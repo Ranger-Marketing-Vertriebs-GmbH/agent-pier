@@ -76,7 +76,7 @@ export const operationsCopy = {
   includeHistory: "Verläufe einschließen",
   withCredentials: "Zugangsdaten verschlüsselt einschließen",
   backupPrivacy:
-    "Verläufe können private Aufgabeninhalte enthalten. Lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse werden nicht gesichert.",
+    "Verläufe können private Aufgabeninhalte enthalten und werden nicht verschlüsselt. Zugangsdaten umfassen Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile; Caches, Protokolle, installierte CLIs und Laufzeiten werden nie gesichert. Lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse bleiben außen vor.",
   passphrase: "Passphrase",
   plan: "Sicherungsumfang prüfen",
   create: "Sicherung erstellen",

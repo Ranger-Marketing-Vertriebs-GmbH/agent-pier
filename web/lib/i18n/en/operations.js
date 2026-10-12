@@ -76,7 +76,7 @@ export const operationsCopy = {
   includeHistory: "Include history",
   withCredentials: "Include encrypted credentials",
   backupPrivacy:
-    "History may contain private task content. Local CLI profiles, keychains and repository working directories are not backed up.",
+    "History may contain private task content and is not encrypted. Credentials cover logins, settings, instructions, skills and agents of managed CLI profiles; caches, logs, installed CLIs and runtimes are never backed up. Local CLI profiles, keychains and repository working directories stay out.",
   passphrase: "Passphrase",
   plan: "Review backup scope",
   create: "Create backup",

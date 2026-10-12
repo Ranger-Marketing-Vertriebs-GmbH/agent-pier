@@ -93,7 +93,6 @@ Logical backups include pinned artifacts even without session history. With
 history enabled they include unpinned artifacts too. Only committed generations
 are copied. Restores validate artifact metadata and content and apply project ID
 mappings; pinned results remain available even when the original session is gone.
-Backups currently allow at most **128 MiB** of artifact content and **15,000**
-artifact files within the existing archive limits. Larger backups fail explicitly;
-artifacts are never silently omitted to fit. Logical backups omit session MCP
-credentials as before.
+Artifact files stream into the backup archive without a size or count limit
+(see [backups.md](backups.md)); artifacts are never silently omitted. Logical
+backups omit session MCP credentials as before.

@@ -196,7 +196,7 @@ npm test
 npm run service:install
 ```
 
-Data in `.data/` or your custom data directory is retained. Back up private profile data before migrations. OAuth and Keychain logins may be tied to the individual Mac; sign in again on the Mac mini instead of copying Keychain files from a MacBook.
+Data in `.data/` or your custom data directory is retained. Create a host backup under **Settings → Backups** before migrations; [docs/backups.md](backups.md) describes what it holds, the archive format and how to restore it into a new data directory. OAuth and Keychain logins may be tied to the individual Mac; sign in again on the Mac mini instead of copying Keychain files from a MacBook.
 
 ## Stop and remove
 
