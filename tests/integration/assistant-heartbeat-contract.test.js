@@ -8,6 +8,7 @@ import { NativeReminders } from "../../server/features/assistants/native-reminde
 import { NativeHeartbeats } from "../../server/features/assistants/native-heartbeats.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
+import { telegramMessages } from "../../server/features/assistant-channels/telegram-messages.js";
 import {
   fixtureModels,
   proactivityModel,
@@ -134,7 +135,8 @@ test(
       await delay(200);
     const [delivered] = f.service.outbox.all(f.channel.id);
     assert.equal(delivered?.kind, "heartbeat");
-    assert.equal(delivered.text, model.reply);
+    const prefix = telegramMessages(f.channel).heartbeatPrefix;
+    assert.equal(delivered.text, `${prefix} ${model.reply}`);
     assert.equal(delivered.chatId, f.channel.chatId);
     assert.deepEqual(
       pushes.map((p) => p.kind),

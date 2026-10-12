@@ -3,11 +3,14 @@ import { isDeepStrictEqual } from "node:util";
 import { personalCapabilities, personalEligible } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { heartbeatSchedule, heartbeatSettings } from "./heartbeat-schedule.js";
+import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 
 export const heartbeatKind = "heartbeat";
 // OpenClaw's silent-reply token; an empty summary is just as silent.
 const silent = (text) => !text.trim() || text.trim() === "NO_REPLY";
 const declaration = (binding) => `agentpier-reminder:${binding.id}`;
+// Creation was submitted but not confirmed: the job may still surface.
+const unconfirmed = (binding) => ["pending", "unknown"].includes(binding.state);
 const prompt = (memory) =>
   [
     "This is a scheduled check-in from AgentPier, not a message from the owner.",
@@ -82,6 +85,8 @@ export class NativeHeartbeats {
       .filter((b) => b.kind === heartbeatKind && b.state !== "removed");
   }
   async retire(binding, job) {
+    // Kept until a listing shows its job: retiring it now could orphan a late job.
+    if (!job && unconfirmed(binding)) return;
     // Revoked before the RPC: a lost acknowledgement must not keep delivering.
     this.bindings.patch(binding.id, { state: "revoked" });
     if (job) await this.assistants.runtime.client.call("cron.remove", { id: job.id });
@@ -168,6 +173,12 @@ export class NativeHeartbeats {
       this.assistants.changed();
     }
   }
+  /** One agent outside any admission, after its chat changed (channel-service.js). */
+  resync(id) {
+    return this.assistants.admit(async () => {
+      if (this.assistants.runtime.client?.ready) await this.sync(id);
+    });
+  }
   /** Every agent with settings or a binding, outside any admission (ready, leave). */
   reconcile() {
     return this.assistants.admit(async () => {
@@ -190,6 +201,12 @@ export class NativeHeartbeats {
   }
   async complete(binding, event) {
     if (["revoked", "removed"].includes(binding.state)) return;
+    // A lost creation acknowledgement: the job's own completion proves it exists.
+    if (!binding.nativeId) {
+      const agent = this.assistants.store.getAssistant(binding.assistantId);
+      this.reminders.find(binding, await this.reminders.jobs(agent));
+      binding = this.bindings.get(binding.id);
+    }
     if (
       !event ||
       !binding.nativeId ||
@@ -203,26 +220,28 @@ export class NativeHeartbeats {
     // A failed check-in is not news for the owner; its run history keeps it.
     if (event.status !== "ok" || !this.acceptsDelivery(entry)) return;
     if (typeof event.summary !== "string" || silent(event.summary)) return;
-    const text = textValue(event.summary, 65536);
+    textValue(event.summary, 65536);
     const key = `native-heartbeat:${event.jobId}:${event.runAtMs}`;
-    const known = this.reminders.channels.outbox
-      .all(binding.source.channelId)
-      .some((e) => e.key === key);
-    this.reminders.channels.outbox.enqueue({
+    const { outbox, store } = this.reminders.channels;
+    // A replay is already handled; the prefix's language may have changed since.
+    if (outbox.all(binding.source.channelId).some((e) => e.key === key)) return;
+    const channel = store.get(binding.source.channelId);
+    // Marked in the chat's language, so a check-in never passes for a reply.
+    const text = `${telegramMessages(channel).heartbeatPrefix} ${event.summary.trim()}`;
+    outbox.enqueue({
       key,
       // The destination is the binding's, fixed when the owner enabled check-ins.
       source: { ...binding.source, reminderBindingId: binding.id },
       kind: heartbeatKind,
-      text,
+      text: text.slice(0, 65536),
     });
-    if (!known)
-      this.notifications
-        ?.notify({
-          kind: "agent-checkin",
-          assistantId: binding.assistantId,
-          eventId: `heartbeat-${event.runAtMs}-${binding.id}`,
-        })
-        .catch(() => {});
+    this.notifications
+      ?.notify({
+        kind: "agent-checkin",
+        assistantId: binding.assistantId,
+        eventId: `heartbeat-${event.runAtMs}-${binding.id}`,
+      })
+      .catch(() => {});
     this.assistants.changed();
   }
 }

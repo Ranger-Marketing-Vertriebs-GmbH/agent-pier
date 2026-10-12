@@ -156,8 +156,13 @@ export class TeamService {
       const result = this.store[action](id, revision);
       await this.applyMcp();
       if (this.assistants.runtime.client?.ready)
-        for (const member of members)
+        for (const member of members) {
           await this.assistants.config.apply(member.assistantId);
+          // Archive retires a check-in job, restore schedules it again.
+          await this.assistants.reminders?.heartbeats
+            ?.sync(member.assistantId)
+            .catch(() => {});
+        }
       this.assistants.changed();
       return result;
     });

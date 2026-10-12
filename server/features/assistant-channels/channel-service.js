@@ -84,6 +84,19 @@ export class ChannelService {
       })
     );
   }
+  /**
+   * The agent's check-in job follows its paired chat: pairing, re-pairing,
+   * disabling and disconnecting converge it at once (native-heartbeats.js). Not
+   * awaited: it takes the assistants' admission, which a channel operation may hold.
+   */
+  channelChanged(id) {
+    const heartbeats = this.assistants.reminders?.heartbeats;
+    if (!heartbeats) return;
+    const { assistantId } = this.store.get(id);
+    this.heartbeatSync = Promise.resolve()
+      .then(() => heartbeats.resync(assistantId))
+      .catch(() => {});
+  }
   list() {
     return {
       channels: this.store.list().map((c) => ({
@@ -117,6 +130,7 @@ export class ChannelService {
         language: input.language,
       });
       this.assistants.changed();
+      this.channelChanged(channel.id);
       return channel;
     });
   }
@@ -137,6 +151,7 @@ export class ChannelService {
         result = this.store.rotate(id, patch.token, revision);
       } else result = this.store.update(id, patch, revision);
       this.assistants.changed();
+      this.channelChanged(id);
       return result;
     });
   }
@@ -151,6 +166,7 @@ export class ChannelService {
         throw assistantProblem("active", 409);
       const result = this.store.pairing(id, revision, appUrl, language);
       this.assistants.changed();
+      this.channelChanged(id);
       return result;
     });
   }
@@ -161,6 +177,7 @@ export class ChannelService {
         throw assistantProblem("active", 409);
       const result = this.store.disconnect(id, revision);
       this.assistants.changed();
+      this.channelChanged(id);
       return result;
     });
   }
@@ -281,6 +298,7 @@ export class ChannelService {
                   channel.id,
                   error.code === "TELEGRAM_WEBHOOK" ? error.code : "TELEGRAM_UNAVAILABLE",
                 );
+              this.channelChanged(channel.id);
               return;
             }
             if (controller.signal.aborted || this.closed) return;

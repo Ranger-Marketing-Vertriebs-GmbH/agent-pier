@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
 import { NativeReminders } from "../../server/features/assistants/native-reminders.js";
 import { NativeHeartbeats } from "../../server/features/assistants/native-heartbeats.js";
+import { serverCatalogs } from "../../server/lib/i18n/catalogs.js";
 
 const heartbeat = {
   enabled: true,
@@ -16,6 +17,7 @@ function setup(t, { capabilities = { memory: true, reminders: false } } = {}) {
     id = f.channel.assistantId,
     jobs = new Map(),
     calls = [],
+    injected = [],
     pushes = [];
   f.store.updateAssistant(id, { capabilities, heartbeat }, 1);
   f.assistants.admit = (fn) => fn();
@@ -42,6 +44,10 @@ function setup(t, { capabilities = { memory: true, reminders: false } } = {}) {
       jobs.delete(input.id);
       return { removed: true };
     }
+    if (method === "chat.inject") {
+      injected.push(input);
+      return { ok: true, messageId: `m-${injected.length}` };
+    }
     assert.fail(method);
   };
   const reminders = new NativeReminders({
@@ -65,7 +71,18 @@ function setup(t, { capabilities = { memory: true, reminders: false } } = {}) {
       body: JSON.stringify(event),
     });
   };
-  return { ...f, id, jobs, calls, pushes, reminders, heartbeats, save, deliver };
+  return {
+    ...f,
+    id,
+    jobs,
+    calls,
+    injected,
+    pushes,
+    reminders,
+    heartbeats,
+    save,
+    deliver,
+  };
 }
 const added = (f) => f.calls.filter((c) => c.method === "cron.add");
 
@@ -154,7 +171,9 @@ test("only a check-in with content reaches the paired chat, plus a push notice",
   const outbox = f.service.outbox.all(f.channel.id);
   assert.equal(outbox.length, 1, "a replayed run is delivered once");
   assert.equal(outbox[0].kind, "heartbeat");
-  assert.equal(outbox[0].text, text);
+  // Marked in the channel's language so the owner knows where it came from.
+  const prefix = serverCatalogs[f.channel.language].assistants.heartbeatPrefix;
+  assert.equal(outbox[0].text, `${prefix} ${text}`);
   assert.equal(outbox[0].chatId, f.channel.chatId);
   assert.equal(outbox[0].userId, f.channel.userId);
   assert.deepEqual(
@@ -205,4 +224,90 @@ test("enabling requires a paired chat to deliver to", async (t) => {
   f.store.updateAssistant(other.id, { heartbeat }, other.revision);
   await f.heartbeats.sync(other.id);
   assert.equal(added(f).length, 0);
+});
+
+test("channel changes converge the job: re-pairing moves it, disconnecting retires it", async (t) => {
+  const f = setup(t);
+  await f.heartbeats.sync(f.id);
+  const [first] = f.reminders.bindings.list(f.id);
+  // Starting a new pairing disables the chat: no runs while nothing is delivered.
+  const channel = f.service.store.get(f.channel.id);
+  const { code } = await f.service.pair(channel.id, channel.revision);
+  await f.service.heartbeatSync;
+  assert.equal(f.jobs.size, 0);
+  assert.equal(f.reminders.bindings.get(first.id).state, "removed");
+  // Completing it with a different chat schedules a job bound to that chat.
+  await f.service.ingress.receive(channel.id, [
+    {
+      update_id: 7,
+      message: {
+        message_id: 7,
+        date: 1,
+        chat: { id: 77, type: "private" },
+        from: { id: 77, is_bot: false },
+        text: `/start ${code}`,
+      },
+    },
+  ]);
+  await f.service.heartbeatSync;
+  assert.equal(f.jobs.size, 1);
+  const moved = f.reminders.bindings
+    .list(f.id)
+    .find((b) => b.state === "bound" && b.kind === "heartbeat");
+  assert.equal(moved.source.chatId, "77");
+  await f.service.disconnect(channel.id, f.service.store.get(channel.id).revision);
+  await f.service.heartbeatSync;
+  assert.equal(f.jobs.size, 0);
+  assert.equal(f.reminders.bindings.get(moved.id).state, "removed");
+});
+
+test("a lost creation acknowledgement is adopted by delivery and never orphaned", async (t) => {
+  const f = setup(t);
+  const call = f.assistants.runtime.client.call;
+  f.assistants.runtime.client.call = async (method, input) => {
+    const result = await call(method, input);
+    if (method === "cron.add") throw Object.assign(Error(), { code: "CLOSED" });
+    return result;
+  };
+  await assert.rejects(f.heartbeats.sync(f.id), { status: 503 });
+  f.assistants.runtime.client.call = call;
+  const [binding] = f.reminders.bindings.list(f.id);
+  assert.equal(binding.state, "unknown");
+  const [jobId] = f.jobs.keys();
+  // The run's completion adopts the job by its declaration instead of refusing it.
+  const response = await f.deliver(binding.id, {
+    jobId,
+    runAtMs: 9,
+    status: "ok",
+    summary: "Parcel arrived",
+  });
+  assert.equal(response.status, 204);
+  assert.equal(f.service.outbox.all(f.channel.id).length, 1);
+  await f.heartbeats.sync(f.id);
+  assert.equal(f.jobs.size, 1, "the adopted job is kept, not duplicated");
+});
+
+test("an unconfirmed binding whose job is not listed yet stays tracked", async (t) => {
+  const f = setup(t);
+  const call = f.assistants.runtime.client.call;
+  let hidden = null;
+  f.assistants.runtime.client.call = async (method, input) => {
+    if (method === "cron.add") {
+      hidden = input;
+      throw Object.assign(Error(), { code: "CLOSED" });
+    }
+    return call(method, input);
+  };
+  await assert.rejects(f.heartbeats.sync(f.id), { status: 503 });
+  f.assistants.runtime.client.call = call;
+  // Switching off before the submission surfaces must not forget the binding.
+  f.save({ heartbeat: { ...heartbeat, enabled: false } });
+  await f.heartbeats.sync(f.id);
+  const [binding] = f.reminders.bindings.list(f.id);
+  assert.notEqual(binding.state, "removed");
+  // The late job surfaces and the next sync removes it.
+  await call("cron.add", hidden);
+  await f.heartbeats.sync(f.id);
+  assert.equal(f.jobs.size, 0);
+  assert.equal(f.reminders.bindings.get(binding.id).state, "removed");
 });

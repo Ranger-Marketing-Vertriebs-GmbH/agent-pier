@@ -18,10 +18,17 @@ for (const scope of ["member", "team"]) {
       profile.revision,
     );
     const pauses = [],
-      applied = [];
+      applied = [],
+      synced = [];
     f.assistants.reminders = {
       async disable(id) {
         pauses.push(id);
+      },
+      // Check-ins follow archive and restore at once (native-heartbeats.js).
+      heartbeats: {
+        async sync(id) {
+          synced.push([id, f.store.getAssistant(id).archivedAt !== null]);
+        },
       },
       async close() {},
     };
@@ -39,6 +46,10 @@ for (const scope of ["member", "team"]) {
     assert.ok(applied[0]);
     await f.service.lifecycle("restore", target.id, archived.revision);
     assert.equal(pauses.length, 1);
+    assert.deepEqual(synced, [
+      [member.id, true],
+      [member.id, false],
+    ]);
     assert.equal(f.store.getAssistant(member.id).archivedAt, null);
   });
 }
