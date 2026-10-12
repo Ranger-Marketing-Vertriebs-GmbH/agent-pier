@@ -1,8 +1,8 @@
 import { createHmac, randomBytes } from "node:crypto";
 import { personalEligible, personalShell } from "../native-capabilities.js";
 
-// Verified against OpenClaw 2026.9.8 by
-// tests/integration/assistant-telegram-senders-contract.test.js: one Telegram account
+// Verified against OpenClaw 2026.9.8, see docs/assistant-telegram-senders-qualification.md
+// and tests/integration/assistant-telegram-senders-contract.test.js: one Telegram account
 // per agent owns its bot through a binding, an allowlisted account admits only the
 // listed Telegram user ids, `per-account-channel-peer` keeps a conversation per
 // sender, a loopback `apiRoot` serves the Bot API in tests, and Deepgram transcribes

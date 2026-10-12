@@ -406,7 +406,12 @@ not, reconnect the account. No custom OAuth token refresh implementation is incl
 ## Telegram text and Deepgram voice
 
 Each saved assistant can own one dedicated Telegram bot and one paired private
-chat. Its Telegram section lives below the assistant settings. Enter the bot token,
+chat. Separately, a personal agent without shell can get its own bot for other
+people, which OpenClaw runs natively for an allowlist of Telegram user ids; see the
+[Telegram senders qualification](assistant-telegram-senders-qualification.md). A
+bot serves only one of the two purposes.
+
+The owner's bot has its Telegram section below the assistant settings. Enter the bot token,
 open the one-time pairing link and send its `/start` message from your private
 chat. Pairing expires after ten minutes. Group chats and other users do not enter
 the assistant. The bot must not have another webhook or polling owner; AgentPier
@@ -737,7 +742,9 @@ names that executable. The block:
 
 The `browser`, `mcp`, `secrets`, `env`, `plugins` and `tools` paths are locked
 against configuration overrides; the compiler rewrites the browser block on each
-start and removes any `mcp` block it did not write.
+start and removes any `mcp` block it did not write. `channels`, `bindings`,
+`session`, `commands`, `approvals`, `accessGroups` and `models.providers.deepgram`
+belong to the agents' own Telegram bots and are locked as well.
 
 ### Search provider
 
