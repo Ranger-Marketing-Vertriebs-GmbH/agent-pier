@@ -1,10 +1,15 @@
+import { telegramSurfaces } from "./telegram-senders.js";
+
 // Paths AgentPier owns. A later capability step moves a path out of this list
 // together with its safety rule. `tools`, `browser` and `plugins` also carry what
 // the agents' web capabilities need (openclaw-config/web-tools.js); that content
 // comes from the profiles and detected availability, never from overrides. `mcp`
 // (MCP servers can run host commands over stdio), `secrets` (credential providers) and
 // `env` (variables for the Gateway and its tools) stay out of reach of overrides; the
-// compiler owns `mcp` and removes any block it did not write.
+// compiler owns `mcp` and removes any block it did not write. The channel surfaces
+// (`channels`, `bindings`, `session`, `commands`, `approvals`, `accessGroups`) and the
+// Deepgram key belong to the agents' own Telegram bots (openclaw-config/
+// telegram-senders.js): an override could otherwise admit senders or route them.
 export const lockedPaths = [
   "gateway",
   "update",
@@ -29,6 +34,8 @@ export const lockedPaths = [
   "mcp",
   "secrets",
   "env",
+  ...telegramSurfaces,
+  "models.providers.deepgram",
 ];
 
 export function isLockedPath(target) {

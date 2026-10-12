@@ -9,6 +9,11 @@ import { applyOverrides } from "./openclaw-config/overrides.js";
 import { applyShell, shellSections, withoutShell } from "./openclaw-config/shell.js";
 import { applyMcp, mcpSections } from "./openclaw-config/mcp-servers.js";
 import {
+  applyTelegram,
+  configuredAgents,
+  telegramSections,
+} from "./openclaw-config/telegram-senders.js";
+import {
   applyWebTools,
   webToolsAvailability,
   webToolsSections,
@@ -72,6 +77,8 @@ export function compileOpenClawConfig({
   shell,
   // { servers, bindings, secrets }; see openclaw-config/mcp-servers.js readMcpInputs.
   mcp,
+  // { accounts, speech }; see openclaw-config/telegram-senders.js readTelegramInputs.
+  telegram,
 }) {
   const config = applyOverrides(existing || freshDefaults(paths), overrides);
   // Paths are this installation's; a restored or copied configuration cannot pick them.
@@ -187,6 +194,16 @@ export function compileOpenClawConfig({
       );
     }
   }
+  // Only the native team start compiles the agents' own bots; any other start, and
+  // every start without bots, removes what an earlier one wrote.
+  applyTelegram(
+    config,
+    telegramSections({
+      profiles: teams?.profiles,
+      telegram: enabled && teams.native ? telegram : undefined,
+      agents: configuredAgents(config),
+    }),
+  );
   config.cron = { ...config.cron, enabled: !!(enabled && teams.native && !maintenance) };
   // Workspace skill folders would load model-written text as instructions.
   config.agents.defaults = { ...config.agents.defaults, skills: [] };
@@ -236,7 +253,7 @@ export function prepareRuntimeConfig(
   paths,
   port,
   teams,
-  { maintenance = false, tls, overrides = [], webTools, shell, mcp } = {},
+  { maintenance = false, tls, overrides = [], webTools, shell, mcp, telegram } = {},
 ) {
   const existing = readJSON(paths.config, null);
   const token = existing?.gateway?.auth?.token || randomBytes(32).toString("hex");
@@ -254,6 +271,7 @@ export function prepareRuntimeConfig(
       webTools,
       shell,
       mcp,
+      telegram,
     }),
   );
   return token;
