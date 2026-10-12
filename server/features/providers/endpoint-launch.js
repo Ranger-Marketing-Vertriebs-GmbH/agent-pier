@@ -5,6 +5,7 @@ import { tomlValue } from "../../lib/launch-serialization.js";
 import { ADAPTER_URL_PLACEHOLDER } from "./adapter-launch.js";
 import { adapterReasoning } from "./endpoint-routing.js";
 import { codexModelCatalog, writeTomlConfig } from "./native-config.js";
+import { CODEX_FILE_CREDENTIAL_STORES } from "./codex-credential-stores.js";
 
 /** Codex reads the key from the environment variable named here, never from config. */
 export function endpointCodexLaunch(
@@ -37,7 +38,7 @@ export function endpointCodexLaunch(
   const config = {
     model: model.modelId,
     model_provider: description.providerKey,
-    cli_auth_credentials_store: "file",
+    ...CODEX_FILE_CREDENTIAL_STORES,
     model_context_window: model.contextTokens,
     model_catalog_json: path.join(env.CODEX_HOME, "models.json"),
     model_providers: { [description.providerKey]: provider },

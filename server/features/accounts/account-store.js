@@ -10,6 +10,10 @@ import { validateProviderSelection } from "../providers/provider-definitions.js"
 import { resolveEndpointTarget } from "../providers/endpoint-address.js";
 import { resolveRoute, routeBaseUrl } from "../providers/endpoint-routing.js";
 import { providerEnvironment } from "../providers/provider-environment.js";
+import {
+  codexCredentialStoreConfig,
+  pinCodexCredentialStores,
+} from "../providers/codex-credential-stores.js";
 import { launchTarget } from "../providers/launch-description.js";
 import { prepareProviderLaunch } from "../providers/provider-launch.js";
 import { addGrant } from "../nono/sandbox-grants.js";
@@ -232,11 +236,9 @@ export class AccountStore {
     if (key) writePrivate(path.join(root, "secret.json"), { apiKey: key });
     if (tool === "codex") {
       const dir = privateDirectory(path.join(root, "codex"));
-      fs.writeFileSync(
-        path.join(dir, "config.toml"),
-        'cli_auth_credentials_store = "file"\n',
-        { mode: 0o600 },
-      );
+      fs.writeFileSync(path.join(dir, "config.toml"), codexCredentialStoreConfig(), {
+        mode: 0o600,
+      });
       if (key && !selection)
         writePrivate(path.join(dir, "auth.json"), { OPENAI_API_KEY: key });
     }
@@ -410,6 +412,10 @@ export class AccountStore {
     if (account.kind === "managed")
       launch = addGrant(launch, { access: "allow", path: this.profile(id) });
     if (!account.provider) {
+      // Logins and work sessions both write credentials, so every plain managed
+      // launch repairs the file stores an older account may lack.
+      if (account.kind === "managed" && account.tool === "codex")
+        pinCodexCredentialStores(path.join(launch.env.CODEX_HOME, "config.toml"));
       if (modelId) launch.args.push("--model", modelId);
       return launch;
     }

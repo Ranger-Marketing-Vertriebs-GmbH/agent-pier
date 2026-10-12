@@ -7,6 +7,7 @@ import { launchDescription } from "./launch-description.js";
 import { providerEnvironment } from "./provider-environment.js";
 import { configureClaudeProvider } from "./claude-provider.js";
 import { glmCodexCatalog, writeTomlConfig } from "./native-config.js";
+import { CODEX_FILE_CREDENTIAL_STORES } from "./codex-credential-stores.js";
 import {
   adapterBlock,
   createSessionToken,
@@ -110,7 +111,7 @@ export function prepareProviderLaunch(
     const config = {
       model: model.modelId,
       model_provider: selection.id,
-      cli_auth_credentials_store: "file",
+      ...CODEX_FILE_CREDENTIAL_STORES,
       model_providers: {
         [selection.id]: {
           name: description.displayName,
