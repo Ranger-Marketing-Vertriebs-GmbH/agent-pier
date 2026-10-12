@@ -620,8 +620,10 @@ Saving an empty note clears that file; it does not purge chat history or other
 workspace notes. Native file tools stay within the workspace.
 
 The initial managed search uses OpenClaw's keyword provider `none`, requiring no
-embedding account. Transcript indexing, cross-conversation recall, dreaming and
-heartbeat are disabled. `skills.workshop.autonomous.mode` is explicitly `off`, so
+embedding account. Transcript indexing and cross-conversation recall are per-agent
+opt-ins, scheduled check-ins replace OpenClaw's own heartbeat, and dreaming stays off
+(see [Proactivity](#proactivity-check-ins-and-recall-2026-10-12)).
+`skills.workshop.autonomous.mode` is explicitly `off`, so
 enabling cron does not also start OpenClaw's default weekly skill collection reviews.
 Explicit repository memory access is now described in [agent workflows](assistant-workflows.md).
 Semantic search and comprehensive deletion/re-ingestion remain follow-ups.
@@ -1165,6 +1167,81 @@ and returns to levels and entries they confirmed before. The same holds when an
 archived permanent member is restored, and when a level is raised again over
 entries that survived an earlier lowering (entries are only removed by deleting
 them). Check the agent settings after a restore if in doubt.
+
+## Proactivity: check-ins and recall (2026-10-12)
+
+The **Acting on its own** group in an agent's settings (section **Proactivity**)
+holds two opt-ins. Both are off by default, and only personal agents and promoted
+permanent members have them. Changes are audited as `assistant.updated` with
+`kind: "proactivity"`, the changed names (`heartbeat`, `recall`) and their new on/off
+flags; never a schedule, time zone or text. Clients that do not send these fields
+keep the stored values.
+
+### Check-ins (heartbeat)
+
+**Check in on its own** runs a short, isolated agent turn at set times: every hour,
+2 hours, 4 hours or once a day, within active hours (start to before end, whole hours)
+in the owner's time zone, which the browser supplies on save. The agent is asked
+whether something needs the owner's attention and to answer exactly `NO_REPLY`
+otherwise. The settings show the cost as model runs per day.
+
+It is not OpenClaw's native heartbeat, which stays at `agents.defaults.heartbeat.every:
+"0m"`: that one delivers through OpenClaw channels, which AgentPier leaves empty. Each
+opted-in agent instead gets one native cron job built like a reminder
+(`server/features/assistants/native-heartbeats.js`): `sessionTarget: "isolated"`,
+`lightContext`, a cron expression listing the active hours with the owner's IANA
+zone, and the reminder webhook as delivery. Its tools are `memory_search` and
+`memory_get` for an agent with memory, none otherwise; nothing is written in an
+unattended run. The binding (kind `heartbeat`, hidden from reminder and routine
+lists) fixes the paired Telegram destination when the job is created. AgentPier drops
+an empty or `NO_REPLY` summary and failed runs; anything else goes to the outbox of
+that paired chat (kind `heartbeat`) plus an `agent-checkin` push notice that names only
+the agent. The model's text never chooses a recipient.
+
+Enabling needs a paired, enabled Telegram chat (`heartbeatChannelRequired`
+otherwise); a new agent switches check-ins on after saving. A saved change converges
+the job at once (update in place, or removal when switched off); every Gateway ready
+and every end of maintenance repeats that for all agents. Maintenance switches the
+whole scheduler off. Agents whose model connection is blocked, archived members and
+agents without a paired chat keep no job, and queued check-ins of such agents are
+not sent. Switching reminders off pauses an agent's jobs, and the same save schedules
+its check-ins again. A re-paired chat retires the old job and creates a new one.
+
+The heartbeat contract (`tests/integration/assistant-heartbeat-contract.test.js`)
+force-runs the job on the pinned runtime: a reply with content reaches the paired
+chat once, a `NO_REPLY` summary (which the native webhook does post) stays silent,
+the agent's native heartbeat job stays disabled, and switching off removes the job.
+
+### Remember across conversations
+
+**Remember across conversations** needs **Remember information**. It compiles the
+agent's own `memory.search` with `rememberAcrossConversations: true`, sources
+`["memory", "sessions"]` and `experimental.sessionMemory: true`; every other agent
+gets `false`, `["memory"]` and `false` explicitly, so a live merge patch also turns it
+off. The bundled `active-memory` plugin is loaded on native team Gateways with
+`agents: []`: its advanced path targets no agent, only the per-agent setting does.
+Before an eligible private reply it runs a bounded recall pass over the same agent's
+other conversations (for example its AgentPier chat and its Telegram chat), which
+costs up to one extra model call per message. Another agent's transcripts are never
+eligible.
+
+`tools.sessions.visibility` is `"agent"` on every Gateway, regardless of the opt-in:
+OpenClaw's default `"all"` lets session tools reach other agents' transcripts. Teams
+do not use OpenClaw session tools (members run in their own sessions and report
+through the AgentPier bridge), and the team plugin contract passes with it.
+
+### Dreaming is not offered
+
+OpenClaw's dreaming (`plugins.entries.memory-core.config.dreaming`) stays disabled
+and the agents runtime settings have no switch for it. The recall contract
+(`tests/integration/assistant-recall-contract.test.js`) shows why: once enabled on the
+pinned runtime, memory-core schedules one nightly sweep (`0 3 * * *`) over every
+configured agent workspace. AgentPier conversations count as interactive sessions,
+so it does process them, but it also copied the transcripts of an agent without the
+memory capability into that agent's `memory/.dreams/session-corpus` and wrote light
+and REM phase notes and a Dream Diary there. 2026.9.8 offers no per-agent scope
+(`memoryPolicy.excludeSessions` filters by channel, chat type or hook source only),
+so a switch limited to agents with memory cannot be built yet.
 
 ## Continuous integration
 
