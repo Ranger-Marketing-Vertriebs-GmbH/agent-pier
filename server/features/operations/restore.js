@@ -3,7 +3,7 @@ import { restoreArtifacts } from "./artifact-backup.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { atomic, folder, readJson } from "./files.js";
+import { folder, readJson } from "./files.js";
 import { assertNoConflicts, decodeArchive, decryptCredentials } from "./archive.js";
 import { archiveVersion, readArchive, readArchiveHeader } from "./archive-v2.js";
 import { backupProjects, mapProjects, historicalOnly, database } from "./restore-data.js";
@@ -20,6 +20,7 @@ import { isLoginFile, profileMemberKind } from "./profile-allowlist.js";
 import { remapClaudeProjects } from "./profile-history.js";
 import { inspected } from "./inspection.js";
 import { RestoreUploads } from "./restore-upload.js";
+import { claim } from "./work-claims.js";
 
 const publicPath =
   /^(artifacts\/(?:index\.json|generations\/[a-f0-9-]{36}\/\d{1,3})|accounts\.json|provider-connections\.json|repositories\.json|preferences\.json|config\.json|pipelines\/definitions\.json|memory\/memory\.sqlite|mcp-servers\/servers\.sqlite|pipeline-runs\/runs\.sqlite|audit\/events\.json|sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
@@ -193,32 +194,18 @@ function verifyStaged(directory) {
       database(path.join(directory, file), () => {}, file.startsWith("memory/") ? 1 : 0);
 }
 const stagePrefix = ".agentpier-restore-";
-function cleanLeftovers(directory) {
-  // Interrupted inspections leave work files behind, and a restore that died
-  // before its rename leaves a stage beside its target, recorded here.
-  for (const name of fs.readdirSync(directory)) {
-    const file = path.join(directory, name);
-    if (name.startsWith(".inspect-")) fs.rmSync(file, { recursive: true, force: true });
-    else if (/^stage-[a-f0-9-]{36}\.json$/.test(name)) {
-      const stage = readJson(file, {}).stage;
-      if (typeof stage === "string" && path.basename(stage).startsWith(stagePrefix))
-        fs.rmSync(stage, { recursive: true, force: true });
-      fs.rmSync(file, { force: true });
-    }
-  }
-  RestoreUploads.clean(directory);
-}
 
 export class Restore {
   constructor({ dataDir, audit }) {
     this.dataDir = fs.realpathSync(dataDir);
     this.directory = folder(path.join(this.dataDir, "operations/restores"));
     this.audit = audit;
-    cleanLeftovers(this.directory);
-    this.uploads = new RestoreUploads(this.directory);
+    this.uploads = new RestoreUploads(this.directory, this.dataDir);
   }
   async inspect({ archive, passphrase, projectMap } = {}) {
-    const scratch = folder(path.join(this.directory, `.inspect-${randomUUID()}`));
+    const scratchPath = path.join(this.directory, `.inspect-${randomUUID()}`);
+    const release = claim(this.dataDir, scratchPath);
+    const scratch = folder(scratchPath);
     try {
       const { manifest } = await stageArchive(archive, scratch, {
         passphrase,
@@ -236,6 +223,7 @@ export class Restore {
       };
     } finally {
       fs.rmSync(scratch, { recursive: true, force: true });
+      release();
     }
   }
   async apply({ archive, targetDataDir, projectMap = {}, passphrase } = {}) {
@@ -264,8 +252,8 @@ export class Restore {
       throw problem(serverMessages.backups.restoreParentInvalid, 409);
     const stageId = randomUUID();
     const stage = path.join(path.dirname(target), `${stagePrefix}${stageId}`);
-    const marker = path.join(this.directory, `stage-${stageId}.json`);
-    atomic(marker, { stage });
+    // A stage a crashed restore leaves behind is removed when the server starts.
+    const release = claim(this.dataDir, stage);
     folder(stage);
     try {
       const staged = await stageArchive(archive, stage, { passphrase });
@@ -347,7 +335,7 @@ export class Restore {
       return importRecord;
     } finally {
       fs.rmSync(stage, { recursive: true, force: true });
-      fs.rmSync(marker, { force: true });
+      release();
     }
   }
   /** Stores an archive uploaded in one request (bytes, or a stream of a known size). */

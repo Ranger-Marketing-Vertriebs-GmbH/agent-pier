@@ -10,6 +10,7 @@ import { ensureSpace } from "./backup-components.js";
 import { captureProfiles, profileOmissions } from "./profile-capture.js";
 import { CapturePlan } from "./capture-plan.js";
 import { inspected } from "./inspection.js";
+import { claim } from "./work-claims.js";
 import { backupOptions, capture, omissions } from "./snapshot.js";
 import { mcpServersPresent } from "./mcp-server-backup.js";
 import { applicationVersion } from "./version.js";
@@ -39,15 +40,6 @@ export class Backup {
     this.audit = audit;
     this.withSnapshotBarrier = withSnapshotBarrier;
     this.assistantsBusy = assistantsBusy;
-    // Work folders a crash left behind may hold unsealed database copies, and
-    // unfinished archives their members.
-    const operations = path.dirname(this.directory);
-    for (const name of fs.readdirSync(operations))
-      if (name.startsWith(".snapshot-"))
-        fs.rmSync(path.join(operations, name), { recursive: true, force: true });
-    for (const name of fs.readdirSync(this.directory))
-      if (name.endsWith(".tmp"))
-        fs.rmSync(path.join(this.directory, name), { force: true });
   }
   plan(input) {
     const options = backupOptions(input);
@@ -105,9 +97,14 @@ export class Backup {
       throw problem(serverMessages.backups.passphraseTooShort);
     const id = randomUUID();
     // Database snapshots wait here until the archive has streamed them.
-    const scratch = folder(
-      path.join(this.dataDir, "operations", `.snapshot-${randomUUID()}`),
+    // Claimed first: the server removes unclaimed or abandoned work at its start.
+    const scratchPath = path.join(
+      this.dataDir,
+      "operations",
+      `.snapshot-${randomUUID()}`,
     );
+    const releaseScratch = claim(this.dataDir, scratchPath);
+    const scratch = folder(scratchPath);
     try {
       const members = new CapturePlan();
       const take = () =>
@@ -160,6 +157,7 @@ export class Backup {
       }
     } finally {
       fs.rmSync(scratch, { recursive: true, force: true });
+      releaseScratch();
     }
   }
   async write(id, options, plan, snapshot, assistants) {
@@ -204,13 +202,15 @@ export class Backup {
       ? await encryptCredentials(snapshot.credentials, options.passphrase)
       : undefined;
     const file = this.file(id),
-      temporary = `${file}.${randomUUID()}.tmp`;
+      temporary = `${file}.${randomUUID()}.tmp`,
+      release = claim(this.dataDir, temporary);
     let written;
     try {
       written = await writeArchive(temporary, { manifest, members, capsule });
       fs.renameSync(temporary, file);
     } finally {
       fs.rmSync(temporary, { force: true });
+      release();
     }
     const backup = {
       id,

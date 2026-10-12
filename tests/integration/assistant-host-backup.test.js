@@ -7,6 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { createHash } from "node:crypto";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
+import { removeAbandonedWork } from "../../server/features/operations/work-claims.js";
 import { loadArchive, encodeArchiveV2 } from "../helpers/backup-archive.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import {
@@ -453,7 +454,10 @@ test("a restarted backup service removes abandoned work folders", async (t) => {
   const abandoned = path.join(dataDir, "operations", ".snapshot-abandoned");
   fs.mkdirSync(abandoned, { recursive: true, mode: 0o700 });
   fs.writeFileSync(path.join(abandoned, "copy"), botToken);
+  // Removed when the server starts, not by every backup service instance.
   new Backup({ dataDir });
+  assert.equal(fs.existsSync(abandoned), true);
+  removeAbandonedWork(dataDir);
   assert.equal(fs.existsSync(abandoned), false);
 });
 
