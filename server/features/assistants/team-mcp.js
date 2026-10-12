@@ -120,7 +120,12 @@ export class TeamMcpBindings {
         } else if (m.mcpServerIds?.length && !m.mcpGranted && live) {
           // Recorded first: a grant is never repeated over the owner's later edits.
           this.teams.write(m, { mcpGranted: true });
-          servers.setBindings("agent", a.id, [...new Set([...current, ...approved])]);
+          // An agent with its own Telegram bot for other people never gets a stdio
+          // server (mcp-changes.js checkBindings), also not through this grant.
+          const granted = this.assistants.telegramSenders?.connected(a.id)
+            ? approved.filter((id) => servers.get(id)?.transport !== "stdio")
+            : approved;
+          servers.setBindings("agent", a.id, [...new Set([...current, ...granted])]);
           changed = true;
         }
       } catch {
