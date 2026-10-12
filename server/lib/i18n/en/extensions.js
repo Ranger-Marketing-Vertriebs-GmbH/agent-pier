@@ -32,7 +32,9 @@ export const extensions = Object.freeze({
   invalidMcpUrl: "Please enter a valid HTTP or HTTPS MCP URL.",
   targetOutsideProfile: "The target path is outside the profile.",
   linkedPathsReadOnly: "Linked configuration or skill paths are read-only here.",
-  invalidCliConfigFile: "The CLI configuration is too large or not a regular document.",
+  cliConfigTooLarge:
+    "The CLI configuration is larger than 64 MiB; AgentPier does not read or change it.",
+  invalidCliConfigFile: "The CLI configuration is not a regular document.",
   invalidExistingCliConfig:
     "The existing CLI configuration is invalid. It was not changed.",
   cliConfigChanged: "The CLI configuration was changed concurrently. Please reload.",
