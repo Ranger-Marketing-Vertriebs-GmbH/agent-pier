@@ -91,6 +91,7 @@ export function publicFind(group, { resolve = null } = {}) {
     return {
       ...base,
       reason: group.parsed.reason,
+      ...(group.parsed.names ? { referenceNames: group.parsed.names } : {}),
       ...reasonIdentity(group.parsed.reason),
     };
   const { definition, secrets } = group.parsed;

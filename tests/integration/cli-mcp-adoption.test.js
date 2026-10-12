@@ -133,6 +133,39 @@ test("an entry with settings AgentPier does not manage cannot be adopted", (t) =
   assert.throws(() => adopt(f, { keys: [] }), { status: 400 });
 });
 
+test("a find with environment references is skipped by adopt all and refused by key", (t) => {
+  const f = cliMcpFixture(t);
+  f.write("claude", {
+    gh: {
+      type: "http",
+      url: "https://gh.example.test/mcp",
+      headers: { Authorization: "Bearer ${GITHUB_TOKEN:-find-secret}" },
+    },
+    plain: { type: "http", url: "https://plain.example.test/mcp" },
+  });
+  const found = groups(f).map(publicFind);
+  const gh = found.find((find) => find.name === "gh");
+  assert.deepEqual(
+    [gh.adoptable, gh.reason, gh.referenceNames, gh.messageKey],
+    [false, "env-references", ["Authorization"], "mcpServers.cliFindEnvReferences"],
+  );
+  assert.doesNotMatch(JSON.stringify(found), /find-secret|GITHUB_TOKEN/);
+  assert.throws(() => adopt(f, { keys: [gh.key] }), {
+    status: 409,
+    code: "MCP_CLI_FIND_ENV_REFERENCES",
+  });
+  const { adopted, failed } = adopt(f, { all: true });
+  assert.deepEqual([adopted.map((server) => server.name), failed], [["plain"], []]);
+  assert.equal(
+    f.entries("claude").gh.headers.Authorization,
+    "Bearer ${GITHUB_TOKEN:-find-secret}",
+  );
+  assert.deepEqual(
+    f.servers.list().map((server) => server.name),
+    ["plain"],
+  );
+});
+
 test("adopting a hand edit moves it into the central server for every CLI", (t) => {
   const f = cliMcpFixture(t);
   const server = f.servers.create(http(), {
@@ -376,6 +409,15 @@ test("a change of connection type or an unmanaged setting cannot be adopted", (t
         f.servers.get(server.id),
         "codex",
         centralFromNative("codex", { url: "https://x.example.test/mcp", foo: 1 }),
+      ),
+    { status: 409 },
+  );
+  assert.throws(
+    () =>
+      patchFromNative(
+        f.servers.get(server.id),
+        "codex",
+        centralFromNative("codex", { url: "https://x.example.test/${PATH_PART}" }),
       ),
     { status: 409 },
   );

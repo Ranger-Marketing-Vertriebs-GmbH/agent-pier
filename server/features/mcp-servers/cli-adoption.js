@@ -85,6 +85,10 @@ export function adoptFinds({
     : keys.map((key) => {
         const group = groups.find((item) => item.key === key);
         if (!group) throw problem(messages.cliFindChanged, 409);
+        if (group.parsed.reason === "env-references")
+          throw Object.assign(problem(messages.cliFindEnvReferences, 409), {
+            code: "MCP_CLI_FIND_ENV_REFERENCES",
+          });
         if (!group.parsed.ok) throw problem(messages.cliNotAdoptable, 409);
         return group;
       });

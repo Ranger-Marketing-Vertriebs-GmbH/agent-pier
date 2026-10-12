@@ -169,21 +169,49 @@ function fromOpenCode(entry) {
   return remote("http", entry.url, {}, entry.oauth.scope ?? "");
 }
 
+// Claude Code's `${VAR}` and `${VAR:-default}`, OpenCode's `{env:VAR}` and `{file:path}`.
+const reference = /\$\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\}|\{(?:env|file):[^}]+\}/;
+
+/**
+ * Where a parsed entry refers to the CLI's environment or a file instead of holding
+ * the value: field names (`command`, `args`, `cwd`, `url`) and header or environment
+ * names, never a value. Another CLI or an agent would get such a value literally.
+ */
+function references({ definition, secrets }) {
+  const has = (value) => typeof value === "string" && reference.test(value);
+  const fields = ["command", "args", "cwd", "url"].filter((field) =>
+    Array.isArray(definition[field])
+      ? definition[field].some(has)
+      : has(definition[field]),
+  );
+  const named = (map) => Object.keys(map).filter((name) => has(map[name]));
+  return [...fields, ...named(secrets.headers), ...named(secrets.env)];
+}
+
+function parse(cli, entry) {
+  if (cli === "claude") return fromClaude(entry);
+  if (cli === "codex") return fromCodex(entry);
+  return fromOpenCode(entry);
+}
+
 /**
  * A native entry as central fields, `{ ok, definition, secrets }`, or `{ ok: false,
  * reason }` when AgentPier could not take it over without losing something: settings
- * it does not manage, a disabled entry, or malformed values. OpenCode's `remote` reads
- * as HTTP; it cannot tell SSE apart.
+ * it does not manage, a disabled entry, malformed values, or references to the CLI's
+ * environment (`env-references`, with the `names` that use them). OpenCode's `remote`
+ * reads as HTTP; it cannot tell SSE apart.
  */
 export function centralFromNative(cli, entry) {
   if (!record(entry)) return invalid;
+  let parsed;
   try {
-    if (cli === "claude") return fromClaude(entry);
-    if (cli === "codex") return fromCodex(entry);
-    return fromOpenCode(entry);
+    parsed = parse(cli, entry);
   } catch {
     return invalid;
   }
+  if (!parsed.ok) return parsed;
+  const names = references(parsed);
+  return names.length ? { ok: false, reason: "env-references", names } : parsed;
 }
 
 /** Equal for identical servers found in different CLIs; holds values, never leaves the server. */
