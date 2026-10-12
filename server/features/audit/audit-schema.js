@@ -124,6 +124,7 @@ export function auditEvent(input) {
       "allowlist",
       "exec",
       "proactivity",
+      "telegram",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -151,6 +152,19 @@ export function auditEvent(input) {
     if (["off", "approval", "full"].includes(details[key]))
       event.details[key] = details[key];
   if (details.entryId !== undefined) event.details.entryId = auditId(details.entryId);
+  // An agent's own Telegram bot names what changed; never a token, id or name.
+  if (
+    [
+      "connected",
+      "disconnected",
+      "botReplaced",
+      "tokenReplaced",
+      "peopleAdded",
+      "peopleRemoved",
+      "updated",
+    ].includes(details.telegram)
+  )
+    event.details.telegram = details.telegram;
   // An exec allow-always AgentPier answered: what it sent and what it wrote, never
   // the command (exec-decisions.js).
   if (details.resolvedAs === "allow-once") event.details.resolvedAs = details.resolvedAs;

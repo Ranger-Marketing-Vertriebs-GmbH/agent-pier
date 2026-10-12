@@ -6,6 +6,7 @@ import { NativeReminders } from "../features/assistants/native-reminders.js";
 import { NativeHeartbeats } from "../features/assistants/native-heartbeats.js";
 import { TeamBridge } from "../features/assistants/team-bridge.js";
 import { ChannelService } from "../features/assistant-channels/channel-service.js";
+import { TelegramSenders } from "../features/assistant-channels/telegram-senders.js";
 import { WebSearchSettings } from "../features/assistants/web-search-settings.js";
 import { detectBrowser } from "../features/assistants/browser-detection.js";
 import { webToolsAvailability } from "../features/assistants/openclaw-config/web-tools.js";
@@ -124,6 +125,7 @@ export function constructAssistantGraph(host, created = {}) {
       "providerSynchronization",
       "webTools",
       "mcp",
+      "telegramSenders",
     ],
   ));
   // Initial state, not a reference: an interrupted update or maintenance persists.
@@ -206,6 +208,15 @@ export function constructAssistantGraph(host, created = {}) {
     maintenance,
     isUpdating: () => scope.assistantUpdates.status().busy,
   });
+  // The agents' own Telegram bots for other people; their changes restart the Gateway
+  // like web tool changes do.
+  const assistantTelegramSenders = new TelegramSenders({
+    store: assistantChannels.nativeBots,
+    assistants,
+    speech: assistantSpeech,
+    synchronization: assistantProviderSynchronization,
+    audit,
+  });
   const assistantWebTools = new WebToolsChanges({
     assistants,
     webSearch: assistantWebSearch,
@@ -238,6 +249,7 @@ export function constructAssistantGraph(host, created = {}) {
     assistantWebTools,
     assistantMcpChanges,
     assistantMcpOAuth,
+    assistantTelegramSenders,
   });
   return {
     ...scope,
@@ -261,6 +273,7 @@ const graphMembers = [
   "assistantWebTools",
   "assistantMcpChanges",
   "assistantMcpOAuth",
+  "assistantTelegramSenders",
   "store",
   "configuration",
   "bridge",
@@ -288,6 +301,7 @@ export function connectAssistantServices(graph) {
     assistantMcpServers: mcpServers,
     assistantWebTools: webToolsChanges,
     assistantMcpChanges: mcpChanges,
+    assistantTelegramSenders: telegramSenders,
     store,
     configuration,
     bridge,
@@ -301,6 +315,7 @@ export function connectAssistantServices(graph) {
     providerSynchronization: synchronization,
     webTools: webToolsChanges,
     mcp: mcpChanges,
+    telegramSenders,
   });
   // Resolved at most once per process for applies before the first ready start.
   let fallbackOwner;
@@ -345,6 +360,8 @@ export function connectAssistantServices(graph) {
           // A runtime installed before the plugins were bundled reports none.
           searchPlugins: installed.searchPlugins || {},
         },
+        // Read at each start; tokens and the speech key reach only openclaw.json.
+        telegram: telegramSenders.inputs(),
       };
     },
     maintenance: () => assistants.maintenance,

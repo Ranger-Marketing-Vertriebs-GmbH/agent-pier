@@ -23,11 +23,13 @@ export async function boundedBytes(response, limit) {
     reader.releaseLock();
   }
 }
+export const telegramApiRoot = "https://api.telegram.org";
 export class TelegramClient {
-  constructor({ token, fetchImpl = fetch }) {
+  // `apiRoot` is a test seam for a local fake Bot API; production uses Telegram's.
+  constructor({ token, fetchImpl = fetch, apiRoot = telegramApiRoot }) {
     if (typeof token !== "string" || !/^\d+:[a-zA-Z0-9_-]{20,200}$/.test(token))
       throw channelError("TELEGRAM_TOKEN", 400);
-    Object.assign(this, { token, fetchImpl });
+    Object.assign(this, { token, fetchImpl, apiRoot });
   }
   async call(method, params = {}, signal) {
     if (
@@ -49,16 +51,13 @@ export class TelegramClient {
     ]);
     let response, data;
     try {
-      response = await this.fetchImpl(
-        `https://api.telegram.org/bot${this.token}/${method}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(params),
-          signal: combined,
-          redirect: "error",
-        },
-      );
+      response = await this.fetchImpl(`${this.apiRoot}/bot${this.token}/${method}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+        signal: combined,
+        redirect: "error",
+      });
       data = JSON.parse((await boundedBytes(response, 2 * 1024 * 1024)).toString());
     } catch {
       throw channelError(
@@ -110,7 +109,7 @@ export class TelegramClient {
       throw channelError("MEDIA_UNSUPPORTED", 400);
     try {
       const response = await this.fetchImpl(
-        `https://api.telegram.org/file/bot${this.token}/${file.file_path}`,
+        `${this.apiRoot}/file/bot${this.token}/${file.file_path}`,
         {
           signal: AbortSignal.any([
             AbortSignal.timeout(30000),

@@ -169,7 +169,10 @@ function seedCredentials(paths) {
   const channels = new DatabaseSync(path.join(paths.root, "channels.sqlite"));
   channels.exec(`CREATE TABLE channels(id TEXT PRIMARY KEY);
     CREATE TABLE channel_credentials(id TEXT PRIMARY KEY REFERENCES channels(id), token TEXT NOT NULL);
-    INSERT INTO channels VALUES ('ch'); INSERT INTO channel_credentials VALUES ('ch', 'bot-SECRET-5');`);
+    INSERT INTO channels VALUES ('ch'); INSERT INTO channel_credentials VALUES ('ch', 'bot-SECRET-5');
+    CREATE TABLE native_telegram(assistant_id TEXT PRIMARY KEY);
+    CREATE TABLE native_telegram_credentials(assistant_id TEXT PRIMARY KEY REFERENCES native_telegram(assistant_id), token TEXT NOT NULL);
+    INSERT INTO native_telegram VALUES ('a'); INSERT INTO native_telegram_credentials VALUES ('a', 'agent-bot-SECRET-6');`);
   channels.close();
 }
 function backupBytes(directory) {

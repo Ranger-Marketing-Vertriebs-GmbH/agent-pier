@@ -32,6 +32,7 @@ export const assistantServiceNames = [
   "assistantWebTools",
   "assistantMcpChanges",
   "assistantMcpOAuth",
+  "assistantTelegramSenders",
 ];
 
 /**

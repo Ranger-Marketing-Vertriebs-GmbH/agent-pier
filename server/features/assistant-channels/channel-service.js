@@ -10,6 +10,7 @@ import { ChannelStore, channelLanguage } from "./channel-store.js";
 import { TelegramClient } from "./telegram-client.js";
 import { assistantProblem } from "../assistants/assistant-validation.js";
 import { telegramMessages } from "./telegram-messages.js";
+import { NativeTelegramStore } from "./native-telegram-store.js";
 export class ChannelService {
   constructor({
     dataDir,
@@ -21,6 +22,12 @@ export class ChannelService {
   }) {
     Object.assign(this, { assistants, speech, clientFactory, now });
     this.store = new ChannelStore({ dataDir });
+    // The agents' own bots for other people (telegram-senders.js) share this database,
+    // so a bot id serves either the owner's AgentPier bot or one agent, never both.
+    this.nativeBots = new NativeTelegramStore({
+      db: this.store.db,
+      root: this.store.root,
+    });
     this.ledger = new ChannelLedger(this.store.db, { maxVoiceSeconds });
     this.outbox = new ChannelOutbox(this.store.db, {
       link: (channelId, path) => this.link(channelId, path),
@@ -119,6 +126,8 @@ export class ChannelService {
       channelLanguage(input.language);
       this.assistants.store.getAssistant(input.assistantId);
       const identity = await this.clientFactory(input.token).identity();
+      if (this.nativeBots.usesBot(identity.id))
+        throw assistantProblem("telegramBotInUse", 409);
       const conversation = await this.assistants.openConversation(input.assistantId);
       const channel = this.store.create({
         assistantId: input.assistantId,
