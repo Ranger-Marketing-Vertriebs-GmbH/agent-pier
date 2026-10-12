@@ -291,7 +291,15 @@ export const backupCopy = {
       "MCP-Client-Freigaben, OAuth-Zugangsdaten und Berechtigungen für Startanfragen",
     "Shared native extensions, Agency agent files and their local installation records":
       "Gemeinsame native Erweiterungen, Agency-Agentendateien und ihre lokalen Installationsdaten",
-    "encrypted-managed-profiles": "Verwaltete Profile und Zugangsdaten (verschlüsselt)",
+    "encrypted-managed-profiles":
+      "Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile (verschlüsselt)",
+    "cli-histories":
+      "CLI-Verläufe: Codex-Sitzungen und erzeugte Bilder, Claude-Code-Projekte, -Aufgaben und -Dateiversionen, OpenCode-Sitzungen",
+    "CLI caches, logs, telemetry and files outside the profile allowlists":
+      "CLI-Caches, -Protokolle, -Telemetrie und alle Dateien außerhalb der Profil-Positivlisten",
+    "CLI conversation histories": "CLI-Verläufe",
+    "Linked, shared or foreign files in CLI profiles":
+      "Verknüpfte, geteilte oder fremde Dateien in CLI-Profilen",
     "encrypted-repository-credentials": "Repository-Zugangsdaten (verschlüsselt)",
     "External local CLI profiles and OS keychains":
       "Externe lokale CLI-Profile und Betriebssystem-Schlüsselbunde",

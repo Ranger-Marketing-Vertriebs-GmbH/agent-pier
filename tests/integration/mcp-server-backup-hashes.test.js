@@ -6,10 +6,8 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
-import {
-  decodeArchive,
-  decryptCredentials,
-} from "../../server/features/operations/archive.js";
+import { decryptCredentials } from "../../server/features/operations/archive.js";
+import { loadArchive } from "../helpers/backup-archive.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
 import { CliMcpReconciler } from "../../server/features/mcp-servers/cli-reconciler.js";
@@ -149,7 +147,7 @@ test("a store file that never got its tables counts as no store", async (t) => {
       manifest.omissions.some((item) => /^MCP server/.test(item)),
       false,
     );
-    const archive = decodeArchive(file);
+    const archive = loadArchive(file);
     assert.equal(
       archive.files.some((m) => m.path.startsWith("mcp-servers/")),
       false,

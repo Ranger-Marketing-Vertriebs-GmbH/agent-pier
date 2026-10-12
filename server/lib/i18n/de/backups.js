@@ -50,8 +50,6 @@ export const backups = Object.freeze({
   uploadType: "Bitte ein Backup-Archiv als application/octet-stream hochladen.",
   assistantsBusy:
     "Agenten werden gerade aktualisiert oder gewartet. Erstelle das Backup danach erneut.",
-  componentLinked: "Ein Backup-Bestandteil enthält einen symbolischen Link.",
-  componentLimit: "Ein Backup-Bestandteil überschreitet sein Limit.",
   memberMismatch: "Die Einträge des Archivs passen nicht zu seinem Manifest.",
   insufficientSpace: (required, available) =>
     `Nicht genug freier Speicherplatz: benötigt ${required}, verfügbar ${available}.`,

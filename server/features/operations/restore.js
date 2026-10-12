@@ -18,7 +18,7 @@ import {
   validateAssistantManifest,
 } from "./assistant-backup.js";
 import { ensureSpace } from "./backup-components.js";
-import { loginFiles, profileMemberKind } from "./profile-allowlist.js";
+import { isLoginFile, profileMemberKind } from "./profile-allowlist.js";
 import { remapClaudeProjects } from "./profile-history.js";
 
 const publicPath =
@@ -278,9 +278,7 @@ export class Restore {
           (a) =>
             !a.internal &&
             !restored.has(`profiles/${a.id}/secret.json`) &&
-            !(loginFiles[a.tool] || []).some((name) =>
-              restored.has(`profiles/${a.id}/${name}`),
-            ),
+            ![...restored].some((name) => isLoginFile(a, name)),
         )
         .map((a) => a.id);
       for (const connection of readJson(

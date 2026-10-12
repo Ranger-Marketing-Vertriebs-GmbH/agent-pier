@@ -6,7 +6,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
-import { decodeArchive } from "../../server/features/operations/archive.js";
+import { loadArchive } from "../helpers/backup-archive.js";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
 import { writeAssistantFeature } from "../../server/features/assistants/assistant-feature.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
@@ -97,7 +97,7 @@ test("host backups leave MCP OAuth logins out, sealed or not", async (t) => {
       withCredentials,
       ...(withCredentials ? { passphrase } : {}),
     });
-    const archive = decodeArchive(file);
+    const archive = loadArchive(file);
     const text = archive.files
       .map((m) => Buffer.from(m.content, "base64").toString("latin1"))
       .join("\n");

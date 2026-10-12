@@ -7,11 +7,8 @@ import { gunzipSync } from "node:zlib";
 import { DatabaseSync } from "node:sqlite";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
-import {
-  decodeArchive,
-  decryptCredentials,
-  encodeArchive,
-} from "../../server/features/operations/archive.js";
+import { decryptCredentials } from "../../server/features/operations/archive.js";
+import { loadArchive, encodeArchiveV2 } from "../helpers/backup-archive.js";
 import { fileMember } from "../../server/features/operations/snapshot.js";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
 import { CliMcpReconciler } from "../../server/features/mcp-servers/cli-reconciler.js";
@@ -99,7 +96,7 @@ function rows(file, sql) {
 /** Every byte the archive holds: its JSON and each decoded member. */
 function archiveText(file) {
   const bytes = fs.readFileSync(file);
-  const archive = decodeArchive(bytes);
+  const archive = loadArchive(bytes);
   return [
     gunzipSync(bytes).toString("latin1"),
     ...archive.files.map((m) => Buffer.from(m.content, "base64").toString("latin1")),
@@ -113,7 +110,7 @@ test("a host backup captures the MCP server store without values, tokens or logi
   const text = archiveText(file);
   for (const secret of secrets) assert.equal(text.includes(secret), false, secret);
   assert.equal(text.includes("4999"), false, "instance-specific login redirect");
-  const archive = decodeArchive(file);
+  const archive = loadArchive(file);
   const member = archive.files.find((m) => m.path === "mcp-servers/servers.sqlite");
   assert.ok(member);
   assert.equal(
@@ -163,7 +160,7 @@ test("with credentials the values are sealed and a restore brings them back exac
   });
   const text = archiveText(file);
   for (const secret of secrets) assert.equal(text.includes(secret), false, secret);
-  const archive = decodeArchive(file);
+  const archive = loadArchive(file);
   const sealed = await decryptCredentials(archive.credentials, passphrase);
   assert.ok(sealed.some((m) => m.path === "mcp-server-secrets/servers.json"));
 
@@ -272,7 +269,7 @@ test("a store from before OAuth and CLI entries restores and opens", async (t) =
 
 test("a restore refuses an unknown member below mcp-servers", async (t) => {
   const { dataDir } = temporary(t);
-  const bytes = encodeArchive({
+  const bytes = encodeArchiveV2({
     format: "agentpier-backup",
     version: 1,
     manifest: {

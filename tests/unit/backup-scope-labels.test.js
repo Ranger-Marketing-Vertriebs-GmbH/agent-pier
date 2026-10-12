@@ -9,6 +9,7 @@ import {
   mcpValueOmission,
 } from "../../server/features/operations/backup.js";
 import { assistantOmissions } from "../../server/features/operations/assistant-backup.js";
+import { profileOmissions } from "../../server/features/operations/profile-capture.js";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
 import { backupCopy as de } from "../../web/lib/i18n/de/operations.js";
 import { backupCopy as en } from "../../web/lib/i18n/en/operations.js";
@@ -22,12 +23,17 @@ test("every backup scope entry has a German and an English label", (t) => {
   const legacy = "MCP servers for agents (definitions, values and bindings)";
   new McpServerStore({ dataDir, pathEnv: "/fake/bin" }).close();
   const backup = new Backup({ dataDir });
-  const keys = new Set([...assistantOmissions, legacy]);
-  for (const withCredentials of [false, true]) {
-    const plan = backup.plan({ includeHistory: true, withCredentials });
-    for (const key of [...plan.components, ...plan.omissions, plan.consistency])
-      keys.add(key);
-  }
+  const keys = new Set([
+    ...assistantOmissions,
+    ...Object.values(profileOmissions),
+    legacy,
+  ]);
+  for (const withCredentials of [false, true])
+    for (const includeHistory of [false, true]) {
+      const plan = backup.plan({ includeHistory, withCredentials });
+      for (const key of [...plan.components, ...plan.omissions, plan.consistency])
+        keys.add(key);
+    }
   const englishKeys = new Set(
     [...keys].filter((key) => /^[A-Z]/.test(key) && key.includes(" ")),
   );
