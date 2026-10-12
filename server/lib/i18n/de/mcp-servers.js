@@ -59,6 +59,8 @@ export const mcpServers = {
   cliStatusNameTaken:
     "Die CLI hat schon einen eigenen Eintrag mit diesem Namen. Übernehmen, um ihn AgentPier zu überlassen.",
   cliReasonUnreadable: "Die Konfiguration der CLI kann nicht gelesen werden.",
+  cliReasonTooLarge:
+    "Die Konfiguration der CLI ist größer als 64 MiB; AgentPier liest und ändert sie nicht.",
   cliReasonChanged:
     "Die Konfiguration der CLI wurde laufend geändert und konnte nicht geschrieben werden. Bitte später erneut versuchen.",
   cliReasonLayout:

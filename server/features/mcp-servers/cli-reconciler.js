@@ -4,6 +4,7 @@ import { editConfig } from "../extensions/config-edit.js";
 import {
   CLI_CONFIG_CHANGED,
   CLI_CONFIG_LAYOUT,
+  CLI_CONFIG_TOO_LARGE,
   atomicText,
 } from "../extensions/mcp-config.js";
 import { cliEntry, cliSupport, entryHash } from "./cli-native.js";
@@ -15,10 +16,13 @@ const changed = () =>
   Object.assign(problem(serverMessages.extensions.cliConfigChanged, 409), {
     code: CLI_CONFIG_CHANGED,
   });
-/** Marks `error` as a file problem of `cli` that `guard` reports as `reason`. */
+/**
+ * Marks `error` as a file problem of `cli` that `guard` reports as `reason`; a file
+ * above the read limit is always `too-large`.
+ */
 const tagged = (error, reason) =>
   Object.assign(error && typeof error === "object" ? error : new Error(String(error)), {
-    cliReason: reason,
+    cliReason: error?.code === CLI_CONFIG_TOO_LARGE ? "too-large" : reason,
   });
 const reasonOf = (error) =>
   error?.cliReason ??

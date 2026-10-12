@@ -54,6 +54,8 @@ export const mcpServers = Object.freeze({
   cliStatusNameTaken:
     "The CLI already has its own entry with this name. Adopt it to let AgentPier manage it.",
   cliReasonUnreadable: "The CLI's configuration cannot be read.",
+  cliReasonTooLarge:
+    "The CLI's configuration is larger than 64 MiB; AgentPier does not read or change it.",
   cliReasonChanged:
     "The CLI's configuration kept changing and could not be written. Please try again later.",
   cliReasonLayout:

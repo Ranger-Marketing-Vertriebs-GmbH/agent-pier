@@ -189,3 +189,32 @@ test("a store error is thrown, not reported as a file problem", (t) => {
   assert.equal(fs.existsSync(f.file("claude")), false);
   assert.deepEqual(f.warnings, []);
 });
+
+// Real ~/.claude.json files grow large through project history.
+test("claude: a configuration above 4 MiB is read and written", (t) => {
+  const f = cliMcpFixture(t);
+  const history = { "/fixture": { note: "x".repeat(5 * 1024 * 1024) } };
+  f.raw("claude", `${JSON.stringify({ projects: history }, null, 2)}\n`);
+  const server = f.servers.create(http(), { bind: [["cli", "claude"]] });
+  const result = f.reconciler.reconcile("claude");
+  assert.equal(result.error, undefined);
+  assert.deepEqual(result.statuses[server.id], { status: "written" });
+  assert.deepEqual(Object.keys(f.entries("claude")), ["docs"]);
+});
+
+test("a configuration above the read limit reports too-large and is never written", (t) => {
+  const f = cliMcpFixture(t);
+  f.raw("claude", "{}");
+  fs.truncateSync(f.file("claude"), 64 * 1024 * 1024 + 1);
+  const before = fs.statSync(f.file("claude"));
+  const server = f.servers.create(http(), { bind: [["cli", "claude"]] });
+  const result = f.reconciler.reconcile("claude");
+  assert.equal(result.error, "too-large");
+  assert.deepEqual(result.statuses[server.id], { status: "error", reason: "too-large" });
+  const after = fs.statSync(f.file("claude"));
+  assert.equal(after.size, before.size);
+  assert.equal(after.mtimeMs, before.mtimeMs);
+  assert.deepEqual(f.warnings, [
+    "MCP servers for claude could not be written (too-large: CLI_CONFIG_TOO_LARGE).",
+  ]);
+});
