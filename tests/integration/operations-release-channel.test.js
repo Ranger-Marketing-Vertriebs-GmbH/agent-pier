@@ -72,7 +72,9 @@ for (const [current, candidate, upToDate] of [
   ["1.5.1-beta", "1.5.1-alpha", true],
 ]) {
   test(`release check compares ${current} with ${candidate} semantically`, async (t) => {
-    const releases = await fixture(t, current, candidate, { channel: official });
+    const releases = await fixture(t, current, candidate, {
+      channel: "https://custom.example/releases/",
+    });
     assert.equal((await releases.check()).upToDate, upToDate);
     if (upToDate)
       await assert.rejects(releases.stage({ version: candidate }), {

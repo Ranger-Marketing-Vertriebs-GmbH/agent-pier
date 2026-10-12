@@ -13,13 +13,18 @@ import {
   RELEASE_LIMIT,
 } from "./release-archive.js";
 import { applicationVersion, compareReleaseVersions } from "./version.js";
-import { releaseCopy } from "../../lib/i18n/de/releases.js";
 import { problem } from "../../lib/storage.js";
 import { requireDataCompatibility } from "./release-schema.js";
 
 import { cleanupState, cleanupReleases, releaseProcesses } from "./release-cleanup.js";
 import { officialChannel, ReleaseNotes } from "./release-notes.js";
 import { download } from "./release-download.js";
+import {
+  isOfficialChannel,
+  offeredVersion,
+  channelManifest,
+  previewManifest,
+} from "./release-channel.js";
 
 export {
   download,
@@ -40,7 +45,8 @@ export class Releases {
   }) {
     this.dataDir = fs.realpathSync(dataDir);
     this.installRoot = installRoot ? path.resolve(installRoot) : null;
-    this.channel = channel || officialChannel;
+    this.channel = !channel || isOfficialChannel(channel) ? officialChannel : channel;
+    this.channelRevision = 0;
     this.fetchImpl = fetchImpl;
     this.releaseNotes = new ReleaseNotes((...args) => this.fetchImpl(...args));
     this.smoke = smoke;
@@ -49,6 +55,24 @@ export class Releases {
     this.environment = environment;
     this.processes = processes;
     this.directory = folder(path.join(this.dataDir, "operations/releases"));
+  }
+  get updateChannel() {
+    return readJson(path.join(this.dataDir, "operations/release-preferences.json"), {})
+      ?.updateChannel === "preview"
+      ? "preview"
+      : "stable";
+  }
+  setUpdateChannel(value) {
+    if (!["stable", "preview"].includes(value))
+      throw problem(serverMessages.operations.invalidOptions);
+    if (!isOfficialChannel(this.channel))
+      throw problem(serverMessages.releases.channelManaged, 409);
+    atomic(path.join(this.dataDir, "operations/release-preferences.json"), {
+      updateChannel: value,
+    });
+    this.channelRevision += 1;
+    fs.rmSync(path.join(this.directory, "candidate.json"), { force: true });
+    return this.status();
   }
   status() {
     const root = this.installRoot;
@@ -100,6 +124,8 @@ export class Releases {
       releases,
       staged,
       channel: this.channel,
+      updateChannel: this.updateChannel,
+      updateChannelManaged: !isOfficialChannel(this.channel),
     };
   }
   cleanupStatus() {
@@ -127,19 +153,17 @@ export class Releases {
     const base = new URL(this.channel.endsWith("/") ? this.channel : `${this.channel}/`);
     if (base.protocol !== "https:" || base.username || base.password)
       throw problem(serverMessages.releases.channelHttpsRequired);
-    let manifest;
-    try {
-      // The small manifest gets one retry; a stalled channel reports its own code.
-      manifest = JSON.parse(
-        await download(new URL("latest.json", base).href, this.fetchImpl, 1024 * 1024, {
-          retries: 1,
-        }),
-      );
-    } catch (error) {
-      if (error.status === 404) throw problem(releaseCopy.notPublished, 404);
-      if (error.status) throw error;
+    const updateChannel = this.updateChannel;
+    const channelRevision = this.channelRevision;
+    const official = isOfficialChannel(this.channel);
+    const manifest =
+      official && updateChannel === "preview"
+        ? await previewManifest(this.fetchImpl)
+        : await channelManifest(base, this.fetchImpl);
+    if (channelRevision !== this.channelRevision || updateChannel !== this.updateChannel)
+      throw problem(serverMessages.releases.channelChanged, 409);
+    if (official && !offeredVersion(manifest.version, updateChannel))
       throw problem(serverMessages.releases.channelManifestInvalid);
-    }
     releaseVersion(manifest.version);
     const platform = `${process.platform}-${process.arch}`,
       artifact = manifest.artifacts?.[platform];
@@ -153,6 +177,7 @@ export class Releases {
     const current = this.status().current;
     const plan = {
       current,
+      updateChannel,
       version: manifest.version,
       upToDate: compareReleaseVersions(current, manifest.version) >= 0,
       platform,
@@ -173,6 +198,7 @@ export class Releases {
       this.dataDir.startsWith(`${this.installRoot}/current/`)
     )
       throw problem(serverMessages.releases.dataInsideReleases, 409);
+    const channelRevision = this.channelRevision;
     let bytes, plan;
     if (archive) bytes = readFile(archive, RELEASE_LIMIT);
     else {
@@ -195,6 +221,8 @@ export class Releases {
         this.fetchImpl,
         RELEASE_LIMIT,
       );
+      if (channelRevision !== this.channelRevision)
+        throw problem(serverMessages.releases.channelChanged, 409);
       if (digest(bytes) !== plan.sha256)
         throw problem(serverMessages.releases.checksumMismatch);
     }
@@ -206,6 +234,8 @@ export class Releases {
       if (version && manifest.version !== version)
         throw problem(serverMessages.releases.versionMismatch);
       await this.smoke(stage);
+      if (!archive && channelRevision !== this.channelRevision)
+        throw problem(serverMessages.releases.channelChanged, 409);
       const destination = path.join(
         folder(path.join(root, "releases")),
         manifest.version,

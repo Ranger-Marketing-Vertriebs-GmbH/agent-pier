@@ -174,6 +174,18 @@ Für den Zugriff von einem anderen Gerät gibt es zwei gleichwertige Wege: [Tail
 
 ## 6. Aktualisieren
 
+Unter **Einstellungen → Updates → Updatekanal** gilt standardmäßig **Stable**:
+Es werden nur stabile Releases angeboten. **Preview** bietet zusätzlich Release
+Candidates wie `1.29.0-rc.1` an, damit neue Versionen vor der stabilen Freigabe
+getestet werden können. Die Auswahl gilt für die gesamte AgentPier-Installation
+und bleibt nach einem Neustart erhalten. Preview berücksichtigt auch stabile
+Releases: `1.29.0` ersetzt beispielsweise `1.29.0-rc.2`. Beim Wechsel zurück zu
+Stable wird keine ältere Version installiert; eine bereits installierte RC bleibt
+aktiv, bis eine neuere stabile Version angeboten wird. Bereits vorbereitete
+Versionen bleiben verfügbar und können weiterhin bewusst aktiviert werden.
+Bei einer eigenen Quelle über `AGENTPIER_RELEASE_CHANNEL` wird die Kanalauswahl
+auf dem Server verwaltet.
+
 Bei einer versionierten Installation unter **Einstellungen → Updates** nach einer neuen Version suchen, das Paket herunterladen und anschließend aktivieren. Bei einem angebotenen oder bereits vorbereiteten Update zeigt die App die GitHub-Release-Notes genau dieser Version an. Sie werden separat geladen; fehlen die Hinweise oder ist GitHub nicht erreichbar, bleibt das Update möglich. Eigene Update-Kanäle zeigen keine möglicherweise unpassenden Notes des offiziellen Releases. Standardmäßig kommen die Pakete aus den [offiziellen GitHub-Releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases); ein eigener Kanal kann über `AGENTPIER_RELEASE_CHANNEL` gesetzt werden. Der Download wird per SHA-256 geprüft. Schlägt der Start der neuen Version fehl, wird die vorherige Version wieder aktiviert. CLI-Sitzungen bleiben beim Neustart des Webdienstes erhalten.
 
 Bei einem Source-Checkout stattdessen nach Aktualisieren der Repository-Dateien:

@@ -38,9 +38,42 @@ export default function UpdatesPage({ route, navigate }) {
           <p>
             {copy.currentVersion}: {releases.current || copy.unknown}
           </p>
-          <p>
-            {copy.channel}: {releases.channel || copy.unknown}
-          </p>
+          <div className="operations-form">
+            <label htmlFor="update-channel">{copy.channel}</label>
+            <select
+              id="update-channel"
+              value={
+                releases.updateChannelManaged
+                  ? "custom"
+                  : releases.updateChannel || "stable"
+              }
+              disabled={jobPending || action.busy || releases.updateChannelManaged}
+              aria-describedby="update-channel-help"
+              onChange={(event) => {
+                const updateChannel = event.target.value;
+                action.run(async () => {
+                  const result = await api("/operations/releases/channel", "PUT", {
+                    updateChannel,
+                  });
+                  setPlan(null);
+                  resource.update(result);
+                });
+              }}
+            >
+              <option value="stable">{copy.channelStable}</option>
+              <option value="preview">{copy.channelPreview}</option>
+              {releases.updateChannelManaged && (
+                <option value="custom">{copy.channelCustom}</option>
+              )}
+            </select>
+            <p className="field-description" id="update-channel-help">
+              {releases.updateChannelManaged
+                ? copy.channelManagedHelp
+                : releases.updateChannel === "preview"
+                  ? copy.channelPreviewHelp
+                  : copy.channelStableHelp}
+            </p>
+          </div>
           {(!releases.supported || !releases.installed) && (
             <p>{serverText(releases.reason) || copy.setupRequired}</p>
           )}

@@ -63,6 +63,9 @@ export const releaseCopy = Object.freeze({
   downloadStalled: "Der Download hat zu lange keine Daten empfangen.",
   proxyRequiresNewerNode: (minimum) =>
     `Downloads über einen Proxy erfordern Node.js ${minimum} oder neuer.`,
+  channelManaged: "Die Update-Quelle wird auf dem Server verwaltet.",
+  previewLimit:
+    "Die Liste der Vorabversionen ist zu groß. Bitte später erneut nach Updates suchen.",
   channelRequired: "Bitte zuerst auf dem Server einen HTTPS-Release-Kanal einrichten.",
   channelHttpsRequired:
     "Der Release-Kanal muss HTTPS ohne eingebettete Zugangsdaten verwenden.",

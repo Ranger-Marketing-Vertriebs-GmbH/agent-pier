@@ -8,10 +8,9 @@ import { renderOnlineInstaller } from "../../scripts/installer-package.mjs";
 import { renderInstallerFormula } from "../../scripts/homebrew-formula.mjs";
 const hash = (b) => createHash("sha256").update(b).digest("hex");
 
-async function fixture(t) {
+async function fixture(t, version = "1.2.3") {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-publish-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  const version = "1.2.3";
   const write = async (file, bytes) => {
     await fs.writeFile(path.join(directory, file), bytes);
     return { file, sha256: hash(bytes), bytes: Buffer.byteLength(bytes) };
@@ -254,5 +253,20 @@ test("a divergent existing draft is preserved without uploading or publishing", 
   assert.equal(
     remote.calls.some((a) => ["upload", "edit", "create"].includes(a[1])),
     false,
+  );
+});
+
+test("release candidates publish complete assets without replacing the stable latest release", async (t) => {
+  const { publishInstallerRelease } =
+    await import("../../scripts/installer-release-publish.mjs");
+  const ctx = await fixture(t, "1.29.0-rc.1"),
+    remote = await remoteFixture(ctx, "v1.28.0");
+  await publishInstallerRelease({ ...ctx, run: remote.run });
+  assert.equal(remote.release.draft, false);
+  assert.equal(remote.remote.size, 9);
+  assert.equal(remote.latestTag, "v1.28.0");
+  assert.equal(
+    remote.calls.find((args) => args[1] === "edit").includes("--prerelease"),
+    true,
   );
 });

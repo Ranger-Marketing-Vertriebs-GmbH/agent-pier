@@ -92,6 +92,13 @@ export function operationsRoutes({ operations, releaseMigration }) {
     }),
   );
   router.get(`${root}/releases`, (_req, res) => res.json(operations.releases.status()));
+  router.put(`${root}/releases/channel`, (req, res) =>
+    res.json(
+      operations.releases.setUpdateChannel(
+        fields(req.body, ["updateChannel"]).updateChannel,
+      ),
+    ),
+  );
   router.get(`${root}/releases/notes`, async (req, res) => {
     const { from, to } = req.query;
     // Repeated query parameters arrive as arrays; only single version strings are valid.

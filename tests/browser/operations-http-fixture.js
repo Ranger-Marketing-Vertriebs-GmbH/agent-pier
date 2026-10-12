@@ -11,6 +11,8 @@ export function operationState() {
       releases: [{ version: "0.9.0", current: false, canRollback: true }],
       staged: [],
       channel: "stable",
+      updateChannel: "stable",
+      updateChannelManaged: false,
     },
     inspection: {
       manifest: { version: 1 },
@@ -25,6 +27,10 @@ export function operationState() {
 }
 export function operationResponse(state, path, method, body, query) {
   const operation = path.slice("/operations".length);
+  if (operation === "/releases/channel" && method === "PUT") {
+    state.releases.updateChannel = body.updateChannel;
+    return state.releases;
+  }
   if (operation === "/imported-history/agentbus")
     return { projects: state.importedProjects || [] };
   if (operation.startsWith("/imported-history/agentbus/")) {
