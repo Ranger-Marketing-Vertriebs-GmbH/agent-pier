@@ -1,4 +1,5 @@
 import { serverMessages } from "../../lib/i18n/de.js";
+import fs from "node:fs";
 import { problem } from "../../lib/storage.js";
 
 /**
@@ -44,4 +45,20 @@ export function formatBytes(bytes) {
     unit++;
   }
   return `${unit ? value.toFixed(1) : value} ${units[unit]}`;
+}
+
+// Room for metadata, temporary files and the file system's own reserve.
+const spaceMargin = 64 * 1024 * 1024;
+/** Fails before writing `bytes` into `directory` when its file system lacks room. */
+export function ensureSpace(directory, bytes) {
+  const stat = fs.statfsSync(directory);
+  const available = Number(stat.bavail) * Number(stat.bsize);
+  if (available < bytes + spaceMargin)
+    throw problem(
+      serverMessages.backups.insufficientSpace(
+        formatBytes(bytes + spaceMargin),
+        formatBytes(available),
+      ),
+      507,
+    );
 }
