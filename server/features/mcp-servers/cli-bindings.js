@@ -3,7 +3,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
 import { addGrant } from "../nono/sandbox-grants.js";
-import { adoptFinds, patchFromNative } from "./cli-adoption.js";
+import { adoptFinds, changeRefusal, patchFromNative } from "./cli-adoption.js";
 import { groupFinds, publicFind } from "./cli-finds.js";
 import { stdioGrants } from "./cli-grants.js";
 import {
@@ -236,7 +236,7 @@ export class CliMcpBindings {
     }
     const found = this.reconciler.contested(id, cli);
     const parsed = centralFromNative(cli, found.entry);
-    if (!parsed.ok) throw problem(messages.cliChangeNotAdoptable, 409);
+    if (!parsed.ok) throw changeRefusal(parsed);
     const server = this.servers.get(id);
     const patch = patchFromNative(server, cli, parsed);
     const stdioChanged = changesStdio(server, patch);

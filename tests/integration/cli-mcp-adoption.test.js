@@ -419,7 +419,7 @@ test("a change of connection type or an unmanaged setting cannot be adopted", (t
         "codex",
         centralFromNative("codex", { url: "https://x.example.test/${PATH_PART}" }),
       ),
-    { status: 409 },
+    { status: 409, code: "MCP_CLI_CHANGE_ENV_REFERENCES" },
   );
   assert.throws(() => f.reconciler.contested(server.id, "codex"), { status: 409 });
   assert.throws(() => f.reconciler.claim(server.id, "codex", "0".repeat(64)), {

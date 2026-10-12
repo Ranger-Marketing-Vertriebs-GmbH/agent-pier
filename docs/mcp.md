@@ -208,10 +208,18 @@ needs the owner's confirmation, because every session of that CLI starts it.
   (Claude Code `${VAR}` or `${VAR:-default}`, OpenCode `{env:VAR}` or `{file:path}`)
   instead of holding them: another CLI or an agent would get the reference literally.
   A `${…}` that Codex holds literally stays as well, because Claude Code would expand
-  it.
-  The find names the headers, environment variables or fields that use one (never a
-  value), Adopt all skips it, and adopting it by key fails with the reason
+  it, and so does an entry whose URL host or working directory a reference makes
+  unreadable. The find names the headers, environment variables or fields that use
+  one (never a value), Adopt all skips it, and adopting it by key fails with the reason
   _env-references_ (`MCP_CLI_FIND_ENV_REFERENCES` from the adoption service).
+  **Adopt the change** for a hand edit that adds a reference is refused with
+  `409 MCP_CLI_CHANGE_ENV_REFERENCES`.
+- **Literal values.** AgentPier stores what the owner enters literally. Creating or
+  updating a server with a reference in a header or environment value, the URL, the
+  command, its arguments or the working directory is refused with
+  `400 MCP_SERVER_VALUE_REFERENCE`, the `field` and, for headers and environment
+  variables, their `names` (never the value); the form shows the message at that field.
+  Only new writes are checked; a stored server is not migrated.
 - **Secrets.** Header and environment values are stored by AgentPier and written in
   plain text into the CLI files with mode 0600, because the CLIs read them there. They
   never appear in API responses, logs or the audit trail (names only).

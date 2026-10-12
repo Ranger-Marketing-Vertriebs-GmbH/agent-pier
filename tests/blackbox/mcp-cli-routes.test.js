@@ -199,3 +199,61 @@ test("finds with environment references and too-large files carry stable reasons
   );
   assert.equal(fs.statSync(claude).size, 64 * 1024 * 1024 + 1);
 });
+
+test("adopting a hand edit with a reference names the references, not the generic reason", async (t) => {
+  const f = await applicationFixture(t);
+  t.after(() => f.dispose());
+  const claude = path.join(f.home, ".claude.json");
+  const created = await read(
+    await f.request("/api/mcp-servers", {
+      method: "POST",
+      body: {
+        name: "docs",
+        transport: "http",
+        url: "https://mcp.example.test/mcp",
+        headers: { Authorization: "Bearer header-secret" },
+      },
+    }),
+  );
+  await f.request(`/api/mcp-servers/${created.id}/clis`, {
+    method: "PUT",
+    body: { clis: ["claude"] },
+  });
+  const data = JSON.parse(fs.readFileSync(claude, "utf8"));
+  data.mcpServers.docs.headers.Authorization = "Bearer ${FOUND_TOKEN}";
+  fs.writeFileSync(claude, JSON.stringify(data));
+  const response = await f.request(`/api/mcp-servers/${created.id}/clis/claude/resolve`, {
+    method: "POST",
+    body: { choice: "adopt" },
+  });
+  assert.equal(response.status, 409);
+  const refusal = await read(response);
+  assert.equal(refusal.code, "MCP_CLI_CHANGE_ENV_REFERENCES");
+  assert.equal(refusal.messageKey, "mcpServers.cliChangeEnvReferences");
+});
+
+test("a server value with a reference is refused with its field and never echoed", async (t) => {
+  const f = await applicationFixture(t);
+  t.after(() => f.dispose());
+  const response = await f.request("/api/mcp-servers", {
+    method: "POST",
+    body: {
+      name: "docs",
+      transport: "http",
+      url: "https://mcp.example.test/mcp",
+      headers: { Authorization: "Bearer {env:header-secret}" },
+    },
+  });
+  assert.equal(response.status, 400);
+  const refusal = await read(response);
+  assert.deepEqual(
+    [refusal.code, refusal.field, refusal.names, refusal.messageKey],
+    [
+      "MCP_SERVER_VALUE_REFERENCE",
+      "headers",
+      ["Authorization"],
+      "mcpServers.valueReference",
+    ],
+  );
+  assert.deepEqual(await read(await f.request("/api/mcp-servers")), []);
+});

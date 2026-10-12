@@ -110,13 +110,25 @@ export function adoptFinds({
 }
 
 /**
+ * Why the owner's edit cannot be adopted: references to the environment or files
+ * (409 MCP_CLI_CHANGE_ENV_REFERENCES), else the generic refusal.
+ */
+export function changeRefusal(parsed) {
+  if (parsed?.reason !== "env-references")
+    return problem(messages.cliChangeNotAdoptable, 409);
+  return Object.assign(problem(messages.cliChangeEnvReferences, 409), {
+    code: "MCP_CLI_CHANGE_ENV_REFERENCES",
+  });
+}
+
+/**
  * The update that makes `server` (public) match the owner's edit `parsed`, found in
  * `cli`. OpenCode's `remote` cannot tell SSE from HTTP, and Claude Code and Codex
  * write an OAuth server like a header server without headers: both keep the server's
  * own kind. A different connection type or settings AgentPier does not manage: 409.
  */
 export function patchFromNative(server, cli, parsed) {
-  if (!parsed?.ok) throw problem(messages.cliChangeNotAdoptable, 409);
+  if (!parsed?.ok) throw changeRefusal(parsed);
   const { definition, secrets } = parsed;
   const transport =
     cli === "opencode" && server.transport === "sse" && definition.transport === "http"

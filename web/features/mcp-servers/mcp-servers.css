@@ -207,3 +207,9 @@
   flex: 1 1 100%;
   overflow-wrap: anywhere;
 }
+/* A value the server refused, shown at its field. */
+.mcp-field-error {
+  display: block;
+  margin: 0;
+  color: #f0b9ab;
+}

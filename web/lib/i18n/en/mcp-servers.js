@@ -34,6 +34,7 @@ export const mcpServerCopy = {
   resolvedCommand: "Resolved path",
   argsLabel: "Arguments (one per line)",
   cwdLabel: "Working directory (optional, absolute path)",
+  referenceNames: (names) => `Affected: ${names}`,
   headersLabel: "Headers",
   envLabel: "Environment variables",
   headerNames: "Headers",

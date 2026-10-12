@@ -182,3 +182,23 @@ test("name proposals are valid, free and keep a valid free name", () => {
   assert.equal(proposeName("***", taken), "mcp");
   assert.equal(proposeName("a".repeat(40), taken), "a".repeat(30));
 });
+
+test("a reference that makes a field unreadable still reports env-references", () => {
+  const refused = (cli, entry) => centralFromNative(cli, entry);
+  assert.deepEqual(refused("codex", { url: "https://${HOST}/mcp" }), {
+    ok: false,
+    reason: "env-references",
+    names: ["url"],
+  });
+  assert.deepEqual(refused("codex", { command: "/bin/tool", cwd: "${HOME}/work" }), {
+    ok: false,
+    reason: "env-references",
+    names: ["cwd"],
+  });
+  assert.deepEqual(
+    refused("opencode", { type: "remote", url: "https://{env:HOST}/mcp", enabled: true }),
+    { ok: false, reason: "env-references", names: ["url"] },
+  );
+  // A malformed entry without a reference stays invalid.
+  assert.equal(refused("codex", { command: "/bin/tool", cwd: "work" }).reason, "invalid");
+});

@@ -149,3 +149,52 @@ test("bindings: bind, unbind, replace and cascade on remove", () => {
   assert.throws(() => s.get(a), { status: 404 });
   assert.throws(() => s.bind(b, "cli-profile", "p"), { status: 400 });
 });
+
+test("values with environment or file references are refused on create and update", () => {
+  const s = store();
+  const refused = (fn, field, names) =>
+    assert.throws(fn, (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "MCP_SERVER_VALUE_REFERENCE");
+      assert.equal(error.field, field);
+      assert.deepEqual(error.names, names);
+      assert.doesNotMatch(
+        JSON.stringify({ ...error, message: error.message }),
+        /TOKEN_VALUE|HOST_VALUE/,
+      );
+      return true;
+    });
+  refused(
+    () => s.create(http({ headers: { Authorization: "Bearer ${TOKEN_VALUE}" } })),
+    "headers",
+    ["Authorization"],
+  );
+  refused(() => s.create(http({ url: "https://{env:HOST_VALUE}/mcp" })), "url", []);
+  const stdio = (extra) => ({
+    name: "local",
+    transport: "stdio",
+    command: "/abs/server",
+    ...extra,
+  });
+  refused(() => s.create(stdio({ command: "${TOKEN_VALUE}/server" })), "command", []);
+  refused(() => s.create(stdio({ args: ["--key", "{file:TOKEN_VALUE}"] })), "args", []);
+  refused(() => s.create(stdio({ cwd: "/work/${TOKEN_VALUE:-x}" })), "cwd", []);
+  refused(() => s.create(stdio({ env: { KEY: "{env:TOKEN_VALUE}" } })), "env", ["KEY"]);
+  assert.deepEqual(s.list(), []);
+  const created = s.create(http());
+  refused(
+    () =>
+      s.update(created.id, {
+        revision: created.revision,
+        headers: { "X-Key": "${TOKEN_VALUE}" },
+      }),
+    "headers",
+    ["X-Key"],
+  );
+  // Literal dollars and braces are fine.
+  const updated = s.update(created.id, {
+    revision: created.revision,
+    headers: { "X-Key": "a$b{c}" },
+  });
+  assert.deepEqual(updated.headerNames, ["Authorization", "X-Key"]);
+});

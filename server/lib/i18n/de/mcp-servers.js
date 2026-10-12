@@ -50,6 +50,10 @@ export const mcpServers = {
     "AgentPier kann diesen Eintrag nicht übernehmen, ohne Einstellungen zu verlieren, die es nicht verwaltet.",
   cliFindEnvReferences:
     "Der Eintrag nutzt Verweise auf Umgebungsvariablen oder Dateien (${…}, {env:…}, {file:…}). Eine andere CLI oder ein Agent würde sie anders lesen; er bleibt deshalb in der CLI.",
+  cliChangeEnvReferences:
+    "Die Änderung nutzt Verweise auf Umgebungsvariablen oder Dateien (${…}, {env:…}, {file:…}). Eine andere CLI oder ein Agent würde sie anders lesen; sie lässt sich deshalb nicht übernehmen.",
+  valueReference:
+    "AgentPier speichert Werte wörtlich. Verweise wie ${…}, {env:…} oder {file:…} würden die CLIs jeweils anders auflösen und Agenten gar nicht; bitte den Wert selbst eintragen.",
   cliChangeNotAdoptable:
     "Die Änderung lässt sich nicht übernehmen: Die Verbindungsart weicht ab oder der Eintrag nutzt Einstellungen, die AgentPier nicht verwaltet.",
   cliTransportUnsupported:

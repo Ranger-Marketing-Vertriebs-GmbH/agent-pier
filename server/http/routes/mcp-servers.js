@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { STDIO_CONFIRMATION_REQUIRED } from "../../features/mcp-servers/stdio-confirmation.js";
+import { VALUE_REFERENCE } from "../../features/mcp-servers/value-references.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
@@ -21,6 +22,23 @@ export function replyStdioConfirmation(response, error) {
   if (error?.code !== STDIO_CONFIRMATION_REQUIRED) return false;
   response.status(409).json({
     code: error.code,
+    error: error.message,
+    ...messageIdentity(error.message),
+  });
+  return true;
+}
+
+/**
+ * Answers a value with an environment or file reference with 400, its stable code,
+ * the field and the header or environment names; never the value. Returns false for
+ * any other error.
+ */
+export function replyValueReference(response, error) {
+  if (error?.code !== VALUE_REFERENCE) return false;
+  response.status(400).json({
+    code: error.code,
+    field: error.field,
+    names: error.names,
     error: error.message,
     ...messageIdentity(error.message),
   });
@@ -92,7 +110,7 @@ export function mcpServerRoutes(services) {
         ...(clis === undefined ? {} : { clis }),
       });
     } catch (error) {
-      if (replyStdioConfirmation(res, error)) return;
+      if (replyStdioConfirmation(res, error) || replyValueReference(res, error)) return;
       throw error;
     }
     auditMcp("mcp.created", server.id, {
@@ -129,7 +147,7 @@ export function mcpServerRoutes(services) {
         ...(logoutDeferred ? { oauthWarning: deferredWarning() } : {}),
       });
     } catch (error) {
-      if (replyStdioConfirmation(res, error)) return;
+      if (replyStdioConfirmation(res, error) || replyValueReference(res, error)) return;
       throw error;
     }
   });

@@ -45,6 +45,10 @@ export const mcpServers = Object.freeze({
     "AgentPier cannot take over this entry without losing settings it does not manage.",
   cliFindEnvReferences:
     "The entry uses references to environment variables or files (${…}, {env:…}, {file:…}). Another CLI or an agent would read them differently, so it stays in the CLI.",
+  cliChangeEnvReferences:
+    "The change uses references to environment variables or files (${…}, {env:…}, {file:…}). Another CLI or an agent would read them differently, so it cannot be adopted.",
+  valueReference:
+    "AgentPier stores values literally. The CLIs would each resolve references such as ${…}, {env:…} or {file:…} differently, and agents not at all; enter the value itself.",
   cliChangeNotAdoptable:
     "The change cannot be adopted: its connection type differs or it uses settings AgentPier does not manage.",
   cliTransportUnsupported:
