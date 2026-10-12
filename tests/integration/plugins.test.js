@@ -85,6 +85,9 @@ for (const tool of ["codex", "claude"])
   test(`${tool} lists native catalog and mutates only the selected profile with fixed arguments`, async (t) => {
     const { accounts, store, calls } = setup(t);
     const account = accounts.create({ name: "Fixture", tool });
+    // Managed Codex commands keep both credential stores in the account profile.
+    const stores = accounts.codexCredentialArgs(account.id);
+    assert.equal(stores.length, tool === "codex" ? 4 : 0);
     const list = await store.list(account.id);
     assert.equal(list.available, true);
     assert.equal(list.installed[0].id, "demo@fixture");
@@ -98,7 +101,7 @@ for (const tool of ["codex", "claude"])
     assert.deepEqual(
       calls.at(-1).args,
       tool === "codex"
-        ? ["plugin", "add", "other@fixture", "--json"]
+        ? [...stores, "plugin", "add", "other@fixture", "--json"]
         : ["plugin", "install", "other@fixture", "--scope", "user"],
     );
     assert.equal(calls.at(-1).cwd, accounts.profile(account.id));
@@ -110,7 +113,7 @@ for (const tool of ["codex", "claude"])
     assert.deepEqual(
       calls.at(-1).args,
       tool === "codex"
-        ? ["plugin", "remove", "demo@fixture", "--json"]
+        ? [...stores, "plugin", "remove", "demo@fixture", "--json"]
         : ["plugin", "uninstall", "demo@fixture", "--scope", "user", "--keep-data"],
     );
   });

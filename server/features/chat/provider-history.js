@@ -56,11 +56,11 @@ async function inside(file, root) {
 
 /** Read-only JSON-RPC client. Never resumes a thread, submits a turn or answers approvals. */
 export class CodexHistoryClient {
-  constructor(command, env, cwd) {
+  constructor(command, env, cwd, configArgs = []) {
     this.pending = new Map();
     this.sequence = 0;
     this.buffer = "";
-    this.child = spawn(command, ["app-server", "--listen", "stdio://"], {
+    this.child = spawn(command, [...configArgs, "app-server", "--listen", "stdio://"], {
       env,
       cwd,
       stdio: ["pipe", "pipe", "pipe"],
@@ -171,7 +171,8 @@ export class ProviderHistory {
   constructor({
     accounts,
     home,
-    codexClientFactory = (command, env, cwd) => new CodexHistoryClient(command, env, cwd),
+    codexClientFactory = (command, env, cwd, configArgs) =>
+      new CodexHistoryClient(command, env, cwd, configArgs),
   }) {
     this.accounts = accounts;
     this.home = home;
@@ -252,7 +253,12 @@ export class ProviderHistory {
     const key = `${session.accountId}\0${session.cwd}`;
     let client = this.codexClients.get(key);
     if (!client || client.closed) {
-      client = this.codexClientFactory(this.executable("codex"), env, this.home);
+      client = this.codexClientFactory(
+        this.executable("codex"),
+        env,
+        this.home,
+        this.accounts.codexCredentialArgs(session.accountId),
+      );
       this.codexClients.set(key, client);
     }
     return client;

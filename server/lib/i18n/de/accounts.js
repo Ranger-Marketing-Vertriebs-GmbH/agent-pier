@@ -25,4 +25,6 @@ export const accounts = Object.freeze({
   invalidProfileModel: "Ungültiges Profilmodell.",
   providerProfileNoOAuth:
     "Provider-Profile verwenden API-Keys und können keine OAuth-Anmeldung starten.",
+  codexConfigUnreadable:
+    "Die Codex-Konfiguration dieses Accounts kann nicht gelesen werden. Bitte config.toml im Profil prüfen.",
 });

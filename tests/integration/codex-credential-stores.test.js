@@ -41,6 +41,33 @@ test("a new managed Codex account seeds both file credential stores", (t) => {
   assertPinned(configFile(accounts.environment(account.id)));
 });
 
+const OVERRIDES = [
+  "-c",
+  'cli_auth_credentials_store="file"',
+  "-c",
+  'mcp_oauth_credentials_store="file"',
+];
+
+for (const [mode, login, expected] of [
+  ["default", false, OVERRIDES],
+  ["yolo", false, ["--yolo", ...OVERRIDES]],
+  ["default", true, ["login", "--device-auth", ...OVERRIDES]],
+])
+  test(`a managed Codex ${login ? "login" : mode} launch overrides both stores on the command line`, (t) => {
+    // A trusted project's .codex/config.toml outranks CODEX_HOME but not `-c`.
+    const { accounts, codex } = fixture(t);
+    const account = accounts.create({ name: "Argv", tool: "codex" });
+    assert.deepEqual(accounts.command(account.id, { codex }, login, mode).args, expected);
+    assert.deepEqual(accounts.codexCredentialArgs(account.id), OVERRIDES);
+  });
+
+test("only managed Codex accounts receive credential store overrides", (t) => {
+  const { accounts } = fixture(t);
+  const claude = accounts.create({ name: "Claude", tool: "claude" });
+  assert.deepEqual(accounts.codexCredentialArgs("local-codex"), []);
+  assert.deepEqual(accounts.codexCredentialArgs(claude.id), []);
+});
+
 for (const login of [false, true])
   test(`a managed Codex ${login ? "login" : "work"} launch repairs a missing MCP OAuth pin and keeps the rest`, (t) => {
     const { accounts, codex } = fixture(t);
@@ -55,15 +82,15 @@ for (const login of [false, true])
       'url = "https://mcp.example/mcp"',
       "",
     ].join("\n");
-    fs.writeFileSync(file, legacy, { mode: 0o600 });
+    fs.writeFileSync(file, legacy, { mode: 0o644 });
     const launch = accounts.command(account.id, { codex }, login);
     assert.equal(launch.env.CODEX_HOME, path.dirname(file));
     const repaired = fs.readFileSync(file, "utf8");
     const config = assertPinned(file);
     assert.equal(config.model, "gpt-5");
     assert.equal(config.mcp_servers.docs.url, "https://mcp.example/mcp");
-    assert.match(repaired, /# owner comment/);
     assert.equal(repaired.replace('mcp_oauth_credentials_store = "file"\n', ""), legacy);
+    // The repair writes a private file regardless of the previous mode.
     assert.equal(fs.statSync(file).mode & 0o777, 0o600);
     const unchanged = fs.statSync(file).mtimeMs;
     accounts.command(account.id, { codex }, login);
@@ -71,35 +98,74 @@ for (const login of [false, true])
     assert.equal(fs.statSync(file).mtimeMs, unchanged);
   });
 
-test("a managed Codex launch overrides keychain stores and recreates a missing config", (t) => {
+test("the repair replaces only keychain values and keeps comments and CRLF endings", (t) => {
   const { accounts, codex } = fixture(t);
   const account = accounts.create({ name: "Keychain", tool: "codex" });
   const file = configFile(accounts.environment(account.id));
-  fs.writeFileSync(
-    file,
-    [
-      'mcp_oauth_credentials_store = "keyring"',
-      'cli_auth_credentials_store="auto" # inline',
-      "[profiles.fast]",
-      'mcp_oauth_credentials_store = "keyring"',
-      "",
-    ].join("\n"),
-  );
+  const before = [
+    "# owner comment",
+    '"mcp_oauth_credentials_store" = "keyring" # team default',
+    "cli_auth_credentials_store='auto'",
+    "[profiles.fast]",
+    'mcp_oauth_credentials_store = "keyring"',
+    "",
+  ].join("\r\n");
+  fs.writeFileSync(file, before);
   accounts.command(account.id, { codex }, false, "yolo");
-  const config = assertPinned(file);
-  assert.equal(config.profiles.fast.mcp_oauth_credentials_store, "keyring");
+  assert.equal(
+    fs.readFileSync(file, "utf8"),
+    before.replace('"keyring" # team', '"file" # team').replace("'auto'", '"file"'),
+  );
+  assertPinned(file);
+  fs.writeFileSync(file, 'model = "x"\r\n');
+  accounts.command(account.id, { codex });
+  assert.equal(
+    fs.readFileSync(file, "utf8"),
+    'cli_auth_credentials_store = "file"\r\nmcp_oauth_credentials_store = "file"\r\nmodel = "x"\r\n',
+  );
   fs.rmSync(file);
   accounts.command(account.id, { codex });
   assertPinned(file);
 });
 
-test("a managed Codex launch leaves an unreadable config to Codex itself", (t) => {
+test("a layout the targeted edit cannot address falls back to a structured rewrite", (t) => {
+  const { accounts, codex } = fixture(t);
+  const account = accounts.create({ name: "Bom", tool: "codex" });
+  const file = configFile(accounts.environment(account.id));
+  fs.writeFileSync(file, '\ufeffmodel = "bom"\n[mcp_servers.docs]\nurl = "https://x"\n');
+  accounts.command(account.id, { codex });
+  const config = assertPinned(file);
+  assert.equal(config.model, "bom");
+  assert.equal(config.mcp_servers.docs.url, "https://x");
+});
+
+test("a managed Codex launch leaves an unparseable config to Codex itself", (t) => {
   const { accounts, codex } = fixture(t);
   const account = accounts.create({ name: "Broken", tool: "codex" });
   const file = configFile(accounts.environment(account.id));
   fs.writeFileSync(file, "this is = = not toml\n");
   accounts.command(account.id, { codex });
   assert.equal(fs.readFileSync(file, "utf8"), "this is = = not toml\n");
+});
+
+test("the repair refuses linked configs and reports unreadable ones", (t) => {
+  const { root, accounts, codex } = fixture(t);
+  const account = accounts.create({ name: "Linked", tool: "codex" });
+  const file = configFile(accounts.environment(account.id));
+  const target = path.join(root, "elsewhere.toml");
+  fs.writeFileSync(target, 'model = "outside"\n');
+  fs.rmSync(file);
+  fs.symlinkSync(target, file);
+  assert.throws(() => accounts.command(account.id, { codex }), { status: 409 });
+  assert.equal(fs.readFileSync(target, "utf8"), 'model = "outside"\n');
+  assert.ok(fs.lstatSync(file).isSymbolicLink());
+  fs.rmSync(file);
+  fs.writeFileSync(file, 'model = "x"\n', { mode: 0o000 });
+  if (process.getuid?.() !== 0)
+    assert.throws(() => accounts.command(account.id, { codex }), {
+      status: 409,
+      message: /Codex-Konfiguration/,
+    });
 });
 
 test("the owner's local Codex profile is never pinned", (t) => {

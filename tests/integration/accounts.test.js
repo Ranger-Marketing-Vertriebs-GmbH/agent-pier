@@ -91,6 +91,12 @@ test("profile validation and local account protections preserve existing profile
   store.remove(a.id);
   assert.throws(() => store.get(a.id));
 });
+const CODEX_STORES = [
+  "-c",
+  'cli_auth_credentials_store="file"',
+  "-c",
+  'mcp_oauth_credentials_store="file"',
+];
 test("command builder uses installed binary and native login without permission bypass", (t) => {
   const { store } = setup(t);
   const a = store.create({ name: "A", tool: "codex" });
@@ -98,6 +104,7 @@ test("command builder uses installed binary and native login without permission 
   assert.deepEqual(store.command(a.id, { codex: "/opt/codex" }, true).args, [
     "login",
     "--device-auth",
+    ...CODEX_STORES,
   ]);
   assert.deepEqual(store.command(b.id, { claude: "/opt/claude" }, true).args, []);
   assert.throws(() => store.command(a.id, {}));
@@ -124,7 +131,7 @@ test("session launch defaults preserve native args and permission environment", 
 test("explicit launch modes use each native CLI flag and leave profile settings unchanged", (t) => {
   const { store, dir } = setup(t);
   for (const { tool, mode, args } of [
-    { tool: "codex", mode: "yolo", args: ["--yolo"] },
+    { tool: "codex", mode: "yolo", args: ["--yolo", ...CODEX_STORES] },
     { tool: "claude", mode: "auto", args: ["--permission-mode", "auto"] },
     { tool: "opencode", mode: "auto", args: ["--auto"] },
   ]) {
@@ -136,7 +143,10 @@ test("explicit launch modes use each native CLI flag and leave profile settings 
     assert.equal(launch.launchMode, mode);
     assert.deepEqual(launch.env, store.environment(account.id));
     assert.equal(readFileSync(path.join(dir, "accounts.json"), "utf8"), before);
-    assert.deepEqual(store.command(account.id, { [tool]: `/opt/${tool}` }).args, []);
+    assert.deepEqual(
+      store.command(account.id, { [tool]: `/opt/${tool}` }).args,
+      tool === "codex" ? CODEX_STORES : [],
+    );
   }
 });
 test("launch mode validation rejects malformed values and modes from another tool", (t) => {
@@ -166,7 +176,7 @@ test("launch mode validation rejects malformed values and modes from another too
 test("login commands reject selected launch modes without adding permission flags", (t) => {
   const { store } = setup(t);
   for (const { tool, mode, args } of [
-    { tool: "codex", mode: "yolo", args: ["login", "--device-auth"] },
+    { tool: "codex", mode: "yolo", args: ["login", "--device-auth", ...CODEX_STORES] },
     { tool: "claude", mode: "auto", args: [] },
     { tool: "opencode", mode: "auto", args: ["auth", "login"] },
   ]) {

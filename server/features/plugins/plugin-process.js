@@ -13,6 +13,8 @@ export async function executePluginCommand(
 ) {
   if (closed) throw problem(serverMessages.plugins.serviceStopping, 503);
   accounts.get(ctx.id);
+  // Global overrides precede the subcommand; non-Codex contexts carry none.
+  args = [...(ctx.configArgs || []), ...args];
   if (runner)
     return runner(ctx.command, args, {
       env: ctx.env,
