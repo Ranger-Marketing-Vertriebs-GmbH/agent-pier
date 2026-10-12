@@ -130,10 +130,15 @@ Files up to 1 MiB are read while planning (64 MiB in total), so a file a writer
 replaces at that moment is captured whole. A larger file is archived at the size it
 has when it is opened, through that open descriptor, so a later rename or deletion
 does not matter. A file that is gone by then is left out ("Files removed while the
-backup was written"). A file truncated in place while it is being read keeps its
-entry size and is filled up with blank lines, which line-based histories skip
-("Files that shrank while the backup was written"). Both are reported as omissions;
-neither fails the backup.
+backup was written"). After reading a file, the backup compares its size and
+modification and change times with those at opening. A file that shrank or was
+written to meanwhile ("Files that changed while the backup was written") is named
+in the manifest's `captures` with `consistency: "changed-during-read"`; if it was
+truncated during the read, the rest of its entry is filled with blank lines. A
+restore keeps such files only when they are line-based (`.jsonl`, `.screen`), whose
+archived prefix stays valid, leaves out any other (images, JSON, workspace files)
+and lists those in the restore report. Database copies are private snapshots and
+never change. Neither case fails the backup.
 
 Before writing, the backup checks that the backup folder's file system can hold the
 uncompressed size of all members plus 64 MiB; restore and inspection check their
@@ -155,8 +160,9 @@ Downloads stream the file with its length. The browser uploads an archive in sli
 of at most 16 MiB (the server accepts up to 64 MiB), each appended at an exact
 offset into `<data>/operations/restores/`: no request comes near Node's request
 timeout, and a failed slice is resent from the server's offset; the same upload
-resumes while the dialog stays open. Free space for the whole archive is checked
-when the upload starts. A one-request upload (`POST /restore/upload`) needs its
+resumes while the dialog stays open. Free space for the whole archive, plus what
+other pending uploads still need, is checked when the upload starts; an upload
+without a new slice for 24 hours is removed. A one-request upload (`POST /restore/upload`) needs its
 `Content-Length` and is cut off beyond it. Only an archive with a valid format
 header is kept. An inspection reads up to the last member it validates; a restore
 reads and verifies every member.
@@ -182,8 +188,12 @@ new project directory. Newer Claude Code versions shorten long folder names with
 hash suffix; those folders are not moved. Other settings keyed by a project path
 keep the old path: `.claude.json` `projects` entries (trust, project MCP servers),
 Codex `config.toml` `[projects."<path>"]` and the `cwd` recorded in Codex rollouts.
-If a restore is interrupted, its staging folder is removed when AgentPier starts
-next. The restore report lists profiles that need a new login: a
+Snapshot folders, unfinished archives, uploads, inspection folders and restore
+stages are claimed by the process working on them (`operations/work/`: process id
+and start time). Only the server removes such work, once when it starts, and only
+when the claiming process is gone: running `scripts/operations.mjs` against the
+live data directory never disturbs an upload or restore of the server. A restore
+stage left by a crash is removed at the next server start. The restore report lists profiles that need a new login: a
 profile counts as logged in when its API key or its CLI's login file
 (`codex/auth.json`, `claude/.credentials.json`, `data/opencode/auth.json`) was
 restored.
