@@ -1,9 +1,10 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { editConfig } from "../extensions/config-edit.js";
 import {
   CLI_CONFIG_CHANGED,
   CLI_CONFIG_LAYOUT,
-  updateConfig,
+  atomicText,
 } from "../extensions/mcp-config.js";
 import { cliEntry, cliSupport, entryHash } from "./cli-native.js";
 
@@ -203,19 +204,38 @@ export class CliMcpReconciler {
 
   /** Writes (or with `entry` undefined removes) `name`, if the file still holds `expected`. */
   write(cli, name, entry, expected) {
+    this.edit(cli, [{ name, entry, expected }]);
+  }
+
+  /**
+   * Applies `changes` (`{ name, entry, expected }`: sets `name` to `entry`, or removes it
+   * when `entry` is undefined, while the file's entry hashes to `expected`) as targeted
+   * edits of one file in a single compare-and-swap write: all of them land or none.
+   */
+  edit(cli, changes) {
     const snapshot = this.read(cli);
-    if (snapshot.duplicates.has(name) || snapshot.entries.get(name)?.hash !== expected)
-      throw changed();
-    const target = snapshot.entries.get(name)?.config ?? snapshot.configs.at(-1);
+    for (const { name, expected } of changes)
+      if (snapshot.duplicates.has(name) || snapshot.entries.get(name)?.hash !== expected)
+        throw changed();
+    const held = new Set(
+      changes.map(({ name }) => snapshot.entries.get(name)?.config).filter(Boolean),
+    );
+    if (held.size > 1)
+      throw Object.assign(problem(serverMessages.extensions.cliConfigLayout, 409), {
+        code: CLI_CONFIG_LAYOUT,
+      });
+    const target = [...held][0] ?? snapshot.configs.at(-1);
+    const { key, boundary } = snapshot.locations;
     try {
-      updateConfig(
-        target,
-        snapshot.locations.boundary,
-        cli,
-        snapshot.locations.key,
-        name,
-        entry,
-      );
+      let config = target;
+      for (const { name, entry } of changes) {
+        const data = { ...config.data, [key]: { ...(config.data[key] || {}) } };
+        if (entry === undefined) delete data[key][name];
+        else data[key][name] = entry;
+        config = { ...config, text: editConfig(config, cli, key, name, entry), data };
+      }
+      if (config.text !== target.text)
+        atomicText(target.file, boundary, target.text, config.text);
     } catch (error) {
       if (reasonOf(error)) throw error;
       // A problem: the file turned unsafe (linked, too large) after it was read.
@@ -285,9 +305,12 @@ export class CliMcpReconciler {
             },
           ]);
       } else {
+        // One write: the owner's entry is never gone while AgentPier's is missing.
         this.entries.intend(serverId, cli, name, want.hash);
-        this.write(cli, from.name, undefined, found.hash);
-        this.write(cli, name, want.entry, undefined);
+        this.edit(cli, [
+          { name, entry: want.entry, expected: undefined },
+          { name: from.name, entry: undefined, expected: found.hash },
+        ]);
         this.entries.settle(serverId, cli, want.hash);
       }
     } catch (error) {
@@ -298,18 +321,31 @@ export class CliMcpReconciler {
   }
 
   /**
-   * Best effort: puts the owner's `entry` back under `from.name` where AgentPier's
-   * entry (`hash` under `name`) still stands, and forgets the record, so whatever is
-   * in the file stays the owner's find and is never removed as AgentPier's.
+   * Best effort: puts the owner's `entry` back under `from.name` where AgentPier's entry
+   * (`hash` under `name`) still stands, in one write per attempt, and forgets the
+   * record, so whatever is in the file stays the owner's find and is never removed as
+   * AgentPier's. AgentPier's entry goes only together with the restored one.
    */
   restore(cli, serverId, from, entry, name, hash) {
-    try {
-      if (this.read(cli).entries.get(name)?.hash === hash)
-        this.write(cli, name, name === from.name ? entry : undefined, hash);
-      if (name !== from.name && !this.read(cli).entries.has(from.name))
-        this.write(cli, from.name, entry, undefined);
-    } catch (error) {
-      this.warn(`An adopted MCP entry for ${cli} could not be restored${codeOf(error)}.`);
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const now = this.read(cli).entries;
+        const ours = now.get(name)?.hash === hash;
+        if (name === from.name) {
+          if (ours) this.edit(cli, [{ name, entry, expected: hash }]);
+        } else if (!now.has(from.name))
+          this.edit(cli, [
+            { name: from.name, entry, expected: undefined },
+            ...(ours ? [{ name, entry: undefined, expected: hash }] : []),
+          ]);
+        break;
+      } catch (error) {
+        if (error?.code === CLI_CONFIG_CHANGED && attempt < attempts) continue;
+        this.warn(
+          `An adopted MCP entry for ${cli} could not be restored${codeOf(error)}.`,
+        );
+        break;
+      }
     }
     this.entries.forget(serverId, cli);
   }
