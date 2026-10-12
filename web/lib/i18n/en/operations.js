@@ -109,6 +109,15 @@ export const operationsCopy = {
   importedRuns: "Imported runs",
   updates: "Updates",
   currentVersion: "Installed version",
+  channelStable: "Stable — Default",
+  channelPreview: "Preview — Release candidates",
+  channelCustom: "Custom update source",
+  channelStableHelp:
+    "Only approved stable releases. Switching to Stable does not install an older version.",
+  channelPreviewHelp:
+    "Preview includes release candidates for testing as well as stable releases. This selection applies to this AgentPier installation.",
+  channelManagedHelp:
+    "A custom update source is configured. It is managed on the server.",
   channel: "Update channel",
   releaseNotes: "What’s new in this version",
   releaseNotesLoading: "Loading release notes …",
