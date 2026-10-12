@@ -902,10 +902,26 @@ credentials, and treat each copy beside it that parses as JSON (`.bak*`,
 temporary) is left out. A rollback or restore with the key restores the values;
 after a credential revocation destroyed the key, they are withheld and the restore
 reports `credentialsWithheld`, so the servers need their values entered again. A
-host backup without credentials leaves the values out. The server store
-(`<data>/mcp-servers/`) is part of neither backup: a host backup of a host that has
-it declares the omission "MCP servers for agents (definitions, values and
-bindings)".
+host backup without credentials leaves the values out.
+
+Host backups also capture the server store (`<data>/mcp-servers/servers.sqlite`,
+AGENTPIER-42) as a consistent SQLite snapshot. The public archive member is a
+sanitized copy: definitions, agent and CLI bindings and the hashes of the CLI
+entries AgentPier wrote stay; header and environment values, the query string and
+fragment of each address, the OAuth login state (`oauth_connected`, the registered
+login redirect) and pending or remembered OAuth logouts are removed, and the copy is
+vacuumed so no removed value survives in a free page. A backup with credentials
+seals the values and the full addresses in its passphrase capsule
+(`mcp-server-secrets/servers.json`); the restore writes them back into the restored
+store and never leaves that member in the new data directory. A restore without
+them lists each server that had values or an address token in
+`credentialsNeedingLogin` as `mcp:<name>`; enter its values again under **Accounts**.
+The restored instance's next start reconciles the coding CLIs: it writes managed
+entries a CLI lacks and leaves entries the owner changed as conflicts. Runtime
+update snapshots do not include the server store: it stays on the host. Builds
+before AGENTPIER-42 refuse a backup with the store ("Unexpected backup
+component"); older backups, which declared the store as left out, restore without
+it.
 
 ### OAuth logins (AGENTPIER-37)
 
@@ -972,7 +988,8 @@ background and before every Gateway start compiles.
 
 **Backups.** Logins live in OpenClaw's `state/openclaw.sqlite` (`mcp_oauth_stores`,
 `mcp_oauth_pending_authorizations`). Host backups leave them out, with or without
-credentials, like the server store; a restored host starts "Not connected". Runtime
+credentials, and the server store's backup copy keeps no login state; a restored
+host starts "Not connected" and needs a new login. Runtime
 update snapshots stay on the host and keep them sealed with the other credentials,
 so a rollback keeps logins; every login logged out since the snapshot is logged out
 again after the rollback, before the Gateway starts (see

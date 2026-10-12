@@ -5,13 +5,8 @@ import os from "node:os";
 import { randomUUID } from "node:crypto";
 import { folder, atomic, identifier, readJson } from "./files.js";
 import { encodeArchive, encryptCredentials } from "./archive.js";
-import {
-  backupOptions,
-  capture,
-  mcpServerOmission,
-  mcpServersPresent,
-  omissions,
-} from "./snapshot.js";
+import { backupOptions, capture, omissions } from "./snapshot.js";
+import { mcpServersPresent } from "./mcp-server-backup.js";
 import { applicationVersion } from "./version.js";
 import { problem } from "../../lib/storage.js";
 import {
@@ -20,6 +15,10 @@ import {
   captureAssistants,
   forgetAssistantBackup,
 } from "./assistant-backup.js";
+
+export const mcpLoginOmission = "MCP server OAuth logins";
+export const mcpValueOmission =
+  "MCP server header and environment values and address tokens";
 
 export class Backup {
   constructor({
@@ -44,6 +43,7 @@ export class Backup {
   plan(input) {
     const options = backupOptions(input);
     const assistants = assistantsCaptured(this.dataDir);
+    const mcpServers = mcpServersPresent(this.dataDir);
     return {
       components: [
         "accounts",
@@ -56,19 +56,22 @@ export class Backup {
         "audit",
         ...(options.includeHistory ? ["chat", "terminal", "agentbus-history"] : []),
         ...(assistants ? ["assistants"] : []),
+        ...(mcpServers ? ["mcp-servers"] : []),
         ...(options.withCredentials
           ? [
               "encrypted-managed-profiles",
               "encrypted-repository-credentials",
               "encrypted-provider-credentials",
               ...(assistants ? ["sealed-assistant-credentials"] : []),
+              ...(mcpServers ? ["encrypted-mcp-server-values"] : []),
             ]
           : []),
       ],
       omissions: [
         ...omissions,
         ...(assistants ? assistantOmissions : []),
-        ...(mcpServersPresent(this.dataDir) ? [mcpServerOmission] : []),
+        ...(mcpServers ? [mcpLoginOmission] : []),
+        ...(mcpServers && !options.withCredentials ? [mcpValueOmission] : []),
         ...(!options.withCredentials
           ? ["Managed native configuration and credentials"]
           : []),

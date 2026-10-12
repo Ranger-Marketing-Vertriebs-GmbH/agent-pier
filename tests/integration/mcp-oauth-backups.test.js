@@ -7,6 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
 import { decodeArchive } from "../../server/features/operations/archive.js";
+import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
 import { writeAssistantFeature } from "../../server/features/assistants/assistant-feature.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import {
@@ -78,6 +79,18 @@ test("host backups leave MCP OAuth logins out, sealed or not", async (t) => {
   const paths = runtimePaths(dataDir);
   writeAssistantFeature(dataDir, { enabled: true });
   seedState(path.join(paths.root, stateDatabase));
+  const servers = new McpServerStore({ dataDir, pathEnv: "/fake/bin" });
+  const docs = servers.create({
+    name: "docs",
+    transport: "http",
+    url: "https://mcp.example.test/mcp",
+    auth: "oauth",
+  });
+  servers.rememberOAuth(docs.id, {
+    connected: true,
+    loginRedirect: "http://127.0.0.1:4380/api/mcp-servers/oauth/callback",
+  });
+  servers.close();
   const backups = new Backup({ dataDir });
   for (const withCredentials of [true, false]) {
     const { file, manifest } = await backups.create({
@@ -109,8 +122,16 @@ test("host backups leave MCP OAuth logins out, sealed or not", async (t) => {
     // The auth profile comes back on this host; only it decides "assistants".
     assert.equal(count(restored, "auth_profile_store"), withCredentials ? 1 : 0);
     assert.equal(report.credentialsNeedingLogin.includes("assistants"), !withCredentials);
-    // The MCP servers the logins belong to are not part of host backups either.
-    assert.equal(fs.existsSync(path.join(target, "mcp-servers")), false);
+    // The server the login belongs to comes back without any memory of the login.
+    const restoredServers = new McpServerStore({ dataDir: target, pathEnv: "/fake/bin" });
+    try {
+      assert.deepEqual(restoredServers.oauthMemory(docs.id), {
+        everConnected: false,
+        loginRedirect: null,
+      });
+    } finally {
+      restoredServers.close();
+    }
   }
 });
 

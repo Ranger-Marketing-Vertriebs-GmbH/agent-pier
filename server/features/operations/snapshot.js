@@ -8,6 +8,11 @@ import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import { digest, folder, readFile, readJson, members } from "./files.js";
 import { problem } from "../../lib/storage.js";
+import {
+  mcpStoreMember,
+  mcpValuesMember,
+  sanitizeMcpStore,
+} from "./mcp-server-backup.js";
 
 export const omissions = [
   "File trash, file journals and transfer bytes",
@@ -21,13 +26,6 @@ export const omissions = [
   "Live native processes, delivery channels, capabilities and subscriptions",
   "Global atomicity across independent native writers",
 ];
-// The central MCP server store (<data>/mcp-servers) is not captured: its header and
-// environment values, and tokens in stored addresses, have no sealed form in host
-// backups yet. A backup of a host that has the store declares it instead.
-export const mcpServerOmission =
-  "MCP servers for agents (definitions, values and bindings)";
-export const mcpServersPresent = (dataDir) =>
-  fs.existsSync(path.join(dataDir, "mcp-servers", "servers.sqlite"));
 export function fileMember(name, value) {
   const content = Buffer.isBuffer(value) ? value : Buffer.from(JSON.stringify(value));
   return {
@@ -37,17 +35,25 @@ export function fileMember(name, value) {
     mode: 0o600,
   };
 }
-export function sqliteSnapshot(file, scratch, { withoutCapabilities = false } = {}) {
+/** A consistent copy of `file`; `sanitize(db)` edits the copy before it is vacuumed. */
+export function sqliteSnapshot(
+  file,
+  scratch,
+  { withoutCapabilities = false, sanitize } = {},
+) {
   readFile(file, 256 * 1024 * 1024);
   const db = new DatabaseSync(file, { readOnly: true });
   const target = path.join(scratch, `${randomUUID()}.sqlite`);
   try {
     db.exec("PRAGMA busy_timeout=5000");
     db.prepare("VACUUM INTO ?").run(target);
-    if (withoutCapabilities) {
+    if (withoutCapabilities || sanitize) {
       const copy = new DatabaseSync(target);
       try {
-        copy.exec("DELETE FROM capabilities; VACUUM");
+        if (withoutCapabilities) copy.exec("DELETE FROM capabilities");
+        sanitize?.(copy);
+        // Vacuuming rewrites the file, so removed values survive in no free page.
+        copy.exec("VACUUM");
       } finally {
         copy.close();
       }
@@ -119,6 +125,25 @@ export function capture({
         finishedAt: new Date().toISOString(),
         consistency: "sqlite-snapshot",
       });
+    }
+    if (fs.existsSync(path.join(dataDir, mcpStoreMember))) {
+      const startedAt = new Date().toISOString();
+      let withheld;
+      files.push(
+        fileMember(
+          mcpStoreMember,
+          sqliteSnapshot(path.join(dataDir, mcpStoreMember), scratch, {
+            sanitize: (db) => (withheld = sanitizeMcpStore(db)),
+          }),
+        ),
+      );
+      captures.push({
+        component: mcpStoreMember,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        consistency: "sqlite-snapshot",
+      });
+      if (withCredentials) credentials.push(fileMember(mcpValuesMember, withheld));
     }
     if (audit?.export) files.push(fileMember("audit/events.json", audit.export()));
     else if (fs.existsSync(path.join(dataDir, "audit/audit.sqlite"))) {
