@@ -51,7 +51,7 @@ async function gateway(t, prefix) {
 }
 
 test(
-  "an abort ends a running foreground exec, but not a background one",
+  "an abort ends a running foreground exec, but not a background one; a restart ends it on Linux only",
   options,
   async (t) => {
     const gw = await gateway(t, "shell-abort-");
@@ -60,10 +60,10 @@ test(
       tools: { allow: tools, exec: { mode: "deny" } },
       agents: { entries: { main: { tools: { allow: tools, exec: { mode: "full" } } } } },
     });
-    // A background session outlives its turn, the abort of the next one, the
-    // session's reset and even a Gateway restart: OpenClaw 2026.9.8 ends it only
-    // through the agent's own `process` tool, which no Gateway RPC reaches
-    // (tools.invoke answers "Tool not available: process").
+    // A background session outlives its turn, the abort of the next one and the
+    // session's reset: OpenClaw 2026.9.8 ends it only through the agent's own
+    // `process` tool, which no Gateway RPC reaches (tools.invoke answers "Tool not
+    // available: process").
     const background = await gw.sleeper({ background: true });
     const settled = await gw.settle(background.run);
     assert.match(settled.result, /Command still running/);
@@ -78,9 +78,20 @@ test(
     });
     assert.deepEqual([invoked.ok, invoked.error?.code], [false, "not_found"]);
     await gw.client.call("sessions.reset", { key: background.run.session.key });
+    await delay(1500);
+    assert.equal(alive(background.pid), true, "background exec survives a reset");
+    // A Gateway stop waits for background sessions while draining, so AgentPier ends
+    // it with SIGKILL after its grace. On Linux OpenClaw spawns exec children through
+    // its spawn broker, a separate process that terminates every child it owns once
+    // the Gateway disconnects. Elsewhere the Gateway spawns them itself, in their own
+    // process group, so they outlive the Gateway.
     await gw.runtime.restart();
-    await delay(2000);
-    assert.equal(alive(background.pid), true, "background exec survives a restart");
+    if (process.platform === "linux")
+      assert.ok(await gone(background.pid), "a restart ends background exec on Linux");
+    else {
+      await delay(2000);
+      assert.equal(alive(background.pid), true, "background exec survives a restart");
+    }
   },
 );
 

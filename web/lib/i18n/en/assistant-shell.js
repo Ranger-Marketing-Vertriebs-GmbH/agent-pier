@@ -7,7 +7,7 @@ export const assistantShellCopy = {
     full: "Full access",
   },
   levelHints: {
-    off: "The agent cannot run new commands. Commands it already started in the background keep running until they end.",
+    off: "The agent cannot run new commands. Commands it already started in the background keep running until they end; on Linux, a restart of the agent service also ends them.",
     approval: "The agent asks you before every command that is not always allowed.",
     full: "The agent runs every command without asking you.",
   },
