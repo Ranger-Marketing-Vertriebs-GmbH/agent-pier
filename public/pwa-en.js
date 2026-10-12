@@ -28,6 +28,10 @@ self.agentPierNotificationCopyEn = {
     title: "AgentPier: Agent check-in",
     body: "An agent has something for you. Open the paired chat.",
   },
+  "telegram-revocation": {
+    title: "AgentPier: Telegram access still active",
+    body: "A bot or person you removed could not be stopped. Restart the agent service.",
+  },
   test: {
     title: "AgentPier: Test notification",
     body: "Notifications are reaching this device.",

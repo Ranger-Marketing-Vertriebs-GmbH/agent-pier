@@ -36,3 +36,28 @@ test("an agent check-in push names only the agent", () => {
     }),
   );
 });
+
+test("a Telegram revocation alert carries only its kind, event and agent", () => {
+  check(
+    fc.property(fc.dictionary(fc.string(), fc.jsonValue()), (untrusted) => {
+      const payload = pushPayload({
+        ...untrusted,
+        kind: "telegram-revocation",
+        eventId: "event-one",
+        assistantId: "agent-one",
+      });
+      assert.deepEqual(payload, {
+        kind: "telegram-revocation",
+        eventId: "event-one",
+        assistantId: "agent-one",
+      });
+    }),
+  );
+  assert.deepEqual(pushPayload({ kind: "telegram-revocation", eventId: "e1" }), {
+    kind: "telegram-revocation",
+    eventId: "e1",
+  });
+  assert.throws(() =>
+    pushPayload({ kind: "telegram-revocation", eventId: "e1", assistantId: "../x" }),
+  );
+});

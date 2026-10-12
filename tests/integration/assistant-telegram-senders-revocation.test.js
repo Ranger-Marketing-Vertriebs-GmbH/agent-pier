@@ -277,3 +277,62 @@ test("without any bot a speech key change touches neither backups nor the Gatewa
   assert.equal(keys(h).length, 1);
   assert.equal(h.restarts.length, 0);
 });
+
+test("an unreadable openclaw.json never stops AgentPier and alerts the owner", async (t) => {
+  const h = fixture(t);
+  const agent = h.agent();
+  await h.senders.save(agent.id, { token: token(1), people, revision: null });
+  h.start();
+  const notified = [];
+  h.senders.notifications = { notify: async (input) => notified.push(input) };
+  const config = path.join(h.dataDir, "openclaw.json");
+  fs.writeFileSync(config, "{ not json");
+  h.runtime.paths = { config };
+  h.senders.configured = h.senders.configuredFromFile;
+  const unhandled = [];
+  const listener = (reason) => unhandled.push(reason);
+  process.on("unhandledRejection", listener);
+  t.after(() => process.off("unhandledRejection", listener));
+  h.senders.ready();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.deepEqual(unhandled, []);
+  assert.equal(await h.senders.converge(), false);
+  assert.equal(h.restarts.length, 0);
+  const view = await h.senders.get(agent.id);
+  assert.equal(view.revocationFailed, true);
+  assert.deepEqual(
+    notified.map((n) => n.kind),
+    ["telegram-revocation"],
+    "the owner is told once",
+  );
+  assert.equal(notified[0].assistantId, undefined);
+  h.senders.close();
+});
+
+test("the owner is notified once when the restart cap is reached", async (t) => {
+  const h = fixture(t);
+  const agent = h.agent();
+  const saved = await h.senders.save(agent.id, {
+    token: token(1),
+    people,
+    revision: null,
+  });
+  const started = h.snapshot();
+  h.senders.store.save(agent.id, { people: [people[0]] }, saved.bot.revision);
+  const notified = [];
+  h.senders.notifications = { notify: async (input) => notified.push(input) };
+  h.senders.synchronization = {
+    restartGateway: async () => {
+      h.restarts.push(true);
+      h.runtime.telegram = h.runtime.telegramStarting = started;
+    },
+  };
+  h.runtime.client = { ready: true, call: async () => ({}) };
+  h.runtime.telegram = h.runtime.telegramStarting = started;
+  await h.senders.converge();
+  await h.senders.converge();
+  await h.senders.converge();
+  assert.equal(notified.length, 1);
+  assert.equal(notified[0].kind, "telegram-revocation");
+  assert.equal(notified[0].assistantId, agent.id);
+});

@@ -60,12 +60,16 @@ export function pushPayload(input) {
       "pipeline-gate",
       "pipeline-ended",
       "agent-checkin",
+      // An agent's own Telegram bot still runs after the owner revoked it.
+      "telegram-revocation",
       "test",
     ].includes(input?.kind)
   )
     throw problem("Invalid notification kind.");
   const payload = { kind: input.kind, eventId: pushId(input.eventId) };
-  if (input.kind.startsWith("pipeline-")) payload.runId = pushId(input.runId);
+  if (input.kind === "telegram-revocation") {
+    if (input.assistantId !== undefined) payload.assistantId = pushId(input.assistantId);
+  } else if (input.kind.startsWith("pipeline-")) payload.runId = pushId(input.runId);
   else if (input.kind === "agent-checkin")
     payload.assistantId = pushId(input.assistantId);
   else if (input.kind !== "test") payload.sessionId = pushId(input.sessionId);
