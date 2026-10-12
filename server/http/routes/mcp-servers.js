@@ -2,6 +2,7 @@ import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { STDIO_CONFIRMATION_REQUIRED } from "../../features/mcp-servers/stdio-confirmation.js";
 import { serverMessages } from "../../lib/i18n/de.js";
+import { problem } from "../../lib/storage.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { record } from "../../features/extensions/mcp-config.js";
 import { mcpCliRoutes } from "./mcp-cli.js";
@@ -27,15 +28,23 @@ export function replyStdioConfirmation(response, error) {
 }
 
 /**
- * Validation, conflicts and a busy Gateway keep their reason; storage and runtime
- * errors can carry private details.
+ * Validation, conflicts and a busy Gateway keep their reason; a runtime that is not
+ * ready and a Gateway reply (whose text can carry private details) stay "unavailable"
+ * (503). Anything else is a defect: it is logged once (code, message, stack; never the
+ * request) and answered as a generic 500.
  */
-export const mcpServerErrors = (error, _req, _res, next) =>
-  next(
-    Number.isInteger(error.status) && error.status < 500 && !error.answered
-      ? error
-      : assistantProblem("unavailable", 503),
+function routeProblem(error) {
+  if (Number.isInteger(error?.status) && error.status < 500 && !error.answered)
+    return error;
+  if (error?.answered || error?.status === 503)
+    return assistantProblem("unavailable", 503);
+  console.error(
+    `AgentPier MCP server route failed (${error?.code || "no code"}): ${error?.stack || error?.message || error}`,
   );
+  return problem(serverMessages.http.internalError, 500);
+}
+
+export const mcpServerErrors = (error, _req, _res, next) => next(routeProblem(error));
 
 /**
  * The owner's central MCP servers, served with or without agents (agent OAuth logins
