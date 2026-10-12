@@ -156,10 +156,12 @@ export default function McpServersSettings({
   const load = useCallback(async () => {
     try {
       setServers(await assistantApi.mcpServers());
-      setGeneration((value) => value + 1);
       setError("");
     } catch (e) {
       setError(e.message);
+    } finally {
+      // The finds load again with every reload, also when the list failed.
+      setGeneration((value) => value + 1);
     }
   }, []);
   useEffect(() => {
