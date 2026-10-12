@@ -7,6 +7,7 @@ import { mcpUrl, record, values } from "../extensions/mcp-config.js";
 import { CliEntryStore } from "./cli-entry-store.js";
 import { clis } from "./cli-native.js";
 import { resolveCommand, sanitisedPrefix } from "./command-resolution.js";
+import { requireLiteralValues } from "./value-references.js";
 
 const messages = serverMessages.mcpServers;
 const transports = ["http", "sse", "stdio"];
@@ -354,6 +355,7 @@ export class McpServerStore {
   }
   /** `bind`: `[kind, targetId]` pairs bound in the same transaction. */
   create(input, { bind = [] } = {}) {
+    requireLiteralValues(input);
     const fields = this.definition(input);
     const id = randomUUID();
     this.transaction(() => {
@@ -374,6 +376,7 @@ export class McpServerStore {
       throw problem(messages.conflict, 409);
     if (patch.transport !== undefined && patch.transport !== row.transport)
       throw invalid(messages.transportLocked);
+    requireLiteralValues(patch);
     const merged = {
       name: row.name,
       transport: row.transport,

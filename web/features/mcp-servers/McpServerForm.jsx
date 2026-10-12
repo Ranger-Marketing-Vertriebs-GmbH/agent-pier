@@ -12,6 +12,8 @@ import StdioConfirmation from "./StdioConfirmation.jsx";
 import { draftFrom, dropsStoredHeaders, requestBody } from "./mcp-server-draft.js";
 import { stdioConfirmationRequired } from "./stdio-confirmation.js";
 
+const valueReference = (error) => error?.code === "MCP_SERVER_VALUE_REFERENCE";
+
 /**
  * Adds a server (`server` is null) or edits one, and chooses its coding CLIs. Stdio
  * changes, a local command for a newly chosen CLI, and a switch to OAuth that deletes
@@ -25,6 +27,18 @@ export default function McpServerForm({ server, onSaved, close }) {
     [confirming, setConfirming] = useState(false),
     [switching, setSwitching] = useState(false);
   const [clis, setClis] = useState(() => server?.clis || []);
+  // A refused value (MCP_SERVER_VALUE_REFERENCE) shown at its field until it changes.
+  const [fieldError, setFieldError] = useState(null);
+  const errorId = `${formId}-field-error`;
+  const errorOf = (field) => (fieldError?.field === field ? fieldError.text : "");
+  const describe = (field) =>
+    errorOf(field) ? { "aria-invalid": true, "aria-describedby": errorId } : {};
+  const fieldMessage = (field) =>
+    errorOf(field) && (
+      <small id={errorId} role="alert" className="mcp-field-error">
+        {errorOf(field)}
+      </small>
+    );
   const [cliConfirm, setCliConfirm] = useState(false);
   // Any change withdraws an open question; it was about the previous state.
   const withdraw = () => {
@@ -34,6 +48,7 @@ export default function McpServerForm({ server, onSaved, close }) {
   };
   const set = (key) => (value) => {
     withdraw();
+    if (fieldError?.field === key) setFieldError(null);
     setDraft((current) => ({ ...current, [key]: value }));
   };
   const chooseClis = (next) => {
@@ -63,6 +78,7 @@ export default function McpServerForm({ server, onSaved, close }) {
     setCliConfirm(false);
     setBusy(true);
     setError("");
+    setFieldError(null);
     try {
       // One request: the server stores the definition and its CLIs together or neither.
       const body = {
@@ -76,6 +92,13 @@ export default function McpServerForm({ server, onSaved, close }) {
       await onSaved(saved);
     } catch (e) {
       if (stdioConfirmationRequired(e)) setConfirming(true);
+      else if (valueReference(e))
+        setFieldError({
+          field: e.field,
+          text: e.names?.length
+            ? `${e.message} ${copy.referenceNames(e.names.join(", "))}`
+            : e.message,
+        });
       else setError(e.message);
     } finally {
       setBusy(false);
@@ -153,8 +176,10 @@ export default function McpServerForm({ server, onSaved, close }) {
                 required
                 autoCapitalize="none"
                 spellCheck={false}
+                {...describe("command")}
                 onChange={text("command")}
               />
+              {fieldMessage("command")}
               <small className="mcp-hint">{copy.commandHint}</small>
             </label>
             <label>
@@ -164,8 +189,10 @@ export default function McpServerForm({ server, onSaved, close }) {
                 value={draft.args}
                 autoCapitalize="none"
                 spellCheck={false}
+                {...describe("args")}
                 onChange={text("args")}
               />
+              {fieldMessage("args")}
             </label>
             <label>
               {copy.cwdLabel}
@@ -173,10 +200,18 @@ export default function McpServerForm({ server, onSaved, close }) {
                 value={draft.cwd}
                 autoCapitalize="none"
                 spellCheck={false}
+                {...describe("cwd")}
                 onChange={text("cwd")}
               />
+              {fieldMessage("cwd")}
             </label>
-            <McpSecretRows label={copy.envLabel} rows={draft.env} onChange={set("env")} />
+            <McpSecretRows
+              label={copy.envLabel}
+              rows={draft.env}
+              onChange={set("env")}
+              error={errorOf("env")}
+              errorId={errorId}
+            />
           </>
         ) : (
           <>
@@ -189,8 +224,10 @@ export default function McpServerForm({ server, onSaved, close }) {
                 placeholder="https://example.com/mcp"
                 autoCapitalize="none"
                 spellCheck={false}
+                {...describe("url")}
                 onChange={text("url")}
               />
+              {fieldMessage("url")}
               {server && <small className="mcp-hint">{copy.urlHint}</small>}
             </label>
             <McpAuthFields draft={draft} server={server} set={set} />
@@ -199,6 +236,8 @@ export default function McpServerForm({ server, onSaved, close }) {
                 label={copy.headersLabel}
                 rows={draft.headers}
                 onChange={set("headers")}
+                error={errorOf("headers")}
+                errorId={errorId}
               />
             )}
           </>

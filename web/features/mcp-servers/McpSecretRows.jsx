@@ -4,14 +4,20 @@ import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
 /**
  * Header or environment entries as name and value rows. Stored entries show their
  * name and "stored" only; a typed value replaces them, "Remove" deletes them.
- * Rows: `{ key, name, value, stored, removed }`.
+ * Rows: `{ key, name, value, stored, removed }`. `error` is shown at the rows and
+ * describes them (`errorId`).
  */
-export default function McpSecretRows({ label, rows, onChange }) {
+export default function McpSecretRows({ label, rows, onChange, error, errorId }) {
   const patch = (key, change) =>
     onChange(rows.map((row) => (row.key === key ? { ...row, ...change } : row)));
   return (
-    <fieldset className="mcp-rows">
+    <fieldset className="mcp-rows" aria-describedby={error ? errorId : undefined}>
       <legend>{label}</legend>
+      {error && (
+        <p id={errorId} role="alert" className="mcp-field-error">
+          {error}
+        </p>
+      )}
       {rows.map((row) => (
         <div className="mcp-row" key={row.key}>
           {row.stored ? (

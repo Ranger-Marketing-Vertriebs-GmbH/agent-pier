@@ -21,6 +21,10 @@ export async function apiError(response) {
   error.code = data.code;
   // A stable identifier for callers that branch on the reason, never on text.
   if (typeof data.messageKey === "string") error.messageKey = data.messageKey;
+  // The form field a refused value belongs to, and the header or variable names.
+  if (typeof data.field === "string") error.field = data.field;
+  if (Array.isArray(data.names))
+    error.names = data.names.filter((item) => typeof item === "string");
   // Agents affected by a connection change, named in its confirmation.
   if (data.affected && typeof data.affected === "object") error.affected = data.affected;
   // Confirmations the server still needs, such as raising an agent's shell level.

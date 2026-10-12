@@ -4,6 +4,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { mcpUrl, nativeMcp, record, values } from "../extensions/mcp-config.js";
 import { namePattern } from "./command-resolution.js";
+import { hasReference, referenceNames } from "./value-references.js";
 
 /** The coding CLIs a central server can be bound to: the `cli` binding target ids. */
 export const clis = ["claude", "codex", "opencode"];
@@ -169,16 +170,13 @@ function fromOpenCode(entry) {
   return remote("http", entry.url, {}, entry.oauth.scope ?? "");
 }
 
-// Claude Code's `${VAR}` and `${VAR:-default}`, OpenCode's `{env:VAR}` and `{file:path}`.
-const reference = /\$\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\}|\{(?:env|file):[^}]+\}/;
-
 /**
  * Where a parsed entry refers to the CLI's environment or a file instead of holding
  * the value: field names (`command`, `args`, `cwd`, `url`) and header or environment
  * names, never a value. Another CLI or an agent would get such a value literally.
  */
 function references({ definition, secrets }) {
-  const has = (value) => typeof value === "string" && reference.test(value);
+  const has = hasReference;
   const fields = ["command", "args", "cwd", "url"].filter((field) =>
     Array.isArray(definition[field])
       ? definition[field].some(has)
@@ -207,10 +205,11 @@ export function centralFromNative(cli, entry) {
   try {
     parsed = parse(cli, entry);
   } catch {
-    return invalid;
+    parsed = invalid;
   }
-  if (!parsed.ok) return parsed;
-  const names = references(parsed);
+  // A reference can make a field unreadable (a URL host, a relative cwd): name it.
+  const names =
+    parsed === invalid ? referenceNames(entry) : parsed.ok ? references(parsed) : [];
   return names.length ? { ok: false, reason: "env-references", names } : parsed;
 }
 
