@@ -34,12 +34,15 @@ async function ownerGateway(t, prefix, shape) {
 }
 
 // What an exec child sees: HOME, PATH, where `gh` resolves, what it reads, and the
-// names (never the values) of the OPENCLAW_* variables.
+// names (never the values) of the OPENCLAW_* variables. Only the fixture's fake `gh`
+// is run: the host's system PATH may hold a real one (/usr/bin/gh on GitHub's Ubuntu
+// runners, /opt/homebrew/bin/gh on its macOS runners), which must never run here.
 async function probe(gw, label, extra = {}) {
   const out = path.join(gw.dataDir, `${label}.txt`);
   const command =
     `{ printf 'HOME=%s\\n' "$HOME"; printf 'PATH=%s\\n' "$PATH"; ` +
-    `printf 'GH=%s\\n' "$(command -v gh)"; gh 2>/dev/null; ` +
+    `gh="$(command -v gh)"; printf 'GH=%s\\n' "$gh"; ` +
+    `case "$gh" in '${gw.owner.bin}/'*) "$gh" 2>/dev/null ;; esac; ` +
     `env | cut -d= -f1 | grep '^OPENCLAW' | sort; } > ${out} 2>&1`;
   const { result } = await gw.turn(label, { command, ...extra });
   if (!fs.existsSync(out)) return { result };
@@ -66,12 +69,15 @@ test(
     const { seen } = await probe(gw, "today");
     t.diagnostic(`today=${JSON.stringify(seen)}`);
     assert.equal(seen.home, gw.runtime.paths.home);
-    assert.equal(seen.gh, "");
+    // OpenClaw merges a system login PATH (/bin/sh -l with the private HOME), so a
+    // `gh` the host installed system-wide may resolve; the owner's never does.
     assert.equal(
       seen.path.includes(owner.bin),
       false,
       "the owner's login profile is not read",
     );
+    assert.notEqual(seen.gh, path.join(owner.bin, "gh"));
+    assert.equal(seen.ghOutput, undefined);
     assert.equal(seen.names.includes("OPENCLAW_GATEWAY_TOKEN"), false);
     for (const name of ["OPENCLAW_STATE_DIR", "OPENCLAW_CONFIG_PATH", "OPENCLAW_SHELL"])
       assert.ok(seen.names.includes(name), name);
