@@ -190,9 +190,11 @@ test("mobile settings have section links and inline permission checkboxes", asyn
   const nav = page.getByRole("navigation", { name: "Settings sections" });
   await expect(nav).toBeVisible();
   for (const name of ["Telegram", "Memory", "Reminders"])
-    await expect(nav.getByRole("link", { name })).toBeVisible();
-  await nav.getByRole("link", { name: "Telegram" }).click();
-  await expect(page.getByRole("region", { name: "Telegram" })).toBeInViewport();
+    await expect(nav.getByRole("link", { name, exact: true })).toBeVisible();
+  await nav.getByRole("link", { name: "Telegram", exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "Telegram", exact: true }),
+  ).toBeInViewport();
   expect(await page.evaluate(() => window.__marker)).toBe("same-document");
   // Measured in one synchronous step so a running scroll cannot skew the comparison.
   const { box, text } = await page
@@ -228,9 +230,11 @@ test("section links move focus to the section heading", async ({ page }) => {
   await page.goto(baseURL + "/agents/home/settings");
   await page
     .getByRole("navigation", { name: "Settings sections" })
-    .getByRole("link", { name: "Telegram" })
+    .getByRole("link", { name: "Telegram", exact: true })
     .click();
-  await expect(page.getByRole("heading", { name: "Telegram" })).toBeFocused();
+  await expect(
+    page.getByRole("heading", { name: "Telegram", exact: true }),
+  ).toBeFocused();
 });
 
 test("the model field lists the connection's models and keeps a custom model ID", async ({
