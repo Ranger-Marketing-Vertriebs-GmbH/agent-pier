@@ -256,3 +256,13 @@ test("removing the account or unbinding the server ends a pending login", async 
   const audit = (await call("/api/audit?limit=50")).text;
   assert.match(audit, /"failReason":"obsolete"/);
 });
+
+test("starting and cancelling share one rate limit", async (t) => {
+  const { login } = await setup(t);
+  const statuses = [];
+  for (let i = 0; i < 31; i += 1)
+    statuses.push((await login(undefined, "DELETE")).status);
+  assert.deepEqual(statuses.slice(0, 30), Array(30).fill(204));
+  assert.equal(statuses[30], 429);
+  assert.equal((await login()).status, 429);
+});
