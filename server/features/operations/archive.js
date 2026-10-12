@@ -61,13 +61,17 @@ export function validateMembers(
     if (digest(content) !== member.sha256)
       throw problem(serverMessages.backups.checksumMismatch);
   }
+  assertNoConflicts(names);
+  return files;
+}
+/** Rejects a member path that another member uses as a directory. */
+export function assertNoConflicts(names) {
   for (const name of names) {
     const parts = name.split("/");
     while (parts.pop() && parts.length)
       if (names.has(parts.join("/")))
         throw problem(serverMessages.backups.fileDirectoryConflict);
   }
-  return files;
 }
 export async function encryptCredentials(files, passphrase) {
   if (

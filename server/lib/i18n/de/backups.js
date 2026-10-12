@@ -21,8 +21,6 @@ export const backups = Object.freeze({
     "Die Backup-Passphrase oder die Prüfung der Zugangsdaten ist fehlgeschlagen.",
   notFound: "Backup nicht gefunden.",
   invalidMemberPath: "Ungültiger Pfad eines Archiveintrags.",
-  componentLinked: "Ein Backup-Bestandteil enthält einen symbolischen Link.",
-  componentLimit: "Ein Backup-Bestandteil überschreitet sein Limit.",
   importedProjectNotFound: "Das importierte AgentBus-Projekt wurde nicht gefunden.",
   invalidHistoryPage: "Ungültige Seite des importierten Verlaufs.",
   unsupportedSqliteSchema:
@@ -52,4 +50,66 @@ export const backups = Object.freeze({
   uploadType: "Bitte ein Backup-Archiv als application/octet-stream hochladen.",
   assistantsBusy:
     "Agenten werden gerade aktualisiert oder gewartet. Erstelle das Backup danach erneut.",
+  componentLinked: "Ein Backup-Bestandteil enthält einen symbolischen Link.",
+  componentLimit: "Ein Backup-Bestandteil überschreitet sein Limit.",
+  memberMismatch: "Die Einträge des Archivs passen nicht zu seinem Manifest.",
+  insufficientSpace: (required, available) =>
+    `Nicht genug freier Speicherplatz: benötigt ${required}, verfügbar ${available}.`,
+  profileChanged: (name, tool) =>
+    `Profil „${name}“ (${tool}): Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.`,
+  profileUnreadable: (name, tool) =>
+    `Profil „${name}“ (${tool}): Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.`,
+  profileCredentialLimit: (name, tool, limit) =>
+    `Profil „${name}“ (${tool}): Konfiguration und Zugangsdaten überschreiten ${limit}.`,
+  changed: Object.freeze({
+    sessions:
+      "Sitzungen: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
+    chat: "Chat-Verläufe: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
+    agentbus:
+      "AgentBus-Verlauf: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
+    artifacts:
+      "Artefakte: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
+    assistants:
+      "Agentendaten: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
+    providerCredentials:
+      "Keys der Provider-Zugänge: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
+    repositoryCredentials:
+      "Repository-Zugangsdaten: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
+    applicationData:
+      "Anwendungsdaten: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
+  }),
+  unreadable: Object.freeze({
+    sessions:
+      "Sitzungen: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
+    chat: "Chat-Verläufe: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
+    agentbus:
+      "AgentBus-Verlauf: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
+    artifacts:
+      "Artefakte: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
+    assistants:
+      "Agentendaten: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
+    providerCredentials:
+      "Keys der Provider-Zugänge: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
+    repositoryCredentials:
+      "Repository-Zugangsdaten: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
+    applicationData:
+      "Anwendungsdaten: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
+  }),
+  linked: Object.freeze({
+    sessions:
+      "Sitzungen: Enthält einen symbolischen Link und kann nicht gesichert werden.",
+    chat: "Chat-Verläufe: Enthält einen symbolischen Link und kann nicht gesichert werden.",
+    agentbus:
+      "AgentBus-Verlauf: Enthält einen symbolischen Link und kann nicht gesichert werden.",
+    artifacts:
+      "Artefakte: Enthält einen symbolischen Link und kann nicht gesichert werden.",
+    assistants:
+      "Agentendaten: Enthält einen symbolischen Link und kann nicht gesichert werden.",
+    providerCredentials:
+      "Keys der Provider-Zugänge: Enthält einen symbolischen Link und kann nicht gesichert werden.",
+    repositoryCredentials:
+      "Repository-Zugangsdaten: Enthält einen symbolischen Link und kann nicht gesichert werden.",
+    applicationData:
+      "Anwendungsdaten: Enthält einen symbolischen Link und kann nicht gesichert werden.",
+  }),
 });
