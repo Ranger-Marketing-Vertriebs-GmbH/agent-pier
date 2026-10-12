@@ -33,6 +33,9 @@ export function createShutdown({ services, wss, server }) {
     await plugins.close();
     await repositories.close();
     await extensions.close();
+    try {
+      services.mcpServers?.close();
+    } catch {}
     await history.close();
     for (const socketServer of [wss, services.chatWss])
       for (const ws of socketServer?.clients || [])

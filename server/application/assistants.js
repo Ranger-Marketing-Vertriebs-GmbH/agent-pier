@@ -117,8 +117,9 @@ export function createAssistantFeature(services) {
       assistantWebSearch?.close();
     } catch {}
     assistantMcpOAuth?.close();
+    // The core store stays open for the central list; only a private one is closed.
     try {
-      assistantMcpServers?.close();
+      if (assistantMcpServers !== services.mcpServers) assistantMcpServers?.close();
     } catch {}
     await assistants?.close().catch(() => {});
   };

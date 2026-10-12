@@ -12,9 +12,15 @@ import {
 import { applyShell, shellSections } from "./openclaw-config/shell.js";
 import { nativeTools } from "./runtime-config.js";
 import { temporaryMember } from "./team-presentation.js";
+import {
+  STDIO_CONFIRMATION_REQUIRED,
+  changesStdio as stdioChange,
+  requireStdioConfirmation,
+} from "../mcp-servers/stdio-confirmation.js";
+
+export { STDIO_CONFIRMATION_REQUIRED };
 
 const messages = serverMessages.mcpServers;
-export const STDIO_CONFIRMATION_REQUIRED = "MCP_STDIO_CONFIRMATION_REQUIRED";
 // Compiled server names; anything else cannot be addressed as a dotted path.
 const pathName = /^[A-Za-z][A-Za-z0-9_-]{0,29}$/;
 // Retry delays of a failed live apply: doubling from one second to one minute.
@@ -22,14 +28,6 @@ const firstRetryMs = 1000;
 const lastRetryMs = 60000;
 
 const record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
-
-/** Refuses a stdio server the owner has not confirmed; nothing is persisted then. */
-function requireStdioConfirmation(confirmed) {
-  if (!confirmed)
-    throw Object.assign(problem(messages.stdioConfirmationRequired, 409), {
-      code: STDIO_CONFIRMATION_REQUIRED,
-    });
-}
 
 /**
  * A JSON merge patch from `current` to `target`: keys `target` lacks become null.
@@ -148,14 +146,7 @@ export class McpChanges {
   }
   /** Whether a patch alters what a stdio server runs: command, arguments, cwd or env. */
   changesStdio(current, patch) {
-    if (current.transport !== "stdio" || !record(patch)) return false;
-    const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-    return (
-      (patch.command !== undefined && patch.command !== current.command) ||
-      (patch.args !== undefined && !same(patch.args, current.args)) ||
-      (patch.cwd !== undefined && (patch.cwd || null) !== (current.cwd || null)) ||
-      (record(patch.env) && Object.keys(patch.env).length > 0)
-    );
+    return stdioChange(current, patch);
   }
   update(id, input, { confirmStdio = false } = {}) {
     return this.assistants.admit(async () => {

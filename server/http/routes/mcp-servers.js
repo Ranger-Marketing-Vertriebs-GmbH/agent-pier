@@ -1,9 +1,8 @@
 import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
-import { STDIO_CONFIRMATION_REQUIRED } from "../../features/assistants/mcp-changes.js";
+import { STDIO_CONFIRMATION_REQUIRED } from "../../features/mcp-servers/stdio-confirmation.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
-import { mcpOAuthRoutes } from "./mcp-oauth.js";
 
 /** A saved change whose OAuth logout is retried later (see McpOAuthLogins.forget). */
 function deferredWarning() {
@@ -28,11 +27,23 @@ export function replyStdioConfirmation(response, error) {
 }
 
 /**
- * The owner's central MCP servers. Responses carry header and environment names
+ * Validation, conflicts and a busy Gateway keep their reason; storage and runtime
+ * errors can carry private details.
+ */
+export const mcpServerErrors = (error, _req, _res, next) =>
+  next(
+    Number.isInteger(error.status) && error.status < 500 && !error.answered
+      ? error
+      : assistantProblem("unavailable", 503),
+  );
+
+/**
+ * The owner's central MCP servers, served with or without agents (agent OAuth logins
+ * stay under the assistant routes). Responses carry header and environment names
  * only and URLs without query or fragment; values never leave the store.
  */
 export function mcpServerRoutes(services) {
-  const { assistantMcpChanges: changes, assistantMcpOAuth: oauth, audit } = services;
+  const { audit } = services;
   // Names and flags only: no header, env, argument, cwd or URL value is recorded.
   const auditMcp = (action, id, details) =>
     audit.append({
@@ -43,23 +54,27 @@ export function mcpServerRoutes(services) {
       source: "user",
       details,
     });
+  const changes = () => {
+    if (!services.mcpServerChanges) throw assistantProblem("unavailable", 503);
+    return services.mcpServerChanges;
+  };
   const router = Router();
   router.use("/mcp-servers", (_req, res, next) => {
     res.set("Cache-Control", "no-store");
     next();
   });
-  // OAuth servers carry their login status (see McpOAuthLogins.decorate).
+  // OAuth servers carry their agent login status (see McpOAuthLogins.decorate).
   router.get("/mcp-servers", async (_req, res) => {
-    const list = changes.list();
+    const list = changes().list();
+    const oauth = services.assistantMcpOAuth;
     res.json(oauth ? await oauth.decorate(list) : list);
   });
-  router.use(mcpOAuthRoutes(services));
   router.post("/mcp-servers", async (req, res) => {
     const body = req.body;
     const { confirmStdio, ...input } = record(body) ? body : {};
     let server;
     try {
-      server = await changes.create(record(body) ? input : body, {
+      server = await changes().create(record(body) ? input : body, {
         confirmStdio: confirmStdio === true,
       });
     } catch (error) {
@@ -76,7 +91,7 @@ export function mcpServerRoutes(services) {
     const body = req.body;
     const { confirmStdio, ...input } = record(body) ? body : {};
     try {
-      const { server, pending, logoutDeferred, stdioChanged } = await changes.update(
+      const { server, pending, logoutDeferred, stdioChanged } = await changes().update(
         req.params.id,
         record(body) ? input : body,
         { confirmStdio: confirmStdio === true },
@@ -99,7 +114,7 @@ export function mcpServerRoutes(services) {
     }
   });
   router.delete("/mcp-servers/:id", async (req, res) => {
-    const { pending, logoutDeferred, transport } = await changes.remove(req.params.id);
+    const { pending, logoutDeferred, transport } = await changes().remove(req.params.id);
     auditMcp("mcp.deleted", req.params.id, { transport });
     if (pending || logoutDeferred)
       res.json({
@@ -108,14 +123,6 @@ export function mcpServerRoutes(services) {
       });
     else res.status(204).end();
   });
-  router.use("/mcp-servers", (error, _req, _res, next) =>
-    // Validation, conflicts and a busy Gateway keep their reason; storage and
-    // runtime errors can carry private details.
-    next(
-      Number.isInteger(error.status) && error.status < 500 && !error.answered
-        ? error
-        : assistantProblem("unavailable", 503),
-    ),
-  );
+  router.use("/mcp-servers", mcpServerErrors);
   return router;
 }

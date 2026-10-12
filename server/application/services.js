@@ -28,6 +28,8 @@ import { ChatSync } from "../features/chat/chat-sync.js";
 import { ChatAttachments } from "../features/chat/chat-attachments.js";
 import { ModelController } from "../features/models/model-controller.js";
 import { ExtensionsStore } from "../features/extensions/extension-store.js";
+import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
+import { CentralMcpChanges } from "../features/mcp-servers/central-changes.js";
 import { ToolInstaller } from "../features/tools/tool-installer.js";
 import { PluginStore } from "../features/plugins/plugin-store.js";
 import { NativeSessionBinding } from "../features/sessions/native-session-binding.js";
@@ -182,6 +184,22 @@ export async function createServices(config) {
       console.error("AgentPier could not persist or deliver an operations event.");
     operationalWarnings.add("event-storage");
   };
+  // The central MCP servers exist with or without agents; a store that cannot be
+  // opened leaves the list unavailable (503) instead of stopping AgentPier.
+  let mcpServers = null;
+  try {
+    mcpServers = new McpServerStore({ dataDir: config.dataDir });
+  } catch {
+    console.error("AgentPier could not open the MCP server store.");
+    operationalWarnings.add("mcp-servers-storage");
+  }
+  const mcpServerChanges =
+    mcpServers &&
+    new CentralMcpChanges({
+      servers: mcpServers,
+      agents: () => services.assistantMcpChanges,
+      maintenance: () => !!services.assistants?.maintenance,
+    });
   requests = new RequestBroker({
     dataDir: config.dataDir,
     sessions,
@@ -263,6 +281,8 @@ export async function createServices(config) {
     chatAttachments,
     chatDelivery,
     extensions,
+    mcpServers,
+    mcpServerChanges,
     sharedProfiles,
     agency,
     installer,

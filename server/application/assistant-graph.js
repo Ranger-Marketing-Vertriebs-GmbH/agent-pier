@@ -142,7 +142,9 @@ export function constructAssistantGraph(host, created = {}) {
     dataDir,
     connections: providerConnections,
   }));
-  const assistantMcpServers = (created.mcpServers = new McpServerStore({ dataDir }));
+  // The core store when AgentPier has one; it outlives the agent feature.
+  const assistantMcpServers =
+    host.mcpServers || (created.mcpServers = new McpServerStore({ dataDir }));
   const assistantChannels = (created.channels = new ChannelService({
     dataDir,
     assistants,

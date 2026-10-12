@@ -60,9 +60,12 @@ export default function AccountsPage({
           <AssistantModelAccounts navigate={onNavigate} />
           <SpeechSettings />
           <WebSearchSettings connections={state.providerConnections || []} />
-          <McpServersSettings oauthResult={mcpOAuth} />
         </Suspense>
       )}
+      {/* The central MCP servers exist with or without agents. */}
+      <Suspense fallback={null}>
+        <McpServersSettings oauthResult={mcpOAuth} agentsEnabled={!!agentsEnabled} />
+      </Suspense>
       <h2>{connectionCopy.native}</h2>
       <div className="account-list">
         {state.accounts
