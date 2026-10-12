@@ -184,7 +184,8 @@ else if (command === "status") {
         servers: [
           row("fresh", "unauthenticated"),
           row("pending", "pending"),
-          row("docs", "authorized"),
+          // "code-fails-unsaved": a --code that failed before OpenClaw saved tokens.
+          row("docs", mode === "code-fails-unsaved" ? "pending" : "authorized"),
           row("revoked", "revoked"),
           row("refused", "refused"),
           row("plain"),
@@ -195,9 +196,12 @@ else if (command === "status") {
     ),
   );
 } else if (command === "logout") out(`MCP OAuth credentials cleared for "${name}".`);
-else if (command === "login" && rest.some((a) => a.startsWith("--code")))
+else if (command === "login" && rest.some((a) => a.startsWith("--code"))) {
+  // "code-fails": the CLI fails after saving the tokens (status reads authorized).
+  if (mode === "code-fails" || mode === "code-fails-unsaved")
+    fail(lockedAt("state.lease", "commit"));
   out(`MCP OAuth credentials saved for "${name}".`);
-else if (command === "login" && mode === "refresh")
+} else if (command === "login" && mode === "refresh")
   out(`MCP OAuth credentials saved for "${name}".`);
 else if (command === "login") {
   out(

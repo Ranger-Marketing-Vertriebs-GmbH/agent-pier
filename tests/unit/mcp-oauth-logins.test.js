@@ -153,6 +153,49 @@ test("provider errors and CLI failures complete with a stable reason", async (t)
   assert.deepEqual(f.nudges(), []);
 });
 
+test("a failed exchange whose tokens OpenClaw saved still completes the login", async (t) => {
+  // The CLI can fail after saving the tokens (its lease release met a lock, or it was
+  // timed out): OpenClaw's status is what counts.
+  const authorized = {
+    docs: { state: "authorized", hasTokens: true, requiresAuthorization: false },
+  };
+  const f = setup(t, {
+    completeLogin: new McpCliError("cli-timeout", "OpenClaw MCP login timed out."),
+    status: () => authorized,
+  });
+  await f.oauth.start(f.docs.id, { requestOrigin: local });
+  assert.deepEqual(await f.oauth.complete({ state: "state-1", code: "c" }), {
+    serverId: f.docs.id,
+    result: "connected",
+  });
+  assert.equal(f.servers.oauthMemory(f.docs.id).everConnected, true);
+  assert.equal(f.nudges().length, 1);
+  assert.deepEqual(
+    f.cli.calls.map(([method]) => method),
+    ["startLogin", "completeLogin", "status"],
+  );
+
+  // Without saved tokens (or without an answer) the failure stands.
+  for (const status of [
+    { docs: { state: "pending-authorization", hasTokens: false } },
+    { docs: { state: "authorized", hasTokens: false } },
+    new McpCliError("cli-timeout", "OpenClaw MCP status timed out."),
+  ]) {
+    const g = setup(t, {
+      completeLogin: new McpCliError("cli-failed", "InvalidGrantError"),
+      status: status instanceof Error ? status : () => status,
+    });
+    await g.oauth.start(g.docs.id, { requestOrigin: local });
+    assert.deepEqual(await g.oauth.complete({ state: "state-1", code: "c" }), {
+      serverId: g.docs.id,
+      result: "error",
+      reason: "cli-failed",
+    });
+    assert.equal(g.servers.oauthMemory(g.docs.id).everConnected, false);
+    assert.deepEqual(g.nudges(), []);
+  }
+});
+
 test("a completed login resets OpenClaw's backoff with exactly one mcp patch", async (t) => {
   const f = setup(t);
   const signature = f.runtime.mcp.signature;

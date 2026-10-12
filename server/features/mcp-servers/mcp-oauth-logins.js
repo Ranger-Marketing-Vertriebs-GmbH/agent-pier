@@ -330,13 +330,16 @@ export class McpOAuthLogins {
       };
     if (typeof code !== "string" || !code)
       return { serverId, result: "error", reason: "code-missing" };
+    let failed = null;
     try {
       await this.serial(login.name, () => this.cli.completeLogin(login.name, code));
-    } catch (failed) {
-      return { serverId, result: "error", reason: failed?.code || "cli-failed" };
+    } catch (error) {
+      failed = error;
     } finally {
       this.invalidate();
     }
+    if (failed && !(await this.tokensSaved(login.name)))
+      return { serverId, result: "error", reason: failed?.code || "cli-failed" };
     // A rename or delete queued behind the CLI call logged this login out again.
     let still = null;
     try {
@@ -348,6 +351,20 @@ export class McpOAuthLogins {
       this.servers.rememberOAuth(serverId, { connected: true });
     await this.resetBackoff();
     return { serverId, result: "connected" };
+  }
+
+  /**
+   * Whether OpenClaw holds tokens for `name` after a `--code` that failed: the CLI can
+   * fail after saving them (a lock on its lease release, a timeout while it waits for
+   * a lease its predecessor left held). One status read; no answer counts as no.
+   */
+  async tokensSaved(name) {
+    try {
+      const auth = (await this.cli.status())[name];
+      return auth?.state === "authorized" && auth.hasTokens === true;
+    } catch {
+      return false;
+    }
   }
 
   /**
