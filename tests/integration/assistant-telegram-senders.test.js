@@ -19,7 +19,13 @@ test("an agent's own bot: verified token, allowed people, never the token in ans
   assert.equal(created.status.state, "stopped");
   assert.doesNotMatch(JSON.stringify(created), /fixture-token/);
   assert.deepEqual(h.senders.inputs().accounts, [
-    { assistantId: agent.id, botId: "1001", token: token(1), people: ["111", "222"] },
+    {
+      assistantId: agent.id,
+      botId: "1001",
+      token: token(1),
+      tokenRevision: 1,
+      people: ["111", "222"],
+    },
   ]);
   // The people change without a new token; a removed person is gone from the start.
   const fewer = await h.senders.save(agent.id, {
@@ -168,4 +174,32 @@ test("an agent's bot blocks raising its shell level", async (t) => {
     service.update(agent.id, { shell: "approval", confirmShell: true }, agent.revision),
     { status: 409, key: "telegramSendersShell" },
   );
+});
+
+test("token and speech key changes are told by revisions, never by their values", async (t) => {
+  const h = fixture(t);
+  const agent = h.agent();
+  const saved = await h.senders.save(agent.id, {
+    token: token(1),
+    people,
+    revision: null,
+  });
+  const revision = () => h.senders.inputs().accounts[0].tokenRevision;
+  assert.equal(revision(), 1);
+  const fewer = await h.senders.save(agent.id, {
+    people: [people[0]],
+    revision: saved.bot.revision,
+  });
+  assert.equal(revision(), 1, "people alone keep the token revision");
+  await h.senders.save(agent.id, { token: token(2), revision: fewer.bot.revision });
+  assert.equal(revision(), 2);
+  assert.equal(h.speech.keyRevision(), 0);
+  h.speech.save({ apiKey: "dg-one", revision: 0 });
+  h.speech.save({ language: "de", revision: 1 });
+  assert.equal(h.speech.keyRevision(), 1, "model and language keep the key revision");
+  h.speech.save({ apiKey: "dg-two", revision: 2 });
+  h.speech.save({ removeApiKey: true, revision: 3 });
+  assert.equal(h.speech.keyRevision(), 3);
+  h.speech.save({ apiKey: "dg-three", revision: 4 });
+  assert.equal(h.senders.inputs().speech.keyRevision, 4);
 });
