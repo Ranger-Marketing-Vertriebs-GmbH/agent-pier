@@ -247,3 +247,31 @@
 .assistant-restart-confirmation p {
   margin: 0;
 }
+/* The people an agent's own Telegram bot admits. */
+.assistant-telegram-people {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: 560px;
+}
+.assistant-telegram-people li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.assistant-telegram-person {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+.assistant-telegram-person label {
+  flex: 1 1 180px;
+}

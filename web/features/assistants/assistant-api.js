@@ -77,6 +77,19 @@ export const assistantApi = {
     ),
   speech: (signal) => api("/assistant-speech", "GET", undefined, signal),
   saveSpeech: (input) => api("/assistant-speech", "PUT", input),
+  telegramSenders: (id, signal) =>
+    api(
+      `/assistant-telegram-senders/${encodeURIComponent(id)}`,
+      "GET",
+      undefined,
+      signal,
+    ),
+  saveTelegramSenders: (id, input) =>
+    api(`/assistant-telegram-senders/${encodeURIComponent(id)}`, "PUT", input),
+  removeTelegramSenders: (id, input) =>
+    api(`/assistant-telegram-senders/${encodeURIComponent(id)}`, "DELETE", input),
+  applyTelegramSenders: (input) =>
+    api("/assistant-telegram-senders/apply", "POST", input),
   webSearch: (signal) => api("/assistant-web-search", "GET", undefined, signal),
   saveWebSearch: (input) => api("/assistant-web-search", "PUT", input),
   mcpServers: () => api("/mcp-servers"),
