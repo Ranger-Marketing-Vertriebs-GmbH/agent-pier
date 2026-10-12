@@ -66,8 +66,14 @@ function storedGzip(data) {
 const SLACK_PER_FILE = 20;
 const SLACK = 4096;
 export const removedOmission = "Files removed while the backup was written";
-export const truncatedOmission =
-  "Files that shrank while the backup was written (padded with blank lines)";
+export const changedOmission = "Files that changed while the backup was written";
+/** The `consistency` of a capture entry naming a file that changed while read. */
+export const CHANGED_DURING_READ = "changed-during-read";
+// A changed path is recorded once more in the manifest's captures.
+const CHANGED_ENTRY = JSON.stringify({
+  component: "",
+  consistency: CHANGED_DURING_READ,
+}).length;
 function headerMember(header, mtime, length) {
   const text = Buffer.from(JSON.stringify(header));
   if (length !== undefined && text.length > length) throw invalid();
@@ -101,8 +107,18 @@ async function openSource(entry) {
     await handle.close();
     throw componentProblem("unreadable", entry);
   }
-  return { handle, size: stat.size };
+  return { handle, size: stat.size, stat };
 }
+/**
+ * Whether a file was rewritten while it was read: it shrank, or its modification
+ * or change time moved. Growth alone also moves them; restores keep line-based
+ * members, whose archived prefix stays valid, and leave the others out.
+ */
+const changedWhileRead = (before, after, outcome) =>
+  outcome.truncated ||
+  after.size < before.size ||
+  after.mtimeMs !== before.mtimeMs ||
+  after.ctimeMs !== before.ctimeMs;
 async function* fileChunks(source, size, outcome) {
   let position = 0;
   while (position < size) {
@@ -145,7 +161,8 @@ async function* body(entries, listing, mtime, report, opened) {
         hash.update(chunk);
         yield chunk;
       }
-      if (outcome.truncated) report.truncated.push(entry.path);
+      if (changedWhileRead(source.stat, await source.handle.stat(), outcome))
+        report.changed.push(entry.path);
       listing[index].sha256 = hash.digest("hex");
       yield padding(source.size);
     } finally {
@@ -171,7 +188,7 @@ function entryOf(member) {
  * Streams `members` (`{ path, bytes | content(base64) | file + size, ... }`) and
  * the optional sealed `capsule` into the new file `file`. Files are archived at
  * the size they have when they are read; files that disappeared before are left
- * out. Returns `{ bytes, manifest, removed, truncated }`, `manifest` being the one
+ * out. Returns `{ bytes, manifest, removed, changed }`, `manifest` being the one
  * written, with an omission for each kind of change.
  */
 export async function writeArchive(
@@ -198,15 +215,22 @@ export async function writeArchive(
     mode: 0o600,
     kind: entry.kind === "credentials" ? "credentials" : "public",
   }));
-  const report = { removed: [], truncated: [] };
+  const report = { removed: [], changed: [] };
   const finalManifest = () => {
     const omissions = [...(manifest.omissions || [])];
     if (report.removed.length) omissions.push(removedOmission);
-    if (report.truncated.length) omissions.push(truncatedOmission);
+    if (report.changed.length) omissions.push(changedOmission);
+    const changed = report.changed.map((name) => ({
+      component: name,
+      consistency: CHANGED_DURING_READ,
+    }));
     return {
       ...manifest,
       schemaVersion: SCHEMA_VERSION,
       ...(manifest.omissions || omissions.length ? { omissions } : {}),
+      ...(manifest.captures || changed.length
+        ? { captures: [...(manifest.captures || []), ...changed] }
+        : {}),
     };
   };
   const header = () => ({
@@ -216,13 +240,23 @@ export async function writeArchive(
     members: listing.filter(Boolean),
   });
   const mtime = Math.floor(Date.parse(manifest.createdAt) / 1000) || 0;
-  const streamed = entries.filter((entry) => !entry.bytes).length;
+  // Room for every streamed file to grow in size and to be recorded as changed.
+  const streamed = entries
+    .filter((entry) => !entry.bytes)
+    .reduce(
+      (sum, entry) =>
+        sum +
+        SLACK_PER_FILE +
+        CHANGED_ENTRY +
+        Buffer.byteLength(JSON.stringify(entry.path)),
+      0,
+    );
   const length =
     Buffer.byteLength(JSON.stringify(header())) +
     SLACK +
-    SLACK_PER_FILE * streamed +
+    streamed +
     removedOmission.length +
-    truncatedOmission.length;
+    changedOmission.length;
   const reserved = headerMember(header(), mtime, length);
   await fsp.writeFile(file, reserved, { flag: "wx", mode: 0o600 });
   await pipeline(

@@ -5,7 +5,12 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { folder, readJson } from "./files.js";
 import { assertNoConflicts, decodeArchive, decryptCredentials } from "./archive.js";
-import { archiveVersion, readArchive, readArchiveHeader } from "./archive-v2.js";
+import {
+  archiveVersion,
+  CHANGED_DURING_READ,
+  readArchive,
+  readArchiveHeader,
+} from "./archive-v2.js";
 import { backupProjects, mapProjects, historicalOnly, database } from "./restore-data.js";
 import { problem } from "../../lib/storage.js";
 import { mcpStoreMember, restoreMcpServers } from "./mcp-server-backup.js";
@@ -21,6 +26,9 @@ import { remapClaudeProjects } from "./profile-history.js";
 import { inspected } from "./inspection.js";
 import { RestoreUploads } from "./restore-upload.js";
 import { claim } from "./work-claims.js";
+
+// Histories read line by line: an archived prefix of them stays valid.
+const lineBased = /\.(?:jsonl|screen)$/;
 
 const publicPath =
   /^(artifacts\/(?:index\.json|generations\/[a-f0-9-]{36}\/\d{1,3})|accounts\.json|provider-connections\.json|repositories\.json|preferences\.json|config\.json|pipelines\/definitions\.json|memory\/memory\.sqlite|mcp-servers\/servers\.sqlite|pipeline-runs\/runs\.sqlite|audit\/events\.json|sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
@@ -135,7 +143,7 @@ async function stageFile(archive, directory, { passphrase, inspect }) {
             1,
           )
         : null;
-    return { manifest: value.manifest, secrets, version: 1 };
+    return { manifest: value.manifest, secrets, version: 1, leftOut: [] };
   }
   const header = await readArchiveHeader(archive);
   const capsuleMember = header.members.find((member) => member.kind === "credentials");
@@ -158,6 +166,14 @@ async function stageFile(archive, directory, { passphrase, inspect }) {
       if (member.kind === "credentials" || inspected(member.path)) count = index + 1;
     });
   }
+  // Files the backup saw change while it read them: line-based histories keep
+  // their valid prefix; anything else would come back corrupt and is left out.
+  const changed = new Set(
+    header.manifest.captures
+      .filter((entry) => entry?.consistency === CHANGED_DURING_READ)
+      .map((entry) => entry.component),
+  );
+  const leftOut = [];
   let secrets = null;
   await readArchive(archive, {
     count,
@@ -174,13 +190,17 @@ async function stageFile(archive, directory, { passphrase, inspect }) {
       if (!allowed(member.path, false, 2))
         throw problem(serverMessages.backups.unexpectedComponent);
       if (inspect && !inspected(member.path)) return null;
+      if (changed.has(member.path) && !lineBased.test(member.path)) {
+        leftOut.push(member.path);
+        return null;
+      }
       return { file: path.join(directory, member.path) };
     },
   });
   validateAssistantManifest(header.manifest.assistants, publicPaths, (name) =>
     fs.readFileSync(path.join(directory, name), "utf8"),
   );
-  return { manifest: header.manifest, secrets, version: 2 };
+  return { manifest: header.manifest, secrets, version: 2, leftOut };
 }
 /** The checks an inspection runs on staged application data. */
 function verifyStaged(directory) {
@@ -317,6 +337,7 @@ export class Restore {
         projectMappings,
         ...counts,
         omissions: manifest.omissions,
+        ...(staged.leftOut.length ? { changedFilesLeftOut: staged.leftOut } : {}),
       };
       fs.writeFileSync(
         path.join(stage, "restore-report.json"),

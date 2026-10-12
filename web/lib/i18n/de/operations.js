@@ -111,6 +111,7 @@ export const operationsCopy = {
   needsMcpServerAddress: (name) =>
     `MCP-Server ${name} (Token in der Adresse neu eingeben)`,
   importedSessions: "Importierte Sitzungen",
+  changedFilesLeftOut: "Während der Sicherung geänderte Dateien, nicht wiederhergestellt",
   importedRuns: "Importierte Läufe",
   updates: "Updates",
   currentVersion: "Installierte Version",
@@ -325,6 +326,10 @@ export const backupCopy = {
     "MCP server OAuth logins": "OAuth-Anmeldungen der MCP-Server",
     "MCP server header and environment values and address tokens":
       "Header- und Umgebungswerte der MCP-Server und Tokens in ihren Adressen",
+    "Files removed while the backup was written":
+      "Dateien, die während der Sicherung gelöscht wurden",
+    "Files that changed while the backup was written":
+      "Dateien, die sich während der Sicherung geändert haben (nur zeilenbasierte Verläufe werden wiederhergestellt)",
     "Managed native configuration and credentials":
       "Verwaltete native Konfiguration und Zugangsdaten",
     "coordinated-application-snapshot; independent-native-captures":
