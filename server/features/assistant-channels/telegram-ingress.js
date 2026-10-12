@@ -41,9 +41,10 @@ export class TelegramIngress {
         ["TELEGRAM_CONFLICT", "TELEGRAM_REJECTED", "TELEGRAM_WEBHOOK"].includes(
           error.code,
         )
-      )
+      ) {
         store.halt(id, error.code);
-      else if (error.code === "TELEGRAM_RATE_LIMIT")
+        this.service.channelChanged?.(id);
+      } else if (error.code === "TELEGRAM_RATE_LIMIT")
         store.diagnostic(
           id,
           error.code,
@@ -73,6 +74,7 @@ export class TelegramIngress {
         message = update.message;
       if (store.acceptPair(id, message)) {
         store.advance(id, update.update_id + 1);
+        this.service.channelChanged?.(id);
         continue;
       }
       const allowed =

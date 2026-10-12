@@ -1194,18 +1194,32 @@ zone, and the reminder webhook as delivery. Its tools are `memory_search` and
 `memory_get` for an agent with memory, none otherwise; nothing is written in an
 unattended run. The binding (kind `heartbeat`, hidden from reminder and routine
 lists) fixes the paired Telegram destination when the job is created. AgentPier drops
-an empty or `NO_REPLY` summary and failed runs; anything else goes to the outbox of
+an empty or `NO_REPLY` summary and failed runs; anything else goes, prefixed with
+`Check-in:` (server message `heartbeatPrefix`, in the chat's language), to the outbox of
 that paired chat (kind `heartbeat`) plus an `agent-checkin` push notice that names only
-the agent. The model's text never chooses a recipient.
+the agent. The model's text never chooses a recipient. The push is sent when the
+check-in is handed to the outbox, not after Telegram accepted it.
+
+**Known limit:** the check-in runs in its own session, so the agent's conversation
+does not contain it, and an owner's reply reaches the agent without that context. The
+settings say so. Native `chat.inject` was qualified for this and rejected: it appends
+the text to the transcript (and the chat view), but the pinned runtime leaves such
+gateway-injected notes out of the model context of the next turn, so the agent would
+still not know what the owner answers.
 
 Enabling needs a paired, enabled Telegram chat (`heartbeatChannelRequired`
 otherwise); a new agent switches check-ins on after saving. A saved change converges
-the job at once (update in place, or removal when switched off); every Gateway ready
-and every end of maintenance repeats that for all agents. Maintenance switches the
-whole scheduler off. Agents whose model connection is blocked, archived members and
-agents without a paired chat keep no job, and queued check-ins of such agents are
-not sent. Switching reminders off pauses an agent's jobs, and the same save schedules
-its check-ins again. A re-paired chat retires the old job and creates a new one.
+the job at once (update in place, or removal when switched off). So do changes of
+the paired chat (`ChannelService.channelChanged`): starting a new pairing or
+disabling, disconnecting or halting the chat retires the job, completing a pairing
+creates one bound to the new chat. Archiving a member retires its job and restoring
+it schedules one again. Every Gateway ready and every end of maintenance repeats
+the convergence for all agents. Maintenance switches the whole scheduler off. Agents
+whose model connection is blocked, archived members and agents without a paired chat
+keep no job, and queued check-ins of such agents are not sent. Switching reminders
+off pauses an agent's jobs, and the same save schedules its check-ins again. A
+creation whose acknowledgement was lost stays tracked until a listing shows its job;
+the job's first completion adopts it.
 
 The heartbeat contract (`tests/integration/assistant-heartbeat-contract.test.js`)
 force-runs the job on the pinned runtime: a reply with content reaches the paired
