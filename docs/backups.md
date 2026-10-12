@@ -16,12 +16,17 @@ Always, as public (unencrypted) members:
 - Agent data under `assistants/` without runtimes, package caches, update snapshots,
   TLS material and backup keys (see `docs/assistant-gateway.md`).
 
-With **Include history**, also public:
+With **Include history**, also public: AgentPier session records and terminal
+captures, chat histories and AgentBus history. This history can contain private task
+content; it is not encrypted.
 
-- AgentPier session records and terminal captures, chat histories and AgentBus
-  history.
-- Each managed CLI profile's conversation history (table below). History can contain
-  private task content; it is not encrypted.
+With **Include history** and **Include encrypted credentials** together, each
+managed CLI profile's conversation history (table below), always encrypted (see
+"Sealed CLI history"). Without a passphrase, CLI histories are left out and the plan
+and manifest say so ("CLI histories are only backed up in backups with a
+passphrase, and then encrypted"). Transcripts hold tool output verbatim and Claude
+Code's `file-history/` holds copies of edited files, so they are never archived in
+plain text.
 
 With **Include encrypted credentials**, sealed in the passphrase capsule (AES-256-GCM,
 scrypt-derived key):
@@ -37,7 +42,7 @@ CLI folders below `providers/<provider>/`. Only the files named here are capture
 Anything else, including files and folders a CLI adds in a later version, is never
 read, so caches, logs and telemetry cannot make a backup grow or fail.
 
-| CLI                                             | Capsule (with credentials)                                                                                                                                                                                                                          | History (with history)                                                                                                            |
+| CLI                                             | Capsule (with credentials)                                                                                                                                                                                                                          | History (sealed; with history and credentials)                                                                                    |
 | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | Codex (`codex/`)                                | `auth.json`, `config.toml`, `.credentials.json` (MCP OAuth file store), `AGENTS.md`, `AGENTS.override.md`, `prompts/`, `skills/` (without `.system/`), `agents/`, `commands/`, `rules/`                                                             | `sessions/`, `archived_sessions/`, `history.jsonl`, `session_index.jsonl`, `generated_images/`, `thread_history*.sqlite` snapshot |
 | Claude Code (`claude/`)                         | `.claude.json`, `.credentials.json`, `settings.json`, `settings.local.json`, `CLAUDE.md`, `agents/`, `commands/`, `skills/`, `output-styles/`, `hooks/`, `plugins/installed_plugins.json`, `plugins/known_marketplaces.json`, `plugins/config.json` | `projects/`, `todos/`, `file-history/`, `history.jsonl`                                                                           |
@@ -76,10 +81,30 @@ manifest, members }`. `manifest` holds `schemaVersion` 2, `applicationVersion`,
    `createdAt`, `withCredentials`, `includeHistory`, `consistency`, `omissions`,
    `captures` and the agent sealing record. `members` lists every following entry in
    archive order as `{ path, size, sha256, mode: 0o600, kind }`, `kind` being
-   `public` or `credentials`.
+   `public`, `credentials` or `sealed`.
 2. `credentials.json` when the backup has credentials: the sealed capsule, always the
    first member.
-3. Every public member as a regular file entry.
+3. Every public member as a regular file entry, and every sealed CLI history file as
+   an entry named `sealed/<n>`.
+
+### Sealed CLI history
+
+A backup with CLI history draws a random 256-bit key. The capsule holds, as
+`history-seal.json`, that key, the backup id and which `sealed/<n>` entry is which
+history file; the archive itself shows neither the history's paths nor its content,
+only ciphertext sizes (plaintext plus 16 bytes per MiB) and ciphertext hashes.
+Database captures of sealed history are listed only as `cli-history-database`.
+
+Each file is split into 1 MiB chunks, each encrypted with AES-256-GCM. The nonce is
+the entry number and the chunk index; the additional data binds the backup id, the
+history file's path, the chunk index and whether it is the last chunk. A changed
+byte, a chunk moved, reordered or dropped from the end, an entry restored as
+another file, or an entry under another key fails authentication. A restore opens
+each chunk only after its tag verified and writes only authenticated plaintext into
+the hidden stage; any failure aborts the restore, and nothing reaches the target.
+An entry the capsule does not list fails the restore; a listed one missing from the
+archive was removed while the backup ran. Inspection opens the capsule with the
+passphrase but reads no history.
 
 The header is a separate, uncompressed (stored) gzip member. It is written with
 placeholder hashes first and rewritten in place once all members are streamed. Its
@@ -88,8 +113,8 @@ that are dropped and sizes that change while streaming, so the rewrite never mov
 data. A multi-member gzip file is still an ordinary `.tar.gz` for standard tools.
 
 Members an inspection validates (application data, databases, artifacts, agent
-configuration) come right after the capsule; histories, CLI profiles and other
-agent files follow.
+configuration) come right after the capsule; histories, sealed CLI history and
+other agent files follow.
 
 Entries are ustar regular files with mode 0600. A name longer than 100 bytes or
 outside printable ASCII is carried in a PAX `path` record; sizes of 8 GiB and more
