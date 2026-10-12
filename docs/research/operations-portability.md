@@ -4,7 +4,7 @@ The implementation uses AgentPier's own account, memory, pipeline, terminal and 
 
 ## Storage and consistency
 
-Backups are versioned `.apbackup` gzip/JSON archives with explicit regular-file members, SHA-256 content checksums, capture metadata and omissions. They are bounded to 256 MiB compressed/expanded JSON, 20,000 members and a bounded encrypted credential capsule. They are private data, including task/history content; “credentials excluded” does not mean arbitrary user text is universally redacted.
+Backups are versioned `.apbackup` archives with explicit regular-file members, SHA-256 content checksums, capture metadata and omissions. Version 2 is a streamed tar.gz without an overall size limit (see `docs/backups.md`); version 1 gzip/JSON archives, bounded to 256 MiB and 20,000 members, remain restorable. The encrypted credential capsule stays bounded. They are private data, including task/history content; “credentials excluded” does not mean arbitrary user text is universally redacted.
 
 The application mutation barrier drains application writes and pipeline transitions before synchronous metadata/SQLite capture. Encryption and compression follow after releasing it. Independent native processes continue running. Each SQLite database is a transactional `VACUUM INTO` snapshot; history files are captured prefixes at recorded times. There is no claim of one globally atomic snapshot across independent native writers. SQLite documents this distinction: [VACUUM INTO](https://www.sqlite.org/lang_vacuum.html).
 

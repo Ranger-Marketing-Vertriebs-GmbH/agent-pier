@@ -87,7 +87,10 @@ export function operationResponse(state, path, method, body, query) {
             ? ["sealed-assistant-credentials"]
             : []),
         ],
-        omissions: ["External local CLI profiles and OS keychains"],
+        omissions: [
+          "External local CLI profiles and OS keychains",
+          ...(state.planOmissions || []),
+        ],
         consistency: "coordinated-application-snapshot; independent-native-captures",
         requiresPassphrase: Boolean(body.withCredentials),
       },

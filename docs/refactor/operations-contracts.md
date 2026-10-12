@@ -12,8 +12,8 @@ All endpoints below have `/api/operations` prefix and use existing owner authori
 - GET `/backups` → `{backups:[{id,createdAt,bytes,withCredentials,includeHistory}]}`.
 - POST `/backups/plan` with `{includeHistory?:boolean,withCredentials?:boolean}` → `{plan:{components,omissions,consistency,requiresPassphrase}}`.
 - POST `/backups` with those options and optional `passphrase` → 202 `{job}`. Successful result is `{backup:{id,createdAt,bytes,withCredentials,includeHistory},manifest}`.
-- GET `/backups/:id/download` downloads the owned archive; DELETE `/backups/:id` → 204.
-- POST `/restore/upload` with raw `application/octet-stream` archive bytes → 201 `{archiveId}`. No multipart wrapper.
+- GET `/backups/:id/download` streams the owned archive with its `Content-Length`; DELETE `/backups/:id` → 204. Archives use the streamed version 2 format described in `docs/backups.md`; version 1 archives remain restorable.
+- POST `/restore/upload` with raw `application/octet-stream` archive bytes → 201 `{archiveId}`. No multipart wrapper. The body streams to disk without a size limit beyond free space (507 when it does not fit); only archives with a valid format header are kept.
 - POST `/restore/inspect` with `{archiveId,passphrase?,projectMap?:{[oldProjectId]:absoluteTargetDirectory}}` → `{inspection:{manifest,projects:[{id,name,cwd,kind}],requiresPassphrase,credentialsIncluded,omissions}}`.
 - POST `/restore` with `{archiveId,targetDataDir,projectMap?,passphrase?}` → 202 `{job}`. Target must be an absolute, absent directory, outside the running data directory. All mapped project directories must already exist. Successful result includes `{targetDataDir,credentialsRestored,credentialsNeedingLogin,projectMappings,importedSessions,importedRuns,omissions}`. Restore never switches the running application's data directory or starts native sessions. Inspect without a passphrase can review public manifest/projects; restore authenticates the encrypted capsule before creating the target.
 
