@@ -29,10 +29,11 @@ const account = (assistantId, people = ["111"], extra = {}) => ({
   assistantId,
   botId: `9${assistantId.length}`,
   token: `12345:${assistantId}-token-abcdefghijklmnopqrstuvwxyz`,
+  tokenRevision: 1,
   people,
   ...extra,
 });
-const speech = { apiKey: "dg-key", model: "nova-3", language: "auto" };
+const speech = { apiKey: "dg-key", keyRevision: 1, model: "nova-3", language: "auto" };
 const teams = (profiles, telegram) => ({
   directory: "/plugin",
   connection: { url: "http://127.0.0.1:1", token: "bridge" },
@@ -250,12 +251,31 @@ test("snapshots are secret-free and change with what the start compiles", () => 
   assert.deepEqual(snapshot.accounts, ["ap-a"]);
   assert.equal(snapshot.voice, true);
   assert.doesNotMatch(JSON.stringify(snapshot), /token-abc|dg-key/);
+  // Changes are told by revisions; nothing is derived from a token or key.
+  assert.deepEqual(snapshot.tokens, { "ap-a": 1 });
+  assert.equal(snapshot.voiceKey, 1);
+  const rotated = telegramSnapshot(
+    telegramSections({
+      profiles,
+      telegram: {
+        accounts: [account("a", ["111"], { token: "12345:other-value" })],
+        speech: { ...speech, apiKey: "other-key" },
+      },
+    }),
+  );
+  assert.equal(rotated.signature, snapshot.signature, "values alone are not read");
   const same = telegramSnapshot(telegramSections({ profiles, telegram }));
   assert.equal(same.signature, snapshot.signature);
   for (const changed of [
     { accounts: [account("a", ["111", "222"])], speech },
-    { accounts: [account("a", ["111"], { token: "12345:other" })], speech },
-    { accounts: [account("a", ["111"])], speech: { ...speech, apiKey: "new" } },
+    {
+      accounts: [account("a", ["111"], { token: "12345:other", tokenRevision: 2 })],
+      speech,
+    },
+    {
+      accounts: [account("a", ["111"])],
+      speech: { ...speech, apiKey: "new", keyRevision: 2 },
+    },
     { accounts: [account("a", ["111"])], speech: null },
     { accounts: [], speech },
   ])
@@ -336,9 +356,15 @@ test("revocations: a removed bot, person, token or speech key", () => {
   for (const desired of [
     { accounts: [], speech },
     { accounts: [account("a", ["1"])], speech },
-    { accounts: [account("a", ["1", "2"], { token: "12345:other" })], speech },
+    {
+      accounts: [account("a", ["1", "2"], { token: "12345:other", tokenRevision: 2 })],
+      speech,
+    },
     { accounts: [account("a", ["1", "2"])], speech: null },
-    { accounts: [account("a", ["1", "2"])], speech: { ...speech, apiKey: "new" } },
+    {
+      accounts: [account("a", ["1", "2"])],
+      speech: { ...speech, apiKey: "new", keyRevision: 2 },
+    },
   ])
     assert.equal(telegramRevoked(running, snap(desired)), true, JSON.stringify(desired));
 });

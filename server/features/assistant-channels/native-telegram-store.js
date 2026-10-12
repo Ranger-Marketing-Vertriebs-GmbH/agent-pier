@@ -78,6 +78,8 @@ export class NativeTelegramStore {
           assistantId: record.assistantId,
           botId: record.botId,
           token: row.token,
+          // Tells a replaced token without reading it (telegram-senders.js).
+          tokenRevision: record.tokenRevision ?? 1,
           people: record.people.map((person) => person.id),
         };
       });
@@ -133,6 +135,9 @@ export class NativeTelegramStore {
       assistantId,
       botId: identity ? String(identity.id) : current.botId,
       username: identity ? identity.username : current.username,
+      tokenRevision: identity
+        ? (current?.tokenRevision ?? 0) + 1
+        : (current.tokenRevision ?? 1),
       people: people === undefined ? current?.people || [] : validPeople(people),
       revision: (current?.revision || 0) + 1,
     };

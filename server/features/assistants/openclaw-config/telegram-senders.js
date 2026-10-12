@@ -1,4 +1,3 @@
-import { createHmac, randomBytes } from "node:crypto";
 import { personalEligible, personalShell } from "../native-capabilities.js";
 
 // Verified against OpenClaw 2026.9.8, see docs/assistant-telegram-senders-qualification.md
@@ -52,8 +51,9 @@ export function stdioAgents({ servers = [], bindings = {} } = {}) {
 /**
  * Reads what a Gateway start compiles. Never throws: an unreadable store compiles no
  * bot, an unreadable speech key compiles text only.
- * - `accounts`: `[{ assistantId, botId, token, people: [telegramUserId] }]`.
- * - `speech`: `{ apiKey, model, language }`, or null without a key.
+ * - `accounts`: `[{ assistantId, botId, token, tokenRevision, people: [userId] }]`.
+ * - `speech`: `{ apiKey, keyRevision, model, language }`, or null without a key.
+ * Revisions tell a changed token or key; nothing is ever derived from the values.
  * - `apiRoot`, `deepgram`: test seams; production compiles neither.
  */
 export function readTelegramInputs(store, speech, { apiRoot, deepgram } = {}) {
@@ -72,6 +72,7 @@ export function readTelegramInputs(store, speech, { apiRoot, deepgram } = {}) {
       lease.release();
       inputs.speech = {
         apiKey: lease.apiKey,
+        keyRevision: lease.keyRevision,
         model: lease.model,
         language: lease.language,
       };
@@ -111,6 +112,8 @@ export function telegramSections({ profiles = [], telegram, agents, stdio } = {}
     accounts: {},
     bindings: [],
     voice: null,
+    // Secret-free: each account's token revision and the speech key's revision.
+    revisions: { tokens: {}, key: null },
     apiRoot: telegram?.apiRoot || null,
     deepgram: telegram?.deepgram || null,
     skipped: [],
@@ -141,6 +144,7 @@ export function telegramSections({ profiles = [], telegram, agents, stdio } = {}
       configWrites: false,
       execApprovals: { enabled: false },
     };
+    sections.revisions.tokens[accountId] = stored.tokenRevision ?? null;
     sections.bindings.push({
       agentId: accountId,
       match: { channel: "telegram", accountId },
@@ -148,8 +152,9 @@ export function telegramSections({ profiles = [], telegram, agents, stdio } = {}
   }
   sections.skipped.sort();
   if (sections.bindings.length && telegram?.speech?.apiKey) {
-    const { apiKey, model, language } = telegram.speech;
+    const { apiKey, model, language, keyRevision } = telegram.speech;
     sections.voice = { apiKey, model: model || "nova-3", language };
+    sections.revisions.key = keyRevision ?? null;
   }
   return sections;
 }
@@ -231,24 +236,32 @@ export function applyTelegram(config, sections) {
   return config;
 }
 
-// Per process, like webToolsSignature: tokens and keys cannot be recovered.
-const signatureSecret = randomBytes(32);
-
-/** A secret-free fingerprint of what a start compiles from these sections. */
+/**
+ * What a start compiles, without any token or key: account settings with the
+ * token's revision in place of the token, and the voice settings with the key's
+ * revision. Equal strings mean the same compiled Telegram sections.
+ */
 export function telegramSignature(sections) {
-  const { accounts, bindings, voice, apiRoot, deepgram } = sections;
-  return createHmac("sha256", signatureSecret)
-    .update(JSON.stringify({ accounts, bindings, voice, apiRoot, deepgram }))
-    .digest("hex");
+  const { bindings, voice, apiRoot, deepgram, revisions } = sections;
+  const accounts = Object.fromEntries(
+    Object.entries(sections.accounts).map(([id, { botToken: _token, ...account }]) => [
+      id,
+      { ...account, tokenRevision: revisions.tokens[id] },
+    ]),
+  );
+  return JSON.stringify({
+    accounts,
+    bindings,
+    voice: voice && { model: voice.model, language: voice.language, key: revisions.key },
+    apiRoot,
+    deepgram,
+  });
 }
-
-const fingerprint = (value) =>
-  value ? createHmac("sha256", signatureSecret).update(value).digest("hex") : null;
 
 /**
  * What the supervisor keeps about a Gateway start: the compiled account ids, their
- * allowed people and token fingerprints, whether voice notes are transcribed (and the
- * key's fingerprint) and the signature. Never a token or key.
+ * allowed people and token revisions, whether voice notes are transcribed (and the
+ * key's revision) and the signature. Never a token or key, nor anything derived.
  */
 export function telegramSnapshot(sections) {
   const accounts = Object.keys(sections.accounts);
@@ -257,11 +270,9 @@ export function telegramSnapshot(sections) {
     people: Object.fromEntries(
       accounts.map((id) => [id, [...sections.accounts[id].allowFrom]]),
     ),
-    tokens: Object.fromEntries(
-      accounts.map((id) => [id, fingerprint(sections.accounts[id].botToken)]),
-    ),
+    tokens: Object.fromEntries(accounts.map((id) => [id, sections.revisions.tokens[id]])),
     voice: !!sections.voice,
-    voiceKey: fingerprint(sections.voice?.apiKey),
+    voiceKey: sections.voice ? sections.revisions.key : null,
     signature: telegramSignature(sections),
   };
 }
@@ -279,5 +290,5 @@ export function telegramRevoked(running, desired) {
     if (running.people[id].some((person) => !desired.people[id].includes(person)))
       return true;
   }
-  return !!running.voiceKey && running.voiceKey !== desired.voiceKey;
+  return running.voice && running.voiceKey !== desired.voiceKey;
 }

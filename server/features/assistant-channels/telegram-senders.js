@@ -381,6 +381,8 @@ export class TelegramSenders {
     const inputs = this.inputsWith(assistantId, {
       botId: identity ? String(identity.id) : current.botId,
       token: identity?.token || stored?.token,
+      // A new token is the next revision; the token itself is never compared.
+      tokenRevision: identity ? (stored?.tokenRevision ?? 0) + 1 : stored?.tokenRevision,
       people: preview.map((person) => person.id),
     });
     const saved = await this.commit(
@@ -423,6 +425,7 @@ export class TelegramSenders {
       inputs.speech = apiKey
         ? {
             apiKey,
+            keyRevision: keyChanged ? this.speech.keyRevision() + 1 : current.keyRevision,
             model: input.model ?? current.model ?? this.speech.get().model,
             language: input.language ?? current.language ?? this.speech.get().language,
           }
@@ -431,7 +434,7 @@ export class TelegramSenders {
     return this.commit(
       inputs,
       () => {
-        if (keyChanged && (this.store.list().length || this.running()?.voiceKey))
+        if (keyChanged && (this.store.list().length || this.running()?.voice))
           destroyBackupKeys(this.store.root);
         return this.speech.save(input);
       },
