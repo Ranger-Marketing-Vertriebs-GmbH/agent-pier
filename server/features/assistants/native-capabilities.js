@@ -27,6 +27,16 @@ export const delegationTools = [
 ];
 export const shellLevels = ["off", "approval", "full"];
 export const shellTools = ["exec", "process"];
+// OpenClaw's session tools: they read (and can steer) other sessions of the agent,
+// so an agent with its own bot for other people never gets them.
+export const sessionTools = [
+  "session_status",
+  "sessions_list",
+  "sessions_history",
+  "sessions_search",
+  "sessions_send",
+  "sessions_spawn",
+];
 export const personalEligible = (assistant) =>
   !assistant.archivedAt &&
   (!assistant.teamMemberId || assistant.lifetime === "permanent");
