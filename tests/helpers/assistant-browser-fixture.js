@@ -1,9 +1,15 @@
-// Unrelated browser fixtures run with agents switched off: the only assistant request
-// the UI may make is the opt-in switch, and any other one fails in strict fixtures.
+// Unrelated browser fixtures run with agents switched off: the only requests the UI
+// may make then are the opt-in switch and the central MCP server list (empty, shown
+// on Accounts with or without agents); any other one fails in strict fixtures.
 export async function fulfillDormantAssistantRequest(route) {
   const request = route.request();
   if (request.method() !== "GET") return false;
-  if (new URL(request.url()).pathname !== "/api/assistant-feature") return false;
+  const path = new URL(request.url()).pathname;
+  if (path === "/api/mcp-servers") {
+    await route.fulfill({ json: [] });
+    return true;
+  }
+  if (path !== "/api/assistant-feature") return false;
   await route.fulfill({ json: { enabled: false, error: null } });
   return true;
 }

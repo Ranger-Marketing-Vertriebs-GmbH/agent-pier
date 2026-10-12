@@ -119,9 +119,10 @@ function RemoveConfirmation({ server, busy, onConfirm, onCancel }) {
 
 /**
  * The owner's central MCP servers: list, add, edit and remove, and log in to OAuth
- * servers. `oauthResult` is the result a login's callback brought back.
+ * servers. `oauthResult` is the result a login's callback brought back. Agent OAuth
+ * logins exist only with agents (`agentsEnabled`); the list itself works without.
  */
-export default function McpServersSettings({ oauthResult }) {
+export default function McpServersSettings({ oauthResult, agentsEnabled = true }) {
   const [servers, setServers] = useState(null),
     [error, setError] = useState(""),
     [editing, setEditing] = useState(undefined),
@@ -142,6 +143,7 @@ export default function McpServersSettings({ oauthResult }) {
     load();
   }, [load]);
   const oauth = useMcpOAuth({ reload: load, notify: setNotice });
+  const agentLogin = (server) => agentsEnabled && usesOAuth(server);
   // The callback lands on the Accounts page; its result belongs in view.
   useEffect(() => {
     if (!oauthResult) return;
@@ -193,10 +195,10 @@ export default function McpServersSettings({ oauthResult }) {
               {server.transport === "stdio" && (
                 <span className="mcp-badge mcp-badge-warn">{copy.stdioBadge}</span>
               )}
-              {usesOAuth(server) && <McpOAuthStatus server={server} />}
+              {agentLogin(server) && <McpOAuthStatus server={server} />}
             </div>
             <ServerDetails server={server} />
-            {usesOAuth(server) && <McpOAuthStatusHint server={server} />}
+            {agentLogin(server) && <McpOAuthStatusHint server={server} />}
             {removing === server.id ? (
               <RemoveConfirmation
                 server={server}
@@ -206,7 +208,7 @@ export default function McpServersSettings({ oauthResult }) {
               />
             ) : (
               <div className="mcp-actions">
-                {usesOAuth(server) && <McpOAuthActions server={server} oauth={oauth} />}
+                {agentLogin(server) && <McpOAuthActions server={server} oauth={oauth} />}
                 <button
                   type="button"
                   className="button secondary"

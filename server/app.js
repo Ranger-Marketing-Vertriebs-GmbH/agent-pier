@@ -54,6 +54,7 @@ import { detectTools } from "./features/accounts/account-store.js";
 import { toolBinDirectories } from "./features/tools/tool-paths.js";
 import { authorizeRequest, securityHeaders } from "./http/security.js";
 import { mcpOAuthCallbackRoutes } from "./http/routes/mcp-oauth.js";
+import { mcpServerRoutes } from "./http/routes/mcp-servers.js";
 import { registerResponses } from "./http/responses.js";
 import { buildHeader, buildIdentity } from "./http/build-identity.js";
 import { attachTerminalWebSocket } from "./http/terminal-websocket.js";
@@ -228,6 +229,7 @@ export async function createApplication(config) {
   mount(agentbusRoutes(services));
   mount(providerRoutes(services));
   mount(providerConnectionRoutes(services));
+  mount(mcpServerRoutes(services));
   mount(assistantRoutes(services));
   mount(memoryRoutes(services));
   mount(pipelineDefinitionRoutes(services));

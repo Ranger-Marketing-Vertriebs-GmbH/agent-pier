@@ -6,7 +6,8 @@ import { assistantCapabilityRoutes } from "./assistant-capabilities.js";
 import { assistantChannelRoutes } from "./assistant-channels.js";
 import { assistantWebSearchRoutes } from "./assistant-web-search.js";
 import { assistantAccountRoutes } from "./assistant-accounts.js";
-import { mcpServerRoutes, replyStdioConfirmation } from "./mcp-servers.js";
+import { mcpServerErrors, replyStdioConfirmation } from "./mcp-servers.js";
+import { mcpOAuthRoutes } from "./mcp-oauth.js";
 import { assistantShellRoutes, replyShellConfirmation } from "./assistant-shell.js";
 import { Router } from "express";
 import path from "node:path";
@@ -19,8 +20,9 @@ import { ASSISTANT_STORAGE_UNSAFE } from "../../features/assistants/assistant-fe
 import { runtimeStatus } from "../../features/assistants/team-bridge.js";
 import { replyRestartRequired } from "./restart-required.js";
 
-// MCP servers belong to the assistant graph: they exist while its services do.
-const assistantPath = /^\/(?:assistants?(?:[-/]|$)|mcp-servers(?:\/|$))/;
+// Agent OAuth logins of MCP servers exist only while the agent services do; the
+// central list itself is a core route (mcp-servers.js).
+const assistantPath = /^\/(?:assistants?(?:[-/]|$)|mcp-servers\/[^/]+\/oauth\/)/;
 const reply = (res, status, code, message) =>
   res.status(status).json({ code, error: message, ...messageIdentity(message) });
 /**
@@ -84,7 +86,8 @@ function activeAssistantRoutes(services) {
   router.use(assistantWebSearchRoutes(services));
   router.use(assistantTeamRoutes(services));
   router.use(assistantAccountRoutes(services));
-  router.use(mcpServerRoutes(services));
+  router.use(mcpOAuthRoutes(services));
+  router.use("/mcp-servers", mcpServerErrors);
   router.use(assistantShellRoutes(services));
   router.get("/assistants", (_req, res) => res.json(assistants.list()));
   router.post("/assistants", async (req, res) => {
