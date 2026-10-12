@@ -60,7 +60,14 @@ export class CliMcpBindings {
    * session start (prepare) repairs what failed here.
    */
   reconcileAll() {
-    return Object.fromEntries(clis.map((cli) => [cli, this.reconcileOne(cli)]));
+    const results = Object.fromEntries(clis.map((cli) => [cli, this.reconcileOne(cli)]));
+    // A server deleted, renamed or unbound from Codex ends its brokered logins.
+    try {
+      this.codexLogins()?.prune();
+    } catch (error) {
+      this.warn(`Codex MCP logins could not be checked (${codeOf(error)}).`);
+    }
+    return results;
   }
   /** `reconcile(cli)`; a store or programming error is logged by code and reported as `failed`. */
   reconcileOne(cli) {

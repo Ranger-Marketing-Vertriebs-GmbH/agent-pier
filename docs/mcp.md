@@ -244,8 +244,12 @@ needs the owner's confirmation, because every session of that CLI starts it.
   returns the tab to the Accounts page with the result. Codex itself exchanges the code
   and stores the tokens; AgentPier keeps only the pending process in memory.
   - At most one login per account and server (a new one ends the previous), at most
-    eight at once, each for five minutes (Codex's own limit); **Cancel** ends it, and
-    AgentPier ends all of them when it stops.
+    eight at once (counted from the moment a login starts), each for five minutes
+    (Codex's own limit); **Cancel** ends it, also while Codex is still starting, and
+    AgentPier ends all of them when it stops (SIGTERM, SIGKILL after two seconds).
+  - A connected account offers **Log in again**: Codex only reports stored
+    credentials, so after the provider revoked a login the account still reads
+    "logged in" until it logs in again.
   - `<origin>` is the HTTPS remote origin when one is configured, else
     `http://127.0.0.1:<port>`. Like agent logins, a login starts only from HTTPS or on
     the AgentPier host itself; over plain HTTP from the network the list shows the CLI
@@ -258,9 +262,18 @@ needs the owner's confirmation, because every session of that CLI starts it.
   - Routes (owner only): `POST` and `DELETE /api/mcp-servers/:id/cli-oauth/codex/login`
     with `{ accountId }`; the callback `GET /api/mcp-servers/cli-oauth/callback/<segment>`
     needs no session cookie (its single-use `state` authenticates it). Callback URLs,
-    codes and states are never logged; responses never carry a token. The audit trail
-    records `mcp.started`, `mcp.completed`, `mcp.failed` and `mcp.cancelled` with
-    `clis: ["codex"]`, the account id and a stable failure reason.
+    codes and states are never logged; responses never carry a token.
+  - Audit: `mcp.started` when a login starts, then exactly one closing event:
+    `mcp.completed`, `mcp.cancelled` (the owner cancelled) or `mcp.failed` with a
+    `failReason` (a provider error such as `access-denied`, `cli-failed`,
+    `cli-timeout`, `expired`, `replaced` by a newer login, or `obsolete` when the
+    account was removed or the server deleted, renamed or unbound from Codex; these
+    last ones come from `source: "system"`). Agent OAuth logins use the same
+    `mcp.completed`/`mcp.failed` actions; a Codex login is told apart by
+    `details.accountId` (always set) together with `details.clis: ["codex"]`, which
+    an agent login never carries.
+  - Pending logins of an account that is removed, or of a server that is deleted,
+    renamed or unbound from Codex, end at once.
 - **Sandbox.** A bound stdio server runs inside the CLI's nono sandbox; see
   [sandbox.md](sandbox.md#the-grant-model) for its grants and the working directories
   that get none (`MCP_CWD_TOO_BROAD`).

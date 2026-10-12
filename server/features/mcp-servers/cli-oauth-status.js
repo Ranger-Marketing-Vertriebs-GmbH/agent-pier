@@ -36,6 +36,9 @@ export class CliOAuthStatus {
     Object.assign(this, { tools, accounts, run, now, warn });
     this.last = {};
     this.managedStates = {};
+    // Marks of completed logins: { [accountId]: { [name]: { state, seq } } }.
+    this.marks = {};
+    this.seq = 0;
     this.readAt = null;
     this.pending = null;
   }
@@ -63,6 +66,11 @@ export class CliOAuthStatus {
   }
   /** A login AgentPier just completed shows before the next read confirms it. */
   mark(accountId, name, state) {
+    this.seq += 1;
+    this.marks[accountId] = {
+      ...this.marks[accountId],
+      [name]: { state, seq: this.seq },
+    };
     this.managedStates = {
       ...this.managedStates,
       [accountId]: { ...this.managedStates[accountId], [name]: state },
@@ -75,6 +83,7 @@ export class CliOAuthStatus {
   /** The background read; resolves once it has settled (tests wait on it). */
   refresh() {
     this.readAt = this.now();
+    const since = this.seq;
     this.pending = (async () => {
       try {
         this.last = await this.read();
@@ -91,6 +100,14 @@ export class CliOAuthStatus {
             `Codex MCP login status of an account could not be read (${codeOf(error)}).`,
           );
         }
+      // A mark newer than this read's start wins over its older answer; older
+      // marks are settled by this read.
+      for (const [id, names] of Object.entries(this.marks)) {
+        for (const [name, mark] of Object.entries(names))
+          if (mark.seq > since) states[id] = { ...states[id], [name]: mark.state };
+          else delete names[name];
+        if (!Object.keys(names).length) delete this.marks[id];
+      }
       const known = new Set(managed.map((account) => account.id));
       this.managedStates = Object.fromEntries(
         Object.entries(states).filter(([id]) => known.has(id)),

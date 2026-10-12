@@ -24,7 +24,7 @@ function fakeCodex(t) {
     process.env.PATH = previous;
     fs.rmSync(bin, { recursive: true, force: true });
   });
-  return () =>
+  const calls = () =>
     fs.existsSync(log)
       ? fs
           .readFileSync(log, "utf8")
@@ -32,6 +32,7 @@ function fakeCodex(t) {
           .filter(Boolean)
           .map((line) => JSON.parse(line))
       : [];
+  return { calls, bin };
 }
 
 function captureLogs(t) {
@@ -45,11 +46,14 @@ function captureLogs(t) {
 }
 
 async function setup(t) {
-  const calls = fakeCodex(t);
+  const { calls, bin } = fakeCodex(t);
   const logs = captureLogs(t);
   // Runs the detected Codex: the fake one first on PATH.
   const f = await applicationFixture(t, { realCliOAuthStatus: true });
   t.after(() => f.dispose());
+  // Never the real Codex: refuse to go on unless detection picked the fake.
+  const detected = f.application.tools().find((tool) => tool.id === "codex");
+  assert.equal(path.dirname(detected?.path ?? ""), bin, "the fake Codex is detected");
   const call = async (endpoint, options) => {
     const response = await f.request(endpoint, options);
     const text = await response.text();
@@ -88,15 +92,18 @@ async function setup(t) {
  * The provider's redirect back: a cross-site navigation without AgentPier's cookie
  * (node:http, since fetch replaces the Sec-Fetch headers). Resolves `{ status, location }`.
  */
-const navigate = (f, target) =>
+const navigate = (f, target, { method = "GET", headers = {}, body } = {}) =>
   new Promise((resolve, reject) => {
     const request = http.request(
       new URL(target, f.url),
       {
+        method,
         headers: {
           "sec-fetch-mode": "navigate",
           "sec-fetch-dest": "document",
           "sec-fetch-site": "cross-site",
+          ...(body === undefined ? {} : { "content-length": Buffer.byteLength(body) }),
+          ...headers,
         },
       },
       (response) => {
@@ -107,7 +114,7 @@ const navigate = (f, target) =>
       },
     );
     request.on("error", reject);
-    request.end();
+    request.end(body);
   });
 
 test("a managed Codex account logs in through AgentPier's callback", async (t) => {
@@ -197,4 +204,55 @@ test("a refused login, a cancel and the owner's own profile", async (t) => {
     },
   );
   assert.equal(anonymous.status, 401);
+});
+
+test("cross-site requests and deeper callback paths are refused", async (t) => {
+  const { f, account, server } = await setup(t);
+  // A page on another site cannot start or cancel a login with the owner's cookie.
+  for (const method of ["POST", "DELETE"]) {
+    const refused = await navigate(
+      f,
+      `/api/mcp-servers/${server.id}/cli-oauth/codex/login`,
+      {
+        method,
+        headers: {
+          cookie: f.cookie,
+          origin: "https://evil.example.test",
+          "content-type": "application/json",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-dest": "empty",
+        },
+        body: JSON.stringify({ accountId: account.id }),
+      },
+    );
+    assert.equal(refused.status, 403, method);
+  }
+  assert.equal(f.application.codexMcpLogins.byKey.size, 0, "nothing started");
+  // Only one path segment after the callback is a top-level navigation target.
+  const deeper = await navigate(f, "/api/mcp-servers/cli-oauth/callback/a/b?state=x");
+  assert.equal(deeper.status, 403);
+});
+
+test("removing the account or unbinding the server ends a pending login", async (t) => {
+  const { f, call, account, server, login, accounts } = await setup(t);
+  await login();
+  assert.equal((await accounts())[0].state, "pending");
+  const unbound = await call(`/api/mcp-servers/${server.id}/clis`, {
+    method: "PUT",
+    body: { clis: [] },
+  });
+  assert.equal(unbound.status, 200);
+  assert.equal(f.application.codexMcpLogins.byKey.size, 0);
+  await call(`/api/mcp-servers/${server.id}/clis`, {
+    method: "PUT",
+    body: { clis: ["codex"] },
+  });
+  await login();
+  assert.equal(
+    (await call(`/api/accounts/${account.id}`, { method: "DELETE" })).status,
+    204,
+  );
+  assert.equal(f.application.codexMcpLogins.byKey.size, 0);
+  const audit = (await call("/api/audit?limit=50")).text;
+  assert.match(audit, /"failReason":"obsolete"/);
 });

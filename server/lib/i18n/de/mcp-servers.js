@@ -87,5 +87,7 @@ export const mcpServers = {
     "Zu viele offene Codex-Anmeldungen. Bitte eine abschließen oder abbrechen und erneut versuchen.",
   cliLoginPrepareFailed:
     "Das Codex-Konto ließ sich nicht vorbereiten. Bitte erneut versuchen, sobald keine Plugin-Aktion mehr läuft.",
+  cliLoginEnded:
+    "Die Anmeldung wurde beendet, bevor Codex sie starten konnte (abgebrochen oder ersetzt).",
   cliLoginFailed: "Codex konnte die Anmeldung nicht starten. Bitte erneut versuchen.",
 };
