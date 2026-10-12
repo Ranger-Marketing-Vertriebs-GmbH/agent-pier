@@ -32,7 +32,7 @@ export const mcpCliCopy = {
   adoptChange: "Änderung übernehmen",
   adoptChangeFor: (cli, name) => `Änderung übernehmen: ${name} aus ${cli}`,
   adopt: "Übernehmen",
-  adoptFor: (cli, name) => `Übernehmen: ${name} aus ${cli}`,
+  adoptFor: (cli, name) => `${name} aus ${cli} übernehmen`,
   oauthConnected: (cli) => `In ${cli} angemeldet`,
   oauthLogin: (cli, command) => `Einmal in ${cli} anmelden: ${command} ausführen`,
   oauthUnknown: (cli, command) =>

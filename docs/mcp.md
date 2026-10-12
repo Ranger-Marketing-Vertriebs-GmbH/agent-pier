@@ -187,7 +187,7 @@ needs the owner's confirmation, because every session of that CLI starts it.
   **Adopt the change** (the edit becomes the central definition for every bound CLI and
   agent); _name taken_ by another entry, with **Adopt** (that entry becomes the
   server's); _could not write_, with a reason: _unreadable_ (unreadable or symlinked
-  file, or a name defined in two OpenCode files), _changed_ (the file kept changing
+  file), _duplicate_ (the name is defined in two OpenCode files), _changed_ (the file kept changing
   during three attempts), _layout_, _write-failed_ or _failed_ (AgentPier could not
   prepare the CLI's servers and tries again at the next session start). A single
   server can also be _invalid_ for a CLI. Another CLI or the agents are never held up by
