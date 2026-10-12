@@ -14,4 +14,9 @@ export const cliApi = {
   finds: () => api("/mcp-servers/cli-finds"),
   /** `{ adopted, failed }`; each key is adopted on its own. */
   adopt: (body) => api("/mcp-servers/cli-finds/adopt", "POST", body),
+  /** `{ authorizationUrl }`: a brokered login in a managed Codex account. */
+  codexLogin: (serverId, accountId) =>
+    api(`/mcp-servers/${id(serverId)}/cli-oauth/codex/login`, "POST", { accountId }),
+  cancelCodexLogin: (serverId, accountId) =>
+    api(`/mcp-servers/${id(serverId)}/cli-oauth/codex/login`, "DELETE", { accountId }),
 };

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { mcpOAuthCopy as copy } from "../../lib/i18n/messages/mcp-oauth.js";
 import { assistantApi } from "../assistants/assistant-api.js";
 import { oauthStatusOf } from "./McpOAuthStatus.jsx";
+import { codexResultText } from "./codex-login.js";
 import { authorizationTarget, oauthResultText } from "./oauth-result.js";
 
 // Refusals that depend on the address AgentPier was opened with, not the server.
@@ -116,7 +117,11 @@ export function McpOAuthResultBanner({ result, servers, onDismiss }) {
       className={`mcp-oauth-banner ${success ? "success" : "error"}`}
       role={success ? "status" : "alert"}
     >
-      <p>{oauthResultText(result, servers, window.location.origin)}</p>
+      <p>
+        {result.cli === "codex"
+          ? codexResultText(result, servers)
+          : oauthResultText(result, servers, window.location.origin)}
+      </p>
       <button type="button" className="button secondary" onClick={onDismiss}>
         {copy.dismiss}
       </button>

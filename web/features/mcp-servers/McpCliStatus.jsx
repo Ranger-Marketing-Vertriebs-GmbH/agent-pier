@@ -3,6 +3,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { mcpCliCopy as copy } from "../../lib/i18n/messages/mcp-cli.js";
 import { names } from "../../lib/providers.js";
 import { cliApi } from "./cli-api.js";
+import McpCodexAccounts from "./McpCodexAccounts.jsx";
 import StdioConfirmation from "./StdioConfirmation.jsx";
 import { stdioConfirmationRequired } from "./stdio-confirmation.js";
 
@@ -12,7 +13,7 @@ const statusText = (state) =>
     : copy.statuses[state.status] || copy.statuses.pending;
 // "unknown" (not read yet, or a CLI AgentPier cannot ask) stays neutral, never an error.
 // A command starting with "/" (Claude Code's /mcp) is opened in the CLI, not run in a shell.
-// Codex status comes from the owner's own profile; managed accounts log in separately.
+// The first Codex line is the owner's own profile; managed accounts follow below it.
 function oauthText(cli, oauth) {
   if (cli === "codex")
     return oauth.state === "connected"
@@ -103,9 +104,11 @@ export default function McpCliStatus({ server, onChanged }) {
                 <span className="mcp-hint">{oauthText(cli, state.oauth)}</span>
               )}
               {state.oauth && cli === "codex" && (
-                <span className="mcp-hint">
-                  {copy.oauthCodexAccounts(state.oauth.command)}
-                </span>
+                <McpCodexAccounts
+                  server={server}
+                  oauth={state.oauth}
+                  onChanged={onChanged}
+                />
               )}
               {state.status === "conflict" && (
                 <span className="mcp-actions">
