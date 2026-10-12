@@ -77,7 +77,10 @@ test("without agents a stdio server still needs the owner's confirmation", async
 test("without agents a renamed or deleted OAuth server leaves a deferred logout", async (t) => {
   const { servers, changes } = setup(t);
   const created = await changes.create(oauth);
-  servers.rememberOAuth(created.id, { connected: true });
+  servers.rememberOAuth(created.id, {
+    connected: true,
+    loginRedirect: "http://127.0.0.1:4380/api/mcp-oauth/callback",
+  });
   const { logoutDeferred } = await changes.update(created.id, {
     revision: 1,
     name: "renamed",
@@ -90,8 +93,42 @@ test("without agents a renamed or deleted OAuth server leaves a deferred logout"
       .map(({ name, url, transport }) => ({ name, url, transport })),
     [{ name: "docs", url: oauth.url, transport: "http" }],
   );
+  // The orphaned login is forgotten, as the agent path does: the server reads as
+  // never connected and a second rename defers nothing.
+  assert.deepEqual(servers.oauthMemory(created.id), {
+    everConnected: false,
+    loginRedirect: null,
+  });
+  const second = await changes.update(created.id, { revision: 2, name: "again" });
+  assert.equal(second.logoutDeferred, false);
+  assert.equal(servers.deferredLogouts().length, 1);
+  servers.rememberOAuth(created.id, { connected: true });
   assert.equal((await changes.remove(created.id)).logoutDeferred, true);
   assert.equal(servers.deferredLogouts().length, 2);
+});
+
+test("without agents an unconnected OAuth server leaves no deferred logout", async (t) => {
+  const { servers, changes } = setup(t);
+  const created = await changes.create(oauth);
+  assert.equal(
+    (await changes.update(created.id, { revision: 1, name: "renamed" })).logoutDeferred,
+    false,
+  );
+  assert.equal((await changes.remove(created.id)).logoutDeferred, false);
+  assert.deepEqual(servers.deferredLogouts(), []);
+});
+
+test("without agents an unchanged stdio patch reports a boolean", async (t) => {
+  const { changes } = setup(t);
+  const created = await changes.create(
+    { name: "local", transport: "stdio", command: "/fake/bin/server" },
+    { confirmStdio: true },
+  );
+  const { stdioChanged } = await changes.update(created.id, {
+    revision: 1,
+    name: "local2",
+  });
+  assert.equal(stdioChanged, false);
 });
 
 test("with agents every change goes through McpChanges; maintenance refuses changes", async (t) => {

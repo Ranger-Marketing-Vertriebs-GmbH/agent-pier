@@ -1,5 +1,6 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { record } from "../extensions/mcp-config.js";
 import { patchConfig } from "./openclaw-config/live-patch.js";
 import { watchConfigAdoption } from "./openclaw-config/config-adoption.js";
 import {
@@ -26,8 +27,6 @@ const pathName = /^[A-Za-z][A-Za-z0-9_-]{0,29}$/;
 // Retry delays of a failed live apply: doubling from one second to one minute.
 const firstRetryMs = 1000;
 const lastRetryMs = 60000;
-
-const record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 
 /**
  * A JSON merge patch from `current` to `target`: keys `target` lacks become null.

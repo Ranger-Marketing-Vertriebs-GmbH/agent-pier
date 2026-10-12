@@ -1,9 +1,8 @@
 import { assistantProblem } from "../assistants/assistant-validation.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { record } from "../extensions/mcp-config.js";
 import { changesStdio, requireStdioConfirmation } from "./stdio-confirmation.js";
-
-const record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 
 /**
  * The owner's central MCP servers, with or without agents. With agents each change
@@ -68,7 +67,11 @@ export class CentralMcpChanges {
       ) &&
       this.servers.oauthMemory(id).everConnected;
     const server = this.servers.update(id, input);
-    if (orphaned) this.servers.deferLogout(before);
+    if (orphaned) {
+      this.servers.deferLogout(before);
+      // As McpOAuthLogins.forget: the login under the old name and URL is gone.
+      this.servers.rememberOAuth(id, { connected: false, loginRedirect: null });
+    }
     return { server, pending: false, logoutDeferred: orphaned, stdioChanged };
   }
   removeDirect(id) {
