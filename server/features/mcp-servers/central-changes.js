@@ -4,6 +4,7 @@ import { problem } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
 import { cliTargets, requireCliSupport } from "./cli-native.js";
 import { changesStdio, requireStdioConfirmation } from "./stdio-confirmation.js";
+import { requireLiteralValues } from "./value-references.js";
 
 /**
  * The owner's central MCP servers, with or without agents. With agents each change
@@ -47,6 +48,8 @@ export class CentralMcpChanges {
   }
   /** Stores a new server; `options.clis` binds it to coding CLIs in the same write. */
   async create(input, { clis: wanted, ...options } = {}) {
+    // A reference is refused before the owner is asked to confirm a local command.
+    requireLiteralValues(input);
     const agents = this.admit();
     const clis =
       wanted === undefined || !record(input)
@@ -68,6 +71,7 @@ export class CentralMcpChanges {
    * `cliChange` is `{ clis, added }` when the change carried CLIs.
    */
   async update(id, input, { clis: wanted, ...options } = {}) {
+    this.servers.requireLiteralPatch(id, input);
     const agents = this.admit();
     const bound = this.servers.targetsOf(id).clis;
     let change = null;

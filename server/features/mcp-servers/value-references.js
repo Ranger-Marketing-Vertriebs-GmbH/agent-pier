@@ -2,10 +2,11 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 
 /**
- * Claude Code's `${VAR}` and `${VAR:-default}`, OpenCode's `{env:VAR}` and
- * `{file:path}`: references a CLI expands itself, each in its own way.
+ * Claude Code's `${…}` (any non-empty content, `${VAR:-default}` included), OpenCode's
+ * `{env:VAR}` and `{file:path}`: references a CLI expands itself, each in its own
+ * way. A `$` without braces (`$VAR`, `pa$$word`) is no reference.
  */
-const reference = /\$\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\}|\{(?:env|file):[^}]+\}/;
+const reference = /\$\{[^}]+\}|\{(?:env|file):[^}]+\}/;
 
 /** Whether `value` is a string holding a reference. */
 export const hasReference = (value) => typeof value === "string" && reference.test(value);
@@ -53,4 +54,25 @@ export function requireLiteralValues(input) {
     const names = Object.keys(map).filter((name) => hasReference(map[name]));
     if (names.length) refuse(field, names);
   }
+}
+
+/**
+ * The fields of `patch` whose value differs from the stored server `row` (database
+ * columns): an unchanged stored value, written before references were refused, never
+ * blocks a save. Header and environment values are only ever the ones sent.
+ */
+export function changedValues(row, patch) {
+  if (!patch || typeof patch !== "object") return {};
+  const stored = {
+    url: row.url ?? "",
+    command: row.command ?? "",
+    args: row.args ?? "[]",
+    cwd: row.cwd ?? "",
+  };
+  const changed = { headers: patch.headers, env: patch.env };
+  for (const field of ["url", "command", "cwd"])
+    if ((patch[field] ?? "") !== stored[field]) changed[field] = patch[field];
+  if (patch.args !== undefined && JSON.stringify(patch.args) !== stored.args)
+    changed.args = patch.args;
+  return changed;
 }

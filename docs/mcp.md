@@ -205,8 +205,9 @@ needs the owner's confirmation, because every session of that CLI starts it.
   `409`). Entries using settings AgentPier does not manage (for example Codex
   `startup_timeout_sec`, `env_vars`, `bearer_token_env_var` or a disabled entry) stay
   in the CLI. So do entries whose values refer to the CLI's environment or files
-  (Claude Code `${VAR}` or `${VAR:-default}`, OpenCode `{env:VAR}` or `{file:path}`)
-  instead of holding them: another CLI or an agent would get the reference literally.
+  (Claude Code `${…}` with any name, `${VAR:-default}` included; OpenCode `{env:VAR}`
+  or `{file:path}`) instead of holding them: another CLI or an agent would get the
+  reference literally.
   A `${…}` that Codex holds literally stays as well, because Claude Code would expand
   it, and so does an entry whose URL host or working directory a reference makes
   unreadable. The find names the headers, environment variables or fields that use
@@ -219,7 +220,9 @@ needs the owner's confirmation, because every session of that CLI starts it.
   command, its arguments or the working directory is refused with
   `400 MCP_SERVER_VALUE_REFERENCE`, the `field` and, for headers and environment
   variables, their `names` (never the value); the form shows the message at that field.
-  Only new writes are checked; a stored server is not migrated.
+  Only values a write changes are checked, before any stdio confirmation; a stored
+  server is not migrated. A shell argument such as `sh -c "srv --dir ${HOME}"` is
+  refused too; use a wrapper script for it.
 - **Secrets.** Header and environment values are stored by AgentPier and written in
   plain text into the CLI files with mode 0600, because the CLIs read them there. They
   never appear in API responses, logs or the audit trail (names only).

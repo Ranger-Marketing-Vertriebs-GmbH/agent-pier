@@ -7,7 +7,7 @@ import { mcpUrl, record, values } from "../extensions/mcp-config.js";
 import { CliEntryStore } from "./cli-entry-store.js";
 import { clis } from "./cli-native.js";
 import { resolveCommand, sanitisedPrefix } from "./command-resolution.js";
-import { requireLiteralValues } from "./value-references.js";
+import { changedValues, requireLiteralValues } from "./value-references.js";
 
 const messages = serverMessages.mcpServers;
 const transports = ["http", "sse", "stdio"];
@@ -91,25 +91,6 @@ function cleanCwd(value) {
   )
     throw invalid(messages.invalidCwd);
   return value;
-}
-/**
- * The fields of `patch` whose value differs from the stored `row`: an unchanged stored
- * value (written before references were refused) never blocks a save. Header and
- * environment values are only ever the ones sent.
- */
-function changedValues(row, patch) {
-  const stored = {
-    url: row.url ?? "",
-    command: row.command ?? "",
-    args: row.args ?? "[]",
-    cwd: row.cwd ?? "",
-  };
-  const changed = { headers: patch.headers, env: patch.env };
-  for (const field of ["url", "command", "cwd"])
-    if ((patch[field] ?? "") !== stored[field]) changed[field] = patch[field];
-  if (patch.args !== undefined && JSON.stringify(patch.args) !== stored.args)
-    changed.args = patch.args;
-  return changed;
 }
 /** Split a patch map into values to set and names to remove (`null`). */
 function splitMap(input, headers) {
@@ -388,6 +369,15 @@ export class McpServerStore {
       for (const [kind, targetId] of bind) this.bind(id, kind, targetId);
     });
     return this.get(id);
+  }
+  /**
+   * Refuses (400) a reference in what `patch` changes about server `id`; callers
+   * check this before asking the owner to confirm anything. An unknown `id` is left
+   * to the update itself (404).
+   */
+  requireLiteralPatch(id, patch) {
+    const row = this.db.prepare("SELECT * FROM servers WHERE id=?").get(id);
+    if (row) requireLiteralValues(changedValues(row, patch));
   }
   /** The row fields `patch` yields at `revision`; throws what update() would. */
   patched(row, revision, patch) {

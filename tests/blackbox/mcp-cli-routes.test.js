@@ -245,7 +245,9 @@ test("a server value with a reference is refused with its field and never echoed
     },
   });
   assert.equal(response.status, 400);
-  const refusal = await read(response);
+  const text = await response.text();
+  assert.doesNotMatch(text, /header-secret/);
+  const refusal = JSON.parse(text);
   assert.deepEqual(
     [refusal.code, refusal.field, refusal.names, refusal.messageKey],
     [
@@ -269,13 +271,13 @@ test("a stored reference does not block an unrelated save; a changed one is refu
   );
   f.application.mcpServers.db
     .prepare("UPDATE servers SET url=? WHERE id=?")
-    .run("https://mcp.example.test/${X}/mcp", created.id);
+    .run("https://mcp.example.test/mcp?k=${X}", created.id);
   let response = await f.request(`/api/mcp-servers/${created.id}`, {
     method: "PUT",
     body: {
       revision: created.revision,
       name: "docs2",
-      url: "https://mcp.example.test/${X}/mcp",
+      url: "https://mcp.example.test/mcp?k=${X}",
       clis: ["codex"],
     },
   });
@@ -283,8 +285,34 @@ test("a stored reference does not block an unrelated save; a changed one is refu
   const saved = await read(response);
   response = await f.request(`/api/mcp-servers/${created.id}`, {
     method: "PUT",
-    body: { revision: saved.revision, url: "https://mcp.example.test/${Y}/mcp" },
+    body: { revision: saved.revision, url: "https://mcp.example.test/mcp?k=${Y}" },
   });
   assert.equal(response.status, 400);
   assert.equal((await read(response)).field, "url");
+});
+
+test("a reference is refused before a local command is to be confirmed", async (t) => {
+  const f = await applicationFixture(t);
+  t.after(() => f.dispose());
+  const command = path.join(f.home, "server");
+  fs.writeFileSync(command, "#!/bin/sh\n", { mode: 0o755 });
+  const local = { name: "local", transport: "stdio", command };
+  let response = await f.request("/api/mcp-servers", {
+    method: "POST",
+    body: { ...local, env: { KEY: "${KEY_VALUE}" }, clis: ["codex"] },
+  });
+  assert.equal(response.status, 400);
+  assert.equal((await read(response)).code, "MCP_SERVER_VALUE_REFERENCE");
+  response = await f.request("/api/mcp-servers", {
+    method: "POST",
+    body: { ...local, confirmStdio: true },
+  });
+  assert.equal(response.status, 201);
+  const created = await read(response);
+  response = await f.request(`/api/mcp-servers/${created.id}`, {
+    method: "PUT",
+    body: { revision: created.revision, args: ["--dir", "${my-dir}"] },
+  });
+  assert.equal(response.status, 400);
+  assert.equal((await read(response)).field, "args");
 });

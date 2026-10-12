@@ -202,3 +202,26 @@ test("a reference that makes a field unreadable still reports env-references", (
   // A malformed entry without a reference stays invalid.
   assert.equal(refused("codex", { command: "/bin/tool", cwd: "work" }).reason, "invalid");
 });
+
+test("any non-empty ${...} is a reference, as Claude Code expands it; $VAR is not", () => {
+  for (const value of ["${my-var}", "${a.b}", "${1X}", "x${A B}y", "${VAR:-d}"])
+    assert.equal(
+      centralFromNative("claude", {
+        type: "http",
+        url: "https://x.test/mcp",
+        headers: { Authorization: value },
+      }).reason,
+      "env-references",
+      value,
+    );
+  for (const value of ["$VAR", "pa$$word", "${}", "$ {X}", "{env:}"])
+    assert.equal(
+      centralFromNative("claude", {
+        type: "http",
+        url: "https://x.test/mcp",
+        headers: { Authorization: value },
+      }).ok,
+      true,
+      value,
+    );
+});
