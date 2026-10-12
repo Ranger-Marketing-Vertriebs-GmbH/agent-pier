@@ -44,4 +44,10 @@ export const mcpServers = {
     "Die bisherige Anmeldung wird noch entfernt. Bis dahin ist der Server nicht aktiv.",
   cliNotConflict:
     "Dieser Eintrag in der CLI steht nicht mehr im Konflikt. Bitte neu laden.",
+  cliFindChanged:
+    "Der Eintrag in der CLI hat sich seit der Anzeige geändert. Bitte neu laden.",
+  cliNotAdoptable:
+    "AgentPier kann diesen Eintrag nicht übernehmen, ohne Einstellungen zu verlieren, die es nicht verwaltet.",
+  cliChangeNotAdoptable:
+    "Die Änderung lässt sich nicht übernehmen: Die Verbindungsart weicht ab oder der Eintrag nutzt Einstellungen, die AgentPier nicht verwaltet.",
 };

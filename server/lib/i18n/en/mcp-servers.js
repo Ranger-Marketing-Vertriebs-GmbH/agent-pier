@@ -40,4 +40,9 @@ export const mcpServers = Object.freeze({
   oauthLogoutPending:
     "The previous login is still being removed. Until then the server is not active.",
   cliNotConflict: "This entry in the CLI is no longer in conflict. Please reload.",
+  cliFindChanged: "The entry in the CLI changed since it was shown. Please reload.",
+  cliNotAdoptable:
+    "AgentPier cannot take over this entry without losing settings it does not manage.",
+  cliChangeNotAdoptable:
+    "The change cannot be adopted: its connection type differs or it uses settings AgentPier does not manage.",
 });

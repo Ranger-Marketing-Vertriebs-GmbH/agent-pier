@@ -244,6 +244,99 @@ export class CliMcpReconciler {
     ]);
   }
 
+  /** The owner's entry `from` (`{ name, hash }`) as it is now, if unchanged since read. */
+  check(cli, from) {
+    const snapshot = this.read(cli);
+    const found = snapshot.entries.get(from.name);
+    if (!found || found.hash !== from.hash || snapshot.duplicates.has(from.name))
+      throw problem(messages.cliFindChanged, 409);
+    return { snapshot, found };
+  }
+
+  /**
+   * Takes over the owner's entry `from` (`{ name, hash }`) for server `serverId`, just
+   * created from it: AgentPier's entry replaces it under the server's name, through
+   * the same compare-and-swap writes as every change, only while it is unchanged since
+   * the owner saw it. A new name another entry already holds is refused (409). On
+   * failure the entry is restored and thrown; on success the returned function undoes
+   * the takeover, for a group whose other CLIs failed.
+   */
+  adopt(cli, serverId, from) {
+    const { snapshot, found } = this.check(cli, from);
+    const want = this.desired(cli).get(serverId);
+    if (!want?.entry) throw problem(messages.cliNotAdoptable, 409);
+    const name = want.definition.name;
+    if (name !== from.name && snapshot.entries.has(name))
+      throw problem(messages.nameTaken, 409);
+    const undo = () => this.restore(cli, serverId, from, found.entry, name, want.hash);
+    try {
+      if (name === from.name) {
+        this.entries.intend(serverId, cli, name, found.hash);
+        this.entries.settle(serverId, cli, found.hash);
+        if (found.hash !== want.hash)
+          this.apply(cli, [
+            {
+              type: "write",
+              serverId,
+              name,
+              entry: want.entry,
+              hash: want.hash,
+              expected: found.hash,
+            },
+          ]);
+      } else {
+        this.entries.intend(serverId, cli, name, want.hash);
+        this.write(cli, from.name, undefined, found.hash);
+        this.write(cli, name, want.entry, undefined);
+        this.entries.settle(serverId, cli, want.hash);
+      }
+    } catch (error) {
+      undo();
+      throw error;
+    }
+    return undo;
+  }
+
+  /**
+   * Best effort: puts the owner's `entry` back under `from.name` where AgentPier's
+   * entry (`hash` under `name`) still stands, and forgets the record, so whatever is
+   * in the file stays the owner's find and is never removed as AgentPier's.
+   */
+  restore(cli, serverId, from, entry, name, hash) {
+    try {
+      if (this.read(cli).entries.get(name)?.hash === hash)
+        this.write(cli, name, name === from.name ? entry : undefined, hash);
+      if (name !== from.name && !this.read(cli).entries.has(from.name))
+        this.write(cli, from.name, entry, undefined);
+    } catch (error) {
+      this.warn(`An adopted MCP entry for ${cli} could not be restored${codeOf(error)}.`);
+    }
+    this.entries.forget(serverId, cli);
+  }
+
+  /** The owner's entry in server `serverId`'s way in `cli` (a conflict or a taken name): `{ entry, hash }`. */
+  contested(serverId, cli) {
+    const snapshot = this.read(cli);
+    const status = this.plan(cli, snapshot).statuses[serverId]?.status;
+    if (status !== "conflict" && status !== "name-taken")
+      throw problem(messages.cliNotConflict, 409);
+    const { entry, hash } = snapshot.entries.get(
+      this.desired(cli).get(serverId).definition.name,
+    );
+    return { entry, hash };
+  }
+
+  /** Records the entry under server `serverId`'s name as AgentPier's while it hashes to `hash`. */
+  claim(serverId, cli, hash) {
+    const want = this.desired(cli).get(serverId);
+    const snapshot = want?.entry ? this.read(cli) : null;
+    const found = snapshot?.entries.get(want.definition.name);
+    if (!found || found.hash !== hash || snapshot.duplicates.has(want.definition.name))
+      throw problem(messages.cliFindChanged, 409);
+    this.entries.intend(serverId, cli, want.definition.name, hash);
+    this.entries.settle(serverId, cli, hash);
+  }
+
   /**
    * A file problem — unreadable, kept changing, not editable in place (`layout`) or
    * not writable (`write-failed`) — makes every bound server of `cli` report it, with
