@@ -5,6 +5,8 @@ export const mcpCliCopy = {
     transport: "Codex does not support SSE servers.",
     cwd: "Claude Code cannot start a local command in a working directory; Codex and OpenCode can.",
   },
+  removedOnSave: (cli, name) => `Saving removes ${name} from ${cli}.`,
+  notGiven: (cli) => `${cli} will not get this server.`,
   statuses: {
     written: "written",
     pending: "will be written at the next save or session start",

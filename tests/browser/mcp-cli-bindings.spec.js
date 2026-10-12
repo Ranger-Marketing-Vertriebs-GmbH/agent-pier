@@ -1,55 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
-import { fixture } from "./providers-fixture.js";
-
-/** The central MCP API; `state` records requests and holds what the list returns. */
-async function setup(
-  page,
-  { language = "en", agents = false, servers = [], finds = [], problems = [] } = {},
-) {
-  await fixture(page);
-  await page.addInitScript(
-    (value) => localStorage.setItem("agentpier-language", value),
-    language,
-  );
-  const state = {
-    requests: [],
-    servers: structuredClone(servers),
-    finds: structuredClone(finds),
-    problems: structuredClone(problems),
-  };
-  await page.route("**/api/assistant-feature", (route) =>
-    route.fulfill({ json: { enabled: agents, error: null } }),
-  );
-  await page.route(/\/api\/mcp-servers/, async (route) => {
-    const request = route.request();
-    const path = new URL(request.url()).pathname;
-    const body = request.postData() ? request.postDataJSON() : undefined;
-    state.requests.push({ method: request.method(), path, body });
-    if (path === "/api/mcp-servers" && request.method() === "GET")
-      return route.fulfill({ json: state.servers });
-    if (path === "/api/mcp-servers/cli-finds")
-      return route.fulfill({ json: { finds: state.finds, problems: state.problems } });
-    if (state.handle) {
-      const handled = await state.handle({ route, request, path, body });
-      if (handled !== false) return;
-    }
-    return route.fulfill({ status: 404, json: { error: "unexpected" } });
-  });
-  return state;
-}
-
-const header = (extra = {}) => ({
-  id: "s1",
-  name: "docs",
-  transport: "http",
-  url: "https://mcp.example.test/mcp",
-  auth: "headers",
-  headerNames: ["Authorization"],
-  envNames: [],
-  revision: 1,
-  ...extra,
-});
+import { bound, finds, header, openAdd, setup, stdioServer } from "./mcp-cli-fixture.js";
 
 test("the central MCP list is on Accounts without agents and offers no agent login", async ({
   page,
@@ -62,27 +13,6 @@ test("the central MCP list is on Accounts without agents and offers no agent log
   await expect(page.getByText("docs", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /log in/i })).toHaveCount(0);
 });
-
-const bound = (extra = {}) =>
-  header({
-    clis: ["claude", "codex"],
-    cliSupport: {
-      claude: { supported: true },
-      codex: { supported: true },
-      opencode: { supported: true },
-    },
-    cliStatus: { claude: { status: "written" }, codex: { status: "conflict" } },
-    users: { agents: ["Home"], clis: ["claude", "codex"] },
-    ...extra,
-  });
-
-async function openAdd(page) {
-  await page
-    .getByRole("region", { name: "MCP servers" })
-    .getByRole("button", { name: "Add MCP server" })
-    .click();
-  return page.getByRole("dialog");
-}
 
 test("the form offers coding CLIs, explains a disabled one and saves the choice", async ({
   page,
@@ -192,17 +122,6 @@ test("a local command for a CLI is confirmed before anything is saved", async ({
   expect(writes).toHaveLength(1);
   expect(writes[0].body).toMatchObject({ clis: ["codex"], confirmStdio: true });
 });
-
-const stdioServer = () =>
-  bound({
-    transport: "stdio",
-    url: undefined,
-    command: "/usr/bin/true",
-    args: [],
-    headerNames: [],
-    envNames: [],
-    cliStatus: { claude: { status: "written" }, codex: { status: "written" } },
-  });
 
 test("an edit that rules out a bound CLI saves both in one request", async ({ page }) => {
   const state = await setup(page, { servers: [stdioServer()] });
@@ -388,41 +307,6 @@ test("the CLI statuses read in German", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByText("Agenten: Home · CLIs: Claude Code, Codex")).toBeVisible();
 });
-
-const finds = [
-  {
-    key: "k1",
-    name: "docs",
-    clis: ["claude", "codex"],
-    adoptable: true,
-    transport: "http",
-    auth: "headers",
-    url: "https://docs.example.test/mcp",
-    headerNames: ["Authorization"],
-    envNames: [],
-  },
-  {
-    key: "k2",
-    name: "my.tool",
-    proposedName: "my-tool",
-    clis: ["opencode"],
-    adoptable: true,
-    transport: "stdio",
-    auth: "headers",
-    command: "true",
-    resolvedCommand: "/usr/bin/true",
-    headerNames: [],
-    envNames: ["TOKEN"],
-  },
-  {
-    key: "k3",
-    name: "slow",
-    clis: ["codex"],
-    adoptable: false,
-    reason: "unsupported-fields",
-    messageKey: "mcpServers.cliNotAdoptable",
-  },
-];
 
 test("entries found in the CLIs are adopted one by one or all at once, names only", async ({
   page,

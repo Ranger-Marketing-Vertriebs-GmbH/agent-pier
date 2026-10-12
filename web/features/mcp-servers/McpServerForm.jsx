@@ -207,6 +207,8 @@ export default function McpServerForm({ server, onSaved, close }) {
           id={`${formId}-clis`}
           target={target}
           selected={clis}
+          bound={before}
+          name={server?.name}
           onChange={chooseClis}
         />
         <p className="mcp-hint">{copy.secretNote}</p>
