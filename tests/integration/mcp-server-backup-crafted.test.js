@@ -104,6 +104,10 @@ test("a restore refuses sealed MCP values the store itself would refuse", async 
     longValue: secret({ kind: "header", name: "A", value: "x".repeat(16385) }),
     badEnvName: secret({ kind: "env", name: "1BAD", value: "1" }),
     badKind: secret({ kind: "cookie", name: "A", value: "1" }),
+    protoHeaderCrlf: secret({ kind: "header", name: "__proto__", value: "x\r\ny" }),
+    protoEnvNumber: secret({ kind: "env", name: "__proto__", value: 5 }),
+    numberValue: secret({ kind: "header", name: "A", value: 5 }),
+    constructorName: secret({ kind: "env", name: "constructor", value: "1" }),
     tooMany: server({
       secrets: Array.from({ length: 101 }, (_, i) => ({
         kind: "header",

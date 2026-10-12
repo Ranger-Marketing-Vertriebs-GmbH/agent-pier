@@ -77,6 +77,8 @@ const tablesOf = (db) =>
   );
 const quoted = (name) => `"${name.replaceAll('"', '""')}"`;
 const storeInvalid = () => problem(serverMessages.backups.invalidMcpServerStore);
+// At backup time the fault lies in this host's own store, not in a backup.
+const hostStoreUnusable = () => problem(serverMessages.backups.mcpServerStoreUnusable);
 const valuesInvalid = () => problem(serverMessages.backups.invalidMcpServerValues);
 
 /** Drops every view, trigger, index, table and column the store does not define. */
@@ -104,9 +106,14 @@ function keepKnownSchema(db) {
  * what it removed: `{ version: 1, servers: [{ id, url?, secrets }], cliEntries }`.
  */
 export function sanitizeMcpStore(db) {
-  keepKnownSchema(db);
+  try {
+    keepKnownSchema(db);
+  } catch {
+    // For example an unknown column inside a key, which SQLite cannot drop.
+    throw hostStoreUnusable();
+  }
   const tables = tablesOf(db);
-  if (!tables.has("servers")) throw storeInvalid();
+  if (!tables.has("servers")) throw hostStoreUnusable();
   const columns = new Set(
     db
       .prepare("PRAGMA table_info(servers)")
@@ -235,10 +242,16 @@ function sealedValues(bytes) {
       !Array.isArray(server.secrets)
     )
       throw valuesInvalid();
-    const maps = { header: {}, env: {} };
+    // Null-prototype maps: a name like `__proto__` must reach `values()` as a key.
+    const maps = { header: Object.create(null), env: Object.create(null) };
     for (const secret of server.secrets) {
       const map = maps[secret?.kind];
-      if (!map || typeof secret.name !== "string" || Object.hasOwn(map, secret.name))
+      if (
+        !map ||
+        typeof secret.name !== "string" ||
+        typeof secret.value !== "string" ||
+        Object.hasOwn(map, secret.name)
+      )
         throw valuesInvalid();
       map[secret.name] = secret.value;
     }

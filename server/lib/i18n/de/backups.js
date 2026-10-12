@@ -34,6 +34,8 @@ export const backups = Object.freeze({
   invalidMemoryReferences: "Die wiederhergestellten Memory-Verweise sind ungültig.",
   unexpectedComponent: "Unerwarteter Backup-Bestandteil.",
   invalidMcpServerStore: "Die MCP-Server-Datenbank der Sicherung ist ungültig.",
+  mcpServerStoreUnusable:
+    "Die MCP-Server-Datenbank dieses Hosts hat einen unbekannten Aufbau und kann nicht gesichert werden.",
   invalidMcpServerValues:
     "Die versiegelten Werte der MCP-Server in der Sicherung sind ungültig. Es wurde nichts wiederhergestellt.",
   invalidManifest: "Ungültiges Backup-Manifest.",
