@@ -105,6 +105,7 @@ export const operationsCopy = {
   restored: "Wiederherstellung abgeschlossen",
   credentialsRestored: "Zugangsdaten wiederhergestellt",
   needsLogin: "Erneute Anmeldung erforderlich",
+  needsMcpServerValues: (name) => `MCP-Server ${name} (Werte neu eingeben)`,
   importedSessions: "Importierte Sitzungen",
   importedRuns: "Importierte Läufe",
   updates: "Updates",

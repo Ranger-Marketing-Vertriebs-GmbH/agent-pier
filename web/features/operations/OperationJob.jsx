@@ -3,6 +3,7 @@ import useResource from "../../lib/useResource.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { serverText } from "../../lib/server-messages.js";
+import { needsLoginLabel } from "./restore-report.js";
 export default function OperationJob({ id, onComplete, onState }) {
   const resource = useResource(id ? `/operations/jobs/${encodeURIComponent(id)}` : null, {
       poll: 1500,
@@ -56,7 +57,13 @@ export default function OperationJob({ id, onComplete, onState }) {
                         </dt>
                         <dd>
                           {Array.isArray(job.result[key])
-                            ? job.result[key].join(", ")
+                            ? job.result[key]
+                                .map((item) =>
+                                  key === "credentialsNeedingLogin"
+                                    ? needsLoginLabel(item)
+                                    : item,
+                                )
+                                .join(", ")
                             : String(job.result[key])}
                         </dd>
                       </React.Fragment>
