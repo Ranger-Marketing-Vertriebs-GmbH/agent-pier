@@ -42,6 +42,7 @@ test("contracts use the runtime the installer's --with-assistants step selected"
     AGENTPIER_WEB_TOOLS_CONTRACT_RUNTIME: runtime,
     AGENTPIER_SHELL_CONTRACT_RUNTIME: runtime,
     AGENTPIER_MCP_CONTRACT_RUNTIME: runtime,
+    AGENTPIER_PROACTIVITY_CONTRACT_RUNTIME: runtime,
   });
 });
 
