@@ -139,6 +139,8 @@ export async function captureProfiles({
             size: fs.statSync(copy).size,
             component,
             history: true,
+            // The plaintext copy goes as soon as it is sealed into the archive.
+            temporary: true,
           });
           // The public manifest does not name sealed history files.
           result.captures.push({

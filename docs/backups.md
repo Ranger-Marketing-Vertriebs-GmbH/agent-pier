@@ -106,6 +106,17 @@ An entry the capsule does not list fails the restore; a listed one missing from 
 archive was removed while the backup ran. Inspection opens the capsule with the
 passphrase but reads no history.
 
+What the archive still shows of sealed history: how many history files there are
+and each file's size to within 16 bytes per MiB. While the backup runs, the
+plaintext copies of CLI history databases sit in the owner-only (0700) work folder
+as 0600 files; each is removed as soon as it is sealed into the archive, the folder
+when the backup ends, and after a crash at the next server start.
+
+Every file a restore writes, whatever kind of member it comes from, is checked by
+one guard: its path must be a clean relative path that resolves inside the real
+path of the hidden stage, with no link or file on the way. Sealed history paths
+from the capsule must also be CLI history paths, each at most once.
+
 The header is a separate, uncompressed (stored) gzip member. It is written with
 placeholder hashes first and rewritten in place once all members are streamed. Its
 JSON is padded with spaces to a length reserved up front, with room for members
