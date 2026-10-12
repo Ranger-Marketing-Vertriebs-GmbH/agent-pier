@@ -84,6 +84,18 @@ export class RequestLedger {
         .get(requestId),
     );
   }
+  // The attempt a Gateway run belongs to: its idempotency key is the attempt id, and
+  // the Gateway may report its own run id instead.
+  attemptForRun(runId) {
+    if (typeof runId !== "string" || !runId) return null;
+    return attemptRecord(
+      this.db
+        .prepare(
+          `${attemptQuery} WHERE id=? OR runtime_run_id=? ORDER BY rowid DESC LIMIT 1`,
+        )
+        .get(runId, runId),
+    );
+  }
   getAttempt(id) {
     const a = attemptRecord(this.db.prepare(`${attemptQuery} WHERE id=?`).get(id));
     if (!a) throw assistantProblem("notFound", 404);

@@ -1,18 +1,39 @@
 import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import path from "node:path";
-import { personalCapabilities, profileTools } from "./native-capabilities.js";
+import { isDeepStrictEqual } from "node:util";
+import {
+  personalCapabilities,
+  personalShell,
+  profileTools,
+} from "./native-capabilities.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { assertWired } from "./service-wiring.js";
 import { assistantBootstrap } from "./assistant-bootstrap.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { patchConfig } from "./openclaw-config/live-patch.js";
 import { watchConfigAdoption } from "./openclaw-config/config-adoption.js";
+import { agentExec, shellSections, shellTools } from "./openclaw-config/shell.js";
 // Bootstrap files the Gateway exposes besides AGENTS.md. AgentPier never creates
 // them (skipBootstrap), so any content is foreign and is neutralized. USER.md is
 // the owner's preference note and stays under owner control.
 const foreignBootstrap = ["SOUL.md", "IDENTITY.md", "BOOTSTRAP.md"];
 const sha256 = (text) => createHash("sha256").update(text, "utf8").digest("hex");
+
+/**
+ * The global tools.allow with exec and process present exactly when `wanted`, or
+ * null when it already is (or the shell state is not managed: `wanted` undefined).
+ */
+function shellAllow(allow = [], wanted) {
+  if (wanted === undefined) return null;
+  const has = shellTools.every((tool) => allow.includes(tool));
+  const none = !shellTools.some((tool) => allow.includes(tool));
+  if (wanted ? has : none) return null;
+  return [
+    ...allow.filter((tool) => !shellTools.includes(tool)),
+    ...(wanted ? shellTools : []),
+  ];
+}
 
 export class AssistantConfig {
   constructor({
@@ -96,6 +117,18 @@ export class AssistantConfig {
       available,
       mcpTools,
     );
+    // The owner's login PATH the running Gateway was started with (exec-shell.js).
+    const pathPrepend = this.shellPathPrepend?.() || [];
+    // As agentEntry compiles it; the readback below checks the same value.
+    const exec = nativeReady
+      ? agentExec(personalShell(assistant), pathPrepend)
+      : undefined;
+    // Global tools.allow is an upper bound for every agent; it carries exec and
+    // process while some eligible agent has shell. It applies hot (fact c).
+    const shellGlobal = nativeReady
+      ? shellSections({ profiles: this.store.listAssistants?.() || [assistant] })
+          .globalTools.length > 0
+      : undefined;
     const bootstrap = assistantBootstrap(assistant, lease.display);
     const fingerprint = createHash("sha256")
       .update(
@@ -108,6 +141,8 @@ export class AssistantConfig {
           this.hostCapacity?.(),
           nativeReady,
           capabilities,
+          exec,
+          shellGlobal,
           bootstrap,
         ]),
       )
@@ -119,6 +154,7 @@ export class AssistantConfig {
         assistant.effectiveRevision === assistant.revision
       ) {
         await this.verifyBootstrap(assistant, bootstrap);
+        this.onApplied?.(id);
         return {
           revision: assistant.revision,
           effectiveRevision: assistant.revision,
@@ -170,6 +206,7 @@ export class AssistantConfig {
         await patchConfig(this.client, (config) => {
           const agents = config.agents;
           const arrayKey = Array.isArray(agents.entries) ? "entries" : "list";
+          const managed = !!(this.teamReady || this.nativeReady);
           // Live writes keep the managed paths even before the Gateway reports readiness.
           const configure = (entry = {}) =>
             agentEntry(entry, assistant, {
@@ -177,20 +214,35 @@ export class AssistantConfig {
               nativeReady,
               guardProven: !!this.writeGuard?.(),
               agentRuntime: lease.agentRuntime,
-              toolsManaged: !!(this.teamReady || this.nativeReady),
+              toolsManaged: managed,
               memoryManaged: !!this.nativeReady,
               available,
+              pathPrepend,
               mcpTools,
             });
           const keyed = agents.entries && !Array.isArray(agents.entries);
+          const keyedEntry = () => {
+            const current = agents.entries[assistant.runtimeAgentId];
+            const next = configure(current);
+            // A merge patch keeps omitted keys: null removes a lowered level's
+            // override and keys the new level does not set (strictInlineEval).
+            const before = current?.tools?.exec;
+            if (managed && before && typeof before === "object")
+              next.tools = {
+                ...next.tools,
+                exec: next.tools.exec
+                  ? {
+                      ...Object.fromEntries(
+                        Object.keys(before).map((key) => [key, null]),
+                      ),
+                      ...next.tools.exec,
+                    }
+                  : null,
+              };
+            return next;
+          };
           const patch = keyed
-            ? {
-                entries: {
-                  [assistant.runtimeAgentId]: configure(
-                    agents.entries[assistant.runtimeAgentId],
-                  ),
-                },
-              }
+            ? { entries: { [assistant.runtimeAgentId]: keyedEntry() } }
             : {
                 [arrayKey]: (agents[arrayKey] || []).map((a) =>
                   a.id === assistant.runtimeAgentId ? configure(a) : a,
@@ -198,11 +250,22 @@ export class AssistantConfig {
               };
           if (this.hostCapacity)
             patch.defaults = { maxConcurrent: this.hostCapacity() + 8 };
+          // OpenClaw refuses to drop array items unless their exact path is named:
+          // removing or changing the exec override drops pathPrepend entries.
+          const replacePaths = keyed
+            ? [
+                `agents.entries.${assistant.runtimeAgentId}.tools.allow`,
+                `agents.entries.${assistant.runtimeAgentId}.tools.exec.pathPrepend`,
+              ]
+            : [`agents.${arrayKey}`];
+          const globalAllow = shellAllow(config.tools?.allow, shellGlobal);
+          if (globalAllow) replacePaths.push("tools.allow");
           return {
-            patch: { agents: patch },
-            replacePaths: keyed
-              ? [`agents.entries.${assistant.runtimeAgentId}.tools.allow`]
-              : [`agents.${arrayKey}`],
+            patch: {
+              agents: patch,
+              ...(globalAllow && { tools: { allow: globalAllow } }),
+            },
+            replacePaths,
           };
         });
       }
@@ -230,7 +293,18 @@ export class AssistantConfig {
       );
       if (
         (this.teamReady || this.nativeReady) &&
-        JSON.stringify((entry || legacy)?.tools?.allow) !== JSON.stringify(allowed)
+        !isDeepStrictEqual((entry || legacy)?.tools?.allow, allowed)
+      )
+        throw assistantProblem("conflict", 409);
+      if (
+        (this.teamReady || this.nativeReady) &&
+        // OpenClaw's merge keeps existing keys first: compare regardless of key order.
+        !isDeepStrictEqual((entry || legacy)?.tools?.exec ?? null, exec ?? null)
+      )
+        throw assistantProblem("conflict", 409);
+      if (
+        shellGlobal !== undefined &&
+        shellAllow(effective.config?.tools?.allow, shellGlobal) !== null
       )
         throw assistantProblem("conflict", 409);
       if (
@@ -258,6 +332,8 @@ export class AssistantConfig {
       await adoption.settle(base.hash, effective.hash);
       this.store.markEffective(id, assistant.revision);
       this.applied.set(id, fingerprint);
+      // The Gateway now runs the stored profile, its shell level included.
+      this.onApplied?.(id);
       return {
         revision: assistant.revision,
         effectiveRevision: assistant.revision,

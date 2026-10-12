@@ -7,6 +7,7 @@ import { assistantChannelRoutes } from "./assistant-channels.js";
 import { assistantWebSearchRoutes } from "./assistant-web-search.js";
 import { assistantAccountRoutes } from "./assistant-accounts.js";
 import { mcpServerRoutes, replyStdioConfirmation } from "./mcp-servers.js";
+import { assistantShellRoutes, replyShellConfirmation } from "./assistant-shell.js";
 import { Router } from "express";
 import path from "node:path";
 import { writePrivate } from "../../lib/storage.js";
@@ -84,9 +85,17 @@ function activeAssistantRoutes(services) {
   router.use(assistantTeamRoutes(services));
   router.use(assistantAccountRoutes(services));
   router.use(mcpServerRoutes(services));
+  router.use(assistantShellRoutes(services));
   router.get("/assistants", (_req, res) => res.json(assistants.list()));
   router.post("/assistants", async (req, res) => {
-    const result = await assistants.create(req.body);
+    let result;
+    try {
+      // A new agent with shell needs the same confirmations as raising it.
+      result = await assistants.create(req.body);
+    } catch (error) {
+      if (replyShellConfirmation(res, error)) return;
+      throw error;
+    }
     audit.append({
       action: "assistant.created",
       resourceType: "assistant",
@@ -101,12 +110,14 @@ function activeAssistantRoutes(services) {
     let result;
     try {
       // The owner confirms a Gateway restart for new global web tool sections;
-      // `confirmStdio` in the patch confirms binding a stdio MCP server.
+      // `confirmStdio` in the patch confirms binding a stdio MCP server;
+      // `confirmShell` and `confirmFull` confirm raising the shell level.
       result = await assistants.update(req.params.id, patch, revision, {
         confirmed: confirmRestart === true,
       });
     } catch (error) {
       if (replyStdioConfirmation(res, error)) return;
+      if (replyShellConfirmation(res, error)) return;
       return replyRestartRequired(res, error);
     }
     res.json(result);

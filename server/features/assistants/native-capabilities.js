@@ -25,10 +25,19 @@ export const delegationTools = [
   "agentpier_team_status",
   "agentpier_team_stop",
 ];
+export const shellLevels = ["off", "approval", "full"];
+export const shellTools = ["exec", "process"];
+export const personalEligible = (assistant) =>
+  !assistant.archivedAt &&
+  (!assistant.teamMemberId || assistant.lifetime === "permanent");
+/** The effective shell level; ineligible or unset profiles have none. */
+export function personalShell(assistant) {
+  return personalEligible(assistant) && shellLevels.includes(assistant.shell)
+    ? assistant.shell
+    : "off";
+}
 export function personalCapabilities(assistant) {
-  const eligible =
-    !assistant.archivedAt &&
-    (!assistant.teamMemberId || assistant.lifetime === "permanent");
+  const eligible = personalEligible(assistant);
   return Object.fromEntries(
     capabilityKeys.map((key) => [
       key,
@@ -73,6 +82,8 @@ export function profileTools(
           capabilities[key] && available[key] !== false ? tools : [],
         )
       : []),
+    // Paired with the entry's tools.exec override (openclaw-config/shell.js).
+    ...(nativeReady && personalShell(assistant) !== "off" ? shellTools : []),
     ...(nativeReady && !assistant.archivedAt ? mcpTools : []),
   ];
 }

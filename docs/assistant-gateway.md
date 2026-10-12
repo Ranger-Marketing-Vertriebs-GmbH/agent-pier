@@ -558,8 +558,10 @@ the existing chat recovery action. Neither recovery route replays work.
 The bundled `agentpier-teams` plugin is staged privately and verified on fresh
 installation and every existing-runtime provisioning path. Compatibility is pinned
 to OpenClaw 2026.9.8 and its qualified 2026.9.7 rollback predecessor. Eligible parents receive the three managed team tools and
-`session_status`; members receive only `session_status`. Direct native spawning,
-exec and alternative session mutation tools are not offered. The private loopback
+`session_status`; members receive only `session_status`. Direct native spawning
+and alternative session mutation tools are not offered; `exec` and `process` only
+under [agent shell access](#agent-shell-access-2026-10-12), which temporary members
+never get. The private loopback
 bridge binds 30-second prepare/commit tickets to the exact active attempt and
 runtime generation. Credentials are never part of public team projections.
 
@@ -977,6 +979,154 @@ again after the rollback, before the Gateway starts (see
 [runtime updates](assistant-runtime-updates.md)). The facts behind this section are
 recorded in the [MCP OAuth qualification](mcp-oauth-qualification.md).
 
+## Agent shell access (2026-10-12)
+
+Agents can run command-line programs on the host through OpenClaw's `exec` and
+`process` tools (AGENTPIER-25). The facts behind this section are recorded in the
+[shell qualification](assistant-shell-qualification.md).
+
+### Levels
+
+Each personal agent and each permanent team member has a shell level in its
+settings (**Shell access**). New agents start with **Off**.
+
+| Level         | Compiled for the agent                                | Behavior                                                        |
+| ------------- | ----------------------------------------------------- | --------------------------------------------------------------- |
+| Off           | no `exec` or `process` in the agent's `tools.allow`   | The agent is offered no shell tool at all.                      |
+| With approval | `tools.exec: { mode: "ask", strictInlineEval: true }` | Every command not on the agent's allowlist waits for the owner. |
+| Full access   | `tools.exec: { mode: "full" }`                        | Every command runs at once, without asking.                     |
+
+Both shell levels also carry `pathPrepend` (see below). While any eligible agent
+has shell, the global `tools.allow` includes `exec` and `process`; the global
+`tools.exec.mode` stays `deny`, and an agent without shell keeps both tools out of
+its own `tools.allow`, because a global `deny` alone still offers the tool.
+
+- **Temporary (task-bound) team members never get shell.** The agent update
+  refuses any level other than Off with 400, the compiler ignores a stored level,
+  and the allowlist routes refuse them. Archived agents have none either.
+- **Confirmation.** Raising the level needs the owner's confirmation of the
+  warning (`confirmShell`); raising it to Full access needs a second one
+  (`confirmFull`). Without them the update (and the creation of an agent with
+  shell) answers `409 ASSISTANT_SHELL_CONFIRMATION_REQUIRED` naming the missing
+  confirmations, and nothing is stored. Lowering never asks.
+- **Live changes.** Every level change applies to the running Gateway with
+  `config.patch`, without a restart. Lowering applies even while a turn of the agent
+  runs; a settings form that also sends its unchanged fields counts as a lowering
+  only. Switching to Off first denies the agent's requests still awaiting the
+  owner (their actions end with diagnostic `SHELL_OFF`; a deny the Gateway could
+  not receive is sent again at the next ready), then aborts the agent's running
+  turns, which ends a command running in the foreground. **A command moved to the
+  background (`process`) keeps running:** OpenClaw 2026.9.8 ends background
+  sessions only through the agent's own `process` tool, and neither an abort, a
+  session reset nor a Gateway restart stops them (see the
+  [shell qualification](assistant-shell-qualification.md#h-aborting-turns-and-background-commands)).
+  If a lowering cannot be
+  applied, AgentPier tries once more, then aborts the agent's running turns and
+  denies its pending requests, so nothing keeps running at the higher level; the
+  level stays pending (shown in the settings) and is retried with backoff and at
+  every ready. A stopped Gateway compiles the stored level at its next start.
+
+**Warning shown before shell is turned on:** with shell access the agent works as
+the owner's user account, with the owner's logins, files and keys, and it can read
+AgentPier's own data. The team write guard does not cover shell commands. There is
+no sandbox (see [ADR 0002](adr/0002-managed-openclaw-assistants.md)). With Off, the
+settings explain that skills and tools needing command-line programs (gh, git, mail
+programs) do not work.
+
+### Environment of shell commands
+
+Commands run as the owner: **with the owner's real `HOME` and login `PATH`, while
+the Gateway itself keeps its private `HOME`, state and configuration.**
+
+- OpenClaw has no exec environment setting and refuses a per-call `HOME`, so every
+  Gateway start points its `SHELL` to a wrapper,
+  `<data>/assistants/exec-shell/sh` (mode 0500 in a private folder), that exports
+  the owner's `HOME` (shell-quoted) and hands over to `/bin/sh`. The wrapper is
+  Gateway-wide; only agents with shell are offered `exec`.
+- The owner's `HOME` comes from the user database (`os.userInfo().homedir`), not
+  from `$HOME`. The `PATH` is computed without starting a login shell (which would
+  run the owner's profile scripts): the AgentPier service's own `PATH` plus the
+  package manager directories that exist (`/opt/homebrew/bin`, `/usr/local/bin`,
+  `/home/linuxbrew/.linuxbrew/bin`). It reaches the agents with shell as
+  `tools.exec.pathPrepend`, so the approval analysis resolves the same programs
+  that run. A tool found only on the owner's interactive `PATH` (nvm,
+  `~/.local/bin`) must be called by its absolute path or added to the service's
+  `PATH`.
+- If the owner account cannot be resolved, the Gateway starts without the wrapper
+  and logs a diagnostic; commands then run with the private `HOME`.
+- The Gateway token is only in `gateway.auth.token`; `OPENCLAW_GATEWAY_TOKEN` is
+  not in the Gateway's environment, so no command sees it.
+
+### Approvals in the web and on Telegram
+
+Under With approval, each request (`exec.approval.requested`, received by the
+supervisor's own client with the `exec-approvals` cap) becomes an agent action
+awaiting the owner, attributed through the request's agent and session to the
+agent and conversation. A request AgentPier cannot attribute (unknown agent or
+session, or shell Off) is denied at once. The action shows the command, folder,
+agent, expiry (30 minutes) and OpenClaw's notes, with **Allow once**, **Always
+allow** and **Deny**.
+
+- The card appears in the agent chat. A turn that came from Telegram also gets the
+  three buttons in that private chat, for the owner only; the existing stale and
+  private-chat rules apply. Each decision goes to the Gateway exactly once and is
+  audited (`assistant.answered`, with the allowlist outcome).
+- Allow once runs the command once; Deny never runs it.
+- Events missed while disconnected are reconciled at every ready against
+  `exec.approval.list` and `approval.history`. A Gateway restart cancels pending
+  requests; their actions end as cancelled, never stay waiting, and a late
+  decision answers 409. The command does not run.
+
+### Always allow
+
+- **Offered by OpenClaw** (programs in system directories, such as `/usr/bin/git`):
+  OpenClaw adds an entry bound to the exact arguments and folder, plus a command
+  companion. The same command then runs without asking; other arguments ask again.
+- **AgentPier's fallback (owner decision).** OpenClaw withholds Always allow for
+  programs in folders the owner can write to (Homebrew, `~/.local/bin`, npm global
+  bins). AgentPier still offers it: it resolves the request with allow-once and
+  writes one program-path entry per program of the command, each allowing that
+  program **with any arguments**; a pipeline gets one entry per program. The plan
+  is computed when the request arrives, shown on the card before the owner
+  confirms, and written unchanged. The card warns that programs whose arguments can
+  run other commands (git hooks, aliases) are covered too, and names the
+  owner-writable programs: if one is replaced, the new version runs without asking.
+- **Never an entry** (the command is allowed once and asks again next time):
+  interpreters, shells, launchers and wrappers, package managers and build drivers
+  (a superset of OpenClaw's own lists, checked against the installed runtime by a
+  contract); inline scripts; commands with substitutions, subshells, control
+  structures, background jobs, environment assignments or variables; programs that
+  cannot be resolved to a real path. OpenClaw itself always denies commands with
+  redirections (`>` or `<`) for owner-writable programs, with or without an entry.
+- **"Unresolved" is expected, not an error.** AgentPier computes the plan when the
+  request arrives, from its own view of the file system: it resolves each program
+  through the agent's `pathPrepend` and the system directories and compares the
+  first one with OpenClaw's `resolvedPath`. When they differ (for example when a
+  tool exists in two `PATH` folders and OpenClaw picks the other one), or a program
+  cannot be found, the plan is `unresolved`: Always allow then allows the command
+  once and asks again next time.
+
+### Allowlist management
+
+The agent settings list **Always allowed commands** (`GET
+/api/assistants/:id/shell-allowlist`): the program or command, whether it allows any
+arguments or only the approved ones, who added it (AgentPier, OpenClaw, elsewhere),
+the command it was approved for where AgentPier knows it, and the last use.
+OpenClaw's command companions are folded into their program entry. **Delete**
+(`DELETE /api/assistants/:id/shell-allowlist/:entry`) removes the entry with its
+companions through `exec.approvals.set` with the current base hash; the next
+matching command asks again. Deletes are audited.
+
+### Backups and stored levels
+
+A host backup holds the agents' records and the Gateway's private state, so
+restoring it brings back each agent's stored shell level and its allowlist entries
+**without a new confirmation**. That is deliberate: the owner starts the restore
+and returns to levels and entries they confirmed before. The same holds when an
+archived permanent member is restored, and when a level is raised again over
+entries that survived an earlier lowering (entries are only removed by deleting
+them). Check the agent settings after a restore if in doubt.
+
 ## Continuous integration
 
 The `Assistant runtime` workflow runs the opt-in native contracts in a
@@ -1011,6 +1161,11 @@ follows the requalification checklist in
   qualified against a local authorization server on Streamable HTTP only, and Linux
   runs only in CI (see [MCP qualification](assistant-mcp-qualification.md#boundaries)
   and [MCP OAuth qualification](mcp-oauth-qualification.md)).
+- **Shell access:** no sandbox; commands moved to the background keep running
+  when the level goes to Off (OpenClaw offers no way to end them from outside the
+  agent); `process` actions, a real 30-minute approval expiry and allow-always
+  availability on Linux are not qualified locally (see
+  [shell qualification](assistant-shell-qualification.md#boundaries)).
 - Plain-language team authorization has the accepted limits described under Visible
   teams. Rollback or restore after a credential revocation needs a new login, and
   works on the same host only (see [runtime updates](assistant-runtime-updates.md)).

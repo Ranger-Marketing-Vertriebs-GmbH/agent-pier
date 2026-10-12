@@ -102,7 +102,16 @@ export class GatewayClient extends EventEmitter {
                     ? frame.error.code
                     : "RPC_FAILED",
                 ),
-                { answered: true },
+                {
+                  answered: true,
+                  // The Gateway's reason, only for callers that must tell one
+                  // INVALID_REQUEST from another (a stale base hash); never
+                  // logged or shown.
+                  ...(frame.error?.code === "INVALID_REQUEST" &&
+                  typeof frame.error.message === "string"
+                    ? { remoteMessage: frame.error.message.slice(0, 300) }
+                    : {}),
+                },
               ),
             );
         } else if (frame.type === "event") {

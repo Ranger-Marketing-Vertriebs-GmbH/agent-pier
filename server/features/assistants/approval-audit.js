@@ -16,7 +16,7 @@ export function decideAudited(audit, details, decide) {
       return {};
     }
   };
-  const record = (outcome, assistantId) =>
+  const record = (outcome, assistantId, extra = {}) =>
     audit?.append({
       action: "assistant.answered",
       resourceType: "assistant",
@@ -34,12 +34,22 @@ export function decideAudited(audit, details, decide) {
         revision: details.revision,
         kind: details.kind,
         ...attribution(),
+        ...extra,
       },
     });
+  // What the committed decision did beyond its value, for example an exec
+  // allowlist entry AgentPier wrote; never the command text.
+  const outcome = (result) => {
+    try {
+      return details.outcome?.(result) || {};
+    } catch {
+      return {};
+    }
+  };
   const settle = (result) => {
     // The decision is committed; a failing audit write must not report it as failed.
     try {
-      record("success", details.assistantId?.());
+      record("success", details.assistantId?.(), outcome(result));
     } catch (error) {
       console.error("Assistant approval audit failed:", error?.message);
     }

@@ -5,6 +5,9 @@ import { mobileHeaderCopy } from "../../lib/i18n/messages/app.js";
 import useAssistants from "./useAssistants.js";
 import { avatarGlyph } from "./avatar-glyph.js";
 import { activityFor, headerStatus } from "./assistant-status.js";
+import { assistantShellCopy } from "../../lib/i18n/messages/assistant-shell.js";
+import { shellLevel } from "./shell-level.js";
+import "./assistant-shell.css";
 
 // One bar for the agent chat and its settings (handoff 1d, 2e, 2f). Below 701px it
 // replaces the app's mobile header, so it carries the navigation button itself.
@@ -31,6 +34,7 @@ export default function AssistantHeader({
   const missing = status.tone === "missing";
   const settings = variant === "settings";
   const detail = member ? member.role : assistant.model.modelId;
+  const shell = shellLevel(assistant);
   return (
     <>
       <header className={`assistant-header ${variant}`}>
@@ -59,7 +63,17 @@ export default function AssistantHeader({
           {avatarGlyph(assistant.name)}
         </span>
         <div className="assistant-header-title">
-          <h1>{assistant.name}</h1>
+          <div className="assistant-header-name">
+            <h1>{assistant.name}</h1>
+            {shell !== "off" && (
+              <span
+                className={`assistant-shell-chip ${shell}`}
+                title={assistantShellCopy.badgeLabel(assistantShellCopy.levels[shell])}
+              >
+                {assistantShellCopy.badge[shell]}
+              </span>
+            )}
+          </div>
           {settings && !missing ? (
             <p className="assistant-header-sub">{copy.settingsTab}</p>
           ) : (

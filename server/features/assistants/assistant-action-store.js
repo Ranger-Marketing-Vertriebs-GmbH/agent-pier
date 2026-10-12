@@ -59,6 +59,13 @@ export class AssistantActionStore {
     if (!r) throw assistantProblem("notFound", 404);
     return JSON.parse(r.body);
   }
+  // The action reserved under an operation key, or null.
+  byKey(key) {
+    const r = this.db
+      .prepare("SELECT body FROM assistant_actions WHERE operation_key=?")
+      .get(String(key));
+    return r ? JSON.parse(r.body) : null;
+  }
   reserve(record) {
     const hash = digest({
       assistantId: record.assistantId,
@@ -79,7 +86,8 @@ export class AssistantActionStore {
       id: randomUUID(),
       revision: 1,
       createdAt: new Date().toISOString(),
-      expiresAt: Date.now() + 86400000,
+      // An exec approval carries the Gateway's own expiry.
+      expiresAt: record.expiresAt ?? Date.now() + 86400000,
     };
     this.db
       .prepare("INSERT INTO assistant_actions VALUES(?,?,?,?)")

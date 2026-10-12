@@ -17,6 +17,50 @@ export const assistants = {
     reviewed: "Ergebnis geprüft; Aktion wird nicht wiederholt",
   },
 
+  execApproval: "Shell-Befehl zur Freigabe",
+  execAgent: (name) => `Agent: ${name}`,
+  execCwd: "Ordner:",
+  execAllowOnce: "Einmal erlauben",
+  execAllowAlways: "Immer erlauben",
+  execDeny: "Ablehnen",
+  execAllowAlwaysPrograms: (programs) =>
+    `„Immer erlauben“ erlaubt diesem Agenten künftig ohne Nachfrage, jeweils mit beliebigen Argumenten: ${programs}. Manche Programme können über ihre Argumente andere Befehle ausführen, etwa git über Hooks oder Aliase; „Immer erlauben“ deckt auch das ab. Du kannst die Einträge in den Agent-Einstellungen löschen.`,
+  execWritablePrograms: (programs) =>
+    `In Ordnern, in die du schreiben kannst, liegen: ${programs}. Wird eines davon geändert oder ersetzt, führt der Agent die neue Version ohne Nachfrage aus. Befehle mit Umleitungen (> oder <) lehnt OpenClaw für solche Programme immer ab.`,
+  execAllowAlwaysOnce: (reason) =>
+    `„Immer erlauben“ erlaubt diesen Befehl nur einmal: ${reason}. Beim nächsten Mal fragt der Agent erneut.`,
+  execOnceReasons: {
+    interpreter: (program) =>
+      `${program} ist ein Interpreter, eine Shell oder ein Starter`,
+    inline: (program) => `${program} führt ein eingebettetes Skript aus`,
+    unresolved: (program) =>
+      `AgentPier kann ${program} keinem festen Programmpfad zuordnen`,
+  },
+  execOnceCommandReasons: {
+    inline: "der Befehl führt ein eingebettetes Skript aus",
+    unresolved: "AgentPier kann den Befehl keinem festen Programm zuordnen",
+    complex:
+      "der Befehl nutzt Shell-Syntax, die AgentPier keinen festen Programmen zuordnen kann, etwa Variablen, Umgebungszuweisungen, Befehlsersetzung, Subshells, Kontrollstrukturen oder Hintergrundjobs",
+  },
+  execDecided: {
+    "allow-once": "Befehl einmal erlaubt",
+    "allow-always": "Befehl immer erlaubt",
+    deny: "Befehl abgelehnt",
+  },
+  execStates: {
+    declined: "Befehl abgelehnt",
+    expired: "Freigabe abgelaufen; der Befehl wurde nicht ausgeführt",
+    cancelled: "Freigabe abgebrochen; der Befehl wurde nicht ausgeführt",
+    failed: "Freigabe fehlgeschlagen; bitte in AgentPier prüfen",
+    unknown: "Ergebnis unklar; bitte in AgentPier prüfen",
+  },
+  execAllowlistPrograms: (programs) =>
+    `Für diesen Agenten jetzt immer erlaubt, jeweils mit beliebigen Argumenten: ${programs}. Manche Programme können über ihre Argumente andere Befehle ausführen, etwa git über Hooks oder Aliase; „Immer erlauben“ deckt auch das ab. Du kannst die Einträge in den Agent-Einstellungen löschen.`,
+  execAllowlistSkipped: (reason) =>
+    `Der Befehl wurde einmal erlaubt: ${reason}. Beim nächsten Mal fragt der Agent erneut.`,
+  execAllowlistFailed:
+    "Der Befehl wurde einmal erlaubt, aber AgentPier konnte ihn nicht in die Liste erlaubter Befehle eintragen. Beim nächsten Mal fragt der Agent erneut.",
+
   reminderChannelRequired: "Verbinde zuerst einen Telegram-Chat mit diesem Agenten.",
   reminderTimezoneRequired:
     "Gib den Erinnerungszeitpunkt mit Zeitzonen-Offset an, zum Beispiel 2026-10-09T09:00:00+02:00.",
@@ -96,4 +140,10 @@ export const assistants = {
     "Agenten nutzen diesen Zugang. Eine Änderung startet ihr Gateway neu; bestätige den Neustart.",
   webToolsRestartRequired:
     "Diese Änderung an den Webwerkzeugen startet das Gateway der Agenten neu; bestätige den Neustart.",
+  shellConfirmationRequired:
+    "Mit Shell-Zugriff führt der Agent Befehle als dein Benutzerkonto auf diesem Rechner aus, auch außerhalb seines Arbeitsbereichs. Bestätige die Warnung, um den Zugriff einzuschalten.",
+  shellFullConfirmationRequired:
+    "Mit vollem Shell-Zugriff führt der Agent jeden Befehl ohne Nachfrage aus. Bestätige das ausdrücklich.",
+  allowlistEntryNotFound:
+    "Dieser Eintrag steht nicht mehr in der Liste erlaubter Befehle. Bitte neu laden.",
 };

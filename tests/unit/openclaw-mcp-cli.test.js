@@ -281,8 +281,11 @@ test("the CLI environment is the Gateway's private one without its token", (t) =
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-cli-env-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const paths = runtimePaths(dir);
-  const env = cliEnvironment(paths, "/opt/rt/node/bin/node", { HOME: "/home/user" });
+  const parent = { HOME: "/home/user", HTTPS_PROXY: "http://proxy.test:3128" };
+  const env = cliEnvironment(paths, "/opt/rt/node/bin/node", parent);
   assert.equal(env.HOME, paths.home);
+  // The proxy comes from the given parent, not from AgentPier's own environment.
+  assert.equal(env.HTTPS_PROXY, parent.HTTPS_PROXY);
   assert.equal(env.OPENCLAW_STATE_DIR, paths.state);
   assert.equal(env.OPENCLAW_CONFIG_PATH, paths.config);
   assert.ok(env.PATH.startsWith("/opt/rt/node/bin"));

@@ -191,7 +191,6 @@ test("loopback calls bypass an unreachable proxy for AgentPier and the Gateway",
   const gateway = runtimeEnvironment(
     { home: "/tmp", tmp: os.tmpdir(), state: "/s", config: "/c" },
     process.execPath,
-    "t",
     parent,
   );
   const fetchAll = async (env) =>

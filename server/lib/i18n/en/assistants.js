@@ -17,6 +17,48 @@ export const assistants = {
     reviewed: "Outcome checked; action will not be retried",
   },
 
+  execApproval: "Shell command awaiting approval",
+  execAgent: (name) => `Agent: ${name}`,
+  execCwd: "Folder:",
+  execAllowOnce: "Allow once",
+  execAllowAlways: "Always allow",
+  execDeny: "Deny",
+  execAllowAlwaysPrograms: (programs) =>
+    `"Always allow" lets this agent run these without asking from now on, each with any arguments: ${programs}. Some programs can run other commands through their arguments, such as git hooks or aliases; "Always allow" covers that too. You can delete the entries in the agent settings.`,
+  execWritablePrograms: (programs) =>
+    `In folders you can write to: ${programs}. If one of them is changed or replaced, the agent runs the new version without asking. OpenClaw always denies commands with redirections (> or <) for such programs.`,
+  execAllowAlwaysOnce: (reason) =>
+    `"Always allow" allows this command only once: ${reason}. The agent will ask again next time.`,
+  execOnceReasons: {
+    interpreter: (program) => `${program} is an interpreter, shell or launcher`,
+    inline: (program) => `${program} runs an inline script`,
+    unresolved: (program) => `AgentPier cannot tie ${program} to a fixed program path`,
+  },
+  execOnceCommandReasons: {
+    inline: "the command runs an inline script",
+    unresolved: "AgentPier cannot tie the command to a fixed program",
+    complex:
+      "the command uses shell syntax AgentPier cannot tie to fixed programs, such as variables, environment assignments, command substitution, subshells, control structures or background jobs",
+  },
+  execDecided: {
+    "allow-once": "Command allowed once",
+    "allow-always": "Command always allowed",
+    deny: "Command denied",
+  },
+  execStates: {
+    declined: "Command denied",
+    expired: "Approval expired; the command did not run",
+    cancelled: "Approval cancelled; the command did not run",
+    failed: "Approval failed; review in AgentPier",
+    unknown: "Outcome unknown; review in AgentPier",
+  },
+  execAllowlistPrograms: (programs) =>
+    `Now always allowed for this agent, each with any arguments: ${programs}. Some programs can run other commands through their arguments, such as git hooks or aliases; "Always allow" covers that too. You can delete the entries in the agent settings.`,
+  execAllowlistSkipped: (reason) =>
+    `The command was allowed once: ${reason}. The agent will ask again next time.`,
+  execAllowlistFailed:
+    "The command was allowed once, but AgentPier could not add it to the allowlist. The agent will ask again next time.",
+
   reminderChannelRequired: "Connect a Telegram chat to this agent first.",
   reminderTimezoneRequired:
     "Give the reminder time with a time zone offset, for example 2026-10-09T09:00:00+02:00.",
@@ -87,4 +129,10 @@ export const assistants = {
     "Agents use this connection. Changing it restarts their Gateway; confirm the restart.",
   webToolsRestartRequired:
     "This web tool change restarts the agents' Gateway; confirm the restart.",
+  shellConfirmationRequired:
+    "With shell access the agent runs commands as your user account on this computer, including outside its workspace. Confirm the warning to turn access on.",
+  shellFullConfirmationRequired:
+    "With full shell access the agent runs every command without asking. Confirm this explicitly.",
+  allowlistEntryNotFound:
+    "This entry is no longer on the list of allowed commands. Please reload.",
 };

@@ -204,20 +204,11 @@ test(
         .map((m) => String(m.content))
         .at(index);
 
-    // AgentPier's own client declares no approval caps: nothing can answer, so
-    // OpenClaw denies inline instead of waiting.
-    const headless = await run("headless");
-    const done = await client.call(
-      "agent.wait",
-      { runId: headless.sent.runId, timeoutMs: 45000 },
-      { timeoutMs: 50000 },
-    );
-    assert.equal(done.status, "ok");
-    t.diagnostic(`headless tool result=${JSON.stringify(toolResult(-1))}`);
-    assert.match(toolResult(-1), /cannot wait for interactive exec approval/);
-    assert.equal(fs.existsSync(marker), false);
-
-    // A client declaring the "exec-approvals" cap receives the request.
+    // AgentPier's own client declares the "exec-approvals" cap (AGENTPIER-25), so
+    // OpenClaw waits for a decision instead of denying inline; a second client
+    // declaring the cap receives the same request.
+    const own = [];
+    t.after(client.subscribe((frame) => own.push(frame)));
     const approver = new GatewayClient({
       url: client.url,
       token: client.token,
@@ -235,6 +226,13 @@ test(
       if (!requested) await delay(200);
     }
     assert.ok(requested, "an approval request arrived");
+    assert.ok(
+      own.some(
+        (e) =>
+          e.event === "exec.approval.requested" && e.payload.id === requested.payload.id,
+      ),
+      "AgentPier's own client received it",
+    );
     t.diagnostic(`requested=${JSON.stringify(requested.payload)}`);
     const { id, request } = requested.payload;
     assert.equal(request.sessionKey, interactive.session.key);

@@ -63,6 +63,7 @@ test("English project grants and exact action approvals link existing coding run
         projects: [{ id: "project", name: "Demo project" }],
         pipelines: [{ id: "pipeline", name: "Build" }],
       };
+    else if (url.pathname.endsWith("/shell-allowlist")) body = { entries: [] };
     else if (url.pathname.endsWith("/access")) {
       if (method === "PUT") policy = { ...route.request().postDataJSON(), revision: 1 };
       body = policy;

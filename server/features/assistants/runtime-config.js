@@ -6,6 +6,7 @@ import { guardedTools, memoryTools } from "./native-capabilities.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { hardenedDefaults } from "./openclaw-config/locked-core.js";
 import { applyOverrides } from "./openclaw-config/overrides.js";
+import { applyShell, shellSections, withoutShell } from "./openclaw-config/shell.js";
 import { applyMcp, mcpSections } from "./openclaw-config/mcp-servers.js";
 import {
   applyWebTools,
@@ -67,6 +68,8 @@ export function compileOpenClawConfig({
   tls,
   // { search, browser, searchPlugins }; see openclaw-config/web-tools.js.
   webTools,
+  // { pathPrepend }: the owner's login PATH for agents with shell; see exec-shell.js.
+  shell,
   // { servers, bindings, secrets }; see openclaw-config/mcp-servers.js readMcpInputs.
   mcp,
 }) {
@@ -93,7 +96,16 @@ export function compileOpenClawConfig({
   delete config.secrets;
   delete config.env;
   const enabled = !!(teams?.directory && teams?.connection);
-  config.tools = { allow: enabled ? teamTools : ["session_status"], toolSearch: false };
+  // Without a mode the gateway host runs exec in "full"; "deny" is the default every
+  // agent without its own override gets (openclaw-config/shell.js).
+  config.tools = {
+    allow: enabled ? teamTools : ["session_status"],
+    toolSearch: false,
+    exec: { mode: "deny" },
+  };
+  // Only a profile compiled below can regain shell grants.
+  for (const entry of Object.values(config.agents.entries || config.agents.list || {}))
+    withoutShell(entry);
   config.plugins = {
     slots: { memory: "none" },
     ...(enabled
@@ -144,6 +156,7 @@ export function compileOpenClawConfig({
     };
     // Unused or unavailable web capabilities leave every section as above.
     applyWebTools(config, webToolsSections({ profiles: teams.profiles, webTools, port }));
+    applyShell(config, shellSections({ profiles: teams.profiles }));
     // Without bindings to usable servers nothing is added.
     const mcpServers = mcpSections({ profiles: teams.profiles, ...mcp });
     applyMcp(config, mcpServers);
@@ -163,6 +176,7 @@ export function compileOpenClawConfig({
           nativeReady: true,
           guardProven: false,
           available,
+          pathPrepend: shell?.pathPrepend,
           mcpTools: mcpServers.agentTools[profile.runtimeAgentId],
         }),
       );
@@ -217,7 +231,7 @@ export function prepareRuntimeConfig(
   paths,
   port,
   teams,
-  { maintenance = false, tls, overrides = [], webTools, mcp } = {},
+  { maintenance = false, tls, overrides = [], webTools, shell, mcp } = {},
 ) {
   const existing = readJSON(paths.config, null);
   const token = existing?.gateway?.auth?.token || randomBytes(32).toString("hex");
@@ -233,13 +247,25 @@ export function prepareRuntimeConfig(
       runtime: { maintenance },
       tls,
       webTools,
+      shell,
       mcp,
     }),
   );
   return token;
 }
 
-export function runtimeEnvironment(paths, nodePath, token, parent = process.env) {
+/**
+ * The Gateway's process environment. `shell` is the exec shell wrapper
+ * (exec-shell.js); exec children inherit this environment, so the Gateway token is
+ * not in it: the Gateway reads it from gateway.auth.token and AgentPier's client
+ * holds its own copy.
+ */
+export function runtimeEnvironment(
+  paths,
+  nodePath,
+  parent = process.env,
+  { shell } = {},
+) {
   return {
     ...proxyEnvironment(parent),
     PATH: `${path.dirname(nodePath)}${path.delimiter}/usr/bin${path.delimiter}/bin`,
@@ -253,7 +279,7 @@ export function runtimeEnvironment(paths, nodePath, token, parent = process.env)
     OPENCLAW_NO_RESPAWN: "1",
     OPENCLAW_NO_AUTO_UPDATE: "1",
     DO_NOT_TRACK: "1",
-    OPENCLAW_GATEWAY_TOKEN: token,
+    ...(shell && { SHELL: shell }),
   };
 }
 export { proxyEnvironment, proxyVariables } from "../../lib/proxy-environment.js";

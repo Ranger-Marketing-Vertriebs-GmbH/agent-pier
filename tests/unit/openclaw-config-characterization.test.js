@@ -28,7 +28,13 @@ test("without teams the Gateway gets only session_status and no plugins", (t) =>
   const paths = fixture(t);
   prepareRuntimeConfig(paths, 1234);
   const config = readJSON(paths.config);
-  assert.deepEqual(config.tools, { allow: ["session_status"], toolSearch: false });
+  // Deliberately changed with agent shell access: the global exec floor is "deny",
+  // since OpenClaw's gateway host otherwise defaults exec to "full".
+  assert.deepEqual(config.tools, {
+    allow: ["session_status"],
+    toolSearch: false,
+    exec: { mode: "deny" },
+  });
   assert.deepEqual(config.plugins, { slots: { memory: "none" } });
   assert.equal(config.cron.enabled, false);
   assert.deepEqual(config.agents.defaults.skills, []);

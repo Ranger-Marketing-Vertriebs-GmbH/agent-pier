@@ -85,9 +85,14 @@ test("createAssistantServices returns a graph whose every reference is connected
     "hostCapacity",
     "nativeReady",
     "webToolsAvailable",
+    "shellPathPrepend",
     "mcpTools",
   ])
     assert.equal(typeof assistants.config[hook], "function", hook);
+  // Live applies prepend the PATH the running Gateway was started with.
+  assistantRuntime.shell = { pathPrepend: ["/owner/bin"] };
+  assert.deepEqual(assistants.config.shellPathPrepend(), ["/owner/bin"]);
+  assistantRuntime.shell = null;
   // MCP globs follow the last start's snapshot; before any start, none.
   const agent = { runtimeAgentId: "ap-x" };
   assert.deepEqual(assistants.config.mcpTools(agent), []);

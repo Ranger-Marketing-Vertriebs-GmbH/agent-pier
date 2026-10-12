@@ -318,7 +318,7 @@ export async function qualifyFreshInstallation() {
     assert.equal(installed.nodeVersion, runtimeManifest.nodeVersion);
     assert.ok(runtimeManifest.dependencyLockSha256);
     assert.equal(receipt.dependencyLockSha256, runtimeManifest.dependencyLockSha256);
-    const versionEnv = runtimeEnvironment(paths, installed.nodePath, "qualification");
+    const versionEnv = runtimeEnvironment(paths, installed.nodePath);
     const version = (args) =>
       runQualificationCommand(installed.nodePath, args, {
         cwd: paths.root,

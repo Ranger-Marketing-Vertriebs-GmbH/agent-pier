@@ -18,12 +18,16 @@ import AssistantCapabilities, { capabilityDefaults } from "./AssistantCapabiliti
 import AgentMcpServers from "../mcp-servers/AgentMcpServers.jsx";
 import RestartConfirmation from "./RestartConfirmation.jsx";
 import { restartRequired } from "../provider-connections/restart-confirmation.js";
+import AssistantShell from "./AssistantShell.jsx";
+import { SHELL_CONFIRMATION_REQUIRED, shellEligible, shellLevel } from "./shell-level.js";
+import { assistantShellCopy } from "../../lib/i18n/messages/assistant-shell.js";
 const conflictLabels = {
   name: () => copy.name,
   instructions: () => copy.instructions,
   connectionId: () => copy.connection,
   modelId: () => copy.model,
   capabilities: () => copy.personal.capabilities,
+  shell: () => assistantShellCopy.title,
 };
 export default function AssistantSettings({ assistant, onSaved, onCancel, navigate }) {
   const { models, refresh, runtime } = useAssistants();
@@ -33,8 +37,9 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
     connectionId: assistant?.model.connectionId || "",
     modelId: assistant?.model.modelId || "",
     capabilities: { ...capabilityDefaults, ...assistant?.capabilities },
+    shell: shellLevel(assistant),
   });
-  const { name, instructions, connectionId, modelId, capabilities } = form.values;
+  const { name, instructions, connectionId, modelId, capabilities, shell } = form.values;
   const setName = (value) => form.set("name", value),
     setInstructions = (value) => form.set("instructions", value),
     setConnection = (value) => form.set("connectionId", value),
@@ -42,6 +47,9 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [restart, setRestart] = useState(null);
+  // Confirmations the owner gave for this save, and the one the server asks next.
+  const [confirmed, setConfirmed] = useState({});
+  const [shellConfirmation, setShellConfirmation] = useState("");
   const personal = !assistant?.teamMemberId || assistant.lifetime === "permanent";
   async function confirmInstructions() {
     setBusy(true);
@@ -59,30 +67,41 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
       setBusy(false);
     }
   }
-  async function save(event, confirmRestart = false) {
+  function resetConfirmations() {
+    setRestart(null);
+    setShellConfirmation("");
+    setConfirmed({});
+  }
+  async function save(event, confirm = {}) {
     event?.preventDefault();
     setBusy(true);
     setError("");
+    const flags = { ...(event ? {} : confirmed), ...confirm };
     try {
       const input = {
         name,
         instructions,
         model: { connectionId, modelId },
         ...(personal ? { capabilities } : {}),
+        // Only a changed level is sent: the server asks to confirm a raise.
+        ...(shellEligible(assistant) && shell !== shellLevel(assistant) ? { shell } : {}),
       };
       const result = assistant
         ? await assistantApi.update(assistant.id, {
             ...input,
             revision: assistant.revision,
-            ...(confirmRestart ? { confirmRestart: true } : {}),
+            ...flags,
           })
-        : await assistantApi.create(input);
-      setRestart(null);
+        : await assistantApi.create({ ...input, ...flags });
+      resetConfirmations();
       await refresh();
       onSaved(result);
     } catch (e) {
       // The owner confirms first; the same body is then sent again.
-      if (assistant && restartRequired(e)) setRestart(e.affected || {});
+      setConfirmed(flags);
+      if (e.code === SHELL_CONFIRMATION_REQUIRED && e.required?.length)
+        setShellConfirmation(e.required[0]);
+      else if (assistant && restartRequired(e)) setRestart(e.affected || {});
       else setError(e.message);
     } finally {
       setBusy(false);
@@ -154,17 +173,36 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
             browser={runtime?.browser}
             creating={!assistant}
             onChange={(next) => {
-              setRestart(null);
+              resetConfirmations();
               form.set("capabilities", next);
             }}
           />
         )}
+        <AssistantShell
+          assistant={assistant}
+          shell={shell}
+          busy={busy}
+          confirmation={shellConfirmation}
+          onChange={(next) => {
+            resetConfirmations();
+            form.set("shell", next);
+          }}
+          onConfirm={() => {
+            setShellConfirmation("");
+            save(null, { [shellConfirmation]: true });
+          }}
+          onCancel={() => {
+            // The raised level was not confirmed: back to the saved one.
+            resetConfirmations();
+            form.set("shell", shellLevel(assistant));
+          }}
+        />
         {restart && (
           <RestartConfirmation
             affected={restart}
             busy={busy}
-            onConfirm={() => save(null, true)}
-            onCancel={() => setRestart(null)}
+            onConfirm={() => save(null, { confirmRestart: true })}
+            onCancel={resetConfirmations}
           />
         )}
         <button

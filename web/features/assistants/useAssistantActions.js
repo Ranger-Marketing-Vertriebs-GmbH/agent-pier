@@ -44,6 +44,8 @@ export default function useAssistantActions(assistantId, enabled = true) {
         await load();
       } catch (e) {
         setError(e.message);
+        // A decided or expired request (409) leaves the list instead of waiting for the poll.
+        if (e.status === 409) await load();
       }
     },
     [load],

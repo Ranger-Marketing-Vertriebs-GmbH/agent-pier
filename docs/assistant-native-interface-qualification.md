@@ -67,9 +67,12 @@ proves this with a write that lands between the helper's read and its patch.
 **Exec approvals.** With `tools.exec.mode: "ask"` and `exec` allowed, the
 deterministic model calls `exec` with `touch <marker>`:
 
-- With only AgentPier's own client connected (no client caps), OpenClaw has no
-  approval route; OpenClaw denies the call inline. The tool result starts with
-  `exec denied: Headless runs cannot wait for interactive exec approval.`
+- Without any client declaring an approval cap, OpenClaw has no approval route and
+  denies the call inline; the tool result starts with `exec denied: Headless runs
+cannot wait for interactive exec approval.` This was observed before
+  AGENTPIER-25. Since then AgentPier's own client declares `exec-approvals` (see
+  [shell qualification](assistant-shell-qualification.md)), so requests wait for a
+  decision; the contract asserts that AgentPier's client receives them.
 - A client declaring the handshake cap `exec-approvals` (or `approvals`) with
   `operator.admin` or `operator.approvals` is an approval route. It receives
   `exec.approval.requested` with

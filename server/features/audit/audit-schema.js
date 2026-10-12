@@ -98,15 +98,31 @@ export function auditEvent(input) {
   if (["codex", "claude", "opencode", "shell", "gh"].includes(details.tool))
     event.details.tool = details.tool;
   if (
-    ["permission", "question", "gate", "completion", "team", "action"].includes(
-      details.kind,
-    )
+    [
+      "permission",
+      "question",
+      "gate",
+      "completion",
+      "team",
+      "action",
+      "shell",
+      "allowlist",
+      "exec",
+    ].includes(details.kind)
   )
     event.details.kind = details.kind;
   if (
-    ["allow", "deny", "answer", "handoff", "approve", "decline", "review"].includes(
-      details.decision,
-    )
+    [
+      "allow",
+      "deny",
+      "answer",
+      "handoff",
+      "approve",
+      "decline",
+      "review",
+      "allow-once",
+      "allow-always",
+    ].includes(details.decision)
   )
     event.details.decision = details.decision;
   // Assistant approval decisions name the deciding actor and surface.
@@ -114,6 +130,29 @@ export function auditEvent(input) {
   if (["ui", "telegram", "mcp", "tool"].includes(details.channel))
     event.details.channel = details.channel;
   if (details.actionId !== undefined) event.details.actionId = auditId(details.actionId);
+  // Assistant shell changes name the levels and the allowlist entry removed.
+  for (const key of ["shellFrom", "shellTo"])
+    if (["off", "approval", "full"].includes(details[key]))
+      event.details[key] = details[key];
+  if (details.entryId !== undefined) event.details.entryId = auditId(details.entryId);
+  // An exec allow-always AgentPier answered: what it sent and what it wrote, never
+  // the command (exec-decisions.js).
+  if (details.resolvedAs === "allow-once") event.details.resolvedAs = details.resolvedAs;
+  if (["written", "skipped", "failed"].includes(details.allowlist))
+    event.details.allowlist = details.allowlist;
+  if (
+    ["interpreter", "inline", "unresolved", "complex"].includes(details.allowlistReason)
+  )
+    event.details.allowlistReason = details.allowlistReason;
+  if (
+    typeof details.allowlistError === "string" &&
+    /^[A-Za-z0-9_]{1,60}$/.test(details.allowlistError)
+  )
+    event.details.allowlistError = details.allowlistError;
+  if (Array.isArray(details.allowlistEntryIds) && details.allowlistEntryIds.length <= 50)
+    event.details.allowlistEntryIds = details.allowlistEntryIds.filter(
+      (id) => typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(id),
+    );
   // Pipeline overrides name the stage, the result they overrode and what followed.
   if (input.resourceType === "pipeline") {
     if (details.stageId !== undefined) event.details.stageId = auditId(details.stageId);
@@ -134,7 +173,8 @@ export function auditEvent(input) {
     event.details.failReason = details.failReason;
   for (const key of ["requestedBy", "teamId"])
     if (details[key] !== undefined) event.details[key] = auditId(details[key]);
-  if (typeof details.enabled === "boolean") event.details.enabled = details.enabled;
+  for (const key of ["enabled", "pending"])
+    if (typeof details[key] === "boolean") event.details[key] = details[key];
   if (["0.0.0.0", "::"].includes(details.bind)) event.details.bind = details.bind;
   for (const key of ["statusCode", "count", "revision", "skipped"])
     if (Number.isSafeInteger(details[key]) && details[key] >= 0 && details[key] <= 1e9)

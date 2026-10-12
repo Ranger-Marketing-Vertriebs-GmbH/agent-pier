@@ -85,7 +85,8 @@ async function setup(page) {
         };
       }
       body = state.channel;
-    } else return route.fallback();
+    } else if (p.endsWith("/shell-allowlist")) body = { entries: [] };
+    else return route.fallback();
     return route.fulfill({ json: body });
   });
   return state;
@@ -281,6 +282,9 @@ test("mobile recovery keeps uncertain team notifications separate from original 
       reviewed = true;
       return route.fulfill({ json: [] });
     },
+  );
+  await page.route("**/api/assistants/home/shell-allowlist", (route) =>
+    route.fulfill({ json: { entries: [] } }),
   );
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(baseURL + "/agents/home/settings");

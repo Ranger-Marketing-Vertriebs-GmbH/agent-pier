@@ -200,6 +200,7 @@ export const assistantCopy = {
   settingsSections: "Settings sections",
   sections: {
     profile: "Profile",
+    shell: "Shell",
     access: "Access",
     memory: "Memory",
     reminders: "Reminders",

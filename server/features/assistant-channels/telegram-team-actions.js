@@ -55,10 +55,10 @@ export class TelegramTeamActions {
       entry.source.userId !== channel.userId
     )
       return answer(messages.teamDecisionStale);
-    let text;
+    let text, decided;
     try {
       if (entry.kind === "action-approval") {
-        await c.assistants.workflows.decide(
+        decided = await c.assistants.workflows.decide(
           action.proposalId,
           { revision: action.revision, decision: action.decision },
           { kind: "telegram", channelId, chatId: channel.chatId, userId: channel.userId },
@@ -69,12 +69,7 @@ export class TelegramTeamActions {
           { revision: action.revision, decision: action.decision, lifetime: "task" },
           { kind: "telegram", channelId, chatId: channel.chatId, userId: channel.userId },
         );
-      text =
-        entry.kind === "action-approval"
-          ? messages.actionStates[action.decision === "approve" ? "approved" : "declined"]
-          : action.decision === "approve"
-            ? messages.teamApproved
-            : messages.teamDeclined;
+      text = decisionText(messages, entry, action, decided);
       if (entry.diagnostic === "DECISION_FAILED")
         try {
           c.outbox.transition(entry.id, entry.state, { diagnostic: null });
@@ -93,4 +88,16 @@ export class TelegramTeamActions {
     }
     await answer(text);
   }
+}
+// The callback answer for a decision that was saved.
+function decisionText(messages, entry, action, decided) {
+  if (decided?.payload?.action === "exec") {
+    const allowlist = decided.result?.allowlist;
+    return messages.execDecided[
+      allowlist && !allowlist.written ? "allow-once" : action.decision
+    ];
+  }
+  if (entry.kind === "action-approval")
+    return messages.actionStates[action.decision === "approve" ? "approved" : "declined"];
+  return action.decision === "approve" ? messages.teamApproved : messages.teamDeclined;
 }

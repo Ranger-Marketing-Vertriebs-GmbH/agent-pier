@@ -9,6 +9,7 @@ import {
   mcpSnapshot,
   readMcpInputs,
 } from "./openclaw-config/mcp-servers.js";
+import { applyShell, shellSections } from "./openclaw-config/shell.js";
 import { nativeTools } from "./runtime-config.js";
 import { temporaryMember } from "./team-presentation.js";
 
@@ -253,11 +254,12 @@ export class McpChanges {
     const sections = mcpSections({ profiles, ...inputs });
     const snapshot = mcpSnapshot(sections);
     if (snapshot.signature === running.signature) return false;
-    // applyMcp on the start's global list: `mcp` and `tools.allow` as a start writes.
-    const target = applyMcp(
-      { tools: { allow: [...nativeTools, ...(runtime.webTools?.tools || [])] } },
-      sections,
-    );
+    // applyMcp on the start's global list: `mcp` and `tools.allow` as a start writes,
+    // including the shell tools while some agent has shell (they apply hot).
+    const global = {
+      tools: { allow: [...nativeTools, ...(runtime.webTools?.tools || [])] },
+    };
+    const target = applyMcp(applyShell(global, shellSections({ profiles })), sections);
     const adoption = watchConfigAdoption(runtime.client, this.adoption);
     try {
       adoption.mark();
