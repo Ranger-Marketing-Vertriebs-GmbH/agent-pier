@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import { digest, folder, readFile, readJson, members } from "./files.js";
 import { problem } from "../../lib/storage.js";
 import {
+  mcpServersPresent,
   mcpStoreMember,
   mcpValuesMember,
   sanitizeMcpStore,
@@ -126,7 +127,7 @@ export function capture({
         consistency: "sqlite-snapshot",
       });
     }
-    if (fs.existsSync(path.join(dataDir, mcpStoreMember))) {
+    if (mcpServersPresent(dataDir)) {
       const startedAt = new Date().toISOString();
       let withheld;
       files.push(
