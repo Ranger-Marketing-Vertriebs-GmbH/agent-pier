@@ -27,6 +27,7 @@ import { inspected } from "./inspection.js";
 import { RestoreUploads } from "./restore-upload.js";
 import { SEAL_MEMBER, sealRecord, Unsealer } from "./history-seal.js";
 import { claim } from "./work-claims.js";
+import { stagePath } from "./stage-path.js";
 
 // Histories read line by line: an archived prefix of them stays valid.
 const lineBased = /\.(?:jsonl|screen)$/;
@@ -56,7 +57,7 @@ function write(files, target, credentials, version) {
   for (const member of files) {
     if (!allowed(member.path, credentials, version))
       throw problem(serverMessages.backups.unexpectedComponent);
-    const file = path.join(target, member.path);
+    const file = stagePath(target, member.path);
     folder(path.dirname(file));
     try {
       fs.writeFileSync(file, Buffer.from(member.content, "base64"), {
@@ -213,7 +214,7 @@ async function stageFile(archive, directory, { passphrase, inspect }) {
         }
         if (inspect) return null;
         return {
-          file: path.join(directory, seal.path),
+          file: stagePath(directory, seal.path),
           unseal: new Unsealer(seal, member.size),
         };
       }
@@ -225,7 +226,7 @@ async function stageFile(archive, directory, { passphrase, inspect }) {
         leftOut.push(member.path);
         return null;
       }
-      return { file: path.join(directory, member.path) };
+      return { file: stagePath(directory, member.path) };
     },
   });
   validateAssistantManifest(header.manifest.assistants, publicPaths, (name) =>
