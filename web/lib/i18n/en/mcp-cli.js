@@ -36,6 +36,9 @@ export const mcpCliCopy = {
   oauthConnected: (cli) => `Logged in in ${cli}`,
   oauthLogin: (cli, command) => `Log in once in ${cli}: run ${command}`,
   oauthUnknown: (cli, command) => `If ${cli} asks for a login: run ${command}`,
+  oauthLoginSession: (cli, command) => `Log in once: open ${command} in ${cli}`,
+  oauthUnknownSession: (cli, command) =>
+    `If ${cli} asks for a login: open ${command} in ${cli}`,
   agentsUsing: (names) => `Agents: ${names}`,
   clisUsing: (names) => `CLIs: ${names}`,
   unused: "Not in use yet",
@@ -62,6 +65,4 @@ export const mcpCliCopy = {
   stdioCliWarning:
     "A stdio server runs this command with your user rights. Every session of the selected CLIs starts it, also when you start the CLI in a terminal. Only add commands you trust.",
   stdioCliConfirm: "Confirm and save",
-  cliSaveFailed: (error) =>
-    `The server was saved, but its CLIs could not be updated: ${error}`,
 };

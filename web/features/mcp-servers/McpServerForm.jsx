@@ -4,7 +4,6 @@ import Segment from "../../components/Segment.jsx";
 import SidePanel from "../../components/SidePanel.jsx";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
 import { assistantApi } from "../assistants/assistant-api.js";
-import { cliApi } from "./cli-api.js";
 import { cliSupport } from "./cli-support.js";
 import McpCliChoices from "./McpCliChoices.jsx";
 import McpAuthFields, { OAuthSwitchConfirmation } from "./McpAuthFields.jsx";
@@ -49,8 +48,7 @@ export default function McpServerForm({ server, onSaved, close }) {
   const wanted = clis.filter((cli) => cliSupport(cli, target).supported);
   const before = server?.clis || [];
   const added = wanted.filter((cli) => !before.includes(cli));
-  const kept = before.filter((cli) => wanted.includes(cli));
-  const removed = before.length - kept.length;
+  const clisChanged = added.length > 0 || wanted.length !== before.length;
   async function submit(confirmStdio = false, confirmSwitch = false) {
     if (dropsStoredHeaders(draft, server) && !confirmSwitch) {
       setSwitching(true);
@@ -66,24 +64,16 @@ export default function McpServerForm({ server, onSaved, close }) {
     setBusy(true);
     setError("");
     try {
-      // The server refuses a change a bound CLI cannot run, so a CLI the change rules
-      // out (or the owner dropped) is unbound first.
-      if (server && removed) await cliApi.setClis(server.id, kept);
+      // One request: the server stores the definition and its CLIs together or neither.
       const body = {
         ...requestBody(draft, server),
+        ...(clisChanged ? { clis: wanted } : {}),
         ...(confirmStdio ? { confirmStdio } : {}),
       };
       const saved = server
         ? await assistantApi.updateMcpServer(server.id, body)
         : await assistantApi.createMcpServer(body);
-      let cliError = "";
-      if (added.length)
-        try {
-          await cliApi.setClis(saved.id, wanted, confirmStdio);
-        } catch (e) {
-          cliError = e.message;
-        }
-      await onSaved(cliError ? { ...saved, cliError } : saved);
+      await onSaved(saved);
     } catch (e) {
       if (stdioConfirmationRequired(e)) setConfirming(true);
       else setError(e.message);

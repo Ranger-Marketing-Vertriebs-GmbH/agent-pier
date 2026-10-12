@@ -90,17 +90,16 @@ test("the form offers coding CLIs, explains a disabled one and saves the choice"
   state.handle = async ({ route, request, path, body }) => {
     if (path === "/api/mcp-servers" && request.method() === "POST") {
       state.servers.push(
-        header({ name: body.name, transport: body.transport, url: body.url }),
+        bound({
+          name: body.name,
+          transport: body.transport,
+          url: body.url,
+          clis: body.clis,
+          cliStatus: { claude: { status: "written" } },
+          users: { agents: [], clis: body.clis },
+        }),
       );
       return route.fulfill({ status: 201, json: state.servers[0] });
-    }
-    if (path === "/api/mcp-servers/s1/clis" && request.method() === "PUT") {
-      state.servers[0] = bound({
-        clis: body.clis,
-        cliStatus: { claude: { status: "written" } },
-        users: { agents: [], clis: body.clis },
-      });
-      return route.fulfill({ json: state.servers[0] });
     }
     return false;
   };
@@ -118,7 +117,12 @@ test("the form offers coding CLIs, explains a disabled one and saves the choice"
   await dialog.getByRole("checkbox", { name: "Claude Code" }).check();
   await dialog.getByRole("button", { name: "Save server" }).click();
   await expect(dialog).toHaveCount(0);
-  expect(state.requests.find((r) => r.path === "/api/mcp-servers/s1/clis").body).toEqual({
+  const writes = state.requests.filter((r) => r.method !== "GET");
+  expect(writes).toHaveLength(1);
+  expect(writes[0].body).toMatchObject({
+    name: "docs",
+    transport: "sse",
+    url: "https://mcp.example.test/sse",
     clis: ["claude"],
   });
   await expect(page.getByText("Claude Code: written")).toBeVisible();
@@ -135,6 +139,7 @@ test("a working directory rules out Claude Code only", async ({ page }) => {
   await dialog.getByLabel("Working directory").fill("/tmp");
   await expect(claude).toBeDisabled();
   await expect(claude).not.toBeChecked();
+  await expect(claude).toHaveCSS("opacity", "0.5");
   await expect(dialog.getByText(/^Claude Code cannot start/)).toBeVisible();
   await expect(dialog.getByRole("checkbox", { name: "Codex" })).toBeEnabled();
   await expect(dialog.getByRole("checkbox", { name: "OpenCode" })).toBeEnabled();
@@ -159,8 +164,6 @@ test("a local command for a CLI is confirmed before anything is saved", async ({
       );
       return route.fulfill({ status: 201, json: state.servers[0] });
     }
-    if (path === "/api/mcp-servers/s1/clis")
-      return route.fulfill({ json: bound({ transport: "stdio", clis: body.clis }) });
     return false;
   };
   await page.goto(baseURL + "/accounts");
@@ -184,17 +187,13 @@ test("a local command for a CLI is confirmed before anything is saved", async ({
   expect(state.requests.filter((r) => r.method !== "GET")).toHaveLength(0);
   await dialog.getByRole("button", { name: "Confirm and save" }).click();
   await expect(dialog).toHaveCount(0);
-  expect(state.requests.find((r) => r.method === "POST").body.confirmStdio).toBe(true);
-  expect(state.requests.find((r) => r.method === "PUT").body).toEqual({
-    clis: ["codex"],
-    confirmStdio: true,
-  });
+  const writes = state.requests.filter((r) => r.method !== "GET");
+  expect(writes).toHaveLength(1);
+  expect(writes[0].body).toMatchObject({ clis: ["codex"], confirmStdio: true });
 });
 
-test("an edit that rules out a bound CLI unbinds it before the server changes", async ({
-  page,
-}) => {
-  const stdio = bound({
+const stdioServer = () =>
+  bound({
     transport: "stdio",
     url: undefined,
     command: "/usr/bin/true",
@@ -203,14 +202,14 @@ test("an edit that rules out a bound CLI unbinds it before the server changes", 
     envNames: [],
     cliStatus: { claude: { status: "written" }, codex: { status: "written" } },
   });
-  const state = await setup(page, { servers: [stdio] });
+
+test("an edit that rules out a bound CLI saves both in one request", async ({ page }) => {
+  const state = await setup(page, { servers: [stdioServer()] });
   state.handle = async ({ route, request, path, body }) => {
-    if (path === "/api/mcp-servers/s1/clis") {
-      state.servers[0] = { ...state.servers[0], clis: body.clis };
+    if (path === "/api/mcp-servers/s1" && request.method() === "PUT") {
+      state.servers[0] = { ...state.servers[0], cwd: body.cwd, clis: body.clis };
       return route.fulfill({ json: state.servers[0] });
     }
-    if (path === "/api/mcp-servers/s1" && request.method() === "PUT")
-      return route.fulfill({ json: { ...state.servers[0], cwd: body.cwd } });
     return false;
   };
   await page.goto(baseURL + "/accounts");
@@ -220,11 +219,31 @@ test("an edit that rules out a bound CLI unbinds it before the server changes", 
   await dialog.getByRole("button", { name: "Save server" }).click();
   await expect(dialog).toHaveCount(0);
   const writes = state.requests.filter((r) => r.method !== "GET");
-  expect(writes.map((r) => `${r.method} ${r.path}`)).toEqual([
-    "PUT /api/mcp-servers/s1/clis",
-    "PUT /api/mcp-servers/s1",
-  ]);
-  expect(writes[0].body).toEqual({ clis: ["codex"] });
+  expect(writes.map((r) => `${r.method} ${r.path}`)).toEqual(["PUT /api/mcp-servers/s1"]);
+  expect(writes[0].body).toMatchObject({ cwd: "/tmp", clis: ["codex"] });
+});
+
+test("a refused edit keeps the form and changes no CLI", async ({ page }) => {
+  const state = await setup(page, { servers: [stdioServer()] });
+  state.handle = async ({ route, request, path }) => {
+    if (path === "/api/mcp-servers/s1" && request.method() === "PUT")
+      return route.fulfill({
+        status: 400,
+        json: { error: "Das Arbeitsverzeichnis muss ein absoluter Pfad sein." },
+      });
+    return false;
+  };
+  await page.goto(baseURL + "/accounts");
+  await page.getByRole("button", { name: "Edit docs" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Working directory").fill("relative");
+  await dialog.getByRole("checkbox", { name: "Codex" }).uncheck();
+  await dialog.getByRole("button", { name: "Save server" }).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await expect(dialog.getByRole("checkbox", { name: "Claude Code" })).toBeDisabled();
+  const writes = state.requests.filter((r) => r.method !== "GET");
+  expect(writes.map((r) => `${r.method} ${r.path}`)).toEqual(["PUT /api/mcp-servers/s1"]);
+  expect(writes[0].body.clis).toEqual([]);
 });
 
 test("a conflict offers both choices and an OAuth server the CLI's login command", async ({
@@ -238,13 +257,14 @@ test("a conflict offers both choices and an OAuth server the CLI's login command
         name: "search",
         auth: "oauth",
         headerNames: [],
-        clis: ["codex", "opencode"],
+        clis: ["claude", "codex", "opencode"],
         cliSupport: {
           claude: { supported: true },
           codex: { supported: true },
           opencode: { supported: true },
         },
         cliStatus: {
+          claude: { status: "written", oauth: { state: "unknown", command: "/mcp" } },
           codex: {
             status: "written",
             oauth: { state: "login-required", command: "codex mcp login search" },
@@ -279,8 +299,18 @@ test("a conflict offers both choices and an OAuth server the CLI's login command
     page.getByText("If OpenCode asks for a login: run opencode mcp auth search"),
   ).toBeVisible();
   await expect(
+    page.getByText("If Claude Code asks for a login: open /mcp in Claude Code"),
+  ).toBeVisible();
+  await expect(
     page.getByRole("button", { name: "Adopt search from OpenCode" }),
   ).toBeVisible();
+  // Problems read differently from a written entry.
+  await expect(page.getByText("Codex: edited by hand in the CLI")).toHaveClass(
+    /mcp-oauth-login-required/,
+  );
+  await expect(
+    page.locator(".mcp-item").first().getByText("Claude Code: written"),
+  ).toHaveClass(/mcp-oauth-connected/);
   const docs = page
     .locator(".mcp-item")
     .filter({ has: page.getByText("docs", { exact: true }) });
@@ -288,6 +318,11 @@ test("a conflict offers both choices and an OAuth server the CLI's login command
     .getByRole("button", { name: "Write AgentPier's version of docs to Codex" })
     .click();
   await expect(docs.getByText("Codex: written")).toBeVisible();
+  // The buttons are gone; focus lands on Codex's row, which a screen reader announces.
+  await expect(
+    docs.locator(".mcp-cli-status li").filter({ hasText: "Codex:" }),
+  ).toBeFocused();
+  await expect(docs.locator(".mcp-cli-status ul")).toHaveAttribute("aria-live", "polite");
   expect(state.requests.find((r) => r.path.endsWith("/resolve")).body).toEqual({
     choice: "overwrite",
   });
@@ -342,7 +377,7 @@ test("the CLI statuses read in German", async ({ page }) => {
   await page.goto(baseURL + "/accounts");
   await expect(page.getByText("Codex: in der CLI von Hand geändert")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Änderung an docs aus Codex übernehmen" }),
+    page.getByRole("button", { name: "Änderung übernehmen: docs aus Codex" }),
   ).toBeVisible();
   await expect(page.getByText("Agenten: Home · CLIs: Claude Code, Codex")).toBeVisible();
 });

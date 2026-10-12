@@ -26,6 +26,13 @@ const refusals = {
   cwd: ["MCP_CLI_CWD_UNSUPPORTED", "cliCwdUnsupported"],
 };
 
+/** The CLIs `wanted` names, in canonical order; anything else is refused (400). */
+export function cliTargets(wanted) {
+  if (!Array.isArray(wanted) || wanted.some((cli) => !clis.includes(cli)))
+    throw problem(serverMessages.mcpServers.invalidTarget, 400);
+  return clis.filter((cli) => wanted.includes(cli));
+}
+
 /** Refuses (400) when one of `targets` cannot run `server`; nothing is stored then. */
 export function requireCliSupport(targets, server) {
   for (const cli of targets) {

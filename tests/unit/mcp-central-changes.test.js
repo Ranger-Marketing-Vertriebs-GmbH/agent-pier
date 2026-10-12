@@ -156,7 +156,7 @@ test("with agents every change goes through McpChanges; maintenance refuses chan
   await changes.update("a", { revision: 1 });
   await changes.remove("a");
   assert.deepEqual(calls, [
-    ["create", "docs", { confirmStdio: true }],
+    ["create", "docs", { confirmStdio: true, clis: [] }],
     ["update", "a"],
     ["remove", "a"],
   ]);
@@ -164,4 +164,41 @@ test("with agents every change goes through McpChanges; maintenance refuses chan
   maintenance = true;
   await assert.rejects(changes.create({ name: "docs" }), { status: 409 });
   assert.equal(calls.length, 3);
+});
+
+test("CLIs travel with the change to McpChanges, after the CLI checks passed", async (t) => {
+  const calls = [];
+  const agents = {
+    update: async (id, input, options) => (
+      calls.push(["update", id, options]),
+      { server: { id }, pending: false, logoutDeferred: false, stdioChanged: false }
+    ),
+  };
+  const { servers, changes, saved } = setup(t, { agents: () => agents });
+  const local = servers.create(
+    { name: "local", transport: "stdio", command: "/fake/bin/mcp" },
+    { bind: [["cli", "claude"]] },
+  );
+  // A cwd Claude Code cannot use, or a new CLI without confirmation: nothing is sent.
+  await assert.rejects(changes.update(local.id, { revision: 1, cwd: "/tmp" }), {
+    code: "MCP_CLI_CWD_UNSUPPORTED",
+  });
+  await assert.rejects(
+    changes.update(local.id, { revision: 1 }, { clis: ["claude", "codex"] }),
+    { code: "MCP_STDIO_CONFIRMATION_REQUIRED" },
+  );
+  await assert.rejects(changes.update(local.id, { revision: 1 }, { clis: ["nope"] }), {
+    status: 400,
+  });
+  assert.deepEqual([calls, saved.length], [[], 0]);
+  const result = await changes.update(
+    local.id,
+    { revision: 1, cwd: "/tmp" },
+    { clis: ["codex"], confirmStdio: true },
+  );
+  assert.deepEqual(calls, [
+    ["update", local.id, { confirmStdio: true, clis: ["codex"] }],
+  ]);
+  assert.deepEqual(result.cliChange, { clis: ["codex"], added: ["codex"] });
+  assert.equal(saved.length, 1);
 });
