@@ -172,7 +172,7 @@ test.describe("agent settings on phones", () => {
     await expect(nav.locator('a[aria-current="location"]')).toHaveText("Profile");
     await scroller(page).evaluate((el) => (el.scrollTop = el.scrollHeight));
     const current = nav.locator('a[aria-current="location"]');
-    await expect(current).toHaveText("Telegram");
+    await expect(current).toHaveText("Telegram for others");
     await expect(current).toHaveCount(1);
   });
 
@@ -182,10 +182,12 @@ test.describe("agent settings on phones", () => {
     await setupAssistantSettings(page, { assistant: full });
     await page.goto(baseURL + "/agents/home/settings");
     const nav = page.getByRole("navigation", { name: "Settings sections" });
-    const telegram = nav.getByRole("link", { name: "Telegram" });
+    const telegram = nav.getByRole("link", { name: "Telegram", exact: true });
     await telegram.click();
     await expect(telegram).toHaveAttribute("aria-current", "location");
-    await expect(page.getByRole("heading", { name: "Telegram" })).toBeFocused();
+    await expect(
+      page.getByRole("heading", { name: "Telegram", exact: true }),
+    ).toBeFocused();
     const inRow = await telegram.evaluate((el) => {
       const row = el.parentElement.getBoundingClientRect();
       const chip = el.getBoundingClientRect();
