@@ -10,6 +10,12 @@ import { editConfig } from "./config-edit.js";
 import { problem } from "../../lib/storage.js";
 
 export const CLI_CONFIG_CHANGED = "CLI_CONFIG_CHANGED";
+export const CLI_CONFIG_TOO_LARGE = "CLI_CONFIG_TOO_LARGE";
+/**
+ * The largest native CLI configuration AgentPier reads. Claude Code's ~/.claude.json
+ * holds its project history and grows to many MiB on busy machines.
+ */
+export const CLI_CONFIG_MAX_BYTES = 64 * 1024 * 1024;
 export { CLI_CONFIG_LAYOUT } from "./config-edit.js";
 
 export const own = (obj, key) => Object.hasOwn(obj, key);
@@ -136,8 +142,12 @@ export function textFile(file, boundary) {
   safePath(file, boundary);
   try {
     const stat = fs.statSync(file);
-    if (!stat.isFile() || stat.size > 4 * 1024 * 1024)
+    if (!stat.isFile())
       throw problem(serverMessages.extensions.invalidCliConfigFile, 409);
+    if (stat.size > CLI_CONFIG_MAX_BYTES)
+      throw Object.assign(problem(serverMessages.extensions.invalidCliConfigFile, 409), {
+        code: CLI_CONFIG_TOO_LARGE,
+      });
     return fs.readFileSync(file, "utf8");
   } catch (error) {
     if (error.code === "ENOENT") return "";

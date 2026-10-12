@@ -1,7 +1,11 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { problem } from "../../lib/storage.js";
-import { CLI_CONFIG_CHANGED, CLI_CONFIG_LAYOUT } from "../extensions/mcp-config.js";
+import {
+  CLI_CONFIG_CHANGED,
+  CLI_CONFIG_LAYOUT,
+  CLI_CONFIG_TOO_LARGE,
+} from "../extensions/mcp-config.js";
 
 const messages = serverMessages.mcpServers;
 
@@ -10,9 +14,10 @@ const messages = serverMessages.mcpServers;
  * with (by `messageKey`). File problems hold for a whole CLI; the others for one server.
  */
 const reasonMessages = {
-  // The CLI's file: unreadable, kept changing, not editable in place, not writable,
-  // or a store error or bug while preparing it.
+  // The CLI's file: unreadable, above the read limit, kept changing, not editable in
+  // place, not writable, or a store error or bug while preparing it.
   unreadable: messages.cliReasonUnreadable,
+  "too-large": messages.cliReasonTooLarge,
   changed: messages.cliReasonChanged,
   layout: messages.cliReasonLayout,
   "write-failed": messages.cliReasonWriteFailed,
@@ -30,7 +35,7 @@ const statusMessages = {
   conflict: messages.cliStatusConflict,
   "name-taken": messages.cliStatusNameTaken,
 };
-const fileReasons = ["unreadable", "changed", "layout", "write-failed"];
+const fileReasons = ["unreadable", "too-large", "changed", "layout", "write-failed"];
 
 /** `{ messageKey }` for a status or reason; nothing for written and pending. */
 export function reasonIdentity(key) {
@@ -51,7 +56,9 @@ export function fileReason(error) {
       ? "changed"
       : error?.code === CLI_CONFIG_LAYOUT
         ? "layout"
-        : null);
+        : error?.code === CLI_CONFIG_TOO_LARGE
+          ? "too-large"
+          : null);
   return fileReasons.includes(reason) ? reason : null;
 }
 
