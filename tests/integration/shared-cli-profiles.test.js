@@ -338,13 +338,14 @@ test("provider connection profiles inherit shared extensions and remain compatib
   const root = accounts.environment(account.id).CLAUDE_CONFIG_DIR;
   fs.unlinkSync(path.join(root, "skills"));
   fs.symlinkSync(f.root, path.join(root, "skills"));
-  await assert.rejects(
-    backup.create({
-      withCredentials: true,
-      includeHistory: false,
-      passphrase: "fixture backup passphrase",
-    }),
-    { status: 409 },
+  // A foreign link is skipped and reported, never followed into its target.
+  const linked = await backup.create({
+    withCredentials: true,
+    includeHistory: false,
+    passphrase: "fixture backup passphrase",
+  });
+  assert.ok(
+    linked.manifest.omissions.includes("Linked, shared or foreign files in CLI profiles"),
   );
 });
 
