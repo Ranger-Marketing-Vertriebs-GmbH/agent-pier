@@ -164,15 +164,25 @@ test("a store file that never got its tables counts as no store", async (t) => {
   }
 });
 
-test("a store with tables the sanitizer cannot use still fails the backup", async (t) => {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "mcp-bad-")));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const dataDir = path.join(root, "data");
-  fs.mkdirSync(path.join(dataDir, "mcp-servers"), { recursive: true, mode: 0o700 });
-  const db = new DatabaseSync(path.join(dataDir, "mcp-servers/servers.sqlite"));
-  db.exec("CREATE TABLE unrelated(a)");
-  db.close();
-  await assert.rejects(new Backup({ dataDir }).create({ includeHistory: false }), {
-    message: serverMessages.backups.invalidMcpServerStore,
+for (const [label, sql] of [
+  ["without a servers table", "CREATE TABLE unrelated(a)"],
+  [
+    "with an unknown column it cannot drop",
+    `CREATE TABLE servers(id TEXT PRIMARY KEY, name TEXT, transport TEXT, url TEXT,
+       revision INTEGER);
+     CREATE TABLE bindings(server_id TEXT, target_kind TEXT, target_id TEXT,
+       future TEXT, PRIMARY KEY(server_id, future));`,
+  ],
+])
+  test(`a host store ${label} fails the backup with a message about this host`, async (t) => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "mcp-bad-")));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const dataDir = path.join(root, "data");
+    fs.mkdirSync(path.join(dataDir, "mcp-servers"), { recursive: true, mode: 0o700 });
+    const db = new DatabaseSync(path.join(dataDir, "mcp-servers/servers.sqlite"));
+    db.exec(sql);
+    db.close();
+    await assert.rejects(new Backup({ dataDir }).create({ includeHistory: false }), {
+      message: serverMessages.backups.mcpServerStoreUnusable,
+    });
   });
-});

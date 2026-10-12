@@ -29,6 +29,8 @@ export const backups = Object.freeze({
   invalidMemoryReferences: "Restored memory references are invalid.",
   unexpectedComponent: "Unexpected backup component.",
   invalidMcpServerStore: "The backup's MCP server database is invalid.",
+  mcpServerStoreUnusable:
+    "This host's MCP server database has an unknown layout and cannot be backed up.",
   invalidMcpServerValues:
     "The backup's sealed MCP server values are invalid. Nothing was restored.",
   invalidManifest: "Invalid backup manifest.",
