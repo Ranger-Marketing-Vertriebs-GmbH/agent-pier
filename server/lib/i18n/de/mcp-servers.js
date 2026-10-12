@@ -42,4 +42,6 @@ export const mcpServers = {
     "Zu viele OAuth-Anmeldungen und -Abmeldungen. Bitte in einer Minute erneut versuchen.",
   oauthLogoutPending:
     "Die bisherige Anmeldung wird noch entfernt. Bis dahin ist der Server nicht aktiv.",
+  cliNotConflict:
+    "Dieser Eintrag in der CLI steht nicht mehr im Konflikt. Bitte neu laden.",
 };

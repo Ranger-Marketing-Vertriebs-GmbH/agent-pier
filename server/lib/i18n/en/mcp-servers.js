@@ -39,4 +39,5 @@ export const mcpServers = Object.freeze({
   oauthRateLimited: "Too many OAuth logins and logouts. Please try again in a minute.",
   oauthLogoutPending:
     "The previous login is still being removed. Until then the server is not active.",
+  cliNotConflict: "This entry in the CLI is no longer in conflict. Please reload.",
 });
