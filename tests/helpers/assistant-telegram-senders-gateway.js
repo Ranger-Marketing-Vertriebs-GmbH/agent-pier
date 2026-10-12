@@ -21,7 +21,13 @@ import { fakeBotApi, fakeDeepgram } from "./assistant-telegram-fakes.js";
 export const transcript = "please water the plants on friday";
 const fixtureModel = { connectionId: "fixture", modelId: "fixture-model" };
 // Valid arguments, so a refusal comes from AgentPier and not from tool validation.
-const toolArguments = { agentpier_team_status: { teamId: "team-fixture" } };
+const toolArguments = {
+  agentpier_team_status: { teamId: "team-fixture" },
+  agentpier_team_propose: {
+    objective: "Review",
+    members: [{ name: "Reviewer", role: "Review", assignment: "Review tests" }],
+  },
+};
 
 /**
  * AgentPier's path for agents' own Telegram bots on an isolated Gateway in team mode,
@@ -104,6 +110,10 @@ export async function telegramSendersGateway(t, installed, { prefix, bots }) {
     webToolsAvailable: () => ({}),
     shellPathPrepend: () => [],
     mcpTools: () => [],
+    senderFacing: (assistant) =>
+      !!(runtime.telegram || runtime.telegramStarting)?.accounts.includes(
+        assistant.runtimeAgentId,
+      ),
   });
   const channels = new ChannelStore({ dataDir: path.join(dataDir, "store") });
   const speech = new SpeechConnections({ dataDir: path.join(dataDir, "store") });
@@ -126,6 +136,8 @@ export async function telegramSendersGateway(t, installed, { prefix, bots }) {
     apiRoot: botApi.url,
     deepgram: { baseUrl: deepgram.url },
   }));
+  // As assistant-graph.js: a revocation saved during a start converges after it.
+  runtime.afterReady = async () => senders.ready();
   runtime.teamConfiguration = async (descriptor) => ({
     ...provisionTeamPlugin({ paths: runtime.paths, runtimeVersion: descriptor.version }),
     connection: await bridge.start(),
@@ -136,6 +148,7 @@ export async function telegramSendersGateway(t, installed, { prefix, bots }) {
   });
   t.after(async () => {
     try {
+      senders.close();
       await assistants.close();
       channels.close();
       speech.close();
@@ -153,6 +166,7 @@ export async function telegramSendersGateway(t, installed, { prefix, bots }) {
     runtime,
     config,
     assistants,
+    teams,
     senders,
     speech,
     audit,
@@ -190,7 +204,7 @@ export async function telegramSendersGateway(t, installed, { prefix, bots }) {
       return (listed.sessions || []).map((s) => s.key);
     },
     /** One owner turn on a new AgentPier conversation, as createConversation does. */
-    async ownerTurn(agent, label) {
+    async ownerTurn(agent, label, extra = "") {
       const assistant = store.getAssistant(agent.id);
       const session = await runtime.client.call("sessions.create", {
         agentId: assistant.runtimeAgentId,
@@ -203,7 +217,7 @@ export async function telegramSendersGateway(t, installed, { prefix, bots }) {
       await runtime.client.call("sessions.messages.subscribe", { key: session.key });
       const { attempt } = await assistants.send(conversation.id, {
         clientRequestId: label,
-        text: `Owner question ${label}`,
+        text: `Owner question ${label} ${extra}`,
       });
       const runId = assistants.ledger.getAttempt(attempt.id).runtimeRunId || attempt.id;
       const done = await runtime.client.call(
@@ -211,7 +225,11 @@ export async function telegramSendersGateway(t, installed, { prefix, bots }) {
         { runId, timeoutMs: 60000 },
         { timeoutMs: 65000 },
       );
-      return { status: done.status, requests: h.requests(`Owner question ${label}`) };
+      return {
+        status: done.status,
+        tools: done.terminalReceipt?.successfulToolNames || [],
+        requests: h.requests(`Owner question ${label}`),
+      };
     },
   };
   return h;
