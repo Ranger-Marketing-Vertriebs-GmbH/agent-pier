@@ -270,3 +270,20 @@ test("a changed Deepgram key asks to restart the agent service", async ({ page }
     },
   ]);
 });
+
+test("a revocation the automatic restart could not apply asks the owner", async ({
+  page,
+}) => {
+  await setupAssistantSettings(page);
+  const state = await senders(page, {
+    bot: { username: "helper_fixture_bot", revision: 2, people: [] },
+    state: "pending",
+  });
+  state.view = { ...state.view, pending: true, revocationFailed: true };
+  await page.goto(baseURL + "/agents/home/settings");
+  const section = page.getByRole("region", { name: "Telegram for other people" });
+  await expect(section.getByRole("alert")).toContainText(
+    "the automatic restart could not stop it",
+  );
+  await expect(section.getByRole("button", { name: "Apply now" })).toBeVisible();
+});

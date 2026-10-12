@@ -6,6 +6,8 @@ export const telegramSendersCopy = {
     "People on this list talk to the agent directly. They can read and use what the agent remembers, and the agent uses its web tools and remote MCP servers for them. It never gets shell, stdio MCP servers, AgentPier's own tools, session tools or chat commands for them.",
   stdioBlocked:
     "This agent has a stdio MCP server, which runs commands on this computer. Remove it before you connect a bot for other people.",
+  revocationFailed:
+    "A bot or person you removed is still running: the automatic restart could not stop it. Restart the agent service now.",
   removedPending:
     "The agent service still runs a bot or person you removed. Restart it to stop them now.",
   shellBlocked:
