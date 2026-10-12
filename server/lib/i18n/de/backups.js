@@ -33,6 +33,9 @@ export const backups = Object.freeze({
   projectMappingsCollide: "Projektzuordnungen überschneiden sich.",
   invalidMemoryReferences: "Die wiederhergestellten Memory-Verweise sind ungültig.",
   unexpectedComponent: "Unerwarteter Backup-Bestandteil.",
+  invalidMcpServerStore: "Die MCP-Server-Datenbank der Sicherung ist ungültig.",
+  invalidMcpServerValues:
+    "Die versiegelten Werte der MCP-Server in der Sicherung sind ungültig. Es wurde nichts wiederhergestellt.",
   invalidManifest: "Ungültiges Backup-Manifest.",
   credentialManifestMismatch: "Das Manifest der Zugangsdaten passt nicht zum Archiv.",
   restoreTargetInvalid:
