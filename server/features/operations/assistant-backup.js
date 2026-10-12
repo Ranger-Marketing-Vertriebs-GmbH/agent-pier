@@ -31,6 +31,7 @@ import { isRelocatable, portableText, restoredText } from "./assistant-backup-pa
 import { inlineCopies, sqliteSnapshotFileAsync } from "./snapshot.js";
 import { CapturePlan } from "./capture-plan.js";
 import { areaComponent } from "./backup-components.js";
+import { stagePath } from "./stage-path.js";
 
 /**
  * Host backups carry the assistant folder except what is installed, cached, derived
@@ -372,7 +373,7 @@ export async function restoreAssistants({ stage, target, liveDataDir, value }) {
   const root = path.join(stage, prefix);
   // Paths inside the Gateway's JSON files point at the restored location.
   for (const relative of relocatableFiles(root)) {
-    const file = path.join(root, relative);
+    const file = stagePath(stage, `${prefix}/${relative}`);
     const text = await fsp.readFile(file, "utf8");
     if (unusableCopy(relative, text)) continue;
     await fsp.writeFile(file, restoredText(text, path.join(target, prefix)), {
@@ -385,8 +386,8 @@ export async function restoreAssistants({ stage, target, liveDataDir, value }) {
     : null;
   let withheld = value.withheld;
   for (const relative of value.sealed) {
-    const file = path.join(root, relative),
-      sidecar = file + sealedSuffix,
+    const file = stagePath(stage, `${prefix}/${relative}`),
+      sidecar = stagePath(stage, `${prefix}/${relative}${sealedSuffix}`),
       aad = `${value.id}\0${relative}`;
     if (isConfigFile(relative)) {
       const result = unsealConfig(await fsp.readFile(file, "utf8"), key, aad);

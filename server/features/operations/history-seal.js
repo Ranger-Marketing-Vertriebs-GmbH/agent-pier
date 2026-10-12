@@ -2,6 +2,16 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { problem } from "../../lib/storage.js";
 import { fileMember } from "./snapshot.js";
+import { relativeName } from "./files.js";
+import { profileMemberKind } from "./profile-allowlist.js";
+
+const cleanPath = (name) => {
+  try {
+    return relativeName(name) === name;
+  } catch {
+    return false;
+  }
+};
 
 /**
  * CLI histories are archived only in backups with a passphrase, and then sealed
@@ -154,7 +164,9 @@ export function sealRecord(secrets) {
   }
   const key = Buffer.from(value?.key || "", "base64");
   if (
-    value?.version !== 1 ||
+    !value ||
+    Object.keys(value).sort().join() !== "chunk,cipher,id,key,members,version" ||
+    value.version !== 1 ||
     value.cipher !== "aes-256-gcm" ||
     value.chunk !== CHUNK ||
     typeof value.id !== "string" ||
@@ -162,14 +174,20 @@ export function sealRecord(secrets) {
     !Array.isArray(value.members)
   )
     throw failed();
-  const byName = new Map();
+  const byName = new Map(),
+    paths = new Set();
   for (const [entry, item] of value.members.entries()) {
+    // Each entry restores to a CLI history path, and to no other entry's path.
     if (
-      item?.name !== `sealed/${entry}` ||
-      typeof item.path !== "string" ||
-      byName.has(item.name)
+      !item ||
+      Object.keys(item).sort().join() !== "name,path" ||
+      item.name !== `sealed/${entry}` ||
+      !cleanPath(item.path) ||
+      profileMemberKind(item.path) !== "history" ||
+      paths.has(item.path.normalize("NFC").toLowerCase())
     )
       throw failed();
+    paths.add(item.path.normalize("NFC").toLowerCase());
     byName.set(item.name, { key, id: value.id, entry, path: item.path });
   }
   return byName;

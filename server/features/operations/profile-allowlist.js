@@ -137,6 +137,13 @@ export function classify(root, relative) {
 
 /** Splits `profiles/<account>/[providers/<provider>/]<root>/<relative>`. */
 export function profilePath(name) {
+  // Only clean relative paths: no empty, "." or ".." segment, no backslash or NUL.
+  if (
+    typeof name !== "string" ||
+    /[\\\x00-\x1f]/.test(name) ||
+    name.split("/").some((part) => !part || part === "." || part === "..")
+  )
+    return null;
   const parts = name.split("/");
   if (parts[0] !== "profiles" || !segment.test(parts[1] || "")) return null;
   let rest = parts.slice(2);
