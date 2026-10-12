@@ -72,9 +72,9 @@ export function operationsRoutes({ operations, releaseMigration }) {
   router.post(
     `${root}/restore/upload`,
     express.raw({ type: "application/octet-stream", limit: ARCHIVE_LIMIT }),
-    (req, res) => {
+    async (req, res) => {
       if (!Buffer.isBuffer(req.body)) throw problem(serverMessages.backups.uploadType);
-      res.status(201).json(operations.restore.upload(req.body));
+      res.status(201).json(await operations.restore.upload(req.body));
     },
   );
   router.post(`${root}/restore/inspect`, async (req, res) =>

@@ -303,20 +303,23 @@ function relocatableFiles(root) {
   return found;
 }
 
-/** Validates the manifest entry against the archive's sealed members. */
-export function validateAssistantManifest(value, files) {
-  const sidecars = files
-    .map((member) => member.path)
-    .filter((name) => name.startsWith(`${prefix}/`) && name.endsWith(sealedSuffix));
+/**
+ * Validates the manifest entry against the archive's sealed members. `paths` are the
+ * archive's public member paths; `text(path)` reads one of them.
+ */
+export function validateAssistantManifest(value, paths, text) {
+  const sidecars = paths.filter(
+    (name) => name.startsWith(`${prefix}/`) && name.endsWith(sealedSuffix),
+  );
   // Relocated files must parse and stay inside assistants/ wherever they land.
   // Older backups may hold unparsable configuration copies; those are skipped.
-  for (const member of files) {
-    const relative = member.path.slice(prefix.length + 1);
-    if (!member.path.startsWith(`${prefix}/`) || !isRelocatable(relative)) continue;
-    const text = Buffer.from(member.content, "base64").toString("utf8");
-    if (unusableCopy(relative, text)) continue;
+  for (const name of paths) {
+    const relative = name.slice(prefix.length + 1);
+    if (!name.startsWith(`${prefix}/`) || !isRelocatable(relative)) continue;
+    const content = text(name);
+    if (unusableCopy(relative, content)) continue;
     restoredText(
-      text,
+      content,
       path.join(path.parse(process.cwd()).root, "agentpier-restore", prefix),
     );
   }
@@ -337,17 +340,21 @@ export function validateAssistantManifest(value, files) {
   )
     throw problem(serverMessages.backups.invalidManifest);
   // Every sidecar is declared, and every declared entry has the member it unseals.
-  const paths = new Set(files.map((member) => member.path));
+  const present = new Set(paths);
   const expected = new Set(value.sealed.map((relative) => `${prefix}/${relative}`));
   if (
     sidecars.some((name) => !expected.has(name.slice(0, -sealedSuffix.length))) ||
     value.sealed.some((relative) => {
       const name = `${prefix}/${relative}`;
-      return !paths.has(isConfigFile(relative) ? name : name + sealedSuffix);
+      return !present.has(isConfigFile(relative) ? name : name + sealedSuffix);
     })
   )
     throw problem(serverMessages.backups.invalidManifest);
 }
+
+/** True for an assistant member an inspection must read (see validateAssistantManifest). */
+export const isRelocatableMember = (name) =>
+  name.startsWith(`${prefix}/`) && isRelocatable(name.slice(prefix.length + 1));
 
 /** A configuration copy beside openclaw.json that is not JSON; configPath stays strict. */
 const unusableCopy = (relative, text) =>
