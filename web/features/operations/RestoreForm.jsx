@@ -1,24 +1,13 @@
-import { observeBuild } from "../../lib/build-check.js";
 import BackupContents from "./BackupContents.jsx";
 import React, { useState } from "react";
-import api, { apiError } from "../../lib/api.js";
+import api from "../../lib/api.js";
+import { uploadArchive } from "./restore-upload.js";
+import { backupSize } from "./backup-size.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import ConfirmOperation from "./ConfirmOperation.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
-async function uploadArchive(file) {
-  const response = observeBuild(
-    await fetch("/api/operations/restore/upload", {
-      method: "POST",
-      headers: { "Content-Type": "application/octet-stream" },
-      body: file,
-    }),
-  );
-  if (!response.ok) throw await apiError(response);
-  const result = await response.json();
-  return result.archiveId;
-}
 /** The first unfilled restore input and its explanation; null when restore may start. */
 function restoreGap({ inspection, targetDataDir, projectMap, passphrase }) {
   if (!targetDataDir.trim())
@@ -46,7 +35,10 @@ export default function RestoreForm({ close, started }) {
     [projectMap, setMap] = useState({}),
     [passphrase, setPassphrase] = useState(""),
     [confirm, setConfirm] = useState(false),
-    [missing, setMissing] = useState(null);
+    [missing, setMissing] = useState(null),
+    // An interrupted upload of the chosen file resumes with its id.
+    [uploadId, setUploadId] = useState(""),
+    [progress, setProgress] = useState(null);
   const action = useAsyncAction(),
     dismiss = () => {
       if (!action.lock.current && !confirm) close();
@@ -75,8 +67,15 @@ export default function RestoreForm({ close, started }) {
             return;
           }
           action.run(async () => {
-            const id = archiveId || (await uploadArchive(file));
+            const id =
+              archiveId ||
+              (await uploadArchive(file, {
+                uploadId,
+                started: setUploadId,
+                progress: (done, total) => setProgress({ done, total }),
+              }));
             setArchiveId(id);
+            setProgress(null);
             const result = await api("/operations/restore/inspect", "POST", {
               archiveId: id,
               ...(passphrase ? { passphrase } : {}),
@@ -94,6 +93,8 @@ export default function RestoreForm({ close, started }) {
               onChange={(event) => {
                 setFile(event.target.files[0] || null);
                 setArchiveId("");
+                setUploadId("");
+                setProgress(null);
                 setInspection(null);
                 setMissing(null);
                 setMap({});
@@ -101,6 +102,18 @@ export default function RestoreForm({ close, started }) {
               }}
             />
           </label>
+          {progress && !archiveId && (
+            <div className="operations-upload" role="status">
+              <progress value={progress.done} max={progress.total} />
+              <span>
+                {copy.uploadProgress(
+                  Math.floor((progress.done / progress.total) * 100),
+                  backupSize(progress.done),
+                  backupSize(progress.total),
+                )}
+              </span>
+            </div>
+          )}
           {inspection && (
             <>
               <p className="field-description">{copy.restoreHelp}</p>

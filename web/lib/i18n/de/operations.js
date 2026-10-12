@@ -76,7 +76,7 @@ export const operationsCopy = {
   includeHistory: "Verläufe einschließen",
   withCredentials: "Zugangsdaten verschlüsselt einschließen",
   backupPrivacy:
-    "Verläufe können private Aufgabeninhalte enthalten und werden nicht verschlüsselt. Zugangsdaten umfassen Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile; Caches, Protokolle, installierte CLIs und Laufzeiten werden nie gesichert. Lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse bleiben außen vor.",
+    "Verläufe können private Aufgabeninhalte enthalten und werden nicht verschlüsselt. Zugangsdaten umfassen Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile; Caches, Protokolle, installierte CLIs und Laufzeiten werden nie gesichert. Externe lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse bleiben außen vor.",
   passphrase: "Passphrase",
   plan: "Sicherungsumfang prüfen",
   create: "Sicherung erstellen",
@@ -90,6 +90,8 @@ export const operationsCopy = {
   deleteBackup: "Diese Sicherung löschen?",
   inspectArchive: "Sicherung prüfen und wiederherstellen",
   archive: "Sicherungsdatei",
+  uploadProgress: (percent, done, total) =>
+    `Sicherungsdatei wird hochgeladen: ${percent} % (${done} von ${total})`,
   inspect: "Archiv prüfen",
   targetDataDir: "Neues Datenverzeichnis",
   restore: "In neuem Verzeichnis wiederherstellen",
