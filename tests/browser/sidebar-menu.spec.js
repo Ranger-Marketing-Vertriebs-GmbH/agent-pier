@@ -142,9 +142,16 @@ test("group headers stay pinned while the list scrolls", async ({ page }) => {
   });
   await page.goto(baseURL);
   const header = page.locator(".sessions-group > .sidebar-group-toggle");
-  await page.locator(".sidebar-scroll").evaluate((node) => node.scrollBy(0, 400));
-  const scroller = await page.locator(".sidebar-scroll").boundingBox();
-  await expect.poll(async () => (await header.boundingBox()).y).toBe(scroller.y);
+  // Scroll only once the long list is rendered; WebKit may still be laying it out.
+  await expect(page.getByText("Sitzung 29")).toBeAttached();
+  const scroller = page.locator(".sidebar-scroll");
+  await expect
+    .poll(async () => {
+      await scroller.evaluate((node) => node.scrollTo(0, 400));
+      const [h, s] = await Promise.all([header.boundingBox(), scroller.boundingBox()]);
+      return Math.round(h.y - s.y);
+    })
+    .toBe(0);
   await expect(header).toHaveCSS("position", "sticky");
 });
 
