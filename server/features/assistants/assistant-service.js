@@ -180,6 +180,7 @@ export class AssistantService {
       });
       // The Gateway gets the agent, and its level, at its first apply.
       if (shell) this.shellChanges.audit(record.id, shell, {});
+      auditProactivity(this.audit, record.id, proactivityChange({}, record));
       this.changed();
       return record;
     });

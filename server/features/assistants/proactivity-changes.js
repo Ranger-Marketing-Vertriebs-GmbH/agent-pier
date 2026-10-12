@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { heartbeatSettings } from "./heartbeat-schedule.js";
+import { personalCapabilities } from "./native-capabilities.js";
 
 /**
  * The proactive opt-ins a saved patch changes, as audit details: the changed names
@@ -19,10 +20,17 @@ export function proactivityChange(current, patch) {
       details.heartbeat = after.enabled;
     }
   }
-  const recall = patch.capabilities?.recall;
-  if (typeof recall === "boolean" && recall !== (current.capabilities?.recall === true)) {
-    fields.push("recall");
-    details.recall = recall;
+  // The effective switch: a recall flag without memory changes nothing.
+  if (patch.capabilities) {
+    const before = personalCapabilities(current).recall;
+    const recall = personalCapabilities({
+      ...current,
+      capabilities: { ...current.capabilities, ...patch.capabilities },
+    }).recall;
+    if (recall !== before) {
+      fields.push("recall");
+      details.recall = recall;
+    }
   }
   return fields.length ? { kind: "proactivity", fields, ...details } : null;
 }
