@@ -1,7 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
-import { adoptFailure } from "./cli-status.js";
+import { ENV_REFERENCES, adoptFailure } from "./cli-status.js";
 
 const messages = serverMessages.mcpServers;
 // Only a stable error code is logged, never a message, path or value.
@@ -87,7 +87,7 @@ export function adoptFinds({
         if (!group) throw problem(messages.cliFindChanged, 409);
         if (group.parsed.reason === "env-references")
           throw Object.assign(problem(messages.cliFindEnvReferences, 409), {
-            code: "MCP_CLI_FIND_ENV_REFERENCES",
+            code: ENV_REFERENCES,
           });
         if (!group.parsed.ok) throw problem(messages.cliNotAdoptable, 409);
         return group;

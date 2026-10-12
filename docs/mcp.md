@@ -207,6 +207,8 @@ needs the owner's confirmation, because every session of that CLI starts it.
   in the CLI. So do entries whose values refer to the CLI's environment or files
   (Claude Code `${VAR}` or `${VAR:-default}`, OpenCode `{env:VAR}` or `{file:path}`)
   instead of holding them: another CLI or an agent would get the reference literally.
+  A `${…}` that Codex holds literally stays as well, because Claude Code would expand
+  it.
   The find names the headers, environment variables or fields that use one (never a
   value), Adopt all skips it, and adopting it by key fails with the reason
   _env-references_ (`MCP_CLI_FIND_ENV_REFERENCES` from the adoption service).

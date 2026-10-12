@@ -49,7 +49,7 @@ export const mcpServers = {
   cliNotAdoptable:
     "AgentPier kann diesen Eintrag nicht übernehmen, ohne Einstellungen zu verlieren, die es nicht verwaltet.",
   cliFindEnvReferences:
-    "Der Eintrag nutzt Verweise auf Umgebungsvariablen oder Dateien der CLI. Andere CLIs und Agenten könnten sie nicht auflösen; er bleibt in der CLI.",
+    "Der Eintrag nutzt Verweise auf Umgebungsvariablen oder Dateien (${…}, {env:…}, {file:…}). Eine andere CLI oder ein Agent würde sie anders lesen; er bleibt deshalb in der CLI.",
   cliChangeNotAdoptable:
     "Die Änderung lässt sich nicht übernehmen: Die Verbindungsart weicht ab oder der Eintrag nutzt Einstellungen, die AgentPier nicht verwaltet.",
   cliTransportUnsupported:

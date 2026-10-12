@@ -79,7 +79,7 @@ test("a find with environment references stays in the CLI and says why", async (
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await expect(
     found.getByText(
-      "Uses environment references (in Authorization) that other CLIs and agents cannot resolve; it stays in the CLI.",
+      "Uses references to environment variables or files (in Authorization); another CLI or an agent would read them differently, so it stays in the CLI.",
     ),
   ).toBeVisible();
   await expect(found.getByRole("button", { name: /^Adopt/ })).toHaveCount(0);
