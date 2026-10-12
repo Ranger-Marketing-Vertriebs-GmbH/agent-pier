@@ -48,10 +48,20 @@ test("enabling check-ins needs memory; switching memory off is refused while the
     revision(f, home),
   );
   assert.deepEqual(synced, [home.id]);
+  // A client that does not know check-ins can still switch memory off; the stored
+  // flag then has no effect (the agent keeps no job) and the save re-syncs.
+  await f.service.update(
+    home.id,
+    { capabilities: { memory: false, reminders: false } },
+    revision(f, home),
+  );
+  assert.equal(f.store.getAssistant(home.id).heartbeat.enabled, true);
+  assert.deepEqual(synced, [home.id, home.id]);
+  // A client that sends check-ins must not leave them on without memory.
   await assert.rejects(
     f.service.update(
       home.id,
-      { capabilities: { memory: false, reminders: false } },
+      { heartbeat: { ...heartbeat, interval: "4h" } },
       revision(f, home),
     ),
     (error) => error.status === 409 && error.key === "heartbeatMemoryRequired",

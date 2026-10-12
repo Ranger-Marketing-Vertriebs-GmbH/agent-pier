@@ -24,11 +24,12 @@ export function proactivityChange(current, patch) {
 }
 
 /**
- * Check-ins look at the agent's notes: a save that leaves them on must leave memory
- * on. Agents saved by older clients keep a stored flag that simply has no effect.
+ * Check-ins look at the agent's notes: a save that sends them switched on must leave
+ * memory on. A client that does not send check-ins (an older one) may switch memory
+ * off; the stored flag then has no effect, as the agent keeps no job (wanted()).
  */
 export function lacksMemory(current, patch) {
-  if (!patch.heartbeat && !patch.capabilities) return false;
+  if (!patch.heartbeat) return false;
   const after = {
     ...current,
     ...patch,

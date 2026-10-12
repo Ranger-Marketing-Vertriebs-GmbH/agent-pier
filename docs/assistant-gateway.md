@@ -1185,13 +1185,14 @@ hours, within one day) in the owner's time zone, which the browser supplies; the
 settings offer to adopt the browser's zone when the saved one differs. The agent is
 asked whether something needs the owner's attention and to answer exactly
 `NO_REPLY` otherwise. The settings show the cost as model runs per day, each reading
-the whole conversation.
+the recent conversation.
 
 Check-ins need **Remember information** (`heartbeatMemoryRequired`, 409): the
 agent's notes are what it checks against. The settings disable the switch without
-memory, and switching memory off switches check-ins off in the same save. An older
-client that switches memory off leaves a stored flag that has no effect: the agent
-keeps no job. They also need a paired, enabled Telegram chat
+memory, and switching memory off switches check-ins off in the same save. A save
+that sends check-ins switched on without memory is refused; a client that does not
+send them (an older one) may still switch memory off, and the stored flag then has
+no effect: the agent keeps no job. They also need a paired, enabled Telegram chat
 (`heartbeatChannelRequired`, 409); a new agent switches check-ins on after saving.
 
 It is not OpenClaw's native heartbeat, which stays at `agents.defaults.heartbeat.every:
@@ -1203,10 +1204,17 @@ Telegram chat is paired with (the session `openConversation` created):
 - `sessionTarget: "current"` with that conversation's `sessionKey`: a detached run
   that reads the conversation's recent tail and the agent's instructions
   (`lightContext: false`), then commits its visible result into that conversation.
-  OpenClaw waits for a running turn there to end first, so a check-in that comes due
-  while the owner's turn runs appears after that turn's answer, never inside it.
-  The owner's next message, in AgentPier or on Telegram, therefore has the check-in
-  in its context.
+  Each run reads the conversation as it is then, not as it was when the job was
+  created, and after an owner `/reset` or `/new` it reads and commits into the new
+  session, so the job is never recreated for that. OpenClaw waits for a running
+  turn there to end before it commits, so a check-in that comes due while the
+  owner's turn runs appears after that turn's answer, never inside it; the run
+  itself does not wait, so it may not know that answer yet. The owner's next
+  message, in AgentPier or on Telegram, has the check-in in its context.
+- AgentPier sends a check-in to Telegram only when the completion event reports the
+  commit into the conversation as `delivered`; a check-in that did not reach the
+  conversation stays in the run history. In the AgentPier chat it shows as a plain
+  agent message, without the `Check-in:` marker Telegram gets.
 - MEMORY.md is not part of a detached run's prompt (a chat turn's is), so the
   check-in prompt asks the agent to read it with `memory_get` first; the run's tools
   are `memory_search` and `memory_get` only, so nothing is written unattended.
@@ -1246,8 +1254,10 @@ check-in sees the agent's instructions and the conversation, reads MEMORY.md thr
 `memory_get`, reaches the paired chat once with its prefix, appears in the
 conversation, and is in the model input of the owner's next reply. `NO_REPLY` leaves
 no visible message and sends nothing. A check-in due during a running owner turn is
-committed after that turn's answer. The agent's native heartbeat job stays disabled,
-and switching off removes the job.
+committed after that turn's answer. A message sent after the job was created reaches
+the next check-in's model input, and after an owner `/reset` and `/new` the same job
+reads only the new session and commits into it (`deliveryStatus: "delivered"`). The
+agent's native heartbeat job stays disabled, and switching off removes the job.
 
 ### Recall across conversations is not offered yet
 
