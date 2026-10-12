@@ -12,6 +12,7 @@ import { TeamService } from "../../server/features/assistants/team-service.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { McpChanges } from "../../server/features/assistants/mcp-changes.js";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
+import { CentralMcpChanges } from "../../server/features/mcp-servers/central-changes.js";
 import { McpOAuthLogins } from "../../server/features/mcp-servers/mcp-oauth-logins.js";
 import { oauthRedirect } from "../../server/features/mcp-servers/oauth-redirect.js";
 import {
@@ -22,7 +23,10 @@ import { readMcpInputs } from "../../server/features/assistants/openclaw-config/
 import { selectedAssistantRuntime } from "../../server/features/assistants/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { mcpServerRoutes } from "../../server/http/routes/mcp-servers.js";
-import { mcpOAuthCallbackRoutes } from "../../server/http/routes/mcp-oauth.js";
+import {
+  mcpOAuthCallbackRoutes,
+  mcpOAuthRoutes,
+} from "../../server/http/routes/mcp-oauth.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { approve, oauthMcpServer } from "../helpers/mcp-oauth-test-server.js";
 
@@ -182,16 +186,19 @@ async function harness(t, { tool }) {
     mcp.ready();
     if (mcp.pending) await assistants.admit(() => mcp.apply()).catch(() => {});
   };
-  // As in the application, the routes audit each change (server/application/services.js).
+  // As in the application (server/application/services.js and routes/assistants.js):
+  // the routes change servers through CentralMcpChanges, which hands them to the
+  // agents' McpChanges, audit each change, and the login routes sit beside them.
   const audit = [];
   const services = {
-    assistantMcpChanges: mcp,
+    mcpServerChanges: new CentralMcpChanges({ servers, agents: () => mcp }),
     assistantMcpOAuth: oauth,
     audit: { append: (entry) => audit.push(entry) },
   };
   app.use("/api", mcpOAuthCallbackRoutes(services));
   app.use(express.json({ limit: "64kb", strict: true }));
   app.use("/api", mcpServerRoutes(services));
+  app.use("/api", mcpOAuthRoutes(services));
   app.use((error, _req, res, _next) =>
     res.status(error.status || 500).json({ code: error.code, error: error.message }),
   );
