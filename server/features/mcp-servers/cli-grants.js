@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { resolveCommand } from "./command-resolution.js";
+import { executableFile, resolveCommand } from "./command-resolution.js";
 
 // A `#!` line is short; anything longer is not read.
 const headBytes = 256;
@@ -47,10 +47,12 @@ export function interpreters(file, { pathEnv = "", readHead = head, exists } = {
 
 /**
  * nono grants for bound stdio servers (docs/sandbox.md): read for the command, the
- * file it links to and its interpreters; full access to its working directory, unless
- * that directory is too broad: `/`, the owner's `home` or the AgentPier `dataDir` or
- * an ancestor of either, or anything inside `dataDir` (real paths compared). Such a
- * cwd gets no grant and a code-only warning;
+ * file it links to and its interpreters, each only when it is an executable regular
+ * file outside `dataDir`: these paths come from files a session may rewrite, so a
+ * `#!` line or a swapped link must never open a directory or a key file. Full access
+ * to its working directory, unless that directory is too broad: `/`, the owner's
+ * `home` or the AgentPier `dataDir` or an ancestor of either, or anything inside
+ * `dataDir` (real paths compared). Such a cwd gets no grant and a code-only warning;
  * the server may then fail under nono. Remote servers need none.
  */
 export function stdioGrants(
@@ -59,6 +61,7 @@ export function stdioGrants(
     pathEnv = "",
     readHead = head,
     realpath = fs.realpathSync,
+    executable = executableFile,
     exists,
     home = null,
     dataDir = null,
@@ -89,12 +92,16 @@ export function stdioGrants(
   for (const definition of definitions) {
     if (definition.transport !== "stdio" || !definition.command) continue;
     const paths = new Set();
+    const grantable = (file) =>
+      executable(file) && (data === null || !within(real(file), data));
     const add = (file) => {
+      // A missing or unsuitable file is the command's own problem at start.
+      if (!grantable(file)) return;
       paths.add(file);
       try {
         paths.add(realpath(file));
       } catch {
-        // A missing link target is the command's own problem at start.
+        // The link vanished after the check; the start reports it.
       }
     };
     add(definition.command);

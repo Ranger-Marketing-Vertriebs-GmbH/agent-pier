@@ -21,7 +21,8 @@ const launch = () => ({ command: "/usr/bin/cli", args: [], env: { PATH: "/fake/b
 test("a session start writes its own CLI's entries and grants its bound stdio servers", async (t) => {
   const f = cliMcpFixture(t);
   const cli = service(f);
-  f.servers.create(stdio({ cwd: "/tmp/work" }), { bind: [["cli", "codex"]] });
+  const command = f.executable();
+  f.servers.create(stdio({ command, cwd: "/tmp/work" }), { bind: [["cli", "codex"]] });
   f.servers.create(stdio({ name: "other", command: "/fake/bin/other" }), {
     bind: [["cli", "claude"]],
   });
@@ -30,7 +31,7 @@ test("a session start writes its own CLI's entries and grants its bound stdio se
   assert.ok(f.entries("codex").local);
   assert.deepEqual(f.entries("claude"), {});
   const grants = prepared.sandboxGrants.map((grant) => `${grant.access}:${grant.path}`);
-  assert.ok(grants.includes("read:/fake/bin/server"));
+  assert.ok(grants.includes(`read:${command}`));
   assert.ok(grants.includes("allow:/tmp/work"));
   assert.ok(!grants.some((grant) => grant.includes("/fake/bin/other")));
   assert.deepEqual(
@@ -47,11 +48,12 @@ test("a session start writes its own CLI's entries and grants its bound stdio se
 test("a session starts even when its CLI's configuration cannot be read", async (t) => {
   const f = cliMcpFixture(t);
   const cli = service(f);
-  f.servers.create(stdio(), { bind: [["cli", "claude"]] });
+  const command = f.executable();
+  f.servers.create(stdio({ command }), { bind: [["cli", "claude"]] });
   f.raw("claude", "{ broken");
   const account = f.accounts.get("local-claude");
   const prepared = await cli.prepare({ account, launch: launch() });
-  assert.ok(prepared.sandboxGrants.some((grant) => grant.path === "/fake/bin/server"));
+  assert.ok(prepared.sandboxGrants.some((grant) => grant.path === command));
   assert.equal(f.text("claude"), "{ broken");
   assert.equal(f.warnings.length, 1);
   assert.doesNotMatch(f.warnings[0], /broken|secret|\//);

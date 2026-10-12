@@ -11,7 +11,8 @@ export function sanitisedPrefix(name) {
   return name;
 }
 
-const executableFile = (file) => {
+/** Whether `file` (links followed) is a regular file the owner may execute. */
+export const executableFile = (file) => {
   try {
     if (!fs.statSync(file).isFile()) return false;
     fs.accessSync(file, fs.constants.X_OK);
