@@ -123,11 +123,18 @@ async function harness(t, { tool }) {
   const base = `http://127.0.0.1:${listener.address().port}`;
   const redirectUrl = () => oauthRedirect({ port: listener.address().port });
 
-  // The real CLI wrapper; `logouts.fail` stands in for a CLI that times out.
+  // The real CLI wrapper; `logouts.fail` stands in for a CLI that times out. The
+  // callback reports only a code, so `failures` keeps the (redacted) CLI messages.
   const logouts = { fail: false, calls: [] };
+  const failures = [];
   const realCli = supervisorMcpCli(runtime);
   const cli = {
     ...realCli,
+    completeLogin: (...args) =>
+      realCli.completeLogin(...args).catch((error) => {
+        failures.push(`${error.code}: ${error.message}`);
+        throw error;
+      }),
     logout(name, opts) {
       logouts.calls.push({ name, failed: logouts.fail });
       if (logouts.fail)
@@ -293,6 +300,7 @@ async function harness(t, { tool }) {
     mcp,
     oauth,
     logouts,
+    failures,
     starts,
     redirectUrl,
     api,
@@ -323,6 +331,9 @@ test(
     const h = await harness(t, { tool });
     const { servers, runtime, api, listed, authState, loggedOut, turn, running } = h;
     const grants = () => docsServer.log.filter((e) => e.grant).map((e) => e.grant);
+    // Why a login callback failed: the CLI's message and the server's last requests.
+    const why = () =>
+      JSON.stringify({ cli: h.failures, server: docsServer.log.slice(-4) });
     const agent = h.store.createAssistant({
       name: "Bound",
       instructions: "Use the tool.",
@@ -414,6 +425,7 @@ test(
     assert.equal(
       completed.headers.get("location"),
       `/accounts?oauth=connected&server=${docs.id}`,
+      why(),
     );
     docsServer.state.expiresIn = 3600;
     // The state is single use.
@@ -468,7 +480,7 @@ test(
       const back = await approve(begun.body.authorizationUrl);
       const done = await fetch(back, { redirect: "manual" });
       assert.equal(done.status, 303, label);
-      assert.match(done.headers.get("location"), /oauth=connected/, label);
+      assert.match(done.headers.get("location"), /oauth=connected/, `${label} ${why()}`);
       assert.equal((await listed("docs")).oauthStatus, "connected", label);
     }
     await login("second");
