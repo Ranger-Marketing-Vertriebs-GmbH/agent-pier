@@ -28,7 +28,9 @@ import {
 } from "../assistants/backup-credentials.js";
 import { folder, readFile, relativeName } from "./files.js";
 import { isRelocatable, portableText, restoredText } from "./assistant-backup-paths.js";
-import { fileMember, sqliteSnapshot } from "./snapshot.js";
+import { inlineCopies, sqliteSnapshotFileAsync } from "./snapshot.js";
+import { CapturePlan } from "./capture-plan.js";
+import { areaComponent } from "./backup-components.js";
 
 /**
  * Host backups carry the assistant folder except what is installed, cached, derived
@@ -64,20 +66,13 @@ const excludedFiles = new Set([
 const volatileTree = /(^|\/)(cache|node_modules)(\/|$)/;
 const volatile = /-(wal|shm|journal)$|\.lock$|\.tmp$/;
 const sqliteHeader = Buffer.from("SQLite format 3\0");
-// Agent members are held in memory until the archive is written; this bounds them.
-const memberLimit = 128 * 1024 * 1024;
 export const assistantOmissions = [
   "Assistant runtimes, package caches, update snapshots, TLS and backup keys",
   "Speech connection (Deepgram key and settings)",
 ];
 const unsafeOmission = "Assistant data in unsafe storage";
-const workspaceOmission = "Agent workspaces too large";
 const unfinishedOmission = "Agent data skipped: unfinished update state";
-const tooLargeOmission = "Agent data too large";
 const unreadableOmission = "Unreadable agent runtime files";
-// Thrown when non-workspace agent data exceeds the budget: the whole component is
-// left out, because a partial agent ledger cannot be restored consistently.
-const overflow = Symbol("assistant backup overflow");
 const omitted = (omission) => ({
   files: [],
   captures: [],
@@ -119,13 +114,34 @@ function sealedTree(relative) {
 function isSqlite(bytes) {
   return bytes.subarray(0, 16).equals(sqliteHeader);
 }
-/** Captures assistants/ for backup `id`; returns null when the feature never stored data. */
+async function sqliteFile(source) {
+  const handle = await fsp.open(source, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  try {
+    const head = Buffer.alloc(16);
+    await handle.read(head, 0, 16, 0);
+    return isSqlite(head);
+  } finally {
+    await handle.close();
+  }
+}
+// Configuration, session indexes and credential files are rewritten or sealed in
+// memory; they are small, and a larger one is not what it claims to be.
+const transformedLimit = 64 * 1024 * 1024;
+
+/**
+ * Captures assistants/ for backup `id`; returns null when the feature never stored
+ * data. Copied-through files and database copies stream from disk (`plan`, copies in
+ * `scratch`, which must outlive the archive); only rewritten configuration and
+ * sealed credentials are held in memory. Without `scratch` (tests), copies are read
+ * into memory before the work folder is removed.
+ */
 export async function captureAssistants({
   dataDir,
   id,
   withCredentials,
-  limit = memberLimit,
   busy = () => false,
+  plan = new CapturePlan(),
+  scratch: shared,
 }) {
   if (!assistantsPresent(dataDir)) return null;
   if (assistantStorageProblem(dataDir)) return omitted(unsafeOmission);
@@ -140,26 +156,24 @@ export async function captureAssistants({
   const sealing = withCredentials && readAssistantFeature(dataDir).enabled;
   const key = sealing ? await createBackupKey(root, id) : randomBytes(32);
   // Work files stay outside assistants/, which a dormant install must not grow.
-  const work = folder(path.join(dataDir, "operations", `.snapshot-${randomUUID()}`));
+  const work = folder(
+    path.join(shared || path.join(dataDir, "operations"), `.snapshot-${randomUUID()}`),
+  );
+  const component = areaComponent("assistants");
   const files = [],
-    workspaces = [],
     sealed = [];
-  let bytes = 0,
-    workspaceBytes = 0,
-    withheld = false,
-    oversize = false,
+  let withheld = false,
     unreadable = false,
     skipped = 0;
-  const add = (relative, content) => {
-    const member = fileMember(`${prefix}/${relative}`, content);
-    if (relative.startsWith("workspaces/")) {
-      workspaceBytes += content.length;
-      return workspaces.push(member);
-    }
-    bytes += content.length;
-    if (bytes > limit || files.length >= 20000) throw overflow;
-    files.push(member);
-  };
+  const add = (relative, content) =>
+    files.push({ path: `${prefix}/${relative}`, bytes: content, component });
+  const addFile = (relative, file) =>
+    files.push({
+      path: `${prefix}/${relative}`,
+      file,
+      size: fs.statSync(file).size,
+      component,
+    });
   async function entry(source, relative) {
     const stat = fs.lstatSync(source);
     if (stat.isDirectory()) {
@@ -179,22 +193,11 @@ export async function captureAssistants({
       skipped++;
       return;
     }
-    // Past the budget, workspaces are no longer read at all.
-    if (
-      relative.startsWith("workspaces/") &&
-      (oversize || workspaceBytes + stat.size > limit)
-    ) {
-      oversize = true;
-      return;
-    }
-    // Other data past the budget is not read either.
-    if (!relative.startsWith("workspaces/") && bytes + stat.size > limit) throw overflow;
     const aad = `${id}\0${relative}`;
-    const content = readFile(source, limit);
-    if (isSqlite(content) && sealedTree(relative)) {
-      // Live databases are first copied consistently, then sealed from that copy.
-      const consistent = path.join(work, randomUUID());
-      fs.writeFileSync(consistent, sqliteSnapshot(source, work), { mode: 0o600 });
+    if (stat.size >= 16 && (await sqliteFile(source))) {
+      // Live databases are copied consistently off the event loop.
+      const consistent = await sqliteSnapshotFileAsync(source, work);
+      if (!sealedTree(relative)) return addFile(relative, consistent);
       const copy = path.join(work, randomUUID());
       // MCP OAuth logins stay on this host (see mcpOAuthTables).
       const moved = await sealDatabase(consistent, copy, {
@@ -203,13 +206,23 @@ export async function captureAssistants({
         tmp: work,
         omit: mcpOAuthTables,
       });
-      add(relative, readFile(copy, limit));
+      fs.rmSync(consistent, { force: true });
+      addFile(relative, copy);
       if (moved && sealing) {
-        add(relative + sealedSuffix, readFile(copy + sealedSuffix, limit));
+        addFile(relative + sealedSuffix, copy + sealedSuffix);
         sealed.push(relative);
       } else withheld ||= moved;
-    } else if (isSqlite(content)) add(relative, sqliteSnapshot(source, work));
-    else if (
+      return;
+    }
+    const transformed =
+      isConfigFile(relative) || isRelocatable(relative) || isCredentialFile(relative);
+    if (!transformed) {
+      const member = plan.file(`${prefix}/${relative}`, source, component, stat);
+      if (member) files.push(member);
+      return;
+    }
+    const content = readFile(source, transformedLimit);
+    if (
       isConfigFile(relative) &&
       relative !== configPath &&
       !configShaped(content.toString("utf8"))
@@ -220,13 +233,11 @@ export async function captureAssistants({
       if (text === null) unreadable = true;
       else if (!isConfigFile(relative)) add(relative, Buffer.from(text));
       else addConfig(relative, text, aad);
-    } else if (isCredentialFile(relative)) {
-      if (!sealing) withheld = true;
-      else {
-        add(relative + sealedSuffix, seal(key, aad, content));
-        sealed.push(relative);
-      }
-    } else add(relative, content);
+    } else if (!sealing) withheld = true;
+    else {
+      add(relative + sealedSuffix, seal(key, aad, content));
+      sealed.push(relative);
+    }
   }
   function addConfig(relative, text, aad) {
     const result = sealConfig(text, key, aad);
@@ -243,22 +254,16 @@ export async function captureAssistants({
   }
   try {
     await entry(root, "");
+    // Without a caller's scratch folder, copies are read before it is removed.
+    if (!shared) inlineCopies(files, work);
   } catch (error) {
     if (sealing) destroyBackupKey(root, id);
-    // Agent data never fails the whole host backup by its size.
-    if (error === overflow || error?.status === 413) return omitted(tooLargeOmission);
     throw error;
   } finally {
-    fs.rmSync(work, { recursive: true, force: true });
+    if (!shared) fs.rmSync(work, { recursive: true, force: true });
   }
   // A key that seals nothing would only outlive the backup.
   if (sealing && !sealed.length) destroyBackupKey(root, id);
-  // Workspaces are kept whole or not at all, so the agents' ledgers always fit.
-  const fits =
-    !oversize &&
-    bytes + workspaceBytes <= limit &&
-    files.length + workspaces.length <= 20000;
-  if (fits) files.push(...workspaces);
   return {
     files,
     captures: [
@@ -271,7 +276,6 @@ export async function captureAssistants({
     ],
     omissions: [
       ...assistantOmissions,
-      ...(fits ? [] : [workspaceOmission]),
       ...(unreadable ? [unreadableOmission] : []),
       ...(skipped ? ["Assistant links and files not owned by AgentPier"] : []),
     ],

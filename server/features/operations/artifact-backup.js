@@ -25,7 +25,7 @@ export function artifactMembers(dataDir, includeHistory, plan) {
         path.join(dataDir, name),
         areaComponent("artifacts"),
       );
-      if ((member.bytes?.length ?? member.size) !== file.size)
+      if (!member || (member.bytes?.length ?? member.size) !== file.size)
         throw artifactError("ARTIFACT_IO_ERROR", 409);
       files.push(member);
     }

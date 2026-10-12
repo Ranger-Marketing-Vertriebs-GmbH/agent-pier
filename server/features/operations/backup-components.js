@@ -4,7 +4,7 @@ import { problem } from "../../lib/storage.js";
 
 /**
  * Backup errors name the component they come from: a CLI profile by its name and
- * CLI, everything else by its area. `kind` is "changed", "unreadable" or "linked".
+ * CLI, everything else by its area. `kind` is "unreadable" or "linked".
  */
 export const toolNames = Object.freeze({
   codex: "Codex",
@@ -12,10 +12,9 @@ export const toolNames = Object.freeze({
   opencode: "OpenCode",
 });
 const profileKinds = {
-  changed: "profileChanged",
   unreadable: "profileUnreadable",
-  // Profiles skip links instead of failing; a link found later reads as a change.
-  linked: "profileChanged",
+  // Profiles skip links instead of failing; one found while streaming is unreadable.
+  linked: "profileUnreadable",
 };
 export const profileComponent = (account) => ({
   profile: { name: account.name, tool: toolNames[account.tool] || account.tool },

@@ -7,7 +7,9 @@ import { folder, atomic, identifier, readJson } from "./files.js";
 import { encryptCredentials } from "./archive.js";
 import { SCHEMA_VERSION, writeArchive } from "./archive-v2.js";
 import { ensureSpace } from "./backup-components.js";
-import { profileOmissions } from "./profile-capture.js";
+import { captureProfiles, profileOmissions } from "./profile-capture.js";
+import { CapturePlan } from "./capture-plan.js";
+import { inspected } from "./inspection.js";
 import { backupOptions, capture, omissions } from "./snapshot.js";
 import { mcpServersPresent } from "./mcp-server-backup.js";
 import { applicationVersion } from "./version.js";
@@ -107,27 +109,50 @@ export class Backup {
       path.join(this.dataDir, "operations", `.snapshot-${randomUUID()}`),
     );
     try {
+      const members = new CapturePlan();
       const take = () =>
         capture({
           dataDir: this.dataDir,
-          home: this.home,
           audit: this.audit,
           scratch,
+          plan: members,
           ...options,
         });
       const snapshot = this.withSnapshotBarrier
         ? await this.withSnapshotBarrier(take)
         : take();
-      // The Gateway writes independently of AgentPier's mutation barrier; its capture
-      // runs after the application snapshot instead of holding every mutation.
+      // CLI profiles and the Gateway write independently of AgentPier's mutation
+      // barrier; their captures run after the application snapshot instead of
+      // holding every mutation while large history databases are copied.
+      const profiles = await captureProfiles({
+        dataDir: this.dataDir,
+        home: this.home,
+        scratch,
+        plan: members,
+        includeHistory: options.includeHistory,
+        withCredentials: options.withCredentials,
+      });
       const assistants = await captureAssistants({
         dataDir: this.dataDir,
         id,
         withCredentials: options.withCredentials,
         busy: this.assistantsBusy,
+        plan: members,
+        scratch,
       });
       try {
-        return await this.write(id, options, plan, snapshot, assistants);
+        return await this.write(
+          id,
+          options,
+          plan,
+          {
+            files: [...snapshot.files, ...profiles.files],
+            credentials: [...snapshot.credentials, ...profiles.credentials],
+            captures: [...snapshot.captures, ...profiles.captures],
+            omissions: [...snapshot.omissions, ...profiles.omissions],
+          },
+          assistants,
+        );
       } catch (error) {
         // A backup that was never written must not leave its assistant key behind.
         forgetAssistantBackup(this.dataDir, id);
@@ -156,7 +181,12 @@ export class Backup {
       captures: [...snapshot.captures, ...(assistants?.captures || [])],
       ...(assistants?.manifest ? { assistants: assistants.manifest } : {}),
     };
-    const members = [...snapshot.files, ...(assistants?.files || [])];
+    // What an inspection validates comes first, so it can stop reading there.
+    const all = [...snapshot.files, ...(assistants?.files || [])];
+    const members = [
+      ...all.filter((member) => inspected(member.path)),
+      ...all.filter((member) => !inspected(member.path)),
+    ];
     // Compression only shrinks; the uncompressed size bounds the archive.
     ensureSpace(
       this.directory,
@@ -175,9 +205,9 @@ export class Backup {
       : undefined;
     const file = this.file(id),
       temporary = `${file}.${randomUUID()}.tmp`;
-    let bytes;
+    let written;
     try {
-      bytes = await writeArchive(temporary, { manifest, members, capsule });
+      written = await writeArchive(temporary, { manifest, members, capsule });
       fs.renameSync(temporary, file);
     } finally {
       fs.rmSync(temporary, { force: true });
@@ -185,7 +215,7 @@ export class Backup {
     const backup = {
       id,
       createdAt,
-      bytes,
+      bytes: written.bytes,
       withCredentials: options.withCredentials,
       includeHistory: options.includeHistory,
     };
@@ -197,7 +227,7 @@ export class Backup {
       outcome: "success",
       source: "user",
     });
-    return { backup, manifest, file };
+    return { backup, manifest: written.manifest, file };
   }
   file(id) {
     return path.join(this.directory, `${identifier(id)}.apbackup`);

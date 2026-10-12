@@ -11,6 +11,8 @@ import {
   archiveVersion,
   readArchive,
   readArchiveHeader,
+  removedOmission,
+  truncatedOmission,
   writeArchive,
 } from "../../server/features/operations/archive-v2.js";
 import { encodeArchive } from "../../server/features/operations/archive.js";
@@ -88,7 +90,7 @@ test("version 2 archives stream members with their header first and round-trip e
   fs.writeFileSync(large, content);
   const longName = `profiles/a/claude/projects/${"ä-".repeat(80)}/session.jsonl`;
   const file = path.join(root, "backup.apbackup");
-  const size = await writeArchive(file, {
+  const { bytes: size } = await writeArchive(file, {
     manifest: { ...manifest, withCredentials: true },
     capsule: { header: { version: 1 }, data: "c2VhbGVk", tag: "dGFn" },
     members: [
@@ -144,25 +146,62 @@ test("version 2 archives stream members with their header first and round-trip e
   });
 });
 
-test("a planned file that shrank fails the backup with its component's name", async (t) => {
+test("files that vanish, shrink or grow while a backup streams keep the archive valid", async (t) => {
   const root = temp(t);
-  const source = path.join(root, "rollout.jsonl");
-  fs.writeFileSync(source, "short");
-  await assert.rejects(
-    writeArchive(path.join(root, "a.apbackup"), {
-      manifest,
-      members: [
-        {
-          path: "profiles/a/codex/sessions/rollout.jsonl",
-          file: source,
-          size: 100,
-          component: profileComponent({ name: "Work", tool: "codex" }),
-        },
-      ],
-    }),
-    { message: serverMessages.backups.profileChanged("Work", "Codex") },
+  const write = (name, content) => {
+    fs.writeFileSync(path.join(root, name), content);
+    return { file: path.join(root, name), size: Buffer.byteLength(content) };
+  };
+  const component = profileComponent({ name: "Work", tool: "claude" });
+  const gone = write("gone.jsonl", "{}\n");
+  const shrunk = write("shrunk.jsonl", "x".repeat(4000));
+  const grown = write("grown.jsonl", "short");
+  const cut = write("cut.jsonl", "y".repeat(3 * 1024 * 1024));
+  fs.rmSync(gone.file);
+  fs.writeFileSync(shrunk.file, "x".repeat(10));
+  fs.appendFileSync(grown.file, " and a lot longer");
+  const file = path.join(root, "changed.apbackup");
+  const result = await writeArchive(file, {
+    manifest: { ...manifest, omissions: ["earlier"] },
+    members: [
+      { path: "accounts.json", bytes: Buffer.from("[]") },
+      { path: "profiles/a/claude/projects/p/gone.jsonl", ...gone, component },
+      { path: "profiles/a/claude/projects/p/shrunk.jsonl", ...shrunk, component },
+      { path: "profiles/a/claude/projects/p/grown.jsonl", ...grown, component },
+      { path: "profiles/a/claude/projects/p/cut.jsonl", ...cut, component },
+    ],
+    // Truncated in place after it was opened, while it is being read.
+    opened: (entry) => {
+      if (entry.path.endsWith("cut.jsonl")) fs.truncateSync(entry.file, 1024 * 1024);
+    },
+  });
+  assert.deepEqual(result.removed, ["profiles/a/claude/projects/p/gone.jsonl"]);
+  assert.deepEqual(result.truncated, ["profiles/a/claude/projects/p/cut.jsonl"]);
+  assert.deepEqual(result.manifest.omissions, [
+    "earlier",
+    removedOmission,
+    truncatedOmission,
+  ]);
+  const header = await readArchiveHeader(file);
+  assert.deepEqual(header.manifest.omissions, result.manifest.omissions);
+  assert.equal(header.members.length, 4);
+  const target = path.join(root, "out");
+  await extract(file, target);
+  const read = (name) =>
+    fs.readFileSync(path.join(target, "profiles/a/claude/projects/p", name), "utf8");
+  // Each file as it was when opened; a file cut while read is padded with blank lines.
+  assert.equal(read("shrunk.jsonl"), "x".repeat(10));
+  assert.equal(read("grown.jsonl"), "short and a lot longer");
+  const restored = read("cut.jsonl");
+  assert.equal(restored.length, 3 * 1024 * 1024);
+  assert.equal(restored.slice(0, 1024 * 1024), "y".repeat(1024 * 1024));
+  assert.match(restored.slice(1024 * 1024), /^\n+$/);
+  assert.equal(
+    fs.existsSync(path.join(target, "profiles/a/claude/projects/p/gone.jsonl")),
+    false,
   );
-  fs.symlinkSync(source, path.join(root, "link"));
+  // A link is never followed and fails with its component's name.
+  fs.symlinkSync(grown.file, path.join(root, "link"));
   await assert.rejects(
     writeArchive(path.join(root, "b.apbackup"), {
       manifest,
@@ -177,16 +216,6 @@ test("a planned file that shrank fails the backup with its component's name", as
     }),
     { message: serverMessages.backups.unreadable.chat },
   );
-  // A file that grew is captured as the planned prefix.
-  fs.appendFileSync(source, " and longer");
-  const file = path.join(root, "c.apbackup");
-  await writeArchive(file, {
-    manifest,
-    members: [{ path: "sessions/x.screen", file: source, size: 5 }],
-  });
-  const target = path.join(root, "out");
-  await extract(file, target);
-  assert.equal(fs.readFileSync(path.join(target, "sessions/x.screen"), "utf8"), "short");
 });
 
 test("crafted version 2 archives are rejected without writing outside the target", async (t) => {
@@ -266,7 +295,41 @@ test("crafted version 2 archives are rejected without writing outside the target
       { raw: Buffer.from("junk") },
     ],
   };
+  const pax = (key, value) => {
+    const body = ` ${key}=${value}\n`;
+    let length = body.length + 2;
+    if (String(length).length + body.length !== length) length++;
+    return `${length}${body}`;
+  };
+  cases.paxTraversal = [
+    headerEntry([{ path: "a", data: "x" }]),
+    { name: "PaxHeader", type: "x", data: pax("path", "../escape") },
+    { name: "a", data: "x" },
+  ];
+  cases.paxLinkpath = [
+    headerEntry([ok]),
+    { name: "PaxHeader", type: "x", data: pax("linkpath", "/etc/passwd") },
+    { name: "accounts.json", data: "[]" },
+  ];
+  cases.gnuLongName = [
+    headerEntry([ok]),
+    { name: "././@LongLink", type: "L", data: "x" },
+  ];
+  cases.gnuLongLink = [
+    headerEntry([ok]),
+    { name: "././@LongLink", type: "K", data: "x" },
+  ];
+  cases.longZeroTail = [
+    headerEntry([ok]),
+    { name: "accounts.json", data: "[]" },
+    { raw: Buffer.alloc(2 * 1024 * 1024) },
+  ];
+  cases.hugeHeader = [
+    { name: "agentpier-backup.json", data: " ".repeat(65 * 1024 * 1024) },
+  ];
   const expected = {
+    paxTraversal: "memberMismatch",
+    paxLinkpath: "invalidArchive",
     traversal: "invalidMemberPath",
     absolute: "invalidMemberPath",
     duplicate: "invalidMember",
@@ -290,6 +353,28 @@ test("crafted version 2 archives are rejected without writing outside the target
       name,
     );
   }
+  // Names that differ only in case collide on case-insensitive file systems.
+  const collision = path.join(root, "case.apbackup");
+  fs.writeFileSync(
+    collision,
+    craft([
+      headerEntry([
+        { path: "sessions/A.json", data: "1" },
+        { path: "sessions/a.json", data: "2" },
+      ]),
+      { name: "sessions/A.json", data: "1" },
+      { name: "sessions/a.json", data: "2" },
+    ]),
+  );
+  fs.writeFileSync(path.join(root, "Probe"), "");
+  const insensitive = fs.existsSync(path.join(root, "probe"));
+  fs.rmSync(path.join(root, "Probe"));
+  const caseTarget = path.join(root, "targets", "case");
+  if (insensitive)
+    await assert.rejects(extract(collision, caseTarget), {
+      message: serverMessages.backups.caseConflict,
+    });
+  else await extract(collision, caseTarget);
   const truncatedFile = path.join(root, "truncated.apbackup");
   const big = Buffer.alloc(200000, 1);
   const whole = craft([

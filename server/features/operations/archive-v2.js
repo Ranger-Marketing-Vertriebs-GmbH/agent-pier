@@ -61,8 +61,20 @@ function storedGzip(data) {
   parts.push(trailer);
   return Buffer.concat(parts);
 }
-function headerMember(header, mtime) {
-  const json = Buffer.from(JSON.stringify(header));
+// Removed members and grown sizes change the header's length; it is padded with
+// spaces (valid JSON whitespace) to the length reserved before the members streamed.
+const SLACK_PER_FILE = 20;
+const SLACK = 4096;
+export const removedOmission = "Files removed while the backup was written";
+export const truncatedOmission =
+  "Files that shrank while the backup was written (padded with blank lines)";
+function headerMember(header, mtime, length) {
+  const text = Buffer.from(JSON.stringify(header));
+  if (length !== undefined && text.length > length) throw invalid();
+  const json =
+    length === undefined
+      ? text
+      : Buffer.concat([text, Buffer.alloc(length - text.length, 0x20)]);
   return storedGzip(
     Buffer.concat([
       fileHeader(HEADER_NAME, json.length, mtime),
@@ -71,44 +83,74 @@ function headerMember(header, mtime) {
     ]),
   );
 }
-async function* fileChunks(entry) {
+/**
+ * Opens a planned file. It is read through this descriptor at its current size, so
+ * a writer that replaces or deletes it afterwards no longer matters. A file that
+ * is gone already yields null: it is left out and reported.
+ */
+async function openSource(entry) {
   let handle;
   try {
     handle = await fsp.open(entry.file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
   } catch (error) {
-    throw componentProblem(error.code === "ENOENT" ? "changed" : "unreadable", entry);
+    if (error.code === "ENOENT") return null;
+    throw componentProblem("unreadable", entry);
   }
-  try {
-    const stat = await handle.stat();
-    if (!stat.isFile() || stat.nlink !== 1) throw componentProblem("unreadable", entry);
-    let position = 0;
-    while (position < entry.size) {
-      const buffer = Buffer.allocUnsafe(Math.min(CHUNK, entry.size - position));
-      const { bytesRead } = await handle.read(buffer, 0, buffer.length, position);
-      // A file that shrank since it was planned cannot fill its declared entry.
-      if (!bytesRead) throw componentProblem("changed", entry);
-      position += bytesRead;
-      yield buffer.subarray(0, bytesRead);
-    }
-  } finally {
+  const stat = await handle.stat();
+  if (!stat.isFile() || stat.nlink !== 1) {
     await handle.close();
+    throw componentProblem("unreadable", entry);
+  }
+  return { handle, size: stat.size };
+}
+async function* fileChunks(source, size, outcome) {
+  let position = 0;
+  while (position < size) {
+    const buffer = Buffer.allocUnsafe(Math.min(CHUNK, size - position));
+    const { bytesRead } = await source.handle.read(buffer, 0, buffer.length, position);
+    if (!bytesRead) {
+      // Truncated in place while it was read: the entry's size is already written,
+      // so it is filled with blank lines, which line-based histories skip.
+      outcome.truncated = true;
+      for (let left = size - position; left > 0; left -= CHUNK)
+        yield Buffer.alloc(Math.min(left, CHUNK), 0x0a);
+      return;
+    }
+    position += bytesRead;
+    yield buffer.subarray(0, bytesRead);
   }
 }
-async function* body(entries, listing, mtime) {
+async function* body(entries, listing, mtime, report, opened) {
   for (const [index, entry] of entries.entries()) {
-    yield fileHeader(entry.path, entry.size, mtime);
     if (entry.bytes) {
+      yield fileHeader(entry.path, entry.size, mtime);
       listing[index].sha256 = sha256(entry.bytes);
       yield entry.bytes;
-    } else {
-      const hash = createHash("sha256");
-      for await (const chunk of fileChunks(entry)) {
+      yield padding(entry.size);
+      continue;
+    }
+    const source = await openSource(entry);
+    if (!source) {
+      listing[index] = null;
+      report.removed.push(entry.path);
+      continue;
+    }
+    try {
+      await opened?.(entry);
+      listing[index].size = source.size;
+      yield fileHeader(entry.path, source.size, mtime);
+      const hash = createHash("sha256"),
+        outcome = {};
+      for await (const chunk of fileChunks(source, source.size, outcome)) {
         hash.update(chunk);
         yield chunk;
       }
+      if (outcome.truncated) report.truncated.push(entry.path);
       listing[index].sha256 = hash.digest("hex");
+      yield padding(source.size);
+    } finally {
+      await source.handle.close();
     }
-    yield padding(entry.size);
   }
   yield endOfArchive();
 }
@@ -127,9 +169,15 @@ function entryOf(member) {
 
 /**
  * Streams `members` (`{ path, bytes | content(base64) | file + size, ... }`) and
- * the optional sealed `capsule` into the new file `file`. Returns its byte size.
+ * the optional sealed `capsule` into the new file `file`. Files are archived at
+ * the size they have when they are read; files that disappeared before are left
+ * out. Returns `{ bytes, manifest, removed, truncated }`, `manifest` being the one
+ * written, with an omission for each kind of change.
  */
-export async function writeArchive(file, { manifest, members, capsule, level = 1 }) {
+export async function writeArchive(
+  file,
+  { manifest, members, capsule, level = 1, opened },
+) {
   const entries = members.map(entryOf);
   if (capsule) {
     const bytes = Buffer.from(JSON.stringify(capsule));
@@ -150,27 +198,49 @@ export async function writeArchive(file, { manifest, members, capsule, level = 1
     mode: 0o600,
     kind: entry.kind === "credentials" ? "credentials" : "public",
   }));
+  const report = { removed: [], truncated: [] };
+  const finalManifest = () => {
+    const omissions = [...(manifest.omissions || [])];
+    if (report.removed.length) omissions.push(removedOmission);
+    if (report.truncated.length) omissions.push(truncatedOmission);
+    return {
+      ...manifest,
+      schemaVersion: SCHEMA_VERSION,
+      ...(manifest.omissions || omissions.length ? { omissions } : {}),
+    };
+  };
   const header = () => ({
     format: "agentpier-backup",
     version: FORMAT_VERSION,
-    manifest: { ...manifest, schemaVersion: SCHEMA_VERSION },
-    members: listing,
+    manifest: finalManifest(),
+    members: listing.filter(Boolean),
   });
   const mtime = Math.floor(Date.parse(manifest.createdAt) / 1000) || 0;
-  const reserved = headerMember(header(), mtime);
+  const streamed = entries.filter((entry) => !entry.bytes).length;
+  const length =
+    Buffer.byteLength(JSON.stringify(header())) +
+    SLACK +
+    SLACK_PER_FILE * streamed +
+    removedOmission.length +
+    truncatedOmission.length;
+  const reserved = headerMember(header(), mtime, length);
   await fsp.writeFile(file, reserved, { flag: "wx", mode: 0o600 });
   await pipeline(
-    body(entries, listing, mtime),
+    body(entries, listing, mtime, report, opened),
     createGzip({ level, memLevel: 8 }),
     fs.createWriteStream(file, { flags: "r+", start: reserved.length }),
   );
-  const final = headerMember(header(), mtime);
-  if (final.length !== reserved.length) throw invalid();
+  const written = header();
+  const final = headerMember(written, mtime, length);
   const handle = await fsp.open(file, "r+");
   try {
     await handle.write(final, 0, final.length, 0);
     await handle.sync();
-    return (await handle.stat()).size;
+    return {
+      bytes: (await handle.stat()).size,
+      manifest: written.manifest,
+      ...report,
+    };
   } finally {
     await handle.close();
   }
@@ -265,7 +335,7 @@ export async function archiveVersion(file) {
   try {
     const first = await stream.source.exact(1);
     if (first[0] === 0x7b) return 1;
-    stream.source.buffer = Buffer.concat([first, stream.source.buffer]);
+    stream.source.unshift(first);
     const entry = await nextEntry(stream.source);
     if (entry?.name !== HEADER_NAME) throw invalid();
     return FORMAT_VERSION;
@@ -288,14 +358,17 @@ export async function readArchiveHeader(file) {
  * archive order, where its bytes go: `{ file }` (a new file, never replaced),
  * `{ collect(bytes) }` (small members, after their hash matched) or nothing (the
  * member is only verified). Every member's size and SHA-256 is checked; a missing,
- * extra, renamed, truncated or altered entry fails the read.
+ * extra, renamed, truncated or altered entry fails the read. With `count`, only the
+ * first `count` members are read and nothing after them is verified.
  */
-export async function readArchive(file, { visit = () => null } = {}) {
+export async function readArchive(file, { visit = () => null, count } = {}) {
   const stream = open(file);
   const { source } = stream;
   try {
     const header = await readHeader(source);
-    for (const member of header.members) {
+    // An inspection reads only the first `count` members.
+    const partial = count !== undefined && count < header.members.length;
+    for (const member of header.members.slice(0, count)) {
       const entry = await nextEntry(source);
       if (!entry || entry.name !== member.path || entry.size !== member.size)
         throw mismatch();
@@ -305,7 +378,15 @@ export async function readArchive(file, { visit = () => null } = {}) {
       let output;
       if (sink?.file) {
         folder(path.dirname(sink.file));
-        output = await fsp.open(sink.file, "wx", 0o600);
+        try {
+          output = await fsp.open(sink.file, "wx", 0o600);
+        } catch (error) {
+          // Names unique in the archive can still collide on a file system that
+          // ignores case or Unicode normalization.
+          if (error.code === "EEXIST")
+            throw problem(serverMessages.backups.caseConflict, 409);
+          throw error;
+        }
       }
       try {
         for await (const chunk of source.chunks(member.size)) {
@@ -321,6 +402,7 @@ export async function readArchive(file, { visit = () => null } = {}) {
         throw problem(serverMessages.backups.checksumMismatch);
       if (parts) await sink.collect(Buffer.concat(parts));
     }
+    if (partial) return header;
     if ((await nextEntry(source)) !== null) throw mismatch();
     await source.zeroTail(1024 * 1024);
     return header;

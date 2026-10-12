@@ -11,7 +11,7 @@ import {
   profileComponent,
   toolNames,
 } from "./backup-components.js";
-import { fileMember, sqliteSnapshotFile } from "./snapshot.js";
+import { fileMember, sqliteSnapshotFileAsync } from "./snapshot.js";
 
 // The capsule is sealed in memory; the allowlist keeps it far below these limits.
 const PROFILE_CREDENTIAL_LIMIT = 64 * 1024 * 1024;
@@ -39,7 +39,7 @@ function profileBases(base) {
  * conversation history as public members when `includeHistory`. Links and foreign
  * files are skipped, never followed; database histories become snapshots.
  */
-export function captureProfiles({
+export async function captureProfiles({
   dataDir,
   home,
   scratch,
@@ -92,7 +92,7 @@ export function captureProfiles({
         seal(`${prefix}/secret.json`, secret);
       else skipped = true;
     }
-    const visit = (root, directory, relative) => {
+    const visit = async (root, directory, relative) => {
       for (const name of fs.readdirSync(directory).sort()) {
         const file = path.join(directory, name);
         const next = relative ? `${relative}/${name}` : name;
@@ -103,7 +103,7 @@ export function captureProfiles({
           continue;
         }
         if (stat.isDirectory()) {
-          if (descend(root, next)) visit(root, file, next);
+          if (descend(root, next)) await visit(root, file, next);
           continue;
         }
         const kind = classify(root, next);
@@ -119,18 +119,20 @@ export function captureProfiles({
         }
         const member = `${prefix}/${path.relative(base, file).split(path.sep).join("/")}`;
         if (kind === "credentials") seal(member, file);
-        else if (kind === "history")
-          result.files.push(plan.file(member, file, component, stat));
-        else {
+        else if (kind === "history") {
+          const planned = plan.file(member, file, component, stat);
+          if (planned) result.files.push({ ...planned, history: true });
+        } else {
           // A live database is copied consistently; the copy is what is archived.
           ensureSpace(scratch, stat.size);
           const startedAt = new Date().toISOString();
-          const copy = sqliteSnapshotFile(file, scratch);
+          const copy = await sqliteSnapshotFileAsync(file, scratch);
           result.files.push({
             path: member,
             file: copy,
             size: fs.statSync(copy).size,
             component,
+            history: true,
           });
           result.captures.push({
             component: member,
@@ -145,7 +147,7 @@ export function captureProfiles({
       for (const root of nativeRoots[account.tool]) {
         const directory = path.join(folder, root);
         const stat = fs.lstatSync(directory, { throwIfNoEntry: false });
-        if (stat?.isDirectory()) visit(root, directory, "");
+        if (stat?.isDirectory()) await visit(root, directory, "");
         else if (stat?.isSymbolicLink()) skipped = true;
       }
   }

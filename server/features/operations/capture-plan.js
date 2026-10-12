@@ -14,7 +14,10 @@ export class CapturePlan {
   constructor({ inlineBudget = INLINE_BUDGET } = {}) {
     this.left = inlineBudget;
   }
-  /** The member `name` for regular file `file`, or a problem naming `component`. */
+  /**
+   * The member `name` for regular file `file`, a problem naming `component`, or
+   * null when the file disappeared since it was listed.
+   */
   file(name, file, component, stat = fs.lstatSync(file)) {
     const entry = { component };
     if (stat.isSymbolicLink()) throw componentProblem("linked", entry);
@@ -26,7 +29,7 @@ export class CapturePlan {
         this.left -= bytes.length;
         return { ...member, bytes };
       } catch (error) {
-        if (error.code === "ENOENT") throw componentProblem("changed", entry);
+        if (error.code === "ENOENT") return null;
         // It grew past the inline size since: stream it instead.
         if (error.status !== 413) throw error;
       }
@@ -42,7 +45,10 @@ export class CapturePlan {
         stat = fs.lstatSync(file);
       if (stat.isDirectory() && !stat.isSymbolicLink())
         for (const name of fs.readdirSync(file).sort()) visit(path.join(relative, name));
-      else result.push(this.file(`${prefix}/${relative}`, file, component, stat));
+      else {
+        const member = this.file(`${prefix}/${relative}`, file, component, stat);
+        if (member) result.push(member);
+      }
     };
     if (fs.existsSync(root)) for (const name of fs.readdirSync(root).sort()) visit(name);
     return result;

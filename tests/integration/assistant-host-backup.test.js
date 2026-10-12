@@ -538,7 +538,7 @@ test("a dormant install gains no key or work folder from a credentialed backup",
   assert.deepEqual(entries(), before);
 });
 
-test("oversized workspaces are left out as a declared omission", async (t) => {
+test("large workspaces stay in the backup, streamed from disk", async (t) => {
   const { dataDir, root } = fixture(t);
   assistantData(root);
   write(root, "workspaces/home/large.bin", Buffer.alloc(2 * 1024 * 1024));
@@ -546,15 +546,15 @@ test("oversized workspaces are left out as a declared omission", async (t) => {
     dataDir,
     id: "8b0c5f0e-8f43-4a8e-9a55-3c2f4c1d0e02",
     withCredentials: false,
-    limit: 1024 * 1024,
   });
-  assert.ok(result.omissions.includes("Agent workspaces too large"));
-  const paths = result.files.map((member) => member.path);
-  assert.equal(
-    paths.some((name) => name.startsWith("assistants/workspaces/")),
-    false,
+  assert.equal(result.omissions.includes("Agent workspaces too large"), false);
+  const large = result.files.find(
+    (member) => member.path === "assistants/workspaces/home/large.bin",
   );
-  assert.ok(paths.includes("assistants/assistants.sqlite"));
+  assert.equal(large.size, 2 * 1024 * 1024);
+  assert.ok(
+    result.files.some((member) => member.path === "assistants/assistants.sqlite"),
+  );
   assert.ok(
     new Backup({ dataDir })
       .plan({})

@@ -47,7 +47,6 @@ test("Gateway logs never count toward or enter a host backup", async (t) => {
     dataDir,
     id,
     withCredentials: false,
-    limit: 1024 * 1024,
   });
   assert.equal(result.omissions.includes(tooLarge), false);
   const names = result.files.map((member) => member.path);
@@ -58,31 +57,25 @@ test("Gateway logs never count toward or enter a host backup", async (t) => {
   );
 });
 
-test("oversized agent data is omitted as a whole instead of failing the backup", async (t) => {
+test("large agent data streams into the backup instead of being left out", async (t) => {
   const { dataDir, root } = fixture(t);
   write(root, "state/agents/main/sessions/large.jsonl", Buffer.alloc(2 * 1024 * 1024));
+  for (let index = 0; index < 300; index++) write(root, `state/many/${index}.json`, "{}");
   for (const withCredentials of [false, true]) {
-    const result = await captureAssistants({
-      dataDir,
-      id,
-      withCredentials,
-      limit: 1024 * 1024,
-    });
-    assert.deepEqual(result.files, []);
-    assert.deepEqual(result.captures, []);
-    assert.equal(result.manifest, null);
-    assert.ok(result.omissions.includes(tooLarge));
-    // A key that seals nothing would only outlive the backup.
-    const keys = path.join(root, "backup-keys");
-    assert.deepEqual(fs.existsSync(keys) ? fs.readdirSync(keys) : [], []);
+    const result = await captureAssistants({ dataDir, id, withCredentials });
+    assert.equal(result.omissions.includes(tooLarge), false);
+    const large = result.files.find(
+      (member) => member.path === "assistants/state/agents/main/sessions/large.jsonl",
+    );
+    // Copied-through files are streamed later, not held in memory.
+    assert.equal(large.size, 2 * 1024 * 1024);
+    assert.equal(large.bytes, undefined);
+    assert.equal(
+      result.files.filter((member) => member.path.startsWith("assistants/state/many/"))
+        .length,
+      300,
+    );
   }
-  // Many small files exceed the member budget the same way.
-  fs.rmSync(path.join(root, "state/agents"), { recursive: true });
-  for (let index = 0; index < 20001; index++)
-    write(root, `state/many/${index}.json`, "{}");
-  const many = await captureAssistants({ dataDir, id, withCredentials: false });
-  assert.deepEqual(many.files, []);
-  assert.ok(many.omissions.includes(tooLarge));
 });
 
 test("an unparsable relocatable file is omitted so the archive stays restorable", async (t) => {

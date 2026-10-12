@@ -42,29 +42,22 @@ export const backups = Object.freeze({
   uploadType: "Upload an application/octet-stream backup archive.",
   assistantsBusy:
     "Agents are being updated or maintained. Create the backup again afterwards.",
+  caseConflict:
+    "Two archive entries differ only in letter case or Unicode normalization and collide on this file system.",
+  uploadLengthRequired: "The upload needs the archive's size.",
+  uploadLengthMismatch: "The upload does not have its announced size.",
+  invalidUploadChunk: "Invalid upload slice.",
+  uploadBusy: "This upload is receiving another slice.",
+  uploadOffsetMismatch:
+    "The slice does not continue the upload where it ends. The upload resumes at the right position.",
+  uploadIncomplete: "The upload is not complete yet.",
   memberMismatch: "The archive entries do not match its manifest.",
   insufficientSpace: (required, available) =>
     `Not enough free disk space: ${required} required, ${available} available.`,
-  profileChanged: (name, tool) =>
-    `Profile "${name}" (${tool}): A file changed during the backup. Create the backup again.`,
   profileUnreadable: (name, tool) =>
     `Profile "${name}" (${tool}): A file is not a regular, owned file and cannot be backed up.`,
   profileCredentialLimit: (name, tool, limit) =>
     `Profile "${name}" (${tool}): Configuration and credentials exceed ${limit}.`,
-  changed: Object.freeze({
-    sessions: "Sessions: A file changed during the backup. Create the backup again.",
-    chat: "Chat histories: A file changed during the backup. Create the backup again.",
-    agentbus:
-      "AgentBus history: A file changed during the backup. Create the backup again.",
-    artifacts: "Artifacts: A file changed during the backup. Create the backup again.",
-    assistants: "Agent data: A file changed during the backup. Create the backup again.",
-    providerCredentials:
-      "Provider connection keys: A file changed during the backup. Create the backup again.",
-    repositoryCredentials:
-      "Repository credentials: A file changed during the backup. Create the backup again.",
-    applicationData:
-      "Application data: A file changed during the backup. Create the backup again.",
-  }),
   unreadable: Object.freeze({
     sessions: "Sessions: A file is not a regular, owned file and cannot be backed up.",
     chat: "Chat histories: A file is not a regular, owned file and cannot be backed up.",

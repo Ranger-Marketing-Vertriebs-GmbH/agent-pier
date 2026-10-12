@@ -44,7 +44,8 @@ const rules = {
       "plugins/known_marketplaces.json",
       "plugins/config.json",
     ],
-    credentialTrees: ["agents", "commands", "skills", "output-styles"],
+    // Hook scripts that settings.json runs; executable bits are not restored.
+    credentialTrees: ["agents", "commands", "skills", "output-styles", "hooks"],
     excludedTrees: [],
     historyFiles: ["history.jsonl"],
     historyTrees: ["projects", "todos", "file-history"],
