@@ -90,7 +90,15 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
         model: { connectionId, modelId },
         ...(personal ? { capabilities } : {}),
         // Sent once there is something to store: a saved or switched-on schedule.
-        ...(personal && (assistant?.heartbeat || heartbeat.enabled) ? { heartbeat } : {}),
+        // Check-ins need memory: switching memory off switches them off too.
+        ...(personal && (assistant?.heartbeat || heartbeat.enabled)
+          ? {
+              heartbeat: {
+                ...heartbeat,
+                enabled: heartbeat.enabled && !!capabilities.memory,
+              },
+            }
+          : {}),
         // Only a changed level is sent: the server asks to confirm a raise.
         ...(shellEligible(assistant) && shell !== shellLevel(assistant) ? { shell } : {}),
       };
@@ -190,10 +198,6 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
           <AssistantProactivity
             assistant={assistant}
             capabilities={capabilities}
-            onCapabilities={(next) => {
-              resetConfirmations();
-              form.set("capabilities", next);
-            }}
             heartbeat={heartbeat}
             onHeartbeat={(next) => form.set("heartbeat", next)}
           />

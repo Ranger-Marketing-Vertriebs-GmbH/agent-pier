@@ -1,13 +1,15 @@
 import http from "node:http";
+import { setTimeout as delay } from "node:timers/promises";
 
 /**
- * An OpenAI-compatible model double for the proactivity contracts. It answers with
- * `model.reply`; while `model.searchQuery` is set, a turn that offers memory_search
- * first searches for it, exercising the native recall tool loop.
+ * An OpenAI-compatible model double for the proactivity contracts. `model.reply`
+ * is the answer, or a function of the request returning `{ text, delayMs }` or
+ * `{ tool: { name, arguments } }`, so a turn can be told apart (a check-in, a slow
+ * owner turn), held open or made to call a tool.
  */
 export async function proactivityModel() {
   const requests = [];
-  const model = { requests, reply: "A useful assistant reply.", searchQuery: null };
+  const model = { requests, reply: "A useful assistant reply." };
   const server = http.createServer(async (req, res) => {
     if (req.method !== "POST") {
       res.writeHead(200, { "content-type": "application/json" });
@@ -22,13 +24,27 @@ export async function proactivityModel() {
     for await (const part of req) bytes += part;
     const input = JSON.parse(bytes || "{}");
     requests.push(input);
-    const search =
-      model.searchQuery &&
-      input.tools?.some((tool) => tool.function?.name === "memory_search") &&
-      input.messages.findLastIndex((m) => m.role === "user") >
-        input.messages.findLastIndex((m) => m.role === "tool");
+    const answer =
+      typeof model.reply === "function" ? model.reply(input) : { text: model.reply };
+    if (answer.delayMs) await delay(answer.delayMs);
     res.writeHead(200, { "content-type": "text/event-stream" });
-    const emit = (delta, finish_reason = null) =>
+    const call = answer.tool && {
+      tool_calls: [
+        {
+          index: 0,
+          id: `call-${requests.length}`,
+          type: "function",
+          function: {
+            name: answer.tool.name,
+            arguments: JSON.stringify(answer.tool.arguments),
+          },
+        },
+      ],
+    };
+    for (const [delta, finish_reason] of [
+      [call || { content: answer.text }, null],
+      [{}, call ? "tool_calls" : "stop"],
+    ])
       res.write(
         `data: ${JSON.stringify({
           id: "proactivity-contract",
@@ -37,22 +53,6 @@ export async function proactivityModel() {
           choices: [{ index: 0, delta, finish_reason }],
         })}\n\n`,
       );
-    if (search)
-      emit({
-        tool_calls: [
-          {
-            index: 0,
-            id: `memory-search-${requests.length}`,
-            type: "function",
-            function: {
-              name: "memory_search",
-              arguments: JSON.stringify({ query: model.searchQuery, maxResults: 12 }),
-            },
-          },
-        ],
-      });
-    else emit({ content: model.reply });
-    emit({}, search ? "tool_calls" : "stop");
     res.end("data: [DONE]\n\n");
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));

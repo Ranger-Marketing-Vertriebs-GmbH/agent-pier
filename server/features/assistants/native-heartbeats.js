@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { personalCapabilities, personalEligible } from "./native-capabilities.js";
+import { personalCapabilities } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { heartbeatSchedule, heartbeatSettings } from "./heartbeat-schedule.js";
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
@@ -11,20 +11,23 @@ const silent = (text) => !text.trim() || text.trim() === "NO_REPLY";
 const declaration = (binding) => `agentpier-reminder:${binding.id}`;
 // Creation was submitted but not confirmed: the job may still surface.
 const unconfirmed = (binding) => ["pending", "unknown"].includes(binding.state);
-const prompt = (memory) =>
-  [
-    "This is a scheduled check-in from AgentPier, not a message from the owner.",
-    `Check whether anything needs the owner's attention right now${memory ? ", using your memory where it helps" : ""}.`,
-    "If something does, write one short message addressed to the owner.",
-    "If nothing needs attention, reply exactly NO_REPLY and nothing else.",
-  ].join("\n");
+const prompt = [
+  "This is a scheduled check-in from AgentPier, not a message from the owner.",
+  "First read MEMORY.md with memory_get; search your other notes with memory_search where it helps.",
+  "Using this conversation and your memory, check whether anything needs the owner's attention right now.",
+  "If something does, write one short message addressed to the owner.",
+  "If nothing needs attention, reply exactly NO_REPLY and nothing else.",
+].join("\n");
 
 /**
- * Proactive check-ins ("heartbeat"): one native cron job per opted-in agent, built
- * like a reminder. The run's summary returns over the reminder webhook; AgentPier
- * drops NO_REPLY and sends anything else to the agent's paired chat, which the
- * binding fixed when the job was created. OpenClaw's own heartbeat stays off: it
- * would deliver through channels AgentPier does not configure.
+ * Proactive check-ins ("heartbeat"): one native cron job per opted-in agent with
+ * memory. It runs as a `current` job bound to the agent's paired conversation: a
+ * detached turn with full context (instructions, notes, the conversation's recent
+ * tail) whose visible result OpenClaw commits into that conversation once no turn
+ * is running there. The run's summary also returns over the reminder webhook
+ * (completion destination); AgentPier drops NO_REPLY and sends anything else to
+ * the paired chat the binding fixed when the job was created. OpenClaw's own
+ * heartbeat stays off: it would deliver through channels AgentPier leaves empty.
  */
 export class NativeHeartbeats {
   constructor({ reminders, notifications }) {
@@ -53,29 +56,39 @@ export class NativeHeartbeats {
     this.assistants.store.getAssistant(id);
     if (!this.channel(id)) throw assistantProblem("heartbeatChannelRequired", 409);
   }
+  /** The paired chat's conversation: the session the check-ins run against. */
+  sessionKey(source) {
+    try {
+      const { conversationId } = this.reminders.channels.store.get(source.channelId);
+      return this.assistants.store.getConversation(conversationId).runtimeSessionKey;
+    } catch {
+      return null;
+    }
+  }
   wanted(agent) {
     const settings = heartbeatSettings(agent);
     const source = this.channel(agent.id);
+    const sessionKey = source && this.sessionKey(source);
     if (
       !settings.enabled ||
-      !personalEligible(agent) ||
-      !source ||
+      // The notes are what a check-in looks at; without memory it has nothing.
+      !personalCapabilities(agent).memory ||
+      !sessionKey ||
       this.blocked(agent.id)
     )
       return null;
-    return { settings, source };
+    return { settings, source, sessionKey };
   }
-  job(agent, settings) {
-    const memory = personalCapabilities(agent).memory;
+  job(settings) {
     return {
       schedule: heartbeatSchedule(settings),
       payload: {
         kind: "agentTurn",
-        message: prompt(memory),
+        message: prompt,
         timeoutSeconds: 120,
-        lightContext: true,
+        lightContext: false,
         // Memory is read, never written, in a run nobody watches.
-        toolsAllow: memory ? ["memory_search", "memory_get"] : [],
+        toolsAllow: ["memory_search", "memory_get"],
       },
     };
   }
@@ -112,6 +125,8 @@ export class NativeHeartbeats {
         !keep &&
         current.state === "bound" &&
         job &&
+        job.sessionTarget === "current" &&
+        job.sessionKey === want.sessionKey &&
         ["channelId", "chatId", "userId"].every(
           (k) => current.source[k] === want.source[k],
         );
@@ -119,8 +134,8 @@ export class NativeHeartbeats {
       else await this.retire(current, job);
     }
     if (!want) return this.assistants.changed();
-    const definition = this.job(agent, want.settings);
-    if (!keep) return this.create(agent, want.source, definition);
+    const definition = this.job(want.settings);
+    if (!keep) return this.create(agent, want, definition);
     const { binding, job } = keep;
     if (
       job.enabled &&
@@ -136,7 +151,7 @@ export class NativeHeartbeats {
     this.bindings.patch(binding.id, { deliveryEnabled: true });
     this.assistants.changed();
   }
-  async create(agent, source, definition) {
+  async create(agent, { source, sessionKey }, definition) {
     const connection = await this.reminders.start();
     // A fresh key each time: a retired binding is never revived.
     const { binding } = this.bindings.reserve(
@@ -155,10 +170,20 @@ export class NativeHeartbeats {
         enabled: true,
         deleteAfterRun: false,
         ...definition,
-        sessionTarget: "isolated",
+        // Commits the visible result into this conversation after any running turn.
+        sessionTarget: "current",
+        sessionKey,
         wakeMode: "now",
         failureAlert: false,
-        delivery: { mode: "webhook", to: `${connection.url}/complete/${binding.id}` },
+        // Announce is the session commit (no channels are configured); the
+        // completion webhook hands the result to AgentPier for the paired chat.
+        delivery: {
+          mode: "announce",
+          completionDestination: {
+            mode: "webhook",
+            to: `${connection.url}/complete/${binding.id}`,
+          },
+        },
       });
       const job = result?.job || result;
       if (!job?.id) throw assistantProblem("unavailable", 503);

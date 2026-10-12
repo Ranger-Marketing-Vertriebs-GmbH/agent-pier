@@ -86,7 +86,7 @@ function setup(t, { capabilities = { memory: true, reminders: false } } = {}) {
 }
 const added = (f) => f.calls.filter((c) => c.method === "cron.add");
 
-test("an opted-in agent gets one isolated check-in job delivered to AgentPier", async (t) => {
+test("an opted-in agent gets one check-in job in its conversation, reported to AgentPier", async (t) => {
   const f = setup(t);
   await f.heartbeats.sync(f.id);
   await f.heartbeats.sync(f.id);
@@ -99,23 +99,49 @@ test("an opted-in agent gets one isolated check-in job delivered to AgentPier", 
     expr: "0 8,12,16 * * *",
     tz: "Europe/Berlin",
   });
-  assert.equal(job.sessionTarget, "isolated");
+  // The run reads the paired conversation and commits its result back into it.
+  assert.equal(job.sessionTarget, "current");
+  assert.equal(
+    job.sessionKey,
+    f.store.getConversation(f.channel.conversationId).runtimeSessionKey,
+  );
   assert.equal(job.enabled, true);
   assert.equal(job.payload.kind, "agentTurn");
-  assert.equal(job.payload.lightContext, true);
+  // Full context: the agent's instructions and notes are part of the run.
+  assert.equal(job.payload.lightContext, false);
   assert.match(job.payload.message, /NO_REPLY/);
   // Memory is read, never written, in an unattended run.
   assert.deepEqual(job.payload.toolsAllow, ["memory_search", "memory_get"]);
-  assert.equal(job.delivery.mode, "webhook");
-  assert.match(job.delivery.to, /^http:\/\/127\.0\.0\.1:\d+\/complete\/[a-f0-9-]{36}$/);
+  assert.equal(job.delivery.mode, "announce");
+  assert.equal(job.delivery.completionDestination.mode, "webhook");
+  assert.match(
+    job.delivery.completionDestination.to,
+    /^http:\/\/127\.0\.0\.1:\d+\/complete\/[a-f0-9-]{36}$/,
+  );
   // Heartbeat bindings never appear among reminders or routines.
   assert.deepEqual((await f.reminders.list(f.id)).reminders, []);
 });
 
-test("an agent without memory checks in without tools", async (t) => {
+test("an agent without memory keeps no check-in job", async (t) => {
   const f = setup(t, { capabilities: { memory: false, reminders: false } });
   await f.heartbeats.sync(f.id);
-  assert.deepEqual([...f.jobs.values()][0].payload.toolsAllow, []);
+  assert.equal(f.jobs.size, 0);
+});
+
+test("a new conversation moves the job to it", async (t) => {
+  const f = setup(t);
+  await f.heartbeats.sync(f.id);
+  const [old] = f.jobs.keys();
+  const next = f.store.saveConversation({
+    assistantId: f.id,
+    runtimeSessionKey: "session-2",
+  });
+  f.service.store.db
+    .prepare("UPDATE channels SET body=json_set(body,'$.conversationId',?) WHERE id=?")
+    .run(next.id, f.channel.id);
+  await f.heartbeats.sync(f.id);
+  assert.equal(f.jobs.has(old), false);
+  assert.equal([...f.jobs.values()][0].sessionKey, "session-2");
 });
 
 test("changed settings update the job in place and switching off removes it", async (t) => {

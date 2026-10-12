@@ -59,6 +59,8 @@ export const assistants = {
   execAllowlistFailed:
     "The command was allowed once, but AgentPier could not add it to the allowlist. The agent will ask again next time.",
 
+  heartbeatMemoryRequired:
+    "Check-ins need memory. Switch on “Remember information” first, or switch check-ins off with it.",
   heartbeatPrefix: "Check-in:",
   heartbeatChannelRequired:
     "Check-ins need a paired Telegram chat. Connect a Telegram chat to this agent first.",

@@ -2,18 +2,13 @@ export const assistantProactivityCopy = {
   title: "Acting on its own",
   intro:
     "Optional ways for the agent to act without being asked. Everything here is off until you switch it on.",
-  recall: "Remember across conversations",
-  recallDescription:
-    "Before replying, searches this agent's own earlier conversations, for example between AgentPier and Telegram. Never another agent's.",
-  recallNeedsMemory: "Needs memory to be switched on above.",
-  recallCost:
-    "A message that refers to earlier conversations can cost one or two extra model calls.",
   heartbeat: "Check in on its own",
   heartbeatDescription:
-    "At set times the agent checks whether something needs your attention. It messages your paired Telegram chat only when it has something to say.",
+    "At set times the agent reads its conversation and notes and decides whether something needs your attention. Only then does it write in its chat, which also reaches your paired Telegram chat.",
+  heartbeatNeedsMemory: "Needs memory to be switched on above.",
   heartbeatChannel: "Needs a paired Telegram chat for this agent.",
   heartbeatReply:
-    "Messages start with “Check-in:”. The agent's chat does not contain them, so say what you are replying to.",
+    "Check-ins appear in the agent's chat, marked “Check-in:” on Telegram, so you can reply to them directly. A check-in that comes due while the agent is answering waits until it has finished.",
   interval: "How often",
   intervals: {
     "1h": "Every hour",
@@ -28,6 +23,6 @@ export const assistantProactivityCopy = {
   adoptZone: (zone) => `Use my time zone (${zone})`,
   heartbeatCost: (runs) =>
     runs === 1
-      ? "About 1 extra model run per day."
-      : `About ${runs} extra model runs per day.`,
+      ? "About 1 extra model run per day, each reading the whole conversation."
+      : `About ${runs} extra model runs per day, each reading the whole conversation.`,
 };

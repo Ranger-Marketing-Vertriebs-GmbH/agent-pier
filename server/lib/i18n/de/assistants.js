@@ -61,6 +61,8 @@ export const assistants = {
   execAllowlistFailed:
     "Der Befehl wurde einmal erlaubt, aber AgentPier konnte ihn nicht in die Liste erlaubter Befehle eintragen. Beim nächsten Mal fragt der Agent erneut.",
 
+  heartbeatMemoryRequired:
+    "Meldungen brauchen das Gedächtnis. Schalte zuerst „Informationen merken“ ein oder schalte die Meldungen mit ab.",
   heartbeatPrefix: "Check-in:",
   heartbeatChannelRequired:
     "Check-ins brauchen einen verbundenen Telegram-Chat. Verbinde zuerst einen Telegram-Chat mit diesem Agenten.",
