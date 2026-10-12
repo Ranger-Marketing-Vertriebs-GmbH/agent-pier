@@ -69,8 +69,8 @@ test("saving an agent passes the owner's restart confirmation and reports the ne
   assert.deepEqual(await saved.json(), { id: "a", revision: 4 });
   // The confirmation is never part of the saved definition.
   assert.deepEqual(calls, [
-    ["a", patch, 3, { confirmed: false }],
-    ["a", patch, 3, { confirmed: true }],
+    ["a", patch, 3, { confirmed: false, outcome: {} }],
+    ["a", patch, 3, { confirmed: true, outcome: {} }],
   ]);
 });
 

@@ -59,6 +59,7 @@ test("delete logs out; unrelated edits, conflicts and taken names do not", async
   assert.deepEqual(await f.changes.remove(f.docs.id), {
     pending: true,
     logoutDeferred: false,
+    transport: "http",
   });
   assert.deepEqual(f.logouts(), [
     ["logout", "docs"],
