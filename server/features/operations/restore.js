@@ -3,8 +3,7 @@ import { restoreArtifacts } from "./artifact-backup.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { pipeline } from "node:stream/promises";
-import { folder, readJson } from "./files.js";
+import { atomic, folder, readJson } from "./files.js";
 import { assertNoConflicts, decodeArchive, decryptCredentials } from "./archive.js";
 import { archiveVersion, readArchive, readArchiveHeader } from "./archive-v2.js";
 import { backupProjects, mapProjects, historicalOnly, database } from "./restore-data.js";
@@ -13,13 +12,14 @@ import { mcpStoreMember, restoreMcpServers } from "./mcp-server-backup.js";
 import { AuditStore } from "../audit/audit-store.js";
 import {
   isAssistantMember,
-  isRelocatableMember,
   restoreAssistants,
   validateAssistantManifest,
 } from "./assistant-backup.js";
 import { ensureSpace } from "./backup-components.js";
 import { isLoginFile, profileMemberKind } from "./profile-allowlist.js";
 import { remapClaudeProjects } from "./profile-history.js";
+import { inspected } from "./inspection.js";
+import { RestoreUploads } from "./restore-upload.js";
 
 const publicPath =
   /^(artifacts\/(?:index\.json|generations\/[a-f0-9-]{36}\/\d{1,3})|accounts\.json|provider-connections\.json|repositories\.json|preferences\.json|config\.json|pipelines\/definitions\.json|memory\/memory\.sqlite|mcp-servers\/servers\.sqlite|pipeline-runs\/runs\.sqlite|audit\/events\.json|sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
@@ -42,20 +42,22 @@ function allowed(name, credentials, version) {
     (version === 2 && profileMemberKind(name) === "history")
   );
 }
-// An inspection reads what it validates and only verifies the history it skips.
-const inspected = (name) =>
-  !/^(profiles|sessions|chat|imported-history)\//.test(name) &&
-  (!name.startsWith("assistants/") || isRelocatableMember(name));
 function write(files, target, credentials, version) {
   for (const member of files) {
     if (!allowed(member.path, credentials, version))
       throw problem(serverMessages.backups.unexpectedComponent);
     const file = path.join(target, member.path);
     folder(path.dirname(file));
-    fs.writeFileSync(file, Buffer.from(member.content, "base64"), {
-      mode: 0o600,
-      flag: "wx",
-    });
+    try {
+      fs.writeFileSync(file, Buffer.from(member.content, "base64"), {
+        mode: 0o600,
+        flag: "wx",
+      });
+    } catch (error) {
+      if (error.code === "EEXIST")
+        throw problem(serverMessages.backups.caseConflict, 409);
+      throw error;
+    }
   }
 }
 function validateManifest(manifest, credentialsPresent) {
@@ -147,8 +149,17 @@ async function stageFile(archive, directory, { passphrase, inspect }) {
     if (!inspect || inspected(member.path)) bytes += member.size;
   }
   ensureSpace(directory, bytes + (capsuleMember?.size || 0));
+  // Backups write what an inspection validates first; it stops reading after that.
+  let count = header.members.length;
+  if (inspect) {
+    count = 0;
+    header.members.forEach((member, index) => {
+      if (member.kind === "credentials" || inspected(member.path)) count = index + 1;
+    });
+  }
   let secrets = null;
   await readArchive(archive, {
+    count,
     visit: (member) => {
       if (member.kind === "credentials")
         return {
@@ -158,6 +169,9 @@ async function stageFile(archive, directory, { passphrase, inspect }) {
               secrets = checkSecrets(await capsule(sealed, passphrase), publicPaths, 2);
           },
         };
+      // Checked again against the header this read itself validated.
+      if (!allowed(member.path, false, 2))
+        throw problem(serverMessages.backups.unexpectedComponent);
       if (inspect && !inspected(member.path)) return null;
       return { file: path.join(directory, member.path) };
     },
@@ -178,15 +192,21 @@ function verifyStaged(directory) {
     if (fs.existsSync(path.join(directory, file)))
       database(path.join(directory, file), () => {}, file.startsWith("memory/") ? 1 : 0);
 }
+const stagePrefix = ".agentpier-restore-";
 function cleanLeftovers(directory) {
-  // Interrupted uploads and inspections leave work files behind.
-  for (const name of fs.readdirSync(directory))
-    if (name.startsWith(".inspect-") || name.endsWith(".upload"))
-      fs.rmSync(path.join(directory, name), { recursive: true, force: true });
-}
-async function validateUpload(file) {
-  if ((await archiveVersion(file)) === 1) decodeArchive(file);
-  else await readArchiveHeader(file);
+  // Interrupted inspections leave work files behind, and a restore that died
+  // before its rename leaves a stage beside its target, recorded here.
+  for (const name of fs.readdirSync(directory)) {
+    const file = path.join(directory, name);
+    if (name.startsWith(".inspect-")) fs.rmSync(file, { recursive: true, force: true });
+    else if (/^stage-[a-f0-9-]{36}\.json$/.test(name)) {
+      const stage = readJson(file, {}).stage;
+      if (typeof stage === "string" && path.basename(stage).startsWith(stagePrefix))
+        fs.rmSync(stage, { recursive: true, force: true });
+      fs.rmSync(file, { force: true });
+    }
+  }
+  RestoreUploads.clean(directory);
 }
 
 export class Restore {
@@ -195,6 +215,7 @@ export class Restore {
     this.directory = folder(path.join(this.dataDir, "operations/restores"));
     this.audit = audit;
     cleanLeftovers(this.directory);
+    this.uploads = new RestoreUploads(this.directory);
   }
   async inspect({ archive, passphrase, projectMap } = {}) {
     const scratch = folder(path.join(this.directory, `.inspect-${randomUUID()}`));
@@ -241,9 +262,11 @@ export class Restore {
       (process.getuid && parentStat.uid !== process.getuid())
     )
       throw problem(serverMessages.backups.restoreParentInvalid, 409);
-    const stage = folder(
-      path.join(path.dirname(target), `.agentpier-restore-${randomUUID()}`),
-    );
+    const stageId = randomUUID();
+    const stage = path.join(path.dirname(target), `${stagePrefix}${stageId}`);
+    const marker = path.join(this.directory, `stage-${stageId}.json`);
+    atomic(marker, { stage });
+    folder(stage);
     try {
       const staged = await stageArchive(archive, stage, { passphrase });
       const manifest = staged.manifest,
@@ -324,30 +347,11 @@ export class Restore {
       return importRecord;
     } finally {
       fs.rmSync(stage, { recursive: true, force: true });
+      fs.rmSync(marker, { force: true });
     }
   }
-  /**
-   * Stores an uploaded archive (bytes or a stream) after checking its format. A
-   * version 2 archive is verified member by member on inspection and restore.
-   */
-  async upload(source, { expectedBytes = 0 } = {}) {
-    ensureSpace(this.directory, expectedBytes);
-    const archiveId = randomUUID();
-    const file = path.join(this.directory, `${archiveId}.apbackup`);
-    const temporary = `${file}.upload`;
-    try {
-      if (Buffer.isBuffer(source))
-        fs.writeFileSync(temporary, source, { mode: 0o600, flag: "wx" });
-      else
-        await pipeline(
-          source,
-          fs.createWriteStream(temporary, { mode: 0o600, flags: "wx" }),
-        );
-      await validateUpload(temporary);
-      fs.renameSync(temporary, file);
-      return { archiveId };
-    } finally {
-      fs.rmSync(temporary, { force: true });
-    }
+  /** Stores an archive uploaded in one request (bytes, or a stream of a known size). */
+  upload(source, options) {
+    return this.uploads.single(source, options);
   }
 }
