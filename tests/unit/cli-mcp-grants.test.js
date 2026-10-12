@@ -23,6 +23,7 @@ const options = {
     return heads[file];
   },
   realpath: (file) => (file === "/opt/link" ? "/opt/tools/server.js" : file),
+  executable: () => true,
 };
 
 test("interpreters come from the #! line; env names are resolved on PATH", () => {
@@ -89,15 +90,70 @@ test("a cwd that would open up /, HOME, its parents or the data directory gets n
 });
 
 test(
-  "a FIFO as the command is never read, so a session start cannot hang",
+  "a FIFO as the command is never read or granted, so a session start cannot hang",
   { timeout: 5000 },
   (t) => {
     const { root } = tempTree(t);
     const fifo = path.join(root, "server.fifo");
     execFileSync("mkfifo", [fifo]);
     assert.deepEqual(interpreters(fifo), []);
-    assert.deepEqual(stdioGrants([{ transport: "stdio", command: fifo }]), [
-      { access: "read", path: fifo },
-    ]);
+    assert.deepEqual(stdioGrants([{ transport: "stdio", command: fifo }]), []);
   },
 );
+
+const script = (file, firstLine, mode = 0o755) => {
+  fs.writeFileSync(file, `${firstLine}\necho\n`, { mode });
+  fs.chmodSync(file, mode);
+  return file;
+};
+const readPaths = (grants) =>
+  grants.filter((grant) => grant.access === "read").map((grant) => grant.path);
+
+test("a valid interpreter of a bound script is granted", (t) => {
+  const { home, dataDir, project } = tempTree(t);
+  const interpreter = script(path.join(project, "interp"), "\u007fELF");
+  const server = script(path.join(project, "server.sh"), `#!${interpreter} -e`);
+  const grants = stdioGrants([{ transport: "stdio", command: server }], {
+    home,
+    dataDir,
+  });
+  assert.deepEqual(readPaths(grants), [server, interpreter]);
+});
+
+test("a #! line naming a directory such as HOME grants no read on it", (t) => {
+  const { home, dataDir, project } = tempTree(t);
+  const server = script(path.join(project, "server.sh"), `#!${home}`);
+  const grants = stdioGrants([{ transport: "stdio", command: server }], {
+    home,
+    dataDir,
+  });
+  assert.deepEqual(readPaths(grants), [server]);
+});
+
+test("a command linked to a non-executable file such as a key grants nothing", (t) => {
+  const { home, dataDir, project } = tempTree(t);
+  const ssh = path.join(home, ".ssh");
+  fs.mkdirSync(ssh);
+  const key = path.join(ssh, "id_ed25519");
+  fs.writeFileSync(key, "PRIVATE", { mode: 0o600 });
+  const link = path.join(project, "linked");
+  fs.symlinkSync(key, link);
+  const grants = stdioGrants([{ transport: "stdio", command: link }], { home, dataDir });
+  assert.deepEqual(grants, []);
+});
+
+test("an interpreter or link target inside the data directory is never granted", (t) => {
+  const { home, dataDir, project } = tempTree(t);
+  const inside = script(path.join(dataDir, "sub", "tool"), "\u007fELF");
+  const server = script(path.join(project, "server.sh"), `#!${inside}`);
+  const link = path.join(project, "linked");
+  fs.symlinkSync(inside, link);
+  const grants = stdioGrants(
+    [
+      { transport: "stdio", command: server },
+      { transport: "stdio", command: link },
+    ],
+    { home, dataDir },
+  );
+  assert.deepEqual(readPaths(grants), [server]);
+});

@@ -32,8 +32,10 @@ export function cliMcpFixture(t, { configs } = {}) {
   const servers = new McpServerStore({
     dataDir,
     pathEnv: "/fake/bin",
-    // Fake commands exist unless their name says they are missing.
-    exists: (file) => file.startsWith("/fake/") && !file.includes("missing"),
+    // Fake commands exist unless their name says they are missing; real ones under root.
+    exists: (file) =>
+      (file.startsWith("/fake/") && !file.includes("missing")) ||
+      file.startsWith(root + path.sep),
   });
   const warnings = [];
   const read = (locations) => extensions.configs(locations);
@@ -57,6 +59,14 @@ export function cliMcpFixture(t, { configs } = {}) {
   return {
     root,
     home,
+    /** A real executable under root: the sandbox grants only real executable files. */
+    executable(name = "server") {
+      const bin = path.join(root, "bin");
+      fs.mkdirSync(bin, { recursive: true });
+      const command = path.join(bin, name);
+      fs.writeFileSync(command, "#!/bin/sh\n", { mode: 0o755 });
+      return command;
+    },
     dataDir,
     accounts,
     sharedProfiles,

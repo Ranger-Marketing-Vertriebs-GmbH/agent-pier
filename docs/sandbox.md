@@ -108,10 +108,13 @@ run inside that CLI's sandbox. For each bound stdio server
 `server/features/mcp-servers/cli-grants.js` declares read access to its resolved
 command, to the file that command links to, and to the interpreter its `#!` line names
 (for `#!/usr/bin/env name` also `name` resolved on the session's PATH), and full access
-to its working directory. No allow grant is declared for a working directory that is
-`/`, the owner's home or an ancestor of it, the AgentPier data directory or an ancestor
-of it, or anything inside the data directory; such a server gets the code
-`MCP_CWD_TOO_BROAD` as a warning and may fail under nono. Remote servers need no grant.
+to its working directory. Each read grant is declared only for an executable regular
+file outside the AgentPier data directory: a `#!` line naming a directory, or a command
+linked to a non-executable file such as a key, gets no grant. No allow grant is
+declared for a working directory that is `/`, the owner's home or an ancestor of it,
+the AgentPier data directory or an ancestor of it, or anything inside the data
+directory; such a server gets the code `MCP_CWD_TOO_BROAD` as a warning and may fail
+under nono. Remote servers need no grant.
 
 ### An example launch
 
