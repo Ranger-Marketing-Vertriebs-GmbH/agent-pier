@@ -8,7 +8,7 @@ export const assistantProactivityCopy = {
   heartbeatNeedsMemory: "Braucht das oben eingeschaltete Gedächtnis.",
   heartbeatChannel: "Braucht einen verbundenen Telegram-Chat für diesen Agenten.",
   heartbeatReply:
-    "Meldungen erscheinen im Chat des Agenten, auf Telegram mit „Check-in:“ markiert, sodass du direkt antworten kannst. Wird eine Meldung fällig, während der Agent antwortet, wartet sie, bis er fertig ist.",
+    "Meldungen erscheinen im Chat des Agenten, auf Telegram mit „Check-in:“ markiert, sodass du direkt antworten kannst. Wird eine Meldung fällig, während der Agent antwortet, erscheint sie nach dieser Antwort und kennt sie womöglich noch nicht.",
   interval: "Wie oft",
   intervals: {
     "1h": "Jede Stunde",
@@ -23,6 +23,6 @@ export const assistantProactivityCopy = {
   adoptZone: (zone) => `Meine Zeitzone verwenden (${zone})`,
   heartbeatCost: (runs) =>
     runs === 1
-      ? "Etwa 1 zusätzlicher Modelllauf pro Tag, jeweils mit der ganzen Unterhaltung."
-      : `Etwa ${runs} zusätzliche Modellläufe pro Tag, jeweils mit der ganzen Unterhaltung.`,
+      ? "Etwa 1 zusätzlicher Modelllauf pro Tag, jeweils mit dem letzten Teil der Unterhaltung."
+      : `Etwa ${runs} zusätzliche Modellläufe pro Tag, jeweils mit dem letzten Teil der Unterhaltung.`,
 };

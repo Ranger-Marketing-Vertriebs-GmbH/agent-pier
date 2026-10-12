@@ -8,7 +8,7 @@ export const assistantProactivityCopy = {
   heartbeatNeedsMemory: "Needs memory to be switched on above.",
   heartbeatChannel: "Needs a paired Telegram chat for this agent.",
   heartbeatReply:
-    "Check-ins appear in the agent's chat, marked “Check-in:” on Telegram, so you can reply to them directly. A check-in that comes due while the agent is answering waits until it has finished.",
+    "Check-ins appear in the agent's chat, marked “Check-in:” on Telegram, so you can reply to them directly. A check-in that comes due while the agent is answering appears after that answer and may not know it yet.",
   interval: "How often",
   intervals: {
     "1h": "Every hour",
@@ -23,6 +23,6 @@ export const assistantProactivityCopy = {
   adoptZone: (zone) => `Use my time zone (${zone})`,
   heartbeatCost: (runs) =>
     runs === 1
-      ? "About 1 extra model run per day, each reading the whole conversation."
-      : `About ${runs} extra model runs per day, each reading the whole conversation.`,
+      ? "About 1 extra model run per day, each reading the recent conversation."
+      : `About ${runs} extra model runs per day, each reading the recent conversation.`,
 };

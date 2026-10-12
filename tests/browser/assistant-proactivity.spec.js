@@ -29,7 +29,7 @@ test("check-ins are off, need memory, explain their cost and save", async ({ pag
   await proactivity.getByLabel("Active from").selectOption("8");
   await proactivity.getByLabel("Active until").selectOption("20");
   await expect(proactivity).toContainText(
-    "Times in Europe/Berlin, within one day. About 6 extra model runs per day, each reading the whole conversation.",
+    "Times in Europe/Berlin, within one day. About 6 extra model runs per day, each reading the recent conversation.",
   );
   // The browser's zone is the saved one: nothing to adopt.
   await expect(proactivity.getByRole("button", { name: /Use my time zone/ })).toHaveCount(
@@ -130,7 +130,7 @@ test("the proactivity section is translated", async ({ page }) => {
   ).toBeVisible();
   await proactivity.getByRole("checkbox", { name: "Sich von selbst melden" }).check();
   await expect(proactivity).toContainText(
-    "Etwa 3 zusätzliche Modellläufe pro Tag, jeweils mit der ganzen Unterhaltung.",
+    "Etwa 3 zusätzliche Modellläufe pro Tag, jeweils mit dem letzten Teil der Unterhaltung.",
   );
   await expect(proactivity).toContainText("auf Telegram mit „Check-in:“ markiert");
 });
@@ -147,6 +147,26 @@ test("a refused check-in keeps the form and shows why", async ({ page }) => {
   const heartbeat = section(page).getByRole("checkbox", { name: "Check in on its own" });
   await heartbeat.check();
   await page.getByRole("button", { name: "Save" }).first().click();
+  await expect.poll(() => state.updates.length).toBe(1);
+  await expect(page.getByText(message).first()).toBeVisible();
+  await expect(heartbeat).toBeChecked();
+});
+
+test("a refused check-in without memory shows the German reason", async ({ page }) => {
+  const message =
+    "Meldungen brauchen das Gedächtnis. Schalte zuerst „Informationen merken“ ein oder schalte die Meldungen mit ab.";
+  const state = await setup(page, {
+    language: "de",
+    saveStatus: 409,
+    saveError: message,
+    assistant: { capabilities: { memory: true, reminders: false } },
+  });
+  await page.goto(baseURL + "/agents/home/settings");
+  const heartbeat = section(page).getByRole("checkbox", {
+    name: "Sich von selbst melden",
+  });
+  await heartbeat.check();
+  await page.getByRole("button", { name: "Agent speichern" }).first().click();
   await expect.poll(() => state.updates.length).toBe(1);
   await expect(page.getByText(message).first()).toBeVisible();
   await expect(heartbeat).toBeChecked();
