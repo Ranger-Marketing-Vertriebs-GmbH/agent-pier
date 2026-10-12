@@ -85,19 +85,99 @@ test("a revocation that slipped past a start restarts the Gateway once it answer
   h.senders.synchronization = failing;
 });
 
-test("a bot of an agent the Gateway does not know yet is pending, not inactive", async (t) => {
+test("an agent in openclaw.json whose first apply never finished causes no restart loop", async (t) => {
+  const h = fixture(t);
+  const created = h.store.createAssistant({
+    name: "Half applied",
+    model: { connectionId: "c", modelId: "m" },
+  });
+  assert.equal(h.store.getAssistant(created.id).effectiveRevision, 0);
+  await h.senders.save(created.id, { token: token(1), people, revision: null });
+  // Every start compiles the bot: the agent is in the configuration.
+  h.start();
+  assert.ok(h.runtime.telegram.accounts.length);
+  assert.equal(h.senders.revoked(), false);
+  assert.equal(await h.senders.converge(), false);
+  assert.equal(h.restarts.length, 0);
+  assert.equal((await h.senders.get(created.id)).pending, false);
+});
+
+test("a revocation restarts once; one a restart cannot remove goes to the owner", async (t) => {
   const h = fixture(t);
   const agent = h.agent();
+  const saved = await h.senders.save(agent.id, {
+    token: token(1),
+    people,
+    revision: null,
+  });
+  const started = h.snapshot();
+  h.senders.store.save(agent.id, { people: [people[0]] }, saved.bot.revision);
+  // A restart that keeps compiling the old allowlist (it never converges).
+  h.senders.synchronization = {
+    restartGateway: async (operation) => {
+      h.restarts.push(true);
+      await operation();
+      h.runtime.telegram = h.runtime.telegramStarting = started;
+    },
+  };
+  h.runtime.client = { ready: true, call: async () => ({}) };
+  h.runtime.telegram = h.runtime.telegramStarting = started;
+  assert.equal(await h.senders.converge(), true);
+  assert.equal(await h.senders.converge(), false);
+  assert.equal(await h.senders.converge(), false);
+  assert.equal(h.restarts.length, 1, "exactly one automatic restart");
+  const view = await h.senders.get(agent.id);
+  assert.equal(view.revocationFailed, true);
+  assert.equal(view.pending, true);
+  // The owner's confirmed restart starts afresh.
+  await h.senders.apply({ confirmed: true });
+  assert.equal(h.senders.revocation, null);
+  // Busy refusals back off and then stop as well.
+  const failing = Object.assign(fixture(t), {});
+  const other = failing.agent();
+  const first = await failing.senders.save(other.id, {
+    token: token(2),
+    people,
+    revision: null,
+  });
+  failing.start();
+  failing.senders.store.save(other.id, { people: [people[0]] }, first.bot.revision);
+  failing.senders.maxAttempts = 2;
+  failing.senders.synchronization = {
+    restartGateway: async () => {
+      throw Object.assign(Error("busy"), { key: "active" });
+    },
+  };
+  assert.equal(await failing.senders.converge(), false);
+  assert.ok(failing.senders.retry);
+  assert.equal(await failing.senders.converge(), false);
+  assert.equal(failing.senders.revocation.failed, true);
+  failing.senders.close();
+});
+
+test("a bot waits for its agent's Gateway entry, then Apply now compiles it", async (t) => {
+  const h = fixture(t);
+  const agent = h.agent();
+  h.unconfigured.add(agent.runtimeAgentId);
   h.start();
-  await h.senders.save(
-    agent.id,
-    { token: token(1), people, revision: null },
-    { confirmed: true },
-  );
-  // The restarted Gateway did not have the agent's entry (first apply pending).
-  h.runtime.telegram = { ...h.runtime.telegram, accounts: [] };
-  h.runtime.telegram.signature = h.senders.desired().signature;
+  await h.senders.save(agent.id, { token: token(1), people, revision: null });
+  assert.equal((await h.senders.get(agent.id)).status.state, "inactive");
+  assert.equal(h.restarts.length, 0);
+  // The agent's first apply created its entry: now the bot is pending.
+  h.unconfigured.delete(agent.runtimeAgentId);
   assert.equal((await h.senders.get(agent.id)).status.state, "pending");
+  assert.deepEqual(await h.senders.apply({ confirmed: true }), { applied: true });
+  assert.equal(h.restarts.length, 1);
+});
+
+test("only the agent concerned shows a pending change", async (t) => {
+  const h = fixture(t);
+  const [one, two] = [h.agent("One"), h.agent("Two")];
+  const saved = await h.senders.save(one.id, { token: token(1), people, revision: null });
+  h.start();
+  h.senders.store.remove(one.id, saved.bot.revision);
+  assert.equal((await h.senders.get(one.id)).pending, true);
+  assert.equal((await h.senders.get(two.id)).pending, false);
 });
 
 test("stdio MCP servers and an own bot exclude each other", async (t) => {
