@@ -123,6 +123,7 @@ export class PluginStore {
       boundary,
       cwd,
       env,
+      configArgs: this.accounts.codexCredentialArgs(id),
       command: this.resolveTool(account.tool, env),
     };
   }

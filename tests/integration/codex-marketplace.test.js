@@ -109,6 +109,14 @@ test("Codex exposes implicit default marketplace and explicitly scoped native ca
     false,
   );
   assert.ok(!JSON.stringify(other).includes("local-account-only"));
+  // Managed catalog accounts keep their credential stores; the owner's Codex does not.
+  const overrides = x.accounts.codexCredentialArgs(x.a.id);
+  assert.equal(overrides.length, 4);
+  for (const { accountId, args } of x.calls)
+    if (accountId === "local-codex")
+      assert.equal(args.join(" ").includes("credentials_store"), false);
+    else assert.deepEqual(args.slice(0, 4), overrides);
+  assert.ok(x.calls.some(({ accountId }) => accountId !== "local-codex"));
 });
 
 test("empty remote catalogs expose a stable reason without removing the legacy message", async (t) => {
@@ -140,6 +148,7 @@ test("remote installs and removals use only the explicit account; local mutation
     assert.equal(response.status, 200);
     assert.equal(x.calls.at(-1).accountId, expected);
     assert.deepEqual(x.calls.at(-1).args, [
+      ...x.accounts.codexCredentialArgs(expected),
       "plugin",
       action === "install" ? "add" : "remove",
       pluginId,
@@ -292,7 +301,7 @@ test("remote mutations keep CLI-wide ownership and do not import account plugin 
   });
   const original = x.plugins.runner;
   x.plugins.runner = async (command, args, options) => {
-    if (args[1] === "add") {
+    if (args.includes("plugin") && args.includes("add")) {
       entered();
       await hold;
     }

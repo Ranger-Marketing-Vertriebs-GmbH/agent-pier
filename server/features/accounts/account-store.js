@@ -11,6 +11,7 @@ import { resolveEndpointTarget } from "../providers/endpoint-address.js";
 import { resolveRoute, routeBaseUrl } from "../providers/endpoint-routing.js";
 import { providerEnvironment } from "../providers/provider-environment.js";
 import {
+  codexCredentialStoreArgs,
   codexCredentialStoreConfig,
   pinCodexCredentialStores,
 } from "../providers/codex-credential-stores.js";
@@ -344,6 +345,13 @@ export class AccountStore {
         secret.apiKey;
     return env;
   }
+  /** Overrides for every Codex process of a managed account, including side channels. */
+  codexCredentialArgs(id) {
+    const account = this.get(id);
+    return account.kind === "managed" && account.tool === "codex"
+      ? codexCredentialStoreArgs()
+      : [];
+  }
   command(id, executables, login = false, launchMode = "default", { modelId } = {}) {
     let account = this.get(id);
     const endpoint = this.endpointFor(account);
@@ -412,10 +420,16 @@ export class AccountStore {
     if (account.kind === "managed")
       launch = addGrant(launch, { access: "allow", path: this.profile(id) });
     if (!account.provider) {
-      // Logins and work sessions both write credentials, so every plain managed
-      // launch repairs the file stores an older account may lack.
-      if (account.kind === "managed" && account.tool === "codex")
-        pinCodexCredentialStores(path.join(launch.env.CODEX_HOME, "config.toml"));
+      // Logins and work sessions both write credentials. Every plain managed launch
+      // repairs the file stores an older account may lack and overrides them on the
+      // command line, which also outranks a trusted project's `.codex/config.toml`.
+      if (account.kind === "managed" && account.tool === "codex") {
+        pinCodexCredentialStores(
+          path.join(launch.env.CODEX_HOME, "config.toml"),
+          this.profile(id),
+        );
+        launch.args.push(...this.codexCredentialArgs(id));
+      }
       if (modelId) launch.args.push("--model", modelId);
       return launch;
     }

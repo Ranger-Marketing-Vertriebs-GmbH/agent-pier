@@ -101,3 +101,29 @@ for (const [tool, args, output, exitCode, expected] of [
     assert.ok(result.checkedAt);
     assert.ok(!JSON.stringify(result).includes("fixture-secret"));
   });
+
+test("managed Codex status probe overrides both credential stores; local Codex does not", async (t) => {
+  const f = await applicationFixture(t);
+  const account = f.application.accounts.create({ name: "Managed", tool: "codex" });
+  const binary = path.join(f.root, "codex-status");
+  const expected = [
+    "-c",
+    'cli_auth_credentials_store="file"',
+    "-c",
+    'mcp_oauth_credentials_store="file"',
+    "login",
+    "status",
+  ];
+  await fs.writeFile(
+    binary,
+    `#!${process.execPath}\nconst ok=JSON.stringify(process.argv.slice(2))===${JSON.stringify(JSON.stringify(expected))};console.log(ok?"Logged in using ChatGPT":"wrong arguments");`,
+    { mode: 0o700 },
+  );
+  f.application.accountAuthStatus.tools = () => [
+    { id: "codex", installed: true, path: binary },
+  ];
+  const state = async (id) =>
+    (await (await f.request(`/api/accounts/${id}/auth-status`)).json()).state;
+  assert.equal(await state(account.id), "authenticated");
+  assert.equal(await state("local-codex"), "unknown");
+});

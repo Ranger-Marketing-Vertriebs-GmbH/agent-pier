@@ -1,8 +1,9 @@
-import fs from "node:fs";
-import path from "node:path";
-import { randomUUID } from "node:crypto";
-import { parse } from "smol-toml";
-import { writeTomlConfig } from "./native-config.js";
+import { parse, stringify } from "smol-toml";
+import { parseForESLint } from "toml-eslint-parser";
+import { serverMessages } from "../../lib/i18n/de.js";
+import { problem } from "../../lib/storage.js";
+import { tomlValue } from "../../lib/launch-serialization.js";
+import { atomicText, CLI_CONFIG_CHANGED, textFile } from "../extensions/mcp-config.js";
 
 /**
  * Codex defaults both credential stores to `auto`, which prefers the macOS login
@@ -15,68 +16,87 @@ export const CODEX_FILE_CREDENTIAL_STORES = Object.freeze({
   mcp_oauth_credentials_store: "file",
 });
 
-const pinLine = (key) => `${key} = "${CODEX_FILE_CREDENTIAL_STORES[key]}"`;
+const KEYS = Object.keys(CODEX_FILE_CREDENTIAL_STORES);
+const pinLine = (key) => `${key} = ${tomlValue(CODEX_FILE_CREDENTIAL_STORES[key])}`;
 
 export const codexCredentialStoreConfig = () =>
-  Object.keys(CODEX_FILE_CREDENTIAL_STORES)
-    .map((key) => `${pinLine(key)}\n`)
-    .join("");
+  KEYS.map((key) => `${pinLine(key)}\n`).join("");
+
+/**
+ * Codex layers a trusted project's `.codex/config.toml` over CODEX_HOME, so the file
+ * pins alone do not hold; command-line overrides take precedence over both.
+ */
+export const codexCredentialStoreArgs = () =>
+  KEYS.flatMap((key) => ["-c", `${key}=${tomlValue(CODEX_FILE_CREDENTIAL_STORES[key])}`]);
 
 const pinned = (config) =>
   Object.entries(CODEX_FILE_CREDENTIAL_STORES).every(
     ([key, value]) => config[key] === value,
   );
 
-/**
- * Repairs the pins of a managed account's config.toml with a targeted text edit: other
- * keys, tables, comments and formatting stay byte-for-byte. A file Codex itself cannot
- * read is left for Codex to report.
- */
-export function pinCodexCredentialStores(file) {
-  let text;
-  try {
-    text = fs.readFileSync(file, "utf8");
-  } catch (error) {
-    if (error.code !== "ENOENT") throw error;
-    text = "";
+// Replaces only the value tokens of existing top-level pins and prepends missing ones,
+// so inline comments, line endings, other keys and tables stay byte-for-byte.
+function targetedEdit(text, config) {
+  const nodes = parseForESLint(text).ast.body[0].body;
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  const replacements = [];
+  let prefix = "";
+  for (const key of KEYS) {
+    if (config[key] === CODEX_FILE_CREDENTIAL_STORES[key]) continue;
+    const node = nodes.find(
+      (node) =>
+        node.type === "TOMLKeyValue" &&
+        node.key.keys.length === 1 &&
+        (node.key.keys[0].name ?? node.key.keys[0].value) === key,
+    );
+    if (node) replacements.push({ key, range: node.value.range });
+    else prefix += `${pinLine(key)}${eol}`;
   }
+  let next = text;
+  for (const { key, range } of replacements.sort((a, b) => b.range[0] - a.range[0]))
+    next = `${next.slice(0, range[0])}${tomlValue(CODEX_FILE_CREDENTIAL_STORES[key])}${next.slice(range[1])}`;
+  return prefix + next;
+}
+
+function repairedText(text) {
   let config;
   try {
     config = parse(text);
   } catch {
-    return false;
+    // Codex itself reports a config it cannot read.
+    return null;
   }
-  if (pinned(config)) return false;
-  const lines = text.split("\n");
-  const header = lines.findIndex((line) => /^\s*\[/.test(line));
-  const topLevel = header === -1 ? lines.length : header;
-  const missing = [];
-  for (const key of Object.keys(CODEX_FILE_CREDENTIAL_STORES)) {
-    if (config[key] === CODEX_FILE_CREDENTIAL_STORES[key]) continue;
-    const pattern = new RegExp(`^\\s*${key}\\s*=`);
-    const index = lines.slice(0, topLevel).findIndex((line) => pattern.test(line));
-    if (index === -1) missing.push(pinLine(key));
-    else lines[index] = pinLine(key);
-  }
-  const next = [...missing, ...lines].join("\n");
-  const updated = next.endsWith("\n") || !next ? next : `${next}\n`;
-  let result;
+  if (pinned(config)) return null;
   try {
-    result = parse(updated);
+    const next = targetedEdit(text, config);
+    if (pinned(parse(next))) return next;
   } catch {
-    result = {};
+    // Layouts the edit cannot address (for example a byte-order mark) fall through.
   }
-  // An unusual layout (dotted or quoted keys) falls back to a structured rewrite.
-  if (!pinned(result)) {
-    writeTomlConfig(file, CODEX_FILE_CREDENTIAL_STORES);
-    return true;
+  return stringify({ ...config, ...CODEX_FILE_CREDENTIAL_STORES });
+}
+
+/**
+ * Repairs the pins in a managed account's config.toml. The write is a compare-and-swap
+ * inside the account profile, refuses linked paths and is retried when a running Codex
+ * of the same account changed the file in between.
+ */
+export function pinCodexCredentialStores(file, boundary) {
+  for (let attempt = 0; ; attempt++) {
+    let text;
+    try {
+      text = textFile(file, boundary);
+    } catch (error) {
+      if (error.status) throw error;
+      throw problem(serverMessages.accounts.codexConfigUnreadable, 409);
+    }
+    const next = repairedText(text);
+    if (next === null) return false;
+    try {
+      atomicText(file, boundary, text, next);
+      return true;
+    } catch (error) {
+      if (error.code !== CLI_CONFIG_CHANGED || attempt >= 2) throw error;
+    }
   }
-  const temporary = path.join(path.dirname(file), `.config.toml.${randomUUID()}.tmp`);
-  try {
-    fs.writeFileSync(temporary, updated, { mode: 0o600, flag: "wx" });
-    fs.renameSync(temporary, file);
-  } finally {
-    fs.rmSync(temporary, { force: true });
-  }
-  return true;
 }

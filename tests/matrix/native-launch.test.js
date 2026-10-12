@@ -15,6 +15,12 @@ const nativeArguments = {
   },
   opencode: { default: [], auto: ["--auto"], login: ["auth", "login"] },
 };
+const codexStores = [
+  "-c",
+  'cli_auth_credentials_store="file"',
+  "-c",
+  'mcp_oauth_credentials_store="file"',
+];
 function accountsFixture(t) {
   const root = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-matrix-")),
@@ -51,7 +57,11 @@ for (const tool of Object.keys(nativeArguments)) {
           }
           const launch = run();
           assert.equal(launch.command, executable);
-          assert.deepEqual(launch.args, nativeArguments[tool][login ? "login" : mode]);
+          // Managed Codex launches also pin both credential stores to their profile.
+          assert.deepEqual(launch.args, [
+            ...nativeArguments[tool][login ? "login" : mode],
+            ...(tool === "codex" && kind === "managed" ? codexStores : []),
+          ]);
           assert.equal(launch.env.HOME, root);
           assert.equal(launch.env.OPENAI_API_KEY, undefined);
           assert.equal(launch.env.ANTHROPIC_API_KEY, undefined);

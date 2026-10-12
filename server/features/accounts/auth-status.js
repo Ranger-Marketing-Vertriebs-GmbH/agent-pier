@@ -39,7 +39,13 @@ export class AccountAuthStatus {
       let stderr;
       let exitCode = 0;
       try {
-        ({ stdout, stderr } = await execute(tool.path, statusArgs[account.tool], {
+        const args = [
+          ...(account.tool === "codex"
+            ? this.accounts.codexCredentialArgs(account.id)
+            : []),
+          ...statusArgs[account.tool],
+        ];
+        ({ stdout, stderr } = await execute(tool.path, args, {
           env: this.accounts.environment(account.id),
           cwd: this.home,
           timeout: 6000,
