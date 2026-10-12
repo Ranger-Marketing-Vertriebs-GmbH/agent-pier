@@ -37,11 +37,11 @@ CLI folders below `providers/<provider>/`. Only the files named here are capture
 Anything else, including files and folders a CLI adds in a later version, is never
 read, so caches, logs and telemetry cannot make a backup grow or fail.
 
-| CLI                                             | Capsule (with credentials)                                                                                                                                                                                                                | History (with history)                                                                                                            |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Codex (`codex/`)                                | `auth.json`, `config.toml`, `.credentials.json` (MCP OAuth file store), `AGENTS.md`, `AGENTS.override.md`, `prompts/`, `skills/` (without `.system/`), `agents/`, `commands/`, `rules/`                                                   | `sessions/`, `archived_sessions/`, `history.jsonl`, `session_index.jsonl`, `generated_images/`, `thread_history*.sqlite` snapshot |
-| Claude Code (`claude/`)                         | `.claude.json`, `.credentials.json`, `settings.json`, `settings.local.json`, `CLAUDE.md`, `agents/`, `commands/`, `skills/`, `output-styles/`, `plugins/installed_plugins.json`, `plugins/known_marketplaces.json`, `plugins/config.json` | `projects/`, `todos/`, `file-history/`, `history.jsonl`                                                                           |
-| OpenCode (`config/opencode/`, `data/opencode/`) | `opencode.json`, `opencode.jsonc`, `config.json`, `tui.json`, `tui.jsonc`, `AGENTS.md`, `agent(s)/`, `command(s)/`, `mode(s)/`, `skill(s)/`, `tool(s)/`, `plugin(s)/`; `data/opencode/auth.json`, `mcp-auth.json`                         | `data/opencode/storage/`, `data/opencode/opencode.db` snapshot                                                                    |
+| CLI                                             | Capsule (with credentials)                                                                                                                                                                                                                          | History (with history)                                                                                                            |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Codex (`codex/`)                                | `auth.json`, `config.toml`, `.credentials.json` (MCP OAuth file store), `AGENTS.md`, `AGENTS.override.md`, `prompts/`, `skills/` (without `.system/`), `agents/`, `commands/`, `rules/`                                                             | `sessions/`, `archived_sessions/`, `history.jsonl`, `session_index.jsonl`, `generated_images/`, `thread_history*.sqlite` snapshot |
+| Claude Code (`claude/`)                         | `.claude.json`, `.credentials.json`, `settings.json`, `settings.local.json`, `CLAUDE.md`, `agents/`, `commands/`, `skills/`, `output-styles/`, `hooks/`, `plugins/installed_plugins.json`, `plugins/known_marketplaces.json`, `plugins/config.json` | `projects/`, `todos/`, `file-history/`, `history.jsonl`                                                                           |
+| OpenCode (`config/opencode/`, `data/opencode/`) | `opencode.json`, `opencode.jsonc`, `config.json`, `tui.json`, `tui.jsonc`, `AGENTS.md`, `agent(s)/`, `command(s)/`, `mode(s)/`, `skill(s)/`, `tool(s)/`, `plugin(s)/`; `data/opencode/auth.json`, `mcp-auth.json`                                   | `data/opencode/storage/`, `data/opencode/opencode.db` snapshot                                                                    |
 
 Inside allowed folders, `node_modules`, `cache`, `.cache`, `.git`, `log`, `logs`,
 `tmp`, `.tmp`, `*.before-sharing*`, SQLite `-wal`/`-shm`/`-journal` files, `.lock`
@@ -61,6 +61,11 @@ file in a profile is skipped and reported as an omission, never followed. The
 capsule is sealed in memory: a profile whose capsule part exceeds 64 MiB, or all
 profiles together beyond 160 MiB, fail the backup with the profile's name.
 
+Restored files always get mode 0600, so hook and status-line scripts lose their
+executable bit and need `chmod +x` again. `.claude.json` can hold per-project
+prompt history of older Claude Code versions; it stays in the encrypted capsule and
+is part of a credential backup even without history.
+
 ## Archive format
 
 A backup is a `.apbackup` file. Version 2 is a
@@ -77,9 +82,14 @@ manifest, members }`. `manifest` holds `schemaVersion` 2, `applicationVersion`,
 3. Every public member as a regular file entry.
 
 The header is a separate, uncompressed (stored) gzip member. It is written with
-placeholder hashes first and rewritten in place once all members are streamed;
-its length depends only on the member list, so the rewrite never moves data. A
-multi-member gzip file is still an ordinary `.tar.gz` for standard tools.
+placeholder hashes first and rewritten in place once all members are streamed. Its
+JSON is padded with spaces to a length reserved up front, with room for members
+that are dropped and sizes that change while streaming, so the rewrite never moves
+data. A multi-member gzip file is still an ordinary `.tar.gz` for standard tools.
+
+Members an inspection validates (application data, databases, artifacts, agent
+configuration) come right after the capsule; histories, CLI profiles and other
+agent files follow.
 
 Entries are ustar regular files with mode 0600. A name longer than 100 bytes or
 outside printable ASCII is carried in a PAX `path` record; sizes of 8 GiB and more
@@ -112,29 +122,54 @@ archive", or, above 256 MiB, as too large.
 
 ## Size, memory and disk space
 
-There is no archive size limit and no per-component limit. Large files are streamed;
-files up to 1 MiB are read while the backup is planned (64 MiB in total), so a file
-replaced by its writer at that moment is still captured whole. A large file that
-shrinks while it is archived fails the backup with its component's name; a file
-that grows is captured up to its planned size.
+There is no archive size limit and no per-component limit; agent data and agent
+workspaces stream like everything else.
+
+Files are planned (listed and sized) first and opened only when they are archived.
+Files up to 1 MiB are read while planning (64 MiB in total), so a file a writer
+replaces at that moment is captured whole. A larger file is archived at the size it
+has when it is opened, through that open descriptor, so a later rename or deletion
+does not matter. A file that is gone by then is left out ("Files removed while the
+backup was written"). A file truncated in place while it is being read keeps its
+entry size and is filled up with blank lines, which line-based histories skip
+("Files that shrank while the backup was written"). Both are reported as omissions;
+neither fails the backup.
 
 Before writing, the backup checks that the backup folder's file system can hold the
 uncompressed size of all members plus 64 MiB; restore and inspection check their
-target the same way. History databases are first copied into a work folder below
-`<data>/operations/`, which is also checked. Memory stays bounded independently of
-the archive size (measured: about 80 MiB of additional RSS for a 4 GiB archive,
-backup and restore alike).
+target the same way. Database snapshots go to a work folder below
+`<data>/operations/`, which is also checked. CLI history databases are copied after
+the application snapshot, in a worker thread: copying a 533 MiB database blocked
+the server's event loop for 682 ms before and 2 ms now.
 
-Downloads stream the file with its length. Uploads stream into
-`<data>/operations/restores/` and keep the archive only when its header is valid;
-inspection and restore verify every member.
+Memory does not grow with the size of the files in the archive. Measured additional
+RSS: about 80 MiB (backup) and 90 MiB (restore) for a 4 GiB history archive, and
+about 80 MiB (backup) and under 50 MiB (restore) for a 416 MiB archive with a
+160 MiB agent workspace. What is held
+in memory: files up to 1 MiB within the 64 MiB planning budget, rewritten agent
+configuration and sealed agent credentials, the member list, and the credential
+capsule (up to 160 MiB of plaintext plus its encrypted and base64 copies) while it is
+sealed or opened.
+
+Downloads stream the file with its length. The browser uploads an archive in slices
+of at most 16 MiB (the server accepts up to 64 MiB), each appended at an exact
+offset into `<data>/operations/restores/`: no request comes near Node's request
+timeout, and a failed slice is resent from the server's offset; the same upload
+resumes while the dialog stays open. Free space for the whole archive is checked
+when the upload starts. A one-request upload (`POST /restore/upload`) needs its
+`Content-Length` and is cut off beyond it. Only an archive with a valid format
+header is kept. An inspection reads up to the last member it validates; a restore
+reads and verifies every member.
 
 ## Errors
 
 Backup errors name the component they come from, for example
-`Profile "Work" (Codex): A file changed during the backup. Create the backup again.`
-or `Sessions: Contains a symbolic link and cannot be backed up.` Insufficient space
-reports the required and available size.
+`Profile "Work" (Codex): A file is not a regular, owned file and cannot be backed
+up.` or `Sessions: Contains a symbolic link and cannot be backed up.` Insufficient
+space reports the required and available size. Two members that differ only in
+letter case or Unicode normalization (possible in a backup from Linux) cannot both
+be restored on a file system that ignores the difference, such as APFS; the restore
+stops with a message that says so.
 
 ## Restore
 
@@ -143,7 +178,12 @@ staging folder beside the target, validated (SQLite integrity and schema version
 artifacts, agent sealing, project mappings) and renamed into place only when
 everything succeeded. CLI histories return to the same profile folders. Claude Code
 transcripts of a remapped project move to the folder Claude Code derives from the
-new project directory. The restore report lists profiles that need a new login: a
+new project directory. Newer Claude Code versions shorten long folder names with a
+hash suffix; those folders are not moved. Other settings keyed by a project path
+keep the old path: `.claude.json` `projects` entries (trust, project MCP servers),
+Codex `config.toml` `[projects."<path>"]` and the `cwd` recorded in Codex rollouts.
+If a restore is interrupted, its staging folder is removed when AgentPier starts
+next. The restore report lists profiles that need a new login: a
 profile counts as logged in when its API key or its CLI's login file
 (`codex/auth.json`, `claude/.credentials.json`, `data/opencode/auth.json`) was
 restored.
