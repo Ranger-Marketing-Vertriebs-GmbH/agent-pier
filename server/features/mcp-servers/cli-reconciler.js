@@ -1,6 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import { editConfig } from "../extensions/config-edit.js";
+import { editConfigResult } from "../extensions/config-edit.js";
+import { rememberTree } from "../extensions/config-parse.js";
 import {
   CLI_CONFIG_CHANGED,
   CLI_CONFIG_LAYOUT,
@@ -232,14 +233,20 @@ export class CliMcpReconciler {
     const { key, boundary } = snapshot.locations;
     try {
       let config = target;
+      let result = null;
       for (const { name, entry } of changes) {
-        const data = { ...config.data, [key]: { ...(config.data[key] || {}) } };
-        if (entry === undefined) delete data[key][name];
-        else data[key][name] = entry;
-        config = { ...config, text: editConfig(config, cli, key, name, entry), data };
+        result = editConfigResult(config, cli, key, name, entry);
+        // The verified parse of the edit is the next edit's input, tree included.
+        config = rememberTree(
+          { file: target.file, text: result.text, data: result.data },
+          result.tree,
+        );
       }
       if (config.text !== target.text)
-        atomicText(target.file, boundary, target.text, config.text);
+        atomicText(target.file, boundary, target.text, config.text, {
+          tool: cli,
+          ...result,
+        });
     } catch (error) {
       if (reasonOf(error)) throw error;
       // A problem: the file turned unsafe (linked, too large) after it was read.

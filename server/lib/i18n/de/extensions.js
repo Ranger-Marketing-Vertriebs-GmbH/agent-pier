@@ -35,7 +35,9 @@ export const extensions = Object.freeze({
   targetOutsideProfile: "Der Zielpfad liegt außerhalb des Profils.",
   linkedPathsReadOnly:
     "Verknüpfte Konfigurations- oder Skill-Pfade sind hier schreibgeschützt.",
-  invalidCliConfigFile: "Die CLI-Konfiguration ist zu groß oder kein reguläres Dokument.",
+  cliConfigTooLarge:
+    "Die CLI-Konfiguration ist größer als 64 MiB; AgentPier liest und ändert sie nicht.",
+  invalidCliConfigFile: "Die CLI-Konfiguration ist kein reguläres Dokument.",
   invalidExistingCliConfig:
     "Die vorhandene CLI-Konfiguration ist ungültig. Sie wurde nicht verändert.",
   cliConfigChanged: "Die CLI-Konfiguration wurde gleichzeitig geändert. Bitte neu laden.",

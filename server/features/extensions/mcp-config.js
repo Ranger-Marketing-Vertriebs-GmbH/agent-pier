@@ -1,12 +1,12 @@
 import { serverMessages } from "../../lib/i18n/de.js";
-import { assertUnlinkedPath, assertUniqueJsonKeys } from "../../lib/config-boundary.js";
+import { assertUnlinkedPath } from "../../lib/config-boundary.js";
 import fs from "node:fs";
 import path from "node:path";
 
 import { randomUUID } from "node:crypto";
-import { parse as parseToml } from "smol-toml";
-import { parse as parseJsonc, parseTree } from "jsonc-parser";
-import { editConfig } from "./config-edit.js";
+import { editConfigResult } from "./config-edit.js";
+import { configParses, deepFreeze, parseNative, rememberTree } from "./config-parse.js";
+import { cachedConfig, forgetConfig, rememberConfig } from "./native-config-cache.js";
 import { problem } from "../../lib/storage.js";
 
 export const CLI_CONFIG_CHANGED = "CLI_CONFIG_CHANGED";
@@ -145,7 +145,7 @@ export function textFile(file, boundary) {
     if (!stat.isFile())
       throw problem(serverMessages.extensions.invalidCliConfigFile, 409);
     if (stat.size > CLI_CONFIG_MAX_BYTES)
-      throw Object.assign(problem(serverMessages.extensions.invalidCliConfigFile, 409), {
+      throw Object.assign(problem(serverMessages.extensions.cliConfigTooLarge, 409), {
         code: CLI_CONFIG_TOO_LARGE,
       });
     return fs.readFileSync(file, "utf8");
@@ -154,41 +154,67 @@ export function textFile(file, boundary) {
     throw error;
   }
 }
-export function readConfig(file, boundary, tool) {
-  const text = textFile(file, boundary);
+function statOf(file) {
   try {
-    const errors = [];
-    const options = {
-      allowTrailingComma: tool === "opencode",
-      disallowComments: tool === "claude",
-    };
-    if (tool !== "codex" && text.trim()) {
-      const tree = parseTree(text, errors, options);
-      assertUniqueJsonKeys(tree);
-    }
-    const data = text.trim()
-      ? tool === "codex"
-        ? parseToml(text)
-        : parseJsonc(text, errors, options)
-      : {};
-    if (errors.length || !record(data)) throw new Error();
-    return { file, text, data };
+    return fs.statSync(file);
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+/**
+ * The file's `{ file, text, data }`. An unchanged file comes from the parse cache
+ * (native-config-cache.js); `data` is frozen either way. A JSON file's tree stays
+ * with the returned object for an edit (config-parse.js `treeOf`).
+ */
+export function readConfig(file, boundary, tool) {
+  safePath(file, boundary);
+  const before = statOf(file);
+  const cached =
+    before?.isFile() && cachedConfig(file, tool, before, () => textFile(file, boundary));
+  if (cached)
+    return rememberTree({ file, text: cached.text, data: cached.data }, cached.tree);
+  const text = textFile(file, boundary);
+  let parsed;
+  try {
+    if (text.trim()) configParses.reads++;
+    parsed = parseNative(text, tool);
+    if (!record(parsed.data)) throw new Error();
   } catch {
     throw problem(serverMessages.extensions.invalidExistingCliConfig, 409);
   }
+  const data = deepFreeze(parsed.data);
+  const after = before && statOf(file);
+  if (after && after.mtimeMs === before.mtimeMs && after.size === before.size)
+    rememberConfig(file, tool, before, { text, data, tree: parsed.tree });
+  return rememberTree({ file, text, data }, parsed.tree);
 }
-export function atomicText(file, boundary, before, after) {
+/**
+ * Replaces `file` with `after` while it still holds `before` (compare-and-swap). With
+ * `parsed` (`{ tool, data, tree }`, the verified parse of `after`) the next read of the
+ * file needs no parse.
+ */
+export function atomicText(file, boundary, before, after, parsed = null) {
   safePath(file, boundary);
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   const temp = `${file}.${randomUUID()}.tmp`;
   try {
     fs.writeFileSync(temp, after, { flag: "wx", mode: 0o600 });
+    const written = fs.statSync(temp);
     safePath(file, boundary);
+    forgetConfig(file);
     if (textFile(file, boundary) !== before)
       throw Object.assign(problem(serverMessages.extensions.cliConfigChanged, 409), {
         code: CLI_CONFIG_CHANGED,
       });
     fs.renameSync(temp, file);
+    // A rename keeps the device, inode, size and time the temporary file had.
+    if (parsed)
+      rememberConfig(file, parsed.tool, written, {
+        text: after,
+        data: deepFreeze(parsed.data),
+        tree: parsed.tree,
+      });
   } finally {
     fs.rmSync(temp, { force: true });
   }
@@ -198,6 +224,7 @@ export function atomicText(file, boundary, before, after) {
  * only that entry's own text (config-edit.js), with compare-and-swap on `config.text`.
  */
 export function updateConfig(config, boundary, tool, key, name, entry) {
-  const after = editConfig(config, tool, key, name, entry);
-  if (after !== config.text) atomicText(config.file, boundary, config.text, after);
+  const result = editConfigResult(config, tool, key, name, entry);
+  if (result.text !== config.text)
+    atomicText(config.file, boundary, config.text, result.text, { tool, ...result });
 }

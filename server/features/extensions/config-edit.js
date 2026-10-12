@@ -1,13 +1,17 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import {
-  createScanner,
-  findNodeAtLocation,
-  parse as parseJsonc,
-  parseTree,
-} from "jsonc-parser";
-import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
+import { createScanner, findNodeAtLocation } from "jsonc-parser";
+import { stringify as stringifyToml } from "smol-toml";
 import { parseForESLint } from "toml-eslint-parser";
+import {
+  configParses,
+  jsonTree,
+  parseNative,
+  sameValue,
+  treeOf,
+} from "./config-parse.js";
+
+export { configParses } from "./config-parse.js";
 
 export const CLI_CONFIG_LAYOUT = "CLI_CONFIG_LAYOUT";
 
@@ -134,12 +138,17 @@ function insertMember(text, object, name, value) {
   return splice(text, [[lastEnd, lastEnd, `, ${member}`]]);
 }
 
-function editJson(text, key, name, entry) {
+/** `known` is the tree of `text` when a read already parsed it. */
+function editJson(text, key, name, entry, tool, known) {
   if (!text.trim())
     return entry === undefined
       ? text
       : `${JSON.stringify({ [key]: { [name]: entry } }, null, 2)}\n`;
-  const root = parseTree(text);
+  let root = known;
+  if (!root) {
+    configParses.edits++;
+    root = jsonTree(text, tool);
+  }
   if (root?.type !== "object") throw layout();
   const container = findNodeAtLocation(root, [key]);
   if (container && container.type !== "object") throw layout();
@@ -224,46 +233,23 @@ function editToml(text, key, name, entry) {
 
 // ---- Verification: the edit must change exactly the one entry.
 
-function canonical(value) {
-  if (typeof value?.toJSON === "function") return JSON.stringify(value.toJSON());
-  if (typeof value === "bigint") return `${value}n`;
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value && typeof value === "object")
-    return `{${Object.keys(value)
-      .filter((item) => value[item] !== undefined)
-      .sort()
-      .map((item) => `${JSON.stringify(item)}:${canonical(value[item])}`)
-      .join(",")}}`;
-  return JSON.stringify(value ?? null);
-}
-
-function parsed(text, tool) {
-  if (!text.trim()) return {};
-  if (tool === "codex") return parseToml(text);
-  const errors = [];
-  const data = parseJsonc(text, errors, {
-    allowTrailingComma: tool === "opencode",
-    disallowComments: tool === "claude",
-  });
-  if (errors.length) throw new Error("invalid JSON after edit");
-  return data;
-}
-
 /**
  * `config.text` with only `config.data[key][name]` set to `entry` (or removed when
- * undefined). Every other byte stays: comments, order and number or date formatting.
- * Throws CLI_CONFIG_LAYOUT when the entry cannot be edited in place without
- * changing anything else; the caller then writes nothing.
+ * undefined), as `{ text, data, tree }`: the verified parse of the result, which a
+ * write can keep for the next read. Every other byte stays: comments, order and
+ * number or date formatting. Throws CLI_CONFIG_LAYOUT when the entry cannot be edited
+ * in place without changing anything else; the caller then writes nothing. The tree
+ * a read remembered for `config` (config-parse.js) is reused, not parsed again.
  */
-export function editConfig(config, tool, key, name, entry) {
+export function editConfigResult(config, tool, key, name, entry) {
   let after;
   let actual;
   try {
     after =
       tool === "codex"
         ? editToml(config.text, key, name, entry)
-        : editJson(config.text, key, name, entry);
-    actual = parsed(after, tool);
+        : editJson(config.text, key, name, entry, tool, treeOf(config));
+    actual = parseNative(after, tool);
   } catch (error) {
     if (error?.code === CLI_CONFIG_LAYOUT) throw error;
     throw layout();
@@ -272,8 +258,12 @@ export function editConfig(config, tool, key, name, entry) {
   if (entry === undefined) delete expected[key][name];
   else expected[key][name] = entry;
   // TOML has no empty implicit table: removing its last entry removes `key` too.
-  if (actual[key] === undefined && !Object.keys(expected[key]).length)
+  if (actual.data[key] === undefined && !Object.keys(expected[key]).length)
     delete expected[key];
-  if (canonical(actual) !== canonical(expected)) throw layout();
-  return after;
+  if (!sameValue(actual.data, expected)) throw layout();
+  return { text: after, ...actual };
 }
+
+/** editConfigResult's text. */
+export const editConfig = (config, tool, key, name, entry) =>
+  editConfigResult(config, tool, key, name, entry).text;
