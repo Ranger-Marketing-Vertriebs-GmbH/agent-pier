@@ -170,6 +170,7 @@ for (const [label, use] of [
         webFetch: true,
         browser: false,
         documents: true,
+        recall: false,
       });
       expect(state.patches[0].confirmRestart).toBeUndefined();
     });
@@ -189,7 +190,8 @@ for (const [label, use] of [
         await expect(page.getByLabel(name)).toBeDisabled();
         await expect(page.getByLabel(name)).not.toBeChecked();
       }
-      await expect(page.getByText("Available after saving the agent")).toHaveCount(4);
+      // The four web switches and scheduled check-ins.
+      await expect(page.getByText("Available after saving the agent")).toHaveCount(5);
       await expect(page.getByLabel("Remember information")).toBeEnabled();
       await page.getByLabel("Name", { exact: true }).fill("Fresh");
       await page.getByLabel("Model connection").selectOption("router");

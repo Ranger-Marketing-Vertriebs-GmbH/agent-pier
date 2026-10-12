@@ -19,6 +19,9 @@ import AgentMcpServers from "../mcp-servers/AgentMcpServers.jsx";
 import RestartConfirmation from "./RestartConfirmation.jsx";
 import { restartRequired } from "../provider-connections/restart-confirmation.js";
 import AssistantShell from "./AssistantShell.jsx";
+import AssistantProactivity from "./AssistantProactivity.jsx";
+import { heartbeatForm } from "./heartbeat.js";
+import { assistantProactivityCopy } from "../../lib/i18n/messages/assistant-proactivity.js";
 import { SHELL_CONFIRMATION_REQUIRED, shellEligible, shellLevel } from "./shell-level.js";
 import { assistantShellCopy } from "../../lib/i18n/messages/assistant-shell.js";
 const conflictLabels = {
@@ -28,6 +31,7 @@ const conflictLabels = {
   modelId: () => copy.model,
   capabilities: () => copy.personal.capabilities,
   shell: () => assistantShellCopy.title,
+  heartbeat: () => assistantProactivityCopy.title,
 };
 export default function AssistantSettings({ assistant, onSaved, onCancel, navigate }) {
   const { models, refresh, runtime } = useAssistants();
@@ -38,8 +42,10 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
     modelId: assistant?.model.modelId || "",
     capabilities: { ...capabilityDefaults, ...assistant?.capabilities },
     shell: shellLevel(assistant),
+    heartbeat: heartbeatForm(assistant),
   });
-  const { name, instructions, connectionId, modelId, capabilities, shell } = form.values;
+  const { name, instructions, connectionId, modelId, capabilities, shell, heartbeat } =
+    form.values;
   const setName = (value) => form.set("name", value),
     setInstructions = (value) => form.set("instructions", value),
     setConnection = (value) => form.set("connectionId", value),
@@ -83,6 +89,8 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
         instructions,
         model: { connectionId, modelId },
         ...(personal ? { capabilities } : {}),
+        // Sent once there is something to store: a saved or switched-on schedule.
+        ...(personal && (assistant?.heartbeat || heartbeat.enabled) ? { heartbeat } : {}),
         // Only a changed level is sent: the server asks to confirm a raise.
         ...(shellEligible(assistant) && shell !== shellLevel(assistant) ? { shell } : {}),
       };
@@ -176,6 +184,18 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
               resetConfirmations();
               form.set("capabilities", next);
             }}
+          />
+        )}
+        {personal && (
+          <AssistantProactivity
+            assistant={assistant}
+            capabilities={capabilities}
+            onCapabilities={(next) => {
+              resetConfirmations();
+              form.set("capabilities", next);
+            }}
+            heartbeat={heartbeat}
+            onHeartbeat={(next) => form.set("heartbeat", next)}
           />
         )}
         <AssistantShell

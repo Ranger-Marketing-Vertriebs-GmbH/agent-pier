@@ -7,6 +7,7 @@ const clickHold = 900;
 export default function SettingsSectionNav({ assistant, personal }) {
   const sections = [
     ["profile", "agent-profile"],
+    ...(personal ? [["proactivity", "agent-proactivity"]] : []),
     ["shell", "agent-shell"],
     ...(personal ? [["access", "agent-access"]] : []),
     ...(personal && Array.isArray(assistant.mcpServers) ? [["mcp", "agent-mcp"]] : []),

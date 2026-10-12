@@ -206,6 +206,7 @@ export const assistantCopy = {
   sections: {
     profile: "Profil",
     shell: "Shell",
+    proactivity: "Eigeninitiative",
     access: "Zugriff",
     memory: "Gedächtnis",
     reminders: "Erinnerungen",

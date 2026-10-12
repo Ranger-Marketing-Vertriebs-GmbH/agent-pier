@@ -1220,10 +1220,11 @@ agent's own `memory.search` with `rememberAcrossConversations: true`, sources
 gets `false`, `["memory"]` and `false` explicitly, so a live merge patch also turns it
 off. The bundled `active-memory` plugin is loaded on native team Gateways with
 `agents: []`: its advanced path targets no agent, only the per-agent setting does.
-Before an eligible private reply it runs a bounded recall pass over the same agent's
-other conversations (for example its AgentPier chat and its Telegram chat), which
-costs up to one extra model call per message. Another agent's transcripts are never
-eligible.
+When a private message refers to the past, it runs a bounded recall pass over the
+same agent's other conversations (for example its AgentPier chat and its Telegram
+chat) before the reply: in the contract one search call and one summary call, so the
+settings name one or two extra model calls for such a message. Other messages cost
+nothing extra. Another agent's transcripts are never eligible.
 
 `tools.sessions.visibility` is `"agent"` on every Gateway, regardless of the opt-in:
 OpenClaw's default `"all"` lets session tools reach other agents' transcripts. Teams
