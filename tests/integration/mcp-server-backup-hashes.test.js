@@ -1,10 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
+import {
+  decodeArchive,
+  decryptCredentials,
+} from "../../server/features/operations/archive.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
 import { CliMcpReconciler } from "../../server/features/mcp-servers/cli-reconciler.js";
 import { cliMcpFixture, http } from "../helpers/cli-mcp.js";
@@ -111,4 +117,62 @@ test("sanitizing keeps only the store's known tables and columns", async (t) => 
   // A table or column the sanitizer does not know fails here first: add it there.
   assert.deepEqual(copy, known);
   assert.equal(fs.existsSync(store), true);
+});
+
+test("a store file that never got its tables counts as no store", async (t) => {
+  const { dataDir } = (() => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "mcp-empty-")));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const data = path.join(root, "data");
+    fs.mkdirSync(path.join(data, "mcp-servers"), { recursive: true, mode: 0o700 });
+    return { dataDir: data };
+  })();
+  const store = path.join(dataDir, "mcp-servers/servers.sqlite");
+  // privateDatabase creates the file before the store writes its schema.
+  fs.writeFileSync(store, "", { mode: 0o600 });
+  const backup = new Backup({ dataDir });
+  for (const withCredentials of [false, true]) {
+    const plan = backup.plan({ withCredentials });
+    // The standard omission "MCP client grants, …" is about AgentPier's own MCP.
+    assert.equal(
+      [...plan.components, ...plan.omissions].some((item) =>
+        /^(mcp-servers|encrypted-mcp-server-values|MCP server )/.test(item),
+      ),
+      false,
+    );
+    const { file, manifest } = await backup.create({
+      includeHistory: false,
+      withCredentials,
+      passphrase,
+    });
+    assert.equal(
+      manifest.omissions.some((item) => /^MCP server/.test(item)),
+      false,
+    );
+    const archive = decodeArchive(file);
+    assert.equal(
+      archive.files.some((m) => m.path.startsWith("mcp-servers/")),
+      false,
+    );
+    if (withCredentials)
+      assert.equal(
+        (await decryptCredentials(archive.credentials, passphrase)).some((m) =>
+          m.path.startsWith("mcp-server-secrets/"),
+        ),
+        false,
+      );
+  }
+});
+
+test("a store with tables the sanitizer cannot use still fails the backup", async (t) => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "mcp-bad-")));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const dataDir = path.join(root, "data");
+  fs.mkdirSync(path.join(dataDir, "mcp-servers"), { recursive: true, mode: 0o700 });
+  const db = new DatabaseSync(path.join(dataDir, "mcp-servers/servers.sqlite"));
+  db.exec("CREATE TABLE unrelated(a)");
+  db.close();
+  await assert.rejects(new Backup({ dataDir }).create({ includeHistory: false }), {
+    message: serverMessages.backups.invalidMcpServerStore,
+  });
 });

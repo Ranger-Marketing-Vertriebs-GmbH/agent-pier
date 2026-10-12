@@ -1,6 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { problem } from "../../lib/storage.js";
 import { values } from "../extensions/mcp-config.js";
 import { clis } from "../mcp-servers/cli-native.js";
@@ -45,8 +46,26 @@ const knownIndexes = new Set(["bindings_target"]);
 // What percent-encoding can make of the 4096 characters the store accepts.
 const storedUrlLimit = 3 * 4096;
 
-export const mcpServersPresent = (dataDir) =>
-  fs.existsSync(path.join(dataDir, mcpStoreMember));
+/**
+ * Whether the host has a store to back up. A file without any table (a crash between
+ * its creation and the store's schema) holds nothing and counts as no store; one with
+ * tables the sanitizer cannot use fails the backup instead.
+ */
+export function mcpServersPresent(dataDir) {
+  const file = path.join(dataDir, mcpStoreMember);
+  if (!fs.existsSync(file)) return false;
+  const db = new DatabaseSync(file, { readOnly: true });
+  try {
+    db.exec("PRAGMA busy_timeout=5000");
+    return !!db
+      .prepare(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+      )
+      .get();
+  } finally {
+    db.close();
+  }
+}
 
 const schemaObjects = (db) =>
   db.prepare("SELECT type, name, sql FROM sqlite_master").all();
