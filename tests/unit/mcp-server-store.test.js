@@ -211,14 +211,14 @@ test("an unchanged stored reference never blocks a save; a changed one is refuse
   // Stored before the check existed: written directly.
   s.db
     .prepare("UPDATE servers SET url=? WHERE id=?")
-    .run("https://example.com/${X}/mcp", remote.id);
+    .run("https://example.com/mcp?k=${X}", remote.id);
   s.db
     .prepare("UPDATE servers SET args=?, cwd=? WHERE id=?")
     .run(JSON.stringify(["--root", "${X}"]), "/work/${X}", local.id);
   const renamed = s.update(remote.id, {
     revision: remote.revision,
     name: "docs2",
-    url: "https://example.com/${X}/mcp",
+    url: "https://example.com/mcp?k=${X}",
   });
   assert.equal(renamed.name, "docs2");
   const saved = s.update(local.id, {
@@ -233,7 +233,7 @@ test("an unchanged stored reference never blocks a save; a changed one is refuse
     () =>
       s.update(remote.id, {
         revision: renamed.revision,
-        url: "https://example.com/${Y}/mcp",
+        url: "https://example.com/mcp?k=${Y}",
       }),
     { status: 400, code: "MCP_SERVER_VALUE_REFERENCE", field: "url" },
   );

@@ -18,6 +18,7 @@ import {
   changesStdio as stdioChange,
   requireStdioConfirmation,
 } from "../mcp-servers/stdio-confirmation.js";
+import { requireLiteralValues } from "../mcp-servers/value-references.js";
 
 export { STDIO_CONFIRMATION_REQUIRED };
 
@@ -137,6 +138,8 @@ export class McpChanges {
   /** `clis`: the coding CLIs the new server is bound to in the same write. */
   create(input, { confirmStdio = false, clis = [] } = {}) {
     return this.assistants.admit(async () => {
+      // A reference is refused before the owner is asked to confirm a local command.
+      requireLiteralValues(input);
       if (record(input) && input.transport === "stdio")
         requireStdioConfirmation(confirmStdio === true);
       const server = this.servers.create(input, {
@@ -153,6 +156,7 @@ export class McpChanges {
   /** `clis`, when given, replaces the server's CLI bindings in the same write. */
   update(id, input, { confirmStdio = false, clis } = {}) {
     return this.assistants.admit(async () => {
+      this.servers.requireLiteralPatch(id, input);
       // Editing what a stdio server runs needs the same confirmation as adding one.
       const stdioChanged = this.changesStdio(this.servers.get(id), input);
       if (stdioChanged) requireStdioConfirmation(confirmStdio === true);
