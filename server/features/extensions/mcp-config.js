@@ -6,7 +6,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { editConfigResult } from "./config-edit.js";
 import { configParses, deepFreeze, parseNative, rememberTree } from "./config-parse.js";
-import { cachedConfig, forgetConfig, rememberConfig } from "./native-config-cache.js";
+import { configCache } from "./native-config-cache.js";
 import { problem } from "../../lib/storage.js";
 
 export const CLI_CONFIG_CHANGED = "CLI_CONFIG_CHANGED";
@@ -164,14 +164,14 @@ function statOf(file) {
 }
 /**
  * The file's `{ file, text, data }`. An unchanged file comes from the parse cache
- * (native-config-cache.js); `data` is frozen either way. A JSON file's tree stays
+ * (native-config-cache.js, or `cache` in tests); `data` is frozen either way. A JSON file's tree stays
  * with the returned object for an edit (config-parse.js `treeOf`).
  */
-export function readConfig(file, boundary, tool) {
+export function readConfig(file, boundary, tool, cache = configCache) {
   safePath(file, boundary);
   const before = statOf(file);
   const cached =
-    before?.isFile() && cachedConfig(file, tool, before, () => textFile(file, boundary));
+    before?.isFile() && cache.cached(file, tool, before, () => textFile(file, boundary));
   if (cached)
     return rememberTree({ file, text: cached.text, data: cached.data }, cached.tree);
   const text = textFile(file, boundary);
@@ -186,7 +186,7 @@ export function readConfig(file, boundary, tool) {
   const data = deepFreeze(parsed.data);
   const after = before && statOf(file);
   if (after && after.mtimeMs === before.mtimeMs && after.size === before.size)
-    rememberConfig(file, tool, before, { text, data, tree: parsed.tree });
+    cache.remember(file, tool, before, { text, data, tree: parsed.tree });
   return rememberTree({ file, text, data }, parsed.tree);
 }
 /**
@@ -202,7 +202,7 @@ export function atomicText(file, boundary, before, after, parsed = null) {
     fs.writeFileSync(temp, after, { flag: "wx", mode: 0o600 });
     const written = fs.statSync(temp);
     safePath(file, boundary);
-    forgetConfig(file);
+    configCache.forget(file);
     if (textFile(file, boundary) !== before)
       throw Object.assign(problem(serverMessages.extensions.cliConfigChanged, 409), {
         code: CLI_CONFIG_CHANGED,
@@ -210,7 +210,7 @@ export function atomicText(file, boundary, before, after, parsed = null) {
     fs.renameSync(temp, file);
     // A rename keeps the device, inode, size and time the temporary file had.
     if (parsed)
-      rememberConfig(file, parsed.tool, written, {
+      configCache.remember(file, parsed.tool, written, {
         text: after,
         data: deepFreeze(parsed.data),
         tree: parsed.tree,
