@@ -399,21 +399,35 @@ writable: [<program>] }`. Always allow resolves allow-once, writes the entry
   command (its process is gone within seconds). AgentPier aborts the agent's running
   turns whenever its level goes to Off.
 - A command started with `background: true` (or one that outlives `backgroundMs`
-  while `process` is offered) becomes a `process` session, a direct child of the
-  Gateway in its own process group. It keeps running after its turn, after the
-  abort of another turn, after `sessions.reset` and after a Gateway restart.
-- OpenClaw ends such a session only through the agent's own `process` tool
-  (`kill`/`remove`). `tools.invoke` does not reach it: the Gateway's HTTP surface
-  builds no coding tools and answers `Tool not available: process`. There is no
-  other RPC for exec sessions.
+  while `process` is offered) becomes a `process` session in its own process group.
+  It keeps running after its turn, after the abort of another turn and after
+  `sessions.reset`.
+- A Gateway stop or restart depends on the platform. On `SIGTERM` the Gateway
+  drains active work and waits for background sessions
+  (`still draining active work before stop: backgroundExecSessions=1`), so
+  `RuntimeSupervisor` ends it with `SIGKILL` after its 3-second grace (on macOS
+  also observed with a 60-second grace).
+  - **macOS:** the session is a direct child of the Gateway and outlives it.
+  - **Linux:** OpenClaw starts a spawn broker (`process/spawn-broker/worker.js`,
+    only when `process.platform === "linux"`) and runs exec children under it. When
+    the Gateway disconnects, the broker sends `SIGTERM` to every child it owns and
+    `SIGKILL` after a grace, so the restart ends the session. Observed in a
+    `node:22-bookworm` container (arm64) and on GitHub's Ubuntu runner.
+  - AgentPier does not end background commands itself; a Gateway stop includes
+    stopping or updating AgentPier.
+- Apart from a Gateway stop on Linux, OpenClaw ends such a session only through
+  the agent's own `process` tool (`kill`/`remove`). `tools.invoke` does not reach
+  it: the Gateway's HTTP surface builds no coding tools and answers
+  `Tool not available: process`. There is no other RPC for exec sessions.
 - Without `process` in the agent's tools, `exec` cannot background
   (`processToolAvailabilityRef`): `background: true` runs in the turn, and an abort
   kills it.
 
 ## Boundaries
 
-- macOS arm64 only so far; Linux runs in CI. On Linux, `/bin/sh` is `dash`, and the
-  observed allow-always availability for user-owned executables is unverified.
+- macOS arm64 locally; Linux runs in CI and was reproduced for (d) and (h) in a
+  Debian container. On Linux, `/bin/sh` is `dash`, and the observed allow-always
+  availability for user-owned executables is unverified.
 - Background exec was qualified only for what ends it (h); PTY and the `process`
   actions themselves were not tested with the shell wrapper.
 - The allow-always plan resolves programs from AgentPier's own view of the file

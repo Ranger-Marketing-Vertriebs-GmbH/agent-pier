@@ -7,7 +7,7 @@ export const assistantShellCopy = {
     full: "Voller Zugriff",
   },
   levelHints: {
-    off: "Der Agent kann keine neuen Befehle ausführen. Bereits im Hintergrund gestartete Befehle laufen weiter, bis sie enden.",
+    off: "Der Agent kann keine neuen Befehle ausführen. Bereits im Hintergrund gestartete Befehle laufen weiter, bis sie enden; unter Linux beendet sie auch ein Neustart des Agentendienstes.",
     approval: "Der Agent fragt dich vor jedem Befehl, der nicht immer erlaubt ist.",
     full: "Der Agent führt jeden Befehl aus, ohne dich zu fragen.",
   },

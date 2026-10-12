@@ -1016,9 +1016,12 @@ its own `tools.allow`, because a global `deny` alone still offers the tool.
   owner (their actions end with diagnostic `SHELL_OFF`; a deny the Gateway could
   not receive is sent again at the next ready), then aborts the agent's running
   turns, which ends a command running in the foreground. **A command moved to the
-  background (`process`) keeps running:** OpenClaw 2026.9.8 ends background
-  sessions only through the agent's own `process` tool, and neither an abort, a
-  session reset nor a Gateway restart stops them (see the
+  background (`process`) keeps running:** OpenClaw 2026.9.8 offers no way to end
+  background sessions from outside the agent's own `process` tool, and neither an
+  abort nor a session reset stops them. A Gateway stop or restart (including stopping or
+  updating AgentPier) ends them on Linux, where OpenClaw starts commands through
+  its spawn broker, which terminates its children when the Gateway goes away; on
+  macOS they keep running (see the
   [shell qualification](assistant-shell-qualification.md#h-aborting-turns-and-background-commands)).
   If a lowering cannot be
   applied, AgentPier tries once more, then aborts the agent's running turns and
@@ -1168,8 +1171,9 @@ follows the requalification checklist in
   and [MCP OAuth qualification](mcp-oauth-qualification.md)).
 - **Shell access:** no sandbox; commands moved to the background keep running
   when the level goes to Off (OpenClaw offers no way to end them from outside the
-  agent); `process` actions, a real 30-minute approval expiry and allow-always
-  availability on Linux are not qualified locally (see
+  agent) until they end, or on Linux until the Gateway stops; `process` actions, a
+  real 30-minute approval expiry and allow-always availability on Linux are not
+  qualified locally (see
   [shell qualification](assistant-shell-qualification.md#boundaries)).
 - Plain-language team authorization has the accepted limits described under Visible
   teams. Rollback or restore after a credential revocation needs a new login, and
