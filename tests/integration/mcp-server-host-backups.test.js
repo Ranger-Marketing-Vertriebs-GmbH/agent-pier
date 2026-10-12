@@ -337,3 +337,40 @@ test("the restored store reconciles: missing managed entries return, changed one
   });
   assert.deepEqual(f.entries("codex").docs, edited);
 });
+
+test("a restore without values leaves the server's native CLI entries to the owner", async (t) => {
+  const f = cliMcpFixture(t);
+  const server = f.servers.create(http(), { bind: [["cli", "claude"]] });
+  f.reconciler.reconcile("claude");
+  const before = f.text("claude");
+  assert.match(before, /query-secret/);
+  const backups = new Backup({ dataDir: f.dataDir, home: f.home });
+  const restore = new Restore({ dataDir: f.dataDir });
+  const sealed = await backups.create({ withCredentials: true, passphrase });
+  const kept = path.join(f.root, "with-values");
+  await restore.apply({ archive: sealed.file, targetDataDir: kept, passphrase });
+  const withValues = open(kept);
+  try {
+    assert.equal(withValues.cliEntries.get(server.id, "claude").name, "docs");
+  } finally {
+    withValues.close();
+  }
+
+  const { file } = await backups.create({});
+  const target = path.join(f.root, "restored");
+  await restore.apply({ archive: file, targetDataDir: target });
+  const servers = open(target);
+  t.after(() => servers.close());
+  assert.equal(servers.cliEntries.get(server.id, "claude"), null);
+  assert.deepEqual(servers.targetsOf(server.id).clis, ["claude"]);
+  const reconciler = new CliMcpReconciler({
+    servers,
+    locate: (cli) => f.extensions.locations(`local-${cli}`),
+    configs: (locations) => f.extensions.configs(locations),
+    warn: () => {},
+  });
+  assert.deepEqual(reconciler.reconcile("claude").statuses[server.id], {
+    status: "name-taken",
+  });
+  assert.equal(f.text("claude"), before);
+});

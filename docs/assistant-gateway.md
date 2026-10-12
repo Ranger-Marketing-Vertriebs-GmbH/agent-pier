@@ -917,7 +917,11 @@ store and never leaves that member in the new data directory. A restore without
 them lists each server that had values or an address token in
 `credentialsNeedingLogin` as `mcp:<name>`; enter its values again under **Accounts**.
 The restored instance's next start reconciles the coding CLIs: it writes managed
-entries a CLI lacks and leaves entries the owner changed as conflicts. Runtime
+entries a CLI lacks and leaves entries the owner changed as conflicts. For a server
+restored without its values, the restore forgets which native CLI entries AgentPier
+wrote (its bindings stay): an entry still in a CLI's file then shows as a taken name
+that **Adopt** takes over with its values, and AgentPier never rewrites or removes
+it. Runtime
 update snapshots do not include the server store: it stays on the host. Builds
 before AGENTPIER-42 refuse a backup with the store ("Unexpected backup
 component"); older backups, which declared the store as left out, restore without
