@@ -103,6 +103,16 @@ declares that grant: AgentPier classifies a path that does not exist as a single
 (the degenerate case `server/features/nono/nono-launch.js` documents), and nono accepts
 a missing file grant without complaint, so this is harmless.
 
+Central MCP servers bound to a coding CLI ([mcp.md](mcp.md#central-mcp-servers-in-the-coding-clis))
+run inside that CLI's sandbox. For each bound stdio server
+`server/features/mcp-servers/cli-grants.js` declares read access to its resolved
+command, to the file that command links to, and to the interpreter its `#!` line names
+(for `#!/usr/bin/env name` also `name` resolved on the session's PATH), and full access
+to its working directory. No allow grant is declared for a working directory that is
+`/`, the owner's home or an ancestor of it, the AgentPier data directory or an ancestor
+of it, or anything inside the data directory; such a server gets the code
+`MCP_CWD_TOO_BROAD` as a warning and may fail under nono. Remote servers need no grant.
+
 ### An example launch
 
 A Claude Code session on sandbox profile `claude-default`, with project memory and
@@ -238,6 +248,11 @@ personal workspace, not an isolation boundary for mutually untrusted users.
    the store, because every tool call re-authorizes against the session record, which is
    replaced by rename on each status update. An unsandboxed session is unaffected and
    keeps taking assignments while it runs.
+
+8. **MCP servers outside the central list.** Stdio servers the owner added to a CLI
+   outside AgentPier get no grants until they are adopted. A bound command that loads
+   more files while it runs (for example `npx` with its package cache) needs the
+   operator's sandbox profile to allow them.
 
 See the [architecture guide](architecture.md#persistence-and-safety-boundaries) for
 where this fits alongside AgentPier's other persistence and safety boundaries.
