@@ -1,6 +1,8 @@
+import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
 import { pipeline } from "node:stream/promises";
 import { problem } from "../../lib/storage.js";
 import { releaseVersion } from "../../features/operations/release-archive.js";
@@ -58,8 +60,25 @@ export function operationsRoutes({ operations, releaseMigration }) {
       ),
     }),
   );
+  // This router is behind owner authentication; one shared owner budget.
+  const downloadLimit = rateLimit({
+    windowMs: 60_000,
+    limit: 20,
+    keyGenerator: () => "owner",
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    handler: (_req, res) =>
+      res
+        .status(429)
+        .set("Cache-Control", "no-store")
+        .json({
+          code: "BACKUP_DOWNLOAD_RATE_LIMITED",
+          error: serverMessages.backups.downloadRateLimited,
+          ...messageIdentity(serverMessages.backups.downloadRateLimited),
+        }),
+  });
   // Archives of any size stream from disk; nothing is held in memory.
-  router.get(`${root}/backups/:id/download`, async (req, res) => {
+  router.get(`${root}/backups/:id/download`, downloadLimit, async (req, res) => {
     let fd;
     try {
       fd = fs.openSync(

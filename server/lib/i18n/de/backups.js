@@ -1,5 +1,7 @@
 /** German browser-visible server messages, addressed through English semantic keys. */
 export const backups = Object.freeze({
+  downloadRateLimited:
+    "Zu viele Backup-Downloads. Bitte in einer Minute erneut versuchen.",
   archiveExpansionLimit: "Das Entpacklimit des Archivs wurde überschritten.",
   archiveSizeLimit: "Das Größenlimit des Archivs wurde überschritten.",
   invalidArchive: "Ungültiges oder zu großes AgentPier-Archiv.",

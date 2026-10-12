@@ -247,7 +247,10 @@ export class Backup {
     return { backup, manifest: written.manifest, file };
   }
   file(id) {
-    return path.join(this.directory, `${identifier(id)}.apbackup`);
+    const file = path.resolve(this.directory, `${identifier(id)}.apbackup`);
+    if (!file.startsWith(`${this.directory}${path.sep}`))
+      throw problem(serverMessages.operations.invalidIdentifier);
+    return file;
   }
   list() {
     return fs
