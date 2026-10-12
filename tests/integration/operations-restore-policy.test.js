@@ -202,6 +202,10 @@ test("ordinary and credential backups explicitly omit file trash, journals and t
   const { fileFixture } = await import("../helpers/file-explorer.js");
   const { capture, omissions } =
     await import("../../server/features/operations/snapshot.js");
+  const { captureProfiles } =
+    await import("../../server/features/operations/profile-capture.js");
+  const { CapturePlan } =
+    await import("../../server/features/operations/capture-plan.js");
   const f = await fileFixture(t);
   const sentinels = [
     "files/trash/id/payload",
@@ -232,12 +236,22 @@ test("ordinary and credential backups explicitly omit file trash, journals and t
   // Files outside the allowlist are never captured, whatever they hold.
   await fs.writeFile(path.join(f.dataDir, "profiles/account/token"), "private-sentinel");
   for (const withCredentials of [false, true]) {
-    const archive = capture({
+    const application = capture({
       dataDir: f.dataDir,
-      home: f.home,
       includeHistory: true,
       withCredentials,
     });
+    const profiles = await captureProfiles({
+      dataDir: f.dataDir,
+      home: f.home,
+      plan: new CapturePlan(),
+      includeHistory: true,
+      withCredentials,
+    });
+    const archive = {
+      files: [...application.files, ...profiles.files],
+      credentials: [...application.credentials, ...profiles.credentials],
+    };
     assert.equal(
       [...archive.files, ...archive.credentials].some((file) =>
         file.path.startsWith("files/"),

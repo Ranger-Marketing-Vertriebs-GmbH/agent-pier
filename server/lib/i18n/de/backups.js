@@ -50,32 +50,22 @@ export const backups = Object.freeze({
   uploadType: "Bitte ein Backup-Archiv als application/octet-stream hochladen.",
   assistantsBusy:
     "Agenten werden gerade aktualisiert oder gewartet. Erstelle das Backup danach erneut.",
+  caseConflict:
+    "Zwei Archiveinträge unterscheiden sich nur in Groß- und Kleinschreibung oder Unicode-Normalisierung und kollidieren auf diesem Dateisystem.",
+  uploadLengthRequired: "Für den Upload wird die Größe des Archivs benötigt.",
+  uploadLengthMismatch: "Der Upload hat nicht die angekündigte Größe.",
+  invalidUploadChunk: "Ungültiger Abschnitt des Uploads.",
+  uploadBusy: "Dieser Upload nimmt gerade einen anderen Abschnitt an.",
+  uploadOffsetMismatch:
+    "Der Abschnitt passt nicht an das Ende des bisherigen Uploads. Der Upload wird an der richtigen Stelle fortgesetzt.",
+  uploadIncomplete: "Der Upload ist noch nicht vollständig.",
   memberMismatch: "Die Einträge des Archivs passen nicht zu seinem Manifest.",
   insufficientSpace: (required, available) =>
     `Nicht genug freier Speicherplatz: benötigt ${required}, verfügbar ${available}.`,
-  profileChanged: (name, tool) =>
-    `Profil „${name}“ (${tool}): Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.`,
   profileUnreadable: (name, tool) =>
     `Profil „${name}“ (${tool}): Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.`,
   profileCredentialLimit: (name, tool, limit) =>
     `Profil „${name}“ (${tool}): Konfiguration und Zugangsdaten überschreiten ${limit}.`,
-  changed: Object.freeze({
-    sessions:
-      "Sitzungen: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
-    chat: "Chat-Verläufe: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
-    agentbus:
-      "AgentBus-Verlauf: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
-    artifacts:
-      "Artefakte: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
-    assistants:
-      "Agentendaten: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
-    providerCredentials:
-      "Keys der Provider-Zugänge: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
-    repositoryCredentials:
-      "Repository-Zugangsdaten: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
-    applicationData:
-      "Anwendungsdaten: Eine Datei hat sich während des Backups verändert. Erstelle das Backup erneut.",
-  }),
   unreadable: Object.freeze({
     sessions:
       "Sitzungen: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",

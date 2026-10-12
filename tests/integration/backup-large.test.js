@@ -7,11 +7,14 @@ import { randomFillSync } from "node:crypto";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
 import { writeCliProfiles } from "../helpers/cli-profile-fixture.js";
+import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
+import { writeAssistantFeature } from "../../server/features/assistants/assistant-feature.js";
 
 // CI streams a few hundred MiB; AGENTPIER_BACKUP_LARGE_MB=4096 runs the large case.
 const totalMiB = Number(process.env.AGENTPIER_BACKUP_LARGE_MB || 256);
 const MiB = 1024 * 1024;
 const passphrase = "large backup fixture passphrase";
+const workspaceMiB = 160;
 
 /** Peak resident memory above the start while `run` is pending. */
 async function peakGrowth(run) {
@@ -53,12 +56,28 @@ test(`a ${totalMiB} MiB profile history streams through backup and restore in bo
     fs.closeSync(fd);
     written += size;
   }
+  // Agent workspaces stream too: one beyond the former 128 MiB agent budget.
+  new AssistantStore({ dataDir }).close();
+  writeAssistantFeature(dataDir, { enabled: true });
+  const workspace = path.join(dataDir, "assistants/workspaces/main");
+  fs.mkdirSync(workspace, { recursive: true, mode: 0o700 });
+  for (let index = 0; index < workspaceMiB / 16; index++) {
+    randomFillSync(chunk);
+    fs.writeFileSync(path.join(workspace, `data-${index}.bin`), chunk, { mode: 0o600 });
+  }
   const backup = new Backup({ dataDir, home: path.join(root, "home") });
   const created = await peakGrowth(() =>
     backup.create({ includeHistory: true, withCredentials: true, passphrase }),
   );
   const archiveBytes = created.result.backup.bytes;
-  assert.ok(archiveBytes > totalMiB * MiB, "the archive holds the history");
+  assert.ok(
+    archiveBytes > (totalMiB + workspaceMiB) * MiB,
+    "the archive holds the history and the agent workspace",
+  );
+  assert.equal(
+    created.result.manifest.omissions.includes("Agent workspaces too large"),
+    false,
+  );
   const limit = Math.min(160 * MiB, archiveBytes / 2);
   assert.ok(
     created.growth < limit,
@@ -90,6 +109,10 @@ test(`a ${totalMiB} MiB profile history streams through backup and restore in bo
       path.join(target, "profiles/codex-work/codex/sessions/2026/10/12/rollout-0.jsonl"),
     ).size,
     Math.min(64, totalMiB) * MiB,
+  );
+  assert.equal(
+    fs.statSync(path.join(target, "assistants/workspaces/main/data-0.bin")).size,
+    16 * MiB,
   );
   t.diagnostic(
     `archive ${(archiveBytes / MiB).toFixed(0)} MiB; RSS growth backup ${(created.growth / MiB).toFixed(0)} MiB, restore ${(restored.growth / MiB).toFixed(0)} MiB`,

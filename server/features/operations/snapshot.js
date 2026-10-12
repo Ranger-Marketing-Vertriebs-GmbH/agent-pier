@@ -2,13 +2,12 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { artifactMembers } from "./artifact-backup.js";
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
+import { Worker } from "node:worker_threads";
 import { digest, folder, readFile, readJson } from "./files.js";
 import { CapturePlan } from "./capture-plan.js";
 import { areaComponent } from "./backup-components.js";
-import { captureProfiles } from "./profile-capture.js";
 import { problem } from "../../lib/storage.js";
 import {
   mcpServersPresent,
@@ -77,6 +76,40 @@ export function sqliteSnapshotFile(
     db.close();
   }
 }
+const snapshotWorker = new URL("./sqlite-snapshot-worker.js", import.meta.url);
+/**
+ * sqliteSnapshotFile without sanitizing, run in a worker thread: copying a large
+ * native history database must not block the event loop.
+ */
+export async function sqliteSnapshotFileAsync(file, scratch) {
+  checkedSource(file);
+  const target = path.join(scratch, `${randomUUID()}.sqlite`);
+  const worker = new Worker(snapshotWorker, { workerData: { file, target } });
+  try {
+    await new Promise((resolve, reject) => {
+      worker.once("message", resolve);
+      worker.once("error", reject);
+      worker.once("exit", (code) =>
+        code
+          ? reject(new Error(`SQLite snapshot worker exited with ${code}`))
+          : resolve(),
+      );
+    });
+    return target;
+  } catch (error) {
+    fs.rmSync(target, { force: true });
+    throw error;
+  }
+}
+/** Reads members whose file lies in `scratch` into memory (callers without one). */
+export function inlineCopies(members, scratch) {
+  for (const member of members)
+    if (member.file?.startsWith(scratch + path.sep)) {
+      member.bytes = readFile(member.file);
+      delete member.file;
+      delete member.size;
+    }
+}
 /** The bytes of a consistent copy of `file` (see sqliteSnapshotFile). */
 export function sqliteSnapshot(file, scratch, options) {
   const target = sqliteSnapshotFile(file, scratch, options);
@@ -96,15 +129,15 @@ const sealed = (members) =>
  */
 export function capture({
   dataDir,
-  home = os.homedir(),
   includeHistory,
   withCredentials,
   audit,
   scratch: shared,
+  plan: sharedPlan,
 }) {
   const scratch =
     shared || folder(path.join(dataDir, "operations", `.snapshot-${randomUUID()}`));
-  const plan = new CapturePlan();
+  const plan = shared ? sharedPlan || new CapturePlan() : new CapturePlan();
   const files = [],
     credentials = [],
     captures = [],
@@ -206,6 +239,7 @@ export function capture({
             path.join(sessionRoot, name),
             areaComponent("sessions"),
           );
+          if (!member) continue;
           files.push(member);
           captures.push({
             component: `sessions/${name}`,
@@ -244,27 +278,9 @@ export function capture({
         ),
       );
     }
-    const profiles = captureProfiles({
-      dataDir,
-      home,
-      scratch,
-      plan,
-      includeHistory,
-      withCredentials,
-    });
-    files.push(...profiles.files);
-    credentials.push(...profiles.credentials);
-    captures.push(...profiles.captures);
-    extraOmissions.push(...profiles.omissions);
     const unique = [...new Map(files.map((file) => [file.path, file])).values()];
     // Without a caller's scratch folder, snapshots are read before it is removed.
-    if (!shared)
-      for (const member of unique)
-        if (member.file?.startsWith(scratch + path.sep)) {
-          member.bytes = readFile(member.file);
-          delete member.file;
-          delete member.size;
-        }
+    if (!shared) inlineCopies(unique, scratch);
     return { files: unique, credentials, captures, omissions: extraOmissions };
   } finally {
     if (!shared) fs.rmSync(scratch, { recursive: true, force: true });

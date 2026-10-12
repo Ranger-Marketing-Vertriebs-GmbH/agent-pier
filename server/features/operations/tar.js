@@ -128,7 +128,9 @@ export function parsePax(bytes) {
 export class ByteSource {
   constructor(iterable) {
     this.iterator = iterable[Symbol.asyncIterator]();
-    this.buffer = Buffer.alloc(0);
+    // Received chunks not yet consumed; joined only for exact reads.
+    this.parts = [];
+    this.length = 0;
     this.done = false;
   }
   async fill() {
@@ -145,35 +147,53 @@ export class ByteSource {
       this.done = true;
       return false;
     }
-    this.buffer = this.buffer.length ? Buffer.concat([this.buffer, value]) : value;
+    if (value.length) {
+      this.parts.push(value);
+      this.length += value.length;
+    }
     return true;
+  }
+  /** Puts `bytes` back in front of the unread data. */
+  unshift(bytes) {
+    this.parts.unshift(bytes);
+    this.length += bytes.length;
+  }
+  take(count) {
+    const first = this.parts[0];
+    const piece = first.subarray(0, Math.min(count, first.length));
+    if (piece.length === first.length) this.parts.shift();
+    else this.parts[0] = first.subarray(piece.length);
+    this.length -= piece.length;
+    return piece;
   }
   /** Exactly `count` bytes, or a truncation error. */
   async exact(count) {
-    while (this.buffer.length < count) if (!(await this.fill())) throw invalid();
-    const result = this.buffer.subarray(0, count);
-    this.buffer = this.buffer.subarray(count);
-    return result;
+    while (this.length < count) if (!(await this.fill())) throw invalid();
+    if (this.parts[0]?.length >= count) return this.take(count);
+    const pieces = [];
+    for (let left = count; left > 0; left -= pieces.at(-1).length)
+      pieces.push(this.take(left));
+    return Buffer.concat(pieces, count);
   }
   /** Yields the next `count` bytes in the chunks they arrive in. */
   async *chunks(count) {
     let left = count;
     while (left > 0) {
-      if (!this.buffer.length && !(await this.fill())) throw invalid();
-      const take = this.buffer.subarray(0, Math.min(left, this.buffer.length));
-      this.buffer = this.buffer.subarray(take.length);
-      left -= take.length;
-      yield take;
+      if (!this.length && !(await this.fill())) throw invalid();
+      const piece = this.take(left);
+      left -= piece.length;
+      yield piece;
     }
   }
   /** Reads the rest; anything but zero bytes (tar record padding) is rejected. */
   async zeroTail(limit) {
     let seen = 0;
     for (;;) {
-      if (this.buffer.some((byte) => byte !== 0)) throw invalid();
-      seen += this.buffer.length;
+      for (const part of this.parts) if (part.some((byte) => byte !== 0)) throw invalid();
+      seen += this.length;
       if (seen > limit) throw invalid();
-      this.buffer = Buffer.alloc(0);
+      this.parts = [];
+      this.length = 0;
       if (!(await this.fill())) return;
     }
   }
