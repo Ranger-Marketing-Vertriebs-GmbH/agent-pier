@@ -152,3 +152,65 @@ artifact ID with a new request ID. Artifact ownership uses the authenticated
 session; external OAuth grants do not expose these tools. See
 [Private artifacts](artifacts.md) for examples, supported resources, retention and
 backup limits.
+
+## Central MCP servers in the coding CLIs
+
+Accounts → **MCP servers** is the one place for the MCP servers the owner uses. A server
+can be given to agents and to the coding CLIs Claude Code, Codex and OpenCode (**Coding
+CLIs** in the server form). A server bound to a CLI is written into that CLI's own
+configuration (`~/.claude.json` `mcpServers`, `~/.codex/config.toml` `mcp_servers`,
+`~/.config/opencode/opencode.json(c)` `mcp`), so it also works when the CLI is started
+in a terminal, and the shared CLI profile carries it to every AgentPier account of that
+CLI. AgentPier writes at every save and before every session start; running sessions
+see a change after a restart. The list, the CLI bindings and the finds work with or
+without agents; agent OAuth logins need agents. A local (stdio) command given to a CLI
+needs the owner's confirmation, because every session of that CLI starts it.
+
+- **Support.** Claude Code: stdio, HTTP, SSE. Codex: stdio, HTTP (no SSE). OpenCode:
+  stdio and HTTP or SSE (`remote`). Only Claude Code cannot start a stdio command in a
+  working directory. Unsupported combinations are disabled with a reason in the form
+  and refused by the API (`400 MCP_CLI_TRANSPORT_UNSUPPORTED`,
+  `400 MCP_CLI_CWD_UNSUPPORTED`). [cli-mcp-qualification.md](cli-mcp-qualification.md)
+  records the native forms and how they were verified.
+- **Ownership.** AgentPier records each entry it wrote by name and SHA-256 hash in
+  `<data>/mcp-servers/servers.sqlite` (`cli_entries`); the native files get no marker.
+  An entry is AgentPier's while it still matches that hash. Entries anyone else wrote
+  are never modified or removed; unbinding or deleting removes only an unchanged
+  AgentPier entry.
+- **Targeted edits.** AgentPier changes only the entry it manages. The bytes of the
+  file outside that entry stay identical, and the result is parsed again and verified
+  before it replaces the file. A file whose layout does not allow this (for example an
+  entry shared with other content in one construct) is refused with the reason
+  _layout_ and left untouched.
+- **Status per CLI.** _written_; _will be written_ (restored at the next save or
+  session start); _edited by hand in the CLI_, with **Write AgentPier's version** or
+  **Adopt the change** (the edit becomes the central definition for every bound CLI and
+  agent); _name taken_ by another entry, with **Adopt** (that entry becomes the
+  server's); _could not write_, with a reason: _unreadable_ (unreadable or symlinked
+  file, or a name defined in two OpenCode files), _changed_ (the file kept changing
+  during three attempts), _layout_, _write-failed_ or _failed_ (AgentPier could not
+  prepare the CLI's servers and tries again at the next session start). A single
+  server can also be _invalid_ for a CLI. Another CLI or the agents are never held up by
+  one CLI's file.
+- **Found in the CLIs.** Entries added to a CLI outside AgentPier are listed with
+  **Adopt** and **Adopt all**; they are never changed until adopted. Identical entries
+  from several CLIs become one server bound to each; the same name with different
+  content stays separate. Invalid or taken names get a proposal. Adopting replaces the
+  old entry with AgentPier's only while it is unchanged since it was shown (otherwise
+  `409`). Entries using settings AgentPier does not manage (for example Codex
+  `startup_timeout_sec` or a disabled entry) stay in the CLI.
+- **Secrets.** Header and environment values are stored by AgentPier and written in
+  plain text into the CLI files with mode 0600, because the CLIs read them there. They
+  never appear in API responses, logs or the audit trail (names only).
+- **OAuth.** AgentPier writes each CLI's OAuth form without static headers. Only Codex
+  has a reliable login state (`codex mcp list --json`); for Claude Code (`/mcp` in a
+  session) and OpenCode (`opencode mcp auth <name>`) AgentPier shows the login command.
+  Logins brokered by AgentPier are not built; the qualification records that only Codex
+  would support them.
+- **Sandbox.** A bound stdio server runs inside the CLI's nono sandbox; see
+  [sandbox.md](sandbox.md#the-grant-model) for its grants and the working directories
+  that get none (`MCP_CWD_TOO_BROAD`).
+- **Audit.** Binding and unbinding CLIs, conflict choices and adoptions are recorded as
+  `mcp.updated`/`mcp.created` with the CLIs, never with an entry or a value.
+- The MCP tab of **Extensions** no longer edits MCP servers; it links to Accounts →
+  **MCP servers**.

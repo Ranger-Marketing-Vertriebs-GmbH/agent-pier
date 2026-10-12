@@ -1,6 +1,6 @@
 # Shared CLI extensions
 
-AgentPier accounts select credentials. Accounts for the same coding CLI share MCP definitions, local plugins, configured marketplaces, skills and custom agents by default. Codex default marketplace plugins remain account-specific. Shell sessions are unaffected. The UI selects a CLI profile on **Extensions**, whose tabs cover MCP servers, skills, plugins, marketplaces and agents; existing account-specific links and the former plugin page links normalize to the corresponding CLI and tab.
+AgentPier accounts select credentials. Accounts for the same coding CLI share MCP definitions, local plugins, configured marketplaces, skills and custom agents by default. Codex default marketplace plugins remain account-specific. Shell sessions are unaffected. The UI selects a CLI profile on **Extensions**, whose tabs cover skills, plugins, marketplaces and agents (the MCP tab links to the central MCP list); existing account-specific links and the former plugin page links normalize to the corresponding CLI and tab.
 
 ## Native configuration
 
@@ -11,6 +11,8 @@ AgentPier accounts select credentials. Accounts for the same coding CLI share MC
 | OpenCode    | `~/.config/opencode/{config.json,opencode.json,opencode.jsonc}`: `mcp`, `plugin`, `agent`; `tui.json`/`tui.jsonc`: `plugin`; `~/.config/opencode/{skills,agents,commands,plugins,plugin}` |
 
 The server user's native profile is authoritative. Managed accounts keep their separate credential, provider and history locations. At work-session launch AgentPier copies only the listed fields into each account's mixed configuration files and links the asset directories. OAuth/account metadata, main model, provider keys and permission settings are preserved. Existing project configuration continues to follow native CLI precedence. Existing shared user skills under `~/.agents/skills` remain discoverable; new Codex installations use `~/.codex/skills`.
+
+MCP servers are managed centrally under Accounts → **MCP servers** ([mcp.md](mcp.md#central-mcp-servers-in-the-coding-clis)); the Extensions MCP tab only links there. AgentPier writes servers bound to a CLI into that CLI's canonical native profile before each launch, ahead of the projection described below, so a managed account receives them in the same launch. Entries added natively are still shared and are offered for adoption in the central list.
 
 This is configuration sharing, not an OS security boundary. Native plugins and agents still execute with the session user's permissions. Plugin-specific account preferences and state inside shared plugin directories are shared with that plugin; CLI login credentials remain separate.
 
@@ -77,7 +79,7 @@ The first work-session launch, extension mutation or **Vorhandene Account-Konfig
 
 Before the managed configuration is projected, original mixed files receive private `.before-sharing` copies. Existing asset directories are renamed to `.before-sharing-<uuid>` before linking. Import limits are 30,000 entries and 512 MiB; configuration files are bounded separately. Linked native destinations are treated as read-only and rejected for mutation. Resolve such a conflict in the native profile before retrying.
 
-Native CLI changes to shared configuration fields are reconciled at the next launch, import or extension mutation. A per-entry hash baseline distinguishes new edits from stale account copies, so removing an MCP does not resurrect it when another account starts. Concurrent conflicts retain the shared version and are reported. Synchronization metadata contains hashes rather than copies of MCP secret values. Files in linked asset directories are shared immediately; native processes determine when they reload those files. Already running sessions are not restarted or reconfigured by AgentPier.
+Native CLI changes to shared configuration fields are reconciled at the next launch, import or extension mutation. A per-entry hash baseline distinguishes new edits from stale account copies, so removing an MCP does not resurrect it when another account starts. Concurrent conflicts retain the shared version and are reported. Synchronization metadata contains hashes rather than copies of MCP secret values. Files in linked asset directories are shared immediately; native processes determine when they reload those files. Already running sessions are not restarted or reconfigured by AgentPier. AgentPier's own MCP writes go only to the canonical profile, so they never appear as drift of an account.
 
 `shared-cli-profiles.json` records migration and reconciliation state. Do not delete it to resolve a conflict: that can import old account definitions again. Restore original configuration only with the affected native sessions stopped, and retain a backup of the shared profile first.
 
