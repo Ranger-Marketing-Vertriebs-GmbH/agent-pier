@@ -3,7 +3,9 @@ import { personalEligible, personalShell } from "../assistants/native-capabiliti
 import { restartRequired } from "../assistants/assistant-provider-synchronization.js";
 import { temporaryMember } from "../assistants/team-presentation.js";
 import { destroyBackupKeys } from "../assistants/backup-credentials.js";
+import { readJSON } from "../../lib/storage.js";
 import {
+  configuredAgents,
   readTelegramInputs,
   telegramEligible,
   telegramRevoked,
@@ -41,7 +43,11 @@ export class TelegramSenders {
     clientFactory = (token) => new TelegramClient({ token, ...(apiRoot && { apiRoot }) }),
     // Assistant ids bound to a stdio MCP server (openclaw-config/telegram-senders.js).
     stdioAgents = () => new Set(),
+    // The agent ids the next start finds in openclaw.json: the start compiles bots
+    // only for these (configuredAgents), so every comparison uses the same set.
+    configured = null,
     retryMs = 30000,
+    maxAttempts = 5,
     warn = console.warn,
   }) {
     Object.assign(this, {
@@ -55,9 +61,16 @@ export class TelegramSenders {
       store,
       stdioAgents,
       retryMs,
+      maxAttempts,
       warn,
     });
+    this.configured =
+      configured ||
+      (() => configuredAgents(readJSON(this.assistants.runtime.paths?.config, null)));
     this.retry = null;
+    // The automatic restart for one revocation: { signature, attempts, restarted,
+    // failed }. One restart per revocation; refusals back off, then the owner decides.
+    this.revocation = null;
   }
   /** What the next Gateway start compiles (see runtime-supervisor.js). */
   inputs() {
@@ -91,12 +104,13 @@ export class TelegramSenders {
   /** The snapshot a start would compile from `inputs` now. */
   desired(inputs = this.inputs()) {
     const profiles = this.assistants.store.listAssistants();
-    // Applied agents have their Gateway entry, so a restart would compile their bots.
-    const agents = new Set(
-      profiles.filter((p) => p.effectiveRevision > 0).map((p) => p.runtimeAgentId),
-    );
     return telegramSnapshot(
-      telegramSections({ profiles, telegram: inputs, agents, stdio: this.stdioAgents() }),
+      telegramSections({
+        profiles,
+        telegram: inputs,
+        agents: this.configured(),
+        stdio: this.stdioAgents(),
+      }),
     );
   }
   /**
@@ -124,18 +138,61 @@ export class TelegramSenders {
   async converge() {
     clearTimeout(this.retry);
     this.retry = null;
-    if (!this.revoked()) return false;
+    const desired = this.desired();
+    if (!telegramRevoked(this.running(), desired)) {
+      this.revocation = null;
+      return false;
+    }
+    if (this.revocation?.signature !== desired.signature)
+      this.revocation = { signature: desired.signature, attempts: 0, restarted: false };
+    const revocation = this.revocation;
+    // A restart that did not remove it will not do so the next time either.
+    if (revocation.restarted || revocation.failed) {
+      if (!revocation.failed)
+        this.warn("A revoked Telegram bot is still running after a restart.");
+      revocation.failed = true;
+      return false;
+    }
+    revocation.attempts++;
     try {
       await this.synchronization.restartGateway(() => null);
+      revocation.restarted = true;
       return true;
     } catch (error) {
-      this.warn(
-        `A revoked Telegram bot is still running (${error?.code || error?.key || "ERROR"}); retrying.`,
+      const code = error?.code || error?.key || "ERROR";
+      if (revocation.attempts >= this.maxAttempts) {
+        this.warn(`A revoked Telegram bot is still running (${code}); restart needed.`);
+        revocation.failed = true;
+        return false;
+      }
+      this.warn(`A revoked Telegram bot is still running (${code}); retrying.`);
+      this.retry = setTimeout(
+        () => this.converge(),
+        this.retryMs * 2 ** (revocation.attempts - 1),
       );
-      this.retry = setTimeout(() => this.converge(), this.retryMs);
       this.retry.unref?.();
       return false;
     }
+  }
+  /**
+   * Whether the Gateway runs this agent's bot other than stored: added, removed, other
+   * people or token, or (with a bot) another speech key.
+   */
+  agentPending(assistantId) {
+    const running = this.running();
+    if (!running) return false;
+    const desired = this.desired();
+    const id = this.assistants.store.getAssistant(assistantId).runtimeAgentId;
+    const was = running.accounts.includes(id),
+      is = desired.accounts.includes(id);
+    if (was !== is) return true;
+    if (!is) return false;
+    const same = (a, b) => a.length === b.length && a.every((v) => b.includes(v));
+    return (
+      running.tokens[id] !== desired.tokens[id] ||
+      !same(running.people[id], desired.people[id]) ||
+      running.voiceKey !== desired.voiceKey
+    );
   }
   close() {
     clearTimeout(this.retry);
@@ -188,7 +245,9 @@ export class TelegramSenders {
       assistantId,
       bot,
       status: bot ? await this.status(bot) : null,
-      pending: this.differs(),
+      pending: this.agentPending(assistantId),
+      // The automatic restart could not remove a revoked bot: the owner restarts.
+      revocationFailed: !!this.revocation?.failed && this.revoked(),
       voice: this.voiceAvailable(),
       shell: personalShell(profile),
       stdio: this.stdioAgents().has(assistantId),
@@ -212,10 +271,11 @@ export class TelegramSenders {
     if (!bot.people.length || !telegramEligible(profile, this.stdioAgents()))
       return { state: "inactive" };
     if (!runtime.client?.ready || !runtime.telegram) return { state: "stopped" };
-    if (this.differs()) return { state: "pending" };
-    // Saved for an agent the running Gateway did not know yet: the next start has it.
+    if (this.agentPending(bot.assistantId)) return { state: "pending" };
+    // Neither running nor compiled by a restart: the agent has no Gateway entry yet
+    // (its first apply creates it; then the bot is pending).
     if (!runtime.telegram.accounts.includes(profile.runtimeAgentId))
-      return { state: "pending" };
+      return { state: "inactive" };
     let account;
     try {
       const status = await runtime.client.call("channels.status", { probe: false });
@@ -315,6 +375,7 @@ export class TelegramSenders {
   }
   /** Restarts the Gateway when it lags behind the stored bots (a new speech key). */
   async apply({ confirmed = false } = {}) {
+    if (confirmed) this.revocation = null;
     if (!this.differs()) return { applied: false };
     await this.commit(this.inputs(), () => null, confirmed);
     return { applied: true };
