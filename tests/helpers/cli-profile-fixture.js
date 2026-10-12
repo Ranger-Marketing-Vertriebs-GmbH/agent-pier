@@ -31,6 +31,7 @@ export const credentialFiles = {
   "profiles/claude-home/claude/CLAUDE.md": "Hello\n",
   "profiles/claude-home/claude/agents/helper.md": "agent\n",
   "profiles/claude-home/claude/commands/go.md": "go\n",
+  "profiles/claude-home/claude/hooks/pre-tool.sh": "#!/bin/sh\n",
   "profiles/claude-home/claude/plugins/installed_plugins.json": '{"plugins":{}}',
   "profiles/opencode-zai/providers/zai/config/opencode/opencode.json": '{"model":"z"}',
   "profiles/opencode-zai/providers/zai/data/opencode/auth.json":

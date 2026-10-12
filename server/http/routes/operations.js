@@ -89,16 +89,46 @@ export function operationsRoutes({ operations, releaseMigration }) {
     operations.backup.remove(req.params.id);
     res.sendStatus(204);
   });
-  // The archive streams to disk; its size is only bounded by free space.
-  router.post(`${root}/restore/upload`, async (req, res) => {
+  const length = (req) => Number(req.get("Content-Length") || 0);
+  const octets = (req) => {
     if (!req.is("application/octet-stream"))
       throw problem(serverMessages.backups.uploadType);
-    const length = Number(req.get("Content-Length") || 0);
-    res.status(201).json(
-      await operations.restore.upload(req, {
-        expectedBytes: Number.isSafeInteger(length) && length > 0 ? length : 0,
-      }),
+  };
+  // One request with the whole archive (CLI clients); it needs its length.
+  router.post(`${root}/restore/upload`, async (req, res) => {
+    octets(req);
+    res
+      .status(201)
+      .json(await operations.restore.upload(req, { expectedBytes: length(req) }));
+  });
+  // Browsers upload in slices, each far below the server's request timeout.
+  router.post(`${root}/restore/uploads`, (req, res) =>
+    res
+      .status(201)
+      .json(operations.restore.uploads.begin(fields(req.body, ["size"]).size)),
+  );
+  router.get(`${root}/restore/uploads/:id`, (req, res) =>
+    res.json(operations.restore.uploads.status(req.params.id)),
+  );
+  router.put(`${root}/restore/uploads/:id`, async (req, res) => {
+    octets(req);
+    if (typeof req.query.offset !== "string" || !/^\d{1,16}$/.test(req.query.offset))
+      throw problem(serverMessages.backups.invalidUploadChunk);
+    res.json(
+      await operations.restore.uploads.append(
+        req.params.id,
+        Number(req.query.offset),
+        req,
+        length(req),
+      ),
     );
+  });
+  router.post(`${root}/restore/uploads/:id/complete`, async (req, res) =>
+    res.status(201).json(await operations.restore.uploads.complete(req.params.id)),
+  );
+  router.delete(`${root}/restore/uploads/:id`, (req, res) => {
+    operations.restore.uploads.abort(req.params.id);
+    res.sendStatus(204);
   });
   router.post(`${root}/restore/inspect`, async (req, res) =>
     res.json({

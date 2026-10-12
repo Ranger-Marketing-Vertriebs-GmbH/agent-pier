@@ -80,15 +80,60 @@ test("operations HTTP creates, downloads, inspects and restores an archive witho
     400,
   );
   assert.equal((await fetch(`${url}/backups/${"0".repeat(8)}/download`)).status, 404);
-  // The upload streams; a chunked body without a length is accepted too.
-  const upload = await fetch(`${url}/restore/upload`, {
+  // A one-request upload needs its length; a chunked body without one is refused.
+  const unsized = await fetch(`${url}/restore/upload`, {
     method: "POST",
     headers: { "Content-Type": "application/octet-stream" },
     body: new Blob([content]).stream(),
     duplex: "half",
   });
-  assert.equal(upload.status, 201);
-  const { archiveId } = await upload.json();
+  assert.equal(unsized.status, 411);
+  assert.equal(
+    (
+      await fetch(`${url}/restore/upload`, {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: content,
+      })
+    ).status,
+    201,
+  );
+  // Browsers upload in slices at exact offsets and complete the upload.
+  const started = await post("/restore/uploads", { size: content.length });
+  assert.equal(started.status, 201);
+  const { uploadId } = await started.json();
+  const slice = (offset, bytes) =>
+    fetch(`${url}/restore/uploads/${uploadId}?offset=${offset}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: bytes,
+    });
+  const third = Math.ceil(content.length / 3);
+  assert.equal((await slice(0, content.subarray(0, third))).status, 200);
+  // A slice at the wrong offset is refused and leaves the upload as it was.
+  assert.equal((await slice(0, content.subarray(0, third))).status, 409);
+  assert.equal((await slice(third + 1, content.subarray(third + 1))).status, 409);
+  assert.equal(
+    (await (await fetch(`${url}/restore/uploads/${uploadId}`)).json()).offset,
+    third,
+  );
+  assert.equal(
+    (await post(`/restore/uploads/${uploadId}/complete`, {})).status,
+    409,
+    "an incomplete upload cannot complete",
+  );
+  assert.equal((await slice(third, content.subarray(third, 2 * third))).status, 200);
+  const last = await slice(2 * third, content.subarray(2 * third));
+  assert.deepEqual(await last.json(), {
+    uploadId,
+    size: content.length,
+    offset: content.length,
+    chunkLimit: 64 * 1024 * 1024,
+  });
+  const completed = await post(`/restore/uploads/${uploadId}/complete`, {});
+  assert.equal(completed.status, 201);
+  const { archiveId } = await completed.json();
+  assert.equal(archiveId, uploadId);
   const { inspection } = await (await post("/restore/inspect", { archiveId })).json();
   assert.equal(inspection.requiresPassphrase, true);
   const restoring = await (
