@@ -4,11 +4,13 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { privateDatabase } from "../../lib/private-database.js";
 import { problem } from "../../lib/storage.js";
 import { mcpUrl, record, values } from "../extensions/mcp-config.js";
+import { CliEntryStore } from "./cli-entry-store.js";
+import { clis } from "./cli-native.js";
 import { resolveCommand, sanitisedPrefix } from "./command-resolution.js";
 
 const messages = serverMessages.mcpServers;
 const transports = ["http", "sse", "stdio"];
-const targetKinds = ["agent"];
+const targetKinds = ["agent", "cli"];
 const schema = `
 CREATE TABLE IF NOT EXISTS servers(
   id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, transport TEXT NOT NULL,
@@ -67,6 +69,7 @@ const target = (kind, id) => {
   if (!targetKinds.includes(kind)) throw invalid(messages.invalidTarget);
   if (typeof id !== "string" || !id || id.length > 200 || /[\x00-\x1f]/.test(id))
     throw invalid(messages.invalidTarget);
+  if (kind === "cli" && !clis.includes(id)) throw invalid(messages.invalidTarget);
 };
 function cleanArgs(value = []) {
   if (
@@ -122,6 +125,8 @@ export class McpServerStore {
       );
     if (!columns.some((c) => c.name === "oauth_login_redirect"))
       this.db.exec("ALTER TABLE servers ADD COLUMN oauth_login_redirect TEXT");
+    // Which native CLI entries AgentPier wrote (cli-reconciler.js).
+    this.cliEntries = new CliEntryStore(this.db);
   }
   transaction(work) {
     this.db.exec("BEGIN IMMEDIATE");
@@ -347,7 +352,8 @@ export class McpServerStore {
       throw error;
     }
   }
-  create(input) {
+  /** `bind`: `[kind, targetId]` pairs bound in the same transaction. */
+  create(input, { bind = [] } = {}) {
     const fields = this.definition(input);
     const id = randomUUID();
     this.transaction(() => {
@@ -358,6 +364,7 @@ export class McpServerStore {
         1,
       );
       this.writeSecrets(id, input, fields.transport, true, fields.auth);
+      for (const [kind, targetId] of bind) this.bind(id, kind, targetId);
     });
     return this.get(id);
   }
@@ -517,6 +524,29 @@ export class McpServerStore {
         .prepare("DELETE FROM bindings WHERE target_kind=? AND target_id=?")
         .run(kind, targetId);
       for (const id of new Set(serverIds)) this.bind(id, kind, targetId);
+    });
+  }
+  /** `{ agents, clis }`: the targets server `id` is bound to. */
+  targetsOf(id) {
+    const out = { agents: [], clis: [] };
+    for (const r of this.db
+      .prepare(
+        "SELECT target_kind, target_id FROM bindings WHERE server_id=? ORDER BY target_id",
+      )
+      .all(id))
+      out[r.target_kind === "cli" ? "clis" : "agents"].push(r.target_id);
+    return out;
+  }
+  /** Replaces the CLI bindings of server `id` with `ids`. */
+  setClis(id, ids) {
+    if (!Array.isArray(ids)) throw invalid();
+    for (const cli of ids) target("cli", cli);
+    this.transaction(() => {
+      this.row(id);
+      this.db
+        .prepare("DELETE FROM bindings WHERE server_id=? AND target_kind='cli'")
+        .run(id);
+      for (const cli of new Set(ids)) this.bind(id, "cli", cli);
     });
   }
 }
