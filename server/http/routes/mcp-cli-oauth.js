@@ -71,7 +71,7 @@ export function mcpCliLoginRoutes(services, { auditMcp }) {
     auditMcp("mcp.started", req.params.id, { clis: ["codex"], accountId });
     res.json({ authorizationUrl: started.authorizationUrl });
   });
-  router.delete(path, (req, res) => {
+  router.delete(path, limited, (req, res) => {
     const accountId = accountOf(req);
     if (logins().cancel(req.params.id, accountId))
       auditMcp("mcp.cancelled", req.params.id, { clis: ["codex"], accountId });
