@@ -3,7 +3,6 @@ import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
 import {
   expectNoHorizontalOverflow,
-  expectProfilesDisabled,
   openTab,
   profileList,
   revealRow,
@@ -63,24 +62,9 @@ async function fixture(page) {
           catalog: [],
         },
       });
-    if (url.pathname.endsWith("/mcp") && method === "POST") {
-      data.mcp.servers.push({
-        name: body.name,
-        transport: body.transport,
-        command: body.command || "",
-        url: body.url ? "https://example.invalid" : "",
-        argumentCount: body.args?.length || 0,
-        environmentKeys: Object.keys(body.env || {}),
-        headerKeys: Object.keys(body.headers || {}),
-        enabled: true,
-        source: data.mcp.path,
-      });
-      return route.fulfill({ json: data.mcp });
-    }
-    if (url.pathname.includes("/mcp/") && method === "DELETE") {
-      data.mcp.servers = [];
-      return route.fulfill({ json: data.mcp });
-    }
+    if (url.pathname === "/api/mcp-servers") return route.fulfill({ json: [] });
+    if (url.pathname === "/api/mcp-servers/cli-finds")
+      return route.fulfill({ json: { finds: [], problems: [] } });
     if (url.pathname.endsWith("/skills") && method === "POST") {
       const skill = {
         id: "installed",
@@ -107,9 +91,7 @@ async function open(page) {
     await page.getByRole("button", { name: "Navigation öffnen" }).click();
   await navigateTo(page, "Erweiterungen");
 }
-test("MCP configuration is account-scoped, preserves secrets only in request and can be removed", async ({
-  page,
-}) => {
+test("the MCP tab points to the central MCP server list", async ({ page }) => {
   const { writes } = await fixture(page);
   await open(page);
   await expect(
@@ -119,39 +101,17 @@ test("MCP configuration is account-scoped, preserves secrets only in request and
   await claude.click();
   await expect(claude).toHaveAttribute("aria-current", "true");
   await expect(page).toHaveURL(/\/extensions\/managed-claude$/);
-  await expect(page.getByRole("tab")).toHaveText([/^MCP-Server/, /^Skills/, /^Plugins/]);
-  const add = page.getByRole("button", { name: "MCP-Server hinzufügen", exact: true });
-  await add.click();
-  const panel = page.getByRole("dialog", { name: "MCP-Server hinzufügen" });
-  await expect(panel).toContainText("Profil Claude Arbeit");
-  await panel.getByLabel("MCP-Name").fill("fixture");
-  await panel.getByLabel("Befehl", { exact: true }).fill("fixture-command");
-  await panel.getByLabel("Argumente als JSON").fill('["--token","private-argument"]');
-  await panel
-    .getByLabel("Umgebungsvariablen als JSON")
-    .fill('{"API_KEY":"private-token"}');
-  await panel.getByRole("button", { name: "MCP speichern", exact: true }).click();
-  await expect(panel).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "fixture", exact: true })).toBeVisible();
-  const row = page.getByRole("article").filter({
-    has: page.getByRole("heading", { name: "fixture", exact: true }),
-  });
-  await expect(row).toContainText("fixture-command · 2 Argumente");
-  await expect(row).toContainText("stdio");
-  await expect(row).toContainText("Konfiguriert");
-  await expect(row).toContainText("Zugangswerte gespeichert · 1 Variablen, 0 Header");
-  expect(writes[0].path).toBe("/api/accounts/managed-claude/extensions/mcp");
-  expect(writes[0].body.env.API_KEY).toBe("private-token");
-  await expect(page.getByText("private-token", { exact: true })).toHaveCount(0);
-  await add.click();
-  await expect(panel.getByLabel("Umgebungsvariablen als JSON")).toHaveValue("{}");
-  await page.keyboard.press("Escape");
-  await expect(panel).toHaveCount(0);
-  await page.getByRole("button", { name: "MCP fixture entfernen" }).click();
-  await page.getByRole("button", { name: "Entfernen bestätigen", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "fixture", exact: true })).toHaveCount(
-    0,
-  );
+  await expect(page.getByRole("tab")).toHaveText(["MCP-Server", /^Skills/, /^Plugins/]);
+  await expect(
+    page.getByText(/MCP-Server werden zentral unter Accounts → MCP-Server verwaltet/),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "MCP-Server hinzufügen", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "MCP-Server öffnen", exact: true }).click();
+  await expect(page).toHaveURL(/\/accounts\?section=mcp-servers$/);
+  await expect(page.getByRole("region", { name: "In den CLIs gefunden" })).toBeVisible();
+  expect(writes).toHaveLength(0);
 });
 test("skill file upload and GitHub download show native shared scope and protect existing skills", async ({
   page,
@@ -217,53 +177,6 @@ test("skill file upload and GitHub download show native shared scope and protect
   });
   await expectNoHorizontalOverflow(page);
 });
-test("failed MCP writes preserve the draft and never submit twice while pending", async ({
-  page,
-}) => {
-  await fixture(page);
-  await open(page);
-  await page.getByRole("button", { name: "MCP-Server hinzufügen", exact: true }).click();
-  const panel = page.getByRole("dialog", { name: "MCP-Server hinzufügen" });
-  await panel.getByLabel("MCP-Name").fill("remote");
-  await panel
-    .getByRole("radiogroup", { name: "Verbindung" })
-    .getByRole("radio", { name: "Remote-URL · HTTP" })
-    .check();
-  await panel.getByLabel("MCP-URL").fill("https://example.invalid/mcp");
-  let release;
-  let calls = 0;
-  const held = new Promise((resolve) => {
-    release = resolve;
-  });
-  await page.route("**/extensions/mcp", async (route) => {
-    calls++;
-    await held;
-    await route.fulfill({
-      status: 409,
-      json: { error: "Konfiguration gleichzeitig geändert" },
-    });
-  });
-  await panel.getByRole("button", { name: "MCP speichern", exact: true }).click();
-  await expect(
-    panel.getByRole("button", { name: "MCP wird gespeichert …" }),
-  ).toBeDisabled();
-  await expectProfilesDisabled(page);
-  await expect(panel.getByLabel("MCP-URL")).toBeDisabled();
-  release();
-  await expect(page.getByRole("alert")).toContainText(
-    "Konfiguration gleichzeitig geändert",
-  );
-  await expect(panel.getByRole("alert")).toHaveCount(1);
-  await expect(panel.getByLabel("MCP-Name")).toHaveValue("remote");
-  await expect(panel.getByLabel("MCP-URL")).toHaveValue("https://example.invalid/mcp");
-  expect(calls).toBe(1);
-  await panel.getByRole("button", { name: "Abbrechen", exact: true }).click();
-  await expect(panel).toHaveCount(0);
-  await expect(
-    profileList(page).getByRole("button", { name: /Claude Code/ }),
-  ).toBeEnabled();
-});
-
 for (const mobile of [false, true])
   test(`skills paginate and search all 50 entries${mobile ? " on mobile" : ""}`, async ({
     page,

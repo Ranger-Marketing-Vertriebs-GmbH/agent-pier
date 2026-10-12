@@ -17,9 +17,6 @@ export const extensions = Object.freeze({
     "Profilweite MCP-Konfiguration. Projekte und Plugins können weitere Server hinzufügen. Änderungen gelten beim nächsten CLI-Start; hier wird kein Server gestartet.",
   skillVisibilityNotice: (scope) =>
     `${scope}. Angezeigt werden bekannte Benutzer- und Profilordner; projekt- und pluginabhängige Skills sind nicht vollständig erfasst. Entfernen ist nur für hier installierte Skills möglich.`,
-  duplicateMcpName:
-    "Dieser MCP-Name ist in mehreren Konfigurationsdateien definiert. Bitte die doppelten Einträge zuerst in der CLI-Konfiguration bereinigen; keine Datei wurde verändert.",
-  mcpServerNotFound: "MCP-Server nicht gefunden.",
   skillSourceRequired: "Bitte Datei oder URL wählen.",
   invalidSkillUpload: "Bitte eine gültige Datei mit maximal 10 MiB hochladen.",
   skillFileTypeRequired: "Bitte SKILL.md oder eine ZIP-Datei hochladen.",
@@ -30,14 +27,10 @@ export const extensions = Object.freeze({
   skillNotInstalledHere: "Dieser Skill wurde hier nicht installiert.",
   skillDirectoryReplaced:
     "Der Skill-Ordner wurde außerhalb von AgentPier ersetzt und bleibt unverändert.",
-  invalidMcpName:
-    "Bitte einen MCP-Namen mit Buchstaben, Ziffern, Punkt, Bindestrich oder Unterstrich eingeben.",
   invalidEnvironmentOrHeadersObject:
     "Umgebungsvariablen und Header müssen JSON-Objekte mit maximal 100 Einträgen sein.",
   invalidEnvironmentOrHeader: "Ungültige Umgebungsvariable oder ungültiger Header.",
-  executableCommandRequired: "Bitte einen ausführbaren Befehl angeben.",
   invalidArgumentList: "Argumente müssen eine JSON-Liste von Zeichenketten sein.",
-  transportRequired: "Bitte stdio oder HTTP als Verbindung wählen.",
   invalidMcpUrl: "Bitte eine gültige HTTP- oder HTTPS-MCP-URL eingeben.",
   targetOutsideProfile: "Der Zielpfad liegt außerhalb des Profils.",
   linkedPathsReadOnly:
@@ -82,7 +75,6 @@ export const extensions = Object.freeze({
     "Die MCP-URL muss HTTP oder HTTPS verwenden und darf keine eingebetteten Zugangsdaten enthalten.",
   invalidSkillIdentity:
     "Skill-Name: maximal 64 Kleinbuchstaben, Ziffern und Bindestriche. Eine Beschreibung mit maximal 1.024 Zeichen ist erforderlich.",
-  mcpServerAlreadyExists: "Ein MCP-Server mit diesem Namen ist bereits konfiguriert.",
   skillDownloadTimedOut: "GitHub-Download fehlgeschlagen oder Zeitlimit erreicht.",
   skillDownloadRedirectLimit: "GitHub hat zu viele Weiterleitungen geliefert.",
 });

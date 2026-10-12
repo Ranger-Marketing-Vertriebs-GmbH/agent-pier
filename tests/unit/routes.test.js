@@ -195,3 +195,10 @@ test("file explorer links retain Unicode paths, preview and pagination", () => {
   assert.deepEqual(read(routePath(route)), route);
   assert.equal(read("/sessions/demo/files?page=-1").filePage, 1);
 });
+test("the central MCP list has its own Accounts address", () => {
+  const route = read("/accounts?section=mcp-servers");
+  assert.deepEqual(route, { view: "accounts", section: "mcp-servers" });
+  assert.equal(path(route), "/accounts?section=mcp-servers");
+  assert.deepEqual(read("/accounts?section=other"), { view: "accounts" });
+  assert.equal(path({ view: "accounts" }), "/accounts");
+});

@@ -16,9 +16,6 @@ export const extensions = Object.freeze({
     "Profile-wide MCP configuration. Projects and plugins can add more servers. Changes apply the next time the CLI starts; no server is started here.",
   skillVisibilityNotice: (scope) =>
     `${scope}. Known user and profile folders are shown; project- and plugin-specific skills are not fully covered. Only skills installed here can be removed.`,
-  duplicateMcpName:
-    "This MCP name is defined in multiple configuration files. Please clean up the duplicate entries in the CLI configuration first; no file was changed.",
-  mcpServerNotFound: "MCP server not found.",
   skillSourceRequired: "Please choose a file or URL.",
   invalidSkillUpload: "Please upload a valid file of at most 10 MiB.",
   skillFileTypeRequired: "Please upload SKILL.md or a ZIP file.",
@@ -28,14 +25,10 @@ export const extensions = Object.freeze({
   skillNotInstalledHere: "This skill was not installed here.",
   skillDirectoryReplaced:
     "The skill folder was replaced outside AgentPier and remains unchanged.",
-  invalidMcpName:
-    "Please enter an MCP name using letters, digits, periods, hyphens or underscores.",
   invalidEnvironmentOrHeadersObject:
     "Environment variables and headers must be JSON objects with at most 100 entries.",
   invalidEnvironmentOrHeader: "Invalid environment variable or header.",
-  executableCommandRequired: "Please enter an executable command.",
   invalidArgumentList: "Arguments must be a JSON list of strings.",
-  transportRequired: "Please choose stdio or HTTP as the connection.",
   invalidMcpUrl: "Please enter a valid HTTP or HTTPS MCP URL.",
   targetOutsideProfile: "The target path is outside the profile.",
   linkedPathsReadOnly: "Linked configuration or skill paths are read-only here.",
@@ -76,7 +69,6 @@ export const extensions = Object.freeze({
     "The MCP URL must use HTTP or HTTPS and must not contain embedded credentials.",
   invalidSkillIdentity:
     "Skill name: at most 64 lowercase letters, digits and hyphens. A description with at most 1,024 characters is required.",
-  mcpServerAlreadyExists: "An MCP server with this name is already configured.",
   skillDownloadTimedOut: "GitHub download failed or timed out.",
   skillDownloadRedirectLimit: "GitHub returned too many redirects.",
 });

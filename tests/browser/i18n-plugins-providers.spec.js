@@ -88,16 +88,12 @@ test("English Marketplace localizes empty and unavailable catalog guidance and n
     page.getByRole("heading", { name: "Codex default marketplace", exact: true }),
   ).toBeVisible();
   await page.getByRole("tab", { name: /^MCP servers/ }).click();
-  await page.getByRole("button", { name: "Add MCP server", exact: true }).click();
-  const panel = page.getByRole("dialog", { name: "Add MCP server" });
-  await expect(panel).toContainText("Profile Codex");
   await expect(
-    panel
-      .getByRole("radiogroup", { name: "Connection" })
-      .getByRole("radio", { name: "Local command · stdio" }),
-  ).toBeChecked();
-  await panel.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(panel).toHaveCount(0);
+    page.getByText(/^MCP servers are managed centrally under Accounts → MCP servers\./),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Open MCP servers", exact: true }),
+  ).toBeVisible();
   await page.getByRole("tab", { name: /^Agents/ }).click();
   await expect(
     page.getByText("Installed agents apply to all accounts using this CLI."),

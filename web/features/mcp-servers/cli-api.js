@@ -5,8 +5,6 @@ const confirm = (confirmStdio) => (confirmStdio ? { confirmStdio: true } : {});
 
 /** Central MCP servers in the coding CLIs (server/http/routes/mcp-cli.js). */
 export const cliApi = {
-  setClis: (serverId, clis, confirmStdio = false) =>
-    api(`/mcp-servers/${id(serverId)}/clis`, "PUT", { clis, ...confirm(confirmStdio) }),
   resolve: (serverId, cli, choice, confirmStdio = false) =>
     api(`/mcp-servers/${id(serverId)}/clis/${id(cli)}/resolve`, "POST", {
       choice,

@@ -51,6 +51,8 @@ export const mcpCliCopy = {
   valueNames: (names) => `Values: ${names}`,
   proposedName: "Name in AgentPier",
   adoptNamed: (name) => `Adopt ${name}`,
+  savedAs: (path) => `will be saved as ${path}`,
+  commandMissing: "Command not found on this computer.",
   adoptAll: "Adopt all",
   notAdoptable: {
     "unsupported-fields": "Uses settings AgentPier does not manage; it stays in the CLI.",

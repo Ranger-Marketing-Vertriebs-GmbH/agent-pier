@@ -2,10 +2,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import UnderlineTabs from "../../components/UnderlineTabs.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
-import {
-  extensionsHubCopy as hub,
-  mcpFormCopy,
-} from "../../lib/i18n/messages/extensions.js";
+import { extensionsHubCopy as hub } from "../../lib/i18n/messages/extensions.js";
+import { mcpCliCopy } from "../../lib/i18n/messages/mcp-cli.js";
 import {
   marketplacesCopy,
   pluginCatalogCopy,
@@ -17,7 +15,6 @@ import MarketplacesTab from "../plugins/MarketplacesTab.jsx";
 import PluginsTab from "../plugins/PluginsTab.jsx";
 import PluginSourceForm from "../plugins/PluginSourceForm.jsx";
 import useProfilePlugins from "../plugins/useProfilePlugins.js";
-import McpForm from "./McpForm.jsx";
 import McpTab from "./McpTab.jsx";
 import SkillInstallForm from "./SkillInstallForm.jsx";
 import SkillsTab from "./SkillsTab.jsx";
@@ -32,6 +29,7 @@ export default function ExtensionWorkspace({
   onTab,
   busySetters,
   locked,
+  onNavigate,
 }) {
   const ext = useProfileExtensions({
     account,
@@ -56,7 +54,8 @@ export default function ExtensionWorkspace({
   const supported = known === true;
   const [submitted, setSubmitted] = useState(false);
   const tabs = [
-    { id: "mcp", label: hub.tabMcp, count: ext.data?.mcp.servers.length },
+    // MCP servers live in the central list; this tab only points there.
+    { id: "mcp", label: hub.tabMcp },
     { id: "skills", label: hub.tabSkills, count: ext.data?.skills.items.length },
     { id: "plugins", label: hub.tabPlugins, count: plugins.data?.installed.length },
     ...(supported
@@ -82,7 +81,7 @@ export default function ExtensionWorkspace({
   }, [tab, requestedTab, onTab]);
   if (tab === "agents" && !agentsSeen) setAgentsSeen(true);
   const openPanel = (kind) => {
-    if (kind === "mcp" || kind === "skill") ext.setError("");
+    if (kind === "skill") ext.setError("");
     setSubmitted(false);
     setPanel(kind);
   };
@@ -90,9 +89,9 @@ export default function ExtensionWorkspace({
   const subtitle = hub.panelSubtitle(account.name);
   const primary = {
     mcp: {
-      label: mcpFormCopy.extensionAddSummary,
-      run: () => openPanel("mcp"),
-      disabled: !ext.data,
+      label: mcpCliCopy.openCentralList,
+      icon: "arrow",
+      run: () => onNavigate({ view: "accounts", section: "mcp-servers" }),
     },
     skills: {
       label: commonCopy.installSkill,
@@ -118,7 +117,7 @@ export default function ExtensionWorkspace({
     },
     agents: { label: hub.browseCatalog, run: () => setAgentMode("catalog") },
   }[tab];
-  const extPanel = panel === "mcp" || panel === "skill";
+  const extPanel = panel === "skill";
   // A plugin panel shows only errors of its own submission, never an older one.
   const pluginPanel = (panel === "market" || panel === "npm") && submitted;
   const panelError = pluginPanel ? plugins.error : "";
@@ -145,7 +144,7 @@ export default function ExtensionWorkspace({
             disabled={primary.disabled || locked}
             onClick={primary.run}
           >
-            <Icon name="plus" size={16} />
+            <Icon name={primary.icon || "plus"} size={16} />
             {primary.label}
           </button>
         </div>
@@ -202,9 +201,6 @@ export default function ExtensionWorkspace({
             onCount={setAgentCount}
           />
         </section>
-      )}
-      {panel === "mcp" && (
-        <McpForm {...ext} request={request} subtitle={subtitle} close={closePanel} />
       )}
       {panel === "skill" && (
         <SkillInstallForm

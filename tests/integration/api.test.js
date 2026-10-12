@@ -181,27 +181,32 @@ test("extension routes edit only the selected profile and allow bounded skill up
   );
   const account = await response.json();
   const root = `${url}/api/accounts/${account.id}/extensions`;
+  // MCP entries are written by the central list only; this profile route reads them.
   response = await fetch(
     root + "/mcp",
-    body(url, {
-      name: "docs",
-      transport: "http",
-      url: "https://mcp.example.test/api?key=private-query",
-      headers: { Authorization: "private-mcp-header" },
-    }),
+    body(url, { name: "docs", transport: "http", url: "https://mcp.example.test" }),
   );
-  assert.equal(response.status, 201);
+  assert.equal(response.status, 404);
+  response = await fetch(root);
+  const { mcp } = await response.json();
+  assert.ok(mcp.path.startsWith(dir));
+  fs.mkdirSync(path.dirname(mcp.path), { recursive: true });
+  const native = JSON.stringify({
+    mcpServers: {
+      docs: {
+        type: "http",
+        url: "https://mcp.example.test/api?key=private-query",
+        headers: { Authorization: "private-mcp-header" },
+      },
+    },
+  });
+  fs.writeFileSync(mcp.path, native);
   response = await fetch(root);
   const listing = await response.json();
   assert.equal(listing.mcp.servers[0].name, "docs");
   assert.ok(!JSON.stringify(listing).includes("private-"));
-  assert.ok(listing.mcp.path.startsWith(dir));
-  response = await fetch(root + "/mcp", {
-    ...body("https://foreign.example", {
-      name: "bad",
-      transport: "stdio",
-      command: "nope",
-    }),
+  response = await fetch(root + "/skills", {
+    ...body("https://foreign.example", { fileName: "SKILL.md", contentBase64: "" }),
   });
   assert.equal(response.status, 403);
   const markdown =
@@ -226,8 +231,8 @@ test("extension routes edit only the selected profile and allow bounded skill up
     method: "DELETE",
     headers: { origin: url },
   });
-  assert.equal(response.status, 204);
-  assert.equal(fs.existsSync(path.join(dir, ".claude.json")), false);
+  assert.equal(response.status, 404);
+  assert.equal(fs.readFileSync(mcp.path, "utf8"), native);
 });
 
 test("CLI installation endpoints expose fixed catalog and reject unknown tools and foreign origins", async (t) => {

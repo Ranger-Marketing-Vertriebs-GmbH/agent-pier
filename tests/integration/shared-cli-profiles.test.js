@@ -10,21 +10,30 @@ for (const tool of ["codex", "claude", "opencode"])
     const a = f.application.accounts.create({ name: "A", tool });
     const b = f.application.accounts.create({ name: "B", tool });
     const endpoint = (id) => `/api/accounts/${id}/extensions`;
-    assert.equal(
-      (
-        await f.request(endpoint(a.id) + "/mcp", {
-          method: "POST",
-          body: {
-            name: "fixture",
-            transport: "stdio",
-            command: "fixture-mcp",
-            args: [],
-            env: { FIXTURE_TOKEN: "shared-mcp-only" },
-          },
-        })
-      ).status,
-      201,
-    );
+    // MCP entries come from the central list or by hand; one written to A's native
+    // configuration is what B lists.
+    const file = (await (await f.request(endpoint(a.id))).json()).mcp.path;
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const before = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+    const env = { FIXTURE_TOKEN: "shared-mcp-only" };
+    if (tool === "codex")
+      fs.writeFileSync(
+        file,
+        `${before}\n[mcp_servers.fixture]\ncommand = "fixture-mcp"\n` +
+          `[mcp_servers.fixture.env]\nFIXTURE_TOKEN = "shared-mcp-only"\n`,
+      );
+    else {
+      const key = tool === "claude" ? "mcpServers" : "mcp";
+      const entry =
+        tool === "claude"
+          ? { type: "stdio", command: "fixture-mcp", args: [], env }
+          : { type: "local", command: ["fixture-mcp"], environment: env };
+      const data = before.trim() ? JSON.parse(before) : {};
+      fs.writeFileSync(
+        file,
+        JSON.stringify({ ...data, [key]: { ...data[key], fixture: entry } }),
+      );
+    }
     const inventory = await (await f.request(endpoint(b.id))).json();
     assert.equal(inventory.mcp.servers[0].name, "fixture");
     assert.ok(!JSON.stringify(inventory).includes("shared-mcp-only"));

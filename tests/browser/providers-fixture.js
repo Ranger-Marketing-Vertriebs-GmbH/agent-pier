@@ -168,6 +168,8 @@ export async function fixture(page, { account, session } = {}) {
       });
     if (method === "GET" && path === "/api/mcp-servers")
       return route.fulfill({ json: [] });
+    if (method === "GET" && path === "/api/mcp-servers/cli-finds")
+      return route.fulfill({ json: { finds: [], problems: [] } });
     if (path === "/api/assistant-model-accounts")
       return route.fulfill({ json: { accounts: [] } });
     if (path === "/api/assistant-runtime")

@@ -95,6 +95,8 @@ async function setup(page, { language = "en" } = {}) {
             }
           : server,
       );
+    if (path === "/api/mcp-servers/cli-finds")
+      return route.fulfill({ json: { finds: [], problems: [] } });
     if (method === "GET") return route.fulfill({ json: listed() });
     const body = request.postDataJSON?.() || {};
     state.requests.push({ path, method, body });

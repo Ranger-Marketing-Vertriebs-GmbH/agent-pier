@@ -86,6 +86,7 @@ export default function ExtensionsPage({
               onTab={(extensionTab, replace) => go({ extensionTab }, replace)}
               busySetters={busySetters}
               locked={locked}
+              onNavigate={onNavigate}
             />
           ) : (
             <p className="loading" role="status">

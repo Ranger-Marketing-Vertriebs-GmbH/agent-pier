@@ -19,7 +19,6 @@ export const extensionsHubCopy = {
   installedView: (value1) => `Installed · ${value1}`,
   discoverView: (value1) => `Discover · ${value1}`,
   browseCatalog: "Browse catalog",
-  headMcp: "Name / command",
   headSkill: "Name / description",
   headScope: "Scope",
   headStatus: "Status",
@@ -29,8 +28,6 @@ export const extensionsHubCopy = {
   headPlugin: "Plugin",
   headMarketplace: "Marketplace",
   headAgent: "Agent",
-  transportStdio: "stdio",
-  transportHttp: "HTTP",
   installedHere: "Installed here",
   readOnly: "Read-only",
   available: "Available",
@@ -38,36 +35,13 @@ export const extensionsHubCopy = {
   customMarketplace: "Custom source",
   pluginCount: (value1) => `${value1} plugins`,
 };
-export const mcpFormCopy = {
-  extensionAddSummary: "Add MCP server",
-  extensionAddOnSubmit: "MCP configuration saved. It will load when the CLI next starts.",
-  commandLabel: "MCP name",
-  extensionFieldsPlaceholder: "my-server",
-  localTransport: "Local command · stdio",
-  remoteTransport: "Remote URL · HTTP",
-  extensionWidePlaceholder: "npx, uvx or executable file",
-  argumentsJsonLabel: "Arguments as JSON",
-  environmentJsonLabel: "Environment variables as JSON",
-  mcpUrlLabel: "MCP URL",
-  headersJsonLabel: "HTTP headers as JSON",
-  secretStorageDescription:
-    "Arguments, variables and header values stay hidden after saving. Use the respective CLI for OAuth sign-in.",
-  savingMcp: "Saving MCP …",
-};
 export const profileExtensionsCopy = {
   extensionsLoading: "Loading MCP and skills …",
   extensionScopeNote:
     "Codex skills are shared in the user directory and apply to all Codex profiles.",
-  confirmMcpRemoval: (value1) =>
-    `Remove the active MCP configuration “${value1}” from this profile?`,
   confirmSkillRemoval: (value1) =>
     `Remove the skill “${value1}” installed here and its files?`,
   removedNotice: (value1) => `${value1} was removed.`,
-  mcpCommandSummary: (value1, value2) => `${value1} · ${value2} arguments`,
-  savedValuesPrefix: "Credentials saved · ",
-  variableCountSuffix: "variables, ",
-  headerCountSuffix: " headers",
-  noMcpServers: "No MCP servers configured in this profile yet.",
   skillsHeading: "Skills",
   extensionSectionPlaceholder: "Name, description or scope",
   noMatchingSkills: "No skills match your search.",
@@ -88,8 +62,6 @@ export const skillInstallFormCopy = {
   installingSkill: "Installing skill …",
 };
 export const extensionInputsCopy = {
-  invalidJson: (value1) => `${value1}: please enter valid JSON.`,
-  jsonShapeRequired: (value1, value2) => `${value1}: ${value2} is required.`,
   fileReadFailed: "The file could not be read.",
 };
 export const useProfileExtensionsCopy = {
