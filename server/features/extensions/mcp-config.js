@@ -9,6 +9,8 @@ import { parseForESLint } from "toml-eslint-parser";
 import { parse as parseJsonc, parseTree, modify, applyEdits } from "jsonc-parser";
 import { problem } from "../../lib/storage.js";
 
+export const CLI_CONFIG_CHANGED = "CLI_CONFIG_CHANGED";
+
 export const own = (obj, key) => Object.hasOwn(obj, key);
 export const record = (value) =>
   value && typeof value === "object" && !Array.isArray(value);
@@ -94,6 +96,12 @@ export function cleanMcp(input = {}) {
     headers: values(input.headers, true),
   };
 }
+/**
+ * A server in a CLI's native form (docs/cli-mcp-qualification.md). OAuth servers carry
+ * no static headers: Claude Code and OpenCode run the login when the server asks,
+ * Codex with `codex mcp login`. Codex and OpenCode start a stdio command in its
+ * working directory; Claude Code does not (MCP_CLI_CWD_UNSUPPORTED applies to it only).
+ */
 export function nativeMcp(tool, entry) {
   if (entry.transport === "stdio") {
     if (tool === "opencode")
@@ -101,6 +109,7 @@ export function nativeMcp(tool, entry) {
         type: "local",
         command: [entry.command, ...entry.args],
         environment: entry.env,
+        ...(entry.cwd ? { cwd: entry.cwd } : {}),
         enabled: true,
       };
     return {
@@ -108,14 +117,34 @@ export function nativeMcp(tool, entry) {
       command: entry.command,
       args: entry.args,
       env: entry.env,
+      ...(tool === "codex" && entry.cwd ? { cwd: entry.cwd } : {}),
     };
   }
-  if (tool === "codex") return { url: entry.url, http_headers: entry.headers };
+  const oauth = entry.auth === "oauth";
+  // No header map at all when there are none: then a header server without headers
+  // and an OAuth server read the same in Claude Code and Codex, as they behave.
+  const headers =
+    !oauth && Object.keys(entry.headers || {}).length ? entry.headers : null;
+  if (tool === "codex") {
+    if (!oauth) return { url: entry.url, ...(headers ? { http_headers: headers } : {}) };
+    const scopes = (entry.oauthScope || "").split(/\s+/).filter(Boolean);
+    return { url: entry.url, ...(scopes.length ? { scopes } : {}) };
+  }
+  if (tool === "claude")
+    return {
+      type: entry.transport === "sse" ? "sse" : "http",
+      url: entry.url,
+      ...(headers ? { headers } : {}),
+    };
   return {
-    type: tool === "claude" ? "http" : "remote",
+    type: "remote",
     url: entry.url,
-    headers: entry.headers,
-    ...(tool === "opencode" ? { enabled: true } : {}),
+    ...(oauth
+      ? { oauth: entry.oauthScope ? { scope: entry.oauthScope } : {} }
+      : headers
+        ? { headers }
+        : {}),
+    enabled: true,
   };
 }
 export function publicMcp(name, entry, source) {
@@ -191,7 +220,9 @@ export function atomicText(file, boundary, before, after) {
     fs.writeFileSync(temp, after, { flag: "wx", mode: 0o600 });
     safePath(file, boundary);
     if (textFile(file, boundary) !== before)
-      throw problem(serverMessages.extensions.cliConfigChanged, 409);
+      throw Object.assign(problem(serverMessages.extensions.cliConfigChanged, 409), {
+        code: CLI_CONFIG_CHANGED,
+      });
     fs.renameSync(temp, file);
   } finally {
     fs.rmSync(temp, { force: true });

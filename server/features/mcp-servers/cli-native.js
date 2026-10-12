@@ -1,0 +1,185 @@
+import { createHash } from "node:crypto";
+import path from "node:path";
+import { mcpUrl, nativeMcp, record, values } from "../extensions/mcp-config.js";
+import { namePattern } from "./command-resolution.js";
+
+/** The coding CLIs a central server can be bound to: the `cli` binding target ids. */
+export const clis = ["claude", "codex", "opencode"];
+
+/**
+ * Whether `cli` can run `server` (a definition or a public server). Codex has no SSE;
+ * Claude Code does not start a stdio command in a working directory, Codex and OpenCode
+ * do (docs/cli-mcp-qualification.md): MCP_CLI_CWD_UNSUPPORTED applies to Claude Code only.
+ */
+export function cliSupport(cli, server) {
+  if (cli === "codex" && server.transport === "sse")
+    return { supported: false, reason: "transport" };
+  if (cli === "claude" && server.transport === "stdio" && server.cwd)
+    return { supported: false, reason: "cwd" };
+  return { supported: true };
+}
+
+/** nativeMcp's input for a stored definition and its secrets. */
+export function cliInput(definition, secrets) {
+  return {
+    transport: definition.transport,
+    url: definition.url ?? undefined,
+    command: definition.command ?? undefined,
+    args: definition.args ?? [],
+    cwd: definition.cwd ?? null,
+    auth: definition.auth ?? "headers",
+    oauthScope: definition.oauthScope ?? null,
+    headers: { ...secrets.headers },
+    env: { ...secrets.env },
+  };
+}
+
+export const cliEntry = (cli, definition, secrets) =>
+  nativeMcp(cli, cliInput(definition, secrets));
+
+/** JSON with keys sorted at every level and undefined members left out. */
+export function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object")
+    return `{${Object.keys(value)
+      .filter((key) => value[key] !== undefined)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
+      .join(",")}}`;
+  return JSON.stringify(value ?? null);
+}
+
+/** What AgentPier records for a native entry: its hash, never the entry. */
+export const entryHash = (entry) =>
+  createHash("sha256").update(canonicalJson(entry)).digest("hex");
+
+const extra = (entry, keys) => Object.keys(entry).filter((key) => !keys.includes(key));
+const strings = (list) =>
+  Array.isArray(list) && list.every((item) => typeof item === "string");
+const unsupported = (keys) => ({ ok: false, reason: "unsupported-fields", keys });
+const invalid = { ok: false, reason: "invalid" };
+const fail = () => {
+  throw new Error("invalid native MCP entry");
+};
+
+function stdio(command, args, env, cwd = null) {
+  if (typeof command !== "string" || !command.trim() || !strings(args)) fail();
+  if (cwd !== null && (typeof cwd !== "string" || !path.isAbsolute(cwd))) fail();
+  return {
+    ok: true,
+    definition: {
+      transport: "stdio",
+      command,
+      args,
+      cwd,
+      auth: "headers",
+      oauthScope: null,
+    },
+    secrets: { headers: {}, env: { ...values(env ?? {}) } },
+  };
+}
+/** `oauthScope` undefined: header auth; a string (possibly empty): OAuth. */
+function remote(transport, url, headers, oauthScope) {
+  if (typeof url !== "string") fail();
+  mcpUrl(url);
+  const oauth = oauthScope !== undefined;
+  return {
+    ok: true,
+    definition: {
+      transport,
+      url,
+      command: null,
+      args: [],
+      cwd: null,
+      auth: oauth ? "oauth" : "headers",
+      oauthScope: oauth && oauthScope ? oauthScope : null,
+    },
+    secrets: { headers: oauth ? {} : { ...values(headers ?? {}, true) }, env: {} },
+  };
+}
+function fromClaude(entry) {
+  const type = entry.type ?? (entry.command !== undefined ? "stdio" : undefined);
+  if (type === "stdio") {
+    const keys = extra(entry, ["type", "command", "args", "env"]);
+    return keys.length
+      ? unsupported(keys)
+      : stdio(entry.command, entry.args ?? [], entry.env);
+  }
+  if (type === "http" || type === "sse") {
+    const keys = extra(entry, ["type", "url", "headers"]);
+    return keys.length ? unsupported(keys) : remote(type, entry.url, entry.headers);
+  }
+  return unsupported(["type"]);
+}
+function fromCodex(entry) {
+  if (entry.enabled === false) return unsupported(["enabled"]);
+  if (entry.command !== undefined) {
+    const keys = extra(entry, ["command", "args", "env", "cwd", "enabled"]);
+    return keys.length
+      ? unsupported(keys)
+      : stdio(entry.command, entry.args ?? [], entry.env, entry.cwd ?? null);
+  }
+  const keys = extra(entry, ["url", "http_headers", "scopes", "enabled"]);
+  if (keys.length) return unsupported(keys);
+  if (entry.scopes === undefined) return remote("http", entry.url, entry.http_headers);
+  if (!strings(entry.scopes) || !entry.scopes.length || entry.http_headers !== undefined)
+    return unsupported(["scopes"]);
+  return remote("http", entry.url, {}, entry.scopes.join(" "));
+}
+function fromOpenCode(entry) {
+  if (entry.enabled === false) return unsupported(["enabled"]);
+  if (entry.type === "local") {
+    const keys = extra(entry, ["type", "command", "environment", "cwd", "enabled"]);
+    if (keys.length) return unsupported(keys);
+    if (!Array.isArray(entry.command) || !entry.command.length) fail();
+    const [command, ...args] = entry.command;
+    return stdio(command, args, entry.environment, entry.cwd ?? null);
+  }
+  if (entry.type !== "remote") return unsupported(["type"]);
+  const keys = extra(entry, ["type", "url", "headers", "oauth", "enabled"]);
+  if (keys.length) return unsupported(keys);
+  if (entry.oauth === undefined) return remote("http", entry.url, entry.headers);
+  if (!record(entry.oauth) || extra(entry.oauth, ["scope"]).length || entry.headers)
+    return unsupported(["oauth"]);
+  if (entry.oauth.scope !== undefined && typeof entry.oauth.scope !== "string") fail();
+  return remote("http", entry.url, {}, entry.oauth.scope ?? "");
+}
+
+/**
+ * A native entry as central fields, `{ ok, definition, secrets }`, or `{ ok: false,
+ * reason }` when AgentPier could not take it over without losing something: settings
+ * it does not manage, a disabled entry, or malformed values. OpenCode's `remote` reads
+ * as HTTP; it cannot tell SSE apart.
+ */
+export function centralFromNative(cli, entry) {
+  if (!record(entry)) return invalid;
+  try {
+    if (cli === "claude") return fromClaude(entry);
+    if (cli === "codex") return fromCodex(entry);
+    return fromOpenCode(entry);
+  } catch {
+    return invalid;
+  }
+}
+
+/** Equal for identical servers found in different CLIs; holds values, never leaves the server. */
+export const contentKey = (parsed) =>
+  canonicalJson({ ...parsed.definition, ...parsed.secrets });
+
+/**
+ * A valid central name close to `name` that `taken` (lower-case names) does not hold.
+ * A valid free name is kept.
+ */
+export function proposeName(name, taken) {
+  let base = String(name)
+    .replace(/[^A-Za-z0-9_-]+/g, "-")
+    .replace(/^[^A-Za-z]+/, "")
+    .slice(0, 30);
+  if (!base) base = "mcp";
+  if (namePattern.test(base) && !taken.has(base.toLowerCase())) return base;
+  for (let n = 2; ; n++) {
+    const suffix = `-${n}`;
+    const candidate = base.slice(0, 30 - suffix.length) + suffix;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
+  }
+}
