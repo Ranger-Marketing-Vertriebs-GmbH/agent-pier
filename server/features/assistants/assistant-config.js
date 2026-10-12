@@ -256,10 +256,6 @@ export class AssistantConfig {
             ? [
                 `agents.entries.${assistant.runtimeAgentId}.tools.allow`,
                 `agents.entries.${assistant.runtimeAgentId}.tools.exec.pathPrepend`,
-                // Turning recall off drops "sessions" from the agent's sources.
-                ...(this.nativeReady
-                  ? [`agents.entries.${assistant.runtimeAgentId}.memory.search.sources`]
-                  : []),
               ]
             : [`agents.${arrayKey}`];
           const globalAllow = shellAllow(config.tools?.allow, shellGlobal);
@@ -311,11 +307,10 @@ export class AssistantConfig {
         shellAllow(effective.config?.tools?.allow, shellGlobal) !== null
       )
         throw assistantProblem("conflict", 409);
-      const search = (entry || legacy)?.memory?.search;
       if (
         this.nativeReady &&
-        (search?.enabled !== (nativeReady && capabilities.memory) ||
-          search?.rememberAcrossConversations !== (nativeReady && capabilities.recall))
+        (entry || legacy)?.memory?.search?.enabled !==
+          (nativeReady && capabilities.memory)
       )
         throw assistantProblem("conflict", 409);
       if (

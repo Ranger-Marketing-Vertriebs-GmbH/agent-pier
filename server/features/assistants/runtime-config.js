@@ -134,13 +134,6 @@ export function compileOpenClawConfig({
       enabled: true,
       config: { dreaming: { enabled: false } },
     };
-    // Remember across conversations runs as an Active Memory pass. The advanced path
-    // targets no agent, so only agents with recall (agent-entry.js) use the plugin.
-    config.plugins.allow.push("active-memory");
-    config.plugins.entries["active-memory"] = {
-      enabled: true,
-      config: { enabled: true, mode: "escalate", agents: [], persistTranscripts: false },
-    };
     config.memory = {
       search: {
         enabled: false,

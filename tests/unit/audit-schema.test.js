@@ -92,20 +92,14 @@ test("assistant proactivity events keep the changed names and flags, never a sch
   assert.deepEqual(
     event({
       kind: "proactivity",
-      fields: ["heartbeat", "recall", "prompt"],
+      fields: ["heartbeat", "prompt"],
       heartbeat: true,
-      recall: false,
       timeZone: "Europe/Berlin",
       interval: "1h",
     }),
-    {
-      kind: "proactivity",
-      fields: ["heartbeat", "recall"],
-      heartbeat: true,
-      recall: false,
-    },
+    { kind: "proactivity", fields: ["heartbeat"], heartbeat: true },
   );
-  assert.deepEqual(event({ heartbeat: "yes", recall: 1 }), {});
+  assert.deepEqual(event({ heartbeat: "yes" }), {});
 });
 
 test("exec decisions keep the decision and what AgentPier wrote, never the command", () => {

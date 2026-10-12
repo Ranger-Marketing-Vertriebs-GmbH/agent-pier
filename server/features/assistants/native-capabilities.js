@@ -5,8 +5,6 @@ export const capabilityKeys = [
   "webFetch",
   "browser",
   "documents",
-  // Remember across conversations; effective only together with memory.
-  "recall",
 ];
 export const capabilityTools = {
   webSearch: ["web_search"],
@@ -40,16 +38,12 @@ export function personalShell(assistant) {
 }
 export function personalCapabilities(assistant) {
   const eligible = personalEligible(assistant);
-  const capabilities = Object.fromEntries(
+  return Object.fromEntries(
     capabilityKeys.map((key) => [
       key,
       eligible && assistant.capabilities?.[key] === true,
     ]),
   );
-  // Recall searches the agent's own transcripts through its memory index; an older
-  // client may switch memory off and leave a stored recall flag behind.
-  capabilities.recall &&= capabilities.memory;
-  return capabilities;
 }
 /** The capabilities at least one eligible profile has switched on. */
 export function usedCapabilities(profiles = []) {
