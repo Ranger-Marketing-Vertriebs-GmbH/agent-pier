@@ -9,6 +9,7 @@ export const capabilityDefaults = {
   webFetch: false,
   browser: false,
   documents: false,
+  recall: false,
 };
 const groups = [
   ["memoryGroup", ["memory", "reminders"]],
