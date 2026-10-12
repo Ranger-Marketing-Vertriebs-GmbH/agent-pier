@@ -239,6 +239,18 @@ async function harness(t, { tool }) {
     (await api("GET", "/mcp-servers")).body.find((s) => s.name === name);
   // OpenClaw's own view of the login, read through the wrapper.
   const authState = async (name) => (await realCli.status())[name]?.state;
+  // No login left: `unauthenticated`, or `pending-authorization` with every flag false
+  // once a Gateway MCP request reached the server after the logout (its 401 records
+  // the challenge; assistant-mcp-oauth-contract.test.js (e) tolerates the same).
+  const loggedOut = async (name, message = name) => {
+    const { state, ...flags } = (await realCli.status())[name];
+    assert.deepEqual(
+      flags,
+      { hasTokens: false, requiresAuthorization: false, hasClientInformation: false },
+      message,
+    );
+    assert.ok(["unauthenticated", "pending-authorization"].includes(state), state);
+  };
 
   // One turn on a new session of `agent`: the tools offered and the last tool result.
   async function turn(agent, label) {
@@ -286,6 +298,7 @@ async function harness(t, { tool }) {
     api,
     listed,
     authState,
+    loggedOut,
     cliStatus: () => realCli.status(),
     turn,
     running,
@@ -308,7 +321,7 @@ test(
         : null;
     };
     const h = await harness(t, { tool });
-    const { servers, runtime, api, listed, authState, turn, running } = h;
+    const { servers, runtime, api, listed, authState, loggedOut, turn, running } = h;
     const grants = () => docsServer.log.filter((e) => e.grant).map((e) => e.grant);
     const agent = h.store.createAssistant({
       name: "Bound",
@@ -444,7 +457,7 @@ test(
     // Logout through the route: tokens gone, tools gone.
     const out = await api("POST", `/mcp-servers/${docs.id}/oauth/logout`);
     assert.equal(out.status, 204);
-    assert.equal(await authState("docs"), "unauthenticated");
+    await loggedOut("docs");
     assert.equal((await listed("docs")).oauthStatus, "not-connected");
     assert.deepEqual((await turn(agent, "after-logout")).offered, []);
 
@@ -474,11 +487,11 @@ test(
     const renamed = await rename("renamed");
     assert.equal(renamed.oauthWarning, undefined);
     assert.deepEqual(runtime.mcp.servers, ["renamed", "spare"]);
-    assert.equal(await authState("renamed"), "unauthenticated");
+    await loggedOut("renamed");
     assert.deepEqual((await turn(agent, "renamed")).offered, []);
     await rename("docs");
     assert.deepEqual(runtime.mcp.servers, ["docs", "spare"]);
-    assert.equal(await authState("docs"), "unauthenticated", "old login gone");
+    await loggedOut("docs", "old login gone");
     assert.equal((await listed("docs")).oauthStatus, "not-connected");
     assert.equal(runtime.generation, generation, "no restart");
 
