@@ -175,11 +175,12 @@ test("only a check-in with content reaches the paired chat, plus a push notice",
   const f = setup(t);
   await f.heartbeats.sync(f.id);
   const binding = f.reminders.bindings.list(f.id)[0];
-  const event = (runAtMs, summary, status = "ok") => ({
+  const event = (runAtMs, summary, status = "ok", deliveryStatus = "delivered") => ({
     jobId: binding.nativeId ?? f.reminders.bindings.get(binding.id).nativeId,
     runAtMs,
     status,
     summary,
+    deliveryStatus,
   });
   for (const [n, summary] of [
     [1, "NO_REPLY"],
@@ -188,6 +189,16 @@ test("only a check-in with content reaches the paired chat, plus a push notice",
   ])
     assert.equal((await f.deliver(binding.id, event(n, summary))).status, 204);
   assert.equal((await f.deliver(binding.id, event(4, "Boom", "error"))).status, 204);
+  // Sent only once OpenClaw committed it to the conversation, so a reply has context.
+  for (const [n, status] of [
+    [8, "not-delivered"],
+    [9, "unknown"],
+    [10, null],
+  ])
+    assert.equal(
+      (await f.deliver(binding.id, event(n, "Not in the chat", "ok", status))).status,
+      204,
+    );
   assert.equal(f.service.outbox.all(f.channel.id).length, 0);
   assert.equal(f.pushes.length, 0);
   // The model cannot choose a recipient: the text goes to the paired chat as is.
@@ -217,7 +228,13 @@ test("a paused or ineligible agent loses its job and pending check-ins stay unse
   await f.heartbeats.sync(f.id);
   const binding = f.reminders.bindings.list(f.id)[0];
   const jobId = f.reminders.bindings.get(binding.id).nativeId;
-  await f.deliver(binding.id, { jobId, runAtMs: 7, status: "ok", summary: "Hello" });
+  await f.deliver(binding.id, {
+    jobId,
+    runAtMs: 7,
+    status: "ok",
+    summary: "Hello",
+    deliveryStatus: "delivered",
+  });
   const [entry] = f.service.outbox.all(f.channel.id);
   assert.equal(f.heartbeats.acceptsDelivery(entry), true);
   // A blocked model connection pauses scheduling like reminders.
@@ -306,6 +323,7 @@ test("a lost creation acknowledgement is adopted by delivery and never orphaned"
     runAtMs: 9,
     status: "ok",
     summary: "Parcel arrived",
+    deliveryStatus: "delivered",
   });
   assert.equal(response.status, 204);
   assert.equal(f.service.outbox.all(f.channel.id).length, 1);
