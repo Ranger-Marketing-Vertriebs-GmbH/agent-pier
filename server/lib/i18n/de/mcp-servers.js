@@ -54,4 +54,19 @@ export const mcpServers = {
     "Diese Coding-CLI unterstützt die Verbindungsart des Servers nicht.",
   cliCwdUnsupported:
     "Diese Coding-CLI kann einen lokalen Befehl nicht in einem Arbeitsverzeichnis starten. Bitte das Arbeitsverzeichnis entfernen oder nur Codex oder OpenCode wählen.",
+  cliStatusConflict:
+    "Der Eintrag wurde in der CLI von Hand geändert. AgentPiers Fassung schreiben oder die Änderung übernehmen.",
+  cliStatusNameTaken:
+    "Die CLI hat schon einen eigenen Eintrag mit diesem Namen. Übernehmen, um ihn AgentPier zu überlassen.",
+  cliReasonUnreadable: "Die Konfiguration der CLI kann nicht gelesen werden.",
+  cliReasonChanged:
+    "Die Konfiguration der CLI wurde laufend geändert und konnte nicht geschrieben werden. Bitte später erneut versuchen.",
+  cliReasonLayout:
+    "Die Konfiguration der CLI lässt sich nicht gezielt bearbeiten, ohne andere Einträge zu verändern.",
+  cliReasonWriteFailed: "Die Konfiguration der CLI kann nicht geschrieben werden.",
+  cliReasonFailed:
+    "Die MCP-Server dieser CLI konnten nicht vorbereitet werden. AgentPier versucht es beim nächsten Sitzungsstart erneut.",
+  cliReasonInvalid: "Diese Coding-CLI kann den Server so nicht eintragen.",
+  cliReasonDuplicate:
+    "Die CLI führt diesen Namen mehrfach. Bitte einen der Einträge in der CLI entfernen.",
 };

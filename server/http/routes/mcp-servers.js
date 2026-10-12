@@ -4,6 +4,7 @@ import { STDIO_CONFIRMATION_REQUIRED } from "../../features/mcp-servers/stdio-co
 import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { record } from "../../features/extensions/mcp-config.js";
+import { mcpCliRoutes } from "./mcp-cli.js";
 
 /** A saved change whose OAuth logout is retried later (see McpOAuthLogins.forget). */
 function deferredWarning() {
@@ -62,11 +63,14 @@ export function mcpServerRoutes(services) {
     res.set("Cache-Control", "no-store");
     next();
   });
-  // OAuth servers carry their agent login status (see McpOAuthLogins.decorate).
+  router.use(mcpCliRoutes(services, { auditMcp, replyStdioConfirmation }));
+  // OAuth servers carry their agent login status (see McpOAuthLogins.decorate); every
+  // server its CLI bindings, their status and its users (CliMcpBindings.decorate).
   router.get("/mcp-servers", async (_req, res) => {
-    const list = changes().list();
-    const oauth = services.assistantMcpOAuth;
-    res.json(oauth ? await oauth.decorate(list) : list);
+    let list = changes().list();
+    if (services.assistantMcpOAuth)
+      list = await services.assistantMcpOAuth.decorate(list);
+    res.json(services.cliMcp ? await services.cliMcp.decorate(list) : list);
   });
   router.post("/mcp-servers", async (req, res) => {
     const body = req.body;

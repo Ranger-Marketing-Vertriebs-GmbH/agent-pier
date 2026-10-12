@@ -1,12 +1,16 @@
 import os from "node:os";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { record } from "../extensions/mcp-config.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 import { adoptFinds, patchFromNative } from "./cli-adoption.js";
 import { groupFinds, publicFind } from "./cli-finds.js";
 import { stdioGrants } from "./cli-grants.js";
 import { centralFromNative, cliSupport, clis, requireCliSupport } from "./cli-native.js";
+import { loginCommand } from "./cli-oauth-status.js";
 import { CliMcpReconciler } from "./cli-reconciler.js";
+import { adoptFailure, reasonIdentity, statusView } from "./cli-status.js";
+import { resolveCommand } from "./command-resolution.js";
 import { changesStdio, requireStdioConfirmation } from "./stdio-confirmation.js";
 
 const messages = serverMessages.mcpServers;
@@ -85,7 +89,7 @@ export class CliMcpBindings {
           targets.clis.map((cli) => [
             cli,
             {
-              ...(results[cli].statuses[server.id] ?? { status: "pending" }),
+              ...statusView(results[cli].statuses[server.id] ?? { status: "pending" }),
               ...(oauth[cli]?.[server.id] ? { oauth: oauth[cli][server.id] } : {}),
             },
           ]),
@@ -100,28 +104,94 @@ export class CliMcpBindings {
   async server(id) {
     return (await this.decorate([this.servers.get(id)]))[0];
   }
-  /** OAuth login state per CLI and server id (Task 8). */
-  async oauthStates() {
-    return {};
+  /**
+   * `{ [cli]: { [serverId]: { state, command } } }` for OAuth servers bound to a CLI:
+   * Codex reports its login state; for the others the owner sees the login command.
+   */
+  async oauthStates(list) {
+    const oauth = list.filter(
+      (server) => server.auth === "oauth" && server.transport !== "stdio",
+    );
+    const out = {};
+    for (const cli of clis) {
+      const bound = new Set(this.servers.bindings("cli", cli));
+      const mine = oauth.filter((server) => bound.has(server.id));
+      if (!mine.length) continue;
+      const known =
+        cli === "codex" && this.oauthStatus ? await this.oauthStatus.codex() : {};
+      out[cli] = Object.fromEntries(
+        mine.map((server) => [
+          server.id,
+          {
+            state: known[server.name] ?? "unknown",
+            command: loginCommand(cli, server.name),
+          },
+        ]),
+      );
+    }
+    return out;
   }
-  findGroups() {
+  findGroups(results = this.inspectAll()) {
     return groupFinds(
-      this.inspectAll(),
+      results,
       this.servers.list().map((server) => server.name),
     );
   }
+  /**
+   * The owner's own entries in the CLIs as responses show them (names only), and each
+   * CLI whose file could not be read as `{ cli, reason, messageKey }`.
+   */
   finds() {
-    return this.findGroups().map(publicFind);
+    const results = this.inspectAll();
+    const resolve = (command) => resolveCommand(command, this.servers.resolveOptions);
+    return {
+      finds: this.findGroups(results).map((group) => publicFind(group, { resolve })),
+      problems: clis
+        .filter((cli) => results[cli].error)
+        .map((cli) => ({
+          cli,
+          reason: results[cli].error,
+          ...reasonIdentity(results[cli].error),
+        })),
+    };
   }
+  /**
+   * Adopts finds (`adoptFinds`). Chosen by `keys`, each key is adopted on its own: a
+   * key that fails is reported in `failed` with a stable reason and never undoes or
+   * hides the keys adopted before it.
+   */
   adopt(body = {}) {
-    const result = adoptFinds({
+    const options = {
       servers: this.servers,
       reconciler: this.reconciler,
       groups: this.findGroups(),
-      keys: body.keys,
       names: body.names ?? {},
-      all: body.all === true,
-    });
+      warn: this.warn,
+    };
+    let result;
+    if (body.all === true) result = adoptFinds({ ...options, all: true });
+    else {
+      const keys = body.keys;
+      if (
+        !Array.isArray(keys) ||
+        !keys.length ||
+        keys.some((key) => typeof key !== "string") ||
+        !record(options.names)
+      )
+        throw problem(messages.invalidRequest, 400);
+      result = { adopted: [], failed: [] };
+      for (const key of new Set(keys))
+        try {
+          result.adopted.push(...adoptFinds({ ...options, keys: [key] }).adopted);
+        } catch (error) {
+          const group = options.groups.find((item) => item.key === key);
+          result.failed.push({
+            key,
+            ...(group ? { name: group.name } : {}),
+            ...adoptFailure(error, this.warn),
+          });
+        }
+    }
     this.reconcileAll();
     return result;
   }
@@ -138,31 +208,44 @@ export class CliMcpBindings {
       requireStdioConfirmation(confirmStdio === true);
     this.servers.setClis(id, next);
     this.reconcileAll();
-    return { clis: next, added, removed: current.filter((cli) => !next.includes(cli)) };
+    return {
+      clis: next,
+      added,
+      removed: current.filter((cli) => !next.includes(cli)),
+      // Audited only when the owner confirmed a command that now runs in a new CLI.
+      stdioConfirmed: server.transport === "stdio" && added.length > 0 && confirmStdio,
+    };
   }
   /**
    * The owner's choice for a conflict or a taken name in `cli`: "overwrite" writes
    * AgentPier's version (conflicts only); "adopt" moves the owner's entry into the
    * central server (which every bound CLI and agent then gets) and makes it AgentPier's.
+   * Returns the server fields an adoption changed and whether the owner confirmed a
+   * changed stdio command (the update below confirms on the owner's behalf).
    */
   async resolve(id, cli, choice, { confirmStdio = false } = {}) {
     if (!clis.includes(cli) || !["overwrite", "adopt"].includes(choice))
       throw problem(messages.invalidRequest, 400);
     if (choice === "overwrite") {
       this.reconciler.overwrite(id, cli);
-      return;
+      return { fields: [], stdioConfirmed: false };
     }
     const found = this.reconciler.contested(id, cli);
     const parsed = centralFromNative(cli, found.entry);
     if (!parsed.ok) throw problem(messages.cliChangeNotAdoptable, 409);
     const server = this.servers.get(id);
     const patch = patchFromNative(server, cli, parsed);
-    if (changesStdio(server, patch)) requireStdioConfirmation(confirmStdio === true);
+    const stdioChanged = changesStdio(server, patch);
+    if (stdioChanged) requireStdioConfirmation(confirmStdio === true);
     const changes = this.changes();
     if (changes) await changes.update(id, patch, { confirmStdio: true });
     else this.servers.update(id, patch);
     this.reconciler.claim(id, cli, found.hash);
     this.reconcileAll();
+    return {
+      fields: Object.keys(patch).filter((key) => key !== "revision"),
+      stdioConfirmed: stdioChanged && confirmStdio === true,
+    };
   }
   /**
    * Before a session of `account` starts: its CLI is brought in step (a missing managed

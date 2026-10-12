@@ -80,6 +80,7 @@ test("binding refuses what a CLI cannot run and asks before a CLI gets a local c
     clis: ["codex"],
     added: ["codex"],
     removed: [],
+    stdioConfirmed: true,
   });
   assert.ok(f.entries("codex").local);
   await assert.rejects(cli.setClis(local.id, ["gemini"]), { status: 400 });
@@ -87,6 +88,7 @@ test("binding refuses what a CLI cannot run and asks before a CLI gets a local c
     clis: [],
     added: [],
     removed: ["codex"],
+    stdioConfirmed: false,
   });
   assert.deepEqual(f.entries("codex"), {});
 });
@@ -111,7 +113,7 @@ test("the list shows bound CLIs, support, status and users by name, never a valu
   });
   assert.deepEqual(listed.cliStatus, {
     claude: { status: "written" },
-    codex: { status: "name-taken" },
+    codex: { status: "name-taken", messageKey: "mcpServers.cliStatusNameTaken" },
   });
   assert.deepEqual(listed.users, { agents: ["Home"], clis: ["claude", "codex"] });
   assert.doesNotMatch(JSON.stringify(listed), /secret/);
