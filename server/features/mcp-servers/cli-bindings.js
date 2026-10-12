@@ -1,3 +1,4 @@
+import os from "node:os";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { addGrant } from "../nono/sandbox-grants.js";
@@ -28,9 +29,13 @@ export class CliMcpBindings {
     changes = () => null,
     agentNames = () => new Map(),
     oauthStatus = null,
+    home = os.homedir(),
+    dataDir = null,
     warn = console.warn,
   }) {
     Object.assign(this, { servers, changes, agentNames, oauthStatus, warn });
+    // Directories a server's cwd must never open up to the sandbox (cli-grants.js).
+    this.protectedDirs = { home, dataDir };
     this.reconciler = new CliMcpReconciler({
       servers,
       locate: (cli) => extensions.locations(`local-${cli}`),
@@ -38,9 +43,29 @@ export class CliMcpBindings {
       warn,
     });
   }
-  /** Brings every CLI in step with the store; one CLI's file never stops the others. */
+  /**
+   * Brings every CLI in step with the store; one CLI never stops the others and never
+   * throws, so a change that is already stored still answers success. The next
+   * session start (prepare) repairs what failed here.
+   */
   reconcileAll() {
-    return Object.fromEntries(clis.map((cli) => [cli, this.reconciler.reconcile(cli)]));
+    return Object.fromEntries(clis.map((cli) => [cli, this.reconcileOne(cli)]));
+  }
+  /** `reconcile(cli)`; a store or programming error is logged by code and reported as `failed`. */
+  reconcileOne(cli) {
+    try {
+      return this.reconciler.reconcile(cli);
+    } catch (error) {
+      this.warn(`MCP servers for ${cli} could not be prepared (${codeOf(error)}).`);
+      const statuses = {};
+      try {
+        for (const serverId of this.servers.bindings("cli", cli))
+          statuses[serverId] = { status: "error", reason: "failed" };
+      } catch {
+        // The store itself failed; there is nothing to report per server.
+      }
+      return { cli, error: "failed", statuses, actions: [], finds: [] };
+    }
   }
   inspectAll() {
     return Object.fromEntries(clis.map((cli) => [cli, this.reconciler.inspect(cli)]));
@@ -146,13 +171,7 @@ export class CliMcpBindings {
    */
   async prepare({ account, launch, purpose }) {
     if (purpose === "login" || !clis.includes(account.tool)) return launch;
-    try {
-      this.reconciler.reconcile(account.tool);
-    } catch (error) {
-      this.warn(
-        `MCP servers for ${account.tool} could not be prepared (${codeOf(error)}).`,
-      );
-    }
+    this.reconcileOne(account.tool);
     try {
       const bound = new Set(this.servers.bindings("cli", account.tool));
       const definitions = this.servers
@@ -164,8 +183,12 @@ export class CliMcpBindings {
             cliSupport(account.tool, definition).supported,
         );
       let next = launch;
-      for (const grant of stdioGrants(definitions, { pathEnv: launch.env?.PATH ?? "" }))
-        next = addGrant(next, grant);
+      const options = {
+        pathEnv: launch.env?.PATH ?? "",
+        ...this.protectedDirs,
+        warn: this.warn,
+      };
+      for (const grant of stdioGrants(definitions, options)) next = addGrant(next, grant);
       return next;
     } catch (error) {
       this.warn(`MCP sandbox grants for ${account.tool} are missing (${codeOf(error)}).`);

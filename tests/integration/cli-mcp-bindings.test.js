@@ -198,3 +198,40 @@ test("a saved change a bound CLI cannot run is refused before anything is stored
   });
   assert.equal(f.servers.get(events.id).transport, "http");
 });
+
+test("a stored change answers success when one CLI fails; the others are still written", async (t) => {
+  const f = cliMcpFixture(t);
+  let cli;
+  const changes = new CentralMcpChanges({
+    servers: f.servers,
+    onSaved: async () => cli.reconcileAll(),
+  });
+  cli = service(f, { changes: () => changes });
+  const reconcile = cli.reconciler.reconcile.bind(cli.reconciler);
+  cli.reconciler.reconcile = (name) => {
+    if (name === "claude")
+      throw Object.assign(new Error("/private/secret/path header-secret"), {
+        code: "SQLITE_BUSY",
+      });
+    return reconcile(name);
+  };
+  const server = f.servers.create(http(), {
+    bind: [
+      ["cli", "claude"],
+      ["cli", "codex"],
+    ],
+  });
+  const { server: saved } = await changes.update(server.id, {
+    revision: 1,
+    url: "https://moved.example.test/mcp",
+  });
+  assert.equal(saved.url, "https://moved.example.test/mcp");
+  assert.equal(f.entries("codex").docs.url, "https://moved.example.test/mcp");
+  assert.deepEqual(f.entries("claude"), {});
+  assert.deepEqual(cli.reconcileAll().claude.statuses, {
+    [server.id]: { status: "error", reason: "failed" },
+  });
+  assert.ok(f.warnings.length >= 1);
+  for (const line of f.warnings) assert.doesNotMatch(line, /\/|secret/);
+  assert.match(f.warnings[0], /SQLITE_BUSY/);
+});

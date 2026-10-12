@@ -141,7 +141,12 @@ export function createReloadLifecycle(services) {
             throw problem(serverMessages.common.profileChanged, 409);
           if (plan.transfer) await plan.transfer.commit();
           let launch = services.cliMcp
-            ? await services.cliMcp.prepare({ account, launch: plan.launch })
+            ? await services.cliMcp.prepare({
+                account,
+                launch: plan.launch,
+                // Login sessions are never reloaded (SessionReload.inspect); kept explicit.
+                purpose: session.purpose,
+              })
             : plan.launch;
           sharedProfiles?.prepare(account, launch);
           await requests.discard(session.id);

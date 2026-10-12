@@ -208,6 +208,8 @@ export async function createServices(config) {
     new CliMcpBindings({
       servers: mcpServers,
       extensions,
+      home: config.home,
+      dataDir: config.dataDir,
       changes: () => services.mcpServerChanges,
       agentNames: () =>
         new Map(
