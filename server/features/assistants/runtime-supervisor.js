@@ -22,6 +22,7 @@ import {
 import { mcpStartSnapshot } from "./openclaw-config/mcp-servers.js";
 import {
   configuredAgents,
+  stdioAgents,
   telegramSections,
   telegramSnapshot,
 } from "./openclaw-config/telegram-senders.js";
@@ -212,6 +213,7 @@ export class RuntimeSupervisor extends EventEmitter {
     // The agents' own Telegram bots this start compiles: account ids and a
     // signature, never a token or the speech key.
     this.telegram = null;
+    this.telegramStarting = null;
     const telegram =
       teams?.directory &&
       teams?.connection &&
@@ -222,8 +224,12 @@ export class RuntimeSupervisor extends EventEmitter {
           telegram: teams.telegram,
           // The agents the compile below finds in the configuration it starts from.
           agents: configuredAgents(readJSON(this.paths.config, null)),
+          stdio: stdioAgents(teams.mcp || {}),
         }),
       );
+    // What this start compiles, before it answers: a revocation saved meanwhile must
+    // be compared with it (telegram-senders.js), not with "no Gateway".
+    this.telegramStarting = telegram || null;
     const tls = prepareGatewayTls(this.paths);
     const token = prepareRuntimeConfig(this.paths, port, teams, {
       maintenance: !!this.maintenance?.(),
@@ -280,6 +286,8 @@ export class RuntimeSupervisor extends EventEmitter {
       clearInterval(logTimer);
       if (this.child !== child) return;
       this.child = null;
+      // A Gateway that is gone runs no bots; the next start compiles the store.
+      this.telegram = this.telegramStarting = null;
       this.client?.close();
       clearTimeout(this.healthyTimer);
       fs.rmSync(ownerPath, { force: true });
@@ -414,6 +422,7 @@ export class RuntimeSupervisor extends EventEmitter {
     this.retryTimer = null;
     clearTimeout(this.healthyTimer);
     this.client?.close();
+    this.telegram = this.telegramStarting = null;
     if (this.child) this.setState({ availability: "stopping" });
     this.stopping = this.terminateOwnedChild()
       .then(() => {

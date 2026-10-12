@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
+import { replyRestartRequired } from "./restart-required.js";
 export function assistantChannelRoutes({
   assistantChannels: channels,
   assistantSpeech: speech,
+  assistantTelegramSenders: senders,
 }) {
   const router = Router();
   router.use(["/assistant-channels", "/assistant-speech"], (_req, res, next) => {
@@ -46,9 +48,25 @@ export function assistantChannelRoutes({
       ),
   );
   router.get("/assistant-speech", (_req, res) => res.json(speech.get()));
-  router.put("/assistant-speech", (req, res) => res.json(speech.save(req.body)));
+  router.put("/assistant-speech", async (req, res) => {
+    if (!senders) return res.json(speech.save(req.body));
+    // The Deepgram key may run in the Gateway with the agents' own bots: a change
+    // revokes backups and, once confirmed, restarts a Gateway that uses another key.
+    const body = req.body;
+    const object = !!body && typeof body === "object" && !Array.isArray(body);
+    const { confirmRestart, ...input } = object ? body : {};
+    try {
+      res.json(
+        await senders.saveSpeech(object ? input : body, {
+          confirmed: confirmRestart === true,
+        }),
+      );
+    } catch (error) {
+      replyRestartRequired(res, error);
+    }
+  });
   router.use((error, _req, _res, next) => {
-    if (error.key === "telegramBotInUse") return next(error);
+    if (["telegramBotInUse", "active"].includes(error.key)) return next(error);
     const key =
       {
         TELEGRAM_WEBHOOK: "channelWebhook",

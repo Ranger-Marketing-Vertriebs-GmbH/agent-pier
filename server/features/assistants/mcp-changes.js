@@ -105,7 +105,12 @@ export class McpChanges {
   decorate(profile) {
     if (!profile || !this.ownerManaged(profile)) return profile;
     try {
-      return { ...profile, mcpServers: this.servers.bindings("agent", profile.id) };
+      return {
+        ...profile,
+        mcpServers: this.servers.bindings("agent", profile.id),
+        // Such an agent can bind remote servers only (checkBindings).
+        ...(this.telegramSenders?.connected(profile.id) && { telegramSenders: true }),
+      };
     } catch {
       // An unreadable server store must not fail the agent list; bindings are omitted.
       return profile;
@@ -126,6 +131,10 @@ export class McpChanges {
     const current = new Set(this.servers.bindings("agent", profile.id));
     const added = [...new Set(ids)].filter((id) => !current.has(id));
     const stdio = added.some((id) => this.servers.get(id).transport === "stdio");
+    // A stdio server runs host commands; an agent with its own Telegram bot for other
+    // people never gets one (like shell). Remote servers stay allowed.
+    if (stdio && this.telegramSenders?.connected(profile.id))
+      throw problem(messages.stdioTelegramSenders, 409);
     if (stdio) requireStdioConfirmation(confirmStdio === true);
     return stdio;
   }
@@ -157,6 +166,15 @@ export class McpChanges {
   update(id, input, { confirmStdio = false, clis } = {}) {
     return this.assistants.admit(async () => {
       this.servers.requireLiteralPatch(id, input);
+      // A server bound to an agent with its own Telegram bot cannot become stdio.
+      if (
+        this.servers.get(id).transport !== "stdio" &&
+        this.servers.previewUpdate(id, input).after.transport === "stdio" &&
+        Object.entries(this.servers.bindingsByTarget("agent")).some(
+          ([agent, ids]) => ids.includes(id) && this.telegramSenders?.connected(agent),
+        )
+      )
+        throw problem(messages.stdioTelegramSenders, 409);
       // Editing what a stdio server runs needs the same confirmation as adding one.
       const stdioChanged = this.changesStdio(this.servers.get(id), input);
       if (stdioChanged) requireStdioConfirmation(confirmStdio === true);

@@ -118,6 +118,10 @@ export const assistants = {
     "This Telegram bot is already in use: as your AgentPier bot or by another agent. Create a separate bot for each purpose.",
   telegramSendersShell:
     "An agent with its own Telegram bot for other people must not have shell access. Turn shell off or disconnect the bot first.",
+  telegramSendersStdio:
+    "This agent has a stdio MCP server, which runs commands on this computer. Remove it before you connect a bot for other people.",
+  telegramSendersArchive:
+    "Disconnect the agent's own Telegram bot before you archive it.",
   telegramSendersRestartRequired:
     "This Telegram change restarts the agents' Gateway; confirm the restart.",
 

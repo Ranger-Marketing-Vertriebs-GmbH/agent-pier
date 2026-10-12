@@ -130,6 +130,16 @@ export class ChannelStore {
       diagnostic: null,
     };
     this.transaction(() => {
+      // An agent's own bot for other people (native-telegram-store.js) keeps its id.
+      if (
+        this.db
+          .prepare(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='native_telegram'",
+          )
+          .get() &&
+        this.db.prepare("SELECT 1 FROM native_telegram WHERE bot_id=?").get(record.botId)
+      )
+        throw assistantProblem("telegramBotInUse", 409);
       this.db
         .prepare("INSERT INTO channels VALUES (?,?,?,?,?)")
         .run(record.id, record.botId, assistantId, 1, JSON.stringify(record));

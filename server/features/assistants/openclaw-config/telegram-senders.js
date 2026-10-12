@@ -26,11 +26,26 @@ export const telegramSurfaces = [
  * Agents that may own a bot for other people: personal, not archived and without
  * shell. A sender must never reach host commands, whatever the store says.
  */
-export function telegramEligible(profile) {
+export function telegramEligible(profile, stdio = new Set()) {
   return (
     !!profile?.runtimeAgentId &&
     personalEligible(profile) &&
-    personalShell(profile) === "off"
+    personalShell(profile) === "off" &&
+    // A stdio MCP server runs host commands as well; remote servers stay allowed.
+    !stdio.has(profile.id)
+  );
+}
+
+/**
+ * Assistant ids bound to a stdio MCP server, from readMcpInputs' `servers` and
+ * `bindings`. Such an agent never owns a bot for other people.
+ */
+export function stdioAgents({ servers = [], bindings = {} } = {}) {
+  const stdio = new Set(servers.filter((s) => s?.transport === "stdio").map((s) => s.id));
+  return new Set(
+    Object.entries(bindings)
+      .filter(([, ids]) => (ids || []).some((id) => stdio.has(id)))
+      .map(([assistantId]) => assistantId),
   );
 }
 
@@ -91,7 +106,7 @@ export function configuredAgents(config) {
  * - `voice`: the Deepgram settings, or null (text only).
  * - `skipped`: assistant ids of stored bots that are not compiled.
  */
-export function telegramSections({ profiles = [], telegram, agents } = {}) {
+export function telegramSections({ profiles = [], telegram, agents, stdio } = {}) {
   const sections = {
     accounts: {},
     bindings: [],
@@ -108,7 +123,7 @@ export function telegramSections({ profiles = [], telegram, agents } = {}) {
     );
     // An allowlist without ids is rejected by OpenClaw's validation.
     if (
-      !telegramEligible(profile) ||
+      !telegramEligible(profile, stdio) ||
       !people.length ||
       !stored.token ||
       (agents && !agents.has(profile.runtimeAgentId))
@@ -227,14 +242,42 @@ export function telegramSignature(sections) {
     .digest("hex");
 }
 
+const fingerprint = (value) =>
+  value ? createHmac("sha256", signatureSecret).update(value).digest("hex") : null;
+
 /**
- * What the supervisor keeps about a Gateway start: the compiled account ids, whether
- * voice notes are transcribed and the signature. Never a token or key.
+ * What the supervisor keeps about a Gateway start: the compiled account ids, their
+ * allowed people and token fingerprints, whether voice notes are transcribed (and the
+ * key's fingerprint) and the signature. Never a token or key.
  */
 export function telegramSnapshot(sections) {
+  const accounts = Object.keys(sections.accounts);
   return {
-    accounts: Object.keys(sections.accounts),
+    accounts,
+    people: Object.fromEntries(
+      accounts.map((id) => [id, [...sections.accounts[id].allowFrom]]),
+    ),
+    tokens: Object.fromEntries(
+      accounts.map((id) => [id, fingerprint(sections.accounts[id].botToken)]),
+    ),
     voice: !!sections.voice,
+    voiceKey: fingerprint(sections.voice?.apiKey),
     signature: telegramSignature(sections),
   };
+}
+
+/**
+ * Whether `desired` takes away something the Gateway started with (`running`): a
+ * bot, an allowed person, a token or the speech key. Such a change must reach the
+ * Gateway without waiting for an unrelated restart.
+ */
+export function telegramRevoked(running, desired) {
+  if (!running) return false;
+  for (const id of running.accounts) {
+    if (!desired.accounts.includes(id)) return true;
+    if (running.tokens[id] !== desired.tokens[id]) return true;
+    if (running.people[id].some((person) => !desired.people[id].includes(person)))
+      return true;
+  }
+  return !!running.voiceKey && running.voiceKey !== desired.voiceKey;
 }

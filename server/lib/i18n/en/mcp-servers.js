@@ -14,6 +14,8 @@ export const mcpServers = Object.freeze({
   conflict: "The MCP server changed in the meantime. Reload and try again.",
   stdioConfirmationRequired:
     "A stdio server runs a command with your rights and without a sandbox. Please confirm.",
+  stdioTelegramSenders:
+    "Agents with their own Telegram bot for other people cannot use stdio servers: these run commands on this computer. Remote servers stay possible; disconnect the bot first to use a stdio server.",
   agentNotEligible:
     "MCP servers cannot be assigned to this agent: temporary team members receive them through the team approval, archived agents not at all.",
   oauthNotOAuth: "This server does not sign in with OAuth.",

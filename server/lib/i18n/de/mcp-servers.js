@@ -13,6 +13,8 @@ export const mcpServers = {
   conflict: "Der MCP-Server wurde inzwischen geändert. Bitte neu laden.",
   stdioConfirmationRequired:
     "Ein stdio-Server führt einen Befehl mit deinen Rechten und ohne Sandbox aus. Bitte bestätigen.",
+  stdioTelegramSenders:
+    "Agenten mit eigenem Telegram-Bot für andere Personen können keine stdio-Server nutzen: Diese führen Befehle auf diesem Rechner aus. Entfernte Server bleiben möglich; trenne zuerst den Bot, um einen stdio-Server zu nutzen.",
   agentNotEligible:
     "Diesem Agenten lassen sich keine MCP-Server zuordnen: Temporäre Teammitglieder erhalten sie über die Teamfreigabe, archivierte Agenten gar nicht.",
   oauthNotOAuth: "Dieser Server meldet sich nicht mit OAuth an.",

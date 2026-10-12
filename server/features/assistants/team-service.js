@@ -149,6 +149,12 @@ export class TeamService {
         throw assistantProblem("invalid");
       const record = this.store.assertLifecycle(id, revision);
       const members = record.kind === "member" ? [record] : this.store.members(id);
+      // An archived agent must not keep answering people on its own Telegram bot.
+      if (
+        action === "archive" &&
+        members.some((m) => this.assistants.telegramSenders?.connected(m.assistantId))
+      )
+        throw assistantProblem("telegramSendersArchive", 409);
       if (action === "archive")
         for (const member of members)
           if (!member.archivedAt && member.lifetime === "permanent")
