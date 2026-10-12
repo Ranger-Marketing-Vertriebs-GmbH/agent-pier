@@ -28,6 +28,10 @@ self.agentPierNotificationCopy = {
     title: "AgentPier: Agent meldet sich",
     body: "Ein Agent hat etwas für dich. Öffne den verbundenen Chat.",
   },
+  "telegram-revocation": {
+    title: "AgentPier: Telegram-Zugang noch aktiv",
+    body: "Ein entfernter Bot oder eine entfernte Person ließ sich nicht stoppen. Starte den Agentendienst neu.",
+  },
   test: {
     title: "AgentPier: Testbenachrichtigung",
     body: "Benachrichtigungen erreichen dieses Gerät.",

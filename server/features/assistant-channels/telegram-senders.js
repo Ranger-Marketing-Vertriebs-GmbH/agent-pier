@@ -3,6 +3,7 @@ import { personalEligible, personalShell } from "../assistants/native-capabiliti
 import { restartRequired } from "../assistants/assistant-provider-synchronization.js";
 import { temporaryMember } from "../assistants/team-presentation.js";
 import { destroyBackupKeys } from "../assistants/backup-credentials.js";
+import { randomUUID } from "node:crypto";
 import { readJSON } from "../../lib/storage.js";
 import {
   configuredAgents,
@@ -49,6 +50,8 @@ export class TelegramSenders {
     retryMs = 30000,
     maxAttempts = 5,
     warn = console.warn,
+    // The owner's push notifications (notification-service.js), when available.
+    notifications = null,
   }) {
     Object.assign(this, {
       assistants,
@@ -63,10 +66,9 @@ export class TelegramSenders {
       retryMs,
       maxAttempts,
       warn,
+      notifications,
     });
-    this.configured =
-      configured ||
-      (() => configuredAgents(readJSON(this.assistants.runtime.paths?.config, null)));
+    this.configured = configured || this.configuredFromFile;
     this.retry = null;
     // The automatic restart for one revocation: { signature, attempts, restarted,
     // failed }. One restart per revocation; refusals back off, then the owner decides.
@@ -101,6 +103,10 @@ export class TelegramSenders {
     const runtime = this.assistants.runtime;
     return runtime.telegram || runtime.telegramStarting || null;
   }
+  /** The agent ids in openclaw.json; throws when the file cannot be read or parsed. */
+  configuredFromFile() {
+    return configuredAgents(readJSON(this.assistants.runtime.paths?.config, null));
+  }
   /** The snapshot a start would compile from `inputs` now. */
   desired(inputs = this.inputs()) {
     const profiles = this.assistants.store.listAssistants();
@@ -131,13 +137,62 @@ export class TelegramSenders {
    * wait for the owner ("pending"). A refused restart (busy agents) is retried.
    */
   ready() {
+    this.schedule(0);
+  }
+  // converge() never rejects; the catch only guards a timer against the impossible.
+  schedule(ms) {
     clearTimeout(this.retry);
-    this.retry = setTimeout(() => this.converge(), 0);
+    this.retry = setTimeout(() => this.converge().catch(() => {}), ms);
     this.retry.unref?.();
   }
+  /**
+   * Restarts the Gateway once for a revocation it still runs. Never rejects: a check
+   * that cannot read openclaw.json or the store is logged by code and reported to the
+   * owner like a revocation the restart could not remove.
+   */
   async converge() {
     clearTimeout(this.retry);
     this.retry = null;
+    try {
+      return await this.convergeOnce();
+    } catch (error) {
+      this.warn(
+        `The Telegram revocation check failed (${error?.code || error?.name || "ERROR"}).`,
+      );
+      if (!this.revocation?.failed) {
+        this.revocation = { signature: null, attempts: 0, failed: true, error: true };
+        this.alert(null);
+      }
+      return false;
+    }
+  }
+  /** Tells the owner once per failed revocation, outside the agent's settings too. */
+  alert(assistantId) {
+    try {
+      Promise.resolve(
+        this.notifications?.notify({
+          kind: "telegram-revocation",
+          eventId: randomUUID(),
+          ...(assistantId && { assistantId }),
+        }),
+      ).catch(() => {});
+    } catch {
+      // A notification never decides the outcome.
+    }
+  }
+  /** The first agent whose bot the Gateway runs other than the store says, or null. */
+  revokedAgent(running, desired) {
+    const id = running.accounts.find(
+      (account) =>
+        !desired.accounts.includes(account) ||
+        running.tokens[account] !== desired.tokens[account] ||
+        running.people[account].some((p) => !desired.people[account].includes(p)),
+    );
+    const profile =
+      id && this.assistants.store.listAssistants().find((p) => p.runtimeAgentId === id);
+    return profile?.id || null;
+  }
+  async convergeOnce() {
     const desired = this.desired();
     if (!telegramRevoked(this.running(), desired)) {
       this.revocation = null;
@@ -148,9 +203,11 @@ export class TelegramSenders {
     const revocation = this.revocation;
     // A restart that did not remove it will not do so the next time either.
     if (revocation.restarted || revocation.failed) {
-      if (!revocation.failed)
+      if (!revocation.failed) {
         this.warn("A revoked Telegram bot is still running after a restart.");
-      revocation.failed = true;
+        revocation.failed = true;
+        this.alert(this.revokedAgent(this.running(), desired));
+      }
       return false;
     }
     revocation.attempts++;
@@ -163,14 +220,11 @@ export class TelegramSenders {
       if (revocation.attempts >= this.maxAttempts) {
         this.warn(`A revoked Telegram bot is still running (${code}); restart needed.`);
         revocation.failed = true;
+        this.alert(this.revokedAgent(this.running(), desired));
         return false;
       }
       this.warn(`A revoked Telegram bot is still running (${code}); retrying.`);
-      this.retry = setTimeout(
-        () => this.converge(),
-        this.retryMs * 2 ** (revocation.attempts - 1),
-      );
-      this.retry.unref?.();
+      this.schedule(this.retryMs * 2 ** (revocation.attempts - 1));
       return false;
     }
   }
@@ -241,13 +295,24 @@ export class TelegramSenders {
   async get(assistantId) {
     const profile = this.assistants.store.getAssistant(assistantId);
     const bot = this.store.get(assistantId);
+    // A check that cannot read openclaw.json reports the owner alert, never a 503.
+    const checked = (check, fallback) => {
+      try {
+        return check();
+      } catch {
+        return fallback;
+      }
+    };
     return {
       assistantId,
       bot,
-      status: bot ? await this.status(bot) : null,
-      pending: this.agentPending(assistantId),
-      // The automatic restart could not remove a revoked bot: the owner restarts.
-      revocationFailed: !!this.revocation?.failed && this.revoked(),
+      status: bot ? await this.status(bot).catch(() => ({ state: "error" })) : null,
+      pending: checked(() => this.agentPending(assistantId), false),
+      // The automatic restart could not remove a revoked bot (or the check failed):
+      // the owner restarts.
+      revocationFailed:
+        !!this.revocation?.failed &&
+        (!!this.revocation.error || checked(() => this.revoked(), true)),
       voice: this.voiceAvailable(),
       shell: personalShell(profile),
       stdio: this.stdioAgents().has(assistantId),

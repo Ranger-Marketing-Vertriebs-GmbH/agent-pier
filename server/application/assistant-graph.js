@@ -218,6 +218,7 @@ export function constructAssistantGraph(host, created = {}) {
     speech: assistantSpeech,
     synchronization: assistantProviderSynchronization,
     audit,
+    notifications: host.notifications,
     // Never throws: an unreadable MCP store binds no agent (its start compiles none).
     stdioAgents: () => {
       try {
