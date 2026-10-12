@@ -189,11 +189,12 @@ export class AssistantService {
    * `confirmed` is the owner's consent to restart the Gateway when the change needs
    * global web tool sections the running Gateway was not started with. `mcpServers`
    * (server ids) replaces the agent's MCP bindings; adding a stdio server needs
-   * `confirmStdio: true`. Raising the `shell` level needs `confirmShell: true`, to
-   * "full" also `confirmFull: true`; lowering needs neither and applies even while
-   * the agent works (shell-changes.js).
+   * `confirmStdio: true`. `outcome.stdioAdded` reports whether the change bound a new
+   * stdio server. Raising the `shell` level needs `confirmShell: true`, to "full" also
+   * `confirmFull: true`; lowering needs neither and applies even while the agent works
+   * (shell-changes.js).
    */
-  async update(id, input, revision, { confirmed = false } = {}) {
+  async update(id, input, revision, { confirmed = false, outcome = {} } = {}) {
     const { mcpServers, confirmStdio, confirmShell, confirmFull, ...body } = input || {};
     const binds = mcpServers !== undefined;
     let shell = null,
@@ -239,7 +240,8 @@ export class AssistantService {
         lease.release();
       }
       // Refuses ineligible agents and unconfirmed stdio servers before any change.
-      if (binds) this.mcp.checkBindings(current, mcpServers, confirmStdio);
+      if (binds)
+        outcome.stdioAdded = this.mcp.checkBindings(current, mcpServers, confirmStdio);
       // Without the owner's confirmation nothing changes, not even reminders.
       const restart =
         !!patch.capabilities &&

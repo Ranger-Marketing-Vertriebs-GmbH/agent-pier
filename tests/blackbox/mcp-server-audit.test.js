@@ -88,22 +88,29 @@ test("MCP server changes and stdio confirmations are audited by name, never by v
   });
   const bind = (body) => send(`/api/assistants/${agent.id}`, "PATCH", body);
   assert.equal((await bind({ revision: 1, mcpServers: [local.id] })).status, 409);
-  assert.equal((await bind({ revision: 1, mcpServers: [http.id] })).status, 200);
-  assert.equal(
-    (await bind({ revision: 2, mcpServers: [http.id, local.id], confirmStdio: true }))
-      .status,
-    200,
-  );
+  // A confirmation flag alone is not a stdio binding: only a newly added stdio server is.
+  const bindings = [
+    [{ revision: 1, mcpServers: [http.id], confirmStdio: true }, false, 1],
+    [{ revision: 2, mcpServers: [http.id, local.id], confirmStdio: true }, true, 2],
+    [{ revision: 3, mcpServers: [local.id, http.id], confirmStdio: true }, false, 2],
+  ];
+  for (const [body] of bindings) assert.equal((await bind(body)).status, 200);
   const bound = (await audit("assistant.updated")).map((e) => [e.resourceId, e.details]);
-  assert.deepEqual(bound, [
-    [agent.id, { fields: ["mcpServers"], stdioConfirmed: true, count: 2 }],
-    [agent.id, { fields: ["mcpServers"], stdioConfirmed: false, count: 1 }],
-  ]);
+  assert.deepEqual(
+    bound,
+    bindings
+      .map(([, stdioConfirmed, count]) => [
+        agent.id,
+        { fields: ["mcpServers"], stdioConfirmed, count },
+      ])
+      .reverse(),
+  );
 
   await send(`/api/mcp-servers/${http.id}`, "DELETE");
   const removed = await audit("mcp.deleted");
   assert.equal(removed.length, 1);
   assert.equal(removed[0].resourceId, http.id);
+  assert.deepEqual(removed[0].details, { transport: "http" });
   assert.equal((await send(`/api/mcp-servers/${http.id}`, "DELETE")).status, 404);
   assert.equal((await audit("mcp.deleted")).length, 1);
 
