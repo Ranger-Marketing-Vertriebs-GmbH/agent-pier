@@ -77,18 +77,26 @@ allowPrivateNetwork: true`; production compiles Deepgram's public base URL and
   what the running or starting Gateway compiled restarts it after the owner
   confirmed, like the web search settings. A revocation (a removed bot or person, a
   replaced token or speech key) that slipped past a start restarts the Gateway once
-  it answers, retried while agents are busy; additions stay "pending" until the
-  owner applies them.
+  it answers; additions stay "pending" until the owner applies them. Every
+  comparison uses the agents the next start finds in `openclaw.json`, the same set
+  the start compiles from, so a configured agent whose first apply never finished
+  causes no restart. Each revocation gets at most one automatic restart; refusals
+  (busy agents) back off from 30 seconds and stop after five attempts. A revocation
+  that is still running then shows an error asking the owner to restart.
 - States: `running`, `starting`, `error`, `stopped` (no Gateway), `pending` (saved,
-  not in the running Gateway yet, also for an agent the Gateway does not know yet)
-  and `inactive` (nobody allowed, or the agent cannot own a bot).
+  not in the running Gateway yet; "Apply now" restarts) and `inactive` (nobody
+  allowed, the agent cannot own a bot, or the agent has no Gateway entry until its
+  first apply). Only the agent concerned shows a pending change.
 - Tokens live in `native_telegram_credentials` (sealed in update and host backups)
   and in the private `openclaw.json` (sealed copies in backups). Replacing or
   removing a token, and changing or removing the Deepgram key while a bot exists,
   destroys the backup keys first; a key change also asks to restart a Gateway that
   uses another key. OpenClaw's own local copies beside `openclaw.json` (`.bak*`,
   `.last-good`) can keep a removed token until they rotate; they stay in the private
-  state directory. Answers, audit records and logs never carry a token, id or name.
+  state directory. Update backups made while an earlier, since-removed bot ran keep
+  that Deepgram key sealed until they expire: a later key change with no bot left
+  does not destroy their keys. Answers, audit records and logs never carry a token,
+  id or name.
 - Deepgram's media model is global in OpenClaw: any audio reaching an agent session
   is transcribed with the owner's key while a bot with voice is compiled.
 - Locking `models.providers.deepgram` also refuses overrides of the parents `models`
