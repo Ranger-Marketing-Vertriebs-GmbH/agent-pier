@@ -68,3 +68,20 @@ test("an existing configuration cannot choose the default workspace path", (t) =
   prepareRuntimeConfig(paths, 1234);
   assert.equal(readJSON(paths.config).agents.defaults.workspace, paths.workspaces);
 });
+
+test("team mode keeps the OpenAI provider plugin for ChatGPT sign-in and accounts", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "team-config-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const paths = runtimePaths(dir);
+  const teams = {
+    directory: "/private/plugin",
+    connection: { url: "http://127.0.0.1:1235", token: "bridge" },
+    hostMaxConcurrent: 8,
+  };
+  // A restrictive plugins.allow hides every provider login it does not list, so
+  // models.authLogin answers "That provider login is no longer available".
+  prepareRuntimeConfig(paths, 1234, teams);
+  assert.ok(readJSON(paths.config).plugins.allow.includes("openai"));
+  prepareRuntimeConfig(paths, 1234, { ...teams, native: { token: "hook" } });
+  assert.ok(readJSON(paths.config).plugins.allow.includes("openai"));
+});

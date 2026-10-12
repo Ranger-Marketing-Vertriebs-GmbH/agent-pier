@@ -442,7 +442,7 @@ test(
     const client = runtime.client;
     const record = path.join(dataDir, "stdio-record.jsonl");
     const { config: initial } = await client.call("config.get", {});
-    assert.deepEqual(initial.plugins.allow, ["agentpier-teams", "memory-core"]);
+    assert.deepEqual(initial.plugins.allow, ["agentpier-teams", "openai", "memory-core"]);
     const generation = runtime.generation;
     const log = path.join(runtime.paths.logs, "gateway-console.log");
     const logFrom = fs.statSync(log).size;
@@ -453,7 +453,7 @@ test(
     await allow(["bundle-mcp"], globs);
     // `bundle-mcp` is not a plugin id for plugins.allow, and none is needed.
     const { config } = await client.call("config.get", {});
-    assert.deepEqual(config.plugins.allow, ["agentpier-teams", "memory-core"]);
+    assert.deepEqual(config.plugins.allow, ["agentpier-teams", "openai", "memory-core"]);
     const listed = await client.call("plugins.list", {});
     assert.equal(
       (listed.plugins ?? listed).some((p) => p.id === "bundle-mcp"),

@@ -108,7 +108,7 @@ test("no agent with web tools leaves tools and browser exactly as before", () =>
   assert.deepEqual(after.browser, { enabled: false });
   assert.equal(after.tools.web, undefined);
   assert.deepEqual(after.tools.allow, nativeAllow);
-  assert.deepEqual(after.plugins.allow, ["agentpier-teams", "memory-core"]);
+  assert.deepEqual(after.plugins.allow, ["agentpier-teams", "openai", "memory-core"]);
   assert.deepEqual(after.plugins.load, { paths: ["/private/plugin"] });
   assert.deepEqual(Object.keys(after.plugins.entries), [
     "agentpier-teams",
@@ -128,7 +128,7 @@ test("an agent with web fetch adds the tool globally with a private-network bloc
     fetch: { ssrfPolicy: { dangerouslyAllowPrivateNetwork: false } },
   });
   assert.deepEqual(config.browser, { enabled: false });
-  assert.deepEqual(config.plugins.allow, ["agentpier-teams", "memory-core"]);
+  assert.deepEqual(config.plugins.allow, ["agentpier-teams", "openai", "memory-core"]);
   assert.ok(agentAllow(config, "ap-a1").includes("web_fetch"));
   assert.ok(!agentAllow(config, "ap-a2").includes("web_fetch"));
 });
@@ -138,7 +138,12 @@ test("web search uses the configured provider and its key", () => {
   const duck = compile(profiles, webTools());
   assert.deepEqual(duck.tools.web, { search: { provider: "duckduckgo" } });
   assert.deepEqual(duck.tools.allow, [...nativeAllow, "web_search"]);
-  assert.deepEqual(duck.plugins.allow, ["agentpier-teams", "memory-core", "duckduckgo"]);
+  assert.deepEqual(duck.plugins.allow, [
+    "agentpier-teams",
+    "openai",
+    "memory-core",
+    "duckduckgo",
+  ]);
   assert.deepEqual(duck.plugins.load.paths, [
     "/private/plugin",
     plugins.duckduckgo.directory,
@@ -151,7 +156,12 @@ test("web search uses the configured provider and its key", () => {
     webTools({ search: { provider: "brave", key: "BSA-fixture", requiresPlugin: true } }),
   );
   assert.deepEqual(brave.tools.web, { search: { provider: "brave" } });
-  assert.deepEqual(brave.plugins.allow, ["agentpier-teams", "memory-core", "brave"]);
+  assert.deepEqual(brave.plugins.allow, [
+    "agentpier-teams",
+    "openai",
+    "memory-core",
+    "brave",
+  ]);
   assert.deepEqual(brave.plugins.load.paths, [
     "/private/plugin",
     plugins.brave.directory,
@@ -228,7 +238,12 @@ test("the browser block uses only the isolated profile without JavaScript evalua
   for (const profile of Object.values(config.browser.profiles))
     assert.equal(profile.driver, "openclaw");
   assert.deepEqual(config.tools.allow, [...nativeAllow, "browser"]);
-  assert.deepEqual(config.plugins.allow, ["agentpier-teams", "memory-core", "browser"]);
+  assert.deepEqual(config.plugins.allow, [
+    "agentpier-teams",
+    "openai",
+    "memory-core",
+    "browser",
+  ]);
   assert.equal(config.tools.web, undefined);
   assert.ok(agentAllow(config, "ap-a1").includes("browser"));
 });
@@ -241,7 +256,7 @@ test("a missing browser withholds the tool even when an agent has the capability
   assert.ok(!config.tools.allow.includes("browser"));
   assert.ok(!agentAllow(config, "ap-a1").includes("browser"));
   assert.deepEqual(config.browser, { enabled: false });
-  assert.deepEqual(config.plugins.allow, ["agentpier-teams", "memory-core"]);
+  assert.deepEqual(config.plugins.allow, ["agentpier-teams", "openai", "memory-core"]);
   // Documents need no detection.
   assert.deepEqual(config.tools.allow, [...nativeAllow, "view_image"]);
   // Without any web tools input nothing is detected either.

@@ -401,6 +401,16 @@ export const assistantCopy = {
     cancelled: "Anmeldung abgebrochen",
     failed: "Anmeldung fehlgeschlagen. Bitte versuche es erneut.",
   },
+  loginFailure: {
+    LOGIN_UNAVAILABLE:
+      "Der Agentendienst bietet die ChatGPT-Anmeldung derzeit nicht an. Starte den Agentendienst neu und versuche es erneut.",
+    UNSUPPORTED_LOGIN_STEP:
+      "Die Anmeldung verlangte einen Schritt, den AgentPier nicht unterstützt.",
+    LOGIN_EXPIRED: "Der Code ist abgelaufen, bevor die Anmeldung abgeschlossen wurde.",
+    CONNECTION_LOST: "Die Verbindung zum Agentendienst wurde unterbrochen.",
+    LOGIN_FAILED:
+      "Der Agentendienst hat die Anmeldung mit einem Fehler beendet. Details stehen im AgentPier-Protokoll.",
+  },
   accountStatus: {
     ok: "Verbunden",
     expiring: "Verbunden · Erneuerung steht bevor",

@@ -145,6 +145,11 @@ export default function AssistantModelAccounts({ navigate }) {
       {attempt && (
         <div className="assistant-login" role="status">
           <p>{copy.loginStatus[attempt.status] || copy.loginStatus.failed}</p>
+          {attempt.status === "failed" && attempt.diagnostic && (
+            <p>
+              {copy.loginFailure[attempt.diagnostic] || copy.loginFailure.LOGIN_FAILED}
+            </p>
+          )}
           {active(attempt) && attempt.code && (
             <>
               <code className="assistant-device-code">{attempt.code}</code>
