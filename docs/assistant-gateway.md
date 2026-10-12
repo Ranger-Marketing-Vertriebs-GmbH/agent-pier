@@ -755,7 +755,9 @@ The `browser`, `mcp`, `secrets`, `env`, `plugins` and `tools` paths are locked
 against configuration overrides; the compiler rewrites the browser block on each
 start and removes any `mcp` block it did not write. `channels`, `bindings`,
 `session`, `commands`, `approvals`, `accessGroups` and `models.providers.deepgram`
-belong to the agents' own Telegram bots and are locked as well.
+belong to the agents' own Telegram bots and are locked as well. Overrides of the parents
+`models` and `models.providers` are refused for that reason (individual providers
+below them stay configurable).
 
 ### Search provider
 
