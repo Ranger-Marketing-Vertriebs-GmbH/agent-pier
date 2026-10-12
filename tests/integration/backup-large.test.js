@@ -64,6 +64,15 @@ test(`a ${totalMiB} MiB profile history streams through backup and restore in bo
     created.growth < limit,
     `backup grew RSS by ${(created.growth / MiB).toFixed(0)} MiB`,
   );
+  // Uploads stream to disk as well, far past the former 256 MiB request limit.
+  const restore = new Restore({ dataDir });
+  const uploaded = await peakGrowth(() =>
+    restore.upload(fs.createReadStream(created.result.file), {
+      expectedBytes: archiveBytes,
+    }),
+  );
+  assert.ok(uploaded.growth < limit, `upload grew RSS by ${uploaded.growth}`);
+  fs.rmSync(path.join(restore.directory, `${uploaded.result.archiveId}.apbackup`));
   const target = path.join(root, "restored");
   const restored = await peakGrowth(() =>
     new Restore({ dataDir }).apply({
