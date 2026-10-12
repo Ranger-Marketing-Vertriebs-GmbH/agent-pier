@@ -9,6 +9,7 @@ import { atomic, identifier, readJson } from "./files.js";
 import { decodeArchive } from "./archive.js";
 import { archiveVersion, readArchiveHeader } from "./archive-v2.js";
 import { ensureSpace } from "./backup-components.js";
+import { claim } from "./work-claims.js";
 
 /**
  * Restore uploads. A browser sends an archive in slices of at most CHUNK_LIMIT
@@ -44,22 +45,63 @@ const sizeValue = (value) => {
   return value;
 };
 
+// An upload without a new slice for this long is abandoned and removed.
+export const UPLOAD_TTL = 24 * 60 * 60 * 1000;
+
 export class RestoreUploads {
-  constructor(directory) {
+  constructor(directory, dataDir, { ttl = UPLOAD_TTL } = {}) {
     this.directory = directory;
+    this.dataDir = dataDir;
+    this.ttl = ttl;
     this.busy = new Set();
+    this.releases = new Map();
   }
-  /** Interrupted uploads from an earlier run are removed. */
-  static clean(directory) {
-    for (const name of fs.readdirSync(directory))
-      if (name.endsWith(".upload") || name.endsWith(".upload.json"))
-        fs.rmSync(path.join(directory, name), { force: true });
+  /** Pending uploads: `{ id, data, meta, size, offset, idle }`. */
+  pending() {
+    const result = [];
+    for (const name of fs.readdirSync(this.directory)) {
+      const match = /^([A-Za-z0-9_-]+)\.apbackup\.upload\.json$/.exec(name);
+      if (!match) continue;
+      const files = this.files(match[1]);
+      const meta = readJson(files.meta, null);
+      const stat = fs.statSync(files.data, { throwIfNoEntry: false });
+      if (!meta || !stat) continue;
+      result.push({
+        id: match[1],
+        ...files,
+        size: meta.size,
+        offset: stat.size,
+        idle: Date.now() - Math.max(stat.mtimeMs, Date.parse(meta.createdAt) || 0),
+      });
+    }
+    return result;
+  }
+  /** Removes uploads idle beyond the TTL; returns the bytes the others still need. */
+  sweep(except) {
+    let reserved = 0;
+    for (const upload of this.pending()) {
+      if (upload.id === except || this.busy.has(upload.id)) {
+        if (upload.id !== except) reserved += upload.size - upload.offset;
+        continue;
+      }
+      if (upload.idle > this.ttl) this.remove(upload.id);
+      else reserved += upload.size - upload.offset;
+    }
+    return reserved;
+  }
+  remove(id) {
+    const files = this.files(id);
+    fs.rmSync(files.data, { force: true });
+    fs.rmSync(files.meta, { force: true });
+    this.releases.get(id)?.();
+    this.releases.delete(id);
   }
   files(id) {
     const base = path.join(this.directory, `${identifier(id)}.apbackup`);
     return { data: `${base}.upload`, meta: `${base}.upload.json`, archive: base };
   }
   record(id) {
+    this.sweep(id);
     const files = this.files(id);
     const meta = readJson(files.meta, null);
     if (!meta || !fs.existsSync(files.data))
@@ -69,9 +111,11 @@ export class RestoreUploads {
   /** Starts an upload of `size` bytes after checking free space for it. */
   begin(size) {
     sizeValue(size);
-    ensureSpace(this.directory, size);
+    // Uploads still in progress keep the room they announced.
+    ensureSpace(this.directory, size + this.sweep());
     const uploadId = randomUUID(),
       files = this.files(uploadId);
+    this.releases.set(uploadId, claim(this.dataDir, files.data));
     fs.writeFileSync(files.data, "", { mode: 0o600, flag: "wx" });
     atomic(files.meta, { size, createdAt: new Date().toISOString() });
     return { uploadId, size, offset: 0, chunkLimit: CHUNK_LIMIT };
@@ -94,7 +138,7 @@ export class RestoreUploads {
     if (offset !== upload.offset) throw problem(messages.uploadOffsetMismatch, 409);
     this.busy.add(id);
     try {
-      ensureSpace(this.directory, length);
+      ensureSpace(this.directory, length + this.sweep(id));
       await pipeline(
         source,
         exactly(length),
@@ -114,27 +158,29 @@ export class RestoreUploads {
     const upload = this.record(id);
     if (this.busy.has(id)) throw problem(messages.uploadBusy, 409);
     if (upload.offset !== upload.size) throw problem(messages.uploadIncomplete, 409);
+    // A second completion (or a slice) waits for this one to finish.
+    this.busy.add(id);
     try {
       await validateUpload(upload.data);
       fs.renameSync(upload.data, upload.archive);
       return { archiveId: id };
     } finally {
-      fs.rmSync(upload.data, { force: true });
-      fs.rmSync(upload.meta, { force: true });
+      this.remove(id);
+      this.busy.delete(id);
     }
   }
   abort(id) {
-    const upload = this.record(id);
+    this.record(id);
     if (this.busy.has(id)) throw problem(messages.uploadBusy, 409);
-    fs.rmSync(upload.data, { force: true });
-    fs.rmSync(upload.meta, { force: true });
+    this.remove(id);
   }
   /** One-request upload of bytes or a stream of exactly `expectedBytes`. */
   async single(source, { expectedBytes } = {}) {
     const length = Buffer.isBuffer(source) ? source.length : sizeValue(expectedBytes);
-    ensureSpace(this.directory, length);
+    ensureSpace(this.directory, length + this.sweep());
     const archiveId = randomUUID();
     const { data, archive } = this.files(archiveId);
+    const release = claim(this.dataDir, data);
     try {
       if (Buffer.isBuffer(source))
         fs.writeFileSync(data, source, { mode: 0o600, flag: "wx" });
@@ -149,6 +195,7 @@ export class RestoreUploads {
       return { archiveId };
     } finally {
       fs.rmSync(data, { force: true });
+      release();
     }
   }
 }

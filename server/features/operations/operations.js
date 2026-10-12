@@ -9,6 +9,7 @@ import { OperationJobs } from "./jobs.js";
 import { atomic, readJson, identifier } from "./files.js";
 import { problem } from "../../lib/storage.js";
 import { ImportedHistory } from "./imported-history.js";
+import { removeAbandonedWork } from "./work-claims.js";
 export class Operations {
   constructor({
     config,
@@ -19,6 +20,9 @@ export class Operations {
     releaseOptions = {},
   }) {
     config = { ...config, dataDir: fs.realpathSync(config.dataDir) };
+    // Only the server cleans up, once: work another process (such as
+    // scripts/operations.mjs) still claims is kept.
+    removeAbandonedWork(config.dataDir);
     this.config = config;
     this.audit = audit;
     this.backup = new Backup({ ...config, audit, withSnapshotBarrier, assistantsBusy });

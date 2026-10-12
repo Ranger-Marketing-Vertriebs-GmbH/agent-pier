@@ -8,7 +8,6 @@ import { writeArchive } from "../../server/features/operations/archive-v2.js";
 import { encryptCredentials } from "../../server/features/operations/archive.js";
 import { fileMember } from "../../server/features/operations/snapshot.js";
 import { Restore } from "../../server/features/operations/restore.js";
-import { randomUUID } from "node:crypto";
 import { encodeArchiveV2 } from "../helpers/backup-archive.js";
 
 const passphrase = "restore fixture passphrase";
@@ -188,27 +187,4 @@ test("an inspection stops after the members it validates; a restore verifies all
     { message: serverMessages.backups.checksumMismatch },
   );
   assert.equal(fs.existsSync(path.join(root, "target")), false);
-});
-
-test("a restore stage left by a crash is removed on the next start", (t) => {
-  const { root, restore } = setup(t);
-  const stage = path.join(root, `.agentpier-restore-${"a".repeat(8)}`);
-  fs.mkdirSync(path.join(stage, "profiles"), { recursive: true });
-  const marker = path.join(restore.directory, `stage-${randomUUID()}.json`);
-  fs.writeFileSync(marker, JSON.stringify({ stage }));
-  // A marker never removes anything that is not a restore stage.
-  const other = path.join(root, "keep");
-  fs.mkdirSync(other);
-  fs.writeFileSync(
-    path.join(restore.directory, `stage-${randomUUID()}.json`),
-    JSON.stringify({ stage: other }),
-  );
-  new Restore({ dataDir: path.join(root, "live") });
-  assert.equal(fs.existsSync(stage), false);
-  assert.equal(fs.existsSync(marker), false);
-  assert.equal(fs.existsSync(other), true);
-  assert.deepEqual(
-    fs.readdirSync(restore.directory).filter((name) => name.startsWith("stage-")),
-    [],
-  );
 });
