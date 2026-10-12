@@ -64,6 +64,26 @@ Removing arbitrary notes is a test/operator filesystem action: AgentPier's note
 editor exposes `MEMORY.md` and `USER.md`, not a workspace-wide deletion control.
 The removed-file assertion explicitly includes a native forced index rebuild;
 it does not promise synchronous erasure from every search reader. Database/WAL
-forensics, backups, provenance-based `memory forget`, transcript indexing,
-automatic consolidation, semantic embeddings, cross-version migration, and
-other operating systems remain outside this contract.
+forensics, backups, provenance-based `memory forget`, semantic embeddings,
+cross-version migration, and other operating systems remain outside this contract.
+
+## Recall across conversations and dreaming
+
+`tests/integration/assistant-recall-contract.test.js` (variable
+`AGENTPIER_PROACTIVITY_CONTRACT_RUNTIME`) covers transcript indexing and automatic
+consolidation on the compiled native configuration:
+
+- An agent with recall finds a marker from its own earlier conversation through an
+  Active Memory pass (a request that offers only the recall tools) before its reply;
+  an agent with memory but without recall finds neither its own earlier marker nor
+  the other agent's, and gets no Active Memory pass. Switching recall off applies
+  live (`sources` back to `["memory"]`) and survives a Gateway restart.
+- The compiled default schedules no dreaming sweep. Enabling dreaming through its
+  documented setting schedules memory-core's sweep; a forced run ingests AgentPier
+  conversations, including those of an agent without memory. This is the evidence
+  for not offering a dreaming switch (see the
+  [gateway guide](assistant-gateway.md#dreaming-is-not-offered)).
+
+The scripted model searches whenever `memory_search` is offered, so these checks
+prove configuration, indexing and isolation, not a real model's recall quality.
+On 2026-10-12 both passed on macOS arm64 against the pinned runtime.
