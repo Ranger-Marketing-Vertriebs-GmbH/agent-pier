@@ -12,7 +12,14 @@ const statusText = (state) =>
     : copy.statuses[state.status] || copy.statuses.pending;
 // "unknown" (not read yet, or a CLI AgentPier cannot ask) stays neutral, never an error.
 // A command starting with "/" (Claude Code's /mcp) is opened in the CLI, not run in a shell.
+// Codex status comes from the owner's own profile; managed accounts log in separately.
 function oauthText(cli, oauth) {
+  if (cli === "codex")
+    return oauth.state === "connected"
+      ? copy.oauthConnectedCodex
+      : oauth.state === "login-required"
+        ? copy.oauthLoginCodex(oauth.command)
+        : copy.oauthUnknownCodex(oauth.command);
   if (oauth.state === "connected") return copy.oauthConnected(names[cli]);
   const session = String(oauth.command).startsWith("/");
   const login = oauth.state === "login-required";
@@ -94,6 +101,11 @@ export default function McpCliStatus({ server, onChanged }) {
               </span>
               {state.oauth && (
                 <span className="mcp-hint">{oauthText(cli, state.oauth)}</span>
+              )}
+              {state.oauth && cli === "codex" && (
+                <span className="mcp-hint">
+                  {copy.oauthCodexAccounts(state.oauth.command)}
+                </span>
               )}
               {state.status === "conflict" && (
                 <span className="mcp-actions">

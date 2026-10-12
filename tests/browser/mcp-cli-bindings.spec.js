@@ -292,8 +292,14 @@ test("a conflict offers both choices and an OAuth server the CLI's login command
   await page.goto(baseURL + "/accounts");
   await expect(page.getByText("Agents: Home · CLIs: Claude Code, Codex")).toBeVisible();
   await expect(page.getByText("Codex: edited by hand in the CLI")).toBeVisible();
+  // Codex status comes from the owner's profile; managed accounts log in on their own.
   await expect(
-    page.getByText("Log in once in Codex: run codex mcp login search"),
+    page.getByText("Log in once in your Codex profile: codex mcp login search"),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "AgentPier-managed Codex accounts keep their own MCP logins: run codex mcp login search in a session of that account.",
+    ),
   ).toBeVisible();
   // An unknown login state is neutral, not an error.
   await expect(
