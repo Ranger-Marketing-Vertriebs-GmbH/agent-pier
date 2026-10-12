@@ -1,0 +1,64 @@
+.mcp-cli-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.mcp-cli-choices legend {
+  padding: 0;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.mcp-cli-choice label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.mcp-cli-choice input[type="checkbox"] {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+.mcp-cli-choice small {
+  display: block;
+  margin-left: 28px;
+}
+.mcp-cli-status ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.mcp-cli-status li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mcp-cli-status code {
+  overflow-wrap: anywhere;
+}
+.mcp-cli-finds {
+  margin-top: 20px;
+}
+.mcp-cli-finds h3 {
+  margin: 0 0 4px;
+}
+.mcp-cli-finds label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.mcp-cli-finds input {
+  max-width: 100%;
+}

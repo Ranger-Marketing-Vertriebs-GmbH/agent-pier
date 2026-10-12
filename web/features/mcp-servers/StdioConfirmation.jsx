@@ -1,25 +1,40 @@
 import React from "react";
 import { useAlertDialogFocus } from "../../components/useAlertDialogFocus.js";
+import { mcpCliCopy as cliCopy } from "../../lib/i18n/messages/mcp-cli.js";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
 
-/** Warns that stdio servers run with the owner's rights; the owner confirms or backs out. */
+/**
+ * Warns that stdio servers run with the owner's rights; the owner confirms or backs
+ * out. `binding` asks for an agent, `cli` for coding CLIs.
+ */
 export default function StdioConfirmation({
   binding = false,
+  cli = false,
   busy,
   returnKey,
   onConfirm,
   onCancel,
 }) {
   const focus = useAlertDialogFocus(onCancel, returnKey);
+  const title = cli
+    ? cliCopy.stdioCliTitle
+    : binding
+      ? copy.stdioBindingTitle
+      : copy.stdioWarningTitle;
+  const warning = cli
+    ? cliCopy.stdioCliWarning
+    : binding
+      ? copy.stdioBindingWarning
+      : copy.stdioWarning;
+  const confirmLabel = cli
+    ? cliCopy.stdioCliConfirm
+    : binding
+      ? copy.stdioBindingConfirm
+      : copy.stdioConfirm;
   return (
-    <div
-      {...focus}
-      className="mcp-confirmation"
-      role="alertdialog"
-      aria-label={binding ? copy.stdioBindingTitle : copy.stdioWarningTitle}
-    >
-      <strong>{binding ? copy.stdioBindingTitle : copy.stdioWarningTitle}</strong>
-      <p>{binding ? copy.stdioBindingWarning : copy.stdioWarning}</p>
+    <div {...focus} className="mcp-confirmation" role="alertdialog" aria-label={title}>
+      <strong>{title}</strong>
+      <p>{warning}</p>
       <div className="mcp-actions">
         <button
           type="button"
@@ -27,7 +42,7 @@ export default function StdioConfirmation({
           disabled={busy}
           onClick={onConfirm}
         >
-          {binding ? copy.stdioBindingConfirm : copy.stdioConfirm}
+          {confirmLabel}
         </button>
         <button
           type="button"

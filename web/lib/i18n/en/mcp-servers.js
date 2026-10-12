@@ -1,7 +1,7 @@
 export const mcpServerCopy = {
   title: "MCP servers",
   description:
-    "Central MCP servers that you can give to agents. Header and environment values are stored on this computer and are never shown again.",
+    "Central MCP servers for agents and coding CLIs. Header and environment values are stored on this computer and are never shown again.",
   loading: "Loading…",
   empty: "No MCP servers yet.",
   add: "Add MCP server",
