@@ -54,6 +54,8 @@ import { detectTools } from "./features/accounts/account-store.js";
 import { toolBinDirectories } from "./features/tools/tool-paths.js";
 import { authorizeRequest, securityHeaders } from "./http/security.js";
 import { mcpOAuthCallbackRoutes } from "./http/routes/mcp-oauth.js";
+import { mcpCliOAuthCallbackRoutes } from "./http/routes/mcp-cli-oauth.js";
+import { createCodexMcpLogins } from "./application/codex-mcp-logins.js";
 import { mcpServerRoutes } from "./http/routes/mcp-servers.js";
 import { registerResponses } from "./http/responses.js";
 import { buildHeader, buildIdentity } from "./http/build-identity.js";
@@ -137,6 +139,7 @@ export async function createApplication(config) {
   services.effectiveConfig = effective;
   services.instanceId = instanceId;
   Object.assign(services, createMcpServices(services, effective));
+  services.codexMcpLogins = createCodexMcpLogins(services, effective);
   services.sessionMcp = new SessionMcp(services);
   await services.sessionMcp.ready;
   // Runs after SessionMcp so assistant recovery can never delay it; failures stay isolated.
@@ -183,6 +186,7 @@ export async function createApplication(config) {
   app.use("/auth", loginRoutes(services.login, effective));
   // Authenticated by its single-use OAuth state, not the session cookie.
   app.use("/api", mcpOAuthCallbackRoutes(services));
+  app.use("/api", mcpCliOAuthCallbackRoutes(services));
   app.use("/api", requireLogin(services.login, effective));
   // Slow mobile links benefit most; downloads stream raw bytes uncompressed.
   app.use(

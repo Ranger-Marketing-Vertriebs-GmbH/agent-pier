@@ -72,4 +72,13 @@ export const mcpServers = Object.freeze({
   cliReasonInvalid: "This coding CLI cannot take the server as it is.",
   cliReasonDuplicate:
     "The CLI lists this name more than once. Please remove one of the entries in the CLI.",
+  cliLoginNotBound:
+    "The server is not assigned to Codex. Select Codex among the server's coding CLIs.",
+  cliLoginAccountInvalid:
+    "AgentPier logs in only in Codex accounts it manages. In your own Codex profile run codex mcp login in a terminal.",
+  cliLoginCodexMissing: "Codex is not installed on this computer.",
+  cliLoginLimit: "Too many Codex logins are open. Complete or cancel one and try again.",
+  cliLoginPrepareFailed:
+    "The Codex account could not be prepared. Try again once no plugin action is running.",
+  cliLoginFailed: "Codex could not start the login. Please try again.",
 });

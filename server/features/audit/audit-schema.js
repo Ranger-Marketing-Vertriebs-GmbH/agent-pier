@@ -185,6 +185,9 @@ export function auditEvent(input) {
     /^[a-z]+(?:-[a-z]+){0,4}$/.test(details.failReason)
   )
     event.details.failReason = details.failReason;
+  // Brokered CLI logins name the managed account they logged in.
+  if (input.resourceType === "mcp" && details.accountId !== undefined)
+    event.details.accountId = auditId(details.accountId);
   for (const key of ["requestedBy", "teamId"])
     if (details[key] !== undefined) event.details[key] = auditId(details[key]);
   // MCP server changes name the transport, the fields a change sent and whether the

@@ -239,3 +239,49 @@ test("a stored change answers success when one CLI fails; the others are still w
   for (const line of f.warnings) assert.doesNotMatch(line, /\/|secret/);
   assert.match(f.warnings[0], /SQLITE_BUSY/);
 });
+
+test("an OAuth server bound to Codex lists each managed account's login", async (t) => {
+  const f = cliMcpFixture(t);
+  const view = {
+    a2: { pending: true },
+    a3: { result: "error", reason: "access_denied" },
+  };
+  const cli = service(f, {
+    oauthStatus: {
+      codex: async () => ({ docs: "login-required" }),
+      accountStates: () => ({
+        accounts: [
+          { id: "a1", name: "Work" },
+          { id: "a2", name: "Private" },
+          { id: "a3", name: "Third" },
+          { id: "a4", name: "Fourth" },
+          { id: "a5", name: "Fifth" },
+        ],
+        states: {
+          a1: { docs: "connected" },
+          a2: { docs: "login-required" },
+          a3: { docs: "login-required" },
+          a5: { docs: "connected" },
+        },
+      }),
+    },
+    codexLogins: () => ({ view: (id) => (id === server.id ? view : {}) }),
+  });
+  const server = f.servers.create(http({ auth: "oauth", headers: undefined }));
+  view.a5 = { result: "error", reason: "cli-failed" };
+  await cli.setClis(server.id, ["codex", "claude"]);
+  const [listed] = await cli.decorate(f.servers.list());
+  assert.deepEqual(listed.cliStatus.codex.oauth, {
+    state: "login-required",
+    command: "codex mcp login docs",
+    accounts: [
+      { id: "a1", name: "Work", state: "connected" },
+      { id: "a2", name: "Private", state: "pending" },
+      { id: "a3", name: "Third", state: "failed", reason: "access_denied" },
+      { id: "a4", name: "Fourth", state: "unknown" },
+      // A later login in a session wins over an earlier failure.
+      { id: "a5", name: "Fifth", state: "connected" },
+    ],
+  });
+  assert.equal(listed.cliStatus.claude.oauth.accounts, undefined);
+});

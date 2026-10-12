@@ -28,6 +28,16 @@ export function oauthRedirect({ remoteUrl, port }) {
   return `${origin}${oauthCallbackPath}`;
 }
 
+// Where a brokered coding-CLI login (Codex) returns to. Codex appends a path segment
+// of its own per server URL; the callback is routed by `state` (codex-mcp-logins.js).
+export const cliOAuthCallbackPath = "/api/mcp-servers/cli-oauth/callback";
+
+/** The callback URL a brokered Codex login is started with (same origin rule as above). */
+export function cliOAuthCallback({ remoteUrl, port }) {
+  const origin = httpsOrigin(remoteUrl) || `http://127.0.0.1:${port}`;
+  return `${origin}${cliOAuthCallbackPath}`;
+}
+
 /**
  * Whether a login started from `requestOrigin` can complete: the browser must reach
  * the redirect URL. A plain-HTTP network origin never can (reason

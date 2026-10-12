@@ -21,28 +21,56 @@ const codeOf = (error) =>
 
 /**
  * OAuth login state in Codex, the only CLI with machine-readable status:
- * `{ [name]: "connected" | "login-required" | "unknown" }`. Stale-while-revalidate:
- * `codex()` answers at once with the last known states (`{}`, i.e. unknown, on a
- * cold start) and starts at most one background read when they are older than half
- * a minute; no request ever waits for Codex. The read runs the installed Codex on the
- * owner's canonical profile (`local-codex`, as its sessions do) and is killed after
- * ten seconds. A failed read keeps the last states and logs its code only; the output
- * (which lists header values) never leaves this class.
+ * `{ [name]: "connected" | "login-required" | "unknown" }`, for the owner's canonical
+ * profile (`local-codex`, as its sessions run) and for each AgentPier-managed Codex
+ * account, whose MCP logins live in its own CODEX_HOME (file store, pinned with its
+ * `-c` overrides). Stale-while-revalidate: `codex()` and `accountStates()` answer at
+ * once with the last known states (none, i.e. unknown, on a cold start) and start at
+ * most one background read when they are older than half a minute; no request ever
+ * waits for Codex. Each read is killed after ten seconds. A failed read keeps that
+ * profile's last states and logs its code only; the output (which lists header
+ * values) never leaves this class.
  */
 export class CliOAuthStatus {
   constructor({ tools, accounts, run = execute, now = Date.now, warn = console.warn }) {
     Object.assign(this, { tools, accounts, run, now, warn });
     this.last = {};
+    this.managedStates = {};
     this.readAt = null;
     this.pending = null;
   }
-  codex() {
+  /** The managed Codex accounts AgentPier can log in (`{ id, name }`). */
+  managed() {
+    return (this.accounts.list?.() ?? [])
+      .filter((account) => account.kind === "managed" && account.tool === "codex")
+      .map((account) => ({ id: account.id, name: account.name }));
+  }
+  ensure() {
     if (
       !this.pending &&
       (this.readAt === null || this.now() - this.readAt >= statusTtlMs)
     )
       this.refresh();
+  }
+  codex() {
+    this.ensure();
     return Promise.resolve(this.last);
+  }
+  /** `{ accounts: [{ id, name }], states: { [accountId]: { [name]: state } } }`. */
+  accountStates() {
+    this.ensure();
+    return { accounts: this.managed(), states: this.managedStates };
+  }
+  /** A login AgentPier just completed shows before the next read confirms it. */
+  mark(accountId, name, state) {
+    this.managedStates = {
+      ...this.managedStates,
+      [accountId]: { ...this.managedStates[accountId], [name]: state },
+    };
+  }
+  /** The next caller starts a new read. */
+  invalidate() {
+    this.readAt = null;
   }
   /** The background read; resolves once it has settled (tests wait on it). */
   refresh() {
@@ -52,9 +80,22 @@ export class CliOAuthStatus {
         this.last = await this.read();
       } catch (error) {
         this.warn(`Codex MCP login status could not be read (${codeOf(error)}).`);
-      } finally {
-        this.pending = null;
       }
+      const states = { ...this.managedStates };
+      const managed = this.managed();
+      for (const account of managed)
+        try {
+          states[account.id] = await this.read(account.id);
+        } catch (error) {
+          this.warn(
+            `Codex MCP login status of an account could not be read (${codeOf(error)}).`,
+          );
+        }
+      const known = new Set(managed.map((account) => account.id));
+      this.managedStates = Object.fromEntries(
+        Object.entries(states).filter(([id]) => known.has(id)),
+      );
+      this.pending = null;
     })();
     return this.pending;
   }
@@ -62,11 +103,19 @@ export class CliOAuthStatus {
   async settled() {
     await this.pending;
   }
-  async read() {
+  async read(accountId = "local-codex") {
     const tool = this.tools().find((item) => item.id === "codex" && item.installed);
     if (!tool) return {};
-    const { stdout } = await this.run(tool.path, ["mcp", "list", "--json"], {
-      env: this.accounts.environment("local-codex"),
+    const args = [
+      ...(accountId === "local-codex"
+        ? []
+        : this.accounts.codexCredentialArgs(accountId)),
+      "mcp",
+      "list",
+      "--json",
+    ];
+    const { stdout } = await this.run(tool.path, args, {
+      env: this.accounts.environment(accountId),
       cwd: this.accounts.home,
       timeout: 10000,
       maxBuffer: 1 << 20,
