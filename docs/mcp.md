@@ -170,7 +170,9 @@ needs the owner's confirmation, because every session of that CLI starts it.
   stdio and HTTP or SSE (`remote`). Only Claude Code cannot start a stdio command in a
   working directory. Unsupported combinations are disabled with a reason in the form
   and refused by the API (`400 MCP_CLI_TRANSPORT_UNSUPPORTED`,
-  `400 MCP_CLI_CWD_UNSUPPORTED`). [cli-mcp-qualification.md](cli-mcp-qualification.md)
+  `400 MCP_CLI_CWD_UNSUPPORTED`). When an edit rules out a CLI the server is bound to,
+  the form says that saving removes the server from that CLI; a newly chosen CLI that
+  drops out is named too. [cli-mcp-qualification.md](cli-mcp-qualification.md)
   records the native forms and how they were verified.
 - **Ownership.** AgentPier records each entry it wrote by name and SHA-256 hash in
   `<data>/mcp-servers/servers.sqlite` (`cli_entries`); the native files get no marker.
