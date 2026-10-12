@@ -427,11 +427,28 @@ test(
     });
     oauth.state.rejectTokens = false;
 
-    // (e) Logout clears the store.
+    // (e) Logout clears the store: no tokens, client, verifier or discovery remain.
     const logout = await cli(["mcp", "logout", "docs"]);
     assert.equal(logout.code, 0, logout.stderr);
     assert.equal(logout.stdout, 'MCP OAuth credentials cleared for "docs".\n');
-    assert.deepEqual(await state("docs"), first.server.authStatus);
+    const noFlags = { ...first.server.authStatus };
+    delete noFlags.state;
+    const { state: cleared, ...clearedFlags } = await state("docs");
+    assert.deepEqual(clearedFlags, noFlags);
+    // `unauthenticated`, unless a Gateway MCP request reached the server after the
+    // logout (macOS CI saw one): its 401 records the challenge on the cleared store.
+    // With the Gateway stopped nothing writes the store; (f) asserts the exact status.
+    assert.ok(["unauthenticated", "pending-authorization"].includes(cleared), cleared);
+    // A turn after the logout settles it: the start without a token records the
+    // challenge, `pending-authorization` without any flag (as a server never logged in).
+    await patchConfig(client, (config) => ({
+      patch: { mcp: { sessionIdleTtlMs: nudgedIdleTtl(config.mcp?.sessionIdleTtlMs) } },
+    }));
+    assert.deepEqual((await turn(null, "logged-out")).offered, []);
+    assert.deepEqual(await state("docs"), {
+      ...noFlags,
+      state: "pending-authorization",
+    });
 
     // (e) Log in again, then rename and change the URL: both orphan the login.
     const third = await cli(["mcp", "login", "docs"]);
@@ -503,7 +520,7 @@ test(
     assert.deepEqual(grants().slice(refreshFrom), ["refresh_token"]);
     const stoppedLogout = await cli(["mcp", "logout", "docs"], minimal);
     assert.equal(stoppedLogout.code, 0, stoppedLogout.stderr);
-    assert.equal((await state("docs", minimal)).state, "unauthenticated");
+    assert.deepEqual(await state("docs", minimal), first.server.authStatus);
   },
 );
 

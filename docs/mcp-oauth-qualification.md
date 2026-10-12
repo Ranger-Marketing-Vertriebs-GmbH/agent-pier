@@ -179,6 +179,7 @@ worth; AgentPier accepts this and never logs the code itself.
 | `--code` completed                    | yes    | no      | yes    | no       | yes       | no      | `authorized` + expiresAt |
 | refresh token revoked (invalid_grant) | no     | no      | yes    | no       | yes       | no      | `pending-authorization`  |
 | a turn tried it without any login     | no     | no      | no     | –        | –         | –       | `pending-authorization`  |
+| a Gateway request after logout        | no     | no      | no     | no       | no        | no      | `pending-authorization`  |
 | token still refused after a refresh   | yes    | yes     | yes    | no       | yes       | no      | `requires-authorization` |
 
 A revoked refresh token does **not** yield `requires-authorization`: the MCP SDK
@@ -211,8 +212,20 @@ refresh (or answers 403 `insufficient_scope`). `expiresAt` follows the token's
 ### (e) Logout, rename, URL change
 
 - `openclaw mcp logout <name>`: exit `0`, stdout
-  `MCP OAuth credentials cleared for "<name>".`; status `unauthenticated` with every
-  flag false (the DCR client is dropped too).
+  `MCP OAuth credentials cleared for "<name>".`; every flag false (the DCR client is
+  dropped too; the row becomes `{ credentialState: "cleared" }`). The state is
+  `unauthenticated` only while no Gateway MCP request reaches the server: any such
+  request after the logout is answered 401, and OpenClaw records the server's
+  `WWW-Authenticate` challenge on the cleared row (`authorizationChallenge` without
+  `requiresAuthorization`), which `projectMcpOAuthCredentialsStatus` reports as
+  `pending-authorization` with every flag false, as for a server never logged in.
+  This happened once on macOS CI (2026-10-12), between the logout and the next
+  status read, after the `requires-authorization` step. The contract therefore
+  asserts all flags false and either state right after the logout, then runs a turn
+  (after the backoff-reset nudge) and asserts `pending-authorization` without flags;
+  `unauthenticated` exactly is asserted in (f), with the Gateway stopped. AgentPier
+  needs no change: that state without a client and without an AgentPier login reads
+  "not-connected" (or "login-required" for a server connected before).
 - Renaming the server (same URL) shows the new name `unauthenticated`; changing the
   URL (here `127.0.0.1` to `localhost`) shows `unauthenticated`; restoring the
   original name and URL shows `authorized` again. The row stays in
