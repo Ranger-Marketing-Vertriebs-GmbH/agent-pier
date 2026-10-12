@@ -28,6 +28,9 @@ export const backups = Object.freeze({
   projectMappingsCollide: "Project mappings collide.",
   invalidMemoryReferences: "Restored memory references are invalid.",
   unexpectedComponent: "Unexpected backup component.",
+  invalidMcpServerStore: "The backup's MCP server database is invalid.",
+  invalidMcpServerValues:
+    "The backup's sealed MCP server values are invalid. Nothing was restored.",
   invalidManifest: "Invalid backup manifest.",
   credentialManifestMismatch: "Credential manifest does not match archive.",
   restoreTargetInvalid: "Restore target must be an absolute fresh directory.",

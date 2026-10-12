@@ -906,26 +906,36 @@ host backup without credentials leaves the values out.
 
 Host backups also capture the server store (`<data>/mcp-servers/servers.sqlite`,
 AGENTPIER-42) as a consistent SQLite snapshot. The public archive member is a
-sanitized copy: definitions, agent and CLI bindings and the hashes of the CLI
-entries AgentPier wrote stay; header and environment values, the query string and
-fragment of each address, the OAuth login state (`oauth_connected`, the registered
-login redirect) and pending or remembered OAuth logouts are removed, and the copy is
-vacuumed so no removed value survives in a free page. A backup with credentials
-seals the values and the full addresses in its passphrase capsule
-(`mcp-server-secrets/servers.json`); the restore writes them back into the restored
-store and never leaves that member in the new data directory. A restore without
-them lists each server that had values or an address token in
-`credentialsNeedingLogin` as `mcp:<name>`; enter its values again under **Accounts**.
+sanitized copy that keeps only the tables and columns the store defines: server
+definitions and agent and CLI bindings stay. A stdio server's command, arguments
+and working directory are definitions and stay public, so put tokens into its
+environment, never into its arguments. Header and environment values, the query
+string and fragment of each address, the OAuth login state (`oauth_connected`, the
+registered login redirect) and pending or remembered OAuth logouts are removed. So
+are the records of the native CLI entries AgentPier wrote for a server with removed
+values or a removed address token, or for a deleted server: an entry's hash covers
+its values and would let anyone test guesses of a short one. The copy is vacuumed
+so no removed value survives in a free page.
+
+A backup with credentials seals the values, the full addresses and those entry
+records in its passphrase capsule (`mcp-server-secrets/servers.json`). The restore
+checks them with the store's own rules, writes them back into the restored store
+and never leaves that member in the new data directory; a sealed member the store
+would refuse aborts the restore before anything is written, while an address it
+would refuse is left out and reported. A restore without them lists each affected
+server in `credentialsNeedingLogin`: `mcp:<name>` when its header or environment
+values are missing, `mcp-address:<name>` when the token in its address is missing.
+Enter them again under **Accounts**.
+
 The restored instance's next start reconciles the coding CLIs: it writes managed
-entries a CLI lacks and leaves entries the owner changed as conflicts. For a server
-restored without its values, the restore forgets which native CLI entries AgentPier
-wrote (its bindings stay): an entry still in a CLI's file then shows as a taken name
-that **Adopt** takes over with its values, and AgentPier never rewrites or removes
-it. Runtime
-update snapshots do not include the server store: it stays on the host. Builds
-before AGENTPIER-42 refuse a backup with the store ("Unexpected backup
-component"); older backups, which declared the store as left out, restore without
-it.
+entries a CLI lacks and leaves entries the owner changed as conflicts. A server
+restored without its values or address token has no record of the native CLI
+entries AgentPier wrote (its bindings stay): an entry still in a CLI's file shows
+as a taken name that **Adopt** takes over with its values, and AgentPier never
+rewrites or removes it. Runtime update snapshots do not include the server store:
+it stays on the host. Builds before AGENTPIER-42 refuse a backup with the store
+("Unexpected backup component"); older backups, which declared the store as left
+out, restore without it.
 
 ### OAuth logins (AGENTPIER-37)
 

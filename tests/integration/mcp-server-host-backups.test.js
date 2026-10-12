@@ -78,8 +78,6 @@ function seed(dataDir) {
     transport: "http",
   });
   servers.recordLogout({ name: "gone", url: "https://gone.example.test/mcp" }, 1);
-  servers.cliEntries.intend(local.id, "codex", "local", "hash-1");
-  servers.cliEntries.settle(local.id, "codex", "hash-1");
   const before = {
     docs: { url: servers.definitions().find((d) => d.id === docs.id).url },
     secrets: { docs: servers.secrets(docs.id), local: servers.secrets(local.id) },
@@ -151,9 +149,8 @@ test("a host backup captures the MCP server store without values, tokens or logi
       { server_id: local.id, target_kind: "cli", target_id: "codex" },
     ],
   );
-  assert.deepEqual(rows(copy, "SELECT server_id,cli,name,hash FROM cli_entries"), [
-    { server_id: local.id, cli: "codex", name: "local", hash: "hash-1" },
-  ]);
+  // Withheld servers' CLI entry hashes would reveal their values (see the hash tests).
+  assert.deepEqual(rows(copy, "SELECT * FROM cli_entries"), []);
   assert.ok(login.id);
 });
 
@@ -177,7 +174,7 @@ test("with credentials the values are sealed and a restore brings them back exac
     passphrase,
   });
   assert.deepEqual(
-    report.credentialsNeedingLogin.filter((item) => item.startsWith("mcp:")),
+    report.credentialsNeedingLogin.filter((item) => item.startsWith("mcp")),
     [],
   );
   assert.equal(fs.existsSync(path.join(target, "mcp-server-secrets")), false);
@@ -210,8 +207,8 @@ test("a restore without credentials names exactly the servers that need values",
     targetDataDir: target,
   });
   assert.deepEqual(
-    report.credentialsNeedingLogin.filter((item) => item.startsWith("mcp:")),
-    ["mcp:docs", "mcp:local"],
+    report.credentialsNeedingLogin.filter((item) => item.startsWith("mcp")),
+    ["mcp:docs", "mcp-address:docs", "mcp:local"],
   );
   const restored = open(target);
   try {
@@ -257,8 +254,8 @@ test("a store from before OAuth and CLI entries restores and opens", async (t) =
       ...(withCredentials ? { passphrase } : {}),
     });
     assert.deepEqual(
-      report.credentialsNeedingLogin.filter((item) => item.startsWith("mcp:")),
-      withCredentials ? [] : ["mcp:old"],
+      report.credentialsNeedingLogin.filter((item) => item.startsWith("mcp")),
+      withCredentials ? [] : ["mcp:old", "mcp-address:old"],
     );
     const restored = open(target);
     try {
