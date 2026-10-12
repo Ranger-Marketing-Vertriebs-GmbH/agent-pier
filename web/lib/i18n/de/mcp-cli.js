@@ -57,6 +57,10 @@ export const mcpCliCopy = {
   foundTitle: "In den CLIs gefunden",
   foundHint:
     "Einträge, die du selbst in einer CLI angelegt hast. AgentPier lässt sie unverändert, bis du sie übernimmst. Werte werden nie angezeigt.",
+  foundLoading: "Suche in den CLIs …",
+  adopted: (names) => `Übernommen: ${names}.`,
+  envReferences: (names) =>
+    `Nutzt Verweise auf Umgebungsvariablen (in ${names}), die andere CLIs und Agenten nicht auflösen können; bleibt in der CLI.`,
   foundNone: "Sonst nichts in den CLIs gefunden.",
   foundIn: (clis) => `in ${clis}`,
   valueNames: (names) => `Werte: ${names}`,
