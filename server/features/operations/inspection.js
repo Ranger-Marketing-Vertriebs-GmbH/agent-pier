@@ -6,5 +6,5 @@ import { isRelocatableMember } from "./assistant-backup.js";
  * agent files are only verified by a restore. Backups write these members first.
  */
 export const inspected = (name) =>
-  !/^(profiles|sessions|chat|imported-history)\//.test(name) &&
+  !/^(profiles|sessions|chat|imported-history|sealed)\//.test(name) &&
   (!name.startsWith("assistants/") || isRelocatableMember(name));

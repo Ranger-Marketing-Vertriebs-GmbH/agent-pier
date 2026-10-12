@@ -25,6 +25,7 @@ import { isLoginFile, profileMemberKind } from "./profile-allowlist.js";
 import { remapClaudeProjects } from "./profile-history.js";
 import { inspected } from "./inspection.js";
 import { RestoreUploads } from "./restore-upload.js";
+import { SEAL_MEMBER, sealRecord, Unsealer } from "./history-seal.js";
 import { claim } from "./work-claims.js";
 
 // Histories read line by line: an archived prefix of them stays valid.
@@ -152,6 +153,11 @@ async function stageFile(archive, directory, { passphrase, inspect }) {
   let bytes = 0;
   for (const member of header.members) {
     if (member.kind === "credentials") continue;
+    if (member.kind === "sealed") {
+      // Its real path is checked once the capsule names it.
+      if (!inspect) bytes += member.size;
+      continue;
+    }
     if (!allowed(member.path, false, 2))
       throw problem(serverMessages.backups.unexpectedComponent);
     publicPaths.push(member.path);
@@ -174,7 +180,8 @@ async function stageFile(archive, directory, { passphrase, inspect }) {
       .map((entry) => entry.component),
   );
   const leftOut = [];
-  let secrets = null;
+  let secrets = null,
+    seals = null;
   await readArchive(archive, {
     count,
     visit: (member) => {
@@ -182,10 +189,34 @@ async function stageFile(archive, directory, { passphrase, inspect }) {
         return {
           // The capsule comes first: a wrong passphrase fails before any history.
           collect: async (sealed) => {
-            if (decrypt)
-              secrets = checkSecrets(await capsule(sealed, passphrase), publicPaths, 2);
+            if (!decrypt) return;
+            const opened = await capsule(sealed, passphrase);
+            seals = sealRecord(opened) || new Map();
+            const histories = [...seals.values()].map((seal) => seal.path);
+            for (const name of histories)
+              if (profileMemberKind(name) !== "history")
+                throw problem(serverMessages.backups.unexpectedComponent);
+            secrets = checkSecrets(
+              opened.filter((entry) => entry.path !== SEAL_MEMBER),
+              [...publicPaths, ...histories],
+              2,
+            );
           },
         };
+      if (member.kind === "sealed") {
+        if (inspect && !seals) return null;
+        const seal = seals?.get(member.path);
+        if (!seal) throw problem(serverMessages.backups.unexpectedComponent);
+        if (changed.has(member.path) && !lineBased.test(seal.path)) {
+          leftOut.push(seal.path);
+          return null;
+        }
+        if (inspect) return null;
+        return {
+          file: path.join(directory, seal.path),
+          unseal: new Unsealer(seal, member.size),
+        };
+      }
       // Checked again against the header this read itself validated.
       if (!allowed(member.path, false, 2))
         throw problem(serverMessages.backups.unexpectedComponent);

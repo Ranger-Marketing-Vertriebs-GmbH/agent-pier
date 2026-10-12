@@ -81,7 +81,7 @@ export function encodeArchiveV2(archive) {
     path: file.path,
     data: Buffer.from(file.content, "base64"),
     sha256: file.sha256,
-    kind: "public",
+    kind: file.path.startsWith("sealed/") ? "sealed" : "public",
   }));
   if (archive.credentials) {
     const data = Buffer.from(JSON.stringify(archive.credentials));

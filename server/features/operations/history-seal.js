@@ -1,0 +1,176 @@
+import { serverMessages } from "../../lib/i18n/de.js";
+import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { problem } from "../../lib/storage.js";
+import { fileMember } from "./snapshot.js";
+
+/**
+ * CLI histories are archived only in backups with a passphrase, and then sealed
+ * (docs/backups.md): AES-256-GCM over fixed-size chunks with a key random per
+ * backup. The key, the backup id and which entry holds which history file live in
+ * the passphrase capsule (`SEAL_MEMBER`); the archive shows only opaque entry names
+ * (`sealed/<n>`) and ciphertext sizes and hashes.
+ *
+ * Chunk i of entry n: ciphertext of up to CHUNK plaintext bytes plus a 16-byte tag.
+ * Nonce: n (4 bytes) and i (8 bytes). Additional data: backup id, history path,
+ * i and whether it is the last chunk, so a chunk cannot be moved, reordered,
+ * dropped at the end or attached to another file.
+ */
+export const SEAL_MEMBER = "history-seal.json";
+export const CHUNK = 1024 * 1024;
+const TAG = 16;
+const failed = () => problem(serverMessages.backups.historyAuthenticationFailed);
+
+/** Archive size of a sealed file of `size` plaintext bytes. */
+export function sealedSize(size) {
+  return size + TAG * Math.max(1, Math.ceil(size / CHUNK));
+}
+const nonce = (entry, index) => {
+  const value = Buffer.alloc(12);
+  value.writeUInt32BE(entry, 0);
+  value.writeBigUInt64BE(BigInt(index), 4);
+  return value;
+};
+const aad = (seal, index, last) =>
+  Buffer.from(`${seal.id}\0${seal.path}\0${index}\0${last ? 1 : 0}`);
+
+/**
+ * Plans sealing for history members of backup `id`: each gets an opaque archive
+ * name and a `seal`; the returned `record` goes into the capsule.
+ */
+export function sealHistory(id, members) {
+  const key = randomBytes(32);
+  const sealed = members.map((member, entry) => ({
+    ...member,
+    name: `sealed/${entry}`,
+    seal: { key, id, entry, path: member.path },
+  }));
+  const record = fileMember(SEAL_MEMBER, {
+    version: 1,
+    cipher: "aes-256-gcm",
+    chunk: CHUNK,
+    id,
+    key: key.toString("base64"),
+    members: sealed.map((member) => ({ name: member.name, path: member.path })),
+  });
+  return { members: sealed, record };
+}
+
+/** Seals `size` plaintext bytes from `chunks` into ciphertext chunks. */
+export async function* sealChunks(chunks, size, seal) {
+  let pending = [],
+    pendingLength = 0,
+    index = 0,
+    consumed = 0;
+  const emit = (data) => {
+    consumed += data.length;
+    const last = consumed === size;
+    const cipher = createCipheriv("aes-256-gcm", seal.key, nonce(seal.entry, index));
+    cipher.setAAD(aad(seal, index, last));
+    index++;
+    return Buffer.concat([cipher.update(data), cipher.final(), cipher.getAuthTag()]);
+  };
+  if (size === 0) {
+    yield emit(Buffer.alloc(0));
+    return;
+  }
+  for await (const chunk of chunks) {
+    pending.push(chunk);
+    pendingLength += chunk.length;
+    while (pendingLength >= CHUNK) {
+      const all = Buffer.concat(pending, pendingLength);
+      yield emit(all.subarray(0, CHUNK));
+      pending = [all.subarray(CHUNK)];
+      pendingLength -= CHUNK;
+    }
+  }
+  if (pendingLength) yield emit(Buffer.concat(pending, pendingLength));
+  if (consumed !== size) throw failed();
+}
+
+/**
+ * Opens a sealed entry of `size` archive bytes while it streams: `update(chunk)`
+ * returns plaintext of the chunks completed and authenticated so far, `final()`
+ * the rest. Any tampering, truncation or reordering throws; no unauthenticated
+ * byte is ever returned.
+ */
+export class Unsealer {
+  constructor(seal, size) {
+    this.seal = seal;
+    this.size = size;
+    this.chunks = Math.max(1, Math.ceil(size / (CHUNK + TAG)));
+    const lastSize = size - (this.chunks - 1) * (CHUNK + TAG);
+    if (lastSize < TAG) throw failed();
+    this.index = 0;
+    this.parts = [];
+    this.length = 0;
+  }
+  open(data) {
+    const last = this.index === this.chunks - 1;
+    const decipher = createDecipheriv(
+      "aes-256-gcm",
+      this.seal.key,
+      nonce(this.seal.entry, this.index),
+    );
+    decipher.setAAD(aad(this.seal, this.index, last));
+    decipher.setAuthTag(data.subarray(data.length - TAG));
+    this.index++;
+    try {
+      return Buffer.concat([
+        decipher.update(data.subarray(0, data.length - TAG)),
+        decipher.final(),
+      ]);
+    } catch {
+      throw failed();
+    }
+  }
+  update(chunk) {
+    this.parts.push(chunk);
+    this.length += chunk.length;
+    const opened = [];
+    // The last chunk waits for final(), whatever its size.
+    while (this.length >= CHUNK + TAG && this.index < this.chunks - 1) {
+      const all = Buffer.concat(this.parts, this.length);
+      opened.push(this.open(all.subarray(0, CHUNK + TAG)));
+      this.parts = [all.subarray(CHUNK + TAG)];
+      this.length -= CHUNK + TAG;
+    }
+    return opened;
+  }
+  final() {
+    if (this.index !== this.chunks - 1) throw failed();
+    return [this.open(Buffer.concat(this.parts, this.length))];
+  }
+}
+
+/** The seal record from decrypted capsule members, or null; validated. */
+export function sealRecord(secrets) {
+  const member = secrets.find((entry) => entry.path === SEAL_MEMBER);
+  if (!member) return null;
+  let value;
+  try {
+    value = JSON.parse(Buffer.from(member.content, "base64"));
+  } catch {
+    throw failed();
+  }
+  const key = Buffer.from(value?.key || "", "base64");
+  if (
+    value?.version !== 1 ||
+    value.cipher !== "aes-256-gcm" ||
+    value.chunk !== CHUNK ||
+    typeof value.id !== "string" ||
+    key.length !== 32 ||
+    !Array.isArray(value.members)
+  )
+    throw failed();
+  const byName = new Map();
+  for (const [entry, item] of value.members.entries()) {
+    if (
+      item?.name !== `sealed/${entry}` ||
+      typeof item.path !== "string" ||
+      byName.has(item.name)
+    )
+      throw failed();
+    byName.set(item.name, { key, id: value.id, entry, path: item.path });
+  }
+  return byName;
+}

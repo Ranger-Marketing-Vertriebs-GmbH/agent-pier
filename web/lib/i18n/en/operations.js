@@ -76,7 +76,7 @@ export const operationsCopy = {
   includeHistory: "Include history",
   withCredentials: "Include encrypted credentials",
   backupPrivacy:
-    "History may contain private task content and is not encrypted. Credentials cover logins, settings, instructions, skills and agents of managed CLI profiles; caches, logs, installed CLIs and runtimes are never backed up. External local CLI profiles, keychains and repository working directories stay out.",
+    "AgentPier history may contain private task content and is not encrypted. CLI histories are only backed up in backups with a passphrase, and then encrypted. Credentials cover logins, settings, instructions, skills and agents of managed CLI profiles; caches, logs, installed CLIs and runtimes are never backed up. External local CLI profiles, keychains and repository working directories stay out.",
   passphrase: "Passphrase",
   plan: "Review backup scope",
   create: "Create backup",
@@ -291,7 +291,7 @@ export const backupCopy = {
     "encrypted-managed-profiles":
       "Logins, settings, instructions, skills and agents of managed CLI profiles (encrypted)",
     "cli-histories":
-      "CLI histories: Codex sessions and generated images, Claude Code projects, to-dos and file history, OpenCode sessions",
+      "CLI histories (encrypted): Codex sessions and generated images, Claude Code projects, to-dos and file history, OpenCode sessions",
     "CLI caches, logs, telemetry and files outside the profile allowlists":
       "CLI caches, logs, telemetry and files outside the profile allowlists",
     "CLI conversation histories": "CLI conversation histories",
@@ -324,6 +324,8 @@ export const backupCopy = {
       "Files removed while the backup was written",
     "Files that changed while the backup was written":
       "Files that changed while the backup was written (only line-based histories are restored)",
+    "CLI histories are only backed up in backups with a passphrase, and then encrypted":
+      "CLI histories are only backed up in backups with a passphrase, and then encrypted",
     "Managed native configuration and credentials":
       "Managed native configuration and credentials",
     "coordinated-application-snapshot; independent-native-captures":
