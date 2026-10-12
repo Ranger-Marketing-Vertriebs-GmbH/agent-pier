@@ -146,17 +146,24 @@ export function restoreMcpServers(stage) {
           if (server.url !== undefined) setUrl.run(server.url, id);
           for (const s of server.secrets) put.run(id, s.kind, s.name, s.value);
         }
-        const missing = tablesOf(db).has(withheldTable)
+        const tables = tablesOf(db);
+        const missing = tables.has(withheldTable)
           ? db
               .prepare(
                 `SELECT s.id, s.name FROM ${withheldTable} w JOIN servers s ON s.id=w.server_id ORDER BY s.name`,
               )
               .all()
               .filter((row) => !sealed.has(row.id))
-              .map((row) => `mcp:${row.name}`)
           : [];
+        // A native CLI entry of a server restored without its values is no longer
+        // recorded as AgentPier's: the reconciler then never rewrites or removes it
+        // (its token would be lost), and the owner can adopt it instead.
+        if (tables.has("cli_entries")) {
+          const forget = db.prepare("DELETE FROM cli_entries WHERE server_id=?");
+          for (const row of missing) forget.run(row.id);
+        }
         db.exec(`DROP TABLE IF EXISTS ${withheldTable}; COMMIT`);
-        return missing;
+        return missing.map((row) => `mcp:${row.name}`);
       } catch (error) {
         db.exec("ROLLBACK");
         throw error;
