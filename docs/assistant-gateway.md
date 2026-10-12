@@ -1052,6 +1052,11 @@ the Gateway itself keeps its private `HOME`, state and configuration.**
   that run. A tool found only on the owner's interactive `PATH` (nvm,
   `~/.local/bin`) must be called by its absolute path or added to the service's
   `PATH`.
+- Behind these directories OpenClaw adds the `PATH` of a system login shell
+  (`/bin/sh -l` with the Gateway's private `HOME`, so `/etc/profile` and on macOS
+  `path_helper`, never the owner's profile) and the Gateway's own `PATH`. Programs
+  installed system-wide (`/usr/bin`, and the Homebrew directories) are therefore
+  found even without the owner `PATH`.
 - If the owner account cannot be resolved, the Gateway starts without the wrapper
   and logs a diagnostic; commands then run with the private `HOME`.
 - The Gateway token is only in `gateway.auth.token`; `OPENCLAW_GATEWAY_TOKEN` is

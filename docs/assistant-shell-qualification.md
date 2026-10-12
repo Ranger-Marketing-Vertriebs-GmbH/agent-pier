@@ -216,7 +216,12 @@ execution.` `PATH` and `LD_*`/`DYLD_*` overrides are refused the same way.
   per Gateway process and merges its `PATH`. It uses `$SHELL` only when it is listed
   in `/etc/shells`, otherwise `/bin/sh`, and runs it with `HOME = os.homedir()`, the
   Gateway's `HOME`. With AgentPier's private `HOME`, this yields only the system
-  login path (`/etc/paths`, `/etc/paths.d`), not the owner's profile.
+  login path (`/etc/profile`; on macOS `path_helper` with `/etc/paths` and
+  `/etc/paths.d`), not the owner's profile. The Gateway's own `PATH`, which OpenClaw
+  extends at startup with existing Homebrew directories, follows it. A program
+  installed system-wide is therefore found without any owner `PATH`: GitHub's
+  runners resolve `gh` to `/usr/bin/gh` (Ubuntu) and `/opt/homebrew/bin/gh`
+  (macOS).
 - **`tools.exec.pathPrepend`** (global or per agent, hot) prepends directories after
   OpenClaw's own `<state>/tmp/agent-cli` shim directory. The approval analysis
   resolves executables against the same `PATH`, so `resolvedPath` matches what
@@ -226,7 +231,9 @@ Candidates tested live:
 
 1. **AgentPier today**: private `HOME`, `OPENCLAW_GATEWAY_TOKEN` in the environment.
    - The child sees `HOME=<data>/assistants/home`.
-   - `gh` is not found, and the owner's login profile is not read.
+   - The owner's `gh` is not found, and the owner's login profile is not read
+     (`owner-bin` is not on `PATH`). A system-wide `gh` may resolve; the contract
+     runs only the fixture's `gh`, never the host's.
    - The child sees these `OPENCLAW_*` names (values not recorded):
      `OPENCLAW_CLI`, `OPENCLAW_CONFIG_PATH`, `OPENCLAW_DISABLE_BONJOUR`,
      `OPENCLAW_EXEC_SHELL_SNAPSHOT`, `OPENCLAW_GATEWAY_PORT`,
