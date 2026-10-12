@@ -2,12 +2,16 @@ import React, { useEffect, useState } from "react";
 import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantApi } from "./assistant-api.js";
+import RestartConfirmation from "./RestartConfirmation.jsx";
+import { restartRequired } from "../provider-connections/restart-confirmation.js";
 export default function SpeechSettings() {
   const copy = assistantCopy.speech;
   const [settings, setSettings] = useState(null),
     [key, setKey] = useState(""),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    // Asked when agents' own Telegram bots run with the key: { affected, input }.
+    [restart, setRestart] = useState(null);
   useEffect(() => {
     const controller = new AbortController();
     assistantApi
@@ -18,20 +22,27 @@ export default function SpeechSettings() {
       });
     return () => controller.abort();
   }, []);
-  async function save(removeApiKey = false) {
+  async function save(removeApiKey = false, confirmed = null) {
     setBusy(true);
     setError("");
+    // A confirmed save repeats the request the owner was asked about.
+    const input = confirmed || {
+      revision: settings.revision,
+      model: settings.model,
+      language: settings.language,
+      ...(removeApiKey ? { removeApiKey: true } : key ? { apiKey: key } : {}),
+    };
     try {
       const next = await assistantApi.saveSpeech({
-        revision: settings.revision,
-        model: settings.model,
-        language: settings.language,
-        ...(removeApiKey ? { removeApiKey: true } : key ? { apiKey: key } : {}),
+        ...input,
+        ...(confirmed ? { confirmRestart: true } : {}),
       });
       setSettings(next);
       setKey("");
+      setRestart(null);
     } catch (e) {
-      setError(e.message);
+      if (restartRequired(e)) setRestart({ affected: e.affected || {}, input });
+      else setError(e.message);
     } finally {
       setBusy(false);
     }
@@ -98,6 +109,14 @@ export default function SpeechSettings() {
               </button>
             )}
           </div>
+          {restart && (
+            <RestartConfirmation
+              affected={restart.affected}
+              busy={busy}
+              onConfirm={() => save(false, restart.input)}
+              onCancel={() => setRestart(null)}
+            />
+          )}
         </form>
       )}
     </section>

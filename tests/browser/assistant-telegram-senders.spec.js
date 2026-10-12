@@ -180,3 +180,93 @@ test("fits a phone screen", async ({ page }) => {
   if (shots)
     await section.screenshot({ path: path.join(shots, "telegram-senders-phone.png") });
 });
+
+test("a removed bot still running and a stdio agent are explained", async ({ page }) => {
+  await setupAssistantSettings(page);
+  const state = await senders(page);
+  state.view = { ...state.view, pending: true };
+  await page.goto(baseURL + "/agents/home/settings");
+  const section = page.getByRole("region", { name: "Telegram for other people" });
+  await expect(
+    section.getByText("The agent service still runs a bot or person you removed."),
+  ).toBeVisible();
+  await section.getByRole("button", { name: "Apply now" }).click();
+  await section.getByRole("button", { name: "Save and restart" }).click();
+  expect(state.requests.map((r) => r.path)).toEqual([
+    "/api/assistant-telegram-senders/apply",
+    "/api/assistant-telegram-senders/apply",
+  ]);
+  const other = await page.context().newPage();
+  await setupAssistantSettings(other);
+  const stdio = await senders(other);
+  stdio.view = { ...stdio.view, stdio: true };
+  await other.goto(baseURL + "/agents/home/settings");
+  const blocked = other.getByRole("region", { name: "Telegram for other people" });
+  await expect(blocked.getByText("This agent has a stdio MCP server")).toBeVisible();
+  await expect(blocked.getByLabel("Bot token")).toHaveCount(0);
+  await expect(
+    blocked.getByText("They can read and use what the agent remembers"),
+  ).toBeVisible();
+});
+
+test("an agent with its own bot binds remote MCP servers only", async ({ page }) => {
+  await setupAssistantSettings(page, {
+    assistant: { mcpServers: [], telegramSenders: true },
+  });
+  await senders(page);
+  await page.route(/\/api\/mcp-servers$/, (route) =>
+    route.fulfill({
+      json: [
+        { id: "s1", name: "Files", transport: "stdio" },
+        { id: "s2", name: "Lookup", transport: "http", url: "https://mcp.example" },
+      ],
+    }),
+  );
+  await page.goto(baseURL + "/agents/home/settings");
+  await expect(page.getByRole("checkbox", { name: /Files/ })).toBeDisabled();
+  await expect(page.getByRole("checkbox", { name: /Lookup/ })).toBeEnabled();
+  await expect(
+    page.getByText("so it cannot use stdio servers: they run commands on this computer."),
+  ).toBeVisible();
+});
+
+test("a changed Deepgram key asks to restart the agent service", async ({ page }) => {
+  await setupAssistantSettings(page);
+  const puts = [];
+  await page.route(/\/api\/assistant-speech$/, async (route) => {
+    if (route.request().method() !== "PUT")
+      return route.fulfill({
+        json: { revision: 1, model: "nova-3", language: "auto", hasSecret: true },
+      });
+    const body = route.request().postDataJSON();
+    puts.push(body);
+    if (!body.confirmRestart)
+      return route.fulfill({
+        status: 409,
+        json: {
+          code: "ASSISTANT_RESTART_REQUIRED",
+          error:
+            "This Telegram change restarts the agents' Gateway; confirm the restart.",
+          affected,
+        },
+      });
+    return route.fulfill({
+      json: { revision: 2, model: "nova-3", language: "auto", hasSecret: false },
+    });
+  });
+  await page.goto(baseURL + "/accounts");
+  const panel = page.getByRole("region", { name: "Speech recognition" });
+  await panel.getByRole("button", { name: "Remove speech key" }).click();
+  await panel.getByRole("button", { name: "Save and restart" }).click();
+  await expect(panel.getByText("No key configured", { exact: true })).toBeVisible();
+  expect(puts).toEqual([
+    { revision: 1, model: "nova-3", language: "auto", removeApiKey: true },
+    {
+      revision: 1,
+      model: "nova-3",
+      language: "auto",
+      removeApiKey: true,
+      confirmRestart: true,
+    },
+  ]);
+});

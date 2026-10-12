@@ -21,15 +21,19 @@ export default function TelegramSendersSettings({ assistantId }) {
     [personId, setPersonId] = useState(""),
     [personName, setPersonName] = useState(""),
     [error, setError] = useState(""),
+    [pollError, setPollError] = useState(""),
     [busy, setBusy] = useState(false),
     [restart, setRestart] = useState(null);
   usePolling(
     async (signal) => {
       try {
         const next = await assistantApi.telegramSenders(assistantId, signal);
-        if (!signal.aborted) setData(next);
+        if (!signal.aborted) {
+          setData(next);
+          setPollError("");
+        }
       } catch (e) {
-        if (!signal.aborted) setError(e.message);
+        if (!signal.aborted) setPollError(e.message);
       }
     },
     5000,
@@ -106,16 +110,41 @@ export default function TelegramSendersSettings({ assistantId }) {
       assistantApi.applyTelegramSenders(confirmRestart ? { confirmRestart: true } : {}),
     );
   const state = bot && data.status?.state;
-  const blocked = data && data.shell !== "off" && !bot;
+  // An agent with shell or a stdio MCP server cannot get a bot (server enforced).
+  const blocked =
+    data && !bot
+      ? data.shell && data.shell !== "off"
+        ? copy.shellBlocked
+        : data.stdio
+          ? copy.stdioBlocked
+          : ""
+      : "";
+  // Saved, but the agent service still runs something else; also after a removal.
+  const pending = !!data && (data.pending || state === "pending");
   return (
     <section className="assistant-accounts" aria-label={copy.title}>
       <h2>{copy.title}</h2>
       <p className="assistant-note">{copy.description}</p>
       <p className="assistant-note">{copy.boundary}</p>
-      <ErrorMessage error={error} />
+      <ErrorMessage error={error || pollError} />
+      {pending && (
+        <div className="assistant-actions">
+          <p className="assistant-note" role="status">
+            {bot ? copy.pending : copy.removedPending}
+          </p>
+          <button
+            type="button"
+            className="button secondary"
+            disabled={busy}
+            onClick={apply}
+          >
+            {copy.apply}
+          </button>
+        </div>
+      )}
       {blocked && (
         <p className="assistant-note" role="note">
-          {copy.shellBlocked}
+          {blocked}
         </p>
       )}
       {data && !blocked && (
@@ -127,19 +156,6 @@ export default function TelegramSendersSettings({ assistantId }) {
                 {copy.status(copy.states[state] || copy.states.inactive)}
               </p>
             </>
-          )}
-          {state === "pending" && (
-            <div className="assistant-actions">
-              <p className="assistant-note">{copy.pending}</p>
-              <button
-                type="button"
-                className="button secondary"
-                disabled={busy}
-                onClick={apply}
-              >
-                {copy.apply}
-              </button>
-            </div>
           )}
           <h3>{copy.people}</h3>
           <p className="assistant-note">{copy.peopleHint}</p>
