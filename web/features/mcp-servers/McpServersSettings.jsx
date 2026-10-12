@@ -1,15 +1,31 @@
 import React, { useCallback, useId, useEffect, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import { mcpCliCopy as cliCopy } from "../../lib/i18n/messages/mcp-cli.js";
 import { mcpOAuthCopy } from "../../lib/i18n/messages/mcp-oauth.js";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
+import { names as cliNames } from "../../lib/providers.js";
 import { assistantApi } from "../assistants/assistant-api.js";
 import { useAlertDialogFocus } from "../../components/useAlertDialogFocus.js";
+import McpCliStatus from "./McpCliStatus.jsx";
 import McpServerForm from "./McpServerForm.jsx";
 import { McpOAuthActions, McpOAuthResultBanner, useMcpOAuth } from "./McpOAuthLogin.jsx";
 import McpOAuthStatus, { McpOAuthStatusHint, usesOAuth } from "./McpOAuthStatus.jsx";
 import "./mcp-servers.css";
+import "./mcp-cli.css";
 
 const names = (list) => (list.length ? list.join(", ") : copy.noNames);
+
+/** "Agents: Home, Lead · CLIs: Claude Code, Codex": who uses a server, by name. */
+function usersText(server) {
+  const parts = [];
+  if (server.users?.agents?.length)
+    parts.push(cliCopy.agentsUsing(server.users.agents.join(", ")));
+  if (server.users?.clis?.length)
+    parts.push(
+      cliCopy.clisUsing(server.users.clis.map((cli) => cliNames[cli] || cli).join(", ")),
+    );
+  return parts.length ? parts.join(" · ") : cliCopy.unused;
+}
 
 function ServerDetails({ server }) {
   const stdio = server.transport === "stdio";
@@ -71,13 +87,14 @@ function ServerDetails({ server }) {
   );
 }
 
-/** A saved change's notices: a pending apply and a deferred OAuth logout. */
+/** A saved change's notices: a pending apply, a deferred OAuth logout, failed CLIs. */
 const savedNotice = (saved) =>
   [
     saved?.pending ? copy.pendingNotice : "",
     saved?.oauthWarning?.code === "oauth-logout-deferred"
       ? mcpOAuthCopy.logoutDeferred
       : "",
+    saved?.cliError ? cliCopy.cliSaveFailed(saved.cliError) : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -167,6 +184,7 @@ export default function McpServersSettings({ oauthResult, agentsEnabled = true }
     <section className="mcp-servers" aria-label={copy.title} ref={section}>
       <h2>{copy.title}</h2>
       <p className="mcp-hint">{copy.description}</p>
+      <p className="mcp-hint">{cliCopy.restartNote}</p>
       {oauthResult && resultShown && (
         <McpOAuthResultBanner
           result={oauthResult}
@@ -198,6 +216,8 @@ export default function McpServersSettings({ oauthResult, agentsEnabled = true }
               {agentLogin(server) && <McpOAuthStatus server={server} />}
             </div>
             <ServerDetails server={server} />
+            {server.users && <p className="mcp-hint">{usersText(server)}</p>}
+            <McpCliStatus server={server} onChanged={load} />
             {agentLogin(server) && <McpOAuthStatusHint server={server} />}
             {removing === server.id ? (
               <RemoveConfirmation

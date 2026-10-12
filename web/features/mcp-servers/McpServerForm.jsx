@@ -4,6 +4,9 @@ import Segment from "../../components/Segment.jsx";
 import SidePanel from "../../components/SidePanel.jsx";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
 import { assistantApi } from "../assistants/assistant-api.js";
+import { cliApi } from "./cli-api.js";
+import { cliSupport } from "./cli-support.js";
+import McpCliChoices from "./McpCliChoices.jsx";
 import McpAuthFields, { OAuthSwitchConfirmation } from "./McpAuthFields.jsx";
 import McpSecretRows from "./McpSecretRows.jsx";
 import StdioConfirmation from "./StdioConfirmation.jsx";
@@ -11,8 +14,9 @@ import { draftFrom, dropsStoredHeaders, requestBody } from "./mcp-server-draft.j
 import { stdioConfirmationRequired } from "./stdio-confirmation.js";
 
 /**
- * Adds a server (`server` is null) or edits one. Stdio changes, and a switch to
- * OAuth that deletes stored headers, are confirmed first.
+ * Adds a server (`server` is null) or edits one, and chooses its coding CLIs. Stdio
+ * changes, a local command for a newly chosen CLI, and a switch to OAuth that deletes
+ * stored headers, are confirmed first.
  */
 export default function McpServerForm({ server, onSaved, close }) {
   const formId = useId();
@@ -21,23 +25,50 @@ export default function McpServerForm({ server, onSaved, close }) {
     [busy, setBusy] = useState(false),
     [confirming, setConfirming] = useState(false),
     [switching, setSwitching] = useState(false);
-  const set = (key) => (value) => {
+  const [clis, setClis] = useState(() => server?.clis || []);
+  const [cliConfirm, setCliConfirm] = useState(false);
+  // Any change withdraws an open question; it was about the previous state.
+  const withdraw = () => {
+    setCliConfirm(false);
     setConfirming(false);
     setSwitching(false);
+  };
+  const set = (key) => (value) => {
+    withdraw();
     setDraft((current) => ({ ...current, [key]: value }));
+  };
+  const chooseClis = (next) => {
+    withdraw();
+    setClis(next);
   };
   const text = (key) => (event) => set(key)(event.target.value);
   const stdio = draft.transport === "stdio";
   const oauth = !stdio && draft.auth === "oauth";
+  // The CLIs the server goes to: unsupported ones fall away as the draft changes.
+  const target = { transport: draft.transport, cwd: draft.cwd.trim() };
+  const wanted = clis.filter((cli) => cliSupport(cli, target).supported);
+  const before = server?.clis || [];
+  const added = wanted.filter((cli) => !before.includes(cli));
+  const kept = before.filter((cli) => wanted.includes(cli));
+  const removed = before.length - kept.length;
   async function submit(confirmStdio = false, confirmSwitch = false) {
     if (dropsStoredHeaders(draft, server) && !confirmSwitch) {
       setSwitching(true);
       return;
     }
     setSwitching(false);
+    // A CLI gets a local command only after the owner confirmed it; nothing is saved before.
+    if (stdio && added.length && !confirmStdio) {
+      setCliConfirm(true);
+      return;
+    }
+    setCliConfirm(false);
     setBusy(true);
     setError("");
     try {
+      // The server refuses a change a bound CLI cannot run, so a CLI the change rules
+      // out (or the owner dropped) is unbound first.
+      if (server && removed) await cliApi.setClis(server.id, kept);
       const body = {
         ...requestBody(draft, server),
         ...(confirmStdio ? { confirmStdio } : {}),
@@ -45,7 +76,14 @@ export default function McpServerForm({ server, onSaved, close }) {
       const saved = server
         ? await assistantApi.updateMcpServer(server.id, body)
         : await assistantApi.createMcpServer(body);
-      await onSaved(saved);
+      let cliError = "";
+      if (added.length)
+        try {
+          await cliApi.setClis(saved.id, wanted, confirmStdio);
+        } catch (e) {
+          cliError = e.message;
+        }
+      await onSaved(cliError ? { ...saved, cliError } : saved);
     } catch (e) {
       if (stdioConfirmationRequired(e)) setConfirming(true);
       else setError(e.message);
@@ -175,6 +213,12 @@ export default function McpServerForm({ server, onSaved, close }) {
             )}
           </>
         )}
+        <McpCliChoices
+          id={`${formId}-clis`}
+          target={target}
+          selected={clis}
+          onChange={chooseClis}
+        />
         <p className="mcp-hint">{copy.secretNote}</p>
         <p className="mcp-hint">{copy.secretPlacement}</p>
         {switching && (
@@ -191,6 +235,15 @@ export default function McpServerForm({ server, onSaved, close }) {
             busy={busy}
             onConfirm={() => submit(true)}
             onCancel={() => setConfirming(false)}
+          />
+        )}
+        {cliConfirm && (
+          <StdioConfirmation
+            cli
+            returnKey="mcp-form-save"
+            busy={busy}
+            onConfirm={() => submit(true, true)}
+            onCancel={() => setCliConfirm(false)}
           />
         )}
       </form>
