@@ -124,3 +124,8 @@
   margin: 0;
   color: var(--warning, inherit);
 }
+/* Stays in the accessibility tree while empty (a live region must exist before its
+   text); the negative margin takes back the column gap. */
+.mcp-cli-finds .mcp-find-notice:empty {
+  margin-top: -10px;
+}
