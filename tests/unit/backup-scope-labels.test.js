@@ -10,6 +10,10 @@ import {
 } from "../../server/features/operations/backup.js";
 import { assistantOmissions } from "../../server/features/operations/assistant-backup.js";
 import { profileOmissions } from "../../server/features/operations/profile-capture.js";
+import {
+  changedOmission,
+  removedOmission,
+} from "../../server/features/operations/archive-v2.js";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
 import { backupCopy as de } from "../../web/lib/i18n/de/operations.js";
 import { backupCopy as en } from "../../web/lib/i18n/en/operations.js";
@@ -26,6 +30,8 @@ test("every backup scope entry has a German and an English label", (t) => {
   const keys = new Set([
     ...assistantOmissions,
     ...Object.values(profileOmissions),
+    removedOmission,
+    changedOmission,
     legacy,
   ]);
   for (const withCredentials of [false, true])

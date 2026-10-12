@@ -12,7 +12,8 @@ import {
   readArchive,
   readArchiveHeader,
   removedOmission,
-  truncatedOmission,
+  changedOmission,
+  CHANGED_DURING_READ,
   writeArchive,
 } from "../../server/features/operations/archive-v2.js";
 import { encodeArchive } from "../../server/features/operations/archive.js";
@@ -176,11 +177,17 @@ test("files that vanish, shrink or grow while a backup streams keep the archive 
     },
   });
   assert.deepEqual(result.removed, ["profiles/a/claude/projects/p/gone.jsonl"]);
-  assert.deepEqual(result.truncated, ["profiles/a/claude/projects/p/cut.jsonl"]);
+  assert.deepEqual(result.changed, ["profiles/a/claude/projects/p/cut.jsonl"]);
   assert.deepEqual(result.manifest.omissions, [
     "earlier",
     removedOmission,
-    truncatedOmission,
+    changedOmission,
+  ]);
+  assert.deepEqual(result.manifest.captures, [
+    {
+      component: "profiles/a/claude/projects/p/cut.jsonl",
+      consistency: CHANGED_DURING_READ,
+    },
   ]);
   const header = await readArchiveHeader(file);
   assert.deepEqual(header.manifest.omissions, result.manifest.omissions);

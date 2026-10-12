@@ -188,3 +188,43 @@ test("an inspection stops after the members it validates; a restore verifies all
   );
   assert.equal(fs.existsSync(path.join(root, "target")), false);
 });
+
+test("files rewritten while archived come back only when line-based", async (t) => {
+  const { root, restore } = setup(t);
+  const source = (name, content) => {
+    fs.writeFileSync(path.join(root, name), content);
+    return { file: path.join(root, name), size: Buffer.byteLength(content) };
+  };
+  const image = `profiles/${account}/codex/generated_images/a/img.png`;
+  const transcript = `profiles/${account}/codex/sessions/2026/a.jsonl`;
+  const steady = `profiles/${account}/codex/generated_images/a/steady.png`;
+  const file = path.join(root, "changed.apbackup");
+  const written = await writeArchive(file, {
+    manifest: { ...manifest, withCredentials: false },
+    members: [
+      { path: "accounts.json", bytes: Buffer.from(JSON.stringify(accounts)) },
+      { path: image, ...source("img.png", "PNG-old-content") },
+      { path: transcript, ...source("a.jsonl", '{"a":1}\n') },
+      { path: steady, ...source("steady.png", "PNG-steady") },
+    ],
+    // Rewritten in place (same size) and appended to while being archived.
+    opened: (entry) => {
+      const earlier = new Date(Date.now() - 60_000);
+      if (entry.path === image) {
+        fs.writeFileSync(entry.file, "PNG-new-content");
+        fs.utimesSync(entry.file, earlier, earlier);
+      }
+      if (entry.path === transcript) {
+        fs.appendFileSync(entry.file, '{"a":2}\n');
+        fs.utimesSync(entry.file, earlier, earlier);
+      }
+    },
+  });
+  assert.deepEqual(written.changed.sort(), [image, transcript].sort());
+  const target = path.join(root, "restored");
+  const report = await restore.apply({ archive: file, targetDataDir: target });
+  assert.deepEqual(report.changedFilesLeftOut, [image]);
+  assert.equal(fs.existsSync(path.join(target, image)), false);
+  assert.equal(fs.readFileSync(path.join(target, transcript), "utf8"), '{"a":1}\n');
+  assert.equal(fs.readFileSync(path.join(target, steady), "utf8"), "PNG-steady");
+});

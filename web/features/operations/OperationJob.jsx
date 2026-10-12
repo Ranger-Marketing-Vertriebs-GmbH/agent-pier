@@ -46,6 +46,7 @@ export default function OperationJob({ id, onComplete, onState }) {
                   "credentialsNeedingLogin",
                   "importedSessions",
                   "importedRuns",
+                  "changedFilesLeftOut",
                 ].map(
                   (key) =>
                     job.result[key] !== undefined && (
