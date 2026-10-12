@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useId, useEffect, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { mcpOAuthCopy } from "../../lib/i18n/messages/mcp-oauth.js";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
@@ -85,9 +85,15 @@ const savedNotice = (saved) =>
 /** Asks before a server is removed; focus starts on the safe choice. */
 function RemoveConfirmation({ server, busy, onConfirm, onCancel }) {
   const focus = useAlertDialogFocus(onCancel);
+  const textId = useId();
   return (
-    <div {...focus} className="mcp-confirmation" role="alertdialog">
-      <p>{copy.confirmRemove(server.name)}</p>
+    <div
+      {...focus}
+      className="mcp-confirmation"
+      role="alertdialog"
+      aria-labelledby={textId}
+    >
+      <p id={textId}>{copy.confirmRemove(server.name)}</p>
       <div className="mcp-actions">
         <button
           type="button"
