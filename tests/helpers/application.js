@@ -21,9 +21,22 @@ export const enabledAssistants = {
   prepareDataDir: (dataDir) => writeAssistantFeature(dataDir, { enabled: true }),
 };
 
+/**
+ * Stands in for running a coding CLI's MCP status command: Codex answers with no
+ * servers. A suite opts into running the detected binary (a fake one first on PATH,
+ * never the real CLI) with `realCliOAuthStatus: true`.
+ */
+export const fakeCliOAuthRun = async () => ({ stdout: "[]" });
+
 /** Owns one temporary app, its private tmux socket and every fixture it launches. */
 export async function applicationFixture(t, overrides = {}) {
-  const { authenticateFixture = true, prepareDataDir, ...configuration } = overrides;
+  const {
+    authenticateFixture = true,
+    prepareDataDir,
+    realCliOAuthStatus = false,
+    ...configuration
+  } = overrides;
+  if (!realCliOAuthStatus) configuration.cliOAuthRun ??= fakeCliOAuthRun;
   let cookie = "";
   const root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-blackbox-")),

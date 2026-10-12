@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { applicationFixture } from "../helpers/application.js";
+import { applicationFixture, fakeCliOAuthRun } from "../helpers/application.js";
 
 const secrets = ["header-secret", "query-secret", "found-secret"];
 async function read(response) {
@@ -114,4 +114,38 @@ test("CLI bindings, conflicts and finds over HTTP carry names only and are audit
   assert.ok(has("mcp.created", { clis: ["codex"], adopted: true }));
   // Binding a remote server confirms no command.
   assert.ok(has("mcp.updated", { clis: ["claude"], stdioConfirmed: false }));
+});
+
+test("fixtures never run a real Codex for the OAuth status of a bound server", async (t) => {
+  const f = await applicationFixture(t);
+  t.after(() => f.dispose());
+  const runs = [];
+  const status = f.application.cliMcp.oauthStatus;
+  const original = status.run;
+  assert.equal(original, fakeCliOAuthRun);
+  status.run = (...args) => {
+    runs.push(args[0]);
+    return original(...args);
+  };
+  // A Codex that is "installed" but must never be executed.
+  status.tools = () => [{ id: "codex", installed: true, path: "/nonexistent/codex" }];
+  const server = await read(
+    await f.request("/api/mcp-servers", {
+      method: "POST",
+      body: {
+        name: "login",
+        transport: "http",
+        url: "https://x.example.test/mcp",
+        auth: "oauth",
+      },
+    }),
+  );
+  await f.request(`/api/mcp-servers/${server.id}/clis`, {
+    method: "PUT",
+    body: { clis: ["codex"] },
+  });
+  await status.settled();
+  const listed = await read(await f.request("/api/mcp-servers"));
+  assert.equal(listed[0].cliStatus.codex.oauth.state, "unknown");
+  assert.deepEqual(runs, ["/nonexistent/codex"]);
 });
