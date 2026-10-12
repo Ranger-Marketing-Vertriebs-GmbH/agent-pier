@@ -7,6 +7,7 @@ import { assertWired } from "./service-wiring.js";
 import { assistantBootstrap } from "./assistant-bootstrap.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { patchConfig } from "./openclaw-config/live-patch.js";
+import { watchConfigAdoption } from "./openclaw-config/config-adoption.js";
 // Bootstrap files the Gateway exposes besides AGENTS.md. AgentPier never creates
 // them (skipBootstrap), so any content is foreign and is neutralized. USER.md is
 // the owner's preference note and stays under owner control.
@@ -14,8 +15,24 @@ const foreignBootstrap = ["SOUL.md", "IDENTITY.md", "BOOTSTRAP.md"];
 const sha256 = (text) => createHash("sha256").update(text, "utf8").digest("hex");
 
 export class AssistantConfig {
-  constructor({ client, models, store, workspaces, teamReady, hostCapacity }) {
-    Object.assign(this, { client, models, store, workspaces, teamReady, hostCapacity });
+  constructor({
+    client,
+    models,
+    store,
+    workspaces,
+    teamReady,
+    hostCapacity,
+    adoption = {},
+  }) {
+    Object.assign(this, {
+      client,
+      models,
+      store,
+      workspaces,
+      teamReady,
+      hostCapacity,
+      adoption,
+    });
     this.queue = Promise.resolve();
     this.applied = new Map();
   }
@@ -95,6 +112,7 @@ export class AssistantConfig {
         ]),
       )
       .digest("hex");
+    let adoption = null;
     try {
       if (
         this.applied.get(id) === fingerprint &&
@@ -107,6 +125,9 @@ export class AssistantConfig {
           status: "applied",
         };
       }
+      // Watched before the first write, so the commit cannot be announced unseen.
+      adoption = watchConfigAdoption(this.client, this.adoption);
+      const base = adoption.watching ? await this.client.call("config.get", {}) : {};
       if (lease.provider)
         await patchConfig(this.client, () => ({
           patch: { models: { providers: { [lease.providerId]: lease.provider } } },
@@ -137,12 +158,15 @@ export class AssistantConfig {
         await delay(100);
       }
       if (!visible) throw assistantProblem("unavailable", 503);
+      // Events count from the last write on; agents.update always writes.
+      adoption.mark();
       await this.client.call("agents.update", {
         agentId: assistant.runtimeAgentId,
         name: assistant.name,
         model: lease.modelRef,
       });
       if (this.teamReady || this.nativeReady || lease.agentRuntime) {
+        adoption.mark();
         await patchConfig(this.client, (config) => {
           const agents = config.agents;
           const arrayKey = Array.isArray(agents.entries) ? "entries" : "list";
@@ -230,6 +254,8 @@ export class AssistantConfig {
       });
       if (readback.file?.content !== bootstrap) throw assistantProblem("conflict", 409);
       await this.verifyBootstrap(assistant, bootstrap);
+      // A turn admitted next must run with this config, not the previous one.
+      await adoption.settle(base.hash, effective.hash);
       this.store.markEffective(id, assistant.revision);
       this.applied.set(id, fingerprint);
       return {
@@ -238,6 +264,7 @@ export class AssistantConfig {
         status: "applied",
       };
     } finally {
+      adoption?.close();
       lease.release();
     }
   }

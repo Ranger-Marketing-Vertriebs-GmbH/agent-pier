@@ -49,6 +49,19 @@ test("binding a server patches mcp and tools.allow live and re-applies the agent
   );
 });
 
+test("a live patch returns only after the Gateway announced its commit", async (t) => {
+  const f = fixture(t);
+  const home = f.agent("Home");
+  const docs = f.http();
+  f.runtime.mcp = mcpStartSnapshot({ profiles: [], mcp: {} }, () => {});
+  f.gateway.lag = 300;
+  const started = Date.now();
+  await f.service.update(home.id, { mcpServers: [docs.id] }, 1);
+  assert.equal(f.gateway.announced, 1, "returned before config.changed");
+  assert.ok(Date.now() - started >= 250);
+  assert.deepEqual(f.applied, [home.id]);
+});
+
 test("a Gateway that is not ready is not patched; the next start compiles", async (t) => {
   const f = fixture(t);
   const home = f.agent("Home");
