@@ -276,6 +276,7 @@ function Application() {
                 act,
                 onNavigate: navigate,
                 mcpOAuth: route.mcpOAuth,
+                mcpSection: route.section,
               }}
             />
           ) : activeSession ? (

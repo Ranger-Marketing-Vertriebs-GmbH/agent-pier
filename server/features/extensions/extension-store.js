@@ -11,17 +11,7 @@ import {
   unpackSkill,
   downloadSkill,
 } from "./skill-packages.js";
-import {
-  own,
-  record,
-  nameValue,
-  cleanMcp,
-  nativeMcp,
-  publicMcp,
-  safePath,
-  readConfig,
-  updateConfig,
-} from "./mcp-config.js";
+import { record, publicMcp, safePath, readConfig } from "./mcp-config.js";
 export class ExtensionsStore {
   constructor({
     accounts,
@@ -230,45 +220,6 @@ export class ExtensionsStore {
         note: serverMessages.extensions.skillVisibilityNotice(locations.target.scope),
       },
     };
-  }
-  addMcp(id, input) {
-    this.sharedProfiles?.migrate(id);
-    const entry = cleanMcp(input);
-    const locations = this.locations(id);
-    const configs = this.configs(locations);
-    if (configs.some((config) => own(config.data[locations.key] || {}, entry.name)))
-      throw problem(serverMessages.extensions.mcpServerAlreadyExists, 409);
-    updateConfig(
-      configs.at(-1),
-      locations.boundary,
-      locations.account.tool,
-      locations.key,
-      entry.name,
-      nativeMcp(locations.account.tool, entry),
-    );
-    return this.list(id).mcp;
-  }
-  removeMcp(id, name) {
-    this.sharedProfiles?.migrate(id);
-    nameValue(name);
-    const locations = this.locations(id);
-    const configs = this.configs(locations);
-    const matches = configs.filter((config) =>
-      own(config.data[locations.key] || {}, name),
-    );
-    if (matches.length > 1)
-      throw problem(serverMessages.extensions.duplicateMcpName, 409);
-    const config = matches[0];
-    if (!config) throw problem(serverMessages.extensions.mcpServerNotFound, 404);
-    updateConfig(
-      config,
-      locations.boundary,
-      locations.account.tool,
-      locations.key,
-      name,
-      undefined,
-    );
-    return this.list(id).mcp;
   }
   async installSkill(id, input = {}) {
     this.sharedProfiles?.migrate(id);

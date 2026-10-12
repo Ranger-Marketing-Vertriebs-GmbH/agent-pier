@@ -15,15 +15,6 @@ export { CLI_CONFIG_LAYOUT } from "./config-edit.js";
 export const own = (obj, key) => Object.hasOwn(obj, key);
 export const record = (value) =>
   value && typeof value === "object" && !Array.isArray(value);
-export function nameValue(value) {
-  if (
-    typeof value !== "string" ||
-    !/^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$/.test(value) ||
-    ["constructor", "prototype", "__proto__"].includes(value)
-  )
-    throw problem(serverMessages.extensions.invalidMcpName);
-  return value;
-}
 export function values(value = {}, headers = false) {
   if (!record(value) || Object.keys(value).length > 100)
     throw problem(serverMessages.extensions.invalidEnvironmentOrHeadersObject);
@@ -59,43 +50,6 @@ export function mcpUrl(value) {
   )
     throw problem(serverMessages.extensions.mcpUrlCredentialsForbidden);
   return url.href;
-}
-export function cleanMcp(input = {}) {
-  const name = nameValue(input.name);
-  if (input.transport === "stdio") {
-    if (
-      typeof input.command !== "string" ||
-      !input.command.trim() ||
-      input.command.length > 4096 ||
-      /[\x00-\x1f\x7f]/.test(input.command)
-    )
-      throw problem(serverMessages.extensions.executableCommandRequired);
-    const args = input.args ?? [];
-    if (
-      !Array.isArray(args) ||
-      args.length > 100 ||
-      args.some(
-        (arg) => typeof arg !== "string" || arg.length > 16384 || /[\x00]/.test(arg),
-      )
-    )
-      throw problem(serverMessages.extensions.invalidArgumentList);
-    return {
-      name,
-      transport: "stdio",
-      command: input.command.trim(),
-      args,
-      env: values(input.env),
-    };
-  }
-  if (input.transport !== "http")
-    throw problem(serverMessages.extensions.transportRequired);
-  const url = mcpUrl(input.url);
-  return {
-    name,
-    transport: "http",
-    url,
-    headers: values(input.headers, true),
-  };
 }
 /**
  * A server in a CLI's native form (docs/cli-mcp-qualification.md). OAuth servers carry

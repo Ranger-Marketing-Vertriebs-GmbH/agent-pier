@@ -152,6 +152,8 @@ async function setup(page, { serversUnavailable = false } = {}) {
       const { stdio: _stdio, ...server } = full;
       return server;
     };
+    if (path === "/api/mcp-servers/cli-finds")
+      return route.fulfill({ json: { finds: [], problems: [] } });
     if (method === "GET") return route.fulfill({ json: state.servers.map(publicServer) });
     const body = request.postDataJSON?.() || {};
     state.requests.push({ path, method, body });

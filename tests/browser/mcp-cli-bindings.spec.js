@@ -5,7 +5,7 @@ import { fixture } from "./providers-fixture.js";
 /** The central MCP API; `state` records requests and holds what the list returns. */
 async function setup(
   page,
-  { language = "en", agents = false, servers = [], finds = [] } = {},
+  { language = "en", agents = false, servers = [], finds = [], problems = [] } = {},
 ) {
   await fixture(page);
   await page.addInitScript(
@@ -16,6 +16,7 @@ async function setup(
     requests: [],
     servers: structuredClone(servers),
     finds: structuredClone(finds),
+    problems: structuredClone(problems),
   };
   await page.route("**/api/assistant-feature", (route) =>
     route.fulfill({ json: { enabled: agents, error: null } }),
@@ -28,7 +29,7 @@ async function setup(
     if (path === "/api/mcp-servers" && request.method() === "GET")
       return route.fulfill({ json: state.servers });
     if (path === "/api/mcp-servers/cli-finds")
-      return route.fulfill({ json: { finds: state.finds } });
+      return route.fulfill({ json: { finds: state.finds, problems: state.problems } });
     if (state.handle) {
       const handled = await state.handle({ route, request, path, body });
       if (handled !== false) return;
@@ -380,4 +381,152 @@ test("the CLI statuses read in German", async ({ page }) => {
     page.getByRole("button", { name: "Änderung übernehmen: docs aus Codex" }),
   ).toBeVisible();
   await expect(page.getByText("Agenten: Home · CLIs: Claude Code, Codex")).toBeVisible();
+});
+
+const finds = [
+  {
+    key: "k1",
+    name: "docs",
+    clis: ["claude", "codex"],
+    adoptable: true,
+    transport: "http",
+    auth: "headers",
+    url: "https://docs.example.test/mcp",
+    headerNames: ["Authorization"],
+    envNames: [],
+  },
+  {
+    key: "k2",
+    name: "my.tool",
+    proposedName: "my-tool",
+    clis: ["opencode"],
+    adoptable: true,
+    transport: "stdio",
+    auth: "headers",
+    command: "true",
+    resolvedCommand: "/usr/bin/true",
+    headerNames: [],
+    envNames: ["TOKEN"],
+  },
+  {
+    key: "k3",
+    name: "slow",
+    clis: ["codex"],
+    adoptable: false,
+    reason: "unsupported-fields",
+    messageKey: "mcpServers.cliNotAdoptable",
+  },
+];
+
+test("entries found in the CLIs are adopted one by one or all at once, names only", async ({
+  page,
+}) => {
+  const state = await setup(page, {
+    finds,
+    problems: [
+      {
+        cli: "claude",
+        reason: "unreadable",
+        messageKey: "mcpServers.cliReasonUnreadable",
+      },
+    ],
+  });
+  state.handle = async ({ route, path, body }) => {
+    if (path !== "/api/mcp-servers/cli-finds/adopt") return false;
+    const keys = body.all ? ["k1", "k2"] : body.keys;
+    state.finds = state.finds.filter((find) => !keys.includes(find.key));
+    return route.fulfill({
+      json: {
+        adopted: keys.map((key) => header({ id: key, name: body.names[key] })),
+        failed: [],
+      },
+    });
+  };
+  await page.goto(baseURL + "/accounts");
+  const found = page.getByRole("region", { name: "Found in the CLIs" });
+  await expect(found.getByText("in Claude Code, Codex")).toBeVisible();
+  await expect(found.getByText("Values: Authorization")).toBeVisible();
+  await expect(found.getByText("Values: TOKEN")).toBeVisible();
+  await expect(found.getByText("will be saved as /usr/bin/true")).toBeVisible();
+  await expect(
+    found.getByText("Claude Code: its configuration file cannot be read"),
+  ).toBeVisible();
+  await expect(
+    found.getByText("Uses settings AgentPier does not manage; it stays in the CLI."),
+  ).toBeVisible();
+  await expect(found.getByLabel("Name in AgentPier")).toHaveValue("my-tool");
+  await found.getByLabel("Name in AgentPier").fill("tool");
+  await found.getByRole("button", { name: "Adopt my.tool" }).click();
+  await expect(found.getByText("my.tool", { exact: true })).toHaveCount(0);
+  expect(state.requests.find((r) => r.path.endsWith("/adopt")).body).toEqual({
+    keys: ["k2"],
+    names: { k2: "tool" },
+  });
+  await expect(found.getByRole("button", { name: "Adopt all" })).toHaveCount(0);
+  state.finds = structuredClone(finds);
+  await page.reload();
+  await page
+    .getByRole("region", { name: "Found in the CLIs" })
+    .getByRole("button", { name: "Adopt all" })
+    .click();
+  await expect
+    .poll(() => state.requests.filter((r) => r.path.endsWith("/adopt")).at(-1).body)
+    .toEqual({ all: true, names: { k1: "docs", k2: "my-tool" } });
+});
+
+test("a found entry that fails to adopt is named; German copy", async ({ page }) => {
+  const state = await setup(page, { language: "de", finds: [finds[1]] });
+  state.handle = async ({ route, path }) =>
+    path.endsWith("/adopt")
+      ? route.fulfill({
+          json: {
+            adopted: [],
+            failed: [{ key: "k2", name: "my.tool", error: "Befehl nicht gefunden." }],
+          },
+        })
+      : false;
+  await page.goto(baseURL + "/accounts");
+  const found = page.getByRole("region", { name: "In den CLIs gefunden" });
+  await expect(found.getByText("wird gespeichert als /usr/bin/true")).toBeVisible();
+  await found.getByRole("button", { name: "my.tool übernehmen" }).click();
+  await expect(found.getByRole("status")).toHaveText("my.tool: Befehl nicht gefunden.");
+});
+
+test("an adoption failure reads in English from its message key", async ({ page }) => {
+  const state = await setup(page, {
+    finds: [{ ...finds[1], resolvedCommand: null }],
+  });
+  state.handle = async ({ route, path }) =>
+    path.endsWith("/adopt")
+      ? route.fulfill({
+          json: {
+            adopted: [],
+            failed: [
+              {
+                key: "k2",
+                name: "my.tool",
+                reason: "name-taken",
+                error: "Dieser Servername ist bereits vergeben.",
+                messageKey: "mcpServers.nameTaken",
+              },
+            ],
+          },
+        })
+      : false;
+  await page.goto(baseURL + "/accounts");
+  const found = page.getByRole("region", { name: "Found in the CLIs" });
+  await expect(found.getByText("Command not found on this computer.")).toBeVisible();
+  await found.getByRole("button", { name: "Adopt my.tool" }).click();
+  await expect(found.getByRole("status")).toHaveText(
+    "my.tool: This server name is already in use.",
+  );
+});
+
+test("the section reports when nothing else is found", async ({ page }) => {
+  await setup(page);
+  await page.goto(baseURL + "/accounts?section=mcp-servers");
+  await expect(page).toHaveURL(/\/accounts\?section=mcp-servers$/);
+  const found = page.getByRole("region", { name: "Found in the CLIs" });
+  await expect(found.getByText("Nothing else found in the CLIs.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "MCP servers" })).toBeInViewport();
 });

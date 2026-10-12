@@ -6,6 +6,7 @@ import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
 import { names as cliNames } from "../../lib/providers.js";
 import { assistantApi } from "../assistants/assistant-api.js";
 import { useAlertDialogFocus } from "../../components/useAlertDialogFocus.js";
+import McpCliFinds from "./McpCliFinds.jsx";
 import McpCliStatus from "./McpCliStatus.jsx";
 import McpServerForm from "./McpServerForm.jsx";
 import { McpOAuthActions, McpOAuthResultBanner, useMcpOAuth } from "./McpOAuthLogin.jsx";
@@ -138,18 +139,24 @@ function RemoveConfirmation({ server, busy, onConfirm, onCancel }) {
  * servers. `oauthResult` is the result a login's callback brought back. Agent OAuth
  * logins exist only with agents (`agentsEnabled`); the list itself works without.
  */
-export default function McpServersSettings({ oauthResult, agentsEnabled = true }) {
+export default function McpServersSettings({
+  oauthResult,
+  agentsEnabled = true,
+  focus = false,
+}) {
   const [servers, setServers] = useState(null),
     [error, setError] = useState(""),
     [editing, setEditing] = useState(undefined),
     [removing, setRemoving] = useState(null),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
-    [resultShown, setResultShown] = useState(true);
+    [resultShown, setResultShown] = useState(true),
+    [generation, setGeneration] = useState(0);
   const section = useRef(null);
   const load = useCallback(async () => {
     try {
       setServers(await assistantApi.mcpServers());
+      setGeneration((value) => value + 1);
       setError("");
     } catch (e) {
       setError(e.message);
@@ -166,6 +173,10 @@ export default function McpServersSettings({ oauthResult, agentsEnabled = true }
     setResultShown(true);
     section.current?.scrollIntoView?.({ block: "start" });
   }, [oauthResult]);
+  // Opened from the CLI extensions page: the list belongs in view.
+  useEffect(() => {
+    if (focus) section.current?.scrollIntoView?.({ block: "start" });
+  }, [focus]);
   async function remove(server) {
     setBusy(true);
     try {
@@ -255,6 +266,7 @@ export default function McpServersSettings({ oauthResult, agentsEnabled = true }
           {copy.add}
         </button>
       </div>
+      <McpCliFinds refresh={generation} onAdopted={load} />
       {editing !== undefined && (
         <McpServerForm
           key={editing?.id || "new"}

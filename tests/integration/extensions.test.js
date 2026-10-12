@@ -4,8 +4,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { parse as parseToml } from "smol-toml";
-import { parse as parseJsonc } from "jsonc-parser";
 import { AccountStore } from "../../server/features/accounts/account-store.js";
 import { ExtensionsStore } from "../../server/features/extensions/extension-store.js";
 function setup(t, options = {}) {
@@ -40,114 +38,20 @@ function zip(files) {
   assert.equal(result.status, 0, result.stderr);
   return result.stdout.trim();
 }
-for (const tool of ["codex", "claude", "opencode"])
-  test(`${tool} MCP config uses the selected native profile and preserves unrelated settings`, (t) => {
-    const { home, accounts, store } = setup(t);
-    const account = accounts.create({ name: "Fixture", tool });
-    const initial = store.list(account.id);
-    const file = initial.mcp.path;
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(
-      file,
-      tool === "claude"
-        ? JSON.stringify({
-            theme: "keep-me",
-            projects: { "/fixture": { trusted: true } },
-          })
-        : tool === "codex"
-          ? 'model = "keep-me"\n[projects."/fixture"]\ntrust_level = "trusted"\n'
-          : '{\n // keep this comment\n "theme":"keep-me", "projects":{"/fixture":{"trusted":true}}\n}\n',
-    );
-    const added = store.addMcp(account.id, {
-      name: "fixture",
-      transport: "stdio",
-      command: "fixture-command",
-      args: ["--token", "private-arg"],
-      env: { API_KEY: "private-key" },
-    });
-    const parsed =
-      tool === "codex"
-        ? parseToml(fs.readFileSync(file, "utf8"))
-        : parseJsonc(fs.readFileSync(file, "utf8"));
-    assert.equal(tool === "codex" ? parsed.model : parsed.theme, "keep-me");
-    assert.ok(parsed.projects["/fixture"]);
-    const server =
-      parsed[tool === "codex" ? "mcp_servers" : tool === "claude" ? "mcpServers" : "mcp"]
-        .fixture;
-    assert.equal(
-      tool === "opencode" ? server.command[0] : server.command,
-      "fixture-command",
-    );
-    assert.equal((server.env || server.environment).API_KEY, "private-key");
-    assert.equal(fs.statSync(file).mode & 0o777, 0o600);
-    assert.equal(JSON.stringify(added).includes("private-"), false);
-    assert.equal(store.list(account.id).mcp.servers[0].argumentCount, 2);
-    assert.throws(
-      () =>
-        store.addMcp(account.id, {
-          name: "fixture",
-          transport: "http",
-          url: "https://example.invalid/mcp",
-        }),
-      { status: 409 },
-    );
-    store.removeMcp(account.id, "fixture");
-    assert.equal(store.list(account.id).mcp.servers.length, 0);
-    assert.equal(
-      fs.existsSync(
-        path.join(
-          home,
-          tool === "codex"
-            ? ".codex/config.toml"
-            : tool === "claude"
-              ? ".claude.json"
-              : ".config/opencode/opencode.jsonc",
-        ),
-      ),
-      false,
-    );
-  });
-test("MCP remote headers are native, redacted, and invalid config is never overwritten", (t) => {
+test("native MCP entries are listed by name only and never rewritten by a listing", (t) => {
   const { store, home } = setup(t);
-  const id = "local-codex";
-  store.addMcp(id, {
-    name: "remote",
-    transport: "http",
-    url: "https://example.invalid/mcp?key=private-query",
-    headers: { Authorization: "Bearer private-header" },
-  });
-  const list = store.list(id);
+  const file = path.join(home, ".codex/config.toml");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const text =
+    '[mcp_servers.remote]\nurl = "https://example.invalid/mcp?key=private-query"\n' +
+    '[mcp_servers.remote.http_headers]\nAuthorization = "Bearer private-header"\n';
+  fs.writeFileSync(file, text);
+  const list = store.list("local-codex");
+  assert.equal(list.mcp.path, file);
+  assert.deepEqual(list.mcp.servers[0].headerKeys, ["Authorization"]);
+  assert.equal(list.mcp.servers[0].url, "https://example.invalid");
   assert.equal(JSON.stringify(list).includes("private-"), false);
-  const raw = fs.readFileSync(list.mcp.path, "utf8");
-  assert.equal(
-    parseToml(raw).mcp_servers.remote.http_headers.Authorization,
-    "Bearer private-header",
-  );
-  fs.writeFileSync(list.mcp.path, "invalid = [");
-  assert.throws(
-    () =>
-      store.addMcp(id, {
-        name: "other",
-        transport: "http",
-        url: "https://example.invalid/mcp",
-      }),
-    { status: 409 },
-  );
-  assert.equal(fs.readFileSync(list.mcp.path, "utf8"), "invalid = [");
-  fs.rmSync(list.mcp.path);
-  const outside = path.join(home, "outside");
-  fs.writeFileSync(outside, "keep");
-  fs.symlinkSync(outside, list.mcp.path);
-  assert.throws(
-    () =>
-      store.addMcp(id, {
-        name: "other",
-        transport: "http",
-        url: "https://example.invalid/mcp",
-      }),
-    { status: 409 },
-  );
-  assert.equal(fs.readFileSync(outside, "utf8"), "keep");
+  assert.equal(fs.readFileSync(file, "utf8"), text);
 });
 test("ZIP install retains related files, lists other sources read-only, rejects overwrite and removes only owned folder", async (t) => {
   const { store, home } = setup(t);
@@ -271,22 +175,6 @@ test("download redirects cannot escape allowed GitHub origins", async (t) => {
   assert.equal(calls, 1);
 });
 
-test("OpenCode removal refuses duplicate definitions rather than reactivating a shadowed server", (t) => {
-  const { store, home } = setup(t);
-  const dir = path.join(home, ".config/opencode");
-  fs.mkdirSync(dir, { recursive: true });
-  const base = JSON.stringify({
-    mcp: { fixture: { type: "local", command: ["old-server"] } },
-  });
-  const top = JSON.stringify({
-    mcp: { fixture: { type: "local", command: ["new-server"] } },
-  });
-  fs.writeFileSync(path.join(dir, "opencode.json"), base);
-  fs.writeFileSync(path.join(dir, "opencode.jsonc"), top);
-  assert.throws(() => store.removeMcp("local-opencode", "fixture"), { status: 409 });
-  assert.equal(fs.readFileSync(path.join(dir, "opencode.json"), "utf8"), base);
-  assert.equal(fs.readFileSync(path.join(dir, "opencode.jsonc"), "utf8"), top);
-});
 test("ZIP skills preserve executable scripts without running them during installation", async (t) => {
   const { store } = setup(t);
   const encoded = spawnSync(
@@ -318,16 +206,7 @@ test("managed symlinked config roots are rejected before profile initialization 
   // Explicit permissions keep this regression sensitive under restrictive umasks.
   fs.chmodSync(outside, 0o755);
   fs.symlinkSync(outside, dir);
-  assert.throws(
-    () =>
-      store.addMcp(account.id, {
-        name: "safe",
-        transport: "stdio",
-        command: "fixture",
-        args: [],
-      }),
-    { status: 409 },
-  );
+  assert.throws(() => store.list(account.id), { status: 409 });
   assert.equal(fs.statSync(outside).mode & 0o777, 0o755);
   assert.deepEqual(fs.readdirSync(outside), []);
 });
@@ -343,28 +222,6 @@ test("preexisting skills remain visible even when metadata needs review", (t) =>
   assert.equal(item.removable, false);
   assert.match(item.description, /Metadaten/);
 });
-test("Codex MCP editing retains unrelated comments and dotted quoted configuration", (t) => {
-  const { store, home } = setup(t);
-  const file = path.join(home, ".codex/config.toml");
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const unrelated =
-    '# Keep this exact comment\nmodel = "fixture" # model comment\n[projects."/space path"]\ntrust_level = "trusted"\n';
-  fs.writeFileSync(
-    file,
-    unrelated +
-      '\n[mcp_servers."a.b"]\ncommand = "fixture-command"\n[mcp_servers."a.b".env]\nKEY = "secret"\n',
-  );
-  store.addMcp("local-codex", {
-    name: "other",
-    transport: "http",
-    url: "https://example.invalid/mcp",
-  });
-  assert.equal(fs.readFileSync(file, "utf8").startsWith(unrelated), true);
-  store.removeMcp("local-codex", "a.b");
-  assert.equal(parseToml(fs.readFileSync(file, "utf8")).mcp_servers["a.b"], undefined);
-  assert.equal(fs.readFileSync(file, "utf8").startsWith(unrelated), true);
-});
-
 test("oversized ZIP expansion is rejected before writing any skill files", async (t) => {
   const { store, home } = setup(t);
   const encoded = spawnSync(
@@ -410,35 +267,4 @@ test("server shutdown cancels a pending skill download without an installed dire
     }),
     { status: 503 },
   );
-});
-
-test("ambiguous JSONC keys and non-JSON Claude config are rejected without rewriting", (t) => {
-  const { store, home } = setup(t);
-  const opencode = path.join(home, ".config/opencode/opencode.jsonc");
-  fs.mkdirSync(path.dirname(opencode), { recursive: true });
-  const duplicate = '{"mcp":{"old":{"type":"local","command":["keep"]}},"mcp":{}}';
-  fs.writeFileSync(opencode, duplicate);
-  assert.throws(
-    () =>
-      store.addMcp("local-opencode", {
-        name: "new",
-        transport: "stdio",
-        command: "fixture",
-      }),
-    { status: 409 },
-  );
-  assert.equal(fs.readFileSync(opencode, "utf8"), duplicate);
-  const claude = path.join(home, ".claude.json");
-  const invalid = '{/* comment not accepted by Claude */"theme":"keep"}';
-  fs.writeFileSync(claude, invalid);
-  assert.throws(
-    () =>
-      store.addMcp("local-claude", {
-        name: "new",
-        transport: "stdio",
-        command: "fixture",
-      }),
-    { status: 409 },
-  );
-  assert.equal(fs.readFileSync(claude, "utf8"), invalid);
 });

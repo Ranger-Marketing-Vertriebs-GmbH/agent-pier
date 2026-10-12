@@ -51,7 +51,9 @@ export const mcpCliCopy = {
   foundIn: (clis) => `in ${clis}`,
   valueNames: (names) => `Werte: ${names}`,
   proposedName: "Name in AgentPier",
-  adoptNamed: (name) => `Übernehmen: ${name}`,
+  adoptNamed: (name) => `${name} übernehmen`,
+  savedAs: (path) => `wird gespeichert als ${path}`,
+  commandMissing: "Befehl auf diesem Computer nicht gefunden.",
   adoptAll: "Alle übernehmen",
   notAdoptable: {
     "unsupported-fields":

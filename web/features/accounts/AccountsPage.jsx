@@ -23,6 +23,7 @@ export default function AccountsPage({
   refresh,
   onNavigate,
   mcpOAuth,
+  mcpSection,
 }) {
   const { enabled: agentsEnabled } = useAssistantFeature();
   return (
@@ -64,7 +65,11 @@ export default function AccountsPage({
       )}
       {/* The central MCP servers exist with or without agents. */}
       <Suspense fallback={null}>
-        <McpServersSettings oauthResult={mcpOAuth} agentsEnabled={!!agentsEnabled} />
+        <McpServersSettings
+          oauthResult={mcpOAuth}
+          agentsEnabled={!!agentsEnabled}
+          focus={mcpSection === "mcp-servers"}
+        />
       </Suspense>
       <h2>{connectionCopy.native}</h2>
       <div className="account-list">

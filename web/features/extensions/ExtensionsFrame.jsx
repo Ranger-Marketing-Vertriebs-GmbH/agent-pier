@@ -5,8 +5,8 @@ import { profileExtensionsCopy as copy } from "../../lib/i18n/messages/extension
 import { sharingCopy } from "../../lib/i18n/messages/sharing.js";
 import { ExtensionHint } from "./ExtensionTable.jsx";
 
-// Shared loading, sharing, feedback and removal confirmation for the MCP and
-// Skills tabs, which both read the profile's extensions inventory.
+// Loading, sharing, feedback and removal confirmation for the MCP and Skills tabs,
+// which read the profile's extensions inventory; only skills are removed here.
 export default function ExtensionsFrame({ ext, account, request, hideError, children }) {
   const { data, busy, error, notice, confirm, setConfirm, mutate, endpoint } = ext;
   if (ext.loading)
@@ -77,11 +77,7 @@ export default function ExtensionsFrame({ ext, account, request, hideError, chil
           role="group"
           aria-label={commonCopy.confirmRemoval}
         >
-          <p>
-            {confirm.kind === "mcp"
-              ? copy.confirmMcpRemoval(confirm.name)
-              : copy.confirmSkillRemoval(confirm.name)}
-          </p>
+          <p>{copy.confirmSkillRemoval(confirm.name)}</p>
           <div className="extension-actions">
             <button
               className="button secondary"
@@ -98,7 +94,7 @@ export default function ExtensionsFrame({ ext, account, request, hideError, chil
                   "remove",
                   () =>
                     request(
-                      `${endpoint}/${confirm.kind === "mcp" ? "mcp" : "skills"}/${encodeURIComponent(confirm.id)}`,
+                      `${endpoint}/skills/${encodeURIComponent(confirm.id)}`,
                       "DELETE",
                     ),
                   copy.removedNotice(confirm.name),
