@@ -3,14 +3,13 @@ import { assistantProblem } from "../../features/assistants/assistant-validation
 import { STDIO_CONFIRMATION_REQUIRED } from "../../features/mcp-servers/stdio-confirmation.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
+import { record } from "../../features/extensions/mcp-config.js";
 
 /** A saved change whose OAuth logout is retried later (see McpOAuthLogins.forget). */
 function deferredWarning() {
   const message = serverMessages.mcpServers.oauthLogoutDeferred;
   return { code: "oauth-logout-deferred", error: message, ...messageIdentity(message) };
 }
-
-const record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 
 /**
  * Answers a stdio server the owner has not confirmed with 409 and a stable code;
