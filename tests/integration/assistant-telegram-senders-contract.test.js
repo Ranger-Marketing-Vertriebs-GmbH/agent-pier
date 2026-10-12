@@ -20,9 +20,11 @@ const options = {
 };
 const token1 = "7001:fixture-token-one-abcdefghijklmnopqrstuvwxyz";
 const token2 = "7002:fixture-token-two-abcdefghijklmnopqrstuvwxyz";
+const token3 = "7003:fixture-token-three-abcdefghijklmnopqrstuvwxyz";
 const bots = {
   [token1]: { id: 7001, username: "helper_fixture_bot" },
   [token2]: { id: 7002, username: "second_fixture_bot" },
+  [token3]: { id: 7003, username: "third_fixture_bot" },
 };
 const alice = { id: "111", name: "Alice" };
 const bob = { id: "222", name: "Bob" };
@@ -35,9 +37,10 @@ test("agents' own bots on the compiled path", options, async (t) => {
   });
   const helper = h.create("Helper", { capabilities: { memory: true, reminders: false } });
   const second = h.create("Second");
+  const third = h.create("Third");
   const owner = h.create("Owner");
   await h.runtime.start();
-  for (const agent of [helper, second, owner]) await h.config.apply(agent.id);
+  for (const agent of [helper, second, third, owner]) await h.config.apply(agent.id);
   h.speech.save({ apiKey: "dg-fixture-key", language: "de", revision: 0 });
 
   // A save the running Gateway was not started with asks first, then restarts it.
@@ -51,13 +54,18 @@ test("agents' own bots on the compiled path", options, async (t) => {
     { token: token2, people: [carol], revision: null },
     { confirmed: true },
   );
-  assert.equal(h.restarts.length, 2);
+  await h.senders.save(
+    third.id,
+    { token: token3, people: [carol], revision: null },
+    { confirmed: true },
+  );
+  assert.equal(h.restarts.length, 3);
   const ids = (agent) => h.store.getAssistant(agent.id).runtimeAgentId;
   const running = await h.running();
   t.diagnostic(`telegram=${JSON.stringify(running.channels.telegram)}`);
   assert.deepEqual(
     Object.keys(running.channels.telegram.accounts).sort(),
-    [ids(helper), ids(second)].sort(),
+    [ids(helper), ids(second), ids(third)].sort(),
   );
   const account = running.channels.telegram.accounts[ids(helper)];
   assert.deepEqual(account.allowFrom, ["111", "222"]);
@@ -66,8 +74,8 @@ test("agents' own bots on the compiled path", options, async (t) => {
   assert.deepEqual(running.tools.agentToAgent, { enabled: false });
   assert.ok(running.plugins.allow.includes("telegram"));
   assert.ok(running.plugins.allow.includes("deepgram"));
-  assert.equal(running.bindings.length, 2);
-  await h.polling(token1, token2);
+  assert.equal(running.bindings.length, 3);
+  await h.polling(token1, token2, token3);
   const status = await h.senders.get(helper.id);
   assert.equal(status.status.state, "running");
   assert.doesNotMatch(JSON.stringify(status), /fixture-token/);
@@ -144,10 +152,55 @@ test("agents' own bots on the compiled path", options, async (t) => {
   assert.match(h.deepgram.requests[0].url, /model=nova-3/);
   assert.match(h.deepgram.requests[0].url, /language=de/);
 
-  // The owner's own conversations are unaffected.
+  // Senders get no session tools: no status card, no other sessions. The owner's
+  // own agents keep them.
+  h.bots.text(token1, bob, "status please [tool:session_status]");
+  await h.until(() => h.requests("[tool:session_status]").length, "session tool turn");
+  await delay(2000);
+  const sessionTurn = h.requests("[tool:session_status]");
+  const offeredToSender = sessionTurn[0].tools.map((d) => d.function.name);
+  t.diagnostic(`sender tools=${JSON.stringify(offeredToSender)}`);
+  assert.equal(offeredToSender.includes("session_status"), false);
+  assert.equal(
+    sessionTurn.flatMap((r) => r.messages).some((m) => m.role === "tool"),
+    false,
+    "no session tool ran",
+  );
+  assert.equal(
+    (await h.running()).agents.entries[ids(helper)].tools.allow.includes(
+      "session_status",
+    ),
+    false,
+  );
+
+  // Group chats never reach the agent, even from an allowed person.
+  h.bots.group(token1, alice, -1001234567890, "hello group [m:group]");
+  await delay(4000);
+  assert.equal(h.requests("[m:group]").length, 0);
+  assert.equal(h.bots.sent(token1, -1001234567890).length, 0);
+
+  // The owner's own conversations are unaffected, including a team run.
   const turn = await h.ownerTurn(owner, "o1");
   assert.equal(turn.status, "ok");
   assert.ok(turn.requests.length >= 1);
+  assert.ok(turn.requests[0].tools.some((d) => d.function.name === "session_status"));
+  const team = await h.ownerTurn(owner, "o2", "[tool:agentpier_team_propose]");
+  t.diagnostic(`team tools=${JSON.stringify(team.tools)}`);
+  assert.equal(team.status, "ok");
+  assert.ok(team.tools.includes("agentpier_team_propose"));
+  assert.equal(h.teams.store.list().length, 1);
+  assert.equal(h.teams.store.list()[0].phase, "awaiting_approval");
+
+  // A second poller of a bot (409) leaves the Gateway and the other bots running.
+  h.bots.conflict(token2);
+  await h.until(
+    async () => (await h.senders.get(second.id)).status.state === "error",
+    "conflict reported",
+    { timeoutMs: 90000 },
+  );
+  h.bots.text(token1, bob, "still there [m:bob409]");
+  await h.until(() => h.requests("[m:bob409]").length, "helper after a conflict");
+  assert.equal((await h.ownerTurn(owner, "o3")).status, "ok");
 
   // An agent with a bot keeps shell off.
   await assert.rejects(
@@ -162,20 +215,35 @@ test("agents' own bots on the compiled path", options, async (t) => {
   // Disconnecting the second bot stops its polling at the restart.
   const current = (await h.senders.get(second.id)).bot;
   await h.senders.remove(second.id, current.revision, { confirmed: true });
-  assert.deepEqual(Object.keys((await h.running()).channels.telegram.accounts), [
-    ids(helper),
-  ]);
+  assert.deepEqual(
+    Object.keys((await h.running()).channels.telegram.accounts).sort(),
+    [ids(helper), ids(third)].sort(),
+  );
   await h.polling(token1);
   const polls = h.bots.polls(token2);
   await delay(4000);
   assert.equal(h.bots.polls(token2), polls, "the removed bot is not polled");
+
+  // A token Telegram revoked (401) never stops the Gateway: it starts, the owner's
+  // agents and the other bot keep working and the bot shows an error.
+  h.bots.reject(token3);
+  await h.runtime.restart();
+  assert.equal(h.runtime.status().availability, "ready");
+  assert.equal((await h.ownerTurn(owner, "o4")).status, "ok");
+  h.bots.text(token1, alice, "after a revoked token [m:alice401]");
+  await h.until(() => h.requests("[m:alice401]").length, "helper after 401");
+  await h.until(
+    async () => (await h.senders.get(third.id)).status.state === "error",
+    "revoked token reported",
+    { timeoutMs: 90000 },
+  );
 
   // Neither the tokens nor the Deepgram key reach the Gateway's logs.
   const logs = fs
     .readdirSync(h.runtime.paths.logs)
     .map((name) => fs.readFileSync(path.join(h.runtime.paths.logs, name), "utf8"))
     .join("\n");
-  for (const secret of [token1, token2, "fixture-token", "dg-fixture-key"])
+  for (const secret of [token1, token2, token3, "fixture-token", "dg-fixture-key"])
     assert.equal(logs.includes(secret), false, "secret in a log");
   assert.doesNotMatch(JSON.stringify(h.audit), /fixture-token|dg-fixture-key|Alice/);
 });

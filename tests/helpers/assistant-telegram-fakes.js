@@ -21,6 +21,9 @@ export async function fakeBotApi(bots) {
   const queues = new Map(Object.keys(bots).map((token) => [token, []]));
   const waiters = new Map();
   const files = new Map();
+  // Tokens Telegram revoked (401 everywhere) and tokens another poller holds (409).
+  const rejected = new Set();
+  const conflicted = new Set();
   let sequence = 1000;
   const server = http.createServer(async (req, res) => {
     let body = "";
@@ -53,7 +56,17 @@ export async function fakeBotApi(bots) {
       res.end(JSON.stringify({ ok: true, result }));
     };
     const bot = bots[token];
-    if (!bot) {
+    if (conflicted.has(token) && method === "getUpdates") {
+      res.writeHead(409, { "content-type": "application/json" });
+      return res.end(
+        JSON.stringify({
+          ok: false,
+          error_code: 409,
+          description: "Conflict: terminated by other getUpdates request",
+        }),
+      );
+    }
+    if (!bot || rejected.has(token)) {
       res.writeHead(401, { "content-type": "application/json" });
       return res.end(
         JSON.stringify({ ok: false, error_code: 401, description: "Unauthorized" }),
@@ -146,6 +159,15 @@ export async function fakeBotApi(bots) {
         },
       });
     },
+    /** A message from `person` in a supergroup the bot belongs to. */
+    group: (token, person, chatId, text) =>
+      push(token, {
+        chat: { id: chatId, type: "supergroup", title: "Fixture group" },
+        from: { id: Number(person.id), is_bot: false, first_name: person.name },
+        text,
+      }),
+    reject: (token) => rejected.add(token),
+    conflict: (token) => conflicted.add(token),
     sent: (token, chatId) =>
       calls.filter(
         (c) =>
