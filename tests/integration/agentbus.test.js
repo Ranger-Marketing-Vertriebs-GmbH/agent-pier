@@ -122,7 +122,7 @@ test("session-only launch adapters preserve options, profile files and project s
   assert.match(JSON.parse(opencode.env.OPENCODE_CONFIG_CONTENT).plugin[0], /^file:/);
   assert.equal(
     fs.readFileSync(path.join(codex.env.CODEX_HOME, "config.toml"), "utf8"),
-    'cli_auth_credentials_store = "file"\n',
+    'cli_auth_credentials_store = "file"\nmcp_oauth_credentials_store = "file"\n',
   );
   assert.equal(
     fs.existsSync(path.join(claude.env.CLAUDE_CONFIG_DIR, "settings.json")),

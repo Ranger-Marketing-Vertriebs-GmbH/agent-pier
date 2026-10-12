@@ -108,10 +108,12 @@ for (const tool of Object.keys(nativeArguments)) {
           .OPENAI_API_KEY,
         "fixture-native-key",
       );
-      assert.match(
-        fs.readFileSync(path.join(launch.env.CODEX_HOME, "config.toml"), "utf8"),
-        /cli_auth_credentials_store\s*=\s*"file"/,
+      const config = fs.readFileSync(
+        path.join(launch.env.CODEX_HOME, "config.toml"),
+        "utf8",
       );
+      assert.match(config, /cli_auth_credentials_store\s*=\s*"file"/);
+      assert.match(config, /mcp_oauth_credentials_store\s*=\s*"file"/);
     }
   });
 }
