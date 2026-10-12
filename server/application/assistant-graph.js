@@ -27,6 +27,7 @@ import { AssistantWorkflows } from "../features/assistants/assistant-workflows.j
 import { RuntimeUpdates } from "../features/assistants/runtime-updates.js";
 import { AssistantProviderSynchronization } from "../features/assistants/assistant-provider-synchronization.js";
 import { WebToolsChanges } from "../features/assistants/web-tools-changes.js";
+import { resolveShellOwner } from "../features/assistants/exec-shell.js";
 import { McpChanges } from "../features/assistants/mcp-changes.js";
 import { oauthRedirect } from "../features/mcp-servers/oauth-redirect.js";
 import { McpOAuthLogins } from "../features/mcp-servers/mcp-oauth-logins.js";
@@ -99,6 +100,7 @@ export function constructAssistantGraph(host, created = {}) {
       "hostCapacity",
       "nativeReady",
       "webToolsAvailable",
+      "shellPathPrepend",
       "mcpTools",
     ],
   );
@@ -110,6 +112,7 @@ export function constructAssistantGraph(host, created = {}) {
       config: configuration,
       login: assistantModelLogin,
       accounts: assistantModelAccounts,
+      audit,
     }),
     "assistants",
     [
@@ -291,12 +294,18 @@ export function connectAssistantServices(graph) {
     webTools: webToolsChanges,
     mcp: mcpChanges,
   });
+  // Resolved at most once per process for applies before the first ready start.
+  let fallbackOwner;
   wire(configuration, "configuration", {
     teamReady: () => bridge.status().ready,
     writeGuard: () => bridge.guardLive(),
     hostCapacity: () => teams.store.settings().hostMaxConcurrent,
     nativeReady: () => !!reminders.webhook.server?.listening,
     webToolsAvailable: () => runtime.webTools?.availability || webToolsAvailability(),
+    // The PATH the running Gateway was started with; the same rule before that.
+    shellPathPrepend: () =>
+      runtime.shell?.pathPrepend ||
+      (fallbackOwner ??= resolveShellOwner() || { pathPrepend: [] }).pathPrepend,
     // Before any start, and for agents the start did not bind, no MCP tools.
     mcpTools: (assistant) => runtime.mcp?.agentTools?.[assistant.runtimeAgentId] || [],
   });

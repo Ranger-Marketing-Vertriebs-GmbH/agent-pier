@@ -6,12 +6,26 @@ import { reconcileRuns } from "./run-reconciler.js";
 import { GatewayEventHub } from "./gateway-event-hub.js";
 import { webCapabilityKeys } from "./native-capabilities.js";
 import { assertWired } from "./service-wiring.js";
+import { ShellChanges, shellChange, withoutUnchanged } from "./shell-changes.js";
+import { ExecAllowlist } from "./exec-allowlist.js";
 import { assistantActivity } from "./assistant-activity.js";
 
 const sessionRetryMs = 60000;
 export class AssistantService {
-  constructor({ store, models, runtime, config, login, accounts, now = Date.now }) {
-    Object.assign(this, { store, models, runtime, config, login, accounts, now });
+  constructor({
+    store,
+    models,
+    runtime,
+    config,
+    login,
+    accounts,
+    audit,
+    now = Date.now,
+  }) {
+    Object.assign(this, { store, models, runtime, config, login, accounts, audit, now });
+    this.shellChanges = new ShellChanges(this, { now });
+    config.onApplied = (id) => this.shellChanges.applied(id);
+    this.allowlist = new ExecAllowlist(this);
     this.sessionFailures = new Map();
     this.ledger = new RequestLedger(store.db);
     this.markOutstandingUnknown();
@@ -48,6 +62,8 @@ export class AssistantService {
         // A reconnect re-subscribes every session at once; a pass that started on
         // the previous connection must not absorb this one.
         this.sessionFailures.clear();
+        // The start compiled the store; a level a lost apply left pending is checked.
+        this.shellChanges.retry({ force: true }).catch(() => {});
         (this.reconciling || Promise.resolve())
           .catch(() => {})
           .then(() => this.reconcile())
@@ -60,6 +76,7 @@ export class AssistantService {
     this.poll.unref();
   }
   pollReconcile() {
+    this.shellChanges.retry().catch(() => {});
     const now = this.now();
     if (
       this.ledger.unresolved().length ||
@@ -137,8 +154,11 @@ export class AssistantService {
       }),
     };
   }
-  create(input) {
+  /** A new agent with shell needs the same confirmations as raising it later. */
+  create(body) {
+    const { confirmShell, confirmFull, ...input } = body || {};
     return this.admit(async () => {
+      const shell = shellChange({ shell: "off" }, input, { confirmShell, confirmFull });
       const lease = await this.models.resolve(input.model || {});
       lease.release();
       // Web capabilities need the Gateway sections an update can apply with the
@@ -149,13 +169,16 @@ export class AssistantService {
       const record = this.store.createAssistant(
         capabilities ? { ...input, capabilities } : input,
       );
+      // The Gateway gets the agent, and its level, at its first apply.
+      if (shell) this.shellChanges.audit(record.id, shell, {});
       this.changed();
       return record;
     });
   }
   /** The profile with its bound MCP server ids, for agents the owner binds. */
   withMcp(profile) {
-    return this.mcp ? this.mcp.decorate(profile) : profile;
+    const decorated = this.shellChanges.decorate(profile);
+    return this.mcp ? this.mcp.decorate(decorated) : decorated;
   }
   /** The decorated profile, flagged `pending` while the Gateway lags behind. */
   withPending(profile, pending) {
@@ -166,20 +189,41 @@ export class AssistantService {
    * `confirmed` is the owner's consent to restart the Gateway when the change needs
    * global web tool sections the running Gateway was not started with. `mcpServers`
    * (server ids) replaces the agent's MCP bindings; adding a stdio server needs
-   * `confirmStdio: true`.
+   * `confirmStdio: true`. Raising the `shell` level needs `confirmShell: true`, to
+   * "full" also `confirmFull: true`; lowering needs neither and applies even while
+   * the agent works (shell-changes.js).
    */
   async update(id, input, revision, { confirmed = false } = {}) {
-    const { mcpServers, confirmStdio, ...patch } = input || {};
+    const { mcpServers, confirmStdio, confirmShell, confirmFull, ...body } = input || {};
     const binds = mcpServers !== undefined;
+    let shell = null,
+      patch = body;
     const restart = await this.admit(async () => {
-      validateDefinition(patch, true);
+      const changes = validateDefinition(body, true);
       if (binds && !this.mcp) throw assistantProblem("invalid");
       const current = this.store.getAssistant(id);
       if (current.revision !== revision) throw assistantProblem("conflict", 409);
+      // A form sends every field; only the ones that differ are a change, so an
+      // unchanged name or model never holds back lowering the shell level.
+      patch = withoutUnchanged(body, changes, current);
+      // Refuses an ineligible agent or a missing confirmation before any change.
+      shell = shellChange(current, patch, { confirmShell, confirmFull });
+      // Only lowering the shell level: it must stop new commands at once, so a
+      // running turn does not hold it back.
+      const lowersOnly =
+        shell &&
+        !shell.raised &&
+        !binds &&
+        Object.keys(patch).every((k) => k === "shell");
       const member = this.teams?.store.find(id);
-      if (member?.kind === "member" && this.teams.store.activeMember(member))
+      if (
+        !lowersOnly &&
+        member?.kind === "member" &&
+        this.teams.store.activeMember(member)
+      )
         throw assistantProblem("active", 409);
       if (
+        !lowersOnly &&
         this.ledger
           .pending()
           .some(
@@ -216,7 +260,11 @@ export class AssistantService {
         // The save is stored: a failed live apply stays pending instead of an error.
         pending = await this.mcp.applySaved();
       }
-      if (patch.capabilities && this.runtime.client?.ready) await this.config.apply(id);
+      // Saved first, so a request arriving now is denied (exec-approvals.js). A
+      // failed live apply stays pending and is retried; never reported as live.
+      if (shell) pending = (await this.shellChanges.settle(id, shell)) || pending;
+      else if (patch.capabilities && this.runtime.client?.ready)
+        await this.config.apply(id);
       this.changed();
       return { record, pending };
     });
@@ -238,8 +286,12 @@ export class AssistantService {
           : undefined,
       },
     );
-    if (this.runtime.client?.ready) await this.config.apply(id);
-    return this.withMcp(record);
+    if (!shell) {
+      if (this.runtime.client?.ready) await this.config.apply(id);
+      return this.withMcp(record);
+    }
+    // The restarted Gateway compiled the level; the apply confirms it.
+    return this.withPending(record, await this.shellChanges.settle(id, shell));
   }
   admit(operation) {
     return this.serialize("admission", () => {

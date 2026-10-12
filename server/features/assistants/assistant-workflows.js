@@ -13,7 +13,11 @@ import { deliverFollowUps, memberActions, memberContext } from "./team-coding.js
 import { decideAudited } from "./approval-audit.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { permanentReasons } from "./native-routines.js";
+import { ExecApprovals, execDecisions } from "./exec-approvals.js";
+import { allowAlwaysByAgentPier, decideExec, execPlan } from "./exec-decisions.js";
 const maxEventRetryMs = 300000;
+// How long an expired exec action waits for the Gateway's own outcome.
+const execExpiryGraceMs = 60000;
 export class AssistantWorkflows {
   constructor({ services, autoStart = true, now = Date.now }) {
     this.now = now;
@@ -22,6 +26,7 @@ export class AssistantWorkflows {
     this.access = new AssistantAccess(services);
     this.store = new AssistantActionStore(this.a.store.db);
     this.coding = new AssistantCoding(this);
+    this.exec = new ExecApprovals(this);
     if (autoStart) this.start();
   }
   /** Starts advancing open actions; the application starts it after recovery. */
@@ -34,7 +39,7 @@ export class AssistantWorkflows {
     return this.store.get(id);
   }
   project(a) {
-    return Object.fromEntries(
+    const projected = Object.fromEntries(
       [
         "id",
         "assistantId",
@@ -57,6 +62,14 @@ export class AssistantWorkflows {
         .filter((k) => k in a)
         .map((k) => [k, a[k]]),
     );
+    // allow-always on this request makes AgentPier write the allowlist entry,
+    // which the owner is warned about before deciding.
+    if (a.payload?.action === "exec" && allowAlwaysByAgentPier(a.payload)) {
+      projected.allowAlwaysByAgentPier = true;
+      // `{ kind: "paths", paths }` or `{ kind: "once", reason, program? }`.
+      projected.allowAlwaysPlan = execPlan(a.payload);
+    } else if (a.payload?.action === "exec") projected.allowAlwaysByAgentPier = false;
+    return projected;
   }
   list(id) {
     this.a.store.getAssistant(id);
@@ -215,6 +228,10 @@ export class AssistantWorkflows {
     });
   }
   decide(id, input, origin) {
+    let exec = false;
+    try {
+      exec = this.store.get(id).payload.action === "exec";
+    } catch {}
     return decideAudited(
       this.s.audit,
       {
@@ -222,9 +239,28 @@ export class AssistantWorkflows {
         actionId: id,
         decision: input?.decision,
         revision: input?.revision,
-        kind: "action",
+        kind: exec ? "exec" : "action",
         assistantId: () => this.store.get(id).assistantId,
         attribution: () => this.store.get(id),
+        // Whether AgentPier wrote the allowlist entry for a withheld allow-always.
+        outcome: (result) => {
+          const allowlist = result?.result?.allowlist;
+          if (!exec || !allowlist) return {};
+          const outcome = { resolvedAs: result.result.resolvedAs };
+          if (allowlist.written)
+            return {
+              ...outcome,
+              allowlist: "written",
+              allowlistEntryIds: allowlist.entries.map((e) => e.entryId),
+            };
+          if (allowlist.skipped)
+            return {
+              ...outcome,
+              allowlist: "skipped",
+              allowlistReason: allowlist.skipped,
+            };
+          return { ...outcome, allowlist: "failed", allowlistError: allowlist.code };
+        },
       },
       () => this.decideOnce(id, input, origin),
     );
@@ -232,9 +268,14 @@ export class AssistantWorkflows {
   decideOnce(id, input, origin) {
     return this.a.admit(async () => {
       exact(input, ["revision", "decision"]);
-      if (!["approve", "decline", "review"].includes(input.decision))
+      const coding = ["approve", "decline", "review"];
+      if (![...coding, ...execDecisions].includes(input.decision))
         throw assistantProblem("invalid");
       const action = this.store.get(id);
+      // Exec approvals take the Gateway's decisions; other actions their own.
+      const exec = action.payload.action === "exec";
+      if (!(exec ? execDecisions : coding).includes(input.decision))
+        throw assistantProblem("invalid");
       if (input.decision === "review" && origin.kind !== "owner")
         throw assistantProblem("invalid", 403);
       const target = telegramTarget(action);
@@ -254,6 +295,8 @@ export class AssistantWorkflows {
         (input.decision !== "review" && action.expiresAt < Date.now())
       )
         throw assistantProblem("conflict", 409);
+      // Project grants do not apply to exec; the Gateway decides the request.
+      if (exec) return this.project(await decideExec(this, action, input.decision));
       if (input.decision === "approve")
         try {
           this.authorize(action);
@@ -328,7 +371,20 @@ export class AssistantWorkflows {
     this.a.changed();
   }
   async advanceAction(a) {
+    // An exec decision being sent finishes the action itself.
+    if (a.payload.action === "exec" && this.exec.deciding.has(a.payload.approvalId))
+      return;
     if (a.state === "awaiting_approval") {
+      // An exec request's outcome is the Gateway's: a decision whose reply was
+      // lost may still have run it, so its list and history decide while it is
+      // reachable. Without it, or once the grace has passed, the clock decides.
+      if (
+        a.expiresAt < Date.now() &&
+        a.payload.action === "exec" &&
+        this.a.runtime?.client?.ready &&
+        Date.now() < a.expiresAt + execExpiryGraceMs
+      )
+        return this.exec.expired();
       if (a.expiresAt < Date.now()) a = this.store.patch(a.id, { state: "expired" });
       else notifyAction(this, a, "approval");
     }
@@ -458,6 +514,7 @@ export class AssistantWorkflows {
   async close() {
     this.closed = true;
     clearInterval(this.timer);
+    this.exec.close();
     await this.running?.catch(() => {});
   }
 }

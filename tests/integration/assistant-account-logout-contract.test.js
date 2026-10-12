@@ -86,7 +86,7 @@ test(
           expires:Date.now()+86400000, email:'synthetic-' + id + '@example.invalid'}
       });`;
     execFileSync(nodePath, ["--input-type=module", "-e", code], {
-      env: runtimeEnvironment(runtime.paths, nodePath, "fixture"),
+      env: runtimeEnvironment(runtime.paths, nodePath),
       stdio: ["ignore", "pipe", "pipe"],
       timeout: 30000,
     });

@@ -278,7 +278,6 @@ test("the search key appears only in the provider's plugin entry", () => {
   const env = runtimeEnvironment(
     { home: "/h", tmp: "/t", state: "/s", config: "/c" },
     "/node/bin/node",
-    "gateway-token",
     { BRAVE_API_KEY: key, PATH: "/usr/bin" },
   );
   assert.ok(!JSON.stringify(env).includes(key));

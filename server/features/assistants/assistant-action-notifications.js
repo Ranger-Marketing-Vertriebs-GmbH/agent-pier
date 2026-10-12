@@ -1,4 +1,5 @@
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
+import { allowAlwaysByAgentPier, execPlan } from "./exec-decisions.js";
 // The Telegram chat bound to an action: its own Telegram origin, or for a team
 // member's request the owner chat recorded when the request was made.
 export function telegramTarget(action) {
@@ -11,6 +12,7 @@ export function notifyAction(w, action, phase) {
   const key = `action-${phase}:${action.id}`;
   if (outbox.all(target.channelId).some((e) => e.key === key)) return;
   const m = telegramMessages(store.get(target.channelId));
+  if (action.payload.action === "exec") return notifyExec(w, action, phase, key, m);
   const detail =
     (action.requestedBy ? `${m.actionRequestedByMember(action.memberName)}\n` : "") +
     (action.payload.action === "coding_start"
@@ -26,9 +28,7 @@ export function notifyAction(w, action, phase) {
     kind: `action-${phase}`,
     localized: true,
     text,
-    path: action.teamId
-      ? `/agents/${encodeURIComponent(action.assistantId)}/teams/${encodeURIComponent(action.teamId)}`
-      : `/agents/${encodeURIComponent(action.assistantId)}/chats/${encodeURIComponent(action.conversationId)}`,
+    path: actionPath(action),
     actions:
       phase === "approval"
         ? [
@@ -44,6 +44,116 @@ export function notifyAction(w, action, phase) {
               decision: "decline",
               label: m.actionDecline,
             },
+          ]
+        : [],
+  });
+}
+const actionPath = (action) =>
+  action.teamId
+    ? `/agents/${encodeURIComponent(action.assistantId)}/teams/${encodeURIComponent(action.teamId)}`
+    : `/agents/${encodeURIComponent(action.assistantId)}/chats/${encodeURIComponent(action.conversationId)}`;
+// Model-chosen text shown verbatim: inside a code fence the Markdown renderer
+// escapes everything, and a line that would close the fence is broken up.
+const fenced = (text) =>
+  "```\n" + text.replace(/^(\s*)(```|~~~)/gm, "$1\u200b$2") + "\n```";
+const commandLimit = 1500;
+// A model-chosen name as inline code: inside it the Markdown renderer escapes
+// everything and makes no links. A backtick, which would end it, becomes a
+// look-alike, and line breaks become spaces.
+const literal = (text) =>
+  `\`${String(text)
+    .replaceAll("`", "\u02cb")
+    .replace(/[\r\n]+/g, " ")}\``;
+const programs = (paths) => paths.map(literal).join(", ");
+const onceReason = (m, reason, program) =>
+  program && m.execOnceReasons[reason]
+    ? m.execOnceReasons[reason](literal(program))
+    : m.execOnceCommandReasons[reason] || m.execOnceCommandReasons.unresolved;
+// The programs an entry allows, and those of them the owner can change.
+const programNotes = (paths, writable, allowed, m) => [
+  allowed(programs(paths)),
+  ...(writable?.length ? [m.execWritablePrograms(programs(writable))] : []),
+];
+// What "Always allow" will do when OpenClaw withheld it: exactly the stored plan.
+function execAllowAlwaysNote(p, m) {
+  if (!allowAlwaysByAgentPier(p)) return [];
+  const plan = execPlan(p);
+  return plan.kind === "paths"
+    ? [programNotes(plan.paths, plan.writable, m.execAllowAlwaysPrograms, m).join(" ")]
+    : [m.execAllowAlwaysOnce(onceReason(m, plan.reason, plan.program))];
+}
+// The decision that took effect: a withheld allow-always without an entry ran once.
+function execOutcome(action, m) {
+  if (action.state !== "completed")
+    return m.execStates[action.state] || m.execStates.unknown;
+  const allowlist = action.result?.allowlist;
+  const decision =
+    allowlist && !allowlist.written ? "allow-once" : action.result?.decision;
+  return m.execDecided[decision] || m.execDecided["allow-once"];
+}
+function execAllowlistNote(action, m) {
+  const allowlist = action.result?.allowlist;
+  if (!allowlist) return [];
+  if (allowlist.written) {
+    const paths = allowlist.entries.map((e) => e.pattern);
+    return [
+      programNotes(paths, allowlist.writable, m.execAllowlistPrograms, m).join(" "),
+    ];
+  }
+  if (allowlist.skipped)
+    return [m.execAllowlistSkipped(onceReason(m, allowlist.skipped, allowlist.program))];
+  return [m.execAllowlistFailed];
+}
+// The Telegram channel answers only its paired private chat, so the command is
+// shown to the owner alone.
+function notifyExec(w, action, phase, key, m) {
+  const p = action.payload,
+    target = telegramTarget(action);
+  let name = p.agentId;
+  try {
+    name = w.a.store.getAssistant(action.assistantId).name;
+  } catch {}
+  // Truncated by code point, so a surrogate pair is never split.
+  const points = Array.from(p.command);
+  const command =
+    points.length > commandLimit
+      ? `${points.slice(0, commandLimit).join("")}…`
+      : p.command;
+  const detail = [
+    m.execAgent(name),
+    ...(p.cwd ? [`${m.execCwd}\n${fenced(p.cwd)}`] : []),
+    fenced(command),
+  ].join("\n");
+  const text =
+    phase === "approval"
+      ? [
+          m.execApproval,
+          detail,
+          ...(p.warningText ? [fenced(p.warningText)] : []),
+          ...execAllowAlwaysNote(p, m),
+        ].join("\n\n")
+      : [execOutcome(action, m), ...execAllowlistNote(action, m), detail].join("\n\n");
+  const button = (decision, label) => ({
+    proposalId: action.id,
+    revision: action.revision,
+    decision,
+    label,
+  });
+  w.s.assistantChannels.outbox.enqueue({
+    key,
+    source: { ...target, actionId: action.id },
+    kind: `action-${phase}`,
+    localized: true,
+    text,
+    path: actionPath(action),
+    // allow-always is always offered; when OpenClaw withholds it, AgentPier
+    // writes program entries or allows once (exec-allowlist-policy.js).
+    actions:
+      phase === "approval"
+        ? [
+            button("allow-once", m.execAllowOnce),
+            button("allow-always", m.execAllowAlways),
+            button("deny", m.execDeny),
           ]
         : [],
   });

@@ -28,7 +28,9 @@ export async function gatewayFixture({ token = "fixture", delay = 0, features } 
       const req = JSON.parse(bytes);
       calls.push(req);
       if (req.method === "pending") return;
-      const ok = req.method !== "connect" || req.params.auth?.token === token;
+      const ok =
+        req.method !== "stale" &&
+        (req.method !== "connect" || req.params.auth?.token === token);
       const send = () =>
         ws.readyState === 1 &&
         ws.send(
@@ -43,7 +45,14 @@ export async function gatewayFixture({ token = "fixture", delay = 0, features } 
                       ? { type: "hello-ok", protocol: 4, ...(features && { features }) }
                       : { value: 42 },
                 }
-              : { error: { code: "UNAUTHORIZED", message: "secret must not escape" } }),
+              : req.method === "stale"
+                ? {
+                    error: {
+                      code: "INVALID_REQUEST",
+                      message: "changed since last load",
+                    },
+                  }
+                : { error: { code: "UNAUTHORIZED", message: "secret must not escape" } }),
           }),
         );
       if (req.method === "connect") setTimeout(send, delay);

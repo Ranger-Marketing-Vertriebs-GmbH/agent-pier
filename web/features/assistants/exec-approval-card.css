@@ -1,0 +1,62 @@
+/* Laid out by .assistant-approval-card, like the other pending cards in the chat. */
+.exec-approval-card {
+  min-width: 0;
+  text-align: left;
+}
+.exec-approval-card p {
+  margin: 0;
+}
+.exec-approval-command {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--surface-input);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.exec-approval-command.clamped {
+  max-height: 6.5em;
+  overflow: hidden;
+}
+.exec-approval-toggle {
+  align-self: flex-start;
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.exec-approval-facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 0.75rem;
+  margin: 0;
+  font-size: 13px;
+}
+.exec-approval-facts dt {
+  color: var(--muted, inherit);
+}
+.exec-approval-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.exec-approval-note,
+.exec-approval-confirm {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--accent-line);
+  border-radius: 0.5rem;
+  background: var(--accent-faint);
+}
+.exec-approval-confirm {
+  display: grid;
+  gap: 0.5rem;
+}
+.exec-approval-actions {
+  flex-wrap: wrap;
+}

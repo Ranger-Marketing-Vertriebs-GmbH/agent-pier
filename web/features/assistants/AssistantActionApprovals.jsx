@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantWorkflowCopy as copy } from "../../lib/i18n/messages/assistant-workflows.js";
+import ExecApprovalCard from "./ExecApprovalCard.jsx";
+
+const isExec = (a) => a.payload.action === "exec";
 
 // The agent's own pending actions as cards in the transcript (handoff 2c). The chat
 // loads them once (useAssistantActions) and also counts them in the approval strip.
@@ -15,11 +18,16 @@ export default function AssistantActionApprovals({ actions, error, decide }) {
     }
   }
   if (!actions.length && !error) return null;
+  // Shell commands have their own card; it decides through `decide(id, decision)`.
+  const others = actions.filter((a) => !isExec(a));
   return (
     <section className="assistant-action-approvals" aria-label={copy.pendingApprovals}>
       <h3 className="sr-only">{copy.pendingApprovals}</h3>
       <ErrorMessage error={error} />
-      {actions.map((a) => (
+      {actions.filter(isExec).map((a) => (
+        <ExecApprovalCard key={a.id} action={a} decide={(_, d) => decide(a, d)} />
+      ))}
+      {others.map((a) => (
         <article className="assistant-approval-card" data-pending="" key={a.id}>
           <div className="assistant-approval-head">
             <strong>

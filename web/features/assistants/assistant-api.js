@@ -112,5 +112,11 @@ export const assistantApi = {
     api(`/assistant-attempts/${encodeURIComponent(id)}/recover`, "POST", {
       acknowledgeUnknownOutcome: true,
     }),
+  shellAllowlist: (id) => api(`/assistants/${encodeURIComponent(id)}/shell-allowlist`),
+  removeShellAllowlistEntry: (id, entry) =>
+    api(
+      `/assistants/${encodeURIComponent(id)}/shell-allowlist/${encodeURIComponent(entry)}`,
+      "DELETE",
+    ),
   operate: (action) => api(`/assistant-runtime/${action}`, "POST", {}),
 };

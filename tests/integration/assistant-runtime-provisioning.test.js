@@ -169,13 +169,8 @@ test("proxy settings reach npm ci and the Gateway; nothing else leaks", async (t
     assert.equal(npm.opts.env[key], value);
   assert.notEqual(npm.opts.env.PATH, environment.PATH);
   const paths = runtimePaths(f.dataDir);
-  const gateway = runtimeEnvironment(
-    paths,
-    "/runtime/node/bin/node",
-    "token",
-    environment,
-  );
-  const base = runtimeEnvironment(paths, "/runtime/node/bin/node", "token", {});
+  const gateway = runtimeEnvironment(paths, "/runtime/node/bin/node", environment);
+  const base = runtimeEnvironment(paths, "/runtime/node/bin/node", {});
   assert.deepEqual(gateway, { ...base, ...expected });
   assert.equal(gateway.PATH, base.PATH);
   for (const key of [

@@ -23,6 +23,9 @@ export async function apiError(response) {
   if (typeof data.messageKey === "string") error.messageKey = data.messageKey;
   // Agents affected by a connection change, named in its confirmation.
   if (data.affected && typeof data.affected === "object") error.affected = data.affected;
+  // Confirmations the server still needs, such as raising an agent's shell level.
+  if (Array.isArray(data.required))
+    error.required = data.required.filter((item) => typeof item === "string");
   return error;
 }
 export default async function api(path, method = "GET", body, signal) {

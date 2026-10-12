@@ -136,7 +136,7 @@ async function fixture(t) {
         ],
         {
           cwd: runtime.paths.root,
-          env: runtimeEnvironment(runtime.paths, descriptor.nodePath, "memory-fixture"),
+          env: runtimeEnvironment(runtime.paths, descriptor.nodePath),
           timeout: 60000,
           maxBuffer: 1024 * 1024,
         },

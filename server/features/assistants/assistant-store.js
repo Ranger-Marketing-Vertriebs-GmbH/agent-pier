@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { privateDatabase } from "../../lib/private-database.js";
 import { fencedDatabase } from "./ledger-fence.js";
 import { migrateAssistants } from "./assistant-schema.js";
+import { personalEligible } from "./native-capabilities.js";
 import { validateDefinition, assistantProblem } from "./assistant-validation.js";
 
 export class AssistantStore {
@@ -71,6 +72,12 @@ export class AssistantStore {
     if (!Number.isSafeInteger(revision) || current.revision !== revision)
       throw assistantProblem("conflict", 409);
     const { confirmInstructions, ...fields } = changes;
+    // Only eligible profiles can hold a shell level; a PATCH without it keeps the stored one.
+    // An ineligible profile may only restate "off", which changes nothing.
+    if ("shell" in fields && !personalEligible(current)) {
+      if (fields.shell !== "off") throw assistantProblem("invalid");
+      delete fields.shell;
+    }
     const result = { ...current, ...fields, revision: revision + 1 };
     // Older clients send only the original keys; keep stored newer capabilities.
     if (fields.capabilities)

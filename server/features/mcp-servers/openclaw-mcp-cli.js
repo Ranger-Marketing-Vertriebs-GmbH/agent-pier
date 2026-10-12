@@ -360,7 +360,7 @@ export function sweepLogoutConfigs(stateDir) {
 
 /** The Gateway's private environment for the CLI, without the Gateway token. */
 export function cliEnvironment(paths, nodePath, parent = process.env) {
-  const env = runtimeEnvironment(paths, nodePath, undefined, parent);
+  const env = runtimeEnvironment(paths, nodePath, parent);
   delete env.OPENCLAW_GATEWAY_TOKEN;
   return env;
 }

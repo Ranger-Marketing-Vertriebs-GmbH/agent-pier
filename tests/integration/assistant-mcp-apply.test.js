@@ -238,3 +238,20 @@ test("stdio servers need the owner's confirmation; nothing is persisted without 
     env: { TOKEN: "env-secret" },
   });
 });
+
+test("a live MCP patch keeps exec and process while some agent has shell", async (t) => {
+  const f = fixture(t);
+  const home = f.agent("Home");
+  const shelled = f.store.updateAssistant(f.agent("Shell").id, { shell: "approval" }, 1);
+  assert.equal(shelled.shell, "approval");
+  const docs = f.http();
+  f.runtime.mcp = mcpStartSnapshot({ profiles: [], mcp: {} }, () => {});
+  await f.service.update(home.id, { mcpServers: [docs.id] }, 1);
+  assert.deepEqual(f.gateway.patches[0].patch.tools.allow, [
+    ...nativeTools,
+    "web_fetch",
+    "exec",
+    "process",
+    "bundle-mcp",
+  ]);
+});

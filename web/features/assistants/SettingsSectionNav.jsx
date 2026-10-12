@@ -7,6 +7,7 @@ const clickHold = 900;
 export default function SettingsSectionNav({ assistant, personal }) {
   const sections = [
     ["profile", "agent-profile"],
+    ["shell", "agent-shell"],
     ...(personal ? [["access", "agent-access"]] : []),
     ...(personal && Array.isArray(assistant.mcpServers) ? [["mcp", "agent-mcp"]] : []),
     ...(personal && assistant.capabilities?.memory ? [["memory", "agent-memory"]] : []),
@@ -41,7 +42,15 @@ export default function SettingsSectionNav({ assistant, personal }) {
         edge &&
         edge.scrollTop > 0 &&
         edge.scrollTop + edge.clientHeight >= edge.scrollHeight - 2;
-      const first = targets.find((target) => visible.has(target.id));
+      // The shell section sits inside the profile form: the innermost visible one wins.
+      const first = targets.find(
+        (target) =>
+          visible.has(target.id) &&
+          !targets.some(
+            (inner) =>
+              inner !== target && visible.has(inner.id) && target.contains(inner),
+          ),
+      );
       if (atEnd) setActive(targets[targets.length - 1].id);
       else if (first) setActive(first.id);
     };

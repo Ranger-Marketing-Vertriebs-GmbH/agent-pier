@@ -19,6 +19,14 @@ test("TCP open is not authenticated readiness and RPCs preserve correlation", as
   await connecting;
   assert.equal(client.ready, true);
   assert.deepEqual(await client.call("anything", {}), { value: 42 });
+  // An INVALID_REQUEST keeps the Gateway's reason for the caller.
+  await assert.rejects(
+    client.call("stale", {}),
+    (error) =>
+      error.code === "INVALID_REQUEST" &&
+      error.answered === true &&
+      error.remoteMessage === "changed since last load",
+  );
   const waiting = client.call("pending", {});
   client.close();
   await assert.rejects(waiting, /closed/i);
@@ -37,7 +45,8 @@ test("failed authentication never exposes native error text", async (t) => {
     (error) =>
       error.code === "UNAUTHORIZED" &&
       error.answered === true &&
-      !error.message.includes("secret"),
+      !error.message.includes("secret") &&
+      error.remoteMessage === undefined,
   );
   assert.equal(client.ready, false);
   // A local transport failure is never mistaken for a Gateway answer.

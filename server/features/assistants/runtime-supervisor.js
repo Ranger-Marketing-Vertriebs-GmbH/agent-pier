@@ -14,6 +14,11 @@ import { reclaimOwner, recordOwner } from "./gateway-ownership.js";
 import { processIdentity } from "../../lib/process-identity.js";
 import { assertWired } from "./service-wiring.js";
 import { webToolsSnapshot } from "./openclaw-config/web-tools.js";
+import {
+  ownerShellEnvironment,
+  resolveShellOwner,
+  writeExecShell,
+} from "./exec-shell.js";
 import { mcpStartSnapshot } from "./openclaw-config/mcp-servers.js";
 
 // Errors an unattended retry cannot fix; they wait for the owner instead.
@@ -53,6 +58,8 @@ export class RuntimeSupervisor extends EventEmitter {
     identity = processIdentity,
     timing = {},
     configOverrides,
+    // The owner's HOME and login PATH for exec children; tests pass a simulated one.
+    shellOwner = ownerShellEnvironment,
   }) {
     super();
     Object.assign(this, {
@@ -62,6 +69,7 @@ export class RuntimeSupervisor extends EventEmitter {
       clientFactory,
       identity,
       configOverrides,
+      shellOwner,
     });
     this.timing = {
       reconnectMs: 1000,
@@ -177,7 +185,17 @@ export class RuntimeSupervisor extends EventEmitter {
     const webTools =
       teams?.webTools &&
       webToolsSnapshot({ profiles: teams.profiles, webTools: teams.webTools });
-    // Likewise for MCP servers: names and globs only, never header or env values.
+    // The owner's environment for exec children, computed once per start. The
+    // wrapper is set Gateway-wide even while no agent has shell: only agents with
+    // shell are offered exec, and an agent switched on later (a hot change) then
+    // already runs as the owner. Live applies reuse this start's PATH.
+    // Without a resolvable owner the Gateway starts without the wrapper and PATH.
+    this.shell = null;
+    const owner = resolveShellOwner(this.shellOwner);
+    const shell = { pathPrepend: [...(owner?.pathPrepend || [])] };
+    const execShell = owner && writeExecShell(this.paths, owner.home);
+    // Like the web tools, a snapshot of the MCP servers: names and globs only, never
+    // header or env values.
     this.mcp = null;
     // The same gate as the compiler's native branch, which alone writes MCP servers.
     const mcp =
@@ -191,6 +209,7 @@ export class RuntimeSupervisor extends EventEmitter {
       tls,
       overrides: this.configOverrides?.() || [],
       webTools: teams?.webTools,
+      shell,
       mcp: teams?.mcp,
     });
     await this.beforeSpawn?.();
@@ -213,7 +232,9 @@ export class RuntimeSupervisor extends EventEmitter {
         ],
         {
           cwd: this.paths.root,
-          env: runtimeEnvironment(this.paths, runtime.nodePath, token),
+          env: runtimeEnvironment(this.paths, runtime.nodePath, process.env, {
+            shell: execShell || undefined,
+          }),
           stdio: ["ignore", log, log],
         },
       );
@@ -253,6 +274,8 @@ export class RuntimeSupervisor extends EventEmitter {
       url: `wss://127.0.0.1:${port}`,
       token,
       certPath: tls.certPath,
+      // Only this main client answers exec approvals; OpenClaw routes them by cap.
+      caps: ["exec-approvals"],
     }));
     const spawned = Date.now();
     const deadline =
@@ -284,6 +307,7 @@ export class RuntimeSupervisor extends EventEmitter {
     this.lastReadyMs = Date.now() - spawned;
     // Live applies grant web tools against the state this Gateway was started with.
     this.webTools = webTools;
+    this.shell = shell;
     this.mcp = mcp;
     await this.afterReady?.();
     if (generation !== this.generation) return;
