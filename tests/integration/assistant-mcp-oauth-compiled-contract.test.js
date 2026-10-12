@@ -128,8 +128,13 @@ async function harness(t, { tool }) {
   const logouts = { fail: false, calls: [] };
   const failures = [];
   const realCli = supervisorMcpCli(runtime);
+  const loginStarts = { count: 0 };
   const cli = {
     ...realCli,
+    startLogin: (...args) => {
+      loginStarts.count++;
+      return realCli.startLogin(...args);
+    },
     completeLogin: (...args) =>
       realCli.completeLogin(...args).catch((error) => {
         failures.push(`${error.code}: ${error.message}`);
@@ -301,6 +306,7 @@ async function harness(t, { tool }) {
     oauth,
     logouts,
     failures,
+    loginStarts,
     starts,
     redirectUrl,
     api,
@@ -330,24 +336,33 @@ test(
     };
     const h = await harness(t, { tool });
     const { servers, runtime, api, listed, authState, loggedOut, turn, running } = h;
+    // Token requests without a tolerated verifier mismatch (below) and the SDK's repeat
+    // with the used code right after it.
+    const mismatched = (e) => e?.refused === "code_verifier mismatch";
+    const tolerated = (e, i, log) =>
+      mismatched(e) || (e.refused === "unknown or used code" && mismatched(log[i - 1]));
     const grants = () =>
-      docsServer.log.filter((e) => e.grant && !e.refused).map((e) => e.grant);
+      docsServer.log
+        .filter((e, i, l) => e.grant && !tolerated(e, i, l))
+        .map((e) => e.grant);
     // Why a login callback failed: the CLI's message and the server's last requests.
+    const brief = ({ path, grant, refused }) => ({ path, grant, refused });
     const why = () =>
-      JSON.stringify({ cli: h.failures, server: docsServer.log.slice(-4) });
+      JSON.stringify({ cli: h.failures, server: docsServer.log.slice(-4).map(brief) });
 
     // The browser's part of a login: approve, then follow the redirect to the callback.
     // Known upstream defect of OpenClaw 2026.9.8 (docs/mcp-oauth-qualification.md (b)):
     // right after a turn started the server without credentials, `login --code` can
     // send a PKCE verifier that does not match the challenge it printed. `mismatch`
-    // is true only for exactly that: InvalidGrantError from the CLI and a token request
-    // the server refused for its code_verifier.
-    async function authorize(authorizationUrl) {
+    // is true only for exactly that: InvalidGrantError from the CLI, a token request the
+    // server refused for its code_verifier, and one login start since `startsFrom`.
+    async function authorize(authorizationUrl, startsFrom) {
       const logFrom = docsServer.log.length;
       const failFrom = h.failures.length;
       const back = await approve(authorizationUrl);
       const done = await fetch(back, { redirect: "manual" });
       const mismatch =
+        h.loginStarts.count === startsFrom + 1 &&
         !/oauth=connected/.test(done.headers.get("location")) &&
         h.failures.slice(failFrom).some((f) => /\bInvalidGrantError\b/.test(f)) &&
         docsServer.log
@@ -358,9 +373,13 @@ test(
     // Each login: start, approve, callback; the nudge makes the next turn see it. A
     // verifier mismatch is repeated once and logged; any other failure fails.
     async function login(label, { repeated = false } = {}) {
+      const startsFrom = h.loginStarts.count;
       const begun = await api("POST", `/mcp-servers/${docs.id}/oauth/login`);
       assert.equal(begun.body.status, "authorize", label);
-      const { back, done, mismatch } = await authorize(begun.body.authorizationUrl);
+      const { back, done, mismatch } = await authorize(
+        begun.body.authorizationUrl,
+        startsFrom,
+      );
       assert.equal(done.status, 303, label);
       if (mismatch && !repeated) {
         t.diagnostic(
@@ -447,6 +466,7 @@ test(
     // Login start through the route: OpenClaw prints the URL for the compiled redirect.
     // The first token is stale at once within OpenClaw's 30 s expiry skew.
     docsServer.state.expiresIn = 31;
+    const startsFrom = h.loginStarts.count;
     const started = await api("POST", `/mcp-servers/${docs.id}/oauth/login`);
     assert.equal(started.status, 200, JSON.stringify(started.body));
     assert.equal(started.body.status, "authorize");
@@ -456,7 +476,7 @@ test(
     assert.equal((await listed("docs")).oauthStatus, "login-pending");
 
     // The browser follows the URL; the provider redirects to AgentPier's callback.
-    const first = await authorize(authorizationUrl.href);
+    const first = await authorize(authorizationUrl.href, startsFrom);
     let callback = first.back;
     assert.equal(`${callback.origin}${callback.pathname}`, redirectUrl);
     assert.equal(first.done.status, 303);
