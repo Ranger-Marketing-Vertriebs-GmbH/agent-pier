@@ -107,6 +107,7 @@ function activeAssistantRoutes(services) {
   });
   router.patch("/assistants/:id", async (req, res) => {
     const { revision, confirmRestart, ...patch } = req.body;
+    const binds = Array.isArray(patch.mcpServers);
     let result;
     try {
       // The owner confirms a Gateway restart for new global web tool sections;
@@ -120,6 +121,20 @@ function activeAssistantRoutes(services) {
       if (replyShellConfirmation(res, error)) return;
       return replyRestartRequired(res, error);
     }
+    // Binding MCP servers is audited by count; a stdio binding records the confirmation.
+    if (binds)
+      audit.append({
+        action: "assistant.updated",
+        resourceType: "assistant",
+        resourceId: req.params.id,
+        outcome: "success",
+        source: "user",
+        details: {
+          fields: ["mcpServers"],
+          stdioConfirmed: patch.confirmStdio === true,
+          count: patch.mcpServers.length,
+        },
+      });
     res.json(result);
   });
   router.post("/assistants/:id/conversations", async (req, res) =>

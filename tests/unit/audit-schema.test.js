@@ -144,3 +144,34 @@ test("exec decisions keep the decision and what AgentPier wrote, never the comma
     {},
   );
 });
+
+test("MCP server audits keep the transport, known field names and the confirmation only", () => {
+  const event = auditEvent({
+    action: "mcp.updated",
+    resourceType: "mcp",
+    resourceId: "server-1",
+    source: "user",
+    outcome: "success",
+    details: {
+      transport: "stdio",
+      fields: ["args", "env", "secretField", "headers"],
+      stdioConfirmed: true,
+      url: "https://x.invalid/?token=secret",
+    },
+  });
+  assert.deepEqual(event.details, {
+    transport: "stdio",
+    fields: ["args", "env", "headers"],
+    stdioConfirmed: true,
+  });
+  assert.deepEqual(
+    auditEvent({
+      action: "mcp.updated",
+      resourceType: "mcp",
+      source: "user",
+      outcome: "success",
+      details: { transport: "ftp", fields: "args", stdioConfirmed: "yes" },
+    }).details,
+    {},
+  );
+});
