@@ -134,11 +134,14 @@ export class McpChanges {
   list() {
     return this.servers.list();
   }
-  create(input, { confirmStdio = false } = {}) {
+  /** `clis`: the coding CLIs the new server is bound to in the same write. */
+  create(input, { confirmStdio = false, clis = [] } = {}) {
     return this.assistants.admit(async () => {
       if (record(input) && input.transport === "stdio")
         requireStdioConfirmation(confirmStdio === true);
-      const server = this.servers.create(input);
+      const server = this.servers.create(input, {
+        bind: clis.map((cli) => ["cli", cli]),
+      });
       // Unbound servers are not compiled; nothing to apply.
       return server;
     });
@@ -147,7 +150,8 @@ export class McpChanges {
   changesStdio(current, patch) {
     return stdioChange(current, patch);
   }
-  update(id, input, { confirmStdio = false } = {}) {
+  /** `clis`, when given, replaces the server's CLI bindings in the same write. */
+  update(id, input, { confirmStdio = false, clis } = {}) {
     return this.assistants.admit(async () => {
       // Editing what a stdio server runs needs the same confirmation as adding one.
       const stdioChanged = this.changesStdio(this.servers.get(id), input);
@@ -156,7 +160,7 @@ export class McpChanges {
       const oauth = this.oauth
         ? await this.oauth.beforeUpdate(id, this.servers.previewUpdate(id, input))
         : {};
-      const server = this.servers.update(id, input);
+      const server = this.servers.update(id, input, { clis });
       return {
         server,
         pending: await this.applySaved(),

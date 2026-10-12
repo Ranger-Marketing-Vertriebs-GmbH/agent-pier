@@ -6,7 +6,13 @@ import { addGrant } from "../nono/sandbox-grants.js";
 import { adoptFinds, patchFromNative } from "./cli-adoption.js";
 import { groupFinds, publicFind } from "./cli-finds.js";
 import { stdioGrants } from "./cli-grants.js";
-import { centralFromNative, cliSupport, clis, requireCliSupport } from "./cli-native.js";
+import {
+  centralFromNative,
+  cliSupport,
+  cliTargets,
+  clis,
+  requireCliSupport,
+} from "./cli-native.js";
 import { loginCommand } from "./cli-oauth-status.js";
 import { CliMcpReconciler } from "./cli-reconciler.js";
 import { adoptFailure, reasonIdentity, statusView } from "./cli-status.js";
@@ -197,11 +203,9 @@ export class CliMcpBindings {
   }
   /** Binds server `id` to exactly `wanted`; a CLI that cannot run it is refused. */
   async setClis(id, wanted, { confirmStdio = false } = {}) {
-    if (!Array.isArray(wanted) || wanted.some((cli) => !clis.includes(cli)))
-      throw problem(messages.invalidTarget, 400);
+    const next = cliTargets(wanted);
     const server = this.servers.get(id);
     const current = this.servers.targetsOf(id).clis;
-    const next = clis.filter((cli) => wanted.includes(cli));
     const added = next.filter((cli) => !current.includes(cli));
     requireCliSupport(added, server);
     if (server.transport === "stdio" && added.length)

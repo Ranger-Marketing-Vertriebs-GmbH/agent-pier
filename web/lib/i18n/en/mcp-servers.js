@@ -18,7 +18,7 @@ export const mcpServerCopy = {
   saving: "Saving…",
   nameLabel: "Name",
   nameRule:
-    "1 to 30 letters, digits, hyphens or underscores, starting with a letter. Tools appear to agents under this name.",
+    "1 to 30 letters, digits, hyphens or underscores, starting with a letter. Tools appear to agents and coding CLIs under this name.",
   transportLabel: "Connection",
   transports: {
     http: "HTTP",

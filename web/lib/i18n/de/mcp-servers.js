@@ -18,7 +18,7 @@ export const mcpServerCopy = {
   saving: "Speichert …",
   nameLabel: "Name",
   nameRule:
-    "1 bis 30 Buchstaben, Ziffern, Bindestriche oder Unterstriche, das erste Zeichen ein Buchstabe. Agenten sehen die Werkzeuge unter diesem Namen.",
+    "1 bis 30 Buchstaben, Ziffern, Bindestriche oder Unterstriche, das erste Zeichen ein Buchstabe. Agenten und Coding-CLIs sehen die Werkzeuge unter diesem Namen.",
   transportLabel: "Verbindung",
   transports: {
     http: "HTTP",

@@ -28,15 +28,18 @@ export const mcpCliCopy = {
   statusLine: (cli, status) => `${cli}: ${status}`,
   errorWithReason: (reason) => `konnte nicht eingetragen werden: ${reason}`,
   overwrite: "AgentPiers Version schreiben",
-  overwriteFor: (cli, name) => `AgentPiers Version von ${name} in ${cli} schreiben`,
+  overwriteFor: (cli, name) => `AgentPiers Version schreiben: ${name} in ${cli}`,
   adoptChange: "Änderung übernehmen",
-  adoptChangeFor: (cli, name) => `Änderung an ${name} aus ${cli} übernehmen`,
+  adoptChangeFor: (cli, name) => `Änderung übernehmen: ${name} aus ${cli}`,
   adopt: "Übernehmen",
-  adoptFor: (cli, name) => `${name} aus ${cli} übernehmen`,
+  adoptFor: (cli, name) => `Übernehmen: ${name} aus ${cli}`,
   oauthConnected: (cli) => `In ${cli} angemeldet`,
   oauthLogin: (cli, command) => `Einmal in ${cli} anmelden: ${command} ausführen`,
   oauthUnknown: (cli, command) =>
     `Falls ${cli} eine Anmeldung verlangt: ${command} ausführen`,
+  oauthLoginSession: (cli, command) => `Einmal anmelden: in ${cli} ${command} aufrufen`,
+  oauthUnknownSession: (cli, command) =>
+    `Falls ${cli} eine Anmeldung verlangt: in ${cli} ${command} aufrufen`,
   agentsUsing: (names) => `Agenten: ${names}`,
   clisUsing: (names) => `CLIs: ${names}`,
   unused: "Noch nicht in Verwendung",
@@ -48,7 +51,7 @@ export const mcpCliCopy = {
   foundIn: (clis) => `in ${clis}`,
   valueNames: (names) => `Werte: ${names}`,
   proposedName: "Name in AgentPier",
-  adoptNamed: (name) => `${name} übernehmen`,
+  adoptNamed: (name) => `Übernehmen: ${name}`,
   adoptAll: "Alle übernehmen",
   notAdoptable: {
     "unsupported-fields":
@@ -64,6 +67,4 @@ export const mcpCliCopy = {
   stdioCliWarning:
     "Ein stdio-Server führt diesen Befehl mit deinen Rechten aus. Jede Sitzung der gewählten CLIs startet ihn, auch wenn du die CLI im Terminal startest. Füge nur Befehle hinzu, denen du vertraust.",
   stdioCliConfirm: "Bestätigen und speichern",
-  cliSaveFailed: (error) =>
-    `Der Server wurde gespeichert, aber seine CLIs ließen sich nicht aktualisieren: ${error}`,
 };

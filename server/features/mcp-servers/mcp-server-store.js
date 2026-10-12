@@ -468,8 +468,10 @@ export class McpServerStore {
   settleLogout({ name, url }) {
     this.db.prepare("DELETE FROM oauth_logouts WHERE name=? AND url=?").run(name, url);
   }
-  update(id, input) {
+  /** Updates server `id`; `clis`, when given, replaces its CLI bindings in the same write. */
+  update(id, input, { clis } = {}) {
     if (!record(input)) throw invalid();
+    if (clis !== undefined) this.checkClis(clis);
     const { revision, ...patch } = input;
     this.transaction(() => {
       const row = this.row(id);
@@ -481,6 +483,7 @@ export class McpServerStore {
         revision + 1,
       );
       this.writeSecrets(id, patch, fields.transport, false, fields.auth);
+      if (clis !== undefined) this.replaceClis(id, clis);
     });
     return this.get(id);
   }
@@ -540,14 +543,20 @@ export class McpServerStore {
   }
   /** Replaces the CLI bindings of server `id` with `ids`. */
   setClis(id, ids) {
-    if (!Array.isArray(ids)) throw invalid();
-    for (const cli of ids) target("cli", cli);
+    this.checkClis(ids);
     this.transaction(() => {
       this.row(id);
-      this.db
-        .prepare("DELETE FROM bindings WHERE server_id=? AND target_kind='cli'")
-        .run(id);
-      for (const cli of new Set(ids)) this.bind(id, "cli", cli);
+      this.replaceClis(id, ids);
     });
+  }
+  checkClis(ids) {
+    if (!Array.isArray(ids)) throw invalid();
+    for (const cli of ids) target("cli", cli);
+  }
+  replaceClis(id, ids) {
+    this.db
+      .prepare("DELETE FROM bindings WHERE server_id=? AND target_kind='cli'")
+      .run(id);
+    for (const cli of new Set(ids)) this.bind(id, "cli", cli);
   }
 }

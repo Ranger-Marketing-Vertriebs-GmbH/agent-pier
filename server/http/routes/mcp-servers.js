@@ -72,13 +72,15 @@ export function mcpServerRoutes(services) {
       list = await services.assistantMcpOAuth.decorate(list);
     res.json(services.cliMcp ? await services.cliMcp.decorate(list) : list);
   });
+  // `clis` (optional) binds the server to coding CLIs in the same write.
   router.post("/mcp-servers", async (req, res) => {
     const body = req.body;
-    const { confirmStdio, ...input } = record(body) ? body : {};
+    const { confirmStdio, clis, ...input } = record(body) ? body : {};
     let server;
     try {
       server = await changes().create(record(body) ? input : body, {
         confirmStdio: confirmStdio === true,
+        ...(clis === undefined ? {} : { clis }),
       });
     } catch (error) {
       if (replyStdioConfirmation(res, error)) return;
@@ -87,24 +89,30 @@ export function mcpServerRoutes(services) {
     auditMcp("mcp.created", server.id, {
       transport: server.transport,
       stdioConfirmed: server.transport === "stdio" && confirmStdio === true,
+      ...(clis === undefined ? {} : { clis }),
     });
     res.status(201).json(server);
   });
+  // `clis` (optional) replaces the server's coding CLIs in the same write.
   router.put("/mcp-servers/:id", async (req, res) => {
     const body = req.body;
-    const { confirmStdio, ...input } = record(body) ? body : {};
+    const { confirmStdio, clis, ...input } = record(body) ? body : {};
     try {
-      const { server, pending, logoutDeferred, stdioChanged } = await changes().update(
-        req.params.id,
-        record(body) ? input : body,
-        { confirmStdio: confirmStdio === true },
-      );
+      const { server, pending, logoutDeferred, stdioChanged, cliChange } =
+        await changes().update(req.params.id, record(body) ? input : body, {
+          confirmStdio: confirmStdio === true,
+          ...(clis === undefined ? {} : { clis }),
+        });
+      // The owner confirmed a local command that changed or now runs in a new CLI.
+      const newCli = server.transport === "stdio" && cliChange?.added.length > 0;
       auditMcp("mcp.updated", server.id, {
         transport: server.transport,
-        fields: Object.keys(record(body) ? input : {}).filter(
-          (key) => key !== "revision",
-        ),
-        stdioConfirmed: stdioChanged && confirmStdio === true,
+        fields: [
+          ...Object.keys(record(body) ? input : {}).filter((key) => key !== "revision"),
+          ...(cliChange ? ["clis"] : []),
+        ],
+        ...(cliChange ? { clis: cliChange.clis } : {}),
+        stdioConfirmed: (stdioChanged || newCli) && confirmStdio === true,
       });
       res.json({
         ...server,

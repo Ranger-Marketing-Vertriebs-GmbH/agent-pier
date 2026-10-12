@@ -87,14 +87,13 @@ function ServerDetails({ server }) {
   );
 }
 
-/** A saved change's notices: a pending apply, a deferred OAuth logout, failed CLIs. */
+/** A saved change's notices: a pending apply and a deferred OAuth logout. */
 const savedNotice = (saved) =>
   [
     saved?.pending ? copy.pendingNotice : "",
     saved?.oauthWarning?.code === "oauth-logout-deferred"
       ? mcpOAuthCopy.logoutDeferred
       : "",
-    saved?.cliError ? cliCopy.cliSaveFailed(saved.cliError) : "",
   ]
     .filter(Boolean)
     .join(" ");
