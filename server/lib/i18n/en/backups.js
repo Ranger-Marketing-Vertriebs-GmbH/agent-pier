@@ -17,8 +17,6 @@ export const backups = Object.freeze({
   authenticationFailed: "Backup passphrase or credential authentication failed.",
   notFound: "Backup not found.",
   invalidMemberPath: "Invalid archive member path.",
-  componentLinked: "Backup component contains a symbolic link.",
-  componentLimit: "Backup component exceeds its limit.",
   importedProjectNotFound: "Imported AgentBus project not found.",
   invalidHistoryPage: "Invalid imported history page.",
   unsupportedSqliteSchema: "Unsupported embedded SQLite schema version.",
@@ -44,4 +42,57 @@ export const backups = Object.freeze({
   uploadType: "Upload an application/octet-stream backup archive.",
   assistantsBusy:
     "Agents are being updated or maintained. Create the backup again afterwards.",
+  componentLinked: "Backup component contains a symbolic link.",
+  componentLimit: "Backup component exceeds its limit.",
+  memberMismatch: "The archive entries do not match its manifest.",
+  insufficientSpace: (required, available) =>
+    `Not enough free disk space: ${required} required, ${available} available.`,
+  profileChanged: (name, tool) =>
+    `Profile "${name}" (${tool}): A file changed during the backup. Create the backup again.`,
+  profileUnreadable: (name, tool) =>
+    `Profile "${name}" (${tool}): A file is not a regular, owned file and cannot be backed up.`,
+  profileCredentialLimit: (name, tool, limit) =>
+    `Profile "${name}" (${tool}): Configuration and credentials exceed ${limit}.`,
+  changed: Object.freeze({
+    sessions: "Sessions: A file changed during the backup. Create the backup again.",
+    chat: "Chat histories: A file changed during the backup. Create the backup again.",
+    agentbus:
+      "AgentBus history: A file changed during the backup. Create the backup again.",
+    artifacts: "Artifacts: A file changed during the backup. Create the backup again.",
+    assistants: "Agent data: A file changed during the backup. Create the backup again.",
+    providerCredentials:
+      "Provider connection keys: A file changed during the backup. Create the backup again.",
+    repositoryCredentials:
+      "Repository credentials: A file changed during the backup. Create the backup again.",
+    applicationData:
+      "Application data: A file changed during the backup. Create the backup again.",
+  }),
+  unreadable: Object.freeze({
+    sessions: "Sessions: A file is not a regular, owned file and cannot be backed up.",
+    chat: "Chat histories: A file is not a regular, owned file and cannot be backed up.",
+    agentbus:
+      "AgentBus history: A file is not a regular, owned file and cannot be backed up.",
+    artifacts: "Artifacts: A file is not a regular, owned file and cannot be backed up.",
+    assistants:
+      "Agent data: A file is not a regular, owned file and cannot be backed up.",
+    providerCredentials:
+      "Provider connection keys: A file is not a regular, owned file and cannot be backed up.",
+    repositoryCredentials:
+      "Repository credentials: A file is not a regular, owned file and cannot be backed up.",
+    applicationData:
+      "Application data: A file is not a regular, owned file and cannot be backed up.",
+  }),
+  linked: Object.freeze({
+    sessions: "Sessions: Contains a symbolic link and cannot be backed up.",
+    chat: "Chat histories: Contains a symbolic link and cannot be backed up.",
+    agentbus: "AgentBus history: Contains a symbolic link and cannot be backed up.",
+    artifacts: "Artifacts: Contains a symbolic link and cannot be backed up.",
+    assistants: "Agent data: Contains a symbolic link and cannot be backed up.",
+    providerCredentials:
+      "Provider connection keys: Contains a symbolic link and cannot be backed up.",
+    repositoryCredentials:
+      "Repository credentials: Contains a symbolic link and cannot be backed up.",
+    applicationData:
+      "Application data: Contains a symbolic link and cannot be backed up.",
+  }),
 });
