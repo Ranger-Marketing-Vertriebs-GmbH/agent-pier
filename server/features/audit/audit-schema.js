@@ -68,6 +68,7 @@ const changeFields = new Set([
   "env",
   "headers",
   "mcpServers",
+  "clis",
 ]);
 export function auditId(value) {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(value))
@@ -198,6 +199,17 @@ export function auditEvent(input) {
       event.details.fields = details.fields.filter((field) => changeFields.has(field));
     if (typeof details.stdioConfirmed === "boolean")
       event.details.stdioConfirmed = details.stdioConfirmed;
+  }
+  // CLI bindings name the CLIs, how the owner resolved a conflict and whether a server
+  // was adopted from the CLIs; never an entry or a value.
+  if (input.resourceType === "mcp") {
+    if (Array.isArray(details.clis))
+      event.details.clis = details.clis.filter((cli) =>
+        ["claude", "codex", "opencode"].includes(cli),
+      );
+    if (["overwrite", "adopt"].includes(details.resolution))
+      event.details.resolution = details.resolution;
+    if (typeof details.adopted === "boolean") event.details.adopted = details.adopted;
   }
   for (const key of ["enabled", "pending"])
     if (typeof details[key] === "boolean") event.details[key] = details[key];

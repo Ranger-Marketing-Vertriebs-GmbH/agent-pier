@@ -31,6 +31,7 @@ import { ExtensionsStore } from "../features/extensions/extension-store.js";
 import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { CentralMcpChanges } from "../features/mcp-servers/central-changes.js";
 import { CliMcpBindings } from "../features/mcp-servers/cli-bindings.js";
+import { CliOAuthStatus } from "../features/mcp-servers/cli-oauth-status.js";
 import { ToolInstaller } from "../features/tools/tool-installer.js";
 import { PluginStore } from "../features/plugins/plugin-store.js";
 import { NativeSessionBinding } from "../features/sessions/native-session-binding.js";
@@ -211,6 +212,11 @@ export async function createServices(config) {
       home: config.home,
       dataDir: config.dataDir,
       changes: () => services.mcpServerChanges,
+      // Codex's own OAuth state, read on the owner's profile (services.tools: app.js).
+      oauthStatus: new CliOAuthStatus({
+        tools: () => services.tools?.() ?? [],
+        accounts,
+      }),
       agentNames: () =>
         new Map(
           (services.assistants?.store.listAssistants() || []).map((profile) => [

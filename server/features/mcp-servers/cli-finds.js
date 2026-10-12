@@ -2,7 +2,17 @@ import { createHash } from "node:crypto";
 import { mcpUrl } from "../extensions/mcp-config.js";
 import { namePattern } from "./command-resolution.js";
 import { centralFromNative, clis, contentKey, proposeName } from "./cli-native.js";
+import { reasonIdentity } from "./cli-status.js";
 import { publicUrl } from "./mcp-server-store.js";
+
+const resolved = (resolve, { command }) => {
+  if (!resolve) return command;
+  try {
+    return resolve(command);
+  } catch {
+    return null;
+  }
+};
 
 const headerless = ({ ok, definition, secrets }) =>
   ok &&
@@ -65,15 +75,24 @@ export function groupFinds(results, centralNames) {
   });
 }
 
-/** A find as responses show it: header and environment names, never a value. */
-export function publicFind(group) {
+/**
+ * A find as responses show it: header and environment names, never a value; the URL
+ * without query. A stdio find shows its command as found and, as `resolvedCommand`,
+ * the absolute path adoption stores and writes back (null when it is not found).
+ */
+export function publicFind(group, { resolve = null } = {}) {
   const base = {
     key: group.key,
     name: group.name,
     clis: group.members.map((member) => member.cli),
     adoptable: group.parsed.ok,
   };
-  if (!group.parsed.ok) return { ...base, reason: group.parsed.reason };
+  if (!group.parsed.ok)
+    return {
+      ...base,
+      reason: group.parsed.reason,
+      ...reasonIdentity(group.parsed.reason),
+    };
   const { definition, secrets } = group.parsed;
   return {
     ...base,
@@ -81,7 +100,9 @@ export function publicFind(group) {
     transport: definition.transport,
     auth: definition.auth,
     ...(definition.url ? { url: publicUrl(definition.url) } : {}),
-    ...(definition.command ? { command: definition.command } : {}),
+    ...(definition.command
+      ? { command: definition.command, resolvedCommand: resolved(resolve, definition) }
+      : {}),
     headerNames: Object.keys(secrets.headers).sort(),
     envNames: Object.keys(secrets.env).sort(),
   };

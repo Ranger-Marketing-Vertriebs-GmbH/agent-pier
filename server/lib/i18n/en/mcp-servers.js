@@ -49,4 +49,19 @@ export const mcpServers = Object.freeze({
     "This coding CLI does not support the server's connection type.",
   cliCwdUnsupported:
     "This coding CLI cannot start a local command in a working directory. Remove the working directory or choose only Codex or OpenCode.",
+  cliStatusConflict:
+    "The entry was edited by hand in the CLI. Write AgentPier's version or adopt the change.",
+  cliStatusNameTaken:
+    "The CLI already has its own entry with this name. Adopt it to let AgentPier manage it.",
+  cliReasonUnreadable: "The CLI's configuration cannot be read.",
+  cliReasonChanged:
+    "The CLI's configuration kept changing and could not be written. Please try again later.",
+  cliReasonLayout:
+    "The CLI's configuration cannot be edited in place without changing other entries.",
+  cliReasonWriteFailed: "The CLI's configuration cannot be written.",
+  cliReasonFailed:
+    "The MCP servers of this CLI could not be prepared. AgentPier tries again at the next session start.",
+  cliReasonInvalid: "This coding CLI cannot take the server as it is.",
+  cliReasonDuplicate:
+    "The CLI lists this name more than once. Please remove one of the entries in the CLI.",
 });

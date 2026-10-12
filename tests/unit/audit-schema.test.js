@@ -175,3 +175,43 @@ test("MCP server audits keep the transport, known field names and the confirmati
     {},
   );
 });
+
+test("MCP CLI audits keep the CLIs, the conflict choice and adoption only", () => {
+  const base = {
+    action: "mcp.updated",
+    resourceType: "mcp",
+    resourceId: "s1",
+    source: "user",
+    outcome: "success",
+  };
+  const event = auditEvent({
+    ...base,
+    details: {
+      fields: ["clis", "secret"],
+      clis: ["claude", "gemini", "codex"],
+      resolution: "adopt",
+      adopted: true,
+      url: "https://x.example.test/mcp",
+      headers: { Authorization: "Bearer value" },
+    },
+  });
+  assert.deepEqual(event.details, {
+    fields: ["clis"],
+    clis: ["claude", "codex"],
+    resolution: "adopt",
+    adopted: true,
+  });
+  assert.equal(
+    auditEvent({ ...base, details: { resolution: "delete" } }).details.resolution,
+    undefined,
+  );
+  assert.equal(
+    auditEvent({
+      ...base,
+      resourceType: "assistant",
+      action: "assistant.updated",
+      details: { clis: ["claude"] },
+    }).details.clis,
+    undefined,
+  );
+});
