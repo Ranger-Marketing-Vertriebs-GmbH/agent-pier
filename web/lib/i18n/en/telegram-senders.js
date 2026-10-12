@@ -3,7 +3,11 @@ export const telegramSendersCopy = {
   description:
     "Give this agent its own Telegram bot so that people you choose can write to it. Each person has a separate conversation with the agent. Your own AgentPier bot stays separate.",
   boundary:
-    "People on this list talk to the agent directly. It can use its memory, web tools and MCP servers for them, but never shell, AgentPier's own tools or chat commands.",
+    "People on this list talk to the agent directly. They can read and use what the agent remembers, and the agent uses its web tools and remote MCP servers for them. It never gets shell, stdio MCP servers, AgentPier's own tools, session tools or chat commands for them.",
+  stdioBlocked:
+    "This agent has a stdio MCP server, which runs commands on this computer. Remove it before you connect a bot for other people.",
+  removedPending:
+    "The agent service still runs a bot or person you removed. Restart it to stop them now.",
   shellBlocked:
     "This agent has shell access. Turn shell off before you connect a bot for other people.",
   token: "Bot token",

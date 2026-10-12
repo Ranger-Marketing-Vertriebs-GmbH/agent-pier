@@ -11,6 +11,8 @@ import "./mcp-servers.css";
 /** Which central MCP servers a personal agent or permanent member can use. */
 export default function AgentMcpServers({ assistant, refresh, navigate }) {
   const bound = assistant.mcpServers || [];
+  // An agent with its own Telegram bot for other people binds remote servers only.
+  const noStdio = !!assistant.telegramSenders;
   const [servers, setServers] = useState(null),
     [selected, setSelected] = useState(bound),
     [error, setError] = useState(""),
@@ -97,6 +99,11 @@ export default function AgentMcpServers({ assistant, refresh, navigate }) {
               <label key={server.id}>
                 <input
                   type="checkbox"
+                  disabled={
+                    noStdio &&
+                    server.transport === "stdio" &&
+                    !selected.includes(server.id)
+                  }
                   checked={selected.includes(server.id)}
                   onChange={(event) => toggle(server.id, event.target.checked)}
                 />
@@ -110,6 +117,9 @@ export default function AgentMcpServers({ assistant, refresh, navigate }) {
               </label>
             ))}
           </fieldset>
+          {noStdio && (servers || []).some((s) => s.transport === "stdio") && (
+            <p className="mcp-hint">{copy.stdioTelegramSenders}</p>
+          )}
           {loginMissing && <p className="mcp-hint">{mcpOAuthCopy.agentLoginHint}</p>}
           {confirming && (
             <StdioConfirmation
