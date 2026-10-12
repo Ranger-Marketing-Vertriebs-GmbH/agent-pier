@@ -106,6 +106,8 @@ export const operationsCopy = {
   credentialsRestored: "Credentials restored",
   needsLogin: "Sign-in required",
   needsMcpServerValues: (name) => `MCP server ${name} (enter values again)`,
+  needsMcpServerAddress: (name) =>
+    `MCP server ${name} (enter the token in its address again)`,
   importedSessions: "Imported sessions",
   importedRuns: "Imported runs",
   updates: "Updates",
