@@ -59,7 +59,7 @@ export const mcpCliCopy = {
   foundLoading: "Looking in the CLIs…",
   adopted: (names) => `Adopted: ${names}.`,
   envReferences: (names) =>
-    `Uses environment references (in ${names}) that other CLIs and agents cannot resolve; it stays in the CLI.`,
+    `Uses references to environment variables or files (in ${names}); another CLI or an agent would read them differently, so it stays in the CLI.`,
   foundNone: "Nothing else found in the CLIs.",
   foundIn: (clis) => `in ${clis}`,
   valueNames: (names) => `Values: ${names}`,

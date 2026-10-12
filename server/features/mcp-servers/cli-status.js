@@ -8,6 +8,8 @@ import {
 } from "../extensions/mcp-config.js";
 
 const messages = serverMessages.mcpServers;
+/** The code of a refused adoption of a find with environment references. */
+export const ENV_REFERENCES = "MCP_CLI_FIND_ENV_REFERENCES";
 
 /**
  * The stable reasons a CLI binding reports and the message the browser labels each
@@ -85,18 +87,19 @@ export function adoptFailure(error, warn) {
   const file = fileReason(error);
   let reason = file;
   let message = file === "changed" ? messages.cliFindChanged : reasonMessages[file];
-  if (!file && Number.isInteger(error?.status) && error.status < 500) {
+  if (!file && error?.code === ENV_REFERENCES) {
+    reason = "env-references";
+    message = messages.cliFindEnvReferences;
+  } else if (!file && Number.isInteger(error?.status) && error.status < 500) {
     message = error.message;
     reason =
       message === messages.cliFindChanged
         ? "changed"
         : [messages.cliNotAdoptable, messages.cliChangeNotAdoptable].includes(message)
           ? "not-adoptable"
-          : message === messages.cliFindEnvReferences
-            ? "env-references"
-            : message === messages.nameTaken
-              ? "name-taken"
-              : "invalid";
+          : message === messages.nameTaken
+            ? "name-taken"
+            : "invalid";
   }
   if (!reason) {
     const code =

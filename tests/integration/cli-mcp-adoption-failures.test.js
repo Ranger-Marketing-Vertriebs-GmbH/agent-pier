@@ -5,6 +5,8 @@ import { adoptFinds } from "../../server/features/mcp-servers/cli-adoption.js";
 import { groupFinds } from "../../server/features/mcp-servers/cli-finds.js";
 import { clis } from "../../server/features/mcp-servers/cli-native.js";
 import { cliMcpFixture } from "../helpers/cli-mcp.js";
+import { adoptFailure } from "../../server/features/mcp-servers/cli-status.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 // Adopt all names every failure with a stable reason; the cause is never lost.
 const groups = (f) =>
@@ -98,4 +100,19 @@ test("a bug while adopting is reported as failed and logged by code only", () =>
   assert.deepEqual(warnings, [
     "An MCP entry found in the CLIs could not be adopted (ERROR).",
   ]);
+});
+
+test("an environment-reference refusal is recognised by its code, not its wording", () => {
+  const refusal = Object.assign(new Error("any wording"), {
+    status: 409,
+    code: "MCP_CLI_FIND_ENV_REFERENCES",
+  });
+  assert.deepEqual(
+    adoptFailure(refusal, () => {}),
+    {
+      reason: "env-references",
+      error: serverMessages.mcpServers.cliFindEnvReferences,
+      messageKey: "mcpServers.cliFindEnvReferences",
+    },
+  );
 });
