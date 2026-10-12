@@ -293,7 +293,13 @@ the lease held until it expires (60 s): the next call waits up to 30 s and fails
 with `state lease ... is held by ...`. The wrapper repeats a call (after 250 ms and
 1 s) only when the lease's own transaction could not start: `store unavailable
 (sqlite-busy)`, or `database is locked` from `operation=state.lease ... step=begin`.
-Before the lease nothing has happened, so a `--code` keeps its code unused. A lock
+Before the lease nothing has happened, so a `--code` keeps its code unused. The same
+signature can come from the lease's release after a completed `--code`. The dead CLI
+then still holds the lease, so the repeat usually ends in `cli-timeout` after about
+22 s. Otherwise it ends in `session-missing`. Either way it never exchanges again,
+and the saved tokens stay. When `--code` fails, AgentPier reads `mcp status` once.
+If OpenClaw reads `authorized` with tokens, the login counts as connected: it is
+recorded, the backoff is lifted and the callback reports success. A lock
 anywhere else may come after the code exchange. Repeating `--code` with the used
 code would make the SDK invalidate the tokens it had just saved, so such a failure
 is reported as it is. Each repeat puts `--code=<code>` in the process list once more,

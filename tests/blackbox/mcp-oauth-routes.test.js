@@ -338,6 +338,34 @@ test("the callback is audited, refuses HEAD and waits out an exclusive barrier",
   );
 });
 
+test("a callback whose --code failed after saving the tokens reports the login", async (t) => {
+  const { f, env, server, start, local } = await setup(t);
+  const audited = () => JSON.stringify(f.application.audit.list({}));
+  // The CLI fails, but OpenClaw's status reads authorized: the login counts.
+  await start("dddddddd-1111-4111-8111-111111111111");
+  env.FAKE_OPENCLAW_MODE = "code-fails";
+  const saved = await local({ state: "dddddddd-1111-4111-8111-111111111111", code: "c" });
+  assert.equal(saved.headers.location, `/accounts?oauth=connected&server=${server.id}`);
+  assert.match(audited(), /"action":"mcp\.completed"/);
+  assert.equal(
+    f.application.assistantMcpServers.oauthMemory(server.id).everConnected,
+    true,
+  );
+  // Without saved tokens the failure stands.
+  env.FAKE_OPENCLAW_MODE = "ok";
+  await start("eeeeeeee-1111-4111-8111-111111111111");
+  env.FAKE_OPENCLAW_MODE = "code-fails-unsaved";
+  const failed = await local({
+    state: "eeeeeeee-1111-4111-8111-111111111111",
+    code: "c",
+  });
+  assert.equal(
+    failed.headers.location,
+    `/accounts?oauth=error&server=${server.id}&reason=cli-failed`,
+  );
+  assert.match(audited(), /"failReason":"cli-failed"/);
+});
+
 test("the callback refuses the plain network host", async (t) => {
   const { f } = await setup(t, {
     network: { enabled: true, bind: "127.0.0.1", hosts: ["agentpier.home.arpa"] },

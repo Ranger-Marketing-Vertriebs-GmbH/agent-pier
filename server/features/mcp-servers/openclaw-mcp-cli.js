@@ -39,8 +39,10 @@ const reasonLength = 300;
 // login or logout fails at once. Only a failure to start the lease's own transaction
 // is repeated: "store unavailable (sqlite-busy)", or "database is locked" from
 // `operation=state.lease ... step=begin`. Before the lease nothing has happened (a
-// `--code` keeps its code unused). The same signature after a completed `--code` (its
-// release) finds no authorization session on the repeat and exchanges nothing. A lock
+// `--code` keeps its code unused). The same signature can come from the release after a
+// completed `--code`: the dead CLI then still holds the lease, so the repeat usually
+// waits into a timeout (otherwise it finds no authorization session); it never
+// exchanges again and the tokens stay, which McpOAuthLogins.complete() checks. A lock
 // anywhere else may follow the code exchange: repeating `--code` with the used code
 // would make OpenClaw's SDK drop the tokens it just saved, so that failure stands.
 const defaultBusyRetryDelaysMs = [250, 1000];
