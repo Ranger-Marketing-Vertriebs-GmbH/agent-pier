@@ -42,13 +42,21 @@ export function agentEntry(
       ),
       ...(exec && { exec }),
     };
-  if (memoryManaged)
+  if (memoryManaged) {
+    const capabilities = personalCapabilities(assistant);
+    // Recall indexes this agent's own transcripts; Active Memory (runtime-config.js)
+    // searches them before eligible private replies. Every key is written so a live
+    // merge patch also turns recall off again.
+    const recall = !!nativeReady && capabilities.recall;
     next.memory = {
       search: {
-        enabled: !!nativeReady && personalCapabilities(assistant).memory,
-        rememberAcrossConversations: false,
+        enabled: !!nativeReady && capabilities.memory,
+        rememberAcrossConversations: recall,
+        sources: recall ? ["memory", "sessions"] : ["memory"],
+        experimental: { sessionMemory: recall },
       },
     };
+  }
   if (agentRuntime)
     next.models = {
       ...entry.models,

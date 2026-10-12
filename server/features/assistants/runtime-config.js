@@ -98,10 +98,13 @@ export function compileOpenClawConfig({
   const enabled = !!(teams?.directory && teams?.connection);
   // Without a mode the gateway host runs exec in "full"; "deny" is the default every
   // agent without its own override gets (openclaw-config/shell.js).
+  // Session tools reach only the calling agent's own sessions; OpenClaw's default
+  // "all" would let one agent read another's transcripts.
   config.tools = {
     allow: enabled ? teamTools : ["session_status"],
     toolSearch: false,
     exec: { mode: "deny" },
+    sessions: { visibility: "agent" },
   };
   // Only a profile compiled below can regain shell grants.
   for (const entry of Object.values(config.agents.entries || config.agents.list || {}))
@@ -130,6 +133,13 @@ export function compileOpenClawConfig({
     config.plugins.entries["memory-core"] = {
       enabled: true,
       config: { dreaming: { enabled: false } },
+    };
+    // Remember across conversations runs as an Active Memory pass. The advanced path
+    // targets no agent, so only agents with recall (agent-entry.js) use the plugin.
+    config.plugins.allow.push("active-memory");
+    config.plugins.entries["active-memory"] = {
+      enabled: true,
+      config: { enabled: true, mode: "escalate", agents: [], persistTranscripts: false },
     };
     config.memory = {
       search: {
