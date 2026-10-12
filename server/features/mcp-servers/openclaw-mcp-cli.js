@@ -34,6 +34,14 @@ export class McpCliError extends Error {
 const defaultTimeoutMs = 20000;
 const defaultMaxOutputBytes = 256 * 1024;
 const reasonLength = 300;
+// OpenClaw takes its MCP OAuth lease in SQLite write transactions that do not wait
+// for a lock: while the Gateway (or another CLI) writes the shared state database, a
+// login or logout fails at once with "database is locked". Failing to take the lease
+// leaves nothing done (a `--code` keeps its code unused), so the call is repeated; a
+// lock later in the call at worst repeats its failure (a used code is refused).
+const defaultBusyRetryDelaysMs = [250, 1000];
+const busyStore =
+  /\bdatabase is locked\b|failureKind=lock-contention|store unavailable \(sqlite-busy\)/i;
 
 const tokenParameters =
   /\b(code|state|token|access_token|refresh_token|id_token|client_secret|code_verifier|code_challenge)=([^&\s"'<>]+)/gi;
@@ -75,8 +83,10 @@ function reasonOf(stderr) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
-  const reason = lines.find((line) => /^Reason:/i.test(line)) || lines.at(-1) || "";
-  return reason.replace(/^(Error|Reason):\s*/i, "");
+  // OpenClaw prints "[openclaw] Reason: ..." between other "[openclaw]" lines.
+  const reason =
+    lines.find((line) => /^(\[openclaw\]\s*)?Reason:/i.test(line)) || lines.at(-1) || "";
+  return reason.replace(/^(\[openclaw\]\s*)?(Error|Reason):\s*/i, "");
 }
 
 function failure(command, exitCode, stderr, secrets) {
@@ -191,9 +201,21 @@ export function createMcpCli({
   environment,
   timeoutMs = defaultTimeoutMs,
   maxOutputBytes = defaultMaxOutputBytes,
+  busyRetryDelaysMs = defaultBusyRetryDelaysMs,
   spawn = nodeSpawn,
 }) {
-  function run(command, args, secrets = [], overrides = {}) {
+  async function run(command, args, secrets = [], overrides = {}) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await runOnce(command, args, secrets, overrides);
+      } catch (error) {
+        if (!error.busy || attempt >= busyRetryDelaysMs.length) throw error;
+        await new Promise((resume) => setTimeout(resume, busyRetryDelaysMs[attempt]));
+      }
+    }
+  }
+
+  function runOnce(command, args, secrets, overrides) {
     const current = resolve(runtime);
     if (!current?.nodePath || !current?.entryPath)
       return Promise.reject(
@@ -248,7 +270,12 @@ export function createMcpCli({
             ),
           );
         if (code === 0) return done(text("stdout"));
-        reject(failure(command, code, text("stderr"), secrets));
+        const stderr = text("stderr");
+        reject(
+          Object.assign(failure(command, code, stderr, secrets), {
+            busy: busyStore.test(stderr),
+          }),
+        );
       });
     });
   }
