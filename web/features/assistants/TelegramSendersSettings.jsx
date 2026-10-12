@@ -120,7 +120,8 @@ export default function TelegramSendersSettings({ assistantId }) {
           : ""
       : "";
   // Saved, but the agent service still runs something else; also after a removal.
-  const pending = !!data && (data.pending || state === "pending");
+  const pending =
+    !!data && (data.pending || data.revocationFailed || state === "pending");
   return (
     <section className="assistant-accounts" aria-label={copy.title}>
       <h2>{copy.title}</h2>
@@ -129,9 +130,15 @@ export default function TelegramSendersSettings({ assistantId }) {
       <ErrorMessage error={error || pollError} />
       {pending && (
         <div className="assistant-actions">
-          <p className="assistant-note" role="status">
-            {bot ? copy.pending : copy.removedPending}
-          </p>
+          {data.revocationFailed ? (
+            <p className="assistant-notice" role="alert">
+              {copy.revocationFailed}
+            </p>
+          ) : (
+            <p className="assistant-note" role="status">
+              {bot ? copy.pending : copy.removedPending}
+            </p>
+          )}
           <button
             type="button"
             className="button secondary"
