@@ -55,6 +55,11 @@ export async function operationsFixture(page, { tool = "codex" } = {}) {
     if (state.hold === path) await new Promise((resolve) => (state.release = resolve));
     if (state.fail === path)
       return route.fulfill({ status: 409, json: { error: "Fixture conflict" } });
+    // A request that fails once, such as a dropped upload slice.
+    if (state.failOnce?.path === path && state.failOnce.method === method) {
+      state.failOnce = null;
+      return route.fulfill({ status: 503, json: { error: "Fixture outage" } });
+    }
     let result;
     if (path === "/state")
       result = {

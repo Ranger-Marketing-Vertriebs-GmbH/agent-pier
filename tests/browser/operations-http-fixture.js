@@ -114,6 +114,26 @@ export function operationResponse(state, path, method, body, query) {
     return {};
   }
   if (operation === "/restore/upload") return { archiveId: "archive-one" };
+  if (operation === "/restore/uploads" && method === "POST") {
+    state.upload = {
+      uploadId: "upload-one",
+      size: body.size,
+      offset: 0,
+      chunkLimit: state.uploadChunkLimit || 64 * 1024 * 1024,
+    };
+    state.uploadSlices = [];
+    return state.upload;
+  }
+  if (operation === "/restore/uploads/upload-one/complete")
+    return { archiveId: "archive-one" };
+  if (operation === "/restore/uploads/upload-one") {
+    if (method === "PUT") {
+      const offset = Number(query.get("offset"));
+      state.uploadSlices.push(offset);
+      state.upload.offset = Math.min(state.upload.size, offset + state.upload.chunkLimit);
+    }
+    return state.upload;
+  }
   if (operation === "/restore/inspect") return { inspection: state.inspection };
   if (operation === "/restore")
     return job("restore", {

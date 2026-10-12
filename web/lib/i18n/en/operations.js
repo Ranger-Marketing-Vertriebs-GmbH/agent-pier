@@ -76,7 +76,7 @@ export const operationsCopy = {
   includeHistory: "Include history",
   withCredentials: "Include encrypted credentials",
   backupPrivacy:
-    "History may contain private task content and is not encrypted. Credentials cover logins, settings, instructions, skills and agents of managed CLI profiles; caches, logs, installed CLIs and runtimes are never backed up. Local CLI profiles, keychains and repository working directories stay out.",
+    "History may contain private task content and is not encrypted. Credentials cover logins, settings, instructions, skills and agents of managed CLI profiles; caches, logs, installed CLIs and runtimes are never backed up. External local CLI profiles, keychains and repository working directories stay out.",
   passphrase: "Passphrase",
   plan: "Review backup scope",
   create: "Create backup",
@@ -90,6 +90,8 @@ export const operationsCopy = {
   deleteBackup: "Delete this backup?",
   inspectArchive: "Inspect and restore backup",
   archive: "Backup file",
+  uploadProgress: (percent, done, total) =>
+    `Uploading backup file: ${percent}% (${done} of ${total})`,
   inspect: "Inspect archive",
   targetDataDir: "New data directory",
   restore: "Restore to new directory",
