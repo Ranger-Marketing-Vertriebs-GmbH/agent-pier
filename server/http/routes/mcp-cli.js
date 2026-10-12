@@ -2,6 +2,7 @@ import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { record } from "../../features/extensions/mcp-config.js";
 import { fileProblem } from "../../features/mcp-servers/cli-status.js";
+import { mcpCliLoginRoutes } from "./mcp-cli-oauth.js";
 
 /**
  * Central MCP servers in the coding CLIs: the CLIs a server is bound to, the owner's
@@ -24,6 +25,7 @@ export function mcpCliRoutes(services, { auditMcp, replyStdioConfirmation }) {
       throw fileProblem(error) ?? error;
     }
   };
+  router.use(mcpCliLoginRoutes(services, { auditMcp }));
   router.get("/mcp-servers/cli-finds", (_req, res) => res.json(cli().finds()));
   router.post("/mcp-servers/cli-finds/adopt", (req, res) => {
     const body = record(req.body) ? req.body : {};

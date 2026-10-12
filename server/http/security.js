@@ -1,6 +1,9 @@
 import { serverMessages } from "../lib/i18n/de.js";
 import { problem } from "../lib/storage.js";
-import { oauthCallbackPath } from "../features/mcp-servers/oauth-redirect.js";
+import {
+  cliOAuthCallbackPath,
+  oauthCallbackPath,
+} from "../features/mcp-servers/oauth-redirect.js";
 export const appDocumentPath =
   /^\/(?:agents(?:\/[A-Za-z0-9_-]+\/(?:settings|(?:chats|teams)\/[A-Za-z0-9_-]+))?|accounts|repositories|files|artifacts(?:\/(?:view\/)?[A-Za-z0-9_-]+)?|settings(?:\/(?:assistants|notifications|diagnostics|backups|updates|audit|mcp|remote|ssh|github))?|projects(?:\/[^/]+)?|memory(?:\/[^/]+)?|pipelines(?:\/(?:runs|definitions|profiles|verification)(?:\/[^/]+)?)?|agentbus(?:\/messages(?:\/[^/]+)?)?|(?:extensions|plugins)(?:\/[^/]+)?|sessions\/[^/]+(?:\/(?:chat|reader|terminal|files))?)?\/?$/;
 export function authorizeRequest(req, config, websocket = false) {
@@ -40,12 +43,17 @@ export function authorizeRequest(req, config, websocket = false) {
   } else if (!loopback) throw problem(serverMessages.http.networkHostNotAllowed, 403);
   else throw problem(serverMessages.http.hostNotAllowed, 403);
   // Top-level HTML navigation is read-only; WebKit may omit activation metadata. The
-  // OAuth callback is the provider's redirect back, authenticated by its state.
+  // OAuth callbacks are the provider's redirect back, authenticated by their state
+  // (a brokered Codex login appends one path segment of its own).
   const requestPath = (req.url || "").split("?")[0];
+  const callback =
+    requestPath === oauthCallbackPath ||
+    (requestPath.startsWith(`${cliOAuthCallbackPath}/`) &&
+      !requestPath.slice(cliOAuthCallbackPath.length + 1).includes("/"));
   const openingPage =
     !websocket &&
     req.method === "GET" &&
-    (appDocumentPath.test(requestPath) || requestPath === oauthCallbackPath) &&
+    (appDocumentPath.test(requestPath) || callback) &&
     req.headers["sec-fetch-mode"] === "navigate" &&
     req.headers["sec-fetch-dest"] === "document";
   if (req.headers["sec-fetch-site"] === "cross-site" && !openingPage)

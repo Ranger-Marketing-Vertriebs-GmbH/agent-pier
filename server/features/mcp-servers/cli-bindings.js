@@ -39,11 +39,12 @@ export class CliMcpBindings {
     changes = () => null,
     agentNames = () => new Map(),
     oauthStatus = null,
+    codexLogins = () => null,
     home = os.homedir(),
     dataDir = null,
     warn = console.warn,
   }) {
-    Object.assign(this, { servers, changes, agentNames, oauthStatus, warn });
+    Object.assign(this, { servers, changes, agentNames, oauthStatus, codexLogins, warn });
     // Directories a server's cwd must never open up to the sandbox (cli-grants.js).
     this.protectedDirs = { home, dataDir };
     this.reconciler = new CliMcpReconciler({
@@ -113,6 +114,7 @@ export class CliMcpBindings {
   /**
    * `{ [cli]: { [serverId]: { state, command } } }` for OAuth servers bound to a CLI:
    * Codex reports its login state; for the others the owner sees the login command.
+   * Codex also lists each AgentPier-managed account (`accounts`, see codexAccounts).
    */
   async oauthStates(list) {
     const oauth = list.filter(
@@ -123,19 +125,38 @@ export class CliMcpBindings {
       const bound = new Set(this.servers.bindings("cli", cli));
       const mine = oauth.filter((server) => bound.has(server.id));
       if (!mine.length) continue;
-      const known =
-        cli === "codex" && this.oauthStatus ? await this.oauthStatus.codex() : {};
+      const codex = cli === "codex" && this.oauthStatus;
+      const known = codex ? await this.oauthStatus.codex() : {};
+      const managed = codex ? this.oauthStatus.accountStates() : null;
       out[cli] = Object.fromEntries(
         mine.map((server) => [
           server.id,
           {
             state: known[server.name] ?? "unknown",
             command: loginCommand(cli, server.name),
+            ...(managed ? { accounts: this.codexAccounts(server, managed) } : {}),
           },
         ]),
       );
     }
     return out;
+  }
+  /**
+   * Per managed Codex account `{ id, name, state, reason? }`: "pending" while a
+   * brokered login waits for its callback, "connected" when Codex holds a login,
+   * "failed" (with a stable reason) after AgentPier's last login failed, otherwise what
+   * Codex reports ("login-required" or "unknown").
+   */
+  codexAccounts(server, { accounts, states }) {
+    const activity = this.codexLogins()?.view(server.id) ?? {};
+    return accounts.map(({ id, name }) => {
+      const read = states[id]?.[server.name] ?? "unknown";
+      const last = activity[id];
+      if (last?.pending) return { id, name, state: "pending" };
+      if (read !== "connected" && last?.result === "error")
+        return { id, name, state: "failed", reason: last.reason };
+      return { id, name, state: read };
+    });
   }
   findGroups(results = this.inspectAll()) {
     return groupFinds(

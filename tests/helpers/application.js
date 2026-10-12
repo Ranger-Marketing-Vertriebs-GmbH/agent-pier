@@ -27,6 +27,10 @@ export const enabledAssistants = {
  * never the real CLI) with `realCliOAuthStatus: true`.
  */
 export const fakeCliOAuthRun = async () => ({ stdout: "[]" });
+/** Brokered CLI logins never start a CLI in a fixture unless a suite opts in as above. */
+export const refuseCliLogin = () => {
+  throw new Error("Fixtures do not start coding CLI logins.");
+};
 
 /** Owns one temporary app, its private tmux socket and every fixture it launches. */
 export async function applicationFixture(t, overrides = {}) {
@@ -36,7 +40,10 @@ export async function applicationFixture(t, overrides = {}) {
     realCliOAuthStatus = false,
     ...configuration
   } = overrides;
-  if (!realCliOAuthStatus) configuration.cliOAuthRun ??= fakeCliOAuthRun;
+  if (!realCliOAuthStatus) {
+    configuration.cliOAuthRun ??= fakeCliOAuthRun;
+    configuration.cliLoginSpawn ??= refuseCliLogin;
+  }
   let cookie = "";
   const root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-blackbox-")),

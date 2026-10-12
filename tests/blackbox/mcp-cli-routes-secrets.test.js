@@ -118,6 +118,7 @@ test("no route shows, audits or logs a header, environment or query value", asyn
   assert.deepEqual(oauth.codex.oauth, {
     state: "connected",
     command: "codex mcp login login",
+    accounts: [],
   });
   assert.deepEqual(oauth.claude.oauth, { state: "unknown", command: "/mcp" });
   assert.deepEqual(oauth.opencode.oauth, {

@@ -220,6 +220,7 @@ export async function createServices(config) {
         accounts,
         ...(config.cliOAuthRun ? { run: config.cliOAuthRun } : {}),
       }),
+      codexLogins: () => services.codexMcpLogins,
       agentNames: () =>
         new Map(
           (services.assistants?.store.listAssistants() || []).map((profile) => [

@@ -19,6 +19,7 @@ export function createShutdown({ services, wss, server }) {
     await services.reload?.close();
     await services.sshManagement?.close();
     services.accountAuthStatus?.close();
+    services.codexMcpLogins?.close();
     services.agency?.close();
     await services.sessionMcp?.close();
     await services.mcpTransport?.close();

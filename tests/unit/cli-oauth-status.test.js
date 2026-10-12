@@ -124,3 +124,74 @@ test("each CLI's own login command", () => {
   assert.equal(loginCommand("codex", "docs"), "codex mcp login docs");
   assert.equal(loginCommand("opencode", "docs"), "opencode mcp auth docs");
 });
+
+const managed = {
+  ...accounts,
+  list: () => [
+    { id: "local-codex", tool: "codex", kind: "local" },
+    { id: "a1", name: "Work", tool: "codex", kind: "managed" },
+    { id: "a2", name: "Private", tool: "codex", kind: "managed" },
+    { id: "c1", name: "Claude", tool: "claude", kind: "managed" },
+  ],
+  codexCredentialArgs: (id) =>
+    id === "local-codex" ? [] : ["-c", 'mcp_oauth_credentials_store="file"'],
+};
+
+test("each managed Codex account is read in its own home with the file store", async () => {
+  const calls = [];
+  const status = new CliOAuthStatus({
+    tools: () => codex,
+    accounts: managed,
+    ...quiet,
+    run: async (_file, args, options) => {
+      calls.push([options.env.HOME, args]);
+      if (options.env.HOME === "/home/a2")
+        throw Object.assign(new Error("x"), { code: "ETIMEDOUT" });
+      return listed({
+        name: "docs",
+        auth_status: options.env.HOME === "/home/a1" ? "o_auth" : "not_logged_in",
+      });
+    },
+  });
+  assert.deepEqual(status.accountStates(), {
+    accounts: [
+      { id: "a1", name: "Work" },
+      { id: "a2", name: "Private" },
+    ],
+    states: {},
+  });
+  await status.settled();
+  assert.deepEqual(calls, [
+    ["/home/local-codex", ["mcp", "list", "--json"]],
+    ["/home/a1", ["-c", 'mcp_oauth_credentials_store="file"', "mcp", "list", "--json"]],
+    ["/home/a2", ["-c", 'mcp_oauth_credentials_store="file"', "mcp", "list", "--json"]],
+  ]);
+  assert.deepEqual(await status.codex(), { docs: "login-required" });
+  // An account whose read failed stays unknown; the others keep their states.
+  assert.deepEqual(status.accountStates().states, { a1: { docs: "connected" } });
+});
+
+test("a completed login shows at once and the next list reads again", async () => {
+  let now = 0;
+  let runs = 0;
+  const status = new CliOAuthStatus({
+    tools: () => codex,
+    accounts: managed,
+    now: () => now,
+    ...quiet,
+    run: async () => {
+      runs += 1;
+      return listed();
+    },
+  });
+  await status.codex();
+  await status.settled();
+  assert.equal(runs, 3);
+  status.mark("a1", "docs", "connected");
+  status.invalidate();
+  assert.deepEqual(status.accountStates().states.a1, { docs: "connected" });
+  now = 1000;
+  await status.codex();
+  await status.settled();
+  assert.equal(runs, 6, "read again before the half minute is over");
+});
