@@ -5,9 +5,18 @@ import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
  * Header or environment entries as name and value rows. Stored entries show their
  * name and "stored" only; a typed value replaces them, "Remove" deletes them.
  * Rows: `{ key, name, value, stored, removed }`. `error` is shown at the rows and
- * describes them (`errorId`).
+ * describes them (`errorId`); the value inputs of `invalidNames` are marked invalid.
  */
-export default function McpSecretRows({ label, rows, onChange, error, errorId }) {
+export default function McpSecretRows({
+  label,
+  rows,
+  onChange,
+  error,
+  errorId,
+  invalidNames = [],
+}) {
+  const invalid = (row) =>
+    error && invalidNames.includes(row.name.trim()) ? { "aria-invalid": true } : {};
   const patch = (key, change) =>
     onChange(rows.map((row) => (row.key === key ? { ...row, ...change } : row)));
   return (
@@ -33,6 +42,7 @@ export default function McpSecretRows({ label, rows, onChange, error, errorId })
                   type="password"
                   autoComplete="new-password"
                   aria-label={`${row.name}: ${copy.replaceValue}`}
+                  {...invalid(row)}
                   placeholder={copy.replaceValue}
                   value={row.value}
                   maxLength={16384}
@@ -62,6 +72,7 @@ export default function McpSecretRows({ label, rows, onChange, error, errorId })
                 type="password"
                 autoComplete="new-password"
                 aria-label={copy.newValue}
+                {...invalid(row)}
                 placeholder={copy.newValue}
                 value={row.value}
                 maxLength={16384}

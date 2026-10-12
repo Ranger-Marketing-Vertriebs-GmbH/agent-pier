@@ -95,6 +95,7 @@ export default function McpServerForm({ server, onSaved, close }) {
       else if (valueReference(e))
         setFieldError({
           field: e.field,
+          names: e.names || [],
           text: e.names?.length
             ? `${e.message} ${copy.referenceNames(e.names.join(", "))}`
             : e.message,
@@ -210,6 +211,7 @@ export default function McpServerForm({ server, onSaved, close }) {
               rows={draft.env}
               onChange={set("env")}
               error={errorOf("env")}
+              invalidNames={fieldError?.names}
               errorId={errorId}
             />
           </>
@@ -237,6 +239,7 @@ export default function McpServerForm({ server, onSaved, close }) {
                 rows={draft.headers}
                 onChange={set("headers")}
                 error={errorOf("headers")}
+                invalidNames={fieldError?.names}
                 errorId={errorId}
               />
             )}

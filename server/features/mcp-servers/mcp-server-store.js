@@ -92,6 +92,25 @@ function cleanCwd(value) {
     throw invalid(messages.invalidCwd);
   return value;
 }
+/**
+ * The fields of `patch` whose value differs from the stored `row`: an unchanged stored
+ * value (written before references were refused) never blocks a save. Header and
+ * environment values are only ever the ones sent.
+ */
+function changedValues(row, patch) {
+  const stored = {
+    url: row.url ?? "",
+    command: row.command ?? "",
+    args: row.args ?? "[]",
+    cwd: row.cwd ?? "",
+  };
+  const changed = { headers: patch.headers, env: patch.env };
+  for (const field of ["url", "command", "cwd"])
+    if ((patch[field] ?? "") !== stored[field]) changed[field] = patch[field];
+  if (patch.args !== undefined && JSON.stringify(patch.args) !== stored.args)
+    changed.args = patch.args;
+  return changed;
+}
 /** Split a patch map into values to set and names to remove (`null`). */
 function splitMap(input, headers) {
   if (input === undefined) return { set: {}, drop: [] };
@@ -376,7 +395,7 @@ export class McpServerStore {
       throw problem(messages.conflict, 409);
     if (patch.transport !== undefined && patch.transport !== row.transport)
       throw invalid(messages.transportLocked);
-    requireLiteralValues(patch);
+    requireLiteralValues(changedValues(row, patch));
     const merged = {
       name: row.name,
       transport: row.transport,
