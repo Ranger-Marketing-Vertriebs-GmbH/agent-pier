@@ -209,6 +209,7 @@ export const assistantCopy = {
     mcp: "MCP servers",
     team: "Team",
     telegram: "Telegram",
+    telegramSenders: "Telegram for others",
   },
   remoteChanged: (fields) =>
     `This agent changed on the server while you were editing (${fields}). Your edits are kept; reload to use the latest values instead.`,

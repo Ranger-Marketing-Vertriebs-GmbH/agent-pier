@@ -20,6 +20,7 @@ export default function SettingsSectionNav({ assistant, personal }) {
       : []),
     ...(!assistant.teamMemberId ? [["team", "agent-team"]] : []),
     ...(!assistant.teamMemberId || personal ? [["telegram", "agent-telegram"]] : []),
+    ...(personal ? [["telegramSenders", "agent-telegram-senders"]] : []),
   ];
   const ids = sections.map(([, id]) => id).join(" ");
   const [active, setActive] = useState("agent-profile");

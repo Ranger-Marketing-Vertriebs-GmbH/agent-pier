@@ -6,6 +6,7 @@ import AssistantMemory from "./AssistantMemory.jsx";
 import AssistantReminders from "./AssistantReminders.jsx";
 import AssistantMemberSettings from "./AssistantMemberSettings.jsx";
 import TelegramSettings from "./TelegramSettings.jsx";
+import TelegramSendersSettings from "./TelegramSendersSettings.jsx";
 import React, { useState } from "react";
 import SettingsSectionNav from "./SettingsSectionNav.jsx";
 import AssistantSaveBar from "./AssistantSaveBar.jsx";
@@ -288,6 +289,11 @@ export default function AssistantSettings({ assistant, onSaved, onCancel, naviga
       {assistant && (!assistant.teamMemberId || personal) && (
         <div id="agent-telegram" className="assistant-anchor">
           <TelegramSettings assistantId={assistant.id} navigate={navigate} />
+        </div>
+      )}
+      {assistant && personal && (
+        <div id="agent-telegram-senders" className="assistant-anchor">
+          <TelegramSendersSettings assistantId={assistant.id} />
         </div>
       )}
       {(form.dirty || !assistant) && (
