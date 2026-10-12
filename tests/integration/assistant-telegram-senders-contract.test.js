@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import http from "node:http";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import {
@@ -190,6 +191,68 @@ test("agents' own bots on the compiled path", options, async (t) => {
   assert.ok(team.tools.includes("agentpier_team_propose"));
   assert.equal(h.teams.store.list().length, 1);
   assert.equal(h.teams.store.list()[0].phase, "awaiting_approval");
+
+  // A check-in of an agent with its own bot (as native-heartbeats.js schedules it:
+  // announce into its AgentPier conversation, completion by webhook) never goes out
+  // through the bot: the configured Telegram account is no announce route for it.
+  const completions = [];
+  const hook = http.createServer(async (req, res) => {
+    let body = "";
+    for await (const part of req) body += part;
+    completions.push(body);
+    res.writeHead(200).end("{}");
+  });
+  await new Promise((r) => hook.listen(0, "127.0.0.1", r));
+  t.after(() => new Promise((r) => hook.close(r)));
+  const checkIn = await h.runtime.client.call("sessions.create", {
+    agentId: ids(helper),
+    label: "AgentPier check-in fixture",
+  });
+  const added = await h.runtime.client.call("cron.add", {
+    name: "AgentPier check-in",
+    agentId: ids(helper),
+    enabled: true,
+    deleteAfterRun: false,
+    schedule: { kind: "cron", expr: "0 3 * * *", tz: "UTC" },
+    payload: {
+      kind: "agentTurn",
+      message: "Check in. [m:checkin]",
+      timeoutSeconds: 120,
+      lightContext: false,
+      toolsAllow: ["memory_search", "memory_get"],
+    },
+    sessionTarget: "current",
+    sessionKey: checkIn.key,
+    wakeMode: "now",
+    failureAlert: false,
+    delivery: {
+      mode: "announce",
+      completionDestination: {
+        mode: "webhook",
+        to: `http://127.0.0.1:${hook.address().port}/complete/fixture`,
+      },
+    },
+  });
+  const job = added?.job || added;
+  const sentBefore = h.bots.calls.filter((c) => c.method === "sendMessage").length;
+  await h.runtime.client.call("cron.run", { id: job.id, mode: "force" });
+  await h.until(
+    async () =>
+      (await h.runtime.client.call("cron.runs", { id: job.id, limit: 5 })).entries.some(
+        (e) => e.action === "finished",
+      ),
+    "check-in finished",
+    { timeoutMs: 90000 },
+  );
+  await delay(3000);
+  assert.ok(h.requests("[m:checkin]").length >= 1, "the check-in ran");
+  assert.equal(
+    h.bots.calls.filter((c) => c.method === "sendMessage").length,
+    sentBefore,
+    "no check-in output through the agent's own bot",
+  );
+  t.diagnostic(`check-in completions=${completions.length}`);
+  await h.runtime.client.call("cron.remove", { id: job.id });
 
   // A second poller of a bot (409) leaves the Gateway and the other bots running.
   h.bots.conflict(token2);
