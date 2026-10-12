@@ -107,6 +107,19 @@ test("the finds keep their heading while loading and after a failed load", async
   await expect(found.getByText("Looking in the CLIs…")).toHaveCount(0);
 });
 
+/** Waits until the finds were requested `count` times, then holds to catch a late extra load. */
+async function settledFindLoads(page, state, count) {
+  await expect.poll(() => findLoads(state)).toBe(count);
+  await page.waitForTimeout(600);
+  expect(findLoads(state)).toBe(count);
+}
+const listLoaded = (page) =>
+  page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/mcp-servers" &&
+      response.request().method() === "GET",
+  );
+
 test("an adoption reloads the finds once and confirms what was adopted", async ({
   page,
 }) => {
@@ -122,14 +135,16 @@ test("an adoption reloads the finds once and confirms what was adopted", async (
   await page.goto(baseURL + "/accounts");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await expect(found.getByRole("button", { name: "Adopt all" })).toBeVisible();
-  await expect.poll(() => findLoads(state)).toBeGreaterThan(0);
-  await page.waitForLoadState("networkidle");
-  const before = findLoads(state);
+  // The first page load asks for the finds once.
+  await settledFindLoads(page, state, 1);
+  const status = found.locator('[role="status"]');
+  await expect(status).toBeEmpty();
+  const reloaded = listLoaded(page);
   await found.getByRole("button", { name: "Adopt docs" }).click();
-  await expect(found.getByRole("status")).toHaveText("Adopted: docs.");
+  await reloaded;
+  await expect(status).toHaveText("Adopted: docs.");
   await expect(found.getByText("docs", { exact: true })).toHaveCount(0);
-  await page.waitForLoadState("networkidle");
-  expect(findLoads(state) - before).toBe(1);
+  await settledFindLoads(page, state, 2);
   state.finds = structuredClone(finds.slice(0, 2));
   await page.reload();
   await page
@@ -139,4 +154,28 @@ test("an adoption reloads the finds once and confirms what was adopted", async (
   await expect(
     page.getByRole("region", { name: "Found in the CLIs" }).getByRole("status"),
   ).toHaveText("Adopted: docs, my-tool.");
+});
+
+test("the finds reload after an adoption even when the list fails to reload", async ({
+  page,
+}) => {
+  const state = await setup(page, { finds: finds.slice(0, 1) });
+  state.handle = async ({ route, path, body }) => {
+    if (path !== "/api/mcp-servers/cli-finds/adopt") return false;
+    state.finds = [];
+    return route.fulfill({
+      json: { adopted: [header({ name: body.names.k1 })], failed: [] },
+    });
+  };
+  await page.goto(baseURL + "/accounts");
+  const found = page.getByRole("region", { name: "Found in the CLIs" });
+  await settledFindLoads(page, state, 1);
+  await page.route("**/api/mcp-servers", (route) =>
+    route.request().method() === "GET"
+      ? route.fulfill({ status: 500, json: { error: "List unavailable." } })
+      : route.fallback(),
+  );
+  await found.getByRole("button", { name: "Adopt docs" }).click();
+  await settledFindLoads(page, state, 2);
+  await expect(found.getByText("Nothing else found in the CLIs.")).toBeVisible();
 });

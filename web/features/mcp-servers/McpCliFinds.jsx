@@ -89,7 +89,9 @@ function FindItem({ find, busy, name, rename, adopt }) {
 
 /**
  * Entries the owner added to a CLI outside AgentPier, offered for adoption; never
- * adopted on their own. Shows names only. `refresh` changes whenever the list reloads.
+ * adopted on their own. Shows names only. `refresh` changes whenever the list reloads,
+ * failed or not; the finds load then, never before the first change. The status line
+ * is always mounted, so a confirmation is announced.
  */
 export default function McpCliFinds({ refresh, onAdopted }) {
   const titleId = useId();
@@ -109,8 +111,9 @@ export default function McpCliFinds({ refresh, onAdopted }) {
       setError(e.message);
     }
   }, []);
+  // The list's first load sets `refresh`: the finds load once on the first page load.
   useEffect(() => {
-    load();
+    if (refresh > 0) load();
   }, [load, refresh]);
   const nameOf = (find) => renamed[find.key] ?? find.proposedName ?? find.name;
   // The parent's reload changes `refresh`, which loads the finds again: once.
@@ -152,11 +155,9 @@ export default function McpCliFinds({ refresh, onAdopted }) {
           )}
         </p>
       ))}
-      {notice && (
-        <p role="status" className="mcp-hint">
-          {notice}
-        </p>
-      )}
+      <p role="status" className="mcp-hint mcp-find-notice">
+        {notice}
+      </p>
       {finds && !finds.length && <p className="mcp-hint">{copy.foundNone}</p>}
       {finds && (
         <ul className="mcp-list">

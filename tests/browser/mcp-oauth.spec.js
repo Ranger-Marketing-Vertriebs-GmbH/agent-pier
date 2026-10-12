@@ -271,7 +271,10 @@ for (const [label, use] of [
       await expect(item.getByRole("alert")).toHaveText(
         "OAuth needs HTTPS or the AgentPier host itself. Open AgentPier through Tailscale (HTTPS) or directly on the AgentPier host.",
       );
-      await expect(panel.getByRole("status")).toContainText(
+      // The list's own notice, not the (empty) status line of the CLI finds.
+      await expect(
+        panel.getByRole("status").filter({ hasText: /^OAuth logins cannot start/ }),
+      ).toContainText(
         "OAuth logins cannot start from the address you opened AgentPier with.",
       );
       expect(page.url()).toBe(baseURL + "/accounts");
@@ -402,7 +405,7 @@ for (const [label, use] of [
       state.pendingApply = true;
       await panel.getByRole("button", { name: "Remove wiki" }).click();
       await panel.getByRole("button", { name: "Remove server" }).click();
-      await expect(panel.getByRole("status")).toHaveText(
+      await expect(panel.getByRole("status").filter({ hasText: /^Saved/ })).toHaveText(
         "Saved \u2014 will be applied to running agents shortly. Saved. The previous OAuth login could not be removed right now; AgentPier retries in the background.",
       );
       await page.goto(baseURL + "/agents/home/settings");
