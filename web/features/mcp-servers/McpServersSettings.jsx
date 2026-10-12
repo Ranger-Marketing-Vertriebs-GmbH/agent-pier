@@ -3,6 +3,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { mcpOAuthCopy } from "../../lib/i18n/messages/mcp-oauth.js";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
 import { assistantApi } from "../assistants/assistant-api.js";
+import { useAlertDialogFocus } from "../../components/useAlertDialogFocus.js";
 import McpServerForm from "./McpServerForm.jsx";
 import { McpOAuthActions, McpOAuthResultBanner, useMcpOAuth } from "./McpOAuthLogin.jsx";
 import McpOAuthStatus, { McpOAuthStatusHint, usesOAuth } from "./McpOAuthStatus.jsx";
@@ -80,6 +81,35 @@ const savedNotice = (saved) =>
   ]
     .filter(Boolean)
     .join(" ");
+
+/** Asks before a server is removed; focus starts on the safe choice. */
+function RemoveConfirmation({ server, busy, onConfirm, onCancel }) {
+  const focus = useAlertDialogFocus(onCancel);
+  return (
+    <div {...focus} className="mcp-confirmation" role="alertdialog">
+      <p>{copy.confirmRemove(server.name)}</p>
+      <div className="mcp-actions">
+        <button
+          type="button"
+          className="button primary"
+          disabled={busy}
+          onClick={onConfirm}
+        >
+          {copy.confirmRemoveAction}
+        </button>
+        <button
+          type="button"
+          className="button secondary"
+          data-autofocus
+          disabled={busy}
+          onClick={onCancel}
+        >
+          {copy.cancel}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /**
  * The owner's central MCP servers: list, add, edit and remove, and log in to OAuth
@@ -162,27 +192,12 @@ export default function McpServersSettings({ oauthResult }) {
             <ServerDetails server={server} />
             {usesOAuth(server) && <McpOAuthStatusHint server={server} />}
             {removing === server.id ? (
-              <div className="mcp-confirmation" role="alertdialog">
-                <p>{copy.confirmRemove(server.name)}</p>
-                <div className="mcp-actions">
-                  <button
-                    type="button"
-                    className="button primary"
-                    disabled={busy}
-                    onClick={() => remove(server)}
-                  >
-                    {copy.confirmRemoveAction}
-                  </button>
-                  <button
-                    type="button"
-                    className="button secondary"
-                    disabled={busy}
-                    onClick={() => setRemoving(null)}
-                  >
-                    {copy.cancel}
-                  </button>
-                </div>
-              </div>
+              <RemoveConfirmation
+                server={server}
+                busy={busy}
+                onConfirm={() => remove(server)}
+                onCancel={() => setRemoving(null)}
+              />
             ) : (
               <div className="mcp-actions">
                 {usesOAuth(server) && <McpOAuthActions server={server} oauth={oauth} />}
@@ -198,6 +213,7 @@ export default function McpServersSettings({ oauthResult }) {
                   type="button"
                   className="button secondary"
                   aria-label={copy.removeNamed(server.name)}
+                  data-focus-key={`remove-${server.id}`}
                   onClick={() => setRemoving(server.id)}
                 >
                   {copy.remove}

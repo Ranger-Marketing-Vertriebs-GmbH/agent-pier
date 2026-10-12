@@ -60,7 +60,12 @@ export default function McpServerForm({ server, onSaved, close }) {
       closeDisabled={busy}
       cancelLabel={copy.cancel}
       footer={
-        <button className="button primary" form={formId} disabled={busy}>
+        <button
+          className="button primary"
+          form={formId}
+          data-focus-key="mcp-form-save"
+          disabled={busy}
+        >
           {busy ? copy.saving : copy.save}
         </button>
       }
@@ -182,6 +187,7 @@ export default function McpServerForm({ server, onSaved, close }) {
         )}
         {confirming && (
           <StdioConfirmation
+            returnKey="mcp-form-save"
             busy={busy}
             onConfirm={() => submit(true)}
             onCancel={() => setConfirming(false)}

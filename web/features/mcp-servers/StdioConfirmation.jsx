@@ -1,15 +1,19 @@
 import React from "react";
+import { useAlertDialogFocus } from "../../components/useAlertDialogFocus.js";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
 
 /** Warns that stdio servers run with the owner's rights; the owner confirms or backs out. */
 export default function StdioConfirmation({
   binding = false,
   busy,
+  returnKey,
   onConfirm,
   onCancel,
 }) {
+  const focus = useAlertDialogFocus(onCancel, returnKey);
   return (
     <div
+      {...focus}
       className="mcp-confirmation"
       role="alertdialog"
       aria-label={binding ? copy.stdioBindingTitle : copy.stdioWarningTitle}
@@ -28,6 +32,7 @@ export default function StdioConfirmation({
         <button
           type="button"
           className="button secondary"
+          data-autofocus
           disabled={busy}
           onClick={onCancel}
         >
