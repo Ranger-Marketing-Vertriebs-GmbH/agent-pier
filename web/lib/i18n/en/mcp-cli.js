@@ -34,6 +34,13 @@ export const mcpCliCopy = {
   adopt: "Adopt",
   adoptFor: (cli, name) => `Adopt ${name} from ${cli}`,
   oauthConnected: (cli) => `Logged in in ${cli}`,
+  // Codex status is read from the owner's own profile only (~/.codex).
+  oauthConnectedCodex: "Logged in in your Codex profile (~/.codex)",
+  oauthLoginCodex: (command) => `Log in once in your Codex profile: ${command}`,
+  oauthUnknownCodex: (command) =>
+    `If your Codex profile asks for a login: run ${command}`,
+  oauthCodexAccounts: (command) =>
+    `AgentPier-managed Codex accounts keep their own MCP logins: run ${command} in a session of that account.`,
   oauthLogin: (cli, command) => `Log in once in ${cli}: run ${command}`,
   oauthUnknown: (cli, command) => `If ${cli} asks for a login: run ${command}`,
   oauthLoginSession: (cli, command) => `Log in once: open ${command} in ${cli}`,

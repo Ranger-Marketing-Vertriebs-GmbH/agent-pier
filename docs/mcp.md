@@ -205,6 +205,10 @@ needs the owner's confirmation, because every session of that CLI starts it.
 - **OAuth.** AgentPier writes each CLI's OAuth form without static headers. Only Codex
   has a reliable login state (`codex mcp list --json`); for Claude Code (`/mcp` in a
   session) and OpenCode (`opencode mcp auth <name>`) AgentPier shows the login command.
+  The Codex state is read from the owner's own profile (`~/.codex`) only, so it says
+  nothing about AgentPier-managed Codex accounts: they keep MCP OAuth tokens in their
+  own `CODEX_HOME` and log in once each with `codex mcp login <name>` in a session of
+  that account.
   Logins brokered by AgentPier are not built; the qualification records that only Codex
   would support them.
 - **Sandbox.** A bound stdio server runs inside the CLI's nono sandbox; see
