@@ -64,13 +64,13 @@ test("connects an agent's own bot for chosen people after confirming the restart
   await expect(section).toBeVisible();
   await expect(section.getByText("Nobody can write to the bot yet.")).toBeVisible();
   // A username is no Telegram user id.
-  await section.getByLabel("Name").fill("Alice");
+  await section.getByLabel("Person", { exact: true }).fill("Alice");
   await section.getByLabel("Telegram user ID").fill("@alice");
   await section.getByRole("button", { name: "Add person" }).click();
   await expect(section.getByText("Enter a numeric Telegram user ID.")).toBeVisible();
   await section.getByLabel("Telegram user ID").fill("111");
   await section.getByRole("button", { name: "Add person" }).click();
-  await section.getByLabel("Name").fill("Bob");
+  await section.getByLabel("Person", { exact: true }).fill("Bob");
   await section.getByLabel("Telegram user ID").fill("222");
   await section.getByRole("button", { name: "Add person" }).click();
   await expect(section.getByRole("button", { name: "Remove Bob" })).toBeVisible();
