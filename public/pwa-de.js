@@ -24,6 +24,10 @@ self.agentPierNotificationCopy = {
     title: "AgentPier: Pipeline beendet",
     body: "Öffne AgentPier, um das Ergebnis anzusehen.",
   },
+  "agent-checkin": {
+    title: "AgentPier: Agent meldet sich",
+    body: "Ein Agent hat etwas für dich. Öffne den verbundenen Chat.",
+  },
   test: {
     title: "AgentPier: Testbenachrichtigung",
     body: "Benachrichtigungen erreichen dieses Gerät.",

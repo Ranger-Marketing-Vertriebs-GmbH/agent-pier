@@ -61,6 +61,8 @@ export const assistants = {
   execAllowlistFailed:
     "Der Befehl wurde einmal erlaubt, aber AgentPier konnte ihn nicht in die Liste erlaubter Befehle eintragen. Beim nächsten Mal fragt der Agent erneut.",
 
+  heartbeatChannelRequired:
+    "Check-ins brauchen einen verbundenen Telegram-Chat. Verbinde zuerst einen Telegram-Chat mit diesem Agenten.",
   reminderChannelRequired: "Verbinde zuerst einen Telegram-Chat mit diesem Agenten.",
   reminderTimezoneRequired:
     "Gib den Erinnerungszeitpunkt mit Zeitzonen-Offset an, zum Beispiel 2026-10-09T09:00:00+02:00.",

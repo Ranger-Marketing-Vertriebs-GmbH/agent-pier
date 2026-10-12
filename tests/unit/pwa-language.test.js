@@ -56,6 +56,29 @@ test("worker persists only a supported language and localizes generic notificati
   });
   assert.equal(notification.title, "AgentPier: Approval required");
   assert.doesNotMatch(JSON.stringify(notification), /PRIVATE/);
+  // An agent check-in names only the agent; its text stays in the paired chat.
+  await dispatch("push", {
+    data: {
+      json: () => ({
+        kind: "agent-checkin",
+        assistantId: "agent-one",
+        eventId: "event-two",
+        body: "PRIVATE",
+      }),
+    },
+  });
+  assert.equal(notification.title, "AgentPier: Agent check-in");
+  assert.deepEqual({ ...notification.options.data }, { assistantId: "agent-one" });
+  assert.doesNotMatch(JSON.stringify(notification), /PRIVATE/);
+  let opened;
+  scope.clients = {
+    matchAll: async () => [],
+    openWindow: async (url) => (opened = url),
+  };
+  await dispatch("notificationclick", {
+    notification: { close() {}, data: { assistantId: "agent-one" } },
+  });
+  assert.equal(opened, "https://fixture.example/agents/agent-one/settings");
 });
 
 test("offline help uses the saved language ahead of browser settings", () => {

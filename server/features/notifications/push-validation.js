@@ -59,12 +59,15 @@ export function pushPayload(input) {
       "session-completed",
       "pipeline-gate",
       "pipeline-ended",
+      "agent-checkin",
       "test",
     ].includes(input?.kind)
   )
     throw problem("Invalid notification kind.");
   const payload = { kind: input.kind, eventId: pushId(input.eventId) };
   if (input.kind.startsWith("pipeline-")) payload.runId = pushId(input.runId);
+  else if (input.kind === "agent-checkin")
+    payload.assistantId = pushId(input.assistantId);
   else if (input.kind !== "test") payload.sessionId = pushId(input.sessionId);
   return payload;
 }

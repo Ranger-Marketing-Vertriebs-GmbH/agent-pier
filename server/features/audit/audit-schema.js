@@ -69,6 +69,8 @@ const changeFields = new Set([
   "headers",
   "mcpServers",
   "clis",
+  "heartbeat",
+  "recall",
 ]);
 export function auditId(value) {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(value))
@@ -122,6 +124,7 @@ export function auditEvent(input) {
       "shell",
       "allowlist",
       "exec",
+      "proactivity",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -214,6 +217,10 @@ export function auditEvent(input) {
       event.details.resolution = details.resolution;
     if (typeof details.adopted === "boolean") event.details.adopted = details.adopted;
   }
+  // Agent proactivity changes name the switched opt-ins as flags (proactivity-changes.js).
+  if (input.resourceType === "assistant")
+    for (const key of ["heartbeat", "recall"])
+      if (typeof details[key] === "boolean") event.details[key] = details[key];
   for (const key of ["enabled", "pending"])
     if (typeof details[key] === "boolean") event.details[key] = details[key];
   if (["0.0.0.0", "::"].includes(details.bind)) event.details.bind = details.bind;

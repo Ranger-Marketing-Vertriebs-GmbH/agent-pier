@@ -361,6 +361,7 @@ export class NativeReminders {
   }
   async complete(bindingId, event) {
     let binding = this.bindings.get(bindingId);
+    if (binding.kind === "heartbeat") return this.heartbeats?.complete(binding, event);
     if (
       revoked(binding) ||
       !personalCapabilities(this.assistants.store.getAssistant(binding.assistantId))

@@ -20,3 +20,19 @@ test("arbitrary native event content never enters the push payload", () => {
     }),
   );
 });
+
+test("an agent check-in push names only the agent", () => {
+  check(
+    fc.property(fc.dictionary(fc.string(), fc.jsonValue()), (untrusted) => {
+      assert.deepEqual(
+        pushPayload({
+          ...untrusted,
+          kind: "agent-checkin",
+          assistantId: "agent-one",
+          eventId: "event-one",
+        }),
+        { kind: "agent-checkin", assistantId: "agent-one", eventId: "event-one" },
+      );
+    }),
+  );
+});

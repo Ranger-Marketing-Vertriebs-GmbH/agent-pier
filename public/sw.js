@@ -56,6 +56,8 @@ const validId = (value) =>
   typeof value === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
 function notificationTarget(data) {
   if (validId(data.runId)) return `/pipelines/runs/${encodeURIComponent(data.runId)}`;
+  if (validId(data.assistantId))
+    return `/agents/${encodeURIComponent(data.assistantId)}/settings`;
   if (validId(data.sessionId))
     return `/sessions/${encodeURIComponent(data.sessionId)}/chat`;
   return "/settings/notifications";
@@ -102,6 +104,7 @@ self.addEventListener("push", (event) => {
   const data = {
     ...(validId(payload.sessionId) ? { sessionId: payload.sessionId } : {}),
     ...(validId(payload.runId) ? { runId: payload.runId } : {}),
+    ...(validId(payload.assistantId) ? { assistantId: payload.assistantId } : {}),
   };
   event.waitUntil(
     notificationCopy().then((catalog) => {

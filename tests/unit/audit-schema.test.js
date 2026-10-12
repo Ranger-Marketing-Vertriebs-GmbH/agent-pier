@@ -79,6 +79,35 @@ test("assistant shell events keep levels, pending and the entry id only", () => 
   assert.throws(() => event({ entryId: "../x" }));
 });
 
+test("assistant proactivity events keep the changed names and flags, never a schedule", () => {
+  const event = (details) =>
+    auditEvent({
+      action: "assistant.updated",
+      resourceType: "assistant",
+      resourceId: "agent-1",
+      source: "user",
+      outcome: "success",
+      details,
+    }).details;
+  assert.deepEqual(
+    event({
+      kind: "proactivity",
+      fields: ["heartbeat", "recall", "prompt"],
+      heartbeat: true,
+      recall: false,
+      timeZone: "Europe/Berlin",
+      interval: "1h",
+    }),
+    {
+      kind: "proactivity",
+      fields: ["heartbeat", "recall"],
+      heartbeat: true,
+      recall: false,
+    },
+  );
+  assert.deepEqual(event({ heartbeat: "yes", recall: 1 }), {});
+});
+
 test("exec decisions keep the decision and what AgentPier wrote, never the command", () => {
   const event = (details) =>
     auditEvent({

@@ -3,6 +3,7 @@ import { temporaryMember } from "../features/assistants/team-presentation.js";
 import { TeamService } from "../features/assistants/team-service.js";
 import { NativeMemory } from "../features/assistants/native-memory.js";
 import { NativeReminders } from "../features/assistants/native-reminders.js";
+import { NativeHeartbeats } from "../features/assistants/native-heartbeats.js";
 import { TeamBridge } from "../features/assistants/team-bridge.js";
 import { ChannelService } from "../features/assistant-channels/channel-service.js";
 import { WebSearchSettings } from "../features/assistants/web-search-settings.js";
@@ -159,6 +160,11 @@ export function constructAssistantGraph(host, created = {}) {
     dataDir,
   });
   const assistantRoutines = new NativeRoutines({ reminders: assistantReminders });
+  // Reached as assistantReminders.heartbeats: it shares the reminder webhook.
+  new NativeHeartbeats({
+    reminders: assistantReminders,
+    notifications: host.notifications,
+  });
   // The workflow layer looks services up by name: assistant services from this graph,
   // everything else (sessions, projects, configuration) from the application.
   const scope = Object.assign(Object.create(host), {
@@ -311,6 +317,8 @@ export function connectAssistantServices(graph) {
     // Before any start, and for agents the start did not bind, no MCP tools.
     mcpTools: (assistant) => runtime.mcp?.agentTools?.[assistant.runtimeAgentId] || [],
   });
+  // Agents whose model connection is blocked keep no check-in job.
+  reminders.heartbeats.blocked = (id) => synchronization.blocked.has(id);
   wire(runtime, "assistantRuntime", {
     teamConfiguration: async (installed) => {
       if (!installed.teamPlugin)
@@ -347,6 +355,8 @@ export function connectAssistantServices(graph) {
       // converges now. Not awaited: a start may itself run under admission.
       mcpChanges.ready();
       if (mcpChanges.pending) assistants.admit(() => mcpChanges.apply()).catch(() => {});
+      // Check-in jobs follow the stored settings; maintenance repeats this on leave.
+      if (!assistants.maintenance) reminders.heartbeats.reconcile().catch(() => {});
     },
   });
   return graph;

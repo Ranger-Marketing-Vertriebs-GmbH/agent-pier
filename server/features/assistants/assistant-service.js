@@ -9,6 +9,11 @@ import { assertWired } from "./service-wiring.js";
 import { ShellChanges, shellChange, withoutUnchanged } from "./shell-changes.js";
 import { ExecAllowlist } from "./exec-allowlist.js";
 import { assistantActivity } from "./assistant-activity.js";
+import {
+  auditProactivity,
+  needsChannel,
+  proactivityChange,
+} from "./proactivity-changes.js";
 
 const sessionRetryMs = 60000;
 export class AssistantService {
@@ -166,9 +171,13 @@ export class AssistantService {
       const capabilities = input.capabilities && { ...input.capabilities };
       for (const key of webCapabilityKeys)
         if (capabilities && key in capabilities) capabilities[key] = false;
-      const record = this.store.createAssistant(
-        capabilities ? { ...input, capabilities } : input,
-      );
+      // Check-ins need a paired chat, which a new agent cannot have yet.
+      const heartbeat = input.heartbeat && { ...input.heartbeat, enabled: false };
+      const record = this.store.createAssistant({
+        ...input,
+        ...(capabilities && { capabilities }),
+        ...(heartbeat && { heartbeat }),
+      });
       // The Gateway gets the agent, and its level, at its first apply.
       if (shell) this.shellChanges.audit(record.id, shell, {});
       this.changed();
@@ -239,6 +248,8 @@ export class AssistantService {
         const lease = await this.models.resolve(patch.model);
         lease.release();
       }
+      // Check-ins are delivered only to a paired chat; refused before any change.
+      if (needsChannel(current, patch)) this.reminders?.heartbeats?.requireChannel(id);
       // Refuses ineligible agents and unconfirmed stdio servers before any change.
       if (binds)
         outcome.stdioAdded = this.mcp.checkBindings(current, mcpServers, confirmStdio);
@@ -255,6 +266,7 @@ export class AssistantService {
       }
       if (disableReminders) await this.reminders?.disable(id);
       const record = this.store.updateAssistant(id, patch, revision);
+      auditProactivity(this.audit, id, proactivityChange(current, patch));
       let pending = false;
       if (binds) {
         this.mcp.setBindings(id, mcpServers);
@@ -267,6 +279,7 @@ export class AssistantService {
       if (shell) pending = (await this.shellChanges.settle(id, shell)) || pending;
       else if (patch.capabilities && this.runtime.client?.ready)
         await this.config.apply(id);
+      pending = (await this.syncHeartbeat(id, patch)) || pending;
       this.changed();
       return { record, pending };
     });
@@ -276,9 +289,11 @@ export class AssistantService {
     // the revision check in updateAssistant after the restart, which is harmless:
     // the Gateway then simply runs with the current state.
     // The restarted Gateway compiles the new bindings at its start.
+    const before = this.store.getAssistant(id);
     const record = await this.webTools.restart(
       () => {
         const saved = this.store.updateAssistant(id, patch, revision);
+        auditProactivity(this.audit, id, proactivityChange(before, patch));
         if (binds) this.mcp.setBindings(id, mcpServers);
         return saved;
       },
@@ -288,12 +303,29 @@ export class AssistantService {
           : undefined,
       },
     );
+    // The restarted Gateway's ready reconciles check-ins; this save repeats it.
+    await this.admit(() => this.syncHeartbeat(id, patch)).catch(() => {});
     if (!shell) {
       if (this.runtime.client?.ready) await this.config.apply(id);
       return this.withMcp(record);
     }
     // The restarted Gateway compiled the level; the apply confirms it.
     return this.withPending(record, await this.shellChanges.settle(id, shell));
+  }
+  /**
+   * Converges the agent's check-in job after a saved heartbeat or capability change
+   * (memory decides its tools; switching reminders off pauses all its jobs). True
+   * when it could not run now; the next Gateway ready repeats it.
+   */
+  async syncHeartbeat(id, patch) {
+    const heartbeats = this.reminders?.heartbeats;
+    if (!heartbeats || !(patch.heartbeat || patch.capabilities)) return false;
+    try {
+      await heartbeats.sync(id);
+      return false;
+    } catch {
+      return true;
+    }
   }
   admit(operation) {
     return this.serialize("admission", () => {

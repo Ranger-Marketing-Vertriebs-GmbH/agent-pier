@@ -215,7 +215,11 @@ export class TelegramOutbox {
     // later notices; the oldest sendable one goes first.
     let entry = c.outbox.pending(id).find((e) => e.state === "outbound");
     if (!entry) return;
-    if (entry.kind === "reminder" && !c.assistants.reminders?.acceptsDelivery(entry)) {
+    if (
+      (entry.kind === "reminder" && !c.assistants.reminders?.acceptsDelivery(entry)) ||
+      (entry.kind === "heartbeat" &&
+        !c.assistants.reminders?.heartbeats?.acceptsDelivery(entry))
+    ) {
       c.outbox.transition(entry.id, entry.state, { state: "reviewed" });
       return;
     }
