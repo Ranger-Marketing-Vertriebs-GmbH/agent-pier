@@ -386,6 +386,57 @@ for (const [label, use] of [
       expect(state.requests.at(-1).body.confirmStdio).toBe(true);
     });
 
+    test("the confirmation dialogs hold focus, cancel on Escape and return focus", async ({
+      page,
+    }) => {
+      const state = await setup(page);
+      state.servers.push({
+        id: "s1",
+        name: "docs",
+        transport: "http",
+        url: "https://a.example/mcp",
+        headerNames: [],
+        envNames: [],
+        revision: 1,
+      });
+      await page.goto(baseURL + "/accounts");
+      const panel = page.getByRole("region", { name: "MCP servers" });
+      const insideAlert = () =>
+        page.evaluate(() => !!document.activeElement?.closest('[role="alertdialog"]'));
+      // Remove: focus enters, Tab stays inside, Escape cancels and focus returns.
+      await panel.getByRole("button", { name: "Remove docs" }).click();
+      const removal = panel.getByRole("alertdialog");
+      await expect(removal.getByRole("button", { name: "Cancel" })).toBeFocused();
+      for (let i = 0; i < 3; i++) {
+        await page.keyboard.press("Tab");
+        expect(await insideAlert()).toBe(true);
+      }
+      await page.keyboard.press("Shift+Tab");
+      expect(await insideAlert()).toBe(true);
+      await page.keyboard.press("Escape");
+      await expect(removal).toHaveCount(0);
+      await expect(panel.getByRole("button", { name: "Remove docs" })).toBeFocused();
+      // Stdio confirmation inside the side panel: Escape closes only the warning.
+      await panel.getByRole("button", { name: "Add MCP server" }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog.getByLabel("Name", { exact: true }).fill("local");
+      await dialog.getByRole("radio", { name: "Local command (stdio)" }).check();
+      await dialog.getByRole("textbox", { name: /^Command/ }).fill("npx");
+      const save = dialog.getByRole("button", { name: "Save server" });
+      await save.click();
+      const warning = dialog.getByRole("alertdialog");
+      await expect(warning.getByRole("button", { name: "Cancel" })).toBeFocused();
+      await page.keyboard.press("Tab");
+      await page.keyboard.press("Tab");
+      await page.keyboard.press("Tab");
+      expect(await insideAlert()).toBe(true);
+      await page.keyboard.press("Escape");
+      await expect(warning).toHaveCount(0);
+      await expect(dialog).toBeVisible();
+      await expect(save).toBeFocused();
+      expect(state.servers).toHaveLength(1);
+    });
+
     test("temporary members list their servers read only", async ({ page }) => {
       await setup(page);
       await page.goto(baseURL + "/agents/temp-agent/settings");

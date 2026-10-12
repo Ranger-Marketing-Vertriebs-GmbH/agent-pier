@@ -1,4 +1,5 @@
 import React, { useId, useState } from "react";
+import { useAlertDialogFocus } from "../../components/useAlertDialogFocus.js";
 import Segment from "../../components/Segment.jsx";
 import { mcpOAuthCopy as copy } from "../../lib/i18n/messages/mcp-oauth.js";
 import { mcpServerCopy } from "../../lib/i18n/messages/mcp-servers.js";
@@ -56,8 +57,14 @@ export default function McpAuthFields({ draft, server, set }) {
 
 /** Confirms that switching to OAuth deletes the server's stored headers. */
 export function OAuthSwitchConfirmation({ names, busy, onConfirm, onCancel }) {
+  const focus = useAlertDialogFocus(onCancel);
   return (
-    <div className="mcp-confirmation" role="alertdialog" aria-label={copy.switchTitle}>
+    <div
+      {...focus}
+      className="mcp-confirmation"
+      role="alertdialog"
+      aria-label={copy.switchTitle}
+    >
       <strong>{copy.switchTitle}</strong>
       <p>{copy.switchWarning(names.join(", "))}</p>
       <div className="mcp-actions">
@@ -72,6 +79,7 @@ export function OAuthSwitchConfirmation({ names, busy, onConfirm, onCancel }) {
         <button
           type="button"
           className="button secondary"
+          data-autofocus
           disabled={busy}
           onClick={onCancel}
         >

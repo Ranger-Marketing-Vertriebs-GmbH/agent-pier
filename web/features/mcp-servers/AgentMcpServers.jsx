@@ -113,6 +113,7 @@ export default function AgentMcpServers({ assistant, refresh, navigate }) {
           {loginMissing && <p className="mcp-hint">{mcpOAuthCopy.agentLoginHint}</p>}
           {confirming && (
             <StdioConfirmation
+              returnKey="agent-mcp-save"
               binding
               busy={busy}
               onConfirm={() => save(true)}
@@ -125,7 +126,11 @@ export default function AgentMcpServers({ assistant, refresh, navigate }) {
             </p>
           )}
           <div className="mcp-actions">
-            <button className="button primary" disabled={busy || !servers}>
+            <button
+              className="button primary"
+              data-focus-key="agent-mcp-save"
+              disabled={busy || !servers}
+            >
               {copy.agentSave}
             </button>
           </div>
