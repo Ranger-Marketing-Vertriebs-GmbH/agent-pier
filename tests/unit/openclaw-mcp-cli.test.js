@@ -141,6 +141,42 @@ test("known OpenClaw failures map to stable codes", async (t) => {
   );
 });
 
+test("a call that meets OpenClaw's locked state database is repeated", async (t) => {
+  // The lease transaction does not wait for a writer; failing it leaves nothing done.
+  const once = setup(t, "locked-once", { busyRetryDelaysMs: [10] });
+  await once.cli.completeLogin("docs", "abc");
+  assert.deepEqual(once.recorded().argv, ["mcp", "login", "docs", "--code=abc"]);
+  assert.ok(fs.existsSync(`${once.record}.locked`), "the first call met the lock");
+
+  // A lock that does not clear fails after the retries, with OpenClaw's reason; other
+  // failures are not repeated.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-cli-calls-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const calls = (mode) => {
+    const log = path.join(dir, mode);
+    const cli = createMcpCli({
+      runtime,
+      environment: () => ({
+        PATH: process.env.PATH,
+        FAKE_OPENCLAW_MODE: mode,
+        FAKE_OPENCLAW_LOG: log,
+      }),
+      busyRetryDelaysMs: [10, 10],
+    });
+    return { cli, count: () => fs.readFileSync(log, "utf8").trim().split("\n").length };
+  };
+  const locked = calls("locked");
+  await assert.rejects(locked.cli.logout("docs"), (error) => {
+    assert.equal(error.code, "cli-failed");
+    assert.match(error.message, /failed \(exit 1\): database is locked$/);
+    return true;
+  });
+  assert.equal(locked.count(), 3);
+  const generic = calls("fail-generic");
+  await rejects(generic.cli.logout("docs"), "cli-failed");
+  assert.equal(generic.count(), 1);
+});
+
 test("completeLogin passes the code as one argument and never reveals it", async (t) => {
   const code = "-SplxlOBeZQQYbYS6WxSbIA";
   const ok = setup(t);

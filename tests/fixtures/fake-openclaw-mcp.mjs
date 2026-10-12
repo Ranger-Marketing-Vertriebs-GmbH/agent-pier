@@ -109,8 +109,30 @@ const row = (serverName, auth) => ({
   ...(auth ? { auth: "oauth", authStatus: authStatus[auth] } : {}),
 });
 
+// OpenClaw 2026.9.8's output when its lease transaction meets a writer.
+const locked = [
+  "[sqlite/transaction] SQLite transaction lock wait failed async=false busyTimeoutMs=0 operation=state.lease code=ERR_SQLITE_ERROR elapsedMs=0 failureKind=lock-contention sqliteErrcode=5 step=begin",
+  "[openclaw] The CLI command failed.",
+  "[openclaw] Reason: database is locked",
+  "[openclaw] Debug: set OPENCLAW_DEBUG=1 to include the stack trace.",
+  "[openclaw] Try: openclaw doctor",
+  "[openclaw] Help: openclaw --help",
+].join("\n");
+// "locked-once": the first call meets the lock (FAKE_OPENCLAW_RECORD marks it), later
+// calls run as "ok".
+let effective = mode;
+if (mode === "locked-once") {
+  const marker = `${process.env.FAKE_OPENCLAW_RECORD}.locked`;
+  if (fs.existsSync(marker)) effective = "ok";
+  else {
+    fs.writeFileSync(marker, "1");
+    effective = "locked";
+  }
+}
+
 if (group !== "mcp") fail(`unexpected ${group}`);
-if (mode === "hang") setInterval(() => {}, 1000);
+if (effective === "locked") fail(locked);
+else if (mode === "hang") setInterval(() => {}, 1000);
 else if (mode === "hang-group") {
   // A grandchild in the CLI's process group, recorded next to the CLI's own pid.
   const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {

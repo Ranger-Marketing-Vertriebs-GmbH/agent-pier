@@ -265,6 +265,19 @@ worked the same after `runtime.close()`. With `HOME` alone it reads
 `<HOME>/.openclaw/openclaw.json` and lists no servers. The Gateway picks up tokens
 written by the CLI on its next request; no restart happened.
 
+The CLI and the Gateway share the state database (`state/openclaw.sqlite`). OpenClaw
+2026.9.8 takes the per-server OAuth lease (`core:mcp-oauth/<server>`) in write
+transactions with `busyTimeoutMs=0`: while another process writes, `login` and
+`logout` exit `1` at once with `[openclaw] Reason: database is locked`
+(`failureKind=lock-contention`, `step=begin`), and the Gateway fails an MCP server
+start the same way (`State lease operation and cleanup failed | ... database is
+locked`). CI saw the CLI case on macOS (2026-10-12); a second process holding short
+write transactions failed 2 of 10 sequential logouts. A failed release can leave
+the lease held until it expires (60 s): the next call waits up to 30 s and fails
+with `state lease ... is held by ...`. The wrapper repeats a call whose stderr shows
+the lock (after 250 ms and 1 s); failing to take the lease does nothing, so a
+`--code` keeps its code.
+
 ### (g) HTTPS redirect URL
 
 With `oauth.redirectUrl: "https://agentpier.invalid/api/mcp-servers/oauth/callback"`
