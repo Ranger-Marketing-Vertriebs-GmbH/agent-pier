@@ -1,7 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
-import express, { Router } from "express";
-import { readFile } from "../../features/operations/files.js";
-import { ARCHIVE_LIMIT } from "../../features/operations/archive.js";
+import fs from "node:fs";
+import { Router } from "express";
+import { pipeline } from "node:stream/promises";
 import { problem } from "../../lib/storage.js";
 import { releaseVersion } from "../../features/operations/release-archive.js";
 function fields(body, names) {
@@ -58,25 +58,45 @@ export function operationsRoutes({ operations, releaseMigration }) {
       ),
     }),
   );
-  router.get(`${root}/backups/:id/download`, (req, res) => {
-    const content = readFile(operations.backup.file(req.params.id), ARCHIVE_LIMIT);
+  // Archives of any size stream from disk; nothing is held in memory.
+  router.get(`${root}/backups/:id/download`, async (req, res) => {
+    let fd;
+    try {
+      fd = fs.openSync(
+        operations.backup.file(req.params.id),
+        fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW,
+      );
+    } catch (error) {
+      if (error.code === "ENOENT") throw problem(serverMessages.backups.notFound, 404);
+      throw error;
+    }
+    const stream = fs.createReadStream(null, { fd });
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile() || stat.nlink !== 1) {
+      stream.destroy();
+      throw problem(serverMessages.operations.invalidFile, 409);
+    }
     res
       .attachment(`agentpier-${req.params.id}.apbackup`)
       .type("application/octet-stream")
-      .send(content);
+      .set("Content-Length", String(stat.size));
+    await pipeline(stream, res);
   });
   router.delete(`${root}/backups/:id`, (req, res) => {
     operations.backup.remove(req.params.id);
     res.sendStatus(204);
   });
-  router.post(
-    `${root}/restore/upload`,
-    express.raw({ type: "application/octet-stream", limit: ARCHIVE_LIMIT }),
-    async (req, res) => {
-      if (!Buffer.isBuffer(req.body)) throw problem(serverMessages.backups.uploadType);
-      res.status(201).json(await operations.restore.upload(req.body));
-    },
-  );
+  // The archive streams to disk; its size is only bounded by free space.
+  router.post(`${root}/restore/upload`, async (req, res) => {
+    if (!req.is("application/octet-stream"))
+      throw problem(serverMessages.backups.uploadType);
+    const length = Number(req.get("Content-Length") || 0);
+    res.status(201).json(
+      await operations.restore.upload(req, {
+        expectedBytes: Number.isSafeInteger(length) && length > 0 ? length : 0,
+      }),
+    );
+  });
   router.post(`${root}/restore/inspect`, async (req, res) =>
     res.json({
       inspection: await operations.inspect(

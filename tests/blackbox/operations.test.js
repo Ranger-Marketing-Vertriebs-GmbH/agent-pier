@@ -62,15 +62,30 @@ test("operations HTTP creates, downloads, inspects and restores an archive witho
   ).json();
   const complete = await wait(job.id);
   assert.equal(complete.status, "succeeded");
-  const content = Buffer.from(
-    await (
-      await fetch(`${url}/backups/${complete.result.backup.id}/download`)
-    ).arrayBuffer(),
+  const download = await fetch(`${url}/backups/${complete.result.backup.id}/download`);
+  assert.equal(
+    download.headers.get("content-length"),
+    String(complete.result.backup.bytes),
   );
+  assert.match(download.headers.get("content-disposition"), /^attachment/);
+  const content = Buffer.from(await download.arrayBuffer());
+  assert.equal(
+    (
+      await fetch(`${url}/restore/upload`, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: content,
+      })
+    ).status,
+    400,
+  );
+  assert.equal((await fetch(`${url}/backups/${"0".repeat(8)}/download`)).status, 404);
+  // The upload streams; a chunked body without a length is accepted too.
   const upload = await fetch(`${url}/restore/upload`, {
     method: "POST",
     headers: { "Content-Type": "application/octet-stream" },
-    body: content,
+    body: new Blob([content]).stream(),
+    duplex: "half",
   });
   assert.equal(upload.status, 201);
   const { archiveId } = await upload.json();
