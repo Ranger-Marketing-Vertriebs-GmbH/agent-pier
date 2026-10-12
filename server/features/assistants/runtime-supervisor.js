@@ -20,6 +20,12 @@ import {
   writeExecShell,
 } from "./exec-shell.js";
 import { mcpStartSnapshot } from "./openclaw-config/mcp-servers.js";
+import {
+  configuredAgents,
+  telegramSections,
+  telegramSnapshot,
+} from "./openclaw-config/telegram-senders.js";
+import { readJSON } from "../../lib/storage.js";
 
 // Errors an unattended retry cannot fix; they wait for the owner instead.
 const terminal = new Set([
@@ -203,6 +209,21 @@ export class RuntimeSupervisor extends EventEmitter {
       teams?.connection &&
       teams?.native &&
       mcpStartSnapshot({ profiles: teams.profiles, mcp: teams.mcp || {} });
+    // The agents' own Telegram bots this start compiles: account ids and a
+    // signature, never a token or the speech key.
+    this.telegram = null;
+    const telegram =
+      teams?.directory &&
+      teams?.connection &&
+      teams?.native &&
+      telegramSnapshot(
+        telegramSections({
+          profiles: teams.profiles,
+          telegram: teams.telegram,
+          // The agents the compile below finds in the configuration it starts from.
+          agents: configuredAgents(readJSON(this.paths.config, null)),
+        }),
+      );
     const tls = prepareGatewayTls(this.paths);
     const token = prepareRuntimeConfig(this.paths, port, teams, {
       maintenance: !!this.maintenance?.(),
@@ -211,6 +232,7 @@ export class RuntimeSupervisor extends EventEmitter {
       webTools: teams?.webTools,
       shell,
       mcp: teams?.mcp,
+      telegram: teams?.telegram,
     });
     await this.beforeSpawn?.();
     if (generation !== this.generation) return;
@@ -309,6 +331,7 @@ export class RuntimeSupervisor extends EventEmitter {
     this.webTools = webTools;
     this.shell = shell;
     this.mcp = mcp;
+    this.telegram = telegram || null;
     await this.afterReady?.();
     if (generation !== this.generation) return;
     this.setState({ availability: "ready", sync: "reconciling" });
