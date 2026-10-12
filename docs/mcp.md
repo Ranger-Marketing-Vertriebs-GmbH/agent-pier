@@ -229,12 +229,38 @@ needs the owner's confirmation, because every session of that CLI starts it.
 - **OAuth.** AgentPier writes each CLI's OAuth form without static headers. Only Codex
   has a reliable login state (`codex mcp list --json`); for Claude Code (`/mcp` in a
   session) and OpenCode (`opencode mcp auth <name>`) AgentPier shows the login command.
-  The Codex state is read from the owner's own profile (`~/.codex`) only, so it says
-  nothing about AgentPier-managed Codex accounts: they keep MCP OAuth tokens in their
-  own `CODEX_HOME` and log in once each with `codex mcp login <name>` in a session of
-  that account.
-  Logins brokered by AgentPier are not built; the qualification records that only Codex
-  would support them.
+  The first Codex line is the owner's own profile (`~/.codex`): AgentPier never logs in
+  there (its tokens may live in the keychain) and shows `codex mcp login <name>`.
+- **Codex accounts.** Below it, an OAuth server bound to Codex lists every
+  AgentPier-managed Codex account with its own login: logged in, login required,
+  status unknown (before the account's first session or login knows the server), login
+  in progress, or login failed with its reason. Each account keeps its tokens in its
+  own `CODEX_HOME` (`mcp_oauth_credentials_store = "file"`), so every account logs in
+  once; new sessions of the account use the login. **Log in** opens the provider in a
+  new tab; AgentPier runs `codex mcp login <name> --no-browser` in that account with
+  the callback URL `<origin>/api/mcp-servers/cli-oauth/callback`, receives the
+  provider's redirect there (Codex appends a path segment per server URL; the login is
+  found by its `state`), hands the full callback URL to the waiting Codex on stdin and
+  returns the tab to the Accounts page with the result. Codex itself exchanges the code
+  and stores the tokens; AgentPier keeps only the pending process in memory.
+  - At most one login per account and server (a new one ends the previous), at most
+    eight at once, each for five minutes (Codex's own limit); **Cancel** ends it, and
+    AgentPier ends all of them when it stops.
+  - `<origin>` is the HTTPS remote origin when one is configured, else
+    `http://127.0.0.1:<port>`. Like agent logins, a login starts only from HTTPS or on
+    the AgentPier host itself; over plain HTTP from the network the list shows the CLI
+    command instead.
+  - The provider must support dynamic client registration (Codex registers on every
+    login, so a changed origin only needs a new login).
+  - `codex mcp list --json` reports stored credentials, not their validity: after the
+    provider revokes a login the account can still read "logged in" until a session
+    fails to start the server.
+  - Routes (owner only): `POST` and `DELETE /api/mcp-servers/:id/cli-oauth/codex/login`
+    with `{ accountId }`; the callback `GET /api/mcp-servers/cli-oauth/callback/<segment>`
+    needs no session cookie (its single-use `state` authenticates it). Callback URLs,
+    codes and states are never logged; responses never carry a token. The audit trail
+    records `mcp.started`, `mcp.completed`, `mcp.failed` and `mcp.cancelled` with
+    `clis: ["codex"]`, the account id and a stable failure reason.
 - **Sandbox.** A bound stdio server runs inside the CLI's nono sandbox; see
   [sandbox.md](sandbox.md#the-grant-model) for its grants and the working directories
   that get none (`MCP_CWD_TOO_BROAD`).

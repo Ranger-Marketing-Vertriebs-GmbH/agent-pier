@@ -2,13 +2,15 @@
 
 What AgentPier relies on when it writes central MCP servers into the native
 configuration of Claude Code, Codex and OpenCode, and how to re-establish it after a
-CLI update. Contracts: `tests/integration/cli-mcp-contract.test.js` and
-`tests/integration/cli-mcp-login-probe.test.js`; both run the installed CLIs only in a
-temporary HOME.
+CLI update. Contracts: `tests/integration/cli-mcp-contract.test.js`,
+`tests/integration/codex-mcp-login-contract.test.js` (pinned to the qualified Codex
+version) and `tests/integration/cli-mcp-login-probe.test.js`; all run the installed
+CLIs only in a temporary HOME.
 
 ```sh
 AGENTPIER_CLI_MCP_CONTRACT=1 AGENTPIER_CLI_CONTRACT_DATA_DIR=<AgentPier data dir> \
-  node --test tests/integration/cli-mcp-contract.test.js
+  node --test tests/integration/cli-mcp-contract.test.js \
+  tests/integration/codex-mcp-login-contract.test.js
 AGENTPIER_CLI_MCP_LOGIN_PROBE=1 AGENTPIER_CLI_CONTRACT_DATA_DIR=<AgentPier data dir> \
   node --test tests/integration/cli-mcp-login-probe.test.js
 ```
@@ -47,7 +49,7 @@ directory.
 ## Listing and OAuth status
 
 - `claude mcp list` (text, health-checks each server): `<name>: <url> (HTTP|SSE) - <status>`; an OAuth server without a login shows a status asking for authentication (`! Needs authentication`), a connected one `✔ Connected`. `claude mcp get <name>` prints a `Status:` line with the same values. No machine-readable output: AgentPier shows the login hint "run `/mcp`".
-- `codex mcp list --json`: one object per server with `transport.type` (`stdio`, `streamable_http`) and `auth_status` (`o_auth` logged in, `not_logged_in`, `bearer_token`, `unsupported`, `unknown`). AgentPier reads OAuth status from here, for the owner's own profile (`local-codex`, `~/.codex`) only. AgentPier-managed Codex accounts pin `mcp_oauth_credentials_store="file"` in their own `CODEX_HOME`, so their logins are separate and not reflected in that status; each logs in with `codex mcp login <name>` in a session of that account. Observed: `bearer_token` for an entry with an `Authorization` header, `unsupported` for stdio, `unknown` for a URL that does not announce OAuth.
+- `codex mcp list --json`: one object per server with `transport.type` (`stdio`, `streamable_http`) and `auth_status` (`o_auth` logged in, `not_logged_in`, `bearer_token`, `unsupported`, `unknown`). AgentPier reads OAuth status from here, for the owner's own profile (`local-codex`, `~/.codex`) and, with the account's `-c` store overrides, for each AgentPier-managed Codex account (its own `CODEX_HOME`, `mcp_oauth_credentials_store="file"`). `o_auth` means stored credentials, not valid ones: the command does no network I/O once credentials exist. Observed: `bearer_token` for an entry with an `Authorization` header, `unsupported` for stdio, `unknown` for a URL that does not announce OAuth.
 - `opencode mcp list` and `opencode mcp auth list` (text): status per server, `authenticated`/`not authenticated` for OAuth servers. `mcp auth list` lists every `remote` server, including header-only ones (shown as `not authenticated`), so only entries AgentPier wrote with `oauth` carry meaning there. No machine-readable output: AgentPier shows the hint `opencode mcp auth <name>`.
 
 ## OAuth login brokering
@@ -79,5 +81,19 @@ Details from the probe:
   `oauth.redirectUri`, which must therefore be a local address it can bind. A callback
   delivered to that listener completes the login (`authenticated`).
 
-Brokered CLI logins are a separate follow-up task, only for the CLIs marked "works".
-Until then AgentPier shows each CLI's own login command.
+Built for Codex in AgentPier-managed accounts (docs/mcp.md, "Codex accounts";
+`server/features/mcp-servers/codex-mcp-logins.js`). What it relies on in Codex 0.160.1,
+established by `codex-mcp-login-contract.test.js`:
+
+- `codex -c mcp_oauth_credentials_store="file" -c mcp_oauth_callback_url="<base>" mcp
+login <name> --no-browser` with plain pipes (no terminal) prints the authorization URL
+  (with `state` and `redirect_uri = <base>/<segment>`) and then waits for the full
+  callback URL as one line on stdin; it exits 0 after storing the tokens in
+  `$CODEX_HOME/.credentials.json`, and 1 for a provider error, a forged or foreign
+  callback or closed input, storing nothing. A process serves one attempt and gives up
+  after 300 s; SIGTERM ends it without a stale lock.
+- The segment depends only on the server URL, so two accounts logging in to the same
+  server share it: AgentPier routes callbacks by `state`.
+- Codex registers a client (DCR) at every login.
+
+Claude Code and OpenCode keep showing their own login command.
