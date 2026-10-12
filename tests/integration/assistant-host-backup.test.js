@@ -7,10 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { createHash } from "node:crypto";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
-import {
-  decodeArchive,
-  encodeArchive,
-} from "../../server/features/operations/archive.js";
+import { loadArchive, encodeArchiveV2 } from "../helpers/backup-archive.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import {
   captureAssistants,
@@ -95,7 +92,7 @@ function assistantData(root) {
   ])
     write(root, excluded, "excluded");
 }
-const members = (file) => decodeArchive(file).files;
+const members = (file) => loadArchive(file).files;
 function plaintext(file) {
   return members(file)
     .map((member) => Buffer.from(member.content, "base64").toString("latin1"))
@@ -306,7 +303,7 @@ test("restoring an older backup skips unparsable configuration copies", async (t
   assistantData(root);
   write(root, "state/openclaw.json", JSON.stringify({ gateway: { port: 1 } }));
   const backup = await new Backup({ dataDir }).create({ passphrase });
-  const archive = decodeArchive(backup.file);
+  const archive = loadArchive(backup.file);
   const add = (name, text) => {
     const content = Buffer.from(text);
     archive.files.push({
@@ -319,7 +316,7 @@ test("restoring an older backup skips unparsable configuration copies", async (t
   // An older capture kept OpenClaw's unfinished atomic-write temporary.
   add("assistants/state/openclaw.json.tmp-1234", '{"gateway": {"port"');
   const older = path.join(path.dirname(dataDir), "older.apbackup");
-  fs.writeFileSync(older, encodeArchive(archive));
+  fs.writeFileSync(older, encodeArchiveV2(archive));
   await new Restore({ dataDir }).inspect({ archive: older });
   const target = path.join(path.dirname(dataDir), "older-restored");
   await new Restore({ dataDir }).apply({ archive: older, targetDataDir: target });
@@ -332,7 +329,7 @@ test("restoring an older backup skips unparsable configuration copies", async (t
   archive.files.find((m) => m.path === "assistants/state/openclaw.json").content =
     Buffer.from("{broken").toString("base64");
   const broken = path.join(path.dirname(dataDir), "broken.apbackup");
-  fs.writeFileSync(broken, encodeArchive(archive));
+  fs.writeFileSync(broken, encodeArchiveV2(archive));
   await assert.rejects(new Restore({ dataDir }).inspect({ archive: broken }), {
     status: 400,
   });
@@ -377,11 +374,11 @@ test("restores reject assistant members outside the backed-up folders", async (t
     withCredentials: true,
     passphrase,
   });
-  const archive = decodeArchive(backup.file);
+  const archive = loadArchive(backup.file);
   // A sealed member the manifest does not declare is never accepted.
   archive.manifest.assistants.sealed = [];
   const tampered = path.join(path.dirname(dataDir), "tampered.apbackup");
-  fs.writeFileSync(tampered, encodeArchive(archive));
+  fs.writeFileSync(tampered, encodeArchiveV2(archive));
   await assert.rejects(new Restore({ dataDir }).inspect({ archive: tampered }), {
     status: 400,
     message: serverMessages.backups.invalidManifest,
@@ -462,13 +459,13 @@ test("a restarted backup service removes abandoned work folders", async (t) => {
 
 async function tampered(dataDir, change) {
   const backup = await new Backup({ dataDir }).create();
-  const archive = decodeArchive(backup.file);
+  const archive = loadArchive(backup.file);
   change(archive);
   const file = path.join(
     path.dirname(dataDir),
     `tampered-${archive.files.length}.apbackup`,
   );
-  fs.writeFileSync(file, encodeArchive(archive));
+  fs.writeFileSync(file, encodeArchiveV2(archive));
   return file;
 }
 function replaceMember(archive, name, text) {

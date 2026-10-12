@@ -4,7 +4,10 @@ import path from "node:path";
 import os from "node:os";
 import { randomUUID } from "node:crypto";
 import { folder, atomic, identifier, readJson } from "./files.js";
-import { encodeArchive, encryptCredentials } from "./archive.js";
+import { encryptCredentials } from "./archive.js";
+import { SCHEMA_VERSION, writeArchive } from "./archive-v2.js";
+import { ensureSpace } from "./backup-components.js";
+import { profileOmissions } from "./profile-capture.js";
 import { backupOptions, capture, omissions } from "./snapshot.js";
 import { mcpServersPresent } from "./mcp-server-backup.js";
 import { applicationVersion } from "./version.js";
@@ -34,11 +37,15 @@ export class Backup {
     this.audit = audit;
     this.withSnapshotBarrier = withSnapshotBarrier;
     this.assistantsBusy = assistantsBusy;
-    // Work folders a crash left behind may hold unsealed database copies.
+    // Work folders a crash left behind may hold unsealed database copies, and
+    // unfinished archives their members.
     const operations = path.dirname(this.directory);
     for (const name of fs.readdirSync(operations))
       if (name.startsWith(".snapshot-"))
         fs.rmSync(path.join(operations, name), { recursive: true, force: true });
+    for (const name of fs.readdirSync(this.directory))
+      if (name.endsWith(".tmp"))
+        fs.rmSync(path.join(this.directory, name), { force: true });
   }
   plan(input) {
     const options = backupOptions(input);
@@ -54,7 +61,9 @@ export class Backup {
         "memory",
         "pipeline-history",
         "audit",
-        ...(options.includeHistory ? ["chat", "terminal", "agentbus-history"] : []),
+        ...(options.includeHistory
+          ? ["chat", "terminal", "agentbus-history", "cli-histories"]
+          : []),
         ...(assistants ? ["assistants"] : []),
         ...(mcpServers ? ["mcp-servers"] : []),
         ...(options.withCredentials
@@ -69,6 +78,8 @@ export class Backup {
       ],
       omissions: [
         ...omissions,
+        profileOmissions.unlisted,
+        ...(options.includeHistory ? [] : [profileOmissions.history]),
         ...(assistants ? assistantOmissions : []),
         ...(mcpServers ? [mcpLoginOmission] : []),
         ...(mcpServers && !options.withCredentials ? [mcpValueOmission] : []),
@@ -91,61 +102,90 @@ export class Backup {
     )
       throw problem(serverMessages.backups.passphraseTooShort);
     const id = randomUUID();
-    const take = () =>
-      capture({ dataDir: this.dataDir, home: this.home, audit: this.audit, ...options });
-    const snapshot = this.withSnapshotBarrier
-      ? await this.withSnapshotBarrier(take)
-      : take();
-    // The Gateway writes independently of AgentPier's mutation barrier; its capture
-    // runs after the application snapshot instead of holding every mutation.
-    const assistants = await captureAssistants({
-      dataDir: this.dataDir,
-      id,
-      withCredentials: options.withCredentials,
-      busy: this.assistantsBusy,
-    });
+    // Database snapshots wait here until the archive has streamed them.
+    const scratch = folder(
+      path.join(this.dataDir, "operations", `.snapshot-${randomUUID()}`),
+    );
     try {
-      return await this.write(id, options, plan, snapshot, assistants);
-    } catch (error) {
-      // A backup that was never written must not leave its assistant key behind.
-      forgetAssistantBackup(this.dataDir, id);
-      throw error;
+      const take = () =>
+        capture({
+          dataDir: this.dataDir,
+          home: this.home,
+          audit: this.audit,
+          scratch,
+          ...options,
+        });
+      const snapshot = this.withSnapshotBarrier
+        ? await this.withSnapshotBarrier(take)
+        : take();
+      // The Gateway writes independently of AgentPier's mutation barrier; its capture
+      // runs after the application snapshot instead of holding every mutation.
+      const assistants = await captureAssistants({
+        dataDir: this.dataDir,
+        id,
+        withCredentials: options.withCredentials,
+        busy: this.assistantsBusy,
+      });
+      try {
+        return await this.write(id, options, plan, snapshot, assistants);
+      } catch (error) {
+        // A backup that was never written must not leave its assistant key behind.
+        forgetAssistantBackup(this.dataDir, id);
+        throw error;
+      }
+    } finally {
+      fs.rmSync(scratch, { recursive: true, force: true });
     }
   }
   async write(id, options, plan, snapshot, assistants) {
     const createdAt = new Date().toISOString();
     const manifest = {
-      schemaVersion: 1,
+      schemaVersion: SCHEMA_VERSION,
       applicationVersion: applicationVersion(),
       createdAt,
       withCredentials: options.withCredentials,
       includeHistory: options.includeHistory,
       consistency: plan.consistency,
-      omissions: [...new Set([...plan.omissions, ...(assistants?.omissions || [])])],
+      omissions: [
+        ...new Set([
+          ...plan.omissions,
+          ...snapshot.omissions,
+          ...(assistants?.omissions || []),
+        ]),
+      ],
       captures: [...snapshot.captures, ...(assistants?.captures || [])],
       ...(assistants?.manifest ? { assistants: assistants.manifest } : {}),
     };
-    const archive = {
-      format: "agentpier-backup",
-      version: 1,
-      manifest,
-      files: [...snapshot.files, ...(assistants?.files || [])],
-      ...(options.withCredentials
-        ? {
-            credentials: await encryptCredentials(
-              snapshot.credentials,
-              options.passphrase,
-            ),
-          }
-        : {}),
-    };
-    const bytes = encodeArchive(archive),
-      file = this.file(id);
-    atomic(file, bytes);
+    const members = [...snapshot.files, ...(assistants?.files || [])];
+    // Compression only shrinks; the uncompressed size bounds the archive.
+    ensureSpace(
+      this.directory,
+      members.reduce(
+        (sum, member) =>
+          sum +
+          (member.size ??
+            member.bytes?.length ??
+            Math.ceil((member.content?.length || 0) * 0.75)) +
+          1024,
+        0,
+      ),
+    );
+    const capsule = options.withCredentials
+      ? await encryptCredentials(snapshot.credentials, options.passphrase)
+      : undefined;
+    const file = this.file(id),
+      temporary = `${file}.${randomUUID()}.tmp`;
+    let bytes;
+    try {
+      bytes = await writeArchive(temporary, { manifest, members, capsule });
+      fs.renameSync(temporary, file);
+    } finally {
+      fs.rmSync(temporary, { force: true });
+    }
     const backup = {
       id,
       createdAt,
-      bytes: bytes.length,
+      bytes,
       withCredentials: options.withCredentials,
       includeHistory: options.includeHistory,
     };

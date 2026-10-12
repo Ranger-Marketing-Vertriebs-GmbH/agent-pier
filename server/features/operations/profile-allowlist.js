@@ -87,12 +87,12 @@ const rules = {
     sqlite: /^opencode\.db$/,
   },
 };
-/** Files whose presence means a restored profile is still logged in. */
-export const loginFiles = Object.freeze({
+// Files whose presence means a restored profile is still logged in.
+const loginFiles = {
   codex: ["codex/auth.json"],
   claude: ["claude/.credentials.json"],
   opencode: ["data/opencode/auth.json"],
-});
+};
 // Never captured anywhere inside an allowed tree.
 const excludedSegment =
   /^(?:node_modules|cache|\.cache|\.git|logs?|tmp|\.tmp)$|\.before-sharing/;
@@ -163,4 +163,13 @@ export function profileMemberKind(name) {
   if (!located?.relative) return null;
   const kind = classify(located.root, located.relative);
   return kind === "sqlite" ? "history" : kind;
+}
+
+/** Whether member `name` is a login of `account`, directly or for one of its providers. */
+export function isLoginFile(account, name) {
+  const located = profilePath(name);
+  return (
+    located?.account === account.id &&
+    (loginFiles[account.tool] || []).includes(`${located.root}/${located.relative}`)
+  );
 }

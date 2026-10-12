@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
-import { decodeArchive } from "../../server/features/operations/archive.js";
+import { loadArchive } from "../helpers/backup-archive.js";
 import { captureAssistants } from "../../server/features/operations/assistant-backup.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { writeAssistantFeature } from "../../server/features/assistants/assistant-feature.js";
@@ -38,7 +38,7 @@ function write(root, relative, content) {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   fs.writeFileSync(file, content, { mode: 0o600 });
 }
-const paths = (file) => decodeArchive(file).files.map((member) => member.path);
+const paths = (file) => loadArchive(file).files.map((member) => member.path);
 
 test("Gateway logs never count toward or enter a host backup", async (t) => {
   const { dataDir, root } = fixture(t);

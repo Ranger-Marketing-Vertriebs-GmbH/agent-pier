@@ -74,33 +74,3 @@ export function atomic(file, value) {
     fs.rmSync(temp, { force: true });
   }
 }
-export function members(
-  root,
-  prefix = "",
-  { exclude = () => false, limit = 256 * 1024 * 1024 } = {},
-) {
-  const result = [];
-  let bytes = 0;
-  function visit(relative) {
-    const file = path.join(root, relative),
-      stat = fs.lstatSync(file);
-    if (exclude(relative)) return;
-    if (stat.isSymbolicLink()) throw problem(serverMessages.backups.componentLinked, 409);
-    if (stat.isDirectory()) {
-      for (const name of fs.readdirSync(file).sort()) visit(path.join(relative, name));
-    } else {
-      const content = readFile(file, limit);
-      bytes += content.length;
-      if (bytes > limit || result.length >= 20000)
-        throw problem(serverMessages.backups.componentLimit, 413);
-      result.push({
-        path: relativeName([prefix, relative].filter(Boolean).join("/")),
-        content: content.toString("base64"),
-        sha256: digest(content),
-        mode: 0o600,
-      });
-    }
-  }
-  if (fs.existsSync(root)) for (const name of fs.readdirSync(root).sort()) visit(name);
-  return result;
-}

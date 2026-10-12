@@ -7,11 +7,10 @@ import { DatabaseSync } from "node:sqlite";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
 import {
-  decodeArchive,
   decryptCredentials,
-  encodeArchive,
   encryptCredentials,
 } from "../../server/features/operations/archive.js";
+import { loadArchive, encodeArchiveV2 } from "../helpers/backup-archive.js";
 import { fileMember } from "../../server/features/operations/snapshot.js";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
@@ -38,7 +37,7 @@ async function backup(t) {
     withCredentials: true,
     passphrase,
   });
-  const archive = decodeArchive(file);
+  const archive = loadArchive(file);
   const members = await decryptCredentials(archive.credentials, passphrase);
   const sealed = JSON.parse(
     Buffer.from(members.find((m) => m.path === sealedPath).content, "base64"),
@@ -55,7 +54,7 @@ async function crafted({ archive, members }, content, { files } = {}) {
         )
       : m,
   );
-  return encodeArchive({
+  return encodeArchiveV2({
     ...archive,
     ...(files ? { files } : {}),
     credentials: await encryptCredentials(replaced, passphrase),
