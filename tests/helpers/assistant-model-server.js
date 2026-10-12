@@ -9,6 +9,8 @@ export async function assistantModelServer({
   const server = http.createServer(async (req, res) => {
     let bytes = "";
     for await (const part of req) bytes += part;
+    // A probe without a chat request body (OpenClaw checks models on some paths).
+    if (!bytes) return res.writeHead(404).end();
     const input = JSON.parse(bytes);
     requests.push(input);
     if (input.messages?.some((m) => JSON.stringify(m.content).includes("HOLD_FOR_CRASH")))
