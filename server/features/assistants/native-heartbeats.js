@@ -245,6 +245,9 @@ export class NativeHeartbeats {
     // A failed check-in is not news for the owner; its run history keeps it.
     if (event.status !== "ok" || !this.acceptsDelivery(entry)) return;
     if (typeof event.summary !== "string" || silent(event.summary)) return;
+    // Only a check-in OpenClaw committed to the conversation reaches the chat: an
+    // owner's reply must find it there (a lost commit is in the run history).
+    if (event.deliveryStatus !== "delivered") return;
     textValue(event.summary, 65536);
     const key = `native-heartbeat:${event.jobId}:${event.runAtMs}`;
     const { outbox, store } = this.reminders.channels;

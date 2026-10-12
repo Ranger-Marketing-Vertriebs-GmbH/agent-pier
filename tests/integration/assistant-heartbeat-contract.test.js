@@ -240,11 +240,20 @@ test(
       ["agent-checkin"],
     );
 
-    // 2. NO_REPLY: nothing in the conversation, nothing sent.
+    // 2. NO_REPLY: nothing in the conversation, nothing sent. Its run also proves
+    // fresh context: the owner's reply was sent after the job was created.
     const before = await visible();
     checkIn = "NO_REPLY";
+    offset = model.requests.length;
     await force();
     const runs = await finished(2);
+    assert.ok(
+      model.requests
+        .slice(offset)
+        .filter(isCheckIn)
+        .some((r) => text(r).includes("Thanks, move it then.")),
+      "each run reads the conversation as it is now, not as it was at creation",
+    );
     await delay(1000);
     assert.deepEqual(await visible(), before, "NO_REPLY leaves no visible message");
     assert.equal(f.service.outbox.all(f.channel.id).length, 1);
@@ -270,6 +279,35 @@ test(
       ["owner-question", "owner-answer", "check-in"],
       "the check-in is committed after the running turn, not inside it",
     );
+    // 4. After an owner /reset and /new the same job reads the new session and
+    // still commits into it: no snapshot of the old one is kept.
+    let count = 3;
+    for (const command of ["/reset", "/new"]) {
+      assert.equal((await wait(await send(command))).status, "ok");
+      const marker = `AFTER${command.slice(1).toUpperCase()}TOKEN`;
+      assert.equal((await wait(await send(`${marker} a new topic.`))).status, "ok");
+      checkIn = `${marker} check-in HEARTBEATCONTRACT`;
+      offset = model.requests.length;
+      const sent = f.service.outbox.all(f.channel.id).length;
+      await force();
+      const entries = await finished(++count);
+      const request = model.requests.slice(offset).find(isCheckIn);
+      assert.match(text(request), new RegExp(marker), `${command}: fresh session read`);
+      assert.doesNotMatch(
+        text(request),
+        /CONVERSATIONTOKEN/,
+        `${command}: old one dropped`,
+      );
+      assert.equal(entries[0].deliveryStatus, "delivered", `${command}: committed`);
+      assert.ok(
+        JSON.stringify(await history()).includes(`${marker} check-in`),
+        `${command}: in the conversation`,
+      );
+      const deadline = Date.now() + 10000;
+      while (f.service.outbox.all(f.channel.id).length === sent && Date.now() < deadline)
+        await delay(100);
+      assert.equal(f.service.outbox.all(f.channel.id).length, sent + 1);
+    }
     t.diagnostic(
       `MEMORY.md in any prompt: ${memoryInPrompt}; webhook summaries: ${JSON.stringify(received)}; run delivery statuses: ${JSON.stringify(after.map((e) => e.deliveryStatus))}; NO_REPLY run: ${JSON.stringify(runs.find((e) => e.summary === "NO_REPLY") || null).slice(0, 300)}.`,
     );
