@@ -11,6 +11,7 @@ import { applyMcp, mcpSections } from "./openclaw-config/mcp-servers.js";
 import {
   applyTelegram,
   configuredAgents,
+  stdioAgents,
   telegramSections,
 } from "./openclaw-config/telegram-senders.js";
 import {
@@ -132,6 +133,13 @@ export function compileOpenClawConfig({
         }
       : {}),
   };
+  // The agents' own bots, compiled below; their agents lose the session tools.
+  const telegramCompiled = telegramSections({
+    profiles: teams?.profiles,
+    telegram: enabled && teams.native ? telegram : undefined,
+    agents: configuredAgents(config),
+    stdio: stdioAgents(mcp || {}),
+  });
   if (enabled && teams.native) {
     // memory and skills.workshop are written only here; otherwise they stay inert
     // (memory slot "none", cron off).
@@ -188,20 +196,14 @@ export function compileOpenClawConfig({
           available,
           pathPrepend: shell?.pathPrepend,
           mcpTools: mcpServers.agentTools[profile.runtimeAgentId],
+          senderFacing: !!telegramCompiled.accounts[profile.runtimeAgentId],
         }),
       );
     }
   }
   // Only the native team start compiles the agents' own bots; any other start, and
   // every start without bots, removes what an earlier one wrote.
-  applyTelegram(
-    config,
-    telegramSections({
-      profiles: teams?.profiles,
-      telegram: enabled && teams.native ? telegram : undefined,
-      agents: configuredAgents(config),
-    }),
-  );
+  applyTelegram(config, telegramCompiled);
   config.cron = { ...config.cron, enabled: !!(enabled && teams.native && !maintenance) };
   // Workspace skill folders would load model-written text as instructions.
   config.agents.defaults = { ...config.agents.defaults, skills: [] };

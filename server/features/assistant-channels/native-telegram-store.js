@@ -126,7 +126,6 @@ export class NativeTelegramStore {
       )
         throw assistantProblem("invalid");
       textValue(identity.token, 256);
-      this.requireFree(identity.id, assistantId);
       // Update backups must not keep a replaced bot token readable.
       if (current) destroyBackupKeys(this.root);
     }
@@ -138,6 +137,8 @@ export class NativeTelegramStore {
       revision: (current?.revision || 0) + 1,
     };
     return this.transaction(() => {
+      // Inside the write lock, so a concurrent AgentPier bot setup cannot slip in.
+      if (identity) this.requireFree(identity.id, assistantId);
       if (current) {
         const changed = this.db
           .prepare(

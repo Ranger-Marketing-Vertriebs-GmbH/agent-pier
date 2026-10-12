@@ -7,6 +7,7 @@ import { NativeHeartbeats } from "../features/assistants/native-heartbeats.js";
 import { TeamBridge } from "../features/assistants/team-bridge.js";
 import { ChannelService } from "../features/assistant-channels/channel-service.js";
 import { TelegramSenders } from "../features/assistant-channels/telegram-senders.js";
+import { stdioAgents } from "../features/assistants/openclaw-config/telegram-senders.js";
 import { WebSearchSettings } from "../features/assistants/web-search-settings.js";
 import { detectBrowser } from "../features/assistants/browser-detection.js";
 import { webToolsAvailability } from "../features/assistants/openclaw-config/web-tools.js";
@@ -104,6 +105,7 @@ export function constructAssistantGraph(host, created = {}) {
       "webToolsAvailable",
       "shellPathPrepend",
       "mcpTools",
+      "senderFacing",
     ],
   );
   const assistants = (created.assistants = expectWiring(
@@ -216,6 +218,17 @@ export function constructAssistantGraph(host, created = {}) {
     speech: assistantSpeech,
     synchronization: assistantProviderSynchronization,
     audit,
+    // Never throws: an unreadable MCP store binds no agent (its start compiles none).
+    stdioAgents: () => {
+      try {
+        return stdioAgents({
+          servers: assistantMcpServers.definitions(),
+          bindings: assistantMcpServers.bindingsByTarget("agent"),
+        });
+      } catch {
+        return new Set();
+      }
+    },
   });
   const assistantWebTools = new WebToolsChanges({
     assistants,
@@ -317,6 +330,8 @@ export function connectAssistantServices(graph) {
     mcp: mcpChanges,
     telegramSenders,
   });
+  // Refuses stdio bindings for agents with their own Telegram bot (mcp-changes.js).
+  mcpChanges.telegramSenders = telegramSenders;
   // Resolved at most once per process for applies before the first ready start.
   let fallbackOwner;
   wire(configuration, "configuration", {
@@ -331,6 +346,11 @@ export function connectAssistantServices(graph) {
       (fallbackOwner ??= resolveShellOwner() || { pathPrepend: [] }).pathPrepend,
     // Before any start, and for agents the start did not bind, no MCP tools.
     mcpTools: (assistant) => runtime.mcp?.agentTools?.[assistant.runtimeAgentId] || [],
+    // The agents whose own Telegram bot the running (or starting) Gateway compiled.
+    senderFacing: (assistant) =>
+      !!(runtime.telegram || runtime.telegramStarting)?.accounts.includes(
+        assistant.runtimeAgentId,
+      ),
   });
   // Agents whose model connection is blocked keep no check-in job.
   reminders.heartbeats.blocked = (id) => synchronization.blocked.has(id);
@@ -371,6 +391,8 @@ export function connectAssistantServices(graph) {
       // A change made while this Gateway started, or an apply that failed before it,
       // converges now. Not awaited: a start may itself run under admission.
       mcpChanges.ready();
+      // A bot or person removed while this Gateway started is removed now.
+      telegramSenders.ready();
       if (mcpChanges.pending) assistants.admit(() => mcpChanges.apply()).catch(() => {});
       // Check-in jobs follow the stored settings; maintenance repeats this on leave.
       if (!assistants.maintenance) reminders.heartbeats.reconcile().catch(() => {});

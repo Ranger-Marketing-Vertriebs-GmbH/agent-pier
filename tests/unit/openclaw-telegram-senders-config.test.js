@@ -4,6 +4,8 @@ import { compileOpenClawConfig } from "../../server/features/assistants/runtime-
 import {
   applyTelegram,
   configuredAgents,
+  stdioAgents,
+  telegramRevoked,
   deepgramBaseUrl,
   telegramEligible,
   telegramSections,
@@ -247,7 +249,7 @@ test("snapshots are secret-free and change with what the start compiles", () => 
   const snapshot = telegramSnapshot(telegramSections({ profiles, telegram }));
   assert.deepEqual(snapshot.accounts, ["ap-a"]);
   assert.equal(snapshot.voice, true);
-  assert.doesNotMatch(JSON.stringify(snapshot), /token|dg-key/);
+  assert.doesNotMatch(JSON.stringify(snapshot), /token-abc|dg-key/);
   const same = telegramSnapshot(telegramSections({ profiles, telegram }));
   assert.equal(same.signature, snapshot.signature);
   for (const changed of [
@@ -288,4 +290,55 @@ test("the channel surfaces are locked against overrides", () => {
     assert.equal(isLockedPath(target), true, target);
   assert.ok(lockedPaths.includes("channels"));
   assert.equal(isLockedPath("models.providers.x"), false);
+});
+
+test("agents with a bot lose the session tools; other agents keep them", () => {
+  const profiles = [profile("a"), profile("b")];
+  const config = compile(profiles, { accounts: [account("a")], speech: null });
+  assert.ok(!config.agents.entries["ap-a"].tools.allow.includes("session_status"));
+  assert.ok(config.agents.entries["ap-b"].tools.allow.includes("session_status"));
+});
+
+test("an agent bound to a stdio MCP server gets no bot", () => {
+  const mcp = {
+    servers: [
+      { id: "s1", transport: "stdio" },
+      { id: "s2", transport: "http" },
+    ],
+    bindings: { a: ["s1"], b: ["s2"] },
+  };
+  assert.deepEqual([...stdioAgents(mcp)], ["a"]);
+  const profiles = [profile("a"), profile("b")];
+  const config = compileOpenClawConfig({
+    existing: seeded(profiles),
+    paths,
+    port: 1234,
+    token: "t",
+    teams: teams(profiles),
+    telegram: { accounts: [account("a"), account("b")], speech: null },
+    mcp,
+  });
+  assert.deepEqual(Object.keys(config.channels.telegram.accounts), ["ap-b"]);
+});
+
+test("revocations: a removed bot, person, token or speech key", () => {
+  const profiles = [profile("a")];
+  const snap = (telegram) => telegramSnapshot(telegramSections({ profiles, telegram }));
+  const running = snap({ accounts: [account("a", ["1", "2"])], speech });
+  const same = snap({ accounts: [account("a", ["1", "2"])], speech });
+  assert.equal(telegramRevoked(running, same), false);
+  assert.equal(telegramRevoked(null, same), false);
+  // Additions are no revocation.
+  assert.equal(
+    telegramRevoked(running, snap({ accounts: [account("a", ["1", "2", "3"])], speech })),
+    false,
+  );
+  for (const desired of [
+    { accounts: [], speech },
+    { accounts: [account("a", ["1"])], speech },
+    { accounts: [account("a", ["1", "2"], { token: "12345:other" })], speech },
+    { accounts: [account("a", ["1", "2"])], speech: null },
+    { accounts: [account("a", ["1", "2"])], speech: { ...speech, apiKey: "new" } },
+  ])
+    assert.equal(telegramRevoked(running, snap(desired)), true, JSON.stringify(desired));
 });

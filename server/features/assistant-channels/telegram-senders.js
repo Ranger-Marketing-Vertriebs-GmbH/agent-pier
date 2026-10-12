@@ -2,8 +2,11 @@ import { assistantProblem } from "../assistants/assistant-validation.js";
 import { personalEligible, personalShell } from "../assistants/native-capabilities.js";
 import { restartRequired } from "../assistants/assistant-provider-synchronization.js";
 import { temporaryMember } from "../assistants/team-presentation.js";
+import { destroyBackupKeys } from "../assistants/backup-credentials.js";
 import {
   readTelegramInputs,
+  telegramEligible,
+  telegramRevoked,
   telegramSections,
   telegramSnapshot,
 } from "../assistants/openclaw-config/telegram-senders.js";
@@ -36,6 +39,10 @@ export class TelegramSenders {
     apiRoot = null,
     deepgram = null,
     clientFactory = (token) => new TelegramClient({ token, ...(apiRoot && { apiRoot }) }),
+    // Assistant ids bound to a stdio MCP server (openclaw-config/telegram-senders.js).
+    stdioAgents = () => new Set(),
+    retryMs = 30000,
+    warn = console.warn,
   }) {
     Object.assign(this, {
       assistants,
@@ -46,7 +53,11 @@ export class TelegramSenders {
       deepgram,
       clientFactory,
       store,
+      stdioAgents,
+      retryMs,
+      warn,
     });
+    this.retry = null;
   }
   /** What the next Gateway start compiles (see runtime-supervisor.js). */
   inputs() {
@@ -65,25 +76,69 @@ export class TelegramSenders {
       throw assistantProblem("invalid");
     if (personalShell(profile) !== "off")
       throw assistantProblem("telegramSendersShell", 409);
+    if (this.stdioAgents().has(assistantId))
+      throw assistantProblem("telegramSendersStdio", 409);
     return profile;
   }
   /**
-   * True when the running Gateway was started with other Telegram sections than
-   * `inputs` compile now. A stopped Gateway compiles them at its next start.
+   * What the Gateway runs or is starting with: the snapshot of its start, from the
+   * moment the start compiled it. Null while no Gateway runs or starts.
    */
-  differs(inputs = this.inputs()) {
+  running() {
     const runtime = this.assistants.runtime;
-    const running = runtime.client?.ready && runtime.telegram;
-    if (!running) return false;
+    return runtime.telegram || runtime.telegramStarting || null;
+  }
+  /** The snapshot a start would compile from `inputs` now. */
+  desired(inputs = this.inputs()) {
     const profiles = this.assistants.store.listAssistants();
     // Applied agents have their Gateway entry, so a restart would compile their bots.
     const agents = new Set(
       profiles.filter((p) => p.effectiveRevision > 0).map((p) => p.runtimeAgentId),
     );
-    const next = telegramSnapshot(
-      telegramSections({ profiles, telegram: inputs, agents }),
+    return telegramSnapshot(
+      telegramSections({ profiles, telegram: inputs, agents, stdio: this.stdioAgents() }),
     );
-    return next.signature !== running.signature;
+  }
+  /**
+   * True when the running or starting Gateway compiled other Telegram sections than
+   * `inputs` compile now. A stopped Gateway compiles them at its next start.
+   */
+  differs(inputs = this.inputs()) {
+    const running = this.running();
+    return !!running && this.desired(inputs).signature !== running.signature;
+  }
+  /** True when the Gateway still runs a bot, person, token or key that is gone. */
+  revoked(inputs = this.inputs()) {
+    return telegramRevoked(this.running(), this.desired(inputs));
+  }
+  /**
+   * Called once a Gateway start answers. A revocation saved while it started (or a
+   * start that read the store just before one) restarts it again at once; additions
+   * wait for the owner ("pending"). A refused restart (busy agents) is retried.
+   */
+  ready() {
+    clearTimeout(this.retry);
+    this.retry = setTimeout(() => this.converge(), 0);
+    this.retry.unref?.();
+  }
+  async converge() {
+    clearTimeout(this.retry);
+    this.retry = null;
+    if (!this.revoked()) return false;
+    try {
+      await this.synchronization.restartGateway(() => null);
+      return true;
+    } catch (error) {
+      this.warn(
+        `A revoked Telegram bot is still running (${error?.code || error?.key || "ERROR"}); retrying.`,
+      );
+      this.retry = setTimeout(() => this.converge(), this.retryMs);
+      this.retry.unref?.();
+      return false;
+    }
+  }
+  close() {
+    clearTimeout(this.retry);
   }
   /** The inputs once `assistantId` holds `account` (or none, for null). */
   inputsWith(assistantId, account) {
@@ -122,16 +177,21 @@ export class TelegramSenders {
       throw assistantProblem(key, status);
     }
   }
-  /** The agent's bot (never its token), the people it admits and its state. */
+  /**
+   * The agent's bot (never its token), the people it admits and its state. `pending`
+   * is true while the Gateway runs other bots than stored, also after a removal.
+   */
   async get(assistantId) {
-    this.assistants.store.getAssistant(assistantId);
+    const profile = this.assistants.store.getAssistant(assistantId);
     const bot = this.store.get(assistantId);
     return {
       assistantId,
       bot,
       status: bot ? await this.status(bot) : null,
+      pending: this.differs(),
       voice: this.voiceAvailable(),
-      shell: personalShell(this.assistants.store.getAssistant(assistantId)),
+      shell: personalShell(profile),
+      stdio: this.stdioAgents().has(assistantId),
     };
   }
   voiceAvailable() {
@@ -143,16 +203,19 @@ export class TelegramSenders {
   }
   /**
    * `running`, `starting`, `error` (the account failed), `stopped` (no Gateway),
-   * `pending` (saved, not yet in the running Gateway) or `inactive` (nobody allowed).
+   * `pending` (saved, not yet in the running Gateway) or `inactive` (nobody allowed,
+   * or the agent cannot own a bot: archived, shell or a stdio MCP server).
    */
   async status(bot) {
     const runtime = this.assistants.runtime;
     const profile = this.assistants.store.getAssistant(bot.assistantId);
-    if (!bot.people.length) return { state: "inactive" };
+    if (!bot.people.length || !telegramEligible(profile, this.stdioAgents()))
+      return { state: "inactive" };
     if (!runtime.client?.ready || !runtime.telegram) return { state: "stopped" };
     if (this.differs()) return { state: "pending" };
+    // Saved for an agent the running Gateway did not know yet: the next start has it.
     if (!runtime.telegram.accounts.includes(profile.runtimeAgentId))
-      return { state: "inactive" };
+      return { state: "pending" };
     let account;
     try {
       const status = await runtime.client.call("channels.status", { probe: false });
@@ -197,7 +260,11 @@ export class TelegramSenders {
     });
     const saved = await this.commit(
       inputs,
-      () => this.store.save(assistantId, { identity, people }, input.revision),
+      () => {
+        // Checked again: a shell raise or stdio binding may have raced this save.
+        this.eligible(assistantId);
+        return this.store.save(assistantId, { identity, people }, input.revision);
+      },
       confirmed,
     );
     this.record(assistantId, current, saved, { token: !!identity });
@@ -214,6 +281,37 @@ export class TelegramSenders {
     );
     this.record(assistantId, current, null);
     return this.get(assistantId);
+  }
+  /**
+   * Saves the speech settings (speech-connections.js). The Deepgram key is compiled
+   * into the Gateway with any bot: changing or removing it destroys every backup key
+   * first and, when the running Gateway uses another key, restarts it once the owner
+   * confirmed, so the old key is no longer live.
+   */
+  async saveSpeech(input, { confirmed = false } = {}) {
+    const record = !!input && typeof input === "object" && !Array.isArray(input);
+    const keyChanged = record && (input.apiKey !== undefined || !!input.removeApiKey);
+    const inputs = this.inputs();
+    if (record && inputs.accounts.length) {
+      const current = inputs.speech || {};
+      const apiKey = input.removeApiKey ? null : (input.apiKey ?? current.apiKey);
+      inputs.speech = apiKey
+        ? {
+            apiKey,
+            model: input.model ?? current.model ?? this.speech.get().model,
+            language: input.language ?? current.language ?? this.speech.get().language,
+          }
+        : null;
+    }
+    return this.commit(
+      inputs,
+      () => {
+        if (keyChanged && (this.store.list().length || this.running()?.voiceKey))
+          destroyBackupKeys(this.store.root);
+        return this.speech.save(input);
+      },
+      confirmed,
+    );
   }
   /** Restarts the Gateway when it lags behind the stored bots (a new speech key). */
   async apply({ confirmed = false } = {}) {
