@@ -56,6 +56,19 @@ const verbs = new Set([
   "refreshed",
   "inspected",
 ]);
+// Names of the fields an MCP server or agent binding change can send.
+const changeFields = new Set([
+  "name",
+  "url",
+  "auth",
+  "oauthScope",
+  "command",
+  "args",
+  "cwd",
+  "env",
+  "headers",
+  "mcpServers",
+]);
 export function auditId(value) {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(value))
     throw problem(serverMessages.audit.invalidIdentifier);
@@ -173,6 +186,19 @@ export function auditEvent(input) {
     event.details.failReason = details.failReason;
   for (const key of ["requestedBy", "teamId"])
     if (details[key] !== undefined) event.details[key] = auditId(details[key]);
+  // MCP server changes name the transport, the fields a change sent and whether the
+  // owner confirmed a stdio command; never a value.
+  if (
+    input.resourceType === "mcp" &&
+    ["http", "sse", "stdio"].includes(details.transport)
+  )
+    event.details.transport = details.transport;
+  if (["mcp", "assistant"].includes(input.resourceType)) {
+    if (Array.isArray(details.fields))
+      event.details.fields = details.fields.filter((field) => changeFields.has(field));
+    if (typeof details.stdioConfirmed === "boolean")
+      event.details.stdioConfirmed = details.stdioConfirmed;
+  }
   for (const key of ["enabled", "pending"])
     if (typeof details[key] === "boolean") event.details[key] = details[key];
   if (["0.0.0.0", "::"].includes(details.bind)) event.details.bind = details.bind;
