@@ -52,11 +52,33 @@ test("recall applies live to the agent's memory search and switches off cleanly"
   // Without memory a stored recall flag has no effect.
   await save({ memory: false, reminders: false, recall: true });
   assert.equal(f.live(home).memory.search.rememberAcrossConversations, false);
+  // The audit records the effective switch: recall without memory changes nothing.
   assert.deepEqual(proactivityAudit(f), [
     { kind: "proactivity", fields: ["recall"], recall: true },
     { kind: "proactivity", fields: ["recall"], recall: false },
-    { kind: "proactivity", fields: ["recall"], recall: true },
   ]);
+  await save({ memory: true, reminders: false, recall: true });
+  assert.deepEqual(proactivityAudit(f).at(-1), {
+    kind: "proactivity",
+    fields: ["recall"],
+    recall: true,
+  });
+});
+
+test("an agent created with recall is audited", async (t) => {
+  const f = shellService(t);
+  const created = await f.service.create({
+    name: "Fresh",
+    instructions: "",
+    model: { connectionId: "c", modelId: "m" },
+    capabilities: { memory: true, reminders: false, recall: true },
+  });
+  assert.deepEqual(
+    f.audit
+      .filter((e) => e.details.kind === "proactivity")
+      .map((e) => [e.resourceId, e.details]),
+    [[created.id, { kind: "proactivity", fields: ["recall"], recall: true }]],
+  );
 });
 
 test("enabling check-ins needs a paired chat; a saved change schedules the job", async (t) => {
