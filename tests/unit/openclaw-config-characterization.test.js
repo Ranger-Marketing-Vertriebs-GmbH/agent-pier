@@ -101,7 +101,7 @@ test("native teams wire the plugin, memory, tools, cron and skills", (t) => {
   const paths = fixture(t);
   prepareRuntimeConfig(paths, 1234, teams({ native: { token: "hook" }, profiles: [] }));
   const config = readJSON(paths.config);
-  assert.deepEqual(config.plugins.allow, ["agentpier-teams", "memory-core"]);
+  assert.deepEqual(config.plugins.allow, ["agentpier-teams", "openai", "memory-core"]);
   assert.deepEqual(config.plugins.load, { paths: ["/private/plugin"] });
   assert.deepEqual(config.plugins.entries["agentpier-teams"], {
     enabled: true,

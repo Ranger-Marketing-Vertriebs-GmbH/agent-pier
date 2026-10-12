@@ -513,7 +513,7 @@ test(
     });
     const marker = path.join(gw.dataDir, "team");
     const { config } = await gw.client.call("config.get", {});
-    assert.deepEqual(config.plugins.allow, ["agentpier-teams", "memory-core"]);
+    assert.deepEqual(config.plugins.allow, ["agentpier-teams", "openai", "memory-core"]);
     assert.equal(config.tools.allow.includes("exec"), false);
     for (const key of ["tools.allow", "tools.exec", "agents.entries.*.tools.exec"]) {
       const lookup = await gw.client.call("config.schema.lookup", { path: key });

@@ -113,7 +113,9 @@ export function compileOpenClawConfig({
     slots: { memory: "none" },
     ...(enabled
       ? {
-          allow: ["agentpier-teams"],
+          // The allow list is restrictive: OpenClaw offers only the provider logins
+          // of plugins it lists, so the ChatGPT device-code sign-in needs `openai`.
+          allow: ["agentpier-teams", "openai"],
           load: { paths: [teams.directory] },
           entries: {
             "agentpier-teams": {

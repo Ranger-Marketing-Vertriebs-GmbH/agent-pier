@@ -390,6 +390,17 @@ the browser. Cancellation, disconnect and expiry terminate or invalidate the
 attempt; navigating away preserves its non-secret ID for resuming the display.
 Sign-in is not a generic proxy for arbitrary native wizard prompts.
 
+OpenClaw offers only the provider logins of plugins that a restrictive
+`plugins.allow` lists, so the team-mode compile always allows the bundled `openai`
+plugin; without it `models.authLogin` answers `INVALID_REQUEST` ("That provider login
+is no longer available"). `assistant-chatgpt-login-contract.test.js` starts the
+device-code sign-in on a team-mode Gateway and cancels it at the first wizard step.
+A failed attempt reports one diagnostic to the browser (`LOGIN_UNAVAILABLE`,
+`UNSUPPORTED_LOGIN_STEP`, `LOGIN_EXPIRED`, `CONNECTION_LOST` or `LOGIN_FAILED`),
+which the Accounts page explains. The server log line adds the Gateway error code,
+the wizard status and the Gateway's reason with device codes, bearer values and
+token-like strings redacted.
+
 **Check connection** runs the native credential probe. **Disconnect** removes the
 selected profile through OpenClaw; pending or unresolved work using that account
 blocks removal. Admission is serialized with assistant creation, configuration,

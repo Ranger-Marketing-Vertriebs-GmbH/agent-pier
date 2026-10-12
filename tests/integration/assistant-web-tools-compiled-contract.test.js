@@ -218,6 +218,7 @@ test(
     });
     assert.deepEqual(running.plugins.allow, [
       "agentpier-teams",
+      "openai",
       "memory-core",
       "duckduckgo",
       ...(browser.available ? ["browser"] : []),

@@ -129,6 +129,7 @@ jobs:
           tests/integration/assistant-provider-contract.test.js
           tests/integration/assistant-provider-schedule-contract.test.js
           tests/integration/assistant-account-logout-contract.test.js
+          tests/integration/assistant-chatgpt-login-contract.test.js
           tests/integration/assistant-routine-contract.test.js
           tests/integration/assistant-schedule-qualification.test.js
           tests/integration/assistant-memory-contract.test.js
