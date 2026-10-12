@@ -23,7 +23,7 @@ export const telegramSendersCopy = {
     "Only these Telegram accounts can write to the bot. Ask each person for their numeric Telegram user ID, for example from @userinfobot. Usernames do not work.",
   noPeople: "Nobody can write to the bot yet. Add at least one person.",
   personId: "Telegram user ID",
-  personName: "Name",
+  personName: "Person",
   addPerson: "Add person",
   remove: "Remove",
   removePerson: (name) => `Remove ${name}`,
