@@ -24,6 +24,10 @@ self.agentPierNotificationCopyEn = {
     title: "AgentPier: Pipeline ended",
     body: "Open AgentPier to see the result.",
   },
+  "agent-checkin": {
+    title: "AgentPier: Agent check-in",
+    body: "An agent has something for you. Open the paired chat.",
+  },
   test: {
     title: "AgentPier: Test notification",
     body: "Notifications are reaching this device.",

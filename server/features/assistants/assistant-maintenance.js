@@ -144,6 +144,7 @@ export class AssistantMaintenance {
     // Events sent while in maintenance were not handled; resync them now.
     this.s.assistants.gatewayEvents?.ready();
     this.s.assistants.reconcile().catch(() => {});
+    this.s.assistantReminders?.heartbeats?.reconcile().catch(() => {});
   }
   recoveryState() {
     if (this.s.assistantProviderSynchronization?.changing) return null;

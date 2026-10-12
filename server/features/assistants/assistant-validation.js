@@ -1,6 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { capabilityKeys, shellLevels } from "./native-capabilities.js";
+import { validateHeartbeat } from "./heartbeat-schedule.js";
 // The key travels with the error so agent tools can name a stable reason.
 export const assistantProblem = (key, status = 400) =>
   Object.assign(problem(serverMessages.assistants[key], status), { key });
@@ -27,6 +28,7 @@ export function validateDefinition(input, partial = false) {
           "model",
           "capabilities",
           "shell",
+          "heartbeat",
           "confirmInstructions",
         ].includes(k),
     ) ||
@@ -39,6 +41,7 @@ export function validateDefinition(input, partial = false) {
     if (!shellLevels.includes(input.shell)) throw assistantProblem("invalid");
     result.shell = input.shell;
   }
+  if ("heartbeat" in input) result.heartbeat = validateHeartbeat(input.heartbeat);
   if ("capabilities" in input) {
     const c = input.capabilities;
     if (
