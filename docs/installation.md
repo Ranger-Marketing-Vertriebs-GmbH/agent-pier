@@ -1,119 +1,120 @@
-# AgentPier auf einem Mac mini einrichten
+# Set up AgentPier on a Mac mini
 
-Für Linux siehe [Linux-Installation](linux.md). Diese Anleitung ist für die spätere Installation auf dem Zielrechner. Lokales Testen mit `npm start` richtet keinen Autostart ein.
+For Linux, see [Linux installation](linux.md). This guide covers installation on the target machine. Running `npm start` for local testing does not configure automatic startup.
 
-Beim ersten Öffnen einen Benutzer erstellen; anschließend mit Benutzername und Passwort anmelden. Das funktioniert auch über den freigegebenen Fernzugriff. Details zu Sitzungen und Wiederherstellung stehen unter [Anmeldung](login.md).
+Create a user when you first open AgentPier, then sign in with a username and password. This also works over configured remote access. See [Login](login.md) for session and recovery details.
 
-## Ein-Befehl-Installation auf macOS
+<a id="ein-befehl-installation-auf-macos"></a>
 
-Die folgenden Befehle gelten ab einem Release, das `install-agentpier.sh` enthält.
-Der Homebrew-Weg benötigt zusätzlich das veröffentlichte Tap mit einer geprüften
-Formel. Solange diese Veröffentlichung fehlt, die bestehende Release-Installation
-im nächsten Abschnitt verwenden. Die lokalen Änderungen allein stellen noch keinen
-öffentlichen Installer bereit.
+## One-command installation on macOS
 
-Auf einem nativen Apple-Silicon- oder Intel-Mac mit macOS 14 oder neuer:
+The following commands require a release that includes `install-agentpier.sh`.
+The Homebrew option also requires a published tap with a verified formula.
+Until those are published, use the existing release installation described in the
+next section. Local changes alone do not make a public installer available.
+
+On a native Apple Silicon or Intel Mac running macOS 14 or later:
 
 ```sh
 (agentpier_tmp=$(mktemp -d) && trap 'rm -rf "$agentpier_tmp"' EXIT && curl --fail --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/latest/download/install-agentpier.sh -o "$agentpier_tmp/install.sh" && /bin/sh "$agentpier_tmp/install.sh")
 ```
 
-Das Skript lädt zunächst das versionsgebundene Installer-Paket und prüft dessen
-SHA-256. Es richtet fehlende Voraussetzungen einschließlich Homebrew bei Bedarf
-über dessen offiziellen Installer ein. Bestätigungen, Command Line Tools und ein
-Administratorpasswort können erforderlich sein. Als normaler Benutzer ausführen,
-nicht mit `sudo`; auf Apple Silicon ein natives Terminal ohne Rosetta verwenden.
+The script first downloads the versioned installer bundle and verifies its SHA-256
+checksum. It installs missing prerequisites, including Homebrew through its official
+installer when needed. Prompts, Command Line Tools and an administrator password
+may be required. Run it as a regular user, without `sudo`; on Apple Silicon, use a
+native terminal without Rosetta.
 
-Wenn Homebrew bereits installiert und das Tap veröffentlicht ist:
+If Homebrew is already installed and the tap has been published:
 
 ```sh
 brew install ranger-marketing-vertriebs-gmbh/tap/agentpier-installer && agentpier-install
 ```
 
-Beide Wege verwenden dieselbe Einrichtung. Standardmäßig liegen die Anwendung unter
-`~/.local/share/agentpier-app` und private Daten unter
-`~/Library/Application Support/AgentPier`. Der Login-Dienst startet AgentPier auf
-`http://127.0.0.1:4380`; Erfolg wird erst nach dem Versions-Healthcheck gemeldet.
-Benutzer und Anbieter-Accounts anschließend in der Oberfläche einrichten; Coding-CLIs
-lassen sich dort installieren. Fernzugriff wird separat eingerichtet.
+Both methods use the same setup process. By default, the application is installed
+under `~/.local/share/agentpier-app` and private data under
+`~/Library/Application Support/AgentPier`. The login service starts AgentPier at
+`http://127.0.0.1:4380`; success is reported only after the version health check passes.
+Then create users and provider accounts in the UI; coding CLIs can also be installed
+there. Remote access is configured separately.
 
-`agentpier-install --help` zeigt die Optionen. Mit `--no-service` nur die Anwendung
-installieren; `--install-root` und `--data-dir` überschreiben die Standardpfade.
-Die entsprechenden `AGENTPIER_INSTALL_ROOT`-/`AGENTPIER_DATA_DIR`-Umgebungsvariablen
-werden ebenfalls berücksichtigt. Verwende absolute, normalisierte Pfade ohne `..`;
-das Datenverzeichnis muss außerhalb des Anwendungsverzeichnisses liegen.
-`--dependencies-only` repariert ausschließlich fehlende Voraussetzungen.
-`--with-assistants` schaltet die optionalen Agenten ein und installiert deren Laufzeit
-vorab (siehe [Managed assistant runtime](#managed-assistant-runtime)).
+Run `agentpier-install --help` for options. Use `--no-service` to install only the
+application; `--install-root` and `--data-dir` override the default paths.
+The corresponding `AGENTPIER_INSTALL_ROOT` and `AGENTPIER_DATA_DIR` environment
+variables are also supported. Use absolute, normalized paths without `..`;
+the data directory must be outside the application directory.
+`--dependencies-only` repairs missing prerequisites only.
+`--with-assistants` enables the optional agents and installs their runtime in
+advance (see [Managed assistant runtime](#managed-assistant-runtime)).
 
-Nach einem Abbruch denselben Befehl erneut aufrufen. Eine passende bestehende
-Einrichtung wird wiederaufgenommen; eine bereits aktualisierte AgentPier-Version
-wird nicht zurückgesetzt. Bei einer fremden bestehenden Installation, abweichenden
-Datenpfaden oder einem belegten Port bei angeforderter Dienstinstallation meldet
-der Installer einen Konflikt. `--no-service` lässt vorhandene Dienste und Listener
-unberührt. Bestehende Source-Installationen werden nicht automatisch
-übernommen. Wird ein Prozess genau beim Übernehmen der Installationssperre beendet,
-kann `.setup-recovery.lock` zurückbleiben. In diesem Fall stoppt der Installer mit
-einem Hinweis zur manuellen Prüfung. Die Sperre erst entfernen, nachdem sicher
-kein Setup-Prozess mehr läuft; unbekannte Dateien werden nicht automatisch gelöscht.
-Temporäre `.current-<UUID>`-Zeiger und Staging-Verzeichnisse bleiben bei der Reparatur
-erhalten, weil ein paralleles Anwendungsupdate sie noch verwenden kann. Auch
-Überbleibsel eines abgebrochenen Updates auf eine spätere Version verhindern die
-Reparatur nicht, sofern ihre Struktur und Eigentümerschaft passen.
+After an interruption, run the same command again. A matching existing setup is
+resumed; an AgentPier version that has already been updated is not downgraded.
+The installer reports a conflict if it finds an unrelated existing installation,
+different data paths, or an occupied port when service installation is requested.
+`--no-service` leaves existing services and listeners unchanged. Existing source
+installations are not adopted automatically. If a process exits precisely while
+acquiring the installation lock, `.setup-recovery.lock` may remain. In that case,
+the installer stops and asks for manual inspection. Remove the lock only after
+confirming that no setup process is still running; unknown files are not deleted
+automatically. Temporary `.current-<UUID>` pointers and staging directories are
+preserved during repair because a concurrent application update may still use them.
+Leftovers from an interrupted update to a later version do not prevent repair,
+provided their structure and ownership are valid.
 
-**Anwendungsupdates bleiben unter Einstellungen → Updates.** `brew upgrade` oder
-`brew uninstall agentpier-installer` betrifft nur das Installer-Paket. Die laufende
-Anwendung, ihr Dienst und private Daten bleiben davon getrennt. Zum Stoppen des Dienstes einer Installation mit Standardpfad:
+**Application updates remain under Settings → Updates.** `brew upgrade` or
+`brew uninstall agentpier-installer` affects only the installer package. The running
+application, its service and private data remain separate. To stop the service of
+an installation using the default path:
 
 ```sh
 "$HOME/.local/share/agentpier-app/current/bin/node" "$HOME/.local/share/agentpier-app/current/scripts/service.mjs" stop
 ```
 
-Zum Entfernen des Autostarts anschließend die Datei
-`~/Library/LaunchAgents/dev.agentpier.server.plist` entfernen. Bei eigenen Pfaden den
-Anwendungspfad im Befehl entsprechend anpassen. Anwendungsreleases und private Daten
-bleiben bestehen; Daten nur ausdrücklich entfernen.
-Die Versionsnummer der Brew-Formel bezeichnet den Installer, nicht zwingend die
-aktuell laufende AgentPier-Version.
+To remove automatic startup, then delete
+`~/Library/LaunchAgents/dev.agentpier.server.plist`. For custom paths, adjust the
+application path in the command accordingly. Application releases and private data
+are retained; remove data only when explicitly intended.
+The Homebrew formula version identifies the installer, not necessarily the
+AgentPier version currently running.
 
-## Versioniertes Release installieren
+## Install a versioned release
 
-Coding-CLIs lassen sich unabhängig von AgentPier-Releases unter **Deine Tools → CLI aktualisieren** aktualisieren. Details und manuelle Befehle stehen unter [CLI-Updates](cli-updates.md).
+Coding CLIs can be updated independently of AgentPier releases under **Your tools → Update CLI**. See [CLI updates](cli-updates.md) for details and manual commands.
 
-Die folgenden Abschnitte beschreiben den Start aus einem Source-Checkout. Für eine versionierte Installation mit unveränderlichen Releases, eigenem Node-Runtime und getrenntem Datenverzeichnis nutze stattdessen den [Release-Installer mit den genauen Befehlen](research/operations-portability.md#installer-and-exact-commands). Lade dafür das zur Plattform passende `.aprelease`-Paket aus den [offiziellen GitHub-Releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases) herunter: `darwin` für macOS oder `linux`, jeweils mit `arm64` oder `x64` passend zum Rechner.
+The following sections describe running from a source checkout. For a versioned installation with immutable releases, a bundled Node runtime and a separate data directory, use the [release installer and exact commands](research/operations-portability.md#installer-and-exact-commands) instead. Download the `.aprelease` package for your platform from the [official GitHub releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases): `darwin` for macOS or `linux`, with `arm64` or `x64` matching your machine.
 
-Der [Datei-Explorer](file-explorer.md) verwendet die Dateirechte des Benutzers, unter
-dem der Webdienst läuft. Versionierte Pakete enthalten Koffi und das passende native
-Modul; Installation und Updates prüfen diese Laufzeitbestandteile. Dafür ist keine
-manuelle Systemerweiterung nötig. Strikte neue-Inode-Operationen und ZIP-Extraktion
-werden auf macOS nur ausgeführt, wenn die native Prüfung das konkrete APFS-Ziel bestätigt.
+The [file explorer](file-explorer.md) uses the file permissions of the user running
+the web service. Versioned packages include Koffi and the matching native module;
+installation and updates verify these runtime components. No manual system
+extension is required. On macOS, strict new-inode operations and ZIP extraction
+run only when the native check confirms that the specific destination uses APFS.
 
-`sh scripts/install.sh` benötigt aus einem sauberen Checkout kein `npm ci`. Fehlende tmux-/Git-Pakete werden standardmäßig installiert; Node wird bei Bedarf vorübergehend geladen und ist im Release enthalten. Fehlende Download-Werkzeuge (`curl`, `tar`, SHA-256-Prüfung) werden ebenfalls bei Bedarf installiert. Auf macOS wird Homebrew verwendet und bei Bedarf über den [offiziellen Installer](https://brew.sh) eingerichtet; unter Linux wird apt verwendet. Bestätigungen und Admin-Passwort können im Terminal eingegeben werden. Ohne Terminal läuft der Homebrew-Installer nichtinteraktiv und benötigt passende Administratorrechte. Auf anderen Linux-Distributionen die fehlenden Pakete mit dem dortigen Paketmanager installieren.
+`sh scripts/install.sh` does not require `npm ci` in a clean checkout. Missing tmux and Git packages are installed by default; Node is downloaded temporarily if needed and is included in the release. Missing download tools (`curl`, `tar`, SHA-256 verification) are also installed when needed. On macOS, Homebrew is used and set up through the [official installer](https://brew.sh) if necessary; Linux uses apt. Prompts and an administrator password can be entered in the terminal. Without a terminal, the Homebrew installer runs non-interactively and requires suitable administrator privileges. On other Linux distributions, install missing packages with the distribution's package manager.
 
-`--skip-dependencies` prüft Voraussetzungen, ohne Host-Pakete zu installieren. `--install-dependencies` bleibt als kompatible Option erhalten. `--service` richtet den Benutzer-Webdienst ein und wartet auf dessen Versions-Healthcheck; dabei werden auch die üblichen Homebrew- und Systempfade gespeichert. Das Datenverzeichnis darf nicht innerhalb eines Release-Ordners liegen.
+`--skip-dependencies` checks prerequisites without installing host packages. `--install-dependencies` remains available for compatibility. `--service` configures the user web service and waits for its version health check; it also saves the usual Homebrew and system paths. The data directory must not be inside a release directory.
 
-Fehlende Voraussetzungen einer bestehenden Installation lassen sich aus dem aktuellen Checkout nachinstallieren, ohne Releases oder Sitzungsdaten zu ändern:
+To install missing prerequisites for an existing installation from the current checkout without changing releases or session data:
 
 ```sh
 sh scripts/install.sh --dependencies-only
 ```
 
-Danach den AgentPier-Webdienst neu starten. Falls `tmux -V` funktioniert, aber der Dienst weiterhin `spawn tmux ENOENT` meldet, die Dienstkonfiguration mit dem aktualisierten `scripts/service.mjs install` und denselben Installations-/Datenpfaden erneut erstellen. Einzelheiten zu Updates, Schema-Grenzen und Rollback stehen in derselben Anleitung.
+Then restart the AgentPier web service. If `tmux -V` works but the service still reports `spawn tmux ENOENT`, recreate the service configuration with the updated `scripts/service.mjs install` and the same installation and data paths. The release installer guide also covers updates, schema boundaries and rollback.
 
-## 1. Voraussetzungen auf dem Zielrechner
+## 1. Prerequisites on the target machine
 
-- macOS mit einem normalen Benutzerkonto, unter dem auch die CLI-Sitzungen laufen sollen.
-- Node.js 22.13 oder neuer mit npm, tmux und Git.
-- Codex, Claude Code und OpenCode können bereits vorhanden sein oder später unter **Deine Tools → CLI installieren** eingerichtet werden.
-- Optional: Tailscale, auf Mac mini und Mobilgerät im eigenen Tailnet angemeldet.
+- macOS with a regular user account that will also run the CLI sessions.
+- Node.js 22.13 or later with npm, tmux and Git.
+- Codex, Claude Code and OpenCode may already be installed or can be installed later under **Your tools → Install CLI**.
+- Optional: Tailscale, signed in to your own tailnet on both the Mac mini and mobile device.
 
-Mit bereits eingerichtetem Homebrew können die Laufzeitwerkzeuge beispielsweise so installiert werden:
+With Homebrew already configured, the runtime tools can be installed as follows:
 
 ```sh
 brew install node@22 tmux git
 ```
 
-Sorge dafür, dass die Node- und CLI-Binaries im PATH liegen. AgentPier sucht CLIs zusätzlich in `~/.local/bin`, `~/.opencode/bin`, `/opt/homebrew/bin` und `/usr/local/bin`. Anschließend prüfen:
+Make sure Node and the CLI binaries are on PATH. AgentPier also searches for CLIs in `~/.local/bin`, `~/.opencode/bin`, `/opt/homebrew/bin` and `/usr/local/bin`. Then verify:
 
 ```sh
 node --version
@@ -122,9 +123,9 @@ tmux -V
 git --version
 ```
 
-## 2. Projekt bereitstellen und zunächst lokal testen
+## 2. Set up the project and test locally first
 
-Repo auf den Mac mini klonen/kopieren und im Projektordner ausführen:
+Clone or copy the repository to the Mac mini and run these commands in the project directory:
 
 ```sh
 git clone https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier.git
@@ -134,61 +135,59 @@ npm run build
 npm start
 ```
 
-Am Mac mini `http://127.0.0.1:4380` öffnen. Fehlende CLIs einschließlich der GitHub CLI `gh` bei Bedarf über **CLI installieren** einrichten. Die Installation erfolgt auf diesem Server im AgentPier-Datenverzeichnis und wird mit `--version` geprüft. Anschließend CLI-Accounts einrichten und eine Sitzung in einem Testprojekt öffnen. Für jeden zusätzlichen Account ein eigenes Profil anlegen. GitHub-/Enterprise-Tokens separat unter **Einstellungen → Zugriff → GitHub-Zugänge** eintragen.
+Open `http://127.0.0.1:4380` on the Mac mini. Install missing CLIs, including the GitHub CLI `gh`, through **Install CLI** as needed. They are installed on this server inside the AgentPier data directory and verified with `--version`. Then configure CLI accounts and open a session in a test project. Create a separate profile for each additional account. Add GitHub or Enterprise tokens separately under **Settings → Access → GitHub connections**.
 
-Mit `Ctrl+C` den Test-Webdienst beenden, bevor der dauerhafte Dienst eingerichtet wird. Laufende Terminal-Sitzungen bleiben in tmux erhalten.
+Press `Ctrl+C` to stop the test web service before configuring the persistent service. Running terminal sessions remain in tmux.
 
-## 3. Datenverzeichnis optional festlegen
+## 3. Optionally choose a data directory
 
-Ohne Anpassung wird `.data/` im Projekt verwendet. Für einen separaten Ort vor den folgenden Einrichtungsbefehlen setzen:
+By default, the project uses `.data/`. To use a separate location, set this before running the following setup commands:
 
 ```sh
 export AGENTPIER_DATA_DIR="$HOME/Library/Application Support/AgentPier"
 ```
 
-Verwende denselben Wert für Start, Dienstinstallation und Tailscale-Einrichtung. Bestehende Daten nicht zwischen mehreren laufenden Instanzen teilen. Ein anderes Datenverzeichnis startet einen getrennten Workspace.
+Use the same value for startup, service installation and Tailscale setup. Do not share existing data between multiple running instances. A different data directory starts a separate workspace.
 
-Optionale Explorer-Grenzen stehen in `config.json` unter `files.limits`. AgentPier liest
-und prüft sie beim Start; unbekannte Schlüssel sowie nichtpositive oder nicht sichere
-Ganzzahlen verhindern den Start. Den Webdienst vor einer Änderung stoppen und danach neu
-starten. Es gibt dafür keine einzelnen Umgebungsvariablen oder Einstellungsfelder. Werte,
-Standardgrenzen und Aufbewahrungsfristen sind in der
-[Datei-Explorer-Anleitung](file-explorer.md#limits-and-retention) aufgeführt.
+Optional explorer limits are configured in `config.json` under `files.limits`.
+AgentPier reads and validates them at startup; unknown keys, non-positive values
+and integers outside the safe range prevent startup. Stop the web service before
+changing them, then restart it. There are no separate environment variables or
+settings fields for these limits. Values, defaults and retention periods are listed
+in the [file explorer guide](file-explorer.md#limits-and-retention).
 
-## 4. Optional: dauerhafter macOS-Dienst
+## 4. Optional: persistent macOS service
 
-Nur auf dem gewünschten Zielrechner und nach dem lokalen Test:
+Run these commands only on the intended target machine, after the local test:
 
 ```sh
 npm run service:install
 npm run service:status
 ```
 
-Die Installation schreibt ausschließlich den AgentPier-LaunchAgent `~/Library/LaunchAgents/dev.agentpier.server.plist`. Er startet den Webdienst beim Benutzer-Login und nach einem Absturz neu. Der Dienst läuft mit diesem Benutzerkonto; es ist kein Systemdienst vor der Anmeldung.
+Installation writes only the AgentPier LaunchAgent at `~/Library/LaunchAgents/dev.agentpier.server.plist`. It starts the web service when the user logs in and restarts it after a crash. The service runs under that user account; it is not a system service that starts before login.
 
-Die Plist speichert Node-Pfad, Projekt-/Datenverzeichnis und PATH zum Installationszeitpunkt. Nach Verschieben des Projekts oder einem Node-Upgrade `npm run service:install` erneut ausführen. Eigene CLI-Sitzungen bleiben beim Neustart des Webdienstes erhalten. Ein Rechnerneustart oder Absturz beendet dagegen alle CLI-Prozesse: Nach dem nächsten Start – unter macOS also nach dem Login, weil der LaunchAgent erst dann startet – setzt AgentPier unterbrochene Sitzungen automatisch mit ihrer eigenen Unterhaltung fort, sofern „Unterbrochene Sitzungen automatisch fortsetzen“ in den Einstellungen aktiv ist (Standard: an). Laufende Antworten und Prozesse zum Zeitpunkt der Unterbrechung gehen verloren; vom Nutzer gestoppte Sitzungen bleiben gestoppt.
+The plist saves the Node path, project and data directories, and PATH at installation time. Run `npm run service:install` again after moving the project or upgrading Node. Your CLI sessions survive a web service restart. A machine restart or crash, however, ends all CLI processes. On the next startup—after login on macOS, since the LaunchAgent starts only then—AgentPier automatically resumes interrupted sessions with their own conversations if **Resume interrupted sessions automatically** is enabled in settings (on by default). Responses and processes running at the time of interruption are lost; sessions stopped by the user remain stopped.
 
-## 5. Optional: privater Fernzugriff
+## 5. Optional: private remote access
 
-Für den Zugriff von einem anderen Gerät gibt es zwei gleichwertige Wege: [Tailscale Serve](remote-access.md#weg-a-tailscale-serve) mit HTTPS im eigenen Tailnet, oder der [Netzwerkmodus ohne Tailscale](remote-access.md#weg-b-netzwerkmodus-ohne-tailscale), der sich auch headless mit `npm run remote` einschalten lässt und nur durch die Anmeldung geschützt ist. Beide Wege sind in der [Fernzugriffsanleitung](remote-access.md) mit den genauen Befehlen beschrieben; die eigene Tailscale-Freigabe wird beim Entfernen des Diensts weiter unten mit `tailscale serve --https=8443 off` deaktiviert.
+There are two supported ways to access AgentPier from another device: [Tailscale Serve](remote-access.md#weg-a-tailscale-serve) with HTTPS in your own tailnet, or [network mode without Tailscale](remote-access.md#weg-b-netzwerkmodus-ohne-tailscale), which can also be enabled headlessly with `npm run remote` and is protected only by login. The [remote access guide](remote-access.md) provides exact commands for both. To disable your Tailscale exposure when removing the service, use `tailscale serve --https=8443 off` as described below.
 
-## 6. Aktualisieren
+## 6. Updating
 
-Unter **Einstellungen → Updates → Updatekanal** gilt standardmäßig **Stable**:
-Es werden nur stabile Releases angeboten. **Preview** bietet zusätzlich Release
-Candidates wie `1.29.0-rc.1` an, damit neue Versionen vor der stabilen Freigabe
-getestet werden können. Die Auswahl gilt für die gesamte AgentPier-Installation
-und bleibt nach einem Neustart erhalten. Preview berücksichtigt auch stabile
-Releases: `1.29.0` ersetzt beispielsweise `1.29.0-rc.2`. Beim Wechsel zurück zu
-Stable wird keine ältere Version installiert; eine bereits installierte RC bleibt
-aktiv, bis eine neuere stabile Version angeboten wird. Bereits vorbereitete
-Versionen bleiben verfügbar und können weiterhin bewusst aktiviert werden.
-Bei einer eigenen Quelle über `AGENTPIER_RELEASE_CHANNEL` wird die Kanalauswahl
-auf dem Server verwaltet.
+**Settings → Updates → Update channel** defaults to **Stable**, which offers only
+stable releases. **Preview** also offers release candidates such as `1.29.0-rc.1`
+so that new versions can be tested before their stable release. The selection
+applies to the entire AgentPier installation and persists across restarts.
+Preview also includes stable releases: for example, `1.29.0` supersedes
+`1.29.0-rc.2`. Switching back to Stable does not install an older version; an
+installed RC stays active until a newer stable version is offered. Already staged
+versions remain available for explicit activation. If a custom source is configured
+through `AGENTPIER_RELEASE_CHANNEL`, the update source is managed on the server.
 
-Bei einer versionierten Installation unter **Einstellungen → Updates** nach einer neuen Version suchen, das Paket herunterladen und anschließend aktivieren. Bei einem angebotenen oder bereits vorbereiteten Update zeigt die App die GitHub-Release-Notes genau dieser Version an. Sie werden separat geladen; fehlen die Hinweise oder ist GitHub nicht erreichbar, bleibt das Update möglich. Eigene Update-Kanäle zeigen keine möglicherweise unpassenden Notes des offiziellen Releases. Standardmäßig kommen die Pakete aus den [offiziellen GitHub-Releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases); ein eigener Kanal kann über `AGENTPIER_RELEASE_CHANNEL` gesetzt werden. Der Download wird per SHA-256 geprüft. Schlägt der Start der neuen Version fehl, wird die vorherige Version wieder aktiviert. CLI-Sitzungen bleiben beim Neustart des Webdienstes erhalten.
+For a versioned installation, check for a new version under **Settings → Updates**, download the package, then activate it. For an offered or already staged update, the app displays the GitHub release notes for that specific version. Notes load separately; missing notes or an unreachable GitHub do not prevent the update. Custom update sources do not display potentially unrelated official release notes. Packages come from the [official GitHub releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases) by default; a custom source can be set with `AGENTPIER_RELEASE_CHANNEL`. Downloads are verified with SHA-256. If the new version fails to start, the previous version is reactivated. CLI sessions survive a web service restart.
 
-Bei einem Source-Checkout stattdessen nach Aktualisieren der Repository-Dateien:
+For a source checkout, update the repository files, then run:
 
 ```sh
 npm ci
@@ -197,43 +196,43 @@ npm test
 npm run service:install
 ```
 
-Daten in `.data/` bzw. im eigenen Datenverzeichnis bleiben erhalten. Vor Migrationen private Profildaten sichern. OAuth-/Keychain-Anmeldungen sind unter Umständen an den jeweiligen Mac gebunden; auf dem Mac mini erneut anmelden, statt Keychain-Dateien vom MacBook zu kopieren.
+Data in `.data/` or your custom data directory is retained. Back up private profile data before migrations. OAuth and Keychain logins may be tied to the individual Mac; sign in again on the Mac mini instead of copying Keychain files from a MacBook.
 
-## Stoppen und entfernen
+## Stop and remove
 
 ```sh
 npm run service:stop
 ```
 
-Das stoppt nur den Webdienst. Falls auch CLI-Sitzungen beendet werden sollen, diese vorher gezielt in der Oberfläche stoppen.
+This stops only the web service. If CLI sessions should also end, stop those sessions explicitly in the UI first.
 
-Für vollständiges Entfernen des Autostarts nach dem Stoppen:
+To remove automatic startup completely after stopping the service:
 
 ```sh
 rm "$HOME/Library/LaunchAgents/dev.agentpier.server.plist"
 ```
 
-Die eigene Tailscale-Freigabe separat deaktivieren; den tatsächlich eingerichteten Port verwenden:
+Disable your Tailscale exposure separately, using the port you actually configured:
 
 ```sh
 tailscale serve --https=8443 off
 ```
 
-Kein `tailscale serve reset` verwenden, wenn andere Freigaben existieren. Projektordner und Profildaten nur entfernen, wenn sie nicht mehr benötigt werden. Alte Installationen unter dem früheren Namen verwenden gegebenenfalls `dev.tuiui.server.plist`; einen solchen Dienst vor dem Umstieg gezielt stoppen, damit nicht zwei Webdienste denselben Port verwenden.
+Do not use `tailscale serve reset` if other exposures exist. Remove the project directory and profile data only if they are no longer needed. Old installations under the former name may use `dev.tuiui.server.plist`; stop such a service explicitly before switching so that two web services do not compete for the same port.
 
-### Alte Versionen entfernen
+### Remove old versions
 
-Unter **Einstellungen → Updates → Alte Versionen aufräumen** können ältere Versionen einzeln oder gesammelt gelöscht werden. Die Bestätigung nennt die konkrete Auswahl. Gelöschte Versionen stehen nicht mehr für einen Rollback bereit.
+Under **Settings → Updates → Remove old versions**, older versions can be deleted individually or together. The confirmation lists the exact selection. Deleted versions are no longer available for rollback.
 
-Die aktive Version, vorbereitete neuere Versionen und Versionen mit laufenden Prozessen bleiben erhalten. Kann die bestehende Prozessprüfung über `ps` nicht zuverlässig ausgeführt werden, wird nichts gelöscht. Während einer Aktivierung, eines Rollbacks oder eines Session-Umzugs ist das Aufräumen gesperrt. Die Funktion verändert weder Sitzungsdaten noch Profile.
+The active version, newer staged versions and versions with running processes are retained. If the existing `ps` process check cannot run reliably, nothing is deleted. Cleanup is locked during activation, rollback or session migration. It does not change session data or profiles.
 
-#### Sessions umziehen
+#### Migrate sessions
 
-Eine Version mit laufenden Prozessen zeigt über **Sessions anzeigen** die AgentPier-Sessions, die sie halten, mit ihrem Zustand: bereit, beschäftigt, Zustand unbekannt, wird neu geladen oder nicht neu ladbar. **Sessions umziehen und Version löschen** lädt jede Session mit [Reload & resume](session-reload.md) auf die aktive Version neu und löscht die Version, sobald die letzte Session umgezogen ist. Beschäftigte Sessions ziehen erst nach Abschluss ihres aktuellen Schritts um; Sessions mit unbekanntem Zustand warten, bis das CLI erkennbar bereit ist. **Sofort umziehen und löschen** startet alle Sessions nach Bestätigung sofort neu und bricht laufende Arbeit ab. Ein laufender Umzug lässt sich abbrechen; bereits angestoßene Reloads laufen dann eigenständig weiter, die Version bleibt erhalten.
+For a version with running processes, **Show sessions** lists the AgentPier sessions holding it and their status: ready, busy, unknown, reloading or not reloadable. **Migrate sessions and delete version** reloads each session onto the active version using [Reload & resume](session-reload.md), then deletes the old version once the last session has migrated. Busy sessions migrate only after their current step finishes; sessions with an unknown state wait until the CLI is visibly ready. **Migrate now and delete** immediately restarts all sessions after confirmation, interrupting ongoing work. A running migration can be cancelled; reloads already initiated continue independently, and the version is retained.
 
-Sessions, die nicht neu geladen werden können (Pipeline-, Login-, Shell- oder unverifizierte Sessions), müssen manuell beendet werden. Prozesse außerhalb einer Session, etwa ein laufender Pipeline-Supervisor oder der Release-Helfer, blockieren den Umzug und werden mit ihrem Pfad genannt. Node-Prozesse, die nur das Node-Binary der Version nutzen, blockieren nicht; sie werden nach dem Umzug erneut geprüft. Verwenden nach dem Umzug weiterhin Prozesse die Version, bleibt sie erhalten und der Vorgang nennt die verbleibenden Verweise.
+Sessions that cannot be reloaded—pipeline, login, shell or unverified sessions—must be stopped manually. Processes outside a session, such as a running pipeline supervisor or release helper, block migration and are listed with their paths. Node processes that use only the version's Node binary do not block migration; they are checked again afterwards. If processes still use the version after migration, it is retained and the operation reports the remaining references.
 
-Beim Aktivieren einer vorbereiteten Version bietet die Bestätigung **Laufende Sessions danach auf die neue Version umziehen** an. Der Umzug beginnt erst, nachdem die neue Version ihre Zustandsprüfung bestanden hat, und unterbricht nichts. Schlägt die Aktivierung fehl oder wird sie zurückgerollt, findet kein Umzug statt.
+When activating a staged version, the confirmation offers **Move running sessions to the new version afterwards**. Migration begins only after the new version passes its health check and does not interrupt work. If activation fails or is rolled back, no migration takes place.
 
 ### Managed assistant runtime
 

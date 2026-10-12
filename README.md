@@ -53,7 +53,7 @@ brew install ranger-marketing-vertriebs-gmbh/tap/agentpier-installer && agentpie
 ```
 
 Then open **http://127.0.0.1:4380**. Application updates stay in AgentPier.
-[Options and details](docs/installation.md#ein-befehl-installation-auf-macos).
+[Options and details](docs/installation.md#one-command-installation-on-macos).
 
 ### Run from source (macOS / Linux)
 
