@@ -20,19 +20,21 @@ export function proactivityChange(current, patch) {
       details.heartbeat = after.enabled;
     }
   }
-  // The effective switch: a recall flag without memory changes nothing.
-  if (patch.capabilities) {
-    const before = personalCapabilities(current).recall;
-    const recall = personalCapabilities({
-      ...current,
-      capabilities: { ...current.capabilities, ...patch.capabilities },
-    }).recall;
-    if (recall !== before) {
-      fields.push("recall");
-      details.recall = recall;
-    }
-  }
   return fields.length ? { kind: "proactivity", fields, ...details } : null;
+}
+
+/**
+ * Check-ins look at the agent's notes: a save that leaves them on must leave memory
+ * on. Agents saved by older clients keep a stored flag that simply has no effect.
+ */
+export function lacksMemory(current, patch) {
+  if (!patch.heartbeat && !patch.capabilities) return false;
+  const after = {
+    ...current,
+    ...patch,
+    capabilities: { ...current.capabilities, ...patch.capabilities },
+  };
+  return heartbeatSettings(after).enabled && !personalCapabilities(after).memory;
 }
 
 /** Enabling check-ins (or moving them) needs a chat they can be delivered to. */

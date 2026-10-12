@@ -11,6 +11,7 @@ import { ExecAllowlist } from "./exec-allowlist.js";
 import { assistantActivity } from "./assistant-activity.js";
 import {
   auditProactivity,
+  lacksMemory,
   needsChannel,
   proactivityChange,
 } from "./proactivity-changes.js";
@@ -249,7 +250,9 @@ export class AssistantService {
         const lease = await this.models.resolve(patch.model);
         lease.release();
       }
-      // Check-ins are delivered only to a paired chat; refused before any change.
+      // Check-ins need memory and a paired chat; refused before any change.
+      if (lacksMemory(current, patch))
+        throw assistantProblem("heartbeatMemoryRequired", 409);
       if (needsChannel(current, patch)) this.reminders?.heartbeats?.requireChannel(id);
       // Refuses ineligible agents and unconfirmed stdio servers before any change.
       if (binds)

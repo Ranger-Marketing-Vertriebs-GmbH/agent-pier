@@ -620,9 +620,9 @@ Saving an empty note clears that file; it does not purge chat history or other
 workspace notes. Native file tools stay within the workspace.
 
 The initial managed search uses OpenClaw's keyword provider `none`, requiring no
-embedding account. Transcript indexing and cross-conversation recall are per-agent
-opt-ins, scheduled check-ins replace OpenClaw's own heartbeat, and dreaming stays off
-(see [Proactivity](#proactivity-check-ins-and-recall-2026-10-12)).
+embedding account. Transcript indexing and cross-conversation recall stay off,
+scheduled check-ins replace OpenClaw's own heartbeat, and dreaming stays off (see
+[Proactivity](#proactivity-check-ins-2026-10-12)).
 `skills.workshop.autonomous.mode` is explicitly `off`, so
 enabling cron does not also start OpenClaw's default weekly skill collection reviews.
 Explicit repository memory access is now described in [agent workflows](assistant-workflows.md).
@@ -1168,88 +1168,104 @@ archived permanent member is restored, and when a level is raised again over
 entries that survived an earlier lowering (entries are only removed by deleting
 them). Check the agent settings after a restore if in doubt.
 
-## Proactivity: check-ins and recall (2026-10-12)
+## Proactivity: check-ins (2026-10-12)
 
 The **Acting on its own** group in an agent's settings (section **Proactivity**)
-holds two opt-ins. Both are off by default, and only personal agents and promoted
-permanent members have them. Changes are audited as `assistant.updated` with
-`kind: "proactivity"`, the changed names (`heartbeat`, `recall`) and their new on/off
-flags; never a schedule, time zone or text. Clients that do not send these fields
-keep the stored values.
+holds the check-in opt-in. It is off by default, and only personal agents and
+promoted permanent members have it. Changes are audited as `assistant.updated` with
+`kind: "proactivity"`, `fields: ["heartbeat"]` and the new on/off flag; never a
+schedule, time zone or text. Clients that do not send the field keep the stored
+value.
 
 ### Check-ins (heartbeat)
 
-**Check in on its own** runs a short, isolated agent turn at set times: every hour,
-2 hours, 4 hours or once a day, within active hours (start to before end, whole hours)
-in the owner's time zone, which the browser supplies on save. The agent is asked
-whether something needs the owner's attention and to answer exactly `NO_REPLY`
-otherwise. The settings show the cost as model runs per day.
+**Check in on its own** lets the agent look at its conversation at set times: every
+hour, 2 hours, 4 hours or once a day, within active hours (start to before end, whole
+hours, within one day) in the owner's time zone, which the browser supplies; the
+settings offer to adopt the browser's zone when the saved one differs. The agent is
+asked whether something needs the owner's attention and to answer exactly
+`NO_REPLY` otherwise. The settings show the cost as model runs per day, each reading
+the whole conversation.
+
+Check-ins need **Remember information** (`heartbeatMemoryRequired`, 409): the
+agent's notes are what it checks against. The settings disable the switch without
+memory, and switching memory off switches check-ins off in the same save. An older
+client that switches memory off leaves a stored flag that has no effect: the agent
+keeps no job. They also need a paired, enabled Telegram chat
+(`heartbeatChannelRequired`, 409); a new agent switches check-ins on after saving.
 
 It is not OpenClaw's native heartbeat, which stays at `agents.defaults.heartbeat.every:
 "0m"`: that one delivers through OpenClaw channels, which AgentPier leaves empty. Each
-opted-in agent instead gets one native cron job built like a reminder
-(`server/features/assistants/native-heartbeats.js`): `sessionTarget: "isolated"`,
-`lightContext`, a cron expression listing the active hours with the owner's IANA
-zone, and the reminder webhook as delivery. Its tools are `memory_search` and
-`memory_get` for an agent with memory, none otherwise; nothing is written in an
-unattended run. The binding (kind `heartbeat`, hidden from reminder and routine
-lists) fixes the paired Telegram destination when the job is created. AgentPier drops
-an empty or `NO_REPLY` summary and failed runs; anything else goes, prefixed with
-`Check-in:` (server message `heartbeatPrefix`, in the chat's language), to the outbox of
-that paired chat (kind `heartbeat`) plus an `agent-checkin` push notice that names only
-the agent. The model's text never chooses a recipient. The push is sent when the
-check-in is handed to the outbox, not after Telegram accepted it.
+opted-in agent instead gets one native cron job
+(`server/features/assistants/native-heartbeats.js`) bound to the conversation its
+Telegram chat is paired with (the session `openConversation` created):
 
-**Known limit:** the check-in runs in its own session, so the agent's conversation
-does not contain it, and an owner's reply reaches the agent without that context. The
-settings say so. Native `chat.inject` was qualified for this and rejected: it appends
-the text to the transcript (and the chat view), but the pinned runtime leaves such
-gateway-injected notes out of the model context of the next turn, so the agent would
-still not know what the owner answers.
+- `sessionTarget: "current"` with that conversation's `sessionKey`: a detached run
+  that reads the conversation's recent tail and the agent's instructions
+  (`lightContext: false`), then commits its visible result into that conversation.
+  OpenClaw waits for a running turn there to end first, so a check-in that comes due
+  while the owner's turn runs appears after that turn's answer, never inside it.
+  The owner's next message, in AgentPier or on Telegram, therefore has the check-in
+  in its context.
+- MEMORY.md is not part of a detached run's prompt (a chat turn's is), so the
+  check-in prompt asks the agent to read it with `memory_get` first; the run's tools
+  are `memory_search` and `memory_get` only, so nothing is written unattended.
+- `delivery: { mode: "announce", completionDestination: { mode: "webhook" } }`:
+  announce is the session commit (no channels are configured), the completion
+  webhook is the reminder receiver. A `NO_REPLY` result is silent: nothing is
+  committed (the conversation shows no message; OpenClaw records the run as
+  not delivered), and AgentPier drops the posted `NO_REPLY` summary.
+- A new or re-paired conversation retires the job and creates one for the new
+  session key.
 
-Enabling needs a paired, enabled Telegram chat (`heartbeatChannelRequired`
-otherwise); a new agent switches check-ins on after saving. A saved change converges
-the job at once (update in place, or removal when switched off). So do changes of
-the paired chat (`ChannelService.channelChanged`): starting a new pairing or
-disabling, disconnecting or halting the chat retires the job, completing a pairing
-creates one bound to the new chat. Archiving a member retires its job and restoring
-it schedules one again. Every Gateway ready and every end of maintenance repeats
-the convergence for all agents. Maintenance switches the whole scheduler off. Agents
-whose model connection is blocked, archived members and agents without a paired chat
-keep no job, and queued check-ins of such agents are not sent. Switching reminders
-off pauses an agent's jobs, and the same save schedules its check-ins again. A
-creation whose acknowledgement was lost stays tracked until a listing shows its job;
-the job's first completion adopts it.
+The binding (kind `heartbeat`, hidden from reminder and routine lists) fixes the
+paired Telegram destination when the job is created. AgentPier drops an empty or
+`NO_REPLY` summary and failed runs; anything else goes, prefixed with `Check-in:`
+(server message `heartbeatPrefix`, in the chat's language), to the outbox of that
+paired chat (kind `heartbeat`) plus an `agent-checkin` push notice that names only the
+agent. The model's text never chooses a recipient. The push is sent when the
+check-in is handed to the outbox, not after Telegram accepted it. Native
+`chat.inject` was evaluated for the reply context first and rejected: gateway-injected
+notes appear in the transcript but never reach the model.
+
+A saved change converges the job at once (update in place, or removal when switched
+off). So do changes of the paired chat (`ChannelService.channelChanged`): starting a
+new pairing or disabling, disconnecting or halting the chat retires the job,
+completing a pairing creates one bound to the new chat. Archiving a member retires
+its job and restoring it schedules one again. Every Gateway ready and every end of
+maintenance repeats the convergence for all agents. Maintenance switches the whole
+scheduler off. Agents whose model connection is blocked, archived members, agents
+without memory and agents without a paired chat keep no job, and queued check-ins of
+such agents are not sent. Switching reminders off pauses an agent's jobs, and the
+same save schedules its check-ins again. A creation whose acknowledgement was lost
+stays tracked until a listing shows its job; the job's first completion adopts it.
 
 The heartbeat contract (`tests/integration/assistant-heartbeat-contract.test.js`)
-force-runs the job on the pinned runtime: a reply with content reaches the paired
-chat once, a `NO_REPLY` summary (which the native webhook does post) stays silent,
-the agent's native heartbeat job stays disabled, and switching off removes the job.
+force-runs the job on the pinned runtime with the compiled native configuration: the
+check-in sees the agent's instructions and the conversation, reads MEMORY.md through
+`memory_get`, reaches the paired chat once with its prefix, appears in the
+conversation, and is in the model input of the owner's next reply. `NO_REPLY` leaves
+no visible message and sends nothing. A check-in due during a running owner turn is
+committed after that turn's answer. The agent's native heartbeat job stays disabled,
+and switching off removes the job.
 
-### Remember across conversations
+### Recall across conversations is not offered yet
 
-**Remember across conversations** needs **Remember information**. It compiles the
-agent's own `memory.search` with `rememberAcrossConversations: true`, sources
-`["memory", "sessions"]` and `experimental.sessionMemory: true`; every other agent
-gets `false`, `["memory"]` and `false` explicitly, so a live merge patch also turns it
-off. The bundled `active-memory` plugin is loaded on native team Gateways with
-`agents: []`: its advanced path targets no agent, only the per-agent setting does.
-When a private message refers to the past, it runs a bounded recall pass over the
-same agent's other conversations (for example its AgentPier chat and its Telegram
-chat) before the reply: in the contract one search call and one summary call, so the
-settings name one or two extra model calls for such a message. Other messages cost
-nothing extra. Another agent's transcripts are never eligible.
+AgentPier keeps OpenClaw's cross-conversation recall off
+(`memory.search.rememberAcrossConversations: false`, transcripts not indexed). Each
+agent has one conversation, which its AgentPier chat and its paired Telegram chat
+share, so the recall pass would have little to find while costing extra model calls.
 
-`tools.sessions.visibility` is `"agent"` on every Gateway, regardless of the opt-in:
-OpenClaw's default `"all"` lets session tools reach other agents' transcripts. Teams
-do not use OpenClaw session tools (members run in their own sessions and report
-through the AgentPier bridge), and the team plugin contract passes with it.
+`tools.sessions.visibility` is `"agent"` on every Gateway: OpenClaw's default
+`"all"` lets session tools reach other agents' transcripts. Teams do not use
+OpenClaw session tools (members run in their own sessions and report through the
+AgentPier bridge), and the team plugin contract passes with it.
 
 ### Dreaming is not offered
 
 OpenClaw's dreaming (`plugins.entries.memory-core.config.dreaming`) stays disabled
-and the agents runtime settings have no switch for it. The recall contract
-(`tests/integration/assistant-recall-contract.test.js`) shows why: once enabled on the
+and the agents runtime settings have no switch for it. The dreaming contract
+(`tests/integration/assistant-dreaming-contract.test.js`) shows why: once enabled on the
 pinned runtime, memory-core schedules one nightly sweep (`0 3 * * *`) over every
 configured agent workspace. AgentPier conversations count as interactive sessions,
 so it does process them, but it also copied the transcripts of an agent without the

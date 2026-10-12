@@ -7,20 +7,20 @@ import "./assistant-proactivity.css";
 const hours = Array.from({ length: 25 }, (_, hour) => hour);
 
 /**
- * Opt-ins that make the agent act without a message: recall across its own
- * conversations (a capability that needs memory) and scheduled check-ins, with
- * the extra model calls each one costs.
+ * Scheduled check-ins: the agent looks at its own conversation at set times and
+ * writes only when something needs the owner. They need memory (its notes are
+ * what it checks against) and a paired chat; the extra model runs are shown.
  */
 export default function AssistantProactivity({
   assistant,
   capabilities,
-  onCapabilities,
   heartbeat,
   onHeartbeat,
 }) {
   const memory = capabilities.memory === true;
   // A new agent has no paired chat yet: check-ins are switched on after saving.
   const creating = !assistant;
+  const available = !creating && memory;
   const set = (patch) => onHeartbeat({ ...heartbeat, ...patch });
   // A saved zone stays until the owner adopts the browser's (after travelling).
   const zone = browserTimeZone();
@@ -35,27 +35,8 @@ export default function AssistantProactivity({
         <label className="assistant-team-permission assistant-capability">
           <input
             type="checkbox"
-            checked={memory && capabilities.recall === true}
-            // Without memory a stored flag has no effect; it returns with memory.
-            disabled={!memory}
-            aria-describedby="proactivity-recall-hint"
-            onChange={(e) =>
-              onCapabilities({ ...capabilities, recall: e.target.checked })
-            }
-          />
-          <span>
-            {copy.recall}
-            <small id="proactivity-recall-hint">
-              {memory ? copy.recallDescription : copy.recallNeedsMemory}{" "}
-              {memory && copy.recallCost}
-            </small>
-          </span>
-        </label>
-        <label className="assistant-team-permission assistant-capability">
-          <input
-            type="checkbox"
-            checked={!creating && heartbeat.enabled}
-            disabled={creating}
+            checked={available && heartbeat.enabled}
+            disabled={!available}
             aria-describedby="proactivity-heartbeat-hint"
             onChange={(e) => set({ enabled: e.target.checked })}
           />
@@ -64,11 +45,13 @@ export default function AssistantProactivity({
             <small id="proactivity-heartbeat-hint">
               {creating
                 ? assistantCopy.personal.availableAfterSaving
-                : `${copy.heartbeatDescription} ${copy.heartbeatChannel}`}
+                : memory
+                  ? `${copy.heartbeatDescription} ${copy.heartbeatChannel}`
+                  : copy.heartbeatNeedsMemory}
             </small>
           </span>
         </label>
-        {!creating && heartbeat.enabled && (
+        {available && heartbeat.enabled && (
           <div className="assistant-heartbeat-schedule">
             <label>
               {copy.interval}
