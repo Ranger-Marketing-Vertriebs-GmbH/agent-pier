@@ -37,11 +37,17 @@ export function openBlankTab(open = window.open.bind(window)) {
 /** The callback's result for a Codex account: who logged in where, and why it failed. */
 export function codexResultText(result, servers) {
   const server = (servers || []).find((item) => item.id === result.serverId);
-  const account =
-    server?.cliStatus?.codex?.oauth?.accounts?.find(
-      (item) => item.id === result.accountId,
-    )?.name || copy.codexThisAccount;
+  const account = server?.cliStatus?.codex?.oauth?.accounts?.find(
+    (item) => item.id === result.accountId,
+  )?.name;
   const name = server?.name || mcpOAuthCopy.thisServer;
-  if (result.result === "connected") return copy.codexConnected(account, name);
-  return `${copy.codexFailed(account, name)} ${failureReason(result.reason)}`;
+  // Before the list loaded the account is not known yet: a neutral sentence.
+  if (result.result === "connected")
+    return account
+      ? copy.codexConnected(account, name)
+      : copy.codexConnectedUnnamed(name);
+  const failed = account
+    ? copy.codexFailed(account, name)
+    : copy.codexFailedUnnamed(name);
+  return `${failed} ${failureReason(result.reason)}`;
 }

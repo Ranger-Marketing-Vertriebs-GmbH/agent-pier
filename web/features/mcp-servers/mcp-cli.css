@@ -145,3 +145,8 @@
 .mcp-cli-status .mcp-codex-accounts ul {
   margin: 0;
 }
+/* "Log in again" for a connected account stays quieter than a needed login. */
+.mcp-cli-status .button.mcp-login-again {
+  background: transparent;
+  color: var(--muted);
+}

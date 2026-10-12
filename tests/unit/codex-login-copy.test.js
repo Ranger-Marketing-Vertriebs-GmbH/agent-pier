@@ -79,7 +79,18 @@ test("the result names the account and the server", () => {
       },
       servers,
     ),
-    "The login of the Codex account (removed) to docs failed. Access was denied at the provider.",
+    "The login of a Codex account to docs failed. Access was denied at the provider.",
+  );
+});
+
+test("before the list is loaded the result names no account", () => {
+  setLanguage("en");
+  assert.equal(
+    codexResultText(
+      { result: "connected", cli: "codex", serverId: "s1", accountId: "a1" },
+      null,
+    ),
+    "A Codex account is logged in to the server. New sessions of that account can use its tools.",
   );
 });
 

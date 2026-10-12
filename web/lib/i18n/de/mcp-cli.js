@@ -67,8 +67,8 @@ export const mcpCliCopy = {
     "Die Anmeldung im neuen Tab innerhalb von fünf Minuten abschließen; diese Liste aktualisiert sich selbst.",
   codexOpenLogin: "Anmeldeseite öffnen",
   codexOpenLoginFor: (account) => `Anmeldeseite für den Codex-Account ${account} öffnen`,
-  codexHttpHint: (command) =>
-    `Die Anmeldung von hier braucht HTTPS (Tailscale) oder den AgentPier-Rechner selbst. Alternativ ${command} in einer Sitzung des Accounts ausführen.`,
+  codexHttpHint: (port) =>
+    `Die Anmeldung braucht die HTTPS-Adresse von AgentPier (Tailscale) oder einen Browser auf dem AgentPier-Rechner selbst. AgentPier auf einem dieser Wege öffnen und dort anmelden, oder den Port per SSH weiterleiten (ssh -L ${port}:127.0.0.1:${port} <AgentPier-Rechner>) und http://127.0.0.1:${port} öffnen.`,
   codexReasons: {
     expired: "Sie wurde nicht innerhalb von fünf Minuten abgeschlossen.",
     "cli-failed": "Codex konnte sie nicht abschließen. Bitte erneut versuchen.",
@@ -77,7 +77,13 @@ export const mcpCliCopy = {
     `Der Codex-Account ${account} ist bei ${name} angemeldet. Neue Sitzungen dieses Accounts können seine Werkzeuge nutzen.`,
   codexFailed: (account, name) =>
     `Die Anmeldung des Codex-Accounts ${account} bei ${name} ist fehlgeschlagen.`,
-  codexThisAccount: "(entfernt)",
+  codexConnectedUnnamed: (name) =>
+    `Ein Codex-Account ist bei ${name} angemeldet. Neue Sitzungen dieses Accounts können seine Werkzeuge nutzen.`,
+  codexFailedUnnamed: (name) =>
+    `Die Anmeldung eines Codex-Accounts bei ${name} ist fehlgeschlagen.`,
+  codexLoginAgain: "Erneut anmelden",
+  codexLoginAgainFor: (account, name) =>
+    `Im Codex-Account ${account} erneut bei ${name} anmelden`,
   oauthLogin: (cli, command) => `Einmal in ${cli} anmelden: ${command} ausführen`,
   oauthUnknown: (cli, command) =>
     `Falls ${cli} eine Anmeldung verlangt: ${command} ausführen`,
