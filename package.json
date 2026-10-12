@@ -90,7 +90,7 @@
     "fast-check": "^4.10.2",
     "globals": "^17.13.0",
     "prettier": "^3.9.9",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vite": "^8.3.3"
   },
   "description": "Local coding CLI workspace with mobile chat, recoverable delivery and review pipelines",
