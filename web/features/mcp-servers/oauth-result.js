@@ -1,11 +1,13 @@
 // The result of an MCP OAuth login: the callback redirects to the Accounts page with
-// `oauth` (connected or error), `server` (its id) and an optional stable `reason`.
+// `oauth` (connected or error), `server` (its id) and an optional stable `reason`; a
+// brokered Codex login adds `cli=codex` and `account` (the managed account's id).
 // The route keeps it while the address is normalized to a plain /accounts.
 import { mcpOAuthCopy as copy } from "../../lib/i18n/messages/mcp-oauth.js";
 
 const results = new Set(["connected", "error"]);
 const serverId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
 const reasonCode = /^[a-z][a-z_-]{0,63}$/;
+const accountId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 
 /** `{ mcpOAuth: { result, serverId?, reason? } }` from a query string, or `{}`. */
 export function readMcpOAuthResult(search) {
@@ -14,9 +16,12 @@ export function readMcpOAuthResult(search) {
   if (!results.has(result)) return {};
   const server = query.get("server") || "";
   const reason = query.get("reason") || "";
+  const account = query.get("account") || "";
+  const codex = query.get("cli") === "codex" && accountId.test(account);
   return {
     mcpOAuth: {
       result,
+      ...(codex ? { cli: "codex", accountId: account } : {}),
       ...(serverId.test(server) ? { serverId: server } : {}),
       ...(result === "error" && reasonCode.test(reason) ? { reason } : {}),
     },

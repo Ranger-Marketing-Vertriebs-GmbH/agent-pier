@@ -42,8 +42,42 @@ export const mcpCliCopy = {
   oauthLoginCodex: (command) => `Einmal in deinem Codex-Profil anmelden: ${command}`,
   oauthUnknownCodex: (command) =>
     `Falls dein Codex-Profil eine Anmeldung verlangt: ${command} ausführen`,
-  oauthCodexAccounts: (command) =>
-    `Von AgentPier verwaltete Codex-Accounts haben eigene MCP-Anmeldungen: ${command} in einer Sitzung des jeweiligen Accounts ausführen.`,
+  // Vermittelte Anmeldungen in von AgentPier verwalteten Codex-Accounts.
+  codexAccountsTitle: "Codex-Accounts",
+  codexAccountsFor: (name) => `Codex-Accounts für ${name}`,
+  codexAccountsHint:
+    "Jeder von AgentPier verwaltete Codex-Account hat eine eigene Anmeldung. Neue Sitzungen des Accounts nutzen sie.",
+  codexAccountsNone: "Noch keine von AgentPier verwalteten Codex-Accounts.",
+  codexAccountStates: {
+    connected: "angemeldet",
+    "login-required": "Anmeldung nötig",
+    unknown: "Status unbekannt",
+    pending: "Anmeldung läuft",
+    failed: "Anmeldung fehlgeschlagen",
+  },
+  codexAccountLine: (account, status) => `${account}: ${status}`,
+  codexFailedLine: (account, reason) => `${account}: Anmeldung fehlgeschlagen. ${reason}`,
+  codexLogin: "Anmelden",
+  codexLoginFor: (account, name) => `Im Codex-Account ${account} bei ${name} anmelden`,
+  codexLoggingIn: "Anmeldung wird geöffnet …",
+  codexCancel: "Abbrechen",
+  codexCancelFor: (account, name) =>
+    `Anmeldung bei ${name} im Codex-Account ${account} abbrechen`,
+  codexPendingHint:
+    "Die Anmeldung im neuen Tab innerhalb von fünf Minuten abschließen; diese Liste aktualisiert sich selbst.",
+  codexOpenLogin: "Anmeldeseite öffnen",
+  codexOpenLoginFor: (account) => `Anmeldeseite für den Codex-Account ${account} öffnen`,
+  codexHttpHint: (command) =>
+    `Die Anmeldung von hier braucht HTTPS (Tailscale) oder den AgentPier-Rechner selbst. Alternativ ${command} in einer Sitzung des Accounts ausführen.`,
+  codexReasons: {
+    expired: "Sie wurde nicht innerhalb von fünf Minuten abgeschlossen.",
+    "cli-failed": "Codex konnte sie nicht abschließen. Bitte erneut versuchen.",
+  },
+  codexConnected: (account, name) =>
+    `Der Codex-Account ${account} ist bei ${name} angemeldet. Neue Sitzungen dieses Accounts können seine Werkzeuge nutzen.`,
+  codexFailed: (account, name) =>
+    `Die Anmeldung des Codex-Accounts ${account} bei ${name} ist fehlgeschlagen.`,
+  codexThisAccount: "(entfernt)",
   oauthLogin: (cli, command) => `Einmal in ${cli} anmelden: ${command} ausführen`,
   oauthUnknown: (cli, command) =>
     `Falls ${cli} eine Anmeldung verlangt: ${command} ausführen`,

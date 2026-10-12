@@ -42,8 +42,42 @@ export const mcpCliCopy = {
   oauthLoginCodex: (command) => `Log in once in your Codex profile: ${command}`,
   oauthUnknownCodex: (command) =>
     `If your Codex profile asks for a login: run ${command}`,
-  oauthCodexAccounts: (command) =>
-    `AgentPier-managed Codex accounts keep their own MCP logins: run ${command} in a session of that account.`,
+  // Brokered logins in AgentPier-managed Codex accounts (McpCodexAccounts.jsx).
+  codexAccountsTitle: "Codex accounts",
+  codexAccountsFor: (name) => `Codex accounts for ${name}`,
+  codexAccountsHint:
+    "Each Codex account managed by AgentPier keeps its own login. New sessions of the account use it.",
+  codexAccountsNone: "No Codex accounts managed by AgentPier yet.",
+  codexAccountStates: {
+    connected: "logged in",
+    "login-required": "login required",
+    unknown: "status unknown",
+    pending: "login in progress",
+    failed: "login failed",
+  },
+  codexAccountLine: (account, status) => `${account}: ${status}`,
+  codexFailedLine: (account, reason) => `${account}: login failed. ${reason}`,
+  codexLogin: "Log in",
+  codexLoginFor: (account, name) => `Log in to ${name} in the Codex account ${account}`,
+  codexLoggingIn: "Opening login …",
+  codexCancel: "Cancel",
+  codexCancelFor: (account, name) =>
+    `Cancel the login to ${name} in the Codex account ${account}`,
+  codexPendingHint:
+    "Complete the login in the new tab within five minutes; this list updates by itself.",
+  codexOpenLogin: "Open the login page",
+  codexOpenLoginFor: (account) => `Open the login page for the Codex account ${account}`,
+  codexHttpHint: (command) =>
+    `Logging in from here needs HTTPS (Tailscale) or the AgentPier host itself. Alternatively run ${command} in a session of the account.`,
+  codexReasons: {
+    expired: "It was not completed within five minutes.",
+    "cli-failed": "Codex could not complete it. Please try again.",
+  },
+  codexConnected: (account, name) =>
+    `The Codex account ${account} is logged in to ${name}. New sessions of this account can use its tools.`,
+  codexFailed: (account, name) =>
+    `The login of the Codex account ${account} to ${name} failed.`,
+  codexThisAccount: "(removed)",
   oauthLogin: (cli, command) => `Log in once in ${cli}: run ${command}`,
   oauthUnknown: (cli, command) => `If ${cli} asks for a login: run ${command}`,
   oauthLoginSession: (cli, command) => `Log in once: open ${command} in ${cli}`,
