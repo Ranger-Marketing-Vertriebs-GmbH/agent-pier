@@ -290,9 +290,14 @@ start the same way (`State lease operation and cleanup failed | ... database is
 locked`). CI saw the CLI case on macOS (2026-10-12); a second process holding short
 write transactions failed 2 of 10 sequential logouts. A failed release can leave
 the lease held until it expires (60 s): the next call waits up to 30 s and fails
-with `state lease ... is held by ...`. The wrapper repeats a call whose stderr shows
-the lock (after 250 ms and 1 s); failing to take the lease does nothing, so a
-`--code` keeps its code.
+with `state lease ... is held by ...`. The wrapper repeats a call (after 250 ms and
+1 s) only when the lease's own transaction could not start: `store unavailable
+(sqlite-busy)`, or `database is locked` from `operation=state.lease ... step=begin`.
+Before the lease nothing has happened, so a `--code` keeps its code unused. A lock
+anywhere else may come after the code exchange. Repeating `--code` with the used
+code would make the SDK invalidate the tokens it had just saved, so such a failure
+is reported as it is. Each repeat puts `--code=<code>` in the process list once more,
+within the exposure accepted in (b).
 
 ### (g) HTTPS redirect URL
 

@@ -141,8 +141,9 @@ test("known OpenClaw failures map to stable codes", async (t) => {
   );
 });
 
-test("a call that meets OpenClaw's locked state database is repeated", async (t) => {
-  // The lease transaction does not wait for a writer; failing it leaves nothing done.
+test("a call whose lease could not start on a locked database is repeated", async (t) => {
+  // The lease transaction does not wait for a writer; failing to start it leaves
+  // nothing done.
   const once = setup(t, "locked-once", { busyRetryDelaysMs: [10] });
   await once.cli.completeLogin("docs", "abc");
   assert.deepEqual(once.recorded().argv, ["mcp", "login", "docs", "--code=abc"]);
@@ -172,9 +173,18 @@ test("a call that meets OpenClaw's locked state database is repeated", async (t)
     return true;
   });
   assert.equal(locked.count(), 3);
-  const generic = calls("fail-generic");
-  await rejects(generic.cli.logout("docs"), "cli-failed");
-  assert.equal(generic.count(), 1);
+  const leaseBusy = calls("lease-busy");
+  await rejects(leaseBusy.cli.completeLogin("docs", "abc"), "cli-failed");
+  assert.equal(leaseBusy.count(), 3);
+
+  // A lock anywhere else may come after the code exchange: repeating `--code` with a
+  // used code would make OpenClaw drop the tokens it just saved. Not repeated, nor are
+  // other failures.
+  for (const mode of ["locked-store", "locked-cleanup", "fail-generic"]) {
+    const once = calls(mode);
+    await rejects(once.cli.completeLogin("docs", "abc"), "cli-failed");
+    assert.equal(once.count(), 1, mode);
+  }
 });
 
 test("completeLogin passes the code as one argument and never reveals it", async (t) => {

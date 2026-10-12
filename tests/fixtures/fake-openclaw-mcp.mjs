@@ -109,19 +109,38 @@ const row = (serverName, auth) => ({
   ...(auth ? { auth: "oauth", authStatus: authStatus[auth] } : {}),
 });
 
-// OpenClaw 2026.9.8's output when its lease transaction meets a writer.
-const locked = [
-  "[sqlite/transaction] SQLite transaction lock wait failed async=false busyTimeoutMs=0 operation=state.lease code=ERR_SQLITE_ERROR elapsedMs=0 failureKind=lock-contention sqliteErrcode=5 step=begin",
-  "[openclaw] The CLI command failed.",
-  "[openclaw] Reason: database is locked",
-  "[openclaw] Debug: set OPENCLAW_DEBUG=1 to include the stack trace.",
-  "[openclaw] Try: openclaw doctor",
-  "[openclaw] Help: openclaw --help",
-].join("\n");
-// "locked-once": the first call meets the lock (FAKE_OPENCLAW_RECORD marks it), later
-// calls run as "ok".
+// OpenClaw 2026.9.8's output when a write transaction meets a writer: `lockedAt`
+// names the transaction (`operation`, `step`) and the reason OpenClaw reports.
+const lockedAt = (operation, step, reason = "database is locked") =>
+  [
+    `[sqlite/transaction] SQLite transaction lock wait failed async=false busyTimeoutMs=0 operation=${operation} code=ERR_SQLITE_ERROR elapsedMs=0 failureKind=lock-contention sqliteErrcode=5 step=${step}`,
+    "[openclaw] The CLI command failed.",
+    `[openclaw] Reason: ${reason}`,
+    "[openclaw] Debug: set OPENCLAW_DEBUG=1 to include the stack trace.",
+    "[openclaw] Try: openclaw doctor",
+    "[openclaw] Help: openclaw --help",
+  ].join("\n");
+const lockOutputs = {
+  // The lease's own transaction could not start: nothing was done.
+  locked: lockedAt("state.lease", "begin"),
+  "lease-busy": [
+    "[openclaw] The CLI command failed.",
+    "[openclaw] Reason: failed to acquire state lease core:mcp-oauth/docs-1e3e0b7c5d771873: store unavailable (sqlite-busy)",
+  ].join("\n"),
+  // A store write under the lease, possibly after the code exchange.
+  "locked-store": lockedAt("mcp.oauth.store", "begin"),
+  // The operation failed and the lease's release met the lock too.
+  "locked-cleanup": lockedAt(
+    "state.lease",
+    "begin",
+    "State lease operation and cleanup failed",
+  ),
+};
+// "locked-once": the first call meets the lease lock (FAKE_OPENCLAW_RECORD marks it),
+// later calls run as "ok".
 let effective = mode;
 if (mode === "locked-once") {
+  if (!process.env.FAKE_OPENCLAW_RECORD) fail("locked-once needs FAKE_OPENCLAW_RECORD");
   const marker = `${process.env.FAKE_OPENCLAW_RECORD}.locked`;
   if (fs.existsSync(marker)) effective = "ok";
   else {
@@ -131,7 +150,7 @@ if (mode === "locked-once") {
 }
 
 if (group !== "mcp") fail(`unexpected ${group}`);
-if (effective === "locked") fail(locked);
+if (lockOutputs[effective]) fail(lockOutputs[effective]);
 else if (mode === "hang") setInterval(() => {}, 1000);
 else if (mode === "hang-group") {
   // A grandchild in the CLI's process group, recorded next to the CLI's own pid.

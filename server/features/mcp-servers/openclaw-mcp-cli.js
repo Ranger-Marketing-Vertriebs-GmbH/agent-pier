@@ -36,12 +36,22 @@ const defaultMaxOutputBytes = 256 * 1024;
 const reasonLength = 300;
 // OpenClaw takes its MCP OAuth lease in SQLite write transactions that do not wait
 // for a lock: while the Gateway (or another CLI) writes the shared state database, a
-// login or logout fails at once with "database is locked". Failing to take the lease
-// leaves nothing done (a `--code` keeps its code unused), so the call is repeated; a
-// lock later in the call at worst repeats its failure (a used code is refused).
+// login or logout fails at once. Only a failure to start the lease's own transaction
+// is repeated: "store unavailable (sqlite-busy)", or "database is locked" from
+// `operation=state.lease ... step=begin`. Before the lease nothing has happened (a
+// `--code` keeps its code unused). The same signature after a completed `--code` (its
+// release) finds no authorization session on the repeat and exchanges nothing. A lock
+// anywhere else may follow the code exchange: repeating `--code` with the used code
+// would make OpenClaw's SDK drop the tokens it just saved, so that failure stands.
 const defaultBusyRetryDelaysMs = [250, 1000];
-const busyStore =
-  /\bdatabase is locked\b|failureKind=lock-contention|store unavailable \(sqlite-busy\)/i;
+const leaseLockLine = /\boperation=state\.lease\b.*\bstep=begin\b/;
+
+/** Whether the CLI failed only because its lease transaction could not start. */
+function leaseLocked(stderr) {
+  const reason = reasonOf(stderr);
+  if (/store unavailable \(sqlite-busy\)/i.test(reason)) return true;
+  return /^database is locked$/i.test(reason) && leaseLockLine.test(stderr);
+}
 
 const tokenParameters =
   /\b(code|state|token|access_token|refresh_token|id_token|client_secret|code_verifier|code_challenge)=([^&\s"'<>]+)/gi;
@@ -273,7 +283,7 @@ export function createMcpCli({
         const stderr = text("stderr");
         reject(
           Object.assign(failure(command, code, stderr, secrets), {
-            busy: busyStore.test(stderr),
+            busy: leaseLocked(stderr),
           }),
         );
       });
