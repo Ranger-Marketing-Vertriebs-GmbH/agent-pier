@@ -29,11 +29,13 @@ test("without teams the Gateway gets only session_status and no plugins", (t) =>
   prepareRuntimeConfig(paths, 1234);
   const config = readJSON(paths.config);
   // Deliberately changed with agent shell access: the global exec floor is "deny",
-  // since OpenClaw's gateway host otherwise defaults exec to "full".
+  // since OpenClaw's gateway host otherwise defaults exec to "full". Session tools
+  // are limited to the calling agent's own sessions (default "all").
   assert.deepEqual(config.tools, {
     allow: ["session_status"],
     toolSearch: false,
     exec: { mode: "deny" },
+    sessions: { visibility: "agent" },
   });
   assert.deepEqual(config.plugins, { slots: { memory: "none" } });
   assert.equal(config.cron.enabled, false);
@@ -99,7 +101,11 @@ test("native teams wire the plugin, memory, tools, cron and skills", (t) => {
   const paths = fixture(t);
   prepareRuntimeConfig(paths, 1234, teams({ native: { token: "hook" }, profiles: [] }));
   const config = readJSON(paths.config);
-  assert.deepEqual(config.plugins.allow, ["agentpier-teams", "memory-core"]);
+  assert.deepEqual(config.plugins.allow, [
+    "agentpier-teams",
+    "memory-core",
+    "active-memory",
+  ]);
   assert.deepEqual(config.plugins.load, { paths: ["/private/plugin"] });
   assert.deepEqual(config.plugins.entries["agentpier-teams"], {
     enabled: true,
