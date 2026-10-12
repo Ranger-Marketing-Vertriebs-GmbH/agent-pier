@@ -115,7 +115,7 @@ export class McpChanges {
   }
   /**
    * Validates a new binding set for `profile` before anything is persisted. Adding a
-   * stdio server needs the owner's confirmation.
+   * stdio server needs the owner's confirmation; returns whether one is added.
    */
   checkBindings(profile, ids, confirmStdio) {
     if (!this.ownerManaged(profile)) throw problem(messages.agentNotEligible, 400);
@@ -129,6 +129,7 @@ export class McpChanges {
     const added = [...new Set(ids)].filter((id) => !current.has(id));
     const stdio = added.some((id) => this.servers.get(id).transport === "stdio");
     if (stdio) requireStdioConfirmation(confirmStdio === true);
+    return stdio;
   }
   setBindings(id, ids) {
     this.servers.setBindings("agent", id, ids);
@@ -159,8 +160,8 @@ export class McpChanges {
   update(id, input, { confirmStdio = false } = {}) {
     return this.assistants.admit(async () => {
       // Editing what a stdio server runs needs the same confirmation as adding one.
-      if (this.changesStdio(this.servers.get(id), input))
-        requireStdioConfirmation(confirmStdio === true);
+      const stdioChanged = this.changesStdio(this.servers.get(id), input);
+      if (stdioChanged) requireStdioConfirmation(confirmStdio === true);
       // OpenClaw keys a login by name and URL: log out under the old ones first.
       const oauth = this.oauth
         ? await this.oauth.beforeUpdate(id, this.servers.previewUpdate(id, input))
@@ -170,15 +171,21 @@ export class McpChanges {
         server,
         pending: await this.applySaved(),
         logoutDeferred: !!oauth.deferred,
+        stdioChanged,
       };
     });
   }
   remove(id) {
     return this.assistants.admit(async () => {
+      const { transport } = this.servers.get(id);
       const oauth = this.oauth ? await this.oauth.beforeRemove(id) : {};
       // The store removes the server's bindings with it.
       this.servers.remove(id);
-      return { pending: await this.applySaved(), logoutDeferred: !!oauth.deferred };
+      return {
+        pending: await this.applySaved(),
+        logoutDeferred: !!oauth.deferred,
+        transport,
+      };
     });
   }
   /**

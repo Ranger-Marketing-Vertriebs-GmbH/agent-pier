@@ -35,7 +35,7 @@ export function mcpServerRoutes(services) {
   const { assistantMcpChanges: changes, assistantMcpOAuth: oauth, audit } = services;
   // Names and flags only: no header, env, argument, cwd or URL value is recorded.
   const auditMcp = (action, id, details) =>
-    audit?.append({
+    audit.append({
       action,
       resourceType: "mcp",
       resourceId: id,
@@ -76,13 +76,7 @@ export function mcpServerRoutes(services) {
     const body = req.body;
     const { confirmStdio, ...input } = record(body) ? body : {};
     try {
-      let stdioChange = false;
-      try {
-        stdioChange = changes.changesStdio(changes.servers.get(req.params.id), body);
-      } catch {
-        // An unknown server fails in update().
-      }
-      const { server, pending, logoutDeferred } = await changes.update(
+      const { server, pending, logoutDeferred, stdioChanged } = await changes.update(
         req.params.id,
         record(body) ? input : body,
         { confirmStdio: confirmStdio === true },
@@ -92,7 +86,7 @@ export function mcpServerRoutes(services) {
         fields: Object.keys(record(body) ? input : {}).filter(
           (key) => key !== "revision",
         ),
-        stdioConfirmed: stdioChange && confirmStdio === true,
+        stdioConfirmed: stdioChanged && confirmStdio === true,
       });
       res.json({
         ...server,
@@ -105,8 +99,8 @@ export function mcpServerRoutes(services) {
     }
   });
   router.delete("/mcp-servers/:id", async (req, res) => {
-    const { pending, logoutDeferred } = await changes.remove(req.params.id);
-    auditMcp("mcp.deleted", req.params.id);
+    const { pending, logoutDeferred, transport } = await changes.remove(req.params.id);
+    auditMcp("mcp.deleted", req.params.id, { transport });
     if (pending || logoutDeferred)
       res.json({
         ...(pending ? { pending: true } : {}),

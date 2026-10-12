@@ -109,12 +109,14 @@ function activeAssistantRoutes(services) {
     const { revision, confirmRestart, ...patch } = req.body;
     const binds = Array.isArray(patch.mcpServers);
     let result;
+    const outcome = {};
     try {
       // The owner confirms a Gateway restart for new global web tool sections;
       // `confirmStdio` in the patch confirms binding a stdio MCP server;
       // `confirmShell` and `confirmFull` confirm raising the shell level.
       result = await assistants.update(req.params.id, patch, revision, {
         confirmed: confirmRestart === true,
+        outcome,
       });
     } catch (error) {
       if (replyStdioConfirmation(res, error)) return;
@@ -131,7 +133,7 @@ function activeAssistantRoutes(services) {
         source: "user",
         details: {
           fields: ["mcpServers"],
-          stdioConfirmed: patch.confirmStdio === true,
+          stdioConfirmed: outcome.stdioAdded === true,
           count: patch.mcpServers.length,
         },
       });
