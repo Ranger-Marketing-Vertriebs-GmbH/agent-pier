@@ -50,4 +50,8 @@ export const mcpServers = {
     "AgentPier kann diesen Eintrag nicht übernehmen, ohne Einstellungen zu verlieren, die es nicht verwaltet.",
   cliChangeNotAdoptable:
     "Die Änderung lässt sich nicht übernehmen: Die Verbindungsart weicht ab oder der Eintrag nutzt Einstellungen, die AgentPier nicht verwaltet.",
+  cliTransportUnsupported:
+    "Diese Coding-CLI unterstützt die Verbindungsart des Servers nicht.",
+  cliCwdUnsupported:
+    "Diese Coding-CLI kann einen lokalen Befehl nicht in einem Arbeitsverzeichnis starten. Bitte das Arbeitsverzeichnis entfernen oder nur Codex oder OpenCode wählen.",
 };

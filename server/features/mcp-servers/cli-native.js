@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { serverMessages } from "../../lib/i18n/de.js";
+import { problem } from "../../lib/storage.js";
 import { mcpUrl, nativeMcp, record, values } from "../extensions/mcp-config.js";
 import { namePattern } from "./command-resolution.js";
 
@@ -17,6 +19,21 @@ export function cliSupport(cli, server) {
   if (cli === "claude" && server.transport === "stdio" && server.cwd)
     return { supported: false, reason: "cwd" };
   return { supported: true };
+}
+
+const refusals = {
+  transport: ["MCP_CLI_TRANSPORT_UNSUPPORTED", "cliTransportUnsupported"],
+  cwd: ["MCP_CLI_CWD_UNSUPPORTED", "cliCwdUnsupported"],
+};
+
+/** Refuses (400) when one of `targets` cannot run `server`; nothing is stored then. */
+export function requireCliSupport(targets, server) {
+  for (const cli of targets) {
+    const support = cliSupport(cli, server);
+    if (support.supported) continue;
+    const [code, key] = refusals[support.reason];
+    throw Object.assign(problem(serverMessages.mcpServers[key], 400), { code });
+  }
 }
 
 /** nativeMcp's input for a stored definition and its secrets. */

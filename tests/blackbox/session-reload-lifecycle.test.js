@@ -98,6 +98,13 @@ setInterval(()=>{},1000);
   assert.equal(session.sshTools.enabled, true);
   const attachment = path.join(session.attachments.directory, "retained.txt");
   await fs.writeFile(attachment, "retained fixture");
+  // A reload prepares the CLI's central MCP entries like a first start.
+  let cliPrepared = 0;
+  const prepareCli = app.cliMcp.prepare.bind(app.cliMcp);
+  app.cliMcp.prepare = async (input) => {
+    cliPrepared++;
+    return prepareCli(input);
+  };
   const requestId = randomUUID();
   const reload = await f.request(endpoint, {
     method: "POST",
@@ -111,6 +118,7 @@ setInterval(()=>{},1000);
     async () => (await f.request(endpoint)).json(),
     (value) => value.state === "completed",
   );
+  assert.ok(cliPrepared >= 1);
   const renewed = await until(
     () => app.sessions.get(session.id),
     (value) =>

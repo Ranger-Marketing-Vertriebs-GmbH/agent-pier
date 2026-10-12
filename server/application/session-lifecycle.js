@@ -147,6 +147,10 @@ export function createSessionLifecycle(services) {
       throw problem(serverMessages.sessions.sessionLimitReached, 409);
     if (login && (await runningFor(account.id)))
       throw problem(serverMessages.sessions.stopBeforeLogin, 409);
+    // Central MCP servers go into the CLI's canonical profile first, so the shared
+    // profile projection below carries them into a managed account in this launch.
+    if (!login && services.cliMcp)
+      launch = await services.cliMcp.prepare({ account, launch });
     if (!login) sharedProfiles?.prepare(account, launch);
     const id = trusted.id || randomUUID();
     if (!login && account.tool === "claude" && !trusted.transformLaunch)

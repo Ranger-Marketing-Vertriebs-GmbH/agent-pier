@@ -30,6 +30,7 @@ import { ModelController } from "../features/models/model-controller.js";
 import { ExtensionsStore } from "../features/extensions/extension-store.js";
 import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { CentralMcpChanges } from "../features/mcp-servers/central-changes.js";
+import { CliMcpBindings } from "../features/mcp-servers/cli-bindings.js";
 import { ToolInstaller } from "../features/tools/tool-installer.js";
 import { PluginStore } from "../features/plugins/plugin-store.js";
 import { NativeSessionBinding } from "../features/sessions/native-session-binding.js";
@@ -199,6 +200,22 @@ export async function createServices(config) {
       servers: mcpServers,
       agents: () => services.assistantMcpChanges,
       maintenance: () => !!services.assistants?.maintenance,
+      // Every saved change is written into the bound CLIs at once.
+      onSaved: async () => services.cliMcp?.reconcileAll(),
+    });
+  const cliMcp =
+    mcpServers &&
+    new CliMcpBindings({
+      servers: mcpServers,
+      extensions,
+      changes: () => services.mcpServerChanges,
+      agentNames: () =>
+        new Map(
+          (services.assistants?.store.listAssistants() || []).map((profile) => [
+            profile.id,
+            profile.name,
+          ]),
+        ),
     });
   requests = new RequestBroker({
     dataDir: config.dataDir,
@@ -283,6 +300,7 @@ export async function createServices(config) {
     extensions,
     mcpServers,
     mcpServerChanges,
+    cliMcp,
     sharedProfiles,
     agency,
     installer,
