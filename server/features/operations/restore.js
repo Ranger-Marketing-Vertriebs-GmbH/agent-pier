@@ -114,20 +114,7 @@ async function capsule(bytes, passphrase) {
  * members it validates and decrypts the capsule only with a passphrase; a restore
  * writes everything and requires it. Returns the manifest and decrypted secrets.
  */
-async function stageArchive(source, directory, { passphrase, inspect = false }) {
-  // Archives handed over as bytes (tests, small uploads) are read from a file too.
-  let archive = source;
-  if (Buffer.isBuffer(source)) {
-    archive = path.join(directory, `.archive-${randomUUID()}`);
-    fs.writeFileSync(archive, source, { mode: 0o600, flag: "wx" });
-  }
-  try {
-    return await stageFile(archive, directory, { passphrase, inspect });
-  } finally {
-    if (archive !== source) fs.rmSync(archive, { force: true });
-  }
-}
-async function stageFile(archive, directory, { passphrase, inspect }) {
+async function stageArchive(archive, directory, { passphrase, inspect = false }) {
   const decrypt = !inspect || passphrase !== undefined;
   if ((await archiveVersion(archive)) === 1) {
     const value = decodeArchive(archive);
@@ -254,15 +241,28 @@ export class Restore {
     this.audit = audit;
     this.uploads = new RestoreUploads(this.directory, this.dataDir);
   }
+  /**
+   * Archives handed over as bytes (tests, small uploads) are read from a file too,
+   * kept in the server's own restore folder rather than beside the chosen target.
+   */
+  async withArchiveFile(archive, use) {
+    if (!Buffer.isBuffer(archive)) return use(archive);
+    const file = path.join(this.directory, `.archive-${randomUUID()}`);
+    fs.writeFileSync(file, archive, { mode: 0o600, flag: "wx" });
+    try {
+      return await use(file);
+    } finally {
+      fs.rmSync(file, { force: true });
+    }
+  }
   async inspect({ archive, passphrase, projectMap } = {}) {
     const scratchPath = path.join(this.directory, `.inspect-${randomUUID()}`);
     const release = claim(this.dataDir, scratchPath);
     const scratch = folder(scratchPath);
     try {
-      const { manifest } = await stageArchive(archive, scratch, {
-        passphrase,
-        inspect: true,
-      });
+      const { manifest } = await this.withArchiveFile(archive, (file) =>
+        stageArchive(file, scratch, { passphrase, inspect: true }),
+      );
       verifyStaged(scratch);
       const projects = backupProjects(scratch);
       if (projectMap) await mapProjects(scratch, projectMap);
@@ -308,7 +308,9 @@ export class Restore {
     const release = claim(this.dataDir, stage);
     folder(stage);
     try {
-      const staged = await stageArchive(archive, stage, { passphrase });
+      const staged = await this.withArchiveFile(archive, (file) =>
+        stageArchive(file, stage, { passphrase }),
+      );
       const manifest = staged.manifest,
         secrets = staged.secrets || [];
       write(secrets, stage, true, staged.version);

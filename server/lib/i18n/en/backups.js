@@ -1,5 +1,6 @@
 /** English counterpart of de/backups.js with identical keys. */
 export const backups = Object.freeze({
+  downloadRateLimited: "Too many backup downloads. Try again in a minute.",
   archiveExpansionLimit: "Archive expansion limit exceeded.",
   archiveSizeLimit: "Archive size limit exceeded.",
   invalidArchive: "Invalid or oversized AgentPier archive.",

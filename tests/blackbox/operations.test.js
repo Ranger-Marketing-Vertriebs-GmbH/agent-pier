@@ -168,3 +168,33 @@ test("operations HTTP creates, downloads, inspects and restores an archive witho
   );
   assert.equal((await post("/backups", { output: "/outside" })).status, 400);
 });
+test("backup downloads share one owner rate limit", async (t) => {
+  const { serverMessages } = await import("../../server/lib/i18n/de.js");
+  let opened = 0;
+  const operations = {
+    backup: {
+      file: () => {
+        opened++;
+        return path.join(os.tmpdir(), "agentpier-missing-backup.apbackup");
+      },
+    },
+  };
+  const app = express();
+  app.use("/api", operationsRoutes({ operations }));
+  app.use((error, _req, res, _next) => res.status(error.status || 500).end());
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise((resolve) => server.once("listening", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const url = `http://127.0.0.1:${server.address().port}/api/operations/backups`;
+  for (let index = 0; index < 20; index++)
+    assert.equal((await fetch(`${url}/b${index}/download`)).status, 404);
+  const limited = await fetch(`${url}/other/download`);
+  assert.equal(limited.status, 429);
+  assert.equal(limited.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await limited.json(), {
+    code: "BACKUP_DOWNLOAD_RATE_LIMITED",
+    error: serverMessages.backups.downloadRateLimited,
+    messageKey: "backups.downloadRateLimited",
+  });
+  assert.equal(opened, 20);
+});

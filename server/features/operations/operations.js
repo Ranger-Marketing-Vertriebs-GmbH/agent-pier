@@ -80,9 +80,11 @@ export class Operations {
     });
   }
   archive(archiveId) {
-    identifier(archiveId);
-    const upload = path.join(this.restore.directory, `${archiveId}.apbackup`);
-    const backup = this.backup.file(archiveId);
+    const id = identifier(archiveId);
+    const upload = path.resolve(this.restore.directory, `${id}.apbackup`);
+    if (!upload.startsWith(`${this.restore.directory}${path.sep}`))
+      throw problem(serverMessages.operations.invalidIdentifier);
+    const backup = this.backup.file(id);
     if (fs.existsSync(upload)) return upload;
     if (fs.existsSync(backup)) return backup;
     throw problem(serverMessages.operations.uploadNotFound, 404);
