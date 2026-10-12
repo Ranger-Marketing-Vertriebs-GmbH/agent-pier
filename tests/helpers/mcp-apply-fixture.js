@@ -33,7 +33,14 @@ const redact = (config) =>
  * config.get redacts header and environment values.
  */
 export function fakeGateway(initial) {
-  const gateway = { config: structuredClone(initial), hash: 1, patches: [] };
+  // `lag` delays the commit announcement as OpenClaw's scheduled reload does.
+  const gateway = {
+    config: structuredClone(initial),
+    hash: 1,
+    patches: [],
+    lag: 0,
+    announced: 0,
+  };
   const merge = (target, patch, at, replace) => {
     for (const [key, value] of Object.entries(patch)) {
       if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
@@ -53,9 +60,14 @@ export function fakeGateway(initial) {
       } else target[key] = value;
     }
   };
+  const listeners = new Set();
   gateway.client = {
     ready: true,
-    subscribe: () => () => {},
+    // Announces each committed write as OpenClaw does, after the patch answered.
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     async call(method, params) {
       if (method === "config.get")
         return { config: redact(gateway.config), hash: String(gateway.hash) };
@@ -65,7 +77,12 @@ export function fakeGateway(initial) {
       const next = structuredClone(gateway.config);
       merge(next, patch, "", params.replacePaths || []);
       gateway.config = next;
-      gateway.hash++;
+      const hash = String(++gateway.hash);
+      setTimeout(() => {
+        gateway.announced++;
+        for (const listener of [...listeners])
+          listener({ event: "config.changed", payload: { hash } });
+      }, gateway.lag);
       return {};
     },
   };
