@@ -3,6 +3,7 @@ import { baseURL } from "../helpers/browser.js";
 import { header, setup } from "./mcp-cli-fixture.js";
 
 const authorize = "https://as.example.test/authorize?state=abc";
+const port = new URL(baseURL).port;
 
 /** An OAuth server bound to Codex with four managed accounts in every state. */
 const codexServer = (accounts) =>
@@ -105,6 +106,7 @@ test("each managed Codex account shows its login and logs in in a new tab", asyn
   await expect(
     area.getByRole("button", { name: "Log in to search in the Codex account Work" }),
   ).toHaveCount(0);
+  await expect(area.getByRole("list")).toHaveAttribute("aria-live", "polite");
 
   await area
     .getByRole("button", { name: "Log in to search in the Codex account Private" })
@@ -180,7 +182,7 @@ test("over plain HTTP from the network only the CLI command is offered", async (
     .click();
   await expect(
     area.getByText(
-      "Logging in from here needs HTTPS (Tailscale) or the AgentPier host itself. Alternatively run codex mcp login search in a session of the account.",
+      `Logging in needs AgentPier's HTTPS address (Tailscale) or a browser on the AgentPier host itself. Open AgentPier one of those ways and log in there, or forward its port over SSH (ssh -L ${port}:127.0.0.1:${port} <AgentPier host>) and open http://127.0.0.1:${port}.`,
     ),
   ).toBeVisible();
   await expect(area.getByRole("button")).toHaveCount(0);
@@ -258,5 +260,44 @@ test("German: Codex-Accounts mit Status, Anmelden und Ergebnis", async ({ page }
     area.getByRole("button", {
       name: "Anmeldung bei search im Codex-Account Private abbrechen",
     }),
+  ).toBeVisible();
+});
+
+test("a connected account can log in again, for a login revoked at the provider", async ({
+  page,
+}) => {
+  await fakeTabs(page);
+  const state = await setup(page, { servers: [codexServer()] });
+  handleLogins(state);
+  await page.goto(baseURL + "/accounts");
+  const area = page.getByRole("group", { name: "Codex accounts for search" });
+  const again = area.getByRole("button", {
+    name: "Log in to search again in the Codex account Work",
+  });
+  await expect(again).toHaveText("Log in again");
+  await again.click();
+  await expect(area.getByText("Work: login in progress")).toBeVisible();
+  expect((await tabs(page))[0].url).toBe(authorize);
+  expect(state.requests.find((r) => r.method === "POST").body).toEqual({
+    accountId: "a1",
+  });
+});
+
+test("German: erneut anmelden und Hinweis ohne HTTPS", async ({ page }) => {
+  await fakeTabs(page);
+  const state = await setup(page, { language: "de", servers: [codexServer()] });
+  handleLogins(state, {
+    start: ({ route }) =>
+      route.fulfill({ status: 409, json: { code: "plain-http-remote", error: "x" } }),
+  });
+  await page.goto(baseURL + "/accounts");
+  const area = page.getByRole("group", { name: "Codex-Accounts für search" });
+  await area
+    .getByRole("button", { name: "Im Codex-Account Work erneut bei search anmelden" })
+    .click();
+  await expect(
+    area.getByText(
+      `Die Anmeldung braucht die HTTPS-Adresse von AgentPier (Tailscale) oder einen Browser auf dem AgentPier-Rechner selbst. AgentPier auf einem dieser Wege öffnen und dort anmelden, oder den Port per SSH weiterleiten (ssh -L ${port}:127.0.0.1:${port} <AgentPier-Rechner>) und http://127.0.0.1:${port} öffnen.`,
+    ),
   ).toBeVisible();
 });

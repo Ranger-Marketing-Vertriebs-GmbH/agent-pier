@@ -99,9 +99,11 @@ export default function McpCodexAccounts({ server, oauth, onChanged }) {
       ) : (
         <>
           <span className="mcp-hint">
-            {blocked ? copy.codexHttpHint(oauth.command) : copy.codexAccountsHint}
+            {blocked
+              ? copy.codexHttpHint(window.location.port || "4380")
+              : copy.codexAccountsHint}
           </span>
-          <ul>
+          <ul aria-live="polite">
             {accounts.map((account) => (
               <li key={account.id}>
                 <span className={`mcp-badge mcp-cli-state ${tone(account.state)}`}>
@@ -118,15 +120,26 @@ export default function McpCodexAccounts({ server, oauth, onChanged }) {
                     {copy.codexCancel}
                   </button>
                 )}
-                {!blocked && !["pending", "connected"].includes(account.state) && (
+                {!blocked && account.state !== "pending" && (
+                  // A stored login may have been revoked at the provider: Codex still
+                  // reports it, so a connected account can log in again.
                   <button
                     type="button"
-                    className="button secondary compact"
+                    className={`button secondary compact${account.state === "connected" ? " mcp-login-again" : ""}`}
                     disabled={!!busy}
-                    aria-label={copy.codexLoginFor(account.name, server.name)}
+                    aria-busy={busy === account.id}
+                    aria-label={
+                      account.state === "connected"
+                        ? copy.codexLoginAgainFor(account.name, server.name)
+                        : copy.codexLoginFor(account.name, server.name)
+                    }
                     onClick={() => login(account)}
                   >
-                    {busy === account.id ? copy.codexLoggingIn : copy.codexLogin}
+                    {busy === account.id
+                      ? copy.codexLoggingIn
+                      : account.state === "connected"
+                        ? copy.codexLoginAgain
+                        : copy.codexLogin}
                   </button>
                 )}
                 {link?.accountId === account.id && account.state === "pending" && (

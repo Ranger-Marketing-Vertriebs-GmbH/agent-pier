@@ -67,8 +67,8 @@ export const mcpCliCopy = {
     "Complete the login in the new tab within five minutes; this list updates by itself.",
   codexOpenLogin: "Open the login page",
   codexOpenLoginFor: (account) => `Open the login page for the Codex account ${account}`,
-  codexHttpHint: (command) =>
-    `Logging in from here needs HTTPS (Tailscale) or the AgentPier host itself. Alternatively run ${command} in a session of the account.`,
+  codexHttpHint: (port) =>
+    `Logging in needs AgentPier's HTTPS address (Tailscale) or a browser on the AgentPier host itself. Open AgentPier one of those ways and log in there, or forward its port over SSH (ssh -L ${port}:127.0.0.1:${port} <AgentPier host>) and open http://127.0.0.1:${port}.`,
   codexReasons: {
     expired: "It was not completed within five minutes.",
     "cli-failed": "Codex could not complete it. Please try again.",
@@ -77,7 +77,12 @@ export const mcpCliCopy = {
     `The Codex account ${account} is logged in to ${name}. New sessions of this account can use its tools.`,
   codexFailed: (account, name) =>
     `The login of the Codex account ${account} to ${name} failed.`,
-  codexThisAccount: "(removed)",
+  codexConnectedUnnamed: (name) =>
+    `A Codex account is logged in to ${name}. New sessions of that account can use its tools.`,
+  codexFailedUnnamed: (name) => `The login of a Codex account to ${name} failed.`,
+  codexLoginAgain: "Log in again",
+  codexLoginAgainFor: (account, name) =>
+    `Log in to ${name} again in the Codex account ${account}`,
   oauthLogin: (cli, command) => `Log in once in ${cli}: run ${command}`,
   oauthUnknown: (cli, command) => `If ${cli} asks for a login: run ${command}`,
   oauthLoginSession: (cli, command) => `Log in once: open ${command} in ${cli}`,
