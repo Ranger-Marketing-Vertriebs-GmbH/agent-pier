@@ -38,8 +38,10 @@ const stub = (log, code) =>
  * A throwaway HOME holding every CLI configuration, data, cache and credential
  * location: XDG directories, `CODEX_HOME`, and Claude Code's `CLAUDE_CONFIG_DIR` with
  * `CLAUDE_SECURESTORAGE_CONFIG_DIR` (as AgentPier's managed accounts set them), so no
- * CLI reads the owner's configuration or credentials. `browserLog` collects every
- * attempt to open a browser.
+ * CLI reads the owner's configuration files. The secure-storage directory only changes
+ * the hashed service name of Claude Code's keychain items; the keychain itself is kept
+ * out by the `security` stub on PATH, a browser by the `open`, `xdg-open` and BROWSER
+ * stubs. `browserLog` and `keychainLog` collect every attempt.
  */
 export function isolatedHome(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-cli-mcp-"));

@@ -139,13 +139,16 @@ test(
 );
 
 test(
-  "OpenCode lists every written entry and reaches SSE through remote",
+  "OpenCode lists every written entry, keeps cwd, and reaches SSE through remote",
   options("opencode"),
   async (t) => {
     const isolated = isolatedHome(t);
     const { home, env } = isolated;
     const entries = live("opencode", await liveServers(t));
     const marker = path.join(home, "cwd-marker");
+    // A dedicated directory, compared by real path (on macOS /tmp is /private/tmp).
+    const cwd = path.join(home, "cwd-target");
+    fs.mkdirSync(cwd, { mode: 0o700 });
     // Not an MCP server: it only records the directory OpenCode starts it in.
     const probe = {
       type: "local",
@@ -155,7 +158,7 @@ test(
         "require('fs').writeFileSync(process.argv[1], process.cwd())",
         marker,
       ],
-      cwd: "/tmp",
+      cwd,
       enabled: true,
     };
     const file = path.join(home, ".config/opencode/opencode.jsonc");
@@ -171,12 +174,14 @@ test(
       assert.ok(lineOf(list.text, name), `${name}:\n${list.text}`);
     for (const name of ["ap-http", "ap-sse"])
       assert.match(lineOf(list.text, name), /connected/);
-    // The marker proves OpenCode started the command; its directory is not the cwd.
+    // The marker proves OpenCode started the command, in the configured `cwd`.
     assert.ok(
       fs.existsSync(marker),
       `OpenCode did not start the cwd probe:\n${list.text}`,
     );
-    assert.notEqual(fs.readFileSync(marker, "utf8"), "/tmp");
+    const started = fs.realpathSync(fs.readFileSync(marker, "utf8"));
+    t.diagnostic(`cwd probe started in ${started}`);
+    assert.equal(started, fs.realpathSync(cwd));
     const auth = await run(bins.opencode, ["mcp", "auth", "list"], env);
     t.diagnostic(auth.text);
     assert.match(auth.text, /ap-http-oauth[\s\S]*?not authenticated/);
