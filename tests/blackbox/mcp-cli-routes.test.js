@@ -149,3 +149,53 @@ test("fixtures never run a real Codex for the OAuth status of a bound server", a
   assert.equal(listed[0].cliStatus.codex.oauth.state, "unknown");
   assert.deepEqual(runs, ["/nonexistent/codex"]);
 });
+
+test("finds with environment references and too-large files carry stable reasons", async (t) => {
+  const f = await applicationFixture(t);
+  t.after(() => f.dispose());
+  const opencode = path.join(f.home, ".config/opencode/opencode.json");
+  fs.mkdirSync(path.dirname(opencode), { recursive: true });
+  fs.writeFileSync(
+    opencode,
+    JSON.stringify({
+      mcp: {
+        search: {
+          type: "remote",
+          url: "https://search.example.test/mcp",
+          headers: { "X-Key": "{env:FOUND_SECRET_found-secret}" },
+        },
+      },
+    }),
+  );
+  const claude = path.join(f.home, ".claude.json");
+  fs.writeFileSync(claude, "{}");
+  fs.truncateSync(claude, 64 * 1024 * 1024 + 1);
+  const { finds, problems } = await read(await f.request("/api/mcp-servers/cli-finds"));
+  assert.deepEqual(problems, [
+    { cli: "claude", reason: "too-large", messageKey: "mcpServers.cliReasonTooLarge" },
+  ]);
+  assert.deepEqual(finds, [
+    {
+      key: finds[0].key,
+      name: "search",
+      clis: ["opencode"],
+      adoptable: false,
+      reason: "env-references",
+      referenceNames: ["X-Key"],
+      messageKey: "mcpServers.cliFindEnvReferences",
+    },
+  ]);
+  const response = await f.request("/api/mcp-servers/cli-finds/adopt", {
+    method: "POST",
+    body: { keys: [finds[0].key] },
+  });
+  const result = await read(response);
+  assert.deepEqual(
+    [
+      result.adopted,
+      result.failed.map((item) => [item.name, item.reason, item.messageKey]),
+    ],
+    [[], [["search", "env-references", "mcpServers.cliFindEnvReferences"]]],
+  );
+  assert.equal(fs.statSync(claude).size, 64 * 1024 * 1024 + 1);
+});

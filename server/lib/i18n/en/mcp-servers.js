@@ -43,6 +43,8 @@ export const mcpServers = Object.freeze({
   cliFindChanged: "The entry in the CLI changed since it was shown. Please reload.",
   cliNotAdoptable:
     "AgentPier cannot take over this entry without losing settings it does not manage.",
+  cliFindEnvReferences:
+    "The entry uses references to the CLI's environment variables or files. Other CLIs and agents could not resolve them; it stays in the CLI.",
   cliChangeNotAdoptable:
     "The change cannot be adopted: its connection type differs or it uses settings AgentPier does not manage.",
   cliTransportUnsupported:

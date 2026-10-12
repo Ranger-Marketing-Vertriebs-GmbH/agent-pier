@@ -30,6 +30,7 @@ const reasonMessages = {
   duplicate: messages.cliReasonDuplicate,
   // A find AgentPier cannot take over.
   "unsupported-fields": messages.cliNotAdoptable,
+  "env-references": messages.cliFindEnvReferences,
 };
 const statusMessages = {
   conflict: messages.cliStatusConflict,
@@ -76,8 +77,9 @@ export function fileProblem(error) {
 
 /**
  * Why a find could not be adopted, as `{ reason, error, messageKey }` with a stable
- * reason: `changed`, `not-adoptable`, `name-taken`, `invalid` (the store refused the
- * input, its own message kept), a file problem, or `failed` (logged by code only).
+ * reason: `changed`, `not-adoptable`, `env-references`, `name-taken`, `invalid` (the
+ * store refused the input, its own message kept), a file problem, or `failed` (logged
+ * by code only).
  */
 export function adoptFailure(error, warn) {
   const file = fileReason(error);
@@ -90,9 +92,11 @@ export function adoptFailure(error, warn) {
         ? "changed"
         : [messages.cliNotAdoptable, messages.cliChangeNotAdoptable].includes(message)
           ? "not-adoptable"
-          : message === messages.nameTaken
-            ? "name-taken"
-            : "invalid";
+          : message === messages.cliFindEnvReferences
+            ? "env-references"
+            : message === messages.nameTaken
+              ? "name-taken"
+              : "invalid";
   }
   if (!reason) {
     const code =

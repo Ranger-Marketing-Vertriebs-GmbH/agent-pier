@@ -99,6 +99,66 @@ test("entries AgentPier cannot represent are not adoptable, by reason", () => {
   assert.equal(centralFromNative("claude", "not an object").reason, "invalid");
 });
 
+test("entries with environment references are not adoptable and name only where", () => {
+  const refused = (cli, entry) => centralFromNative(cli, entry);
+  assert.deepEqual(
+    refused("claude", {
+      type: "http",
+      url: "https://x.test/mcp",
+      headers: { Authorization: "Bearer ${GITHUB_TOKEN}", Accept: "json" },
+    }),
+    { ok: false, reason: "env-references", names: ["Authorization"] },
+  );
+  assert.deepEqual(
+    refused("claude", {
+      type: "stdio",
+      command: "/bin/tool",
+      args: ["--root", "${HOME:-/tmp}"],
+      env: { TOKEN: "${TOKEN:-fallback-secret}", PLAIN: "keep" },
+    }),
+    { ok: false, reason: "env-references", names: ["args", "TOKEN"] },
+  );
+  assert.deepEqual(
+    refused("opencode", {
+      type: "remote",
+      url: "https://x.test/mcp",
+      headers: { "X-Key": "{env:SEARCH_KEY}" },
+    }),
+    { ok: false, reason: "env-references", names: ["X-Key"] },
+  );
+  assert.deepEqual(
+    refused("opencode", {
+      type: "local",
+      command: ["/bin/tool"],
+      environment: { KEY: "{file:~/.secrets/key}" },
+    }),
+    { ok: false, reason: "env-references", names: ["KEY"] },
+  );
+  assert.deepEqual(refused("codex", { url: "https://x.test/${HOST}/mcp" }), {
+    ok: false,
+    reason: "env-references",
+    names: ["url"],
+  });
+  // Codex forwards variables by name only: settings AgentPier does not manage.
+  assert.equal(
+    refused("codex", { url: "https://x.test/mcp", bearer_token_env_var: "TOKEN" }).reason,
+    "unsupported-fields",
+  );
+  assert.equal(
+    refused("codex", { command: "/bin/tool", env_vars: ["TOKEN"] }).reason,
+    "unsupported-fields",
+  );
+  // A dollar or brace that is no reference stays adoptable.
+  assert.equal(
+    refused("claude", {
+      type: "http",
+      url: "https://x.test/mcp",
+      headers: { Authorization: "Bearer a$b{c}{envx:y}" },
+    }).ok,
+    true,
+  );
+});
+
 test("the hash is canonical: key order and absent keys do not matter, values do", () => {
   assert.equal(
     canonicalJson({ b: 1, a: [{ d: 2, c: 3 }] }),

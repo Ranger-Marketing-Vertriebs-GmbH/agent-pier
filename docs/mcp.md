@@ -200,7 +200,13 @@ needs the owner's confirmation, because every session of that CLI starts it.
   content stays separate. Invalid or taken names get a proposal. Adopting replaces the
   old entry with AgentPier's only while it is unchanged since it was shown (otherwise
   `409`). Entries using settings AgentPier does not manage (for example Codex
-  `startup_timeout_sec` or a disabled entry) stay in the CLI.
+  `startup_timeout_sec`, `env_vars`, `bearer_token_env_var` or a disabled entry) stay
+  in the CLI. So do entries whose values refer to the CLI's environment or files
+  (Claude Code `${VAR}` or `${VAR:-default}`, OpenCode `{env:VAR}` or `{file:path}`)
+  instead of holding them: another CLI or an agent would get the reference literally.
+  The find names the headers, environment variables or fields that use one (never a
+  value), Adopt all skips it, and adopting it by key fails with the reason
+  _env-references_ (`MCP_CLI_FIND_ENV_REFERENCES` from the adoption service).
 - **Secrets.** Header and environment values are stored by AgentPier and written in
   plain text into the CLI files with mode 0600, because the CLIs read them there. They
   never appear in API responses, logs or the audit trail (names only).
