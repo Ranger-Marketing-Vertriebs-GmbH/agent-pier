@@ -37,9 +37,18 @@ request leaves the machine. The contract verifies:
   settings' language, and the model receives the transcript as untrusted text.
   Without a key, `tools.media.audio.enabled: false` keeps notes untranscribed (no
   local fallback).
-- The owner's AgentPier conversations keep working, raising the shell level of an
-  agent with a bot is refused, a removed bot is no longer polled after the restart,
-  and neither the tokens nor the Deepgram key appear in the Gateway logs.
+- **No session tools.** An agent with a bot is not offered `session_status` (or any
+  other session tool), so a sender cannot get the status card or reach other
+  sessions of the agent; the owner's other agents keep it.
+- **No group chats.** A supergroup message, even from an allowed person, never
+  reaches the agent and gets no reply.
+- **Bad tokens never stop the Gateway.** A token Telegram rejects (401, for example
+  after BotFather `/revoke`) and a second poller of a bot (409) leave the Gateway,
+  the owner's agents and the other bots running; the section shows the bot's error.
+- The owner's AgentPier conversations keep working, including a team proposal while
+  bots are compiled; raising the shell level of an agent with a bot is refused, a
+  removed bot is no longer polled after the restart, and neither the tokens nor the
+  Deepgram key appear in the Gateway logs.
 
 Facts found while qualifying:
 
@@ -55,18 +64,35 @@ allowPrivateNetwork: true`; production compiles Deepgram's public base URL and
 
 ## Boundaries
 
-- Only personal agents without shell can own a bot; an agent with a bot cannot raise
-  its shell level. Memory, web tools and MCP servers stay as the owner chose them.
+- Only personal agents without shell and without stdio MCP servers can own a bot;
+  an agent with a bot cannot raise its shell level, bind a stdio server or have a
+  bound server turned into one, and it cannot be archived until the bot is
+  disconnected. Allowed people can read and use the agent's memory; web tools and
+  remote MCP servers stay as the owner chose them.
 - `tools.agentToAgent.enabled: false` while any bot is compiled; session visibility
   is owned by the proactivity work (`tools.sessions.visibility`).
 - A bot id serves either the owner's AgentPier bot or one agent: both setups refuse
   the other's bot.
 - Telegram sections exist only in the startup configuration. A save that changes
-  what the running Gateway was started with restarts it after the owner confirmed,
-  like the web search settings; a new speech key shows as pending until applied.
-- Tokens live in `native_telegram_credentials` (sealed in update backups) and in the
-  private `openclaw.json` (sealed copies). Replacing or removing a token destroys the
-  backup keys. Answers, audit records and logs never carry a token, id or name.
+  what the running or starting Gateway compiled restarts it after the owner
+  confirmed, like the web search settings. A revocation (a removed bot or person, a
+  replaced token or speech key) that slipped past a start restarts the Gateway once
+  it answers, retried while agents are busy; additions stay "pending" until the
+  owner applies them.
+- States: `running`, `starting`, `error`, `stopped` (no Gateway), `pending` (saved,
+  not in the running Gateway yet, also for an agent the Gateway does not know yet)
+  and `inactive` (nobody allowed, or the agent cannot own a bot).
+- Tokens live in `native_telegram_credentials` (sealed in update and host backups)
+  and in the private `openclaw.json` (sealed copies in backups). Replacing or
+  removing a token, and changing or removing the Deepgram key while a bot exists,
+  destroys the backup keys first; a key change also asks to restart a Gateway that
+  uses another key. OpenClaw's own local copies beside `openclaw.json` (`.bak*`,
+  `.last-good`) can keep a removed token until they rotate; they stay in the private
+  state directory. Answers, audit records and logs never carry a token, id or name.
+- Deepgram's media model is global in OpenClaw: any audio reaching an agent session
+  is transcribed with the owner's key while a bot with voice is compiled.
+- Locking `models.providers.deepgram` also refuses overrides of the parents `models`
+  and `models.providers`; such stored overrides are skipped at the next start.
 
 ## Release checklist
 
