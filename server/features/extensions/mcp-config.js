@@ -4,12 +4,13 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { randomUUID } from "node:crypto";
-import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
-import { parseForESLint } from "toml-eslint-parser";
-import { parse as parseJsonc, parseTree, modify, applyEdits } from "jsonc-parser";
+import { parse as parseToml } from "smol-toml";
+import { parse as parseJsonc, parseTree } from "jsonc-parser";
+import { editConfig } from "./config-edit.js";
 import { problem } from "../../lib/storage.js";
 
 export const CLI_CONFIG_CHANGED = "CLI_CONFIG_CHANGED";
+export { CLI_CONFIG_LAYOUT } from "./config-edit.js";
 
 export const own = (obj, key) => Object.hasOwn(obj, key);
 export const record = (value) =>
@@ -228,32 +229,11 @@ export function atomicText(file, boundary, before, after) {
     fs.rmSync(temp, { force: true });
   }
 }
+/**
+ * Sets (or with `entry` undefined removes) `config.data[key][name]` in the file, editing
+ * only that entry's own text (config-edit.js), with compare-and-swap on `config.text`.
+ */
 export function updateConfig(config, boundary, tool, key, name, entry) {
-  let after;
-  if (tool === "codex") {
-    const current = { ...(config.data[key] || {}) };
-    if (entry === undefined) delete current[name];
-    else current[name] = entry;
-    const ast = parseForESLint(config.text).ast;
-    const ranges = ast.body[0].body
-      .filter(
-        (node) =>
-          (node.resolvedKey?.[0] ??
-            node.key?.keys?.[0]?.name ??
-            node.key?.keys?.[0]?.value) === key,
-      )
-      .map((node) => node.range)
-      .sort((a, b) => b[0] - a[0]);
-    after = config.text;
-    for (const [start, end] of ranges) after = after.slice(0, start) + after.slice(end);
-    after = `${after.trimEnd()}\n\n${stringifyToml({ [key]: current })}`;
-    parseToml(after);
-  } else
-    after = applyEdits(
-      config.text || "{}\n",
-      modify(config.text || "{}\n", [key, name], entry, {
-        formattingOptions: { insertSpaces: true, tabSize: 2 },
-      }),
-    );
-  atomicText(config.file, boundary, config.text, after);
+  const after = editConfig(config, tool, key, name, entry);
+  if (after !== config.text) atomicText(config.file, boundary, config.text, after);
 }
