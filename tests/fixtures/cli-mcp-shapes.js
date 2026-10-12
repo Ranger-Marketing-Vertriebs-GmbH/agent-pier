@@ -43,8 +43,17 @@ export const cases = [
     id: "stdio-cwd",
     central: stdio("/tmp"),
     secrets: none,
-    native: { codex: { command, args: ["--flag"], env: {}, cwd: "/tmp" } },
-    unsupported: { claude: "cwd", opencode: "cwd" },
+    native: {
+      codex: { command, args: ["--flag"], env: {}, cwd: "/tmp" },
+      opencode: {
+        type: "local",
+        command: [command, "--flag"],
+        environment: {},
+        cwd: "/tmp",
+        enabled: true,
+      },
+    },
+    unsupported: { claude: "cwd" },
   },
   {
     id: "http",

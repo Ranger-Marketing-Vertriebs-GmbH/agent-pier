@@ -17,11 +17,12 @@ Qualified versions: Claude Code 2.1.296, Codex 0.160.1, OpenCode 1.18.35.
 
 The temporary HOME (`tests/helpers/cli-contract.js` `isolatedHome()`) also holds
 `CODEX_HOME`, the XDG directories and Claude Code's `CLAUDE_CONFIG_DIR` and
-`CLAUDE_SECURESTORAGE_CONFIG_DIR`. Stubs for `open`, `xdg-open`, `$BROWSER` and
-`security` come first on its PATH: no browser starts, and Claude Code's keychain
-calls (it runs `security` through PATH, with service names suffixed by a hash of the
-configuration directory) fail, so it keeps credentials in
-`$CLAUDE_CONFIG_DIR/.credentials.json`. Codex runs with
+`CLAUDE_SECURESTORAGE_CONFIG_DIR`. `CLAUDE_SECURESTORAGE_CONFIG_DIR` does not keep
+Claude Code off the macOS keychain: it only changes the hashed service name of its
+items (`Claude Code-credentials-<hash>`). The tests keep the keychain and any browser
+out with stubs for `security`, `open`, `xdg-open` and `$BROWSER` first on PATH:
+Claude Code runs `security` through PATH, the stub fails, and Claude Code keeps
+credentials in `$CLAUDE_CONFIG_DIR/.credentials.json`. Codex runs with
 `mcp_oauth_credentials_store="file"`; OpenCode keeps tokens in its XDG data
 directory.
 
@@ -29,18 +30,18 @@ directory.
 
 `tests/fixtures/cli-mcp-shapes.js` is the source of truth; `nativeMcp()` produces it.
 
-| Server             | Claude Code (`~/.claude.json` `mcpServers`) | Codex (`~/.codex/config.toml` `mcp_servers`) | OpenCode (`opencode.json(c)` `mcp`)                        |
-| ------------------ | ------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------- |
-| stdio              | `{type:"stdio",command,args,env}`           | `{command,args,env[,cwd]}`                   | `{type:"local",command:[cmd,...args],environment,enabled}` |
-| HTTP, headers      | `{type:"http",url,headers}`                 | `{url,http_headers}`                         | `{type:"remote",url,headers,enabled}`                      |
-| SSE, headers       | `{type:"sse",url,headers}`                  | none (no SSE)                                | `{type:"remote",url,headers,enabled}`                      |
-| HTTP or SSE, OAuth | `{type:"http"\|"sse",url}`                  | `{url[,scopes:[...]]}` (HTTP only)           | `{type:"remote",url,oauth:{[scope]},enabled}`              |
+| Server             | Claude Code (`~/.claude.json` `mcpServers`) | Codex (`~/.codex/config.toml` `mcp_servers`) | OpenCode (`opencode.json(c)` `mcp`)                              |
+| ------------------ | ------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------- |
+| stdio              | `{type:"stdio",command,args,env}`           | `{command,args,env[,cwd]}`                   | `{type:"local",command:[cmd,...args],environment[,cwd],enabled}` |
+| HTTP, headers      | `{type:"http",url,headers}`                 | `{url,http_headers}`                         | `{type:"remote",url,headers,enabled}`                            |
+| SSE, headers       | `{type:"sse",url,headers}`                  | none (no SSE)                                | `{type:"remote",url,headers,enabled}`                            |
+| HTTP or SSE, OAuth | `{type:"http"\|"sse",url}`                  | `{url[,scopes:[...]]}` (HTTP only)           | `{type:"remote",url,oauth:{[scope]},enabled}`                    |
 
 ## Support
 
 - Claude Code: stdio, HTTP, SSE. A stdio `cwd` is not in its schema (`claude mcp add-json` drops it), so a server with a working directory cannot be bound.
 - Codex: stdio (with `cwd`) and streamable HTTP. There is no SSE form; an SSE endpoint written as `url` is treated as streamable HTTP. SSE servers cannot be bound.
-- OpenCode: stdio (`local`) and `remote`; `remote` reaches SSE servers (it falls back from streamable HTTP to SSE). It does not start a local command in a configured `cwd`, so a server with a working directory cannot be bound.
+- OpenCode: stdio (`local`) and `remote`; `remote` reaches SSE servers (it falls back from streamable HTTP to SSE). A `local` entry's `cwd` is honoured: OpenCode starts the command in that directory (the contract compares real paths, since `/tmp` is `/private/tmp` on macOS).
 - Claude Code rewrites `~/.claude.json` on every start but keeps `mcpServers` entries as written; the TOML and JSONC files keep entries as written. Entry hashes therefore stay stable.
 
 ## Listing and OAuth status

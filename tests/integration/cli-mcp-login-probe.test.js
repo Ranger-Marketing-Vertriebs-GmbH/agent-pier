@@ -154,8 +154,11 @@ test(
   options("claude"),
   async (t) => {
     // isolatedHome() sets CLAUDE_CONFIG_DIR and CLAUDE_SECURESTORAGE_CONFIG_DIR inside
-    // the temporary HOME, as AgentPier's managed accounts keep Claude Code's
-    // credentials apart (provider-environment.js).
+    // the temporary HOME, as AgentPier's managed accounts do (provider-environment.js).
+    // That does not keep Claude Code off the keychain: it only changes the hashed
+    // service name of its keychain items. What keeps the keychain (and any browser)
+    // out is isolatedHome()'s stubs for `security`, `open`, `xdg-open` and BROWSER on
+    // PATH; Claude Code then falls back to $CLAUDE_CONFIG_DIR/.credentials.json.
     const isolated = isolatedHome(t);
     const { env, claudeConfig } = isolated;
     const oauth = await oauthMcpServer();
