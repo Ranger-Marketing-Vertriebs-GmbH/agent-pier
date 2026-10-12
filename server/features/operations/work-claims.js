@@ -15,8 +15,28 @@ const startedAt = Math.round(Date.now() - process.uptime() * 1000);
 export const currentOwner = Object.freeze({ pid: process.pid, startedAt });
 const claimsFolder = (dataDir) => path.join(dataDir, "operations", "work");
 
+// A claim this old is abandoned whatever its process id shows.
+export const CLAIM_LIFETIME = 7 * 24 * 60 * 60 * 1000;
+// Linux reports process start times in clock ticks; USER_HZ is 100 on every
+// architecture Node supports.
+const TICKS_PER_SECOND = 100;
+
+/** Linux: the start time from /proc in ms, or null without /proc. */
+export function procStart(pid, root = "/proc") {
+  try {
+    const stat = fs.readFileSync(path.join(root, String(pid), "stat"), "utf8");
+    // The command name (field 2) may contain spaces; fields follow its ")".
+    const fields = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+    const ticks = Number(fields[19]);
+    const boot = /^btime (\d+)$/m.exec(fs.readFileSync(path.join(root, "stat"), "utf8"));
+    if (!Number.isFinite(ticks) || !boot) return null;
+    return Number(boot[1]) * 1000 + (ticks / TICKS_PER_SECOND) * 1000;
+  } catch {
+    return null;
+  }
+}
 /** The start time `ps` reports for `pid` in ms, or null when it cannot tell. */
-function processStart(pid) {
+function psStart(pid) {
   try {
     const text = execFileSync("ps", ["-o", "lstart=", "-p", String(pid)], {
       encoding: "utf8",
@@ -42,7 +62,7 @@ export function ownerAlive(owner) {
   } catch (error) {
     if (error.code === "ESRCH") return false;
   }
-  const actual = processStart(owner.pid);
+  const actual = psStart(owner.pid) ?? procStart(owner.pid);
   // ps reports whole seconds.
   return actual === null || Math.abs(actual - owner.startedAt) < 2000;
 }
@@ -52,8 +72,13 @@ export function ownerAlive(owner) {
  * Returns a release function that forgets the claim (not the target).
  */
 export function claim(dataDir, target) {
+  if (!claimable(dataDir, target)) throw new Error(`Not a backup work path: ${target}`);
   const file = path.join(folder(claimsFolder(dataDir)), `${randomUUID()}.json`);
-  atomic(file, { target: path.resolve(target), ...currentOwner });
+  atomic(file, {
+    target: path.resolve(target),
+    ...currentOwner,
+    claimedAt: Date.now(),
+  });
   return () => fs.rmSync(file, { force: true });
 }
 
@@ -68,40 +93,63 @@ function claims(dataDir) {
       ...readJson(path.join(directory, name), {}),
     }));
 }
+const live = (entry, alive, now) => {
+  const claimedAt = Number.isFinite(entry.claimedAt)
+    ? entry.claimedAt
+    : fs.statSync(entry.file).mtimeMs;
+  return now - claimedAt <= CLAIM_LIFETIME && alive(entry);
+};
 /** Targets a running process still works on; such targets are never removed. */
-export function liveTargets(dataDir, { alive = ownerAlive } = {}) {
+export function liveTargets(dataDir, { alive = ownerAlive, now = Date.now() } = {}) {
   return new Set(
     claims(dataDir)
-      .filter((entry) => typeof entry.target === "string" && alive(entry))
+      .filter((entry) => typeof entry.target === "string" && live(entry, alive, now))
       .map((entry) => entry.target),
   );
 }
 
-// What a work file may be named, so a claim can never remove anything else.
-const workName =
-  /^(?:\.snapshot-|\.inspect-|\.agentpier-restore-)[A-Za-z0-9-]+$|\.(?:tmp|upload|upload\.json)$/;
+// What work is named in each operations folder; only these are ever removed.
+const workNames = {
+  operations: /^\.snapshot-[A-Za-z0-9-]+$/,
+  "operations/backups": /\.tmp$/,
+  "operations/restores": /^\.inspect-[A-Za-z0-9-]+$|\.upload(?:\.json)?$/,
+};
+// A restore stage sits beside its target, wherever that is.
+const stageName =
+  /^\.agentpier-restore-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+/** Whether `target` is a path backup work may claim (and its cleanup remove). */
+export function claimable(dataDir, target) {
+  if (typeof target !== "string" || !path.isAbsolute(target)) return false;
+  const resolved = path.resolve(target);
+  if (stageName.test(path.basename(resolved))) return true;
+  const relative = path.relative(path.resolve(dataDir), path.dirname(resolved));
+  return Boolean(workNames[relative]?.test(path.basename(resolved)));
+}
 
 /**
  * Removes work of processes that are gone: claimed targets of dead owners, and
  * unclaimed work files in the operations folders (left by a crash before a claim
  * existed). Runs once when the server starts.
  */
-export function removeAbandonedWork(dataDir, { alive = ownerAlive } = {}) {
-  const live = liveTargets(dataDir, { alive });
+export function removeAbandonedWork(
+  dataDir,
+  { alive = ownerAlive, now = Date.now() } = {},
+) {
+  const kept = liveTargets(dataDir, { alive, now });
   for (const entry of claims(dataDir)) {
-    if (typeof entry.target === "string" && live.has(entry.target)) continue;
-    if (typeof entry.target === "string" && workName.test(path.basename(entry.target)))
+    if (kept.has(entry.target)) continue;
+    if (claimable(dataDir, entry.target))
       fs.rmSync(entry.target, { recursive: true, force: true });
     fs.rmSync(entry.file, { force: true });
   }
-  for (const relative of ["operations", "operations/backups", "operations/restores"]) {
+  for (const [relative, name] of Object.entries(workNames)) {
     const directory = path.join(dataDir, relative);
     if (!fs.existsSync(directory)) continue;
-    for (const name of fs.readdirSync(directory)) {
-      const target = path.join(directory, name);
+    for (const entry of fs.readdirSync(directory)) {
+      const target = path.join(directory, entry);
       // An upload's description belongs to its data file.
-      const owner = name.endsWith(".upload.json") ? target.slice(0, -5) : target;
-      if (workName.test(name) && !live.has(owner))
+      const owner = entry.endsWith(".upload.json") ? target.slice(0, -5) : target;
+      if (name.test(entry) && !kept.has(owner))
         fs.rmSync(target, { recursive: true, force: true });
     }
   }
