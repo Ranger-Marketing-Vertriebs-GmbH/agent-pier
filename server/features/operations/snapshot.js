@@ -57,6 +57,8 @@ export function sqliteSnapshotFile(
   try {
     db.exec("PRAGMA busy_timeout=5000");
     db.prepare("VACUUM INTO ?").run(target);
+    // Copies can hold private history: owner-only, in an owner-only folder.
+    fs.chmodSync(target, 0o600);
     if (withoutCapabilities || sanitize) {
       const copy = new DatabaseSync(target);
       try {
@@ -95,6 +97,7 @@ export async function sqliteSnapshotFileAsync(file, scratch) {
           : resolve(),
       );
     });
+    fs.chmodSync(target, 0o600);
     return target;
   } catch (error) {
     fs.rmSync(target, { force: true });
@@ -148,7 +151,13 @@ export function capture({
   };
   const snapshotMember = (name, options, area) => {
     const file = sqliteSnapshotFile(path.join(dataDir, name), scratch, options);
-    return { path: name, file, size: fs.statSync(file).size, component: area };
+    return {
+      path: name,
+      file,
+      size: fs.statSync(file).size,
+      component: area,
+      temporary: true,
+    };
   };
   try {
     files.push(...artifactMembers(dataDir, includeHistory, plan));

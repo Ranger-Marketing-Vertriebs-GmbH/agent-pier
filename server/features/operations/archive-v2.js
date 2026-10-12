@@ -175,6 +175,8 @@ async function* body(entries, listing, mtime, report, opened) {
       yield padding(archived);
     } finally {
       await source?.handle.close();
+      // Work copies (database snapshots) are removed once archived.
+      if (entry.temporary) await fsp.rm(entry.file, { force: true });
     }
   }
   yield endOfArchive();

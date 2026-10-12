@@ -174,6 +174,7 @@ export async function captureAssistants({
       file,
       size: fs.statSync(file).size,
       component,
+      temporary: true,
     });
   async function entry(source, relative) {
     const stat = fs.lstatSync(source);
