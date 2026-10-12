@@ -213,9 +213,12 @@ export async function createServices(config) {
       dataDir: config.dataDir,
       changes: () => services.mcpServerChanges,
       // Codex's own OAuth state, read on the owner's profile (services.tools: app.js).
+      // `cliOAuthRun` replaces running the CLI; test fixtures set it so that no test
+      // reaches the real Codex unless it opts in.
       oauthStatus: new CliOAuthStatus({
         tools: () => services.tools?.() ?? [],
         accounts,
+        ...(config.cliOAuthRun ? { run: config.cliOAuthRun } : {}),
       }),
       agentNames: () =>
         new Map(

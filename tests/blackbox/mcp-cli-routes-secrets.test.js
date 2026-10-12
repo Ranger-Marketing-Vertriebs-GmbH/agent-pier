@@ -58,7 +58,8 @@ function captureLogs(t) {
 test("no route shows, audits or logs a header, environment or query value", async (t) => {
   const marker = fakeCodex(t);
   const logs = captureLogs(t);
-  const f = await applicationFixture(t);
+  // Runs the detected Codex: the fake one first on PATH.
+  const f = await applicationFixture(t, { realCliOAuthStatus: true });
   t.after(() => f.dispose());
   const bodies = [];
   const call = async (endpoint, options) => {
@@ -109,7 +110,10 @@ test("no route shows, audits or logs a header, environment or query value", asyn
   );
 
   // OAuth: Codex reports its state (run on the owner's profile); the others a command.
-  const list = (await call("/api/mcp-servers")).body;
+  // The list never waits for Codex: unknown first, the state once the read landed.
+  let list = (await call("/api/mcp-servers")).body;
+  await f.application.cliMcp.oauthStatus.settled();
+  list = (await call("/api/mcp-servers")).body;
   const oauth = list.find((server) => server.id === login.id).cliStatus;
   assert.deepEqual(oauth.codex.oauth, {
     state: "connected",

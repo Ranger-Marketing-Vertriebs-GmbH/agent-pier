@@ -13,35 +13,54 @@ export function loginCommand(cli, name) {
   return `opencode mcp auth ${name}`;
 }
 
+// Only a stable error code is logged, never the CLI's output, a message or a path.
+const codeOf = (error) =>
+  typeof error?.code === "string" && /^[A-Z0-9_]{1,40}$/.test(error.code)
+    ? error.code
+    : "ERROR";
+
 /**
  * OAuth login state in Codex, the only CLI with machine-readable status:
- * `{ [name]: "connected" | "login-required" | "unknown" }`, read at most every half
- * minute. Runs the installed Codex on the owner's canonical profile (`local-codex`, as
- * its sessions do), killed after ten seconds. A caller waits at most `wait` ms and
- * then gets the last known answer, so a slow CLI never holds up a page. The output
- * (which lists header values) never leaves this class, and failures are not logged.
+ * `{ [name]: "connected" | "login-required" | "unknown" }`. Stale-while-revalidate:
+ * `codex()` answers at once with the last known states (`{}`, i.e. unknown, on a
+ * cold start) and starts at most one background read when they are older than half
+ * a minute; no request ever waits for Codex. The read runs the installed Codex on the
+ * owner's canonical profile (`local-codex`, as its sessions do) and is killed after
+ * ten seconds. A failed read keeps the last states and logs its code only; the output
+ * (which lists header values) never leaves this class.
  */
 export class CliOAuthStatus {
-  constructor({ tools, accounts, run = execute, now = Date.now, wait = 2000 }) {
-    Object.assign(this, { tools, accounts, run, now, wait });
-    this.cache = null;
+  constructor({ tools, accounts, run = execute, now = Date.now, warn = console.warn }) {
+    Object.assign(this, { tools, accounts, run, now, warn });
     this.last = {};
+    this.readAt = null;
+    this.pending = null;
   }
   codex() {
-    if (!this.cache || this.now() - this.cache.at >= statusTtlMs) {
-      const promise = this.read()
-        .catch(() => ({}))
-        .then((states) => (this.last = states));
-      this.cache = { at: this.now(), promise };
-    }
-    return this.bounded(this.cache.promise);
+    if (
+      !this.pending &&
+      (this.readAt === null || this.now() - this.readAt >= statusTtlMs)
+    )
+      this.refresh();
+    return Promise.resolve(this.last);
   }
-  bounded(promise) {
-    let timer;
-    const late = new Promise((resolve) => {
-      timer = setTimeout(() => resolve(this.last), this.wait);
-    });
-    return Promise.race([promise, late]).finally(() => clearTimeout(timer));
+  /** The background read; resolves once it has settled (tests wait on it). */
+  refresh() {
+    this.readAt = this.now();
+    this.pending = (async () => {
+      try {
+        this.last = await this.read();
+      } catch (error) {
+        this.warn(`Codex MCP login status could not be read (${codeOf(error)}).`);
+      } finally {
+        this.pending = null;
+      }
+    })();
+    return this.pending;
+  }
+  /** Waits for a background read in progress, if any. */
+  async settled() {
+    await this.pending;
   }
   async read() {
     const tool = this.tools().find((item) => item.id === "codex" && item.installed);

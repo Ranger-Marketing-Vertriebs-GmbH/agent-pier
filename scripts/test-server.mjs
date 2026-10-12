@@ -16,6 +16,8 @@ const application = await createApplication({
   dataDir: path.join(directory, "data"),
   home,
   port,
+  // Browser tests never run the real Codex for MCP login status.
+  cliOAuthRun: async () => ({ stdout: "[]" }),
 });
 let stopping = false;
 async function stop() {
