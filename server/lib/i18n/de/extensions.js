@@ -46,6 +46,8 @@ export const extensions = Object.freeze({
   invalidExistingCliConfig:
     "Die vorhandene CLI-Konfiguration ist ungültig. Sie wurde nicht verändert.",
   cliConfigChanged: "Die CLI-Konfiguration wurde gleichzeitig geändert. Bitte neu laden.",
+  cliConfigLayout:
+    "Dieser Eintrag lässt sich in der vorhandenen CLI-Konfiguration nicht gezielt ändern. Sie wurde nicht geändert.",
   skillDocumentTooLarge: "SKILL.md darf höchstens 256 KiB groß sein.",
   skillFrontmatterRequired:
     "SKILL.md benötigt YAML-Frontmatter mit name und description.",

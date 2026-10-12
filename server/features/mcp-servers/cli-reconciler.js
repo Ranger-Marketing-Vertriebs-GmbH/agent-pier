@@ -1,6 +1,10 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import { CLI_CONFIG_CHANGED, updateConfig } from "../extensions/mcp-config.js";
+import {
+  CLI_CONFIG_CHANGED,
+  CLI_CONFIG_LAYOUT,
+  updateConfig,
+} from "../extensions/mcp-config.js";
 import { cliEntry, cliSupport, entryHash } from "./cli-native.js";
 
 const messages = serverMessages.mcpServers;
@@ -10,6 +14,23 @@ const changed = () =>
   Object.assign(problem(serverMessages.extensions.cliConfigChanged, 409), {
     code: CLI_CONFIG_CHANGED,
   });
+/** Marks `error` as a file problem of `cli` that `guard` reports as `reason`. */
+const tagged = (error, reason) =>
+  Object.assign(error && typeof error === "object" ? error : new Error(String(error)), {
+    cliReason: reason,
+  });
+const reasonOf = (error) =>
+  error?.cliReason ??
+  (error?.code === CLI_CONFIG_CHANGED
+    ? "changed"
+    : error?.code === CLI_CONFIG_LAYOUT
+      ? "layout"
+      : null);
+// Only a stable error code is logged, never a message, path or value.
+const codeOf = (error) =>
+  typeof error?.code === "string" && /^[A-Z0-9_]{1,40}$/.test(error.code)
+    ? `: ${error.code}`
+    : "";
 
 /**
  * Keeps each CLI's native MCP entries in step with the central CLI bindings. An entry
@@ -26,8 +47,14 @@ export class CliMcpReconciler {
 
   /** The CLI's native MCP entries by name, across all of its files. */
   read(cli) {
-    const locations = this.locate(cli);
-    const configs = this.configs(locations);
+    let locations;
+    let configs;
+    try {
+      locations = this.locate(cli);
+      configs = this.configs(locations);
+    } catch (error) {
+      throw tagged(error, "unreadable");
+    }
     const entries = new Map();
     const duplicates = new Set();
     for (const config of configs)
@@ -50,8 +77,14 @@ export class CliMcpReconciler {
       else if (definition.args === null)
         out.set(definition.id, { definition, reason: "invalid" });
       else {
-        const entry = cliEntry(cli, definition, this.servers.secrets(definition.id));
-        out.set(definition.id, { definition, entry, hash: entryHash(entry) });
+        const secrets = this.servers.secrets(definition.id);
+        try {
+          const entry = cliEntry(cli, definition, secrets);
+          out.set(definition.id, { definition, entry, hash: entryHash(entry) });
+        } catch {
+          // One definition AgentPier cannot project blocks only its own entry.
+          out.set(definition.id, { definition, reason: "invalid" });
+        }
       }
     }
     return out;
@@ -174,14 +207,22 @@ export class CliMcpReconciler {
     if (snapshot.duplicates.has(name) || snapshot.entries.get(name)?.hash !== expected)
       throw changed();
     const target = snapshot.entries.get(name)?.config ?? snapshot.configs.at(-1);
-    updateConfig(
-      target,
-      snapshot.locations.boundary,
-      cli,
-      snapshot.locations.key,
-      name,
-      entry,
-    );
+    try {
+      updateConfig(
+        target,
+        snapshot.locations.boundary,
+        cli,
+        snapshot.locations.key,
+        name,
+        entry,
+      );
+    } catch (error) {
+      if (reasonOf(error)) throw error;
+      // A problem: the file turned unsafe (linked, too large) after it was read.
+      if (error?.status) throw tagged(error, "unreadable");
+      if (typeof error?.syscall === "string") throw tagged(error, "write-failed");
+      throw error;
+    }
   }
 
   /** Writes AgentPier's version over the owner's edit of server `serverId`'s entry. */
@@ -204,15 +245,21 @@ export class CliMcpReconciler {
   }
 
   /**
-   * A file that cannot be read or kept changing: every bound server of `cli` reports
-   * why, with a stable reason only (never a path or a value).
+   * A file problem — unreadable, kept changing, not editable in place (`layout`) or
+   * not writable (`write-failed`) — makes every bound server of `cli` report it, with
+   * a stable reason and error code only (never a path or a value). Anything else, a
+   * store error or a bug, is thrown.
    */
   guard(cli, work, loud = true) {
     try {
       return work();
     } catch (error) {
-      const reason = error?.code === CLI_CONFIG_CHANGED ? "changed" : "unreadable";
-      if (loud) this.warn(`MCP servers for ${cli} could not be written (${reason}).`);
+      const reason = reasonOf(error);
+      if (!reason) throw error;
+      if (loud)
+        this.warn(
+          `MCP servers for ${cli} could not be written (${reason}${codeOf(error)}).`,
+        );
       const statuses = {};
       for (const serverId of this.servers.bindings("cli", cli))
         statuses[serverId] = { status: "error", reason };
