@@ -10,7 +10,9 @@ import { Restore } from "../../server/features/operations/restore.js";
 import { RestoreUploads } from "../../server/features/operations/restore-upload.js";
 import {
   claim,
+  claimable,
   currentOwner,
+  procStart,
   ownerAlive,
   removeAbandonedWork,
 } from "../../server/features/operations/work-claims.js";
@@ -183,4 +185,82 @@ test("abandoned uploads expire, pending ones keep their room, and completing twi
   assert.equal(results[1].reason.message, serverMessages.backups.uploadBusy);
   assert.equal(results[1].reason.status, 409);
   await assert.rejects(uploads.complete(fresh.uploadId), { status: 404 });
+});
+
+test("claims cover only backup work paths, and the startup sweep only backup work", (t) => {
+  const { root, dataDir } = setup(t);
+  const outside = path.join(root, "notes.tmp");
+  const snapshotElsewhere = path.join(root, `.snapshot-${randomUUID()}`);
+  for (const target of [
+    outside,
+    path.join(root, "a.upload"),
+    snapshotElsewhere,
+    path.join(dataDir, "operations", "doctor.json.tmp"),
+    path.join(root, ".agentpier-restore-not-a-uuid"),
+  ]) {
+    assert.equal(claimable(dataDir, target), false, target);
+    assert.throws(() => claim(dataDir, target));
+  }
+  for (const target of [
+    path.join(dataDir, "operations", `.snapshot-${randomUUID()}`),
+    path.join(dataDir, "operations/backups", `${randomUUID()}.apbackup.x.tmp`),
+    path.join(dataDir, "operations/restores", `${randomUUID()}.apbackup.upload`),
+    path.join(dataDir, "operations/restores", `.inspect-${randomUUID()}`),
+    path.join(root, `.agentpier-restore-${randomUUID()}`),
+  ])
+    assert.equal(claimable(dataDir, target), true, target);
+  // A forged claim of a dead owner on such paths removes nothing.
+  fs.mkdirSync(outside);
+  fs.mkdirSync(snapshotElsewhere);
+  const claims = path.join(dataDir, "operations/work");
+  fs.mkdirSync(claims, { recursive: true });
+  for (const target of [outside, snapshotElsewhere])
+    fs.writeFileSync(
+      path.join(claims, `${randomUUID()}.json`),
+      JSON.stringify({ target, pid: 999999, startedAt: 0, claimedAt: Date.now() }),
+    );
+  // Temporaries of atomic writes in operations/ (doctor report, release activation)
+  // are not backup work.
+  const release = path.join(
+    dataDir,
+    "operations",
+    `post-activation-reload.json.${randomUUID()}.tmp`,
+  );
+  fs.writeFileSync(release, "{}");
+  removeAbandonedWork(dataDir);
+  assert.ok(fs.existsSync(outside));
+  assert.ok(fs.existsSync(snapshotElsewhere));
+  assert.ok(fs.existsSync(release));
+  assert.deepEqual(fs.readdirSync(claims), []);
+});
+
+test("a claim older than a week is abandoned even when its process id still runs", (t) => {
+  const { dataDir } = setup(t);
+  const scratch = path.join(dataDir, "operations", `.snapshot-${randomUUID()}`);
+  claim(dataDir, scratch);
+  fs.mkdirSync(scratch);
+  removeAbandonedWork(dataDir, { now: Date.now() + 6 * 24 * 60 * 60 * 1000 });
+  assert.ok(fs.existsSync(scratch));
+  removeAbandonedWork(dataDir, { now: Date.now() + 8 * 24 * 60 * 60 * 1000 });
+  assert.equal(fs.existsSync(scratch), false);
+});
+
+test("start times come from /proc when ps is unavailable", (t) => {
+  const { root } = setup(t);
+  const proc = path.join(root, "proc");
+  fs.mkdirSync(path.join(proc, "4242"), { recursive: true });
+  fs.writeFileSync(path.join(proc, "stat"), "cpu 1 2 3\nbtime 1790000000\nprocesses 9\n");
+  // Field 22 (start time) is 12345 ticks; the command name contains ") (".
+  const fields = Array.from({ length: 50 }, (_, index) => String(index + 3));
+  fields[19] = "12345";
+  fs.writeFileSync(
+    path.join(proc, "4242", "stat"),
+    `4242 (odd) (name) ${fields.join(" ")}`,
+  );
+  assert.equal(procStart(4242, proc), 1790000000 * 1000 + 123450);
+  assert.equal(procStart(4243, proc), null);
+  if (process.platform === "linux") {
+    const own = procStart(process.pid);
+    assert.ok(Math.abs(own - currentOwner.startedAt) < 2000);
+  }
 });

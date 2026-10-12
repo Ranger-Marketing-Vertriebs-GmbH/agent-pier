@@ -189,11 +189,15 @@ hash suffix; those folders are not moved. Other settings keyed by a project path
 keep the old path: `.claude.json` `projects` entries (trust, project MCP servers),
 Codex `config.toml` `[projects."<path>"]` and the `cwd` recorded in Codex rollouts.
 Snapshot folders, unfinished archives, uploads, inspection folders and restore
-stages are claimed by the process working on them (`operations/work/`: process id
-and start time). Only the server removes such work, once when it starts, and only
-when the claiming process is gone: running `scripts/operations.mjs` against the
-live data directory never disturbs an upload or restore of the server. A restore
-stage left by a crash is removed at the next server start. The restore report lists profiles that need a new login: a
+stages are claimed by the process working on them (`operations/work/`: target,
+process id, start time). Only the server removes such work, once when it starts,
+and only when the claiming process is gone (its start time is read with `ps`, or
+from `/proc` on Linux) or the claim is older than seven days: running
+`scripts/operations.mjs` against the live data directory never disturbs an upload or
+restore of the server. Claims and the sweep cover only backup work: `.snapshot-*`
+folders in `operations/`, `*.tmp` archives in `operations/backups/`, uploads and
+`.inspect-*` folders in `operations/restores/`, and `.agentpier-restore-<uuid>`
+stages. A restore stage left by a crash is removed at the next server start. The restore report lists profiles that need a new login: a
 profile counts as logged in when its API key or its CLI's login file
 (`codex/auth.json`, `claude/.credentials.json`, `data/opencode/auth.json`) was
 restored.
