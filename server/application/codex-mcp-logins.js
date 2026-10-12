@@ -23,12 +23,22 @@ export function createCodexMcpLogins(services, effective) {
     callbackBase: () => cliOAuthCallback(effective()),
     remoteUrl: () => effective().remoteUrl,
     ...(services.config.cliLoginSpawn ? { spawn: services.config.cliLoginSpawn } : {}),
-    onSettled: async ({ accountId, name, result }) => {
+    // Never waits for a status read in flight: the callback answers at once.
+    onSettled: ({ accountId, name, result }) => {
       const current = status();
       if (!current) return;
-      await current.settled();
       if (result === "connected") current.mark(accountId, name, "connected");
       current.invalidate();
     },
+    // A login that ended without a callback closes its `mcp.started` in the audit.
+    onClosed: ({ serverId, accountId, reason }) =>
+      services.audit?.append({
+        action: "mcp.failed",
+        resourceType: "mcp",
+        resourceId: serverId,
+        source: "system",
+        outcome: "failure",
+        details: { clis: ["codex"], accountId, failReason: reason },
+      }),
   });
 }

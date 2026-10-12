@@ -19,17 +19,23 @@ function setup(options = {}) {
       if (!this.items[id]) throw Object.assign(new Error("not found"), { status: 404 });
       return this.items[id];
     },
-    bindings: (kind, cli) => (kind === "cli" && cli === "codex" ? ["s1", "s2"] : []),
+    bound: ["s1", "s2"],
+    bindings(kind, cli) {
+      return kind === "cli" && cli === "codex" ? this.bound : [];
+    },
   };
   const accounts = {
     home: "/home/owner",
+    removed: new Set(),
     get(id) {
-      const found = {
-        a1: { id: "a1", name: "Work", tool: "codex", kind: "managed" },
-        a2: { id: "a2", name: "Private", tool: "codex", kind: "managed" },
-        c1: { id: "c1", name: "Claude", tool: "claude", kind: "managed" },
-        "local-codex": { id: "local-codex", tool: "codex", kind: "local" },
-      }[id];
+      const found = this.removed.has(id)
+        ? undefined
+        : {
+            a1: { id: "a1", name: "Work", tool: "codex", kind: "managed" },
+            a2: { id: "a2", name: "Private", tool: "codex", kind: "managed" },
+            c1: { id: "c1", name: "Claude", tool: "claude", kind: "managed" },
+            "local-codex": { id: "local-codex", tool: "codex", kind: "local" },
+          }[id];
       if (!found) throw Object.assign(new Error("not found"), { status: 404 });
       return found;
     },
@@ -40,6 +46,7 @@ function setup(options = {}) {
   const settled = [];
   const prepared = [];
   const warnings = [];
+  const closed = [];
   let now = 0;
   const logins = new CodexMcpLogins({
     accounts,
@@ -59,6 +66,7 @@ function setup(options = {}) {
       if (timer) timer.cleared = true;
     },
     onSettled: (event) => settled.push(event),
+    onClosed: (event) => closed.push(event),
     warn: (line) => warnings.push(line),
     completeTimeoutMs: 2000,
     ...options.service,
@@ -70,6 +78,9 @@ function setup(options = {}) {
     settled,
     prepared,
     warnings,
+    closed,
+    servers,
+    accounts,
     advance: (ms) => (now += ms),
   };
 }
@@ -373,4 +384,100 @@ test("Codex is sent back to the HTTPS remote origin, else to AgentPier's loopbac
       cliOAuthCallback({ remoteUrl, port: 4391 }),
       "http://127.0.0.1:4391/api/mcp-servers/cli-oauth/callback",
     );
+});
+
+const tick = () => new Promise((resolve) => setImmediate(resolve));
+/** A Codex that never prints its URL (a start still in flight). */
+const silent = { behave: () => true };
+
+test("a login still starting counts toward the cap and is ended by cancel and close", async () => {
+  const { logins, fake } = setup({ service: { maxPending: 1 }, fake: silent });
+  const first = logins.start("s1", "a1", local);
+  await tick();
+  await assert.rejects(logins.start("s1", "a2", local), { code: "login-limit" });
+  assert.deepEqual(logins.view("s1"), { a1: { pending: true } });
+  assert.equal(logins.cancel("s1", "a1"), true);
+  await assert.rejects(first, { code: "login-ended" });
+  assert.deepEqual(fake.runs[0].child.signals, ["SIGTERM"]);
+  const second = logins.start("s1", "a2", local);
+  await tick();
+  logins.close();
+  await assert.rejects(second, { code: "login-ended" });
+  assert.deepEqual(fake.runs[1].child.signals, ["SIGTERM"]);
+  assert.deepEqual(logins.view("s1"), {});
+});
+
+test("a cancel while the account is prepared runs no Codex", async () => {
+  let release;
+  const { logins, fake } = setup({
+    service: { prepare: () => new Promise((resolve) => (release = resolve)) },
+  });
+  const started = logins.start("s1", "a1", local);
+  logins.cancel("s1", "a1");
+  release();
+  await assert.rejects(started, { code: "login-ended" });
+  assert.equal(fake.runs.length, 0);
+});
+
+test("a Codex that exits right after printing its URL fails the login", async () => {
+  const { logins, closed } = setup({
+    fake: {
+      behave: (run) => {
+        run.child.stdout.write(`${run.authorize()}\n`);
+        run.exit(1);
+        return true;
+      },
+    },
+  });
+  await logins.start("s1", "a1", local);
+  await tick();
+  await tick();
+  assert.deepEqual(logins.view("s1"), { a1: { result: "error", reason: "cli-failed" } });
+  assert.deepEqual(closed, [{ serverId: "s1", accountId: "a1", reason: "cli-failed" }]);
+});
+
+test("logins that end without a callback are reported for the audit", async () => {
+  const { logins, timers, closed } = setup();
+  await logins.start("s1", "a1", local);
+  await logins.start("s1", "a1", local);
+  timers
+    .filter((timer) => timer.ms === 5 * 60 * 1000)
+    .at(-1)
+    .fn();
+  logins.cancel("s1", "a2");
+  assert.deepEqual(closed, [
+    { serverId: "s1", accountId: "a1", reason: "replaced" },
+    { serverId: "s1", accountId: "a1", reason: "expired" },
+  ]);
+});
+
+test("a removed account or an unbound, renamed or deleted server ends its logins", async () => {
+  const { logins, fake, servers, accounts, closed } = setup();
+  await logins.start("s1", "a1", local);
+  await logins.start("s1", "a2", local);
+  logins.prune();
+  assert.equal(closed.length, 0, "nothing changed");
+  accounts.removed.add("a1");
+  logins.prune();
+  assert.deepEqual(fake.runs[0].child.signals, ["SIGTERM"]);
+  assert.deepEqual(closed, [{ serverId: "s1", accountId: "a1", reason: "obsolete" }]);
+  servers.items.s1 = { ...servers.items.s1, name: "renamed" };
+  logins.prune();
+  assert.deepEqual(fake.runs[1].child.signals, ["SIGTERM"]);
+  assert.deepEqual(logins.view("s1"), {});
+  servers.items.s1 = { ...servers.items.s1, name: "docs" };
+  await logins.start("s1", "a2", local);
+  servers.bound = ["s2"];
+  logins.prune();
+  assert.deepEqual(fake.runs[2].child.signals, ["SIGTERM"]);
+});
+
+test("a process that ignores SIGTERM is killed after a grace period", async () => {
+  const { logins, fake, timers } = setup({ service: { killGraceMs: 2000 } });
+  await logins.start("s1", "a1", local);
+  const [run] = fake.runs;
+  run.child.kill = (signal) => run.child.signals.push(signal);
+  logins.cancel("s1", "a1");
+  timers.find((timer) => timer.ms === 2000 && !timer.cleared).fn();
+  assert.deepEqual(run.child.signals, ["SIGTERM", "SIGKILL"]);
 });

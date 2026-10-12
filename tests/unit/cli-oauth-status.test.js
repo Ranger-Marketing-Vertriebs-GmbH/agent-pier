@@ -195,3 +195,31 @@ test("a completed login shows at once and the next list reads again", async () =
   await status.settled();
   assert.equal(runs, 6, "read again before the half minute is over");
 });
+
+test("a login marked during a read survives that read's older answer", async () => {
+  let finish;
+  const status = new CliOAuthStatus({
+    tools: () => codex,
+    accounts: managed,
+    ...quiet,
+    run: (_file, _args, options) =>
+      options.env.HOME === "/home/a1" && !finish
+        ? new Promise((resolve) => (finish = resolve))
+        : Promise.resolve(
+            options.env.HOME === "/home/a1"
+              ? listed({ name: "docs", auth_status: "not_logged_in" })
+              : listed(),
+          ),
+  });
+  status.accountStates();
+  while (!finish) await new Promise((resolve) => setImmediate(resolve));
+  // The callback marks without waiting for the read in flight.
+  status.mark("a1", "docs", "connected");
+  status.invalidate();
+  finish(listed({ name: "docs", auth_status: "not_logged_in" }));
+  await status.settled();
+  assert.deepEqual(status.accountStates().states.a1, { docs: "connected" });
+  await status.settled();
+  // A read that started after the mark is the truth again.
+  assert.deepEqual(status.accountStates().states.a1, { docs: "login-required" });
+});

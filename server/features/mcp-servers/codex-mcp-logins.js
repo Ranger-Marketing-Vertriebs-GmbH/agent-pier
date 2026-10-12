@@ -50,6 +50,8 @@ export class CodexMcpLogins {
    * - `callbackBase()`: the callback URL Codex sends the provider to (it appends its own
    *   path segment); `remoteUrl()`: the configured HTTPS remote origin, if any.
    * - `onSettled({ serverId, name, accountId, result })`: after each completion.
+   * - `onClosed({ serverId, accountId, reason })`: a login ended without a callback
+   *   ("expired", "cli-failed", "replaced", "obsolete"); cancels are audited by the route.
    */
   constructor({
     accounts,
@@ -63,11 +65,13 @@ export class CodexMcpLogins {
     schedule = (fn, ms) => setTimeout(fn, ms).unref(),
     unschedule = (timer) => clearTimeout(timer),
     onSettled = () => {},
+    onClosed = () => {},
     warn = console.warn,
     ttlMs = codexLoginTtlMs,
     maxPending = 8,
     startTimeoutMs = 20000,
     completeTimeoutMs = 30000,
+    killGraceMs = 2000,
   }) {
     Object.assign(this, {
       accounts,
@@ -81,11 +85,13 @@ export class CodexMcpLogins {
       schedule,
       unschedule,
       onSettled,
+      onClosed,
       warn,
       ttlMs,
       maxPending,
       startTimeoutMs,
       completeTimeoutMs,
+      killGraceMs,
     });
     this.byState = new Map(); // state -> login
     this.byKey = new Map(); // server + account -> login
@@ -103,7 +109,8 @@ export class CodexMcpLogins {
   /**
    * Starts a login of server `serverId` in account `accountId` from a browser on
    * `requestOrigin`. Returns `{ authorizationUrl }`. A second start for the same
-   * account and server ends the first.
+   * account and server ends the first. A login counts toward the cap and can be
+   * cancelled or ended from the moment it starts, before Codex printed its URL.
    */
   async start(serverId, accountId, { requestOrigin } = {}) {
     const server = this.servers.get(serverId);
@@ -126,37 +133,61 @@ export class CodexMcpLogins {
     const key = keyOf(serverId, accountId);
     if (!this.byKey.has(key) && this.byKey.size >= this.maxPending)
       throw failure(messages.cliLoginLimit, "login-limit", 429);
-    this.end(this.byKey.get(key));
+    this.replace(this.byKey.get(key));
+    const login = {
+      key,
+      serverId,
+      name: server.name,
+      accountId,
+      base: this.callbackBase(),
+      child: null,
+      state: null,
+    };
+    this.byKey.set(key, login);
+    this.results.delete(key);
+    // Ended (cancel, a newer start, shutdown, a removed account or server) meanwhile.
+    const ended = () => this.byKey.get(key) !== login;
     try {
       await this.prepare(account);
     } catch (error) {
+      this.forget(login);
       this.warn(`Codex MCP login could not prepare the account (${codeOf(error)}).`);
       throw failure(messages.cliLoginPrepareFailed, "prepare-failed", 409);
     }
-    const base = this.callbackBase();
-    const login = await this.run(tool.path, server, accountId, base);
-    // A start that raced this one for the same pair loses.
-    this.end(this.byKey.get(key));
-    this.results.delete(key);
+    if (ended()) throw failure(messages.cliLoginEnded, "login-ended", 409);
+    try {
+      await this.run(tool.path, login);
+    } catch (error) {
+      const gone = ended();
+      this.forget(login);
+      throw gone && error?.code === "cli-failed"
+        ? failure(messages.cliLoginEnded, "login-ended", 409)
+        : error;
+    }
+    if (ended()) {
+      this.stop(login.child);
+      throw failure(messages.cliLoginEnded, "login-ended", 409);
+    }
     this.byState.set(login.state, login);
-    this.byKey.set(key, login);
+    login.expiresAt = this.now() + this.ttlMs;
     login.timer = this.schedule(() => this.expire(login), this.ttlMs);
+    // Codex already gave up between printing its URL and this registration.
+    if (login.exitedEarly) this.exited(login);
     return { authorizationUrl: login.authorizationUrl };
   }
 
-  /** Spawns Codex and waits for its authorization URL. */
-  run(file, server, accountId, base) {
-    let child;
+  /** Spawns Codex for `login` and waits for its authorization URL. */
+  run(file, login) {
     try {
-      child = this.spawnLogin(file, server, accountId, base);
+      login.child = this.spawnLogin(file, login);
     } catch {
       this.warn("Codex MCP login did not start (SPAWN).");
       return Promise.reject(failure(messages.cliLoginFailed, "cli-failed", 502));
     }
-    return this.watch(child, server, accountId, base);
+    return this.watch(login);
   }
 
-  spawnLogin(file, server, accountId, base) {
+  spawnLogin(file, { name, accountId, base }) {
     return this.spawn(
       file,
       [
@@ -165,7 +196,7 @@ export class CodexMcpLogins {
         `mcp_oauth_callback_url=${tomlValue(base)}`,
         "mcp",
         "login",
-        server.name,
+        name,
         "--no-browser",
       ],
       {
@@ -176,11 +207,12 @@ export class CodexMcpLogins {
     );
   }
 
-  /** Waits for the authorization URL `child` prints; never logs its output. */
-  watch(child, server, accountId, base) {
+  /** Waits for the authorization URL `login.child` prints; never logs its output. */
+  watch(login) {
+    const { child, base } = login;
     let output = "";
-    let found = null;
-    const exit = new Promise((resolve) => {
+    let found = false;
+    login.exit = new Promise((resolve) => {
       child.once("exit", (code, signal) => resolve({ code, signal }));
       child.once("error", () => resolve({ code: null, signal: null, error: true }));
     });
@@ -189,7 +221,7 @@ export class CodexMcpLogins {
     return new Promise((resolve, reject) => {
       const fail = () => {
         this.unschedule(timer);
-        child.kill("SIGTERM");
+        this.stop(child);
         reject(failure(messages.cliLoginFailed, "cli-failed", 502));
       };
       const read = (data) => {
@@ -197,29 +229,23 @@ export class CodexMcpLogins {
         output = (output + String(data)).slice(-outputLimit);
         const printed = authorization(stripVTControlCharacters(output));
         if (!printed) return;
-        found = printed;
+        found = true;
         output = "";
         this.unschedule(timer);
         // Codex appends a path segment of its own to the configured callback URL.
         if (!printed.redirect.startsWith(`${base}/`)) return fail();
-        resolve({
-          serverId: server.id,
-          name: server.name,
-          accountId,
-          key: keyOf(server.id, accountId),
-          state: printed.state,
-          authorizationUrl: printed.url,
-          base,
-          child,
-          exit,
-          expiresAt: this.now() + this.ttlMs,
-        });
+        login.state = printed.state;
+        login.authorizationUrl = printed.url;
+        resolve();
       };
       child.stdout?.on("data", read);
       child.stderr?.on("data", read);
       const timer = this.schedule(() => !found && fail(), this.startTimeoutMs);
-      exit.then(({ error }) => {
-        if (found) return this.exited(found.state);
+      login.exit.then(({ error }) => {
+        if (found) {
+          login.exitedEarly = true;
+          return this.exited(login);
+        }
         this.unschedule(timer);
         this.warn(`Codex MCP login did not start (${error ? "SPAWN" : "EXIT"}).`);
         reject(failure(messages.cliLoginFailed, "cli-failed", 502));
@@ -227,15 +253,33 @@ export class CodexMcpLogins {
     });
   }
 
+  /** SIGTERM, then SIGKILL when the process is still there after a grace period. */
+  stop(child) {
+    if (!child) return;
+    child.kill("SIGTERM");
+    const timer = this.schedule(() => {
+      if (child.exitCode === null && child.signalCode == null) child.kill("SIGKILL");
+    }, this.killGraceMs);
+    child.once?.("exit", () => this.unschedule(timer));
+  }
+
   /** Forgets `login` without a result and ends its process. */
   end(login) {
     if (!login) return;
     this.forget(login);
-    login.child.kill("SIGTERM");
+    this.stop(login.child);
+  }
+
+  /** A newer start for the same pair ends `login`; audited as a failure. */
+  replace(login) {
+    if (!login) return;
+    this.end(login);
+    this.closed(login, "replaced");
   }
 
   forget(login) {
-    if (this.byState.get(login.state) === login) this.byState.delete(login.state);
+    if (login.state && this.byState.get(login.state) === login)
+      this.byState.delete(login.state);
     if (this.byKey.get(login.key) === login) this.byKey.delete(login.key);
     this.unschedule(login.timer);
   }
@@ -244,19 +288,61 @@ export class CodexMcpLogins {
     this.results.set(login.key, reason ? { result, reason } : { result });
   }
 
+  /** Reports a login that ended without a callback (`onClosed`, for the audit). */
+  closed(login, reason) {
+    try {
+      this.onClosed({ serverId: login.serverId, accountId: login.accountId, reason });
+    } catch {
+      // The audit trail must not keep a login alive.
+    }
+  }
+
   expire(login) {
     if (this.byKey.get(login.key) !== login) return;
     this.forget(login);
     this.record(login, "error", "expired");
-    login.child.kill("SIGTERM");
+    this.stop(login.child);
+    this.closed(login, "expired");
   }
 
   /** Codex ended while it still waited for its callback (its own timeout, a crash). */
-  exited(state) {
-    const login = this.byState.get(state);
-    if (!login) return;
+  exited(login) {
+    if (!login.state || this.byState.get(login.state) !== login) return;
     this.forget(login);
     this.record(login, "error", "cli-failed");
+    this.closed(login, "cli-failed");
+  }
+
+  /**
+   * Ends every login whose account is gone or whose server is gone, renamed or no
+   * longer bound to Codex (called after such changes). Results of those pairs go too.
+   */
+  prune() {
+    let bound;
+    try {
+      bound = new Set(this.servers.bindings("cli", "codex"));
+    } catch {
+      return;
+    }
+    const current = (serverId, accountId, name) => {
+      try {
+        this.account(accountId);
+        const server = this.servers.get(serverId);
+        return bound.has(serverId) && (name === undefined || server.name === name);
+      } catch {
+        return false;
+      }
+    };
+    for (const login of [...this.byKey.values()])
+      if (!current(login.serverId, login.accountId, login.name)) {
+        this.end(login);
+        this.results.delete(login.key);
+        this.closed(login, "obsolete");
+      }
+    for (const key of [...this.results.keys()]) {
+      const [serverId, accountId] = key.split("\u0000");
+      if (!current(serverId, accountId)) this.results.delete(key);
+    }
   }
 
   /**
@@ -276,7 +362,8 @@ export class CodexMcpLogins {
     this.forget(login);
     if (this.now() >= login.expiresAt) {
       this.record(login, "error", "expired");
-      login.child.kill("SIGTERM");
+      this.stop(login.child);
+      this.closed(login, "expired");
       return { result: "error", reason: "state-invalid" };
     }
     login.child.stdin.write(`${new URL(url.pathname + url.search, login.base).href}\n`);
@@ -289,7 +376,7 @@ export class CodexMcpLogins {
     const error = url.searchParams.get("error");
     let reason = null;
     if (!exit) {
-      login.child.kill("SIGTERM");
+      this.stop(login.child);
       reason = "cli-timeout";
     } else if (exit.code !== 0)
       reason = error

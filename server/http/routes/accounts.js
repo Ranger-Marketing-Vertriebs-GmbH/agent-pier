@@ -35,6 +35,8 @@ export function accountsRoutes(services) {
     await mutateAccount(req.params.id, async () => {
       await assertMutable(req.params.id, true, serverMessages.accounts.stopBeforeDelete);
       accounts.remove(req.params.id);
+      // A pending brokered MCP login of the account must not write into it later.
+      services.codexMcpLogins?.prune();
     });
     res.status(204).end();
   });

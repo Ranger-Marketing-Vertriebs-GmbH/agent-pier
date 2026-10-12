@@ -80,5 +80,6 @@ export const mcpServers = Object.freeze({
   cliLoginLimit: "Too many Codex logins are open. Complete or cancel one and try again.",
   cliLoginPrepareFailed:
     "The Codex account could not be prepared. Try again once no plugin action is running.",
+  cliLoginEnded: "The login ended before Codex could start it (cancelled or replaced).",
   cliLoginFailed: "Codex could not start the login. Please try again.",
 });
