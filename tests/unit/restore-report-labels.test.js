@@ -7,8 +7,16 @@ test("a restore report names MCP servers that need their values in both language
   t.after(() => setLanguage("de"));
   setLanguage("en");
   assert.equal(needsLoginLabel("mcp:docs"), "MCP server docs (enter values again)");
+  assert.equal(
+    needsLoginLabel("mcp-address:docs"),
+    "MCP server docs (enter the token in its address again)",
+  );
   assert.equal(needsLoginLabel("provider:p1"), "provider:p1");
   assert.equal(needsLoginLabel("assistants"), "assistants");
   setLanguage("de");
   assert.equal(needsLoginLabel("mcp:docs"), "MCP-Server docs (Werte neu eingeben)");
+  assert.equal(
+    needsLoginLabel("mcp-address:docs"),
+    "MCP-Server docs (Token in der Adresse neu eingeben)",
+  );
 });
