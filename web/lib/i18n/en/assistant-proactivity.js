@@ -12,6 +12,8 @@ export const assistantProactivityCopy = {
   heartbeatDescription:
     "At set times the agent checks whether something needs your attention. It messages your paired Telegram chat only when it has something to say.",
   heartbeatChannel: "Needs a paired Telegram chat for this agent.",
+  heartbeatReply:
+    "Messages start with “Check-in:”. The agent's chat does not contain them, so say what you are replying to.",
   interval: "How often",
   intervals: {
     "1h": "Every hour",
@@ -20,9 +22,10 @@ export const assistantProactivityCopy = {
     daily: "Once a day",
   },
   activeFrom: "Active from",
-  activeUntil: "until",
+  activeUntil: "Active until",
   hour: (hour) => `${String(hour).padStart(2, "0")}:00`,
-  timeZone: (zone) => `Times in your time zone (${zone}).`,
+  timeZone: (zone) => `Times in ${zone}, within one day.`,
+  adoptZone: (zone) => `Use my time zone (${zone})`,
   heartbeatCost: (runs) =>
     runs === 1
       ? "About 1 extra model run per day."

@@ -1,7 +1,7 @@
 import React from "react";
 import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import { assistantProactivityCopy as copy } from "../../lib/i18n/messages/assistant-proactivity.js";
-import { heartbeatIntervals, heartbeatRuns } from "./heartbeat.js";
+import { browserTimeZone, heartbeatIntervals, heartbeatRuns } from "./heartbeat.js";
 import "./assistant-proactivity.css";
 
 const hours = Array.from({ length: 25 }, (_, hour) => hour);
@@ -22,6 +22,8 @@ export default function AssistantProactivity({
   // A new agent has no paired chat yet: check-ins are switched on after saving.
   const creating = !assistant;
   const set = (patch) => onHeartbeat({ ...heartbeat, ...patch });
+  // A saved zone stays until the owner adopts the browser's (after travelling).
+  const zone = browserTimeZone();
   return (
     <section id="agent-proactivity" className="assistant-anchor">
       {assistant && (
@@ -110,10 +112,20 @@ export default function AssistantProactivity({
                 ))}
               </select>
             </label>
+            <p className="assistant-note">{copy.heartbeatReply}</p>
             <p className="assistant-note">
               {copy.timeZone(heartbeat.timeZone)}{" "}
               {copy.heartbeatCost(heartbeatRuns(heartbeat))}
             </p>
+            {zone !== heartbeat.timeZone && (
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => set({ timeZone: zone })}
+              >
+                {copy.adoptZone(zone)}
+              </button>
+            )}
           </div>
         )}
       </fieldset>

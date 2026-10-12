@@ -29,11 +29,18 @@ test("proactive opt-ins are off, explain their cost and save recall and check-in
   await recall.check();
   await expect(proactivity).toContainText("paired Telegram chat");
   await heartbeat.check();
+  await expect(proactivity).toContainText(
+    "The agent's chat does not contain them, so say what you are replying to.",
+  );
   await proactivity.getByLabel("How often").selectOption("2h");
   await proactivity.getByLabel("Active from").selectOption("8");
-  await proactivity.getByLabel("until").selectOption("20");
+  await proactivity.getByLabel("Active until").selectOption("20");
   await expect(proactivity).toContainText(
-    "Times in your time zone (Europe/Berlin). About 6 extra model runs per day.",
+    "Times in Europe/Berlin, within one day. About 6 extra model runs per day.",
+  );
+  // The browser's zone is the saved one: nothing to adopt.
+  await expect(proactivity.getByRole("button", { name: /Use my time zone/ })).toHaveCount(
+    0,
   );
   await proactivity.getByLabel("How often").selectOption("daily");
   await expect(proactivity).toContainText("About 1 extra model run per day.");
@@ -74,10 +81,15 @@ test("an agent's saved check-ins load into the form and fit a phone", async ({
     proactivity.getByRole("checkbox", { name: "Remember across conversations" }),
   ).toBeChecked();
   await expect(proactivity.getByLabel("How often")).toHaveValue("4h");
-  // The saved zone is kept, not the browser's.
+  // The saved zone is kept until the owner adopts the browser's.
   await expect(proactivity).toContainText(
-    "Times in your time zone (America/New_York). About 3 extra model runs per day.",
+    "Times in America/New_York, within one day. About 3 extra model runs per day.",
   );
+  await proactivity.screenshot({ path: ".cache/assistant-proactivity-zone-en.png" });
+  await proactivity
+    .getByRole("button", { name: "Use my time zone (Europe/Berlin)" })
+    .click();
+  await expect(proactivity).toContainText("Times in Europe/Berlin, within one day.");
   const box = await proactivity.boundingBox();
   expect(box.x + box.width).toBeLessThanOrEqual(390);
   expect(
@@ -113,4 +125,17 @@ test("the proactivity section is translated", async ({ page }) => {
   await expect(proactivity).toContainText(
     "kann ein bis zwei zusätzliche Modellaufrufe kosten.",
   );
+});
+
+test("a refused check-in keeps the form and shows why", async ({ page }) => {
+  const message =
+    "Check-ins need a paired Telegram chat. Connect a Telegram chat to this agent first.";
+  const state = await setup(page, { saveStatus: 409, saveError: message });
+  await page.goto(baseURL + "/agents/home/settings");
+  const heartbeat = section(page).getByRole("checkbox", { name: "Check in on its own" });
+  await heartbeat.check();
+  await page.getByRole("button", { name: "Save" }).first().click();
+  await expect.poll(() => state.updates.length).toBe(1);
+  await expect(page.getByText(message).first()).toBeVisible();
+  await expect(heartbeat).toBeChecked();
 });

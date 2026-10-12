@@ -25,3 +25,7 @@
     padding-left: 0;
   }
 }
+.assistant-heartbeat-schedule > .button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
