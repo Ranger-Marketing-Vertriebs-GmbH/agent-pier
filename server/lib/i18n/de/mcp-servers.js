@@ -81,7 +81,8 @@ export const mcpServers = {
     "Der Server ist Codex nicht zugeordnet. Bitte Codex unter den Coding-CLIs des Servers auswählen.",
   cliLoginAccountInvalid:
     "Anmelden lässt sich nur in einem von AgentPier verwalteten Codex-Konto. Im eigenen Codex-Profil bitte codex mcp login im Terminal ausführen.",
-  cliLoginCodexMissing: "Codex ist auf diesem Rechner nicht installiert.",
+  cliLoginCodexMissing:
+    "Für die Anmeldung muss Codex auf dem AgentPier-Rechner installiert sein.",
   cliLoginLimit:
     "Zu viele offene Codex-Anmeldungen. Bitte eine abschließen oder abbrechen und erneut versuchen.",
   cliLoginPrepareFailed:
