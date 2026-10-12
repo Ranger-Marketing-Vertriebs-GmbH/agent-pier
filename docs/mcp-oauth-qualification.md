@@ -319,12 +319,14 @@ authorization server:
   expiry the call refreshes once and succeeds.
 - **Unauthenticated server.** `spare` is bound throughout and never offered; no
   turn fails because of it and it never reaches its token endpoint.
-- **Logout.** `POST .../oauth/logout` answers `204`; OpenClaw reads
-  `unauthenticated`, the list "not-connected", and the next turn has no tools.
+- **Logout.** `POST .../oauth/logout` answers `204`; OpenClaw holds no login
+  (`unauthenticated`, or `pending-authorization` without flags once a Gateway MCP
+  request reached the server, see (e)), the list reads "not-connected", and the next
+  turn has no tools.
 - **Rename.** After a second login, `PUT` renames `docs` to `renamed`: the logout
-  under the old name runs first, `renamed` is `unauthenticated`, and renaming back
-  finds `docs` `unauthenticated` (OpenClaw alone keeps the orphan, see (e)). No
-  Gateway restart happened up to here.
+  under the old name runs first, `renamed` holds no login, and renaming back finds
+  none for `docs` either (OpenClaw alone keeps the orphan, see (e)). No Gateway
+  restart happened up to here.
 - **Deferred logout drained at the start.** After a third login the Gateway stops
   and the wrapper's logouts fail as a timed-out CLI would. A rename answers with
   `oauthWarning.code: "oauth-logout-deferred"`; after renaming back, `docs` (same

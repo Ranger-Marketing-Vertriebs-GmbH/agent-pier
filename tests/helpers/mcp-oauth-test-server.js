@@ -34,8 +34,9 @@ function json(res, status, value, headers = {}) {
 /**
  * `options.expiresIn` (seconds) applies to each access token issued from then on and
  * can be changed through `state.expiresIn`; `state.rejectTokens` makes `/mcp` refuse
- * every token, even a freshly refreshed one. `log` records every OAuth request; `calls`
- * every tool call with the token it arrived with.
+ * every token, even a freshly refreshed one. `log` records every OAuth request (a
+ * refused token request with its cause); `calls` every tool call with the token it
+ * arrived with.
  */
 export async function oauthMcpServer({ expiresIn = 3600 } = {}) {
   const state = { expiresIn, refreshRevoked: false, rejectTokens: false };
@@ -65,22 +66,30 @@ export async function oauthMcpServer({ expiresIn = 3600 } = {}) {
     const form = new URLSearchParams(await body(req));
     const grant = form.get("grant_type");
     const clientId = form.get("client_id");
-    log.push({ path: "/token", grant, clientId });
-    const fail = (error) => json(res, 400, { error });
+    const entry = { path: "/token", grant, clientId };
+    log.push(entry);
+    // `refused` tells a failed exchange's cause; the response carries only the error.
+    const fail = (error, refused = error) => {
+      entry.refused = refused;
+      return json(res, 400, { error });
+    };
     if (!clients.has(clientId)) return fail("invalid_client");
     if (grant === "authorization_code") {
       const code = codes.get(form.get("code"));
       codes.delete(form.get("code"));
-      if (!code || code.clientId !== clientId) return fail("invalid_grant");
-      if (code.redirectUri !== form.get("redirect_uri")) return fail("invalid_grant");
+      if (!code) return fail("invalid_grant", "unknown or used code");
+      if (code.clientId !== clientId)
+        return fail("invalid_grant", "code of another client");
+      if (code.redirectUri !== form.get("redirect_uri"))
+        return fail("invalid_grant", "redirect_uri mismatch");
       if (s256(form.get("code_verifier") ?? "") !== code.challenge)
-        return fail("invalid_grant");
+        return fail("invalid_grant", "code_verifier mismatch");
       return json(res, 200, issue(clientId));
     }
     if (grant === "refresh_token") {
       const old = refresh.get(form.get("refresh_token"));
       if (state.refreshRevoked || !old || old.clientId !== clientId)
-        return fail("invalid_grant");
+        return fail("invalid_grant", "refresh token refused");
       refresh.delete(form.get("refresh_token"));
       return json(res, 200, issue(clientId));
     }
