@@ -45,4 +45,8 @@ export const mcpServers = Object.freeze({
     "AgentPier cannot take over this entry without losing settings it does not manage.",
   cliChangeNotAdoptable:
     "The change cannot be adopted: its connection type differs or it uses settings AgentPier does not manage.",
+  cliTransportUnsupported:
+    "This coding CLI does not support the server's connection type.",
+  cliCwdUnsupported:
+    "This coding CLI cannot start a local command in a working directory. Remove the working directory or choose only Codex or OpenCode.",
 });

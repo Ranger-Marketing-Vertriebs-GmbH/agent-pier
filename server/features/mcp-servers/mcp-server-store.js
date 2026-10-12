@@ -394,7 +394,7 @@ export class McpServerStore {
   /**
    * What an update would change about where OpenClaw keeps the server's OAuth login
    * (keyed by name and full URL), without writing: `{ before, after }` with `name`,
-   * `url` and `auth` each. Throws what update() would.
+   * `url`, `auth`, `transport` and `cwd` each. Throws what update() would.
    */
   previewUpdate(id, input) {
     if (!record(input)) throw invalid();
@@ -407,6 +407,7 @@ export class McpServerStore {
       url: value.url,
       auth: value.auth,
       transport: value.transport,
+      cwd: value.cwd ?? null,
     });
     return { before: pick({ ...row, auth: row.auth ?? "headers" }), after: pick(fields) };
   }

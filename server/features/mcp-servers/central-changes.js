@@ -2,6 +2,7 @@ import { assistantProblem } from "../assistants/assistant-validation.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
+import { requireCliSupport } from "./cli-native.js";
 import { changesStdio, requireStdioConfirmation } from "./stdio-confirmation.js";
 
 /**
@@ -42,6 +43,10 @@ export class CentralMcpChanges {
   }
   async update(id, input, options = {}) {
     const agents = this.admit();
+    // A change a bound CLI cannot run is refused, never its entry silently removed.
+    const bound = this.servers.targetsOf(id).clis;
+    if (bound.length)
+      requireCliSupport(bound, this.servers.previewUpdate(id, input).after);
     const result = agents
       ? await agents.update(id, input, options)
       : this.updateDirect(id, input, options);

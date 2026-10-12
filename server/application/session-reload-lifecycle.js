@@ -140,11 +140,13 @@ export function createReloadLifecycle(services) {
           if (account.tool !== session.tool)
             throw problem(serverMessages.common.profileChanged, 409);
           if (plan.transfer) await plan.transfer.commit();
-          sharedProfiles?.prepare(account, plan.launch);
+          let launch = services.cliMcp
+            ? await services.cliMcp.prepare({ account, launch: plan.launch })
+            : plan.launch;
+          sharedProfiles?.prepare(account, launch);
           await requests.discard(session.id);
           await memoryIntegration.discard(session.id);
           await sshIntegration?.discard(session.id);
-          let launch = plan.launch;
           const input = () => ({
             id: session.id,
             account,
