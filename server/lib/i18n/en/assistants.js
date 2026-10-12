@@ -114,6 +114,12 @@ export const assistants = {
     "This Telegram bot already uses a webhook. Disconnect its other integration first.",
   channelPolling: "Another service is using this Telegram bot. Stop it before resuming.",
   channelToken: "The Telegram bot token is invalid.",
+  telegramBotInUse:
+    "This Telegram bot is already in use: as your AgentPier bot or by another agent. Create a separate bot for each purpose.",
+  telegramSendersShell:
+    "An agent with its own Telegram bot for other people must not have shell access. Turn shell off or disconnect the bot first.",
+  telegramSendersRestartRequired:
+    "This Telegram change restarts the agents' Gateway; confirm the restart.",
 
   teamMcpServersUnavailable:
     "The MCP server list of this team cannot be read right now. Try again later.",

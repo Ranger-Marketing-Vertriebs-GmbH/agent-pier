@@ -48,6 +48,7 @@ export function assistantChannelRoutes({
   router.get("/assistant-speech", (_req, res) => res.json(speech.get()));
   router.put("/assistant-speech", (req, res) => res.json(speech.save(req.body)));
   router.use((error, _req, _res, next) => {
+    if (error.key === "telegramBotInUse") return next(error);
     const key =
       {
         TELEGRAM_WEBHOOK: "channelWebhook",

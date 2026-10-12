@@ -220,6 +220,9 @@ export class AssistantService {
       patch = withoutUnchanged(body, changes, current);
       // Refuses an ineligible agent or a missing confirmation before any change.
       shell = shellChange(current, patch, { confirmShell, confirmFull });
+      // People on the agent's own Telegram bot must never reach host commands.
+      if (shell?.raised && this.telegramSenders?.connected(id))
+        throw assistantProblem("telegramSendersShell", 409);
       // Only lowering the shell level: it must stop new commands at once, so a
       // running turn does not hold it back.
       const lowersOnly =

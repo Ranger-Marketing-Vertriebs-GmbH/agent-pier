@@ -33,6 +33,7 @@ const credentialTables = new Set([
   "gateway_origin_device_tokens",
   "worker_environment_credentials",
   "channel_credentials",
+  "native_telegram_credentials",
 ]);
 // Secret members of openclaw.json: Gateway, cron and plugin tokens, provider keys
 // and MCP server environment values.

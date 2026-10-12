@@ -125,6 +125,12 @@ export const assistants = {
   channelPolling:
     "Ein anderer Dienst verwendet diesen Telegram-Bot. Stoppe ihn vor dem Fortsetzen.",
   channelToken: "Der Telegram-Bot-Token ist ungültig.",
+  telegramBotInUse:
+    "Dieser Telegram-Bot wird bereits genutzt: als dein AgentPier-Bot oder von einem anderen Agenten. Lege für jeden Zweck einen eigenen Bot an.",
+  telegramSendersShell:
+    "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keinen Shell-Zugriff haben. Schalte die Shell aus oder trenne zuerst den Bot.",
+  telegramSendersRestartRequired:
+    "Diese Telegram-Änderung startet das Gateway der Agenten neu; bestätige den Neustart.",
 
   teamMcpServersUnavailable:
     "Die MCP-Serverliste dieses Teams lässt sich gerade nicht lesen. Versuche es später erneut.",
