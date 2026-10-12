@@ -6,6 +6,7 @@ import {
   personalCapabilities,
   personalShell,
   profileTools,
+  sessionTools,
 } from "./native-capabilities.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { assertWired } from "./service-wiring.js";
@@ -109,6 +110,8 @@ export class AssistantConfig {
     const available = this.webToolsAvailable?.() || {};
     // The agent's MCP globs the running Gateway was started with (mcpSections).
     const mcpTools = this.mcpTools?.(assistant) || [];
+    // An agent whose own bot for other people the Gateway runs has no session tools.
+    const senderFacing = !!this.senderFacing?.(assistant);
     const allowed = profileTools(
       assistant,
       this.teamReady?.(),
@@ -116,7 +119,7 @@ export class AssistantConfig {
       !!this.writeGuard?.(),
       available,
       mcpTools,
-    );
+    ).filter((tool) => !senderFacing || !sessionTools.includes(tool));
     // The owner's login PATH the running Gateway was started with (exec-shell.js).
     const pathPrepend = this.shellPathPrepend?.() || [];
     // As agentEntry compiles it; the readback below checks the same value.
@@ -144,6 +147,7 @@ export class AssistantConfig {
           exec,
           shellGlobal,
           bootstrap,
+          senderFacing,
         ]),
       )
       .digest("hex");
@@ -219,6 +223,7 @@ export class AssistantConfig {
               available,
               pathPrepend,
               mcpTools,
+              senderFacing,
             });
           const keyed = agents.entries && !Array.isArray(agents.entries);
           const keyedEntry = () => {

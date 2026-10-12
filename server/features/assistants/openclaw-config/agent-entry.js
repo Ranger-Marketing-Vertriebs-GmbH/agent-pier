@@ -1,4 +1,5 @@
 import {
+  sessionTools,
   personalCapabilities,
   personalShell,
   profileTools,
@@ -26,6 +27,8 @@ export function agentEntry(
     available = {},
     mcpTools = [],
     pathPrepend = [],
+    // The agent owns a bot for other people (openclaw-config/telegram-senders.js).
+    senderFacing = false,
   },
 ) {
   const next = { ...entry };
@@ -39,7 +42,7 @@ export function agentEntry(
         guardProven,
         available,
         mcpTools,
-      ),
+      ).filter((tool) => !senderFacing || !sessionTools.includes(tool)),
       ...(exec && { exec }),
     };
   if (memoryManaged)
