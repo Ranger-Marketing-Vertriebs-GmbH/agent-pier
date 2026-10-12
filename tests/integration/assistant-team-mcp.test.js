@@ -270,3 +270,29 @@ test("a permanent grant is recorded before its bindings and never repeated", asy
   );
   assert.deepEqual(order.slice(0, 2), ["granted", "bindings"]);
 });
+
+test("a retried permanent grant leaves stdio servers out once the agent has its own bot", async (t) => {
+  const f = setup(t),
+    { team } = await f.propose({ allowed: false });
+  const a0 = f.service.store.get(team.id);
+  // The grant's first sync fails; the owner connects a Telegram bot meanwhile.
+  const setBindings = f.servers.setBindings.bind(f.servers);
+  let fail = true;
+  f.servers.setBindings = (...args) => {
+    if (fail && args[0] === "agent" && args[1] !== f.lead.id) {
+      fail = false;
+      throw Error("busy");
+    }
+    return setBindings(...args);
+  };
+  await f.service.decide(
+    team.id,
+    { revision: a0.revision, decision: "approve", lifetime: "permanent" },
+    { kind: "owner" },
+  );
+  const a = f.memberOf(team, "A");
+  f.service.store.write(f.service.store.member(a.assistantId), { mcpGranted: false });
+  f.assistants.telegramSenders = { connected: (id) => id === a.assistantId };
+  f.service.mcp.sync();
+  assert.deepEqual(f.bound(a.assistantId), [f.github.id]);
+});
